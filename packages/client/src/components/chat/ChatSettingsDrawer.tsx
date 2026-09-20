@@ -1898,6 +1898,11 @@ export function ChatSettingsDrawer({
       // line says is what will happen the next time a battle starts.
       anchor: "settings",
     });
+  // And whether that ruleset says what one cell of a board is worth, which is what turns the
+  // preference below from a kept-and-unused choice into the one that decides whether the fight has
+  // positions.
+  const rulesetHasPositions =
+    rulesetResolvesFights && gameRuleset.status === "ok" && !!gameRuleset.definition.combat?.distance;
   const gameSceneVideosEnabled =
     metadata.gameSceneVideosEnabled === true ||
     (metadata.gameSceneVideosEnabled !== false &&
@@ -5111,6 +5116,7 @@ export function ChatSettingsDrawer({
               style={{ order: CHAT_SETTINGS_ORDER.combatStyle }}
               combatStyle={effectiveCombatStyle}
               rulesetResolvesFights={rulesetResolvesFights}
+              rulesetHasPositions={rulesetHasPositions}
               onCombatStyleChange={(gameCombatStyle) => updateMeta.mutate({ id: chat.id, gameCombatStyle })}
             />
           )}

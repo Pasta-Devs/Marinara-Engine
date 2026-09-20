@@ -228,8 +228,9 @@ vocabulary plus the package's data, not from a file that can name one system's w
 **The slices.** C1 the schema and the resolver. C2 bestiary catalogs, stat-block actions, sequences
 and recharge, the threat clamp, and the 5e package's own creatures and enriched spells. C3
 the director's `ruleset` style, split into C3a (session, routes, persistence, enemy choices over the
-menu) and C3b (the Classic shell on real numbers, `coverage.combat` true). C4 the Tactical shell: movement, reach and
-ranges, areas, cover, opportunity attacks. C5 reactions through the director's windows, legendary
+menu) and C3b (the Classic shell on real numbers, `coverage.combat` true). C4 the board, split into C4a (the format,
+positions, movement, reach and ranges, areas, cover, opportunity attacks, the picker and the view) and C4b (the board on
+screen, out of the Tactical style's own look). C5 reactions through the director's windows, legendary
 actions, contests and the remaining conditions.
 
 ### What C1 settled
@@ -451,6 +452,83 @@ additions below are fields nothing outside the Engine writes.
   decision above for every combination, and the recap from a real summary) and in a third mode of
   `e2e/game-combat-director.e2e.ts` that imports Ember Roads through the real route and plays a
   fight on it.
+
+### What C4a settled
+
+C4a is the board, on the shared and server sides. C4b is the screen that draws it.
+
+- **What a cell is worth is the ruleset's to say, and saying it is what makes a fight positionable.**
+  New optional `combat.distance: { label, perCell }`. Every distance the block's world states is in
+  that unit: `economy.movement`, a creature's `speed`, a weapon's `reach` and `range`, a creature
+  action's `reach` and `range`. A catalog that declares its own `units.distance` converts its own
+  `mechanics.range` and `area.size` with its own `perCell`; one that does not uses the block's.
+  Capability API 1.28, read from the ruleset's own bytes exactly as every level since 1.21.
+- **Nothing that works today changed.** A fight without a board is byte for byte the fight it was:
+  the whole event log of the same scenario is compared, on the very rulesets that now declare a cell
+  size and on copies stripped of every new key. The state stayed at `v: 1` because every new field
+  is optional and absent on a fight that has none.
+- **Everybody on the board, or nobody.** `createRulesetEncounter` takes an optional
+  `board: { grid, placements }` and stores it only when the ruleset declares `distance` AND every
+  combatant has a cell inside the grid. One missing placement leaves the whole fight theatre of the
+  mind, because a fight where somebody stands nowhere could answer nothing about distance.
+- **The grid is the tactical engine's own.** The server calls `generateTacticalBattlefield` and
+  `placeSpawns` from the same seed and the same cursor the tactical style uses, with stand-in units
+  that carry only a side, a boss flag and a tile. `placeSpawns` was widened to a structural
+  `TacticalPlaceable` for that, which `TacticalUnit` already satisfies. No second generator, no
+  second terrain table, no board sizes of this fight's own.
+- **Eight neighbours, one cell each, and distance is the larger axis difference.** That is how the
+  tabletop grids this is for are played, and it is deliberately NOT the tactical engine's own four
+  directions and Manhattan distance, which stay exactly as they are for its own fights. Terrain
+  `moveCost` is the price of ENTERING a cell, nothing solid may be entered, no corner may be cut
+  between two solid cells, a friend may be walked past and nobody may be stopped on.
+- **One new pure module**, `packages/shared/src/features/ruleset-combat/grid.ts`: `rulesetInCells`,
+  `rulesetCellDistance`, `rulesetReachableCells`, `rulesetLineOfSight`, `rulesetAreaCells` and
+  `rulesetOpportunityAttack`. Real burst, cone and line shapes, not the older bridge's one radius.
+- **The menu is still the only legality.** Where a walk may go, who an option may be pointed at and
+  where a shape may be aimed are all one rule the resolution checks a choice against, and a target
+  the rules would allow if only it were closer is refused with `out-of-reach` or `no-line-of-sight`
+  rather than a bare `bad-target`.
+- **The picker moves.** It weighs every cell it can reach against every option from there, subtracts
+  for each strike the walk would provoke, prefers not to move when it can already do its best where
+  it stands, and closes the distance (sprinting first when the ruleset lists `dash`) when nothing is
+  in reach. Bounded to 48 cells, and the Game Master's window to 24 candidates.
+- **Proven** in `scripts/regressions/game-ruleset-combat-grid.regression.ts` (hand-drawn boards,
+  scripted dice, both example rulesets, and the byte-for-byte comparison), plus positioned cases in
+  `ruleset-combat-director.regression.ts` and `ruleset-combat-director-route.regression.ts`.
+- **Left for C5**: reaction windows, three-quarter and total cover, elevation, flying over
+  obstacles, squeezing, hiding and forced movement.
+
+### What C4b settled
+
+C4b is the board on screen. It draws what C4a resolves and decides nothing of its own.
+
+- **The screen follows the VIEW, not the preference.** `DirectedCombatUI` mounts the board when the
+  ruleset view carries a `grid`, and keeps the Classic stage when it does not. The client sends
+  `positioned: true` on `/start` exactly when the fight is the ruleset's own, the game's combat
+  preference is Tactical and the resolved ruleset declares `combat.distance`; the server still
+  decides whether a board can be drawn at all.
+- **One new presentational component**, `RulesetCombatBoard.tsx`. `TacticalCombatUI` was not
+  restructured: its palettes, textures, terrain icons, tile shadow, keyframes and token helpers
+  moved unchanged into `lib/tactical-board-look.ts`, which both boards import, so the two look like
+  one product and a new terrain theme cannot drift between them.
+- **The client computes nothing.** Reachable squares and their cost, the path, who a step provokes,
+  who may be targeted and where a shape may be aimed with everybody it would catch all come off the
+  view. `lib/ruleset-combat-board.ts` indexes them by square; the one number it derives is the
+  ruleset's own distance, cells times `perCell`, which is what the whole screen is said in.
+- **One focusable thing per square.** Tiles are buttons with a roving tabindex and arrow-key
+  movement; tokens are drawn over them with `pointer-events-none`, so clicking a token is clicking
+  its square and the keyboard means one thing. Escape leaves a half-made choice and hands the
+  keyboard back to the menu, which is the C3 rule: focus returns only when the PLAYER closed it.
+- **The half-made choice lives on the board**, which hands it back down to `RulesetCombatMenu`
+  through an optional controlled `step`. Without that pair the menu keeps its own state and the C3
+  screen is byte for byte the screen it was.
+- **The board keeps a floor of its own height**, and the menu, the hint line and the log each bound
+  themselves. Measured at 1366x850 and at 375x812 with a fight in progress and a log of 17 lines:
+  no horizontal page scroll, no overlapping tokens, the whole board visible at both sizes.
+- **Proven** in `scripts/regressions/ruleset-combat-screen-client.regression.ts` (the squares, the
+  walk, the path, the target, the aims, the sentences, the "nothing in reach" rule, the distance
+  formatter and the four refusals, on both example rulesets) and in a fourth mode of
+  `e2e/game-combat-director.e2e.ts` that plays a positioned Ember Roads fight in a real browser.
 
 ## Architecture
 

@@ -5,9 +5,14 @@
 // its own forecast and the exact ids it may be pointed at. Nothing here works out whether something
 // is allowed, what it would cost or how likely it is to land: an option the rules do not allow is
 // simply not sent, so nothing is ever greyed out by this file.
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { DirectedRulesetOption, DirectedRulesetView } from "@marinara-engine/shared";
+//
+// On a board, a step that picks a cell (walking, or aiming a shape) is drawn by the board rather
+// than listed here, so the half-made choice is HELD by the board and handed back down: one step,
+// two ways of finishing it, and the same pure rules behind both.
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import type { DirectedRulesetOption, DirectedRulesetView, RulesetCombatCell } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
+import { rulesetOptionHasAim, rulesetOptionNeedsAim, rulesetOptionNeedsCell } from "../../lib/ruleset-combat-board";
 import {
   rulesetDefaultTargets,
   rulesetMenuGroups,
@@ -17,6 +22,7 @@ import {
   rulesetOptionNeedsTargets,
   rulesetPickTarget,
   rulesetSendsOnPick,
+  type RulesetMenuStep,
 } from "../../lib/ruleset-combat-menu";
 import { cn } from "../../lib/utils";
 
@@ -26,30 +32,62 @@ export interface RulesetCombatMenuProps {
    *  file does, never a word this Engine picked. */
   budgetLabel: (id: string) => string;
   busy: boolean;
-  onChoose: (optionId: string, targetIds: string[], payWith?: string) => void;
+  onChoose: (
+    optionId: string,
+    targetIds: string[],
+    payWith?: string,
+    /** Where a walk goes, and where a shape is aimed. Only a positioned fight ever sends one. */
+    cell?: { to?: RulesetCombatCell; at?: RulesetCombatCell },
+  ) => void;
   /** Walking away. The ruleset's menu never carries it, because leaving is not a thing the rules
    *  resolve: it is the director ending the session, exactly as the other two styles end it. */
   onFlee: () => void;
+  /** The half-made choice, when a board is holding it. Without both of these the menu keeps its
+   *  own, which is what the fight with no board does. */
+  step?: RulesetMenuStep | null;
+  onStepChange?: (step: RulesetMenuStep | null) => void;
+  /** The board's handle on this menu, so Escape from a cell can put the keyboard back here. */
+  menuRef?: RefObject<HTMLDivElement | null>;
 }
-
-/** Where a half-made choice is: deciding what pays for it, or deciding who it is pointed at. */
-type Step = { stage: "pay" | "target"; option: DirectedRulesetOption; payWith?: string; targets: string[] };
 
 const buttonClass =
   "min-h-11 rounded-lg border px-3 py-2 text-left text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:opacity-50";
 
-export function RulesetCombatMenu({ view, budgetLabel, busy, onChoose, onFlee }: RulesetCombatMenuProps) {
+export function RulesetCombatMenu({
+  view,
+  budgetLabel,
+  busy,
+  onChoose,
+  onFlee,
+  step: heldStep,
+  onStepChange,
+  menuRef,
+}: RulesetCombatMenuProps) {
   const { t } = useTranslation();
-  const [step, setStep] = useState<Step | null>(null);
+  const [ownStep, setOwnStep] = useState<RulesetMenuStep | null>(null);
+  // Held by the owner only when it passes BOTH halves (`step` may be null, never left out): with one
+  // of them missing the menu keeps its own, or a pick would be handed up and never come back down.
+  const held = onStepChange !== undefined && heldStep !== undefined;
+  const step = held ? heldStep : ownStep;
+  // Stable whatever the owner passes, so the turn reset below runs when the turn moves and never
+  // because a parent handed down a fresh function.
+  const stepChange = useRef(held ? onStepChange : undefined);
+  stepChange.current = held ? onStepChange : undefined;
+  const setStep = useCallback((next: RulesetMenuStep | null) => {
+    if (stepChange.current) stepChange.current(next);
+    else setOwnStep(next);
+  }, []);
   const first = useRef<HTMLButtonElement>(null);
-  const root = useRef<HTMLDivElement>(null);
+  const ownRoot = useRef<HTMLDivElement>(null);
+  const root = menuRef ?? ownRoot;
+  const distance = view.grid?.distance;
   const actorName = view.combatants.find((combatant) => combatant.id === view.actorId)?.name ?? "";
   const groups = useMemo(() => rulesetMenuGroups(view.options), [view.options]);
   // A fresh menu is a fresh choice: the turn moved on, so a half-finished pick from the last one
   // must never be sent against it.
   useEffect(() => {
     setStep(null);
-  }, [view.actorId, view.round]);
+  }, [view.actorId, view.round, setStep]);
   // Focus follows a NEW stage or a new option, never every pick: choosing the second of three
   // targets replaces `step`, and pulling focus back to the first button each time would take the
   // keyboard away from somebody working down the list.
@@ -65,14 +103,16 @@ export function RulesetCombatMenu({ view, budgetLabel, busy, onChoose, onFlee }:
     setStep(null);
   };
   useEffect(() => {
-    if (stepStage) first.current?.focus();
+    // A step the BOARD draws has its keyboard on the board, so the menu must not take it back the
+    // moment the stage opens.
+    if (stepStage === "pay" || stepStage === "target") first.current?.focus();
     // Going BACK unmounts the step, and the browser would drop focus on the body, leaving a keyboard
     // player to Tab down from the top of the page. The menu takes it instead, and only then: a
     // menu that appears, or is reset because the turn moved on, must not steal focus from wherever
     // the player is.
-    else if (playerClosedStep.current) root.current?.focus();
+    else if (!stepStage && playerClosedStep.current) root.current?.focus();
     playerClosedStep.current = false;
-  }, [stepStage, stepOption]);
+  }, [stepStage, stepOption, root]);
 
   if (!view.options) {
     return (
@@ -88,24 +128,33 @@ export function RulesetCombatMenu({ view, budgetLabel, busy, onChoose, onFlee }:
     closeStep();
     onChoose(option.id, targets, payWith);
   };
+  /** Which picking step this option opens, or null for one that is simply sent. On a board, a walk
+   *  and a shape are picked on the board; everything else is the list below. */
+  const stageFor = (option: DirectedRulesetOption): RulesetMenuStep["stage"] | null => {
+    if (view.grid && rulesetOptionNeedsCell(option)) return "move";
+    if (view.grid && rulesetOptionNeedsAim(option)) return "aim";
+    return rulesetOptionNeedsTargets(option) ? "target" : null;
+  };
   const take = (option: DirectedRulesetOption) => {
     if (option.payWith && option.payWith.length > 0) {
       setStep({ stage: "pay", option, targets: [] });
       return;
     }
-    if (rulesetOptionNeedsTargets(option)) {
-      setStep({ stage: "target", option, targets: [] });
+    const stage = stageFor(option);
+    if (stage) {
+      setStep({ stage, option, targets: [] });
       return;
     }
     send(option, rulesetDefaultTargets(option));
   };
   const paid = (payWith?: string) => {
     if (!step) return;
-    if (!rulesetOptionNeedsTargets(step.option)) {
+    const stage = stageFor(step.option);
+    if (!stage) {
       send(step.option, rulesetDefaultTargets(step.option), payWith);
       return;
     }
-    setStep({ ...step, stage: "target", ...(payWith ? { payWith } : {}), targets: [] });
+    setStep({ ...step, stage, ...(payWith ? { payWith } : {}), targets: [] });
   };
   const pick = (id: string) => {
     if (!step) return;
@@ -134,7 +183,7 @@ export function RulesetCombatMenu({ view, budgetLabel, busy, onChoose, onFlee }:
             onClick={() => paid(undefined)}
             className={cn(buttonClass, "border-white/15 bg-white/5 text-white/85 hover:bg-white/10")}
           >
-            {t("game.combat.ruleset.upcast.own", { cost: rulesetOptionCostText(option, budgetLabel, t) })}
+            {t("game.combat.ruleset.upcast.own", { cost: rulesetOptionCostText(option, budgetLabel, t, distance) })}
           </button>
           {pools.map((pool) => (
             <button
@@ -148,6 +197,29 @@ export function RulesetCombatMenu({ view, budgetLabel, busy, onChoose, onFlee }:
             </button>
           ))}
         </div>
+        <BackButton onClick={closeStep} label={t("game.combat.ruleset.target.back")} />
+      </div>
+    );
+  }
+
+  // ── Picking it on the board ──
+  // The cells are the board's to draw and the board's to finish; this is the prompt and the way
+  // out, in the place the option was chosen from, so a player who changed their mind is not
+  // hunting for it on the grid.
+  if (step?.stage === "move" || step?.stage === "aim") {
+    const option = step.option;
+    return (
+      <div className="flex flex-col gap-2 p-3">
+        <p className="text-xs text-amber-200">
+          {t(
+            step.stage === "move"
+              ? "game.combat.ruleset.board.movePrompt"
+              : rulesetOptionHasAim(option)
+                ? "game.combat.ruleset.board.aimPrompt"
+                : "game.combat.ruleset.board.aimNobody",
+            { label: rulesetOptionLabel(option, t), name: actorName },
+          )}
+        </p>
         <BackButton onClick={closeStep} label={t("game.combat.ruleset.target.back")} />
       </div>
     );
@@ -244,7 +316,7 @@ export function RulesetCombatMenu({ view, budgetLabel, busy, onChoose, onFlee }:
             </h4>
             <div className="contents sm:flex sm:flex-wrap sm:gap-2">
               {group.options.map((option) => {
-                const cost = rulesetOptionCostText(option, budgetLabel, t);
+                const cost = rulesetOptionCostText(option, budgetLabel, t, distance);
                 const forecast = rulesetOptionForecastText(option, t);
                 return (
                   <button

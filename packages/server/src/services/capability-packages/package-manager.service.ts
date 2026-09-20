@@ -532,6 +532,24 @@ function entriesCarryCreatures(entries: unknown): boolean {
   );
 }
 
+/** A creature action whose `range` is an ordinary distance with a longer one beyond it, which is a
+ *  new SHAPE for an old key, or one that carries the `area` it lands in, which is a new key: either
+ *  way an Engine that knows neither refuses the file they sit in. Read structurally, for the same
+ *  reason the three above are. */
+function entriesCarryCreatureRanges(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) => {
+    const creature = entry && typeof entry === "object" ? (entry as { creature?: unknown }).creature : undefined;
+    const actions = creature && typeof creature === "object" ? (creature as { actions?: unknown }).actions : undefined;
+    if (!Array.isArray(actions)) return false;
+    return actions.some((action) => {
+      if (!action || typeof action !== "object") return false;
+      const { range, area } = action as { range?: unknown; area?: unknown };
+      return (!!range && typeof range === "object") || area !== undefined;
+    });
+  });
+}
+
 /** `rulesetDocument` is the package's own `ruleset.json`, parsed, when the install already has its
  *  verified bytes. Catalogs live INSIDE that file, so the manifest alone cannot show them, and the
  *  gate that keeps a package off an Engine too old to serve them has to read it. `catalogDocuments`
@@ -600,6 +618,10 @@ export function getCapabilityPackageInstallIssue(
     // entries may sit in the ruleset file or in the catalog file, so both are read.
     const creatureIssue =
       "A ruleset with a catalog of creatures requires schemaVersion 2 and capabilityApi 1.27 or newer";
+    // A distance a fight measures in cells is a new key, or a new shape for an old one, in the same
+    // strict file. Same reading, same reason.
+    const positionIssue =
+      "A ruleset whose fights are measured in cells requires schemaVersion 2 and capabilityApi 1.28 or newer";
     for (const catalog of catalogs) {
       const header =
         catalog && typeof catalog === "object"
@@ -609,6 +631,7 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryScaledRows(header.entries) && !declaresApi(23)) return scaledIssue;
       if (entriesCarryCombatMechanics(header.entries) && !declaresApi(26)) return mechanicsIssue;
       if (entriesCarryCreatures(header.entries) && !declaresApi(27)) return creatureIssue;
+      if (entriesCarryCreatureRanges(header.entries) && !declaresApi(28)) return positionIssue;
       const asset = header.asset;
       if (typeof asset !== "string") continue;
       // A path that does not normalize is never a declared one, whatever else failed to normalize.
@@ -621,6 +644,7 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryScaledRows(fileEntries) && !declaresApi(23)) return scaledIssue;
       if (entriesCarryCombatMechanics(fileEntries) && !declaresApi(26)) return mechanicsIssue;
       if (entriesCarryCreatures(fileEntries) && !declaresApi(27)) return creatureIssue;
+      if (entriesCarryCreatureRanges(fileEntries) && !declaresApi(28)) return positionIssue;
     }
   }
   // The battle block lives inside the ruleset file too, so it is read the same way and for the same
@@ -652,6 +676,23 @@ export function getCapabilityPackageInstallIssue(
   // reason. An inline catalog whose mechanics reach a fight is checked with the catalogs above.
   if (ruleset?.combat && typeof ruleset.combat === "object" && !declaresApi(26)) {
     return "A ruleset with a combat block requires schemaVersion 2 and capabilityApi 1.26 or newer";
+  }
+  // And the keys inside it that give a fight a board. Same file, same reading, same reason.
+  const combat =
+    ruleset?.combat && typeof ruleset.combat === "object" ? (ruleset.combat as Record<string, unknown>) : undefined;
+  if (combat && !declaresApi(28)) {
+    const positioned = ["distance", "ranged", "cover", "opportunity"].some((key) => combat[key] !== undefined);
+    const attacks = Array.isArray(combat.attacks)
+      ? combat.attacks.some(
+          (source) =>
+            !!source &&
+            typeof source === "object" &&
+            (["reach", "range"] as const).some((key) => (source as Record<string, unknown>)[key] !== undefined),
+        )
+      : false;
+    if (positioned || attacks) {
+      return "A ruleset whose fights are measured in cells requires schemaVersion 2 and capabilityApi 1.28 or newer";
+    }
   }
   return null;
 }

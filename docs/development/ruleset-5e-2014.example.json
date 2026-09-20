@@ -665,6 +665,31 @@
             "label": "Damage type",
             "type": "text",
             "maxLength": 30
+          },
+          {
+            "$comment": "Distances in feet, which is what this file's combat block says a cell is five of. A melee weapon's reach is 5; a reach weapon's is 10. A weapon that is thrown or shot fills the range columns in as well. A column left at 0 means the weapon carries no such distance, which is why an ordinary sword keeps both range columns at 0.",
+            "id": "reach",
+            "label": "Reach (ft)",
+            "type": "number",
+            "min": 0,
+            "max": 30,
+            "default": 5
+          },
+          {
+            "id": "range",
+            "label": "Range (ft)",
+            "type": "number",
+            "min": 0,
+            "max": 1200,
+            "default": 0
+          },
+          {
+            "id": "long_range",
+            "label": "Long range (ft)",
+            "type": "number",
+            "min": 0,
+            "max": 3000,
+            "default": 0
           }
         ]
       },
@@ -1174,7 +1199,7 @@
           }
         },
         {
-          "$comment": "A recharge: the hound's breath is spent when it is used and rolled for at the start of its own turn, and comes back on a 5 or a 6.",
+          "$comment": "A recharge, and a shape: the hound's breath is spent when it is used and rolled for at the start of its own turn, and comes back on a 5 or a 6. On a board it lands as a cone of fifteen feet that never catches another hound; without one it simply catches two.",
           "id": "cinder-hound",
           "label": "Cinder Hound",
           "summary": "A lean hunting dog that runs hot enough to scorch the ground it sleeps on.",
@@ -1206,7 +1231,7 @@
                 "damage": { "dice": "2d6", "type": "fire" },
                 "save": { "save": "dex_save", "difficulty": 12, "onSuccess": "half" },
                 "targetCount": 2,
-                "range": 15,
+                "area": { "shape": "cone", "size": 15, "friendlyFire": false },
                 "recharge": { "dice": { "count": 1, "sides": 6 }, "from": 5 }
               }
             ]
@@ -1367,6 +1392,21 @@
       ],
       "movement": { "field": "speed" }
     },
+    "distance": {
+      "$comment": "What a fight on a grid measures. A square is five feet, so everything above and below that carries a distance is read in feet: a Speed of 30 is six squares, a reach of 5 is one, and a spell's own range comes out of its catalog.",
+      "label": "ft",
+      "perCell": 5
+    },
+    "ranged": {
+      "$comment": "A shot past its ordinary range, or taken with a foe in the next square, is rolled with disadvantage.",
+      "long": "disadvantage",
+      "adjacentFoe": "disadvantage"
+    },
+    "cover": {
+      "$comment": "Half cover. Three-quarters and total cover need terrain the Engine's own grid does not tell apart yet.",
+      "bonus": 2
+    },
+    "opportunity": { "budget": "reaction" },
     "attacks": [
       {
         "list": "attacks",
@@ -1381,7 +1421,9 @@
           "dice": { "column": "damage" },
           "ability": { "column": "ability" },
           "type": { "column": "damage_type" }
-        }
+        },
+        "reach": { "column": "reach" },
+        "range": { "normal": { "column": "range" }, "long": { "column": "long_range" } }
       }
     ],
     "abilities": [

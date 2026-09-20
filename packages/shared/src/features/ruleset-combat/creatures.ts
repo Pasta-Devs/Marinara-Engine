@@ -96,6 +96,7 @@ function creatureAction(action: RulesetCreatureAction): RulesetStatBlockAction {
     ...(action.targetCount !== undefined ? { targetCount: action.targetCount } : {}),
     ...(action.reach !== undefined ? { reach: action.reach } : {}),
     ...(action.range !== undefined ? { range: action.range } : {}),
+    ...(action.area ? { area: { ...action.area } } : {}),
     ...(action.uses ? { uses: { ...action.uses } } : {}),
     ...(action.recharge ? { recharge: { dice: { ...action.recharge.dice }, from: action.recharge.from } } : {}),
     ...(action.sequence ? { sequence: action.sequence.map((step) => ({ ...step })) } : {}),

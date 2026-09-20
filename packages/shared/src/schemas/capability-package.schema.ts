@@ -277,7 +277,16 @@ const capabilityPackageManifestBaseSchema = z
 //        same reason as 1.20 through 1.26: an Engine that cannot read `holds` or `creature` refuses
 //        the whole ruleset file, or the catalog file that holds them, so a package that ships
 //        either declares 1.27. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 27 } as const);
+// 1.28: a ruleset fight on a board. A ruleset's `combat` block may say what one cell of a grid is
+//        worth in its own distance (`distance`), what shooting past the ordinary distance or beside
+//        a foe does (`ranged`), what standing behind something adds to the defense (`cover`) and
+//        which budget a strike at somebody walking away is paid out of (`opportunity`); an attack
+//        list may give its rows a `reach` and a `range`; and a creature action's `range` may be an
+//        ordinary distance with a longer one beyond it. Not a soft seam, for the same reason as
+//        1.20 through 1.27: an Engine that cannot read these keys refuses the whole ruleset file,
+//        or the catalog file that holds them, so a package that ships any of them declares 1.28.
+//        No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 28 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

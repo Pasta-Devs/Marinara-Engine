@@ -51,6 +51,7 @@ function ruleset(edit: (doc: Record<string, any>) => void = () => {}): string {
  *  case about catalogs is not answered by the gate that came after them. */
 function withoutLaterGates(doc: Record<string, any>): void {
   delete doc.layers;
+  // The combat block goes whole, and with it the 1.28 keys that give a fight a board.
   delete doc.combat;
   // The bestiary is a 1.27 declaration of its own, and a catalog of creatures needs the combat
   // block that just went, so it leaves with it.
@@ -439,9 +440,10 @@ const installedPackages = packages.map((fixture) => {
   ];
   const manifest = {
     schemaVersion: 2,
-    // 1.27, because the example ruleset carries the combat bridge's battle block, a scaled catalog
-    // row, a layer, a combat block, catalog mechanics a fight reads and a catalog of creatures.
-    capabilityApi: { major: 1, minor: 27 },
+    // 1.28, because the example ruleset carries the combat bridge's battle block, a scaled catalog
+    // row, a layer, a combat block, catalog mechanics a fight reads, a catalog of creatures and the
+    // keys that give that fight a board.
+    capabilityApi: { major: 1, minor: 28 },
     builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
     id: packageId,
     name: fixture.id,

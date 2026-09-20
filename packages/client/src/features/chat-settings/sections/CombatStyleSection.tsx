@@ -8,9 +8,12 @@ interface CombatStyleSectionProps {
   style?: CSSProperties;
   combatStyle: GameCombatStyle;
   /** Whether this game's own ruleset resolves its battles. The choice below is kept either way: a
-   *  later slice gives Tactical a meaning for such a fight, and a game that changes ruleset, or
-   *  turns the director off, is back on whichever presentation is picked here. */
+   *  game that changes ruleset, or turns the director off, is back on whichever presentation is
+   *  picked here. */
   rulesetResolvesFights?: boolean;
+  /** Whether that ruleset also says what one cell of a board is worth. With it the choice below
+   *  decides whether such a fight has positions; without it, it is kept and not used. */
+  rulesetHasPositions?: boolean;
   onCombatStyleChange: (style: GameCombatStyle) => void;
 }
 
@@ -18,6 +21,7 @@ export function CombatStyleSection({
   style,
   combatStyle,
   rulesetResolvesFights,
+  rulesetHasPositions,
   onCombatStyleChange,
 }: CombatStyleSectionProps) {
   const { t: localizeUi } = useUiTranslation();
@@ -47,7 +51,9 @@ export function CombatStyleSection({
         </label>
         {rulesetResolvesFights && (
           <p className="text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
-            {localizeUi("game.combat.ruleset.preferenceIgnored")}
+            {localizeUi(
+              rulesetHasPositions ? "game.combat.ruleset.preferencePositions" : "game.combat.ruleset.preferenceIgnored",
+            )}
           </p>
         )}
         <p className="text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">

@@ -5,13 +5,34 @@
 // arithmetic; it groups what arrived, spells what an option spends out of the words the option
 // carries, and keeps a player's picking inside the option's own list and count.
 import type { DirectedRulesetOption } from "@marinara-engine/shared";
+import { RULESET_MOVE_OPTION, RULESET_STAND_OPTION } from "@marinara-engine/shared";
 import type { TFunction } from "i18next";
+import { rulesetDistanceText, type RulesetBoardDistance } from "./ruleset-combat-board";
 
-/** The order a menu reads in: what you swing, what you cast, what a stat block can do, the moves
- *  the kind implements, and finally ending the turn. */
-export const RULESET_MENU_KINDS = ["attack", "ability", "block", "standard", "end-turn"] as const;
+/** The order a menu reads in: where you go, what you swing, what you cast, what a stat block can
+ *  do, the moves the kind implements, and finally ending the turn. Walking comes first because a
+ *  turn on a board usually starts with it, and it may be taken again after an action. */
+export const RULESET_MENU_KINDS = ["move", "attack", "ability", "block", "standard", "end-turn"] as const;
 
 export type RulesetMenuKind = (typeof RULESET_MENU_KINDS)[number];
+
+/** A half-made choice: deciding what pays for it, where it walks, who it is pointed at, or where
+ *  the shape lands. The board holds this while it draws it, so the menu and the board are never
+ *  two steps apart. */
+/** The Engine's own word for each of the two moves a board adds, keyed by the resolver's own id.
+ *  A key segment is built from the WORD and never from the id, which may carry punctuation a
+ *  localization key may not. */
+const MOVE_OPTION_WORDS: Record<string, "walk" | "stand"> = {
+  [RULESET_MOVE_OPTION]: "walk",
+  [RULESET_STAND_OPTION]: "stand",
+};
+
+export interface RulesetMenuStep {
+  stage: "pay" | "move" | "target" | "aim";
+  option: DirectedRulesetOption;
+  payWith?: string;
+  targets: string[];
+}
 
 export interface RulesetMenuGroup {
   kind: RulesetMenuKind;
@@ -43,6 +64,14 @@ export function rulesetMenuGroups(options: DirectedRulesetOption[] | undefined):
  */
 export function rulesetOptionLabel(option: DirectedRulesetOption, t: TFunction): string {
   if (option.kind === "end-turn") return t("game.combat.ruleset.menu.endTurn", { defaultValue: option.label });
+  // Walking and getting back up are the board's own two moves, named by this Engine for the same
+  // reason the standard actions are: the closed list is the Engine's vocabulary, not the file's.
+  // Which is which comes off the two exported ids, never off the spelling of one: the ids belong to
+  // the resolver and have already changed once.
+  if (option.kind === "move") {
+    const word = MOVE_OPTION_WORDS[option.id];
+    return word ? t(`game.combat.ruleset.board.${word}`, { defaultValue: option.label }) : option.label;
+  }
   if (option.kind !== "standard") return option.label;
   return t(`game.combat.ruleset.standard.${option.label}`, { defaultValue: option.label });
 }
@@ -53,9 +82,18 @@ export function rulesetOptionCostText(
   option: DirectedRulesetOption,
   budgetLabel: (id: string) => string,
   t: TFunction,
+  /** What one cell is worth here, for the one option that is priced in movement. */
+  distance?: RulesetBoardDistance,
 ): string {
   const parts: string[] = [];
   if (option.budget) parts.push(t("game.combat.ruleset.option.spends", { budget: budgetLabel(option.budget) }));
+  if (typeof option.movementCost === "number") {
+    parts.push(
+      t("game.combat.ruleset.board.movementCost", {
+        amount: rulesetDistanceText(option.movementCost, distance, t),
+      }),
+    );
+  }
   for (const cost of option.cost ?? []) {
     parts.push(t("game.combat.ruleset.option.cost", { amount: cost.amount, pool: cost.label }));
   }

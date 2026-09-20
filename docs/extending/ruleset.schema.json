@@ -3749,9 +3749,61 @@
                             "maximum": 10000
                           },
                           "range": {
-                            "type": "number",
-                            "minimum": 0,
-                            "maximum": 10000
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 10000
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "normal": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                  },
+                                  "long": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                  },
+                                  "$comment": {}
+                                },
+                                "required": [
+                                  "normal"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ],
+                            "description": "A distance, or an ordinary distance with a longer one beyond it"
+                          },
+                          "area": {
+                            "type": "object",
+                            "properties": {
+                              "shape": {
+                                "type": "string",
+                                "enum": [
+                                  "burst",
+                                  "cone",
+                                  "line"
+                                ]
+                              },
+                              "size": {
+                                "type": "number",
+                                "exclusiveMinimum": 0,
+                                "maximum": 10000
+                              },
+                              "friendlyFire": {
+                                "type": "boolean"
+                              },
+                              "$comment": {}
+                            },
+                            "required": [
+                              "shape",
+                              "size"
+                            ],
+                            "additionalProperties": false
                           },
                           "uses": {
                             "type": "object",
@@ -4379,6 +4431,79 @@
           ],
           "additionalProperties": false
         },
+        "distance": {
+          "type": "object",
+          "properties": {
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 12
+            },
+            "perCell": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "$comment": {}
+          },
+          "required": [
+            "label",
+            "perCell"
+          ],
+          "additionalProperties": false
+        },
+        "ranged": {
+          "type": "object",
+          "properties": {
+            "long": {
+              "type": "string",
+              "enum": [
+                "disadvantage",
+                "normal"
+              ],
+              "default": "normal"
+            },
+            "adjacentFoe": {
+              "type": "string",
+              "enum": [
+                "disadvantage",
+                "normal"
+              ],
+              "default": "normal"
+            },
+            "$comment": {}
+          },
+          "additionalProperties": false
+        },
+        "cover": {
+          "type": "object",
+          "properties": {
+            "bonus": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "$comment": {}
+          },
+          "required": [
+            "bonus"
+          ],
+          "additionalProperties": false
+        },
+        "opportunity": {
+          "type": "object",
+          "properties": {
+            "budget": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "$comment": {}
+          },
+          "required": [
+            "budget"
+          ],
+          "additionalProperties": false
+        },
         "attacks": {
           "type": "array",
           "items": {
@@ -4398,6 +4523,118 @@
                 "type": "string",
                 "maxLength": 40,
                 "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "reach": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "column": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "column"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "const": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 10000
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "const"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "range": {
+                "type": "object",
+                "properties": {
+                  "normal": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "column": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "pattern": "^[a-z][a-z0-9_]*$"
+                          },
+                          "$comment": {}
+                        },
+                        "required": [
+                          "column"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "const": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10000
+                          },
+                          "$comment": {}
+                        },
+                        "required": [
+                          "const"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "long": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "column": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "pattern": "^[a-z][a-z0-9_]*$"
+                          },
+                          "$comment": {}
+                        },
+                        "required": [
+                          "column"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "const": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10000
+                          },
+                          "$comment": {}
+                        },
+                        "required": [
+                          "const"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "$comment": {}
+                },
+                "required": [
+                  "normal"
+                ],
+                "additionalProperties": false
               },
               "toHit": {
                 "type": "object",
@@ -4999,7 +5236,50 @@
         "attackRoll",
         "economy"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependencies": {
+        "ranged": [
+          "distance"
+        ],
+        "cover": [
+          "distance"
+        ],
+        "opportunity": [
+          "distance"
+        ]
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "attacks"
+            ],
+            "properties": {
+              "attacks": {
+                "contains": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "reach"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "range"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "distance"
+            ]
+          }
+        }
+      ]
     },
     "layers": {
       "type": "array",

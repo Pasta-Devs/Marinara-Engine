@@ -834,6 +834,29 @@ const creatureSaveSchema = z
   })
   .strict();
 
+/** A distance a shot still carries past its ordinary one. Both numbers are in the ruleset's own
+ *  unit, and a plain number is the ordinary distance with nothing beyond it. */
+const creatureRangeSchema = z
+  .union([
+    z.number().finite().min(0).max(10000),
+    z
+      .object({
+        normal: z.number().finite().min(0).max(10000),
+        long: z.number().finite().min(0).max(10000).optional(),
+      })
+      .strict()
+      .superRefine((range, ctx) => {
+        if (range.long !== undefined && range.long < range.normal) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["long"],
+            message: "The long distance is at least the ordinary one",
+          });
+        }
+      }),
+  ])
+  .describe("A distance, or an ordinary distance with a longer one beyond it");
+
 const creatureActionSchema = z
   .object({
     id: sheetId,
@@ -849,9 +872,23 @@ const creatureActionSchema = z
     saveDifficulty: z.number().int().min(0).max(1000).optional(),
     applies: z.array(catalogAppliesSchema).max(4).optional(),
     targetCount: z.number().int().min(1).max(20).optional(),
-    /** In the ruleset's own distance unit. Carried until a fight has positions. */
+    /** In the ruleset's own distance unit, read once a fight has positions. */
     reach: z.number().finite().min(0).max(10000).optional(),
-    range: z.number().finite().min(0).max(10000).optional(),
+    /** How far it is thrown or shot. A plain number is the ordinary distance; the pair says how far
+     *  it still reaches beyond that, which a ruleset may make harder. */
+    range: creatureRangeSchema.optional(),
+    /** The shape it lands in, in the ruleset's own distance unit, read once a fight has positions.
+     *  A breath weapon is a cone; a bolt is a line; a blast is a burst. Its `range` says how far
+     *  off it may be aimed, and a shape with none is aimed from where the creature stands. */
+    area: z
+      .object({
+        shape: z.enum(["burst", "cone", "line"]),
+        size: z.number().finite().gt(0).max(10000),
+        /** False spares the creature's own side, as a catalog entry's does. */
+        friendlyFire: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
     /** How many times it can be done at all, and over what stretch. */
     uses: z
       .object({ per: z.enum(["encounter", "day"]), count: z.number().int().min(1).max(20) })
@@ -882,7 +919,16 @@ const creatureActionSchema = z
     if (action.sequence) {
       // A sequence is a container. Anything else on it would be a second thing the one budget also
       // did, with nothing to say when it happened.
-      for (const key of ["toHit", "autoHit", "damage", "save", "saveDifficulty", "applies", "targetCount"] as const) {
+      for (const key of [
+        "toHit",
+        "autoHit",
+        "damage",
+        "save",
+        "saveDifficulty",
+        "applies",
+        "targetCount",
+        "area",
+      ] as const) {
         if (action[key] !== undefined) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -1135,6 +1181,13 @@ const combatBudgetSchema = z
  *  can add another source beside `column` without rewriting the rules that read one. */
 const combatColumnSchema = z.object({ column: sheetId }).strict();
 
+/** A distance one row of an attack list carries: a number column of that same list, or the same
+ *  number for every row. Both are in the ruleset's own distance unit. */
+const combatDistanceSourceSchema = z.union([
+  combatColumnSchema,
+  z.object({ const: z.number().finite().min(0).max(10000) }).strict(),
+]);
+
 /** A sheet list whose rows are attacks, and the columns each number comes from. */
 const combatAttackSourceSchema = z
   .object({
@@ -1142,6 +1195,17 @@ const combatAttackSourceSchema = z
     budget: sheetId,
     /** The text column the attack is named by. */
     name: sheetId,
+    /** How far one of these rows reaches to strike, in the ruleset's own distance unit. A row with
+     *  none reaches one cell, which is the smallest step a board has. A column that reads 0 on a
+     *  row is that row saying it carries no such distance. */
+    reach: combatDistanceSourceSchema.optional(),
+    /** How far one of these rows is thrown or shot. `long` is what it still carries beyond `normal`,
+     *  which a ruleset may make harder through `combat.ranged`. A row whose `normal` column reads 0
+     *  is not thrown or shot at all, and swings at its `reach` instead. */
+    range: z
+      .object({ normal: combatDistanceSourceSchema, long: combatDistanceSourceSchema.optional() })
+      .strict()
+      .optional(),
     toHit: z
       .object({
         /** An enum column holding an ability id. Another value adds nothing, exactly as
@@ -1291,11 +1355,34 @@ const combatSchema = z
     economy: z
       .object({
         budgets: z.array(combatBudgetSchema).min(1).max(8),
-        /** How far a turn may move, in the catalogs' own distance unit. Read from the slice that
-         *  gives a fight positions; declared now so a ruleset states it once. */
+        /** How far a turn may move, in the ruleset's own distance unit. */
         movement: rulesetValueRefSchema.optional(),
       })
       .strict(),
+    /** What one cell of a board is worth in this system's own distance, and what that distance is
+     *  called. Declaring it is what makes a fight positionable at all: without it every fight stays
+     *  theatre of the mind, and everything below is refused. */
+    distance: z
+      .object({ label: promptSafeText(12), perCell: z.number().finite().gt(0) })
+      .strict()
+      .optional(),
+    /** What shooting past the ordinary distance does, and what shooting with a foe in the next cell
+     *  does. A system where neither costs anything simply leaves this out. */
+    ranged: z
+      .object({
+        long: z.enum(["disadvantage", "normal"]).default("normal"),
+        adjacentFoe: z.enum(["disadvantage", "normal"]).default("normal"),
+      })
+      .strict()
+      .optional(),
+    /** What standing behind something adds to the defense an attack is rolled against. */
+    cover: z
+      .object({ bonus: z.number().int().min(0).max(100) })
+      .strict()
+      .optional(),
+    /** The budget a strike at somebody leaving one's reach is paid out of. A ruleset that declares
+     *  none has no such strikes. */
+    opportunity: z.object({ budget: sheetId }).strict().optional(),
     attacks: z.array(combatAttackSourceSchema).max(8).optional(),
     abilities: z.array(combatAbilitySourceSchema).max(8).optional(),
     standard: z.array(combatStandardActionSchema).max(6).optional(),
@@ -1974,6 +2061,23 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       if (!budgets.has(budget)) issue(path, `Unknown budget "${budget}"`);
     };
 
+    // Everything below means nothing without a cell to measure in, so a ruleset that declares one
+    // of them and no `distance` is told here rather than carrying a rule no fight could ever read.
+    if (!combat.distance) {
+      const needsDistance = (["ranged", "cover", "opportunity"] as const).find((key) => combat[key] !== undefined);
+      if (needsDistance) {
+        issue(at(needsDistance), `"${needsDistance}" is measured in cells, so the block declares "distance" too`);
+      }
+      combat.attacks?.forEach((source, index) => {
+        for (const key of ["reach", "range"] as const) {
+          if (source[key] !== undefined) {
+            issue(at("attacks", index, key), `"${key}" is measured in cells, so the block declares "distance" too`);
+          }
+        }
+      });
+    }
+    if (combat.opportunity) checkBudget(combat.opportunity.budget, at("opportunity", "budget"));
+
     combat.attacks?.forEach((source, index) => {
       const path = at("attacks", index);
       checkBudget(source.budget, [...path, "budget"]);
@@ -1998,6 +2102,21 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       column(source.damage.dice.column, "dice", [...path, "damage", "dice", "column"]);
       column(source.damage.ability?.column, "enum", [...path, "damage", "ability", "column"]);
       column(source.damage.bonus?.column, "number", [...path, "damage", "bonus", "column"]);
+      // A distance is a number, wherever it is read from: one column of this list, or the same
+      // number on every row of it.
+      const distance = (source: RulesetCombatDistanceSource | undefined, where: (string | number)[]) => {
+        if (source && "column" in source) column(source.column, "number", [...where, "column"]);
+      };
+      distance(source.reach, [...path, "reach"]);
+      distance(source.range?.normal, [...path, "range", "normal"]);
+      distance(source.range?.long, [...path, "range", "long"]);
+      // Two numbers that are both written down can be compared now. Two columns cannot, because the
+      // rows are the player's; a row whose long distance is shorter is read as the ordinary one.
+      const normal = source.range?.normal;
+      const long = source.range?.long;
+      if (normal && long && "const" in normal && "const" in long && long.const < normal.const) {
+        issue([...path, "range", "long"], "The long distance is at least the ordinary one");
+      }
       const typeColumn = source.damage.type?.column;
       if (typeColumn !== undefined) {
         const type = typeOf(typeColumn);
@@ -2228,6 +2347,10 @@ export type RulesetCombatAbilitySource = NonNullable<RulesetCombat["abilities"]>
 export type RulesetCombatStandardAction = NonNullable<RulesetCombat["standard"]>[number];
 export type RulesetCombatCondition = NonNullable<RulesetCombat["conditions"]>[number];
 export type RulesetCombatConditionEffect = RulesetCombatCondition["effects"][number];
+/** What one cell is worth, and what this system calls that distance. */
+export type RulesetCombatDistance = NonNullable<RulesetCombat["distance"]>;
+/** A distance carried by one column of an attack list, or the same on every row of it. */
+export type RulesetCombatDistanceSource = z.infer<typeof combatDistanceSourceSchema>;
 export type RulesetCombatConcentration = NonNullable<RulesetCombat["concentration"]>;
 export type RulesetCombatDying = NonNullable<RulesetCombat["dying"]>;
 export type RulesetCombatThreatTier = NonNullable<RulesetCombat["threat"]>["tiers"][number];

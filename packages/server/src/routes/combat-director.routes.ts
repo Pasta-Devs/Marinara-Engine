@@ -12,6 +12,7 @@ import {
   combatAiHintsSchema,
   normalizeCharacterLookupName,
   rulesetCatalogIdsForBuild,
+  rulesetCellBlocked,
   rulesetSheetBuildsByName,
   type Combatant,
   type DirectedCombatView,
@@ -171,6 +172,10 @@ const command = z.discriminatedUnion("type", [
     optionId: key,
     targetIds: z.array(key).max(20),
     payWith: key.optional(),
+    /** Where the `move` option walks to, and the cell a shape is aimed at. Both are checked against
+     *  the menu by the resolver; this only bounds them to a board's own size. */
+    to: coord.optional(),
+    at: coord.optional(),
   }),
   z.object({ type: z.literal("choose"), candidateId: key }),
   z.object({ type: z.literal("continue") }),
@@ -292,6 +297,19 @@ export async function combatDirectorRoutes(
               order: z.array(key).max(40),
               combatants: z.array(z.object({ id: key, name: z.string().min(1).max(200) }).passthrough()).max(40),
               opening: z.array(z.unknown()).max(RULESET_COMBAT_EVENT_LIMIT),
+              // The board, bounded exactly as the tactical style's own is: the same size cap, the
+              // same terrain table, and every position inside the grid (checked below, where the
+              // grid's own dimensions are known).
+              board: z
+                .object({
+                  grid: z.object({
+                    width: z.number().int().min(1).max(64),
+                    height: z.number().int().min(1).max(64),
+                    tiles: z.array(z.array(z.string())).max(64),
+                  }),
+                })
+                .passthrough()
+                .optional(),
             })
             .passthrough(),
           eventSeq: z.number().int().min(0),
@@ -306,6 +324,49 @@ export async function combatDirectorRoutes(
     }).parse(state);
     if ((state.style === "tactical") !== !!state.tactical) throw new Error("Invalid combat mode in save.");
     if ((state.style === "ruleset") !== !!state.rulesetFight) throw new Error("Invalid combat mode in save.");
+    const board = state.rulesetFight?.encounter.board;
+    if (board) {
+      const grid = board.grid;
+      if (
+        grid.tiles.length !== grid.height ||
+        grid.tiles.some(
+          (row) => row.length !== grid.width || row.some((tile) => !Object.hasOwn(TERRAIN_DATA, tile as string)),
+        )
+      )
+        throw new Error("Invalid battlefield in save.");
+      // Everybody on the board or nobody: a fight with one combatant standing nowhere could answer
+      // nothing about distance, and the resolver builds one only when it can place them all.
+      const placed = state.rulesetFight!.encounter.combatants.filter(
+        (combatant) => typeof combatant.x === "number" || typeof combatant.y === "number",
+      );
+      if (placed.length !== state.rulesetFight!.encounter.combatants.length) throw new Error("Invalid saved position.");
+      for (const combatant of placed) {
+        if (
+          !Number.isInteger(combatant.x) ||
+          !Number.isInteger(combatant.y) ||
+          combatant.x! < 0 ||
+          combatant.y! < 0 ||
+          combatant.x! >= grid.width ||
+          combatant.y! >= grid.height
+        )
+          throw new Error("Invalid saved position.");
+      }
+      // The resolver never puts anybody inside something solid, so a save that says otherwise was
+      // not written by it and every distance read off it would be wrong. Two on one cell is NOT
+      // refused: a walk may end on a fallen body, and healing that body stands two people on one
+      // square, which is the resolver's own doing.
+      for (const combatant of placed) {
+        if (rulesetCellBlocked(grid, combatant.x!, combatant.y!)) throw new Error("Invalid saved position.");
+      }
+    } else if (
+      // A fight with no board has no cells to stand in, so a saved combatant carrying EITHER
+      // coordinate at all, whatever it holds, was not written by the resolver.
+      state.rulesetFight?.encounter.combatants.some(
+        (combatant) => Object.hasOwn(combatant, "x") || Object.hasOwn(combatant, "y"),
+      )
+    ) {
+      throw new Error("Invalid saved position.");
+    }
     if (state.tactical) {
       combatWeatherSchema.optional().parse(state.tactical.weather);
       if (
@@ -476,6 +537,9 @@ export async function combatDirectorRoutes(
         environment: z.string().max(80).optional(),
         formation: z.string().max(80).optional(),
         battlefield: z.unknown().optional(),
+        /** Whether a ruleset fight is fought on a board, which is what the game's Tactical combat
+         *  preference asks for. The ruleset still has to say what a cell is worth. */
+        positioned: z.boolean().optional(),
         mechanics: z
           .array(
             z.object({
@@ -587,6 +651,10 @@ export async function combatDirectorRoutes(
           const built = createRulesetFight({
             definition,
             seed: battlefield.seed,
+            positioned: input.positioned === true,
+            environment: input.environment ?? null,
+            formation: input.formation ?? null,
+            ...(battlefield.battlefield ? { battlefield: battlefield.battlefield } : {}),
             party: input.party.map((member) => ({ id: member.id, name: member.name })),
             enemies: input.enemies.map((enemy) => ({
               id: enemy.id,

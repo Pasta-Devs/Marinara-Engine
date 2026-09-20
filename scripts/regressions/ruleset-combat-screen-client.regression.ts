@@ -22,6 +22,8 @@ import {
   createRulesetEncounter,
   parseRulesetDefinition,
   rowsFromCatalogEntry,
+  rulesetAimCells,
+  rulesetCombatHealth,
   rulesetCombatOptions,
   rulesetEncounterSummary,
   rulesetOptionTargets,
@@ -38,6 +40,10 @@ import {
   type RulesetEncounterState,
   type RulesetSheetBuild,
   type RulesetStatBlock,
+  type TacticalGrid,
+  type TacticalTerrain,
+  RULESET_MOVE_OPTION,
+  RULESET_STAND_OPTION,
 } from "../../packages/shared/src/index.js";
 import {
   rulesetCombatEventLine,
@@ -46,6 +52,18 @@ import {
   rulesetRefusalText,
   rulesetValueLabel,
 } from "../../packages/client/src/lib/ruleset-combat-log.js";
+import {
+  rulesetBoardCells,
+  rulesetCellKey,
+  rulesetCellSentences,
+  rulesetDistanceText,
+  rulesetHealthPercent,
+  rulesetNothingInReach,
+  rulesetOptionHasAim,
+  rulesetOptionNeedsAim,
+  rulesetOptionNeedsCell,
+  rulesetPathTo,
+} from "../../packages/client/src/lib/ruleset-combat-board.js";
 import {
   RULESET_MENU_KINDS,
   rulesetDefaultTargets,
@@ -56,6 +74,7 @@ import {
   rulesetOptionNeedsTargets,
   rulesetPickTarget,
   rulesetSendsOnPick,
+  type RulesetMenuStep,
 } from "../../packages/client/src/lib/ruleset-combat-menu.js";
 import {
   isRulesetCombatFight,
@@ -92,6 +111,8 @@ const keyPattern = /"((?:game\.combat\.ruleset|game\.ruleset\.(?:setup|import))\
 const sources = [
   "packages/client/src/lib/ruleset-combat-log.ts",
   "packages/client/src/lib/ruleset-combat-menu.ts",
+  "packages/client/src/lib/ruleset-combat-board.ts",
+  "packages/client/src/components/game/RulesetCombatBoard.tsx",
   "packages/client/src/components/game/RulesetCombatMenu.tsx",
   "packages/client/src/components/game/RulesetCombatStatus.tsx",
   "packages/client/src/components/game/GameSetupRulesChooser.tsx",
@@ -106,6 +127,9 @@ for (const key of [
   "game.ruleset.setup.combatOwnRules",
   "game.ruleset.import.combatOwnRules",
   "game.combat.ruleset.preferenceIgnored",
+  "game.combat.ruleset.preferencePositions",
+  "game.combat.ruleset.board.nothingInReach",
+  "game.combat.ruleset.status.movement",
 ]) {
   assert.ok(referenced.has(key), `the screen no longer asks for ${key}`);
 }
@@ -218,39 +242,130 @@ const lurker = (block: Partial<RulesetStatBlock> = {}): RulesetCombatantInput =>
   },
 });
 
-/** A view of exactly the shape the server sends, for the parts a line or a panel reads. */
-const viewOf = (state: RulesetEncounterState, events: DirectedRulesetEvent[] = []): DirectedRulesetView => ({
-  ruleset: { ...state.ruleset },
-  round: state.round,
-  order: [...state.order],
-  controller: "manual",
-  combatants: state.combatants.map((combatant) => ({
-    id: combatant.id,
-    name: combatant.name,
-    side: combatant.side,
-    initiative: combatant.initiative,
-    health: { value: 0, max: 0, temp: 0 },
-    defense: combatant.defense,
-    conditions: [],
-    budgets: { ...combatant.budgets },
-    down: combatant.down,
-    dying: combatant.dying,
-    stable: combatant.stable,
-    defeated: combatant.defeated,
-  })),
-  events: events.map((event, index) => ({ seq: index + 1, event })),
-  adjustments: [],
+// ── Fixtures for the board ──
+//
+// A 5e caster whose spell lands as a shape, and an Ember Roads pair, so the same board code is
+// proven in feet and in paces.
+
+const fireballEntries = [
+  {
+    id: "fireball",
+    label: "Fireball",
+    rows: [{ list: "spells", values: { name: "Fireball", level: 3, prepared: true } }],
+    mechanics: {
+      kind: "attack",
+      amount: { dice: "8d6" },
+      damageType: "fire",
+      save: { save: "dex_save", onSuccess: "half" },
+      targetCount: 3,
+      range: 150,
+      area: { shape: "burst", size: 20 },
+      cost: [{ pool: "slots_3", amount: 1 }],
+    },
+  },
+] as unknown as RulesetCatalogEntry[];
+const fireballRows = fireballEntries.flatMap((entry) => rowsFromCatalogEntry("spells", entry).map((row) => row.row));
+
+const corwinWithFireball = (): RulesetCombatantInput => ({
+  id: "corwin",
+  name: "Corwin",
+  side: "party",
+  build: build({
+    abilities: { str: 8, dex: 14, con: 12, int: 18, wis: 12, cha: 10 },
+    saves: { int_save: "proficient", wis_save: "proficient" },
+    fields: { level: 7, ac: 12, speed: 30, hp_max: 38, spellcasting_ability: "int", slots_max_3: 3 },
+    lists: { spells: fireballRows },
+  }),
+  live: {},
+  catalogs: { spells: fireballEntries },
 });
 
-/** The menu exactly as the director builds it: every option with the ids it may be pointed at. */
+const juno = (): RulesetCombatantInput => ({
+  id: "juno",
+  name: "Juno",
+  side: "party",
+  build: build({
+    abilities: { brawn: 3, wits: 0, heart: 0 },
+    fields: { toughness: 6 },
+    lists: { gear: [{ name: "Road axe", swing: "brawn", damage: "1d6", harm: "cut" }] },
+  }),
+  live: {},
+  catalogs: {},
+});
+
+const rustJackal = (): RulesetCombatantInput => ({
+  id: "jackal",
+  name: "Rust jackal",
+  side: "enemy",
+  block: {
+    health: 10,
+    defense: 6,
+    initiativeModifier: 1,
+    speed: 16,
+    actions: [{ id: "bite", name: "Bite", budget: "act", toHit: 1, damage: { count: 1, sides: 4, flat: 1 } }],
+  },
+});
+
+/** A view of exactly the shape the server sends, for the parts a line or a panel reads. A
+ *  positioned fight is projected exactly as `directedRulesetView` projects one: the grid with the
+ *  ruleset's own cell size, and everybody's cell and allowance. */
+const viewOf = (
+  state: RulesetEncounterState,
+  events: DirectedRulesetEvent[] = [],
+  board?: { definition: RulesetDefinition; actorId?: string },
+): DirectedRulesetView => {
+  const grid = board ? state.board?.grid : undefined;
+  const distance = board?.definition.combat?.distance;
+  return {
+    ruleset: { ...state.ruleset },
+    round: state.round,
+    order: [...state.order],
+    controller: "manual",
+    ...(grid && distance
+      ? { grid: { width: grid.width, height: grid.height, tiles: grid.tiles.map((row) => [...row]), distance } }
+      : {}),
+    ...(board?.actorId ? { actorId: board.actorId } : {}),
+    combatants: state.combatants.map((combatant) => ({
+      id: combatant.id,
+      name: combatant.name,
+      side: combatant.side,
+      initiative: combatant.initiative,
+      // The real numbers wherever the fixture knows the ruleset, as the server's projection reads them.
+      health: board?.definition.combat
+        ? rulesetCombatHealth(board.definition, board.definition.combat, combatant)
+        : { value: 0, max: 0, temp: 0 },
+      defense: combatant.defense,
+      conditions: [],
+      budgets: { ...combatant.budgets },
+      down: combatant.down,
+      dying: combatant.dying,
+      stable: combatant.stable,
+      defeated: combatant.defeated,
+      ...(typeof combatant.x === "number" && typeof combatant.y === "number" ? { x: combatant.x, y: combatant.y } : {}),
+      ...(combatant.movement !== undefined
+        ? { movement: combatant.movement, movementLeft: combatant.movementLeft ?? 0 }
+        : {}),
+    })),
+    ...(board?.actorId ? { options: menuOf(board.definition, state, board.actorId) } : {}),
+    events: events.map((event, index) => ({ seq: index + 1, event })),
+    adjustments: [],
+  };
+};
+
+/** The menu exactly as the director builds it: every option with the ids it may be pointed at, and,
+ *  for a shape, the cells it may be aimed at with everybody each aim would catch. */
 const menuOf = (definition: RulesetDefinition, state: RulesetEncounterState, actorId: string) =>
-  rulesetCombatOptions(definition, state, actorId).map((option) => ({
-    ...option,
-    targetIds: rulesetOptionTargets(state, actorId, option),
-  })) satisfies DirectedRulesetOption[];
+  rulesetCombatOptions(definition, state, actorId).map((option) => {
+    const aim = option.area ? rulesetAimCells(state, actorId, option.id) : [];
+    return {
+      ...option,
+      targetIds: rulesetOptionTargets(state, actorId, option),
+      ...(aim.length > 0 ? { aim } : {}),
+    };
+  }) satisfies DirectedRulesetOption[];
 
 const line = (definition: RulesetDefinition, state: RulesetEncounterState, event: DirectedRulesetEvent) =>
-  rulesetCombatEventLine(event, rulesetCombatNames(definition, viewOf(state)), t);
+  rulesetCombatEventLine(event, rulesetCombatNames(definition, viewOf(state), t), t);
 
 // ── A real 5e fight: a d20 against AC, and the arithmetic printed ──
 
@@ -282,7 +397,7 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     { actorId: "brenna", optionId: sword.id, targetIds: ["lurker"] },
     dice(17, 5),
   );
-  const names = rulesetCombatNames(fiveE, viewOf(swing.state));
+  const names = rulesetCombatNames(fiveE, viewOf(swing.state), t);
   const printed = rulesetCombatLogLines(
     swing.events.map((event, index) => ({ seq: index + 1, event: event as DirectedRulesetEvent })),
     names,
@@ -353,7 +468,7 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     { actorId: "juno", optionId: axe.id, targetIds: ["ash"] },
     dice(4, 3, 5),
   );
-  const names = rulesetCombatNames(ember, viewOf(swing.state));
+  const names = rulesetCombatNames(ember, viewOf(swing.state), t);
   const printed = swing.events.flatMap((event) => {
     const text = rulesetCombatEventLine(event as DirectedRulesetEvent, names, t);
     return text ? [text] : [];
@@ -495,6 +610,44 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     ["outcome", say({ type: "outcome", outcome: "victory" })],
     ["refused", say({ type: "refused", actorId: "brenna", optionId: "sword", reason: "no-budget" })],
     ["director", say({ type: "director", reason: "ruleset-unavailable", text: "The rules are gone." })],
+    // The four a fight on a board adds. The board itself is a later slice; the lines are here so a
+    // positioned fight reads as a fight rather than as a gap in the log.
+    [
+      "move",
+      say({
+        type: "move",
+        actorId: "brenna",
+        from: { x: 1, y: 2 },
+        to: { x: 4, y: 2 },
+        path: [
+          { x: 2, y: 2 },
+          { x: 3, y: 2 },
+          { x: 4, y: 2 },
+        ],
+        cost: 3,
+        left: 3,
+      }),
+    ],
+    [
+      "opportunity",
+      say({ type: "opportunity", actorId: "lurker", targetId: "brenna", label: "Barbed claw", budget: "reaction" }),
+    ],
+    ["cover", say({ type: "cover", targetId: "lurker", bonus: 2, defense: 15 })],
+    [
+      "area",
+      say({
+        type: "area",
+        actorId: "corwin",
+        optionId: "fireball",
+        label: "Fireball",
+        at: { x: 5, y: 3 },
+        cells: [
+          { x: 4, y: 3 },
+          { x: 5, y: 3 },
+          { x: 6, y: 3 },
+        ],
+      }),
+    ],
   ];
   const printed = new Map(table);
   for (const [type, text] of table) {
@@ -531,6 +684,36 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   assert.equal(printed.get("outcome"), "The fight is won.");
   assert.equal(printed.get("refused"), "Brenna could not do that: They have nothing left to spend on it this turn.");
   assert.equal(printed.get("director"), "The fight stopped here: The rules are gone.");
+  assert.equal(printed.get("move"), "Brenna moves to 4, 2 for 3 and has 3 left.");
+  assert.equal(printed.get("opportunity"), "Thorn Lurker strikes at Brenna with Barbed claw as they move away.");
+  assert.equal(printed.get("cover"), "Thorn Lurker is under cover, which adds 2 for a defense of 15.");
+  assert.equal(printed.get("area"), "Corwin aims Fireball at 5, 3, covering 3 cells.");
+  // A walk that went nowhere is getting back up, and a walk cut short says so.
+  assert.equal(
+    line(fiveE, state, {
+      type: "move",
+      actorId: "brenna",
+      from: { x: 1, y: 2 },
+      to: { x: 1, y: 2 },
+      path: [],
+      cost: 3,
+      left: 3,
+    }),
+    "Brenna gets back up, which costs 3.",
+  );
+  assert.equal(
+    line(fiveE, state, {
+      type: "move",
+      actorId: "brenna",
+      from: { x: 1, y: 2 },
+      to: { x: 2, y: 2 },
+      path: [{ x: 2, y: 2 }],
+      cost: 1,
+      left: 5,
+      stopped: true,
+    }),
+    "Brenna is stopped at 2, 2.",
+  );
 
   // A fight that is still going says nothing, so nobody prints "ongoing" at a player.
   assert.equal(line(fiveE, state, { type: "outcome", outcome: "ongoing" }), null);
@@ -791,6 +974,391 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     "Still standing: Thorn Lurker (3/12)",
     "Sheets: the 5e (SRD 5.1) sheets were kept up to date while the fight ran, so every cost is already paid. Do not change those numbers again.",
   ]);
+}
+
+// ── The board: everything on it came off the view, and nothing was worked out here ──
+//
+// Proven on BOTH examples, because nothing on this screen is 5e shaped: 5e measures a cell in feet
+// and has strikes at somebody walking away, Ember Roads measures it in paces and has neither those
+// nor cover nor long shots, and the same code draws both.
+
+/** One character per cell, the same picture the shared grid lane draws its boards with. */
+const TERRAIN: Record<string, TacticalTerrain> = { ".": "plains", ",": "forest", "#": "wall", "~": "water" };
+function drawn(...rows: string[]): TacticalGrid {
+  const tiles = rows.map((row) => [...row].map((glyph) => TERRAIN[glyph] ?? assert.fail(`no terrain "${glyph}"`)));
+  const width = tiles[0]!.length;
+  for (const row of tiles) assert.equal(row.length, width, "every row of a drawn board is the same width");
+  return { width, height: tiles.length, tiles };
+}
+
+{
+  // A count of cells in the ruleset's own distance, which is the one number this screen turns into
+  // another. Five feet a cell and two paces a cell, out of the files themselves.
+  const feet = fiveE.combat!.distance!;
+  const paces = ember.combat!.distance!;
+  assert.deepEqual(feet, { label: "ft", perCell: 5 });
+  assert.deepEqual(paces, { label: "paces", perCell: 2 });
+  assert.equal(rulesetDistanceText(6, feet, t), "30 ft");
+  assert.equal(rulesetDistanceText(1, feet, t), "5 ft");
+  assert.equal(rulesetDistanceText(4, paces, t), "8 paces");
+  assert.equal(rulesetDistanceText(0, paces, t), "0 paces");
+  // A fight with no board has no unit to say it in, so the count is printed as it stands rather
+  // than in a unit this screen picked.
+  assert.equal(rulesetDistanceText(3, undefined, t), "3");
+
+  assert.equal(rulesetHealthPercent({ value: 5, max: 10 }), 50);
+  assert.equal(rulesetHealthPercent({ value: 0, max: 0 }), 0, "nothing to be a share of is an empty bar");
+  assert.equal(rulesetHealthPercent({ value: 99, max: 10 }), 100, "and a bar never runs past its end");
+}
+
+// ── 5e, in feet: the squares, the walk, the strike it would be met by, and the target ──
+{
+  //  0 1 2 3 4 5 6
+  // ". . . . . . ."   Brenna at 0,1 walks toward the Lurker at 6,1
+  // ". . # # . . ."   two walls in the middle, and forest that costs two to step onto
+  // ". , . . . . ."
+  const grid = drawn(".......", "..##...", ".,.....");
+  const state = createRulesetEncounter({
+    definition: fiveE,
+    seed: 5,
+    combatants: [brenna, lurker({ health: 30 })],
+    board: { grid, placements: { brenna: { x: 0, y: 1 }, lurker: { x: 6, y: 1 } } },
+    roller: dice(16, 2),
+  });
+  assert.equal(state.order[0], "brenna", "she rolled highest, so the menu below is hers");
+  const view = viewOf(state, [], { definition: fiveE, actorId: "brenna" });
+  assert.deepEqual(view.grid?.distance, { label: "ft", perCell: 5 });
+
+  // Every square of the board, in reading order, with the terrain and who stands on it. None of it
+  // was measured here: the terrain is the grid's and the cells are the combatants' own.
+  const plain = rulesetBoardCells(view, null);
+  assert.equal(plain.length, 21, "seven by three squares");
+  assert.deepEqual(
+    plain.map((cell) => rulesetCellKey(cell)).slice(0, 3),
+    ["0,0", "1,0", "2,0"],
+    "reading order, row by row",
+  );
+  const at = (cells: typeof plain, x: number, y: number) => cells.find((cell) => cell.x === x && cell.y === y)!;
+  assert.equal(at(plain, 2, 1).terrain, "wall");
+  assert.equal(at(plain, 2, 1).solid, true, "a wall is drawn solid");
+  assert.equal(at(plain, 1, 2).terrain, "forest");
+  assert.equal(at(plain, 1, 2).solid, false, "rough ground is not solid, it is just dearer");
+  assert.equal(at(plain, 0, 1).occupant?.name, "Brenna");
+  assert.equal(at(plain, 6, 1).occupant?.name, "Thorn Lurker");
+  assert.equal(at(plain, 3, 0).occupant, undefined);
+  // Outside a half-made choice nothing is highlighted: the board is information, not a command.
+  assert.ok(plain.every((cell) => !cell.reach && !cell.targetable && !cell.aim));
+  // A view with no grid is no board at all, whatever else it carries.
+  assert.deepEqual(rulesetBoardCells(viewOf(state), null), []);
+
+  const menu = view.options!;
+  const walk = menu.find((option) => option.id === RULESET_MOVE_OPTION)!;
+  assert.ok(walk, "a positioned menu offers the walk");
+  assert.equal(walk.kind, "move");
+  assert.ok(rulesetOptionNeedsCell(walk), "and taking it asks for a square");
+  assert.ok(!rulesetOptionNeedsAim(walk));
+  assert.equal(rulesetOptionLabel(walk, t), "Move", "the Engine's own word, never the id");
+  // The two moves a board adds are told apart by the ids the resolver exports, never by spelling.
+  assert.equal(
+    rulesetOptionLabel({ ...walk, id: RULESET_STAND_OPTION, movementCost: 3, cells: undefined }, t),
+    "Stand up",
+  );
+  assert.equal(
+    rulesetOptionLabel({ ...walk, id: "something-else" }, t),
+    walk.label,
+    "a move this Engine has no word for prints the one the resolver sent",
+  );
+  // Getting back up is priced in the ruleset's own distance, and is sent without a square.
+  const stand: DirectedRulesetOption = { ...walk, id: RULESET_STAND_OPTION, cells: undefined, movementCost: 3 };
+  assert.equal(
+    rulesetOptionCostText(stand, () => "", t, view.grid!.distance),
+    "Costs 15 ft",
+  );
+  assert.ok(!rulesetOptionNeedsCell(stand), "it goes nowhere, so nothing is picked on the board");
+
+  // Walking: the cells the server offered, each with its cost and the way it got there.
+  const step: RulesetMenuStep = { stage: "move", option: walk, targets: [] };
+  const walking = rulesetBoardCells(view, step);
+  const offered = new Set(walk.cells!.map((cell) => rulesetCellKey(cell)));
+  assert.deepEqual(
+    new Set(walking.filter((cell) => cell.reach).map((cell) => rulesetCellKey(cell))),
+    offered,
+    "exactly the squares the server offered, and no others",
+  );
+  assert.ok(!at(walking, 2, 1).reach, "a wall is never offered");
+  assert.equal(at(walking, 1, 1).reach?.cost, 1, "one square of plains costs one");
+  assert.equal(at(walking, 1, 2).reach?.cost, 2, "and the forest beside it costs two");
+  // The way there, drawn on hover, is the server's own path and stops at the square asked about.
+  const path = rulesetPathTo(step, { x: 3, y: 0 });
+  assert.ok(path.length > 0, "a square that was offered carries the way to it");
+  assert.deepEqual(path.at(-1), { x: 3, y: 0 }, "and the way ends where it was going");
+  assert.deepEqual(rulesetPathTo(step, { x: 2, y: 1 }), [], "a square nobody offered has no way to it");
+  assert.deepEqual(rulesetPathTo(null, { x: 1, y: 1 }), [], "and neither has any square without a step");
+
+  // Nobody can be swung at from where she stands, and the board says so out loud rather than
+  // offering an attack that can be pointed at nobody.
+  const sword = menu.find((option) => option.label === "Longsword")!;
+  assert.deepEqual(sword.targetIds, [], "six squares away is further than a sword reaches");
+  assert.equal(rulesetNothingInReach(view), true);
+  // A fight with no board never says it, and neither does one whose opponents are all down.
+  assert.equal(rulesetNothingInReach(viewOf(state)), false);
+  assert.equal(
+    rulesetNothingInReach({
+      ...view,
+      combatants: view.combatants.map((combatant) =>
+        combatant.side === "enemy" ? { ...combatant, defeated: true } : combatant,
+      ),
+    }),
+    false,
+    "with the other side out of the fight there is nothing to be out of reach of",
+  );
+
+  // Walk up to it, and the same code says the opposite.
+  const closed = applyRulesetCombatChoice(
+    fiveE,
+    state,
+    { actorId: "brenna", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 5, y: 1 } },
+    dice(),
+  );
+  const near = viewOf(closed.state, [], { definition: fiveE, actorId: "brenna" });
+  const nearSword = near.options!.find((option) => option.label === "Longsword")!;
+  assert.deepEqual(nearSword.targetIds, ["lurker"], "the square next to it is within a sword's reach");
+  assert.equal(rulesetNothingInReach(near), false);
+  // Choosing it marks the square the target stands on, and nothing else.
+  const aiming: RulesetMenuStep = { stage: "target", option: nearSword, targets: [] };
+  const targeted = rulesetBoardCells(near, aiming);
+  assert.deepEqual(
+    targeted.filter((cell) => cell.targetable).map((cell) => rulesetCellKey(cell)),
+    ["6,1"],
+  );
+  assert.equal(at(targeted, 6, 1).occupant?.id, "lurker");
+
+  // What one square says, in whole sentences, out of the shipped English catalog.
+  assert.equal(
+    rulesetCellSentences(at(plain, 2, 1), view, t).join(" "),
+    "Wall. Solid. Nothing can walk into it or see through it.",
+  );
+  assert.equal(
+    rulesetCellSentences(at(plain, 0, 1), view, t).join(" "),
+    "Plains. Brenna stands here, health 60 of 60. On turn.",
+    "the numbers are the view's own, read off her sheet as the server reads them",
+  );
+  assert.equal(
+    rulesetCellSentences(at(walking, 1, 2), view, t).join(" "),
+    "Forest. Can be walked to for 10 ft.",
+    "and what it costs is said in the ruleset's own distance",
+  );
+  assert.equal(
+    rulesetCellSentences(at(targeted, 6, 1), near, t).join(" "),
+    "Plains. Thorn Lurker stands here, health 30 of 30. Can be chosen as a target.",
+  );
+  // Stepping back out of its reach is a walk somebody strikes at, and the square says who.
+  const back = near.options!.find((option) => option.id === RULESET_MOVE_OPTION);
+  assert.ok(back, "a square of movement is left after walking five");
+  const risky = rulesetBoardCells(near, { stage: "move", option: back, targets: [] }).find(
+    (cell) => (cell.reach?.provokes.length ?? 0) > 0,
+  );
+  assert.ok(risky, "leaving the reach of a standing opponent is marked on the square");
+  assert.match(rulesetCellSentences(risky, near, t).join(" "), /Walking here draws a strike from Thorn Lurker\.$/u);
+  // Whoever is up is said out loud, so a screen reader is told where the turn is.
+  const onTurn = rulesetBoardCells(near, null).find((cell) => cell.occupant?.id === "brenna")!;
+  assert.ok(rulesetCellSentences(onTurn, near, t).includes("On turn."));
+}
+
+// ── Ember Roads, in paces: the same code, a different unit, and no strikes at all ──
+{
+  const grid = drawn("......", "......", "......");
+  const state = createRulesetEncounter({
+    definition: ember,
+    seed: 7,
+    combatants: [juno(), rustJackal()],
+    board: { grid, placements: { juno: { x: 0, y: 1 }, jackal: { x: 5, y: 1 } } },
+    roller: dice(4, 5, 3, 2),
+  });
+  const actorId = state.order[0]!;
+  const view = viewOf(state, [], { definition: ember, actorId });
+  assert.deepEqual(view.grid?.distance, { label: "paces", perCell: 2 });
+  // Ember Roads gives everybody the same constant movement, so whoever acts first can walk.
+  const walk = view.options!.find((option) => option.id === RULESET_MOVE_OPTION);
+  assert.ok(walk, "whoever is up on Ember Roads is offered a walk");
+  const cells = rulesetBoardCells(view, { stage: "move", option: walk, targets: [] });
+  const some = cells.find((cell) => cell.reach);
+  assert.ok(some, "and at least one square can be walked to");
+  assert.match(
+    rulesetCellSentences(some, view, t).join(" "),
+    /Can be walked to for \d+ paces\.$/u,
+    "Ember Roads walks in paces, and the very same code says so",
+  );
+  // Ember Roads declares no `opportunity`, so no square on it is ever walked through a swing.
+  assert.ok(
+    cells.every((cell) => (cell.reach?.provokes.length ?? 0) === 0),
+    "a ruleset with no strike at somebody walking away marks no square as provoking one",
+  );
+}
+
+// ── Aiming a shape: the cells are the server's, and so is everybody they catch ──
+{
+  const grid = drawn("........", "........", "........");
+  const state = createRulesetEncounter({
+    definition: fiveE,
+    seed: 13,
+    combatants: [corwinWithFireball(), lurker({ health: 30 }), lurker({ health: 30 })].map((entry, index) =>
+      index === 2 ? { ...entry, id: "lurker2", name: "Second Lurker" } : entry,
+    ),
+    board: {
+      grid,
+      placements: { corwin: { x: 0, y: 1 }, lurker: { x: 5, y: 1 }, lurker2: { x: 6, y: 1 } },
+    },
+    roller: dice(18, 3, 2),
+  });
+  const view = viewOf(state, [], { definition: fiveE, actorId: "corwin" });
+  const shape = view.options!.find((option) => !!option.area);
+  assert.ok(shape, "the wizard's shaped spell is on the menu");
+  assert.ok(rulesetOptionNeedsAim(shape!), "and taking it asks for a square rather than a name");
+  assert.ok(!rulesetOptionNeedsCell(shape!));
+  assert.deepEqual(shape!.targetIds, [], "a shape names nobody: the cells decide who it catches");
+  const step: RulesetMenuStep = { stage: "aim", option: shape!, targets: [] };
+  const cells = rulesetBoardCells(view, step);
+  const aimable = cells.filter((cell) => cell.aim);
+  assert.ok(aimable.length > 0, "there is somewhere to aim it");
+  assert.deepEqual(
+    new Set(aimable.map((cell) => rulesetCellKey(cell))),
+    new Set(shape!.aim!.map((entry) => rulesetCellKey(entry))),
+    "exactly the squares the server offered, and no shape invented here",
+  );
+  const both = aimable.find(
+    (cell) => cell.aim!.targetIds.includes("lurker") && cell.aim!.targetIds.includes("lurker2"),
+  );
+  assert.ok(both, "one aim catches both of them");
+  assert.match(
+    rulesetCellSentences(both!, view, t).join(" "),
+    /Can be aimed at, catching [^.]*Thorn Lurker[^.]*Second Lurker\.$/u,
+    "and it names who, in the order the server sent",
+  );
+  // A friend caught by it is named exactly as an opponent is, because a shape does not care.
+  const friendlyFire = aimable.find((cell) => cell.aim!.targetIds.includes("corwin"));
+  assert.ok(friendlyFire, "a shape this wide catches the caster's own side too");
+  assert.match(
+    rulesetCellSentences(friendlyFire!, view, t).join(" "),
+    /Can be aimed at, catching [^.]*Corwin[^.]*\.$/u,
+    "and the board says so before it is confirmed",
+  );
+  const alone = aimable.find((cell) => cell.aim!.targetIds.length === 1)!;
+  assert.ok(alone, "and an aim at the edge catches one of them");
+  // An empty aim still says what it would do, rather than saying nothing.
+  assert.match(
+    rulesetCellSentences({ ...alone, aim: { targetIds: [] } }, view, t).join(" "),
+    /Can be aimed at, catching nobody\.$/u,
+  );
+  // An id the fight no longer holds is left out rather than printed as a gap.
+  assert.match(
+    rulesetCellSentences({ ...alone, aim: { targetIds: ["lurker", "ghost"] } }, view, t).join(" "),
+    /catching Thorn Lurker\.$/u,
+  );
+  // A shape with nowhere to land is STILL an aiming step: the server refuses a shape sent with no
+  // square, so the step opens, lights nothing up and says so, rather than sending a choice that fails.
+  const nowhere = { ...shape!, aim: undefined };
+  assert.ok(rulesetOptionNeedsAim(nowhere));
+  assert.ok(!rulesetOptionHasAim(nowhere));
+  assert.ok(rulesetOptionHasAim(shape!));
+  assert.ok(
+    rulesetBoardCells(view, { stage: "aim", option: nowhere, targets: [] }).every((cell) => !cell.aim),
+    "and no square is offered",
+  );
+  assert.equal(
+    t("game.combat.ruleset.board.aimNobody", { label: "Fireball" }),
+    "Fireball would catch nobody from here. Move closer, or go back.",
+  );
+}
+
+// ── The menu groups, the movement group first ──
+{
+  assert.deepEqual([...RULESET_MENU_KINDS], ["move", "attack", "ability", "block", "standard", "end-turn"]);
+  const grid = drawn(".....", ".....");
+  const state = createRulesetEncounter({
+    definition: fiveE,
+    seed: 21,
+    combatants: [brenna, lurker({ health: 30 })],
+    board: { grid, placements: { brenna: { x: 0, y: 0 }, lurker: { x: 4, y: 1 } } },
+    roller: dice(19, 2),
+  });
+  const groups = rulesetMenuGroups(menuOf(fiveE, state, "brenna"));
+  assert.equal(groups[0]?.kind, "move", "where you go comes before what you swing");
+  assert.equal(groups[0]?.labelKey, "game.combat.ruleset.group.move");
+  assert.ok(messages[groups[0]!.labelKey], "en.json is missing the movement heading");
+  assert.equal(groups.at(-1)?.kind, "end-turn", "and ending the turn is still last");
+}
+
+// ── The four refusals a board adds, as sentences ──
+{
+  assert.equal(
+    rulesetRefusalText("ruleset_combat_unreachable", "The rules refused that choice.", t),
+    "They cannot walk to that square.",
+  );
+  assert.equal(
+    rulesetRefusalText("ruleset_combat_out-of-reach", "The rules refused that choice.", t),
+    "That is further off than this reaches.",
+  );
+  assert.equal(
+    rulesetRefusalText("ruleset_combat_no-line-of-sight", "The rules refused that choice.", t),
+    "Something solid stands in the way.",
+  );
+  assert.equal(
+    rulesetRefusalText("ruleset_combat_bad-cell", "The rules refused that choice.", t),
+    "That is not a square this can be aimed at.",
+  );
+}
+
+// ── The log says a walk in the ruleset's own distance, on both examples ──
+{
+  const grid = drawn("......", "......");
+  const state = createRulesetEncounter({
+    definition: fiveE,
+    seed: 31,
+    combatants: [brenna, lurker({ health: 30 })],
+    board: { grid, placements: { brenna: { x: 0, y: 0 }, lurker: { x: 5, y: 1 } } },
+    roller: dice(19, 2),
+  });
+  const feet = rulesetCombatNames(fiveE, viewOf(state, [], { definition: fiveE }), t);
+  const walked: DirectedRulesetEvent = {
+    type: "move",
+    actorId: "brenna",
+    from: { x: 0, y: 0 },
+    to: { x: 3, y: 0 },
+    path: [
+      { x: 1, y: 0 },
+      { x: 2, y: 0 },
+      { x: 3, y: 0 },
+    ],
+    cost: 3,
+    left: 3,
+  };
+  assert.equal(
+    rulesetCombatEventLine(walked, feet, t),
+    "Brenna moves to 3, 0 for 15 ft and has 15 ft left.",
+    "three squares is fifteen feet, because that is what the file says a square is worth",
+  );
+  assert.equal(
+    rulesetCombatEventLine({ ...walked, to: { x: 0, y: 0 }, path: [], cost: 3, left: 0 }, feet, t),
+    "Brenna gets back up, which costs 15 ft.",
+  );
+
+  const emberState = createRulesetEncounter({
+    definition: ember,
+    seed: 33,
+    combatants: [juno(), rustJackal()],
+    board: { grid, placements: { juno: { x: 0, y: 0 }, jackal: { x: 5, y: 1 } } },
+    roller: dice(4, 5, 3, 2),
+  });
+  const paces = rulesetCombatNames(ember, viewOf(emberState, [], { definition: ember }), t);
+  assert.equal(
+    rulesetCombatEventLine({ ...walked, actorId: "juno" }, paces, t),
+    "Juno moves to 3, 0 for 6 paces and has 6 paces left.",
+    "the very same event, in the unit the other ruleset chose",
+  );
+  // A fight with no board has no unit to say it in, and the line still prints.
+  const flat = rulesetCombatNames(fiveE, viewOf(state), t);
+  assert.equal(rulesetCombatEventLine(walked, flat, t), "Brenna moves to 3, 0 for 3 and has 3 left.");
 }
 
 console.log("ruleset-combat-screen-client regression passed");

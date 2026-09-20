@@ -30,6 +30,9 @@ export function useDirectedCombat(input: {
   environment?: string;
   formation?: string;
   battlefield?: TacticalBattlefieldBrief;
+  /** Whether a fight the ruleset resolves is fought on a board. Sent on the way in and never read
+   *  back: what is on screen follows the grid the server sends, not what was asked for. */
+  positioned?: boolean;
   mechanics?: CombatMechanic[];
   inventory?: Array<{ name: string; quantity: number }>;
   itemEffects?: CombatItemEffect[];

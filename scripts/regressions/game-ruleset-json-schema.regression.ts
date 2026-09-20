@@ -62,6 +62,20 @@ assert.equal(
     if (keys.length === 3 && ["dice", "flat", "type"].every((key) => keys.includes(key))) damageNodes.push(object);
     Object.values(node).forEach(walk);
   };
+  // The same for what a combat block measures in cells: the Engine refuses any of it in a block
+  // that does not say what a cell is worth, so the published schema asks for `distance` beside it.
+  const combatNode = schema.properties?.combat as {
+    dependencies?: Record<string, string[]>;
+    allOf?: Array<{ then?: { required?: string[] } }>;
+  };
+  for (const key of ["ranged", "cover", "opportunity"]) {
+    assert.deepEqual(combatNode.dependencies?.[key], ["distance"], `"${key}" asks the editor for a cell size`);
+  }
+  assert.ok(
+    combatNode.allOf?.some((rule) => rule.then?.required?.includes("distance")),
+    "and so does a weapon list that gives its rows a reach or a range",
+  );
+
   walk(schema);
   assert.ok(damageNodes.length > 0, "the schema describes a creature action's damage");
   for (const node of damageNodes) {

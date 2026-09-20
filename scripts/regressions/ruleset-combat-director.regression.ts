@@ -23,10 +23,14 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import {
+  currentRulesetActor,
   parseRulesetDefinition,
   rowsFromCatalogEntry,
+  RULESET_MOVE_OPTION,
   rulesetCombatant,
   rulesetCombatRoller,
+  rulesetCombatStanding,
+  rulesetReachableCells,
   rulesetSheetBuildSchema,
   type RulesetCatalogEntriesById,
   type RulesetLiveStates,
@@ -170,6 +174,9 @@ interface StartInput {
   seed?: number;
   gm?: boolean;
   live?: RulesetLiveStates | null;
+  /** Whether this fight is fought on a board, which is what the game's Tactical preference asks
+   *  for. The ruleset still has to say what a cell is worth. */
+  positioned?: boolean;
 }
 type Started = { ok: true; state: CombatDirectorState } | { ok: false; error: string };
 
@@ -177,6 +184,7 @@ function start(input: StartInput): Started {
   const built = createRulesetFight({
     definition: input.definition,
     seed: input.seed ?? 7,
+    ...(input.positioned ? { positioned: true } : {}),
     party: input.party,
     enemies: input.enemies,
     cards: input.cards,
@@ -837,6 +845,369 @@ for (const setup of [
   assert.deepEqual(Object.keys(live).sort(), ["brenna", "corwin"]);
 }
 
+// ── A fight on a board, from the same path the tactical style takes ──
+{
+  const state = started({
+    definition: fiveE,
+    cards: fiveECards,
+    partyCatalogs: spellCatalogs,
+    party: fiveEParty,
+    enemies: [{ id: "lurker", name: "Thorn Lurker" }],
+    positioned: true,
+  });
+  const projected = view(fiveE, state);
+  const grid = projected.grid;
+  assert.ok(grid, "a positioned fight sends its board");
+  assert.equal(grid.tiles.length, grid.height);
+  for (const row of grid.tiles) assert.equal(row.length, grid.width);
+  assert.deepEqual(grid.distance, { label: "ft", perCell: 5 }, "and what one cell of it is worth");
+  // The board sizes are the tactical style's own; nothing here has a generator of its own.
+  assert.ok(grid.width >= 12 && grid.width <= 14 && grid.height >= 8 && grid.height <= 10);
+  for (const combatant of projected.combatants) {
+    assert.equal(typeof combatant.x, "number", `${combatant.id} stands somewhere`);
+    assert.ok(combatant.x! >= 0 && combatant.x! < grid.width);
+    assert.ok(combatant.y! >= 0 && combatant.y! < grid.height);
+    // The party's own Speed field is thirty feet, which is six squares; an opponent's is whatever
+    // its own block says, in the same unit.
+    if (combatant.side === "party") assert.equal(combatant.movement, 6, "thirty feet at five a square");
+    else assert.ok(combatant.movement! >= 1, "and an opponent walks what its block says");
+    assert.equal(combatant.movementLeft, combatant.movement);
+  }
+  const cells = new Set(projected.combatants.map((combatant) => `${combatant.x},${combatant.y}`));
+  assert.equal(cells.size, projected.combatants.length, "and no two of them in the same cell");
+
+  // The menu the actor on turn is sent carries somewhere to walk.
+  const move = projected.options!.find((option) => option.id === RULESET_MOVE_OPTION);
+  assert.ok(move, "a positioned menu offers the walk");
+  assert.equal(move.kind, "move");
+  assert.ok(move.cells!.length > 0);
+  for (const cell of move.cells!) {
+    assert.ok(cell.cost >= 1 && cell.cost <= 6, "nothing beyond the allowance is offered");
+    assert.ok(!cells.has(`${cell.x},${cell.y}`), "and nowhere anybody is standing");
+  }
+
+  // A walk the menu offered is taken, and the view says where they ended up.
+  const step = move.cells![0]!;
+  const actorId = projected.actorId!;
+  assert.ok(
+    commandRulesetCombatDirector(fiveE, state, {
+      type: "ruleset",
+      optionId: RULESET_MOVE_OPTION,
+      targetIds: [],
+      to: { x: step.x, y: step.y },
+    }).ok,
+  );
+  const walked = view(fiveE, state);
+  const mover = walked.combatants.find((combatant) => combatant.id === actorId)!;
+  assert.equal(mover.x, step.x);
+  assert.equal(mover.y, step.y);
+  assert.equal(mover.movementLeft, 6 - step.cost);
+
+  // A cell the menu did not offer is refused with its own code, and changes nothing.
+  const before = JSON.stringify(state.rulesetFight);
+  const refused = commandRulesetCombatDirector(fiveE, state, {
+    type: "ruleset",
+    optionId: RULESET_MOVE_OPTION,
+    targetIds: [],
+    to: { x: 63, y: 63 },
+  });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.ok ? "" : refused.code, "ruleset_combat_unreachable");
+  assert.equal(JSON.stringify(state.rulesetFight), before, "a refusal changes nothing at all");
+
+  // And so is a target further away than the weapon reaches.
+  const actor = rulesetCombatant(state.rulesetFight!.encounter, actorId)!;
+  const foe = state.rulesetFight!.encounter.combatants.find((combatant) => combatant.side !== actor.side)!;
+  const away = Math.max(Math.abs(actor.x! - foe.x!), Math.abs(actor.y! - foe.y!));
+  if (away > 1) {
+    const swing = view(fiveE, state).options!.find((option) => option.kind === "attack");
+    if (swing) {
+      const outOfReach = commandRulesetCombatDirector(fiveE, state, {
+        type: "ruleset",
+        optionId: swing.id,
+        targetIds: [foe.id],
+      });
+      assert.equal(outOfReach.ok, false);
+      assert.equal(outOfReach.ok ? "" : outOfReach.code, "ruleset_combat_out-of-reach");
+    }
+  }
+
+  // The same fight without the board is the one it always was.
+  const flat = started({
+    definition: fiveE,
+    cards: fiveECards,
+    partyCatalogs: spellCatalogs,
+    party: fiveEParty,
+    enemies: [{ id: "lurker", name: "Thorn Lurker" }],
+  });
+  const flatView = view(fiveE, flat);
+  assert.equal(flatView.grid, undefined);
+  for (const combatant of flatView.combatants) {
+    assert.equal(combatant.x, undefined);
+    assert.equal(combatant.movementLeft, undefined);
+  }
+  assert.equal(
+    flatView.options!.some((option) => option.kind === "move"),
+    false,
+  );
+  // A ruleset that never says what a cell is worth ignores the request for a board.
+  const silent = parsedOrThrow(
+    variant(fiveEText, (doc) => {
+      for (const key of ["distance", "ranged", "cover", "opportunity"]) delete doc.combat[key];
+      for (const source of doc.combat.attacks ?? []) {
+        delete source.reach;
+        delete source.range;
+      }
+    }),
+    "a 5e draft that says nothing about cells",
+  );
+  const asked = started({
+    definition: silent,
+    cards: fiveECards,
+    partyCatalogs: spellCatalogs,
+    party: fiveEParty,
+    enemies: [{ id: "lurker", name: "Thorn Lurker" }],
+    positioned: true,
+  });
+  assert.equal(view(silent, asked).grid, undefined, "asking for a board does not conjure a cell size");
+}
+
+// ── The picker closes the distance, strikes, and always ends its turn ──
+{
+  /** Everybody played by the Engine, so `continue` resolves a whole turn at a time. */
+  const handOver = (definition: RulesetDefinition, state: CombatDirectorState, party: Array<{ id: string }>) => {
+    for (const member of party) {
+      commandRulesetCombatDirector(definition, state, { type: "control", unitId: member.id, controller: "ai" });
+    }
+  };
+  const runToTheEnd = (
+    definition: RulesetDefinition,
+    state: CombatDirectorState,
+    party: Array<{ id: string }>,
+    what: string,
+  ) => {
+    handOver(definition, state, party);
+    let turns = 0;
+    const seen: number[] = [];
+    while (!state.outcome && turns < 400) {
+      const round = state.rulesetFight!.encounter.round;
+      const before = state.rulesetFight!.eventSeq;
+      commandRulesetCombatDirector(definition, state, { type: "continue" });
+      // One walk, one strike from anybody: the strikes a walk draws are logged before its `move`
+      // event, so nobody may appear twice between two of those.
+      const strikers = new Set<string>();
+      for (const { seq, event } of state.rulesetFight!.events) {
+        if (seq <= before) continue;
+        if (event.type === "move") strikers.clear();
+        if (event.type !== "opportunity") continue;
+        assert.ok(!strikers.has(event.actorId), `${what}: ${event.actorId} struck twice at one passer-by`);
+        strikers.add(event.actorId);
+      }
+      seen.push(round);
+      turns++;
+    }
+    assert.ok(state.outcome, `${what} was supposed to finish, and stood on round ${seen.at(-1)} after ${turns} turns`);
+    assert.ok(
+      state.rulesetFight!.encounter.round <= 40,
+      `${what} finished, but took ${state.rulesetFight!.encounter.round} rounds`,
+    );
+    return state;
+  };
+
+  // ── The picker walks where its own menu lets it, and as far as it needs to ──
+  {
+    /** An open field with the two of them eleven cells apart (or five), whatever board was drawn. */
+    const field = (far: boolean) => {
+      const state = started({
+        definition: fiveE,
+        cards: fiveECards,
+        partyCatalogs: spellCatalogs,
+        party: [fiveEParty[0]!],
+        enemies: [{ id: "hound", name: "Cinder Hound" }],
+        seed: 19,
+        positioned: true,
+      });
+      const encounter = state.rulesetFight!.encounter;
+      const grid = encounter.board!.grid;
+      grid.tiles = grid.tiles.map((row) => row.map(() => "plains" as (typeof row)[number]));
+      const brenna = rulesetCombatant(encounter, "brenna")!;
+      const hound = rulesetCombatant(encounter, "hound")!;
+      Object.assign(brenna, { x: 0, y: 0 });
+      Object.assign(hound, { x: far ? 11 : 5, y: 0 });
+      return { state, encounter: () => state.rulesetFight!.encounter };
+    };
+    /** Plays up to and including the hound's next turn, and hands back what that turn logged. */
+    const houndsTurn = (state: CombatDirectorState) => {
+      for (let guard = 0; guard < 4; guard++) {
+        const now = state.rulesetFight!.encounter;
+        const actor = now.order[now.turn]!;
+        const seen = state.rulesetFight!.eventSeq;
+        if (actor === "brenna") {
+          assert.ok(
+            commandRulesetCombatDirector(fiveE, state, { type: "ruleset", optionId: "end-turn", targetIds: [] }).ok,
+          );
+          continue;
+        }
+        assert.ok(commandRulesetCombatDirector(fiveE, state, { type: "continue" }).ok);
+        return state.rulesetFight!.events.filter((entry) => entry.seq > seen).map((entry) => entry.event);
+      }
+      throw new Error("the hound never came up");
+    };
+
+    // Eleven cells away on open ground, with eight cells of movement: the only cells it can hurt the
+    // fighter from are the farthest it can walk to, nowhere near the cheapest, and it still finds them.
+    const far = field(true);
+    const closing = houndsTurn(far.state);
+    assert.ok(
+      closing.some((event) => event.type === "move" && event.actorId === "hound"),
+      "the hound crossed the field",
+    );
+    // With its bite or with its breath, whichever the picker liked better from where it could get
+    // to: either way the fighter was hurt or made to save on THIS turn.
+    const hurt = (events: typeof closing) =>
+      events.some(
+        (event) =>
+          (event.type === "attack" && event.actorId === "hound") ||
+          (event.type === "save" && event.sourceId === "hound") ||
+          (event.type === "damage" && event.sourceId === "hound"),
+      );
+    assert.ok(hurt(closing), "and used what it has on the same turn, instead of stopping three cells out");
+    assert.ok(!closing.some((event) => event.type === "refused"), "nothing it chose was refused");
+
+    // Knocked down five cells from the fighter: its menu offers standing up and no walk. It stands
+    // (half its movement), walks with the rest and breathes, rather than choosing a walk the rules
+    // refuse and losing the turn to the refusal, or lying where it fell for the rest of the fight.
+    const down = field(false);
+    rulesetCombatant(down.encounter(), "hound")!.tracked.push({ condition: "prone", rounds: null });
+    const rising = houndsTurn(down.state);
+    assert.ok(!rising.some((event) => event.type === "refused"), "a prone hound is never refused a walk");
+    assert.ok(
+      !rulesetCombatant(down.encounter(), "hound")!.tracked.some((entry) => entry.condition === "prone"),
+      "it got up",
+    );
+    assert.ok(hurt(rising), "and still fought on the same turn");
+  }
+
+  // ── With nobody it can reach this turn, it sprints closer rather than spending its action idly ──
+  for (const seed of [2, 5, 8, 13, 21, 34]) {
+    const state = started({
+      definition: fiveE,
+      cards: fiveECards,
+      partyCatalogs: spellCatalogs,
+      party: [fiveEParty[0]!],
+      enemies: [{ id: "lurker", name: "Thorn Lurker" }],
+      seed,
+      positioned: true,
+    });
+    const encounter = state.rulesetFight!.encounter;
+    const grid = encounter.board!.grid;
+    grid.tiles = grid.tiles.map((row) => row.map(() => "plains" as (typeof row)[number]));
+    Object.assign(rulesetCombatant(encounter, "brenna")!, { x: 0, y: 0 });
+    Object.assign(rulesetCombatant(encounter, "lurker")!, { x: grid.width - 1, y: 0 });
+    const allowance = rulesetCombatant(encounter, "lurker")!.movement!;
+    assert.ok(grid.width - 1 > allowance * 2 + 1, "the field is wider than a sprint, so nothing is in reach this turn");
+    for (let guard = 0; guard < 4; guard++) {
+      const now = state.rulesetFight!.encounter;
+      if (now.order[now.turn] === "lurker") break;
+      assert.ok(
+        commandRulesetCombatDirector(fiveE, state, { type: "ruleset", optionId: "end-turn", targetIds: [] }).ok,
+      );
+    }
+    const seen = state.rulesetFight!.eventSeq;
+    assert.ok(commandRulesetCombatDirector(fiveE, state, { type: "continue" }).ok);
+    const turn = state.rulesetFight!.events.filter((entry) => entry.seq > seen).map((entry) => entry.event);
+    const standards = turn.flatMap((event) =>
+      event.type === "standard" && event.actorId === "lurker" ? [event.action] : [],
+    );
+    assert.deepEqual(
+      standards,
+      ["dash"],
+      `seed ${seed}: the only standard action of a creature out of reach is the sprint`,
+    );
+    const walked = turn.reduce(
+      (sum, event) => sum + (event.type === "move" && event.actorId === "lurker" ? event.cost : 0),
+      0,
+    );
+    assert.equal(walked, allowance * 2, `seed ${seed}: and it walked its allowance twice over`);
+  }
+
+  // Seeded fights to the end, on both rulesets, on a board and off it.
+  for (const seed of [3, 11, 29, 47, 101]) {
+    runToTheEnd(
+      fiveE,
+      started({
+        definition: fiveE,
+        cards: fiveECards,
+        partyCatalogs: spellCatalogs,
+        party: fiveEParty,
+        enemies: [
+          { id: "lurker", name: "Thorn Lurker" },
+          { id: "hound", name: "Cinder Hound" },
+        ],
+        seed,
+        positioned: true,
+      }),
+      fiveEParty,
+      `a positioned 5e fight on seed ${seed}`,
+    );
+  }
+  for (const seed of [5, 13, 31]) {
+    runToTheEnd(
+      ember,
+      started({
+        definition: ember,
+        cards: emberCards,
+        partyCatalogs: emberCatalogs,
+        party: emberParty,
+        enemies: [
+          { id: "moth", name: "Cinder Moth" },
+          { id: "jackal", name: "Rust Jackal" },
+        ],
+        seed,
+        positioned: true,
+      }),
+      emberParty,
+      `a positioned Ember Roads fight on seed ${seed}`,
+    );
+  }
+
+  // Nobody ends a turn with movement left and an attack they could have reached: the picker walks
+  // to the trouble rather than standing in the open.
+  const state = started({
+    definition: fiveE,
+    cards: fiveECards,
+    partyCatalogs: spellCatalogs,
+    party: fiveEParty,
+    enemies: [{ id: "lurker", name: "Thorn Lurker" }],
+    seed: 19,
+    positioned: true,
+  });
+  handOver(fiveE, state, fiveEParty);
+  for (let turn = 0; turn < 12 && !state.outcome; turn++) {
+    const before = state.rulesetFight!.encounter;
+    const actorId = currentRulesetActor(before)?.id;
+    commandRulesetCombatDirector(fiveE, state, { type: "continue" });
+    if (!actorId) continue;
+    const after = rulesetCombatant(state.rulesetFight!.encounter, actorId);
+    if (!after || !rulesetCombatStanding(after)) continue;
+    // Their turn is over: whatever they could still have reached, they did not stand and watch.
+    const idle = (after.movementLeft ?? 0) > 0 && (after.budgets.action ?? 0) > 0;
+    if (!idle) continue;
+    const reachable = rulesetReachableCells(fiveE, state.rulesetFight!.encounter, actorId);
+    const foes = state.rulesetFight!.encounter.combatants.filter(
+      (combatant) => combatant.side !== after.side && rulesetCombatStanding(combatant),
+    );
+    const couldHaveStruck = reachable.some((cell) =>
+      foes.some((foe) => Math.max(Math.abs(cell.x - foe.x!), Math.abs(cell.y - foe.y!)) <= 1),
+    );
+    assert.equal(
+      couldHaveStruck,
+      false,
+      `${actorId} ended its turn with movement and an action left while somebody was within a step of a strike`,
+    );
+  }
+}
+
 console.log(
-  "Ruleset combat director: sheets, bestiaries, clamps, tiers, refusals, one turn per continue, the picker, summaries and a JSON round trip passed.",
+  "Ruleset combat director: sheets, bestiaries, clamps, tiers, refusals, one turn per continue, the picker, the board, summaries and a JSON round trip passed.",
 );

@@ -10,10 +10,25 @@ import {
   type RulesetSheetOp,
 } from "../rulesets/live-state.js";
 import { rulesetAverageAmount } from "./dice.js";
-import { currentRulesetActor, rulesetCombatant, rulesetCombatEffects, rulesetCombatStanding } from "./encounter.js";
+import {
+  currentRulesetActor,
+  rulesetCombatant,
+  rulesetCombatConditions,
+  rulesetCombatEffects,
+  rulesetCombatStanding,
+} from "./encounter.js";
+import {
+  rulesetAreaCells,
+  rulesetCellCover,
+  rulesetCellDistance,
+  rulesetLineOfSight,
+  rulesetPositionOf,
+  rulesetReachableCells,
+} from "./grid.js";
 import type {
   RulesetCombatAction,
   RulesetCombatant,
+  RulesetCombatCell,
   RulesetCombatOption,
   RulesetCombatRollMode,
   RulesetEncounterState,
@@ -22,6 +37,242 @@ import type {
 /** The budget a standard action spends: the first one the economy declares, which is the main one. */
 export function rulesetStandardBudget(combat: RulesetCombat): string {
   return combat.economy.budgets[0]!.id;
+}
+
+/** The one thing a fight with no board answers about distance: nothing at all. */
+function positioned(state: RulesetEncounterState): boolean {
+  return !!state.board?.grid;
+}
+
+/** How many cells one aim scan may look at: the area of the largest board a saved fight may hold. */
+const RULESET_AIM_SCAN_CEILING = 64 * 64;
+
+/** The two ids a positioned fight adds to the menu beside the actor's own actions. Written with a
+ *  colon, which no sheet id or stat block action id may hold, so a creature that really has an
+ *  action called "move" or "stand" can never be mistaken for walking. The same trick the standard
+ *  actions use (`standard:dodge`). */
+export const RULESET_MOVE_OPTION = "move:walk";
+export const RULESET_STAND_OPTION = "move:stand";
+
+/** What one option may be pointed at, in cells. `sight` is whether something solid between the two
+ *  of them stops it. Null when this fight measures nothing. */
+export interface RulesetOptionReach {
+  /** The furthest it may be pointed at all. */
+  max: number;
+  /** The distance beyond which a ruleset that declared `ranged` makes it harder. */
+  normal: number;
+  /** Whether it is a shot rather than a swing, which is what the ranged rules read. */
+  shot: boolean;
+  /** How far it still SWINGS, for something that both swings and is thrown: inside this it is a
+   *  swing whatever `shot` says, and the ranged rules do not read it. Zero for a pure shot. */
+  swing: number;
+}
+
+/** The actor's own action behind an option id, when the option is one of theirs. */
+function actionOf(actor: RulesetCombatant, optionId: string): RulesetCombatAction | undefined {
+  return actor.actions.find((entry) => entry.id === optionId);
+}
+
+/**
+ * How far this option reaches, in cells.
+ *
+ * An action that says nothing reaches the next cell, which is the smallest step a board has: the
+ * generic actions that touch somebody else read the same way. An action that carries rather than
+ * swings reaches its long distance when the ruleset gave it one, and the ordinary distance is what
+ * `combat.ranged` measures "too far" against.
+ */
+export function rulesetOptionReach(
+  state: RulesetEncounterState,
+  actorId: string,
+  optionId: string,
+): RulesetOptionReach | null {
+  if (!positioned(state)) return null;
+  const actor = rulesetCombatant(state, actorId);
+  if (!actor) return null;
+  const action = actionOf(actor, optionId);
+  if (!action) return { max: 1, normal: 1, shot: false, swing: 1 };
+  if (action.area) {
+    // An area is aimed at a cell rather than at anybody. With a distance of its own it may be sent
+    // that far off. With none, a BURST is centred on the actor, because a ball of fire with no range
+    // goes off where it is set down, while a cone or a line is aimed within its own size, because
+    // there the cell only says which way it points.
+    const carried = action.range?.long ?? action.range?.normal;
+    const max = carried ?? (action.area.shape === "burst" ? 0 : action.area.size);
+    // Only a shape with a distance of its own is SHOT: one that comes off the actor, a breath or a
+    // burst set down where they stand, is not made harder by a foe at their elbow.
+    return { max, normal: action.range?.normal ?? max, shot: !!action.range, swing: 0 };
+  }
+  if (action.range) {
+    // Something that carries a reach AS WELL is a thrown weapon: a swing in hand, a shot beyond.
+    const swing = action.reach !== undefined ? Math.max(1, action.reach) : 0;
+    return {
+      max: Math.max(action.range.long ?? action.range.normal, swing),
+      normal: action.range.normal,
+      shot: true,
+      swing,
+    };
+  }
+  const reach = Math.max(1, action.reach ?? 1);
+  return { max: reach, normal: reach, shot: false, swing: reach };
+}
+
+/** Why this combatant cannot be pointed at from where the actor stands, or null when they can.
+ *  Anything more than one cell away needs an unbroken line: this slice has no shooting round
+ *  corners and no reaching over a wall. */
+export function rulesetTargetRefusal(
+  state: RulesetEncounterState,
+  actorId: string,
+  optionId: string,
+  targetId: string,
+): "out-of-reach" | "no-line-of-sight" | null {
+  const reach = rulesetOptionReach(state, actorId, optionId);
+  if (!reach) return null;
+  const from = rulesetPositionOf(rulesetCombatant(state, actorId));
+  const to = rulesetPositionOf(rulesetCombatant(state, targetId));
+  const grid = state.board?.grid;
+  if (!from || !to || !grid) return null;
+  if (actorId === targetId) return null;
+  const away = rulesetCellDistance(from, to);
+  if (away > reach.max) return "out-of-reach";
+  if (away > 1 && !rulesetLineOfSight(grid, from, to)) return "no-line-of-sight";
+  return null;
+}
+
+/** Whether an area option may be aimed at this cell: on the board, within the distance it carries,
+ *  and with nothing solid in the way. Aiming at an empty patch of ground is perfectly legal and
+ *  simply catches nobody. */
+export function rulesetAimLegal(
+  state: RulesetEncounterState,
+  actorId: string,
+  optionId: string,
+  at: RulesetCombatCell,
+): boolean {
+  const grid = state.board?.grid;
+  const actor = rulesetCombatant(state, actorId);
+  const action = actor ? actionOf(actor, optionId) : undefined;
+  const from = rulesetPositionOf(actor);
+  const reach = rulesetOptionReach(state, actorId, optionId);
+  if (!grid || !action?.area || !from || !reach) return false;
+  if (!Number.isInteger(at.x) || !Number.isInteger(at.y)) return false;
+  if (at.x < 0 || at.y < 0 || at.x >= grid.width || at.y >= grid.height) return false;
+  return rulesetCellDistance(from, at) <= reach.max && rulesetLineOfSight(grid, from, at);
+}
+
+/** Where an area option may be aimed, and who each aim would catch. Empty for anything that is not
+ *  an area, and for every fight without a board. */
+export function rulesetAimCells(
+  state: RulesetEncounterState,
+  actorId: string,
+  optionId: string,
+  /** Stop after this many aims. A forecast only needs to know that ONE exists and whom it catches,
+   *  and scanning the rest of the board for it on every menu read is work nobody sees. */
+  limit = Infinity,
+): Array<{ x: number; y: number; targetIds: string[] }> {
+  const grid = state.board?.grid;
+  const from = rulesetPositionOf(rulesetCombatant(state, actorId));
+  const reach = rulesetOptionReach(state, actorId, optionId);
+  if (!grid || !from || !reach) return [];
+  const aims: Array<{ x: number; y: number; targetIds: string[] }> = [];
+  // Scanned over the BOARD, never over the range: a ruleset may declare a range of ten thousand
+  // units, and a loop that long would be a way to stall a server with one catalog entry.
+  const box = (around: RulesetCombatCell, radius: number) => ({
+    top: Math.max(0, around.y - radius),
+    bottom: Math.min(grid.height - 1, around.y + radius),
+    left: Math.max(0, around.x - radius),
+    right: Math.min(grid.width - 1, around.x + radius),
+  });
+  // A BALL only ever catches somebody standing within its own radius of where it lands, so the cells
+  // worth looking at are the ones around the people on the board, not every cell it could be thrown
+  // to: a long throw over a wide board is otherwise thousands of cells, every one of them drawing
+  // its whole shape. A cone and a line reach out from the ACTOR, so a cell next to them can catch
+  // somebody at the far end, and for those the cells to look at are the ones the aim may be sent to.
+  const shape = actionOf(rulesetCombatant(state, actorId)!, optionId)?.area;
+  const boxes =
+    shape?.shape === "burst"
+      ? state.combatants
+          // Anybody still in the fight, on their feet or on the ground: a shape that MENDS is set
+          // down on the ally who fell, and that cell has to be offered.
+          .filter((combatant) => !combatant.defeated && rulesetPositionOf(combatant))
+          .map((combatant) => box(rulesetPositionOf(combatant)!, shape.size))
+      : [box(from, reach.max)];
+  // And a ceiling on the cells looked at, whatever `limit` says: the largest board a save may hold
+  // is 64 by 64, so nothing legitimate is cut short, and nothing else can make this loop long.
+  let looked = 0;
+  const seen = new Set<string>();
+  for (const bounds of boxes) {
+    for (let y = bounds.top; y <= bounds.bottom; y++) {
+      for (let x = bounds.left; x <= bounds.right; x++) {
+        const key = `${x},${y}`;
+        // Two people standing close together share cells, and a cell is both looked at and offered
+        // once: a cell seen twice must not spend the ceiling, or a crowd could use it up before the
+        // cells further out are ever reached.
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (++looked > RULESET_AIM_SCAN_CEILING) return aims;
+        const at = { x, y };
+        if (!rulesetAimLegal(state, actorId, optionId, at)) continue;
+        const targetIds = rulesetAreaTargets(state, actorId, optionId, at);
+        // A cell the shape would catch nobody from is still somewhere it may be aimed, but it is not
+        // worth carrying to a screen or to a picker.
+        if (targetIds.length > 0) aims.push({ x, y, targetIds });
+        if (aims.length >= limit) return aims;
+      }
+    }
+  }
+  return aims;
+}
+
+/** Everybody standing in the cells an area aimed at this one would cover. Friend and foe alike,
+ *  unless the entry said its own side is left out. */
+export function rulesetAreaTargets(
+  state: RulesetEncounterState,
+  actorId: string,
+  optionId: string,
+  at: RulesetCombatCell,
+): string[] {
+  const grid = state.board?.grid;
+  const actor = rulesetCombatant(state, actorId);
+  const action = actor ? actionOf(actor, optionId) : undefined;
+  const from = rulesetPositionOf(actor);
+  if (!grid || !actor || !action?.area || !from) return [];
+  const covered = new Set(
+    rulesetAreaCells(action.area.shape, action.area.size, from, at, grid).map((cell) => `${cell.x},${cell.y}`),
+  );
+  return state.combatants
+    .filter((combatant) => {
+      if (combatant.defeated) return false;
+      if (action.area?.friendlyFire === false && combatant.side === actor.side) return false;
+      // Something that MENDS lands only on whom its author pointed it at. A blast catches everybody
+      // in its cells because fire does not ask; a healing word that also closed the enemy's wounds
+      // would be the rules being read by a machine rather than by a table.
+      if (action.heal) {
+        const sameSide = combatant.side === actor.side;
+        if (action.targets.side === "self" && combatant.id !== actor.id) return false;
+        if (action.targets.side === "ally" && !sameSide) return false;
+        if (action.targets.side === "enemy" && sameSide) return false;
+      }
+      const cell = rulesetPositionOf(combatant);
+      return !!cell && covered.has(`${cell.x},${cell.y}`);
+    })
+    .map((combatant) => combatant.id);
+}
+
+/**
+ * What an attack against this combatant is rolled against: their own defense, plus what the ground
+ * they stand on is worth when the ruleset says cover adds anything.
+ *
+ * One answer, so a forecast and the roll that follows it can never disagree about the number.
+ */
+export function rulesetDefenseAgainst(
+  combat: RulesetCombat,
+  state: RulesetEncounterState,
+  target: RulesetCombatant,
+): { defense: number; cover: number } {
+  const grid = state.board?.grid;
+  const at = rulesetPositionOf(target);
+  const bonus = combat.cover?.bonus ?? 0;
+  if (!grid || !at || bonus <= 0 || rulesetCellCover(grid, at) <= 0) return { defense: target.defense, cover: 0 };
+  return { defense: target.defense + bonus, cover: bonus };
 }
 
 export interface RulesetCombatCost {
@@ -154,21 +405,36 @@ export function rulesetOptionTargets(
 ): string[] {
   const actor = rulesetCombatant(state, actorId);
   if (!actor || option.targets.count <= 0) return [];
-  return state.combatants
-    .filter((combatant) => {
-      if (combatant.defeated) return false;
-      // Helping yourself is not help.
-      if (option.id === "standard:help" && combatant.id === actor.id) return false;
-      if (option.targets.side === "self") return combatant.id === actor.id;
-      if (option.targets.side === "ally") return combatant.side === actor.side;
-      if (option.targets.side === "enemy") return combatant.side !== actor.side;
-      return true;
-    })
-    .map((combatant) => combatant.id);
+  // An area is aimed at a CELL, so nobody is named: which combatants it catches follows from where
+  // it lands, and `rulesetAreaTargets` is the one place that answers it.
+  if (positioned(state) && actionOf(actor, option.id)?.area) return [];
+  return (
+    state.combatants
+      .filter((combatant) => {
+        if (combatant.defeated) return false;
+        // Helping yourself is not help.
+        if (option.id === "standard:help" && combatant.id === actor.id) return false;
+        if (option.targets.side === "self") return combatant.id === actor.id;
+        if (option.targets.side === "ally") return combatant.side === actor.side;
+        if (option.targets.side === "enemy") return combatant.side !== actor.side;
+        return true;
+      })
+      // And then how far away they are, which is nothing at all in a fight without a board.
+      .filter((combatant) => rulesetTargetRefusal(state, actor.id, option.id, combatant.id) === null)
+      .map((combatant) => combatant.id)
+  );
 }
 
 function firstTarget(state: RulesetEncounterState, actor: RulesetCombatant, action: RulesetCombatAction) {
   const id = rulesetOptionTargets(state, actor.id, { id: action.id, targets: action.targets })[0];
+  return id === undefined ? undefined : rulesetCombatant(state, id);
+}
+
+/** An area names nobody, so a forecast reads the first combatant any legal aim would catch. Without
+ *  it a shape that only ever lands on cells would promise no chance to hit at all. */
+function firstAreaTarget(state: RulesetEncounterState, actor: RulesetCombatant, action: RulesetCombatAction) {
+  if (!action.area || !positioned(state)) return undefined;
+  const id = rulesetAimCells(state, actor.id, action.id, 1)[0]?.targetIds[0];
   return id === undefined ? undefined : rulesetCombatant(state, id);
 }
 
@@ -236,13 +502,15 @@ function forecastFor(
     if (total > 0) forecast.averageDamage = Math.round(total * 100) / 100;
     return forecast.averageDamage === undefined ? undefined : forecast;
   }
-  const target = firstTarget(state, actor, action);
+  const target = firstTarget(state, actor, action) ?? firstAreaTarget(state, actor, action);
   if (action.toHit !== undefined && target) {
+    // The same number the roll will be made against: the target's own defense plus whatever the
+    // ground they stand on is worth, and the same roll mode the distance between them asks for.
     const chance = rulesetHitChance(
       combat,
       action.toHit,
-      target.defense,
-      rulesetAttackMode(definition, combat, actor, target),
+      rulesetDefenseAgainst(combat, state, target).defense,
+      rulesetAttackMode(definition, combat, actor, target, { state, optionId: action.id }),
     );
     if (chance !== null) forecast.hitChance = Math.round(chance * 1000) / 1000;
   }
@@ -277,6 +545,12 @@ function optionFrom(
   };
   if (paid.cost.length > 0) option.cost = paid.cost;
   if (action.uses) option.left = actor.uses[action.id] ?? 0;
+  // A shape, in cells, so a screen can draw the template before the choice is made and a picker can
+  // weigh it. Only in a positioned fight: without a board an area is still resolved by target ids.
+  if (action.area && positioned(state)) {
+    const reach = rulesetOptionReach(state, actor.id, action.id);
+    option.area = { shape: action.area.shape, size: action.area.size, range: reach?.max ?? action.area.size };
+  }
   // Which higher pools of the same family could pay instead, so the menu offers the upcast rather
   // than a player discovering it.
   const family = rulesetPoolFamily(definition, action.use?.group);
@@ -300,15 +574,134 @@ export function rulesetAttackMode(
   combat: RulesetCombat,
   actor: RulesetCombatant,
   target: RulesetCombatant,
+  /** Where the two of them stand, which is what the distance rules read. Left out by a fight with
+   *  no board, and then none of them says anything. */
+  where?: { state: RulesetEncounterState; optionId: string },
 ): RulesetCombatRollMode {
   if (!combat.attackRoll.advantage) return "normal";
   const own = rulesetCombatEffects(definition, combat, actor);
   const theirs = rulesetCombatEffects(definition, combat, target);
-  const advantage = own.has("own-attacks-advantage") || theirs.has("attacks-against-advantage") || !!actor.flags.helped;
+  const distance = where ? distanceModes(combat, where.state, where.optionId, actor, target, theirs) : null;
+  const advantage =
+    own.has("own-attacks-advantage") ||
+    theirs.has("attacks-against-advantage") ||
+    !!actor.flags.helped ||
+    !!distance?.advantage;
   const disadvantage =
-    own.has("own-attacks-disadvantage") || theirs.has("attacks-against-disadvantage") || !!target.flags.dodging;
+    own.has("own-attacks-disadvantage") ||
+    theirs.has("attacks-against-disadvantage") ||
+    !!target.flags.dodging ||
+    !!distance?.disadvantage;
   if (advantage === disadvantage) return "normal";
   return advantage ? "advantage" : "disadvantage";
+}
+
+/** Whether the actor is next to somebody on the other side, which is what a ruleset that says
+ *  shooting beside a foe is harder measures. */
+function foeAdjacent(state: RulesetEncounterState, actor: RulesetCombatant, at: RulesetCombatCell): boolean {
+  return state.combatants.some((combatant) => {
+    if (combatant.side === actor.side || !rulesetCombatStanding(combatant)) return false;
+    const cell = rulesetPositionOf(combatant);
+    return !!cell && rulesetCellDistance(at, cell) <= 1;
+  });
+}
+
+/** What the distance between these two says about the roll: the ruleset's own ranged rules, and the
+ *  three condition effects that only mean something once somebody has a position. */
+function distanceModes(
+  combat: RulesetCombat,
+  state: RulesetEncounterState,
+  optionId: string,
+  actor: RulesetCombatant,
+  target: RulesetCombatant,
+  theirs: ReadonlySet<string>,
+): { advantage: boolean; disadvantage: boolean } | null {
+  const from = rulesetPositionOf(actor);
+  const to = rulesetPositionOf(target);
+  if (!positioned(state) || !from || !to) return null;
+  const away = rulesetCellDistance(from, to);
+  const adjacent = away <= 1;
+  const reach = rulesetOptionReach(state, actor.id, optionId);
+  const ranged = combat.ranged;
+  // A thrown weapon used in hand is a swing, so neither ranged rule reads it there.
+  const thrown = !!reach?.shot && away > (reach?.swing ?? 0);
+  const tooFar = !!ranged && ranged.long === "disadvantage" && thrown && away > reach!.normal;
+  const crowded = !!ranged && ranged.adjacentFoe === "disadvantage" && thrown && foeAdjacent(state, actor, from);
+  return {
+    advantage: adjacent && theirs.has("attacks-against-adjacent-advantage"),
+    disadvantage: tooFar || crowded || (!adjacent && theirs.has("attacks-against-far-disadvantage")),
+  };
+}
+
+/** Whether a hit on this target from where the actor stands is a critical whatever the dice said:
+ *  the third distance condition effect. */
+export function rulesetCriticalFromAdjacent(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  state: RulesetEncounterState,
+  actor: RulesetCombatant,
+  target: RulesetCombatant,
+): boolean {
+  const from = rulesetPositionOf(actor);
+  const to = rulesetPositionOf(target);
+  if (!positioned(state) || !from || !to || rulesetCellDistance(from, to) > 1) return false;
+  return rulesetCombatEffects(definition, combat, target).has("attacks-from-adjacent-critical");
+}
+
+/** What getting back up costs, in cells: half the whole allowance, rounded up, so half of one is
+ *  still the whole of it rather than nothing. */
+export function rulesetStandCost(combatant: RulesetCombatant): number {
+  return Math.max(1, Math.ceil((combatant.movement ?? 0) / 2));
+}
+
+/** Which of the actor's conditions is the one holding them down. */
+export function rulesetProneCondition(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  actor: RulesetCombatant,
+): string | null {
+  const active = new Set(rulesetCombatConditions(definition, actor));
+  const entry = (combat.conditions ?? []).find(
+    (candidate) => active.has(candidate.condition) && candidate.effects.includes("half-move-to-stand"),
+  );
+  return entry?.condition ?? null;
+}
+
+/**
+ * Walking, and getting back up. A fight with no board has neither.
+ *
+ * Getting up comes FIRST: while a condition holds somebody down, half their allowance is what it
+ * costs to clear it, and nothing else about movement is offered until they have.
+ */
+function movementOptions(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  state: RulesetEncounterState,
+  actor: RulesetCombatant,
+): RulesetCombatOption[] {
+  if (!positioned(state) || !rulesetPositionOf(actor)) return [];
+  // A condition that pins somebody takes their movement away the moment it lands, not at the start
+  // of their next turn.
+  if (rulesetCombatEffects(definition, combat, actor).has("speed-zero")) return [];
+  const left = Math.max(0, Math.floor(actor.movementLeft ?? 0));
+  const prone = rulesetProneCondition(definition, combat, actor);
+  if (prone) {
+    const cost = rulesetStandCost(actor);
+    if (left < cost) return [];
+    return [
+      {
+        id: RULESET_STAND_OPTION,
+        kind: "move",
+        label: "Stand up",
+        targets: { side: "self", count: 0 },
+        movementCost: cost,
+      },
+    ];
+  }
+  if (left < 1) return [];
+  const cells = rulesetReachableCells(definition, state, actor.id);
+  if (cells.length === 0) return [];
+  return [{ id: RULESET_MOVE_OPTION, kind: "move", label: "Move", targets: { side: "self", count: 0 }, cells }];
 }
 
 /**
@@ -333,6 +726,7 @@ export function rulesetCombatOptions(
   if (!rulesetCombatStanding(actor) || blocked(definition, combat, actor)) return [endTurn];
 
   const options: RulesetCombatOption[] = [];
+  options.push(...movementOptions(definition, combat, state, actor));
   for (const action of actor.actions) {
     const option = optionFrom(definition, combat, state, actor, action);
     if (option) options.push(option);

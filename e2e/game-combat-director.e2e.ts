@@ -440,3 +440,289 @@ test("Combat director ruleset: the ruleset's own menu resolves the fight and wri
     expect(restored.ok(), await restored.text()).toBeTruthy();
   }
 });
+
+test("Combat director ruleset on a board: the walk, the log in paces, and the swing once it is adjacent", async ({
+  page,
+  request,
+}, testInfo) => {
+  // Four waits run one after another here, and a walking loop between them, so the budget has to be
+  // more than their sum or a slow runner fails on arithmetic rather than on the thing being proven.
+  test.setTimeout(240000);
+  // Ember Roads again, and this time positioned: it says a cell is two paces and a turn walks
+  // eight of them, so four squares a turn. Nothing about this board is 5e shaped.
+  const emberRoads = readFileSync(new URL("../docs/examples/rulesets/ember-roads.json", import.meta.url), "utf8");
+  // The import policy lives in the server's shared settings, so it is read first and put back
+  // afterwards, whatever happens in between: another spec on this server must find it as it was.
+  const policyBefore = await request.get("/api/agents/import-policy");
+  expect(policyBefore.ok(), await policyBefore.text()).toBeTruthy();
+  const importsWereEnabled = (await policyBefore.json()).enabled === true;
+
+  let createdChatId: string | undefined;
+  let importedRulesetId: string | undefined;
+  try {
+    const policy = await request.patch("/api/agents/import-policy", { data: { enabled: true } });
+    expect(policy.ok(), await policy.text()).toBeTruthy();
+    const imported = await request.post("/api/game-rulesets/import", { data: { definition: emberRoads } });
+    expect(imported.ok(), await imported.text()).toBeTruthy();
+    const rulesetId = (await imported.json()).rulesetId as string;
+    importedRulesetId = rulesetId;
+    // Tactical, which is what asks a ruleset that measures distance for a board.
+    const created = await request.post("/api/game/create", {
+      data: {
+        name: "Director ruleset board",
+        setupConfig: {
+          genre: "Fantasy",
+          setting: "The road",
+          tone: "Adventure",
+          difficulty: "normal",
+          playerGoals: "Get through",
+          gmMode: "standalone",
+          rating: "sfw",
+          partyCharacterIds: [],
+          combatStyle: "tactical",
+          combatDirector: true,
+          gmBossControl: false,
+          ruleset: { id: rulesetId, version: 1, packageId: null, options: {} },
+        },
+      },
+    });
+    expect(created.ok(), await created.text()).toBeTruthy();
+    const chatId = (await created.json()).sessionChat.id;
+    createdChatId = chatId;
+    const sheets = await request.patch(`/api/chats/${chatId}/metadata`, {
+      data: {
+        gameCharacterCards: [
+          {
+            name: "Juno",
+            rulesetSheet: {
+              v: 1,
+              build: {
+                abilities: { brawn: 3, wits: 0, heart: 0 },
+                fields: { toughness: 6 },
+                lists: { gear: [{ name: "Road axe", swing: "brawn", damage: "1d6", harm: "cut" }] },
+              },
+            },
+          },
+        ],
+      },
+    });
+    expect(sheets.ok(), await sheets.text()).toBeTruthy();
+    const seeded = await request.patch(`/api/chats/${chatId}/game-state`, {
+      data: { manual: true, location: "The road", rulesetLive: { juno: { pools: { grit: { value: 13 } } } } },
+    });
+    expect(seeded.ok(), await seeded.text()).toBeTruthy();
+
+    const message = await request.post(`/api/chats/${chatId}/messages`, {
+      data: { role: "assistant", content: "Something is on the road ahead. [state: combat]" },
+    });
+    expect(message.ok(), await message.text()).toBeTruthy();
+    const anchor = (await message.json()).id;
+    const juno = {
+      id: "juno",
+      name: "Juno",
+      side: "player",
+      hp: 40,
+      maxHp: 40,
+      attack: 8,
+      defense: 4,
+      speed: 5,
+      level: 2,
+    };
+    const moth = {
+      id: "moth",
+      name: "Cinder-moth",
+      side: "enemy",
+      hp: 12,
+      maxHp: 12,
+      attack: 5,
+      defense: 4,
+      speed: 6,
+      level: 1,
+      creature: "road_trouble/cinder-moth",
+    };
+    const start = await request.post("/api/game/combat/director/start", {
+      data: {
+        chatId,
+        anchor,
+        style: "ruleset",
+        positioned: true,
+        environment: "forest",
+        party: [juno],
+        enemies: [moth],
+      },
+    });
+    expect(start.ok(), await start.text()).toBeTruthy();
+    let s: DirectedCombatView = (await start.json()).session;
+    expect(s.style).toBe("ruleset");
+    // The board is the tactical engine's own, said in Ember Roads' own unit.
+    expect(s.ruleset?.grid?.distance).toEqual({ label: "paces", perCell: 2 });
+    const command = async (next: DirectedCommand) => {
+      const result = await request.post("/api/game/combat/director/command", {
+        data: {
+          chatId,
+          anchor,
+          id: s.id,
+          instanceId: s.instanceId,
+          revision: s.revision,
+          requestId: crypto.randomUUID(),
+          command: next,
+        },
+      });
+      expect(result.ok(), await result.text()).toBeTruthy();
+      s = (await result.json()).session;
+    };
+
+    const patch = await request.patch(`/api/chats/${chatId}/metadata`, {
+      data: {
+        gameSessionStatus: "active",
+        gameIntroPresented: true,
+        gameActiveState: "combat",
+        gameImageAutoGenerationEnabled: false,
+        gameStoryboardAutoIllustrationsEnabled: false,
+        gameCombatState: {
+          party: [juno],
+          enemies: [moth],
+          itemEffects: [],
+          mechanics: [],
+          dialogueCues: [],
+          startMessageId: anchor,
+          combatStyle: "tactical",
+        },
+      },
+    });
+    expect(patch.ok(), await patch.text()).toBeTruthy();
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+      chatHelpSeenModes: ["game"],
+      gameInstantTextReveal: true,
+      weatherEffects: false,
+      theme: testInfo.project.name.includes("desktop") ? "light" : "dark",
+    });
+    await page.addInitScript(
+      ({ id, version }) => {
+        localStorage.setItem("marinara-active-chat-id", id);
+        localStorage.setItem("marinara:whats-new:seen-version", version);
+      },
+      { id: chatId, version },
+    );
+    await page.goto("/");
+
+    // The board itself, one focusable square per cell, with the ruleset's own allowance beside it.
+    const board = page.getByRole("group", { name: "Battlefield" });
+    await expect(board).toBeVisible({ timeout: 45000 });
+    const token = page.locator('[data-combatant="juno"]');
+    await expect(token).toBeVisible();
+    const from = await token.getAttribute("data-cell");
+    expect(from).toMatch(/^\d+,\d+$/u);
+
+    // Walking: the menu offers it, the squares carry their cost in paces, and one of them is taken.
+    const move = page.getByRole("button", { name: /^Move/ });
+    await expect(move).toBeVisible({ timeout: 45000 });
+    await move.click();
+    const reachable = board.locator('button[aria-label*="Can be walked to"]');
+    await expect(reachable.first()).toBeVisible();
+    await expect(reachable.first()).toHaveAttribute("aria-label", /Can be walked to for \d+ paces\./u);
+    const walked = page.waitForResponse(
+      (r) =>
+        r.url().endsWith("/api/game/combat/director/command") && r.request().postDataJSON().command.type === "ruleset",
+    );
+    // The square furthest along the list, so the walk is a real one rather than a single step.
+    await reachable.last().click();
+    const walkResponse = await walked;
+    expect(walkResponse.ok(), await walkResponse.text()).toBeTruthy();
+    await expect(token).not.toHaveAttribute("data-cell", from!);
+
+    // And the log says it in the ruleset's own distance, never in cells.
+    const fight = page.getByRole("region", { name: "Combat decisions" });
+    await expect(fight.getByText(/^Juno moves to \d+, \d+ for \d+ paces and has \d+ paces left\.$/u)).toBeVisible();
+
+    // Walk until the axe has somebody to swing at, then swing by clicking the square they stand on.
+    // Movement may be spent before and after an action, so the menu simply comes back with what is
+    // left; a turn that runs out of it ends and the next one starts with a full allowance.
+    const axe = page.getByRole("button", { name: /^Road axe/ });
+    // The axe sits on the menu whether or not anybody is in reach, because the board says so in its
+    // own line instead. So the swing below is only asked for when a fresh state really offers it.
+    let inReach = false;
+    for (let guard = 0; guard < 30; guard++) {
+      const state = await request.get(`/api/game/combat/director/state?chatId=${chatId}&anchor=${anchor}`);
+      expect(state.ok(), await state.text()).toBeTruthy();
+      s = (await state.json()).session;
+      if (s.outcome) break;
+      const reach = s.ruleset?.options?.find((option) => option.kind === "attack" && option.targetIds.length > 0);
+      if (reach) {
+        inReach = true;
+        break;
+      }
+      const walk = s.ruleset?.options?.find((option) => option.kind === "move" && (option.cells?.length ?? 0) > 0);
+      if (!walk || s.ruleset?.controller !== "manual") {
+        await command({ type: "continue" });
+        continue;
+      }
+      const foe = s.ruleset!.combatants.find((combatant) => combatant.side === "enemy" && !combatant.defeated)!;
+      const closest = [...walk.cells!].sort(
+        (left, right) =>
+          Math.max(Math.abs(left.x - foe.x!), Math.abs(left.y - foe.y!)) -
+          Math.max(Math.abs(right.x - foe.x!), Math.abs(right.y - foe.y!)),
+      )[0]!;
+      // `command` replaces `s` with what came back, so everything below reads what the WALK left
+      // behind rather than the menu from before it: movement may be spent either side of an action,
+      // so the turn only ends when the walk found nobody to hit.
+      await command({ type: "ruleset", optionId: walk.id, targetIds: [], to: { x: closest.x, y: closest.y } });
+      const end = s.ruleset?.options?.find((option) => option.kind === "end-turn");
+      const stillOffered = s.ruleset?.options?.some(
+        (option) => option.kind === "attack" && option.targetIds.length > 0,
+      );
+      if (stillOffered) {
+        inReach = true;
+        break;
+      }
+      if (end) await command({ type: "ruleset", optionId: end.id, targetIds: [] });
+    }
+    await page.reload();
+    await expect(board).toBeVisible({ timeout: 45000 });
+    // Eight paces a turn on a board this size does not always close the distance inside the guard,
+    // and a fight that ended while walking has nobody left to swing at. Either way the walk above is
+    // what this case is for, and the swing is asked for only when the rules really offer it.
+    if (inReach && !s.outcome) {
+      await expect(axe).toBeVisible({ timeout: 45000 });
+      await axe.click();
+      const target = board.locator('button[aria-label*="Can be chosen as a target"]');
+      await expect(target.first()).toBeVisible();
+      const swing = page.waitForResponse(
+        (r) =>
+          r.url().endsWith("/api/game/combat/director/command") &&
+          r.request().postDataJSON().command.type === "ruleset",
+      );
+      await target.first().click();
+      const swung = await swing;
+      expect(swung.ok(), await swung.text()).toBeTruthy();
+      // Two six-sided dice plus the stat the axe swings with, against a Guard. Never who acts first
+      // and never what a die showed: the server draws its own seed.
+      await expect(
+        fight.getByText(/^Juno attacks Cinder-moth with Road axe: \d+ \(\d+ \+ \d+\) \+ 3 = \d+ against Guard \d+, a/u),
+      ).toBeVisible();
+    }
+    await page.screenshot({ path: testInfo.outputPath("ruleset-board.png"), fullPage: true });
+
+    // Played to the end with nobody at the wheel, one turn per call, and the board survives it.
+    const after = await request.get(`/api/game/combat/director/state?chatId=${chatId}&anchor=${anchor}`);
+    expect(after.ok(), await after.text()).toBeTruthy();
+    s = (await after.json()).session;
+    if (!s.outcome) await command({ type: "control", unitId: "juno", controller: "ai" });
+    for (let guard = 0; guard < 80 && !s.outcome; guard++) await command({ type: "continue" });
+    expect(s.outcome).toBeTruthy();
+    expect(s.ruleset?.grid?.distance).toEqual({ label: "paces", perCell: 2 });
+  } finally {
+    if (createdChatId) await request.delete(`/api/chats/${createdChatId}`);
+    if (importedRulesetId) {
+      await request.delete(`/api/game-rulesets?rulesetId=${encodeURIComponent(importedRulesetId)}&force=true`);
+    }
+    // Checked, because a restore that quietly failed would leave the policy on for every spec that
+    // runs on this server afterwards.
+    const restored = await request.patch("/api/agents/import-policy", { data: { enabled: importsWereEnabled } });
+    expect(restored.ok(), await restored.text()).toBeTruthy();
+  }
+});

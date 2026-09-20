@@ -119,12 +119,41 @@ function requireDamageAmount(node) {
   }
 }
 
+// Everything a combat block measures in cells needs the block to say what a cell is worth. The
+// Engine refuses one without it, which is a cross-check the generator cannot see, so the editor is
+// told here. The node is found by its shape: `distance` beside `opportunity` and `attacks`.
+function requireDistanceForMeasured(node) {
+  if (Array.isArray(node)) return node.forEach(requireDistanceForMeasured);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(requireDistanceForMeasured);
+  const properties = node.properties;
+  if (node.type !== "object" || !properties?.distance || !properties.opportunity || !properties.attacks) return;
+  node.dependencies = {
+    ...(node.dependencies ?? {}),
+    ranged: ["distance"],
+    cover: ["distance"],
+    opportunity: ["distance"],
+  };
+  // A weapon list that gives its rows a reach or a range is measured in cells too.
+  node.allOf = [
+    ...(node.allOf ?? []),
+    {
+      if: {
+        required: ["attacks"],
+        properties: { attacks: { contains: { anyOf: [{ required: ["reach"] }, { required: ["range"] }] } } },
+      },
+      then: { required: ["distance"] },
+    },
+  ];
+}
+
 const schema = zodToJsonSchema(rulesetDefinitionSchema, { $refStrategy: "none", target: "jsonSchema7" });
 requireOneCatalogSource(schema);
 requireOneEntryContent(schema);
 requireCatalogFeeds(schema);
 requireSaveEndsUntilSave(schema);
 requireDamageAmount(schema);
+requireDistanceForMeasured(schema);
 boundScaledColumns(schema);
 requireOneHideComparison(schema);
 allowAnnotations(schema);

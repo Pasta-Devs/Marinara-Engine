@@ -18,6 +18,8 @@ export {
   isTerminal,
   buildTacticalSummary,
   validateTacticalUnitAction,
+  normalizeEnvironment as normalizeTacticalEnvironment,
+  normalizeFormation as normalizeTacticalFormation,
   performUnitAction as performTacticalUnitAction,
   tickRound as tickTacticalRound,
 } from "./engine.js";
@@ -31,7 +33,10 @@ export {
   TACTICAL_BATTLEFIELD_GENERATOR_VERSION,
   generateTacticalBattlefield,
   gridDimensions,
+  placeSpawns,
   validateTacticalBattlefieldBrief,
   type GenerateTacticalBattlefieldResult,
   type TacticalBattlefieldBriefValidation,
+  type TacticalPlaceable,
 } from "./grid-gen.js";
+export { deterministicRng } from "./rng.js";

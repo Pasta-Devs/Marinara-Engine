@@ -10,11 +10,19 @@
 // values during the battle and after it. An opponent is a stat block, written by hand or taken from
 // a bestiary catalog, and lives in the encounter.
 //
+// A fight is POSITIONED when the ruleset says what one cell of a board is worth (`combat.distance`)
+// and the caller hands `createRulesetEncounter` a board with a cell for everybody. Then, and only
+// then, movement, reach, ranges, areas, line of sight, cover and strikes at somebody walking away
+// mean something, and every one of them is a number the ruleset itself declared. A fight without a
+// board is exactly the fight it was before any of this existed: nothing measures anything.
+//
 // What these slices deliberately leave for the ones after them, with the seams already in place:
-//   - positions, distance, reach, ranges and movement. `economy.movement`, a block's `reach` and
-//     `range`, and the condition effects that read distance are carried and not read.
-//   - reactions and the windows they open, so `cannot-react` is carried and not read, and a catalog
-//     entry marked `reaction` is left off the menu.
+//   - reactions and the WINDOWS they open. A strike at somebody leaving your reach is automatic
+//     here and spends the declared budget; choosing whether to take it is a window, so
+//     `cannot-react` is read for that strike and a catalog entry marked `reaction` is still left
+//     off the menu.
+//   - three-quarter and total cover, elevation, flying over obstacles, squeezing, hiding and
+//     surprise, and movement forced on somebody by an attack.
 //   - the WINDOW a signature action is bought in, between one turn and the next. The points, the
 //     options and the spending are here; what opens the window is the slice that builds reactions.
 //   - who an opponent chooses to attack. Everything an enemy could do is on the same menu a player
@@ -36,25 +44,50 @@ export {
 export {
   createRulesetEncounter,
   currentRulesetActor,
+  refreshRulesetMovement,
   rulesetCombatant,
   rulesetCombatConditions,
   rulesetCombatEffects,
   rulesetCombatHealth,
   rulesetCombatStanding,
+  rulesetMovementAllowance,
   type RulesetEncounterInput,
 } from "./encounter.js";
 export {
+  rulesetAreaCells,
+  rulesetCellBlocked,
+  rulesetCellCover,
+  rulesetCellDistance,
+  rulesetInCells,
+  rulesetLineOfSight,
+  rulesetOpportunityAttack,
+  rulesetPositionOf,
+  rulesetReachableCells,
+} from "./grid.js";
+export {
   planRulesetCombatCost,
   rulesetActionAvailable,
+  rulesetAimCells,
+  rulesetAimLegal,
+  rulesetAreaTargets,
   rulesetAttackMode,
   rulesetCombatOptions,
   rulesetCostSteps,
+  rulesetCriticalFromAdjacent,
+  rulesetDefenseAgainst,
+  rulesetOptionReach,
   rulesetOptionTargets,
   rulesetHitChance,
   rulesetPoolFamily,
+  rulesetProneCondition,
   rulesetSignatureOptions,
+  rulesetStandCost,
   rulesetStandardBudget,
+  rulesetTargetRefusal,
+  RULESET_MOVE_OPTION,
+  RULESET_STAND_OPTION,
   type RulesetCombatCost,
+  type RulesetOptionReach,
 } from "./options.js";
 export {
   advanceRulesetTurn,

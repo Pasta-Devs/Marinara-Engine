@@ -7,6 +7,7 @@ import type { DirectedRulesetView, RulesetDefinition } from "@marinara-engine/sh
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { rulesetCombatLogLines, rulesetCombatNames } from "../../lib/ruleset-combat-log";
+import { rulesetDistanceText } from "../../lib/ruleset-combat-board";
 import { cn } from "../../lib/utils";
 
 export function RulesetCombatStatus({
@@ -17,7 +18,7 @@ export function RulesetCombatStatus({
   view: DirectedRulesetView;
 }) {
   const { t } = useTranslation();
-  const names = useMemo(() => rulesetCombatNames(definition, view), [definition, view]);
+  const names = useMemo(() => rulesetCombatNames(definition, view, t), [definition, view, t]);
   // Built fresh on every render rather than accumulated, so a saved fight read back, or a language
   // changed mid-battle, prints in the language on screen now. The running number is the key, so a
   // re-render adds only the lines that are new and a reader is told only about those.
@@ -72,6 +73,15 @@ export function RulesetCombatStatus({
                 })}
               </span>
             ))}
+          {/* What is left of this turn's walking, in the ruleset's own unit. Only a fight on a
+              board has any, and then everybody on it does. */}
+          {actor && typeof actor.movementLeft === "number" && (
+            <span>
+              {t("game.combat.ruleset.status.movement", {
+                amount: rulesetDistanceText(actor.movementLeft, view.grid?.distance, t),
+              })}
+            </span>
+          )}
         </div>
 
         {/* Folded away on a phone, where the stage already shows both sides and every row this strip

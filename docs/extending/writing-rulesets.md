@@ -559,7 +559,8 @@ same keys for a d20 system:
 - `economy`: required. `budgets` is what a turn may hold: an id, a label, `per` (`turn` refills at
   the start of the holder's own turn, `round` when a new round begins) and a `count`. The FIRST
   budget you declare is the main one, and is what a standard action spends. `movement` is an
-  optional value reference. It is checked and stored today and nothing reads it yet (see Not yet).
+  optional value reference: how far one turn may walk, in your own distance unit. It is read by a
+  fight on a board (see Positions).
 - `attacks`: optional. Sheet lists whose rows are weapons. `name` is the text column the row is
   named by, `damage.dice` the dice column, and each of `toHit.ability`, `toHit.proficiency`,
   `toHit.bonus`, `damage.ability`, `damage.bonus` and `damage.type` names a column of the same list.
@@ -573,20 +574,21 @@ same keys for a d20 system:
   save, its own or one that ends a condition it applies, is refused when the list it lands in has
   no `saveDifficulty`: a save against nothing would always succeed.
 - `standard`: optional, from the closed list `dash`, `disengage`, `dodge`, `help`, `hide`, `ready`.
-  Today `dodge` (attacks against the dodger are rolled twice and the worse kept) and `help` (the
-  helped ally's next attack is rolled twice and the better kept) are resolved, `dash` and
-  `disengage` are recorded for the movement slice, and `hide` and `ready` are accepted and do
-  nothing yet.
+  `dodge` (attacks against the dodger are rolled twice and the worse kept) and `help` (the helped
+  ally's next attack is rolled twice and the better kept) are always resolved. `dash` (the same
+  movement allowance again) and `disengage` (nobody strikes at you for walking away this turn) are
+  resolved on a board and recorded off one. `hide` and `ready` are accepted and do nothing yet.
 - `conditions`: optional. Maps YOUR condition ids onto what they do, so the sheet's conditions and
   the fight's are one record and a poisoned character is still poisoned afterwards. The effects are
   a closed list: `own-attacks-advantage`, `own-attacks-disadvantage`, `attacks-against-advantage`,
   `attacks-against-disadvantage`, `attacks-against-adjacent-advantage`,
   `attacks-against-far-disadvantage`, `attacks-from-adjacent-critical`, `cannot-act`,
   `cannot-react`, `speed-zero`, `half-move-to-stand` and `ends-on-damage`. `failsSaves` names saves
-  the condition fails without rolling. The effects that need distance or movement
+  the condition fails without rolling. The five that need distance or movement
   (`attacks-against-adjacent-advantage`, `attacks-against-far-disadvantage`,
-  `attacks-from-adjacent-critical`, `speed-zero`, `half-move-to-stand`), plus `cannot-react`, are
-  checked and stored today and change nothing in a fight yet (see Not yet).
+  `attacks-from-adjacent-critical`, `speed-zero`, `half-move-to-stand`) are read by a fight on a
+  board and say nothing in one without (see Positions). `cannot-react` is read only for a strike at
+  somebody walking away; the reaction window it will also gate is a later release.
 - `concentration`: optional. The live `text` field that records what is being held, the `save` that
   damage forces, the `floor` under that difficulty, and `fromDamage`, the share of the damage taken
   that sets it when it is higher. Starting a second ability that concentrates ends the first, and
@@ -681,7 +683,7 @@ is filed under one of your own tiers.
 - `health`: a number, or `{ "dice": "3d6", "flat": 2 }` thrown once when the fight is created. A
   forecast reads the average, so a menu never promises a die nobody has thrown.
 - `defense`, `initiativeModifier`, `speed`: what an attack is rolled against, what it adds to
-  initiative, and how far it moves in your own unit (carried until a fight has positions).
+  initiative, and how far it walks in one turn, in your own distance unit.
 - `abilities` and `saves`: keyed by the ability ids and save ids your sheet declares. A save it does
   not name reads as zero.
 - `resist`, `vulnerable`, `immune`: damage types, matched without case, and checked against
@@ -691,8 +693,11 @@ is filed under one of your own tiers.
   anything with numbers in it belongs in an action.
 - `signaturePoints`: points given back at the start of its own turn, spent on `signature` actions.
 - `actions`: up to twelve, each with an `id` of its own. An action carries what a hand-written stat
-  block carries (`toHit`, `autoHit`, `damage`, `save`, `applies`, `targetCount`, `reach`, `range`)
-  plus four things only a creature has:
+  block carries (`toHit`, `autoHit`, `damage`, `save`, `applies`, `targetCount`, `reach`, `range`, `area`)
+  plus four things only a creature has. `reach` is how far it strikes, `range` how far it is thrown
+  or shot and `area` the shape it lands in, all in your own distance unit; `range` may be a plain
+  number, or `{ "normal": 30, "long": 120 }` when it still carries further at a penalty, and `area`
+  is `{ "shape": "burst" | "cone" | "line", "size": n, "friendlyFire": false }` (see Positions):
   - `uses`: `{ "per": "encounter" | "day", "count": n }`. When they run out the action leaves the
     menu.
   - `recharge`: `{ "dice": { "count": 1, "sides": 6 }, "from": 5 }`. It starts the fight available,
@@ -724,6 +729,142 @@ first six actions. A tier you never declared falls back to the bottom of your sc
 comes back as a plain sentence, so a log can say what it did.
 
 Your own bestiary is never clamped. It is data you wrote, so the Engine takes it as written.
+
+### Positions: a fight on a board
+
+A fight is theatre of the mind until your block says what one cell of a board is worth. Declare
+`distance` and it can be fought on a grid, and then movement, reach, ranges, areas, line of sight,
+cover and strikes at somebody walking away all start to mean something. Every one of them is a
+number you wrote; the Engine supplies the board and nothing else.
+
+```json
+"distance": { "label": "ft", "perCell": 5 },
+"ranged": { "long": "disadvantage", "adjacentFoe": "disadvantage" },
+"cover": { "bonus": 2 },
+"opportunity": { "budget": "reaction" }
+```
+
+Ember Roads declares one line of it and nothing else, which is the point: none of the rest is
+required.
+
+```json
+"distance": { "label": "paces", "perCell": 2 }
+```
+
+**The cell.** `distance.perCell` is how much of YOUR unit one cell is worth, and `label` is what you
+call that unit. Every distance in the block's world is in it: `economy.movement`, a creature's
+`speed`, a weapon's `reach` and `range`, and a creature action's `reach` and `range`. A catalog that
+declares its own `units.distance` converts its own `mechanics.range` and `area.size` with its own
+`perCell`; one that does not uses this. A distance above zero is rounded to the nearest cell and
+never to none, so anything you gave a number to reaches at least one. Zero is not a short distance,
+it keeps its own meaning: a `mechanics.range` of 0 is self or touch (and a touch on somebody else
+reaches the next cell), and a weapon `reach` or `range` column reading 0 on a row means that row
+has no such distance.
+
+**Whether a fight is on a board.** Two things have to agree: your block declares `distance`, and the
+player's game is set to the Tactical combat style. With the Classic style, or on a ruleset without
+`distance`, the fight is theatre of the mind exactly as it was: anybody can be pointed at anybody,
+and nothing below is read at all.
+
+**What the player sees.** The board is drawn, with the tactical style's own terrain. Every square is
+a button, reachable with the pointer or the arrow keys, and says what it is, who is on it and what
+the half-made choice makes of it. Walking lights up the squares the menu offered, each carrying its
+cost IN YOUR UNIT, draws the way there, and marks in amber any square whose path somebody would
+strike at, naming them under the board. An option that takes a target lights up who may be chosen,
+on the board and in the list at once. An option with an `area` is aimed at a square, and the square
+under the pointer says who it would catch, friends included. What is left of the allowance is shown
+beside your budgets, again in your unit. None of it is measured by the screen: every square, cost,
+path, target and aim is sent by the server.
+
+**Movement.** A turn's allowance is `economy.movement` for a party member, or the creature's own
+`speed`, divided by `perCell` and rounded DOWN, and never less than one cell while it can move at
+all. It refills at the start of its holder's own turn and may be spent before, between and after
+actions: walk, strike, walk again. A cell costs one to step onto, or more for rough ground. Eight
+directions, all at the same cost, because that is how the tabletop grids this is for are played. A
+friend may be walked past and nobody may be stopped on; an opponent is a wall; nothing solid may be
+entered and no corner may be cut between two solid cells.
+
+**Reach and range.** A weapon row gets them from `combat.attacks[].reach` and `.range`, each a
+column of that same list or the same number on every row:
+
+```json
+"attacks": [
+  {
+    "list": "attacks",
+    "budget": "action",
+    "name": "name",
+    "toHit": { "ability": { "column": "ability" } },
+    "damage": { "dice": { "column": "damage" } },
+    "reach": { "column": "reach" },
+    "range": { "normal": { "column": "range" }, "long": { "column": "long_range" } }
+  }
+]
+```
+
+A column that reads 0 on a row is that row saying it carries no such distance, which is how an
+ordinary sword sits in the same list as a thrown axe. A row with no reach at all reaches one cell.
+A creature action uses its own `reach` or `range`, and a catalog ability uses `mechanics.range`
+(0 is self or touch, which is one cell when it is aimed at somebody else).
+
+A row with BOTH is a thrown weapon: inside its reach it is a swing, beyond it a shot. So the rules
+below for a shot do not touch it in somebody's hand, and it is something to strike a passer-by with,
+which a bow is not.
+
+A creature action may also carry the `area` it lands in, in your own unit: `{ "shape": "cone",
+"size": 15 }`, with `"friendlyFire": false` to spare its own side. That is how a breath weapon is a
+real cone on a board rather than a number of targets. A sequence carries no shape of its own; the
+actions it names carry theirs. A fight without a board ignores the shape and uses `targetCount`, so
+a creature entry can carry both and be honest either way.
+
+**How far a shape may be sent.** `range` says it: a ball thrown a hundred feet carries one. With no
+range, a burst goes off where it is set down, on the actor's own cell, and a cone or a line may be
+aimed anywhere within the length it draws, because there the cell only says which way it points.
+That holds for a catalog entry's `mechanics.area` as much as for a creature's.
+
+`ranged` says what a shot costs when it is taken past its ordinary `normal` distance, or with
+somebody on the other side in the next cell. Each is `"disadvantage"` or `"normal"`; leave the block
+out and neither costs anything. A swing is never a shot, so neither rule touches it, and neither
+does a thrown weapon used within its own reach.
+
+**Areas.** An entry's `mechanics.area` becomes a real shape on the board, aimed at a cell rather
+than at anybody, and `targetCount` says nothing about it: the shape decides how many it reaches.
+Everybody standing in the cells is caught, friend and foe, unless the entry says
+`"friendlyFire": false`.
+
+```
+burst, size 2, aimed at X        cone, size 3, aimed right      line, size 3, aimed right
+. . . . .                        . . . .                        . . . .
+. # # # .                        . . # .                        A # # #
+. # X # .                        A # # #                        . . . .
+. # # # .                        . . # .
+. . . . .                        . . . .
+```
+
+A burst is every cell within its size of the cell it was aimed at. A cone runs from the actor toward
+that cell, as wide at each step as it is far. A line runs the same way, one cell wide. All three
+stop at anything solid.
+
+**Line of sight and cover.** A straight line of cells between the two of them: anything solid on it
+blocks a shot and stops an area spreading past it, and the target simply is not on the menu. Ground
+that is worth something as cover adds `cover.bonus` to the defense the attack is rolled against, and
+the log says so. There is no three-quarter cover, no total cover and no elevation.
+
+**Strikes at somebody walking away.** Declare `opportunity.budget` and, when a combatant walks out
+of the reach of a standing enemy who can act, has that budget and has something melee to strike
+with, that enemy strikes once with its best melee attack BEFORE the mover leaves the cell, and
+spends the budget. `disengage` prevents it for the rest of the turn, and a strike that drops the
+mover ends the walk where they fell. It is automatic for everybody, the party included, and said in
+the log; CHOOSING whether to take it is a reaction window, and that is a later release. A ruleset
+that declares no `opportunity` has none of this at all.
+
+**What an opponent does with a board.** An opponent nobody plays weighs every cell it can reach
+against every option it could take from there, subtracts for each strike the walk would be met by,
+and prefers not to move when it can already do its best from where it stands. With nothing in reach
+it closes the distance, and sprints first when your `standard` list has `dash`.
+
+**Refusals you may see.** `out-of-reach` (further off than this reaches), `no-line-of-sight`
+(something solid in the way), `unreachable` (a cell the walk cannot pay for or cannot end on) and
+`bad-cell` (a shape aimed somewhere it may not be aimed).
 
 ### What a fight does with your block on the server
 
@@ -760,14 +901,20 @@ arithmetic in your terms: "Juno attacks Rust jackal with Road axe: 8 (5 + 3) + 3
 6, a hit." Every accepted action is written to the sheet as it happens, so a reload mid-fight is
 exact and the Game Master is told afterwards not to change those numbers again.
 
+A fight with positions is drawn on the board instead of on the portrait stage; see Positions for
+what the player does with it. Every distance on it, in the menu and in the log, is said in YOUR
+unit: "Juno moves to 4, 6 for 6 paces and has 2 paces left."
+
 ### Not yet
 
 Said plainly, because a ruleset should not claim what the Engine does not do:
 
-- **No positions**: no distance, reach, ranges, areas on a map, cover, movement or opportunity
-  attacks. `range`, `area` and `economy.movement` are carried and not read. The fight is theatre of
-  the mind: anybody can be pointed at anybody.
-- **No reactions**, so nothing interrupts a turn, and `cannot-react` changes nothing yet.
+- **Beyond the modest board**: no three-quarter or total cover, no elevation, no flying over
+  obstacles, no squeezing, no mounts, no grapple or shove movement, no hiding or surprise, and
+  nothing pushes anybody anywhere.
+- **No reactions**, so nothing interrupts a turn. Choosing whether to strike at somebody walking
+  away is a reaction window, so that strike is automatic today; `cannot-react` is read for it and
+  for nothing else yet.
 - **Signature actions are stored, priced and resolved, but nothing opens the window they are used
   in.** The points, the options and the spending are all here; what asks a creature for one between
   one turn and the next arrives with reactions.

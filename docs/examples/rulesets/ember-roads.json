@@ -454,7 +454,14 @@
     "initiative": { "dice": { "count": 2, "sides": 6 }, "modifier": { "abilityMod": "wits" } },
     "attackRoll": { "dice": { "count": 2, "sides": 6 } },
     "economy": {
-      "budgets": [{ "id": "act", "label": "Action", "per": "turn", "count": 1 }]
+      "budgets": [{ "id": "act", "label": "Action", "per": "turn", "count": 1 }],
+      "$comment": "Everybody walks the same eight paces a turn on these roads. It is written as a plain number because nothing on this short sheet is a speed, which is the point: a ruleset states its movement once, wherever the number comes from.",
+      "movement": { "const": 8 }
+    },
+    "distance": {
+      "$comment": "One cell is two paces, and that is all this system says about a board. No long shots, no cover, no strikes at somebody walking away: none of it is required, and a small system is allowed to stay small.",
+      "label": "paces",
+      "perCell": 2
     },
     "attacks": [
       {
@@ -462,7 +469,11 @@
         "budget": "act",
         "name": "name",
         "toHit": { "ability": { "column": "swing" } },
-        "damage": { "dice": { "column": "damage" }, "ability": { "column": "swing" }, "type": { "column": "harm" } }
+        "damage": { "dice": { "column": "damage" }, "ability": { "column": "swing" }, "type": { "column": "harm" } },
+        "reach": {
+          "$comment": "Everything you can swing here reaches two paces, which is one cell. The gear list has no column for it and does not need one.",
+          "const": 2
+        }
       }
     ],
     "abilities": [{ "list": "knacks", "budget": "act" }],

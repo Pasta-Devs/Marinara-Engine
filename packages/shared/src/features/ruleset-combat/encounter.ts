@@ -14,10 +14,12 @@ import {
   type RulesetCombat,
   type RulesetCombatAbilitySource,
   type RulesetCombatAttackSource,
+  type RulesetCombatDistanceSource,
   type RulesetDefinition,
   type RulesetSheetBuild,
   type RulesetValueRef,
 } from "../../schemas/ruleset.schema.js";
+import type { TacticalGrid } from "../tactical-combat/types.js";
 import {
   applyRulesetSheetOp,
   readRulesetLive,
@@ -34,14 +36,17 @@ import {
 } from "../rulesets/sheet-math.js";
 import { findRulesetCreatureEntry, rulesetCreatureBlock } from "./creatures.js";
 import { parseRulesetCombatDice, rollRulesetDice, rulesetCombatRoller, sumOf } from "./dice.js";
+import { rulesetInCells } from "./grid.js";
 import type {
   RulesetCombatAction,
   RulesetCombatAmount,
   RulesetCombatant,
   RulesetCombatantInput,
+  RulesetCombatBoard,
   RulesetCombatEvent,
   RulesetCombatRoller,
   RulesetEncounterState,
+  RulesetStatBlockAction,
 } from "./types.js";
 
 /** The dice of a catalog entry's `amount`, which the schema already holds to `<count>d<sides>`. */
@@ -172,11 +177,31 @@ function textFromColumn(row: Record<string, unknown>, column?: string): string |
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+/**
+ * One distance of an attack row, in cells: the number in its own column, or the same number on
+ * every row. Read only when the fight has a cell size to measure it in.
+ *
+ * Zero is "this row does not carry that distance", which is what a number column on a sheet reads
+ * as when the player left it alone: a sword is not thrown because its range column says 0, and a
+ * weapon with no long distance has 0 in that column rather than a second row.
+ */
+function distanceInCells(
+  source: RulesetCombatDistanceSource | undefined,
+  row: Record<string, unknown>,
+  perCell: number | undefined,
+): number | undefined {
+  if (!source || perCell === undefined) return undefined;
+  const value = "const" in source ? source.const : columnValue(row, source.column);
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return undefined;
+  return rulesetInCells(value, perCell);
+}
+
 function attackActions(
   source: RulesetCombatAttackSource,
   index: number,
   build: RulesetSheetBuild,
   evaluated: EvaluatedRulesetSheet,
+  perCell: number | undefined,
 ): RulesetCombatAction[] {
   const rows = build.lists?.[source.list];
   if (!Array.isArray(rows)) return [];
@@ -188,12 +213,19 @@ function attackActions(
     const dice = parseRulesetCombatDice(columnValue(row, source.damage.dice.column));
     if (!name || !dice) return;
     const proficient = columnValue(row, source.toHit.proficiency?.column) === true;
+    const reach = distanceInCells(source.reach, row, perCell);
+    const normal = distanceInCells(source.range?.normal, row, perCell);
+    const long = distanceInCells(source.range?.long, row, perCell);
     actions.push({
       id: `attack:${index}:${rowIndex}`,
       kind: "attack",
       label: name,
       budget: source.budget,
       targets: { side: "enemy", count: 1 },
+      ...(reach !== undefined ? { reach } : {}),
+      // A row whose long distance came out shorter than its ordinary one is the player's row, not
+      // the ruleset's rule, so it is read as having nothing beyond the ordinary one.
+      ...(normal !== undefined ? { range: { normal, ...(long !== undefined && long > normal ? { long } : {}) } } : {}),
       toHit:
         abilityFromColumn(evaluated, row, source.toHit.ability?.column) +
         (proficient ? evaluated.proficiencyBonus : 0) +
@@ -230,6 +262,7 @@ function abilityAction(
   entry: RulesetCatalogEntry,
   build: RulesetSheetBuild,
   evaluated: EvaluatedRulesetSheet,
+  perCell: number | undefined,
 ): RulesetCombatAction | null {
   const mechanics = entry.mechanics;
   // A reaction is a timing window a later slice owns, and a `utility` entry has nothing to resolve.
@@ -281,6 +314,21 @@ function abilityAction(
   if (source.saveDifficulty) action.saveDifficulty = resolve(source.saveDifficulty);
   if (mechanics.applies?.length) action.applies = mechanics.applies.map((entry2) => ({ ...entry2 }));
   if (mechanics.concentration) action.concentration = true;
+  // Distance, in the unit this CATALOG declared, or the combat block's when it declared none. A
+  // range of zero is self or touch, and touching somebody else is the next cell: a REACH of one,
+  // never a range, so the rules for shooting (a foe beside the shooter, long range) do not read it.
+  // A shape keeps its range even at zero, because there the number says how far off it may be aimed.
+  if (perCell !== undefined) {
+    if (mechanics.range === 0 && !mechanics.area) action.reach = 1;
+    else if (mechanics.range !== undefined) action.range = { normal: rulesetInCells(mechanics.range, perCell) };
+    if (mechanics.area) {
+      action.area = {
+        shape: mechanics.area.shape,
+        size: rulesetInCells(mechanics.area.size, perCell),
+        ...(mechanics.friendlyFire === false ? { friendlyFire: false } : {}),
+      };
+    }
+  }
   return action;
 }
 
@@ -301,10 +349,18 @@ function abilityActions(
   build: RulesetSheetBuild,
   catalogs: RulesetCatalogEntriesById,
   evaluated: EvaluatedRulesetSheet,
+  perCell: number | undefined,
 ): RulesetCombatAction[] {
   const rows = build.lists?.[source.list];
   if (!Array.isArray(rows)) return [];
   const byRef = rulesetCatalogEntriesByRef(catalogs);
+  /** A catalog states what its own `range` and `area.size` numbers mean; one that does not is read
+   *  in the combat block's own unit. */
+  const perCellOf = (ref: string) => {
+    if (perCell === undefined) return undefined;
+    const catalogId = ref.slice(0, ref.indexOf("/"));
+    return definition.catalogs?.find((catalog) => catalog.id === catalogId)?.units?.distance?.perCell ?? perCell;
+  };
   const actions: RulesetCombatAction[] = [];
   const seen = new Set<string>();
   rows.forEach((raw, rowIndex) => {
@@ -326,6 +382,7 @@ function abilityActions(
       entry,
       build,
       evaluated,
+      perCellOf(ref),
     );
     if (!action) return;
     seen.add(ref);
@@ -356,9 +413,21 @@ function narrowCatalogs(build: RulesetSheetBuild, catalogs: RulesetCatalogEntrie
   return narrowed;
 }
 
-function blockActions(block: RulesetStatBlockLike): RulesetCombatAction[] {
+function blockActions(block: RulesetStatBlockLike, perCell: number | undefined): RulesetCombatAction[] {
   const idOf = (index: number) => block.actions[index]?.id ?? `block:${index}`;
   const indexById = new Map(block.actions.map((action, index) => [action.id ?? `block:${index}`, index]));
+  /** A block writes its distances in the ruleset's own unit, and a plain number is the ordinary
+   *  distance with nothing beyond it. A range of zero is no range at all, as it is on an attack row:
+   *  the action is a swing at its reach, never a shot. */
+  const rangeOf = (range: RulesetStatBlockAction["range"]) => {
+    if (range === undefined || perCell === undefined) return undefined;
+    const written = typeof range === "number" ? range : range.normal;
+    if (written <= 0) return undefined;
+    const normal = rulesetInCells(written, perCell);
+    const long =
+      typeof range === "number" || range.long === undefined ? undefined : rulesetInCells(range.long, perCell);
+    return { normal, ...(long !== undefined && long > normal ? { long } : {}) };
+  };
   return block.actions.map((action, index) => ({
     id: idOf(index),
     kind: "block" as const,
@@ -394,6 +463,21 @@ function blockActions(block: RulesetStatBlockLike): RulesetCombatAction[] {
         }
       : {}),
     ...(action.signature ? { signature: { cost: action.signature.cost } } : {}),
+    // A reach written as 0 is no reach, exactly as a weapon column reading 0 is: without it a
+    // creature that only shoots would be read as swinging, and could strike a passer-by.
+    ...(perCell !== undefined && action.reach !== undefined && action.reach > 0
+      ? { reach: rulesetInCells(action.reach, perCell) }
+      : {}),
+    ...(rangeOf(action.range) ? { range: rangeOf(action.range)! } : {}),
+    ...(perCell !== undefined && action.area
+      ? {
+          area: {
+            shape: action.area.shape,
+            size: rulesetInCells(action.area.size, perCell),
+            ...(action.area.friendlyFire === false ? { friendlyFire: false } : {}),
+          },
+        }
+      : {}),
   }));
 }
 
@@ -419,6 +503,39 @@ function fullBudgets(combat: RulesetCombat): Record<string, number> {
   return budgets;
 }
 
+/**
+ * How far this combatant may walk in one turn, in CELLS: their own speed in the ruleset's own unit,
+ * divided by what a cell is worth and rounded DOWN, and never less than one while they can move at
+ * all. A condition that stops them moving makes it nothing.
+ *
+ * Rounded down rather than up, because a turn's movement is a budget a player spends: rounding it
+ * up would quietly hand every fast thing an extra cell it was never given.
+ */
+export function rulesetMovementAllowance(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  combatant: RulesetCombatant,
+): number {
+  const perCell = combat.distance?.perCell;
+  if (perCell === undefined || !(perCell > 0)) return 0;
+  if (rulesetCombatEffects(definition, combat, combatant).has("speed-zero")) return 0;
+  const speed = combatant.speed;
+  if (!Number.isFinite(speed) || speed <= 0) return 0;
+  return Math.max(1, Math.floor(speed / perCell));
+}
+
+/** The allowance back to full at the start of the holder's own turn. */
+export function refreshRulesetMovement(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  combatant: RulesetCombatant,
+): void {
+  if (combatant.movement === undefined) return;
+  const allowance = rulesetMovementAllowance(definition, combat, combatant);
+  combatant.movement = allowance;
+  combatant.movementLeft = allowance;
+}
+
 // ── Starting the fight ──
 
 export interface RulesetEncounterInput {
@@ -430,6 +547,15 @@ export interface RulesetEncounterInput {
   bestiary?: RulesetCatalogEntriesById;
   /** A caller with its own dice. The seeded roller is used when none is given. */
   roller?: RulesetCombatRoller;
+  /**
+   * The board this fight stands on, and where everybody starts. The grid is the tactical engine's
+   * own, generated by the caller: a fight never makes one of its own.
+   *
+   * A fight is positioned only when the ruleset says what a cell is worth (`combat.distance`) AND
+   * every combatant in it has a cell. Anything less and the board is left out entirely, so a fight
+   * is never half on a grid.
+   */
+  board?: { grid: TacticalGrid; placements: Record<string, { x: number; y: number }>; battlefield?: unknown };
 }
 
 /**
@@ -463,6 +589,9 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
     rolls += 1;
     return roller(sides);
   };
+  // What every distance in this fight is measured in. Undefined is a ruleset that gives no size to
+  // a cell, and then nothing about distance is read at all: the fight is exactly what it was before.
+  const perCell = combat.distance?.perCell;
 
   const refused: RulesetCombatEvent[] = [];
   for (const entry of input.combatants) {
@@ -483,7 +612,7 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
         ? sumOf(rollRulesetDice(roll, block.healthDice.count, block.healthDice.sides)) + block.healthDice.flat
         : block.health;
       const max = Math.max(1, health);
-      const actions = blockActions(block);
+      const actions = blockActions(block, perCell);
       state.combatants.push({
         id: entry.id,
         name: entry.name,
@@ -530,9 +659,9 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
       });
     }
     const actions = [
-      ...(combat.attacks ?? []).flatMap((source, index) => attackActions(source, index, build, evaluated)),
+      ...(combat.attacks ?? []).flatMap((source, index) => attackActions(source, index, build, evaluated, perCell)),
       ...(combat.abilities ?? []).flatMap((source, index) =>
-        abilityActions(definition, source, index, build, catalogs, evaluated),
+        abilityActions(definition, source, index, build, catalogs, evaluated, perCell),
       ),
     ];
     const combatant: RulesetCombatant = {
@@ -572,6 +701,8 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
     state.combatants.push(combatant);
   }
 
+  placeRulesetCombatants(definition, combat, state, input.board);
+
   const position = new Map(state.combatants.map((combatant, index) => [combatant.id, index]));
   state.order = [...state.combatants]
     .sort(
@@ -604,6 +735,51 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
     ...(state.order[0] ? ([{ type: "turn", actorId: state.order[0], round: 1 }] as RulesetCombatEvent[]) : []),
   ];
   return state;
+}
+
+/**
+ * Everybody onto the board, or nobody at all.
+ *
+ * A fight is positioned only when the ruleset says what a cell is worth and every single combatant
+ * has a cell inside the grid. One missing placement leaves the whole fight where it was, because a
+ * fight where one combatant has no position is one where nothing about distance can be answered.
+ */
+function placeRulesetCombatants(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  state: RulesetEncounterState,
+  board: RulesetEncounterInput["board"],
+): void {
+  if (!board || !combat.distance) return;
+  const { grid } = board;
+  if (!grid || !Number.isInteger(grid.width) || !Number.isInteger(grid.height)) return;
+  const placed: Array<{ combatant: RulesetCombatant; at: { x: number; y: number } }> = [];
+  for (const combatant of state.combatants) {
+    const at = board.placements[combatant.id];
+    if (
+      !at ||
+      !Number.isInteger(at.x) ||
+      !Number.isInteger(at.y) ||
+      at.x < 0 ||
+      at.y < 0 ||
+      at.x >= grid.width ||
+      at.y >= grid.height
+    ) {
+      return;
+    }
+    placed.push({ combatant, at });
+  }
+  for (const { combatant, at } of placed) {
+    combatant.x = at.x;
+    combatant.y = at.y;
+    const allowance = rulesetMovementAllowance(definition, combat, combatant);
+    combatant.movement = allowance;
+    combatant.movementLeft = allowance;
+  }
+  state.board = {
+    grid,
+    ...(board.battlefield ? { battlefield: board.battlefield as RulesetCombatBoard["battlefield"] } : {}),
+  };
 }
 
 /** The stored live blob as the encounter keeps it. `applyRulesetSheetOp` already reads a stored

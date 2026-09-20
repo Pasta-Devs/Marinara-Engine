@@ -6,6 +6,7 @@
 
 import type { RulesetCatalogEntriesById, RulesetSheetBuild } from "../../schemas/ruleset.schema.js";
 import type { RulesetLiveState } from "../rulesets/live-state.js";
+import type { TacticalBattlefieldProvenance, TacticalGrid } from "../tactical-combat/types.js";
 
 /** A die roller: one call, one die, a face from 1 to `sides`. Every random number a fight needs
  *  comes through one of these, so a scripted sequence reproduces a fight exactly. */
@@ -60,8 +61,15 @@ export interface RulesetCombatSequenceStep {
   times: number;
 }
 
-/** One thing a stat block can do. `reach` and `range` are carried and not read: distance starts to
- *  mean something in the slice that gives a fight positions. */
+/** How far something is thrown or shot. `long` is what it still carries beyond `normal`, which a
+ *  ruleset may make harder through `combat.ranged`. */
+export interface RulesetCombatRange {
+  normal: number;
+  long?: number;
+}
+
+/** One thing a stat block can do. `reach` and `range` are in the ruleset's own distance unit; a
+ *  positioned fight turns them into cells when it starts. */
 export interface RulesetStatBlockAction {
   /** The block's own id when it has one, so a bestiary keeps its names across a reload. A sequence
    *  names its parts by this id, so a block with sequences needs them. */
@@ -78,7 +86,9 @@ export interface RulesetStatBlockAction {
   applies?: RulesetCombatApplies[];
   targetCount?: number;
   reach?: number;
-  range?: number;
+  range?: number | RulesetCombatRange;
+  /** The shape it lands in, in the ruleset's own distance unit. */
+  area?: { shape: RulesetCombatArea["shape"]; size: number; friendlyFire?: boolean };
   uses?: RulesetCombatUses;
   recharge?: RulesetCombatRecharge;
   /** Other actions of this block, in order. ONE budget pays for the lot, and each part takes its
@@ -162,6 +172,35 @@ export interface RulesetCombatAction {
   sequence?: RulesetCombatSequenceStep[];
   /** Bought with the actor's own points at the end of somebody else's turn, not with a budget. */
   signature?: { cost: number };
+  /** IN CELLS, resolved once when the fight began, and read only by a positioned fight. An action
+   *  with neither reaches one cell, which is the smallest step a board has. */
+  reach?: number;
+  range?: RulesetCombatRange;
+  /** The shape this one covers, in cells, aimed at a cell rather than at anybody. */
+  area?: RulesetCombatArea;
+}
+
+/** A shape on the board, in cells. `friendlyFire` false leaves the actor's own side out of it. */
+export interface RulesetCombatArea {
+  shape: "burst" | "cone" | "line";
+  size: number;
+  friendlyFire?: boolean;
+}
+
+/** One cell of a board, as a fight counts them. */
+export interface RulesetCombatCell {
+  x: number;
+  y: number;
+}
+
+/** Where a move could go: what it costs of the allowance, the cells it walks through, and the
+ *  standing enemies whose reach it leaves on the way. */
+export interface RulesetReachableCell extends RulesetCombatCell {
+  cost: number;
+  /** From the cell after the actor's own up to and including this one. */
+  path: RulesetCombatCell[];
+  /** The ids of the enemies this path would be struck at by, in the order it passes them. */
+  provokes: string[];
 }
 
 /** A condition the fight is keeping time on. The condition itself lives on the sheet for a party
@@ -221,6 +260,12 @@ export interface RulesetCombatant {
   /** An opponent's block, and the health the encounter keeps for it. */
   block?: RulesetStatBlock;
   health?: { value: number; max: number; temp: number };
+  /** Where they stand. Present only in a positioned fight, and then on everybody at once. */
+  x?: number;
+  y?: number;
+  /** The whole allowance this turn and what is left of it, both in CELLS. */
+  movement?: number;
+  movementLeft?: number;
 }
 
 export interface RulesetEncounterState {
@@ -238,6 +283,16 @@ export interface RulesetEncounterState {
   combatants: RulesetCombatant[];
   /** The events the fight opened with, so a caller printing a log never rebuilds them. */
   opening: RulesetCombatEvent[];
+  /** The board this fight stands on, when it has one. A fight without it is theatre of the mind and
+   *  reads nothing about distance at all. */
+  board?: RulesetCombatBoard;
+}
+
+/** The board, as the fight keeps it: the tactical engine's own grid and where it came from. The
+ *  fight never generates one of its own. */
+export interface RulesetCombatBoard {
+  grid: TacticalGrid;
+  battlefield?: TacticalBattlefieldProvenance;
 }
 
 /** Why a choice changed nothing. */
@@ -253,7 +308,15 @@ export type RulesetCombatRefusal =
   | "insufficient"
   | "bad-pool"
   /** A bestiary reference the handed-in catalogs do not hold. */
-  | "unknown-creature";
+  | "unknown-creature"
+  /** A cell this move cannot end on, or cannot pay for. */
+  | "unreachable"
+  /** A target further away than this reaches or carries. */
+  | "out-of-reach"
+  /** Something solid stands between the two of them. */
+  | "no-line-of-sight"
+  /** An area aimed at a cell it may not be aimed at. */
+  | "bad-cell";
 
 export type RulesetCombatAttackOutcome = "hit" | "miss" | "critical";
 export type RulesetCombatRollMode = "normal" | "advantage" | "disadvantage";
@@ -354,6 +417,33 @@ export type RulesetCombatEvent =
     }
   | { type: "standard"; actorId: string; action: string; targetId?: string }
   | {
+      type: "move";
+      actorId: string;
+      from: RulesetCombatCell;
+      to: RulesetCombatCell;
+      /** Every cell walked through, the first one after the actor's own. */
+      path: RulesetCombatCell[];
+      /** In cells of the allowance, and what is left of it afterwards. */
+      cost: number;
+      left: number;
+      /** How far the move got, when a strike on the way stopped it short. */
+      stopped?: boolean;
+    }
+  /** A strike at somebody leaving this combatant's reach. The attack and the damage that follow are
+   *  their own events, exactly as they are on a turn. */
+  | { type: "opportunity"; actorId: string; targetId: string; label: string; budget: string }
+  /** What the ground the target stands on added to the defense the next attack is rolled against. */
+  | { type: "cover"; targetId: string; bonus: number; defense: number }
+  /** Where an area landed, and the cells it covered. */
+  | {
+      type: "area";
+      actorId: string;
+      optionId: string;
+      label: string;
+      at: RulesetCombatCell;
+      cells: RulesetCombatCell[];
+    }
+  | {
       type: "dying";
       actorId: string;
       rolls: number[];
@@ -375,7 +465,8 @@ export type RulesetEncounterOutcome = "ongoing" | "victory" | "defeat";
  *  own choices and a forecast go through is on this menu: nothing else computes legality. */
 export interface RulesetCombatOption {
   id: string;
-  kind: "attack" | "ability" | "block" | "standard" | "end-turn";
+  /** `move` is the one a positioned fight adds: walking, and getting back up. */
+  kind: "attack" | "ability" | "block" | "standard" | "end-turn" | "move";
   label: string;
   /** Absent on "end turn", which spends nothing. */
   budget?: string;
@@ -396,6 +487,14 @@ export interface RulesetCombatOption {
    *  forecasts the sum of its parts' damage and no single chance to hit, because its parts each
    *  roll their own. */
   forecast?: { hitChance?: number; averageDamage?: number };
+  /** Where the `move` option may go, with what each cell costs of the allowance and who a path to
+   *  it would be struck at by. */
+  cells?: RulesetReachableCell[];
+  /** What a `move` option that is not a step costs of the allowance: getting back up. */
+  movementCost?: number;
+  /** The shape this covers, in cells, and how far away it may be aimed. Present only in a
+   *  positioned fight, and then the option is aimed at a cell rather than at anybody. */
+  area?: { shape: RulesetCombatArea["shape"]; size: number; range: number };
 }
 
 export interface RulesetCombatChoice {
@@ -407,6 +506,10 @@ export interface RulesetCombatChoice {
   targetIds: string[];
   /** Pay out of another pool of the same family: the upcast, under the `use` command's own rule. */
   payWith?: string;
+  /** Where the `move` option is walking to. */
+  to?: RulesetCombatCell;
+  /** The cell an area is aimed at. An option with an area takes this instead of target ids. */
+  at?: RulesetCombatCell;
 }
 
 export interface RulesetCombatStep {

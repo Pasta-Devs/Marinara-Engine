@@ -17,6 +17,7 @@ import type {
   RulesetValueRef,
 } from "@marinara-engine/shared";
 import type { TFunction } from "i18next";
+import { rulesetDistanceText } from "./ruleset-combat-board";
 
 /** Everything a line needs to name something the ruleset named. Built once per render. */
 export interface RulesetCombatNames {
@@ -31,6 +32,9 @@ export interface RulesetCombatNames {
   /** What this ruleset calls the number an attack is rolled against: "AC", "Guard", whatever the
    *  file named it. Empty when the ruleset points at something with no label of its own. */
   defense: string;
+  /** A count of cells in the ruleset's own distance: "20 ft", "8 paces". A fight with no board has
+   *  no unit to say it in, so the count is printed as it stands. */
+  distance: (cells: number) => string;
 }
 
 function lookup(entries: Array<{ id: string; label: string }> | undefined) {
@@ -57,9 +61,15 @@ export function rulesetValueLabel(definition: RulesetDefinition, ref: RulesetVal
   return "";
 }
 
-export function rulesetCombatNames(definition: RulesetDefinition, view: DirectedRulesetView): RulesetCombatNames {
+export function rulesetCombatNames(
+  definition: RulesetDefinition,
+  view: DirectedRulesetView,
+  t: TFunction,
+): RulesetCombatNames {
   const combatants = new Map(view.combatants.map((combatant) => [combatant.id, combatant.name]));
+  const distance = view.grid?.distance;
   return {
+    distance: (cells) => rulesetDistanceText(cells, distance, t),
     combatant: (id) => (id ? (combatants.get(id) ?? "") : ""),
     condition: lookup(definition.sheet.live.conditions),
     budget: lookup(definition.combat?.economy.budgets),
@@ -243,6 +253,37 @@ export function rulesetCombatEventLine(
       return key(event.state === "started" ? "concentrationStarted" : "concentrationKept", {
         actor: names.combatant(event.actorId),
         label: event.label,
+      });
+    case "move":
+      // Movement spent and nowhere gone is getting back up, which the condition's own line already
+      // says: this one only has to say what it cost.
+      // What a walk cost and what is left of the allowance are said in the ruleset's own distance,
+      // because "3" is a count of cells and nobody at the table measures in those.
+      if (event.path.length === 0) {
+        return key("moveStood", { actor: names.combatant(event.actorId), cost: names.distance(event.cost) });
+      }
+      return key(event.stopped ? "moveStopped" : "move", {
+        actor: names.combatant(event.actorId),
+        x: event.to.x,
+        y: event.to.y,
+        cost: names.distance(event.cost),
+        left: names.distance(event.left),
+      });
+    case "opportunity":
+      return key("opportunity", {
+        actor: names.combatant(event.actorId),
+        target: names.combatant(event.targetId),
+        label: event.label,
+      });
+    case "cover":
+      return key("cover", { target: names.combatant(event.targetId), bonus: event.bonus, defense: event.defense });
+    case "area":
+      return key("area", {
+        actor: names.combatant(event.actorId),
+        label: event.label,
+        x: event.at.x,
+        y: event.at.y,
+        cells: event.cells.length,
       });
     case "standard":
       // The kind implements a closed list, so an action outside it is a save from another Engine

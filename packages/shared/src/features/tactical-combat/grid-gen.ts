@@ -30,6 +30,18 @@ import type {
 /** Increment when a generated brief's resolved-grid semantics intentionally change. */
 export const TACTICAL_BATTLEFIELD_GENERATOR_VERSION = 1 as const;
 
+/**
+ * The only thing placement reads off a unit: which side it is on, whether it anchors the group, and
+ * the tile it ends up on. A `TacticalUnit` is one of these; so is a stand-in for a combatant of a
+ * fight some ruleset resolves by its own numbers, which never becomes a tactical unit at all.
+ */
+export interface TacticalPlaceable {
+  side: TacticalUnit["side"];
+  isBoss?: boolean;
+  x: number;
+  y: number;
+}
+
 const BATTLEFIELD_SIZES: Record<TacticalBattlefieldSize, { width: number; height: number }> = {
   small: { width: 12, height: 8 },
   medium: { width: 13, height: 9 },
@@ -692,7 +704,11 @@ function nearestUnprotectedHub(grid: TacticalGrid, protectedTiles: ReadonlySet<s
   return firstUnprotected;
 }
 
-function ensureConnectivity(grid: TacticalGrid, units: TacticalUnit[], protectedTiles: ReadonlySet<string>): boolean {
+function ensureConnectivity(
+  grid: TacticalGrid,
+  units: TacticalPlaceable[],
+  protectedTiles: ReadonlySet<string>,
+): boolean {
   if (!units.length) return true;
   // Preserve legacy output exactly: its hub is the board center. Briefed maps
   // choose the closest unprotected tile so a center landmark stays intact.
@@ -725,7 +741,7 @@ function ensureConnectivity(grid: TacticalGrid, units: TacticalUnit[], protected
  */
 export function placeSpawns(
   grid: TacticalGrid,
-  units: TacticalUnit[],
+  units: TacticalPlaceable[],
   formation: TacticalFormation = "line",
   rng: () => number = () => 0,
   protectedTiles: ReadonlySet<string> = new Set(),

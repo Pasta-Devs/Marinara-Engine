@@ -68,12 +68,12 @@ const ENVIRONMENTS: TacticalEnvironment[] = [
 const FORMATIONS: TacticalFormation[] = ["line", "ambush", "surrounded", "skirmish", "defense"];
 
 /** Unknown/absent environment strings normalize to undefined (default theming). */
-function normalizeEnvironment(value?: string): TacticalEnvironment | undefined {
+export function normalizeEnvironment(value?: string): TacticalEnvironment | undefined {
   return value && ENVIRONMENTS.includes(value as TacticalEnvironment) ? (value as TacticalEnvironment) : undefined;
 }
 
 /** Unknown/absent formation strings normalize to "line" (legacy behavior). */
-function normalizeFormation(value?: string): TacticalFormation {
+export function normalizeFormation(value?: string): TacticalFormation {
   return value && FORMATIONS.includes(value as TacticalFormation) ? (value as TacticalFormation) : "line";
 }
 

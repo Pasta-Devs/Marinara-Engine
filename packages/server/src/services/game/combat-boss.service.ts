@@ -99,8 +99,43 @@ export function buildRulesetCombatBossPrompt(
       ...(entry?.cost ? { cost: entry.cost } : {}),
       ...(entry?.left !== undefined ? { usesLeft: entry.left } : {}),
       ...(entry?.forecast ? { forecast: entry.forecast } : {}),
+      // Where this candidate walks first, and where its shape lands. Both are cells of the board
+      // the view already carries; neither is a die that has not been thrown.
+      ...(option.to ? { moveTo: option.to } : {}),
+      ...(option.at ? { aimAt: option.at } : {}),
     };
   });
+  // Where everybody stands, and how far the actor is from each of them, in cells. Worked out from
+  // the view the client is sent, so the Game Master is never told anything a player cannot see.
+  const positions = view.grid
+    ? view.combatants
+        .filter((combatant) => typeof combatant.x === "number" && typeof combatant.y === "number")
+        .map((combatant) => ({
+          id: combatant.id,
+          name: combatant.name,
+          side: combatant.side,
+          cell: { x: combatant.x!, y: combatant.y! },
+          ...(combatant.movementLeft !== undefined ? { movementLeft: combatant.movementLeft } : {}),
+          ...(combatant.id === window.actorId
+            ? {
+                cellsAway: Object.fromEntries(
+                  view.combatants
+                    .filter(
+                      (other) =>
+                        other.side !== combatant.side &&
+                        typeof other.x === "number" &&
+                        typeof other.y === "number" &&
+                        !other.defeated,
+                    )
+                    .map((other) => [
+                      other.id,
+                      Math.max(Math.abs(other.x! - combatant.x!), Math.abs(other.y! - combatant.y!)),
+                    ]),
+                ),
+              }
+            : {}),
+        }))
+    : undefined;
   return [
     {
       role: "system" as const,
@@ -126,6 +161,10 @@ export function buildRulesetCombatBossPrompt(
         order: view.order,
         candidates,
         units: view.combatants,
+        ...(view.grid
+          ? { board: { width: view.grid.width, height: view.grid.height, distance: view.grid.distance } }
+          : {}),
+        ...(positions ? { positions } : {}),
         recentEvents: fight.events.slice(-16),
       }),
     },

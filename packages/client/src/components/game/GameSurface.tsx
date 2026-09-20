@@ -8547,6 +8547,10 @@ function GameSurfaceComponent({
     })
       ? gameRuleset.definition
       : null;
+  // A fight the ruleset resolves is fought on a board when the player asked for the Tactical
+  // presentation AND the ruleset says what one cell of one is worth. The server still decides: it
+  // draws no board for a ruleset with no `distance`, and the screen follows the view it sends.
+  const rulesetFightPositioned = !!rulesetFightDefinition?.combat?.distance && effectiveCombatStyle === "tactical";
 
   // The catalogs a bridged battle reads are fetched as soon as the game is open, so that starting a
   // battle finds them in the cache and seeds the party in the same tick a game without a ruleset
@@ -13053,6 +13057,7 @@ function GameSurfaceComponent({
                               anchor={combatStartMessageId}
                               style={rulesetFightDefinition ? "ruleset" : effectiveCombatStyle}
                               rulesetDefinition={rulesetFightDefinition ?? undefined}
+                              positioned={rulesetFightPositioned}
                               battlefield={combatSceneMeta?.battlefield ?? undefined}
                               party={combatParty}
                               enemies={combatEnemies}

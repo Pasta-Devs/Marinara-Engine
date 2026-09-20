@@ -1517,14 +1517,36 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
     doc.catalogs = (doc.catalogs ?? []).filter((catalog: Record<string, any>) => catalog.holds !== "creatures");
     if (doc.catalogs.length === 0) delete doc.catalogs;
   };
-  const combatOnly = variant(emberText, (doc) => delete doc.catalogs);
+  /** The keys that give a fight a board are a declaration of their own, two releases later, so the
+   *  cases about the combat seam itself drop them and leave that gate to the block below. */
+  const withoutBoard = (doc: Record<string, any>) => {
+    if (!doc.combat) return;
+    for (const key of ["distance", "ranged", "cover", "opportunity"]) delete doc.combat[key];
+    for (const source of doc.combat.attacks ?? []) {
+      delete source.reach;
+      delete source.range;
+    }
+  };
+  const combatOnly = variant(emberText, (doc) => {
+    delete doc.catalogs;
+    withoutBoard(doc);
+  });
   assert.match(
     getCapabilityPackageInstallIssue(manifest(25), combatOnly) ?? "",
     /A ruleset with a combat block requires schemaVersion 2 and capabilityApi 1\.26 or newer/,
     "the block lives inside the ruleset file, so the gate reads the file",
   );
   assert.equal(getCapabilityPackageInstallIssue(manifest(26), combatOnly), null);
-  assert.equal(getCapabilityPackageInstallIssue(manifest(26), variant(emberText, withoutBestiary)), null);
+  assert.equal(
+    getCapabilityPackageInstallIssue(
+      manifest(26),
+      variant(emberText, (doc) => {
+        withoutBestiary(doc);
+        withoutBoard(doc);
+      }),
+    ),
+    null,
+  );
 
   // The mechanics a fight reads are new keys in the same strict file, inline in the ruleset or in a
   // catalog asset beside it, so both are read the same way.
@@ -1569,6 +1591,87 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
     delete doc.layers;
   });
   assert.equal(getCapabilityPackageInstallIssue(manifest(20), plain), null);
+
+  // ── Capability API 1.28: the keys that give a fight a board ──
+  assert.ok(
+    supportedCapabilityApi.major > 1 || supportedCapabilityApi.minor >= 28,
+    "the host still advertises the positions seam introduced in API 1.28",
+  );
+  // Every one of them, one at a time, on a ruleset that is otherwise a 1.26 file.
+  for (const key of ["distance", "ranged", "cover", "opportunity"] as const) {
+    const one = variant(emberText, (doc) => {
+      withoutBestiary(doc);
+      withoutBoard(doc);
+      // ONLY this key, so the refusal is its own and not the cell size's. The gate reads the raw
+      // file, so a key may stand here without the `distance` the ruleset's own checks would ask for.
+      doc.combat[key] =
+        key === "distance"
+          ? { label: "paces", perCell: 2 }
+          : key === "ranged"
+            ? { long: "disadvantage" }
+            : key === "cover"
+              ? { bonus: 2 }
+              : { budget: "act" };
+    });
+    assert.match(
+      getCapabilityPackageInstallIssue(manifest(27), one) ?? "",
+      /measured in cells requires schemaVersion 2 and capabilityApi 1\.28 or newer/,
+      `"${key}" is a 1.28 declaration`,
+    );
+    assert.equal(getCapabilityPackageInstallIssue(manifest(28), one), null);
+  }
+  // A weapon list that carries a distance is the same declaration.
+  const weaponRange = variant(emberText, (doc) => {
+    withoutBestiary(doc);
+    withoutBoard(doc);
+    doc.combat.attacks[0].reach = { const: 2 };
+  });
+  assert.match(
+    getCapabilityPackageInstallIssue(manifest(27), weaponRange) ?? "",
+    /measured in cells requires schemaVersion 2 and capabilityApi 1\.28 or newer/,
+  );
+  assert.equal(getCapabilityPackageInstallIssue(manifest(28), weaponRange), null);
+  // And so is a creature whose range is an ordinary distance with a longer one beyond it, inline or
+  // in a catalog file, because it is a new SHAPE for a key an older Engine reads as a number.
+  const pairInline = variant(emberText, (doc) => {
+    withoutBoard(doc);
+    const bestiary = doc.catalogs.find((catalog: Record<string, any>) => catalog.holds === "creatures");
+    bestiary.entries[0].creature.actions[0].range = { normal: 4, long: 8 };
+  });
+  assert.match(
+    getCapabilityPackageInstallIssue(manifest(27), pairInline) ?? "",
+    /measured in cells requires schemaVersion 2 and capabilityApi 1\.28 or newer/,
+  );
+  assert.equal(getCapabilityPackageInstallIssue(manifest(28), pairInline), null);
+  const pairAsset = variant(emberText, (doc) => {
+    withoutBoard(doc);
+    withoutBestiary(doc);
+    delete doc.catalogs[0].entries;
+    doc.catalogs[0].asset = "catalogs/knacks.json";
+  });
+  const pairEntries = {
+    schemaVersion: 1,
+    catalog: "knacks",
+    entries: [
+      {
+        id: "road-hound",
+        label: "Road hound",
+        creature: {
+          health: 6,
+          defense: 5,
+          initiativeModifier: 0,
+          tier: "stray",
+          actions: [{ id: "bite", name: "Bite", budget: "act", toHit: 1, range: { normal: 4, long: 8 } }],
+        },
+      },
+    ],
+  };
+  const pairAssets = new Map([["catalogs/knacks.json", pairEntries]]);
+  assert.match(
+    getCapabilityPackageInstallIssue(manifest(27), pairAsset, pairAssets) ?? "",
+    /measured in cells requires schemaVersion 2 and capabilityApi 1\.28 or newer/,
+  );
+  assert.equal(getCapabilityPackageInstallIssue(manifest(28), pairAsset, pairAssets), null);
 }
 
 console.info("game ruleset combat core regressions passed.");

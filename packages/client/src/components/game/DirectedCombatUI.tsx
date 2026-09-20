@@ -1,9 +1,11 @@
+import { CombatAiControls } from "./CombatAiControls";
 import { CombatWeatherSummary } from "./CombatWeatherSummary";
 import { useEffect, useMemo, useRef, type ComponentProps } from "react";
 import type { CombatDecisionOption, RulesetDefinition, TacticalBattlefieldBrief } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
 import { useDirectedCombat } from "../../hooks/use-directed-combat";
 import { GameCombatUI } from "./GameCombatUI";
+import { RulesetCombatBoard } from "./RulesetCombatBoard";
 import { RulesetCombatStatus } from "./RulesetCombatStatus";
 import { TacticalCombatUI } from "./TacticalCombatUI";
 import { cn } from "../../lib/utils";
@@ -17,6 +19,9 @@ type Props = ComponentProps<typeof GameCombatUI> & {
   /** The rules the game is pinned to, for a fight the ruleset resolves. It is what names budgets,
    *  conditions, saves and tiers on screen, so the fight reads in the ruleset's own words. */
   rulesetDefinition?: RulesetDefinition;
+  /** Ask for a fight the ruleset resolves to be fought on a board. The ruleset still has to say
+   *  what a cell is worth, and the screen decides from the VIEW rather than from this. */
+  positioned?: boolean;
 };
 export function DirectedCombatUI(props: Props) {
   const { t } = useTranslation();
@@ -36,6 +41,7 @@ export function DirectedCombatUI(props: Props) {
     environment: props.environment,
     formation: props.formation,
     battlefield: props.battlefield,
+    positioned: props.positioned,
     mechanics: props.combatMechanics,
     inventory: props.inventoryItems,
     itemEffects: props.combatItemEffects,
@@ -80,6 +86,24 @@ export function DirectedCombatUI(props: Props) {
   // A ruleset fight only reads as one when the rules it was started on can still be read here, which
   // is exactly when the server sends its view. Without either, the shell is the Classic one.
   const fight = s.style === "ruleset" && definition ? s.ruleset : undefined;
+  // The screen decides from the VIEW, never from what was asked for: a grid on it is a fight with
+  // positions, and a fight without one keeps the Classic stage it has had since C3.
+  const board = fight?.grid ? fight : undefined;
+  /** One ruleset choice, with the two cells only a positioned fight ever carries. */
+  const choose = (
+    optionId: string,
+    targetIds: string[],
+    payWith?: string,
+    cell?: { to?: { x: number; y: number }; at?: { x: number; y: number } },
+  ) =>
+    send({
+      type: "ruleset",
+      optionId,
+      targetIds,
+      ...(payWith ? { payWith } : {}),
+      ...(cell?.to ? { to: cell.to } : {}),
+      ...(cell?.at ? { at: cell.at } : {}),
+    });
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -109,6 +133,25 @@ export function DirectedCombatUI(props: Props) {
                 ),
             }}
           />
+        ) : board ? (
+          <RulesetCombatBoard
+            view={board}
+            units={[...s.party, ...s.enemies]}
+            budgetLabel={budgetLabel}
+            environment={props.environment}
+            busy={busy}
+            onChoose={choose}
+            onFlee={() => send({ type: "flee" })}
+            controls={
+              <CombatAiControls
+                party={s.party}
+                enemies={s.enemies}
+                defaultController="ai"
+                locked={busy}
+                onChange={(unitId, controller) => send({ type: "control", unitId, controller })}
+              />
+            }
+          />
         ) : (
           <GameCombatUI
             {...props}
@@ -129,8 +172,7 @@ export function DirectedCombatUI(props: Props) {
                       view: fight,
                       budgetLabel,
                       busy,
-                      onChoose: (optionId: string, targetIds: string[], payWith?: string) =>
-                        send({ type: "ruleset", optionId, targetIds, ...(payWith ? { payWith } : {}) }),
+                      onChoose: choose,
                       onFlee: () => send({ type: "flee" }),
                     },
                   }

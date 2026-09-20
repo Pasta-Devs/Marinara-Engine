@@ -7,7 +7,7 @@ import type {
   RulesetCombatSide,
   RulesetEncounterSummary,
 } from "./ruleset-combat/types.js";
-import type { TacticalAction, TacticalCombatState } from "./tactical-combat/types.js";
+import type { TacticalAction, TacticalCombatState, TacticalTerrain } from "./tactical-combat/types.js";
 
 /** Explicit capabilities: names and prose never grant interrupts or boss privileges. */
 export const combatBossSchema = z.object({
@@ -34,8 +34,17 @@ export type DirectedCommand =
   | { type: "begin"; unitId: string }
   | { type: "classic"; action: CombatPlayerAction }
   | { type: "tactical"; action: TacticalAction }
-  /** One choice off the ruleset fight's own menu, for the actor whose turn it is. */
-  | { type: "ruleset"; optionId: string; targetIds: string[]; payWith?: string }
+  /** One choice off the ruleset fight's own menu, for the actor whose turn it is. `to` is where the
+   *  `move` option walks to and `at` is the cell an area is aimed at; both are ignored by a fight
+   *  that has no board. */
+  | {
+      type: "ruleset";
+      optionId: string;
+      targetIds: string[];
+      payWith?: string;
+      to?: { x: number; y: number };
+      at?: { x: number; y: number };
+    }
   | { type: "choose"; candidateId: string }
   | { type: "continue" }
   | { type: "fallback" }
@@ -57,6 +66,9 @@ export interface CombatDecisionOption {
   targetIds?: string[];
   label?: string;
   payWith?: string;
+  /** Where a ruleset fight's own shape is aimed. `to` above is where the actor walks first, which
+   *  a positioned candidate may carry too. */
+  at?: { x: number; y: number };
 }
 export interface CombatDecisionWindow {
   id: string;
@@ -100,6 +112,12 @@ export interface DirectedRulesetCombatant {
   /** An opponent's rung of the threat scale, and the lines the Game Master is shown. */
   tier?: string;
   traits?: Array<{ name: string; text: string }>;
+  /** Where they stand and how many cells of this turn's allowance they have left. Present exactly
+   *  when the fight is on a board, and then on everybody at once. */
+  x?: number;
+  y?: number;
+  movement?: number;
+  movementLeft?: number;
 }
 /**
  * What a ruleset fight's log holds: everything the resolver did, plus the few things the DIRECTOR
@@ -112,12 +130,19 @@ export type DirectedRulesetEvent =
 /** One option of the legal menu, with the combatants it may be pointed at right now. */
 export interface DirectedRulesetOption extends RulesetCombatOption {
   targetIds: string[];
+  /** For an option that lands as a shape: the cells it may be aimed at, and who each aim would
+   *  catch, so a board can draw the template before the choice is confirmed. */
+  aim?: Array<{ x: number; y: number; targetIds: string[] }>;
 }
 export interface DirectedRulesetView {
   /** What the fight is resolved by, as the game pinned it. */
   ruleset: { id: string; version: number };
   round: number;
   order: string[];
+  /** The board, when the fight is on one, with what this ruleset calls one cell's worth of
+   *  distance. Absent from a fight that is theatre of the mind, which is every fight until a
+   *  ruleset declares `combat.distance` and the game asks for a positioned one. */
+  grid?: { width: number; height: number; tiles: TacticalTerrain[][]; distance: { label: string; perCell: number } };
   actorId?: string;
   /** Who plays the actor whose turn it is. */
   controller: "manual" | "ai" | "gm";

@@ -67,11 +67,23 @@ import {
   type TacticalAction,
   type TacticalEvent,
   type TacticalCoord,
-  type TacticalTerrain,
   type TacticalBattlefieldBrief,
   type TacticalClass,
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import {
+  TACTICAL_BOARD_KEYFRAMES,
+  TERRAIN_PALETTES,
+  TILE_ALPHA,
+  TILE_TEXTURES,
+  TILE_TINT_ALPHA,
+  TILE_TINT_ALPHA_THEMED,
+  initialsOf,
+  resolveSprite,
+  resolveTerrainIcon,
+  ringColorFor,
+  tileShadow,
+} from "../../lib/tactical-board-look";
 
 // ── Props ──
 
@@ -132,201 +144,6 @@ const SFX = {
   defeat: "sfx:ui:menu-cancel",
 } as const;
 
-// ── Environment terrain palettes ──
-//
-// Keyed by plain string so the file compiles regardless of whether the shared
-// `TacticalEnvironment` union has landed yet. Every entry is a full terrain map;
-// unknown environments fall back to "default" (the original colours). The
-// resolved palette comes from the AUTHORITATIVE `state.environment` first, then
-// the `environment` prop, then "default".
-
-const TERRAIN_PALETTES: Record<string, Record<TacticalTerrain, string>> = {
-  default: {
-    plains: "#40714a",
-    forest: "#274a30",
-    mountain: "#5c5142",
-    ruin: "#4a4f5c",
-    water: "#1f4f78",
-    wall: "#23232b",
-  },
-  forest: {
-    plains: "#3a6b3f",
-    forest: "#1f3f26",
-    mountain: "#4f4a3a",
-    ruin: "#454b45",
-    water: "#215a6b",
-    wall: "#26241c",
-  },
-  plains: {
-    plains: "#4e8a4f",
-    forest: "#2f5c34",
-    mountain: "#6a5c44",
-    ruin: "#565b5f",
-    water: "#2a6187",
-    wall: "#2a2a2a",
-  },
-  mountains: {
-    plains: "#5a6650",
-    forest: "#37472f",
-    mountain: "#6b5f4c",
-    ruin: "#575a5f",
-    water: "#2b5570",
-    wall: "#312e28",
-  },
-  snow: {
-    plains: "#cdd8e3",
-    forest: "#8fa8a0",
-    mountain: "#aeb9c6",
-    ruin: "#9aa4b2",
-    water: "#7fb8d6",
-    wall: "#7d8794",
-  },
-  desert: {
-    plains: "#c9a55f",
-    forest: "#8a7a3e",
-    mountain: "#a8894f",
-    ruin: "#b09a6a",
-    water: "#3f8fa0",
-    wall: "#6e5a38",
-  },
-  wasteland: {
-    plains: "#8a7a53",
-    forest: "#6a6136",
-    mountain: "#7d6b4a",
-    ruin: "#7a6f5c",
-    water: "#4a6b63",
-    wall: "#4d4436",
-  },
-  volcanic: {
-    plains: "#5a3a34",
-    forest: "#4a3128",
-    mountain: "#6e3d2c",
-    ruin: "#5c453e",
-    water: "#b1441f",
-    wall: "#2a1c18",
-  },
-  water: {
-    plains: "#3d7a6a",
-    forest: "#245c4c",
-    mountain: "#4a6157",
-    ruin: "#456058",
-    water: "#1c6f8f",
-    wall: "#213a3c",
-  },
-  swamp: {
-    plains: "#4a5f3a",
-    forest: "#2f4529",
-    mountain: "#4e5240",
-    ruin: "#495046",
-    water: "#3a5f4a",
-    wall: "#25302a",
-  },
-  cave: {
-    plains: "#3e3a44",
-    forest: "#33403a",
-    mountain: "#4a4148",
-    ruin: "#454049",
-    water: "#2a4a5c",
-    wall: "#1b1920",
-  },
-  dungeon: {
-    plains: "#3d3a42",
-    forest: "#34413a",
-    mountain: "#4a4550",
-    ruin: "#4c4652",
-    water: "#274a5c",
-    wall: "#1a1820",
-  },
-  ruins: {
-    plains: "#5a5648",
-    forest: "#3f4a36",
-    mountain: "#5e564a",
-    ruin: "#63615a",
-    water: "#3a5a68",
-    wall: "#332f28",
-  },
-  city: {
-    plains: "#5c5f66",
-    forest: "#3f5240",
-    mountain: "#5e5a54",
-    ruin: "#6a6a72",
-    water: "#3a5c7a",
-    wall: "#33343c",
-  },
-  castle: {
-    plains: "#5a5850",
-    forest: "#3c4a38",
-    mountain: "#615a4c",
-    ruin: "#66625a",
-    water: "#385a72",
-    wall: "#302d2a",
-  },
-  mansion: {
-    plains: "#5b504a",
-    forest: "#3f4a3a",
-    mountain: "#5e544a",
-    ruin: "#665c52",
-    water: "#3f5a6a",
-    wall: "#332b26",
-  },
-  spaceship: {
-    plains: "#3a4550",
-    forest: "#31424c",
-    mountain: "#465562",
-    ruin: "#4a5763",
-    water: "#2f6a86",
-    wall: "#1e262e",
-  },
-};
-
-// ── Terrain icons ──
-// The painted tile textures carry the base terrain look, so only
-// environment-specific flavour overrides render as icons.
-const TERRAIN_ICON_OVERRIDES: Record<string, Partial<Record<TacticalTerrain, string>>> = {
-  desert: { forest: "🌵", mountain: "🏜️" },
-  wasteland: { forest: "🌵" },
-  volcanic: { mountain: "🌋", water: "🌋" },
-  snow: { forest: "🌲", mountain: "🏔️" },
-  swamp: { forest: "🌿", water: "💧" },
-  cave: { forest: "", mountain: "🪨" },
-  dungeon: { forest: "", mountain: "🪨" },
-  spaceship: { forest: "", mountain: "", ruin: "🛰️", water: "⚡" },
-  city: { forest: "🌳", ruin: "🏚️" },
-  castle: { ruin: "🏰" },
-  mansion: { ruin: "🏛️" },
-};
-
-function resolveTerrainIcon(env: string | undefined, terrain: TacticalTerrain): string {
-  return (env ? TERRAIN_ICON_OVERRIDES[env]?.[terrain] : undefined) ?? "";
-}
-
-// Per-tile depth: raised terrain (mountain/wall) reads embossed; the rest recessed.
-function tileShadow(terrain: TacticalTerrain): string {
-  if (terrain === "mountain" || terrain === "wall") {
-    return "inset 0 2px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.45)";
-  }
-  return "inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -3px 5px rgba(0,0,0,0.35)";
-}
-
-// ~0.88 alpha suffix so terrain colours stay readable but the scene shows through.
-const TILE_ALPHA = "e0";
-
-// Painted top-down tile textures (packages/client/public/tactical/). The palette
-// colour is layered over them as a tint so environment themes still recolour the field.
-const TILE_TEXTURES: Record<TacticalTerrain, string> = {
-  plains: "/tactical/plains.webp",
-  forest: "/tactical/forest.webp",
-  mountain: "/tactical/mountain.webp",
-  ruin: "/tactical/ruin.webp",
-  water: "/tactical/water.webp",
-  wall: "/tactical/wall.webp",
-};
-
-// Tint strength over the texture: a light wash for the default look, stronger
-// when an environment theme needs to recolour the painted art (e.g. snow, volcanic).
-const TILE_TINT_ALPHA = "3d";
-const TILE_TINT_ALPHA_THEMED = "73";
-
 // ── Animation timing (per event kind) ──
 
 const EVENT_DELAY: Record<string, number> = {
@@ -346,34 +163,6 @@ const EVENT_DELAY: Record<string, number> = {
   "defeat-end": 700,
   flee: 700,
 };
-
-// ── Sprite shape detection (mirrors GameCombatUI.resolveSpriteKind) ──
-
-type SpriteKind = { kind: "url"; value: string } | { kind: "emoji"; value: string } | { kind: "none" };
-
-function resolveSprite(sprite: string | null | undefined): SpriteKind {
-  if (!sprite) return { kind: "none" };
-  const trimmed = sprite.trim();
-  if (!trimmed) return { kind: "none" };
-  if (/^(https?:|\/|data:|blob:)/i.test(trimmed)) return { kind: "url", value: trimmed };
-  if (trimmed.length <= 12 && /\p{Extended_Pictographic}/u.test(trimmed)) return { kind: "emoji", value: trimmed };
-  return { kind: "none" };
-}
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-// Deterministic color ring from a unit id, so companions stay visually distinct.
-function ringColorFor(id: string, side: "party" | "enemy"): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-  const hue = side === "party" ? 200 + (hash % 60) : 350 + (hash % 40);
-  return `hsl(${hue % 360} 70% 55%)`;
-}
 
 // Read the authoritative environment off state without depending on the shared
 // type having the field yet (the engine agent adds `environment?: TacticalEnvironment`).
@@ -1367,11 +1156,7 @@ export function TacticalCombatUI({
     >
       {/* One-off keyframes for shimmer / range pulse / ready glow (self-contained).
           Ready glow uses the app's --primary accent (theme-aware) via color-mix. */}
-      <style>{`
-        @keyframes tc-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-        @keyframes tc-move-range { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.55; } }
-        @keyframes tc-ready-glow { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 9px 2px color-mix(in srgb, var(--primary) 55%, transparent); } }
-      `}</style>
+      <style>{TACTICAL_BOARD_KEYFRAMES}</style>
 
       {/* Radial vignette so the grid reads against the scene art without an opaque fill. */}
       <div

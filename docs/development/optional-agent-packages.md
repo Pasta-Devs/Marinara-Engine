@@ -664,6 +664,36 @@ Desktop uses a browse list with an adjacent detail region. Mobile uses one pane 
 
 An extraction is complete only when the base production client and server bundles no longer contain the package implementation, a fresh install cannot activate it without downloading the package, an upgraded install retains it, and package install/update/uninstall passes on desktop, mobile, and Termux-compatible filesystems.
 
+### Capability API 1.28: a ruleset fight on a board
+
+A ruleset's `combat` block may say what one cell of a battlefield is worth in its own distance
+(`distance: { label, perCell }`), and that is what makes a fight positionable at all. Beside it:
+`ranged` says what a shot past its ordinary distance, or taken with a foe in the next cell, costs;
+`cover` says what standing behind something adds to the defense an attack is rolled against;
+`opportunity` names the budget a strike at somebody walking away is paid out of; an attack list may
+give its rows a `reach` and a `range`, each read from a column of that list or written once for
+every row; and a creature action's `range` may be `{ "normal": 30, "long": 120 }` instead of a plain
+number.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 28 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+A ruleset that declares `ranged`, `cover`, `opportunity` or any weapon reach or range WITHOUT
+`distance` is refused at import: none of them means anything without a cell to measure it in. The
+board itself is the tactical combat style's own generator, terrain and deployment, so this level
+adds no second battlefield model and no permission.
+
+Not a soft seam, for the same reason as 1.20 through 1.27: an Engine that cannot read these keys
+refuses the whole ruleset file, or the catalog file that holds the creature whose range is a pair,
+so install reads the verified bytes of `ruleset.json` and of every declared `catalogs/<id>.json` and
+refuses either one under an older declaration. No change for a ruleset that says nothing about
+distance.
+
 ### Capability API 1.27: ruleset bestiaries
 
 A ruleset catalog may declare `"holds": "creatures"` and carry creature stat blocks instead of sheet

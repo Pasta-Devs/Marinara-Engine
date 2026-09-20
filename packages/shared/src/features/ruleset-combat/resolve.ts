@@ -12,32 +12,52 @@ import { rollRulesetDice, sumOf } from "./dice.js";
 import {
   currentRulesetActor,
   refreshRulesetBudgets,
+  refreshRulesetMovement,
   rulesetCombatant,
   rulesetCombatConditions,
   rulesetCombatEffects,
   rulesetCombatFailsSave,
   rulesetCombatHealth,
   rulesetCombatStanding,
+  rulesetMovementAllowance,
   writeRulesetSheet,
 } from "./encounter.js";
 import {
+  rulesetAreaCells,
+  rulesetCellEnterCost,
+  rulesetOpportunityAttack,
+  rulesetStepLeavesReach,
+  rulesetThreateningEnemies,
+} from "./grid.js";
+import {
   planRulesetCombatCost,
   rulesetActionAvailable,
+  rulesetAimLegal,
+  rulesetAreaTargets,
+  rulesetCriticalFromAdjacent,
+  rulesetDefenseAgainst,
+  rulesetProneCondition,
   rulesetSequenceCanHappen,
   rulesetSequencePartAvailable,
   rulesetAttackMode,
   rulesetCombatOptions,
   rulesetCostSteps,
   rulesetOptionTargets,
+  rulesetStandCost,
   rulesetStandardBudget,
+  rulesetTargetRefusal,
+  RULESET_MOVE_OPTION,
+  RULESET_STAND_OPTION,
 } from "./options.js";
 import type {
   RulesetCombatAction,
   RulesetCombatAmount,
   RulesetCombatant,
   RulesetCombatApplies,
+  RulesetCombatCell,
   RulesetCombatChoice,
   RulesetCombatEvent,
+  RulesetCombatOption,
   RulesetCombatRefusal,
   RulesetCombatRoller,
   RulesetCombatStep,
@@ -559,14 +579,16 @@ function pickTargets(
   actor: RulesetCombatant,
   option: { id: string; targets: RulesetCombatAction["targets"] },
   targetIds: readonly string[],
-): RulesetCombatant[] | null {
+): RulesetCombatant[] | RulesetCombatRefusal {
   if (option.targets.count <= 0) return [];
   const ids = [...new Set(targetIds)];
-  if (ids.length < 1 || ids.length > option.targets.count) return null;
+  if (ids.length < 1 || ids.length > option.targets.count) return "bad-target";
   const legal = new Set(rulesetOptionTargets(state, actor.id, option));
   const targets: RulesetCombatant[] = [];
   for (const id of ids) {
-    if (!legal.has(id)) return null;
+    // A target the rules would allow if only it were closer is told exactly that, rather than being
+    // lumped in with one of the wrong side or one the fight is over for.
+    if (!legal.has(id)) return rulesetTargetRefusal(state, actor.id, option.id, id) ?? "bad-target";
     targets.push(rulesetCombatant(state, id)!);
   }
   return targets;
@@ -592,6 +614,8 @@ function spendAvailability(ctx: RulesetCombatContext, actor: RulesetCombatant, a
 
 /** Why an option the caller named is not on the menu, as precisely as the rules can say. */
 function whyNotOffered(combat: RulesetCombat, actor: RulesetCombatant, optionId: string): RulesetCombatRefusal {
+  // The two a positioned fight adds. Off the menu, they are movement that cannot be paid for.
+  if (optionId === RULESET_MOVE_OPTION || optionId === RULESET_STAND_OPTION) return "unreachable";
   const action = actor.actions.find((entry) => entry.id === optionId);
   if (action) {
     if ((actor.budgets[action.budget] ?? 0) < 1) return "no-budget";
@@ -644,9 +668,30 @@ export function applyRulesetCombatChoice(
     return refusal(state, choice.actorId, whyNotOffered(combat, actor, choice.optionId), choice.optionId);
   }
 
+  // Walking, and getting back up: a positioned fight's own two options. Neither spends a budget.
+  if (option.kind === "move") {
+    const cell = option.id === RULESET_MOVE_OPTION ? destinationOf(option, choice.to) : null;
+    if (option.id === RULESET_MOVE_OPTION && !cell) return refusal(state, choice.actorId, "unreachable", option.id);
+    const { ctx, finish } = begin(definition, combat, state, roller);
+    const walking = rulesetCombatant(ctx.state, actor.id)!;
+    if (cell) resolveMove(ctx, walking, cell);
+    else resolveStand(ctx, walking, option);
+    const ended = rulesetEncounterOutcome(ctx.state);
+    if (ended !== "ongoing") ctx.events.push({ type: "outcome", outcome: ended });
+    return finish();
+  }
+
+  // An area lands on a CELL, and everybody standing in the shape is caught by it. Its own
+  // `targetCount` says nothing here: the shape decides how many it reaches.
+  const area = positionedArea(state, actor, option);
+  if (area && !(choice.at && rulesetAimLegal(state, actor.id, option.id, choice.at))) {
+    return refusal(state, choice.actorId, "bad-cell", option.id);
+  }
   // Targets, checked against the side and the count the option itself declared.
-  const targets = pickTargets(state, actor, option, choice.targetIds);
-  if (!targets) return refusal(state, choice.actorId, "bad-target", option.id);
+  const targets = area
+    ? rulesetAreaTargets(state, actor.id, option.id, choice.at!).map((id) => rulesetCombatant(state, id)!)
+    : pickTargets(state, actor, option, choice.targetIds);
+  if (!Array.isArray(targets)) return refusal(state, choice.actorId, targets, option.id);
   if (choice.payWith !== undefined && !(option.payWith ?? []).includes(choice.payWith)) {
     return refusal(state, choice.actorId, "bad-pool", option.id);
   }
@@ -665,6 +710,17 @@ export function applyRulesetCombatChoice(
   if (option.kind === "standard") {
     resolveStandard(ctx, working, option.id.slice("standard:".length), workingTargets[0]);
     return finish();
+  }
+
+  if (area && choice.at) {
+    ctx.events.push({
+      type: "area",
+      actorId: working.id,
+      optionId: option.id,
+      label: option.label,
+      at: { ...choice.at },
+      cells: areaCellsFor(ctx.state, working, option.id, choice.at),
+    });
   }
 
   const action = working.actions.find((entry) => entry.id === option.id)!;
@@ -718,7 +774,7 @@ function applySignature(
     return refusal(state, choice.actorId, "insufficient", action.id);
   }
   const targets = pickTargets(state, actor, action, choice.targetIds);
-  if (!targets) return refusal(state, choice.actorId, "bad-target", action.id);
+  if (!Array.isArray(targets)) return refusal(state, choice.actorId, targets, action.id);
 
   const { ctx, finish } = begin(definition, combat, state, roller);
   const working = rulesetCombatant(ctx.state, actor.id)!;
@@ -734,6 +790,145 @@ function applySignature(
   return finish();
 }
 
+// ── The board ──
+
+/** Whether this option lands as a shape on the ground rather than on combatants named by id. */
+function positionedArea(state: RulesetEncounterState, actor: RulesetCombatant, option: RulesetCombatOption): boolean {
+  return !!state.board?.grid && !!actor.actions.find((entry) => entry.id === option.id)?.area;
+}
+
+/** The cells the shape covered, read off the same menu rule that offered it. */
+function areaCellsFor(
+  state: RulesetEncounterState,
+  actor: RulesetCombatant,
+  optionId: string,
+  at: RulesetCombatCell,
+): RulesetCombatCell[] {
+  const action = actor.actions.find((entry) => entry.id === optionId);
+  const grid = state.board?.grid;
+  if (!action?.area || !grid || typeof actor.x !== "number" || typeof actor.y !== "number") return [];
+  return rulesetAreaCells(action.area.shape, action.area.size, { x: actor.x, y: actor.y }, at, grid);
+}
+
+/** The cell the menu offered, or null when the choice named one it did not. The menu is the only
+ *  thing that decides where a move may go, exactly as it is for everything else. */
+function destinationOf(option: RulesetCombatOption, to: RulesetCombatCell | undefined) {
+  if (!to) return null;
+  return option.cells?.find((cell) => cell.x === to.x && cell.y === to.y) ?? null;
+}
+
+/**
+ * Getting back up: half the allowance, and the condition that held them down is gone.
+ *
+ * It clears the condition on the sheet as well as in the fight, because a party member's conditions
+ * are the sheet's own and lying down is one of them.
+ */
+function resolveStand(ctx: RulesetCombatContext, actor: RulesetCombatant, option: RulesetCombatOption): void {
+  const cost = option.movementCost ?? rulesetStandCost(actor);
+  actor.movementLeft = Math.max(0, (actor.movementLeft ?? 0) - cost);
+  const condition = rulesetProneCondition(ctx.definition, ctx.combat, actor);
+  if (condition) removeCondition(ctx, actor, condition, "expired");
+  // Movement spent and nowhere gone: the condition lifting is its own event, and this is the price
+  // of it, said in the same words every other spent cell is said in.
+  const at = { x: actor.x!, y: actor.y! };
+  ctx.events.push({
+    type: "move",
+    actorId: actor.id,
+    from: at,
+    to: { ...at },
+    path: [],
+    cost,
+    left: actor.movementLeft,
+  });
+}
+
+/**
+ * One walk, cell by cell.
+ *
+ * A standing enemy whose reach the mover leaves strikes BEFORE they go, with its best melee attack
+ * and out of the budget the ruleset says such a strike costs. A strike that drops the mover ends
+ * the walk where they fell, which is why the path is walked rather than jumped.
+ *
+ * The strikes are their own events and the walk's own event comes last, carrying the cells that
+ * were really crossed rather than the ones that were meant to be.
+ */
+function resolveMove(ctx: RulesetCombatContext, actor: RulesetCombatant, destination: { path: RulesetCombatCell[] }) {
+  const from = { x: actor.x!, y: actor.y! };
+  const opportunity = ctx.combat.opportunity;
+  const grid = ctx.state.board?.grid;
+  const walked: RulesetCombatCell[] = [];
+  let spent = 0;
+  let stopped = false;
+  let at = from;
+  // One strike each for the whole walk, however many times the path leaves the same reach: that is
+  // what the menu promised when it listed whom this walk provokes, and a budget of two is two
+  // walks, not two strikes at one passer-by.
+  const struck = new Set<string>();
+  for (const cell of destination.path) {
+    if (opportunity && !actor.flags.disengaged) {
+      for (const enemy of threatsLeaving(ctx, actor, at, cell)) {
+        if (struck.has(enemy.id)) continue;
+        struck.add(enemy.id);
+        opportunityStrike(ctx, enemy, actor, opportunity.budget);
+        if (!rulesetCombatStanding(actor)) break;
+      }
+    }
+    if (!rulesetCombatStanding(actor)) {
+      stopped = true;
+      break;
+    }
+    spent += grid ? rulesetCellEnterCost(grid, cell.x, cell.y) : 1;
+    walked.push(cell);
+    at = cell;
+    actor.x = cell.x;
+    actor.y = cell.y;
+  }
+  actor.movementLeft = Math.max(0, (actor.movementLeft ?? 0) - spent);
+  ctx.events.push({
+    type: "move",
+    actorId: actor.id,
+    from,
+    to: { ...at },
+    path: walked,
+    cost: spent,
+    left: actor.movementLeft,
+    ...(stopped ? { stopped: true } : {}),
+  });
+}
+
+/** Everybody whose reach this one step leaves, in the order the fight holds them. Re-read at every
+ *  step, because a strike on the way may have spent somebody's budget or taken them out. */
+function threatsLeaving(
+  ctx: RulesetCombatContext,
+  mover: RulesetCombatant,
+  from: RulesetCombatCell,
+  to: RulesetCombatCell,
+): RulesetCombatant[] {
+  // The same two questions the menu asked when it listed whom a walk provokes, asked again at every
+  // step because a strike on the way can change who is still standing and who still has the budget.
+  return rulesetThreateningEnemies(ctx.definition, ctx.combat, ctx.state, mover)
+    .filter((threat) => rulesetStepLeavesReach(threat, from, to))
+    .map((threat) => threat.combatant);
+}
+
+/** One strike at somebody walking away. It spends the declared budget and then resolves exactly as
+ *  the same attack would on the striker's own turn, dice and all. */
+function opportunityStrike(
+  ctx: RulesetCombatContext,
+  striker: RulesetCombatant,
+  mover: RulesetCombatant,
+  budget: string,
+): void {
+  const strike = rulesetOpportunityAttack(striker);
+  if (!strike) return;
+  striker.budgets[budget] = Math.max(0, (striker.budgets[budget] ?? 0) - 1);
+  ctx.events.push({ type: "opportunity", actorId: striker.id, targetId: mover.id, label: strike.label, budget });
+  ctx.events.push({ type: "budget", actorId: striker.id, budget, left: striker.budgets[budget]! });
+  // A strike made in passing keeps the same books as one made on a turn: a use is a use.
+  spendAvailability(ctx, striker, strike);
+  resolveAction(ctx, striker, strike, [mover]);
+}
+
 function resolveStandard(
   ctx: RulesetCombatContext,
   actor: RulesetCombatant,
@@ -743,8 +938,13 @@ function resolveStandard(
   // Hide and Ready are accepted and do nothing yet: one needs sight lines and the other a trigger
   // window, and both arrive with the slices that build them.
   if (action === "dodge") actor.flags.dodging = true;
-  else if (action === "dash") actor.flags.dashed = true;
-  else if (action === "disengage") actor.flags.disengaged = true;
+  else if (action === "dash") {
+    actor.flags.dashed = true;
+    // The same allowance again, in a fight that has cells to spend it on.
+    if (actor.movement !== undefined) {
+      actor.movementLeft = (actor.movementLeft ?? 0) + rulesetMovementAllowance(ctx.definition, ctx.combat, actor);
+    }
+  } else if (action === "disengage") actor.flags.disengaged = true;
   else if (action === "hide") actor.flags.hidden = true;
   else if (action === "ready") actor.flags.ready = true;
   else if (action === "help" && target) target.flags.helped = true;
@@ -828,7 +1028,15 @@ function resolveAction(
     let landed = true;
     let critical = false;
     if (action.toHit !== undefined && !action.autoHit) {
-      const mode = rulesetAttackMode(ctx.definition, ctx.combat, actor, target);
+      const mode = rulesetAttackMode(ctx.definition, ctx.combat, actor, target, {
+        state: ctx.state,
+        optionId: action.id,
+      });
+      // What the ground the target stands on is worth, said out loud before the roll it changed.
+      const guarded = rulesetDefenseAgainst(ctx.combat, ctx.state, target);
+      if (guarded.cover > 0) {
+        ctx.events.push({ type: "cover", targetId: target.id, bonus: guarded.cover, defense: guarded.defense });
+      }
       const dice = ctx.combat.attackRoll.dice;
       const first = rollRulesetDice(ctx.roll, dice.count, dice.sides);
       const second = mode === "normal" ? null : rollRulesetDice(ctx.roll, dice.count, dice.sides);
@@ -840,10 +1048,15 @@ function resolveAction(
       const naturals = ctx.combat.attackRoll.naturals;
       const single = dice.count === 1;
       const total = kept + action.toHit;
-      let outcome: "hit" | "miss" | "critical" = total >= target.defense ? "hit" : "miss";
+      let outcome: "hit" | "miss" | "critical" = total >= guarded.defense ? "hit" : "miss";
       if (single && kept === dice.sides && naturals.max !== "none") {
         outcome = naturals.max === "critical" ? "critical" : "hit";
       } else if (single && kept === 1 && naturals.min === "miss") outcome = "miss";
+      // A condition that says a blow from the next cell always tells is read last, so a hit that
+      // landed becomes the critical the ruleset promised.
+      if (outcome === "hit" && rulesetCriticalFromAdjacent(ctx.definition, ctx.combat, ctx.state, actor, target)) {
+        outcome = "critical";
+      }
       ctx.events.push({
         type: "attack",
         actorId: actor.id,
@@ -855,7 +1068,7 @@ function resolveAction(
         kept,
         modifier: action.toHit,
         total,
-        defense: target.defense,
+        defense: guarded.defense,
         outcome,
       });
       // Help is spent by the attack it was given for, landed or not.
@@ -1006,6 +1219,7 @@ export function advanceRulesetTurn(
     // A stance lasts until the actor's next turn, and that turn is now. Help was given to somebody
     // else and is spent by their own next attack, so it survives this.
     actor.flags = actor.flags.helped ? { helped: true } : {};
+    refreshRulesetMovement(definition, combat, actor);
     ctx.events.push({ type: "turn", actorId: actor.id, round });
     refreshRulesetSignature(actor);
     rollRulesetRecharges(ctx, actor);

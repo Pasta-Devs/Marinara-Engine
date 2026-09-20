@@ -1327,17 +1327,38 @@ const traveller = (live: unknown = {}): RulesetCombatantInput => ({
     }) as any;
 
   const bestiaryIssue = /catalog of creatures requires schemaVersion 2 and capabilityApi 1\.27 or newer/;
-  assert.match(getCapabilityPackageInstallIssue(manifest(26), variant(emberText)) ?? "", bestiaryIssue);
-  assert.equal(getCapabilityPackageInstallIssue(manifest(27), variant(emberText)), null);
-  assert.match(getCapabilityPackageInstallIssue(manifest(26), variant(fiveEText)) ?? "", bestiaryIssue);
-  assert.equal(getCapabilityPackageInstallIssue(manifest(27), variant(fiveEText)), null);
+  /** The keys that give a fight a board are their own declaration, one release later, so the cases
+   *  about the bestiary seam drop them and leave that gate to the core regression. */
+  const withoutBoard = (doc: Record<string, any>) => {
+    if (!doc.combat) return doc;
+    for (const key of ["distance", "ranged", "cover", "opportunity"]) delete doc.combat[key];
+    for (const source of doc.combat.attacks ?? []) {
+      delete source.reach;
+      delete source.range;
+    }
+    for (const catalog of doc.catalogs ?? []) {
+      for (const entry of catalog.entries ?? []) {
+        for (const action of entry.creature?.actions ?? []) {
+          if (action.range && typeof action.range === "object") action.range = action.range.normal;
+          delete action.area;
+        }
+      }
+    }
+    return doc;
+  };
+  const flat = (text: string) => variant(text, withoutBoard);
+  assert.match(getCapabilityPackageInstallIssue(manifest(26), flat(emberText)) ?? "", bestiaryIssue);
+  assert.equal(getCapabilityPackageInstallIssue(manifest(27), flat(emberText)), null);
+  assert.match(getCapabilityPackageInstallIssue(manifest(26), flat(fiveEText)) ?? "", bestiaryIssue);
+  assert.equal(getCapabilityPackageInstallIssue(manifest(27), flat(fiveEText)), null);
 
   // The entries may sit in the catalog file instead, and the gate reads those bytes too.
   const asAsset = variant(emberText, (doc) => {
+    withoutBoard(doc);
     doc.catalogs[1].asset = "catalogs/road_trouble.json";
     delete doc.catalogs[1].entries;
   });
-  const entries = variant(emberText).catalogs[1].entries as unknown[];
+  const entries = flat(emberText).catalogs[1].entries as unknown[];
   const assets = new Map<string, unknown>([
     ["catalogs/road_trouble.json", { schemaVersion: 1, catalog: "road_trouble", entries }],
   ]);
@@ -1350,6 +1371,7 @@ const traveller = (live: unknown = {}): RulesetCombatantInput => ({
 
   // A ruleset with no bestiary installs on the declaration it always needed.
   const without = variant(emberText, (doc) => {
+    withoutBoard(doc);
     doc.catalogs = [doc.catalogs[0]];
   });
   assert.equal(getCapabilityPackageInstallIssue(manifest(26), without), null);
