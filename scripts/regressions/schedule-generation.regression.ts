@@ -158,6 +158,32 @@ try {
     response = await draft({ connectionId: override.id, mode: "day", day: "Monday" });
     assert.equal(response.statusCode, 502, response.body);
   }
+  for (const times of [
+    ["00:00-00:00"],
+    ["06:00-06:00"],
+    ["22:00-06:00", "06:00-22:00"],
+    ["12:00-18:00", "00:00-12:00", "18:00-00:00"],
+  ]) {
+    content = JSON.stringify({ blocks: times.map((time) => ({ ...blocks[0], time })) });
+    response = await draft({ connectionId: override.id, mode: "day", day: "Monday" });
+    assert.equal(response.statusCode, 200, response.body);
+  }
+  for (const times of [
+    ["09:00-17:00"],
+    ["00:00-08:00", "09:00-00:00"],
+    ["00:00-12:00", "11:00-00:00"],
+    ["00:00-12:00", "06:00-18:00"],
+    ["00:00-00:00", "00:00-00:00"],
+  ]) {
+    const invalidBlocks = times.map((time) => ({ ...blocks[0], time }));
+    for (const mode of ["day", "week"]) {
+      content = JSON.stringify(
+        mode === "day" ? { blocks: invalidBlocks } : { days: { ...schedule.days, Monday: invalidBlocks } },
+      );
+      response = await draft({ connectionId: override.id, mode, day: "Monday" });
+      assert.equal(response.statusCode, 502, `Reject partial, gapped, or overlapping days: ${content}`);
+    }
+  }
   const saved = JSON.parse((await chars.getById(character.id))!.data);
   assert.deepEqual(
     saved.extensions.conversationSchedule,

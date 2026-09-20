@@ -678,6 +678,7 @@ export function CharacterScheduleEditorModal({
       if (controller.signal.aborted) return;
       applyDraftAndMarkSummaryStale((current) => ({
         ...current,
+        weekStart: result.weekStart,
         days: { ...current.days, [result.day]: result.blocks },
       }));
       if (blocksEqual(previousBlocks, result.blocks)) {

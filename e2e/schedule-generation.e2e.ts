@@ -61,7 +61,7 @@ for (const theme of ["dark", "light"] as const) {
     const pendingRequest: { release?: () => void } = {};
     let pauseRequests = false;
     let cancelledFixture = false;
-    const newWeekStart = "2026-09-14T00:00:00.000Z";
+    let newWeekStart = "2026-09-14T00:00:00.000Z";
     await page.route("**/api/conversation/schedule/draft", async (route) => {
       const body = route.request().postDataJSON() as DraftRequest;
       const activity = `${cancelledFixture ? "Cancelled" : "New"} ${body.day}`;
@@ -169,6 +169,17 @@ for (const theme of ["dark", "light"] as const) {
       await expect.poll(async () => (await storedSchedule()).days.Sunday?.[0]?.activity).toBe("New Sunday");
       expect((await storedSchedule()).talkativeness).toBe(37);
       expect((await storedSchedule()).weekStart).toBe(newWeekStart);
+
+      newWeekStart = "2026-09-21T00:00:00.000Z";
+      await manager.getByRole("button", { name: `Edit ${name} schedule`, exact: true }).click();
+      await mondayToggle.click();
+      const dayResponse = page.waitForResponse("**/api/conversation/schedule/draft");
+      await dialog.getByRole("button", { name: "Regenerate Monday", exact: true }).click();
+      await dayResponse;
+      await expect(dialog.getByRole("button", { name: "Regenerate Monday", exact: true })).toBeEnabled();
+      await dialog.getByRole("button", { name: "Save schedule", exact: true }).click();
+      await expect(dialog).toBeHidden();
+      await expect.poll(async () => (await storedSchedule()).weekStart).toBe(newWeekStart);
 
       await manager.getByRole("button", { name: `Edit ${name} schedule`, exact: true }).click();
       await dialog.getByText("Schedule AI", { exact: true }).click();

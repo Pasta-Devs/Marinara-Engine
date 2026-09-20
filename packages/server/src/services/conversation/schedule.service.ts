@@ -391,7 +391,15 @@ const generatedBlocksSchema = z
       status: z.string().optional(),
     }),
   )
-  .min(1);
+  .min(1)
+  .refine((blocks) => {
+    // Sorted HH:mm ranges must form one complete ring, including overnight blocks.
+    const ranges = blocks.map(({ time }) => time.split("-")).sort(([a], [b]) => a!.localeCompare(b!));
+    return (
+      new Set(ranges.map(([start]) => start)).size === ranges.length &&
+      ranges.every(([, end], index) => end === ranges[(index + 1) % ranges.length]![0])
+    );
+  });
 
 function parseGeneratedBlocks(value: unknown, day: string): DaySchedule {
   const parsed = generatedBlocksSchema.safeParse(value);
