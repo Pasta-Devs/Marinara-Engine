@@ -89,6 +89,22 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
             : {}),
         },
       });
+      // Simulate a second tab enabling translation while this tab still caches it as off.
+      let staleTranslationSettings = true;
+      await page.route(/\/api\/chats(?:\/[^/?]+)?(?:\?.*)?$/, async (route) => {
+        if (route.request().method() !== "GET" || !staleTranslationSettings) return route.continue();
+        const response = await route.fetch();
+        const data = await response.json();
+        const hideTranslation = (row: { id: string; metadata?: string | Record<string, unknown> }) => {
+          if (row.id !== chat.id) return row;
+          const metadata = typeof row.metadata === "string" ? JSON.parse(row.metadata) : row.metadata;
+          return { ...row, metadata: JSON.stringify({ ...metadata, autoTranslate: false }) };
+        };
+        await route.fulfill({
+          response,
+          json: Array.isArray(data) ? data.map(hideTranslation) : hideTranslation(data),
+        });
+      });
       await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
       await seedUIState(page, {
         hasCompletedOnboarding: true,
@@ -214,6 +230,7 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
       expect(await counts()).toEqual({ browser: 0, native: 0, sound: 0 });
       releaseTranslation("W archiwum panuje cisza.");
       await expect.poll(counts).toEqual({ browser: 1, native: 1, sound: 1 });
+      staleTranslationSettings = false;
 
       await run("The experiment continues.");
       await expect.poll(() => !!translation).toBe(true);
@@ -240,9 +257,19 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
       });
       await request.patch(`/api/chats/${chat.id}/metadata`, { data: { autoTranslate: true } });
       translation = undefined;
+      let otherServerWork = mode === "game";
+      let busyStatusReads = 0;
+      await page.route(`**/api/generate/status/${chat.id}`, async (route) => {
+        if (!otherServerWork) return route.continue();
+        busyStatusReads += 1;
+        await route.fulfill({ json: { active: false, translating: true } });
+      });
       await page.reload();
       if (mode === "game") {
-        // Enabling translation still backfills older, never-attempted Game narration.
+        // Unrelated chat-wide work delays backfill without marking this source as attempted.
+        await expect.poll(() => busyStatusReads).toBeGreaterThanOrEqual(2);
+        expect(translation).toBeUndefined();
+        otherServerWork = false;
         await expect.poll(() => !!translation).toBe(true);
         releaseTranslation("Tłumaczenie wcześniejszej wiadomości.");
         await expect

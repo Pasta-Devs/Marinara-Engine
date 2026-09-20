@@ -1298,11 +1298,9 @@ export function useGenerate() {
       // buffer, etc.) so that a background chat's events don't corrupt the active view.
       const isActiveChat = () => useChatStore.getState().activeChatId === params.chatId;
       const isGameGeneration = getCachedChatMode(qc, params.chatId) === "game";
-      let waitForOutputTranslation = false;
       const completionNotifications: Array<() => void> = [];
       const notifyWhenReady = (notify: () => void) => {
-        if (waitForOutputTranslation) completionNotifications.push(notify);
-        else notify();
+        completionNotifications.push(notify);
       };
       const shouldRefreshGameState = shouldRefreshGameStateAfterGeneration(qc, params.chatId);
       let spriteChangeReceived = false;
@@ -1845,10 +1843,6 @@ export function useGenerate() {
         if (flushPatch) await flushPatch();
 
         await waitForPendingChatMetadataSaves(params.chatId);
-        // Capture settled settings before the stream can outlive this chat's mounted view/cache.
-        const translationChat = getCachedChatForGeneration(qc, params.chatId);
-        const translationMeta = parseChatMetadata(translationChat?.metadata);
-        waitForOutputTranslation = translationMeta.autoTranslate === true;
         const currentBackground = getActiveChatBackgroundForGeneration(params.chatId);
 
         for await (const event of api.streamEvents(
@@ -3574,9 +3568,7 @@ export function useGenerate() {
 
         // Translation runs independently on the server. Wait for persistence
         // before notifying, without retaining the browser's generation lock.
-        const translation = waitForOutputTranslation
-          ? waitForServerTranslationToSettle(qc, params.chatId)
-          : Promise.resolve();
+        const translation = waitForServerTranslationToSettle(qc, params.chatId);
         void translation
           .finally(() => {
             for (const notify of completionNotifications) {

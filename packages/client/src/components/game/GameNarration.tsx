@@ -1483,10 +1483,7 @@ export function GameNarration({
     if (useTranslationStore.getState().hiddenTranslationIds[latestAssistant.id]) return;
     const source = getGameTranslationSource(latestAssistant);
     if (!source || translating[latestAssistant.id]) return;
-    if (serverTranslation.data?.active || serverTranslation.data?.translating) {
-      lastAutoTranslation.current = { id: latestAssistant.id, source };
-      return;
-    }
+    if (serverTranslation.data?.active || serverTranslation.data?.translating) return;
     if (serverTranslation.isPending || serverTranslation.isFetching) return;
     const extra = parseMessageExtraRecord(latestAssistant.extra);
     if (
