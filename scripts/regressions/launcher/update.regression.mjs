@@ -372,6 +372,13 @@ try {
   mkdirSync(capabilityRuntimeDependencies, { recursive: true });
   writeFileSync(join(capabilityPackagesDir, "installed.json"), '{"preserved":true}\n');
   writeFileSync(join(capabilityRuntimeDependencies, "runtime.js"), "export {};\n");
+  const runtimeSnapshots = join(defaultDataDir, "capability-runtime-snapshots");
+  mkdirSync(runtimeSnapshots, { recursive: true });
+  symlinkSync(
+    capabilityRuntimeDependencies,
+    join(runtimeSnapshots, "node_modules"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
   for (const downloadableDir of ["models", "sidecar-runtime"]) {
     const path = join(defaultDataDir, downloadableDir);
     mkdirSync(path, { recursive: true });
@@ -420,6 +427,11 @@ try {
     existsSync(join(snapshotCapabilityPackages, "node_modules")),
     false,
     "Launcher snapshots must omit the generated capability runtime junction",
+  );
+  assert.equal(
+    existsSync(join(snapshot.backupDir, "data", "capability-runtime-snapshots")),
+    false,
+    "Launcher snapshots must omit verified runtime copies and native dependency links",
   );
   for (const downloadableDir of ["models", "sidecar-runtime"]) {
     assert.equal(

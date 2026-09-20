@@ -193,3 +193,5 @@ export * from "./features/rulesets/layers.js";
 export * from "./features/ruleset-combat/index.js";
 
 export * from "./constants/request-timeouts.js";
+
+export * from "./utils/game-narration-text.js";

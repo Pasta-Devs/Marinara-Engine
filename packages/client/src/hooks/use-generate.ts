@@ -7,7 +7,7 @@ import { normalizeEchoChamberMessages } from "../lib/echo-chamber-queue";
 import { characterDataSchema, normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import { toast, type ExternalToast } from "sonner";
-import { api, ApiError, isPassiveStreamDisconnect } from "../lib/api-client";
+import { api, ApiError, isPassiveStreamDisconnect, requestTimeoutSignal } from "../lib/api-client";
 import { recordClientRuntimeEvent } from "../lib/client-runtime-diagnostics";
 import {
   formatAgentFailuresToast,
@@ -633,8 +633,6 @@ import { agentResultMatchesVisibleSwipe } from "../lib/agent-result-ownership";
 import { isDiceRollResult } from "../lib/dice-roll-result";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameStateStore } from "../stores/game-state.store";
-import { useTranslationStore } from "../stores/translation.store";
-import { getChatTranslationConfig, translateMessage } from "./use-translate";
 import { useUIStore } from "../stores/ui.store";
 import {
   applyRecentMessageContentEditsToData,
@@ -656,7 +654,6 @@ import {
   resolveGameExperiencePackageId,
 } from "../lib/capability-client-events";
 import { messageHasPendingPostProcessing, parseMessageExtraRecord } from "../lib/chat-message-extra";
-import { stripGmTagsKeepReadables } from "../lib/game-tag-parser";
 import type { APIConnection, Chat, GameMap, Message } from "@marinara-engine/shared";
 
 function sortMessagesByCreatedAt(messages: Message[]): Message[] {
@@ -1051,6 +1048,22 @@ async function waitForServerGenerationToSettle(chatId: string, signal: AbortSign
   return false;
 }
 
+async function waitForServerTranslationToSettle(qc: QueryClient, chatId: string) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < PASSIVE_STREAM_SETTLE_MAX_WAIT_MS) {
+    try {
+      const status = await api.get<{ translating?: boolean }>(`/generate/status/${encodeURIComponent(chatId)}`, {
+        signal: requestTimeoutSignal(15_000),
+      });
+      if (!status.translating) break;
+    } catch {
+      // Keep the independent completion notification pending through a reconnect.
+    }
+    await wait(PASSIVE_STREAM_SETTLE_POLL_MS);
+  }
+  await qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
+}
+
 function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
 }
@@ -1285,11 +1298,9 @@ export function useGenerate() {
       // buffer, etc.) so that a background chat's events don't corrupt the active view.
       const isActiveChat = () => useChatStore.getState().activeChatId === params.chatId;
       const isGameGeneration = getCachedChatMode(qc, params.chatId) === "game";
-      let outputTranslationConfig: ReturnType<typeof getChatTranslationConfig> | null = null;
       const completionNotifications: Array<() => void> = [];
       const notifyWhenReady = (notify: () => void) => {
-        if (outputTranslationConfig) completionNotifications.push(notify);
-        else notify();
+        completionNotifications.push(notify);
       };
       const shouldRefreshGameState = shouldRefreshGameStateAfterGeneration(qc, params.chatId);
       let spriteChangeReceived = false;
@@ -1832,12 +1843,6 @@ export function useGenerate() {
         if (flushPatch) await flushPatch();
 
         await waitForPendingChatMetadataSaves(params.chatId);
-        // Capture settled settings before the stream can outlive this chat's mounted view/cache.
-        const translationChat = getCachedChatForGeneration(qc, params.chatId);
-        const translationMeta = parseChatMetadata(translationChat?.metadata);
-        outputTranslationConfig = translationMeta.autoTranslate
-          ? getChatTranslationConfig(params.chatId, translationMeta)
-          : null;
         const currentBackground = getActiveChatBackgroundForGeneration(params.chatId);
 
         for await (const event of api.streamEvents(
@@ -3561,39 +3566,20 @@ export function useGenerate() {
         }
         window.dispatchEvent(new CustomEvent("marinara:generation-complete", { detail: { chatId: params.chatId } }));
 
-        // Translation includes saving the result; notify only once that work settles.
-        const translations: Promise<void>[] = [];
-        if (receivedContent) {
-          try {
-            if (outputTranslationConfig) {
-              const store = useTranslationStore.getState();
-              for (const [id, msg] of persistedMessages) {
-                const textToTranslate = isGameGeneration
-                  ? stripGmTagsKeepReadables(msg.content ?? "").trim()
-                  : (msg.content ?? "");
-                if (
-                  msg.role === "assistant" &&
-                  textToTranslate &&
-                  (!store.translations[id] || store.translationSources[id] !== textToTranslate) &&
-                  !store.hiddenTranslationIds[id]
-                ) {
-                  translations.push(translateMessage(qc, id, textToTranslate, outputTranslationConfig, params.chatId));
-                }
+        // Translation runs independently on the server. Wait for persistence
+        // before notifying, without retaining the browser's generation lock.
+        const translation = waitForServerTranslationToSettle(qc, params.chatId);
+        void translation
+          .finally(() => {
+            for (const notify of completionNotifications) {
+              try {
+                notify();
+              } catch (error) {
+                console.warn("[Generation] Completion notification failed:", error);
               }
             }
-          } catch {
-            /* non-critical — don't block generation cleanup */
-          }
-        }
-        void Promise.allSettled(translations).then(() => {
-          for (const notify of completionNotifications) {
-            try {
-              notify();
-            } catch (error) {
-              console.warn("[Generation] Completion notification failed:", error);
-            }
-          }
-        });
+          })
+          .catch(() => {});
       }
       if (receivedContent || passiveStreamRecovered || spatialTransitionCommitted) return true;
       return await confirmDurableSubmittedUserTurn();

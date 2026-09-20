@@ -806,7 +806,7 @@ export function ChatSidebar() {
     }, 0);
   };
 
-  const { startTouchDrag } = useTouchFolderDrag({
+  const { startTouchDrag, startMouseDrag } = useTouchFolderDrag({
     delayMs: 420,
     onActivate: (chatId) => {
       setDraggedChatId(chatId);
@@ -938,6 +938,7 @@ export function ChatSidebar() {
         tabIndex={0}
         key={chat.groupId ?? chat.id}
         data-chat-id={chat.id}
+        onMouseDown={(event) => startMouseDrag(event, chat.id)}
         draggable
         onDragStart={(event) => {
           const chatIds = getDragChatIds(chat.id);

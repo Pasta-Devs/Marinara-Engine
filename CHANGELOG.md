@@ -7,6 +7,17 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Atlas Cloud video connections show a **Model options** section under **Video Defaults** with every input the selected model has beyond clip length, aspect ratio, and resolution, such as negative prompt, seed, audio, shot type, prompt expansion, and LoRA lists. Each option shows Atlas Cloud's description and default, stays unsent until changed, and is saved per model. Switching models hides the old controls until the selected schema loads; ordinary field names such as `prototype` are preserved and object inputs are validated. The section also lists the clip lengths and resolutions the model accepts and warns when a text-to-video model cannot use the gallery image (#6408).
 - **Fetch Models** on an Atlas Cloud image or video connection loads Atlas Cloud's current catalog instead of a fixed starter list. Video models list image-to-video first and show their starting price per second; the starter list remains the fallback when the catalog cannot be reached (#6408).
 - Atlas Cloud scene videos fit each request to the selected model's published input schema: the source illustration goes to the image field the model declares, resolution and aspect ratio become a `size` where the model requires one, clip length snaps to a length the model offers, and fields the model does not declare are left out. **Test Video** supplies a plain first frame to image-to-video models, and the server log reports when a text-to-video model cannot use the source illustration (#6408).
+- Roleplay World tracker temperature and weather controls sit beside the date/time controls, with space reserved for their values on mobile and desktop (#6424).
+- Roleplay dice instructions keep optional DCs and situational modifiers inside the command or tool arguments instead of announcing them in narration (#6425).
+
+- The Inventory Tracker browser regression waits for its editing modes and disables the toolbar opening animation, avoiding missed clicks on clipped controls in CI (#6421).
+
+- Downloaded packages using the bundled Claude Agent SDK can resolve the host's installed native CLI helper, including pnpm and container installs; managed links refresh after SDK updates (#6403).
+
+- Automatic output translation finishes and saves on the server even after the page closes, including rewritten replies, individual swipes, and replies saved before a later processing error; completion alerts wait for the saved result while the next send remains available. Returning to a chat refreshes older cached translations even when its cached settings are stale, and older Game narration can still translate after unrelated server work finishes. Malformed Game command tags no longer cause repeated scans while preparing narration for translation (#6412).
+
+- Desktop chat, character, and persona drags allow normal mouse-wheel scrolling while holding an item, retain chat assignment and folder drops, and cancel with Escape. The browser regression uses the same mouse flow without hanging in native drag mode (#6413, #6399).
+
 - Roleplay dice commands accept an optional situational bonus or penalty and DC, combine the adjustment with the automatic attribute bonus, and show the DC on the existing dice card (#6417).
 
 - The Roleplay swipe media regression follows the continuation behavior shipped in #6396, so the node regression lane passes again on `staging`.

@@ -1,4 +1,4 @@
-import { expect, test, type Route } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 
@@ -58,14 +58,8 @@ for (const mode of ["roleplay", "conversation", "game"] as const) {
       let translated = 'W archiwum panuje cisza.\n\n"Zacznijmy", mówi Alice.';
       let saved: { id: string } | undefined;
       let generationCount = 0;
-      let holdTranslation = false;
-      let pendingTranslation: Route | undefined;
-      let holdPersistence = false;
-      let pendingPersistence: Route | undefined;
-      await page.route(`**/api/chats/${chat.id}/messages/*/extra`, async (route) => {
-        if (holdPersistence) pendingPersistence = route;
-        else await route.continue();
-      });
+      let holdGeneration = false;
+      let finishGeneration: (() => Promise<void>) | undefined;
       await page.route("**/api/generate", async (route) => {
         const regenerateId = route.request().postDataJSON().regenerateMessageId;
         const response = regenerateId
@@ -77,24 +71,30 @@ for (const mode of ["roleplay", "conversation", "game"] as const) {
         const message = await response.json();
         saved = message;
         generationCount += 1;
-        await route.fulfill({
-          contentType: "text/event-stream",
-          body: [
-            { type: "token", data: source },
-            { type: "message_saved", data: message },
-            { type: "done", data: {} },
-          ]
-            .map((event) => `data: ${JSON.stringify(event)}\n\n`)
-            .join(""),
-        });
-      });
-      await page.route("**/api/translate", async (route) => {
-        expect(route.request().postDataJSON().text).toBe(source);
-        if (holdTranslation) {
-          pendingTranslation = route;
-          return;
-        }
-        await route.fulfill({ json: { translatedText: translated } });
+        // Match the server's final persisted message: automatic output translation
+        // no longer issues a browser /api/translate request. Background-provider
+        // and stale-write behavior is exercised in translation-notifications and
+        // the background-translation server regression.
+        const finish = async () => {
+          const translatedResponse = await request.patch(`/api/chats/${chat.id}/messages/${message.id}/extra`, {
+            data: { translation: translated, translationSource: source, translationHidden: false },
+          });
+          expect(translatedResponse.ok(), await translatedResponse.text()).toBeTruthy();
+          const translatedMessage = await translatedResponse.json();
+          await route.fulfill({
+            contentType: "text/event-stream",
+            body: [
+              { type: "token", data: source },
+              { type: "message_saved", data: message },
+              { type: "message_saved", data: translatedMessage },
+              { type: "done", data: {} },
+            ]
+              .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+              .join(""),
+          });
+        };
+        if (holdGeneration) finishGeneration = finish;
+        else await finish();
       });
       await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
       await seedUIState(page, {
@@ -188,45 +188,32 @@ for (const mode of ["roleplay", "conversation", "game"] as const) {
         };
         source = "The door opens for a new experiment.";
         translated = "Drzwi otwierają się na nowy eksperyment.";
-        holdTranslation = true;
+        holdGeneration = true;
         await regenerate();
         await expect.poll(() => generationCount).toBe(2);
-        await expect.poll(() => Boolean(pendingTranslation)).toBe(true);
+        await expect.poll(() => Boolean(finishGeneration)).toBe(true);
         await switchThroughEditor(otherChat.id);
-        holdPersistence = true;
-        await pendingTranslation!.fulfill({ json: { translatedText: translated } });
-        await expect.poll(() => Boolean(pendingPersistence)).toBe(true);
-        // Return after the background response, before its persisted extras arrive.
-        // The old translation is seeded on return and must not mask the new one.
         await switchThroughEditor(chat.id);
-        holdPersistence = false;
-        await pendingPersistence!.continue();
+        // Returning to a chat before its final server event must not keep the
+        // old translation in front of the newly translated source.
+        await finishGeneration!();
         await expect.poll(async () => (await extra()).translationSource).toBe(source);
         await expect(row).toContainText(translated);
         await expect(row).not.toContainText(source);
         await expect(row).not.toContainText("Zacznijmy");
         await page.screenshot({ path: info.outputPath("translation-only-background.png") });
 
-        pendingTranslation = undefined;
-        source = "The corridor fills with distant footsteps.";
-        translated = "Korytarz wypełnia się odległymi krokami.";
-        await regenerate();
-        await expect.poll(() => generationCount).toBe(3);
-        await expect.poll(() => Boolean(pendingTranslation)).toBe(true);
-        const pendingText = translated;
+        holdGeneration = false;
         source = "The lantern illuminates a different path.";
         translated = "Latarnia oświetla inną drogę.";
         await regenerate();
-        await expect.poll(() => generationCount).toBe(4);
-        holdTranslation = false;
-        await pendingTranslation!.fulfill({ json: { translatedText: pendingText } });
+        await expect.poll(() => generationCount).toBe(3);
         await expect.poll(async () => (await extra()).translationSource).toBe(source);
         await expect(row).toContainText(translated);
         await expect(row).not.toContainText(source);
         await expect(row).not.toContainText(initialSource.split("\n")[0]!);
         await expect(row).not.toContainText("Let us begin");
         await expect(row).not.toContainText("Zacznijmy");
-        await expect(row).not.toContainText(pendingText);
         await page.screenshot({ path: info.outputPath("translation-only-regenerated.png") });
         await request.patch(`/api/chats/${chat.id}/metadata`, { data: { translationDisplayOnly: false } });
         await page.reload();

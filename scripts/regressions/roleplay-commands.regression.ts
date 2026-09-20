@@ -383,8 +383,10 @@ for (const format of ["xml", "markdown", "none"] as const) {
   assert.match(reminder, /modifier="\+2" dc="15"/u);
   assert.match(
     reminder,
-    /Optional modifier adds a situational bonus\/penalty once; dc sets the total needed to succeed\./u,
+    /Optional modifier adds a situational bonus\/penalty once; optional dc sets the total needed to succeed\./u,
   );
+  assert.match(reminder, /Keep DCs and modifiers in command\/tool fields, not narration\./u);
+  assert.doesNotMatch(reminder, /Set the stakes first|action and success rule/u);
   assert.match(reminder, /edit existing notes[^.\n]*full updated contents[^.\n]*replaces?[^.\n]*previous/u);
   assert.ok(
     reminder.includes(

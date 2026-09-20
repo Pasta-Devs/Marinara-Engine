@@ -401,7 +401,7 @@ export function PersonasPanel() {
     }
   }, []);
 
-  const { startTouchDrag: startPersonaTouchDrag } = useTouchFolderDrag({
+  const { startTouchDrag: startPersonaTouchDrag, startMouseDrag: startPersonaMouseDrag } = useTouchFolderDrag({
     onActivate: (personaId) => {
       suppressPersonaClickRef.current = true;
       setDraggedPersonaId(personaId);
@@ -871,6 +871,11 @@ export function PersonasPanel() {
                         <div
                           key={pid}
                           data-touch-drag-card="persona"
+                          onMouseDown={(event) =>
+                            startPersonaMouseDrag(event, pid, {
+                              chatResourcePayload: { version: 1, kind: "persona", ids: [pid], label: p.name },
+                            })
+                          }
                           onClick={() => {
                             if (suppressPersonaClickRef.current) return;
                             if (selectionMode) {
@@ -1069,6 +1074,11 @@ export function PersonasPanel() {
             <div
               key={persona.id}
               data-touch-drag-card="persona"
+              onMouseDown={(event) =>
+                startPersonaMouseDrag(event, persona.id, {
+                  chatResourcePayload: { version: 1, kind: "persona", ids: [persona.id], label: persona.name },
+                })
+              }
               className={cn(
                 "group relative flex touch-pan-y cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
                 selectionMode &&
