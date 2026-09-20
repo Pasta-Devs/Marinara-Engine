@@ -1,6 +1,5 @@
 {
   "language": "zh-hans",
-  "sourceCommit": "930d11d677ee7ff02a5913777ce4753a3d63d5d4",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -54,8 +53,8 @@
     },
     {
       "path": "agents/hierarchical-maps.md",
-      "sha256": "eb445e493db991383ab8f1efa9be4dc69be31abbe540615c3daad7e445a39fa6",
-      "bytes": 44206
+      "sha256": "80b97141f0220936951cfa86668ca5d01e117b6db2865d04766720acfce673bd",
+      "bytes": 44361
     },
     {
       "path": "agents/knowledge-sources.md",
@@ -544,8 +543,8 @@
     },
     {
       "path": "media/image-providers.md",
-      "sha256": "5c675d64e1cb60cddcee207f616b43eb10082f031aea50eb8146aae43a341a9a",
-      "bytes": 14727
+      "sha256": "9a81d1fd7a37b54603ed57c00949eb7efc7fe12af2e65e745170b917e50120c9",
+      "bytes": 14824
     },
     {
       "path": "media/music.md",
@@ -559,8 +558,8 @@
     },
     {
       "path": "media/scene-video.md",
-      "sha256": "3193256f7a63722bab44e02f62d83e52669d903099da8c0d067207d4457d38e4",
-      "bytes": 15565
+      "sha256": "3f3e9b99d75c8dd759467c323902a8b9e0daf77e1a0ff7d530803c02cc1a5c20",
+      "bytes": 18576
     },
     {
       "path": "media/style-profiles.md",

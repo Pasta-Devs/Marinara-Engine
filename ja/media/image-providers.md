@@ -82,7 +82,7 @@
 
 ## Atlas Cloud
 
-デフォルトのBase URLが`https://api.atlascloud.ai/api/v1`のクラウドサービスです。Atlas CloudのAPIキーが必要です。MarinaraはNano Banana、Gemini Flash Image、FLUX 1.1 Pro向けの小さな初期カタログを用意していますが、ほかのAtlas Cloud画像モデルのIDを正確に入力することもできます。ジョブは非同期で実行されるため、Marinaraは生成を開始したあと、画像ができあがるまでAtlas Cloudに問い合わせ続けます。一般的なtext-to-imageの設定は自動的に対応付けられ、image-to-image、編集、Kontextの動作に対応すると示しているモデルIDには参照画像も送信します。Atlasのモデルスキーマはモデルごとに異なることがあるので、ほかのモデルIDを使うときは、そのモデルのAtlas Cloudドキュメントを確認してください。
+デフォルトの Base URL が `https://api.atlascloud.ai/api/v1` のクラウドサービスです。Atlas Cloud の API キーが必要です。**Fetch Models**（モデルを取得）は、Atlas Cloud の最新のテキストから画像・画像から画像のモデル一覧を読み込みます。一覧を取得できない場合は、Nano Banana、Gemini Flash Image、FLUX 1.1 Pro の初期リストを表示します。Atlas Cloud の画像モデル ID を正確に直接入力することもできます。処理は非同期で行われ、Marinara は生成を開始した後、画像が完成するまで Atlas Cloud に状態を問い合わせます。一般的なテキストから画像の設定は自動で対応付けられます。参照画像は、ID が image-to-image、編集、Kontext の機能を示すモデルに送信されます。モデルごとにスキーマが異なるため、別の ID を使う場合は、そのモデルの Atlas Cloud ドキュメントを確認してください。
 
 ## fal.ai
 

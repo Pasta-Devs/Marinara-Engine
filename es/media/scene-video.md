@@ -73,11 +73,42 @@ Los seis servicios hacen clips cortos a partir de tu imagen. Se diferencian en v
 - **Google AI Studio (Veo)**: gran calidad, pero fija en 4, 6 u 8 segundos. Usa 8 segundos cuando anima una imagen.
 - **xAI Imagine**: clips de 1 a 15 segundos. Usa un límite de prompt más corto que los demás servicios.
 - **OpenRouter Video**: de 1 a 60 segundos, y te deja escribir cualquier modelo de video que admita tu cuenta de OpenRouter.
-- **Atlas Cloud**: de 1 a 60 segundos con modelos iniciales seleccionados de Veo 3.1 y Seedance 2.0. Puedes escribir otro ID de modelo de video exacto de Atlas Cloud; aún se aplican los límites de duración, resolución e imagen de referencia específicos del modelo.
+- **Atlas Cloud**: **Fetch Models** (Obtener modelos) carga el catálogo actual de vídeo de Atlas Cloud, con los modelos de imagen a vídeo primero y el precio inicial por segundo de vídeo de cada uno. Si el catálogo no está disponible, Marinara muestra los modelos iniciales Veo 3.1 y Seedance 2.0. También puedes escribir el identificador exacto de un modelo de vídeo de Atlas Cloud; siguen aplicándose sus límites de duración, resolución e imágenes de referencia.
 - **Seedance 2.0**: clips de 4 a 15 segundos con modos de primer fotograma, y de primer y último fotograma. Necesita un enlace público a tu imagen de referencia.
 - **ComfyUI**: generación local a través de tu propio flujo de trabajo en formato API. Marinara sube la imagen de referencia directamente a ComfyUI cuando el flujo de trabajo usa `%reference_image_name%`.
 
 Cuenta con que los trabajos de video tarden un rato. El proveedor inicia el trabajo, y luego Marinara espera y comprueba hasta que el clip está listo. Esto puede tardar varios minutos por clip, más que una imagen fija. Los modelos locales grandes de WAN pueden necesitar más de los 30 minutos predeterminados; sube `VIDEO_GEN_TIMEOUT_MS` y reinicia Marinara cuando haga falta.
+
+### Diferencias entre los modelos de Atlas Cloud
+
+Los modelos de Atlas Cloud no aceptan todos los mismos ajustes. Antes de cada solicitud, Marinara lee el esquema de entrada publicado del modelo en `static.atlascloud.ai` y adapta los valores predeterminados de tu conexión:
+
+- La ilustración de origen se envía en el campo de imagen que usa ese modelo.
+- La duración del clip se ajusta a la duración admitida más cercana. Un modelo limitado a 5 o 10 segundos convierte un valor predeterminado de 8 segundos en 10.
+- La resolución se ajusta al nivel admitido más cercano. Los modelos que usan dimensiones en píxeles reciben el `width*height` más cercano para tu relación de aspecto y resolución.
+- Los ajustes que el modelo no tiene se omiten para que se aplique su propio valor predeterminado.
+
+El registro del servidor enumera los valores modificados en una línea que empieza por `[video-gen/atlas-cloud] fitted request`. Si no se puede leer el esquema, Marinara envía la misma solicitud general que antes.
+
+Elige un modelo **image-to-video** (imagen a vídeo) para los vídeos de escena. Un modelo de texto a vídeo no tiene campo de imagen: ignora tu ilustración y crea un clip independiente solo a partir del prompt. El servidor lo indica en el registro.
+
+**Test Video** (Probar vídeo) envía un degradado sencillo como primer fotograma cuando el modelo de Atlas Cloud elegido requiere una imagen. Así, los modelos de imagen a vídeo pueden superar la prueba de conexión.
+
+### Opciones de los modelos de Atlas Cloud
+
+Muchos modelos de Atlas Cloud tienen entradas propias, como `negative_prompt`, `seed`, `generate_audio`, `shot_type`, `enable_prompt_expansion` o listas de LoRA. El editor de conexiones las muestra para el modelo seleccionado:
+
+1. Abre la conexión de Atlas Cloud y elige o escribe un modelo.
+2. Despliega **Video Defaults** (Valores predeterminados de vídeo) y luego **Atlas Cloud setup** (Configuración de Atlas Cloud).
+3. Busca **Model options** (Opciones del modelo) debajo de los controles de duración, relación de aspecto y resolución.
+
+La parte superior de **Model options** enumera las duraciones, resoluciones, tamaños de fotograma y relaciones de aspecto que acepta el modelo. Los modelos de texto a vídeo también muestran un aviso ahí porque no pueden usar la imagen de tu galería.
+
+Cada opción conserva exactamente el nombre y la descripción de Atlas Cloud. Todas empiezan en **Model default** (Valor predeterminado del modelo), con el valor del proveedor entre paréntesis. Una opción que se deja en **Model default** no se envía: decide Atlas Cloud. Cambia una opción para enviar tu valor con cada vídeo de esta conexión, incluido **Test Video**. Las entradas de listas y objetos, como las LoRA, aceptan JSON.
+
+Las elecciones se guardan por modelo. Si cambias a otro modelo y vuelves, se conservan las opciones de cada uno. **Reset model options** (Restablecer opciones del modelo) borra las elecciones del modelo actual. Pulsa **Save** (Guardar) en la conexión para conservar tus cambios.
+
+Si una opción guardada deja de encajar con el modelo, por ejemplo porque Atlas Cloud cambia sus entradas, Marinara la omite en la solicitud y la nombra en la línea de registro `[video-gen/atlas-cloud] fitted request`.
 
 ## Generar un video desde la Gallery
 

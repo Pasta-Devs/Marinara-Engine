@@ -579,7 +579,7 @@ de référence du lieu).
 Pour un parent en présentation Map, ouvre séparément **Child map background**
 (arrière-plan de la carte d'enfants). Choisis une image de la galerie, puis
 place-la derrière les marqueurs des enfants. Cette image n'est jamais envoyée à
-un fournisseur du simple fait qu'elle s'affiche sur la carte.
+un fournisseur du simple fait qu'elle s'affiche sur la carte. Utilise une image carrée, par exemple de 1024 × 1024 px, pour correspondre à la grille de coordonnées de 100 × 100. L'éditeur et la vue pendant le chat utilisent le même canevas carré.
 
 ### Générer par lots les illustrations de lieu manquantes
 

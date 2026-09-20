@@ -540,7 +540,9 @@ Zaznacz lokalizację w edytorze i otwórz sekcję **Location reference image**.
 Przy lokalizacji nadrzędnej z prezentacją Map otwórz osobno sekcję **Child map
 background**. Wybierz obraz z galerii, a potem ustaw go za znacznikami lokalizacji
 podrzędnych. Sam fakt, że obraz jest widoczny na mapie, nigdy nie powoduje
-wysłania go do dostawcy.
+wysłania go do dostawcy. Użyj kwadratowej grafiki, na przykład 1024 × 1024 px,
+aby pasowała do siatki współrzędnych 100 × 100. Edytor i widok mapy podczas
+czatu korzystają z tego samego kwadratowego obszaru.
 
 ### Zbiorcze generowanie brakujących grafik lokalizacji
 

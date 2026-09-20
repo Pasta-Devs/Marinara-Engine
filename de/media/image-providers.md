@@ -82,7 +82,7 @@ Cloud-Dienst mit der Standard-Base-URL `https://api.z.ai/api/paas/v4`. Nötig is
 
 ## Atlas Cloud
 
-Cloud-Dienst mit der Standard-Base-URL `https://api.atlascloud.ai/api/v1`. Nötig ist ein API-Key von Atlas Cloud. Marinara bringt einen kleinen Startkatalog für Nano Banana, Gemini Flash Image und FLUX 1.1 Pro mit; alternativ tippst du die exakte ID eines anderen Atlas-Cloud-Bildmodells ein. Die Aufträge laufen asynchron: Marinara startet die Generierung und fragt bei Atlas Cloud so lange nach, bis das Bild fertig ist. Gängige Text-to-Image-Regler ordnet Marinara automatisch zu; Referenzbilder gehen an Modell-IDs, die Image-to-Image, Edit oder Kontext unterstützen. Da sich die Schemata der Atlas-Modelle unterscheiden, lohnt bei einer anderen Modell-ID ein Blick in die Atlas-Cloud-Dokumentation zum gewählten Modell.
+Cloud-Dienst mit der Standard-Base-URL `https://api.atlascloud.ai/api/v1`. Du brauchst einen API-Schlüssel von Atlas Cloud. **Fetch Models** (Modelle abrufen) lädt den aktuellen Katalog für Text-zu-Bild und Bild-zu-Bild von Atlas Cloud. Ist der Katalog nicht erreichbar, zeigt Marinara stattdessen eine kleine Startliste mit Nano Banana, Gemini Flash Image und FLUX 1.1 Pro. Du kannst jederzeit eine genaue Atlas Cloud-Bildmodell-ID eingeben. Aufträge laufen asynchron: Marinara startet die Generierung und fragt Atlas Cloud ab, bis das Bild fertig ist. Übliche Text-zu-Bild-Einstellungen werden automatisch zugeordnet; Referenzbilder werden an Modell-IDs gesendet, die Bild-zu-Bild, Bearbeitung oder Kontext-Verhalten ausweisen. Da sich die Schemas unterscheiden können, prüf bei einer anderen Modell-ID die Atlas Cloud-Dokumentation des gewählten Modells.
 
 ## fal.ai
 

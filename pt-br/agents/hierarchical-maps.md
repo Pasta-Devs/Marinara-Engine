@@ -563,7 +563,7 @@ Selecione um local no editor e abra **Location reference image**.
 
 Para um pai que usa a apresentação Map, abra **Child map background** à parte.
 Escolha uma imagem da galeria e posicione-a atrás dos marcadores dos filhos. Essa
-imagem nunca é enviada a um provedor só porque aparece no mapa.
+imagem nunca é enviada a um provedor só porque aparece no mapa. Use uma imagem quadrada, por exemplo de 1024 × 1024 px, para combinar com a grade de coordenadas de 100 × 100. O editor e a visualização durante o chat usam a mesma área quadrada.
 
 ### Gerar em lote as artes de local que faltam
 

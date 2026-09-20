@@ -324,7 +324,7 @@ Selecciona una ubicación en el editor y abre **Location reference image**.
 - **Create with AI** abre un prompt editable de imagen de ambientación y guarda el resultado en la Gallery antes de que decidas si lo usas.
 - **Use for Roleplay illustrations and Game storyboards** controla si la imagen seleccionada participa en las generaciones que cumplen los requisitos.
 
-Para un padre que usa la presentación Map, abre **Child map background** por separado. Elige una imagen de la Gallery y luego colócala detrás de los marcadores de los hijos. Esta imagen nunca se envía a un proveedor solo porque se muestre en el mapa.
+Para un padre que usa la presentación Map, abre **Child map background** por separado. Elige una imagen de la Gallery y luego colócala detrás de los marcadores de los hijos. Esta imagen nunca se envía a un proveedor solo porque se muestre en el mapa. Usa imágenes cuadradas, por ejemplo de 1024 × 1024 px, para ajustarlas a la cuadrícula de coordenadas de 100 × 100. El editor y la vista durante el chat usan el mismo lienzo cuadrado.
 
 ### Generar por lotes las ilustraciones de ubicación que faltan
 

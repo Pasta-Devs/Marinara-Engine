@@ -82,7 +82,7 @@
 
 ## Atlas Cloud
 
-云端服务，默认 Base URL 是 `https://api.atlascloud.ai/api/v1`。需要 Atlas Cloud 的 API 密钥。Marinara 内置了一份小型起步目录，包含 Nano Banana、Gemini Flash Image 和 FLUX 1.1 Pro，也可以直接输入其他准确的 Atlas Cloud 图像模型 ID。任务是异步执行的，Marinara 会先发起生成，然后轮询 Atlas Cloud 直到图像就绪。常见的文生图参数会自动映射；对于声明支持图生图、编辑或 Kontext 行为的模型 ID，参考图会一并发送。由于 Atlas 各模型的接口结构可能不同，使用其他模型 ID 时请查阅该模型在 Atlas Cloud 的文档。
+云端服务，默认 Base URL 为 `https://api.atlascloud.ai/api/v1`，需要 Atlas Cloud API 密钥。**Fetch Models**（获取模型）会加载 Atlas Cloud 当前的文生图和图生图模型目录。如果无法访问目录，Marinara 会改为显示 Nano Banana、Gemini Flash Image 和 FLUX 1.1 Pro 的简短初始列表。你也可以随时输入准确的 Atlas Cloud 图像模型 ID。任务以异步方式运行：Marinara 启动生成后，会轮询 Atlas Cloud，直到图像就绪。常见的文生图设置会自动映射；参考图像会发送给 ID 表明支持 image-to-image、编辑或 Kontext 的模型。各模型的输入结构可能不同，使用其他模型 ID 时，请查看所选模型的 Atlas Cloud 文档。
 
 ## fal.ai
 

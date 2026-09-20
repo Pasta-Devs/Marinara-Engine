@@ -324,7 +324,7 @@ Wähl im Editor einen Ort aus und öffne **Location reference image**.
 - **Create with AI** öffnet einen bearbeitbaren Prompt für ein Establishing-Bild und speichert das Ergebnis in der Galerie, bevor du entscheidest, ob du es nutzt.
 - **Use for Roleplay illustrations and Game storyboards** steuert, ob das gewählte Bild bei infrage kommenden Generierungen mitwirkt.
 
-Für einen übergeordneten Ort mit der Darstellung Map öffnest du **Child map background** getrennt davon. Wähl ein Galeriebild und positioniere es hinter den Markern der untergeordneten Orte. Dieses Bild geht nie an einen Anbieter, nur weil es auf der Karte zu sehen ist.
+Für einen übergeordneten Ort mit der Darstellung Map öffnest du **Child map background** getrennt davon. Wähl ein Galeriebild und positioniere es hinter den Markern der untergeordneten Orte. Dieses Bild geht nie an einen Anbieter, nur weil es auf der Karte zu sehen ist. Verwende quadratische Bilder, zum Beispiel 1024 × 1024 px, passend zum Koordinatenraster von 100 × 100. Editor und Laufzeitansicht verwenden dieselbe quadratische Zeichenfläche.
 
 ### Fehlende Ortsgrafiken im Stapel generieren
 

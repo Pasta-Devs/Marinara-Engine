@@ -82,7 +82,7 @@ Usługa w chmurze z domyślnym adresem `https://api.z.ai/api/paas/v4` w polu **B
 
 ## Atlas Cloud
 
-Usługa w chmurze z domyślnym adresem `https://api.atlascloud.ai/api/v1` w polu **Base URL**. Wymaga klucza API do usługi Atlas Cloud. Marinara dostarcza mały katalog startowy dla modeli Nano Banana, Gemini Flash Image i FLUX 1.1 Pro, a poza tym można wpisać dokładny identyfikator innego modelu graficznego Atlas Cloud. Zadania działają asynchronicznie: Marinara rozpoczyna generowanie i odpytuje Atlas Cloud, dopóki obraz nie będzie gotowy. Typowe ustawienia zamiany tekstu na obraz są mapowane automatycznie. Obrazy referencyjne trafiają do modeli, których identyfikatory zapowiadają obsługę zamiany obrazu na obraz, edycji albo trybu Kontext. Schematy modeli Atlas bywają różne, więc przy innym identyfikatorze modelu zajrzyj do dokumentacji Atlas Cloud dla wybranego modelu.
+Usługa w chmurze z domyślnym adresem Base URL `https://api.atlascloud.ai/api/v1`. Wymaga klucza API Atlas Cloud. **Fetch Models** (Pobierz modele) wczytuje aktualny katalog modeli text-to-image i image-to-image Atlas Cloud. Jeśli katalog jest niedostępny, Marinara pokazuje krótką listę startową z Nano Banana, Gemini Flash Image i FLUX 1.1 Pro. Zawsze możesz też wpisać dokładny identyfikator modelu obrazu Atlas Cloud. Zadania działają asynchronicznie: Marinara uruchamia generowanie i odpytuje Atlas Cloud, aż obraz będzie gotowy. Typowe ustawienia text-to-image są mapowane automatycznie; obrazy referencyjne są wysyłane do modeli, których identyfikatory wskazują obsługę image-to-image, edycji lub Kontext. Schematy modeli Atlas mogą się różnić, więc przy innym identyfikatorze sprawdź dokumentację wybranego modelu w Atlas Cloud.
 
 ## fal.ai
 

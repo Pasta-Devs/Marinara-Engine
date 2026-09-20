@@ -82,7 +82,7 @@ Serviço de nuvem com a Base URL padrão `https://api.z.ai/api/paas/v4`. Exige u
 
 ## Atlas Cloud
 
-Serviço de nuvem com a Base URL padrão `https://api.atlascloud.ai/api/v1`. Exige uma chave de API da Atlas Cloud. Marinara traz um pequeno catálogo inicial com Nano Banana, Gemini Flash Image e FLUX 1.1 Pro, e você pode digitar o ID exato de outro modelo de imagem da Atlas Cloud. Os trabalhos rodam de forma assíncrona: Marinara inicia a geração e consulta a Atlas Cloud repetidamente até a imagem ficar pronta. Os controles comuns de texto para imagem são convertidos automaticamente; as imagens de referência são enviadas para os IDs de modelo que anunciam comportamento de imagem para imagem, de edição ou Kontext. Como os esquemas dos modelos da Atlas variam, consulte a documentação da Atlas Cloud sobre o modelo escolhido ao usar outro ID de modelo.
+Serviço na nuvem com a Base URL padrão `https://api.atlascloud.ai/api/v1`. É necessária uma chave de API do Atlas Cloud. **Fetch Models** (Buscar modelos) carrega o catálogo atual de modelos de texto para imagem e de imagem para imagem do Atlas Cloud. Se o catálogo estiver indisponível, o Marinara mostra uma pequena lista inicial com Nano Banana, Gemini Flash Image e FLUX 1.1 Pro. Você também pode digitar o identificador exato de um modelo de imagem do Atlas Cloud. As tarefas são assíncronas: o Marinara inicia a geração e consulta o Atlas Cloud até a imagem ficar pronta. Os controles comuns de texto para imagem são mapeados automaticamente; imagens de referência são enviadas para modelos cujos identificadores indicam suporte a imagem para imagem, edição ou Kontext. Como os esquemas podem variar, consulte a documentação do modelo no Atlas Cloud ao usar outro identificador.
 
 ## fal.ai
 

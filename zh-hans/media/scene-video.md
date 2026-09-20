@@ -73,11 +73,42 @@ Seedance 必须通过一个公网链接取到参考图，才能给它做动画�
 - **Google AI Studio (Veo)**：画质出色，但时长固定为 4、6 或 8 秒。给图片做动画时用 8 秒。
 - **xAI Imagine**：1 到 15 秒。提示词长度上限比其他服务更短。
 - **OpenRouter Video**：1 到 60 秒，还可以手动填写 OpenRouter 账号支持的任意视频模型。
-- **Atlas Cloud**：1 到 60 秒，预置了 Veo 3.1 和 Seedance 2.0 两个起步模型。也可以手动填写其他准确的 Atlas Cloud 视频模型 ID，不过各模型自身对时长、分辨率和参考图的限制依然生效。
+- **Atlas Cloud**：**Fetch Models**（获取模型）会加载 Atlas Cloud 当前的视频模型目录，优先显示图生视频模型，并列出每个模型按输出视频每秒计算的起始价格。如果无法访问目录，Marinara 会改为显示 Veo 3.1 和 Seedance 2.0 的初始模型。你也可以输入准确的 Atlas Cloud 视频模型 ID；各模型的时长、分辨率和参考图像限制仍然适用。
 - **Seedance 2.0**：4 到 15 秒，支持首帧和首尾帧两种模式。需要参考图的公网链接。
 - **ComfyUI**：用自己的 API 格式工作流在本地生成。工作流里用到 `%reference_image_name%` 时，Marinara 会把参考图直接上传给 ComfyUI。
 
 视频任务比较慢，要有心理准备。服务商启动任务后，Marinara 会一直等待并轮询，直到短片生成完毕。一段短片往往要几分钟，比出一张静图久得多。本地的大体积 WAN 模型可能超过默认的 30 分钟上限，必要时调高 `VIDEO_GEN_TIMEOUT_MS` 并重启 Marinara。
+
+### Atlas Cloud 模型之间的差异
+
+Atlas Cloud 模型接受的设置并不完全相同。每次请求前，Marinara 都会从 `static.atlascloud.ai` 读取模型公布的输入结构，并据此调整连接的默认设置：
+
+- 原始插画会通过该模型使用的图像字段发送。
+- 片段时长会调整为模型支持的最接近值。例如，只支持 5 秒或 10 秒的模型会把默认的 8 秒调整为 10 秒。
+- 分辨率会调整为模型支持的最接近档位。对于接受像素尺寸的模型，会根据你的宽高比和分辨率选择最接近的 `width*height`。
+- 模型不支持的设置会被省略，以便使用模型自身的默认值。
+
+服务器会在以 `[video-gen/atlas-cloud] fitted request` 开头的日志行中列出每个调整的值。如果无法读取输入结构，Marinara 会发送与之前相同的通用请求。
+
+场景视频请选用 **image-to-video**（图生视频）模型。文生视频模型没有图像字段，因此会忽略你的插画，仅根据提示词生成独立的片段。服务器日志会说明这种情况。
+
+如果所选 Atlas Cloud 模型必须接收图像，**Test Video**（测试视频）会发送一张简单的渐变图作为首帧，这样图生视频模型也能通过连接测试。
+
+### Atlas Cloud 模型选项
+
+许多 Atlas Cloud 模型有自己的输入，例如 `negative_prompt`、`seed`、`generate_audio`、`shot_type`、`enable_prompt_expansion` 或 LoRA 列表。连接编辑器会显示所选模型的选项：
+
+1. 打开 Atlas Cloud 连接，选择或输入模型。
+2. 展开 **Video Defaults**（视频默认设置），再展开 **Atlas Cloud setup**（Atlas Cloud 设置）。
+3. 在片段时长、宽高比和分辨率控件下找到 **Model options**（模型选项）。
+
+**Model options** 顶部会列出模型接受的片段时长、分辨率、帧尺寸和宽高比。文生视频模型还会在这里显示警告，因为它无法使用图库中的图像。
+
+每个选项都保留 Atlas Cloud 的原始名称和说明。所有选项最初均为 **Model default**（模型默认值），括号内显示提供商的默认值。保持 **Model default** 的选项不会发送，由 Atlas Cloud 决定。更改选项后，该连接生成的每个视频都会发送你设置的值，包括 **Test Video**。LoRA 等列表和对象输入接受 JSON。
+
+选项按模型分别保存，因此切换到其他模型再切回来，各模型的设置都会保留。**Reset model options**（重置模型选项）会清除当前模型的选择。点击连接中的 **Save**（保存）来保留更改。
+
+如果已保存的选项不再适用于模型，例如 Atlas Cloud 修改了模型输入，Marinara 会在请求中省略它，并在 `[video-gen/atlas-cloud] fitted request` 日志行中列出该选项的名称。
 
 ## 在 Gallery 里生成视频
 

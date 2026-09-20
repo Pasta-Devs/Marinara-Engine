@@ -82,7 +82,7 @@
 
 ## Atlas Cloud
 
-기본 Base URL이 `https://api.atlascloud.ai/api/v1`인 클라우드 서비스입니다. Atlas Cloud API 키가 필요합니다. Marinara는 Nano Banana, Gemini Flash Image, FLUX 1.1 Pro를 담은 간단한 기본 목록을 제공하며, 다른 Atlas Cloud 이미지 모델 ID를 정확히 입력해서 쓸 수도 있습니다. 작업은 비동기로 처리되므로, Marinara가 생성을 시작한 뒤 이미지가 완성될 때까지 Atlas Cloud에 상태를 계속 확인합니다. 일반적인 텍스트-이미지 설정은 자동으로 연결됩니다. 참조 이미지는 image-to-image, edit, Kontext 동작을 지원한다고 표시된 모델 ID에만 보냅니다. Atlas의 모델 스키마는 모델마다 다를 수 있으니, 다른 모델 ID를 쓸 때는 그 모델의 Atlas Cloud 문서를 확인하세요.
+기본 Base URL이 `https://api.atlascloud.ai/api/v1`인 클라우드 서비스입니다. Atlas Cloud API 키가 필요합니다. **Fetch Models**(모델 가져오기)는 Atlas Cloud의 최신 텍스트-이미지 및 이미지-이미지 모델 목록을 불러옵니다. 목록에 접근할 수 없으면 Marinara는 Nano Banana, Gemini Flash Image, FLUX 1.1 Pro로 구성된 작은 기본 목록을 대신 표시합니다. Atlas Cloud 이미지 모델의 정확한 ID를 직접 입력할 수도 있습니다. 작업은 비동기로 실행됩니다. Marinara는 생성을 시작한 뒤 이미지가 준비될 때까지 Atlas Cloud에 상태를 확인합니다. 일반적인 텍스트-이미지 설정은 자동으로 매핑되며, 참조 이미지는 ID에 image-to-image, 편집 또는 Kontext 기능이 표시된 모델로 전송됩니다. 모델마다 입력 구조가 다를 수 있으므로 다른 ID를 사용한다면 해당 모델의 Atlas Cloud 문서를 확인하세요.
 
 ## fal.ai
 
