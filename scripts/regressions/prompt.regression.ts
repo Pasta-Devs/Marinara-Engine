@@ -9042,7 +9042,8 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         chatSummary: "CONTINUITY_FACT",
         currentSceneSummary: "OPEN_SCENE_FACT",
         recalledScenes: "OLD_SCENE_FACT",
-        recalledMessages: "#12 Mari: EXACT_OLD_WORDS",
+        recalledMessages:
+          "Included below are recalled memories of scenes from the past chat history, together with small message excerpts from them. Present message range in the context is: #20–#24, with the last user message being #24. #12 Mari: EXACT_OLD_WORDS",
       };
       for (const format of ["xml", "markdown", "none"] as const) {
         const headingParts = { chatSummary: "# A user heading\n<private>Literal tags & content</private>" };
@@ -9140,7 +9141,9 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         assert(automaticMemory.messages[1]?.content.includes("LIVE_WORDS"));
         for (const fact of Object.values(parts)) assert.equal(text.split(fact!).length - 1, 1, fact!);
         assert.doesNotMatch(text, /LEGACY_UNSCOPED_SECRET|duplicate_summary|hidden_summary|disabled_excerpt/u);
-        assert.match(text, /Below is a small excerpt from earlier chat history/u);
+        assert.equal(text.match(/Included below are recalled memories/gu)?.length, 1);
+        assert.match(text, /Present message range in the context is: #20–#24, with the last user message being #24/u);
+        assert.doesNotMatch(text, /Below is a small excerpt from earlier chat history/u);
         const summaryIndex = assembled.messages.findIndex((message) => message.content.includes("CONTINUITY_FACT"));
         assert.ok(
           text.indexOf("CONTINUITY_FACT") > text.indexOf("LIVE_WORDS"),
