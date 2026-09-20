@@ -842,7 +842,7 @@ test("Game translation follows changed narration and remains manually accessible
 });
 
 for (const mode of ["conversation", "roleplay", "game"] as const) {
-  test(`${mode} automatic translation survives navigation and evicted chat settings`, async ({ page, request }) => {
+  test(`${mode} server translations survive navigation and evicted chat settings`, async ({ page, request }) => {
     const chat = await (
       await request.post("/api/chats", { data: { name: "Background translation fixture", mode, characterIds: [] } })
     ).json();
@@ -983,9 +983,11 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
             settled: () => generated,
             cached(id: string) {
               const data = client.getQueryData(chatKeys.messages(chat.id));
-              return data?.pages.flat().find((row: { id: string }) => row.id === id)?.extra;
+              const extra = data?.pages.flat().find((row: { id: string }) => row.id === id)?.extra;
+              return typeof extra === "string" ? JSON.parse(extra) : extra;
             },
             showSaved() {
+              root?.unmount();
               useTranslationStore.getState().setConfig(config);
               useTranslationStore
                 .getState()
@@ -1049,7 +1051,13 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
         }
         const source = `The ${scenario} story continues.`;
         const saved = await (
-          await request.post(`/api/chats/${chat.id}/messages`, { data: { role: "assistant", content: source } })
+          await request.post(`/api/chats/${chat.id}/messages`, {
+            data: {
+              role: "assistant",
+              content: source,
+              extra: { translation: "Gotowe tłumaczenie.", translationSource: source, translationHidden: false },
+            },
+          })
         ).json();
         await pendingGeneration!.fulfill({
           contentType: "text/event-stream",
@@ -1062,15 +1070,10 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
             .join(""),
         });
         await page.evaluate(() => (window as any).translationFixture.settled());
-        await expect.poll(() => translations.length).toBe(scenarios.indexOf(scenario) + 1);
-        expect(translations.at(-1)).toMatchObject({
-          chatId: chat.id,
-          text: source,
-          provider: "ai",
-          targetLanguage: scenario === "malformed-legacy" ? "en" : "pl",
-          connectionId: "origin-connection",
-          systemPrompt: metadata.translationOutputPrompt,
-        });
+        // Generation now persists output translation on the server. The browser must
+        // consume the saved extra even after navigating or evicting the chat query,
+        // without issuing a duplicate client-side translation request.
+        expect(translations).toHaveLength(0);
         await expect
           .poll(async () => {
             const messages = await (await request.get(`/api/chats/${chat.id}/messages`)).json();
@@ -1088,8 +1091,8 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
               return useTranslationStore.getState().translations[id];
             }, saved.id),
           ).toBeUndefined();
-          await page.evaluate(() => (window as any).translationFixture.showSaved());
         }
+        await page.evaluate(() => (window as any).translationFixture.showSaved());
         await expect(page.getByTestId("translation-fixture-output")).toContainText("Gotowe tłumaczenie.");
       }
     } finally {

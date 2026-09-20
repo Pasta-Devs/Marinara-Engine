@@ -54,7 +54,8 @@ export function stripUnknownBracketTags(text: string, keep?: (tagName: string) =
           i = k + 1;
           continue;
         }
-        // Unbalanced (truncated/streaming) — leave the `[` in place and move on
+        // A truncated tag keeps its remaining text. Do not rescan every nested opener.
+        return out + text.slice(i);
       }
     }
     out += text[i];
@@ -69,40 +70,45 @@ export function stripUnknownBracketTags(text: string, keep?: (tagName: string) =
  * extends to the *balanced* closing bracket rather than the first `]`.
  */
 export function stripBalancedTag(text: string, tagPrefix: string): string {
-  const lower = tagPrefix.toLowerCase();
-  let result = text;
-  let searchFrom = 0;
-  while (true) {
-    const idx = result.toLowerCase().indexOf(lower, searchFrom);
-    if (idx === -1) break;
-    let depth = 0;
-    let end = -1;
-    for (let i = idx; i < result.length; i++) {
-      if (result[i] === "[") depth++;
-      else if (result[i] === "]") {
-        depth--;
-        if (depth === 0) {
-          end = i;
-          break;
-        }
-      }
-    }
-    if (end === -1) {
-      searchFrom = idx + 1;
-      continue;
-    }
-    result = result.slice(0, idx) + result.slice(end + 1);
+  // Pair brackets once so repeated unclosed tags cannot rescan the same suffix.
+  const ends = new Map<number, number>();
+  const opens: number[] = [];
+  let quote: '"' | "'" | null = null;
+  let escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (quote) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === quote) quote = null;
+    } else if (opens.length > 0 && (char === '"' || char === "'")) quote = char;
+    else if (char === "[") opens.push(i);
+    else if (char === "]" && opens.length) ends.set(opens.pop()!, i);
   }
-  return result;
+  const lower = text.toLowerCase();
+  const prefix = tagPrefix.toLowerCase();
+  const chunks: string[] = [];
+  let from = 0;
+  let index = lower.indexOf(prefix);
+  while (index !== -1) {
+    const end = ends.get(index);
+    if (end !== undefined) {
+      chunks.push(text.slice(from, index));
+      from = end + 1;
+    }
+    index = lower.indexOf(prefix, end === undefined ? index + 1 : from);
+  }
+  chunks.push(text.slice(from));
+  return chunks.join("");
 }
 
 export function stripMapUpdateTag(text: string): string {
-  return stripBalancedTag(text, "[map_update:").replace(/\[map_update:[^\r\n]*(?:\r?\n|$)/gi, "");
+  return stripBalancedTag(text, "[map_update:").replace(/\[map_update:[^\r\n]*(?:\r\n|\r|\n)?/gi, "");
 }
 
 /** Remove dangling closers left behind by malformed or partially stripped tags. */
 export function stripDanglingTagClosers(text: string): string {
-  return text.replace(/^\s*[\]}]+\s*$/gm, "");
+  return text.replace(/^[^\S\r\n]*[\]}]+[^\S\r\n]*$/gm, "");
 }
 
 /**
@@ -111,29 +117,23 @@ export function stripDanglingTagClosers(text: string): string {
  * story position.
  */
 export function stripGmTagsKeepReadables(content: string): string {
-  let text = content
-    // Strip the tactical-combat recap block sent after a battle (multiline, no colon).
-    .replace(/\[combat_result\][\s\S]*?\[\/combat_result\]/gi, "")
-    .replace(/\[music:\s*[^\]]+\]/gi, "")
-    .replace(/\[sfx:\s*[^\]]+\]/gi, "")
-    .replace(/\[bg:\s*[^\]]+\]/gi, "")
-    .replace(/\[ambient:\s*[^\]]+\]/gi, "")
-    .replace(/\[qte:\s*[^\]]+\]/gi, "")
-    .replace(/\[state:\s*[^\]]+\]/gi, "")
-    .replace(/\[reputation:\s*[^\]]+\]/gi, "")
-    .replace(/\[combat:\s*[^\]]+\]/gi, "")
-    .replace(/\[direction:\s*[^\]]+\]/gi, "")
-    .replace(/\[widget:\s*[^\]]+\]/gi, "")
-    .replace(/\[dialogue:\s*npc="[^"]*"\]/gi, "")
-    .replace(/\[session_end:\s*[^\]]*\]/gi, "")
-    .replace(/\[skill_check:\s*[^\]]+\]/gi, "")
-    .replace(/\[element_attack:\s*[^\]]+\]/gi, "")
-    .replace(/\[inventory:\s*[^\]]+\]/gi, "")
-    .replace(/\[party_change:\s*[^\]]+\]/gi, "")
-    .replace(/\[party_add:\s*[^\]]+\]/gi, "")
-    .replace(/\[party-turn\]/gi, "")
-    .replace(/\[party-chat\]/gi, "")
-    .replace(/\[dice:\s*[^\]]+\]/gi, "");
+  // Remove complete combat recaps with a forward-only scan. A malformed recap
+  // with repeated opening tags must not search the entire suffix for each one.
+  const lower = content.toLowerCase();
+  const open = "[combat_result]";
+  const close = "[/combat_result]";
+  const chunks: string[] = [];
+  let from = 0;
+  let start = lower.indexOf(open);
+  while (start !== -1) {
+    const end = lower.indexOf(close, start + open.length);
+    if (end === -1) break;
+    chunks.push(content.slice(from, start));
+    from = end + close.length;
+    start = lower.indexOf(open, from);
+  }
+  chunks.push(content.slice(from));
+  let text = chunks.join("").replace(/\[(?:party-turn|party-chat)\]/gi, "");
   // The one-request dice branch delimiters. Three of the four are unreachable by
   // everything below: `stripUnknownBracketTags` and the `[\w+:` catch-all both require a
   // `:` after the name, and `[on success]` has a space before its `]` while `[/branch]`
@@ -154,8 +154,6 @@ export function stripGmTagsKeepReadables(content: string): string {
   // Balanced bracket stripping for non-readable tags
   text = stripMapUpdateTag(text);
   text = stripBalancedTag(text, "[choices:");
-  // Catch-all: strip unknown [tag: ...] except [Note:] and [Book:]
-  text = text.replace(/\[(?!Note:|Book:)\w+:[^\]]*\]/g, "");
   // NOTE: [Note:] and [Book:] are intentionally kept!
   text = stripDanglingTagClosers(text);
   return text.trim();
