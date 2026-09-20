@@ -9,6 +9,7 @@ if (args[0] === "--") args.shift();
 
 const child = spawn(process.execPath, [resolve(rootDir, "packages/server/dist/bin/mari.js"), ...args], {
   stdio: "inherit",
+  windowsHide: true,
   env: process.env,
 });
 

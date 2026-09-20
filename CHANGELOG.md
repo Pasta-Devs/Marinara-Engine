@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Update prompts now dismiss immediately and use a single-flight, bounded refresh fallback; rebuilt static assets are served without stale SPA fallback, local build metadata is compared safely, Windows launchers expose their pinned Corepack or npx pnpm to nested commands, and demonstrably stale writer leases can be reclaimed without weakening live-writer protection.
+
 - Atlas Cloud browser checks verify persisted model options directly, avoiding a race with the temporary save confirmation.
 
 - Atlas Cloud video connections show a **Model options** section under **Video Defaults** with every input the selected model has beyond clip length, aspect ratio, and resolution, such as negative prompt, seed, audio, shot type, prompt expansion, and LoRA lists. Each option shows Atlas Cloud's description and default, stays unsent until changed, and is saved per model. Switching models hides the old controls until the selected schema loads; ordinary field names such as `prototype` are preserved and object inputs are validated. The section also lists the clip lengths and resolutions the model accepts and warns when a text-to-video model cannot use the gallery image (#6408).

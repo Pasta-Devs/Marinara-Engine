@@ -57,7 +57,7 @@ function stopChildren(signal = "SIGTERM") {
   for (const child of children) {
     if (!child.pid) continue;
     if (process.platform === "win32") {
-      spawnSync("taskkill.exe", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+      spawnSync("taskkill.exe", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
     } else {
       try {
         process.kill(-child.pid, signal);

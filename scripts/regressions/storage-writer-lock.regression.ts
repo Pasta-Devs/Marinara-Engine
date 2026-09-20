@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { closeDB, getDB } from "../../packages/server/src/db/connection.js";
@@ -16,7 +17,6 @@ import {
 } from "../../packages/server/src/db/file-backed-store.js";
 import { appSettings, lorebookEntries, lorebooks } from "../../packages/server/src/db/schema/index.js";
 import { getMariDbService } from "../../packages/server/src/services/mari-db/mari-db.service.js";
-import { resolvePnpmRunner } from "../pnpm-runner.mjs";
 
 type LeaseRecord = {
   version: 1 | 2 | 3 | 4;
@@ -33,6 +33,8 @@ type LeaseRecord = {
 const previousStorageDir = process.env.FILE_STORAGE_DIR;
 const tempDirs: string[] = [];
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const serverRequire = createRequire(join(repositoryRoot, "packages/server/package.json"));
+const tsxCli = serverRequire.resolve("tsx/cli");
 
 function useTempStorage(label: string) {
   const dir = mkdtempSync(join(tmpdir(), `marinara-${label}-`));
@@ -158,20 +160,40 @@ try {
       writeFileSync(ownerPath(dir), JSON.stringify(leaseTemplate, null, 2));
     }
 
-    const pnpmRunner = resolvePnpmRunner();
-    const watcher = spawn(pnpmRunner.command, [...pnpmRunner.args, "--filter", "@marinara-engine/server", "dev"], {
-      cwd: repositoryRoot,
-      env: {
-        ...process.env,
-        FILE_STORAGE_DIR: dir,
-        MARINARA_ENV_FILE: join(dir, ".watcher.env"),
-        NODE_ENV: "production",
-        PORT: String(20_000 + (process.pid % 10_000)),
+    // Run the same guarded watcher entrypoint without asking pnpm to perform
+    // its dependency status/install hook. The lock regression owns only a
+    // temporary storage root, and a package-manager repair must not be part
+    // of proving the writer lease.
+    const watcher = spawn(
+      process.execPath,
+      [
+        tsxCli,
+        "watch",
+        "--ignore",
+        "./data",
+        "--ignore",
+        "../shared/dist",
+        "--ignore",
+        "./node_modules",
+        "--ignore",
+        "../../node_modules",
+        "src/index.ts",
+        "--marinara-dev-watch",
+      ],
+      {
+        cwd: join(repositoryRoot, "packages/server"),
+        env: {
+          ...process.env,
+          FILE_STORAGE_DIR: dir,
+          MARINARA_ENV_FILE: join(dir, ".watcher.env"),
+          NODE_ENV: "production",
+          PORT: String(20_000 + (process.pid % 10_000)),
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
+        detached: process.platform !== "win32",
       },
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
-      detached: process.platform !== "win32",
-    });
+    );
     let watcherOutput = "";
     watcher.stdout?.on("data", (chunk) => {
       watcherOutput += chunk.toString();
@@ -181,8 +203,12 @@ try {
     });
     try {
       await waitForExit(watcher);
-      assert.match(watcherOutput, /--marinara-dev-watch/u, "the competing process must use the guarded dev watcher");
       assert.match(watcherOutput, /StorageWriterLeaseError/u, "the watcher must exit because it lost the writer lease");
+      assert.doesNotMatch(
+        watcherOutput,
+        /pnpm(?:\.mjs)? install/u,
+        "the lock proof must not invoke dependency installation",
+      );
       assert.equal(existsSync(leasePath(dir)), true, "the healthy writer keeps its lease after rejecting the watcher");
       assert.equal(
         readJson<LeaseRecord>(ownerPath(dir)).pid,
@@ -283,6 +309,26 @@ try {
       const afterCrash = await createFileNativeDB();
       assert.notEqual(readJson<LeaseRecord>(ownerPath(dir)).token, "stale-owner-token");
       await afterCrash._fileStore.close();
+
+      // A force-killed writer leaves its lease behind, and the operating system can reissue its PID to the replacement. A lease naming our own PID is therefore always stale: we have not acquired one yet, so it cannot be a rival, and refusing would lock the store until someone deleted the file.
+      mkdirSync(leasePath(dir));
+      writeFileSync(
+        ownerPath(dir),
+        JSON.stringify({
+          ...leaseTemplate,
+          version: 2,
+          pid: process.pid,
+          token: "reused-pid-token",
+          acquiredAt: "2026-08-13T00:00:00.000Z",
+        }),
+      );
+      const afterPidReuse = await createFileNativeDB();
+      assert.notEqual(
+        readJson<LeaseRecord>(ownerPath(dir)).token,
+        "reused-pid-token",
+        "a lease naming this very process is reclaimed instead of blocking startup",
+      );
+      await afterPidReuse._fileStore.close();
     }
 
     if (leaseTemplate.hostId) {

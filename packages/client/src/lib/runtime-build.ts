@@ -13,7 +13,9 @@ export function getServerRuntimeBuild(health: RuntimeHealth) {
 
 export function isRuntimeBuildCurrent(clientVersion: string, clientBuild: string, health: RuntimeHealth) {
   const serverBuild = health.build?.trim();
-  if (!serverBuild || serverBuild === health.version) {
+  // Local/archive builds may not have Git metadata on either side. Compare
+  // versions in that case; missing metadata is not evidence of a stale build.
+  if (!serverBuild || serverBuild === health.version || clientBuild === clientVersion) {
     return health.version === clientVersion;
   }
 

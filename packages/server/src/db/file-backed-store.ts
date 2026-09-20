@@ -32,6 +32,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { STORAGE_MIGRATION_NOTICE_SETTINGS_KEY, type StorageMigrationNotice } from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
 import { getFileStorageDir, getMaxResidentChatUnits } from "../config/runtime-config.js";
+import { persistentWriterHostId } from "./writer-host-identity.js";
 import * as schema from "./schema/index.js";
 import { inArray, isFileCondition, isFileOrdering, type FileCondition, type FileOrdering } from "./file-query.js";
 import { migrateLegacyNoodleAccountRow } from "./noodle-platform-migration.js";
@@ -1505,6 +1506,12 @@ function readBootId() {
 }
 
 const CURRENT_HOST_ID = (() => {
+  if (process.platform === "win32" && process.env.LOCALAPPDATA) {
+    return persistentWriterHostId(
+      join(process.env.LOCALAPPDATA, "MarinaraEngine", "writer-host-id"),
+      readStableMachineId,
+    );
+  }
   const machineId = readStableMachineId();
   if (!machineId) return null;
   return createHash("sha256")
@@ -2464,7 +2471,11 @@ class FileTableStore {
           staleReason = "liveness";
         }
       } else if (sameHost && pidProofUsable) {
-        if (pidDefinitelyExited(existing.record.pid)) staleReason = "pid";
+        const startedAt = Date.now() - Math.round(process.uptime() * 1000);
+        const acquiredAt = Date.parse(existing.record.acquiredAt ?? "");
+        if (existing.record.pid === process.pid && Number.isFinite(acquiredAt) && acquiredAt < startedAt)
+          staleReason = "pid";
+        else if (pidDefinitelyExited(existing.record.pid)) staleReason = "pid";
         else if (pidWasReused(existing.record)) staleReason = "pid-reused";
       }
       if (!staleReason) {

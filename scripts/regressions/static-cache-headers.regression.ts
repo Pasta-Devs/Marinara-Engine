@@ -45,6 +45,13 @@ try {
   assert.match(fingerprintedAsset.headers["content-type"], /javascript/);
   assert.equal(fingerprintedAsset.headers["cache-control"], "public, max-age=31536000, immutable");
 
+  writeFileSync(join(clientDist, "assets", "index-NewBuild34.js"), "export const rebuilt = true;");
+  const rebuiltAsset = await app.inject({ method: "GET", url: "/assets/index-NewBuild34.js" });
+  assert.equal(rebuiltAsset.statusCode, 200);
+  assert.match(rebuiltAsset.body, /rebuilt = true/);
+  assert.match(rebuiltAsset.headers["content-type"] ?? "", /javascript/i);
+  assert.equal(rebuiltAsset.headers["cache-control"], "public, max-age=31536000, immutable");
+
   const unfingerprintedAsset = await app.inject({ method: "GET", url: "/favicon.png" });
   assert.equal(unfingerprintedAsset.statusCode, 200);
   assert.equal(unfingerprintedAsset.headers["cache-control"], undefined);

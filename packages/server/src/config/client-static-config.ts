@@ -36,7 +36,10 @@ export function createClientStaticOptions(clientDist: string): FastifyStaticOpti
   return {
     root: clientDist,
     prefix: "/",
-    wildcard: false,
+    // Resolve files at request time. Production builds replace Vite's hashed
+    // asset names, and a long-running server must be able to serve those new
+    // files without returning the SPA HTML fallback for JavaScript requests.
+    wildcard: true,
     decorateReply: false,
     // @fastify/static applies its generated Cache-Control header after
     // setHeaders. Disable that default so the update-safe policies below win.

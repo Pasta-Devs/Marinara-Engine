@@ -16,6 +16,7 @@ function run(script, args, options = {}) {
     cwd: PACKAGE_ROOT,
     env: { ...process.env, ...options.env },
     stdio: "inherit",
+    windowsHide: true,
   });
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
