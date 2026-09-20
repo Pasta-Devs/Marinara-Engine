@@ -46,6 +46,8 @@ const ATLAS_CLOUD_SCHEMA_RESPONSE_LIMIT_BYTES = 1024 * 1024;
 const ATLAS_CLOUD_SCHEMA_TIMEOUT_MS = 15_000;
 const ATLAS_CLOUD_SCHEMA_TTL_MS = 6 * 60 * 60 * 1000;
 const ATLAS_CLOUD_SCHEMA_MISS_TTL_MS = 10 * 60 * 1000;
+/** The editor endpoint accepts any well-formed model ID, so the cache is bounded. */
+const ATLAS_CLOUD_SCHEMA_CACHE_MAX_ENTRIES = 200;
 const ATLAS_CLOUD_MODEL_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9][a-z0-9._-]*)+$/i;
 /** Schema keys that carry the first-frame or reference image, in the order Marinara prefers them. */
 const ATLAS_CLOUD_STRING_IMAGE_KEYS = ["image", "image_url"] as const;
@@ -144,15 +146,18 @@ export async function fetchAtlasCloudModelSchema(
     if (signal?.aborted) throw error;
     logger.warn(error, "[atlas-cloud] could not read the published schema for %s; using the generic request", model);
   }
+  // Re-inserting moves the entry to the end, so the first key is always the least recently fetched.
+  schemaCache.delete(url);
+  while (schemaCache.size >= ATLAS_CLOUD_SCHEMA_CACHE_MAX_ENTRIES) {
+    const oldest = schemaCache.keys().next().value;
+    if (oldest === undefined) break;
+    schemaCache.delete(oldest);
+  }
   schemaCache.set(url, {
     schema,
     expiresAt: Date.now() + (schema ? ATLAS_CLOUD_SCHEMA_TTL_MS : ATLAS_CLOUD_SCHEMA_MISS_TTL_MS),
   });
   return schema;
-}
-
-export function clearAtlasCloudModelSchemaCache(): void {
-  schemaCache.clear();
 }
 
 /** True when the model cannot run without a first-frame or reference image. */

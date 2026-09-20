@@ -457,7 +457,7 @@ function resolveVideoConnection(connection: VideoGenerationConnection) {
     comfyLoras: isComfyUiVideo ? videoDefaults.comfyui.loras : [],
     comfyFps: isComfyUiVideo ? videoDefaults.comfyui.fps : undefined,
     atlasModelOptions: isAtlasVideo
-      ? videoDefaults.atlas.modelOptions[connection.model || "google/veo3.1/text-to-video"]
+      ? videoDefaults.atlas.modelOptions[connection.model?.trim() || "google/veo3.1/text-to-video"]
       : undefined,
     publicReferenceUpload: resolveVideoReferencePublicUploadOptions(isSeedanceVideo, videoDefaults.seedance),
   };

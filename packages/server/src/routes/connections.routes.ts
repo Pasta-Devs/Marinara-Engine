@@ -922,7 +922,14 @@ export async function connectionsRoutes(app: FastifyInstance) {
         conn.provider === "image_generation" ? resolveImageGenerationSource(conn as any, baseUrl) : "";
       const mediaSource = imageSource || videoSource;
       if (conn.provider === "image_generation" && imageSource === "atlas") {
-        return { models: await listAtlasCloudModels(baseUrl, "image", ATLAS_CLOUD_IMAGE_MODELS) };
+        // `baseUrl` may have fallen back to the generic image provider default; the catalog lives on Atlas Cloud.
+        return {
+          models: await listAtlasCloudModels(
+            conn.baseUrl || DEFAULT_ATLAS_CLOUD_VIDEO_BASE_URL,
+            "image",
+            ATLAS_CLOUD_IMAGE_MODELS,
+          ),
+        };
       }
       if (conn.provider === "image_generation" && imageSource === "zai") {
         return { models: ZAI_IMAGE_MODELS.map((model) => ({ id: model.id, name: model.name })) };
@@ -1467,7 +1474,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
                       : undefined,
         comfyWorkflow: conn.comfyuiWorkflow || undefined,
         comfyLoras: isComfyUiVideo ? defaults.comfyui.loras : [],
-        atlasModelOptions: isAtlasVideo ? defaults.atlas.modelOptions[videoModel] : undefined,
+        atlasModelOptions: isAtlasVideo ? defaults.atlas.modelOptions[videoModel.trim()] : undefined,
         fps: isComfyUiVideo ? defaults.comfyui.fps : undefined,
       });
       return {

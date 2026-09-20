@@ -185,7 +185,7 @@ export function resolveGameVideoRuntime(connection: VideoRuntimeConnection): Gam
     comfyLoras: isComfyUi ? videoDefaults.comfyui.loras : [],
     comfyFps: isComfyUi ? videoDefaults.comfyui.fps : undefined,
     atlasModelOptions: isAtlas
-      ? videoDefaults.atlas.modelOptions[connection.model || DEFAULT_ATLAS_CLOUD_VIDEO_MODEL]
+      ? videoDefaults.atlas.modelOptions[connection.model?.trim() || DEFAULT_ATLAS_CLOUD_VIDEO_MODEL]
       : undefined,
     resolution,
     promptLimits: getSceneVideoPromptLimits(isXai, isGeminiOmni),
