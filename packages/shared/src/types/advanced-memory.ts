@@ -33,6 +33,8 @@ export interface AdvancedMemoryJob {
   total: number;
   error: string | null;
   processedMessageId?: string | null;
+  /** Visible live-context starts, separate from manually chosen character knowledge boundaries. */
+  contextStarts?: Array<{ messageId: string; audienceCharacterIds: string[] }>;
 }
 
 export interface AdvancedMemoryRecord {

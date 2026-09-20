@@ -5,6 +5,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 ## [Unreleased]
 
 - The schedule editor can generate a week one day at a time using seven smaller requests, while preserving the current draft if any day fails (#6449). It shows the connection and model, allows choosing a language connection, and keeps generation errors visible; empty or incomplete generated schedules are rejected (#6455).
+- Advanced Memory archives and recalls earlier scenes when an ongoing chat uses a shared “Mark as new start” marker. Automatic cutoffs now appear with the existing start markers, including character-specific cutoffs and compression within long scenes. Hidden messages and character knowledge limits remain respected (#6450).
 
 - Advanced Memory prepares the full eligible Roleplay history before the next reply, resumes unfinished scene detection, and shares one scene summary between characters with the same history. The narrator uses the shared archive across character participation boundaries without separate scene copies. The archive avoids redundant owner copies and uses compact memory rows; new recaps omit current-situation and open-tension sections (#6450).
 
