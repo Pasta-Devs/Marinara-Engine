@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Download, Loader2, Plus, RefreshCw, Sparkles, Trash2, Upload } from "lucide-react";
 import {
   CONVERSATION_SCHEDULE_DAYS,
@@ -211,7 +211,8 @@ function parseTimeRange(value: string): { start: number; end: number } | null {
   const [startRaw, endRaw] = value.split("-");
   const start = parseClock(startRaw);
   const end = parseClock(endRaw);
-  if (start == null || end == null || start === end) return null;
+  if (start == null || end == null) return null;
+  if (start === end) return { start: 0, end: 1440 };
   return { start, end: end === 0 ? 1440 : end };
 }
 
@@ -390,12 +391,16 @@ export function CharacterScheduleEditorModal({
     (!!chatId && chatLoading) ||
     (!selectedConnection && !(connectionId === "random" && hasRandomPool));
   const generationBusy = isGeneratingSummary || isGeneratingWeek || !!generatingDay;
+  const handleClose = () => {
+    generationAbortRef.current?.abort();
+    onClose();
+  };
 
   useEffect(() => {
     if (generationError) generationErrorRef.current?.scrollIntoView({ block: "nearest" });
   }, [generationError]);
 
-  useEffect(
+  useLayoutEffect(
     () => () => {
       generationAbortRef.current?.abort();
     },
@@ -714,7 +719,7 @@ export function CharacterScheduleEditorModal({
   const save = () => {
     if (!validateDailyCap()) return;
     onSave(characterId, currentSchedule);
-    onClose();
+    handleClose();
   };
 
   const exportSchedule = () => {
@@ -764,7 +769,7 @@ export function CharacterScheduleEditorModal({
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       title={localizeUi("ui.chat.characterscheduleeditormodal.editValue1Schedule", { value1: characterName })}
       width="max-w-5xl"
       chatFloatingPanel
@@ -1395,7 +1400,7 @@ export function CharacterScheduleEditorModal({
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="rounded-md px-4 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
             >
               {localizeUi("chat.delete.dialog.cancel")}

@@ -4,7 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- The schedule editor can generate a week one day at a time using seven smaller requests, while preserving the current draft if any day fails (#6449). It shows the connection and model, allows choosing a language connection, and keeps generation errors visible; empty, gapped, or overlapping generated days are rejected. Regenerating one day refreshes the week date (#6455).
+- The schedule editor can generate a week one day at a time using seven smaller requests, preserves the draft on failure, and stops generation when closed (#6449). It offers connection selection and persistent errors, rejects incomplete or overlapping generated days, displays full-day blocks, and refreshes the week date after day regeneration (#6455).
 
 - Advanced Memory retains earlier scenes across shared “Mark as new start” cutoffs, shows automatic cutoffs in chat, and updates them when manual flags move or are removed. Hidden messages and character knowledge limits remain respected (#6450).
 

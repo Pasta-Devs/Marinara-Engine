@@ -49,6 +49,16 @@ for (const theme of ["dark", "light"] as const) {
       appAccentPulseMode: false,
     });
     await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
+    await page.addInitScript(() => {
+      const fetch = window.fetch;
+      window.fetch = (input, options) => {
+        const request = input instanceof Request ? input : null;
+        if ((request?.url ?? String(input)).includes("/api/conversation/schedule/"))
+          (window as unknown as { scheduleRequestSignal?: AbortSignal | null }).scheduleRequestSignal =
+            options?.signal ?? request?.signal;
+        return fetch(input, options);
+      };
+    });
     type DraftRequest = {
       mode: string;
       day?: string;
@@ -125,7 +135,19 @@ for (const theme of ["dark", "light"] as const) {
         .filter({ hasText: /^Monday/ })
         .getByRole("button")
         .first();
+      await expect(mondayToggle.getByTitle("00:00-00:00 Original routine", { exact: true })).toBeVisible();
       await mondayToggle.click();
+      const mondayTime = dialog.getByRole("textbox", { name: "Monday block time range", exact: true });
+      await mondayTime.fill("06:00-06:00");
+      const fullDay = mondayToggle.getByTitle("06:00-06:00 Original routine", { exact: true });
+      await expect(fullDay).toBeVisible();
+      expect(
+        await fullDay.evaluate(
+          (element) => element.getBoundingClientRect().width / element.parentElement!.getBoundingClientRect().width,
+        ),
+      ).toBeGreaterThan(0.95);
+      await page.screenshot({ path: info.outputPath(`schedule-full-day-${theme}.png`), animations: "disabled" });
+      await mondayTime.fill("00:00-00:00");
       await dialog.getByRole("textbox", { name: "Monday block activity", exact: true }).fill("Unsaved routine");
       await dialog.getByRole("combobox", { name: "Weekly generation", exact: true }).selectOption("day");
       calls = [];
@@ -188,7 +210,11 @@ for (const theme of ["dark", "light"] as const) {
       pauseRequests = true;
       await weekButton.click();
       await expect(dialog.getByRole("status")).toHaveText("Generating Monday (1/7)…");
-      await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      const abortedOnClose = await dialog.getByRole("button", { name: "Cancel", exact: true }).evaluate((button) => {
+        (button as HTMLButtonElement).click();
+        return (window as unknown as { scheduleRequestSignal?: AbortSignal }).scheduleRequestSignal?.aborted;
+      });
+      expect(abortedOnClose, "closing aborts the request before the click handler returns").toBe(true);
       await expect(dialog).toBeHidden();
       await expect.poll(() => !!pendingRequest.release).toBe(true);
       pauseRequests = false;
@@ -204,7 +230,9 @@ for (const theme of ["dark", "light"] as const) {
         pauseRequests = true;
         await dialog.getByRole("button", { name: action, exact: true }).click();
         await expect.poll(() => !!pendingRequest.release).toBe(true);
-        await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+        if (action === "Regenerate Monday")
+          await dialog.getByRole("button", { name: `Close Edit ${name} Schedule`, exact: true }).click();
+        else await page.keyboard.press("Escape");
         await expect(dialog).toBeHidden();
         pauseRequests = false;
         pendingRequest.release!();
