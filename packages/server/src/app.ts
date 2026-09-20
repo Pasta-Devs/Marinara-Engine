@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Fastify App Factory
 // ──────────────────────────────────────────────
-import Fastify, { LogController } from "fastify";
+import Fastify, { LogController, type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
@@ -57,6 +57,8 @@ import { getLastFreeze } from "./lib/freeze-detector.js";
 import { getPreviousSessionStatus, getUncleanExitHistory } from "./lib/session-postmortem.js";
 import { protectTerminalLogger } from "./lib/logger.js";
 import { openCodeSessionHook } from "./utils/opencode-session.js";
+import { withDiagnosticContext, sanitizeDiagnosticText } from "./lib/diagnostics.js";
+import { reportDiagnosticError } from "./lib/diagnostic-operation.js";
 
 const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
 const MAX_UPLOAD_BYTES = 256 * 1024 * 1024;
@@ -87,6 +89,49 @@ function resolveServerOs(): string {
 
 const SERVER_OS = resolveServerOs();
 
+/** Correlate API failures and normalize safe error references for browser clients. */
+export function registerDiagnosticHttpHooks(app: FastifyInstance): void {
+  app.addHook("onRequest", (request, _reply, done) => {
+    const requestPath = request.url.split(/[?#]/, 1)[0] ?? request.url;
+    withDiagnosticContext({ requestId: request.id, operation: request.routeOptions.url ?? requestPath }, () => done());
+  });
+  app.addHook("onSend", async (req, reply, payload) => {
+    if (req.url.startsWith("/api/") && !reply.hasHeader("Cache-Control")) {
+      reply.header("Cache-Control", "no-store");
+    }
+    if (reply.statusCode >= 400 && reply.getHeader("content-type")?.toString().includes("application/json")) {
+      try {
+        const parsed = typeof payload === "string" ? JSON.parse(payload) : payload;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && "error" in parsed) {
+          const record = parsed as Record<string, unknown>;
+          if (!record.code || !record.errorId) {
+            const reference = reportDiagnosticError(
+              Object.assign(new Error(typeof record.error === "string" ? record.error : `HTTP ${reply.statusCode}`), {
+                statusCode: reply.statusCode,
+              }),
+              {
+                requestId: req.id,
+                operation: req.routeOptions.url ?? req.url.split(/[?#]/, 1)[0] ?? req.url,
+                stage: "http",
+              },
+            );
+            const normalized = {
+              ...record,
+              error: typeof record.error === "string" ? sanitizeDiagnosticText(record.error) : record.error,
+              ...reference,
+              ...(record.code ? { code: record.code, diagnosticCode: reference.code } : {}),
+            };
+            return typeof payload === "string" ? JSON.stringify(normalized) : normalized;
+          }
+        }
+      } catch {
+        // Preserve the original response when diagnostic normalization cannot parse it.
+      }
+    }
+    return payload;
+  });
+}
+
 export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   const hadUserStateBeforeStartup = existsSync(join(getFileStorageDir(), "manifest.json"));
   const app = Fastify({
@@ -101,6 +146,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     ...(https && { https }),
   });
   protectTerminalLogger(app.log, getNodeEnv() !== "production");
+  registerDiagnosticHttpHooks(app);
 
   // Reject attacker-controlled DNS names before CORS or loopback trust can
   // treat a rebound browser request as same-origin local traffic.
@@ -233,18 +279,6 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   // APK-managed Termux installs use a per-install secret so unrelated Android
   // apps cannot inherit the server's ordinary loopback trust.
   app.addHook("onRequest", androidLocalAuthHook);
-
-  // ── Prevent caching of API JSON responses ──
-  // Without explicit Cache-Control, browsers apply heuristic caching which
-  // can return stale data when React Query refetches after mutations.
-  // This caused messages to vanish after generation because the refetch
-  // returned a cached response without the newly saved message.
-  app.addHook("onSend", async (req, reply, payload) => {
-    if (req.url.startsWith("/api/") && !reply.hasHeader("Cache-Control")) {
-      reply.header("Cache-Control", "no-store");
-    }
-    return payload;
-  });
 
   // ── Error Handler ──
   app.setErrorHandler(errorHandler);

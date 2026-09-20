@@ -3288,7 +3288,9 @@ try {
         });
         assert.equal(promptLogs.length, debug === "off" ? 0 : 1);
         if (debug !== "off") {
-          assert.deepEqual(promptLogs[0]![1], sentBody, "debug logs include final parameter/tool shaping");
+          assert.deepEqual(promptLogs[0]![0], { debugPrompt: true }, "debug prompt metadata is preserved");
+          assert.equal(typeof promptLogs[0]![1], "string", "debug logs include a format string");
+          assert.deepEqual(promptLogs[0]![2], sentBody, "debug logs include final parameter/tool shaping");
           assert.ok(!JSON.stringify(promptLogs).includes("synthetic-auth-marker"), "auth headers are not prompt data");
         }
       }

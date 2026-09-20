@@ -4,10 +4,13 @@
 
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from "@marinara-engine/shared";
 import { showGenerationFallbackHeader, showGenerationFallbackToast } from "./generation-fallback-notice";
+import { reportClientDiagnostic } from "./client-diagnostics";
+import { i18n } from "../localization/i18n";
 
 const BASE = "/api";
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 export const ADMIN_SECRET_STORAGE_KEY = "marinara_admin_secret";
+type ApiRequestInit = RequestInit & { suppressClientDiagnostics?: boolean };
 
 function getAdminSecretHeader(): Record<string, string> {
   if (typeof window === "undefined") return {};
@@ -20,12 +23,34 @@ function getAdminSecretHeader(): Record<string, string> {
 }
 
 export class ApiError extends Error {
+  public readonly code?: string;
+  public readonly errorId?: string;
+  public readonly requestId?: string;
+  public readonly baseMessage: string;
+
   constructor(
     public status: number,
     message: string,
     public payload?: unknown,
   ) {
-    super(message);
+    const reference = isRecord(payload)
+      ? {
+          code: typeof payload.code === "string" ? payload.code : undefined,
+          errorId: typeof payload.errorId === "string" ? payload.errorId : undefined,
+          requestId: typeof payload.requestId === "string" ? payload.requestId : undefined,
+        }
+      : {};
+    const baseMessage = message.trim() || `HTTP ${status}`;
+    const alreadyReferences = reference.errorId && baseMessage.includes(reference.errorId);
+    const suffix =
+      reference.errorId && !alreadyReferences
+        ? ` (${i18n.t("ui.errors.reference", { defaultValue: "Reference: {{id}}", id: reference.errorId })}${reference.code ? `, ${reference.code}` : ""})`
+        : "";
+    super(`${baseMessage}${suffix}`);
+    this.baseMessage = baseMessage;
+    this.code = reference.code;
+    this.errorId = reference.errorId;
+    this.requestId = reference.requestId;
     this.name = "ApiError";
   }
 }
@@ -273,12 +298,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
-  const headers = new Headers(init?.headers);
+async function apiFetch(path: string, init?: ApiRequestInit): Promise<Response> {
+  const { suppressClientDiagnostics, ...requestInit } = init ?? {};
+  const headers = new Headers(requestInit.headers);
   for (const [name, value] of Object.entries(getAdminSecretHeader())) {
     headers.set(name, value);
   }
-  const method = (init?.method ?? "GET").toUpperCase();
+  const method = (requestInit.method ?? "GET").toUpperCase();
   if (UNSAFE_METHODS.has(method)) {
     headers.set(CSRF_HEADER, CSRF_HEADER_VALUE);
     if (init?.body instanceof FormData) {
@@ -291,15 +317,38 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   }
 
   // Only default string bodies to JSON; FormData/Blob/etc. need browser-managed headers.
-  if (typeof init?.body === "string" && !headers.has("Content-Type")) {
+  if (typeof requestInit.body === "string" && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
-  return fetch(`${BASE}${path}`, {
-    ...init,
-    headers,
-    cache: "no-store",
-  });
+  try {
+    return await fetch(`${BASE}${path}`, {
+      ...requestInit,
+      headers,
+      cache: "no-store",
+    });
+  } catch (error) {
+    if (
+      requestInit.signal?.aborted ||
+      (error instanceof DOMException && (error.name === "AbortError" || error.name === "TimeoutError"))
+    )
+      throw error;
+    const networkError = new ApiError(
+      0,
+      i18n.t("ui.errors.networkUnavailable", "Marinara could not be reached. Check your connection and try again."),
+      {
+        code: "ME_NETWORK",
+      },
+    );
+    if (!suppressClientDiagnostics) {
+      void reportClientDiagnostic({
+        kind: "network",
+        message: error instanceof Error ? error.message : String(error),
+        path,
+      });
+    }
+    throw networkError;
+  }
 }
 
 type SaveFilePickerWindow = Window &
@@ -376,7 +425,7 @@ async function readDownloadFilename(res: Response, fallbackFilename: string) {
 
 export const api = {
   /** Return the raw response while still applying shared auth, CSRF, and cache policy. */
-  raw: (path: string, init?: RequestInit) => apiFetch(path, init),
+  raw: (path: string, init?: ApiRequestInit) => apiFetch(path, init),
 
   get: <T>(path: string, init?: RequestInit) => request<T>(path, init),
 
@@ -407,7 +456,7 @@ export const api = {
     const res = await apiFetch(path, init);
     if (!res.ok) {
       const payload = await res.json().catch(() => ({ error: res.statusText }));
-      throw new ApiError(res.status, payload.error ?? "Download failed", payload);
+      throw new ApiError(res.status, getApiErrorMessage(payload?.error, "Download failed"), payload);
     }
     const filename = await readDownloadFilename(res, fallbackFilename);
     const blob = await res.blob();
@@ -423,7 +472,7 @@ export const api = {
     showGenerationFallbackHeader(res);
     if (!res.ok) {
       const payload = await res.json().catch(() => ({ error: res.statusText }));
-      throw new ApiError(res.status, payload.error ?? "Download failed", payload);
+      throw new ApiError(res.status, getApiErrorMessage(payload?.error, "Download failed"), payload);
     }
     const filename = await readDownloadFilename(res, fallbackFilename);
     const blob = await res.blob();

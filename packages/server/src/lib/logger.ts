@@ -1,20 +1,21 @@
-// ──────────────────────────────────────────────
-// Shared Logger — Pino singleton
-// ──────────────────────────────────────────────
-// Every module in the server package should import `logger` from here
-// instead of using `console.log/warn/error` directly. This ensures
-// LOG_LEVEL actually controls what gets printed.
-//
-// Fastify builds its own separate pino instance from a {level, transport}
-// object (see app.ts) rather than importing this singleton, so
-// req.log / reply.log do NOT track runtime LOG_LEVEL changes applied here
-// by the env-watcher hot-reload.
-// ──────────────────────────────────────────────
+// Shared by application code; Fastify's independently configured logger is
+// wired through the same diagnostic hooks. File writes are synchronous so an
+// immediate process.exit after a fatal error does not discard the diagnostic.
 import pino from "pino";
 import type { EventEmitter } from "node:events";
 import { writeSync } from "node:fs";
 import { isatty } from "node:tty";
-import { getLogLevel, getNodeEnv } from "../config/runtime-config.js";
+import pretty from "pino-pretty";
+import { RotatingFileSink } from "./rotating-sink.js";
+import { createDiagnostic, getDiagnosticContext, sanitizeDiagnosticValue } from "./diagnostics.js";
+import {
+  getLogDirectory,
+  getLogFileKeep,
+  getLogFileLevel,
+  getLogFileMaxBytes,
+  getLogLevel,
+  getNodeEnv,
+} from "../config/runtime-config.js";
 
 type TerminalLogStream = EventEmitter & {
   fd?: number;
@@ -76,18 +77,92 @@ export function protectTerminalLogger(log: object, prettyStdout = false): void {
   });
 }
 
-export const logger = pino({
-  level: getLogLevel(),
-  transport: getNodeEnv() !== "production" ? { target: "pino-pretty", options: { colorize: true } } : undefined,
-});
-protectTerminalLogger(logger, getNodeEnv() !== "production");
+function levelNumber(value: string, fallback: number): number {
+  return value === "silent" ? Infinity : (pino.levels.values[value] ?? fallback);
+}
+const fileThreshold = () => levelNumber(getLogFileLevel(), 30);
+let consoleThreshold = levelNumber(getLogLevel(), 40);
+let sink: RotatingFileSink | undefined;
+let consoleSink: ReturnType<typeof pretty> | undefined;
+function combinedLevel(): pino.Level {
+  return (pino.levels.labels[Math.min(fileThreshold(), consoleThreshold)] ?? "fatal") as pino.Level;
+}
 
-export function logDebugOverride(overrideEnabled: boolean, message: string, ...args: any[]) {
+export const logger = pino(
+  {
+    level: combinedLevel(),
+    serializers: { err: (value: unknown) => value },
+    mixin: () => sanitizeDiagnosticValue(getDiagnosticContext()) as Record<string, unknown>,
+    hooks: {
+      logMethod(input, method, level) {
+        const first = input[0];
+        const fields =
+          first && typeof first === "object" && !(first instanceof Error)
+            ? (first as Record<string, unknown>)
+            : undefined;
+        const originalError = first instanceof Error ? first : (fields?.err ?? fields?.error);
+        const debug = level <= 20 || fields?.debugPrompt === true;
+        const args = input.map((value) => sanitizeDiagnosticValue(value, 0, new WeakSet(), debug));
+        if ((level >= 50 || originalError instanceof Error) && !fields?.diagnostic && !fields?.errorId) {
+          const reference = createDiagnostic(
+            originalError ?? new Error(typeof first === "string" ? first : String(input[1] ?? "Logged failure")),
+          );
+          const metadata = { ...reference, diagnostic: reference };
+          if (first instanceof Error) args[0] = { err: args[0], ...metadata };
+          else if (fields) args[0] = { ...(args[0] as Record<string, unknown>), ...metadata };
+          else args.unshift(metadata);
+        }
+        method.apply(this, args as Parameters<pino.LogFn>);
+      },
+    },
+  },
+  {
+    write(chunk: string) {
+      // Lazy initialization avoids the runtime-config/logger import cycle and
+      // resolves DATA_DIR only after the .env file has been loaded.
+      try {
+        const parsed = JSON.parse(chunk) as Record<string, unknown>;
+        const severity = Number(parsed.level);
+        const safe = sanitizeDiagnosticValue(parsed, 0, new WeakSet(), severity <= 20 || parsed.debugPrompt === true);
+        const line = `${JSON.stringify(safe)}\n`;
+        if (severity >= fileThreshold()) {
+          sink ??= new RotatingFileSink({
+            directory: getLogDirectory(),
+            maxBytes: getLogFileMaxBytes(),
+            keep: getLogFileKeep(),
+          });
+          sink.write(line);
+        }
+        if (severity >= consoleThreshold) {
+          if (getNodeEnv() !== "production" && process.stderr.isTTY) {
+            consoleSink ??= pretty({ sync: true, colorize: true, destination: 2, translateTime: "SYS:standard" });
+            consoleSink.write(line);
+          } else process.stderr.write(line);
+        }
+      } catch {
+        // Never replay an unsanitized line or throw from error reporting itself.
+        try {
+          process.stderr.write('{"level":50,"code":"ME_LOG_WRITE","msg":"Diagnostic output unavailable"}\n');
+        } catch {
+          /* stderr unavailable */
+        }
+      }
+    },
+  },
+);
+protectTerminalLogger(logger, false);
+
+export function refreshConsoleLogLevel(): void {
+  consoleThreshold = levelNumber(getLogLevel(), 40);
+  logger.level = combinedLevel();
+}
+
+// runtime-config may be the first module imported, in which case its .env load
+// finishes after this cyclic dependency initializes. Reconcile after evaluation.
+queueMicrotask(refreshConsoleLogLevel);
+
+export function logDebugOverride(overrideEnabled: boolean, message: string, ...args: unknown[]) {
   if (overrideEnabled && !logger.isLevelEnabled("debug")) {
-    // Default LOG_LEVEL is warn, so explicit UI debug mode must log at warn to be visible.
-    logger.warn(message, ...args);
-    return;
-  }
-
-  logger.debug(message, ...args);
+    logger.warn({ debugPrompt: true }, message, ...args);
+  } else logger.debug({ debugPrompt: true }, message, ...args);
 }

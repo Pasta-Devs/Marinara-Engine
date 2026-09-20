@@ -323,6 +323,24 @@ export function getLogLevel() {
   return normalizeEnvValue(process.env.LOG_LEVEL) ?? "warn";
 }
 
+/** File logging settings are read by the logger at process start. */
+export function getLogDirectory() {
+  const raw = normalizeEnvValue(process.env.LOG_DIR);
+  return raw ? resolveFromServerRoot(raw) : resolve(getDataDir(), "logs");
+}
+
+export function getLogFileLevel() {
+  return normalizeEnvValue(process.env.LOG_FILE_LEVEL) ?? "info";
+}
+
+export function getLogFileMaxBytes() {
+  return Math.min(Math.max(parsePositiveIntEnv(process.env.LOG_FILE_MAX_MB, 10, 100), 1), 100) * 1024 * 1024;
+}
+
+export function getLogFileKeep() {
+  return Math.min(Math.max(parsePositiveIntEnv(process.env.LOG_FILE_KEEP, 10, 100), 1), 100);
+}
+
 export function getLogPreset() {
   return normalizeEnvValue(process.env.LOG_PRESET)?.toLowerCase() ?? "default";
 }

@@ -29,8 +29,8 @@
 
 import { existsSync, statSync, watch, watchFile, unwatchFile, type FSWatcher } from "node:fs";
 import { basename, dirname } from "node:path";
-import { logger } from "../lib/logger.js";
-import { getEnvFilePath, getLogLevel, reloadRuntimeEnv, type EnvReloadResult } from "./runtime-config.js";
+import { logger, refreshConsoleLogLevel } from "../lib/logger.js";
+import { getEnvFilePath, reloadRuntimeEnv, type EnvReloadResult } from "./runtime-config.js";
 import { personalServerExtensionRuntime } from "../services/extensions/personal-server-extension-runtime.js";
 
 // Keys whose values are bound at process / app startup and won't take effect
@@ -120,11 +120,10 @@ function applyLogLevel(diff: EnvReloadResult) {
   ) {
     return;
   }
-  const next = getLogLevel();
   try {
-    logger.level = next;
+    refreshConsoleLogLevel();
   } catch (err) {
-    logger.warn({ err, requested: next }, "[env-watcher] Could not apply new LOG_LEVEL to logger");
+    logger.warn({ err }, "[env-watcher] Could not apply new LOG_LEVEL to logger");
   }
 }
 

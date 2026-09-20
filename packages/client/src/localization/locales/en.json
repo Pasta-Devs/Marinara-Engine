@@ -5964,6 +5964,8 @@
   "ui.dice.diceglyph.d2": "d2",
   "ui.dice.diceglyph.dValue1": "d{{value1}}",
   "ui.dice.diceglyph.dValue1ShowingValue2": "d{{value1}} showing {{value2}}",
+  "ui.errors.networkUnavailable": "Marinara could not be reached. Check your connection and try again.",
+  "ui.errors.reference": "Reference: {{id}}",
   "ui.faq.answers": "answers",
   "ui.faq.beforeBug": "Before You Post A Bug",
   "ui.faq.clearSearch": "Clear FAQ search",

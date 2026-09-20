@@ -39,6 +39,7 @@ export * from "./types/noodle.js";
 export * from "./types/spatial-context.js";
 export * from "./types/capability-runtime.js";
 export * from "./types/localization.js";
+export * from "./types/diagnostics.js";
 export * from "./types/personal-extension.js";
 export * from "./types/home-feed.js";
 

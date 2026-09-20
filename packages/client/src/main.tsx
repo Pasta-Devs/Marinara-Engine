@@ -6,6 +6,8 @@ import { startKeepAlive } from "./lib/keep-alive";
 import { installCsrfFetchShim } from "./lib/csrf-fetch";
 import { registerPreloadErrorRecovery } from "./lib/browser-runtime";
 import { showAppUpdatePrompt } from "./lib/app-update-prompt";
+import { configureClientDiagnosticSender, installClientDiagnostics } from "./lib/client-diagnostics";
+import { api } from "./lib/api-client";
 import { initializeLocalization } from "./localization/i18n";
 import { LocalizationProvider } from "./localization/LocalizationProvider";
 import { useUIStore } from "./stores/ui.store";
@@ -28,6 +30,24 @@ installCsrfFetchShim();
 // 404s after an update) instead of surfacing "Failed to fetch dynamically
 // imported module" to the user.
 registerPreloadErrorRecovery();
+void configureClientDiagnosticSender(async (record, signal) => {
+  const response = await api.raw("/diagnostics/client", {
+    method: "POST",
+    body: JSON.stringify(record),
+    signal,
+    suppressClientDiagnostics: true,
+  });
+  if (response.ok) {
+    // Acknowledge the complete response, not just its headers. This also drains
+    // the fetch body instead of leaving browser reporting requests unfinished.
+    const acknowledgement = await response.json();
+    return typeof acknowledgement?.errorId === "string";
+  }
+  await response.body?.cancel();
+  // Discard malformed/oversized reports; retaining them would block the queue.
+  return response.status === 400 || response.status === 413;
+});
+installClientDiagnostics();
 
 const queryClient = new QueryClient({
   defaultOptions: {

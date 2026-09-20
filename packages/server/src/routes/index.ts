@@ -64,11 +64,13 @@ import { personalExtensionsRoutes } from "./personal-extensions.routes.js";
 import { notificationSoundRoutes } from "./notification-sound.routes.js";
 import { libraryFoldersRoutes } from "./library-folders.routes.js";
 import { androidLocalAuthRoutes } from "../middleware/android-local-auth.js";
+import { diagnosticsRoutes } from "./diagnostics.routes.js";
 
 export async function registerRoutes(app: FastifyInstance) {
   // Sibling routes must see the same in-flight generations as the generation plugin.
   if (!app.hasDecorator("activeGenerations")) app.decorate("activeGenerations", new Map());
   await app.register(androidLocalAuthRoutes, { prefix: "/api/android-auth" });
+  await app.register(diagnosticsRoutes, { prefix: "/api/diagnostics" });
   await app.register(chatsRoutes, { prefix: "/api/chats" });
   await app.register(advancedMemoryRoutes, { prefix: "/api/chats" });
   await app.register(chatFoldersRoutes, { prefix: "/api/chat-folders" });
