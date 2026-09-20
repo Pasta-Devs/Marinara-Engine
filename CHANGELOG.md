@@ -4,6 +4,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Advanced Memory recalls up to three relevant past scenes by default, with a configurable maximum. Each scene summary is paired with one bounded excerpt and a grouped message range; recalled context identifies the live range and last user message. Routine recall reuses the archive, bounds optional embedding latency, and stays out of agent and auxiliary generation requests (#6471).
+- Advanced Memory checks scenes independently after main Roleplay replies at the configured interval, and prepares the archive only when a scene ends. Background progress appears as **Advanced Recall** in the top-left Agents menu, including when ordinary agents are disabled (#6471).
+
 - Advanced Memory skips scene recaps that overlap live messages and uses only fully archived manual-summary ranges for continuity, avoiding duplicate story context at cutoffs (#6468).
 
 - Advanced Memory uses its selected helper for scene recaps, separates archived scenes from the constant-summary size limit, and sends standalone summary instructions with only the eligible source material. Completed summaries and scene detection survive Resume after an update (#6461).
@@ -15,7 +18,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Advanced Memory retains earlier scenes across shared “Mark as new start” cutoffs, shows automatic cutoffs in chat, and updates them when manual flags move or are removed. Hidden messages and character knowledge limits remain respected (#6450).
 
-- Advanced Memory prepares the full eligible Roleplay history before the next reply, resumes unfinished scene detection, and shares one scene summary between characters with the same history. The narrator uses the shared archive across character participation boundaries without separate scene copies. The archive avoids redundant owner copies and uses compact memory rows; new recaps omit current-situation and open-tension sections (#6450).
+- Advanced Memory can prepare the full eligible Roleplay history through **Prepare existing history**, resumes unfinished scene detection, and shares one scene summary between characters with the same history. The narrator uses the shared archive across character participation boundaries without separate scene copies. The archive avoids redundant owner copies and uses compact memory rows; new recaps omit current-situation and open-tension sections (#6450).
 
 - When a Game Mode fight ends, the recap the Game Master reads now names anybody still carrying a condition and says those stay until the Game Master takes them off, with the command that does it. A charm or a fright does not expire because the fighting stopped, and what would end one is the spell's own terms or the fiction rather than arithmetic, so it is a ruling to make rather than something the Engine should guess. The condition a ruleset's own dying rule puts on somebody at zero is left out of that list, because healing or stabilising them is what lifts it.
 

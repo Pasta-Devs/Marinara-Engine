@@ -183,6 +183,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
       helperConnectionId: null,
       initialProcessingModel: "helper",
       sceneCheckInterval: 5,
+      retrieveMaxScenes: 3,
       retrieveMinMessages: 3,
       retrieveMaxMessages: 10,
       narratorCharacterId: null,
@@ -283,6 +284,15 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect(settings.getByLabel("Maximum allowed context before compression (tokens)")).toHaveValue("65000");
     await expect(settings.getByLabel("Minimum messages per excerpt")).toHaveValue("3");
     await expect(settings.getByLabel("Maximum messages per excerpt")).toHaveValue("10");
+    const sceneLimit = settings.getByLabel("Maximum recalled scenes", { exact: true });
+    await expect(sceneLimit).toHaveValue("3");
+    await sceneLimit.fill("2");
+    await sceneLimit.press("Enter");
+    await expect.poll(() => status.settings.retrieveMaxScenes).toBe(2);
+    await expect(sceneLimit).toHaveValue("2");
+    await sceneLimit.scrollIntoViewIfNeeded();
+    await captureThemes(page, info, "advanced-memory-scene-limit", settings);
+
     await expect(settings.getByLabel("Narrator", { exact: true })).toHaveValue("");
     await expect(settings).toContainText("Moving context");
     const minimum = settings.getByLabel("Minimum messages per excerpt");
@@ -580,6 +590,59 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect(drawer.getByRole("checkbox", { name: /^Enable Memory Recall/ })).not.toBeChecked();
     await drawer.getByRole("button", { name: "Access memories for this chat", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Memories for This Chat", exact: true })).toBeVisible();
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("Advanced Recall background activity appears without ordinary agents", async ({ page, request }, info) => {
+  const fixture = await createFixture(request);
+  const status: AdvancedMemoryStatus = {
+    settings: { ...DEFAULT_ADVANCED_MEMORY_SETTINGS, enabled: true },
+    job: {
+      id: "background-recall",
+      status: "running",
+      stage: "summarizing",
+      blocking: false,
+      completed: 1,
+      total: 2,
+      error: null,
+    },
+    missingKnowledgeCharacterIds: [],
+    records: [],
+    helperModel: "Mock helper",
+    summaryModel: "Mock summaries",
+    warnings: [],
+  };
+  expect(
+    (await request.patch(`/api/chats/${fixture.chat.id}/metadata`, { data: { advancedMemory: status.settings } })).ok(),
+  ).toBeTruthy();
+  await page.route(`**/api/chats/${fixture.chat.id}/advanced-memory`, (route) => route.fulfill({ json: status }));
+  let resumed = 0;
+  await page.route(`**/api/chats/${fixture.chat.id}/advanced-memory/initialize`, (route) => {
+    resumed += 1;
+    status.job = { ...status.job, status: "running", stage: "indexing", error: null };
+    return route.fulfill({ status: 202, json: status });
+  });
+  try {
+    await openChat(page, fixture.chat.id, false);
+    const agents = page.getByRole("button", { name: /^Agents & Actions/ }).filter({ visible: true });
+    await expect(agents.locator(".lucide-loader-circle")).toBeVisible();
+    await agents.click();
+    const activity = page.locator('[data-component="AdvancedRecallActivity"]');
+    await expect(activity).toContainText("Advanced Recall");
+    await expect(activity).toContainText("Summarizing scenes");
+    await expect(activity.getByRole("progressbar")).toHaveAttribute("value", "1");
+    await captureThemes(page, info, "advanced-recall-agents-menu", activity.locator(".."));
+    status.job = { ...status.job, status: "error", error: "Synthetic archive failure" };
+    await expect(activity).toContainText("Synthetic archive failure");
+    await activity.getByRole("button", { name: "Resume processing", exact: true }).click();
+    await expect.poll(() => resumed).toBe(1);
+    await expect(activity).toContainText("Indexing messages and scenes");
+    status.job = { ...status.job, status: "ready", stage: "ready", completed: 2 };
+    await expect(activity).toContainText("Memory is ready");
+    await expect(agents.locator(".lucide-loader-circle")).toHaveCount(0);
+    await expect(page.locator(".mari-chat-settings-drawer")).toBeHidden();
   } finally {
     await fixture.cleanup();
   }

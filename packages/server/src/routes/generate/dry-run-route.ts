@@ -27,6 +27,7 @@ import { prepareAdvancedMemoryContext } from "../../services/generation/advanced
 import {
   ADVANCED_MEMORY_MARKER_TYPES,
   createAdvancedMemoryPlacement,
+  resolveAdvancedMemoryPrompt,
   type AdvancedMemoryPlacement,
 } from "../../services/prompt/advanced-memory-prompt.js";
 import { createConnectionsStorage } from "../../services/storage/connections.storage.js";
@@ -611,7 +612,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     const chatMode = (chat.mode as string) ?? "roleplay";
     const advancedMemorySettings = normalizeAdvancedMemorySettings(chatMeta.advancedMemory);
     const advancedMemoryEnabled = chatMode === "roleplay" && advancedMemorySettings.enabled;
-    const advancedMemoryService = advancedMemoryEnabled ? createAdvancedMemoryService(app.db) : null;
+    // Prompt inspection previews the main reply; auxiliary dry-run generations
+    // (including extension/agent calls) never perform or receive Advanced Recall.
+    const advancedMemoryService = advancedMemoryEnabled && returnPrompt ? createAdvancedMemoryService(app.db) : null;
     let advancedMemoryPlacements: AdvancedMemoryPlacement[] = [];
     const dryRunActiveAgentIds = Array.isArray(chatMeta.activeAgentIds) ? (chatMeta.activeAgentIds as string[]) : [];
     const dryRunChatEnableAgents = shouldEnableAgentsForGeneration({
@@ -804,7 +807,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       (promptGroupResponseOrder !== "manual" || chatMode === "conversation") &&
       !impersonate;
     const audienceCharacterIds = impersonate ? [] : promptTargetCharacterId ? [promptTargetCharacterId] : characterIds;
-    if (advancedMemoryService) {
+    if (advancedMemoryEnabled) {
       const allowedIds = new Set(
         selectAdvancedMemoryMessages(
           advancedMemorySourceMessages,
@@ -1918,6 +1921,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     };
 
     let advancedContext: Awaited<ReturnType<typeof prepareAdvancedMemoryContext>> | null = null;
+    if (!advancedMemoryService)
+      finalMessages = resolveAdvancedMemoryPrompt(finalMessages, advancedMemoryPlacements, {});
     try {
       if (advancedMemoryService) {
         advancedContext = await prepareAdvancedMemoryContext({

@@ -9,6 +9,8 @@ const settings = {
   summaryBudgetTokens: 4096,
   helperConnectionId: null,
   initialProcessingModel: "helper" as const,
+  sceneCheckInterval: 5,
+  retrieveMaxScenes: 3,
   retrieveMinMessages: 3,
   retrieveMaxMessages: 10,
   narratorCharacterId: null,

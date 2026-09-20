@@ -238,6 +238,21 @@ export function AdvancedMemorySettings({
           </label>
           <h4 className="text-xs font-medium">{t("chat.advancedMemory.movingContext")}</h4>
           <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("chat.advancedMemory.windowHelp")}</p>
+          <label className="block space-y-1 text-xs">
+            <span>{t("chat.advancedMemory.maximumScenes")}</span>
+            <DraftNumberInput
+              value={settings.retrieveMaxScenes}
+              min={0}
+              max={50}
+              disabled={numberInputsDisabled}
+              onCommit={(retrieveMaxScenes) => save({ retrieveMaxScenes })}
+              ariaLabel={t("chat.advancedMemory.maximumScenes")}
+              className={fieldClass}
+            />
+            <span className="block text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
+              {t("chat.advancedMemory.maximumScenesHelp")}
+            </span>
+          </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="space-y-1 text-xs">
               <span>{t("chat.advancedMemory.minimumMessages")}</span>

@@ -637,6 +637,7 @@ try {
     budgetTokens: 3000,
   };
   const stalledStart = requests.length;
+  await memory.initialize(stalled.id);
   await assert.rejects(memory.prepare(stalledInput), /could not compact/);
   const completedScenes = (await memory.status(stalled.id)).records.filter(
     (record) => record.kind === "scene" && record.content,

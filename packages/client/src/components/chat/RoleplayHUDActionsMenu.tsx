@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Check, ChevronDown, Code2, Pencil, RefreshCw, Sparkles, Square, Trash2, X } from "lucide-react";
-import { BUILT_IN_AGENTS, publicAgentOutput, type Message } from "@marinara-engine/shared";
+import { BUILT_IN_AGENTS, publicAgentOutput, type Message, type AdvancedMemoryStatus } from "@marinara-engine/shared";
+import { useAdvancedMemoryAction } from "../../hooks/use-advanced-memory";
+import { AdvancedMemoryProgress } from "./AdvancedMemoryProgress";
 import { toast } from "sonner";
 import { useUpdateAgentRunData, type AgentConfigRow, type AgentRunRow } from "../../hooks/use-agents";
 import {
@@ -28,6 +30,7 @@ type AgentsMenuTab = "activity" | "injections";
 
 interface RoleplayHUDActionsMenuProps {
   chatId: string;
+  advancedMemoryStatus?: AdvancedMemoryStatus;
   injectionSourceMessages?: Message[];
   isAgentProcessing: boolean;
   isGenerationBusy?: boolean;
@@ -50,6 +53,7 @@ interface RoleplayHUDActionsMenuProps {
 
 export function RoleplayHUDActionsMenu({
   chatId,
+  advancedMemoryStatus,
   injectionSourceMessages,
   isAgentProcessing,
   isGenerationBusy = isAgentProcessing,
@@ -70,6 +74,7 @@ export function RoleplayHUDActionsMenu({
   showInjectionsTab,
 }: RoleplayHUDActionsMenuProps) {
   const { t: localizeUi } = useUiTranslation();
+  const memoryAction = useAdvancedMemoryAction(chatId);
   const taskProgress = useAgentStore((state) => state.taskProgress);
   const reportedAgentTypes = useMemo(
     () =>
@@ -112,7 +117,12 @@ export function RoleplayHUDActionsMenu({
     [agentConfigs, enabledAgentTypes],
   );
   const hasAnyActivity =
-    isAgentProcessing || hasTaskProgress || thoughtBubbles.length > 0 || hasCustomRuns || customAgentRunsLoading;
+    advancedMemoryStatus ||
+    isAgentProcessing ||
+    hasTaskProgress ||
+    thoughtBubbles.length > 0 ||
+    hasCustomRuns ||
+    customAgentRunsLoading;
   const tabs = [
     { id: "activity" as const, label: "Activity" },
     ...(showInjectionsTab ? [{ id: "injections" as const, label: "Injections" }] : []),
@@ -200,6 +210,17 @@ export function RoleplayHUDActionsMenu({
 
       {activeTab === "activity" && (
         <>
+          {advancedMemoryStatus && (
+            <div className="space-y-1 border-b border-[var(--border)] p-2" data-component="AdvancedRecallActivity">
+              <h4 className="px-1 text-xs font-semibold">{localizeUi("chat.advancedMemory.activity")}</h4>
+              <AdvancedMemoryProgress
+                chatId={chatId}
+                status={advancedMemoryStatus}
+                onResume={() => memoryAction.mutate({ action: "initialize" })}
+                pending={memoryAction.isPending}
+              />
+            </div>
+          )}
           {thoughtBubbles.length > 0 && (
             <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-1.5">
               <span className="text-[0.625rem] text-[var(--muted-foreground)]">

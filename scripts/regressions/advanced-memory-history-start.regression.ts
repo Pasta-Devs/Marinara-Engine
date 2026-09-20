@@ -340,8 +340,8 @@ try {
   });
   assert(movedExcerpts.receipt.recalledMessageIds.length);
   assert(
-    movedExcerpts.receipt.recalledMessageIds.includes(source[600]!.id),
-    "the split scene's older excerpt is recalled",
+    !movedExcerpts.receipt.recalledMessageIds.includes(source[600]!.id),
+    "a split scene is left to continuity rather than recalling a recap that overlaps live context",
   );
   assert.doesNotMatch(
     movedExcerpts.recalledMessages ?? "",

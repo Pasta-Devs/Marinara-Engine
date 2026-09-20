@@ -26,12 +26,12 @@ const MEMORY_COMPONENTS = {
   recalled_scenes: {
     key: "recalledScenes",
     name: "Recalled Scenes",
-    introduction: "Below are earlier scenes relevant to the current situation.",
+    introduction: "", // The recall block includes its actual live range and last user-message number.
   },
   recalled_messages: {
     key: "recalledMessages",
     name: "Recalled Messages",
-    introduction: "Below is a small excerpt from earlier chat history, included for context.",
+    introduction: "",
   },
 } as const;
 
@@ -57,7 +57,7 @@ export function isAdvancedMemoryMarker(type: MarkerType): type is AdvancedMemory
 export function advancedMemoryMarkerContent(type: AdvancedMemoryMarkerType, parts: AdvancedMemoryPromptParts): string {
   const component = MEMORY_COMPONENTS[type];
   const text = parts[component.key]?.trim();
-  return text ? `${component.introduction}\n\n${text}` : "";
+  return text ? (component.introduction ? `${component.introduction}\n\n${text}` : text) : "";
 }
 
 export function createAdvancedMemoryPlacement(

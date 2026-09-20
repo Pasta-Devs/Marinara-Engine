@@ -530,14 +530,11 @@ try {
     exactRecall.recalledMessages?.includes("returns on Tuesday"),
     "lexical recall includes the later correction exactly",
   );
-  assert(exactRecall.recalledMessages?.includes("on Sunday"), "lexical recall includes the original promise exactly");
-  assert(exactRecall.recalledScenes?.includes("story timeframe: Spring 14 → The following morning"));
-  assert(exactRecall.recalledMessages.includes("story timeframe: Spring 14"));
+  assert.equal(exactRecall.receipt.recalledMessageIds.length, 3, "the scene contributes one bounded excerpt");
+  assert.equal(exactRecall.recalledScenes, null, "the scene recap stays paired with its excerpt");
+  assert(exactRecall.recalledMessages?.includes("story timeframe: Spring 14 → The following morning"));
   assert(exactRecall.recalledMessages.includes("story timeframe: The following morning"));
-  assert(
-    exactRecall.recalledMessages.indexOf("#6") < exactRecall.recalledMessages.indexOf("#26"),
-    "recalled excerpts preserve chronological source order",
-  );
+  assert(exactRecall.recalledMessages.includes("Excerpt:\nMessages #25–#27"));
   const { estimateChatSummaryTokens } = await import("../../packages/shared/src/index.ts");
   assert(
     estimateChatSummaryTokens(exactRecall.chatSummary ?? "") <= 256,
@@ -557,7 +554,7 @@ try {
     readOnly: true,
   });
   assert(
-    legacyTimeline.recalledScenes?.includes("Spring 14 → The following morning"),
+    legacyTimeline.recalledMessages?.includes("Spring 14 → The following morning"),
     "legacy archives recover known timeframes from validated source IDs",
   );
   assert(
@@ -616,12 +613,12 @@ try {
       .map((message) => message.content)
       .join("\n");
     assert.doesNotMatch(withoutExcerpts, /Below is a small excerpt|Recalled Messages|recalled_messages/);
-    assert.match(withoutExcerpts, /Below is a summary|Below are earlier scenes/);
+    assert.match(withoutExcerpts, /Below is a summary|Included below are recalled memories/);
     assert.match(
       resolveAdvancedMemoryPrompt(messages, placements, exactRecall)
         .map((message) => message.content)
         .join("\n"),
-      /Below is a small excerpt/,
+      /Excerpt:\s+Messages #/,
       "nonzero limits retain historical excerpt prompt placement",
     );
   }
@@ -1627,8 +1624,8 @@ try {
   });
   assert.equal(
     classifyCount(),
-    beforeDeferred + 1,
-    "automatic preparation segments history previously refreshed without classification",
+    beforeDeferred,
+    "ordinary recall never backfills history or reruns the scene classifier",
   );
   await chats.createMessage({
     chatId: deferredHistory.id,
@@ -1829,6 +1826,7 @@ try {
       },
     }),
   );
+  await memory.initialize(backlog.id);
   await memory.prepare({ chatId: backlog.id, messages: backlogSource, audienceCharacterIds: [], budgetTokens: 50000 });
   const historicalCalls = requests.slice(beforeBackfill).filter((request) => request.kind === "classify");
   assert(historicalCalls.length > 1, "initial history spans multiple provider context windows");

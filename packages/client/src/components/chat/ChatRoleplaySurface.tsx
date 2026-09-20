@@ -2198,7 +2198,7 @@ export function ChatRoleplaySurface({
                     paddingRight: "calc(1rem + var(--tracker-panel-hud-clear-right, 0px))",
                   }}
                 >
-                  {chat && chatMeta.enableAgents && (
+                  {chat && (chatMeta.enableAgents || chatMeta.advancedMemory?.enabled === true) && (
                     <div
                       data-chat-help="agents"
                       data-roleplay-agent-window
@@ -2207,6 +2207,7 @@ export function ChatRoleplaySurface({
                       <Suspense fallback={null}>
                         <RoleplayHUD
                           chatId={chat.id}
+                          advancedMemoryEnabled={chatMeta.advancedMemory?.enabled === true}
                           isStreaming={isStreaming}
                           onRetriggerTrackers={onRerunTrackers}
                           onRetryFailedAgents={onRetryFailedAgents}
@@ -2329,7 +2330,7 @@ export function ChatRoleplaySurface({
                   centerCompact ? "flex" : "flex md:hidden",
                 )}
               >
-                {chat && chatMeta.enableAgents && (
+                {chat && (chatMeta.enableAgents || chatMeta.advancedMemory?.enabled === true) && (
                   <div
                     className="flex w-full min-w-0 items-start justify-between gap-1.5 pb-1 pt-2"
                     style={{
@@ -2341,6 +2342,7 @@ export function ChatRoleplaySurface({
                       <Suspense fallback={null}>
                         <RoleplayHUD
                           chatId={chat.id}
+                          advancedMemoryEnabled={chatMeta.advancedMemory?.enabled === true}
                           isStreaming={isStreaming}
                           onRetriggerTrackers={onRerunTrackers}
                           onRetryFailedAgents={onRetryFailedAgents}
@@ -2454,7 +2456,7 @@ export function ChatRoleplaySurface({
                     </div>
                   </div>
                 )}
-                {chat && !chatMeta.enableAgents && (
+                {chat && !chatMeta.enableAgents && chatMeta.advancedMemory?.enabled !== true && (
                   <div
                     className={cn("flex w-full items-center justify-end px-2 pb-1 pt-2", CHAT_TOOLBAR_ICON_GAP_CLASS)}
                   >

@@ -46,7 +46,7 @@ import {
 import { embedMemoryRecallTexts, type MemoryRecallEmbeddingOptions } from "./memory-recall.js";
 import { resolveMemoryRecallEmbeddingSource } from "./memory-recall-embedding.js";
 import { cosineSimilarity } from "./lorebook/embeddings.js";
-import { measureContextBudget } from "./llm/base-provider.js";
+import { measureContextBudget, withLlmRequestTimeout } from "./llm/base-provider.js";
 import { normalizeGemma4Delimiters } from "./llm/textual-tool-call-parser.js";
 import { resolveModelAccessPolicy } from "./generation/model-access-policy.js";
 import {
@@ -82,7 +82,7 @@ export interface AdvancedMemorySceneCheck {
   readonly prompt: string;
 }
 
-type InitializationOptions = AdvancedMemoryOperationOptions & { detectScenes?: boolean };
+type InitializationOptions = AdvancedMemoryOperationOptions & { detectScenes?: boolean; closedOnly?: boolean };
 type SceneCheckOptions = AdvancedMemoryOperationOptions & { asOfMessageId?: string };
 
 export interface PrepareAdvancedMemoryInput extends AdvancedMemoryOperationOptions {
@@ -210,7 +210,7 @@ function policyFingerprint(ctx: Context): string {
 
 function preparationPolicyRevision(ctx: Context): string {
   return hash([
-    "exclude-live-memory-sources-v3", // Invalidate cached prompts without rebuilding valid source archives.
+    "bounded-paired-recall-v4", // Invalidate cached prompts without rebuilding valid source archives.
     policyFingerprint(ctx),
     ctx.settings,
     ctx.metadata.summaryEntries,
@@ -1221,6 +1221,12 @@ export function createAdvancedMemoryService(db: DB) {
       const scaffold = buildRecord(ctx, scene, "scene", [], fullSource, "");
       await put(ctx, scaffold, options);
       retained.add(scaffold.id);
+      if (options.closedOnly && !scene.closed) {
+        // Automatic preparation archives finished scenes. Keep any previously
+        // prepared open-scene records until that scene closes or explicit rebuild.
+        for (const record of existing.filter((item) => item.sceneId === scene.id)) retained.add(record.id);
+        continue;
+      }
       const groups = new Map<string, { audience: string[]; source: AdvancedMemoryMessage[] }>();
       for (const audience of audiences) {
         const allowedIds = new Set(
@@ -1578,8 +1584,12 @@ export function createAdvancedMemoryService(db: DB) {
       await db.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, record.id));
       ctx.recordCache = ctx.recordCache!.filter((item) => item.id !== record.id);
     }
-    for (const scene of scenes)
-      await put(ctx, buildRecord(ctx, scene, "scene", [], ctx.messages.slice(scene.start, scene.end + 1), ""), options);
+    for (const scene of scenes) {
+      const scaffold = buildRecord(ctx, scene, "scene", [], ctx.messages.slice(scene.start, scene.end + 1), "");
+      const previous = existing.find((record) => record.id === scaffold.id);
+      if (previous?.sourceFingerprint !== scaffold.sourceFingerprint || previous.status !== scaffold.status)
+        await put(ctx, scaffold, options);
+    }
     await validateSnapshot(ctx, ctx.messages, options);
     await chats.patchMetadata(
       chatId,
@@ -1689,8 +1699,23 @@ export function createAdvancedMemoryService(db: DB) {
             "",
           ),
         );
-        if (await commitSceneCheckImpl(chatId, request, decision, operationOptions))
-          await initializeImpl(chatId, { ...operationOptions, detectScenes: false });
+        const previouslyClosed = new Map(
+          (await operationRecords(ctx))
+            .filter((record) => record.kind === "scene" && record.id === record.sceneId && record.status === "closed")
+            .map((record) => [record.id, record.sourceFingerprint]),
+        );
+        const committed = await commitSceneCheckImpl(chatId, request, decision, operationOptions);
+        const closedSceneChanged =
+          committed &&
+          (await records(chatId)).some(
+            (record) =>
+              record.kind === "scene" &&
+              record.id === record.sceneId &&
+              record.status === "closed" &&
+              previouslyClosed.get(record.id) !== record.sourceFingerprint,
+          );
+        if (closedSceneChanged)
+          await initializeImpl(chatId, { ...operationOptions, detectScenes: false, closedOnly: true });
         else await progress(ctx, { status: "ready", stage: "ready", error: null }, operationOptions);
       },
       false,
@@ -2029,11 +2054,34 @@ export function createAdvancedMemoryService(db: DB) {
     );
     const disabledSourceIds = new Set(
       available
-        .filter((record) => record.kind === "scene" && !record.enabled && recallAudienceMatches(ctx, record, audience))
+        .filter(
+          (record) =>
+            (record.kind === "scene" || record.kind === "excerpt") &&
+            !record.enabled &&
+            recallAudienceMatches(ctx, record, audience),
+        )
         .flatMap((record) => record.messageIds),
+    );
+    // Only finished, wholly archived scenes can supply a recap and its excerpt together.
+    // A scene crossing the live window is represented by required continuity instead.
+    const recalledSceneRecords = new Map(
+      available
+        .filter(
+          (record) =>
+            record.kind === "scene" &&
+            record.status === "closed" &&
+            record.content &&
+            record.enabled &&
+            recallAudienceMatches(ctx, record, audience) &&
+            !disabledSceneIds.has(record.sceneId) &&
+            record.messageIds.every((id) => eligibleIds.has(id) && !liveIds.has(id)),
+        )
+        .map((record) => [record.sceneId, record]),
     );
     const candidates = available.filter(
       (record) =>
+        ctx.settings.retrieveMaxScenes > 0 &&
+        recalledSceneRecords.has(record.sceneId) &&
         (record.kind === "scene" || (record.kind === "excerpt" && ctx.settings.retrieveMaxMessages > 0)) &&
         record.content &&
         record.enabled &&
@@ -2060,13 +2108,20 @@ export function createAdvancedMemoryService(db: DB) {
           connectionId: ctx.connectionId,
         });
         vectorSpace = embeddingSource?.spaceId ?? "local-default";
-        queryVector = (
-          await embedMemoryRecallTexts([query], {
-            ...(embeddingSource ? { embeddingSource } : {}),
-            inputType: "query",
-            signal: input.signal,
-          })
-        )[0];
+        // Do not cold-load an embedder when no saved vectors can use its query.
+        if (candidates.some((record) => record.embedding?.length && record.embeddingSpaceId === vectorSpace)) {
+          const timeoutMs = 1500;
+          const timeoutSignal = AbortSignal.timeout(timeoutMs);
+          queryVector = (
+            await withLlmRequestTimeout(timeoutMs, () =>
+              embedMemoryRecallTexts([query], {
+                ...(embeddingSource ? { embeddingSource } : {}),
+                inputType: "query",
+                signal: input.signal ? AbortSignal.any([input.signal, timeoutSignal]) : timeoutSignal,
+              }),
+            )
+          )[0];
+        }
       } catch (error) {
         abortIfNeeded(input.signal);
         logger.warn(error, "[advanced-memory] Query embedding failed; using bounded lexical recall");
@@ -2098,98 +2153,90 @@ export function createAdvancedMemoryService(db: DB) {
       })
       .filter((item) => item.score >= 0.12)
       .sort((a, b) => b.score - a.score);
-    const sceneTexts: Array<{ index: number; text: string }> = [];
+    const sceneTexts: Array<{ index: number; text: string; hasExcerpt: boolean }> = [];
     const excerptIds = new Set<string>();
-    const excerptTexts = new Map<string, string>();
-    const sceneTimeframes = new Map<string, string>();
-    for (const record of available) {
-      if (
-        record.kind !== "scene" ||
-        !record.content ||
-        !record.enabled ||
-        !record.timeline ||
-        !recallAudienceMatches(ctx, record, audience) ||
-        record.messageIds.some((id) => !eligibleIds.has(id) || liveIds.has(id))
-      )
-        continue;
-      for (const id of record.messageIds) sceneTimeframes.set(id, record.timeline);
-    }
     const selectedScenes = new Set<string>();
-    const recallBudget = Math.min(budget - used, Math.floor(budget * 0.2));
+    const recalledRecords: StoredRecord[] = [];
+    const lastUser = [...eligible].reverse().find((message) => message.role === "user");
+    const recallIntroduction =
+      "Included below are recalled memories of scenes from the past chat history, together with small message excerpts from them. " +
+      `Present message range in the context is: ${live.length ? `#${indexes.get(live[0]!.id)! + 1}–#${indexes.get(live.at(-1)!.id)! + 1}` : "none"}, ` +
+      `with the last user message being ${lastUser ? `#${indexes.get(lastUser.id)! + 1}` : "none"}.`;
+    const recallBudget = Math.min(budget - used, Math.floor(budget * 0.2)) - tokenSize(recallIntroduction) * 2;
     let recalledTokens = 0;
+    // Rank chunks to find a scene, then spend its excerpt allowance only once.
+    const consideredScenes = new Set<string>();
     for (const { record } of ranked) {
-      if (selectedScenes.size >= 4 && !selectedScenes.has(record.sceneId)) continue;
-      const start = indexes.get(record.messageIds[0]!) ?? -1;
-      if (start < 0) continue;
-      if (record.kind === "scene" && !selectedScenes.has(record.sceneId)) {
-        const label = renderMemoryRecord(record, indexes);
-        if (recalledTokens + tokenSize(label) <= recallBudget) {
-          sceneTexts.push({ index: start, text: label });
-          recalledTokens += tokenSize(label);
-          selectedScenes.add(record.sceneId);
-        }
-      }
-      if (record.kind === "excerpt") {
-        const matched = record.messageIds
-          .map((id) => sources.find((message) => message.id === id))
-          .filter(
-            (message): message is AdvancedMemoryMessage =>
-              !!message &&
-              eligibleIds.has(message.id) &&
-              !liveIds.has(message.id) &&
-              !disabledSourceIds.has(message.id),
-          )
-          .map((message) => ({
-            message,
-            score: [...queryWords].filter((word) => recallTerms(message.content).has(word)).length,
-          }))
-          .sort((a, b) => b.score - a.score)[0];
-        if (!matched) continue;
-        const center = indexes.get(matched.message.id)!;
-        const preferredCount = Math.min(
+      if (selectedScenes.size >= ctx.settings.retrieveMaxScenes) break;
+      if (consideredScenes.has(record.sceneId)) continue;
+      consideredScenes.add(record.sceneId);
+      const scene = recalledSceneRecords.get(record.sceneId)!;
+      const start = indexes.get(scene.startMessageId)!;
+      let text = `Scene summary:\n${renderMemoryRecord(scene, indexes)}`;
+      if (recalledTokens + tokenSize(text) > recallBudget) continue;
+      const excerptRecords = candidates.filter((item) => item.kind === "excerpt" && item.sceneId === scene.sceneId);
+      const indexedIds = new Set(excerptRecords.flatMap((item) => item.messageIds));
+      const bestChunkIds = new Set(
+        ranked.find((item) => item.record.kind === "excerpt" && item.record.sceneId === scene.sceneId)?.record
+          .messageIds,
+      );
+      const sceneSource = scene.messageIds
+        .map((id) => fullById.get(id)!)
+        .filter((message) => indexedIds.has(message.id) && !disabledSourceIds.has(message.id));
+      const matched = sceneSource
+        .map((message, index) => ({
+          index,
+          score: [...queryWords].filter((word) => recallTerms(message.content).has(word)).length,
+          inBestChunk: bestChunkIds.has(message.id),
+        }))
+        .sort((a, b) => b.score - a.score || Number(b.inBestChunk) - Number(a.inBestChunk))[0];
+      let excerpt: AdvancedMemoryMessage[] = [];
+      if (matched && ctx.settings.retrieveMaxMessages > 0) {
+        const count = Math.min(
+          sceneSource.length,
           ctx.settings.retrieveMaxMessages,
           Math.max(ctx.settings.retrieveMinMessages, matched.score),
         );
-        const from = Math.max(0, center - Math.floor(preferredCount / 2));
-        const to = Math.min(sources.length, from + preferredCount);
-        const expanded = sources
-          .slice(from, to)
-          .filter(
-            (message) =>
-              eligibleIds.has(message.id) &&
-              !liveIds.has(message.id) &&
-              !excerptIds.has(message.id) &&
-              !disabledSourceIds.has(message.id),
-          )
-          .sort((a, b) => Math.abs(indexes.get(a.id)! - center) - Math.abs(indexes.get(b.id)! - center));
-        for (const message of expanded) {
-          const text = renderMemoryText(
+        const from = Math.max(0, Math.min(matched.index - Math.floor(count / 2), sceneSource.length - count));
+        excerpt = sceneSource.slice(from, from + count);
+        const excerptText = (messages: AdvancedMemoryMessage[]) =>
+          `\n\nExcerpt:\n${renderMemoryText(
             indexes,
-            [message.id],
-            messageText(ctx, message, indexes.get(message.id)!),
-            sourceTimeline([message]) ?? sceneTimeframes.get(message.id) ?? null,
-          );
-          if (recalledTokens + tokenSize(text) > recallBudget) break;
-          excerptIds.add(message.id);
-          excerptTexts.set(message.id, text);
-          recalledTokens += tokenSize(text);
+            messages.map((message) => message.id),
+            messages.map((message) => messageText(ctx, message, indexes.get(message.id)!)).join("\n"),
+            sourceTimeline(messages) ?? scene.timeline,
+          )}`;
+        while (excerpt.length && recalledTokens + tokenSize(text + excerptText(excerpt)) > recallBudget) {
+          const center = indexes.get(sceneSource[matched.index]!.id)!;
+          if (center - indexes.get(excerpt[0]!.id)! > indexes.get(excerpt.at(-1)!.id)! - center) excerpt.shift();
+          else excerpt.pop();
         }
+        if (excerpt.length < Math.min(ctx.settings.retrieveMinMessages, sceneSource.length)) excerpt = [];
+        if (excerpt.length) text += excerptText(excerpt);
       }
+      for (const message of excerpt) excerptIds.add(message.id);
+      sceneTexts.push({ index: start, text, hasExcerpt: excerpt.length > 0 });
+      recalledTokens += tokenSize(text);
+      selectedScenes.add(scene.sceneId);
+      recalledRecords.push(scene, ...excerptRecords.filter((item) => item.messageIds.some((id) => excerptIds.has(id))));
     }
+    const renderScenes = (hasExcerpt: boolean) => {
+      const text = sceneTexts
+        .filter((item) => item.hasExcerpt === hasExcerpt)
+        .sort((a, b) => a.index - b.index)
+        .map((item) => item.text)
+        .join("\n\n");
+      return text ? `${recallIntroduction}\n\n${text}` : null;
+    };
+    const recalledScenes = renderScenes(false);
+    const recalledMessages = renderScenes(true);
     const excerpts = sources.filter((message) => excerptIds.has(message.id));
-    used += recalledTokens;
+    used += tokenSize(recalledScenes ?? "") + tokenSize(recalledMessages ?? "");
     receipt.estimatedTokensAfter = used + 192;
     receipt.boundaryMessageId = boundary;
     receipt.checkpointId = continuity?.id ?? null;
     receipt.recalledSceneIds = [...selectedScenes];
     receipt.recalledMessageIds = excerpts.map((message) => message.id);
-    const recalledRecords = ranked
-      .map((item) => item.record)
-      .filter((record) =>
-        record.kind === "scene"
-          ? selectedScenes.has(record.sceneId)
-          : record.messageIds.some((id) => excerptIds.has(id)),
-      );
     for (const record of [continuity, temporary, ...recalledRecords].filter((item): item is StoredRecord => !!item)) {
       receipt.recordRevisions[record.id] = hash([
         record.content,
@@ -2220,12 +2267,8 @@ export function createAdvancedMemoryService(db: DB) {
       messageIds: live.map((message) => message.id),
       chatSummary: renderMemoryRecord(continuity, indexes) || null,
       currentSceneSummary: renderMemoryRecord(temporary, indexes) || null,
-      recalledScenes:
-        sceneTexts
-          .sort((a, b) => a.index - b.index)
-          .map((item) => item.text)
-          .join("\n\n") || null,
-      recalledMessages: excerpts.map((message) => excerptTexts.get(message.id)!).join("\n\n") || null,
+      recalledScenes,
+      recalledMessages,
       recalledRecordIds: [...new Set(recalledRecords.map((record) => record.id))],
       receipt,
     };
@@ -2241,16 +2284,8 @@ export function createAdvancedMemoryService(db: DB) {
     if (activeOperations.get(input.chatId)?.resetting)
       throw new Error("Advanced Memory is being reset; prepare again when it finishes");
     const ctx = await context(input.chatId);
-    if (input.messages.at(-1)?.id === ctx.messages.at(-1)?.id) {
-      const state = object(ctx.metadata.advancedMemoryState);
-      const classifiedIndex = ctx.messages.findIndex((message) => message.id === state.classifiedMessageId);
-      const classified =
-        state.historyClassified === true &&
-        (classifiedIndex >= 0 || state.classifiedMessageId === null) &&
-        state.classifiedSourceFingerprint === fingerprint(ctx, ctx.messages.slice(0, classifiedIndex + 1), []);
-      // A recent-window tracker checkpoint is not proof that older history was ever classified.
-      await initialize(input.chatId, { ...input, blocking: true, detectScenes: !classified });
-    }
+    // Recall reads the archive. Initial preparation is explicit; subsequent archive
+    // updates belong to the post-generation scene check, never this request path.
     let prepared!: PreparedAdvancedMemory;
     await runMemoryOperation(
       input.chatId,

@@ -3691,29 +3691,6 @@ export async function generateRoutes(app: FastifyInstance) {
         const trackerAgentTypes = getTrackerAgentTypes();
         const manualTrackers = chatMeta.manualTrackers === true;
         const manualTrackerAgentTypes = normalizeManualTrackerAgentTypes(chatMeta.manualTrackerAgentTypes);
-        const isSceneTrackerAgent = (agent: AgentExecConfig) =>
-          agent.phase === "post_processing" &&
-          (trackerAgentTypes.has(agent.type) ||
-            (customAgentHasCapability(agent.settings, "edit_trackers") &&
-              [
-                "game_state_update",
-                "character_tracker_update",
-                "persona_stats_update",
-                "inventory_tracker_update",
-                "custom_tracker_update",
-                "quest_update",
-              ].includes(resolveAgentResultType(agent))));
-        // Keep automatic tracker availability before cadence/keyword gates: scene checks follow their calls.
-        const hasAutomaticSceneTrackers = resolvedAgents.some(
-          (agent) =>
-            isSceneTrackerAgent(agent) &&
-            resolveAgentResultType(agent) !== "text_rewrite" &&
-            agent.type !== "lorebook-keeper" &&
-            (!roleplayCommandAgentIds.has(agent.type) ||
-              (agent.type === "combat" && chatMeta.encounterActive === true)) &&
-            (agent.type !== "combat" || chatMeta.encounterActive !== false) &&
-            (!trackerAgentTypes.has(agent.type) || (!manualTrackers && manualTrackerAgentTypes[agent.type] !== true)),
-        );
 
         for (let index = resolvedAgents.length - 1; index >= 0; index--) {
           const agent = resolvedAgents[index]!;
@@ -9609,52 +9586,6 @@ export async function generateRoutes(app: FastifyInstance) {
         const latestAssistantMessageId =
           (lastSavedMsg as any)?.role === "assistant" ? ((lastSavedMsg as any)?.id ?? "") : "";
 
-        const sceneTrackerIds = pipelineAgents.filter(isSceneTrackerAgent).map((agent) => agent.id);
-        let sceneCheckRequest =
-          advancedMemoryEnabled &&
-          latestAssistantMessageId &&
-          completedResponse &&
-          !input.impersonate &&
-          !recoveredAlreadyAppliedOwnerTurn &&
-          !abortController.signal.aborted &&
-          sceneTrackerIds.length > 0
-            ? await advancedMemory
-                .getSceneCheck(input.chatId, {
-                  force: true,
-                  asOfMessageId: latestAssistantMessageId,
-                })
-                .catch((error) => {
-                  logger.warn(error, "[advanced-memory] Could not prepare the post-generation scene check");
-                  return null;
-                })
-            : null;
-        if (sceneCheckRequest) {
-          // A shared tracker call must retain the responding characters' visibility scope.
-          const sceneSources = await chats.listMessages(input.chatId);
-          const sceneEnd = sceneSources.findIndex((message) => message.id === sceneCheckRequest!.asOfMessageId);
-          const visibleIds = new Set(
-            selectAdvancedMemoryMessages(
-              sceneSources.slice(0, sceneEnd + 1),
-              advancedMemorySettings,
-              promptCharacterIds,
-              promptGroupChatMode === "individual",
-            ).map((message) => message.id),
-          );
-          sceneCheckRequest = {
-            ...sceneCheckRequest,
-            messages: sceneCheckRequest.messages.filter((message) => visibleIds.has(message.messageId)),
-          };
-          if (sceneCheckRequest.messages.length) {
-            agentContext.sceneCheck = {
-              trackerAgentIds: sceneTrackerIds,
-              prompt: `${sceneCheckRequest.prompt}\nFor this scene decision, use only the following messages; ignore other tracker context.\n${JSON.stringify(sceneCheckRequest.messages)}`,
-              claimed: false,
-            };
-          } else {
-            sceneCheckRequest = null;
-          }
-        }
-
         const runAutomaticRoleplaySummary = async () => {
           if (
             advancedMemoryEnabled ||
@@ -12419,31 +12350,15 @@ export async function generateRoutes(app: FastifyInstance) {
             charNameMap[ci.id] = ci.name;
           }
           if (advancedMemoryEnabled) {
-            void (async () => {
-              const options = { debugMode: requestDebug, blocking: false };
-              if (sceneCheckRequest && agentContext.sceneCheck?.claimed) {
-                if (agentContext.sceneCheck.result === undefined) {
-                  logger.warn(
-                    "[advanced-memory] Tracker call returned no usable scene decision; keeping the scene open",
-                  );
-                } else {
-                  await advancedMemory.commitSceneCheck(
-                    input.chatId,
-                    sceneCheckRequest,
-                    agentContext.sceneCheck.result,
-                    options,
-                  );
-                }
-                await advancedMemory.maintain(input.chatId, options);
-              } else if (hasAutomaticSceneTrackers) {
-                await advancedMemory.maintain(input.chatId, options);
-              } else if (latestAssistantMessageId && !input.impersonate) {
-                await advancedMemory.checkScenesAfterGeneration(input.chatId, {
-                  ...options,
+            if (latestAssistantMessageId && !input.impersonate && !abortController.signal.aborted) {
+              void advancedMemory
+                .checkScenesAfterGeneration(input.chatId, {
+                  debugMode: requestDebug,
+                  blocking: false,
                   asOfMessageId: latestAssistantMessageId,
-                });
-              }
-            })().catch((error) => logger.error(error, "[advanced-memory] Background maintenance failed"));
+                })
+                .catch((error) => logger.error(error, "[advanced-memory] Background scene check failed"));
+            }
           } else if (memoryRecallVectorizerAvailable) {
             chunkAndEmbedMessages(
               app.db,
