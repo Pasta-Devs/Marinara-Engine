@@ -78,7 +78,7 @@ try {
     chat.id,
     Array.from({ length: 1000 }, (_, index) => ({
       role: "user" as const,
-      content: `${[250, 500, 750, 950].includes(index) ? "SCENE_CHANGE " : ""}EVENT_${index}: The brass compass journey continued.`,
+      content: `${[250, 500, 750, 950].includes(index) ? "SCENE_CHANGE " : ""}EVENT_${index}: The brass compass journey continued.${index === 600 || index >= 996 ? " Sundial." : ""}${index === 720 ? "\nDate: PARTIAL_SCENE_LATER_DATE" : ""}`,
       extra:
         index === 960
           ? { isConversationStart: true }
@@ -339,6 +339,15 @@ try {
     readOnly: true,
   });
   assert(movedExcerpts.receipt.recalledMessageIds.length);
+  assert(
+    movedExcerpts.receipt.recalledMessageIds.includes(source[600]!.id),
+    "the split scene's older excerpt is recalled",
+  );
+  assert.doesNotMatch(
+    movedExcerpts.recalledMessages ?? "",
+    /PARTIAL_SCENE_LATER_DATE/,
+    "an archived excerpt cannot inherit a timeframe from live scene messages",
+  );
   assert(
     movedExcerpts.receipt.recalledMessageIds.every((id) => !liveIds.has(id)),
     "recalled excerpts never repeat live messages, including chunks crossing the cutoff",

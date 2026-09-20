@@ -2109,7 +2109,7 @@ export function createAdvancedMemoryService(db: DB) {
         !record.enabled ||
         !record.timeline ||
         !recallAudienceMatches(ctx, record, audience) ||
-        record.messageIds.some((id) => !eligibleIds.has(id))
+        record.messageIds.some((id) => !eligibleIds.has(id) || liveIds.has(id))
       )
         continue;
       for (const id of record.messageIds) sceneTimeframes.set(id, record.timeline);
