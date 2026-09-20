@@ -63,7 +63,9 @@ const ATLAS_CLOUD_MODEL_OPTIONS_MAX_MODELS = 40;
 const ATLAS_CLOUD_MODEL_OPTIONS_MAX_KEYS = 40;
 const ATLAS_CLOUD_MODEL_OPTION_MAX_STRING_LENGTH = 4_000;
 const ATLAS_CLOUD_MODEL_OPTION_MAX_JSON_LENGTH = 8_000;
-const ATLAS_CLOUD_MODEL_OPTION_KEY_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+const ATLAS_CLOUD_MODEL_OPTION_MAX_KEY_LENGTH = 64;
+/** Names that would reach Object.prototype instead of becoming an own property. */
+const UNSAFE_OBJECT_KEYS: ReadonlySet<string> = new Set(["__proto__", "constructor", "prototype"]);
 
 export const DEFAULT_SEEDANCE_VIDEO_DEFAULTS: SeedanceVideoDefaults = {
   durationSeconds: 5,
@@ -188,13 +190,13 @@ function readAtlasCloudModelOptionValue(value: unknown): AtlasCloudModelOptionVa
   return undefined;
 }
 
-/** Keeps only well-formed option names and JSON-safe values; what a model accepts is checked against its schema at request time. */
+/** Keeps bounded option names and JSON-safe values; what a model accepts is checked against its schema at request time. */
 export function normalizeAtlasCloudModelOptions(raw: unknown): AtlasCloudModelOptions {
   const options: AtlasCloudModelOptions = {};
   if (!isRecord(raw)) return options;
   for (const [key, rawValue] of Object.entries(raw)) {
     if (Object.keys(options).length >= ATLAS_CLOUD_MODEL_OPTIONS_MAX_KEYS) break;
-    if (!ATLAS_CLOUD_MODEL_OPTION_KEY_PATTERN.test(key)) continue;
+    if (!key || key.length > ATLAS_CLOUD_MODEL_OPTION_MAX_KEY_LENGTH || UNSAFE_OBJECT_KEYS.has(key)) continue;
     const value = readAtlasCloudModelOptionValue(rawValue);
     if (value !== undefined) options[key] = value;
   }
@@ -207,7 +209,7 @@ function normalizeAtlasCloudModelOptionsMap(raw: unknown): Record<string, AtlasC
   for (const [rawModel, rawOptions] of Object.entries(raw)) {
     if (Object.keys(byModel).length >= ATLAS_CLOUD_MODEL_OPTIONS_MAX_MODELS) break;
     const model = rawModel.trim();
-    if (!model || model.length > 200 || model === "__proto__") continue;
+    if (!model || model.length > 200 || UNSAFE_OBJECT_KEYS.has(model)) continue;
     const options = normalizeAtlasCloudModelOptions(rawOptions);
     if (Object.keys(options).length > 0) byModel[model] = options;
   }

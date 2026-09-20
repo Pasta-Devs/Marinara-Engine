@@ -203,18 +203,19 @@ function OptionField({
     );
   } else if (field.enum) {
     const choices = field.enum;
+    // Options are addressed by position so choices such as 1 and "1" stay distinct and keep their type.
+    const selectedIndex = choices.findIndex((choice) => Object.is(choice, value));
     control = (
       <select
-        value={value === undefined ? MODEL_DEFAULT : String(value)}
-        onChange={(event) => {
-          const picked = choices.find((choice) => String(choice) === event.target.value);
-          onChange(event.target.value === MODEL_DEFAULT ? undefined : picked);
-        }}
+        value={selectedIndex >= 0 ? String(selectedIndex) : MODEL_DEFAULT}
+        onChange={(event) =>
+          onChange(event.target.value === MODEL_DEFAULT ? undefined : choices[Number(event.target.value)])
+        }
         className={INPUT_CLASS}
       >
         <option value={MODEL_DEFAULT}>{defaultLabel}</option>
-        {choices.map((choice) => (
-          <option key={String(choice)} value={String(choice)}>
+        {choices.map((choice, index) => (
+          <option key={`${typeof choice}:${choice}`} value={String(index)}>
             {String(choice)}
           </option>
         ))}

@@ -9,6 +9,8 @@ import { resolveConnectionImageDefaults, resolveConnectionImageQuality } from ".
 import type { VideoGenerationRequest } from "../video/video-generation.js";
 import { resolveBaseUrl } from "./connection-base-url.js";
 
+const DEFAULT_ATLAS_CLOUD_VIDEO_MODEL = "google/veo3.1/text-to-video";
+
 type ImageFallbackStore = {
   getFallbackForImageGeneration(): Promise<any | null>;
 };
@@ -86,6 +88,7 @@ export async function resolveVideoConnectionFallback(
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
     comfyLoras: comfyDefaults?.loras ?? [],
     fps: comfyDefaults?.fps,
-    atlasModelOptions: model ? videoDefaults?.atlas.modelOptions[model] : undefined,
+    // An Atlas Cloud request with no model runs the default model, so its saved options apply.
+    atlasModelOptions: videoDefaults?.atlas.modelOptions[model || DEFAULT_ATLAS_CLOUD_VIDEO_MODEL],
   };
 }

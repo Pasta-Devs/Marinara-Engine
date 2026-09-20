@@ -257,12 +257,14 @@ const normalized = normalizeVideoGenerationProfile({
         generate_audio: false,
         seed: 7,
         loras: [{ path: "a" }],
-        "bad key": 1,
-        __proto__: 1,
+        "motion-strength.v2": 0.5,
+        ["x".repeat(65)]: 1,
+        ["__proto__"]: 1,
+        constructor: 1,
         nothing: null,
         infinite: Number.POSITIVE_INFINITY,
       },
-      "vendor/empty": { "bad key": 1 },
+      "vendor/empty": { ["x".repeat(65)]: 1 },
       "  ": { seed: 1 },
     },
   },
@@ -273,8 +275,13 @@ assert.deepEqual(normalized.atlas.modelOptions, {
     generate_audio: false,
     seed: 7,
     loras: [{ path: "a" }],
+    "motion-strength.v2": 0.5,
   },
 });
+assert.equal(
+  Object.getPrototypeOf(normalized.atlas.modelOptions["alibaba/wan-2.6/image-to-video-flash"]),
+  Object.prototype,
+);
 assert.deepEqual(
   normalizeVideoGenerationProfile({ service: "atlas", atlas: { durationSeconds: 5 } }).profile.atlas.modelOptions,
   {},

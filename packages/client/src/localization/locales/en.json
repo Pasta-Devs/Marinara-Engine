@@ -625,7 +625,7 @@
   "connections.mediaSources.atlas.modelOptions.unavailable": "Atlas Cloud publishes no option list for this model. Marinara sends the common settings above.",
   "connections.mediaSources.atlas.name": "Atlas Cloud",
   "connections.mediaSources.atlas.videoDefaultsHelp": "Connection-scoped defaults for Atlas Cloud asynchronous video generation.",
-  "connections.mediaSources.atlas.videoDefaultsNote": "Marinara fits these values to the selected model before sending them to Atlas Cloud. Model options lists what this model accepts.",
+  "connections.mediaSources.atlas.videoDefaultsNote": "Marinara fits these values to the selected model before sending them to Atlas Cloud. The Model options section lists what this model accepts.",
   "connections.mediaSources.atlas.videoDescription": "Generate text-to-video and image-to-video with Atlas Cloud's hosted models.",
   "connections.mediaSources.atlas.videoSetupLabel": "Atlas Cloud setup",
   "connections.mediaSources.fal.apiKeyLink": "Get your fal.ai API key",
