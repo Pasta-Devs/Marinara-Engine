@@ -818,6 +818,7 @@ try {
     Array.from({ length: 4 }, (_, index) => ({
       role: "user" as const,
       content: `${index === 3 ? "SCENE_CHANGE " : ""}Dependency source turn ${index}: the compass promise.`,
+      extra: index === 3 ? { isConversationStart: true } : undefined,
     })),
   );
   const dependencyMessages = await chats.listMessages(dependencySource.id);
@@ -850,6 +851,13 @@ try {
     ],
   });
   await memory.initialize(dependencySource.id);
+  const sourceManualScene = (await memory.status(dependencySource.id)).records.find(
+    (record) => record.kind === "scene" && record.content && !record.audienceCharacterIds.length,
+  );
+  assert(sourceManualScene);
+  await memory.updateRecord(dependencySource.id, sourceManualScene.id, {
+    content: "IMPORTED_DISABLED_SCENE_CORRECTION",
+  });
   const dependencyPrepared = await memory.prepare({
     chatId: dependencySource.id,
     messages: dependencyMessages,
@@ -860,13 +868,6 @@ try {
   assert(dependencyPrepared.receipt.checkpointId);
   await memory.updateRecord(dependencySource.id, dependencyPrepared.receipt.checkpointId, {
     content: "IMPORTED_MISSING_SUMMARY_CORRECTION",
-  });
-  const sourceManualScene = (await memory.status(dependencySource.id)).records.find(
-    (record) => record.kind === "scene" && record.content && !record.audienceCharacterIds.length,
-  );
-  assert(sourceManualScene);
-  await memory.updateRecord(dependencySource.id, sourceManualScene.id, {
-    content: "IMPORTED_DISABLED_SCENE_CORRECTION",
   });
   const dependencyExport = await memory.exportMemory(dependencySource.id);
   const exportedDependency = dependencyExport.records.find(
@@ -925,7 +926,7 @@ try {
           ...exportedDependency.record,
           id: "missing-record-control",
           kind: "continuity",
-          sceneId: `continuity-${dependencyMessages[2]!.id}`,
+          sceneId: `continuity-${dependencyMessages[1]!.id}`,
           audienceCharacterIds: [],
           content: "MISSING_RECORD_CORRECTION",
           dependencies: [{ id: "record:unavailable-record", revision: "unknown" }],

@@ -210,7 +210,7 @@ function policyFingerprint(ctx: Context): string {
 
 function preparationPolicyRevision(ctx: Context): string {
   return hash([
-    "archive-before-context-start-v2", // Invalidate cached prompts without rebuilding valid source archives.
+    "exclude-live-memory-sources-v3", // Invalidate cached prompts without rebuilding valid source archives.
     policyFingerprint(ctx),
     ctx.settings,
     ctx.metadata.summaryEntries,
@@ -1760,10 +1760,9 @@ export function createAdvancedMemoryService(db: DB) {
     historical: boolean,
     options: PrepareAdvancedMemoryInput,
   ): Promise<StoredRecord | null> {
+    if (!source.length) return null;
     const indexes = new Map(ctx.messages.map((message, index) => [message.id, index]));
-    const entrySource = kind === "continuity" ? allowed(ctx, ctx.messages, audience) : source;
-    const entries = kind === "continuity" ? sourceEntries(ctx, entrySource, historical) : [];
-    if (!source.length && !entries.length) return null;
+    const entries = kind === "continuity" ? sourceEntries(ctx, source, historical) : [];
     const sourceIds = new Set(source.map((message) => message.id));
     const sceneSummaries = available.filter(
       (record) =>
@@ -1789,26 +1788,13 @@ export function createAdvancedMemoryService(db: DB) {
       { id: "shared-start", revision: sharedStartMessageId(ctx.messages) },
       { id: "budget", revision: String(budget) },
     ];
-    const allIds = new Set([
-      ...sourceIds,
-      ...entries.flatMap(
-        (entry) =>
-          entry.messageIds ??
-          (entry.rangeStartIndex && entry.rangeEndIndex
-            ? ctx.messages.slice(entry.rangeStartIndex - 1, entry.rangeEndIndex).map((message) => message.id)
-            : []),
-      ),
-    ]);
-    // A current unranged user summary has no range. Anchor its derived copy to the current eligible prefix, never a historical request.
-    const provenance = allIds.size ? ctx.messages.filter((message) => allIds.has(message.id)) : entrySource.slice(0, 1);
-    if (!provenance.length) return null;
     const scene: Scene = {
-      id: `${kind}-${boundary ?? provenance[0]!.id}`,
-      start: ctx.messages.findIndex((message) => message.id === provenance[0]!.id),
-      end: ctx.messages.findIndex((message) => message.id === provenance.at(-1)!.id),
+      id: `${kind}-${boundary ?? source[0]!.id}`,
+      start: ctx.messages.findIndex((message) => message.id === source[0]!.id),
+      end: ctx.messages.findIndex((message) => message.id === source.at(-1)!.id),
       closed: kind === "continuity",
     };
-    const candidate = buildRecord(ctx, scene, kind, audience, provenance, "pending");
+    const candidate = buildRecord(ctx, scene, kind, audience, source, "pending");
     // A user edit is the source of any smaller derived copy. Disabling it excludes the
     // correction, while eligible original messages still supply required continuity.
     const decision = available
@@ -2054,7 +2040,9 @@ export function createAdvancedMemoryService(db: DB) {
         recallAudienceMatches(ctx, record, audience) &&
         record.messageIds.every((id) => eligibleIds.has(id)) &&
         !disabledSceneIds.has(record.sceneId) &&
-        record.messageIds.some((id) => !liveIds.has(id)),
+        (record.kind === "scene"
+          ? record.messageIds.every((id) => !liveIds.has(id))
+          : record.messageIds.some((id) => !liveIds.has(id))),
     );
     // The caller's generic group query may contain a hidden speaker; construct the actual query from this audience's source view.
     const query = eligible

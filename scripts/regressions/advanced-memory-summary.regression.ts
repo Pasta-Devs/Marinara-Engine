@@ -281,10 +281,7 @@ try {
     budgetTokens: 50_000,
     readOnly: true,
   });
-  assert(
-    narratorFullHistory.chatSummary?.includes("Narrator alone keeps"),
-    "shared narrator memory retains narrator macros",
-  );
+  assert.equal(narratorFullHistory.chatSummary, null, "a live manual range does not duplicate narrator history");
   assert(narratorFullHistory.messageIds.includes(narratorSource[0]!.id), "the narrator knows the early history");
   assert(!narratorFullHistory.messageIds.includes(narratorSource[4]!.id), "explicit narrator hiding still applies");
   const narratorMemory = await memory.prepare({
@@ -293,6 +290,10 @@ try {
     audienceCharacterIds: [narratorActor.id],
     budgetTokens: 1800,
   });
+  assert(
+    narratorMemory.chatSummary?.includes("Narrator alone keeps"),
+    "archived narrator memory retains narrator macros",
+  );
   const narratorContinuity = (await memory.status(narratorChat.id)).records.find(
     (record) => record.id === narratorMemory.receipt.checkpointId,
   );

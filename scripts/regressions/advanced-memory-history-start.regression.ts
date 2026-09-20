@@ -257,8 +257,39 @@ try {
   });
   assert.equal(withoutStart.messageIds[0], source[0]!.id, "removing a manual cutoff restores eligible live history");
   assert.equal(withoutStart.receipt.boundaryMessageId, null);
+  assert.equal(withoutStart.chatSummary, null, "fully live history needs no continuity summary");
+  assert.equal(withoutStart.recalledScenes, null, "fully live scenes are not recalled again");
+  assert.equal(withoutStart.recalledMessages, null, "fully live messages are not recalled again");
   assert.deepEqual((await memory.status(chat.id)).job.contextStarts, [], "the obsolete automatic marker is removed");
   await chats.updateMessageExtra(source[700]!.id, { isConversationStart: true });
+  await memory.initialize(chat.id);
+  await memory.updateSettings(chat.id, { retrieveMinMessages: 0, retrieveMaxMessages: 0 });
+  const scenesBeforeSelection = (await memory.status(chat.id)).records.filter(
+    (record) => record.kind === "scene" && record.content,
+  );
+  await chats.patchMetadata(chat.id, {
+    summaryEntries: (
+      [
+        ["ARCHIVED_CORRECTION", 601, 610],
+        ["OVERLAPPING_CORRECTION", 696, 705],
+        ["LIVE_CORRECTION", 901, 910],
+      ] as const
+    ).map(([content, start, end]) => ({
+      id: content,
+      kind: "rolling",
+      origin: "manual",
+      content,
+      enabled: true,
+      title: content,
+      sourceMode: "range",
+      rangeStartIndex: start,
+      rangeEndIndex: end,
+      tokenEstimate: 6,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })),
+  });
+  const beforeMovedStart = requests.length;
   const movedStart = await memory.prepare({
     chatId: chat.id,
     messages: await chats.listMessages(chat.id),
@@ -266,6 +297,65 @@ try {
     budgetTokens: 100_000,
   });
   assert.equal(movedStart.messageIds[0], source[700]!.id, "moving a manual start does not retain its later cutoff");
+  const liveIds = new Set(movedStart.messageIds);
+  assert(movedStart.recalledScenes, "complete earlier scenes remain available for recall");
+  assert(
+    scenesBeforeSelection
+      .filter((record) => movedStart.receipt.recalledSceneIds.includes(record.sceneId))
+      .every((record) => record.messageIds.every((id) => !liveIds.has(id))),
+    "a scene crossing the live cutoff must not be recalled in full",
+  );
+  const continuityRequests = requests
+    .slice(beforeMovedStart)
+    .map((request) => request.text)
+    .join("\n");
+  assert.match(continuityRequests, /ARCHIVED_CORRECTION/, "archived manual corrections remain available");
+  assert.doesNotMatch(
+    continuityRequests,
+    /OVERLAPPING_CORRECTION|LIVE_CORRECTION/,
+    "continuity never consumes manual summaries covering live messages",
+  );
+  const checkpoint = (await memory.status(chat.id)).records.find(
+    (record) => record.id === movedStart.receipt.checkpointId,
+  );
+  assert(checkpoint && checkpoint.messageIds.every((id) => !liveIds.has(id)));
+  const afterMovedStart = requests.length;
+  const movedPreview = await memory.prepare({
+    chatId: chat.id,
+    messages: await chats.listMessages(chat.id),
+    audienceCharacterIds: ["traveler"],
+    budgetTokens: 100_000,
+    readOnly: true,
+  });
+  assert.equal(movedPreview.chatSummary, movedStart.chatSummary, "the corrected continuity can be reused");
+  assert.deepEqual(movedPreview.receipt.recalledSceneIds, movedStart.receipt.recalledSceneIds);
+  assert.equal(requests.length, afterMovedStart, "preview does not regenerate saved summaries");
+  await memory.updateSettings(chat.id, { retrieveMinMessages: 3, retrieveMaxMessages: 10 });
+  const movedExcerpts = await memory.prepare({
+    chatId: chat.id,
+    messages: await chats.listMessages(chat.id),
+    audienceCharacterIds: ["traveler"],
+    budgetTokens: 100_000,
+    readOnly: true,
+  });
+  assert(movedExcerpts.receipt.recalledMessageIds.length);
+  assert(
+    movedExcerpts.receipt.recalledMessageIds.every((id) => !liveIds.has(id)),
+    "recalled excerpts never repeat live messages, including chunks crossing the cutoff",
+  );
+  assert.deepEqual(
+    (await memory.status(chat.id)).records.filter((record) => record.kind === "scene" && record.content),
+    scenesBeforeSelection,
+    "prompt selection preserves completed scene recaps",
+  );
+  await chats.updateMessageExtra(source[700]!.id, { isConversationStart: false });
+  const allLiveWithCorrections = await memory.prepare({
+    chatId: chat.id,
+    messages: await chats.listMessages(chat.id),
+    audienceCharacterIds: ["traveler"],
+    budgetTokens: 100_000,
+  });
+  assert.equal(allLiveWithCorrections.chatSummary, null, "live manual ranges do not create duplicate continuity");
   await memory.reset(chat.id);
   assert.equal((await memory.status(chat.id)).job.contextStarts, undefined, "reset clears automatic markers");
   process.stdout.write(

@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Advanced Memory skips scene recaps that overlap live messages and uses only fully archived manual-summary ranges for continuity, avoiding duplicate story context at cutoffs (#6468).
+
 - Advanced Memory uses its selected helper for scene recaps, separates archived scenes from the constant-summary size limit, and sends standalone summary instructions with only the eligible source material. Completed summaries and scene detection survive Resume after an update (#6461).
 - Individual scene memories can be deleted from their editor after confirmation. Original chat messages are kept, and routine preparation does not recreate the deleted summary.
 
