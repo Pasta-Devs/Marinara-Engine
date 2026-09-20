@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
+import { existsSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { logger } from "../../lib/logger.js";
@@ -9,6 +10,7 @@ import {
   spawnWorkspaceSandboxedProcess,
   type WorkspaceSandboxedShell,
 } from "../professor-mari/workspace-shell-sandbox.js";
+import { workspacePathAccessPolicy } from "../professor-mari/workspace-change-review.service.js";
 
 type Row = Record<string, unknown>;
 
@@ -148,7 +150,11 @@ function unsafeFallbackEnabled() {
   return value === "1" || value === "true" || value === "yes" || value === "on";
 }
 
-async function spawnTransformProcess(workspaceRoot: string, args: string[]): Promise<WorkspaceSandboxedShell> {
+async function spawnTransformProcess(
+  workspaceRoot: string,
+  scriptPath: string,
+  args: string[],
+): Promise<WorkspaceSandboxedShell> {
   const status = getWorkspaceShellSandboxStatus();
   if (status.available) {
     return spawnWorkspaceSandboxedProcess({
@@ -171,7 +177,8 @@ async function spawnTransformProcess(workspaceRoot: string, args: string[]): Pro
     UNSAFE_TRANSFORM_FALLBACK_ENV,
   );
   const safeEnv = sanitizeWorkspaceShellEnv(process.env);
-  const child = spawn(process.execPath, args, {
+  const restrictedArgs = args.map((arg) => (arg === "--allow-fs-read=*" ? `--allow-fs-read=${scriptPath}` : arg));
+  const child = spawn(process.execPath, restrictedArgs, {
     cwd: workspaceRoot,
     env: {
       ...safeEnv,
@@ -191,8 +198,17 @@ async function spawnTransformProcess(workspaceRoot: string, args: string[]): Pro
 
 export async function runMariTransformSandbox(input: RunMariTransformInput): Promise<MariTransformOutput[]> {
   const workspaceRoot = resolve(input.workspaceRoot);
+  const scriptPath = resolve(workspaceRoot, input.scriptPath);
+  const canonicalWorkspaceRoot = existsSync(workspaceRoot) ? realpathSync(workspaceRoot) : workspaceRoot;
+  const canonicalScriptPath = existsSync(scriptPath) ? realpathSync(scriptPath) : scriptPath;
+  if (
+    workspacePathAccessPolicy(workspaceRoot, scriptPath) === "forbidden" ||
+    workspacePathAccessPolicy(canonicalWorkspaceRoot, canonicalScriptPath) === "forbidden"
+  ) {
+    throw new Error("Professor Mari cannot use private application data as a transform script.");
+  }
   const marker = `MARINARA_TRANSFORM_${randomUUID()}:`;
-  const sandboxed = await spawnTransformProcess(workspaceRoot, [
+  const sandboxed = await spawnTransformProcess(workspaceRoot, scriptPath, [
     "--permission",
     // Seatbelt/bubblewrap owns the read boundary. Node's permission layer is
     // added to deny child processes, workers, native addons, and all writes.
@@ -204,7 +220,7 @@ export async function runMariTransformSandbox(input: RunMariTransformInput): Pro
   ]);
   const payload = JSON.stringify({
     marker,
-    scriptPath: resolve(workspaceRoot, input.scriptPath),
+    scriptPath,
     timestamp: input.timestamp,
     tables: input.tables,
   });

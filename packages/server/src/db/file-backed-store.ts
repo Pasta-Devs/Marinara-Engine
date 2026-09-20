@@ -130,6 +130,7 @@ type FileTransactionContext = {
   loadHealDirtyShards: Map<string, Set<string>>;
   loadHealDirtyTables: Set<string>;
   flushed: boolean;
+  durable: boolean;
 };
 
 const PRIVATE_DIRECTORY_MODE = 0o700;
@@ -253,7 +254,7 @@ export type FileNativeDB = {
   insert: (table: Table) => InsertBuilder;
   update: (table: Table) => UpdateSetBuilder;
   delete: (table: Table) => DeleteBuilder;
-  transaction: <T>(fn: (tx: FileNativeDB) => Promise<T> | T) => Promise<T>;
+  transaction: <T>(fn: (tx: FileNativeDB) => Promise<T> | T, options?: { durable?: boolean }) => Promise<T>;
   _fileStore: FileNativeStoreController;
 };
 
@@ -2906,15 +2907,23 @@ class FileTableStore {
     );
   }
 
-  async transaction<T>(fn: (tx: FileNativeDB) => Promise<T> | T, tx: FileNativeDB): Promise<T> {
+  async transaction<T>(
+    fn: (tx: FileNativeDB) => Promise<T> | T,
+    tx: FileNativeDB,
+    options: { durable?: boolean } = {},
+  ): Promise<T> {
     // Copy-on-write rollback, isolated to this transaction's async context:
     // instead of cloning every table up front (O(total rows) per call, on the
     // per-turn setMemories hot path), snapshot each table only on its first
     // mutation by THIS transaction and restore only those. Other writes wait for
     // this transaction, then run against its committed or restored state.
-    if (this.txContext.getStore()) {
+    const existingTransaction = this.txContext.getStore();
+    if (existingTransaction) {
       // Nested call: run inside the outer transaction's context so the whole
-      // nest rolls back together; the outermost owns snapshot/restore.
+      // nest rolls back together; the outermost owns snapshot/restore. A
+      // nested durable request upgrades the shared context so the outer
+      // commit cannot return before its writes are on disk.
+      if (options.durable === true) existingTransaction.durable = true;
       return await fn(tx);
     }
     this.assertWritable();
@@ -2952,6 +2961,7 @@ class FileTableStore {
         loadHealDirtyShards: new Map<string, Set<string>>(),
         loadHealDirtyTables: new Set<string>(),
         flushed: false,
+        durable: options.durable === true,
       };
       dirtySnapshot = this.dirty;
       dirtyTablesSnapshot = new Set(this.dirtyTables);
@@ -2975,7 +2985,7 @@ class FileTableStore {
       // Flush on commit only for tables whose durability the caller reasons about across a
       // crash (attempt claims must never be replayed as free budget). Everything else keeps
       // the batched flush: this runs on hot per-turn paths like setMemories.
-      if ([...ctx.dirtyTables].some((table) => DURABLE_ON_COMMIT_TABLES.has(table))) {
+      if (ctx.durable || [...ctx.dirtyTables].some((table) => DURABLE_ON_COMMIT_TABLES.has(table))) {
         await this.txContext.run(ctx, () => this.flush(true, true));
       }
       return result;
@@ -5384,7 +5394,7 @@ export async function createFileNativeDB(testHooks?: FileNativeStoreTestHooks): 
     insert: (table) => store.insert(table),
     update: (table) => store.update(table),
     delete: (table) => store.delete(table),
-    transaction: (fn) => store.transaction(fn, db),
+    transaction: (fn, options) => store.transaction(fn, db, options),
     _fileStore: controller,
   };
   return db;

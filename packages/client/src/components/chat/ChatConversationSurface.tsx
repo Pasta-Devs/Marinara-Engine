@@ -62,6 +62,8 @@ type ConversationSurfaceProps = {
   onConcludeScene?: () => void;
   onAbandonScene?: () => void;
   onOpenSettings: ComponentProps<typeof ConversationView>["onOpenSettings"];
+  privateNotebookOpen: boolean;
+  onOpenPrivateNotebook: ComponentProps<typeof ConversationView>["onOpenPrivateNotebook"];
   onOpenGallery: ComponentProps<typeof ConversationView>["onOpenGallery"];
   onOpenScheduleEditor?: ComponentProps<typeof ConversationView>["onOpenScheduleEditor"];
   onCloseSettings: () => void;
@@ -131,6 +133,8 @@ export function ChatConversationSurface({
   onConcludeScene,
   onAbandonScene,
   onOpenSettings,
+  privateNotebookOpen,
+  onOpenPrivateNotebook,
   onOpenGallery,
   onOpenScheduleEditor,
   onCloseSettings,
@@ -185,6 +189,8 @@ export function ChatConversationSurface({
           onGenerateSelfie={onGenerateSelfie}
           lastAssistantMessageId={lastAssistantMessageId}
           onOpenSettings={onOpenSettings}
+          privateNotebookOpen={privateNotebookOpen}
+          onOpenPrivateNotebook={onOpenPrivateNotebook}
           onOpenGallery={onOpenGallery}
           onOpenScheduleEditor={onOpenScheduleEditor}
           onBranch={onBranch}

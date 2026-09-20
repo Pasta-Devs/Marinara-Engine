@@ -2321,6 +2321,8 @@ interface GameSurfaceProps {
   chatBackground?: string | null;
   connectedChatName?: string;
   onOpenSettings: (event?: ReactMouseEvent<HTMLElement>) => void;
+  privateNotebookOpen?: boolean;
+  onOpenPrivateNotebook?: (event?: ReactMouseEvent<HTMLElement>) => void;
   onCloseSettings: () => void;
   externalGalleryOpen?: boolean;
   externalGalleryAnchor?: ChatToolbarFloatingPanelAnchor;

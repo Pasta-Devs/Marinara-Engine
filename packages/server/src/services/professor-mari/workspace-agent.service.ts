@@ -3644,6 +3644,14 @@ ${sections.join("\n\n")}
     const limit = numberArg(args, "limit", 500, 1, 1000);
     const entries = await readdir(dirPath, { withFileTypes: true });
     const names = entries
+      .filter((entry) => {
+        try {
+          this.resolveWorkspacePath(join(dirPath, entry.name));
+          return true;
+        } catch {
+          return false;
+        }
+      })
       .map((entry) => `${entry.name}${entry.isDirectory() ? "/" : ""}`)
       .sort((a, b) => a.localeCompare(b))
       .slice(0, limit);

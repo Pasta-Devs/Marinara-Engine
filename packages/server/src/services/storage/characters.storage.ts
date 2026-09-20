@@ -26,6 +26,7 @@ import {
 import { normalizeTimestampOverrides, type TimestampOverrides } from "../import/import-timestamps.js";
 import { toPaginatedList } from "../../utils/list-pagination.js";
 import { withAvatarFileLifecycleLock } from "../image/avatar-file-lifecycle.js";
+import { deletePrivateNotebookRowsForCharacter } from "../private-notebook.service.js";
 
 function resolveTimestamps(overrides?: TimestampOverrides | null) {
   const normalized = normalizeTimestampOverrides(overrides);
@@ -750,6 +751,7 @@ export function createCharactersStorage(db: DB) {
 
     async remove(id: string) {
       await db.transaction(async (tx) => {
+        await deletePrivateNotebookRowsForCharacter(tx, id);
         const affectedLorebookLinks = await tx
           .select()
           .from(lorebookCharacterLinks)

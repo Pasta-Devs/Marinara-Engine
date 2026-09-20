@@ -23,7 +23,7 @@ type ChatToolbarButtonClassInput = {
   sizeClassName?: string;
 };
 
-export type ChatToolbarPanelAction = "gallery" | "search" | "settings" | "summary";
+export type ChatToolbarPanelAction = "gallery" | "notebook" | "search" | "settings" | "summary";
 
 export const CHAT_TOOLBAR_ICON_GAP_CLASS = "gap-0.5";
 export const CHAT_TOOLBAR_DEFAULT_BUTTON_SIZE_CLASS = "h-8 w-8";
@@ -62,13 +62,25 @@ function readChatToolbarPanelAction(target: EventTarget | null): ChatToolbarPane
   const value = target
     .closest(`[${CHAT_TOOLBAR_PANEL_ACTION_ATTRIBUTE}]`)
     ?.getAttribute(CHAT_TOOLBAR_PANEL_ACTION_ATTRIBUTE);
-  return value === "gallery" || value === "search" || value === "settings" || value === "summary" ? value : null;
+  return value === "gallery" ||
+    value === "notebook" ||
+    value === "search" ||
+    value === "settings" ||
+    value === "summary"
+    ? value
+    : null;
 }
 
 export function readAnnouncedChatToolbarPanelAction(event: Event): ChatToolbarPanelAction | null {
   if (!(event instanceof CustomEvent)) return null;
   const value = (event.detail as { panelAction?: unknown } | null)?.panelAction;
-  return value === "gallery" || value === "search" || value === "settings" || value === "summary" ? value : null;
+  return value === "gallery" ||
+    value === "notebook" ||
+    value === "search" ||
+    value === "settings" ||
+    value === "summary"
+    ? value
+    : null;
 }
 
 export function isChatToolbarPanelTrigger(target: EventTarget | null, panelAction: ChatToolbarPanelAction) {

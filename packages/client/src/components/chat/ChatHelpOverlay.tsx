@@ -42,6 +42,7 @@ type HelpTargetId =
   | "agent-controls"
   | "summary"
   | "context"
+  | "private-notebook"
   | "author-notes"
   | "gallery"
   | "connected-chat"
@@ -118,6 +119,12 @@ const COMMON_TOOLBAR_TARGETS: HelpTargetDefinition[] = [
     bodyKey: "chat.help.targets.gallery.body",
   },
   {
+    id: "private-notebook",
+    selector: '[data-chat-help="private-notebook"]',
+    titleKey: "chat.help.targets.privateNotebook.title",
+    bodyKey: "chat.help.targets.privateNotebook.body",
+  },
+  {
     id: "connected-chat",
     selector: '[data-chat-help="connected-chat"]',
     titleKey: "chat.help.targets.connectedChat.title",
@@ -189,7 +196,7 @@ const TARGETS_BY_MODE: Record<ChatMode, HelpTargetDefinition[]> = {
       titleKey: "chat.help.targets.summary.title",
       bodyKey: "chat.help.targets.summary.body",
     },
-    ...commonToolbarTargets("context"),
+    ...commonToolbarTargets("context", "private-notebook"),
     {
       id: "author-notes",
       selector: '[data-chat-help="author-notes"]',
@@ -255,7 +262,7 @@ const TARGETS_BY_MODE: Record<ChatMode, HelpTargetDefinition[]> = {
       titleKey: "chat.help.targets.assets.title",
       bodyKey: "chat.help.targets.assets.body",
     },
-    ...commonToolbarTargets("context", "gallery", "connected-chat", "settings"),
+    ...commonToolbarTargets("context", "private-notebook", "gallery", "connected-chat", "settings"),
     {
       id: "widgets",
       selector: "[data-game-widget-rail]",

@@ -17,6 +17,7 @@ import {
 } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import {
+  appSettings,
   characters,
   chats,
   messages,
@@ -47,6 +48,7 @@ import { DATA_DIR } from "../../utils/data-dir.js";
 import {
   getRoleplayCommandActivity,
   TRANSLATOR_DEFAULTS_SETTINGS_KEY,
+  PRIVATE_NOTEBOOK_SETTINGS_PREFIX,
   normalizeTranslatorSettings,
   type CreateChatInput,
   type CreateMessageInput,
@@ -63,6 +65,7 @@ import { type CharacterSchedules, type WeekSchedule } from "../conversation/sche
 import type { ConversationStatusOverride } from "@marinara-engine/shared";
 import { resolveConversationTimeZone } from "../conversation/timezone.js";
 import { logger } from "../../lib/logger.js";
+import { deletePrivateNotebookRowsForChat } from "../private-notebook.service.js";
 import { galleryFileHasReferences, unlinkGalleryFileIfUnreferenced } from "../image/gallery-file-lifecycle.js";
 
 import { createAppSettingsStorage } from "./app-settings.storage.js";
@@ -1198,6 +1201,7 @@ export function createChatsStorage(db: DB) {
   }
 
   async function removeChatDatabaseRecords(database: DB, chatId: string): Promise<string[]> {
+    await deletePrivateNotebookRowsForChat(database, chatId);
     await database.delete(agentRuns).where(eq(agentRuns.chatId, chatId));
     await database.delete(agentMemory).where(eq(agentMemory.chatId, chatId));
     await database.delete(gameCheckpoints).where(eq(gameCheckpoints.chatId, chatId));
@@ -1818,6 +1822,7 @@ export function createChatsStorage(db: DB) {
       // Find all chat IDs in this group, then clean up their data
       const groupChats = await db.select({ id: chats.id }).from(chats).where(eq(chats.groupId, groupId));
       for (const chat of groupChats) {
+        await deletePrivateNotebookRowsForChat(db, chat.id);
         await db.delete(agentRuns).where(eq(agentRuns.chatId, chat.id));
         await db.delete(agentMemory).where(eq(agentMemory.chatId, chat.id));
         await db.delete(gameCheckpoints).where(eq(gameCheckpoints.chatId, chat.id));
@@ -1844,6 +1849,7 @@ export function createChatsStorage(db: DB) {
       }
 
       await db.delete(chats).where(eq(chats.groupId, groupId));
+      await db.delete(appSettings).where(eq(appSettings.key, `${PRIVATE_NOTEBOOK_SETTINGS_PREFIX}family:${groupId}`));
     },
 
     // ── Messages ──
