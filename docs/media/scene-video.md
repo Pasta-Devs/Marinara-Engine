@@ -90,6 +90,22 @@ Pick an **image-to-video** model for scene videos. A text-to-video model has no 
 
 **Test Video** sends a plain gradient as the first frame when the selected Atlas Cloud model requires an image, so image-to-video models can pass the connection test.
 
+### Atlas Cloud model options
+
+Many Atlas Cloud models have inputs of their own, such as `negative_prompt`, `seed`, `generate_audio`, `shot_type`, `enable_prompt_expansion`, or LoRA lists. The connection editor shows them for the model you selected:
+
+1. Open the Atlas Cloud connection and pick or type a model.
+2. Expand **Video Defaults**, then **Atlas Cloud setup**.
+3. Find **Model options** under the clip length, aspect ratio, and resolution controls.
+
+The top of **Model options** lists the clip lengths, resolutions, frame sizes, and aspect ratios the model accepts. A text-to-video model also shows a warning there, because it cannot use your gallery image.
+
+Each option is named exactly as Atlas Cloud names it and shows Atlas Cloud's own description. Every option starts on **Model default**, with the provider's default value in brackets. An option left on **Model default** is not sent, so Atlas Cloud decides. Change an option to send your value with every video this connection makes, including **Test Video**. List and object inputs, such as LoRAs, take JSON.
+
+Choices are saved per model, so switching the connection to another model and back keeps each model's options. **Reset model options** clears the choices for the current model. Click **Save** on the connection to keep your changes.
+
+If a saved option no longer fits the model, for example after Atlas Cloud changes a model's inputs, Marinara leaves it out of the request and names it in the `[video-gen/atlas-cloud] fitted request` log line.
+
 - **Seedance 2.0**: 4 to 15 second clips with first-frame and first and last frame modes. It needs a public link to your reference image.
 - **ComfyUI**: local generation through your own API-format workflow. Marinara uploads the reference image directly to ComfyUI when the workflow uses `%reference_image_name%`.
 

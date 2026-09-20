@@ -13298,6 +13298,7 @@ export async function gameRoutes(app: FastifyInstance) {
                       comfyWorkflow: videoRuntime.comfyWorkflow,
                       comfyLoras: videoRuntime.comfyLoras,
                       fps: videoRuntime.comfyFps,
+                      atlasModelOptions: videoRuntime.atlasModelOptions,
                       referenceImage: exactReferenceImage,
                       publicReferenceUpload: videoRuntime.publicReferenceUpload,
                       fallback: videoFallback,
@@ -13612,6 +13613,7 @@ export async function gameRoutes(app: FastifyInstance) {
       comfyWorkflow,
       comfyLoras,
       comfyFps,
+      atlasModelOptions,
       activeDefaults: activeVideoDefaults,
       hasStoredDefaults,
     } = videoRuntime;
@@ -13719,6 +13721,7 @@ export async function gameRoutes(app: FastifyInstance) {
         comfyWorkflow,
         comfyLoras,
         fps: comfyFps,
+        atlasModelOptions,
         referenceImage,
         publicReferenceUpload,
         queue: input.queueMediaGenerationRequests,

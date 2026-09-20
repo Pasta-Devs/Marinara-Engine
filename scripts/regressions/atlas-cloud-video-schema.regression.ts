@@ -3,12 +3,16 @@ import {
   adaptAtlasCloudVideoRequest,
   atlasCloudSchemaRequiresImage,
   buildAtlasCloudModelSchemaUrl,
+  describeAtlasCloudModelLimits,
+  listAtlasCloudModelOptionFields,
   parseAtlasCloudModelSchema,
 } from "../../packages/server/src/services/media/atlas-cloud-video-schema.js";
 import {
   buildAtlasCloudCatalogUrl,
   parseAtlasCloudCatalog,
 } from "../../packages/server/src/services/media/atlas-cloud.js";
+
+import { normalizeVideoGenerationProfile } from "../../packages/shared/src/constants/video-generation-defaults.js";
 
 // Atlas Cloud models do not share one input shape. Each fixture below mirrors the published
 // `Input` schema of a real model family so the request Marinara sends is one that model accepts.
@@ -150,6 +154,131 @@ assert.equal("aspect_ratio" in squareRequest.body, false);
 assert.ok(squareRequest.adjustments.some((note) => note.includes("aspect ratio 16:9 is not offered")));
 
 assert.throws(() => adaptAtlasCloudVideoRequest({ ...common, model: "  " }, ranged), /requires a model/);
+
+// Model options: the editor lists every input Marinara does not fill itself, and the request carries
+// only the saved values that model declares and accepts.
+const optionModel = inputSchema(["model", "image", "prompt", "resolution"], {
+  model: { type: "string" },
+  image: { type: "string" },
+  prompt: { type: "string" },
+  duration: { type: "integer", minimum: 5, maximum: 15 },
+  resolution: { type: "string", enum: ["720p", "1080p"] },
+  negative_prompt: { type: "string", description: "  What to avoid.  " },
+  enable_prompt_expansion: { type: "boolean", default: true },
+  shot_type: { type: "string", enum: ["multi", "single"], default: "multi" },
+  seed: { type: "integer", default: -1, minimum: -1, maximum: 2147483647 },
+  guidance_scale: { type: "number", minimum: 1, maximum: 10 },
+  loras: { type: "array" },
+});
+assert.deepEqual(
+  listAtlasCloudModelOptionFields(optionModel).map((field) => [field.name, field.type, field.default]),
+  [
+    ["negative_prompt", "string", undefined],
+    ["enable_prompt_expansion", "boolean", true],
+    ["shot_type", "string", "multi"],
+    ["seed", "integer", -1],
+    ["guidance_scale", "number", undefined],
+    ["loras", "json", undefined],
+  ],
+);
+assert.equal(listAtlasCloudModelOptionFields(optionModel)[0]?.description, "What to avoid.");
+assert.deepEqual(describeAtlasCloudModelLimits(optionModel), {
+  durations: null,
+  minDurationSeconds: 5,
+  maxDurationSeconds: 15,
+  resolutions: ["720p", "1080p"],
+  sizes: null,
+  aspectRatios: null,
+  acceptsReferenceImage: true,
+  requiresReferenceImage: true,
+});
+assert.deepEqual(describeAtlasCloudModelLimits(sizeOnly).durations, [5, 10]);
+assert.equal(describeAtlasCloudModelLimits(sizeOnly).acceptsReferenceImage, false);
+
+const optionRequest = adaptAtlasCloudVideoRequest(
+  {
+    ...common,
+    model: "alibaba/wan-2.6/image-to-video-flash",
+    referenceImageDataUrl: reference,
+    modelOptions: {
+      enable_prompt_expansion: false,
+      shot_type: "single",
+      negative_prompt: "blurry",
+      seed: 42,
+      guidance_scale: 7.5,
+      loras: [{ path: "motion.safetensors", scale: 1 }],
+      // Rejected: managed by Marinara, unknown to the model, or outside what the model accepts.
+      prompt: "override",
+      image: "https://example.test/other.png",
+      resolution: "1080p",
+      made_up: true,
+    },
+  },
+  optionModel,
+);
+assert.deepEqual(optionRequest.body, {
+  model: "alibaba/wan-2.6/image-to-video-flash",
+  prompt: "slow push-in",
+  duration: 8,
+  resolution: "720p",
+  image: reference,
+  enable_prompt_expansion: false,
+  shot_type: "single",
+  negative_prompt: "blurry",
+  seed: 42,
+  guidance_scale: 7.5,
+  loras: [{ path: "motion.safetensors", scale: 1 }],
+});
+for (const rejected of ["prompt", "image", "resolution", "made_up"]) {
+  assert.ok(
+    optionRequest.adjustments.some((note) => note.startsWith(`option ${rejected} was not sent`)),
+    `${rejected} must be reported as not sent`,
+  );
+}
+const invalidOptions = adaptAtlasCloudVideoRequest(
+  {
+    ...common,
+    model: "m/i2v",
+    modelOptions: { shot_type: "triple", seed: 1.5, guidance_scale: 11, enable_prompt_expansion: "yes", loras: "x" },
+  },
+  optionModel,
+);
+assert.deepEqual(Object.keys(invalidOptions.body).sort(), ["duration", "model", "prompt", "resolution"]);
+assert.equal(invalidOptions.adjustments.filter((note) => note.startsWith("option ")).length, 5);
+
+// Saved options survive normalization per model; malformed names, values, and empty models are dropped.
+const normalized = normalizeVideoGenerationProfile({
+  service: "atlas",
+  atlas: {
+    durationSeconds: 5,
+    modelOptions: {
+      "alibaba/wan-2.6/image-to-video-flash": {
+        shot_type: "single",
+        generate_audio: false,
+        seed: 7,
+        loras: [{ path: "a" }],
+        "bad key": 1,
+        __proto__: 1,
+        nothing: null,
+        infinite: Number.POSITIVE_INFINITY,
+      },
+      "vendor/empty": { "bad key": 1 },
+      "  ": { seed: 1 },
+    },
+  },
+}).profile;
+assert.deepEqual(normalized.atlas.modelOptions, {
+  "alibaba/wan-2.6/image-to-video-flash": {
+    shot_type: "single",
+    generate_audio: false,
+    seed: 7,
+    loras: [{ path: "a" }],
+  },
+});
+assert.deepEqual(
+  normalizeVideoGenerationProfile({ service: "atlas", atlas: { durationSeconds: 5 } }).profile.atlas.modelOptions,
+  {},
+);
 
 // Fetch Models reads the live catalog: only generation models of the requested kind, hidden entries
 // skipped, image-to-video ahead of text-to-video because every scene video animates an image.

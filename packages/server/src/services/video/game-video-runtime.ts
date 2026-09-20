@@ -55,6 +55,8 @@ export interface GameVideoRuntime {
   comfyWorkflow?: string;
   comfyLoras: VideoGenerationDefaultsProfile["comfyui"]["loras"];
   comfyFps?: number;
+  /** Model-specific Atlas Cloud inputs saved for the connection's selected model. */
+  atlasModelOptions?: Record<string, unknown>;
   resolution?: VideoResolution;
   promptLimits: SceneVideoPromptLimits;
   minDurationSeconds: number;
@@ -182,6 +184,9 @@ export function resolveGameVideoRuntime(connection: VideoRuntimeConnection): Gam
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
     comfyLoras: isComfyUi ? videoDefaults.comfyui.loras : [],
     comfyFps: isComfyUi ? videoDefaults.comfyui.fps : undefined,
+    atlasModelOptions: isAtlas
+      ? videoDefaults.atlas.modelOptions[connection.model || DEFAULT_ATLAS_CLOUD_VIDEO_MODEL]
+      : undefined,
     resolution,
     promptLimits: getSceneVideoPromptLimits(isXai, isGeminiOmni),
     minDurationSeconds: isGoogleVeo || isSeedance ? 4 : 1,

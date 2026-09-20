@@ -1,6 +1,7 @@
 import { safeFetch } from "../../utils/security.js";
 import { logger } from "../../lib/logger.js";
 import { getSharp } from "../image/sharp-runtime.js";
+import type { AtlasCloudModelLimits, AtlasCloudModelOptionField } from "@marinara-engine/shared";
 
 /**
  * Atlas Cloud publishes one OpenAPI document per model. Its `Input` schema is the only
@@ -13,6 +14,7 @@ export interface AtlasCloudSchemaProperty {
   minimum: number | null;
   maximum: number | null;
   default: unknown;
+  description: string | null;
 }
 
 export interface AtlasCloudModelInputSchema {
@@ -27,6 +29,8 @@ export interface AtlasCloudVideoRequestInput {
   aspectRatio: "16:9" | "9:16";
   resolution?: "480p" | "720p" | "1080p";
   referenceImageDataUrl?: string;
+  /** Model-specific inputs the user set on the connection; anything the model does not declare is ignored. */
+  modelOptions?: Record<string, unknown>;
 }
 
 export interface AdaptedAtlasCloudVideoRequest {
@@ -46,6 +50,19 @@ const ATLAS_CLOUD_MODEL_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9][a-z0-9.
 /** Schema keys that carry the first-frame or reference image, in the order Marinara prefers them. */
 const ATLAS_CLOUD_STRING_IMAGE_KEYS = ["image", "image_url"] as const;
 const ATLAS_CLOUD_ARRAY_IMAGE_KEYS = ["images", "reference_images"] as const;
+
+/** Inputs Marinara fills from the prompt, the source illustration, and the common connection defaults. */
+const ATLAS_CLOUD_MANAGED_KEYS: ReadonlySet<string> = new Set([
+  "model",
+  "prompt",
+  "duration",
+  "resolution",
+  "aspect_ratio",
+  "ratio",
+  "size",
+  ...ATLAS_CLOUD_STRING_IMAGE_KEYS,
+  ...ATLAS_CLOUD_ARRAY_IMAGE_KEYS,
+]);
 
 const schemaCache = new Map<string, { schema: AtlasCloudModelInputSchema | null; expiresAt: number }>();
 
@@ -77,6 +94,10 @@ export function parseAtlasCloudModelSchema(document: unknown): AtlasCloudModelIn
       minimum: readFiniteNumber(rawProperty.minimum),
       maximum: readFiniteNumber(rawProperty.maximum),
       default: rawProperty.default,
+      description:
+        typeof rawProperty.description === "string" && rawProperty.description.trim()
+          ? rawProperty.description.trim().slice(0, 600)
+          : null,
     };
   }
   if (Object.keys(properties).length === 0) return null;
@@ -200,6 +221,82 @@ function snapSize(aspectRatio: "16:9" | "9:16", resolution: string, property: At
   return best?.value ?? null;
 }
 
+function isManagedKey(name: string, schema: AtlasCloudModelInputSchema): boolean {
+  // `quality` only stands in for resolution on models that have no `resolution` field.
+  if (name === "quality") return !schema.properties.resolution && !!schema.properties.quality?.enum;
+  return ATLAS_CLOUD_MANAGED_KEYS.has(name);
+}
+
+function describeModelOptionProblem(
+  name: string,
+  value: unknown,
+  schema: AtlasCloudModelInputSchema,
+  body: Record<string, unknown>,
+): string | null {
+  const property = schema.properties[name];
+  if (!property) return "the model has no such input";
+  if (isManagedKey(name, schema) || name in body) return "Marinara sets this input itself";
+  if (property.enum && !property.enum.includes(value as string | number)) return "not one of the model's choices";
+  if (property.type === "boolean" && typeof value !== "boolean") return "expected true or false";
+  if (property.type === "string" && typeof value !== "string") return "expected text";
+  if (property.type === "array" && !Array.isArray(value)) return "expected a list";
+  if (property.type === "number" || property.type === "integer") {
+    if (typeof value !== "number" || !Number.isFinite(value)) return "expected a number";
+    if (property.type === "integer" && !Number.isInteger(value)) return "expected a whole number";
+    if (property.minimum !== null && value < property.minimum) return `below the minimum of ${property.minimum}`;
+    if (property.maximum !== null && value > property.maximum) return `above the maximum of ${property.maximum}`;
+  }
+  return null;
+}
+
+/** The model's inputs that Marinara does not fill itself, in schema order, for the connection editor. */
+export function listAtlasCloudModelOptionFields(schema: AtlasCloudModelInputSchema): AtlasCloudModelOptionField[] {
+  const fields: AtlasCloudModelOptionField[] = [];
+  for (const [name, property] of Object.entries(schema.properties)) {
+    if (isManagedKey(name, schema)) continue;
+    const type =
+      property.type === "boolean" || property.type === "number" || property.type === "integer"
+        ? property.type
+        : property.type === "string" || (property.type === null && property.enum)
+          ? "string"
+          : "json";
+    fields.push({
+      name,
+      type,
+      enum: property.enum,
+      minimum: property.minimum,
+      maximum: property.maximum,
+      default: property.default,
+      description: property.description,
+      required: schema.required.includes(name),
+    });
+  }
+  return fields;
+}
+
+export function describeAtlasCloudModelLimits(schema: AtlasCloudModelInputSchema): AtlasCloudModelLimits {
+  const { properties } = schema;
+  const strings = (property: AtlasCloudSchemaProperty | undefined) =>
+    property?.enum ? property.enum.filter((entry): entry is string => typeof entry === "string") : null;
+  const durations = (properties.duration?.enum ?? [])
+    .map((entry) => Number(entry))
+    .filter((entry) => Number.isFinite(entry) && entry > 0);
+  const resolutionProperty = properties.resolution ?? (properties.quality?.enum ? properties.quality : undefined);
+  const acceptsReferenceImage = [...ATLAS_CLOUD_STRING_IMAGE_KEYS, ...ATLAS_CLOUD_ARRAY_IMAGE_KEYS].some(
+    (key) => properties[key],
+  );
+  return {
+    durations: durations.length > 0 ? durations : null,
+    minDurationSeconds: durations.length > 0 ? null : (properties.duration?.minimum ?? null),
+    maxDurationSeconds: durations.length > 0 ? null : (properties.duration?.maximum ?? null),
+    resolutions: strings(resolutionProperty),
+    sizes: strings(properties.size),
+    aspectRatios: strings(properties.aspect_ratio ?? properties.ratio),
+    acceptsReferenceImage,
+    requiresReferenceImage: atlasCloudSchemaRequiresImage(schema),
+  };
+}
+
 /**
  * Shapes Marinara's common scene-video controls into the body one Atlas Cloud model accepts.
  * Fields the model does not declare are left out so the provider's own defaults apply.
@@ -274,6 +371,12 @@ export function adaptAtlasCloudVideoRequest(
       referenceImageDropped = true;
       adjustments.push("model does not accept a reference image; the source illustration was not sent");
     }
+  }
+
+  for (const [name, value] of Object.entries(input.modelOptions ?? {})) {
+    const problem = describeModelOptionProblem(name, value, schema, body);
+    if (problem) adjustments.push(`option ${name} was not sent: ${problem}`);
+    else body[name] = value;
   }
 
   return { body, adjustments, referenceImageDropped };

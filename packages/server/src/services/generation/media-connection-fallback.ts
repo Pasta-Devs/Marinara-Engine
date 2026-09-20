@@ -17,7 +17,7 @@ type VideoFallbackStore = {
   getFallbackForVideoGeneration(): Promise<any | null>;
 };
 
-function resolveConnectionVideoComfyDefaults(connection: { defaultParameters?: unknown }) {
+function resolveConnectionVideoDefaults(connection: { defaultParameters?: unknown }) {
   let root = connection.defaultParameters;
   if (typeof root === "string") {
     try {
@@ -27,7 +27,7 @@ function resolveConnectionVideoComfyDefaults(connection: { defaultParameters?: u
     }
   }
   if (!root || typeof root !== "object" || Array.isArray(root)) return null;
-  return normalizeVideoGenerationProfile((root as Record<string, unknown>)[VIDEO_DEFAULTS_STORAGE_KEY]).profile.comfyui;
+  return normalizeVideoGenerationProfile((root as Record<string, unknown>)[VIDEO_DEFAULTS_STORAGE_KEY]).profile;
 }
 
 export async function resolveImageConnectionFallback(
@@ -72,7 +72,8 @@ export async function resolveVideoConnectionFallback(
   const model = String(connection.model ?? "").trim();
   const explicitSource = String(connection.videoGenerationSource ?? connection.videoService ?? "").trim();
   const source = explicitSource || inferVideoSource(model, baseUrl);
-  const comfyDefaults = resolveConnectionVideoComfyDefaults(connection);
+  const videoDefaults = resolveConnectionVideoDefaults(connection);
+  const comfyDefaults = videoDefaults?.comfyui;
   return {
     connectionId: connection.id,
     connectionName: String(connection.name ?? "").trim() || connection.id,
@@ -85,5 +86,6 @@ export async function resolveVideoConnectionFallback(
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
     comfyLoras: comfyDefaults?.loras ?? [],
     fps: comfyDefaults?.fps,
+    atlasModelOptions: model ? videoDefaults?.atlas.modelOptions[model] : undefined,
   };
 }

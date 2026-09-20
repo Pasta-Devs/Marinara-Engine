@@ -23,6 +23,7 @@ import {
   isOpenAIGpt6AstraModel,
   localAuthProviderBaseUrl,
   normalizeVideoGenerationProfile,
+  type AtlasCloudVideoModelSchemaResponse,
 } from "@marinara-engine/shared";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import {
@@ -58,7 +59,13 @@ import {
   safeFetch,
 } from "../utils/security.js";
 import { DATA_DIR } from "../utils/data-dir.js";
-import { buildAtlasCloudTestReferenceImage } from "../services/media/atlas-cloud-video-schema.js";
+import {
+  buildAtlasCloudModelSchemaUrl,
+  buildAtlasCloudTestReferenceImage,
+  describeAtlasCloudModelLimits,
+  fetchAtlasCloudModelSchema,
+  listAtlasCloudModelOptionFields,
+} from "../services/media/atlas-cloud-video-schema.js";
 import { fetchAtlasCloudModels } from "../services/media/atlas-cloud.js";
 import {
   buildNanoGptVideoUrl,
@@ -813,6 +820,24 @@ export async function connectionsRoutes(app: FastifyInstance) {
     }
   });
 
+  // ── Atlas Cloud: the selected video model's own inputs, for the connection editor ──
+  app.get<{ Querystring: { model?: string } }>("/atlas-cloud/video-model-schema", async (req, reply) => {
+    const model = String(req.query.model ?? "").trim();
+    if (!model || model.length > 200 || !buildAtlasCloudModelSchemaUrl(model)) {
+      return reply.status(400).send({ error: "Enter an Atlas Cloud model ID such as vendor/model/image-to-video" });
+    }
+    const schema = await fetchAtlasCloudModelSchema(model);
+    const response: AtlasCloudVideoModelSchemaResponse = schema
+      ? {
+          model,
+          available: true,
+          fields: listAtlasCloudModelOptionFields(schema),
+          limits: describeAtlasCloudModelLimits(schema),
+        }
+      : { model, available: false, fields: [], limits: null };
+    return response;
+  });
+
   // ── Fetch available models from the provider API ──
   app.get<{ Params: { id: string } }>("/:id/models", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
@@ -1442,6 +1467,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
                       : undefined,
         comfyWorkflow: conn.comfyuiWorkflow || undefined,
         comfyLoras: isComfyUiVideo ? defaults.comfyui.loras : [],
+        atlasModelOptions: isAtlasVideo ? defaults.atlas.modelOptions[videoModel] : undefined,
         fps: isComfyUiVideo ? defaults.comfyui.fps : undefined,
       });
       return {

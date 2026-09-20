@@ -1119,6 +1119,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       comfyWorkflow,
       comfyLoras,
       comfyFps,
+      atlasModelOptions,
     } = videoRuntime;
 
     const galleryImagePath = resolveGalleryImagePath(galleryImage);
@@ -1160,6 +1161,7 @@ export async function galleryRoutes(app: FastifyInstance) {
         comfyWorkflow,
         comfyLoras,
         fps: comfyFps,
+        atlasModelOptions,
         referenceImage,
         publicReferenceUpload,
         queue: input.queueMediaGenerationRequests,

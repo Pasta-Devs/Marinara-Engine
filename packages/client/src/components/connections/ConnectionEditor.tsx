@@ -62,6 +62,7 @@ import {
   type ConnectionTransferRow,
 } from "../../lib/connection-transfer";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
+import { AtlasCloudModelOptions } from "./AtlasCloudModelOptions";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsCheckbox, SettingsSwitch } from "../panels/settings/SettingControls";
 import {
@@ -2546,6 +2547,7 @@ export function ConnectionEditor() {
             <VideoGenerationDefaultsPanel
               value={localVideoDefaults}
               source={selectedVideoProvider}
+              model={localModel}
               remoteLoras={remoteLoras}
               expanded={videoDefaultsExpanded}
               onExpandedChange={setVideoDefaultsExpanded}
@@ -4104,6 +4106,7 @@ function TextSetting({
 function VideoGenerationDefaultsPanel({
   value,
   source,
+  model,
   remoteLoras,
   expanded,
   onExpandedChange,
@@ -4112,6 +4115,8 @@ function VideoGenerationDefaultsPanel({
 }: {
   value: VideoGenerationDefaultsProfile;
   source: string;
+  /** The connection's model field; Atlas Cloud options are stored per model. */
+  model: string;
   remoteLoras: RemoteConnectionModel[];
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
@@ -4189,6 +4194,8 @@ function VideoGenerationDefaultsPanel({
       openrouter: { ...value.openrouter, ...patch },
     });
   };
+  // An empty model field means the server falls back to the Atlas Cloud default model.
+  const atlasModel = model.trim() || DEFAULT_VIDEO_MODELS.atlas;
   const updateAtlas = (patch: Partial<VideoGenerationDefaultsProfile["atlas"]>) => {
     onChange({
       ...value,
@@ -4399,6 +4406,19 @@ function VideoGenerationDefaultsPanel({
                     </select>
                   </label>
                 </div>
+                {service === "atlas" && (
+                  <AtlasCloudModelOptions
+                    model={atlasModel}
+                    value={value.atlas.modelOptions[atlasModel] ?? {}}
+                    onChange={(options) => {
+                      const { [atlasModel]: _previous, ...otherModels } = value.atlas.modelOptions;
+                      updateAtlas({
+                        modelOptions:
+                          Object.keys(options).length > 0 ? { ...otherModels, [atlasModel]: options } : otherModels,
+                      });
+                    }}
+                  />
+                )}
                 {service === "comfyui" && (
                   <ComfyUiLoraSettings
                     idPrefix="video-comfyui"

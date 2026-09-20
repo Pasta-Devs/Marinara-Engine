@@ -48,6 +48,8 @@ export interface VideoGenerationRequest {
   ltxDirectorPrompt?: LtxDirectorPromptInput;
   /** Up to five connection-scoped LoRAs for custom ComfyUI workflow placeholders. */
   comfyLoras?: ComfyUiLoraSetting[];
+  /** Model-specific Atlas Cloud inputs saved on the connection for the selected model. */
+  atlasModelOptions?: Record<string, unknown>;
   /** ComfyUI workflow frame rate exposed through %fps% and used by the legacy %length% macro. */
   fps?: number;
   lastFrameImage?: VideoReferenceImage | null;
@@ -72,6 +74,7 @@ export interface VideoGenerationRequest {
     model: string;
     comfyWorkflow?: string;
     comfyLoras?: ComfyUiLoraSetting[];
+    atlasModelOptions?: Record<string, unknown>;
     fps?: number;
   };
 }
@@ -223,6 +226,7 @@ async function generateVideoUnqueued(
       model: fallback.model,
       comfyWorkflow: fallback.comfyWorkflow,
       comfyLoras: fallback.comfyLoras,
+      atlasModelOptions: fallback.atlasModelOptions,
       fps: fallback.fps,
       connectionKey: fallback.connectionId,
     });
@@ -1453,11 +1457,13 @@ async function generateAtlasCloudVideo(
     aspectRatio: request.aspectRatio,
     resolution: request.resolution,
     referenceImageDataUrl,
+    modelOptions: request.atlasModelOptions,
   };
   // Atlas Cloud models do not share one input shape; fit the request to the model's published schema when it has one.
   const schema = await fetchAtlasCloudModelSchema(requestInput.model, request.signal);
   const adapted = schema ? adaptAtlasCloudVideoRequest(requestInput, schema) : null;
-  const body = adapted?.body ?? buildAtlasCloudVideoRequest(requestInput);
+  // Without a schema there is nothing to check the user's options against, so they are sent as chosen.
+  const body = adapted?.body ?? { ...request.atlasModelOptions, ...buildAtlasCloudVideoRequest(requestInput) };
   if (adapted && adapted.adjustments.length > 0) {
     // A dropped illustration changes what the user gets back, so it is a warning rather than routine fitting.
     logger[adapted.referenceImageDropped ? "warn" : "info"](
