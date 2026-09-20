@@ -74,6 +74,22 @@ All six services make short clips from your image. They differ in speed, clip le
 - **xAI Imagine**: 1 to 15 second clips. It uses a shorter prompt limit than the other services.
 - **OpenRouter Video**: 1 to 60 seconds, and lets you type any video model your OpenRouter account supports.
 - **Atlas Cloud**: 1 to 60 seconds with curated Veo 3.1 and Seedance 2.0 starter models. You can type another exact Atlas Cloud video model ID; model-specific duration, resolution, and reference-image limits still apply.
+
+### Atlas Cloud model differences
+
+Atlas Cloud models do not all accept the same settings. Before each request, Marinara reads the model's published input schema from `static.atlascloud.ai` and fits your connection defaults to it:
+
+- The source illustration is sent in the image field that model uses.
+- Clip length moves to the nearest length the model offers. A model limited to 5 or 10 seconds turns an 8 second default into 10.
+- Resolution moves to the nearest tier the model offers. Models that take a pixel size instead receive the closest `width*height` for your aspect ratio and resolution.
+- A setting the model does not have is left out, so the model's own default applies.
+
+The server log lists every value that was changed, on a line starting with `[video-gen/atlas-cloud] fitted request`. If the schema cannot be read, Marinara sends the same general request as before.
+
+Pick an **image-to-video** model for scene videos. A text-to-video model has no image field, so it ignores your illustration and makes an unrelated clip from the prompt alone. The server log says when this happens.
+
+**Test Video** sends a plain gradient as the first frame when the selected Atlas Cloud model requires an image, so image-to-video models can pass the connection test.
+
 - **Seedance 2.0**: 4 to 15 second clips with first-frame and first and last frame modes. It needs a public link to your reference image.
 - **ComfyUI**: local generation through your own API-format workflow. Marinara uploads the reference image directly to ComfyUI when the workflow uses `%reference_image_name%`.
 
