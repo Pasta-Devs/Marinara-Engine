@@ -248,6 +248,24 @@ try {
     source,
     "preparation leaves the original transcript and start marker intact",
   );
+  await chats.updateMessageExtra(source[960]!.id, { isConversationStart: false });
+  const withoutStart = await memory.prepare({
+    chatId: chat.id,
+    messages: await chats.listMessages(chat.id),
+    audienceCharacterIds: ["traveler"],
+    budgetTokens: 100_000,
+  });
+  assert.equal(withoutStart.messageIds[0], source[0]!.id, "removing a manual cutoff restores eligible live history");
+  assert.equal(withoutStart.receipt.boundaryMessageId, null);
+  assert.deepEqual((await memory.status(chat.id)).job.contextStarts, [], "the obsolete automatic marker is removed");
+  await chats.updateMessageExtra(source[700]!.id, { isConversationStart: true });
+  const movedStart = await memory.prepare({
+    chatId: chat.id,
+    messages: await chats.listMessages(chat.id),
+    audienceCharacterIds: ["traveler"],
+    budgetTokens: 100_000,
+  });
+  assert.equal(movedStart.messageIds[0], source[700]!.id, "moving a manual start does not retain its later cutoff");
   await memory.reset(chat.id);
   assert.equal((await memory.status(chat.id)).job.contextStarts, undefined, "reset clears automatic markers");
   process.stdout.write(
