@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Roleplay replies with both trackers and rewrite agents (Prose Guardian, Continuity Checker, custom rewrite agents) active now show the finished, rewritten text as soon as the rewrite lane finishes, instead of staying on the "Rewrite agents are working!" placeholder until trackers, Lorebook Keeper, and custom tracker-type agents also finish. Sending another message still waits for the full agent set (or an explicit stop) to finish, unchanged.
 - Downloadable packages can use the host Engine's LLM, image and video integrations, inheriting provider fixes, queues and request safeguards without bundling stale service copies. These integrations require Capability API 1.31.
 - Conversation mode now has a persisted background-image opacity control while keeping its readability gradient visible.
 

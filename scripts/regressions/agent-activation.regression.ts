@@ -49,7 +49,11 @@ const postGenerationSource = generateRouteSource.slice(
   postGenerationStart,
   generateRouteSource.indexOf("// ── Text rewrite/editing agents"),
 );
-assert.match(postGenerationSource, /content: completedResponse,/u, "Lorebook triggers must receive the completed response");
+assert.match(
+  postGenerationSource,
+  /content: completedResponse,/u,
+  "Lorebook triggers must receive the completed response",
+);
 assert.match(
   postGenerationSource,
   /const postAgentContext:[\s\S]{0,220}mainResponse: completedResponse/u,
@@ -72,8 +76,29 @@ assert.match(
 );
 assert.match(
   generateRouteSource,
-  /if \(activatedTextRewriteRunAgents\.length > 0[\s\S]{0,7500}\n\s*\}\n\s*if \(holdForTextRewrite && !textRewriteApplied/u,
-  "The held-response release must remain outside the active rewrite-agent branch",
+  /if \(!\(activatedTextRewriteRunAgents\.length > 0[\s\S]{0,8000}\n\s*if \(holdForTextRewrite && !textRewriteApplied/u,
+  "The held-response release must remain reachable after the rewrite-agent loop inside the rewrite lane",
+);
+
+// The rewrite lane must be kicked off (not awaited) before the tracker/lorebook-keeper
+// post-processing pipeline runs, so text release does not wait on trackers. See
+// text-rewrite-lane-concurrency.regression.ts for the behavioral proof.
+const rewriteLaneKickoffIndex = generateRouteSource.indexOf("const textRewriteLanePromise = runTextRewriteLane();");
+assert.ok(rewriteLaneKickoffIndex >= 0, "The rewrite lane must be kicked off as a standalone promise");
+const postGenerateCallIndex = generateRouteSource.indexOf("pipeline.postGenerate(completedResponse");
+assert.ok(
+  rewriteLaneKickoffIndex < postGenerateCallIndex,
+  "The rewrite lane must be kicked off before the tracker post-processing pipeline runs, not after it",
+);
+const rewriteLaneAwaitIndex = generateRouteSource.indexOf("await textRewriteLanePromise;");
+assert.ok(
+  rewriteLaneAwaitIndex > postGenerateCallIndex,
+  "The rewrite lane promise must still be awaited (for TTS/summary/done gating) after tracker post-processing",
+);
+assert.match(
+  generateRouteSource.slice(rewriteLaneKickoffIndex - 8000, rewriteLaneKickoffIndex),
+  /for \(const result of parallelResults\)[\s\S]{0,200}agentSummary\[result\.agentType \?\? result\.type\] = result\.data/u,
+  "The concurrently-kicked-off rewrite lane must not read tracker/lorebook-keeper postResults for its agent summary",
 );
 
 console.info("Agent activation regression passed.");

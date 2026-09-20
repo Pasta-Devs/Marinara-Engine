@@ -520,7 +520,7 @@ assert.ok(
   spatialSanitizationStart > inlineThinkingEnd && consolidatedReplacementStart > spatialSanitizationStart,
   "The consolidated content replacement must run after spatial sanitization",
 );
-const textRewriteStart = generateRouteSource.indexOf("// ── Text rewrite/editing agents:");
+const textRewriteStart = generateRouteSource.indexOf("const runTextRewriteLane = async (): Promise<void> => {");
 const textRewriteEnd = generateRouteSource.indexOf("if (holdForTextRewrite && !textRewriteApplied", textRewriteStart);
 assert.ok(textRewriteStart >= 0 && textRewriteEnd > textRewriteStart, "Text-rewrite route block is present");
 const textRewriteSource = generateRouteSource.slice(textRewriteStart, textRewriteEnd);
@@ -531,7 +531,7 @@ assert.match(
 );
 assert.match(
   textRewriteSource,
-  /updateMessageContent\(messageId, sanitizedEditedText\)/u,
+  /updateMessageContent\(rewriteLaneMessageId, sanitizedEditedText\)/u,
   "Text-rewrite persistence must use sanitized content",
 );
 assert.match(
