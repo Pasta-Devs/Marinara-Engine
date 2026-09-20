@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- The schedule editor can generate a week one day at a time using seven smaller requests, while preserving the current draft if any day fails (#6449). It shows the connection and model, allows choosing a language connection, and keeps generation errors visible; empty or incomplete generated schedules are rejected (#6455).
+
 - Advanced Memory prepares the full eligible Roleplay history before the next reply, resumes unfinished scene detection, and shares one scene summary between characters with the same history. The narrator uses the shared archive across character participation boundaries without separate scene copies. The archive avoids redundant owner copies and uses compact memory rows; new recaps omit current-situation and open-tension sections (#6450).
 
 - Downloadable packages can use the host Engine's LLM, image and video integrations, inheriting provider fixes, queues and request safeguards without bundling stale service copies. These integrations require Capability API 1.31.

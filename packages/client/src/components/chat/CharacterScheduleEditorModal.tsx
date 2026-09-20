@@ -22,6 +22,13 @@ import {
   parseCharacterScheduleImport,
 } from "../../lib/character-schedule-transfer";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
+import { useConnections } from "../../hooks/use-connections";
+import { useChat } from "../../hooks/use-chats";
+import {
+  filterLanguageGenerationConnections,
+  isConnectionFlagTrue,
+  type ConnectionProviderLike,
+} from "../../lib/connection-filters";
 
 type CharacterScheduleEditorModalProps = {
   open: boolean;
@@ -52,7 +59,7 @@ type DraftSchedule = {
 
 type DraftScheduleResponse = { schedule: WeekSchedule };
 
-type DraftDayResponse = { day: string; blocks: ScheduleBlock[] };
+type DraftDayResponse = { day: string; blocks: ScheduleBlock[]; weekStart: string };
 
 type RoutineSummaryResponse = { summary: string; generatedAt: string };
 
@@ -343,6 +350,12 @@ export function CharacterScheduleEditorModal({
   onSave,
 }: CharacterScheduleEditorModalProps) {
   const { t: localizeUi } = useUiTranslation();
+  const { data: connections, isLoading: connectionsLoading } = useConnections();
+  const { data: chat, isLoading: chatLoading } = useChat(chatId ?? null);
+  const [generationConnectionId, setGenerationConnectionId] = useState<string | null>(null);
+  const [weekRequestMode, setWeekRequestMode] = useState("week");
+  const [weekGenerationDay, setWeekGenerationDay] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState("");
   const [draft, setDraft] = useState<DraftSchedule>(() => createDraft(schedule));
   const [expandedDay, setExpandedDay] = useState<string | null>(initialDay ?? null);
   const [generationGuidance, setGenerationGuidance] = useState("");
@@ -358,6 +371,36 @@ export function CharacterScheduleEditorModal({
   const [weekDraftMode, setWeekDraftMode] = useState<WeekDraftMode>(() => (schedule ? "adjust" : "rewrite"));
   const draftRef = useRef(draft);
   const scheduleFileInputRef = useRef<HTMLInputElement | null>(null);
+  const weekGenerationAbortRef = useRef<AbortController | null>(null);
+  const generationErrorRef = useRef<HTMLDivElement | null>(null);
+  const availableConnections = filterLanguageGenerationConnections(
+    (connections ?? []) as Array<
+      ConnectionProviderLike & { id: string; name: string; profileImportReviewRequired?: string }
+    >,
+  ).filter((connection) => !isConnectionFlagTrue(connection.profileImportReviewRequired));
+  const inheritedConnectionId =
+    chat?.connectionId ??
+    availableConnections.find((connection) => isConnectionFlagTrue(connection.isDefault))?.id ??
+    "";
+  const connectionId = generationConnectionId ?? inheritedConnectionId;
+  const selectedConnection = availableConnections.find((connection) => connection.id === connectionId);
+  const hasRandomPool = availableConnections.some((connection) => isConnectionFlagTrue(connection.useForRandom));
+  const generationUnavailable =
+    connectionsLoading ||
+    (!!chatId && chatLoading) ||
+    (!selectedConnection && !(connectionId === "random" && hasRandomPool));
+  const generationBusy = isGeneratingSummary || isGeneratingWeek || !!generatingDay;
+
+  useEffect(() => {
+    if (generationError) generationErrorRef.current?.scrollIntoView({ block: "nearest" });
+  }, [generationError]);
+
+  useEffect(
+    () => () => {
+      weekGenerationAbortRef.current?.abort();
+    },
+    [open, characterId],
+  );
 
   useEffect(() => {
     draftRef.current = draft;
@@ -375,7 +418,14 @@ export function CharacterScheduleEditorModal({
     setTuningOpen(false);
     setWeekGuideOpen(false);
     setWeekDraftMode(schedule ? "adjust" : "rewrite");
+    setGenerationError("");
   }, [characterId, initialDay, open, schedule]);
+
+  useEffect(() => {
+    setGenerationConnectionId(null);
+    setIsGeneratingWeek(false);
+    setWeekGenerationDay(null);
+  }, [characterId, open]);
 
   useEffect(() => {
     if (!openStatusMenu) return;
@@ -481,6 +531,7 @@ export function CharacterScheduleEditorModal({
 
   const generateSummary = async () => {
     if (!validateDailyCap()) return;
+    setGenerationError("");
     setIsGeneratingSummary(true);
     try {
       const result = await api.post<RoutineSummaryResponse>("/conversation/schedule/summary", {
@@ -488,6 +539,8 @@ export function CharacterScheduleEditorModal({
         characterId,
         schedule: currentSchedule,
         guidance: generationGuidance,
+        connectionId,
+        debugMode: useUIStore.getState().debugMode,
       });
       const nextDraft = {
         ...draftRef.current,
@@ -500,11 +553,11 @@ export function CharacterScheduleEditorModal({
       onSave(characterId, draftToSchedule(nextDraft, schedule));
       setSummaryStale(false);
     } catch (error) {
-      toast.error(
+      const message =
         error instanceof Error
           ? error.message
-          : localizeUi("ui.chat.characterscheduleeditormodal.failedToGenerateRoutineSummary"),
-      );
+          : localizeUi("ui.chat.characterscheduleeditormodal.failedToGenerateRoutineSummary");
+      setGenerationError(message);
     } finally {
       setIsGeneratingSummary(false);
     }
@@ -512,36 +565,80 @@ export function CharacterScheduleEditorModal({
 
   const generateWeek = async () => {
     if (!validateDailyCap()) return;
+    const controller = new AbortController();
+    weekGenerationAbortRef.current = controller;
+    setGenerationError("");
     setIsGeneratingWeek(true);
     try {
-      const result = await api.post<DraftScheduleResponse>("/conversation/schedule/draft", {
+      const payload = {
         chatId,
         characterId,
-        mode: "week",
-        schedule: currentSchedule,
+        connectionId,
         guidance: generationGuidance,
         draftMode: weekDraftMode,
         timeZone: useUIStore.getState().conversationTimeZone,
-      });
+        debugMode: useUIStore.getState().debugMode,
+      };
+      let nextSchedule = currentSchedule;
+      if (weekRequestMode === "day") {
+        for (const day of CONVERSATION_SCHEDULE_DAYS) {
+          setWeekGenerationDay(day);
+          const result = await api.post<DraftDayResponse>(
+            "/conversation/schedule/draft",
+            {
+              ...payload,
+              mode: "day",
+              day,
+              schedule: nextSchedule,
+              dayGuidance: dayGuidance[day],
+            },
+            { signal: controller.signal },
+          );
+          if (controller.signal.aborted) return;
+          nextSchedule = {
+            ...nextSchedule,
+            weekStart: result.weekStart,
+            days: { ...nextSchedule.days, [day]: result.blocks },
+          };
+        }
+      } else {
+        const result = await api.post<DraftScheduleResponse>(
+          "/conversation/schedule/draft",
+          {
+            ...payload,
+            mode: "week",
+            schedule: currentSchedule,
+          },
+          { signal: controller.signal },
+        );
+        nextSchedule = result.schedule;
+      }
+      if (controller.signal.aborted) return;
       applyDraftAndMarkSummaryStale((current) => ({
-        ...createDraft(result.schedule),
+        ...createDraft(nextSchedule),
         routineSummary: current.routineSummary,
         routineSummaryGeneratedAt: current.routineSummaryGeneratedAt,
         disabledAutonomousIntents: current.disabledAutonomousIntents,
       }));
     } catch (error) {
-      toast.error(
+      if (controller.signal.aborted) return;
+      const message =
         error instanceof Error
           ? error.message
-          : localizeUi("ui.chat.characterscheduleeditormodal.failedToRegenerateSchedule"),
-      );
+          : localizeUi("ui.chat.characterscheduleeditormodal.failedToRegenerateSchedule");
+      setGenerationError(message);
     } finally {
-      setIsGeneratingWeek(false);
+      if (weekGenerationAbortRef.current === controller) {
+        weekGenerationAbortRef.current = null;
+        setIsGeneratingWeek(false);
+        setWeekGenerationDay(null);
+      }
     }
   };
 
   const generateDay = async (day: string) => {
     if (!validateDailyCap()) return;
+    setGenerationError("");
     setGeneratingDay(day);
     setDayGenerationStatus((current) => ({ ...current, [day]: `Regenerating ${day}...` }));
     const previousBlocks = draft.days[day] ?? [];
@@ -556,6 +653,8 @@ export function CharacterScheduleEditorModal({
         guidance: generationGuidance,
         dayGuidance: specificGuidance,
         timeZone: useUIStore.getState().conversationTimeZone,
+        connectionId,
+        debugMode: useUIStore.getState().debugMode,
       });
       applyDraftAndMarkSummaryStale((current) => ({
         ...current,
@@ -577,11 +676,11 @@ export function CharacterScheduleEditorModal({
       }
     } catch (error) {
       setDayGenerationStatus((current) => ({ ...current, [day]: `Failed to regenerate ${day}` }));
-      toast.error(
+      const message =
         error instanceof Error
           ? error.message
-          : localizeUi("ui.chat.characterscheduleeditormodal.failedToRegenerateValue1", { value1: day }),
-      );
+          : localizeUi("ui.chat.characterscheduleeditormodal.failedToRegenerateValue1", { value1: day });
+      setGenerationError(message);
     } finally {
       setGeneratingDay(null);
     }
@@ -696,7 +795,7 @@ export function CharacterScheduleEditorModal({
                 <button
                   type="button"
                   onClick={generateSummary}
-                  disabled={isGeneratingSummary || isGeneratingWeek || !!generatingDay}
+                  disabled={generationBusy || generationUnavailable}
                   className="inline-flex shrink-0 items-center justify-center gap-1.5 self-end rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isGeneratingSummary ? (
@@ -712,6 +811,58 @@ export function CharacterScheduleEditorModal({
             </div>
           </div>
         </div>
+
+        <div className="space-y-2">
+          <label className="block text-xs">
+            <span className="mb-1.5 block font-medium">
+              {localizeUi("ui.chat.characterscheduleeditormodal.generationConnection")}
+            </span>
+            <select
+              value={selectedConnection || (connectionId === "random" && hasRandomPool) ? connectionId : ""}
+              onChange={(event) => setGenerationConnectionId(event.target.value)}
+              disabled={generationBusy || connectionsLoading}
+              className="w-full min-w-0 rounded-md bg-[var(--secondary)] px-3 py-2 outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)] disabled:opacity-60"
+            >
+              <option value="" disabled>
+                {localizeUi("ui.chat.characterscheduleeditormodal.chooseConnection")}
+              </option>
+              {hasRandomPool && (
+                <option value="random">{localizeUi("ui.chat.characterscheduleeditormodal.randomConnection")}</option>
+              )}
+              {availableConnections.map((connection) => (
+                <option key={connection.id} value={connection.id}>
+                  {localizeUi("ui.chat.characterscheduleeditormodal.connectionOption", {
+                    name: connection.name,
+                    model: connection.model || localizeUi("ui.chat.characterscheduleeditormodal.providerDefaultModel"),
+                  })}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="break-words text-xs text-[var(--muted-foreground)]">
+            {selectedConnection
+              ? localizeUi("ui.chat.characterscheduleeditormodal.selectedModel", {
+                  provider: selectedConnection.provider,
+                  model:
+                    selectedConnection.model || localizeUi("ui.chat.characterscheduleeditormodal.providerDefaultModel"),
+                })
+              : localizeUi(
+                  connectionId === "random" && hasRandomPool
+                    ? "ui.chat.characterscheduleeditormodal.randomConnectionHint"
+                    : "ui.chat.characterscheduleeditormodal.chooseConnectionHint",
+                )}
+          </p>
+        </div>
+        {generationError && (
+          <div
+            ref={generationErrorRef}
+            role="alert"
+            className="rounded-md border border-[var(--destructive)] p-3 text-sm text-[var(--destructive)]"
+          >
+            <p className="font-semibold">{localizeUi("ui.chat.characterscheduleeditormodal.generationFailed")}</p>
+            <p className="mt-1 break-words">{generationError}</p>
+          </div>
+        )}
 
         <details
           open={tuningOpen}
@@ -923,6 +1074,7 @@ export function CharacterScheduleEditorModal({
                   const selected = weekDraftMode === option.value;
                   return (
                     <button
+                      disabled={generationBusy}
                       key={option.value}
                       type="button"
                       onClick={() => setWeekDraftMode(option.value)}
@@ -940,6 +1092,23 @@ export function CharacterScheduleEditorModal({
                 })}
               </div>
             </div>
+            <label className="block text-xs">
+              <span className="mb-1.5 block font-medium">
+                {localizeUi("ui.chat.characterscheduleeditormodal.weekRequests")}
+              </span>
+              <select
+                value={weekRequestMode}
+                onChange={(event) => setWeekRequestMode(event.target.value)}
+                disabled={generationBusy}
+                className="w-full rounded-md bg-[var(--background)] px-3 py-2 outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)] disabled:opacity-60"
+              >
+                <option value="week">{localizeUi("ui.chat.characterscheduleeditormodal.wholeWeek")}</option>
+                <option value="day">{localizeUi("ui.chat.characterscheduleeditormodal.dayByDay")}</option>
+              </select>
+            </label>
+            <p className="text-xs text-[var(--muted-foreground)]">
+              {localizeUi("ui.chat.characterscheduleeditormodal.dayByDayHint")}
+            </p>
             <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
               <label className="block text-xs">
                 <span className="mb-1.5 block font-medium">
@@ -957,20 +1126,28 @@ export function CharacterScheduleEditorModal({
               <button
                 type="button"
                 onClick={generateWeek}
-                disabled={isGeneratingSummary || isGeneratingWeek || !!generatingDay}
+                disabled={generationBusy || generationUnavailable}
                 className="inline-flex items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isGeneratingWeek ? <Loader2 size="0.75rem" className="animate-spin" /> : <RefreshCw size="0.75rem" />}
                 {WEEK_DRAFT_MODE_LABELS[weekDraftMode]} {localizeUi("ui.chat.characterscheduleeditormodal.week")}
               </button>
             </div>
+            {weekGenerationDay && (
+              <p role="status" className="text-xs text-[var(--muted-foreground)]">
+                {localizeUi("ui.chat.characterscheduleeditormodal.generatingDay", {
+                  day: weekGenerationDay,
+                  index: CONVERSATION_SCHEDULE_DAYS.indexOf(weekGenerationDay) + 1,
+                })}
+              </p>
+            )}
             <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
               {localizeUi("ui.chat.characterscheduleeditormodal.draftOnlySaveScheduleAppliesChanges")}
             </div>
           </div>
         </details>
 
-        <div className="space-y-2">
+        <fieldset disabled={isGeneratingWeek} className="min-w-0 space-y-2">
           {CONVERSATION_SCHEDULE_DAYS.map((day) => {
             const blocks = draft.days[day] ?? [];
             const expanded = expandedDay === day;
@@ -1029,7 +1206,7 @@ export function CharacterScheduleEditorModal({
                         <button
                           type="button"
                           onClick={() => generateDay(day)}
-                          disabled={isGeneratingSummary || isGeneratingWeek || !!generatingDay}
+                          disabled={generationBusy || generationUnavailable}
                           className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {generatingDay === day ? (
@@ -1159,7 +1336,7 @@ export function CharacterScheduleEditorModal({
               </section>
             );
           })}
-        </div>
+        </fieldset>
 
         <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
@@ -1203,6 +1380,7 @@ export function CharacterScheduleEditorModal({
             <button
               type="button"
               onClick={save}
+              disabled={generationBusy}
               className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
             >
               {localizeUi("ui.chat.characterscheduleeditormodal.saveSchedule")}

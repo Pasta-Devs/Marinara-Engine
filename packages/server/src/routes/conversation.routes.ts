@@ -76,6 +76,8 @@ function parseWeekScheduleDraftMode(value: unknown): WeekScheduleDraftMode {
 }
 
 function getScheduleGenerationError(error: unknown, fallback: string): string {
+  if (error instanceof SyntaxError)
+    return "The model returned invalid schedule JSON. Try again or choose another model.";
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
@@ -254,7 +256,11 @@ async function resolveConversationScheduleConnection(connections: ConnectionsSto
     return { conn: null, error: "No connection configured" };
   }
 
-  return { conn: await connections.getWithKey(connId), error: null };
+  const conn = await connections.getWithKey(connId);
+  if (conn && ["image_generation", "video_generation", "audio"].includes(conn.provider)) {
+    return { conn: null, error: "Choose a language connection for schedule generation" };
+  }
+  return { conn, error: conn ? null : "The selected connection is unavailable. Choose another connection." };
 }
 
 function parseDateKeyMs(dateKey: string): number {
@@ -426,14 +432,21 @@ export async function conversationRoutes(app: FastifyInstance) {
    * no chat open, in which case the default connection and the client-supplied
    * timezone stand in for the chat's.
    */
-  async function resolveScheduleGenerationContext(chatId: string | undefined, characterId: string) {
+  async function resolveScheduleGenerationContext(
+    chatId: string | undefined,
+    characterId: string,
+    connectionId?: unknown,
+  ) {
+    if (connectionId != null && (typeof connectionId !== "string" || !connectionId.trim())) {
+      return { errorStatus: 400 as const, error: "connectionId must be a non-empty string" };
+    }
     const chat = chatId ? await chats.getById(chatId) : null;
     if (chatId && !chat) return { errorStatus: 404 as const, error: "Chat not found" };
     if (chat && chat.mode !== "conversation") return { errorStatus: 400 as const, error: "Not a conversation chat" };
 
     const { conn, error: connectionError } = await resolveConversationScheduleConnection(
       connections,
-      chat?.connectionId ?? null,
+      typeof connectionId === "string" ? connectionId : (chat?.connectionId ?? null),
     );
     if (!conn) return { errorStatus: 400 as const, error: connectionError ?? "No connection configured" };
     const baseUrl = resolveBaseUrl(conn);
@@ -495,12 +508,14 @@ export async function conversationRoutes(app: FastifyInstance) {
       dayGuidance?: string;
       draftMode?: string;
       timeZone?: unknown;
+      connectionId?: string;
+      debugMode?: boolean;
     };
   }>("/schedule/draft", async (req, reply) => {
     const { chatId, characterId, mode } = req.body;
     const guidance = typeof req.body.guidance === "string" ? req.body.guidance.trim() : "";
     const dayGuidance = typeof req.body.dayGuidance === "string" ? req.body.dayGuidance.trim() : "";
-    const context = await resolveScheduleGenerationContext(chatId, characterId);
+    const context = await resolveScheduleGenerationContext(chatId, characterId, req.body.connectionId);
     if ("error" in context) return reply.status(context.errorStatus ?? 400).send({ error: context.error });
     const requestedTimeZone = normalizePromptTimeZone(req.body.timeZone);
     if (req.body.timeZone != null && !requestedTimeZone) {
@@ -531,9 +546,13 @@ export async function conversationRoutes(app: FastifyInstance) {
           req.body.schedule,
           guidance,
           dayGuidance,
-          scheduleTimeZone,
+          {
+            timeZone: scheduleTimeZone,
+            draftMode: req.body.draftMode === undefined ? "vary" : parseWeekScheduleDraftMode(req.body.draftMode),
+            debugMode: req.body.debugMode === true,
+          },
         );
-        return reply.send({ day, blocks });
+        return reply.send({ day, blocks, weekStart: getMonday(scheduleNow).toISOString() });
       }
 
       const { schedule } = await generateCharacterSchedule(
@@ -549,6 +568,7 @@ export async function conversationRoutes(app: FastifyInstance) {
         {
           draftMode: parseWeekScheduleDraftMode(req.body.draftMode),
           timeZone: scheduleTimeZone,
+          debugMode: req.body.debugMode === true,
         },
       );
       const fullSchedule = preserveDraftScheduleFields(
@@ -568,16 +588,25 @@ export async function conversationRoutes(app: FastifyInstance) {
       characterId: string;
       schedule: WeekSchedule;
       guidance?: string;
+      connectionId?: string;
+      debugMode?: boolean;
     };
   }>("/schedule/summary", async (req, reply) => {
     const { chatId, characterId, schedule } = req.body;
     if (!schedule) return reply.status(400).send({ error: "schedule is required" });
     const guidance = typeof req.body.guidance === "string" ? req.body.guidance.trim() : "";
-    const context = await resolveScheduleGenerationContext(chatId, characterId);
+    const context = await resolveScheduleGenerationContext(chatId, characterId, req.body.connectionId);
     if ("error" in context) return reply.status(context.errorStatus ?? 400).send({ error: context.error });
     const { charData, provider, model } = context;
     try {
-      const { summary } = await generateScheduleRoutineSummary(provider, model, charData.name, schedule, guidance);
+      const { summary } = await generateScheduleRoutineSummary(
+        provider,
+        model,
+        charData.name,
+        schedule,
+        guidance,
+        req.body.debugMode === true,
+      );
       return reply.send({ summary, generatedAt: new Date().toISOString() });
     } catch (error) {
       logger.error(error instanceof Error ? error : undefined, "[schedule] Summary generation failed");
