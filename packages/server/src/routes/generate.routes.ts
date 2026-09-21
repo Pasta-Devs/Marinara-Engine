@@ -12370,6 +12370,8 @@ export async function generateRoutes(app: FastifyInstance) {
                   debugMode: requestDebug,
                   blocking: false,
                   asOfMessageId: latestAssistantMessageId,
+                  onProgress: (job) =>
+                    sendSseEvent(reply, { type: "advanced_memory_status", data: { chatId: input.chatId, job } }),
                 })
                 .catch((error) => logger.error(error, "[advanced-memory] Background scene check failed"));
             }

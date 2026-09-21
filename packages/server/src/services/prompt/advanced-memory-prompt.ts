@@ -31,7 +31,7 @@ const MEMORY_COMPONENTS = {
   },
   recalled_messages: {
     key: "recalledMessages",
-    name: "Recalled Messages",
+    name: "Recalled Scenes",
     introduction: "",
   },
 } as const;
@@ -56,6 +56,19 @@ export function isAdvancedMemoryMarker(type: MarkerType): type is AdvancedMemory
 }
 
 export function advancedMemoryMarkerContent(type: AdvancedMemoryMarkerType, parts: AdvancedMemoryPromptParts): string {
+  if (type === "recalled_scenes" || type === "recalled_messages") {
+    // Older swipe snapshots split paired excerpts from summary-only scenes. Reuse both without another search.
+    const scenes = parts.recalledScenes?.trim();
+    let messages = parts.recalledMessages?.trim();
+    const introduction = scenes?.split("\n\n", 1)[0];
+    if (
+      introduction?.startsWith("Included below are recalled memories") &&
+      messages?.startsWith(`${introduction}\n\n`)
+    ) {
+      messages = messages.slice(introduction.length).trimStart();
+    }
+    return [scenes, messages].filter(Boolean).join("\n\n");
+  }
   const component = MEMORY_COMPONENTS[type];
   const text = parts[component.key]?.trim();
   return text ? (component.introduction ? `${component.introduction}\n\n${text}` : text) : "";
@@ -71,11 +84,24 @@ export function createAdvancedMemoryPlacement(
     key: component.key,
     markerType,
     sectionId: section?.id ?? null,
-    sectionName: section?.name ?? component.name,
+    sectionName:
+      markerType === "recalled_messages" && section?.name === "Recalled Messages"
+        ? component.name
+        : (section?.name ?? component.name),
     role: (section?.role ?? "system") as PromptRole,
     format,
     token: `__MARINARA_ADVANCED_MEMORY_${randomUUID()}__`,
   };
+}
+
+/** Prefer the scene marker, while accepting the old messages marker as a placement alias. */
+function recalledScenePlacement(placements: readonly AdvancedMemoryPlacement[]) {
+  return (
+    placements.find((item) => item.markerType === "recalled_scenes" && item.sectionId !== null) ??
+    placements.find((item) => item.markerType === "recalled_messages" && item.sectionId !== null) ??
+    placements.find((item) => item.markerType === "recalled_scenes") ??
+    placements.find((item) => item.markerType === "recalled_messages")
+  );
 }
 
 /** Group guards survive merging/scoping while leaving ordinary group text visible to those passes. */
@@ -101,16 +127,23 @@ export function describeAdvancedMemoryPlacements(
   messages: readonly { content: string }[],
   placements: readonly AdvancedMemoryPlacement[],
 ) {
-  return placements.map(({ token, groupTokens: _groupTokens, ...placement }) => {
-    const missing = !messages.some((message) => message.content.includes(token));
-    return {
-      ...placement,
-      ...(missing
-        ? { sectionId: null, sectionName: MEMORY_COMPONENTS[placement.markerType].name, role: "system" as const }
-        : {}),
-      fallback: missing || placement.sectionId === null,
-    };
-  });
+  const recall = recalledScenePlacement(placements);
+  return placements
+    .filter(
+      (placement) =>
+        (placement.markerType !== "recalled_scenes" && placement.markerType !== "recalled_messages") ||
+        placement === recall,
+    )
+    .map(({ token, groupTokens: _groupTokens, ...placement }) => {
+      const missing = !messages.some((message) => message.content.includes(token));
+      return {
+        ...placement,
+        ...(missing
+          ? { sectionId: null, sectionName: MEMORY_COMPONENTS[placement.markerType].name, role: "system" as const }
+          : {}),
+        fallback: missing || placement.sectionId === null,
+      };
+    });
 }
 
 /**
@@ -125,8 +158,15 @@ export function resolveAdvancedMemoryPrompt<T extends { content: string }>(
 ): T[] {
   const result = messages.map((message) => ({ ...message }));
   const fallbackMessages: T[] = [];
+  const recall = recalledScenePlacement(placements);
   for (const placement of placements) {
-    const content = sanitizePromptLeaf(advancedMemoryMarkerContent(placement.markerType, parts), placement.format);
+    const skippedRecall =
+      (placement.markerType === "recalled_scenes" || placement.markerType === "recalled_messages") &&
+      placement !== recall;
+    const content = sanitizePromptLeaf(
+      skippedRecall ? "" : advancedMemoryMarkerContent(placement.markerType, parts),
+      placement.format,
+    );
     const rendered = wrapContent(content, placement.sectionName, placement.format);
     let emitted = false;
     const pattern = new RegExp(`(^[ \\t]*)?${placement.token}`, "gm");

@@ -337,7 +337,7 @@ try {
     "a split scene is left to continuity rather than recalling a recap that overlaps live context",
   );
   assert.doesNotMatch(
-    movedExcerpts.recalledMessages ?? "",
+    movedExcerpts.recalledScenes ?? "",
     /PARTIAL_SCENE_LATER_DATE/,
     "an archived excerpt cannot inherit a timeframe from live scene messages",
   );

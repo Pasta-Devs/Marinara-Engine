@@ -502,14 +502,14 @@ try {
     "optional recall exposes actual persisted record IDs separately from mandatory summary revisions",
   );
   assert(
-    exactRecall.recalledMessages?.includes("returns on Tuesday"),
+    exactRecall.recalledScenes?.includes("returns on Tuesday"),
     "lexical recall includes the later correction exactly",
   );
   assert.equal(exactRecall.receipt.recalledMessageIds.length, 3, "the scene contributes one bounded excerpt");
-  assert.equal(exactRecall.recalledScenes, null, "the scene recap stays paired with its excerpt");
-  assert(exactRecall.recalledMessages?.includes("story timeframe: Spring 14 → The following morning"));
-  assert(exactRecall.recalledMessages.includes("story timeframe: The following morning"));
-  assert(exactRecall.recalledMessages.includes("Excerpt:\nMessages #25–#27"));
+  assert.equal(exactRecall.recalledMessages, null, "the scene recap and excerpt use the same scene section");
+  assert(exactRecall.recalledScenes?.includes("story timeframe: Spring 14 → The following morning"));
+  assert(exactRecall.recalledScenes.includes("story timeframe: The following morning"));
+  assert(exactRecall.recalledScenes.includes("Excerpt:\nMessages #25–#27"));
   const { estimateChatSummaryTokens } = await import("../../packages/shared/src/index.ts");
   assert(
     estimateChatSummaryTokens(exactRecall.chatSummary ?? "") <= 256,
@@ -529,7 +529,7 @@ try {
     readOnly: true,
   });
   assert(
-    legacyTimeline.recalledMessages?.includes("Spring 14 → The following morning"),
+    legacyTimeline.recalledScenes?.includes("Spring 14 → The following morning"),
     "legacy archives recover known timeframes from validated source IDs",
   );
   assert(
@@ -605,7 +605,7 @@ try {
     budgetTokens: 1800,
     readOnly: true,
   });
-  assert(optionalExcerpts.recalledMessages?.includes("returns on Tuesday"), "0/N can still recall relevant excerpts");
+  assert(optionalExcerpts.recalledScenes?.includes("returns on Tuesday"), "0/N can still recall relevant excerpts");
   assert(optionalExcerpts.receipt.recalledMessageIds.length > 0);
   assert.deepEqual(
     (await memory.status(recallChat.id)).records.filter((record) => record.kind === "excerpt"),
@@ -1124,6 +1124,7 @@ try {
     try {
       await assert.rejects(memory.updateRecord(joinedChat.id, "missing", { enabled: false }), /not found/);
       await assert.rejects(memory.updateRecord(joinedChat.id, editableScene.id, { content: " " }), /Memory text/);
+      await assert.rejects(memory.updateRecord(joinedChat.id, editableScene.id, {}), /must include content or enabled/);
       await assert.rejects(memory.deleteRecord(joinedChat.id, editableScene.sceneId), /Only a saved summary/);
       assert.equal((await memory.status(joinedChat.id)).job.status, "running", "invalid edits do not cancel paid work");
       const mutation =

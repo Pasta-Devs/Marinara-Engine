@@ -2063,7 +2063,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       );
     if (!liveCtx.settings.enabled) throw new Error("Advanced Memory is disabled");
     const fullById = new Map(liveCtx.messages.map((message) => [message.id, message]));
-    const sources = [...input.messages];
+    const sources = input.messages.map((message) => ({ ...message, extra: object(message.extra) }));
     const currentPrefixEnd = sources.at(-1)?.id
       ? liveCtx.messages.findIndex((message) => message.id === sources.at(-1)!.id)
       : -1;
@@ -2171,14 +2171,19 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     }
     let currentSceneSummary: string | null = null;
     if (historySize(ctx, live) + tokenSize(chatSummary) > budget) {
-      const excerptBudget = Math.max(64, Math.min(1024, Math.floor((budget - tokenSize(chatSummary)) / 3)));
+      const summaryTokens = tokenSize(chatSummary);
+      const excerptBudget = Math.max(64, Math.min(1024, Math.floor((budget - summaryTokens) / 3)));
+      const liveBudget = budget - summaryTokens - excerptBudget;
+      // Removing a prefix only reduces the estimate. Find the same first fitting
+      // suffix without re-tokenizing almost the whole chat once per old message.
       let prefixLength = 0;
-      while (
-        prefixLength < live.length - 1 &&
-        historySize(ctx, live.slice(prefixLength)) + tokenSize(chatSummary) + excerptBudget > budget
-      )
-        prefixLength++;
-      if (!prefixLength || historySize(ctx, live.slice(prefixLength)) + tokenSize(chatSummary) + excerptBudget > budget)
+      let upper = live.length - 1;
+      while (prefixLength < upper) {
+        const middle = Math.floor((prefixLength + upper) / 2);
+        if (historySize(ctx, live.slice(middle)) > liveBudget) prefixLength = middle + 1;
+        else upper = middle;
+      }
+      if (!prefixLength || historySize(ctx, live.slice(prefixLength)) > liveBudget)
         throw new Error(
           "The latest message cannot fit without losing necessary context; increase the Advanced Memory context limit",
         );
@@ -2298,7 +2303,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       })
       .filter((item) => item.score >= 0.12)
       .sort((a, b) => b.score - a.score);
-    const sceneTexts: Array<{ index: number; text: string; hasExcerpt: boolean }> = [];
+    const sceneTexts: Array<{ index: number; text: string }> = [];
     const excerptIds = new Set<string>();
     const selectedScenes = new Set<string>();
     const recalledRecords: StoredRecord[] = [];
@@ -2307,7 +2312,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       "Included below are recalled memories of scenes from the past chat history, together with small message excerpts from them. " +
       `Present message range in the context is: ${live.length ? `#${indexes.get(live[0]!.id)! + 1}–#${indexes.get(live.at(-1)!.id)! + 1}` : "none"}, ` +
       `with the last user message being ${lastUser ? `#${indexes.get(lastUser.id)! + 1}` : "none"}.`;
-    const recallBudget = Math.min(budget - used, Math.floor(budget * 0.2)) - tokenSize(recallIntroduction) * 2;
+    const recallBudget = Math.min(budget - used, Math.floor(budget * 0.2)) - tokenSize(recallIntroduction);
     let recalledTokens = 0;
     // Rank chunks to find a scene, then spend its excerpt allowance only once.
     const consideredScenes = new Set<string>();
@@ -2360,23 +2365,19 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         if (excerpt.length) text += excerptText(excerpt);
       }
       for (const message of excerpt) excerptIds.add(message.id);
-      sceneTexts.push({ index: start, text, hasExcerpt: excerpt.length > 0 });
+      sceneTexts.push({ index: start, text });
       recalledTokens += tokenSize(text);
       selectedScenes.add(scene.sceneId);
       recalledRecords.push(scene, ...excerptRecords.filter((item) => item.messageIds.some((id) => excerptIds.has(id))));
     }
-    const renderScenes = (hasExcerpt: boolean) => {
-      const text = sceneTexts
-        .filter((item) => item.hasExcerpt === hasExcerpt)
-        .sort((a, b) => a.index - b.index)
-        .map((item) => item.text)
-        .join("\n\n");
-      return text ? `${recallIntroduction}\n\n${text}` : null;
-    };
-    const recalledScenes = renderScenes(false);
-    const recalledMessages = renderScenes(true);
+    const sceneText = sceneTexts
+      .sort((a, b) => a.index - b.index)
+      .map((item) => item.text)
+      .join("\n\n");
+    const recalledScenes = sceneText ? `${recallIntroduction}\n\n${sceneText}` : null;
+    const recalledMessages = null;
     const excerpts = sources.filter((message) => excerptIds.has(message.id));
-    used += tokenSize(recalledScenes ?? "") + tokenSize(recalledMessages ?? "");
+    used += tokenSize(recalledScenes ?? "");
     receipt.estimatedTokensAfter = used + 192;
     receipt.boundaryMessageId = boundary;
     receipt.checkpointId = null;
@@ -2586,6 +2587,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
   }
 
   async function updateRecord(chatId: string, recordId: string, patch: { content?: string; enabled?: boolean }) {
+    if (patch.content === undefined && patch.enabled === undefined)
+      throw new Error("Memory update must include content or enabled");
     if (patch.content !== undefined && (!patch.content.trim() || patch.content.length > 500_000))
       throw new Error("Memory text must contain between 1 and 500000 characters");
     await getRecord(chatId, recordId); // Invalid requests must not interrupt paid preparation.

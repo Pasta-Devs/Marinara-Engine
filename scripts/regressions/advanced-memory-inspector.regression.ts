@@ -11,28 +11,57 @@ process.env.FILE_STORAGE_DIR = join(directory, "storage");
 process.env.NODE_ENV = "test";
 process.env.LOG_LEVEL = "silent";
 process.env.MARINARA_LITE = "true";
-const { createFileNativeDB } = await import("../../packages/server/src/db/file-backed-store.js");
+const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
+const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
+const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
+const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
 const { createAdvancedMemoryService, advancedMemorySourceFingerprint } =
   await import("../../packages/server/src/services/advanced-memory.js");
 const { advancedMemoryRecords } = await import("../../packages/server/src/db/schema/advanced-memory.js");
 const { advancedMemoryRoutes } = await import("../../packages/server/src/routes/advanced-memory.routes.js");
-const { DEFAULT_ADVANCED_MEMORY_SETTINGS } = await import("../../packages/shared/src/types/advanced-memory.js");
+const { generateRoutes } = await import("../../packages/server/src/routes/generate.routes.js");
+const { chatsRoutes } = await import("../../packages/server/src/routes/chats.routes.js");
+const { charactersRoutes } = await import("../../packages/server/src/routes/characters.routes.js");
+const { promptsRoutes } = await import("../../packages/server/src/routes/prompts.routes.js");
+const { DEFAULT_ADVANCED_MEMORY_SETTINGS, characterDataSchema, estimateChatSummaryTokens } =
+  await import("../../packages/shared/dist/index.js");
 const require = createRequire(new URL("../../packages/server/package.json", import.meta.url));
 const app = require("fastify")();
-const db = await createFileNativeDB();
+const db = await getDB();
 const chats = createChatsStorage(db);
 const memory = createAdvancedMemoryService(db);
 app.decorate("db", db);
 await app.register(advancedMemoryRoutes, { prefix: "/chats" });
+await app.register(chatsRoutes, { prefix: "/api/chats" });
+await app.register(generateRoutes, { prefix: "/api/generate" });
+await app.register(charactersRoutes, { prefix: "/api/characters" });
+await app.register(promptsRoutes, { prefix: "/api/prompts" });
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const parse = JSON.parse;
 let metadataParses = 0;
 try {
-  const chat = await chats.create({ name: "Large prepared archive", mode: "roleplay", characterIds: [] });
+  const character = await createCharactersStorage(db).create(characterDataSchema.parse({ name: "Dottore" }));
+  assert(character);
+  const connection = await createConnectionsStorage(db).create({
+    name: "Read-only preview fixture",
+    provider: "openai",
+    model: "gpt-6-astra",
+    apiKey: "fixture",
+    baseUrl: "http://127.0.0.1:1/v1", // Preview must succeed without a reachable model.
+    maxContext: 65_000,
+    maxTokensOverride: 1024,
+  });
+  const chat = await chats.create({
+    name: "Large prepared archive",
+    mode: "roleplay",
+    characterIds: [character.id],
+    connectionId: connection.id,
+  });
   assert(chat);
   await chats.patchMetadata(chat.id, {
-    advancedMemory: { ...DEFAULT_ADVANCED_MEMORY_SETTINGS, enabled: true },
+    enableAgents: false,
+    advancedMemory: { ...DEFAULT_ADVANCED_MEMORY_SETTINGS, enabled: true, maxContextTokens: 65_000 },
     advancedMemoryState: { status: "ready", stage: "ready" },
   });
   await chats.createMessagesBatch(
@@ -44,7 +73,7 @@ try {
     })),
   );
   const source = await chats.listMessages(chat.id);
-  const policy = hash([false, [], {}, null]);
+  const policy = hash([false, [character.id], {}, null]);
   const rows = [];
   for (const kind of ["scene", "excerpt"] as const) {
     const count = kind === "scene" ? 50 : 3;
@@ -88,7 +117,93 @@ try {
     "source validation remains active",
   );
   assert(metadataParses <= source.length * 2, "status parses metadata once per source, not once per archive record");
+  for (const budgetTokens of [2_000_000, 65_000]) {
+    metadataParses = 0;
+    const started = performance.now();
+    const prepared = await memory.prepare({
+      chatId: chat.id,
+      messages: source,
+      audienceCharacterIds: [],
+      budgetTokens,
+      readOnly: true,
+    });
+    console.info(
+      `Prepare 1000 messages (${budgetTokens} tokens): ${Math.round(performance.now() - started)} ms, ${metadataParses} metadata parses`,
+    );
+    assert(
+      metadataParses <= source.length * 3,
+      "prompt preparation parses source metadata once, not per archive record",
+    );
+    assert(performance.now() - started < 5000, "fitting a long open scene must not repeatedly scan every suffix");
+    assert(prepared.receipt.estimatedTokensAfter <= budgetTokens);
+    assert.equal(prepared.messageIds.at(-1), source.at(-1)!.id);
+    if (budgetTokens === 65_000) {
+      assert(prepared.receipt.reasons.includes("open-scene-prefix-excerpts"));
+      assert(prepared.messageIds.length < source.length);
+      const suffixSize = (start: number) => {
+        const suffix = source.slice(start);
+        return (
+          estimateChatSummaryTokens(
+            suffix
+              .map(
+                (message, index) =>
+                  `#${start + index + 1} ${message.role === "user" ? "User" : "Character"}: ${message.content}`,
+              )
+              .join("\n\n"),
+          ) +
+          suffix.length * 12
+        );
+      };
+      const start = source.length - prepared.messageIds.length;
+      const liveBudget = budgetTokens - 192 - 1024;
+      assert(suffixSize(start) <= liveBudget);
+      assert(suffixSize(start - 1) > liveBudget, "the optimized fit keeps the largest possible live suffix");
+    }
+  }
+  const previewStarted = performance.now();
+  const preview = await app.inject({ method: "POST", url: `/api/chats/${chat.id}/peek-prompt`, payload: {} });
+  assert.equal(preview.statusCode, 200, preview.body);
+  assert.equal(preview.json().source, "assembled");
+  assert(preview.json().messages.length > 0);
+  assert(performance.now() - previewStarted < 5000, "Peek Prompt must not block on long-scene fitting");
+  console.info(`Peek Prompt on 1000-message archive: ${Math.round(performance.now() - previewStarted)} ms`);
   const url = `/chats/${chat.id}/advanced-memory`;
+  const presets = createPromptsStorage(db);
+  const preset = await presets.create({ name: "Idle editing proof" });
+  assert(preset);
+  const group = await presets.createGroup({ presetId: preset.id, name: "New group" });
+  const section = await presets.createSection({
+    presetId: preset.id,
+    identifier: "rules",
+    name: "Rules",
+    content: "Keep this editable.",
+  });
+  assert(group && section);
+  const idleStarted = performance.now();
+  const [statusRead, presetEdit, characterList] = await Promise.all([
+    app.inject({ method: "GET", url }),
+    app.inject({
+      method: "PATCH",
+      url: `/api/prompts/${preset.id}/sections/${section.id}`,
+      payload: { groupId: group.id },
+    }),
+    app.inject({ method: "GET", url: "/api/characters" }),
+  ]);
+  for (const response of [statusRead, presetEdit, characterList]) assert.equal(response.statusCode, 200, response.body);
+  assert.equal(presetEdit.json().groupId, group.id);
+  assert(characterList.json().some((item: { id: string }) => item.id === character.id));
+  assert.equal(statusRead.json().job.status, "ready");
+  assert(performance.now() - idleStarted < 2000, "reading memory status must not stall unrelated app requests");
+  console.info(
+    `Concurrent idle status, preset edit and character list: ${Math.round(performance.now() - idleStarted)} ms`,
+  );
+  const emptyPatch = await app.inject({ method: "PATCH", url: `${url}/records/scene-0-saved`, payload: {} });
+  assert.equal(emptyPatch.statusCode, 400, emptyPatch.body);
+  assert.deepEqual(
+    (await memory.status(chat.id)).records,
+    full.records,
+    "an empty patch cannot change saved revisions",
+  );
   for (const method of ["GET", "PATCH", "DELETE"] as const) {
     metadataParses = 0;
     const started = performance.now();
@@ -131,6 +246,6 @@ try {
 } finally {
   JSON.parse = parse;
   await app.close();
-  await db._fileStore.close();
+  await closeDB();
   rmSync(directory, { recursive: true, force: true });
 }

@@ -3566,6 +3566,10 @@ export function useGenerate() {
           console.warn("[use-generate] dispatching generation-complete for chat:", params.chatId);
         }
         window.dispatchEvent(new CustomEvent("marinara:generation-complete", { detail: { chatId: params.chatId } }));
+        // Discover work started after this reply without polling a ready archive while idle.
+        if (qc.getQueryData<AdvancedMemoryStatus>(advancedMemoryKeys.status(params.chatId))?.settings.enabled) {
+          void qc.invalidateQueries({ queryKey: advancedMemoryKeys.status(params.chatId) });
+        }
 
         // Translation runs independently on the server. Wait for persistence
         // before notifying, without retaining the browser's generation lock.

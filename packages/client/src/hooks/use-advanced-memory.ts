@@ -20,14 +20,7 @@ export function useAdvancedMemoryStatus(chatId: string, enabled = true) {
     queryFn: ({ signal }) => api.get<AdvancedMemoryStatus>(`/chats/${chatId}/advanced-memory`, { signal }),
     enabled: !!chatId && enabled,
     staleTime: 1_000,
-    refetchInterval: (query) =>
-      !enabled
-        ? false
-        : query.state.data?.job.status === "running"
-          ? 1_000
-          : query.state.data?.settings.enabled
-            ? 5_000
-            : false,
+    refetchInterval: (query) => (enabled && query.state.data?.job.status === "running" ? 1_000 : false),
   });
   const jobId = query.data?.job.id;
   const jobStatus = query.data?.job.status;
