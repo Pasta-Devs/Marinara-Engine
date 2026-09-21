@@ -4,6 +4,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Advanced Memory keeps applicable enabled Chat Summaries ahead of optional scene recall, including ranges that overlap live messages, and allows up to 2,000 tokens above the configured constant-summary target before combining them.
+- Recalled messages and new scene summaries omit illustration attachments and their unavailable-content notices while retaining readable text attachments.
+- Post-generation scene checks receive chat message numbers and identify exact scene endings. They share eligible tracker calls when available and archive completed ranges after the reply; scenes still in live context stay excluded from recall.
+
 - Advanced Memory uses one **Recalled Scenes** prompt section, with each scene summary immediately followed by its available excerpt. Existing preset markers and saved swipe memories remain usable without another search or archive reset.
 - Advanced Memory stops polling ready archives while idle, keeping unrelated character and preset requests responsive. Long-chat replies and Peek Prompt avoid repeated metadata parsing and repeated whole-scene budget scans; previews without a preset retain message IDs so history can fit the budget (#6484).
 - Advanced Memory scene recall toggles and deletion stay responsive in long chats: archive checks reuse parsed message metadata, the inspector loads summaries without resending hidden excerpts, and user edits interrupt background processing safely (#6484).
