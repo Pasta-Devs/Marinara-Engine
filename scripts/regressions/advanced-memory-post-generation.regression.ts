@@ -646,6 +646,11 @@ try {
     "Chat Summary output size overrides the helper connection's 256-token setting",
   );
   assert(JSON.stringify(combinedRequest.messages).includes("CONSTANTS_ONLY_SOURCE"));
+  assert.match(
+    combinedRequest.messages[0]!.content,
+    /Aim for 10000 tokens, allowing up to 12000 tokens/u,
+    "the helper receives the soft target and its allowance",
+  );
   assert.doesNotMatch(
     JSON.stringify(combinedRequest.messages),
     /ALREADY_SUMMARIZED_RAW|ongoing scene continues|character continues/iu,

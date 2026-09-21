@@ -697,6 +697,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     // Do not silently substitute the connection override or a fraction of the context window.
     const outputBudget = clampRoleplaySummaryMaxTokens(ctx.metadata.summaryMaxTokens);
     const summaryTarget = Math.max(1, Math.floor(budget * 0.8));
+    const sizeInstruction =
+      tolerance > 0
+        ? `Aim for ${budget} tokens, allowing up to ${budget + tolerance} tokens if needed to preserve important events.`
+        : `Keep the result under ${summaryTarget} tokens.`;
     const inputBudget = Math.floor(window * 0.85) - outputBudget - tokenSize(prompt + combinePrompt) - 256;
     if (inputBudget < 128)
       throw new Error("The summary prompt and output reserve do not fit this model's context limit");
@@ -727,7 +731,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           pass > 0
             ? `\nThe supplied recap is still too long (about ${tokenSize(batchText)} tokens). Rewrite it more concisely, prioritizing durable events and outcomes. Do not expand it or repeat facts.`
             : "";
-        const instruction = `${prompt}\n\n${pass > 0 || !sceneSummary ? `${combinePrompt}\n\n` : ""}Summarize only the supplied eligible source material. Preserve corrections, chronological order and explicit story-time anchors; distinguish plans, beliefs, and events. An unknown story timeframe stays unknown; source message numbers show order, not elapsed time. Do not add facts from outside these sources. ${sceneSummary ? "" : `Keep the result under ${summaryTarget} tokens.`}${shortening}`;
+        const instruction = `${prompt}\n\n${pass > 0 || !sceneSummary ? `${combinePrompt}\n\n` : ""}Summarize only the supplied eligible source material. Preserve corrections, chronological order and explicit story-time anchors; distinguish plans, beliefs, and events. An unknown story timeframe stays unknown; source message numbers show order, not elapsed time. Do not add facts from outside these sources. ${sceneSummary ? "" : sizeInstruction}${shortening}`;
         logDebugOverride(
           options.debugMode === true || process.env.DEBUG_AGENTS === "true",
           "[advanced-memory] Summary prompt for %s (%s): %s\n%s",
