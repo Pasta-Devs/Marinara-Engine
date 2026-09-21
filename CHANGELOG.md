@@ -4,7 +4,6 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- Advanced Memory setup regression checks use an explicit settings revisit instead of expecting idle polling, while retaining coverage for delayed responses overwriting saved limits.
 - Advanced Memory uses one **Recalled Scenes** prompt section, with each scene summary immediately followed by its available excerpt. Existing preset markers and saved swipe memories remain usable without another search or archive reset.
 - Advanced Memory stops polling ready archives while idle, keeping unrelated character and preset requests responsive. Long-chat replies and Peek Prompt avoid repeated metadata parsing and repeated whole-scene budget scans; previews without a preset retain message IDs so history can fit the budget (#6484).
 - Advanced Memory scene recall toggles and deletion stay responsive in long chats: archive checks reuse parsed message metadata, the inspector loads summaries without resending hidden excerpts, and user edits interrupt background processing safely (#6484).
