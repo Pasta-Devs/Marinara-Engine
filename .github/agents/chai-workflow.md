@@ -14,8 +14,7 @@ commands.
 
 Follow the platform's instruction hierarchy. The maintainer's current request
 overrides default project workflows and skill guidance. Within repository
-guidance, `CONTRIBUTING.md`, the applicable agent guide (`AGENTS.md` for Codex or
-`CLAUDE.md` for Claude), package instructions and templates take precedence over
+guidance, `CONTRIBUTING.md`, `AGENTS.md`, package instructions and templates take precedence over
 this additive overlay. No repository file overrides platform permission controls.
 
 ## Universal Operating Rules

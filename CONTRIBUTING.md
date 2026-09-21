@@ -1,6 +1,6 @@
 # Contributing to Marinara Engine
 
-This is the canonical contributor guide for Marinara Engine. Use it with `README.md` for the product overview, `CHANGELOG.md` for release notes, and `AGENTS.md` (OpenAI Codex) or `CLAUDE.md` (Claude) as an agent-specific companion. All participants are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+This is the canonical contributor guide for Marinara Engine. Use it with `README.md` for the product overview, `CHANGELOG.md` for release notes, and `AGENTS.md` as the repository's coding-agent companion. All participants are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Tech Stack
 
