@@ -21,10 +21,17 @@ const { createChatsStorage } = await import("../../packages/server/src/services/
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const requests: Array<{ model: string; messages: Array<{ content: string }> }> = [];
 let content = "";
+let pausedStarted: (() => void) | null = null;
+let pausedClosed: (() => void) | null = null;
 const provider = createServer(async (req, res) => {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
   requests.push(JSON.parse(Buffer.concat(chunks).toString()));
+  if (pausedStarted) {
+    res.once("close", () => pausedClosed?.());
+    pausedStarted();
+    return;
+  }
   res.writeHead(200, { "content-type": "application/json" });
   res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content }, finish_reason: "stop" }] }));
 });
@@ -145,6 +152,7 @@ try {
     content = invalid;
     response = await draft({ connectionId: override.id });
     assert.equal(response.statusCode, 502, `${invalid}: ${response.body}`);
+    assert.equal(response.json().rawResponse, invalid, "Invalid output remains available for manual repair");
     assert.match(response.json().error, /model returned (invalid schedule JSON|an empty or invalid schedule)/);
   }
   for (const invalid of [
@@ -183,6 +191,54 @@ try {
       response = await draft({ connectionId: override.id, mode, day: "Monday" });
       assert.equal(response.statusCode, 502, `Reject partial, gapped, or overlapping days: ${content}`);
     }
+  }
+  const callsBeforeAutomatic = requests.length;
+  const automatic = await app.inject({
+    method: "POST",
+    url: "/api/conversation/schedule/generate",
+    payload: { chatId: chat.id, automatic: true },
+  });
+  assert.equal(automatic.statusCode, 200, automatic.body);
+  assert.equal(requests.length, callsBeforeAutomatic, "A schedule is not consent to automatic renewal");
+  assert.equal(automatic.json().results[character.id].status, "renewal_disabled");
+
+  const appAddress = await app.listen({ host: "127.0.0.1", port: 0 });
+  for (const [endpoint, payload] of [
+    ["draft", { characterId: character.id, mode: "week", schedule }],
+    ["draft", { characterId: character.id, mode: "day", day: "Monday", schedule }],
+    ["summary", { characterId: character.id, schedule }],
+    ["generate", { chatId: chat.id, forceRefresh: true }],
+  ] as const) {
+    const started = new Promise<void>((resolve) => {
+      pausedStarted = resolve;
+    });
+    const closed = new Promise<void>((resolve) => {
+      pausedClosed = resolve;
+    });
+    const controller = new AbortController();
+    const pending = fetch(`${appAddress}/api/conversation/schedule/${endpoint}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    }).catch(() => null);
+    await started;
+    const count = requests.length;
+    controller.abort();
+    await pending;
+    let timer: ReturnType<typeof setTimeout>;
+    try {
+      await Promise.race([
+        closed,
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`${endpoint} left the provider running after disconnect`)), 3000);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer!);
+    }
+    assert.equal(requests.length, count, "Cancellation never retries the provider");
+    pausedStarted = pausedClosed = null;
   }
   const saved = JSON.parse((await chars.getById(character.id))!.data);
   assert.deepEqual(

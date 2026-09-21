@@ -1528,6 +1528,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     if (!finalMessages.length) {
       // No (or skipped) preset: fall back to raw mapped messages without any agent/tool behavior.
       finalMessages = mappedMessages.map((m: any) => ({
+        id: m.id,
         role: m.role,
         content: m.content,
         ...(m.contextKind ? { contextKind: m.contextKind } : {}),

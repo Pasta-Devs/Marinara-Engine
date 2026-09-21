@@ -425,15 +425,9 @@ function hasConversationSchedules(value: unknown): value is CharacterSchedules {
   return !!value && typeof value === "object" && Object.keys(value as Record<string, unknown>).length > 0;
 }
 
-/**
- * A chat opts into schedules explicitly, or implicitly by already having a
- * cached schedule from an earlier opt-in. An unset flag on a chat that has never
- * used schedules means off, so a character gaining a schedule does not silently
- * switch it on in every old chat.
- */
+/** Reuse character-owned routines unless this chat explicitly disables them. */
 function areConversationSchedulesEnabled(meta: MetadataPatch): boolean {
-  if (typeof meta.conversationSchedulesEnabled === "boolean") return meta.conversationSchedulesEnabled;
-  return hasConversationSchedules(meta.characterSchedules);
+  return meta.conversationSchedulesEnabled !== false;
 }
 
 /** Resolved presence state for one chat, read from the character cards it uses. */

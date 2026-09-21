@@ -4,6 +4,15 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Advanced Memory uses one **Recalled Scenes** prompt section, with each scene summary immediately followed by its available excerpt. Existing preset markers and saved swipe memories remain usable without another search or archive reset.
+- Advanced Memory stops polling ready archives while idle, keeping unrelated character and preset requests responsive. Long-chat replies and Peek Prompt avoid repeated metadata parsing and repeated whole-scene budget scans; previews without a preset retain message IDs so history can fit the budget (#6484).
+- Advanced Memory scene recall toggles and deletion stay responsive in long chats: archive checks reuse parsed message metadata, the inspector loads summaries without resending hidden excerpts, and user edits interrupt background processing safely (#6484).
+- Conversation chats reuse character-owned schedules. Enabling schedules no longer starts generation, and weekly renewal requires an explicit per-character opt-in without repeated retries after failure (#6481, #6477).
+- Schedule generation stops when cancelled or when its editor, manager, or chat settings closes. Invalid model output remains editable and can be applied to the draft after validation; completed days survive a later day’s failure (#6480, #6476).
+- Disabled Regex and Functions keep their switches and action buttons fully visible while dimming only their descriptions (#6463).
+
+- OpenAI-compatible image connections can fetch models from custom provider URLs without a dedicated provider integration (#6464).
+
 - Advanced Memory no longer starts or waits for continuity generation before the main Roleplay reply. Constants reuse existing ranged Chat Summaries, add only uncovered history after the reply, and combine only summary text when the constant-only budget is exceeded. All summary calls honor Chat Summary’s Maximum output size; replaced constants become inactive in Chat Summaries (#6474).
 - Every saved scene, legacy continuity and ongoing summary has a confirmed Delete summary action at the bottom of its vault editor. Original messages remain intact (#6474).
 - Toggling a Chat Summary no longer locks every entry, and Activate All / Deactivate All save together in one request. Background constant updates refresh Chat Summaries automatically (#6474).

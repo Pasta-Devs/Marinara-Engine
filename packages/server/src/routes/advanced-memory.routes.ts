@@ -19,6 +19,7 @@ const validationErrors = new Set([
   "Select a narrator from this chat's characters",
   "A character knowledge range points to a message that no longer exists",
   "Memory text must contain between 1 and 500000 characters",
+  "Memory update must include content or enabled",
   "Only a saved summary can be deleted",
   "Invalid Advanced Memory export",
 ]);
@@ -37,7 +38,8 @@ async function withMemoryDomainErrors<T>(reply: FastifyReply, operation: () => P
 }
 
 export async function advancedMemoryRoutes(app: FastifyInstance) {
-  const service = createAdvancedMemoryService(app.db);
+  // The inspector displays summaries; source excerpts are fetched on demand.
+  const service = createAdvancedMemoryService(app.db, { includeExcerptsInStatus: false });
   const prefix = "/:id/advanced-memory";
   app.get<{ Params: { id: string } }>(prefix, async (req) => service.status(req.params.id));
   app.delete<{ Params: { id: string } }>(prefix, async (req, reply) =>

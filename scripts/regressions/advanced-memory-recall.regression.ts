@@ -106,14 +106,14 @@ try {
     "ordinary recall only embeds its query, without archive preparation",
   );
   assert(!stages.includes("indexing") && !stages.includes("summarizing") && !stages.includes("classifying"));
-  assert.equal(recalled.recalledScenes, null, "a paired scene summary is not separately injected again");
+  assert.equal(recalled.recalledMessages, null, "all recalled scenes share one prompt component");
   assert.match(
-    recalled.recalledMessages!,
+    recalled.recalledScenes!,
     /Present message range in the context is: #61–#65, with the last user message being #65\./u,
   );
-  assert.equal(recalled.recalledMessages!.match(/SCENE_RECAP/g)?.length, 3);
-  assert.equal(recalled.recalledMessages!.match(/Excerpt:\nMessages #\d+–#\d+;/g)?.length, 3);
-  for (const block of recalled.recalledMessages!.split("Scene summary:\n").slice(1)) {
+  assert.equal(recalled.recalledScenes!.match(/SCENE_RECAP/g)?.length, 3);
+  assert.equal(recalled.recalledScenes!.match(/Excerpt:\nMessages #\d+–#\d+;/g)?.length, 3);
+  for (const block of recalled.recalledScenes!.split("Scene summary:\n").slice(1)) {
     assert(block.indexOf("SCENE_RECAP") < block.indexOf("Excerpt:\n"), "each summary precedes its own excerpt");
     const range = /Excerpt:\nMessages #(\d+)–#(\d+);/u.exec(block)!;
     assert.equal(Number(range[2]) - Number(range[1]), 2, "one heading covers the complete contiguous excerpt");
@@ -152,7 +152,7 @@ try {
   const next = await memory.prepare({ ...input, messages: await chats.listMessages(chat.id) });
   assert.deepEqual(calls.slice(beforeAppend), ["embedding"], "new live turns are not archived before generation");
   assert(next.messageIds.includes(appended.id));
-  assert.match(next.recalledMessages!, /last user message being #66\./u);
+  assert.match(next.recalledScenes!, /last user message being #66\./u);
 
   stallQuery = true;
   const started = Date.now();

@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { createServer, type ServerResponse } from "node:http";
 import type { AdvancedMemoryStatus, Message } from "@marinara-engine/shared";
 import { DEFAULT_ADVANCED_MEMORY_SETTINGS } from "@marinara-engine/shared";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -203,6 +204,17 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
   let resetRequests = 0;
   let deleteSceneRequests = 0;
   let failSceneDelete = true;
+  let watchRecordRefetches = false;
+  const recordRefetches: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (
+      watchRecordRefetches &&
+      request.method() === "GET" &&
+      (path === `/api/chats/${fixture.chat.id}` || path.endsWith("/sources"))
+    )
+      recordRefetches.push(path);
+  });
   let releaseResume: (() => void) | undefined;
   await page.route(`**/api/chats/${fixture.chat.id}/advanced-memory**`, async (route) => {
     const pathname = new URL(route.request().url()).pathname;
@@ -218,6 +230,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
       status.records = status.records.filter((item) =>
         record.kind === "scene" ? item.kind !== "scene" || item.sceneId !== record.sceneId : item.id !== record.id,
       );
+      if (status.job.status === "running") status.job.status = "cancelled";
       return route.fulfill({ json: status });
     }
     if (method === "DELETE") {
@@ -256,6 +269,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
       Object.assign(record, patch, {
         manualOverride: patch.content !== undefined || record.manualOverride,
       });
+      if (status.job.status === "running") status.job.status = "cancelled";
     } else if (method === "POST" && pathname.endsWith("/reindex")) {
       reindexRequests += 1;
       const record = status.records[0];
@@ -465,6 +479,8 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
         timeline: null,
       },
     );
+    // Explicit actions refresh a ready archive; there is no idle polling.
+    await inspector.getByRole("button", { name: "Reindex", exact: true }).click();
     await expect(inspector.getByRole("button", { name: /Scene #2/ })).toBeVisible();
     await expect(inspector.getByRole("button", { name: /Scene #2/ })).toContainText(
       "Story timeframe: Not specified in the story",
@@ -519,9 +535,23 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     expect(sourceBounds!.y).toBeGreaterThanOrEqual(saveBounds!.y + saveBounds!.height);
     await sourceButton.click();
     await expect(inspector).toContainText("I will remember the blue notebook.");
+    status.job = { ...status.job, status: "running", blocking: false, stage: "summarizing" };
+    await inspector.getByRole("button", { name: "Reindex", exact: true }).click();
+    await expect(inspector.getByRole("button", { name: "Reindex", exact: true })).toBeDisabled();
+    const recallToggle = inspector.getByRole("checkbox", { name: "Include in recall", exact: true });
+    await expect(recallToggle).toBeEnabled();
+    watchRecordRefetches = true;
+    await inspector.getByText("Include in recall", { exact: true }).click();
+    await expect(recallToggle).toBeChecked();
+    await expect(recallToggle).toBeEnabled();
+    await inspector.getByText("Include in recall", { exact: true }).click();
+    await expect(recallToggle).not.toBeChecked();
+    await expect(recallToggle).toBeEnabled();
+    expect(recordRefetches, "a recall toggle must not refetch the chat or its inspected source messages").toEqual([]);
+    watchRecordRefetches = false;
     await inspector.getByRole("button", { name: "Back to scenes", exact: true }).click();
     await inspector.getByRole("button", { name: "Reindex", exact: true }).click();
-    await expect.poll(() => reindexRequests).toBe(1);
+    await expect.poll(() => reindexRequests).toBe(3);
     expect(status.records[0]?.enabled).toBe(false);
     for (let index = 0; index < 10; index++) {
       status.records.push({
@@ -533,6 +563,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
         content: "A long historical recap with several events and their outcomes. ".repeat(100),
       });
     }
+    await inspector.getByRole("button", { name: "Reindex", exact: true }).click();
     await expect(inspector.locator("ul > li")).toHaveCount(12);
     await inspector.locator("ul > li").last().scrollIntoViewIfNeeded();
     const longRows = await inspector.locator("ul > li").evaluateAll((rows) =>
@@ -567,10 +598,17 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
       page.getByText("Advanced Memory: Scene deletion failed; please retry.", { exact: true }),
     ).toBeVisible();
     await expect(deleteSceneButton).toBeEnabled();
+    status.job = { ...status.job, status: "running", blocking: false, stage: "summarizing" };
+    await inspector.getByRole("button", { name: "Reindex", exact: true }).click();
+    await expect(inspector.getByRole("button", { name: "Reindex", exact: true })).toBeDisabled();
+    await expect(deleteSceneButton).toBeEnabled();
+    watchRecordRefetches = true;
     await deleteSceneButton.click();
     await deleteSceneDialog.getByRole("button", { name: "Delete summary", exact: true }).click();
     await expect.poll(() => deleteSceneRequests).toBe(2);
     await expect(inspector.locator("ul > li")).toHaveCount(11);
+    expect(recordRefetches, "deleting a summary must not refetch the chat or its source messages").toEqual([]);
+    watchRecordRefetches = false;
     expect(resetRequests).toBe(0);
     for (const kind of ["continuity", "temporary"] as const) {
       const legacy = {
@@ -582,6 +620,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
         content: "Unwanted old summary",
       };
       status.records.push(legacy);
+      await inspector.getByRole("button", { name: "Reindex", exact: true }).click();
       await expect(inspector.getByRole("button", { name: new RegExp(`^${legacy.title}`) })).toBeVisible();
       await inspector.getByRole("button", { name: new RegExp(`^${legacy.title}`) }).click();
       const remove = inspector.getByRole("button", { name: "Delete summary", exact: true });
@@ -670,6 +709,130 @@ test("Advanced Recall background activity appears without ordinary agents", asyn
     await expect(page.locator(".mari-chat-settings-drawer")).toBeHidden();
   } finally {
     await fixture.cleanup();
+  }
+});
+
+test("Advanced Memory stays idle, streams OpenAI replies and follows post-generation work", async ({
+  page,
+  request,
+}, info) => {
+  const fixture = await createFixture(request);
+  const firstChunk = "The blue notebook is open on the laboratory table.";
+  const lastChunk = " Its final page contains the answer.";
+  const providerRequests: Array<{ stream?: boolean; model?: string }> = [];
+  let pending: ServerResponse | undefined;
+  let pendingScene: ServerResponse | undefined;
+  const provider = createServer(async (incoming, response) => {
+    if (incoming.method !== "POST" || incoming.url !== "/v1/responses") {
+      incoming.resume();
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ data: [{ id: "gpt-6-astra" }] }));
+      return;
+    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
+    const body = JSON.parse(Buffer.concat(chunks).toString());
+    providerRequests.push(body);
+    if (JSON.stringify(body).includes("Identify scene transitions")) {
+      pendingScene = response;
+      return;
+    }
+    pending = response;
+    response.writeHead(200, { "content-type": "text/event-stream" });
+    response.write(`data: ${JSON.stringify({ type: "response.output_text.delta", delta: firstChunk })}\n\n`);
+  });
+  let connectionId: string | undefined;
+  try {
+    await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+    const address = provider.address();
+    if (!address || typeof address === "string") throw new Error("Streaming fixture did not bind");
+    const connection = await request.post("/api/connections", {
+      data: {
+        name: "Memory streaming proof",
+        provider: "openai",
+        model: "gpt-6-astra",
+        apiKey: "fixture",
+        baseUrl: `http://127.0.0.1:${address.port}/v1`,
+        maxContext: 65_000,
+        maxTokensOverride: 1024,
+      },
+    });
+    expect(connection.ok()).toBeTruthy();
+    connectionId = (await connection.json()).id;
+    expect(
+      (
+        await request.patch(`/api/chats/${fixture.chat.id}`, {
+          data: { connectionId, characterIds: [fixture.character.id] },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    expect(
+      (
+        await request.patch(`/api/chats/${fixture.chat.id}/metadata`, {
+          data: {
+            groupChatMode: "shared",
+            advancedMemory: { ...DEFAULT_ADVANCED_MEMORY_SETTINGS, enabled: true, sceneCheckInterval: 1 },
+            advancedMemoryState: { status: "ready", stage: "ready", sceneCheckMessageId: fixture.lastMessage.id },
+          },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    let polls = 0;
+    page.on("response", (response) => {
+      if (response.url().endsWith(`/chats/${fixture.chat.id}/advanced-memory`)) polls++;
+    });
+    await openChat(page, fixture.chat.id, false);
+    await expect.poll(() => polls).toBeGreaterThan(0);
+    const idlePolls = polls;
+    // Observe beyond the former five-second interval: an idle archive must stay idle.
+    await page.waitForTimeout(5500);
+    expect(polls).toBe(idlePolls);
+    expect(providerRequests).toHaveLength(0);
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.setState({ enableStreaming: true, streamingSpeed: 100 });
+    });
+    await page.locator("textarea[data-chat-composer]").fill("Open the notebook.");
+    await page.locator("button.mari-chat-send-btn").click();
+    await expect(page.getByText(firstChunk, { exact: true })).toBeVisible();
+    expect(providerRequests).toEqual([expect.objectContaining({ stream: true, model: "gpt-6-astra" })]);
+    expect(pending?.writableEnded).toBe(false);
+    expect((await request.get(`/api/chats/${fixture.chat.id}/advanced-memory`)).ok()).toBeTruthy();
+    await expect(page.getByText(firstChunk, { exact: true })).toBeVisible();
+    await expect(page.locator("button.mari-chat-send-btn .lucide-circle-stop")).toBeVisible();
+    await page.screenshot({ path: info.outputPath("advanced-memory-openai-live-tokens.png") });
+    pending!.write(`data: ${JSON.stringify({ type: "response.output_text.delta", delta: lastChunk })}\n\n`);
+    pending!.end(
+      `data: ${JSON.stringify({ type: "response.completed", response: { id: "fixture", status: "completed", output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: firstChunk + lastChunk }] }] } })}\n\n`,
+    );
+    await expect(page.getByText(firstChunk + lastChunk, { exact: true })).toBeVisible();
+    await expect(page.locator("button.mari-chat-send-btn .lucide-send")).toBeVisible();
+    await expect.poll(() => !!pendingScene).toBe(true);
+    const agents = page.getByRole("button", { name: /^Agents & Actions/ }).filter({ visible: true });
+    await expect(agents.locator(".lucide-loader-circle")).toBeVisible();
+    const activePolls = polls;
+    await expect.poll(() => polls).toBeGreaterThan(activePolls);
+    pendingScene!.writeHead(200, { "content-type": "application/json" });
+    pendingScene!.end(
+      JSON.stringify({
+        id: "scene-check",
+        status: "completed",
+        output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: '{"starts":[]}' }] }],
+      }),
+    );
+    await expect(agents.locator(".lucide-loader-circle")).toHaveCount(0);
+    const completedPolls = polls;
+    await page.waitForTimeout(5500);
+    expect(polls).toBe(completedPolls);
+    expect(providerRequests).toHaveLength(2);
+  } finally {
+    pending?.destroy();
+    pendingScene?.destroy();
+    provider.closeAllConnections();
+    await new Promise<void>((resolve) => provider.close(() => resolve()));
+    await page.close();
+    await fixture.cleanup();
+    if (connectionId) await request.delete(`/api/connections/${connectionId}`);
   }
 });
 

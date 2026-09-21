@@ -470,7 +470,7 @@ function readStored(raw: Record<string, unknown>): StoredRecord {
   };
 }
 
-export function createAdvancedMemoryService(db: DB) {
+export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = true } = {}) {
   const chats = createChatsStorage(db);
   const connections = createConnectionsStorage(db);
   const appSettings = createAppSettingsStorage(db);
@@ -480,7 +480,12 @@ export function createAdvancedMemoryService(db: DB) {
     const chat = await chats.getById(chatId);
     if (!chat || chat.mode !== "roleplay") throw new Error("Advanced Memory is available only for Roleplay chats");
     const metadata = object(chat.metadata);
-    const messages = (await chats.listMessages(chatId)) as AdvancedMemoryMessage[];
+    // Reuse parsed metadata across archive records. Re-parsing every message for
+    // each record's audience check freezes long chats, even for a simple toggle.
+    const messages = (await chats.listMessages(chatId)).map((message) => ({
+      ...message,
+      extra: object(message.extra),
+    })) as AdvancedMemoryMessage[];
     const characterIds = strings(chat.characterIds);
     const names = new Map<string, string>();
     const characterStore = createCharactersStorage(db);
@@ -2058,7 +2063,7 @@ export function createAdvancedMemoryService(db: DB) {
       );
     if (!liveCtx.settings.enabled) throw new Error("Advanced Memory is disabled");
     const fullById = new Map(liveCtx.messages.map((message) => [message.id, message]));
-    const sources = [...input.messages];
+    const sources = input.messages.map((message) => ({ ...message, extra: object(message.extra) }));
     const currentPrefixEnd = sources.at(-1)?.id
       ? liveCtx.messages.findIndex((message) => message.id === sources.at(-1)!.id)
       : -1;
@@ -2166,14 +2171,19 @@ export function createAdvancedMemoryService(db: DB) {
     }
     let currentSceneSummary: string | null = null;
     if (historySize(ctx, live) + tokenSize(chatSummary) > budget) {
-      const excerptBudget = Math.max(64, Math.min(1024, Math.floor((budget - tokenSize(chatSummary)) / 3)));
+      const summaryTokens = tokenSize(chatSummary);
+      const excerptBudget = Math.max(64, Math.min(1024, Math.floor((budget - summaryTokens) / 3)));
+      const liveBudget = budget - summaryTokens - excerptBudget;
+      // Removing a prefix only reduces the estimate. Find the same first fitting
+      // suffix without re-tokenizing almost the whole chat once per old message.
       let prefixLength = 0;
-      while (
-        prefixLength < live.length - 1 &&
-        historySize(ctx, live.slice(prefixLength)) + tokenSize(chatSummary) + excerptBudget > budget
-      )
-        prefixLength++;
-      if (!prefixLength || historySize(ctx, live.slice(prefixLength)) + tokenSize(chatSummary) + excerptBudget > budget)
+      let upper = live.length - 1;
+      while (prefixLength < upper) {
+        const middle = Math.floor((prefixLength + upper) / 2);
+        if (historySize(ctx, live.slice(middle)) > liveBudget) prefixLength = middle + 1;
+        else upper = middle;
+      }
+      if (!prefixLength || historySize(ctx, live.slice(prefixLength)) > liveBudget)
         throw new Error(
           "The latest message cannot fit without losing necessary context; increase the Advanced Memory context limit",
         );
@@ -2293,7 +2303,7 @@ export function createAdvancedMemoryService(db: DB) {
       })
       .filter((item) => item.score >= 0.12)
       .sort((a, b) => b.score - a.score);
-    const sceneTexts: Array<{ index: number; text: string; hasExcerpt: boolean }> = [];
+    const sceneTexts: Array<{ index: number; text: string }> = [];
     const excerptIds = new Set<string>();
     const selectedScenes = new Set<string>();
     const recalledRecords: StoredRecord[] = [];
@@ -2302,7 +2312,7 @@ export function createAdvancedMemoryService(db: DB) {
       "Included below are recalled memories of scenes from the past chat history, together with small message excerpts from them. " +
       `Present message range in the context is: ${live.length ? `#${indexes.get(live[0]!.id)! + 1}–#${indexes.get(live.at(-1)!.id)! + 1}` : "none"}, ` +
       `with the last user message being ${lastUser ? `#${indexes.get(lastUser.id)! + 1}` : "none"}.`;
-    const recallBudget = Math.min(budget - used, Math.floor(budget * 0.2)) - tokenSize(recallIntroduction) * 2;
+    const recallBudget = Math.min(budget - used, Math.floor(budget * 0.2)) - tokenSize(recallIntroduction);
     let recalledTokens = 0;
     // Rank chunks to find a scene, then spend its excerpt allowance only once.
     const consideredScenes = new Set<string>();
@@ -2355,23 +2365,19 @@ export function createAdvancedMemoryService(db: DB) {
         if (excerpt.length) text += excerptText(excerpt);
       }
       for (const message of excerpt) excerptIds.add(message.id);
-      sceneTexts.push({ index: start, text, hasExcerpt: excerpt.length > 0 });
+      sceneTexts.push({ index: start, text });
       recalledTokens += tokenSize(text);
       selectedScenes.add(scene.sceneId);
       recalledRecords.push(scene, ...excerptRecords.filter((item) => item.messageIds.some((id) => excerptIds.has(id))));
     }
-    const renderScenes = (hasExcerpt: boolean) => {
-      const text = sceneTexts
-        .filter((item) => item.hasExcerpt === hasExcerpt)
-        .sort((a, b) => a.index - b.index)
-        .map((item) => item.text)
-        .join("\n\n");
-      return text ? `${recallIntroduction}\n\n${text}` : null;
-    };
-    const recalledScenes = renderScenes(false);
-    const recalledMessages = renderScenes(true);
+    const sceneText = sceneTexts
+      .sort((a, b) => a.index - b.index)
+      .map((item) => item.text)
+      .join("\n\n");
+    const recalledScenes = sceneText ? `${recallIntroduction}\n\n${sceneText}` : null;
+    const recalledMessages = null;
     const excerpts = sources.filter((message) => excerptIds.has(message.id));
-    used += tokenSize(recalledScenes ?? "") + tokenSize(recalledMessages ?? "");
+    used += tokenSize(recalledScenes ?? "");
     receipt.estimatedTokensAfter = used + 192;
     receipt.boundaryMessageId = boundary;
     receipt.checkpointId = null;
@@ -2480,21 +2486,27 @@ export function createAdvancedMemoryService(db: DB) {
       summaryModel: helper.ok ? helper.model : null,
       warnings,
       ...(hasReceipt ? { latestReceipt: latestReceipt as unknown as PreparedAdvancedMemory["receipt"] } : {}),
-      records: withSourceTimelines(allRecords, ctx.messages)
-        .filter((record) => !isDeletedScene(record) && (record.content || record.status === "open"))
-        .map((record) => ({
-          ...record,
-          startIndex: indexes.get(record.kind === "excerpt" ? record.messageIds[0]! : record.startMessageId) ?? 0,
-          endIndex: indexes.get(record.kind === "excerpt" ? record.messageIds.at(-1)! : record.endMessageId) ?? 0,
-          embedding: undefined,
-          embeddingSpaceId: undefined,
-          embeddingStatus:
-            !recordValid(ctx, record) || !dependenciesValid(record, allRecords, ctx)
-              ? "stale"
-              : record.embedding?.length
-                ? "vectorized"
-                : "pending",
-        })),
+      records: withSourceTimelines(
+        allRecords.filter(
+          (record) =>
+            (includeExcerptsInStatus || record.kind !== "excerpt") &&
+            !isDeletedScene(record) &&
+            (record.content || record.status === "open"),
+        ),
+        ctx.messages,
+      ).map((record) => ({
+        ...record,
+        startIndex: indexes.get(record.kind === "excerpt" ? record.messageIds[0]! : record.startMessageId) ?? 0,
+        endIndex: indexes.get(record.kind === "excerpt" ? record.messageIds.at(-1)! : record.endMessageId) ?? 0,
+        embedding: undefined,
+        embeddingSpaceId: undefined,
+        embeddingStatus:
+          !recordValid(ctx, record) || !dependenciesValid(record, allRecords, ctx)
+            ? "stale"
+            : record.embedding?.length
+              ? "vectorized"
+              : "pending",
+      })),
     };
   }
 
@@ -2558,20 +2570,36 @@ export function createAdvancedMemoryService(db: DB) {
     return promise.then(() => status(chatId));
   }
 
-  async function getSources(chatId: string, recordId: string) {
-    const record = (await records(chatId)).find((item) => item.id === recordId);
+  async function getRecord(chatId: string, recordId: string) {
+    const [row] = await db
+      .select()
+      .from(advancedMemoryRecords)
+      .where(and(eq(advancedMemoryRecords.chatId, chatId), eq(advancedMemoryRecords.id, recordId)));
+    const record = row && (row.content || !row.summaryWork) ? readStored(row) : null;
     if (!record || isDeletedScene(record)) throw new Error("Memory record not found");
+    return record;
+  }
+
+  async function getSources(chatId: string, recordId: string) {
+    const record = await getRecord(chatId, recordId);
     const ids = new Set(record.messageIds);
     return (await chats.listMessages(chatId)).filter((message) => ids.has(message.id));
   }
 
   async function updateRecord(chatId: string, recordId: string, patch: { content?: string; enabled?: boolean }) {
+    if (patch.content === undefined && patch.enabled === undefined)
+      throw new Error("Memory update must include content or enabled");
+    if (patch.content !== undefined && (!patch.content.trim() || patch.content.length > 500_000))
+      throw new Error("Memory text must contain between 1 and 500000 characters");
+    await getRecord(chatId, recordId); // Invalid requests must not interrupt paid preparation.
+    // A user edit takes priority over background model work. Keep the write in
+    // the queue so cancelled preparation cannot overwrite the correction.
+    const operation = activeOperations.get(chatId);
+    if (!operation?.resetting) operation?.controller.abort(new Error("Advanced Memory record changed"));
     return serialized(chatId, async () => {
+      await operation?.promise.catch(() => undefined);
       const ctx = await context(chatId);
-      const record = (await records(chatId)).find((item) => item.id === recordId);
-      if (!record || isDeletedScene(record)) throw new Error("Memory record not found");
-      if (patch.content !== undefined && (!patch.content.trim() || patch.content.length > 500_000))
-        throw new Error("Memory text must contain between 1 and 500000 characters");
+      const record = await getRecord(chatId, recordId);
       const source = ctx.messages.filter((message) => record.messageIds.includes(message.id));
       const changes = {
         ...(patch.content !== undefined
@@ -2595,7 +2623,13 @@ export function createAdvancedMemoryService(db: DB) {
   }
 
   async function deleteRecord(chatId: string, recordId: string) {
+    const requested = await getRecord(chatId, recordId);
+    if (requested.kind === "excerpt" || requested.id === requested.sceneId)
+      throw new Error("Only a saved summary can be deleted");
+    const operation = activeOperations.get(chatId);
+    if (!operation?.resetting) operation?.controller.abort(new Error("Advanced Memory record deleted"));
     return serialized(chatId, async () => {
+      await operation?.promise.catch(() => undefined);
       await context(chatId);
       const current = await records(chatId);
       const record = current.find((item) => item.id === recordId);

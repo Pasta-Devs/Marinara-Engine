@@ -53,6 +53,9 @@ type StatusResponse = {
 
 type OpenSettingsOptions = { initialSection?: "autonomous" | null };
 
+// Remounting a failed chat must not start another paid request. Retry is manual.
+const attemptedScheduleRenewals = new Set<string>();
+
 type ConversationPresenceCardProps = {
   chatId: string;
   chatMeta: Record<string, any>;
@@ -347,43 +350,52 @@ export function ConversationPresenceCard({
   }, [messages]);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const scheduleAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => scheduleAbortRef.current?.abort(), [chatId]);
   const needsScheduleRefresh = statusesQuery.data?.needsRefresh ?? false;
   const refetchStatuses = statusesQuery.refetch;
-  const refreshStatuses = useCallback(async () => {
-    if (isRefreshing) return;
-    setIsRefreshing(true);
-    try {
-      if (needsScheduleRefresh) {
-        await api.post("/conversation/schedule/generate", {
-          chatId,
-          characterIds: chatCharIds,
-          scheduleGenerationPreferences: useUIStore.getState().scheduleGenerationPreferences,
-          timeZone: useUIStore.getState().conversationTimeZone,
-        });
-        await queryClient.refetchQueries({ queryKey: ["chat", chatId] });
+  const refreshStatuses = useCallback(
+    async (automatic = false) => {
+      if (scheduleAbortRef.current) return;
+      const controller = new AbortController();
+      scheduleAbortRef.current = controller;
+      setIsRefreshing(true);
+      try {
+        if (needsScheduleRefresh) {
+          const result = await api.post<{ results: Record<string, { status: string }> }>(
+            "/conversation/schedule/generate",
+            {
+              chatId,
+              characterIds: chatCharIds,
+              scheduleGenerationPreferences: useUIStore.getState().scheduleGenerationPreferences,
+              timeZone: useUIStore.getState().conversationTimeZone,
+              automatic,
+            },
+            { signal: controller.signal },
+          );
+          const failure = Object.values(result.results).find((entry) => entry.status.startsWith("error:"));
+          if (failure) toast.error(failure.status.slice("error:".length).trim());
+          await queryClient.refetchQueries({ queryKey: ["chat", chatId] });
+        }
+        await refetchStatuses();
+      } catch (error) {
+        if (!controller.signal.aborted && error instanceof Error) toast.error(error.message);
+      } finally {
+        if (scheduleAbortRef.current === controller) {
+          scheduleAbortRef.current = null;
+          setIsRefreshing(false);
+        }
       }
-      await refetchStatuses();
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [chatCharIds, chatId, isRefreshing, needsScheduleRefresh, queryClient, refetchStatuses]);
+    },
+    [chatCharIds, chatId, needsScheduleRefresh, queryClient, refetchStatuses],
+  );
 
-  /**
-   * Roll the week over without waiting for the refresh button. A schedule from
-   * an earlier week still works, but nothing regenerated it on its own: the
-   * `ensureSchedules` helper was never wired to a caller, so the button was the
-   * only path and a routine silently stayed a week behind.
-   *
-   * Once per chat per session, so a missing or failing connection cannot loop.
-   * Chats with schedules switched off never report `needsRefresh`, so this
-   * cannot generate for them.
-   */
-  const autoRegeneratedChatsRef = useRef<Set<string>>(new Set());
+  // Only characters explicitly opted into automatic renewal report needsRefresh.
   useEffect(() => {
     if (!chatId || !needsScheduleRefresh || isRefreshing) return;
-    if (autoRegeneratedChatsRef.current.has(chatId)) return;
-    autoRegeneratedChatsRef.current.add(chatId);
-    void refreshStatuses();
+    if (attemptedScheduleRenewals.has(chatId)) return;
+    attemptedScheduleRenewals.add(chatId);
+    void refreshStatuses(true);
   }, [chatId, isRefreshing, needsScheduleRefresh, refreshStatuses]);
 
   if (characters.length === 0) return <div />;

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { prepareAdvancedMemoryContext } from "../../packages/server/src/services/generation/advanced-memory-context.js";
-import { createAdvancedMemoryPlacement } from "../../packages/server/src/services/prompt/advanced-memory-prompt.js";
+import {
+  createAdvancedMemoryPlacement,
+  describeAdvancedMemoryPlacements,
+  resolveAdvancedMemoryPrompt,
+} from "../../packages/server/src/services/prompt/advanced-memory-prompt.js";
 import { fitMessagesToContext, measureContextBudget } from "../../packages/server/src/services/llm/base-provider.js";
 
 const settings = {
@@ -99,6 +103,51 @@ assert(
   !roomy.snapshot.prepared.receipt.reasons.includes("reused-swipe-memory"),
   "reuse cannot mutate the saved original",
 );
+const introduction =
+  "Included below are recalled memories of scenes from the past chat history, together with small message excerpts from them. Present message range in the context is: #20–#22, with the last user message being #21.";
+const legacyParts = {
+  recalledScenes: `${introduction}\n\nScene summary:\nEARLIER_SCENE_WITHOUT_EXCERPT`,
+  recalledMessages: `${introduction}\n\nScene summary:\nLATER_SCENE\n\nExcerpt:\nMessages #10–#12;\nEXACT_PAST_WORDS`,
+};
+for (const format of ["xml", "markdown", "none"] as const) {
+  for (const authored of [[], ["recalled_messages"], ["recalled_scenes"], ["recalled_messages", "recalled_scenes"]]) {
+    const recallPlacements = (["recalled_messages", "recalled_scenes"] as const).map((type) =>
+      createAdvancedMemoryPlacement(
+        type,
+        format,
+        authored.includes(type)
+          ? { id: type, name: type === "recalled_messages" ? "Recalled Messages" : "Recalled Scenes", role: "system" }
+          : undefined,
+      ),
+    );
+    const slots = recallPlacements.map((placement) => ({ content: placement.token }));
+    const resolved = resolveAdvancedMemoryPrompt(slots, recallPlacements, legacyParts);
+    assert.equal(resolved.length, 1, "both old recall components render in one section");
+    const text = resolved[0]!.content;
+    assert.equal(text.split(introduction).length - 1, 1, "the shared introduction appears once");
+    assert(text.indexOf("EARLIER_SCENE_WITHOUT_EXCERPT") < text.indexOf("LATER_SCENE"));
+    assert(text.indexOf("LATER_SCENE") < text.indexOf("EXACT_PAST_WORDS"));
+    assert.doesNotMatch(text, /Recalled Messages|recalled_messages|MARINARA_ADVANCED_MEMORY/);
+    if (format === "xml") assert.equal(text.match(/<recalled_scenes>/g)?.length, 1);
+    if (format === "markdown") assert.equal(text.match(/^## Recalled Scenes$/gm)?.length, 1);
+    const described = describeAdvancedMemoryPlacements(slots, recallPlacements);
+    assert.equal(described.length, 1, "the receipt reports only the effective recall slot");
+    assert.equal(
+      described[0]!.markerType,
+      authored.length === 1 && authored[0] === "recalled_messages" ? "recalled_messages" : "recalled_scenes",
+      "the canonical authored marker wins, with the old marker retained as an alias",
+    );
+  }
+}
+const legacySnapshot = structuredClone(roomy.snapshot);
+Object.assign(legacySnapshot.prepared, legacyParts);
+const reusedLegacy = await prepareAdvancedMemoryContext({ ...input, cachedSnapshots: [legacySnapshot] });
+assert.equal(calls.length, 1, "formatting old swipe memory must not search or prepare again");
+const legacyText = reusedLegacy.providerMessages.map((message) => message.content).join("\n");
+assert.equal(legacyText.split(introduction).length - 1, 1);
+assert.equal(legacyText.match(/<recalled_scenes>/g)?.length, 1);
+assert.doesNotMatch(legacyText, /<recalled_messages>/);
+assert.deepEqual(legacySnapshot.prepared.recalledMessages, legacyParts.recalledMessages);
 const beforeInvalid = calls.length;
 for (const cachedSnapshot of [
   { ...roomy.snapshot, prepared: null },

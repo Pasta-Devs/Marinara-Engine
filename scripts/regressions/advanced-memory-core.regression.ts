@@ -502,14 +502,14 @@ try {
     "optional recall exposes actual persisted record IDs separately from mandatory summary revisions",
   );
   assert(
-    exactRecall.recalledMessages?.includes("returns on Tuesday"),
+    exactRecall.recalledScenes?.includes("returns on Tuesday"),
     "lexical recall includes the later correction exactly",
   );
   assert.equal(exactRecall.receipt.recalledMessageIds.length, 3, "the scene contributes one bounded excerpt");
-  assert.equal(exactRecall.recalledScenes, null, "the scene recap stays paired with its excerpt");
-  assert(exactRecall.recalledMessages?.includes("story timeframe: Spring 14 → The following morning"));
-  assert(exactRecall.recalledMessages.includes("story timeframe: The following morning"));
-  assert(exactRecall.recalledMessages.includes("Excerpt:\nMessages #25–#27"));
+  assert.equal(exactRecall.recalledMessages, null, "the scene recap and excerpt use the same scene section");
+  assert(exactRecall.recalledScenes?.includes("story timeframe: Spring 14 → The following morning"));
+  assert(exactRecall.recalledScenes.includes("story timeframe: The following morning"));
+  assert(exactRecall.recalledScenes.includes("Excerpt:\nMessages #25–#27"));
   const { estimateChatSummaryTokens } = await import("../../packages/shared/src/index.ts");
   assert(
     estimateChatSummaryTokens(exactRecall.chatSummary ?? "") <= 256,
@@ -529,7 +529,7 @@ try {
     readOnly: true,
   });
   assert(
-    legacyTimeline.recalledMessages?.includes("Spring 14 → The following morning"),
+    legacyTimeline.recalledScenes?.includes("Spring 14 → The following morning"),
     "legacy archives recover known timeframes from validated source IDs",
   );
   assert(
@@ -605,7 +605,7 @@ try {
     budgetTokens: 1800,
     readOnly: true,
   });
-  assert(optionalExcerpts.recalledMessages?.includes("returns on Tuesday"), "0/N can still recall relevant excerpts");
+  assert(optionalExcerpts.recalledScenes?.includes("returns on Tuesday"), "0/N can still recall relevant excerpts");
   assert(optionalExcerpts.receipt.recalledMessageIds.length > 0);
   assert.deepEqual(
     (await memory.status(recallChat.id)).records.filter((record) => record.kind === "excerpt"),
@@ -1096,6 +1096,65 @@ try {
     "ready",
     "cancelling a joined caller does not stop shared preparation",
   );
+
+  // An archive edit must not wait for a slow background model response.
+  const editableScene = (await memory.status(joinedChat.id)).records.find(
+    (record) => record.kind === "scene" && record.content,
+  )!;
+  const editableSource = await chats.listMessages(joinedChat.id);
+  for (const action of ["toggle", "delete"] as const) {
+    if (action === "delete") await memory.updateRecord(joinedChat.id, editableScene.id, { enabled: true });
+    await chats.updateMessageContent(editableSource[0]!.id, `Changed compass promise for ${action}.`);
+    const waiting = new Promise<void>((resolve) => {
+      summaryEntered = resolve;
+    });
+    const held = new Promise<void>((resolve) => {
+      releaseSummary = resolve;
+    });
+    beforeSummary = async () => {
+      summaryEntered();
+      await held;
+    };
+    const background = memory.initialize(joinedChat.id, { blocking: false }).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    await waiting;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await assert.rejects(memory.updateRecord(joinedChat.id, "missing", { enabled: false }), /not found/);
+      await assert.rejects(memory.updateRecord(joinedChat.id, editableScene.id, { content: " " }), /Memory text/);
+      await assert.rejects(memory.updateRecord(joinedChat.id, editableScene.id, {}), /must include content or enabled/);
+      await assert.rejects(memory.deleteRecord(joinedChat.id, editableScene.sceneId), /Only a saved summary/);
+      assert.equal((await memory.status(joinedChat.id)).job.status, "running", "invalid edits do not cancel paid work");
+      const mutation =
+        action === "toggle"
+          ? memory.updateRecord(joinedChat.id, editableScene.id, { enabled: false })
+          : memory.deleteRecord(joinedChat.id, editableScene.id);
+      const changed = await Promise.race([
+        mutation,
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error(`${action} waited for the background model`)), 2000);
+        }),
+      ]);
+      assert.notEqual(changed.job.status, "running", "the response includes settled cancellation progress");
+      const saved = changed.records.find((record) => record.id === editableScene.id);
+      if (action === "toggle") assert.equal(saved?.enabled, false);
+      else assert.equal(saved, undefined);
+      assert(await background, "the interrupted model operation cannot overwrite the user's edit");
+    } finally {
+      clearTimeout(timeout);
+      releaseSummary();
+      await background;
+    }
+  }
+  const callsBeforeDeletedResume = requests.length;
+  await memory.initialize(joinedChat.id);
+  assert(
+    !requests.slice(callsBeforeDeletedResume).some((request) => request.kind === "summary"),
+    "resume keeps the deleted scene suppressed while refreshing changed source excerpts",
+  );
+  assert(!(await memory.status(joinedChat.id)).records.some((record) => record.id === editableScene.id));
 
   const requireServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));
   const Fastify = requireServer("fastify") as typeof import("fastify").default;

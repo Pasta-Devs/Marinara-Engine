@@ -23,6 +23,11 @@ const provider = createServer(async (request, response) => {
     response.end(JSON.stringify({ data: [{ id: "L3-8B-Stheno-v3.2" }] }));
     return;
   }
+  if (request.method === "GET") {
+    response.writeHead(404, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "Unknown catalog endpoint" }));
+    return;
+  }
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
   const body = JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown>;
@@ -58,14 +63,20 @@ try {
   await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
   const address = provider.address();
   assert.ok(address && typeof address !== "string");
-  for (const host of ["localhost", "127.0.0.1"]) {
+  for (const [host, providerKind] of [
+    ["localhost", "custom"],
+    ["127.0.0.1", "custom"],
+    ["localhost", "image_generation"],
+    ["127.0.0.1", "image_generation"],
+  ] as const) {
     const local = await storage.create({
       name: "LM Studio model discovery",
-      provider: "custom",
-      baseUrl: `http://${host}:${address.port}/v1`,
+      provider: providerKind,
+      baseUrl: `http://${host}:${address.port}/v1/`,
       apiKey: "",
       model: "",
       treatAsLocalEndpoint: true,
+      ...(providerKind === "image_generation" ? { imageService: "openai", imageGenerationSource: "openai" } : {}),
     });
     const models = await app.inject({ method: "GET", url: `/api/connections/${local.id}/models` });
     assert.equal(models.statusCode, 200, models.body);

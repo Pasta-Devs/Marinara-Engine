@@ -3594,6 +3594,8 @@ export function ChatSettingsDrawer({
   // Synchronous lock to close the re-entry gap: React state commits are async, so two
   // fast clicks can both pass the `isRegeneratingSchedules` check before the state updates.
   const isRegeneratingSchedulesRef = useRef(false);
+  const scheduleGenerationAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => scheduleGenerationAbortRef.current?.abort(), [chat.id, open]);
   type ScheduleGenerationResult = { status: string; schedule?: Record<string, unknown> };
   type ScheduleGenerationResponse = {
     results?: Record<string, ScheduleGenerationResult>;
@@ -3604,16 +3606,23 @@ export function ChatSettingsDrawer({
       if (isRegeneratingSchedulesRef.current) return;
       isRegeneratingSchedulesRef.current = true;
       setIsRegeneratingSchedules(true);
+      const controller = new AbortController();
+      scheduleGenerationAbortRef.current = controller;
       try {
         const scheduleGenerationPreferences = useUIStore.getState().scheduleGenerationPreferences;
         const conversationTimeZone = useUIStore.getState().conversationTimeZone;
-        const result = await api.post<ScheduleGenerationResponse>("/conversation/schedule/generate", {
-          chatId: chat.id,
-          characterIds: chatCharIds,
-          forceRefresh,
-          scheduleGenerationPreferences,
-          timeZone: conversationTimeZone,
-        });
+        const result = await api.post<ScheduleGenerationResponse>(
+          "/conversation/schedule/generate",
+          {
+            chatId: chat.id,
+            characterIds: chatCharIds,
+            forceRefresh,
+            scheduleGenerationPreferences,
+            timeZone: conversationTimeZone,
+          },
+          { signal: controller.signal },
+        );
+        if (controller.signal.aborted) return;
         await qc.refetchQueries({ queryKey: chatKeys.detail(chat.id) });
         await qc.invalidateQueries({ queryKey: chatKeys.list() });
         await qc.invalidateQueries({ queryKey: ["conversation-status", chat.id] });
@@ -3674,10 +3683,12 @@ export function ChatSettingsDrawer({
           toast.info(localizeUi("ui.chat.chatsettingsdrawer.noSchedulesWereNeededForTheSelectedCharacters"));
         }
       } catch (error) {
+        if (controller.signal.aborted) return;
         toast.error(
           error instanceof Error ? error.message : localizeUi("ui.chat.chatsettingsdrawer.failedToGenerateSchedules"),
         );
       } finally {
+        scheduleGenerationAbortRef.current = null;
         isRegeneratingSchedulesRef.current = false;
         setIsRegeneratingSchedules(false);
       }
@@ -6512,17 +6523,9 @@ export function ChatSettingsDrawer({
                     "ui.chat.chatsettingsdrawer.optionalCharacterRoutinesForAvailabilityAndDelays",
                   )}
                   checked={conversationSchedulesEnabled}
-                  onChange={(nextEnabled) => {
-                    if (nextEnabled && !hasGeneratedConversationSchedules) {
-                      if (chatCharIds.length === 0) {
-                        updateMeta.mutate({ id: chat.id, conversationSchedulesEnabled: nextEnabled });
-                        return;
-                      }
-                      void generateConversationSchedules(false);
-                      return;
-                    }
-                    updateMeta.mutate({ id: chat.id, conversationSchedulesEnabled: nextEnabled });
-                  }}
+                  onChange={(nextEnabled) =>
+                    updateMeta.mutate({ id: chat.id, conversationSchedulesEnabled: nextEnabled })
+                  }
                   labelPosition="start"
                   className={cn(
                     "justify-between rounded-md px-3 py-2.5 text-left",
@@ -6550,7 +6553,7 @@ export function ChatSettingsDrawer({
                       </span>
                       <p className="text-[0.59375rem] mt-0.5 text-[var(--muted-foreground)]/60">
                         {conversationSchedulesEnabled
-                          ? localizeUi("ui.chat.chatsettingsdrawer.schedulesRefreshOnlyAfterYouEnableOrRegenerateThem")
+                          ? localizeUi("schedule.sharedRoutines.help")
                           : localizeUi("ui.chat.chatsettingsdrawer.turnSchedulesOnIfYouWantAvailabilityAndBusy")}
                       </p>
                     </div>
