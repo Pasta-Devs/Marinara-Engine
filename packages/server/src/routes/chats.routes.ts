@@ -2353,16 +2353,16 @@ export async function chatsRoutes(app: FastifyInstance) {
         await storage.patchMetadata(
           req.params.chatId,
           (metadata) => {
-            const state = parseChatMetadata(metadata.advancedMemoryState);
+            const state = parseExtra(metadata.advancedMemoryState);
             if (!Array.isArray(state.contextStarts) || !state.contextStarts.length) return {};
-            const previousShared = parseChatMetadata(message.extra).isConversationStart === true;
+            const previousShared = parseExtra(message.extra).isConversationStart === true;
             // A new manual shared flag replaces the automatic window. Unchecking
             // the automatic flag itself clears it through this same control.
             const contextStarts =
               partial.isConversationStart === true && !previousShared
                 ? []
                 : state.contextStarts.filter((raw) => {
-                    const start = parseChatMetadata(raw);
+                    const start = parseExtra(raw);
                     return start.messageId !== message.id && start.sceneStartMessageId !== message.id;
                   });
             if (contextStarts.length === state.contextStarts.length) return {};
