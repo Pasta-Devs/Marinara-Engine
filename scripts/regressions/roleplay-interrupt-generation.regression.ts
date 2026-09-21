@@ -45,7 +45,11 @@ const provider = createServer(async (request, response) => {
     response.end(JSON.stringify({ data: texts.map((_: unknown, index: number) => ({ index, embedding: [1, 0, 0] })) }));
     return;
   }
-  const content = classification ? '{"starts":[]}' : summary ? '{"summary":"A fixture scene."}' : outputs.shift();
+  const content = classification
+    ? JSON.stringify(body.messages[0].content.includes('"ends"') ? { ends: [] } : { starts: [] })
+    : summary
+      ? '{"summary":"A fixture scene."}'
+      : outputs.shift();
   if (!classification && !summary) {
     prompts.push(prompt);
     const callback = beforeResponse;
