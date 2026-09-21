@@ -2247,7 +2247,7 @@ export const ChatMessage = memo(function ChatMessage({
     if (!message.extra) return {};
     return typeof message.extra === "string" ? JSON.parse(message.extra) : message.extra;
   }, [message.extra]);
-  const isConversationStart = !!extra.isConversationStart;
+  const isConversationStart = !!extra.isConversationStart || memoryStartCharacterIds?.length === 0;
   const conversationStartForCharacterIds: string[] = extra.conversationStartForCharacterIds ?? [];
   const isHiddenFromAllAI = extra.hiddenFromAI === true;
   const hiddenFromAICharacterIds: string[] = Array.isArray(extra.hiddenFromAICharacterIds)

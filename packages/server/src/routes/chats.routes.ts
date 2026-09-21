@@ -2291,6 +2291,11 @@ export async function chatsRoutes(app: FastifyInstance) {
       if (swipeIndex !== undefined && (!Number.isSafeInteger(swipeIndex) || swipeIndex < 0))
         return reply.status(400).send({ error: "Invalid swipe index" });
       const partial = { ...(req.body as Record<string, unknown>) };
+      if (
+        Object.prototype.hasOwnProperty.call(partial, "isConversationStart") &&
+        typeof partial.isConversationStart !== "boolean"
+      )
+        return reply.status(400).send({ error: "isConversationStart must be a boolean" });
       for (const key of ["hiddenFromAICharacterIds", "conversationStartForCharacterIds"] as const) {
         if (Object.prototype.hasOwnProperty.call(partial, key)) {
           partial[key] = normalizeMessageCharacterIds(partial[key]);
@@ -2342,6 +2347,38 @@ export async function chatsRoutes(app: FastifyInstance) {
         for (const swipe of swipes) {
           await storage.updateSwipeExtra(req.params.messageId, swipe.index, syncAllSwipeExtra);
         }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(partial, "isConversationStart")) {
+        await storage.patchMetadata(
+          req.params.chatId,
+          (metadata) => {
+            const state = parseChatMetadata(metadata.advancedMemoryState);
+            if (!Array.isArray(state.contextStarts) || !state.contextStarts.length) return {};
+            const previousShared = parseChatMetadata(message.extra).isConversationStart === true;
+            // A new manual shared flag replaces the automatic window. Unchecking
+            // the automatic flag itself clears it through this same control.
+            const contextStarts =
+              partial.isConversationStart === true && !previousShared
+                ? []
+                : state.contextStarts.filter((raw) => {
+                    const start = parseChatMetadata(raw);
+                    return start.messageId !== message.id && start.sceneStartMessageId !== message.id;
+                  });
+            if (contextStarts.length === state.contextStarts.length) return {};
+            return {
+              advancedMemoryState: {
+                ...state,
+                contextStarts,
+                contextStartRevision:
+                  (typeof state.contextStartRevision === "number" && Number.isFinite(state.contextStartRevision)
+                    ? state.contextStartRevision
+                    : 0) + 1,
+              },
+            };
+          },
+          { touchUpdatedAt: false },
+        );
       }
 
       return updated;

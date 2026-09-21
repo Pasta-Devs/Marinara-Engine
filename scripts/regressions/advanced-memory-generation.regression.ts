@@ -292,8 +292,11 @@ try {
   assert.doesNotMatch(regeneratedAfterContinuation.body, /"stage":"compacting"/u);
   assert.match(regeneratedAfterContinuation.body, /reused-swipe-memory/u);
   const generatedMetadata = JSON.parse((await chats.getById(chat.id))!.metadata);
-  assert.equal(generatedMetadata.advancedMemoryState.contextStarts.length, 1);
-  assert.deepEqual(generatedMetadata.advancedMemoryState.contextStarts[0].audienceCharacterIds, [second.id]);
+  assert.equal(
+    generatedMetadata.advancedMemoryState.contextStarts,
+    undefined,
+    "temporary excerpts of an oversized open scene do not create a character-specific start flag",
+  );
   await memory.initialize(chat.id, { blocking: false });
   const beforePreview = modelCalls;
   const preview = await app.inject({

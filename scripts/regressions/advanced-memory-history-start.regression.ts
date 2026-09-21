@@ -43,6 +43,7 @@ const { createChatsStorage } = await import("../../packages/server/src/services/
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createAdvancedMemoryService } = await import("../../packages/server/src/services/advanced-memory.js");
 const { advancedMemoryRoutes } = await import("../../packages/server/src/routes/advanced-memory.routes.js");
+const { chatsRoutes } = await import("../../packages/server/src/routes/chats.routes.js");
 const { prepareAdvancedMemoryContext } =
   await import("../../packages/server/src/services/generation/advanced-memory-context.js");
 const { createAdvancedMemoryPlacement } =
@@ -53,6 +54,7 @@ const memory = createAdvancedMemoryService(db);
 const app = Fastify();
 app.decorate("db", db);
 await app.register(advancedMemoryRoutes, { prefix: "/api/chats" });
+await app.register(chatsRoutes, { prefix: "/api/chats" });
 try {
   await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
   const address = provider.address();
@@ -70,10 +72,11 @@ try {
   const cycleChat = await chats.create({
     name: "Context resets then grows",
     mode: "roleplay",
-    characterIds: [],
+    characterIds: ["first", "second"],
     connectionId: connection.id,
   });
   assert(cycleChat);
+  await chats.patchMetadata(cycleChat.id, { groupChatMode: "individual" });
   await chats.createMessagesBatch(
     cycleChat.id,
     Array.from({ length: 30 }, (_, index) => ({
@@ -86,13 +89,14 @@ try {
     maxContextTokens: 16_384,
     summaryBudgetTokens: 512,
     retrieveMaxScenes: 0,
+    knowledgeStarts: { first: null, second: null },
   });
   await memory.initialize(cycleChat.id);
   const cycleSource = await chats.listMessages(cycleChat.id);
   const allLive = await memory.prepare({
     chatId: cycleChat.id,
     messages: cycleSource,
-    audienceCharacterIds: [],
+    audienceCharacterIds: ["first"],
     budgetTokens: 100_000,
     readOnly: true,
   });
@@ -100,7 +104,7 @@ try {
   const resetWindow = await memory.prepare({
     chatId: cycleChat.id,
     messages: cycleSource,
-    audienceCharacterIds: [],
+    audienceCharacterIds: ["first"],
     budgetTokens: cycleBudget,
   });
   assert.deepEqual(
@@ -109,16 +113,17 @@ try {
     "crossing the cap resets to the latest scene even when dropping only the oldest scene would fit",
   );
   assert(resetWindow.receipt.estimatedTokensAfter < cycleBudget * 0.6, "the reset leaves substantial room for growth");
+  assert.deepEqual((await memory.status(cycleChat.id)).job.contextStarts?.[0]?.audienceCharacterIds, []);
   const moreRoom = await memory.prepare({
     chatId: cycleChat.id,
     messages: cycleSource,
-    audienceCharacterIds: [],
+    audienceCharacterIds: ["second"],
     budgetTokens: 100_000,
   });
   assert.deepEqual(
     moreRoom.messageIds,
     resetWindow.messageIds,
-    "more room or compacted constants must not backfill old scenes",
+    "the shared cutoff also applies to another character, even with more room",
   );
   await chats.createMessagesBatch(cycleChat.id, [
     { role: "user", content: "SCENE_CHANGE The brass compass reaches the next village." },
@@ -130,7 +135,7 @@ try {
   const growing = await memory.prepare({
     chatId: cycleChat.id,
     messages: growingSource,
-    audienceCharacterIds: [],
+    audienceCharacterIds: ["first"],
     budgetTokens: cycleBudget,
   });
   assert.deepEqual(
@@ -149,7 +154,7 @@ try {
   const nextReset = await memory.prepare({
     chatId: cycleChat.id,
     messages: growingSource,
-    audienceCharacterIds: [],
+    audienceCharacterIds: ["first"],
     budgetTokens: cycleBudget,
   });
   assert.deepEqual(
@@ -160,7 +165,7 @@ try {
   const historicalWindow = await memory.prepare({
     chatId: cycleChat.id,
     messages: growingSource.slice(0, 29),
-    audienceCharacterIds: [],
+    audienceCharacterIds: ["first"],
     budgetTokens: 100_000,
     readOnly: true,
   });
@@ -169,6 +174,47 @@ try {
     growingSource[0]!.id,
     "a later automatic reset does not change historical prompt preparation",
   );
+
+  const personalStart = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${cycleChat.id}/messages/${growingSource[40]!.id}/extra`,
+    payload: { conversationStartForCharacterIds: ["second"] },
+  });
+  assert.equal(personalStart.statusCode, 200, personalStart.body);
+  const cleared = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${cycleChat.id}/messages/${growingSource[30]!.id}/extra`,
+    payload: { isConversationStart: false, conversationStartForCharacterIds: [] },
+  });
+  assert.equal(cleared.statusCode, 200, cleared.body);
+  assert.deepEqual((await memory.status(cycleChat.id)).job.contextStarts, []);
+  const restoredSource = await chats.listMessages(cycleChat.id);
+  for (const characterId of ["first", "second"]) {
+    const restored = await memory.prepare({
+      chatId: cycleChat.id,
+      messages: restoredSource,
+      audienceCharacterIds: [characterId],
+      budgetTokens: 100_000,
+    });
+    assert.equal(
+      restored.messageIds[0],
+      growingSource[characterId === "second" ? 40 : 0]!.id,
+      "unchecking All restores the shared window without removing personal flags",
+    );
+  }
+  await chats.patchMetadata(cycleChat.id, (metadata) => ({
+    advancedMemoryState: {
+      ...(metadata.advancedMemoryState as Record<string, unknown>),
+      contextStarts: [{ messageId: growingSource.at(-1)!.id, audienceCharacterIds: ["first"] }],
+    },
+  }));
+  const legacyWindow = await memory.prepare({
+    chatId: cycleChat.id,
+    messages: restoredSource,
+    audienceCharacterIds: ["first"],
+    budgetTokens: 100_000,
+  });
+  assert.equal(legacyWindow.messageIds[0], growingSource[0]!.id, "legacy per-character automatic cutoffs are ignored");
 
   const chat = await chats.create({
     name: "1000 messages with a late context start",
@@ -326,15 +372,8 @@ try {
   assert(prepared.receipt.recalledSceneIds.length, "scenes before the marker remain eligible for recall");
   assert.deepEqual(
     (await memory.status(chat.id)).job.contextStarts,
-    [
-      {
-        messageId: source[960]!.id,
-        audienceCharacterIds: ["traveler"],
-        sceneStartMessageId: source[960]!.id,
-        manualStartMessageId: source[960]!.id,
-      },
-    ],
-    "the visible marker follows the first live message",
+    undefined,
+    "a manual cutoff does not create a parallel automatic flag",
   );
   await memory.validatePrepared(chat.id, source, prepared.receipt);
   const settledRequests = requests.length;
@@ -361,15 +400,8 @@ try {
   const visibleStarts = (await memory.status(chat.id)).job.contextStarts;
   assert.deepEqual(
     visibleStarts,
-    [
-      {
-        messageId: compressed.messageIds[0],
-        audienceCharacterIds: ["traveler"],
-        sceneStartMessageId: source[960]!.id,
-        manualStartMessageId: source[960]!.id,
-      },
-    ],
-    "the marker moves after compressing an ongoing scene, not just at closed-scene boundaries",
+    undefined,
+    "temporary open-scene trimming cannot move a persistent New Start to the latest message",
   );
   await memory.prepare({
     chatId: chat.id,
@@ -399,7 +431,7 @@ try {
   assert.equal(withoutStart.chatSummary, null, "fully live history needs no continuity summary");
   assert.equal(withoutStart.recalledScenes, null, "fully live scenes are not recalled again");
   assert.equal(withoutStart.recalledMessages, null, "fully live messages are not recalled again");
-  assert.deepEqual((await memory.status(chat.id)).job.contextStarts, [], "the obsolete automatic marker is removed");
+  assert.equal((await memory.status(chat.id)).job.contextStarts, undefined);
   await chats.updateMessageExtra(source[700]!.id, { isConversationStart: true });
   await memory.initialize(chat.id);
   await memory.updateSettings(chat.id, { retrieveMinMessages: 0, retrieveMaxMessages: 0 });

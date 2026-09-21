@@ -258,10 +258,7 @@ test("preset editor offers one combined Recalled Scenes marker and reads the leg
   }
 });
 
-test("Advanced Memory shows and moves existing start markers for automatic cutoffs", async ({
-  page,
-  request,
-}, info) => {
+test("Advanced Memory shared cutoffs can be removed with the existing All flag", async ({ page, request }, info) => {
   const fixture = await createFixture(request);
   const marker = page.locator('[data-advanced-memory-start="true"]');
   const update = async (contextStarts: NonNullable<AdvancedMemoryStatus["job"]["contextStarts"]>, enabled = true) => {
@@ -278,26 +275,43 @@ test("Advanced Memory shows and moves existing start markers for automatic cutof
     await openChat(page, fixture.chat.id, false);
     await expect(marker).toHaveCount(0);
     await captureThemes(page, info, "automatic-cutoff-before");
-    await update([{ messageId: fixture.firstMessage.id, audienceCharacterIds: [] }]);
+    await update([
+      { messageId: fixture.firstMessage.id, sceneStartMessageId: fixture.firstMessage.id, audienceCharacterIds: [] },
+    ]);
     await page.reload();
     await expect(marker).toHaveCount(1);
     await expect(page.locator(`[data-message-id="${fixture.firstMessage.id}"]`).locator(marker)).toBeVisible();
     await expect(marker).toContainText("New Start: All");
     await expect(marker).toHaveAttribute(
       "title",
-      "Advanced Memory starts live context here. Earlier messages remain available as memories.",
+      "Advanced Memory starts context here for all characters. Uncheck All in the flag menu to undo this cutoff.",
     );
     await captureThemes(page, info, "automatic-cutoff-shared");
+    await page.getByText("Keep the laboratory promise.", { exact: true }).click();
+    await page.getByRole("button", { name: "Change who starts context here", exact: true }).click();
+    const all = page.getByRole("menuitemcheckbox", { name: "Start context here for all characters", exact: true });
+    await expect(all).toHaveAttribute("aria-checked", "true");
+    await captureThemes(page, info, "automatic-cutoff-selected", page.getByRole("menu"));
+    await all.click();
+    await expect(all).toHaveAttribute("aria-checked", "false");
+    await expect(marker).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        const chat = await (await request.get(`/api/chats/${fixture.chat.id}`)).json();
+        const metadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : chat.metadata;
+        return metadata.advancedMemoryState.contextStarts;
+      })
+      .toEqual([]);
+    await page.reload();
+    await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
+    await expect(marker).toHaveCount(0);
+    await captureThemes(page, info, "automatic-cutoff-cleared");
     await update([
       { messageId: fixture.lastMessage.id, audienceCharacterIds: [fixture.character.id, fixture.narrator.id] },
     ]);
     await page.reload();
-    await expect(marker).toHaveCount(1);
-    await expect(page.locator(`[data-message-id="${fixture.lastMessage.id}"]`).locator(marker)).toBeVisible();
-    await expect(marker).toContainText("New Start: Dottore");
-    await expect(marker).toContainText("New Start: Narrator");
-    await expect(marker).not.toContainText("New Start: All");
-    await captureThemes(page, info, "automatic-cutoff-characters");
+    await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
+    await expect(marker).toHaveCount(0); // Legacy character-specific automatic starts are no longer active.
     await update([], false);
     await page.reload();
     await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();

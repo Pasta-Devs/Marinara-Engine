@@ -5,7 +5,12 @@ import type {
   AdvancedMemoryOperationOptions,
   createAdvancedMemoryService,
 } from "../advanced-memory.js";
-import { measureContextBudget, type ChatMessage, type LLMToolDefinition } from "../llm/base-provider.js";
+import {
+  contextWindowForInputBudget,
+  measureContextBudget,
+  type ChatMessage,
+  type LLMToolDefinition,
+} from "../llm/base-provider.js";
 import {
   resolveAdvancedMemoryPrompt,
   describeAdvancedMemoryPlacements,
@@ -64,9 +69,12 @@ export async function prepareAdvancedMemoryContext(
   },
 ) {
   input.signal?.throwIfAborted();
-  const maxContext = Math.min(input.settings.maxContextTokens, input.maxContext ?? Infinity);
   // Unknown-model connections may omit max_tokens. Still reserve room for an answer.
   const maxTokens = input.maxTokens ?? 4096;
+  const maxContext = Math.min(
+    contextWindowForInputBudget(input.settings.maxContextTokens, maxTokens),
+    input.maxContext ?? Infinity,
+  );
   const sourceIds = new Set(input.sourceMessages.map((message) => message.id));
   const fixed = input.toProviderMessages(
     resolveAdvancedMemoryPrompt(

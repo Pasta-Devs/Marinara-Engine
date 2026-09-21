@@ -197,6 +197,15 @@ function contextSafetyMargin(maxContext: number): number {
   return Math.max(CONTEXT_SAFETY_MARGIN_TOKENS, Math.ceil(maxContext * CONTEXT_SAFETY_MARGIN_RATIO));
 }
 
+/** Total window needed to retain a prompt allowance without charging reply tokens to it. */
+export function contextWindowForInputBudget(inputBudget: number, maxTokens = 0): number {
+  const usableWindow = (normalizePositiveInteger(inputBudget) ?? 1) + (normalizePositiveInteger(maxTokens) ?? 0);
+  return Math.max(
+    usableWindow + CONTEXT_SAFETY_MARGIN_TOKENS,
+    Math.ceil(usableWindow / (1 - CONTEXT_SAFETY_MARGIN_RATIO)),
+  );
+}
+
 function estimateMessageTokens(message: ChatMessage): number {
   let total = MESSAGE_OVERHEAD_TOKENS + estimateTextTokens(message.content ?? "");
   if (message.tool_call_id) {

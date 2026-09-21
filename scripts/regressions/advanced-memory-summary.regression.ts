@@ -555,7 +555,7 @@ try {
   );
 
   const tooSmall = await createChat("Context cannot fit the reasoning reserve");
-  await chats.patchMetadata(tooSmall.id, { advancedMemory: { ...settings, maxContextTokens: 8192 } });
+  await connections.update(tooSmall.connectionId!, { maxContext: 8192 });
   await assert.rejects(memory.initialize(tooSmall.id), /output reserve do not fit/u);
   assert(!(await memory.status(tooSmall.id)).records.some((record) => record.kind === "scene" && record.content));
 
