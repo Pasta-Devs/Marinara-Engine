@@ -99,7 +99,7 @@ Abra um resumo em **Access memories for this chat** e escolha **Delete summary**
 
 ### Durante o chat
 
-A detecção ocorre após salvar a resposta principal de Roleplay. **Standalone scene check interval (messages)** (intervalo de verificação independente) é **5** por padrão. O auxiliar recebe apenas a janela recente, instruções de cena e formato de saída. Contam personas e personagens. A verificação independe dos agentes de acompanhamento e seus agendamentos. Só um final detectado prepara resumo e índice em segundo plano; transições incertas mantêm a cena aberta sem reconstruir o arquivo. **Agents**, no canto superior esquerdo, mostra **Advanced Recall**, com progresso, erros e recuperação, mesmo com agentes comuns desligados.
+A detecção ocorre após salvar a resposta principal de Roleplay. **Standalone scene check interval (messages)** (intervalo de verificação independente) é **5** por padrão. O auxiliar recebe apenas a janela recente, instruções de cena e formato de saída. Contam personas e personagens. A verificação independe dos agentes de acompanhamento e seus agendamentos. Só um final detectado prepara resumo e índice em segundo plano; transições incertas mantêm a cena aberta sem reconstruir o arquivo. **Agents**, no canto superior esquerdo, mostra **Advanced Recall**, com progresso, erros e recuperação, mesmo com agentes comuns desligados. O progresso é consultado periodicamente apenas enquanto uma tarefa de memória está em execução; arquivos prontos não são consultados periodicamente durante a inatividade.
 
 A recuperação lê memória preparada. O embedding opcional da consulta tem prazo curto e recorre à correspondência textual se indisponível. Só funciona na geração principal de Roleplay: agentes, reexecuções manuais e gerações auxiliares de teste não a acionam nem recebem seus resumos ou trechos. A inspeção do prompt principal continua somente leitura.
 
@@ -123,8 +123,10 @@ Autores de presets podem posicionar estes marcadores comuns de conteúdo usando 
 | --- | --- |
 | `chat_summary` | Entradas constantes elegíveis de Chat Summaries. |
 | `current_scene_summary` | Trechos de origem limitados da parte antiga de uma cena em andamento. |
-| `recalled_scenes` | Resumos de cenas selecionadas sem trecho acompanhante. |
-| `recalled_messages` | Resumos de cenas com trechos históricos exatos, falantes e intervalos de origem. |
+| `recalled_scenes` | Todos os resumos de cenas selecionadas, cada um seguido de seu trecho histórico disponível. |
+| `recalled_messages` | Alias antigo da mesma seção conjunta Recalled Scenes. |
+
+Todas as cenas recuperadas ficam em uma seção **Recalled Scenes**: cada resumo é seguido imediatamente pelo trecho da cena, se disponível. Um marcador `recalled_scenes` ativado tem prioridade sobre o antigo `recalled_messages`; eles nunca geram seções separadas.
 
 Cada componente segue o formato **XML**, **Markdown** ou **None** (nenhum) do preset e inclui uma breve explicação de sua finalidade. Componentes vazios não emitem nada. A primeira ocorrência ativada determina o posicionamento; componentes sem um marcador ativado são inseridos uma vez antes do histórico, para que presets antigos funcionem. Trechos são contexto, não novas mensagens atuais nem comandos. Os três novos marcadores ficam vazios quando Advanced Memory está desativado.
 

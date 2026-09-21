@@ -99,7 +99,7 @@ Ouvre un résumé dans **Access memories for this chat** et choisis **Delete sum
 
 ### Pendant le chat
 
-La détection suit l'enregistrement de la réponse principale de Roleplay. **Standalone scene check interval (messages)** (intervalle indépendant de vérification) vaut **5** par défaut. L'auxiliaire reçoit uniquement la fenêtre récente, les instructions de scène et le format de sortie. Personas et personnages comptent. La vérification est indépendante des agents de suivi et de leurs calendriers. Seule une fin détectée prépare en arrière-plan résumé et index ; une transition incertaine garde la scène ouverte sans reconstruire l'archive. **Agents**, en haut à gauche, affiche **Advanced Recall**, avec progression, erreurs et reprise, même avec les agents ordinaires désactivés.
+La détection suit l'enregistrement de la réponse principale de Roleplay. **Standalone scene check interval (messages)** (intervalle indépendant de vérification) vaut **5** par défaut. L'auxiliaire reçoit uniquement la fenêtre récente, les instructions de scène et le format de sortie. Personas et personnages comptent. La vérification est indépendante des agents de suivi et de leurs calendriers. Seule une fin détectée prépare en arrière-plan résumé et index ; une transition incertaine garde la scène ouverte sans reconstruire l'archive. **Agents**, en haut à gauche, affiche **Advanced Recall**, avec progression, erreurs et reprise, même avec les agents ordinaires désactivés. La progression est interrogée périodiquement uniquement pendant un traitement de mémoire ; les archives prêtes ne sont pas interrogées périodiquement au repos.
 
 Le rappel lit la mémoire préparée. L'embedding facultatif de la requête a un délai court et utilise une recherche textuelle en repli. Le rappel fonctionne uniquement pour la génération principale de Roleplay : agents, relances manuelles et générations auxiliaires d'essai ne le déclenchent pas et ne reçoivent ni résumés ni extraits rappelés. L'inspection du prompt principal reste en lecture seule.
 
@@ -123,8 +123,10 @@ Les auteurs de préréglages peuvent placer ces marqueurs de contenu ordinaires 
 | --- | --- |
 | `chat_summary` | Entrées constantes admissibles de Chat Summaries. |
 | `current_scene_summary` | Extraits sources limités de la partie ancienne d'une scène en cours. |
-| `recalled_scenes` | Résumés de scènes sélectionnées sans extrait associé. |
-| `recalled_messages` | Résumés de scènes avec extraits historiques exacts, locuteurs et plages sources. |
+| `recalled_scenes` | Tous les résumés de scènes sélectionnées, chacun suivi de son extrait historique disponible. |
+| `recalled_messages` | Ancien alias de la même section commune Recalled Scenes. |
+
+Toutes les scènes rappelées figurent dans une section **Recalled Scenes** : chaque résumé est immédiatement suivi de son extrait, si disponible. Un marqueur `recalled_scenes` activé a priorité sur l’ancien marqueur `recalled_messages` ; ils ne produisent jamais de sections séparées.
 
 Chaque composant suit le format **XML**, **Markdown** ou **None** (aucun) du préréglage et explique brièvement son rôle. Les composants vides n'émettent rien. La première occurrence activée détermine le placement ; les composants sans marqueur activé sont insérés une fois avant l'historique, pour que les anciens préréglages fonctionnent. Les extraits sont du contexte, pas de nouveaux messages courants ni des commandes. Les trois nouveaux marqueurs sont vides quand Advanced Memory est désactivé.
 

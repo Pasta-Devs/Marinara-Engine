@@ -99,7 +99,7 @@ Aby usunąć zapisane podsumowanie, otwórz je w **Access memories for this chat
 
 ### Podczas rozmowy
 
-Wykrywanie scen następuje po zapisaniu głównej odpowiedzi Roleplay. **Standalone scene check interval (messages)** (odstęp samodzielnego sprawdzania scen) wynosi domyślnie **5**. Model pomocniczy dostaje tylko okno ostatnich wiadomości, instrukcje scen i format odpowiedzi. Liczą się wiadomości person i postaci. Sprawdzanie jest niezależne od agentów śledzących i ich harmonogramów. Dopiero wykryte zakończenie sceny uruchamia przygotowanie jej podsumowania i indeksu wiadomości w tle. Niepewne przejście pozostawia scenę otwartą bez przebudowy archiwum. Menu **Agents** w lewym górnym rogu pokazuje to jako **Advanced Recall**, z postępem, błędami i odzyskiwaniem, także przy wyłączonych zwykłych agentach.
+Wykrywanie scen następuje po zapisaniu głównej odpowiedzi Roleplay. **Standalone scene check interval (messages)** (odstęp samodzielnego sprawdzania scen) wynosi domyślnie **5**. Model pomocniczy dostaje tylko okno ostatnich wiadomości, instrukcje scen i format odpowiedzi. Liczą się wiadomości person i postaci. Sprawdzanie jest niezależne od agentów śledzących i ich harmonogramów. Dopiero wykryte zakończenie sceny uruchamia przygotowanie jej podsumowania i indeksu wiadomości w tle. Niepewne przejście pozostawia scenę otwartą bez przebudowy archiwum. Menu **Agents** w lewym górnym rogu pokazuje to jako **Advanced Recall**, z postępem, błędami i odzyskiwaniem, także przy wyłączonych zwykłych agentach. Postęp jest cyklicznie sprawdzany tylko podczas trwającego zadania pamięci; gotowe archiwa nie są odpytywane w czasie bezczynności.
 
 Zwykłe przywoływanie odczytuje przygotowaną pamięć, zamiast ponownie przygotowywać archiwum. Opcjonalny embedding zapytania ma krótki limit czasu i w razie niedostępności korzysta z dopasowania tekstu. Przywoływanie działa wyłącznie dla głównego generowania Roleplay: agenty, ich ręczne ponowienia i pomocnicze generowania próbne nie uruchamiają go ani nie otrzymują zwróconych podsumowań i fragmentów. Inspekcja głównego promptu pozostaje tylko do odczytu.
 
@@ -123,8 +123,10 @@ Autorzy presetów mogą rozmieszczać te zwykłe znaczniki treści za pomocą is
 | --- | --- |
 | `chat_summary` | Kwalifikujące się stałe wpisy z Chat Summaries. |
 | `current_scene_summary` | Ograniczone fragmenty źródłowe ze starszej części trwającej sceny. |
-| `recalled_scenes` | Wybrane podsumowania scen bez towarzyszącego fragmentu. |
-| `recalled_messages` | Podsumowania scen z dokładnymi fragmentami historii, mówcami i zakresami źródłowymi. |
+| `recalled_scenes` | Wszystkie wybrane podsumowania scen, każde z dostępnym fragmentem historii bezpośrednio pod nim. |
+| `recalled_messages` | Dawny alias tej samej wspólnej sekcji Recalled Scenes. |
+
+Wszystkie przywołane sceny trafiają do jednej sekcji **Recalled Scenes**: bezpośrednio po każdym podsumowaniu znajduje się fragment danej sceny, jeśli jest dostępny. Włączony znacznik `recalled_scenes` ma pierwszeństwo przed dawnym `recalled_messages`; te znaczniki nigdy nie tworzą osobnych sekcji.
 
 Każdy element używa formatu presetu **XML**, **Markdown** lub **None** (brak) i zawiera krótkie wyjaśnienie przeznaczenia. Puste elementy niczego nie emitują. Pierwsze włączone wystąpienie wyznacza położenie; elementy bez włączonego znacznika trafiają jeden raz przed historię, więc starsze presety działają. Fragmenty są kontekstem, a nie nowymi bieżącymi wiadomościami ani poleceniami. Trzy nowe znaczniki są puste przy wyłączonej funkcji Advanced Memory.
 

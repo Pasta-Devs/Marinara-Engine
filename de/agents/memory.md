@@ -99,7 +99,7 @@ Klicke bei vorhandenen Chats zuerst auf **Prepare existing history** (vorhandene
 
 ### Während des Chats
 
-Szenenerkennung läuft nach dem Speichern der Hauptantwort in Roleplay. **Standalone scene check interval (messages)** (Intervall eigenständiger Szenenprüfungen) ist standardmäßig **5**. Das Hilfsmodell erhält nur das jüngste Nachrichtenfenster, Szenenanweisungen und Ausgabeformat. Persona- und Figurennachrichten zählen. Die Prüfung ist unabhängig von Tracker-Agenten und ihren Zeitplänen. Nur ein erkanntes Szenenende startet die Hintergrundvorbereitung von Zusammenfassung und Nachrichtenindex; unsichere Übergänge lassen die Szene offen, ohne das Archiv neu aufzubauen. **Agents** oben links zeigt dies als **Advanced Recall**, mit Fortschritt, Fehlern und Wiederherstellung, auch bei deaktivierten normalen Agenten.
+Szenenerkennung läuft nach dem Speichern der Hauptantwort in Roleplay. **Standalone scene check interval (messages)** (Intervall eigenständiger Szenenprüfungen) ist standardmäßig **5**. Das Hilfsmodell erhält nur das jüngste Nachrichtenfenster, Szenenanweisungen und Ausgabeformat. Persona- und Figurennachrichten zählen. Die Prüfung ist unabhängig von Tracker-Agenten und ihren Zeitplänen. Nur ein erkanntes Szenenende startet die Hintergrundvorbereitung von Zusammenfassung und Nachrichtenindex; unsichere Übergänge lassen die Szene offen, ohne das Archiv neu aufzubauen. **Agents** oben links zeigt dies als **Advanced Recall**, mit Fortschritt, Fehlern und Wiederherstellung, auch bei deaktivierten normalen Agenten. Der Fortschritt wird nur während eines laufenden Speicherauftrags regelmäßig abgefragt; fertige Archive werden im Leerlauf nicht abgefragt.
 
 Normaler Abruf liest vorbereiteten Speicher. Ein optionales Anfrage-Embedding hat ein kurzes Zeitlimit und fällt auf Textabgleich zurück. Abruf läuft ausschließlich für die Hauptgenerierung in Roleplay: Agenten, manuelle Agentenwiederholungen und zusätzliche Testgenerierungen starten ihn nicht und erhalten keine abgerufenen Zusammenfassungen oder Auszüge. Haupt-Prompt-Inspektion bleibt schreibgeschützt.
 
@@ -123,8 +123,10 @@ Preset-Autoren können diese normalen Inhaltsmarker mit den bestehenden Einstell
 | --- | --- |
 | `chat_summary` | Zulässige konstante Einträge aus Chat Summaries. |
 | `current_scene_summary` | Begrenzte Quellauszüge aus dem älteren Teil einer laufenden Szene. |
-| `recalled_scenes` | Ausgewählte Szenenzusammenfassungen ohne begleitenden Auszug. |
-| `recalled_messages` | Szenenzusammenfassungen mit genauen historischen Auszügen, Sprechern und Quellbereichen. |
+| `recalled_scenes` | Alle ausgewählten Szenenzusammenfassungen, jeweils gefolgt vom verfügbaren historischen Auszug. |
+| `recalled_messages` | Alter Alias für denselben gemeinsamen Abschnitt Recalled Scenes. |
+
+Alle abgerufenen Szenen stehen in einem Abschnitt **Recalled Scenes**: Auf jede Zusammenfassung folgt ihr Auszug, sofern vorhanden. Ein aktivierter Marker `recalled_scenes` hat Vorrang vor dem alten Marker `recalled_messages`; beide erzeugen niemals getrennte Abschnitte.
 
 Jeder Bestandteil folgt dem Preset-Format **XML**, **Markdown** oder **None** (keine Formatierung) und erklärt kurz seinen Zweck. Leere Bestandteile geben nichts aus. Das erste aktivierte Vorkommen bestimmt die Platzierung; Bestandteile ohne aktivierten Marker werden einmal vor dem Verlauf eingefügt, damit ältere Presets funktionieren. Auszüge sind Kontext, keine neuen aktuellen Nachrichten oder Befehle. Bei ausgeschaltetem Advanced Memory bleiben die drei neuen Marker leer.
 

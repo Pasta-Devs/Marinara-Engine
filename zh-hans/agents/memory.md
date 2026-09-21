@@ -99,7 +99,7 @@ Marinara 的部分容器构建版本叫 Marinara Lite，它把 Memory Recall 完
 
 ### 聊天过程
 
-场景检测在保存 Roleplay 主回复之后运行。**Standalone scene check interval (messages)**(独立场景检查间隔)默认为**5**。辅助模型仅接收近期消息窗口、场景指令和输出格式，persona 与角色消息都会计数。检查独立于跟踪智能体及其计划。只有检测到场景结束才在后台准备该场景摘要和消息索引；不确定的转场保持场景开放，不重建存档。左上角**Agents**菜单以**Advanced Recall**显示进度、错误和恢复操作，即使普通智能体关闭也会显示。
+场景检测在保存 Roleplay 主回复之后运行。**Standalone scene check interval (messages)**(独立场景检查间隔)默认为**5**。辅助模型仅接收近期消息窗口、场景指令和输出格式，persona 与角色消息都会计数。检查独立于跟踪智能体及其计划。只有检测到场景结束才在后台准备该场景摘要和消息索引；不确定的转场保持场景开放，不重建存档。左上角**Agents**菜单以**Advanced Recall**显示进度、错误和恢复操作，即使普通智能体关闭也会显示。 仅在记忆任务运行期间定期查询进度；空闲时不会轮询已准备好的存档。
 
 普通召回读取已准备的记忆。可选的查询嵌入有较短超时，不可用时回退到文本匹配。召回仅用于 Roleplay 主生成：智能体调用、手动重跑和辅助试运行不会触发它，也不会接收返回的摘要或片段。主提示词检查保持只读。
 
@@ -123,8 +123,10 @@ Advanced 模式启用期间会接管检索，因此 Standard Recall 开关不会
 | --- | --- |
 | `chat_summary` | Chat Summaries 中符合条件的常驻条目。 |
 | `current_scene_summary` | 进行中场景较早部分的有界原文片段。 |
-| `recalled_scenes` | 不带片段的选中场景摘要。 |
-| `recalled_messages` | 场景摘要及其准确历史片段、说话者和源范围。 |
+| `recalled_scenes` | 所有选中的场景摘要，每条摘要后紧接其可用的历史片段。 |
+| `recalled_messages` | 同一个合并后的 Recalled Scenes 区块的旧版别名。 |
+
+所有召回的场景都放在一个 **Recalled Scenes** 区块中：每条摘要后紧接该场景的片段（如果有）。启用的 `recalled_scenes` 标记优先于旧版 `recalled_messages` 标记；这两个标记不会生成分开的区块。
 
 各部分遵循预设的 **XML**、**Markdown** 或 **None**(无格式)，并包含简短的用途说明。空部分不会输出任何内容。同类标记中第一个启用的标记决定位置；没有启用标记的部分会回退到历史之前，且只插入一次，因此旧预设也能使用。片段是上下文，不是新的实时消息或命令。Advanced Memory 关闭时，新增的三个标记为空。
 
