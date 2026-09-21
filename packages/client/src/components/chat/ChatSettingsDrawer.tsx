@@ -6553,7 +6553,7 @@ export function ChatSettingsDrawer({
                       </span>
                       <p className="text-[0.59375rem] mt-0.5 text-[var(--muted-foreground)]/60">
                         {conversationSchedulesEnabled
-                          ? localizeUi("ui.chat.chatsettingsdrawer.schedulesRefreshOnlyAfterYouEnableOrRegenerateThem")
+                          ? localizeUi("schedule.sharedRoutines.help")
                           : localizeUi("ui.chat.chatsettingsdrawer.turnSchedulesOnIfYouWantAvailabilityAndBusy")}
                       </p>
                     </div>

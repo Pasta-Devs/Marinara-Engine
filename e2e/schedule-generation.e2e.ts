@@ -253,6 +253,9 @@ for (const theme of ["dark", "light"] as const) {
         if (action === "Regenerate Monday") {
           await expect(dialog.getByRole("textbox", { name: "Monday block activity", exact: true })).toBeDisabled();
           await expect(dialog.getByLabel("Chat talkativeness", { exact: true })).toBeDisabled();
+          await dialog.getByRole("button", { name: "Stop", exact: true }).click();
+          await expect(dialog.getByRole("button", { name: "Regenerate Monday", exact: true })).toBeEnabled();
+          await expect(dialog.getByText("Regenerating Monday...", { exact: true })).toHaveCount(0);
           await dialog.getByRole("button", { name: `Close Edit ${name} Schedule`, exact: true }).click();
         } else {
           await dialog.getByRole("button", { name: "Stop", exact: true }).click();

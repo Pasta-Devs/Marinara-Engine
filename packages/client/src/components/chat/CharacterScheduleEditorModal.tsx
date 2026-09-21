@@ -726,6 +726,7 @@ export function CharacterScheduleEditorModal({
       if (generationAbortRef.current === controller) {
         generationAbortRef.current = null;
         setGeneratingDay(null);
+        if (controller.signal.aborted) setDayGenerationStatus((current) => ({ ...current, [day]: "" }));
       }
     }
   };
