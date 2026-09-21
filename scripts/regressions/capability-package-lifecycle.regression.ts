@@ -640,6 +640,16 @@ try {
     /reasoningEffort:\s*options\.reasoningEffort,/u,
     "Capability model calls must preserve an explicit reasoning effort of none",
   );
+  assert.match(
+    capabilityLanguageModelSource,
+    /AbortSignal\.any\(\[options\.signal,\s*timeoutSignal\]\)[\s\S]*withLlmRequestTimeout\(\s*timeoutMs,\s*async\s*\(\)\s*=>[\s\S]*provider\.chatComplete\(/u,
+    "Capability model calls must enforce AGENT_CALL_TIMEOUT_MS as a total-duration cap while scoping the transport timeout",
+  );
+  assert.match(
+    capabilityLanguageModelSource,
+    /const\s+timeoutSignal\s*=\s*AbortSignal\.timeout\(\s*timeoutMs\s*\);/u,
+    "Capability model calls must build their deadline signal from AbortSignal.timeout",
+  );
   assert.doesNotMatch(
     capabilityLanguageModelSource,
     /options\.reasoningEffort\s*===\s*"none"\s*\?\s*undefined/u,

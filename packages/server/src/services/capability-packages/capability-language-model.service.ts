@@ -15,6 +15,8 @@ import {
 } from "../llm/base-provider.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
+import { getAgentCallTimeoutMs } from "../../config/runtime-config.js";
+import { withLlmRequestTimeout } from "../llm/base-provider.js";
 import { unwrapConnectionAdmissionProvider } from "../generation/connection-admission.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
 
@@ -36,16 +38,24 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
         messages: CapabilityLanguageModelMessage[],
         options: CapabilityLanguageModelCompletionOptions = {},
       ) {
-        const result = await provider.chatComplete(messages as ChatMessage[], {
-          model,
-          temperature: options.temperature,
-          maxTokens: options.maxTokens,
-          debugMode: options.debugMode,
-          reasoningEffort: options.reasoningEffort,
-          verbosity: options.verbosity,
-          signal: options.signal,
-          responseFormat: options.responseFormat ? { ...options.responseFormat } : undefined,
-        });
+        const timeoutMs = getAgentCallTimeoutMs();
+        // AGENT_CALL_TIMEOUT_MS caps the TOTAL duration of the capability LLM call even
+        // while streaming, matching the host's normal agent-call policy (agent-executor
+        // agentCallSignal). Preserve the caller's own cancellation signal via AbortSignal.any.
+        const timeoutSignal = AbortSignal.timeout(timeoutMs);
+        const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
+        const result = await withLlmRequestTimeout(timeoutMs, async () =>
+          provider.chatComplete(messages as ChatMessage[], {
+            model,
+            temperature: options.temperature,
+            maxTokens: options.maxTokens,
+            debugMode: options.debugMode,
+            reasoningEffort: options.reasoningEffort,
+            verbosity: options.verbosity,
+            signal,
+            responseFormat: options.responseFormat ? { ...options.responseFormat } : undefined,
+          }),
+        );
         return { content: result.content, finishReason: result.finishReason, usage: result.usage };
       },
       fitContext(messages: CapabilityLanguageModelMessage[], options = {}) {
