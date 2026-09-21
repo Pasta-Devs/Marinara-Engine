@@ -105,7 +105,7 @@ await app.register(advancedMemoryRoutes, { prefix: "/chats" });
 const settings = {
   ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
   enabled: true,
-  maxContextTokens: 8192,
+  maxContextTokens: 16_384,
   summaryBudgetTokens: 512,
 };
 async function createChat(name: string, hardCap?: number, omitReasoning = false) {
@@ -116,7 +116,7 @@ async function createChat(name: string, hardCap?: number, omitReasoning = false)
       model: "gpt-6-astra",
       baseUrl,
       apiKey: "test-key",
-      maxContext: 8192,
+      maxContext: 16_384,
       ...(hardCap ? { maxTokensOverride: hardCap } : {}),
       embeddingBaseUrl: baseUrl,
       embeddingModel: "memory-proof",
@@ -155,15 +155,16 @@ try {
   assert(requests.length > sceneRequestStart);
   assert.equal(
     requests.at(-1)!.max_output_tokens,
-    4096,
-    "the helper connection cannot replace Chat Summary output size",
+    8196,
+    "a small helper connection cap cannot starve automated summary reasoning",
   );
   sceneNeedsReasoningBudget = false;
   const body = requests.find((item) => !item.instructions?.startsWith("Identify scene transitions"))!;
   assert(body.instructions?.includes("self-contained historical recap"));
   assert(body.instructions?.includes('Omit "current situation", "open tensions"'));
   assert(body.max_output_tokens! >= 2048, "short retained memory does not starve reasoning of completion tokens");
-  assert.equal(body.max_output_tokens, 4096, "summary output is not clamped to a fraction of context");
+  assert.equal(body.max_output_tokens, 8196, "automated summaries reserve at least 8,196 output tokens");
+  assert.match(body.instructions!, /Write 2–3 paragraphs/u);
   assert.equal(
     body.reasoning?.effort,
     "low",
@@ -286,10 +287,10 @@ try {
     budgetTokens: 50_000,
     readOnly: true,
   });
-  assert.match(
+  assert.doesNotMatch(
     narratorFullHistory.chatSummary ?? "",
     /Narrator alone keeps/,
-    "enabled narrator constants remain alongside live history",
+    "narrator constants do not duplicate their still-live source messages",
   );
   assert(narratorFullHistory.messageIds.includes(narratorSource[0]!.id), "the narrator knows the early history");
   assert(!narratorFullHistory.messageIds.includes(narratorSource[4]!.id), "explicit narrator hiding still applies");
@@ -536,19 +537,27 @@ try {
     "the connection's explicit parameter omission is preserved",
   );
 
-  const capped = await createChat("Explicit Chat Summary output cap", 8192);
+  const capped = await createChat("Small Chat Summary output size", 8192);
   await chats.patchMetadata(capped.id, { summaryMaxTokens: 256 });
   const requestStart = requests.length;
-  await assert.rejects(memory.initialize(capped.id), /256 of 256 output tokens, 256 of them reasoning/);
+  await memory.initialize(capped.id);
   assert.equal(
     requests.slice(requestStart).filter((item) => !item.instructions?.startsWith("Identify scene transitions")).length,
     1,
-    "empty output does not cause hidden paid retries",
+    "the summary receives enough reasoning room without hidden paid retries",
   );
   assert(
-    requests.slice(requestStart).every((item) => item.max_output_tokens! <= 256),
-    "the explicit Chat Summary output size remains authoritative",
+    requests
+      .slice(requestStart)
+      .filter((item) => !item.instructions?.startsWith("Identify scene transitions"))
+      .every((item) => item.max_output_tokens === 8196),
+    "automated summaries apply the reasoning floor independently of a smaller saved output size",
   );
+
+  const tooSmall = await createChat("Context cannot fit the reasoning reserve");
+  await chats.patchMetadata(tooSmall.id, { advancedMemory: { ...settings, maxContextTokens: 8192 } });
+  await assert.rejects(memory.initialize(tooSmall.id), /output reserve do not fit/u);
+  assert(!(await memory.status(tooSmall.id)).records.some((record) => record.kind === "scene" && record.content));
 
   const truncated = await createChat("Truncated summary");
   partial = true;
@@ -580,7 +589,7 @@ try {
   assert(helper);
   await chats.patchMetadata(sceneOnly.id, {
     advancedMemory: { ...settings, maxContextTokens: 65_000, helperConnectionId: helper.id },
-    summaryMaxTokens: 8192,
+    summaryMaxTokens: 12_000,
   });
   const sceneOnlySource = await chats.listMessages(sceneOnly.id);
   const wholeScene = `SCENE_START ${"Maukie explored the coast and returned the compass. ".repeat(1500)} SCENE_END`;
@@ -599,6 +608,7 @@ try {
     "scene detection and summaries use the selected helper rather than the ordinary summary connection",
   );
   const sceneSummaryRequest = sceneSummaryRequests[0]!;
+  assert.equal(sceneSummaryRequest.max_output_tokens, 12_000, "a larger Chat Summary output setting is preserved");
   const sceneInput = (sceneSummaryRequest.input as Array<{ content: string | Array<{ text: string }> }>)
     .flatMap((item) => (typeof item.content === "string" ? item.content : item.content.map((part) => part.text)))
     .join("\n");

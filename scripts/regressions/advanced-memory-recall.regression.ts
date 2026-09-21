@@ -250,11 +250,15 @@ try {
     ],
   });
   const withConstants = await memory.prepare({ ...input, messages: await chats.listMessages(chat.id), readOnly: true });
-  for (const entry of constantEntries)
-    assert(
-      withConstants.chatSummary!.includes(entry.content.trim()),
-      "all enabled constants survive archived, overlapping and live ranges",
-    );
+  assert(
+    withConstants.chatSummary!.includes(constantEntries[0]!.content.trim()),
+    "fully archived constants remain included",
+  );
+  assert.doesNotMatch(
+    withConstants.chatSummary!,
+    /CONSTANT_RANGE_1|CONSTANT_RANGE_2/u,
+    "overlapping and live constants are omitted without changing their enabled state",
+  );
   assert.doesNotMatch(withConstants.chatSummary!, /DISABLED_CONSTANT|FUTURE_CONSTANT/u);
   const tight = await memory.prepare({
     ...input,

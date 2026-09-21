@@ -1002,6 +1002,8 @@ test("Advanced Memory stays idle, streams OpenAI replies and follows post-genera
     await agents.click();
     const activity = page.locator('[data-component="AdvancedRecallActivity"]');
     await expect(activity).toContainText("Finding scene boundaries");
+    const sceneCheckRun = page.locator('[data-agent-activity="advanced-recall"]');
+    await expect(sceneCheckRun).toContainText("Advanced Recall");
     await captureThemes(page, info, "live-scene-check-activity", activity.locator(".."));
     const activePolls = polls;
     await expect.poll(() => polls).toBeGreaterThan(activePolls);
@@ -1015,6 +1017,7 @@ test("Advanced Memory stays idle, streams OpenAI replies and follows post-genera
     );
     await expect(agents.locator(".lucide-loader-circle")).toHaveCount(0);
     await expect(activity).toContainText("Memory is ready");
+    await expect(sceneCheckRun).toBeVisible();
     await expect.poll(() => statusRequests.size).toBe(0);
     const completedPolls = polls;
     await page.waitForTimeout(5500);

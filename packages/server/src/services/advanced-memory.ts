@@ -53,6 +53,7 @@ import { cosineSimilarity } from "./lorebook/embeddings.js";
 import { measureContextBudget, withLlmRequestTimeout } from "./llm/base-provider.js";
 import { normalizeGemma4Delimiters } from "./llm/textual-tool-call-parser.js";
 import { resolveModelAccessPolicy } from "./generation/model-access-policy.js";
+import { completeAgentCall } from "./agents/agent-progress.js";
 import {
   getAttachmentFilename,
   readableAttachmentText,
@@ -90,6 +91,7 @@ type InitializationOptions = AdvancedMemoryOperationOptions & { detectScenes?: b
 type SceneCheckOptions = AdvancedMemoryOperationOptions & {
   asOfMessageId?: string;
   batchedCheck?: { request: AdvancedMemorySceneCheck; result: unknown };
+  agentProgress?: Parameters<typeof completeAgentCall>[0]["agentProgress"];
 };
 
 export interface PrepareAdvancedMemoryInput extends AdvancedMemoryOperationOptions {
@@ -220,7 +222,7 @@ function policyFingerprint(ctx: Context): string {
 
 function preparationPolicyRevision(ctx: Context): string {
   return hash([
-    "scene-reset-live-start-v11", // Invalidate reusable contexts without rebuilding valid source archives.
+    "archived-constants-v12", // Invalidate reusable contexts without rebuilding valid source archives.
     policyFingerprint(ctx),
     ctx.settings,
     ctx.metadata.summaryEntries,
@@ -244,6 +246,30 @@ function contextStartMessageId(messages: readonly AdvancedMemoryMessage[], audie
       return messages[index]!.id;
   }
   return "";
+}
+
+function contextBoundary(ctx: Context, audience: string[], historical = false) {
+  const manualStart = contextStartMessageId(ctx.messages, audience.length ? audience : ctx.characterIds);
+  const savedStarts = object(ctx.metadata.advancedMemoryState).contextStarts;
+  const savedStart =
+    !historical && Array.isArray(savedStarts)
+      ? savedStarts
+          .map(object)
+          .find(
+            (start) =>
+              hash(strings(start.audienceCharacterIds)) === hash(audience) &&
+              (start.manualStartMessageId ?? null) === (manualStart || null),
+          )
+      : undefined;
+  return {
+    manualStart,
+    boundaryIndex: Math.max(
+      manualStart ? ctx.messages.findIndex((message) => message.id === manualStart) - 1 : -1,
+      typeof savedStart?.sceneStartMessageId === "string"
+        ? ctx.messages.findIndex((message) => message.id === savedStart.sceneStartMessageId) - 1
+        : -1,
+    ),
+  };
 }
 
 function abortIfNeeded(signal?: AbortSignal): void {
@@ -678,7 +704,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
   async function summarize(
     ctx: Context,
     inputs: string[],
-    budget: number,
+    budget: number | null,
     options: AdvancedMemoryOperationOptions,
     cacheOwner: StoredRecord,
   ): Promise<string> {
@@ -693,7 +719,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const completed = Object.fromEntries(
       Object.entries(savedWork).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
     );
-    const sceneSummary = cacheOwner.kind === "scene";
+    const sceneSummary = budget === null;
     const resolved = await connection(ctx);
     if (!resolved.ok) throw new Error(resolved.error);
     const global = await appSettings.get(CHAT_SUMMARY_PROMPT_SETTINGS_KEY);
@@ -712,11 +738,12 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       resolved.provider.maxContextValue ?? 32768,
       modelLimit ?? Infinity,
     );
-    // The Chat Summary setting owns every summary request's output allowance.
-    // Do not silently substitute the connection override or a fraction of the context window.
-    const outputBudget = clampRoleplaySummaryMaxTokens(ctx.metadata.summaryMaxTokens);
-    const summaryTarget = Math.max(1, Math.floor(budget * 0.8));
-    const sizeInstruction = `Aim for ${summaryTarget} tokens and keep the result within ${budget} tokens.`;
+    // Keep room for reasoning independently of the recap's requested length.
+    // A larger Chat Summary output setting remains authoritative.
+    const outputBudget = Math.max(8196, clampRoleplaySummaryMaxTokens(ctx.metadata.summaryMaxTokens));
+    const sizeInstruction = sceneSummary
+      ? "Write 2–3 paragraphs."
+      : `Aim for approximately ${budget} tokens. This is a soft target; preserve important facts if they need more space.`;
     const inputBudget = Math.floor(window * 0.85) - outputBudget - tokenSize(prompt + combinePrompt) - 256;
     if (inputBudget < 128)
       throw new Error("The summary prompt and output reserve do not fit this model's context limit");
@@ -747,7 +774,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           pass > 0
             ? `\nThe supplied recap is still too long (about ${tokenSize(batchText)} tokens). Rewrite it more concisely, prioritizing durable events and outcomes. Do not expand it or repeat facts.`
             : "";
-        const instruction = `${prompt}\n\n${pass > 0 || !sceneSummary ? `${combinePrompt}\n\n` : ""}Summarize only the supplied eligible source material. Preserve corrections, chronological order and explicit story-time anchors; distinguish plans, beliefs, and events. An unknown story timeframe stays unknown; source message numbers show order, not elapsed time. Do not add facts from outside these sources. ${sceneSummary ? "" : sizeInstruction}${shortening}`;
+        const instruction = `${prompt}\n\n${pass > 0 || !sceneSummary ? `${combinePrompt}\n\n` : ""}Summarize only the supplied eligible source material. Preserve corrections, chronological order and explicit story-time anchors; distinguish plans, beliefs, and events. An unknown story timeframe stays unknown; source message numbers show order, not elapsed time. Do not add facts from outside these sources. ${sizeInstruction}${shortening}`;
         logDebugOverride(
           options.debugMode === true || process.env.DEBUG_AGENTS === "true",
           "[advanced-memory] Summary prompt for %s (%s): %s\n%s",
@@ -779,8 +806,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         if (
           text &&
           pass > 0 &&
-          (!sceneSummary || batches.length > 1) &&
-          tokenSize(text) > budget &&
+          batches.length > 1 &&
           (tokenSize(text) >= tokenSize(batchText) || pass === maxPasses - 1)
         )
           text = undefined;
@@ -806,6 +832,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             throw new Error(
               "The summary model reached its output limit before completing the summary. Raise Chat Summary's Maximum output size or lower Reasoning Effort, then resume preparation.",
             );
+          if (result.finishReason !== "stop" || result.toolCalls?.length)
+            throw new Error(
+              "The summary model did not complete its summary. Resume processing to retry unfinished work.",
+            );
           // Save a completed paid response even if cancellation arrived with it. Source/settings
           // validation still applies; only incomplete work is stored and it is never prompt content.
           await put(ctx, { ...cacheOwner, content: "" }, { ...options, signal: undefined });
@@ -819,8 +849,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         abortIfNeeded(options.signal);
         outputs.push(text);
       }
-      // Archived scenes are recalled selectively; constant consolidation must fit its allocated share.
-      if (outputs.length === 1 && (sceneSummary || tokenSize(outputs[0]!) <= budget)) return outputs[0]!;
+      // Length guidance is not a hard generation limit. Only combine again when
+      // source chunking produced multiple recaps, never to enforce a tiny share.
+      if (outputs.length === 1) return outputs[0]!;
       if (pass === maxPasses - 1 || (pass > 0 && tokenSize(outputs.join("\n\n")) >= tokenSize(parts.join("\n\n")))) {
         // Earlier work is reusable; this failed pass must get a fresh attempt on Resume.
         for (const key of passKeys) delete completed[key];
@@ -833,7 +864,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       parts = outputs;
     }
     throw new Error(
-      `${sceneSummary ? `The helper model could not combine this scene within its ${window}-token context limit.` : `The helper model could not compact this history within the ${budget}-token constant summary limit.`} Resume processing retries unfinished work; completed summaries are kept.`,
+      `The helper model could not combine these summaries within its ${window}-token context limit. Resume processing retries unfinished work; completed summaries are kept.`,
     );
   }
 
@@ -1356,14 +1387,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
                 : []),
             ];
             candidate.content =
-              summaryCache.get(summaryKey) ??
-              (await summarize(
-                ctx,
-                inputs,
-                clampRoleplaySummaryMaxTokens(ctx.metadata.summaryMaxTokens),
-                options,
-                candidate,
-              ));
+              summaryCache.get(summaryKey) ?? (await summarize(ctx, inputs, null, options, candidate));
             await put(ctx, candidate, options);
             record = candidate;
           }
@@ -1764,17 +1788,31 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
               JSON.stringify(messages),
             );
             const result = request.messages.length
-              ? await resolved.provider.chatComplete(messages, {
-                  model: resolved.model,
-                  ...resolveChatSummaryTemperatureOptions(resolved),
-                  ...(resolved.enabledParameters?.reasoningEffort === false
-                    ? {}
-                    : { reasoningEffort: "none" as const }),
-                  maxTokens,
-                  maxContext,
-                  signal: operationOptions.signal,
-                  preserveContext: true,
-                })
+              ? await completeAgentCall(
+                  { signal: operationOptions.signal, agentProgress: options.agentProgress },
+                  [
+                    {
+                      id: "advanced-recall",
+                      type: "advanced-recall",
+                      name: "Advanced Recall",
+                      phase: "post_processing",
+                    },
+                  ],
+                  resolved.provider,
+                  messages,
+                  {
+                    model: resolved.model,
+                    ...resolveChatSummaryTemperatureOptions(resolved),
+                    ...(resolved.enabledParameters?.reasoningEffort === false
+                      ? {}
+                      : { reasoningEffort: "none" as const }),
+                    maxTokens,
+                    maxContext,
+                    signal: operationOptions.signal,
+                    preserveContext: true,
+                    stream: false,
+                  },
+                )
               : { content: '{"ends":[]}', finishReason: "stop", toolCalls: [] };
             abortIfNeeded(operationOptions.signal);
             if (result.finishReason === "length")
@@ -1945,13 +1983,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             },
             options,
           );
-          content = await summarize(
-            ctx,
-            [logMessages(ctx, source)],
-            clampRoleplaySummaryMaxTokens(ctx.metadata.summaryMaxTokens),
-            options,
-            cache,
-          );
+          content = await summarize(ctx, [logMessages(ctx, source)], null, options, cache);
         }
         await validateSnapshot(ctx, source, options);
         await chats.patchMetadata(
@@ -1974,6 +2006,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
               createChatSummaryEntry(
                 {
                   origin: "automated",
+                  title: `Messages #${start + 1}–#${end + 1}`,
                   sourceMode: "range",
                   content: scopeConstantSummary(ctx, content, audience),
                   enabled: true,
@@ -2016,7 +2049,34 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         new Map(eligible.map((entry) => [entry.id, renderEntry(ctx, entry.content, id ? [id] : [])])),
       ]),
     );
-    const viewTokens = new Map(views.map((id) => [id, tokenSize([...rendered.get(id)!.values()].join("\n\n"))]));
+    const indexes = new Map(ctx.messages.map((message, index) => [message.id, index]));
+    const liveIds = new Map(
+      views.map((id) => {
+        const audience = id ? [id] : [];
+        const { boundaryIndex } = contextBoundary(ctx, audience);
+        return [
+          id,
+          new Set(
+            allowed(ctx, ctx.messages, audience)
+              .filter((message) => indexes.get(message.id)! > boundaryIndex)
+              .map((message) => message.id),
+          ),
+        ];
+      }),
+    );
+    const outsideLive = (entry: (typeof eligible)[number], id: string) =>
+      coverage(entry).every((messageId) => !liveIds.get(id)!.has(messageId));
+    const viewTokens = new Map(
+      views.map((id) => [
+        id,
+        tokenSize(
+          eligible
+            .filter((entry) => outsideLive(entry, id))
+            .map((entry) => rendered.get(id)!.get(entry.id))
+            .join("\n\n"),
+        ),
+      ]),
+    );
     const constantBudget = Math.floor(ctx.settings.summaryBudgetTokens * 0.7);
     if ([...viewTokens.values()].every((tokens) => tokens <= constantBudget)) {
       await progress(ctx, { status: "ready", stage: "ready", error: null }, options);
@@ -2025,16 +2085,17 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     // Combine only identical rendered text for the same audience; keep differing
     // character sections intact instead of flattening their authored conditions.
     const groups = new Map<string, { audience: string[]; ranged: boolean; entries: typeof eligible }>();
-    const preserved = new Set<string>();
     for (const entry of eligible) {
       const audience = ctx.individual
         ? ctx.characterIds.filter((id) => rendered.get(id)!.get(entry.id)!.trim()).sort()
         : [];
       if (ctx.individual && !audience.length) continue;
+      // Keep shared entries intact until their range is archived for every
+      // reader; replacing only one character's section would lose the others.
+      if (!(ctx.individual ? audience : [""]).every((id) => outsideLive(entry, id))) continue;
       if (new Set(audience.map((id) => rendered.get(id)!.get(entry.id))).size > 1) {
         // ponytail: preserve audience-dependent templates; combining them safely
         // requires Chat Summary entries with explicit per-audience content.
-        preserved.add(entry.id);
         continue;
       }
       const ranged = coverage(entry).length > 0;
@@ -2043,17 +2104,6 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       group.entries.push(entry);
       groups.set(key, group);
     }
-    const preservedTokens = new Map(
-      views.map((id) => [
-        id,
-        tokenSize(
-          eligible
-            .filter((entry) => preserved.has(entry.id))
-            .map((entry) => rendered.get(id)!.get(entry.id)!)
-            .join("\n\n"),
-        ),
-      ]),
-    );
     for (const { audience, ranged, entries } of groups.values()) {
       ctx = await context(chatId);
       const audienceIds = ctx.individual ? audience : [""];
@@ -2061,13 +2111,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       const groupTokens = tokenSize(inputs.join("\n\n"));
       if (!groupTokens) continue;
       const target = Math.floor(
-        Math.min(
-          ...audienceIds.map(
-            (id) =>
-              ((constantBudget - preservedTokens.get(id)!) * groupTokens) /
-              (viewTokens.get(id)! - preservedTokens.get(id)!),
-          ),
-        ),
+        Math.min(...audienceIds.map((id) => (constantBudget * groupTokens) / viewTokens.get(id)!)),
       );
       if (target < 1 || groupTokens <= target) continue;
       const ids = new Set(entries.flatMap(coverage));
@@ -2089,6 +2133,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         options,
       );
       const content = await summarize(ctx, inputs, target, options, cache);
+      // Keep originals if the helper did not shorten them. The completed work
+      // stays cached so unchanged inputs do not repeat the same paid attempt.
+      if (tokenSize(content) >= groupTokens) continue;
       await validateSnapshot(ctx, source, options);
       await chats.patchMetadata(
         chatId,
@@ -2109,6 +2156,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           const combined = createChatSummaryEntry(
             {
               origin: "automated",
+              title: ranged
+                ? `Messages #${ctx.messages.indexOf(source[0]!) + 1}–#${ctx.messages.indexOf(source.at(-1)!) + 1}`
+                : "Compacted summaries",
               sourceMode: ranged ? "range" : "last",
               content: scopeConstantSummary(ctx, content, ctx.individual ? audience : ctx.characterIds),
               enabled: true,
@@ -2243,24 +2293,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     ) {
       receipt.reasons.push("unverified-summary-omitted");
     }
-    const manualStart = contextStartMessageId(sources, audience.length ? audience : ctx.characterIds);
-    const savedStarts = object(ctx.metadata.advancedMemoryState).contextStarts;
-    const savedStart =
-      !historical && Array.isArray(savedStarts)
-        ? savedStarts
-            .map(object)
-            .find(
-              (start) =>
-                hash(strings(start.audienceCharacterIds)) === hash(audience) &&
-                (start.manualStartMessageId ?? null) === (manualStart || null),
-            )
-        : undefined;
-    let boundaryIndex = Math.max(
-      manualStart ? indexes.get(manualStart)! - 1 : -1,
-      typeof savedStart?.sceneStartMessageId === "string" ? (indexes.get(savedStart.sceneStartMessageId) ?? 0) - 1 : -1,
-    );
+    const { manualStart, boundaryIndex: initialBoundary } = contextBoundary(ctx, audience, historical);
+    let boundaryIndex = initialBoundary;
     let live = eligible.filter((message) => indexes.get(message.id)! > boundaryIndex);
-    let chatSummary = sourceEntries(ctx, sources, historical)
+    const constants = sourceEntries(ctx, sources, historical)
       .map((entry) => {
         const covered = entry.messageIds?.length
           ? sources.filter((message) => entry.messageIds!.includes(message.id))
@@ -2268,7 +2304,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             ? sources.slice(entry.rangeStartIndex - 1, entry.rangeEndIndex)
             : [];
         const text = renderEntry(ctx, entry.content, audience);
-        return covered.length
+        const rendered = covered.length
           ? renderMemoryText(
               indexes,
               covered.map((message) => message.id),
@@ -2277,9 +2313,17 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
               true,
             )
           : text;
+        return { messageIds: covered.map((message) => message.id), text: rendered };
       })
-      .filter(Boolean)
-      .join("\n\n");
+      .filter((entry) => entry.text);
+    const constantText = () => {
+      const liveIds = new Set(live.map((message) => message.id));
+      return constants
+        .filter((entry) => entry.messageIds.every((id) => !liveIds.has(id)))
+        .map((entry) => entry.text)
+        .join("\n\n");
+    };
+    let chatSummary = constantText();
     const scenes = available
       .filter((record) => record.kind === "scene" && record.id === record.sceneId && record.status === "closed")
       .sort((a, b) => indexes.get(b.endMessageId)! - indexes.get(a.endMessageId)!);
@@ -2289,6 +2333,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       if (end === undefined || end <= boundaryIndex || end >= (indexes.get(eligible.at(-1)?.id ?? "") ?? -1)) continue;
       boundaryIndex = end;
       live = eligible.filter((message) => indexes.get(message.id)! > boundaryIndex);
+      chatSummary = constantText();
       if (!receipt.reasons.includes("scene-boundary-rollover")) receipt.reasons.push("scene-boundary-rollover");
       // Reset to the newest known scene, then let this window grow again.
       break;

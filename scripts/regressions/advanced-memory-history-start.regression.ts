@@ -63,7 +63,7 @@ try {
     model: "fixture",
     apiKey: "fixture",
     baseUrl: `http://127.0.0.1:${address.port}/v1`,
-    maxContext: 8192,
+    maxContext: 16_384,
     maxTokensOverride: 1024,
     embeddingModel: "fixture-embedding",
   });
@@ -83,7 +83,7 @@ try {
   );
   await memory.updateSettings(cycleChat.id, {
     enabled: true,
-    maxContextTokens: 8192,
+    maxContextTokens: 16_384,
     summaryBudgetTokens: 512,
     retrieveMaxScenes: 0,
   });
@@ -198,7 +198,7 @@ try {
   await chats.patchMetadata(chat.id, { groupChatMode: "individual" });
   const { settings } = await memory.updateSettings(chat.id, {
     enabled: true,
-    maxContextTokens: 8192,
+    maxContextTokens: 16_384,
     summaryBudgetTokens: 512,
     retrieveMinMessages: 0,
     retrieveMaxMessages: 0,
@@ -302,7 +302,7 @@ try {
       createAdvancedMemoryPlacement(kind as Parameters<typeof createAdvancedMemoryPlacement>[0], "xml"),
     ),
     audienceCharacterIds: ["traveler"],
-    maxContext: 8192,
+    maxContext: 16_384,
     maxTokens: 1024,
     toProviderMessages: (messages) => messages,
   });
@@ -445,12 +445,12 @@ try {
     "a scene crossing the live cutoff must not be recalled in full",
   );
   assert.match(movedStart.chatSummary ?? "", /ARCHIVED_CORRECTION/, "archived manual corrections remain available");
-  assert.match(
+  assert.doesNotMatch(
     movedStart.chatSummary ?? "",
     /OVERLAPPING_CORRECTION/,
-    "enabled constants survive overlapping live ranges",
+    "a constant crossing the live cutoff is omitted until its entire range is archived",
   );
-  assert.match(movedStart.chatSummary ?? "", /LIVE_CORRECTION/, "enabled constants remain even for fully live ranges");
+  assert.doesNotMatch(movedStart.chatSummary ?? "", /LIVE_CORRECTION/, "fully live ranges need no constant summary");
   assert.equal(requests.length, beforeMovedStart, "reading ranged constants makes no helper call");
   const afterMovedStart = requests.length;
   const movedPreview = await memory.prepare({
@@ -499,8 +499,14 @@ try {
   });
   assert.equal(
     allLiveWithCorrections.chatSummary,
-    movedStart.chatSummary,
-    "removing a live cutoff does not disable constant summaries",
+    null,
+    "removing the cutoff omits constants whose messages are live again",
+  );
+  assert(
+    JSON.parse((await chats.getById(chat.id))!.metadata).summaryEntries.every(
+      (entry: { enabled: boolean }) => entry.enabled,
+    ),
+    "prompt omission does not disable the saved summaries",
   );
   await memory.reset(chat.id);
   assert.equal((await memory.status(chat.id)).job.contextStarts, undefined, "reset clears automatic markers");
