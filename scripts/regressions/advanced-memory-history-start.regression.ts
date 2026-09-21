@@ -306,11 +306,12 @@ try {
     "a scene crossing the live cutoff must not be recalled in full",
   );
   assert.match(movedStart.chatSummary ?? "", /ARCHIVED_CORRECTION/, "archived manual corrections remain available");
-  assert.doesNotMatch(
+  assert.match(
     movedStart.chatSummary ?? "",
-    /OVERLAPPING_CORRECTION|LIVE_CORRECTION/,
-    "constants never duplicate live ranges",
+    /OVERLAPPING_CORRECTION/,
+    "enabled constants survive overlapping live ranges",
   );
+  assert.match(movedStart.chatSummary ?? "", /LIVE_CORRECTION/, "enabled constants remain even for fully live ranges");
   assert.equal(requests.length, beforeMovedStart, "reading ranged constants makes no helper call");
   const afterMovedStart = requests.length;
   const movedPreview = await memory.prepare({
@@ -357,7 +358,11 @@ try {
     audienceCharacterIds: ["traveler"],
     budgetTokens: 100_000,
   });
-  assert.equal(allLiveWithCorrections.chatSummary, null, "live manual ranges do not create duplicate continuity");
+  assert.equal(
+    allLiveWithCorrections.chatSummary,
+    movedStart.chatSummary,
+    "removing a live cutoff does not disable constant summaries",
+  );
   await memory.reset(chat.id);
   assert.equal((await memory.status(chat.id)).job.contextStarts, undefined, "reset clears automatic markers");
   process.stdout.write(

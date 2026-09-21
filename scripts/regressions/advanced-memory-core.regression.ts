@@ -39,12 +39,17 @@ const server = createServer(async (request, response) => {
   requests.push({ kind: classification ? "classify" : "summary", text });
   let content: string;
   if (classification) {
-    const source = JSON.parse(messages[1]!.content) as Array<{ messageId: string; content: string }>;
-    content = JSON.stringify({
-      starts: source
-        .filter((message) => message.content.startsWith("SCENE_CHANGE"))
-        .map((message) => ({ messageId: message.messageId })),
-    });
+    const source = JSON.parse(messages[1]!.content) as Array<{
+      messageId: string;
+      messageNumber: number;
+      content: string;
+    }>;
+    const transitions = source.filter((message) => message.content.startsWith("SCENE_CHANGE"));
+    content = JSON.stringify(
+      messages[0]!.content.includes('"ends"')
+        ? { ends: transitions.map((message) => ({ messageNumber: message.messageNumber - 1 })) }
+        : { starts: transitions.map((message) => ({ messageId: message.messageId })) },
+    );
   } else {
     const callback = beforeSummary;
     beforeSummary = null;
@@ -1520,7 +1525,7 @@ try {
   );
   assert(
     await memory.commitSceneCheck(cadenceChat.id, sceneRequest, {
-      starts: [{ messageId: cadenceSource[2]!.id }, { messageId: cadenceSource[4]!.id }],
+      ends: [{ messageNumber: 2 }, { messageNumber: 4 }],
     }),
   );
   await memory.maintain(cadenceChat.id);
@@ -1569,7 +1574,7 @@ try {
   const olderCheck = await memory.getSceneCheck(cadenceChat.id, { force: true, asOfMessageId: cadenceSource[4]!.id });
   assert(olderCheck);
   assert.equal(
-    await memory.commitSceneCheck(cadenceChat.id, olderCheck, { starts: [] }),
+    await memory.commitSceneCheck(cadenceChat.id, olderCheck, { ends: [] }),
     false,
     "an older regenerated window cannot overwrite a later checked timeline",
   );
@@ -1581,7 +1586,7 @@ try {
   assert(staleCheck);
   await chats.updateMessageContent(latestSceneSource.at(-1)!.id, "A changed latest swipe opens a new room.");
   assert.equal(
-    await memory.commitSceneCheck(cadenceChat.id, staleCheck, { starts: [] }),
+    await memory.commitSceneCheck(cadenceChat.id, staleCheck, { ends: [] }),
     false,
     "a changed source cannot commit an old scene decision",
   );
@@ -1589,14 +1594,14 @@ try {
   assert(changedCheck, "a changed checked source is due even without five new messages");
   assert(
     await memory.commitSceneCheck(cadenceChat.id, changedCheck, {
-      starts: [{ messageId: latestSceneSource.at(-1)!.id }],
+      ends: [{ messageNumber: latestSceneSource.length - 1 }],
     }),
   );
   await memory.maintain(cadenceChat.id);
   await chats.updateMessageContent(latestSceneSource.at(-1)!.id, "The rerolled reply stays in the same room.");
   const rerolledCheck = await memory.getSceneCheck(cadenceChat.id);
   assert(rerolledCheck);
-  assert(await memory.commitSceneCheck(cadenceChat.id, rerolledCheck, { starts: [] }));
+  assert(await memory.commitSceneCheck(cadenceChat.id, rerolledCheck, { ends: [] }));
   assert(
     !(await memory.status(cadenceChat.id)).records.some(
       (record) => record.id === `scene-${latestSceneSource.at(-1)!.id}`,
@@ -1618,14 +1623,17 @@ try {
     memory.commitSceneCheck(
       cadenceChat.id,
       { ...filteredNewCheck, messages: filteredNewCheck.messages.slice(1) },
-      { starts: [{ messageId: withheld.messageId }] },
+      { ends: [{ messageNumber: withheld.messageNumber }] },
     ),
     /invalid scene decision/,
     "tracker output cannot use an ID omitted from its character-scoped payload",
   );
-  const preservedBoundary = filteredNewCheck.messages[2]!.messageId;
+  const preservedEnd = filteredNewCheck.messages[2]!;
+  const preservedBoundary = (await chats.listMessages(cadenceChat.id))[preservedEnd.messageNumber]!.id;
   assert(
-    await memory.commitSceneCheck(cadenceChat.id, filteredNewCheck, { starts: [{ messageId: preservedBoundary }] }),
+    await memory.commitSceneCheck(cadenceChat.id, filteredNewCheck, {
+      ends: [{ messageNumber: preservedEnd.messageNumber }],
+    }),
   );
   await chats.createMessage({ chatId: cadenceChat.id, role: "assistant", content: "Another tracker-scoped reply." });
   const partialWindow = await memory.getSceneCheck(cadenceChat.id, { force: true });
@@ -1635,9 +1643,9 @@ try {
       cadenceChat.id,
       {
         ...partialWindow,
-        messages: partialWindow.messages.filter((message) => message.messageId !== preservedBoundary),
+        messages: partialWindow.messages.filter((message) => message.messageId !== preservedEnd.messageId),
       },
-      { starts: [] },
+      { ends: [] },
     ),
   );
   assert(
@@ -1869,7 +1877,7 @@ try {
   const recentCheck = await memory.getSceneCheck(backlog.id);
   assert(recentCheck);
   assert(
-    await memory.commitSceneCheck(backlog.id, recentCheck, { starts: [{ messageId: backlogSource[117]!.id }] }),
+    await memory.commitSceneCheck(backlog.id, recentCheck, { ends: [{ messageNumber: 117 }] }),
     "the recent-only checkpoint must be committed before backfill",
   );
   const beforeBackfill = requests.length;

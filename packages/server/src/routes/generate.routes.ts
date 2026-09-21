@@ -1,5 +1,9 @@
 import { registerSequentialGameTasks } from "../services/game/sequential-tasks.js";
-import { createAdvancedMemoryService, selectAdvancedMemoryMessages } from "../services/advanced-memory.js";
+import {
+  createAdvancedMemoryService,
+  selectAdvancedMemoryMessages,
+  type AdvancedMemorySceneCheck,
+} from "../services/advanced-memory.js";
 import {
   prepareAdvancedMemoryContext,
   type AdvancedMemorySnapshot,
@@ -9599,6 +9603,7 @@ export async function generateRoutes(app: FastifyInstance) {
             roleplayMediaRequests.length > 0);
         const latestAssistantMessageId =
           (lastSavedMsg as any)?.role === "assistant" ? ((lastSavedMsg as any)?.id ?? "") : "";
+        let pendingSceneCheck: AdvancedMemorySceneCheck | null = null;
 
         const runAutomaticRoleplaySummary = async () => {
           if (
@@ -9814,6 +9819,33 @@ export async function generateRoutes(app: FastifyInstance) {
         };
 
         if (hasPostWork && (completedResponse || roleplayMediaRequests.length > 0) && !abortController.signal.aborted) {
+          const sceneCheckTrackers = pipelineAgents.filter(
+            (agent) =>
+              agent.phase === "post_processing" &&
+              (trackerAgentTypes.has(agent.type) || resolveAgentResultType(agent) === "custom_tracker_update"),
+          );
+          if (advancedMemoryEnabled && latestAssistantMessageId && !input.impersonate && sceneCheckTrackers.length) {
+            try {
+              const request = await advancedMemory.getSceneCheck(input.chatId, {
+                asOfMessageId: latestAssistantMessageId,
+              });
+              const allowedIds = new Set([
+                ...(advancedAgentSourceIds ?? chatMessages.map((message) => message.id)),
+                latestAssistantMessageId,
+              ]);
+              // A tracker must not gain source history outside its audience's live view.
+              if (request && request.messages.every((message) => allowedIds.has(message.messageId))) {
+                pendingSceneCheck = request;
+                agentContext.sceneCheck = {
+                  trackerAgentIds: sceneCheckTrackers.map((agent) => agent.id),
+                  prompt: `${request.prompt}\nTranscript:\n${JSON.stringify(request.messages)}`,
+                  claimed: false,
+                };
+              }
+            } catch (error) {
+              logger.warn(error, "[advanced-memory] Could not attach scene check to post-processing trackers");
+            }
+          }
           if (customAgentsWithLorebookTriggers.some((agent) => agent.phase === "post_processing")) {
             agentContext.triggeredLorebookEntriesByAgentId = await resolveTriggeredLorebookEntriesByAgentId([
               ...recentMsgs,
@@ -12370,6 +12402,9 @@ export async function generateRoutes(app: FastifyInstance) {
                   debugMode: requestDebug,
                   blocking: false,
                   asOfMessageId: latestAssistantMessageId,
+                  ...(pendingSceneCheck && agentContext.sceneCheck?.result !== undefined
+                    ? { batchedCheck: { request: pendingSceneCheck, result: agentContext.sceneCheck.result } }
+                    : {}),
                   onProgress: (job) =>
                     sendSseEvent(reply, { type: "advanced_memory_status", data: { chatId: input.chatId, job } }),
                 })

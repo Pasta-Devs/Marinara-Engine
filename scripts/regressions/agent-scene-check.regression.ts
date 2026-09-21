@@ -19,8 +19,8 @@ const tracker = {
   settings: { maxTokens: 1024, contextSize: 5 },
   isCustomAgent: false,
 };
-const sourcePrompt = 'Check only this scene window: [{"id":"m5","content":"The next morning, they leave."}]';
-const sceneResult = { starts: [{ messageId: "m5" }] };
+const sourcePrompt = 'Check only this scene window: [{"messageNumber":5,"content":"The next morning, they leave."}]';
+const sceneResult = { ends: [{ messageNumber: 5 }] };
 const baseMessages: ChatMessage[] = [{ role: "user", content: "Track the current scene." }];
 const context = (): AgentContext => ({
   chatId: "scene-check-fixture",
@@ -108,16 +108,12 @@ assert.equal(progress.at(-1)!.completionTokens, 30);
 assert.ok(!JSON.stringify(progress).includes("__scene_check"), "normal progress remains content-free");
 
 const nonStreaming = context();
-const quietProvider = new RecordingProvider({ location: "Road", __scene_check: { starts: [] } });
+const quietProvider = new RecordingProvider({ location: "Road", __scene_check: { ends: [] } });
 const quiet = await completeAgentCall(nonStreaming, [tracker], quietProvider, baseMessages, {
   model: "fixture",
   stream: false,
 });
-assert.deepEqual(
-  nonStreaming.sceneCheck!.result,
-  { starts: [] },
-  "no-boundary is a completed check without progress UI",
-);
+assert.deepEqual(nonStreaming.sceneCheck!.result, { ends: [] }, "no-boundary is a completed check without progress UI");
 assert.deepEqual(JSON.parse(quiet.content!), { location: "Road" });
 assert.equal(quietProvider.calls[0]!.options.onToken, undefined);
 
@@ -211,7 +207,14 @@ for (const finishReason of ["abort", "error", "length", "content_filter"]) {
   assert.deepEqual(JSON.parse(result.content!), { location: "Road" }, "reserved fields never become tracker data");
   assert.equal(provider.calls.length, 1, "an incomplete scene check must not introduce a retry");
 }
-for (const payload of [null, { starts: "m5" }, { starts: [5] }, { starts: [{ messageId: "" }] }]) {
+for (const payload of [
+  null,
+  { ends: "m5" },
+  { ends: [5] },
+  { ends: [{ messageNumber: 0 }] },
+  { ends: [{ messageNumber: "5" }] },
+  { ends: [{ messageNumber: 1.5 }] },
+]) {
   const invalid = context();
   const provider = new RecordingProvider({ location: "Road", __scene_check: payload });
   const result = await completeAgentCall(invalid, [tracker], provider, baseMessages, {
@@ -252,7 +255,7 @@ assert.equal(aborted.sceneCheck!.result, undefined, "a late successful provider 
 
 const wrappedPayload = JSON.stringify({ location: "Road", __scene_check: sceneResult });
 for (const wrapped of [
-  `<think>draft: \`\`\`json\n{"__scene_check":{"starts":[{"messageId":"wrong-draft"}]}}\n\`\`\`</think>\n${wrappedPayload}`,
+  `<think>draft: \`\`\`json\n{"__scene_check":{"ends":[{"messageNumber":999}]}}\n\`\`\`</think>\n${wrappedPayload}`,
   `\`\`\`json\n${wrappedPayload}\n\`\`\``,
   `Here is the tracker:\n${wrappedPayload}`,
   wrappedPayload.replaceAll('"', '<|"|>'),

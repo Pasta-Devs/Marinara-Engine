@@ -286,7 +286,11 @@ try {
     budgetTokens: 50_000,
     readOnly: true,
   });
-  assert.equal(narratorFullHistory.chatSummary, null, "a live manual range does not duplicate narrator history");
+  assert.match(
+    narratorFullHistory.chatSummary ?? "",
+    /Narrator alone keeps/,
+    "enabled narrator constants remain alongside live history",
+  );
   assert(narratorFullHistory.messageIds.includes(narratorSource[0]!.id), "the narrator knows the early history");
   assert(!narratorFullHistory.messageIds.includes(narratorSource[4]!.id), "explicit narrator hiding still applies");
   const narratorMemory = await memory.prepare({

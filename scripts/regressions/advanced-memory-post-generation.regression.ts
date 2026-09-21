@@ -26,6 +26,7 @@ const {
   characterDataSchema,
   replaceBuiltInAgentDefinitions,
   createChatSummaryEntry,
+  estimateChatSummaryTokens,
 } = await import("../../packages/shared/dist/index.js");
 const calls: Array<{
   kind: string;
@@ -35,6 +36,15 @@ const calls: Array<{
   maxTokens?: number;
 }> = [];
 let summaryGate: Promise<void> | undefined;
+let summaryResponse: string | undefined;
+let closeLatestScene = false;
+const sceneDecision = (transcript: Array<{ messageNumber: number; content: string }>) => ({
+  ends: closeLatestScene
+    ? [{ messageNumber: transcript.at(-1)!.messageNumber }]
+    : transcript
+        .filter((message) => message.content.startsWith("SCENE_CHANGE"))
+        .map((message) => ({ messageNumber: message.messageNumber - 1 })),
+});
 let finishStream: (() => void) | undefined;
 let streamFinished = false;
 let streamGate: Promise<void> | undefined;
@@ -74,17 +84,33 @@ const provider = createServer(async (req, res) => {
     maxTokens: body.max_output_tokens ?? body.max_completion_tokens ?? body.max_tokens,
   });
   if (kind === "summary" && summaryGate) await summaryGate;
+  const bundledSceneCheck = messages.find((message: { content: string }) => message.content.includes("Transcript:\n"));
   const content =
     kind === "tracker"
-      ? '{"values":{"weather":"clear"}}'
+      ? JSON.stringify({
+          values: { weather: "clear" },
+          ...(bundledSceneCheck
+            ? {
+                __scene_check: sceneDecision(
+                  JSON.parse(bundledSceneCheck.content.split("Transcript:\n")[1].split("\n\nKeep")[0]),
+                ),
+              }
+            : {}),
+        })
       : kind === "scene"
-        ? JSON.stringify({
-            starts: JSON.parse(messages[1].content)
-              .filter((message: { content: string }) => message.content.startsWith("SCENE_CHANGE"))
-              .map((message: { messageId: string }) => ({ messageId: message.messageId })),
-          })
+        ? JSON.stringify(
+            messages[0].content.includes('"ends"')
+              ? sceneDecision(JSON.parse(messages[1].content))
+              : {
+                  starts: JSON.parse(messages[1].content)
+                    .filter((message: { content: string }) => message.content.startsWith("SCENE_CHANGE"))
+                    .map((message: { messageId: string }) => ({ messageId: message.messageId })),
+                },
+          )
         : kind === "summary"
-          ? '{"summary":"ARCHIVED_RECAP: The silver compass promise guided the travelers."}'
+          ? JSON.stringify({
+              summary: summaryResponse ?? "ARCHIVED_RECAP: The silver compass promise guided the travelers.",
+            })
           : "The character continues the silver compass journey.";
   const response = {
     id: "fixture",
@@ -213,6 +239,11 @@ try {
   assert(!JSON.stringify(sceneCall.messages).includes("UNRELATED_AUTHOR_NOTE"));
   const window = JSON.parse(sceneCall.messages[1]!.content);
   assert.equal(window.length, 5);
+  assert.deepEqual(
+    window.map((message: { messageNumber: number }) => message.messageNumber),
+    [1, 2, 3, 4, 5],
+  );
+  assert.match(sceneCall.messages[0]!.content, /"ends":\[\{"messageNumber":42\}\]/u);
   assert(window.at(-1).content.includes("continues the silver compass"), "the check includes the just-saved reply");
   assert(!(await memory.status(chat.id)).records.some((record) => record.content));
 
@@ -355,7 +386,7 @@ try {
   assert.doesNotMatch(
     trackerPrompt,
     /ARCHIVED_RECAP|Included below are recalled|__scene_check|__MARINARA_ADVANCED_MEMORY_/u,
-    "agent prompts never receive Advanced Recall output or a bundled scene-check request",
+    "out-of-cadence agent prompts receive neither Advanced Recall output nor a scene-check request",
   );
   const beforeRetry = JSON.parse((await chats.getById(chat.id))!.metadata).advancedMemoryState;
   calls.length = 0;
@@ -419,6 +450,91 @@ try {
     /ARCHIVED_RECAP|ARCHIVED_SOURCE_ONLY|LATEST_SWIPE_CACHE_MUST_NOT_WIN/u,
     "a saved recap cannot bypass changed source visibility",
   );
+  await memory.checkScenesAfterGeneration(chat.id);
+  const batchChat = await chats.create({
+    name: "Numbered tracker scene endings",
+    mode: "roleplay",
+    characterIds: [character.id],
+    connectionId: connection.id,
+  });
+  assert(batchChat);
+  chatIds.push(batchChat.id);
+  await createAgentsStorage(db).update(tracker.id, { settings: { ...trackerSettings, runInterval: 1 } });
+  await chats.patchMetadata(batchChat.id, {
+    enableAgents: true,
+    activeAgentIds: [tracker.type],
+    advancedMemory: {
+      ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+      enabled: true,
+      maxContextTokens: 8192,
+      helperConnectionId: connection.id,
+    },
+  });
+  await memory.initialize(batchChat.id);
+  closeLatestScene = true;
+  for (let scene = 0; scene < 2; scene++) {
+    await chats.createMessagesBatch(
+      batchChat.id,
+      Array.from({ length: 4 }, (_, index) => ({
+        role: "user" as const,
+        content: `Scene ${scene + 1} event ${index + 1}.`,
+      })),
+    );
+    calls.length = 0;
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/generate/",
+      payload: { chatId: batchChat.id, forCharacterId: character.id, streaming: true },
+    });
+    assert(!response.body.includes('"type":"error"'), response.body);
+    const source = await chats.listMessages(batchChat.id);
+    await waitFor(async () => {
+      const state = JSON.parse((await chats.getById(batchChat.id))!.metadata).advancedMemoryState;
+      return state.status === "ready" && state.sceneCheckMessageId === source.at(-1)!.id;
+    });
+    // Join background maintenance before inspecting its completed archive.
+    await memory.checkScenesAfterGeneration(batchChat.id);
+    assert.deepEqual(
+      calls.slice(0, 2).map((call) => call.kind),
+      ["main", "tracker"],
+    );
+    assert.equal(
+      calls.filter((call) => call.kind === "scene").length,
+      0,
+      "the tracker result avoids a second scene-helper call",
+    );
+    assert.equal(calls.filter((call) => call.kind === "summary").length, 1, "only the newly ended scene is summarized");
+    const trackerCall = calls.find((call) => call.kind === "tracker")!;
+    assert.match(JSON.stringify(trackerCall.messages), /__scene_check/u);
+    assert.doesNotMatch(JSON.stringify(trackerCall.messages), /ARCHIVED_RECAP|Included below are recalled/u);
+    const recaps = (await memory.status(batchChat.id)).records.filter(
+      (record) => record.kind === "scene" && record.content,
+    );
+    assert.deepEqual(
+      recaps.map((record) => [record.startIndex, record.endIndex, record.status]),
+      scene === 0
+        ? [[1, 5, "closed"]]
+        : [
+            [1, 5, "closed"],
+            [6, 10, "closed"],
+          ],
+    );
+    assert(
+      recaps.every((record) => record.embeddingStatus === "vectorized"),
+      "ended scenes are indexed after the main reply",
+    );
+    const prepared = await memory.prepare({
+      chatId: batchChat.id,
+      messages: source,
+      audienceCharacterIds: [],
+      audienceMode: "owner",
+      budgetTokens: 8000,
+      readOnly: true,
+    });
+    assert.equal(prepared.recalledScenes, null, "closed scenes still in the live context are excluded from retrieval");
+  }
+  closeLatestScene = false;
+
   const constantsChat = await chats.create({
     name: "Existing ranged constants",
     mode: "roleplay",
@@ -493,7 +609,26 @@ try {
   assert.equal(beforeConstants.length, 1, "no parallel continuity store is populated");
   assert(!(await memory.status(constantsChat.id)).records.some((record) => record.kind === "continuity"));
 
-  const largeConstants = [{ ...beforeConstants[0], content: "CONSTANTS_ONLY_SOURCE ".repeat(2400) }];
+  // The summary setting is a target with 2,000 tokens of tolerance, independent of raw history.
+  const toleranceText = "TOLERATED_CONSTANT ".repeat(2400);
+  const toleranceTokens = estimateChatSummaryTokens(toleranceText);
+  assert(toleranceTokens > 10_000 && toleranceTokens <= 12_000);
+  await chats.patchMetadata(constantsChat.id, {
+    summaryEntries: [{ ...beforeConstants[0], content: toleranceText }],
+  });
+  calls.length = 0;
+  assert(!(await generateConstants()).body.includes('"type":"error"'));
+  await memory.checkScenesAfterGeneration(constantsChat.id, { blocking: false });
+  assert.deepEqual(
+    calls.map((call) => call.kind),
+    ["main"],
+    "the 2k allowance does not trigger consolidation",
+  );
+  assert(JSON.stringify(calls[0]!.messages).includes(toleranceText.trim()));
+
+  const largeConstants = [{ ...beforeConstants[0], content: "CONSTANTS_ONLY_SOURCE ".repeat(2600) }];
+  assert(estimateChatSummaryTokens(largeConstants[0].content) > 12_000);
+  summaryResponse = `ARCHIVED_RECAP ${toleranceText}`; // Accept a completed result inside the allowance on the first pass.
   await chats.patchMetadata(constantsChat.id, { summaryEntries: largeConstants });
   let releaseHelper!: () => void;
   summaryGate = new Promise<void>((resolve) => {
@@ -534,6 +669,12 @@ try {
     summaryGate = undefined;
   }
   await memory.checkScenesAfterGeneration(constantsChat.id, { blocking: false });
+  assert.equal(
+    calls.filter((call) => call.kind === "summary").length,
+    1,
+    "a result within the 2k allowance needs no paid retry",
+  );
+  summaryResponse = undefined;
   const combinedEntries = JSON.parse((await chats.getById(constantsChat.id))!.metadata).summaryEntries;
   assert.equal(combinedEntries.filter((entry: { enabled: boolean }) => entry.enabled).length, 1);
   assert.equal(

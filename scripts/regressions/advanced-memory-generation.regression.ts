@@ -44,7 +44,9 @@ const provider = createServer(async (req, res) => {
   const summary = prompt.includes("Summarize only the supplied eligible source material");
   modelCallKinds.push(classification ? "scene" : summary ? "summary" : "main");
   const content = classification
-    ? '{"starts":[]}'
+    ? body.messages[0].content.includes('"ends"')
+      ? '{"ends":[]}'
+      : '{"starts":[]}'
     : summary
       ? '{"summary":"SUMMARY_FIXTURE: An old promise remains unresolved."}'
       : "The character answers.";

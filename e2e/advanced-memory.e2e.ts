@@ -817,7 +817,7 @@ test("Advanced Memory stays idle, streams OpenAI replies and follows post-genera
       JSON.stringify({
         id: "scene-check",
         status: "completed",
-        output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: '{"starts":[]}' }] }],
+        output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: '{"ends":[]}' }] }],
       }),
     );
     await expect(agents.locator(".lucide-loader-circle")).toHaveCount(0);
