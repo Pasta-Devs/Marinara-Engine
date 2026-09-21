@@ -175,7 +175,7 @@ export function AdvancedMemorySettings({
               />
             </label>
             <label className="space-y-1 text-xs">
-              <span>{t("chat.advancedMemory.summaryBudget")}</span>
+              <span>{t("chat.advancedMemory.memoryBudget")}</span>
               <DraftNumberInput
                 value={settings.summaryBudgetTokens}
                 min={64}
@@ -186,12 +186,15 @@ export function AdvancedMemorySettings({
                     summaryBudgetTokens: Math.min(summaryBudgetTokens, current.maxContextTokens - 1),
                   }))
                 }
-                ariaLabel={t("chat.advancedMemory.summaryBudget")}
+                ariaLabel={t("chat.advancedMemory.memoryBudget")}
                 className={fieldClass}
               />
             </label>
           </div>
           <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("chat.advancedMemory.budgetHelp")}</p>
+          <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+            {t("chat.advancedMemory.memoryAllocationHelp")}
+          </p>
           <label className="block space-y-1 text-xs">
             <span>{t("chat.advancedMemory.helperModel")}</span>
             <select
@@ -213,7 +216,7 @@ export function AdvancedMemorySettings({
             </select>
           </label>
           <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
-            {t("chat.advancedMemory.summaryHelp")}
+            {t("chat.advancedMemory.summaryGenerationHelp")}
           </p>
           <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
             {t("chat.advancedMemory.resolvedModels", {

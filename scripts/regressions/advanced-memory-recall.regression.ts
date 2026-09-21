@@ -152,6 +152,33 @@ try {
     assert.equal(block.match(/^#\d+ /gm)?.length, 3);
   }
   await memory.validatePrepared(chat.id, source, recalled.receipt);
+  const [intro, ...blocks] = recalled.recalledScenes!.split("Scene summary:\n");
+  const sceneSummaryTokens = blocks.reduce(
+    (total, block) => total + estimateChatSummaryTokens(`Scene summary:\n${block.split("\n\nExcerpt:\n")[0]!.trim()}`),
+    0,
+  );
+  await memory.updateSettings(chat.id, { retrieveMinMessages: 1 });
+  const summariesFirst = await memory.prepare({
+    ...input,
+    readOnly: true,
+    budgetTokens:
+      recalled.receipt.estimatedTokensAfter -
+      estimateChatSummaryTokens(recalled.recalledScenes!) +
+      sceneSummaryTokens +
+      estimateChatSummaryTokens(intro!.trim()) +
+      8,
+  });
+  assert.equal(
+    summariesFirst.receipt.recalledSceneIds.length,
+    3,
+    "all fitting scene summaries take priority over every scene excerpt",
+  );
+  assert.equal(
+    summariesFirst.receipt.recalledMessageIds.length,
+    0,
+    "excerpts use only the room left after scene summaries",
+  );
+  await memory.updateSettings(chat.id, { retrieveMinMessages: 3 });
   await memory.updateSettings(chat.id, { retrieveMaxScenes: 1 });
   const one = await memory.prepare({ ...input, readOnly: true });
   assert.equal(one.receipt.recalledSceneIds.length, 1);
@@ -186,6 +213,7 @@ try {
   assert(next.messageIds.includes(appended.id));
   assert.match(next.recalledScenes!, /last user message being #66\./u);
 
+  await memory.updateSettings(chat.id, { summaryBudgetTokens: 20_000 });
   const constantEntries = [
     [1, 12],
     [13, 62],
@@ -250,6 +278,37 @@ try {
   const fallback = await memory.prepare({ ...input, messages: await chats.listMessages(chat.id) });
   assert(Date.now() - started < 4000, "a stalled embedding provider cannot stall optional recall for minutes");
   assert(fallback.receipt.recalledSceneIds.length > 0, "bounded lexical recall survives a stalled embedding provider");
+  stallQuery = false;
+
+  const savedScenes = (await memory.status(chat.id)).records.filter(
+    (record) => record.kind === "scene" && record.content,
+  );
+  for (const record of savedScenes) {
+    await memory.updateRecord(chat.id, record.id, {
+      content: "The silver compass promise led the travelers through the mountain pass. ".repeat(68),
+    });
+  }
+  for (const summaryBudgetTokens of [3000, 6000]) {
+    await memory.updateSettings(chat.id, { summaryBudgetTokens });
+    const constant = createChatSummaryEntry({
+      id: "allocated-constant",
+      content: "CONSTANT ".repeat(Math.floor((summaryBudgetTokens * 0.65 * 4) / 9)),
+      enabled: true,
+      rangeStartIndex: 1,
+      rangeEndIndex: 12,
+    });
+    await chats.patchMetadata(chat.id, { summaryEntries: [constant] });
+    const allocated = await memory.prepare({ ...input, messages: await chats.listMessages(chat.id), readOnly: true });
+    assert(allocated.chatSummary!.includes(constant.content.trim()));
+    const memoryTokens =
+      estimateChatSummaryTokens(allocated.chatSummary!) + estimateChatSummaryTokens(allocated.recalledScenes!);
+    assert(memoryTokens > summaryBudgetTokens, "relevant scenes can use the extra allowance");
+    assert(
+      memoryTokens <= summaryBudgetTokens + 2000,
+      `total memory fits the user's ${summaryBudgetTokens} + 2k budget`,
+    );
+    assert.equal(allocated.receipt.recalledSceneIds.length, summaryBudgetTokens === 3000 ? 2 : 3);
+  }
   process.stdout.write(
     "Advanced Memory scene limits, paired excerpts, current-turn context and bounded retrieval passed.\n",
   );

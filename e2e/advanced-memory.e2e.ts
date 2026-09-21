@@ -101,6 +101,71 @@ async function openChat(page: Page, chatId: string, openSettings = true) {
     });
 }
 
+test("preset editor offers one combined Recalled Scenes marker and reads the legacy alias", async ({
+  page,
+  request,
+}, info) => {
+  const fixture = await createFixture(request);
+  const response = await request.post("/api/prompts", { data: { name: "Combined recalled scenes" } });
+  expect(response.ok()).toBeTruthy();
+  const preset = (await response.json()) as { id: string };
+  try {
+    expect(
+      (
+        await request.post(`/api/prompts/${preset.id}/sections`, {
+          data: {
+            identifier: "recalled_messages",
+            name: "Recalled Messages",
+            isMarker: true,
+            markerConfig: { type: "recalled_messages" },
+          },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    await openChat(page, fixture.chat.id, false);
+    await page.evaluate(async (id) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openPresetDetail(id);
+    }, preset.id);
+    const editor = page.locator(".mari-editor-shell");
+    await expect(editor.locator(".mari-editor-title-input")).toBeVisible();
+    const compact = editor.getByRole("button", { name: "Editor sections", exact: true });
+    if (await compact.isVisible()) {
+      await compact.click();
+      await editor.getByRole("menuitemradio", { name: "Sections", exact: true }).click();
+    } else {
+      await editor
+        .getByRole("navigation", { name: "Editor sections" })
+        .getByRole("button", { name: "Sections", exact: true })
+        .click();
+    }
+    await expect(editor.getByText("Recalled Scenes", { exact: true })).toBeVisible();
+    await expect(editor.getByText("Recalled Messages", { exact: true })).toHaveCount(0);
+    await editor.getByRole("button", { name: "Add Section", exact: true }).click();
+    await expect(editor.getByRole("button", { name: "Recalled Scenes", exact: true })).toHaveCount(1);
+    await expect(editor.getByRole("button", { name: "Recalled Messages", exact: true })).toHaveCount(0);
+    await captureThemes(
+      page,
+      info,
+      "combined-memory-marker",
+      editor.getByRole("button", { name: "Recalled Scenes", exact: true }).locator(".."),
+    );
+    await editor.getByRole("button", { name: "Recalled Scenes", exact: true }).click();
+    await expect
+      .poll(async () => {
+        const saved = await (await request.get(`/api/prompts/${preset.id}/full`)).json();
+        return saved.sections.map(
+          (section: { markerConfig: string | { type: string } }) =>
+            (typeof section.markerConfig === "string" ? JSON.parse(section.markerConfig) : section.markerConfig)?.type,
+        );
+      })
+      .toEqual(["recalled_messages", "recalled_scenes"]);
+  } finally {
+    await request.delete(`/api/prompts/${preset.id}`);
+    await fixture.cleanup();
+  }
+});
+
 test("Advanced Memory shows and moves existing start markers for automatic cutoffs", async ({
   page,
   request,

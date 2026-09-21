@@ -549,7 +549,7 @@ try {
     maxContext: 65_000,
     maxTokensOverride: 256,
   });
-  const constantText = "EXISTING_RANGE_SUMMARY ".repeat(1450); // ~8k, below the configured 10k cap.
+  const constantText = "EXISTING_RANGE_SUMMARY ".repeat(1000); // Below the 7k constant share of a 10k memory budget.
   await chats.patchMetadata(constantsChat.id, {
     enableAgents: false,
     summaryMaxTokens: 12_000,
@@ -601,7 +601,7 @@ try {
   assert.deepEqual(
     calls.map((call) => call.kind),
     ["main"],
-    "8k of constants under a 10k cap triggers no summary call, regardless of raw-history size",
+    "constants under 70% of the memory budget trigger no summary call, regardless of raw-history size",
   );
   assert(JSON.stringify(calls[0]!.messages).includes(constantText.trim()), "the existing constant is included intact");
   assert(!JSON.stringify(calls[0]!.messages).includes("ALREADY_SUMMARIZED_RAW"));
@@ -609,26 +609,31 @@ try {
   assert.equal(beforeConstants.length, 1, "no parallel continuity store is populated");
   assert(!(await memory.status(constantsChat.id)).records.some((record) => record.kind === "continuity"));
 
-  // The summary setting is a target with 2,000 tokens of tolerance, independent of raw history.
-  const toleranceText = "TOLERATED_CONSTANT ".repeat(2400);
-  const toleranceTokens = estimateChatSummaryTokens(toleranceText);
-  assert(toleranceTokens > 10_000 && toleranceTokens <= 12_000);
-  await chats.patchMetadata(constantsChat.id, {
-    summaryEntries: [{ ...beforeConstants[0], content: toleranceText }],
-  });
-  calls.length = 0;
-  assert(!(await generateConstants()).body.includes('"type":"error"'));
-  await memory.checkScenesAfterGeneration(constantsChat.id, { blocking: false });
-  assert.deepEqual(
-    calls.map((call) => call.kind),
-    ["main"],
-    "the 2k allowance does not trigger consolidation",
-  );
-  assert(JSON.stringify(calls[0]!.messages).includes(toleranceText.trim()));
+  // The 70% share follows each user's budget; it is not fixed at 7k or 10k.
+  for (const summaryBudgetTokens of [8000, 20_000]) {
+    const content = "BUDGET_CONSTANT ".repeat(Math.floor((summaryBudgetTokens * 0.75 * 4) / 16));
+    assert(estimateChatSummaryTokens(content) > summaryBudgetTokens * 0.7);
+    assert(estimateChatSummaryTokens(content) < summaryBudgetTokens);
+    await memory.updateSettings(constantsChat.id, { summaryBudgetTokens });
+    await chats.patchMetadata(constantsChat.id, { summaryEntries: [{ ...beforeConstants[0], content }] });
+    calls.length = 0;
+    assert(!(await generateConstants()).body.includes('"type":"error"'));
+    await memory.checkScenesAfterGeneration(constantsChat.id, { blocking: false });
+    assert.deepEqual(
+      calls.map((call) => call.kind),
+      ["main", "summary"],
+    );
+    const combine = calls[1]!;
+    assert(combine.messages[0]!.content.includes(`within ${Math.floor(summaryBudgetTokens * 0.7)} tokens`));
+    assert(JSON.stringify(calls[0]!.messages).includes(content.trim()), "the crossing reply keeps its constants");
+  }
+  await memory.updateSettings(constantsChat.id, { summaryBudgetTokens: 10_000 });
 
-  const largeConstants = [{ ...beforeConstants[0], content: "CONSTANTS_ONLY_SOURCE ".repeat(2600) }];
-  assert(estimateChatSummaryTokens(largeConstants[0].content) > 12_000);
-  summaryResponse = `ARCHIVED_RECAP ${toleranceText}`; // Accept a completed result inside the allowance on the first pass.
+  const largeConstants = [{ ...beforeConstants[0], content: "CONSTANTS_ONLY_SOURCE ".repeat(1500) }];
+  assert(estimateChatSummaryTokens(largeConstants[0].content) > 7000);
+  assert(estimateChatSummaryTokens(largeConstants[0].content) < 10_000);
+  summaryResponse = `ARCHIVED_RECAP ${"COMPACTED_CONSTANT ".repeat(1450)}`;
+  assert(estimateChatSummaryTokens(summaryResponse) <= 7000);
   await chats.patchMetadata(constantsChat.id, { summaryEntries: largeConstants });
   let releaseHelper!: () => void;
   summaryGate = new Promise<void>((resolve) => {
@@ -648,8 +653,8 @@ try {
   assert(JSON.stringify(combinedRequest.messages).includes("CONSTANTS_ONLY_SOURCE"));
   assert.match(
     combinedRequest.messages[0]!.content,
-    /Aim for 10000 tokens, allowing up to 12000 tokens/u,
-    "the helper receives the soft target and its allowance",
+    /within 7000 tokens/u,
+    "the helper receives the 70% allocation, not the combined memory allowance",
   );
   assert.doesNotMatch(
     JSON.stringify(combinedRequest.messages),
@@ -677,7 +682,7 @@ try {
   assert.equal(
     calls.filter((call) => call.kind === "summary").length,
     1,
-    "a result within the 2k allowance needs no paid retry",
+    "a result within the constant share needs no paid retry",
   );
   summaryResponse = undefined;
   const combinedEntries = JSON.parse((await chats.getById(constantsChat.id))!.metadata).summaryEntries;
@@ -692,6 +697,105 @@ try {
     !(await memory.status(constantsChat.id)).records.some((record) => record.kind === "continuity"),
     "new constants live only in Chat Summaries",
   );
+  for (const ranged of [true, false]) {
+    const liveChat = await chats.create({
+      name: "Live constant compaction",
+      mode: "roleplay",
+      characterIds: [character.id],
+      connectionId: connection.id,
+    });
+    assert(liveChat);
+    chatIds.push(liveChat.id);
+    await chats.createMessage({ chatId: liveChat.id, role: "user", content: "LIVE_RAW_NOT_COMPACTION_INPUT" });
+    await chats.createMessage({
+      chatId: liveChat.id,
+      role: "user",
+      content: "HIDDEN_RAW",
+      extra: { hiddenFromAI: true },
+    });
+    await chats.patchMetadata(liveChat.id, {
+      advancedMemory: { ...DEFAULT_ADVANCED_MEMORY_SETTINGS, enabled: true, sceneCheckInterval: 100 },
+      summaryEntries: [
+        createChatSummaryEntry({
+          content: "LIVE_CONSTANT_TO_COMBINE ".repeat(600),
+          enabled: true,
+          ...(ranged ? { rangeStartIndex: 1, rangeEndIndex: 1 } : {}),
+        }),
+        createChatSummaryEntry({
+          id: "hidden-constant",
+          content: "HIDDEN_CONSTANT ".repeat(900),
+          enabled: true,
+          rangeStartIndex: 2,
+          rangeEndIndex: 2,
+        }),
+      ],
+    });
+    calls.length = 0;
+    await memory.checkScenesAfterGeneration(liveChat.id, { blocking: false });
+    assert.deepEqual(
+      calls.map((call) => call.kind),
+      ["summary"],
+      "compaction also covers live and legacy constants",
+    );
+    assert.doesNotMatch(JSON.stringify(calls[0]!.messages), /LIVE_RAW_NOT_COMPACTION_INPUT|HIDDEN_CONSTANT/u);
+    const active = JSON.parse((await chats.getById(liveChat.id))!.metadata).summaryEntries.find(
+      (entry: { enabled: boolean }) => entry.enabled,
+    );
+    assert.equal(active.rangeStartIndex, ranged ? 1 : undefined, "legacy summaries acquire no invented coverage");
+  }
+  const privateChat = await chats.create({
+    name: "Per-character constant budgets",
+    mode: "roleplay",
+    characterIds: ["private-a", "private-b"],
+    connectionId: connection.id,
+  });
+  assert(privateChat);
+  chatIds.push(privateChat.id);
+  for (const hiddenFrom of ["private-b", "private-a"]) {
+    await chats.createMessage({
+      chatId: privateChat.id,
+      role: "user",
+      content: "A private event.",
+      extra: { hiddenFromAICharacterIds: [hiddenFrom] },
+    });
+  }
+  const privateEntries = ["PRIVATE_A_CONSTANT ", "PRIVATE_B_CONSTANT "].map((content, index) =>
+    createChatSummaryEntry({
+      id: `private-${index}`,
+      content: content.repeat(1100),
+      enabled: true,
+      rangeStartIndex: index + 1,
+      rangeEndIndex: index + 1,
+    }),
+  );
+  await chats.patchMetadata(privateChat.id, {
+    groupChatMode: "individual",
+    advancedMemory: {
+      ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+      enabled: true,
+      summaryBudgetTokens: 10_000,
+      sceneCheckInterval: 100,
+      knowledgeStarts: { "private-a": null, "private-b": null },
+    },
+    summaryEntries: privateEntries,
+  });
+  calls.length = 0;
+  await memory.checkScenesAfterGeneration(privateChat.id, { blocking: false });
+  assert.deepEqual(calls, [], "separate 5k character constants do not jointly exceed a 7k per-view share");
+  await chats.patchMetadata(privateChat.id, {
+    summaryEntries: [{ ...privateEntries[0], content: "PRIVATE_A_CONSTANT ".repeat(1700) }, privateEntries[1]],
+  });
+  await memory.checkScenesAfterGeneration(privateChat.id, { blocking: false });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]!.kind, "summary");
+  assert.match(JSON.stringify(calls[0]!.messages), /PRIVATE_A_CONSTANT/u);
+  assert.doesNotMatch(JSON.stringify(calls[0]!.messages), /PRIVATE_B_CONSTANT/u);
+  const privateAfter = JSON.parse((await chats.getById(privateChat.id))!.metadata).summaryEntries;
+  assert.deepEqual(
+    privateAfter.find((entry: { id: string }) => entry.id === "private-1"),
+    privateEntries[1],
+  );
+
   const partialChat = await chats.create({
     name: "Reuse existing summary ranges",
     mode: "roleplay",

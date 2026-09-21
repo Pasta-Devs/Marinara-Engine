@@ -215,7 +215,7 @@ test("Roleplay wizard reuses automatic memory settings without downloaded agents
     await context.press("Enter");
     await contextSaved;
     // A slow autosave must not disable or reject edits based on stale related limits.
-    const summaryBudget = memory.getByLabel("Maximum constant summary size (tokens)");
+    const summaryBudget = memory.getByLabel("Summary and recall budget (tokens)");
     await expect(summaryBudget).toBeEnabled();
     await summaryBudget.fill("20000");
     await summaryBudget.press("Enter");
