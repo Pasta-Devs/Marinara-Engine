@@ -153,7 +153,8 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
   page,
   request,
 }, info) => {
-  test.setTimeout(90_000);
+  // Setup/resume, deletion retries and both-theme captures share this scenario.
+  test.setTimeout(150_000);
   const fixture = await createFixture(request);
   const { character, narrator, firstMessage, lastMessage } = fixture;
   const knowledgeMessages = [

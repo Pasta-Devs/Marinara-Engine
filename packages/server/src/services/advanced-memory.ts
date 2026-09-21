@@ -1930,12 +1930,9 @@ export function createAdvancedMemoryService(db: DB) {
     }
     for (const [key, entries] of groups) {
       ctx = await context(chatId);
-      const target = Math.max(
-        1,
-        Math.floor(
-          (ctx.settings.summaryBudgetTokens * tokenSize(entries.map((entry) => entry.content).join("\n\n"))) / total,
-        ),
-      );
+      const groupTokens = tokenSize(entries.map((entry) => entry.content).join("\n\n"));
+      const target = Math.max(1, Math.floor((ctx.settings.summaryBudgetTokens * groupTokens) / total));
+      if (groupTokens <= target) continue;
       const ids = new Set(entries.flatMap(coverage));
       const source = ctx.messages.filter((message) => ids.has(message.id));
       const audience = JSON.parse(key) as string[];

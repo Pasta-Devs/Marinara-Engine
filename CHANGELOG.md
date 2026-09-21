@@ -7,7 +7,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Advanced Memory no longer starts or waits for continuity generation before the main Roleplay reply. Constants reuse existing ranged Chat Summaries, add only uncovered history after the reply, and combine only summary text when the constant-only budget is exceeded. All summary calls honor Chat Summary’s Maximum output size; replaced constants become inactive in Chat Summaries (#6474).
 - Every saved scene, legacy continuity and ongoing summary has a confirmed Delete summary action at the bottom of its vault editor. Original messages remain intact (#6474).
 - Toggling a Chat Summary no longer locks every entry, and Activate All / Deactivate All save together in one request. Background constant updates refresh Chat Summaries automatically (#6474).
-- Connection test results survive a late save refresh, fixing intermittent missing fal.ai feedback on iPhone Safari. The mobile drag regression now measures scrolling after cancellation has settled (#6474).
+- Connection test results survive a late save refresh and stay with the selected connection, fixing intermittent missing fal.ai feedback on iPhone Safari. The mobile drag regression now measures scrolling after cancellation has settled (#6474).
 
 - Advanced Memory reuses the original reply's saved summaries and recalled scenes across unchanged regenerated swipes, avoiding another search or continuity-model call. Changes to source history, character access, memories or the context budget are still checked before reuse (#6474).
 

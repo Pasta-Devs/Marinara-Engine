@@ -390,6 +390,7 @@ export function ConnectionEditor() {
   const [videoDefaultsExpanded, setVideoDefaultsExpanded] = useState(false);
 
   // Test results
+  const testScopeRef = useRef(0);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; latencyMs: number } | null>(null);
   const [msgResult, setMsgResult] = useState<{
     success: boolean;
@@ -531,16 +532,17 @@ export function ConnectionEditor() {
     setVideoDefaultsExpanded(!!storedVideoDefaults);
     setDirty(false);
     setSaveError(null);
-    setMsgResult(null);
-    setImgTestResult(null);
-    setVidTestResult(null);
-    setClaudeDiagResult(null);
   }, [conn]);
 
   // Saving before a test refetches `conn`; that hydration can finish after the test.
   // Clear results when changing the selected connection, not on its save/refetch.
   useEffect(() => {
+    testScopeRef.current++;
     setTestResult(null);
+    setMsgResult(null);
+    setImgTestResult(null);
+    setVidTestResult(null);
+    setClaudeDiagResult(null);
   }, [connectionDetailId]);
 
   const comfyWorkflowValidation = useMemo(() => {
@@ -1139,6 +1141,7 @@ export function ConnectionEditor() {
 
   const handleTestConnection = useCallback(async () => {
     if (!connectionDetailId) return;
+    const requestScope = testScopeRef.current;
     // Save first if dirty, and wait for it to complete
     if (dirty) {
       try {
@@ -1147,23 +1150,29 @@ export function ConnectionEditor() {
         return;
       }
     }
+    if (testScopeRef.current !== requestScope) return;
     setTestResult(null);
     testConnection.mutate(connectionDetailId, {
-      onSuccess: (data) =>
+      onSuccess: (data) => {
+        if (testScopeRef.current !== requestScope) return;
         setTestResult({
           ...data,
           message:
             selectedImageService === "fal" && data.success
               ? t("connections.mediaSources.fal.configured")
               : data.message,
-        }),
-      onError: (err) =>
-        setTestResult({ success: false, message: err instanceof Error ? err.message : "Failed", latencyMs: 0 }),
+        });
+      },
+      onError: (err) => {
+        if (testScopeRef.current !== requestScope) return;
+        setTestResult({ success: false, message: err instanceof Error ? err.message : "Failed", latencyMs: 0 });
+      },
     });
   }, [connectionDetailId, dirty, handleSave, testConnection, selectedImageService, t]);
 
   const handleTestMessage = useCallback(async () => {
     if (!connectionDetailId) return;
+    const requestScope = testScopeRef.current;
     if (dirty) {
       try {
         await handleSave();
@@ -1171,22 +1180,28 @@ export function ConnectionEditor() {
         return;
       }
     }
+    if (testScopeRef.current !== requestScope) return;
     setMsgResult(null);
     testMessage.mutate(connectionDetailId, {
-      onSuccess: (data) =>
-        setMsgResult(data as { success: boolean; response: string; latencyMs: number; error?: string }),
-      onError: (err) =>
+      onSuccess: (data) => {
+        if (testScopeRef.current !== requestScope) return;
+        setMsgResult(data as { success: boolean; response: string; latencyMs: number; error?: string });
+      },
+      onError: (err) => {
+        if (testScopeRef.current !== requestScope) return;
         setMsgResult({
           success: false,
           response: "",
           latencyMs: 0,
           error: err instanceof Error ? err.message : "Failed",
-        }),
+        });
+      },
     });
   }, [connectionDetailId, dirty, handleSave, testMessage]);
 
   const handleDiagnoseClaudeSubscription = useCallback(async () => {
     if (!connectionDetailId) return;
+    const requestScope = testScopeRef.current;
     if (dirty) {
       try {
         await handleSave();
@@ -1194,10 +1209,15 @@ export function ConnectionEditor() {
         return;
       }
     }
+    if (testScopeRef.current !== requestScope) return;
     setClaudeDiagResult(null);
     diagnoseClaudeSubscription.mutate(connectionDetailId, {
-      onSuccess: (data) => setClaudeDiagResult(data),
-      onError: (err) =>
+      onSuccess: (data) => {
+        if (testScopeRef.current !== requestScope) return;
+        setClaudeDiagResult(data);
+      },
+      onError: (err) => {
+        if (testScopeRef.current !== requestScope) return;
         setClaudeDiagResult({
           success: false,
           requestedModel: localModel,
@@ -1208,12 +1228,14 @@ export function ConnectionEditor() {
           response: "",
           errors: [err instanceof Error ? err.message : "Failed"],
           latencyMs: 0,
-        }),
+        });
+      },
     });
   }, [connectionDetailId, dirty, handleSave, diagnoseClaudeSubscription, localModel]);
 
   const handleTestImage = useCallback(async () => {
     if (!connectionDetailId) return;
+    const requestScope = testScopeRef.current;
     if (dirty) {
       try {
         await handleSave();
@@ -1221,9 +1243,11 @@ export function ConnectionEditor() {
         return;
       }
     }
+    if (testScopeRef.current !== requestScope) return;
     setImgTestResult(null);
     testImageGeneration.mutate(connectionDetailId, {
-      onSuccess: (data) =>
+      onSuccess: (data) => {
+        if (testScopeRef.current !== requestScope) return;
         setImgTestResult(
           data as {
             success: boolean;
@@ -1233,8 +1257,10 @@ export function ConnectionEditor() {
             prompt: string;
             error?: string;
           },
-        ),
-      onError: (err) =>
+        );
+      },
+      onError: (err) => {
+        if (testScopeRef.current !== requestScope) return;
         setImgTestResult({
           success: false,
           base64: null,
@@ -1242,12 +1268,14 @@ export function ConnectionEditor() {
           latencyMs: 0,
           prompt: "",
           error: err instanceof Error ? err.message : "Failed",
-        }),
+        });
+      },
     });
   }, [connectionDetailId, dirty, handleSave, testImageGeneration]);
 
   const handleTestVideo = useCallback(async () => {
     if (!connectionDetailId) return;
+    const requestScope = testScopeRef.current;
     if (dirty) {
       try {
         await handleSave();
@@ -1255,9 +1283,11 @@ export function ConnectionEditor() {
         return;
       }
     }
+    if (testScopeRef.current !== requestScope) return;
     setVidTestResult(null);
     testVideoGeneration.mutate(connectionDetailId, {
-      onSuccess: (data) =>
+      onSuccess: (data) => {
+        if (testScopeRef.current !== requestScope) return;
         setVidTestResult(
           data as {
             success: boolean;
@@ -1267,8 +1297,10 @@ export function ConnectionEditor() {
             prompt: string;
             error?: string;
           },
-        ),
-      onError: (err) =>
+        );
+      },
+      onError: (err) => {
+        if (testScopeRef.current !== requestScope) return;
         setVidTestResult({
           success: false,
           base64: null,
@@ -1276,7 +1308,8 @@ export function ConnectionEditor() {
           latencyMs: 0,
           prompt: "",
           error: err instanceof Error ? err.message : "Failed",
-        }),
+        });
+      },
     });
   }, [connectionDetailId, dirty, handleSave, testVideoGeneration]);
 
@@ -1327,12 +1360,17 @@ export function ConnectionEditor() {
       if (model.isRemote && model.maxOutput) setLocalMaxTokensOverride(Number(model.maxOutput));
       setShowModelDropdown(false);
       setModelSearch("");
+      testScopeRef.current++;
       setDirty(true);
     },
     [localBaseUrl, localProvider, localVideoGenerationSource, localVideoService],
   );
 
-  const markDirty = useCallback(() => setDirty(true), []);
+  const markDirty = useCallback(() => {
+    // A manual configuration edit invalidates in-flight tests; save hydration does not.
+    testScopeRef.current++;
+    setDirty(true);
+  }, []);
 
   const handleManualModelChange = useCallback(
     (model: string) => {
