@@ -2806,7 +2806,9 @@ export async function chatsRoutes(app: FastifyInstance) {
             .filter((entry): entry is { role: string; content: string } => entry !== null)
         : [];
       if (cachedPrompt.length === 0) return null;
-      if (advancedMemoryEnabled) {
+      // A selected turn is a historical request, not memory being reused for a
+      // new generation. Later images, summaries and policy edits cannot alter it.
+      if (advancedMemoryEnabled && !allowHistoricalCache) {
         const receipt = extra.advancedMemoryReceipt;
         if (!isRecord(receipt) || !Object.prototype.hasOwnProperty.call(receipt, "sourceEndMessageId")) return null;
         const end =
@@ -2887,12 +2889,6 @@ export async function chatsRoutes(app: FastifyInstance) {
             parseExtra(activeSwipe.extra) as Record<string, unknown>,
             Boolean(requestedMessage),
           );
-        }
-        if (!cached) {
-          for (const sw of swipes) {
-            cached = await readCachedPrompt(parseExtra(sw.extra) as Record<string, unknown>, Boolean(requestedMessage));
-            if (cached) break;
-          }
         }
       }
 

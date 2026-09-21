@@ -218,7 +218,7 @@ function policyFingerprint(ctx: Context): string {
 
 function preparationPolicyRevision(ctx: Context): string {
   return hash([
-    "chat-summary-priority-budget-v7", // Invalidate cached prompts without rebuilding valid source archives.
+    "chat-summary-priority-budget-v8", // Invalidate reusable contexts without rebuilding valid source archives.
     policyFingerprint(ctx),
     ctx.settings,
     ctx.metadata.summaryEntries,
@@ -537,7 +537,16 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       record.kind === "scene" || record.kind === "excerpt"
         ? audienceView(ctx, record.audienceCharacterIds)
         : record.audienceCharacterIds;
-    const eligibleIds = new Set(allowed(ctx, source, archiveAudience).map((message) => message.id));
+    const summaryOnly =
+      record.kind === "continuity" &&
+      record.dependencies.length > 0 &&
+      record.dependencies.every((dependency) => dependency.id.startsWith("summary:"));
+    const eligibleIds = new Set(
+      (summaryOnly
+        ? summarySources({ ...ctx, messages: source }, archiveAudience)
+        : allowed(ctx, source, archiveAudience)
+      ).map((message) => message.id),
+    );
     const structural = record.kind === "scene" && record.id === record.sceneId;
     // A partial summary may be empty while retaining discontiguous audience-scoped coverage.
     if (!structural && record.messageIds.some((id) => !eligibleIds.has(id))) return false;
@@ -854,6 +863,24 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       createdAt: timestamp,
       updatedAt: timestamp,
     };
+  }
+
+  /** Summary-owned hiding removes raw history, not the constants that replace it. */
+  function summarySources(ctx: Context, audience: string[]): AdvancedMemoryMessage[] {
+    const ownedHiddenIds = new Set(
+      normalizeChatSummaryEntries(ctx.metadata.summaryEntries)
+        .filter((entry) => entry.enabled)
+        .flatMap((entry) => entry.hiddenMessageIds ?? []),
+    );
+    return allowed(
+      ctx,
+      ctx.messages.map((message) =>
+        ownedHiddenIds.has(message.id)
+          ? { ...message, extra: { ...object(message.extra), hiddenFromAI: false } }
+          : message,
+      ),
+      audience,
+    );
   }
 
   function sourceEntries(ctx: Context, eligible: readonly AdvancedMemoryMessage[], historical: boolean) {
@@ -1951,7 +1978,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const views = new Map(
       (ctx.individual ? ctx.characterIds : [""]).map((id) => [
         id,
-        new Set(allowed(ctx, ctx.messages, id ? [id] : []).map((message) => message.id)),
+        new Set(summarySources(ctx, id ? [id] : []).map((message) => message.id)),
       ]),
     );
     const eligible = sourceEntries(ctx, ctx.messages, false).filter((entry) =>
@@ -2201,7 +2228,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const sharedStart = sharedStartMessageId(sources);
     let boundaryIndex = sharedStart ? indexes.get(sharedStart)! - 1 : -1;
     let live = eligible.filter((message) => indexes.get(message.id)! > boundaryIndex);
-    let chatSummary = sourceEntries(ctx, eligible, historical)
+    let chatSummary = sourceEntries(ctx, summarySources(ctx, audience), historical)
       .map((entry) => {
         const covered = entry.messageIds?.length
           ? sources.filter((message) => entry.messageIds!.includes(message.id))

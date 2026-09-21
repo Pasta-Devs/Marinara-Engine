@@ -706,7 +706,13 @@ try {
     });
     assert(liveChat);
     chatIds.push(liveChat.id);
-    await chats.createMessage({ chatId: liveChat.id, role: "user", content: "LIVE_RAW_NOT_COMPACTION_INPUT" });
+    const liveSource = await chats.createMessage({
+      chatId: liveChat.id,
+      role: "user",
+      content: "LIVE_RAW_NOT_COMPACTION_INPUT",
+      extra: ranged ? { hiddenFromAI: true } : {},
+    });
+    assert(liveSource);
     await chats.createMessage({
       chatId: liveChat.id,
       role: "user",
@@ -720,7 +726,9 @@ try {
         createChatSummaryEntry({
           content: ranged ? "LIVE_CONSTANT_TO_COMBINE ".repeat(600) : "{{getvar::memory}}",
           enabled: true,
-          ...(ranged ? { rangeStartIndex: 1, rangeEndIndex: 1 } : {}),
+          ...(ranged
+            ? { rangeStartIndex: 1, rangeEndIndex: 1, messageIds: [liveSource.id], hiddenMessageIds: [liveSource.id] }
+            : {}),
         }),
         createChatSummaryEntry({
           id: "hidden-constant",
@@ -736,7 +744,7 @@ try {
     assert.deepEqual(
       calls.map((call) => call.kind),
       ["summary"],
-      "compaction also covers live and legacy constants",
+      "compaction covers summary-hidden source ranges and legacy constants",
     );
     assert.doesNotMatch(JSON.stringify(calls[0]!.messages), /LIVE_RAW_NOT_COMPACTION_INPUT|HIDDEN_CONSTANT/u);
     const active = JSON.parse((await chats.getById(liveChat.id))!.metadata).summaryEntries.find(

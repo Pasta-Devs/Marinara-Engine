@@ -100,8 +100,8 @@ try {
     embeddingModel: "fixture-embedding",
   });
   const characters = createCharactersStorage(db);
-  const first = await characters.create(characterDataSchema.parse({ name: "Dottore" }));
-  const second = await characters.create(characterDataSchema.parse({ name: "Visitor" }));
+  const first = await characters.create(characterDataSchema.parse({ name: "Powers That Be" }));
+  const second = await characters.create(characterDataSchema.parse({ name: "Maukie" }));
   assert.ok(first && second);
   const presets = createPromptsStorage(db);
   const preset = await presets.create({
@@ -171,6 +171,21 @@ try {
       characterId: index % 2 ? first.id : null,
       content: `${index === 0 ? "Date: Spring 14\n" : ""}HISTORY_${index}: ${"A long ongoing scene. ".repeat(200)}`,
     });
+  const summarySource = (await chats.listMessages(chat.id)).slice(1, 3);
+  const conditionalEntries = [
+    '{{#if char == "Powers That Be" || "Maukie"}}SHARED_CONSTANT_FOR_{{char}}{{/if}}',
+    '{{#if char == "Powers That Be"}}NARRATOR_ONLY_CONSTANT{{/if}}',
+  ].map((content, index) => ({
+    id: `conditional-constant-${index}`,
+    content,
+    enabled: true,
+    origin: "manual",
+    sourceMode: "range",
+    rangeStartIndex: 2,
+    rangeEndIndex: 3,
+    messageIds: summarySource.map((message) => message.id),
+  }));
+  await chats.patchMetadata(chat.id, { summaryEntries: conditionalEntries });
   const generate = async (regenerateMessageId?: string) => {
     const result = await app.inject({
       method: "POST",
@@ -189,12 +204,34 @@ try {
   assert.ok(generated.body.includes('"type":"advanced_memory_receipt"'));
   const sent = prompts.at(-1)!;
   assert.ok(sent.includes("MANDATORY_FIXTURE"));
+  assert.ok(sent.includes("SHARED_CONSTANT_FOR_Maukie"), "conditional constants reach Maukie's actual request");
+  assert.ok(!sent.includes("NARRATOR_ONLY_CONSTANT"), "narrator-only constants stay out of Maukie's request");
   assert.ok(sent.includes("Earlier context omitted"), "an oversized ongoing scene retains bounded source excerpts");
   assert(!modelCallKinds.includes("summary"), "main generation never invokes the summary helper");
   assert.ok(sent.includes("HISTORY_9"), `recent actual history stays in context: ${sent.slice(-1800)}`);
   assert.ok(!sent.includes("PRIVATE_SCENE_SECRET"), "a different character's hidden scene cannot leak");
   assert.ok(!sent.includes("FUTURE_LEGACY_SECRET"), "legacy unscoped summary cannot bypass managed placement");
   assert.ok(!sent.includes("__MARINARA_ADVANCED_MEMORY_"));
+  const hideSummarized = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${chat.id}/metadata`,
+    payload: { hideSummarisedMessages: true },
+  });
+  assert.equal(hideSummarized.statusCode, 200, hideSummarized.body);
+  assert(JSON.parse((await chats.getMessage(summarySource[0]!.id))!.extra).hiddenFromAI);
+  await generate();
+  assert.ok(
+    prompts.at(-1)!.includes("SHARED_CONSTANT_FOR_Maukie"),
+    "hiding summarized source messages must retain their enabled constants",
+  );
+  assert.ok(!prompts.at(-1)!.includes("HISTORY_0:"), "summary-owned hiding still excludes the raw source message");
+  assert.ok(!prompts.at(-1)!.includes("PRIVATE_SCENE_SECRET"), "explicit character hiding remains enforced");
+  await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${chat.id}/metadata`,
+    payload: { hideSummarisedMessages: false },
+  });
+  await generate();
   const target = (await chats.listMessages(chat.id)).at(-1)!;
   assert.ok(JSON.parse(target.extra as string).advancedMemoryReceipt);
   const originalMemory = JSON.parse(target.extra as string).advancedMemorySnapshot;
@@ -245,6 +282,56 @@ try {
   assert.equal(cachedPeek.statusCode, 200, cachedPeek.body);
   assert.equal(cachedPeek.json().source, "cached");
   assert.ok(!cachedPeek.body.includes("PRIVATE_SCENE_SECRET"));
+  const savedRequest = cachedPeek.json().messages;
+  await chats.updateMessageExtra(summarySource[0]!.id, {
+    attachments: [{ type: "image", filename: "illustration_1.png", url: "/illustration_1.png" }],
+  });
+  await chats.patchMetadata(chat.id, {
+    summary: "A summary edited after generation.",
+    summaryEntries: conditionalEntries.map((entry) => ({ ...entry, enabled: false })),
+  });
+  const peekAfterUpdates = await app.inject({
+    method: "POST",
+    url: `/api/chats/${chat.id}/peek-prompt`,
+    payload: { messageId: target.id },
+  });
+  assert.equal(peekAfterUpdates.statusCode, 200, peekAfterUpdates.body);
+  assert.equal(peekAfterUpdates.json().exact, true);
+  assert.deepEqual(
+    peekAfterUpdates.json().messages,
+    savedRequest,
+    "late images and summary edits cannot rewrite a sent request",
+  );
+  const activeMessage = (await chats.getMessage(target.id))!;
+  const activeExtra = JSON.parse(activeMessage.extra);
+  const activeIndex = activeMessage.activeSwipeIndex;
+  await chats.updateMessageExtra(target.id, { cachedPrompt: null });
+  await chats.updateSwipeExtra(target.id, activeIndex, { cachedPrompt: null });
+  const missingActivePrompt = await app.inject({
+    method: "POST",
+    url: `/api/chats/${chat.id}/peek-prompt`,
+    payload: { messageId: target.id },
+  });
+  assert.equal(missingActivePrompt.statusCode, 404, "a missing active prompt must not borrow another swipe's request");
+  await chats.updateMessageExtra(target.id, { cachedPrompt: activeExtra.cachedPrompt });
+  await chats.updateSwipeExtra(target.id, activeIndex, { cachedPrompt: activeExtra.cachedPrompt });
+  const otherSwipe = (await chats.getSwipes(target.id)).find((swipe) => swipe.index !== activeIndex)!;
+  assert(otherSwipe, "the fixture includes multiple generated swipes");
+  const otherPrompt = JSON.parse(otherSwipe.extra).cachedPrompt;
+  await chats.setActiveSwipe(target.id, otherSwipe.index);
+  const otherPeek = await app.inject({
+    method: "POST",
+    url: `/api/chats/${chat.id}/peek-prompt`,
+    payload: { messageId: target.id },
+  });
+  assert.deepEqual(
+    otherPeek.json().messages,
+    otherPrompt.map(({ role, content }: { role: string; content: string }) => ({ role, content })),
+  );
+  await chats.setActiveSwipe(target.id, activeIndex);
+  assert.equal(modelCalls, beforePreview, "historical inspection never prepares memory or calls a model");
+  await chats.updateMessageExtra(summarySource[0]!.id, { attachments: [] });
+  await chats.patchMetadata(chat.id, { summary: "FUTURE_LEGACY_SECRET", summaryEntries: conditionalEntries });
   const previewChat = await chats.create({
     name: "Read-only preview",
     mode: "roleplay",

@@ -1304,7 +1304,7 @@ type RoleplaySurfaceProps = {
     conversationStartForCharacterIds: string[],
   ) => void;
   onToggleHiddenFromAI: (messageId: string, hiddenFromAll: boolean, hiddenFromAICharacterIds?: string[]) => void;
-  onPeekPrompt: () => void;
+  onPeekPrompt: (messageId?: string) => void;
   onBranch?: (messageId: string) => void;
   onCloneSceneFromHere?: (messageId: string) => void;
   isCloneSceneFromHereDisabled?: boolean;
@@ -2655,7 +2655,7 @@ export function ChatRoleplaySurface({
                           onSetActiveSwipe={onSetActiveSwipe}
                           onToggleConversationStart={onToggleConversationStart}
                           onToggleHiddenFromAI={onToggleHiddenFromAI}
-                          onPeekPrompt={onPeekPrompt}
+                          onPeekPrompt={() => onPeekPrompt(msg.id)}
                           onBranch={onBranch}
                           onCloneSceneFromHere={onCloneSceneFromHere}
                           isCloneSceneFromHereDisabled={isCloneSceneFromHereDisabled}
@@ -2689,7 +2689,7 @@ export function ChatRoleplaySurface({
                           onSetActiveSwipe={onSetActiveSwipe}
                           onToggleConversationStart={onToggleConversationStart}
                           onToggleHiddenFromAI={onToggleHiddenFromAI}
-                          onPeekPrompt={onPeekPrompt}
+                          onPeekPrompt={() => onPeekPrompt(msg.id)}
                           onBranch={onBranch}
                           onCloneSceneFromHere={onCloneSceneFromHere}
                           isCloneSceneFromHereDisabled={isCloneSceneFromHereDisabled}
