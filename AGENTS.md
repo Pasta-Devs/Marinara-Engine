@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file is a thin maintainer note for contributors using Codex. Canonical workflow, validation, and release guidance lives in `CONTRIBUTING.md`.
+This is the repository guide for coding agents. Canonical workflow, validation, and release guidance lives in `CONTRIBUTING.md`.
 
 ## Agent Workflow Overlay
 
