@@ -68,6 +68,10 @@ Android-specific rule:
 - `versionName` matches the app version.
 - `versionCode` increments for every shipped APK.
 
+Storage-format rule (separate from the app version — never touched by `version:sync`):
+
+- Root `storage-format.json` must equal `STORAGE_VERSION` in `packages/server/src/db/file-backed-store.ts`. It changes only when the on-disk storage layout changes; the launcher/updater downgrade guard reads it via `git show` on the update target, so a missed bump silently disables that protection. The launcher-format-guard regression pins the pairing.
+
 ## Safe Multi-File Updates
 
 - When changing version numbers, bump root `package.json` first, then run `pnpm version:sync -- --android-version-code <next-code>`.
