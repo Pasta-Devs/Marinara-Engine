@@ -106,10 +106,11 @@ test("preset editor offers one combined Recalled Scenes marker and reads the leg
   request,
 }, info) => {
   const fixture = await createFixture(request);
-  const response = await request.post("/api/prompts", { data: { name: "Combined recalled scenes" } });
-  expect(response.ok()).toBeTruthy();
-  const preset = (await response.json()) as { id: string };
+  let preset: { id: string } | undefined;
   try {
+    const response = await request.post("/api/prompts", { data: { name: "Combined recalled scenes" } });
+    expect(response.ok()).toBeTruthy();
+    preset = (await response.json()) as { id: string };
     expect(
       (
         await request.post(`/api/prompts/${preset.id}/sections`, {
@@ -153,7 +154,7 @@ test("preset editor offers one combined Recalled Scenes marker and reads the leg
     await editor.getByRole("button", { name: "Recalled Scenes", exact: true }).click();
     await expect
       .poll(async () => {
-        const saved = await (await request.get(`/api/prompts/${preset.id}/full`)).json();
+        const saved = await (await request.get(`/api/prompts/${preset!.id}/full`)).json();
         return saved.sections.map(
           (section: { markerConfig: string | { type: string } }) =>
             (typeof section.markerConfig === "string" ? JSON.parse(section.markerConfig) : section.markerConfig)?.type,
@@ -161,7 +162,7 @@ test("preset editor offers one combined Recalled Scenes marker and reads the leg
       })
       .toEqual(["recalled_messages", "recalled_scenes"]);
   } finally {
-    await request.delete(`/api/prompts/${preset.id}`);
+    if (preset?.id) await request.delete(`/api/prompts/${preset.id}`);
     await fixture.cleanup();
   }
 });

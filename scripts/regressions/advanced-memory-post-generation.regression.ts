@@ -715,9 +715,10 @@ try {
     });
     await chats.patchMetadata(liveChat.id, {
       advancedMemory: { ...DEFAULT_ADVANCED_MEMORY_SETTINGS, enabled: true, sceneCheckInterval: 100 },
+      macroVariables: { memory: "LIVE_CONSTANT_TO_COMBINE ".repeat(600) },
       summaryEntries: [
         createChatSummaryEntry({
-          content: "LIVE_CONSTANT_TO_COMBINE ".repeat(600),
+          content: ranged ? "LIVE_CONSTANT_TO_COMBINE ".repeat(600) : "{{getvar::memory}}",
           enabled: true,
           ...(ranged ? { rangeStartIndex: 1, rangeEndIndex: 1 } : {}),
         }),
@@ -795,6 +796,65 @@ try {
     privateAfter.find((entry: { id: string }) => entry.id === "private-1"),
     privateEntries[1],
   );
+
+  const macroChat = await chats.create({
+    name: "Audience-dependent constant templates",
+    mode: "roleplay",
+    characterIds: [character.id, "unknown-character"],
+    connectionId: connection.id,
+  });
+  assert(macroChat);
+  chatIds.push(macroChat.id);
+  await chats.createMessage({ chatId: macroChat.id, role: "user", content: "A shared event." });
+  const template = createChatSummaryEntry({
+    id: "character-template",
+    content: "{{char}} owns this promise. ".repeat(150),
+    enabled: true,
+    rangeStartIndex: 1,
+    rangeEndIndex: 1,
+  });
+  await chats.patchMetadata(macroChat.id, {
+    groupChatMode: "individual",
+    advancedMemory: {
+      ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+      enabled: true,
+      sceneCheckInterval: 100,
+      knowledgeStarts: { [character.id]: null, "unknown-character": null },
+    },
+    summaryEntries: [
+      template,
+      createChatSummaryEntry({
+        id: "ordinary-constant",
+        content: "STABLE_CONSTANT ".repeat(550),
+        enabled: true,
+        rangeStartIndex: 1,
+        rangeEndIndex: 1,
+      }),
+    ],
+  });
+  calls.length = 0;
+  await memory.checkScenesAfterGeneration(macroChat.id, { blocking: false });
+  assert.equal(calls.length, 1);
+  assert.match(JSON.stringify(calls[0]!.messages), /STABLE_CONSTANT/u);
+  assert.doesNotMatch(JSON.stringify(calls[0]!.messages), /owns this promise/u);
+  const macroAfter = JSON.parse((await chats.getById(macroChat.id))!.metadata).summaryEntries;
+  assert.deepEqual(
+    macroAfter.find((entry: { id: string }) => entry.id === template.id),
+    template,
+  );
+  for (const [id, name] of [
+    [character.id, "Dottore"],
+    ["unknown-character", "Character"],
+  ]) {
+    const prepared = await memory.prepare({
+      chatId: macroChat.id,
+      messages: await chats.listMessages(macroChat.id),
+      audienceCharacterIds: [id!],
+      budgetTokens: 50_000,
+      readOnly: true,
+    });
+    assert(prepared.chatSummary!.includes(`${name} owns this promise.`));
+  }
 
   const partialChat = await chats.create({
     name: "Reuse existing summary ranges",

@@ -1957,13 +1957,19 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const eligible = sourceEntries(ctx, ctx.messages, false).filter((entry) =>
       [...views.values()].some((view) => coverage(entry).every((id) => view.has(id))),
     );
+    const rendered = new Map(
+      [...views].map(([id]) => [
+        id,
+        new Map(eligible.map((entry) => [entry.id, renderEntry(ctx, entry.content, id ? [id] : [])])),
+      ]),
+    );
     const viewTokens = new Map(
       [...views].map(([id, view]) => [
         id,
         tokenSize(
           eligible
             .filter((entry) => coverage(entry).every((messageId) => view.has(messageId)))
-            .map((entry) => entry.content)
+            .map((entry) => rendered.get(id)!.get(entry.id)!)
             .join("\n\n"),
         ),
       ]),
@@ -1976,21 +1982,48 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     // Do not merge shared and private ranges into a single entry that would take
     // the shared portion away from a character who cannot access the private one.
     const groups = new Map<string, typeof eligible>();
+    const preserved = new Set<string>();
     for (const entry of eligible) {
       const audience = ctx.individual
         ? ctx.characterIds.filter((id) => coverage(entry).every((messageId) => views.get(id)!.has(messageId))).sort()
         : [];
+      if (new Set(audience.map((id) => rendered.get(id)!.get(entry.id))).size > 1) {
+        // ponytail: preserve audience-dependent templates; combining them safely
+        // requires Chat Summary entries with explicit per-audience content.
+        preserved.add(entry.id);
+        continue;
+      }
       const key = coverage(entry).length ? JSON.stringify(audience) : "unranged";
       groups.set(key, [...(groups.get(key) ?? []), entry]);
     }
+    const preservedTokens = new Map(
+      [...views].map(([id, view]) => [
+        id,
+        tokenSize(
+          eligible
+            .filter((entry) => preserved.has(entry.id) && coverage(entry).every((messageId) => view.has(messageId)))
+            .map((entry) => rendered.get(id)!.get(entry.id)!)
+            .join("\n\n"),
+        ),
+      ]),
+    );
     for (const [key, entries] of groups) {
       ctx = await context(chatId);
       const audience = key === "unranged" ? [] : (JSON.parse(key) as string[]);
-      const total = Math.max(...(ctx.individual ? audience : [""]).map((id) => viewTokens.get(id)!));
-      if (total <= constantBudget) continue;
-      const groupTokens = tokenSize(entries.map((entry) => entry.content).join("\n\n"));
-      const target = Math.max(1, Math.floor((constantBudget * groupTokens) / total));
-      if (groupTokens <= target) continue;
+      const audienceIds = ctx.individual ? audience : [""];
+      const inputs = entries.map((entry) => rendered.get(audienceIds[0]!)!.get(entry.id)!);
+      const groupTokens = tokenSize(inputs.join("\n\n"));
+      if (!groupTokens) continue;
+      const target = Math.floor(
+        Math.min(
+          ...audienceIds.map(
+            (id) =>
+              ((constantBudget - preservedTokens.get(id)!) * groupTokens) /
+              (viewTokens.get(id)! - preservedTokens.get(id)!),
+          ),
+        ),
+      );
+      if (target < 1 || groupTokens <= target) continue;
       const ids = new Set(entries.flatMap(coverage));
       // Legacy unranged constants stay unranged, rather than acquiring invented coverage.
       const source =
@@ -2010,13 +2043,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         { id: newId(), blocking: false, status: "running", stage: "compacting", completed: 0, total: 1, error: null },
         options,
       );
-      const content = await summarize(
-        ctx,
-        entries.map((entry) => renderEntry(ctx, entry.content, audience)),
-        target,
-        options,
-        cache,
-      );
+      const content = await summarize(ctx, inputs, target, options, cache);
       await validateSnapshot(ctx, source, options);
       await chats.patchMetadata(
         chatId,
