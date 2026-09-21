@@ -37,7 +37,8 @@ async function withMemoryDomainErrors<T>(reply: FastifyReply, operation: () => P
 }
 
 export async function advancedMemoryRoutes(app: FastifyInstance) {
-  const service = createAdvancedMemoryService(app.db);
+  // The inspector displays summaries; source excerpts are fetched on demand.
+  const service = createAdvancedMemoryService(app.db, { includeExcerptsInStatus: false });
   const prefix = "/:id/advanced-memory";
   app.get<{ Params: { id: string } }>(prefix, async (req) => service.status(req.params.id));
   app.delete<{ Params: { id: string } }>(prefix, async (req, reply) =>

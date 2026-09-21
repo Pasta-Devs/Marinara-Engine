@@ -88,10 +88,12 @@ export function useAdvancedMemoryAction(chatId: string) {
           return api.post<AdvancedMemoryStatus>(`${base}/${request.action}`, {});
       }
     },
-    onSuccess: async (status) => {
+    onSuccess: async (status, request) => {
       // An older status fetch must not replace this save before the next queued edit reads it.
       await qc.cancelQueries({ queryKey: advancedMemoryKeys.status(chatId), exact: true });
       qc.setQueryData(advancedMemoryKeys.status(chatId), status);
+      // Record edits change neither chat metadata nor their source messages.
+      if (request.action === "record" || request.action === "delete-record") return;
       void qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
       void qc.invalidateQueries({ queryKey: ["advanced-memory-sources", chatId] });
     },

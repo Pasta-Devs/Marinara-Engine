@@ -203,6 +203,17 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
   let resetRequests = 0;
   let deleteSceneRequests = 0;
   let failSceneDelete = true;
+  let watchRecordRefetches = false;
+  const recordRefetches: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (
+      watchRecordRefetches &&
+      request.method() === "GET" &&
+      (path === `/api/chats/${fixture.chat.id}` || path.endsWith("/sources"))
+    )
+      recordRefetches.push(path);
+  });
   let releaseResume: (() => void) | undefined;
   await page.route(`**/api/chats/${fixture.chat.id}/advanced-memory**`, async (route) => {
     const pathname = new URL(route.request().url()).pathname;
@@ -218,6 +229,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
       status.records = status.records.filter((item) =>
         record.kind === "scene" ? item.kind !== "scene" || item.sceneId !== record.sceneId : item.id !== record.id,
       );
+      if (status.job.status === "running") status.job.status = "cancelled";
       return route.fulfill({ json: status });
     }
     if (method === "DELETE") {
@@ -256,6 +268,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
       Object.assign(record, patch, {
         manualOverride: patch.content !== undefined || record.manualOverride,
       });
+      if (status.job.status === "running") status.job.status = "cancelled";
     } else if (method === "POST" && pathname.endsWith("/reindex")) {
       reindexRequests += 1;
       const record = status.records[0];
@@ -519,6 +532,19 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     expect(sourceBounds!.y).toBeGreaterThanOrEqual(saveBounds!.y + saveBounds!.height);
     await sourceButton.click();
     await expect(inspector).toContainText("I will remember the blue notebook.");
+    status.job = { ...status.job, status: "running", blocking: false, stage: "summarizing" };
+    await expect(inspector.getByRole("button", { name: "Reindex", exact: true })).toBeDisabled();
+    const recallToggle = inspector.getByRole("checkbox", { name: "Include in recall", exact: true });
+    await expect(recallToggle).toBeEnabled();
+    watchRecordRefetches = true;
+    await inspector.getByText("Include in recall", { exact: true }).click();
+    await expect(recallToggle).toBeChecked();
+    await expect(recallToggle).toBeEnabled();
+    await inspector.getByText("Include in recall", { exact: true }).click();
+    await expect(recallToggle).not.toBeChecked();
+    await expect(recallToggle).toBeEnabled();
+    expect(recordRefetches, "a recall toggle must not refetch the chat or its inspected source messages").toEqual([]);
+    watchRecordRefetches = false;
     await inspector.getByRole("button", { name: "Back to scenes", exact: true }).click();
     await inspector.getByRole("button", { name: "Reindex", exact: true }).click();
     await expect.poll(() => reindexRequests).toBe(1);
@@ -567,10 +593,16 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
       page.getByText("Advanced Memory: Scene deletion failed; please retry.", { exact: true }),
     ).toBeVisible();
     await expect(deleteSceneButton).toBeEnabled();
+    status.job = { ...status.job, status: "running", blocking: false, stage: "summarizing" };
+    await expect(inspector.getByRole("button", { name: "Reindex", exact: true })).toBeDisabled();
+    await expect(deleteSceneButton).toBeEnabled();
+    watchRecordRefetches = true;
     await deleteSceneButton.click();
     await deleteSceneDialog.getByRole("button", { name: "Delete summary", exact: true }).click();
     await expect.poll(() => deleteSceneRequests).toBe(2);
     await expect(inspector.locator("ul > li")).toHaveCount(11);
+    expect(recordRefetches, "deleting a summary must not refetch the chat or its source messages").toEqual([]);
+    watchRecordRefetches = false;
     expect(resetRequests).toBe(0);
     for (const kind of ["continuity", "temporary"] as const) {
       const legacy = {

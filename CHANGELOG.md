@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Advanced Memory scene recall toggles and deletion stay responsive in long chats: archive checks reuse parsed message metadata, the inspector loads summaries without resending hidden excerpts, and user edits interrupt background processing safely (#6484).
 - Conversation chats reuse character-owned schedules. Enabling schedules no longer starts generation, and weekly renewal requires an explicit per-character opt-in without repeated retries after failure (#6481, #6477).
 - Schedule generation stops when cancelled or when its editor, manager, or chat settings closes. Invalid model output remains editable and can be applied to the draft after validation; completed days survive a later day’s failure (#6480, #6476).
 - Disabled Regex and Functions keep their switches and action buttons fully visible while dimming only their descriptions (#6463).

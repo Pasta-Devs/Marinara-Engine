@@ -283,7 +283,7 @@ export function AdvancedMemoryInspector({
           <SettingsSwitch
             label={t("chat.advancedMemory.includeInRecall")}
             checked={selected.enabled}
-            disabled={pending}
+            disabled={action.isPending}
             onChange={(enabled) => action.mutate({ action: "record", recordId: selected.id, patch: { enabled } })}
             labelPosition="start"
             className="justify-between"
@@ -304,7 +304,7 @@ export function AdvancedMemoryInspector({
           <button
             type="button"
             className={`${buttonClass} w-full`}
-            disabled={pending || !draft.trim() || draft === selected.content}
+            disabled={action.isPending || !draft.trim() || draft === selected.content}
             onClick={() => action.mutate({ action: "record", recordId: selected.id, patch: { content: draft } })}
           >
             {t("chat.advancedMemory.save")}
@@ -347,7 +347,7 @@ export function AdvancedMemoryInspector({
             <button
               type="button"
               className={`${buttonClass} min-h-11 w-full text-[var(--destructive)]`}
-              disabled={pending}
+              disabled={action.isPending}
               onClick={() => void deleteSummary(selected)}
             >
               <Trash2 size="0.875rem" aria-hidden="true" />

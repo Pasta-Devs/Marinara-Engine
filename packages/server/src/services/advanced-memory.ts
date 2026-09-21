@@ -470,7 +470,7 @@ function readStored(raw: Record<string, unknown>): StoredRecord {
   };
 }
 
-export function createAdvancedMemoryService(db: DB) {
+export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = true } = {}) {
   const chats = createChatsStorage(db);
   const connections = createConnectionsStorage(db);
   const appSettings = createAppSettingsStorage(db);
@@ -480,7 +480,12 @@ export function createAdvancedMemoryService(db: DB) {
     const chat = await chats.getById(chatId);
     if (!chat || chat.mode !== "roleplay") throw new Error("Advanced Memory is available only for Roleplay chats");
     const metadata = object(chat.metadata);
-    const messages = (await chats.listMessages(chatId)) as AdvancedMemoryMessage[];
+    // Reuse parsed metadata across archive records. Re-parsing every message for
+    // each record's audience check freezes long chats, even for a simple toggle.
+    const messages = (await chats.listMessages(chatId)).map((message) => ({
+      ...message,
+      extra: object(message.extra),
+    })) as AdvancedMemoryMessage[];
     const characterIds = strings(chat.characterIds);
     const names = new Map<string, string>();
     const characterStore = createCharactersStorage(db);
@@ -2480,21 +2485,27 @@ export function createAdvancedMemoryService(db: DB) {
       summaryModel: helper.ok ? helper.model : null,
       warnings,
       ...(hasReceipt ? { latestReceipt: latestReceipt as unknown as PreparedAdvancedMemory["receipt"] } : {}),
-      records: withSourceTimelines(allRecords, ctx.messages)
-        .filter((record) => !isDeletedScene(record) && (record.content || record.status === "open"))
-        .map((record) => ({
-          ...record,
-          startIndex: indexes.get(record.kind === "excerpt" ? record.messageIds[0]! : record.startMessageId) ?? 0,
-          endIndex: indexes.get(record.kind === "excerpt" ? record.messageIds.at(-1)! : record.endMessageId) ?? 0,
-          embedding: undefined,
-          embeddingSpaceId: undefined,
-          embeddingStatus:
-            !recordValid(ctx, record) || !dependenciesValid(record, allRecords, ctx)
-              ? "stale"
-              : record.embedding?.length
-                ? "vectorized"
-                : "pending",
-        })),
+      records: withSourceTimelines(
+        allRecords.filter(
+          (record) =>
+            (includeExcerptsInStatus || record.kind !== "excerpt") &&
+            !isDeletedScene(record) &&
+            (record.content || record.status === "open"),
+        ),
+        ctx.messages,
+      ).map((record) => ({
+        ...record,
+        startIndex: indexes.get(record.kind === "excerpt" ? record.messageIds[0]! : record.startMessageId) ?? 0,
+        endIndex: indexes.get(record.kind === "excerpt" ? record.messageIds.at(-1)! : record.endMessageId) ?? 0,
+        embedding: undefined,
+        embeddingSpaceId: undefined,
+        embeddingStatus:
+          !recordValid(ctx, record) || !dependenciesValid(record, allRecords, ctx)
+            ? "stale"
+            : record.embedding?.length
+              ? "vectorized"
+              : "pending",
+      })),
     };
   }
 
@@ -2558,20 +2569,34 @@ export function createAdvancedMemoryService(db: DB) {
     return promise.then(() => status(chatId));
   }
 
-  async function getSources(chatId: string, recordId: string) {
-    const record = (await records(chatId)).find((item) => item.id === recordId);
+  async function getRecord(chatId: string, recordId: string) {
+    const [row] = await db
+      .select()
+      .from(advancedMemoryRecords)
+      .where(and(eq(advancedMemoryRecords.chatId, chatId), eq(advancedMemoryRecords.id, recordId)));
+    const record = row && (row.content || !row.summaryWork) ? readStored(row) : null;
     if (!record || isDeletedScene(record)) throw new Error("Memory record not found");
+    return record;
+  }
+
+  async function getSources(chatId: string, recordId: string) {
+    const record = await getRecord(chatId, recordId);
     const ids = new Set(record.messageIds);
     return (await chats.listMessages(chatId)).filter((message) => ids.has(message.id));
   }
 
   async function updateRecord(chatId: string, recordId: string, patch: { content?: string; enabled?: boolean }) {
+    if (patch.content !== undefined && (!patch.content.trim() || patch.content.length > 500_000))
+      throw new Error("Memory text must contain between 1 and 500000 characters");
+    await getRecord(chatId, recordId); // Invalid requests must not interrupt paid preparation.
+    // A user edit takes priority over background model work. Keep the write in
+    // the queue so cancelled preparation cannot overwrite the correction.
+    const operation = activeOperations.get(chatId);
+    if (!operation?.resetting) operation?.controller.abort(new Error("Advanced Memory record changed"));
     return serialized(chatId, async () => {
+      await operation?.promise.catch(() => undefined);
       const ctx = await context(chatId);
-      const record = (await records(chatId)).find((item) => item.id === recordId);
-      if (!record || isDeletedScene(record)) throw new Error("Memory record not found");
-      if (patch.content !== undefined && (!patch.content.trim() || patch.content.length > 500_000))
-        throw new Error("Memory text must contain between 1 and 500000 characters");
+      const record = await getRecord(chatId, recordId);
       const source = ctx.messages.filter((message) => record.messageIds.includes(message.id));
       const changes = {
         ...(patch.content !== undefined
@@ -2595,7 +2620,13 @@ export function createAdvancedMemoryService(db: DB) {
   }
 
   async function deleteRecord(chatId: string, recordId: string) {
+    const requested = await getRecord(chatId, recordId);
+    if (requested.kind === "excerpt" || requested.id === requested.sceneId)
+      throw new Error("Only a saved summary can be deleted");
+    const operation = activeOperations.get(chatId);
+    if (!operation?.resetting) operation?.controller.abort(new Error("Advanced Memory record deleted"));
     return serialized(chatId, async () => {
+      await operation?.promise.catch(() => undefined);
       await context(chatId);
       const current = await records(chatId);
       const record = current.find((item) => item.id === recordId);
