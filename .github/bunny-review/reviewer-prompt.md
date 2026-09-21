@@ -59,7 +59,7 @@ One rule: critique code and contracts only. Never personalize or address the aut
 3. Load only guidance that matches touched areas:
    - Package boundaries or architecture changes: `docs/development/architecture-map.md`.
    - Frontend (`packages/client`) changes: `packages/client/.instructions.md` and `docs/development/frontend.md`.
-   - Server (`packages/server`) changes, including logging and route/service boundaries: `CLAUDE.md` and `CONTRIBUTING.md`.
+   - Server (`packages/server`) changes, including logging and route/service boundaries: `AGENTS.md` and `CONTRIBUTING.md`.
    - Chat, roleplay, or game mode changes: `docs/development/architecture-map.md` (Mode Ownership), `docs/game/getting-started.md`, `docs/roleplay/getting-started.md`, `docs/conversation/getting-started.md`.
    - Storage, migration, or import/export changes: `docs/development/file-storage-migration.md`.
    - Build, container, or CI changes: `docs/installation/containers.md` and `CONTRIBUTING.md`.

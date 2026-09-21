@@ -208,7 +208,7 @@ No extra code — it emerges from the Step 2b / Step 3a prompt guidance: Mari as
 3. Normal chat with the Mari character (System A): chips render above the standard input; verify they are gated OFF for non-Mari characters.
 4. Existing semantic colors unchanged (Keep/Restore red, warnings amber, success emerald).
 
-## PR notes (per CLAUDE.md)
+## PR notes (per AGENTS.md)
 - Target `staging`. Open a draft PR early. Make the "why" explicit (discoverability + guided creation).
 - Leave all validation/test-plan checkboxes UNCHECKED. List manual-verification steps explicitly.
 - If no linked issue/feature request exists, note that one should be opened first.
