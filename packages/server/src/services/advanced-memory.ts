@@ -218,7 +218,7 @@ function policyFingerprint(ctx: Context): string {
 
 function preparationPolicyRevision(ctx: Context): string {
   return hash([
-    "chat-summary-priority-budget-v8", // Invalidate reusable contexts without rebuilding valid source archives.
+    "chat-summary-priority-budget-v9", // Invalidate reusable contexts without rebuilding valid source archives.
     policyFingerprint(ctx),
     ctx.settings,
     ctx.metadata.summaryEntries,
@@ -542,10 +542,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       record.dependencies.length > 0 &&
       record.dependencies.every((dependency) => dependency.id.startsWith("summary:"));
     const eligibleIds = new Set(
-      (summaryOnly
-        ? summarySources({ ...ctx, messages: source }, archiveAudience)
-        : allowed(ctx, source, archiveAudience)
-      ).map((message) => message.id),
+      (summaryOnly ? source : allowed(ctx, source, archiveAudience)).map((message) => message.id),
     );
     const structural = record.kind === "scene" && record.id === record.sceneId;
     // A partial summary may be empty while retaining discontiguous audience-scoped coverage.
@@ -865,24 +862,6 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     };
   }
 
-  /** Summary-owned hiding removes raw history, not the constants that replace it. */
-  function summarySources(ctx: Context, audience: string[]): AdvancedMemoryMessage[] {
-    const ownedHiddenIds = new Set(
-      normalizeChatSummaryEntries(ctx.metadata.summaryEntries)
-        .filter((entry) => entry.enabled)
-        .flatMap((entry) => entry.hiddenMessageIds ?? []),
-    );
-    return allowed(
-      ctx,
-      ctx.messages.map((message) =>
-        ownedHiddenIds.has(message.id)
-          ? { ...message, extra: { ...object(message.extra), hiddenFromAI: false } }
-          : message,
-      ),
-      audience,
-    );
-  }
-
   function sourceEntries(ctx: Context, eligible: readonly AdvancedMemoryMessage[], historical: boolean) {
     const ids = new Set(eligible.map((message) => message.id));
     const entries = normalizeChatSummaryEntries(ctx.metadata.summaryEntries, {
@@ -897,9 +876,20 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           ? ctx.messages.slice(entry.rangeStartIndex - 1, entry.rangeEndIndex).map((message) => message.id)
           : [];
       if (coverage.length) return coverage.every((id) => ids.has(id));
-      // Unranged summaries cannot prove historical coverage or safely cross an Individual restriction.
-      return !historical && !ctx.individual;
+      // Enabled constants use their authored conditions for character visibility.
+      // Unranged legacy entries still cannot prove coverage for a historical turn.
+      return !historical;
     });
+  }
+
+  /** Keep generated constants editable with the same character conditions as manual summaries. */
+  function scopeConstantSummary(ctx: Context, content: string, audience: string[]): string {
+    const names = [...new Set(audience.map((id) => ctx.names.get(id) ?? "Character"))];
+    if (!names.length) return content;
+    const condition = names
+      .map((name) => `"${name.replace(/\\/gu, "\\\\").replace(/["\u201c\u201d\u201e\u201f]/gu, "\\$&")}"`)
+      .join(" || ");
+    return `{{#if char == ${condition}}}\n${content}\n{{/if}}`;
   }
 
   function renderEntry(ctx: Context, text: string, audience: string[]): string {
@@ -1890,153 +1880,170 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       const handled = strings(state.constantSummarySceneIds);
       if (handled.includes(record.id)) continue;
       const previousEntries = entriesFor(ctx.metadata);
-      // Disabled entries also represent deliberate user choices. Do not regenerate them.
-      const covered = new Set(previousEntries.flatMap(coverage));
-      const source = ctx.messages.filter(
-        (message) => record.messageIds.includes(message.id) && !covered.has(message.id),
-      );
-      let content = record.content;
-      let cache: StoredRecord | undefined;
-      if (source.length && source.length !== record.messageIds.length) {
-        const scene = {
-          id: record.sceneId,
-          start: ctx.messages.indexOf(source[0]!),
-          end: ctx.messages.indexOf(source.at(-1)!),
-          closed: true,
-        };
-        cache = buildRecord(ctx, scene, "continuity", record.audienceCharacterIds, source, "pending");
-        cache.id = `memory-${hash([cache.id, "uncovered-constant", previousEntries]).slice(0, 32)}`;
-        await progress(
-          ctx,
-          {
-            id: newId(),
-            blocking: false,
-            status: "running",
-            stage: "summarizing",
-            completed: 0,
-            total: 1,
-            error: null,
-          },
-          options,
+      const audiences = ctx.individual
+        ? [
+            ...new Set([
+              ...record.audienceCharacterIds,
+              ...(ctx.settings.narratorCharacterId ? [ctx.settings.narratorCharacterId] : []),
+            ]),
+          ].filter((id) => ctx.characterIds.includes(id))
+        : [""];
+      const additions = new Map<string, { audience: string[]; source: AdvancedMemoryMessage[] }>();
+      for (const id of audiences) {
+        // Disabled entries also represent deliberate choices. Reuse each range
+        // only for characters whose section actually contains that summary.
+        const covered = new Set(
+          previousEntries.filter((entry) => renderEntry(ctx, entry.content, id ? [id] : []).trim()).flatMap(coverage),
         );
-        content = await summarize(
-          ctx,
-          [logMessages(ctx, source)],
-          clampRoleplaySummaryMaxTokens(ctx.metadata.summaryMaxTokens),
-          options,
-          cache,
+        const source = ctx.messages.filter(
+          (message) => record.messageIds.includes(message.id) && !covered.has(message.id),
         );
+        if (!source.length) continue;
+        const key = source.map((message) => message.id).join("\0");
+        const addition = additions.get(key) ?? { audience: [], source };
+        addition.audience.push(...(id ? [id] : ctx.characterIds));
+        additions.set(key, addition);
       }
-      await validateSnapshot(ctx, source, options);
+      for (const { audience, source } of additions.values()) {
+        abortIfNeeded(options.signal);
+        const previousEntries = entriesFor(ctx.metadata);
+        const start = ctx.messages.findIndex((message) => message.id === source[0]!.id);
+        const end = ctx.messages.findIndex((message) => message.id === source.at(-1)!.id);
+        let content = record.content;
+        let cache: StoredRecord | undefined;
+        if (source.length && source.length !== record.messageIds.length) {
+          const scene = {
+            id: record.sceneId,
+            start,
+            end,
+            closed: true,
+          };
+          cache = buildRecord(ctx, scene, "continuity", record.audienceCharacterIds, source, "pending");
+          cache.id = `memory-${hash([cache.id, "uncovered-constant", previousEntries]).slice(0, 32)}`;
+          await progress(
+            ctx,
+            {
+              id: newId(),
+              blocking: false,
+              status: "running",
+              stage: "summarizing",
+              completed: 0,
+              total: 1,
+              error: null,
+            },
+            options,
+          );
+          content = await summarize(
+            ctx,
+            [logMessages(ctx, source)],
+            clampRoleplaySummaryMaxTokens(ctx.metadata.summaryMaxTokens),
+            options,
+            cache,
+          );
+        }
+        await validateSnapshot(ctx, source, options);
+        await chats.patchMetadata(
+          chatId,
+          (fresh) => {
+            abortIfNeeded(options.signal);
+            if (
+              hash(entriesFor(fresh)) !== hash(previousEntries) ||
+              preparationPolicyRevision({
+                ...ctx,
+                metadata: fresh,
+                settings: normalizeAdvancedMemorySettings(fresh.advancedMemory),
+              }) !== preparationPolicyRevision(ctx)
+            )
+              throw new Error("Chat Summaries changed during preparation; retry");
+            const freshState = object(fresh.advancedMemoryState);
+            if (freshState.resetRevision !== state.resetRevision) throw new Error("Advanced Memory was reset");
+            const entries = [
+              ...previousEntries,
+              createChatSummaryEntry(
+                {
+                  origin: "automated",
+                  sourceMode: "range",
+                  content: scopeConstantSummary(ctx, content, audience),
+                  enabled: true,
+                  messageIds: source.map((message) => message.id),
+                  messageCount: source.length,
+                  rangeStartIndex: start + 1,
+                  rangeEndIndex: end + 1,
+                },
+                { createId: newId },
+              ),
+            ];
+            return constantSummaryPatch(ctx, fresh, entries);
+          },
+          { touchUpdatedAt: false },
+        );
+        if (cache) await db.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, cache.id));
+        ctx = await context(chatId);
+      }
       await chats.patchMetadata(
         chatId,
         (fresh) => {
           abortIfNeeded(options.signal);
-          if (
-            hash(entriesFor(fresh)) !== hash(previousEntries) ||
-            preparationPolicyRevision({
-              ...ctx,
-              metadata: fresh,
-              settings: normalizeAdvancedMemorySettings(fresh.advancedMemory),
-            }) !== preparationPolicyRevision(ctx)
-          )
-            throw new Error("Chat Summaries changed during preparation; retry");
-          const freshState = object(fresh.advancedMemoryState);
-          if (freshState.resetRevision !== state.resetRevision) throw new Error("Advanced Memory was reset");
-          const entries = source.length
-            ? [
-                ...previousEntries,
-                createChatSummaryEntry(
-                  {
-                    origin: "automated",
-                    sourceMode: "range",
-                    content,
-                    enabled: true,
-                    messageIds: source.map((message) => message.id),
-                    messageCount: source.length,
-                    rangeStartIndex: ctx.messages.indexOf(source[0]!) + 1,
-                    rangeEndIndex: ctx.messages.indexOf(source.at(-1)!) + 1,
-                  },
-                  { createId: newId },
-                ),
-              ]
-            : previousEntries;
-          const patch = constantSummaryPatch(ctx, fresh, entries);
+          const state = object(fresh.advancedMemoryState);
           return {
-            ...patch,
             advancedMemoryState: {
-              ...patch.advancedMemoryState,
-              constantSummarySceneIds: [...new Set([...strings(freshState.constantSummarySceneIds), record.id])],
+              ...state,
+              constantSummarySceneIds: [...new Set([...strings(state.constantSummarySceneIds), record.id])],
             },
           };
         },
         { touchUpdatedAt: false },
       );
-      if (cache) await db.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, cache.id));
     }
     ctx = await context(chatId);
-    const views = new Map(
-      (ctx.individual ? ctx.characterIds : [""]).map((id) => [
-        id,
-        new Set(summarySources(ctx, id ? [id] : []).map((message) => message.id)),
-      ]),
-    );
-    const eligible = sourceEntries(ctx, ctx.messages, false).filter((entry) =>
-      [...views.values()].some((view) => coverage(entry).every((id) => view.has(id))),
-    );
+    const views = ctx.individual ? ctx.characterIds : [""];
+    const eligible = sourceEntries(ctx, ctx.messages, false);
     const rendered = new Map(
-      [...views].map(([id]) => [
+      views.map((id) => [
         id,
         new Map(eligible.map((entry) => [entry.id, renderEntry(ctx, entry.content, id ? [id] : [])])),
       ]),
     );
-    const viewTokens = new Map(
-      [...views].map(([id, view]) => [
-        id,
-        tokenSize(
-          eligible
-            .filter((entry) => coverage(entry).every((messageId) => view.has(messageId)))
-            .map((entry) => rendered.get(id)!.get(entry.id)!)
-            .join("\n\n"),
-        ),
-      ]),
-    );
+    const viewTokens = new Map(views.map((id) => [id, tokenSize([...rendered.get(id)!.values()].join("\n\n"))]));
     const constantBudget = Math.floor(ctx.settings.summaryBudgetTokens * 0.7);
     if ([...viewTokens.values()].every((tokens) => tokens <= constantBudget)) {
       await progress(ctx, { status: "ready", stage: "ready", error: null }, options);
       return;
     }
-    // Do not merge shared and private ranges into a single entry that would take
-    // the shared portion away from a character who cannot access the private one.
-    const groups = new Map<string, typeof eligible>();
+    // Combine only identical rendered text for the same audience; keep differing
+    // character sections intact instead of flattening their authored conditions.
+    const groups = new Map<string, { audience: string[]; ranged: boolean; entries: typeof eligible }>();
     const preserved = new Set<string>();
     for (const entry of eligible) {
       const audience = ctx.individual
-        ? ctx.characterIds.filter((id) => coverage(entry).every((messageId) => views.get(id)!.has(messageId))).sort()
+        ? ctx.characterIds.filter((id) => rendered.get(id)!.get(entry.id)!.trim()).sort()
         : [];
+      if (ctx.individual && !audience.length) continue;
       if (new Set(audience.map((id) => rendered.get(id)!.get(entry.id))).size > 1) {
         // ponytail: preserve audience-dependent templates; combining them safely
         // requires Chat Summary entries with explicit per-audience content.
         preserved.add(entry.id);
         continue;
       }
-      const key = coverage(entry).length ? JSON.stringify(audience) : "unranged";
-      groups.set(key, [...(groups.get(key) ?? []), entry]);
+      const ranged = coverage(entry).length > 0;
+      const key = JSON.stringify([audience, ranged]);
+      const group = groups.get(key) ?? { audience, ranged, entries: [] };
+      group.entries.push(entry);
+      groups.set(key, group);
     }
     const preservedTokens = new Map(
-      [...views].map(([id, view]) => [
+      views.map((id) => [
         id,
         tokenSize(
           eligible
-            .filter((entry) => preserved.has(entry.id) && coverage(entry).every((messageId) => view.has(messageId)))
+            .filter((entry) => preserved.has(entry.id))
             .map((entry) => rendered.get(id)!.get(entry.id)!)
             .join("\n\n"),
         ),
       ]),
     );
-    for (const [key, entries] of groups) {
+    for (const { audience, ranged, entries } of groups.values()) {
       ctx = await context(chatId);
-      const audience = key === "unranged" ? [] : (JSON.parse(key) as string[]);
       const audienceIds = ctx.individual ? audience : [""];
       const inputs = entries.map((entry) => rendered.get(audienceIds[0]!)!.get(entry.id)!);
       const groupTokens = tokenSize(inputs.join("\n\n"));
@@ -2053,8 +2060,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       if (target < 1 || groupTokens <= target) continue;
       const ids = new Set(entries.flatMap(coverage));
       // Legacy unranged constants stay unranged, rather than acquiring invented coverage.
-      const source =
-        key === "unranged" ? allowed(ctx, ctx.messages, []) : ctx.messages.filter((message) => ids.has(message.id));
+      const source = ranged ? ctx.messages.filter((message) => ids.has(message.id)) : ctx.messages;
       if (!source.length) continue;
       const scene = {
         id: `constant-${source.at(-1)!.id}`,
@@ -2091,10 +2097,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           const combined = createChatSummaryEntry(
             {
               origin: "automated",
-              sourceMode: key === "unranged" ? "last" : "range",
-              content,
+              sourceMode: ranged ? "range" : "last",
+              content: scopeConstantSummary(ctx, content, ctx.individual ? audience : ctx.characterIds),
               enabled: true,
-              ...(key === "unranged"
+              ...(!ranged
                 ? {}
                 : {
                     messageIds: source.map((message) => message.id),
@@ -2221,14 +2227,14 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       normalizeChatSummaryEntries(ctx.metadata.summaryEntries).some(
         (entry) => entry.enabled && !entry.messageIds?.length && !entry.rangeStartIndex,
       ) &&
-      (historical || ctx.individual)
+      historical
     ) {
       receipt.reasons.push("unverified-summary-omitted");
     }
     const sharedStart = sharedStartMessageId(sources);
     let boundaryIndex = sharedStart ? indexes.get(sharedStart)! - 1 : -1;
     let live = eligible.filter((message) => indexes.get(message.id)! > boundaryIndex);
-    let chatSummary = sourceEntries(ctx, summarySources(ctx, audience), historical)
+    let chatSummary = sourceEntries(ctx, sources, historical)
       .map((entry) => {
         const covered = entry.messageIds?.length
           ? sources.filter((message) => entry.messageIds!.includes(message.id))

@@ -447,8 +447,13 @@ try {
   assert.doesNotMatch(revised.body, /reused-swipe-memory/u, "a visibility change invalidates the old swipe memory");
   assert.doesNotMatch(
     JSON.stringify(calls.find((call) => call.kind === "main")!.messages),
-    /ARCHIVED_RECAP|ARCHIVED_SOURCE_ONLY|LATEST_SWIPE_CACHE_MUST_NOT_WIN/u,
-    "a saved recap cannot bypass changed source visibility",
+    /ARCHIVED_SOURCE_ONLY|LATEST_SWIPE_CACHE_MUST_NOT_WIN/u,
+    "recalled raw messages cannot bypass changed source visibility",
+  );
+  assert.match(
+    JSON.stringify(calls.find((call) => call.kind === "main")!.messages),
+    /ARCHIVED_RECAP/u,
+    "an enabled Chat Summary remains governed by its character condition",
   );
   await memory.checkScenesAfterGeneration(chat.id);
   const batchChat = await chats.create({
@@ -732,7 +737,7 @@ try {
         }),
         createChatSummaryEntry({
           id: "hidden-constant",
-          content: "HIDDEN_CONSTANT ".repeat(900),
+          content: `{{#if char == "Other character"}}${"HIDDEN_CONSTANT ".repeat(900)}{{/if}}`,
           enabled: true,
           rangeStartIndex: 2,
           rangeEndIndex: 2,
@@ -744,7 +749,7 @@ try {
     assert.deepEqual(
       calls.map((call) => call.kind),
       ["summary"],
-      "compaction covers summary-hidden source ranges and legacy constants",
+      "compaction covers hidden source ranges and legacy constants according to their character conditions",
     );
     assert.doesNotMatch(JSON.stringify(calls[0]!.messages), /LIVE_RAW_NOT_COMPACTION_INPUT|HIDDEN_CONSTANT/u);
     const active = JSON.parse((await chats.getById(liveChat.id))!.metadata).summaryEntries.find(
@@ -752,15 +757,20 @@ try {
     );
     assert.equal(active.rangeStartIndex, ranged ? 1 : undefined, "legacy summaries acquire no invented coverage");
   }
+  const privateCharacters = await Promise.all(
+    ["Maukie", "Pantalone"].map((name) => createCharactersStorage(db).create(characterDataSchema.parse({ name }))),
+  );
+  const [privateA, privateB] = privateCharacters;
+  assert(privateA && privateB);
   const privateChat = await chats.create({
     name: "Per-character constant budgets",
     mode: "roleplay",
-    characterIds: ["private-a", "private-b"],
+    characterIds: [privateA.id, privateB.id],
     connectionId: connection.id,
   });
   assert(privateChat);
   chatIds.push(privateChat.id);
-  for (const hiddenFrom of ["private-b", "private-a"]) {
+  for (const hiddenFrom of [privateB.id, privateA.id]) {
     await chats.createMessage({
       chatId: privateChat.id,
       role: "user",
@@ -771,7 +781,7 @@ try {
   const privateEntries = ["PRIVATE_A_CONSTANT ", "PRIVATE_B_CONSTANT "].map((content, index) =>
     createChatSummaryEntry({
       id: `private-${index}`,
-      content: content.repeat(1100),
+      content: `{{#if char == "${index === 0 ? "Maukie" : "Pantalone"}"}}${content.repeat(1100)}{{/if}}`,
       enabled: true,
       rangeStartIndex: index + 1,
       rangeEndIndex: index + 1,
@@ -784,7 +794,7 @@ try {
       enabled: true,
       summaryBudgetTokens: 10_000,
       sceneCheckInterval: 100,
-      knowledgeStarts: { "private-a": null, "private-b": null },
+      knowledgeStarts: { [privateA.id]: null, [privateB.id]: null },
     },
     summaryEntries: privateEntries,
   });
@@ -792,7 +802,10 @@ try {
   await memory.checkScenesAfterGeneration(privateChat.id, { blocking: false });
   assert.deepEqual(calls, [], "separate 5k character constants do not jointly exceed a 7k per-view share");
   await chats.patchMetadata(privateChat.id, {
-    summaryEntries: [{ ...privateEntries[0], content: "PRIVATE_A_CONSTANT ".repeat(1700) }, privateEntries[1]],
+    summaryEntries: [
+      { ...privateEntries[0], content: `{{#if char == "Maukie"}}${"PRIVATE_A_CONSTANT ".repeat(1700)}{{/if}}` },
+      privateEntries[1],
+    ],
   });
   await memory.checkScenesAfterGeneration(privateChat.id, { blocking: false });
   assert.equal(calls.length, 1);
@@ -804,11 +817,27 @@ try {
     privateAfter.find((entry: { id: string }) => entry.id === "private-1"),
     privateEntries[1],
   );
+  const compactedPrivate = privateAfter.find((entry: { id: string }) => !entry.id.startsWith("private-"));
+  assert.match(compactedPrivate.content, /^\{\{#if char == "Maukie"\}\}/u);
+  for (const [id, expected, excluded] of [
+    [privateA.id, "ARCHIVED_RECAP", "PRIVATE_B_CONSTANT"],
+    [privateB.id, "PRIVATE_B_CONSTANT", "ARCHIVED_RECAP"],
+  ]) {
+    const prepared = await memory.prepare({
+      chatId: privateChat.id,
+      messages: await chats.listMessages(privateChat.id),
+      audienceCharacterIds: [id!],
+      budgetTokens: 50_000,
+      readOnly: true,
+    });
+    assert(prepared.chatSummary?.includes(expected!));
+    assert(!prepared.chatSummary?.includes(excluded!));
+  }
 
   const macroChat = await chats.create({
     name: "Audience-dependent constant templates",
     mode: "roleplay",
-    characterIds: [character.id, "unknown-character"],
+    characterIds: [privateA.id, privateB.id],
     connectionId: connection.id,
   });
   assert(macroChat);
@@ -816,7 +845,7 @@ try {
   await chats.createMessage({ chatId: macroChat.id, role: "user", content: "A shared event." });
   const template = createChatSummaryEntry({
     id: "character-template",
-    content: "{{char}} owns this promise. ".repeat(150),
+    content: `{{#if char == "Maukie"}}${"MAUKIE_SECTION ".repeat(150)}{{/if}}\n{{#if char == "Pantalone"}}${"PANTALONE_SECTION ".repeat(150)}{{/if}}`,
     enabled: true,
     rangeStartIndex: 1,
     rangeEndIndex: 1,
@@ -827,7 +856,7 @@ try {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
       sceneCheckInterval: 100,
-      knowledgeStarts: { [character.id]: null, "unknown-character": null },
+      knowledgeStarts: { [privateA.id]: null, [privateB.id]: null },
     },
     summaryEntries: [
       template,
@@ -844,15 +873,15 @@ try {
   await memory.checkScenesAfterGeneration(macroChat.id, { blocking: false });
   assert.equal(calls.length, 1);
   assert.match(JSON.stringify(calls[0]!.messages), /STABLE_CONSTANT/u);
-  assert.doesNotMatch(JSON.stringify(calls[0]!.messages), /owns this promise/u);
+  assert.doesNotMatch(JSON.stringify(calls[0]!.messages), /MAUKIE_SECTION|PANTALONE_SECTION/u);
   const macroAfter = JSON.parse((await chats.getById(macroChat.id))!.metadata).summaryEntries;
   assert.deepEqual(
     macroAfter.find((entry: { id: string }) => entry.id === template.id),
     template,
   );
-  for (const [id, name] of [
-    [character.id, "Dottore"],
-    ["unknown-character", "Character"],
+  for (const [id, expected, excluded] of [
+    [privateA.id, "MAUKIE_SECTION", "PANTALONE_SECTION"],
+    [privateB.id, "PANTALONE_SECTION", "MAUKIE_SECTION"],
   ]) {
     const prepared = await memory.prepare({
       chatId: macroChat.id,
@@ -861,25 +890,29 @@ try {
       budgetTokens: 50_000,
       readOnly: true,
     });
-    assert(prepared.chatSummary!.includes(`${name} owns this promise.`));
+    assert(prepared.chatSummary!.includes(expected!));
+    assert(!prepared.chatSummary!.includes(excluded!));
   }
 
   const partialChat = await chats.create({
     name: "Reuse existing summary ranges",
     mode: "roleplay",
-    characterIds: [character.id],
+    characterIds: [character.id, privateA.id, privateB.id],
     connectionId: connection.id,
   });
   assert(partialChat);
   chatIds.push(partialChat.id);
   await chats.patchMetadata(partialChat.id, {
     enableAgents: false,
+    groupChatMode: "individual",
     summaryMaxTokens: 1024,
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
       maxContextTokens: 8192,
       summaryBudgetTokens: 3000,
+      narratorCharacterId: character.id,
+      knowledgeStarts: { [character.id]: null, [privateA.id]: null, [privateB.id]: null },
     },
   });
   for (const content of ["ALREADY_COVERED_A", "ALREADY_COVERED_B", "UNCOVERED_NEW_EVENT", "SCENE_CHANGE present day"]) {
@@ -894,36 +927,61 @@ try {
     id: "kept-range",
     origin: "manual",
     enabled: true,
-    content: "EXISTING_RANGE_CORRECTION",
+    content: '{{#if char == "Dottore"}}EXISTING_RANGE_CORRECTION{{/if}}',
     sourceMode: "range",
     rangeStartIndex: 1,
     rangeEndIndex: 2,
   });
   await chats.patchMetadata(partialChat.id, { summaryEntries: [manual] });
   await memory.initialize(partialChat.id);
+  const maukieManual = createChatSummaryEntry({
+    ...manual,
+    id: "maukie-kept-range",
+    content: '{{#if char == "Maukie"}}MAUKIE_RANGE_CORRECTION{{/if}}',
+    rangeEndIndex: 1,
+  });
+  await chats.patchMetadata(partialChat.id, { summaryEntries: [manual, maukieManual] });
   const partialSource = await chats.listMessages(partialChat.id);
   const beforeAddition = await memory.prepare({
     chatId: partialChat.id,
     messages: partialSource,
-    audienceCharacterIds: [],
+    audienceCharacterIds: [character.id],
     budgetTokens: 5000,
   });
   calls.length = 0;
   await memory.checkScenesAfterGeneration(partialChat.id);
   assert.deepEqual(
     calls.map((call) => call.kind),
-    ["summary"],
+    ["summary", "summary"],
     "only uncovered scene messages need a new constant",
   );
-  assert.equal(calls[0]!.maxTokens, 1024);
-  const additionPrompt = JSON.stringify(calls[0]!.messages);
-  assert(additionPrompt.includes("UNCOVERED_NEW_EVENT"));
-  assert.doesNotMatch(additionPrompt, /ALREADY_COVERED|EXISTING_RANGE_CORRECTION|present day/u);
+  for (const call of calls) {
+    assert.equal(call.maxTokens, 1024);
+    const additionPrompt = JSON.stringify(call.messages);
+    assert(additionPrompt.includes("UNCOVERED_NEW_EVENT"));
+    assert.doesNotMatch(additionPrompt, /ALREADY_COVERED_A|RANGE_CORRECTION|present day/u);
+  }
+  assert.equal(
+    calls.filter((call) => JSON.stringify(call.messages).includes("ALREADY_COVERED_B")).length,
+    1,
+    "Maukie still needs the second message; Dottore's existing range already covers it",
+  );
   const addedEntries = JSON.parse((await chats.getById(partialChat.id))!.metadata).summaryEntries;
-  assert.equal(addedEntries.length, 2);
+  assert.equal(addedEntries.length, 5);
   assert.deepEqual(addedEntries[0], manual, "pre-existing ranged constants remain intact");
-  assert.equal(addedEntries[1].rangeStartIndex, 3);
-  assert.equal(addedEntries[1].rangeEndIndex, 3);
+  assert.deepEqual(addedEntries[1], maukieManual);
+  for (const [name, start] of [
+    ["Dottore", 3],
+    ["Maukie", 2],
+    ["Pantalone", 1],
+  ] as const) {
+    const added = addedEntries
+      .slice(2)
+      .find((entry: { content: string }) => entry.content.startsWith(`{{#if char == "${name}"}}`));
+    assert(added, `new ${name} constant has its own character condition`);
+    assert.equal(added.rangeStartIndex, start, "another character's summary cannot suppress uncovered history");
+    assert.equal(added.rangeEndIndex, 3);
+  }
   await memory.validatePrepared(partialChat.id, partialSource, beforeAddition.receipt);
   const beforeRepeat = calls.length;
   await memory.checkScenesAfterGeneration(partialChat.id);

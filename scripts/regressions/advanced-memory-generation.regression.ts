@@ -173,7 +173,7 @@ try {
     });
   const summarySource = (await chats.listMessages(chat.id)).slice(1, 3);
   const conditionalEntries = [
-    '{{#if char == "Powers That Be" || "Maukie"}}SHARED_CONSTANT_FOR_{{char}}{{/if}}',
+    '{{#if char == "Powers That Be" || "Maukie"}}SHARED_CONSTANT_FOR_{{char}}{{/if}}\n{{#if char == "Pantalone"}}PANTALONE_ONLY_SECTION{{/if}}',
     '{{#if char == "Powers That Be"}}NARRATOR_ONLY_CONSTANT{{/if}}',
   ].map((content, index) => ({
     id: `conditional-constant-${index}`,
@@ -206,12 +206,29 @@ try {
   assert.ok(sent.includes("MANDATORY_FIXTURE"));
   assert.ok(sent.includes("SHARED_CONSTANT_FOR_Maukie"), "conditional constants reach Maukie's actual request");
   assert.ok(!sent.includes("NARRATOR_ONLY_CONSTANT"), "narrator-only constants stay out of Maukie's request");
+  assert.ok(!sent.includes("PANTALONE_ONLY_SECTION"), "another character's section stays out of Maukie's constant");
   assert.ok(sent.includes("Earlier context omitted"), "an oversized ongoing scene retains bounded source excerpts");
   assert(!modelCallKinds.includes("summary"), "main generation never invokes the summary helper");
   assert.ok(sent.includes("HISTORY_9"), `recent actual history stays in context: ${sent.slice(-1800)}`);
   assert.ok(!sent.includes("PRIVATE_SCENE_SECRET"), "a different character's hidden scene cannot leak");
   assert.ok(!sent.includes("FUTURE_LEGACY_SECRET"), "legacy unscoped summary cannot bypass managed placement");
   assert.ok(!sent.includes("__MARINARA_ADVANCED_MEMORY_"));
+  const personalStart = (await chats.listMessages(chat.id)).find((message) => message.content.includes("HISTORY_4:"))!;
+  await chats.updateMessageExtra(summarySource[0]!.id, { hiddenFromAI: true });
+  await chats.updateMessageExtra(summarySource[1]!.id, { hiddenFromAICharacterIds: [second.id] });
+  await chats.updateMessageExtra(personalStart.id, { conversationStartForCharacterIds: [second.id] });
+  await generate();
+  assert.ok(
+    prompts.at(-1)!.includes("SHARED_CONSTANT_FOR_Maukie"),
+    "enabled Chat Summaries follow their character conditions, not source-message visibility or personal cutoffs",
+  );
+  assert.doesNotMatch(
+    prompts.at(-1)!,
+    /PANTALONE_ONLY_SECTION|NARRATOR_ONLY_CONSTANT|PRIVATE_SCENE_SECRET|HISTORY_[0-3]:/u,
+  );
+  await chats.updateMessageExtra(summarySource[0]!.id, { hiddenFromAI: false });
+  await chats.updateMessageExtra(summarySource[1]!.id, { hiddenFromAICharacterIds: [] });
+  await chats.updateMessageExtra(personalStart.id, { conversationStartForCharacterIds: [] });
   const hideSummarized = await app.inject({
     method: "PATCH",
     url: `/api/chats/${chat.id}/metadata`,

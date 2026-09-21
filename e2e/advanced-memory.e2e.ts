@@ -154,22 +154,29 @@ for (const mode of ["roleplay", "conversation"] as const) {
             ).ok(),
           ).toBeTruthy();
         }
-        const peek = page.getByRole("button", { name: "Peek prompt", exact: true }).filter({ visible: true });
-        // Reveal the existing touch/hover action bar before using its real button.
         const message = page.locator(`[data-message-id="${fixture.lastMessage.id}"]`).first();
-        await message.getByText("I will remember the blue notebook.", { exact: true }).click();
-        await message.hover();
+        const peek = message.getByRole("button", { name: "Peek prompt", exact: true });
+        const mobile = info.project.name.includes("mobile");
+        // Touch actions remain pinned after closing Peek. Tapping the message
+        // again would toggle them off; desktop actions follow the pointer.
+        if (!mobile) await message.hover();
+        else if (!attempt) await message.getByText("I will remember the blue notebook.", { exact: true }).tap();
+        await expect(message.locator(".mari-message-actions")).toHaveCSS("opacity", "1");
         const responsePromise = page.waitForResponse((response) =>
           response.url().endsWith(`/chats/${fixture.chat.id}/peek-prompt`),
         );
-        await peek.click();
+        if (mobile) await peek.tap();
+        else await peek.click();
         const response = await responsePromise;
         expect(response.request().postDataJSON()).toEqual({ messageId: fixture.lastMessage.id });
         expect(response.ok()).toBeTruthy();
         expect(await response.json()).toMatchObject({ exact: true, source: "cached", messages: cachedPrompt });
         await expect(page.getByText("Exact Text Model Request", { exact: true })).toBeVisible();
         if (attempt) await captureThemes(page, info, `${mode}-saved-message-prompt`);
-        await page.getByRole("button", { name: "Close assembled prompt", exact: true }).click();
+        const close = page.getByRole("button", { name: "Close assembled prompt", exact: true });
+        if (mobile) await close.tap();
+        else await close.click();
+        await expect(close).toBeHidden();
       }
     } finally {
       await fixture.cleanup();

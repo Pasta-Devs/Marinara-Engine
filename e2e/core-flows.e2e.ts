@@ -1496,6 +1496,11 @@ test("Author's Notes keeps its expand and full macro guide inside the field", as
 
     const heading = page.locator("h3").filter({ hasText: "Author's Notes" });
     await expect(heading).toBeVisible();
+    const notesButton = page.getByRole("button", { name: "Author's Notes", exact: true }).filter({ visible: true });
+    await notesButton.click();
+    await expect(heading).toBeHidden();
+    await notesButton.click();
+    await expect(heading).toBeVisible();
     const floatingPanel = heading.locator("xpath=ancestor::div[contains(@class, 'fixed')][1]");
     const floatingPanelZIndex = await floatingPanel.evaluate((element) => Number(getComputedStyle(element).zIndex));
     const panel = heading.locator("..");

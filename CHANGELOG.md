@@ -4,8 +4,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Tapping Author's Notes again closes its panel in the mobile Roleplay toolbar (#6495).
 - Message Peek Prompt stays tied to the selected reply and swipe after images, summaries or memory settings change, preserving the character and commands actually sent to the model (#6493).
-- Advanced Memory keeps enabled constants when Hide summarized messages hides their source text; the hidden raw messages and character-specific restrictions remain respected (#6493).
+- Advanced Memory uses enabled Chat Summaries and their character conditions even when the original messages are hidden or before a character's start flag. New and compacted constants retain character conditions; recalled scenes and raw messages keep their knowledge restrictions (#6493).
 
 - Advanced Memory keeps applicable enabled constants in the prompt and combines them after the reply when they exceed 70% of the configured summary and recall budget. Constants have priority, followed by all selected scene summaries, then excerpts; total memory may use up to 2,000 extra tokens. Existing ranged and legacy summaries reuse Chat Summaries and its Maximum output size.
 - Presets offer one **Recalled Scenes** marker for paired summaries and excerpts. Existing Recalled Messages markers remain compatible aliases.
