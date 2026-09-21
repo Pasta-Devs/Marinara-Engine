@@ -45,11 +45,13 @@ O padrão baseado em sociabilidade funciona assim:
 
 ### Ative as agendas
 
-O botão liga/desliga **Schedules** fica na mesma seção **Autonomous Messaging** e vem desativado por padrão.
+**Schedules** (agendas) fica em **Autonomous Messaging**. As rotinas salvas pertencem aos personagens e são reutilizadas nos chats Conversation, inclusive quando um personagem entra em um chat existente. Desativar explicitamente as agendas em um chat mantém essa escolha sem remover a rotina do personagem.
 
 1. Ative o botão liga/desliga **Schedules**.
-2. Na primeira vez que você ativa a opção com personagens no chat, Marinara escreve uma rotina semanal para cada personagem.
+2. Rotinas existentes aparecem imediatamente. Ativar agendas não gera novas; clique em **Generate** quando quiser criá-las.
 3. Quando as rotinas existem, aparece a lista **Edit schedules** (editar as agendas), com uma linha por personagem.
+
+A renovação semanal automática fica desativada até você habilitá-la para o personagem em **Character Schedule Manager** (gerenciador de agendas). Uma falha não é repetida continuamente ao reabrir o chat; use os controles de geração para tentar novamente.
 
 Cada linha mostra quantos dias estão preenchidos, por exemplo **3 days scheduled**, ou então **Create schedule** se o personagem ainda não tem agenda. O botão **Generate** (chamado de **Regenerate** quando já existem rotinas) refaz as rotinas quando você quiser.
 
@@ -63,7 +65,7 @@ No topo, a área **Routine profile** (perfil da rotina) mostra um resumo da sema
 
 Abra a seção **Tuning** (ajustes) para ver os controles principais.
 
-- **Chat talkativeness** é um controle deslizante com cinco níveis: **Rare**, **Quiet**, **Balanced**, **Social** e **Very frequent**. **Balanced** é o padrão, no meio da escala. Esse valor substitui a sociabilidade padrão do personagem, só neste chat. Ele afeta com que frequência o personagem começa mensagens, envia continuações e entra na conversa em grupo. Também define o limite diário padrão do personagem.
+- **Chat talkativeness** é um controle deslizante com cinco níveis: **Rare**, **Quiet**, **Balanced**, **Social** e **Very frequent**. **Balanced** é o padrão, no meio da escala. Esse valor substitui a sociabilidade padrão do personagem onde a agenda dele for usada. Ele afeta com que frequência o personagem começa mensagens, envia continuações e entra na conversa em grupo. Também define o limite diário padrão do personagem.
 - **Wait before checking in** é o tempo de silêncio, em minutos, antes de o personagem iniciar um contato. A faixa vai de 15 a 360 minutos. O padrão é **120**.
 - **Check-in moments** são os motivos que o personagem pode usar para entrar em contato. As opções são **Morning**, **Goodnight**, **Meal breaks**, **After busy** e **Long absence**. Todas vêm ativadas. Clique em uma para desativá-la.
 
@@ -90,7 +92,7 @@ Se quiser, digite orientações na caixa **Week guidance**, por exemplo:
 make weekdays more nocturnal, keep weekends social
 ```
 
-Depois clique no botão com o nome da ação escolhida, como **Rewrite week**. O resultado é apenas um rascunho. Marinara só salva quando você clica em **Save schedule**.
+Depois clique no botão com o nome da ação escolhida, como **Rewrite week**. O resultado é apenas um rascunho. Marinara só salva quando você clica em **Save schedule**. Se o modelo retornar JSON inválido, corrija em **Edit generated schedule JSON** (editar JSON da agenda gerada) e escolha **Apply to draft** (aplicar ao rascunho). Correções validadas e dias gerados com sucesso ficam no rascunho até salvar. Uma falha para a chamada sem tentar de novo automaticamente. **Stop** ou fechar o editor cancela a solicitação ativa. Fechar o gerenciador ou as configurações do chat também cancela a geração iniciada ali.
 
 ### Blocos diários
 

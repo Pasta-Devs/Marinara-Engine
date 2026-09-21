@@ -45,11 +45,13 @@ Wartość domyślna oparta na gadatliwości działa tak:
 
 ### Włączanie harmonogramów
 
-Przełącznik **Schedules** znajduje się w tej samej sekcji **Autonomous Messaging** i jest domyślnie wyłączony.
+Przełącznik **Schedules** (harmonogramy) jest w sekcji **Autonomous Messaging**. Zapisane rutyny należą do postaci i są używane we wszystkich czatach Conversation, także w istniejącym czacie po dodaniu postaci. Wyraźne wyłączenie harmonogramów w danym czacie zachowuje to ustawienie bez usuwania rutyny postaci.
 
 1. Włącz przełącznik **Schedules**.
-2. Przy pierwszym włączeniu, gdy w czacie są już postacie, Marinara zaczyna pisać tygodniową rutynę dla każdej z nich.
+2. Istniejące rutyny pojawiają się od razu. Samo włączenie harmonogramów nie generuje nowych; kliknij **Generate**, gdy ich potrzebujesz.
 3. Kiedy rutyny są gotowe, pojawia się lista **Edit schedules** z jednym wierszem na postać.
+
+Automatyczne odnawianie tygodniowe jest wyłączone, dopóki nie włączysz go dla postaci w **Character Schedule Manager** (menedżer harmonogramów postaci). Po błędzie otwieranie czatu nie ponawia stale żądania; użyj przycisków generowania, aby spróbować ponownie.
 
 Każdy wiersz pokazuje liczbę wypełnionych dni, na przykład **3 days scheduled**, albo napis **Create schedule**, jeśli dana postać nie ma jeszcze harmonogramu. Przycisk **Generate** (po utworzeniu rutyn opisany jako **Regenerate**) buduje rutyny od nowa, kiedy tylko chcesz.
 
@@ -63,7 +65,7 @@ Na górze, w obszarze **Routine profile**, widać opis całego tygodnia zwykłym
 
 Główne ustawienia kryją się w sekcji **Tuning**.
 
-- **Chat talkativeness** to suwak o pięciu stopniach: **Rare**, **Quiet**, **Balanced**, **Social** i **Very frequent**. Środkowy stopień **Balanced** jest domyślny. Ta wartość zastępuje domyślną gadatliwość postaci, ale tylko w tym czacie. Wpływa na to, jak często postać zaczyna wiadomości, dopisuje kolejne i włącza się do rozmowy w grupie. Ustala też domyślny dzienny limit postaci.
+- **Chat talkativeness** to suwak o pięciu stopniach: **Rare**, **Quiet**, **Balanced**, **Social** i **Very frequent**. Środkowy stopień **Balanced** jest domyślny. Ta wartość zastępuje domyślną gadatliwość postaci wszędzie tam, gdzie używany jest jej harmonogram. Wpływa na to, jak często postać zaczyna wiadomości, dopisuje kolejne i włącza się do rozmowy w grupie. Ustala też domyślny dzienny limit postaci.
 - **Wait before checking in** to czas ciszy w minutach, po którym postać może się odezwać. Zakres to od 15 do 360 minut. Domyślnie **120**.
 - **Check-in moments** to powody, dla których postać może się odezwać. Kafelki to **Morning**, **Goodnight**, **Meal breaks**, **After busy** i **Long absence**. Wszystkie są domyślnie włączone. Kliknięcie kafelka go wyłącza.
 
@@ -90,7 +92,7 @@ W polu **Week guidance** można wpisać dodatkowe wskazówki, na przykład:
 make weekdays more nocturnal, keep weekends social
 ```
 
-Potem kliknij przycisk z nazwą wybranej akcji, na przykład **Rewrite week**. Wynik jest tylko szkicem. Nic nie zapisuje się aż do kliknięcia przycisku **Save schedule**.
+Potem kliknij przycisk z nazwą wybranej akcji, na przykład **Rewrite week**. Wynik jest tylko szkicem. Nic nie zapisuje się aż do kliknięcia przycisku **Save schedule**. Jeśli model zwróci niepoprawny JSON, popraw go w **Edit generated schedule JSON** (edytuj wygenerowany harmonogram JSON) i wybierz **Apply to draft** (zastosuj do szkicu). Zatwierdzone poprawki i udane dni pozostają w szkicu do zapisania. Nieudane wywołanie zatrzymuje pracę zamiast ponawiać ją automatycznie. **Stop** lub zamknięcie edytora anuluje aktywne żądanie. Zamknięcie menedżera harmonogramów lub ustawień czatu też anuluje rozpoczęte tam generowanie.
 
 ### Bloki dzienne
 

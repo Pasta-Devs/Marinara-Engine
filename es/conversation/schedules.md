@@ -45,11 +45,13 @@ El valor predeterminado basado en la locuacidad funciona así:
 
 ### Activa los horarios
 
-El interruptor **Schedules** está en la misma sección **Autonomous Messaging** y viene desactivado de forma predeterminada.
+**Schedules** (horarios) está en **Autonomous Messaging**. Las rutinas guardadas pertenecen a los personajes y se reutilizan en chats Conversation, también al añadir un personaje a un chat existente. Desactivarlas explícitamente en un chat conserva esa elección sin borrar la rutina del personaje.
 
 1. Activa el interruptor **Schedules**.
-2. La primera vez que lo activas con personajes en el chat, Marinara empieza a escribir una rutina semanal para cada personaje.
+2. Las rutinas existentes aparecen inmediatamente. Activar horarios no genera nuevos; pulsa **Generate** cuando los quieras.
 3. Cuando existen rutinas, aparece una lista **Edit schedules** (Editar horarios) con una fila por personaje.
+
+La renovación semanal automática está desactivada hasta que la habilites para el personaje en **Character Schedule Manager** (gestor de horarios). Un fallo no se reintenta continuamente al reabrir el chat; usa los controles de generación para reintentar.
 
 Cada fila muestra cuántos días están completos, por ejemplo **3 days scheduled** (3 días programados), o **Create schedule** (Crear horario) si ese personaje aún no tiene ninguno. Un botón **Generate** (Generar) (con la etiqueta **Regenerate** una vez que existen rutinas) reconstruye las rutinas cuando quieras.
 
@@ -63,7 +65,7 @@ Arriba, el área **Routine profile** (Perfil de rutina) muestra un resumen en le
 
 Abre la sección **Tuning** (Ajuste fino) para los controles principales.
 
-- **Chat talkativeness** (Locuacidad del chat) es un control deslizante con cinco pasos: **Rare**, **Quiet**, **Balanced**, **Social** y **Very frequent**. **Balanced** es el punto medio predeterminado. Este valor anula la locuacidad predeterminada del personaje solo para este chat. Afecta con qué frecuencia el personaje inicia mensajes, envía seguimientos y participa en la charla grupal. También fija el límite diario predeterminado del personaje.
+- **Chat talkativeness** (Locuacidad del chat) es un control deslizante con cinco pasos: **Rare**, **Quiet**, **Balanced**, **Social** y **Very frequent**. **Balanced** es el punto medio predeterminado. Este valor anula la locuacidad predeterminada del personaje donde se utilice su horario. Afecta con qué frecuencia el personaje inicia mensajes, envía seguimientos y participa en la charla grupal. También fija el límite diario predeterminado del personaje.
 - **Wait before checking in** (Esperar antes de saludar) es el tiempo de silencio, en minutos, antes de que este personaje pueda iniciar un saludo. El rango es de 15 a 360 minutos. El valor predeterminado es **120**.
 - **Check-in moments** (Momentos de saludo) son los motivos que el personaje puede usar para escribirte. Las etiquetas son **Morning**, **Goodnight**, **Meal breaks**, **After busy** y **Long absence**. Todas están activadas de forma predeterminada. Haz clic en una para desactivarla.
 
@@ -90,7 +92,7 @@ Escribe pistas opcionales en el cuadro **Week guidance** (Indicaciones de la sem
 make weekdays more nocturnal, keep weekends social
 ```
 
-Luego haz clic en el botón que nombra tu acción, como **Rewrite week**. El resultado es solo un borrador. Nada se guarda hasta que haces clic en **Save schedule**.
+Luego haz clic en el botón que nombra tu acción, como **Rewrite week**. El resultado es solo un borrador. Nada se guarda hasta que haces clic en **Save schedule**. Si el modelo devuelve JSON inválido, corrígelo en **Edit generated schedule JSON** (editar JSON del horario generado) y elige **Apply to draft** (aplicar al borrador). Las correcciones validadas y los días generados correctamente permanecen en el borrador hasta guardar. Un fallo detiene la llamada sin reintentos automáticos. **Stop** o cerrar el editor cancela la solicitud activa. Cerrar el gestor o los ajustes del chat también cancela la generación iniciada allí.
 
 ### Bloques diarios
 

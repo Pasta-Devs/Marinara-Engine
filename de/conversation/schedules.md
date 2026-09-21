@@ -45,11 +45,13 @@ Der Standard nach Gesprächigkeit sieht so aus:
 
 ### Zeitpläne aktivieren
 
-Der Schalter **Schedules** sitzt im selben Bereich **Autonomous Messaging** und ist standardmäßig aus.
+Der Schalter **Schedules** (Zeitpläne) befindet sich unter **Autonomous Messaging**. Gespeicherte Routinen gehören den Figuren und werden in Conversation-Chats wiederverwendet, auch beim Hinzufügen einer Figur zu einem bestehenden Chat. Explizites Ausschalten in einem Chat gilt weiter nur dort und löscht die Routine nicht.
 
 1. Aktiviere den Schalter **Schedules**.
-2. Sind beim ersten Aktivieren Charaktere im Chat, schreibt Marinara für jeden von ihnen einen Wochenablauf.
+2. Vorhandene Figurenroutinen erscheinen sofort. Einschalten erzeugt keine neuen Routinen; klicke dafür auf **Generate**.
 3. Sobald Abläufe vorliegen, erscheint die Liste **Edit schedules** (Zeitpläne bearbeiten) mit einer Zeile pro Charakter.
+
+Automatische wöchentliche Erneuerung bleibt aus, bis du sie für die Figur im **Character Schedule Manager** (Figuren-Zeitplanmanager) aktivierst. Ein fehlgeschlagener Versuch wird beim erneuten Öffnen nicht ständig wiederholt; nutze die Generierungsfunktionen für einen neuen Versuch.
 
 Jede Zeile zeigt, wie viele Tage belegt sind, etwa **3 days scheduled**, oder **Create schedule**, falls für diesen Charakter noch nichts existiert. Die Schaltfläche **Generate** (heißt **Regenerate**, sobald Abläufe vorliegen) baut die Abläufe jederzeit neu auf.
 
@@ -63,7 +65,7 @@ Ganz oben fasst der Bereich **Routine profile** die Woche in verständlicher Spr
 
 Im Bereich **Tuning** (Feinabstimmung) stehen die wichtigsten Bedienelemente.
 
-- **Chat talkativeness** ist ein Schieberegler mit fünf Stufen: **Rare**, **Quiet**, **Balanced**, **Social** und **Very frequent**. **Balanced** ist der mittlere Standard. Dieser Wert überschreibt die Standard-Gesprächigkeit des Charakters, aber nur für diesen Chat. Er beeinflusst, wie oft der Charakter Nachrichten beginnt, nachfasst und sich am Gruppengeplauder beteiligt. Außerdem legt er das tägliche Standardlimit des Charakters fest.
+- **Chat talkativeness** ist ein Schieberegler mit fünf Stufen: **Rare**, **Quiet**, **Balanced**, **Social** und **Very frequent**. **Balanced** ist der mittlere Standard. Dieser Wert überschreibt die Standard-Gesprächigkeit des Charakters überall dort, wo sein Zeitplan verwendet wird. Er beeinflusst, wie oft der Charakter Nachrichten beginnt, nachfasst und sich am Gruppengeplauder beteiligt. Außerdem legt er das tägliche Standardlimit des Charakters fest.
 - **Wait before checking in** ist die Ruhezeit in Minuten, bevor sich dieser Charakter melden darf. Möglich sind 15 bis 360 Minuten, der Standard ist **120**.
 - **Check-in moments** sind die Anlässe, zu denen sich der Charakter melden darf. Zur Wahl stehen die Chips **Morning**, **Goodnight**, **Meal breaks**, **After busy** und **Long absence**. Alle sind standardmäßig aktiv. Ein Klick schaltet einen davon ab.
 
@@ -90,7 +92,7 @@ Ins Feld **Week guidance** kannst du optional Hinweise eintragen, zum Beispiel:
 make weekdays more nocturnal, keep weekends social
 ```
 
-Klick anschließend auf die Schaltfläche mit dem Namen deiner Aktion, etwa **Rewrite week**. Das Ergebnis ist zunächst nur ein Entwurf. Gespeichert wird erst mit einem Klick auf **Save schedule**.
+Klick anschließend auf die Schaltfläche mit dem Namen deiner Aktion, etwa **Rewrite week**. Das Ergebnis ist zunächst nur ein Entwurf. Gespeichert wird erst mit einem Klick auf **Save schedule**. Ungültiges Modell-JSON kannst du unter **Edit generated schedule JSON** (generiertes Zeitplan-JSON bearbeiten) korrigieren und mit **Apply to draft** (auf Entwurf anwenden) prüfen. Gültige Reparaturen und erfolgreich generierte Tage bleiben bis zum Speichern im Entwurf. Fehler stoppen den Aufruf ohne automatische Wiederholung. **Stop** oder Schließen des Editors bricht aktive Anfragen ab. Auch Schließen des Zeitplanmanagers oder der Chat-Einstellungen beendet dort gestartete Generierung.
 
 ### Tagesblöcke
 

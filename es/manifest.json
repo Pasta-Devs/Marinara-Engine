@@ -63,8 +63,8 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "7e4376c0344afc9955d92b6602473348edad79b795ff259b1a4cd3d65cded86e",
-      "bytes": 23518
+      "sha256": "0b792421da149c6471c5f60d409b16dc38b299654f70fffb99cea5fdf7e43af5",
+      "bytes": 26852
     },
     {
       "path": "appearance/appearance-settings.md",
@@ -248,8 +248,8 @@
     },
     {
       "path": "conversation/schedules.md",
-      "sha256": "ecb067e92130d9f8584f5f13b0a7844d0888a972fa661fab7756a54f759c1316",
-      "bytes": 12540
+      "sha256": "4b4435c21ec203672489f53eddcc55451335cdc4f053c80a822304d41db09b7b",
+      "bytes": 13458
     },
     {
       "path": "conversation/selfies.md",

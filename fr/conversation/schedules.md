@@ -45,11 +45,13 @@ La valeur par défaut fondée sur le niveau de bavardage fonctionne ainsi :
 
 ### Activer les emplois du temps
 
-L'interrupteur **Schedules** se trouve dans la même section **Autonomous Messaging** et reste désactivé par défaut.
+**Schedules** (plannings) se trouve dans **Autonomous Messaging**. Les routines enregistrées appartiennent aux personnages et sont réutilisées dans les chats Conversation, y compris quand un personnage rejoint un chat existant. Les désactiver explicitement dans un chat conserve ce choix sans supprimer la routine du personnage.
 
 1. Active l'interrupteur **Schedules**.
-2. La première fois que tu l'actives avec des personnages dans le chat, Marinara rédige une routine hebdomadaire pour chacun d'eux.
+2. Les routines existantes apparaissent immédiatement. Activer les plannings ne génère rien ; clique sur **Generate** pour en créer.
 3. Une fois les routines créées, une liste **Edit schedules** (modifier les emplois du temps) apparaît, avec une ligne par personnage.
+
+Le renouvellement hebdomadaire automatique reste désactivé tant que tu ne l'actives pas pour le personnage dans **Character Schedule Manager** (gestionnaire des plannings). Un échec ne déclenche pas de tentatives répétées à chaque réouverture du chat ; utilise les commandes de génération pour réessayer.
 
 Chaque ligne indique le nombre de jours remplis, par exemple **3 days scheduled**, ou affiche **Create schedule** si le personnage n'a encore rien. Un bouton **Generate** (nommé **Regenerate** une fois les routines créées) reconstruit les routines à la demande.
 
@@ -63,7 +65,7 @@ En haut, la zone **Routine profile** présente un récapitulatif de la semaine e
 
 Ouvre la section **Tuning** (réglage fin) pour accéder aux commandes principales.
 
-- **Chat talkativeness** est un curseur à cinq crans : **Rare**, **Quiet**, **Balanced**, **Social** et **Very frequent**. La valeur par défaut, **Balanced**, se trouve au milieu. Elle remplace le niveau de bavardage par défaut du personnage, uniquement pour ce chat. Elle influe sur la fréquence à laquelle le personnage lance des messages, en envoie de nouveaux à la suite et participe au bavardage de groupe. Elle fixe aussi sa limite quotidienne par défaut.
+- **Chat talkativeness** est un curseur à cinq crans : **Rare**, **Quiet**, **Balanced**, **Social** et **Very frequent**. La valeur par défaut, **Balanced**, se trouve au milieu. Elle remplace le niveau de bavardage par défaut du personnage partout où son planning est utilisé. Elle influe sur la fréquence à laquelle le personnage lance des messages, en envoie de nouveaux à la suite et participe au bavardage de groupe. Elle fixe aussi sa limite quotidienne par défaut.
 - **Wait before checking in** correspond à la durée de silence, en minutes, avant que ce personnage puisse prendre de tes nouvelles. La plage va de 15 à 360 minutes. La valeur par défaut est **120**.
 - **Check-in moments** liste les prétextes que le personnage peut invoquer pour te contacter. Les pastilles disponibles sont **Morning**, **Goodnight**, **Meal breaks**, **After busy** et **Long absence**. Toutes sont actives par défaut. Clique sur l'une d'elles pour la désactiver.
 
@@ -90,7 +92,7 @@ Saisis des indications facultatives dans le champ **Week guidance**, par exemple
 make weekdays more nocturnal, keep weekends social
 ```
 
-Clique ensuite sur le bouton qui porte le nom de ton action, par exemple **Rewrite week**. Le résultat n'est qu'un brouillon. Rien n'est enregistré tant que tu n'as pas cliqué sur **Save schedule**.
+Clique ensuite sur le bouton qui porte le nom de ton action, par exemple **Rewrite week**. Le résultat n'est qu'un brouillon. Rien n'est enregistré tant que tu n'as pas cliqué sur **Save schedule**. Si le modèle renvoie du JSON invalide, corrige-le dans **Edit generated schedule JSON** (modifier le JSON généré), puis choisis **Apply to draft** (appliquer au brouillon). Les corrections validées et les jours générés correctement restent dans le brouillon jusqu'à l'enregistrement. Un échec arrête l'appel sans nouvelle tentative automatique. **Stop** ou la fermeture de l'éditeur annule la requête active. Fermer le gestionnaire ou les paramètres du chat annule aussi la génération lancée à cet endroit.
 
 ### Blocs quotidiens
 

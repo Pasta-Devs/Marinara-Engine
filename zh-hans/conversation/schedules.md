@@ -45,11 +45,13 @@
 
 ### 开启日程
 
-**Schedules** 开关在同一个 **Autonomous Messaging** 部分里，默认是关的。
+**Schedules**(日程)开关位于**Autonomous Messaging**中。保存的作息属于角色，并在各个 Conversation 聊天中复用，包括把角色加入已有聊天时。在某个聊天中明确关闭日程，会保留该聊天的关闭状态，不会删除角色作息。
 
 1. 打开 **Schedules** 开关。
-2. 聊天里有角色时第一次打开它，Marinara 会开始为每个角色编写每周作息。
+2. 现有作息会立即显示。启用日程不会自动生成新作息；需要时点击**Generate**。
 3. 作息生成之后，界面上会出现 **Edit schedules**(编辑日程) 列表，每个角色一行。
+
+每周自动更新默认关闭，只有在**Character Schedule Manager**(角色日程管理器)中为该角色启用后才会运行。失败后重新打开聊天不会反复重试；请使用生成按钮手动重试。
 
 每一行显示已经排好几天，例如 **3 days scheduled**；如果这个角色还没有日程，显示的是 **Create schedule**。**Generate** 按钮（已有作息之后显示为 **Regenerate**）可以随时重新生成作息。
 
@@ -63,7 +65,7 @@
 
 展开 **Tuning**(调节) 部分，主要的控件都在里面。
 
-- **Chat talkativeness**(聊天健谈度) 是一个五档滑块：**Rare**、**Quiet**、**Balanced**、**Social**、**Very frequent**。中间的 **Balanced** 是默认值。这个值只对当前聊天生效，会覆盖角色自带的默认健谈度。它影响角色主动发消息、追加消息和参与群聊闲聊的频率，同时决定角色的默认每日上限。
+- **Chat talkativeness**(聊天健谈度) 是一个五档滑块：**Rare**、**Quiet**、**Balanced**、**Social**、**Very frequent**。中间的 **Balanced** 是默认值。这个值会在使用该日程的所有聊天中覆盖角色自带的默认健谈度。它影响角色主动发消息、追加消息和参与群聊闲聊的频率，同时决定角色的默认每日上限。
 - **Wait before checking in**(问候前的等待时长) 指角色开始问候之前需要多久的安静时间，单位是分钟。范围是 15 到 360 分钟，默认 **120**。
 - **Check-in moments**(问候时机) 是角色主动来找你的理由，可选项有 **Morning**、**Goodnight**、**Meal breaks**、**After busy** 和 **Long absence**，默认全部开启，点一下就关掉。
 
@@ -90,7 +92,7 @@
 make weekdays more nocturnal, keep weekends social
 ```
 
-然后点击对应操作的按钮，例如 **Rewrite week**。结果只是草稿，点击 **Save schedule** 之前不会保存任何内容。
+然后点击对应操作的按钮，例如 **Rewrite week**。结果只是草稿，点击 **Save schedule** 之前不会保存任何内容。 如果模型返回无效 JSON，可在**Edit generated schedule JSON**(编辑生成的日程 JSON)中修正，然后选择**Apply to draft**(应用到草稿)。验证通过的修正和成功生成的日期会保留在草稿中，直到保存。调用失败后会停止，不会自动重试。**Stop**或关闭编辑器会取消当前请求。关闭日程管理器或聊天设置，也会取消在其中启动的生成。
 
 ### 每日时段块
 
