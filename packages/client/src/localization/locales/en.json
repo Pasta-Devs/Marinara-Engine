@@ -3359,6 +3359,7 @@
   "ui.chat.chatmessage.removeFileFromMessage": "Remove file from message",
   "ui.chat.chatmessage.removeFromMessage": "Remove from message",
   "ui.chat.chatmessage.removeImageFromMessage": "Remove image from message",
+  "ui.chat.chatmessage.clearCachedVoice": "Clear cached voice",
   "ui.chat.chatmessage.restartSpeaking": "Restart speaking",
   "ui.chat.chatmessage.resumeSpeaking": "Resume speaking",
   "ui.chat.chatmessage.selectMessage": "Select message",

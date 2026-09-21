@@ -42,6 +42,7 @@ import {
   VolumeX,
   Mic,
   MicOff,
+  Eraser,
   Loader2,
   Pause,
   Play,
@@ -2046,6 +2047,7 @@ export const ChatMessage = memo(function ChatMessage({
   const hasTTSContent = ttsVoiceRequests.length > 0;
   const [ttsState, setTTSState] = useState(ttsService.getState());
   const [ttsActiveId, setTTSActiveId] = useState<string | null>(ttsService.getActiveId());
+  const [clearingTTS, setClearingTTS] = useState(false);
   useEffect(
     () =>
       ttsService.subscribe((state, id) => {
@@ -2106,6 +2108,32 @@ export const ChatMessage = memo(function ChatMessage({
       ttsService.restart();
     }
   }, [message.id]);
+
+  // Drop this message's cached clips (primary keys and text aliases) so the
+  // next Speak regenerates them instead of replaying audio synthesized by an
+  // older provider or configuration. Deliberately does NOT re-speak: awaiting
+  // a full speakSequence parked the spinner until the reply finished playing,
+  // and auto-playing audio the user never asked for.
+  const handleClearCachedVoice = useCallback(() => {
+    if (!hasTTSContent || clearingTTS) return;
+    const liveState = ttsService.getState();
+    const liveActiveId = ttsService.getActiveId();
+    const liveBusy =
+      liveState === "loading" || liveState === "playing" || liveState === "paused" || liveState === "blocked";
+    if (liveBusy && liveActiveId !== message.id) return;
+
+    ttsService.stop();
+    setClearingTTS(true);
+    void (async () => {
+      try {
+        await ttsService.clearCachedAudio(ttsVoiceRequests);
+      } catch (err) {
+        console.warn("[TTS] Clearing the cached voice failed:", err);
+      } finally {
+        setClearingTTS(false);
+      }
+    })();
+  }, [clearingTTS, hasTTSContent, message.id, ttsVoiceRequests]);
 
   const startEditing = useCallback(() => {
     if (!onEdit || isStreaming) return;
@@ -3929,6 +3957,18 @@ export const ChatMessage = memo(function ChatMessage({
                     }
                     disabled={!hasTTSContent || (ttsBusy && !isSpeakingThis)}
                   />
+                  <ActionBtn
+                    icon={
+                      clearingTTS ? (
+                        <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
+                      ) : (
+                        <Eraser size={MESSAGE_ACTION_ICON_SIZE} />
+                      )
+                    }
+                    onClick={handleClearCachedVoice}
+                    title={localizeUi("ui.chat.chatmessage.clearCachedVoice")}
+                    disabled={!hasTTSContent || clearingTTS || (ttsBusy && !isSpeakingThis)}
+                  />
                   <TTSLineVolumeControl volume={ttsLineVolume} onVolumeChange={handleTTSLineVolumeChange} dark />
                 </>
               )}
@@ -4402,6 +4442,18 @@ export const ChatMessage = memo(function ChatMessage({
                           : localizeUi("ui.chat.chatmessage.speak")
                   }
                   disabled={!hasTTSContent || (ttsBusy && !isSpeakingThis)}
+                />
+                <ActionBtn
+                  icon={
+                    clearingTTS ? (
+                      <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
+                    ) : (
+                      <Eraser size={MESSAGE_ACTION_ICON_SIZE} />
+                    )
+                  }
+                  onClick={handleClearCachedVoice}
+                  title={localizeUi("ui.chat.chatmessage.clearCachedVoice")}
+                  disabled={!hasTTSContent || clearingTTS || (ttsBusy && !isSpeakingThis)}
                 />
                 <TTSLineVolumeControl volume={ttsLineVolume} onVolumeChange={handleTTSLineVolumeChange} />
               </>

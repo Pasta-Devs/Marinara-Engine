@@ -308,6 +308,49 @@ export async function listCachedTTSAudioEntries(): Promise<CachedTTSAudioExportE
   }
 }
 
+// Bumped on every purge. A generation that began before a purge compares this
+// against the value it captured and refuses to write its blob back, so a clip
+// the user just deleted cannot resurrect itself when its in-flight request
+// finally resolves.
+let cachePurgeEpoch = 0;
+
+/**
+ * Remove the given clips from the memory and persistent tiers. Callers must
+ * pass the alias keys too: a text-hash alias can still serve a clip whose
+ * primary message key was already dropped, so deleting only the primary key
+ * would leave the stale audio reachable.
+ */
+export async function deleteCachedTTSAudioKeys(keys: string[]): Promise<void> {
+  const uniqueKeys = [...new Set(keys.filter((key) => key.length > 0))];
+  if (uniqueKeys.length === 0) return;
+
+  cachePurgeEpoch += 1;
+
+  for (const key of uniqueKeys) {
+    dropFromMemory(key);
+    // Drop any generation still in flight for these keys, so the clip we are
+    // deleting cannot be handed to a late joiner either.
+    inFlight.delete(key);
+  }
+
+  const db = await openDb();
+  if (!db) return;
+
+  try {
+    const hasMeta = hasMetadataStore(db);
+    const tx = db.transaction(hasMeta ? [STORE_NAME, META_STORE_NAME] : STORE_NAME, "readwrite");
+    const blobStore = tx.objectStore(STORE_NAME);
+    const metaStore = hasMeta ? tx.objectStore(META_STORE_NAME) : null;
+    for (const key of uniqueKeys) {
+      blobStore.delete(key);
+      metaStore?.delete(key);
+    }
+    await transactionDone(tx);
+  } catch {
+    // The memory tier is already cleared; a failed delete only leaves a stale clip on disk.
+  }
+}
+
 export async function getOrCreateCachedTTSAudioBlob(
   key: string,
   create: () => Promise<Blob>,
@@ -345,10 +388,15 @@ export async function getOrCreateCachedTTSAudioBlob(
       }
     }
 
+    const purgeEpochAtCreation = cachePurgeEpoch;
     const blob = await create();
-    for (const cacheKey of keys) {
-      rememberInMemory(cacheKey, blob);
-      await putPersistentBlob(cacheKey, blob);
+    // A purge that landed while this clip was synthesizing wins: re-writing the
+    // blob now would put the deleted audio straight back into both tiers.
+    if (purgeEpochAtCreation === cachePurgeEpoch) {
+      for (const cacheKey of keys) {
+        rememberInMemory(cacheKey, blob);
+        await putPersistentBlob(cacheKey, blob);
+      }
     }
     return blob;
   })().finally(() => {
