@@ -53,7 +53,18 @@ export type WeekScheduleDraftOptions = {
   draftMode?: WeekScheduleDraftMode;
   timeZone?: string;
   debugMode?: boolean;
+  signal?: AbortSignal;
 };
+
+/** Keep failed model output available for manual repair without saving it. */
+export class ScheduleDraftError extends Error {
+  constructor(
+    public rawResponse: string,
+    cause: unknown,
+  ) {
+    super(cause instanceof Error ? cause.message : "Invalid schedule", { cause });
+  }
+}
 
 const STATUS_KEYWORDS: Record<string, ConversationPresenceStatus> = {
   sleep: "offline",
@@ -249,12 +260,15 @@ export async function generateCharacterSchedule(
       { role: "system", content: systemPrompt },
       { role: "user", content: "Generate the schedule now." },
     ],
-    { model, temperature: getWeekScheduleTemperature(draftMode), maxTokens: scheduleMaxTokens },
+    { model, temperature: getWeekScheduleTemperature(draftMode), maxTokens: scheduleMaxTokens, signal: options.signal },
   );
 
   const content = result.content ?? "";
-  const parsed = parseScheduleResponse(content);
-  return { schedule: parsed, raw: content };
+  try {
+    return { schedule: parseScheduleResponse(content), raw: content };
+  } catch (error) {
+    throw new ScheduleDraftError(content, error);
+  }
 }
 
 export async function generateCharacterDaySchedule(
@@ -321,11 +335,16 @@ export async function generateCharacterDaySchedule(
       model,
       temperature: getWeekScheduleTemperature(draftMode),
       maxTokens: Math.min(provider.maxTokensOverrideValue ?? 4096, 4096),
+      signal: options.signal,
     },
   );
 
   const content = result.content ?? "";
-  return { blocks: parseDayScheduleResponse(content), raw: content };
+  try {
+    return { blocks: parseDayScheduleResponse(content), raw: content };
+  } catch (error) {
+    throw new ScheduleDraftError(content, error);
+  }
 }
 
 export async function generateScheduleRoutineSummary(
@@ -335,6 +354,7 @@ export async function generateScheduleRoutineSummary(
   schedule: WeekSchedule,
   userSchedulePreferences?: string,
   debugMode = false,
+  signal?: AbortSignal,
 ): Promise<{ summary: string; raw: string }> {
   const systemPrompt = [
     `You summarize a fictional character's weekly autonomous conversation routine.`,
@@ -367,6 +387,7 @@ export async function generateScheduleRoutineSummary(
       temperature: 0.55,
       maxTokens: provider.maxTokensOverrideValue ?? ROUTINE_SUMMARY_DEFAULT_MAX_TOKENS,
       reasoningEffort: "low",
+      signal,
     },
   );
   const summary = (result.content ?? "")

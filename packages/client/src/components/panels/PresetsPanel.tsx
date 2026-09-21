@@ -1668,7 +1668,6 @@ function RegexSection({
                 data-touch-reorder-index={index}
                 className={cn(
                   "group flex flex-wrap items-start gap-2 rounded-xl p-2 transition-colors hover:bg-[var(--sidebar-accent)]",
-                  !enabled && "opacity-50",
                   draggedRegexId === script.id && "opacity-40",
                 )}
                 draggable={regexDragReadyId === script.id}
@@ -1719,7 +1718,7 @@ function RegexSection({
                 </button>
                 <Regex size="0.875rem" className="mt-0.5 shrink-0 text-[var(--marinara-chat-chrome-button-text)]" />
                 <button
-                  className="min-w-0 flex-1 basis-[min(100%,10rem)] text-left"
+                  className={cn("min-w-0 flex-1 basis-[min(100%,10rem)] text-left", !enabled && "opacity-50")}
                   onClick={() => openRegexDetail(script.id)}
                 >
                   <div className="text-xs font-medium">{script.name}</div>
@@ -2006,7 +2005,6 @@ function FunctionsSection({
                 data-touch-reorder-index={index}
                 className={cn(
                   "group flex flex-wrap items-start gap-2 rounded-xl p-2 transition-colors hover:bg-[var(--sidebar-accent)]",
-                  !enabled && "opacity-50",
                   draggedFunctionId === tool.id && "opacity-40",
                 )}
                 draggable={functionDragReadyId === tool.id}
@@ -2057,7 +2055,7 @@ function FunctionsSection({
                 </button>
                 <Wrench size="0.875rem" className="mt-0.5 shrink-0 text-[var(--marinara-chat-chrome-button-text)]" />
                 <button
-                  className="min-w-0 flex-1 basis-[min(100%,10rem)] text-left"
+                  className={cn("min-w-0 flex-1 basis-[min(100%,10rem)] text-left", !enabled && "opacity-50")}
                   onClick={() => openToolDetail(tool.id)}
                 >
                   <div className="flex min-w-0 items-center gap-1">

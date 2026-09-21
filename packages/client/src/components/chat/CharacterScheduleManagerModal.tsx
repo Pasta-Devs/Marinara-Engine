@@ -10,7 +10,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getAdjacentScheduleBlocks,
   toConversationScheduleWallClockDate,
@@ -71,7 +71,7 @@ function readCard(row: Record<string, unknown>): ManagerCharacter | null {
       extensions.conversationStatus === "offline"
         ? extensions.conversationStatus
         : "online",
-    autoRenew: schedule ? extensions.conversationScheduleAutoRenew !== false : true,
+    autoRenew: extensions.conversationScheduleAutoRenew === true,
   };
 }
 
@@ -116,6 +116,12 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
   const activeChatId = useChatStore((state) => state.activeChatId);
   const conversationTimeZone = useUIStore((state) => state.conversationTimeZone);
   const [query, setQuery] = useState("");
+  const generationAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => generationAbortRef.current?.abort(), [open]);
+  const handleClose = () => {
+    generationAbortRef.current?.abort();
+    onClose();
+  };
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [working, setWorking] = useState<"generate" | "remove" | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -172,48 +178,59 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
 
   const generate = async () => {
     const ids = Array.from(selected);
-    if (!ids.length) return;
+    if (!ids.length || generationAbortRef.current) return;
+    const controller = new AbortController();
+    generationAbortRef.current = controller;
     setWorking("generate");
     setGenerationStates(Object.fromEntries(ids.map((id) => [id, "queued" as const])));
     let generatedCount = 0;
     let failedCount = 0;
-    for (const id of ids) {
-      setGenerationStates((current) => ({ ...current, [id]: "generating" }));
-      try {
-        const response = await api.post<{ results?: Record<string, { status?: string }> }>(
-          "/conversation/schedule/generate",
-          {
-            ...(activeConversationChat ? { chatId: activeConversationChat.id } : {}),
-            characterIds: [id],
-            forceRefresh: !!characters.find((character) => character.id === id)?.schedule,
-            timeZone: conversationTimeZone,
-          },
-        );
-        const resultStatus = response.results?.[id]?.status ?? "error: missing result";
-        if (resultStatus === "generated" || resultStatus === "fresh" || resultStatus === "shared") {
-          setGenerationStates((current) => ({ ...current, [id]: "generated" }));
-          generatedCount += 1;
-        } else if (resultStatus === "renewal_disabled") {
-          setGenerationStates((current) => ({ ...current, [id]: "skipped" }));
-        } else {
+    try {
+      for (const id of ids) {
+        if (controller.signal.aborted) return;
+        setGenerationStates((current) => ({ ...current, [id]: "generating" }));
+        try {
+          const response = await api.post<{ results?: Record<string, { status?: string }> }>(
+            "/conversation/schedule/generate",
+            {
+              ...(activeConversationChat ? { chatId: activeConversationChat.id } : {}),
+              characterIds: [id],
+              forceRefresh: !!characters.find((character) => character.id === id)?.schedule,
+              timeZone: conversationTimeZone,
+            },
+            { signal: controller.signal },
+          );
+          if (controller.signal.aborted) return;
+          const resultStatus = response.results?.[id]?.status ?? "error: missing result";
+          if (resultStatus === "generated" || resultStatus === "fresh" || resultStatus === "shared") {
+            setGenerationStates((current) => ({ ...current, [id]: "generated" }));
+            generatedCount += 1;
+          } else if (resultStatus === "renewal_disabled") {
+            setGenerationStates((current) => ({ ...current, [id]: "skipped" }));
+          } else {
+            setGenerationStates((current) => ({ ...current, [id]: "failed" }));
+            failedCount += 1;
+          }
+        } catch {
+          if (controller.signal.aborted) return;
           setGenerationStates((current) => ({ ...current, [id]: "failed" }));
           failedCount += 1;
         }
-      } catch {
-        setGenerationStates((current) => ({ ...current, [id]: "failed" }));
-        failedCount += 1;
       }
+      toast[failedCount > 0 ? "error" : "success"](
+        failedCount > 0
+          ? localizeUi("ui.characters.schedulemanager.generationSummary", {
+              generated: generatedCount,
+              failed: failedCount,
+            })
+          : localizeUi("ui.characters.schedulemanager.schedulesGenerated"),
+      );
+    } finally {
+      if (generatedCount > 0) await refetchCharacters();
+      if (controller.signal.aborted) setGenerationStates({});
+      generationAbortRef.current = null;
+      setWorking(null);
     }
-    await refetchCharacters();
-    toast[failedCount > 0 ? "error" : "success"](
-      failedCount > 0
-        ? localizeUi("ui.characters.schedulemanager.generationSummary", {
-            generated: generatedCount,
-            failed: failedCount,
-          })
-        : localizeUi("ui.characters.schedulemanager.schedulesGenerated"),
-    );
-    setWorking(null);
   };
 
   const remove = async () => {
@@ -270,7 +287,10 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
       selected={selected}
       onToggle={toggle}
       onAutoRenew={setAutoRenew}
-      onEditSchedule={setEditingCharacterId}
+      onEditSchedule={(id) => {
+        generationAbortRef.current?.abort();
+        setEditingCharacterId(id);
+      }}
       localizeUi={localizeUi}
       generationStates={generationStates}
       conversationTimeZone={conversationTimeZone}
@@ -281,7 +301,7 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
     <>
       <Modal
         open={open && !editingCharacterId}
-        onClose={onClose}
+        onClose={handleClose}
         title={localizeUi("ui.characters.schedulemanager.title")}
         width="max-w-2xl"
         mobileFullscreen
@@ -335,6 +355,15 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
               <RefreshCw className="h-3.5 w-3.5" />
               {localizeUi("ui.characters.schedulemanager.generate")}
             </button>
+            {working === "generate" && (
+              <button
+                type="button"
+                onClick={() => generationAbortRef.current?.abort()}
+                className="mari-chrome-control px-2.5 py-1.5 text-xs"
+              >
+                {localizeUi("ui.chat.summarypopover.stop")}
+              </button>
+            )}
             <button
               type="button"
               disabled={!selected.size || working !== null}

@@ -83,7 +83,10 @@ for (const theme of ["dark", "light"] as const) {
       if (failDay === body.day || failDay === body.mode) {
         await route.fulfill({
           status: 502,
-          json: { error: "The model returned invalid schedule JSON. Try again or choose another model." },
+          json: {
+            error: "The model returned invalid schedule JSON. Try again or choose another model.",
+            rawResponse: '{"days":',
+          },
         });
       } else if (body.mode === "day") {
         await route.fulfill({
@@ -124,6 +127,16 @@ for (const theme of ["dark", "light"] as const) {
       expect(calls[0]?.mode).toBe("week");
       expect(calls[0]?.connectionId).toBe("default-schedule-fixture");
       await page.screenshot({ path: info.outputPath(`schedule-error-${theme}.png`), animations: "disabled" });
+      const repair = dialog.getByRole("textbox", { name: "Edit generated schedule JSON", exact: true });
+      await expect(repair).toHaveValue('{"days":');
+      await dialog.getByRole("button", { name: "Apply to draft", exact: true }).click();
+      await expect(dialog.getByRole("alert")).toContainText("Each block needs time");
+      await repair.fill(
+        JSON.stringify({ days: { Monday: [{ time: "00:00-00:00", activity: "Original routine", status: "online" }] } }),
+      );
+      await dialog.getByRole("button", { name: "Apply to draft", exact: true }).click();
+      await expect(repair).toBeHidden();
+      expect((await storedSchedule()).days.Monday?.[0]?.activity).toBe("Original routine");
       const picker = dialog.getByRole("combobox", { name: "Generation connection", exact: true });
       await expect(picker).toHaveValue("default-schedule-fixture");
       await expect(picker.locator('option[value="image-fixture"]')).toHaveCount(0);
@@ -156,9 +169,14 @@ for (const theme of ["dark", "light"] as const) {
       await expect(dialog.getByRole("alert")).toBeVisible();
       expect(calls.map((call) => call.day)).toEqual(["Monday", "Tuesday", "Wednesday"]);
       await expect(dialog.getByRole("textbox", { name: "Monday block activity", exact: true })).toHaveValue(
-        "Unsaved routine",
+        "New Monday",
       );
       expect((await storedSchedule()).days.Monday?.[0]?.activity).toBe("Original routine");
+      await repair.fill(
+        JSON.stringify({ blocks: [{ time: "00:00-00:00", activity: "Repaired Wednesday", status: "online" }] }),
+      );
+      await dialog.getByRole("button", { name: "Apply to draft", exact: true }).click();
+      await expect(repair).toBeHidden();
 
       calls = [];
       failDay = null;
@@ -170,7 +188,7 @@ for (const theme of ["dark", "light"] as const) {
       await expect(dialog.getByLabel(/^Wait before checking in/)).toBeDisabled();
       await expect(dialog.getByRole("button", { name: "Save schedule", exact: true })).toBeDisabled();
       await expect(dialog.getByRole("textbox", { name: "Monday block activity", exact: true })).toHaveValue(
-        "Unsaved routine",
+        "New Monday",
       );
       await page.screenshot({ path: info.outputPath(`schedule-generating-${theme}.png`), animations: "disabled" });
       await expect.poll(() => !!pendingRequest.release).toBe(true);
@@ -236,7 +254,12 @@ for (const theme of ["dark", "light"] as const) {
           await expect(dialog.getByRole("textbox", { name: "Monday block activity", exact: true })).toBeDisabled();
           await expect(dialog.getByLabel("Chat talkativeness", { exact: true })).toBeDisabled();
           await dialog.getByRole("button", { name: `Close Edit ${name} Schedule`, exact: true }).click();
-        } else await page.keyboard.press("Escape");
+        } else {
+          await dialog.getByRole("button", { name: "Stop", exact: true }).click();
+          await expect(dialog.getByRole("button", { name: "Generate summary", exact: true })).toBeEnabled();
+          await expect(dialog).toBeVisible();
+          await page.keyboard.press("Escape");
+        }
         await expect(dialog).toBeHidden();
         pauseRequests = false;
         pendingRequest.release!();

@@ -1411,7 +1411,7 @@ function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsActio
     await updateMeta.mutateAsync({
       id: chat.id,
       autonomousMessages: autonomousEnabled,
-      conversationSchedulesEnabled: autonomousEnabled && generateSchedule,
+      conversationSchedulesEnabled: generateSchedule,
       characterCommands: hasConversationCommands && commandsEnabled,
       conversationCommandToggles: selfieSetup.conversationCommandToggles,
       conversationSetupComplete: true,

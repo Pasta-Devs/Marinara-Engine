@@ -8,7 +8,7 @@ import {
   type WeekSchedule,
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
-import { api } from "../../lib/api-client";
+import { api, ApiError } from "../../lib/api-client";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { toast } from "sonner";
@@ -374,6 +374,7 @@ export function CharacterScheduleEditorModal({
   const scheduleFileInputRef = useRef<HTMLInputElement | null>(null);
   const generationAbortRef = useRef<AbortController | null>(null);
   const generationErrorRef = useRef<HTMLDivElement | null>(null);
+  const [repairDraft, setRepairDraft] = useState<{ text: string; day?: string } | null>(null);
   const availableConnections = filterLanguageGenerationConnections(
     (connections ?? []) as Array<
       ConnectionProviderLike & { id: string; name: string; profileImportReviewRequired?: string }
@@ -424,6 +425,7 @@ export function CharacterScheduleEditorModal({
     setWeekGuideOpen(false);
     setWeekDraftMode(schedule ? "adjust" : "rewrite");
     setGenerationError("");
+    setRepairDraft(null);
   }, [characterId, initialDay, open, schedule]);
 
   useEffect(() => {
@@ -537,7 +539,7 @@ export function CharacterScheduleEditorModal({
   };
 
   const generateSummary = async () => {
-    if (!validateDailyCap()) return;
+    if (generationAbortRef.current || !validateDailyCap()) return;
     const controller = new AbortController();
     generationAbortRef.current = controller;
     setGenerationError("");
@@ -582,11 +584,13 @@ export function CharacterScheduleEditorModal({
   };
 
   const generateWeek = async () => {
-    if (!validateDailyCap()) return;
+    if (generationAbortRef.current || !validateDailyCap()) return;
     const controller = new AbortController();
     generationAbortRef.current = controller;
     setGenerationError("");
+    setRepairDraft(null);
     setIsGeneratingWeek(true);
+    let requestedDay: string | undefined;
     try {
       const payload = {
         chatId,
@@ -600,6 +604,8 @@ export function CharacterScheduleEditorModal({
       let nextSchedule = currentSchedule;
       if (weekRequestMode === "day") {
         for (const day of CONVERSATION_SCHEDULE_DAYS) {
+          requestedDay = day;
+          controller.signal.throwIfAborted();
           setWeekGenerationDay(day);
           const result = await api.post<DraftDayResponse>(
             "/conversation/schedule/draft",
@@ -618,6 +624,11 @@ export function CharacterScheduleEditorModal({
             weekStart: result.weekStart,
             days: { ...nextSchedule.days, [day]: result.blocks },
           };
+          applyDraftAndMarkSummaryStale((current) => ({
+            ...current,
+            weekStart: nextSchedule.weekStart,
+            days: nextSchedule.days,
+          }));
         }
       } else {
         const result = await api.post<DraftScheduleResponse>(
@@ -640,6 +651,7 @@ export function CharacterScheduleEditorModal({
       }));
     } catch (error) {
       if (controller.signal.aborted) return;
+      preserveFailedOutput(error, requestedDay);
       const message =
         error instanceof Error
           ? error.message
@@ -655,10 +667,11 @@ export function CharacterScheduleEditorModal({
   };
 
   const generateDay = async (day: string) => {
-    if (!validateDailyCap()) return;
+    if (generationAbortRef.current || !validateDailyCap()) return;
     const controller = new AbortController();
     generationAbortRef.current = controller;
     setGenerationError("");
+    setRepairDraft(null);
     setGeneratingDay(day);
     setDayGenerationStatus((current) => ({ ...current, [day]: `Regenerating ${day}...` }));
     const previousBlocks = draft.days[day] ?? [];
@@ -702,6 +715,7 @@ export function CharacterScheduleEditorModal({
       }
     } catch (error) {
       if (controller.signal.aborted) return;
+      preserveFailedOutput(error, day);
       setDayGenerationStatus((current) => ({ ...current, [day]: `Failed to regenerate ${day}` }));
       const message =
         error instanceof Error
@@ -713,6 +727,39 @@ export function CharacterScheduleEditorModal({
         generationAbortRef.current = null;
         setGeneratingDay(null);
       }
+    }
+  };
+
+  const preserveFailedOutput = (error: unknown, day?: string) => {
+    const payload = error instanceof ApiError ? error.payload : null;
+    if (payload && typeof payload === "object" && "rawResponse" in payload && typeof payload.rawResponse === "string") {
+      setRepairDraft({ text: payload.rawResponse, day });
+    }
+  };
+
+  const applyRepairedOutput = () => {
+    if (!repairDraft) return;
+    try {
+      const parsed: unknown = JSON.parse(repairDraft.text);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error();
+      const value = parsed as Record<string, unknown>;
+      if (repairDraft.day && !Array.isArray(value.blocks)) throw new Error();
+      const candidate = {
+        ...currentSchedule,
+        days: repairDraft.day
+          ? { ...currentSchedule.days, [repairDraft.day]: value.blocks }
+          : { ...currentSchedule.days, ...(value.days as Record<string, unknown>) },
+      };
+      if (!repairDraft.day && (!value.days || typeof value.days !== "object" || Array.isArray(value.days))) {
+        throw new Error();
+      }
+      const result = parseCharacterScheduleImport(candidate, currentSchedule.weekStart);
+      if (!result.ok) throw new Error();
+      applyDraftAndMarkSummaryStale((current) => ({ ...current, days: result.schedule.days }));
+      setRepairDraft(null);
+      setGenerationError("");
+    } catch {
+      setGenerationError(localizeUi("schedule.repair.invalid"));
     }
   };
 
@@ -890,6 +937,32 @@ export function CharacterScheduleEditorModal({
             <p className="font-semibold">{localizeUi("ui.chat.characterscheduleeditormodal.generationFailed")}</p>
             <p className="mt-1 break-words">{generationError}</p>
           </div>
+        )}
+        {repairDraft && (
+          <div className="space-y-2">
+            <label className="block text-sm font-medium">
+              {localizeUi("schedule.repair.label")}
+              <textarea
+                value={repairDraft.text}
+                onChange={(event) => setRepairDraft({ ...repairDraft, text: event.target.value })}
+                className="mt-2 min-h-48 w-full resize-y rounded-md bg-[var(--secondary)] p-3 font-mono text-xs ring-1 ring-[var(--border)]"
+                spellCheck={false}
+              />
+            </label>
+            <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("schedule.repair.help")}</p>
+            <button type="button" onClick={applyRepairedOutput} className="mari-chrome-control px-3 py-2 text-sm">
+              {localizeUi("schedule.repair.apply")}
+            </button>
+          </div>
+        )}
+        {generationBusy && (
+          <button
+            type="button"
+            onClick={() => generationAbortRef.current?.abort()}
+            className="mari-chrome-control px-3 py-2 text-sm"
+          >
+            {localizeUi("ui.chat.summarypopover.stop")}
+          </button>
         )}
 
         <details
