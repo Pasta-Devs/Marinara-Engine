@@ -44,7 +44,7 @@ const { createConnectionsStorage } = await import("../../packages/server/src/ser
 const { createAdvancedMemoryService } = await import("../../packages/server/src/services/advanced-memory.js");
 const { advancedMemoryRoutes } = await import("../../packages/server/src/routes/advanced-memory.routes.js");
 const { chatsRoutes } = await import("../../packages/server/src/routes/chats.routes.js");
-const { chats: chatsTable } = await import("../../packages/server/src/db/schema/index.js");
+const { chats: chatsTable, messageSwipes } = await import("../../packages/server/src/db/schema/index.js");
 const { prepareAdvancedMemoryContext } =
   await import("../../packages/server/src/services/generation/advanced-memory-context.js");
 const { createAdvancedMemoryPlacement } =
@@ -220,6 +220,40 @@ try {
     beforeFailedFlag,
     "a failed cutoff save must leave the message, swipes and metadata unchanged",
   );
+  let swipeWrites = 0;
+  db.update = ((table: Parameters<typeof db.update>[0]) => {
+    if (table === messageSwipes && ++swipeWrites === 2) throw new Error("Forced personal flag swipe failure");
+    return update(table);
+  }) as typeof db.update;
+  try {
+    const failedPersonalFlag = await app.inject({
+      method: "PATCH",
+      url: `/api/chats/${cycleChat.id}/messages/${cutoffId}/extra`,
+      payload: { conversationStartForCharacterIds: ["second"] },
+    });
+    assert.equal(failedPersonalFlag.statusCode, 500);
+  } finally {
+    db.update = update;
+  }
+  assert.deepEqual(
+    {
+      message: await chats.getMessage(cutoffId),
+      swipes: await chats.getSwipes(cutoffId),
+      chat: await chats.getById(cycleChat.id),
+    },
+    beforeFailedFlag,
+    "a failed personal flag save must roll back every swipe and preserve the shared cutoff",
+  );
+  const sharedStarts = (await memory.status(cycleChat.id)).job.contextStarts;
+  for (const ids of [["second"], []]) {
+    const personalOnly = await app.inject({
+      method: "PATCH",
+      url: `/api/chats/${cycleChat.id}/messages/${cutoffId}/extra`,
+      payload: { conversationStartForCharacterIds: ids },
+    });
+    assert.equal(personalOnly.statusCode, 200, personalOnly.body);
+    assert.deepEqual((await memory.status(cycleChat.id)).job.contextStarts, sharedStarts);
+  }
   const cleared = await app.inject({
     method: "PATCH",
     url: `/api/chats/${cycleChat.id}/messages/${growingSource[30]!.id}/extra`,

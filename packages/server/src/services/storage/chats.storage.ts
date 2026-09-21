@@ -2403,6 +2403,7 @@ export function createChatsStorage(db: DB) {
             await this.patchMetadata(
               msg.chatId,
               (metadata) => {
+                if (!Object.prototype.hasOwnProperty.call(partial, "isConversationStart")) return {};
                 const state = parseExtraRecord(metadata.advancedMemoryState);
                 if (!Array.isArray(state.contextStarts) || !state.contextStarts.length) return {};
                 // A new manual shared flag replaces the automatic window. Unchecking

@@ -2318,7 +2318,9 @@ export async function chatsRoutes(app: FastifyInstance) {
         syncAllSwipeExtra.reactions = partial.reactions;
       }
 
-      const contextFlagChanged = Object.prototype.hasOwnProperty.call(partial, "isConversationStart");
+      const contextFlagChanged =
+        Object.prototype.hasOwnProperty.call(partial, "isConversationStart") ||
+        Object.prototype.hasOwnProperty.call(partial, "conversationStartForCharacterIds");
       const updated = contextFlagChanged
         ? await storage.updateMessageExtraWithContextStart(req.params.messageId, partial, syncAllSwipeExtra, swipeIndex)
         : swipeIndex === undefined
