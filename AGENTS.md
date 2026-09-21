@@ -1,8 +1,8 @@
 # AGENTS.md
 
-This is the repository guide for OpenAI Codex. Canonical workflow, validation, and release guidance lives in `CONTRIBUTING.md`.
+This is the repository guide for coding agents. Canonical workflow, validation, and release guidance lives in `CONTRIBUTING.md`.
 
-`AGENTS.md` is a standalone Codex guide adapted from `CLAUDE.md`, which remains the Claude guide. Shared skills live in `.claude/skills`; Codex accesses them through `.agents/skills → ../.claude/skills`. Keep repository policy consistent across both guides without copying provider-specific tool or model assumptions.
+Shared skills live in `.claude/skills`; Codex accesses them through `.agents/skills → ../.claude/skills`. Use the instructions and capabilities supported by the current agent host.
 
 ## Codex Runtime and Models
 
