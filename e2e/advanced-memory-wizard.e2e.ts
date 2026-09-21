@@ -204,7 +204,12 @@ test("Roleplay wizard reuses automatic memory settings without downloaded agents
         if (!staleStatusAborted) throw error;
       }
     });
-    // Capture a normal status poll before saving, so its old response cannot overwrite the saved limits.
+    // Reopen the settings after their one-second freshness window. Ready archives
+    // no longer poll; an explicit revisit still refreshes and can race with a save.
+    await page.waitForTimeout(1100);
+    await wizard.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(wizard.getByRole("heading", { name: "Attach Lorebooks", exact: true })).toBeVisible();
+    await next.click();
     await expect.poll(() => staleStatusCaptured).toBe(true);
     await context.fill("16000");
     await context.press("Enter");
