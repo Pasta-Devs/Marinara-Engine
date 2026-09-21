@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Message Peek Prompt stays tied to the selected reply and swipe after images, summaries or memory settings change, preserving the character and commands actually sent to the model (#6493).
+
 - Advanced Memory keeps applicable enabled constants in the prompt and combines them after the reply when they exceed 70% of the configured summary and recall budget. Constants have priority, followed by all selected scene summaries, then excerpts; total memory may use up to 2,000 extra tokens. Existing ranged and legacy summaries reuse Chat Summaries and its Maximum output size.
 - Presets offer one **Recalled Scenes** marker for paired summaries and excerpts. Existing Recalled Messages markers remain compatible aliases.
 - Recalled messages and new scene summaries omit illustration attachments and their unavailable-content notices while retaining readable text attachments.
