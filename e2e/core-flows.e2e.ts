@@ -20719,6 +20719,68 @@ test("mobile Load More clears the collapsed Echo Chamber", async ({ page }, test
   }
 });
 
+test("chat image preview allows native mobile pinch zoom", async ({ page, request, browserName }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"), "Native pinch zoom applies to touch viewports.");
+  const response = await request.post("/api/chats", {
+    data: { name: "Chat image pinch zoom", mode: "roleplay", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  try {
+    await page.route("**/pinch-probe.svg", (route) =>
+      route.fulfill({
+        contentType: "image/svg+xml",
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800"><rect width="800" height="800" fill="#293655"/><circle cx="400" cy="400" r="180" fill="#8bd1da"/><text x="400" y="415" text-anchor="middle" font-size="48">Zoom probe</text></svg>',
+      }),
+    );
+    expect(
+      (
+        await request.post(`/api/chats/${chat.id}/messages`, {
+          data: {
+            role: "assistant",
+            content: "An image to inspect.",
+            extra: { attachments: [{ type: "image", filename: "pinch-probe.svg", url: "/pinch-probe.svg" }] },
+          },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    await prepareFreshClient(page);
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chat.id);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open pinch-probe.svg", exact: true }).click();
+    const preview = page.getByRole("dialog", { name: "Image preview", exact: true });
+    await expect(preview).toBeVisible();
+    await expect(page.locator('meta[name="viewport"]')).not.toHaveAttribute(
+      "content",
+      /user-scalable\s*=\s*(?:no|0)|maximum-scale\s*=\s*1(?:\.0)?(?:,|$)/u,
+    );
+    const image = preview.getByRole("img");
+    const before = await image.boundingBox();
+    expect(before).not.toBeNull();
+    if (browserName === "chromium") {
+      // Drive the browser's native touch gesture, without mocking visualViewport.
+      const session = await page.context().newCDPSession(page);
+      await session.send("Input.synthesizePinchGesture", {
+        x: before!.x + before!.width / 2,
+        y: before!.y + before!.height / 2,
+        scaleFactor: 2,
+        gestureSourceType: "touch",
+      });
+      await expect.poll(() => page.evaluate(() => window.visualViewport?.scale ?? 1)).toBeGreaterThan(1.5);
+      await expect(page.locator("html")).not.toHaveAttribute("data-mari-software-keyboard-open");
+      expect((await image.boundingBox())!.width).toBeCloseTo(before!.width, 0);
+      await testInfo.attach("chat-image-native-pinch.png", { body: await page.screenshot(), contentType: "image/png" });
+      await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+      await session.detach();
+    }
+    // Playwright WebKit cannot drive a native two-finger pinch; device verification remains separate.
+    await preview.getByRole("button", { name: "Close image", exact: true }).click();
+    await expect(preview).toBeHidden();
+  } finally {
+    await bestEffortDelete(request, `/api/chats/${chat.id}?force=true`);
+  }
+});
+
 test("pinch zoom keeps the Roleplay layout size and does not open keyboard mode", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "Pinch zoom applies to touch viewports.");
   const response = await page.request.post("/api/chats", {

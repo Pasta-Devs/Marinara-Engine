@@ -9,7 +9,11 @@ const operationSchema = z.object({
   debugMode: z.boolean().optional(),
 });
 const recordPatchSchema = z
-  .object({ content: z.string().min(1).max(500_000).optional(), enabled: z.boolean().optional() })
+  .object({
+    content: z.string().min(1).max(500_000).optional(),
+    enabled: z.boolean().optional(),
+    audienceCharacterIds: z.array(z.string().min(1)).max(100).optional(),
+  })
   .strict();
 
 const validationErrors = new Set([
@@ -19,7 +23,11 @@ const validationErrors = new Set([
   "Select a narrator from this chat's characters",
   "A character knowledge range points to a message that no longer exists",
   "Memory text must contain between 1 and 500000 characters",
-  "Memory update must include content or enabled",
+  "Memory update must include content, enabled or audience",
+  "Only saved scenes in Individual mode have editable character access",
+  "Choose characters from this chat; the narrator already has access",
+  "Scene sources are hidden from a selected character or precede their knowledge start",
+  "Another summary for this scene already has that audience; edit or delete it first",
   "Only a saved summary can be deleted",
   "Invalid Advanced Memory export",
 ]);

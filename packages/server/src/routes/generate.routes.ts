@@ -2334,6 +2334,7 @@ export async function generateRoutes(app: FastifyInstance) {
       let lastSavedMsg: any = null;
       let lastSavedSwipeIndex: number | null = null;
       let pendingIllustration: Promise<void> | null = null;
+      let pendingAdvancedMemory: Promise<void> | null = null;
       const pendingRoleplayMedia: Promise<void>[] = [];
       let pendingIllustratorBackground: (() => Promise<void>) | null = null;
       const collectedCommands: Array<{
@@ -9824,7 +9825,13 @@ export async function generateRoutes(app: FastifyInstance) {
               agent.phase === "post_processing" &&
               (trackerAgentTypes.has(agent.type) || resolveAgentResultType(agent) === "custom_tracker_update"),
           );
-          if (advancedMemoryEnabled && latestAssistantMessageId && !input.impersonate && sceneCheckTrackers.length) {
+          if (
+            advancedMemoryEnabled &&
+            latestAssistantMessageId &&
+            !input.impersonate &&
+            !input.regenerateMessageId &&
+            sceneCheckTrackers.length
+          ) {
             try {
               const request = await advancedMemory.getSceneCheck(input.chatId, {
                 asOfMessageId: latestAssistantMessageId,
@@ -12388,7 +12395,7 @@ export async function generateRoutes(app: FastifyInstance) {
         }
 
         // ── Background: chunk & embed new messages for memory recall ──
-        // Runs once on the final iteration (fire-and-forget). Lives inside the
+        // Runs once on the final iteration. Lives inside the
         // loop because charInfo is scoped here; only executes when we break.
         if (!recoveredAlreadyAppliedOwnerTurn) {
           const charNameMap: Record<string, string> = {};
@@ -12396,11 +12403,17 @@ export async function generateRoutes(app: FastifyInstance) {
             charNameMap[ci.id] = ci.name;
           }
           if (advancedMemoryEnabled) {
-            if (latestAssistantMessageId && !input.impersonate && !abortController.signal.aborted) {
-              void advancedMemory
+            if (
+              latestAssistantMessageId &&
+              !input.impersonate &&
+              !input.regenerateMessageId &&
+              !abortController.signal.aborted
+            ) {
+              pendingAdvancedMemory = advancedMemory
                 .checkScenesAfterGeneration(input.chatId, {
                   debugMode: requestDebug,
                   blocking: false,
+                  signal: agentSignal,
                   asOfMessageId: latestAssistantMessageId,
                   ...(pendingSceneCheck && agentContext.sceneCheck?.result !== undefined
                     ? { batchedCheck: { request: pendingSceneCheck, result: agentContext.sceneCheck.result } }
@@ -12483,12 +12496,14 @@ export async function generateRoutes(app: FastifyInstance) {
       releaseActiveGeneration();
 
       // Start the independent scene-background tail after tracker persistence,
-      // then keep the SSE stream open for both visual jobs.
+      // then keep the SSE stream open for visual jobs and Advanced Recall activity.
       if (chatMode === "game" && chatMeta.gameSequentialAgents === true) await pendingIllustration;
       const pendingBackground = pendingIllustratorBackground ? pendingIllustratorBackground() : null;
-      if (pendingIllustration || pendingBackground || pendingRoleplayMedia.length) {
+      if (pendingIllustration || pendingBackground || pendingAdvancedMemory || pendingRoleplayMedia.length) {
         await Promise.allSettled(
-          [pendingIllustration, pendingBackground, ...pendingRoleplayMedia].filter(Boolean) as Promise<void>[],
+          [pendingIllustration, pendingBackground, pendingAdvancedMemory, ...pendingRoleplayMedia].filter(
+            Boolean,
+          ) as Promise<void>[],
         );
       }
     } catch (err) {

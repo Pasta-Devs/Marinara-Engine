@@ -9171,6 +9171,36 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         assert.match(emptyText, /STABLE_RULE/u);
         assert.match(emptyText, /LIVE_WORDS/u);
         assert.doesNotMatch(emptyText, /Memory group|memory_group|Below is|Below are|MARINARA_ADVANCED_MEMORY/u);
+        for (const groupId of [null, "memory"]) {
+          for (const position of [0, 1, 2]) {
+            const surrounding = [
+              promptSection({ id: "before", content: "Before.\n\n\nIntentional spacing.", groupId }),
+              promptSection({ id: "after", content: "After.", groupId }),
+            ];
+            surrounding.splice(position, 0, marker("empty_recall", "recalled_scenes", { groupId }));
+            const spacingInput = {
+              ...input,
+              advancedMemory: {},
+              chatSummary: null,
+              sections: surrounding,
+              preset: {
+                ...input.preset,
+                sectionOrder: JSON.stringify(surrounding.map((section) => section.id)),
+                parameters: JSON.stringify({ strictRoleFormatting: true, squashSystemMessages: true }),
+              },
+            };
+            const withEmptyRecall = await assemblePrompt(spacingInput);
+            const withoutRecall = await assemblePrompt({
+              ...spacingInput,
+              sections: surrounding.filter((section) => section.id !== "empty_recall"),
+            });
+            assert.deepEqual(
+              withEmptyRecall.messages,
+              withoutRecall.messages,
+              `an empty recall marker adds no whitespace (${format}, ${groupId}, position ${position})`,
+            );
+          }
+        }
         assert.equal(
           JSON.stringify(deferred.messages),
           preparedSnapshot,

@@ -218,7 +218,7 @@ function policyFingerprint(ctx: Context): string {
 
 function preparationPolicyRevision(ctx: Context): string {
   return hash([
-    "chat-summary-priority-budget-v9", // Invalidate reusable contexts without rebuilding valid source archives.
+    "archive-knowledge-live-start-v10", // Invalidate reusable contexts without rebuilding valid source archives.
     policyFingerprint(ctx),
     ctx.settings,
     ctx.metadata.summaryEntries,
@@ -232,9 +232,14 @@ function fingerprint(ctx: Context, messages: readonly AdvancedMemoryMessage[], a
   return hash([advancedMemorySourceFingerprint(messages), policyFingerprint(ctx), [...audience].sort()]);
 }
 
-function sharedStartMessageId(messages: readonly AdvancedMemoryMessage[]): string {
+function contextStartMessageId(messages: readonly AdvancedMemoryMessage[], audience: string[]): string {
   for (let index = messages.length - 1; index >= 0; index--) {
-    if (object(messages[index]!.extra).isConversationStart === true) return messages[index]!.id;
+    const extra = object(messages[index]!.extra);
+    if (
+      extra.isConversationStart === true ||
+      strings(extra.conversationStartForCharacterIds).some((id) => audience.includes(id))
+    )
+      return messages[index]!.id;
   }
   return "";
 }
@@ -254,27 +259,33 @@ async function serialized<T>(chatId: string, run: () => Promise<T>): Promise<T> 
   }
 }
 
-/** Shared starts trim live context; archives still honor hiding and character-specific knowledge boundaries. */
+/** Start flags trim live context; archives honor hiding and confirmed character knowledge boundaries. */
 export function selectAdvancedMemoryMessages(
   messages: readonly AdvancedMemoryMessage[],
   settings: AdvancedMemorySettings,
   audienceCharacterIds: string[],
   individual = true,
-  respectSharedStart = true,
+  respectContextStart = true,
 ): AdvancedMemoryMessage[] {
   let start = 0;
   for (let index = 0; index < messages.length; index++) {
     const extra = object(messages[index]!.extra);
     if (
-      (respectSharedStart && extra.isConversationStart === true) ||
-      strings(extra.conversationStartForCharacterIds).some((id) => audienceCharacterIds.includes(id))
+      respectContextStart &&
+      (extra.isConversationStart === true ||
+        strings(extra.conversationStartForCharacterIds).some((id) => audienceCharacterIds.includes(id)))
     )
       start = index;
   }
   if (individual) {
     for (const id of audienceCharacterIds) {
       if (id === settings.narratorCharacterId) continue;
-      const anchor = settings.knowledgeStarts[id];
+      // Before an explicit knowledge range is confirmed, the first personal
+      // start remains the character's introduction, never their latest POV shift.
+      const anchor =
+        settings.knowledgeStarts[id] === undefined
+          ? messages.find((message) => strings(object(message.extra).conversationStartForCharacterIds).includes(id))?.id
+          : settings.knowledgeStarts[id];
       if (anchor) {
         const index = messages.findIndex((message) => message.id === anchor);
         // An anchor beyond a historical regeneration prefix grants no earlier knowledge.
@@ -365,6 +376,19 @@ function tokenSize(content: string): number {
 // Keep only the disabled source identity so routine preparation cannot regenerate a deleted recap.
 function isDeletedScene(record: StoredRecord): boolean {
   return record.kind === "scene" && record.id !== record.sceneId && !record.enabled && !record.content;
+}
+
+function recordRow(record: StoredRecord) {
+  return {
+    ...record,
+    messageIds: JSON.stringify(record.messageIds),
+    audienceCharacterIds: JSON.stringify(record.audienceCharacterIds),
+    dependencies: JSON.stringify(record.dependencies),
+    embedding: record.embedding ? JSON.stringify(record.embedding) : null,
+    enabled: record.enabled ? 1 : 0,
+    manualOverride: record.manualOverride ? 1 : 0,
+    ...(record.content ? { summaryWork: null } : {}),
+  };
 }
 
 function historySize(ctx: Context, messages: readonly AdvancedMemoryMessage[]): number {
@@ -600,16 +624,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const asOf = { ...fresh, messages: fresh.messages.slice(0, end + 1) };
     if (!recordValid(asOf, record) || !dependenciesValid(record, await operationRecords(ctx), asOf))
       throw new Error("Memory sources or summary corrections changed during preparation; retry");
-    const row = {
-      ...record,
-      messageIds: JSON.stringify(record.messageIds),
-      audienceCharacterIds: JSON.stringify(record.audienceCharacterIds),
-      dependencies: JSON.stringify(record.dependencies),
-      embedding: record.embedding ? JSON.stringify(record.embedding) : null,
-      enabled: record.enabled ? 1 : 0,
-      manualOverride: record.manualOverride ? 1 : 0,
-      ...(record.content ? { summaryWork: null } : {}),
-    };
+    const row = recordRow(record);
     const existingRow = (
       await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, record.id))
     )[0];
@@ -1542,9 +1557,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             advancedMemorySourceFingerprint(ctx.messages.slice(0, checkedSourceEnd + 1))));
     if (!options.force && !changed && actual.length - checkpointIndex - 1 < ctx.settings.sceneCheckInterval)
       return null;
-    // Include the preceding message so a transition at the start of this interval
-    // can identify the previous scene's exact last message.
-    const window = actual.slice(-(ctx.settings.sceneCheckInterval + 1));
+    const window = actual.slice(-ctx.settings.sceneCheckInterval);
     return {
       chatId,
       asOfMessageId: ctx.messages.at(-1)!.id,
@@ -1617,9 +1630,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     for (const record of existing) {
       if (record.kind !== "scene" || record.id !== record.sceneId || !recordValid(ctx, record)) continue;
       const sceneEnd = ctx.messages.findIndex((message) => message.id === record.endMessageId);
-      // The first message is look-behind context. Keep its committed ending, and
-      // never reconsider endings whose source a scoped window did not receive.
-      if (record.status === "closed" && sceneEnd >= 0 && (sceneEnd <= windowStart || !sent.has(record.endMessageId)))
+      // Never reconsider endings whose source a scoped window did not receive.
+      if (record.status === "closed" && sceneEnd >= 0 && (sceneEnd < windowStart || !sent.has(record.endMessageId)))
         starts.add(sceneEnd + 1);
     }
     for (const choice of choices) starts.add(Number(object(choice).messageNumber));
@@ -1699,6 +1711,19 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           let request = await getSceneCheck(chatId, options);
           if (!request) return;
           const ctx = await context(chatId);
+          await progress(
+            ctx,
+            {
+              id: newId(),
+              blocking: operationOptions.blocking ?? false,
+              status: "running",
+              stage: "classifying",
+              completed: 0,
+              total: request.messages.length,
+              error: null,
+            },
+            operationOptions,
+          );
           const batched = options.batchedCheck;
           let decision: unknown;
           if (
@@ -1731,19 +1756,6 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
               throw new Error(
                 "The recent scene-check messages exceed the helper context limit; reduce the scene-check interval or increase its context limit",
               );
-            await progress(
-              ctx,
-              {
-                id: newId(),
-                blocking: operationOptions.blocking ?? false,
-                status: "running",
-                stage: "classifying",
-                completed: 0,
-                total: request.messages.length,
-                error: null,
-              },
-              operationOptions,
-            );
             logDebugOverride(
               operationOptions.debugMode === true || process.env.DEBUG_AGENTS === "true",
               "[advanced-memory] Post-generation scene prompt for %s (%s): %s",
@@ -2231,8 +2243,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     ) {
       receipt.reasons.push("unverified-summary-omitted");
     }
-    const sharedStart = sharedStartMessageId(sources);
-    let boundaryIndex = sharedStart ? indexes.get(sharedStart)! - 1 : -1;
+    const contextStart = contextStartMessageId(sources, audience.length ? audience : ctx.characterIds);
+    let boundaryIndex = contextStart ? indexes.get(contextStart)! - 1 : -1;
     let live = eligible.filter((message) => indexes.get(message.id)! > boundaryIndex);
     let chatSummary = sourceEntries(ctx, sources, historical)
       .map((entry) => {
@@ -2354,7 +2366,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         (record.kind === "scene" || (record.kind === "excerpt" && ctx.settings.retrieveMaxMessages > 0)) &&
         record.content &&
         record.enabled &&
-        recallAudienceMatches(ctx, record, audience) &&
+        (recallAudienceMatches(ctx, record, audience) || (record.kind === "excerpt" && !record.manualOverride)) &&
         record.messageIds.every((id) => eligibleIds.has(id)) &&
         !disabledSceneIds.has(record.sceneId) &&
         (record.kind === "scene"
@@ -2714,12 +2726,46 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     return (await chats.listMessages(chatId)).filter((message) => ids.has(message.id));
   }
 
-  async function updateRecord(chatId: string, recordId: string, patch: { content?: string; enabled?: boolean }) {
-    if (patch.content === undefined && patch.enabled === undefined)
-      throw new Error("Memory update must include content or enabled");
+  async function updateRecord(
+    chatId: string,
+    recordId: string,
+    patch: { content?: string; enabled?: boolean; audienceCharacterIds?: string[] },
+  ) {
+    if (patch.content === undefined && patch.enabled === undefined && patch.audienceCharacterIds === undefined)
+      throw new Error("Memory update must include content, enabled or audience");
     if (patch.content !== undefined && (!patch.content.trim() || patch.content.length > 500_000))
       throw new Error("Memory text must contain between 1 and 500000 characters");
-    await getRecord(chatId, recordId); // Invalid requests must not interrupt paid preparation.
+    const validateAudience = async (ctx: Context, record: StoredRecord) => {
+      if (patch.audienceCharacterIds === undefined) return;
+      if (record.kind !== "scene" || record.id === record.sceneId || !ctx.individual)
+        throw new Error("Only saved scenes in Individual mode have editable character access");
+      if (
+        patch.audienceCharacterIds.some(
+          (id) => !ctx.characterIds.includes(id) || id === ctx.settings.narratorCharacterId,
+        )
+      )
+        throw new Error("Choose characters from this chat; the narrator already has access");
+      const eligible = new Set(
+        allowed(ctx, ctx.messages, audienceView(ctx, patch.audienceCharacterIds)).map((message) => message.id),
+      );
+      if (record.messageIds.some((id) => !eligible.has(id)))
+        throw new Error("Scene sources are hidden from a selected character or precede their knowledge start");
+      const conflict = (await records(chatId)).some(
+        (item) =>
+          item.id !== record.id &&
+          item.kind === "scene" &&
+          item.id !== item.sceneId &&
+          item.sceneId === record.sceneId &&
+          !isDeletedScene(item) &&
+          (patch.audienceCharacterIds!.length
+            ? item.audienceCharacterIds.some((id) => patch.audienceCharacterIds!.includes(id))
+            : !item.audienceCharacterIds.length),
+      );
+      if (conflict)
+        throw new Error("Another summary for this scene already has that audience; edit or delete it first");
+    };
+    const requested = await getRecord(chatId, recordId); // Invalid requests must not interrupt paid preparation.
+    if (patch.audienceCharacterIds !== undefined) await validateAudience(await context(chatId), requested);
     // A user edit takes priority over background model work. Keep the write in
     // the queue so cancelled preparation cannot overwrite the correction.
     const operation = activeOperations.get(chatId);
@@ -2728,24 +2774,86 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       await operation?.promise.catch(() => undefined);
       const ctx = await context(chatId);
       const record = await getRecord(chatId, recordId);
+      await validateAudience(ctx, record);
       const source = ctx.messages.filter((message) => record.messageIds.includes(message.id));
+      const audience =
+        patch.audienceCharacterIds === undefined
+          ? record.audienceCharacterIds
+          : [...new Set(patch.audienceCharacterIds)].sort();
+      const audienceChanged = hash(audience) !== hash([...record.audienceCharacterIds].sort());
       const changes = {
         ...(patch.content !== undefined
           ? {
               content: patch.content.trim(),
               manualOverride: 1,
-              sourceFingerprint: fingerprint(ctx, source, record.audienceCharacterIds),
+              sourceFingerprint: fingerprint(ctx, source, audience),
               embedding: null,
               embeddingSpaceId: null,
+            }
+          : {}),
+        ...(audienceChanged
+          ? {
+              audienceCharacterIds: JSON.stringify(audience),
+              manualOverride: 1,
+              sourceFingerprint: fingerprint(ctx, source, audience),
             }
           : {}),
         ...(patch.enabled !== undefined ? { enabled: patch.enabled ? 1 : 0 } : {}),
         updatedAt: now(),
       };
-      await db
-        .update(advancedMemoryRecords)
-        .set(changes)
-        .where(and(eq(advancedMemoryRecords.chatId, chatId), eq(advancedMemoryRecords.id, recordId)));
+      const current = audienceChanged ? await records(chatId) : [];
+      await db.transaction(async (tx) => {
+        if (audienceChanged) {
+          // Reuse deletion tombstones to prevent maintenance from recreating a
+          // removed audience. Granting access later removes that exclusion.
+          for (const item of current.filter(
+            (item) =>
+              isDeletedScene(item) &&
+              item.sceneId === record.sceneId &&
+              item.audienceCharacterIds.some((id) => audience.includes(id)),
+          )) {
+            const remaining = item.audienceCharacterIds.filter((id) => !audience.includes(id));
+            if (!remaining.length) await tx.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, item.id));
+            else
+              await tx
+                .update(advancedMemoryRecords)
+                .set({
+                  audienceCharacterIds: JSON.stringify(remaining),
+                  sourceFingerprint: fingerprint(
+                    ctx,
+                    ctx.messages.filter((message) => item.messageIds.includes(message.id)),
+                    remaining,
+                  ),
+                  updatedAt: now(),
+                })
+                .where(eq(advancedMemoryRecords.id, item.id));
+          }
+          const removed = record.audienceCharacterIds.filter((id) => !audience.includes(id));
+          if (removed.length)
+            await tx.insert(advancedMemoryRecords).values(
+              recordRow({
+                ...record,
+                id: newId(),
+                audienceCharacterIds: removed,
+                content: "",
+                enabled: false,
+                manualOverride: true,
+                dependencies: [],
+                embedding: null,
+                embeddingSpaceId: null,
+                sourceFingerprint: fingerprint(ctx, source, removed),
+                updatedAt: now(),
+              }),
+            );
+          // Preserve the narrator's shared view when granting a character access.
+          if (!record.audienceCharacterIds.length && audience.length)
+            await tx.insert(advancedMemoryRecords).values(recordRow({ ...record, id: newId() }));
+        }
+        await tx
+          .update(advancedMemoryRecords)
+          .set(changes)
+          .where(and(eq(advancedMemoryRecords.chatId, chatId), eq(advancedMemoryRecords.id, recordId)));
+      });
       return status(chatId);
     });
   }

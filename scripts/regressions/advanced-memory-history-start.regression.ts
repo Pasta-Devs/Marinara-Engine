@@ -147,9 +147,31 @@ try {
     !scenes.some(
       (record) =>
         record.audienceCharacterIds.includes("visitor") &&
-        record.messageIds.some((id) => source.slice(0, 750).some((message) => message.id === id)),
+        record.messageIds.some((id) => source.slice(0, 500).some((message) => message.id === id)),
     ),
-    "a character-specific manual start remains authoritative even with an earlier confirmed knowledge range",
+    "the confirmed knowledge start bounds the archive",
+  );
+  assert(
+    scenes.some(
+      (record) => record.audienceCharacterIds.includes("visitor") && record.messageIds.includes(source[600]!.id),
+    ),
+    "a later personal live-context flag must not erase earlier confirmed memories",
+  );
+  const visitor = await memory.prepare({
+    chatId: chat.id,
+    messages: source,
+    audienceCharacterIds: ["visitor"],
+    budgetTokens: 8192,
+    readOnly: true,
+  });
+  assert.deepEqual(
+    visitor.messageIds,
+    source.slice(960).map((message) => message.id),
+    "live context still honors the latest applicable start flag",
+  );
+  assert(
+    visitor.recalledScenes?.includes("HISTORICAL_RECAP"),
+    "earlier eligible scenes remain recallable across POV cutoffs",
   );
   assert(
     !scenes.some((record) => record.audienceCharacterIds.includes("narrator")),

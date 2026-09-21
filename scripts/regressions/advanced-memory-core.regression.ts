@@ -388,6 +388,168 @@ try {
   });
   await memory.validatePrepared(privateChat.id, beforeHistoricalPolicy, alicePast.receipt);
 
+  const hiddenSceneChat = await chats.create({
+    name: "Pantalone-only hidden scene",
+    mode: "roleplay",
+    characterIds: ["maukie", "pantalone", "narrator"],
+    connectionId: connection!.id,
+  });
+  assert(hiddenSceneChat);
+  await chats.patchMetadata(hiddenSceneChat.id, {
+    groupChatMode: "individual",
+    advancedMemory: {
+      ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+      enabled: true,
+      narratorCharacterId: "narrator",
+      knowledgeStarts: { maukie: null, pantalone: null },
+    },
+  });
+  await chats.createMessagesBatch(hiddenSceneChat.id, [
+    {
+      role: "user",
+      content: "Pantalone enters the private office alone.",
+      extra: { hiddenFromAICharacterIds: ["maukie"] },
+    },
+    {
+      role: "assistant",
+      characterId: "pantalone",
+      content: "PANTALONE_PRIVATE_SECRET: The ledger belongs to Pantalone.",
+      extra: { hiddenFromAICharacterIds: ["maukie"] },
+    },
+    { role: "user", content: "SCENE_CHANGE Everyone meets at the compass shop." },
+  ]);
+  await memory.initialize(hiddenSceneChat.id);
+  const hiddenSceneSource = await chats.listMessages(hiddenSceneChat.id);
+  const privateRecaps = (await memory.status(hiddenSceneChat.id)).records.filter(
+    (record) => record.kind === "scene" && record.content && record.status === "closed",
+  );
+  assert(privateRecaps.some((record) => record.audienceCharacterIds.includes("pantalone")));
+  assert(
+    privateRecaps.every((record) => !record.audienceCharacterIds.includes("maukie")),
+    "initial processing must never assign a fully hidden Pantalone scene to Maukie",
+  );
+  const maukieRecall = await memory.prepare({
+    chatId: hiddenSceneChat.id,
+    messages: hiddenSceneSource,
+    audienceCharacterIds: ["maukie"],
+    budgetTokens: 3000,
+    readOnly: true,
+  });
+  assert.equal(maukieRecall.recalledScenes, null);
+  assert.equal(maukieRecall.recalledMessages, null);
+  assert.deepEqual(maukieRecall.messageIds, [hiddenSceneSource[2]!.id]);
+
+  await assert.rejects(
+    memory.updateRecord(
+      hiddenSceneChat.id,
+      privateRecaps.find((record) => record.audienceCharacterIds.includes("pantalone"))!.id,
+      { audienceCharacterIds: ["maukie"] },
+    ),
+    /hidden from a selected character/,
+    "manual scene access cannot bypass hidden source messages",
+  );
+  const audienceChat = await chats.create({
+    name: "POV shifts preserve editable memories",
+    mode: "roleplay",
+    characterIds: ["maukie", "pantalone", "narrator"],
+    connectionId: connection!.id,
+  });
+  assert(audienceChat);
+  await chats.createMessagesBatch(
+    audienceChat.id,
+    Array.from({ length: 9 }, (_, index) => ({
+      role: "user" as const,
+      content: `${index === 2 || index === 6 ? "SCENE_CHANGE " : ""}The brass compass promise ${index}.`,
+      extra:
+        index === 6
+          ? { isConversationStart: true }
+          : index === 7
+            ? { conversationStartForCharacterIds: ["pantalone"] }
+            : undefined,
+    })),
+  );
+  const audienceSource = await chats.listMessages(audienceChat.id);
+  await chats.patchMetadata(audienceChat.id, {
+    groupChatMode: "individual",
+    advancedMemory: {
+      ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+      enabled: true,
+      narratorCharacterId: "narrator",
+      knowledgeStarts: { maukie: null, pantalone: audienceSource[2]!.id },
+      retrieveMinMessages: 1,
+      retrieveMaxMessages: 3,
+    },
+  });
+  await memory.initialize(audienceChat.id);
+  const editable = (await memory.status(audienceChat.id)).records.find(
+    (record) =>
+      record.kind === "scene" &&
+      record.content &&
+      record.messageIds.includes(audienceSource[3]!.id) &&
+      record.audienceCharacterIds.includes("pantalone"),
+  )!;
+  assert(editable, "the initial archive includes scenes between confirmed knowledge and a later personal cutoff");
+  const requestCount = requests.length;
+  await memory.updateRecord(audienceChat.id, editable.id, { audienceCharacterIds: ["maukie"] });
+  const repaired = await memory.updateRecord(audienceChat.id, editable.id, { audienceCharacterIds: ["pantalone"] });
+  assert.equal(requests.length, requestCount, "audience corrections make no model or embedding calls");
+  const repairedScene = repaired.records.find((record) => record.id === editable.id)!;
+  assert.deepEqual(repairedScene.audienceCharacterIds, ["pantalone"]);
+  assert.equal(repairedScene.content, editable.content);
+  assert.equal(repairedScene.embeddingStatus, "vectorized", "audience-only edits reuse the existing vector");
+  const recallFor = (id: string) =>
+    memory.prepare({
+      chatId: audienceChat.id,
+      messages: audienceSource,
+      audienceCharacterIds: [id],
+      budgetTokens: 4000,
+      readOnly: true,
+    });
+  const pantaloneRecall = await recallFor("pantalone");
+  assert.deepEqual(
+    pantaloneRecall.messageIds,
+    audienceSource.slice(7).map((message) => message.id),
+    "personal flags still trim live messages",
+  );
+  assert(pantaloneRecall.receipt.recalledSceneIds.includes(editable.sceneId));
+  assert(
+    pantaloneRecall.receipt.recalledMessageIds.some((id) => editable.messageIds.includes(id)),
+    "existing indexed excerpts are reusable for a corrected, eligible audience",
+  );
+  assert(
+    !(await recallFor("maukie")).receipt.recalledSceneIds.includes(editable.sceneId),
+    "removed audience loses access immediately",
+  );
+  assert(
+    (await recallFor("narrator")).receipt.recalledSceneIds.includes(editable.sceneId),
+    "narrator retains the shared scene",
+  );
+  const beforeMaintenance = requests.filter((request) => request.kind === "summary").length;
+  await memory.initialize(audienceChat.id, { detectScenes: false });
+  assert.equal(
+    requests.filter((request) => request.kind === "summary").length,
+    beforeMaintenance,
+    "maintenance preserves the correction without generating replacement summaries",
+  );
+  assert(!(await recallFor("maukie")).receipt.recalledSceneIds.includes(editable.sceneId));
+  assert((await recallFor("pantalone")).receipt.recalledSceneIds.includes(editable.sceneId));
+  await memory.updateRecord(audienceChat.id, editable.id, {
+    audienceCharacterIds: ["maukie", "pantalone"],
+    content: "CORRECTED_GOLD compass promise.",
+  });
+  assert(
+    (await recallFor("maukie")).receipt.recalledSceneIds.includes(editable.sceneId),
+    "granting access again clears the earlier exclusion",
+  );
+  await assert.rejects(
+    memory.updateRecord(audienceChat.id, editable.id, { audienceCharacterIds: ["stranger"] }),
+    /Choose characters/,
+  );
+  await assert.rejects(
+    memory.updateRecord(audienceChat.id, editable.id, { audienceCharacterIds: ["narrator"] }),
+    /narrator already has access/,
+  );
+
   const recallChat = await chats.create({
     name: "Exact recall proof",
     mode: "roleplay",
@@ -1129,7 +1291,10 @@ try {
     try {
       await assert.rejects(memory.updateRecord(joinedChat.id, "missing", { enabled: false }), /not found/);
       await assert.rejects(memory.updateRecord(joinedChat.id, editableScene.id, { content: " " }), /Memory text/);
-      await assert.rejects(memory.updateRecord(joinedChat.id, editableScene.id, {}), /must include content or enabled/);
+      await assert.rejects(
+        memory.updateRecord(joinedChat.id, editableScene.id, {}),
+        /must include content, enabled or audience/,
+      );
       await assert.rejects(memory.deleteRecord(joinedChat.id, editableScene.sceneId), /Only a saved summary/);
       assert.equal((await memory.status(joinedChat.id)).job.status, "running", "invalid edits do not cancel paid work");
       const mutation =

@@ -218,8 +218,8 @@ try {
       await chats.createMessage({
         chatId: chat.id,
         role: index % 2 ? "assistant" : "user",
-        content: `${index === 0 && newScene ? "SCENE_CHANGE " : ""}The silver compass promise continued. ${index}`,
-        ...(index === 0 && newScene ? { extra: { isConversationStart: true } } : {}),
+        content: `${index === 1 && newScene ? "SCENE_CHANGE " : ""}The silver compass promise continued. ${index}`,
+        ...(index === 1 && newScene ? { extra: { isConversationStart: true } } : {}),
       });
   };
   await addFourMessages();
@@ -228,8 +228,18 @@ try {
     "ARCHIVED_SOURCE_ONLY: The silver compass promise began.",
   );
   calls.length = 0;
-  await generate();
+  const checkedResponse = await generate();
   await waitForSceneCheck();
+  assert.match(
+    checkedResponse.body,
+    /"type":"advanced_memory_status"[^\n]*"stage":"classifying"/u,
+    "the live generation stream delivers standalone scene-check activity",
+  );
+  assert.match(
+    checkedResponse.body,
+    /"type":"advanced_memory_status"[^\n]*"status":"ready"/u,
+    "the live generation stream stays open for scene-check completion",
+  );
   assert.deepEqual(
     calls.map((call) => call.kind),
     ["main", "scene"],
@@ -252,6 +262,13 @@ try {
   await generate();
   await waitForSceneCheck();
   assert.deepEqual(
+    JSON.parse(calls.find((call) => call.kind === "scene")!.messages[1]!.content).map(
+      (message: { messageNumber: number }) => message.messageNumber,
+    ),
+    [6, 7, 8, 9, 10],
+    "subsequent checks inspect exactly the configured number of latest messages",
+  );
+  assert.deepEqual(
     calls.slice(0, 3).map((call) => call.kind),
     ["main", "scene", "summary"],
     "a detected scene ending prepares the archive only after the main reply",
@@ -260,7 +277,7 @@ try {
   const archive = (await memory.status(chat.id)).records;
   assert(archive.some((record) => record.kind === "scene" && record.content.includes("ARCHIVED_RECAP")));
   assert(
-    archive.filter((record) => record.content).every((record) => record.endIndex <= 5),
+    archive.filter((record) => record.content).every((record) => record.endIndex <= 6),
     "only the closed scene is summarized and indexed",
   );
 
@@ -492,6 +509,12 @@ try {
       payload: { chatId: batchChat.id, forCharacterId: character.id, streaming: true },
     });
     assert(!response.body.includes('"type":"error"'), response.body);
+    assert.match(
+      response.body,
+      /"type":"advanced_memory_status"[^\n]*"stage":"classifying"/u,
+      "a bundled check has its own visible Advanced Recall activity",
+    );
+    assert.match(response.body, /"type":"advanced_memory_status"[^\n]*"status":"ready"/u);
     const source = await chats.listMessages(batchChat.id);
     await waitFor(async () => {
       const state = JSON.parse((await chats.getById(batchChat.id))!.metadata).advancedMemoryState;
@@ -645,7 +668,27 @@ try {
     releaseHelper = resolve;
   });
   calls.length = 0;
-  const beforeCombine = await generateConstants();
+  const pendingReaders: ReadableStreamDefaultReader<Uint8Array>[] = [];
+  const generateConstantsUntilDone = async () => {
+    const response = await fetch(`${url}/api/generate/`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chatId: constantsChat.id, forCharacterId: character.id, streaming: true }),
+      signal: AbortSignal.timeout(5000),
+    });
+    assert.equal(response.status, 200);
+    const reader = response.body!.getReader();
+    pendingReaders.push(reader);
+    const decoder = new TextDecoder();
+    let body = "";
+    while (!body.includes('"type":"done"')) {
+      const chunk = await reader.read();
+      assert(!chunk.done, "the generation stream must send done before closing");
+      body += decoder.decode(chunk.value, { stream: true });
+    }
+    return { body };
+  };
+  const beforeCombine = await generateConstantsUntilDone();
   assert(!beforeCombine.body.includes('"type":"error"'), beforeCombine.body);
   await waitFor(async () => calls.some((call) => call.kind === "summary"));
   assert.equal(calls[0]!.kind, "main", "constant consolidation follows the main reply");
@@ -668,7 +711,7 @@ try {
   );
   try {
     const duringCombine = await Promise.race([
-      generateConstants(),
+      generateConstantsUntilDone(),
       delay(3000).then(() => {
         throw new Error("Main generation waited for the background helper");
       }),
@@ -682,6 +725,20 @@ try {
   } finally {
     releaseHelper();
     summaryGate = undefined;
+  }
+  for (const reader of pendingReaders) {
+    const decoder = new TextDecoder();
+    let tail = "";
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      tail += decoder.decode(chunk.value, { stream: true });
+    }
+    assert.match(
+      tail,
+      /"type":"advanced_memory_status"[^\n]*"status":"ready"/u,
+      "background completion reaches the UI after the main reply is already done",
+    );
   }
   await memory.checkScenesAfterGeneration(constantsChat.id, { blocking: false });
   assert.equal(

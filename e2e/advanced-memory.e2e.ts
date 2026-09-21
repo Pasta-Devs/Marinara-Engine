@@ -1,4 +1,12 @@
-import { expect, test, type APIRequestContext, type Locator, type Page, type TestInfo } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Locator,
+  type Page,
+  type Request,
+  type TestInfo,
+} from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createServer, type ServerResponse } from "node:http";
 import type { AdvancedMemoryStatus, Message } from "@marinara-engine/shared";
@@ -665,6 +673,19 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await inspector.getByRole("button", { name: /Scene #1/ }).click();
     await expect(inspector).toContainText("Story timeframe: Before the experiment");
     await expect(inspector.getByText("Closed", { exact: true })).toBeVisible();
+    await inspector.getByRole("button", { name: "Edit character access", exact: true }).click();
+    const access = inspector.getByRole("group", { name: "Characters who can recall this scene" });
+    await expect(access).toContainText("without reprocessing the chat");
+    await access.getByText("Narrator", { exact: true }).click();
+    await expect(access.getByRole("checkbox", { name: "Narrator", exact: true })).not.toBeChecked();
+    await inspector.getByRole("button", { name: "Save correction", exact: true }).click();
+    await expect.poll(() => status.records[0]?.audienceCharacterIds).toEqual([character.id]);
+    await captureThemes(page, info, "advanced-memory-scene-access", access);
+    await access.getByText("Narrator", { exact: true }).click();
+    await expect(access.getByRole("checkbox", { name: "Narrator", exact: true })).toBeChecked();
+    await inspector.getByRole("button", { name: "Save correction", exact: true }).click();
+    await expect.poll(() => status.records[0]?.audienceCharacterIds).toEqual([character.id, narrator.id]);
+    expect(initializeBodies).toHaveLength(3);
     await inspector
       .getByRole("textbox", { name: "Summary text", exact: true })
       .fill("Correction: the notebook is green.");
@@ -927,6 +948,12 @@ test("Advanced Memory stays idle, streams OpenAI replies and follows post-genera
       ).ok(),
     ).toBeTruthy();
     let polls = 0;
+    const statusRequests = new Set<Request>();
+    page.on("request", (request) => {
+      if (request.url().endsWith(`/chats/${fixture.chat.id}/advanced-memory`)) statusRequests.add(request);
+    });
+    page.on("requestfinished", (request) => statusRequests.delete(request));
+    page.on("requestfailed", (request) => statusRequests.delete(request));
     page.on("response", (response) => {
       if (response.url().endsWith(`/chats/${fixture.chat.id}/advanced-memory`)) polls++;
     });
@@ -959,6 +986,10 @@ test("Advanced Memory stays idle, streams OpenAI replies and follows post-genera
     await expect.poll(() => !!pendingScene).toBe(true);
     const agents = page.getByRole("button", { name: /^Agents & Actions/ }).filter({ visible: true });
     await expect(agents.locator(".lucide-loader-circle")).toBeVisible();
+    await agents.click();
+    const activity = page.locator('[data-component="AdvancedRecallActivity"]');
+    await expect(activity).toContainText("Finding scene boundaries");
+    await captureThemes(page, info, "live-scene-check-activity", activity.locator(".."));
     const activePolls = polls;
     await expect.poll(() => polls).toBeGreaterThan(activePolls);
     pendingScene!.writeHead(200, { "content-type": "application/json" });
@@ -970,6 +1001,8 @@ test("Advanced Memory stays idle, streams OpenAI replies and follows post-genera
       }),
     );
     await expect(agents.locator(".lucide-loader-circle")).toHaveCount(0);
+    await expect(activity).toContainText("Memory is ready");
+    await expect.poll(() => statusRequests.size).toBe(0);
     const completedPolls = polls;
     await page.waitForTimeout(5500);
     expect(polls).toBe(completedPolls);

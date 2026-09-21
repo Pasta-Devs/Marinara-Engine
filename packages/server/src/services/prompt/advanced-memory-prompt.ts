@@ -171,8 +171,16 @@ export function resolveAdvancedMemoryPrompt<T extends { content: string }>(
     let emitted = false;
     const pattern = new RegExp(`(^[ \\t]*)?${placement.token}`, "gm");
     for (const message of result) {
+      if (!rendered) {
+        // Remove the empty section's separator, preserving authored spacing elsewhere.
+        message.content = message.content.replace(
+          new RegExp(`(\\n{0,2})[ \\t]*${placement.token}[ \\t]*(\\n{0,2})`, "g"),
+          (_match, before: string, after: string) => "\n".repeat(Math.min(before.length, after.length)),
+        );
+        continue;
+      }
       message.content = message.content.replace(pattern, (_match, indent: string | undefined) => {
-        if (emitted || !rendered) return "";
+        if (emitted) return "";
         emitted = true;
         return rendered
           .split("\n")

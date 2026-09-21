@@ -26,9 +26,11 @@ const reasonKeys: Record<string, string> = {
 export function AdvancedMemoryInspector({
   chatId,
   characters,
+  individual,
 }: {
   chatId: string;
   characters: MemoryCharacterOption[];
+  individual: boolean;
 }) {
   const { t } = useTranslation();
   const status = useAdvancedMemoryStatus(chatId);
@@ -37,6 +39,8 @@ export function AdvancedMemoryInspector({
   const fileInput = useRef<HTMLInputElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [draftAudience, setDraftAudience] = useState<string[]>([]);
+  const [editAudience, setEditAudience] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [search, setSearch] = useState("");
   const sources = useAdvancedMemorySources(chatId, showSources ? selectedId : null);
@@ -70,6 +74,8 @@ export function AdvancedMemoryInspector({
       ? t("chat.advancedMemory.sceneNumber", { number: sceneNumbers.get(record.sceneId) })
       : t(`chat.advancedMemory.kind.${record.kind}`);
   const selected = records.find((record) => record.id === selectedId);
+  const audienceChanged =
+    !!selected && [...draftAudience].sort().join("\0") !== [...selected.audienceCharacterIds].sort().join("\0");
   const receipt = status.data?.latestReceipt;
   const pending = action.isPending || status.data?.job.status === "running";
   const characterName = (id: string) => characters.find((character) => character.id === id)?.name ?? id;
@@ -107,6 +113,8 @@ export function AdvancedMemoryInspector({
   const openRecord = (record: AdvancedMemoryRecord) => {
     setSelectedId(record.id);
     setDraft(record.content);
+    setDraftAudience(record.audienceCharacterIds);
+    setEditAudience(false);
     setShowSources(false);
   };
   const deleteSummary = async (record: AdvancedMemoryRecord) => {
@@ -288,6 +296,46 @@ export function AdvancedMemoryInspector({
             labelPosition="start"
             className="justify-between"
           />
+          {individual && selected.kind === "scene" && selected.id !== selected.sceneId && (
+            <div className="space-y-2">
+              <button
+                type="button"
+                className={`${buttonClass} w-full`}
+                aria-expanded={editAudience}
+                onClick={() => setEditAudience((value) => !value)}
+              >
+                {t("chat.advancedMemory.editAudience")}
+              </button>
+              {editAudience && (
+                <fieldset className="space-y-2 rounded-lg border border-[var(--border)] p-3">
+                  <legend className="px-1 text-xs font-medium">{t("chat.advancedMemory.audienceLegend")}</legend>
+                  <p className="text-xs text-[var(--muted-foreground)]">{t("chat.advancedMemory.audienceHelp")}</p>
+                  {characters
+                    .filter((character) => character.id !== status.data?.settings.narratorCharacterId)
+                    .map((character) => (
+                      <SettingsSwitch
+                        key={character.id}
+                        label={character.name}
+                        checked={draftAudience.includes(character.id)}
+                        disabled={action.isPending}
+                        labelPosition="start"
+                        className="min-h-11 justify-between"
+                        onChange={(checked) =>
+                          setDraftAudience((current) =>
+                            checked ? [...current, character.id] : current.filter((id) => id !== character.id),
+                          )
+                        }
+                      />
+                    ))}
+                  {audienceChanged && !draftAudience.length && (
+                    <p role="status" className="text-xs text-[var(--muted-foreground)]">
+                      {t("chat.advancedMemory.audienceEmpty")}
+                    </p>
+                  )}
+                </fieldset>
+              )}
+            </div>
+          )}
           <label className="block space-y-1 text-xs">
             <span>{t("chat.advancedMemory.summaryText")}</span>
             <textarea
@@ -304,8 +352,22 @@ export function AdvancedMemoryInspector({
           <button
             type="button"
             className={`${buttonClass} w-full`}
-            disabled={action.isPending || !draft.trim() || draft === selected.content}
-            onClick={() => action.mutate({ action: "record", recordId: selected.id, patch: { content: draft } })}
+            disabled={
+              action.isPending ||
+              !draft.trim() ||
+              (draft === selected.content && !audienceChanged) ||
+              (audienceChanged && !draftAudience.length)
+            }
+            onClick={() =>
+              action.mutate({
+                action: "record",
+                recordId: selected.id,
+                patch: {
+                  ...(draft !== selected.content ? { content: draft } : {}),
+                  ...(audienceChanged ? { audienceCharacterIds: draftAudience } : {}),
+                },
+              })
+            }
           >
             {t("chat.advancedMemory.save")}
           </button>

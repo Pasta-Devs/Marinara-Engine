@@ -39,7 +39,11 @@ type AdvancedMemoryAction =
     }
   | { action: "initialize"; settings?: Partial<AdvancedMemorySettings>; debugMode?: boolean }
   | { action: "cancel" | "reindex" | "reset" }
-  | { action: "record"; recordId: string; patch: { content?: string; enabled?: boolean } }
+  | {
+      action: "record";
+      recordId: string;
+      patch: { content?: string; enabled?: boolean; audienceCharacterIds?: string[] };
+    }
   | { action: "delete-record"; recordId: string }
   | { action: "import"; envelope: unknown };
 
