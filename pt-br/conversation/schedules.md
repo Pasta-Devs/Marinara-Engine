@@ -92,7 +92,7 @@ Se quiser, digite orientações na caixa **Week guidance**, por exemplo:
 make weekdays more nocturnal, keep weekends social
 ```
 
-Depois clique no botão com o nome da ação escolhida, como **Rewrite week**. O resultado é apenas um rascunho. Marinara só salva quando você clica em **Save schedule**. Se o modelo retornar JSON inválido, corrija em **Edit generated schedule JSON** (editar JSON da agenda gerada) e escolha **Apply to draft** (aplicar ao rascunho). Correções validadas e dias gerados com sucesso ficam no rascunho até salvar. Uma falha para a chamada sem tentar de novo automaticamente. **Stop** ou fechar o editor cancela a solicitação ativa. Fechar o gerenciador ou as configurações do chat também cancela a geração iniciada ali.
+Depois clique no botão com o nome da ação escolhida, como **Rewrite week**. O resultado é apenas um rascunho. Marinara só salva quando você clica em **Save schedule**. Se o modelo retornar JSON inválido, corrija em **Edit generated schedule JSON** (editar JSON da agenda gerada) e escolha **Apply to draft** (aplicar ao rascunho). Correções validadas e dias gerados com sucesso ficam no rascunho até salvar. Uma falha interrompe a chamada sem tentar novamente de forma automática. **Stop** ou fechar o editor cancela a solicitação ativa. Fechar o gerenciador ou as configurações do chat também cancela a geração iniciada ali.
 
 ### Blocos diários
 
