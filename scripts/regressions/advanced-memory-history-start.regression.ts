@@ -67,6 +67,109 @@ try {
     maxTokensOverride: 1024,
     embeddingModel: "fixture-embedding",
   });
+  const cycleChat = await chats.create({
+    name: "Context resets then grows",
+    mode: "roleplay",
+    characterIds: [],
+    connectionId: connection.id,
+  });
+  assert(cycleChat);
+  await chats.createMessagesBatch(
+    cycleChat.id,
+    Array.from({ length: 30 }, (_, index) => ({
+      role: "user" as const,
+      content: `${index === 10 || index === 20 ? "SCENE_CHANGE " : ""}The brass compass journey continues. `.repeat(12),
+    })),
+  );
+  await memory.updateSettings(cycleChat.id, {
+    enabled: true,
+    maxContextTokens: 8192,
+    summaryBudgetTokens: 512,
+    retrieveMaxScenes: 0,
+  });
+  await memory.initialize(cycleChat.id);
+  const cycleSource = await chats.listMessages(cycleChat.id);
+  const allLive = await memory.prepare({
+    chatId: cycleChat.id,
+    messages: cycleSource,
+    audienceCharacterIds: [],
+    budgetTokens: 100_000,
+    readOnly: true,
+  });
+  const cycleBudget = Math.floor(allLive.receipt.estimatedTokensAfter * 0.8);
+  const resetWindow = await memory.prepare({
+    chatId: cycleChat.id,
+    messages: cycleSource,
+    audienceCharacterIds: [],
+    budgetTokens: cycleBudget,
+  });
+  assert.deepEqual(
+    resetWindow.messageIds,
+    cycleSource.slice(20).map((message) => message.id),
+    "crossing the cap resets to the latest scene even when dropping only the oldest scene would fit",
+  );
+  assert(resetWindow.receipt.estimatedTokensAfter < cycleBudget * 0.6, "the reset leaves substantial room for growth");
+  const moreRoom = await memory.prepare({
+    chatId: cycleChat.id,
+    messages: cycleSource,
+    audienceCharacterIds: [],
+    budgetTokens: 100_000,
+  });
+  assert.deepEqual(
+    moreRoom.messageIds,
+    resetWindow.messageIds,
+    "more room or compacted constants must not backfill old scenes",
+  );
+  await chats.createMessagesBatch(cycleChat.id, [
+    { role: "user", content: "SCENE_CHANGE The brass compass reaches the next village." },
+  ]);
+  const nextSceneCheck = await memory.getSceneCheck(cycleChat.id, { force: true });
+  assert(nextSceneCheck);
+  await memory.commitSceneCheck(cycleChat.id, nextSceneCheck, { ends: [{ messageNumber: 30 }] });
+  let growingSource = await chats.listMessages(cycleChat.id);
+  const growing = await memory.prepare({
+    chatId: cycleChat.id,
+    messages: growingSource,
+    audienceCharacterIds: [],
+    budgetTokens: cycleBudget,
+  });
+  assert.deepEqual(
+    growing.messageIds,
+    growingSource.slice(20).map((message) => message.id),
+    "a new scene alone does not move the cutoff while the window fits",
+  );
+  await chats.createMessagesBatch(
+    cycleChat.id,
+    Array.from({ length: 16 }, () => ({
+      role: "user" as const,
+      content: "The brass compass journey continues. ".repeat(12),
+    })),
+  );
+  growingSource = await chats.listMessages(cycleChat.id);
+  const nextReset = await memory.prepare({
+    chatId: cycleChat.id,
+    messages: growingSource,
+    audienceCharacterIds: [],
+    budgetTokens: cycleBudget,
+  });
+  assert.deepEqual(
+    nextReset.messageIds,
+    growingSource.slice(30).map((message) => message.id),
+    "growth to the cap triggers the next reset to the latest scene",
+  );
+  const historicalWindow = await memory.prepare({
+    chatId: cycleChat.id,
+    messages: growingSource.slice(0, 29),
+    audienceCharacterIds: [],
+    budgetTokens: 100_000,
+    readOnly: true,
+  });
+  assert.equal(
+    historicalWindow.messageIds[0],
+    growingSource[0]!.id,
+    "a later automatic reset does not change historical prompt preparation",
+  );
+
   const chat = await chats.create({
     name: "1000 messages with a late context start",
     mode: "roleplay",
@@ -223,7 +326,14 @@ try {
   assert(prepared.receipt.recalledSceneIds.length, "scenes before the marker remain eligible for recall");
   assert.deepEqual(
     (await memory.status(chat.id)).job.contextStarts,
-    [{ messageId: source[960]!.id, audienceCharacterIds: ["traveler"] }],
+    [
+      {
+        messageId: source[960]!.id,
+        audienceCharacterIds: ["traveler"],
+        sceneStartMessageId: source[960]!.id,
+        manualStartMessageId: source[960]!.id,
+      },
+    ],
     "the visible marker follows the first live message",
   );
   await memory.validatePrepared(chat.id, source, prepared.receipt);
@@ -251,7 +361,14 @@ try {
   const visibleStarts = (await memory.status(chat.id)).job.contextStarts;
   assert.deepEqual(
     visibleStarts,
-    [{ messageId: compressed.messageIds[0], audienceCharacterIds: ["traveler"] }],
+    [
+      {
+        messageId: compressed.messageIds[0],
+        audienceCharacterIds: ["traveler"],
+        sceneStartMessageId: source[960]!.id,
+        manualStartMessageId: source[960]!.id,
+      },
+    ],
     "the marker moves after compressing an ongoing scene, not just at closed-scene boundaries",
   );
   await memory.prepare({

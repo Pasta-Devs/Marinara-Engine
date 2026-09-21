@@ -20760,12 +20760,21 @@ test("chat image preview allows native mobile pinch zoom", async ({ page, reques
     if (browserName === "chromium") {
       // Drive the browser's native touch gesture, without mocking visualViewport.
       const session = await page.context().newCDPSession(page);
-      await session.send("Input.synthesizePinchGesture", {
-        x: before!.x + before!.width / 2,
-        y: before!.y + before!.height / 2,
-        scaleFactor: 2,
-        gestureSourceType: "touch",
-      });
+      const centerX = before!.x + before!.width / 2;
+      const centerY = before!.y + before!.height / 2;
+      // synthesizePinchGesture is a no-op in Linux headless Chromium, even on a blank page.
+      for (let step = 0; step <= 10; step++) {
+        const offset = 30 + step * 6;
+        await session.send("Input.dispatchTouchEvent", {
+          type: step === 0 ? "touchStart" : "touchMove",
+          touchPoints: [
+            { x: centerX - offset, y: centerY, id: 0 },
+            { x: centerX + offset, y: centerY, id: 1 },
+          ],
+        });
+        await page.evaluate(() => new Promise(requestAnimationFrame));
+      }
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
       await expect.poll(() => page.evaluate(() => window.visualViewport?.scale ?? 1)).toBeGreaterThan(1.5);
       await expect(page.locator("html")).not.toHaveAttribute("data-mari-software-keyboard-open");
       expect((await image.boundingBox())!.width).toBeCloseTo(before!.width, 0);

@@ -35,7 +35,14 @@ export interface AdvancedMemoryJob {
   error: string | null;
   processedMessageId?: string | null;
   /** Visible live-context starts, separate from manually chosen character knowledge boundaries. */
-  contextStarts?: Array<{ messageId: string; audienceCharacterIds: string[] }>;
+  contextStarts?: Array<{
+    messageId: string;
+    audienceCharacterIds: string[];
+    /** Keep this scene boundary until the live window reaches its budget again. */
+    sceneStartMessageId?: string | null;
+    /** A changed manual flag replaces the automatic window. */
+    manualStartMessageId?: string | null;
+  }>;
 }
 
 export interface AdvancedMemoryRecord {

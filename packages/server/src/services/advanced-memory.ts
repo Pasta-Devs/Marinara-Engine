@@ -218,7 +218,7 @@ function policyFingerprint(ctx: Context): string {
 
 function preparationPolicyRevision(ctx: Context): string {
   return hash([
-    "archive-knowledge-live-start-v10", // Invalidate reusable contexts without rebuilding valid source archives.
+    "scene-reset-live-start-v11", // Invalidate reusable contexts without rebuilding valid source archives.
     policyFingerprint(ctx),
     ctx.settings,
     ctx.metadata.summaryEntries,
@@ -2243,8 +2243,22 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     ) {
       receipt.reasons.push("unverified-summary-omitted");
     }
-    const contextStart = contextStartMessageId(sources, audience.length ? audience : ctx.characterIds);
-    let boundaryIndex = contextStart ? indexes.get(contextStart)! - 1 : -1;
+    const manualStart = contextStartMessageId(sources, audience.length ? audience : ctx.characterIds);
+    const savedStarts = object(ctx.metadata.advancedMemoryState).contextStarts;
+    const savedStart =
+      !historical && Array.isArray(savedStarts)
+        ? savedStarts
+            .map(object)
+            .find(
+              (start) =>
+                hash(strings(start.audienceCharacterIds)) === hash(audience) &&
+                (start.manualStartMessageId ?? null) === (manualStart || null),
+            )
+        : undefined;
+    let boundaryIndex = Math.max(
+      manualStart ? indexes.get(manualStart)! - 1 : -1,
+      typeof savedStart?.sceneStartMessageId === "string" ? (indexes.get(savedStart.sceneStartMessageId) ?? 0) - 1 : -1,
+    );
     let live = eligible.filter((message) => indexes.get(message.id)! > boundaryIndex);
     let chatSummary = sourceEntries(ctx, sources, historical)
       .map((entry) => {
@@ -2268,7 +2282,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       .join("\n\n");
     const scenes = available
       .filter((record) => record.kind === "scene" && record.id === record.sceneId && record.status === "closed")
-      .sort((a, b) => indexes.get(a.endMessageId)! - indexes.get(b.endMessageId)!);
+      .sort((a, b) => indexes.get(b.endMessageId)! - indexes.get(a.endMessageId)!);
     for (const scene of scenes) {
       if (historySize(ctx, live) + tokenSize(chatSummary) <= budget) break;
       const end = indexes.get(scene.endMessageId);
@@ -2276,6 +2290,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       boundaryIndex = end;
       live = eligible.filter((message) => indexes.get(message.id)! > boundaryIndex);
       if (!receipt.reasons.includes("scene-boundary-rollover")) receipt.reasons.push("scene-boundary-rollover");
+      // Reset to the newest known scene, then let this window grow again.
+      break;
     }
     const boundary = boundaryIndex >= 0 ? sources[boundaryIndex]!.id : null;
     // Keep enabled constants while any needed consolidation runs after the reply.
@@ -2542,7 +2558,18 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           const starts = Array.isArray(state.contextStarts) ? state.contextStarts : [];
           const contextStarts = [
             ...starts.filter((entry) => hash(strings(object(entry).audienceCharacterIds)) !== hash(audience)),
-            ...(contextStart ? [{ messageId: contextStart, audienceCharacterIds: audience }] : []),
+            ...(contextStart
+              ? [
+                  {
+                    messageId: contextStart,
+                    audienceCharacterIds: audience,
+                    // Preserve the scene reset separately from an oversized unfinished
+                    // scene's temporary excerpt, so that excerpt is not lost next turn.
+                    sceneStartMessageId: boundaryIndex >= 0 ? (sources[boundaryIndex + 1]?.id ?? null) : null,
+                    manualStartMessageId: manualStart || null,
+                  },
+                ]
+              : []),
           ];
           return hash(starts) === hash(contextStarts) ? {} : { advancedMemoryState: { ...state, contextStarts } };
         },
