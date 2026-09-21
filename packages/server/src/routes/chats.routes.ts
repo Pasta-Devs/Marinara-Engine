@@ -2301,8 +2301,27 @@ export async function chatsRoutes(app: FastifyInstance) {
           partial[key] = normalizeMessageCharacterIds(partial[key]);
         }
       }
-      const updated =
-        swipeIndex === undefined
+      const syncAllSwipeExtra: Record<string, unknown> = {};
+      if (Object.prototype.hasOwnProperty.call(partial, "hiddenFromAI")) {
+        syncAllSwipeExtra.hiddenFromAI = partial.hiddenFromAI;
+      }
+      if (Object.prototype.hasOwnProperty.call(partial, "hiddenFromAICharacterIds")) {
+        syncAllSwipeExtra.hiddenFromAICharacterIds = partial.hiddenFromAICharacterIds;
+      }
+      if (Object.prototype.hasOwnProperty.call(partial, "isConversationStart")) {
+        syncAllSwipeExtra.isConversationStart = partial.isConversationStart;
+      }
+      if (Object.prototype.hasOwnProperty.call(partial, "conversationStartForCharacterIds")) {
+        syncAllSwipeExtra.conversationStartForCharacterIds = partial.conversationStartForCharacterIds;
+      }
+      if (Object.prototype.hasOwnProperty.call(partial, "reactions")) {
+        syncAllSwipeExtra.reactions = partial.reactions;
+      }
+
+      const contextFlagChanged = Object.prototype.hasOwnProperty.call(partial, "isConversationStart");
+      const updated = contextFlagChanged
+        ? await storage.updateMessageExtraWithContextStart(req.params.messageId, partial, syncAllSwipeExtra, swipeIndex)
+        : swipeIndex === undefined
           ? await storage.updateMessageExtra(req.params.messageId, partial)
           : await storage.updateMessageExtraForSwipe(req.params.messageId, swipeIndex, partial);
       if (!updated) return reply.status(404).send({ error: "Message not found" });
@@ -2323,62 +2342,13 @@ export async function chatsRoutes(app: FastifyInstance) {
           );
         if (userReacted) recordUserReaction(req.params.chatId);
       }
-      const syncAllSwipeExtra: Record<string, unknown> = {};
-      if (Object.prototype.hasOwnProperty.call(partial, "hiddenFromAI")) {
-        syncAllSwipeExtra.hiddenFromAI = partial.hiddenFromAI;
-      }
-      if (Object.prototype.hasOwnProperty.call(partial, "hiddenFromAICharacterIds")) {
-        syncAllSwipeExtra.hiddenFromAICharacterIds = partial.hiddenFromAICharacterIds;
-      }
-      if (Object.prototype.hasOwnProperty.call(partial, "isConversationStart")) {
-        syncAllSwipeExtra.isConversationStart = partial.isConversationStart;
-      }
-      if (Object.prototype.hasOwnProperty.call(partial, "conversationStartForCharacterIds")) {
-        syncAllSwipeExtra.conversationStartForCharacterIds = partial.conversationStartForCharacterIds;
-      }
-      if (Object.prototype.hasOwnProperty.call(partial, "reactions")) {
-        syncAllSwipeExtra.reactions = partial.reactions;
-      }
 
-      if (Object.keys(syncAllSwipeExtra).length > 0) {
-        // AI visibility, context boundaries, and reactions are message-level fields, so keep them
-        // stable across swipe changes instead of binding them to one swipe.
+      if (!contextFlagChanged && Object.keys(syncAllSwipeExtra).length > 0) {
+        // Message-level fields stay stable across swipe changes.
         const swipes = await storage.getSwipes(req.params.messageId);
         for (const swipe of swipes) {
           await storage.updateSwipeExtra(req.params.messageId, swipe.index, syncAllSwipeExtra);
         }
-      }
-
-      if (Object.prototype.hasOwnProperty.call(partial, "isConversationStart")) {
-        await storage.patchMetadata(
-          req.params.chatId,
-          (metadata) => {
-            const state = parseExtra(metadata.advancedMemoryState);
-            if (!Array.isArray(state.contextStarts) || !state.contextStarts.length) return {};
-            const previousShared = parseExtra(message.extra).isConversationStart === true;
-            // A new manual shared flag replaces the automatic window. Unchecking
-            // the automatic flag itself clears it through this same control.
-            const contextStarts =
-              partial.isConversationStart === true && !previousShared
-                ? []
-                : state.contextStarts.filter((raw) => {
-                    const start = parseExtra(raw);
-                    return start.messageId !== message.id && start.sceneStartMessageId !== message.id;
-                  });
-            if (contextStarts.length === state.contextStarts.length) return {};
-            return {
-              advancedMemoryState: {
-                ...state,
-                contextStarts,
-                contextStartRevision:
-                  (typeof state.contextStartRevision === "number" && Number.isFinite(state.contextStartRevision)
-                    ? state.contextStartRevision
-                    : 0) + 1,
-              },
-            };
-          },
-          { touchUpdatedAt: false },
-        );
       }
 
       return updated;

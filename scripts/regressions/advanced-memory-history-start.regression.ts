@@ -44,6 +44,7 @@ const { createConnectionsStorage } = await import("../../packages/server/src/ser
 const { createAdvancedMemoryService } = await import("../../packages/server/src/services/advanced-memory.js");
 const { advancedMemoryRoutes } = await import("../../packages/server/src/routes/advanced-memory.routes.js");
 const { chatsRoutes } = await import("../../packages/server/src/routes/chats.routes.js");
+const { chats: chatsTable } = await import("../../packages/server/src/db/schema/index.js");
 const { prepareAdvancedMemoryContext } =
   await import("../../packages/server/src/services/generation/advanced-memory-context.js");
 const { createAdvancedMemoryPlacement } =
@@ -181,6 +182,44 @@ try {
     payload: { conversationStartForCharacterIds: ["second"] },
   });
   assert.equal(personalStart.statusCode, 200, personalStart.body);
+  const cutoffId = growingSource[30]!.id;
+  await chats.addSwipe(cutoffId, growingSource[30]!.content);
+  await chats.addSwipe(cutoffId, growingSource[30]!.content);
+  const beforeFailedFlag = {
+    message: await chats.getMessage(cutoffId),
+    swipes: await chats.getSwipes(cutoffId),
+    chat: await chats.getById(cycleChat.id),
+  };
+  const missingSwipe = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${cycleChat.id}/messages/${cutoffId}/extra?swipeIndex=999`,
+    payload: { isConversationStart: false },
+  });
+  assert.equal(missingSwipe.statusCode, 404);
+  const update = db.update.bind(db);
+  db.update = ((table: Parameters<typeof db.update>[0]) => {
+    if (table === chatsTable) throw new Error("Forced cutoff metadata write failure");
+    return update(table);
+  }) as typeof db.update;
+  try {
+    const failedFlag = await app.inject({
+      method: "PATCH",
+      url: `/api/chats/${cycleChat.id}/messages/${cutoffId}/extra`,
+      payload: { isConversationStart: false, conversationStartForCharacterIds: [] },
+    });
+    assert.equal(failedFlag.statusCode, 500);
+  } finally {
+    db.update = update;
+  }
+  assert.deepEqual(
+    {
+      message: await chats.getMessage(cutoffId),
+      swipes: await chats.getSwipes(cutoffId),
+      chat: await chats.getById(cycleChat.id),
+    },
+    beforeFailedFlag,
+    "a failed cutoff save must leave the message, swipes and metadata unchanged",
+  );
   const cleared = await app.inject({
     method: "PATCH",
     url: `/api/chats/${cycleChat.id}/messages/${growingSource[30]!.id}/extra`,
@@ -188,6 +227,7 @@ try {
   });
   assert.equal(cleared.statusCode, 200, cleared.body);
   assert.deepEqual((await memory.status(cycleChat.id)).job.contextStarts, []);
+  assert((await chats.getSwipes(cutoffId)).every((swipe) => JSON.parse(swipe.extra).isConversationStart === false));
   const restoredSource = await chats.listMessages(cycleChat.id);
   for (const characterId of ["first", "second"]) {
     const restored = await memory.prepare({
