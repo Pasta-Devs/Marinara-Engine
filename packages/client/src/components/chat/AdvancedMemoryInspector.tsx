@@ -74,6 +74,8 @@ export function AdvancedMemoryInspector({
       ? t("chat.advancedMemory.sceneNumber", { number: sceneNumbers.get(record.sceneId) })
       : t(`chat.advancedMemory.kind.${record.kind}`);
   const selected = records.find((record) => record.id === selectedId);
+  const reviewCorrection =
+    selected?.kind === "scene" && selected.manualOverride && selected.embeddingStatus === "stale";
   const audienceChanged =
     !!selected && [...draftAudience].sort().join("\0") !== [...selected.audienceCharacterIds].sort().join("\0");
   const receipt = status.data?.latestReceipt;
@@ -349,13 +351,18 @@ export function AdvancedMemoryInspector({
             <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("chat.advancedMemory.openSceneHelp")}</p>
           )}
           <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("chat.advancedMemory.editHelp")}</p>
+          {reviewCorrection && (
+            <p role="status" className="text-xs text-[var(--muted-foreground)]">
+              {t("chat.advancedMemory.reviewCorrectionHelp")}
+            </p>
+          )}
           <button
             type="button"
             className={`${buttonClass} w-full`}
             disabled={
               action.isPending ||
               !draft.trim() ||
-              (draft === selected.content && !audienceChanged) ||
+              (draft === selected.content && !audienceChanged && !reviewCorrection) ||
               (audienceChanged && !draftAudience.length)
             }
             onClick={() =>
@@ -363,7 +370,7 @@ export function AdvancedMemoryInspector({
                 action: "record",
                 recordId: selected.id,
                 patch: {
-                  ...(draft !== selected.content ? { content: draft } : {}),
+                  ...(draft !== selected.content || reviewCorrection ? { content: draft } : {}),
                   ...(audienceChanged ? { audienceCharacterIds: draftAudience } : {}),
                 },
               })

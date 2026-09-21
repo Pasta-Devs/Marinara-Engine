@@ -14,6 +14,7 @@ process.env.MARINARA_LITE = "true";
 
 const requests: Array<{ kind: string; text: string }> = [];
 let beforeSummary: (() => Promise<void>) | null = null;
+let beforeEmbedding: (() => Promise<void>) | null = null;
 let sceneFinishReason = "stop";
 const server = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
@@ -26,6 +27,9 @@ const server = createServer(async (request, response) => {
   if (request.url?.endsWith("/embeddings")) {
     const input = Array.isArray(body.input) ? body.input : [body.input ?? ""];
     requests.push({ kind: "embedding", text: input.join("\n") });
+    const callback = beforeEmbedding;
+    beforeEmbedding = null;
+    if (callback) await callback();
     response.end(
       JSON.stringify({
         data: input.map((text, index) => ({ index, embedding: [1, text.includes("compass") ? 1 : 0, 0.5] })),
@@ -550,6 +554,19 @@ try {
     /narrator already has access/,
   );
 
+  const editedContent = "CORRECTED_GOLD compass promise.\nThe road continues.";
+  await memory.updateRecord(audienceChat.id, editable.id, { content: editedContent });
+  const beforeReindexRequests = requests.length;
+  await memory.reindex(audienceChat.id);
+  const reindexedScene = (await memory.status(audienceChat.id)).records.find((record) => record.id === editable.id);
+  assert.equal(reindexedScene?.content, editedContent, "reindex preserves manual summary text");
+  assert.deepEqual(reindexedScene?.audienceCharacterIds, ["maukie", "pantalone"]);
+  assert.equal(reindexedScene?.embeddingStatus, "vectorized");
+  assert(
+    requests.slice(beforeReindexRequests).every((request) => request.kind === "embedding"),
+    "reindexing existing edited memories only makes embedding calls",
+  );
+
   const recallChat = await chats.create({
     name: "Exact recall proof",
     mode: "roleplay",
@@ -1004,10 +1021,99 @@ try {
     content: "IMPORTED_MISSING_SUMMARY_CORRECTION",
   });
   const dependencyExport = await memory.exportMemory(dependencySource.id);
+  // Older releases kept generated-summary dependencies on manually edited scenes.
+  // Preserve that legacy fixture to test unsupported import and explicit recovery.
+  dependencyExport.records.find((entry) => entry.record.id === sourceManualScene.id)!.record.dependencies =
+    sourceManualScene.dependencies;
   const exportedDependency = dependencyExport.records.find((entry) => entry.record.id === legacyDependencyId);
   assert(
     exportedDependency?.valid &&
       exportedDependency.record.dependencies.some((dependency) => dependency.id === "summary:required-manual-summary"),
+  );
+
+  const sourceMetadata = JSON.parse((await chats.getById(dependencySource.id))!.metadata);
+  await chats.patchMetadata(dependencySource.id, {
+    summaryEntries: sourceMetadata.summaryEntries.map((entry: Record<string, unknown>) => ({
+      ...entry,
+      title: "Renamed constant summary",
+      updatedAt: new Date(Date.now() + 1_000).toISOString(),
+    })),
+  });
+  const savedCorrection = await memory.updateRecord(dependencySource.id, sourceManualScene.id, {
+    content: "IMPORTED_DISABLED_SCENE_CORRECTION\nBlank lines removed.",
+  });
+  assert.equal(
+    savedCorrection.records.find((record) => record.id === sourceManualScene.id)?.embeddingStatus,
+    "pending",
+    "saving a scene correction accepts its text independently of old generated-summary dependencies",
+  );
+  const reindexRequests = requests.length;
+  await memory.reindex(dependencySource.id);
+  const reindexedCorrection = await memory.status(dependencySource.id);
+  assert.equal(reindexedCorrection.job.status, "ready");
+  assert.equal(
+    reindexedCorrection.records.find((record) => record.id === sourceManualScene.id)?.embeddingStatus,
+    "vectorized",
+  );
+  assert(requests.slice(reindexRequests).every((request) => request.kind === "embedding"));
+
+  const accessCorrectionChat = await chats.create({
+    name: "Correcting a scene from Maukie to Pantalone",
+    mode: "roleplay",
+    characterIds: ["maukie", "pantalone"],
+    connectionId: connection!.id,
+  });
+  assert(accessCorrectionChat);
+  await chats.createMessagesBatch(
+    accessCorrectionChat.id,
+    dependencyMessages.map((message) => ({ role: "user" as const, content: message.content })),
+  );
+  const accessSource = await chats.listMessages(accessCorrectionChat.id);
+  await chats.patchMetadata(accessCorrectionChat.id, {
+    groupChatMode: "individual",
+    advancedMemory: {
+      ...dependencySettings,
+      knowledgeStarts: { maukie: null, pantalone: accessSource[3]!.id },
+    },
+    summaryEntries: sourceMetadata.summaryEntries.map((entry: Record<string, unknown>) => ({
+      ...entry,
+      messageIds: accessSource.slice(0, 2).map((message) => message.id),
+    })),
+  });
+  await memory.initialize(accessCorrectionChat.id);
+  const accessScene = (await memory.status(accessCorrectionChat.id)).records.find(
+    (record) => record.kind === "scene" && record.content && record.audienceCharacterIds.includes("maukie"),
+  )!;
+  assert(accessScene.dependencies.length > 0);
+  await memory.updateSettings(accessCorrectionChat.id, { knowledgeStarts: { maukie: null, pantalone: null } });
+  const accessMetadata = JSON.parse((await chats.getById(accessCorrectionChat.id))!.metadata);
+  await chats.patchMetadata(accessCorrectionChat.id, {
+    summaryEntries: accessMetadata.summaryEntries.map((entry: Record<string, unknown>) => ({
+      ...entry,
+      enabled: false,
+    })),
+  });
+  await memory.updateRecord(accessCorrectionChat.id, accessScene.id, { audienceCharacterIds: ["pantalone"] });
+  const beforeAccessReindex = requests.length;
+  await memory.reindex(accessCorrectionChat.id);
+  const indexedAccessScene = (await memory.status(accessCorrectionChat.id)).records.find(
+    (record) => record.id === accessScene.id,
+  )!;
+  assert.equal(indexedAccessScene.content, accessScene.content, "an audience-only correction preserves summary text");
+  assert.deepEqual(indexedAccessScene.audienceCharacterIds, ["pantalone"]);
+  assert.equal(indexedAccessScene.embeddingStatus, "vectorized");
+  assert(requests.slice(beforeAccessReindex).every((request) => request.kind === "embedding"));
+  await memory.initialize(accessCorrectionChat.id);
+  assert.equal(
+    (await memory.status(accessCorrectionChat.id)).records.find((record) => record.id === accessScene.id)?.content,
+    accessScene.content,
+    "later preparation also preserves the corrected scene",
+  );
+  await chats.updateMessageExtra(accessSource[0]!.id, { hiddenFromAICharacterIds: ["pantalone"] });
+  await assert.rejects(
+    memory.updateRecord(accessCorrectionChat.id, accessScene.id, { content: accessScene.content }),
+    /no longer available to its selected characters/,
+    "saving an unchanged correction cannot grant access to hidden messages",
   );
 
   const dependencyTarget = await chats.create({
@@ -1167,13 +1273,33 @@ try {
   await memory.updateRecord(maintenanceTarget.id, disabledImportedScene.id, { enabled: true });
   await assert.rejects(
     memory.initialize(maintenanceTarget.id),
-    /manually corrected memory.*changed source messages/iu,
+    /manually corrected memory.*changed sources/iu,
     "enabled stale manual corrections still require explicit review",
   );
   assert.equal(
     (await memory.status(maintenanceTarget.id)).records.find((record) => record.id === disabledImportedScene.id)
       ?.content,
     "IMPORTED_DISABLED_SCENE_CORRECTION",
+  );
+
+  const beforeStaleReindex = requests.length;
+  await memory.reindex(maintenanceTarget.id);
+  assert(requests.slice(beforeStaleReindex).every((request) => request.kind === "embedding"));
+  assert.equal(
+    (await memory.status(maintenanceTarget.id)).records.find((record) => record.id === disabledImportedScene.id)
+      ?.embeddingStatus,
+    "stale",
+    "reindex keeps an unreviewed legacy correction excluded instead of approving or regenerating it",
+  );
+  await memory.updateRecord(maintenanceTarget.id, disabledImportedScene.id, {
+    content: disabledImportedScene.content,
+  });
+  await memory.reindex(maintenanceTarget.id);
+  assert.equal(
+    (await memory.status(maintenanceTarget.id)).records.find((record) => record.id === disabledImportedScene.id)
+      ?.embeddingStatus,
+    "vectorized",
+    "saving the unchanged correction recovers a legacy stale scene without regeneration",
   );
 
   await memory.updateRecord(maintenanceTarget.id, disabledImportedScene.id, { enabled: false });
@@ -1207,7 +1333,7 @@ try {
   await memory.updateRecord(maintenanceTarget.id, editedExcerpt.id, { enabled: true });
   await assert.rejects(
     memory.initialize(maintenanceTarget.id),
-    /manually corrected memory.*changed source messages/iu,
+    /manually corrected memory.*changed sources/iu,
     "re-enabled stale excerpt corrections retain the explicit-review guard",
   );
   assert.equal(
@@ -1333,6 +1459,13 @@ try {
   routeApp.decorate("db", db);
   await routeApp.register(advancedMemoryRoutes, { prefix: "/api/chats" });
   try {
+    const hiddenCorrection = await routeApp.inject({
+      method: "PATCH",
+      url: `/api/chats/${accessCorrectionChat.id}/advanced-memory/records/${accessScene.id}`,
+      payload: { content: accessScene.content },
+    });
+    assert.equal(hiddenCorrection.statusCode, 400, "inaccessible scene sources are a correction validation error");
+    assert.match(hiddenCorrection.json().error, /no longer available to its selected characters/);
     for (const limits of [
       { retrieveMinMessages: 0, retrieveMaxMessages: 0 },
       { retrieveMinMessages: 0, retrieveMaxMessages: 3 },
@@ -1360,6 +1493,59 @@ try {
       invalidReindex.json().error,
       /debugMode/,
       "reindex exposes the same validation detail as initialization",
+    );
+    let releaseEmbedding = () => {};
+    const heldEmbedding = new Promise<void>((resolve) => {
+      releaseEmbedding = resolve;
+    });
+    beforeEmbedding = () => heldEmbedding;
+    const beforeRouteReindex = requests.length;
+    try {
+      const reindexResponse = await routeApp.inject({
+        method: "POST",
+        url: `/api/chats/${audienceChat.id}/advanced-memory/reindex`,
+        payload: {},
+      });
+      assert.equal(reindexResponse.statusCode, 202);
+      assert.equal(reindexResponse.json().job.status, "running", "reindex acknowledges persisted progress before 202");
+      assert.equal(reindexResponse.json().job.stage, "indexing");
+      await memory.cancel(audienceChat.id);
+    } finally {
+      releaseEmbedding();
+      beforeEmbedding = null;
+    }
+    await memory.reindex(audienceChat.id);
+    assert.equal((await memory.status(audienceChat.id)).job.status, "ready");
+    assert(
+      requests.slice(beforeRouteReindex).every((request) => request.kind === "embedding"),
+      "cancel/retry reindex never starts scene or summary generation",
+    );
+    let releaseFirstIndex = () => {};
+    let firstIndexEntered = () => {};
+    const firstIndexReady = new Promise<void>((resolve) => {
+      firstIndexEntered = resolve;
+    });
+    const firstIndexGate = new Promise<void>((resolve) => {
+      releaseFirstIndex = resolve;
+    });
+    beforeEmbedding = async () => {
+      firstIndexEntered();
+      await firstIndexGate;
+    };
+    const firstIndex = memory.reindex(audienceChat.id, { blocking: false });
+    await firstIndexReady;
+    const firstIndexId = (await memory.status(audienceChat.id)).job.id;
+    const queuedJobIds: Array<string | undefined> = [];
+    const queuedIndex = memory.reindex(audienceChat.id, {
+      blocking: true,
+      onProgress: (job) => queuedJobIds.push(job.id),
+    });
+    releaseFirstIndex();
+    await Promise.all([firstIndex, queuedIndex]);
+    assert(queuedJobIds.length > 0);
+    assert(
+      queuedJobIds.every((id) => id !== firstIndexId),
+      "queued reindex progress belongs to its own job, never the existing operation",
     );
     const invalidSettings = { retrieveMinMessages: 10, retrieveMaxMessages: 2 };
     assert.equal(

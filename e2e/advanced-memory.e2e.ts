@@ -425,6 +425,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
       if (!record) throw new Error("Expected the initialized scene fixture");
       Object.assign(record, patch, {
         manualOverride: patch.content !== undefined || record.manualOverride,
+        ...(patch.content !== undefined ? { embeddingStatus: "pending" } : {}),
       });
       if (status.job.status === "running") status.job.status = "cancelled";
     } else if (method === "POST" && pathname.endsWith("/reindex")) {
@@ -691,11 +692,23 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
       .fill("Correction: the notebook is green.");
     await inspector.getByRole("button", { name: "Save correction", exact: true }).click();
     await expect.poll(() => status.records[0]?.content).toBe("Correction: the notebook is green.");
+    status.records[0]!.embeddingStatus = "stale";
     await inspector.getByText("Include in recall", { exact: true }).click();
     await expect(inspector.getByRole("checkbox", { name: "Include in recall", exact: true })).not.toBeChecked();
     await expect.poll(() => status.records[0]?.enabled).toBe(false);
     const saveButton = inspector.getByRole("button", { name: "Save correction", exact: true });
     const sourceButton = inspector.getByRole("button", { name: "Inspect source messages", exact: true });
+    await expect(inspector.getByText(/Review the source messages, summary text and character access/)).toBeVisible();
+    await expect(saveButton).toBeEnabled();
+    await saveButton.scrollIntoViewIfNeeded();
+    await captureThemes(page, info, "advanced-memory-review-correction");
+    const correctionRequest = page.waitForRequest(
+      (request) => request.method() === "PATCH" && request.url().includes("/advanced-memory/records/"),
+    );
+    await saveButton.click();
+    expect((await correctionRequest).postDataJSON()).toEqual({ content: "Correction: the notebook is green." });
+    await expect(saveButton).toBeDisabled();
+    await expect(inspector.getByText(/Review the source messages, summary text and character access/)).toHaveCount(0);
     const saveBounds = await saveButton.boundingBox();
     const sourceBounds = await sourceButton.boundingBox();
     expect(saveBounds).not.toBeNull();

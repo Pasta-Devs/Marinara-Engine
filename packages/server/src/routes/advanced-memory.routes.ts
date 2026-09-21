@@ -27,6 +27,7 @@ const validationErrors = new Set([
   "Only saved scenes in Individual mode have editable character access",
   "Choose characters from this chat; the narrator already has access",
   "Scene sources are hidden from a selected character or precede their knowledge start",
+  "This scene's message range is no longer available to its selected characters. Review character access or exclude the scene from recall",
   "Another summary for this scene already has that audience; edit or delete it first",
   "Only a saved summary can be deleted",
   "Invalid Advanced Memory export",
@@ -85,9 +86,14 @@ export async function advancedMemoryRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>(`${prefix}/reindex`, async (req, reply) =>
     withMemoryDomainErrors(reply, async () => {
       const options = operationSchema.parse(req.body ?? {});
-      void service
-        .reindex(req.params.id, { debugMode: options.debugMode, blocking: true })
+      let acknowledgeStart: () => void = () => {};
+      const started = new Promise<void>((resolve) => {
+        acknowledgeStart = resolve;
+      });
+      const completed = service
+        .reindex(req.params.id, { debugMode: options.debugMode, blocking: true, onProgress: acknowledgeStart })
         .catch((error) => logger.warn(error, "[advanced-memory] Reindex interrupted"));
+      await Promise.race([started, completed]);
       return reply.status(202).send(await service.status(req.params.id));
     }),
   );
