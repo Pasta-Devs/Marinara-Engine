@@ -19,7 +19,10 @@ import {
   DECISION_THINKING_MODES,
   DECISION_THINKING_PREGENERATION_SETTINGS_KEY,
   decisionLocalSlotForId,
+  DEFAULT_DECISION_CALIBRATION,
+  findDecisionModel,
   normalizeDecisionThinking,
+  type DecisionCalibration,
   type DecisionLocalSlot,
   type DecisionModelOption,
   type DecisionModelOptions,
@@ -47,6 +50,22 @@ const SLOT_LABELS: Record<DecisionLocalSlot, string> = {
   utility: "Utility local model",
   decision_sidecar: "Decision sidecar",
 };
+
+/**
+ * A local chat model is prompted rather than queried, so it reads the question as
+ * written and answers on the ordinary scale. The managed decision sidecar brings its
+ * own operating point from its catalog entry.
+ */
+function localSlotCalibration(slot: DecisionLocalSlot): DecisionCalibration {
+  return slot === "decision_sidecar"
+    ? (findDecisionModel(installedDecisionModelId())?.calibration ?? DEFAULT_DECISION_CALIBRATION)
+    : DEFAULT_DECISION_CALIBRATION;
+}
+
+/** Which catalog entry is installed. Nothing installs one yet, so nothing is. */
+function installedDecisionModelId(): string | null {
+  return null;
+}
 
 function slotThinking(slot: DecisionLocalSlot) {
   return normalizeDecisionThinking(
@@ -142,7 +161,12 @@ export async function decisionRoutes(app: FastifyInstance) {
         unavailable: decisionConnectionUnavailable(row, rows),
       });
     }
-    return { selected, options };
+    // The editor needs the selected model's operating point, not a constant: seeding a
+    // new question with 0.5 against a model that answers yes at 0.2 would make it skip
+    // every relevant turn while looking configured.
+    const slot = decisionLocalSlotForId(selected);
+    const calibration = slot ? localSlotCalibration(slot) : DEFAULT_DECISION_CALIBRATION;
+    return { selected, options, calibration };
   });
 
   /**

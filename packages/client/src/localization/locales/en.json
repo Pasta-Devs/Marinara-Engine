@@ -43,6 +43,7 @@
   "agents.activation.question": "Question",
   "agents.activation.threshold": "Run when probability is at least {{value}}",
   "agents.activation.thresholdHelp": "Lower thresholds run the agent more often.",
+  "agents.activation.thresholdRecommended": "Use {{value}}, which is what the selected decision model answers around",
   "agents.activity.dismissOutput": "Dismiss output from {{agent}}",
   "agents.activity.latestSavedOutput": "Latest saved output",
   "agents.context.previousOutput.description": "Read this agent's previous visible-turn output, or its private agent-context field. Also available as {{agent::TYPE}} in its prompt. Runs separately to keep context private.",

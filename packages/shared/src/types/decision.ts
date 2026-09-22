@@ -12,6 +12,7 @@
  * config, because the choice is exclusive across all of them and three booleans in three
  * files would drift.
  */
+import { DEFAULT_CUSTOM_AGENT_ACTIVATION_THRESHOLD } from "../constants/agent-activation.js";
 import { SIDECAR_CONNECTION_ID } from "./sidecar.js";
 
 /** The local slots that can answer a decision. */
@@ -62,6 +63,56 @@ export function normalizeDecisionThinking(value: unknown): DecisionThinkingMode 
     ? (value as DecisionThinkingMode)
     : DEFAULT_DECISION_THINKING_MODE;
 }
+
+/**
+ * How a decision backend wants its question worded on the wire.
+ *
+ * System One accepts text, an object or an array for `instructions`. Which one a model
+ * answers best is a property of its training, not a style choice: Open-Jev's own
+ * shipped fixtures use task objects (`{"task": ..., "hazard": ...}`) and never plain
+ * sentences, and it answers a wrapped question far more confidently than the same
+ * sentence sent bare. Measured on 2026-09-22 over eight roleplay turns: the gap
+ * between the least certain "yes" and the most certain "no" went from 3.8x to 10.9x
+ * just by wrapping.
+ */
+export const DECISION_QUESTION_SHAPES = ["text", "task_object"] as const;
+export type DecisionQuestionShape = (typeof DECISION_QUESTION_SHAPES)[number];
+
+/** Domain hint sent with a wrapped question, so the model knows what it is reading. */
+const DECISION_QUESTION_ABOUT = "the latest message of a roleplay conversation";
+
+/** Render an agent's question for a backend that wants a particular shape. */
+export function buildDecisionInstructions(question: string, shape: DecisionQuestionShape): string | object {
+  return shape === "task_object" ? { task: question, about: DECISION_QUESTION_ABOUT } : question;
+}
+
+/**
+ * The operating point a decision backend answers on.
+ *
+ * Probabilities are not comparable across models, so a threshold only means something
+ * next to the model that produced it. A general chat model asked for one token answers
+ * a roleplay scene question at 0.97 to 0.9997 for yes and 0.0000 to 0.0001 for no, so
+ * 0.5 sits in the middle of an enormous gap. Open-Jev 2B answers the same turns at
+ * 0.15 to 0.59 for yes and 0.009 to 0.026 for no: the classes separate just as
+ * cleanly, around a completely different point. Leaving both on 0.5 makes the second
+ * model skip every relevant turn while appearing to work.
+ */
+export interface DecisionCalibration {
+  /** Threshold to use when an agent has not chosen one, and to seed the editor with. */
+  defaultThreshold: number;
+  questionShape: DecisionQuestionShape;
+}
+
+/**
+ * The hosted System One backends stay on the documented default.
+ *
+ * TypeSafe's own Jev has not been measured here, and changing its operating point or
+ * its wire shape on the strength of an independent model's numbers would be guessing.
+ */
+export const DEFAULT_DECISION_CALIBRATION: DecisionCalibration = {
+  defaultThreshold: DEFAULT_CUSTOM_AGENT_ACTIVATION_THRESHOLD,
+  questionShape: "text",
+};
 
 /** What a slot's cached probe concluded about the model currently loaded in it. */
 export type DecisionAnswerStyle = "direct" | "thinks" | "unknown";
@@ -126,6 +177,14 @@ export interface DecisionModelOptions {
   /** The selected entry's id, or null for None. */
   selected: string | null;
   options: DecisionModelOption[];
+  /**
+   * The selected model's operating point.
+   *
+   * The Agent editor seeds a new question's threshold from this, because 0.5 is only
+   * meaningful for a model that answers around 0.5. A question authored against one
+   * model keeps whatever the author chose; this only supplies the starting value.
+   */
+  calibration: DecisionCalibration;
 }
 
 /**

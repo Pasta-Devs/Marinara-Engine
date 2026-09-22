@@ -5,12 +5,15 @@ import { useUIStore } from "../../stores/ui.store";
 export function ActivationQuestionFields({
   question,
   threshold,
+  recommendedThreshold,
   maxSkip,
   enabled,
   onChange,
 }: {
   question: string;
   threshold: number;
+  /** What the selected decision model answers around, when one is chosen. */
+  recommendedThreshold?: number;
   maxSkip: number | "";
   enabled: boolean;
   onChange: (values: { question?: string; threshold?: number; maxSkip?: number | "" }) => void;
@@ -71,6 +74,18 @@ export function ActivationQuestionFields({
             <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
               {t("agents.activation.thresholdHelp")}
             </p>
+            {/* A threshold only means something next to the model that produces the
+                probability, so say what the selected one answers around and offer to
+                put it back rather than leaving a stale number looking deliberate. */}
+            {recommendedThreshold !== undefined && Math.abs(threshold - recommendedThreshold) > 0.001 && (
+              <button
+                type="button"
+                className="mt-1 text-[0.625rem] text-[var(--primary)] underline"
+                onClick={() => onChange({ threshold: recommendedThreshold })}
+              >
+                {t("agents.activation.thresholdRecommended", { value: recommendedThreshold.toFixed(2) })}
+              </button>
+            )}
           </div>
           <div>
             <label

@@ -8,6 +8,8 @@
  */
 import {
   DECISION_LOCAL_DEFAULT_SETTINGS_KEY,
+  DEFAULT_DECISION_CALIBRATION,
+  type DecisionCalibration,
   DECISION_THINKING_PREGENERATION_SETTINGS_KEY,
   DECISION_TIMEOUT_MS,
   decisionLocalSlotForId,
@@ -29,6 +31,13 @@ const SIDECAR_STATE_HEADROOM_TOKENS = 512;
 export interface DecisionBackend {
   /** The budget a state is capped to before it is sent. */
   maxStateTokens: number;
+  /**
+   * Where this model answers, and how it wants the question worded.
+   *
+   * Carried on the backend rather than read from a constant because both are
+   * properties of the model that produces the probability, not of the feature.
+   */
+  calibration: DecisionCalibration;
   /**
    * True when a gate in front of the user's reply should be skipped rather than waited
    * on. Only a reasoning local model sets this, and only while the user has not opted
@@ -82,6 +91,9 @@ export async function resolveDecisionBackend(
       (resolved.thinking === "auto" && getAnswerStyle(resolved.modelIdentity) === "thinks");
     return {
       maxStateTokens: Math.max(256, decisionSlotContextSize(slot) - SIDECAR_STATE_HEADROOM_TOKENS),
+      // A local chat model is prompted, not queried, so it reads the question as
+      // written and answers on the ordinary scale.
+      calibration: DEFAULT_DECISION_CALIBRATION,
       deferPreGeneration: thinks && !(await deps.getThinkingPreGeneration()),
       ask: async (state, questions) => askSidecarNoulQuestions({ slot: resolved, state, questions, signal }),
     };
@@ -95,8 +107,12 @@ export async function resolveDecisionBackend(
     return null;
   }
   const connection = resolved.connection;
+  // Hosted Jev keeps the documented operating point and wire shape: it has not been
+  // measured here, and re-pointing it on another model's numbers would be a guess.
+  const calibration = DEFAULT_DECISION_CALIBRATION;
   return {
     maxStateTokens: connection.maxStateTokens,
+    calibration,
     deferPreGeneration: false,
     ask: async (state, questions) =>
       (
@@ -106,6 +122,7 @@ export async function resolveDecisionBackend(
           questions,
           timeoutMs: DECISION_TIMEOUT_MS.systemOne,
           signal,
+          questionShape: calibration.questionShape,
           debugMode: deps.debugMode,
         })
       ).answers,

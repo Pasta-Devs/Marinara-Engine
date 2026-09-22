@@ -13,10 +13,16 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import {
+  buildDecisionInstructions,
+  DECISION_ARTIFACT_RUNTIMES,
+  DEFAULT_DECISION_CALIBRATION,
+  findDecisionModel,
   normalizeDecisionThinking,
+  SIDECAR_DECISION_MODELS,
   SIDECAR_FOOTPRINT_HEADROOM_BYTES,
   type GpuDevice,
 } from "../../packages/shared/src/index.js";
+import { evaluateActivationQuestions } from "../../packages/server/src/services/generation/agent-activation-questions.js";
 import {
   isDirectAnswer,
   normalizeAnswerToken,
@@ -104,6 +110,66 @@ assert.equal(normalizeDecisionThinking(undefined), "auto");
 assert.equal(normalizeDecisionThinking("maybe"), "auto");
 assert.equal(normalizeDecisionThinking("allowed"), "allowed");
 assert.equal(normalizeDecisionThinking("off"), "off");
+
+// A threshold only means something next to the model that produced the probability.
+// Open-Jev 2B answered the same eight roleplay turns yes between 0.15 and 0.59 and no
+// between 0.009 and 0.026, so 0.5 would skip every relevant turn; a general chat model
+// answered 0.97+ and 0.0001. The catalog carries each model's own operating point.
+const openJev = findDecisionModel("open-jev-2b")!;
+assert.ok(openJev, "the curated catalog must carry the measured entry");
+assert.equal(openJev.calibration.defaultThreshold, 0.1);
+assert.ok(
+  openJev.calibration.defaultThreshold > 0.026 && openJev.calibration.defaultThreshold < 0.15,
+  "the default must sit inside the band that classified every measured turn correctly",
+);
+assert.equal(DEFAULT_DECISION_CALIBRATION.defaultThreshold, 0.5, "hosted Jev keeps the documented default");
+assert.equal(DEFAULT_DECISION_CALIBRATION.questionShape, "text", "and its documented wire shape");
+// Every curated entry needs the constraints a preflight cannot guess.
+for (const model of SIDECAR_DECISION_MODELS) {
+  assert.ok(model.minComputeCapability, `${model.id} must state the compute capability its wheels support`);
+  assert.ok(
+    model.platforms.every((p) => p.minDriver),
+    `${model.id} must state a minimum driver`,
+  );
+  assert.ok(model.vramBytes > 0 && model.diskBytes > model.downloadSizeBytes, `${model.id} sizes look wrong`);
+  assert.ok(DECISION_ARTIFACT_RUNTIMES[Object.keys(DECISION_ARTIFACT_RUNTIMES)[0]!], "runtime map is populated");
+  assert.ok(
+    model.artifacts.every((a) => /^[0-9a-f]{40}$/u.test(a.revision)),
+    `${model.id} must pin exact commits`,
+  );
+}
+// A pasted repository is judged by the artifact type it declares, never assumed.
+assert.equal(DECISION_ARTIFACT_RUNTIMES["qwen_lora_adapter_plus_scalar_decision_head"], "open_jev_torch");
+assert.equal(DECISION_ARTIFACT_RUNTIMES["something_invented"], undefined);
+
+// Wrapping is what made the wrapped question separate 10.9x instead of 3.8x. The
+// hosted default stays a bare string, because that backend has not been measured.
+assert.equal(buildDecisionInstructions("Did the scene change?", "text"), "Did the scene change?");
+assert.deepEqual(buildDecisionInstructions("Did the scene change?", "task_object"), {
+  task: "Did the scene change?",
+  about: "the latest message of a roleplay conversation",
+});
+
+// An agent that never chose a threshold takes the backend's; one that did keeps it.
+{
+  const candidates = [
+    { agentId: "unset", question: "q", threshold: undefined, scanDepth: 2 },
+    { agentId: "chosen", question: "q", threshold: 0.5, scanDepth: 2 },
+  ];
+  const answers = new Map([
+    ["unset", 0.2],
+    ["chosen", 0.2],
+  ]);
+  const result = await evaluateActivationQuestions({
+    candidates,
+    messages: [{ role: "user", content: "hi" }],
+    maxStateTokens: 4000,
+    defaultThreshold: 0.1,
+    ask: async () => answers,
+  });
+  assert.equal(result.skip.has("unset"), false, "0.2 clears a 0.1 operating point, so the agent runs");
+  assert.equal(result.skip.has("chosen"), true, "0.2 is below an explicitly chosen 0.5, so it does not");
+}
 
 // ── the backend against a recorded llama-server ───────────────────────────────
 

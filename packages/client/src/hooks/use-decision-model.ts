@@ -2,7 +2,13 @@
 // React Query: the Decision model setting
 // ──────────────────────────────────────────────
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DecisionLocalSlot, DecisionModelOptions, DecisionThinkingMode } from "@marinara-engine/shared";
+import type {
+  DecisionCalibration,
+  DecisionLocalSlot,
+  DecisionModelOptions,
+  DecisionThinkingMode,
+} from "@marinara-engine/shared";
+import { DEFAULT_DECISION_CALIBRATION } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
 import { connectionKeys } from "./use-connections";
 
@@ -28,6 +34,16 @@ export function useDecisionOptions() {
 /** True once any decision model is chosen, which is what enables the editor fields. */
 export function useHasDecisionModel(): boolean {
   return !!useDecisionOptions().data?.selected;
+}
+
+/**
+ * The selected model's operating point, for seeding a new question's threshold.
+ *
+ * Falls back to the documented default until the options load, so the editor never
+ * shows a blank slider.
+ */
+export function useDecisionCalibration(): DecisionCalibration {
+  return useDecisionOptions().data?.calibration ?? DEFAULT_DECISION_CALIBRATION;
 }
 
 export function useSelectDecisionModel() {
