@@ -84,6 +84,7 @@ export function useInspectDecisionRepo() {
     mutationFn: (input: { repoId: string; revision?: string }) =>
       api.post<{
         refusal?: string;
+        revision?: string | null;
         model?: {
           id: string;
           label: string;

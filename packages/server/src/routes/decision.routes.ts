@@ -329,7 +329,14 @@ export async function decisionRoutes(app: FastifyInstance) {
       .parse(req.body);
     const inspected = await inspectDecisionRepo(repoId, revision || "main");
     if ("refusal" in inspected) return { refusal: inspected.refusal };
-    return { model: inspected.model, preflight: await preflightDecisionModel(inspected.model) };
+    return {
+      model: inspected.model,
+      // The exact commit this verdict describes. The install sends it back, so a
+      // branch that moves between checking and confirming cannot swap what is
+      // downloaded for something the user never saw.
+      revision: inspected.model.artifacts[0]?.revision ?? null,
+      preflight: await preflightDecisionModel(inspected.model),
+    };
   });
 
   app.post("/sidecar/stop", async () => {

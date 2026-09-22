@@ -107,5 +107,5 @@ export interface SidecarHealthSection {
    * In the report so support can see at a glance that a warning was acknowledged
    * rather than guess whether the user understood what they turned on.
    */
-  decisionConsent?: { confirmedAt: string; verdict: SidecarLoadVerdict } | null;
+  decisionConsent?: { confirmedAt: string; verdict: SidecarLoadVerdict | null } | null;
 }

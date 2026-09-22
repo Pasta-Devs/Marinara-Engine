@@ -147,6 +147,7 @@ export function decisionSidecarSettings(): DecisionSidecarSettings {
  */
 export async function resolveDecisionSlot(
   slot: DecisionLocalSlot,
+  signal?: AbortSignal,
 ): Promise<{ resolved: ResolvedDecisionSlot; failure?: never } | { resolved: null; failure: DecisionSlotFailure }> {
   const description = describeDecisionSlot(slot);
   if (!description.available) return { resolved: null, failure: { slot, ...description } };
@@ -181,7 +182,17 @@ export async function resolveDecisionSlot(
   if (slot === "decision_sidecar") {
     const model = installedDecisionModel(decisionSidecarSettings());
     if (!model) return { resolved: null, failure: { slot, reason: "not_installed" } };
-    const baseUrl = await decisionProcessService.ensureRunning(model);
+    // Raced against the caller's abort. A cold load takes up to three minutes, and a
+    // generation the user already cancelled must not sit behind it; the process keeps
+    // starting in the background so the next turn finds it ready.
+    const baseUrl = await Promise.race([
+      decisionProcessService.ensureRunning(model),
+      new Promise<null>((resolve) => {
+        if (!signal) return;
+        if (signal.aborted) resolve(null);
+        else signal.addEventListener("abort", () => resolve(null), { once: true });
+      }),
+    ]);
     if (!baseUrl) return { resolved: null, failure: { slot, reason: "stopped" } };
     return {
       resolved: {

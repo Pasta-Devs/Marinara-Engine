@@ -167,6 +167,11 @@ class DecisionProcessService {
               .map((name) => [name, process.env[name]])
               .filter(([, value]) => typeof value === "string"),
           ),
+          // CUDA orders devices by compute capability by default while nvidia-smi
+          // orders by PCI bus, so without this `cuda:0` can be a different card than
+          // the index the preflight measured and the verdict would describe the
+          // wrong GPU.
+          CUDA_DEVICE_ORDER: "PCI_BUS_ID",
           HF_HOME: runtime.hfHomePath,
           HF_HUB_CACHE: join(runtime.hfHomePath, "hub"),
           // The weights are already here and verified. Without this the loader would

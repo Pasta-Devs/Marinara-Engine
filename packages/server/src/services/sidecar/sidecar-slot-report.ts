@@ -127,7 +127,7 @@ function decisionSlot(): SidecarSlotFootprint {
  * A stored verdict is a string from an older release or a hand-edited settings file,
  * so it is matched against the set this build knows rather than cast into it.
  */
-function normalizeLoadVerdict(value: string | null): SidecarLoadVerdict {
+function normalizeLoadVerdict(value: string | null): SidecarLoadVerdict | null {
   const known: SidecarLoadVerdict[] = [
     "unsupported",
     "not_enough_disk",
@@ -136,7 +136,10 @@ function normalizeLoadVerdict(value: string | null): SidecarLoadVerdict {
     "tight",
     "recommended",
   ];
-  return known.find((verdict) => verdict === value) ?? "recommended";
+  // Null rather than a default. A value written by an older release, or edited by
+  // hand, says nothing about this machine, and rendering it as "within recommended"
+  // would put a verdict nobody produced into a support report.
+  return known.find((verdict) => verdict === value) ?? null;
 }
 
 /** The slot readings, shared by the health section and the decision preflight. */

@@ -7496,6 +7496,7 @@
   "ui.modals.decisionmodelmodal.removeBody": "This deletes the downloaded model and its Python runtime. You can install it again later.",
   "ui.modals.decisionmodelmodal.removeTitle": "Remove the decision sidecar?",
   "ui.modals.decisionmodelmodal.startWithMarinara": "Start this model when Marinara starts. Leave off to start it the first time an agent needs it.",
+  "ui.modals.decisionmodelmodal.statusUnavailable": "Marinara could not read this machine's capacity, so it cannot say whether this will fit. Try again in a moment.",
   "ui.modals.decisionmodelmodal.title": "Decision sidecar",
   "ui.modals.decisionmodelmodal.useLocalInstead": "You can still use activation questions with your normal local model or a Decision connection.",
   "ui.modals.decisionmodelmodal.verdictRecommended": "This machine has room for it.",

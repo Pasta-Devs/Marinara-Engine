@@ -78,7 +78,7 @@ export async function resolveDecisionBackend(
 ): Promise<DecisionBackend | null> {
   const slot = await readDecisionLocalSlot(deps.getLocalDefault);
   if (slot) {
-    const resolution = await resolveDecisionSlot(slot);
+    const resolution = await resolveDecisionSlot(slot, signal);
     if (!resolution.resolved) {
       logger.warn("[decision] The selected local model cannot serve decisions: %s", resolution.failure.reason);
       return null;

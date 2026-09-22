@@ -96,13 +96,19 @@ export function DecisionModelModal({ open, onClose }: Props) {
       }
       return;
     }
-    const verdict = selected?.preflight.assessment.verdict ?? "recommended";
+    if (!data || !selected) {
+      // No status means no verdict, and consent recorded against an assumed
+      // "recommended" would be consent to something nobody was shown.
+      toast.error(localizeUi("ui.modals.decisionmodelmodal.statusUnavailable"));
+      return;
+    }
+    const verdict = selected.preflight.assessment.verdict;
     const tight = verdict === "tight" || verdict === "wont_fit_beside_sidecar";
     const confirmed = await showConfirmDialog({
       title: localizeUi("ui.modals.decisionmodelmodal.confirmTitle"),
       message: [
         localizeUi("ui.modals.decisionmodelmodal.confirmBody"),
-        selected?.preflight.reason ?? localizeUi("ui.modals.decisionmodelmodal.verdictRecommended"),
+        selected.preflight.reason ?? localizeUi("ui.modals.decisionmodelmodal.verdictRecommended"),
       ].join("\n\n"),
       confirmLabel: localizeUi(
         tight ? "ui.modals.decisionmodelmodal.enableAnyway" : "ui.modals.decisionmodelmodal.enable",
@@ -168,7 +174,12 @@ export function DecisionModelModal({ open, onClose }: Props) {
     });
     if (!confirmed) return;
     try {
-      await installRepo.mutateAsync({ repoId: repo });
+      await installRepo.mutateAsync({
+        repoId: repo,
+        // The commit the confirmation described, so a branch moving in between
+        // cannot substitute different weights.
+        ...(inspect.data?.revision ? { revision: inspect.data.revision } : {}),
+      });
       toast.success(localizeUi("ui.modals.decisionmodelmodal.installed"));
     } catch (error) {
       report(error);

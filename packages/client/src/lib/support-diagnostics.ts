@@ -305,8 +305,10 @@ export function formatSupportDiagnostics(diagnostics: SupportDiagnostics): strin
     ...(diagnostics.sidecars?.decisionConsent
       ? [
           `Decision sidecar consent: enabled ${diagnostics.sidecars.decisionConsent.confirmedAt} (verdict shown: ${
-            LOAD_VERDICT_LABELS[diagnostics.sidecars.decisionConsent.verdict] ??
             diagnostics.sidecars.decisionConsent.verdict
+              ? (LOAD_VERDICT_LABELS[diagnostics.sidecars.decisionConsent.verdict] ??
+                diagnostics.sidecars.decisionConsent.verdict)
+              : "not recorded"
           })`,
         ]
       : []),
