@@ -19,8 +19,12 @@ import {
   DECISION_THINKING_MODES,
   DECISION_THINKING_PREGENERATION_SETTINGS_KEY,
   decisionLocalSlotForId,
+  DECISION_SIDECAR_SETTINGS_KEY,
   DEFAULT_DECISION_CALIBRATION,
   findDecisionModel,
+  parseDecisionSidecarSettings,
+  SIDECAR_DECISION_MODELS,
+  type DecisionSidecarSettings,
   normalizeDecisionThinking,
   type DecisionCalibration,
   type DecisionLocalSlot,
@@ -29,9 +33,21 @@ import {
 } from "@marinara-engine/shared";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { logger } from "../lib/logger.js";
+import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { decisionProcessService } from "../services/sidecar/decision-process.service.js";
+import { preflightDecisionModel } from "../services/sidecar/decision-preflight.js";
 import {
+  decisionRuntimeInstalled,
+  decisionRuntimeService,
+  isDecisionRuntimeSupported,
+} from "../services/sidecar/decision-runtime.service.js";
+import {
+  decisionSidecarSettings,
   describeDecisionSlot,
+  installedDecisionModel,
   isDecisionSlotImplemented,
+  setDecisionSidecarSettingsReader,
   resolveDecisionSlot,
   setDecisionSlotThinking,
 } from "../services/decision/decision-slots.js";
@@ -58,13 +74,8 @@ const SLOT_LABELS: Record<DecisionLocalSlot, string> = {
  */
 function localSlotCalibration(slot: DecisionLocalSlot): DecisionCalibration {
   return slot === "decision_sidecar"
-    ? (findDecisionModel(installedDecisionModelId())?.calibration ?? DEFAULT_DECISION_CALIBRATION)
+    ? (installedDecisionModel(decisionSidecarSettings())?.calibration ?? DEFAULT_DECISION_CALIBRATION)
     : DEFAULT_DECISION_CALIBRATION;
-}
-
-/** Which catalog entry is installed. Nothing installs one yet, so nothing is. */
-function installedDecisionModelId(): string | null {
-  return null;
 }
 
 function slotThinking(slot: DecisionLocalSlot) {
@@ -137,6 +148,116 @@ function localOption(slot: DecisionLocalSlot, selectedId: string | null): Decisi
 export async function decisionRoutes(app: FastifyInstance) {
   const settings = createAppSettingsStorage(app.db);
   const connections = createConnectionsStorage(app.db);
+
+  /**
+   * The slot description is synchronous, because the dropdown asks about every entry
+   * on each request and must not wait on the database. The settings are cached here
+   * and refreshed on every write, so the reader never blocks.
+   */
+  let sidecarSettings = parseDecisionSidecarSettings(await settings.get(DECISION_SIDECAR_SETTINGS_KEY));
+  setDecisionSidecarSettingsReader(() => sidecarSettings);
+  const writeSidecarSettings = async (next: DecisionSidecarSettings) => {
+    sidecarSettings = next;
+    await settings.set(DECISION_SIDECAR_SETTINGS_KEY, JSON.stringify(next));
+    return next;
+  };
+
+  /** What the panel needs: the catalog, each entry's verdict, and what is installed. */
+  app.get("/sidecar", async () => {
+    const models = await Promise.all(
+      SIDECAR_DECISION_MODELS.map(async (model) => ({
+        id: model.id,
+        label: model.label,
+        description: model.description,
+        downloadSizeBytes: model.downloadSizeBytes,
+        diskBytes: model.diskBytes,
+        vramBytes: model.vramBytes,
+        licenses: model.licenses,
+        downloaded: decisionRuntimeService.modelDownloaded(model),
+        preflight: await preflightDecisionModel(model),
+      })),
+    );
+    return {
+      supported: isDecisionRuntimeSupported(),
+      // Greyed out rather than hidden when nothing fits: hiding it produces "where is
+      // the option" reports from people who were told the feature exists.
+      unsupportedReason: isDecisionRuntimeSupported() ? null : "Requires Linux with an NVIDIA GPU",
+      settings: sidecarSettings,
+      runtimeInstalled: decisionRuntimeInstalled(),
+      process: decisionProcessService.getStatus(),
+      logPath: decisionProcessService.getLogPath(),
+      models,
+    };
+  });
+
+  /**
+   * Turn the sidecar on or off.
+   *
+   * Enabling records what the user was shown when they agreed, so a support report can
+   * tell an informed choice from a surprise. Disabling stops the process and keeps the
+   * download: removing the files is a separate, explicit action.
+   */
+  app.post("/sidecar/enable", async (req, reply) => {
+    const body = z.object({ enabled: z.boolean(), confirmedVerdict: z.string().max(64).optional() }).parse(req.body);
+    if (body.enabled && !isDecisionRuntimeSupported())
+      return reply.status(409).send({ error: "The decision sidecar is not supported on this machine" });
+    if (!body.enabled) await decisionProcessService.stop();
+    return {
+      settings: await writeSidecarSettings({
+        ...sidecarSettings,
+        enabled: body.enabled,
+        confirmedAt: body.enabled ? new Date().toISOString() : sidecarSettings.confirmedAt,
+        confirmedVerdict: body.enabled ? (body.confirmedVerdict ?? null) : sidecarSettings.confirmedVerdict,
+      }),
+    };
+  });
+
+  app.post("/sidecar/start-policy", async (req) => {
+    const { startPolicy } = z.object({ startPolicy: z.enum(["on_demand", "with_marinara"]) }).parse(req.body);
+    return { settings: await writeSidecarSettings({ ...sidecarSettings, startPolicy }) };
+  });
+
+  /**
+   * Install a catalog entry: the runtime, then its weights.
+   *
+   * Refuses an entry this machine cannot run rather than letting a download start and
+   * fail at load, which is the whole point of having a preflight.
+   */
+  app.post("/sidecar/install", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Decision model download" })) return;
+    const { modelId } = z.object({ modelId: z.string().trim().min(1).max(64) }).parse(req.body);
+    const model = findDecisionModel(modelId);
+    if (!model) return reply.status(404).send({ error: "No such decision model" });
+    if (!sidecarSettings.enabled)
+      return reply.status(409).send({ error: "Enable the decision sidecar before installing a model" });
+    const preflight = await preflightDecisionModel(model);
+    if (!preflight.installable)
+      return reply.status(409).send({ error: preflight.reason ?? "This machine cannot run that model" });
+    try {
+      await decisionRuntimeService.ensureInstalled((progress) =>
+        logger.debug("[decision-sidecar] %s %s", progress.phase, progress.label ?? ""),
+      );
+      await decisionRuntimeService.downloadModel(model, (progress) =>
+        logger.debug("[decision-sidecar] %s %s", progress.phase, progress.label ?? ""),
+      );
+    } catch (error) {
+      return reply.status(400).send({ error: error instanceof Error ? error.message : "Install failed" });
+    }
+    return { settings: await writeSidecarSettings({ ...sidecarSettings, modelId: model.id }) };
+  });
+
+  /** Delete the runtime and every downloaded weight. Separate from turning it off. */
+  app.post("/sidecar/remove", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Decision model removal" })) return;
+    await decisionProcessService.stop();
+    decisionRuntimeService.remove();
+    return { settings: await writeSidecarSettings({ ...sidecarSettings, modelId: null, enabled: false }) };
+  });
+
+  app.post("/sidecar/stop", async () => {
+    await decisionProcessService.stop();
+    return { process: decisionProcessService.getStatus() };
+  });
 
   const readSelected = async (): Promise<string | null> => {
     const local = await settings.get(DECISION_LOCAL_DEFAULT_SETTINGS_KEY);

@@ -12,7 +12,11 @@
  * explicitly, and the whole method depends on those two fields arriving intact.
  */
 import {
+  DECISION_SIDECAR_DEFAULT_SETTINGS,
+  findDecisionModel,
   normalizeDecisionThinking,
+  type DecisionSidecarSettings,
+  type SidecarDecisionModelInfo,
   type DecisionLocalSlot,
   type DecisionThinkingMode,
   type DecisionUnavailableReason,
@@ -21,6 +25,12 @@ import { logger } from "../../lib/logger.js";
 import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
 import { sidecarProcessService } from "../sidecar/sidecar-process.service.js";
 import { resolveSidecarRequestModel } from "../sidecar/sidecar-request-model.js";
+import { decisionProcessService } from "../sidecar/decision-process.service.js";
+import {
+  decisionRuntimeInstalled,
+  decisionRuntimeService,
+  isDecisionRuntimeSupported,
+} from "../sidecar/decision-runtime.service.js";
 import { utilitySidecarService } from "../utility-sidecar/utility-sidecar.service.js";
 
 /** A slot that is ready to answer, with everything a request needs. */
@@ -43,9 +53,14 @@ export interface ResolvedDecisionSlot {
 
 export type DecisionSlotFailure = { slot: DecisionLocalSlot; reason: DecisionUnavailableReason; detail?: string };
 
-/** Which slots this build can serve at all. The decision sidecar arrives with its runtime. */
-export function isDecisionSlotImplemented(slot: DecisionLocalSlot): boolean {
-  return slot === "primary" || slot === "utility";
+/** Every local slot is served now that the decision sidecar has a runtime. */
+export function isDecisionSlotImplemented(_slot: DecisionLocalSlot): boolean {
+  return true;
+}
+
+/** The catalog entry the user has installed, if the sidecar is enabled at all. */
+export function installedDecisionModel(settings: DecisionSidecarSettings): SidecarDecisionModelInfo | null {
+  return settings.enabled ? findDecisionModel(settings.modelId) : null;
 }
 
 /** The main sidecar's Thinking setting, kept with that slot's own config. */
@@ -77,7 +92,36 @@ export function describeDecisionSlot(
     if (!status.configured || !status.activeModelId) return { available: false, reason: "no_model" };
     return { available: true, label: status.activeModelId };
   }
-  return { available: false, reason: "not_installed" };
+  // The decision sidecar. Each reason is different and each has a different fix, so
+  // they are never collapsed into one "unavailable".
+  if (!isDecisionRuntimeSupported())
+    return {
+      available: false,
+      reason: "unsupported_platform",
+      detail: "Requires Linux with an NVIDIA GPU",
+    };
+  const settings = decisionSidecarSettings();
+  if (!settings.enabled) return { available: false, reason: "not_enabled" };
+  const model = installedDecisionModel(settings);
+  if (!model || !decisionRuntimeInstalled() || !decisionRuntimeService.modelDownloaded(model))
+    return { available: false, reason: "not_installed" };
+  return { available: true, label: model.label };
+}
+
+/**
+ * The stored decision sidecar settings.
+ *
+ * Read through an injected reader so the slot description stays synchronous: the
+ * dropdown asks about every entry on each request and must not wait on the database.
+ */
+let readDecisionSidecarSettings: () => DecisionSidecarSettings = () => ({ ...DECISION_SIDECAR_DEFAULT_SETTINGS });
+
+export function setDecisionSidecarSettingsReader(reader: () => DecisionSidecarSettings): void {
+  readDecisionSidecarSettings = reader;
+}
+
+export function decisionSidecarSettings(): DecisionSidecarSettings {
+  return readDecisionSidecarSettings();
 }
 
 /**
@@ -114,6 +158,25 @@ export async function resolveDecisionSlot(
         modelIdentity: `primary:${sidecarModelService.getConfiguredModelRef() ?? ""}:${status.modelSize ?? 0}`,
         label: description.label,
         thinking: primaryThinking(),
+      },
+    };
+  }
+
+  if (slot === "decision_sidecar") {
+    const model = installedDecisionModel(decisionSidecarSettings());
+    if (!model) return { resolved: null, failure: { slot, reason: "not_installed" } };
+    const baseUrl = await decisionProcessService.ensureRunning(model);
+    if (!baseUrl) return { resolved: null, failure: { slot, reason: "stopped" } };
+    return {
+      resolved: {
+        slot,
+        baseUrl,
+        model: "jev-latest",
+        modelIdentity: `decision:${model.id}`,
+        label: model.label,
+        // A purpose-built decision model never reasons: it scores candidates in one
+        // forward pass and has no text to think in.
+        thinking: "off",
       },
     };
   }

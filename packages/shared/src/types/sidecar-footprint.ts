@@ -21,6 +21,8 @@ export interface GpuDevice {
   /** Memory in use at probe time, in bytes. */
   usedBytes: number;
   driverVersion: string;
+  /** CUDA compute capability as "major.minor", when the driver reports it. */
+  computeCapability?: string;
 }
 
 /** The result of probing the machine's GPUs, or why there was nothing to report. */

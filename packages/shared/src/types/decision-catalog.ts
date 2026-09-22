@@ -111,3 +111,49 @@ export const SIDECAR_DECISION_MODELS: SidecarDecisionModelInfo[] = [
 export function findDecisionModel(id: string | null | undefined): SidecarDecisionModelInfo | null {
   return SIDECAR_DECISION_MODELS.find((model) => model.id === id) ?? null;
 }
+
+/**
+ * What the user has decided about the managed decision sidecar.
+ *
+ * `enabled` is deliberately separate from "installed": the panel is collapsed behind
+ * an explicit toggle with a warning, and turning it off stops the process while
+ * keeping the download. The consent fields record what was shown at the moment the
+ * user agreed, so a support report can tell an informed choice from a surprise.
+ */
+export interface DecisionSidecarSettings {
+  enabled: boolean;
+  /** The catalog entry that is installed, or null. */
+  modelId: string | null;
+  /** Start with Marinara, or on the first gate that needs it. */
+  startPolicy: "on_demand" | "with_marinara";
+  confirmedAt: string | null;
+  /** The preflight verdict displayed when the user confirmed. */
+  confirmedVerdict: string | null;
+}
+
+export const DECISION_SIDECAR_SETTINGS_KEY = "decision-sidecar";
+
+export const DECISION_SIDECAR_DEFAULT_SETTINGS: DecisionSidecarSettings = {
+  enabled: false,
+  modelId: null,
+  startPolicy: "on_demand",
+  confirmedAt: null,
+  confirmedVerdict: null,
+};
+
+export function parseDecisionSidecarSettings(raw: string | null | undefined): DecisionSidecarSettings {
+  if (!raw) return { ...DECISION_SIDECAR_DEFAULT_SETTINGS };
+  try {
+    const parsed = JSON.parse(raw) as Partial<DecisionSidecarSettings>;
+    return {
+      enabled: parsed.enabled === true,
+      modelId: typeof parsed.modelId === "string" && findDecisionModel(parsed.modelId) ? parsed.modelId : null,
+      startPolicy: parsed.startPolicy === "with_marinara" ? "with_marinara" : "on_demand",
+      confirmedAt: typeof parsed.confirmedAt === "string" ? parsed.confirmedAt : null,
+      confirmedVerdict: typeof parsed.confirmedVerdict === "string" ? parsed.confirmedVerdict : null,
+    };
+  } catch {
+    // A hand-edited or truncated value must not enable a download.
+    return { ...DECISION_SIDECAR_DEFAULT_SETTINGS };
+  }
+}

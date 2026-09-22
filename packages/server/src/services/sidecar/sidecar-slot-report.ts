@@ -21,6 +21,8 @@ import {
 import { sidecarModelService } from "./sidecar-model.service.js";
 import { sidecarProcessService } from "./sidecar-process.service.js";
 import { utilitySidecarService } from "../utility-sidecar/utility-sidecar.service.js";
+import { decisionProcessService } from "./decision-process.service.js";
+import { decisionSidecarSettings, installedDecisionModel } from "../decision/decision-slots.js";
 
 /**
  * The main slot's status, cached briefly.
@@ -102,23 +104,34 @@ function utilitySlot(): SidecarSlotFootprint {
  * from "this build does not know about it".
  */
 function decisionSlot(): SidecarSlotFootprint {
+  const settings = decisionSidecarSettings();
+  const model = installedDecisionModel(settings);
+  const status = decisionProcessService.getStatus();
+  const measuredBytes = status.running ? getMeasuredProcessBytes(status.pid) : null;
   return {
     slot: "decision",
-    configured: false,
-    running: false,
-    model: null,
-    fileBytes: null,
-    contextSize: null,
-    backend: null,
-    estimatedBytes: null,
-    measured: false,
+    configured: !!model,
+    running: status.running,
+    model: model?.label ?? null,
+    fileBytes: model?.downloadSizeBytes ?? null,
+    contextSize: model?.maxLengthTokens ?? null,
+    backend: model?.runtime ?? null,
+    // The catalog figure is a measurement from a real run, so it is used directly
+    // rather than derived from a file size the way a GGUF slot's is.
+    estimatedBytes: measuredBytes ?? model?.vramBytes ?? null,
+    measured: measuredBytes !== null,
     onCpu: false,
   };
 }
 
+/** The slot readings, shared by the health section and the decision preflight. */
+export function readSidecarSlots(): SidecarSlotFootprint[] {
+  return [mainSlot(), utilitySlot(), decisionSlot()];
+}
+
 export function buildSidecarHealthSection(): SidecarHealthSection {
   const gpu = getGpuProbe();
-  const slots = [mainSlot(), utilitySlot(), decisionSlot()];
+  const slots = readSidecarSlots();
   // With one NVIDIA GPU every slot shares it. With several, llama.cpp's launch
   // diagnostics do not name the card a slot landed on, so no device is resolved and
   // no verdict is claimed rather than a wrong one asserted.

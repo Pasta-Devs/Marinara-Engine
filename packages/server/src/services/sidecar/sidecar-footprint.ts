@@ -23,7 +23,7 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-const NVIDIA_SMI_QUERY = "index,uuid,name,memory.total,memory.used,driver_version";
+const NVIDIA_SMI_QUERY = "index,uuid,name,memory.total,memory.used,driver_version,compute_cap";
 const NVIDIA_SMI_APPS_QUERY = "pid,used_memory";
 const PROBE_TIMEOUT_MS = 4000;
 /** Matches detectCapabilities' own cache, so a slow probe is never on a request path. */
@@ -75,6 +75,9 @@ export function parseNvidiaSmi(output: string): GpuDevice[] {
       totalBytes: totalMiB * 1024 * 1024,
       usedBytes: Number.isFinite(usedMiB) && usedMiB >= 0 ? usedMiB * 1024 * 1024 : 0,
       driverVersion: parts[5] ?? "",
+      // Older drivers do not expose this column at all, so it stays optional and an
+      // absent value is treated as unknown rather than as unsupported.
+      computeCapability: parts[6] || undefined,
     });
   }
   return devices;
@@ -213,6 +216,21 @@ export function assessSidecarLoad(args: {
  * Indices are therefore never compared: with one NVIDIA GPU everything shares it, and
  * with several the match is by name from the slot's launch diagnostics.
  */
+/**
+ * Does this card have kernels in the runtime's wheels?
+ *
+ * The pinned PyTorch build ships `sm_75` and up. A Pascal card has plenty of memory
+ * and a current driver and still cannot run it, so without this check the preflight
+ * would approve a ten gigabyte download that fails at load. An unknown capability is
+ * not treated as a failure: a driver too old to report it is caught by the driver
+ * check instead, and inventing a refusal from a missing column is worse than letting
+ * the launch-time error speak.
+ */
+export function meetsComputeCapability(device: GpuDevice, minimum: string): boolean {
+  if (!device.computeCapability) return true;
+  return compareDriverVersions(device.computeCapability, minimum) >= 0;
+}
+
 export function resolveSharedDevice(devices: GpuDevice[], deviceName: string | null): GpuDevice | null {
   if (devices.length === 0) return null;
   if (devices.length === 1) return devices[0]!;
