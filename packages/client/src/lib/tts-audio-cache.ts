@@ -402,7 +402,8 @@ export async function getOrCreateCachedTTSAudioBlob(
   });
 
   for (const cacheKey of keys) {
-    inFlight.set(cacheKey, promise);
+    // A purge may have happened while the first cache lookup was awaiting.
+    if (isCurrent(cacheKey)) inFlight.set(cacheKey, promise);
   }
   return promise;
 }

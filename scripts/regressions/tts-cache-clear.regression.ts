@@ -53,3 +53,24 @@ assert.equal(await getCachedTTSAudioBlob("pending"), null, "Late callers must no
 assert.equal(await getCachedTTSAudioBlob("pending-text"), null);
 assert.equal(await getOrCreateCachedTTSAudioBlob("pending", async () => other), other);
 assert.equal(await getCachedTTSAudioBlob("pending"), other);
+
+// Purging while the initial cache lookup is awaiting must also prevent late registration.
+let earlyStarted!: () => void;
+let finishEarly!: (blob: Blob) => void;
+const earlyReady = new Promise<void>((resolve) => (earlyStarted = resolve));
+const early = getOrCreateCachedTTSAudioBlob(
+  "early",
+  () => {
+    earlyStarted();
+    return new Promise<Blob>((resolve) => (finishEarly = resolve));
+  },
+  ["early-text"],
+);
+await deleteCachedTTSAudioKeys(["early", "early-text"]);
+await earlyReady;
+const afterPurge = getOrCreateCachedTTSAudioBlob("early", async () => other, ["early-text"]);
+await new Promise((resolve) => setTimeout(resolve, 0));
+finishEarly(first);
+await early;
+assert.equal(await afterPurge, other, "A post-purge caller must not join work registered after it was cleared");
+assert.equal(await getCachedTTSAudioBlob("early"), other);
