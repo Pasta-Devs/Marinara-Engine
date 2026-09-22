@@ -463,8 +463,8 @@ export function CharactersPanel() {
     }
     return ids;
   }, [parsedGroups]);
-  const visibleCharacterById = useMemo(
-    () => new Map(sortedCharacters.map((character) => [character.id, character])),
+  const characterOrder = useMemo(
+    () => new Map(sortedCharacters.map((character, index) => [character.id, index])),
     [sortedCharacters],
   );
   const folderFilterActive =
@@ -963,9 +963,14 @@ export function CharactersPanel() {
 
       <div className="flex flex-col gap-0.5">
         {parsedGroups.map((group) => {
-          const folderMemberIds = folderFilterActive
-            ? group.memberIds.filter((memberId) => visibleCharacterById.has(memberId))
-            : group.memberIds;
+          const folderMemberIds = (
+            folderFilterActive
+              ? group.memberIds.filter((memberId) => characterOrder.has(memberId))
+              : [...group.memberIds]
+          ).sort(
+            (a, b) =>
+              (characterOrder.get(a) ?? sortedCharacters.length) - (characterOrder.get(b) ?? sortedCharacters.length),
+          );
           if (folderFilterActive && folderMemberIds.length === 0) return null;
           const isExpanded = (folderFilterActive && folderMemberIds.length > 0) || expandedGroupId === group.id;
           const isEditing = editingGroupId === group.id;

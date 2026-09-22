@@ -461,3 +461,7 @@ Then reach the community:
 - [Local Model Setup](connections/local-model.md)
 - [Game Mode: Getting Started](game/getting-started.md)
 - [Settings Overview](settings/settings-overview.md)
+
+### Android Chrome does not offer PWA installation behind Basic Auth
+
+Use an HTTPS address, sign in, and reload after updating Marinara. The app requests its manifest with credentials so Basic Auth can remain enabled. If installation is still unavailable, check that your proxy serves `/manifest.json` as JSON rather than a login page or an error.

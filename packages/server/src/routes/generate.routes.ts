@@ -512,7 +512,6 @@ import { handleRoleplayDmCommand } from "../services/generation/roleplay-dm-comm
 import { handleConversationScheduleCommand } from "../services/generation/conversation-schedule-command-runtime.js";
 import { handleConversationCrossPostCommand } from "../services/generation/conversation-cross-post-command-runtime.js";
 import { handleHapticCommand } from "../services/generation/haptic-command-runtime.js";
-import { handleConversationSceneCommand } from "../services/generation/conversation-scene-command-runtime.js";
 import { handleConversationSelfieCommand } from "../services/generation/conversation-selfie-command-runtime.js";
 import {
   CONTINUE_ASSISTANT_MESSAGE_PROMPT,
@@ -8511,6 +8510,21 @@ export async function generateRoutes(app: FastifyInstance) {
             }
           }
 
+          const sceneCommandIndex = parsedCommands.findIndex((command) => command.type === "scene");
+          const sceneCommand = parsedCommands[sceneCommandIndex];
+          const sceneCharacterId = parsedCommandCharacterIds?.[sceneCommandIndex] ?? targetCharId;
+          const sceneRequest =
+            chatMode === "conversation" && !input.impersonate && sceneCommand?.type === "scene"
+              ? {
+                  prompt: sceneCommand.scenario,
+                  background: sceneCommand.background ?? null,
+                  planHint: sceneCommand.plan ?? null,
+                  initiatorCharId: sceneCharacterId,
+                  initiatorCharName: charInfo.find((character) => character.id === sceneCharacterId)?.name ?? null,
+                  connectionId: connId,
+                }
+              : null;
+
           // Guard: don't save empty responses — the model returned nothing useful.
           // Exception: if the model emitted character commands (e.g. [fetch:...]) with
           // no surrounding prose, treat the commands as the useful output. Skip saving
@@ -8576,14 +8590,18 @@ export async function generateRoutes(app: FastifyInstance) {
                   });
               const anchoredMsg = savedMsg?.id
                 ? await chats.updateMessageExtra(savedMsg.id, {
-                    hiddenFromUser: true,
+                    hiddenFromUser: !sceneRequest,
                     hiddenFromAI: !conversationCommandContent,
                     commandOnly: true,
+                    sceneRequest,
                     conversationCommandContent: conversationCommandContent ?? null,
                     isGenerated: true,
                     encryptedReasoning: encryptedReasoningItems?.length ? encryptedReasoningItems : null,
                   })
                 : savedMsg;
+              if (sceneRequest && anchoredMsg?.id) {
+                sendSseEvent(reply, { type: "message_saved", data: anchoredMsg });
+              }
               // The anchor exists so this can run: a verb-only turn's writes land here, against the
               // anchor's own message, in the same order the saved-message path uses them.
               await executeCollectedGmVerbCalls({
@@ -8939,6 +8957,8 @@ export async function generateRoutes(app: FastifyInstance) {
             extraUpdate.contextInjections = contextInjections.length > 0 ? contextInjections : null;
             extraUpdate.conversationCommandContent =
               chatMode === "conversation" && !input.impersonate ? conversationCommandContent : null;
+            extraUpdate.sceneRequest =
+              sceneRequest ?? (input.continueMessageId ? (parseExtra(savedMsg.extra).sceneRequest ?? null) : null);
             if (chatMode === "roleplay" && !input.impersonate) {
               const previousExtra = input.continueMessageId
                 ? parseExtra((await chats.getMessage(savedMsg.id))?.extra)
@@ -12256,16 +12276,6 @@ export async function generateRoutes(app: FastifyInstance) {
                   command,
                   sendEvent: (data) => {
                     sendSseEvent(reply, { type: "haptic_command", data });
-                  },
-                });
-
-                await handleConversationSceneCommand({
-                  command,
-                  characterId,
-                  chatId: input.chatId,
-                  chars,
-                  sendSceneRequested: (data) => {
-                    sendSseEvent(reply, { type: "scene_requested", data });
                   },
                 });
 
