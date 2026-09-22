@@ -1855,7 +1855,6 @@ export const ChatMessage = memo(function ChatMessage({
   const isSystem = message.role === "system";
   const isNarrator = message.role === "narrator";
   const isRoleplay = chatMode === "roleplay";
-  const vnPortraitScale = useUIStore((state) => (visualNovel ? state.roleplayVnPortraitScale : 1));
   const alwaysDisplaySwipeMenu = useUIStore((state) =>
     isRoleplay
       ? state.alwaysDisplayRoleplaySwipeMenu

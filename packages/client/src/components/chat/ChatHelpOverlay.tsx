@@ -6,6 +6,7 @@ import {
   ChevronsLeftRight,
   CircleHelp,
   Copy,
+  Eraser,
   EyeOff,
   Flag,
   GitBranch,
@@ -317,6 +318,7 @@ const ACTIONS_BY_MODE: Record<ChatMode, HelpActionDefinition[]> = {
     { icon: Trash2, labelKey: "chat.help.actions.delete" },
     { icon: Volume2, labelKey: "chat.help.actions.voice" },
     { icon: Play, labelKey: "chat.help.actions.voicePlayback" },
+    { icon: Eraser, labelKey: "ui.chat.chatmessage.clearCachedVoice" },
   ],
   game: [
     { icon: Copy, labelKey: "chat.help.actions.copyLog" },
@@ -326,6 +328,7 @@ const ACTIONS_BY_MODE: Record<ChatMode, HelpActionDefinition[]> = {
     { icon: GitBranch, labelKey: "chat.help.actions.branchLog" },
     { icon: Trash2, labelKey: "chat.help.actions.deleteLog" },
     { icon: Volume2, labelKey: "chat.help.actions.voice" },
+    { icon: Eraser, labelKey: "ui.chat.chatmessage.clearCachedVoice" },
   ],
 };
 
