@@ -87,7 +87,7 @@ The **API Key** field accepts any one of these three credential types, and Marin
 - Where to get a key: `https://console.x.ai`
 - Default base URL: `https://api.x.ai/v1`
 
-**xAI / Grok** runs the Grok models. When you pick this provider in the **Create Connection** modal, Marinara prefills the model with Grok 4.5. You can change the model afterward.
+**xAI / Grok** runs the Grok models. When you pick this provider in the **Create Connection** modal, Marinara prefills the model with Grok 4.5. You can change the model afterward. Grok 4.6 and 4.7 are available with a 500,000-token context window and reasoning up to **Maximum** (`xhigh`). They support the existing chat tools, including **Web Search**, so search results can feed the completed reply.
 
 ## Z.AI
 

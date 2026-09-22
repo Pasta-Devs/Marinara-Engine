@@ -60,7 +60,7 @@ import {
 import { confirmNonEmptyFolderDelete, showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { rulesetRepositoryLabel } from "../../lib/ruleset-source";
-import { sortBasicPanelItems } from "../../lib/panel-sort";
+import { sortBasicPanelItems, sortPanelFolders } from "../../lib/panel-sort";
 import { downloadZipFile } from "../../lib/download-zip";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { TouchDragHandle } from "../ui/TouchDragHandle";
@@ -1363,7 +1363,7 @@ export function AgentsPanel() {
               {localizeUi("ui.panels.agentspanel.dropHereToMoveOutOfFolder")}
             </div>
           )}
-          {agentFolders.map((folder) => {
+          {sortPanelFolders(agentFolders, sort).map((folder) => {
             const isEditing = editingFolderId === folder.id;
             const folderAgents = sortBasicPanelItems(
               folder.itemIds

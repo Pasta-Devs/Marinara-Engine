@@ -17,6 +17,7 @@ import {
   useDuplicatePersona,
 } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
+import { sortPanelFolders } from "../../lib/panel-sort";
 import {
   Plus,
   Trash2,
@@ -57,7 +58,7 @@ import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../..
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { estimateTextTokens, type Persona } from "@marinara-engine/shared";
 
-type PersonaGroupRow = { id: string; name: string; description: string; personaIds: string };
+type PersonaGroupRow = { id: string; name: string; description: string; personaIds: string; createdAt: string };
 type ParsedPersonaGroupRow = PersonaGroupRow & { memberIds: string[] };
 
 type SortOption = "name-asc" | "name-desc" | "newest" | "oldest" | "tokens";
@@ -458,6 +459,16 @@ export function PersonasPanel() {
     }
   }, [filteredList, sort]);
 
+  const sortedGroups = useMemo(() => {
+    const folders = sortPanelFolders(parsedGroups, sort === "tokens" ? "name-asc" : sort);
+    if (sort !== "tokens") return folders;
+    const tokens = new Map(list.map((persona) => [persona.id, estimateTokens(persona)]));
+    const totals = new Map(
+      folders.map((folder) => [folder.id, folder.memberIds.reduce((total, id) => total + (tokens.get(id) ?? 0), 0)]),
+    );
+    return folders.sort((a, b) => totals.get(b.id)! - totals.get(a.id)!);
+  }, [parsedGroups, sort, list]);
+
   const visibleRootPersonas = useMemo(
     () => list.filter((persona) => !folderedPersonaIds.has(persona.id)),
     [list, folderedPersonaIds],
@@ -728,7 +739,7 @@ export function PersonasPanel() {
 
       <div className="flex flex-col gap-0.5">
         {/* Folder rows */}
-        {parsedGroups.map((group) => {
+        {sortedGroups.map((group) => {
           const folderMemberIds = (
             folderFilterActive
               ? group.memberIds.filter((personaId) => personaOrder.has(personaId))

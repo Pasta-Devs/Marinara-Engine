@@ -85,7 +85,7 @@ import {
   PowerOff,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { sortBasicPanelItems } from "../../lib/panel-sort";
+import { sortBasicPanelItems, sortPanelFolders } from "../../lib/panel-sort";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
 import {
@@ -1642,13 +1642,14 @@ export function ConnectionsPanel() {
   // Sorted folder list + local order for optimistic drag-to-reorder
   const sortedFolders = useMemo(() => {
     if (!folders) return [] as ConnectionFolder[];
-    return [...folders].sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [folders]);
+    return sortPanelFolders(folders, sort);
+  }, [folders, sort]);
 
   const [localFolderOrder, setLocalFolderOrder] = useState<string[]>([]);
   useEffect(() => {
-    setLocalFolderOrder(sortedFolders.map((f) => f.id));
-  }, [sortedFolders]);
+    setLocalFolderOrder(sortPanelFolders(folders ?? [], "custom").map((f) => f.id));
+  }, [folders]);
+  const folderOrder = sort === "custom" ? localFolderOrder : sortedFolders.map((folder) => folder.id);
 
   // Split connections into per-folder + unfiled buckets
   const { unfiledConnections, folderConnectionsMap } = useMemo(() => {
@@ -1672,6 +1673,7 @@ export function ConnectionsPanel() {
   };
 
   const handleFolderReorder = (newOrder: string[]) => {
+    if (sort !== "custom") setSort("custom");
     setLocalFolderOrder(newOrder);
     reorderFoldersMut.mutate(newOrder);
   };
@@ -2214,15 +2216,15 @@ export function ConnectionsPanel() {
       )}
 
       {/* Folders (drag-to-reorder) */}
-      {localFolderOrder.length > 0 && (
+      {folderOrder.length > 0 && (
         <Reorder.Group
           axis="y"
-          values={localFolderOrder}
+          values={folderOrder}
           onReorder={handleFolderReorder}
           as="div"
           className="flex flex-col gap-0.5 mt-1"
         >
-          {localFolderOrder.map((folderId) => {
+          {folderOrder.map((folderId) => {
             const folder = sortedFolders.find((f) => f.id === folderId);
             if (!folder) return null;
             const folderEntries = folderConnectionsMap.get(folderId) ?? [];

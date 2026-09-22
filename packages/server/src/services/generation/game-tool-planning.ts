@@ -1,6 +1,7 @@
 import type { ChatMessage, LLMToolDefinition } from "../llm/base-provider.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import type { createConnectionsStorage } from "../storage/connections.storage.js";
+import { resolveStoredChatOptions, resolveStoredMaxTokens } from "./generation-parameters.js";
 import { fitMessagesForModelAccess, resolveModelAccessPolicy } from "./model-access-policy.js";
 
 type ToolConnection = NonNullable<Awaited<ReturnType<ReturnType<typeof createConnectionsStorage>["getWithKey"]>>>;
@@ -43,18 +44,20 @@ export async function planGameToolCalls(args: {
       },
     ],
     policy,
-    maxTokens: Math.min(conn.maxTokensOverride || 2048, 2048),
+    maxTokens: Math.min(conn.maxTokensOverride ?? Infinity, resolveStoredMaxTokens(conn.defaultParameters, 2048)),
     tools: args.tools,
   });
   args.debugLog("[game/tools] Planning prompt sent to %s (%s): %j", conn.name, conn.model, fit.messages);
+  const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, conn.model);
   return provider.chatComplete(fit.messages, {
     model: conn.model,
+    ...storedOptions,
+    enableThinking: !!storedOptions.reasoningEffort && storedOptions.reasoningEffort !== "none",
     maxTokens: fit.maxTokensForSend,
     maxContext: policy.effectiveMaxContext,
     suppressModelParameters: policy.suppressModelParameters,
     tools: args.tools,
     toolChoice: args.forceToolCall ? "required" : "auto",
-    enableThinking: false,
     enableCaching: conn.enableCaching === "true",
     anthropicExtendedCacheTtl: conn.anthropicExtendedCacheTtl === "true",
     cachingAtDepth: conn.cachingAtDepth ?? 5,
