@@ -32,6 +32,7 @@ export function supportsXhighReasoningEffort(model: string): boolean {
     normalized.startsWith("gpt-5.6") ||
     normalized.startsWith("gpt-5.5") ||
     normalized.startsWith("gpt-5.4") ||
+    /^grok-4\.[67](?:$|-)/.test(normalized.replace(/^x-ai\//, "")) ||
     normalized === "grok-4.20-multi-agent" ||
     isClaudeAdaptiveOnlyNoSamplingModel(normalized)
   );
@@ -103,7 +104,7 @@ export function resolveProviderReasoningEffort(args: {
 
 export function isXaiConfigurableReasoningModel(model: string): boolean {
   const normalized = model.toLowerCase().replace(/^x-ai\//, "");
-  return normalized.startsWith("grok-4.5") || normalized.startsWith("grok-4.3");
+  return /^grok-4\.[3567](?:$|-)/.test(normalized);
 }
 
 export function isXaiAutoReasoningModel(model: string): boolean {
@@ -461,8 +462,10 @@ export const OPENROUTER_MODELS: KnownModel[] = [];
 // ── xAI / Grok (OpenAI-compatible API) ──
 
 export const XAI_MODELS: KnownModel[] = [
-  // Grok 4.5 launched July 8, 2026. The launch post gives the API ID; xAI's
-  // current Grok text family uses a 1M context window in the model docs.
+  // https://docs.x.ai/developers/grok-4-7 and /grok-4-6: 500k context,
+  // no separate output limit; xhigh reasoning is supported on both models.
+  { id: "grok-4.7", name: "Grok 4.7", context: 500000, maxOutput: 0 },
+  { id: "grok-4.6", name: "Grok 4.6", context: 500000, maxOutput: 0 },
   { id: "grok-4.5", name: "Grok 4.5", context: 1000000, maxOutput: 0 },
   { id: "grok-4.5-latest", name: "Grok 4.5 Latest", context: 1000000, maxOutput: 0 },
   { id: "grok-4.3", name: "Grok 4.3", context: 1000000, maxOutput: 0 },

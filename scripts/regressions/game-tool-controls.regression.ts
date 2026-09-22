@@ -288,6 +288,7 @@ try {
           ...plannerWithKey,
           provider: family,
           model: family === "anthropic" ? "claude-sonnet-4-6" : "gemini-2.0-flash",
+          defaultParameters: JSON.stringify({ temperature: 0.23, maxTokens: 3072 }),
         },
         baseUrl: `http://127.0.0.1:${address.port}`,
         messages: [
@@ -306,6 +307,8 @@ try {
         debugLog: () => {},
       });
       assert.ok(outbound);
+      assert.equal(family === "anthropic" ? outbound.temperature : outbound.generationConfig?.temperature, 0.23);
+      assert.equal(family === "anthropic" ? outbound.max_tokens : outbound.generationConfig?.maxOutputTokens, 3072);
       assert.doesNotMatch(JSON.stringify(outbound.system ?? outbound.systemInstruction), /planning tools/);
       const conversation = outbound.messages ?? outbound.contents;
       assert.equal(conversation.at(-1).role, "user");

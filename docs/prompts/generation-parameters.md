@@ -140,7 +140,7 @@ Parameters are resolved one field at a time, in this order:
 1. The selected preset's **Parameters**, or built-in generation defaults when no preset is used (temperature `1`, maximum output `4096`). In Roleplay, a connection's preset override takes precedence over the chat's selected preset.
 2. The connection's **Default Parameters**.
 3. This chat's **Advanced Parameters**.
-4. Mode rules: an active scene chat sets output to `8192`, reasoning to **Maximum**, and verbosity to **High**. Game sets output to `16384` and reasoning to **Maximum**, with temperature/top-p at `1` and top-k, min-p, and repetition penalties at `0`. Gemma Game connections keep their sampling settings and use an output budget of at least `16384`.
+4. Mode rules: an active scene chat sets output to `8192`, reasoning to **Maximum**, and verbosity to **High**. Game uses the saved connection and chat parameters without forcing sampling, reasoning, or a minimum output size. Its helper calls also honor saved parameters; task defaults apply only when a value is not configured.
 5. Output limits: Game applies the model's known output limit, and the connection's **Max Output Tokens override** caps requests in every mode. Available context can reduce the output budget further.
 
 The **Effective** line beside a parameter shows the saved value and its winning layer, including mode rules and output caps. In the connection editor it uses the currently open chat with that connection, or a Roleplay baseline when no chat is open. Save edits to refresh it. A disabled Send switch is shown as **not sent**; providers can still impose required parameters or normalize unsupported values. Custom Parameters and context fitting may further change the final request.

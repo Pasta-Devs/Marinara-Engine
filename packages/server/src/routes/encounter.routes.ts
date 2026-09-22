@@ -1,3 +1,4 @@
+import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import { z } from "zod";
 import { resolveGameConnection as resolveEncounterConnection } from "../services/game/connection.service.js";
 import {
@@ -793,10 +794,12 @@ export async function encounterRoutes(app: FastifyInstance) {
       );
       debugLog("[debug/game/combat:init] prompt messages:\n%s", JSON.stringify(prompt, null, 2));
 
+      const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, conn.model);
       const result = await provider.chatComplete(prompt, {
         model: conn.model,
-        temperature: 0.8,
-        maxTokens: COMBAT_BLUEPRINT_OUTPUT_TOKENS,
+        ...storedOptions,
+        enableThinking: !!storedOptions.reasoningEffort && storedOptions.reasoningEffort !== "none",
+        maxTokens: resolveStoredMaxTokens(conn.defaultParameters, COMBAT_BLUEPRINT_OUTPUT_TOKENS),
       });
       debugLog(
         "[debug/game/combat:init] raw response chatId=%s model=%s chars=%d\n%s",
@@ -899,10 +902,12 @@ export async function encounterRoutes(app: FastifyInstance) {
         spellbookCtx,
       );
 
+      const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, conn.model);
       const result = await provider.chatComplete(prompt, {
         model: conn.model,
-        temperature: 0.8,
-        maxTokens: 8192,
+        ...storedOptions,
+        enableThinking: !!storedOptions.reasoningEffort && storedOptions.reasoningEffort !== "none",
+        maxTokens: resolveStoredMaxTokens(conn.defaultParameters, 8192),
       });
 
       if (!result.content) {
@@ -994,10 +999,12 @@ export async function encounterRoutes(app: FastifyInstance) {
         settings.summaryNarrative,
       );
 
+      const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, conn.model);
       const result = await provider.chatComplete(prompt, {
         model: conn.model,
-        temperature: 0.9,
-        maxTokens: 8192,
+        ...storedOptions,
+        enableThinking: !!storedOptions.reasoningEffort && storedOptions.reasoningEffort !== "none",
+        maxTokens: resolveStoredMaxTokens(conn.defaultParameters, 8192),
       });
 
       if (!result.content) {

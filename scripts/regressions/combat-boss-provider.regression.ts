@@ -14,7 +14,13 @@ const { characterDataSchema } = await import("../../packages/shared/src/schemas/
 const { chooseGmCombatOption } = await import("../../packages/server/src/services/game/combat-boss.service.js");
 const { createCombatDirector, commandCombatDirector } =
   await import("../../packages/server/src/services/game/combat-director.service.js");
-let payload: { messages: Array<{ role: string; content: string }>; model: string },
+let payload: {
+    messages: Array<{ role: string; content: string }>;
+    model: string;
+    temperature?: number;
+    max_tokens?: number;
+    top_p?: number;
+  },
   replyText = '{"candidateId":"0"}';
 const server = createServer(async (req, res) => {
   let raw = "";
@@ -44,6 +50,7 @@ try {
     baseUrl: `http://127.0.0.1:${addr.port}/v1`,
     model: "fixture-model",
     treatAsLocalEndpoint: true,
+    defaultParameters: { temperature: 0.27, maxTokens: 4096, topP: 0.6, enabledParameters: { topP: false } },
   });
   const chats = createChatsStorage(db),
     chat = await chats.create({ name: "GM proof", mode: "game", characterIds: [], connectionId: connection.id });
@@ -83,6 +90,9 @@ try {
   commandCombatDirector(state, { type: "begin", unitId: "mage" });
   assert.equal(await chooseGmCombatOption(db, chat.id, state, false, AbortSignal.timeout(3000)), "0");
   assert.equal(payload!.model, "fixture-model");
+  assert.equal(payload!.temperature, 0.27);
+  assert.equal(payload!.max_tokens, 4096);
+  assert.equal(payload!.top_p, undefined, "disabled sampling remains omitted");
   const instructions = payload!.messages.find((m) => m.role === "system")!.content;
   assert.ok(instructions.includes("A patient referee.") && instructions.includes("Protective of the story."));
   assert.ok(!instructions.includes("private card comment") && !instructions.includes("editing notes"));
@@ -115,6 +125,9 @@ try {
         url: "/encounter/init",
         payload: { chatId: chat.id, settings: {} },
       });
+      assert.equal(payload!.temperature, 0.27, "encounter helpers inherit connection sampling");
+      assert.equal(payload!.max_tokens, 4096, "encounter helpers inherit connection output size");
+      assert.equal(payload!.top_p, undefined);
       const invalid = "mp" in pool && "maxMp" in pool && pool.mp! > pool.maxMp!;
       assert.equal(response.statusCode, invalid ? 502 : 200, response.body);
       if (invalid) assert.match(response.json().error, /Invalid resource pool/);
