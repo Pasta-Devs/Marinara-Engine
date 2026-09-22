@@ -36,6 +36,8 @@ import { createConnectionsStorage } from "../services/storage/connections.storag
 import { logger } from "../lib/logger.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { decisionProcessService } from "../services/sidecar/decision-process.service.js";
+import { DECISION_TIMEOUT_MS } from "@marinara-engine/shared";
+import { askNoulQuestions } from "../services/decision/system-one.client.js";
 import { inspectDecisionRepo } from "../services/sidecar/decision-byo.js";
 import { preflightDecisionModel } from "../services/sidecar/decision-preflight.js";
 import {
@@ -437,6 +439,34 @@ export async function decisionRoutes(app: FastifyInstance) {
     const resolution = await resolveDecisionSlot(slot);
     if (!resolution.resolved)
       return reply.status(200).send({ success: false, errorCode: resolution.failure.reason, latencyMs: 0 });
+    // A System One slot answers a fixed Noul question, not a chat prompt. Testing it
+    // the chat way is what made this return "no answer" against a healthy server.
+    if (resolution.resolved.protocol === "system_one") {
+      const result = await askNoulQuestions({
+        connection: {
+          endpoint: `${resolution.resolved.baseUrl}/v1/systemone`,
+          apiKey: "",
+          model: resolution.resolved.model,
+          maxStateTokens: 3500,
+        },
+        state: { recent_messages: [{ role: "user", name: "User", content: "The door is open." }] },
+        questions: [{ id: "test", instructions: "The door is open." }],
+        timeoutMs: DECISION_TIMEOUT_MS.sidecar,
+        questionShape: resolution.resolved.calibration?.questionShape ?? "text",
+      });
+      const probability = result.answers.get("test");
+      return {
+        success: probability !== undefined,
+        decisionProbability: probability,
+        latencyMs: result.latencyMs,
+        // A purpose-built decision model returns a calibrated probability directly
+        // and never reasons, so both of the chat-slot caveats are simply true.
+        logprobs: true,
+        answersDirectly: true,
+        errorCode: result.error,
+      };
+    }
+
     const probe = await probeDecisionSlot(resolution.resolved);
     return {
       success: probe.probability !== null,

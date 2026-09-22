@@ -178,6 +178,11 @@ export class DecisionRuntimeService {
 
     mkdirSync(RUNTIME_DIR, { recursive: true });
     writeFileSync(STAMP_PATH, `${expectedStamp()}\n`, "utf-8");
+    // The wheel cache exists so a failed or interrupted install resumes instead of
+    // starting over. Once the environment is built there is nothing left to resume,
+    // and on a real install it measured 5.4 GB: a third of everything this feature
+    // puts on disk, kept for no reason. Deliberately not cleared on failure.
+    rmSync(UV_CACHE_DIR, { recursive: true, force: true });
     this.emit(onProgress, "complete", "Decision runtime");
     return this.getPaths();
   }

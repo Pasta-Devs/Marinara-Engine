@@ -84,6 +84,40 @@ export async function resolveDecisionBackend(
       return null;
     }
     const resolved = resolution.resolved;
+
+    // The managed decision sidecar is a System One server, not a chat model. Asking it
+    // over /v1/chat/completions gets a 404, so the protocol is carried on the resolved
+    // slot rather than assumed from the fact that it is local.
+    if (resolved.protocol === "system_one") {
+      const calibration = resolved.calibration ?? DEFAULT_DECISION_CALIBRATION;
+      const maxStateTokens = Math.max(256, decisionSlotContextSize(slot) - SIDECAR_STATE_HEADROOM_TOKENS);
+      return {
+        maxStateTokens,
+        calibration,
+        // It scores candidates in one pass and never reasons, so nothing is deferred.
+        deferPreGeneration: false,
+        ask: async (state, questions) =>
+          (
+            await askNoulQuestions({
+              connection: {
+                endpoint: `${resolved.baseUrl}/v1/systemone`,
+                apiKey: "",
+                model: resolved.model,
+                maxStateTokens,
+              },
+              state,
+              questions,
+              // Local and on loopback, but a model still has to run: the sidecar
+              // budget rather than the hosted one.
+              timeoutMs: DECISION_TIMEOUT_MS.sidecar,
+              signal,
+              questionShape: calibration.questionShape,
+              debugMode: deps.debugMode,
+            })
+          ).answers,
+      };
+    }
+
     // Exactly the formula askQuestion uses, so what is deferred matches what is
     // actually slow. Reading the cached verdict without the "auto" guard would keep
     // deferring after the user switched the slot to Off, where every request is a

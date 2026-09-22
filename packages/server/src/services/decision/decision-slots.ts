@@ -15,6 +15,7 @@ import {
   DECISION_SIDECAR_DEFAULT_SETTINGS,
   findDecisionModel,
   normalizeDecisionThinking,
+  type DecisionCalibration,
   type DecisionSidecarSettings,
   type SidecarDecisionModelInfo,
   type DecisionLocalSlot,
@@ -49,6 +50,16 @@ export interface ResolvedDecisionSlot {
   /** Friendly label for the dropdown and diagnostics. */
   label: string;
   thinking: DecisionThinkingMode;
+  /**
+   * How to ask this slot a question.
+   *
+   * The two chat slots are prompted over `/v1/chat/completions` and answer through
+   * token log-probabilities. The managed decision sidecar speaks System One at
+   * `/v1/systemone` and rejects a chat request outright, so this is not cosmetic.
+   */
+  protocol: "chat_logprobs" | "system_one";
+  /** The model's own operating point, for a slot that brings one. */
+  calibration?: DecisionCalibration;
 }
 
 export type DecisionSlotFailure = { slot: DecisionLocalSlot; reason: DecisionUnavailableReason; detail?: string };
@@ -155,6 +166,7 @@ export async function resolveDecisionSlot(
         modelIdentity: `primary:${sidecarModelService.getConfiguredModelRef() ?? ""}:${status.modelSize ?? 0}`,
         label: description.label,
         thinking: primaryThinking(),
+        protocol: "chat_logprobs",
       },
     };
   }
@@ -171,6 +183,8 @@ export async function resolveDecisionSlot(
         model: "jev-latest",
         modelIdentity: `decision:${model.id}`,
         label: model.label,
+        protocol: "system_one",
+        calibration: model.calibration,
         // A purpose-built decision model never reasons: it scores candidates in one
         // forward pass and has no text to think in.
         thinking: "off",
@@ -199,6 +213,7 @@ export async function resolveDecisionSlot(
       modelIdentity: `utility:${activeModelId}:${status.models[activeModelId]?.oid ?? ""}`,
       label: description.label,
       thinking: utilityThinking(),
+      protocol: "chat_logprobs",
     },
   };
 }
