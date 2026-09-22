@@ -4,6 +4,7 @@
 import { createHash } from "node:crypto";
 import {
   BaseLLMProvider,
+  ASSISTANT_CONTINUATION_PROMPT,
   llmFetch,
   llmHttpErrorFromResponse,
   sanitizeApiError,
@@ -17,6 +18,7 @@ import {
 import { parseTextualToolCalls } from "../textual-tool-call-parser.js";
 import {
   isClaudeAdaptiveOnlyNoSamplingModel,
+  isClaudeOpus55Model,
   isOpenAIGpt56Model,
   isOpenAIGpt56SolProAlias,
   isOpenAIGpt6AstraModel,
@@ -714,7 +716,8 @@ export class OpenAIProvider extends BaseLLMProvider {
    * reject them when reasoning effort is active.
    */
   private isNoTemperatureModel(model: string, reasoningEffort?: string): boolean {
-    if (this.isGenericCustomProvider() && !this.isOpenAINoSamplingModel(model)) return false;
+    if (this.isGenericCustomProvider() && !this.isOpenAINoSamplingModel(model) && !isClaudeOpus55Model(model))
+      return false;
     const m = model.toLowerCase();
     if (/^(o1|o3|o4)/.test(m)) return true;
     if (this.isOpenAINoSamplingModel(m)) return true;
@@ -773,6 +776,7 @@ export class OpenAIProvider extends BaseLLMProvider {
   ): void {
     if (
       suppressModelParameters ||
+      isClaudeOpus55Model(options.model) ||
       !this.isGenericCustomProvider() ||
       !this.shouldSendParameter(options, "reasoningEffort") ||
       !this.hasExplicitReasoningDisable(options.reasoningEffort) ||
@@ -804,6 +808,7 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private supportsOpenRouterReasoningDisable(model: string): boolean {
+    if (isClaudeOpus55Model(model)) return false;
     const normalized = model.toLowerCase();
     return (
       this.supportsOpenAIReasoningDisable(normalized) ||
@@ -855,6 +860,14 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private applyChatCompletionsReasoning(body: Record<string, unknown>, options: ChatOptions): void {
+    if (isClaudeOpus55Model(options.model)) {
+      const effort = options.reasoningEffort === "none" ? "low" : options.reasoningEffort;
+      if (effort) {
+        if (this.isOpenRouterEndpoint()) body.reasoning = { effort };
+        else body.reasoning_effort = effort;
+      }
+      return;
+    }
     if (isOpenAIGpt6AstraModel(options.model) && this.hasExplicitReasoningDisable(options.reasoningEffort)) {
       body.reasoning_effort = "low";
       return;
@@ -953,6 +966,28 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     if (this.shouldSendReasoningEffort(options.model, options.reasoningEffort)) {
       body.reasoning_effort = options.reasoningEffort;
+    }
+  }
+
+  private normalizeOpus55Request(body: Record<string, unknown>, options: ChatOptions): void {
+    if (!isClaudeOpus55Model(options.model)) return;
+    if (body.reasoning_effort === "none") body.reasoning_effort = "low";
+    if (body.reasoning && typeof body.reasoning === "object" && !Array.isArray(body.reasoning)) {
+      const reasoning = body.reasoning as Record<string, unknown>;
+      if (reasoning.effort === "none") reasoning.effort = "low";
+      if (reasoning.enabled === false) delete reasoning.enabled;
+    }
+    if (body.tool_choice === "required" || (body.tool_choice && typeof body.tool_choice === "object")) {
+      body.tool_choice = "auto";
+    }
+    if (Array.isArray(body.messages)) {
+      const last = body.messages.at(-1);
+      if (last?.role === "assistant" && !last.tool_calls?.length) {
+        body.messages.push({
+          role: "user",
+          content: ASSISTANT_CONTINUATION_PROMPT,
+        });
+      }
     }
   }
 
@@ -1307,6 +1342,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     // parameters so an explicit Reasoning Effort: Off choice remains authoritative.
     this.enforceLocalInferenceThinkingDisable(body, options, suppressModelParameters);
     this.stripUnsupportedSamplerParameters(body, options);
+    this.normalizeOpus55Request(body, options);
 
     logger.debug(
       "[OpenAI chat()] stream=%s model=%s reasoning=%s enableThinking=%s verbosity=%s max_completion_tokens=%s max_tokens=%s temperature=%s top_p=%s tools=%s",
@@ -1594,6 +1630,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     this.applyCustomParameters(body, options);
     this.enforceLocalInferenceThinkingDisable(body, options, suppressModelParameters);
     this.stripUnsupportedSamplerParameters(body, options);
+    this.normalizeOpus55Request(body, options);
 
     logger.debug(
       "[OpenAI chatComplete()] stream=%s model=%s reasoning=%s enableThinking=%s verbosity=%s onToken=%s",

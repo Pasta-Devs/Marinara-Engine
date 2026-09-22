@@ -11,6 +11,10 @@ import {
 import { requestHeadersWithIdentityEncoding, safeFetch, type SafeFetchOptions } from "../../utils/security.js";
 import { estimateTextTokens, sliceTextToTokenBudget, type GenerationParameterSendKey } from "@marinara-engine/shared";
 
+/** For models that reject assistant prefill but can continue an existing reply from history. */
+export const ASSISTANT_CONTINUATION_PROMPT =
+  "Continue the assistant's reply from where it stopped, without repeating existing text.";
+
 /**
  * Shared undici Agent settings. The headers timeout (time to first byte) follows
  * CHAT_GENERATION_TIMEOUT_MS so slow local models get the same budget on background
