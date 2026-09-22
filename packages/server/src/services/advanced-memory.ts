@@ -3191,7 +3191,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const sourceById = new Map((sourceMessages ?? ctx.messages).map((message) => [message.id, message]));
     const current = await records(chatId);
     const indexes = new Map(ctx.messages.map((message, index) => [message.id, index + 1]));
-    return current.map((record) => ({
+    const primary = sceneRecords(current);
+    const primaryIds = new Set(primary.map((record) => record.id));
+    // Import keeps the first scene identity. Put its reviewed/presented version
+    // first, but retain older text in the export for non-destructive backups.
+    return [...primary, ...current.filter((record) => !primaryIds.has(record.id))].map((record) => ({
       record: {
         ...record,
         embedding: undefined,

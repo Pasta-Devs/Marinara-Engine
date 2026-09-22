@@ -204,6 +204,11 @@ try {
       "toggling preserves unreviewed assignments on disk",
     );
   }
+  const exportedScenes = (await memory.exportTransferRecords(chat.id)).filter(
+    (item) => item.record.sceneId === shared.sceneId && item.record.kind === "scene" && item.record.content,
+  );
+  assert.equal(exportedScenes[0]!.record.id, at(4).id, "export places the presented scene first for one-scene imports");
+  assert.equal(exportedScenes.length, legacyRows.length, "export retains the original duplicate texts as backup data");
   const keptSummary = at(4).content;
   await memory.initialize(chat.id, { detectScenes: false });
   saved = await scenes();
