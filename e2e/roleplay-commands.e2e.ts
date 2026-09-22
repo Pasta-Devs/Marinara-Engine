@@ -1171,6 +1171,9 @@ for (const [native, targetKind, modifier, dc] of [
             },
             "tool_calls",
           );
+          response.write(
+            `data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 44000, completion_tokens: 500, total_tokens: 44500, prompt_tokens_details: { cached_tokens: 40000 } } })}\n\n`,
+          );
           response.end("data: [DONE]\n\n");
         } else {
           // Keep the provider streaming indefinitely. The engine must interrupt
@@ -1205,6 +1208,9 @@ for (const [native, targetKind, modifier, dc] of [
         response.flushHeaders();
         finishFollowup = () => {
           write({ content: ` The engine rolled ${total}; the attempt is resolved.${suffix}` }, "stop");
+          response.write(
+            `data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 45000, completion_tokens: 1500, total_tokens: 46500, prompt_tokens_details: { cached_tokens: 40000 } } })}\n\n`,
+          );
           response.end("data: [DONE]\n\n");
         };
       }
@@ -1239,7 +1245,11 @@ for (const [native, targetKind, modifier, dc] of [
         data: { roleplayCommandsEnabled: true, roleplayCommandToggles: { roll: true } },
       });
       expect(metadataResponse.ok(), await metadataResponse.text()).toBeTruthy();
-      await openChat(page, fixture.chat.id, { theme: native ? "dark" : "light" });
+      await openChat(page, fixture.chat.id, {
+        theme: native && targetKind === "character" ? "dark" : "light",
+        appAccentColor: "#3b9fe8",
+        showTokenUsage: true,
+      });
       await page.locator("textarea[data-chat-composer]").fill("Try the lock.");
       await page.locator(".mari-chat-send-btn").click();
       await expect.poll(() => Boolean(finishFollowup)).toBe(true);
@@ -1302,6 +1312,39 @@ for (const [native, targetKind, modifier, dc] of [
       await expect(formatted).toContainText("the attempt is resolved.");
       await expect(inlineDice.locator(".dice-roll-card")).toHaveClass(/is-settled/u);
       await page.screenshot({ path: testInfo.outputPath("roleplay-inline-dice.png"), animations: "disabled" });
+      const accent = await inlineDice.evaluate((element) => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--primary)";
+        element.append(probe);
+        const color = getComputedStyle(probe).color;
+        probe.remove();
+        return color;
+      });
+      await expect(inlineDice.locator(".dice-roll-breakdown")).toHaveCSS("color", accent);
+      await expect(inlineDice.locator(".dice-roll-total")).toHaveCSS("color", accent);
+      if (native) {
+        expect(extra(saved.extra).generationInfo).toMatchObject({
+          requestCount: 2,
+          tokensPrompt: 89000,
+          tokensCompletion: 2000,
+          tokensLastRequestInput: 45000,
+        });
+        const bubble = page.locator(`[data-message-id="${saved.id}"]`);
+        await expect(bubble.locator('[title*="2 requests: 89000→2000 tok total"]')).toBeVisible();
+        if (testInfo.project.name.includes("mobile"))
+          await bubble.getByText("I attempt the lock.", { exact: false }).tap();
+        else await bubble.hover();
+        await bubble.getByRole("button", { name: "Peek prompt", exact: true }).click();
+        await expect(page.getByText("89,000 reported prompt tokens across 2 requests", { exact: false })).toBeVisible();
+        await expect(
+          page.getByText("Last request input: 45,000 tokens (including cached input, excluding output).", {
+            exact: true,
+          }),
+        ).toBeVisible();
+        await expect(page.getByText("Tool follow-ups send the conversation again.", { exact: false })).toBeVisible();
+        await page.screenshot({ path: testInfo.outputPath("roleplay-tool-usage.png"), animations: "disabled" });
+        await page.getByRole("button", { name: "Close assembled prompt", exact: true }).click();
+      }
       const order = await inlineDice.evaluate((element) => {
         const range = document.createRange();
         range.selectNodeContents(element.closest("strong")!);
