@@ -87,7 +87,7 @@ El campo **API Key** acepta cualquiera de estos tres tipos de credencial, y Mari
 - Dónde conseguir una clave: `https://console.x.ai`
 - URL base predeterminada: `https://api.x.ai/v1`
 
-**xAI / Grok** ejecuta los modelos Grok. Cuando eliges este proveedor en la ventana **Create Connection**, Marinara rellena de antemano el modelo con Grok 4.5. Puedes cambiar el modelo después.
+**xAI / Grok** ejecuta los modelos Grok. Cuando eliges este proveedor en la ventana **Create Connection**, Marinara rellena de antemano el modelo con Grok 4.5. Puedes cambiar el modelo después. Grok 4.6 y 4.7 ofrecen una ventana de contexto de 500 000 tokens y razonamiento hasta **Maximum** (`xhigh`). Admiten las herramientas existentes del chat, incluida **Web Search** (búsqueda web), para que los resultados de búsqueda puedan incorporarse a la respuesta final.
 
 ## Z.AI
 

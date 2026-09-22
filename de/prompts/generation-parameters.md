@@ -60,12 +60,12 @@ In den **Advanced Parameters** eines Chats steht der Send-Schalter standardmäß
 
 ## Standardwerte
 
-Die Tabelle zeigt die Ersatzwerte im Parametereditor und die Standardstellung der Send-Schalter. Das sind nicht unbedingt die Werte, die das Modell erhält: Ohne Preset beginnt die Generierung mit `4096` Ausgabetokens, bevor Verbindungs- und Chatwerte angewendet werden. Danach können Modusregeln `8192` für eine aktive Szene oder `16384` für Game festlegen. Die Zeile **Effective** zeigt den aufgelösten Wert.
+Die Tabelle zeigt die Ersatzwerte im Parametereditor und die Standardstellung der Send-Schalter. Das sind nicht unbedingt die Werte, die das Modell erhält: Ohne Preset beginnt die Generierung mit `4096` Ausgabetokens, bevor Verbindungs- und Chatwerte angewendet werden. Eine aktive Szene kann `8192` verwenden. Game verwendet gespeicherte Verbindungs- und Chatparameter; aufgabenspezifische Standardwerte gelten nur für nicht konfigurierte Werte. Die Zeile **Effective** zeigt den aufgelösten Wert.
 
 | Parameter | Startwert | Standardmäßig gesendet |
 |---|---|---|
 | Temperature | 1 | Nein |
-| Max Output Tokens | 4096 in Conversation, 8192 in Roleplay und Game | Ja |
+| Max Output Tokens | 4096 in Conversation, 8192 in Roleplay; keine Überschreibung durch Game | Ja |
 | Top P | 1 | Nein |
 | Top K | 0 (aus) | Nein |
 | Frequency | 0 | Nein |
@@ -140,8 +140,8 @@ Die Parameter werden einzeln in dieser Reihenfolge aufgelöst:
 1. Die **Parameters** (Parameter) des gewählten Presets, oder die eingebauten Generierungsstandards ohne Preset (Temperatur `1`, maximale Ausgabe `4096`). In Roleplay hat die Preset-Zuweisung der Verbindung Vorrang vor dem im Chat gewählten Preset.
 2. Die **Default Parameters** (Standardparameter) der Verbindung.
 3. Die **Advanced Parameters** dieses Chats.
-4. Modusregeln: Ein aktiver Szenen-Chat setzt die Ausgabe auf `8192`, Reasoning auf **Maximum** und Verbosity auf **High**. Game Mode setzt die Ausgabe auf `16384` und Reasoning auf **Maximum**, Temperatur/top-p auf `1` sowie top-k, min-p und Wiederholungsstrafen auf `0`. Gemma-Verbindungen in Game Mode behalten ihre Sampling-Einstellungen und nutzen ein Ausgabebudget von mindestens `16384`.
-5. Ausgabelimits: Game Mode berücksichtigt das bekannte Ausgabelimit des Modells. Der **Max Output Tokens override** (Override für maximale Ausgabetokens) der Verbindung begrenzt Anfragen in jedem Modus. Der verfügbare Kontext kann das Ausgabebudget weiter reduzieren.
+4. Modusregeln: Ein aktiver Szenen-Chat setzt die Ausgabe auf `8192`, Reasoning auf **Maximum** und Verbosity auf **High**. Game verwendet die gespeicherten Verbindungs- und Chatparameter, ohne Sampling, Reasoning oder eine Mindestgröße für die Ausgabe zu erzwingen. Auch Hilfsaufrufe beachten gespeicherte Parameter; aufgabenspezifische Standardwerte gelten nur, wenn ein Wert nicht konfiguriert ist.
+5. Ausgabelimits: Game berücksichtigt das bekannte Ausgabelimit des Modells. **Max Output Tokens override** in der Verbindung begrenzt Anfragen in jedem Modus. Der verfügbare Kontext kann das Ausgabebudget weiter reduzieren.
 
 Die Zeile **Effective** (wirksamer Wert) neben einem Parameter zeigt den gespeicherten Wert und die maßgebliche Schicht, einschließlich Modusregeln und Ausgabelimits. Im Verbindungseditor bezieht sie sich auf den aktuell geöffneten Chat mit dieser Verbindung, sonst auf eine Roleplay-Basis ohne offenen Chat. Speichere Änderungen, um die Anzeige zu aktualisieren. Ein deaktivierter Send-Schalter erscheint als **not sent**. Anbieter können trotzdem Pflichtparameter vorgeben oder nicht unterstützte Werte anpassen. Custom Parameters und die Anpassung an das Kontextfenster können die endgültige Anfrage weiter verändern.
 
