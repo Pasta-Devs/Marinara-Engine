@@ -1208,6 +1208,7 @@ test("missing scene recovery identifies the blocked memory and prepares only its
     unpreparedScenes: [{ sceneId: "scene-948", startIndex: 948, endIndex: 992 }],
   };
   const preparations: unknown[] = [];
+  const savedCorrection = record.content;
   await page.route(`**/api/chats/${fixture.chat.id}/advanced-memory**`, async (route) => {
     if (route.request().method() === "POST" && new URL(route.request().url()).pathname.endsWith("/initialize")) {
       preparations.push(route.request().postDataJSON());
@@ -1236,14 +1237,14 @@ test("missing scene recovery identifies the blocked memory and prepares only its
     await expect(inspector.getByText("Missing scene summary: Messages 948–992", { exact: true })).toBeVisible();
     await expect(inspector).toContainText("Reindexing alone cannot create a missing summary.");
     await inspector.getByRole("button", { name: "Review Scene #1: Messages 943–947 · Dottore", exact: true }).click();
-    await expect(inspector.getByRole("textbox", { name: "Summary text", exact: true })).toHaveValue(record.content);
+    await expect(inspector.getByRole("textbox", { name: "Summary text", exact: true })).toHaveValue(savedCorrection);
     await expect(inspector.getByRole("button", { name: "Save correction", exact: true })).toBeEnabled();
     await inspector.getByRole("button", { name: "Back to scenes", exact: true }).click();
     await inspector.getByRole("button", { name: "Prepare scene", exact: true }).click();
     await expect.poll(() => preparations).toEqual([{ sceneId: "scene-948" }]);
     await expect(inspector.getByText("Missing scene summary: Messages 948–992", { exact: true })).toHaveCount(0);
     await expect(inspector.getByRole("button", { name: /Scene #2/ })).toContainText("Messages 948–992");
-    expect(status.records[0]).toEqual(record);
+    await expect(inspector.getByRole("button", { name: /^Scene #1\b/ })).toContainText(savedCorrection);
     await captureThemes(page, info, "memory-recovered");
   } finally {
     await fixture.cleanup();

@@ -236,26 +236,30 @@ export function AdvancedMemoryInspector({
           })}
         </button>
       )}
-      {!selected &&
-        (status.data?.unpreparedScenes ?? []).map((scene) => (
-          <div
-            key={scene.sceneId}
-            className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-xs"
-          >
-            <p className="font-medium">
-              {t("chat.advancedMemory.missingScene", { start: scene.startIndex, end: scene.endIndex })}
-            </p>
-            <p className="text-[var(--muted-foreground)]">{t("chat.advancedMemory.missingSceneHelp")}</p>
-            <button
-              type="button"
-              className={`${buttonClass} min-h-11`}
-              disabled={pending || !status.data?.settings.enabled || !!status.data?.missingKnowledgeCharacterIds.length}
-              onClick={() => action.mutate({ action: "initialize", sceneId: scene.sceneId })}
+      <div aria-live="polite" className="space-y-3 empty:my-0">
+        {!selected &&
+          (status.data?.unpreparedScenes ?? []).map((scene) => (
+            <div
+              key={scene.sceneId}
+              className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-xs"
             >
-              {t("chat.advancedMemory.prepareScene")}
-            </button>
-          </div>
-        ))}
+              <p className="font-medium">
+                {t("chat.advancedMemory.missingScene", { start: scene.startIndex, end: scene.endIndex })}
+              </p>
+              <p className="text-[var(--muted-foreground)]">{t("chat.advancedMemory.missingSceneHelp")}</p>
+              <button
+                type="button"
+                className={`${buttonClass} min-h-11`}
+                disabled={
+                  pending || !status.data?.settings.enabled || !!status.data?.missingKnowledgeCharacterIds.length
+                }
+                onClick={() => action.mutate({ action: "initialize", sceneId: scene.sceneId })}
+              >
+                {t("chat.advancedMemory.prepareScene")}
+              </button>
+            </div>
+          ))}
+      </div>
       {!status.isLoading && !status.isError && records.length === 0 && (
         <p className="text-xs text-[var(--muted-foreground)]">{t("chat.advancedMemory.emptyArchive")}</p>
       )}
