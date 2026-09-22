@@ -34,11 +34,11 @@ test("the decision installer warns, gates the model choice behind Enable, and ju
   const openCard = page.getByText("Local Model", { exact: true }).first();
   await expect(openCard).toBeVisible();
   await openCard.click();
+  // Not conditional: the decision sidecar is its own model and its own process, so
+  // this must be reachable whether or not a chat model has been downloaded. Skipping
+  // here would hide exactly the regression that put it behind one.
   const openInstaller = page.getByRole("button", { name: /Decision sidecar/ });
-  if ((await openInstaller.count()) === 0) {
-    // No local model downloaded on this runner, so the card never expands that far.
-    test.skip(true, "The Local Model card has no downloaded model on this runner");
-  }
+  await expect(openInstaller).toBeVisible();
   await openInstaller.click();
 
   const dialog = page.getByRole("dialog");

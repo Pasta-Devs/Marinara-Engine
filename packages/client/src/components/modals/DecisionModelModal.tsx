@@ -119,15 +119,23 @@ export function DecisionModelModal({ open, onClose }: Props) {
 
   const handleInstall = async () => {
     if (!selected) return;
+    // The verdict is re-stated here rather than trusted from enable time: a bigger
+    // sidecar model or a game can have taken the headroom since, and a download is
+    // the expensive step to agree to blind.
+    const warning = selected.preflight.reason;
     const confirmed = await showConfirmDialog({
       title: localizeUi("ui.modals.decisionmodelmodal.downloadTitle"),
-      message: localizeUi("ui.modals.decisionmodelmodal.downloadBody", {
-        label: selected.label,
-        size: formatBytes(selected.downloadSizeBytes),
-        disk: formatBytes(selected.diskBytes),
-        licenses: selected.licenses.join(", "),
-      }),
+      message: [
+        localizeUi("ui.modals.decisionmodelmodal.downloadBody", {
+          label: selected.label,
+          size: formatBytes(selected.downloadSizeBytes),
+          disk: formatBytes(selected.diskBytes),
+          licenses: selected.licenses.join(", "),
+        }),
+        ...(warning ? [warning] : []),
+      ].join("\n\n"),
       confirmLabel: localizeUi("ui.modals.decisionmodelmodal.download"),
+      ...(warning ? { tone: "destructive" as const } : {}),
     });
     if (!confirmed) return;
     try {
@@ -337,7 +345,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                       onClick={() => {
                         const repo = repoInput.trim();
                         setInspectedRepo(repo);
-                        inspect.mutate({ repoId: repo });
+                        inspect.mutate({ repoId: repo }, { onError: report });
                       }}
                       className="mari-chrome-control mari-chrome-control--compact px-3 text-xs disabled:opacity-50"
                     >

@@ -91,6 +91,13 @@ class DecisionProcessService {
       return null;
     }
 
+    // Stopped BEFORE the recheck, not after. A running decision process is filtered
+    // out of the slot list but its memory is still in the card's `used` figure, so it
+    // would be counted once as another application's usage and again as the candidate
+    // about to start. Restarting the same model would then look like running two of
+    // them and could be refused on a card that fits it comfortably.
+    await this.stop();
+
     // Conditions change after an install: a bigger sidecar model, a longer context, a
     // game holding memory. The verdict at download time is not a promise about today,
     // so it is taken again here and a launch that no longer fits is refused with the
@@ -101,8 +108,6 @@ class DecisionProcessService {
       logger.warn("[decision-sidecar] Refusing to start: %s", this.error);
       return null;
     }
-
-    await this.stop();
 
     const runtime = decisionRuntimeService.getPaths();
     mkdirSync(join(LOG_PATH, ".."), { recursive: true });
