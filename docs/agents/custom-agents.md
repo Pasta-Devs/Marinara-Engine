@@ -180,7 +180,7 @@ Deleting a connection used for a linked key warns you and leaves the Decision co
 
 With a Decision default selected, open a custom agent and enter a **Question** of up to 500 characters. Standard agent macros, including `{{user}}` and `{{char}}`, work in the question. **Scan Depth** controls the recent messages used by both keywords and the question.
 
-- **Run when probability is at least** defaults to 0.50. The agent runs when the probability of “yes” meets or exceeds it. Higher values skip more runs.
+- **Run when probability is at least** starts from whatever the selected decision model answers around, because probabilities are not comparable between models: a general local model answers a clear yes at 0.99, while a purpose-built decision model answers the same turn at 0.2. The agent runs when the probability of “yes” meets or exceeds the threshold, and higher values skip more runs. The editor offers to restore the recommended value whenever yours differs from it.
 - **Bypass the question after this many messages without a successful run** is optional. Once this many user/assistant messages have passed since the agent last ran successfully, the question is bypassed. A new agent, or one whose previous message was deleted, also bypasses the question when this setting is enabled. Keywords and cadence must still allow the run.
 - Pre-generation and parallel agents use the conversation before the reply. Post-processing agents also see the completed reply.
 

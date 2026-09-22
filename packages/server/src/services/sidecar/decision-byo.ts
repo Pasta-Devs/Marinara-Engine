@@ -12,13 +12,12 @@
  */
 import {
   DECISION_RUNTIME_DEFAULTS,
+  isSafeGitRef,
+  isSafeRepoId,
   readDecisionManifest,
   type DecisionManifestRefusal,
   type SidecarDecisionModelInfo,
 } from "@marinara-engine/shared";
-
-/** owner/name, the only shape HuggingFace model repositories take. */
-const REPO_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/u;
 
 export type ByoRefusal = DecisionManifestRefusal | "invalid_repo" | "not_found" | "unresolvable_revision";
 
@@ -59,7 +58,9 @@ export async function inspectDecisionRepo(
   repoId: string,
   ref = "main",
 ): Promise<{ model: SidecarDecisionModelInfo } | { refusal: ByoRefusal }> {
-  if (!REPO_PATTERN.test(repoId)) return { refusal: "invalid_repo" };
+  // Both of these are interpolated into hub URLs, so neither is trusted by shape
+  // alone: a dot-only segment collapses the path onto a different endpoint.
+  if (!isSafeRepoId(repoId) || !isSafeGitRef(ref)) return { refusal: "invalid_repo" };
   const revision = await resolveRevision(repoId, ref);
   if (!revision) return { refusal: "unresolvable_revision" };
 
@@ -75,6 +76,9 @@ export async function inspectDecisionRepo(
     repoBytes(repoId, revision, "package/"),
     repoBytes(read.baseModel, baseRevision),
   ]);
+  // A manifest with no checkpoint beside it describes an install that cannot happen,
+  // and a zero total would sail through the preflight as costing nothing.
+  if (checkpointBytes === 0) return { refusal: "unreadable_manifest" };
   if (baseBytes === 0) return { refusal: "missing_base_model" };
 
   const defaults = DECISION_RUNTIME_DEFAULTS[read.runtime];

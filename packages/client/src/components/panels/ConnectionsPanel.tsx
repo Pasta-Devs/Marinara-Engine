@@ -672,15 +672,18 @@ function SidecarCard() {
                 className="p-0 hover:bg-transparent"
                 labelClassName="text-xs text-[var(--muted-foreground)]"
               />
-              <button
-                type="button"
-                onClick={() => setDecisionModalOpen(true)}
-                className="mari-chrome-control mari-chrome-control--compact w-full text-center"
-              >
-                {localizeUi("ui.panels.sidecarcard.decisionSidecar")}
-              </button>
             </div>
           )}
+          {/* Outside the downloaded-model branch on purpose: the decision sidecar is
+              its own model and its own process, so it must not be reachable only by
+              people who already have a chat model installed. */}
+          <button
+            type="button"
+            onClick={() => setDecisionModalOpen(true)}
+            className="mari-chrome-control mari-chrome-control--compact mt-2 w-full text-center"
+          >
+            {localizeUi("ui.panels.sidecarcard.decisionSidecar")}
+          </button>
           {!isDownloaded && (
             <div className="mt-2.5 flex flex-col gap-2 border-t border-sky-400/10 pt-2.5">
               <button

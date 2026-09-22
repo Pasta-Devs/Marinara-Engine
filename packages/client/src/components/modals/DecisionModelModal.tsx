@@ -56,11 +56,18 @@ export function DecisionModelModal({ open, onClose }: Props) {
 
   const data = sidecar.data;
   const models = data?.models ?? [];
+  // Prefer what is installed, then an explicit pick, then the first installable
+  // entry. Before the status loads there is no verdict at all, and confirming
+  // against an assumed "recommended" would record consent to something nobody was
+  // shown, so the toggle waits instead.
   const selected =
-    models.find((model) => model.id === selectedId) ?? models.find((model) => model.preflight.installable) ?? null;
+    models.find((model) => model.id === selectedId) ??
+    models.find((model) => model.id === data?.settings.modelId) ??
+    models.find((model) => model.preflight.installable) ??
+    null;
   const enabled = data?.settings.enabled === true;
   const installedId = data?.settings.modelId ?? null;
-  const busy = enable.isPending || install.isPending || remove.isPending || installRepo.isPending;
+  const busy = enable.isPending || install.isPending || remove.isPending || installRepo.isPending || sidecar.isPending;
 
   /**
    * Turning it on is a decision with a cost, so it is confirmed against the verdict

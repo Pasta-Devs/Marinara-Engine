@@ -17,6 +17,8 @@ import {
   DECISION_ARTIFACT_RUNTIMES,
   DEFAULT_DECISION_CALIBRATION,
   findDecisionModel,
+  isSafeGitRef,
+  isSafeRepoId,
   normalizeDecisionThinking,
   parseDecisionSidecarSettings,
   readDecisionManifest,
@@ -147,6 +149,35 @@ for (const model of SIDECAR_DECISION_MODELS) {
 // A pasted repository is judged by the artifact type it declares, never assumed.
 assert.equal(DECISION_ARTIFACT_RUNTIMES["qwen_lora_adapter_plus_scalar_decision_head"], "open_jev_torch");
 assert.equal(DECISION_ARTIFACT_RUNTIMES["something_invented"], undefined);
+
+// A pasted repository id and ref are interpolated into hub URLs, so a dot-only
+// segment is refused rather than allowed to collapse the path onto a different
+// endpoint: `../name` turns /api/models/../name/tree/x into /api/name/tree/x.
+assert.equal(isSafeRepoId("ZefanCai/Open-Jev-2B"), true);
+assert.equal(isSafeRepoId("Qwen/Qwen3.5-2B"), true);
+assert.equal(isSafeRepoId("../name"), false, "a traversing owner must not reach a URL");
+assert.equal(isSafeRepoId("owner/.."), false);
+assert.equal(isSafeRepoId("./x"), false);
+assert.equal(isSafeRepoId("owner"), false, "one segment is not a repository id");
+assert.equal(isSafeRepoId("a/b/c"), false);
+assert.equal(isSafeRepoId("___/---"), false, "a segment needs at least one alphanumeric");
+assert.equal(isSafeGitRef("0".repeat(40)), true);
+assert.equal(isSafeGitRef("main"), true);
+assert.equal(isSafeGitRef("refs/heads/main"), true);
+assert.equal(isSafeGitRef(".."), false);
+assert.equal(isSafeGitRef("a/../b"), false);
+assert.equal(isSafeGitRef("-x"), false, "a leading dash reads as an option");
+
+// The same rule guards a manifest's declared base model, which is third-party text
+// that this code puts in a URL just as readily as a pasted id.
+assert.deepEqual(
+  readDecisionManifest({
+    artifact_type: "qwen_lora_adapter_plus_scalar_decision_head",
+    base_model: "../evil",
+    base_revision: "0".repeat(40),
+  }),
+  { refusal: "missing_base_model" },
+);
 
 // Settings come back from a JSON blob a user can hand-edit; nothing in it may turn
 // the sidecar on or point it at something this build cannot run.
@@ -600,8 +631,15 @@ assert.equal(hasThinkingSetting("decision_sidecar"), false);
   const route = readFileSync(new URL("../../packages/server/src/routes/decision.routes.ts", import.meta.url), "utf8");
   const body = route.slice(route.indexOf('app.post("/select"'), route.indexOf('app.post("/thinking"'));
   const clearAt = body.lastIndexOf("settings.remove(DECISION_LOCAL_DEFAULT_SETTINGS_KEY)");
-  assert.ok(body.indexOf("status(404)") < clearAt, "the 404 branch must return before the local slot is cleared");
-  assert.ok(body.indexOf("status(409)") < clearAt, "the 409 branch must return before the local slot is cleared");
+  const notFoundAt = body.indexOf("status(404)");
+  const conflictAt = body.indexOf("status(409)");
+  // Without these, a renamed marker would make indexOf return -1 and every ordering
+  // check below would pass for the wrong reason.
+  assert.ok(clearAt > -1, "the select route must still clear the stored local slot somewhere");
+  assert.ok(notFoundAt > -1, "the select route must still reject an unknown connection");
+  assert.ok(conflictAt > -1, "the select route must still reject an unusable one");
+  assert.ok(notFoundAt < clearAt, "the 404 branch must return before the local slot is cleared");
+  assert.ok(conflictAt < clearAt, "the 409 branch must return before the local slot is cleared");
 }
 
 // The dropdown greys a connection out and the select route refuses it using the same

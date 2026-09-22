@@ -29,6 +29,34 @@ export const DECISION_ARTIFACT_RUNTIMES: Record<string, DecisionRuntimeKind> = {
   qwen_lora_adapter_plus_scalar_decision_head: "open_jev_torch",
 };
 
+/**
+ * Is this a HuggingFace repository id and nothing else?
+ *
+ * Load bearing rather than cosmetic. A pasted id is interpolated into hub URLs, and a
+ * segment of dots survives a naive character-class check while collapsing the path:
+ * `../name` resolves `…/api/models/../name/tree/x` to `…/api/name/tree/x`, which is a
+ * different endpoint than the one this code believes it is calling.
+ */
+export function isSafeRepoId(value: string): boolean {
+  const segments = value.split("/");
+  if (segments.length !== 2) return false;
+  return segments.every(
+    (segment) => /^[A-Za-z0-9._-]+$/u.test(segment) && /[A-Za-z0-9]/u.test(segment) && !/^\.+$/u.test(segment),
+  );
+}
+
+/**
+ * Is this a git ref this code is willing to put in a URL?
+ *
+ * Either an exact commit or a plain branch or tag name. No dot-only segments, no
+ * leading dash, nothing that needs escaping.
+ */
+export function isSafeGitRef(value: string): boolean {
+  if (/^[0-9a-f]{40}$/u.test(value)) return true;
+  if (value.length > 100 || value.startsWith("-")) return false;
+  return value.split("/").every((segment) => /^[A-Za-z0-9._-]+$/u.test(segment) && !/^\.+$/u.test(segment));
+}
+
 /** One downloadable artifact, pinned so an install is reproducible. */
 export interface DecisionModelArtifact {
   repoId: string;
@@ -160,7 +188,9 @@ export function readDecisionManifest(
   const runtime = DECISION_ARTIFACT_RUNTIMES[declared];
   if (!runtime) return { refusal: "unknown_artifact_type" };
   const baseModel = typeof manifest.base_model === "string" ? manifest.base_model.trim() : "";
-  if (!/^[^/\s]+\/[^/\s]+$/u.test(baseModel)) return { refusal: "missing_base_model" };
+  // The manifest is third-party text and this id goes into a URL, so it gets the same
+  // check a pasted one does rather than a looser shape test.
+  if (!isSafeRepoId(baseModel)) return { refusal: "missing_base_model" };
   const baseRevision = typeof manifest.base_revision === "string" ? manifest.base_revision.trim() : "";
   // A branch name would let the weights change under a pinned adapter.
   if (!/^[0-9a-f]{40}$/u.test(baseRevision)) return { refusal: "unpinned_base_revision" };
@@ -215,6 +245,7 @@ export function sanitizeCustomDecisionModel(value: unknown): SidecarDecisionMode
   if (!defaults) return null;
   if (!Array.isArray(model.artifacts) || model.artifacts.length === 0) return null;
   if (!model.artifacts.every((artifact) => /^[0-9a-f]{40}$/u.test(artifact.revision ?? ""))) return null;
+  if (!model.artifacts.every((artifact) => isSafeRepoId(artifact.repoId ?? ""))) return null;
   // An entry with no name or a nonsense size would reach the panel and the preflight,
   // where it would render blank and be judged against zero bytes.
   if (typeof model.id !== "string" || !model.id.trim()) return null;

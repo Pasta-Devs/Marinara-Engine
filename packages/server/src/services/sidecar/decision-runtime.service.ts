@@ -13,11 +13,12 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DecisionModelArtifact, SidecarDecisionModelInfo, SidecarDownloadProgress } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { getDataDir } from "../../utils/data-dir.js";
+import { assertInsideDir } from "../../utils/security.js";
 import { downloadFileWithProgress, isAbortError, retry } from "./sidecar-download.js";
 import { DECISION_RUNTIME_MANIFEST, serializeDecisionRuntimeManifestStamp } from "./runtime-integrity-manifest.js";
 
@@ -209,8 +210,17 @@ export class DecisionRuntimeService {
       mkdirSync(snapshot, { recursive: true });
       for (const file of files) {
         if (this.cancelRequested) throw new Error("Download aborted");
-        const destination = join(snapshot, file.path);
-        mkdirSync(join(destination, ".."), { recursive: true });
+        // The file list comes from a repository the user pasted, so a name like
+        // "../../../etc/x" would otherwise be written wherever it resolved to. The
+        // path is checked against the snapshot before a directory is created, not
+        // after a file is opened.
+        let destination: string;
+        try {
+          destination = assertInsideDir(snapshot, resolve(snapshot, file.path));
+        } catch {
+          throw new Error(`${artifact.repoId} lists a file outside its own directory: ${file.path}`);
+        }
+        mkdirSync(dirname(destination), { recursive: true });
         const abort = new AbortController();
         this.activeFetchAbort = abort;
         try {
@@ -310,8 +320,13 @@ export class DecisionRuntimeService {
       try {
         const expected = JSON.parse(readFileSync(receipt, "utf-8")) as Record<string, number>;
         return Object.entries(expected).every(([relative, size]) => {
-          const file = join(snapshot, relative);
-          return existsSync(file) && statSync(file).size === size;
+          try {
+            const file = assertInsideDir(snapshot, resolve(snapshot, relative));
+            return existsSync(file) && statSync(file).size === size;
+          } catch {
+            // A receipt naming a path outside its own snapshot is not a receipt.
+            return false;
+          }
         });
       } catch {
         return false;

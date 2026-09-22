@@ -846,14 +846,16 @@ export function AgentEditor() {
    *
    * The reset effect reads the calibration through a ref, so an editor opened before
    * `/api/decision/options` resolves seeds from the fallback 0.5 and keeps it. That
-   * is the wrong number for a model answering around 0.2. Only applied while the
-   * question is still empty and nothing has been edited, so it can never overwrite
-   * what somebody typed or a threshold they chose.
+   * is the wrong number for a model answering around 0.2.
+   *
+   * Guarded on the question alone rather than on `dirty`: the threshold only matters
+   * once a question exists, and `dirty` is set by any edit anywhere in the form, so
+   * renaming the agent first would have left the stale 0.5 in place.
    */
   useEffect(() => {
-    if (dirty || localActivationQuestion.trim()) return;
+    if (localActivationQuestion.trim()) return;
     setLocalActivationThreshold(decisionCalibration.defaultThreshold);
-  }, [decisionCalibration.defaultThreshold, dirty, localActivationQuestion]);
+  }, [decisionCalibration.defaultThreshold, localActivationQuestion]);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const musicPlayerSource = useUIStore((s) => s.musicPlayerSource);
   const setMusicPlayerSource = useUIStore((s) => s.setMusicPlayerSource);
