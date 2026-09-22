@@ -50,7 +50,12 @@ try {
     baseUrl: `http://127.0.0.1:${addr.port}/v1`,
     model: "fixture-model",
     treatAsLocalEndpoint: true,
-    defaultParameters: { temperature: 0.27, maxTokens: 4096, topP: 0.6, enabledParameters: { topP: false } },
+  });
+  await createConnectionsStorage(db).updateDefaultParameters(connection.id, {
+    temperature: 0.27,
+    maxTokens: 4096,
+    topP: 0.6,
+    enabledParameters: { topP: false },
   });
   const chats = createChatsStorage(db),
     chat = await chats.create({ name: "GM proof", mode: "game", characterIds: [], connectionId: connection.id });

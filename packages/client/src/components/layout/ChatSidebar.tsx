@@ -72,7 +72,9 @@ import {
   compareChatsByActivityDesc,
   compareChatsByCreatedAtAsc,
   compareChatsByCreatedAtDesc,
+  getChatActivityTime,
 } from "../../lib/chat-recency";
+import { sortPanelFolders } from "../../lib/panel-sort";
 import { getCurrentGameGroupRepresentative } from "../../lib/game-session-resolution";
 import { api } from "../../lib/api-client";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
@@ -83,7 +85,7 @@ import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensi
 import { ChatModeIcon } from "../chat/ChatModeIcon";
 import { CharacterScheduleManagerModal } from "../chat/CharacterScheduleManagerModal";
 
-type ChatSortOption = "recent" | "newest" | "oldest" | "name-asc" | "name-desc";
+type ChatSortOption = "custom" | "recent" | "newest" | "oldest" | "name-asc" | "name-desc";
 const CHAT_LIST_PAGE_SIZE = 100;
 
 const CONVERSATION_STATUS_PRIORITY: Record<ConversationPresenceStatus, number> = {
@@ -470,9 +472,18 @@ export function ChatSidebar() {
 
   // ── Folder grouping ──
   const modeFolders = useMemo(() => {
-    if (!folders) return [] as ChatFolder[];
-    return folders.filter((f) => f.mode === activeTab).sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [folders, activeTab]);
+    const list = sortPanelFolders(
+      (folders ?? []).filter((f) => f.mode === activeTab),
+      sort === "recent" ? "name-asc" : sort,
+    );
+    if (sort !== "recent") return list;
+    const activity = new Map(list.map((folder) => [folder.id, getChatActivityTime(folder)]));
+    for (const chat of modeChats) {
+      if (chat.folderId)
+        activity.set(chat.folderId, Math.max(activity.get(chat.folderId) ?? 0, getChatActivityTime(chat)));
+    }
+    return list.sort((a, b) => activity.get(b.id)! - activity.get(a.id)!);
+  }, [folders, activeTab, sort, modeChats]);
 
   const { unfiledChats, folderChatsMap } = useMemo(() => {
     if (!visibleDisplayChats.length)
@@ -506,9 +517,14 @@ export function ChatSidebar() {
 
   const [localFolderOrder, setLocalFolderOrder] = useState<string[]>([]);
   useEffect(() => {
-    if (!folders) return;
-    setLocalFolderOrder(modeFolders.map((f) => f.id));
-  }, [folders, modeFolders]);
+    setLocalFolderOrder(
+      sortPanelFolders(
+        (folders ?? []).filter((f) => f.mode === activeTab),
+        "custom",
+      ).map((f) => f.id),
+    );
+  }, [folders, activeTab]);
+  const folderOrder = sort === "custom" ? localFolderOrder : modeFolders.map((folder) => folder.id);
 
   useEffect(() => {
     const allChats = chats ?? [];
@@ -775,6 +791,7 @@ export function ChatSidebar() {
 
   const handleFolderReorder = useCallback(
     (newOrder: string[]) => {
+      setSort("custom");
       setLocalFolderOrder(newOrder);
       reorderFoldersMut.mutate(newOrder);
     },
@@ -1371,6 +1388,7 @@ export function ChatSidebar() {
               className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
               title={localize("Sort chats")}
             >
+              <option value="custom">{localizeUi("settings.notifications.customSound.status.custom")}</option>
               <option value="recent">{localizeUi("ui.layout.chatsidebar.recent")}</option>
               <option value="newest">{localize("Newest")}</option>
               <option value="oldest">{localize("Oldest")}</option>
@@ -1555,15 +1573,15 @@ export function ChatSidebar() {
           )}
 
           {/* Folders (drag-to-reorder) */}
-          {localFolderOrder.length > 0 && (
+          {folderOrder.length > 0 && (
             <Reorder.Group
               axis="y"
-              values={localFolderOrder}
+              values={folderOrder}
               onReorder={handleFolderReorder}
               as="div"
               className="flex flex-col gap-0.5 mt-1"
             >
-              {localFolderOrder.map((folderId) => {
+              {folderOrder.map((folderId) => {
                 const folder = modeFolders.find((f) => f.id === folderId);
                 if (!folder) return null;
                 const folderEntries = folderChatsMap.get(folderId) ?? [];
