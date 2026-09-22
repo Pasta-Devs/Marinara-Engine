@@ -130,6 +130,7 @@ try {
             customParameters: {
               temperature: 0.9,
               top_p: 0.9,
+              // Responses uses include for log probabilities; the boolean is a Chat Completions field.
               ...(canDisable && effort === "none" ? {} : { logprobs: true }),
               top_logprobs: 3,
               include: ["reasoning.encrypted_content", "message.output_text.logprobs"],
@@ -270,6 +271,7 @@ try {
         stream: false,
         reasoningEffort: effort,
         temperature: 0.7,
+        customParameters: { logprobs: true, top_logprobs: 3 },
       });
       const sent = requests.at(-1)!;
       assert.equal(sent.url, "/v1/chat/completions");
@@ -277,6 +279,8 @@ try {
       assert.deepEqual(sent.body.reasoning, { effort: effort === "none" && !canDisable ? "low" : effort });
       assert.equal(sent.body.reasoning_effort, undefined, "OpenRouter uses its unified reasoning field");
       assert.equal("temperature" in sent.body, canDisable && effort === "none");
+      assert.equal(sent.body.logprobs, canDisable && effort === "none" ? true : undefined);
+      assert.equal(sent.body.top_logprobs, canDisable && effort === "none" ? 3 : undefined);
     }
   }
 
