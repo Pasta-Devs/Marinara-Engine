@@ -11,6 +11,7 @@
  */
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { readFileSync } from "node:fs";
 import {
   normalizeDecisionThinking,
   SIDECAR_FOOTPRINT_HEADROOM_BYTES,
@@ -445,6 +446,17 @@ assert.equal(assessSidecarLoad({ slots: [slot({ estimatedBytes: 99 * GB })], dev
 assert.equal(isDecisionSlotImplemented("primary"), true);
 assert.equal(isDecisionSlotImplemented("utility"), true);
 assert.equal(isDecisionSlotImplemented("decision_sidecar"), false);
+
+// A rejected selection must not change stored state. The 404 and 409 branches in
+// /select sit above the line that clears the local slot, so a stale request cannot
+// answer with an error and silently drop the user to None, which stops every gate.
+{
+  const route = readFileSync(new URL("../../packages/server/src/routes/decision.routes.ts", import.meta.url), "utf8");
+  const body = route.slice(route.indexOf('app.post("/select"'), route.indexOf('app.post("/thinking"'));
+  const clearAt = body.lastIndexOf("settings.remove(DECISION_LOCAL_DEFAULT_SETTINGS_KEY)");
+  assert.ok(body.indexOf("status(404)") < clearAt, "the 404 branch must return before the local slot is cleared");
+  assert.ok(body.indexOf("status(409)") < clearAt, "the 409 branch must return before the local slot is cleared");
+}
 
 // The dropdown greys a connection out and the select route refuses it using the same
 // rule, so a stale client cannot store a decision model that cannot sign a request.

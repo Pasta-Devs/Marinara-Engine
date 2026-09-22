@@ -14,6 +14,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Claude Opus 5.5 is selectable in Claude connections with its 1M context and 128k output limits, supported reasoning settings, and compatible tool requests (#6544).
 
+- Choosing a decision model that turns out to be unusable now leaves your current choice alone. A rejected selection reported the error but also silently switched the Decision model to None, which stopped every activation question until it was noticed.
+
 - Activation questions can be answered by the local model you already run, on either the main or the utility slot, with no download and nothing leaving your machine. Pick it under **Decision model**, which now lists local models alongside Decision connections and shows why an unavailable entry cannot be used. A **Thinking** setting handles models that always reason first; those gate post-processing agents by default so replies do not wait.
 
 - Support diagnostics report the server's own GPU and each local model slot: what is configured, whether it is running, and the estimated memory it needs, with a combined verdict. The existing GPU line is the browser's, which said nothing about the machine running the local model.

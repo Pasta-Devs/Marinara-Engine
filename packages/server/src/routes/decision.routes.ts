@@ -171,8 +171,8 @@ export async function decisionRoutes(app: FastifyInstance) {
       if (current) await connections.update(current.id, { defaultForAgents: false });
       return { selected: id };
     }
-    await settings.remove(DECISION_LOCAL_DEFAULT_SETTINGS_KEY);
     if (!id) {
+      await settings.remove(DECISION_LOCAL_DEFAULT_SETTINGS_KEY);
       if (current) await connections.update(current.id, { defaultForAgents: false });
       return { selected: null };
     }
@@ -186,6 +186,10 @@ export async function decisionRoutes(app: FastifyInstance) {
       return reply
         .status(409)
         .send({ error: "That connection cannot answer decisions right now", reason: unavailable });
+    // Nothing above this line changes stored state. A rejected request must leave the
+    // user on whatever they had chosen: clearing the local slot first would answer a
+    // 404 or a 409 and silently drop them to None, which stops every gate.
+    await settings.remove(DECISION_LOCAL_DEFAULT_SETTINGS_KEY);
     await connections.update(id, { defaultForAgents: true });
     return { selected: id };
   });
