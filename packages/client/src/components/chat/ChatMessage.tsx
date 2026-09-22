@@ -3326,7 +3326,7 @@ export const ChatMessage = memo(function ChatMessage({
       </div>
     );
 
-const roleplayTtsControls = ttsEnabled && (
+  const roleplayTtsControls = ttsEnabled && (
     <>
       {isSpeakingThis && (ttsState === "playing" || ttsState === "paused") && (
         <>
@@ -3990,7 +3990,7 @@ const roleplayTtsControls = ttsEnabled && (
                 onClick={() => onDelete?.(message.id)}
                 title={localizeUi("lorebook.editor.batch.delete")}
               />
-{roleplayTtsControls}
+              {roleplayTtsControls}
             </div>
           </div>
         </div>
