@@ -24,6 +24,7 @@ import {
   isXaiConfigurableReasoningModel,
   resolveOpenAIGpt56ModelForRequest,
   shouldSuppressUnknownModelParameters,
+  supportsXhighReasoningEffort,
 } from "@marinara-engine/shared";
 import { logger } from "../../../lib/logger.js";
 import { isLocalInferenceBaseUrl } from "../../../middleware/ip-allowlist.js";
@@ -648,7 +649,7 @@ export class OpenAIProvider extends BaseLLMProvider {
   private isXAIEndpoint(): boolean {
     if (this.isGenericCustomProvider()) return false;
     const baseUrl = this.baseUrl.toLowerCase();
-    return baseUrl.includes("api.x.ai") || baseUrl.includes("x.ai/");
+    return this.providerKind === "xai" || baseUrl.includes("api.x.ai") || baseUrl.includes("x.ai/");
   }
 
   private isOpenRouterXAIModel(model: string): boolean {
@@ -679,7 +680,10 @@ export class OpenAIProvider extends BaseLLMProvider {
     );
   }
 
-  private resolveXAIReasoningEffort(reasoningEffort?: string | null): "none" | "low" | "medium" | "high" | null {
+  private resolveXAIReasoningEffort(
+    model: string,
+    reasoningEffort?: string | null,
+  ): "none" | "low" | "medium" | "high" | "xhigh" | null {
     switch (reasoningEffort) {
       case "none":
       case "low":
@@ -689,7 +693,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       case "xhigh":
       case "max":
       case "maximum":
-        return "high";
+        return supportsXhighReasoningEffort(model) ? "xhigh" : "high";
       default:
         return null;
     }
@@ -856,7 +860,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       return;
     }
     if (this.isNativeXAIConfigurableReasoningModel(options.model)) {
-      const effort = this.resolveXAIReasoningEffort(options.reasoningEffort);
+      const effort = this.resolveXAIReasoningEffort(options.model, options.reasoningEffort);
       if (effort && (effort !== "none" || this.supportsXAIReasoningDisable(options.model))) {
         body.reasoning_effort = effort;
       }
@@ -961,7 +965,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     }
 
     if (this.isNativeXAIConfigurableReasoningModel(options.model)) {
-      const effort = this.resolveXAIReasoningEffort(options.reasoningEffort);
+      const effort = this.resolveXAIReasoningEffort(options.model, options.reasoningEffort);
       if (effort && (effort !== "none" || this.supportsXAIReasoningDisable(options.model))) {
         body.reasoning = { effort };
       }

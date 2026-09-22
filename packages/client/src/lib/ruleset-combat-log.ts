@@ -290,6 +290,16 @@ export function rulesetCombatEventLine(
         cost: names.distance(event.cost),
         left: names.distance(event.left),
       });
+    case "window":
+      // Who the fight stopped for. The window between two turns is nobody's interruption, so it is
+      // said as a pause rather than as somebody being caught out.
+      return key(event.kind === "signature" ? "windowBetween" : "windowLeaving", {
+        actor: names.combatant(event.waiting[0] ?? ""),
+        others: Math.max(0, event.waiting.length - 1),
+        mover: names.combatant(event.moverId ?? ""),
+      });
+    case "pass":
+      return key("pass", { actor: names.combatant(event.actorId) });
     case "opportunity":
       return key("opportunity", {
         actor: names.combatant(event.actorId),

@@ -430,6 +430,40 @@ for (const setup of [
   assert.equal(view(definition, state).controller, "manual", `${what}: a party member opens the fight`);
   assert.equal(state.stage, "action");
 
+  // A window the fight is holding open is waited on exactly as a turn is, and by whoever it asks.
+  // Reading only the turn would leave a client whose own party member is being asked seeing an
+  // opponent's turn and sending `continue` at it forever.
+  {
+    const held = JSON.parse(JSON.stringify(state)) as typeof state;
+    const fight = held.rulesetFight!;
+    const asked = view(definition, held).actorId!;
+    fight.encounter.turn = fight.encounter.order.findIndex((id) => id !== asked);
+    fight.encounter.window = {
+      id: "w1",
+      kind: "reaction",
+      trigger: {
+        kind: "leaves-reach",
+        moverId: setup.enemy.id,
+        from: { x: 0, y: 0 },
+        to: { x: 1, y: 0 },
+      },
+      waiting: [asked],
+    };
+    assert.equal(
+      rulesetDirectorStage(held),
+      "action",
+      `${what}: the fight waits on the one being asked, not on whoever is on turn`,
+    );
+    const carried = JSON.stringify(fight.encounter.window);
+    const went = commandRulesetCombatDirector(definition, held, { type: "continue" });
+    assert.equal(went.ok, true);
+    assert.equal(
+      JSON.stringify(held.rulesetFight!.encounter.window),
+      carried,
+      `${what}: and asking again moves nothing, because the answer is theirs to give`,
+    );
+  }
+
   const before = view(definition, state);
   const actorId = before.actorId!;
   assert.ok(before.options?.length, `${what}: a human on turn is offered a menu`);

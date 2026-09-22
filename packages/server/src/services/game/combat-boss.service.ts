@@ -1,4 +1,5 @@
 import { normalizeGameDifficulty, combatWeatherEffects } from "@marinara-engine/shared";
+import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../generation/generation-parameters.js";
 import type { DB } from "../../db/connection.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
@@ -229,10 +230,13 @@ export async function chooseGmCombatOption(
     conn.defaultParameters,
     conn.id,
   );
+  const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, conn.model);
   const response = await provider.chatComplete(messages, {
     model: conn.model,
-    maxTokens: 300,
-    temperature: 0.5,
+    ...storedOptions,
+    temperature: storedOptions.temperature ?? 0.5,
+    enableThinking: !!storedOptions.reasoningEffort && storedOptions.reasoningEffort !== "none",
+    maxTokens: resolveStoredMaxTokens(conn.defaultParameters, 300),
     signal,
   });
   logDebugOverride(debugMode, "[debug/game/combat:boss] window=%s response=%s", state.window!.id, response.content);

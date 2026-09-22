@@ -4,6 +4,14 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Custom agents can use optional activation questions with a Decision connection to skip irrelevant turns. Question and keyword controls share one activation card with consistent labels and styling. Keyword and cadence settings still apply; failed decisions leave agents eligible to run. Decision connections support TypeSafe, OpenRouter, and user-run System One endpoints, including linked OpenRouter credentials (#6530).
+
+- Game helpers preserve unconfigured task defaults and explain when saved output limits cut off structured responses (#6511).
+
+- Game Mode honors connection and chat generation parameters instead of replacing them with fixed sampling and output settings (#6511).
+- Grok 4.6 and 4.7 keep enabled tools, including web search, instead of losing them as unrecognized models, with their supported context and reasoning settings (#6521).
+- Sidebar sorting applies to folder rows as well as their contents, including names, dates, and content-based sorts; manual folder ordering remains available (#6497).
+
 - Character, persona, and lorebook folder contents follow the selected sidebar sort order (#6497).
 - The extra-actions menu sits to the left of Emoji, farther from Send, while keeping existing Post Only and Guided Generation actions (#6507).
 - Conversation scene invitations stay beside the proposing reply; open setup when ready, including after cancelling or reloading (#6496).
@@ -14,6 +22,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Advanced Memory constants use message-range titles, reject unfinished helper output, and deactivate the originals when a completed compacted replacement is saved. Ranged constants that overlap live context stay out of that prompt and its archived-summary compaction budget (#6512).
 - Advanced Memory's context threshold applies to the outgoing prompt without subtracting reply tokens. Automatic scene resets apply to all characters and can be undone with the existing All flag; temporary open-scene trimming no longer creates persistent character-specific flags (#6512).
 - New Start flag changes save together with Advanced Memory cutoffs, keeping the previous state intact if a save fails (#6512).
+
+- Advanced Memory identifies corrections needing review and exposes unfinished scene summaries for targeted recovery without resetting the archive (#6526).
+- Advanced Memory keeps saved scene indexes across source-text edits, swipes, illustrations and live context flags. Recalled excerpts use current message text, while character-access checks remain enforced (#6526).
 
 - Advanced Memory reindexing rebuilds saved text vectors without rerunning scene detection or summarization. Saved scene corrections no longer depend on outdated generated-summary inputs, and stale scene corrections can be reviewed and saved without changing their text (#6509).
 
@@ -63,6 +74,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Individual scene memories can be deleted from their editor after confirmation. Original chat messages are kept, and routine preparation does not recreate the deleted summary.
 
 - The schedule editor can generate a week one day at a time using seven smaller requests, preserves the draft on failure, and stops generation when closed (#6449). It offers connection selection and persistent errors, rejects incomplete or overlapping generated days, displays full-day blocks, prevents competing edits during generation, and refreshes the week date after day regeneration (#6455).
+
+- A Game Mode fight can now be held open for somebody who is not the one acting. Walking out of an enemy's reach stops the walk on that step and asks them whether to strike instead of striking for them, and the walk then picks up where it left off, paying for every cell it really crossed. When a turn ends, an opponent holding its own points is asked whether to buy one of its signature actions before the next turn begins, which is the only moment those are bought in. Your own party member's window is yours to answer, with the option and a Pass on the menu; everybody else's is answered by whoever plays them, and a Game Master's boss is asked through the Game Master. Nothing else moves while a window is open, one chance each per walk, and a game closed mid-walk comes back with the same people still to ask. Ruleset packages need no change and no newer Capability API: a ruleset that declares an opportunity budget gets the first, a bestiary with signature points gets the second.
 
 - Advanced Memory resumes unfinished summaries without replaying failed compactions or reporting completed scene detection as new work (#6461).
 

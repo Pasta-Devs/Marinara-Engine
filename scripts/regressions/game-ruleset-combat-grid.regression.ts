@@ -32,6 +32,7 @@ import {
   parseRulesetDefinition,
   rowsFromCatalogEntry,
   RULESET_MOVE_OPTION,
+  RULESET_PASS_OPTION,
   RULESET_STAND_OPTION,
   rulesetAimCells,
   rulesetAimLegal,
@@ -43,6 +44,7 @@ import {
   rulesetCombatConditions,
   rulesetCombatFailsSave,
   rulesetCombatOptions,
+  rulesetWindowOptions,
   rulesetInCells,
   rulesetLineOfSight,
   rulesetMovementAllowance,
@@ -54,6 +56,7 @@ import {
   supportedCapabilityApi,
   type RulesetCatalogEntry,
   type RulesetCombatant,
+  type RulesetCombatCell,
   type RulesetCombatChoice,
   type RulesetCombatEvent,
   type RulesetCombatRoller,
@@ -404,6 +407,37 @@ const act = (
   choice: RulesetCombatChoice,
   ...faces: number[]
 ) => applyRulesetCombatChoice(definition, state, choice, dice(...faces));
+/** A walk, and every window it opens answered by taking whatever is on offer. That is what a walk
+ *  did before a window could hold it, so a test that is about the walk rather than about the asking
+ *  reads exactly as it did. The dice are ONE stream across the lot: the strike's are rolled in the
+ *  answer that takes it, not in the step that opened the window. */
+const walkThrough = (
+  definition: RulesetDefinition,
+  state: RulesetEncounterState,
+  choice: RulesetCombatChoice,
+  ...faces: number[]
+) => {
+  const roll = dice(...faces);
+  let step = applyRulesetCombatChoice(definition, state, choice, roll);
+  const events = [...step.events];
+  for (let guard = 0; step.state.window && guard < 20; guard++) {
+    const window = step.state.window;
+    const asking = window.waiting[0]!;
+    const option = rulesetWindowOptions(definition, step.state, asking)[0];
+    step = applyRulesetCombatChoice(
+      definition,
+      step.state,
+      { actorId: asking, optionId: option?.id ?? RULESET_PASS_OPTION, targetIds: [], window: window.id },
+      roll,
+    );
+    events.push(...step.events);
+  }
+  // The guard is there so a bug cannot hang the lane. Saying so is the point: without this, a walk
+  // whose window never closed would come back half resolved and every assertion after it would
+  // fail for a reason that has nothing to do with what it was testing.
+  assert.equal(step.state.window, undefined, "a walk was still being asked about after 20 answers");
+  return { state: step.state, events };
+};
 const who = (state: RulesetEncounterState, id: string) => {
   const combatant = rulesetCombatant(state, id);
   assert.ok(combatant, `no combatant "${id}"`);
@@ -1097,7 +1131,7 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
   const board = { grid: open(7, 3), placements: { brenna: { x: 0, y: 1 }, stinger: { x: 2, y: 1 } } };
   const state = fight(fiveE, [fighter(), stinger], [12, 9], board);
   const past = { actorId: "brenna", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 5, y: 1 } };
-  const first = act(fiveE, state, past, 17, 4);
+  const first = walkThrough(fiveE, state, past, 17, 4);
   assert.equal(eventsOf(first.events, "opportunity").length, 1, "the one sting it has is thrown at the passer-by");
   assert.equal(who(first.state, "stinger").uses.sting, 0, "and it is spent, exactly as it would be on its own turn");
 
@@ -1108,7 +1142,7 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
   assert.equal(who(round, "stinger").budgets.reaction, 1);
   const back = optionNamed(fiveE, round, "brenna", "Move").cells!.find((cell) => cell.x === 0 && cell.y === 1);
   assert.deepEqual(back?.provokes, [], "with nothing left to strike with, it threatens nobody");
-  const second = act(fiveE, round, { ...past, to: { x: 0, y: 1 } });
+  const second = walkThrough(fiveE, round, { ...past, to: { x: 0, y: 1 } });
   assert.equal(eventsOf(second.events, "opportunity").length, 0);
 }
 
@@ -1134,7 +1168,7 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
   );
 
   // Walking through the reach and out of it: struck at once, and the walk still finishes.
-  const struck = act(
+  const struck = walkThrough(
     fiveE,
     state,
     { actorId: "brenna", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 5, y: 1 } },
@@ -1160,7 +1194,7 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
   assert.equal(walked.left, 1);
 
   // One budget, one strike: walking back through it costs nothing more this round.
-  const again = act(fiveE, struck.state, {
+  const again = walkThrough(fiveE, struck.state, {
     actorId: "brenna",
     optionId: RULESET_MOVE_OPTION,
     targetIds: [],
@@ -1170,7 +1204,7 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
 
   // Disengaging prevents it for the rest of the turn.
   const disengaged = act(fiveE, state, { actorId: "brenna", optionId: "standard:disengage", targetIds: [] });
-  const quiet = act(fiveE, disengaged.state, {
+  const quiet = walkThrough(fiveE, disengaged.state, {
     actorId: "brenna",
     optionId: RULESET_MOVE_OPTION,
     targetIds: [],
@@ -1216,6 +1250,160 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
   assert.deepEqual(firstOf(strolled.events, "move").to, { x: 5, y: 0 });
 }
 
+// ── The window a walk opens: asked, answered or let go, and never asked twice ──
+{
+  //    0 1 2 3 4 5 6
+  //  1 B . S . . . .     Snag reaches one cell: stepping out of 1,1 leaves it
+  const board = { grid: open(7, 3), placements: { brenna: { x: 0, y: 1 }, snag: { x: 2, y: 1 } } };
+  const state = fight(fiveE, [fighter(), snag()], [12, 9], board);
+  const away = { actorId: "brenna", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 5, y: 1 } };
+
+  // The walk STOPS where it stands and asks, rather than being struck at on the way.
+  const held = act(fiveE, state, away);
+  const window = held.state.window;
+  assert.ok(window, "the walk is held open");
+  assert.equal(window.kind, "reaction");
+  assert.deepEqual(window.waiting, ["snag"]);
+  assert.equal(window.trigger.kind, "leaves-reach");
+  const step = window.trigger.kind === "leaves-reach" ? window.trigger : null;
+  assert.equal(step?.moverId, "brenna");
+  // The one step that did it, not the whole walk: the cells are next to each other, and the mover
+  // is standing on the near one while the question is asked.
+  assert.ok(
+    step && Math.abs(step.from.x - step.to.x) <= 1 && Math.abs(step.from.y - step.to.y) <= 1,
+    "the trigger is one step, not a whole walk",
+  );
+  assert.equal(eventsOf(held.events, "opportunity").length, 0, "nothing is taken for them");
+  assert.equal(eventsOf(held.events, "move").length, 0, "and the walk has not finished");
+  assert.deepEqual(
+    { x: who(held.state, "brenna").x, y: who(held.state, "brenna").y },
+    step?.from,
+    "they are standing where the question was asked",
+  );
+  assert.deepEqual(firstOf(held.events, "window"), {
+    type: "window",
+    window: window.id,
+    kind: "reaction",
+    waiting: ["snag"],
+    moverId: "brenna",
+  });
+
+  // Only the one being asked may answer, and only the window that is open.
+  assert.deepEqual(
+    act(fiveE, held.state, { actorId: "brenna", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 6, y: 1 } })
+      .events,
+    [{ type: "refused", actorId: "brenna", optionId: RULESET_MOVE_OPTION, reason: "window-open" }],
+    "the fight does not go on around a window",
+  );
+  assert.deepEqual(
+    act(fiveE, held.state, { actorId: "snag", optionId: RULESET_PASS_OPTION, targetIds: [], window: "w99" }).events,
+    [{ type: "refused", actorId: "snag", optionId: RULESET_PASS_OPTION, reason: "stale-window" }],
+    "an answer written for a closed window buys nothing",
+  );
+
+  assert.deepEqual(
+    act(fiveE, held.state, { actorId: "brenna", optionId: "end-turn", targetIds: [] }).events,
+    [{ type: "refused", actorId: "brenna", optionId: "end-turn", reason: "window-open" }],
+    "not even the end of the turn goes on around a window",
+  );
+
+  // The window's own menu is the one strike it may take, and taking it costs the declared budget.
+  assert.deepEqual(
+    rulesetWindowOptions(fiveE, held.state, "snag").map((option) => [option.id, option.budget]),
+    [["scimitar", "reaction"]],
+  );
+  assert.deepEqual(
+    rulesetWindowOptions(fiveE, held.state, "snag")[0]!.targets,
+    { side: "self", count: 0 },
+    "the strike lands on whoever is walking away, so there is nobody to pick",
+  );
+  const took = act(
+    fiveE,
+    held.state,
+    { actorId: "snag", optionId: "scimitar", targetIds: [], window: window.id },
+    17,
+    5,
+  );
+  assert.equal(firstOf(took.events, "opportunity").targetId, "brenna");
+  assert.equal(who(took.state, "snag").budgets.reaction, 0);
+  assert.equal(took.state.window, undefined, "the window closed behind the answer");
+  assert.deepEqual(firstOf(took.events, "move").to, { x: 5, y: 1 }, "and the walk picked up where it stopped");
+  assert.equal(firstOf(took.events, "move").cost, 5, "paying for every cell it really crossed");
+
+  // Letting it go by costs nothing and finishes the same walk.
+  const let_go = act(fiveE, held.state, { actorId: "snag", optionId: RULESET_PASS_OPTION, targetIds: [], window: window.id });
+  assert.deepEqual(firstOf(let_go.events, "pass"), { type: "pass", actorId: "snag", window: window.id });
+  assert.equal(eventsOf(let_go.events, "opportunity").length, 0);
+  assert.equal(who(let_go.state, "snag").budgets.reaction, 1, "nothing was spent");
+  assert.deepEqual(firstOf(let_go.events, "move").to, { x: 5, y: 1 }, "and the walk still finished");
+  assert.equal(let_go.state.window, undefined);
+
+  // One chance each for the WHOLE walk. A wall down the middle leaves one gap, so the only way past
+  // Snag leaves its reach, comes back into it and leaves again: three steps that each provoke, and
+  // one question.
+  //
+  //    0 1 2 3 4 5 6
+  //  0 . . # . . . .
+  //  1 . . # . . . .
+  //  2 B . S . . . .     Snag reaches one cell around 2,2
+  //  3 . . # . . . .
+  //  4 . . . . . . .
+  const maze = {
+    grid: drawn("..#....", "..#....", ".......", "..#....", "......."),
+    placements: { brenna: { x: 0, y: 2 }, snag: { x: 2, y: 2 } },
+  };
+  const twice = fight(fiveE, [fighter(), snag()], [12, 9], maze);
+  const long = act(fiveE, twice, { actorId: "brenna", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 6, y: 2 } });
+  const ring = (cell: RulesetCombatCell) => Math.max(Math.abs(cell.x - 2), Math.abs(cell.y - 2)) <= 1;
+  const route = optionNamed(fiveE, twice, "brenna", "Move").cells!.find((cell) => cell.x === 6 && cell.y === 2)!.path!;
+  const leaves = route.filter(
+    (cell, index) => ring(index === 0 ? { x: 0, y: 2 } : route[index - 1]!) && !ring(cell),
+  ).length;
+  assert.ok(leaves >= 2, `the route must leave Snag's reach more than once, it leaves ${leaves} time(s)`);
+  assert.ok(long.state.window, "the first step out of the reach asks");
+  const answered = act(fiveE, long.state, {
+    actorId: "snag",
+    optionId: RULESET_PASS_OPTION,
+    targetIds: [],
+    window: long.state.window!.id,
+  });
+  assert.equal(answered.state.window, undefined, "and the rest of the same walk asks nobody again");
+  assert.equal(eventsOf([...long.events, ...answered.events], "window").length, 1, "one question for one walk");
+  assert.deepEqual(firstOf(answered.events, "move").to, { x: 6, y: 2 }, "the walk still finished");
+
+  // What stops a SECOND asking in the same round is the budget, not the asking. Somebody else walks
+  // out of the same reach on the next turn: after a strike there is nothing left to ask about, and
+  // after a pass there is.
+  const wren = (): RulesetCombatantInput => ({ ...fighter(), id: "wren", name: "Wren" });
+  const pair = fight(fiveE, [fighter(), wren(), snag()], [12, 11, 9], {
+    grid: open(7, 4),
+    placements: { brenna: { x: 0, y: 1 }, wren: { x: 1, y: 2 }, snag: { x: 2, y: 1 } },
+  });
+  const first = act(fiveE, pair, { actorId: "brenna", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 5, y: 1 } });
+  assert.ok(first.state.window, "the first walk asks");
+  const answerWith = (optionId: string, ...faces: number[]) =>
+    act(
+      fiveE,
+      first.state,
+      { actorId: "snag", optionId, targetIds: [], window: first.state.window!.id },
+      ...faces,
+    ).state;
+  for (const [what, after, left, asks] of [
+    ["struck", answerWith("scimitar", 17, 5), 0, false],
+    ["passed", answerWith(RULESET_PASS_OPTION), 1, true],
+  ] as const) {
+    assert.equal(who(after, "snag").budgets.reaction, left, `${what}: the budget says so`);
+    const next = act(fiveE, after, { actorId: "brenna", optionId: "end-turn", targetIds: [] }).state;
+    assert.equal(currentRulesetActor(next)?.id, "wren", `${what}: and the next turn is somebody else's`);
+    const away = act(fiveE, next, { actorId: "wren", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 0, y: 3 } });
+    assert.equal(
+      !!away.state.window,
+      asks,
+      `${what}: a second walk out of the same reach is asked about only while there is something to ask`,
+    );
+  }
+}
+
 // ── A strike on the way that drops the mover ends the walk where they fell ──
 {
   /** The same sheet, with one hit point on it: a blow on the way out is enough to stop the walk. */
@@ -1233,7 +1421,7 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
   });
   const board = { grid: open(6, 3), placements: { glass: { x: 1, y: 1 }, snag: { x: 0, y: 1 } } };
   const state = fight(fiveE, [glass(), snag()], [18, 9], board);
-  const step = act(
+  const step = walkThrough(
     fiveE,
     state,
     { actorId: "glass", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 5, y: 1 } },
@@ -1248,6 +1436,9 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
   assert.equal(moved.cost, 0, "and none of the allowance was spent");
   assert.equal(who(step.state, "glass").down, true);
   assert.equal(who(step.state, "glass").x, 1);
+  // Said once. The window path can end a fight in more than one place, and a log that printed two
+  // endings would read as two fights.
+  assert.equal(eventsOf(step.events, "outcome").length, 1, "the fight ends once");
 }
 
 // ── Movement is a budget: spent before, between and after, and sprinting buys it again ──
@@ -1857,7 +2048,12 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
     const walk = rulesetCombatOptions(fiveE, state, "vess").find((option) => option.id === RULESET_MOVE_OPTION)!;
     assert.ok(walk.cells?.some((cell) => cell.x === 3 && cell.y === 1));
     // Snag is standing next to them, so the walk is struck at on the way, as any walk would be.
-    step = act(fiveE, state, { actorId: "vess", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 3, y: 1 } }, 1);
+    step = walkThrough(
+      fiveE,
+      state,
+      { actorId: "vess", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 3, y: 1 } },
+      1,
+    );
     assert.equal(eventsOf(step.events, "opportunity").length, 1, "a walk between strikes is still a walk");
     assert.equal(firstOf(step.events, "move").stopped, undefined);
     state = step.state;

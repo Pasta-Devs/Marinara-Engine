@@ -2,7 +2,10 @@
 // Agent Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
-import { MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH } from "../constants/agent-activation.js";
+import {
+  MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
+  MAX_CUSTOM_AGENT_ACTIVATION_QUESTION_LENGTH,
+} from "../constants/agent-activation.js";
 import { AGENT_RESULT_TYPE_VALUES, CUSTOM_AGENT_CAPABILITY_IDS } from "../types/agent.js";
 
 export const agentPhaseSchema = z.enum(["pre_generation", "parallel", "post_processing"]);
@@ -12,6 +15,9 @@ export const agentResultTypeSchema = z.enum(AGENT_RESULT_TYPE_VALUES);
 export const customAgentActivationSettingsSchema = z.object({
   activationKeywords: z.array(z.string().trim().min(1)).max(100).optional(),
   activationScanDepth: z.number().int().min(1).max(MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH).optional(),
+  activationQuestion: z.string().trim().min(1).max(MAX_CUSTOM_AGENT_ACTIVATION_QUESTION_LENGTH).optional(),
+  activationThreshold: z.number().min(0.05).max(0.95).optional(),
+  activationMaxSkip: z.number().int().min(1).max(100).optional(),
 });
 
 export const createAgentConfigSchema = z.object({

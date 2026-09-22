@@ -7,6 +7,7 @@ import { logger } from "../lib/logger.js";
 const operationSchema = z.object({
   settings: advancedMemorySettingsSchema.partial().optional(),
   debugMode: z.boolean().optional(),
+  sceneId: z.string().min(1).optional(),
 });
 const recordPatchSchema = z
   .object({
@@ -73,6 +74,7 @@ export async function advancedMemoryRoutes(app: FastifyInstance) {
       const completed = service
         .initialize(req.params.id, {
           debugMode: options.debugMode,
+          sceneId: options.sceneId,
           blocking: true,
           onProgress: acknowledgeStart,
         })

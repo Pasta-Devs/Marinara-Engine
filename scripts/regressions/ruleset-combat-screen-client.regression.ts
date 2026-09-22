@@ -640,6 +640,8 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
       "opportunity",
       say({ type: "opportunity", actorId: "lurker", targetId: "brenna", label: "Barbed claw", budget: "reaction" }),
     ],
+    ["window", say({ type: "window", window: "w1", kind: "reaction", waiting: ["lurker"], moverId: "brenna" })],
+    ["pass", say({ type: "pass", actorId: "lurker", window: "w1" })],
     ["cover", say({ type: "cover", targetId: "lurker", bonus: 2, defense: 15 })],
     [
       "area",
@@ -663,6 +665,12 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   }
 
   // The exact strings, so rewording one is a decision rather than an accident.
+  assert.equal(printed.get("window"), "Brenna breaks away, and Thorn Lurker may strike.");
+  assert.equal(printed.get("pass"), "Thorn Lurker lets the moment go by.");
+  assert.equal(
+    line(fiveE, state, { type: "window", window: "w2", kind: "signature", waiting: ["lurker"] }),
+    "The fight pauses between turns, and Thorn Lurker may act.",
+  );
   assert.equal(printed.get("initiative"), "Initiative: Brenna 14.");
   assert.equal(printed.get("round"), "Round 3.");
   assert.equal(printed.get("turn"), "Brenna takes their turn.");

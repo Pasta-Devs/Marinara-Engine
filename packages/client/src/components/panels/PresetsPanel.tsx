@@ -68,7 +68,7 @@ import {
   Camera,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { sortBasicPanelItems } from "../../lib/panel-sort";
+import { sortBasicPanelItems, sortPanelFolders } from "../../lib/panel-sort";
 import { downloadJsonFile } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
 import { getFolderImportEntries, isPatternSafe, isStockMarinaraUniversalPreset } from "@marinara-engine/shared";
@@ -1265,7 +1265,7 @@ export function PresetsPanel() {
 
       <PanelSection title={localizeUi("ui.panels.presetspanel.prompts")} icon={<FileText size="0.8125rem" />}>
         <div className="flex flex-col gap-0.5">
-          {presetFolders.map((folder) => {
+          {sortPanelFolders(presetFolders, sort).map((folder) => {
             const isEditing = editingFolderId === folder.id;
             const folderItems = sortBasicPanelItems(
               folder.itemIds.map((id) => presetById.get(id)).filter((item): item is PresetRow => Boolean(item)),

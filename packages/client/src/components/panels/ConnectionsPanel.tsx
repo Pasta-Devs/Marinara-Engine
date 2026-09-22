@@ -1,3 +1,4 @@
+import { DecisionDefaultControl } from "../connections/DecisionDefaultControl";
 // ──────────────────────────────────────────────
 // Panel: API Connections (polished, with folders)
 // ──────────────────────────────────────────────
@@ -85,7 +86,7 @@ import {
   PowerOff,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { sortBasicPanelItems } from "../../lib/panel-sort";
+import { sortBasicPanelItems, sortPanelFolders } from "../../lib/panel-sort";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
 import {
@@ -130,6 +131,7 @@ const PROVIDER_COLORS: Record<string, { from: string; to: string; ring: string; 
   image_generation: CONNECTION_ICON_COLORS,
   video_generation: CONNECTION_ICON_COLORS,
   audio: CONNECTION_ICON_COLORS,
+  decision: CONNECTION_ICON_COLORS,
 };
 const DEFAULT_COLOR = CONNECTION_ICON_COLORS;
 
@@ -720,6 +722,8 @@ function SidecarCard() {
 }
 
 type ConnectionRowData = {
+  credentialsFromConnectionId?: string | null;
+  profileImportReviewRequired?: boolean | string;
   id: string;
   name: string;
   provider: string;
@@ -1023,7 +1027,8 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
         (connection) =>
           connection.provider !== "image_generation" &&
           connection.provider !== "video_generation" &&
-          connection.provider !== "audio",
+          connection.provider !== "audio" &&
+          connection.provider !== "decision",
       ),
     [connectionsList],
   );
@@ -1209,6 +1214,7 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
             primaryEmptyLabel={localizeUi("ui.panels.connectiondefaultssection.noDefaultAudioConnection")}
             fallbackModelLabel={localizeUi("ui.panels.connectiondefaultssection.audioGeneration")}
           />
+          <DecisionDefaultControl connections={connectionsList} />
         </div>
       </SmoothFolderContent>
     </section>
@@ -1361,7 +1367,7 @@ function ConnectionRow({
             ...(isLanguageGenerationConnection(conn) ? {} : { unsupported: "connection-kind" as const }),
           }}
         />
-        {conn.provider !== "audio" && (
+        {conn.provider !== "audio" && conn.provider !== "decision" && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -1642,13 +1648,14 @@ export function ConnectionsPanel() {
   // Sorted folder list + local order for optimistic drag-to-reorder
   const sortedFolders = useMemo(() => {
     if (!folders) return [] as ConnectionFolder[];
-    return [...folders].sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [folders]);
+    return sortPanelFolders(folders, sort);
+  }, [folders, sort]);
 
   const [localFolderOrder, setLocalFolderOrder] = useState<string[]>([]);
   useEffect(() => {
-    setLocalFolderOrder(sortedFolders.map((f) => f.id));
-  }, [sortedFolders]);
+    setLocalFolderOrder(sortPanelFolders(folders ?? [], "custom").map((f) => f.id));
+  }, [folders]);
+  const folderOrder = sort === "custom" ? localFolderOrder : sortedFolders.map((folder) => folder.id);
 
   // Split connections into per-folder + unfiled buckets
   const { unfiledConnections, folderConnectionsMap } = useMemo(() => {
@@ -1672,6 +1679,7 @@ export function ConnectionsPanel() {
   };
 
   const handleFolderReorder = (newOrder: string[]) => {
+    if (sort !== "custom") setSort("custom");
     setLocalFolderOrder(newOrder);
     reorderFoldersMut.mutate(newOrder);
   };
@@ -2214,15 +2222,15 @@ export function ConnectionsPanel() {
       )}
 
       {/* Folders (drag-to-reorder) */}
-      {localFolderOrder.length > 0 && (
+      {folderOrder.length > 0 && (
         <Reorder.Group
           axis="y"
-          values={localFolderOrder}
+          values={folderOrder}
           onReorder={handleFolderReorder}
           as="div"
           className="flex flex-col gap-0.5 mt-1"
         >
-          {localFolderOrder.map((folderId) => {
+          {folderOrder.map((folderId) => {
             const folder = sortedFolders.find((f) => f.id === folderId);
             if (!folder) return null;
             const folderEntries = folderConnectionsMap.get(folderId) ?? [];

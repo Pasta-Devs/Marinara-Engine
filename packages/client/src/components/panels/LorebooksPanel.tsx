@@ -32,6 +32,7 @@ import {
   Camera,
 } from "lucide-react";
 import { useUIStore, type LorebookPanelCategory, type LorebookPanelSort } from "../../stores/ui.store";
+import { sortPanelFolders } from "../../lib/panel-sort";
 import { useChatStore } from "../../stores/chat.store";
 import {
   fetchAllLorebookPages,
@@ -320,6 +321,16 @@ export function LorebooksPanel() {
         return list;
     }
   }, [filtered, sort]);
+
+  const sortedFolders = useMemo(() => {
+    const folders = sortPanelFolders(lorebookFolders, sort === "tokens" ? "name-asc" : sort);
+    if (sort !== "tokens") return folders;
+    const tokens = new Map(sorted.map((lorebook) => [lorebook.id, lorebook.tokenBudget ?? 0]));
+    const totals = new Map(
+      folders.map((folder) => [folder.id, folder.itemIds.reduce((total, id) => total + (tokens.get(id) ?? 0), 0)]),
+    );
+    return folders.sort((a, b) => totals.get(b.id)! - totals.get(a.id)!);
+  }, [lorebookFolders, sort, sorted]);
 
   const folderFilterActive = searchQuery.trim().length > 0 || activeCategory !== "all" || activeTag !== null;
 
@@ -969,7 +980,7 @@ export function LorebooksPanel() {
       )}
 
       <div className="flex flex-col gap-0.5">
-        {lorebookFolders.map((folder) => {
+        {sortedFolders.map((folder) => {
           const isEditing = editingFolderId === folder.id;
           const memberIds = new Set(folder.itemIds);
           const folderItems = sorted.filter((item) => memberIds.has(item.id));

@@ -88,6 +88,152 @@ for (const kind of ["character", "persona", "lorebook"] as const) {
   });
 }
 
+for (const theme of ["light", "dark"] as const) {
+  for (const kind of ["character", "persona", "lorebook", "preset", "agent", "connection", "chat"] as const) {
+    test(`${kind} folder rows follow sidebar sorting (${theme})`, async ({ page, request }, testInfo) => {
+      const folderPath = {
+        character: "characters/groups",
+        persona: "characters/persona-groups",
+        lorebook: "library-folders/lorebooks",
+        preset: "library-folders/presets",
+        agent: "library-folders/agents",
+        connection: "connection-folders",
+        chat: "chat-folders",
+      }[kind];
+      const listPath = folderPath + (kind === "character" || kind === "persona" ? "/list" : "");
+      const prefix = `Folder-order-${Date.now()}`;
+      const ids: string[] = [];
+      let itemId = "";
+      const resource = kind === "persona" ? "characters/personas" : `${kind}s`;
+      try {
+        for (const name of ["Zebra", "Alpha", "Middle"]) {
+          const response = await request.post(`/api/${folderPath}`, {
+            data: { name: `${prefix} ${name}`, ...(kind === "chat" ? { mode: "conversation" } : {}) },
+          });
+          expect(response.ok()).toBeTruthy();
+          ids.push((await response.json()).id);
+        }
+        if (kind === "connection" || kind === "chat") {
+          expect((await request.post(`/api/${folderPath}/reorder`, { data: { orderedIds: ids } })).ok()).toBeTruthy();
+        }
+        if (kind === "agent") {
+          const response = await request.post("/api/agents", {
+            data: {
+              type: `custom-${prefix}`,
+              name: `${prefix} Agent`,
+              phase: "pre_generation",
+              promptTemplate: "Test fixture",
+            },
+          });
+          expect(response.ok()).toBeTruthy();
+          itemId = (await response.json()).id;
+        }
+        if (kind === "character" || kind === "persona" || kind === "lorebook" || kind === "chat") {
+          const response = await request.post(`/api/${resource}`, {
+            data:
+              kind === "character"
+                ? { data: { name: `${prefix} Favorite`, extensions: { fav: true } } }
+                : {
+                    name: `${prefix} Item`,
+                    description: "A long description. ".repeat(80),
+                    tokenBudget: 8192,
+                    mode: "conversation",
+                  },
+          });
+          expect(response.ok()).toBeTruthy();
+          itemId = (await response.json()).id;
+          const move =
+            kind === "character" || kind === "persona"
+              ? await request.patch(`/api/${folderPath}/${ids[2]}`, {
+                  data: { [kind === "character" ? "characterIds" : "personaIds"]: [itemId] },
+                })
+              : await request.post(`/api/${folderPath}/${kind === "chat" ? "move-chat" : "move"}`, {
+                  data: { folderId: ids[2], ...(kind === "chat" ? { chatId: itemId } : { itemIds: [itemId] }) },
+                });
+          expect(move.ok()).toBeTruthy();
+        }
+        // Distinct timestamps keep this proof deterministic even on coarse server clocks.
+        await page.route(`**/api/${listPath}`, async (route) => {
+          const response = await route.fetch();
+          const folders = await response.json();
+          await route.fulfill({
+            response,
+            json: folders.map((folder: { id: string }) => {
+              const index = ids.indexOf(folder.id);
+              return index < 0 ? folder : { ...folder, createdAt: `2020-01-0${index + 1}T00:00:00.000Z` };
+            }),
+          });
+        });
+        await prepare(page, { theme, sidebarOpen: kind === "chat" });
+        await page.goto("/");
+        if (kind !== "chat") await page.locator(`[data-tour="panel-${kind}s"]`).click();
+        const rows = page.locator(`[data-${kind}-folder-id]`).filter({ hasText: prefix });
+        const order = () =>
+          rows.evaluateAll(
+            (nodes, attribute) => nodes.map((node) => node.getAttribute(attribute)),
+            `data-${kind}-folder-id`,
+          );
+        const sort = page.locator(
+          `select.mari-chrome-sort-field[title="${kind === "chat" ? "Sort chats" : "Sort order"}"]:visible`,
+        );
+        await expect(rows).toHaveCount(3);
+        await sort.selectOption("name-asc");
+        await expect.poll(order).toEqual([ids[1], ids[2], ids[0]]);
+        await page.screenshot({ path: testInfo.outputPath(`${kind}-folders-${theme}-az.png`) });
+        await sort.selectOption("name-desc");
+        await expect.poll(order).toEqual([ids[0], ids[2], ids[1]]);
+        await sort.selectOption("newest");
+        await expect.poll(order).toEqual([ids[2], ids[1], ids[0]]);
+        await sort.selectOption("oldest");
+        await expect.poll(order).toEqual(ids);
+        if (kind === "character" || kind === "persona" || kind === "lorebook" || kind === "chat") {
+          await sort.selectOption(kind === "character" ? "favorites" : kind === "chat" ? "recent" : "tokens");
+          await expect.poll(async () => (await order())[0]).toBe(ids[2]);
+        }
+        if (kind === "connection" || kind === "chat") {
+          await sort.selectOption("custom");
+          await expect.poll(order).toEqual(ids);
+        }
+        const saved = await (await request.get(`/api/${listPath}`)).json();
+        if (kind === "connection" || kind === "chat") {
+          expect(
+            saved
+              .filter((folder: { id: string }) => ids.includes(folder.id))
+              .sort((a: { sortOrder: number }, b: { sortOrder: number }) => a.sortOrder - b.sortOrder)
+              .map((folder: { id: string }) => folder.id),
+          ).toEqual(ids);
+          if (testInfo.project.name === "desktop-chromium") {
+            await sort.selectOption("name-asc");
+            await expect.poll(order).toEqual([ids[1], ids[2], ids[0]]);
+            const handle = rows.last().locator(".cursor-grab");
+            await handle.scrollIntoViewIfNeeded();
+            const start = (await handle.boundingBox())!;
+            const target = (await rows.first().boundingBox())!;
+            await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+            await page.mouse.down();
+            await page.mouse.move(start.x + start.width / 2, target.y - 6, { steps: 20 });
+            await page.mouse.up();
+            await expect(sort).toHaveValue("custom");
+            await expect.poll(order).toEqual(ids);
+            await expect
+              .poll(async () => {
+                const folders = await (await request.get(`/api/${listPath}`)).json();
+                return folders
+                  .filter((folder: { id: string }) => ids.includes(folder.id))
+                  .sort((a: { sortOrder: number }, b: { sortOrder: number }) => a.sortOrder - b.sortOrder)
+                  .map((folder: { id: string }) => folder.id);
+              })
+              .toEqual(ids);
+          }
+        }
+      } finally {
+        if (itemId) await request.delete(`/api/${resource}/${itemId}`);
+        for (const id of ids) await request.delete(`/api/${folderPath}/${id}`);
+      }
+    });
+  }
+}
+
 for (const style of ["classic", "bubble"] as const) {
   test(`scene invitations wait for a click and survive cancellation and reload (${style})`, async ({
     page,

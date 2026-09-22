@@ -147,8 +147,24 @@ export interface DirectedRulesetView {
   /** Who plays the actor whose turn it is. */
   controller: "manual" | "ai" | "gm";
   combatants: DirectedRulesetCombatant[];
-  /** The legal menu, present only while a human controls the actor whose turn it is. */
+  /** The legal menu, present only while a human controls the one being asked: the actor whose turn
+   *  it is, or, while a window holds the fight open, whoever that window is asking. */
   options?: DirectedRulesetOption[];
+  /** The fight held open for somebody who is not the current actor. While it is here the menu above
+   *  is theirs rather than the actor's, and letting the moment go by is one of the answers. */
+  window?: {
+    id: string;
+    kind: "reaction" | "signature";
+    /** Who is being asked. The rest of the queue is not named: a client shows one question at a
+     *  time, and everybody after this one is answered after this one. */
+    actorId: string;
+    /** How many more are still to be asked once this one has answered. */
+    waiting: number;
+    /** Whose walk opened it, for a window opened by somebody breaking away. */
+    moverId?: string;
+    /** Who answers it: the same three the fight has everywhere else. */
+    controller: "manual" | "ai" | "gm";
+  };
   /** The last 200 events, each with a running number so a client prints only what is new. */
   events: Array<{ seq: number; event: DirectedRulesetEvent }>;
   summary?: RulesetEncounterSummary;

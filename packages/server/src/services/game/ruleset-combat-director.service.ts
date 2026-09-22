@@ -44,7 +44,9 @@ import {
   rulesetSheetBuildsByName,
   rulesetStatBlockFromCreature,
   rulesetTierStatBlock,
+  rulesetWindowOptions,
   RULESET_MOVE_OPTION,
+  RULESET_PASS_OPTION,
   RULESET_STAND_OPTION,
   type CombatAiCandidate,
   type Combatant,
@@ -107,8 +109,12 @@ export function rulesetDirectorStage(state: CombatDirectorState): CombatDirector
   if (!fight) return state.stage;
   if (state.outcome) return "finished";
   if (state.window) return "decision";
-  const actor = currentRulesetActor(fight.encounter);
-  return actor && rulesetController(state, fight, actor) === "manual" ? "action" : "select";
+  // A window the fight is holding open is waited on exactly as a turn is, and by whoever it is
+  // asking rather than whoever is on turn. Reading only the turn here would leave a client whose
+  // own party member is being asked seeing an opponent's turn and sending `continue` at it.
+  const asked = fight.encounter.window?.waiting[0];
+  const waiting = asked ? rulesetCombatant(fight.encounter, asked) : currentRulesetActor(fight.encounter);
+  return waiting && rulesetController(state, fight, waiting) === "manual" ? "action" : "select";
 }
 
 /** Where a command leaves the session. The director's own view is built once here, because that is
@@ -454,8 +460,13 @@ export function rulesetMenu(
   definition: RulesetDefinition,
   encounter: RulesetEncounterState,
   actorId: string,
+  /** The open window's menu rather than this actor's turn: what they may spend out of turn. */
+  inWindow = false,
 ): DirectedRulesetOption[] {
-  return rulesetCombatOptions(definition, encounter, actorId).map((option) => {
+  const menu = inWindow
+    ? rulesetWindowOptions(definition, encounter, actorId)
+    : rulesetCombatOptions(definition, encounter, actorId);
+  return menu.map((option) => {
     const aim = option.area ? rulesetAimCells(encounter, actorId, option.id, RULESET_AIM_LIMIT) : [];
     return {
       ...option,
@@ -476,6 +487,15 @@ export function directedRulesetView(
   const actor = currentRulesetActor(encounter);
   const controller = rulesetController(state, fight, actor);
   const over = !!state.outcome || rulesetEncounterOutcome(encounter) !== "ongoing";
+  const asking = encounter.window?.waiting[0];
+  const held =
+    encounter.window && asking
+      ? {
+          window: encounter.window,
+          actorId: asking,
+          controller: rulesetController(state, fight, rulesetCombatant(encounter, asking)),
+        }
+      : null;
   const distance = definition.combat.distance;
   const grid = encounter.board?.grid;
   return {
@@ -495,9 +515,25 @@ export function directedRulesetView(
     ...(actor && !over ? { actorId: actor.id } : {}),
     controller,
     combatants: encounter.combatants.map((combatant) => projectCombatant(definition, combatant)),
-    ...(actor && !over && controller === "manual" && !state.window
-      ? { options: rulesetMenu(definition, encounter, actor.id) }
-      : {}),
+    // A window is answered by the one it asks, so while it is open the menu on screen is THEIRS.
+    // The actor's own turn is standing still behind it and has nothing to offer until it closes.
+    ...(held && !over
+      ? {
+          window: {
+            id: held.window.id,
+            kind: held.window.kind,
+            actorId: held.actorId,
+            waiting: Math.max(0, held.window.waiting.length - 1),
+            ...(held.window.trigger.kind === "leaves-reach" ? { moverId: held.window.trigger.moverId } : {}),
+            controller: held.controller,
+          },
+          ...(held.controller === "manual" && !state.window
+            ? { options: rulesetMenu(definition, encounter, held.actorId, true) }
+            : {}),
+        }
+      : actor && !over && controller === "manual" && !state.window
+        ? { options: rulesetMenu(definition, encounter, actor.id) }
+        : {}),
     events: fight.events.map((entry) => ({ seq: entry.seq, event: entry.event })),
     ...(over ? { summary: rulesetEncounterSummary(definition, encounter) } : {}),
     adjustments: [...fight.adjustments],
@@ -636,12 +672,15 @@ function rulesetCandidatesFrom(
   actorId: string,
   /** The cell the actor is standing in for this pass, or null for the one they are really in. */
   standing: { x: number; y: number } | null,
+  /** The menu to score. A turn's by default; a window hands in its own, so what an opponent takes
+   *  out of turn is weighed by exactly the same scoring as what it takes on one. */
+  menu?: RulesetCombatOption[],
 ): Array<CombatAiCandidate<RulesetCandidate>> {
   const combat = definition.combat;
   const actor = rulesetCombatant(encounter, actorId);
   if (!combat || !actor) return [];
   const candidates: Array<CombatAiCandidate<RulesetCandidate>> = [];
-  for (const option of rulesetCombatOptions(definition, encounter, actorId)) {
+  for (const option of menu ?? rulesetCombatOptions(definition, encounter, actorId)) {
     // Walking is not a candidate of its own: it is what a candidate does before it acts, and a turn
     // with nothing to act on closes the distance instead (see `rulesetClosingMove`).
     if (option.kind === "move") continue;
@@ -846,8 +885,12 @@ function pickRulesetChoice(
   state: CombatDirectorState,
   encounter: RulesetEncounterState,
   actorId: string,
+  /** A window's own menu, when the pick is an answer to one rather than a turn. */
+  menu?: RulesetCombatOption[],
 ): RulesetCandidate | null {
-  const candidates = rulesetCandidates(definition, encounter, actorId);
+  const candidates = menu
+    ? rulesetCandidatesFrom(definition, encounter, actorId, null, menu)
+    : rulesetCandidates(definition, encounter, actorId);
   if (candidates.length === 0) return null;
   const unit = [...state.party, ...state.enemies].find((entry) => entry.id === actorId);
   if (!unit) return candidates[0]!.action;
@@ -857,7 +900,24 @@ function pickRulesetChoice(
 
 // ── One step ──
 
+/** One choice, and then the window it may have opened, answered by everybody in it the player is
+ *  not playing. Every caller that acts for somebody wants both: a walk that provokes a strike must
+ *  come back with the strike already made, or the fight would stand still waiting for an opponent
+ *  to decide something it decides itself. */
 function applyChoice(
+  definition: RulesetDefinition,
+  state: CombatDirectorState,
+  fight: RulesetFightState,
+  choice: RulesetCombatChoice,
+): { refused: RulesetCombatEvent | null } {
+  const step = applyChoiceOnly(definition, state, fight, choice);
+  if (!step.refused) answerRulesetWindows(definition, state, fight);
+  return step;
+}
+
+/** The choice alone. Answering a window is itself a choice, so the loop that drives one uses this
+ *  rather than the pair above. */
+function applyChoiceOnly(
   definition: RulesetDefinition,
   state: CombatDirectorState,
   fight: RulesetFightState,
@@ -867,21 +927,78 @@ function applyChoice(
   const refused = step.events.find((event) => event.type === "refused") ?? null;
   // A refusal changes nothing and bumps nothing: the state it was given is the state it hands back.
   if (refused) return { refused };
+  absorb(definition, state, fight, step);
+  return { refused: null };
+}
+
+/** A step's events into the fight, and the books that follow from them. A round can turn over on an
+ *  ordinary turn or inside a window that was holding one up, and the Game Master gets its calls back
+ *  either way, so the reading is here rather than at one of the two places a turn can end. */
+function absorb(
+  definition: RulesetDefinition,
+  state: CombatDirectorState,
+  fight: RulesetFightState,
+  step: { state: RulesetEncounterState; events: readonly RulesetCombatEvent[] },
+): void {
   fight.encounter = step.state;
   record(fight, step.events);
+  if (step.events.some((event) => event.type === "round")) state.gmCalls = 0;
   syncRulesetCombatants(definition, state);
-  return { refused: null };
+}
+
+/** How many answers one window may take before the fight is let go. A window asks each waiting
+ *  combatant once, so this is only ever reached by a bug; it is here so a fight can never hang. */
+const RULESET_WINDOW_ANSWER_LIMIT = 24;
+
+/**
+ * The open window, answered by everybody in it who is not a person's to play.
+ *
+ * A fight never waits on an opponent: the same picker that plays its turn picks in its window, out
+ * of the window's own menu, and passes when there is nothing there worth spending. A Game Master's
+ * boss is asked through the Game Master's own decision, exactly as it is asked on its turn. The
+ * window is left standing only when the one being asked is somebody's to play, and that is what the
+ * client draws a React or Pass on.
+ */
+function answerRulesetWindows(
+  definition: RulesetDefinition,
+  state: CombatDirectorState,
+  fight: RulesetFightState,
+): void {
+  for (let answer = 0; answer < RULESET_WINDOW_ANSWER_LIMIT; answer++) {
+    const window = fight.encounter.window;
+    const asking = window?.waiting[0];
+    if (!window || !asking) return;
+    const combatant = rulesetCombatant(fight.encounter, asking);
+    const controller = rulesetController(state, fight, combatant);
+    if (controller === "manual") return;
+    if (controller === "gm" && openRulesetWindowDecision(definition, state, fight, asking)) return;
+    const menu = rulesetWindowOptions(definition, fight.encounter, asking);
+    const picked = menu.length > 0 ? pickRulesetChoice(definition, state, fight.encounter, asking, menu) : null;
+    const choice: RulesetCombatChoice = picked?.choice
+      ? { ...picked.choice, window: window.id }
+      : { actorId: asking, optionId: RULESET_PASS_OPTION, targetIds: [], window: window.id };
+    // A refusal inside a window would ask the same question again with the same state, so the
+    // moment is let go instead and the fight moves on.
+    if (applyChoiceOnly(definition, state, fight, choice).refused) {
+      applyChoiceOnly(definition, state, fight, {
+        actorId: asking,
+        optionId: RULESET_PASS_OPTION,
+        targetIds: [],
+        window: window.id,
+      });
+    }
+  }
 }
 
 function advanceTurn(definition: RulesetDefinition, state: CombatDirectorState, fight: RulesetFightState): void {
   // A fight that is over has no next turn, and saying so a second time would print the outcome twice.
   if (rulesetEncounterOutcome(fight.encounter) !== "ongoing") return;
+  // A window is holding this turn open, and the turn it is holding up begins when the window
+  // closes. Asking for it here would be refused by the rules and write that refusal into the log.
+  if (fight.encounter.window) return;
   const step = advanceRulesetTurn(definition, fight.encounter, rollerFor(fight));
-  fight.encounter = step.state;
-  record(fight, step.events);
-  // A fresh round hands the Game Master its calls back, exactly as the other two styles do.
-  if (step.events.some((event) => event.type === "round")) state.gmCalls = 0;
-  syncRulesetCombatants(definition, state);
+  absorb(definition, state, fight, step);
+  answerRulesetWindows(definition, state, fight);
 }
 
 /**
@@ -999,8 +1116,12 @@ function windowOptions(
   definition: RulesetDefinition,
   encounter: RulesetEncounterState,
   actorId: string,
+  /** A window's own menu, when the decision is an answer to one rather than a whole turn. */
+  menu?: RulesetCombatOption[],
 ): CombatDecisionOption[] {
-  const candidates = rulesetCandidates(definition, encounter, actorId, true);
+  const candidates = menu
+    ? rulesetCandidatesFrom(definition, encounter, actorId, null, menu)
+    : rulesetCandidates(definition, encounter, actorId, true);
   const worth = (candidate: (typeof candidates)[number]) =>
     (candidate.damage ?? 0) + (candidate.healing ?? 0) + (candidate.support ?? 0) + (candidate.setup ?? 0);
   const ending = candidates.filter((candidate) => candidate.action.option.kind === "end-turn");
@@ -1021,6 +1142,53 @@ function windowOptions(
     ...(candidate.action.to ? { to: { ...candidate.action.to } } : {}),
     ...(candidate.action.choice.at ? { at: { ...candidate.action.choice.at } } : {}),
   }));
+}
+
+/** What a window's answer of "nothing" is called when the Game Master is the one answering. Plain
+ *  text like the resolver's own "Move" and "Stand up": it is written for the model that reads the
+ *  menu, and the client draws its own words over the same choice. */
+const RULESET_PASS_LABEL = "Let the moment go by";
+
+/**
+ * The Game Master's decision over a ruleset WINDOW's menu rather than a turn's. Its boss is asked
+ * whether to spend out of turn exactly as it is asked what to do on one, and letting the moment go
+ * by is one of the answers rather than a timeout.
+ *
+ * False when there is nothing to ask about, and the caller lets the moment go by without spending a
+ * model call on a menu with only a pass on it.
+ */
+function openRulesetWindowDecision(
+  definition: RulesetDefinition,
+  state: CombatDirectorState,
+  fight: RulesetFightState,
+  actorId: string,
+): boolean {
+  // A decision is already standing: the fight waits on that one rather than stacking another.
+  if (state.window) return true;
+  const menu = rulesetWindowOptions(definition, fight.encounter, actorId);
+  if (menu.length === 0) return false;
+  const options = windowOptions(definition, fight.encounter, actorId, menu);
+  if (options.length === 0) return false;
+  options.push({
+    id: String(options.length),
+    kind: "wait",
+    actorId,
+    mpCost: 0,
+    legendaryCost: 0,
+    optionId: RULESET_PASS_OPTION,
+    targetIds: [],
+    label: RULESET_PASS_LABEL,
+  });
+  state.choices = options;
+  state.window = {
+    id: `${state.id}:${++state.serial}`,
+    kind: "ordinary",
+    actorId,
+    controller: "gm",
+    options,
+  };
+  state.stage = "decision";
+  return true;
 }
 
 function openRulesetWindow(
@@ -1112,11 +1280,22 @@ export function commandRulesetCombatDirector(
 
   if (command.type === "ruleset") {
     if (state.window) return refuse("Resolve the open decision first.", "ruleset_combat_decision_open");
-    if (controller !== "manual") return refuse("This turn is not yours to play.", "ruleset_combat_not-your-turn");
+    // While a window holds the fight open the command belongs to whoever it is asking, not to the
+    // actor whose turn is standing still behind it.
+    const held = fight.encounter.window;
+    const acting = held ? rulesetCombatant(fight.encounter, held.waiting[0] ?? "") : actor;
+    if (!acting) return refuse("Nobody is being asked.", "ruleset_combat_unknown-actor");
+    if (rulesetController(state, fight, acting) !== "manual") {
+      return refuse(
+        held ? "This window is not yours to answer." : "This turn is not yours to play.",
+        "ruleset_combat_not-your-turn",
+      );
+    }
     const step = applyChoice(definition, state, fight, {
-      actorId: actor.id,
+      actorId: acting.id,
       optionId: command.optionId,
       targetIds: command.targetIds,
+      ...(held ? { window: held.id } : {}),
       ...(command.payWith !== undefined ? { payWith: command.payWith } : {}),
       ...(command.to ? { to: command.to } : {}),
       ...(command.at ? { at: command.at } : {}),
@@ -1137,6 +1316,36 @@ export function commandRulesetCombatDirector(
     }
     const actorId = open.actorId;
     closeWindow(state);
+    // A decision opened over a ruleset WINDOW is answered into that window, not onto a turn: the
+    // one being asked is not the one acting, and there is no turn of theirs to go on with.
+    const held = fight.encounter.window;
+    if (held && held.waiting[0] === actorId) {
+      const menu = rulesetWindowOptions(definition, fight.encounter, actorId);
+      const answer =
+        chosen && chosen.optionId && chosen.optionId !== RULESET_PASS_OPTION
+          ? {
+              actorId,
+              optionId: chosen.optionId,
+              targetIds: [...(chosen.targetIds ?? [])],
+              // Everything the picked option came with. An area is aimed at a CELL, and dropping
+              // it would have the rules refuse the answer and the moment let go instead. The pool
+              // an upcast is paid from is carried too, for the day a candidate names one: no
+              // candidate does yet, which is a gap of the picker's rather than of the window's.
+              ...(chosen.at ? { at: { ...chosen.at } } : {}),
+              ...(chosen.payWith !== undefined ? { payWith: chosen.payWith } : {}),
+            }
+          : chosen
+            ? null
+            : // Nothing usable came back, so the local picker answers instead, exactly as it does
+              // for a turn: the model call is spent either way.
+              (pickRulesetChoice(definition, state, fight.encounter, actorId, menu)?.choice ?? null);
+      const letGo = { actorId, optionId: RULESET_PASS_OPTION, targetIds: [], window: held.id };
+      if (!answer || applyChoiceOnly(definition, state, fight, { ...answer, window: held.id }).refused) {
+        applyChoiceOnly(definition, state, fight, letGo);
+      }
+      answerRulesetWindows(definition, state, fight);
+      return settled(state);
+    }
     const picked = chosen ? null : pickRulesetChoice(definition, state, fight.encounter, actorId);
     const walkTo = chosen ? chosen.to : picked?.to;
     const choice: RulesetCombatChoice | null = chosen
@@ -1179,6 +1388,13 @@ export function commandRulesetCombatDirector(
 
   // `continue`: one whole turn of whoever the player is not playing.
   if (state.window) return { ok: true };
+  // A window comes first: the turn behind it is standing still, and everybody in it who is not a
+  // person's to play answers here. One that is theirs is left for them to answer.
+  if (fight.encounter.window) {
+    answerRulesetWindows(definition, state, fight);
+    // Still standing means it is somebody's own to answer, and no amount of asking again moves it.
+    return settled(state);
+  }
   if (controller === "manual") return settled(state);
   if (controller === "gm" && openRulesetWindow(definition, state, fight, actor.id)) return { ok: true };
   playRulesetTurn(definition, state, fight, actor.id);

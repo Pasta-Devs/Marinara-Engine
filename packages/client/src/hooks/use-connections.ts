@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { showConfirmDialog } from "../lib/app-dialogs";
 // ──────────────────────────────────────────────
 // React Query: Connection hooks
 // ──────────────────────────────────────────────
@@ -81,6 +83,9 @@ export type CreateConnectionPayload = {
   videoGenerationSource?: string | null;
   videoService?: string | null;
   audioSource?: string | null;
+  decisionSource?: "typesafe" | "openrouter" | "custom" | null;
+  credentialsFromConnectionId?: string | null;
+  maxStateTokens?: number | null;
   audioVoice?: string | null;
   audioSoundEffects?: boolean;
   audioMusic?: boolean;
@@ -136,8 +141,23 @@ export function useDuplicateConnection() {
 
 export function useDeleteConnection() {
   const qc = useQueryClient();
+  const { t } = useTranslation();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/connections/${id}`),
+    mutationFn: async (id: string) => {
+      const rows = await api.get<Array<{ name: string; credentialsFromConnectionId?: string | null }>>("/connections");
+      const dependants = rows.filter((row) => row.credentialsFromConnectionId === id);
+      if (
+        dependants.length &&
+        !(await showConfirmDialog({
+          title: t("connections.decision.deleteTitle"),
+          message: t("connections.decision.deleteWarning", { names: dependants.map((row) => row.name).join(", ") }),
+          confirmLabel: t("connections.decision.deleteConfirm"),
+          tone: "destructive",
+        }))
+      )
+        throw new Error(t("connections.decision.deleteCancelled"));
+      return api.delete(`/connections/${id}`);
+    },
     onSuccess: async (_data, id) => {
       qc.invalidateQueries({ queryKey: connectionKeys.list() });
       const activeChatId = useChatStore.getState().activeChatId;
