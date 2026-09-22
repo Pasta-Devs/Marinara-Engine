@@ -84,6 +84,13 @@ class DecisionProcessService {
     }
     this.startingModelId = model.id;
     this.starting = this.start(model)
+      // Every failure path ends as a null, never a rejection. Callers gate on this,
+      // and a gate that throws stops an agent rather than running it.
+      .catch((error: unknown) => {
+        this.error = error instanceof Error ? error.message : "The decision sidecar could not start.";
+        logger.warn(error, "[decision-sidecar] Start threw");
+        return null;
+      })
       .then((baseUrl) => {
         if (baseUrl) {
           this.failedModelId = null;

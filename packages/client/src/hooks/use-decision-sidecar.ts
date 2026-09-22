@@ -36,13 +36,18 @@ export interface DecisionSidecarStatus {
 
 export const decisionSidecarKey = [...decisionKeys.all, "sidecar"] as const;
 
-export function useDecisionSidecar() {
+export function useDecisionSidecar(enabled = true) {
   return useQuery({
     queryKey: decisionSidecarKey,
     queryFn: () => api.get<DecisionSidecarStatus>("/decision/sidecar"),
+    enabled,
     // Each call runs a preflight, which reads a cached GPU probe rather than
     // probing, so this is cheap; it still does not need to be live.
     staleTime: 15_000,
+    // Re-read whenever the panel is opened. The verdict describes how much of the
+    // card is free, which a game or a model load can change between two visits, and
+    // a stale "recommended" is the one thing this dialog must not show.
+    refetchOnMount: "always",
   });
 }
 

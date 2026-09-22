@@ -44,7 +44,8 @@ function formatBytes(bytes: number): string {
 
 export function DecisionModelModal({ open, onClose }: Props) {
   const { t: localizeUi } = useUiTranslation();
-  const sidecar = useDecisionSidecar();
+  // Only queried while open, and re-read on each open so the verdict is current.
+  const sidecar = useDecisionSidecar(open);
   const enable = useEnableDecisionSidecar();
   const install = useInstallDecisionModel();
   const remove = useRemoveDecisionSidecar();

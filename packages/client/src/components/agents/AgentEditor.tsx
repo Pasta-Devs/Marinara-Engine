@@ -854,15 +854,16 @@ export function AgentEditor() {
    * the form, so renaming the agent first would strand the fallback 0.5.
    */
   const seededCalibrationRef = useRef<number | null>(null);
-  // Read through a ref so the effect below depends on the calibration alone.
-  const localActivationQuestionRef = useRef(localActivationQuestion);
-  localActivationQuestionRef.current = localActivationQuestion;
+  /** Whether the agent on screen brought a threshold of its own. */
+  const storedThresholdRef = useRef(false);
   useEffect(() => {
     const seed = decisionCalibration.defaultThreshold;
     if (seededCalibrationRef.current === seed) return;
     seededCalibrationRef.current = seed;
-    // Only while nothing has been written: an existing question owns its threshold.
-    if (localActivationQuestionRef.current.trim()) return;
+    // An agent that stored its own threshold owns it. One that has a question but
+    // never stored one was seeded from whatever fallback was loaded at the time, so
+    // it still wants the real value.
+    if (storedThresholdRef.current) return;
     setLocalActivationThreshold(seed);
   }, [decisionCalibration.defaultThreshold]);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
@@ -907,6 +908,7 @@ export function AgentEditor() {
           : "",
       );
       setLocalActivationQuestion(String(settings.activationQuestion ?? ""));
+      storedThresholdRef.current = typeof settings.activationThreshold === "number";
       setLocalActivationThreshold(
         Number(settings.activationThreshold ?? decisionCalibrationRef.current.defaultThreshold),
       );
@@ -1022,6 +1024,7 @@ export function AgentEditor() {
       setLocalEchoMessageDelaySeconds(DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS);
       setLocalActivationKeywordsText("");
       setLocalActivationQuestion("");
+      storedThresholdRef.current = false;
       setLocalActivationThreshold(decisionCalibrationRef.current.defaultThreshold);
       setLocalActivationMaxSkip("");
       setLocalActivationScanDepth(DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH);
@@ -1087,6 +1090,7 @@ export function AgentEditor() {
       setLocalEchoMessageDelaySeconds(DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS);
       setLocalActivationKeywordsText("");
       setLocalActivationQuestion("");
+      storedThresholdRef.current = false;
       setLocalActivationThreshold(decisionCalibrationRef.current.defaultThreshold);
       setLocalActivationMaxSkip("");
       setLocalActivationScanDepth(DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH);

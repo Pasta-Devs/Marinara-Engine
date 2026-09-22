@@ -13,6 +13,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DecisionModelArtifact, SidecarDecisionModelInfo, SidecarDownloadProgress } from "@marinara-engine/shared";
@@ -108,10 +109,15 @@ export class DecisionRuntimeService {
     }
   }
 
-  /** Delete everything: the environment, the source and the downloaded weights. */
-  remove(): void {
+  /**
+   * Delete everything: the environment, the source and the downloaded weights.
+   *
+   * Asynchronous because this is ten gigabytes. Doing it synchronously stalls the
+   * event loop long enough to stop serving chat while a user tidies up.
+   */
+  async remove(): Promise<void> {
     this.cancel();
-    rmSync(RUNTIME_DIR, { recursive: true, force: true });
+    await rm(RUNTIME_DIR, { recursive: true, force: true });
   }
 
   async ensureInstalled(onProgress?: (progress: SidecarDownloadProgress) => void): Promise<DecisionRuntimeInstall> {

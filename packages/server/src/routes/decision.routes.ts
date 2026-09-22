@@ -303,7 +303,7 @@ export async function decisionRoutes(app: FastifyInstance) {
   app.post("/sidecar/remove", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Decision model removal" })) return;
     await decisionProcessService.stop();
-    decisionRuntimeService.remove();
+    await decisionRuntimeService.remove();
     return {
       settings: await writeSidecarSettings((current) => ({
         ...current,
