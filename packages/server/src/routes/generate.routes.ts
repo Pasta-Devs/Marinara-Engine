@@ -12414,6 +12414,7 @@ export async function generateRoutes(app: FastifyInstance) {
                   debugMode: requestDebug,
                   blocking: false,
                   signal: agentSignal,
+                  agentProgress: agentContext.agentProgress,
                   asOfMessageId: latestAssistantMessageId,
                   ...(pendingSceneCheck && agentContext.sceneCheck?.result !== undefined
                     ? { batchedCheck: { request: pendingSceneCheck, result: agentContext.sceneCheck.result } }

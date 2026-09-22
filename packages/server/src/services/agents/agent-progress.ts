@@ -15,7 +15,7 @@ import { minContextLimit, normalizeMaxContext } from "../generation/generation-p
 
 /** Observe an existing call while forwarding its explicit agent debug setting. */
 export async function completeAgentCall(
-  context: AgentContext,
+  context: Pick<AgentContext, "agentDebug" | "sceneCheck" | "agentProgress" | "signal">,
   agents: AgentTaskProgress["agents"],
   provider: BaseLLMProvider,
   messages: ChatMessage[],
@@ -88,7 +88,19 @@ export async function completeAgentCall(
   const startedAt = Date.now();
   const progress: AgentTaskProgress = {
     callId: randomUUID(),
-    agents: agents.map(({ id, type, name, phase }) => ({ id, type, name, phase })),
+    agents: [
+      ...agents.map(({ id, type, name, phase }) => ({ id, type, name, phase })),
+      ...(sceneCheck
+        ? [
+            {
+              id: "advanced-recall",
+              type: "advanced-recall",
+              name: "Advanced Recall",
+              phase: "post_processing" as const,
+            },
+          ]
+        : []),
+    ],
     stage: "waiting",
     receivedChunks: 0,
     receivedCharacters: 0,

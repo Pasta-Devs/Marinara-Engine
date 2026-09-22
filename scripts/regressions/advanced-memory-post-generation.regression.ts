@@ -37,6 +37,7 @@ const calls: Array<{
 }> = [];
 let summaryGate: Promise<void> | undefined;
 let summaryResponse: string | undefined;
+let summaryFinishReason = "stop";
 let closeLatestScene = false;
 const sceneDecision = (transcript: Array<{ messageNumber: number; content: string }>) => ({
   ends: closeLatestScene
@@ -142,7 +143,15 @@ const provider = createServer(async (req, res) => {
       JSON.stringify(
         responses
           ? response
-          : { choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }] },
+          : {
+              choices: [
+                {
+                  index: 0,
+                  message: { role: "assistant", content },
+                  finish_reason: kind === "summary" ? summaryFinishReason : "stop",
+                },
+              ],
+            },
       ),
     );
   }
@@ -164,7 +173,7 @@ try {
     model: "fixture",
     apiKey: "fixture",
     baseUrl: `http://127.0.0.1:${address.port}/v1`,
-    maxContext: 8192,
+    maxContext: 16_384,
     maxTokensOverride: 1024,
     embeddingModel: "fixture-embedding",
   });
@@ -184,7 +193,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 8192,
+      maxContextTokens: 16_384,
       helperConnectionId: connection.id,
     },
   });
@@ -227,6 +236,14 @@ try {
     (await chats.listMessages(chat.id))[0]!.id,
     "ARCHIVED_SOURCE_ONLY: The silver compass promise began.",
   );
+  const checkpointBeforeReindex = JSON.parse((await chats.getById(chat.id))!.metadata).advancedMemoryState
+    .sceneCheckMessageId;
+  await memory.reindex(chat.id);
+  assert.equal(
+    JSON.parse((await chats.getById(chat.id))!.metadata).advancedMemoryState.sceneCheckMessageId,
+    checkpointBeforeReindex,
+    "reindexing vectors preserves the four accumulated messages toward the scene-check interval",
+  );
   calls.length = 0;
   const checkedResponse = await generate();
   await waitForSceneCheck();
@@ -240,6 +257,8 @@ try {
     /"type":"advanced_memory_status"[^\n]*"status":"ready"/u,
     "the live generation stream stays open for scene-check completion",
   );
+  assert.match(checkedResponse.body, /"type":"agent_progress"[^\n]*"type":"advanced-recall"[^\n]*"stage":"waiting"/u);
+  assert.match(checkedResponse.body, /"type":"agent_progress"[^\n]*"type":"advanced-recall"[^\n]*"stage":"received"/u);
   assert.deepEqual(
     calls.map((call) => call.kind),
     ["main", "scene"],
@@ -488,7 +507,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 8192,
+      maxContextTokens: 16_384,
       helperConnectionId: connection.id,
     },
   });
@@ -515,6 +534,11 @@ try {
       "a bundled check has its own visible Advanced Recall activity",
     );
     assert.match(response.body, /"type":"advanced_memory_status"[^\n]*"status":"ready"/u);
+    assert.match(
+      response.body,
+      /"type":"agent_progress"[^\n]*"name":"Tracker fixture"[^\n]*"type":"advanced-recall"/u,
+      "the shared tracker call lists Advanced Recall as a participating post-processing agent",
+    );
     const source = await chats.listMessages(batchChat.id);
     await waitFor(async () => {
       const state = JSON.parse((await chats.getById(batchChat.id))!.metadata).advancedMemoryState;
@@ -637,13 +661,32 @@ try {
   assert.equal(beforeConstants.length, 1, "no parallel continuity store is populated");
   assert(!(await memory.status(constantsChat.id)).records.some((record) => record.kind === "continuity"));
 
+  const liveConstant = createChatSummaryEntry({
+    id: "live-range-summary",
+    content: "STILL_LIVE_SUMMARY ".repeat(2000),
+    enabled: true,
+    origin: "manual",
+    rangeStartIndex: 2,
+    rangeEndIndex: 2,
+  });
+  await chats.patchMetadata(constantsChat.id, { summaryEntries: [...beforeConstants, liveConstant] });
+  calls.length = 0;
+  await memory.checkScenesAfterGeneration(constantsChat.id);
+  assert.equal(calls.length, 0, "live-range constants do not consume the archived constant budget");
+  assert.deepEqual(
+    JSON.parse((await chats.getById(constantsChat.id))!.metadata).summaryEntries,
+    [...beforeConstants, liveConstant],
+    "compaction cannot merge an archived constant into a still-live range",
+  );
+  await chats.patchMetadata(constantsChat.id, { summaryEntries: beforeConstants });
+
   // The 70% share follows each user's budget; it is not fixed at 7k or 10k.
   for (const summaryBudgetTokens of [8000, 20_000]) {
     const content = "BUDGET_CONSTANT ".repeat(Math.floor((summaryBudgetTokens * 0.75 * 4) / 16));
     assert(estimateChatSummaryTokens(content) > summaryBudgetTokens * 0.7);
     assert(estimateChatSummaryTokens(content) < summaryBudgetTokens);
     await memory.updateSettings(constantsChat.id, { summaryBudgetTokens });
-    await chats.patchMetadata(constantsChat.id, { summaryEntries: [{ ...beforeConstants[0], content }] });
+    await chats.patchMetadata(constantsChat.id, { summaryEntries: [{ ...beforeConstants[0], content }, liveConstant] });
     calls.length = 0;
     assert(!(await generateConstants()).body.includes('"type":"error"'));
     await memory.checkScenesAfterGeneration(constantsChat.id, { blocking: false });
@@ -652,8 +695,15 @@ try {
       ["main", "summary"],
     );
     const combine = calls[1]!;
-    assert(combine.messages[0]!.content.includes(`within ${Math.floor(summaryBudgetTokens * 0.7)} tokens`));
+    assert(combine.messages[0]!.content.includes(`approximately ${Math.floor(summaryBudgetTokens * 0.7)} tokens`));
     assert(JSON.stringify(calls[0]!.messages).includes(content.trim()), "the crossing reply keeps its constants");
+    assert.doesNotMatch(JSON.stringify(combine.messages), /STILL_LIVE_SUMMARY/u);
+    const afterCombine = JSON.parse((await chats.getById(constantsChat.id))!.metadata).summaryEntries;
+    assert.deepEqual(
+      afterCombine.find((entry: { id: string }) => entry.id === liveConstant.id),
+      liveConstant,
+    );
+    assert.equal(afterCombine.find((entry: { origin: string }) => entry.origin === "automated").rangeEndIndex, 1);
   }
   await memory.updateSettings(constantsChat.id, { summaryBudgetTokens: 10_000 });
 
@@ -701,7 +751,7 @@ try {
   assert(JSON.stringify(combinedRequest.messages).includes("CONSTANTS_ONLY_SOURCE"));
   assert.match(
     combinedRequest.messages[0]!.content,
-    /within 7000 tokens/u,
+    /approximately 7000 tokens/u,
     "the helper receives the 70% allocation, not the combined memory allowance",
   );
   assert.doesNotMatch(
@@ -835,6 +885,12 @@ try {
       extra: { hiddenFromAICharacterIds: [hiddenFrom] },
     });
   }
+  await chats.createMessage({
+    chatId: privateChat.id,
+    role: "user",
+    content: "The next shared scene.",
+    extra: { isConversationStart: true },
+  });
   const privateEntries = ["PRIVATE_A_CONSTANT ", "PRIVATE_B_CONSTANT "].map((content, index) =>
     createChatSummaryEntry({
       id: `private-${index}`,
@@ -900,6 +956,12 @@ try {
   assert(macroChat);
   chatIds.push(macroChat.id);
   await chats.createMessage({ chatId: macroChat.id, role: "user", content: "A shared event." });
+  await chats.createMessage({
+    chatId: macroChat.id,
+    role: "user",
+    content: "The next shared scene.",
+    extra: { isConversationStart: true },
+  });
   const template = createChatSummaryEntry({
     id: "character-template",
     content: `{{#if char == "Maukie"}}${"MAUKIE_SECTION ".repeat(150)}{{/if}}\n{{#if char == "Pantalone"}}${"PANTALONE_SECTION ".repeat(150)}{{/if}}`,
@@ -951,6 +1013,83 @@ try {
     assert(!prepared.chatSummary!.includes(excluded!));
   }
 
+  const tightTemplate = {
+    ...template,
+    content: `{{#if char == "Maukie"}}${"A".repeat(6803 * 4)}{{/if}}\n{{#if char == "Pantalone"}}${"B".repeat(6803 * 4)}{{/if}}`,
+  };
+  const longConstant = createChatSummaryEntry({
+    id: "two-thousand-word-constant",
+    content: "Word ".repeat(2000).trim(),
+    enabled: true,
+    rangeStartIndex: 1,
+    rangeEndIndex: 1,
+  });
+  await chats.patchMetadata(macroChat.id, {
+    summaryMaxTokens: 12_000,
+    advancedMemory: {
+      ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+      enabled: true,
+      summaryBudgetTokens: 10_000,
+      sceneCheckInterval: 100,
+      knowledgeStarts: { [privateA.id]: null, [privateB.id]: null },
+    },
+    summaryEntries: [tightTemplate, longConstant],
+  });
+  summaryResponse = "R".repeat(2400 * 4);
+  calls.length = 0;
+  await memory.checkScenesAfterGeneration(macroChat.id, { blocking: false });
+  assert.equal(calls.length, 1, "a valid shorter recap is kept without retries to force a tiny group target");
+  assert.equal(calls[0]!.maxTokens, 12_000, "compaction preserves a larger Chat Summary output allowance");
+  assert.doesNotMatch(calls[0]!.messages[0]!.content, /196 tokens/u);
+  const softBudgetAfter = JSON.parse((await chats.getById(macroChat.id))!.metadata).summaryEntries;
+  assert.deepEqual(
+    softBudgetAfter.find((entry: { id: string }) => entry.id === tightTemplate.id),
+    tightTemplate,
+  );
+  assert(
+    softBudgetAfter.some(
+      (entry: { content: string; enabled: boolean }) => entry.enabled && entry.content.includes(summaryResponse!),
+    ),
+  );
+  assert.equal((await memory.status(macroChat.id)).job.status, "ready");
+
+  // A helper can ignore the length guidance. Keep the existing entries and reuse
+  // the completed attempt instead of paying again for unchanged inputs.
+  await chats.patchMetadata(macroChat.id, { summaryEntries: [tightTemplate, longConstant] });
+  summaryResponse = longConstant.content;
+  calls.length = 0;
+  await memory.checkScenesAfterGeneration(macroChat.id, { blocking: false });
+  assert.deepEqual(JSON.parse((await chats.getById(macroChat.id))!.metadata).summaryEntries, [
+    tightTemplate,
+    longConstant,
+  ]);
+  await memory.checkScenesAfterGeneration(macroChat.id, { blocking: false });
+  assert.equal(calls.length, 1, "unchanged constants reuse a completed non-shrinking attempt");
+  summaryResponse = undefined;
+
+  // A failed provider result can contain text. It must never become an active
+  // replacement or deactivate the originals, even on repeated Resume attempts.
+  await createConnectionsStorage(db).update(connection.id, { provider: "custom", model: "fixture" });
+  const failureEntries = [
+    { ...longConstant, id: "failed-replacement-source", content: "EXISTING_CONSTANT ".repeat(2000) },
+  ];
+  await chats.patchMetadata(macroChat.id, { summaryEntries: failureEntries });
+  for (const reason of ["length", "error", "abort", "tool_calls", "content_filter"]) {
+    summaryFinishReason = reason;
+    await assert.rejects(memory.checkScenesAfterGeneration(macroChat.id), /summary model.*(limit|complete)/u);
+    assert.deepEqual(
+      JSON.parse((await chats.getById(macroChat.id))!.metadata).summaryEntries,
+      failureEntries,
+      `a ${reason} result neither adds a constant nor disables its originals`,
+    );
+  }
+  summaryFinishReason = "stop";
+  await memory.initialize(macroChat.id);
+  const replacementEntries = JSON.parse((await chats.getById(macroChat.id))!.metadata).summaryEntries;
+  assert.equal(replacementEntries.filter((entry: { enabled: boolean }) => entry.enabled).length, 1);
+  assert.equal(replacementEntries.find((entry: { id: string }) => entry.id === failureEntries[0]!.id).enabled, false);
+  assert.equal(replacementEntries.find((entry: { enabled: boolean }) => entry.enabled).title, "Messages #1–#1");
+
   const partialChat = await chats.create({
     name: "Reuse existing summary ranges",
     mode: "roleplay",
@@ -966,7 +1105,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 8192,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 3000,
       narratorCharacterId: character.id,
       knowledgeStarts: { [character.id]: null, [privateA.id]: null, [privateB.id]: null },
@@ -1006,6 +1145,15 @@ try {
     budgetTokens: 5000,
   });
   calls.length = 0;
+  summaryFinishReason = "error";
+  await assert.rejects(memory.checkScenesAfterGeneration(partialChat.id), /summary model.*complete/u);
+  assert.deepEqual(
+    JSON.parse((await chats.getById(partialChat.id))!.metadata).summaryEntries,
+    [manual, maukieManual],
+    "a failed new-range summary is not added to Chat Summaries",
+  );
+  summaryFinishReason = "stop";
+  calls.length = 0;
   await memory.checkScenesAfterGeneration(partialChat.id);
   assert.deepEqual(
     calls.map((call) => call.kind),
@@ -1013,7 +1161,7 @@ try {
     "only uncovered scene messages need a new constant",
   );
   for (const call of calls) {
-    assert.equal(call.maxTokens, 1024);
+    assert.equal(call.maxTokens, 8196, "new constants also have reasoning room independently of recap length");
     const additionPrompt = JSON.stringify(call.messages);
     assert(additionPrompt.includes("UNCOVERED_NEW_EVENT"));
     assert.doesNotMatch(additionPrompt, /ALREADY_COVERED_A|RANGE_CORRECTION|present day/u);
@@ -1038,6 +1186,7 @@ try {
     assert(added, `new ${name} constant has its own character condition`);
     assert.equal(added.rangeStartIndex, start, "another character's summary cannot suppress uncovered history");
     assert.equal(added.rangeEndIndex, 3);
+    assert.equal(added.title, `Messages #${start}–#3`);
   }
   await memory.validatePrepared(partialChat.id, partialSource, beforeAddition.receipt);
   const beforeRepeat = calls.length;

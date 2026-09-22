@@ -1470,10 +1470,13 @@ export function useUpdateMessageExtra(chatId: string | null) {
         qc.setQueryData(chatKeys.messages(chatId), context.previous);
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _error, { extra }) => {
       if (chatId) {
         qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
         qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
+        if (Object.hasOwn(extra, "isConversationStart")) {
+          qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
+        }
       }
     },
   });

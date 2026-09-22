@@ -4,6 +4,12 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Advanced Memory scene recaps request 2–3 paragraphs with room for reasoning, and constant-summary consolidation no longer fails on tiny proportional token targets (#6512).
+- Advanced Recall scene checks appear in agent call activity, including shared post-processing tracker calls. Reindexing preserves progress toward the next scene check (#6512).
+- Advanced Memory constants use message-range titles, reject unfinished helper output, and deactivate the originals when a completed compacted replacement is saved. Ranged constants that overlap live context stay out of that prompt and its archived-summary compaction budget (#6512).
+- Advanced Memory's context threshold applies to the outgoing prompt without subtracting reply tokens. Automatic scene resets apply to all characters and can be undone with the existing All flag; temporary open-scene trimming no longer creates persistent character-specific flags (#6512).
+- New Start flag changes save together with Advanced Memory cutoffs, keeping the previous state intact if a save fails (#6512).
+
 - Advanced Memory reindexing rebuilds saved text vectors without rerunning scene detection or summarization. Saved scene corrections no longer depend on outdated generated-summary inputs, and stale scene corrections can be reviewed and saved without changing their text (#6509).
 
 - Removed the obsolete root suggestion-chips implementation brief, `MARI_SUGGESTION_CHIPS_TASK.md` (#6504).

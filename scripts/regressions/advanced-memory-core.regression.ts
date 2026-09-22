@@ -168,7 +168,7 @@ try {
       model: "gpt-4o-mini",
       baseUrl,
       apiKey: "test-key",
-      maxContext: 4096,
+      maxContext: 16_384,
       defaultForAgents: true,
       embeddingBaseUrl: baseUrl,
       embeddingModel: "memory-proof",
@@ -186,7 +186,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
     },
   });
@@ -355,7 +355,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
       narratorCharacterId: "narrator",
       knowledgeStarts: { alice: null, bob: privateSource[6]!.id },
@@ -578,7 +578,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 256,
       retrieveMinMessages: 1,
       retrieveMaxMessages: 3,
@@ -831,7 +831,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
     },
   });
@@ -893,7 +893,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
     },
   });
@@ -970,7 +970,7 @@ try {
   const dependencySettings = {
     ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
     enabled: true,
-    maxContextTokens: 4096,
+    maxContextTokens: 16_384,
     summaryBudgetTokens: 512,
     knowledgeStarts: { alice: null },
   };
@@ -1352,7 +1352,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
     },
   });
@@ -1680,7 +1680,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
       knowledgeStarts: { alice: null },
     },
@@ -1737,7 +1737,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
       knowledgeStarts: { alice: null, bob: null },
     },
@@ -1746,7 +1746,7 @@ try {
     hiddenMiddleChat.id,
     Array.from({ length: 300 }, (_, index) => ({
       role: "user" as const,
-      content: `${index === 250 ? "SCENE_CHANGE " : ""}${index === 50 ? "HIDDEN_MIDDLE_SECRET" : "Shared compass promise along the mountain path"} ${index}.`,
+      content: `${index === 250 ? "SCENE_CHANGE " : ""}${index === 50 ? "HIDDEN_MIDDLE_SECRET" : "Shared compass promise along the mountain path. ".repeat(2)} ${index}.`,
       extra: index === 50 ? { hiddenFromAICharacterIds: ["bob"] } : undefined,
     })),
   );
@@ -1814,7 +1814,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
     },
   });
@@ -1836,7 +1836,7 @@ try {
   assert(cadenceChat);
   await memory.updateSettings(cadenceChat.id, {
     enabled: true,
-    maxContextTokens: 4096,
+    maxContextTokens: 16_384,
     summaryBudgetTokens: 512,
     sceneCheckInterval: 5,
   });
@@ -2011,7 +2011,11 @@ try {
     connectionId: connection!.id,
   });
   assert(deferredHistory);
-  await memory.updateSettings(deferredHistory.id, { enabled: true, maxContextTokens: 4096, summaryBudgetTokens: 512 });
+  await memory.updateSettings(deferredHistory.id, {
+    enabled: true,
+    maxContextTokens: 16_384,
+    summaryBudgetTokens: 512,
+  });
   await chats.createMessagesBatch(deferredHistory.id, [
     { role: "user", content: "An older scene." },
     { role: "assistant", content: "SCENE_CHANGE The party reaches another town." },
@@ -2144,7 +2148,7 @@ try {
   const resetSettings = {
     ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
     enabled: true,
-    maxContextTokens: 4096,
+    maxContextTokens: 16_384,
     summaryBudgetTokens: 512,
     knowledgeStarts: { alice: null },
   };
@@ -2216,7 +2220,7 @@ try {
     connectionId: connection!.id,
   });
   assert(backlog);
-  await memory.updateSettings(backlog.id, { enabled: true, maxContextTokens: 4096, summaryBudgetTokens: 512 });
+  await memory.updateSettings(backlog.id, { enabled: true, maxContextTokens: 16_384, summaryBudgetTokens: 512 });
   await chats.createMessagesBatch(
     backlog.id,
     Array.from({ length: 120 }, (_, index) => ({

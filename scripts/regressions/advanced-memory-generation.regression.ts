@@ -95,7 +95,7 @@ try {
     baseUrl: `http://127.0.0.1:${address.port}/v1`,
     model: "fixture",
     apiKey: "fixture",
-    maxContext: 8192,
+    maxContext: 16_384,
     maxTokensOverride: 512,
     embeddingModel: "fixture-embedding",
   });
@@ -150,7 +150,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 8192,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
       knowledgeStarts: { [first.id]: null, [second.id]: null },
       knowledgeConfirmed: true,
@@ -186,6 +186,20 @@ try {
     messageIds: summarySource.map((message) => message.id),
   }));
   await chats.patchMetadata(chat.id, { summaryEntries: conditionalEntries });
+  const initialLive = await memory.prepare({
+    chatId: chat.id,
+    messages: await chats.listMessages(chat.id),
+    audienceCharacterIds: [second.id],
+    budgetTokens: 50_000,
+    readOnly: true,
+  });
+  assert.doesNotMatch(
+    initialLive.chatSummary ?? "",
+    /SHARED_CONSTANT/u,
+    "a ranged constant must not duplicate live messages",
+  );
+  const firstLive = (await chats.listMessages(chat.id)).find((message) => message.content.includes("HISTORY_2:"))!;
+  await chats.updateMessageExtra(firstLive.id, { conversationStartForCharacterIds: [second.id] });
   const generate = async (regenerateMessageId?: string) => {
     const result = await app.inject({
       method: "POST",
@@ -278,8 +292,11 @@ try {
   assert.doesNotMatch(regeneratedAfterContinuation.body, /"stage":"compacting"/u);
   assert.match(regeneratedAfterContinuation.body, /reused-swipe-memory/u);
   const generatedMetadata = JSON.parse((await chats.getById(chat.id))!.metadata);
-  assert.equal(generatedMetadata.advancedMemoryState.contextStarts.length, 1);
-  assert.deepEqual(generatedMetadata.advancedMemoryState.contextStarts[0].audienceCharacterIds, [second.id]);
+  assert.equal(
+    generatedMetadata.advancedMemoryState.contextStarts,
+    undefined,
+    "temporary excerpts of an oversized open scene do not create a character-specific start flag",
+  );
   await memory.initialize(chat.id, { blocking: false });
   const beforePreview = modelCalls;
   const preview = await app.inject({
@@ -364,7 +381,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 8192,
+      maxContextTokens: 16_384,
       knowledgeStarts: { [first.id]: null, [second.id]: null },
     },
   });

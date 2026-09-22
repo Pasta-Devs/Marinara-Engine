@@ -96,6 +96,12 @@ assert.equal(
 );
 assert.equal(calls.length, 1);
 assert.ok(!roomy.providerMessages.some((message) => message.content.includes("__MARINARA_ADVANCED_MEMORY_")));
+const generousReply = await prepareAdvancedMemoryContext({ ...input, maxTokens: 32768, maxContext: 128000 });
+assert.equal(calls.at(-1)!.budget, calls[0]!.budget, "reply allowance does not consume the 65k outgoing prompt limit");
+assert.equal(generousReply.maxTokens, 32768);
+assert.equal(generousReply.receipt.budgetTokens, 65000);
+assert(measureContextBudget(generousReply.providerMessages, { maxContext: 128000, maxTokens: 32768 }).fits);
+calls.pop();
 const reused = await prepareAdvancedMemoryContext({ ...input, cachedSnapshots: [roomy.snapshot] });
 assert.equal(calls.length, 1, "a valid swipe snapshot bypasses memory preparation");
 assert.deepEqual(reused.providerMessages, roomy.providerMessages);

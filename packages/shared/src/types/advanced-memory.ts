@@ -34,7 +34,9 @@ export interface AdvancedMemoryJob {
   total: number;
   error: string | null;
   processedMessageId?: string | null;
-  /** Visible live-context starts, separate from manually chosen character knowledge boundaries. */
+  /** Invalidates cached prompts when a user removes an automatic context flag. */
+  contextStartRevision?: number;
+  /** Shared automatic scene reset, controlled by the existing New Start flag UI. */
   contextStarts?: Array<{
     messageId: string;
     audienceCharacterIds: string[];

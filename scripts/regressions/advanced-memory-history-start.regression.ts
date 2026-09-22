@@ -43,6 +43,8 @@ const { createChatsStorage } = await import("../../packages/server/src/services/
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createAdvancedMemoryService } = await import("../../packages/server/src/services/advanced-memory.js");
 const { advancedMemoryRoutes } = await import("../../packages/server/src/routes/advanced-memory.routes.js");
+const { chatsRoutes } = await import("../../packages/server/src/routes/chats.routes.js");
+const { chats: chatsTable, messageSwipes } = await import("../../packages/server/src/db/schema/index.js");
 const { prepareAdvancedMemoryContext } =
   await import("../../packages/server/src/services/generation/advanced-memory-context.js");
 const { createAdvancedMemoryPlacement } =
@@ -53,6 +55,7 @@ const memory = createAdvancedMemoryService(db);
 const app = Fastify();
 app.decorate("db", db);
 await app.register(advancedMemoryRoutes, { prefix: "/api/chats" });
+await app.register(chatsRoutes, { prefix: "/api/chats" });
 try {
   await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
   const address = provider.address();
@@ -63,17 +66,18 @@ try {
     model: "fixture",
     apiKey: "fixture",
     baseUrl: `http://127.0.0.1:${address.port}/v1`,
-    maxContext: 8192,
+    maxContext: 16_384,
     maxTokensOverride: 1024,
     embeddingModel: "fixture-embedding",
   });
   const cycleChat = await chats.create({
     name: "Context resets then grows",
     mode: "roleplay",
-    characterIds: [],
+    characterIds: ["first", "second"],
     connectionId: connection.id,
   });
   assert(cycleChat);
+  await chats.patchMetadata(cycleChat.id, { groupChatMode: "individual" });
   await chats.createMessagesBatch(
     cycleChat.id,
     Array.from({ length: 30 }, (_, index) => ({
@@ -83,16 +87,17 @@ try {
   );
   await memory.updateSettings(cycleChat.id, {
     enabled: true,
-    maxContextTokens: 8192,
+    maxContextTokens: 16_384,
     summaryBudgetTokens: 512,
     retrieveMaxScenes: 0,
+    knowledgeStarts: { first: null, second: null },
   });
   await memory.initialize(cycleChat.id);
   const cycleSource = await chats.listMessages(cycleChat.id);
   const allLive = await memory.prepare({
     chatId: cycleChat.id,
     messages: cycleSource,
-    audienceCharacterIds: [],
+    audienceCharacterIds: ["first"],
     budgetTokens: 100_000,
     readOnly: true,
   });
@@ -100,7 +105,7 @@ try {
   const resetWindow = await memory.prepare({
     chatId: cycleChat.id,
     messages: cycleSource,
-    audienceCharacterIds: [],
+    audienceCharacterIds: ["first"],
     budgetTokens: cycleBudget,
   });
   assert.deepEqual(
@@ -109,16 +114,17 @@ try {
     "crossing the cap resets to the latest scene even when dropping only the oldest scene would fit",
   );
   assert(resetWindow.receipt.estimatedTokensAfter < cycleBudget * 0.6, "the reset leaves substantial room for growth");
+  assert.deepEqual((await memory.status(cycleChat.id)).job.contextStarts?.[0]?.audienceCharacterIds, []);
   const moreRoom = await memory.prepare({
     chatId: cycleChat.id,
     messages: cycleSource,
-    audienceCharacterIds: [],
+    audienceCharacterIds: ["second"],
     budgetTokens: 100_000,
   });
   assert.deepEqual(
     moreRoom.messageIds,
     resetWindow.messageIds,
-    "more room or compacted constants must not backfill old scenes",
+    "the shared cutoff also applies to another character, even with more room",
   );
   await chats.createMessagesBatch(cycleChat.id, [
     { role: "user", content: "SCENE_CHANGE The brass compass reaches the next village." },
@@ -130,7 +136,7 @@ try {
   const growing = await memory.prepare({
     chatId: cycleChat.id,
     messages: growingSource,
-    audienceCharacterIds: [],
+    audienceCharacterIds: ["first"],
     budgetTokens: cycleBudget,
   });
   assert.deepEqual(
@@ -149,7 +155,7 @@ try {
   const nextReset = await memory.prepare({
     chatId: cycleChat.id,
     messages: growingSource,
-    audienceCharacterIds: [],
+    audienceCharacterIds: ["first"],
     budgetTokens: cycleBudget,
   });
   assert.deepEqual(
@@ -160,7 +166,7 @@ try {
   const historicalWindow = await memory.prepare({
     chatId: cycleChat.id,
     messages: growingSource.slice(0, 29),
-    audienceCharacterIds: [],
+    audienceCharacterIds: ["first"],
     budgetTokens: 100_000,
     readOnly: true,
   });
@@ -169,6 +175,120 @@ try {
     growingSource[0]!.id,
     "a later automatic reset does not change historical prompt preparation",
   );
+
+  const personalStart = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${cycleChat.id}/messages/${growingSource[40]!.id}/extra`,
+    payload: { conversationStartForCharacterIds: ["second"] },
+  });
+  assert.equal(personalStart.statusCode, 200, personalStart.body);
+  const cutoffId = growingSource[30]!.id;
+  await chats.addSwipe(cutoffId, growingSource[30]!.content);
+  await chats.addSwipe(cutoffId, growingSource[30]!.content);
+  const beforeFailedFlag = {
+    message: await chats.getMessage(cutoffId),
+    swipes: await chats.getSwipes(cutoffId),
+    chat: await chats.getById(cycleChat.id),
+  };
+  const missingSwipe = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${cycleChat.id}/messages/${cutoffId}/extra?swipeIndex=999`,
+    payload: { isConversationStart: false },
+  });
+  assert.equal(missingSwipe.statusCode, 404);
+  const update = db.update.bind(db);
+  db.update = ((table: Parameters<typeof db.update>[0]) => {
+    if (table === chatsTable) throw new Error("Forced cutoff metadata write failure");
+    return update(table);
+  }) as typeof db.update;
+  try {
+    const failedFlag = await app.inject({
+      method: "PATCH",
+      url: `/api/chats/${cycleChat.id}/messages/${cutoffId}/extra`,
+      payload: { isConversationStart: false, conversationStartForCharacterIds: [] },
+    });
+    assert.equal(failedFlag.statusCode, 500);
+  } finally {
+    db.update = update;
+  }
+  assert.deepEqual(
+    {
+      message: await chats.getMessage(cutoffId),
+      swipes: await chats.getSwipes(cutoffId),
+      chat: await chats.getById(cycleChat.id),
+    },
+    beforeFailedFlag,
+    "a failed cutoff save must leave the message, swipes and metadata unchanged",
+  );
+  let swipeWrites = 0;
+  db.update = ((table: Parameters<typeof db.update>[0]) => {
+    if (table === messageSwipes && ++swipeWrites === 2) throw new Error("Forced personal flag swipe failure");
+    return update(table);
+  }) as typeof db.update;
+  try {
+    const failedPersonalFlag = await app.inject({
+      method: "PATCH",
+      url: `/api/chats/${cycleChat.id}/messages/${cutoffId}/extra`,
+      payload: { conversationStartForCharacterIds: ["second"] },
+    });
+    assert.equal(failedPersonalFlag.statusCode, 500);
+  } finally {
+    db.update = update;
+  }
+  assert.deepEqual(
+    {
+      message: await chats.getMessage(cutoffId),
+      swipes: await chats.getSwipes(cutoffId),
+      chat: await chats.getById(cycleChat.id),
+    },
+    beforeFailedFlag,
+    "a failed personal flag save must roll back every swipe and preserve the shared cutoff",
+  );
+  const sharedStarts = (await memory.status(cycleChat.id)).job.contextStarts;
+  for (const ids of [["second"], []]) {
+    const personalOnly = await app.inject({
+      method: "PATCH",
+      url: `/api/chats/${cycleChat.id}/messages/${cutoffId}/extra`,
+      payload: { conversationStartForCharacterIds: ids },
+    });
+    assert.equal(personalOnly.statusCode, 200, personalOnly.body);
+    assert.deepEqual((await memory.status(cycleChat.id)).job.contextStarts, sharedStarts);
+  }
+  const cleared = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${cycleChat.id}/messages/${growingSource[30]!.id}/extra`,
+    payload: { isConversationStart: false, conversationStartForCharacterIds: [] },
+  });
+  assert.equal(cleared.statusCode, 200, cleared.body);
+  assert.deepEqual((await memory.status(cycleChat.id)).job.contextStarts, []);
+  assert((await chats.getSwipes(cutoffId)).every((swipe) => JSON.parse(swipe.extra).isConversationStart === false));
+  const restoredSource = await chats.listMessages(cycleChat.id);
+  for (const characterId of ["first", "second"]) {
+    const restored = await memory.prepare({
+      chatId: cycleChat.id,
+      messages: restoredSource,
+      audienceCharacterIds: [characterId],
+      budgetTokens: 100_000,
+    });
+    assert.equal(
+      restored.messageIds[0],
+      growingSource[characterId === "second" ? 40 : 0]!.id,
+      "unchecking All restores the shared window without removing personal flags",
+    );
+  }
+  await chats.patchMetadata(cycleChat.id, (metadata) => ({
+    advancedMemoryState: {
+      ...(metadata.advancedMemoryState as Record<string, unknown>),
+      contextStarts: [{ messageId: growingSource.at(-1)!.id, audienceCharacterIds: ["first"] }],
+    },
+  }));
+  const legacyWindow = await memory.prepare({
+    chatId: cycleChat.id,
+    messages: restoredSource,
+    audienceCharacterIds: ["first"],
+    budgetTokens: 100_000,
+  });
+  assert.equal(legacyWindow.messageIds[0], growingSource[0]!.id, "legacy per-character automatic cutoffs are ignored");
 
   const chat = await chats.create({
     name: "1000 messages with a late context start",
@@ -198,7 +318,7 @@ try {
   await chats.patchMetadata(chat.id, { groupChatMode: "individual" });
   const { settings } = await memory.updateSettings(chat.id, {
     enabled: true,
-    maxContextTokens: 8192,
+    maxContextTokens: 16_384,
     summaryBudgetTokens: 512,
     retrieveMinMessages: 0,
     retrieveMaxMessages: 0,
@@ -302,7 +422,7 @@ try {
       createAdvancedMemoryPlacement(kind as Parameters<typeof createAdvancedMemoryPlacement>[0], "xml"),
     ),
     audienceCharacterIds: ["traveler"],
-    maxContext: 8192,
+    maxContext: 16_384,
     maxTokens: 1024,
     toProviderMessages: (messages) => messages,
   });
@@ -326,15 +446,8 @@ try {
   assert(prepared.receipt.recalledSceneIds.length, "scenes before the marker remain eligible for recall");
   assert.deepEqual(
     (await memory.status(chat.id)).job.contextStarts,
-    [
-      {
-        messageId: source[960]!.id,
-        audienceCharacterIds: ["traveler"],
-        sceneStartMessageId: source[960]!.id,
-        manualStartMessageId: source[960]!.id,
-      },
-    ],
-    "the visible marker follows the first live message",
+    undefined,
+    "a manual cutoff does not create a parallel automatic flag",
   );
   await memory.validatePrepared(chat.id, source, prepared.receipt);
   const settledRequests = requests.length;
@@ -361,15 +474,8 @@ try {
   const visibleStarts = (await memory.status(chat.id)).job.contextStarts;
   assert.deepEqual(
     visibleStarts,
-    [
-      {
-        messageId: compressed.messageIds[0],
-        audienceCharacterIds: ["traveler"],
-        sceneStartMessageId: source[960]!.id,
-        manualStartMessageId: source[960]!.id,
-      },
-    ],
-    "the marker moves after compressing an ongoing scene, not just at closed-scene boundaries",
+    undefined,
+    "temporary open-scene trimming cannot move a persistent New Start to the latest message",
   );
   await memory.prepare({
     chatId: chat.id,
@@ -399,7 +505,7 @@ try {
   assert.equal(withoutStart.chatSummary, null, "fully live history needs no continuity summary");
   assert.equal(withoutStart.recalledScenes, null, "fully live scenes are not recalled again");
   assert.equal(withoutStart.recalledMessages, null, "fully live messages are not recalled again");
-  assert.deepEqual((await memory.status(chat.id)).job.contextStarts, [], "the obsolete automatic marker is removed");
+  assert.equal((await memory.status(chat.id)).job.contextStarts, undefined);
   await chats.updateMessageExtra(source[700]!.id, { isConversationStart: true });
   await memory.initialize(chat.id);
   await memory.updateSettings(chat.id, { retrieveMinMessages: 0, retrieveMaxMessages: 0 });
@@ -445,12 +551,12 @@ try {
     "a scene crossing the live cutoff must not be recalled in full",
   );
   assert.match(movedStart.chatSummary ?? "", /ARCHIVED_CORRECTION/, "archived manual corrections remain available");
-  assert.match(
+  assert.doesNotMatch(
     movedStart.chatSummary ?? "",
     /OVERLAPPING_CORRECTION/,
-    "enabled constants survive overlapping live ranges",
+    "a constant crossing the live cutoff is omitted until its entire range is archived",
   );
-  assert.match(movedStart.chatSummary ?? "", /LIVE_CORRECTION/, "enabled constants remain even for fully live ranges");
+  assert.doesNotMatch(movedStart.chatSummary ?? "", /LIVE_CORRECTION/, "fully live ranges need no constant summary");
   assert.equal(requests.length, beforeMovedStart, "reading ranged constants makes no helper call");
   const afterMovedStart = requests.length;
   const movedPreview = await memory.prepare({
@@ -499,8 +605,14 @@ try {
   });
   assert.equal(
     allLiveWithCorrections.chatSummary,
-    movedStart.chatSummary,
-    "removing a live cutoff does not disable constant summaries",
+    null,
+    "removing the cutoff omits constants whose messages are live again",
+  );
+  assert(
+    JSON.parse((await chats.getById(chat.id))!.metadata).summaryEntries.every(
+      (entry: { enabled: boolean }) => entry.enabled,
+    ),
+    "prompt omission does not disable the saved summaries",
   );
   await memory.reset(chat.id);
   assert.equal((await memory.status(chat.id)).job.contextStarts, undefined, "reset clears automatic markers");

@@ -2291,13 +2291,39 @@ export async function chatsRoutes(app: FastifyInstance) {
       if (swipeIndex !== undefined && (!Number.isSafeInteger(swipeIndex) || swipeIndex < 0))
         return reply.status(400).send({ error: "Invalid swipe index" });
       const partial = { ...(req.body as Record<string, unknown>) };
+      if (
+        Object.prototype.hasOwnProperty.call(partial, "isConversationStart") &&
+        typeof partial.isConversationStart !== "boolean"
+      )
+        return reply.status(400).send({ error: "isConversationStart must be a boolean" });
       for (const key of ["hiddenFromAICharacterIds", "conversationStartForCharacterIds"] as const) {
         if (Object.prototype.hasOwnProperty.call(partial, key)) {
           partial[key] = normalizeMessageCharacterIds(partial[key]);
         }
       }
-      const updated =
-        swipeIndex === undefined
+      const syncAllSwipeExtra: Record<string, unknown> = {};
+      if (Object.prototype.hasOwnProperty.call(partial, "hiddenFromAI")) {
+        syncAllSwipeExtra.hiddenFromAI = partial.hiddenFromAI;
+      }
+      if (Object.prototype.hasOwnProperty.call(partial, "hiddenFromAICharacterIds")) {
+        syncAllSwipeExtra.hiddenFromAICharacterIds = partial.hiddenFromAICharacterIds;
+      }
+      if (Object.prototype.hasOwnProperty.call(partial, "isConversationStart")) {
+        syncAllSwipeExtra.isConversationStart = partial.isConversationStart;
+      }
+      if (Object.prototype.hasOwnProperty.call(partial, "conversationStartForCharacterIds")) {
+        syncAllSwipeExtra.conversationStartForCharacterIds = partial.conversationStartForCharacterIds;
+      }
+      if (Object.prototype.hasOwnProperty.call(partial, "reactions")) {
+        syncAllSwipeExtra.reactions = partial.reactions;
+      }
+
+      const contextFlagChanged =
+        Object.prototype.hasOwnProperty.call(partial, "isConversationStart") ||
+        Object.prototype.hasOwnProperty.call(partial, "conversationStartForCharacterIds");
+      const updated = contextFlagChanged
+        ? await storage.updateMessageExtraWithContextStart(req.params.messageId, partial, syncAllSwipeExtra, swipeIndex)
+        : swipeIndex === undefined
           ? await storage.updateMessageExtra(req.params.messageId, partial)
           : await storage.updateMessageExtraForSwipe(req.params.messageId, swipeIndex, partial);
       if (!updated) return reply.status(404).send({ error: "Message not found" });
@@ -2318,26 +2344,9 @@ export async function chatsRoutes(app: FastifyInstance) {
           );
         if (userReacted) recordUserReaction(req.params.chatId);
       }
-      const syncAllSwipeExtra: Record<string, unknown> = {};
-      if (Object.prototype.hasOwnProperty.call(partial, "hiddenFromAI")) {
-        syncAllSwipeExtra.hiddenFromAI = partial.hiddenFromAI;
-      }
-      if (Object.prototype.hasOwnProperty.call(partial, "hiddenFromAICharacterIds")) {
-        syncAllSwipeExtra.hiddenFromAICharacterIds = partial.hiddenFromAICharacterIds;
-      }
-      if (Object.prototype.hasOwnProperty.call(partial, "isConversationStart")) {
-        syncAllSwipeExtra.isConversationStart = partial.isConversationStart;
-      }
-      if (Object.prototype.hasOwnProperty.call(partial, "conversationStartForCharacterIds")) {
-        syncAllSwipeExtra.conversationStartForCharacterIds = partial.conversationStartForCharacterIds;
-      }
-      if (Object.prototype.hasOwnProperty.call(partial, "reactions")) {
-        syncAllSwipeExtra.reactions = partial.reactions;
-      }
 
-      if (Object.keys(syncAllSwipeExtra).length > 0) {
-        // AI visibility, context boundaries, and reactions are message-level fields, so keep them
-        // stable across swipe changes instead of binding them to one swipe.
+      if (!contextFlagChanged && Object.keys(syncAllSwipeExtra).length > 0) {
+        // Message-level fields stay stable across swipe changes.
         const swipes = await storage.getSwipes(req.params.messageId);
         for (const swipe of swipes) {
           await storage.updateSwipeExtra(req.params.messageId, swipe.index, syncAllSwipeExtra);
