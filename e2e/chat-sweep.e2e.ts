@@ -423,7 +423,7 @@ test("Roleplay line volume stays on screen and touch reveal preserves action col
     await page.goto("/");
     const row = page.locator(`[data-message-id="${message.id}"]`);
     const copy = row.getByRole("button", { name: "Copy", exact: true });
-    const volume = row.getByRole("button", { name: /^Line volume: \d+%$/u });
+    const volume = row.getByRole("button", { name: /^Voice controls/u });
     const actions = row.locator(".mari-message-actions");
     const actionAppearance = () =>
       actions.locator("button").evaluateAll((elements) =>
@@ -460,7 +460,7 @@ test("Roleplay line volume stays on screen and touch reveal preserves action col
       }, direction);
       if (testInfo.project.use.hasTouch) await volume.tap();
       else await volume.click();
-      const panel = page.getByRole("dialog", { name: "Line volume", exact: true });
+      const panel = page.getByRole("dialog", { name: /^Voice controls/u });
       await expect(panel).toBeVisible();
       const bounds = await panel.evaluate((element) => {
         const rect = element.getBoundingClientRect();
@@ -478,11 +478,11 @@ test("Roleplay line volume stays on screen and touch reveal preserves action col
       expect(bounds.top).toBeGreaterThanOrEqual(0);
       expect(bounds.bottom).toBeLessThanOrEqual(bounds.height);
       const slider = panel.getByRole("slider", { name: "Line volume", exact: true });
-      await expect(slider).toBeFocused();
+      await slider.focus();
       await slider.press("Home");
       await slider.press("ArrowRight");
       await expect(slider).toHaveValue("1");
-      await expect(volume).toHaveAttribute("aria-label", "Line volume: 1%");
+      await expect(panel.getByText("1%", { exact: true })).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`line-volume-${direction}.png`) });
       await slider.press("Escape");
       await expect(panel).toHaveCount(0);

@@ -1,0 +1,39 @@
+import assert from "node:assert/strict";
+import {
+  deleteCachedTTSAudioKeys,
+  getCachedTTSAudioBlob,
+  getOrCreateCachedTTSAudioBlob,
+} from "../../packages/client/src/lib/tts-audio-cache.js";
+
+const first = new Blob(["first voice"]);
+const other = new Blob(["another message"]);
+await getOrCreateCachedTTSAudioBlob("first", async () => first, ["first-text"]);
+await getOrCreateCachedTTSAudioBlob("other", async () => other);
+await deleteCachedTTSAudioKeys(["first", "first-text"]);
+assert.equal(await getCachedTTSAudioBlob("first"), null);
+assert.equal(await getCachedTTSAudioBlob("first-text"), null);
+assert.equal(await getCachedTTSAudioBlob("other"), other);
+
+let started!: () => void;
+let finish!: (blob: Blob) => void;
+const ready = new Promise<void>((resolve) => (started = resolve));
+const pending = getOrCreateCachedTTSAudioBlob(
+  "pending",
+  () => {
+    started();
+    return new Promise<Blob>((resolve) => (finish = resolve));
+  },
+  ["pending-text"],
+);
+await ready;
+const joined = getOrCreateCachedTTSAudioBlob("pending", async () => {
+  assert.fail("Concurrent callers should share synthesis");
+});
+await new Promise((resolve) => setTimeout(resolve, 0));
+await deleteCachedTTSAudioKeys(["pending", "pending-text"]);
+finish(first);
+await Promise.all([pending, joined]);
+assert.equal(await getCachedTTSAudioBlob("pending"), null, "Late callers must not restore cleared audio");
+assert.equal(await getCachedTTSAudioBlob("pending-text"), null);
+assert.equal(await getOrCreateCachedTTSAudioBlob("pending", async () => other), other);
+assert.equal(await getCachedTTSAudioBlob("pending"), other);

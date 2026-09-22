@@ -1574,6 +1574,8 @@ export function usePeekPrompt() {
           assistantPrefill?: string | null;
           tokensPrompt?: number | null;
           tokensCompletion?: number | null;
+          tokensLastRequestInput?: number | null;
+          requestCount?: number;
           tokensCachedPrompt?: number | null;
           tokensCacheWritePrompt?: number | null;
           durationMs?: number | null;

@@ -237,9 +237,9 @@ async function getPersistentBlob(key: string): Promise<Blob | null> {
   }
 }
 
-async function putPersistentBlob(key: string, blob: Blob): Promise<void> {
+async function putPersistentBlob(key: string, blob: Blob, epoch: number): Promise<void> {
   const db = await openDb();
-  if (!db) return;
+  if (!db || epoch !== cachePurgeEpoch) return;
 
   try {
     const now = Date.now();
@@ -338,19 +338,15 @@ export async function deleteCachedTTSAudioKeys(keys: string[]): Promise<void> {
   const db = await openDb();
   if (!db) return;
 
-  try {
-    const hasMeta = hasMetadataStore(db);
-    const tx = db.transaction(hasMeta ? [STORE_NAME, META_STORE_NAME] : STORE_NAME, "readwrite");
-    const blobStore = tx.objectStore(STORE_NAME);
-    const metaStore = hasMeta ? tx.objectStore(META_STORE_NAME) : null;
-    for (const key of uniqueKeys) {
-      blobStore.delete(key);
-      metaStore?.delete(key);
-    }
-    await transactionDone(tx);
-  } catch {
-    // The memory tier is already cleared; a failed delete only leaves a stale clip on disk.
+  const hasMeta = hasMetadataStore(db);
+  const tx = db.transaction(hasMeta ? [STORE_NAME, META_STORE_NAME] : STORE_NAME, "readwrite");
+  const blobStore = tx.objectStore(STORE_NAME);
+  const metaStore = hasMeta ? tx.objectStore(META_STORE_NAME) : null;
+  for (const key of uniqueKeys) {
+    blobStore.delete(key);
+    metaStore?.delete(key);
   }
+  await transactionDone(tx);
 }
 
 export async function getOrCreateCachedTTSAudioBlob(
@@ -359,11 +355,12 @@ export async function getOrCreateCachedTTSAudioBlob(
   aliases: string[] = [],
 ): Promise<Blob> {
   const keys = [...new Set([key, ...aliases].filter(Boolean))];
+  const epoch = cachePurgeEpoch;
 
   for (const cacheKey of keys) {
     const cached = await getCachedTTSAudioBlob(cacheKey);
     if (cached) {
-      if (cacheKey !== key) {
+      if (cacheKey !== key && epoch === cachePurgeEpoch) {
         rememberInMemory(key, cached);
       }
       return cached;
@@ -374,7 +371,7 @@ export async function getOrCreateCachedTTSAudioBlob(
     const pending = inFlight.get(cacheKey);
     if (pending) {
       const blob = await pending;
-      rememberInMemory(key, blob);
+      if (epoch === cachePurgeEpoch) rememberInMemory(key, blob);
       return blob;
     }
   }
@@ -383,27 +380,26 @@ export async function getOrCreateCachedTTSAudioBlob(
     for (const cacheKey of keys) {
       const secondLook = await getCachedTTSAudioBlob(cacheKey);
       if (secondLook) {
-        if (cacheKey !== key) {
+        if (cacheKey !== key && epoch === cachePurgeEpoch) {
           rememberInMemory(key, secondLook);
         }
         return secondLook;
       }
     }
 
-    const purgeEpochAtCreation = cachePurgeEpoch;
     const blob = await create();
     // A purge that landed while this clip was synthesizing wins: re-writing the
     // blob now would put the deleted audio straight back into both tiers.
-    if (purgeEpochAtCreation === cachePurgeEpoch) {
-      for (const cacheKey of keys) {
+    for (const cacheKey of keys) {
+      if (epoch === cachePurgeEpoch) {
         rememberInMemory(cacheKey, blob);
-        await putPersistentBlob(cacheKey, blob);
+        await putPersistentBlob(cacheKey, blob, epoch);
       }
     }
     return blob;
   })().finally(() => {
     for (const cacheKey of keys) {
-      inFlight.delete(cacheKey);
+      if (inFlight.get(cacheKey) === promise) inFlight.delete(cacheKey);
     }
   });
 

@@ -561,6 +561,7 @@ import {
   getVisibleCompletionTokens,
   addGenerationUsage,
   getRequestContextTokens,
+  getRequestInputTokens,
   stripSpacesBeforeLineBreaks,
   trimIncompleteModelEnding,
 } from "../services/generation/generation-text-utils.js";
@@ -6703,6 +6704,9 @@ export async function generateRoutes(app: FastifyInstance) {
           return prepared;
         };
 
+        // Only individual main-model inputs count toward the memory cutoff, never
+        // summed tool usage, output tokens, or agent/planner requests.
+        let maxMainRequestInputTokens: number | null = null;
         /** Generate a single response for a given character and save it. */
         const generateForCharacter = async (
           targetCharId: string | null,
@@ -7195,10 +7199,14 @@ export async function generateRoutes(app: FastifyInstance) {
           generationStartedAt = genStartTime;
           let usage: LLMUsage | undefined;
           let tokensContext: number | null = null;
+          let tokensLastRequestInput: number | null = null;
           let requestCount = 0;
           const recordRequestUsage = (next: LLMUsage | undefined) => {
             requestCount++;
             tokensContext = getRequestContextTokens(next, generationProviderOrigin.provider);
+            tokensLastRequestInput = getRequestInputTokens(next, generationProviderOrigin.provider);
+            if (tokensLastRequestInput !== null)
+              maxMainRequestInputTokens = Math.max(maxMainRequestInputTokens ?? 0, tokensLastRequestInput);
             usage = addGenerationUsage(usage, next);
           };
           let finishReason: string | undefined;
@@ -9025,6 +9033,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 customParameters: Object.keys(customParameters).length > 0 ? customParameters : null,
                 tokensPrompt: usage?.promptTokens ?? null,
                 tokensContext,
+                tokensLastRequestInput,
                 requestCount,
                 tokensCompletion: usage?.completionTokens ?? null,
                 tokensVisibleCompletion: getVisibleCompletionTokens(usage) ?? null,
@@ -12541,6 +12550,7 @@ export async function generateRoutes(app: FastifyInstance) {
                   signal: agentSignal,
                   agentProgress: agentContext.agentProgress,
                   asOfMessageId: latestAssistantMessageId,
+                  maxRequestInputTokens: maxMainRequestInputTokens,
                   ...(pendingSceneCheck && agentContext.sceneCheck?.result !== undefined
                     ? { batchedCheck: { request: pendingSceneCheck, result: agentContext.sceneCheck.result } }
                     : {}),

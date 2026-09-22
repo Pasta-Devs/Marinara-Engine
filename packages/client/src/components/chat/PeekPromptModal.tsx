@@ -38,6 +38,8 @@ interface GenerationInfo {
   assistantPrefill?: string | null;
   tokensPrompt?: number | null;
   tokensCompletion?: number | null;
+  tokensLastRequestInput?: number | null;
+  requestCount?: number;
   tokensCachedPrompt?: number | null;
   tokensCacheWritePrompt?: number | null;
   durationMs?: number | null;
@@ -605,7 +607,10 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
                   {gen?.tokensPrompt != null && (
                     <>
                       {" "}
-                      · {fmtTokens(gen.tokensPrompt)} {localizeUi("ui.chat.peekpromptmodal.actualPromptTokens")}
+                      · {fmtTokens(gen.tokensPrompt)}{" "}
+                      {(gen.requestCount ?? 0) > 1
+                        ? localizeUi("ui.chat.peekpromptmodal.turnPromptTokens", { count: gen.requestCount })
+                        : localizeUi("ui.chat.peekpromptmodal.reportedPromptTokens")}
                     </>
                   )}
                   {(gen?.tokensCachedPrompt ?? 0) > 0 && (
@@ -622,6 +627,18 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
                   )}
                 </span>
               </div>
+              {gen?.tokensLastRequestInput != null && (
+                <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.chat.peekpromptmodal.lastRequestInput", {
+                    tokens: fmtTokens(gen.tokensLastRequestInput),
+                  })}
+                </p>
+              )}
+              {(gen?.requestCount ?? 0) > 1 && (
+                <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.chat.peekpromptmodal.toolRequestUsageHint")}
+                </p>
+              )}
               {planner && (
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
                   <span>

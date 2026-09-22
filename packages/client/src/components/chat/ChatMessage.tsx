@@ -1856,6 +1856,7 @@ export const ChatMessage = memo(function ChatMessage({
   const isSystem = message.role === "system";
   const isNarrator = message.role === "narrator";
   const isRoleplay = chatMode === "roleplay";
+  const vnPortraitScale = useUIStore((state) => (visualNovel ? state.roleplayVnPortraitScale : 1));
   const alwaysDisplaySwipeMenu = useUIStore((state) =>
     isRoleplay
       ? state.alwaysDisplayRoleplaySwipeMenu
@@ -2167,11 +2168,12 @@ export const ChatMessage = memo(function ChatMessage({
         await ttsService.clearCachedAudio(ttsVoiceRequests);
       } catch (err) {
         console.warn("[TTS] Clearing the cached voice failed:", err);
+        toast.error(localizeUi("ui.chat.chatmessage.clearCachedVoiceFailed"));
       } finally {
         setClearingTTS(false);
       }
     })();
-  }, [clearingTTS, hasTTSContent, message.id, ttsVoiceRequests]);
+  }, [clearingTTS, hasTTSContent, localizeUi, message.id, ttsVoiceRequests]);
 
   const startEditing = useCallback(() => {
     if (!onEdit || isStreaming) return;
@@ -2424,7 +2426,15 @@ export const ChatMessage = memo(function ChatMessage({
       if (genInfo.tokensPrompt != null || genInfo.tokensCompletion != null) {
         const p = genInfo.tokensPrompt != null ? genInfo.tokensPrompt : null;
         const c = genInfo.tokensCompletion ?? "?";
-        parts.push(p != null ? `${p}→${c} tok` : `${c} tok`);
+        const tokenUsage = p != null ? `${p}→${c} tok` : `${c} tok`;
+        parts.push(
+          (genInfo.requestCount ?? 0) > 1
+            ? localizeUi("ui.chat.chatmessage.usageAcrossRequests", {
+                count: genInfo.requestCount,
+                usage: tokenUsage,
+              })
+            : tokenUsage,
+        );
       }
       if ((genInfo.tokensCachedPrompt ?? 0) > 0) {
         parts.push(`cache hit ${genInfo.tokensCachedPrompt!.toLocaleString()}`);
@@ -2435,7 +2445,7 @@ export const ChatMessage = memo(function ChatMessage({
       if (genInfo.durationMs != null) parts.push(`${(genInfo.durationMs / 1000).toFixed(1)}s`);
     }
     return parts.length > 0 ? parts.join(" · ") : null;
-  }, [genInfo, showModelName, showTokenUsage]);
+  }, [genInfo, showModelName, showTokenUsage, localizeUi]);
   // useLayoutEffect runs after DOM mutation but before browser paint — prevents visible scroll jump
   useLayoutEffect(() => {
     // Restore scroll position saved before the state change
@@ -3366,7 +3376,7 @@ export const ChatMessage = memo(function ChatMessage({
                 ? localizeUi("ui.chat.chatmessage.stopSpeaking")
                 : localizeUi("ui.chat.chatmessage.speak")
         }
-        disabled={!hasTTSContent || (ttsBusy && !isSpeakingThis)}
+        disabled={!hasTTSContent || clearingTTS || (ttsBusy && !isSpeakingThis)}
       />
       <ActionBtn
         icon={
@@ -3383,6 +3393,96 @@ export const ChatMessage = memo(function ChatMessage({
       <TTSLineVolumeSlider volume={ttsLineVolume} onVolumeChange={handleTTSLineVolumeChange} dark />
     </MessageAudioMenu>
   );
+
+  const vnAvatarCropStyle = expressionAvatarUrl ? {} : avatarCropStyle;
+
+  if (visualNovel) {
+    return (
+      <>
+        <div
+          className="mari-roleplay-vn-dialogue flex min-w-0 gap-3 p-3 sm:gap-4 sm:p-4"
+          data-vn-message-id={message.id}
+        >
+          <div
+            className="relative shrink-0 self-start overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--secondary)]"
+            style={{ width: `min(${5 * vnPortraitScale}rem, 26vw)`, height: `min(${5 * vnPortraitScale}rem, 26vw)` }}
+          >
+            {displayAvatarUrl ? (
+              <button
+                type="button"
+                className="block h-full w-full cursor-zoom-in focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--primary)]"
+                onClick={() => openImageLightbox(displayAvatarUrl)}
+                aria-label={localizeUi("ui.chat.chatmessage.openValue1Avatar", { value1: displayName })}
+              >
+                <img
+                  src={displayAvatarUrl}
+                  alt={displayName}
+                  className="h-full w-full object-cover"
+                  style={vnAvatarCropStyle}
+                />
+              </button>
+            ) : (
+              <div
+                className="flex h-full items-center justify-center text-[var(--muted-foreground)]"
+                aria-hidden="true"
+              >
+                {isUser ? <User size="1.75rem" /> : <Bot size="1.75rem" />}
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 truncate text-sm font-semibold text-[var(--marinara-chat-chrome-highlight-text)]">
+              {isMergedGroup ? (
+                mergedNameElement
+              ) : isNarrator ? (
+                localizeUi("ui.chat.chatmessage.narrator")
+              ) : (
+                <span style={solidNameColorStyle(msgNameColor)}>
+                  <NameColorText color={msgNameColor}>{displayName}</NameColorText>
+                </span>
+              )}
+            </div>
+            <div
+              className="mari-message-content max-h-[min(30dvh,18rem)] overflow-y-auto overscroll-contain whitespace-pre-wrap break-words pr-1"
+              style={messageTextStyle}
+              tabIndex={0}
+              role="region"
+              aria-label={localizeUi("chat.roleplayVn.currentParagraph")}
+              aria-live="polite"
+            >
+              {isStreaming && streamingContent ? (
+                streamingContent(renderStreamingText)
+              ) : (
+                <>
+                  {diceRollResult && (
+                    <DiceMessageContent diceRollResult={diceRollResult} createdAt={message.createdAt} />
+                  )}
+                  {diceReplacesContent ? null : showTranslationOnly ? renderedTranslationOnly : renderedContent}
+                  {roleplayAttachments}
+                  {roleplayCommandResults}
+                  {renderedTranslation && !showTranslationOnly && (
+                    <div className="translation-text mt-2 whitespace-pre-wrap border-t border-[var(--border)] pt-2">
+                      {renderedTranslation}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            {ttsEnabled && <div className="mt-2 flex flex-wrap items-center gap-2">{roleplayTtsControls}</div>}
+          </div>
+        </div>
+        {imageLightbox && (
+          <ChatImageLightbox
+            image={imageLightbox.image}
+            alt={imageLightbox.alt}
+            pinEnabled={imageLightbox.pinEnabled}
+            downloadEnabled={imageLightbox.downloadEnabled}
+            onClose={closeImageLightbox}
+          />
+        )}
+      </>
+    );
+  }
 
   // ─── System messages (shared across modes) ───
   if (isSystem) {
@@ -4461,7 +4561,7 @@ export const ChatMessage = memo(function ChatMessage({
                           ? localizeUi("ui.chat.chatmessage.stopSpeaking")
                           : localizeUi("ui.chat.chatmessage.speak")
                   }
-                  disabled={!hasTTSContent || (ttsBusy && !isSpeakingThis)}
+                  disabled={!hasTTSContent || clearingTTS || (ttsBusy && !isSpeakingThis)}
                 />
                 <ActionBtn
                   icon={
@@ -4525,6 +4625,12 @@ function MessageAudioMenu({
   const { open, setOpen, buttonRef, menuRef, position } = useMessageActionMenu(align);
   const label = localizeUi("ui.chat.chatmessage.voiceControls");
 
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => menuRef.current?.querySelector("button")?.focus({ preventScroll: true }));
+    return () => cancelAnimationFrame(frame);
+  }, [menuRef, open]);
+
   return (
     <>
       <ActionBtn
@@ -4545,7 +4651,7 @@ function MessageAudioMenu({
             role="dialog"
             aria-label={label}
             className={cn(
-              "marinara-chat-popover fixed z-[9999] flex max-w-[calc(100vw-1.5rem)] flex-row items-center gap-1 rounded-lg border p-1.5 shadow-xl",
+              "marinara-chat-popover fixed z-[9999] flex max-w-[calc(100vw-1.5rem)] flex-row flex-wrap items-center gap-1 rounded-lg border p-1.5 shadow-xl",
               dark
                 ? "border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-panel-title)] shadow-black/30"
                 : "border-[var(--border)] bg-[var(--popover)] text-[var(--popover-foreground)] shadow-black/20",
