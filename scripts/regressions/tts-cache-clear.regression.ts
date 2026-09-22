@@ -32,9 +32,23 @@ const joined = getOrCreateCachedTTSAudioBlob("pending", async () => {
   assert.fail("Concurrent callers should share synthesis");
 });
 await new Promise((resolve) => setTimeout(resolve, 0));
+let finishUnrelated!: (blob: Blob) => void;
+let unrelatedStarted!: () => void;
+const unrelatedReady = new Promise<void>((resolve) => (unrelatedStarted = resolve));
+const unrelated = getOrCreateCachedTTSAudioBlob("unrelated-pending", () => {
+  unrelatedStarted();
+  return new Promise<Blob>((resolve) => (finishUnrelated = resolve));
+});
+await unrelatedReady;
 await deleteCachedTTSAudioKeys(["pending", "pending-text"]);
 finish(first);
-await Promise.all([pending, joined]);
+finishUnrelated(other);
+await Promise.all([pending, joined, unrelated]);
+assert.equal(
+  await getCachedTTSAudioBlob("unrelated-pending"),
+  other,
+  "Clearing one clip preserves unrelated synthesis",
+);
 assert.equal(await getCachedTTSAudioBlob("pending"), null, "Late callers must not restore cleared audio");
 assert.equal(await getCachedTTSAudioBlob("pending-text"), null);
 assert.equal(await getOrCreateCachedTTSAudioBlob("pending", async () => other), other);

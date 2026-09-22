@@ -34,11 +34,9 @@ export type CachedTTSAudioExportEntry = CachedVoiceLineMeta & {
 const memoryCache = new Map<string, Blob>();
 let memoryCacheBytes = 0;
 const inFlight = new Map<string, Promise<Blob>>();
-// Bumped on every purge. A generation that began before a purge compares this
-// against the value it captured and refuses to write its blob back, so a clip
-// the user just deleted cannot resurrect itself when its in-flight request
-// finally resolves.
-let cachePurgeEpoch = 0;
+// A cleared clip cannot be restored by its in-flight generation. Keep versions
+// per key so clearing one message does not discard unrelated synthesis work.
+const cachePurgeEpochs = new Map<string, number>();
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 let lastPersistentPruneAt = 0;
 
@@ -239,7 +237,7 @@ async function getPersistentBlob(key: string): Promise<Blob | null> {
 
 async function putPersistentBlob(key: string, blob: Blob, epoch: number): Promise<void> {
   const db = await openDb();
-  if (!db || epoch !== cachePurgeEpoch) return;
+  if (!db || epoch !== (cachePurgeEpochs.get(key) ?? 0)) return;
 
   try {
     const now = Date.now();
@@ -271,12 +269,12 @@ export async function getCachedTTSAudioBlob(key: string): Promise<Blob | null> {
   const memoryHit = readFromMemory(key);
   if (memoryHit) return memoryHit;
 
-  const epoch = cachePurgeEpoch;
+  const epoch = cachePurgeEpochs.get(key) ?? 0;
   const persisted = await getPersistentBlob(key);
-  if (persisted && epoch === cachePurgeEpoch) {
+  if (persisted && epoch === (cachePurgeEpochs.get(key) ?? 0)) {
     rememberInMemory(key, persisted);
   }
-  return epoch === cachePurgeEpoch ? persisted : null;
+  return epoch === (cachePurgeEpochs.get(key) ?? 0) ? persisted : null;
 }
 
 export async function listCachedTTSAudioMeta(): Promise<CachedTTSAudioMeta[]> {
@@ -326,9 +324,8 @@ export async function deleteCachedTTSAudioKeys(keys: string[]): Promise<void> {
   const uniqueKeys = [...new Set(keys.filter((key) => key.length > 0))];
   if (uniqueKeys.length === 0) return;
 
-  cachePurgeEpoch += 1;
-
   for (const key of uniqueKeys) {
+    cachePurgeEpochs.set(key, (cachePurgeEpochs.get(key) ?? 0) + 1);
     dropFromMemory(key);
     // Drop any generation still in flight for these keys, so the clip we are
     // deleting cannot be handed to a late joiner either.
@@ -355,12 +352,13 @@ export async function getOrCreateCachedTTSAudioBlob(
   aliases: string[] = [],
 ): Promise<Blob> {
   const keys = [...new Set([key, ...aliases].filter(Boolean))];
-  const epoch = cachePurgeEpoch;
+  const epochs = new Map(keys.map((cacheKey) => [cacheKey, cachePurgeEpochs.get(cacheKey) ?? 0]));
+  const isCurrent = (cacheKey: string) => epochs.get(cacheKey) === (cachePurgeEpochs.get(cacheKey) ?? 0);
 
   for (const cacheKey of keys) {
     const cached = await getCachedTTSAudioBlob(cacheKey);
     if (cached) {
-      if (cacheKey !== key && epoch === cachePurgeEpoch) {
+      if (cacheKey !== key && isCurrent(key)) {
         rememberInMemory(key, cached);
       }
       return cached;
@@ -371,7 +369,7 @@ export async function getOrCreateCachedTTSAudioBlob(
     const pending = inFlight.get(cacheKey);
     if (pending) {
       const blob = await pending;
-      if (epoch === cachePurgeEpoch) rememberInMemory(key, blob);
+      if (isCurrent(key)) rememberInMemory(key, blob);
       return blob;
     }
   }
@@ -380,7 +378,7 @@ export async function getOrCreateCachedTTSAudioBlob(
     for (const cacheKey of keys) {
       const secondLook = await getCachedTTSAudioBlob(cacheKey);
       if (secondLook) {
-        if (cacheKey !== key && epoch === cachePurgeEpoch) {
+        if (cacheKey !== key && isCurrent(key)) {
           rememberInMemory(key, secondLook);
         }
         return secondLook;
@@ -391,9 +389,9 @@ export async function getOrCreateCachedTTSAudioBlob(
     // A purge that landed while this clip was synthesizing wins: re-writing the
     // blob now would put the deleted audio straight back into both tiers.
     for (const cacheKey of keys) {
-      if (epoch === cachePurgeEpoch) {
+      if (isCurrent(cacheKey)) {
         rememberInMemory(cacheKey, blob);
-        await putPersistentBlob(cacheKey, blob, epoch);
+        await putPersistentBlob(cacheKey, blob, epochs.get(cacheKey)!);
       }
     }
     return blob;
