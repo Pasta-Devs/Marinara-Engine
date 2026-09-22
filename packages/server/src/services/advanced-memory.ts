@@ -1324,7 +1324,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const repair = options.sceneId
       ? unpreparedScenes(ctx, existing).find((scene) => scene.id === options.sceneId)
       : undefined;
-    if (options.sceneId && !repair) throw new Error("This scene no longer needs preparation; refresh the memory list");
+    if (options.sceneId && !repair) return; // A completed retry must not turn a healthy archive into an error.
     const processedIndex =
       typeof state.processedMessageId === "string"
         ? ctx.messages.findIndex((message) => message.id === state.processedMessageId)

@@ -1916,6 +1916,11 @@ try {
     repairState.sceneCheckMessageId,
     "targeted recovery preserves scene-check cadence",
   );
+  const afterRepairJob = (await memory.status(cadenceChat.id)).job;
+  const beforeRepairRetry = requests.length;
+  await memory.initialize(cadenceChat.id, { sceneId: pendingScenes[0]!.sceneId });
+  assert.deepEqual((await memory.status(cadenceChat.id)).job, afterRepairJob);
+  assert.equal(requests.length, beforeRepairRetry, "retrying a completed repair is a no-op");
   assert.equal(requests.slice(repairRequests).filter((request) => request.kind === "summary").length, 1);
   assert(
     !requests.slice(repairRequests).some((request) => request.kind === "classify"),
@@ -1930,14 +1935,12 @@ try {
   const existingRecoveredRow = (
     await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.chatId, cadenceChat.id))
   ).find((record) => record.kind === "scene" && record.content)!;
-  await db
-    .insert(advancedMemoryRecords)
-    .values({
-      ...existingRecoveredRow,
-      id: "obsolete-overlapping-summary",
-      endMessageId: cadenceSource[3]!.id,
-      messageIds: JSON.stringify(cadenceSource.slice(0, 4).map((message) => message.id)),
-    });
+  await db.insert(advancedMemoryRecords).values({
+    ...existingRecoveredRow,
+    id: "obsolete-overlapping-summary",
+    endMessageId: cadenceSource[3]!.id,
+    messageIds: JSON.stringify(cadenceSource.slice(0, 4).map((message) => message.id)),
+  });
   assert.deepEqual(
     (await memory.status(cadenceChat.id)).unpreparedScenes!.map(({ startIndex, endIndex }) => [startIndex, endIndex]),
     [[3, 4]],
