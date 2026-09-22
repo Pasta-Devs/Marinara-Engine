@@ -115,6 +115,20 @@ function requireSaveEndsUntilSave(node) {
   }
 }
 
+// Only a reaction that waits for something ABOUT to happen may call it off: a moment that has
+// already happened cannot be undone. That is a refinement as well, so the editor is told here. The
+// node is found by its shape, which is the three keys a named moment carries and nothing else.
+function cancelOnlyWhenAimed(node) {
+  if (Array.isArray(node)) return node.forEach(cancelOnlyWhenAimed);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(cancelOnlyWhenAimed);
+  const keys = Object.keys(node.properties ?? {}).filter((key) => key !== "$comment");
+  if (node.type === "object" && keys.length === 3 && ["on", "at", "cancels"].every((key) => keys.includes(key))) {
+    node.if = { required: ["cancels"] };
+    node.then = { properties: { on: { const: "aimed" } }, required: ["on"] };
+  }
+}
+
 // A creature action's damage, and every clause beside it, names dice, a flat amount, or both: an
 // empty one is refused by the Engine, and that too is a refinement. The node is found by its shape:
 // `dice`, `flat` and `type`, and nothing but the keys a blow or a clause carries.
@@ -245,6 +259,7 @@ requireOneCatalogSource(schema);
 requireOneEntryContent(schema);
 requireCatalogFeeds(schema);
 requireSaveEndsUntilSave(schema);
+cancelOnlyWhenAimed(schema);
 requireDamageAmount(schema);
 requireDistanceForMeasured(schema);
 boundScaledColumns(schema);

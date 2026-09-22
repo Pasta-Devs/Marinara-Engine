@@ -29,11 +29,13 @@ import {
 } from "./grid.js";
 import type {
   RulesetCombatAction,
-  RulesetCombatant,
   RulesetCombatCell,
   RulesetCombatOption,
   RulesetCombatRollMode,
+  RulesetCombatant,
   RulesetEncounterState,
+  RulesetReactionMoment,
+  RulesetWindowTrigger,
 } from "./types.js";
 
 /** The budget a standard action spends: the first one the economy declares, which is the main one. */
@@ -654,10 +656,15 @@ function optionFrom(
   state: RulesetEncounterState,
   actor: RulesetCombatant,
   action: RulesetCombatAction,
+  /** The window is asking, so a reaction whose moment this is belongs on the list after all. */
+  atItsMoment = false,
 ): RulesetCombatOption | null {
   // A signature action is bought with points at the end of somebody else's turn, so it is never on
   // the actor's own menu. `rulesetSignatureOptions` is where it is offered.
   if (action.signature) return null;
+  // A reaction waits for its moment, which is never a turn. `rulesetWindowOptions` is where the
+  // moment offers it.
+  if (action.reaction && !atItsMoment) return null;
   // A sequence whose parts are all gone, or all spent, would spend a budget and do nothing.
   if (!rulesetSequenceCanHappen(actor, action)) return null;
   if (!actionDoesSomething(action)) return null;
@@ -946,26 +953,81 @@ export function rulesetWindowOptions(
   if (window.kind === "signature") return rulesetSignatureOptions(definition, state, actorId);
 
   const actor = rulesetCombatant(state, actorId);
-  const opportunity = combat.opportunity;
-  if (!actor || !opportunity || !rulesetCombatStanding(actor)) return [];
-  // Re-read rather than trusted from when the window opened: an answer before this one may have
-  // taken this combatant out, held them still or spent the very budget this would pay with.
+  if (!actor) return [];
+
+  if (window.trigger.kind === "leaves-reach") {
+    const opportunity = combat.opportunity;
+    // Re-read rather than trusted from when the window opened: an answer before this one may have
+    // taken this combatant out, held them still or spent the very budget this would pay with.
+    if (!rulesetCombatStanding(actor)) return [];
+    const effects = rulesetCombatEffects(definition, combat, actor, state);
+    if (effects.has("cannot-act") || effects.has("cannot-react")) return [];
+    if (!opportunity || (actor.budgets[opportunity.budget] ?? 0) < 1) return [];
+    const mover = rulesetCombatant(state, window.trigger.moverId);
+    if (!mover || !rulesetCombatStanding(mover)) return [];
+    const strike = rulesetOpportunityAttack(actor);
+    if (!strike) return [];
+    return [
+      {
+        id: strike.id,
+        kind: strike.kind,
+        label: strike.label,
+        // Nobody to pick: the strike lands on whoever is walking away, and offering a target would
+        // be offering a choice the fight then ignores.
+        targets: { side: "self", count: 0 },
+        budget: opportunity.budget,
+      },
+    ];
+  }
+
+  // A moment the Engine noticed, and everything this one holds that waits for exactly it.
+  const moment = rulesetWindowMoment(window.trigger);
+  if (!moment) return [];
+  const source = "sourceId" in window.trigger ? window.trigger.sourceId : "";
+  return rulesetReactionsAt(definition, combat, state, actor, moment, source).map((action) => {
+    const option = optionFrom(definition, combat, state, actor, action, true)!;
+    // Nobody to pick unless the entry says its holder picks: it is aimed back at whoever caused
+    // the moment, or, for something its holder does to themselves, at its holder.
+    return rulesetReactionPointsAtSource(action) ? { ...option, targets: { side: "self", count: 0 } } : option;
+  });
+}
+
+/** Whether what is taken at a moment is aimed back at whoever caused it. False for one its holder
+ *  picks targets for, and for one they do to themselves. */
+export function rulesetReactionPointsAtSource(action: RulesetCombatAction): boolean {
+  return !!action.reaction && action.reaction.at !== "chosen" && action.targets.side !== "self";
+}
+
+/** Which moment a window is, for the reactions that wait for one. A walk and the turn between two
+ *  actors are windows of their own kind and wait for nothing. */
+export function rulesetWindowMoment(trigger: RulesetWindowTrigger): RulesetReactionMoment | null {
+  return trigger.kind === "aimed" || trigger.kind === "harmed" ? trigger.kind : null;
+}
+
+/**
+ * Everything this combatant holds that waits for exactly this moment and could be taken right now.
+ *
+ * Read BEFORE a window opens, to decide whether there is anybody worth asking, and again while it
+ * is open, to build the menu. One reading either way, so a window is never opened for a menu that
+ * turns out to be empty.
+ */
+export function rulesetReactionsAt(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  state: RulesetEncounterState,
+  actor: RulesetCombatant,
+  moment: RulesetReactionMoment,
+  /** Whoever caused the moment. One aimed back at them needs them still to BE a target: an answer
+   *  before this one may have taken them out, and nothing is offered that the rules would refuse. */
+  sourceId: string,
+): RulesetCombatAction[] {
+  if (!rulesetCombatStanding(actor)) return [];
   const effects = rulesetCombatEffects(definition, combat, actor, state);
   if (effects.has("cannot-act") || effects.has("cannot-react")) return [];
-  if ((actor.budgets[opportunity.budget] ?? 0) < 1) return [];
-  const mover = window.trigger.kind === "leaves-reach" ? rulesetCombatant(state, window.trigger.moverId) : undefined;
-  if (!mover || !rulesetCombatStanding(mover)) return [];
-  const strike = rulesetOpportunityAttack(actor);
-  if (!strike) return [];
-  return [
-    {
-      id: strike.id,
-      kind: strike.kind,
-      label: strike.label,
-      // Nobody to pick: the strike lands on whoever is walking away, and offering a target would be
-      // offering a choice the fight then ignores.
-      targets: { side: "self", count: 0 },
-      budget: opportunity.budget,
-    },
-  ];
+  return actor.actions.filter((action) => {
+    if (action.reaction?.on !== moment) return false;
+    if (optionFrom(definition, combat, state, actor, action, true) === null) return false;
+    if (!rulesetReactionPointsAtSource(action)) return true;
+    return rulesetOptionTargets(definition, state, actor.id, action).includes(sourceId);
+  });
 }

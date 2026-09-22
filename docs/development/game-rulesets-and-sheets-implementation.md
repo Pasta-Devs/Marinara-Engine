@@ -538,6 +538,63 @@ current actor.
   trigger yet, so it is still on no menu; the vocabulary that says what a reaction answers, and the
   nesting, cancellation and refunds that come with a counter, are the next slice's.
 
+### What C5c settled
+
+C5c is the MOMENT: which one a reaction waits for, so an entry marked `reaction` finally has a
+window it belongs in.
+
+- **`mechanics.reaction` may be an object instead of `true`.** `on` names the moment, `at` says whom
+  what is taken is pointed at, and `cancels` stops what the window was holding. `true` still means
+  what it always meant, which is only that something is not taken on a turn, and an entry that says
+  only that much is still on no menu. Capability API 1.33, read off the catalog asset's own bytes
+  exactly as 1.23, 1.26 through 1.30 are.
+- **Two moments, because the Engine has to be the one that notices.** `aimed` is before something
+  lands on the holder and `harmed` is after something has hurt them. The list is closed for the same
+  reason the effect list is: a moment nothing watches for is a moment nothing opens.
+- **`aimed` opens only for the other side; `harmed` opens for anybody.** Being aimed at is about what
+  somebody MEANS to do to you, and a friend healing you is not a threat to answer; had it opened, an
+  ally played by the Engine could cancel its own friend's healing. Being hurt is a fact about you
+  whoever did it, and a reaction pointed back at the source is still kept off a friend by ordinary
+  target legality.
+- **A resume says what it is.** A walk's carries `kind: "walk"` and an action's `kind: "action"`. A
+  fight saved mid-walk by C5b has a resume without one, and is read as the walk it can only be.
+- **The Engine may let a moment go by.** A window's menu carries "let the moment go by" as a
+  candidate weighed the way ending a turn is, so having a reaction to spend no longer means always
+  spending it; that includes C5b's strike at somebody walking away. An option that asks for nobody
+  but lands on somebody (the mover, or the source of a moment) is weighed by what it would do to
+  them (`rulesetWindowTargetOf`). A picker answer the rules refuse is let go and logged, because a
+  refusal is never recorded and that pass would otherwise look like a choice.
+- **What it costs is paid before anybody is asked.** An `aimed` window opens after the budget and
+  the pools have been spent, so an answer that cancels stops the action from HAPPENING rather than
+  from having been bought. That is the fight's own answer to "does a countered spell still cost the
+  slot", and a ruleset that wants the other answer needs a refund vocabulary this does not have.
+- **`harmed` is read off the damage the action itself wrote**, after it has all resolved, so nothing
+  inside the resolver has to know a window exists. An action that hurts three people opens one
+  window listing all three.
+- **`at: "source"` fills the target in rather than offering it.** Whoever caused the moment is the
+  only target most of these have, so the option carries no targets at all and the client shows no
+  picker. `at: "chosen"` keeps the entry's own targets.
+- **A cancelling `utility` entry does something.** Until now a `utility` entry with no `gives` and
+  no `standard` was dropped as having nothing to resolve; calling something off is resolving.
+- **One window at a time, still.** Nothing opened inside a window opens another, so a counter cannot
+  itself be countered and a reaction that hurts somebody opens no second moment. Marked in the
+  source as the ceiling it is, with the bounded stack the combat handoff describes as the way out.
+- **Proven** by the moment block in `scripts/regressions/game-ruleset-combat-core.regression.ts`
+  (on no turn's menu, the window and its trigger, the menu holding only what waits for THIS moment,
+  the cancel, the budget spent either way, the pass letting the held action through, the second
+  moment that being hurt opens, the answer aimed back at whoever caused it, and no third window).
+- **Paying out of a bigger pool, for everybody.** Folded in from
+  [issue #6528](https://github.com/Pasta-Devs/Marinara-Engine/issues/6528), because it is the same
+  seam: a player was offered the pools an ability could be paid from and nobody else was, so the
+  Engine's own picker and the Game Master only ever saw the base cost. The candidate builder now
+  emits one candidate per way of paying, each carrying `choice.payWith`, the forecast the extra
+  steps actually buy, a label naming the pool, and a price that counts the rungs climbed as well as
+  the amount so the bigger version is not mistaken for a free one.
+- **Left for later**: a reaction that changes a NUMBER on what it answers rather than stopping it.
+  The condition vocabulary is a closed list of names, not modifiers, so "harder to hit until your
+  next turn" is not something a ruleset can say yet, whether a reaction says it or anything else
+  does. That is a condition question rather than a reaction one.
+
 ### What C4a settled
 
 C4a is the board, on the shared and server sides. C4b is the screen that draws it.

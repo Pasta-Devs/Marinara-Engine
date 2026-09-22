@@ -54,6 +54,15 @@ export interface RulesetCombatMenuProps {
 const buttonClass =
   "min-h-11 rounded-lg border px-3 py-2 text-left text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:opacity-50";
 
+/** Which question the window is asking, by what opened it. A moment a reaction waits for names
+ *  itself; the other two are the kind of window they are. */
+const WINDOW_PROMPTS = {
+  aimed: "Aimed",
+  harmed: "Harmed",
+  signature: "Between",
+  reaction: "Leaving",
+} as const;
+
 export function RulesetCombatMenu({
   view,
   budgetLabel,
@@ -310,9 +319,11 @@ export function RulesetCombatMenu({
           phone the shell above still names the actor, and the two would otherwise contradict. */}
       {view.window ? (
         <p className="text-[0.65rem] uppercase tracking-wide text-[var(--primary)]">
-          {view.window.kind === "signature"
-            ? t("game.combat.ruleset.menu.windowBetween", { name: askedName })
-            : t("game.combat.ruleset.menu.windowLeaving", { name: askedName, mover: nameOf(view.window.moverId) })}
+          {t(`game.combat.ruleset.menu.window${WINDOW_PROMPTS[view.window.moment ?? view.window.kind]}`, {
+            name: askedName,
+            mover: nameOf(view.window.sourceId ?? view.window.moverId),
+            label: view.window.label ?? "",
+          })}
         </p>
       ) : (
         <p className="hidden text-[0.65rem] uppercase tracking-wide text-white/45 sm:block">

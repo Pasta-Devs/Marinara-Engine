@@ -34,16 +34,21 @@ import {
   rulesetCombatConditions,
   rulesetCombatHealth,
   rulesetCombatOptions,
+  rulesetCostSteps,
+  rulesetAverageAmount,
+  planRulesetCombatCost,
   rulesetCombatRoller,
   rulesetCombatStanding,
   rulesetCreatureSchema,
   rulesetEncounterOutcome,
   rulesetEncounterSummary,
   rulesetOptionTargets,
+  rulesetReactionPointsAtSource,
   rulesetPositionOf,
   rulesetSheetBuildsByName,
   rulesetStatBlockFromCreature,
   rulesetTierStatBlock,
+  rulesetWindowMoment,
   rulesetWindowOptions,
   RULESET_MOVE_OPTION,
   RULESET_PASS_OPTION,
@@ -525,6 +530,9 @@ export function directedRulesetView(
             actorId: held.actorId,
             waiting: Math.max(0, held.window.waiting.length - 1),
             ...(held.window.trigger.kind === "leaves-reach" ? { moverId: held.window.trigger.moverId } : {}),
+            ...("sourceId" in held.window.trigger ? { sourceId: held.window.trigger.sourceId } : {}),
+            ...(rulesetWindowMoment(held.window.trigger) ? { moment: rulesetWindowMoment(held.window.trigger)! } : {}),
+            ...("label" in held.window.trigger ? { label: held.window.trigger.label } : {}),
             controller: held.controller,
           },
           ...(held.controller === "manual" && !state.window
@@ -666,6 +674,80 @@ function rulesetCandidatesAfterMoving(
   return candidates;
 }
 
+/** What a window's answer of "nothing" is called when the Game Master is the one answering. Plain
+ *  text like the resolver's own "Move" and "Stand up": it is written for the model that reads the
+ *  menu, and the client draws its own words over the same choice. */
+const RULESET_PASS_LABEL = "Let the moment go by";
+
+/** The pool an answer is paid from, left out entirely when it is the option's own. */
+const paying = (payWith: string | undefined) => (payWith === undefined ? {} : { payWith });
+
+/**
+ * Every option on a menu, and every BIGGER way of paying for one, each with what that costs.
+ *
+ * A player is offered the pools an ability could be paid from and picks one. Nobody else was: the
+ * picker and the Game Master only ever saw the base cost, so an opponent written with a spell that
+ * grows never grew it, on a turn or in a window. Each way of paying is its own candidate now, so
+ * casting it bigger is weighed against casting it at all rather than being unavailable.
+ *
+ * The price counts the steps as well as the amount, because one pool of a higher rung is worth more
+ * than one of a lower: without that the bigger version reads as free and nothing would ever cast
+ * the small one.
+ */
+function priced(
+  definition: RulesetDefinition,
+  encounter: RulesetEncounterState,
+  actor: RulesetCombatant,
+  menu?: RulesetCombatOption[],
+): Array<{ option: RulesetCombatOption; payWith?: string; price: number }> {
+  const out: Array<{ option: RulesetCombatOption; payWith?: string; price: number }> = [];
+  for (const option of menu ?? rulesetCombatOptions(definition, encounter, actor.id)) {
+    const base = (option.cost ?? []).reduce((total, entry) => total + entry.amount, 0) + (option.signature?.cost ?? 0);
+    out.push({ option, price: base });
+    const action = actor.actions.find((entry) => entry.id === option.id);
+    if (!action?.use?.perCostStep) continue;
+    for (const pool of option.payWith ?? []) {
+      const steps = rulesetCostSteps(definition, action, pool);
+      if (steps < 1) continue;
+      const paid = planRulesetCombatCost(definition, actor, action, pool);
+      if (!paid) continue;
+      const extra = steps * rulesetAverageAmount(action.use.perCostStep);
+      const forecast = option.forecast ? { ...option.forecast } : undefined;
+      if (forecast?.averageDamage !== undefined) {
+        forecast.averageDamage = Math.round((forecast.averageDamage + extra) * 100) / 100;
+      }
+      out.push({
+        option: {
+          ...option,
+          // Named for the pool it spends, so a Game Master reading the menu can tell the two apart.
+          label: `${option.label} (${paid.cost[0]?.label ?? pool})`,
+          cost: paid.cost.map((entry) => ({ pool: entry.pool, label: entry.label, amount: entry.amount })),
+          ...(forecast ? { forecast } : {}),
+        },
+        payWith: pool,
+        price: paid.cost.reduce((total, entry) => total + entry.amount, 0) + steps,
+      });
+    }
+  }
+  return out;
+}
+
+/** Whom a window option really lands on when the option itself asks for nobody: the one walking
+ *  away from a reach, or whoever caused a moment, for a reaction pointed back at them. Undefined for
+ *  something its holder does to themselves, which is weighed as what it is. */
+export function rulesetWindowTargetOf(
+  encounter: RulesetEncounterState,
+  actor: RulesetCombatant,
+  option: RulesetCombatOption,
+): string | undefined {
+  const trigger = encounter.window?.trigger;
+  if (!trigger || option.targets.count > 0 || option.id === RULESET_PASS_OPTION) return undefined;
+  if (trigger.kind === "leaves-reach") return trigger.moverId;
+  if (trigger.kind !== "aimed" && trigger.kind !== "harmed") return undefined;
+  const action = actor.actions.find((entry) => entry.id === option.id);
+  return action && rulesetReactionPointsAtSource(action) ? trigger.sourceId : undefined;
+}
+
 function rulesetCandidatesFrom(
   definition: RulesetDefinition,
   encounter: RulesetEncounterState,
@@ -680,23 +762,38 @@ function rulesetCandidatesFrom(
   const actor = rulesetCombatant(encounter, actorId);
   if (!combat || !actor) return [];
   const candidates: Array<CombatAiCandidate<RulesetCandidate>> = [];
-  for (const option of menu ?? rulesetCombatOptions(definition, encounter, actorId)) {
+  // A window's menu may always be declined. Without this the picker would spend a reaction every
+  // time one was on offer, and availability alone should never force a spend: letting the moment go
+  // by is weighed exactly as ending a turn is.
+  if (menu) {
+    const letGo: RulesetCombatOption = {
+      id: RULESET_PASS_OPTION,
+      kind: "end-turn",
+      label: RULESET_PASS_LABEL,
+      targets: { side: "self", count: 0 },
+    };
+    candidates.push({ action: { choice: { actorId, optionId: letGo.id, targetIds: [] }, option: letGo }, hold: true });
+  }
+  for (const { option, payWith, price } of priced(definition, encounter, actor, menu)) {
     // Walking is not a candidate of its own: it is what a candidate does before it acts, and a turn
     // with nothing to act on closes the distance instead (see `rulesetClosingMove`).
     if (option.kind === "move") continue;
     // From another cell, only what the actor would do THERE is worth enumerating: everything it
     // could do without moving is already on the list.
     if (standing && option.targets.count <= 0 && !option.area) continue;
-    const price = (option.cost ?? []).reduce((total, entry) => total + entry.amount, 0) + (option.signature?.cost ?? 0);
     if (option.kind === "end-turn") {
       candidates.push({ action: { choice: { actorId, optionId: option.id, targetIds: [] }, option }, hold: true });
       continue;
     }
-    if (option.targets.count <= 0) {
+    // In a window, an option that asks for nobody may still land on somebody: whoever is walking
+    // away, or whoever caused the moment. It is weighed by what it would do to THEM, and its answer
+    // still names nobody, because the rules fill that target in.
+    const lands = menu ? rulesetWindowTargetOf(encounter, actor, option) : undefined;
+    if (option.targets.count <= 0 && !lands) {
       // Holding the thing it is already holding would end it and start it again for the same price.
       if (actor.concentrating?.actionId === option.id) continue;
       candidates.push({
-        action: { choice: { actorId, optionId: option.id, targetIds: [] }, option },
+        action: { choice: { actorId, optionId: option.id, targetIds: [], ...paying(payWith) }, option },
         setup: option.kind === "standard" ? 0.05 : 0.4,
         cost: price,
       });
@@ -711,10 +808,10 @@ function rulesetCandidatesFrom(
       // really stands, which costs a creature a cleverer walk and never costs the server a turn.
       const grid = encounter.board?.grid;
       if (standing && grid && grid.width * grid.height > RULESET_AREA_WALK_BOARD_CELLS) continue;
-      candidates.push(...areaCandidates(definition, combat, encounter, actor, option, standing));
+      candidates.push(...areaCandidates(definition, combat, encounter, actor, option, standing, payWith, price));
       continue;
     }
-    const legal = rulesetOptionTargets(definition, encounter, actorId, option);
+    const legal = lands ? [lands] : rulesetOptionTargets(definition, encounter, actorId, option);
     // An action made of other actions sends all of them at one opponent. Anything else that may
     // take several targets takes as many as it is allowed: a breath that could catch three people
     // and is pointed at one is an opponent played badly, not an opponent played kindly.
@@ -731,7 +828,11 @@ function rulesetCandidatesFrom(
       const chance = option.forecast?.hitChance ?? 1;
       const average = option.forecast?.averageDamage ?? 0;
       const candidate: CombatAiCandidate<RulesetCandidate> = {
-        action: { choice: { actorId, optionId: option.id, targetIds: [targetId] }, option, targetId },
+        action: {
+          choice: { actorId, optionId: option.id, targetIds: lands ? [] : [targetId], ...paying(payWith) },
+          option,
+          targetId,
+        },
         targetId,
         cost: price,
       };
@@ -752,7 +853,7 @@ function rulesetCandidatesFrom(
               .filter((other): other is RulesetCombatant => !!other && other.side !== actor.side && !other.down)
               .slice(0, option.targets.count - 1)
           : [];
-        candidate.action.choice.targetIds = [targetId, ...others.map((other) => other.id)];
+        if (!lands) candidate.action.choice.targetIds = [targetId, ...others.map((other) => other.id)];
         candidate.damage = Math.min(2, (average / pool) * (1 + others.length)) * chance;
         if (average >= pool) candidate.finish = chance;
       } else if (ally) candidate.support = 0.4;
@@ -777,8 +878,10 @@ function areaCandidates(
   actor: RulesetCombatant,
   option: RulesetCombatOption,
   standing: { x: number; y: number } | null,
+  /** The pool this way of paying spends, and what that way costs. */
+  payWith: string | undefined,
+  price: number,
 ): Array<CombatAiCandidate<RulesetCandidate>> {
-  const price = (option.cost ?? []).reduce((total, entry) => total + entry.amount, 0) + (option.signature?.cost ?? 0);
   const average = option.forecast?.averageDamage ?? 0;
   const chance = option.forecast?.hitChance ?? 1;
   const candidates: Array<CombatAiCandidate<RulesetCandidate>> = [];
@@ -799,7 +902,13 @@ function areaCandidates(
     const friends = caught.filter((target) => target.side === actor.side);
     const candidate: CombatAiCandidate<RulesetCandidate> = {
       action: {
-        choice: { actorId: actor.id, optionId: option.id, targetIds: [], at: { x: aim.x, y: aim.y } },
+        choice: {
+          actorId: actor.id,
+          optionId: option.id,
+          targetIds: [],
+          at: { x: aim.x, y: aim.y },
+          ...paying(payWith),
+        },
         option,
         ...(foes[0] ? { targetId: foes[0].id } : {}),
         ...(standing ? { to: { ...standing } } : {}),
@@ -978,8 +1087,15 @@ function answerRulesetWindows(
       ? { ...picked.choice, window: window.id }
       : { actorId: asking, optionId: RULESET_PASS_OPTION, targetIds: [], window: window.id };
     // A refusal inside a window would ask the same question again with the same state, so the
-    // moment is let go instead and the fight moves on.
+    // moment is let go instead and the fight moves on. It is an Engine bug rather than anybody's
+    // choice, so it is said out loud: a refusal is never recorded, and this pass would otherwise
+    // look exactly like the picker deciding to let it go.
     if (applyChoiceOnly(definition, state, fight, choice).refused) {
+      logger.warn(
+        "[game/combat:ruleset] The picker's answer to window %s for %s was refused by the rules and the moment was let go",
+        window.id,
+        asking,
+      );
       applyChoiceOnly(definition, state, fight, {
         actorId: asking,
         optionId: RULESET_PASS_OPTION,
@@ -1141,13 +1257,11 @@ function windowOptions(
     label: candidate.action.option.label,
     ...(candidate.action.to ? { to: { ...candidate.action.to } } : {}),
     ...(candidate.action.choice.at ? { at: { ...candidate.action.choice.at } } : {}),
+    // Which pool this way of paying spends. Two entries of the same ability differ only by this and
+    // by the label that names it, so dropping it would offer a choice and then ignore it.
+    ...(candidate.action.choice.payWith !== undefined ? { payWith: candidate.action.choice.payWith } : {}),
   }));
 }
-
-/** What a window's answer of "nothing" is called when the Game Master is the one answering. Plain
- *  text like the resolver's own "Move" and "Stand up": it is written for the model that reads the
- *  menu, and the client draws its own words over the same choice. */
-const RULESET_PASS_LABEL = "Let the moment go by";
 
 /**
  * The Game Master's decision over a ruleset WINDOW's menu rather than a turn's. Its boss is asked
@@ -1167,18 +1281,9 @@ function openRulesetWindowDecision(
   if (state.window) return true;
   const menu = rulesetWindowOptions(definition, fight.encounter, actorId);
   if (menu.length === 0) return false;
+  // Letting the moment go by is one of the candidates, so it is one of the answers.
   const options = windowOptions(definition, fight.encounter, actorId, menu);
-  if (options.length === 0) return false;
-  options.push({
-    id: String(options.length),
-    kind: "wait",
-    actorId,
-    mpCost: 0,
-    legendaryCost: 0,
-    optionId: RULESET_PASS_OPTION,
-    targetIds: [],
-    label: RULESET_PASS_LABEL,
-  });
+  if (options.length <= 1) return false;
   state.choices = options;
   state.window = {
     id: `${state.id}:${++state.serial}`,
@@ -1328,9 +1433,8 @@ export function commandRulesetCombatDirector(
               optionId: chosen.optionId,
               targetIds: [...(chosen.targetIds ?? [])],
               // Everything the picked option came with. An area is aimed at a CELL, and dropping
-              // it would have the rules refuse the answer and the moment let go instead. The pool
-              // an upcast is paid from is carried too, for the day a candidate names one: no
-              // candidate does yet, which is a gap of the picker's rather than of the window's.
+              // it would have the rules refuse the answer and the moment let go instead; the pool
+              // an upcast is paid from is what tells two entries of the same ability apart.
               ...(chosen.at ? { at: { ...chosen.at } } : {}),
               ...(chosen.payWith !== undefined ? { payWith: chosen.payWith } : {}),
             }

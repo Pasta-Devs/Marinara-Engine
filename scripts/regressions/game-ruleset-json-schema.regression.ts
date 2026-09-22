@@ -112,3 +112,21 @@ assert.equal(
 }
 
 console.info("game ruleset JSON Schema regression passed.");
+
+// ── The rule that only a moment about to happen may be called off, in the published schema too ──
+{
+  // A refinement the generator cannot see, patched in by hand, which means a test rather than
+  // trust: an editor that accepted `cancels` on a moment that has already happened would send an
+  // author to the Engine to find out, which is exactly what the published file exists to prevent.
+  const schema = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../../docs/extending/ruleset.schema.json", import.meta.url)), "utf8"),
+  ) as Record<string, never>;
+  const path = ["catalogs", "items", "properties", "entries", "items", "properties", "mechanics"];
+  let node: Record<string, never> = (schema.properties as Record<string, never>).catalogs;
+  for (const step of path.slice(1)) node = node[step];
+  const reaction = (node.properties as Record<string, never>).reaction;
+  const named = (reaction.anyOf as Array<Record<string, never>>).find((member) => !!member.properties?.cancels);
+  assert.ok(named, "the published schema has lost the moment a reaction names");
+  assert.deepEqual(named.if, { required: ["cancels"] });
+  assert.deepEqual(named.then, { properties: { on: { const: "aimed" } }, required: ["on"] });
+}

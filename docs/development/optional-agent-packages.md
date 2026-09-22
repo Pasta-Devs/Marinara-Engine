@@ -1086,6 +1086,31 @@ Use the existing startup-readiness declaration independently when the world must
 be prepared before the opening turn. Declare API 1.18 as the package minimum;
 older hosts cannot interpret this setup declaration.
 
+### Capability API 1.33: the moment a reaction waits for
+
+A catalog entry's `mechanics.reaction` may be an object rather than `true`. `on` names the moment
+the Engine notices, `at` says whom what is taken is pointed at, and `cancels` stops what the window
+was holding from happening at all:
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 33 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/spells.json"] } }
+}
+```
+
+`on` is `aimed` (before something lands on the entry's holder) or `harmed` (after something has hurt
+them), and naming one is what puts the entry on that window's menu. `at` is `source`, which fills in
+whoever caused the moment, or `chosen`, which keeps the entry's own targets. Only an `aimed` entry
+may `cancel`, because a moment that has already happened cannot be called off, and what a cancelled
+action cost is still spent: it was paid for before anybody was asked.
+
+An entry that still says `"reaction": true` says only that it is not taken on a turn, which is not
+enough to offer it anywhere, so it stays on no menu and needs nothing newer. Not a soft seam, for
+the same reason as 1.20 through 1.32: an Engine that cannot read the object refuses the whole strict
+catalog file, so a package that ships one declares 1.33. No permission.
+
 ### Capability API 1.32: a weapon that caps its own strikes
 
 An attack source may declare `strikesCappedBy`, a boolean column of its own list. Where that column

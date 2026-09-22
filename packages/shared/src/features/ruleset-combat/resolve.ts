@@ -50,6 +50,8 @@ import {
   rulesetGrantedStandard,
   rulesetOptionTargets,
   rulesetProneCondition,
+  rulesetReactionPointsAtSource,
+  rulesetReactionsAt,
   rulesetSequenceCanHappen,
   rulesetSequencePartAvailable,
   rulesetSignatureOptions,
@@ -57,9 +59,11 @@ import {
   rulesetStandardBudget,
   rulesetStandardName,
   rulesetTargetRefusal,
+  rulesetWindowMoment,
   rulesetWindowOptions,
 } from "./options.js";
 import type {
+  RulesetActionResume,
   RulesetCombatAction,
   RulesetCombatAmount,
   RulesetCombatApplies,
@@ -77,7 +81,9 @@ import type {
   RulesetEncounterOutcome,
   RulesetEncounterState,
   RulesetEncounterSummary,
+  RulesetWalkResume,
   RulesetWindowResume,
+  RulesetWindowTrigger,
 } from "./types.js";
 
 /** Everything one step of the fight needs: the rules, the state it is changing, its dice and the
@@ -933,9 +939,23 @@ export function applyRulesetCombatChoice(
     ctx.events.push({ type: "spend", actorId: working.id, pool: entry.pool, label: entry.label, amount: entry.amount });
   }
   spendAvailability(ctx, working, action);
-  resolveAction(ctx, working, action, workingTargets, choice.payWith);
-  const outcome = rulesetEncounterOutcome(ctx.state);
-  if (outcome !== "ongoing") ctx.events.push({ type: "outcome", outcome });
+  // Paid for, and then held for everybody it is aimed at who has something that answers being
+  // aimed at. What it cost is spent either way: an answer that calls it off stops it from
+  // happening, not from having been bought.
+  const held = openMoment(
+    ctx,
+    { kind: "aimed", sourceId: working.id, optionId: action.id, label: action.label },
+    workingTargets,
+    {
+      kind: "action",
+      actorId: working.id,
+      optionId: action.id,
+      targetIds: workingTargets.map((target) => target.id),
+      ...(choice.payWith !== undefined ? { payWith: choice.payWith } : {}),
+    },
+  );
+  if (!held) harmedBy(ctx, working, action, () => resolveAction(ctx, working, action, workingTargets, choice.payWith));
+  noteOutcome(ctx);
   return finish();
 }
 
@@ -991,14 +1011,103 @@ function applyInWindow(
     return applySignature(definition, combat, state, actor, action, choice, roller);
   }
 
+  const trigger = window.trigger;
   // A strike at somebody walking away, taken rather than made for them. It costs and resolves
   // exactly as the automatic one did: the same budget, the same books, the same dice.
+  if (trigger.kind === "leaves-reach") {
+    const { ctx, finish } = begin(definition, combat, state, roller);
+    const striker = rulesetCombatant(ctx.state, actor.id)!;
+    const mover = rulesetCombatant(ctx.state, trigger.moverId);
+    if (mover) opportunityStrike(ctx, striker, mover, combat.opportunity!.budget);
+    goOn(definition, combat, ctx);
+    noteOutcome(ctx);
+    return finish();
+  }
+  if (trigger.kind === "between-turns") return refusal(state, choice.actorId, "unknown-option", choice.optionId);
+
+  // A reaction taken at its own moment. It is an ordinary action, paid for and resolved exactly as
+  // it would be on a turn; the only thing the moment adds is whom it is aimed at, and whether
+  // taking it calls off what the window was holding.
+  return takeReaction(definition, combat, state, window, actor, choice, roller);
+}
+
+/** One reaction, taken at the moment it waits for. */
+function takeReaction(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  state: RulesetEncounterState,
+  window: RulesetCombatWindow,
+  actor: RulesetCombatant,
+  choice: RulesetCombatChoice,
+  roller: RulesetCombatRoller,
+): RulesetCombatStep {
   const trigger = window.trigger;
-  if (trigger.kind !== "leaves-reach") return refusal(state, choice.actorId, "unknown-option", choice.optionId);
+  if (trigger.kind !== "aimed" && trigger.kind !== "harmed") {
+    return refusal(state, choice.actorId, "unknown-option", choice.optionId);
+  }
+  const declared = actor.actions.find((entry) => entry.id === choice.optionId && entry.reaction);
+  const offered = rulesetWindowOptions(definition, state, actor.id).find((entry) => entry.id === choice.optionId);
+  if (!declared || !offered) return refusal(state, choice.actorId, "unknown-option", choice.optionId);
+  // Filled in rather than picked, unless the entry says its holder picks: aimed back at whoever
+  // caused the moment, or, for something its holder does to THEMSELVES, at its holder. Bracing
+  // yourself is not aimed at anybody, and pointing it at whoever hurt you would hand them what it
+  // gives.
+  const source = rulesetCombatant(state, trigger.sourceId);
+  const targets = !rulesetReactionPointsAtSource(declared)
+    ? declared.targets.side === "self"
+      ? [actor]
+      : pickTargets(definition, state, actor, declared, choice.targetIds)
+    : // Still a target, checked the same way the menu checks it: an answer before this one may have
+      // taken the source out, and a blow aimed at somebody the fight is over for lands on nobody.
+      source && rulesetOptionTargets(definition, state, actor.id, declared).includes(source.id)
+      ? [source]
+      : "bad-target";
+  if (!Array.isArray(targets)) return refusal(state, choice.actorId, targets, choice.optionId);
+
+  // The menu is the only source of legality here as well: a pool it did not offer is refused as the
+  // wrong pool, and before anything is spent rather than after.
+  if (choice.payWith !== undefined && !(offered.payWith ?? []).includes(choice.payWith)) {
+    return refusal(state, choice.actorId, "bad-pool", choice.optionId);
+  }
+
   const { ctx, finish } = begin(definition, combat, state, roller);
-  const striker = rulesetCombatant(ctx.state, actor.id)!;
-  const mover = rulesetCombatant(ctx.state, trigger.moverId);
-  if (mover) opportunityStrike(ctx, striker, mover, combat.opportunity!.budget);
+  const taking = rulesetCombatant(ctx.state, actor.id)!;
+  const action = taking.actions.find((entry) => entry.id === declared.id)!;
+  // The OPTION says whether a budget is spent, exactly as it does on a turn: an entry marked free
+  // carries none, and reading the action's own budget would refuse it for want of something it
+  // never asked for.
+  const budget = offered.budget;
+  if (budget !== undefined) {
+    if ((taking.budgets[budget] ?? 0) < 1) return refusal(state, choice.actorId, "no-budget", choice.optionId);
+    taking.budgets[budget] = Math.max(0, (taking.budgets[budget] ?? 0) - 1);
+    ctx.events.push({ type: "budget", actorId: taking.id, budget, left: taking.budgets[budget]! });
+  }
+  const paid = planRulesetCombatCost(definition, taking, action, choice.payWith);
+  if (!paid) return refusal(state, choice.actorId, "insufficient", choice.optionId);
+  if (paid.live && taking.sheet) taking.sheet.live = paid.live;
+  for (const entry of paid.cost) {
+    ctx.events.push({ type: "spend", actorId: taking.id, pool: entry.pool, label: entry.label, amount: entry.amount });
+  }
+  spendAvailability(ctx, taking, action);
+  // Calling it off happens BEFORE this one's own dice: what was held never lands, so nothing it
+  // would have done can change what this reaction is resolved against.
+  if (action.reaction?.cancels && ctx.state.window?.resume?.kind === "action") {
+    const stopped = ctx.state.window.resume;
+    stopped.cancelled = true;
+    // Nobody else is asked: the question was what to do about something that is now not going to
+    // happen. Withdrawing it is not the same as everybody passing, so no moment is let go either;
+    // the rest simply keep what they were holding.
+    ctx.state.window.waiting = [];
+    ctx.events.push({
+      type: "cancelled",
+      actorId: stopped.actorId,
+      optionId: stopped.optionId,
+      label: trigger.kind === "aimed" ? trigger.label : action.label,
+      byId: taking.id,
+    });
+  }
+  const workingTargets = targets.map((target) => rulesetCombatant(ctx.state, target.id)!);
+  resolveAction(ctx, taking, action, workingTargets, choice.payWith);
   goOn(definition, combat, ctx);
   noteOutcome(ctx);
   return finish();
@@ -1026,9 +1135,13 @@ function goOn(definition: RulesetDefinition, combat: RulesetCombat, ctx: Ruleset
   ctx.state.window = undefined;
   // A walk is finished even when the last blow ended the fight: its own event says where the walker
   // really stopped, and a fight that ended mid-step would otherwise never say they never left.
-  if (resume) {
+  if (resume && (resume.kind === "walk" || rulesetLegacyWalk(resume))) {
     const walker = rulesetCombatant(ctx.state, resume.actorId);
-    if (walker) walkOn(ctx, walker, resume);
+    if (walker) walkOn(ctx, walker, { ...resume, kind: "walk" } as RulesetWalkResume);
+    return;
+  }
+  if (resume?.kind === "action") {
+    if (!over) resumeAction(ctx, resume);
     return;
   }
   if (!over && trigger.kind === "between-turns") beginNextTurn(definition, combat, ctx);
@@ -1142,6 +1255,7 @@ function resolveStand(ctx: RulesetCombatContext, actor: RulesetCombatant, option
  */
 function resolveMove(ctx: RulesetCombatContext, actor: RulesetCombatant, destination: { path: RulesetCombatCell[] }) {
   walkOn(ctx, actor, {
+    kind: "walk",
     actorId: actor.id,
     from: { x: actor.x!, y: actor.y! },
     walked: [],
@@ -1164,7 +1278,7 @@ function resolveMove(ctx: RulesetCombatContext, actor: RulesetCombatant, destina
  * The walk's own event comes last and carries the cells that were really crossed rather than the
  * ones that were meant to be, so a walk cut short by a blow says where it really ended.
  */
-function walkOn(ctx: RulesetCombatContext, actor: RulesetCombatant, resume: RulesetWindowResume): void {
+function walkOn(ctx: RulesetCombatContext, actor: RulesetCombatant, resume: RulesetWalkResume): void {
   const opportunity = ctx.combat.opportunity;
   const grid = ctx.state.board?.grid;
   const walked = [...resume.walked];
@@ -1188,7 +1302,15 @@ function walkOn(ctx: RulesetCombatContext, actor: RulesetCombatant, resume: Rule
           kind: "reaction",
           trigger: { kind: "leaves-reach", moverId: actor.id, from: { ...at }, to: { ...cell } },
           waiting: threats.map((enemy) => enemy.id),
-          resume: { actorId: actor.id, from: resume.from, walked, path: rest, asked: [...asked], spent },
+          resume: {
+            kind: "walk",
+            actorId: actor.id,
+            from: resume.from,
+            walked,
+            path: rest,
+            asked: [...asked],
+            spent,
+          },
         });
         return;
       }
@@ -1214,18 +1336,122 @@ function walkOn(ctx: RulesetCombatContext, actor: RulesetCombatant, resume: Rule
   });
 }
 
+/**
+ * The window a moment opens, for everybody who holds something that waits for exactly it.
+ *
+ * Nobody is asked when nobody could take anything: a window opened for a menu with only a pass on
+ * it would hold the fight up to say nothing. Nor does one open INSIDE another, because the fight
+ * keeps one window rather than a stack, so a reaction cannot itself be reacted to.
+ *
+ * ponytail: one window at a time, no nesting. The upgrade path is the bounded stack the combat
+ * handoff describes, which needs a parent id on every window and a revalidation pass after each
+ * answer; a chain of counters is what it buys, and nothing else here wants it yet.
+ */
+function openMoment(
+  ctx: RulesetCombatContext,
+  trigger: Extract<RulesetWindowTrigger, { kind: "aimed" | "harmed" }>,
+  candidates: readonly RulesetCombatant[],
+  resume?: RulesetActionResume,
+): boolean {
+  if (ctx.state.window) return false;
+  const moment = rulesetWindowMoment(trigger);
+  if (!moment) return false;
+  // Being aimed at is about what somebody MEANS to do to you, and a friend healing you or handing
+  // you something is not a threat to answer: only the other side opens that moment. Being hurt is
+  // a fact about you whoever did it, so it opens for anybody, and a reaction pointed back at the
+  // source is still kept off a friend by the same legality every other target goes through.
+  const source = rulesetCombatant(ctx.state, trigger.sourceId);
+  const waiting = candidates
+    .filter((one) => one.id !== trigger.sourceId)
+    .filter((one) => moment !== "aimed" || !source || one.side !== source.side)
+    .filter(
+      (one) => rulesetReactionsAt(ctx.definition, ctx.combat, ctx.state, one, moment, trigger.sourceId).length > 0,
+    )
+    .map((one) => one.id);
+  if (waiting.length === 0) return false;
+  openWindow(ctx, { kind: "reaction", trigger, waiting, ...(resume ? { resume } : {}) });
+  return true;
+}
+
+/** What a window was holding, once everybody in it has answered. It resolves from the state as it
+ *  stands NOW rather than as it stood then: an answer may have taken a target out, and the fight
+ *  that resumes is the fight the window left behind. */
+function resumeAction(ctx: RulesetCombatContext, resume: RulesetActionResume): void {
+  const actor = rulesetCombatant(ctx.state, resume.actorId);
+  const action = actor?.actions.find((entry) => entry.id === resume.optionId);
+  if (!actor || !action) return;
+  if (resume.cancelled) return;
+  if (!rulesetCombatStanding(actor)) return;
+  // What resumes lands on the fight as it stands NOW rather than as it stood when it was aimed, so
+  // anybody the fight is already over for is left out, the same way a sequence leaves them out. A
+  // ruleset with a dying rule keeps a character on the board at zero, so this is about an opponent
+  // taken out by an answer: nothing in a window can do that yet, because a creature cannot hold a
+  // reaction, and the line is here so the day one can does not need it noticing.
+  const targets = resume.targetIds
+    .map((id) => rulesetCombatant(ctx.state, id))
+    .filter((target): target is RulesetCombatant => !!target && !target.defeated);
+  harmedBy(ctx, actor, action, () => resolveAction(ctx, actor, action, targets, resume.payWith));
+}
+
+/** An action, and then the window for everybody it hurt who has something that answers being hurt.
+ *  Read off the damage the action itself wrote, so nothing inside the resolver has to know that a
+ *  window exists. */
+function harmedBy(
+  ctx: RulesetCombatContext,
+  actor: RulesetCombatant,
+  action: RulesetCombatAction,
+  resolve: () => void,
+): void {
+  const before = ctx.events.length;
+  resolve();
+  if (rulesetEncounterOutcome(ctx.state) !== "ongoing") return;
+  const hurt = new Set(
+    ctx.events
+      .slice(before)
+      .filter((event) => event.type === "damage" && event.dealt > 0)
+      .map((event) => (event as Extract<RulesetCombatEvent, { type: "damage" }>).targetId),
+  );
+  if (hurt.size === 0) return;
+  openMoment(
+    ctx,
+    { kind: "harmed", sourceId: actor.id, label: action.label },
+    [...hurt].map((id) => rulesetCombatant(ctx.state, id)).filter((one): one is RulesetCombatant => !!one),
+  );
+}
+
+/** A walk held open by an Engine from before a resume said what kind it was. The walk was the only
+ *  thing a window could hold then, so a resume with no kind is one, and a fight saved in the middle
+ *  of one is finished rather than left standing on the step it was asked about. */
+function rulesetLegacyWalk(resume: RulesetWindowResume): boolean {
+  return (resume as { kind?: unknown }).kind === undefined;
+}
+
 /** Hold the fight open. The id is one up from every window this fight has opened, so an answer
  *  written for a window that has already closed is refused rather than spent on its successor. */
 function openWindow(ctx: RulesetCombatContext, window: Omit<RulesetCombatWindow, "id">): void {
   const serial = (ctx.state.windows ?? 0) + 1;
   ctx.state.windows = serial;
-  ctx.state.window = { id: `w${serial}`, ...window };
+  // In the fight's OWN order, whatever order they were gathered in. Who is asked first decides who
+  // answers with the most still on the board, so it is the fight's order rather than the order a
+  // walk met them in or the order their damage happened to be written.
+  const order = (id: string) => {
+    const at = ctx.state.order.indexOf(id);
+    return at < 0 ? ctx.state.order.length : at;
+  };
+  const waiting = [...window.waiting].sort((left, right) => order(left) - order(right));
+  ctx.state.window = { id: `w${serial}`, ...window, waiting };
+  const moment = rulesetWindowMoment(window.trigger);
   ctx.events.push({
     type: "window",
     window: ctx.state.window.id,
     kind: window.kind,
-    waiting: [...window.waiting],
+    // The order the window really holds, not the order it was handed: the two would otherwise
+    // disagree about who is asked first, and the log is what a reader believes.
+    waiting: [...waiting],
     ...(window.trigger.kind === "leaves-reach" ? { moverId: window.trigger.moverId } : {}),
+    ...(moment ? { moment } : {}),
+    ...("label" in window.trigger ? { label: window.trigger.label } : {}),
+    ...("sourceId" in window.trigger ? { sourceId: window.trigger.sourceId } : {}),
   });
 }
 
