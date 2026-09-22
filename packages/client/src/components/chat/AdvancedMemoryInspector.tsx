@@ -63,6 +63,7 @@ export function AdvancedMemoryInspector({
   const reviewAudience =
     selected?.kind === "scene" &&
     !!selected.content &&
+    !selected.manualOverride &&
     !selected.dependencies.some((item) => item.id === SCENE_AUDIENCE.id && item.revision === SCENE_AUDIENCE.revision);
   const reviewCorrection =
     selected?.kind === "scene" && selected.manualOverride && selected.embeddingStatus === "stale";

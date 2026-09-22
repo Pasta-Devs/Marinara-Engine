@@ -598,9 +598,9 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
         title: "The laboratory promise",
         timeline: "Before the experiment",
         enabled: true,
-        manualOverride: false,
+        manualOverride: true,
         sourceFingerprint: "proof",
-        dependencies: [{ id: "scene-audience", revision: "participants-v1" }],
+        dependencies: [],
         embeddingStatus: "stale",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -682,6 +682,8 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect(inspector.getByText("Exact words from the notebook conversation.")).toHaveCount(0);
     await inspector.getByRole("button", { name: /Scene #1/ }).click();
     await expect(inspector).toContainText("Story timeframe: Before the experiment");
+    await captureThemes(page, info, "advanced-memory-legacy-access", inspector);
+    await expect(inspector.getByText(/Older memories used chat visibility/)).toHaveCount(0);
     await expect(inspector.getByText("Closed", { exact: true })).toBeVisible();
     await inspector.getByRole("button", { name: "Edit character access", exact: true }).click();
     const access = inspector.getByRole("group", { name: "Characters who can recall this scene" });
