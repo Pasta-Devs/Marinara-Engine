@@ -110,6 +110,7 @@ const provider = createServer(async (req, res) => {
           )
         : kind === "summary"
           ? JSON.stringify({
+              audience: "all",
               summary: summaryResponse ?? "ARCHIVED_RECAP: The silver compass promise guided the travelers.",
             })
           : "The character continues the silver compass journey.";

@@ -60,7 +60,7 @@ export interface AdvancedMemoryRecord {
   startIndex: number;
   endIndex: number;
   messageIds: string[];
-  /** Empty means the shared, non-Individual audience. */
+  /** Scene/excerpt access: empty means narrator only, never all characters. */
   audienceCharacterIds: string[];
   content: string;
   title: string;

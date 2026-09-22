@@ -32,7 +32,7 @@ const provider = createServer(async (request, response) => {
           .filter((message: { content: string }) => message.content.startsWith("SCENE_CHANGE"))
           .map((message: { messageId: string }) => ({ messageId: message.messageId })),
       })
-    : JSON.stringify({ summary: "HISTORICAL_RECAP: The brass compass journey was recorded." });
+    : JSON.stringify({ audience: "all", summary: "HISTORICAL_RECAP: The brass compass journey was recorded." });
   response.end(JSON.stringify({ choices: [{ message: { role: "assistant", content }, finish_reason: "stop" }] }));
 });
 
@@ -339,7 +339,7 @@ try {
   assert.equal(status.job.status, "ready");
   assert.equal(status.job.total, 1000);
   const scenes = status.records.filter((record) => record.kind === "scene" && record.content);
-  const sharedScenes = scenes.filter((record) => !record.audienceCharacterIds.length);
+  const sharedScenes = scenes;
   assert.deepEqual(
     sharedScenes.map((record) => [record.startIndex, record.endIndex]),
     [

@@ -59,6 +59,7 @@ const server = createServer(async (request, response) => {
     beforeSummary = null;
     if (callback) await callback();
     content = JSON.stringify({
+      audience: "all",
       summary: text.includes("CORRECTED_SILVER")
         ? "CORRECTED_SILVER compass."
         : text.includes("CORRECTED_GOLD")
@@ -997,7 +998,7 @@ try {
   });
   await memory.initialize(dependencySource.id);
   const sourceManualScene = (await memory.status(dependencySource.id)).records.find(
-    (record) => record.kind === "scene" && record.content && !record.audienceCharacterIds.length,
+    (record) => record.kind === "scene" && record.content,
   );
   assert(sourceManualScene);
   await memory.updateRecord(dependencySource.id, sourceManualScene.id, {
@@ -1134,7 +1135,7 @@ try {
   });
   await memory.initialize(dependencyTarget.id);
   const localScene = (await memory.status(dependencyTarget.id)).records.find(
-    (record) => record.kind === "scene" && record.content && !record.audienceCharacterIds.length,
+    (record) => record.kind === "scene" && record.content,
   );
   assert(localScene);
   await memory.updateRecord(dependencyTarget.id, localScene.id, {
@@ -1145,7 +1146,11 @@ try {
   const importWithMissingDependencies = {
     ...dependencyExport,
     records: [
-      ...dependencyExport.records,
+      ...dependencyExport.records.map((transfer) =>
+        transfer.record.kind === "excerpt"
+          ? { ...transfer, record: { ...transfer.record, audienceCharacterIds: ["alice"] } }
+          : transfer,
+      ),
       {
         ...exportedDependency,
         record: {
@@ -1185,11 +1190,7 @@ try {
     ],
   };
   const dependencyImport = await memory.importMemory(dependencyTarget.id, importWithMissingDependencies);
-  for (const content of [
-    "IMPORTED_MISSING_SUMMARY_CORRECTION",
-    "MISSING_RECORD_CORRECTION",
-    "INCOMPATIBLE_MACRO_CORRECTION",
-  ]) {
+  for (const content of ["MISSING_RECORD_CORRECTION", "INCOMPATIBLE_MACRO_CORRECTION"]) {
     const imported = dependencyImport.records.find((record) => record.content === content);
     assert(
       imported && !imported.enabled,
@@ -1278,7 +1279,7 @@ try {
   );
   const blockedCorrection = (await memory.status(maintenanceTarget.id)).job;
   assert.equal(blockedCorrection.reviewRecordId, disabledImportedScene.id);
-  assert.match(blockedCorrection.error!, /messages #1–#3 \(Shared chat audience\)/u);
+  assert.match(blockedCorrection.error!, /messages #1–#3 \(alice\)/u);
   assert.equal(
     (await memory.status(maintenanceTarget.id)).records.find((record) => record.id === disabledImportedScene.id)
       ?.content,
@@ -1759,7 +1760,7 @@ try {
     Array.from({ length: 300 }, (_, index) => ({
       role: "user" as const,
       content: `${index === 250 ? "SCENE_CHANGE " : ""}${index === 50 ? "HIDDEN_MIDDLE_SECRET" : "Shared compass promise along the mountain path. ".repeat(2)} ${index}.`,
-      extra: index === 50 ? { hiddenFromAICharacterIds: ["bob"] } : undefined,
+      extra: index === 50 ? { hiddenFromAI: true } : index === 51 ? { hiddenFromAICharacterIds: ["bob"] } : undefined,
     })),
   );
   const privateController = new AbortController();

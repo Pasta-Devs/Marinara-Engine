@@ -600,7 +600,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
         enabled: true,
         manualOverride: false,
         sourceFingerprint: "proof",
-        dependencies: [],
+        dependencies: [{ id: "scene-audience", revision: "participants-v1" }],
         embeddingStatus: "stale",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -630,11 +630,6 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect(drawer.getByText(/No recall memories have been created for this chat/)).toHaveCount(0);
     await expect(drawer.getByRole("button", { name: "Re-vectorize All Memories", exact: true })).toHaveCount(0);
     status.records.push(
-      {
-        ...status.records[0]!,
-        id: "owner-scene-copy",
-        audienceCharacterIds: [],
-      },
       {
         ...status.records[0]!,
         id: "excerpt-proof",
@@ -690,7 +685,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect(inspector.getByText("Closed", { exact: true })).toBeVisible();
     await inspector.getByRole("button", { name: "Edit character access", exact: true }).click();
     const access = inspector.getByRole("group", { name: "Characters who can recall this scene" });
-    await expect(access).toContainText("without reprocessing the chat");
+    await expect(access).toContainText("Select the characters who were present");
     await access.getByText("Narrator", { exact: true }).click();
     await expect(access.getByRole("checkbox", { name: "Narrator", exact: true })).not.toBeChecked();
     await inspector.getByRole("button", { name: "Save correction", exact: true }).click();
@@ -701,6 +696,13 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await inspector.getByRole("button", { name: "Save correction", exact: true }).click();
     await expect.poll(() => status.records[0]?.audienceCharacterIds).toEqual([character.id, narrator.id]);
     expect(initializeBodies).toHaveLength(3);
+    await access.getByText("Dottore", { exact: true }).click();
+    await access.getByText("Narrator", { exact: true }).click();
+    await expect(access).toContainText("No characters selected: only the narrator can recall this scene.");
+    await inspector.getByRole("button", { name: "Save correction", exact: true }).click();
+    await expect.poll(() => status.records[0]?.audienceCharacterIds).toEqual([]);
+    await expect(inspector.getByText("Narrator only", { exact: true })).toBeVisible();
+    await captureThemes(page, info, "advanced-memory-narrator-only", inspector);
     await inspector
       .getByRole("textbox", { name: "Summary text", exact: true })
       .fill("Correction: the notebook is green.");

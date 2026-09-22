@@ -4,7 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- Advanced Memory keeps one memory per scene, assigns access to actual participants, and treats unassigned scenes as narrator-only; an explicit all-participants result grants the current chat characters access (#6533).
+- Advanced Memory keeps one memory per scene, assigns access to actual participants, and treats unassigned scenes as narrator-only; an explicit all-participants result grants the current chat characters access. Existing automatic assignments stay narrator-only until reviewed; preparation checks participants while keeping saved summaries (#6533).
 
 - Game helpers preserve unconfigured task defaults and explain when saved output limits cut off structured responses (#6511).
 
