@@ -36,6 +36,7 @@ import { createConnectionsStorage } from "../services/storage/connections.storag
 import { logger } from "../lib/logger.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { decisionProcessService } from "../services/sidecar/decision-process.service.js";
+import { inspectDecisionRepo } from "../services/sidecar/decision-byo.js";
 import { preflightDecisionModel } from "../services/sidecar/decision-preflight.js";
 import {
   decisionRuntimeInstalled,
@@ -162,6 +163,17 @@ export async function decisionRoutes(app: FastifyInstance) {
     return next;
   };
 
+  // Start with Marinara only when the user asked for that. Fire and forget: a model
+  // that cannot load must never hold up boot, and the failure is already recorded in
+  // the process status for the panel to show.
+  if (sidecarSettings.startPolicy === "with_marinara") {
+    const model = installedDecisionModel(sidecarSettings);
+    if (model)
+      void decisionProcessService
+        .ensureRunning(model)
+        .catch((error) => logger.warn(error, "[decision-sidecar] Start-with-Marinara failed"));
+  }
+
   /** What the panel needs: the catalog, each entry's verdict, and what is installed. */
   app.get("/sidecar", async () => {
     const models = await Promise.all(
@@ -225,8 +237,24 @@ export async function decisionRoutes(app: FastifyInstance) {
    */
   app.post("/sidecar/install", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Decision model download" })) return;
-    const { modelId } = z.object({ modelId: z.string().trim().min(1).max(64) }).parse(req.body);
-    const model = findDecisionModel(modelId);
+    const body = z
+      .object({
+        modelId: z.string().trim().min(1).max(200).optional(),
+        repoId: z.string().trim().min(3).max(120).optional(),
+        revision: z.string().trim().max(120).optional(),
+      })
+      .parse(req.body);
+    // A pasted repository is re-inspected here rather than trusting whatever the
+    // client sends: the description it showed the user is not an authorisation.
+    let model = body.modelId ? findDecisionModel(body.modelId) : null;
+    let custom = false;
+    if (!model && body.repoId) {
+      const inspected = await inspectDecisionRepo(body.repoId, body.revision || "main");
+      if ("refusal" in inspected)
+        return reply.status(409).send({ error: "That repository cannot be installed", reason: inspected.refusal });
+      model = inspected.model;
+      custom = true;
+    }
     if (!model) return reply.status(404).send({ error: "No such decision model" });
     if (!sidecarSettings.enabled)
       return reply.status(409).send({ error: "Enable the decision sidecar before installing a model" });
@@ -243,7 +271,13 @@ export async function decisionRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.status(400).send({ error: error instanceof Error ? error.message : "Install failed" });
     }
-    return { settings: await writeSidecarSettings({ ...sidecarSettings, modelId: model.id }) };
+    return {
+      settings: await writeSidecarSettings({
+        ...sidecarSettings,
+        modelId: custom ? null : model.id,
+        customModel: custom ? model : null,
+      }),
+    };
   });
 
   /** Delete the runtime and every downloaded weight. Separate from turning it off. */
@@ -252,6 +286,22 @@ export async function decisionRoutes(app: FastifyInstance) {
     await decisionProcessService.stop();
     decisionRuntimeService.remove();
     return { settings: await writeSidecarSettings({ ...sidecarSettings, modelId: null, enabled: false }) };
+  });
+
+  /**
+   * Look at a pasted repository without installing anything.
+   *
+   * Answers with what would be installed and this machine's verdict on it, or the
+   * reason it is refused. Read-only on purpose: the user sees the base model it pulls
+   * and the total size before they agree to any of it.
+   */
+  app.post("/sidecar/inspect", async (req) => {
+    const { repoId, revision } = z
+      .object({ repoId: z.string().trim().min(3).max(120), revision: z.string().trim().max(120).optional() })
+      .parse(req.body);
+    const inspected = await inspectDecisionRepo(repoId, revision || "main");
+    if ("refusal" in inspected) return { refusal: inspected.refusal };
+    return { model: inspected.model, preflight: await preflightDecisionModel(inspected.model) };
   });
 
   app.post("/sidecar/stop", async () => {

@@ -78,6 +78,39 @@ export function useRemoveDecisionSidecar() {
   });
 }
 
+export interface DecisionRepoInspection {
+  model?: DecisionSidecarModel["preflight"] extends never ? never : Record<string, unknown>;
+  refusal?: string;
+}
+
+/** Look at a pasted repository without installing it. */
+export function useInspectDecisionRepo() {
+  return useMutation({
+    mutationFn: (input: { repoId: string; revision?: string }) =>
+      api.post<{
+        refusal?: string;
+        model?: {
+          id: string;
+          label: string;
+          downloadSizeBytes: number;
+          diskBytes: number;
+          vramBytes: number;
+          artifacts: Array<{ repoId: string; revision: string }>;
+        };
+        preflight?: DecisionSidecarModel["preflight"];
+      }>("/decision/sidecar/inspect", input),
+  });
+}
+
+export function useInstallDecisionRepo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { repoId: string; revision?: string }) =>
+      api.post<{ settings: DecisionSidecarSettings }>("/decision/sidecar/install", input),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
 export function useSetDecisionStartPolicy() {
   const qc = useQueryClient();
   return useMutation({

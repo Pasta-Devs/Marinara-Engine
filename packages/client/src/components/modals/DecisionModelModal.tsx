@@ -24,7 +24,10 @@ import {
   useDecisionSidecar,
   useEnableDecisionSidecar,
   useInstallDecisionModel,
+  useInspectDecisionRepo,
+  useInstallDecisionRepo,
   useRemoveDecisionSidecar,
+  useSetDecisionStartPolicy,
   type DecisionSidecarModel,
 } from "../../hooks/use-decision-sidecar";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -46,6 +49,10 @@ export function DecisionModelModal({ open, onClose }: Props) {
   const install = useInstallDecisionModel();
   const remove = useRemoveDecisionSidecar();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [repoInput, setRepoInput] = useState("");
+  const inspect = useInspectDecisionRepo();
+  const installRepo = useInstallDecisionRepo();
+  const startPolicy = useSetDecisionStartPolicy();
 
   const data = sidecar.data;
   const models = data?.models ?? [];
@@ -53,7 +60,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
     models.find((model) => model.id === selectedId) ?? models.find((model) => model.preflight.installable) ?? null;
   const enabled = data?.settings.enabled === true;
   const installedId = data?.settings.modelId ?? null;
-  const busy = enable.isPending || install.isPending || remove.isPending;
+  const busy = enable.isPending || install.isPending || remove.isPending || installRepo.isPending;
 
   /**
    * Turning it on is a decision with a cost, so it is confirmed against the verdict
@@ -97,6 +104,27 @@ export function DecisionModelModal({ open, onClose }: Props) {
     if (!confirmed) return;
     try {
       await install.mutateAsync(selected.id);
+      toast.success(localizeUi("ui.modals.decisionmodelmodal.installed"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : localizeUi("ui.modals.decisionmodelmodal.installFailed"));
+    }
+  };
+
+  const handleInstallRepo = async () => {
+    const model = inspect.data?.model;
+    if (!model) return;
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("ui.modals.decisionmodelmodal.downloadTitle"),
+      message: localizeUi("ui.modals.decisionmodelmodal.downloadPastedBody", {
+        label: model.label,
+        base: model.artifacts[1]?.repoId ?? "",
+        size: formatBytes(model.downloadSizeBytes),
+      }),
+      confirmLabel: localizeUi("ui.modals.decisionmodelmodal.download"),
+    });
+    if (!confirmed) return;
+    try {
+      await installRepo.mutateAsync({ repoId: repoInput.trim() });
       toast.success(localizeUi("ui.modals.decisionmodelmodal.installed"));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : localizeUi("ui.modals.decisionmodelmodal.installFailed"));
@@ -247,6 +275,93 @@ export function DecisionModelModal({ open, onClose }: Props) {
                       : "ui.modals.decisionmodelmodal.installSelected",
                   )}
                 </button>
+                {/* Pasting a repository, in the same block shape the chat installer
+                    uses for its own bring-your-own section. Inspect first, always:
+                    the user sees the base weights it pulls and the total size before
+                    agreeing to any of it. */}
+                <div className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3">
+                  <div className="text-xs font-medium">{localizeUi("ui.modals.decisionmodelmodal.byoTitle")}</div>
+                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.modals.decisionmodelmodal.byoHelp")}
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      value={repoInput}
+                      onChange={(event) => {
+                        setRepoInput(event.target.value);
+                        inspect.reset();
+                      }}
+                      placeholder={localizeUi("ui.modals.decisionmodelmodal.byoPlaceholder")}
+                      className="min-w-0 flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]"
+                    />
+                    <button
+                      type="button"
+                      disabled={!repoInput.trim() || inspect.isPending || busy}
+                      onClick={() => inspect.mutate({ repoId: repoInput.trim() })}
+                      className="mari-chrome-control mari-chrome-control--compact px-3 text-xs disabled:opacity-50"
+                    >
+                      {localizeUi(
+                        inspect.isPending
+                          ? "ui.modals.decisionmodelmodal.checking"
+                          : "ui.modals.decisionmodelmodal.check",
+                      )}
+                    </button>
+                  </div>
+                  {inspect.data?.refusal && (
+                    <p className="mt-2 text-[0.6875rem] text-[var(--warning)]">
+                      {localizeUi(`ui.modals.decisionmodelmodal.refusal.${inspect.data.refusal}`, {
+                        defaultValue: localizeUi("ui.modals.decisionmodelmodal.refusal.unreadable_manifest"),
+                      })}
+                    </p>
+                  )}
+                  {inspect.data?.model && inspect.data.preflight && (
+                    <div className="mt-2 rounded-lg border border-[var(--border)] p-2.5">
+                      <div className="text-xs font-medium">{inspect.data.model.label}</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-3 text-[0.625rem] text-[var(--muted-foreground)]/70">
+                        <span className="flex items-center gap-1">
+                          <Download size="0.75rem" />
+                          {formatBytes(inspect.data.model.downloadSizeBytes)}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <HardDrive size="0.75rem" />~{formatBytes(inspect.data.model.vramBytes)}{" "}
+                          {localizeUi("ui.modals.decisionmodelmodal.vram")}
+                        </span>
+                        <span>
+                          {localizeUi("ui.modals.decisionmodelmodal.baseWeights", {
+                            base: inspect.data.model.artifacts[1]?.repoId ?? "",
+                          })}
+                        </span>
+                      </div>
+                      {inspect.data.preflight.reason && (
+                        <div className="mt-1 text-[0.6875rem] text-[var(--warning)]">
+                          {inspect.data.preflight.reason}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        disabled={!inspect.data.preflight.installable || busy}
+                        onClick={() => void handleInstallRepo()}
+                        className="mari-chrome-control mari-chrome-control--compact mt-2 w-full text-xs disabled:opacity-50"
+                      >
+                        {localizeUi("ui.modals.decisionmodelmodal.installPasted")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Off by default, because a model that only answers gates does not
+                    need to hold GPU memory from boot. */}
+                <label className="mt-2 flex items-start gap-2 text-[0.625rem] text-[var(--muted-foreground)]">
+                  <input
+                    type="checkbox"
+                    checked={data?.settings.startPolicy === "with_marinara"}
+                    disabled={busy}
+                    onChange={(event) => startPolicy.mutate(event.target.checked ? "with_marinara" : "on_demand")}
+                    className="mt-0.5 accent-[var(--primary)]"
+                  />
+                  <span>{localizeUi("ui.modals.decisionmodelmodal.startWithMarinara")}</span>
+                </label>
+
                 {installedId && (
                   <button
                     type="button"

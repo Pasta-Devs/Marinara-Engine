@@ -101,6 +101,11 @@ export interface SidecarHealthSection {
   gpu: GpuProbe;
   slots: SidecarSlotFootprint[];
   load: SidecarLoadAssessment | null;
-  /** When the decision sidecar was enabled, and the verdict shown at that moment. */
-  decisionConsent?: { confirmedAt: string; verdict: SidecarLoadVerdict } | null;
+  /**
+   * When the decision sidecar was enabled, and the verdict shown at that moment.
+   *
+   * In the report so support can see at a glance that a warning was acknowledged
+   * rather than guess whether the user understood what they turned on.
+   */
+  decisionConsent?: { confirmedAt: string; verdict: string } | null;
 }

@@ -10,7 +10,7 @@
  * Nothing here blocks: it reads a cached probe and the slots' own status, so the
  * health endpoint stays fast even when `nvidia-smi` is missing or slow.
  */
-import type { SidecarHealthSection, SidecarSlotFootprint } from "@marinara-engine/shared";
+import type { SidecarHealthSection, SidecarLoadVerdict, SidecarSlotFootprint } from "@marinara-engine/shared";
 import {
   assessSidecarLoad,
   estimateSlotBytes,
@@ -97,11 +97,10 @@ function utilitySlot(): SidecarSlotFootprint {
 }
 
 /**
- * The decision slot, which has no managed runtime in this build.
+ * The managed decision sidecar's slot.
  *
- * Reported as unconfigured rather than omitted, so the report's shape does not change
- * when the managed decision sidecar arrives and so a reader can tell "not installed"
- * from "this build does not know about it".
+ * Reported even when nothing is installed, so the report's shape does not change with
+ * the user's setup and a reader can tell "not installed" from "not reported".
  */
 function decisionSlot(): SidecarSlotFootprint {
   const settings = decisionSidecarSettings();
@@ -124,6 +123,22 @@ function decisionSlot(): SidecarSlotFootprint {
   };
 }
 
+/**
+ * A stored verdict is a string from an older release or a hand-edited settings file,
+ * so it is matched against the set this build knows rather than cast into it.
+ */
+function normalizeLoadVerdict(value: string | null): SidecarLoadVerdict {
+  const known: SidecarLoadVerdict[] = [
+    "unsupported",
+    "not_enough_disk",
+    "wont_fit",
+    "wont_fit_beside_sidecar",
+    "tight",
+    "recommended",
+  ];
+  return known.find((verdict) => verdict === value) ?? "recommended";
+}
+
 /** The slot readings, shared by the health section and the decision preflight. */
 export function readSidecarSlots(): SidecarSlotFootprint[] {
   return [mainSlot(), utilitySlot(), decisionSlot()];
@@ -138,5 +153,19 @@ export function buildSidecarHealthSection(): SidecarHealthSection {
   const device = resolveSharedDevice(gpu.devices, null);
   const load =
     device && slots.some((slot) => slot.configured && !slot.onCpu) ? assessSidecarLoad({ slots, device }) : null;
-  return { gpu, slots, load, decisionConsent: null };
+  const settings = decisionSidecarSettings();
+  return {
+    gpu,
+    slots,
+    load,
+    // Only meaningful once someone turned it on. Recording what they were shown at
+    // that moment is the difference between an informed choice and a surprise.
+    decisionConsent:
+      settings.enabled && settings.confirmedAt
+        ? {
+            confirmedAt: settings.confirmedAt,
+            verdict: normalizeLoadVerdict(settings.confirmedVerdict),
+          }
+        : null,
+  };
 }

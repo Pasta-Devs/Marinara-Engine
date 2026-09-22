@@ -188,7 +188,24 @@ Keywords and cadence are checked first, so an already-skipped agent does not mak
 
 A local model derives its state budget from the slot's own context size rather than from a connection setting.
 
-This setting applies to custom agents. Built-in agent activation and character-activity evaluation keep their existing behavior. Marinara does not install or start Open-Jev through these controls.
+This setting applies to custom agents. Built-in agent activation and character-activity evaluation keep their existing behavior.
+
+### Let Marinara install a decision model
+
+Marinara can also download and run a purpose-built decision model for you, as a second local process beside your normal one. Most people do not need this: it costs about 10 GB of disk and around 5 GB of GPU memory on top of your normal local model, and on our measurements it is **less accurate on roleplay than the local model you already have**. It is faster, and a little smaller. That is the whole trade.
+
+It needs Linux with an NVIDIA GPU of compute capability 7.5 or newer (Turing, the RTX 20 series, or later) and driver 580 or newer. Pascal cards and older cannot run it whatever memory they have, because the runtime's kernels do not cover them. Where it cannot run, the option stays visible and says why.
+
+1. Open **Connections**, expand **Local Model**, and choose **Decision sidecar (experimental)**.
+2. Read the warning, then turn on **Enable decision sidecar**. Confirming shows the verdict for your machine, and the button reads **Enable anyway** when that verdict is a warning.
+3. Pick a model and confirm its size and licences. Nothing downloads before that point.
+4. Select **Decision sidecar** under **Decision model**.
+
+You can also paste a decision model's HuggingFace repository. Marinara reads that repository's own manifest, checks that the artifact type maps to a runtime this build ships, and shows you the base weights it will pull and the total size before offering to install it. A repository it cannot vouch for is refused with the reason rather than installed hopefully.
+
+Thresholds are not comparable between models, so the editor seeds a new question from whatever the selected model answers around. A decision model that answers yes at 0.2 and no at 0.02 needs a threshold near 0.1, not 0.5.
+
+Turning the sidecar off stops the process and keeps the files. **Remove files** deletes the model and its runtime.
 
 ## Attaching tools (Function Calling)
 

@@ -55,7 +55,9 @@ export type DecisionSlotFailure = { slot: DecisionLocalSlot; reason: DecisionUna
 
 /** The catalog entry the user has installed, if the sidecar is enabled at all. */
 export function installedDecisionModel(settings: DecisionSidecarSettings): SidecarDecisionModelInfo | null {
-  return settings.enabled ? findDecisionModel(settings.modelId) : null;
+  if (!settings.enabled) return null;
+  // A pasted model is as installed as a curated one; only where it came from differs.
+  return findDecisionModel(settings.modelId) ?? settings.customModel;
 }
 
 /** The main sidecar's Thinking setting, kept with that slot's own config. */

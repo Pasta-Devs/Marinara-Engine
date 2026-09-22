@@ -18,6 +18,7 @@ import type { SidecarDecisionModelInfo } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { getDataDir } from "../../utils/data-dir.js";
 import { artifactSnapshotPath, decisionRuntimeInstalled, decisionRuntimeService } from "./decision-runtime.service.js";
+import { preflightDecisionModel } from "./decision-preflight.js";
 
 const LOG_PATH = join(getDataDir(), "sidecar-runtime", "decision", "server.log");
 /** Loading 4.5 GB of weights and building the LoRA takes a while on a cold cache. */
@@ -77,6 +78,18 @@ class DecisionProcessService {
       this.error = "The decision model is not downloaded.";
       return null;
     }
+
+    // Conditions change after an install: a bigger sidecar model, a longer context, a
+    // game holding memory. The verdict at download time is not a promise about today,
+    // so it is taken again here and a launch that no longer fits is refused with the
+    // same plain sentence rather than dying inside CUDA.
+    const preflight = await preflightDecisionModel(model);
+    if (preflight.assessment.verdict === "unsupported" || preflight.assessment.verdict === "wont_fit") {
+      this.error = preflight.reason ?? "The decision model no longer fits on this device.";
+      logger.warn("[decision-sidecar] Refusing to start: %s", this.error);
+      return null;
+    }
+
     await this.stop();
 
     const runtime = decisionRuntimeService.getPaths();

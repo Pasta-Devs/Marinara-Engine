@@ -108,6 +108,65 @@ export const SIDECAR_DECISION_MODELS: SidecarDecisionModelInfo[] = [
   },
 ];
 
+/**
+ * What a runtime kind imposes on anything it loads.
+ *
+ * A pasted checkpoint declares which runtime can load it but not what that runtime
+ * costs, so these come from the runtime rather than from the repository. A model's
+ * own manifest is not allowed to claim a lower driver floor or a wider GPU range than
+ * the wheels actually support.
+ */
+export const DECISION_RUNTIME_DEFAULTS: Record<
+  DecisionRuntimeKind,
+  Pick<SidecarDecisionModelInfo, "maxLengthTokens" | "batchSize" | "platforms" | "minComputeCapability" | "calibration">
+> = {
+  open_jev_torch: {
+    maxLengthTokens: 4096,
+    batchSize: 8,
+    platforms: [{ os: "linux", arch: "x64", gpuVendor: "nvidia", minDriver: "580" }],
+    minComputeCapability: "7.5",
+    calibration: { defaultThreshold: 0.1, questionShape: "task_object" },
+  },
+};
+
+/** The shape of a checkpoint's own release manifest, as far as this engine reads it. */
+export interface DecisionReleaseManifest {
+  artifact_type?: unknown;
+  base_model?: unknown;
+  base_revision?: unknown;
+  base_weights_included?: unknown;
+}
+
+export type DecisionManifestRefusal =
+  | "unreadable_manifest"
+  | "unknown_artifact_type"
+  | "missing_base_model"
+  | "unpinned_base_revision"
+  | "base_weights_included";
+
+/**
+ * Judge a pasted checkpoint by what it declares about itself.
+ *
+ * This is the whole safety gate for a bring-your-own model: compatibility is read from
+ * the repository's own manifest and matched against a runtime this engine ships,
+ * rather than assumed from a name. Anything it cannot vouch for is refused by reason,
+ * never installed hopefully.
+ */
+export function readDecisionManifest(
+  manifest: DecisionReleaseManifest | null,
+): { runtime: DecisionRuntimeKind; baseModel: string; baseRevision: string } | { refusal: DecisionManifestRefusal } {
+  if (!manifest || typeof manifest !== "object") return { refusal: "unreadable_manifest" };
+  const declared = typeof manifest.artifact_type === "string" ? manifest.artifact_type : "";
+  const runtime = DECISION_ARTIFACT_RUNTIMES[declared];
+  if (!runtime) return { refusal: "unknown_artifact_type" };
+  const baseModel = typeof manifest.base_model === "string" ? manifest.base_model.trim() : "";
+  if (!/^[^/\s]+\/[^/\s]+$/u.test(baseModel)) return { refusal: "missing_base_model" };
+  const baseRevision = typeof manifest.base_revision === "string" ? manifest.base_revision.trim() : "";
+  // A branch name would let the weights change under a pinned adapter.
+  if (!/^[0-9a-f]{40}$/u.test(baseRevision)) return { refusal: "unpinned_base_revision" };
+  return { runtime, baseModel, baseRevision };
+}
+
 export function findDecisionModel(id: string | null | undefined): SidecarDecisionModelInfo | null {
   return SIDECAR_DECISION_MODELS.find((model) => model.id === id) ?? null;
 }
@@ -124,6 +183,12 @@ export interface DecisionSidecarSettings {
   enabled: boolean;
   /** The catalog entry that is installed, or null. */
   modelId: string | null;
+  /**
+   * A model installed by pasting its repository, which by definition is not in the
+   * curated list. Stored whole so an install survives a restart without re-reading a
+   * third party's manifest to find out what is on disk.
+   */
+  customModel: SidecarDecisionModelInfo | null;
   /** Start with Marinara, or on the first gate that needs it. */
   startPolicy: "on_demand" | "with_marinara";
   confirmedAt: string | null;
@@ -136,10 +201,23 @@ export const DECISION_SIDECAR_SETTINGS_KEY = "decision-sidecar";
 export const DECISION_SIDECAR_DEFAULT_SETTINGS: DecisionSidecarSettings = {
   enabled: false,
   modelId: null,
+  customModel: null,
   startPolicy: "on_demand",
   confirmedAt: null,
   confirmedVerdict: null,
 };
+
+/** Accept a stored custom entry only if its runtime and floors still make sense. */
+export function sanitizeCustomDecisionModel(value: unknown): SidecarDecisionModelInfo | null {
+  if (!value || typeof value !== "object") return null;
+  const model = value as SidecarDecisionModelInfo;
+  const defaults = DECISION_RUNTIME_DEFAULTS[model.runtime];
+  if (!defaults) return null;
+  if (!Array.isArray(model.artifacts) || model.artifacts.length === 0) return null;
+  if (!model.artifacts.every((artifact) => /^[0-9a-f]{40}$/u.test(artifact.revision ?? ""))) return null;
+  // The runtime's own constraints always win over whatever was stored.
+  return { ...model, ...defaults };
+}
 
 export function parseDecisionSidecarSettings(raw: string | null | undefined): DecisionSidecarSettings {
   if (!raw) return { ...DECISION_SIDECAR_DEFAULT_SETTINGS };
@@ -148,6 +226,9 @@ export function parseDecisionSidecarSettings(raw: string | null | undefined): De
     return {
       enabled: parsed.enabled === true,
       modelId: typeof parsed.modelId === "string" && findDecisionModel(parsed.modelId) ? parsed.modelId : null,
+      // Re-validated on read: a hand-edited entry must not be able to describe a
+      // runtime this engine does not ship or claim a weaker hardware floor.
+      customModel: sanitizeCustomDecisionModel(parsed.customModel),
       startPolicy: parsed.startPolicy === "with_marinara" ? "with_marinara" : "on_demand",
       confirmedAt: typeof parsed.confirmedAt === "string" ? parsed.confirmedAt : null,
       confirmedVerdict: typeof parsed.confirmedVerdict === "string" ? parsed.confirmedVerdict : null,

@@ -18,6 +18,11 @@ import {
   DEFAULT_DECISION_CALIBRATION,
   findDecisionModel,
   normalizeDecisionThinking,
+  readDecisionManifest,
+  sanitizeCustomDecisionModel,
+  parseDecisionSidecarSettings,
+  readDecisionManifest,
+  sanitizeCustomDecisionModel,
   SIDECAR_DECISION_MODELS,
   SIDECAR_FOOTPRINT_HEADROOM_BYTES,
   type GpuDevice,
@@ -142,6 +147,60 @@ for (const model of SIDECAR_DECISION_MODELS) {
 assert.equal(DECISION_ARTIFACT_RUNTIMES["qwen_lora_adapter_plus_scalar_decision_head"], "open_jev_torch");
 assert.equal(DECISION_ARTIFACT_RUNTIMES["something_invented"], undefined);
 
+// The whole safety gate for a pasted model: compatibility is read from the manifest,
+// and anything that cannot be vouched for is refused by reason rather than installed
+// hopefully. These are the shapes a real hub can hand back.
+{
+  const good = {
+    artifact_type: "qwen_lora_adapter_plus_scalar_decision_head",
+    base_model: "Qwen/Qwen3.5-2B",
+    base_revision: "15852e8c16360a2fea060d615a32b45270f8a8fc",
+  };
+  const accepted = readDecisionManifest(good);
+  assert.ok(!("refusal" in accepted));
+  assert.equal(accepted.runtime, "open_jev_torch");
+  assert.equal(accepted.baseModel, "Qwen/Qwen3.5-2B");
+
+  const refusalFor = (manifest: unknown) => {
+    const read = readDecisionManifest(manifest as never);
+    return "refusal" in read ? read.refusal : null;
+  };
+  assert.equal(refusalFor(null), "unreadable_manifest");
+  assert.equal(refusalFor({ ...good, artifact_type: "something_we_cannot_run" }), "unknown_artifact_type");
+  assert.equal(refusalFor({ ...good, base_model: undefined }), "missing_base_model");
+  assert.equal(refusalFor({ ...good, base_model: "not-a-repo" }), "missing_base_model");
+  // A branch would let the weights change under a pinned adapter, so it is refused
+  // even though the repository would resolve.
+  assert.equal(refusalFor({ ...good, base_revision: "main" }), "unpinned_base_revision");
+  assert.equal(refusalFor({ ...good, base_revision: "15852e8c" }), "unpinned_base_revision");
+
+  // A stored custom entry is re-validated on read: a hand-edited one must not be able
+  // to name a runtime this build does not ship or loosen a hardware floor.
+  const stored = {
+    id: "byo:x",
+    runtime: "open_jev_torch" as const,
+    artifacts: [{ repoId: "a/b", revision: "0".repeat(40) }],
+    minComputeCapability: "1.0",
+    platforms: [{ os: "linux" as NodeJS.Platform, arch: "x64", gpuVendor: "nvidia" as const, minDriver: "1" }],
+    calibration: { defaultThreshold: 0.9, questionShape: "text" as const },
+  };
+  const sanitized = sanitizeCustomDecisionModel(stored)!;
+  assert.ok(sanitized, "a well-formed stored entry survives");
+  assert.equal(sanitized.minComputeCapability, "7.5", "the runtime's floor wins over a stored claim");
+  assert.equal(sanitized.platforms[0]!.minDriver, "580", "and so does its driver floor");
+  assert.equal(sanitized.calibration.defaultThreshold, 0.1, "and its measured operating point");
+  assert.equal(sanitizeCustomDecisionModel({ ...stored, runtime: "invented" }), null);
+  assert.equal(sanitizeCustomDecisionModel({ ...stored, artifacts: [{ repoId: "a/b", revision: "main" }] }), null);
+  assert.equal(sanitizeCustomDecisionModel(null), null);
+}
+
+// Settings come back from a JSON blob a user can hand-edit; nothing in it may turn
+// the sidecar on or point it at something this build cannot run.
+assert.equal(parseDecisionSidecarSettings(null).enabled, false);
+assert.equal(parseDecisionSidecarSettings("not json").enabled, false);
+assert.equal(parseDecisionSidecarSettings('{"enabled":true,"modelId":"made-up"}').modelId, null);
+assert.equal(parseDecisionSidecarSettings('{"enabled":true,"startPolicy":"nonsense"}').startPolicy, "on_demand");
+
 // Wrapping is what made the wrapped question separate 10.9x instead of 3.8x. The
 // hosted default stays a bare string, because that backend has not been measured.
 assert.equal(buildDecisionInstructions("Did the scene change?", "text"), "Did the scene change?");
@@ -169,6 +228,55 @@ assert.deepEqual(buildDecisionInstructions("Did the scene change?", "task_object
   });
   assert.equal(result.skip.has("unset"), false, "0.2 clears a 0.1 operating point, so the agent runs");
   assert.equal(result.skip.has("chosen"), true, "0.2 is below an explicitly chosen 0.5, so it does not");
+}
+
+// A pasted repository is judged by what it declares about itself, never by its name.
+// This is the entire safety gate for bring-your-own, so each refusal is pinned.
+assert.deepEqual(readDecisionManifest(null), { refusal: "unreadable_manifest" });
+assert.deepEqual(readDecisionManifest({}), { refusal: "unknown_artifact_type" });
+assert.deepEqual(readDecisionManifest({ artifact_type: "something_invented" }), {
+  refusal: "unknown_artifact_type",
+});
+assert.deepEqual(readDecisionManifest({ artifact_type: "qwen_lora_adapter_plus_scalar_decision_head" }), {
+  refusal: "missing_base_model",
+});
+assert.deepEqual(
+  readDecisionManifest({
+    artifact_type: "qwen_lora_adapter_plus_scalar_decision_head",
+    base_model: "Qwen/Qwen3.5-2B",
+    base_revision: "main",
+  }),
+  { refusal: "unpinned_base_revision" },
+  "a branch would let the weights change under a pinned adapter",
+);
+assert.deepEqual(
+  readDecisionManifest({
+    artifact_type: "qwen_lora_adapter_plus_scalar_decision_head",
+    base_model: "Qwen/Qwen3.5-2B",
+    base_revision: "15852e8c16360a2fea060d615a32b45270f8a8fc",
+  }),
+  { runtime: "open_jev_torch", baseModel: "Qwen/Qwen3.5-2B", baseRevision: "15852e8c16360a2fea060d615a32b45270f8a8fc" },
+);
+
+// A stored custom entry is re-validated on read: a hand-edited one must not be able to
+// name a runtime this build does not ship or claim a weaker hardware floor.
+assert.equal(sanitizeCustomDecisionModel(null), null);
+assert.equal(sanitizeCustomDecisionModel({ runtime: "invented_runtime", artifacts: [] }), null);
+assert.equal(
+  sanitizeCustomDecisionModel({ runtime: "open_jev_torch", artifacts: [{ repoId: "a/b", revision: "main" }] }),
+  null,
+  "an unpinned artifact is not a usable install record",
+);
+{
+  const stored = sanitizeCustomDecisionModel({
+    runtime: "open_jev_torch",
+    artifacts: [{ repoId: "a/b", revision: "0".repeat(40) }],
+    minComputeCapability: "3.0",
+    calibration: { defaultThreshold: 0.9, questionShape: "text" },
+  });
+  assert.ok(stored);
+  assert.equal(stored.minComputeCapability, "7.5", "the runtime's floor overrides whatever was stored");
+  assert.equal(stored.calibration.defaultThreshold, 0.1, "and so does its operating point");
 }
 
 // ── the backend against a recorded llama-server ───────────────────────────────
