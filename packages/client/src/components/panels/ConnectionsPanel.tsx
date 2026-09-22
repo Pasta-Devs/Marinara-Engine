@@ -1,4 +1,5 @@
 import { DecisionDefaultControl } from "../connections/DecisionDefaultControl";
+import { DecisionModelModal } from "../modals/DecisionModelModal";
 // ──────────────────────────────────────────────
 // Panel: API Connections (polished, with folders)
 // ──────────────────────────────────────────────
@@ -210,6 +211,8 @@ function getDroppedConnectionIds(event: DragEvent<HTMLElement>, fallbackId: stri
 
 function SidecarCard() {
   const { t: localizeUi } = useUiTranslation();
+  /** The managed decision model installer, opened from inside this card. */
+  const [decisionModalOpen, setDecisionModalOpen] = useState(false);
   const { data: agentConfigs } = useAgentConfigs();
   const { data: capabilityAgents } = useCapabilityAgentRegistry();
   const { data: installedCapabilityPackages } = useInstalledCapabilityPackages();
@@ -669,6 +672,13 @@ function SidecarCard() {
                 className="p-0 hover:bg-transparent"
                 labelClassName="text-xs text-[var(--muted-foreground)]"
               />
+              <button
+                type="button"
+                onClick={() => setDecisionModalOpen(true)}
+                className="mari-chrome-control mari-chrome-control--compact w-full text-center"
+              >
+                {localizeUi("ui.panels.sidecarcard.decisionSidecar")}
+              </button>
             </div>
           )}
           {!isDownloaded && (
@@ -692,6 +702,7 @@ function SidecarCard() {
               </button>
             </div>
           )}
+          <DecisionModelModal open={decisionModalOpen} onClose={() => setDecisionModalOpen(false)} />
           {status === "server_error" && (
             <div className="mt-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5">
               <div className="text-[0.6875rem] font-medium text-amber-200">

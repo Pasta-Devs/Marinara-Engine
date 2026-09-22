@@ -45,8 +45,8 @@ import {
 import {
   decisionSidecarSettings,
   describeDecisionSlot,
+  hasThinkingSetting,
   installedDecisionModel,
-  isDecisionSlotImplemented,
   setDecisionSidecarSettingsReader,
   resolveDecisionSlot,
   setDecisionSlotThinking,
@@ -132,7 +132,7 @@ function localOption(slot: DecisionLocalSlot, selectedId: string | null): Decisi
     unavailable: description.available ? null : description.reason,
     ...(description.available ? {} : description.detail ? { detail: description.detail } : {}),
   };
-  if (slot === "decision_sidecar" || !isDecisionSlotImplemented(slot)) return base;
+  if (!hasThinkingSetting(slot)) return base;
   return {
     ...base,
     thinking: slotThinking(slot),
@@ -307,10 +307,10 @@ export async function decisionRoutes(app: FastifyInstance) {
       // gate quietly resolved nothing, which reads as "activation questions are
       // broken" rather than "that model is not set up".
       const description = describeDecisionSlot(slot);
-      if (!isDecisionSlotImplemented(slot) || !description.available)
+      if (!description.available)
         return reply.status(409).send({
           error: "That local model cannot answer decisions right now",
-          reason: description.available ? "not_installed" : description.reason,
+          reason: description.reason,
         });
       await settings.set(DECISION_LOCAL_DEFAULT_SETTINGS_KEY, id!);
       if (current) await connections.update(current.id, { defaultForAgents: false });
@@ -351,8 +351,9 @@ export async function decisionRoutes(app: FastifyInstance) {
    */
   app.post("/thinking", async (req, reply) => {
     const { slot, thinking } = thinkingSchema.parse(req.body);
-    if (!isDecisionSlotImplemented(slot))
-      return reply.status(409).send({ error: "That local model is not available in this build" });
+    // A decision model has no reasoning to allow or forbid, so a request naming it is
+    // refused rather than echoed back as a saved setting it does not have.
+    if (!hasThinkingSetting(slot)) return reply.status(409).send({ error: "That model has no thinking setting" });
     setDecisionSlotThinking(slot, thinking);
     return { slot, thinking };
   });

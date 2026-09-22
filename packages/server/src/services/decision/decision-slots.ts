@@ -53,11 +53,6 @@ export interface ResolvedDecisionSlot {
 
 export type DecisionSlotFailure = { slot: DecisionLocalSlot; reason: DecisionUnavailableReason; detail?: string };
 
-/** Every local slot is served now that the decision sidecar has a runtime. */
-export function isDecisionSlotImplemented(_slot: DecisionLocalSlot): boolean {
-  return true;
-}
-
 /** The catalog entry the user has installed, if the sidecar is enabled at all. */
 export function installedDecisionModel(settings: DecisionSidecarSettings): SidecarDecisionModelInfo | null {
   return settings.enabled ? findDecisionModel(settings.modelId) : null;
@@ -212,10 +207,20 @@ export function decisionSlotContextSize(slot: DecisionLocalSlot): number {
   return sidecarModelService.getConfig().contextSize;
 }
 
+/**
+ * Which slots have a Thinking setting at all.
+ *
+ * Only the two chat slots. A purpose-built decision model scores candidates in one
+ * forward pass and has no text to reason in, so there is nothing to allow or forbid.
+ */
+export function hasThinkingSetting(slot: DecisionLocalSlot): boolean {
+  return slot === "primary" || slot === "utility";
+}
+
 export function setDecisionSlotThinking(slot: DecisionLocalSlot, thinking: DecisionThinkingMode): void {
-  // Without this guard the else branch catches `decision_sidecar` too, and a setting
-  // for a slot this build cannot run would silently overwrite the primary slot's.
-  if (!isDecisionSlotImplemented(slot)) return;
+  // Explicit per slot rather than an else. An else branch catches `decision_sidecar`
+  // as well and silently writes a setting for it over the primary slot's config,
+  // which is a real bug this had once already.
   if (slot === "utility") utilitySidecarService.setDecisionThinking(thinking);
-  else sidecarModelService.setDecisionThinking(thinking);
+  else if (slot === "primary") sidecarModelService.setDecisionThinking(thinking);
 }

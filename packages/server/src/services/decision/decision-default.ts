@@ -17,7 +17,7 @@ import {
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { getAnswerStyle } from "./decision-thinking-cache.js";
-import { isDecisionSlotImplemented, decisionSlotContextSize, resolveDecisionSlot } from "./decision-slots.js";
+import { decisionSlotContextSize, resolveDecisionSlot } from "./decision-slots.js";
 import { askSidecarNoulQuestions } from "./sidecar-decision.backend.js";
 import { resolveDecisionConnection, type DecisionConnectionRow } from "./decision-connection.js";
 import { askNoulQuestions, type NoulQuestion } from "./system-one.client.js";
@@ -60,7 +60,9 @@ export async function readDecisionLocalSlot(
   getLocalDefault: () => Promise<string | null>,
 ): Promise<DecisionLocalSlot | null> {
   const slot = decisionLocalSlotForId(await getLocalDefault());
-  return slot && isDecisionSlotImplemented(slot) ? slot : null;
+  // Whether the slot can actually serve is `resolveDecisionSlot`'s answer, not a
+  // property of the id: a slot with no model is still a real slot.
+  return slot;
 }
 
 /**

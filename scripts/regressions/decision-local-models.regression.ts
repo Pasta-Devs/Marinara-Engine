@@ -45,7 +45,7 @@ import {
   clearDecisionThinkingCache,
   getAnswerStyle,
 } from "../../packages/server/src/services/decision/decision-thinking-cache.js";
-import { isDecisionSlotImplemented } from "../../packages/server/src/services/decision/decision-slots.js";
+import { hasThinkingSetting } from "../../packages/server/src/services/decision/decision-slots.js";
 import { decisionConnectionUnavailable } from "../../packages/server/src/routes/decision.routes.js";
 
 // ── reading an answer out of log-probabilities ────────────────────────────────
@@ -507,11 +507,13 @@ assert.equal(
 // With no device, nothing is asserted about fit.
 assert.equal(assessSidecarLoad({ slots: [slot({ estimatedBytes: 99 * GB })], device: null }).verdict, "recommended");
 
-// A slot this build cannot run must not be selectable or writable through the API,
-// or a setting for it lands on the primary slot's config instead.
-assert.equal(isDecisionSlotImplemented("primary"), true);
-assert.equal(isDecisionSlotImplemented("utility"), true);
-assert.equal(isDecisionSlotImplemented("decision_sidecar"), false);
+// Only the chat slots have a Thinking setting: a decision model scores candidates in
+// one pass and has no text to reason in. This is load bearing rather than cosmetic,
+// because an `else` in the setter would write a decision-sidecar request over the
+// PRIMARY slot's config, which it did once already.
+assert.equal(hasThinkingSetting("primary"), true);
+assert.equal(hasThinkingSetting("utility"), true);
+assert.equal(hasThinkingSetting("decision_sidecar"), false);
 
 // A rejected selection must not change stored state. The 404 and 409 branches in
 // /select sit above the line that clears the local slot, so a stale request cannot
