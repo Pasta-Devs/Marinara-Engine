@@ -42,7 +42,7 @@ Marinaraがシーンを組み立て、新しいRoleplayのチャットとして�
 
 Conversationにまだメッセージが1つもない場合は、シーンを組み立てられないため、説明を書き足すか先にチャットを進めるようMarinaraが促します。
 
-キャラクターの側からシーンの開始を持ちかけてくることもあります。その場合も同じ**Scene Prompt Setup**ウィンドウが開き、「[Character] wants to start a scene.」のような一文が表示されます。同じように**Prompt preset**、**POV**と**Tense**を選んで**Plan Scene**をクリックするか、断るときは**Cancel**をクリックします。
+キャラクターからシーンを提案することもあります。応答の横に**Set up scene**（シーン設定）の招待が表示され、会話を遮りません。準備ができたら押して**Scene Prompt Setup**を開き、**Prompt preset**、**POV**、**Tense**を選んで**Plan Scene**を押します。**Cancel**はシーンを作らず設定を閉じます。キャンセル後や再読み込み後も招待は残ります。
 
 ## シーンバー: End Scene、Discard、Convert、Back to conversation
 

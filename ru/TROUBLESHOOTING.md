@@ -463,3 +463,7 @@ Server Extensions работают только с Seatbelt в macOS или Bubb
 - [Настройка модели Local Model](connections/local-model.md)
 - [Game Mode: начало работы](game/getting-started.md)
 - [Обзор настроек](settings/settings-overview.md)
+
+### Chrome на Android не предлагает установить PWA при Basic Auth
+
+Используйте адрес HTTPS, войдите и перезагрузите страницу после обновления приложения Marinara. Манифест запрашивается с учетными данными, поэтому Basic Auth можно оставить включенной. Если установка недоступна, проверьте, что прокси возвращает `/manifest.json` как JSON, а не страницу входа или ошибку.

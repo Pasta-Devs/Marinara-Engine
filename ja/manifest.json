@@ -1,5 +1,6 @@
 {
   "language": "ja",
+  "sourceCommit": "f45d830d8a45199596d2e662632837a2795043fd",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -23,8 +24,8 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "cb1ca33236c7e25c9cbf51e01de80fa0d58733e1385e92b25869fea1ff036b2c",
-      "bytes": 57720
+      "sha256": "7f9df6128d1ef5341602b45a1dfacb30381e707ae8877cd93e15b0960c468682",
+      "bytes": 58203
     },
     {
       "path": "UPGRADING.md",
@@ -63,8 +64,8 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "8f43d81ed4f94c542437c9b77266e59ff31dfaa27f5af27824866bcd4eb3fdfc",
-      "bytes": 31818
+      "sha256": "4182ab5c2f78e604effc4bee1fb5f5899e88e4386afc65f66b31351169a70ebb",
+      "bytes": 34243
     },
     {
       "path": "appearance/appearance-settings.md",
@@ -638,8 +639,8 @@
     },
     {
       "path": "roleplay/scenes.md",
-      "sha256": "3eb7ba3b0d3d009a873318876e9f5f9bf37bc3d2749c4c238a57ad60d8aee19a",
-      "bytes": 9719
+      "sha256": "8b5a2eaa4083859d85f3ee5e5905c47dc7124ebfc0dde4d5ea6ccc8ab5a41a11",
+      "bytes": 9760
     },
     {
       "path": "settings/settings-overview.md",

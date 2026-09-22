@@ -42,7 +42,7 @@ También puedes iniciar una escena sin descripción. Escribe solo el comando por
 
 Si la conversación aún no tiene mensajes, Marinara te pide que añadas una descripción o que converses primero antes de poder planificar una escena.
 
-Un personaje también puede pedir iniciar una escena. Cuando eso pasa, se abre la misma ventana **Scene Prompt Setup**, con una línea como "[Character] wants to start a scene." Elige **Prompt preset**, **POV** y **Tense** y haz clic en **Plan Scene** de la misma forma, o haz clic en **Cancel** para rechazarla.
+Un personaje también puede proponer una escena. Junto a su respuesta aparece una invitación con **Set up scene** (configurar escena), sin tapar la conversación. Haz clic cuando quieras abrir **Scene Prompt Setup**, elige **Prompt preset**, **POV** y **Tense** y pulsa **Plan Scene**. **Cancel** cierra la configuración sin crear nada; la invitación sigue disponible tras cancelar o recargar.
 
 ## La barra de escena: End Scene, Discard, Convert y Back to conversation
 

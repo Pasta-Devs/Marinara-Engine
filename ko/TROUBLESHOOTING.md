@@ -463,3 +463,7 @@ Server Extension은 macOS Seatbelt나 Linux Bubblewrap이 있어야만 실행됩
 - [Local Model 설정](connections/local-model.md)
 - [Game Mode: 시작하기](game/getting-started.md)
 - [설정 개요](settings/settings-overview.md)
+
+### Basic Auth를 사용할 때 Android Chrome에서 PWA 설치가 표시되지 않음
+
+HTTPS 주소로 로그인하고 Marinara 업데이트 후 새로고침하세요. 앱은 인증 정보를 포함해 매니페스트를 요청하므로 Basic Auth를 계속 켜 둘 수 있습니다. 설치가 여전히 불가능하면 프록시가 `/manifest.json`을 로그인 페이지나 오류 대신 JSON으로 반환하는지 확인하세요.

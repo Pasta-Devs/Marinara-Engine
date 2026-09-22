@@ -463,3 +463,7 @@ Server Extensions सिर्फ़ macOS Seatbelt या Linux Bubblewrap क�
 - [Local Model का सेटअप](connections/local-model.md)
 - [Game Mode: शुरुआत](game/getting-started.md)
 - [सेटिंग्स का परिचय](settings/settings-overview.md)
+
+### Basic Auth के पीछे Android Chrome में PWA इंस्टॉल करने का विकल्प नहीं मिलता
+
+HTTPS का पता इस्तेमाल करें, साइन इन करें और Marinara अपडेट करने के बाद पेज रीलोड करें। ऐप मैनिफ़ेस्ट के लिए प्रमाणीकरण की जानकारी भेजता है, इसलिए Basic Auth चालू रह सकता है। अगर इंस्टॉल करने का विकल्प अभी भी नहीं मिलता, तो देखें कि आपका प्रॉक्सी `/manifest.json` को लॉगिन पेज या त्रुटि के बजाय JSON के रूप में भेजे।

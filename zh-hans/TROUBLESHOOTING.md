@@ -463,3 +463,7 @@ services:
 - [本地模型设置](connections/local-model.md)
 - [Game Mode：入门](game/getting-started.md)
 - [设置总览](settings/settings-overview.md)
+
+### Android Chrome 在 Basic Auth 下不提供 PWA 安装
+
+使用 HTTPS 地址，登录，并在更新 Marinara 后刷新页面。应用请求清单时会携带凭据，因此可以保持 Basic Auth 开启。如果仍无法安装，检查代理是否将 `/manifest.json` 返回为 JSON，而不是登录页面或错误。

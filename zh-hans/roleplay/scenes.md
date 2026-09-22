@@ -42,7 +42,7 @@ Marinara 会规划好场景，并把它作为一段新的角色扮演聊天打�
 
 如果聊天里还一条消息都没有，Marinara 会提示先补一句描述，或者先聊几句，才能规划场景。
 
-角色也可以主动提出开一个场景。这时会打开同一个 **Scene Prompt Setup** 窗口，上面写着类似“[Character] wants to start a scene.”的一行字。照样选好 **Prompt preset**、**POV** 和 **Tense** 再点击 **Plan Scene**，或者点击 **Cancel** 拒绝。
+角色也可以提议开始场景。回复旁会出现带 **Set up scene**(设置场景) 按钮的邀请，不会遮挡对话。准备好后点击，打开 **Scene Prompt Setup**，选择 **Prompt preset**、**POV** 和 **Tense**，再点击 **Plan Scene**。**Cancel** 只关闭设置，不创建场景；取消或刷新页面后，邀请仍然可用。
 
 ## 场景操作条：End Scene、Discard、Convert 和 Back to conversation
 

@@ -463,3 +463,7 @@ Server Extensionは、macOSのSeatbeltかLinuxのBubblewrapがある環境でし
 - [Local Modelのセットアップ](connections/local-model.md)
 - [Game Mode: はじめに](game/getting-started.md)
 - [設定の概要](settings/settings-overview.md)
+
+### Basic Auth使用時にAndroid ChromeでPWAのインストールが表示されない
+
+HTTPSアドレスでログインし、Marinara更新後に再読み込みしてください。アプリは認証情報付きでマニフェストを取得するため、Basic Authを有効のまま使えます。まだインストールできなければ、プロキシが`/manifest.json`をログイン画面やエラーではなくJSONとして返しているか確認してください。

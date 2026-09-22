@@ -42,7 +42,7 @@ Eine Szene lässt sich auch ohne Beschreibung starten. Tipp einfach nur den Befe
 
 Stehen im Chat noch gar keine Nachrichten, bittet Marinara dich, erst eine Beschreibung zu ergänzen oder zu chatten, bevor eine Szene geplant werden kann.
 
-Auch ein Charakter kann von sich aus eine Szene vorschlagen. Dann öffnet sich dasselbe Fenster **Scene Prompt Setup**, mit einer Zeile wie „[Character] wants to start a scene“. Wähl **Prompt preset**, **POV** und **Tense** und klick genauso auf **Plan Scene** – oder lehn mit **Cancel** ab.
+Ein Charakter kann ebenfalls eine Szene vorschlagen. Neben seiner Antwort erscheint eine Einladung mit **Set up scene** (Szene einrichten), ohne das Gespräch zu verdecken. Klick darauf, sobald du **Scene Prompt Setup** öffnen möchtest, wähle **Prompt preset**, **POV** und **Tense** und klick auf **Plan Scene**. **Cancel** schließt die Einrichtung ohne neue Szene; die Einladung bleibt nach Abbrechen und Neuladen verfügbar.
 
 ## Die Szenenleiste: End Scene, Discard, Convert und Back to conversation
 
