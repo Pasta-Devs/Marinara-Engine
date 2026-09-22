@@ -188,8 +188,8 @@ export async function resolveConversationPresenceRuntime(args: {
       args,
     });
   }
-  const respondingConvoCharNames = respondingConvoCharInfo.map((character) => character.displayName);
-  const respondingCharacterIds = respondingConvoCharInfo.map((character) => character.charId);
+  let respondingConvoCharNames = respondingConvoCharInfo.map((character) => character.displayName);
+  let respondingCharacterIds = respondingConvoCharInfo.map((character) => character.charId);
   const presenceDelayStartedAt = Date.now();
   let responderDelays: Record<string, ConversationResponderDelay> = {};
 
@@ -248,6 +248,25 @@ export async function resolveConversationPresenceRuntime(args: {
           args,
           chatMessages,
           finalMessages,
+        });
+      }
+
+      const currentSceneParticipants = new Set(await resolveSceneBusyCharacterIds(args.chats, args.chatId));
+      respondingConvoCharInfo = respondingConvoCharInfo.filter(
+        (character) => !currentSceneParticipants.has(character.charId),
+      );
+      respondingCharacterIds = respondingConvoCharInfo.map((character) => character.charId);
+      respondingConvoCharNames = respondingConvoCharInfo.map((character) => character.displayName);
+      if (respondingCharacterIds.length === 0) {
+        args.writeSse({ type: "done" });
+        args.endSse();
+        return buildPresenceResult({
+          ended: true,
+          convoCharInfo,
+          convoCharNames,
+          charNameList,
+          respondingCharacterIds,
+          args,
         });
       }
 

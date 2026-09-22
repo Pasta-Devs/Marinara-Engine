@@ -42,7 +42,11 @@ export function ScenePromptPreferencesModal({
   const { t: localizeUi } = useUiTranslation();
   const { data: sourceChat } = useChat(chatId ?? null);
   const originCharacterIds = sourceChat?.characterIds ?? [];
-  const { data: characters = [], isError: charactersError } = useCharacterSummaries(originCharacterIds, !!chatId);
+  const {
+    data: characters = [],
+    isPending: charactersLoading,
+    isError: charactersError,
+  } = useCharacterSummaries(originCharacterIds, !!chatId);
   const { data: personas = [] } = usePersonas(!!chatId);
   const [participantCharacterIds, setParticipantCharacterIds] = useState<string[] | undefined>();
   const [personaSelection, setPersonaSelection] = useState("source");
@@ -305,7 +309,9 @@ export function ScenePromptPreferencesModal({
             type="button"
             onClick={handleSubmit}
             disabled={
-              (!!promptPresetId && (presetsUnverified || unavailablePreset)) || participantCharacterIds?.length === 0
+              (!!promptPresetId && (presetsUnverified || unavailablePreset)) ||
+              (participantCharacterIds !== undefined &&
+                (charactersLoading || charactersError || participantCharacterIds.length === 0))
             }
             className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
           >

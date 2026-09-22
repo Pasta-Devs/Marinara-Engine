@@ -676,7 +676,10 @@ import {
   loadCharacterPromptInfo,
   normalizeCharacterRpgStats,
 } from "../services/generation/character-prompt-context.js";
-import { injectSceneContextMessages } from "../services/generation/scene-context-runtime.js";
+import {
+  injectSceneContextMessages,
+  resolveSceneBusyCharacterIds,
+} from "../services/generation/scene-context-runtime.js";
 import { injectCommittedTrackerContext } from "../services/generation/committed-tracker-context.js";
 import { loadPriorBeholderState } from "../services/agents/beholder-state.js";
 import { injectGameGmPromptRuntime } from "../services/generation/game-gm-prompt-runtime.js";
@@ -6722,6 +6725,14 @@ export async function generateRoutes(app: FastifyInstance) {
           oocMessages: string[];
           characterId: string | null;
         } | null> => {
+          if (
+            chatMode === "conversation" &&
+            targetCharId &&
+            !input.regenerateMessageId &&
+            !input.impersonate &&
+            (await resolveSceneBusyCharacterIds(chats, input.chatId)).includes(targetCharId)
+          )
+            return null;
           generationProviderOrigin = { model: conn.model, provider: conn.provider };
           let recoveredAlreadyAppliedSpatialTurn = false;
           const pendingGameStateToolCalls: Parameters<typeof executeToolCalls>[0] = [];

@@ -308,6 +308,11 @@ export async function sceneRoutes(app: FastifyInstance) {
   const connections = createConnectionsStorage(app.db);
   const chars = createCharactersStorage(app.db);
 
+  const releaseSceneParticipants = (originChatId: string, sceneChatId: string) =>
+    chats.patchMetadata(originChatId, (current) =>
+      current.activeSceneChatId === sceneChatId ? { activeSceneChatId: undefined, sceneBusyCharIds: undefined } : {},
+    );
+
   async function resolveSceneParticipants(
     origin: NonNullable<Awaited<ReturnType<typeof chats.getById>>>,
     selection: { participantCharacterIds?: unknown; personaId?: unknown },
@@ -449,11 +454,20 @@ export async function sceneRoutes(app: FastifyInstance) {
       ...(plan.background ? { background: plan.background } : {}),
       ...(originLorebookIds.length ? { activeLorebookIds: originLorebookIds } : {}),
     });
-    await chats.updateMetadata(originChatId, {
-      ...originMeta,
-      activeSceneChatId: sceneChat.id,
-      sceneBusyCharIds: finalParticipantIds,
+    let claimed = false;
+    const originUpdate = await chats.patchMetadata(originChatId, async (current) => {
+      const active =
+        typeof current.activeSceneChatId === "string" ? await chats.getById(current.activeSceneChatId) : null;
+      if (active && parseMetadata(active).sceneStatus === "active") return {};
+      claimed = true;
+      return { activeSceneChatId: sceneChat.id, sceneBusyCharIds: finalParticipantIds };
     });
+    if (!originUpdate || !claimed) {
+      await chats.remove(sceneChat.id);
+      return reply.status(originUpdate ? 409 : 404).send({
+        error: originUpdate ? "This Conversation already has an active Scene" : "Origin chat not found",
+      });
+    }
 
     // Bidirectionally link the chats
     await chats.connectChats(originChatId, sceneChat.id);
@@ -600,7 +614,9 @@ export async function sceneRoutes(app: FastifyInstance) {
 
     // 1. Inject the summary as a message in the ORIGIN conversation
     const sceneInitiatorCharId =
-      typeof sceneMeta.sceneInitiatorCharId === "string" ? sceneMeta.sceneInitiatorCharId : null;
+      typeof sceneMeta.sceneInitiatorCharId === "string" && characterIds.includes(sceneMeta.sceneInitiatorCharId)
+        ? sceneMeta.sceneInitiatorCharId
+        : null;
     const initiatorCharId = sceneInitiatorCharId ?? characterIds[0] ?? null;
     await chats.createMessage({
       chatId: originChatId,
@@ -641,13 +657,7 @@ export async function sceneRoutes(app: FastifyInstance) {
     await chats.updateMetadata(sceneChatId, { ...sceneMeta, sceneStatus: "concluded" });
 
     // 4. Clean up origin chat metadata — remove scene busy state
-    const originChat = await chats.getById(originChatId);
-    if (originChat) {
-      const originMeta = parseMetadata(originChat);
-      delete originMeta.activeSceneChatId;
-      delete originMeta.sceneBusyCharIds;
-      await chats.updateMetadata(originChatId, originMeta);
-    }
+    await releaseSceneParticipants(originChatId, sceneChatId);
 
     // 5. Disconnect the chats (scene is over, no longer linked)
     await chats.disconnectChat(sceneChatId);
@@ -672,13 +682,7 @@ export async function sceneRoutes(app: FastifyInstance) {
     if (!originChatId) return reply.status(400).send({ error: "Not a scene chat (no origin)" });
 
     // 1. Clean up origin chat metadata — remove scene busy state
-    const originChat = await chats.getById(originChatId);
-    if (originChat) {
-      const originMeta = parseMetadata(originChat);
-      delete originMeta.activeSceneChatId;
-      delete originMeta.sceneBusyCharIds;
-      await chats.updateMetadata(originChatId, originMeta);
-    }
+    await releaseSceneParticipants(originChatId, sceneChatId);
 
     // 2. Disconnect the chats
     await chats.disconnectChat(sceneChatId);
@@ -846,13 +850,7 @@ export async function sceneRoutes(app: FastifyInstance) {
       await chats.createMessagesBatch(newChat.id, copiedMessages);
 
       if (mode === "convert" && originChatId) {
-        const originChat = await chats.getById(originChatId);
-        if (originChat) {
-          const originMeta = parseMetadata(originChat);
-          delete originMeta.activeSceneChatId;
-          delete originMeta.sceneBusyCharIds;
-          await chats.updateMetadata(originChatId, originMeta);
-        } else {
+        if (!(await releaseSceneParticipants(originChatId, sceneChatId))) {
           logger.info("[scene/fork] Origin chat %s missing during convert of scene %s", originChatId, sceneChatId);
         }
 

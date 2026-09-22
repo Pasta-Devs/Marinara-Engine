@@ -164,3 +164,67 @@ test("Saved nameless custom tracker rows do not crash Roleplay on open or reload
     await request.delete(`/api/chats/${chat.id}?force=true`);
   }
 });
+
+test("Scene setup waits for character names and resets choices for a different Conversation", async ({
+  page,
+  request,
+}) => {
+  const chars: Array<{ id: string }> = [];
+  const chats: Array<{ id: string }> = [];
+  try {
+    for (const name of ["Alice", "Bob"]) {
+      const character = await (await request.post("/api/characters", { data: { data: { name } } })).json();
+      chars.push(character);
+      chats.push(
+        await (
+          await request.post("/api/chats", { data: { name, mode: "conversation", characterIds: [character.id] } })
+        ).json(),
+      );
+    }
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+    await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
+    let releaseNames!: () => void;
+    const namesGate = new Promise<void>((resolve) => {
+      releaseNames = resolve;
+    });
+    await page.route("**/api/characters/summaries", async (route) => {
+      await namesGate;
+      await route.fulfill({ status: 500, json: { error: "fixture unavailable" } });
+    });
+    await page.goto("/");
+    const openSetup = (chatId: string) =>
+      page.evaluate(async (chatId) => {
+        const { requestScenePromptPreferences } = await import("/src/lib/scene-generation.ts" as string);
+        void requestScenePromptPreferences(undefined, chatId);
+      }, chatId);
+    await openSetup(chats[0]!.id);
+    const setup = page.getByRole("dialog", { name: "Scene Prompt Setup", exact: true });
+    const automatic = setup.getByRole("checkbox", { name: "Let the scene planner choose characters" });
+    const plan = setup.getByRole("button", { name: "Plan Scene", exact: true });
+    await expect(automatic).toBeEnabled();
+    await automatic.uncheck();
+    await expect(plan).toBeDisabled();
+    releaseNames();
+    await expect(setup.getByText("Characters could not be loaded. Close scene setup and try again.")).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(plan).toBeDisabled();
+    await automatic.check();
+    await expect(plan).toBeEnabled();
+    await setup.getByRole("combobox", { name: "Scene persona" }).selectOption("");
+    await page.unroute("**/api/characters/summaries");
+    await openSetup(chats[1]!.id);
+    await expect(automatic).toBeChecked();
+    await expect(setup.getByRole("combobox", { name: "Scene persona" })).toHaveValue("source");
+    await expect(automatic).toBeEnabled();
+    await automatic.uncheck();
+    await expect(setup.getByRole("checkbox", { name: "Bob", exact: true })).toBeChecked();
+    await expect(setup.getByRole("checkbox", { name: "Alice", exact: true })).toHaveCount(0);
+    await expect(plan).toBeEnabled();
+  } finally {
+    await page.close();
+    for (const chat of chats) await request.delete(`/api/chats/${chat.id}?force=true`);
+    for (const character of chars) await request.delete(`/api/characters/${character.id}`);
+  }
+});

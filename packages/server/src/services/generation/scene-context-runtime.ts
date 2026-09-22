@@ -10,10 +10,12 @@ type GenerationPromptMessage = {
 export async function resolveSceneBusyCharacterIds(
   chats: { getById(id: string): Promise<{ characterIds: unknown; metadata: unknown } | null | undefined> },
   originChatId: string,
-  metadata: Record<string, unknown>,
+  metadata?: Record<string, unknown>,
 ): Promise<string[]> {
-  if (typeof metadata.activeSceneChatId !== "string") return [];
-  const scene = await chats.getById(metadata.activeSceneChatId);
+  const sourceMetadata = metadata ?? (await chats.getById(originChatId))?.metadata;
+  const source = typeof sourceMetadata === "string" ? JSON.parse(sourceMetadata) : sourceMetadata;
+  if (typeof source?.activeSceneChatId !== "string") return [];
+  const scene = await chats.getById(source.activeSceneChatId);
   if (!scene) return [];
   const meta = typeof scene.metadata === "string" ? JSON.parse(scene.metadata) : scene.metadata;
   if (meta?.sceneStatus !== "active" || meta.sceneOriginChatId !== originChatId) return [];

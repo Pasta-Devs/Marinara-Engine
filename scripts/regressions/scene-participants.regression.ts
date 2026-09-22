@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { mock } from "node:test";
 import { createServer } from "node:http";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -84,7 +85,15 @@ try {
     initiatorCharId: ids[2],
     ...selected,
   };
-  const created = await api("POST", "/api/scene/create", payload);
+  const creations = await Promise.all(
+    [0, 1].map(() => app.inject({ method: "POST", url: "/api/scene/create", payload })),
+  );
+  assert.deepEqual(
+    creations.map((response) => response.statusCode).sort(),
+    [200, 409],
+    "Only one active Scene can claim a Conversation",
+  );
+  const created = creations.find((response) => response.statusCode === 200)!.json();
   const scene = await api("GET", `/api/chats/${created.chatId}`);
   assert.deepEqual(scene.characterIds, selected.participantCharacterIds);
   assert.equal(scene.personaId, persona.id);
@@ -146,6 +155,41 @@ try {
     (await resolveConversationPresenceRuntime({ ...presenceArgs, chatMeta: restored })).respondingCharacterIds,
     ids,
   );
+
+  // A Scene opened while a Conversation reply waits must suppress that delayed reply.
+  mock.timers.enable({ apis: ["setTimeout"] });
+  let delayed!: () => void;
+  const delayReady = new Promise<void>((resolve) => (delayed = resolve));
+  const delayedReply = resolveConversationPresenceRuntime({
+    ...presenceArgs,
+    chatMeta: restored,
+    forCharacterId: ids[0],
+    skipPresenceDelay: false,
+    chats: {
+      ...store,
+      resolveConversationPresenceState: async () => ({
+        schedules: {},
+        statusOverrides: { [ids[0]!]: { status: "idle" as const, createdAt: new Date().toISOString() } },
+      }),
+    },
+    writeSse: (event: any) => {
+      if (event.type === "delayed") delayed();
+    },
+  });
+  await delayReady;
+  const laterScene = await api("POST", "/api/scene/create", payload);
+  mock.timers.tick(15 * 60_000);
+  const delayedResult = await delayedReply;
+  mock.timers.reset();
+  assert.equal(delayedResult.ended, true);
+  assert.deepEqual(delayedResult.respondingCharacterIds, []);
+  await api("POST", "/api/scene/conclude", { sceneChatId: laterScene.chatId, connectionId: conn.id });
+  const returned = await api("GET", `/api/chats/${origin.id}/messages`);
+  assert.ok(
+    returned.at(-1).content.startsWith("*Scene persona and Alice returned"),
+    "The return message uses a participant, not the excluded initiator",
+  );
+
   // Omitted overrides preserve the automatic plan and the source persona.
   await api("PATCH", `/api/chats/${origin.id}`, { personaId: persona.id });
   const automatic = await api("POST", "/api/scene/create", {
@@ -156,7 +200,17 @@ try {
   const automaticChat = await api("GET", `/api/chats/${automatic.chatId}`);
   assert.deepEqual(automaticChat.characterIds, [ids[1]]);
   assert.equal(automaticChat.personaId, persona.id);
+  await api("POST", "/api/scene/abandon", { sceneChatId: laterScene.chatId });
+  const stillActive = await api("GET", `/api/chats/${origin.id}`);
+  assert.equal(
+    stillActive.metadata.activeSceneChatId,
+    automatic.chatId,
+    "Cleaning up an older Scene cannot release the active Scene",
+  );
+  assert.deepEqual(stillActive.metadata.sceneBusyCharIds, [ids[1]]);
+  assert.equal(stillActive.connectedChatId, automatic.chatId);
 } finally {
+  mock.timers.reset();
   await new Promise<void>((resolve) => provider.close(() => resolve()));
   await app.close();
   rmSync(dataDir, { recursive: true, force: true });
