@@ -34,6 +34,11 @@ export type CachedTTSAudioExportEntry = CachedVoiceLineMeta & {
 const memoryCache = new Map<string, Blob>();
 let memoryCacheBytes = 0;
 const inFlight = new Map<string, Promise<Blob>>();
+// Bumped on every purge. A generation that began before a purge compares this
+// against the value it captured and refuses to write its blob back, so a clip
+// the user just deleted cannot resurrect itself when its in-flight request
+// finally resolves.
+let cachePurgeEpoch = 0;
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 let lastPersistentPruneAt = 0;
 
@@ -266,9 +271,12 @@ export async function getCachedTTSAudioBlob(key: string): Promise<Blob | null> {
   const memoryHit = readFromMemory(key);
   if (memoryHit) return memoryHit;
 
+  const epoch = cachePurgeEpoch;
   const persisted = await getPersistentBlob(key);
-  if (persisted) rememberInMemory(key, persisted);
-  return persisted;
+  if (persisted && epoch === cachePurgeEpoch) {
+    rememberInMemory(key, persisted);
+  }
+  return epoch === cachePurgeEpoch ? persisted : null;
 }
 
 export async function listCachedTTSAudioMeta(): Promise<CachedTTSAudioMeta[]> {
@@ -307,12 +315,6 @@ export async function listCachedTTSAudioEntries(): Promise<CachedTTSAudioExportE
     return [];
   }
 }
-
-// Bumped on every purge. A generation that began before a purge compares this
-// against the value it captured and refuses to write its blob back, so a clip
-// the user just deleted cannot resurrect itself when its in-flight request
-// finally resolves.
-let cachePurgeEpoch = 0;
 
 /**
  * Remove the given clips from the memory and persistent tiers. Callers must
