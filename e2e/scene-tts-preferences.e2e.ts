@@ -501,7 +501,7 @@ test("Game dice narration failures offer regeneration and Peek keeps planner usa
     await expect(page.getByRole("heading", { name: "Assembled Prompt", exact: true })).toBeVisible();
     await expect(page.getByText("Tool planner: openai / cheap-planner", { exact: true })).toBeVisible();
     await expect(page.getByText("7 input / 3 output tokens", { exact: true })).toBeVisible();
-    await expect(page.getByText(/11 actual prompt tokens/)).toBeVisible();
+    await expect(page.getByText(/11 reported prompt tokens/)).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("game-peek-planner-dark.png") });
     await page.getByRole("button", { name: "Close assembled prompt", exact: true }).click();
     await failure.getByRole("button", { name: "Regenerate turn", exact: true }).click();
