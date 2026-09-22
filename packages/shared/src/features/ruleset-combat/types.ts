@@ -346,6 +346,57 @@ export interface RulesetEncounterState {
   /** The board this fight stands on, when it has one. A fight without it is theatre of the mind and
    *  reads nothing about distance at all. */
   board?: RulesetCombatBoard;
+  /** The fight held open for somebody who is not the current actor. While it is here NOTHING else
+   *  moves: the turn cannot go on, and a choice from anybody but the one being asked is refused. */
+  window?: RulesetCombatWindow;
+  /** One up per window ever opened in this fight, so no two windows share an id and an answer
+   *  written for a closed one is refused rather than spent on the one that replaced it. */
+  windows?: number;
+}
+
+/** A fight held open between one step and the next, so somebody who is not the current actor may
+ *  take something. Every window is answered by exactly one combatant at a time, with an option or
+ *  a pass, and the fight picks up where it left off once the last of them has answered.
+ *
+ *  The window lives IN the state rather than beside it, so a fight saved mid-walk comes back with
+ *  the same people still to ask and the same cells still to walk. */
+export interface RulesetCombatWindow {
+  /** Stable for the life of this window. An answer carrying another one is stale: the window it was
+   *  written for has already closed, and applying it now would spend a budget twice. */
+  id: string;
+  kind: RulesetWindowKind;
+  trigger: RulesetWindowTrigger;
+  /** Who is still to answer, in the fight's own order. The first is the one being asked; a pass or
+   *  a taken option removes them, and the window closes when the list empties. */
+  waiting: string[];
+  /** The walk this window interrupted, when it interrupted one. */
+  resume?: RulesetWindowResume;
+}
+
+/** What a window is for. `reaction` is somebody spending a budget out of turn; `signature` is a
+ *  block buying one of its own actions with its points between two turns. */
+export type RulesetWindowKind = "reaction" | "signature";
+
+/** What opened the window. The fight reads it to build the menu, and a caller reads it to say why
+ *  somebody is being asked. */
+export type RulesetWindowTrigger =
+  /** A walk left this one's reach. `from` and `to` are the step that did it, not the whole walk. */
+  | { kind: "leaves-reach"; moverId: string; from: RulesetCombatCell; to: RulesetCombatCell }
+  /** One turn has ended and the next has not begun. */
+  | { kind: "between-turns"; nextActorId: string };
+
+/** A walk stopped in its tracks, with everything needed to finish it exactly as it would have gone:
+ *  the cells already crossed, the ones still to cross, what has been paid so far and who has
+ *  already struck, so nobody strikes the same passer-by twice. */
+export interface RulesetWindowResume {
+  actorId: string;
+  from: RulesetCombatCell;
+  walked: RulesetCombatCell[];
+  path: RulesetCombatCell[];
+  /** Everybody already ASKED about this walk, struck or passed: one chance each per walk, so a
+   *  long path past the same foe never offers a second. */
+  asked: string[];
+  spent: number;
 }
 
 /** The board, as the fight keeps it: the tactical engine's own grid and where it came from. The
@@ -371,6 +422,10 @@ export type RulesetCombatRefusal =
   | "unknown-creature"
   /** A cell this move cannot end on, or cannot pay for. */
   | "unreachable"
+  /** The fight is held open for somebody else, and nothing but their answer moves it. */
+  | "window-open"
+  /** An answer to a window that has already closed. */
+  | "stale-window"
   /** A target further away than this reaches or carries. */
   | "out-of-reach"
   /** Something solid stands between the two of them. */
@@ -501,6 +556,11 @@ export type RulesetCombatEvent =
   /** A strike at somebody leaving this combatant's reach. The attack and the damage that follow are
    *  their own events, exactly as they are on a turn. */
   | { type: "opportunity"; actorId: string; targetId: string; label: string; budget: string }
+  /** The fight was held open, and for whom. Everything those combatants then take is its own event,
+   *  exactly as it is on a turn, so a log reads the window as an interruption rather than a mode. */
+  | { type: "window"; window: string; kind: RulesetWindowKind; waiting: string[]; moverId?: string }
+  /** Somebody let their window go by without spending anything. */
+  | { type: "pass"; actorId: string; window: string }
   /** What the ground the target stands on added to the defense the next attack is rolled against. */
   | { type: "cover"; targetId: string; bonus: number; defense: number }
   /** Where an area landed, and the cells it covered. */
@@ -582,6 +642,9 @@ export interface RulesetCombatChoice {
   to?: RulesetCombatCell;
   /** The cell an area is aimed at. An option with an area takes this instead of target ids. */
   at?: RulesetCombatCell;
+  /** The window this answers, when it answers one. An answer carrying the id of a window that has
+   *  already closed changes nothing: it was written for a question the fight has moved past. */
+  window?: string;
 }
 
 export interface RulesetCombatStep {

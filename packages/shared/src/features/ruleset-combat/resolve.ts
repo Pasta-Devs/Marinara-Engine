@@ -34,32 +34,34 @@ import {
   rulesetThreateningEnemies,
 } from "./grid.js";
 import {
+  RULESET_MOVE_OPTION,
+  RULESET_PASS_OPTION,
+  RULESET_STAND_OPTION,
   planRulesetCombatCost,
   rulesetActionAvailable,
   rulesetAimLegal,
   rulesetAreaTargets,
+  rulesetAttackMode,
+  rulesetCombatOptions,
+  rulesetCostSteps,
   rulesetCriticalFromAdjacent,
   rulesetDefenseAgainst,
   rulesetFreeStrike,
   rulesetGrantedStandard,
+  rulesetOptionTargets,
   rulesetProneCondition,
-  rulesetStandardName,
   rulesetSequenceCanHappen,
   rulesetSequencePartAvailable,
-  rulesetAttackMode,
-  rulesetCombatOptions,
-  rulesetCostSteps,
-  rulesetOptionTargets,
+  rulesetSignatureOptions,
   rulesetStandCost,
   rulesetStandardBudget,
+  rulesetStandardName,
   rulesetTargetRefusal,
-  RULESET_MOVE_OPTION,
-  RULESET_STAND_OPTION,
+  rulesetWindowOptions,
 } from "./options.js";
 import type {
   RulesetCombatAction,
   RulesetCombatAmount,
-  RulesetCombatant,
   RulesetCombatApplies,
   RulesetCombatCell,
   RulesetCombatChoice,
@@ -70,9 +72,12 @@ import type {
   RulesetCombatRollMode,
   RulesetCombatRoller,
   RulesetCombatStep,
+  RulesetCombatWindow,
+  RulesetCombatant,
   RulesetEncounterOutcome,
   RulesetEncounterState,
   RulesetEncounterSummary,
+  RulesetWindowResume,
 } from "./types.js";
 
 /** Everything one step of the fight needs: the rules, the state it is changing, its dice and the
@@ -804,10 +809,17 @@ export function applyRulesetCombatChoice(
   }
   const actor = rulesetCombatant(state, choice.actorId);
   if (!actor) return refusal(state, choice.actorId, "unknown-actor", choice.optionId);
-  // Points, not a budget, and not on this combatant's own turn: a signature action is bought while
-  // somebody else is acting, so it is checked before the turn is.
+  // A window holds the whole fight: while one is open the only thing that moves it is the answer of
+  // the one combatant it is asking, and every other choice is refused rather than queued.
+  if (state.window) return applyInWindow(definition, combat, state, state.window, actor, choice, roller);
+  // An answer to a window that has already closed is NOT a turn's choice. Letting it fall through
+  // would spend on a turn what was written for a moment the fight has moved past, which is the one
+  // thing the window's id is carried to prevent.
+  if (choice.window !== undefined) return refusal(state, choice.actorId, "stale-window", choice.optionId);
+  // Points, not a budget, and bought between one turn and the next rather than on anybody's: a
+  // signature action off its own window is refused here, so nothing buys one mid-turn.
   const signature = actor.actions.find((entry) => entry.id === choice.optionId && entry.signature);
-  if (signature) return applySignature(definition, combat, state, actor, signature, choice, roller);
+  if (signature) return refusal(state, choice.actorId, "not-your-turn", choice.optionId);
   if (currentRulesetActor(state)?.id !== actor.id)
     return refusal(state, choice.actorId, "not-your-turn", choice.optionId);
   // Ending a turn is always allowed, down or not: a character lying at zero still has a turn, and
@@ -933,6 +945,95 @@ export function applyRulesetCombatChoice(
  * has none to spend. The window that offers it is a later slice; the price, the refusals and the
  * resolution are all here.
  */
+/** The outcome, said once. The window path ends a fight in more than one place, and a log that
+ *  said so twice would read as two endings. */
+function noteOutcome(ctx: RulesetCombatContext): void {
+  const outcome = rulesetEncounterOutcome(ctx.state);
+  if (outcome === "ongoing") return;
+  if (ctx.events[ctx.events.length - 1]?.type === "outcome") return;
+  ctx.events.push({ type: "outcome", outcome });
+}
+
+/**
+ * One answer to the open window, from the one combatant it is asking. Anybody else is refused: a
+ * window is not a free-for-all, and an answer that arrived while somebody else was still being
+ * asked would spend a budget against a fight that had already moved.
+ */
+function applyInWindow(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  state: RulesetEncounterState,
+  window: RulesetCombatWindow,
+  actor: RulesetCombatant,
+  choice: RulesetCombatChoice,
+  roller: RulesetCombatRoller,
+): RulesetCombatStep {
+  // An answer that names a window is checked against the open one. One that names none is taken as
+  // meant for whatever is open, which is how a caller that never saves an answer may stay simple.
+  if (choice.window !== undefined && choice.window !== window.id) {
+    return refusal(state, choice.actorId, "stale-window", choice.optionId);
+  }
+  if (window.waiting[0] !== actor.id) return refusal(state, choice.actorId, "window-open", choice.optionId);
+
+  if (choice.optionId === RULESET_PASS_OPTION) {
+    const { ctx, finish } = begin(definition, combat, state, roller);
+    ctx.events.push({ type: "pass", actorId: actor.id, window: window.id });
+    goOn(definition, combat, ctx);
+    noteOutcome(ctx);
+    return finish();
+  }
+
+  const option = rulesetWindowOptions(definition, state, actor.id).find((entry) => entry.id === choice.optionId);
+  if (!option) return refusal(state, choice.actorId, "unknown-option", choice.optionId);
+  if (window.kind === "signature") {
+    const action = actor.actions.find((entry) => entry.id === choice.optionId && entry.signature);
+    if (!action) return refusal(state, choice.actorId, "unknown-option", choice.optionId);
+    return applySignature(definition, combat, state, actor, action, choice, roller);
+  }
+
+  // A strike at somebody walking away, taken rather than made for them. It costs and resolves
+  // exactly as the automatic one did: the same budget, the same books, the same dice.
+  const trigger = window.trigger;
+  if (trigger.kind !== "leaves-reach") return refusal(state, choice.actorId, "unknown-option", choice.optionId);
+  const { ctx, finish } = begin(definition, combat, state, roller);
+  const striker = rulesetCombatant(ctx.state, actor.id)!;
+  const mover = rulesetCombatant(ctx.state, trigger.moverId);
+  if (mover) opportunityStrike(ctx, striker, mover, combat.opportunity!.budget);
+  goOn(definition, combat, ctx);
+  noteOutcome(ctx);
+  return finish();
+}
+
+/**
+ * The window, one answer further on. The one who just answered drops off the front, and so does
+ * anybody left with nothing to answer with: a window that asked them anyway would hold the fight
+ * open for a menu with only a pass on it.
+ *
+ * When the last of them has answered the window closes and the fight picks up exactly where it was
+ * held: the rest of the walk, or the turn that had not yet begun.
+ */
+function goOn(definition: RulesetDefinition, combat: RulesetCombat, ctx: RulesetCombatContext): void {
+  const window = ctx.state.window;
+  if (!window) return;
+  window.waiting.shift();
+  while (window.waiting.length > 0 && rulesetWindowOptions(definition, ctx.state, window.waiting[0]!).length === 0) {
+    ctx.events.push({ type: "pass", actorId: window.waiting[0]!, window: window.id });
+    window.waiting.shift();
+  }
+  const over = rulesetEncounterOutcome(ctx.state) !== "ongoing";
+  if (window.waiting.length > 0 && !over) return;
+  const { resume, trigger } = window;
+  ctx.state.window = undefined;
+  // A walk is finished even when the last blow ended the fight: its own event says where the walker
+  // really stopped, and a fight that ended mid-step would otherwise never say they never left.
+  if (resume) {
+    const walker = rulesetCombatant(ctx.state, resume.actorId);
+    if (walker) walkOn(ctx, walker, resume);
+    return;
+  }
+  if (!over && trigger.kind === "between-turns") beginNextTurn(definition, combat, ctx);
+}
+
 function applySignature(
   definition: RulesetDefinition,
   combat: RulesetCombat,
@@ -972,8 +1073,8 @@ function applySignature(
   const workingAction = working.actions.find((entry) => entry.id === action.id)!;
   spendAvailability(ctx, working, workingAction);
   resolveAction(ctx, working, workingAction, workingTargets);
-  const outcome = rulesetEncounterOutcome(ctx.state);
-  if (outcome !== "ongoing") ctx.events.push({ type: "outcome", outcome });
+  goOn(definition, combat, ctx);
+  noteOutcome(ctx);
   return finish();
 }
 
@@ -1040,46 +1141,91 @@ function resolveStand(ctx: RulesetCombatContext, actor: RulesetCombatant, option
  * were really crossed rather than the ones that were meant to be.
  */
 function resolveMove(ctx: RulesetCombatContext, actor: RulesetCombatant, destination: { path: RulesetCombatCell[] }) {
-  const from = { x: actor.x!, y: actor.y! };
+  walkOn(ctx, actor, {
+    actorId: actor.id,
+    from: { x: actor.x!, y: actor.y! },
+    walked: [],
+    path: [...destination.path],
+    asked: [],
+    spent: 0,
+  });
+}
+
+/**
+ * A walk, from wherever it left off. Every step is checked for whose reach it leaves, and the first
+ * step that leaves somebody's HOLDS THE WALK OPEN: the fight stops where it stands, the window
+ * names everybody that step provoked, and the rest of the path waits in the window until they have
+ * all answered. `walkOn` is then called again with what the window kept.
+ *
+ * One chance each for the whole walk, struck or passed, however many times the path leaves the same
+ * reach: that is what the menu promised when it listed whom this walk provokes, and a budget of two
+ * is two walks, not two strikes at one passer-by.
+ *
+ * The walk's own event comes last and carries the cells that were really crossed rather than the
+ * ones that were meant to be, so a walk cut short by a blow says where it really ended.
+ */
+function walkOn(ctx: RulesetCombatContext, actor: RulesetCombatant, resume: RulesetWindowResume): void {
   const opportunity = ctx.combat.opportunity;
   const grid = ctx.state.board?.grid;
-  const walked: RulesetCombatCell[] = [];
-  let spent = 0;
+  const walked = [...resume.walked];
+  const asked = new Set(resume.asked);
+  let spent = resume.spent;
   let stopped = false;
-  let at = from;
-  // One strike each for the whole walk, however many times the path leaves the same reach: that is
-  // what the menu promised when it listed whom this walk provokes, and a budget of two is two
-  // walks, not two strikes at one passer-by.
-  const struck = new Set<string>();
-  for (const cell of destination.path) {
-    if (opportunity && !actor.flags.disengaged) {
-      for (const enemy of threatsLeaving(ctx, actor, at, cell)) {
-        if (struck.has(enemy.id)) continue;
-        struck.add(enemy.id);
-        opportunityStrike(ctx, enemy, actor, opportunity.budget);
-        if (!rulesetCombatStanding(actor)) break;
-      }
-    }
+  let at = walked.length > 0 ? walked[walked.length - 1]! : resume.from;
+  const rest = [...resume.path];
+  while (rest.length > 0) {
     if (!rulesetCombatStanding(actor)) {
       stopped = true;
       break;
     }
+    const cell = rest[0]!;
+    // Nobody is asked once the fight is over: the walk simply finishes on the cells it has left.
+    if (opportunity && !actor.flags.disengaged && rulesetEncounterOutcome(ctx.state) === "ongoing") {
+      const threats = threatsLeaving(ctx, actor, at, cell).filter((enemy) => !asked.has(enemy.id));
+      if (threats.length > 0) {
+        for (const enemy of threats) asked.add(enemy.id);
+        openWindow(ctx, {
+          kind: "reaction",
+          trigger: { kind: "leaves-reach", moverId: actor.id, from: { ...at }, to: { ...cell } },
+          waiting: threats.map((enemy) => enemy.id),
+          resume: { actorId: actor.id, from: resume.from, walked, path: rest, asked: [...asked], spent },
+        });
+        return;
+      }
+    }
+    rest.shift();
     spent += grid ? rulesetCellEnterCost(grid, cell.x, cell.y) : 1;
     walked.push(cell);
     at = cell;
     actor.x = cell.x;
     actor.y = cell.y;
   }
+  if (!stopped && !rulesetCombatStanding(actor)) stopped = true;
   actor.movementLeft = Math.max(0, (actor.movementLeft ?? 0) - spent);
   ctx.events.push({
     type: "move",
     actorId: actor.id,
-    from,
+    from: resume.from,
     to: { ...at },
     path: walked,
     cost: spent,
     left: actor.movementLeft,
     ...(stopped ? { stopped: true } : {}),
+  });
+}
+
+/** Hold the fight open. The id is one up from every window this fight has opened, so an answer
+ *  written for a window that has already closed is refused rather than spent on its successor. */
+function openWindow(ctx: RulesetCombatContext, window: Omit<RulesetCombatWindow, "id">): void {
+  const serial = (ctx.state.windows ?? 0) + 1;
+  ctx.state.windows = serial;
+  ctx.state.window = { id: `w${serial}`, ...window };
+  ctx.events.push({
+    type: "window",
+    window: ctx.state.window.id,
+    kind: window.kind,
+    waiting: [...window.waiting],
+    ...(window.trigger.kind === "leaves-reach" ? { moverId: window.trigger.moverId } : {}),
   });
 }
 
@@ -1539,6 +1685,7 @@ export function advanceRulesetTurn(
   const outcome = rulesetEncounterOutcome(state);
   if (outcome !== "ongoing") return { state, events: [{ type: "outcome", outcome }] };
 
+  if (state.window) return refusal(state, currentRulesetActor(state)?.id ?? "", "window-open", "end-turn");
   const { ctx, finish } = begin(definition, combat, state, roller);
   const leaving = currentRulesetActor(ctx.state);
   if (leaving) {
@@ -1546,7 +1693,41 @@ export function advanceRulesetTurn(
     // Strikes a spend bought are for the turn it was spent on. Nothing is carried over.
     delete leaving.strikesLeft;
   }
+  // The window BETWEEN two turns: one turn has ended and the next has not begun, which is when a
+  // block spends its own points on one of its own actions. The turn begins once they have all
+  // answered, so buying one never costs the next actor part of their turn.
+  if (openSignatureWindow(ctx)) return finish();
+  beginNextTurn(definition, combat, ctx);
+  return finish();
+}
 
+/** Everybody who could buy a signature action right now, in the fight's own order, and the window
+ *  that asks them. Nobody is asked when nobody can afford anything: an empty window would hold the
+ *  fight open for an answer with nothing in it. */
+function openSignatureWindow(ctx: RulesetCombatContext): boolean {
+  const waiting = ctx.state.order.filter((id) => rulesetSignatureOptions(ctx.definition, ctx.state, id).length > 0);
+  if (waiting.length === 0) return false;
+  const nextActorId = nextTurnActor(ctx.state)?.id ?? "";
+  openWindow(ctx, { kind: "signature", trigger: { kind: "between-turns", nextActorId }, waiting });
+  return true;
+}
+
+/** Who acts next, read without moving the fight: the window between two turns says whose turn it is
+ *  holding up. */
+function nextTurnActor(state: RulesetEncounterState): RulesetCombatant | null {
+  let turn = state.turn;
+  for (let step = 0; step < state.order.length; step++) {
+    turn = turn + 1 >= state.order.length ? 0 : turn + 1;
+    const candidate = rulesetCombatant(state, state.order[turn]!);
+    if (candidate && canTakeTurn(candidate)) return candidate;
+  }
+  return null;
+}
+
+/** The next turn, from a fight whose last one has already ended. Split out of `advanceRulesetTurn`
+ *  so the window between the two can hold it: the turn-end books are closed either way, and this
+ *  runs once, after the window rather than before it. */
+function beginNextTurn(definition: RulesetDefinition, combat: RulesetCombat, ctx: RulesetCombatContext): void {
   let turn = ctx.state.turn;
   let round = ctx.state.round;
   let fresh = false;
@@ -1586,7 +1767,6 @@ export function advanceRulesetTurn(
   }
   const after = rulesetEncounterOutcome(ctx.state);
   if (after !== "ongoing") ctx.events.push({ type: "outcome", outcome: after });
-  return finish();
 }
 
 /** Who won, if anybody has yet. A fight is over for a side when nobody on it is still standing;

@@ -16,15 +16,20 @@
 // mean something, and every one of them is a number the ruleset itself declared. A fight without a
 // board is exactly the fight it was before any of this existed: nothing measures anything.
 //
+// A fight can be HELD OPEN. A walk that leaves somebody's reach stops where it stands and asks
+// them whether to strike; the turn between one actor and the next stops and asks every block with
+// points whether to buy one of its own actions. While a window is open nothing else moves: only the
+// one combatant it is asking may answer, with an option off `rulesetWindowOptions` or
+// `RULESET_PASS_OPTION`, and the fight picks up exactly where it was held once the last of them
+// has. The window lives in the state, so a fight saved mid-walk comes back with the same people
+// still to ask and the same cells still to walk.
+//
 // What these slices deliberately leave for the ones after them, with the seams already in place:
-//   - reactions and the WINDOWS they open. A strike at somebody leaving your reach is automatic
-//     here and spends the declared budget; choosing whether to take it is a window, so
-//     `cannot-react` is read for that strike and a catalog entry marked `reaction` is still left
-//     off the menu.
+//   - what else opens a window. A catalog entry marked `reaction` names no trigger yet, so it is
+//     still left off every menu; the vocabulary that says what a reaction answers is the next
+//     slice's, and this one builds the window it will be answered in.
 //   - three-quarter and total cover, elevation, flying over obstacles, squeezing, hiding and
 //     surprise, and movement forced on somebody by an attack.
-//   - the WINDOW a signature action is bought in, between one turn and the next. The points, the
-//     options and the spending are here; what opens the window is the slice that builds reactions.
 //   - who an opponent chooses to attack. Everything an enemy could do is on the same menu a player
 //     picks from, which is what the enemy's own turn will read.
 
@@ -98,7 +103,9 @@ export {
   rulesetStandardBudget,
   rulesetStandardName,
   rulesetTargetRefusal,
+  rulesetWindowOptions,
   RULESET_MOVE_OPTION,
+  RULESET_PASS_OPTION,
   RULESET_STAND_OPTION,
   type RulesetCombatCost,
   type RulesetOptionReach,
