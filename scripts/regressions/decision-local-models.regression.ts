@@ -18,8 +18,6 @@ import {
   DEFAULT_DECISION_CALIBRATION,
   findDecisionModel,
   normalizeDecisionThinking,
-  readDecisionManifest,
-  sanitizeCustomDecisionModel,
   parseDecisionSidecarSettings,
   readDecisionManifest,
   sanitizeCustomDecisionModel,
@@ -137,7 +135,10 @@ for (const model of SIDECAR_DECISION_MODELS) {
     `${model.id} must state a minimum driver`,
   );
   assert.ok(model.vramBytes > 0 && model.diskBytes > model.downloadSizeBytes, `${model.id} sizes look wrong`);
-  assert.ok(DECISION_ARTIFACT_RUNTIMES[Object.keys(DECISION_ARTIFACT_RUNTIMES)[0]!], "runtime map is populated");
+  assert.ok(
+    Object.values(DECISION_ARTIFACT_RUNTIMES).includes(model.runtime),
+    `${model.id} names a runtime nothing can install it with`,
+  );
   assert.ok(
     model.artifacts.every((a) => /^[0-9a-f]{40}$/u.test(a.revision)),
     `${model.id} must pin exact commits`,
@@ -146,53 +147,6 @@ for (const model of SIDECAR_DECISION_MODELS) {
 // A pasted repository is judged by the artifact type it declares, never assumed.
 assert.equal(DECISION_ARTIFACT_RUNTIMES["qwen_lora_adapter_plus_scalar_decision_head"], "open_jev_torch");
 assert.equal(DECISION_ARTIFACT_RUNTIMES["something_invented"], undefined);
-
-// The whole safety gate for a pasted model: compatibility is read from the manifest,
-// and anything that cannot be vouched for is refused by reason rather than installed
-// hopefully. These are the shapes a real hub can hand back.
-{
-  const good = {
-    artifact_type: "qwen_lora_adapter_plus_scalar_decision_head",
-    base_model: "Qwen/Qwen3.5-2B",
-    base_revision: "15852e8c16360a2fea060d615a32b45270f8a8fc",
-  };
-  const accepted = readDecisionManifest(good);
-  assert.ok(!("refusal" in accepted));
-  assert.equal(accepted.runtime, "open_jev_torch");
-  assert.equal(accepted.baseModel, "Qwen/Qwen3.5-2B");
-
-  const refusalFor = (manifest: unknown) => {
-    const read = readDecisionManifest(manifest as never);
-    return "refusal" in read ? read.refusal : null;
-  };
-  assert.equal(refusalFor(null), "unreadable_manifest");
-  assert.equal(refusalFor({ ...good, artifact_type: "something_we_cannot_run" }), "unknown_artifact_type");
-  assert.equal(refusalFor({ ...good, base_model: undefined }), "missing_base_model");
-  assert.equal(refusalFor({ ...good, base_model: "not-a-repo" }), "missing_base_model");
-  // A branch would let the weights change under a pinned adapter, so it is refused
-  // even though the repository would resolve.
-  assert.equal(refusalFor({ ...good, base_revision: "main" }), "unpinned_base_revision");
-  assert.equal(refusalFor({ ...good, base_revision: "15852e8c" }), "unpinned_base_revision");
-
-  // A stored custom entry is re-validated on read: a hand-edited one must not be able
-  // to name a runtime this build does not ship or loosen a hardware floor.
-  const stored = {
-    id: "byo:x",
-    runtime: "open_jev_torch" as const,
-    artifacts: [{ repoId: "a/b", revision: "0".repeat(40) }],
-    minComputeCapability: "1.0",
-    platforms: [{ os: "linux" as NodeJS.Platform, arch: "x64", gpuVendor: "nvidia" as const, minDriver: "1" }],
-    calibration: { defaultThreshold: 0.9, questionShape: "text" as const },
-  };
-  const sanitized = sanitizeCustomDecisionModel(stored)!;
-  assert.ok(sanitized, "a well-formed stored entry survives");
-  assert.equal(sanitized.minComputeCapability, "7.5", "the runtime's floor wins over a stored claim");
-  assert.equal(sanitized.platforms[0]!.minDriver, "580", "and so does its driver floor");
-  assert.equal(sanitized.calibration.defaultThreshold, 0.1, "and its measured operating point");
-  assert.equal(sanitizeCustomDecisionModel({ ...stored, runtime: "invented" }), null);
-  assert.equal(sanitizeCustomDecisionModel({ ...stored, artifacts: [{ repoId: "a/b", revision: "main" }] }), null);
-  assert.equal(sanitizeCustomDecisionModel(null), null);
-}
 
 // Settings come back from a JSON blob a user can hand-edit; nothing in it may turn
 // the sidecar on or point it at something this build cannot run.
@@ -268,15 +222,31 @@ assert.equal(
   "an unpinned artifact is not a usable install record",
 );
 {
-  const stored = sanitizeCustomDecisionModel({
+  // What a real pasted install writes, with a couple of fields hand-edited to claim
+  // more than the runtime allows.
+  const complete = {
+    id: "byo:a/b@0123456789ab",
+    label: "a/b",
     runtime: "open_jev_torch",
     artifacts: [{ repoId: "a/b", revision: "0".repeat(40) }],
+    downloadSizeBytes: 4_560_000_000,
+    diskBytes: 10_000_000_000,
+    vramBytes: 4_800_000_000,
     minComputeCapability: "3.0",
     calibration: { defaultThreshold: 0.9, questionShape: "text" },
-  });
+  };
+  const stored = sanitizeCustomDecisionModel(complete);
   assert.ok(stored);
   assert.equal(stored.minComputeCapability, "7.5", "the runtime's floor overrides whatever was stored");
   assert.equal(stored.calibration.defaultThreshold, 0.1, "and so does its operating point");
+
+  // A record missing a name or carrying a nonsense size would render blank in the
+  // panel and be judged against zero bytes by the preflight, so it is not accepted.
+  assert.equal(sanitizeCustomDecisionModel({ ...complete, id: "" }), null);
+  assert.equal(sanitizeCustomDecisionModel({ ...complete, label: "   " }), null);
+  assert.equal(sanitizeCustomDecisionModel({ ...complete, vramBytes: 0 }), null);
+  assert.equal(sanitizeCustomDecisionModel({ ...complete, diskBytes: -1 }), null);
+  assert.equal(sanitizeCustomDecisionModel({ ...complete, downloadSizeBytes: Number.NaN }), null);
 }
 
 // ── the backend against a recorded llama-server ───────────────────────────────

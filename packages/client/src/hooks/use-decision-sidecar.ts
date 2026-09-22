@@ -78,11 +78,6 @@ export function useRemoveDecisionSidecar() {
   });
 }
 
-export interface DecisionRepoInspection {
-  model?: DecisionSidecarModel["preflight"] extends never ? never : Record<string, unknown>;
-  refusal?: string;
-}
-
 /** Look at a pasted repository without installing it. */
 export function useInspectDecisionRepo() {
   return useMutation({

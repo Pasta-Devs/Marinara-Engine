@@ -90,7 +90,10 @@ export async function resolveDecisionBackend(
     // slot rather than assumed from the fact that it is local.
     if (resolved.protocol === "system_one") {
       const calibration = resolved.calibration ?? DEFAULT_DECISION_CALIBRATION;
-      const maxStateTokens = Math.max(256, decisionSlotContextSize(slot) - SIDECAR_STATE_HEADROOM_TOKENS);
+      // The model's own launch limit, never the main sidecar's context. Overshooting
+      // it is not a truncation, it is a 422 and a failed gate on every long scene.
+      const limit = resolved.maxLengthTokens ?? decisionSlotContextSize(slot);
+      const maxStateTokens = Math.max(256, limit - SIDECAR_STATE_HEADROOM_TOKENS);
       return {
         maxStateTokens,
         calibration,

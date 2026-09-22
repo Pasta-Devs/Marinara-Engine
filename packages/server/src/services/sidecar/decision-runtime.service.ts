@@ -12,7 +12,7 @@
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DecisionModelArtifact, SidecarDecisionModelInfo, SidecarDownloadProgress } from "@marinara-engine/shared";
@@ -37,6 +37,8 @@ const REQUIREMENTS_LOCK_PATH = fileURLToPath(
 const UV_BIN = join(UV_DIR, "uv");
 const VENV_PYTHON = join(VENV_DIR, "bin", "python");
 const PYTHON_VERSION = "3.12";
+/** Written after an artifact's last file lands, so a partial download is visible. */
+const DOWNLOAD_RECEIPT = ".marinara-download.json";
 
 export interface DecisionRuntimeInstall {
   directoryPath: string;
@@ -231,6 +233,12 @@ export class DecisionRuntimeService {
           this.activeFetchAbort = null;
         }
       }
+      // Written last, so its presence is the signal that this artifact completed.
+      writeFileSync(
+        join(snapshot, DOWNLOAD_RECEIPT),
+        JSON.stringify(Object.fromEntries(files.map((file) => [file.path, file.size]))),
+        "utf-8",
+      );
     }
   }
 
@@ -243,8 +251,25 @@ export class DecisionRuntimeService {
   private async listArtifactFiles(
     artifact: DecisionModelArtifact,
   ): Promise<Array<{ path: string; size: number; sha256?: string }>> {
+    // Bounded and cancellable like every other request this service makes: an
+    // unbounded metadata fetch would hang an install with no way to stop it.
+    const abort = new AbortController();
+    this.activeFetchAbort = abort;
+    const signal = AbortSignal.any([abort.signal, AbortSignal.timeout(30_000)]);
+    try {
+      return await this.fetchArtifactFiles(artifact, signal);
+    } finally {
+      this.activeFetchAbort = null;
+    }
+  }
+
+  private async fetchArtifactFiles(
+    artifact: DecisionModelArtifact,
+    signal: AbortSignal,
+  ): Promise<Array<{ path: string; size: number; sha256?: string }>> {
     const listing = await fetch(
       `https://huggingface.co/api/models/${artifact.repoId}/tree/${artifact.revision}?recursive=1`,
+      { signal },
     );
     if (!listing.ok) throw new Error(`Could not list ${artifact.repoId} at ${artifact.revision}`);
     const entries = (await listing.json()) as Array<{ type: string; path: string }>;
@@ -258,6 +283,7 @@ export class DecisionRuntimeService {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paths: wanted }),
+      signal,
     });
     if (!info.ok) throw new Error(`Could not read file digests for ${artifact.repoId}`);
     const described = (await info.json()) as Array<{ path: string; size: number; lfs?: { oid?: string } }>;
@@ -268,13 +294,25 @@ export class DecisionRuntimeService {
     }));
   }
 
-  /** Is every file of every artifact already on disk at the right size? */
+  /**
+   * Is every artifact fully on disk?
+   *
+   * Checked against the manifest this install wrote, file by file and byte for byte.
+   * A non-empty directory is not a complete download: an install interrupted halfway
+   * leaves plenty of files behind, and reporting that as ready means the launch fails
+   * inside the model loader instead of here.
+   */
   modelDownloaded(model: SidecarDecisionModelInfo): boolean {
     return model.artifacts.every((artifact) => {
       const snapshot = artifactSnapshotPath(artifact);
-      if (!existsSync(snapshot)) return false;
+      const receipt = join(snapshot, DOWNLOAD_RECEIPT);
+      if (!existsSync(receipt)) return false;
       try {
-        return readdirSync(snapshot, { recursive: true }).length > 0;
+        const expected = JSON.parse(readFileSync(receipt, "utf-8")) as Record<string, number>;
+        return Object.entries(expected).every(([relative, size]) => {
+          const file = join(snapshot, relative);
+          return existsSync(file) && statSync(file).size === size;
+        });
       } catch {
         return false;
       }

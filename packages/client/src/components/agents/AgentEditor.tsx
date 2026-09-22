@@ -841,6 +841,19 @@ export function AgentEditor() {
   const [youtubeSaving, setYoutubeSaving] = useState(false);
   const [youtubeError, setYoutubeError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  /**
+   * Re-seed the threshold once the decision model's calibration arrives.
+   *
+   * The reset effect reads the calibration through a ref, so an editor opened before
+   * `/api/decision/options` resolves seeds from the fallback 0.5 and keeps it. That
+   * is the wrong number for a model answering around 0.2. Only applied while the
+   * question is still empty and nothing has been edited, so it can never overwrite
+   * what somebody typed or a threshold they chose.
+   */
+  useEffect(() => {
+    if (dirty || localActivationQuestion.trim()) return;
+    setLocalActivationThreshold(decisionCalibration.defaultThreshold);
+  }, [decisionCalibration.defaultThreshold, dirty, localActivationQuestion]);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const musicPlayerSource = useUIStore((s) => s.musicPlayerSource);
   const setMusicPlayerSource = useUIStore((s) => s.setMusicPlayerSource);

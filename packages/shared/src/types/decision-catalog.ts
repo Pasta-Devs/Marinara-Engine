@@ -215,6 +215,12 @@ export function sanitizeCustomDecisionModel(value: unknown): SidecarDecisionMode
   if (!defaults) return null;
   if (!Array.isArray(model.artifacts) || model.artifacts.length === 0) return null;
   if (!model.artifacts.every((artifact) => /^[0-9a-f]{40}$/u.test(artifact.revision ?? ""))) return null;
+  // An entry with no name or a nonsense size would reach the panel and the preflight,
+  // where it would render blank and be judged against zero bytes.
+  if (typeof model.id !== "string" || !model.id.trim()) return null;
+  if (typeof model.label !== "string" || !model.label.trim()) return null;
+  const positive = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0;
+  if (!positive(model.vramBytes) || !positive(model.diskBytes) || !positive(model.downloadSizeBytes)) return null;
   // The runtime's own constraints always win over whatever was stored.
   return { ...model, ...defaults };
 }

@@ -67,9 +67,17 @@ export function DecisionModelModal({ open, onClose }: Props) {
    * for this machine rather than a generic warning. The confirm wording changes when
    * the verdict is a warning, because "Enable" reads as approval of something safe.
    */
+  /** Every mutation here reports its own failure; a silent no-op reads as a bug. */
+  const report = (error: unknown) =>
+    toast.error(error instanceof Error ? error.message : localizeUi("ui.modals.decisionmodelmodal.installFailed"));
+
   const handleEnable = async (next: boolean) => {
     if (!next) {
-      await enable.mutateAsync({ enabled: false });
+      try {
+        await enable.mutateAsync({ enabled: false });
+      } catch (error) {
+        report(error);
+      }
       return;
     }
     const verdict = selected?.preflight.assessment.verdict ?? "recommended";
@@ -86,7 +94,11 @@ export function DecisionModelModal({ open, onClose }: Props) {
       tone: tight ? "destructive" : "default",
     });
     if (!confirmed) return;
-    await enable.mutateAsync({ enabled: true, confirmedVerdict: verdict });
+    try {
+      await enable.mutateAsync({ enabled: true, confirmedVerdict: verdict });
+    } catch (error) {
+      report(error);
+    }
   };
 
   const handleInstall = async () => {
@@ -106,7 +118,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
       await install.mutateAsync(selected.id);
       toast.success(localizeUi("ui.modals.decisionmodelmodal.installed"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : localizeUi("ui.modals.decisionmodelmodal.installFailed"));
+      report(error);
     }
   };
 
@@ -127,7 +139,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
       await installRepo.mutateAsync({ repoId: repoInput.trim() });
       toast.success(localizeUi("ui.modals.decisionmodelmodal.installed"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : localizeUi("ui.modals.decisionmodelmodal.installFailed"));
+      report(error);
     }
   };
 
@@ -375,7 +387,11 @@ export function DecisionModelModal({ open, onClose }: Props) {
                           tone: "destructive",
                         })
                       ) {
-                        await remove.mutateAsync();
+                        try {
+                          await remove.mutateAsync();
+                        } catch (error) {
+                          report(error);
+                        }
                       }
                     }}
                     className="mari-chrome-control mari-chrome-control--compact flex items-center justify-center gap-2 text-xs"

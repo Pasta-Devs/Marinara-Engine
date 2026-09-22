@@ -60,6 +60,13 @@ export interface ResolvedDecisionSlot {
   protocol: "chat_logprobs" | "system_one";
   /** The model's own operating point, for a slot that brings one. */
   calibration?: DecisionCalibration;
+  /**
+   * The input limit this model was launched with.
+   *
+   * A decision model has its own `--max-length` and rejects anything longer with a
+   * 422 instead of truncating, so it must never inherit a chat slot's context size.
+   */
+  maxLengthTokens?: number;
 }
 
 export type DecisionSlotFailure = { slot: DecisionLocalSlot; reason: DecisionUnavailableReason; detail?: string };
@@ -185,6 +192,7 @@ export async function resolveDecisionSlot(
         label: model.label,
         protocol: "system_one",
         calibration: model.calibration,
+        maxLengthTokens: model.maxLengthTokens,
         // A purpose-built decision model never reasons: it scores candidates in one
         // forward pass and has no text to think in.
         thinking: "off",
@@ -219,6 +227,13 @@ export async function resolveDecisionSlot(
 }
 
 /** Context budget the slot was started with, so a decision state can be capped to fit. */
+/**
+ * The input budget a slot was started with.
+ *
+ * Only meaningful for the two chat slots: the decision sidecar carries its own limit
+ * on the resolved slot, because it is a property of the launched model rather than of
+ * anything in the sidecar config.
+ */
 export function decisionSlotContextSize(slot: DecisionLocalSlot): number {
   if (slot === "utility") return utilitySidecarService.getConfig().contextSize;
   return sidecarModelService.getConfig().contextSize;

@@ -165,9 +165,10 @@ export async function decisionRoutes(app: FastifyInstance) {
     return next;
   };
 
-  // Start with Marinara only when the user asked for that. Fire and forget: a model
-  // that cannot load must never hold up boot, and the failure is already recorded in
-  // the process status for the panel to show.
+  // Start with Marinara only when the user asked for that. `installedDecisionModel`
+  // returns null unless the sidecar is enabled, so a disabled install cannot start
+  // here. Fire and forget: a model that cannot load must never hold up boot, and the
+  // failure is already recorded in the process status for the panel to show.
   if (sidecarSettings.startPolicy === "with_marinara") {
     const model = installedDecisionModel(sidecarSettings);
     if (model)
@@ -287,7 +288,16 @@ export async function decisionRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(req, reply, { feature: "Decision model removal" })) return;
     await decisionProcessService.stop();
     decisionRuntimeService.remove();
-    return { settings: await writeSidecarSettings({ ...sidecarSettings, modelId: null, enabled: false }) };
+    return {
+      settings: await writeSidecarSettings({
+        ...sidecarSettings,
+        modelId: null,
+        // A pasted entry is stored whole, so clearing modelId alone would leave
+        // installedDecisionModel still reporting a model whose files are gone.
+        customModel: null,
+        enabled: false,
+      }),
+    };
   });
 
   /**
