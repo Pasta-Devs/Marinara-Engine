@@ -100,8 +100,14 @@ test("Decision settings, test errors and custom-agent questions survive reload",
     await expect(primary).toHaveCount(1);
     await expect(primary).toBeDisabled();
     await expect(primary).toContainText("No model downloaded");
-    // The managed decision sidecar has no runtime in this build, and says so.
-    await expect(decisionModel.locator("option[value='decision-sidecar:local']")).toContainText("Not installed");
+    // The managed decision sidecar is listed too, disabled, with whichever reason
+    // applies to this machine: it has not been turned on, nothing is installed, or
+    // the platform cannot run it. Each is a different fix, so the text is not
+    // pinned to one of them.
+    const decisionSidecar = decisionModel.locator("option[value='decision-sidecar:local']");
+    await expect(decisionSidecar).toHaveCount(1);
+    await expect(decisionSidecar).toBeDisabled();
+    await expect(decisionSidecar).toContainText(/Not enabled|Not installed|Requires/u);
     await decisionModel.selectOption(connection.id);
     await page.getByRole("button", { name: "Test", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: "Probability of yes: 0.800" })).toBeVisible();
