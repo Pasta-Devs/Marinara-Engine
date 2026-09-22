@@ -64,9 +64,16 @@ export function DecisionModelModal({ open, onClose }: Props) {
     models.find((model) => model.id === selectedId) ??
     models.find((model) => model.id === data?.settings.modelId) ??
     models.find((model) => model.preflight.installable) ??
+    // Where nothing is installable there is still something to show and explain:
+    // falling through to null would leave the list looking empty rather than
+    // greyed out with its reason.
+    models[0] ??
     null;
   const enabled = data?.settings.enabled === true;
   const installedId = data?.settings.modelId ?? null;
+  // A pasted model is stored whole and has no catalog id, so asking only about
+  // modelId would leave its files with no way to remove them from the panel.
+  const hasInstall = !!installedId || !!data?.settings.customModel;
   const busy = enable.isPending || install.isPending || remove.isPending || installRepo.isPending || sidecar.isPending;
 
   /**
@@ -381,7 +388,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                   <span>{localizeUi("ui.modals.decisionmodelmodal.startWithMarinara")}</span>
                 </label>
 
-                {installedId && (
+                {hasInstall && (
                   <button
                     type="button"
                     disabled={busy}

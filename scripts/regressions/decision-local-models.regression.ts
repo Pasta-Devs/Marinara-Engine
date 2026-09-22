@@ -179,6 +179,34 @@ assert.deepEqual(
   { refusal: "missing_base_model" },
 );
 
+// A bare index into a lookup table reaches Object.prototype, and every member of it
+// is truthy, so a manifest declaring "constructor" would have walked through the one
+// check that decides whether a pasted repository is installable at all.
+for (const inherited of ["constructor", "toString", "valueOf", "__proto__", "hasOwnProperty"]) {
+  assert.deepEqual(
+    readDecisionManifest({
+      artifact_type: inherited,
+      base_model: "Qwen/Qwen3.5-2B",
+      base_revision: "0".repeat(40),
+    }),
+    { refusal: "unknown_artifact_type" },
+    `${inherited} is an inherited property, not a runtime`,
+  );
+  assert.equal(
+    sanitizeCustomDecisionModel({
+      id: "byo:x",
+      label: "x",
+      runtime: inherited,
+      artifacts: [{ repoId: "a/b", revision: "0".repeat(40) }],
+      downloadSizeBytes: 1,
+      diskBytes: 2,
+      vramBytes: 3,
+    }),
+    null,
+    `${inherited} must not resolve to runtime defaults`,
+  );
+}
+
 // Settings come back from a JSON blob a user can hand-edit; nothing in it may turn
 // the sidecar on or point it at something this build cannot run.
 assert.equal(parseDecisionSidecarSettings(null).enabled, false);

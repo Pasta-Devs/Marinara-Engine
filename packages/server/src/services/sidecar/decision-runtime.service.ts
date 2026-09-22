@@ -153,7 +153,12 @@ export class DecisionRuntimeService {
       await this.run("tar", ["xzf", archivePath, "-C", SOURCE_DIR, "--strip-components=1"], { cwd: RUNTIME_DIR });
 
       this.emit(onProgress, "downloading", `Python ${PYTHON_VERSION} runtime`);
-      await this.run(UV_BIN, ["venv", VENV_DIR, "--python", PYTHON_VERSION], { cwd: RUNTIME_DIR, env: this.uvEnv() });
+      // --clear so a retry after an interrupted install replaces a half-built
+      // environment instead of layering onto it.
+      await this.run(UV_BIN, ["venv", "--clear", VENV_DIR, "--python", PYTHON_VERSION], {
+        cwd: RUNTIME_DIR,
+        env: this.uvEnv(),
+      });
 
       this.emit(onProgress, "downloading", "Decision runtime dependencies (several GB)");
       await this.run(

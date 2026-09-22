@@ -38,6 +38,8 @@ class DecisionProcessService {
   private modelId: string | null = null;
   private error: string | null = null;
   private starting: Promise<string | null> | null = null;
+  /** Which model the in-flight start is for, so another request is not misrouted. */
+  private startingModelId: string | null = null;
 
   getStatus(): DecisionProcessStatus {
     return {
@@ -61,9 +63,17 @@ class DecisionProcessService {
    */
   async ensureRunning(model: SidecarDecisionModelInfo): Promise<string | null> {
     if (this.child && this.baseUrl && this.modelId === model.id) return this.baseUrl;
-    if (this.starting) return this.starting;
+    if (this.starting) {
+      // Returning an in-flight start for a different model would hand back a URL
+      // serving the wrong weights. Wait for it to settle, then start what was asked
+      // for; `start` stops whatever is running first.
+      if (this.startingModelId === model.id) return this.starting;
+      await this.starting.catch(() => null);
+    }
+    this.startingModelId = model.id;
     this.starting = this.start(model).finally(() => {
       this.starting = null;
+      this.startingModelId = null;
     });
     return this.starting;
   }

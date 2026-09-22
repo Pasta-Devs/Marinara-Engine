@@ -11,7 +11,7 @@
  * is downloaded. A repository it cannot vouch for is refused with the reason.
  */
 import {
-  DECISION_RUNTIME_DEFAULTS,
+  decisionRuntimeDefaults,
   isSafeGitRef,
   isSafeRepoId,
   readDecisionManifest,
@@ -81,7 +81,7 @@ export async function inspectDecisionRepo(
   if (checkpointBytes === 0) return { refusal: "unreadable_manifest" };
   if (baseBytes === 0) return { refusal: "missing_base_model" };
 
-  const defaults = DECISION_RUNTIME_DEFAULTS[read.runtime];
+  const defaults = decisionRuntimeDefaults(read.runtime)!;
   const downloadSizeBytes = checkpointBytes + baseBytes;
   return {
     model: {

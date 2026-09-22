@@ -23,7 +23,14 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-const NVIDIA_SMI_QUERY = "index,uuid,name,memory.total,memory.used,driver_version,compute_cap";
+/**
+ * Two queries, because `compute_cap` is not available on every driver and
+ * `nvidia-smi` rejects the WHOLE query when one field is unknown rather than
+ * omitting it. Asking for it unconditionally would report "no NVIDIA GPU" on an
+ * older driver, taking the preflight and the existing diagnostics down with it.
+ */
+const NVIDIA_SMI_BASE_QUERY = "index,uuid,name,memory.total,memory.used,driver_version";
+const NVIDIA_SMI_QUERY = `${NVIDIA_SMI_BASE_QUERY},compute_cap`;
 const NVIDIA_SMI_APPS_QUERY = "pid,used_memory";
 const PROBE_TIMEOUT_MS = 4000;
 /** Matches detectCapabilities' own cache, so a slow probe is never on a request path. */
@@ -250,7 +257,15 @@ async function runProbe(): Promise<{ probe: GpuProbe; usageByPid: Map<number, nu
       execFileAsync("nvidia-smi", [`--query-gpu=${NVIDIA_SMI_QUERY}`, "--format=csv,noheader,nounits"], {
         timeout: PROBE_TIMEOUT_MS,
         windowsHide: true,
-      }),
+      }).catch(() =>
+        // Without compute capability the preflight cannot rule a GPU generation out,
+        // and `meetsComputeCapability` treats an absent value as unknown rather than
+        // as a failure. That is the right trade against losing the probe entirely.
+        execFileAsync("nvidia-smi", [`--query-gpu=${NVIDIA_SMI_BASE_QUERY}`, "--format=csv,noheader,nounits"], {
+          timeout: PROBE_TIMEOUT_MS,
+          windowsHide: true,
+        }),
+      ),
       // Best effort: some drivers and container setups report no per-process usage,
       // and the slot lines fall back to the size-based estimate rather than failing.
       execFileAsync("nvidia-smi", [`--query-compute-apps=${NVIDIA_SMI_APPS_QUERY}`, "--format=csv,noheader,nounits"], {

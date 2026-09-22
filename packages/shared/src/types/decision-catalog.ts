@@ -30,6 +30,27 @@ export const DECISION_ARTIFACT_RUNTIMES: Record<string, DecisionRuntimeKind> = {
 };
 
 /**
+ * The runtime that can load this artifact type, or null.
+ *
+ * Deliberately not a bare index. `DECISION_ARTIFACT_RUNTIMES["constructor"]` returns
+ * a function from `Object.prototype`, and every member of it is truthy, so a manifest
+ * declaring `"constructor"` or `"toString"` would otherwise pass the one check that
+ * decides whether a pasted repository is installable at all.
+ */
+export function runtimeForArtifactType(artifactType: string): DecisionRuntimeKind | null {
+  return Object.hasOwn(DECISION_ARTIFACT_RUNTIMES, artifactType) ? DECISION_ARTIFACT_RUNTIMES[artifactType]! : null;
+}
+
+/** The same guard for the runtime table, for exactly the same reason. */
+export function decisionRuntimeDefaults(
+  runtime: string,
+): (typeof DECISION_RUNTIME_DEFAULTS)[DecisionRuntimeKind] | null {
+  return Object.hasOwn(DECISION_RUNTIME_DEFAULTS, runtime)
+    ? DECISION_RUNTIME_DEFAULTS[runtime as DecisionRuntimeKind]
+    : null;
+}
+
+/**
  * Is this a HuggingFace repository id and nothing else?
  *
  * Load bearing rather than cosmetic. A pasted id is interpolated into hub URLs, and a
@@ -185,7 +206,7 @@ export function readDecisionManifest(
 ): { runtime: DecisionRuntimeKind; baseModel: string; baseRevision: string } | { refusal: DecisionManifestRefusal } {
   if (!manifest || typeof manifest !== "object") return { refusal: "unreadable_manifest" };
   const declared = typeof manifest.artifact_type === "string" ? manifest.artifact_type : "";
-  const runtime = DECISION_ARTIFACT_RUNTIMES[declared];
+  const runtime = runtimeForArtifactType(declared);
   if (!runtime) return { refusal: "unknown_artifact_type" };
   const baseModel = typeof manifest.base_model === "string" ? manifest.base_model.trim() : "";
   // The manifest is third-party text and this id goes into a URL, so it gets the same
@@ -241,7 +262,7 @@ export const DECISION_SIDECAR_DEFAULT_SETTINGS: DecisionSidecarSettings = {
 export function sanitizeCustomDecisionModel(value: unknown): SidecarDecisionModelInfo | null {
   if (!value || typeof value !== "object") return null;
   const model = value as SidecarDecisionModelInfo;
-  const defaults = DECISION_RUNTIME_DEFAULTS[model.runtime];
+  const defaults = decisionRuntimeDefaults(model.runtime);
   if (!defaults) return null;
   if (!Array.isArray(model.artifacts) || model.artifacts.length === 0) return null;
   if (!model.artifacts.every((artifact) => /^[0-9a-f]{40}$/u.test(artifact.revision ?? ""))) return null;

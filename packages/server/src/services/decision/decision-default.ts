@@ -146,8 +146,16 @@ export async function resolveDecisionBackend(
     return null;
   }
   const connection = resolved.connection;
-  // Hosted Jev keeps the documented operating point and wire shape: it has not been
-  // measured here, and re-pointing it on another model's numbers would be a guess.
+  // Every Decision connection keeps the documented operating point and wire shape.
+  //
+  // Deliberate, including for the `custom` source. A custom endpoint is any System
+  // One host, and this code cannot tell a self-hosted Open-Jev from TypeSafe's own
+  // Jev or anything else that speaks the protocol. Applying one model's measured
+  // calibration to all of them would silently move the operating point under hosts
+  // it was never measured against, which is worse than a default that is merely
+  // wrong for one of them. Self-hosted Open-Jev users tune the threshold per agent,
+  // and the managed sidecar carries its own calibration because there the model is
+  // known.
   const calibration = DEFAULT_DECISION_CALIBRATION;
   return {
     maxStateTokens: connection.maxStateTokens,
