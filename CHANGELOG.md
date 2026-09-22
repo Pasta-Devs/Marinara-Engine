@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Advanced Memory identifies corrections needing review and exposes unfinished scene summaries for targeted recovery without resetting the archive (#6526).
+
 - Character, persona, and lorebook folder contents follow the selected sidebar sort order (#6497).
 - The extra-actions menu sits to the left of Emoji, farther from Send, while keeping existing Post Only and Guided Generation actions (#6507).
 - Conversation scene invitations stay beside the proposing reply; open setup when ready, including after cancelling or reloading (#6496).
