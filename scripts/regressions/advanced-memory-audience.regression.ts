@@ -48,9 +48,13 @@ const provider = createServer(async (request, response) => {
             : {}),
     };
   }
+  const content = JSON.stringify(result);
+  const formattedContent = classification
+    ? content
+    : `<think>Check the actual scene participants.</think>\n\`\`\`json\n${transcript.content.includes("EVERYONE_PRESENT") ? content.replace(/"/g, '<|"|>') : content}\n\`\`\``;
   response.end(
     JSON.stringify({
-      choices: [{ message: { role: "assistant", content: JSON.stringify(result) }, finish_reason: "stop" }],
+      choices: [{ message: { role: "assistant", content: formattedContent }, finish_reason: "stop" }],
     }),
   );
 });
@@ -134,6 +138,11 @@ try {
     "explicit all expands current characters, excluding the implicit narrator",
   );
   assert.deepEqual(at(6).audienceCharacterIds, [], "unknown model IDs cannot grant access");
+  assert.equal(
+    at(4).content,
+    "The compass promise was recorded. The travelers remembered the compass.",
+    "thinking, JSON fences and Gemma delimiters preserve both summary prose and scene access",
+  );
   const recall = (audienceCharacterIds: string[]) =>
     memory.prepare({ chatId: chat.id, messages: source, audienceCharacterIds, budgetTokens: 12000, readOnly: true });
   for (const mode of ["individual", "shared"]) {

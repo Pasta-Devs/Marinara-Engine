@@ -948,9 +948,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             ],
             completionOptions,
           );
-          const summary = audienceOnly
-            ? "Audience classification"
-            : parseChatSummaryResult(result.content ?? "").summary;
+          const helperContent = normalizeGemma4Delimiters(extractLeadingThinkingBlocks(result.content ?? "").content)
+            .trim()
+            .replace(/^```(?:json)?\s*|\s*```$/gu, "");
+          const decision = assignAudience ? tryParseJsonRecord(helperContent) : null;
+          const summary = audienceOnly ? "Audience classification" : parseChatSummaryResult(helperContent).summary;
           if (!summary)
             throw new Error(
               `The summary model returned no summary. ${describeEmptyModelResponse({
@@ -968,13 +970,12 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             throw new Error(
               "The summary model did not complete its summary. Resume processing to retry unfinished work.",
             );
-          if (audienceOnly && !tryParseJsonRecord(extractLeadingThinkingBlocks(result.content ?? "").content))
+          if (audienceOnly && !decision)
             throw new Error("The helper returned no scene access decision; resume to retry this scene.");
           text = assignAudience
             ? JSON.stringify({
                 summary,
-                audience:
-                  tryParseJsonRecord(extractLeadingThinkingBlocks(result.content ?? "").content)?.audience ?? [],
+                audience: decision?.audience ?? [],
               })
             : summary;
           // Save a completed paid response even if cancellation arrived with it. Source/settings

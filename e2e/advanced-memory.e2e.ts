@@ -783,7 +783,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     const deleteSceneButton = inspector.getByRole("button", { name: "Delete summary", exact: true });
     await deleteSceneButton.click();
     const deleteSceneDialog = page.getByRole("dialog", { name: "Delete summary", exact: true });
-    await expect(deleteSceneDialog).toContainText("Delete Scene #1 for Dottore, Narrator?");
+    await expect(deleteSceneDialog).toContainText("Delete Scene #1 for Narrator only?");
     await expect(deleteSceneDialog).toContainText("Original chat messages stay intact.");
     await captureThemes(page, info, "advanced-memory-delete-confirm", deleteSceneDialog);
     await deleteSceneDialog.getByRole("button", { name: "Cancel", exact: true }).click();

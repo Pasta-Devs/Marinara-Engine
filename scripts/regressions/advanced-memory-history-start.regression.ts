@@ -339,9 +339,8 @@ try {
   assert.equal(status.job.status, "ready");
   assert.equal(status.job.total, 1000);
   const scenes = status.records.filter((record) => record.kind === "scene" && record.content);
-  const sharedScenes = scenes;
   assert.deepEqual(
-    sharedScenes.map((record) => [record.startIndex, record.endIndex]),
+    scenes.map((record) => [record.startIndex, record.endIndex]),
     [
       [1, 250],
       [251, 500],
