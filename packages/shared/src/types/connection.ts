@@ -21,7 +21,21 @@ export type APIProvider =
   | "custom"
   | "image_generation"
   | "video_generation"
-  | "audio";
+  | "audio"
+  | "decision";
+
+export const DECISION_SOURCES = ["typesafe", "openrouter", "custom"] as const;
+export type DecisionSource = (typeof DECISION_SOURCES)[number];
+
+export const DECISION_SOURCE_BASE_URLS = {
+  typesafe: "https://api.typesafe.ai",
+  openrouter: "https://openrouter.ai/api",
+  custom: "",
+} as const;
+
+export function defaultDecisionStateTokens(source: string | null | undefined): number {
+  return source === "custom" ? 3500 : 30000;
+}
 
 /** Audio backends an audio connection can target (the former TTS sources). */
 export const AUDIO_GENERATION_SOURCES = ["openai", "elevenlabs", "pockettts", "xai"] as const;
@@ -85,6 +99,10 @@ export interface APIConnection {
   videoService: string | null;
   /** Audio backend for audio connections (e.g. "elevenlabs"). Null for non-audio providers. */
   audioSource: AudioGenerationSource | null;
+  /** System One backend; absent on older connections. */
+  decisionSource?: DecisionSource | null;
+  credentialsFromConnectionId?: string | null;
+  maxStateTokens?: number | null;
   /** Default voice id/name for speech synthesis on this audio connection. */
   audioVoice: string | null;
   /** Whether this audio connection may generate game sound effects (ElevenLabs only today). */
@@ -145,4 +163,6 @@ export interface ConnectionTestResult {
   message: string;
   latencyMs: number;
   modelName: string | null;
+  decisionProbability?: number;
+  errorCode?: string;
 }

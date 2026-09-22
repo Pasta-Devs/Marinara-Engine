@@ -26,6 +26,7 @@ export const apiConnections = fileTable("api_connections", {
       "image_generation",
       "video_generation",
       "audio",
+      "decision",
     ],
   }).notNull(),
   baseUrl: text("base_url").notNull().default(""),
@@ -77,6 +78,9 @@ export const apiConnections = fileTable("api_connections", {
   videoService: text("video_service"),
   /** Audio backend for audio connections (openai | elevenlabs | pockettts | xai). */
   audioSource: text("audio_source"),
+  decisionSource: text("decision_source"),
+  credentialsFromConnectionId: text("credentials_from_connection_id"),
+  maxStateTokens: integer("max_state_tokens"),
   /** Default voice id/name for speech synthesis on this audio connection. */
   audioVoice: text("audio_voice"),
   /** Whether this audio connection may generate game sound effects ("true"/"false"). */

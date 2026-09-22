@@ -279,7 +279,8 @@ function isSummaryConnectionOption(value: unknown): value is SummaryConnectionOp
     typeof record.provider === "string" &&
     record.provider !== "image_generation" &&
     record.provider !== "video_generation" &&
-    record.provider !== "audio"
+    record.provider !== "audio" &&
+    record.provider !== "decision"
   );
 }
 

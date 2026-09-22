@@ -2,7 +2,7 @@
 // Connection Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
-import { IMAGE_GENERATION_QUALITIES } from "../types/connection.js";
+import { DECISION_SOURCES, IMAGE_GENERATION_QUALITIES } from "../types/connection.js";
 import { MAX_IMAGE_PROMPT_INSTRUCTIONS_LENGTH } from "../constants/defaults.js";
 
 export const apiProviderSchema = z.enum([
@@ -24,6 +24,7 @@ export const apiProviderSchema = z.enum([
   "image_generation",
   "video_generation",
   "audio",
+  "decision",
 ]);
 
 export const audioGenerationSourceSchema = z.enum(["openai", "elevenlabs", "pockettts", "xai"]);
@@ -79,6 +80,9 @@ export const createConnectionSchema = z.object({
   videoGenerationSource: z.string().nullable().default(null),
   videoService: z.string().nullable().default(null),
   audioSource: audioGenerationSourceSchema.nullable().default(null),
+  decisionSource: z.enum(DECISION_SOURCES).nullable().default(null),
+  credentialsFromConnectionId: z.string().trim().min(1).nullable().default(null),
+  maxStateTokens: z.number().int().min(1).max(30000).nullable().default(null),
   audioVoice: z.string().nullable().default(null),
   audioSoundEffects: z.boolean().default(false),
   audioMusic: z.boolean().default(false),
