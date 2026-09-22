@@ -231,6 +231,14 @@ try {
             reasoningEffort,
             temperature: 0.5,
             topP: 0.8,
+            customParameters: {
+              temperature: 0.6,
+              top_p: 0.9,
+              top_k: 20,
+              min_p: 0.1,
+              frequency_penalty: 0.2,
+              presence_penalty: 0.3,
+            },
             tools: [tool],
             toolChoice: "required",
             onToken: () => {},
@@ -244,14 +252,18 @@ try {
           assert.equal(kind === "openrouter" ? body.reasoning.effort : body.reasoning_effort, effort);
           assert.equal(body.tool_choice, "auto");
           assert.deepEqual(body.tools, [tool]);
-          assert.equal(body.temperature, undefined);
-          assert.equal(body.top_p, undefined);
+          for (const sampler of Object.keys(options.customParameters!)) {
+            assert.equal(sampler in body, false, `${kind} must omit saved ${sampler} for Opus 5.5`);
+          }
           assert.equal(body.chat_template_kwargs, undefined, "local proxy URLs must not disable mandatory thinking");
           assert.equal(body.messages.at(-1).role, "user");
           const chunks: string[] = [];
           for await (const chunk of provider.chat(messages, options)) chunks.push(chunk);
           assert.equal(chunks.join(""), "Hello Mari");
           assert.equal(requests.at(-1)!.tool_choice, "auto");
+          for (const sampler of Object.keys(options.customParameters!)) {
+            assert.equal(sampler in requests.at(-1)!, false, `${kind} streaming must omit saved ${sampler}`);
+          }
         }
       }
     }

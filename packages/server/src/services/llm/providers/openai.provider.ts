@@ -729,7 +729,8 @@ export class OpenAIProvider extends BaseLLMProvider {
 
   private stripUnsupportedSamplerParameters(body: Record<string, unknown>, options: ChatOptions): void {
     if (!this.isNoTemperatureModel(options.model, options.reasoningEffort)) return;
-    const explicitCustomParameters = this.isGenericCustomProvider() ? options.customParameters : undefined;
+    const explicitCustomParameters =
+      this.isGenericCustomProvider() && !isClaudeOpus55Model(options.model) ? options.customParameters : undefined;
     const removeUnlessExplicit = (key: string) => {
       if (!explicitCustomParameters || !Object.prototype.hasOwnProperty.call(explicitCustomParameters, key)) {
         delete body[key];
