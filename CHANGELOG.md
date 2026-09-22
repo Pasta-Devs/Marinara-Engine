@@ -4,6 +4,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Game Mode honors connection and chat generation parameters instead of replacing them with fixed sampling and output settings (#6511).
+- xAI web search uses the existing Responses API integration to finish searches and return the answer with newer Grok models (#6521).
+
 - Character, persona, and lorebook folder contents follow the selected sidebar sort order (#6497).
 - The extra-actions menu sits to the left of Emoji, farther from Send, while keeping existing Post Only and Guided Generation actions (#6507).
 - Conversation scene invitations stay beside the proposing reply; open setup when ready, including after cancelling or reloading (#6496).
