@@ -60,12 +60,12 @@ En los **Advanced Parameters** de un chat, solo **Max Output Tokens** y **Reason
 
 ## Valores predeterminados
 
-La tabla muestra los valores de respaldo del editor de parámetros y el estado predeterminado de los interruptores Send. No son necesariamente los valores que recibe el modelo: sin un preset, la generación parte de `4096` tokens de salida antes de aplicar los valores de la conexión y del chat. Después, las reglas del modo pueden fijar `8192` para una escena activa o `16384` para Game Mode. La línea **Effective** muestra el valor resuelto.
+La tabla muestra los valores de respaldo del editor de parámetros y el estado predeterminado de los interruptores Send. No son necesariamente los valores enviados al modelo: sin preset, la generación empieza con `4096` tokens de salida antes de aplicar los valores de la conexión y del chat. Una escena activa puede usar `8192`. Game usa los parámetros guardados de la conexión y del chat, con valores predeterminados de la tarea solo para los ajustes no configurados. La línea **Effective** muestra el valor resultante.
 
 | Parámetro | Valor inicial | Enviado de forma predeterminada |
 |---|---|---|
 | Temperature | 1 | No |
-| Max Output Tokens | 4096 en Conversation, 8192 en Roleplay y Game | Sí |
+| Max Output Tokens | 4096 en Conversation, 8192 en Roleplay; sin sustitución de Game | Sí |
 | Top P | 1 | No |
 | Top K | 0 (off) | No |
 | Frequency | 0 | No |
@@ -140,8 +140,8 @@ Los parámetros se resuelven campo por campo, en este orden:
 1. Los **Parameters** (parámetros) del preset seleccionado, o los valores de generación integrados si no se usa un preset (temperatura `1`, salida máxima `4096`). En Roleplay, el preset asignado en la conexión tiene prioridad sobre el seleccionado en el chat.
 2. Los **Default Parameters** (parámetros predeterminados) de la conexión.
 3. Los **Advanced Parameters** de este chat.
-4. Reglas del modo: un chat de escena activo fija la salida en `8192`, el razonamiento en **Maximum** y la verbosidad en **High**. Game Mode fija la salida en `16384` y el razonamiento en **Maximum**, con temperatura/top-p en `1` y top-k, min-p y penalizaciones de repetición en `0`. Las conexiones Gemma de Game Mode conservan sus ajustes de muestreo y usan un presupuesto de salida de al menos `16384`.
-5. Límites de salida: Game Mode aplica el límite de salida conocido del modelo, y el **Max Output Tokens override** (límite personalizado de tokens de salida) de la conexión limita las solicitudes en todos los modos. El contexto disponible puede reducir aún más el presupuesto de salida.
+4. Reglas del modo: un chat de escena activo fija la salida en `8192`, el razonamiento en **Maximum** y la verbosidad en **High**. Game usa los parámetros guardados de la conexión y del chat sin forzar el muestreo, el razonamiento ni un tamaño mínimo de salida. Sus llamadas auxiliares también respetan los parámetros guardados; los valores predeterminados de la tarea solo se aplican cuando un valor no está configurado.
+5. Límites de salida: Game aplica el límite de salida conocido del modelo, y **Max Output Tokens override** de la conexión limita las solicitudes en todos los modos. El contexto disponible puede reducir aún más el presupuesto de salida.
 
 La línea **Effective** (valor efectivo) junto a un parámetro muestra el valor guardado y la capa que prevalece, incluidas las reglas del modo y los límites de salida. En el editor de conexiones usa el chat abierto que utilice esa conexión, o una base de Roleplay si no hay ningún chat abierto. Guarda los cambios para actualizarla. Un interruptor Send desactivado aparece como **not sent**; los proveedores aún pueden imponer parámetros obligatorios o adaptar valores no compatibles. Custom Parameters y el ajuste al contexto pueden modificar aún más la solicitud final.
 

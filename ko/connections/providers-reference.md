@@ -87,7 +87,7 @@
 - 키를 받는 곳: `https://console.x.ai`
 - 기본 Base URL: `https://api.x.ai/v1`
 
-**xAI / Grok**은 Grok 모델을 운영합니다. **Create Connection** 창에서 이 제공자를 고르면 Marinara가 모델을 Grok 4.5로 미리 채웁니다. 모델은 나중에 바꿀 수 있습니다.
+**xAI / Grok**은 Grok 모델을 운영합니다. **Create Connection** 창에서 이 제공자를 고르면 Marinara가 모델을 Grok 4.5로 미리 채웁니다. 모델은 나중에 바꿀 수 있습니다. Grok 4.6과 4.7은 500,000토큰 컨텍스트 창과 **Maximum** (`xhigh`)까지의 추론을 제공합니다. **Web Search**(웹 검색)를 비롯한 기존 채팅 도구를 지원하므로 검색 결과를 최종 답변에 반영할 수 있습니다.
 
 ## Z.AI
 

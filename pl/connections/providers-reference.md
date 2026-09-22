@@ -87,7 +87,7 @@ Pole **API Key** przyjmuje jeden z trzech rodzajów poświadczeń, a Marinara sa
 - Skąd wziąć klucz: `https://console.x.ai`
 - Domyślny adres bazowy: `https://api.x.ai/v1`
 
-**xAI / Grok** udostępnia modele Grok. Po wybraniu tego dostawcy w oknie **Create Connection** Marinara od razu wpisuje model Grok 4.5. Model można potem zmienić.
+**xAI / Grok** udostępnia modele Grok. Po wybraniu tego dostawcy w oknie **Create Connection** Marinara od razu wpisuje model Grok 4.5. Model można potem zmienić. Modele Grok 4.6 i 4.7 mają okno kontekstu wynoszące 500 000 tokenów i obsługują rozumowanie do poziomu **Maximum** (`xhigh`). Obsługują istniejące narzędzia czatu, w tym **Web Search** (wyszukiwanie w internecie), więc wyniki wyszukiwania mogą zostać wykorzystane w końcowej odpowiedzi.
 
 ## Z.AI
 

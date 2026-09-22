@@ -1,6 +1,5 @@
 {
   "language": "ko",
-  "sourceCommit": "f45d830d8a45199596d2e662632837a2795043fd",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -219,8 +218,8 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "a7e1a99d2b7be90b545c96c2f83e08b977b44a4ac7806e65cf09f7c7e9846ae3",
-      "bytes": 12367
+      "sha256": "fdee1eebe8d8b0ccf532502baa663234f50fee484ed56c4f3cafc8474881cf94",
+      "bytes": 12620
     },
     {
       "path": "connections/subscription-clis.md",
@@ -589,8 +588,8 @@
     },
     {
       "path": "prompts/generation-parameters.md",
-      "sha256": "d58562047b5ec7a6e6b09bfe31a9550397b25796e10d0e7fbca322b3f884c994",
-      "bytes": 18716
+      "sha256": "4d8e89d3544a4e33139b196074282cf9fb2d868f0b105fb9fded201b247659c1",
+      "bytes": 18811
     },
     {
       "path": "prompts/macros.md",

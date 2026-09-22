@@ -87,7 +87,7 @@ Das Feld **API Key** akzeptiert drei Arten von Zugangsdaten, und Marinara erkenn
 - Key bekommst du hier: `https://console.x.ai`
 - Standard-Base-URL: `https://api.x.ai/v1`
 
-**xAI / Grok** betreibt die Grok-Modelle. Wählst du diesen Anbieter im Fenster **Create Connection**, trägt Marinara Grok 4.5 als Modell vor. Ändern lässt sich das jederzeit.
+**xAI / Grok** betreibt die Grok-Modelle. Wählst du diesen Anbieter im Fenster **Create Connection**, trägt Marinara Grok 4.5 als Modell vor. Ändern lässt sich das jederzeit. Grok 4.6 und 4.7 bieten ein Kontextfenster von 500.000 Tokens und Reasoning bis **Maximum** (`xhigh`). Sie unterstützen die vorhandenen Chat-Tools einschließlich **Web Search** (Websuche), sodass Suchergebnisse in die fertige Antwort einfließen können.
 
 ## Z.AI
 

@@ -1,6 +1,5 @@
 {
   "language": "hi",
-  "sourceCommit": "f45d830d8a45199596d2e662632837a2795043fd",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -219,8 +218,8 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "a7526f3e8796dd3e1420ee6e2aff9f8d5e91e850ddd4e2df916c0870d006a2e6",
-      "bytes": 21169
+      "sha256": "125b5c8cdb90433f281338592f0198ef72bd87d343097220f01f5f5ee310e532",
+      "bytes": 21646
     },
     {
       "path": "connections/subscription-clis.md",
@@ -589,8 +588,8 @@
     },
     {
       "path": "prompts/generation-parameters.md",
-      "sha256": "9e471c63ea102763156e371c7171f8df2c2938f48ef694067e14b19a153dfd57",
-      "bytes": 34990
+      "sha256": "6d5ab5f0b05983832026ffae6bb80ad517e33e79e050154bc3b740ba5917d8ec",
+      "bytes": 35302
     },
     {
       "path": "prompts/macros.md",
