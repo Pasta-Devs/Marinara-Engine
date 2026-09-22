@@ -1388,7 +1388,7 @@ export function ChatSidebar() {
               className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
               title={localize("Sort chats")}
             >
-              <option value="custom">{localizeUi("settings.notifications.customSound.status.custom")}</option>
+              <option value="custom">{localizeUi("ui.layout.chatsidebar.customOrder")}</option>
               <option value="recent">{localizeUi("ui.layout.chatsidebar.recent")}</option>
               <option value="newest">{localize("Newest")}</option>
               <option value="oldest">{localize("Oldest")}</option>
