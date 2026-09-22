@@ -9,10 +9,12 @@ const first = new Blob(["first voice"]);
 const other = new Blob(["another message"]);
 await getOrCreateCachedTTSAudioBlob("first", async () => first, ["first-text"]);
 await getOrCreateCachedTTSAudioBlob("other", async () => other);
+await getOrCreateCachedTTSAudioBlob("shared-other", async () => other, ["first-text"]);
 await deleteCachedTTSAudioKeys(["first", "first-text"]);
 assert.equal(await getCachedTTSAudioBlob("first"), null);
 assert.equal(await getCachedTTSAudioBlob("first-text"), null);
 assert.equal(await getCachedTTSAudioBlob("other"), other);
+assert.equal(await getCachedTTSAudioBlob("shared-other"), first, "Another message keeps its own cached clip");
 
 let started!: () => void;
 let finish!: (blob: Blob) => void;

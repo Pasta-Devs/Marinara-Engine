@@ -146,7 +146,6 @@ function commonToolbarTargets(...ids: HelpTargetId[]): HelpTargetDefinition[] {
 
 const TARGETS_BY_MODE: Record<ChatMode, HelpTargetDefinition[]> = {
   conversation: [
-    { icon: Headphones, labelKey: "ui.chat.chatmessage.voiceControls" },
     {
       id: "identity",
       selector: '[data-chat-help="identity"]',
@@ -287,6 +286,7 @@ const PADDED_TARGET_IDS = new Set<HelpTargetId>([
 
 const ACTIONS_BY_MODE: Record<ChatMode, HelpActionDefinition[]> = {
   conversation: [
+    { icon: Headphones, labelKey: "ui.chat.chatmessage.voiceControls" },
     { icon: Copy, labelKey: "chat.help.actions.copy" },
     { icon: Reply, labelKey: "chat.help.actions.reply" },
     { icon: SmilePlus, labelKey: "chat.help.actions.react" },
