@@ -12,14 +12,21 @@ export async function resolveSceneBusyCharacterIds(
   originChatId: string,
   metadata?: Record<string, unknown>,
 ): Promise<string[]> {
+  const parse = (value: unknown) => {
+    try {
+      return typeof value === "string" ? JSON.parse(value) : value;
+    } catch {
+      return null;
+    }
+  };
   const sourceMetadata = metadata ?? (await chats.getById(originChatId))?.metadata;
-  const source = typeof sourceMetadata === "string" ? JSON.parse(sourceMetadata) : sourceMetadata;
+  const source = parse(sourceMetadata);
   if (typeof source?.activeSceneChatId !== "string") return [];
   const scene = await chats.getById(source.activeSceneChatId);
   if (!scene) return [];
-  const meta = typeof scene.metadata === "string" ? JSON.parse(scene.metadata) : scene.metadata;
+  const meta = parse(scene.metadata);
   if (meta?.sceneStatus !== "active" || meta.sceneOriginChatId !== originChatId) return [];
-  const ids = typeof scene.characterIds === "string" ? JSON.parse(scene.characterIds) : scene.characterIds;
+  const ids = parse(scene.characterIds);
   return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : [];
 }
 

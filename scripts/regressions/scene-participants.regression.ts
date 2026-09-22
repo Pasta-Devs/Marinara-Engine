@@ -106,6 +106,25 @@ try {
   // Earlier versions marked only the initiating character busy. Read the actual Scene roster.
   const legacyMeta = { ...meta, sceneBusyCharIds: [ids[0]] };
   assert.deepEqual(await resolveSceneBusyCharacterIds(store, origin.id, legacyMeta), selected.participantCharacterIds);
+  for (const [chatId, field] of [
+    [origin.id, "metadata"],
+    [scene.id, "metadata"],
+    [scene.id, "characterIds"],
+  ]) {
+    assert.deepEqual(
+      await resolveSceneBusyCharacterIds(
+        {
+          getById: async (id) => {
+            const row = await store.getById(id);
+            return id === chatId && row ? { ...row, [field]: "invalid JSON" } : row;
+          },
+        },
+        origin.id,
+      ),
+      [],
+      `Malformed ${field} cannot crash Conversation availability`,
+    );
+  }
   const presenceArgs = {
     db: app.db,
     chatId: origin.id,

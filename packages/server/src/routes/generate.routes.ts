@@ -6727,6 +6727,7 @@ export async function generateRoutes(app: FastifyInstance) {
         } | null> => {
           if (
             chatMode === "conversation" &&
+            speaksOnlyTargetCharacter &&
             targetCharId &&
             !input.regenerateMessageId &&
             !input.impersonate &&
