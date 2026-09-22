@@ -716,6 +716,7 @@ export class OpenAIProvider extends BaseLLMProvider {
    * o-series models never do.
    * Astra and GPT-5.6/GPT-5.5 reject sampling params entirely; older GPT-5.x models only
    * reject them when reasoning effort is active.
+   * GPT-6 Sol/Luna allow sampling only with explicit reasoning effort "none".
    */
   private isNoTemperatureModel(model: string, reasoningEffort?: string): boolean {
     if (isOpenAIGpt6Model(model)) return isOpenAIGpt6AstraModel(model) || reasoningEffort !== "none";
