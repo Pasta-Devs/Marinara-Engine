@@ -62,7 +62,7 @@ const server = createServer(async (request, response) => {
       ? partial
         ? '{"summary":"Maukie promised to return'
         : ""
-      : JSON.stringify({ summary: summaryResponse });
+      : JSON.stringify({ summary: summaryResponse, audience: "all" });
   }
   response.end(
     JSON.stringify({
@@ -219,13 +219,14 @@ try {
   const sharedSource = await chats.listMessages(sharedChat.id);
   await chats.updateMessageExtra(sharedSource[0]!.id, { hiddenFromAICharacterIds: ["maukie"] });
   await memory.initialize(sharedChat.id);
-  const restrictedScenes = (await memory.status(sharedChat.id)).records.filter(
-    (record) => record.kind === "scene" && record.content && record.embeddingStatus !== "stale",
-  );
-  assert(
-    !restrictedScenes.some((record) => record.audienceCharacterIds.includes("maukie")),
-    "a previously shared scene cannot grant a character hidden history after its scope changes",
-  );
+  const restrictedRecall = await memory.prepare({
+    chatId: sharedChat.id,
+    messages: await chats.listMessages(sharedChat.id),
+    audienceCharacterIds: ["maukie"],
+    budgetTokens: 50_000,
+    readOnly: true,
+  });
+  assert.equal(restrictedRecall.recalledScenes, null, "source hiding still prevents recall after a saved assignment");
   const characters = createCharactersStorage(db);
   const borrower = await characters.create(characterDataSchema.parse({ name: "Maukie" }));
   const narratorActor = await characters.create(characterDataSchema.parse({ name: "Narrator" }));
