@@ -28,7 +28,7 @@ export function isClaudeAdaptiveOnlyNoSamplingModel(model: string): boolean {
 export function supportsXhighReasoningEffort(model: string): boolean {
   const normalized = model.toLowerCase();
   return (
-    isOpenAIGpt6AstraModel(normalized) ||
+    isOpenAIGpt6Model(normalized) ||
     normalized.startsWith("gpt-5.6") ||
     normalized.startsWith("gpt-5.5") ||
     normalized.startsWith("gpt-5.4") ||
@@ -52,7 +52,11 @@ export function isOpenAIGpt56Model(model: string): boolean {
 }
 
 export function isOpenAIGpt6AstraModel(model: string): boolean {
-  return /^gpt-6-astra(?:$|-)/i.test(model);
+  return /^(?:openai\/)?gpt-6-astra(?:$|[-:])/i.test(model);
+}
+
+export function isOpenAIGpt6Model(model: string): boolean {
+  return /^(?:openai\/)?gpt-6-(?:astra|sol|luna)(?:$|[-:])/i.test(model);
 }
 
 export function isOpenAIGpt56SolProAlias(model: string): boolean {
@@ -85,7 +89,7 @@ export function resolveProviderReasoningEffort(args: {
     isClaudeAdaptiveOnlyNoSamplingModel(modelLower);
   const supportsXhigh = supportsXhighReasoningEffort(modelLower);
   const supportsMax =
-    isOpenAIGpt6AstraModel(modelLower) ||
+    isOpenAIGpt6Model(modelLower) ||
     isOpenAIGpt56Model(modelLower) ||
     isNativeAnthropicAdaptiveOnly ||
     (providerLower === "zai" && isZaiMaxReasoningEffortModel(modelLower));
@@ -121,8 +125,10 @@ export const OPENAI_MODELS: KnownModel[] = [
   { id: "gpt-5.6-sol-pro", name: "gpt-5.6-sol-pro (Sol with pro mode)", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.6-terra", name: "gpt-5.6-terra", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.6-luna", name: "gpt-5.6-luna", context: 1050000, maxOutput: 128000 },
-  // GPT-6 Astra
+  // GPT-6
   { id: "gpt-6-astra", name: "gpt-6-astra", context: 1050000, maxOutput: 128000 },
+  { id: "gpt-6-sol", name: "gpt-6-sol", context: 1050000, maxOutput: 128000 },
+  { id: "gpt-6-luna", name: "gpt-6-luna", context: 1050000, maxOutput: 128000 },
   // GPT-5.5
   { id: "gpt-5.5", name: "gpt-5.5", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.5-2026-04-23", name: "gpt-5.5-2026-04-23", context: 1050000, maxOutput: 128000 },
