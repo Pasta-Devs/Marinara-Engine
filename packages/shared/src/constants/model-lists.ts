@@ -15,6 +15,11 @@ export interface KnownModel {
 
 const CLAUDE_ADAPTIVE_ONLY_OPUS_RE = /claude-opus-4-(?:[7-9]|\d{2,})/;
 
+/** Native Claude ID and the dotted ID used by OpenRouter/compatible gateways. */
+export function isClaudeOpus55Model(model: string): boolean {
+  return /(?:^|\/)claude-opus-5[.-]5(?:$|[-:])/iu.test(model.trim());
+}
+
 export function isClaudeAdaptiveOnlyNoSamplingModel(model: string): boolean {
   const normalized = model.toLowerCase();
   return (
@@ -229,6 +234,7 @@ export const OPENAI_MODELS: KnownModel[] = [
 // ── Anthropic / Claude (from #model_claude_select) ──
 
 export const ANTHROPIC_MODELS: KnownModel[] = [
+  { id: "claude-opus-5-5", name: "claude-opus-5-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-5", name: "claude-opus-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-sonnet-5", name: "claude-sonnet-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-fable-5-1", name: "claude-fable-5-1", context: 1000000, maxOutput: 128000 },
@@ -269,6 +275,7 @@ export const ANTHROPIC_MODELS: KnownModel[] = [
 // to the current tool-eligible families to avoid offering retired aliases that
 // the subscription path no longer accepts.
 export const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
+  { id: "claude-opus-5-5", name: "Claude Opus 5.5", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-5", name: "Claude Opus 5", context: 1000000, maxOutput: 128000 },
   { id: "claude-sonnet-5", name: "Claude Sonnet 5", context: 1000000, maxOutput: 128000 },
   { id: "claude-fable-5", name: "Claude Fable 5", context: 1000000, maxOutput: 128000 },
@@ -1112,7 +1119,9 @@ export function findKnownModel(provider: APIProvider, modelId: string): KnownMod
   // while direct OAI-compatible endpoints generally do not. Resolve both
   // forms without exposing a large, stale static list in their model pickers.
   const normalizedId = modelId.trim().toLowerCase();
-  const unqualifiedId = normalizedId.split("/").pop()?.split(":", 1)[0] ?? normalizedId;
+  const unqualifiedId = isClaudeOpus55Model(normalizedId)
+    ? "claude-opus-5-5"
+    : (normalizedId.split("/").pop()?.split(":", 1)[0] ?? normalizedId);
   return OPENAI_COMPATIBLE_AGGREGATOR_MODELS.find((model) => model.id.toLowerCase() === unqualifiedId);
 }
 
