@@ -130,6 +130,7 @@ try {
             customParameters: {
               temperature: 0.9,
               top_p: 0.9,
+              // Responses uses include for log probabilities; the boolean is a Chat Completions field.
               ...(canDisable && effort === "none" ? {} : { logprobs: true }),
               top_logprobs: 3,
               include: ["reasoning.encrypted_content", "message.output_text.logprobs"],
