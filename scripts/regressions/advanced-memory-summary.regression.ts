@@ -231,6 +231,102 @@ try {
   const borrower = await characters.create(characterDataSchema.parse({ name: "Maukie" }));
   const narratorActor = await characters.create(characterDataSchema.parse({ name: "Narrator" }));
   assert(borrower && narratorActor);
+  const otherPov = await characters.create(characterDataSchema.parse({ name: "Pantalone" }));
+  assert(otherPov);
+  for (const [mode, characterIds] of [
+    ["merged", [borrower.id, otherPov.id]],
+    ["individual", [borrower.id]],
+  ] as const) {
+    const unrestrictedChat = await createChat(`No POV separation: ${mode}`);
+    await chats.update(unrestrictedChat.id, { characterIds: [...characterIds] });
+    await chats.patchMetadata(unrestrictedChat.id, {
+      groupChatMode: mode,
+      advancedMemory: { ...settings, knowledgeStarts: { [borrower.id]: null, [otherPov.id]: null } },
+    });
+    const unrestrictedStart = requests.length;
+    await memory.initialize(unrestrictedChat.id);
+    const unrestrictedRequest = requests
+      .slice(unrestrictedStart)
+      .find((request) => !request.instructions?.startsWith("Identify scene transitions"))!;
+    assert(unrestrictedRequest.instructions?.startsWith("Summarize the supplied Roleplay events"));
+    assert(!unrestrictedRequest.instructions?.includes("Keep character knowledge separate when POVs switch."));
+  }
+  const povChat = await createChat("Private knowledge across POVs");
+  await chats.update(povChat.id, { characterIds: [borrower.id, otherPov.id, narratorActor.id] });
+  await chats.patchMetadata(povChat.id, {
+    groupChatMode: "individual",
+    advancedMemory: {
+      ...settings,
+      summaryBudgetTokens: 4096,
+      narratorCharacterId: narratorActor.id,
+      knowledgeStarts: { [borrower.id]: null, [otherPov.id]: null },
+    },
+  });
+  const povSource = await chats.listMessages(povChat.id);
+  await chats.updateMessageExtra(povSource[1]!.id, { isConversationStart: true });
+  await chats.updateMessageContent(povSource[1]!.id, "The following morning, the brass compass promise is recalled.");
+  const povSummary =
+    '{{#if char == "Maukie" || "Narrator"}}Maukie privately remembers the brass compass promise: MAUKIE_SECRET.{{/if}}\n{{#if char == "Pantalone" || "Narrator"}}Pantalone privately remembers the brass compass promise: PANTALONE_SECRET.{{/if}}';
+  summaryResponse = povSummary;
+  const povRequestStart = requests.length;
+  await memory.initialize(povChat.id);
+  summaryResponse = summary;
+  const povRequest = requests
+    .slice(povRequestStart)
+    .find((request) => !request.instructions?.startsWith("Identify scene transitions"))!;
+  assert(povRequest.instructions?.startsWith("Keep character knowledge separate when POVs switch."));
+  assert.match(povRequest.instructions!, /\{\{#if char == "Exact Name"\}\}/u);
+  assert.match(povRequest.instructions!, /The narrator is "Narrator"/u);
+  await memory.checkScenesAfterGeneration(povChat.id);
+  const povStored = JSON.parse((await chats.getById(povChat.id))!.metadata).summaryEntries;
+  assert(
+    povStored.some((entry: { content: string }) => entry.content.includes(povSummary)),
+    "new constants preserve inner POV conditions",
+  );
+  for (const [id, own, hidden] of [
+    [borrower.id, "MAUKIE_SECRET", "PANTALONE_SECRET"],
+    [otherPov.id, "PANTALONE_SECRET", "MAUKIE_SECRET"],
+  ]) {
+    const recalled = await memory.prepare({
+      chatId: povChat.id,
+      messages: await chats.listMessages(povChat.id),
+      audienceCharacterIds: [id!],
+      budgetTokens: 12000,
+      readOnly: true,
+    });
+    assert(recalled.recalledScenes?.includes(own!));
+    assert(!recalled.recalledScenes?.includes(hidden!));
+    assert(recalled.chatSummary?.includes(own!));
+    assert(!recalled.chatSummary?.includes(hidden!));
+    assert.deepEqual(recalled.receipt.recalledMessageIds, [], "raw excerpts cannot bypass a partial knowledge view");
+    await memory.validatePrepared(povChat.id, await chats.listMessages(povChat.id), recalled.receipt);
+  }
+  const allPovs = await memory.prepare({
+    chatId: povChat.id,
+    messages: await chats.listMessages(povChat.id),
+    audienceCharacterIds: [narratorActor.id],
+    budgetTokens: 12000,
+    readOnly: true,
+  });
+  assert(allPovs.recalledScenes?.includes("MAUKIE_SECRET") && allPovs.recalledScenes.includes("PANTALONE_SECRET"));
+  assert(allPovs.receipt.recalledMessageIds.length > 0, "the narrator can still recall the source excerpt");
+  const povRecord = (await memory.status(povChat.id)).records.find(
+    (record) => record.kind === "scene" && record.status === "closed" && record.content,
+  )!;
+  await memory.updateRecord(povChat.id, povRecord.id, { content: povSummary.split("\n")[0]! });
+  const sameRecap = await memory.prepare({
+    chatId: povChat.id,
+    messages: await chats.listMessages(povChat.id),
+    audienceCharacterIds: [borrower.id],
+    budgetTokens: 12000,
+    readOnly: true,
+  });
+  assert(sameRecap.recalledScenes?.includes("MAUKIE_SECRET"));
+  assert.deepEqual(
+    sameRecap.receipt.recalledMessageIds,
+    [],
+    "matching the narrator's recap text does not grant a character access to raw private source messages",
+  );
   const narratorChat = await createChat("Narrator shares the whole scene archive");
   await chats.update(narratorChat.id, { characterIds: [borrower.id, narratorActor.id] });
   await chats.createMessagesBatch(

@@ -553,13 +553,13 @@
 
 .dice-roll-breakdown {
   min-width: 0;
-  color: var(--muted-foreground);
+  color: var(--dice-accent);
   font-size: 0.72rem;
   overflow-wrap: anywhere;
 }
 
 .dice-roll-total {
-  color: var(--foreground);
+  color: var(--dice-accent);
   font-size: 1.05rem;
   font-weight: 800;
   opacity: 0;

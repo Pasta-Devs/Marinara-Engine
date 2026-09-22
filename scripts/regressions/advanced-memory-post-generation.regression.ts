@@ -39,6 +39,9 @@ let summaryGate: Promise<void> | undefined;
 let summaryResponse: string | undefined;
 let summaryFinishReason = "stop";
 let closeLatestScene = false;
+let mainInputTokens = 40;
+let mainOutputTokens = 20;
+let mainToolCall = false;
 const sceneDecision = (transcript: Array<{ messageNumber: number; content: string }>) => ({
   ends: closeLatestScene
     ? [{ messageNumber: transcript.at(-1)!.messageNumber }]
@@ -118,7 +121,11 @@ const provider = createServer(async (req, res) => {
     id: "fixture",
     status: "completed",
     output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: content }] }],
-    usage: { input_tokens: 40, output_tokens: 20, total_tokens: 60 },
+    usage: {
+      input_tokens: mainInputTokens,
+      output_tokens: mainOutputTokens,
+      total_tokens: mainInputTokens + mainOutputTokens,
+    },
   };
   if (body.stream) {
     res.writeHead(200, { "content-type": "text/event-stream" });
@@ -148,10 +155,31 @@ const provider = createServer(async (req, res) => {
               choices: [
                 {
                   index: 0,
-                  message: { role: "assistant", content },
+                  message: {
+                    role: "assistant",
+                    content,
+                    ...(kind === "main" &&
+                    mainToolCall &&
+                    !messages.some((message: { role: string }) => message.role === "tool")
+                      ? {
+                          tool_calls: [
+                            {
+                              id: "usage-roll",
+                              type: "function",
+                              function: { name: "roll_dice", arguments: '{"notation":"1d1"}' },
+                            },
+                          ],
+                        }
+                      : {}),
+                  },
                   finish_reason: kind === "summary" ? summaryFinishReason : "stop",
                 },
               ],
+              usage: {
+                prompt_tokens: mainInputTokens,
+                completion_tokens: mainOutputTokens,
+                total_tokens: mainInputTokens + mainOutputTokens,
+              },
             },
       ),
     );
@@ -587,6 +615,99 @@ try {
     assert.equal(prepared.recalledScenes, null, "closed scenes still in the live context are excluded from retrieval");
   }
   closeLatestScene = false;
+
+  const actualUsageChat = await chats.create({
+    name: "Actual input cutoff",
+    mode: "roleplay",
+    characterIds: [character.id],
+    connectionId: connection.id,
+  });
+  assert(actualUsageChat);
+  chatIds.push(actualUsageChat.id);
+  await chats.patchMetadata(actualUsageChat.id, {
+    enableAgents: false,
+    roleplayCommandsEnabled: true,
+    roleplayCommandToggles: { roll: true },
+    advancedMemory: {
+      ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+      enabled: true,
+      maxContextTokens: 65_000,
+      sceneCheckInterval: 100,
+    },
+  });
+  await chats.createMessagesBatch(
+    actualUsageChat.id,
+    Array.from({ length: 9 }, (_, index) => ({
+      role: "user" as const,
+      content: `${index === 4 ? "SCENE_CHANGE " : ""}The silver compass journey continues.`,
+    })),
+  );
+  await memory.initialize(actualUsageChat.id);
+  const usageSource = await chats.listMessages(actualUsageChat.id);
+  const generateUsage = async (extra: Record<string, unknown> = {}) => {
+    const result = await app.inject({
+      method: "POST",
+      url: "/api/generate/",
+      payload: { chatId: actualUsageChat.id, forCharacterId: character.id, streaming: false, ...extra },
+    });
+    assert.equal(result.statusCode, 200, result.body);
+    assert.ok(!result.body.includes('"type":"error"'), result.body);
+    return result;
+  };
+  mainInputTokens = 45000;
+  mainOutputTokens = 32768;
+  mainToolCall = true;
+  await generateUsage();
+  let latestUsageReply = (await chats.listMessages(actualUsageChat.id)).at(-1)!;
+  assert.equal(
+    JSON.parse(latestUsageReply.extra).generationInfo.tokensPrompt,
+    90000,
+    "fixture has two billed tool requests",
+  );
+  assert.equal(
+    (await memory.status(actualUsageChat.id)).job.contextStarts,
+    undefined,
+    "neither tool-turn totals nor output may trigger a cutoff",
+  );
+  mainToolCall = false;
+  mainInputTokens = 65000;
+  await generateUsage();
+  assert.equal(
+    (await memory.status(actualUsageChat.id)).job.contextStarts,
+    undefined,
+    "input at the threshold still fits",
+  );
+  mainInputTokens = 65001;
+  latestUsageReply = (await chats.listMessages(actualUsageChat.id)).at(-1)!;
+  await generateUsage({ regenerateMessageId: latestUsageReply.id });
+  assert.equal(
+    (await memory.status(actualUsageChat.id)).job.contextStarts,
+    undefined,
+    "swipes do not move the live cutoff",
+  );
+  await chats.updateMessageExtra(usageSource[6]!.id, { conversationStartForCharacterIds: [character.id] });
+  const actualReset = await generateUsage();
+  const resetState = (await memory.status(actualUsageChat.id)).job;
+  assert.deepEqual(
+    resetState.contextStarts?.map((start) => [start.messageId, start.audienceCharacterIds]),
+    [[usageSource[4]!.id, []]],
+    "actual input over 65k resets everyone to the latest scene despite a small estimate and a later personal POV flag",
+  );
+  assert.match(
+    actualReset.body,
+    /"type":"advanced_memory_status"[^\n]*"contextStarts"/u,
+    "the shared cutoff is published to the live UI",
+  );
+  const usageConstants = JSON.parse((await chats.getById(actualUsageChat.id))!.metadata).summaryEntries;
+  assert(
+    usageConstants.some(
+      (entry: { rangeStartIndex: number; rangeEndIndex: number; enabled: boolean }) =>
+        entry.enabled && entry.rangeStartIndex === 1 && entry.rangeEndIndex === 4,
+    ),
+    "the cutoff reuses the closed scene recap in Chat Summaries",
+  );
+  mainInputTokens = 40;
+  mainOutputTokens = 20;
 
   const constantsChat = await chats.create({
     name: "Existing ranged constants",

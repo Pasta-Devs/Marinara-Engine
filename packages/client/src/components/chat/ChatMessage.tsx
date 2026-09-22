@@ -2396,7 +2396,15 @@ export const ChatMessage = memo(function ChatMessage({
       if (genInfo.tokensPrompt != null || genInfo.tokensCompletion != null) {
         const p = genInfo.tokensPrompt != null ? genInfo.tokensPrompt : null;
         const c = genInfo.tokensCompletion ?? "?";
-        parts.push(p != null ? `${p}→${c} tok` : `${c} tok`);
+        const tokenUsage = p != null ? `${p}→${c} tok` : `${c} tok`;
+        parts.push(
+          (genInfo.requestCount ?? 0) > 1
+            ? localizeUi("ui.chat.chatmessage.usageAcrossRequests", {
+                count: genInfo.requestCount,
+                usage: tokenUsage,
+              })
+            : tokenUsage,
+        );
       }
       if ((genInfo.tokensCachedPrompt ?? 0) > 0) {
         parts.push(`cache hit ${genInfo.tokensCachedPrompt!.toLocaleString()}`);
@@ -2407,7 +2415,7 @@ export const ChatMessage = memo(function ChatMessage({
       if (genInfo.durationMs != null) parts.push(`${(genInfo.durationMs / 1000).toFixed(1)}s`);
     }
     return parts.length > 0 ? parts.join(" · ") : null;
-  }, [genInfo, showModelName, showTokenUsage]);
+  }, [genInfo, showModelName, showTokenUsage, localizeUi]);
   // useLayoutEffect runs after DOM mutation but before browser paint — prevents visible scroll jump
   useLayoutEffect(() => {
     // Restore scroll position saved before the state change

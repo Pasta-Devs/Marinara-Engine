@@ -358,6 +358,7 @@ try {
       assert.equal(extra.generationInfo.tokensPrompt, 11, "planner usage cannot be charged to the narrator model");
       assert.equal(extra.generationInfo.requestCount, 1, "the separate planner is not a narrator request");
       assert.equal(extra.generationInfo.tokensContext, provider === "claude_subscription" ? 25 : 16);
+      assert.equal(extra.generationInfo.tokensLastRequestInput, provider === "claude_subscription" ? 20 : 11);
       const peekResponse = await app.inject({
         method: "POST",
         url: `/api/chats/${chat.id}/peek-prompt`,
@@ -369,6 +370,7 @@ try {
       assert.equal(peek.gameToolPlanning.provider, "openai");
       assert.deepEqual(peek.gameToolPlanning.usage, { promptTokens: 7, completionTokens: 3 });
       assert.equal(peek.generationInfo.tokensPrompt, 11, "Peek keeps planner cost separate from the narrator");
+      assert.equal(peek.generationInfo.tokensLastRequestInput, extra.generationInfo.tokensLastRequestInput);
       assert.doesNotMatch(JSON.stringify(extra), /PRIVATE PLANNER|private-signature/);
       if (!noCalls) assert.match(response.body, /"diceRollResult":/);
     }
@@ -381,6 +383,7 @@ try {
       const outcomeUsage = JSON.parse((await chats.listMessages(chat.id)).at(-1)!.extra).generationInfo;
       assert.equal(outcomeUsage.requestCount, 2);
       assert.equal(outcomeUsage.tokensContext, 25, "dice follow-up context is one Claude request, including caches");
+      assert.equal(outcomeUsage.tokensLastRequestInput, 20, "the last Claude input includes cache, but no output");
       assert.equal(outcomeUsage.tokensPrompt, 22);
       assert.equal(outcomeUsage.tokensReasoning, 4);
       assert.equal(outcomeUsage.tokensCompletionAudio, 2);
