@@ -21,9 +21,13 @@
 //   • SDK docs: https://docs.anthropic.com/en/docs/claude-code/sdk
 //
 import { randomUUID } from "node:crypto";
-import { isClaudeAdaptiveOnlyNoSamplingModel, shouldSuppressUnknownModelParameters } from "@marinara-engine/shared";
+import {
+  isClaudeAdaptiveOnlyNoSamplingModel,
+  isClaudeOpus55Model,
+  shouldSuppressUnknownModelParameters,
+} from "@marinara-engine/shared";
 import { BaseLLMProvider, type ChatMessage, type ChatOptions, type LLMUsage } from "../base-provider.js";
-import { supportsAnthropicThinkingDisable } from "./anthropic.provider.js";
+import { resolveAnthropicAdaptiveEffort, supportsAnthropicThinkingDisable } from "./anthropic.provider.js";
 import { logger } from "../../../lib/logger.js";
 import { isClaudeSubscriptionResumeEnabled } from "../../../config/runtime-config.js";
 import {
@@ -434,8 +438,11 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
       // remains an independent request control. Preserve an explicit effort
       // even when callers only opt into displaying the summarized reasoning.
       const activeEffort = options.reasoningEffort !== "none" ? options.reasoningEffort : undefined;
-      if (activeEffort || options.enableThinking) {
-        sdkOptions.effort = (activeEffort ?? "high") as "low" | "medium" | "high" | "xhigh" | "max";
+      if (
+        this.shouldSendParameter(options, "reasoningEffort") &&
+        (activeEffort || options.enableThinking || isClaudeOpus55Model(options.model))
+      ) {
+        sdkOptions.effort = resolveAnthropicAdaptiveEffort(options) as "low" | "medium" | "high" | "xhigh" | "max";
       }
     }
 
@@ -470,6 +477,14 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
       if (Object.prototype.hasOwnProperty.call(customGenerationOptions, key)) {
         sdkOptionRecord[key] = customGenerationOptions[key];
       }
+    }
+    if (isClaudeOpus55Model(options.model)) {
+      sdkOptions.thinking = {
+        type: "adaptive",
+        ...(options.captureReasoning ? { display: "summarized" as const } : {}),
+      };
+      delete sdkOptions.maxThinkingTokens;
+      if (sdkOptionRecord.effort === "none") sdkOptions.effort = "low";
     }
 
     // Resume wiring is always provider-derived. Custom Parameters are filtered

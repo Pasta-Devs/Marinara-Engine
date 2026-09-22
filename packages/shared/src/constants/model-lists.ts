@@ -15,6 +15,11 @@ export interface KnownModel {
 
 const CLAUDE_ADAPTIVE_ONLY_OPUS_RE = /claude-opus-4-(?:[7-9]|\d{2,})/;
 
+/** Native Claude ID and the dotted ID used by OpenRouter/compatible gateways. */
+export function isClaudeOpus55Model(model: string): boolean {
+  return /(?:^|\/)claude-opus-5[.-]5(?:$|[-:])/iu.test(model.trim());
+}
+
 export function isClaudeAdaptiveOnlyNoSamplingModel(model: string): boolean {
   const normalized = model.toLowerCase();
   return (
@@ -28,7 +33,7 @@ export function isClaudeAdaptiveOnlyNoSamplingModel(model: string): boolean {
 export function supportsXhighReasoningEffort(model: string): boolean {
   const normalized = model.toLowerCase();
   return (
-    isOpenAIGpt6AstraModel(normalized) ||
+    isOpenAIGpt6Model(normalized) ||
     normalized.startsWith("gpt-5.6") ||
     normalized.startsWith("gpt-5.5") ||
     normalized.startsWith("gpt-5.4") ||
@@ -52,7 +57,11 @@ export function isOpenAIGpt56Model(model: string): boolean {
 }
 
 export function isOpenAIGpt6AstraModel(model: string): boolean {
-  return /^gpt-6-astra(?:$|-)/i.test(model);
+  return /^(?:openai\/)?gpt-6-astra(?:$|[-:])/i.test(model);
+}
+
+export function isOpenAIGpt6Model(model: string): boolean {
+  return /^(?:openai\/)?gpt-6-(?:astra|sol|luna)(?:$|[-:])/i.test(model);
 }
 
 export function isOpenAIGpt56SolProAlias(model: string): boolean {
@@ -85,7 +94,7 @@ export function resolveProviderReasoningEffort(args: {
     isClaudeAdaptiveOnlyNoSamplingModel(modelLower);
   const supportsXhigh = supportsXhighReasoningEffort(modelLower);
   const supportsMax =
-    isOpenAIGpt6AstraModel(modelLower) ||
+    isOpenAIGpt6Model(modelLower) ||
     isOpenAIGpt56Model(modelLower) ||
     isNativeAnthropicAdaptiveOnly ||
     (providerLower === "zai" && isZaiMaxReasoningEffortModel(modelLower));
@@ -121,8 +130,10 @@ export const OPENAI_MODELS: KnownModel[] = [
   { id: "gpt-5.6-sol-pro", name: "gpt-5.6-sol-pro (Sol with pro mode)", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.6-terra", name: "gpt-5.6-terra", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.6-luna", name: "gpt-5.6-luna", context: 1050000, maxOutput: 128000 },
-  // GPT-6 Astra
+  // GPT-6
   { id: "gpt-6-astra", name: "gpt-6-astra", context: 1050000, maxOutput: 128000 },
+  { id: "gpt-6-sol", name: "gpt-6-sol", context: 1050000, maxOutput: 128000 },
+  { id: "gpt-6-luna", name: "gpt-6-luna", context: 1050000, maxOutput: 128000 },
   // GPT-5.5
   { id: "gpt-5.5", name: "gpt-5.5", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.5-2026-04-23", name: "gpt-5.5-2026-04-23", context: 1050000, maxOutput: 128000 },
@@ -223,6 +234,7 @@ export const OPENAI_MODELS: KnownModel[] = [
 // ── Anthropic / Claude (from #model_claude_select) ──
 
 export const ANTHROPIC_MODELS: KnownModel[] = [
+  { id: "claude-opus-5-5", name: "claude-opus-5-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-5", name: "claude-opus-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-sonnet-5", name: "claude-sonnet-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-fable-5-1", name: "claude-fable-5-1", context: 1000000, maxOutput: 128000 },
@@ -263,6 +275,7 @@ export const ANTHROPIC_MODELS: KnownModel[] = [
 // to the current tool-eligible families to avoid offering retired aliases that
 // the subscription path no longer accepts.
 export const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
+  { id: "claude-opus-5-5", name: "Claude Opus 5.5", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-5", name: "Claude Opus 5", context: 1000000, maxOutput: 128000 },
   { id: "claude-sonnet-5", name: "Claude Sonnet 5", context: 1000000, maxOutput: 128000 },
   { id: "claude-fable-5", name: "Claude Fable 5", context: 1000000, maxOutput: 128000 },
@@ -1106,7 +1119,9 @@ export function findKnownModel(provider: APIProvider, modelId: string): KnownMod
   // while direct OAI-compatible endpoints generally do not. Resolve both
   // forms without exposing a large, stale static list in their model pickers.
   const normalizedId = modelId.trim().toLowerCase();
-  const unqualifiedId = normalizedId.split("/").pop()?.split(":", 1)[0] ?? normalizedId;
+  const unqualifiedId = isClaudeOpus55Model(normalizedId)
+    ? "claude-opus-5-5"
+    : (normalizedId.split("/").pop()?.split(":", 1)[0] ?? normalizedId);
   return OPENAI_COMPATIBLE_AGGREGATOR_MODELS.find((model) => model.id.toLowerCase() === unqualifiedId);
 }
 
