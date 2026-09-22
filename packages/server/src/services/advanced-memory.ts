@@ -3047,13 +3047,16 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       const correctedScene =
         record.kind === "scene" && (patch.content !== undefined || patch.audienceCharacterIds !== undefined);
       const sourceFingerprint = fingerprint(ctx, source, audience);
+      const eligibleIds =
+        correctedScene && audience.length
+          ? new Set(allowed(ctx, ctx.messages, audience).map((message) => message.id))
+          : null;
       // A saved scene correction is authored text, no longer a generated copy
       // of older constants/corrections. Keep source and character access checks.
       if (
         correctedScene &&
         (!recordValid(ctx, { ...record, audienceCharacterIds: audience, sourceFingerprint, dependencies: [] }) ||
-          (audience.length > 0 &&
-            record.messageIds.some((id) => !allowed(ctx, ctx.messages, audience).some((message) => message.id === id))))
+          (eligibleIds && record.messageIds.some((id) => !eligibleIds.has(id))))
       )
         throw new Error(
           "This scene's message range is no longer available to its selected characters. Review character access or exclude the scene from recall",
