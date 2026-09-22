@@ -4,6 +4,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
+export function isNamedTrackerRow(value: unknown): value is Record<string, unknown> & { name: string } {
+  return isRecord(value) && typeof value.name === "string" && value.name.trim().length > 0;
+}
+
 export function isTrackerRowsUpdate(value: unknown): value is { updates?: unknown[]; removed?: unknown[] } {
   return (
     isRecord(value) &&
@@ -20,7 +24,7 @@ export function resolveTrackerRowsUpdate(
   identity: "name" | "characterId" = "name",
   canRemove: (row: Record<string, unknown>, index: number) => boolean = () => true,
 ): Record<string, unknown>[] | undefined {
-  if (Array.isArray(value)) return value as Record<string, unknown>[];
+  if (Array.isArray(value)) return value.filter(isNamedTrackerRow);
   if (!isTrackerRowsUpdate(value)) return undefined;
   const rows = previous.filter(isRecord).map((row) => ({ ...row }));
   // Replacements keep these original identities stable for the entire batch.
@@ -79,5 +83,5 @@ export function resolveTrackerRowsUpdate(
       identityRows.push(next);
     }
   }
-  return rows.filter((_row, index) => !removed.has(index));
+  return rows.filter((row, index) => !removed.has(index) && isNamedTrackerRow(row));
 }

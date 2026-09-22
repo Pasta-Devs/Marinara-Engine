@@ -30,6 +30,22 @@ import {
   type AgentResult,
 } from "../../packages/shared/src/types/agent.js";
 
+const namedRows = [
+  { name: "Health", value: 0 },
+  { name: "Mood", value: "" },
+];
+const malformedRows = [{}, null, [], { name: "  " }, { name: 42 }, "bad row"];
+assert.deepEqual(resolveTrackerRowsUpdate([...namedRows, ...malformedRows], []), namedRows);
+assert.deepEqual(resolveTrackerRowsUpdate({ updates: malformedRows }, [...namedRows, ...malformedRows]), namedRows);
+assert.deepEqual(
+  resolveTrackerRowsUpdate(
+    { updates: [{ characterId: "alice", mood: "happy" }] },
+    [{ characterId: "alice", name: "Alice" }],
+    "characterId",
+  ),
+  [{ characterId: "alice", name: "Alice", mood: "happy" }],
+  "ID-only character updates keep the existing name",
+);
 class RecordingProvider extends BaseLLMProvider {
   calls = 0;
   options: ChatOptions[] = [];

@@ -3,6 +3,8 @@ import type { ScenePromptPreferences, ScenePromptPov, ScenePromptTense } from "@
 import { Modal } from "../ui/Modal";
 import { normalizeScenePromptPreferences } from "../../stores/ui.store";
 import { usePresets } from "../../hooks/use-presets";
+import { useChat } from "../../hooks/use-chats";
+import { useCharacterSummaries, usePersonas } from "../../hooks/use-characters";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -11,6 +13,7 @@ interface ScenePromptPreferencesModalProps {
   onClose: () => void;
   initialPreferences: ScenePromptPreferences;
   sourceLabel?: string | null;
+  chatId?: string;
   onSubmit: (preferences: ScenePromptPreferences) => void;
   onCancel?: () => void;
 }
@@ -32,10 +35,17 @@ export function ScenePromptPreferencesModal({
   onClose,
   initialPreferences,
   sourceLabel,
+  chatId,
   onSubmit,
   onCancel,
 }: ScenePromptPreferencesModalProps) {
   const { t: localizeUi } = useUiTranslation();
+  const { data: sourceChat } = useChat(chatId ?? null);
+  const originCharacterIds = sourceChat?.characterIds ?? [];
+  const { data: characters = [], isError: charactersError } = useCharacterSummaries(originCharacterIds, !!chatId);
+  const { data: personas = [] } = usePersonas(!!chatId);
+  const [participantCharacterIds, setParticipantCharacterIds] = useState<string[] | undefined>();
+  const [personaSelection, setPersonaSelection] = useState("source");
   const {
     data: presetData,
     isLoading: presetsLoading,
@@ -77,6 +87,8 @@ export function ScenePromptPreferencesModal({
     onSubmit({
       ...normalizeScenePromptPreferences({ pov, tense, extraInstructions, promptPresetId: promptPresetId || null }),
       ...(promptPresetId && choices ? { presetChoices: choices } : {}),
+      ...(participantCharacterIds ? { participantCharacterIds } : {}),
+      ...(personaSelection !== "source" ? { personaId: personaSelection || null } : {}),
     });
   };
   const handleSubmit = () => {
@@ -121,6 +133,79 @@ export function ScenePromptPreferencesModal({
             {localizeUi("ui.modals.scenepromptpreferencesmodal.pickTheWritingShapeBeforeMarinaraPlansTheScene")}
           </p>
         </div>
+
+        {chatId && (
+          <div className="space-y-3">
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold text-[var(--foreground)]">
+                {localizeUi("scene.setup.persona")}
+              </span>
+              <select
+                value={personaSelection}
+                onChange={(event) => setPersonaSelection(event.target.value)}
+                className="mari-preset-native-select min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-sm text-[var(--foreground)]"
+              >
+                <option value="source">{localizeUi("scene.setup.sourcePersona")}</option>
+                <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
+                {personas.map((persona) => (
+                  <option key={persona.id} value={persona.id}>
+                    {persona.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <fieldset className="space-y-1.5">
+              <legend className="text-xs font-semibold text-[var(--foreground)]">
+                {localizeUi("scene.setup.characters")}
+              </legend>
+              <label className="flex min-h-11 items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={participantCharacterIds === undefined}
+                  disabled={!sourceChat || originCharacterIds.length === 0}
+                  onChange={(event) =>
+                    setParticipantCharacterIds(event.target.checked ? undefined : [...originCharacterIds])
+                  }
+                  className="accent-[var(--primary)]"
+                />
+                {localizeUi("scene.setup.automaticParticipants")}
+              </label>
+              {participantCharacterIds !== undefined && (
+                <div className="max-h-44 overflow-y-auto">
+                  {charactersError && (
+                    <p role="alert" className="text-sm">
+                      {localizeUi("scene.setup.charactersLoadFailed")}
+                    </p>
+                  )}
+                  {characters
+                    .filter((character) => originCharacterIds.includes(character.id))
+                    .map((character) => (
+                      <label key={character.id} className="flex min-h-11 items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={participantCharacterIds.includes(character.id)}
+                          onChange={(event) =>
+                            setParticipantCharacterIds(
+                              event.target.checked
+                                ? [...participantCharacterIds, character.id]
+                                : participantCharacterIds.filter((id) => id !== character.id),
+                            )
+                          }
+                          className="accent-[var(--primary)]"
+                        />
+                        <span className="min-w-0 break-words">{character.name}</span>
+                      </label>
+                    ))}
+                  {participantCharacterIds.length === 0 && (
+                    <p role="alert" className="text-xs">
+                      {localizeUi("scene.setup.chooseParticipant")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </fieldset>
+          </div>
+        )}
 
         <label className="space-y-1.5">
           <span className="text-xs font-semibold text-[var(--foreground)]">
@@ -219,7 +304,9 @@ export function ScenePromptPreferencesModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!!promptPresetId && (presetsUnverified || unavailablePreset)}
+            disabled={
+              (!!promptPresetId && (presetsUnverified || unavailablePreset)) || participantCharacterIds?.length === 0
+            }
             className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {localizeUi("ui.modals.scenepromptpreferencesmodal.planScene")}
