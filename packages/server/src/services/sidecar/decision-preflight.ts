@@ -20,8 +20,8 @@ import type {
 import { getDataDir } from "../../utils/data-dir.js";
 import {
   assessSidecarLoad,
+  awaitGpuProbe,
   compareDriverVersions,
-  getGpuProbe,
   meetsComputeCapability,
   resolveSharedDevice,
 } from "./sidecar-footprint.js";
@@ -67,7 +67,9 @@ async function freeDiskBytes(): Promise<number | null> {
 
 /** The verdict for one catalog entry on this machine, right now. */
 export async function preflightDecisionModel(model: SidecarDecisionModelInfo): Promise<DecisionPreflight> {
-  const probe = getGpuProbe();
+  // Waited for, unlike the health section's read. A pending probe here would render
+  // as "Requires an NVIDIA GPU" on the first panel open of every restart.
+  const probe = await awaitGpuProbe();
   const device = resolveSharedDevice(probe.devices, null);
   const unsupportedReason = platformReason(model, device);
   const free = await freeDiskBytes();

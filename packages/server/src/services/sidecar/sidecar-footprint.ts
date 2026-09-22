@@ -323,3 +323,17 @@ export function getMeasuredProcessBytes(pid: number | null | undefined): number 
   refresh();
   return cached?.usageByPid.get(pid) ?? null;
 }
+
+/**
+ * The probe, waiting for it when it has not run yet.
+ *
+ * `/api/health` must never block, which is why `getGpuProbe` returns a pending
+ * result. A preflight is the opposite case: it is answering "can this machine run
+ * this", and a pending probe there reads as "no NVIDIA GPU", which is a verdict
+ * rather than a delay.
+ */
+export async function awaitGpuProbe(): Promise<GpuProbe> {
+  refresh();
+  if (cached) return cached.probe;
+  return (await inFlight)?.probe ?? { vendor: null, devices: [], pending: true };
+}

@@ -50,6 +50,8 @@ export function DecisionModelModal({ open, onClose }: Props) {
   const remove = useRemoveDecisionSidecar();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [repoInput, setRepoInput] = useState("");
+  /** Which repository the inspection on screen actually describes. */
+  const [inspectedRepo, setInspectedRepo] = useState("");
   const inspect = useInspectDecisionRepo();
   const installRepo = useInstallDecisionRepo();
   const startPolicy = useSetDecisionStartPolicy();
@@ -139,6 +141,14 @@ export function DecisionModelModal({ open, onClose }: Props) {
   const handleInstallRepo = async () => {
     const model = inspect.data?.model;
     if (!model) return;
+    // The confirmation quotes what was inspected, so installing whatever happens to
+    // be in the box now could download a different repository than the one the user
+    // just agreed to. Editing the field after checking means checking again.
+    const repo = repoInput.trim();
+    if (inspectedRepo !== repo) {
+      toast.error(localizeUi("ui.modals.decisionmodelmodal.recheckNeeded"));
+      return;
+    }
     const confirmed = await showConfirmDialog({
       title: localizeUi("ui.modals.decisionmodelmodal.downloadTitle"),
       message: localizeUi("ui.modals.decisionmodelmodal.downloadPastedBody", {
@@ -150,7 +160,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
     });
     if (!confirmed) return;
     try {
-      await installRepo.mutateAsync({ repoId: repoInput.trim() });
+      await installRepo.mutateAsync({ repoId: repo });
       toast.success(localizeUi("ui.modals.decisionmodelmodal.installed"));
     } catch (error) {
       report(error);
@@ -287,7 +297,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                 {models.map(row)}
                 <button
                   onClick={() => void handleInstall()}
-                  disabled={!selected || busy || selected.id === installedId}
+                  disabled={!selected || busy || !selected.preflight.installable || selected.id === installedId}
                   className="mari-chrome-accent-surface mari-accent-animated mt-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   {install.isPending ? (
@@ -315,6 +325,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                       value={repoInput}
                       onChange={(event) => {
                         setRepoInput(event.target.value);
+                        setInspectedRepo("");
                         inspect.reset();
                       }}
                       placeholder={localizeUi("ui.modals.decisionmodelmodal.byoPlaceholder")}
@@ -323,7 +334,11 @@ export function DecisionModelModal({ open, onClose }: Props) {
                     <button
                       type="button"
                       disabled={!repoInput.trim() || inspect.isPending || busy}
-                      onClick={() => inspect.mutate({ repoId: repoInput.trim() })}
+                      onClick={() => {
+                        const repo = repoInput.trim();
+                        setInspectedRepo(repo);
+                        inspect.mutate({ repoId: repo });
+                      }}
                       className="mari-chrome-control mari-chrome-control--compact px-3 text-xs disabled:opacity-50"
                     >
                       {localizeUi(

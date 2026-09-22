@@ -179,6 +179,18 @@ assert.deepEqual(
   { refusal: "missing_base_model" },
 );
 
+// A package that carries its own base weights is a different install shape than the
+// one this downloader implements, so it is refused rather than half-installed.
+assert.deepEqual(
+  readDecisionManifest({
+    artifact_type: "qwen_lora_adapter_plus_scalar_decision_head",
+    base_model: "Qwen/Qwen3.5-2B",
+    base_revision: "0".repeat(40),
+    base_weights_included: true,
+  }),
+  { refusal: "base_weights_included" },
+);
+
 // A bare index into a lookup table reaches Object.prototype, and every member of it
 // is truthy, so a manifest declaring "constructor" would have walked through the one
 // check that decides whether a pasted repository is installable at all.

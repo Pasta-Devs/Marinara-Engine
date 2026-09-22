@@ -848,14 +848,23 @@ export function AgentEditor() {
    * `/api/decision/options` resolves seeds from the fallback 0.5 and keeps it. That
    * is the wrong number for a model answering around 0.2.
    *
-   * Guarded on the question alone rather than on `dirty`: the threshold only matters
-   * once a question exists, and `dirty` is set by any edit anywhere in the form, so
-   * renaming the agent first would have left the stale 0.5 in place.
+   * Fires on the calibration changing, not on the question emptying. Watching the
+   * question would reset a threshold somebody had chosen the moment they cleared the
+   * text to rewrite it, and `dirty` is no better: it is set by any edit anywhere in
+   * the form, so renaming the agent first would strand the fallback 0.5.
    */
+  const seededCalibrationRef = useRef<number | null>(null);
+  // Read through a ref so the effect below depends on the calibration alone.
+  const localActivationQuestionRef = useRef(localActivationQuestion);
+  localActivationQuestionRef.current = localActivationQuestion;
   useEffect(() => {
-    if (localActivationQuestion.trim()) return;
-    setLocalActivationThreshold(decisionCalibration.defaultThreshold);
-  }, [decisionCalibration.defaultThreshold, localActivationQuestion]);
+    const seed = decisionCalibration.defaultThreshold;
+    if (seededCalibrationRef.current === seed) return;
+    seededCalibrationRef.current = seed;
+    // Only while nothing has been written: an existing question owns its threshold.
+    if (localActivationQuestionRef.current.trim()) return;
+    setLocalActivationThreshold(seed);
+  }, [decisionCalibration.defaultThreshold]);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const musicPlayerSource = useUIStore((s) => s.musicPlayerSource);
   const setMusicPlayerSource = useUIStore((s) => s.setMusicPlayerSource);

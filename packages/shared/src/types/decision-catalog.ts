@@ -215,6 +215,10 @@ export function readDecisionManifest(
   const baseRevision = typeof manifest.base_revision === "string" ? manifest.base_revision.trim() : "";
   // A branch name would let the weights change under a pinned adapter.
   if (!/^[0-9a-f]{40}$/u.test(baseRevision)) return { refusal: "unpinned_base_revision" };
+  // A package that ships its own base weights is a different install shape: this
+  // downloader fetches the checkpoint and then the base model the manifest names, so
+  // it would pull weights the package already contains.
+  if (manifest.base_weights_included === true) return { refusal: "base_weights_included" };
   return { runtime, baseModel, baseRevision };
 }
 

@@ -159,10 +159,21 @@ export async function decisionRoutes(app: FastifyInstance) {
    */
   let sidecarSettings = parseDecisionSidecarSettings(await settings.get(DECISION_SIDECAR_SETTINGS_KEY));
   setDecisionSidecarSettingsReader(() => sidecarSettings);
+  // Serialised, and the cache follows the write rather than leading it. Updating
+  // memory first means a failed save leaves the engine acting on a setting that is
+  // not on disk, and two concurrent writes could otherwise interleave so the last
+  // value cached is not the last value stored.
+  let sidecarWrites: Promise<unknown> = Promise.resolve();
   const writeSidecarSettings = async (next: DecisionSidecarSettings) => {
-    sidecarSettings = next;
-    await settings.set(DECISION_SIDECAR_SETTINGS_KEY, JSON.stringify(next));
-    return next;
+    const write = sidecarWrites.then(async () => {
+      await settings.set(DECISION_SIDECAR_SETTINGS_KEY, JSON.stringify(next));
+      sidecarSettings = next;
+      return next;
+    });
+    // Keep the chain alive even when this write fails, so one failure does not wedge
+    // every later setting change behind a rejected promise.
+    sidecarWrites = write.catch(() => undefined);
+    return write;
   };
 
   // Start with Marinara only when the user asked for that. `installedDecisionModel`

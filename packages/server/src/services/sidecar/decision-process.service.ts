@@ -62,11 +62,13 @@ class DecisionProcessService {
    * the agent runs. The reason stays in the status for the panel to show.
    */
   async ensureRunning(model: SidecarDecisionModelInfo): Promise<string | null> {
-    if (this.child && this.baseUrl && this.modelId === model.id) return this.baseUrl;
-    if (this.starting) {
-      // Returning an in-flight start for a different model would hand back a URL
-      // serving the wrong weights. Wait for it to settle, then start what was asked
-      // for; `start` stops whatever is running first.
+    // Looped rather than checked once: awaiting somebody else's start yields, and by
+    // the time it settles another caller may already have started something. Both
+    // conditions are re-tested after every wait, so a request can never be handed a
+    // URL serving weights it did not ask for.
+    for (;;) {
+      if (this.child && this.baseUrl && this.modelId === model.id) return this.baseUrl;
+      if (!this.starting) break;
       if (this.startingModelId === model.id) return this.starting;
       await this.starting.catch(() => null);
     }
