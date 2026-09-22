@@ -682,7 +682,8 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect(inspector.getByText("Exact words from the notebook conversation.")).toHaveCount(0);
     await inspector.getByRole("button", { name: /Scene #1/ }).click();
     await expect(inspector).toContainText("Story timeframe: Before the experiment");
-    await captureThemes(page, info, "advanced-memory-legacy-access", inspector);
+    await inspector.getByRole("button", { name: "Back to scenes", exact: true }).scrollIntoViewIfNeeded();
+    await captureThemes(page, info, "advanced-memory-legacy-access");
     await expect(inspector.getByText(/Older memories used chat visibility/)).toHaveCount(0);
     await expect(inspector.getByText("Closed", { exact: true })).toBeVisible();
     await inspector.getByRole("button", { name: "Edit character access", exact: true }).click();
