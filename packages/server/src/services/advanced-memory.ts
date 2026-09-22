@@ -231,7 +231,7 @@ function policyFingerprint(ctx: Context): string {
 
 function preparationPolicyRevision(ctx: Context): string {
   return hash([
-    "scene-participants-v13", // Invalidate reusable contexts without rebuilding valid source archives.
+    "scene-access-recovery-v14", // Invalidate reusable contexts without rebuilding valid source archives.
     policyFingerprint(ctx),
     ctx.settings,
     ctx.metadata.summaryEntries,
@@ -3389,6 +3389,29 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         );
         const previous = existing.find((item) => sameIdentity(item, record));
         if (previous) {
+          // Backups retain original copies. Consolidate only records imported
+          // in this operation; never broaden an existing local correction.
+          if (
+            record.kind === "scene" &&
+            record.content &&
+            previous.content &&
+            !record.manualOverride &&
+            !previous.manualOverride &&
+            importedRecords.includes(previous)
+          ) {
+            if (hasSceneAudience(previous) && hasSceneAudience(record))
+              previous.audienceCharacterIds = [
+                ...new Set([...previous.audienceCharacterIds, ...record.audienceCharacterIds]),
+              ].sort();
+            previous.enabled = previous.enabled && record.enabled;
+            await db
+              .update(advancedMemoryRecords)
+              .set({
+                audienceCharacterIds: JSON.stringify(previous.audienceCharacterIds),
+                enabled: previous.enabled ? 1 : 0,
+              })
+              .where(eq(advancedMemoryRecords.id, previous.id));
+          }
           recordIdMap.set(String(value.id), previous.id);
           continue; // Import never overwrites local user corrections.
         }

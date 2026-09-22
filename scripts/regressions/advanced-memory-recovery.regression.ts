@@ -125,15 +125,13 @@ try {
   };
   await test("targeted preparation completes a suffix-only recap instead of returning false ready", async () => {
     const { chat, messages, row, sceneId } = await fixture();
-    await db
-      .insert(advancedMemoryRecords)
-      .values({
-        ...row,
-        id: `${sceneId}-deleted-copy`,
-        audienceCharacterIds: '["maukie"]',
-        enabled: 0,
-        manualOverride: 1,
-      });
+    await db.insert(advancedMemoryRecords).values({
+      ...row,
+      id: `${sceneId}-deleted-copy`,
+      audienceCharacterIds: '["maukie"]',
+      enabled: 0,
+      manualOverride: 1,
+    });
     await db.insert(advancedMemoryRecords).values({
       ...row,
       id: `${sceneId}-partial`,
@@ -268,6 +266,38 @@ try {
       "manual access overrides a differing helper decision",
     );
     assert.match(summaryRequests.at(-1)!, /CORRECTED_COMPASS/);
+  });
+  await test("backup round trips keep confirmed shared access without overwriting local corrections", async () => {
+    const { chat, row, sceneId } = await fixture();
+    for (const participant of ["maukie", "pantalone"])
+      await db
+        .insert(advancedMemoryRecords)
+        .values({
+          ...row,
+          id: `${sceneId}-${participant}`,
+          content: "A confirmed shared compass scene.",
+          audienceCharacterIds: JSON.stringify([participant]),
+          dependencies: '[{"id":"scene-audience","revision":"participants-v1"}]',
+        });
+    const backup = await memory.exportMemory(chat.id);
+    const target = await fixture();
+    const imported = await memory.importMemory(target.chat.id, backup);
+    const saved = imported.records.filter((record) => record.kind === "scene" && record.content);
+    assert.equal(saved.length, 1);
+    assert.deepEqual(saved[0]!.audienceCharacterIds, ["maukie", "pantalone"]);
+    await memory.updateRecord(target.chat.id, saved[0]!.id, { audienceCharacterIds: ["maukie"] });
+    await memory.importMemory(target.chat.id, backup);
+    assert.deepEqual(
+      (await memory.status(target.chat.id)).records.find((record) => record.id === saved[0]!.id)!.audienceCharacterIds,
+      ["maukie"],
+    );
+    await db
+      .update(advancedMemoryRecords)
+      .set({ enabled: 0 })
+      .where(eq(advancedMemoryRecords.id, `${sceneId}-pantalone`));
+    const disabledTarget = await fixture();
+    const disabled = await memory.importMemory(disabledTarget.chat.id, await memory.exportMemory(chat.id));
+    assert.equal(disabled.records.find((record) => record.kind === "scene" && record.content)!.enabled, false);
   });
   await test("named participants resolve to separate chat characters and unknown names never grant access", async () => {
     for (const [result, expected] of [
