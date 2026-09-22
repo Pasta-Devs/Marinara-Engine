@@ -238,7 +238,15 @@ try {
   const changed = (await app.inject({ method: "GET", url })).json();
   assert.equal(
     changed.records.find((record: { id: string }) => record.id === "scene-50-saved").embeddingStatus,
+    "pending",
+    "editing source text retains the saved index state",
+  );
+  await chats.updateMessageExtra(source[50]!.id, { hiddenFromAI: true });
+  const hidden = (await app.inject({ method: "GET", url })).json();
+  assert.equal(
+    hidden.records.find((record: { id: string }) => record.id === "scene-50-saved").embeddingStatus,
     "stale",
+    "changed source access still excludes an unsafe saved memory",
   );
   console.info(
     "Advanced Memory inspector regression passed (large archive, compact status, toggle/delete and source revisions).",

@@ -74,6 +74,7 @@ export function AdvancedMemoryInspector({
       ? t("chat.advancedMemory.sceneNumber", { number: sceneNumbers.get(record.sceneId) })
       : t(`chat.advancedMemory.kind.${record.kind}`);
   const selected = records.find((record) => record.id === selectedId);
+  const blockedRecord = records.find((record) => record.id === status.data?.job.reviewRecordId);
   const reviewCorrection =
     selected?.kind === "scene" && selected.manualOverride && selected.embeddingStatus === "stale";
   const audienceChanged =
@@ -221,6 +222,40 @@ export function AdvancedMemoryInspector({
           {t("chat.advancedMemory.failed", { message: status.error.message })}
         </p>
       )}
+      {blockedRecord && selectedId !== blockedRecord.id && (
+        <button
+          type="button"
+          className={`${buttonClass} min-h-11 w-full text-left`}
+          onClick={() => openRecord(blockedRecord)}
+        >
+          {t("chat.advancedMemory.reviewMemory", {
+            scene: recordTitle(blockedRecord),
+            start: blockedRecord.startIndex,
+            end: blockedRecord.endIndex,
+            audience: audience(blockedRecord),
+          })}
+        </button>
+      )}
+      {!selected &&
+        (status.data?.unpreparedScenes ?? []).map((scene) => (
+          <div
+            key={scene.sceneId}
+            className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-xs"
+          >
+            <p className="font-medium">
+              {t("chat.advancedMemory.missingScene", { start: scene.startIndex, end: scene.endIndex })}
+            </p>
+            <p className="text-[var(--muted-foreground)]">{t("chat.advancedMemory.missingSceneHelp")}</p>
+            <button
+              type="button"
+              className={`${buttonClass} min-h-11`}
+              disabled={pending || !status.data?.settings.enabled || !!status.data?.missingKnowledgeCharacterIds.length}
+              onClick={() => action.mutate({ action: "initialize", sceneId: scene.sceneId })}
+            >
+              {t("chat.advancedMemory.prepareScene")}
+            </button>
+          </div>
+        ))}
       {!status.isLoading && !status.isError && records.length === 0 && (
         <p className="text-xs text-[var(--muted-foreground)]">{t("chat.advancedMemory.emptyArchive")}</p>
       )}

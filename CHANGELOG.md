@@ -4,8 +4,6 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- Advanced Memory identifies corrections needing review and exposes unfinished scene summaries for targeted recovery without resetting the archive (#6526).
-
 - Character, persona, and lorebook folder contents follow the selected sidebar sort order (#6497).
 - The extra-actions menu sits to the left of Emoji, farther from Send, while keeping existing Post Only and Guided Generation actions (#6507).
 - Conversation scene invitations stay beside the proposing reply; open setup when ready, including after cancelling or reloading (#6496).
@@ -16,6 +14,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Advanced Memory constants use message-range titles, reject unfinished helper output, and deactivate the originals when a completed compacted replacement is saved. Ranged constants that overlap live context stay out of that prompt and its archived-summary compaction budget (#6512).
 - Advanced Memory's context threshold applies to the outgoing prompt without subtracting reply tokens. Automatic scene resets apply to all characters and can be undone with the existing All flag; temporary open-scene trimming no longer creates persistent character-specific flags (#6512).
 - New Start flag changes save together with Advanced Memory cutoffs, keeping the previous state intact if a save fails (#6512).
+
+- Advanced Memory identifies corrections needing review and exposes unfinished scene summaries for targeted recovery without resetting the archive (#6526).
+- Advanced Memory keeps saved scene indexes across source-text edits, swipes, illustrations and live context flags. Recalled excerpts use current message text, while character-access checks remain enforced (#6526).
 
 - Advanced Memory reindexing rebuilds saved text vectors without rerunning scene detection or summarization. Saved scene corrections no longer depend on outdated generated-summary inputs, and stale scene corrections can be reviewed and saved without changing their text (#6509).
 

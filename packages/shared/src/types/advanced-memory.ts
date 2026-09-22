@@ -33,6 +33,7 @@ export interface AdvancedMemoryJob {
   completed: number;
   total: number;
   error: string | null;
+  reviewRecordId?: string | null;
   processedMessageId?: string | null;
   /** Invalidates cached prompts when a user removes an automatic context flag. */
   contextStartRevision?: number;
@@ -82,6 +83,11 @@ export interface AdvancedMemoryStatus {
   helperModel: string | null;
   summaryModel: string | null;
   warnings: string[];
+  unpreparedScenes?: Array<{
+    sceneId: string;
+    startIndex: number;
+    endIndex: number;
+  }>;
   latestReceipt?: AdvancedMemoryReceipt;
 }
 

@@ -1156,3 +1156,96 @@ test("Advanced Memory keeps routine normal and guided replies quiet while preser
     await fixture.cleanup();
   }
 });
+
+test("missing scene recovery identifies the blocked memory and prepares only its missing range", async ({
+  page,
+  request,
+}, info) => {
+  const fixture = await createFixture(request);
+  const record = {
+    id: "corrected-scene",
+    chatId: fixture.chat.id,
+    sceneId: "scene-943",
+    kind: "scene" as const,
+    status: "closed" as const,
+    startMessageId: fixture.firstMessage.id,
+    endMessageId: fixture.lastMessage.id,
+    startIndex: 943,
+    endIndex: 947,
+    messageIds: fixture.messages.map(({ id }) => id),
+    audienceCharacterIds: [fixture.character.id],
+    content: "The saved correction stays intact.",
+    title: "Saved scene",
+    timeline: null,
+    enabled: true,
+    manualOverride: true,
+    sourceFingerprint: "fixture",
+    dependencies: [],
+    embeddingStatus: "stale" as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const status: AdvancedMemoryStatus = {
+    settings: {
+      ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+      enabled: true,
+      knowledgeStarts: { [fixture.character.id]: null, [fixture.narrator.id]: null },
+    },
+    job: {
+      status: "error",
+      stage: "summarizing",
+      completed: 52,
+      total: 54,
+      error:
+        "The manually corrected memory for messages #943–#947 (Dottore) has changed sources or supporting summaries.",
+      reviewRecordId: record.id,
+    },
+    missingKnowledgeCharacterIds: [],
+    records: [record],
+    helperModel: "Fixture helper",
+    summaryModel: "Fixture helper",
+    warnings: [],
+    unpreparedScenes: [{ sceneId: "scene-948", startIndex: 948, endIndex: 992 }],
+  };
+  const preparations: unknown[] = [];
+  await page.route(`**/api/chats/${fixture.chat.id}/advanced-memory**`, async (route) => {
+    if (route.request().method() === "POST" && new URL(route.request().url()).pathname.endsWith("/initialize")) {
+      preparations.push(route.request().postDataJSON());
+      status.unpreparedScenes = [];
+      status.records.push({
+        ...record,
+        id: "recovered-scene",
+        sceneId: "scene-948",
+        startIndex: 948,
+        endIndex: 992,
+        content: "Only the missing scene was prepared.",
+        manualOverride: false,
+        embeddingStatus: "vectorized",
+      });
+    }
+    return route.fulfill({ json: status });
+  });
+  try {
+    await openChat(page, fixture.chat.id);
+    const drawer = page.locator(".mari-chat-settings-drawer");
+    await drawer.locator('[data-chat-settings-section="roleplay-memory-recall"] > [role="button"]').click();
+    await drawer.getByRole("button", { name: "Access memories for this chat", exact: true }).click();
+    const inspector = drawer.locator('[data-component="AdvancedMemoryInspector"]');
+    await expect(inspector).toBeVisible();
+    await captureThemes(page, info, "memory-recovery");
+    await expect(inspector.getByText("Missing scene summary: Messages 948–992", { exact: true })).toBeVisible();
+    await expect(inspector).toContainText("Reindexing alone cannot create a missing summary.");
+    await inspector.getByRole("button", { name: "Review Scene #1: Messages 943–947 · Dottore", exact: true }).click();
+    await expect(inspector.getByRole("textbox", { name: "Summary text", exact: true })).toHaveValue(record.content);
+    await expect(inspector.getByRole("button", { name: "Save correction", exact: true })).toBeEnabled();
+    await inspector.getByRole("button", { name: "Back to scenes", exact: true }).click();
+    await inspector.getByRole("button", { name: "Prepare scene", exact: true }).click();
+    await expect.poll(() => preparations).toEqual([{ sceneId: "scene-948" }]);
+    await expect(inspector.getByText("Missing scene summary: Messages 948–992", { exact: true })).toHaveCount(0);
+    await expect(inspector.getByRole("button", { name: /Scene #2/ })).toContainText("Messages 948–992");
+    expect(status.records[0]).toEqual(record);
+    await captureThemes(page, info, "memory-recovered");
+  } finally {
+    await fixture.cleanup();
+  }
+});
