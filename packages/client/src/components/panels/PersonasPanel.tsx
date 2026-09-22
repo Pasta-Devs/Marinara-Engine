@@ -462,7 +462,7 @@ export function PersonasPanel() {
     () => list.filter((persona) => !folderedPersonaIds.has(persona.id)),
     [list, folderedPersonaIds],
   );
-  const visiblePersonaById = useMemo(() => new Map(list.map((persona) => [persona.id, persona])), [list]);
+  const personaOrder = useMemo(() => new Map(list.map((persona, index) => [persona.id, index])), [list]);
   const folderFilterActive = search.trim().length > 0 || activeTag !== null;
 
   const exitSelectionMode = useCallback(() => {
@@ -729,9 +729,11 @@ export function PersonasPanel() {
       <div className="flex flex-col gap-0.5">
         {/* Folder rows */}
         {parsedGroups.map((group) => {
-          const folderMemberIds = folderFilterActive
-            ? group.memberIds.filter((personaId) => visiblePersonaById.has(personaId))
-            : group.memberIds;
+          const folderMemberIds = (
+            folderFilterActive
+              ? group.memberIds.filter((personaId) => personaOrder.has(personaId))
+              : [...group.memberIds]
+          ).sort((a, b) => (personaOrder.get(a) ?? list.length) - (personaOrder.get(b) ?? list.length));
           if (folderFilterActive && folderMemberIds.length === 0) return null;
           const isExpanded = (folderFilterActive && folderMemberIds.length > 0) || expandedGroupId === group.id;
           const isEditing = editingGroupId === group.id;

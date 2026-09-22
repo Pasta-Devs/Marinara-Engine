@@ -42,7 +42,7 @@ You can also start a scene without a description. Type just the command on its o
 
 If the conversation has no messages yet, Marinara asks you to add a description or chat first before it can plan a scene.
 
-A character can also ask to start a scene. When that happens, the same **Scene Prompt Setup** window opens, with a line like "[Character] wants to start a scene." Pick **Prompt preset**, **POV**, and **Tense** and click **Plan Scene** the same way, or click **Cancel** to decline.
+A character can also ask to start a scene. An invitation with **Set up scene** appears beside their reply, leaving the conversation readable. Click it when ready to open **Scene Prompt Setup**, then pick **Prompt preset**, **POV**, and **Tense** and click **Plan Scene**. **Cancel** closes setup without creating a scene; the invitation remains available after cancelling or reloading.
 
 ## The scene bar: End Scene, Discard, Convert, and Back to conversation
 

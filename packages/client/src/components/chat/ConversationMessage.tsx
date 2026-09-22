@@ -1,3 +1,4 @@
+import { ConversationSceneInvitation } from "./ConversationSceneInvitation";
 import { useMessagePresetVariables } from "../../hooks/use-message-preset-variables";
 // ──────────────────────────────────────────────
 // Chat: Conversation message shell
@@ -1102,11 +1103,17 @@ export const ConversationMessage = memo(function ConversationMessage({
     );
   }
 
+  const sceneInvitation =
+    !isUser && !isStreaming && !editing && !isHiddenCollapsed && extra.sceneRequest ? (
+      <ConversationSceneInvitation chatId={message.chatId} request={extra.sceneRequest} />
+    ) : null;
+
   // ── Grouped multi-speaker layout ──
   if (groupedLayoutActive) {
     return (
       <>
         <ConversationMessageGrouped ctx={ctx} msgRef={msgRef} reactionRow={reactionRow} />
+        {sceneInvitation}
         {modals}
       </>
     );
@@ -1149,6 +1156,7 @@ export const ConversationMessage = memo(function ConversationMessage({
             {isBubbleStyle ? <ConversationMessageBubble ctx={ctx} /> : <ConversationMessageLine ctx={ctx} />}
           </div>
 
+          {sceneInvitation}
           <ConversationMessageSwipes ctx={ctx} />
         </div>
         <div className="px-4">

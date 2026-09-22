@@ -321,7 +321,6 @@ export function LorebooksPanel() {
     }
   }, [filtered, sort]);
 
-  const lorebookById = useMemo(() => new Map(sorted.map((lorebook) => [lorebook.id, lorebook])), [sorted]);
   const folderFilterActive = searchQuery.trim().length > 0 || activeCategory !== "all" || activeTag !== null;
 
   const folderedLorebookIds = useMemo(() => {
@@ -972,9 +971,8 @@ export function LorebooksPanel() {
       <div className="flex flex-col gap-0.5">
         {lorebookFolders.map((folder) => {
           const isEditing = editingFolderId === folder.id;
-          const folderItems = folder.itemIds
-            .map((id) => lorebookById.get(id))
-            .filter((item): item is LorebookListItem => Boolean(item));
+          const memberIds = new Set(folder.itemIds);
+          const folderItems = sorted.filter((item) => memberIds.has(item.id));
           if (folderFilterActive && folderItems.length === 0) return null;
           const isExpanded = (folderFilterActive && folderItems.length > 0) || expandedFolderId === folder.id;
           return (

@@ -2111,6 +2111,10 @@ export const ChatInput = memo(function ChatInput({
           className="mari-chat-input-textarea max-h-[12.5rem] min-w-0 flex-1 resize-none bg-transparent py-0 text-sm leading-normal text-foreground/90 placeholder:text-foreground/30 outline-none disabled:cursor-not-allowed disabled:opacity-40"
         />
 
+        {showQuickRepliesMenu && quickReplyActions.length > 0 && (
+          <QuickReplyMenu actions={quickReplyActions} disabled={!activeChatId || isInputBusy || isReadingAttachments} />
+        )}
+
         {/* Emoji picker */}
         <div className="relative hidden shrink-0 sm:block">
           <button
@@ -2183,10 +2187,6 @@ export const ChatInput = memo(function ChatInput({
             className="rounded-full"
             iconSize={16}
           />
-        )}
-
-        {showQuickRepliesMenu && quickReplyActions.length > 0 && (
-          <QuickReplyMenu actions={quickReplyActions} disabled={!activeChatId || isInputBusy || isReadingAttachments} />
         )}
 
         {/* Send / Stop button */}
