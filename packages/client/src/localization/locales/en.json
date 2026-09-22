@@ -4045,6 +4045,7 @@
   "ui.chat.chatmessage.storedGuidance": "Stored guidance",
   "ui.chat.chatmessage.translate": "Translate",
   "ui.chat.chatmessage.translating": "Translating…",
+  "ui.chat.chatmessage.voiceControls": "Voice controls (speak, pause, clear cached audio, volume)",
   "ui.chat.chatmessagesearch.close": "Close message search",
   "ui.chat.chatmessagesearch.inputLabel": "Search messages in this chat",
   "ui.chat.chatmessagesearch.jumpToMessage": "Jump to message {{number}}",
