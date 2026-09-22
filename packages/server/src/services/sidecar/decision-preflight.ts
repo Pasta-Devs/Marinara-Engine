@@ -56,6 +56,17 @@ function platformReason(model: SidecarDecisionModelInfo, device: GpuDevice | nul
   return null;
 }
 
+/**
+ * Which CUDA device the sidecar will use.
+ *
+ * Kept in step with the launcher's own choice. Never read from the Vulkan variable
+ * the llama.cpp sidecar uses: those index different things.
+ */
+function configuredCudaIndex(): number {
+  const configured = process.env.MARINARA_DECISION_CUDA_DEVICE?.trim();
+  return configured && /^\d+$/u.test(configured) ? Number(configured) : 0;
+}
+
 async function freeDiskBytes(): Promise<number | null> {
   try {
     const stats = await statfs(getDataDir());
@@ -66,11 +77,17 @@ async function freeDiskBytes(): Promise<number | null> {
 }
 
 /** The verdict for one catalog entry on this machine, right now. */
-export async function preflightDecisionModel(model: SidecarDecisionModelInfo): Promise<DecisionPreflight> {
+export async function preflightDecisionModel(
+  model: SidecarDecisionModelInfo,
+  options: { fresh?: boolean } = {},
+): Promise<DecisionPreflight> {
   // Waited for, unlike the health section's read. A pending probe here would render
   // as "Requires an NVIDIA GPU" on the first panel open of every restart.
-  const probe = await awaitGpuProbe();
-  const device = resolveSharedDevice(probe.devices, null);
+  const probe = await awaitGpuProbe(options);
+  // The decision sidecar runs on a known CUDA index, so on a machine with several
+  // cards the verdict is about that one rather than abandoned for lack of a name.
+  const device =
+    probe.devices.find((entry) => entry.index === configuredCudaIndex()) ?? resolveSharedDevice(probe.devices, null);
   const unsupportedReason = platformReason(model, device);
   const free = await freeDiskBytes();
 

@@ -23,6 +23,8 @@ import { preflightDecisionModel } from "./decision-preflight.js";
 const LOG_PATH = join(getDataDir(), "sidecar-runtime", "decision", "server.log");
 /** Loading 4.5 GB of weights and building the LoRA takes a while on a cold cache. */
 const READY_TIMEOUT_MS = 180_000;
+/** How long a failed start is remembered before another one is attempted. */
+const START_BACKOFF_MS = 60_000;
 
 export interface DecisionProcessStatus {
   running: boolean;
@@ -40,6 +42,9 @@ class DecisionProcessService {
   private starting: Promise<string | null> | null = null;
   /** Which model the in-flight start is for, so another request is not misrouted. */
   private startingModelId: string | null = null;
+  /** The last model whose start failed, and when, so a gate does not retry it at once. */
+  private failedModelId: string | null = null;
+  private failedAt = 0;
 
   getStatus(): DecisionProcessStatus {
     return {
@@ -66,6 +71,11 @@ class DecisionProcessService {
     // the time it settles another caller may already have started something. Both
     // conditions are re-tested after every wait, so a request can never be handed a
     // URL serving weights it did not ask for.
+    // A start that just failed is not retried immediately. Loading takes up to three
+    // minutes before it gives up, and without this every gated turn would pay that
+    // again while the reason stays the same. The panel still shows the error.
+    if (this.failedModelId === model.id && Date.now() - this.failedAt < START_BACKOFF_MS) return null;
+
     for (;;) {
       if (this.child && this.baseUrl && this.modelId === model.id) return this.baseUrl;
       if (!this.starting) break;
@@ -73,10 +83,20 @@ class DecisionProcessService {
       await this.starting.catch(() => null);
     }
     this.startingModelId = model.id;
-    this.starting = this.start(model).finally(() => {
-      this.starting = null;
-      this.startingModelId = null;
-    });
+    this.starting = this.start(model)
+      .then((baseUrl) => {
+        if (baseUrl) {
+          this.failedModelId = null;
+        } else {
+          this.failedModelId = model.id;
+          this.failedAt = Date.now();
+        }
+        return baseUrl;
+      })
+      .finally(() => {
+        this.starting = null;
+        this.startingModelId = null;
+      });
     return this.starting;
   }
 
@@ -102,7 +122,7 @@ class DecisionProcessService {
     // game holding memory. The verdict at download time is not a promise about today,
     // so it is taken again here and a launch that no longer fits is refused with the
     // same plain sentence rather than dying inside CUDA.
-    const preflight = await preflightDecisionModel(model);
+    const preflight = await preflightDecisionModel(model, { fresh: true });
     if (preflight.assessment.verdict === "unsupported" || preflight.assessment.verdict === "wont_fit") {
       this.error = preflight.reason ?? "The decision model no longer fits on this device.";
       logger.warn("[decision-sidecar] Refusing to start: %s", this.error);
@@ -137,8 +157,16 @@ class DecisionProcessService {
       ],
       {
         cwd: runtime.sourcePath,
+        // An allowlist, not the server's whole environment. This launches a third
+        // party's Python model loader, and everything the engine holds in env -
+        // provider keys, storage paths, tokens - would otherwise be handed to it for
+        // no reason. Nothing below is a secret, and the process needs all of it.
         env: {
-          ...process.env,
+          ...Object.fromEntries(
+            (["PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "TZ"] as const)
+              .map((name) => [name, process.env[name]])
+              .filter(([, value]) => typeof value === "string"),
+          ),
           HF_HOME: runtime.hfHomePath,
           HF_HUB_CACHE: join(runtime.hfHomePath, "hub"),
           // The weights are already here and verified. Without this the loader would
@@ -218,6 +246,8 @@ class DecisionProcessService {
   }
 
   async stop(): Promise<void> {
+    // An explicit stop is a fresh start's prelude, so it clears the backoff.
+    this.failedModelId = null;
     const child = this.child;
     this.child = null;
     this.baseUrl = null;

@@ -332,7 +332,14 @@ export function getMeasuredProcessBytes(pid: number | null | undefined): number 
  * this", and a pending probe there reads as "no NVIDIA GPU", which is a verdict
  * rather than a delay.
  */
-export async function awaitGpuProbe(): Promise<GpuProbe> {
+export async function awaitGpuProbe(options: { fresh?: boolean } = {}): Promise<GpuProbe> {
+  if (options.fresh) {
+    // A reading taken before a process was stopped still counts its memory, which is
+    // the whole thing a launch-time recheck is trying not to do. Any probe already in
+    // flight started earlier, so it is waited out and then a new one is taken.
+    await inFlight?.catch(() => null);
+    cached = null;
+  }
   refresh();
   if (cached) return cached.probe;
   return (await inFlight)?.probe ?? { vendor: null, devices: [], pending: true };

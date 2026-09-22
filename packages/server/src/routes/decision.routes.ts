@@ -164,8 +164,13 @@ export async function decisionRoutes(app: FastifyInstance) {
   // not on disk, and two concurrent writes could otherwise interleave so the last
   // value cached is not the last value stored.
   let sidecarWrites: Promise<unknown> = Promise.resolve();
-  const writeSidecarSettings = async (next: DecisionSidecarSettings) => {
+  const writeSidecarSettings = async (update: (current: DecisionSidecarSettings) => DecisionSidecarSettings) => {
+    // The updater runs inside the queue, not at call time. Capturing the settings
+    // before waiting means two concurrent changes each start from the same snapshot
+    // and the second silently drops the first: enabling and changing the start policy
+    // at once would lose one of them.
     const write = sidecarWrites.then(async () => {
+      const next = update(sidecarSettings);
       await settings.set(DECISION_SIDECAR_SETTINGS_KEY, JSON.stringify(next));
       sidecarSettings = next;
       return next;
@@ -229,18 +234,18 @@ export async function decisionRoutes(app: FastifyInstance) {
       return reply.status(409).send({ error: "The decision sidecar is not supported on this machine" });
     if (!body.enabled) await decisionProcessService.stop();
     return {
-      settings: await writeSidecarSettings({
-        ...sidecarSettings,
+      settings: await writeSidecarSettings((current) => ({
+        ...current,
         enabled: body.enabled,
-        confirmedAt: body.enabled ? new Date().toISOString() : sidecarSettings.confirmedAt,
-        confirmedVerdict: body.enabled ? (body.confirmedVerdict ?? null) : sidecarSettings.confirmedVerdict,
-      }),
+        confirmedAt: body.enabled ? new Date().toISOString() : current.confirmedAt,
+        confirmedVerdict: body.enabled ? (body.confirmedVerdict ?? null) : current.confirmedVerdict,
+      })),
     };
   });
 
   app.post("/sidecar/start-policy", async (req) => {
     const { startPolicy } = z.object({ startPolicy: z.enum(["on_demand", "with_marinara"]) }).parse(req.body);
-    return { settings: await writeSidecarSettings({ ...sidecarSettings, startPolicy }) };
+    return { settings: await writeSidecarSettings((current) => ({ ...current, startPolicy })) };
   });
 
   /**
@@ -286,11 +291,11 @@ export async function decisionRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: error instanceof Error ? error.message : "Install failed" });
     }
     return {
-      settings: await writeSidecarSettings({
-        ...sidecarSettings,
+      settings: await writeSidecarSettings((current) => ({
+        ...current,
         modelId: custom ? null : model.id,
         customModel: custom ? model : null,
-      }),
+      })),
     };
   });
 
@@ -300,14 +305,14 @@ export async function decisionRoutes(app: FastifyInstance) {
     await decisionProcessService.stop();
     decisionRuntimeService.remove();
     return {
-      settings: await writeSidecarSettings({
-        ...sidecarSettings,
+      settings: await writeSidecarSettings((current) => ({
+        ...current,
         modelId: null,
         // A pasted entry is stored whole, so clearing modelId alone would leave
         // installedDecisionModel still reporting a model whose files are gone.
         customModel: null,
         enabled: false,
-      }),
+      })),
     };
   });
 
@@ -407,8 +412,11 @@ export async function decisionRoutes(app: FastifyInstance) {
     // Nothing above this line changes stored state. A rejected request must leave the
     // user on whatever they had chosen: clearing the local slot first would answer a
     // 404 or a 409 and silently drop them to None, which stops every gate.
-    await settings.remove(DECISION_LOCAL_DEFAULT_SETTINGS_KEY);
+    // The connection is promoted first. If that fails the stored local slot is still
+    // there, which is a decision model that works; doing it the other way round could
+    // leave nothing selected at all after a failed update.
     await connections.update(id, { defaultForAgents: true });
+    await settings.remove(DECISION_LOCAL_DEFAULT_SETTINGS_KEY);
     return { selected: id };
   });
 

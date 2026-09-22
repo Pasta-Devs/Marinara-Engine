@@ -405,7 +405,9 @@ export function DecisionModelModal({ open, onClose }: Props) {
                     type="checkbox"
                     checked={data?.settings.startPolicy === "with_marinara"}
                     disabled={busy}
-                    onChange={(event) => startPolicy.mutate(event.target.checked ? "with_marinara" : "on_demand")}
+                    onChange={(event) =>
+                      startPolicy.mutate(event.target.checked ? "with_marinara" : "on_demand", { onError: report })
+                    }
                     className="mt-0.5 accent-[var(--primary)]"
                   />
                   <span>{localizeUi("ui.modals.decisionmodelmodal.startWithMarinara")}</span>
