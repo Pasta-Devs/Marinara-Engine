@@ -724,6 +724,8 @@ const PROFILE_CONNECTION_CREDENTIAL_IDENTITY_FIELDS = [
   "videoGenerationSource",
   "videoService",
   "audioSource",
+  "decisionSource",
+  "credentialsFromConnectionId",
 ] as const;
 
 const PROFILE_CONNECTION_AUTOMATIC_SELECTION_FIELDS = [

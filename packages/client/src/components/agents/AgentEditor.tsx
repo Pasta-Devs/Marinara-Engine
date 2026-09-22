@@ -1,3 +1,4 @@
+import { ActivationQuestionFields } from "./ActivationQuestionFields";
 // ──────────────────────────────────────────────
 // Full-Page Agent Editor
 // Click an agent → opens this editor
@@ -695,7 +696,8 @@ export function AgentEditor() {
             (connection) =>
               connection.provider !== "image_generation" &&
               connection.provider !== "video_generation" &&
-              connection.provider !== "audio",
+              connection.provider !== "audio" &&
+              connection.provider !== "decision",
           )
           .map((connection) => connection.id),
       ),
@@ -751,6 +753,9 @@ export function AgentEditor() {
   const [localEchoMessageDelaySeconds, setLocalEchoMessageDelaySeconds] = useState(
     DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS,
   );
+  const [localActivationQuestion, setLocalActivationQuestion] = useState("");
+  const [localActivationThreshold, setLocalActivationThreshold] = useState(0.5);
+  const [localActivationMaxSkip, setLocalActivationMaxSkip] = useState<number | "">("");
   const [localActivationKeywordsText, setLocalActivationKeywordsText] = useState("");
   const [localActivationScanDepth, setLocalActivationScanDepth] = useState<number | "">(
     DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
@@ -859,6 +864,9 @@ export function AgentEditor() {
           ? settings.activationKeywords.filter((keyword: unknown) => typeof keyword === "string").join("\n")
           : "",
       );
+      setLocalActivationQuestion(String(settings.activationQuestion ?? ""));
+      setLocalActivationThreshold(Number(settings.activationThreshold ?? 0.5));
+      setLocalActivationMaxSkip(typeof settings.activationMaxSkip === "number" ? settings.activationMaxSkip : "");
       setLocalActivationScanDepth(
         (settings.activationScanDepth as number | undefined) ?? DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
       );
@@ -969,6 +977,9 @@ export function AgentEditor() {
       setLocalRunInterval((defaultSettings.runInterval as number) ?? "");
       setLocalEchoMessageDelaySeconds(DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS);
       setLocalActivationKeywordsText("");
+      setLocalActivationQuestion("");
+      setLocalActivationThreshold(0.5);
+      setLocalActivationMaxSkip("");
       setLocalActivationScanDepth(DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH);
       setLocalInjectAsSection(defaultSettings.injectAsSection === true);
       setLocalEnabledTools(DEFAULT_AGENT_TOOLS[builtIn.id] ?? []);
@@ -1031,6 +1042,9 @@ export function AgentEditor() {
       setLocalRunInterval(customRunIntervalMeta?.defaultValue ?? "");
       setLocalEchoMessageDelaySeconds(DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS);
       setLocalActivationKeywordsText("");
+      setLocalActivationQuestion("");
+      setLocalActivationThreshold(0.5);
+      setLocalActivationMaxSkip("");
       setLocalActivationScanDepth(DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH);
       setLocalInjectAsSection(false);
       setLocalEnabledTools([]);
@@ -1255,7 +1269,11 @@ export function AgentEditor() {
   }, [utilityAgentType]);
 
   const llmConnections = allConnections.filter(
-    (conn) => conn.provider !== "image_generation" && conn.provider !== "video_generation" && conn.provider !== "audio",
+    (conn) =>
+      conn.provider !== "image_generation" &&
+      conn.provider !== "video_generation" &&
+      conn.provider !== "audio" &&
+      conn.provider !== "decision",
   );
   const imageConnections = allConnections.filter((conn) => conn.provider === "image_generation");
 
@@ -1264,6 +1282,7 @@ export function AgentEditor() {
       c.provider !== "image_generation" &&
       c.provider !== "video_generation" &&
       c.provider !== "audio" &&
+      c.provider !== "decision" &&
       (c.defaultForAgents === true || c.defaultForAgents === "true"),
   );
   // The sidecar can be the agents default without owning a connection row
@@ -1372,6 +1391,14 @@ export function AgentEditor() {
           ? {
               activationKeywords,
               activationScanDepth,
+            }
+          : {}),
+        ...(isEditingCustomAgent && localActivationQuestion.trim()
+          ? {
+              activationQuestion: localActivationQuestion.trim(),
+              activationThreshold: localActivationThreshold,
+              activationScanDepth,
+              ...(localActivationMaxSkip !== "" ? { activationMaxSkip: localActivationMaxSkip } : {}),
             }
           : {}),
         ...(mayIncludeTurnData && localIncludePreGenInjections ? { includePreGenInjections: true } : {}),
@@ -1496,6 +1523,9 @@ export function AgentEditor() {
     localMaxTokens,
     localRunInterval,
     localEchoMessageDelaySeconds,
+    localActivationQuestion,
+    localActivationThreshold,
+    localActivationMaxSkip,
     localActivationKeywordsText,
     localActivationScanDepth,
     localInjectAsSection,
@@ -1595,6 +1625,14 @@ export function AgentEditor() {
       ...(isEditingCustomAgent ? localOutputOptions : {}),
       ...(isEditingCustomAgent ? { triggerLorebooksForAgentCalls: localTriggerLorebooksForAgentCalls } : {}),
       ...(activationKeywords.length > 0 ? { activationKeywords, activationScanDepth } : {}),
+      ...(isEditingCustomAgent && localActivationQuestion.trim()
+        ? {
+            activationQuestion: localActivationQuestion.trim(),
+            activationThreshold: localActivationThreshold,
+            activationScanDepth,
+            ...(localActivationMaxSkip !== "" ? { activationMaxSkip: localActivationMaxSkip } : {}),
+          }
+        : {}),
       ...(mayIncludeTurnData && localIncludePreGenInjections ? { includePreGenInjections: true } : {}),
       ...(mayIncludeTurnData && localIncludeParallelResults ? { includeParallelResults: true } : {}),
       ...(!isStoryboardAgent && localContextSize !== "" ? { contextSize: Number(localContextSize) } : {}),
@@ -1967,6 +2005,7 @@ export function AgentEditor() {
           )}
           <button
             onClick={handleSave}
+            aria-label={localizeUi("ui.noodle.noodlehome.save")}
             disabled={isPending}
             className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
           >
@@ -2914,6 +2953,24 @@ export function AgentEditor() {
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 {localizeUi("ui.agents.agenteditor.leaveKeywordsEmptyToRunThisCustomAgentOn")}
               </p>
+              <ActivationQuestionFields
+                question={localActivationQuestion}
+                threshold={localActivationThreshold}
+                maxSkip={localActivationMaxSkip}
+                enabled={
+                  (connections as Array<{ provider: string; defaultForAgents?: unknown }> | undefined)?.some(
+                    (connection) =>
+                      connection.provider === "decision" &&
+                      (connection.defaultForAgents === true || connection.defaultForAgents === "true"),
+                  ) ?? false
+                }
+                onChange={(values) => {
+                  if (values.question !== undefined) setLocalActivationQuestion(values.question);
+                  if (values.threshold !== undefined) setLocalActivationThreshold(values.threshold);
+                  if (values.maxSkip !== undefined) setLocalActivationMaxSkip(values.maxSkip);
+                  markDirty();
+                }}
+              />
             </FieldGroup>
           )}
 

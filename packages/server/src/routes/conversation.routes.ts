@@ -271,7 +271,7 @@ async function resolveConversationScheduleConnection(connections: ConnectionsSto
   }
 
   const conn = await connections.getWithKey(connId);
-  if (conn && ["image_generation", "video_generation", "audio"].includes(conn.provider)) {
+  if (conn && ["image_generation", "video_generation", "audio", "decision"].includes(conn.provider)) {
     return { conn: null, error: "Choose a language connection for schedule generation" };
   }
   return { conn, error: conn ? null : "The selected connection is unavailable. Choose another connection." };

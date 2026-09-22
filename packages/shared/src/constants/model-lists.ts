@@ -1081,6 +1081,7 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
   image_generation: IMAGE_GEN_MODELS,
   video_generation: VIDEO_GEN_MODELS,
   audio: AUDIO_GEN_MODELS,
+  decision: [],
 };
 
 const OPENAI_COMPATIBLE_AGGREGATOR_MODELS: KnownModel[] = [

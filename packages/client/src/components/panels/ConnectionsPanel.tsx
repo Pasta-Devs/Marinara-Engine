@@ -1,3 +1,4 @@
+import { DecisionDefaultControl } from "../connections/DecisionDefaultControl";
 // ──────────────────────────────────────────────
 // Panel: API Connections (polished, with folders)
 // ──────────────────────────────────────────────
@@ -130,6 +131,7 @@ const PROVIDER_COLORS: Record<string, { from: string; to: string; ring: string; 
   image_generation: CONNECTION_ICON_COLORS,
   video_generation: CONNECTION_ICON_COLORS,
   audio: CONNECTION_ICON_COLORS,
+  decision: CONNECTION_ICON_COLORS,
 };
 const DEFAULT_COLOR = CONNECTION_ICON_COLORS;
 
@@ -720,6 +722,8 @@ function SidecarCard() {
 }
 
 type ConnectionRowData = {
+  credentialsFromConnectionId?: string | null;
+  profileImportReviewRequired?: boolean | string;
   id: string;
   name: string;
   provider: string;
@@ -1023,7 +1027,8 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
         (connection) =>
           connection.provider !== "image_generation" &&
           connection.provider !== "video_generation" &&
-          connection.provider !== "audio",
+          connection.provider !== "audio" &&
+          connection.provider !== "decision",
       ),
     [connectionsList],
   );
@@ -1209,6 +1214,7 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
             primaryEmptyLabel={localizeUi("ui.panels.connectiondefaultssection.noDefaultAudioConnection")}
             fallbackModelLabel={localizeUi("ui.panels.connectiondefaultssection.audioGeneration")}
           />
+          <DecisionDefaultControl connections={connectionsList} />
         </div>
       </SmoothFolderContent>
     </section>
@@ -1361,7 +1367,7 @@ function ConnectionRow({
             ...(isLanguageGenerationConnection(conn) ? {} : { unsupported: "connection-kind" as const }),
           }}
         />
-        {conn.provider !== "audio" && (
+        {conn.provider !== "audio" && conn.provider !== "decision" && (
           <button
             onClick={(e) => {
               e.stopPropagation();
