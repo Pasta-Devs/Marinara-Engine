@@ -187,12 +187,12 @@ try {
   assert.equal((await recall(["narrator"])).receipt.recalledSceneIds.length, 4);
   assert.equal(summaries, 4, "opening or recalling an old archive never starts background classification");
   const legacyRows = (await db.select().from(advancedMemoryRecords)).filter(
-    (record) => record.sceneId === shared.sceneId && record.content,
+    (record) => record.sceneId === shared.sceneId && record.kind === "scene" && record.content,
   );
   await memory.updateRecord(chat.id, at(4).id, { enabled: false });
   await memory.updateRecord(chat.id, at(4).id, { enabled: true });
   const preservedRows = (await db.select().from(advancedMemoryRecords)).filter(
-    (record) => record.sceneId === shared.sceneId && record.content,
+    (record) => record.sceneId === shared.sceneId && record.kind === "scene" && record.content,
   );
   assert.equal(preservedRows.length, legacyRows.length, "toggling never deletes unreviewed scene copies");
   for (const before of legacyRows) {
