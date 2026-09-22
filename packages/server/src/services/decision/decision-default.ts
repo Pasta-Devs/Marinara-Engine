@@ -1,0 +1,118 @@
+/**
+ * Which decision model gates run against, and the one `ask` they all reach it through.
+ *
+ * The two backend families answer the same question and differ only in how they are
+ * reached, so the gate sites take a resolved backend rather than knowing about either.
+ * Everything here fails open: an unreachable backend returns no answers, and an agent
+ * with no answer runs exactly as it would with no question at all.
+ */
+import {
+  DECISION_LOCAL_DEFAULT_SETTINGS_KEY,
+  DECISION_THINKING_PREGENERATION_SETTINGS_KEY,
+  DECISION_TIMEOUT_MS,
+  decisionLocalSlotForId,
+  type DecisionLocalSlot,
+} from "@marinara-engine/shared";
+import { logger } from "../../lib/logger.js";
+import { getAnswerStyle } from "./decision-thinking-cache.js";
+import { isDecisionSlotImplemented, decisionSlotContextSize, resolveDecisionSlot } from "./decision-slots.js";
+import { askSidecarNoulQuestions } from "./sidecar-decision.backend.js";
+import { resolveDecisionConnection, type DecisionConnectionRow } from "./decision-connection.js";
+import { askNoulQuestions, type NoulQuestion } from "./system-one.client.js";
+
+/**
+ * Headroom left for the system prompt and the question when capping a state against a
+ * local slot's context. The question itself is capped at 500 characters by the schema.
+ */
+const SIDECAR_STATE_HEADROOM_TOKENS = 512;
+
+export interface DecisionBackend {
+  /** The budget a state is capped to before it is sent. */
+  maxStateTokens: number;
+  /**
+   * True when a gate in front of the user's reply should be skipped rather than waited
+   * on. Only a reasoning local model sets this, and only while the user has not opted
+   * into gating pre-generation agents anyway.
+   */
+  deferPreGeneration: boolean;
+  ask: (state: unknown, questions: NoulQuestion[]) => Promise<Map<string, number> | null>;
+}
+
+export interface DecisionDefaultDeps {
+  getLocalDefault: () => Promise<string | null>;
+  getThinkingPreGeneration: () => Promise<boolean>;
+  getDefaultConnection: () => Promise<DecisionConnectionRow | null>;
+  getConnectionWithKey: (id: string) => Promise<DecisionConnectionRow | null>;
+  debugMode?: boolean;
+}
+
+/** Read the local entry the user picked, if any, ignoring one this build cannot serve. */
+export async function readDecisionLocalSlot(
+  getLocalDefault: () => Promise<string | null>,
+): Promise<DecisionLocalSlot | null> {
+  const slot = decisionLocalSlotForId(await getLocalDefault());
+  return slot && isDecisionSlotImplemented(slot) ? slot : null;
+}
+
+/**
+ * Resolve the Decision model setting into something a gate can call, or null for None.
+ *
+ * A local entry wins over a connection row: it is the more specific choice, and the
+ * dropdown clears the other side whenever the user switches, so both being set at once
+ * only happens after a hand-edited database.
+ */
+export async function resolveDecisionBackend(
+  deps: DecisionDefaultDeps,
+  signal?: AbortSignal,
+): Promise<DecisionBackend | null> {
+  const slot = await readDecisionLocalSlot(deps.getLocalDefault);
+  if (slot) {
+    const resolution = await resolveDecisionSlot(slot);
+    if (!resolution.resolved) {
+      logger.warn("[decision] The selected local model cannot serve decisions: %s", resolution.failure.reason);
+      return null;
+    }
+    const resolved = resolution.resolved;
+    // Exactly the formula askQuestion uses, so what is deferred matches what is
+    // actually slow. Reading the cached verdict without the "auto" guard would keep
+    // deferring after the user switched the slot to Off, where every request is a
+    // fast one-token call again.
+    const thinks =
+      resolved.thinking === "allowed" ||
+      (resolved.thinking === "auto" && getAnswerStyle(resolved.modelIdentity) === "thinks");
+    return {
+      maxStateTokens: Math.max(256, decisionSlotContextSize(slot) - SIDECAR_STATE_HEADROOM_TOKENS),
+      deferPreGeneration: thinks && !(await deps.getThinkingPreGeneration()),
+      ask: async (state, questions) => askSidecarNoulQuestions({ slot: resolved, state, questions, signal }),
+    };
+  }
+
+  const row = await deps.getDefaultConnection();
+  if (!row) return null;
+  const resolved = await resolveDecisionConnection(row, deps.getConnectionWithKey);
+  if (!resolved.connection) {
+    logger.warn("[decision] Activation connection unavailable: %s", resolved.error);
+    return null;
+  }
+  const connection = resolved.connection;
+  return {
+    maxStateTokens: connection.maxStateTokens,
+    deferPreGeneration: false,
+    ask: async (state, questions) =>
+      (
+        await askNoulQuestions({
+          connection,
+          state,
+          questions,
+          timeoutMs: DECISION_TIMEOUT_MS.systemOne,
+          signal,
+          debugMode: deps.debugMode,
+        })
+      ).answers,
+  };
+}
+
+export const DECISION_SETTINGS_KEYS = {
+  localDefault: DECISION_LOCAL_DEFAULT_SETTINGS_KEY,
+  thinkingPreGeneration: DECISION_THINKING_PREGENERATION_SETTINGS_KEY,
+} as const;

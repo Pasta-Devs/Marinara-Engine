@@ -10,6 +10,8 @@ import type { DirectionCommand } from "./game.js";
 import type { LocationKind, MusicGenre, MusicIntensity } from "../utils/music-score.js";
 
 /** Available quantization variants for the sidecar model. */
+import type { DecisionThinkingMode } from "./decision.js";
+
 export type SidecarQuantization = "q8_0" | "q4_k_m";
 
 /** Runtime backend used by the built-in local model. */
@@ -100,6 +102,14 @@ export interface SidecarConfig {
   embeddingBatchSize: number;
   /** Which runtime target to install for llama.cpp-based local inference. */
   runtimePreference: SidecarRuntimePreference;
+  /**
+   * How this slot's model may answer an agent activation question.
+   *
+   * Stored with the slot rather than with the decision setting because it is a
+   * property of the model loaded here: a reasoning model needs the slower path
+   * whichever feature asks it something.
+   */
+  decisionThinking: DecisionThinkingMode;
 }
 
 export interface SidecarRuntimeInfo {
@@ -374,6 +384,7 @@ export const SIDECAR_DEFAULT_CONFIG: SidecarConfig = {
   embeddingPooling: "none",
   embeddingBatchSize: 512,
   runtimePreference: "auto",
+  decisionThinking: "auto",
 };
 
 /**

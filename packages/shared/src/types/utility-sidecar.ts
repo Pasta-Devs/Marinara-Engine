@@ -12,6 +12,8 @@
  * configuration, model files, process or connections.
  */
 
+import type { DecisionThinkingMode } from "./decision.js";
+
 /** Where a utility model came from, so an update check knows what to compare against. */
 export interface UtilitySidecarModelSource {
   /** HuggingFace repo, e.g. "GetBeholder/Beholder-GGUF". */
@@ -53,6 +55,12 @@ export interface UtilitySidecarConfig extends UtilitySidecarHardwareSettings {
   models: Record<string, UtilitySidecarModelSource>;
   /** Which model id the process should serve, or null to run nothing. */
   activeModelId: string | null;
+  /**
+   * How this slot's model may answer an agent activation question. Outside the
+   * hardware settings because it is a property of the loaded model, not of the
+   * machine, and because the backend may change it on the model's behalf.
+   */
+  decisionThinking: DecisionThinkingMode;
 }
 
 /** Bounds the UI and the route both enforce, so a bad number cannot reach llama-server. */
@@ -77,6 +85,8 @@ export interface UtilitySidecarStatus {
   runtimeInstalled: boolean;
   /** The operator-controllable hardware settings currently in effect. */
   settings: UtilitySidecarHardwareSettings;
+  /** How this slot's model may answer an agent activation question. */
+  decisionThinking: DecisionThinkingMode;
 }
 
 /** The answer to "is there a newer build of this model?" */
@@ -108,4 +118,5 @@ export const UTILITY_SIDECAR_DEFAULT_CONFIG: UtilitySidecarConfig = {
   // *and* they spend system RAM the machine is more likely to be short of.
   gpuLayers: -1,
   maxParallelJobs: 1,
+  decisionThinking: "auto",
 };

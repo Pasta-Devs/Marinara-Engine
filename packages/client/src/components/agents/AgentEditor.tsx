@@ -1,4 +1,5 @@
 import { ActivationQuestionFields } from "./ActivationQuestionFields";
+import { useHasDecisionModel } from "../../hooks/use-decision-model";
 // ──────────────────────────────────────────────
 // Full-Page Agent Editor
 // Click an agent → opens this editor
@@ -753,6 +754,8 @@ export function AgentEditor() {
   const [localEchoMessageDelaySeconds, setLocalEchoMessageDelaySeconds] = useState(
     DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS,
   );
+  /** Whether any decision model is chosen, which is what enables the question fields. */
+  const hasDecisionModel = useHasDecisionModel();
   const [localActivationQuestion, setLocalActivationQuestion] = useState("");
   const [localActivationThreshold, setLocalActivationThreshold] = useState(0.5);
   const [localActivationMaxSkip, setLocalActivationMaxSkip] = useState<number | "">("");
@@ -2957,13 +2960,10 @@ export function AgentEditor() {
                 question={localActivationQuestion}
                 threshold={localActivationThreshold}
                 maxSkip={localActivationMaxSkip}
-                enabled={
-                  (connections as Array<{ provider: string; defaultForAgents?: unknown }> | undefined)?.some(
-                    (connection) =>
-                      connection.provider === "decision" &&
-                      (connection.defaultForAgents === true || connection.defaultForAgents === "true"),
-                  ) ?? false
-                }
+                // A local model slot is a decision model too, and it owns no
+                // connection row, so this asks the server which entry is selected
+                // rather than scanning the connections list for a flag.
+                enabled={hasDecisionModel}
                 onChange={(values) => {
                   if (values.question !== undefined) setLocalActivationQuestion(values.question);
                   if (values.threshold !== undefined) setLocalActivationThreshold(values.threshold);

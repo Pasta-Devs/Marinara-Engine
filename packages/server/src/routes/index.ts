@@ -12,6 +12,7 @@ import { agentsRoutes } from "./agents.routes.js";
 import { customToolsRoutes } from "./custom-tools.routes.js";
 import { generateRoutes } from "./generate.routes.js";
 import { utilitySidecarRoutes } from "./utility-sidecar.routes.js";
+import { decisionRoutes } from "./decision.routes.js";
 import { importRoutes } from "./import.routes.js";
 import { backgroundsRoutes } from "./backgrounds.routes.js";
 import { avatarsRoutes } from "./avatars.routes.js";
@@ -77,6 +78,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(lorebooksRoutes, { prefix: "/api/lorebooks" });
   await app.register(promptsRoutes, { prefix: "/api/prompts" });
   await app.register(connectionsRoutes, { prefix: "/api/connections" });
+  await app.register(decisionRoutes, { prefix: "/api/decision" });
   await app.register(connectionFoldersRoutes, { prefix: "/api/connection-folders" });
   await app.register(libraryFoldersRoutes, { prefix: "/api/library-folders" });
   await app.register(agentsRoutes, { prefix: "/api/agents" });

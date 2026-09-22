@@ -1,5 +1,4 @@
-import { askNoulQuestions } from "../services/decision/system-one.client.js";
-import { resolveDecisionConnection } from "../services/decision/decision-connection.js";
+import { DECISION_SETTINGS_KEYS, resolveDecisionBackend } from "../services/decision/decision-default.js";
 import {
   activationQuestionSettings,
   bypassActivationQuestion,
@@ -4670,14 +4669,22 @@ export async function generateRoutes(app: FastifyInstance) {
               });
             }
             if (candidates.length === 0 || agentSignal.aborted) return new Set();
-            const row = await connections.getDefaultForDecision();
-            if (!row) return new Set();
-            const resolved = await resolveDecisionConnection(row, (id) => connections.getWithKey(id));
-            if (!resolved.connection) {
-              logger.warn("[decision] Activation connection unavailable: %s", resolved.error);
-              return new Set();
-            }
-            const decisionConnection = resolved.connection;
+            const backend = await resolveDecisionBackend(
+              {
+                getLocalDefault: () => appSettings.get(DECISION_SETTINGS_KEYS.localDefault),
+                getThinkingPreGeneration: async () =>
+                  (await appSettings.get(DECISION_SETTINGS_KEYS.thinkingPreGeneration)) === "true",
+                getDefaultConnection: () => connections.getDefaultForDecision(),
+                getConnectionWithKey: (id) => connections.getWithKey(id),
+                debugMode: requestDebug,
+              },
+              agentSignal,
+            );
+            if (!backend) return new Set();
+            // A model that has to reason first takes seconds, and a pre-generation or
+            // parallel gate sits in front of the user's reply. Those agents run as if
+            // they had no question unless the user opted into waiting for them.
+            if (!postProcessing && backend.deferPreGeneration) return new Set();
             const evaluation = await evaluateActivationQuestions({
               candidates,
               messages: messages.map((message) => ({
@@ -4688,17 +4695,8 @@ export async function generateRoutes(app: FastifyInstance) {
                     : (charInfo.find((character) => character.id === message.characterId)?.name ??
                       (charInfo.length === 1 ? charInfo[0]!.name : "Narrator")),
               })),
-              maxStateTokens: decisionConnection.maxStateTokens,
-              ask: async (state, questions) =>
-                (
-                  await askNoulQuestions({
-                    connection: decisionConnection,
-                    state,
-                    questions,
-                    signal: agentSignal,
-                    debugMode: requestDebug,
-                  })
-                ).answers,
+              maxStateTokens: backend.maxStateTokens,
+              ask: backend.ask,
             });
             for (const candidate of candidates) {
               if (evaluation.skip.has(candidate.agentId))

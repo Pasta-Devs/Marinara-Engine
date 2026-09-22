@@ -54,6 +54,7 @@ import { arch, platform, release } from "node:os";
 import { execFileSync } from "node:child_process";
 import { getRuntimeMemorySnapshot } from "./utils/runtime-memory.js";
 import { getLastFreeze } from "./lib/freeze-detector.js";
+import { buildSidecarHealthSection } from "./services/sidecar/sidecar-slot-report.js";
 import { getPreviousSessionStatus, getUncleanExitHistory } from "./lib/session-postmortem.js";
 import { protectTerminalLogger } from "./lib/logger.js";
 import { openCodeSessionHook } from "./utils/opencode-session.js";
@@ -311,6 +312,14 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     } catch (error) {
       app.log.warn(error, "Capability package diagnostics are unavailable");
     }
+    // A slot service that throws must not take the health endpoint down with it: this
+    // response is also the freeze detector's signal and an uptime check's target.
+    let sidecars: ReturnType<typeof buildSidecarHealthSection> | null = null;
+    try {
+      sidecars = buildSidecarHealthSection();
+    } catch (error) {
+      app.log.warn(error, "Sidecar health diagnostics are unavailable");
+    }
     return {
       status: "ok",
       version: APP_VERSION,
@@ -339,6 +348,12 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
           : "error",
         packages: capabilityPackages ?? [],
       },
+      // What the local model slots cost on the server's own GPU. The report's existing
+      // GPU line is the *browser's* card, which says nothing about the machine running
+      // the sidecars when the client is a phone or another PC. Served from a cached
+      // probe: this endpoint is also the freeze detector's signal and must never wait
+      // on nvidia-smi, so a probe that has not finished yet reports itself as pending.
+      sidecars,
     };
   });
 

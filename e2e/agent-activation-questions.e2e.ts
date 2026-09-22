@@ -91,7 +91,18 @@ test("Decision settings, test errors and custom-agent questions survive reload",
     await expect(question).toHaveValue("Did the location change?");
     await screenshot("activation-without-default-dark");
     await openDefaults();
-    await page.getByLabel("Decision model", { exact: true }).selectOption(connection.id);
+    // Local model entries are always listed, never hidden: a user who was told
+    // activation questions work with their own local model must be able to see why
+    // the entry is not selectable rather than wonder where it went.
+    const decisionModel = page.getByLabel("Decision model", { exact: true });
+    await expect(decisionModel.locator("optgroup[label='Local models']")).toHaveCount(1);
+    const primary = decisionModel.locator("option[value='sidecar:local']");
+    await expect(primary).toHaveCount(1);
+    await expect(primary).toBeDisabled();
+    await expect(primary).toContainText("No model downloaded");
+    // The managed decision sidecar has no runtime in this build, and says so.
+    await expect(decisionModel.locator("option[value='decision-sidecar:local']")).toContainText("Not installed");
+    await decisionModel.selectOption(connection.id);
     await page.getByRole("button", { name: "Test", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: "Probability of yes: 0.800" })).toBeVisible();
     reject = true;

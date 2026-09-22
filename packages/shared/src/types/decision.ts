@@ -1,0 +1,148 @@
+/**
+ * The decision model that answers agent activation questions.
+ *
+ * Two families answer the same question. System One backends (TypeSafe, OpenRouter,
+ * a user-run Open-Jev server) speak the `/v1/systemone` wire format and live as stored
+ * connection rows. Local slots reuse a model the user already runs and read the answer
+ * out of the first token's log-probabilities, so a user who never wants a second model
+ * or a paid API can still gate their agents.
+ *
+ * Local slots are pseudo-connections with no stored row, following `SIDECAR_CONNECTION_ID`.
+ * Which one is selected is a single app setting rather than a flag on each slot's own
+ * config, because the choice is exclusive across all of them and three booleans in three
+ * files would drift.
+ */
+import { SIDECAR_CONNECTION_ID } from "./sidecar.js";
+
+/** The local slots that can answer a decision. */
+export const DECISION_LOCAL_SLOTS = ["primary", "utility", "decision_sidecar"] as const;
+export type DecisionLocalSlot = (typeof DECISION_LOCAL_SLOTS)[number];
+
+/**
+ * Reserved ids for the local entries, in the style of `SIDECAR_CONNECTION_ID`.
+ * Never stored in the connections table; the decision default holds one of these
+ * strings or names a real connection row.
+ */
+export const DECISION_SIDECAR_CONNECTION_ID = "decision-sidecar:local";
+export const UTILITY_SIDECAR_DECISION_CONNECTION_ID = "utility-sidecar:decision";
+
+export const DECISION_LOCAL_SLOT_IDS: Record<DecisionLocalSlot, string> = {
+  primary: SIDECAR_CONNECTION_ID,
+  utility: UTILITY_SIDECAR_DECISION_CONNECTION_ID,
+  decision_sidecar: DECISION_SIDECAR_CONNECTION_ID,
+};
+
+export function decisionLocalSlotForId(id: string | null | undefined): DecisionLocalSlot | null {
+  if (!id) return null;
+  const match = DECISION_LOCAL_SLOTS.find((slot) => DECISION_LOCAL_SLOT_IDS[slot] === id);
+  return match ?? null;
+}
+
+/**
+ * How a local chat model is allowed to reach its yes/no answer.
+ *
+ * Some models ignore a reasoning-off flag, or open a reasoning block from their chat
+ * template regardless. The backend never assumes the flag worked; it checks what came
+ * back and, in Auto, switches that model over once it has failed twice.
+ */
+export const DECISION_THINKING_MODES = ["auto", "off", "allowed"] as const;
+export type DecisionThinkingMode = (typeof DECISION_THINKING_MODES)[number];
+export const DEFAULT_DECISION_THINKING_MODE: DecisionThinkingMode = "auto";
+
+/**
+ * Read a Thinking mode from a slot's config file.
+ *
+ * Both slots persist their settings as JSON on disk, so an older install has no value
+ * here and a hand-edited one may have any string. An unrecognised value would match
+ * neither branch in the backend and silently behave as Off, which is a setting nobody
+ * chose; it becomes the default instead.
+ */
+export function normalizeDecisionThinking(value: unknown): DecisionThinkingMode {
+  return DECISION_THINKING_MODES.includes(value as DecisionThinkingMode)
+    ? (value as DecisionThinkingMode)
+    : DEFAULT_DECISION_THINKING_MODE;
+}
+
+/** What a slot's cached probe concluded about the model currently loaded in it. */
+export type DecisionAnswerStyle = "direct" | "thinks" | "unknown";
+
+/**
+ * Request budgets, per backend family.
+ *
+ * System One answers every question of a group in one parallel pass, so 1500 ms is
+ * generous. A local slot may already be busy with agent work and answers one question
+ * per request, so it gets longer; a model that has to reason first gets longer still,
+ * which is why reasoning-mode gates are limited to post-processing by default.
+ */
+export const DECISION_TIMEOUT_MS = {
+  systemOne: 1500,
+  sidecar: 4000,
+  thinking: 20_000,
+} as const;
+
+/** Token budget for a reasoning model to finish thinking and then answer. */
+export const DECISION_THINKING_MAX_TOKENS = 1024;
+
+/**
+ * Share of the listed probability mass that `yes`/`no` variants must carry before a
+ * one-token answer counts as a real answer rather than a model going its own way.
+ */
+export const DECISION_DIRECT_ANSWER_MIN_SHARE = 0.5;
+
+/** Consecutive one-token failures before Auto gives a model permission to think. */
+export const DECISION_AUTO_THINKING_FAILURES = 2;
+
+/** Why an entry in the Decision model dropdown cannot serve right now. */
+export type DecisionUnavailableReason =
+  | "no_model"
+  | "not_enabled"
+  | "not_installed"
+  | "unsupported_platform"
+  | "needs_relinking"
+  | "stopped";
+
+/** One row of the Decision model dropdown. Unavailable entries are shown, never hidden. */
+export interface DecisionModelOption {
+  id: string;
+  label: string;
+  group: "local" | "connection";
+  slot: DecisionLocalSlot | null;
+  selected: boolean;
+  /** Null when the entry can serve. Otherwise why it cannot, for the greyed-out reason. */
+  unavailable: DecisionUnavailableReason | null;
+  /** Extra detail for a reason that names something specific, e.g. a platform requirement. */
+  detail?: string;
+  /** For local slots: the Thinking setting and what the last probe concluded. */
+  thinking?: DecisionThinkingMode;
+  answerStyle?: DecisionAnswerStyle;
+  /**
+   * True when probabilities from this entry are not calibrated: a general chat model
+   * answering yes/no, or a slot whose runtime could not return log-probabilities.
+   */
+  uncalibrated?: boolean;
+}
+
+export interface DecisionModelOptions {
+  /** The selected entry's id, or null for None. */
+  selected: string | null;
+  options: DecisionModelOption[];
+}
+
+/**
+ * Where the chosen local entry is recorded.
+ *
+ * A connection is selected the way every other purpose default is, by its own row's
+ * flag. A local entry has no row, so its id lives here. A local entry wins when both
+ * are somehow set, and "None" is the absence of both.
+ */
+export const DECISION_LOCAL_DEFAULT_SETTINGS_KEY = "decision-local-default";
+
+/**
+ * Whether a model that has to think first may also gate pre-generation and parallel
+ * agents.
+ *
+ * Off by default: reasoning takes seconds and those gates sit in front of the user's
+ * reply, so every turn would wait. Post-processing gates run after the reply is on
+ * screen and are unaffected.
+ */
+export const DECISION_THINKING_PREGENERATION_SETTINGS_KEY = "decision-thinking-pregeneration";

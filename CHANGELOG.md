@@ -4,6 +4,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Activation questions can be answered by the local model you already run, on either the main or the utility slot, with no download and nothing leaving your machine. Pick it under **Decision model**, which now lists local models alongside Decision connections and shows why an unavailable entry cannot be used. A **Thinking** setting handles models that always reason first; those gate post-processing agents by default so replies do not wait.
+
+- Support diagnostics report the server's own GPU and each local model slot: what is configured, whether it is running, and the estimated memory it needs, with a combined verdict. The existing GPU line is the browser's, which said nothing about the machine running the local model.
+
 - Advanced Memory completes partially covered scene ranges when preparing a missing scene, preserves older manual character corrections through reindexing, and keeps original access data in exports. Scene participants can be returned by name as well as ID; only actual participants receive access (#6537).
 
 - Advanced Memory keeps one memory per scene, assigns access to actual participants, and treats unassigned scenes as narrator-only; an explicit all-participants result grants the current chat characters access. Existing automatic assignments stay narrator-only until reviewed; preparation checks participants while keeping saved summaries (#6533).

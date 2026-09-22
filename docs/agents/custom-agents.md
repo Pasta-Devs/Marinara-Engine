@@ -136,6 +136,33 @@ Leave the keyword box empty to disable the keyword filter. Cadence and any activ
 
 An **Activation question** asks whether the recent scene needs your custom agent. For example: `Did the characters move to a different location?` This can recognize paraphrases that keywords miss. Leave the question empty to keep the existing behavior.
 
+Something has to answer that question. Pick it once, under **Decision model** in the Connections panel. The list has three groups:
+
+- **None**, the default. No questions are asked and the question fields in the agent editor stay disabled.
+- **Local models**: the model you already run on the main or utility local slot. Nothing is downloaded and nothing leaves your machine.
+- **Connections**: any Decision connection you created, hosted or self-run.
+
+Entries that cannot answer right now stay in the list, greyed out with the reason, so you can see what to fix.
+
+### Use a model you already run
+
+If you have a local model in **Local Model**, you can gate agents with it and never create a connection or pay for a request.
+
+1. In **Connections**, open **Connection defaults** and set **Decision model** to **Primary local model**, or to **Utility local model** if you have one set up.
+2. Click **Test**. A successful result shows the probability and request time, plus two things that are specific to a local model: whether log-probabilities were available, and whether the model answers directly.
+
+Marinara asks the model a single yes/no question, lets it produce one token, and reads the answer from that token's probabilities. No reply is written, so the request is short. Requests use a 4-second budget, longer than a hosted one, because your slot may already be busy with agent work.
+
+**Thinking.** Most models answer in one word. Some always reason first, whatever they are asked. The **Thinking** setting below the dropdown controls this:
+
+- **Auto** (default) tries the fast one-word method and, if the model cannot answer that way twice in a row, lets that model think first and tells you.
+- **Off** always uses the one-word method. A model that cannot answer that way leaves its agents running.
+- **Allowed** never asks the model to skip reasoning.
+
+A model that thinks first takes seconds, so it only gates **post-processing** agents by default. Those run after the reply is already on screen. Pre-generation and parallel agents run as if they had no question, unless you turn on **Also gate agents that run before the reply**, which makes every reply wait.
+
+**About the numbers.** A general chat model's yes/no probabilities are usable for a threshold, but they were never trained to be calibrated the way a purpose-built decision model's are, and a runtime that returns no log-probabilities answers a flat 1 or 0. Tune the threshold against your own chats rather than trusting the default.
+
 ### Set up a Decision connection
 
 1. In **Connections**, create a connection with provider **Decision**.
@@ -157,7 +184,9 @@ With a Decision default selected, open a custom agent and enter a **Question** o
 - **Bypass the question after this many messages without a successful run** is optional. Once this many user/assistant messages have passed since the agent last ran successfully, the question is bypassed. A new agent, or one whose previous message was deleted, also bypasses the question when this setting is enabled. Keywords and cadence must still allow the run.
 - Pre-generation and parallel agents use the conversation before the reply. Post-processing agents also see the completed reply.
 
-Keywords and cadence are checked first, so an already-skipped agent does not make a paid decision request. Questions sharing a scan depth are batched for each phase. A timeout (1.5 seconds), unavailable connection, or invalid answer lets the affected agent run normally. Decision requests follow generation cancellation. Ordinary logs omit chat content; debug prompt logging includes the evaluated messages and questions.
+Keywords and cadence are checked first, so an already-skipped agent does not make a paid decision request. Questions sharing a scan depth are batched for each phase. A timeout, unavailable model, or invalid answer lets the affected agent run normally. The budget is 1.5 seconds for a Decision connection and 4 seconds for a local model, or 20 seconds when that model has to think first. Decision requests follow generation cancellation. Ordinary logs omit chat content; debug prompt logging includes the evaluated messages and questions.
+
+A local model derives its state budget from the slot's own context size rather than from a connection setting.
 
 This setting applies to custom agents. Built-in agent activation and character-activity evaluation keep their existing behavior. Marinara does not install or start Open-Jev through these controls.
 

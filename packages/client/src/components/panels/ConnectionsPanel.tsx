@@ -1214,7 +1214,7 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
             primaryEmptyLabel={localizeUi("ui.panels.connectiondefaultssection.noDefaultAudioConnection")}
             fallbackModelLabel={localizeUi("ui.panels.connectiondefaultssection.audioGeneration")}
           />
-          <DecisionDefaultControl connections={connectionsList} />
+          <DecisionDefaultControl />
         </div>
       </SmoothFolderContent>
     </section>

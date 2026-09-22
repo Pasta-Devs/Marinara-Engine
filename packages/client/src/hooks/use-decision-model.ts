@@ -1,0 +1,89 @@
+// ──────────────────────────────────────────────
+// React Query: the Decision model setting
+// ──────────────────────────────────────────────
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { DecisionLocalSlot, DecisionModelOptions, DecisionThinkingMode } from "@marinara-engine/shared";
+import { api } from "../lib/api-client";
+import { connectionKeys } from "./use-connections";
+
+export const decisionKeys = {
+  all: ["decision"] as const,
+  options: () => [...decisionKeys.all, "options"] as const,
+  thinkingPreGeneration: () => [...decisionKeys.all, "thinking-pregeneration"] as const,
+};
+
+/**
+ * Every entry the Decision model dropdown offers, including the ones that cannot
+ * serve. The server decides what is offerable so the list and the stored choice
+ * cannot disagree, and so a reason is available for each greyed-out row.
+ */
+export function useDecisionOptions() {
+  return useQuery({
+    queryKey: decisionKeys.options(),
+    queryFn: () => api.get<DecisionModelOptions>("/decision/options"),
+    staleTime: 15_000,
+  });
+}
+
+/** True once any decision model is chosen, which is what enables the editor fields. */
+export function useHasDecisionModel(): boolean {
+  return !!useDecisionOptions().data?.selected;
+}
+
+export function useSelectDecisionModel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string | null) => api.post<{ selected: string | null }>("/decision/select", { id }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: decisionKeys.options() });
+      // Selecting a connection flips its own defaultForAgents flag, so the
+      // connections list is stale too.
+      void qc.invalidateQueries({ queryKey: connectionKeys.list() });
+    },
+  });
+}
+
+export function useSetDecisionThinking() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { slot: DecisionLocalSlot; thinking: DecisionThinkingMode }) =>
+      api.post("/decision/thinking", input),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: decisionKeys.options() }),
+  });
+}
+
+export interface DecisionSlotTestResult {
+  success: boolean;
+  decisionProbability?: number;
+  latencyMs: number;
+  logprobs?: boolean;
+  answersDirectly?: boolean;
+  errorCode?: string;
+}
+
+/** Test a local entry, which has no connection form and so no Test button of its own. */
+export function useTestDecisionSlot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (slot: DecisionLocalSlot) => api.post<DecisionSlotTestResult>("/decision/test", { slot }),
+    // A probe records what the model turned out to do, so the entry's reported
+    // answer style may have changed.
+    onSettled: () => void qc.invalidateQueries({ queryKey: decisionKeys.options() }),
+  });
+}
+
+export function useThinkingPreGeneration() {
+  return useQuery({
+    queryKey: decisionKeys.thinkingPreGeneration(),
+    queryFn: () => api.get<{ enabled: boolean }>("/decision/thinking-pregeneration"),
+    staleTime: 60_000,
+  });
+}
+
+export function useSetThinkingPreGeneration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) => api.post("/decision/thinking-pregeneration", { enabled }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: decisionKeys.thinkingPreGeneration() }),
+  });
+}
