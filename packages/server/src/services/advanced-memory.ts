@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  ADVANCED_MEMORY_SCENE_AUDIENCE as SCENE_AUDIENCE,
   CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
   DEFAULT_CHAT_SUMMARY_PROMPT,
   estimateChatSummaryTokens,
@@ -135,7 +136,6 @@ const activeOperations = new Map<
 const coordinatorQueues = new Map<string, Promise<unknown>>();
 const IDLE_JOB: AdvancedMemoryJob = { status: "idle", stage: "idle", completed: 0, total: 0, error: null };
 const MEMORY_BUDGET_TOLERANCE = 2000;
-const SCENE_AUDIENCE = { id: "scene-audience", revision: "participants-v1" };
 function hasSceneAudience(record: StoredRecord): boolean {
   return record.dependencies.some((item) => item.id === SCENE_AUDIENCE.id && item.revision === SCENE_AUDIENCE.revision);
 }
@@ -599,6 +599,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       const candidates = saved.length ? saved : group;
       const preferred = [...candidates].sort(
         (a, b) =>
+          Number(!!b.content) - Number(!!a.content) ||
           Number(hasSceneAudience(b)) - Number(hasSceneAudience(a)) ||
           Number(b.manualOverride) - Number(a.manualOverride) ||
           b.messageIds.length - a.messageIds.length ||
@@ -3080,9 +3081,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
               sourceFingerprint,
             }
           : {}),
-        ...(correctedScene || (record.kind === "scene" && patch.audienceCharacterIds !== undefined)
-          ? { dependencies: JSON.stringify([SCENE_AUDIENCE]) }
-          : {}),
+        ...(correctedScene ? { dependencies: JSON.stringify([SCENE_AUDIENCE]) } : {}),
         ...(patch.enabled !== undefined ? { enabled: patch.enabled ? 1 : 0 } : {}),
         updatedAt: now(),
       };

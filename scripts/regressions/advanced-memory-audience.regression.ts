@@ -145,6 +145,32 @@ try {
   );
   const recall = (audienceCharacterIds: string[]) =>
     memory.prepare({ chatId: chat.id, messages: source, audienceCharacterIds, budgetTokens: 12000, readOnly: true });
+  const narratorScene = at(2);
+  const narratorRow = (
+    await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, narratorScene.id))
+  )[0]!;
+  await db
+    .update(advancedMemoryRecords)
+    .set({ dependencies: "[]" })
+    .where(eq(advancedMemoryRecords.id, narratorScene.id));
+  await db.insert(advancedMemoryRecords).values({
+    ...narratorRow,
+    id: `${narratorScene.id}-audience`,
+    content: "",
+    dependencies: "[]",
+    summaryWork: null,
+    updatedAt: new Date(Date.now() + 1000).toISOString(),
+  });
+  assert.equal((await scenes()).length, 4, "an interrupted access check cannot hide its saved recap");
+  assert.equal((await recall(["narrator"])).receipt.recalledSceneIds.length, 4);
+  await memory.reindex(chat.id);
+  assert.equal(summaries, 4, "reindexing never generates summaries or calls participant classification");
+  assert.equal((await scenes()).find((record) => record.id === narratorScene.id)?.content, narratorScene.content);
+  await db.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, `${narratorScene.id}-audience`));
+  await db
+    .update(advancedMemoryRecords)
+    .set({ dependencies: narratorRow.dependencies })
+    .where(eq(advancedMemoryRecords.id, narratorScene.id));
   for (const mode of ["individual", "shared"]) {
     await chats.patchMetadata(chat.id, { groupChatMode: mode });
     const absent = await recall(["pantalone"]);

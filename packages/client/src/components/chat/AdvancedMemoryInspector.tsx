@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Download, RefreshCw, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
-import type { AdvancedMemoryRecord } from "@marinara-engine/shared";
+import { ADVANCED_MEMORY_SCENE_AUDIENCE as SCENE_AUDIENCE, type AdvancedMemoryRecord } from "@marinara-engine/shared";
 import {
   useAdvancedMemoryAction,
   useAdvancedMemorySources,
@@ -63,7 +63,7 @@ export function AdvancedMemoryInspector({
   const reviewAudience =
     selected?.kind === "scene" &&
     !!selected.content &&
-    !selected.dependencies.some((item) => item.id === "scene-audience" && item.revision === "participants-v1");
+    !selected.dependencies.some((item) => item.id === SCENE_AUDIENCE.id && item.revision === SCENE_AUDIENCE.revision);
   const reviewCorrection =
     selected?.kind === "scene" && selected.manualOverride && selected.embeddingStatus === "stale";
   const audienceChanged =
