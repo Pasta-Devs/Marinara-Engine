@@ -271,6 +271,7 @@ try {
         stream: false,
         reasoningEffort: effort,
         temperature: 0.7,
+        customParameters: { logprobs: true, top_logprobs: 3 },
       });
       const sent = requests.at(-1)!;
       assert.equal(sent.url, "/v1/chat/completions");
@@ -278,6 +279,8 @@ try {
       assert.deepEqual(sent.body.reasoning, { effort: effort === "none" && !canDisable ? "low" : effort });
       assert.equal(sent.body.reasoning_effort, undefined, "OpenRouter uses its unified reasoning field");
       assert.equal("temperature" in sent.body, canDisable && effort === "none");
+      assert.equal(sent.body.logprobs, canDisable && effort === "none" ? true : undefined);
+      assert.equal(sent.body.top_logprobs, canDisable && effort === "none" ? 3 : undefined);
     }
   }
 
