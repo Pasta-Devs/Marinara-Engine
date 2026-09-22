@@ -262,7 +262,7 @@ type AgentAddPreview = {
 
 const WIZARD_PANEL_CLASS = cn(
   NEUTRAL_PANEL_SHELL,
-  "mari-chat-setup-wizard pointer-events-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden sm:max-h-[min(90dvh,44rem)]",
+  "mari-chat-setup-wizard pointer-events-auto flex max-h-full w-full max-w-lg flex-col overflow-hidden sm:max-h-[min(100%,44rem)]",
 );
 
 const WIZARD_FIELD_LABEL = "text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]";
@@ -890,8 +890,16 @@ function SavedChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   const queryClient = useQueryClient();
   const apply = useCallback(
     async (defaults: ChatWizardDefaults, reset = false) => {
-      const { metadata, ...fields } = defaults;
-      await updateChat.mutateAsync({ id: chat.id, ...fields });
+      const { metadata, connectionId, promptPresetId, personaId, personaCharacterId, characterIds } = defaults;
+      // Older saved templates still contain a name. Apply only reusable setup fields.
+      await updateChat.mutateAsync({
+        id: chat.id,
+        connectionId,
+        promptPresetId,
+        personaId,
+        personaCharacterId,
+        characterIds,
+      });
       const latest = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id)) ?? chat;
       await updateMeta.mutateAsync({
         id: chat.id,
@@ -909,7 +917,11 @@ function SavedChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       return;
     }
     let active = true;
-    pendingApply.current ??= apply(saved);
+    pendingApply.current ??= apply({
+      ...saved,
+      // A card launch is an explicit participant choice, ahead of saved defaults.
+      characterIds: initial.characterIds.length ? initial.characterIds : saved.characterIds,
+    });
     void pendingApply.current
       .then(() => {
         if (!active) return;
@@ -927,7 +939,7 @@ function SavedChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     return () => {
       active = false;
     };
-  }, [apply, saved, settingsSyncReady, t]);
+  }, [apply, initial.characterIds, saved, settingsSyncReady, t]);
 
   const defaultsAction = (metadata: Record<string, unknown>) => (
     <button
@@ -1399,7 +1411,7 @@ function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsActio
     await updateMeta.mutateAsync({
       id: chat.id,
       autonomousMessages: autonomousEnabled,
-      conversationSchedulesEnabled: autonomousEnabled && generateSchedule,
+      conversationSchedulesEnabled: generateSchedule,
       characterCommands: hasConversationCommands && commandsEnabled,
       conversationCommandToggles: selfieSetup.conversationCommandToggles,
       conversationSetupComplete: true,

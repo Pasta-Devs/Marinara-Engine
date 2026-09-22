@@ -64,7 +64,7 @@
         "packages/server/src/"
       ],
       "guidance": [
-        "CLAUDE.md",
+        "AGENTS.md",
         "CONTRIBUTING.md"
       ],
       "checks": [

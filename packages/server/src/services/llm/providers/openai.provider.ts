@@ -1456,6 +1456,8 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
     } finally {
       if (options.signal) options.signal.removeEventListener("abort", onAbort);
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
     }
     this.emitChatCompletionsReasoning(options, reasoningMetadata);
     if (streamUsage) return finishReason ? { ...streamUsage, finishReason } : streamUsage;
@@ -1696,7 +1698,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     const providerContentBlockToolCallIndexes = new Map<string, number>();
 
     try {
-      while (true) {
+      stream: while (true) {
         const { done, value } = await reader.read();
 
         buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
@@ -1707,7 +1709,7 @@ export class OpenAIProvider extends BaseLLMProvider {
           const trimmed = line.trim();
           const data = OpenAIProvider.extractSseData(trimmed);
           if (data == null) continue;
-          if (data === "[DONE]") break;
+          if (data === "[DONE]") break stream;
 
           let parsed: Record<string, unknown>;
           try {
@@ -1842,6 +1844,8 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
     } finally {
       options.signal?.removeEventListener("abort", onAbort);
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
     }
 
     // Collect tool calls in order

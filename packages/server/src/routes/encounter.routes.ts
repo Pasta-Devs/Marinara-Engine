@@ -1,3 +1,14 @@
+import { z } from "zod";
+import { resolveGameConnection as resolveEncounterConnection } from "../services/game/connection.service.js";
+import {
+  combatAiHintsSchema,
+  combatBossSchema,
+  combatInterruptFields,
+  rulesetCreatureSchema,
+  type RulesetDefinition,
+} from "@marinara-engine/shared";
+import { loadRulesetCatalogEntries } from "../services/game/ruleset-catalog.service.js";
+import { loadRulesetRegistry, resolveGameRuleset } from "../services/game/ruleset-registry.service.js";
 // ──────────────────────────────────────────────
 // Routes: Combat Encounter (non-streaming JSON)
 // ──────────────────────────────────────────────
@@ -13,7 +24,12 @@ import { createLLMProvider } from "../services/llm/provider-registry.js";
 import type { ChatMessage } from "../services/llm/base-provider.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
 import { cardPromptText } from "../services/prompt/card-text.js";
-import { localAuthProviderBaseUrl, normalizeRpgStatPools } from "@marinara-engine/shared";
+import { normalizeRpgStatPools } from "@marinara-engine/shared";
+import {
+  tacticalBattlefieldSetupSchema,
+  validateTacticalEncounterBlueprint,
+  type TacticalBattlefieldSetup,
+} from "../services/game/tactical-battlefield.service.js";
 import type {
   EncounterInitRequest,
   EncounterActionRequest,
@@ -40,35 +56,6 @@ function configuredHpMax(rpgStats: RPGStatsConfig | undefined): number | null {
   );
   const max = Number(hpPool?.max ?? rpgStats.hp?.max);
   return Number.isFinite(max) && max > 0 ? max : null;
-}
-
-/** Resolve a connection (handles "random" pool + baseUrl fallback). */
-async function resolveConnection(
-  connections: ReturnType<typeof createConnectionsStorage>,
-  connId: string | null,
-  chatConnectionId: string | null,
-) {
-  let id = connId ?? chatConnectionId;
-  if (id === "random") {
-    const pool = await connections.listRandomPool();
-    if (!pool.length) throw new Error("No connections marked for the random pool");
-    id = pool[Math.floor(Math.random() * pool.length)].id;
-  }
-  if (!id) throw new Error("No API connection configured");
-  const conn = await connections.getWithKey(id);
-  if (!conn) throw new Error("API connection not found");
-
-  let baseUrl = conn.baseUrl;
-  if (!baseUrl) {
-    const { PROVIDERS } = await import("@marinara-engine/shared");
-    const providerDef = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
-    baseUrl = providerDef?.defaultBaseUrl ?? "";
-  }
-  const localAuthBaseUrl = localAuthProviderBaseUrl(conn.provider);
-  if (!baseUrl && localAuthBaseUrl) baseUrl = localAuthBaseUrl;
-  if (!baseUrl) throw new Error("No base URL configured for this connection");
-
-  return { conn, baseUrl };
 }
 
 /** Extract reliable JSON from an LLM response that may include markdown fences. */
@@ -298,7 +285,118 @@ async function buildGameStateContext(
 // Prompt Builders
 // ──────────────────────────────────────────────
 
-function buildInitPrompt(
+/** The shape a blueprint has to arrive in. Only ever loosened, never tightened: the Game Master
+ *  writes prose and numbers, and the Engine checks what it will act on rather than the whole reply.
+ *  Hoisted out of the handler so it is built once and a regression can drive it. */
+export const encounterBlueprintSchema = z
+  .object({
+    party: z.array(
+      z
+        .object({
+          projectile: z.boolean().optional(),
+          requiresSight: z.boolean().optional(),
+          aiHints: combatAiHintsSchema.optional(),
+          spellSlots: z.record(z.string().regex(/^[1-9]$/), z.number().int().min(0).max(100)).optional(),
+          attacks: z
+            .array(
+              z
+                .object({
+                  ...combatInterruptFields,
+                  kind: z.enum(["attack", "heal", "buff", "debuff"]).optional(),
+                  mpCost: z.number().min(0).max(10000).optional(),
+                })
+                .passthrough(),
+            )
+            .optional(),
+        })
+        .passthrough(),
+    ),
+    enemies: z.array(
+      z
+        .object({
+          projectile: z.boolean().optional(),
+          requiresSight: z.boolean().optional(),
+          aiHints: combatAiHintsSchema.optional(),
+          spellSlots: z.record(z.string().regex(/^[1-9]$/), z.number().int().min(0).max(100)).optional(),
+          boss: combatBossSchema.optional(),
+          mp: z.number().min(0).max(100000).optional(),
+          maxMp: z.number().min(0).max(100000).optional(),
+          // The ruleset's own terms for this opponent. A malformed stat block costs its
+          // opponent the proposal, never the whole blueprint: the Engine falls back to the
+          // bestiary and then to the tier.
+          creature: z.string().max(200).optional().catch(undefined),
+          tier: z.string().max(80).optional().catch(undefined),
+          proposed: rulesetCreatureSchema.optional().catch(undefined),
+          attacks: z
+            .array(
+              z
+                .object({
+                  ...combatInterruptFields,
+                  kind: z.enum(["attack", "heal", "buff", "debuff"]).optional(),
+                  mpCost: z.number().min(0).max(10000).optional(),
+                })
+                .passthrough(),
+            )
+            .optional(),
+        })
+        .passthrough()
+        .refine(({ mp, maxMp }) => mp === undefined || maxMp === undefined || mp <= maxMp, "Invalid resource pool."),
+    ),
+  })
+  .passthrough();
+
+/** How many bestiary names one blueprint prompt lists. A Game Master reads the list and picks from
+ *  it, so it is a ceiling on the reading rather than on the bestiary.
+ *  ponytail: the first sixty in declaration order, with no filtering of any kind. A bestiary big
+ *  enough that the right creature falls off the end wants the list narrowed by the scene, and that
+ *  is the upgrade path. */
+export const ENCOUNTER_BESTIARY_INDEX_MAX = 60;
+
+/** What a ruleset that resolves its own fights lends the blueprint prompt: the rungs an opponent is
+ *  picked from, the names already written, and the ids a proposed stat block has to be written in. */
+export interface EncounterRulesetBrief {
+  tiers: Array<{ id: string; label: string }>;
+  bestiary: Array<{ label: string; tier: string }>;
+  budgets: string[];
+  saves: string[];
+  damageTypes: string[];
+}
+
+/** The brief for a game whose ruleset declares `combat`, or null for every other game, which gets
+ *  exactly the prompt it got before this existed. */
+export async function encounterRulesetBrief(
+  definition: RulesetDefinition,
+  packageId: string | null,
+): Promise<EncounterRulesetBrief | null> {
+  const combat = definition.combat;
+  if (!combat) return null;
+  const bestiary: EncounterRulesetBrief["bestiary"] = [];
+  for (const catalog of definition.catalogs ?? []) {
+    if (catalog.holds !== "creatures" || bestiary.length >= ENCOUNTER_BESTIARY_INDEX_MAX) continue;
+    try {
+      const read = await loadRulesetCatalogEntries(packageId, definition, catalog);
+      if (!read.ok) {
+        logger.warn("[game/combat:init] Bestiary %s of %s could not be read", catalog.id, definition.id);
+        continue;
+      }
+      for (const entry of read.entries) {
+        if (!entry.creature || bestiary.length >= ENCOUNTER_BESTIARY_INDEX_MAX) break;
+        bestiary.push({ label: entry.label, tier: entry.creature.tier });
+      }
+    } catch (error) {
+      logger.warn(error, "[game/combat:init] Could not read bestiary %s of %s", catalog.id, definition.id);
+    }
+  }
+  return {
+    tiers: (combat.threat?.tiers ?? []).map((tier) => ({ id: tier.id, label: tier.label })),
+    bestiary,
+    budgets: combat.economy.budgets.map((budget) => budget.id),
+    saves: definition.sheet.saves.map((save) => save.id),
+    damageTypes: [...(combat.damageTypes ?? [])],
+  };
+}
+
+export function buildInitPrompt(
   personaName: string,
   personaCtx: string,
   characterCtx: string,
@@ -306,6 +404,9 @@ function buildInitPrompt(
   gameStateCtx: string,
   spellbookCtx: string,
   tactical: boolean,
+  tacticalBattlefield?: TacticalBattlefieldSetup,
+  /** Present only for a game whose ruleset resolves its own fights. */
+  ruleset?: EncounterRulesetBrief | null,
 ): ChatMessage[] {
   const msgs: ChatMessage[] = [];
 
@@ -352,6 +453,7 @@ function buildInitPrompt(
   inst += `      "statuses": [],\n`;
   if (tactical) {
     inst += `      "class": "fighter|knight|rogue|archer|mage|healer",\n`;
+    inst += `      "movementMode": "walk|fly|teleport",\n`;
   }
   inst += `      "isPlayer": true\n`;
   inst += `    }\n`;
@@ -366,6 +468,12 @@ function buildInitPrompt(
   inst += `      "description": "Brief enemy description",\n`;
   if (tactical) {
     inst += `      "class": "fighter|knight|rogue|archer|mage|healer",\n`;
+    inst += `      "movementMode": "walk|fly|teleport",\n`;
+  }
+  if (ruleset) {
+    inst += `      "creature": "a name from the bestiary list below, when one of them is this enemy",\n`;
+    inst += `      "tier": "one of the threat tier ids listed below",\n`;
+    inst += `      "proposed": {"health":12,"defense":13,"initiativeModifier":2,"tier":"tier id","speed":30,"saves":{"save id":2},"resist":["damage type"],"actions":[{"id":"strike","name":"Strike","budget":"budget id","toHit":4,"damage":{"dice":"1d6","flat":2,"type":"damage type"}}]},\n`;
   }
   inst += `      "sprite": "emoji or brief visual description"\n`;
   inst += `    }\n`;
@@ -377,11 +485,15 @@ function buildInitPrompt(
   inst += `    "timeOfDay": "dawn|day|dusk|night|twilight",\n`;
   inst += `    "weather": "clear|rainy|snowy|windy|stormy|overcast"\n`;
   inst += `  },\n`;
+  inst += `  "battlefield": {\n`;
+  if (tactical) inst += `    "formation": "line|ambush|surrounded|skirmish|defense",\n`;
+  inst += `    "terrainBrief": {\n`;
+  inst += `      "exposure": "exposed|sheltered|unknown"`;
   if (tactical) {
-    inst += `  "battlefield": {\n`;
-    inst += `    "formation": "line|ambush|surrounded|skirmish|defense"\n`;
-    inst += `  },\n`;
+    inst += `,\n      "size": "small|medium|large",\n`;
+    inst += `      "features": [{"terrain":"plains|forest|mountain|ruin|water|wall","placement":"center|north|south|east|west","shape":"patch|barrier"}]`;
   }
+  inst += `\n    }\n  },\n`;
   inst += `  "itemEffects": [\n`;
   inst += `    {"name":"Inventory item name","target":"self|ally|enemy|any","type":"heal|damage|buff|debuff|status|utility","description":"what this item does in this fight","power":0.3,"element":"optional","status":{"name":"Wet","emoji":"💧","duration":2,"modifier":-2,"stat":"defense"},"consumes":true}\n`;
   inst += `  ],\n`;
@@ -394,6 +506,13 @@ function buildInitPrompt(
   inst += `  "visuals": {"isBossFight": false, "encounterTier": "common|miniboss|boss|special", "enemyImagePrompts": [{"name":"Enemy Name","prompt":"portrait prompt"}], "backgroundPrompt": "optional boss arena background prompt", "illustrationPrompt": "optional boss fight splash illustration prompt", "slug": "optional-short-slug"}\n`;
   inst += `}\n\n`;
   inst += `IMPORTANT NOTES:\n`;
+  inst += `- For each party member and enemy, include aiHints: {category: "beast|monstrosity|other|unknown", proficiency: "novice|trained|veteran|master", temperament: "mindless|reckless|cautious|opportunistic|protective|supportive|disciplined|cowardly|patient|methodical|coordinated"}. Use established identity and training, not HP or appearance. Omit temperament when personality is unknown; do not mistake negated traits for positive evidence. Every Beast and Monstrosity is Mindless. These values are protocol enums and must not be translated.\n`;
+  inst += `- For every attack include kind: "attack|heal|buff|debuff" and a nonnegative mpCost. For every enemy include numeric mp and maxMp, preserving established resources. Otherwise give a finite pool appropriate to its skills. Class hints (fighter|knight|rogue|archer|mage|healer) may be supplied in either combat mode. Do not invent abilities to fit a temperament.\n`;
+  inst += `- Explicitly identify each actual boss enemy with boss: {points: 3, anticipation: true, attackCost: 1, defendCost: 1, moveCost: 1}; omit boss for ordinary enemies and elites. This also applies to a solo boss. Do not infer boss status from HP alone. Boss skills may have legendaryCost: 1..3 when they are appropriate additional actions.\n`;
+  inst += `- Mark actual spellcasting abilities with spell: true. For an established area attack, supply areaRadius: 1..3 and friendlyFire: true/false for Tactical; targetScope: "all-enemies" supplies explicit non-spatial group damage in Classic. Omit these for single-target spells. Only when the established kit includes one, represent an interrupting spell with reaction: "counterspell", spell: true, range: 3, and its real mpCost/cooldown. A defensive ward/interception can use reaction: "guard" with its real cost/range. Reaction-only abilities are not ordinary turn attacks. Do not give every caster Counterspell. You may supply range: 1..12 tiles for Tactical abilities. Spell slots may be supplied as spellSlots: {"3": 2} and slotLevel: 3 ONLY when established; otherwise use finite MP and omit slot fields. These are generic Engine rules, not a claim of 5e compliance.\n`;
+  inst += `- battlefield.terrainBrief.exposure: exposed only when the actual combat site is open to outdoor weather; sheltered for enclosed/covered sites; unknown if context cannot establish either. Apply this in both Classic and Tactical. Do not invent current weather.\n`;
+  inst += `- On each combatant, projectile and requiresSight are optional boolean traits of their BASIC attack. On each attack/skill, supply its own projectile/requiresSight booleans when grounded in its actual mechanics (arrows are projectiles; sight-aimed attacks require sight). These flags control weather penalties. Do not infer traits from translated names or grant weather immunity. Omitted flags receive no weather accuracy modifier.\n`;
+  inst += `- Describe the environment at THIS encounter's current location, using current scene details. Do not reuse a world-creation terrain template.\n`;
   inst += `- attacks: each has "name" and "type" (single-target, AoE, or both). Add cooldown/status/element only when useful.\n`;
   inst += `- allies: include ${personaName} and any party members or nearby NPCs clearly fighting on ${personaName}'s side. Give allies battle-specific attacks inspired by their cards/context.\n`;
   inst += `- enemies: weak enemies can have one simple attack; bosses and elites should have multiple attacks and one memorable mechanic.\n`;
@@ -405,12 +524,26 @@ function buildInitPrompt(
   if (tactical) {
     inst += `- battlefield.formation: pick the arrangement matching how the scene led into combat — ambushed → ambush, encircled → surrounded, holding/defending a position → defense, sudden chance encounter → skirmish, otherwise line.\n`;
     inst += `- class: pick each combatant's tactical role from how they fight — ranged bow/gun users → archer, spellcasters → mage, dedicated healers → healer, fast skirmishers/assassins → rogue, armored defenders → knight, otherwise fighter.\n`;
+    inst += `- movementMode: use fly only when established context says the combatant can sustain battlefield flight, teleport only when established context says they can reliably teleport during combat, otherwise walk. Do not invent movement powers.\n`;
+    inst += `- battlefield.terrainBrief: describe at most four important semantic terrain features supported by the scene. A barrier may use only wall, water, or mountain. Do not repeat the same terrain/placement/shape combination. The server generates and validates exact tiles.\n`;
+    if (tacticalBattlefield?.size) {
+      inst += `- battlefield.terrainBrief.size: use exactly "${tacticalBattlefield.size}" because the player selected that board size.\n`;
+    }
   }
   inst += `- statuses: format {"name":"Status","emoji":"💀","duration":X,"modifier":-2,"stat":"attack|defense|speed|hp"}\n`;
   inst += `- HP values: if the persona section above lists a configured Max HP (from stat bars named HP/Health/etc, or from "Max HP" under Persona RPG Stats), use that EXACT number for the player's maxHp, and set hp = maxHp so combat starts at full health. If a character ally has a "Max HP: N" line in its block, do the same for that ally. Do NOT invent or "rebalance" a defined Max HP, and do NOT start any combatant below full HP at combat init. Only invent HP for combatants (enemies, unstatted allies) that have no defined HP in the context.\n`;
   inst += `- RPG attribute scaling: when the context lists Attributes for the player or an ally (STR/DEX/CON/INT/WIS/CHA, on a roughly 8-20 D&D-style scale), let those values shape the generated stats: high STR → stronger physical attack power; high DEX → higher speed and accuracy; high CON → larger HP pool when HP is not already defined; high INT/WIS/CHA → stronger magical/support attack power for casters. Treat 10 as average and scale proportionally. Do NOT override an explicitly configured Max HP using these attributes.\n`;
   inst += `- Use the player's stats/inventory from the context to populate their data. Return ONLY the JSON.\n`;
   inst += `- Write ALL text values (environment, descriptions, attack names, item names, etc.) in the same language the chat history is written in.\n`;
+  if (ruleset) {
+    inst += `\nTHIS GAME'S RULESET RESOLVES ITS OWN FIGHTS. Describe every enemy in the ruleset's own terms as well:\n`;
+    inst += `- Threat tiers, hardest rung last. Use an id exactly as written: ${ruleset.tiers.map((tier) => `${tier.id} (${tier.label})`).join(", ") || "this ruleset declares none"}.\n`;
+    inst += `- Bestiary this ruleset already ships: ${ruleset.bestiary.map((entry) => `${entry.label} [${entry.tier}]`).join(", ") || "it ships none"}.\n`;
+    inst += `- For each enemy, give "creature" with a bestiary name when one of them IS this enemy. Otherwise give "tier" with the rung this enemy belongs on, judged from the scene and the party, never from its hp.\n`;
+    inst += `- Add "proposed" only for an enemy that is in no bestiary and needs its own numbers. The Engine pulls a proposal onto the tier's scale, so write what the enemy IS and let it be adjusted.\n`;
+    inst += `- Inside "proposed", every id must come from this ruleset: budgets are ${ruleset.budgets.join(", ") || "none"}; saves are ${ruleset.saves.join(", ") || "none"}; damage types are ${ruleset.damageTypes.join(", ") || "untyped only"}. A name this ruleset does not have is dropped.\n`;
+    inst += `- Keep the hp, attack, defense, speed and level fields as well. They are the Engine's own numbers and are used outside the fight.\n`;
+  }
 
   msgs.push({ role: "user", content: inst });
   return msgs;
@@ -574,7 +707,7 @@ export async function encounterRoutes(app: FastifyInstance) {
       const chat = await chats.getById(chatId);
       if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
-      const { conn, baseUrl } = await resolveConnection(connections, connectionId, chat.connectionId);
+      const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat.connectionId);
       const provider = createLLMProvider(
         conn.provider,
         baseUrl,
@@ -610,6 +743,17 @@ export async function encounterRoutes(app: FastifyInstance) {
         (chatMeta?.gameCombatStyle as string | undefined) ??
         ((chatMeta?.gameSetupConfig as Record<string, unknown> | undefined)?.combatStyle as string | undefined) ??
         "classic";
+      const setupConfig = chatMeta?.gameSetupConfig as Record<string, unknown> | undefined;
+      const tacticalBattlefieldResult =
+        combatStyle === "tactical" && setupConfig?.tacticalBattlefield !== undefined
+          ? tacticalBattlefieldSetupSchema.safeParse(setupConfig.tacticalBattlefield)
+          : null;
+      if (tacticalBattlefieldResult && !tacticalBattlefieldResult.success) {
+        const issue = tacticalBattlefieldResult.error.issues[0];
+        return reply.status(400).send({
+          error: `Stored tactical battlefield settings are invalid: ${issue?.message ?? "invalid settings"}`,
+        });
+      }
       const gameStateCtx = await buildGameStateContext(gsStorage, chatId, personaName, chatMeta);
       const spellbookCtx = await loadSpellbookContext(spellbookId);
 
@@ -621,6 +765,14 @@ export async function encounterRoutes(app: FastifyInstance) {
         content: m.content as string,
       }));
 
+      // A game with no ruleset, or one whose ruleset does not resolve its own fights, is asked for
+      // exactly the blueprint it was asked for before any of this existed.
+      let rulesetBrief: EncounterRulesetBrief | null = null;
+      if (chatMeta?.gameRuleset != null) {
+        const resolved = resolveGameRuleset(chatMeta, await loadRulesetRegistry());
+        if (resolved.status === "ok")
+          rulesetBrief = await encounterRulesetBrief(resolved.definition, resolved.packageId);
+      }
       const prompt = buildInitPrompt(
         personaName,
         personaCtx,
@@ -629,6 +781,8 @@ export async function encounterRoutes(app: FastifyInstance) {
         gameStateCtx,
         spellbookCtx,
         combatStyle === "tactical",
+        tacticalBattlefieldResult?.success ? tacticalBattlefieldResult.data : undefined,
+        rulesetBrief,
       );
       debugLog(
         "[debug/game/combat:init] request chatId=%s model=%s historyMessages=%d settings=%s",
@@ -666,6 +820,17 @@ export async function encounterRoutes(app: FastifyInstance) {
       if (!combatState?.party || !combatState?.enemies) {
         return reply.status(502).send({ error: "Invalid combat data returned by AI" });
       }
+      const aiBlueprint = encounterBlueprintSchema.safeParse(combatState);
+      if (!aiBlueprint.success)
+        return reply.status(502).send({ error: `Invalid combat AI data: ${aiBlueprint.error.issues[0]?.message}` });
+      combatState = aiBlueprint.data;
+      if (combatStyle === "tactical") {
+        const tacticalResult = validateTacticalEncounterBlueprint(combatState);
+        if (!tacticalResult.ok) {
+          return reply.status(502).send({ error: `AI returned invalid tactical combat data: ${tacticalResult.error}` });
+        }
+        combatState = tacticalResult.blueprint as Record<string, unknown>;
+      }
       debugLog("[debug/game/combat:init] parsed response:\n%s", JSON.stringify(combatState, null, 2));
 
       await chats.patchMetadata(chatId, { encounterActive: true }, { touchUpdatedAt: false });
@@ -690,7 +855,7 @@ export async function encounterRoutes(app: FastifyInstance) {
       const chat = await chats.getById(chatId);
       if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
-      const { conn, baseUrl } = await resolveConnection(connections, connectionId, chat.connectionId);
+      const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat.connectionId);
       const provider = createLLMProvider(
         conn.provider,
         baseUrl,
@@ -797,7 +962,7 @@ export async function encounterRoutes(app: FastifyInstance) {
       const chat = await chats.getById(chatId);
       if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
-      const { conn, baseUrl } = await resolveConnection(connections, connectionId, chat.connectionId);
+      const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat.connectionId);
       const provider = createLLMProvider(
         conn.provider,
         baseUrl,

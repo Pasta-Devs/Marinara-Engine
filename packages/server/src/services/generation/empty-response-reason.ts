@@ -66,7 +66,7 @@ export function describeEmptyModelResponse(context: EmptyResponseContext): strin
       finish ? `finish reason "${finish}"` : null,
     ].filter((part): part is string => part !== null);
     const detail = details.length ? ` (${details.join(", ")})` : "";
-    return `The model finished reasoning${detail} but returned no visible text. Try again, or lower Reasoning Effort.`;
+    return `The model finished reasoning${detail} but returned no visible text. No output-limit exhaustion was reported. Retry, and inspect the debug response if this repeats; changing the thinking display does not change the model request.`;
   }
   if (finish) {
     return `The AI returned an empty response (finish reason "${finish}"). Try sending your message again.`;

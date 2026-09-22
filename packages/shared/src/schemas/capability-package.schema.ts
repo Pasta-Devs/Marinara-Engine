@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { agentResultTypeSchema } from "./agent.schema.js";
+import { isRulesetCatalogAssetPath, RULESET_ASSET_PATH } from "./ruleset.schema.js";
 
 /** Caps mirrored by the Marinara-Agents catalog build. Kept here so a hostile or
  *  broken notes document cannot push an unbounded string into a modal. */
 export const MAX_RELEASE_NOTE_CHARACTERS = 1000;
 export const MAX_RELEASE_NOTE_VERSIONS = 20;
 
-export const capabilityPackageKindSchema = z.enum(["agent", "maps", "conversation-calls", "turn-game"]);
+export const capabilityPackageKindSchema = z.enum(["agent", "maps", "conversation-calls", "turn-game", "ruleset"]);
 export const capabilityPermissionSchema = z.enum([
   "agent-runtime",
   "chat-read",
@@ -16,6 +17,7 @@ export const capabilityPermissionSchema = z.enum([
   "prompt-context",
   "routes",
   "storage",
+  "tools",
   "ui",
 ]);
 
@@ -223,7 +225,92 @@ const capabilityPackageManifestBaseSchema = z
 //        regardless of declared capabilityApi; declare 1.16 only to REQUIRE it. Needs `chat-write`).
 // 1.17: opted-in Experience surfaces prepare before startup and supply first-turn world context.
 // 1.18: Experience seed/default declarations in the Engine setup wizard.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 18 } as const);
+// 1.19: package-contributed tools — a package holding `tools` registers a named tool through
+//        `api.registerTool`, and the engine offers it to the model alongside the built-ins on every
+//        turn, validates the call against the package's own JSON Schema, and hands the arguments to
+//        the package's handler. Not a soft seam: the API only exists on an engine this new, so a
+//        package that needs it must declare 1.19. Needs `tools`.
+// 1.20: Game Mode rulesets — a hash-pinned `ruleset.json` asset the engine validates as data and
+//        offers as a game's rules (resolution kind, character sheet, rests, GM guidance). Not a
+//        soft seam: a ruleset package is useless on an engine that cannot read it, so declaring
+//        the asset requires 1.20 and an older engine refuses the install cleanly. No permission.
+// 1.21: ruleset catalogs — a ruleset may ship collections of ready-made entries the sheet editor
+//        offers in a picker, inline in `ruleset.json` or as hash-pinned `catalogs/<id>.json`
+//        assets beside it. Not a soft seam either, for the same reason as 1.20: an engine that
+//        cannot read `catalogs` refuses the whole ruleset file, so a package that ships them
+//        declares 1.21 and an older engine refuses the install cleanly. No permission.
+// 1.22: the ruleset combat bridge — a ruleset may carry an optional `battle` block naming the live
+//        pools a fight reads as hit points, energy and slots, and the sheet lists whose
+//        catalog-marked rows become the Engine's own combat skills. Not a soft seam, for the same
+//        reason as 1.20 and 1.21: an engine that cannot read `battle` refuses the whole ruleset
+//        file, so a package that ships one declares 1.22. No permission.
+// 1.23: scaled catalog values — a catalog entry row may carry a `scaled` map naming number columns
+//        the ruleset keeps up to date from the sheet (a maximum that follows a level or an ability),
+//        each a value reference with an optional step table. Not a soft seam, for the same reason as
+//        1.20, 1.21 and 1.22: an engine that cannot read `scaled` refuses the whole ruleset file, or
+//        the catalog file that holds it, so a package that ships one declares 1.23. No permission.
+// 1.24: the `dice-pool` resolution kind — a ruleset may resolve a check by throwing the sheet's own
+//        number of dice and counting the ones that reach a target, with optional doubling,
+//        exploding, cancelling, botches, exceptional successes and situational dice. Not a soft
+//        seam, for the same reason as 1.20 through 1.23: an engine that knows only `dice-sum`
+//        refuses the whole ruleset file, so a package whose ruleset declares the kind declares
+//        1.24. No permission.
+// 1.25: ruleset layers. A ruleset may declare variants of itself (Low magic, Hard winter) that a
+//        player turns on when a game is created, each appending Game Master guidance, narrowing an
+//        enum field, swapping the difficulty ladder or hiding catalog entries. The same release
+//        gives the base `gm` block a `worldGuidance` slot, read once by world generation. Not a
+//        soft seam, for the same reason as 1.20 through 1.24: an engine that cannot read `layers`
+//        or `gm.worldGuidance` refuses the whole ruleset file, so a package that ships either one
+//        declares 1.25. No permission.
+// 1.26: ruleset combat. A ruleset may carry an optional `combat` block saying how a fight is
+//        RESOLVED by its own numbers (what is rolled against what, the action economy, conditions,
+//        concentration, dying and the threat scale), and a catalog entry's `mechanics` may say how
+//        many targets it takes, that it always lands, what conditions it applies, what temporary
+//        points it grants, how it grows with the sheet and which budget it spends. Not a soft seam,
+//        for the same reason as 1.20 through 1.25: an Engine that cannot read `combat` or the new
+//        `mechanics` keys refuses the whole ruleset file, or the catalog file that holds them, so a
+//        package that ships either declares 1.26. No permission.
+// 1.27: ruleset bestiaries. A ruleset catalog may declare `"holds": "creatures"` and carry creature
+//        stat blocks instead of sheet rows: health that may be dice, a defense, saves, resistances,
+//        condition immunities, a threat tier, traits the Game Master is shown and actions with
+//        sequences, limited uses, recharge rolls and signature points. Not a soft seam, for the
+//        same reason as 1.20 through 1.26: an Engine that cannot read `holds` or `creature` refuses
+//        the whole ruleset file, or the catalog file that holds them, so a package that ships
+//        either declares 1.27. No permission.
+// 1.28: a ruleset fight on a board. A ruleset's `combat` block may say what one cell of a grid is
+//        worth in its own distance (`distance`), what shooting past the ordinary distance or beside
+//        a foe does (`ranged`), what standing behind something adds to the defense (`cover`) and
+//        which budget a strike at somebody walking away is paid out of (`opportunity`); an attack
+//        list may give its rows a `reach` and a `range`; and a creature action's `range` may be an
+//        ordinary distance with a longer one beyond it. Not a soft seam, for the same reason as
+//        1.20 through 1.27: an Engine that cannot read these keys refuses the whole ruleset file,
+//        or the catalog file that holds them, so a package that ships any of them declares 1.28.
+//        No permission.
+// 1.29: what one turn of a ruleset fight can do. A blow may carry a second damage clause
+//        (`plus`), an attack list may say how many strikes one spend of its budget buys
+//        (`strikes`), a catalog entry may be free of the economy, hand budgets back or let its
+//        holder buy a standard action with another budget (`free`, `gives`, `standard`), a new
+//        entry kind `rider` and a creature's own `riders` add damage to a qualifying hit, and a
+//        condition may narrow the saves it is about, count only while its source is in sight or
+//        end when its source goes down. Not a soft seam, for the same reason as 1.20 through
+//        1.28: an Engine that cannot read these keys refuses the whole ruleset file, or the
+//        catalog file that holds them, so a package that ships any of them declares 1.29.
+//        No permission.
+// 1.30: wound tracks. A ruleset's `live.tracks` entry may declare `levels` (a column of boxes, each
+//        with a label and a penalty) and `kinds` (what a mark on it may be), which turns the track
+//        from a bounded integer into a wound track that is marked rather than counted; and
+//        `resolution.penaltyFrom` names the track whose penalty rides on every roll, taking dice
+//        off a pool or adding a flat modifier to a sum. Not a soft seam, for the same reason as
+//        1.20 through 1.29: an Engine that cannot read these keys refuses the whole ruleset file,
+//        so a package that ships any of them declares 1.30. No permission.
+// 1.31: live host LLM, image and video integrations for downloadable packages.
+// 1.32: a weapon that is one strike a turn whatever its wielder's count. An attack source may
+//        declare `strikesCappedBy`, a boolean column of its own list that holds ITS row to a single
+//        strike however many `strikes` the list buys. SRD 5.1's Loading is the sentence it exists
+//        for. Not a soft seam, for the same reason as 1.20 through 1.31: an Engine that cannot read
+//        the key refuses the whole ruleset file, so a package that ships it declares 1.32. No
+//        permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 32 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -271,6 +358,19 @@ export const capabilityPackageManifestSchema = z
           code: z.ZodIssueCode.custom,
           path: ["contributions", "gameSurface", "setup", "config"],
           message: "Experience config cannot override the declared seed key",
+        });
+      }
+    }
+    // `registerTool` only exists on an Engine this new, so the declared API version is what stops a
+    // package shipping tools and then failing to activate on an older install. Enforced here rather
+    // than left to the documentation, which cannot refuse anything.
+    if (manifest.permissions.includes("tools")) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 19)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["permissions"],
+          message: 'The "tools" permission requires schemaVersion 2 and capabilityApi 1.19 or newer',
         });
       }
     }
@@ -353,6 +453,39 @@ export const capabilityPackageManifestSchema = z
           code: z.ZodIssueCode.custom,
           path: ["contributions", "assets"],
           message: "contributions.assets requires schemaVersion 2 and capabilityApi 1.10 or newer",
+        });
+      }
+    }
+    // A ruleset is the whole point of the package that ships one, so it is a hard 1.20 requirement
+    // rather than a soft seam: an older Engine refuses the install instead of installing a package
+    // that then does nothing.
+    if (manifest.contributions?.assets?.paths.includes(RULESET_ASSET_PATH)) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 20)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "assets", "paths"],
+          message: `${RULESET_ASSET_PATH} requires schemaVersion 2 and capabilityApi 1.20 or newer`,
+        });
+      }
+    }
+    // A catalog asset is part of a ruleset, so it follows the same hard requirement one minor
+    // later, and only ever ships beside the file that declares it: on its own it is a JSON document
+    // nothing would ever read.
+    if ((manifest.contributions?.assets?.paths ?? []).some(isRulesetCatalogAssetPath)) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 21)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "assets", "paths"],
+          message: "catalogs/<id>.json requires schemaVersion 2 and capabilityApi 1.21 or newer",
+        });
+      }
+      if (!manifest.contributions?.assets?.paths.includes(RULESET_ASSET_PATH)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "assets", "paths"],
+          message: `A catalog asset must ship beside the ${RULESET_ASSET_PATH} that declares it`,
         });
       }
     }
@@ -626,6 +759,8 @@ export interface CustomAgentRepository {
   lastDigest: string | null;
   lastSyncedAt: string | null;
   agentCount: number;
+  /** Game Mode rulesets the repository published under `rulesets/` at the last sync. */
+  rulesetCount: number;
 }
 
 export type CustomAgentRepositoryChangeStatus = "new" | "updated" | "unchanged" | "removed";
@@ -638,10 +773,43 @@ export interface CustomAgentRepositoryChange {
   definition?: PackagedAgentDefinition;
 }
 
+/** `new-version`: another version of this ruleset is already installed and this one joins it.
+ *  `conflict`: that exact version is installed with different contents, so it is left alone and the
+ *  author has to raise the version number. `invalid`: the file is not a usable ruleset. Both of the
+ *  last two are skipped without stopping the rest of the repository. */
+export type CustomAgentRepositoryRulesetStatus = "new" | "new-version" | "unchanged" | "conflict" | "invalid";
+
+export interface CustomAgentRepositoryRulesetChange {
+  /** The file name inside `rulesets/`, which is what identifies the row even when nothing else parsed. */
+  file: string;
+  /** The namespaced id the ruleset would be installed under, or null when the file could not be read. */
+  rulesetId: string | null;
+  name: string;
+  version: number | null;
+  status: CustomAgentRepositoryRulesetStatus;
+  /** The author's summary of what the ruleset covers, empty when the file could not be read. */
+  coverage: string;
+  /** Why an unusable file cannot be installed, first few lines only. */
+  issues: string[];
+}
+
 export interface CustomAgentRepositoryPreview {
   repository: Pick<CustomAgentRepository, "id" | "url" | "owner" | "name">;
   digest: string;
   changes: CustomAgentRepositoryChange[];
+  rulesets: CustomAgentRepositoryRulesetChange[];
+}
+
+/** What adding or syncing a repository just did with its rulesets. Stored versions are never
+ *  rewritten, so `skipped` covers both unusable files and versions already installed differently. */
+export interface CustomAgentRepositoryRulesetResult {
+  added: number;
+  unchanged: number;
+  skipped: number;
+}
+
+export interface CustomAgentRepositoryApplyResult extends CustomAgentRepository {
+  rulesets: CustomAgentRepositoryRulesetResult;
 }
 
 export interface CustomAgentRepositoryState {

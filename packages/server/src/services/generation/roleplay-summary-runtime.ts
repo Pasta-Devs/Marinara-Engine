@@ -42,21 +42,7 @@ export function clampRoleplaySummaryMaxTokens(value: unknown): number {
   return Math.max(CHAT_SUMMARY_OUTPUT_TOKENS.MIN, Math.min(CHAT_SUMMARY_OUTPUT_TOKENS.MAX, Math.trunc(parsed)));
 }
 
-export function appendContinuationMessageContent(
-  existingContent: unknown,
-  continuation: string,
-  addNewline = true,
-): string {
-  const existing = typeof existingContent === "string" ? existingContent : "";
-  if (!existing) return continuation;
-  if (!continuation) return existing;
-  if (!addNewline) {
-    return `${existing}${continuation.replace(/^(?:\r?\n)+/, "")}`;
-  }
-  const normalizedExisting = existing.replace(/\s+$/, "");
-  const normalizedContinuation = continuation.replace(/^\s+/, "");
-  return `${normalizedExisting}\n\n${normalizedContinuation}`;
-}
+export { appendContinuationMessageContent } from "@marinara-engine/shared";
 
 export function isAutomaticRoleplaySummaryEnabled(chatMetadata: Record<string, unknown>): boolean {
   if (chatMetadata.automaticSummaryEnabled === false) return false;

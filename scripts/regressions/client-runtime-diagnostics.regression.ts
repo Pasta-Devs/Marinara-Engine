@@ -182,6 +182,12 @@ try {
   start();
   assert.equal(getClientRuntimeDiagnostics().persistence, "unavailable");
   assert.equal(getClientRuntimeDiagnostics().events.at(-1)?.kind, "page-start");
+  for (let index = 0; index < 20; index++) recordClientRuntimeEvent(index % 2 ? "image-arrived" : "message-edited");
+  recordClientError("javascript-error", new TypeError("Minified React error #185"));
+  recordClientReload("settings-refresh");
+  const relevant = getClientRuntimeDiagnostics().events.slice(-5);
+  for (let index = 0; index < 6; index++) windowStub.dispatchEvent(new Event("pageshow"));
+  const runtime = getClientRuntimeDiagnostics();
   const report = formatSupportDiagnostics({
     version: "2.4.5",
     build: "2.4.5+different-server",
@@ -193,8 +199,15 @@ try {
     connectionName: null,
     connectionProvider: null,
     model: null,
-    clientRuntime: getClientRuntimeDiagnostics(),
+    clientRuntime: runtime,
   });
+  const copiedRuntime = JSON.parse(report.split("Client runtime: ")[1]!.split("\n")[0]!);
+  assert.equal(runtime.events.length, 16, "copying diagnostics keeps the full local recovery history");
+  assert.deepEqual(
+    copiedRuntime.events,
+    relevant,
+    "support reports keep the latest five useful events without page visibility noise crowding out errors",
+  );
   assert.ok(report.includes("2.4.5+different-server"));
   assert.ok(report.includes('"build":"2.4.5+abcd1234"'));
   assert.ok(report.includes('"persistence":"unavailable"'));

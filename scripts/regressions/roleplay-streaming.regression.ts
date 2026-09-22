@@ -407,6 +407,7 @@ const echoChamberPanelSource = readSourceText(
   "utf8",
 );
 const uiStoreSource = readSourceText(new URL("../../packages/client/src/stores/ui.store.ts", import.meta.url), "utf8");
+const { normalizeConversationBackgroundImageOpacity } = await import("../../packages/client/src/stores/ui.store.js");
 const globalStylesSource = readSourceText(
   new URL("../../packages/client/src/styles/globals.css", import.meta.url),
   "utf8",
@@ -699,6 +700,9 @@ assert.match(
   /echoChamberSizeByChatId: state\.echoChamberSizeByChatId/u,
   "per-chat Echo Chamber dimensions should survive UI-store rehydration",
 );
+assert.equal(normalizeConversationBackgroundImageOpacity(-10), 0);
+assert.equal(normalizeConversationBackgroundImageOpacity(140), 100);
+assert.equal(normalizeConversationBackgroundImageOpacity("invalid"), 45);
 assert.match(
   uiStoreSource,
   /previous\.echoChamberSizes !== next\.echoChamberSizes/u,

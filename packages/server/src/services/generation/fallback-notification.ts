@@ -1,15 +1,11 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-export type GenerationFallbackCategory = "main" | "agents" | "illustrator" | "video";
-
-export type GenerationFallbackNotice = {
-  category: GenerationFallbackCategory;
-  connectionId: string;
-  connectionName: string;
-  model: string;
-};
-
-export type GenerationFallbackNotifier = (notice: GenerationFallbackNotice) => void | Promise<void>;
+import type { GenerationFallbackNotice, GenerationFallbackNotifier } from "@marinara-engine/shared";
+export type {
+  GenerationFallbackCategory,
+  GenerationFallbackNotice,
+  GenerationFallbackNotifier,
+} from "@marinara-engine/shared";
 
 export const GENERATION_FALLBACK_HEADER = "X-Marinara-Fallback-Used";
 

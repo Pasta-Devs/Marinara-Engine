@@ -13,6 +13,20 @@ If you are asking the team for help, turn on **Debug mode** first so the server 
 
 ## Install and launch problems
 
+### Termux: JavaScript heap out of memory while building the client
+
+If Vite stops with `Reached heap limit` or `JavaScript heap out of memory`, the client build ran out of Node.js heap. This is different from a missing native Rollup binary. Update and rerun `start-termux.sh`: client builds now temporarily raise a smaller automatic heap toward 1536 MiB, capped at half of known device RAM with a 1024 MiB floor. The RAM cap is rounded down in 128 MiB steps. If half of device RAM is below 1024 MiB, the 1024 MiB floor takes precedence. The running server keeps its smaller profile-based limit. An explicit heap limit in `NODE_OPTIONS` takes precedence for both processes, so check for a previously configured 1024 MiB override.
+
+Close other apps before retrying. Low-memory devices can still run out of memory or be stopped by Android; keep the complete launcher output when reporting that case. Do not delete your chats or profile to repair a build failure.
+
+### Blank page or JavaScript served as HTML after an update
+
+An error such as "Failed to load module script" with a `text/html` MIME type can mean the browser requested a JavaScript file that is missing from the installed build. The previous-session shutdown warning does not identify this problem, and deleting a writer lease or your data will not repair the assets.
+
+Stop the running server, then run `start.bat`, `start.sh` or `start-termux.sh` again. The launcher checks Vite's build inventory, including lazy JavaScript chunks, and rebuilds incomplete client assets before starting. A build made before this check was added is rebuilt once to create its inventory. If rebuilding fails, keep the terminal error for support. For a manual install, run `pnpm build` from the repository root before starting again.
+
+If the launcher check passes but the page is still blank, hard-refresh or try a private browser window. Report the failing asset's full URL, HTTP status, Content-Type and first response line, together with the launcher output. Missing assets now return HTTP 404 instead of the app's HTML page.
+
 ### Windows: EPERM or corepack signature error when installing pnpm
 
 pnpm is the package manager Marinara uses to install its code. If you see `EPERM: operation not permitted` or a corepack signature verification failure, corepack could not write into the Node install folder.

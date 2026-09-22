@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import {
   approvePersonalExtensionSchema,
+  getSerializedTextTokenEstimator,
   createPersonalExtensionSchema,
   externalExtensionsPolicyUpdateSchema,
   personalExtensionStoragePatchSchema,
@@ -647,6 +648,7 @@ export function browserWorkerSource(extension: PersonalExtension) {
   const marinara = Object.freeze({
     runtime: "client",
     version: 5,
+    estimateTextTokens: ${getSerializedTextTokenEstimator()},
     extensionId: extension.id,
     extensionName: extension.name,
     capabilities: Object.freeze([...capabilities]),

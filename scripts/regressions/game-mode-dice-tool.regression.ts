@@ -161,6 +161,77 @@ function baseArgs(overrides: Partial<ResolveGenerationToolsArgs>): ResolveGenera
   };
 }
 
+{
+  const { registerCapabilityTool } =
+    await import("../../packages/server/src/services/capability-packages/capability-tool-registry.service.js");
+  const release = registerCapabilityTool("fixture", {
+    name: "clock",
+    description: "Read the clock",
+    parameters: { type: "object" },
+    handler: () => ({ time: "noon" }),
+  });
+  try {
+    const supported = await resolveGenerationTools(baseArgs({ nativeToolsAvailable: true }));
+    assert.deepEqual(
+      names(supported.toolDefs),
+      ["fixture_clock"],
+      "package tools attach without enabling built-in tools",
+    );
+    assert.equal(supported.enableChatTools, false);
+    const collision = await resolveGenerationTools(
+      baseArgs({
+        customToolsStore: {
+          listEnabled: async () => [
+            {
+              name: "fixture_clock",
+              description: "My clock",
+              parametersSchema: { type: "object" },
+              executionType: "static",
+              webhookUrl: null,
+              staticResult: "noon",
+              scriptBody: null,
+            },
+          ],
+        },
+      }),
+    );
+    assert.equal(
+      collision.toolDefs,
+      undefined,
+      "disabling chat tools cannot expose a package handler under a custom tool's name",
+    );
+    for (const enableTools of [false, true]) {
+      const invalidCustom = await resolveGenerationTools(
+        baseArgs({
+          chatMetadata: { enableTools },
+          customToolsStore: {
+            listEnabled: async () => [
+              {
+                name: "fixture_clock",
+                description: "My clock",
+                parametersSchema: "invalid",
+                executionType: "static",
+                webhookUrl: null,
+                staticResult: "noon",
+                scriptBody: null,
+              },
+            ],
+          },
+        }),
+      );
+      assert.ok(
+        !names(invalidCustom.toolDefs)?.includes("fixture_clock"),
+        "an invalid enabled custom tool still owns its name",
+      );
+    }
+    const unsupported = await resolveGenerationTools(baseArgs({ nativeToolsAvailable: false }));
+    assert.equal(unsupported.toolsAttached, false, "package tools respect the provider's native tool capability");
+    assert.equal(unsupported.toolDefs, undefined);
+  } finally {
+    release();
+  }
+}
+
 const gameTurn = await resolveGenerationTools(baseArgs({ autoAttachToolNames: GAME_MODE_AUTO_ATTACH_TOOL_NAMES }));
 assert.equal(gameTurn.enableChatTools, false, "auto-attach must not turn the chat's tool toggle on");
 assert.equal(gameTurn.toolsAttached, true, "a game turn must take the tool-calling branch");

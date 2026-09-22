@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import {
   CSRF_HEADER,
   CSRF_HEADER_VALUE,
+  estimateTextTokens,
+  type PersonalExtensionTokenApi,
   type PersonalClientExtensionRuntime,
   type PersonalExtensionCharacterSnapshot,
   type PersonalExtensionContextSnapshot,
@@ -33,7 +35,7 @@ type FullPageExtensionIdentity = {
   contentHash: string;
 };
 
-type FullPageExtensionApi = {
+type FullPageExtensionApi = PersonalExtensionTokenApi & {
   version: 1;
   extension: Readonly<FullPageExtensionIdentity>;
   log: Readonly<Pick<Console, "debug" | "info" | "warn" | "error">>;
@@ -290,6 +292,7 @@ function createFullPageExtensionApi(active: ActiveFullPageExtension): FullPageEx
   });
   const api: FullPageExtensionApi = {
     version: 1,
+    estimateTextTokens,
     extension,
     log: Object.freeze({
       debug: console.debug.bind(console, `[Personal Extension ${active.extension.name}]`),

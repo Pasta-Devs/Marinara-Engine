@@ -462,6 +462,19 @@ try {
       version: 1,
       exportedAt: timestamp,
       data: {
+        lorebooks: [
+          {
+            name: "Imported attributed lore",
+            entries: [
+              {
+                name: "Foreign fact",
+                content: "Preserve this fact",
+                sourceAgentId: "lorebook-keeper",
+                sourceMessageRefs: [{ id: "foreign-message", swipeIndex: 0 }],
+              },
+            ],
+          },
+        ],
         themes: [
           {
             name: "Legacy imported theme",
@@ -495,6 +508,13 @@ try {
     assert.equal((await themes.getActive())?.id, localTheme!.id, "legacy import must preserve the local active theme");
     const legacyImportedTheme = (await themes.list()).find((candidate) => candidate.name === "Legacy imported theme");
     assert.equal(legacyImportedTheme?.isActive, false, "legacy imported CSS must wait for explicit activation");
+    const importedLore = (await db.select().from(schema.lorebookEntries)).find(
+      (entry) => entry.name === "Foreign fact",
+    );
+    assert.ok(importedLore);
+    assert.equal(importedLore.sourceAgentId, null, "legacy imports cannot retain foreign message attribution");
+    assert.deepEqual(JSON.parse(importedLore.sourceMessageRefs), []);
+    assert.equal(importedLore.content, "Preserve this fact");
   } finally {
     await app.close();
     await dbModule.closeDB();

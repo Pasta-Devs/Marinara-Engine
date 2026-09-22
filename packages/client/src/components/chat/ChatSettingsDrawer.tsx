@@ -79,6 +79,8 @@ import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker"
 import { AdvancedParametersSection } from "../../features/chat-settings/sections/AdvancedParametersSection";
 import { ChatNameSection } from "../../features/chat-settings/sections/ChatNameSection";
 import { CombatStyleSection } from "../../features/chat-settings/sections/CombatStyleSection";
+import { useGameRuleset } from "../../hooks/use-game-ruleset";
+import { isRulesetCombatFight } from "../../lib/ruleset-combat-bridge";
 import { ConnectionSection } from "../../features/chat-settings/sections/ConnectionSection";
 import { ConversationPromptSection } from "../../features/chat-settings/sections/ConversationPromptSection";
 import { DiscordMirrorControls } from "../../features/chat-settings/sections/DiscordMirrorSection";
@@ -1884,6 +1886,23 @@ export function ChatSettingsDrawer({
     (metadata.gameCombatStyle as GameCombatStyle | undefined) ??
     (metadata.gameSetupConfig?.combatStyle as GameCombatStyle | undefined) ??
     "classic";
+  // Whether this game's battles are the ruleset's own. Read from the block the file declares and
+  // from the director being on, never from the coverage flag the file claims.
+  const gameRuleset = useGameRuleset(isGame ? metadata : null);
+  const rulesetResolvesFights =
+    gameRuleset.status === "ok" &&
+    isRulesetCombatFight({
+      combatDirector: (metadata.gameSetupConfig as Record<string, unknown> | undefined)?.combatDirector === true,
+      definition: gameRuleset.definition,
+      // The preference is settled before any fight, so there is no anchor to read here: what this
+      // line says is what will happen the next time a battle starts.
+      anchor: "settings",
+    });
+  // And whether that ruleset says what one cell of a board is worth, which is what turns the
+  // preference below from a kept-and-unused choice into the one that decides whether the fight has
+  // positions.
+  const rulesetHasPositions =
+    rulesetResolvesFights && gameRuleset.status === "ok" && !!gameRuleset.definition.combat?.distance;
   const gameSceneVideosEnabled =
     metadata.gameSceneVideosEnabled === true ||
     (metadata.gameSceneVideosEnabled !== false &&
@@ -3575,6 +3594,8 @@ export function ChatSettingsDrawer({
   // Synchronous lock to close the re-entry gap: React state commits are async, so two
   // fast clicks can both pass the `isRegeneratingSchedules` check before the state updates.
   const isRegeneratingSchedulesRef = useRef(false);
+  const scheduleGenerationAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => scheduleGenerationAbortRef.current?.abort(), [chat.id, open]);
   type ScheduleGenerationResult = { status: string; schedule?: Record<string, unknown> };
   type ScheduleGenerationResponse = {
     results?: Record<string, ScheduleGenerationResult>;
@@ -3585,16 +3606,23 @@ export function ChatSettingsDrawer({
       if (isRegeneratingSchedulesRef.current) return;
       isRegeneratingSchedulesRef.current = true;
       setIsRegeneratingSchedules(true);
+      const controller = new AbortController();
+      scheduleGenerationAbortRef.current = controller;
       try {
         const scheduleGenerationPreferences = useUIStore.getState().scheduleGenerationPreferences;
         const conversationTimeZone = useUIStore.getState().conversationTimeZone;
-        const result = await api.post<ScheduleGenerationResponse>("/conversation/schedule/generate", {
-          chatId: chat.id,
-          characterIds: chatCharIds,
-          forceRefresh,
-          scheduleGenerationPreferences,
-          timeZone: conversationTimeZone,
-        });
+        const result = await api.post<ScheduleGenerationResponse>(
+          "/conversation/schedule/generate",
+          {
+            chatId: chat.id,
+            characterIds: chatCharIds,
+            forceRefresh,
+            scheduleGenerationPreferences,
+            timeZone: conversationTimeZone,
+          },
+          { signal: controller.signal },
+        );
+        if (controller.signal.aborted) return;
         await qc.refetchQueries({ queryKey: chatKeys.detail(chat.id) });
         await qc.invalidateQueries({ queryKey: chatKeys.list() });
         await qc.invalidateQueries({ queryKey: ["conversation-status", chat.id] });
@@ -3655,10 +3683,12 @@ export function ChatSettingsDrawer({
           toast.info(localizeUi("ui.chat.chatsettingsdrawer.noSchedulesWereNeededForTheSelectedCharacters"));
         }
       } catch (error) {
+        if (controller.signal.aborted) return;
         toast.error(
           error instanceof Error ? error.message : localizeUi("ui.chat.chatsettingsdrawer.failedToGenerateSchedules"),
         );
       } finally {
+        scheduleGenerationAbortRef.current = null;
         isRegeneratingSchedulesRef.current = false;
         setIsRegeneratingSchedules(false);
       }
@@ -4404,6 +4434,7 @@ export function ChatSettingsDrawer({
         {advancedMemoryEnabled && memoryView === "advanced" && (
           <AdvancedMemoryInspector
             chatId={chat.id}
+            individual={metadata.groupChatMode === "individual"}
             characters={chatCharIds.map((id) => ({ id, name: charNameMap.get(id) ?? id }))}
           />
         )}
@@ -5096,6 +5127,8 @@ export function ChatSettingsDrawer({
             <CombatStyleSection
               style={{ order: CHAT_SETTINGS_ORDER.combatStyle }}
               combatStyle={effectiveCombatStyle}
+              rulesetResolvesFights={rulesetResolvesFights}
+              rulesetHasPositions={rulesetHasPositions}
               onCombatStyleChange={(gameCombatStyle) => updateMeta.mutate({ id: chat.id, gameCombatStyle })}
             />
           )}
@@ -6491,17 +6524,9 @@ export function ChatSettingsDrawer({
                     "ui.chat.chatsettingsdrawer.optionalCharacterRoutinesForAvailabilityAndDelays",
                   )}
                   checked={conversationSchedulesEnabled}
-                  onChange={(nextEnabled) => {
-                    if (nextEnabled && !hasGeneratedConversationSchedules) {
-                      if (chatCharIds.length === 0) {
-                        updateMeta.mutate({ id: chat.id, conversationSchedulesEnabled: nextEnabled });
-                        return;
-                      }
-                      void generateConversationSchedules(false);
-                      return;
-                    }
-                    updateMeta.mutate({ id: chat.id, conversationSchedulesEnabled: nextEnabled });
-                  }}
+                  onChange={(nextEnabled) =>
+                    updateMeta.mutate({ id: chat.id, conversationSchedulesEnabled: nextEnabled })
+                  }
                   labelPosition="start"
                   className={cn(
                     "justify-between rounded-md px-3 py-2.5 text-left",
@@ -6529,7 +6554,7 @@ export function ChatSettingsDrawer({
                       </span>
                       <p className="text-[0.59375rem] mt-0.5 text-[var(--muted-foreground)]/60">
                         {conversationSchedulesEnabled
-                          ? localizeUi("ui.chat.chatsettingsdrawer.schedulesRefreshOnlyAfterYouEnableOrRegenerateThem")
+                          ? localizeUi("schedule.sharedRoutines.help")
                           : localizeUi("ui.chat.chatsettingsdrawer.turnSchedulesOnIfYouWantAvailabilityAndBusy")}
                       </p>
                     </div>

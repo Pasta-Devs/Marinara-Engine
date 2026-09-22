@@ -21,8 +21,11 @@ import {
   type ChatOptions,
 } from "../../packages/server/src/services/llm/base-provider.js";
 import { agentResultTypeSchema } from "../../packages/shared/src/schemas/agent.schema.js";
+import { resolveTrackerRowsUpdate } from "../../packages/shared/src/utils/tracker-updates.js";
+import { buildLockedInventoryTrackerPatch } from "../../packages/server/src/routes/generate/generate-route-utils.js";
 import {
   AGENT_RESULT_TYPE_VALUES,
+  getAgentContextSources,
   type AgentContext,
   type AgentResult,
 } from "../../packages/shared/src/types/agent.js";
@@ -30,6 +33,7 @@ import {
 class RecordingProvider extends BaseLLMProvider {
   calls = 0;
   options: ChatOptions[] = [];
+  messages: ChatMessage[][] = [];
 
   constructor(private readonly content = JSON.stringify({ text: "ok" })) {
     super("http://localhost", "");
@@ -39,8 +43,9 @@ class RecordingProvider extends BaseLLMProvider {
     return;
   }
 
-  override async chatComplete(_messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
+  override async chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
     this.calls += 1;
+    this.messages.push(messages);
     this.options.push(options);
     return {
       content: this.content,
@@ -204,6 +209,103 @@ const repairedJsonResult = await executeAgent(
 assert.equal(repairedJsonResult.success, true, "structured agents should recover repairable JSON without a retry");
 assert.equal(repairedJsonProvider.calls, 1, "repairable JSON should not spend another model call");
 assert.deepEqual(repairedJsonResult.data, { weather: "rain", nested: { value: 1 } });
+
+// Inventory replacement is destructive: incomplete JSON and malformed rows
+// must fail before the same patch helper used by generation/retry can save them.
+const inventoryAgent = makeAgent("inventory-tracker", "inventory_tracker_update");
+const savedInventory = {
+  inventoryTrackerCurrencies: [{ name: "Gold", qty: 8 }],
+  inventoryTrackerEquipped: [{ name: "Sword" }],
+  inventoryTrackerInventory: [{ name: "Rope" }, { name: "Potion", qty: 3 }],
+};
+for (const output of [
+  '{"currencies": [], "equipped": [], "inventory": [',
+  '{"inventory": [{"name":"Rope"}',
+  '{"inventory": [null]}',
+  '{"inventory": [{"name":"Rope"}, {"qty":3}]}',
+  '{"inventory": {"updates":[{"name":""}], "removed":["Potion"]}}',
+  '{"inventory": {"updates":[], "removed":[42]}}',
+  '{"inventory": null}',
+]) {
+  const provider = new RecordingProvider(output);
+  const result = await executeAgent(inventoryAgent, context, provider, "agent-model");
+  assert.equal(result.success, false, `unsafe inventory output must fail: ${output}`);
+  assert.equal(provider.calls, 2, "unsafe output keeps the existing single retry");
+  const next = result.success
+    ? buildLockedInventoryTrackerPatch({
+        data: result.data as Record<string, unknown>,
+        snapshot: { playerStats: savedInventory },
+        lockState: null,
+      }).playerStats
+    : savedInventory;
+  assert.deepEqual(next, savedInventory, "a failed result must not remove any saved group or row");
+}
+for (const output of [
+  {},
+  { inventory: [] },
+  { inventory: [{ name: "Rope", qty: 2 }] },
+  { inventory: { updates: [{ name: "Potion", qty: 2 }], removed: ["Rope"] } },
+]) {
+  const result = await executeAgent(
+    inventoryAgent,
+    context,
+    new RecordingProvider(`\`\`\`json\n${JSON.stringify(output)}\n\`\`\``),
+    "agent-model",
+  );
+  assert.equal(result.success, true, "complete legacy/incremental output and no-op objects remain supported");
+  assert.deepEqual(result.data, output);
+}
+const brokenInventoryBatch = await executeAgentBatch(
+  [inventoryAgent, makeAgent("world-state", "game_state_update")],
+  context,
+  new RecordingProvider('{"world-state":{"weather":"rain"},"inventory-tracker":{"inventory":['),
+  "agent-model",
+);
+assert.equal(
+  brokenInventoryBatch.find((result) => result.agentType === "inventory-tracker")?.success,
+  false,
+  "batch JSON repair must not hide an incomplete inventory array from validation",
+);
+
+// Custom Tracker accepts the same incremental envelope at the root or under fields.
+const trackerUpdates = { updates: [{ name: "Trust", value: "49/100" }], removed: ["Obsolete"] };
+for (const output of [trackerUpdates, { fields: trackerUpdates }]) {
+  const result = await executeAgent(
+    makeAgent("custom-tracker", "custom_tracker_update"),
+    context,
+    new RecordingProvider(JSON.stringify({ ...output, reasoning: "A new milestone." })),
+    "agent-model",
+  );
+  assert.equal(result.success, true);
+  const data = result.data as Record<string, unknown>;
+  assert.equal(data.reasoning, "A new milestone.");
+  assert.deepEqual(
+    resolveTrackerRowsUpdate(data.fields, [
+      { name: "Trust", value: "48/100", description: "Keep this detail" },
+      { name: "Energy", value: "80/100" },
+      { name: "Obsolete", value: "old" },
+    ]),
+    [
+      { name: "Trust", value: "49/100", description: "Keep this detail" },
+      { name: "Energy", value: "80/100" },
+    ],
+    "top-level incremental output must reach the existing row merge without losing omitted values",
+  );
+}
+for (const output of [
+  { fields: [{ name: "Trust", value: "49/100" }] },
+  { fields: [], ...trackerUpdates },
+  { updates: "invalid" },
+  {},
+]) {
+  const result = await executeAgent(
+    makeAgent("custom-tracker", "custom_tracker_update"),
+    context,
+    new RecordingProvider(JSON.stringify(output)),
+    "agent-model",
+  );
+  assert.deepEqual(result.data, output, "explicit fields and invalid/empty envelopes retain their meaning");
+}
 
 const invalidJsonProvider = new RecordingProvider("not JSON at all");
 const invalidJsonResult = await executeAgent(
@@ -652,4 +754,77 @@ assert.deepEqual(
   "local parallel slots should preserve the configured context budget per request",
 );
 
+for (const batchSize of [512, 4096, 32768]) {
+  const args = buildLlamaArgs({
+    modelPath: "gemma-4-E2B-it-Q8_0.gguf",
+    gpuLayers: 999,
+    port: 10_019,
+    contextSize: 32768,
+    runtimeVariant: "win-x64-hip",
+    enableNativeToolCalls: true,
+    embeddingPooling: "mean",
+    embeddingBatchSize: batchSize,
+    maxParallelJobs: 2,
+  });
+  const logicalBatch = Number(args[args.indexOf("--batch-size") + 1]);
+  const physicalBatch = Number(args[args.indexOf("--ubatch-size") + 1]);
+  assert.equal(physicalBatch, batchSize);
+  assert.equal(logicalBatch, Math.max(2048, batchSize), "logical batch must not silently cap configured embeddings");
+}
+
 console.log("Agent runtime regression checks passed.");
+
+// Built-in defaults stay intact; explicit selections also control batched prompts.
+assert.equal(getAgentContextSources({ settings: {} }).characters, true);
+assert.equal(getAgentContextSources({ settings: {} }).previousOutput, false);
+assert.equal(getAgentContextSources({ isCustomAgent: true, settings: {} }).characters, false);
+const selectedSources = { chatHistory: true, characters: false, persona: false };
+assert.equal(
+  getAgentContextSources({ settings: JSON.stringify({ contextSources: selectedSources }) }).characters,
+  false,
+);
+const selectiveAgent = {
+  ...makeAgent("world-state", "game_state_update"),
+  settings: { ...makeAgent("world-state").settings, contextSources: selectedSources },
+};
+const selectiveContext: AgentContext = {
+  ...context,
+  characters: [{ id: "char", name: "Alice", description: "UNIQUE_CHARACTER_CONTEXT" }],
+  persona: { name: "Reader", description: "UNIQUE_PERSONA_CONTEXT" },
+};
+const selectiveProvider = new RecordingProvider('{"weather":"rain"}');
+await executeAgent(selectiveAgent, selectiveContext, selectiveProvider, "agent-model");
+assert.doesNotMatch(JSON.stringify(selectiveProvider.messages), /UNIQUE_CHARACTER_CONTEXT|UNIQUE_PERSONA_CONTEXT/);
+const unionProvider = new RecordingProvider('{"world-state":{"weather":"rain"},"quest":{"quests":[]}}');
+await executeAgentBatch(
+  [selectiveAgent, makeAgent("quest", "quest_update")],
+  selectiveContext,
+  unionProvider,
+  "agent-model",
+);
+assert.equal(unionProvider.calls, 1, "agents with different context selections still share one request");
+assert.match(JSON.stringify(unionProvider.messages), /UNIQUE_CHARACTER_CONTEXT/);
+assert.match(JSON.stringify(unionProvider.messages), /UNIQUE_PERSONA_CONTEXT/);
+
+let previousOutputLoads = 0;
+const previousContext: AgentContext = {
+  ...selectiveContext,
+  loadPreviousOutput: async (agentId) => {
+    assert.equal(agentId, selectiveAgent.id);
+    previousOutputLoads++;
+    return { "agent-context": "BUILT_IN_PRIVATE_PREVIOUS_CONTEXT" };
+  },
+};
+const previousProvider = new RecordingProvider('{"weather":"rain"}');
+await executeAgent(
+  { ...selectiveAgent, settings: { ...selectiveAgent.settings, contextSources: { previousOutput: true } } },
+  previousContext,
+  previousProvider,
+  "agent-model",
+);
+assert.equal(previousOutputLoads, 1);
+assert.match(JSON.stringify(previousProvider.messages), /BUILT_IN_PRIVATE_PREVIOUS_CONTEXT/);
+const noPreviousProvider = new RecordingProvider('{"weather":"rain"}');
+await executeAgent(selectiveAgent, previousContext, noPreviousProvider, "agent-model");
+assert.equal(previousOutputLoads, 1, "disabled previous output must not be loaded");
+assert.doesNotMatch(JSON.stringify(noPreviousProvider.messages), /BUILT_IN_PRIVATE_PREVIOUS_CONTEXT/);

@@ -184,6 +184,18 @@ export const lorebookEntries = fileTable("lorebook_entries", {
   /** Stable provider/model/profile identity for the stored embedding */
   embeddingSpaceId: text("embedding_space_id"),
 
+  // ── Message provenance (agent-authored entries; see shared SourceMessageRef) ──
+  /** Agent that produced the current content ("lorebook-keeper", …); NULL = human-authored and cascade-immune. */
+  sourceAgentId: text("source_agent_id"),
+  /** JSON array of { id, swipeIndex } — messages the current content was derived from (last write wins). */
+  sourceMessageRefs: text("source_message_refs").notNull().default("[]"),
+  /** Depth-1 undo: content as it was immediately before the last agent rewrite (mirrors addSwipe backfill). */
+  previousContent: text("previous_content"),
+  /** JSON array of the snapshot's source refs, or NULL when there is no snapshot. */
+  previousSourceMessageRefs: text("previous_source_message_refs"),
+  /** The snapshot's own author (agent id or NULL for human content), restored on revert. */
+  previousSourceAgentId: text("previous_source_agent_id"),
+
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

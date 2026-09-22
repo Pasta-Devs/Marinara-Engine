@@ -191,6 +191,8 @@ function scheduleNotificationAutoDismiss(chatId: string, getState: () => ChatSta
   );
 }
 
+type ContinuationStream = { messageId: string; content: string; addNewline: boolean };
+
 interface ChatState {
   activeChatId: string | null;
   activeChat: Chat | null;
@@ -212,6 +214,8 @@ interface ChatState {
   streamBuffer: string;
   /** Per-chat stream text for active generations, so switching chats does not lose in-flight UI state. */
   streamBuffers: Map<string, string>;
+  /** Original text and target for in-place Roleplay continuations, retained across chat switches. */
+  continuationStreams: Map<string, ContinuationStream>;
   /** Persisted assistant row currently represented by each chat's live streaming row. */
   streamedMessageIds: Map<string, string>;
   /** Completed generated replies awaiting their first VN display, including inactive chats. */
@@ -282,6 +286,7 @@ interface ChatState {
   setActiveChatId: (id: string | null) => void;
   setStreaming: (streaming: boolean, chatId?: string) => void;
   setStreamedMessageId: (chatId: string, messageId: string | null) => void;
+  setContinuationStream: (chatId: string, continuation: ContinuationStream) => void;
   setPendingVnReply: (chatId: string, reply: Pick<Message, "id" | "activeSwipeIndex" | "content"> | null) => void;
   setMariPhase: (chatId: string, phase: "thinking" | "updating" | "idle") => void;
   setAbortController: (chatId: string, controller: AbortController | null) => void;
@@ -371,6 +376,7 @@ export const useChatStore = create<ChatState>()(
     mariPhaseByChatId: new Map(),
     streamBuffer: "",
     streamBuffers: new Map(),
+    continuationStreams: new Map(),
     streamedMessageIds: new Map(),
     pendingVnReplies: new Map(),
     thinkingBuffer: "",
@@ -507,6 +513,8 @@ export const useChatStore = create<ChatState>()(
         else next.delete(chatId);
         return { streamedMessageIds: next };
       }),
+    setContinuationStream: (chatId, continuation) =>
+      set((state) => ({ continuationStreams: new Map(state.continuationStreams).set(chatId, continuation) })),
     setMariPhase: (chatId, phase) =>
       set((state) => {
         const current = state.mariPhaseByChatId.get(chatId) ?? null;
@@ -597,11 +605,14 @@ export const useChatStore = create<ChatState>()(
     clearStreamBuffer: (chatId) =>
       set((state) => {
         const targetChatId = chatId ?? state.streamingChatId ?? state.activeChatId ?? "";
-        if (!targetChatId) return { streamBuffer: "", streamBuffers: new Map() };
+        if (!targetChatId) return { streamBuffer: "", streamBuffers: new Map(), continuationStreams: new Map() };
         const buffers = new Map(state.streamBuffers);
         buffers.delete(targetChatId);
+        const continuations = new Map(state.continuationStreams);
+        continuations.delete(targetChatId);
         return {
           streamBuffers: buffers,
+          continuationStreams: continuations,
           ...(state.activeChatId === targetChatId ? { streamBuffer: "" } : {}),
         };
       }),
@@ -1048,6 +1059,7 @@ export const useChatStore = create<ChatState>()(
         mariPhaseByChatId: new Map(),
         streamBuffer: "",
         streamBuffers: new Map(),
+        continuationStreams: new Map(),
         streamedMessageIds: new Map(),
         pendingVnReplies: new Map(),
         thinkingBuffer: "",

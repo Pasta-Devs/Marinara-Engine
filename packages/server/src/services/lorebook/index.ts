@@ -3,6 +3,8 @@
 // Ties together storage, scanning, and injection.
 // ──────────────────────────────────────────────
 import type { DB } from "../../db/connection.js";
+import { inArray } from "../../db/file-query.js";
+import { messages as messagesTable } from "../../db/schema/index.js";
 import { estimateTextTokens, LIMITS } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import type {
@@ -1115,6 +1117,44 @@ export async function processLorebooks(
     Array.from(new Map([...normallyActiveEntries, ...forcedEntries].map((entry) => [entry.id, entry])).values()),
     relevantLorebooksById,
   );
+
+  // Lazy staleness for agent-authored entries (deleted-turn lore must not keep
+  // steering generations). The storage cascade handles message DELETION; this
+  // check covers the regenerate path, where a swipe switch changes the active
+  // content without deleting any row: a keeper entry anchored to a swipe that
+  // is no longer active is excluded here, and re-included if the user swipes
+  // back (same derived-validity semantics as Advanced Memory's recordValid).
+  const hasAttributedEntries = allEntries.some(
+    (entry) => Array.isArray(entry.sourceMessageRefs) && entry.sourceMessageRefs.length > 0,
+  );
+  if (hasAttributedEntries) {
+    // Look the anchors up BY ID, not by chat: agent books can be shared or
+    // global, so an entry injected into chat B may reference chat A's turn —
+    // it must still be swipe-validated there (and a missing id means the
+    // message is gone everywhere, which stays fail-closed).
+    const refIds = Array.from(
+      new Set(allEntries.flatMap((entry) => (entry.sourceMessageRefs ?? []).map((ref) => ref.id))),
+    );
+    const swipeByMessageId = new Map(
+      (
+        await db
+          .select({ id: messagesTable.id, activeSwipeIndex: messagesTable.activeSwipeIndex })
+          .from(messagesTable)
+          .where(inArray(messagesTable.id, refIds))
+      ).map((row) => [row.id, row.activeSwipeIndex ?? 0]),
+    );
+    allEntries = allEntries.filter((entry) => {
+      if (!Array.isArray(entry.sourceMessageRefs) || entry.sourceMessageRefs.length === 0) return true;
+      return entry.sourceMessageRefs.every((ref) => {
+        const activeSwipeIndex = swipeByMessageId.get(ref.id);
+        // A ref to a message that no longer exists anywhere is stale even if
+        // the delete cascade somehow missed the entry (fail-closed, matching
+        // recordValid's treatment of missing covered messages).
+        if (activeSwipeIndex === undefined) return false;
+        return ref.swipeIndex === null || activeSwipeIndex === ref.swipeIndex;
+      });
+    });
+  }
 
   // Apply per-chat entry state overrides — an entry that was disabled by ephemeral
   // countdown in *this* chat should be excluded, and ephemeral values should

@@ -5,6 +5,9 @@
 // Schedules are stored in chat metadata and drive the status system.
 
 import type { BaseLLMProvider } from "../llm/base-provider.js";
+import { z } from "zod";
+import { logDebugOverride } from "../../lib/logger.js";
+import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import {
   CONVERSATION_SCHEDULE_DAYS,
   getAdjacentScheduleBlocks,
@@ -49,7 +52,19 @@ export type WeekScheduleDraftMode = "rewrite" | "adjust" | "vary" | "repair";
 export type WeekScheduleDraftOptions = {
   draftMode?: WeekScheduleDraftMode;
   timeZone?: string;
+  debugMode?: boolean;
+  signal?: AbortSignal;
 };
+
+/** Keep failed model output available for manual repair without saving it. */
+export class ScheduleDraftError extends Error {
+  constructor(
+    public rawResponse: string,
+    cause: unknown,
+  ) {
+    super(cause instanceof Error ? cause.message : "Invalid schedule", { cause });
+  }
+}
 
 const STATUS_KEYWORDS: Record<string, ConversationPresenceStatus> = {
   sleep: "offline",
@@ -104,32 +119,32 @@ function summarizeBlocks(blocks: DaySchedule): string[] {
     : ["- unscheduled"];
 }
 
-function getWeekDraftModeInstructions(draftMode: WeekScheduleDraftMode): string[] {
+function getWeekDraftModeInstructions(draftMode: WeekScheduleDraftMode, scope = "week"): string[] {
   if (draftMode === "adjust") {
     return [
-      `Draft action: Adjust current week.`,
+      `Draft action: Adjust current ${scope}.`,
       `Use the current draft as the base routine. Preserve most daily structure unless the user's guidance conflicts with it.`,
       `Make targeted changes that clearly satisfy the guidance without rewriting unrelated days for novelty.`,
     ];
   }
   if (draftMode === "vary") {
     return [
-      `Draft action: Vary current week.`,
-      `Use the current draft as context, but make the new week visibly different.`,
+      `Draft action: Vary current ${scope}.`,
+      `Use the current draft as context, but make the new ${scope} visibly different.`,
       `Change time ranges, activities, and status mix while keeping the routine plausible for the character.`,
     ];
   }
   if (draftMode === "repair") {
     return [
-      `Draft action: Repair current week.`,
+      `Draft action: Repair current ${scope}.`,
       `Treat the current draft as the source of truth. Minimize creative changes.`,
       `Fix incomplete 24-hour coverage, invalid ranges, obvious status/activity mismatches, overlaps, and gaps.`,
       `Only change activities or timing when needed to make the schedule valid and coherent.`,
     ];
   }
   return [
-    `Draft action: Rewrite week.`,
-    `Create a fresh full-week schedule based on the character and any user guidance.`,
+    `Draft action: Rewrite ${scope}.`,
+    `Create a fresh full-${scope} schedule based on the character and any user guidance.`,
   ];
 }
 
@@ -233,17 +248,27 @@ export async function generateCharacterSchedule(
   ].join("\n");
 
   const scheduleMaxTokens = provider.maxTokensOverrideValue ?? 8192;
+  logDebugOverride(
+    options.debugMode === true || isDebugAgentsEnabled(),
+    "[schedule] %s / %s system:\n%s\nUser: Generate the schedule now.",
+    characterName,
+    model,
+    systemPrompt,
+  );
   const result = await provider.chatComplete(
     [
       { role: "system", content: systemPrompt },
       { role: "user", content: "Generate the schedule now." },
     ],
-    { model, temperature: getWeekScheduleTemperature(draftMode), maxTokens: scheduleMaxTokens },
+    { model, temperature: getWeekScheduleTemperature(draftMode), maxTokens: scheduleMaxTokens, signal: options.signal },
   );
 
   const content = result.content ?? "";
-  const parsed = parseScheduleResponse(content);
-  return { schedule: parsed, raw: content };
+  try {
+    return { schedule: parseScheduleResponse(content), raw: content };
+  } catch (error) {
+    throw new ScheduleDraftError(content, error);
+  }
 }
 
 export async function generateCharacterDaySchedule(
@@ -256,8 +281,9 @@ export async function generateCharacterDaySchedule(
   currentSchedule: WeekSchedule,
   userSchedulePreferences?: string,
   daySchedulePreferences?: string,
-  timeZone?: string,
+  options: WeekScheduleDraftOptions = {},
 ): Promise<{ blocks: DaySchedule; raw: string }> {
+  const draftMode = options.draftMode ?? "vary";
   const globalGuidance = userSchedulePreferences?.trim() ?? "";
   const dayGuidance = daySchedulePreferences?.trim() ?? "";
   const systemPrompt = [
@@ -266,20 +292,19 @@ export async function generateCharacterDaySchedule(
     `Character: ${characterName}`,
     `Description: ${characterDescription}`,
     `Personality: ${characterPersonality}`,
-    ...(timeZone ? [`Schedule timezone: ${timeZone}`] : []),
+    ...(options.timeZone ? [`Schedule timezone: ${options.timeZone}`] : []),
     ``,
     `Requested day to replace: ${day}`,
+    ...getWeekDraftModeInstructions(draftMode, "day"),
     ...(globalGuidance ? [``, `Global routine guidance:`, globalGuidance] : []),
     ...(dayGuidance ? [``, `Specific ${day} guidance:`, dayGuidance] : []),
     ``,
-    `Old ${day} to replace. Do not copy it:`,
+    `Current ${day}:`,
     ...summarizeBlocks(currentSchedule.days[day] ?? []),
     ``,
     `Other days are consistency context only. Do not regenerate them:`,
     ...summarizeScheduleExcept(currentSchedule, day),
     ``,
-    `Return a materially different ${day} unless the specific guidance explicitly asks for a tiny adjustment.`,
-    `Make visible changes to time ranges, activities, or status mix while keeping the day plausible for this character.`,
     `If there is specific ${day} guidance, prioritize it over the global guidance.`,
     `Return only JSON in this exact shape:`,
     `{ "blocks": [ { "time": "00:00-07:00", "activity": "sleeping", "status": "offline" } ] }`,
@@ -288,19 +313,38 @@ export async function generateCharacterDaySchedule(
     `Do not include markdown, comments, explanations, or extra keys.`,
   ].join("\n");
 
+  const userPrompt = dayGuidance ? `Apply this ${day} guidance: ${dayGuidance}` : `${draftMode} ${day}.`;
+  logDebugOverride(
+    options.debugMode === true || isDebugAgentsEnabled(),
+    "[schedule] %s / %s / %s system:\n%s\nUser: %s",
+    characterName,
+    model,
+    day,
+    systemPrompt,
+    userPrompt,
+  );
   const result = await provider.chatComplete(
     [
       { role: "system", content: systemPrompt },
       {
         role: "user",
-        content: dayGuidance ? `Apply this ${day} guidance: ${dayGuidance}` : `Create a visibly different ${day}.`,
+        content: userPrompt,
       },
     ],
-    { model, temperature: 0.9, maxTokens: Math.min(provider.maxTokensOverrideValue ?? 4096, 4096) },
+    {
+      model,
+      temperature: getWeekScheduleTemperature(draftMode),
+      maxTokens: Math.min(provider.maxTokensOverrideValue ?? 4096, 4096),
+      signal: options.signal,
+    },
   );
 
   const content = result.content ?? "";
-  return { blocks: parseDayScheduleResponse(content), raw: content };
+  try {
+    return { blocks: parseDayScheduleResponse(content), raw: content };
+  } catch (error) {
+    throw new ScheduleDraftError(content, error);
+  }
 }
 
 export async function generateScheduleRoutineSummary(
@@ -309,6 +353,8 @@ export async function generateScheduleRoutineSummary(
   characterName: string,
   schedule: WeekSchedule,
   userSchedulePreferences?: string,
+  debugMode = false,
+  signal?: AbortSignal,
 ): Promise<{ summary: string; raw: string }> {
   const systemPrompt = [
     `You summarize a fictional character's weekly autonomous conversation routine.`,
@@ -324,6 +370,13 @@ export async function generateScheduleRoutineSummary(
     ...summarizeWeekForPrompt(schedule),
   ].join("\n");
 
+  logDebugOverride(
+    debugMode || isDebugAgentsEnabled(),
+    "[schedule] %s / %s summary system:\n%s\nUser: Summarize the routine.",
+    characterName,
+    model,
+    systemPrompt,
+  );
   const result = await provider.chatComplete(
     [
       { role: "system", content: systemPrompt },
@@ -334,6 +387,7 @@ export async function generateScheduleRoutineSummary(
       temperature: 0.55,
       maxTokens: provider.maxTokensOverrideValue ?? ROUTINE_SUMMARY_DEFAULT_MAX_TOKENS,
       reasoningEffort: "low",
+      signal,
     },
   );
   const summary = (result.content ?? "")
@@ -347,6 +401,41 @@ export async function generateScheduleRoutineSummary(
 /**
  * Parse the LLM's schedule response into a structured format.
  */
+const generatedBlocksSchema = z
+  .array(
+    z.object({
+      time: z
+        .string()
+        .trim()
+        .regex(/^(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d$/),
+      activity: z.string().trim().min(1),
+      status: z.string().optional(),
+    }),
+  )
+  .min(1)
+  .refine((blocks) => {
+    // Sorted HH:mm ranges must form one complete ring, including overnight blocks.
+    const ranges = blocks.map(({ time }) => time.split("-")).sort(([a], [b]) => a!.localeCompare(b!));
+    return (
+      new Set(ranges.map(([start]) => start)).size === ranges.length &&
+      ranges.every(([, end], index) => end === ranges[(index + 1) % ranges.length]![0])
+    );
+  });
+
+function parseGeneratedBlocks(value: unknown, day: string): DaySchedule {
+  const parsed = generatedBlocksSchema.safeParse(value);
+  if (!parsed.success)
+    throw new Error(`The model returned an empty or invalid schedule for ${day}. Please regenerate it.`);
+  return parsed.data.map(({ time, activity, status }) => ({
+    time,
+    activity,
+    status:
+      status === "online" || status === "idle" || status === "dnd" || status === "offline"
+        ? status
+        : inferStatusFromActivity(activity),
+  }));
+}
+
 function parseScheduleResponse(content: string): Omit<WeekSchedule, "weekStart"> {
   const data = parseRepairedJson<{
     talkativeness?: number;
@@ -354,19 +443,9 @@ function parseScheduleResponse(content: string): Omit<WeekSchedule, "weekStart">
     days?: Record<string, Array<{ time: string; activity: string; status?: string }>>;
   }>(content);
 
-  const VALID_STATUSES = new Set(["online", "idle", "dnd", "offline"] as const);
-  type ValidStatus = "online" | "idle" | "dnd" | "offline";
   const days: Record<string, DaySchedule> = {};
   for (const day of DAYS) {
-    const dayData = data.days?.[day] ?? [];
-    days[day] = dayData.map((block) => ({
-      time: block.time,
-      activity: block.activity,
-      status:
-        block.status && VALID_STATUSES.has(block.status as ValidStatus)
-          ? (block.status as ValidStatus)
-          : inferStatusFromActivity(block.activity),
-    }));
+    days[day] = parseGeneratedBlocks(data?.days?.[day], day);
   }
 
   return {
@@ -420,19 +499,7 @@ function parseDayScheduleResponse(content: string): DaySchedule {
   const data = parseRepairedJson<{
     blocks?: Array<{ time?: string; activity?: string; status?: string }>;
   }>(content);
-  const validStatuses = new Set(["online", "idle", "dnd", "offline"] as const);
-  type ValidStatus = "online" | "idle" | "dnd" | "offline";
-  return (data.blocks ?? []).map((block) => {
-    const activity = typeof block.activity === "string" && block.activity.trim() ? block.activity.trim() : "free time";
-    return {
-      time: typeof block.time === "string" ? block.time : "00:00-00:00",
-      activity,
-      status:
-        block.status && validStatuses.has(block.status as ValidStatus)
-          ? (block.status as ValidStatus)
-          : inferStatusFromActivity(activity),
-    };
-  });
+  return parseGeneratedBlocks(data?.blocks, "the requested day");
 }
 
 /**

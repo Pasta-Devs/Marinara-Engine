@@ -38,7 +38,7 @@ export async function completeAgentCall(
       {
         role: "user",
         contextKind: "prompt",
-        content: `${sceneCheck.prompt}\n\nKeep the requested tracker JSON unchanged and add one reserved top-level field: "__scene_check": {"starts": [{"messageId": "exact source message ID"}]}. Use an empty starts array when no new scene starts. For a batch, put this field beside the agent ID fields, not inside a tracker result.`,
+        content: `${sceneCheck.prompt}\n\nKeep the requested tracker JSON unchanged and add one reserved top-level field: "__scene_check": {"ends": [{"messageNumber": 42}]}. Use an empty ends array when no scene clearly ends. For a batch, put this field beside the agent ID fields, not inside a tracker result.`,
       },
     ];
     const maxContext = minContextLimit(
@@ -159,13 +159,13 @@ export async function completeAgentCall(
           !result.toolCalls.length &&
           payload &&
           typeof payload === "object" &&
-          Array.isArray((payload as Record<string, unknown>).starts) &&
-          ((payload as Record<string, unknown>).starts as unknown[]).every(
-            (start) =>
-              start &&
-              typeof start === "object" &&
-              typeof (start as Record<string, unknown>).messageId === "string" &&
-              ((start as Record<string, unknown>).messageId as string).trim(),
+          Array.isArray((payload as Record<string, unknown>).ends) &&
+          ((payload as Record<string, unknown>).ends as unknown[]).every(
+            (end) =>
+              end &&
+              typeof end === "object" &&
+              Number.isInteger((end as Record<string, unknown>).messageNumber) &&
+              Number((end as Record<string, unknown>).messageNumber) > 0,
           )
         ) {
           sceneCheck.result = payload;

@@ -29,6 +29,7 @@ import {
   normalizeTrackerTemperatureUnit,
   normalizeTrackerThoughtBubbleDisplay,
   normalizeScenePromptPreferences,
+  normalizeConversationBackgroundImageOpacity,
   pickSyncedSettings,
   useUIStore,
 } from "../stores/ui.store";
@@ -56,6 +57,11 @@ export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings 
   const sanitized = { ...settings };
   for (const key of LOCAL_ONLY_SETTING_KEYS) {
     delete sanitized[key];
+  }
+  if ("conversationBackgroundImageOpacity" in sanitized) {
+    sanitized.conversationBackgroundImageOpacity = normalizeConversationBackgroundImageOpacity(
+      sanitized.conversationBackgroundImageOpacity,
+    );
   }
   return sanitized;
 }

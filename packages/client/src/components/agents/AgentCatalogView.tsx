@@ -80,6 +80,7 @@ const OFFICIAL_PACKAGE_MODES: Readonly<Record<string, readonly CatalogMode[]>> =
   spotify: ["conversation", "roleplay", "game"],
   poker: ["conversation"],
   "rock-paper-scissors": ["conversation"],
+  "ruleset-5e-2014": ["game"],
   "tic-tac-toe": ["conversation"],
   uno: ["conversation"],
 });
@@ -128,6 +129,7 @@ function kindLabel(kind: CapabilityCatalogPackage["manifest"]["kind"][number]) {
   if (kind === "conversation-calls") return "Calls";
   if (kind === "turn-game") return "Conversation Game";
   if (kind === "maps") return "Maps";
+  if (kind === "ruleset") return "Rules";
   return "Agent";
 }
 

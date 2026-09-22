@@ -3,6 +3,7 @@ import {
   normalizeAgentPromptTemplateOptions,
   normalizeTextForMatch,
   resolveGameSetupArtStylePrompt,
+  summarizeTacticalBattlefield,
   type GameActiveState,
   type GameCampaignPlan,
   type GameMap,
@@ -258,6 +259,30 @@ export async function injectGameGmPromptRuntime(args: {
   const hasSceneModel = !!sceneConnectionId || sidecarHandlesScene;
   const gameTurnNumber = args.mappedMessages.filter((message) => message.role === "user").length + 1;
 
+  const combatSnapshot =
+    args.chatMetadata.gameCombatState &&
+    typeof args.chatMetadata.gameCombatState === "object" &&
+    !Array.isArray(args.chatMetadata.gameCombatState)
+      ? (args.chatMetadata.gameCombatState as Record<string, unknown>)
+      : null;
+  const snapshotCombatStyle = combatSnapshot?.combatStyle;
+  const pinnedCombatStyle =
+    gameActiveState === "combat" && (snapshotCombatStyle === "classic" || snapshotCombatStyle === "tactical")
+      ? snapshotCombatStyle
+      : null;
+  const legacyTacticalCombatStyle =
+    gameActiveState === "combat" &&
+    !pinnedCombatStyle &&
+    args.chatMetadata.gameTacticalCombatSnapshot &&
+    typeof args.chatMetadata.gameTacticalCombatSnapshot === "object" &&
+    !Array.isArray(args.chatMetadata.gameTacticalCombatSnapshot)
+      ? "tactical"
+      : null;
+  const resolvedCombatStyle =
+    pinnedCombatStyle ??
+    legacyTacticalCombatStyle ??
+    ((args.chatMetadata.gameCombatStyle as string) || (setupConfig?.combatStyle as string) || "classic");
+
   const lastMapPos = args.chatMetadata.lastMapPosition as string | { x: number; y: number } | undefined;
   const currentMapPos = gameMap?.partyPosition;
   const playerMoved = !lastMapPos || !currentMapPos || JSON.stringify(lastMapPos) !== JSON.stringify(currentMapPos);
@@ -317,9 +342,14 @@ export async function injectGameGmPromptRuntime(args: {
     playerCard,
     gmCharacterCard,
     difficulty: (setupConfig?.difficulty as string) || "normal",
-    // Effective combat style: runtime drawer override wins, then the wizard
-    // choice, then "classic" for legacy games created before this setting.
-    combatStyle: (args.chatMetadata.gameCombatStyle as string) || (setupConfig?.combatStyle as string) || "classic",
+    // An active encounter keeps the style it started with. Legacy snapshots did
+    // not store that pin, so an existing tactical state is the next-best proof.
+    // Outside combat, the runtime drawer remains the preference for the next battle.
+    combatStyle: resolvedCombatStyle,
+    tacticalBattlefieldContext:
+      gameActiveState === "combat" && resolvedCombatStyle === "tactical"
+        ? summarizeTacticalBattlefield(args.chatMetadata.gameTacticalCombatSnapshot)
+        : undefined,
     genre: (setupConfig?.genre as string) || "fantasy",
     setting: (setupConfig?.setting as string) || "original",
     tone: (setupConfig?.tone as string) || "balanced",

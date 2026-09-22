@@ -121,4 +121,6 @@ export interface PersonaStatsConfig {
   bars: PersonaStatBar[];
   /** Optional Game mode RPG stats stored alongside the persona status bars. */
   rpgStats?: RPGStatsConfig;
+  /** Starting builds for Game Mode rulesets, keyed by ruleset id. A game copies the one it needs. */
+  rulesetSheets?: Record<string, unknown>;
 }

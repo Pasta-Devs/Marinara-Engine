@@ -1,3 +1,4 @@
+import { normalizeGameDifficulty, rulesetRefSchema } from "@marinara-engine/shared";
 import {
   ANIME_GAME_PROMPT_TEMPLATE_ID,
   COMIC_PAGE_GAME_VIDEO_PROMPT_TEMPLATE_ID,
@@ -10,6 +11,7 @@ import {
   type GameInitialSetupSnapshot,
   type GameSetupConfig,
   type InstalledCapabilityPackage,
+  InstalledRuleset,
   type GenerationParameters,
 } from "@marinara-engine/shared";
 
@@ -21,6 +23,7 @@ export const GAME_SETUP_SHARE_VERSION = 1;
 
 export interface GameSetupShareLabels {
   experienceName?: string;
+  rulesetName?: string;
   experienceSeedKey?: string;
   characterNames?: Readonly<Record<string, string>>;
   connectionNames?: Readonly<Record<string, string>>;
@@ -67,6 +70,8 @@ export interface GameSetupImportConnection {
 
 export interface GameSetupImportContext {
   experiencePackages?: readonly InstalledCapabilityPackage[];
+  /** Installed Game Mode rulesets; a shared ruleset this install lacks is dropped on import. */
+  installedRulesets?: readonly InstalledRuleset[];
   isNewGame?: boolean;
   characters: ReadonlyArray<{ id: string; name: string }>;
   connections: ReadonlyArray<GameSetupImportConnection>;
@@ -93,6 +98,10 @@ export interface GameSetupSummarySection {
   title: string;
   rows: GameSetupSummaryRow[];
 }
+
+const TACTICAL_BATTLEFIELD_SEED_MAX = 0xffffffff;
+const TACTICAL_BATTLEFIELD_INSTRUCTIONS_MAX = 4_000;
+const TACTICAL_BATTLEFIELD_SIZES = new Set(["small", "medium", "large"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -130,6 +139,7 @@ function parseShareLabels(value: unknown): GameInitialSetupLabels | undefined {
   if (!isRecord(value)) return undefined;
   const labels: GameInitialSetupLabels = {
     experienceName: typeof value.experienceName === "string" ? value.experienceName.slice(0, 120) : undefined,
+    rulesetName: typeof value.rulesetName === "string" ? value.rulesetName.slice(0, 120) : undefined,
     experienceSeedKey: typeof value.experienceSeedKey === "string" ? value.experienceSeedKey.slice(0, 120) : undefined,
     characterNames: optionalStringRecord(value.characterNames),
     lorebookNames: optionalStringRecord(value.lorebookNames),
@@ -233,6 +243,34 @@ function parseShareConfig(value: unknown): GameSetupConfig {
   if (value.combatStyle !== undefined && value.combatStyle !== "classic" && value.combatStyle !== "tactical") {
     throw new Error("This file has an invalid combat style.");
   }
+  if (value.tacticalBattlefield !== undefined) {
+    if (!isRecord(value.tacticalBattlefield)) {
+      throw new Error(translate("ui.game.gamesetupshare.invalidTacticalBattlefieldSettings"));
+    }
+    const battlefield = value.tacticalBattlefield;
+    if (
+      battlefield.seed !== undefined &&
+      (typeof battlefield.seed !== "number" ||
+        !Number.isSafeInteger(battlefield.seed) ||
+        battlefield.seed < 0 ||
+        battlefield.seed > TACTICAL_BATTLEFIELD_SEED_MAX)
+    ) {
+      throw new Error(translate("ui.game.gamesetupshare.invalidTacticalBattlefieldSeed"));
+    }
+    if (
+      battlefield.size !== undefined &&
+      (typeof battlefield.size !== "string" || !TACTICAL_BATTLEFIELD_SIZES.has(battlefield.size))
+    ) {
+      throw new Error(translate("ui.game.gamesetupshare.invalidTacticalBattlefieldSize"));
+    }
+    if (
+      battlefield.instructions !== undefined &&
+      (typeof battlefield.instructions !== "string" ||
+        battlefield.instructions.length > TACTICAL_BATTLEFIELD_INSTRUCTIONS_MAX)
+    ) {
+      throw new Error(translate("ui.game.gamesetupshare.invalidTacticalTerrainGuidance"));
+    }
+  }
   if (
     value.gameWorldMapMode !== undefined &&
     value.gameWorldMapMode !== "standard" &&
@@ -297,6 +335,9 @@ function parseShareConfig(value: unknown): GameSetupConfig {
   if (value.customHudWidgets !== undefined && !Array.isArray(value.customHudWidgets)) {
     throw new Error("This file has invalid HUD widgets.");
   }
+  // A shared file is untrusted, so the pin is read through the same schema the server uses.
+  const ruleset = value.ruleset == null ? undefined : rulesetRefSchema.safeParse(value.ruleset);
+  if (ruleset && !ruleset.success) throw new Error(translate("game.ruleset.setup.invalidImport"));
   const generationParameters = parseGenerationParameters(value.generationParameters);
   const spatialMapDraftOptions =
     value.spatialMapDraftSize !== undefined || value.spatialMapTargetLocationCount !== undefined
@@ -313,6 +354,7 @@ function parseShareConfig(value: unknown): GameSetupConfig {
     gmMode,
     rating,
     partyCharacterIds: [...value.partyCharacterIds],
+    ...(ruleset ? { ruleset: ruleset.data } : {}),
     generationParameters,
     ...(spatialMapDraftOptions
       ? {
@@ -324,13 +366,29 @@ function parseShareConfig(value: unknown): GameSetupConfig {
 }
 
 function normalizeShareConfig(config: GameSetupConfig): GameSetupConfig {
-  if (config.spatialMapDraftSize === undefined && config.spatialMapTargetLocationCount === undefined) return config;
-  const options = resolveGameSpatialMapDraftOptions(config.spatialMapDraftSize, config.spatialMapTargetLocationCount);
-  return {
-    ...config,
-    spatialMapDraftSize: options.size,
-    spatialMapTargetLocationCount: options.targetLocationCount,
-  };
+  let normalized = { ...config, difficulty: normalizeGameDifficulty(config.difficulty) };
+  if (config.spatialMapDraftSize !== undefined || config.spatialMapTargetLocationCount !== undefined) {
+    const options = resolveGameSpatialMapDraftOptions(config.spatialMapDraftSize, config.spatialMapTargetLocationCount);
+    normalized = {
+      ...normalized,
+      spatialMapDraftSize: options.size,
+      spatialMapTargetLocationCount: options.targetLocationCount,
+    };
+  }
+  if (normalized.combatStyle === "tactical" && normalized.tacticalBattlefield) {
+    const tacticalBattlefield = {
+      ...(normalized.tacticalBattlefield.size ? { size: normalized.tacticalBattlefield.size } : {}),
+    };
+    const { tacticalBattlefield: _unused, ...rest } = normalized;
+    normalized = {
+      ...rest,
+      ...(Object.keys(tacticalBattlefield).length > 0 ? { tacticalBattlefield } : {}),
+    };
+  } else if (normalized.tacticalBattlefield) {
+    const { tacticalBattlefield: _unused, ...rest } = normalized;
+    normalized = rest;
+  }
+  return normalized;
 }
 
 export function buildGameSetupShareFile(
@@ -341,6 +399,7 @@ export function buildGameSetupShareFile(
   const labels: GameInitialSetupLabels | undefined = source.labels
     ? {
         experienceName: source.labels.experienceName,
+        rulesetName: source.labels.rulesetName,
         experienceSeedKey: source.labels.experienceSeedKey,
         characterNames: source.labels.characterNames ? { ...source.labels.characterNames } : undefined,
         lorebookNames: source.labels.lorebookNames ? { ...source.labels.lorebookNames } : undefined,
@@ -482,7 +541,8 @@ export function resolveGameSetupImport(
   file: GameSetupShareFile,
   context: GameSetupImportContext,
 ): ResolvedGameSetupImport {
-  const { config: sourceConfig, labels, connections: snapshots } = file.setup;
+  const { labels, connections: snapshots } = file.setup;
+  const sourceConfig = normalizeShareConfig(file.setup.config);
   const warnings: string[] = [];
   // Restore installed selections, but import only declared seeds, never arbitrary package state.
   const experience =
@@ -497,7 +557,38 @@ export function resolveGameSetupImport(
         experienceConfig: setup?.seed && isExperienceSeed(seed) ? { [setup.seed.key]: seed } : {},
       }
     : {};
-  const { gameExperienceId: _experienceId, experienceConfig: _experienceConfig, ...ordinaryConfig } = sourceConfig;
+  // A ruleset follows the Experience rule: restored for a new game when this install has it, at
+  // the shared version or newer, and otherwise dropped so the game starts on Marinara's own rules.
+  // The wizard says so; the pin itself is always rebuilt by the server from what is installed.
+  // Ruleset versions are whole numbers (the schema that parsed this pin refuses anything else), so
+  // `>=` is a numeric comparison, the same one the server's registry makes.
+  const installedRuleset =
+    context.isNewGame !== false && sourceConfig.ruleset
+      ? context.installedRulesets?.find(
+          (entry) =>
+            entry.definition.id === sourceConfig.ruleset!.id &&
+            entry.definition.version >= sourceConfig.ruleset!.version,
+        )
+      : undefined;
+  const rulesetSelection = installedRuleset
+    ? {
+        ruleset: {
+          id: installedRuleset.definition.id,
+          version: installedRuleset.definition.version,
+          packageId: installedRuleset.packageId,
+          // The layer choices ride along as the file wrote them. The wizard checks them against the
+          // definition installed here and drops anything it no longer has, so nothing that reaches
+          // the create call can name a layer this ruleset does not offer.
+          options: sourceConfig.ruleset?.options ?? {},
+        },
+      }
+    : {};
+  const {
+    gameExperienceId: _experienceId,
+    experienceConfig: _experienceConfig,
+    ruleset: _ruleset,
+    ...ordinaryConfig
+  } = sourceConfig;
 
   const gmCharacterName = sourceConfig.gmCharacterId ? labels?.characterNames?.[sourceConfig.gmCharacterId] : null;
   const gmCharacterId = resolveNamedResourceId(sourceConfig.gmCharacterId, gmCharacterName, context.characters);
@@ -571,6 +662,7 @@ export function resolveGameSetupImport(
     config: {
       ...ordinaryConfig,
       ...experienceSelection,
+      ...rulesetSelection,
       gmMode,
       gmCharacterId,
       partyCharacterIds: [...new Set(partyCharacterIds)],
@@ -688,6 +780,24 @@ function formatPresentation(config: GameSetupConfig): string {
   return `Custom (${selectedIds.map(titleCaseToken).join(" + ")})`;
 }
 
+function tacticalBattlefieldRows(config: GameSetupConfig): GameSetupSummaryRow[] {
+  if (config.combatStyle !== "tactical") return [];
+  const settings = config.tacticalBattlefield;
+  return [
+    {
+      label: translate("ui.game.gamesetupsummary.battlefieldSize"),
+      value:
+        settings?.size == null
+          ? translate("ui.game.gamesetupsummary.auto")
+          : settings.size === "small"
+            ? translate("ui.game.gamesetupsummary.sizeSmall")
+            : settings.size === "large"
+              ? translate("ui.game.gamesetupsummary.sizeLarge")
+              : translate("ui.game.gamesetupsummary.sizeMedium"),
+    },
+  ];
+}
+
 function generationParameterRows(parameters: Partial<GenerationParameters> | null | undefined): GameSetupSummaryRow[] {
   const entries = Object.entries(parameters ?? {}).filter(([, value]) => value !== undefined);
   if (entries.length === 0) return [{ label: "Generation parameters", value: "Connection defaults (not captured)" }];
@@ -744,6 +854,7 @@ export function buildGameSetupSummarySections(source: GameSetupShareSource): Gam
         { label: "Tone", value: config.tone },
         { label: "Difficulty", value: titleCaseToken(config.difficulty) },
         { label: "Combat style", value: titleCaseToken(config.combatStyle ?? "classic") },
+        ...tacticalBattlefieldRows(config),
         { label: "Quick Time Events", value: config.enableQuickTimeEvents === false ? "Off" : "On" },
         { label: "Content rating", value: config.rating.toUpperCase() },
         { label: "Language", value: config.language?.trim() || "Default" },

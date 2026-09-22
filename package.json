@@ -2,7 +2,7 @@
   "name": "marinara-engine",
   "version": "2.4.6",
   "private": true,
-  "description": "AI Chat & Roleplay Frontend — Conversation, Roleplay, Game",
+  "description": "AI Chat & Roleplay Frontend \u2014 Conversation, Roleplay, Game",
   "author": "Marianna",
   "license": "AGPL-3.0",
   "type": "module",
@@ -53,6 +53,7 @@
     "version:check": "node ./scripts/check-version-drift.mjs",
     "credits:sync": "node ./scripts/sync-credits.mjs",
     "credits:check": "node ./scripts/sync-credits.mjs --check",
+    "ruleset:schema": "pnpm build:shared && node ./scripts/generate-ruleset-schema.mjs",
     "backgroundremover:install": "node ./scripts/install-backgroundremover.mjs",
     "backgroundremover:reinstall": "node ./scripts/install-backgroundremover.mjs --reinstall",
     "guard:installer-artifacts": "node ./scripts/check-tracked-installers.mjs",
@@ -61,13 +62,14 @@
     "clean": "pnpm -r --if-present run clean && node ./scripts/clean-workspace.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.0",
+    "@playwright/test": "^1.63.0",
     "@types/adm-zip": "^0.5.8",
-    "@types/node": "^24.12.2",
+    "@types/node": "^24.13.5",
     "adm-zip": "^0.6.1",
     "esbuild": "^0.28.1",
     "prettier": "^3.8.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "zod-to-json-schema": "^3.25.2"
   },
   "pnpm": {
     "overrides": {
@@ -84,8 +86,8 @@
       "hono": "4.13.5",
       "ip-address": "10.3.1",
       "js-yaml": "4.3.2",
-      "nanoid@3.3.12": "3.3.18",
-      "postcss": "8.5.26",
+      "nanoid@3": "3.3.19",
+      "postcss": "8.5.28",
       "protobufjs": "7.6.5",
       "qs": "6.16.0",
       "sharp@0.34.5": "0.35.4",

@@ -15,11 +15,11 @@
     "lint": "tsc -b ../shared && tsc --noEmit && tsc -p ../../scripts/regressions/tsconfig.character-activity.json"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.235",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.273",
     "@anthropic-ai/sdk": "^0.93.0",
     "@fastify/cors": "^11.3.0",
-    "@fastify/multipart": "^9.4.0",
-    "@fastify/static": "^10.1.2",
+    "@fastify/multipart": "^10.1.1",
+    "@fastify/static": "^10.1.3",
     "@huggingface/transformers": "^3.8.1",
     "@marinara-engine/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "1.30.0",
@@ -27,8 +27,8 @@
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "buttplug": "4.0.1",
-    "dotenv": "^16.6.1",
-    "fastify": "^5.12.1",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.12.5",
     "jsonrepair": "^3.15.0",
     "nanoid": "^5.1.16",
     "pdf-parse": "^2.4.5",
@@ -46,9 +46,9 @@
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
-    "@types/node": "^24.12.2",
+    "@types/node": "^24.13.5",
     "@types/pdf-parse": "^1.1.5",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.13",
     "typescript": "^5.9.3"
   }
 }

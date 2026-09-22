@@ -7,6 +7,7 @@ import {
   getFolderImportEntries,
   getFolderManifestConfig,
   isJsonRecord,
+  capImportedRulesetSheets,
   characterDataSchema,
   canonicalizeLegacyPersonaInput,
   normalizeAvatarCrop,
@@ -411,8 +412,27 @@ function unwrapFolderManifestEnvelope(value: unknown): ExportEnvelope | null {
 
 /** Validate and default a native character payload before it reaches storage. */
 export function normalizeNativeCharacterData(data: unknown): CharacterData | null {
-  const parsed = characterDataSchema.safeParse(data);
+  const parsed = characterDataSchema.safeParse(withCappedRulesetSheets(data));
   return parsed.success ? parsed.data : null;
+}
+
+/** A ruleset sheet the boundary would refuse costs the import that sheet, never the whole card.
+ *  Sheets for rulesets this install lacks are kept dormant under their key. */
+function withCappedRulesetSheets(data: unknown): unknown {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return data;
+  const extensions = (data as Record<string, unknown>).extensions;
+  if (!extensions || typeof extensions !== "object" || Array.isArray(extensions)) return data;
+  if (!("rulesetSheets" in extensions)) return data;
+  const { sheets, dropped } = capImportedRulesetSheets((extensions as Record<string, unknown>).rulesetSheets);
+  if (dropped.length > 0) {
+    logger.warn(
+      "[import] Dropped %d unusable ruleset sheet(s) from an imported character: %s",
+      dropped.length,
+      dropped.join(", "),
+    );
+  }
+  const { rulesetSheets: _removed, ...rest } = extensions as Record<string, unknown>;
+  return { ...(data as Record<string, unknown>), extensions: sheets ? { ...rest, rulesetSheets: sheets } : rest };
 }
 
 async function importCharacter(data: unknown, db: DB) {

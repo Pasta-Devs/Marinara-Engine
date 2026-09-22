@@ -4054,7 +4054,13 @@ export async function backupRoutes(app: FastifyInstance) {
                     typeof entry.folderId === "string" && folderIdMap.has(entry.folderId)
                       ? folderIdMap.get(entry.folderId)
                       : null;
-                  await lbs.createEntry({ ...entry, lorebookId: (created as any).id, folderId });
+                  await lbs.createEntry({
+                    ...entry,
+                    lorebookId: (created as any).id,
+                    folderId,
+                    sourceAgentId: null,
+                    sourceMessageRefs: [],
+                  });
                 }
               }
               stats.lorebooks++;

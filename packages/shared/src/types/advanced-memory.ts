@@ -8,6 +8,7 @@ export const advancedMemorySettingsSchema = z.object({
   initialProcessingModel: z.enum(["main", "helper"]).default("helper"),
   /** Cadence and recent-message window for standalone post-generation scene checks. */
   sceneCheckInterval: z.number().int().min(1).max(100).default(5),
+  retrieveMaxScenes: z.number().int().min(0).max(50).default(3),
   retrieveMinMessages: z.number().int().min(0).max(50).default(3),
   retrieveMaxMessages: z.number().int().min(0).max(50).default(10),
   narratorCharacterId: z.string().nullable().default(null),
@@ -33,6 +34,15 @@ export interface AdvancedMemoryJob {
   total: number;
   error: string | null;
   processedMessageId?: string | null;
+  /** Visible live-context starts, separate from manually chosen character knowledge boundaries. */
+  contextStarts?: Array<{
+    messageId: string;
+    audienceCharacterIds: string[];
+    /** Keep this scene boundary until the live window reaches its budget again. */
+    sceneStartMessageId?: string | null;
+    /** A changed manual flag replaces the automatic window. */
+    manualStartMessageId?: string | null;
+  }>;
 }
 
 export interface AdvancedMemoryRecord {

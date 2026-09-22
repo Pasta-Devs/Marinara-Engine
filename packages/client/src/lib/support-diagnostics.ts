@@ -198,7 +198,7 @@ export function formatSupportDiagnostics(diagnostics: SupportDiagnostics): strin
     `Browser / app shell: ${available(diagnostics.browser)}`,
     // Like the existing server fields, this is an English technical support
     // report, not UI copy. Event names are stable diagnostic protocol values.
-    `Client runtime: ${diagnostics.clientRuntime ? JSON.stringify(diagnostics.clientRuntime) : "Unavailable"}`,
+    `Client runtime: ${diagnostics.clientRuntime ? JSON.stringify({ ...diagnostics.clientRuntime, events: diagnostics.clientRuntime.events.filter((event) => !["page-show", "page-hide", "visible", "hidden"].includes(event.kind)).slice(-5) }) : "Unavailable"}`,
     `GPU: ${available(diagnostics.gpu)}`,
     `Active connection: ${available(diagnostics.connectionName)}`,
     `Connection provider: ${available(diagnostics.connectionProvider)}`,

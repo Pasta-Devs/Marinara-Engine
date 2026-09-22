@@ -51,6 +51,7 @@ import { normalizeSpriteExpressionKey, resolveSpriteExpression } from "../../lib
 import { DIALOGUE_QUOTE_CAPTURE_GROUP_PATTERN_SOURCE, stripSurroundingDialogueQuotes } from "../../lib/dialogue-quotes";
 import type { SpriteInfo } from "../../hooks/use-characters";
 import { useTranslate } from "../../hooks/use-translate";
+import { useGenerationStatus } from "../../hooks/use-chats";
 import { useTranslationStore } from "../../stores/translation.store";
 import { useTTSConfig } from "../../hooks/use-tts";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
@@ -1463,8 +1464,13 @@ export function GameNarration({
   const outcomeNarrationFailed =
     !!latestAssistant && parseMessageExtraRecord(latestAssistant.extra).gameOutcomeNarrationFailed === true;
   const lastAutoTranslation = useRef<{ id: string; source: string } | null>(null);
+  const serverTranslation = useGenerationStatus(
+    latestAssistant?.chatId ?? null,
+    !!parsedActiveChatMetadata.autoTranslate && !isStreaming,
+  );
   useEffect(() => {
     if (!parsedActiveChatMetadata.autoTranslate || isStreaming || !latestAssistant || generationFailed) return;
+    if (useChatStore.getState().abortControllers.has(latestAssistant.chatId)) return;
     if (
       translationConfig.chatId !== latestAssistant.chatId ||
       translationConfig.outputTargetLanguage !==
@@ -1477,7 +1483,14 @@ export function GameNarration({
     if (useTranslationStore.getState().hiddenTranslationIds[latestAssistant.id]) return;
     const source = getGameTranslationSource(latestAssistant);
     if (!source || translating[latestAssistant.id]) return;
+    if (serverTranslation.data?.active || serverTranslation.data?.translating) return;
+    if (serverTranslation.isPending || serverTranslation.isFetching) return;
     const extra = parseMessageExtraRecord(latestAssistant.extra);
+    if (
+      typeof extra.automaticTranslationSource === "string" &&
+      gameTranslationMatchesMessage(latestAssistant, extra.automaticTranslationSource)
+    )
+      return; // The server owns this attempt; a failed translation stays manually retryable.
     if (
       typeof extra.translation === "string" &&
       gameTranslationMatchesMessage(
@@ -1505,6 +1518,10 @@ export function GameNarration({
     translations,
     translationSources,
     translationConfig,
+    serverTranslation.data?.active,
+    serverTranslation.data?.translating,
+    serverTranslation.isPending,
+    serverTranslation.isFetching,
   ]);
 
   // Wheel-nav builds a flat chronological list of log entries — one per visible
@@ -5201,7 +5218,7 @@ export function GameNarration({
                             onPointerDown={(event) => handleMobileSegmentPointerDown(event, active)}
                             onPointerUp={(event) => handleMobileSegmentTapToEdit(event, active)}
                             className={cn(
-                              "game-narration-prose max-h-40 overflow-y-auto rounded-xl border px-3 py-2.5 sm:max-h-48",
+                              "game-narration-prose max-h-[45svh] overflow-y-auto rounded-xl border px-3 py-2.5 md:max-h-48",
                               active.partyType === "thought"
                                 ? "border-purple-400/10 bg-purple-950/20"
                                 : active.partyType === "whisper"
@@ -5310,7 +5327,7 @@ export function GameNarration({
                   onPointerDown={(event) => handleMobileSegmentPointerDown(event, active)}
                   onPointerUp={(event) => handleMobileSegmentTapToEdit(event, active)}
                   className={cn(
-                    "relative game-narration-prose max-h-40 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2.5 sm:max-h-48 dark:border-white/10 dark:bg-black/35",
+                    "relative game-narration-prose max-h-[45svh] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2.5 md:max-h-48 dark:border-white/10 dark:bg-black/35",
                     activeSegmentActionButtons && "pr-16",
                   )}
                 >
@@ -5387,7 +5404,7 @@ export function GameNarration({
                 <div
                   ref={activeSegmentScrollRef}
                   className={cn(
-                    "relative game-narration-prose max-h-40 overflow-y-auto rounded-xl border border-amber-400/20 bg-amber-950/20 px-3 py-2.5 sm:max-h-48",
+                    "relative game-narration-prose max-h-[45svh] overflow-y-auto rounded-xl border border-amber-400/20 bg-amber-950/20 px-3 py-2.5 md:max-h-48",
                     (activeCopyButton || activeTranslateButton) && "pr-16",
                   )}
                 >

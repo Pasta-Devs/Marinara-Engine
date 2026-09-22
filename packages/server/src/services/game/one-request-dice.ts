@@ -58,6 +58,8 @@ import {
   type RollPlaceholderSheetModifier,
   type SkillCheckResult,
   type SkillCheckTagSpan,
+  matchRulesetCheckTarget,
+  rulesetCheckModifier,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
@@ -76,6 +78,7 @@ import {
   loadSkillCheckModifierContext,
   resolveSkillCheckWithContext,
   type SkillCheckModifierContext,
+  type SkillCheckRulesetContext,
   type SkillCheckRequest,
 } from "./skill-check-resolution.service.js";
 
@@ -473,6 +476,7 @@ export function resolveSheetModifier(
   context: SkillCheckModifierContext,
   name: string,
 ): RollPlaceholderSheetModifier | null {
+  if (context.ruleset) return resolveRulesetSheetModifier(context.ruleset, name);
   const attribute = mapSheetAttributeName(name);
   if (attribute) {
     const score = readContextAttributeScore(context, attribute);
@@ -487,6 +491,27 @@ export function resolveSheetModifier(
   return {
     value: Number(rawSkillMod) + (governing === null ? 0 : attributeModifier(governing)),
     source: "skill",
+  };
+}
+
+/** The ruleset form of the same lookup, for the player's sheet: a skill, save or ability by id
+ *  or label, plus `PROF` for the proficiency bonus. Unknown names stay refused, never zero. */
+function resolveRulesetSheetModifier(
+  ruleset: SkillCheckRulesetContext,
+  name: string,
+): RollPlaceholderSheetModifier | null {
+  // A pool ruleset's sheet numbers are counts of dice, not bonuses. Adding one to `2d6+NAME` would
+  // put a number in a sentence that means something else entirely, so no name resolves at all.
+  if (ruleset.definition.resolution.kind === "dice-pool") return null;
+  const sheet = (ruleset.playerKey ? ruleset.sheets.get(ruleset.playerKey) : undefined) ?? ruleset.blank;
+  if (/^prof(?:iciency)?$/i.test(name.trim())) {
+    return ruleset.definition.resolution.proficiency ? { value: sheet.proficiencyBonus, source: "attribute" } : null;
+  }
+  const target = matchRulesetCheckTarget(ruleset.definition, name);
+  if (!target) return null;
+  return {
+    value: rulesetCheckModifier(sheet, target),
+    source: target.type === "ability" ? "attribute" : "skill",
   };
 }
 
@@ -510,6 +535,23 @@ const SHEET_NAMES_MAX = 40;
  * it is printed into. The list is bounded for the same reason.
  */
 export function buildGameSkillModifierView(context: SkillCheckModifierContext): GameSkillModifierView {
+  if (context.ruleset) {
+    // A ruleset's ids are already placeholder-safe and its own to spell: skills and saves by id,
+    // abilities by short label or id, and PROF when the ruleset has a proficiency bonus.
+    const { sheet, resolution } = context.ruleset.definition;
+    // A pool ruleset resolves none of them, so it advertises none: a name the prompt offers and
+    // the resolver then refuses is worse than a block that never mentions sheet modifiers.
+    if (resolution.kind === "dice-pool") return { skills: [], attributes: [] };
+    const advertised = (names: string[]) =>
+      names.filter((name) => name.length <= SHEET_NAME_MAX && isRollPlaceholderName(name)).slice(0, SHEET_NAMES_MAX);
+    return {
+      skills: advertised([...sheet.skills, ...sheet.saves].map((entry) => entry.id)),
+      attributes: advertised([
+        ...sheet.abilities.map((ability) => ability.short ?? ability.id),
+        ...(resolution.proficiency ? ["PROF"] : []),
+      ]),
+    };
+  }
   const skills: string[] = [];
   for (const [name, value] of Object.entries(context.skills ?? {})) {
     const trimmed = typeof name === "string" ? name.trim() : "";

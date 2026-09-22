@@ -10,6 +10,16 @@ There is no New Draft action and there are no import controls in this section. A
 
 To write and import your own package, use the [Personal Extension authoring guide](writing-personal-extensions.md). Self-authored packages use the separately gated External Extensions flow.
 
+## Estimate text tokens
+
+Browser, Full page access, and Server Personal Extensions can use Marinara's built-in text token estimator:
+
+```js
+const tokens = marinara.estimateTextTokens(text);
+```
+
+The signature is `estimateTextTokens(text: string): number`, also described by the exported `PersonalExtensionTokenApi` type in `@marinara-engine/shared`. The call is synchronous, needs no extra capability, and returns Marinara's model-agnostic estimated token count rather than an exact tokenizer result. On older Engines, check `typeof marinara.estimateTextTokens === "function"` before calling it.
+
 ## Review and enable
 
 Every draft starts disabled. Marinara fingerprints the exact executable code with SHA-256. Open the draft, inspect the code, compare the displayed hash, then choose **Review and Run** only if you accept that exact version. Any executable edit or restored revision disables the extension and requires a fresh approval.

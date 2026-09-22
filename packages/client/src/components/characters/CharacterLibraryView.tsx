@@ -46,7 +46,10 @@ const libraryToolbarFieldClass = "mari-chrome-field h-10 w-full text-[0.75rem] m
 
 type CharacterRow = CharacterCatalogEntry;
 
-type ParsedCharacterRow = Pick<CharacterRow, "id" | "comment" | "avatarPath" | "createdAt" | "updatedAt"> & {
+type ParsedCharacterRow = Pick<
+  CharacterRow,
+  "id" | "comment" | "avatarPath" | "createdAt" | "updatedAt" | "tokenEstimate"
+> & {
   parsed: Partial<CharacterData> & {
     extensions?: Record<string, unknown>;
   };
@@ -183,7 +186,7 @@ function toCharacterLibraryCard(char: ParsedCharacterRow): LibraryCard {
     createdAt: char.createdAt,
     updatedAt: char.updatedAt,
     tags: getCharacterTags(char),
-    tokenEstimate: estimateCharacterCardTokens(char.parsed),
+    tokenEstimate: char.tokenEstimate ?? estimateCharacterCardTokens(char.parsed),
     favorite: !!char.parsed.extensions?.fav,
     creatorNotes: getText(char.parsed.creator_notes),
     hasExplicitSummary: Boolean(getText(char.parsed.summary)),

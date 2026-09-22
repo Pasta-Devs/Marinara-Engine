@@ -62,6 +62,7 @@ import {
   type ConnectionTransferRow,
 } from "../../lib/connection-transfer";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
+import { AtlasCloudModelOptions } from "./AtlasCloudModelOptions";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsCheckbox, SettingsSwitch } from "../panels/settings/SettingControls";
 import {
@@ -389,6 +390,7 @@ export function ConnectionEditor() {
   const [videoDefaultsExpanded, setVideoDefaultsExpanded] = useState(false);
 
   // Test results
+  const testScopeRef = useRef(0);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; latencyMs: number } | null>(null);
   const [msgResult, setMsgResult] = useState<{
     success: boolean;
@@ -530,12 +532,18 @@ export function ConnectionEditor() {
     setVideoDefaultsExpanded(!!storedVideoDefaults);
     setDirty(false);
     setSaveError(null);
+  }, [conn]);
+
+  // Saving before a test refetches `conn`; that hydration can finish after the test.
+  // Clear results when changing the selected connection, not on its save/refetch.
+  useEffect(() => {
+    testScopeRef.current++;
     setTestResult(null);
     setMsgResult(null);
     setImgTestResult(null);
     setVidTestResult(null);
     setClaudeDiagResult(null);
-  }, [conn]);
+  }, [connectionDetailId]);
 
   const comfyWorkflowValidation = useMemo(() => {
     const wf = localComfyuiWorkflow;
@@ -652,29 +660,31 @@ export function ConnectionEditor() {
         ? { label: "Get your Venice API key", url: "https://venice.ai/settings/api" }
         : localProvider === "image_generation" && selectedImageService === "zai"
           ? { label: t("connections.mediaSources.zai.apiKeyLink"), url: "https://z.ai/manage-apikey/apikey-list" }
-          : (localProvider === "image_generation" && selectedImageService === "atlas") ||
-              (localProvider === "video_generation" && selectedVideoDefaultsService === "atlas")
-            ? {
-                label: t("connections.mediaSources.atlas.apiKeyLink"),
-                url: "https://www.atlascloud.ai/user/api-keys",
-              }
-            : localProvider === "video_generation" && selectedVideoDefaultsService === "xai"
-              ? API_KEY_LINKS.xai
-              : localProvider === "video_generation" && selectedVideoDefaultsService === "openrouter"
-                ? selectedVideoProvider === "nanogpt"
-                  ? API_KEY_LINKS.nanogpt
-                  : API_KEY_LINKS.openrouter
-                : localProvider === "video_generation" && selectedVideoDefaultsService === "seedance"
-                  ? { label: "Open Seedance API docs", url: "https://seedance2.ai/api-docs" }
-                  : localProvider === "video_generation" &&
-                      (selectedVideoProvider === "comfyui" || selectedVideoProvider === "swarmui")
-                    ? undefined
-                    : localProvider === "zai"
-                      ? {
-                          label: t("connections.mediaSources.zai.apiKeyLink"),
-                          url: "https://z.ai/manage-apikey/apikey-list",
-                        }
-                      : API_KEY_LINKS[localProvider];
+          : localProvider === "image_generation" && selectedImageService === "fal"
+            ? { label: t("connections.mediaSources.fal.apiKeyLink"), url: "https://fal.ai/dashboard/keys" }
+            : (localProvider === "image_generation" && selectedImageService === "atlas") ||
+                (localProvider === "video_generation" && selectedVideoDefaultsService === "atlas")
+              ? {
+                  label: t("connections.mediaSources.atlas.apiKeyLink"),
+                  url: "https://www.atlascloud.ai/user/api-keys",
+                }
+              : localProvider === "video_generation" && selectedVideoDefaultsService === "xai"
+                ? API_KEY_LINKS.xai
+                : localProvider === "video_generation" && selectedVideoDefaultsService === "openrouter"
+                  ? selectedVideoProvider === "nanogpt"
+                    ? API_KEY_LINKS.nanogpt
+                    : API_KEY_LINKS.openrouter
+                  : localProvider === "video_generation" && selectedVideoDefaultsService === "seedance"
+                    ? { label: "Open Seedance API docs", url: "https://seedance2.ai/api-docs" }
+                    : localProvider === "video_generation" &&
+                        (selectedVideoProvider === "comfyui" || selectedVideoProvider === "swarmui")
+                      ? undefined
+                      : localProvider === "zai"
+                        ? {
+                            label: t("connections.mediaSources.zai.apiKeyLink"),
+                            url: "https://z.ai/manage-apikey/apikey-list",
+                          }
+                        : API_KEY_LINKS[localProvider];
 
   useEffect(() => {
     if (localProvider !== "image_generation" || !selectedImageDefaultsService) {
@@ -812,7 +822,9 @@ export function ConnectionEditor() {
       maxRequestsPerMinute: localMaxRequestsPerMinute,
       enableCaching: localEnableCaching,
       anthropicExtendedCacheTtl:
-        localProvider === "anthropic" && localEnableCaching ? localAnthropicExtendedCacheTtl : false,
+        (localProvider === "anthropic" && localEnableCaching) || localProvider === "claude_subscription"
+          ? localAnthropicExtendedCacheTtl
+          : false,
       cachingAtDepth: localCachingAtDepth,
       defaultForAgents: localDefaultForAgents,
       embeddingModel: supportsDirectEmbeddings ? localEmbeddingModel : existingEmbeddingModel,
@@ -1046,6 +1058,10 @@ export function ConnectionEditor() {
       promptPresetId: !isMediaProvider ? localPromptPresetId || null : null,
       defaultParameters,
       enableCaching: localEnableCaching,
+      anthropicExtendedCacheTtl:
+        (localProvider === "anthropic" && localEnableCaching) || localProvider === "claude_subscription"
+          ? localAnthropicExtendedCacheTtl
+          : false,
       cachingAtDepth: localCachingAtDepth,
       defaultForAgents: localDefaultForAgents,
       embeddingModel: supportsDirectEmbeddings ? localEmbeddingModel : existingEmbeddingModel,
@@ -1097,6 +1113,7 @@ export function ConnectionEditor() {
     localImageCaptioningEnabled,
     localImageCaptioningConnectionId,
     localEnableCaching,
+    localAnthropicExtendedCacheTtl,
     localCachingAtDepth,
     localDefaultForAgents,
     localEmbeddingModel,
@@ -1124,6 +1141,7 @@ export function ConnectionEditor() {
 
   const handleTestConnection = useCallback(async () => {
     if (!connectionDetailId) return;
+    const requestScope = testScopeRef.current;
     // Save first if dirty, and wait for it to complete
     if (dirty) {
       try {
@@ -1132,16 +1150,29 @@ export function ConnectionEditor() {
         return;
       }
     }
+    if (testScopeRef.current !== requestScope) return;
     setTestResult(null);
     testConnection.mutate(connectionDetailId, {
-      onSuccess: (data) => setTestResult(data as { success: boolean; message: string; latencyMs: number }),
-      onError: (err) =>
-        setTestResult({ success: false, message: err instanceof Error ? err.message : "Failed", latencyMs: 0 }),
+      onSuccess: (data) => {
+        if (testScopeRef.current !== requestScope) return;
+        setTestResult({
+          ...data,
+          message:
+            selectedImageService === "fal" && data.success
+              ? t("connections.mediaSources.fal.configured")
+              : data.message,
+        });
+      },
+      onError: (err) => {
+        if (testScopeRef.current !== requestScope) return;
+        setTestResult({ success: false, message: err instanceof Error ? err.message : "Failed", latencyMs: 0 });
+      },
     });
-  }, [connectionDetailId, dirty, handleSave, testConnection]);
+  }, [connectionDetailId, dirty, handleSave, testConnection, selectedImageService, t]);
 
   const handleTestMessage = useCallback(async () => {
     if (!connectionDetailId) return;
+    const requestScope = testScopeRef.current;
     if (dirty) {
       try {
         await handleSave();
@@ -1149,22 +1180,28 @@ export function ConnectionEditor() {
         return;
       }
     }
+    if (testScopeRef.current !== requestScope) return;
     setMsgResult(null);
     testMessage.mutate(connectionDetailId, {
-      onSuccess: (data) =>
-        setMsgResult(data as { success: boolean; response: string; latencyMs: number; error?: string }),
-      onError: (err) =>
+      onSuccess: (data) => {
+        if (testScopeRef.current !== requestScope) return;
+        setMsgResult(data as { success: boolean; response: string; latencyMs: number; error?: string });
+      },
+      onError: (err) => {
+        if (testScopeRef.current !== requestScope) return;
         setMsgResult({
           success: false,
           response: "",
           latencyMs: 0,
           error: err instanceof Error ? err.message : "Failed",
-        }),
+        });
+      },
     });
   }, [connectionDetailId, dirty, handleSave, testMessage]);
 
   const handleDiagnoseClaudeSubscription = useCallback(async () => {
     if (!connectionDetailId) return;
+    const requestScope = testScopeRef.current;
     if (dirty) {
       try {
         await handleSave();
@@ -1172,10 +1209,15 @@ export function ConnectionEditor() {
         return;
       }
     }
+    if (testScopeRef.current !== requestScope) return;
     setClaudeDiagResult(null);
     diagnoseClaudeSubscription.mutate(connectionDetailId, {
-      onSuccess: (data) => setClaudeDiagResult(data),
-      onError: (err) =>
+      onSuccess: (data) => {
+        if (testScopeRef.current !== requestScope) return;
+        setClaudeDiagResult(data);
+      },
+      onError: (err) => {
+        if (testScopeRef.current !== requestScope) return;
         setClaudeDiagResult({
           success: false,
           requestedModel: localModel,
@@ -1186,12 +1228,14 @@ export function ConnectionEditor() {
           response: "",
           errors: [err instanceof Error ? err.message : "Failed"],
           latencyMs: 0,
-        }),
+        });
+      },
     });
   }, [connectionDetailId, dirty, handleSave, diagnoseClaudeSubscription, localModel]);
 
   const handleTestImage = useCallback(async () => {
     if (!connectionDetailId) return;
+    const requestScope = testScopeRef.current;
     if (dirty) {
       try {
         await handleSave();
@@ -1199,9 +1243,11 @@ export function ConnectionEditor() {
         return;
       }
     }
+    if (testScopeRef.current !== requestScope) return;
     setImgTestResult(null);
     testImageGeneration.mutate(connectionDetailId, {
-      onSuccess: (data) =>
+      onSuccess: (data) => {
+        if (testScopeRef.current !== requestScope) return;
         setImgTestResult(
           data as {
             success: boolean;
@@ -1211,8 +1257,10 @@ export function ConnectionEditor() {
             prompt: string;
             error?: string;
           },
-        ),
-      onError: (err) =>
+        );
+      },
+      onError: (err) => {
+        if (testScopeRef.current !== requestScope) return;
         setImgTestResult({
           success: false,
           base64: null,
@@ -1220,12 +1268,14 @@ export function ConnectionEditor() {
           latencyMs: 0,
           prompt: "",
           error: err instanceof Error ? err.message : "Failed",
-        }),
+        });
+      },
     });
   }, [connectionDetailId, dirty, handleSave, testImageGeneration]);
 
   const handleTestVideo = useCallback(async () => {
     if (!connectionDetailId) return;
+    const requestScope = testScopeRef.current;
     if (dirty) {
       try {
         await handleSave();
@@ -1233,9 +1283,11 @@ export function ConnectionEditor() {
         return;
       }
     }
+    if (testScopeRef.current !== requestScope) return;
     setVidTestResult(null);
     testVideoGeneration.mutate(connectionDetailId, {
-      onSuccess: (data) =>
+      onSuccess: (data) => {
+        if (testScopeRef.current !== requestScope) return;
         setVidTestResult(
           data as {
             success: boolean;
@@ -1245,8 +1297,10 @@ export function ConnectionEditor() {
             prompt: string;
             error?: string;
           },
-        ),
-      onError: (err) =>
+        );
+      },
+      onError: (err) => {
+        if (testScopeRef.current !== requestScope) return;
         setVidTestResult({
           success: false,
           base64: null,
@@ -1254,7 +1308,8 @@ export function ConnectionEditor() {
           latencyMs: 0,
           prompt: "",
           error: err instanceof Error ? err.message : "Failed",
-        }),
+        });
+      },
     });
   }, [connectionDetailId, dirty, handleSave, testVideoGeneration]);
 
@@ -1305,12 +1360,17 @@ export function ConnectionEditor() {
       if (model.isRemote && model.maxOutput) setLocalMaxTokensOverride(Number(model.maxOutput));
       setShowModelDropdown(false);
       setModelSearch("");
+      testScopeRef.current++;
       setDirty(true);
     },
     [localBaseUrl, localProvider, localVideoGenerationSource, localVideoService],
   );
 
-  const markDirty = useCallback(() => setDirty(true), []);
+  const markDirty = useCallback(() => {
+    // A manual configuration edit invalidates in-flight tests; save hydration does not.
+    testScopeRef.current++;
+    setDirty(true);
+  }, []);
 
   const handleManualModelChange = useCallback(
     (model: string) => {
@@ -1833,15 +1893,17 @@ export function ConnectionEditor() {
                             ? t("connections.mediaSources.arli.name")
                             : src.name;
                   const sourceDescription =
-                    src.id === "atlas"
-                      ? t("connections.mediaSources.atlas.imageDescription")
-                      : src.id === "swarmui"
-                        ? t("connections.mediaSources.swarmui.imageDescription")
-                        : src.id === "zai"
-                          ? t("connections.mediaSources.zai.imageDescription")
-                          : src.id === "arli"
-                            ? t("connections.mediaSources.arli.imageDescription")
-                            : src.description;
+                    src.id === "fal"
+                      ? t("connections.mediaSources.fal.imageDescription")
+                      : src.id === "atlas"
+                        ? t("connections.mediaSources.atlas.imageDescription")
+                        : src.id === "swarmui"
+                          ? t("connections.mediaSources.swarmui.imageDescription")
+                          : src.id === "zai"
+                            ? t("connections.mediaSources.zai.imageDescription")
+                            : src.id === "arli"
+                              ? t("connections.mediaSources.arli.imageDescription")
+                              : src.description;
                   return (
                     <button
                       key={src.id}
@@ -1857,6 +1919,9 @@ export function ConnectionEditor() {
                         }
                         if (src.id === "zai" && !ZAI_IMAGE_MODELS.some((model) => model.id === localModel.trim())) {
                           setLocalModel("glm-image");
+                        }
+                        if (src.id === "fal" && selectedImageService !== "fal") {
+                          setLocalModel("fal-ai/flux/schnell");
                         }
                         markDirty();
                       }}
@@ -2525,6 +2590,7 @@ export function ConnectionEditor() {
             <VideoGenerationDefaultsPanel
               value={localVideoDefaults}
               source={selectedVideoProvider}
+              model={localModel}
               remoteLoras={remoteLoras}
               expanded={videoDefaultsExpanded}
               onExpandedChange={setVideoDefaultsExpanded}
@@ -2965,6 +3031,23 @@ export function ConnectionEditor() {
             </FieldGroup>
           )}
 
+          {isClaudeSubscriptionProvider && (
+            <FieldGroup
+              label={localizeUi("ui.connections.connectioneditor.promptCaching")}
+              icon={<Zap size="0.875rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />}
+            >
+              <SettingsSwitch
+                label={localizeUi("ui.connections.connectioneditor.extendedTokenCaching1Hour")}
+                description={localizeUi("ui.connections.connectioneditor.subscriptionExtendedCacheDescription")}
+                checked={localAnthropicExtendedCacheTtl}
+                onChange={(checked) => {
+                  setLocalAnthropicExtendedCacheTtl(checked);
+                  markDirty();
+                }}
+              />
+            </FieldGroup>
+          )}
+
           {/* ── Claude (Subscription) — Fast Mode toggle ── */}
           {isClaudeSubscriptionProvider && (
             <FieldGroup
@@ -3218,7 +3301,9 @@ export function ConnectionEditor() {
 
             <p className="text-[0.625rem] text-[var(--muted-foreground)]">
               <strong>{localizeUi("ui.connections.connectioneditor.testConnection")}</strong>{" "}
-              {localizeUi("ui.connections.connectioneditor.verifiesYourApiKeyAgainstTheProviderCatalogOr")}
+              {selectedImageService === "fal"
+                ? t("connections.mediaSources.fal.testHelp")
+                : localizeUi("ui.connections.connectioneditor.verifiesYourApiKeyAgainstTheProviderCatalogOr")}
               {!isMediaGenerationProvider && (
                 <>
                   {" "}
@@ -3894,6 +3979,16 @@ function ImageGenerationDefaultsPanel({
                   className="bg-[var(--card)] px-3 py-2 ring-1 ring-[var(--border)]"
                   labelClassName="text-[var(--foreground)]"
                 />
+                {source === "swarmui" && (
+                  <SettingsCheckbox
+                    label={localizeUi("connections.mediaSources.swarmui.saveToBackend")}
+                    description={localizeUi("connections.mediaSources.swarmui.saveToBackendHelp")}
+                    checked={comfyui.saveToBackend === true}
+                    onChange={(checked) => updateComfyUi({ saveToBackend: checked })}
+                    className="bg-[var(--card)] px-3 py-2 ring-1 ring-[var(--border)]"
+                    labelClassName="text-[var(--foreground)]"
+                  />
+                )}
                 <ComfyUiLoraSettings
                   idPrefix="image-comfyui"
                   value={comfyui.loras}
@@ -4054,6 +4149,7 @@ function TextSetting({
 function VideoGenerationDefaultsPanel({
   value,
   source,
+  model,
   remoteLoras,
   expanded,
   onExpandedChange,
@@ -4062,6 +4158,8 @@ function VideoGenerationDefaultsPanel({
 }: {
   value: VideoGenerationDefaultsProfile;
   source: string;
+  /** The connection's model field; Atlas Cloud options are stored per model. */
+  model: string;
   remoteLoras: RemoteConnectionModel[];
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
@@ -4139,6 +4237,8 @@ function VideoGenerationDefaultsPanel({
       openrouter: { ...value.openrouter, ...patch },
     });
   };
+  // An empty model field means the server falls back to the Atlas Cloud default model.
+  const atlasModel = model.trim() || DEFAULT_VIDEO_MODELS.atlas;
   const updateAtlas = (patch: Partial<VideoGenerationDefaultsProfile["atlas"]>) => {
     onChange({
       ...value,
@@ -4349,6 +4449,19 @@ function VideoGenerationDefaultsPanel({
                     </select>
                   </label>
                 </div>
+                {service === "atlas" && (
+                  <AtlasCloudModelOptions
+                    model={atlasModel}
+                    value={value.atlas.modelOptions[atlasModel] ?? {}}
+                    onChange={(options) => {
+                      const { [atlasModel]: _previous, ...otherModels } = value.atlas.modelOptions;
+                      updateAtlas({
+                        modelOptions:
+                          Object.keys(options).length > 0 ? { ...otherModels, [atlasModel]: options } : otherModels,
+                      });
+                    }}
+                  />
+                )}
                 {service === "comfyui" && (
                   <ComfyUiLoraSettings
                     idPrefix="video-comfyui"

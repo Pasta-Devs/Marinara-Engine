@@ -163,7 +163,7 @@ function isOptionalNumber(value: unknown, min: number, max: number): boolean {
 }
 
 function isOptionalCap(value: unknown): boolean {
-  return value === undefined || value === null || (isValidNumber(value, 1, 8) && Number.isInteger(value));
+  return value === undefined || value === null || (typeof value === "number" && Number.isInteger(value) && value >= 1);
 }
 
 function isOptionalString(value: unknown): boolean {

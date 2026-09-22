@@ -1575,6 +1575,15 @@ export function HomeBrowserHub({
   onOpenCredits,
 }: HomeBrowserHubProps) {
   const { t, i18n } = useTranslation();
+  const installedChannel = useQuery<{ channel: "stable" | "staging" }>({
+    queryKey: ["update-channel"],
+    queryFn: () => api.get("/updates/channel"),
+    staleTime: 30_000,
+  });
+  const versionLabel = t(
+    installedChannel.data?.channel === "staging" ? "home.browser.stagingVersion" : "home.browser.version",
+    { version: APP_VERSION },
+  );
   const queryClient = useQueryClient();
   const customWidgetsQuery = useQuery({
     queryKey: ["home-custom-widgets"],
@@ -2236,7 +2245,7 @@ export function HomeBrowserHub({
               <div className="hidden min-w-0 sm:block">
                 <MarinaraWordmark className="block text-xs leading-none" />
                 <span className="mt-0.5 block text-[0.5rem] font-semibold tracking-[0.14em] text-[var(--muted-foreground)]">
-                  {t("home.browser.version", { version: APP_VERSION })}
+                  {versionLabel}
                 </span>
               </div>
             </div>
@@ -2647,7 +2656,7 @@ export function HomeBrowserHub({
                       />
                       <MarinaraWordmark className="block truncate text-[clamp(1.35rem,1.9vw,2.15rem)] leading-none" />
                       <span className="mt-1 block text-[0.5625rem] font-semibold tracking-[0.14em] text-[var(--muted-foreground)]">
-                        {t("home.browser.version", { version: APP_VERSION })}
+                        {versionLabel}
                       </span>
                     </div>
                     <h1 className="mt-1.5 text-[clamp(1.15rem,1.6vw,1.7rem)] font-black tracking-tight text-[var(--foreground)]">

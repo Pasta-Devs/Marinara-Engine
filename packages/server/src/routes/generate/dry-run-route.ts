@@ -27,6 +27,7 @@ import { prepareAdvancedMemoryContext } from "../../services/generation/advanced
 import {
   ADVANCED_MEMORY_MARKER_TYPES,
   createAdvancedMemoryPlacement,
+  resolveAdvancedMemoryPrompt,
   type AdvancedMemoryPlacement,
 } from "../../services/prompt/advanced-memory-prompt.js";
 import { createConnectionsStorage } from "../../services/storage/connections.storage.js";
@@ -123,10 +124,24 @@ import {
 import { buildGenerationPromptPresetCandidates, type PromptPresetCandidateSource } from "./prompt-preset-selection.js";
 import { CONVERSATION_NO_REPEAT_INSTRUCTION } from "./conversation-prompt-formatting.js";
 import { createGameStateStorage, type GameStateVisibleAnchor } from "../../services/storage/game-state.storage.js";
-import { buildCommittedTrackerContextBlock } from "../../services/generation/committed-tracker-context.js";
+import {
+  buildCommittedTrackerContextBlock,
+  injectCommittedTrackerContext,
+  COMMITTED_TRACKER_AGENT_TYPES,
+} from "../../services/generation/committed-tracker-context.js";
+import {
+  buildRuntimeAgentSectionEligibleTypes,
+  makeRuntimeAgentSectionTokens,
+  replaceRuntimeAgentSection,
+  clearUnusedRuntimeAgentSections,
+  type RuntimeAgentSectionTokens,
+} from "../../services/generation/runtime-agent-sections.js";
 import { loadPriorBeholderState } from "../../services/agents/beholder-state.js";
 import { logger } from "../../lib/logger.js";
 import { resolveGameGmPromptTemplate } from "../../services/generation/game-gm-prompt-runtime.js";
+
+import { injectCapabilityContexts } from "../../services/generation/capability-prompt-runtime.js";
+import { getCapabilityPromptContextPackageIds } from "../../services/capability-packages/capability-prompt-context.service.js";
 
 type WrapFormat = "xml" | "markdown" | "none";
 type DryRunPromptMessage = {
@@ -208,23 +223,6 @@ function formatTrackersContextBlock(args: {
     chatMetadata: args.chatMeta,
     wrapFormat: args.wrapFormat,
   });
-}
-
-function injectTrackerContext(
-  finalMessages: DryRunPromptMessage[],
-  contextBlock: string,
-  placement: "append" | "beforeLastHistoryMessage",
-): DryRunPromptMessage[] {
-  const trackerMessage = { role: "user" as const, content: contextBlock, contextKind: "injection" as const };
-
-  if (placement === "append") {
-    finalMessages.push(trackerMessage);
-    return finalMessages;
-  }
-
-  dedupeLastMessageWrappers(finalMessages);
-  finalMessages.splice(findTrackerContextInsertIndex(finalMessages), 0, trackerMessage);
-  return finalMessages;
 }
 
 function wrapConversationHistoryAndLastMessageInPlace(
@@ -614,7 +612,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     const chatMode = (chat.mode as string) ?? "roleplay";
     const advancedMemorySettings = normalizeAdvancedMemorySettings(chatMeta.advancedMemory);
     const advancedMemoryEnabled = chatMode === "roleplay" && advancedMemorySettings.enabled;
-    const advancedMemoryService = advancedMemoryEnabled ? createAdvancedMemoryService(app.db) : null;
+    // Prompt inspection previews the main reply; auxiliary dry-run generations
+    // (including extension/agent calls) never perform or receive Advanced Recall.
+    const advancedMemoryService = advancedMemoryEnabled && returnPrompt ? createAdvancedMemoryService(app.db) : null;
     let advancedMemoryPlacements: AdvancedMemoryPlacement[] = [];
     const dryRunActiveAgentIds = Array.isArray(chatMeta.activeAgentIds) ? (chatMeta.activeAgentIds as string[]) : [];
     const dryRunChatEnableAgents = shouldEnableAgentsForGeneration({
@@ -773,6 +773,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
     // Build prompt messages
     let finalMessages: DryRunPromptMessage[] = [];
+    const trackerSectionTokens = new Map<string, RuntimeAgentSectionTokens>();
+    const runtimeAgentSectionTypes = new Set<string>();
     let wrapFormat: WrapFormat = "xml";
 
     // Optional: fine-grained prompt assembly (server-side) for extensions.
@@ -805,7 +807,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       (promptGroupResponseOrder !== "manual" || chatMode === "conversation") &&
       !impersonate;
     const audienceCharacterIds = impersonate ? [] : promptTargetCharacterId ? [promptTargetCharacterId] : characterIds;
-    if (advancedMemoryService) {
+    if (advancedMemoryEnabled) {
       const allowedIds = new Set(
         selectAdvancedMemoryMessages(
           advancedMemorySourceMessages,
@@ -1382,6 +1384,35 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         presets.listChoiceBlocksForPreset(effectivePresetId),
       ]);
 
+      const eligibleTypes = buildRuntimeAgentSectionEligibleTypes({
+        enableAgents: dryRunChatEnableAgents,
+        activeAgentIds: dryRunActiveAgentIds,
+        chatMode: chatMode as "roleplay" | "conversation" | "game",
+        configuredAgents: (await createAgentsStorage(app.db).list()).filter(
+          (agent) => !isAgentConfigDeleted(agent.settings),
+        ),
+      });
+      const packageIds = new Set(getCapabilityPromptContextPackageIds());
+      for (const section of sections) {
+        if (section.enabled !== "true" || section.isMarker !== "true" || !section.markerConfig) continue;
+        try {
+          const marker = JSON.parse(section.markerConfig) as { type?: string; agentType?: string };
+          const id = marker.agentType;
+          if (marker.type !== "agent_data" || !id || !eligibleTypes.has(id)) continue;
+          runtimeAgentSectionTypes.add(id);
+          if (!packageIds.has(id) && !(resolvedInjectTrackers && COMMITTED_TRACKER_AGENT_TYPES.has(id))) continue;
+          trackerSectionTokens.set(id, makeRuntimeAgentSectionTokens(id, `preview_${crypto.randomUUID()}`));
+        } catch {
+          /* Ignore malformed marker config, as generation does. */
+        }
+      }
+      const runtimeAgentData = Object.fromEntries(
+        [...trackerSectionTokens].map(([id, tokens]) => [
+          id,
+          { text: tokens.placeholder, startToken: tokens.start, endToken: tokens.end },
+        ]),
+      );
+
       const assemblerInput: AssemblerInput = {
         model: conn.model,
         deferMessagePostProcessing: true,
@@ -1412,6 +1443,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         chatMessages: mappedMessages,
         chatSummary: resolvedInjectChatSummary ? activeChatSummary : null,
         ...(advancedMemoryEnabled ? { advancedMemory: {}, deferAdvancedMemory: true } : {}),
+        runtimeAgentData,
         enableAgents: false,
         activeAgentIds: [],
         activeLorebookIds: resolvedInjectLorebook
@@ -1496,6 +1528,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     if (!finalMessages.length) {
       // No (or skipped) preset: fall back to raw mapped messages without any agent/tool behavior.
       finalMessages = mappedMessages.map((m: any) => ({
+        id: m.id,
         role: m.role,
         content: m.content,
         ...(m.contextKind ? { contextKind: m.contextKind } : {}),
@@ -1678,18 +1711,38 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         await loadLatestGameSnapshot(app, chatId, visibleGameStateAnchor, regenerateMessageId),
         ownerSpatialProjection,
       );
-      const contextBlock = formatTrackersContextBlock({
+      injectCommittedTrackerContext({
+        messages: finalMessages,
         wrapFormat,
-        snap,
+        latestGameState: snap,
         beholderState: dryRunBeholderState,
-        chatMeta,
+        chatMetadata: chatMeta,
         chatEnableAgents: dryRunChatEnableAgents,
         activeAgentIds: dryRunActiveAgentIds,
+        placeSection: (agentType, content) => {
+          const tokens = trackerSectionTokens.get(agentType);
+          return !!tokens && replaceRuntimeAgentSection(finalMessages, tokens, content);
+        },
+        dedupeLastMessageWrappers,
+        findTrackerContextInsertIndex,
       });
-      if (contextBlock) {
-        finalMessages = injectTrackerContext(finalMessages, contextBlock, "beforeLastHistoryMessage");
-      }
     }
+
+    await injectCapabilityContexts(
+      finalMessages,
+      {
+        chatId,
+        chatMeta,
+        mode: chatMode,
+        targetCharacterIds: promptTargetCharacterId ? [promptTargetCharacterId] : characterIds,
+        personaId,
+        placedAgentTypes: [...runtimeAgentSectionTypes],
+        wrapFormat,
+      },
+      app.db,
+      trackerSectionTokens,
+    );
+    clearUnusedRuntimeAgentSections(finalMessages, trackerSectionTokens);
 
     // ── Impersonate: same instruction block as POST /api/generate (no DB writes) ──
     if (impersonate) {
@@ -1869,6 +1922,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     };
 
     let advancedContext: Awaited<ReturnType<typeof prepareAdvancedMemoryContext>> | null = null;
+    if (!advancedMemoryService)
+      finalMessages = resolveAdvancedMemoryPrompt(finalMessages, advancedMemoryPlacements, {});
     try {
       if (advancedMemoryService) {
         advancedContext = await prepareAdvancedMemoryContext({

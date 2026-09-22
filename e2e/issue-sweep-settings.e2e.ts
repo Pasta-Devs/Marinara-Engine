@@ -129,3 +129,57 @@ for (const mode of ["conversation", "roleplay"] as const) {
     }
   });
 }
+
+for (const theme of ["dark", "light"] as const) {
+  test(`Game Assets search reaches existing controls (${theme})`, async ({ page }, testInfo) => {
+    await seedUIState(page, {
+      theme,
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: true,
+      rightPanel: "settings",
+      settingsTab: "general",
+    });
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
+    await page.goto("/");
+    await page.getByPlaceholder("Search settings").fill("assets");
+    await page.locator(".mari-settings-search-header button").filter({ hasText: "Game Assets" }).first().click();
+    const section = page.locator("#settings-section-game-assets");
+    await expect(section).toBeInViewport();
+    await expect(section.getByRole("button", { name: "Asset Browser", exact: true })).toBeVisible();
+    await expect(section.getByRole("button", { name: "Rescan", exact: true })).toBeVisible();
+    await expect(section.locator('input[type="file"]')).toHaveCount(1);
+    await testInfo.attach(`assets-${theme}`, { body: await page.screenshot(), contentType: "image/png" });
+    await section.getByRole("button", { name: "Asset Browser", exact: true }).click();
+    if (testInfo.project.name.includes("mobile"))
+      await page.getByRole("button", { name: "Search in folder", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Search in folder", exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  });
+
+  for (const channel of ["stable", "staging"] as const) {
+    test(`Home identifies the installed ${channel} channel (${theme})`, async ({ page }, testInfo) => {
+      await seedUIState(page, {
+        theme,
+        hasCompletedOnboarding: true,
+        sidebarOpen: false,
+        rightPanelOpen: false,
+      });
+      await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+      await page.route("**/api/updates/channel", (route) => route.fulfill({ json: { channel } }));
+      await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
+      await page.goto("/");
+      const label = `v${version}${channel === "staging" ? " (STAGING)" : ""}`;
+      await expect(
+        page.locator('[data-component="HomeBrowserHub.HomePage"]').getByText(label, { exact: true }),
+      ).toBeVisible();
+      const header = page.locator('[data-component="HomeBrowserHub.Brand"]').getByText(label, { exact: true });
+      await expect(header).toHaveCount(1);
+      if (testInfo.project.name === "desktop-chromium") await expect(header).toBeVisible();
+      if (channel === "stable") await expect(page.getByText(/\(STAGING\)/)).toHaveCount(0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+      await testInfo.attach(`home-${channel}-${theme}`, { body: await page.screenshot(), contentType: "image/png" });
+    });
+  }
+}

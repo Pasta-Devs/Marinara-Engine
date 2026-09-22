@@ -279,7 +279,7 @@ try {
     },
     "character-tracker": { presentCharacters: { updates: [{ characterId: "a", mood: "alert" }], removed: ["b"] } },
     "inventory-tracker": { inventory: { updates: [{ name: "Rope", qty: 1, location: "Belt" }], removed: ["Map"] } },
-    "custom-tracker": { fields: { updates: [{ name: "Clue", value: "north" }], removed: ["Mood"] } },
+    "custom-tracker": { updates: [{ name: "Clue", value: "north" }], removed: ["Mood"] },
   };
   const generated = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId: trackerChat.id } });
   assert.equal(generated.statusCode, 200, generated.body);
@@ -342,7 +342,7 @@ try {
     "world-state": { worldCustomFields: { removed: ["Note"] } },
     "character-tracker": { presentCharacters: { removed: ["a"] } },
     "inventory-tracker": { inventory: { removed: ["Rope"] } },
-    "custom-tracker": { fields: { removed: ["Clue"] } },
+    "custom-tracker": { removed: ["Clue"] },
   };
   const retry = async () => {
     const response = await app.inject({

@@ -4,14 +4,22 @@
 import type { LLMToolCall } from "../llm/base-provider.js";
 import { createHash } from "node:crypto";
 import { Worker } from "node:worker_threads";
-import Ajv from "ajv";
-import addFormats from "ajv-formats";
 import {
   getCustomToolTimeoutMs,
   isCustomToolScriptEnabled,
   isWebhookLocalUrlsEnabled,
 } from "../../config/runtime-config.js";
 import { safeFetch } from "../../utils/security.js";
+import {
+  createToolArgumentsAjv,
+  createToolArgumentsValidator,
+  type ToolArgumentsValidator,
+} from "./tool-arguments-validator.js";
+import {
+  executeCapabilityTool,
+  isCapabilityTool,
+  validateCapabilityToolArguments,
+} from "../capability-packages/capability-tool-registry.service.js";
 import { logger } from "../../lib/logger.js";
 import { normalizeSpotifySearchQuery } from "../spotify/spotify.service.js";
 import { buildSpotifyCandidateTokens, normalizeSpotifyText } from "../spotify/spotify-query-tokens.js";
@@ -30,35 +38,7 @@ import {
 type ToolExecutionOutcome =
   | { result: unknown; success: true; httpStatus?: never }
   | { result: unknown; success: false; httpStatus?: number };
-export type ToolArgumentsValidator = (args: Record<string, unknown>) => string | null;
-
-function createToolArgumentsAjv(): Ajv {
-  const ajv = new Ajv({ strict: false });
-  addFormats(ajv);
-  return ajv;
-}
-
-function createToolArgumentsValidator(
-  parametersSchema: Record<string, unknown>,
-  ajv = createToolArgumentsAjv(),
-): ToolArgumentsValidator {
-  const validate = ajv.compile(parametersSchema);
-  if ("$async" in validate && validate.$async === true) {
-    throw new Error("Async tool parameter schemas are not supported");
-  }
-  return (args) => {
-    if (validate(args)) return null;
-    const errors = validate.errors ?? [];
-    const text = ajv.errorsText(errors, { dataVar: "arguments" });
-    // "must be equal to one of the allowed values" does not say which, and the model has to
-    // guess. Name them, so a refusal is something it can act on in the next round.
-    const allowed = errors
-      .filter((error) => error.keyword === "enum")
-      .map((error) => (error.params as { allowedValues?: unknown[] }).allowedValues)
-      .find((values): values is unknown[] => Array.isArray(values) && values.length > 0);
-    return allowed ? `${text} (${allowed.join(", ")})` : text;
-  };
-}
+export type { ToolArgumentsValidator };
 
 export interface ToolExecutionResult {
   toolCallId: string;
@@ -215,6 +195,8 @@ type SpotifyPlayRequestBody = {
 const spotifyTrackIndexCache = new Map<string, SpotifyTrackIndexCacheEntry>();
 
 export interface ToolExecutionContext {
+  /** The chat this call belongs to, so a package tool knows which world it is answering about. */
+  chatId?: string;
   /** Apply the active chat's character attributes before the shared dice service rolls. */
   prepareDiceRoll?: (args: Record<string, unknown>) => Record<string, unknown>;
   gameState?: Record<string, unknown>;
@@ -265,6 +247,10 @@ export async function executeToolCalls(
         }
         outcome = classifyToolExecution(await executeBuiltInTool(call.function.name, parsedArguments, context));
       } else {
+        // Built-in, then custom, then package — the same order tool resolution uses when it decides
+        // which definition the model is shown. A package must lose a name a custom tool already
+        // owns, or the model would be offered the custom tool's schema while the package's handler
+        // quietly ran the call.
         const customTool = context?.customTools?.find((tool) => tool.name === call.function.name);
         if (customTool) {
           const validationError = customTool.validateArguments(parsedArguments);
@@ -272,6 +258,16 @@ export async function executeToolCalls(
             throw new Error(`Invalid arguments for ${call.function.name}: ${validationError}`);
           }
           outcome = await executeCustomTool(customTool, parsedArguments, context);
+        } else if (isCapabilityTool(call.function.name)) {
+          // Validated with the same Ajv the built-ins use, so a model that invents an enum member
+          // is told which ones exist and can correct itself next round.
+          const validationError = validateCapabilityToolArguments(call.function.name, parsedArguments);
+          if (validationError) {
+            throw new Error(`Invalid arguments for ${call.function.name}: ${validationError}`);
+          }
+          outcome = classifyToolExecution(
+            await executeCapabilityTool(call.function.name, parsedArguments, context?.chatId ?? ""),
+          );
         } else {
           outcome = {
             result: {
@@ -506,9 +502,18 @@ function rollDice(args: Record<string, unknown>): Record<string, unknown> {
   const notation = String(args.notation ?? "1d6");
   const reason = String(args.reason ?? "");
 
-  const parsed = parseDiceNotation(notation);
+  let parsed = parseDiceNotation(notation);
   if (!parsed) {
     return { error: `Invalid dice notation: ${notation}`, hint: "Use format like 2d6, d20+5, 3d8-2" };
+  }
+
+  // Arguments were schema-validated before Roleplay added the assigned attribute bonus.
+  const situationalModifier = args.modifier as number | undefined;
+  const dc = args.dc as number | undefined;
+  if (situationalModifier) {
+    const combined = parsed.modifier + situationalModifier;
+    parsed = parseDiceNotation(`${parsed.dice}${combined > 0 ? "+" : ""}${combined || ""}`);
+    if (!parsed) return { error: "The adjusted roll exceeds the supported numeric range." };
   }
 
   // Refuse rather than clamp. A result that quietly rolled 100 dice for a model
@@ -532,7 +537,8 @@ function rollDice(args: Record<string, unknown>): Record<string, unknown> {
     modifier,
     total,
     reason,
-    display: `🎲 ${parsed.notation}${reason ? ` (${reason})` : ""}: [${rolls.join(", ")}]${modifier ? ` ${modifier > 0 ? "+" : ""}${modifier}` : ""} = **${total}**`,
+    ...(dc !== undefined ? { dc, success: total >= dc } : {}),
+    display: `🎲 ${parsed.notation}${reason ? ` (${reason})` : ""}: [${rolls.join(", ")}]${modifier ? ` ${modifier > 0 ? "+" : ""}${modifier}` : ""} = **${total}**${dc !== undefined ? ` (DC ${dc})` : ""}`,
   };
 }
 

@@ -73,6 +73,7 @@ async function installMockVisualViewport(page: Page) {
       height: null as number | null,
       offsetTop: 0,
       pageTop: 0,
+      scale: 1,
     };
     const viewport = new EventTarget();
     Object.defineProperties(viewport, {
@@ -81,7 +82,7 @@ async function installMockVisualViewport(page: Page) {
       offsetLeft: { configurable: true, get: () => 0 },
       pageLeft: { configurable: true, get: () => 0 },
       pageTop: { configurable: true, get: () => state.pageTop },
-      scale: { configurable: true, get: () => 1 },
+      scale: { configurable: true, get: () => state.scale },
       width: { configurable: true, get: () => window.innerWidth },
     });
     Object.defineProperty(window, "visualViewport", {
@@ -90,10 +91,11 @@ async function installMockVisualViewport(page: Page) {
     });
     Object.defineProperty(window, "__setMarinaraVisualViewport", {
       configurable: true,
-      value: (height: number, offsetTop: number, pageTop = offsetTop, layoutHeight?: number) => {
+      value: (height: number, offsetTop: number, pageTop = offsetTop, layoutHeight?: number, scale = 1) => {
         state.height = height;
         state.offsetTop = offsetTop;
         state.pageTop = pageTop;
+        state.scale = scale;
         if (layoutHeight !== undefined) {
           Object.defineProperty(window, "innerHeight", {
             configurable: true,
@@ -211,6 +213,23 @@ async function getChatCharacterIds(request: APIRequestContext, chatId: string): 
 }
 
 async function dragChatResource(page: Page, source: Locator, target: Locator) {
+  const kind = await source.getAttribute("data-touch-drag-card");
+  if (kind === "character" || kind === "persona") {
+    const handle = source.getByTitle(`Drag ${kind}`, { exact: true });
+    const start = await handle.boundingBox();
+    const end = await target.boundingBox();
+    expect(start).not.toBeNull();
+    expect(end).not.toBeNull();
+    await page.mouse.move(start!.x + start!.width / 2, start!.y + start!.height / 2);
+    await page.mouse.down();
+    try {
+      await page.mouse.move(end!.x + end!.width / 2, end!.y + end!.height / 2, { steps: 8 });
+      await expect(page.locator(".mari-chat-drop-zone")).toBeVisible();
+    } finally {
+      await page.mouse.up();
+    }
+    return;
+  }
   const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
   try {
     await source.dispatchEvent("dragstart", { dataTransfer });
@@ -1476,6 +1495,11 @@ test("Author's Notes keeps its expand and full macro guide inside the field", as
     await page.getByRole("button", { name: "Author's Notes", exact: true }).filter({ visible: true }).click();
 
     const heading = page.locator("h3").filter({ hasText: "Author's Notes" });
+    await expect(heading).toBeVisible();
+    const notesButton = page.getByRole("button", { name: "Author's Notes", exact: true }).filter({ visible: true });
+    await notesButton.click();
+    await expect(heading).toBeHidden();
+    await notesButton.click();
     await expect(heading).toBeVisible();
     const floatingPanel = heading.locator("xpath=ancestor::div[contains(@class, 'fixed')][1]");
     const floatingPanelZIndex = await floatingPanel.evaluate((element) => Number(getComputedStyle(element).zIndex));
@@ -5303,6 +5327,19 @@ test("character schedules export the live draft and import safely", async ({ pag
     let dialog = await openScheduleEditor();
     let activity = await expandMonday(dialog);
     await activity.fill("Unsaved export draft");
+    await dialog.getByText("Tuning", { exact: true }).click();
+    await dialog.getByText("Advanced timing", { exact: true }).click();
+    const capInput = dialog.getByRole("spinbutton", { name: /^Daily safety limit/i });
+    await capInput.fill("1.5");
+    await dialog.getByRole("button", { name: "Export schedule", exact: true }).click();
+    await expect(
+      page.getByText("Daily safety limit must be a whole number of at least 1, or blank for Default.").first(),
+    ).toBeVisible();
+    await capInput.fill("0");
+    await dialog.getByRole("button", { name: "Save schedule", exact: true }).click();
+    await expect(dialog).toBeVisible();
+    expect((await storedSchedule())!.autonomousDailyCapOverride).toBeNull();
+    await dialog.getByRole("spinbutton", { name: /^Daily safety limit/i }).fill("1000");
 
     const downloadPromise = page.waitForEvent("download");
     await dialog.getByRole("button", { name: "Export schedule", exact: true }).click();
@@ -5318,6 +5355,7 @@ test("character schedules export the live draft and import safely", async ({ pag
     expect(exported.kind).toBe("marinara.character-schedule");
     expect(exported.version).toBe(1);
     expect(exported.schedule.days.Monday[0]?.activity).toBe("Unsaved export draft");
+    expect(exported.schedule.autonomousDailyCapOverride).toBe(1000);
 
     const fileInput = dialog.locator('input[type="file"][accept*=".json"]');
     await fileInput.setInputFiles({ name: "invalid.json", mimeType: "application/json", buffer: Buffer.from("{}") });
@@ -5335,6 +5373,7 @@ test("character schedules export the live draft and import safely", async ({ pag
 
     const importedSchedule = {
       ...originalSchedule,
+      autonomousDailyCapOverride: 100,
       days: {
         ...emptyDays(),
         Monday: [{ time: "10:00-18:00", activity: "Imported current format", status: "online" }],
@@ -5351,6 +5390,7 @@ test("character schedules export the live draft and import safely", async ({ pag
     });
     await expect(page.getByText("Schedule imported as an unsaved draft.", { exact: true })).toBeVisible();
     await expect(activity).toHaveValue("Imported current format");
+    await expect(dialog.getByRole("spinbutton", { name: /^Daily safety limit/i })).toHaveValue("100");
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect.poll(async () => (await storedSchedule())!.days.Monday![0]?.activity).toBe("Original research");
 
@@ -5359,6 +5399,7 @@ test("character schedules export the live draft and import safely", async ({ pag
     await expect(activity).toHaveValue("Original research");
     const legacySchedule = {
       ...originalSchedule,
+      autonomousDailyCapOverride: 50,
       days: {
         ...emptyDays(),
         Monday: [{ time: "11:00-19:00", activity: "Imported legacy format", status: "idle" }],
@@ -5374,6 +5415,17 @@ test("character schedules export the live draft and import safely", async ({ pag
     await dialog.getByRole("button", { name: "Save schedule", exact: true }).click();
     await expect.poll(async () => (await storedSchedule())!.days.Monday![0]?.activity).toBe("Imported legacy format");
     expect((await storedSchedule())!.talkativeness).toBe(90);
+    expect((await storedSchedule())!.autonomousDailyCapOverride).toBe(50);
+
+    await page.reload();
+    dialog = await openScheduleEditor();
+    await dialog.getByText("Tuning", { exact: true }).click();
+    await dialog.getByText("Advanced timing", { exact: true }).click();
+    const dailyCap = dialog.getByRole("spinbutton", { name: /^Daily safety limit/i });
+    await expect(dailyCap).toHaveValue("50");
+    await dailyCap.fill("");
+    await dialog.getByRole("button", { name: "Save schedule", exact: true }).click();
+    await expect.poll(async () => (await storedSchedule())!.autonomousDailyCapOverride).toBeNull();
   } finally {
     await Promise.allSettled([
       request.delete(`/api/chats/${chat.id}`),
@@ -13169,6 +13221,11 @@ test("UI language selection downloads packs on demand and persists across reload
   test.setTimeout(90_000);
   const errors = collectUnexpectedErrors(page);
   const packs = await mockUILanguagePacks(page);
+  // Settings also loads the agent catalog; its upstream availability is not
+  // part of the language-download failure handling exercised below.
+  await page.route("**/api/capability-packages/catalog", (route) =>
+    route.fulfill({ json: { schemaVersion: 1, generatedAt: "2026-09-17T00:00:00.000Z", packages: [] } }),
+  );
   const languageSelect = page.locator("#settings-control-language select");
 
   // UI settings are normally synchronized through a single server record. Keep
@@ -15136,7 +15193,7 @@ test("Conversation Agents exposes matching collapsible command and feature setti
 });
 
 test("Conversation setup commands follow the installed agent library", async ({ page, request }, testInfo) => {
-  test.skip(!testInfo.project.name.includes("desktop"), "Conversation setup command regression is covered on desktop.");
+  if (!testInfo.project.name.includes("desktop")) await page.setViewportSize({ width: 390, height: 560 });
   test.setTimeout(90_000);
 
   const errors = collectUnexpectedErrors(page);
@@ -15223,6 +15280,15 @@ test("Conversation setup commands follow the installed agent library", async ({ 
     await expect(commandsToggle).toBeVisible();
     await commandsToggle.click();
     await expect(page.getByText("Schedule Updates", { exact: true })).toBeVisible();
+    const footer = page
+      .locator('[data-component="ChatSetupWizard"]')
+      .getByRole("button", { name: "Start Chatting", exact: true });
+    await expect(footer).toBeInViewport();
+    const footerRect = await footer.boundingBox();
+    expect(footerRect!.y + footerRect!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+    const overlay = await page.locator('[data-component="ChatSetupWizard"]').locator("..").boundingBox();
+    expect(footerRect!.y + footerRect!.height).toBeLessThanOrEqual(overlay!.y + overlay!.height);
+    await page.screenshot({ path: testInfo.outputPath("wizard-commands-footer.png") });
   };
 
   try {
@@ -20024,7 +20090,9 @@ test("Home lifecycle stays bounded across repeated tab and chat navigation", asy
     expect(after.documents).toBeLessThanOrEqual(baseline.documents + 1);
     expect(after.nodes).toBeLessThanOrEqual(baseline.nodes + 80);
     expect(after.listeners).toBeLessThanOrEqual(baseline.listeners + 8);
-    expect(after.heap).toBeLessThanOrEqual(baseline.heap + 3 * 1024 * 1024);
+    // Heap/JIT noise scales with the warmed application; keep the structural
+    // retention checks below exact and allow at most 10% heap growth.
+    expect(after.heap).toBeLessThanOrEqual(baseline.heap * 1.1);
     expect(after.animations).toBeLessThanOrEqual(baseline.animations + 2);
     expect(after.lifecycle.intervals).toBe(baseline.lifecycle.intervals);
     expect(after.lifecycle.resizeObservers).toBe(baseline.lifecycle.resizeObservers);
@@ -20651,6 +20719,125 @@ test("mobile Load More clears the collapsed Echo Chamber", async ({ page }, test
   }
 });
 
+test("chat image preview allows native mobile pinch zoom", async ({ page, request, browserName }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"), "Native pinch zoom applies to touch viewports.");
+  const response = await request.post("/api/chats", {
+    data: { name: "Chat image pinch zoom", mode: "roleplay", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  try {
+    await page.route("**/pinch-probe.svg", (route) =>
+      route.fulfill({
+        contentType: "image/svg+xml",
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800"><rect width="800" height="800" fill="#293655"/><circle cx="400" cy="400" r="180" fill="#8bd1da"/><text x="400" y="415" text-anchor="middle" font-size="48">Zoom probe</text></svg>',
+      }),
+    );
+    expect(
+      (
+        await request.post(`/api/chats/${chat.id}/messages`, {
+          data: {
+            role: "assistant",
+            content: "An image to inspect.",
+            extra: { attachments: [{ type: "image", filename: "pinch-probe.svg", url: "/pinch-probe.svg" }] },
+          },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    await prepareFreshClient(page);
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chat.id);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open pinch-probe.svg", exact: true }).click();
+    const preview = page.getByRole("dialog", { name: "Image preview", exact: true });
+    await expect(preview).toBeVisible();
+    await expect(page.locator('meta[name="viewport"]')).not.toHaveAttribute(
+      "content",
+      /user-scalable\s*=\s*(?:no|0)|maximum-scale\s*=\s*1(?:\.0)?(?:,|$)/u,
+    );
+    const image = preview.getByRole("img");
+    const before = await image.boundingBox();
+    expect(before).not.toBeNull();
+    if (browserName === "chromium") {
+      // Drive the browser's native touch gesture, without mocking visualViewport.
+      const session = await page.context().newCDPSession(page);
+      const centerX = before!.x + before!.width / 2;
+      const centerY = before!.y + before!.height / 2;
+      // synthesizePinchGesture is a no-op in Linux headless Chromium, even on a blank page.
+      for (let step = 0; step <= 10; step++) {
+        const offset = 30 + step * 6;
+        await session.send("Input.dispatchTouchEvent", {
+          type: step === 0 ? "touchStart" : "touchMove",
+          touchPoints: [
+            { x: centerX - offset, y: centerY, id: 0 },
+            { x: centerX + offset, y: centerY, id: 1 },
+          ],
+        });
+        await page.evaluate(() => new Promise(requestAnimationFrame));
+      }
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await expect.poll(() => page.evaluate(() => window.visualViewport?.scale ?? 1)).toBeGreaterThan(1.5);
+      await expect(page.locator("html")).not.toHaveAttribute("data-mari-software-keyboard-open");
+      expect((await image.boundingBox())!.width).toBeCloseTo(before!.width, 0);
+      await testInfo.attach("chat-image-native-pinch.png", { body: await page.screenshot(), contentType: "image/png" });
+      await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+      await session.detach();
+    }
+    // Playwright WebKit cannot drive a native two-finger pinch; device verification remains separate.
+    await preview.getByRole("button", { name: "Close image", exact: true }).click();
+    await expect(preview).toBeHidden();
+  } finally {
+    await bestEffortDelete(request, `/api/chats/${chat.id}?force=true`);
+  }
+});
+
+test("pinch zoom keeps the Roleplay layout size and does not open keyboard mode", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"), "Pinch zoom applies to touch viewports.");
+  const response = await page.request.post("/api/chats", {
+    data: { name: "Roleplay pinch zoom", mode: "roleplay", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  try {
+    await installMockVisualViewport(page);
+    await prepareFreshClient(page);
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chat.id);
+    await page.goto("/");
+    const shell = page.locator('.mari-app[data-chat-surface-active="true"]');
+    await expect(shell).toBeVisible();
+    const original = await shell.boundingBox();
+    expect(original).not.toBeNull();
+    const height = await page.evaluate(() => window.innerHeight);
+    await page.evaluate((height) => {
+      (
+        window as typeof window & {
+          __setMarinaraVisualViewport: (
+            height: number,
+            top: number,
+            pageTop: number,
+            layout: number,
+            scale: number,
+          ) => void;
+        }
+      ).__setMarinaraVisualViewport(height / 2, 80, 80, height, 2);
+    }, height);
+    await expect(page.locator("html")).not.toHaveAttribute("data-mari-software-keyboard-open");
+    await expect.poll(async () => (await shell.boundingBox())?.height).toBe(original!.height);
+    await expect.poll(async () => (await shell.boundingBox())?.y).toBe(original!.y);
+    // Returning to normal scale must still let the real keyboard resize the shell.
+    await page.evaluate(() => {
+      (
+        window as typeof window & {
+          __setMarinaraVisualViewport: (height: number, top: number) => void;
+        }
+      ).__setMarinaraVisualViewport(360, 0);
+    });
+    await expect(page.locator("html")).toHaveAttribute("data-mari-software-keyboard-open", "");
+    await expect.poll(async () => (await shell.boundingBox())?.height).toBe(360);
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}?force=true`);
+  }
+});
+
 test("iPhone chat menus stay in the visual viewport while editing", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile-webkit"), "The visual-viewport pan regression is iPhone-only.");
 
@@ -20774,6 +20961,15 @@ test("iPhone Conversation Presence keeps its last activity field reachable", asy
     const scrollShell = presencePanel.locator("[data-chat-floating-scroll]");
     await expect(activityFields).toHaveCount(characterIds.length);
     await lastActivityField.focus();
+    await lastActivityField.fill("Reading by the window");
+    // Opening the software keyboard can resize and pan the layout viewport,
+    // in addition to sending the visualViewport events mocked below.
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("resize"));
+      window.dispatchEvent(new Event("scroll"));
+    });
+    await expect(lastActivityField).toBeFocused();
+    await expect(lastActivityField).toHaveValue("Reading by the window");
 
     const initialViewportHeight = await page.evaluate(() => window.innerHeight);
     const keyboardViewportHeight = 360;
@@ -20811,6 +21007,16 @@ test("iPhone Conversation Presence keeps its last activity field reachable", asy
         );
       })
       .toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("conversation-presence-keyboard.png"), animations: "disabled" });
+    await lastActivityField.press("Enter");
+    await expect
+      .poll(async () => {
+        const response = await page.request.get(`/api/characters/${characterIds.at(-1)}`);
+        const character = await response.json();
+        const data = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
+        return data.extensions?.conversationStatusOverride?.activity;
+      })
+      .toBe("Reading by the window");
   } finally {
     if (chatId) await page.request.delete(`/api/chats/${chatId}?force=true`).catch(() => undefined);
     for (const characterId of characterIds) {

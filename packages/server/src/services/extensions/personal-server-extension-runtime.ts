@@ -23,7 +23,7 @@ import {
   SANDBOX_HOT_POLL_MS,
   SANDBOX_WATCHDOG_INTERVAL_MS,
 } from "./sandbox-protocol.js";
-import type { PersonalExtension } from "@marinara-engine/shared";
+import { getSerializedTextTokenEstimator, type PersonalExtension } from "@marinara-engine/shared";
 
 type ActiveExtension = {
   id: string;
@@ -614,6 +614,7 @@ export class PersonalServerExtensionRuntime {
       name: extension.name,
       contentHash: extension.contentHash,
       source: extension.serverJs,
+      tokenEstimatorSource: getSerializedTextTokenEstimator(),
     });
     const timeout = new Promise<never>((_, reject) => {
       const timer = setTimeout(

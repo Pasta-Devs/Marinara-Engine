@@ -715,8 +715,31 @@ assert.equal(untouched.sparse, 0);
 // through the error door.
 assert.match(
   generateRoutes,
-  /const rolled = await resolveSkillCheckTagsInContent\(fullResponse, \{[\s\S]*?\}\);\s*const generalRolls = resolveGameDiceRequests\(\s*rolled\.content,\s*toolDiceRollResults,\s*undefined,\s*dicePoolSession \?\? undefined,?\s*\);\s*if \(generalRolls\.content !== fullResponse\) \{/u,
+  // Between the two calls the route may keep what the resolver handed back, such as the purchases a
+  // check paid for, but it may not roll anything else in between and it may not swallow either one.
+  /const rolled = await resolveSkillCheckTagsInContent\(fullResponse, \{[\s\S]*?\}\);(?:[^;]*;){0,3}\s*const generalRolls = resolveGameDiceRequests\(\s*rolled\.content,\s*toolDiceRollResults,\s*undefined,\s*dicePoolSession \?\? undefined,?\s*\);\s*if \(generalRolls\.content !== fullResponse\) \{/u,
   "the resolver's own output decides the frame and the save on both paths",
+);
+
+// Both passes of one turn start from the SAME live sheet state. The check pass spends before the
+// dice are thrown and the sheet pass spends after, so a turn that read "the newest stored row" in
+// one place and "the row this turn follows" in the other would pay twice out of two balances
+// whenever those differ, which is what a regenerate and a swipe are. One reader, used twice.
+assert.match(
+  generateRoutes,
+  /loadSkillCheckModifierContext\(app\.db, input\.chatId, await turnStartRulesetLive\(\)\)/u,
+  "the check pass reads the turn's own starting state, not the newest stored one",
+);
+assert.match(
+  generateRoutes,
+  /withSpends\(await turnStartRulesetLive\(\)\)/u,
+  "and the sheet pass starts from that same state with the check's purchases laid over it",
+);
+assert.equal(
+  generateRoutes.match(/parseStoredRulesetLive\(\(continuedRow \?\? baseGameStateSnapshot\)\?\.rulesetLive\)/gu)
+    ?.length ?? 0,
+  1,
+  "the turn-start row is resolved in exactly one place, so the two passes cannot drift apart",
 );
 
 // ── 13. The tag reader does not slow down on a long run of word characters ──

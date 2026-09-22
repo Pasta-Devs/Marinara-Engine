@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -508,5 +509,89 @@ test("Game dice narration failures offer regeneration and Peek keeps planner usa
   } finally {
     await page.close();
     await request.delete(`/api/chats/${chat.id}?force=true`);
+  }
+});
+
+test("scene summaries retain each speaker's identity and remain narrator messages", async ({ request }, info) => {
+  test.skip(info.project.name !== "desktop-chromium", "Server prompt and persistence contract needs one run.");
+  let prompt = "";
+  const provider = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(Buffer.from(chunk));
+    res.writeHead(200, { "content-type": "application/json" });
+    if (req.method !== "POST") {
+      res.end(JSON.stringify({ data: [{ id: "fixture" }] }));
+      return;
+    }
+    const body = JSON.parse(Buffer.concat(chunks).toString());
+    prompt = body.messages.map((message: { content: string }) => message.content).join("\n");
+    res.end(
+      JSON.stringify({
+        choices: [
+          { message: { content: "Aster felt relieved while Briar remained cautious." }, finish_reason: "stop" },
+        ],
+      }),
+    );
+  });
+  await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+  const address = provider.address();
+  if (!address || typeof address === "string") throw new Error("Scene provider did not bind");
+  const paths: string[] = [];
+  const create = async (path: string, data: unknown) => {
+    const response = await request.post(`/api/${path}`, { data });
+    expect(response.ok(), await response.text()).toBeTruthy();
+    const value = await response.json();
+    paths.unshift(`/api/${path}/${value.id}`);
+    return value;
+  };
+  try {
+    const aster = await create("characters", { data: { name: "Aster", first_mes: "" } });
+    const briar = await create("characters", { data: { name: "Briar", first_mes: "" } });
+    const connection = await create("connections", {
+      name: "Scene summary fixture",
+      provider: "custom",
+      model: "fixture",
+      baseUrl: `http://127.0.0.1:${address.port}/v1`,
+      apiKey: "",
+    });
+    const origin = await create("chats", {
+      name: "Scene origin",
+      mode: "conversation",
+      characterIds: [aster.id, briar.id],
+    });
+    const scene = await create("chats", {
+      name: "Scene",
+      mode: "roleplay",
+      characterIds: [aster.id, briar.id],
+      connectionId: connection.id,
+    });
+    expect(
+      (await request.patch(`/api/chats/${scene.id}/metadata`, { data: { sceneOriginChatId: origin.id } })).ok(),
+    ).toBeTruthy();
+    for (const message of [
+      { role: "user", content: "We made it." },
+      { role: "assistant", characterId: aster.id, content: "I can breathe again." },
+      { role: "assistant", characterId: briar.id, content: "We should stay alert." },
+      { role: "narrator", content: "The corridor grew quiet." },
+    ])
+      expect((await request.post(`/api/chats/${scene.id}/messages`, { data: message })).ok()).toBeTruthy();
+    const response = await request.post("/api/scene/conclude", {
+      data: { sceneChatId: scene.id, connectionId: connection.id },
+    });
+    expect(response.ok(), await response.text()).toBeTruthy();
+    for (const text of [
+      "User: We made it.",
+      "Aster: I can breathe again.",
+      "Briar: We should stay alert.",
+      "Narrator: The corridor grew quiet.",
+      "Use an outside narrator's point of view.",
+    ])
+      expect(prompt).toContain(text);
+    const saved = await (await request.get(`/api/chats/${origin.id}/messages`)).json();
+    const recap = saved.find((message: { content: string }) => message.content.includes("Aster felt relieved"));
+    expect(recap).toMatchObject({ role: "narrator", characterId: null });
+  } finally {
+    for (const path of paths) await request.delete(path).catch(() => undefined);
+    await new Promise<void>((resolve) => provider.close(() => resolve()));
   }
 });

@@ -26,6 +26,7 @@ export interface TTSSpeakOptions {
 
 export interface TTSSpeakRequest {
   text: string;
+  paragraphIndex?: number;
   speaker?: string;
   tone?: string;
   voice?: string;

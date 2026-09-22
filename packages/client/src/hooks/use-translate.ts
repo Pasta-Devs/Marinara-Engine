@@ -7,47 +7,11 @@ import type { Message } from "@marinara-engine/shared";
 import { toast } from "sonner";
 import { api } from "../lib/api-client";
 import { parseMessageExtraRecord } from "../lib/chat-message-extra";
-import { parseChatMetadata } from "../lib/chat-display";
 import { useTranslationStore, type TranslationConfig } from "../stores/translation.store";
 import { chatKeys, replaceCachedMessage } from "./use-chats";
 
 const translationPersistenceQueues = new Map<string, Promise<void>>();
-const pendingTranslations = new Map<string, Promise<void>>();
-
-export function getChatTranslationConfig(chatId: string, metadata: unknown): TranslationConfig {
-  const chatMeta = parseChatMetadata(metadata);
-  const legacyTargetLanguage =
-    (typeof chatMeta.translationTargetLang === "string" ? chatMeta.translationTargetLang.trim() : "") || "en";
-  const legacySystemPrompt = typeof chatMeta.translationPrompt === "string" ? chatMeta.translationPrompt : undefined;
-  const inputSystemPrompt =
-    chatMeta.translationInputPrompt === undefined
-      ? legacySystemPrompt
-      : typeof chatMeta.translationInputPrompt === "string"
-        ? chatMeta.translationInputPrompt
-        : undefined;
-  const outputSystemPrompt =
-    chatMeta.translationOutputPrompt === undefined
-      ? legacySystemPrompt
-      : typeof chatMeta.translationOutputPrompt === "string"
-        ? chatMeta.translationOutputPrompt
-        : undefined;
-  return {
-    chatId,
-    provider: chatMeta.translationProvider ?? "google",
-    // Cleared fields retain the legacy/default language.
-    inputTargetLanguage:
-      (typeof chatMeta.translationInputTargetLang === "string" ? chatMeta.translationInputTargetLang.trim() : "") ||
-      legacyTargetLanguage,
-    outputTargetLanguage:
-      (typeof chatMeta.translationOutputTargetLang === "string" ? chatMeta.translationOutputTargetLang.trim() : "") ||
-      legacyTargetLanguage,
-    connectionId: chatMeta.translationConnectionId,
-    inputSystemPrompt,
-    outputSystemPrompt,
-    deeplApiKey: chatMeta.translationDeeplApiKey,
-    deeplxUrl: chatMeta.translationDeeplxUrl,
-  };
-}
+const pendingTranslations = new Map<string, { text: string; request: Promise<void> }>();
 
 function enqueueTranslationPersistence(
   queryClient: QueryClient,
@@ -92,7 +56,14 @@ export function translateMessage(
   const requestChatId = chatId ?? config.chatId;
   const key = `${requestChatId ?? ""}:${messageId}`;
   const pending = pendingTranslations.get(key);
-  if (pending) return pending;
+  if (pending) {
+    // Finish the previous source (including persistence) before translating a regenerated reply.
+    return pending.text === text
+      ? pending.request
+      : pending.request
+          .catch(() => undefined)
+          .then(() => translateMessage(queryClient, messageId, text, config, chatId));
+  }
   const store = useTranslationStore.getState();
   const isCurrentChat = () => useTranslationStore.getState().config.chatId === requestChatId;
   if (isCurrentChat()) store.setTranslating(messageId, true);
@@ -100,6 +71,7 @@ export function translateMessage(
     let translatedText: string;
     try {
       const result = await api.post<{ translatedText: string }>("/translate", {
+        chatId: requestChatId,
         text,
         provider: config.provider,
         targetLanguage: config.outputTargetLanguage,
@@ -109,22 +81,24 @@ export function translateMessage(
         deeplxUrl: config.deeplxUrl,
       });
       translatedText = result.translatedText;
+      if (chatId) {
+        await enqueueTranslationPersistence(queryClient, chatId, messageId, {
+          translation: translatedText,
+          translationSource: text,
+          translationHidden: false,
+        }).catch(() => {});
+      }
+      // Navigation can return to this chat while its extras are being saved.
+      // Publish after persistence so a seeded, older translation cannot win.
       if (isCurrentChat()) store.setTranslation(messageId, translatedText, text);
     } finally {
       if (isCurrentChat()) store.setTranslating(messageId, false);
     }
-    if (chatId) {
-      await enqueueTranslationPersistence(queryClient, chatId, messageId, {
-        translation: translatedText,
-        translationSource: text,
-        translationHidden: false,
-      }).catch(() => {});
-    }
   })();
-  pendingTranslations.set(key, request);
+  pendingTranslations.set(key, { text, request });
   void request
     .finally(() => {
-      if (pendingTranslations.get(key) === request) pendingTranslations.delete(key);
+      if (pendingTranslations.get(key)?.request === request) pendingTranslations.delete(key);
     })
     .catch(() => {});
   return request;

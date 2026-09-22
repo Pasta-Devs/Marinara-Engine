@@ -14,7 +14,9 @@ export type GameStatePatchField =
   | "playerStats"
   | "personaStats"
   | "fieldLocks"
-  | "hiddenTrackerFields";
+  | "hiddenTrackerFields"
+  /** Whole live ruleset sheet state for the game, keyed by normalized card name. */
+  | "rulesetLive";
 
 type GameStatePatch = Partial<Record<GameStatePatchField, unknown>>;
 type GameStatePatchTarget = {

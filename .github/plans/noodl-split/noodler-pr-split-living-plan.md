@@ -753,7 +753,7 @@ not sit behind review of a scheduler rewrite. 8f-2/8f-3/8f-4/8g touch overlappin
 schema, and settings surfaces and are expensive to unpick after the fact, so they are
 reviewable as one integrated PR.
 
-Before implementation on any unit, per `CONTRIBUTING.md` and `CLAUDE.md`: confirm or open a
+Before implementation on any unit, per `CONTRIBUTING.md` and `AGENTS.md`: confirm or open a
 GitHub issue, check for an existing issue-linked branch or PR so two agents do not duplicate
 the work, open a draft PR immediately so the board shows it in progress, and identify the
 owner on the issue.

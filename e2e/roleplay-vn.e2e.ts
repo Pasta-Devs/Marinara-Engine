@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { ttsConfigSchema } from "../packages/shared/src/types/tts.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const readMetadata = (chat: any) => (typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : chat.metadata);
@@ -146,6 +147,21 @@ for (const theme of ["dark", "light"] as const) {
       await input.blur();
       await expect(page.getByRole("img", { name: /full.*sprite/i })).toBeVisible();
       await page.screenshot({ path: info.outputPath(`vn-${theme}.png`), animations: "disabled" });
+      const portrait = vn.getByRole("button", { name: "Open Mari avatar", exact: true });
+      await expect(portrait).toBeVisible();
+      await portrait.focus();
+      if (info.project.name.includes("mobile")) await portrait.tap();
+      else await portrait.press("Enter");
+      const preview = page.getByRole("dialog", { name: "Image preview", exact: true });
+      await expect(preview).toBeVisible();
+      await expect(preview.locator("img")).toHaveAttribute(
+        "src",
+        (await vn.getByRole("img", { name: "Mari", exact: true }).getAttribute("src")) ?? "",
+      );
+      await page.screenshot({ path: info.outputPath(`vn-portrait-${theme}.png`), animations: "disabled" });
+      await preview.getByRole("button", { name: "Close image", exact: true }).click();
+      await expect(preview).toHaveCount(0);
+      await expect(input).toHaveValue("An unsent response stays here.");
       const bubble = await vn.boundingBox();
       const composer = await input.boundingBox();
       expect(bubble!.y + bubble!.height).toBeLessThanOrEqual(composer!.y + 1);
@@ -480,6 +496,20 @@ test("Roleplay wizard and Appearance persist the VN choice and art scales", asyn
       await slider.press("Home");
       for (let step = 0; step < Math.round((Number(value) - 0.75) / 0.05); step++) await slider.press("ArrowRight");
     }
+    const autoplay = page.getByRole("checkbox", { name: "Auto-play VN paragraphs", exact: true });
+    await expect(autoplay).not.toBeChecked();
+    const delay = page.locator("#settings-control-roleplay-vn-autoplay-delay input");
+    await expect(delay).toBeVisible();
+    await expect(delay).toBeDisabled();
+    await page
+      .locator(`label[for="${await autoplay.getAttribute("id")}"]`)
+      .first()
+      .click();
+    await expect(delay).toBeEnabled();
+    await delay.focus();
+    await delay.press("Home");
+    await delay.press("ArrowRight");
+    await expect(delay).toHaveValue("300");
     await page.screenshot({ path: info.outputPath("appearance.png"), animations: "disabled" });
     await page.reload();
     await expect(page.locator('[data-roleplay-presentation="visual-novel"]')).toBeVisible();
@@ -487,9 +517,14 @@ test("Roleplay wizard and Appearance persist the VN choice and art scales", asyn
       await page.evaluate(async () => {
         const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
         const state = useUIStore.getState();
-        return [state.roleplayVnPortraitScale, state.roleplayVnSpriteScale];
+        return [
+          state.roleplayVnPortraitScale,
+          state.roleplayVnSpriteScale,
+          state.roleplayVnAutoPlay,
+          state.roleplayVnAutoPlayDelay,
+        ];
       }),
-    ).toEqual([1.5, 2]);
+    ).toEqual([1.5, 2, true, 300]);
   } finally {
     await data.cleanup();
   }
@@ -757,3 +792,111 @@ test("Roleplay VN portrait honors avatar crop and allows history expansion", asy
     await data.cleanup();
   }
 });
+
+for (const automatic of [false, true]) {
+  test(`Roleplay VN follows actual speech chunks and pauses timed autoplay (${automatic ? "automatic" : "manual"})`, async ({
+    page,
+    request,
+  }, info) => {
+    const data = await fixture(request);
+    const spoken: string[] = [];
+    const audio = Buffer.alloc(32044);
+    audio.write("RIFF", 0);
+    audio.writeUInt32LE(32036, 4);
+    audio.write("WAVEfmt ", 8);
+    audio.writeUInt32LE(16, 16);
+    audio.writeUInt16LE(1, 20);
+    audio.writeUInt16LE(1, 22);
+    audio.writeUInt32LE(16000, 24);
+    audio.writeUInt32LE(32000, 28);
+    audio.writeUInt16LE(2, 32);
+    audio.writeUInt16LE(16, 34);
+    audio.write("data", 36);
+    audio.writeUInt32LE(32000, 40);
+    try {
+      await page.route("**/api/tts/config", (route) =>
+        route.fulfill({
+          json: ttsConfigSchema.parse({
+            enabled: true,
+            autoplayRP: automatic,
+            voice: "fixture",
+            dialogueOnly: false,
+            progressivePlayback: true,
+          }),
+        }),
+      );
+      await page.route("**/api/tts/speak", (route) => {
+        spoken.push(route.request().postDataJSON().text);
+        return route.fulfill({ contentType: "audio/wav", body: audio });
+      });
+      // Drive the real TTS sequence and its chunk callbacks without an external
+      // voice provider or browser-specific audio/autoplay timing.
+      await page.addInitScript(() => {
+        HTMLMediaElement.prototype.play = function () {
+          if (this.src.startsWith("blob:")) (window as any).__vnSpeechAudio = this;
+          return Promise.resolve();
+        };
+        HTMLMediaElement.prototype.pause = function () {};
+      });
+      await open(page, data.chat.id, automatic ? "light" : "dark", { roleplayVnAutoPlayDelay: 200 });
+      const paragraph = page.getByRole("region", { name: "Current paragraph" });
+      await expect(paragraph).toContainText("A small light flickers");
+      if (automatic) {
+        await page.evaluate(
+          ({ chatId, message }) => {
+            window.dispatchEvent(
+              new CustomEvent("marinara:tts-autoplay-message-ready", { detail: { chatId, message } }),
+            );
+          },
+          { chatId: data.chat.id, message: data.message },
+        );
+      } else {
+        await paragraph.hover();
+        if (info.project.name.includes("mobile")) await paragraph.tap();
+        await page.getByRole("button", { name: "Speak", exact: true }).click();
+      }
+      await expect(paragraph).toContainText("The archive falls quiet");
+      await page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().setRoleplayVnAutoPlay(true);
+      });
+      await page.waitForTimeout(400);
+      await expect(paragraph).toContainText("The archive falls quiet");
+      await page.evaluate(() => (window as any).__vnSpeechAudio.dispatchEvent(new Event("ended")));
+      await expect(paragraph).toContainText("We have a new experiment");
+      await page.evaluate(async () => {
+        const { ttsService } = await import("/src/lib/tts-service.ts" as string);
+        ttsService.pause();
+      });
+      await page.waitForTimeout(400);
+      await expect(paragraph).toContainText("We have a new experiment");
+      await page.evaluate(async () => {
+        const { ttsService } = await import("/src/lib/tts-service.ts" as string);
+        ttsService.resume();
+      });
+      await page.evaluate(() => (window as any).__vnSpeechAudio.dispatchEvent(new Event("ended")));
+      await expect(paragraph).toContainText("A small light flickers");
+      await page.evaluate(() => (window as any).__vnSpeechAudio.dispatchEvent(new Event("ended")));
+      expect(spoken).toEqual([
+        "The archive falls quiet.",
+        '"We have a new experiment," Mari says.',
+        "A small light flickers across the desk.",
+      ]);
+      await page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().setRoleplayVnAutoPlay(false);
+      });
+      await page.getByRole("button", { name: "Previous paragraph" }).click();
+      await expect(paragraph).toContainText("We have a new experiment");
+      await page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().setRoleplayVnAutoPlay(true);
+      });
+      await expect(paragraph).toContainText("A small light flickers");
+      await expect(page.getByRole("button", { name: "Next paragraph" })).toBeDisabled();
+      await page.screenshot({ path: info.outputPath(`vn-speech-${automatic}.png`) });
+    } finally {
+      await data.cleanup();
+    }
+  });
+}

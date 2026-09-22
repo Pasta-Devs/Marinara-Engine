@@ -34,6 +34,10 @@ export const gameStateSnapshots = fileTable("game_state_snapshots", {
   /** JSON object of tracker field keys hidden from the UI. */
   hiddenTrackerFields: text("hidden_tracker_fields"),
 
+  /** JSON object of live ruleset sheet state (current pools, tracks, conditions) per party card,
+   *  keyed by normalized card name. Lives here, not on the card, so it rewinds with swipes. */
+  rulesetLive: text("ruleset_live"),
+
   /** Whether this snapshot has been "committed" (user sent a follow-up message). */
   committed: integer("committed").notNull().default(0),
 

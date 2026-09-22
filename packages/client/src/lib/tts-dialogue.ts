@@ -9,6 +9,7 @@ export interface TTSUtterance {
 
 export interface TTSVoiceRequest {
   text: string;
+  paragraphIndex?: number;
   speaker?: string;
   tone?: string;
   voice?: string;

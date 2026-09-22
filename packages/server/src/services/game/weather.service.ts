@@ -1,24 +1,11 @@
+import { normalizeWeatherType, type WeatherType, type CombatWeather } from "@marinara-engine/shared";
+export type { WeatherType } from "@marinara-engine/shared";
 // ──────────────────────────────────────────────
 // Game: Weather Progression Service
 //
 // Deterministic weather generation from weighted
 // tables per biome and season. No LLM needed.
 // ──────────────────────────────────────────────
-
-export type WeatherType =
-  | "clear"
-  | "cloudy"
-  | "overcast"
-  | "rain"
-  | "heavy_rain"
-  | "storm"
-  | "snow"
-  | "blizzard"
-  | "fog"
-  | "wind"
-  | "hail"
-  | "sandstorm"
-  | "heat_wave";
 
 export type Season = "spring" | "summer" | "autumn" | "winter";
 export type Biome = "temperate" | "tropical" | "arctic" | "desert" | "mountain" | "coastal" | "underground" | "urban";
@@ -126,7 +113,7 @@ function pick<T>(arr: T[]): T {
 }
 
 /** Generate weather for a given biome and season. */
-export function generateWeather(biome: Biome, season: Season = "summer"): WeatherState {
+export function generateWeather(biome: Biome, season: Season = "summer", forcedType?: WeatherType): WeatherState {
   const baseWeights = { ...BIOME_WEATHER[biome] };
   const mods = SEASON_MODIFIERS[season] ?? {};
 
@@ -151,6 +138,8 @@ export function generateWeather(biome: Biome, season: Season = "summer"): Weathe
       break;
     }
   }
+
+  if (forcedType) weatherType = forcedType;
 
   // Temperature
   const [minT, maxT] = BASE_TEMP[biome] ?? [10, 25];
@@ -205,4 +194,28 @@ export function inferBiome(location: string): Biome {
   if (/cave|cavern|mine|underground|dungeon|cellar|crypt|tomb/.test(lower)) return "underground";
   if (/city|town|village|market|tavern|inn|castle|fortress|tower/.test(lower)) return "urban";
   return "temperate";
+}
+
+/** Resolve once at combat start. Unknown scene/exposure never invents an outdoor hazard. */
+export function resolveCombatWeather(
+  raw: unknown,
+  environment?: string,
+  exposure?: CombatWeather["exposure"],
+): CombatWeather | undefined {
+  const source =
+    typeof raw === "string" ? { type: raw } : raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const type = normalizeWeatherType(source.type);
+  if (!type) return undefined;
+  const indoors = ["dungeon", "cave", "spaceship", "mansion"];
+  const outdoors = ["forest", "desert", "snow", "water", "wasteland", "plains", "mountains", "swamp", "volcanic"];
+  const env = environment?.trim().toLowerCase() ?? "";
+  const wind = WEATHER_WIND[type].find((v) => v === source.wind) ?? WEATHER_WIND[type][0]!;
+  const visibility = WEATHER_VIS[type].find((v) => v === source.visibility) ?? WEATHER_VIS[type][0]!;
+  return {
+    version: 1,
+    type,
+    wind,
+    visibility,
+    exposure: exposure ?? (indoors.includes(env) ? "sheltered" : outdoors.includes(env) ? "exposed" : "unknown"),
+  };
 }

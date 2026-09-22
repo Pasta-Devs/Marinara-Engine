@@ -15,9 +15,11 @@ import {
   normalizeTrackerHiddenFields,
   parseTrackerFieldLocks,
   parseTrackerHiddenFields,
+  rulesetLiveStatesSchema,
   trackerFieldLocksAreEmpty,
   trackerHiddenFieldsAreEmpty,
   type GameState,
+  type RulesetLiveStates,
   type TrackerFieldLocks,
   type TrackerHiddenFields,
 } from "@marinara-engine/shared";
@@ -40,6 +42,7 @@ type GameStateUpdateFields = Partial<
     | "personaStats"
     | "fieldLocks"
     | "hiddenTrackerFields"
+    | "rulesetLive"
   >
 >;
 
@@ -98,6 +101,18 @@ function serializeFieldLocks(fieldLocks: TrackerFieldLocks | null | undefined) {
 function serializeHiddenTrackerFields(hiddenFields: TrackerHiddenFields | null | undefined) {
   const normalized = normalizeTrackerHiddenFields(hiddenFields);
   return trackerHiddenFieldsAreEmpty(normalized) ? null : JSON.stringify(normalized);
+}
+
+/** Live ruleset sheet state is bounded at every read and write: an unreadable or oversized value
+ *  reads as none, which the sheet math treats as every pool at its default. */
+export function parseStoredRulesetLive(value: unknown): RulesetLiveStates | null {
+  const parsed = rulesetLiveStatesSchema.safeParse(parseSnapshotJson<unknown>(value, null));
+  return parsed.success && Object.keys(parsed.data).length > 0 ? parsed.data : null;
+}
+
+function serializeRulesetLive(value: unknown): string | null {
+  const live = parseStoredRulesetLive(value);
+  return live ? JSON.stringify(live) : null;
 }
 
 function parseSnapshotJson<T>(value: unknown, fallback: T): T {
@@ -338,6 +353,13 @@ export function createGameStateStorage(db: DB) {
 
     async create(state: Omit<GameState, "id" | "createdAt">, manualOverrides?: Record<string, string> | null) {
       const latestBeforeInsert = await this.getLatest(state.chatId);
+      // Most callers rebuild a snapshot from the fields they know and have never heard of ruleset
+      // live state. When such a caller replaces the row of a message + swipe, the live state that
+      // row already carried (written right after the message was saved) stays with it.
+      const replaced =
+        state.messageId && state.rulesetLive === undefined
+          ? await this.getByChatAndMessage(state.chatId, state.messageId, state.swipeIndex)
+          : null;
       // Remove any prior snapshot for the same message + swipe so duplicates don't accumulate
       if (state.messageId) {
         await db
@@ -365,6 +387,7 @@ export function createGameStateStorage(db: DB) {
         manualOverrides: serializeManualOverrides(manualOverrides),
         fieldLocks: serializeFieldLocks(state.fieldLocks),
         hiddenTrackerFields: serializeHiddenTrackerFields(state.hiddenTrackerFields),
+        rulesetLive: serializeRulesetLive(state.rulesetLive !== undefined ? state.rulesetLive : replaced?.rulesetLive),
         committed: state.committed ? 1 : 0,
         createdAt: ensureTimestampAfter(now(), latestBeforeInsert?.createdAt),
       });
@@ -489,6 +512,7 @@ export function createGameStateStorage(db: DB) {
           : null,
         fieldLocks: parseTrackerFieldLocks(latest?.fieldLocks),
         hiddenTrackerFields: parseTrackerHiddenFields(latest?.hiddenTrackerFields),
+        rulesetLive: parseStoredRulesetLive(latest?.rulesetLive),
       };
       baseState.fieldLocks = normalizeTrackerFieldLocksForState(
         baseState.fieldLocks,
@@ -515,6 +539,7 @@ export function createGameStateStorage(db: DB) {
       if (fields.hiddenTrackerFields !== undefined) {
         baseState.hiddenTrackerFields = normalizeTrackerHiddenFields(fields.hiddenTrackerFields);
       }
+      if (fields.rulesetLive !== undefined) baseState.rulesetLive = parseStoredRulesetLive(fields.rulesetLive);
 
       const manualOverrides = manual
         ? MANUAL_OVERRIDE_FIELDS.reduce<Record<string, string>>((acc, key) => {
@@ -547,6 +572,7 @@ export function createGameStateStorage(db: DB) {
         updates.personaStats = fields.personaStats ? JSON.stringify(fields.personaStats) : null;
       if (fields.hiddenTrackerFields !== undefined)
         updates.hiddenTrackerFields = serializeHiddenTrackerFields(fields.hiddenTrackerFields);
+      if (fields.rulesetLive !== undefined) updates.rulesetLive = serializeRulesetLive(fields.rulesetLive);
 
       if (manual) {
         const storedOverrides = parseStoredManualOverrides(row.manualOverrides) ?? {};

@@ -27,6 +27,48 @@ import { prepareRoleplayRoll } from "../../packages/server/src/services/generati
 import { prepareRoleplayInterruption } from "../../packages/server/src/services/generation/roleplay-interrupt.js";
 import type { RPGStatsConfig } from "../../packages/shared/src/types/character.js";
 import { buildCommittedTrackerContextBlock } from "../../packages/server/src/services/generation/committed-tracker-context.js";
+import { isDiceRollResult, readRoleplayDiceRolls } from "../../packages/client/src/lib/dice-roll-result.js";
+import { executeToolCalls } from "../../packages/server/src/services/tools/tool-executor.js";
+import { parseRollDiceToolResult } from "../../packages/server/src/services/game/dice.service.js";
+
+const rollResult = JSON.stringify({ notation: "2d1+3", rolls: [1, 1], modifier: 3, total: 5 });
+const inlineRoll = {
+  command: { type: "roll", notation: "2d1+3" },
+  raw: '[roll: notation="2d1+3"]',
+  result: rollResult,
+  contentOffset: 6,
+  contentAnchor: "Before",
+};
+const positions = (text: string, activity: unknown[]) =>
+  readRoleplayDiceRolls(text, { roleplayCommandActivity: activity }).map(({ offset }) => offset);
+assert.deepEqual(
+  positions("Before after", [inlineRoll, { ...inlineRoll, contentOffset: 12, contentAnchor: "after" }]),
+  [6, 12],
+);
+assert.deepEqual(positions("Edited Before after", [inlineRoll]), [13], "an unchanged unique anchor follows an edit");
+assert.deepEqual(positions("All replaced", [inlineRoll]), [12], "a lost anchor leaves the real roll at the end");
+assert.deepEqual(positions("Changed Before Before after", [inlineRoll]), [27], "ambiguous anchors do not guess");
+const leadingRoll = { ...inlineRoll, contentOffset: 0, contentAnchor: "After the roll" };
+assert.deepEqual(positions("After the roll", [leadingRoll]), [0]);
+assert.deepEqual(positions("Edited After the roll", [leadingRoll]), [7], "a leading roll follows its unique suffix");
+assert.deepEqual(positions("All replaced", [leadingRoll]), [12]);
+assert.deepEqual(positions("After the roll twice: After the roll", [leadingRoll]), [0]);
+assert.deepEqual(positions("New After the roll twice: After the roll", [leadingRoll]), [40]);
+assert.deepEqual(positions("Edited", [{ ...leadingRoll, contentAnchor: "" }]), [6], "empty anchors cannot pin a roll");
+assert.deepEqual(
+  positions("Before after", [{ ...inlineRoll, contentOffset: undefined }]),
+  [12],
+  "legacy rolls remain visible",
+);
+assert.deepEqual(
+  positions("Before after", [
+    { ...inlineRoll, deleted: true },
+    { ...inlineRoll, error: "Failed" },
+    { ...inlineRoll, result: "{}" },
+    { ...inlineRoll, result: "not JSON" },
+  ]),
+  [],
+);
 
 const cancelledSound = new AbortController();
 cancelledSound.abort();
@@ -338,6 +380,13 @@ for (const format of ["xml", "markdown", "none"] as const) {
   assert.doesNotMatch(reminder, /\[illustrate:/u, "an unavailable image agent must not be offered");
   assert.doesNotMatch(reminder, /YOUR|LIES|DECEPTIONS|Maximum \d|\n\s*\n\s*-/u);
   assert.match(reminder, /keep it short/iu);
+  assert.match(reminder, /modifier="\+2" dc="15"/u);
+  assert.match(
+    reminder,
+    /Optional modifier adds a situational bonus\/penalty once; optional dc sets the total needed to succeed\./u,
+  );
+  assert.match(reminder, /Keep DCs and modifiers in command\/tool fields, not narration\./u);
+  assert.doesNotMatch(reminder, /Set the stakes first|action and success rule/u);
   assert.match(reminder, /edit existing notes[^.\n]*full updated contents[^.\n]*replaces?[^.\n]*previous/u);
   assert.ok(
     reminder.includes(
@@ -641,4 +690,75 @@ assert.throws(
   /one chat participant/u,
 );
 assert.throws(() => dice({ notation: "1d20+9007199254740971", attribute: "STR" }), /numeric range/u);
+
+// The native tool and text command reach the same real roller. Fix only the
+// random face, so the production path must supply every modifier and the DC.
+const executeRoll = async (args: Record<string, unknown>) => {
+  const [result] = await executeToolCalls(
+    [{ id: "roll", type: "function", function: { name: "roll_dice", arguments: JSON.stringify(args) } }],
+    { prepareDiceRoll: (input) => prepareRoleplayRoll(input, diceCharacters, "dottore") },
+  );
+  assert.ok(result);
+  return { ...result, payload: JSON.parse(result.result) };
+};
+const random = Math.random;
+try {
+  Math.random = () => 0;
+  for (const [modifier, dc, total, success] of [
+    [2, 7, 7, true],
+    [-6, 0, -1, false],
+    [0, 0, 5, true],
+  ] as const) {
+    const command = parseRoleplayCommands(
+      `[roll: character="Dottore" notation="d20+3" attribute="STR" modifier="${modifier >= 0 ? "+" : ""}${modifier}" dc="${dc}"]`,
+    ).roll?.command;
+    assert.ok(command);
+    assert.equal(command.modifier, modifier);
+    assert.equal(command.dc, dc);
+    for (const args of [command, { notation: "d20+3", character: "Dottore", attribute: "STR", modifier, dc }]) {
+      const result = await executeRoll(args);
+      assert.equal(result.success, true);
+      assert.equal(result.payload.total, total);
+      assert.equal(result.payload.modifier, 4 + modifier, "notation, attribute and situation are each added once");
+      assert.equal(result.payload.dc, dc);
+      assert.equal(result.payload.success, success, "meeting the DC succeeds; falling short fails");
+      assert.equal(parseRollDiceToolResult(result.result)?.dc, dc);
+      assert.equal(isDiceRollResult(result.payload), true);
+    }
+  }
+  const legacy = await executeRoll({ notation: "d20", character: "Mari" });
+  assert.equal(legacy.payload.total, 1);
+  assert.equal("dc" in legacy.payload, false);
+  assert.equal("success" in legacy.payload, false);
+  const withoutStats = await executeRoll({ notation: "d20", character: "Mari", modifier: -2, dc: 0 });
+  assert.equal(withoutStats.payload.total, -1);
+  assert.equal(withoutStats.payload.success, false);
+
+  for (const key of ["modifier", "dc"] as const) {
+    for (const value of ["", "2.5", "no", "Infinity", "9007199254740992"]) {
+      const parsed = parseRoleplayCommands(`[roll: notation="d20" ${key}="${value}"]`);
+      assert.equal(parsed.roll, undefined, `${key}=${value} cannot silently become an unadjusted roll`);
+      assert.equal(parsed.invalid, 1);
+    }
+    for (const value of ["2", 2.5, null, true, {}, Number.MAX_SAFE_INTEGER + 1]) {
+      assert.equal((await executeRoll({ notation: "d20", [key]: value })).success, false);
+    }
+  }
+  for (const args of [
+    { notation: "d20", modifier: Number.MAX_SAFE_INTEGER },
+    { notation: "d20-2", modifier: Number.MIN_SAFE_INTEGER },
+  ]) {
+    const result = await executeRoll(args);
+    assert.equal(result.success, false);
+    assert.match(result.payload.error, /numeric range/u);
+    assert.equal(parseRollDiceToolResult(result.result), null);
+  }
+  for (const dc of [null, "10", 0.5, Number.MAX_SAFE_INTEGER + 1]) {
+    const malformed = { ...legacy.payload, dc };
+    assert.equal(parseRollDiceToolResult(JSON.stringify(malformed)), null);
+    assert.equal(isDiceRollResult(malformed), false);
+  }
+} finally {
+  Math.random = random;
+}
 process.stdout.write("Roleplay commands regression passed.\n");

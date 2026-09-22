@@ -56,6 +56,10 @@ export interface CapabilityPromptContextResult {
 
 const contributorsByPackage = new Map<string, CapabilityPromptContextContributor>();
 
+export function getCapabilityPromptContextPackageIds(): string[] {
+  return [...contributorsByPackage.keys()];
+}
+
 /** Register (or replace) the contributor for a package. Returns a releaser for deactivation. */
 export function registerCapabilityPromptContext(
   packageId: string,

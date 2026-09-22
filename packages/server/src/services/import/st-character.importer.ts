@@ -8,7 +8,7 @@ import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
-import { isPatternSafe } from "@marinara-engine/shared";
+import { capImportedRulesetSheets, isPatternSafe } from "@marinara-engine/shared";
 import type {
   CharacterBookEntryPosition,
   CharacterBookEntryRole,
@@ -691,7 +691,17 @@ function resolveCharXAsset(zip: AdmZip, uri: string, ext?: string): string | nul
 }
 
 function normalizeV2(raw: Record<string, unknown>): CharacterData {
-  const rawExtensions = optionalRecord(raw.extensions);
+  // Ruleset sheets travel dormant under their key; only one the boundary would refuse is dropped.
+  // The raw key is taken out of the spread below, so a value that is not a sheet map leaves nothing.
+  const { rulesetSheets: rawRulesetSheets, ...rawExtensions } = optionalRecord(raw.extensions);
+  const importedSheets = capImportedRulesetSheets(rawRulesetSheets);
+  if (importedSheets.dropped.length > 0) {
+    logger.warn(
+      "[import] Dropped %d unusable ruleset sheet(s) from an imported character: %s",
+      importedSheets.dropped.length,
+      importedSheets.dropped.join(", "),
+    );
+  }
   return {
     name: String(raw.name ?? "Unknown"),
     summary: String(raw.summary ?? "")
@@ -723,6 +733,7 @@ function normalizeV2(raw: Record<string, unknown>): CharacterData {
       },
       backstory: String(rawExtensions.backstory ?? ""),
       appearance: String(rawExtensions.appearance ?? ""),
+      ...(importedSheets.sheets ? { rulesetSheets: importedSheets.sheets } : {}),
     },
     character_book: normalizeCharacterBook(raw.character_book),
     ...pickDefinedFields(raw, V3_CHARACTER_DATA_FIELDS),

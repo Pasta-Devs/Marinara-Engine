@@ -19,8 +19,15 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import type { AvatarCrop } from "@marinara-engine/shared";
+import type {
+  AvatarCrop,
+  RulesetDefinition,
+  RulesetLayerOptions,
+  RulesetLiveState,
+  RulesetSheetEnvelope,
+} from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { GameRulesetSheet } from "./GameRulesetSheet";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 import {
@@ -59,6 +66,29 @@ export interface CharacterSheetCard {
   gameCard?: GameCharacterSheetGameCard;
 }
 
+/** The pinned ruleset's half of the sheet, when the game has one. A game with no ruleset passes
+ *  nothing and the sheet looks exactly as it did before. */
+export type GameCharacterSheetRuleset =
+  /** The pin cannot be honoured on this install, so the ruleset half is a single explanatory line. */
+  | { status: "unavailable" }
+  /** The card holds a sheet this version cannot read. It is kept as it is, so nothing here may
+   *  edit or replace it, and live values measured against a guessed build would be wrong. */
+  | { status: "unreadable" }
+  | {
+      status: "ok";
+      /** The effective definition: the ruleset with the game's layers already on it. */
+      definition: RulesetDefinition;
+      /** The layers this game turned on, named after the ruleset in the sheet's heading. */
+      layers?: Array<{ id: string; label: string }>;
+      /** The pin's own record, which the catalog picker leaves hidden entries out by. */
+      layerOptions?: RulesetLayerOptions;
+      envelope: RulesetSheetEnvelope | undefined;
+      live: RulesetLiveState | undefined;
+      onLiveChange: (next: RulesetLiveState) => void;
+      onEnvelopeSave: (next: RulesetSheetEnvelope) => Promise<void> | void;
+      readOnly?: boolean;
+    };
+
 interface GameCharacterSheetProps {
   card: CharacterSheetCard;
   onClose: () => void;
@@ -66,6 +96,7 @@ interface GameCharacterSheetProps {
   onRegenerate?: () => Promise<GameCharacterSheetGameCard | undefined> | GameCharacterSheetGameCard | undefined;
   onAvatarSelect?: (file: File) => Promise<void> | void;
   isRegenerating?: boolean;
+  ruleset?: GameCharacterSheetRuleset;
 }
 
 interface GameCardDraft {
@@ -299,6 +330,7 @@ export function GameCharacterSheet({
   onRegenerate,
   onAvatarSelect,
   isRegenerating = false,
+  ruleset,
 }: GameCharacterSheetProps) {
   const { t: localizeUi } = useUiTranslation();
   const [isEditing, setIsEditing] = useState(false);
@@ -324,6 +356,7 @@ export function GameCharacterSheet({
   const hasPersistentSheetData = hasGameData(previewGameCard) || hasRpgStats;
   const hasAnyData =
     hasPersistentSheetData ||
+    !!ruleset ||
     (card.stats?.length ?? 0) > 0 ||
     (card.inventory?.length ?? 0) > 0 ||
     Object.keys(card.customFields ?? {}).length > 0;
@@ -637,6 +670,33 @@ export function GameCharacterSheet({
         </div>
 
         <div className="flex-1 overflow-y-auto">
+          {/* The pinned ruleset's live sheet sits above the legacy stats: it is what the game's
+              rules actually run on, and the legacy blocks are the free-form notes beside it. */}
+          {!isEditing && ruleset && (
+            <div className="border-b border-[var(--marinara-chat-chrome-panel-border)] px-5 py-4">
+              {ruleset.status === "ok" ? (
+                <GameRulesetSheet
+                  definition={ruleset.definition}
+                  layers={ruleset.layers}
+                  layerOptions={ruleset.layerOptions}
+                  cardName={card.title}
+                  envelope={ruleset.envelope}
+                  live={ruleset.live}
+                  onLiveChange={ruleset.onLiveChange}
+                  onEnvelopeSave={ruleset.onEnvelopeSave}
+                  readOnly={ruleset.readOnly}
+                />
+              ) : (
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  {localizeUi(
+                    ruleset.status === "unreadable"
+                      ? "game.ruleset.sheet.unreadable"
+                      : "game.ruleset.sheet.unavailable",
+                  )}
+                </p>
+              )}
+            </div>
+          )}
           {isEditing && (
             <>
               <div className="border-b border-[var(--marinara-chat-chrome-panel-border)] px-5 py-4">

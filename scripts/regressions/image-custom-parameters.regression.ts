@@ -78,6 +78,8 @@ const server = createServer(async (request, response) => {
     response.statusCode = 500;
     response.end(JSON.stringify({ error: "fixture failure" }));
   } else if (request.url!.includes("generate/async")) response.end(JSON.stringify({ id: "job" }));
+  else if (request.url!.includes("/fal-ai/"))
+    response.end(JSON.stringify({ images: [{ url: `data:image/png;base64,${png}` }] }));
   else if (request.url!.includes("generate/check")) response.end(JSON.stringify({ done: true }));
   else if (request.url!.includes("generate/status")) response.end(JSON.stringify({ generations: [{ img: png }] }));
   else response.end(JSON.stringify({ data: [{ b64_json: png, url: `data:image/png;base64,${png}` }], images: [png] }));
@@ -100,12 +102,12 @@ try {
   assert.equal(novelai?.seed, 17);
   assert.equal(novelai?.novelai?.steps, 31);
   assert.deepEqual(novelai?.customParameters, custom);
-  for (const backend of ["openai", "nanogpt", "xai", "togetherai", "openrouter", "venice", "zai", "arli"]) {
+  for (const backend of ["openai", "nanogpt", "xai", "togetherai", "openrouter", "venice", "zai", "arli", "fal"]) {
     requests.length = 0;
     const result = await generateImage(backend, baseUrl, "fixture-key", backend, {
       prompt: "default prompt",
       referenceImage: backend === "nanogpt" || backend === "arli" ? png : undefined,
-      model: backend === "openrouter" ? "openai/gpt-image-2" : "flux-2-pro",
+      model: backend === "fal" ? "fal-ai/flux/schnell" : backend === "openrouter" ? "openai/gpt-image-2" : "flux-2-pro",
       imageDefaults: defaults(backend),
       allowLocalUrls: true,
       debugMode: true,
@@ -113,7 +115,7 @@ try {
     assert.equal(result.base64, png);
     assert.equal(requests.length, 1);
     assert.equal(requests[0]!.method, "POST");
-    assert.equal(requests[0]!.authorization, "Bearer fixture-key");
+    assert.equal(requests[0]!.authorization, `${backend === "fal" ? "Key" : "Bearer"} fixture-key`);
     for (const [key, value] of Object.entries(custom))
       assert.deepEqual(requests[0]!.body[key], value, `${backend}: ${key}`);
     assertSafeLogs();

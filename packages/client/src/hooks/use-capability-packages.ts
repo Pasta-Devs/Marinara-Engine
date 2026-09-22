@@ -8,8 +8,10 @@ import {
   type CapabilityPackageVersionNote,
   type BuiltInAgentManifest,
   type InstalledCapabilityPackage,
+  type InstalledRuleset,
+  type RulesetCatalogPayload,
 } from "@marinara-engine/shared";
-import { api } from "../lib/api-client";
+import { api, ApiError } from "../lib/api-client";
 import {
   beginCapabilityClientImport,
   capabilityClientNeedsRefresh,
@@ -23,8 +25,75 @@ export const capabilityPackageKeys = {
   installed: () => [...capabilityPackageKeys.all, "installed"] as const,
   pendingUpdates: () => [...capabilityPackageKeys.all, "pending-updates"] as const,
   agents: () => [...capabilityPackageKeys.all, "agents"] as const,
+  rulesets: () => [...capabilityPackageKeys.all, "rulesets"] as const,
+  rulesetCatalog: (rulesetId: string, catalogId: string, version: number | undefined) =>
+    [...capabilityPackageKeys.rulesets(), "catalog", rulesetId, catalogId, version ?? "latest"] as const,
   releaseNotes: (id: string) => [...capabilityPackageKeys.all, "release-notes", id] as const,
 };
+
+/** Installed Game Mode rulesets. Keyed under `all`, so installing or removing a package refreshes it. */
+export function useInstalledRulesets(enabled = true) {
+  return useQuery({
+    queryKey: capabilityPackageKeys.rulesets(),
+    queryFn: () => api.get<InstalledRuleset[]>("/capability-packages/rulesets"),
+    enabled,
+  });
+}
+
+/** One ruleset catalog's entries, cached for a long time: a catalog changes only when the package
+ *  or an import does, and both invalidate `capabilityPackageKeys.rulesets()`, which this key sits
+ *  under. The version is the one the sheet is being read against, so a game keeps reading its own
+ *  version. Shared with the combat bridge, which fetches the same query through the query client so
+ *  a battle never loads a second copy of what the sheet editor already has. */
+export function rulesetCatalogQuery(rulesetId: string, catalogId: string, version: number | undefined) {
+  return {
+    queryKey: capabilityPackageKeys.rulesetCatalog(rulesetId, catalogId, version),
+    queryFn: () => {
+      const query = new URLSearchParams({ rulesetId, catalogId });
+      if (version !== undefined) query.set("version", String(version));
+      return api.get<RulesetCatalogPayload>(`/capability-packages/rulesets/catalog?${query.toString()}`);
+    },
+    staleTime: 30 * 60_000,
+    // A 4xx is the server's considered answer (no such catalog, an unusable file): asking again
+    // only delays the message. A dropped connection or a 5xx gets one more try.
+    retry: (failures: number, error: unknown) =>
+      failures < 1 && !(error instanceof ApiError && error.status >= 400 && error.status < 500),
+  };
+}
+
+/** The picker's own query: only fetched while a picker is open. */
+export function useRulesetCatalog(rulesetId: string, catalogId: string, version: number | undefined, enabled: boolean) {
+  return useQuery({
+    ...rulesetCatalogQuery(rulesetId, catalogId, version),
+    enabled: enabled && !!rulesetId && !!catalogId,
+  });
+}
+
+/** What `POST /game-rulesets/import` answers: `unchanged` means the exact file was already stored. */
+export type RulesetImportResult = { status: "added" | "unchanged"; rulesetId: string; version: number };
+
+/** Import one ruleset file. The file text goes over verbatim, because the stored bytes are what
+ *  lets the server tell a re-import of the same file from a changed one. */
+export function useImportRuleset() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (definition: string) => api.post<RulesetImportResult>("/game-rulesets/import", { definition }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: capabilityPackageKeys.rulesets() }),
+  });
+}
+
+/** Remove every stored version of an imported ruleset. `force` is the answer to the server's
+ *  `ruleset_in_use` 409, so a ruleset a game plays on is never removed by one click. */
+export function useRemoveRuleset() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ rulesetId, force }: { rulesetId: string; force?: boolean }) =>
+      api.delete<{ removed: number; games: number }>(
+        `/game-rulesets?rulesetId=${encodeURIComponent(rulesetId)}${force ? "&force=true" : ""}`,
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: capabilityPackageKeys.rulesets() }),
+  });
+}
 
 export function useCapabilityCatalog(enabled = true) {
   return useQuery({

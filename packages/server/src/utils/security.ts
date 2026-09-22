@@ -7,6 +7,7 @@ import { isLoopbackIp, isPrivateNetworkIp } from "../middleware/ip-allowlist.js"
 import { logger } from "../lib/logger.js";
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from "@marinara-engine/shared";
 import { requestHeadersWithOpenRouterAttribution } from "./openrouter-attribution.js";
+import { getOpenCodeSessionId, isOpenCodeApiUrl, requestHeadersWithOpenCodeSession } from "./opencode-session.js";
 
 export { CSRF_HEADER, CSRF_HEADER_VALUE };
 
@@ -601,6 +602,7 @@ const CROSS_ORIGIN_REDIRECT_STRIPPED_HEADERS = [
   "xi-api-key",
   "x-api-key",
   "api-key",
+  "x-opencode-session",
   "content-type",
   "content-length",
 ];
@@ -648,12 +650,17 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
     dispatcher ? undefined : keepAliveInitialDelayMs,
   );
   const redirects = policy?.maxRedirects ?? MAX_REDIRECTS;
+  const sessionId = getOpenCodeSessionId();
   let currentHeaders = headers;
   let currentInit = { ...init };
 
   for (let i = 0; i <= redirects; i += 1) {
     const internalDispatcher = dispatcher ? undefined : current.dispatcher;
-    const attributedHeaders = requestHeadersWithOpenRouterAttribution(current.url, currentHeaders);
+    const attributedHeaders = requestHeadersWithOpenCodeSession(
+      current.url,
+      requestHeadersWithOpenRouterAttribution(current.url, currentHeaders),
+      sessionId,
+    );
     const requestHeaders = decodeCompressedResponse
       ? requestHeadersWithIdentityEncoding(attributedHeaders)
       : attributedHeaders;
@@ -672,6 +679,9 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
         currentHeaders = stripCrossOriginRedirectHeaders(currentHeaders);
         currentInit = { ...currentInit };
         delete (currentInit as { body?: unknown }).body;
+      } else if (isOpenCodeApiUrl(previousUrl) && !isOpenCodeApiUrl(nextUrl)) {
+        currentHeaders = new Headers(currentHeaders);
+        currentHeaders.delete("x-opencode-session");
       }
       current = await validateOutboundUrlForFetch(nextUrl, policy, agentOptions, keepAliveInitialDelayMs);
       continue;

@@ -258,6 +258,9 @@ export function AppShell() {
       frame = requestAnimationFrame(() => {
         frame = 0;
         const viewport = window.visualViewport;
+        // Pinch zoom changes the visible area, not the keyboard or layout size.
+        // Keep the unzoomed geometry so scene media magnifies with the page.
+        if (viewport && Math.abs(viewport.scale - 1) > 0.01) return;
         const heightCandidates = [viewport?.height, window.innerHeight, root.clientHeight].filter(
           (value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0,
         );

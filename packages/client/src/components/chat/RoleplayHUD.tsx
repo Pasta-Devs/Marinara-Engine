@@ -28,6 +28,7 @@ import { useGameStateStore } from "../../stores/game-state.store";
 import { useAgentStore, EMPTY_AGENT_TYPES, EMPTY_AGENT_FAILURES } from "../../stores/agent.store";
 import { useAgentConfigs, useCustomAgentRuns, type AgentConfigRow } from "../../hooks/use-agents";
 import { useUpdateMessageExtra } from "../../hooks/use-chats";
+import { useAdvancedMemoryStatus } from "../../hooks/use-advanced-memory";
 import { discardPendingGameStatePatch, useGameStatePatcher } from "../../hooks/use-game-state-patcher";
 import { useUIStore } from "../../stores/ui.store";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
@@ -63,6 +64,7 @@ import type {
   CustomTrackerField,
   WorldCustomField,
   Message,
+  AdvancedMemoryStatus,
   TrackerHiddenFields,
 } from "@marinara-engine/shared";
 import {
@@ -78,6 +80,7 @@ const EMPTY_AGENT_TYPE_SET = new Set<string>();
 
 interface RoleplayHUDProps {
   chatId: string;
+  advancedMemoryEnabled?: boolean;
   isStreaming: boolean;
   onRetriggerTrackers?: () => void;
   /** Re-run one tracker agent only (same pipeline as full tracker run). */
@@ -116,6 +119,7 @@ const CombinedWorldPanel = lazy(async () =>
 
 export function RoleplayHUD({
   chatId,
+  advancedMemoryEnabled = false,
   isStreaming,
   onRetriggerTrackers,
   onRerunSingleTracker,
@@ -134,6 +138,7 @@ export function RoleplayHUD({
   const { patchField, patchPlayerStats, patchPlayerStatsMany } = useGameStatePatcher(chatId, "roleplay-hud");
 
   const { data: agentConfigs } = useAgentConfigs();
+  const { data: advancedMemoryStatus } = useAdvancedMemoryStatus(chatId, advancedMemoryEnabled);
   const enabledAgentTypes = enabledAgentTypesProp ?? EMPTY_AGENT_TYPE_SET;
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
   const roleplayTrackerPackages = installedCapabilities.filter(
@@ -324,6 +329,7 @@ export function RoleplayHUD({
         {/* Actions (Agents + Clear) */}
         <ActionsGroup
           chatId={chatId}
+          advancedMemoryStatus={advancedMemoryEnabled ? advancedMemoryStatus : undefined}
           injectionSourceMessages={injectionSourceMessages}
           agentConfigs={agentConfigs}
           agentsOpen={agentsOpen}
@@ -636,6 +642,7 @@ function TrackerPanelToggleButton({ onToggle }: { onToggle: () => void }) {
 
 interface ActionsGroupProps {
   chatId: string;
+  advancedMemoryStatus?: AdvancedMemoryStatus;
   injectionSourceMessages?: Message[];
   agentConfigs?: AgentConfigRow[];
   agentsOpen: boolean;
@@ -657,6 +664,7 @@ interface ActionsGroupProps {
 
 function ActionsGroup({
   chatId,
+  advancedMemoryStatus,
   injectionSourceMessages,
   agentConfigs,
   agentsOpen,
@@ -742,6 +750,9 @@ function ActionsGroup({
     ...customAgentRuns.map(customAgentRunIdentity),
   ]);
   if (echoMessages.length > 0 && !generatedAgentIds.has("echo-chamber")) generatedAgentIds.add("echo-chamber");
+  const memoryActive = advancedMemoryStatus?.settings.enabled && advancedMemoryStatus.job.id;
+  const memoryRunning = memoryActive && advancedMemoryStatus.job.status === "running";
+  if (memoryActive) generatedAgentIds.add("advanced-recall");
   const generatedAgentCount = generatedAgentIds.size;
   const agentsLabel = `Agents & Actions${generatedAgentCount > 0 ? ` - ${generatedAgentCount} generated` : ""}${
     failedAgentTypes.length > 0 ? ` - ${failedAgentTypes.length} failed` : ""
@@ -765,6 +776,7 @@ function ActionsGroup({
         <Suspense fallback={<DeferredActionsFallback isAgentProcessing={isAgentProcessing} />}>
           <RoleplayHUDActionsMenu
             chatId={chatId}
+            advancedMemoryStatus={memoryActive ? advancedMemoryStatus : undefined}
             injectionSourceMessages={injectionSourceMessages}
             isAgentProcessing={isAgentProcessing}
             isGenerationBusy={isGenerationBusy}
@@ -805,7 +817,7 @@ function ActionsGroup({
         title={agentsLabel}
         aria-label={agentsLabel}
       >
-        {isAgentProcessing ? (
+        {isAgentProcessing || memoryRunning ? (
           <Loader2 size="0.875rem" strokeWidth={2.5} className="shrink-0 animate-spin transition-colors" />
         ) : (
           <Sparkles size="0.875rem" strokeWidth={2.5} className="shrink-0 transition-colors" />

@@ -105,6 +105,7 @@ export const RESERVED_GM_TAG_NAMES = Object.freeze([
   "roll",
   "session_end",
   "sfx",
+  "sheet",
   "side",
   "skill_check",
   "state",

@@ -52,6 +52,9 @@ export interface CharacterExtensions {
   nameAliases?: string[];
   /** Marinara Engine: RPG stats toggle + custom attributes */
   rpgStats?: RPGStatsConfig;
+  /** Marinara Engine: starting builds for Game Mode rulesets, keyed by ruleset id. A game copies
+   *  the one it needs; a sheet for a ruleset that is not installed is kept dormant. */
+  rulesetSheets?: Record<string, unknown>;
   /** Marinara Engine: per-character Tracker fields copied into each new Roleplay chat. */
   trackerCustomFieldDefaults?: CharacterTrackerCustomFieldDefault[];
   /** Marinara Engine: Conversation-mode availability status */

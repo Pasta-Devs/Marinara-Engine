@@ -1,7 +1,7 @@
 import { Check, Hash, Star, User } from "lucide-react";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
-import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { cn, getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
 
 export type LibraryPreviewCard = {
@@ -35,14 +35,23 @@ export function CardLibraryPreview({
   const { t: localizeUi } = useTranslation();
   const placeholderClass =
     kind === "personas" ? "mari-avatar-placeholder--persona" : "mari-avatar-placeholder--character";
+  const portrait = card.avatarPath ? (
+    <img
+      src={card.avatarPath}
+      alt={card.name}
+      loading="lazy"
+      className="h-full w-full object-cover"
+      style={getAvatarCropStyle(card.avatarCrop)}
+    />
+  ) : null;
   return (
     <button
       type="button"
       data-card-library-card={card.id}
       onClick={onClick}
       className={cn(
-        "group flex w-full items-stretch overflow-hidden rounded-[1.25rem] border bg-[var(--card)]/70 text-left shadow-[0_20px_50px_-32px_rgba(15,23,42,0.75)] transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:shadow-[0_24px_60px_-32px_color-mix(in_srgb,var(--marinara-chat-chrome-accent)_35%,transparent)]",
-        compact ? "min-h-0 flex-1" : "sm:flex-col sm:rounded-[1.75rem] sm:hover:-translate-y-0.5",
+        "group flex w-full items-stretch overflow-hidden rounded-[1.25rem] border bg-[var(--card)]/70 text-left shadow-[0_20px_50px_-32px_rgba(15,23,42,0.75)] transition-[border-color,box-shadow] hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:shadow-[0_24px_60px_-32px_color-mix(in_srgb,var(--marinara-chat-chrome-accent)_35%,transparent)]",
+        compact ? "min-h-0 flex-1" : "sm:flex-col sm:rounded-[1.75rem]",
         isSelected
           ? "border-[var(--marinara-chat-chrome-button-border-active)] ring-1 ring-[var(--marinara-chat-chrome-focus-ring)]"
           : "border-[var(--marinara-chat-chrome-panel-border)]",
@@ -51,21 +60,22 @@ export function CardLibraryPreview({
       <div
         data-card-library-avatar
         className={cn(
-          "mari-avatar-placeholder relative shrink-0 self-stretch overflow-hidden",
+          "mari-avatar-placeholder relative shrink-0 self-stretch overflow-hidden [container-type:size]",
           placeholderClass,
           compact
             ? "min-h-0 w-[28%] max-w-20"
             : "min-h-24 w-24 sm:h-auto sm:min-h-0 sm:w-full sm:self-auto sm:aspect-square",
         )}
       >
-        {card.avatarPath ? (
-          <img
-            src={card.avatarPath}
-            alt={card.name}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-            style={getAvatarCropStyle(card.avatarCrop)}
-          />
+        {portrait ? (
+          card.avatarCrop && !isLegacyAvatarCrop(card.avatarCrop) ? (
+            // Source crops are square. Cover the rectangular preview with that square, without stretching it.
+            <div className="absolute left-1/2 top-1/2 aspect-square w-[max(100cqw,100cqh)] -translate-x-1/2 -translate-y-1/2">
+              {portrait}
+            </div>
+          ) : (
+            portrait
+          )
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[var(--marinara-chat-chrome-panel-title)]">
             <User size="1.5rem" className="sm:h-8 sm:w-8" />

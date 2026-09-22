@@ -26,9 +26,11 @@ const reasonKeys: Record<string, string> = {
 export function AdvancedMemoryInspector({
   chatId,
   characters,
+  individual,
 }: {
   chatId: string;
   characters: MemoryCharacterOption[];
+  individual: boolean;
 }) {
   const { t } = useTranslation();
   const status = useAdvancedMemoryStatus(chatId);
@@ -37,16 +39,31 @@ export function AdvancedMemoryInspector({
   const fileInput = useRef<HTMLInputElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [draftAudience, setDraftAudience] = useState<string[]>([]);
+  const [editAudience, setEditAudience] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [search, setSearch] = useState("");
   const sources = useAdvancedMemorySources(chatId, showSources ? selectedId : null);
-  const records = useMemo(
-    () =>
-      (status.data?.records ?? [])
-        .filter((record) => record.kind !== "excerpt")
-        .sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex),
-    [status.data?.records],
-  );
+  const records = useMemo(() => {
+    const all = status.data?.records ?? [];
+    const sceneKey = (record: AdvancedMemoryRecord) => JSON.stringify([record.sceneId, record.messageIds]);
+    const characterScenes = new Set(
+      all.filter((record) => record.kind === "scene" && record.audienceCharacterIds.length).map(sceneKey),
+    );
+    return all
+      .filter(
+        (record) =>
+          record.kind !== "excerpt" &&
+          !(
+            record.kind === "scene" &&
+            !record.audienceCharacterIds.length &&
+            record.enabled &&
+            !record.manualOverride &&
+            characterScenes.has(sceneKey(record))
+          ),
+      )
+      .sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex);
+  }, [status.data?.records]);
   const sceneNumbers = new Map(
     [...new Set(records.filter((record) => record.kind === "scene").map((record) => record.sceneId))].map(
       (id, index) => [id, index + 1],
@@ -57,6 +74,10 @@ export function AdvancedMemoryInspector({
       ? t("chat.advancedMemory.sceneNumber", { number: sceneNumbers.get(record.sceneId) })
       : t(`chat.advancedMemory.kind.${record.kind}`);
   const selected = records.find((record) => record.id === selectedId);
+  const reviewCorrection =
+    selected?.kind === "scene" && selected.manualOverride && selected.embeddingStatus === "stale";
+  const audienceChanged =
+    !!selected && [...draftAudience].sort().join("\0") !== [...selected.audienceCharacterIds].sort().join("\0");
   const receipt = status.data?.latestReceipt;
   const pending = action.isPending || status.data?.job.status === "running";
   const characterName = (id: string) => characters.find((character) => character.id === id)?.name ?? id;
@@ -94,7 +115,31 @@ export function AdvancedMemoryInspector({
   const openRecord = (record: AdvancedMemoryRecord) => {
     setSelectedId(record.id);
     setDraft(record.content);
+    setDraftAudience(record.audienceCharacterIds);
+    setEditAudience(false);
     setShowSources(false);
+  };
+  const deleteSummary = async (record: AdvancedMemoryRecord) => {
+    const confirmed = await showConfirmDialog({
+      title: t("chat.advancedMemory.deleteSummary"),
+      message: t("chat.advancedMemory.deleteSummaryConfirm", {
+        scene: recordTitle(record),
+        audience: audience(record),
+      }),
+      confirmLabel: t("chat.advancedMemory.deleteSummary"),
+      cancelLabel: t("chat.advancedMemory.cancelSetup"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+    action.mutate(
+      { action: "delete-record", recordId: record.id },
+      {
+        onSuccess: () => {
+          setSelectedId(null);
+          setShowSources(false);
+        },
+      },
+    );
   };
   const importFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
@@ -248,11 +293,51 @@ export function AdvancedMemoryInspector({
           <SettingsSwitch
             label={t("chat.advancedMemory.includeInRecall")}
             checked={selected.enabled}
-            disabled={pending}
+            disabled={action.isPending}
             onChange={(enabled) => action.mutate({ action: "record", recordId: selected.id, patch: { enabled } })}
             labelPosition="start"
             className="justify-between"
           />
+          {individual && selected.kind === "scene" && selected.id !== selected.sceneId && (
+            <div className="space-y-2">
+              <button
+                type="button"
+                className={`${buttonClass} w-full`}
+                aria-expanded={editAudience}
+                onClick={() => setEditAudience((value) => !value)}
+              >
+                {t("chat.advancedMemory.editAudience")}
+              </button>
+              {editAudience && (
+                <fieldset className="space-y-2 rounded-lg border border-[var(--border)] p-3">
+                  <legend className="px-1 text-xs font-medium">{t("chat.advancedMemory.audienceLegend")}</legend>
+                  <p className="text-xs text-[var(--muted-foreground)]">{t("chat.advancedMemory.audienceHelp")}</p>
+                  {characters
+                    .filter((character) => character.id !== status.data?.settings.narratorCharacterId)
+                    .map((character) => (
+                      <SettingsSwitch
+                        key={character.id}
+                        label={character.name}
+                        checked={draftAudience.includes(character.id)}
+                        disabled={action.isPending}
+                        labelPosition="start"
+                        className="min-h-11 justify-between"
+                        onChange={(checked) =>
+                          setDraftAudience((current) =>
+                            checked ? [...current, character.id] : current.filter((id) => id !== character.id),
+                          )
+                        }
+                      />
+                    ))}
+                  {audienceChanged && !draftAudience.length && (
+                    <p role="status" className="text-xs text-[var(--muted-foreground)]">
+                      {t("chat.advancedMemory.audienceEmpty")}
+                    </p>
+                  )}
+                </fieldset>
+              )}
+            </div>
+          )}
           <label className="block space-y-1 text-xs">
             <span>{t("chat.advancedMemory.summaryText")}</span>
             <textarea
@@ -266,11 +351,30 @@ export function AdvancedMemoryInspector({
             <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("chat.advancedMemory.openSceneHelp")}</p>
           )}
           <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("chat.advancedMemory.editHelp")}</p>
+          {reviewCorrection && (
+            <p role="status" className="text-xs text-[var(--muted-foreground)]">
+              {t("chat.advancedMemory.reviewCorrectionHelp")}
+            </p>
+          )}
           <button
             type="button"
             className={`${buttonClass} w-full`}
-            disabled={pending || !draft.trim() || draft === selected.content}
-            onClick={() => action.mutate({ action: "record", recordId: selected.id, patch: { content: draft } })}
+            disabled={
+              action.isPending ||
+              !draft.trim() ||
+              (draft === selected.content && !audienceChanged && !reviewCorrection) ||
+              (audienceChanged && !draftAudience.length)
+            }
+            onClick={() =>
+              action.mutate({
+                action: "record",
+                recordId: selected.id,
+                patch: {
+                  ...(draft !== selected.content || reviewCorrection ? { content: draft } : {}),
+                  ...(audienceChanged ? { audienceCharacterIds: draftAudience } : {}),
+                },
+              })
+            }
           >
             {t("chat.advancedMemory.save")}
           </button>
@@ -308,6 +412,17 @@ export function AdvancedMemoryInspector({
               ))}
             </div>
           )}
+          {selected.kind !== "excerpt" && selected.id !== selected.sceneId && (
+            <button
+              type="button"
+              className={`${buttonClass} min-h-11 w-full text-[var(--destructive)]`}
+              disabled={action.isPending}
+              onClick={() => void deleteSummary(selected)}
+            >
+              <Trash2 size="0.875rem" aria-hidden="true" />
+              {t("chat.advancedMemory.deleteSummary")}
+            </button>
+          )}
         </div>
       ) : (
         <>
@@ -326,13 +441,13 @@ export function AdvancedMemoryInspector({
               {t("chat.advancedMemory.noSearchResults")}
             </p>
           )}
-          <ul className="space-y-2">
+          <ul className="flex flex-col gap-2">
             {filteredRecords.map((record) => (
               <li key={record.id}>
                 <button
                   type="button"
                   onClick={() => openRecord(record)}
-                  className="w-full space-y-1 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-left hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                  className="block w-full space-y-1 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-left hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                 >
                   <span className="block break-words text-xs font-semibold">{recordTitle(record)}</span>
                   <span className="block text-[0.6875rem] text-[var(--muted-foreground)]">

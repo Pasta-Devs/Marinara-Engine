@@ -1,3 +1,13 @@
+import {
+  normalizeGameDifficulty,
+  ENEMY_DAMAGE_MULTIPLIERS,
+  weatherDamageMultiplier,
+  classicAttackModifier,
+  type CombatWeather,
+  type CombatAttackTraits,
+} from "@marinara-engine/shared";
+import { chooseClassicAction } from "./combat-ai.service.js";
+import type { CombatController, CombatTactics } from "@marinara-engine/shared";
 // ──────────────────────────────────────────────
 // Game: Combat Math Service
 //
@@ -13,7 +23,12 @@ import { resolveElementApplication, applyReactionDamage } from "./element-reacti
 
 // ── Types ──
 
-export interface CombatantStats {
+export interface CombatantStats extends CombatAttackTraits {
+  side?: "player" | "party" | "enemy";
+  tactics?: CombatTactics;
+  controller?: CombatController;
+  skillCooldowns?: Record<string, number>;
+  spellSlots?: Record<string, number>;
   id: string;
   name: string;
   hp: number;
@@ -106,7 +121,16 @@ export interface CombatRoundResult {
   reactions: Array<{ attackerId: string; defenderId: string; reaction: string; description: string }>;
 }
 
-const TURN_SKIP_STATUS_NAMES = new Set(["frozen", "stunned", "imprisoned"]);
+const TURN_SKIP_STATUS_NAMES = new Set([
+  "frozen",
+  "stun",
+  "stunned",
+  "imprisoned",
+  "paralyzed",
+  "incapacitated",
+  "sleep",
+  "asleep",
+]);
 
 function activeStatusEffects(combatant: CombatantStats): StatusEffect[] {
   return combatant.statusEffects?.filter((effect) => effect.turnsLeft > 0) ?? [];
@@ -127,20 +151,73 @@ function getTurnSkipReason(combatant: CombatantStats, effectiveSpeed: number): s
   return effectiveSpeed <= 0 ? "immobilized" : null;
 }
 
+export function canCombatantAct(combatant: CombatantStats): boolean {
+  return combatant.hp > 0 && getTurnSkipReason(combatant, getEffectiveSpeed(combatant)) === null;
+}
+
 function resolveSkillAction(
   attacker: CombatantStats,
   target: CombatantStats,
   skill: CombatSkill,
   difficulty: string = "normal",
   elementPreset?: string,
+  prepaid = false,
+  weather?: CombatWeather,
 ): AttackResult {
   const currentMp = attacker.mp ?? 0;
-  if (skill.mpCost > currentMp) {
-    const fallback = resolveAttack(attacker, target, difficulty, elementPreset);
-    return { ...fallback, skillName: skill.name };
+  if (
+    !prepaid &&
+    ((skill.slotLevel ? (attacker.spellSlots?.[String(skill.slotLevel)] ?? 0) <= 0 : skill.mpCost > currentMp) ||
+      (attacker.tactics && (attacker.skillCooldowns?.[skill.id] ?? 0) > 0))
+  ) {
+    return {
+      attackerId: attacker.id,
+      defenderId: target.id,
+      attackRoll: 0,
+      defenseRoll: 0,
+      rawDamage: 0,
+      mitigated: 0,
+      finalDamage: 0,
+      isCritical: false,
+      isMiss: false,
+      remainingHp: target.hp,
+      isKo: target.hp <= 0,
+      isHeal: skill.type === "heal" || skill.type === "buff",
+      skillName: skill.name,
+    };
   }
 
-  attacker.mp = Math.max(0, currentMp - skill.mpCost);
+  if (!prepaid) {
+    if (skill.slotLevel) attacker.spellSlots![String(skill.slotLevel)]!--;
+    else attacker.mp = Math.max(0, currentMp - skill.mpCost);
+  }
+  if (attacker.tactics && !prepaid) {
+    attacker.skillCooldowns ??= {};
+    attacker.skillCooldowns[skill.id] = Math.max(1, skill.cooldown ?? 1);
+  }
+  if (skill.type === "buff" || skill.type === "debuff") {
+    applyNamedStatus(target, {
+      name: skill.statusEffect || skill.name,
+      modifier: skill.type === "buff" ? 2 : -2,
+      stat: "defense",
+      turnsLeft: Math.max(2, skill.cooldown ?? 2),
+    });
+    return {
+      attackerId: attacker.id,
+      defenderId: target.id,
+      attackRoll: 0,
+      defenseRoll: 0,
+      rawDamage: 0,
+      mitigated: 0,
+      finalDamage: 0,
+      isCritical: false,
+      isMiss: false,
+      remainingHp: target.hp,
+      isKo: false,
+      isHeal: skill.type === "buff",
+      skillName: skill.name,
+    };
+  }
 
   if (skill.type === "heal") {
     const healAmount = Math.max(1, Math.floor((attacker.attack + attacker.level * 2) * Math.max(skill.power, 0.5)));
@@ -167,10 +244,12 @@ function resolveSkillAction(
 
   const skilledAttacker: CombatantStats = {
     ...attacker,
+    projectile: skill.projectile,
+    requiresSight: skill.requiresSight,
     attack: Math.max(1, Math.floor(attacker.attack * Math.max(skill.power, 1))),
     element: skill.element || attacker.element,
   };
-  const result = resolveAttack(skilledAttacker, target, difficulty, elementPreset);
+  const result = resolveAttack(skilledAttacker, target, difficulty, elementPreset, weather);
   if (!result.isMiss && skill.statusEffect) {
     applyNamedStatus(target, {
       name: skill.statusEffect,
@@ -188,6 +267,7 @@ function resolveItemAction(
   itemId?: string,
   itemEffect?: CombatItemEffect,
   elementPreset?: string,
+  weather?: CombatWeather,
 ): AttackResult {
   const itemName = itemId?.trim() || "Item";
   const effectType = itemEffect?.type;
@@ -197,7 +277,12 @@ function resolveItemAction(
 
     if (effectType === "damage" || effectType === "status" || effectType === "debuff") {
       const finalDamage =
-        effectType === "damage" ? Math.max(1, Math.floor(Math.max(attacker.attack, target.maxHp) * power)) : 0;
+        effectType === "damage"
+          ? Math.max(
+              1,
+              Math.floor(Math.max(attacker.attack, target.maxHp) * power * weatherDamageMultiplier(weather, element)),
+            )
+          : 0;
       const remainingHp = Math.max(0, target.hp - finalDamage);
 
       if (itemEffect.status || effectType === "status" || effectType === "debuff") {
@@ -296,7 +381,11 @@ function chooseAutoSkill(
   round: number,
 ): { skill: CombatSkill; target: CombatantStats } | null {
   const usableSkills = (attacker.skills ?? []).filter((skill) => {
-    if ((attacker.mp ?? 0) < skill.mpCost) return false;
+    if (skill.reaction) return false;
+    if (
+      skill.slotLevel ? (attacker.spellSlots?.[String(skill.slotLevel)] ?? 0) <= 0 : (attacker.mp ?? 0) < skill.mpCost
+    )
+      return false;
     const cooldown = Math.max(0, Math.floor(Number(skill.cooldown) || 0));
     return cooldown <= 1 || round % cooldown === 0;
   });
@@ -316,7 +405,8 @@ function chooseAutoSkill(
   }
 
   const skill = offensiveSkills[Math.floor(Math.random() * offensiveSkills.length)]!;
-  const target = enemies[Math.floor(Math.random() * enemies.length)]!;
+  const pool = skill.type === "buff" ? allies : enemies;
+  const target = pool[Math.floor(Math.random() * pool.length)]!;
   return { skill, target };
 }
 
@@ -348,9 +438,10 @@ export function resolveAttack(
   defender: CombatantStats,
   difficulty: string = "normal",
   elementPreset?: string,
+  weather?: CombatWeather,
 ): AttackResult {
   // Attack roll: 1d20 + attack stat modifier
-  const attackMod = Math.floor(attacker.attack / 3);
+  const attackMod = classicAttackModifier(attacker.attack, weather, attacker);
   const rawAttackD20 = rollDice("1d20").total;
   const attackRoll = rawAttackD20 + attackMod;
 
@@ -382,13 +473,9 @@ export function resolveAttack(
   let finalDamage = Math.max(0, rawDamage - mitigated);
 
   // Difficulty scaling
-  const difficultyMult: Record<string, number> = {
-    casual: 0.6,
-    normal: 1.0,
-    hard: 1.3,
-    brutal: 1.6,
-  };
-  finalDamage = Math.floor(finalDamage * (difficultyMult[difficulty] ?? 1.0));
+  if (attacker.side === "enemy")
+    finalDamage = Math.floor(finalDamage * ENEMY_DAMAGE_MULTIPLIERS[normalizeGameDifficulty(difficulty)]);
+  finalDamage = Math.floor(finalDamage * weatherDamageMultiplier(weather, attacker.element));
 
   // Apply status effect modifiers
   if (attacker.statusEffects) {
@@ -498,6 +585,7 @@ function resolveMechanicActions(
   mechanics: CombatMechanic[] | undefined,
   elementPreset: string | undefined,
   defendingIds: Set<string>,
+  weather?: CombatWeather,
 ): { actions: AttackResult[]; reactions: CombatRoundResult["reactions"] } {
   if (!mechanics?.length) return { actions: [], reactions: [] };
 
@@ -533,7 +621,12 @@ function resolveMechanicActions(
       }
 
       let damage = mechanic.effectType?.startsWith("damage")
-        ? Math.max(1, Math.floor(Math.max(owner.attack, target.maxHp) * power))
+        ? Math.max(
+            1,
+            Math.floor(
+              Math.max(owner.attack, target.maxHp) * power * weatherDamageMultiplier(weather, mechanic.element),
+            ),
+          )
         : 0;
       if (defendingIds.has(target.id)) damage = Math.floor(damage * 0.45);
 
@@ -593,16 +686,31 @@ export function resolveCombatRound(
   elementPreset?: string,
   playerAction?: PlayerAction,
   mechanics?: CombatMechanic[],
+  partyActions?: Record<string, PlayerAction>,
+  controlledId?: string,
+  directed?: {
+    weather?: CombatWeather;
+    actorId: string;
+    action: PlayerAction;
+    defendingIds: Set<string>;
+    prepaid?: boolean;
+    finishRound?: boolean;
+  },
 ): CombatRoundResult {
+  const weather = directed?.weather;
   const alive = combatants.filter((c) => c.hp > 0);
-  const initiative = rollInitiative(alive);
+  const initiative: InitiativeEntry[] = directed
+    ? alive
+        .filter((c) => c.id === directed.actorId)
+        .map((c) => ({ id: c.id, name: c.name, roll: 0, speed: c.speed, total: c.speed }))
+    : rollInitiative(alive);
   const actions: AttackResult[] = [];
   const statusTicks: Array<{ id: string; effect: string; expired: boolean }> = [];
   const reactions: CombatRoundResult["reactions"] = [];
 
   // Track defending combatants for defense bonus
-  const defendingIds = new Set<string>();
-  const controlledPlayerId = combatants.find((c) => c.hp > 0 && (c as { side?: string }).side === "player")?.id ?? null;
+  const defendingIds = directed?.defendingIds ?? new Set<string>();
+  const controlledPlayerId = controlledId ?? combatants.find((c) => c.hp > 0 && c.side === "player")?.id ?? null;
 
   // Each combatant acts in initiative order
   for (const entry of initiative) {
@@ -611,6 +719,74 @@ export function resolveCombatRound(
     if (entry.skipsTurn) continue;
 
     const isPlayerSide = (attacker as { side?: string }).side === "player";
+
+    if (directed || attacker.tactics || (isPlayerSide && partyActions?.[attacker.id])) {
+      const allies = combatants.filter((c) => c.hp > 0 && c.side === attacker.side);
+      const opponents = combatants.filter((c) => c.hp > 0 && c.side !== attacker.side);
+      if (!opponents.length) break;
+      const command =
+        directed?.action ??
+        (isPlayerSide
+          ? (partyActions?.[attacker.id] ?? (attacker.id === controlledPlayerId ? playerAction : undefined))
+          : undefined);
+      const choice =
+        command ??
+        (isPlayerSide && attacker.controller === "manual"
+          ? { type: "defend" as const }
+          : chooseClassicAction(attacker, allies, opponents, round, difficulty, weather));
+      if (choice.type === "defend") {
+        defendingIds.add(attacker.id);
+        continue;
+      }
+      if (choice.type === "flee") continue;
+      const skill = choice.type === "skill" ? attacker.skills?.find((s) => s.id === choice.skillId) : undefined;
+      const support = skill?.type === "heal" || skill?.type === "buff";
+      const pool =
+        choice.type === "item"
+          ? choice.itemEffect?.target === "enemy"
+            ? opponents
+            : choice.itemEffect?.target === "any"
+              ? [...allies, ...opponents]
+              : allies
+          : support
+            ? allies
+            : opponents;
+      const target = pool.find((c) => c.id === choice.targetId) ?? pool[0]!;
+      // An unavailable skill must never become friendly-fire damage.
+      if (
+        choice.type === "skill" &&
+        (!skill ||
+          skill.reaction ||
+          (!directed?.prepaid &&
+            ((skill.slotLevel
+              ? (attacker.spellSlots?.[String(skill.slotLevel)] ?? 0) <= 0
+              : (attacker.mp ?? 0) < skill.mpCost) ||
+              (attacker.skillCooldowns?.[skill.id] ?? 0) > 0)))
+      ) {
+        defendingIds.add(attacker.id);
+        continue;
+      }
+      const originalDefense = target.defense;
+      if (defendingIds.has(target.id) && target.side !== attacker.side)
+        target.defense = Math.floor(target.defense * 1.5);
+      const result =
+        choice.type === "item"
+          ? resolveItemAction(attacker, target, choice.itemId, choice.itemEffect, elementPreset, weather)
+          : skill
+            ? resolveSkillAction(attacker, target, skill, difficulty, elementPreset, directed?.prepaid, weather)
+            : resolveAttack(attacker, target, difficulty, elementPreset, weather);
+      target.defense = originalDefense;
+      target.hp = result.remainingHp;
+      actions.push(result);
+      if (result.reaction)
+        reactions.push({
+          attackerId: attacker.id,
+          defenderId: target.id,
+          reaction: result.reaction.reaction,
+          description: result.reaction.description,
+        });
+      continue;
+    }
 
     if (isPlayerSide) {
       const allies = combatants.filter((c) => c.hp > 0 && (c as { side?: string }).side === "player");
@@ -639,18 +815,19 @@ export function resolveCombatRound(
         if (playerAction.type === "attack") {
           let target = opposingSide.find((c) => c.id === playerAction.targetId);
           if (!target) target = opposingSide[Math.floor(Math.random() * opposingSide.length)]!;
-          pushResult(target, resolveAttack(attacker, target, difficulty, elementPreset));
+          pushResult(target, resolveAttack(attacker, target, difficulty, elementPreset, weather));
           continue;
         }
 
         if (playerAction.type === "skill") {
           const skill = attacker.skills?.find((candidate) => candidate.id === playerAction.skillId);
-          const targetPool = skill?.type === "heal" ? allies : opposingSide;
+          if (skill?.reaction) continue;
+          const targetPool = skill?.type === "heal" || skill?.type === "buff" ? allies : opposingSide;
           let target = playerAction.targetId ? targetPool.find((c) => c.id === playerAction.targetId) : undefined;
           if (!target) target = targetPool[Math.floor(Math.random() * targetPool.length)]!;
           const result = skill
-            ? resolveSkillAction(attacker, target, skill, difficulty, elementPreset)
-            : resolveAttack(attacker, target, difficulty, elementPreset);
+            ? resolveSkillAction(attacker, target, skill, difficulty, elementPreset, false, weather)
+            : resolveAttack(attacker, target, difficulty, elementPreset, weather);
           pushResult(target, result);
           continue;
         }
@@ -670,6 +847,7 @@ export function resolveCombatRound(
             playerAction.itemId,
             playerAction.itemEffect,
             elementPreset,
+            weather,
           );
           pushResult(target, result);
           continue;
@@ -682,13 +860,13 @@ export function resolveCombatRound(
       if (autoSkill) {
         pushResult(
           autoSkill.target,
-          resolveSkillAction(attacker, autoSkill.target, autoSkill.skill, difficulty, elementPreset),
+          resolveSkillAction(attacker, autoSkill.target, autoSkill.skill, difficulty, elementPreset, false, weather),
         );
         continue;
       }
 
       const target = opposingSide[Math.floor(Math.random() * opposingSide.length)]!;
-      pushResult(target, resolveAttack(attacker, target, difficulty, elementPreset));
+      pushResult(target, resolveAttack(attacker, target, difficulty, elementPreset, weather));
       continue;
     }
 
@@ -710,8 +888,16 @@ export function resolveCombatRound(
     }
 
     const result = enemyAutoSkill
-      ? resolveSkillAction(attacker, enemyAutoSkill.target, enemyAutoSkill.skill, difficulty, elementPreset)
-      : resolveAttack(attacker, target, difficulty, elementPreset);
+      ? resolveSkillAction(
+          attacker,
+          enemyAutoSkill.target,
+          enemyAutoSkill.skill,
+          difficulty,
+          elementPreset,
+          false,
+          weather,
+        )
+      : resolveAttack(attacker, target, difficulty, elementPreset, weather);
     actions.push(result);
 
     // Restore original defense after calculation
@@ -731,12 +917,16 @@ export function resolveCombatRound(
     target.hp = result.remainingHp;
   }
 
-  const mechanicResult = resolveMechanicActions(combatants, round, mechanics, elementPreset, defendingIds);
+  if (directed && !directed.finishRound) return { round, initiative, actions, statusTicks, reactions };
+
+  const mechanicResult = resolveMechanicActions(combatants, round, mechanics, elementPreset, defendingIds, weather);
   actions.push(...mechanicResult.actions);
   reactions.push(...mechanicResult.reactions);
 
   // Tick status effects at end of round
   for (const c of combatants) {
+    if (c.tactics && c.skillCooldowns)
+      for (const key of Object.keys(c.skillCooldowns)) c.skillCooldowns[key] = Math.max(0, c.skillCooldowns[key]! - 1);
     if (c.hp <= 0) continue;
     const { updated, ticks } = tickStatusEffects(c);
     Object.assign(c, updated);

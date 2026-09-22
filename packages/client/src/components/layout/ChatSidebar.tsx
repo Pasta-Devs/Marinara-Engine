@@ -49,6 +49,8 @@ import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { ChatRowPeek } from "./ChatRowPeek";
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
+import { TouchDragHandle } from "../ui/TouchDragHandle";
 import { usePresenceClock } from "../../hooks/use-presence-clock";
 import { toast } from "sonner";
 import {
@@ -285,13 +287,6 @@ export function ChatSidebar() {
   const [draggedChatId, setDraggedChatId] = useState<string | null>(null);
   const [isRootDropTarget, setIsRootDropTarget] = useState(false);
   const chatImportInputRef = useRef<HTMLInputElement>(null);
-  const touchDragRef = useRef<{
-    chatId: string;
-    timer: number | null;
-    active: boolean;
-    lastX: number;
-    lastY: number;
-  } | null>(null);
   const suppressTouchDragClickRef = useRef(false);
 
   // Multi-select state
@@ -803,58 +798,32 @@ export function ChatSidebar() {
     [moveChatMut],
   );
 
-  const startTouchDrag = useCallback((chatId: string, event: React.PointerEvent<HTMLElement>) => {
-    if (event.pointerType === "mouse") return;
-    const drag = {
-      chatId,
-      timer: null as number | null,
-      active: false,
-      lastX: event.clientX,
-      lastY: event.clientY,
-    };
-    drag.timer = window.setTimeout(() => {
-      drag.active = true;
+  const resetTouchDrag = () => {
+    setDraggedChatId(null);
+    setIsRootDropTarget(false);
+    window.setTimeout(() => {
+      suppressTouchDragClickRef.current = false;
+    }, 0);
+  };
+
+  const { startTouchDrag, startMouseDrag } = useTouchFolderDrag({
+    delayMs: 420,
+    onActivate: (chatId) => {
       setDraggedChatId(chatId);
-    }, 420);
-    touchDragRef.current = drag;
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }, []);
-
-  const updateTouchDrag = useCallback((event: React.PointerEvent<HTMLElement>) => {
-    const drag = touchDragRef.current;
-    if (!drag) return;
-    drag.lastX = event.clientX;
-    drag.lastY = event.clientY;
-    if (drag.active) event.preventDefault();
-  }, []);
-
-  const finishTouchDrag = useCallback(
-    (event: React.PointerEvent<HTMLElement>) => {
-      const drag = touchDragRef.current;
-      if (!drag) return;
-      if (drag.timer !== null) {
-        window.clearTimeout(drag.timer);
-      }
-      touchDragRef.current = null;
-
-      if (drag.active) {
-        const target = document.elementFromPoint(drag.lastX, drag.lastY);
-        const folderEl = target?.closest<HTMLElement>("[data-chat-folder-id]");
-        const rootEl = target?.closest<HTMLElement>("[data-chat-root-drop-zone]");
-        const folderId = folderEl?.dataset.chatFolderId ?? null;
-        if (folderId) {
-          handleDropChatsToFolder(getDragChatIds(drag.chatId), folderId);
-        } else if (rootEl) {
-          handleDropChatsToFolder(getDragChatIds(drag.chatId), null);
-        }
-        setDraggedChatId(null);
-        setIsRootDropTarget(false);
-        suppressTouchDragClickRef.current = true;
-        event.preventDefault();
-      }
+      suppressTouchDragClickRef.current = true;
     },
-    [getDragChatIds, handleDropChatsToFolder],
-  );
+    onDrop: (chatId, x, y) => {
+      const target = document.elementFromPoint(x, y);
+      const folderId = target?.closest<HTMLElement>("[data-chat-folder-id]")?.dataset.chatFolderId;
+      if (folderId) {
+        handleDropChatsToFolder(getDragChatIds(chatId), folderId);
+      } else if (target?.closest("[data-chat-root-drop-zone]")) {
+        handleDropChatsToFolder(getDragChatIds(chatId), null);
+      }
+      resetTouchDrag();
+    },
+    onCancel: resetTouchDrag,
+  });
 
   // ── Batch actions ──
   const handleBatchDelete = useCallback(async () => {
@@ -969,6 +938,7 @@ export function ChatSidebar() {
         tabIndex={0}
         key={chat.groupId ?? chat.id}
         data-chat-id={chat.id}
+        onMouseDown={(event) => startMouseDrag(event, chat.id)}
         draggable
         onDragStart={(event) => {
           const chatIds = getDragChatIds(chat.id);
@@ -1030,22 +1000,15 @@ export function ChatSidebar() {
             )}
           </div>
         )}
-        <button
-          type="button"
-          aria-label={localizeUi("ui.layout.chatsidebar.dragChat")}
-          title={localizeUi("ui.layout.chatsidebar.dragChat")}
-          className="mari-chrome-accent-text-muted mari-accent-animated flex h-8 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-md opacity-100 transition-all hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] active:cursor-grabbing active:scale-95 md:h-7 md:w-5 md:opacity-0 md:group-hover:opacity-100"
-          onClick={(event) => event.stopPropagation()}
-          onPointerDown={(event) => {
-            event.stopPropagation();
-            startTouchDrag(chat.id, event);
+        <TouchDragHandle
+          label={localizeUi("ui.layout.chatsidebar.dragChat")}
+          onTouchStart={(event) => {
+            startTouchDrag(event, chat.id, {
+              allowInteractiveTarget: true,
+              sourceElement: event.currentTarget.closest<HTMLElement>("[data-chat-id]"),
+            });
           }}
-          onPointerMove={updateTouchDrag}
-          onPointerUp={finishTouchDrag}
-          onPointerCancel={finishTouchDrag}
-        >
-          <GripVertical size="0.8125rem" />
-        </button>
+        />
 
         {/* Chat background banner — active/hovered only, behind everything */}
         {bannerUrl && (
@@ -2078,9 +2041,9 @@ function UserStatusFooter({
             onClick={onOpenScheduleManager}
             title={localizeUi("ui.layout.chatsidebar.characterScheduleManager")}
             aria-label={localizeUi("ui.layout.chatsidebar.characterScheduleManager")}
-            className="mari-chrome-control mari-chrome-control--small ml-1 h-7 w-7 shrink-0 justify-center p-0 max-md:h-9 max-md:min-h-9 max-md:w-9"
+            className="mari-chrome-control mari-chrome-control--small ml-1 h-7 w-7 shrink-0 justify-center p-0! max-md:h-9 max-md:min-h-9 max-md:w-9"
           >
-            <CalendarClock size="1.25rem" strokeWidth={2.25} />
+            <CalendarClock className="shrink-0" size="1.25rem" strokeWidth={2.25} />
           </button>
         )}
       </div>

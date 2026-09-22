@@ -511,6 +511,88 @@ context as success. On reload, the package must report readiness from its saved 
 server prompt-context contributor remains read-only and subject to its short deadline; do not
 use it for world generation or as a long-running startup barrier.
 
+### Capability API 1.19: package-contributed tools
+
+Capability API 1.16 gave a package a way to have the model _say_ something it could act on. This one
+gives it a way to have the model _call_ something. A package holding the new `tools` permission
+registers a named tool from its server entrypoint, and the Engine offers it to the model beside the
+built-ins on every turn of every chat, validates the call against the package's own JSON Schema, and
+hands the arguments to the package's handler.
+
+```ts
+export async function activate({ api }) {
+  api.registerTool({
+    name: "set_time",
+    description: "Move the world clock forward or back.",
+    parameters: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["advance", "rewind"] },
+        minutes: { type: "integer", minimum: 0 },
+      },
+      required: ["action", "minutes"],
+      additionalProperties: false,
+    },
+    handler: async (args, { chatId }) => {
+      const clock = await moveClock(chatId, args.action, args.minutes);
+      return { time: clock.label };
+    },
+  });
+}
+```
+
+Tool calling rather than a response format, on purpose. A response format claims the whole reply, so
+the narration would have to be a field inside a JSON object and could not stream. A tool call arrives
+alongside the prose and costs it nothing: the model writes its turn as normal and calls the tool
+while it does. It also means the package gets arguments the provider itself constrained, instead of
+parsing them back out of finished narration — which is the difference between a schema and a
+convention the model is asked to honour.
+
+Enums are the reason this matters. A package that knows the twelve places in its world can put those
+twelve strings in the schema, and a call naming a thirteenth is refused before the handler sees it.
+Refusals reuse the Engine's own tool-argument validator, which names the values that would have
+worked, so the model gets something it can act on rather than "must be equal to one of the allowed
+values". Whatever the handler returns is shown to the model as the tool result.
+
+Rules worth knowing before you write one:
+
+- Names are namespaced to `<packageId>_<name>`, with `-` flattened to `_`, so `world-clock`'s
+  `set_time` reaches the model as `world_clock_set_time`. A qualified name already taken by another
+  package is refused. Built-ins and enabled custom tools keep ownership of colliding names; the
+  package definition is omitted and the built-in or custom handler runs. Qualified names must fit
+  the provider limit of **64 characters**.
+  Resolution is built-in first, then custom, then package, in both the definitions the model is
+  shown and the executor, so the owner of a name is always the one that runs the call.
+- A package's tools are always attached for as long as it is active. There is no second per-chat
+  switch the way there is for built-in tools: declaring the permission and registering the tool is
+  the decision. The selected provider must support native tool calls.
+- The parameters schema is snapshotted and compiled at registration, so a schema the Engine cannot compile fails the
+  package at activation, where a developer sees it, rather than mid-turn.
+- A handler that throws is reported to the model as a failed tool call and logged; its message is not
+  forwarded. A handler that has not settled within **10 seconds** is abandoned the same way — it keeps
+  running, but the turn stops waiting on it.
+- Tool results must serialize to at most **64 KiB**. Larger or non-serializable results fail the call
+  instead of crowding out the conversation. Descriptions and results are trusted package content;
+  package authors must check `chatId` before reading or changing chat-specific state.
+- Every definition is serialised into each turn's provider request and counted by context fitting, so
+  registration is bounded: at most **16 tools per package** and **64 across all packages**, a
+  description of at most **512 characters**, and a parameters schema of at most **8 KiB**. Exceeding
+  any of these throws, which fails activation. Registering a name the package already owns replaces
+  that tool rather than consuming another slot.
+- The activation context stops working once the activation is torn down: a package that retains `api`
+  and calls `registerTool` from a later callback is refused, so a dead runtime cannot register a tool
+  or replace a live one belonging to a re-activated package.
+- Deactivating, updating or removing a package releases its tools, so a tool is never offered to a
+  model whose package is no longer there to answer it.
+  Tools are removed before awaiting package cleanup, whose individual callbacks have an 8-second deadline.
+
+These deadlines bound asynchronous waits only. Packages run as trusted code in the server process;
+synchronous work that blocks the event loop cannot be interrupted by a timer. Hard cancellation would
+require a separate worker or process boundary, which this API does not provide.
+
+This is not a soft seam. `api.registerTool` only exists on an Engine this new, so a package that
+needs it must declare `capabilityApi` 1.19 and will refuse to install on anything older.
+
 ## Initial packages
 
 - all currently built-in agents;
@@ -582,6 +664,359 @@ Desktop uses a browse list with an adjacent detail region. Mobile uses one pane 
 
 An extraction is complete only when the base production client and server bundles no longer contain the package implementation, a fresh install cannot activate it without downloading the package, an upgraded install retains it, and package install/update/uninstall passes on desktop, mobile, and Termux-compatible filesystems.
 
+### Capability API 1.30: wound tracks, spending on a check, and a fight fought on a track
+
+A ruleset's `live.tracks` entry may declare `levels` and `kinds`, which turns it from a bounded
+integer into a WOUND TRACK: a column of boxes, each with its own label and penalty, that a mark sits
+on. `levels` is 1 to 16 rungs, best first and worst last, each a `label` and an integer `penalty`.
+`kinds` is 1 to 6 sorts of harm the track may take, each an `id`, a short `label` and a distinct
+`severity`. The two go together: `kinds` without `levels` is refused, because there would be nothing
+to mark. Beside them, `resolution.penaltyFrom` names the track whose penalty rides on every roll:
+under `dice-pool` it takes that many dice off the pool and never below `pool.min`, and under
+`dice-sum` it is a flat modifier on the roll.
+
+The rest of 1.30 is everything else this slice added, and a package that ships any ONE of them
+declares 1.30:
+
+- `combat.health` may name a wound track instead of a pool, and then `combat.damageKinds` says what
+  each damage type marks: `default`, an optional `byType` map, and `marks`, which is `per-blow`
+  where a landing blow ticks one box or `per-point` where a damage roll counts health levels.
+  `damageKinds` is required with a wound track and refused with a pool.
+- `resolution.spend` (a `dice-pool` ruleset only): the pool a player may spend on a check, what one
+  payment costs, whether it buys `successes` or `dice`, and `perCheck`, the ceiling on one roll.
+- `mechanics.check` on a catalog entry: what a thing the character PICKED does to a check, as
+  `reroll` (`upTo` and `once` or `until`), `dice`, `successes` or `threshold`. Also pool-only.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 30 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+A wound track's length is its levels, so its `min` is 0 and its `max` is `levels.length`, and a file
+that says otherwise is refused rather than quietly corrected. A track named by `resolution.penaltyFrom`
+must be a wound track: a plain track carries no penalty to apply.
+
+Not a soft seam, for the same reason as 1.20 through 1.28: an Engine that cannot read `levels`,
+`kinds`, `penaltyFrom`, `damageKinds`, `resolution.spend` or `mechanics.check` refuses the whole
+ruleset file, so install reads the verified bytes of `ruleset.json` and refuses the package under an
+older declaration. No change for a ruleset whose tracks are plain numbers, whose health is a pool
+and which says nothing about spending on a check.
+
+### Capability API 1.29: what one turn of a ruleset fight can do
+
+Five additions, all optional, to the `combat` block and to the catalog entries a fight reads:
+
+- A blow may carry up to three MORE amounts beside its first. `mechanics.plus` on a catalog entry
+  and `damage.plus` on a creature action are each `{ dice?, flat?, type?, save?: { save,
+difficulty?, onSuccess: "none" | "half" } }`: rolled and typed on its own, doubled on its own by a
+  critical, saved against on its own by the target, and still one check against concentration and
+  one check for going down for the whole blow.
+- `combat.attacks[].strikes` is a value reference saying how many strikes one spend of that list's
+  budget buys. The rest wait in hand until the turn ends, and while any are in hand every row of
+  that list costs no budget.
+- `mechanics.free` costs no budget, `mechanics.gives` hands budgets back for this turn only (capped
+  where they land), and `mechanics.standard` lets its holder buy named standard actions with
+  another budget. A `utility` entry that declares `gives` or `standard` is offered rather than
+  dropped.
+- A new entry kind, `rider`, and a creature's own `riders`, add a damage clause to the first
+  qualifying hit of a turn or a round, passively and without ever being on the menu.
+- The closed condition effect list gains `own-saves-advantage`, `own-saves-disadvantage`,
+  `resist-all`, `cannot-target-source` and `cannot-approach-source`, and a condition may narrow the
+  saves it is about (`saves`), count only while its source is in sight (`whileSourceInSight`) or
+  end when its source goes down (`endsWhenSourceDown`).
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 29 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+Not a soft seam, for the same reason as 1.20 through 1.28: an Engine that cannot read these keys
+refuses the whole ruleset file, or the catalog file that holds them, so install reads the verified
+bytes of `ruleset.json` and of every declared `catalogs/<id>.json` and refuses either one under an
+older declaration. No permission, and no change for a ruleset that declares none of them.
+
+### Capability API 1.28: a ruleset fight on a board
+
+A ruleset's `combat` block may say what one cell of a battlefield is worth in its own distance
+(`distance: { label, perCell }`), and that is what makes a fight positionable at all. Beside it:
+`ranged` says what a shot past its ordinary distance, or taken with a foe in the next cell, costs;
+`cover` says what standing behind something adds to the defense an attack is rolled against;
+`opportunity` names the budget a strike at somebody walking away is paid out of; an attack list may
+give its rows a `reach` and a `range`, each read from a column of that list or written once for
+every row; and a creature action's `range` may be `{ "normal": 30, "long": 120 }` instead of a plain
+number.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 28 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+A ruleset that declares `ranged`, `cover`, `opportunity` or any weapon reach or range WITHOUT
+`distance` is refused at import: none of them means anything without a cell to measure it in. The
+board itself is the tactical combat style's own generator, terrain and deployment, so this level
+adds no second battlefield model and no permission.
+
+Not a soft seam, for the same reason as 1.20 through 1.27: an Engine that cannot read these keys
+refuses the whole ruleset file, or the catalog file that holds the creature whose range is a pair,
+so install reads the verified bytes of `ruleset.json` and of every declared `catalogs/<id>.json` and
+refuses either one under an older declaration. No change for a ruleset that says nothing about
+distance.
+
+### Capability API 1.27: ruleset bestiaries
+
+A ruleset catalog may declare `"holds": "creatures"` and carry creature stat blocks instead of sheet
+rows. A creature is written in the numbers the `combat` block already declares: health that may be a
+number or dice thrown when the fight starts, a defense, an initiative modifier, ability scores and
+save modifiers under the sheet's own ids, damage types it resists, is hurt more by or ignores, the
+conditions it is never in, the threat tier it sits on, traits the Game Master is shown, and actions
+that may hit, force a save, apply a condition, be limited to so many uses, come back on a recharge
+roll, resolve a sequence of the block's other actions for one budget, or be bought with the
+creature's own signature points.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 27 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/beasts.json"] } }
+}
+```
+
+A catalog of creatures declares no `feeds` and is never offered by the sheet editor's picker: it is
+read by a fight, not by a character sheet. The fight that reads it is the combat director's
+`ruleset` style, which needs no Capability API level of its own: it plays whatever `combat` block
+and bestiary an installed ruleset already carries.
+
+Not a soft seam, for the same reason as 1.20 through 1.26: an Engine that cannot read `holds` or an
+entry's `creature` refuses the whole ruleset file, or the catalog file that holds it, so install
+reads the verified bytes of `ruleset.json` and of every declared `catalogs/<id>.json` and refuses
+either one under an older declaration. No permission, and no change for a ruleset without a bestiary.
+
+### Capability API 1.26: ruleset combat
+
+A ruleset may carry an optional top-level `combat` block saying how a fight is RESOLVED by its own
+numbers: what is rolled and against what, the action economy, which sheet lists are attacks and
+which are abilities, what its conditions do, concentration, what happens to a character at zero, the
+damage types it has and the scale an opponent is picked from. The same release lets a catalog
+entry's `mechanics` say how many targets it takes, that it always lands, what conditions it applies,
+what temporary points it grants, how it grows with the sheet and which budget it spends.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 26 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+A game on a ruleset that declares `combat`, with the combat director on, fights its battles by
+this block on the battle screen. A ruleset without it fights the way it did before, through its
+`battle` block or the player's Classic or Tactical preference.
+
+Not a soft seam, for the same reason as 1.20 through 1.25: an Engine that cannot read `combat` or
+the new `mechanics` keys refuses the whole ruleset file, or the catalog file that holds them, so
+install reads the verified bytes of `ruleset.json` and of every declared `catalogs/<id>.json` and
+refuses either one under an older declaration. No permission, and no change for a ruleset with
+neither.
+
+### Capability API 1.25: ruleset layers and world guidance
+
+A ruleset may declare an optional top-level `layers` array: named variants of itself (Low magic, Hard
+winter) that a player turns on when a game is created, frozen into that game's pin for its lifetime.
+The same release gives the base `gm` block an optional `worldGuidance` string, which world generation
+reads once at setup so the setting suits the rules the party will play by.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 25 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+A layer's effects are a closed set and every one of them narrows or appends: guidance added after the
+ruleset's own, values removed from an enum field, the difficulty ladder replaced by one of the same
+resolution kind, and catalog entries hidden from the sheet editor's picker. Nothing is added, so a
+character sheet stays readable whichever layers a game chose, and a layer brings no package code and no
+extra model call. Layers shipped by someone other than the ruleset's author are a later addition.
+
+Not a soft seam, for the same reason as 1.20 through 1.24: an Engine that does not know `layers` or
+`gm.worldGuidance` refuses the whole ruleset file, so install reads the verified bytes of `ruleset.json`
+and refuses either one under an older declaration. No permission, and no change for a ruleset with
+neither.
+
+### Capability API 1.24: the dice-pool resolution kind
+
+A ruleset's `resolution` may declare `"kind": "dice-pool"` instead of `"dice-sum"`. The check then throws
+the character sheet's own number of dice and counts the ones that reach a target, with optional doubled
+faces, exploding faces, cancelling faces, botches, exceptional successes and a range of situational dice
+the Game Master may add or take for one check.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 24 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+The sheet is the same sheet: what `dice-sum` adds to the roll is, here, the number of dice. So the kind
+brings no new sheet vocabulary, no editor slot and no package code.
+
+Not a soft seam, for the same reason as 1.20 through 1.23: an Engine that knows only `dice-sum` refuses
+the whole ruleset file, so install reads the verified bytes of `ruleset.json` and refuses a `dice-pool`
+resolution under an older declaration. No permission, and no change for a ruleset that sums its dice.
+
+### Capability API 1.23: scaled catalog values
+
+A catalog entry's row may carry an optional `scaled` map: up to four of that row's own number columns
+whose value the ruleset keeps, rather than the player. Each one is an ordinary value reference with an
+optional step table, so a class resource can follow a level and a feature's uses can follow an ability
+score without the format learning any new arithmetic.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 23 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/spells.json"] } }
+}
+```
+
+The value is worked out when the sheet is edited and never when it is read, so live state, the Game
+Master's prompt block and the battle bridge all keep reading the stored number.
+
+A scaled row can sit inline in `ruleset.json` or in a `catalogs/<id>.json` asset. The manifest
+declares both files as assets but cannot show the keys inside them, so install reads the verified
+bytes of both and refuses a `scaled` key under a
+declaration older than 1.23, exactly as it does for `catalogs` under 1.21 and `battle` under 1.22. An
+older Engine's strict schema would refuse the file that holds it anyway. No permission, and no change
+for a ruleset whose catalogs ship none.
+
+The same release adds the `[sheet: op="use" name="..."]` command, which pays a catalog entry's
+`mechanics.cost` plus one use of every row pool that entry wrote. It needs no declaration: it reads
+catalogs the Engine already serves.
+
+### Capability API 1.22: the battle block
+
+A ruleset may carry an optional `battle` block, which lends a battle the numbers on the character
+sheet: the live pool that is hit points, an optional pool that becomes MP, the pools that become
+spell slots, and the sheet lists whose catalog-marked rows become the Engine's own `CombatSkill`s.
+When the fight ends, the hit points, energy and slots it spent are written back through the same
+sheet operations a player's own buttons use.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 22 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+This is not a combat adapter. The damage arithmetic stays the Engine's, and `attackRoll`, `save`,
+`concentration` and `perCostStep` on a catalog entry are read by nobody: rules-accurate resolution
+belongs to the combat handoff's per-ruleset adapters. `coverage.combat` keeps its own meaning and
+the bridge never reads it.
+
+The block lives inside `ruleset.json`, which the manifest cannot show, so install reads the verified
+bytes and refuses a `battle` key under a declaration older than 1.22, exactly as it does for
+`catalogs` under 1.21. An older Engine's strict schema would refuse the whole ruleset file anyway.
+No permission, and no change for a ruleset that ships no `battle` block.
+
+### Capability API 1.21: ruleset catalogs
+
+A ruleset may ship **catalogs**: named collections of ready-made entries (spells, class features,
+gear) that the sheet editor offers in a picker, so a player does not type a list row by row. The
+header lives in `ruleset.json` under `catalogs`; the entries sit either inline in that header or in
+a reserved asset of their own, one file per catalog:
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 21 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/spells.json"] } },
+  "files": [
+    { "path": "ruleset.json", "sha256": "<sha256>", "bytes": 25767 },
+    { "path": "catalogs/spells.json", "sha256": "<sha256>", "bytes": 418204 }
+  ]
+}
+```
+
+`catalogs/<id>.json` is a reserved asset family: the file name is the catalog's own id, so the
+Engine finds the file from the ruleset alone and no catalog can name another one's file. A catalog
+asset is hash-pinned in `files[]` like every other declared asset, only ever ships beside the
+`ruleset.json` that declares it, and is refused on its declared size above 1 MB before it is read.
+Its contents go through the same checks the inline entries go through, against the same sheet, so a
+catalog can never write a row the sheet could not hold. Up to 12 catalogs per ruleset and 2000
+entries per catalog.
+
+The client fetches a catalog only when a picker opens, through
+`GET /api/capability-packages/rulesets/catalog?rulesetId=&catalogId=&version=`. The installed-ruleset
+list never carries inline entries, only a count, because it is read whenever a sheet editor opens.
+Catalog text never reaches a prompt: the Game Master still sees only what `gm.sheetSummary` names,
+so catalogs cost no tokens.
+
+Like 1.20 this is not a soft seam, and the gate has two halves because catalogs live inside the
+ruleset file rather than in the manifest. Declaring a `catalogs/<id>.json` asset requires 1.21, and
+a `ruleset.json` that carries a `catalogs` key is refused at install when the manifest declares
+less, because an older Engine's strict schema would refuse the whole ruleset file anyway. No
+permission, as before.
+
+### Capability API 1.20: Game Mode rulesets
+
+A ruleset is a game's rules as validated data: a resolution kind the Engine already implements, a
+character sheet declared from a closed set of primitives, rests, and guidance for the Game Master
+prompt. A package ships it as the reserved-filename asset `ruleset.json`, discovered by convention
+exactly like `gm-verbs.json`: listed in `contributions.assets.paths` and hash-pinned in `files[]`.
+
+```json
+{
+  "schemaVersion": 2,
+  "capabilityApi": { "major": 1, "minor": 20 },
+  "id": "ruleset-5e-2014",
+  "kind": ["ruleset"],
+  "permissions": [],
+  "entrypoints": {},
+  "contributions": { "assets": { "paths": ["ruleset.json"] } },
+  "files": [{ "path": "ruleset.json", "sha256": "<sha256 of the file>", "bytes": 25767 }]
+}
+```
+
+The snippet shows only the keys that matter to a ruleset; the usual manifest fields (`name`,
+`version`, `description`, `engine`, `builtAgainst`) are still required.
+
+A ruleset package needs no permission, no server or client entrypoint and no agent. The kind and the
+asset go together: a package of kind `ruleset` must list `ruleset.json`, and a package that lists
+`ruleset.json` must declare the kind, so a ruleset cannot ride in under another kind. Nothing in the
+file is executed: there are no expression strings, and a mechanic that no resolution kind expresses
+is an Engine change that adds a kind, not something a ruleset can do. The format, the first-party 5e
+file and the reasons behind its shape are in
+[`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md).
+
+This is not a soft seam. A ruleset package does nothing on an Engine that cannot read it, so a
+manifest that lists `ruleset.json` must declare Capability API 1.20, and an older Engine refuses the
+install cleanly.
+
+The Engine refuses the asset on its declared size above 256 KB before reading it, re-verifies it
+against the install-time hash, and validates it with the strict shared schema
+(`packages/shared/src/schemas/ruleset.schema.ts`). A file it cannot use is dropped with one log line
+that names the package and the first few `path: message` problems. Two packages that declare the same
+ruleset id resolve to the first in package-id order, and the other is dropped with a log line.
+`engine-legacy` and `traditional` are Engine-owned ids a file may not claim.
+
+A game pins its ruleset once, at creation, as `chat.metadata.gameRuleset`. No pin means the Engine's
+own rules, exactly as before. A pin the install cannot honour (the package is gone, or the installed
+definition is older than the pinned version) is reported as unavailable and never reinterpreted as
+another ruleset. The pin is matched on the ruleset id and on the package that supplied it, so
+another package claiming the same id does not take over an existing game.
+
 ### Capability API 1.18: keep Experience setup in the Game wizard
 
 A `game-surface` package can declare `contributions.gameSurface.setup` with schema
@@ -634,3 +1069,37 @@ summary.
 Use the existing startup-readiness declaration independently when the world must
 be prepared before the opening turn. Declare API 1.18 as the package minimum;
 older hosts cannot interpret this setup declaration.
+
+### Capability API 1.32: a weapon that caps its own strikes
+
+An attack source may declare `strikesCappedBy`, a boolean column of its own list. Where that column
+is set on a row, that row buys a single strike however many `strikes` the list buys, so a weapon
+that fires once a turn stays one shot while the rest of the list swings as often as the sheet says.
+SRD 5.1's Loading property is the sentence it exists for: "you can fire only one piece of ammunition
+when you use an action, bonus action, or reaction to fire it, regardless of the number of attacks
+you can normally make."
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 32 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+It needs `strikes` beside it and is refused without one, because a list that buys one strike a spend
+already holds every row to one. Not a soft seam, for the same reason as 1.20 through 1.31: an Engine
+that cannot read the key refuses the whole ruleset file, so a package that ships it declares 1.32.
+No permission.
+
+### Capability API 1.31: host generation integrations
+
+Server packages can call `api.runtime.integrations` to use the current Engine's LLM, image and video services. Declare capability API 1.31 in the package manifest and check that the integration host is available during activation. Older Engines reject the newer API requirement before activating the package. Provider operations require the `network` permission; saving, staging and removing media require `storage`.
+
+- `llm.createProvider(...)` accepts the same connection settings as Engine's provider factory, including custom request parameters and headers. The returned provider supports `chat`, `chatComplete`, `embed`, `maxContextValue` and `maxTokensOverrideValue`. It exposes no credential properties.
+- `llm.localSidecar()` returns the host's local sidecar provider through the same facade.
+- `llm.withFallback(...)` wraps a provider created by the same package host. It preserves Engine's admission, fallback notifications and provider selection behavior.
+- `images.generate(...)` and `videos.generate(...)` use the live Engine implementations, including cancellation, request logging, network checks and media queues. Forward the caller's `signal` and UI `debugMode` when present.
+- `images.save`, `images.remove`, `images.stage` and `images.sweepStaged` reuse the gallery's safe writes and staged-file lifecycle. `videos.save` and `videos.remove` reuse the video storage path. `images.resolveNovelAiRequestSize` reuses the host's NovelAI size normalization. Video duration and public reference-upload normalization are also available through `videos.resolveDuration` and `videos.resolveReferenceUpload`.
+
+Shared request/result types are exported by `@marinara-engine/shared`. Keep package-specific prompt building and orchestration in the package; call these host entrypoints for provider I/O instead of copying Engine service implementations. Pure helpers and types may still be bundled.

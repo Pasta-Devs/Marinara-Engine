@@ -111,6 +111,7 @@ import {
 } from "../../lib/professor-mari-transcript-scroll";
 import { resolveProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
+import { useCodeBlockCopy } from "../../hooks/use-code-block-copy";
 import { rafThrottle } from "../../lib/raf-throttle";
 import { prepareImageAttachment } from "../../lib/chat-attachment-images";
 import { cn } from "../../lib/utils";
@@ -1221,14 +1222,19 @@ const CompactMarkdown = memo(function CompactMarkdown({
   content: string;
   streaming?: boolean;
 }) {
-  const trimmed = content.trim().replace(/\n{3,}/g, "\n\n");
+  const trimmed = content.trim();
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const rendered = useMemo(
     () => (trimmed ? renderMarkdownBlocks(trimmed, renderCompactInline, "home-mari") : null),
     [trimmed],
   );
+  useCodeBlockCopy(container, rendered);
   if (!trimmed) return null;
   return (
-    <div className="mari-message-content text-[0.8125rem] leading-[1.42] text-[var(--foreground)] [&_.mari-md-codeblock]:my-1.5 [&_.mari-md-codeblock]:max-h-44 [&_.mari-md-heading]:mb-0.5 [&_.mari-md-heading]:mt-1 [&_.mari-md-ol]:my-1 [&_.mari-md-ul]:my-1">
+    <div
+      ref={setContainer}
+      className="mari-message-content text-[0.8125rem] leading-[1.42] text-[var(--foreground)] [&_.mari-md-codeblock]:my-1.5 [&_.mari-md-codeblock]:max-h-44 [&_.mari-md-codeblock]:pb-12! [&_.mari-md-heading]:mb-0.5 [&_.mari-md-heading]:mt-1 [&_.mari-md-ol]:my-1 [&_.mari-md-ul]:my-1"
+    >
       {rendered}
       {streaming && (
         <span className="ml-1 inline-block h-3 w-1 translate-y-0.5 rounded-full bg-[var(--primary)] opacity-80 animate-pulse" />

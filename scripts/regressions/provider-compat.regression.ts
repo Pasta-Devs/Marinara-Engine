@@ -1602,7 +1602,7 @@ assert.equal(
     maxTokens: 8192,
     hadThinking: true,
   }),
-  'The model finished reasoning (700 reasoning tokens, finish reason "stop") but returned no visible text. Try again, or lower Reasoning Effort.',
+  'The model finished reasoning (700 reasoning tokens, finish reason "stop") but returned no visible text. No output-limit exhaustion was reported. Retry, and inspect the debug response if this repeats; changing the thinking display does not change the model request.',
 );
 assert.equal(
   describeEmptyModelResponse({ finishReason: "stop", hadThinking: false }),

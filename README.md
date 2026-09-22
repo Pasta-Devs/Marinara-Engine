@@ -218,7 +218,7 @@ The full guide library is browsable inside the app: open **Documentation** from 
 | [android/README.md](android/README.md)                                               | Android Termux bootstrap + WebView shell guide                                                                     |
 | [CONTRIBUTING.md](CONTRIBUTING.md)                                                   | Contributor workflow, validation, versioning, and release steps                                                    |
 | [CHANGELOG.md](CHANGELOG.md)                                                         | Release notes                                                                                                      |
-| [CLAUDE.md](CLAUDE.md)                                                               | Maintainer notes for contributors using Claude                                                                     |
+| [AGENTS.md](AGENTS.md)                                                               | Maintainer notes for coding agents                                                                     |
 
 ---
 

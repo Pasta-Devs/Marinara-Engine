@@ -9,7 +9,6 @@ const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta
 const drawer = read("packages/client/src/components/chat/ChatSettingsDrawer.tsx");
 const convoFields = read("packages/client/src/components/characters/ConvoProfileFields.tsx");
 const characterEditor = read("packages/client/src/components/characters/CharacterEditor.tsx");
-const generate = read("packages/server/src/routes/generate.routes.ts");
 const promptContext = read("packages/server/src/services/capability-packages/capability-prompt-context.service.ts");
 const chatsRoutes = read("packages/server/src/routes/chats.routes.ts");
 const english = JSON.parse(read("packages/client/src/localization/locales/en.json")) as Record<string, string>;
@@ -41,9 +40,7 @@ assert.match(
 
 // Package prompt context carries the wrap format.
 assert.match(promptContext, /wrapFormat\?: "xml" \| "markdown" \| "none";/u);
-assert.match(
-  generate,
-  /collectCapabilityPromptContext\(\{[\s\S]{0,300}?placedAgentTypes: \[\.\.\.runtimeAgentSectionTypes\],\s*wrapFormat,\s*\}\)/u,
-);
+// The actual contributor inputs are exercised through generation and preview in
+// capability-prompt-preview.regression.ts, independent of the collector's file or call shape.
 
 console.log("capability package chat controls regression passed");

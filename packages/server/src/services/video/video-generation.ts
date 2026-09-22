@@ -5,81 +5,32 @@ import { DATA_DIR } from "../../utils/data-dir.js";
 import { newId } from "../../utils/id-generator.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { assertInsideDir, safeFetch } from "../../utils/security.js";
-import { notifyGenerationFallback, type GenerationFallbackNotifier } from "../generation/fallback-notification.js";
+import { notifyGenerationFallback } from "../generation/fallback-notification.js";
 import { runMediaGenerationRequest } from "../image/image-generation-queue.js";
 import {
   COMFYUI_MAX_REFERENCE_IMAGES,
   numberedComfyReferencePlaceholder,
 } from "../image/comfyui-reference-placeholders.js";
 import { buildAtlasCloudVideoRequest, runAtlasCloudPrediction } from "../media/atlas-cloud.js";
-import { buildComfyUiLoraWorkflowReplacements, type ComfyUiLoraSetting } from "@marinara-engine/shared";
+import { adaptAtlasCloudVideoRequest, fetchAtlasCloudModelSchema } from "../media/atlas-cloud-video-schema.js";
+import { buildComfyUiLoraWorkflowReplacements } from "@marinara-engine/shared";
 
-export interface VideoReferenceImage {
-  base64: string;
-  mimeType: "image/png" | "image/jpeg";
-  url?: string | null;
-}
-
-export type VideoReferencePublicUploadExpiry = "1h" | "12h" | "24h" | "72h";
-
-export interface VideoReferencePublicUploadOptions {
-  enabled?: boolean;
-  expiry?: VideoReferencePublicUploadExpiry | string | null;
-}
-
-export interface LtxDirectorPromptInput {
-  globalPrompt: string;
-  localPrompts: string;
-  segmentLengths: string;
-}
-
-export interface VideoGenerationRequest {
-  prompt: string;
-  model?: string;
-  // Gemini Omni currently takes duration guidance through the prompt, not video_config.
-  durationSeconds: number;
-  aspectRatio: "16:9" | "9:16";
-  resolution?: "480p" | "720p" | "1080p";
-  referenceImage?: VideoReferenceImage | null;
-  /** API-format workflow JSON for local ComfyUI video generation. */
-  comfyWorkflow?: string;
-  /** Optional LTX Director global/local prompt inputs for workflows using the matching placeholders. */
-  ltxDirectorPrompt?: LtxDirectorPromptInput;
-  /** Up to five connection-scoped LoRAs for custom ComfyUI workflow placeholders. */
-  comfyLoras?: ComfyUiLoraSetting[];
-  /** ComfyUI workflow frame rate exposed through %fps% and used by the legacy %length% macro. */
-  fps?: number;
-  lastFrameImage?: VideoReferenceImage | null;
-  publicReferenceUpload?: VideoReferencePublicUploadOptions | null;
-  signal?: AbortSignal;
-  /** UI debug mode: surface provider payload logging without LOG_LEVEL=debug. */
-  debugMode?: boolean;
-  /** Serialize this request with other media jobs using the same configured connection. */
-  queue?: boolean;
-  /** Stable configured connection ID used to scope queued media jobs. */
-  connectionKey?: string;
-  /** Called immediately before a configured fallback connection is attempted. */
-  onFallback?: GenerationFallbackNotifier;
-  /** Optional one-shot backup connection used only when the primary video request fails. */
-  fallback?: {
-    connectionId: string;
-    connectionName: string;
-    source: string;
-    baseUrl: string;
-    apiKey: string;
-    serviceHint: string;
-    model: string;
-    comfyWorkflow?: string;
-    comfyLoras?: ComfyUiLoraSetting[];
-    fps?: number;
-  };
-}
-
-export interface VideoGenerationResult {
-  base64: string;
-  mimeType: "video/mp4";
-  ext: "mp4";
-}
+import type {
+  VideoReferenceImage,
+  VideoReferencePublicUploadExpiry,
+  VideoReferencePublicUploadOptions,
+  LtxDirectorPromptInput,
+  VideoGenerationRequest,
+  VideoGenerationResult,
+} from "@marinara-engine/shared";
+export type {
+  VideoReferenceImage,
+  VideoReferencePublicUploadExpiry,
+  VideoReferencePublicUploadOptions,
+  LtxDirectorPromptInput,
+  VideoGenerationRequest,
+  VideoGenerationResult,
+} from "@marinara-engine/shared";
 
 const GAME_SCENE_VIDEOS_DIR = join(DATA_DIR, "game-scene-videos");
 const VIDEO_GEN_TIMEOUT = Number(process.env.VIDEO_GEN_TIMEOUT_MS ?? 1_800_000);
@@ -222,6 +173,7 @@ async function generateVideoUnqueued(
       model: fallback.model,
       comfyWorkflow: fallback.comfyWorkflow,
       comfyLoras: fallback.comfyLoras,
+      atlasModelOptions: fallback.atlasModelOptions,
       fps: fallback.fps,
       connectionKey: fallback.connectionId,
     });
@@ -1445,14 +1397,28 @@ async function generateAtlasCloudVideo(
   const referenceImageDataUrl = request.referenceImage
     ? `data:${request.referenceImage.mimeType};base64,${stripDataUrl(request.referenceImage.base64)}`
     : undefined;
-  const body = buildAtlasCloudVideoRequest({
+  const requestInput = {
     model: request.model?.trim() || DEFAULT_ATLAS_CLOUD_VIDEO_MODEL,
     prompt: request.prompt,
     durationSeconds: request.durationSeconds,
     aspectRatio: request.aspectRatio,
     resolution: request.resolution,
     referenceImageDataUrl,
-  });
+    modelOptions: request.atlasModelOptions,
+  };
+  // Atlas Cloud models do not share one input shape; fit the request to the model's published schema when it has one.
+  const schema = await fetchAtlasCloudModelSchema(requestInput.model, request.signal);
+  const adapted = schema ? adaptAtlasCloudVideoRequest(requestInput, schema) : null;
+  // Without a schema there is nothing to check the user's options against, so they are sent as chosen.
+  const body = adapted?.body ?? { ...request.atlasModelOptions, ...buildAtlasCloudVideoRequest(requestInput) };
+  if (adapted && adapted.adjustments.length > 0) {
+    // A dropped illustration changes what the user gets back, so it is a warning rather than routine fitting.
+    logger[adapted.referenceImageDropped ? "warn" : "info"](
+      "[video-gen/atlas-cloud] fitted request to %s: %s",
+      requestInput.model,
+      adapted.adjustments.join("; "),
+    );
+  }
   logDebugOverride(
     request.debugMode === true,
     "[video-gen/atlas-cloud] final request payload:\n%s",

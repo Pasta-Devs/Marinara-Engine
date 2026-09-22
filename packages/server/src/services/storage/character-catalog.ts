@@ -1,4 +1,5 @@
 import {
+  estimateCharacterCardTokens,
   PROFESSOR_MARI_ID,
   type CharacterData,
   type CharacterCatalogEntry,
@@ -71,21 +72,6 @@ function entry(row: typeof characters.$inferSelect): CachedCharacterCatalogEntry
     [data.summary, data.creator_notes, data.description, data.personality].find(
       (value): value is string => typeof value === "string" && value.trim().length > 0,
     ) ?? "";
-  const textFields = [
-    data.name,
-    row.comment,
-    data.creator,
-    data.character_version,
-    data.creator_notes,
-    data.summary,
-    data.description,
-    data.personality,
-    data.scenario,
-    data.first_mes,
-    extensions.backstory,
-    extensions.appearance,
-    ...tags,
-  ];
   return {
     id: row.id,
     name: typeof data.name === "string" && data.name.trim() ? data.name.trim() : "Unknown",
@@ -101,9 +87,7 @@ function entry(row: typeof characters.$inferSelect): CachedCharacterCatalogEntry
     scenario: typeof data.scenario === "string" ? data.scenario : "",
     firstMessage: typeof data.first_mes === "string" ? data.first_mes : "",
     creatorNotes: typeof data.creator_notes === "string" ? data.creator_notes : "",
-    tokenEstimate: Math.ceil(
-      textFields.filter((value): value is string => typeof value === "string").join("\n").length / 4,
-    ),
+    tokenEstimate: estimateCharacterCardTokens(data),
     nameColor: typeof extensions.nameColor === "string" ? extensions.nameColor : null,
     avatarPath: row.avatarPath ?? null,
     avatarCrop: extensions.avatarCrop ?? null,

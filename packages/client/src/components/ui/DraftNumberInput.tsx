@@ -11,6 +11,7 @@ interface DraftNumberInputProps {
   commitOnValidChange?: boolean;
   disabled?: boolean;
   ariaLabel?: string;
+  ariaDescribedBy?: string;
   placeholder?: string;
   title?: string;
   id?: string;
@@ -27,6 +28,7 @@ export function DraftNumberInput({
   commitOnValidChange = false,
   disabled = false,
   ariaLabel,
+  ariaDescribedBy,
   placeholder,
   title,
   id,
@@ -121,6 +123,7 @@ export function DraftNumberInput({
       id={id}
       value={draft}
       aria-label={ariaLabel}
+      aria-describedby={ariaDescribedBy}
       placeholder={placeholder}
       title={title}
       disabled={disabled}

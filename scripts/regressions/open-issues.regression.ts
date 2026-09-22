@@ -5176,6 +5176,16 @@ assert.equal(
   "per-character safety limits should still be able to lower a numeric chat ceiling",
 );
 const autonomousChatId = "regression-autonomous-candidates";
+assert.equal(
+  dailyCapForCharacter(autonomousSchedule(90, 1000)),
+  1000,
+  "custom character limits are not capped at eight",
+);
+assert.equal(
+  dailyCapForCharacter(autonomousSchedule(90, 1000), { autonomousDailyCapOverride: 75 }),
+  75,
+  "the chat-wide safety cap still limits a larger custom character cap",
+);
 initializeActivityFromMessages(autonomousChatId, [
   { role: "user", createdAt: new Date(Date.now() - 5 * 60_000).toISOString() },
 ]);
@@ -5283,16 +5293,25 @@ assert.match(
   /has_explicit_node_heap_limit\(\)[\s\S]*NODE_OPTIONS_VALUE[\s\S]*const heapOption = \/\^--max[\s\S]*resolve_default_node_heap_mb\(\)[\s\S]*heap_mb=1024[\s\S]*heap_mb=1536[\s\S]*if ! has_explicit_node_heap_limit; then[\s\S]*--max-old-space-size=\$\{MARINARA_TERMUX_HEAP_MB\}/u,
   "Termux must parse complete heap-option tokens before applying its bounded profile-aware default",
 );
-for (const buildEntry of [
-  "packages/shared/dist/constants/defaults.js",
-  "packages/server/dist/index.js",
-  "packages/client/dist/index.html",
-]) {
+for (const buildEntry of ["packages/shared/dist/constants/defaults.js", "packages/server/dist/index.js"]) {
   assert.ok(
     termuxLauncher.includes(`if [ ! -f "${buildEntry}" ]; then`),
     `Termux must rebuild when ${buildEntry} is missing`,
   );
 }
+const termuxClientBuildBlock = termuxLauncher
+  .split("if ! node scripts/check-client-build.mjs; then\n")[1]
+  ?.split("\nfi")[0];
+assert.ok(termuxClientBuildBlock, "Termux must handle an incomplete client build");
+assert.equal(termuxClientBuildBlock.match(/build_termux_client/gu)?.length, 2, "Initial build and retry must use the bounded build heap");
+const termuxClientBuildHelper = termuxLauncher.split("build_termux_client() (")[1]?.split("\n)")[0];
+assert.ok(termuxClientBuildHelper, "Termux must define the isolated client build helper");
+assert.match(termuxClientBuildHelper, /SKIP_PWA=1 run_pnpm --filter @marinara-engine\/client exec vite build/u);
+assert.match(
+  termuxClientBuildBlock,
+  /    node scripts\/check-client-build\.mjs$/u,
+  "Termux must rebuild and recheck incomplete client assets, including a missing index",
+);
 
 const trafficExtensionId = "open-issues-extension-traffic";
 const trafficNow = 180_000;

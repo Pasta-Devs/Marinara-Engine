@@ -102,7 +102,7 @@ import {
   mergeBuiltInAgentSettings,
   normalizeAgentPhaseForType,
   normalizeCustomAgentCapabilities,
-  normalizeCustomAgentContextSources,
+  getAgentContextSources,
   normalizeAgentPromptTemplateOptions,
   normalizeStoryboardAgentSettings,
   parseAgentSettingsRecord,
@@ -946,7 +946,7 @@ export function AgentEditor() {
         normalizePositiveInteger(settings.secretPlotRunInterval ?? defaultSettings.secretPlotRunInterval, 8, 100),
       );
       setLocalCustomCapabilities(normalizeCustomAgentCapabilities(settings));
-      setLocalContextSources(normalizeCustomAgentContextSources(settings));
+      setLocalContextSources(getAgentContextSources({ isCustomAgent: !builtIn, settings }));
       setLocalResultType(normalizeCustomResultType(settings.resultType));
       setLocalOutputOptions({
         jsonContextOutput: settings.jsonContextOutput === true,
@@ -993,7 +993,7 @@ export function AgentEditor() {
       setLocalSecretPlotEnabled(defaultSettings.secretPlotEnabled === true);
       setLocalSecretPlotRunInterval(normalizePositiveInteger(defaultSettings.secretPlotRunInterval, 8, 100));
       setLocalCustomCapabilities({});
-      setLocalContextSources({ ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES });
+      setLocalContextSources(getAgentContextSources({ settings: defaultSettings }));
       setLocalResultType("context_injection");
       setLocalOutputOptions({ jsonContextOutput: false, hideOutput: false });
       setLocalIncludePreGenInjections(false);
@@ -1364,7 +1364,7 @@ export function AgentEditor() {
         author: savedAuthor,
         promptTemplates: savedPromptTemplates,
         ...(isEditingCustomAgent ? { customCapabilities } : {}),
-        ...(isEditingCustomAgent ? { contextSources: localContextSources } : {}),
+        contextSources: localContextSources,
         ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
         ...(isEditingCustomAgent ? localOutputOptions : {}),
         ...(isEditingCustomAgent ? { triggerLorebooksForAgentCalls: localTriggerLorebooksForAgentCalls } : {}),
@@ -1590,7 +1590,7 @@ export function AgentEditor() {
       author: savedAuthor,
       promptTemplates: savedPromptTemplates,
       ...(isEditingCustomAgent ? { customCapabilities } : {}),
-      ...(isEditingCustomAgent ? { contextSources: localContextSources } : {}),
+      contextSources: localContextSources,
       ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
       ...(isEditingCustomAgent ? localOutputOptions : {}),
       ...(isEditingCustomAgent ? { triggerLorebooksForAgentCalls: localTriggerLorebooksForAgentCalls } : {}),
@@ -2161,33 +2161,31 @@ export function AgentEditor() {
             </FieldGroup>
           )}
 
-          {(isCustomAgent || isNewCustomAgent) && (
-            <FieldGroup
-              label={localizeUi("ui.agents.agenteditor.contextSources")}
-              icon={<Layers size="0.875rem" className="text-[var(--primary)]" />}
-              help={localizeUi("ui.agents.agenteditor.contextSourcesHelp")}
-            >
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {CUSTOM_AGENT_CONTEXT_SOURCE_META.map((source) => {
-                  const allowed =
-                    !source.requiredCapability || localCustomCapabilities[source.requiredCapability] === true;
-                  return (
-                    <EditorSwitchRow
-                      key={source.id}
-                      label={localizeUi(source.label)}
-                      description={localizeUi(source.description)}
-                      checked={allowed && localContextSources[source.id]}
-                      disabled={!allowed}
-                      onChange={(checked) => {
-                        setLocalContextSources((current) => ({ ...current, [source.id]: checked }));
-                        markDirty();
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </FieldGroup>
-          )}
+          <FieldGroup
+            label={localizeUi("ui.agents.agenteditor.contextSources")}
+            icon={<Layers size="0.875rem" className="text-[var(--primary)]" />}
+            help={localizeUi("ui.agents.agenteditor.contextSourcesHelp")}
+          >
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {CUSTOM_AGENT_CONTEXT_SOURCE_META.map((source) => {
+                const allowed =
+                  !source.requiredCapability || localCustomCapabilities[source.requiredCapability] === true;
+                return (
+                  <EditorSwitchRow
+                    key={source.id}
+                    label={localizeUi(source.label)}
+                    description={localizeUi(source.description)}
+                    checked={allowed && localContextSources[source.id]}
+                    disabled={!allowed}
+                    onChange={(checked) => {
+                      setLocalContextSources((current) => ({ ...current, [source.id]: checked }));
+                      markDirty();
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </FieldGroup>
 
           {(isCustomAgent || isNewCustomAgent) && (
             <FieldGroup

@@ -167,6 +167,7 @@ import {
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { BackgroundPicker } from "./settings/BackgroundPicker";
+import { RequestTimeoutSettings } from "./settings/RequestTimeoutSettings";
 import { CustomGenerationParametersSettings } from "./settings/CustomGenerationParametersSettings";
 import { ExternalExtensionsSettings, PersonalExtensionsSettings } from "./settings/PersonalExtensionsSettings";
 import { usePersonalExtensionPolicy, useSetExternalExtensionsEnabled } from "../../hooks/use-personal-extensions";
@@ -278,6 +279,7 @@ type SettingsSectionId =
   | "admin-access"
   | "updates"
   | "support-diagnostics"
+  | "request-timeouts"
   | "parameters"
   | "message-tools"
   | "backup-export"
@@ -386,7 +388,7 @@ const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   },
   {
     id: "game-assets",
-    tab: "generations",
+    tab: "import",
     label: "Game Assets",
     description: "Asset folders for music, ambience, sprites, and backgrounds.",
     aliases: ["assets", "music", "ambient", "sfx", "sprites", "backgrounds", "folder"],
@@ -519,6 +521,13 @@ const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
     label: "Support Diagnostics",
     description: "Copy technical details for support tickets.",
     aliases: ["support", "diagnostics", "system info", "gpu", "model", "ticket", "bug report"],
+  },
+  {
+    id: "request-timeouts",
+    tab: "advanced",
+    label: "Request timeouts",
+    description: "Adjust how long text, agents and media wait for a slow backend.",
+    aliases: ["timeout", "slow", "koboldcpp", "images", "video", "seconds", "backend"],
   },
   {
     id: "parameters",
@@ -1210,6 +1219,22 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     description: "Show one completed paragraph at a time above the composer.",
     aliases: ["roleplay", "vn", "visual novel", "classic", "presentation", "history"],
     kind: "Toggle",
+  },
+  {
+    id: "roleplay-vn-autoplay",
+    sectionId: "roleplay-messages",
+    label: "Auto-play VN paragraphs",
+    description: "Advance Roleplay Visual Novel paragraphs automatically, waiting for speech when it is playing.",
+    aliases: ["roleplay", "vn", "autoplay", "tts", "speech", "reading"],
+    kind: "Toggle",
+  },
+  {
+    id: "roleplay-vn-autoplay-delay",
+    sectionId: "roleplay-messages",
+    label: "Paragraph delay",
+    description: "Set the time between Roleplay Visual Novel paragraphs when auto-play is enabled.",
+    aliases: ["roleplay", "vn", "autoplay", "delay", "reading"],
+    kind: "Slider",
   },
   {
     id: "roleplay-vn-portrait-scale",
@@ -4615,6 +4640,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setDefaultRoleplayBackground = useUIStore((s) => s.setDefaultRoleplayBackground);
   const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
   const setChatBackgroundBlur = useUIStore((s) => s.setChatBackgroundBlur);
+  const conversationBackgroundImageOpacity = useUIStore((s) => s.conversationBackgroundImageOpacity);
+  const setConversationBackgroundImageOpacity = useUIStore((s) => s.setConversationBackgroundImageOpacity);
   const resetAppearanceSettings = useUIStore((s) => s.resetAppearanceSettings);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const { data: appearanceChat } = useChat(activeChatId);
@@ -4822,6 +4849,10 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setRoleplayVnPortraitScale = useUIStore((s) => s.setRoleplayVnPortraitScale);
   const roleplayVnSpriteScale = useUIStore((s) => s.roleplayVnSpriteScale);
   const setRoleplayVnSpriteScale = useUIStore((s) => s.setRoleplayVnSpriteScale);
+  const roleplayVnAutoPlay = useUIStore((s) => s.roleplayVnAutoPlay);
+  const setRoleplayVnAutoPlay = useUIStore((s) => s.setRoleplayVnAutoPlay);
+  const roleplayVnAutoPlayDelay = useUIStore((s) => s.roleplayVnAutoPlayDelay);
+  const setRoleplayVnAutoPlayDelay = useUIStore((s) => s.setRoleplayVnAutoPlayDelay);
   const activeRoleplayStyle =
     appearanceChat?.mode === "roleplay"
       ? (parseChatMetadata(appearanceChat.metadata).roleplayDisplayStyle ?? roleplayDisplayStyle)
@@ -5409,6 +5440,27 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                     </span>
                   </div>
                 </label>
+                <label className="flex flex-col gap-1 rounded-lg bg-[var(--secondary)]/45 p-3 ring-1 ring-[var(--border)]/70">
+                  <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
+                    {localizeUi("settings.controls.conversationBackgroundImageOpacity.label")}
+                    <HelpTooltip text={localizeUi("settings.controls.conversationBackgroundImageOpacity.help")} />
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      aria-label={localizeUi("settings.controls.conversationBackgroundImageOpacity.label")}
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={conversationBackgroundImageOpacity}
+                      onChange={(event) => setConversationBackgroundImageOpacity(Number(event.target.value))}
+                      className="min-w-0 flex-1 accent-[var(--primary)]"
+                    />
+                    <span className="w-12 text-right text-xs tabular-nums text-[var(--muted-foreground)]">
+                      {conversationBackgroundImageOpacity}%
+                    </span>
+                  </div>
+                </label>
                 <label className="flex items-center gap-2">
                   <span className="inline-flex shrink-0 items-center gap-1 text-[0.6875rem] font-medium">
                     {localizeUi("ui.panels.appearancesettings.chatListBackgrounds")}
@@ -5745,6 +5797,32 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 }}
               />
               <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("settings.roleplayVn.scope")}</p>
+              <ToggleSetting
+                anchorId={getSettingsControlAnchorId("roleplay-vn-autoplay")}
+                label={localizeUi("settings.roleplayVn.autoPlay")}
+                help={localizeUi("settings.roleplayVn.autoPlayHelp")}
+                checked={roleplayVnAutoPlay}
+                onChange={setRoleplayVnAutoPlay}
+              />
+              <label
+                id={getSettingsControlAnchorId("roleplay-vn-autoplay-delay")}
+                className="flex scroll-mt-3 flex-col gap-2 text-xs"
+              >
+                <span>
+                  {localizeUi("settings.roleplayVn.autoPlayDelay")}{" "}
+                  {localizeUi("settings.units.secondsShort", { value: roleplayVnAutoPlayDelay / 1000 })}
+                </span>
+                <input
+                  type="range"
+                  min={200}
+                  max={10000}
+                  step={100}
+                  value={roleplayVnAutoPlayDelay}
+                  disabled={!roleplayVnAutoPlay}
+                  onChange={(event) => setRoleplayVnAutoPlayDelay(Number(event.target.value))}
+                  className="w-full accent-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </label>
               <div className="grid gap-3 rounded-lg border border-[var(--border)] p-3 sm:grid-cols-2">
                 <label
                   id={getSettingsControlAnchorId("roleplay-vn-portrait-scale")}
@@ -8567,6 +8645,14 @@ function AdvancedSettings() {
             {localizeUi("ui.panels.advancedsettings.copySupportDiagnostics")}
           </button>
         </SearchableSettingTarget>
+      </SettingsSection>
+
+      <SettingsSection
+        title={localizeUi("settings.timeouts.title")}
+        icon={<Gauge size="0.875rem" />}
+        {...getSettingsSectionAnchorProps("request-timeouts")}
+      >
+        <RequestTimeoutSettings />
       </SettingsSection>
 
       <SettingsSection

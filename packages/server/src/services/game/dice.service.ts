@@ -71,8 +71,10 @@ export function parseRollDiceToolResult(raw: string): DiceRollResult | null {
   if (!rolls.every((roll): roll is number => typeof roll === "number" && Number.isFinite(roll))) return null;
   if (typeof total !== "number" || !Number.isFinite(total)) return null;
   if (!Number.isFinite(modifier)) return null;
+  const dc = payload.dc;
+  if (dc !== undefined && (typeof dc !== "number" || !Number.isSafeInteger(dc))) return null;
 
-  return { notation, rolls, modifier, total };
+  return { notation, rolls, modifier, total, ...(dc !== undefined ? { dc } : {}) };
 }
 
 /** Fresh regex so callers can collect or remove the same narration roll records. */
@@ -279,16 +281,16 @@ export function resolveGameDiceRequests(
       rollMode: "normal",
       resolution,
       dice: dice.dice,
+      // The threshold this path counted with rides on the result itself now, so the dice card can
+      // mark the dice that counted and the serializer writes `threshold=` from one place.
+      ...(resolution === "successes" ? { threshold } : {}),
     };
     checkResults.push(check);
     if (pool && poolResult) logPoolDcFit(pool, boundedDc, check.usedRoll, check.modifier);
     // `threshold=` is written by the serializer now rather than spliced onto a finished
     // tag by this caller, so the two spellings of the same attribute cannot drift. The
     // bytes are the ones this path has always written.
-    return serializeResolvedSkillCheckTag(check, {
-      ...(resolution === "successes" ? { threshold } : {}),
-      ...(poolName ? { pool: poolName } : {}),
-    });
+    return serializeResolvedSkillCheckTag(check, { ...(poolName ? { pool: poolName } : {}) });
   });
   return { content: resolved, diceRolls, checkResults, rolled, unresolved };
 }

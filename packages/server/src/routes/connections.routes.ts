@@ -9,6 +9,7 @@ import {
   ATLAS_CLOUD_IMAGE_MODELS,
   ATLAS_CLOUD_VIDEO_MODELS,
   ZAI_IMAGE_MODELS,
+  FAL_IMAGE_MODELS,
   IMAGE_DEFAULTS_STORAGE_KEY,
   MODEL_LISTS,
   VIDEO_DEFAULTS_STORAGE_KEY,
@@ -22,6 +23,7 @@ import {
   isOpenAIGpt6AstraModel,
   localAuthProviderBaseUrl,
   normalizeVideoGenerationProfile,
+  type AtlasCloudVideoModelSchemaResponse,
 } from "@marinara-engine/shared";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import {
@@ -46,8 +48,9 @@ import {
   resolveConnectionImageQuality,
 } from "../services/image/image-generation-defaults.js";
 import { buildVeniceApiUrl, normalizeVeniceImageModels } from "../services/image/venice-image.js";
+import { buildFalImageUrl } from "../services/image/fal-image.js";
 import { isImageLocalUrlsEnabled, isProviderLocalUrlsEnabled } from "../config/runtime-config.js";
-import { logDebugOverride } from "../lib/logger.js";
+import { logger, logDebugOverride } from "../lib/logger.js";
 import {
   assertInsideDir,
   extensionFromImageMime,
@@ -56,6 +59,14 @@ import {
   safeFetch,
 } from "../utils/security.js";
 import { DATA_DIR } from "../utils/data-dir.js";
+import {
+  buildAtlasCloudModelSchemaUrl,
+  buildAtlasCloudTestReferenceImage,
+  describeAtlasCloudModelLimits,
+  fetchAtlasCloudModelSchema,
+  listAtlasCloudModelOptionFields,
+} from "../services/media/atlas-cloud-video-schema.js";
+import { fetchAtlasCloudModels } from "../services/media/atlas-cloud.js";
 import {
   buildNanoGptVideoUrl,
   fetchNanoGptVideoModels,
@@ -209,6 +220,21 @@ export function parseComfyLoaderModelNames(info: unknown, nodeName: string, inpu
   const options = input[0];
   if (!Array.isArray(options)) return null;
   return options.filter((option): option is string => typeof option === "string");
+}
+
+/** Atlas Cloud's live catalog, or the curated starter list when the catalog cannot be read. */
+async function listAtlasCloudModels(
+  baseUrl: string,
+  kind: "image" | "video",
+  starterModels: ReadonlyArray<{ id: string; name: string }>,
+): Promise<Array<{ id: string; name: string }>> {
+  try {
+    const models = await fetchAtlasCloudModels(baseUrl, kind);
+    if (models.length > 0) return models;
+  } catch (error) {
+    logger.warn(error, "[atlas-cloud] could not read the %s model catalog; using the starter list", kind);
+  }
+  return starterModels.map((model) => ({ id: model.id, name: model.name }));
 }
 
 function localUrlPolicyForProvider(provider: string, imageSource: string) {
@@ -700,6 +726,16 @@ export async function connectionsRoutes(app: FastifyInstance) {
           latencyMs: Date.now() - start,
           modelName: conn.model,
         };
+      } else if (conn.provider === "image_generation" && imageSource === "fal") {
+        if (!conn.apiKey?.trim()) throw new Error("fal.ai requires an API key");
+        buildFalImageUrl(baseUrl, conn.model);
+        return {
+          success: true,
+          message:
+            "fal.ai connection configured. Use Test Image to verify your key and generate an image using credits.",
+          latencyMs: Date.now() - start,
+          modelName: conn.model,
+        };
       } else if (conn.provider === "image_generation" && imageSource === "horde") {
         // Horde: heartbeat is the lightweight health endpoint for the public API.
         testUrl = buildHordeUrl(baseUrl, "status/heartbeat");
@@ -784,6 +820,24 @@ export async function connectionsRoutes(app: FastifyInstance) {
     }
   });
 
+  // ── Atlas Cloud: the selected video model's own inputs, for the connection editor ──
+  app.get<{ Querystring: { model?: string } }>("/atlas-cloud/video-model-schema", async (req, reply) => {
+    const model = String(req.query.model ?? "").trim();
+    if (!model || model.length > 200 || !buildAtlasCloudModelSchemaUrl(model)) {
+      return reply.status(400).send({ error: "Enter an Atlas Cloud model ID such as vendor/model/image-to-video" });
+    }
+    const schema = await fetchAtlasCloudModelSchema(model);
+    const response: AtlasCloudVideoModelSchemaResponse = schema
+      ? {
+          model,
+          available: true,
+          fields: listAtlasCloudModelOptionFields(schema),
+          limits: describeAtlasCloudModelLimits(schema),
+        }
+      : { model, available: false, fields: [], limits: null };
+    return response;
+  });
+
   // ── Fetch available models from the provider API ──
   app.get<{ Params: { id: string } }>("/:id/models", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
@@ -818,7 +872,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
         conn.provider === "video_generation" ? resolveVideoGenerationSource(conn as any, conn.baseUrl || "") : "";
       if (conn.provider === "video_generation") {
         if (videoSource === "atlas") {
-          return { models: ATLAS_CLOUD_VIDEO_MODELS.map((model) => ({ id: model.id, name: model.name })) };
+          return {
+            models: await listAtlasCloudModels(
+              conn.baseUrl || DEFAULT_ATLAS_CLOUD_VIDEO_BASE_URL,
+              "video",
+              ATLAS_CLOUD_VIDEO_MODELS,
+            ),
+          };
         }
         if (videoSource === "nanogpt") {
           const models = await fetchNanoGptVideoModels(
@@ -862,10 +922,20 @@ export async function connectionsRoutes(app: FastifyInstance) {
         conn.provider === "image_generation" ? resolveImageGenerationSource(conn as any, baseUrl) : "";
       const mediaSource = imageSource || videoSource;
       if (conn.provider === "image_generation" && imageSource === "atlas") {
-        return { models: ATLAS_CLOUD_IMAGE_MODELS.map((model) => ({ id: model.id, name: model.name })) };
+        // `baseUrl` may have fallen back to the generic image provider default; the catalog lives on Atlas Cloud.
+        return {
+          models: await listAtlasCloudModels(
+            conn.baseUrl || DEFAULT_ATLAS_CLOUD_VIDEO_BASE_URL,
+            "image",
+            ATLAS_CLOUD_IMAGE_MODELS,
+          ),
+        };
       }
       if (conn.provider === "image_generation" && imageSource === "zai") {
         return { models: ZAI_IMAGE_MODELS.map((model) => ({ id: model.id, name: model.name })) };
+      }
+      if (conn.provider === "image_generation" && imageSource === "fal") {
+        return { models: FAL_IMAGE_MODELS.map((model) => ({ id: model.id, name: model.name })) };
       }
       baseUrl = normalizeConnectionTestBaseUrl(baseUrl, conn.provider);
       const lowerBase = baseUrl.toLowerCase();
@@ -1183,7 +1253,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
       const modelsUrl =
         conn.provider === "google_vertex"
           ? buildGoogleVertexModelUrl(baseUrl, conn.model, "models")
-          : `${baseUrl}${provider?.modelsEndpoint ?? "/models"}`;
+          : `${baseUrl}${provider?.modelsEndpoint || "/models"}`;
 
       const res = await safeFetch(modelsUrl, {
         headers,
@@ -1218,8 +1288,14 @@ export async function connectionsRoutes(app: FastifyInstance) {
       const models = normalizeModelsResponse(conn.provider, json);
       return { models };
     } catch (err) {
+      logger.warn(err, "Model discovery failed for connection %s", conn.id);
+      // Node's fetch hides socket/DNS failures in Error.cause. Keep the code
+      // visible without exposing provider headers, credentials or response bodies.
+      const cause = err instanceof Error ? err.cause : undefined;
+      const code = isRecord(cause) && typeof cause.code === "string" ? cause.code : undefined;
+      const detail = err instanceof Error ? err.message : "Unknown error";
       return reply.status(502).send({
-        error: `Failed to fetch models: ${err instanceof Error ? err.message : "Unknown error"}`,
+        error: `Failed to fetch models: ${detail}${code && /^[A-Z0-9_]+$/.test(code) ? ` (${code})` : ""}. The connection is made from the Marinara server; check that the provider is reachable there.`,
       });
     }
   });
@@ -1370,9 +1446,14 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const start = Date.now();
     try {
       const { generateVideo } = await import("../services/video/video-generation.js");
+      // Image-to-video Atlas Cloud models reject a text-only request, so the test supplies a neutral first frame.
+      const referenceImage = isAtlasVideo
+        ? await buildAtlasCloudTestReferenceImage(videoModel, activeDefaults.aspectRatio)
+        : null;
       const result = await generateVideo(videoSource, baseUrl, videoApiKey, videoServiceHint, {
         prompt,
         model: videoModel,
+        referenceImage,
         debugMode: readDebugMode(req.body),
         durationSeconds: activeDefaults.durationSeconds,
         aspectRatio: activeDefaults.aspectRatio,
@@ -1393,6 +1474,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
                       : undefined,
         comfyWorkflow: conn.comfyuiWorkflow || undefined,
         comfyLoras: isComfyUiVideo ? defaults.comfyui.loras : [],
+        atlasModelOptions: isAtlasVideo ? defaults.atlas.modelOptions[videoModel.trim()] : undefined,
         fps: isComfyUiVideo ? defaults.comfyui.fps : undefined,
       });
       return {

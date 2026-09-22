@@ -752,6 +752,13 @@ export const IMAGE_GENERATION_SOURCES: ImageGenSource[] = [
     requiresApiKey: true,
   },
   {
+    id: "fal",
+    name: "fal.ai",
+    description: "Text-to-image generation with FLUX and other fal.ai models.",
+    defaultBaseUrl: "https://fal.run",
+    requiresApiKey: true,
+  },
+  {
     id: "pollinations",
     name: "Pollinations",
     description: "Free, no-key-needed image generation via Pollinations AI.",
@@ -833,6 +840,11 @@ export const ZAI_IMAGE_MODELS: KnownModel[] = [
   { id: "cogview-4-250304", name: "CogView 4", context: 0, maxOutput: 0 },
 ];
 
+export const FAL_IMAGE_MODELS: KnownModel[] = [
+  { id: "fal-ai/flux/schnell", name: "FLUX.1 Schnell (fal.ai)", context: 0, maxOutput: 0 },
+  { id: "fal-ai/flux/dev", name: "FLUX.1 Dev (fal.ai)", context: 0, maxOutput: 0 },
+];
+
 export const ATLAS_CLOUD_VIDEO_MODELS: KnownModel[] = [
   { id: "google/veo3.1/text-to-video", name: "Veo 3.1 Text to Video (Atlas Cloud)", context: 0, maxOutput: 0 },
   { id: "google/veo3.1/image-to-video", name: "Veo 3.1 Image to Video (Atlas Cloud)", context: 0, maxOutput: 0 },
@@ -907,6 +919,7 @@ const IMAGE_GEN_MODELS: KnownModel[] = [
   { id: "flux-2-pro", name: "FLUX 2 Pro (Venice)", context: 0, maxOutput: 0 },
   { id: "venice-sd35", name: "Venice SD3.5", context: 0, maxOutput: 0 },
   ...ZAI_IMAGE_MODELS,
+  ...FAL_IMAGE_MODELS,
   ...ATLAS_CLOUD_IMAGE_MODELS,
   // NovelAI
   { id: "nai-diffusion-3", name: "NAI Diffusion 3 (Anime V3)", context: 0, maxOutput: 0 },
@@ -1003,6 +1016,7 @@ export function inferImageSource(model: string, baseUrl: string): string {
     m === "venice" ||
     m === "zai" ||
     m === "atlas" ||
+    m === "fal" ||
     m === "comfyui" ||
     m === "swarmui" ||
     m === "automatic1111" ||
@@ -1012,6 +1026,7 @@ export function inferImageSource(model: string, baseUrl: string): string {
     return m;
   }
   if (m === "drawthings") return "automatic1111";
+  if (hostname === "fal.run") return "fal";
   if (hostname === "nano-gpt.com" || hostname.endsWith(".nano-gpt.com")) return "nanogpt";
   if (u.includes("openrouter.ai")) return "openrouter";
   if (u.includes("api.x.ai") || u.includes("x.ai")) return "xai";
@@ -1019,6 +1034,7 @@ export function inferImageSource(model: string, baseUrl: string): string {
   if (u.includes("api.z.ai")) return "zai";
   if (u.includes("atlascloud.ai")) return "atlas";
   if (u.includes("arliai.com")) return "arli";
+  if (m.startsWith("fal-ai/")) return "fal";
   if (m === "glm-image" || m.startsWith("cogview")) return "zai";
   if (m.startsWith("grok-") && m.includes("image")) return "xai";
   if (m.includes("grok") && m.includes("imagine")) return "xai";

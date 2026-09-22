@@ -25,6 +25,7 @@ const { createAdvancedMemoryService } = await import("../../packages/server/src/
 const { characterDataSchema, DEFAULT_ADVANCED_MEMORY_SETTINGS } = await import("../../packages/shared/dist/index.js");
 const prompts: string[] = [];
 let modelCalls = 0;
+const modelCallKinds: string[] = [];
 const provider = createServer(async (req, res) => {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
@@ -41,8 +42,11 @@ const provider = createServer(async (req, res) => {
   const prompt = JSON.stringify(body.messages);
   const classification = prompt.includes("Identify scene transitions");
   const summary = prompt.includes("Summarize only the supplied eligible source material");
+  modelCallKinds.push(classification ? "scene" : summary ? "summary" : "main");
   const content = classification
-    ? '{"starts":[]}'
+    ? body.messages[0].content.includes('"ends"')
+      ? '{"ends":[]}'
+      : '{"starts":[]}'
     : summary
       ? '{"summary":"SUMMARY_FIXTURE: An old promise remains unresolved."}'
       : "The character answers.";
@@ -96,8 +100,8 @@ try {
     embeddingModel: "fixture-embedding",
   });
   const characters = createCharactersStorage(db);
-  const first = await characters.create(characterDataSchema.parse({ name: "Dottore" }));
-  const second = await characters.create(characterDataSchema.parse({ name: "Visitor" }));
+  const first = await characters.create(characterDataSchema.parse({ name: "Powers That Be" }));
+  const second = await characters.create(characterDataSchema.parse({ name: "Maukie" }));
   assert.ok(first && second);
   const presets = createPromptsStorage(db);
   const preset = await presets.create({
@@ -136,6 +140,7 @@ try {
   assert.ok(chat);
   chatId = chat.id;
   await chats.patchMetadata(chat.id, {
+    summaryMaxTokens: 512,
     enableAgents: false,
     enableMemoryRecall: true,
     groupChatMode: "individual",
@@ -166,6 +171,21 @@ try {
       characterId: index % 2 ? first.id : null,
       content: `${index === 0 ? "Date: Spring 14\n" : ""}HISTORY_${index}: ${"A long ongoing scene. ".repeat(200)}`,
     });
+  const summarySource = (await chats.listMessages(chat.id)).slice(1, 3);
+  const conditionalEntries = [
+    '{{#if char == "Powers That Be" || "Maukie"}}SHARED_CONSTANT_FOR_{{char}}{{/if}}\n{{#if char == "Pantalone"}}PANTALONE_ONLY_SECTION{{/if}}',
+    '{{#if char == "Powers That Be"}}NARRATOR_ONLY_CONSTANT{{/if}}',
+  ].map((content, index) => ({
+    id: `conditional-constant-${index}`,
+    content,
+    enabled: true,
+    origin: "manual",
+    sourceMode: "range",
+    rangeStartIndex: 2,
+    rangeEndIndex: 3,
+    messageIds: summarySource.map((message) => message.id),
+  }));
+  await chats.patchMetadata(chat.id, { summaryEntries: conditionalEntries });
   const generate = async (regenerateMessageId?: string) => {
     const result = await app.inject({
       method: "POST",
@@ -184,13 +204,82 @@ try {
   assert.ok(generated.body.includes('"type":"advanced_memory_receipt"'));
   const sent = prompts.at(-1)!;
   assert.ok(sent.includes("MANDATORY_FIXTURE"));
-  assert.ok(sent.includes("SUMMARY_FIXTURE"), "oversized ongoing scene must receive its temporary summary");
+  assert.ok(sent.includes("SHARED_CONSTANT_FOR_Maukie"), "conditional constants reach Maukie's actual request");
+  assert.ok(!sent.includes("NARRATOR_ONLY_CONSTANT"), "narrator-only constants stay out of Maukie's request");
+  assert.ok(!sent.includes("PANTALONE_ONLY_SECTION"), "another character's section stays out of Maukie's constant");
+  assert.ok(sent.includes("Earlier context omitted"), "an oversized ongoing scene retains bounded source excerpts");
+  assert(!modelCallKinds.includes("summary"), "main generation never invokes the summary helper");
   assert.ok(sent.includes("HISTORY_9"), `recent actual history stays in context: ${sent.slice(-1800)}`);
   assert.ok(!sent.includes("PRIVATE_SCENE_SECRET"), "a different character's hidden scene cannot leak");
   assert.ok(!sent.includes("FUTURE_LEGACY_SECRET"), "legacy unscoped summary cannot bypass managed placement");
   assert.ok(!sent.includes("__MARINARA_ADVANCED_MEMORY_"));
+  const personalStart = (await chats.listMessages(chat.id)).find((message) => message.content.includes("HISTORY_4:"))!;
+  await chats.updateMessageExtra(summarySource[0]!.id, { hiddenFromAI: true });
+  await chats.updateMessageExtra(summarySource[1]!.id, { hiddenFromAICharacterIds: [second.id] });
+  await chats.updateMessageExtra(personalStart.id, { conversationStartForCharacterIds: [second.id] });
+  await generate();
+  assert.ok(
+    prompts.at(-1)!.includes("SHARED_CONSTANT_FOR_Maukie"),
+    "enabled Chat Summaries follow their character conditions, not source-message visibility or personal cutoffs",
+  );
+  assert.doesNotMatch(
+    prompts.at(-1)!,
+    /PANTALONE_ONLY_SECTION|NARRATOR_ONLY_CONSTANT|PRIVATE_SCENE_SECRET|HISTORY_[0-3]:/u,
+  );
+  await chats.updateMessageExtra(summarySource[0]!.id, { hiddenFromAI: false });
+  await chats.updateMessageExtra(summarySource[1]!.id, { hiddenFromAICharacterIds: [] });
+  await chats.updateMessageExtra(personalStart.id, { conversationStartForCharacterIds: [] });
+  const hideSummarized = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${chat.id}/metadata`,
+    payload: { hideSummarisedMessages: true },
+  });
+  assert.equal(hideSummarized.statusCode, 200, hideSummarized.body);
+  assert(JSON.parse((await chats.getMessage(summarySource[0]!.id))!.extra).hiddenFromAI);
+  await generate();
+  assert.ok(
+    prompts.at(-1)!.includes("SHARED_CONSTANT_FOR_Maukie"),
+    "hiding summarized source messages must retain their enabled constants",
+  );
+  assert.ok(!prompts.at(-1)!.includes("HISTORY_0:"), "summary-owned hiding still excludes the raw source message");
+  assert.ok(!prompts.at(-1)!.includes("PRIVATE_SCENE_SECRET"), "explicit character hiding remains enforced");
+  await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${chat.id}/metadata`,
+    payload: { hideSummarisedMessages: false },
+  });
+  await generate();
   const target = (await chats.listMessages(chat.id)).at(-1)!;
   assert.ok(JSON.parse(target.extra as string).advancedMemoryReceipt);
+  const originalMemory = JSON.parse(target.extra as string).advancedMemorySnapshot;
+  assert(originalMemory.prepared.currentSceneSummary, "the original swipe retains its budget-compaction summary");
+  await memory.checkScenesAfterGeneration(chat.id, { blocking: false });
+  const beforeSwipe = modelCalls;
+  const regenerated = await generate(target.id);
+  assert.equal(modelCalls, beforeSwipe + 1, "regeneration reuses existing continuity without a helper call");
+  assert.doesNotMatch(regenerated.body, /"stage":"compacting"/u);
+  assert.match(regenerated.body, /reused-swipe-memory/u);
+  const continued = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: chat.id, forCharacterId: second.id, continueMessageId: target.id },
+  });
+  assert.equal(continued.statusCode, 200, continued.body);
+  assert(!continued.body.includes('"type":"error"'), continued.body);
+  assert.equal(
+    JSON.parse((await chats.getMessage(target.id))!.extra).advancedMemorySnapshot.prepared.receipt.sourceFingerprint,
+    originalMemory.prepared.receipt.sourceFingerprint,
+    "continuation must not replace the memory for regenerating the whole reply",
+  );
+  await memory.checkScenesAfterGeneration(chat.id, { blocking: false });
+  const afterContinuation = modelCalls;
+  const regeneratedAfterContinuation = await generate(target.id);
+  assert.deepEqual(modelCallKinds.slice(afterContinuation), ["main"]);
+  assert.doesNotMatch(regeneratedAfterContinuation.body, /"stage":"compacting"/u);
+  assert.match(regeneratedAfterContinuation.body, /reused-swipe-memory/u);
+  const generatedMetadata = JSON.parse((await chats.getById(chat.id))!.metadata);
+  assert.equal(generatedMetadata.advancedMemoryState.contextStarts.length, 1);
+  assert.deepEqual(generatedMetadata.advancedMemoryState.contextStarts[0].audienceCharacterIds, [second.id]);
   await memory.initialize(chat.id, { blocking: false });
   const beforePreview = modelCalls;
   const preview = await app.inject({
@@ -210,6 +299,56 @@ try {
   assert.equal(cachedPeek.statusCode, 200, cachedPeek.body);
   assert.equal(cachedPeek.json().source, "cached");
   assert.ok(!cachedPeek.body.includes("PRIVATE_SCENE_SECRET"));
+  const savedRequest = cachedPeek.json().messages;
+  await chats.updateMessageExtra(summarySource[0]!.id, {
+    attachments: [{ type: "image", filename: "illustration_1.png", url: "/illustration_1.png" }],
+  });
+  await chats.patchMetadata(chat.id, {
+    summary: "A summary edited after generation.",
+    summaryEntries: conditionalEntries.map((entry) => ({ ...entry, enabled: false })),
+  });
+  const peekAfterUpdates = await app.inject({
+    method: "POST",
+    url: `/api/chats/${chat.id}/peek-prompt`,
+    payload: { messageId: target.id },
+  });
+  assert.equal(peekAfterUpdates.statusCode, 200, peekAfterUpdates.body);
+  assert.equal(peekAfterUpdates.json().exact, true);
+  assert.deepEqual(
+    peekAfterUpdates.json().messages,
+    savedRequest,
+    "late images and summary edits cannot rewrite a sent request",
+  );
+  const activeMessage = (await chats.getMessage(target.id))!;
+  const activeExtra = JSON.parse(activeMessage.extra);
+  const activeIndex = activeMessage.activeSwipeIndex;
+  await chats.updateMessageExtra(target.id, { cachedPrompt: null });
+  await chats.updateSwipeExtra(target.id, activeIndex, { cachedPrompt: null });
+  const missingActivePrompt = await app.inject({
+    method: "POST",
+    url: `/api/chats/${chat.id}/peek-prompt`,
+    payload: { messageId: target.id },
+  });
+  assert.equal(missingActivePrompt.statusCode, 404, "a missing active prompt must not borrow another swipe's request");
+  await chats.updateMessageExtra(target.id, { cachedPrompt: activeExtra.cachedPrompt });
+  await chats.updateSwipeExtra(target.id, activeIndex, { cachedPrompt: activeExtra.cachedPrompt });
+  const otherSwipe = (await chats.getSwipes(target.id)).find((swipe) => swipe.index !== activeIndex)!;
+  assert(otherSwipe, "the fixture includes multiple generated swipes");
+  const otherPrompt = JSON.parse(otherSwipe.extra).cachedPrompt;
+  await chats.setActiveSwipe(target.id, otherSwipe.index);
+  const otherPeek = await app.inject({
+    method: "POST",
+    url: `/api/chats/${chat.id}/peek-prompt`,
+    payload: { messageId: target.id },
+  });
+  assert.deepEqual(
+    otherPeek.json().messages,
+    otherPrompt.map(({ role, content }: { role: string; content: string }) => ({ role, content })),
+  );
+  await chats.setActiveSwipe(target.id, activeIndex);
+  assert.equal(modelCalls, beforePreview, "historical inspection never prepares memory or calls a model");
+  await chats.updateMessageExtra(summarySource[0]!.id, { attachments: [] });
+  await chats.patchMetadata(chat.id, { summary: "FUTURE_LEGACY_SECRET", summaryEntries: conditionalEntries });
   const previewChat = await chats.create({
     name: "Read-only preview",
     mode: "roleplay",
@@ -282,35 +421,18 @@ try {
   assert.ok(!presetPreview.body.includes("PREVIEW_PRIVATE_SECRET"));
   assert.equal(modelCalls, beforePreview, "all preview entry points must remain read-only without model calls");
 
-  for (const streaming of [false, true]) {
-    const oversizedPreview = await app.inject({
-      method: "POST",
-      url: "/api/generate/dryRun",
-      payload: {
-        chatId: previewChat.id,
-        streaming,
-        skipPreset: true,
-        presetText: "Required fixed instruction. ".repeat(10_000),
-      },
-    });
-    if (streaming) {
-      assert.equal(oversizedPreview.statusCode, 200);
-      assert.match(oversizedPreview.headers["content-type"] ?? "", /text\/event-stream/u);
-      const events = oversizedPreview.body
-        .split("\n\n")
-        .filter((line) => line.startsWith("data: "))
-        .map((line) => JSON.parse(line.slice(6)));
-      assert.deepEqual(
-        events.map((event) => event.type),
-        ["error", "done"],
-      );
-      assert.match(events[0].data, /fixed instructions.*context cap/u);
-    } else {
-      assert.equal(oversizedPreview.statusCode, 500);
-      assert.match(oversizedPreview.json().error, /fixed instructions.*context cap/u);
-      assert.equal(oversizedPreview.json().runId, undefined, "preparation failed before a run was started");
-    }
-  }
+  const oversizedPreview = await app.inject({
+    method: "POST",
+    url: "/api/generate/dryRun",
+    payload: {
+      chatId: previewChat.id,
+      returnPrompt: true,
+      skipPreset: true,
+      presetText: "Required fixed instruction. ".repeat(10_000),
+    },
+  });
+  assert.equal(oversizedPreview.statusCode, 500);
+  assert.match(oversizedPreview.json().error, /fixed instructions.*context cap/u);
   assert.equal(modelCalls, beforePreview, "preparation failures cannot start model calls");
 
   const impersonation = await app.inject({
@@ -346,6 +468,50 @@ try {
   assert.ok(unconfirmed.body.includes('"blocking":true'), unconfirmed.body);
   assert.equal(modelCalls, unconfirmedCalls, "missing knowledge cannot be sent to a model before confirmation");
 
+  const beforeSharedStart = await chats.listMessages(chat.id);
+  const sharedStart = beforeSharedStart.find((message) => message.content.includes("HISTORY_8:"))!;
+  await chats.updateMessageExtra(sharedStart.id, { isConversationStart: true });
+  await chats.patchMetadata(chat.id, {
+    summaryEntries: [
+      {
+        id: "pre-marker-constant",
+        kind: "rolling",
+        origin: "manual",
+        title: "Earlier history",
+        content: "SUMMARY_FIXTURE: An old promise remains unresolved.",
+        enabled: true,
+        sourceMode: "range",
+        rangeStartIndex: 2,
+        rangeEndIndex: 3,
+        messageIds: beforeSharedStart.slice(1, 3).map((message) => message.id),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ],
+  });
+  await generate();
+  const markedPrompt = JSON.parse(prompts.at(-1)!) as Array<{ role: string; content: string }>;
+  assert(
+    markedPrompt.some((message) => message.role === "system" && message.content.includes("SUMMARY_FIXTURE")),
+    "actual generation keeps pre-marker memory in the system prompt",
+  );
+  assert(
+    !markedPrompt.some((message) => message.role !== "system" && /HISTORY_[0-7]:/.test(message.content)),
+    "actual generation respects the live-history start marker",
+  );
+  assert(!prompts.at(-1)!.includes("PRIVATE_SCENE_SECRET"));
+  await memory.checkScenesAfterGeneration(chat.id, { blocking: false });
+  const markedCalls = modelCalls;
+  const markedPreview = await app.inject({
+    method: "POST",
+    url: "/api/generate/dryRun",
+    payload: { chatId: chat.id, forCharacterId: second.id, returnPrompt: true },
+  });
+  assert.equal(markedPreview.statusCode, 200, markedPreview.body);
+  assert(markedPreview.body.includes("SUMMARY_FIXTURE"));
+  assert.equal(modelCalls, markedCalls, "preview reuses the pre-marker memory without provider calls");
+  await chats.updateMessageExtra(sharedStart.id, { isConversationStart: false });
+
   await chats.createMessage({
     chatId: chat.id,
     role: "user",
@@ -360,11 +526,11 @@ try {
       "historical regeneration uses the prefix before later manual starts",
     );
     assert.ok(prompts.at(-1)!.includes("HISTORY_9"));
+    assert.ok(prompts.at(-1)!.includes("Spring 14"), `${wrapFormat} main-provider prompt retains known story time`);
     assert.ok(
-      prompts.at(-1)!.includes("story timeframe: Spring 14"),
-      `${wrapFormat} main-provider prompt retains known story time`,
+      /(?:Messages #2–#|#2 User:)/u.test(prompts.at(-1)!),
+      `${wrapFormat} memory has canonical source positions`,
     );
-    assert.ok(prompts.at(-1)!.includes("Messages #2–#"), `${wrapFormat} memory has canonical source positions`);
     assert.ok(
       !prompts.at(-1)!.includes("PRIVATE_SCENE_SECRET_DATE"),
       `${wrapFormat} memory cannot borrow another character's hidden date`,

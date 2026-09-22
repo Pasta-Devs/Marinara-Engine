@@ -397,7 +397,8 @@ try {
           try { fs.readFileSync(${JSON.stringify(outsideSecretPath)}, "utf8"); } catch { outsideReadBlocked = true; }
           try { fs.writeFileSync(escapedProcess.env.HOME + "/extension-owned.txt", "unsafe"); } catch { arbitraryWriteBlocked = true; }
           try { childProcess.spawnSync("/bin/echo", ["unsafe"]); } catch { childProcessBlocked = true; }
-          try { escapedProcess.kill(escapedProcess.ppid, 0); } catch { parentSignalBlocked = true; }
+          // Inside Bubblewrap, ppid is its isolated supervisor, not the Engine host process.
+          try { escapedProcess.kill(${process.pid}, 0); } catch { parentSignalBlocked = true; }
           await new Promise((resolve) => {
             let socket;
             try {

@@ -173,6 +173,7 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
+    manifest: true,
     target: "es2020",
     cssTarget: "safari14",
     // Vite reports decimal kB; 512 kB matches the bundle plugin's enforced 500 KiB ceiling.

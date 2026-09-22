@@ -194,7 +194,7 @@ async function getRecentMessages(
   chats: ReturnType<typeof createChatsStorage>,
   chatId: string,
   limit: number = 30,
-): Promise<ChatMessage[]> {
+): Promise<Array<ChatMessage & { characterId: string | null }>> {
   const allMsgs = await chats.listMessages(chatId);
   return allMsgs
     .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
@@ -202,6 +202,7 @@ async function getRecentMessages(
     .map((m: any) => ({
       role: m.role === "user" ? ("user" as const) : ("assistant" as const),
       content: m.content,
+      characterId: m.characterId ?? null,
     }));
 }
 
@@ -488,9 +489,15 @@ export async function sceneRoutes(app: FastifyInstance) {
 
     // Get all scene messages for the summary
     const sceneMessages = await getRecentMessages(chats, sceneChatId, 100);
-    const sceneText = sceneMessages
-      .map((m) => `${m.role === "user" ? personaName : "Character"}: ${m.content}`)
-      .join("\n\n");
+    const sceneText = (
+      await Promise.all(
+        sceneMessages.map(async (m) => {
+          const speaker =
+            m.role === "user" ? personaName : m.characterId ? await getCharacterName(chars, m.characterId) : "Narrator";
+          return `${speaker}: ${m.content}`;
+        }),
+      )
+    ).join("\n\n");
 
     // Build the summary prompt
     const now = new Date();
@@ -526,6 +533,7 @@ export async function sceneRoutes(app: FastifyInstance) {
           ``,
           `Write a vivid but concise narrative summary of what happened during this scene (max 200 words).`,
           `Write in past tense, third person. Include the emotional beats and key moments.`,
+          `Use an outside narrator's point of view. Name the participant whose thoughts or feelings you describe, and do not present this recap as dialogue spoken by a character.`,
           `This summary will become a permanent memory for the character(s) involved.`,
           `Do NOT use asterisks, em-dashes, or markdown formatting. Write natural prose.`,
           `Start directly with the narrative — no preamble like "Here's a summary".`,

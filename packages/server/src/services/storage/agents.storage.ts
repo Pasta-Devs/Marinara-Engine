@@ -307,6 +307,24 @@ export function createAgentsStorage(db: DB) {
         .from(messages)
         .where(and(eq(messages.id, input.messageId), eq(messages.chatId, input.chatId)))
         .limit(1);
+      // Omission retains the last visible turn's private context; an explicit value (including null) replaces it.
+      let resultData = input.result.data;
+      if (
+        input.result.success &&
+        resultData &&
+        typeof resultData === "object" &&
+        !Array.isArray(resultData) &&
+        !Object.hasOwn(resultData, "agent-context") &&
+        !Object.hasOwn(resultData, "agentContext")
+      ) {
+        const previous = await this.getPreviousOutput(agentConfigId, input.chatId, input.messageId, input.messageId);
+        if (previous && typeof previous === "object" && !Array.isArray(previous)) {
+          const contextKey = Object.hasOwn(previous, "agent-context") ? "agent-context" : "agentContext";
+          if (Object.hasOwn(previous, contextKey)) {
+            resultData = { ...resultData, "agent-context": (previous as Record<string, unknown>)[contextKey] };
+          }
+        }
+      }
       const values = {
         id,
         agentConfigId,
@@ -314,7 +332,7 @@ export function createAgentsStorage(db: DB) {
         messageId: input.messageId,
         swipeIndex: message?.activeSwipeIndex ?? null,
         resultType: input.result.type,
-        resultData: JSON.stringify(input.result.data),
+        resultData: JSON.stringify(resultData),
         tokensUsed: input.result.tokensUsed,
         durationMs: input.result.durationMs,
         success: String(input.result.success),

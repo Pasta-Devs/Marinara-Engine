@@ -55,7 +55,7 @@ export interface APIConnection {
   fallbackForAgents: boolean;
   /** Whether provider-native prompt caching is enabled */
   enableCaching: boolean;
-  /** Anthropic only: use the 1-hour prompt-cache TTL instead of the default 5-minute TTL */
+  /** Anthropic and Claude Subscription: request a 1-hour prompt-cache TTL. */
   anthropicExtendedCacheTtl: boolean;
   /** Conversation message depth for Anthropic cache breakpoints */
   cachingAtDepth: number;

@@ -40,6 +40,7 @@ import {
   formatRpgStatsForPrompt,
   normalizeRpgStatPools,
   characterDataSchema,
+  rulesetLiveStatesSchema,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
@@ -56,6 +57,7 @@ import type {
   LorebookEntryTimingState,
   PresentCharacter,
   RPGStatsConfig,
+  RulesetLiveStates,
   WorldCustomField,
   HomeFeedSnapshot,
 } from "@marinara-engine/shared";
@@ -73,7 +75,11 @@ import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
-import { createGameStateStorage, type GameStateVisibleAnchor } from "../services/storage/game-state.storage.js";
+import {
+  createGameStateStorage,
+  parseStoredRulesetLive,
+  type GameStateVisibleAnchor,
+} from "../services/storage/game-state.storage.js";
 import {
   formatOwnerSpatialBreadcrumb,
   injectOwnerSpatialPrompt,
@@ -401,7 +407,7 @@ export function normalizeChatForResponse<T extends { metadata?: unknown; charact
 type SummaryEntriesPatchBody =
   | { operation: "replace"; entry: Partial<ChatSummaryEntry> & { id: string; content: string } }
   | { operation: "delete"; entryId?: string; entryIds?: string[] }
-  | { operation: "toggle"; entryId: string; enabled: boolean }
+  | { operation: "toggle"; entryId?: string; entryIds?: string[]; enabled: boolean }
   | { operation: "reorder"; entryIds: string[] };
 
 async function loadLatestChatGameSnapshot(
@@ -1479,8 +1485,15 @@ export async function chatsRoutes(app: FastifyInstance) {
       }
       deleteEntryIds = requestedIds as string[];
     } else if (body.operation === "toggle") {
-      if (typeof body.entryId !== "string" || !body.entryId.trim() || typeof body.enabled !== "boolean") {
-        return reply.status(400).send({ error: "toggle requires entryId and enabled" });
+      const ids = body.entryIds ?? [body.entryId];
+      if (
+        !Array.isArray(ids) ||
+        !ids.length ||
+        !ids.every((id) => typeof id === "string" && id.trim()) ||
+        new Set(ids).size !== ids.length ||
+        typeof body.enabled !== "boolean"
+      ) {
+        return reply.status(400).send({ error: "toggle requires entryId or unique entryIds and enabled" });
       }
     } else if (body.operation === "reorder") {
       if (
@@ -1532,8 +1545,9 @@ export async function chatsRoutes(app: FastifyInstance) {
         nextEntries = entries.filter((entry) => !deletedIds.has(entry.id));
       } else if (body.operation === "toggle") {
         const now = new Date().toISOString();
+        const toggledIds = new Set(body.entryIds ?? [body.entryId]);
         nextEntries = entries.map((entry) =>
-          entry.id === body.entryId ? { ...entry, enabled: body.enabled, updatedAt: now } : entry,
+          toggledIds.has(entry.id) ? { ...entry, enabled: body.enabled, updatedAt: now } : entry,
         );
       } else if (body.operation === "reorder") {
         const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
@@ -1664,6 +1678,17 @@ export async function chatsRoutes(app: FastifyInstance) {
           })
         : undefined;
       const lorebooksStore = createLorebooksStorage(app.db);
+      // The proposal payload round-trips the turn provenance captured at
+      // proposal time; entries applied here are anchored to the same turn so
+      // message deletion can cascade them. Older clients that dropped the
+      // unknown payload keys degrade to unstamped (cascade-ineligible) writes.
+      const approvalRefs = Array.isArray(payload.sourceMessageRefs)
+        ? payload.sourceMessageRefs.flatMap((ref) => {
+            if (!isRecord(ref) || typeof ref.id !== "string" || !ref.id.trim()) return [];
+            const swipeIndex = (ref as { swipeIndex?: unknown }).swipeIndex;
+            return [{ id: ref.id, swipeIndex: typeof swipeIndex === "number" ? swipeIndex : null }];
+          })
+        : undefined;
       const targetLorebookId = await persistLorebookKeeperUpdates({
         lorebooksStore,
         chatId: req.params.id,
@@ -1678,6 +1703,11 @@ export async function chatsRoutes(app: FastifyInstance) {
           typeof payload.worldName === "string" && payload.worldName.trim()
             ? payload.worldName.trim()
             : (chat as { name?: string | null }).name,
+        sourceAgentId:
+          typeof payload.sourceAgentId === "string" && payload.sourceAgentId.trim()
+            ? payload.sourceAgentId
+            : "lorebook-keeper",
+        sourceMessageRefs: approvalRefs,
         updates,
       });
       return { ok: true, targetLorebookId };
@@ -2445,6 +2475,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       manualOverrides,
       fieldLocks: parseTrackerFieldLocks(row.fieldLocks),
       hiddenTrackerFields: parseTrackerHiddenFields(row.hiddenTrackerFields),
+      rulesetLive: parseStoredRulesetLive(row.rulesetLive),
       committed: (row.committed as any) === 1,
       createdAt: row.createdAt,
     };
@@ -2550,6 +2581,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       manualOverrides: storedManualOverrides,
       fieldLocks,
       hiddenTrackerFields,
+      rulesetLive: parseStoredRulesetLive(row.rulesetLive),
       createdAt: row.createdAt,
     };
   });
@@ -2595,6 +2627,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       personaStats: any[];
       fieldLocks: Record<string, boolean> | null;
       hiddenTrackerFields: Record<string, boolean> | null;
+      rulesetLive: RulesetLiveStates | null;
     }> = {};
     if (body.date !== undefined) fields.date = coerceGameStateTextValue(body.date);
     if (body.time !== undefined) fields.time = coerceGameStateTextValue(body.time);
@@ -2628,6 +2661,14 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (body.fieldLocks !== undefined) fields.fieldLocks = normalizeTrackerFieldLocks(body.fieldLocks);
     if (body.hiddenTrackerFields !== undefined)
       fields.hiddenTrackerFields = normalizeTrackerHiddenFields(body.hiddenTrackerFields);
+    // Live ruleset sheet state edited on the in-game sheet (a rest, a spent hit die, a corrected
+    // pool). Bounded here like every other write of it; what the numbers mean is the ruleset's
+    // business and the player's own game, so legality is not judged.
+    if (body.rulesetLive !== undefined) {
+      const live = body.rulesetLive === null ? null : rulesetLiveStatesSchema.safeParse(body.rulesetLive);
+      if (live && !live.success) return reply.status(400).send({ error: "rulesetLive is not valid live sheet state" });
+      fields.rulesetLive = live ? live.data : null;
+    }
     // Target the same snapshot the GET endpoint returns — the one for the last
     // assistant message's active swipe — so edits persist to the row the user
     // actually sees. Falls back to updateLatest when no messages exist yet.
@@ -2702,13 +2743,18 @@ export async function chatsRoutes(app: FastifyInstance) {
           personaStats: (fields.personaStats as any) ?? null,
           fieldLocks: normalizeTrackerFieldLocks(fields.fieldLocks),
           hiddenTrackerFields: normalizeTrackerHiddenFields(fields.hiddenTrackerFields),
+          ...(fields.rulesetLive !== undefined ? { rulesetLive: fields.rulesetLive } : {}),
         },
         Object.keys(manualOverrides).length > 0 ? manualOverrides : null,
       );
       updated = await gameStateStore.getLatest(req.params.id);
     }
     if (!updated) return reply.status(404).send({ error: "No game state found" });
-    return projectGameSnapshotLocation(updated, ownerSpatialProjection);
+    // The row stores live sheet state as JSON text; callers get the same object the GET returns.
+    return projectGameSnapshotLocation(
+      { ...updated, rulesetLive: parseStoredRulesetLive(updated.rulesetLive) },
+      ownerSpatialProjection,
+    );
   });
 
   // Delete all game state for a chat
@@ -2760,7 +2806,9 @@ export async function chatsRoutes(app: FastifyInstance) {
             .filter((entry): entry is { role: string; content: string } => entry !== null)
         : [];
       if (cachedPrompt.length === 0) return null;
-      if (advancedMemoryEnabled) {
+      // A selected turn is a historical request, not memory being reused for a
+      // new generation. Later images, summaries and policy edits cannot alter it.
+      if (advancedMemoryEnabled && !allowHistoricalCache) {
         const receipt = extra.advancedMemoryReceipt;
         if (!isRecord(receipt) || !Object.prototype.hasOwnProperty.call(receipt, "sourceEndMessageId")) return null;
         const end =
@@ -2841,12 +2889,6 @@ export async function chatsRoutes(app: FastifyInstance) {
             parseExtra(activeSwipe.extra) as Record<string, unknown>,
             Boolean(requestedMessage),
           );
-        }
-        if (!cached) {
-          for (const sw of swipes) {
-            cached = await readCachedPrompt(parseExtra(sw.extra) as Record<string, unknown>, Boolean(requestedMessage));
-            if (cached) break;
-          }
         }
       }
 
@@ -4459,6 +4501,9 @@ export async function chatsRoutes(app: FastifyInstance) {
               personaStats: parseSnapshotJson(snapshot.personaStats, null),
               fieldLocks: parseTrackerFieldLocks(snapshot.fieldLocks),
               hiddenTrackerFields: parseTrackerHiddenFields(snapshot.hiddenTrackerFields),
+              // A branch is a new chat, so there is no row to inherit from: without this a branched
+              // game would start with every pool full again.
+              rulesetLive: parseStoredRulesetLive(snapshot.rulesetLive),
               committed: (snapshot.committed as any) === 1,
             } as any,
             overrides,

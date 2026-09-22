@@ -59,4 +59,14 @@ assert.deepEqual(parseCharacterScheduleImport({ ...schedule, inactivityThreshold
   reason: "invalid",
 });
 
+for (const cap of [null, 1, 8, 10, 20, 50, 100, 1000]) {
+  const exported = createCharacterScheduleExport({ ...schedule, autonomousDailyCapOverride: cap });
+  const imported = parseCharacterScheduleImport(exported);
+  assert.ok(imported.ok, `daily limit ${cap} should round-trip`);
+  assert.equal(imported.schedule.autonomousDailyCapOverride, cap);
+}
+for (const cap of [0, -1, 1.5, Infinity, "100"]) {
+  assert.equal(parseCharacterScheduleImport({ ...schedule, autonomousDailyCapOverride: cap }).ok, false);
+}
+
 console.info("Character schedule transfer regressions passed.");

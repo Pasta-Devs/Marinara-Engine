@@ -40,6 +40,7 @@ import {
   lorebookEntries,
 } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
+import { parseSourceMessageRefs } from "./lorebook-provenance.js";
 import { existsSync, rmSync } from "fs";
 import { join } from "path";
 import { DATA_DIR } from "../../utils/data-dir.js";
@@ -424,15 +425,9 @@ function hasConversationSchedules(value: unknown): value is CharacterSchedules {
   return !!value && typeof value === "object" && Object.keys(value as Record<string, unknown>).length > 0;
 }
 
-/**
- * A chat opts into schedules explicitly, or implicitly by already having a
- * cached schedule from an earlier opt-in. An unset flag on a chat that has never
- * used schedules means off, so a character gaining a schedule does not silently
- * switch it on in every old chat.
- */
+/** Reuse character-owned routines unless this chat explicitly disables them. */
 function areConversationSchedulesEnabled(meta: MetadataPatch): boolean {
-  if (typeof meta.conversationSchedulesEnabled === "boolean") return meta.conversationSchedulesEnabled;
-  return hasConversationSchedules(meta.characterSchedules);
+  return meta.conversationSchedulesEnabled !== false;
 }
 
 /** Resolved presence state for one chat, read from the character cards it uses. */
@@ -947,6 +942,84 @@ export function createChatsStorage(db: DB) {
       // resume from a queue belonging to a turn that no longer exists.
       await db.delete(gameDicePools).where(chatScoped(gameDicePools.chatId, inArray(gameDicePools.messageId, chunk)));
     }
+  }
+
+  /**
+   * Cascade message deletions into agent-authored lorebook entries (deleted
+   * chat messages used to leave agent-written lore live, still steering later
+   * generations — the deleted-turn "facts" kept being injected and the model
+   * argued with the user's corrections).
+   *
+   * Entries carry sourceMessageRefs ({ id, swipeIndex } of the turn their
+   * CURRENT content was extracted from) and a depth-1 pre-write snapshot
+   * (previousContent/previousSourceMessageRefs, taken on every agent rewrite).
+   * For each agent-authored entry whose current refs mention a removed
+   * message:
+   *   - a snapshot whose own refs survive the batch → revert to it (an
+   *     in-place rewrite is undone, like addSwipe's outgoing-swipe backfill);
+   *   - otherwise → remove the entry: a keeper create has nothing to revert
+   *     to, and lore whose source turn is gone must not steer prompts.
+   * A snapshot whose refs are in the SAME batch is discarded first, so the
+   * entry deletes instead of reverting to lore whose source is also gone.
+   * Entries that never mention a removed message — and manual entries
+   * (sourceAgentId NULL; a human edit takes ownership) — are untouched.
+   *
+   * Return removed IDs so callers can prune metadata after releasing the transaction.
+   */
+  async function cascadeAgentLorebookEntriesForMessages(messageIds: string[]): Promise<string[]> {
+    const deletedIds = new Set(messageIds.filter(Boolean));
+    if (deletedIds.size === 0) return [];
+    const candidates = await db
+      .select({
+        id: lorebookEntries.id,
+        content: lorebookEntries.content,
+        sourceMessageRefs: lorebookEntries.sourceMessageRefs,
+        previousContent: lorebookEntries.previousContent,
+        previousSourceMessageRefs: lorebookEntries.previousSourceMessageRefs,
+        previousSourceAgentId: lorebookEntries.previousSourceAgentId,
+      })
+      .from(lorebookEntries)
+      .where(isNotNull(lorebookEntries.sourceAgentId));
+
+    const removed: string[] = [];
+    for (const entry of candidates) {
+      const currentRefs = parseSourceMessageRefs(entry.sourceMessageRefs);
+      const previousRefs = parseSourceMessageRefs(entry.previousSourceMessageRefs);
+      const currentHit = currentRefs.some((ref) => deletedIds.has(ref.id));
+      const snapshotPoisoned = previousRefs.some((ref) => deletedIds.has(ref.id));
+      if (!currentHit && !snapshotPoisoned) continue;
+
+      if (snapshotPoisoned) {
+        await db
+          .update(lorebookEntries)
+          .set({ previousContent: null, previousSourceMessageRefs: null, previousSourceAgentId: null })
+          .where(eq(lorebookEntries.id, entry.id));
+      }
+
+      if (currentHit) {
+        const canRevert = !snapshotPoisoned && typeof entry.previousContent === "string";
+        if (canRevert) {
+          await db
+            .update(lorebookEntries)
+            .set({
+              content: entry.previousContent as string,
+              embedding: null,
+              embeddingSpaceId: null,
+              sourceMessageRefs: entry.previousSourceAgentId ? (entry.previousSourceMessageRefs ?? "[]") : "[]",
+              sourceAgentId: entry.previousSourceAgentId ?? null,
+              previousSourceAgentId: null,
+              previousContent: null,
+              previousSourceMessageRefs: null,
+              updatedAt: now(),
+            })
+            .where(eq(lorebookEntries.id, entry.id));
+        } else {
+          await db.delete(lorebookEntries).where(eq(lorebookEntries.id, entry.id));
+          removed.push(entry.id);
+        }
+      }
+    }
+    return removed;
   }
 
   async function readLatestMessageAt(chatId: string): Promise<string | null> {
@@ -2313,7 +2386,12 @@ export function createChatsStorage(db: DB) {
     },
 
     /** Merge partial data into a specific swipe and mirror it to the message only if that swipe is active. */
-    async updateMessageExtraForSwipe(id: string, swipeIndex: number, partial: Record<string, unknown>) {
+    async updateMessageExtraForSwipe(
+      id: string,
+      swipeIndex: number,
+      partial: Record<string, unknown>,
+      expectedContent?: string,
+    ) {
       return withPatchQueue(messageExtraPatchQueues, id, async () => {
         const msg = await this.getMessage(id);
         if (!msg) return null;
@@ -2322,6 +2400,12 @@ export function createChatsStorage(db: DB) {
         if (!targetSwipe) return null;
 
         const swipeExtra = parseExtraRecord(targetSwipe.extra);
+        // A delayed automatic translation must not replace an edit or a translation the user hid.
+        if (
+          expectedContent !== undefined &&
+          (targetSwipe.content !== expectedContent || swipeExtra.translationHidden === true)
+        )
+          return null;
         await db
           .update(messageSwipes)
           .set({ extra: JSON.stringify({ ...swipeExtra, ...partial }) })
@@ -2707,55 +2791,86 @@ export function createChatsStorage(db: DB) {
       // mutation (#5599): an in-flight edit either completes before the
       // delete or starts after it and sees a consistent world, instead of
       // having its writes silently vanish mid-flight into a 404.
-      return withInterruptionQueue([id], async (locked) => {
+      const removedEntries = await withInterruptionQueue([id], async (locked) => {
         const existing = await this.getMessage(id);
         await reconcileEffects(existing, true, locked);
         if (existing) await deleteGameStateForMessages([id], [existing.chatId]);
         await db.delete(messages).where(eq(messages.id, id));
         if (existing) {
+          const removed = await cascadeAgentLorebookEntriesForMessages([id]);
           await invalidateMemoryChunksFrom(db, existing.chatId, existing.createdAt);
           await refreshChatLastMessageAt(existing.chatId);
+          return removed;
         }
+        return [];
       });
+      if (removedEntries.length > 0) await this.pruneLorebookChatMetadata(async () => removedEntries);
     },
 
     async removeMessages(ids: string[], chatId?: string) {
       if (ids.length === 0) return;
       const earliestByChat = new Map<string, string>();
+      const removedEntryIds: string[] = [];
+      const finishDeletion = async () => {
+        if (removedEntryIds.length > 0) await this.pruneLorebookChatMetadata(async () => removedEntryIds);
+        for (const [affectedChatId, createdAt] of earliestByChat) {
+          await invalidateMemoryChunksFrom(db, affectedChatId, createdAt);
+          await refreshChatLastMessageAt(affectedChatId);
+        }
+      };
       const CHUNK = 500;
-      for (let i = 0; i < ids.length; i += CHUNK) {
-        const chunk = ids.slice(i, i + CHUNK);
-        // Per-chunk queue acquisition (#5599): each message's delete is
-        // ordered against its in-flight edits; cross-chunk atomicity was
-        // never promised by this bulk path.
-        await withInterruptionQueue(chunk, async (locked) => {
-          const condition = chatId
-            ? and(inArray(messages.id, chunk), eq(messages.chatId, chatId))
-            : inArray(messages.id, chunk);
-          const existingRows = await db
-            .select({ id: messages.id, chatId: messages.chatId, createdAt: messages.createdAt, extra: messages.extra })
-            .from(messages)
-            .where(condition);
-          for (const row of existingRows) {
+      try {
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const chunk = ids.slice(i, i + CHUNK);
+          // Per-chunk queue acquisition (#5599): each message's delete is
+          // ordered against its in-flight edits; cross-chunk atomicity was
+          // never promised by this bulk path.
+          const removed = await withInterruptionQueue(chunk, async (locked) => {
+            const condition = chatId
+              ? and(inArray(messages.id, chunk), eq(messages.chatId, chatId))
+              : inArray(messages.id, chunk);
+            const existingRows = await db
+              .select({
+                id: messages.id,
+                chatId: messages.chatId,
+                createdAt: messages.createdAt,
+                extra: messages.extra,
+              })
+              .from(messages)
+              .where(condition);
+            // Undo newest effects first when a whole interrupted exchange is removed.
+            for (const row of existingRows
+              .filter((row) => receipts(row.extra).some((receipt) => !receipt.restored))
+              .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id)))
+              await reconcileEffects(await readMessage(row.id), true, locked);
+            await deleteGameStateForMessages(
+              existingRows.map((row) => row.id),
+              existingRows.map((row) => row.chatId),
+            );
+            await db.delete(messages).where(condition);
+            // Cascade only the ids this scoped deletion actually removed — a
+            // requested id excluded by the chatId filter (or nonexistent) keeps
+            // its message, so its lore must keep its anchors too.
+            return {
+              rows: existingRows,
+              // ponytail: one lore scan per 500-message chunk keeps deletion atomic;
+              // index source refs if large history deletions outgrow this path.
+              entryIds: await cascadeAgentLorebookEntriesForMessages(existingRows.map((row) => row.id)),
+            };
+          });
+          removedEntryIds.push(...removed.entryIds);
+          for (const row of removed.rows) {
             const current = earliestByChat.get(row.chatId);
             if (!current || row.createdAt < current) earliestByChat.set(row.chatId, row.createdAt);
           }
-          // Undo newest effects first when a whole interrupted exchange is removed.
-          for (const row of existingRows
-            .filter((row) => receipts(row.extra).some((receipt) => !receipt.restored))
-            .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id)))
-            await reconcileEffects(await readMessage(row.id), true, locked);
-          await deleteGameStateForMessages(
-            existingRows.map((row) => row.id),
-            existingRows.map((row) => row.chatId),
-          );
-          await db.delete(messages).where(condition);
+        }
+      } catch (error) {
+        await finishDeletion().catch((cleanupError) => {
+          logger.error(cleanupError, "Failed to clean up lore after partial message deletion");
         });
+        throw error;
       }
-      for (const [affectedChatId, createdAt] of earliestByChat) {
-        await invalidateMemoryChunksFrom(db, affectedChatId, createdAt);
-        await refreshChatLastMessageAt(affectedChatId);
-      }
+      await finishDeletion();
     },
 
     async getSwipes(messageId: string) {

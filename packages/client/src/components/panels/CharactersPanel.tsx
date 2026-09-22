@@ -62,7 +62,7 @@ import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import type { CharacterCatalogEntry } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
-import { estimateCharacterCardTokens, formatEstimatedTokens } from "../../lib/character-token-count";
+import { formatEstimatedTokens } from "../../lib/character-token-count";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { TouchDragHandle } from "../ui/TouchDragHandle";
@@ -633,7 +633,7 @@ export function CharactersPanel() {
     }
   }, []);
 
-  const { startTouchDrag: startCharacterTouchDrag } = useTouchFolderDrag({
+  const { startTouchDrag: startCharacterTouchDrag, startMouseDrag: startCharacterMouseDrag } = useTouchFolderDrag({
     onActivate: (characterId) => {
       suppressCharacterClickRef.current = true;
       setDraggedCharacterId(characterId);
@@ -1106,13 +1106,29 @@ export function CharactersPanel() {
                     : getCharacterTitle(member);
                   const memberPreviewMetadata = fullMember ? getCharacterPreviewMetadata(fullMember) : null;
                   const memberTags = fullMember ? getCharacterTags(fullMember) : [];
-                  const memberTokenEstimate = fullMember ? estimateCharacterCardTokens(fullMember.parsed) : null;
+                  const memberTokenEstimate = fullMember?.tokenEstimate ?? null;
                   const memberNameColor = (fullMember?.parsed.extensions?.nameColor as string) || undefined;
                   const memberAvatarCrop = normalizeAvatarCrop(fullMember?.parsed.extensions?.avatarCrop) ?? undefined;
                   return (
                     <div
                       key={memberId}
                       data-touch-drag-card="character"
+                      onMouseDown={(event) => {
+                        const ids = getDraggedCharacterIds(memberId);
+                        startCharacterMouseDrag(event, memberId, {
+                          chatResourcePayload: {
+                            version: 1,
+                            kind: "character",
+                            ids,
+                            label:
+                              ids.length === 1
+                                ? memberName
+                                : localizeUi("ui.chat.chatresourcedropoverlay.characterCount", {
+                                    count: ids.length,
+                                  }),
+                          },
+                        });
+                      }}
                       onClick={() => {
                         if (suppressCharacterClickRef.current) return;
                         if (selectionMode) {
@@ -1457,13 +1473,29 @@ export function CharactersPanel() {
           const isFavorite = !!char.parsed.extensions?.fav;
           const avatarUrl = char.avatarPath;
           const previewMetadata = getCharacterPreviewMetadata(char);
-          const tokenEstimate = estimateCharacterCardTokens(char.parsed);
+          const tokenEstimate = char.tokenEstimate;
 
           return (
             <div
               key={char.id}
               data-character-id={char.id}
               data-touch-drag-card="character"
+              onMouseDown={(event) => {
+                const ids = getDraggedCharacterIds(char.id);
+                startCharacterMouseDrag(event, char.id, {
+                  chatResourcePayload: {
+                    version: 1,
+                    kind: "character",
+                    ids,
+                    label:
+                      ids.length === 1
+                        ? charName
+                        : localizeUi("ui.chat.chatresourcedropoverlay.characterCount", {
+                            count: ids.length,
+                          }),
+                  },
+                });
+              }}
               onClick={() => {
                 if (suppressCharacterClickRef.current) return;
                 if (selectionMode) {

@@ -12,16 +12,10 @@ commands.
 
 ## Priority
 
-Follow instructions in this order:
-
-1. Marinara repo rules: `CONTRIBUTING.md`, `AGENTS.md`, package instructions, and templates.
-2. The user's latest request.
-3. This workflow overlay.
-4. Assistant defaults.
-
-If this overlay conflicts with repo rules, repo rules win. Keep the overlay only
-where it improves proof, review quality, issue filing, shipping discipline,
-security, or risky-work boundaries.
+Follow the platform's instruction hierarchy. The maintainer's current request
+overrides default project workflows and skill guidance. Within repository
+guidance, `CONTRIBUTING.md`, `AGENTS.md`, package instructions and templates take precedence over
+this additive overlay. No repository file overrides platform permission controls.
 
 ## Universal Operating Rules
 
@@ -97,7 +91,7 @@ Use this for code reviews, PR preparation, PR iteration, and ready-for-review ga
 - Before pushing or opening a PR, check the dirty tree, remotes, branch, intended files, and target branch.
 - Confirm every included bug fix, behavior change, and new feature has an appropriate `[Unreleased]` changelog entry.
 - When the PR bumps or prepares a release version, run `pnpm credits:check`; if stale, run `pnpm credits:sync` and include the Credits modal update in the same release PR.
-- New PRs should target `staging` and be draft by default unless the maintainer says otherwise.
+- Target `staging`. Open a draft while implementation is in progress. Once implementation, required local validation and local CodeRabbit review are complete, publish or mark the PR ready for review without another confirmation; if the PR is first created after those gates, create it ready. Keep it draft only for unfinished work, a substantive local blocker, or an explicit maintainer request. Documented review dismissals and pending GitHub checks are not automatic draft blockers; GitHub CI and CodeRabbit remain required before merge.
 - Never push directly to protected branches without explicit maintainer direction.
 - Do not auto-check PR validation boxes. Treat them as human verification tasks.
 - After pushing, inspect CI and review feedback when asked to ship or ready a PR.

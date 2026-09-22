@@ -4,6 +4,12 @@
 
 export type PersonalExtensionRuntime = "client" | "server";
 
+/** Shared utility API available to Browser, Full page access, and Server extensions. */
+export interface PersonalExtensionTokenApi {
+  /** Synchronous, model-agnostic estimate; accepts raw text without trimming. */
+  estimateTextTokens(text: string): number;
+}
+
 export type PersonalExtensionSource = "external" | "local" | "professor_mari" | "legacy" | "profile_import";
 
 export type PersonalExtensionSandboxBackend = "browser-opaque-origin" | "macos-seatbelt" | "linux-bubblewrap";

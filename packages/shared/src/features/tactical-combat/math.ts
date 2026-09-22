@@ -1,3 +1,11 @@
+import {
+  ENEMY_DAMAGE_MULTIPLIERS,
+  normalizeGameDifficulty,
+  weatherDamageMultiplier,
+  weatherHitPenalty,
+  type CombatWeather,
+  type CombatAttackTraits,
+} from "../combat-conditions.js";
 // ──────────────────────────────────────────────
 // Tactical Combat — pure combat math
 // ──────────────────────────────────────────────
@@ -52,12 +60,7 @@ export function deriveMovement(speed: number): number {
 // ── Difficulty ──
 
 /** Classic combat difficulty multipliers (combat.service.ts). Applied to ENEMY damage in tactical. */
-export const DIFFICULTY_DAMAGE_MULT: Record<TacticalDifficulty, number> = {
-  casual: 0.6,
-  normal: 1.0,
-  hard: 1.3,
-  brutal: 1.6,
-};
+export const DIFFICULTY_DAMAGE_MULT = ENEMY_DAMAGE_MULTIPLIERS;
 
 // ── Elements ──
 // Simplified wheel over the classic six elements. Fire/Ice/Lightning form a
@@ -123,13 +126,19 @@ export function terrainAvoid(grid: TacticalGrid, unit: TacticalUnit): number {
 }
 
 /** 0–100 chance the attack lands. */
-export function hitChance(grid: TacticalGrid, attacker: TacticalUnit, defender: TacticalUnit): number {
+export function hitChance(
+  grid: TacticalGrid,
+  attacker: TacticalUnit,
+  defender: TacticalUnit,
+  weather?: CombatWeather,
+  traits: CombatAttackTraits = attacker,
+): number {
   const raw =
     80 +
     (effectiveSpeed(attacker) - effectiveSpeed(defender)) * 2 -
     terrainAvoid(grid, defender) -
     (defender.defending ? 10 : 0);
-  return clamp(Math.round(raw), 30, 100);
+  return clamp(clamp(Math.round(raw), 30, 100) - weatherHitPenalty(weather, traits), 5, 100);
 }
 
 /** 0–60 chance of a x2 critical. Adds the attacker's class crit bonus (absent class → fighter, +0). */
@@ -139,6 +148,7 @@ export function critChance(attacker: TacticalUnit, defender: TacticalUnit): numb
 }
 
 export interface DamageInputs {
+  weather?: CombatWeather;
   grid: TacticalGrid;
   attacker: TacticalUnit;
   defender: TacticalUnit;
@@ -172,9 +182,10 @@ export function computeDamage(inp: DamageInputs): number {
 
   let dmg = raw - mitigation;
   dmg *= elementMultiplier(element, defender.element);
+  dmg *= weatherDamageMultiplier(inp.weather, element);
   if (crit) dmg *= 2;
   if (defender.defending) dmg *= 0.5;
-  if (attacker.side === "enemy") dmg *= DIFFICULTY_DAMAGE_MULT[difficulty];
+  if (attacker.side === "enemy") dmg *= DIFFICULTY_DAMAGE_MULT[normalizeGameDifficulty(difficulty)];
 
   return Math.max(1, Math.floor(dmg));
 }

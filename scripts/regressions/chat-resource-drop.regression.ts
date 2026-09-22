@@ -341,7 +341,7 @@ assert.deepEqual(readCharacterGreetings({ alternate_greetings: ["Only alt"] }), 
   });
 
   assert.equal(getActiveChatResourceTouchDrag(), null);
-  beginChatResourceTouchDrag(touchPayload);
+  beginChatResourceTouchDrag(touchPayload, 11);
   assert.deepEqual(getActiveChatResourceTouchDrag(), touchPayload);
   assert.equal(notifications, 1);
 
@@ -354,7 +354,7 @@ assert.deepEqual(readCharacterGreetings({ alternate_greetings: ["Only alt"] }), 
   assert.equal(notifications, 2);
 
   unsubscribe();
-  beginChatResourceTouchDrag(touchPayload);
+  beginChatResourceTouchDrag(touchPayload, 11);
   assert.equal(notifications, 2);
   clearActiveChatResourceDrag();
 }

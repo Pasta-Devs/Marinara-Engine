@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
-  CustomAgentRepository,
+  CustomAgentRepositoryApplyResult,
   CustomAgentRepositoryPreview,
   CustomAgentRepositoryState,
 } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
+import { capabilityPackageKeys } from "./use-capability-packages";
 
 const customAgentRepositoryKeys = {
   all: ["custom-agent-repositories"] as const,
@@ -25,6 +26,9 @@ function useInvalidateCustomAgentRepositories() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: customAgentRepositoryKeys.all }),
       queryClient.invalidateQueries({ queryKey: ["agents"] }),
+      // A repository may also carry Game Mode rulesets, which the wizard and the Agents panel read
+      // from the installed-rulesets query.
+      queryClient.invalidateQueries({ queryKey: capabilityPackageKeys.all }),
     ]);
   };
 }
@@ -46,7 +50,7 @@ export function useAddCustomAgentRepository() {
   const invalidate = useInvalidateCustomAgentRepositories();
   return useMutation({
     mutationFn: ({ url, digest, confirmed }: { url: string; digest: string; confirmed: boolean }) =>
-      api.post<CustomAgentRepository>("/custom-agent-repositories", { url, digest, confirmed }),
+      api.post<CustomAgentRepositoryApplyResult>("/custom-agent-repositories", { url, digest, confirmed }),
     onSuccess: invalidate,
   });
 }
@@ -55,10 +59,13 @@ export function useSyncCustomAgentRepository() {
   const invalidate = useInvalidateCustomAgentRepositories();
   return useMutation({
     mutationFn: ({ repositoryId, digest, confirmed }: { repositoryId: string; digest: string; confirmed: boolean }) =>
-      api.post<CustomAgentRepository>(`/custom-agent-repositories/${encodeURIComponent(repositoryId)}/sync`, {
-        digest,
-        confirmed,
-      }),
+      api.post<CustomAgentRepositoryApplyResult>(
+        `/custom-agent-repositories/${encodeURIComponent(repositoryId)}/sync`,
+        {
+          digest,
+          confirmed,
+        },
+      ),
     onSuccess: invalidate,
   });
 }

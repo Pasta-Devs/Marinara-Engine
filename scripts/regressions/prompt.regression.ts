@@ -1469,6 +1469,10 @@ const cases: RegressionCase[] = [
         "The experimentcontinues.",
       );
       assert.equal(appendContinuationMessageContent("The experiment", "continues."), "The experiment\n\ncontinues.");
+      assert.equal(
+        appendContinuationMessageContent("  The experiment \r\n", "\n continues.\t"),
+        "  The experiment\n\ncontinues.\t",
+      );
       assert.match(CONTINUE_ASSISTANT_MESSAGE_DIRECT_PROMPT, /appended directly/i);
       assert.match(CONTINUE_ASSISTANT_MESSAGE_DIRECT_PROMPT, /no newline or separator/i);
     },
@@ -9038,7 +9042,8 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         chatSummary: "CONTINUITY_FACT",
         currentSceneSummary: "OPEN_SCENE_FACT",
         recalledScenes: "OLD_SCENE_FACT",
-        recalledMessages: "#12 Mari: EXACT_OLD_WORDS",
+        recalledMessages:
+          "Included below are recalled memories of scenes from the past chat history, together with small message excerpts from them. Present message range in the context is: #20–#24, with the last user message being #24. #12 Mari: EXACT_OLD_WORDS",
       };
       for (const format of ["xml", "markdown", "none"] as const) {
         const headingParts = { chatSummary: "# A user heading\n<private>Literal tags & content</private>" };
@@ -9112,9 +9117,33 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         };
         const assembled = await assemblePrompt(input);
         const text = assembled.messages.map((message) => message.content).join("\n");
+        const automaticMemory = await assemblePrompt({
+          ...input,
+          sections: [sections[0]!, sections[3]!],
+          groups: [],
+          preset: {
+            ...input.preset,
+            sectionOrder: JSON.stringify(["main", "history"]),
+            parameters: JSON.stringify({ strictRoleFormatting: true, squashSystemMessages: true }),
+          },
+        });
+        assert.equal(automaticMemory.messages[0]?.role, "system");
+        for (const fact of Object.values(parts))
+          assert(
+            automaticMemory.messages[0]!.content.includes(fact!),
+            "default formatting merges automatic memory into the system prompt",
+          );
+        assert(
+          automaticMemory.messages[0]!.content.indexOf("STABLE_RULE") <
+            automaticMemory.messages[0]!.content.indexOf("OLD_SCENE_FACT"),
+        );
+        assert.equal(automaticMemory.messages[1]?.role, "user");
+        assert(automaticMemory.messages[1]?.content.includes("LIVE_WORDS"));
         for (const fact of Object.values(parts)) assert.equal(text.split(fact!).length - 1, 1, fact!);
         assert.doesNotMatch(text, /LEGACY_UNSCOPED_SECRET|duplicate_summary|hidden_summary|disabled_excerpt/u);
-        assert.match(text, /Below is a small excerpt from earlier chat history/u);
+        assert.equal(text.match(/Included below are recalled memories/gu)?.length, 1);
+        assert.match(text, /Present message range in the context is: #20–#24, with the last user message being #24/u);
+        assert.doesNotMatch(text, /Below is a small excerpt from earlier chat history/u);
         const summaryIndex = assembled.messages.findIndex((message) => message.content.includes("CONTINUITY_FACT"));
         assert.ok(
           text.indexOf("CONTINUITY_FACT") > text.indexOf("LIVE_WORDS"),
@@ -9142,6 +9171,36 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         assert.match(emptyText, /STABLE_RULE/u);
         assert.match(emptyText, /LIVE_WORDS/u);
         assert.doesNotMatch(emptyText, /Memory group|memory_group|Below is|Below are|MARINARA_ADVANCED_MEMORY/u);
+        for (const groupId of [null, "memory"]) {
+          for (const position of [0, 1, 2]) {
+            const surrounding = [
+              promptSection({ id: "before", content: "Before.\n\n\nIntentional spacing.", groupId }),
+              promptSection({ id: "after", content: "After.", groupId }),
+            ];
+            surrounding.splice(position, 0, marker("empty_recall", "recalled_scenes", { groupId }));
+            const spacingInput = {
+              ...input,
+              advancedMemory: {},
+              chatSummary: null,
+              sections: surrounding,
+              preset: {
+                ...input.preset,
+                sectionOrder: JSON.stringify(surrounding.map((section) => section.id)),
+                parameters: JSON.stringify({ strictRoleFormatting: true, squashSystemMessages: true }),
+              },
+            };
+            const withEmptyRecall = await assemblePrompt(spacingInput);
+            const withoutRecall = await assemblePrompt({
+              ...spacingInput,
+              sections: surrounding.filter((section) => section.id !== "empty_recall"),
+            });
+            assert.deepEqual(
+              withEmptyRecall.messages,
+              withoutRecall.messages,
+              `an empty recall marker adds no whitespace (${format}, ${groupId}, position ${position})`,
+            );
+          }
+        }
         assert.equal(
           JSON.stringify(deferred.messages),
           preparedSnapshot,

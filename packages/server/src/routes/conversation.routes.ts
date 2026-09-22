@@ -4,7 +4,7 @@
 // Endpoints for schedule generation, status checking,
 // autonomous message polling, and busy-delay responses.
 
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { logger } from "../lib/logger.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
@@ -17,6 +17,7 @@ import {
   generateCharacterSchedule,
   generateCharacterDaySchedule,
   generateScheduleRoutineSummary,
+  ScheduleDraftError,
   getEffectiveCurrentStatus,
   scheduleNeedsRefresh,
   getMonday,
@@ -76,7 +77,22 @@ function parseWeekScheduleDraftMode(value: unknown): WeekScheduleDraftMode {
 }
 
 function getScheduleGenerationError(error: unknown, fallback: string): string {
+  if (error instanceof SyntaxError || (error instanceof ScheduleDraftError && error.cause instanceof SyntaxError))
+    return "The model returned invalid schedule JSON. Try again or choose another model.";
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+/** Schedule work belongs to the editor/request and stops when it disconnects. */
+function scheduleRequestSignal(reply: FastifyReply): AbortSignal {
+  const controller = new AbortController();
+  const onClose = () => {
+    if (!reply.raw.writableFinished) controller.abort(new Error("Schedule generation cancelled"));
+    reply.raw.off("finish", onFinish);
+  };
+  const onFinish = () => reply.raw.off("close", onClose);
+  reply.raw.once("close", onClose);
+  reply.raw.once("finish", onFinish);
+  return controller.signal;
 }
 
 type AutonomousUserStatus = "active" | "idle" | "dnd";
@@ -254,7 +270,11 @@ async function resolveConversationScheduleConnection(connections: ConnectionsSto
     return { conn: null, error: "No connection configured" };
   }
 
-  return { conn: await connections.getWithKey(connId), error: null };
+  const conn = await connections.getWithKey(connId);
+  if (conn && ["image_generation", "video_generation", "audio"].includes(conn.provider)) {
+    return { conn: null, error: "Choose a language connection for schedule generation" };
+  }
+  return { conn, error: conn ? null : "The selected connection is unavailable. Choose another connection." };
 }
 
 function parseDateKeyMs(dateKey: string): number {
@@ -426,14 +446,21 @@ export async function conversationRoutes(app: FastifyInstance) {
    * no chat open, in which case the default connection and the client-supplied
    * timezone stand in for the chat's.
    */
-  async function resolveScheduleGenerationContext(chatId: string | undefined, characterId: string) {
+  async function resolveScheduleGenerationContext(
+    chatId: string | undefined,
+    characterId: string,
+    connectionId?: unknown,
+  ) {
+    if (connectionId != null && (typeof connectionId !== "string" || !connectionId.trim())) {
+      return { errorStatus: 400 as const, error: "connectionId must be a non-empty string" };
+    }
     const chat = chatId ? await chats.getById(chatId) : null;
     if (chatId && !chat) return { errorStatus: 404 as const, error: "Chat not found" };
     if (chat && chat.mode !== "conversation") return { errorStatus: 400 as const, error: "Not a conversation chat" };
 
     const { conn, error: connectionError } = await resolveConversationScheduleConnection(
       connections,
-      chat?.connectionId ?? null,
+      typeof connectionId === "string" ? connectionId : (chat?.connectionId ?? null),
     );
     if (!conn) return { errorStatus: 400 as const, error: connectionError ?? "No connection configured" };
     const baseUrl = resolveBaseUrl(conn);
@@ -495,12 +522,15 @@ export async function conversationRoutes(app: FastifyInstance) {
       dayGuidance?: string;
       draftMode?: string;
       timeZone?: unknown;
+      connectionId?: string;
+      debugMode?: boolean;
     };
   }>("/schedule/draft", async (req, reply) => {
+    const signal = scheduleRequestSignal(reply);
     const { chatId, characterId, mode } = req.body;
     const guidance = typeof req.body.guidance === "string" ? req.body.guidance.trim() : "";
     const dayGuidance = typeof req.body.dayGuidance === "string" ? req.body.dayGuidance.trim() : "";
-    const context = await resolveScheduleGenerationContext(chatId, characterId);
+    const context = await resolveScheduleGenerationContext(chatId, characterId, req.body.connectionId);
     if ("error" in context) return reply.status(context.errorStatus ?? 400).send({ error: context.error });
     const requestedTimeZone = normalizePromptTimeZone(req.body.timeZone);
     if (req.body.timeZone != null && !requestedTimeZone) {
@@ -531,9 +561,14 @@ export async function conversationRoutes(app: FastifyInstance) {
           req.body.schedule,
           guidance,
           dayGuidance,
-          scheduleTimeZone,
+          {
+            timeZone: scheduleTimeZone,
+            draftMode: req.body.draftMode === undefined ? "vary" : parseWeekScheduleDraftMode(req.body.draftMode),
+            debugMode: req.body.debugMode === true,
+            signal,
+          },
         );
-        return reply.send({ day, blocks });
+        return reply.send({ day, blocks, weekStart: getMonday(scheduleNow).toISOString() });
       }
 
       const { schedule } = await generateCharacterSchedule(
@@ -549,6 +584,8 @@ export async function conversationRoutes(app: FastifyInstance) {
         {
           draftMode: parseWeekScheduleDraftMode(req.body.draftMode),
           timeZone: scheduleTimeZone,
+          debugMode: req.body.debugMode === true,
+          signal,
         },
       );
       const fullSchedule = preserveDraftScheduleFields(
@@ -557,8 +594,12 @@ export async function conversationRoutes(app: FastifyInstance) {
       );
       return reply.send({ schedule: fullSchedule });
     } catch (error) {
+      if (signal.aborted) return;
       logger.error(error instanceof Error ? error : undefined, "[schedule] Draft generation failed");
-      return reply.status(502).send({ error: getScheduleGenerationError(error, "Schedule draft generation failed") });
+      return reply.status(502).send({
+        error: getScheduleGenerationError(error, "Schedule draft generation failed"),
+        ...(error instanceof ScheduleDraftError ? { rawResponse: error.rawResponse } : {}),
+      });
     }
   });
 
@@ -568,18 +609,30 @@ export async function conversationRoutes(app: FastifyInstance) {
       characterId: string;
       schedule: WeekSchedule;
       guidance?: string;
+      connectionId?: string;
+      debugMode?: boolean;
     };
   }>("/schedule/summary", async (req, reply) => {
+    const signal = scheduleRequestSignal(reply);
     const { chatId, characterId, schedule } = req.body;
     if (!schedule) return reply.status(400).send({ error: "schedule is required" });
     const guidance = typeof req.body.guidance === "string" ? req.body.guidance.trim() : "";
-    const context = await resolveScheduleGenerationContext(chatId, characterId);
+    const context = await resolveScheduleGenerationContext(chatId, characterId, req.body.connectionId);
     if ("error" in context) return reply.status(context.errorStatus ?? 400).send({ error: context.error });
     const { charData, provider, model } = context;
     try {
-      const { summary } = await generateScheduleRoutineSummary(provider, model, charData.name, schedule, guidance);
+      const { summary } = await generateScheduleRoutineSummary(
+        provider,
+        model,
+        charData.name,
+        schedule,
+        guidance,
+        req.body.debugMode === true,
+        signal,
+      );
       return reply.send({ summary, generatedAt: new Date().toISOString() });
     } catch (error) {
+      if (signal.aborted) return;
       logger.error(error instanceof Error ? error : undefined, "[schedule] Summary generation failed");
       return reply.status(502).send({ error: getScheduleGenerationError(error, "Schedule summary generation failed") });
     }
@@ -592,11 +645,13 @@ export async function conversationRoutes(app: FastifyInstance) {
     Body: {
       chatId?: string;
       forceRefresh?: boolean;
+      automatic?: boolean;
       characterIds?: string[];
       scheduleGenerationPreferences?: string;
       timeZone?: unknown;
     };
   }>("/schedule/generate", async (req, reply) => {
+    const signal = scheduleRequestSignal(reply);
     const { chatId, forceRefresh } = req.body;
     // Runtime guard: TypeScript's Body type is compile-time only. If a client sends a non-string,
     // .trim() would throw and surface as a 500. Reject explicitly with 400 instead.
@@ -663,6 +718,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     const results: Record<string, { status: string; schedule?: WeekSchedule }> = {};
 
     for (const charId of characterIds) {
+      if (signal.aborted) return;
       // Load character data
       const charRow = await chars.getById(charId);
       if (!charRow) {
@@ -674,7 +730,11 @@ export async function conversationRoutes(app: FastifyInstance) {
       // The character owns its schedule; the chat map is only a cache, so a
       // legacy chat-only schedule still counts as existing.
       const existing = readCharacterSchedule(charData) ?? existingSchedules[charId];
-      if (existing && !forceRefresh && charData.extensions?.conversationScheduleAutoRenew === false) {
+      if (req.body.automatic === true && (!existing || charData.extensions?.conversationScheduleAutoRenew !== true)) {
+        results[charId] = { status: "renewal_disabled" };
+        continue;
+      }
+      if (existing && !forceRefresh && charData.extensions?.conversationScheduleAutoRenew !== true) {
         newSchedules[charId] = existing;
         results[charId] = { status: "renewal_disabled" };
         continue;
@@ -705,8 +765,9 @@ export async function conversationRoutes(app: FastifyInstance) {
           charData.personality ?? "",
           userSchedulePreferences,
           recentContinuityContext,
-          { timeZone: scheduleTimeZone },
+          { timeZone: scheduleTimeZone, signal },
         );
+        signal.throwIfAborted();
         logger.info("[schedule] Generated schedule for %s, days: %s", charData.name, Object.keys(schedule.days ?? {}));
 
         const fullSchedule = preserveTimingSettings(
@@ -738,6 +799,7 @@ export async function conversationRoutes(app: FastifyInstance) {
 
         results[charId] = { status: "generated", schedule: fullSchedule };
       } catch (err) {
+        if (signal.aborted) return;
         const msg = err instanceof Error ? err.message : "Schedule generation failed";
         logger.error(err instanceof Error ? err : undefined, "[schedule] ERROR for %s: %s", charData.name, msg);
         results[charId] = { status: `error: ${msg}` };
@@ -745,6 +807,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
 
     // Only save if we actually have schedules to persist (avoids overwriting real data with empty object)
+    if (signal.aborted) return;
     if (Object.keys(newSchedules).length > 0) {
       const changedCharIds = Object.entries(results)
         .filter(([, result]) => result.status === "generated" || result.status === "shared")
@@ -842,10 +905,7 @@ export async function conversationRoutes(app: FastifyInstance) {
         "free time",
         scheduleNow,
       );
-      if (
-        scheduleNeedsRefresh(schedule, scheduleNow) &&
-        charData?.extensions?.conversationScheduleAutoRenew !== false
-      ) {
+      if (scheduleNeedsRefresh(schedule, scheduleNow) && charData?.extensions?.conversationScheduleAutoRenew === true) {
         needsRefresh = true;
       }
 

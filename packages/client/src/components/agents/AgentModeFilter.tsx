@@ -23,7 +23,7 @@ export function AgentModeFilter({
   const { t } = useTranslation();
   return (
     <div
-      className={cn("grid grid-cols-4 gap-1", className)}
+      className={cn("flex flex-wrap gap-1", className)}
       role="group"
       aria-label={t("ui.agents.agentcatalogview.filterByChatMode")}
     >
@@ -32,13 +32,13 @@ export function AgentModeFilter({
           key={mode}
           type="button"
           className={cn(
-            "mari-chrome-control h-8 min-h-8 w-full min-w-0 px-1 text-[0.625rem]",
+            "mari-chrome-control h-8 min-h-8 flex-auto px-2 text-[0.625rem]",
             value === mode && "mari-chrome-control--selected",
           )}
           onClick={() => onChange(mode)}
           aria-pressed={value === mode}
         >
-          <span className="truncate">{t(labelKey)}</span>
+          <span className="whitespace-nowrap">{t(labelKey)}</span>
         </button>
       ))}
     </div>

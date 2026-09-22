@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { eq } from "../../db/file-query.js";
+import { eq, inArray } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
 import {
@@ -391,6 +391,8 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
     "activationConditions",
     "schedule",
     "embedding",
+    "sourceMessageRefs",
+    "previousSourceMessageRefs",
   ],
   prompt_presets: ["sectionOrder", "groupOrder", "variableGroups", "variableValues", "parameters", "defaultChoices"],
   prompt_sections: ["markerConfig"],
@@ -1209,6 +1211,12 @@ export function buildLorebookEntryCreateRow(
     delayUntilRecursion: "false",
     excludeFromVectorization: "false",
     locked: "false",
+    // Message provenance: rows Mari creates are human-directed, so they are
+    // born unattributed (and cascade-immune) with an empty source-refs array.
+    sourceAgentId: null,
+    sourceMessageRefs: "[]",
+    previousContent: null,
+    previousSourceMessageRefs: null,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -5300,13 +5308,26 @@ export class MariDbService {
   }
 
   async validate(table?: string | null): Promise<MariDbValidationResult> {
-    const tables = table ? [table] : [...FILE_BACKED_TABLES];
+    return this.validateStoredRows(table ? [table] : [...FILE_BACKED_TABLES]);
+  }
+
+  private async validateStoredRows(tables: string[], changes?: PlanChange[]): Promise<MariDbValidationResult> {
     const issues: MariDbValidationIssue[] = [];
     const rowCache = new Map<string, Row[]>();
 
     for (const tableName of tables) {
       const meta = getMeta(tableName);
-      const rows = await this.rawRows(tableName);
+      const rows = changes
+        ? ((await this.db
+            .select()
+            .from(meta.table as any)
+            .where(
+              inArray(
+                meta.byKey.get(getPrimary(meta))!.column as any,
+                changes.filter((change) => change.table === tableName).map((change) => change.id),
+              ),
+            )) as Row[])
+        : await this.rawRows(tableName);
       rowCache.set(tableName, rows);
       const pk = meta.primaryKey;
       if (!pk) {
@@ -5339,6 +5360,8 @@ export class MariDbService {
           }
         }
         for (const key of JSON_COLUMNS[tableName] ?? []) {
+          // Agent memory also supports plain text; keep its JSON serialization without requiring JSON.
+          if (tableName === "agent_memory" && key === "value") continue;
           if (!Object.prototype.hasOwnProperty.call(row, key)) continue;
           const value = row[key];
           if (value === null || value === undefined || value === "") continue;
@@ -5373,14 +5396,30 @@ export class MariDbService {
     };
 
     for (const cascade of CASCADES) {
-      if (table && table !== cascade.child && table !== cascade.parent) continue;
+      if (
+        changes ? !tables.includes(cascade.child) : !tables.includes(cascade.child) && !tables.includes(cascade.parent)
+      )
+        continue;
       // Refs this cascade declares dangling BY DESIGN (#5405: experience-state rows imported
       // at an anchor the destination chat never had). See CASCADE_DANGLING_EXEMPT_PREFIXES.
       const exemptPrefix = CASCADE_DANGLING_EXEMPT_PREFIXES[`${cascade.child}.${cascade.childKey}`];
-      const parents = new Set(
-        (await getRows(cascade.parent)).map((row) => row[cascade.parentKey]).filter((id) => typeof id === "string"),
-      );
-      for (const child of await getRows(cascade.child)) {
+      const children = await getRows(cascade.child);
+      const parentMeta = getMeta(cascade.parent);
+      const parentRows = changes
+        ? ((await this.db
+            .select()
+            .from(parentMeta.table as any)
+            .where(
+              inArray(
+                parentMeta.byKey.get(cascade.parentKey)!.column as any,
+                children
+                  .map((row) => row[cascade.childKey])
+                  .filter((ref): ref is string => typeof ref === "string" && !!ref),
+              ),
+            )) as Row[])
+        : await getRows(cascade.parent);
+      const parents = new Set(parentRows.map((row) => row[cascade.parentKey]).filter((id) => typeof id === "string"));
+      for (const child of children) {
         const ref = child[cascade.childKey];
         if (typeof ref === "string" && exemptPrefix && ref.startsWith(exemptPrefix)) continue;
         if (typeof ref === "string" && ref && !parents.has(ref)) {
@@ -7390,8 +7429,7 @@ export class MariDbService {
       });
     }
 
-    const touchedTables = [...new Set(changes.map((change) => change.table))];
-    const validation = await this.validateTouchedRows(changes, touchedTables, issues);
+    const validation = await this.validateTouchedRows(changes, issues);
     const summary = summaryForChanges(changes);
     const operationHash = hash({
       command,
@@ -8075,7 +8113,6 @@ export class MariDbService {
 
   private async validateTouchedRows(
     changes: PlanChange[],
-    tables: string[],
     priorIssues: MariDbValidationIssue[],
   ): Promise<MariDbValidationResult> {
     const issues = [...priorIssues];
@@ -8099,6 +8136,7 @@ export class MariDbService {
         }
       }
       for (const key of JSON_COLUMNS[change.table] ?? []) {
+        if (change.table === "agent_memory" && key === "value") continue;
         const value = row[key];
         if (value === null || value === undefined || value === "") continue;
         if (typeof value !== "string") continue;
@@ -8118,14 +8156,6 @@ export class MariDbService {
       if (change.table === "custom_tools") this.validateCustomToolRow(row, change.id, issues);
     }
 
-    const parentRowsByTable = new Map<string, Row[]>();
-    const parentRows = async (table: string) => {
-      const cached = parentRowsByTable.get(table);
-      if (cached) return cached;
-      const rows = await this.rawRows(table);
-      parentRowsByTable.set(table, rows);
-      return rows;
-    };
     for (const change of changes) {
       if (change.action === "delete") continue;
       for (const cascade of CASCADES.filter((entry) => entry.child === change.table)) {
@@ -8142,8 +8172,15 @@ export class MariDbService {
           (entry) =>
             entry.table === cascade.parent && entry.action === "delete" && entry.beforeRaw?.[cascade.parentKey] === ref,
         );
+        const parentMeta = getMeta(cascade.parent);
         const parentExists =
-          !parentDeleted && (await parentRows(cascade.parent)).some((row) => row[cascade.parentKey] === ref);
+          !parentDeleted &&
+          (
+            await this.db
+              .select()
+              .from(parentMeta.table as any)
+              .where(eq(parentMeta.byKey.get(cascade.parentKey)!.column as any, ref))
+          ).length > 0;
         if (!parentInsertedOrUpdated && !parentExists) {
           issues.push({
             level: "error",
@@ -8155,22 +8192,9 @@ export class MariDbService {
       }
     }
 
-    const fullValidation = await this.validate();
-    // Keep current unrelated optional notices visible to Mari, but only let touched-scope errors block.
-    // Existing errors on rows being repaired/deleted must not make the repair impossible.
-    const touched = new Set(tables);
-    const touchedRows = new Set(changes.map((change) => `${change.table}:${change.id}`));
-    const scopedExistingErrors = fullValidation.errors.filter((issue) => {
-      if (!issue.table || !touched.has(issue.table)) return false;
-      const issueId = issue.id == null ? null : String(issue.id);
-      return !issueId || !touchedRows.has(`${issue.table}:${issueId}`);
-    });
-    return validationFromIssues([
-      ...issues,
-      ...scopedExistingErrors,
-      ...fullValidation.notices,
-      ...fullValidation.infos,
-    ]);
+    // A write validates its changed rows and references. Full database scans belong to
+    // the explicit validate command: they load unrelated lazy chat shards permanently.
+    return validationFromIssues(issues);
   }
 
   private async applyPlan(plan: Plan): Promise<string> {
@@ -8207,18 +8231,13 @@ export class MariDbService {
         }
       });
     }
-    const validation = await this.validate();
+    const validation = await this.validateStoredRows(
+      [...new Set(plan.changes.map((change) => change.table))],
+      plan.changes,
+    );
     if (validation.status === "blocked") {
-      const touchedRows = new Set(plan.changes.map((change) => `${change.table}:${change.id}`));
-      const touchedErrors = validation.errors.filter(
-        (issue) => issue.table && issue.id != null && touchedRows.has(`${issue.table}:${String(issue.id)}`),
-      );
-      if (touchedErrors.length > 0) {
-        throw new Error(`Post-apply validation failed: ${touchedErrors.map((issue) => issue.message).join("; ")}`);
-      }
-      logger.warn(
-        "[mari-db] post-apply validation still reports unrelated errors: %s",
-        validation.errors.map((issue) => issue.message).join("; "),
+      throw new Error(
+        `Post-apply validation failed: ${validation.errors.map((issue) => `${issue.table}/${issue.id}: ${issue.message}`).join("; ")}`,
       );
     }
     await flushDB();
@@ -8318,18 +8337,10 @@ export class MariDbService {
   }
 
   private async validateAndFlushRestored(changes: PlanChange[]): Promise<void> {
-    const validation = await this.validate();
+    const validation = await this.validateStoredRows([...new Set(changes.map((change) => change.table))], changes);
     if (validation.status === "blocked") {
-      const touchedRows = new Set(changes.map((change) => `${change.table}:${change.id}`));
-      const touchedErrors = validation.errors.filter(
-        (issue) => issue.table && issue.id != null && touchedRows.has(`${issue.table}:${String(issue.id)}`),
-      );
-      if (touchedErrors.length > 0) {
-        throw new Error(`Post-restore validation failed: ${touchedErrors.map((issue) => issue.message).join("; ")}`);
-      }
-      logger.warn(
-        "[mari-db] post-restore validation still reports unrelated errors: %s",
-        validation.errors.map((issue) => issue.message).join("; "),
+      throw new Error(
+        `Post-restore validation failed: ${validation.errors.map((issue) => `${issue.table}/${issue.id}: ${issue.message}`).join("; ")}`,
       );
     }
     await flushDB();

@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { api, isJsonRepairApiError } from "../lib/api-client";
+import { ApiError, api, isJsonRepairApiError } from "../lib/api-client";
 import { captureChatMetadataVersion, chatKeys, guardServerChatSnapshot } from "./use-chats";
 import { lorebookKeys } from "./use-lorebooks";
 import {
@@ -28,16 +28,19 @@ import type {
   DiceRollResult,
   SessionSummary,
   Combatant,
+  CombatWeather,
   CombatRoundResult,
   CombatPlayerAction,
   HudWidget,
   GameBlueprint,
   TacticalCombatState,
+  TacticalBattlefieldBrief,
   TacticalAction,
   TacticalEvent,
   RPGStatPool,
 } from "@marinara-engine/shared";
 import type { Chat } from "@marinara-engine/shared";
+import { isJsonRecord } from "@marinara-engine/shared";
 
 // ── Query Keys ──
 
@@ -199,9 +202,18 @@ function syncActiveChatIfCurrent(chat: Chat) {
 
 // ── Mutations ──
 
+/** The layer choices `/game/create` turns a new game down over, in words that say what to do about
+ *  it. The server's own message names the layers, but it is written for a log; a player who picked
+ *  toggles in the wizard needs to be sent back to them. Any other refusal keeps the server's text. */
+const RULESET_LAYER_REFUSAL_KEYS: Readonly<Record<string, string>> = Object.freeze({
+  ruleset_layer_unknown: "game.ruleset.setup.layerUnknownRefusal",
+  ruleset_layer_conflict: "game.ruleset.setup.layerConflictRefusal",
+});
+
 export function useCreateGame() {
   const qc = useQueryClient();
   const store = useGameModeStore;
+  const { t } = useTranslation();
 
   return useMutation({
     mutationFn: (data: {
@@ -222,9 +234,17 @@ export function useCreateGame() {
     },
     onError: (err) => {
       console.error("[createGame] Error:", err);
-      toast.error(err.message || "Failed to create game. Check the selected connection and try again.", {
-        duration: 10000,
-      });
+      const code =
+        err instanceof ApiError && isJsonRecord(err.payload) && typeof err.payload.code === "string"
+          ? err.payload.code
+          : null;
+      const layerRefusal = code ? RULESET_LAYER_REFUSAL_KEYS[code] : undefined;
+      toast.error(
+        layerRefusal
+          ? t(layerRefusal)
+          : err.message || "Failed to create game. Check the selected connection and try again.",
+        { duration: 10000 },
+      );
     },
   });
 }
@@ -590,6 +610,10 @@ export function useSkillCheck() {
       advantage?: boolean;
       disadvantage?: boolean;
       preRolledD20?: number;
+      who?: string;
+      withAbility?: string;
+      threshold?: number;
+      bonusDice?: number;
       messageId?: string;
     }) =>
       api.post<{ result: import("@marinara-engine/shared").SkillCheckResult; updatedContent?: string }>(
@@ -836,6 +860,8 @@ export function useCombatRound() {
       combatants: Array<Omit<Combatant, "sprite">>;
       round: number;
       playerAction?: CombatPlayerAction;
+      partyActions?: Record<string, CombatPlayerAction>;
+      controlledId?: string;
       mechanics?: import("@marinara-engine/shared").CombatMechanic[];
     }) => api.post<{ result: CombatRoundResult; combatants: Combatant[] }>("/game/combat/round", data),
   });
@@ -854,7 +880,9 @@ export function useTacticalCombatStart() {
       chatId: string;
       party: Combatant[];
       enemies: Combatant[];
+      weather?: CombatWeather | null;
       seed?: number;
+      battlefield?: TacticalBattlefieldBrief;
       /** Blueprint scene context — themes the terrain (styleNotes.environmentType). */
       environment?: string;
       /** Blueprint battlefield.formation — drives spawn placement. */

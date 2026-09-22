@@ -16,6 +16,9 @@ interface AnimatedDiceRollProps extends DiceRollResult {
   hero?: boolean;
   highlightValue?: number;
   resolution?: "sum" | "successes";
+  /** The per-die target a success pool counted with. Given, the dice that reached it are marked as
+   *  the ones that counted and the rest are dimmed. Absent, every die reads as it always has. */
+  threshold?: number;
 }
 
 function parseDiceSides(notation: string): number {
@@ -55,6 +58,7 @@ export function AnimatedDiceRoll({
   rolls,
   modifier,
   total,
+  dc,
   accentColor,
   mode = "chat",
   animate = false,
@@ -62,6 +66,7 @@ export function AnimatedDiceRoll({
   hero,
   highlightValue,
   resolution = "sum",
+  threshold,
 }: AnimatedDiceRollProps) {
   const { t: localizeUi } = useUiTranslation();
   const sides = parseDiceSides(notation);
@@ -111,6 +116,8 @@ export function AnimatedDiceRoll({
   const sumsToTotal = resolution === "sum" && skillCheckDiceSumToTotal({ rolls, modifier, total, resolution });
   const rollText = useMemo(() => rolls.map((roll) => getFaceLabel(sides, roll)).join(", "), [rolls, sides]);
   const totalVisible = phase === "impact" || phase === "settled";
+  // A pool that reported the target it counted with marks the dice that reached it.
+  const countedFrom = resolution === "successes" && threshold != null ? threshold : null;
 
   return (
     <div
@@ -130,7 +137,15 @@ export function AnimatedDiceRoll({
         <span className="dice-roll-header-mark" aria-hidden="true">
           ✦
         </span>
-        <span>{notation}</span>
+        <span>
+          {notation}
+          {dc !== undefined && (
+            <>
+              {" "}
+              · {localizeUi("ui.dice.animatedskillcheckresult.dc")} {dc}
+            </>
+          )}
+        </span>
       </div>
 
       <div
@@ -139,7 +154,8 @@ export function AnimatedDiceRoll({
       >
         {rolls.map((roll, index) => {
           const shown = displayValues[index] ?? roll;
-          const emphasized = highlightValue == null || roll === highlightValue;
+          const emphasized =
+            countedFrom == null ? highlightValue == null || roll === highlightValue : roll >= countedFrom;
           return (
             <DiceGlyph
               key={`${index}-${roll}`}
@@ -154,6 +170,12 @@ export function AnimatedDiceRoll({
           );
         })}
       </div>
+
+      {/* Which dice counted is shown by dimming the ones that did not, which is a picture. The rule
+          behind it is said in words here so it reaches a screen reader too. */}
+      {countedFrom != null && (
+        <span className="sr-only">{localizeUi("ui.dice.animateddiceroll.countedFrom", { value: countedFrom })}</span>
+      )}
 
       <div className="dice-roll-footer">
         <span className="dice-roll-breakdown">

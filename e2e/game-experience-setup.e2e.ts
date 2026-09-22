@@ -1,3 +1,4 @@
+import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -53,6 +54,7 @@ type WizardMountOptions = {
 
 /** Mount the wizard on its own so a case can drive it without a surrounding chat. */
 async function mountWizard(page: Page, testInfo: TestInfo, options: WizardMountOptions): Promise<Locator> {
+  await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
   await seedUIState(page, {
     hasCompletedOnboarding: true,
     sidebarOpen: false,
@@ -61,13 +63,14 @@ async function mountWizard(page: Page, testInfo: TestInfo, options: WizardMountO
   });
   await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
   await page.goto("/");
+  await expect(page.getByRole("heading", { name: "What shall we cook tonight?", exact: true })).toBeVisible({
+    timeout: 40_000,
+  });
+  await prepareViteFixtureDependencies(page);
   await page.evaluate(
     async ({ isNewGame, chatMetadata, characters }) => {
       const { GameSetupWizard } = await import("/src/components/game/GameSetupWizard.tsx" as string);
-      const dependencyUrl = (name: string) =>
-        performance
-          .getEntriesByType("resource")
-          .find((entry) => new URL(entry.name).pathname.endsWith(`/deps/${name}.js`))!.name;
+      const dependencyUrl = window.__viteFixtureDependencyUrl;
       const { default: React } = await import(dependencyUrl("react"));
       const { default: ReactDOM } = await import(dependencyUrl("react-dom_client"));
       const { QueryClient, QueryClientProvider } = await import(dependencyUrl("@tanstack_react-query"));
@@ -129,6 +132,72 @@ function stepNavigation(wizard: Locator) {
   };
   return { next: () => navigate("Next"), back: () => navigate("Back") };
 }
+
+test("Game Features switches keep equal thumb insets and do not shrink on mobile", async ({ page }, info) => {
+  await page.route("**/api/capability-packages/installed", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/capability-packages/agents", (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "world-state",
+          name: "World State",
+          description: "Fixture",
+          phase: "post_processing",
+          settings: {},
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/connections", (route) => route.fulfill({ json: wizardConnections }));
+  await page.route("**/api/lorebooks", (route) => route.fulfill({ json: [] }));
+  const wizard = await mountWizard(page, info, { isNewGame: true });
+  const { next } = stepNavigation(wizard);
+  for (let step = 0; step < 5; step++) await next();
+  const names = [
+    /^Quick Time Events/u,
+    /^Enable Agents/u,
+    /^Custom HUD Widgets/u,
+    /^Build Widget Setup/u,
+    /^Sound effects/u,
+    /^Music Generate/u,
+  ];
+  for (const name of names) {
+    const button = wizard.getByRole("button", { name });
+    await button.scrollIntoViewIfNeeded();
+    const track = button.locator(":scope > .rounded-full");
+    const assertInsets = async () => {
+      await expect
+        .poll(() =>
+          track.evaluate((element) => {
+            const outer = element.getBoundingClientRect();
+            const inner = element.firstElementChild!.getBoundingClientRect();
+            const scale = parseFloat(getComputedStyle(document.documentElement).fontSize) / 16;
+            const px = (value: number) => Math.round((value / scale) * 1000) / 1000;
+            return {
+              width: px(outer.width),
+              height: px(outer.height),
+              top: px(inner.top - outer.top),
+              bottom: px(outer.bottom - inner.bottom),
+              edge: px(Math.min(inner.left - outer.left, outer.right - inner.right)),
+            };
+          }),
+        )
+        .toEqual({ width: 36, height: 20, top: 2, bottom: 2, edge: 2 });
+    };
+    await assertInsets();
+    if (await button.isEnabled()) {
+      const before = await button.getAttribute("aria-pressed");
+      await button.press("Space");
+      await expect(button).toHaveAttribute("aria-pressed", before === "true" ? "false" : "true");
+      await assertInsets();
+      await button.press("Space");
+    } else {
+      await expect(button).toHaveAttribute("aria-pressed", "false");
+    }
+  }
+  await wizard.getByRole("button", { name: /^Quick Time Events/u }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("game-feature-switches.png"), animations: "disabled" });
+});
 
 /** A fresh new-game wizard with only the inline-setup Experience installed and switched on. */
 async function openWizardWithExperience(page: Page, testInfo: TestInfo): Promise<Locator> {
@@ -522,4 +591,66 @@ test("an ordinary setup import keeps the prefilled seed", async ({ page }, testI
   await wizard.getByRole("switch", { name: "Setup fixture", exact: true }).click();
   await expect(seedField).toHaveValue("4242");
   await expect(wizard.getByRole("alert")).toHaveCount(0);
+});
+
+test("Tactical setup keeps size and retires battlefield seed and terrain guidance", async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  await page.route("**/api/capability-packages/installed", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/capability-packages/agents", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/connections", (route) => route.fulfill({ json: wizardConnections }));
+  await page.route("**/api/lorebooks", (route) => route.fulfill({ json: [] }));
+  const wizard = await mountWizard(page, testInfo, { isNewGame: true });
+  await wizard
+    .locator('input[type="file"]')
+    .first()
+    .setInputFiles({
+      name: "tactical.marinara-game-setup.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        JSON.stringify({
+          format: "marinara-game-setup",
+          version: 1,
+          gameName: "River crossing",
+          gmConnectionId: "wizard-connection",
+          setup: {
+            config: {
+              genre: "Fantasy",
+              setting: "River crossing",
+              tone: "Hopeful",
+              difficulty: "normal",
+              rating: "sfw",
+              gmMode: "standalone",
+              partyCharacterIds: [],
+              playerGoals: "Reach the far shore",
+              combatStyle: "tactical",
+              tacticalBattlefield: { seed: 0, size: "large", instructions: "Ruins beside a forest clearing." },
+            },
+          },
+        }),
+      ),
+    });
+  await expect(wizard.getByPlaceholder("Name your adventure...", { exact: true })).toHaveValue("River crossing");
+  const { next } = stepNavigation(wizard);
+  await next();
+  await expect(wizard.getByLabel("Battlefield seed", { exact: true })).toHaveCount(0);
+  const size = wizard.getByLabel("Battlefield size", { exact: true });
+  await expect(size).toHaveValue("large");
+  await expect(wizard.getByLabel("Terrain guidance", { exact: true })).toHaveCount(0);
+  await expect(wizard.getByText(/Fire Emblem|current style/)).toHaveCount(0);
+  await wizard.getByRole("button", { name: /^Classic/ }).click();
+  await expect(size).toHaveCount(0);
+  await expect(wizard.getByText("Cinematic menu battles", { exact: true })).toBeVisible();
+  await wizard.getByRole("button", { name: /^Tactical/ }).click();
+  await expect(size).toHaveValue("large");
+  await size.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath("hybrid-terrain-setup.png") });
+  for (let step = 0; step < 5; step++) await next();
+  await expect(wizard.getByRole("button", { name: "Download setup", exact: true })).toBeEnabled();
+  await wizard.getByRole("button", { name: /Start/u }).click();
+  const result = JSON.parse((await page.getByTestId("wizard-result").textContent()) ?? "{}");
+  expect(result.config.combatStyle).toBe("tactical");
+  expect(result.config.difficulty).toBe("normal");
+  expect(result.config.tacticalBattlefield).toEqual({
+    size: "large",
+  });
 });

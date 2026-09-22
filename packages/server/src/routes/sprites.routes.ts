@@ -456,6 +456,9 @@ function resolveVideoConnection(connection: VideoGenerationConnection) {
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
     comfyLoras: isComfyUiVideo ? videoDefaults.comfyui.loras : [],
     comfyFps: isComfyUiVideo ? videoDefaults.comfyui.fps : undefined,
+    atlasModelOptions: isAtlasVideo
+      ? videoDefaults.atlas.modelOptions[connection.model?.trim() || "google/veo3.1/text-to-video"]
+      : undefined,
     publicReferenceUpload: resolveVideoReferencePublicUploadOptions(isSeedanceVideo, videoDefaults.seedance),
   };
 }
@@ -2142,6 +2145,7 @@ export async function spritesRoutes(app: FastifyInstance) {
                   comfyWorkflow: resolved.comfyWorkflow,
                   comfyLoras: resolved.comfyLoras,
                   fps: resolved.comfyFps,
+                  atlasModelOptions: resolved.atlasModelOptions,
                   referenceImage,
                   publicReferenceUpload: resolved.publicReferenceUpload,
                   fallback: videoFallback,

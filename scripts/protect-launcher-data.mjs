@@ -201,6 +201,7 @@ const SHARDED_TABLES = [
   "game_turn_storyboards",
   "game_turn_storyboard_keyframes",
   "game_dice_pools",
+  "game_rulesets",
   "regex_scripts",
   "chat_images",
   "character_images",
@@ -532,6 +533,7 @@ export async function snapshotLauncherData({
   const incompleteDir = resolve(backupRoot, `.incomplete-${backupName}`);
   const backupDir = resolve(backupRoot, backupName);
   const capabilityRuntimeLink = resolve(dataDir, "capability-packages", "node_modules");
+  const capabilityRuntimeSnapshots = resolve(dataDir, "capability-runtime-snapshots");
   const downloadableDataDirs = ["models", "sidecar-runtime"].map((name) => resolve(dataDir, name));
   // The storage writer lease is per-process runtime state (owner record plus the
   // live.sock liveness socket, #5389). A snapshot taken while the previous server
@@ -549,7 +551,11 @@ export async function snapshotLauncherData({
       errorOnExist: true,
       filter: async (source) => {
         const sourcePath = resolve(source);
-        if (sourcePath === capabilityRuntimeLink || sourcePath === writerLeaseDir) return false;
+        if (
+          sourcePath === capabilityRuntimeLink ||
+          sourcePath === capabilityRuntimeSnapshots ||
+          sourcePath === writerLeaseDir
+        ) return false;
         if (
           !downloadableDataDirs.every(
             (downloadableDir) => sourcePath !== downloadableDir && !sourcePath.startsWith(`${downloadableDir}${sep}`),

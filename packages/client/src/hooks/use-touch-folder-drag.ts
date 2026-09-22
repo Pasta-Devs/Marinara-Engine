@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useRef, type TouchEvent as ReactTouchEvent } from "react";
 import {
+  useCallback,
+  useEffect,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
+  type TouchEvent as ReactTouchEvent,
+} from "react";
+import {
+  beginChatResourceMouseDrag,
   beginChatResourceTouchDrag,
   clearActiveChatResourceDrag,
   type ChatResourceDragPayload,
@@ -22,6 +29,8 @@ type TouchFolderDragState = {
   startY: number;
   lastX: number;
   lastY: number;
+  touchIdentifier: number | null;
+  scrollTouch: { identifier: number; lastY: number } | null;
   scrollTargets: AutoScrollTarget[];
   autoScrollFrame: number | null;
   chatResourcePayload: ChatResourceDragPayload | null;
@@ -226,7 +235,7 @@ export function useTouchFolderDrag({
   const getAutoScrollDelta = useCallback((drag: TouchFolderDragState) => {
     const edgePx = optionsRef.current.autoScrollEdgePx;
     const maxSpeedPx = optionsRef.current.autoScrollMaxSpeedPx;
-    if (edgePx <= 0) return null;
+    if (edgePx <= 0 || drag.scrollTouch) return null;
 
     for (const target of drag.scrollTargets) {
       const { top, bottom } = target.getBounds();
@@ -277,7 +286,10 @@ export function useTouchFolderDrag({
       drag.active = true;
       drag.sourceElement.style.touchAction = TOUCH_DRAG_ACTIVE_TOUCH_ACTION;
       createPreviewElement(drag);
-      if (drag.chatResourcePayload) beginChatResourceTouchDrag(drag.chatResourcePayload);
+      if (drag.chatResourcePayload) {
+        if (drag.touchIdentifier === null) beginChatResourceMouseDrag(drag.chatResourcePayload);
+        else beginChatResourceTouchDrag(drag.chatResourcePayload, drag.touchIdentifier);
+      }
       optionsRef.current.onActivate(drag.id);
       scheduleAutoScroll(drag);
     },
@@ -323,11 +335,23 @@ export function useTouchFolderDrag({
     [clearDragTimer, removeListeners, restoreSourceElement, stopAutoScroll],
   );
 
+  const handleTouchStart = useCallback(
+    (event: TouchEvent) => {
+      const drag = dragRef.current;
+      if (!drag || drag.touchIdentifier === null || drag.scrollTouch) return;
+      const touch = Array.from(event.touches).find((touch) => touch.identifier !== drag.touchIdentifier);
+      if (!touch) return;
+      drag.scrollTouch = { identifier: touch.identifier, lastY: touch.clientY };
+      stopAutoScroll(drag);
+    },
+    [stopAutoScroll],
+  );
+
   const handleTouchMove = useCallback(
     (event: TouchEvent) => {
       const drag = dragRef.current;
       if (!drag) return;
-      const touch = event.touches[0] ?? event.changedTouches[0];
+      const touch = Array.from(event.touches).find((touch) => touch.identifier === drag.touchIdentifier);
       if (!touch) return;
 
       if (event.cancelable) event.preventDefault();
@@ -344,6 +368,16 @@ export function useTouchFolderDrag({
       }
 
       if (drag.active) {
+        const scrollTouch = Array.from(event.touches).find(
+          (touch) => touch.identifier === drag.scrollTouch?.identifier,
+        );
+        if (scrollTouch && drag.scrollTouch) {
+          const deltaY = drag.scrollTouch.lastY - scrollTouch.clientY;
+          drag.scrollTouch.lastY = scrollTouch.clientY;
+          if (deltaY !== 0) {
+            drag.scrollTargets.find((target) => target.canScroll(deltaY < 0 ? -1 : 1))?.scrollBy(deltaY);
+          }
+        }
         updatePreviewPosition(drag);
         scheduleAutoScroll(drag);
       }
@@ -354,15 +388,41 @@ export function useTouchFolderDrag({
   const handleTouchEnd = useCallback(
     (event: TouchEvent) => {
       const drag = dragRef.current;
-      if (drag?.active) {
+      if (!drag) return;
+      if (drag.active) {
         if (event.cancelable) event.preventDefault();
       }
+      const touch = Array.from(event.changedTouches).find((touch) => touch.identifier === drag.touchIdentifier);
+      if (!touch) {
+        if (Array.from(event.changedTouches).some((touch) => touch.identifier === drag.scrollTouch?.identifier)) {
+          drag.scrollTouch = null;
+          if (drag.active) scheduleAutoScroll(drag);
+        }
+        return;
+      }
+      drag.lastX = touch.clientX;
+      drag.lastY = touch.clientY;
       cancelTouchDrag(true);
     },
-    [cancelTouchDrag],
+    [cancelTouchDrag, scheduleAutoScroll],
   );
 
-  const handleTouchCancel = useCallback(() => cancelTouchDrag(false), [cancelTouchDrag]);
+  const handleTouchCancel = useCallback(
+    (event: TouchEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      if (
+        !event.changedTouches ||
+        Array.from(event.changedTouches).some((touch) => touch.identifier === drag.touchIdentifier)
+      ) {
+        cancelTouchDrag(false);
+      } else if (Array.from(event.changedTouches).some((touch) => touch.identifier === drag.scrollTouch?.identifier)) {
+        drag.scrollTouch = null;
+        if (drag.active) scheduleAutoScroll(drag);
+      }
+    },
+    [cancelTouchDrag, scheduleAutoScroll],
+  );
   const handleContextMenu = useCallback(
     (event: Event) => {
       const drag = dragRef.current;
@@ -374,43 +434,110 @@ export function useTouchFolderDrag({
   );
   const handleInterruptedTouchDrag = useCallback(() => cancelTouchDrag(false), [cancelTouchDrag]);
 
+  const handleMouseMove = useCallback(
+    (event: MouseEvent) => {
+      const drag = dragRef.current;
+      if (!drag || drag.touchIdentifier !== null) return;
+      if (!(event.buttons & 1)) {
+        cancelTouchDrag(false);
+        return;
+      }
+      drag.lastX = event.clientX;
+      drag.lastY = event.clientY;
+      if (
+        !drag.active &&
+        Math.hypot(drag.lastX - drag.startX, drag.lastY - drag.startY) > optionsRef.current.moveActivateThresholdPx
+      ) {
+        activateTouchDrag(drag);
+      }
+      if (drag.active) {
+        updatePreviewPosition(drag);
+        scheduleAutoScroll(drag);
+      }
+    },
+    [activateTouchDrag, cancelTouchDrag, scheduleAutoScroll],
+  );
+
+  const handleMouseUp = useCallback(
+    (event: MouseEvent) => {
+      const drag = dragRef.current;
+      if (!drag || drag.touchIdentifier !== null || event.button !== 0) return;
+      drag.lastX = event.clientX;
+      drag.lastY = event.clientY;
+      cancelTouchDrag(true);
+    },
+    [cancelTouchDrag],
+  );
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.key === "Escape") cancelTouchDrag(false);
+    },
+    [cancelTouchDrag],
+  );
+
   const attachListeners = useCallback(() => {
     removeListeners();
+    window.addEventListener("touchstart", handleTouchStart, { capture: true, passive: true });
     window.addEventListener("touchmove", handleTouchMove, { passive: false });
     window.addEventListener("touchend", handleTouchEnd, { passive: false });
     window.addEventListener("touchcancel", handleTouchCancel, { passive: false });
     window.addEventListener("contextmenu", handleContextMenu, { capture: true });
     window.addEventListener("blur", handleInterruptedTouchDrag);
     window.addEventListener("pagehide", handleInterruptedTouchDrag);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("keydown", handleKeyDown);
     removeListenersRef.current = () => {
+      window.removeEventListener("touchstart", handleTouchStart, { capture: true });
       window.removeEventListener("touchmove", handleTouchMove);
       window.removeEventListener("touchend", handleTouchEnd);
       window.removeEventListener("touchcancel", handleTouchCancel);
       window.removeEventListener("contextmenu", handleContextMenu, { capture: true });
       window.removeEventListener("blur", handleInterruptedTouchDrag);
       window.removeEventListener("pagehide", handleInterruptedTouchDrag);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [
     handleContextMenu,
     handleInterruptedTouchDrag,
+    handleMouseMove,
+    handleMouseUp,
+    handleKeyDown,
     handleTouchCancel,
     handleTouchEnd,
     handleTouchMove,
+    handleTouchStart,
     removeListeners,
   ]);
 
-  const startTouchDrag = useCallback(
-    (event: ReactTouchEvent<HTMLElement>, id: string, options?: StartTouchDragOptions) => {
-      if (event.touches.length !== 1) return;
+  const startDrag = useCallback(
+    (
+      event: ReactTouchEvent<HTMLElement> | ReactMouseEvent<HTMLElement>,
+      id: string,
+      options?: StartTouchDragOptions,
+    ) => {
+      const touch = "touches" in event ? event.touches[0] : null;
+      if ("touches" in event ? event.touches.length !== 1 : event.button !== 0) return;
       const interactiveTarget =
         event.target instanceof Element ? event.target.closest("button,a,input,textarea,select,[role='button']") : null;
-      if (!options?.allowInteractiveTarget && interactiveTarget && interactiveTarget !== event.currentTarget) {
+      if (
+        !options?.allowInteractiveTarget &&
+        interactiveTarget &&
+        interactiveTarget !== event.currentTarget &&
+        !interactiveTarget.hasAttribute("data-folder-drag-handle")
+      ) {
         return;
       }
+      // Native HTML dragging suppresses wheel events. Keep mouse drags in the same
+      // preview/drop flow as touch so the list remains normally scrollable.
+      if (!touch) event.preventDefault();
       cancelTouchDrag(false);
       attachListeners();
 
-      const touch = event.touches[0];
+      const point = touch ?? (event as ReactMouseEvent<HTMLElement>);
       const sourceElement = options?.sourceElement ?? event.currentTarget;
       const previousDraggable = sourceElement.getAttribute("draggable");
       const previousTouchCallout = sourceElement.style.getPropertyValue(WEBKIT_TOUCH_CALLOUT_PROPERTY);
@@ -437,18 +564,22 @@ export function useTouchFolderDrag({
         previewElement: null,
         previewOffsetX: 0,
         previewOffsetY: 0,
-        startX: touch.clientX,
-        startY: touch.clientY,
-        lastX: touch.clientX,
-        lastY: touch.clientY,
+        startX: point.clientX,
+        startY: point.clientY,
+        lastX: point.clientX,
+        lastY: point.clientY,
+        touchIdentifier: touch?.identifier ?? null,
+        scrollTouch: null,
         scrollTargets: getAutoScrollTargets(sourceElement),
         autoScrollFrame: null,
         chatResourcePayload: options?.chatResourcePayload ?? null,
       };
 
-      drag.timer = window.setTimeout(() => {
-        activateTouchDrag(drag);
-      }, optionsRef.current.delayMs);
+      if (touch) {
+        drag.timer = window.setTimeout(() => {
+          activateTouchDrag(drag);
+        }, optionsRef.current.delayMs);
+      }
 
       dragRef.current = drag;
     },
@@ -465,9 +596,10 @@ export function useTouchFolderDrag({
         restoreSourceElement(drag);
       }
       dragRef.current = null;
+      if (drag?.chatResourcePayload) clearActiveChatResourceDrag();
     },
     [clearDragTimer, removeListeners, restoreSourceElement, stopAutoScroll],
   );
 
-  return { startTouchDrag, cancelTouchDrag };
+  return { startTouchDrag: startDrag, startMouseDrag: startDrag, cancelTouchDrag };
 }

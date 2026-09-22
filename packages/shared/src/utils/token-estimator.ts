@@ -69,3 +69,14 @@ function isKana(codePoint: number): boolean {
     (codePoint >= 0x1b000 && codePoint <= 0x1b16f)
   );
 }
+
+/** Serialize the estimator with its private helpers for isolated extension runtimes. */
+export function getSerializedTextTokenEstimator(): string {
+  return `(() => {
+    const isHangul = ${isHangul.toString()};
+    const isHan = ${isHan.toString()};
+    const isKana = ${isKana.toString()};
+    const codePointTokenHundredths = ${codePointTokenHundredths.toString()};
+    return ${estimateTextTokens.toString()};
+  })()`;
+}

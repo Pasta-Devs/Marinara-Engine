@@ -542,7 +542,9 @@ Select a location in the editor and open **Location reference image**.
 
 For a parent using Map presentation, open **Child map background** separately.
 Choose a Gallery image, then position it behind the child markers. This image is
-never sent to a provider merely because it is displayed on the map.
+never sent to a provider merely because it is displayed on the map. Use square artwork,
+for example 1024 × 1024 px, to match the 100 × 100 coordinate grid. The editor
+and runtime use the same square canvas.
 
 When one Gallery image fills both roles, **Remove reference only** keeps it as
 the child-map background. Use **Reject both and create replacement** when the

@@ -38,6 +38,7 @@ export * from "./types/conversation-call.js";
 export * from "./types/noodle.js";
 export * from "./types/spatial-context.js";
 export * from "./types/capability-runtime.js";
+export * from "./types/generation-integration.js";
 export * from "./types/localization.js";
 export * from "./types/personal-extension.js";
 export * from "./types/home-feed.js";
@@ -64,6 +65,7 @@ export * from "./schemas/avatar-crop.schema.js";
 export * from "./schemas/spatial-context.schema.js";
 export * from "./schemas/capability-package.schema.js";
 export * from "./schemas/gm-verb-table.schema.js";
+export * from "./schemas/ruleset.schema.js";
 export * from "./schemas/personal-extension.schema.js";
 export * from "./schemas/folder.schema.js";
 export * from "./schemas/scene-analysis.schema.js";
@@ -127,9 +129,12 @@ export * from "./utils/xml-wrapper.js";
 export * from "./utils/music-score.js";
 export * from "./utils/agent-cost.js";
 export * from "./utils/token-estimator.js";
+export * from "./utils/character-token-estimator.js";
+export * from "./utils/character-lookup-name.js";
 export * from "./utils/regex-replacement.js";
 export * from "./utils/skill-check-format.js";
 export * from "./utils/skill-check-tag.js";
+export * from "./utils/sheet-command-tag.js";
 export * from "./utils/agent-output.js";
 export * from "./utils/generation-guide.js";
 export * from "./utils/lorebook-keyword-matching.js";
@@ -143,6 +148,7 @@ export * from "./utils/chat-summary-entries.js";
 export * from "./utils/chat-summary-prompt-settings.js";
 export * from "./utils/translator-defaults.js";
 export * from "./utils/chat-persona.js";
+export * from "./utils/message-continuation.js";
 export * from "./utils/quest-state.js";
 export * from "./utils/quote-format.js";
 export * from "./utils/image-prompt-compiler.js";
@@ -173,3 +179,20 @@ export * from "./utils/dice-placeholder.js";
 export * from "./utils/dice-pool.js";
 
 export { parseChoiceOptions, resolveChoiceVariableValue, type ChoiceOptionValue } from "./utils/preset-choices.js";
+
+export * from "./features/combat-ai.js";
+export * from "./features/combat-director.js";
+
+export * from "./features/combat-conditions.js";
+export * from "./features/rulesets/sheet-math.js";
+export * from "./features/rulesets/live-state.js";
+export * from "./features/rulesets/sheet-commands.js";
+export * from "./features/rulesets/sheet-prompt.js";
+export * from "./features/rulesets/scaled-rows.js";
+export * from "./features/rulesets/combat-bridge.js";
+export * from "./features/rulesets/layers.js";
+export * from "./features/ruleset-combat/index.js";
+
+export * from "./constants/request-timeouts.js";
+
+export * from "./utils/game-narration-text.js";

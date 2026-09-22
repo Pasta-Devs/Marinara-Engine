@@ -85,6 +85,13 @@ function readCommand(type: string, body: string): RoleplayCommand | null {
       const notation = field("notation", 80) || field("dice", 80);
       const character = field("character", 200);
       const attribute = field("attribute", 100);
+      const numbers: { modifier?: number; dc?: number } = {};
+      for (const key of ["modifier", "dc"] as const) {
+        const raw = parseQuotedParam(body, key, true);
+        if (raw === undefined) continue;
+        if (!/^[+-]?\d+$/u.test(raw.trim()) || !Number.isSafeInteger(Number(raw))) return null;
+        numbers[key] = Number(raw);
+      }
       return notation
         ? {
             type,
@@ -92,6 +99,7 @@ function readCommand(type: string, body: string): RoleplayCommand | null {
             reason: field("reason", 500),
             ...(character ? { character } : {}),
             ...(attribute ? { attribute } : {}),
+            ...numbers,
           }
         : null;
     }
@@ -354,13 +362,13 @@ export function buildRoleplayCommandsReminder(args: {
     );
   if (enabled("roll"))
     lines.push(
-      '- [roll: character="character name" notation="1d20" attribute="Strength" reason="action and success rule"] requests a real roll; use roll_dice with the same fields when available. Attribute is optional; the engine adds the assigned attribute modifier, so do not add it yourself. Set the stakes first, stop after the command, and wait for the result before narrating the outcome. Never invent results or reroll an action.',
+      '- [roll: character="participant name" notation="1d20" attribute="Strength" modifier="+2" dc="15" reason="action being attempted"] requests a real roll; use roll_dice with the same fields when available. You may target any chat participant, including the user\'s persona by name. Attribute is optional; the engine adds the assigned attribute modifier, so do not add it yourself. Optional modifier adds a situational bonus/penalty once; optional dc sets the total needed to succeed. Keep DCs and modifiers in command/tool fields, not narration. Stop after the command and wait for the result before narrating the outcome. Never invent results or reroll an action.',
     );
   if (enabled("combat") && args.availableAgentIds.has("combat"))
     lines.push("- [combat] asks the Combat agent to start an encounter when the scene turns to combat.");
   if (args.interruptAvailable === true && enabled("interrupt"))
     lines.push(
-      '- [interrupt: part="at least three words quoted verbatim through the interruption point"] cuts off only the latest user or other-character message at that point. Use only when your character can plausibly intervene with the abilities and freedom they currently have. Continue from the cut; the removed continuation has not happened.',
+      '- [interrupt: part="at least three words quoted verbatim through the interruption point"] cuts off only the latest user or other-character message at that point, either dialogue or action. Use only when your character can plausibly intervene with the abilities and freedom they currently have, example: you interrupt a spiraling monologue by hushing someone. Continue from the cut; the removed continuation has not happened.',
     );
   if (enabled("dm"))
     lines.push(

@@ -184,6 +184,49 @@ try {
   const customRuns = await agents.listCustomRunsForChat(chat.id);
   assert.ok(customRuns.length > 0, "Successful custom runs must remain available");
   assert.ok(customRuns.every((run) => run.hideOutput));
+
+  const carryChat = await chats.create({ name: "Omitted context", mode: "roleplay", characterIds: [] });
+  assert.ok(carryChat);
+  const carryMessages = await chats.createMessagesBatch(
+    carryChat.id,
+    Array.from({ length: 5 }, (_, index) => ({ role: "assistant" as const, content: `Carry ${index}` })),
+  );
+  const saveData = (index: number, data: Record<string, unknown>) =>
+    agents.saveRun({
+      agentConfigId: configs[0]!.id,
+      chatId: carryChat.id,
+      messageId: carryMessages[index]!,
+      result: { ...results[0]!, data },
+    });
+  await saveData(0, { text: "First", agentContext: { plan: "remember" } });
+  const carriedId = await saveData(1, { text: "Second" });
+  assert.deepEqual(
+    (await agents.getRunWithConfig(carriedId))?.resultData,
+    {
+      text: "Second",
+      "agent-context": { plan: "remember" },
+    },
+    "omitting context preserves the previous private value in the saved run",
+  );
+  await saveData(2, { text: "Clear", "agent-context": null });
+  await saveData(3, { text: "After clearing" });
+  assert.equal(previousAgentOutputText(await agents.getPreviousOutput(configs[0]!.id, carryChat.id)), "");
+  await chats.addSwipe(carryMessages[2]!, "New swipe without private context");
+  await saveData(2, { text: "Regenerated" });
+  assert.deepEqual(
+    await agents.getPreviousOutput(configs[0]!.id, carryChat.id, carryMessages[2]!),
+    {
+      text: "Regenerated",
+      "agent-context": { plan: "remember" },
+    },
+    "historical saves exclude later runs and inactive swipes",
+  );
+  await agents.updateRunResultData(carriedId, { text: "Second", "agent-context": "Edited private context" });
+  const editedId = await saveData(2, { text: "After edit" });
+  assert.equal(
+    previousAgentOutputText((await agents.getRunWithConfig(editedId))?.resultData),
+    "Edited private context",
+  );
 } finally {
   await closeDB();
   rmSync(dataDir, { recursive: true, force: true });

@@ -57,6 +57,41 @@ export interface SkillCheckTag {
    * rule cannot see. An unreadable name costs the tag a `slot` mismatch instead.
    */
   poolDeclared?: boolean;
+  /**
+   * `who=` as the GM wrote it: the party member a ruleset game rolls the check for. Absent means
+   * the player. Carried, never judged: only a game with a pinned ruleset reads it, and whether
+   * the name matches a sheet is the resolver's business.
+   */
+  who?: string;
+  /**
+   * `with=` as the GM wrote it: roll this skill or save with another ability than its own. Carried,
+   * never judged — whether the ruleset has such an ability is the resolver's business, and a name
+   * no ability answers to is ignored there rather than refused here.
+   */
+  withAbility?: string;
+  /**
+   * `bonus=` as a whole number, when the GM wrote a readable one: dice a pool ruleset adds or
+   * takes for this one check. Read like `threshold=` and held to the same rule — `Number` rather
+   * than `parseInt`, so "1.5" stays unusable instead of becoming 1, and whether the ruleset allows
+   * situational dice at all is decided by the resolver.
+   */
+  bonusDice?: number;
+  /**
+   * `spend="willpower:1"` as the GM wrote it, read into a pool name and a whole number of points.
+   *
+   * What the player said they were spending on THIS check, so one resolution both rolls the dice
+   * and pays for what changed them. Carried, never judged: whether the ruleset offers such a spend,
+   * whether the pool covers it and what it buys are all the resolver's business.
+   */
+  spend?: { pool: string; amount: number };
+  /**
+   * `use="Potence"` as the GM wrote it: the catalog entry the player is using ON this check.
+   *
+   * Carried, never judged. Whether the character actually has that entry, what it costs and what
+   * it does to the roll are all the resolver's business, and it needs the ruleset's catalogs to
+   * answer any of them.
+   */
+  useEntry?: string;
   /** `pool=` exactly as written, for the mismatch log. Present whenever `poolDeclared` is. */
   poolRaw?: string;
   /**
@@ -320,6 +355,33 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     const threshold = Number(values.get("threshold"));
     if (Number.isFinite(threshold)) tag.threshold = threshold;
   }
+  // A whole number of dice, or nothing. `Number` rather than `parseInt`, so "1.5" stays unusable
+  // instead of becoming 1, and the emptiness test comes first because `Number("")` is 0 and an
+  // attribute written with no value has declared nothing.
+  const bonusValue = values.get("bonus")?.trim();
+  if (bonusValue) {
+    const bonus = Number(bonusValue);
+    if (Number.isInteger(bonus)) tag.bonusDice = bonus;
+  }
+  // `spend="<pool>:<points>"`. Read on the same terms as `threshold=` and `bonus=`: written at all,
+  // not necessarily usable. A body with no colon, an empty pool name or a number that is not a
+  // whole positive one has declared nothing the Engine could act on.
+  const spendValue = values.get("spend")?.trim();
+  if (spendValue) {
+    const at = spendValue.lastIndexOf(":");
+    const pool = at > 0 ? spendValue.slice(0, at).trim() : "";
+    const amount = at > 0 ? Number(spendValue.slice(at + 1).trim()) : Number.NaN;
+    if (pool && Number.isInteger(amount) && amount > 0) tag.spend = { pool: pool.slice(0, 100), amount };
+  }
+  const useEntry = values.get("use")?.trim();
+  // A catalog entry's label may be 120 characters, and this is the name that has to match one, so
+  // the cut is the schema's own limit rather than the 100 the rest of these use: a shorter one
+  // would make an entry with a long label impossible to name.
+  if (useEntry) tag.useEntry = useEntry.slice(0, 120);
+  const who = values.get("who")?.trim();
+  if (who) tag.who = who.slice(0, 100);
+  const withAbility = values.get("with")?.trim();
+  if (withAbility) tag.withAbility = withAbility.slice(0, 100);
   if (values.has("pool")) {
     tag.poolDeclared = true;
     tag.poolRaw = values.get("pool")!;
@@ -327,11 +389,47 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     if (poolSlots) tag.poolSlots = poolSlots;
   }
 
+  const penaltyValue = Number(values.get("penalty"));
+  const penalty = Number.isFinite(penaltyValue) && penaltyValue < 0 ? { penalty: penaltyValue } : {};
   const rollsValue = values.get("rolls");
   const modifier = Number.parseInt(values.get("modifier") ?? "", 10);
   const total = Number.parseInt(values.get("total") ?? "", 10);
   const resultValue = values.get("result")?.trim().toLowerCase();
   const resolution: SkillCheckResult["resolution"] = declaredResolution === "successes" ? "successes" : "sum";
+
+  // An EMPTY pool is a real result with no dice in it: a ruleset whose pool may be 0 fails the check
+  // without a roll and records `dice="0dN" rolls=""`. Read it back as the failure it was, so the
+  // record survives a reload instead of looking like a check nobody rolled. Nothing else may have
+  // an empty `rolls=`, and the shape is never Engine-rollable, so this cannot adopt a model's claim
+  // as a roll: it can only ever say "no dice, no successes".
+  const emptyPool =
+    values.has("rolls") &&
+    (rollsValue ?? "").trim() === "" &&
+    resolution === "successes" &&
+    // The written strings, not the parsed numbers: `parseInt` reads "0 or so" as 0, and only the
+    // Engine's own exact record may be read back this way.
+    values.get("total")?.trim() === "0" &&
+    values.get("modifier")?.trim() === "0" &&
+    /^0d[1-9]\d{0,3}$/.test(declaredDice ?? "") &&
+    (resultValue === "failure" || resultValue === "critical_failure" || resultValue === "critical failure");
+  if (emptyPool) {
+    tag.resolvedResult = {
+      skill,
+      dc,
+      rolls: [],
+      usedRoll: 0,
+      modifier: 0,
+      total: 0,
+      success: false,
+      criticalSuccess: false,
+      criticalFailure: resultValue !== "failure",
+      rollMode: "normal",
+      resolution,
+      dice: declaredDice,
+      ...penalty,
+    };
+    return tag;
+  }
 
   if (!rollsValue || Number.isNaN(modifier) || Number.isNaN(total) || !resultValue) {
     // Sparse tag — the resolver will roll + apply modifier, unless the tag names
@@ -439,6 +537,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     rollMode: normalizedMode,
     resolution,
     dice,
+    ...penalty,
   };
 
   return tag;

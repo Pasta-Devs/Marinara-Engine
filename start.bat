@@ -346,7 +346,8 @@ if errorlevel 1 echo  [WARN] Optional background remover install failed; built-i
 :: Build if needed
 if not exist "packages\shared\dist\constants\defaults.js" set "BUILD_REQUIRED=1"
 if not exist "packages\server\dist\index.js" set "BUILD_REQUIRED=1"
-if not exist "packages\client\dist\index.html" set "BUILD_REQUIRED=1"
+node scripts\check-client-build.mjs
+if errorlevel 1 set "BUILD_REQUIRED=1"
 if "!BUILD_REQUIRED!"=="1" (
     echo  [..] Cleaning stale build artifacts...
     call :run_pnpm clean:stale-client
@@ -362,6 +363,13 @@ if "!BUILD_REQUIRED!"=="1" (
     if errorlevel 1 echo  [ERROR] Failed to build shared package. & pause & exit /b 1
     call :run_pnpm --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build
     if errorlevel 1 echo  [ERROR] Failed to build server or client package. & pause & exit /b 1
+)
+
+node scripts\check-client-build.mjs
+if errorlevel 1 (
+    echo  [ERROR] Client assets are still incomplete after building. Startup stopped.
+    pause
+    exit /b 1
 )
 
 :: Database migrations are handled automatically at server startup by runMigrations()

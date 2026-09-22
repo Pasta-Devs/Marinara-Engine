@@ -111,8 +111,7 @@ try {
     "the other chat still resolves the schedule",
   );
 
-  // ── 4. An unset flag means off, so a character gaining a schedule does not
-  //       silently switch schedules on in a chat that never used them ──
+  // ── 4. Adding a scheduled character reuses its routine unless explicitly disabled. ──
   const optOutChat = await chats.create({
     name: "Never used schedules",
     mode: "conversation",
@@ -121,8 +120,8 @@ try {
   await chats.update(optOutChat!.id, { characterIds: [characterId] } as never);
   assert.deepEqual(
     (await chats.resolveConversationPresenceState(optOutChat!.id)).schedules,
-    {},
-    "a chat that never opted in stays off",
+    { [characterId]: shared },
+    "adding a scheduled character inherits the existing character routine",
   );
 
   // ── 5. Presence in a chat with schedules off is always-online and never

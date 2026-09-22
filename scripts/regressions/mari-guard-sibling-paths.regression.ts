@@ -710,7 +710,7 @@ assert.match(sandboxFlat, /process\.kill\(-child\.pid, signal\);/u);
 // link: in-workspace directory targets get the rule, outside targets are
 // rejected (never sandbox-writable anyway), dangling links protect nothing.
 {
-  const workspace = mkdtempSync(join(tmpdir(), "store-symlink-"));
+  const workspace = realpathSync(mkdtempSync(join(tmpdir(), "store-symlink-")));
   const outside = mkdtempSync(join(tmpdir(), "store-outside-"));
   try {
     mkdirSync(join(workspace, "real-store"));
