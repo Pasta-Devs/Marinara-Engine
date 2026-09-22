@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { gameGenOptions, resolveStoredGameGenerationParameters } from "../../packages/server/src/routes/game.routes.js";
+import {
+  assertCompleteGameJson,
+  gameGenOptions,
+  resolveStoredGameGenerationParameters,
+} from "../../packages/server/src/routes/game.routes.js";
 import { resolveGenerationProviderRuntime } from "../../packages/server/src/services/generation/provider-generation-runtime.js";
 import { resolveModelAccessPolicy } from "../../packages/server/src/services/generation/model-access-policy.js";
 
@@ -81,3 +85,11 @@ const claude = gameGenOptions("claude-opus-4-7", {}, { temperature: 0.3, topP: 0
 assert.equal(claude.temperature, undefined, "provider sampling restrictions still apply");
 assert.equal(claude.topP, undefined);
 console.info("Game generation parameter precedence regression passed");
+
+assert.doesNotThrow(() => assertCompleteGameJson('{"summary":"Finished"}', "stop"));
+assert.throws(() => assertCompleteGameJson('{"summary":"Cut off', "length"), /max output tokens/);
+assert.throws(() => assertCompleteGameJson('{"summary":"Cut off', "stop"), /max output tokens/);
+assert.doesNotThrow(
+  () => assertCompleteGameJson("not json", "stop"),
+  "complete malformed output keeps the JSON repair path",
+);

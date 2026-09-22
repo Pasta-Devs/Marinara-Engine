@@ -234,6 +234,7 @@ export async function chooseGmCombatOption(
   const response = await provider.chatComplete(messages, {
     model: conn.model,
     ...storedOptions,
+    temperature: storedOptions.temperature ?? 0.5,
     enableThinking: !!storedOptions.reasoningEffort && storedOptions.reasoningEffort !== "none",
     maxTokens: resolveStoredMaxTokens(conn.defaultParameters, 300),
     signal,

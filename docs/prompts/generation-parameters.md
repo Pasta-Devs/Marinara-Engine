@@ -60,12 +60,12 @@ In a chat's **Advanced Parameters**, only **Max Output Tokens** and **Reasoning 
 
 ## Default values
 
-The table shows fallback values displayed by the parameter editor and the default Send switches. These are not necessarily the values sent to the model: without a preset, generation starts at `4096` output tokens before connection and chat overrides. Mode rules can then set `8192` for an active scene or `16384` for Game. The **Effective** line shows the resolved value.
+The table shows fallback values displayed by the parameter editor and the default Send switches. These are not necessarily the values sent to the model: without a preset, generation starts at `4096` output tokens before connection and chat overrides. An active scene can use `8192`. Game uses saved connection and chat parameters, with task defaults only for unconfigured values. The **Effective** line shows the resolved value.
 
 | Parameter | Starting value | Sent by default |
 |---|---|---|
 | Temperature | 1 | No |
-| Max Output Tokens | 4096 in Conversation, 8192 in Roleplay and Game | Yes |
+| Max Output Tokens | 4096 in Conversation, 8192 in Roleplay; no Game override | Yes |
 | Top P | 1 | No |
 | Top K | 0 (off) | No |
 | Frequency | 0 | No |

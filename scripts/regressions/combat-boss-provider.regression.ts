@@ -108,6 +108,15 @@ try {
   assert.equal(context.units[0].mp, 10);
   assert.equal(context.seed, undefined);
   assert.equal(context.pending, undefined);
+  await createConnectionsStorage(db).updateDefaultParameters(connection.id, {});
+  assert.equal(await chooseGmCombatOption(db, chat.id, state, false, AbortSignal.timeout(3000)), "0");
+  assert.equal(payload!.temperature, 0.5, "unconfigured boss decisions keep their task default");
+  await createConnectionsStorage(db).updateDefaultParameters(connection.id, {
+    temperature: 0.27,
+    maxTokens: 4096,
+    topP: 0.6,
+    enabledParameters: { topP: false },
+  });
   replyText = '{"candidateId":"invented-free-action"}';
   await assert.rejects(
     chooseGmCombatOption(db, chat.id, state, false, AbortSignal.timeout(3000)),

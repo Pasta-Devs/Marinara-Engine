@@ -798,6 +798,7 @@ export async function encounterRoutes(app: FastifyInstance) {
       const result = await provider.chatComplete(prompt, {
         model: conn.model,
         ...storedOptions,
+        temperature: storedOptions.temperature ?? 0.8,
         enableThinking: !!storedOptions.reasoningEffort && storedOptions.reasoningEffort !== "none",
         maxTokens: resolveStoredMaxTokens(conn.defaultParameters, COMBAT_BLUEPRINT_OUTPUT_TOKENS),
       });
@@ -906,6 +907,7 @@ export async function encounterRoutes(app: FastifyInstance) {
       const result = await provider.chatComplete(prompt, {
         model: conn.model,
         ...storedOptions,
+        temperature: storedOptions.temperature ?? 0.8,
         enableThinking: !!storedOptions.reasoningEffort && storedOptions.reasoningEffort !== "none",
         maxTokens: resolveStoredMaxTokens(conn.defaultParameters, 8192),
       });
@@ -1003,6 +1005,7 @@ export async function encounterRoutes(app: FastifyInstance) {
       const result = await provider.chatComplete(prompt, {
         model: conn.model,
         ...storedOptions,
+        temperature: storedOptions.temperature ?? 0.9,
         enableThinking: !!storedOptions.reasoningEffort && storedOptions.reasoningEffort !== "none",
         maxTokens: resolveStoredMaxTokens(conn.defaultParameters, 8192),
       });

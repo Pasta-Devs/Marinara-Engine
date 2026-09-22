@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Game helpers preserve unconfigured task defaults and explain when saved output limits cut off structured responses (#6511).
+
 - Game Mode honors connection and chat generation parameters instead of replacing them with fixed sampling and output settings (#6511).
 - Grok 4.6 and 4.7 keep enabled tools, including web search, instead of losing them as unrecognized models, with their supported context and reasoning settings (#6521).
 - Sidebar sorting applies to folder rows as well as their contents, including names, dates, and content-based sorts; manual folder ordering remains available (#6497).

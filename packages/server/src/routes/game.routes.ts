@@ -3207,6 +3207,13 @@ function isLikelyTruncatedJsonResponse(raw: string, finishReason: unknown): bool
   return isLengthFinishReason(finishReason) || jsonishLooksTruncated(raw);
 }
 
+export function assertCompleteGameJson(raw: string, finishReason: unknown) {
+  if (isLikelyTruncatedJsonResponse(raw, finishReason))
+    throw new Error(
+      "The response was cut off before its JSON completed. Increase this connection's max output tokens or use a model with a larger output limit, then try again.",
+    );
+}
+
 /** Helper settings are defaults; saved connection/chat parameters take precedence. */
 export function gameGenOptions(
   model: string,
@@ -4179,6 +4186,7 @@ async function runGameLorebookKeeperAfterConclusion(args: {
       "Game lorebook keeper",
     );
     const extraction = extractLeadingThinkingBlocks(result.content ?? "", generationParameters?.customThinkingTags);
+    assertCompleteGameJson(extraction.content, result.finishReason);
     let parsed: Record<string, unknown>;
     try {
       parsed = parseJSON(extraction.content) as Record<string, unknown>;
@@ -7640,6 +7648,7 @@ export async function gameRoutes(app: FastifyInstance) {
         );
       }
 
+      assertCompleteGameJson(conclusionExtraction.content, result.finishReason);
       let appliedConclusion: SessionConclusionApplication;
       try {
         const parsedConclusion = parseJSON(conclusionExtraction.content) as Record<string, unknown>;
@@ -8194,6 +8203,7 @@ export async function gameRoutes(app: FastifyInstance) {
       result.content ?? "",
       conclusionGenerationParameters?.customThinkingTags,
     );
+    assertCompleteGameJson(conclusionExtraction.content, result.finishReason);
     let appliedConclusion: SessionConclusionApplication;
     try {
       const parsedConclusion = parseJSON(conclusionExtraction.content) as Record<string, unknown>;
@@ -8487,6 +8497,7 @@ export async function gameRoutes(app: FastifyInstance) {
       extraction.content.length,
       progressionOptions.maxTokens ?? 0,
     );
+    assertCompleteGameJson(extraction.content, result.finishReason);
     let updatedProgression: CampaignProgressionState;
     try {
       const parsedProgression = parseJSON(extraction.content) as Record<string, unknown>;
