@@ -60,12 +60,12 @@ W sekcji **Advanced Parameters** danego czatu przełącznik Send jest domyślnie
 
 ## Wartości domyślne
 
-Tabela pokazuje wartości zastępcze wyświetlane w edytorze parametrów i domyślny stan przełączników Send. Nie muszą to być wartości wysyłane do modelu: bez presetu generowanie zaczyna się od `4096` tokenów wyjściowych, przed zastosowaniem wartości połączenia i czatu. Następnie reguły trybu mogą ustawić `8192` dla aktywnej sceny lub `16384` dla trybu Game. Wiersz **Effective** pokazuje wynikową wartość.
+Tabela pokazuje wartości zastępcze wyświetlane w edytorze parametrów i domyślny stan przełączników Send. Nie muszą to być wartości wysyłane do modelu: bez presetu generowanie zaczyna się od `4096` tokenów wyjściowych, przed zastosowaniem wartości połączenia i czatu. Aktywna scena może użyć `8192`. Tryb Game korzysta z zapisanych parametrów połączenia i czatu; wartości domyślne zadania stosuje tylko do nieustawionych parametrów. Wiersz **Effective** pokazuje wynikową wartość.
 
 | Parametr | Wartość początkowa | Wysyłane domyślnie |
 |---|---|---|
 | Temperature | 1 | Nie |
-| Max Output Tokens | 4096 w trybie Conversation, 8192 w trybach Roleplay i Game | Tak |
+| Max Output Tokens | 4096 w trybie Conversation, 8192 w trybie Roleplay; bez nadpisania w trybie Game | Tak |
 | Top P | 1 | Nie |
 | Top K | 0 (wyłączone) | Nie |
 | Frequency | 0 | Nie |
@@ -140,8 +140,8 @@ Parametry są ustalane osobno dla każdego pola, w tej kolejności:
 1. Sekcja **Parameters** (parametry) wybranego presetu albo wbudowane wartości domyślne generowania, jeśli nie używasz presetu (temperatura `1`, maksymalna długość odpowiedzi `4096`). W trybie Roleplay preset przypisany w połączeniu ma pierwszeństwo przed presetem wybranym w czacie.
 2. Sekcja **Default Parameters** (parametry domyślne) połączenia.
 3. Sekcja **Advanced Parameters** tego czatu.
-4. Reguły trybu: aktywny czat sceny ustawia limit odpowiedzi na `8192`, rozumowanie na **Maximum**, a szczegółowość na **High**. Tryb Game Mode ustawia limit odpowiedzi na `16384` i rozumowanie na **Maximum**, temperaturę/top-p na `1`, a top-k, min-p i kary za powtórzenia na `0`. Połączenia z modelami Gemma w trybie Game Mode zachowują swoje ustawienia próbkowania i używają budżetu odpowiedzi wynoszącego co najmniej `16384`.
-5. Limity odpowiedzi: tryb Game Mode uwzględnia znany limit wyjścia modelu, a **Max Output Tokens override** (własny limit tokenów odpowiedzi) połączenia ogranicza żądania w każdym trybie. Dostępny kontekst może dodatkowo zmniejszyć budżet odpowiedzi.
+4. Reguły trybu: aktywny czat sceny ustawia limit odpowiedzi na `8192`, rozumowanie na **Maximum**, a szczegółowość na **High**. Tryb Game używa zapisanych parametrów połączenia i czatu, bez wymuszania próbkowania, rozumowania ani minimalnej długości odpowiedzi. Wywołania pomocnicze również uwzględniają zapisane parametry; wartości domyślne zadania stosuje się tylko wtedy, gdy dany parametr nie jest ustawiony.
+5. Limity odpowiedzi: tryb Game uwzględnia znany limit odpowiedzi modelu, a ustawienie **Max Output Tokens override** w połączeniu ogranicza żądania w każdym trybie. Dostępny kontekst może dodatkowo zmniejszyć budżet odpowiedzi.
 
 Wiersz **Effective** (obowiązująca wartość) obok parametru pokazuje zapisaną wartość i warstwę, która ma pierwszeństwo, z uwzględnieniem reguł trybu oraz limitów odpowiedzi. W edytorze połączenia korzysta z aktualnie otwartego czatu używającego tego połączenia albo z wartości bazowych trybu Roleplay, gdy żaden czat nie jest otwarty. Zapisz zmiany, żeby odświeżyć wskazanie. Wyłączony przełącznik Send jest pokazany jako **not sent**; dostawcy nadal mogą wymuszać wymagane parametry lub dostosowywać nieobsługiwane wartości. Custom Parameters i dopasowanie do kontekstu mogą dodatkowo zmienić ostateczne żądanie.
 
