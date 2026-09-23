@@ -205,17 +205,20 @@ export function agentShapedDecisionContext(ctx: MacroContext): MacroContext {
  * found, which lets the caller put the sources it cares about most first.
  */
 export function planPromptDecisions(
-  groups: Array<{ texts: string[]; ctx: MacroContext }>,
+  groups: Array<{
+    texts: string[];
+    ctx: MacroContext;
+    /** From `reachableDecisionStatements` in this group's context: anything else is left out before the limit counts. */
+    reachable?: ReadonlySet<string>;
+  }>,
   limit: number,
-  /** From `reachableDecisionStatements`: anything else is left out before the limit counts. */
-  reachable?: ReadonlySet<string>,
 ): PromptDecisionPlan {
   const byKey = new Map<string, PlannedDecision>();
   const optionKeys = new Map<string, Set<string>>();
   const dropped: string[] = [];
   // Each group is resolved in the context it will be evaluated in: an agent template
   // sees `{{char}}` as every character's name, a preset section as the responder's.
-  for (const { texts, ctx } of groups)
+  for (const { texts, ctx, reachable } of groups)
     for (const text of texts) {
       for (const collected of collectDecisionQuestions(text)) {
         const variants = resolveDecisionQuestionVariants(collected.question, ctx);
@@ -400,7 +403,10 @@ export async function answerAgentTemplateDecisions(args: {
 }): Promise<MacroDecisionAnswers | undefined> {
   const texts = collectDecisionTexts(args.agents.map((agent) => [agent.template, agent.settings]));
   if (texts.length === 0) return undefined;
-  const plan = planPromptDecisions([{ texts, ctx: args.macroContext }], args.limit);
+  const plan = planPromptDecisions(
+    [{ texts, ctx: args.macroContext, reachable: reachableDecisionStatements(texts, args.macroContext) }],
+    args.limit,
+  );
   if (plan.decisions.length === 0) return undefined;
   const backend = await args.getBackend();
   if (!backend) return undefined;
@@ -477,9 +483,8 @@ export function createLorebookDecisionResolver(args: {
   resolver.answerStatements = async (texts) => {
     const ctx = args.macroContext;
     const all = planPromptDecisions(
-      [{ texts, ctx }],
+      [{ texts, ctx, reachable: reachableDecisionStatements(texts, ctx) }],
       Number.POSITIVE_INFINITY,
-      reachableDecisionStatements(texts, ctx),
     );
     const decisions = all.decisions.filter((decision) => admit(decision.key));
     if (decisions.length === 0) return;

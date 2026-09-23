@@ -2735,10 +2735,11 @@ export async function generateRoutes(app: FastifyInstance) {
         });
         // Every decision read before the reply is keyed to the newest message, id and text.
         const preReplyDecisionTurnId = latestTurnDecisionId(chatMessages);
+        // Worked out once: the agents' plan below includes the prompt's statements too.
+        const promptDecisionReachable = reachableDecisionStatements(promptDecisionTexts, promptMacroContext);
         const promptDecisionPlan = planPromptDecisions(
-          [{ texts: promptDecisionTexts, ctx: promptMacroContext }],
+          [{ texts: promptDecisionTexts, ctx: promptMacroContext, reachable: promptDecisionReachable }],
           promptDecisionLimit,
-          reachableDecisionStatements(promptDecisionTexts, promptMacroContext),
         );
         // Always an object: statements in activating lorebook entries are answered later
         // and merged into it, and the prompt builder and agents hold this same object.
@@ -5825,8 +5826,15 @@ export async function generateRoutes(app: FastifyInstance) {
           const agentDecisions = await answerDecisionPlan(
             planPromptDecisions(
               [
-                { texts: promptDecisionTexts, ctx: promptMacroContext },
-                { texts: preReplyAgentDecisionTexts, ctx: agentShapedDecisionContext(promptMacroContext) },
+                { texts: promptDecisionTexts, ctx: promptMacroContext, reachable: promptDecisionReachable },
+                {
+                  texts: preReplyAgentDecisionTexts,
+                  ctx: agentShapedDecisionContext(promptMacroContext),
+                  reachable: reachableDecisionStatements(
+                    preReplyAgentDecisionTexts,
+                    agentShapedDecisionContext(promptMacroContext),
+                  ),
+                },
               ],
               promptDecisionLimit,
             ),
@@ -10375,7 +10383,16 @@ export async function generateRoutes(app: FastifyInstance) {
             postAgentDecisionTexts.length > 0
               ? await answerDecisionPlan(
                   planPromptDecisions(
-                    [{ texts: postAgentDecisionTexts, ctx: agentShapedDecisionContext(promptMacroContext) }],
+                    [
+                      {
+                        texts: postAgentDecisionTexts,
+                        ctx: agentShapedDecisionContext(promptMacroContext),
+                        reachable: reachableDecisionStatements(
+                          postAgentDecisionTexts,
+                          agentShapedDecisionContext(promptMacroContext),
+                        ),
+                      },
+                    ],
                     promptDecisionLimit,
                   ),
                   [

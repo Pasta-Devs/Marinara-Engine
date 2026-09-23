@@ -3159,9 +3159,8 @@ export async function chatsRoutes(app: FastifyInstance) {
               ],
             });
             const plan = planPromptDecisions(
-              [{ texts, ctx: promptMacroContext }],
+              [{ texts, ctx: promptMacroContext, reachable: reachableDecisionStatements(texts, promptMacroContext) }],
               decisionLimit,
-              reachableDecisionStatements(texts, promptMacroContext),
             );
             for (const statement of plan.dropped) decisionDropped.add(statement);
             decisionPlanKeys = plan.decisions.map((decision) => decision.key);

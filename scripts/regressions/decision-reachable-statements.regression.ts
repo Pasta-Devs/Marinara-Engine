@@ -99,7 +99,7 @@ const texts = collectTurnDecisionTexts({
   extra: ['{{#if char == "Dottore" && decision:"Ruled out by the character"}}x{{/if}}'],
 });
 const plan = (limit: number) =>
-  planPromptDecisions([{ texts, ctx: mira }], limit, reachableDecisionStatements(texts, mira));
+  planPromptDecisions([{ texts, ctx: mira, reachable: reachableDecisionStatements(texts, mira) }], limit);
 assert.deepEqual(
   plan(32).decisions.map((decision) => decision.key),
   [
@@ -128,6 +128,7 @@ const { createConnectionsStorage } = await import("../../packages/server/src/ser
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
 const { createAppSettingsStorage } = await import("../../packages/server/src/services/storage/app-settings.storage.js");
+const { createAgentsStorage } = await import("../../packages/server/src/services/storage/agents.storage.js");
 const { generateRoutes } = await import("../../packages/server/src/routes/generate.routes.js");
 const { chatsRoutes } = await import("../../packages/server/src/routes/chats.routes.js");
 
@@ -178,6 +179,46 @@ try {
   assert.deepEqual(scanned.asked, [], "with no statements left this turn, nothing is asked");
   assert.deepEqual(scanned.dropped, ["The tower is on fire"], "the statement is reported as dropped");
   assert.ok(scanned.text.includes("TOWER_CALM"), "and reads as no");
+
+  // One set of probability rolls serves the pre-scan and the real scan, so an entry
+  // that activates had its statements asked, even with no Decision field in the book.
+  const coin = await lorebooks.createEntry({
+    lorebookId: book.id,
+    name: "Coin",
+    content: `{{#if decision:"The coin lands heads"}}COIN_HEADS{{else}}COIN_TAILS{{/if}}`,
+    keys: ["coin"],
+    probability: 50,
+    useProbability: true,
+  } as never);
+  assert(coin);
+  for (const rolls of [
+    [0.9, 0.1],
+    [0.1, 0.9],
+  ]) {
+    const coinCtx = { ...(mira as object), variables: {} } as never;
+    const coinAsks: string[] = [];
+    let roll = 0;
+    const coinScan = await processLorebooks(db, [{ role: "user", content: "A coin spins." }], null, {
+      activeLorebookIds: [book.id],
+      previewOnly: true,
+      random: () => rolls[roll++ % rolls.length]!,
+      resolveContent: (value: string) => resolveMacros(value, coinCtx),
+      resolveDecisions: createLorebookDecisionResolver({
+        macroContext: coinCtx,
+        limit: 32,
+        answer: async (planned: { decisions: Array<{ key: string }> }) => {
+          coinAsks.push(...planned.decisions.map((decision) => decision.key));
+          return { answers: new Map(planned.decisions.map((decision) => [decision.key, true])), choices: new Map() };
+        },
+      }),
+    });
+    assert.equal(
+      coinScan.activatedEntryIds.includes(coin.id),
+      coinAsks.includes("The coin lands heads"),
+      `rolls ${rolls}: asked exactly when the entry activates`,
+    );
+  }
+  await lorebooks.removeEntry(coin.id);
 
   // Discovery reads every branch a decision could take, so an entry named only inside
   // another entry's decision branch is still found and asked about.
@@ -274,7 +315,12 @@ try {
         defaultForAgents: true,
       }),
     );
-    const character = await createCharactersStorage(db).create(characterDataSchema.parse({ name: "Mira" }));
+    const character = await createCharactersStorage(db).create(
+      characterDataSchema.parse({
+        name: "Mira",
+        description: `{{#if char == "Dottore" && decision:"Ruled out in the card"}}x{{/if}}`,
+      }),
+    );
     assert(character);
     const presets = createPromptsStorage(db);
     const preset = await presets.create({ name: "Reach preset", parameters: { maxTokens: 256, maxContext: 8192 } });
@@ -355,6 +401,33 @@ try {
     const prompt = prompts.at(-1) ?? "";
     assert.ok(prompt.includes("TONE_ANGRY"), "and its yes reaches the prompt");
     assert.ok(prompt.includes("TOWER_FIRE"), "as does the entry's");
+    assert.ok(!asked.includes("Ruled out in the card"), "a block the character rules out is not asked");
+
+    // A pre-reply agent's plan includes the prompt's statements, filtered the same way.
+    assert(
+      await createAgentsStorage(db).create({
+        type: "custom-reach-pre",
+        name: "Reach pre",
+        phase: "pre_generation",
+        connectionId: chatConnection.id,
+        promptTemplate: `{{#if decision:"The agent statement applies"}}AGENT_YES{{/if}}`,
+        settings: { resultType: "context_injection" },
+      } as never),
+    );
+    await chats.patchMetadata(chat.id, { enableAgents: true, activeAgentIds: ["custom-reach-pre"] });
+    const agentFrom = decisionBodies.length;
+    const agentTurn = await app.inject({
+      method: "POST",
+      url: "/api/generate/",
+      payload: { chatId: chat.id, userMessage: "Mira climbs the tower stairs." },
+    });
+    assert.equal(agentTurn.statusCode, 200, agentTurn.body);
+    const agentAsked = decisionBodies
+      .slice(agentFrom)
+      .flatMap((body) => Object.values(body.questions).map((q) => q.instructions ?? ""));
+    assert.ok(agentAsked.includes("The agent statement applies"), "the agent's statement is asked");
+    assert.ok(!agentAsked.includes("Ruled out in the card"), "and the agent plan skips what the prompt's skips");
+    await chats.patchMetadata(chat.id, { enableAgents: false, activeAgentIds: [] });
 
     // With nothing for the prompt itself to ask, an entry's answer still reaches the
     // preset's lorebook marker: the prompt builder holds the same answers object.

@@ -1308,11 +1308,16 @@ export async function processLorebooks(
   // pre-scan and the real scan roll the same. An explicit selection (forcedEntriesOnly)
   // is a person's choice and is never gated.
   const usesDecisions = !forcedEntriesOnly && allEntries.some(hasDecisionActivation);
+  // Statements inside entries' text (#6582) are asked only for entries about to
+  // activate, found by the same pure pre-scan, before the real scan resolves them.
+  const resolver = options?.resolveDecisions;
+  const contentDecisions =
+    !!resolver?.answerStatements && allEntries.some((entry) => DECISION_STATEMENT_RE.test(entry.content));
   const decisionAnswers = new Map<string, boolean>();
-  if (usesDecisions) {
-    scanOpts.decisionAnswers = decisionAnswers;
-    scanOpts.probabilityDecisions ??= new Map();
-  }
+  if (usesDecisions) scanOpts.decisionAnswers = decisionAnswers;
+  // One set of probability rolls for the pre-scan and the real scan, so an entry the
+  // real scan activates is one the pre-scan found and asked about.
+  if (usesDecisions || contentDecisions) scanOpts.probabilityDecisions ??= new Map();
   const requiresDecisionAnswer = (entry: LorebookEntry) =>
     entry.decisionMode === "require" && hasDecisionActivation(entry);
 
@@ -1324,11 +1329,6 @@ export async function processLorebooks(
     ...(options?.ignoreForcedEntryProbability ? { ignoreProbability: true } : {}),
   };
 
-  // Statements inside entries' text (#6582) are asked only for entries about to
-  // activate, found by the same pure pre-scan, before the real scan resolves them.
-  const resolver = options?.resolveDecisions;
-  const contentDecisions =
-    !!resolver?.answerStatements && allEntries.some((entry) => DECISION_STATEMENT_RE.test(entry.content));
   if ((usesDecisions && resolver) || contentDecisions) {
     const statementsById = new Map(allEntries.map((entry) => [entry.id, entry.decisionStatement]));
     // Recursion reads each activated entry's macro-resolved text, so discovery does
