@@ -60,6 +60,7 @@ import {
   type MariDbValidationIssue,
   type MariDbValidationResult,
   MARI_PERMISSIONS_MODE_SETTINGS_KEY,
+  lorebookDecisionModeSchema,
   parseLorebookDecisionActivation,
 } from "@marinara-engine/shared";
 import { computePersonalExtensionHash } from "../extensions/personal-extension-hash.js";
@@ -3142,15 +3143,20 @@ export class MariDbService {
     changed = assignNumberField(target, source, ["depth"], "depth") || changed;
     changed = assignStringField(target, source, ["role"], "role") || changed;
     changed = assignStringField(target, source, ["group"], "group") || changed;
-    // Decision activation (#6570), limited and validated like the entry API.
-    const decisionStatement = firstString(source, ["decisionStatement", "decision_statement"]);
-    if (decisionStatement !== undefined) {
-      target.decisionStatement = parseLorebookDecisionActivation({ decisionStatement }).decisionStatement;
+    // Decision activation (#6570), limited and validated like the entry API. An empty
+    // statement clears it; an unknown mode is refused rather than turned off.
+    const statementKey = ["decisionStatement", "decision_statement"].find((key) => typeof source[key] === "string");
+    if (statementKey !== undefined) {
+      target.decisionStatement = parseLorebookDecisionActivation({
+        decisionStatement: source[statementKey],
+      }).decisionStatement;
       changed = true;
     }
     const decisionMode = firstString(source, ["decisionMode", "decision_mode"]);
     if (decisionMode !== undefined) {
-      target.decisionMode = parseLorebookDecisionActivation({ decisionMode }).decisionMode;
+      const parsedMode = lorebookDecisionModeSchema.safeParse(decisionMode.toLowerCase());
+      if (!parsedMode.success) throw new Error(`decisionMode must be off, require or trigger, not "${decisionMode}"`);
+      target.decisionMode = parsedMode.data;
       changed = true;
     }
     changed = assignBooleanTextField(target, source, ["selective"], "selective") || changed;

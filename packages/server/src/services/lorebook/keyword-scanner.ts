@@ -602,19 +602,23 @@ export function scanForActivatedEntries(
       regexExecutor: vmRegexExecutor,
     };
 
+    // A Trigger statement can activate the entry whenever its keywords do not: the
+    // primary keys miss, or they match but the secondary-key logic rejects them.
+    const tryDecisionTrigger = () => {
+      if (!triggersOnDecision(entry) || !passesEntryProbability(entry) || !decisionIsYes(entry)) return;
+      activated.push({
+        entry,
+        matchedKeys: ["[decision]"],
+        activationSources: ["decision"],
+        injectionOrder: entry.order,
+      });
+      activatedIds.add(entry.id);
+    };
+
     // Test primary keys
     const { matched, matchedKeys } = testPrimaryKeys(entry.keys, entryScanText, matchOptions);
     if (!matched) {
-      // A Trigger statement can activate the entry without its keywords.
-      if (triggersOnDecision(entry) && passesEntryProbability(entry) && decisionIsYes(entry)) {
-        activated.push({
-          entry,
-          matchedKeys: ["[decision]"],
-          activationSources: ["decision"],
-          injectionOrder: entry.order,
-        });
-        activatedIds.add(entry.id);
-      }
+      tryDecisionTrigger();
       continue;
     }
     const matchedCurrentContext =
@@ -623,6 +627,7 @@ export function scanForActivatedEntries(
     // Test secondary keys (selective mode)
     if (entry.selective && entry.secondaryKeys.length > 0) {
       if (!testSecondaryKeys(entry.secondaryKeys, entryScanText, entry.selectiveLogic, matchOptions)) {
+        tryDecisionTrigger();
         continue;
       }
     }

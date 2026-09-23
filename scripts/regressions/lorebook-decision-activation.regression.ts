@@ -49,7 +49,26 @@ const neverRolls = entry({
 });
 const constantRequire = entry({ constant: true, decisionMode: "require", decisionStatement: "A fight is happening" });
 const emptyStatement = entry({ keys: ["dragon"], decisionMode: "require", decisionStatement: "  " });
-const all = [require_, trigger, triggerByKey, plain, unmatched, neverRolls, constantRequire, emptyStatement];
+// The primary key matches but the secondary-key logic rejects it: the keywords fail, so
+// the Trigger statement decides.
+const selectiveTrigger = entry({
+  keys: ["dragon"],
+  selective: true,
+  secondaryKeys: ["tavern"],
+  decisionMode: "trigger",
+  decisionStatement: "The dragon is hostile",
+});
+const all = [
+  require_,
+  trigger,
+  triggerByKey,
+  plain,
+  unmatched,
+  neverRolls,
+  constantRequire,
+  emptyStatement,
+  selectiveTrigger,
+];
 
 const scan = (answers?: Map<string, boolean>) => {
   const pendingDecisions = new Set<string>();
@@ -64,7 +83,7 @@ const scan = (answers?: Map<string, boolean>) => {
 let result = scan();
 assert.deepEqual(
   [...result.pending].sort(),
-  [require_.id, trigger.id, constantRequire.id].sort(),
+  [require_.id, trigger.id, constantRequire.id, selectiveTrigger.id].sort(),
   "only entries that would otherwise activate wait on a statement",
 );
 assert.ok(result.ids.has(plain.id) && result.ids.has(triggerByKey.id), "keywords still activate");
@@ -76,8 +95,10 @@ result = scan(
     [require_.id, true],
     [trigger.id, true],
     [constantRequire.id, false],
+    [selectiveTrigger.id, true],
   ]),
 );
+assert.ok(result.ids.has(selectiveTrigger.id), "Trigger: activated when the secondary keys reject the match");
 assert.equal(result.pending.size, 0);
 assert.ok(result.ids.has(require_.id), "Require: keywords matched and the statement is true");
 assert.ok(!result.ids.has(constantRequire.id), "Require on a constant entry makes it situational");
@@ -377,12 +398,45 @@ try {
     );
     const native = await app.inject({ method: "GET", url: `/api/lorebooks/${book.id}/export` });
     assert.equal(native.statusCode, 200, native.body);
+    const booksBefore = new Set(((await lorebooks.list()) as Array<{ id: string }>).map((b) => b.id));
     const nativeImport = await importMarinara(native.json(), db);
     assert.equal(nativeImport.success, true, JSON.stringify(nativeImport));
-    const nativeBooks = (await lorebooks.list()) as Array<{ id: string; name: string }>;
-    const nativeCopy = nativeBooks.filter((b) => b.name.startsWith("Decision lore")).at(-1)!;
+    const nativeCopy = ((await lorebooks.list()) as Array<{ id: string }>).find((b) => !booksBefore.has(b.id));
+    assert(nativeCopy, "the native import created a new lorebook");
     const nativeEntries = await lorebooks.listEntries(nativeCopy.id);
     assert.equal(nativeEntries.find((e: { name: string }) => e.name === "Scale")?.decisionMode, "require");
+
+    // ── Professor Mari reads and writes the fields like the entry API ─────────
+    const { MariDbService } = await import("../../packages/server/src/services/mari-db/mari-db.service.js");
+    const mariDb = new MariDbService(db);
+    const created = await mariDb.executeAction({
+      action: "lorebook.createEntry",
+      lorebookId: genBook.id,
+      data: { name: "Mari entry", content: "x", decisionMode: "Trigger", decisionStatement: "A storm breaks" },
+      apply: true,
+    });
+    assert.equal(created.ok, true, JSON.stringify(created));
+    const mariEntry = (await lorebooks.listEntries(genBook.id)).find((e: { name: string }) => e.name === "Mari entry")!;
+    assert.equal(mariEntry.decisionMode, "trigger");
+    assert.equal(mariEntry.decisionStatement, "A storm breaks");
+    const cleared = await mariDb.executeAction({
+      action: "lorebook.updateEntry",
+      entryId: mariEntry.id,
+      patch: { decisionStatement: "" },
+      apply: true,
+    });
+    assert.equal(cleared.ok, true, JSON.stringify(cleared));
+    assert.equal((await lorebooks.getEntry(mariEntry.id))!.decisionStatement, "", "an empty statement clears it");
+    const refused = await mariDb
+      .executeAction({
+        action: "lorebook.updateEntry",
+        entryId: mariEntry.id,
+        patch: { decisionMode: "sometimes" },
+        apply: true,
+      })
+      .catch((error: Error) => ({ ok: false, error: error.message }));
+    assert.equal(refused.ok, false, "an unknown mode is refused, not turned off");
+    assert.equal((await lorebooks.getEntry(mariEntry.id))!.decisionMode, "trigger");
 
     console.log("lorebook-decision-activation regression passed");
   } finally {
