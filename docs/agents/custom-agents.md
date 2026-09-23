@@ -146,6 +146,14 @@ Entries that cannot answer right now stay in the list, greyed out with the reaso
 
 Once a model is chosen, **Also use it to pick who speaks in Smart response order** lets the same model choose the next speaker in group chats. It is off by default. See [Group Chats](../chats/group-chats.md#response-order-individual-only).
 
+### Which one to pick
+
+You do not need a special decision service. The local model you already run is often the best choice: in our tests, a mid-sized local model such as Gemma 4 E4B answered as well as or better than the small purpose-built Open-Jev 2B. A hosted Decision connection and the installable decision model are options for people who do not run a local model, or who want a separate one.
+
+**On Android (Termux),** the installable decision model cannot run, because it needs a PC with an NVIDIA GPU. A small local model on a phone's processor may also be too slow for the 4-second budget. If you want to try activation questions on a phone, a hosted Decision connection is the practical choice, for example Jev through OpenRouter. See [Set up a Decision connection](#set-up-a-decision-connection).
+
+Nothing here is required. With **Decision model** set to **None**, or when the chosen model does not answer in time, nothing breaks: an agent with a question runs as if it had no question, and Smart response order makes its usual AI call.
+
 ### Use a model you already run
 
 If you have a local model in **Local Model**, you can gate agents with it and never create a connection or pay for a request.
