@@ -148,10 +148,13 @@ export function resolveDecisionConnectionTimeoutMs(value: unknown): number {
 }
 
 /**
- * How long the Test button waits. Well past the default limit, so a slow answer is
- * reported with its real time instead of as the same timeout a dead endpoint gives.
+ * How long the Test button waits: at least 10 s, and 5 s past a longer limit. Always
+ * past the connection's own limit, so a slow answer is reported with its real time
+ * instead of as the same timeout a dead endpoint gives.
  */
-export const DECISION_TEST_TIMEOUT_MS = 10_000;
+export function decisionTestTimeoutMs(timeLimitMs: number): number {
+  return Math.max(10_000, timeLimitMs + 5_000);
+}
 
 /** Token budget for a reasoning model to finish thinking and then answer. */
 export const DECISION_THINKING_MAX_TOKENS = 1024;

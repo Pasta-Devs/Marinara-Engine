@@ -76,7 +76,7 @@ A model that thinks first takes seconds, so by default it only answers for thing
 1. In **Connections**, create a connection with provider **Decision**.
 2. Choose **TypeSafe**, **OpenRouter**, or **Custom System One endpoint**. Hosted sources need an API key. Custom accepts a System One server you already run, including Open-Jev; enter its base URL without `/v1/systemone` and use the model name it supports.
 3. For OpenRouter, choose a saved OpenRouter connection under **API key source**, or enter a separate key. Its editor also offers **Use this key for decisions (Jev)**. Linked keys follow later key changes automatically. Custom connections may borrow a custom chat connection's key only when both URLs have the same origin (scheme, host, and port).
-4. Save, then select it under **Decision model** and click **Test**. A successful result shows the probability, how long the answer took, and the connection's time limit. Test waits at least 10 seconds, so a slow answer is reported with its real time. If it took longer than the time limit, the result says so: during chats that answer would count as no answer.
+4. Save, then select it under **Decision model** and click **Test**. A successful result shows the probability, how long the answer took, and the connection's time limit. Test waits at least 10 seconds, and 5 seconds past a longer limit, so a slow answer is reported with its real time. If it took longer than the time limit, the result says so: during chats that answer would count as no answer.
 
 The Decision default is separate from your chat, agent, image, video, and audio defaults. Choosing **None** turns decisions off without deleting any activation questions or decision statements.
 

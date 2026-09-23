@@ -11,7 +11,6 @@ import {
   ATLAS_CLOUD_IMAGE_MODELS,
   ATLAS_CLOUD_VIDEO_MODELS,
   ZAI_IMAGE_MODELS,
-  DECISION_TEST_TIMEOUT_MS,
   FAL_IMAGE_MODELS,
   IMAGE_DEFAULTS_STORAGE_KEY,
   MODEL_LISTS,
@@ -19,6 +18,7 @@ import {
   connectionImageCaptioningDefaultsSchema,
   createConnectionSchema,
   createDefaultVideoGenerationProfile,
+  decisionTestTimeoutMs,
   generationParametersSchema,
   inferImageSource,
   inferVideoSource,
@@ -610,7 +610,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
         // Waits past the connection's own limit so a slow answer comes back with its
         // real time. The client compares that time with `timeLimitMs`, the limit chats use.
         const timeLimitMs = resolved.connection.timeoutMs;
-        const testTimeoutMs = Math.max(DECISION_TEST_TIMEOUT_MS, timeLimitMs ?? 0);
+        const testTimeoutMs = decisionTestTimeoutMs(timeLimitMs ?? 0);
         const result = await askNoulQuestions({
           connection: resolved.connection,
           state: { recent_messages: [{ role: "user", name: "User", content: "The door is open." }] },

@@ -7,6 +7,7 @@ import type { TFunction } from "i18next";
 import {
   createConnectionSchema,
   DECISION_TIMEOUT_MS,
+  decisionTestTimeoutMs,
   resolveDecisionConnectionTimeoutMs,
 } from "../../packages/shared/src/index.js";
 import { resolveDecisionConnection } from "../../packages/server/src/services/decision/decision-connection.js";
@@ -32,9 +33,13 @@ const decisionInput = { name: "Decision", provider: "decision", decisionSource: 
 assert.equal(createConnectionSchema.parse(decisionInput).decisionTimeoutMs, null, "unset means the default");
 assert.throws(() => createConnectionSchema.parse({ ...decisionInput, decisionTimeoutMs: 100 }));
 assert.throws(() => createConnectionSchema.parse({ ...decisionInput, decisionTimeoutMs: 60_000 }));
+assert.equal(decisionTestTimeoutMs(1500), 10_000, "Test waits at least 10 s");
+assert.equal(decisionTestTimeoutMs(30_000), 35_000, "and past a long limit, so a late answer still shows its time");
 
 // ── the Test message ─────────────────────────────────────────────────────────
 
+// The same formatting the message uses, so the check holds in any locale.
+const seconds = (value: number) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
 const t = ((key: string, options?: Record<string, unknown>) =>
   options && Object.keys(options).length > 0 ? `${key} ${JSON.stringify(options)}` : key) as unknown as TFunction;
 const within = decisionConnectionTestMessage(t, {
@@ -47,7 +52,7 @@ const within = decisionConnectionTestMessage(t, {
 });
 assert.equal(within.ok, true);
 assert.match(within.message, /^connections\.decision\.testSuccess /);
-assert.match(within.message, /"limit":"1\.5"/);
+assert.ok(within.message.includes(`"limit":"${seconds(1.5)}"`), within.message);
 const slow = decisionConnectionTestMessage(t, {
   success: true,
   message: "",
@@ -58,7 +63,7 @@ const slow = decisionConnectionTestMessage(t, {
 });
 assert.equal(slow.ok, false, "an answer after the limit is no answer during chats");
 assert.match(slow.message, /^connections\.decision\.testTooSlow /);
-assert.match(slow.message, /"seconds":"1\.84"/);
+assert.ok(slow.message.includes(`"seconds":"${seconds(1.84)}"`), slow.message);
 const gaveUp = decisionConnectionTestMessage(t, {
   success: false,
   message: "",
@@ -70,7 +75,7 @@ const gaveUp = decisionConnectionTestMessage(t, {
 });
 assert.equal(gaveUp.ok, false);
 assert.match(gaveUp.message, /connections\.decision\.errors\.testTimeout/);
-assert.match(gaveUp.message, /seconds\W+10\b/, "it names how long the Test waited");
+assert.ok(gaveUp.message.includes(`seconds\\":\\"${seconds(10)}`), gaveUp.message);
 
 // ── storage, chats and the Test route ────────────────────────────────────────
 
@@ -155,7 +160,7 @@ try {
   delayMs = 0;
   await storage.update(connection.id, { decisionTimeoutMs: 12_000 });
   const longTest = (await app.inject({ method: "POST", url: `/connections/${connection.id}/test` })).json();
-  assert.equal(longTest.testTimeoutMs, 12_000, "a limit above the Test's wait extends the wait");
+  assert.equal(longTest.testTimeoutMs, 17_000, "a long limit extends the wait past it");
   assert.equal(decisionConnectionTestMessage(t, longTest).ok, true);
 
   // Duplicates keep it, and clearing it returns to the default.
