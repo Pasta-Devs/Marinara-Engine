@@ -15,6 +15,7 @@ const dataDir = join(root, "data");
 const binDir = join(root, "bin");
 const spawnMarker = join(root, "spawned.log");
 const gpuState = join(root, "gpu-state");
+const noCapability = join(root, "no-compute-capability");
 mkdirSync(dataDir, { recursive: true });
 mkdirSync(binDir, { recursive: true });
 process.env.DATA_DIR = dataDir;
@@ -32,6 +33,13 @@ case "$1" in
   --query-compute-apps*) exit 0 ;;
 esac
 read total used < "${gpuState}"
+# An old or odd driver that rejects the compute_cap column: the detailed query fails
+# and only the fallback answers.
+if [ -e "${noCapability}" ]; then
+  case "$1" in *compute_cap*) exit 6 ;; esac
+  echo "0, GPU-fake, NVIDIA Fake, $total, $used, 615.71.09"
+  exit 0
+fi
 echo "0, GPU-fake, NVIDIA Fake, $total, $used, 615.71.09, 12.0"
 `,
 );
@@ -324,10 +332,18 @@ exec sleep 30
     "not_enough_disk",
     "a model still to download needs the space",
   );
+  // A capability the probe could not read refuses a download, not a launch.
+  writeFileSync(noCapability, "");
+  const unknownBefore = await preflightDecisionModel(model, { fresh: true });
+  assert.equal(unknownBefore.assessment.verdict, "unsupported", "an unreadable capability refuses the download");
+  assert.match(unknownBefore.reason ?? "", /Could not read this GPU's compute capability/u);
   for (const artifact of model.artifacts) {
     mkdirSync(artifactSnapshotPath(artifact), { recursive: true });
     writeFileSync(join(artifactSnapshotPath(artifact), ".marinara-download.json"), "{}");
   }
+  const unknownAfter = await preflightDecisionModel(model, { fresh: true });
+  assert.notEqual(unknownAfter.assessment.verdict, "unsupported", "and does not stop an installed model launching");
+  rmSync(noCapability);
   const installed = await preflightDecisionModel(huge, { fresh: true });
   assert.notEqual(installed.assessment.verdict, "not_enough_disk", "an installed model reaches the memory check");
   assert.equal(installed.installable, true);

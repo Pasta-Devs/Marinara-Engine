@@ -50,15 +50,26 @@ export interface DecisionPreflight {
  * a driver is updatable, a GPU generation is not, and telling the two apart is the
  * difference between a fixable message and a dead end.
  */
-function platformReason(model: SidecarDecisionModelInfo, device: GpuDevice | null): string | null {
+function platformReason(
+  model: SidecarDecisionModelInfo,
+  device: GpuDevice | null,
+  options: { beforeDownload: boolean },
+): string | null {
   if (!isDecisionRuntimeSupported()) return "Requires Linux with an NVIDIA GPU";
   const platform = model.platforms.find((entry) => entry.os === process.platform && entry.arch === process.arch);
   if (!platform) return `Requires ${model.platforms.map((entry) => `${entry.os} ${entry.arch}`).join(" or ")}`;
   if (!device) return "Requires an NVIDIA GPU";
   if (compareDriverVersions(device.driverVersion, platform.minDriver) < 0)
     return `Your NVIDIA driver is older than ${platform.minDriver}`;
-  if (!meetsComputeCapability(device, model.minComputeCapability))
+  const capable = meetsComputeCapability(device, model.minComputeCapability);
+  if (capable === false)
     return `Requires an NVIDIA GPU of compute capability ${model.minComputeCapability} or newer (Turing and later)`;
+  // Unknown. Before a download that is a refusal, because approving it is exactly the
+  // ten gigabytes the capability check exists to save. Once the model is on disk it
+  // is not: a card that launched it before has not changed, and refusing to start
+  // over one failed query would stop a working install.
+  if (capable === null && options.beforeDownload)
+    return "Could not read this GPU's compute capability, so Marinara cannot tell whether it can run this model. Try again, or update the NVIDIA driver";
   return null;
 }
 
@@ -104,16 +115,16 @@ export async function preflightDecisionModel(
   const device = chosen
     ? (probe.devices.find((entry) => entry.index === cudaIndex) ?? null)
     : (probe.devices.find((entry) => entry.index === cudaIndex) ?? resolveSharedDevice(probe.devices, null));
-  const unsupportedReason =
-    chosen && !device && probe.devices.length > 0
-      ? `The GPU chosen for the decision model (device ${cudaIndex}) is not present`
-      : platformReason(model, device);
   // Free disk only matters for something still to be downloaded. An installed model
   // has already spent its ten gigabytes, so the disk is often below that figure
   // afterwards, and asking for it again would both show "Needs about 10 GB free" for
   // a model that is sitting there and, because disk is judged before memory, hide the
   // launch-time memory recheck behind a verdict that says nothing about the GPU.
   const onDisk = decisionRuntimeInstalled() && decisionRuntimeService.modelDownloaded(model);
+  const unsupportedReason =
+    chosen && !device && probe.devices.length > 0
+      ? `The GPU chosen for the decision model (device ${cudaIndex}) is not present`
+      : platformReason(model, device, { beforeDownload: !onDisk });
   const free = onDisk ? null : await freeDiskBytes();
 
   // The candidate is weighed as a configured slot alongside whatever else is running,

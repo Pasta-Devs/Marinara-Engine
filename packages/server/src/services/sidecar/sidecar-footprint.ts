@@ -228,13 +228,15 @@ export function assessSidecarLoad(args: {
  *
  * The pinned PyTorch build ships `sm_75` and up. A Pascal card has plenty of memory
  * and a current driver and still cannot run it, so without this check the preflight
- * would approve a ten gigabyte download that fails at load. An unknown capability is
- * not treated as a failure: a driver too old to report it is caught by the driver
- * check instead, and inventing a refusal from a missing column is worse than letting
- * the launch-time error speak.
+ * would approve a ten gigabyte download that fails at load.
+ *
+ * Null when the probe could not read the capability. Every driver new enough for the
+ * runtime reports it, so an unknown value usually means the detailed query failed
+ * and the fallback answered. What to do about that depends on whether anything is
+ * still to be downloaded, so the caller decides.
  */
-export function meetsComputeCapability(device: GpuDevice, minimum: string): boolean {
-  if (!device.computeCapability) return true;
+export function meetsComputeCapability(device: GpuDevice, minimum: string): boolean | null {
+  if (!device.computeCapability) return null;
   return compareDriverVersions(device.computeCapability, minimum) >= 0;
 }
 
@@ -258,9 +260,10 @@ async function runProbe(): Promise<{ probe: GpuProbe; usageByPid: Map<number, nu
         timeout: PROBE_TIMEOUT_MS,
         windowsHide: true,
       }).catch(() =>
-        // Without compute capability the preflight cannot rule a GPU generation out,
-        // and `meetsComputeCapability` treats an absent value as unknown rather than
-        // as a failure. That is the right trade against losing the probe entirely.
+        // Without compute capability the preflight cannot rule a GPU generation out.
+        // Keeping the device is still better than losing the probe entirely: the
+        // preflight refuses a download it cannot vouch for, and a model already on
+        // disk can still be weighed for memory and launched.
         execFileAsync("nvidia-smi", [`--query-gpu=${NVIDIA_SMI_BASE_QUERY}`, "--format=csv,noheader,nounits"], {
           timeout: PROBE_TIMEOUT_MS,
           windowsHide: true,
