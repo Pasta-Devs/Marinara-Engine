@@ -768,6 +768,8 @@ export function recursiveScan(
   entries: LorebookEntry[],
   options: ScanOptions = {},
   maxDepth: number = 3,
+  /** Which entries take part in recursion, both driving it and being reached by it. */
+  canRecurse: (entry: LorebookEntry) => boolean = () => true,
 ): ActivatedEntry[] {
   const probabilityDecisions = options.probabilityDecisions ?? new Map<string, boolean>();
   const scanOptions = { ...options, probabilityDecisions };
@@ -778,14 +780,14 @@ export function recursiveScan(
   for (let depth = 0; depth < maxDepth; depth++) {
     // Build text from newly activated entries, excluding those with preventRecursion
     const newContent = newlyActivated
-      .filter((a) => !a.entry.preventRecursion)
+      .filter((a) => !a.entry.preventRecursion && canRecurse(a.entry))
       .map((a) => a.entry.content)
       .join("\n");
 
     if (!newContent) break;
 
     // Scan remaining entries against the content of activated entries
-    const remaining = entries.filter((e) => !activatedIds.has(e.id) && !e.excludeRecursion);
+    const remaining = entries.filter((e) => !activatedIds.has(e.id) && !e.excludeRecursion && canRecurse(e));
     const newMessages: ScanMessage[] = [{ role: "system", content: newContent }];
     const newActivated = scanForActivatedEntries(newMessages, remaining, {
       ...scanOptions,

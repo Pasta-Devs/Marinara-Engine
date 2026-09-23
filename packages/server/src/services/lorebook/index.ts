@@ -1332,7 +1332,16 @@ export async function processLorebooks(
     for (let round = 0; round < 2; round++) {
       const pendingDecisions = new Set<string>(round === 0 ? locationRequireIds : []);
       const preScanOpts = { ...scanOpts, pendingDecisions };
-      if (anyRecursive) recursiveScan(messages, discoveryEntries, preScanOpts, maxRecursionDepth);
+      // Recursion scoped exactly as the real scan scopes it, so discovery never asks
+      // about an entry recursion cannot reach there.
+      if (anyRecursive)
+        recursiveScan(
+          messages,
+          discoveryEntries,
+          preScanOpts,
+          maxRecursionDepth,
+          options?.enableRecursive ? undefined : (entry) => recursiveLorebookIds.has(entry.lorebookId),
+        );
       else scanForActivatedEntries(messages, discoveryEntries, preScanOpts);
       const toAsk = [...pendingDecisions].filter((id) => !decisionAnswers.has(id));
       if (toAsk.length === 0) break;

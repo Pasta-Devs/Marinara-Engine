@@ -351,6 +351,38 @@ try {
   await lorebooks.removeEntry(revealed.id);
   await lorebooks.removeEntry(located.id);
 
+  // Discovery recurses only where the real scan does: a book with recursion off is
+  // never reached through another book's text, so its statement is never asked.
+  const recursiveBook = await lorebooks.create({ name: "Recursive book", recursiveScanning: true });
+  const flatBook = await lorebooks.create({ name: "Flat book", recursiveScanning: false });
+  assert(recursiveBook && flatBook);
+  await lorebooks.createEntry({
+    lorebookId: recursiveBook.id,
+    name: "Driver",
+    content: "A vault door stands at the end of the hall.",
+    keys: ["lantern"],
+    preventRecursion: false,
+  } as never);
+  await lorebooks.createEntry({
+    lorebookId: flatBook.id,
+    name: "Vault",
+    content: "VAULT_LORE",
+    keys: ["vault"],
+    decisionMode: "require",
+    decisionStatement: "The vault is open",
+  } as never);
+  const scopedAsks: string[] = [];
+  await processLorebooks(db, [{ role: "user", content: "A lantern swings." }], null, {
+    activeLorebookIds: [recursiveBook.id, flatBook.id],
+    previewOnly: true,
+    random: () => 0.5,
+    resolveDecisions: async (requests: Array<{ entryId: string; statement: string }>) => {
+      scopedAsks.push(...requests.map((r) => r.statement));
+      return new Map(requests.map((r) => [r.entryId, true]));
+    },
+  });
+  assert.ok(!scopedAsks.includes("The vault is open"), "no statement is asked outside the recursion scope");
+
   // ── generation, the per-turn cache and Peek Prompt ───────────────────────────
 
   let noul = 0.9;
