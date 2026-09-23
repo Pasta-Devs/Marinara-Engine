@@ -1,45 +1,59 @@
 import assert from "node:assert/strict";
+import { once, type EventEmitter } from "node:events";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import type { Worker } from "node:worker_threads";
 
 // Outside production the server logs through pino-pretty in a thread-stream worker, which keeps the
 // process alive until its READY handshake sees the read index reach a write index snapshotted earlier.
 // thread-stream 4.2.0 compared with ===, so a read that jumped past the snapshot, or an index reset
 // under it, never completed the handshake and the process could not exit (#6529). pnpm-workspace.yaml
-// patches in the upstream fix; this pins the behavior through the copy pino actually loads.
-type Wait = (
-  state: Int32Array,
-  index: number,
-  expected: number,
-  timeout: number,
-  done: (error: Error | null, result: string) => void,
-) => void;
+// patches in the upstream fix. This drives the copy pino loads through thread-stream's own worker hook.
+type ThreadStream = EventEmitter & { write(data: string): boolean; worker: Worker };
 const serverRequire = createRequire(new URL("../../packages/server/package.json", import.meta.url));
 const pinoRequire = createRequire(serverRequire.resolve("pino"));
-const { wait } = pinoRequire("thread-stream/lib/wait.js") as { wait: Wait };
+const ThreadStream = pinoRequire("thread-stream") as new (options: object) => ThreadStream;
+const worker = fileURLToPath(new URL("./fixtures/thread-stream-ready-worker.cjs", import.meta.url));
+Object.assign(globalThis, { __bundlerPathsOverrides: { "thread-stream-worker": worker } });
 
-function waitFor(state: Int32Array, expected: number, timeoutMs: number) {
-  return new Promise<string>((resolve, reject) => {
-    // A pending Atomics.waitAsync does not hold the event loop open, so this timer does.
-    const guard = setTimeout(() => resolve("no result"), timeoutMs + 1_000);
-    wait(state, 0, expected, timeoutMs, (error, result) => {
-      clearTimeout(guard);
-      if (error) reject(error);
-      else resolve(result);
-    });
+async function becomesReady(firstWrite: string, onStartupWrite: (stream: ThreadStream) => void) {
+  const stream = new ThreadStream({
+    filename: worker,
+    sync: true,
+    bufferSize: 4,
+    workerData: { indexes: pinoRequire.resolve("thread-stream/lib/indexes.js") },
   });
+  stream.on("error", () => undefined);
+  stream.on("startup-write", () => onStartupWrite(stream));
+  // Written before the worker starts, so the READY handshake snapshots it.
+  stream.write(firstWrite);
+  let timer: NodeJS.Timeout | undefined;
+  const ready = await Promise.race([
+    once(stream, "ready").then(() => true),
+    new Promise<boolean>((resolve) => (timer = setTimeout(resolve, 5_000, false))),
+  ]);
+  clearTimeout(timer);
+  const closed = once(stream, "close");
+  stream.worker.postMessage({ code: "SHUTDOWN" });
+  await closed;
+  return ready;
 }
 
-const overshot = new Int32Array(new SharedArrayBuffer(4));
-Atomics.store(overshot, 0, 700);
-assert.equal(await waitFor(overshot, 350, 500), "ok", "A read index past the snapshot must complete the handshake");
+assert.ok(
+  await becomesReady("a", (stream) => {
+    stream.write("b");
+    stream.worker.postMessage({ code: "ADVANCE" });
+  }),
+  "A read index that jumps past the READY snapshot must still complete the handshake",
+);
 
-const reset = new Int32Array(new SharedArrayBuffer(4));
-Atomics.store(reset, 0, 350);
-const pending = waitFor(reset, 900, 2_000);
-setTimeout(() => {
-  Atomics.store(reset, 0, 0);
-  Atomics.notify(reset, 0);
-}, 20);
-assert.equal(await pending, "not-equal", "An index reset must hand control back so the handshake can snapshot again");
+assert.ok(
+  await becomesReady("aa", (stream) => {
+    stream.worker.postMessage({ code: "READ_ALONG" });
+    // Overfills the 4-byte buffer, so writeSync runs flushSync and resetIndexes twice under the handshake.
+    stream.write("bbbbbbb");
+  }),
+  "Index resets under the READY snapshot must still complete the handshake",
+);
 
 console.info("Log worker ready regression passed");
