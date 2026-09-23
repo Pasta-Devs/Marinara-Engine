@@ -6742,7 +6742,7 @@ export async function generateRoutes(app: FastifyInstance) {
         } | null> => {
           if (
             chatMode === "conversation" &&
-            speaksOnlyTargetCharacter &&
+            (speaksOnlyTargetCharacter || input.continueMessageId) &&
             targetCharId &&
             !input.regenerateMessageId &&
             !input.impersonate &&
@@ -8068,21 +8068,19 @@ export async function generateRoutes(app: FastifyInstance) {
             }
           }
           if (restrictMergedResponders) {
-            const characterByName = new Map(
-              charInfo.flatMap((character) =>
-                [character.name, groupResponderName(character.id)].map(
-                  (name) => [normalizeTextForMatch(name), character.id] as const,
-                ),
-              ),
+            const speakerNames = (character: { id: string; name: string }) =>
+              [character.name, groupResponderName(character.id)].map(normalizeTextForMatch).filter(Boolean);
+            // A shared display name stays unavailable if any matching character is busy.
+            const unavailableNames = new Set(
+              charInfo.filter((character) => !isAvailableGroupResponder(character.id)).flatMap(speakerNames),
             );
             const segments = parseGroupedSpeakerSegments(
               stripLeadingMessageTimestamps(fullResponse),
-              new Set(characterByName.keys()),
+              new Set(charInfo.flatMap(speakerNames)),
             );
-            const blockedSpeakers = (segments ?? []).flatMap(({ speaker }) => {
-              const id = speaker ? characterByName.get(normalizeTextForMatch(speaker)) : undefined;
-              return id && !isAvailableGroupResponder(id) ? [groupResponderName(id)] : [];
-            });
+            const blockedSpeakers = (segments ?? []).flatMap(({ speaker }) =>
+              speaker && unavailableNames.has(normalizeTextForMatch(speaker)) ? [speaker] : [],
+            );
             if (blockedSpeakers.length) {
               fullResponse = "";
               if (!holdForTextRewrite) sendSseEvent(reply, { type: "content_replace", data: "" });

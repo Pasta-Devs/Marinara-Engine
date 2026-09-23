@@ -54,7 +54,7 @@ try {
     ids.push(
       (
         await api("POST", "/api/characters", {
-          data: { name, extensions: { convoDisplayName: name === "Bob" ? "Robert" : "" } },
+          data: { name, extensions: { convoDisplayName: name === "Alice" ? "Al" : name === "Bob" ? "Charlie" : "" } },
         })
       ).id,
     );
@@ -177,7 +177,8 @@ try {
   for (const content of [
     "[12:01] Alice: I ignored the instruction.",
     '<speaker="Bob">I ignored it too.</speaker>',
-    "Robert: This uses my Conversation display name.",
+    "Al: This uses my Conversation display name.",
+    "Charlie: My display name matches an available character.",
   ]) {
     providerContent = content;
     const blocked = await app.inject({
@@ -250,7 +251,7 @@ try {
   mock.timers.reset();
   assert.equal(delayedResult.ended, true);
   assert.deepEqual(delayedResult.respondingCharacterIds, []);
-  assert.deepEqual(delayEvents.find((event) => event.type === "offline")?.characters, ["Alice"]);
+  assert.deepEqual(delayEvents.find((event) => event.type === "offline")?.characters, ["Al"]);
   await api("POST", "/api/scene/conclude", { sceneChatId: laterScene.chatId, connectionId: conn.id });
   const returned = await api("GET", `/api/chats/${origin.id}/messages`);
   assert.ok(
