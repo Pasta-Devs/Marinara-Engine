@@ -81,6 +81,8 @@ export const apiConnections = fileTable("api_connections", {
   decisionSource: text("decision_source"),
   credentialsFromConnectionId: text("credentials_from_connection_id"),
   maxStateTokens: integer("max_state_tokens"),
+  /** A Decision connection's time limit in milliseconds; null uses the default. */
+  decisionTimeoutMs: integer("decision_timeout_ms"),
   /** Default voice id/name for speech synthesis on this audio connection. */
   audioVoice: text("audio_voice"),
   /** Whether this audio connection may generate game sound effects ("true"/"false"). */

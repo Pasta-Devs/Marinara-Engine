@@ -76,11 +76,13 @@ A model that thinks first takes seconds, so by default it only answers for thing
 1. In **Connections**, create a connection with provider **Decision**.
 2. Choose **TypeSafe**, **OpenRouter**, or **Custom System One endpoint**. Hosted sources need an API key. Custom accepts a System One server you already run, including Open-Jev; enter its base URL without `/v1/systemone` and use the model name it supports.
 3. For OpenRouter, choose a saved OpenRouter connection under **API key source**, or enter a separate key. Its editor also offers **Use this key for decisions (Jev)**. Linked keys follow later key changes automatically. Custom connections may borrow a custom chat connection's key only when both URLs have the same origin (scheme, host, and port).
-4. Save, then select it under **Decision model** and click **Test**. A successful result shows the probability and request time.
+4. Save, then select it under **Decision model** and click **Test**. A successful result shows the probability, how long the answer took, and the connection's time limit. Test waits at least 10 seconds, and 5 seconds past a longer limit, so a slow answer is reported with its real time. If it took longer than the time limit, the result says so: during chats that answer would count as no answer.
 
 The Decision default is separate from your chat, agent, image, video, and audio defaults. Choosing **None** turns decisions off without deleting any activation questions or decision statements.
 
 Hosted decisions send the selected recent messages and the statement to the chosen provider and can incur charges. The **Recent-message token budget** defaults to 30,000 estimated tokens for hosted sources and 3,500 for custom servers. Reduce it if your server has a smaller context limit. Marinara drops older messages first, then trims the oldest portion of the newest message. Token estimates can differ from a server's tokenizer; a rejected or over-budget request gives no answer.
+
+**Time limit (seconds)** is how long each Decision connection waits for an answer during chats, from 0.5 to 30 seconds (1.5 by default). A later answer counts as no answer. Some hosted providers are sometimes slower than 1.5 seconds, which makes decisions look randomly broken, so click **Test** a few times and set the limit above the slowest answer. The trade-off: a statement asked before the reply, such as a decision in a preset or an activation question for an agent that runs before the reply, can hold up the reply for up to this long.
 
 Deleting a connection used for a linked key warns you and leaves the Decision connection needing relinking. Imported standalone connection files also need keys or links restored; they never contain API keys or borrowed connection IDs.
 
@@ -114,7 +116,7 @@ When you switch Decision models, check your activation question thresholds again
 
 A decision that does not arrive in time gives no answer, and no answer never blocks anything.
 
-- **1.5 seconds** for a Decision connection.
+- **1.5 seconds** for a Decision connection, unless you change its **Time limit**. See [Set up a Decision connection](#set-up-a-decision-connection).
 - **4 seconds** for a local model or the decision sidecar. When one turn asks many statements, Open-Jev 9B gets a little more time for each extra one.
 - **20 seconds** for a local model that has to think first.
 
@@ -139,6 +141,7 @@ How to word statements so every model reads them the same way is in [Writing sta
 ## Troubleshooting
 
 - **Test fails.** The message says why: the key was rejected, the provider is rate limiting, the local model is not running, the decision model is not installed, the model did not answer yes or no, or it ran out of time.
+- **Test says the answer was over the time limit, or decisions work only some of the time.** The provider answers more slowly than the connection's **Time limit** at least some of the time. Test a few times and raise the limit above the slowest answer.
 - **An agent with an activation question runs on every turn.** No Decision model is set, or it is not answering, so the agent runs as if it had no question. Check **Test**.
 - **A decision branch in a prompt never appears.** See [When a decision branch never appears](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears).
 - **Smart response order still makes its usual AI call.** The switch is off, or the Decision model did not answer on that turn.

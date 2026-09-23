@@ -1,6 +1,7 @@
 import {
   DECISION_SOURCES,
   defaultDecisionStateTokens,
+  resolveDecisionConnectionTimeoutMs,
   type DecisionSource,
   normalizeImagePromptInstructions,
   resolveOpenAIImageQuality,
@@ -40,6 +41,7 @@ export type ConnectionTransferRow = {
   audioSource?: unknown;
   decisionSource?: unknown;
   maxStateTokens?: unknown;
+  decisionTimeoutMs?: unknown;
   audioVoice?: unknown;
   audioSoundEffects?: unknown;
   audioMusic?: unknown;
@@ -82,6 +84,7 @@ export type SafeConnectionExport = {
   audioSource: string | null;
   decisionSource: DecisionSource | null;
   maxStateTokens: number | null;
+  decisionTimeoutMs: number | null;
   audioVoice: string | null;
   audioSoundEffects: boolean;
   audioMusic: boolean;
@@ -171,6 +174,7 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
         provider === "decision"
           ? asBoundedPositiveInteger(value.maxStateTokens, defaultDecisionStateTokens(decisionSource), 30000)
           : null,
+      decisionTimeoutMs: provider === "decision" ? asDecisionTimeoutMs(value.decisionTimeoutMs) : null,
       credentialsFromConnectionId: null,
       audioSource: provider === "audio" ? asAudioGenerationSource(value.audioSource ?? value.service) : null,
       audioVoice: provider === "audio" ? asNullableString(value.audioVoice) : null,
@@ -228,6 +232,7 @@ function serializeConnectionForExport(connection: ConnectionTransferRow): SafeCo
       provider === "decision"
         ? asBoundedPositiveInteger(connection.maxStateTokens, defaultDecisionStateTokens(decisionSource), 30000)
         : null,
+    decisionTimeoutMs: provider === "decision" ? asDecisionTimeoutMs(connection.decisionTimeoutMs) : null,
     audioSource: isAudioProvider ? asNullableString(connection.audioSource ?? connection.service) : null,
     audioVoice: isAudioProvider ? asNullableString(connection.audioVoice) : null,
     audioSoundEffects: isAudioProvider && asBoolean(connection.audioSoundEffects),
@@ -320,6 +325,14 @@ function asPositiveInteger(value: unknown, fallback: number) {
 
 function asBoundedPositiveInteger(value: unknown, fallback: number, max: number) {
   return Math.min(max, asPositiveInteger(value, fallback));
+}
+
+/** A Decision connection's own time limit, or null to keep the default. */
+function asDecisionTimeoutMs(value: unknown) {
+  // A blank string is unset, not zero: Number(" ") is 0, which would clamp to the minimum.
+  const text = typeof value === "string" ? value.trim() : null;
+  const numberValue = typeof value === "number" ? value : text ? Number(text) : NaN;
+  return Number.isFinite(numberValue) ? resolveDecisionConnectionTimeoutMs(numberValue) : null;
 }
 
 function asNonNegativeInteger(value: unknown, fallback: number) {

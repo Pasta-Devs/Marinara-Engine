@@ -18,6 +18,7 @@ import {
   connectionImageCaptioningDefaultsSchema,
   createConnectionSchema,
   createDefaultVideoGenerationProfile,
+  decisionTestTimeoutMs,
   generationParametersSchema,
   inferImageSource,
   inferVideoSource,
@@ -606,10 +607,15 @@ export async function connectionsRoutes(app: FastifyInstance) {
             latencyMs: Date.now() - start,
             modelName: null,
           };
+        // Waits past the connection's own limit so a slow answer comes back with its
+        // real time. The client compares that time with `timeLimitMs`, the limit chats use.
+        const timeLimitMs = resolved.connection.timeoutMs;
+        const testTimeoutMs = decisionTestTimeoutMs(timeLimitMs ?? 0);
         const result = await askNoulQuestions({
           connection: resolved.connection,
           state: { recent_messages: [{ role: "user", name: "User", content: "The door is open." }] },
           questions: [{ id: "test", instructions: "The door is open." }],
+          timeoutMs: testTimeoutMs,
           debugMode: requestDebug,
         });
         const probability = result.answers.get("test");
@@ -619,6 +625,8 @@ export async function connectionsRoutes(app: FastifyInstance) {
           errorCode: result.error,
           decisionProbability: probability,
           latencyMs: result.latencyMs,
+          timeLimitMs,
+          testTimeoutMs,
           modelName: resolved.connection.model,
         };
       }
