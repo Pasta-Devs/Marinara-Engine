@@ -24,7 +24,7 @@ export function resolveTrackerRowsUpdate(
   identity: "name" | "characterId" = "name",
   canRemove: (row: Record<string, unknown>, index: number) => boolean = () => true,
 ): Record<string, unknown>[] | undefined {
-  if (Array.isArray(value)) return value.filter(isNamedTrackerRow);
+  if (Array.isArray(value)) return value as Record<string, unknown>[];
   if (!isTrackerRowsUpdate(value)) return undefined;
   const rows = previous.filter(isRecord).map((row) => ({ ...row }));
   // Replacements keep these original identities stable for the entire batch.
@@ -83,5 +83,5 @@ export function resolveTrackerRowsUpdate(
       identityRows.push(next);
     }
   }
-  return rows.filter((row, index) => !removed.has(index) && isNamedTrackerRow(row));
+  return rows.filter((_row, index) => !removed.has(index));
 }
