@@ -1,11 +1,19 @@
 import { DECISION_SETTINGS_KEYS, resolveDecisionBackend } from "../services/decision/decision-default.js";
 import {
+  DECISION_TIMERS_METADATA_KEY,
+  decisionTurnFor,
+  heldDecision,
+  readDecisionTimers,
+  type DecisionTimerState,
+} from "../services/decision/decision-timers.js";
+import {
   agentShapedDecisionContext,
   answerPromptDecisions,
   createLorebookDecisionResolver,
   collectDecisionTexts,
   collectTurnDecisionTexts,
   reachableDecisionStatements,
+  type HeldDecisions,
   planPromptDecisions,
   latestTurnDecisionId,
   promptDecisionCacheKey,
@@ -2645,6 +2653,21 @@ export async function generateRoutes(app: FastifyInstance) {
                 : (historyMacroProfilesById.get(message.characterId)?.name ?? "Narrator"),
             content: typeof message.content === "string" ? message.content : "",
           }));
+        // Sticky and cooldown (#6582): the chat's statement timers, moved on to this turn
+        // once the turn is known below, and saved whenever they change.
+        let decisionTiming: { state: DecisionTimerState; turn: number } | undefined;
+        let savedDecisionTimers = JSON.stringify(readDecisionTimers(chatMeta[DECISION_TIMERS_METADATA_KEY]));
+        const saveDecisionTimers = async () => {
+          if (!decisionTiming) return;
+          const next = JSON.stringify(decisionTiming.state);
+          if (next === savedDecisionTimers) return;
+          savedDecisionTimers = next;
+          // The turn count only matters while a timer runs, so a chat without one is not written.
+          if (Object.keys(decisionTiming.state.statements).length === 0 && !chatMeta[DECISION_TIMERS_METADATA_KEY])
+            return;
+          chatMeta[DECISION_TIMERS_METADATA_KEY] = decisionTiming.state;
+          await chats.patchMetadata(input.chatId, { [DECISION_TIMERS_METADATA_KEY]: decisionTiming.state });
+        };
         /** Answer a plan against these messages; undefined when there is nothing to ask or no model. */
         const answerDecisionPlan = async (
           plan: PromptDecisionPlan,
@@ -2665,12 +2688,13 @@ export async function generateRoutes(app: FastifyInstance) {
               );
               return undefined;
             }
-            return await answerPromptDecisions({
+            const answers = await answerPromptDecisions({
               plan,
               backend,
               chatId: input.chatId,
               messages,
               afterReply,
+              timers: decisionTiming,
               cacheKey: promptDecisionCacheKey(
                 input.chatId,
                 latestMessageId,
@@ -2679,6 +2703,8 @@ export async function generateRoutes(app: FastifyInstance) {
                   null,
               ),
             });
+            await saveDecisionTimers();
+            return answers;
           } catch (error) {
             if (abortController.signal.aborted) throw error;
             logger.warn(error, "[decision] Prompt decisions failed for chat %s; they read as no", input.chatId);
@@ -2735,11 +2761,20 @@ export async function generateRoutes(app: FastifyInstance) {
         });
         // Every decision read before the reply is keyed to the newest message, id and text.
         const preReplyDecisionTurnId = latestTurnDecisionId(chatMessages);
+        const decisionTimerState = readDecisionTimers(chatMeta[DECISION_TIMERS_METADATA_KEY]);
+        decisionTiming = {
+          state: decisionTimerState,
+          turn: decisionTurnFor(decisionTimerState, preReplyDecisionTurnId),
+        };
+        const decisionTurn = decisionTiming.turn;
+        const heldDecisions: HeldDecisions = (kind, key) => heldDecision(decisionTimerState, decisionTurn, kind, key);
+        await saveDecisionTimers();
         // Worked out once: the agents' plan below includes the prompt's statements too.
         const promptDecisionReachable = reachableDecisionStatements(promptDecisionTexts, promptMacroContext);
         const promptDecisionPlan = planPromptDecisions(
           [{ texts: promptDecisionTexts, ctx: promptMacroContext, reachable: promptDecisionReachable }],
           promptDecisionLimit,
+          { held: heldDecisions },
         );
         // Always an object: statements in activating lorebook entries are answered later
         // and merged into it, and the prompt builder and agents hold this same object.
@@ -2753,6 +2788,7 @@ export async function generateRoutes(app: FastifyInstance) {
           macroContext: promptMacroContext,
           limit: Math.max(0, promptDecisionLimit - promptDecisionPlan.decisions.length),
           freeKeys: new Set(promptDecisionPlan.decisions.map((d) => d.key)),
+          held: heldDecisions,
           answer: (plan) => answerDecisionPlan(plan, decisionMessages(), preReplyDecisionTurnId),
         });
         const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(
@@ -5835,6 +5871,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 },
               ],
               promptDecisionLimit,
+              { held: heldDecisions },
             ),
             decisionMessages(),
             preReplyDecisionTurnId,
@@ -10390,6 +10427,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       },
                     ],
                     promptDecisionLimit,
+                    { held: heldDecisions },
                   ),
                   [
                     ...decisionMessages(),

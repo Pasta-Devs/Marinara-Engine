@@ -81,12 +81,19 @@ import {
   cachedPromptDecisionAnswers,
   collectTurnDecisionTexts,
   reachableDecisionStatements,
+  type HeldDecisions,
   createLorebookDecisionResolver,
   decisionModelUsable,
   latestTurnDecisionId,
   planPromptDecisions,
   promptDecisionCacheKey,
 } from "../services/decision/prompt-decisions.js";
+import {
+  DECISION_TIMERS_METADATA_KEY,
+  decisionTurnFor,
+  heldDecision,
+  readDecisionTimers,
+} from "../services/decision/decision-timers.js";
 import { gameGmPromptDecisionTexts } from "../services/generation/game-gm-prompt-runtime.js";
 import { DECISION_SETTINGS_KEYS } from "../services/decision/decision-default.js";
 import {
@@ -3128,6 +3135,11 @@ export async function chatsRoutes(app: FastifyInstance) {
             await appSettings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY),
           );
           let decisionPlanKeys: string[] = [];
+          // Sticky and cooldown (#6582): the timers as they stand this turn, read and never saved.
+          const previewDecisionTimers = readDecisionTimers(chatMeta[DECISION_TIMERS_METADATA_KEY]);
+          const previewDecisionTurn = decisionTurnFor(previewDecisionTimers, latestTurnDecisionId(filteredMessages));
+          const heldDecisions: HeldDecisions = (kind, key) =>
+            heldDecision(previewDecisionTimers, previewDecisionTurn, kind, key);
           {
             const texts = collectTurnDecisionTexts({
               // The same sources generation plans from: preset sections only outside
@@ -3161,6 +3173,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             const plan = planPromptDecisions(
               [{ texts, ctx: promptMacroContext, reachable: reachableDecisionStatements(texts, promptMacroContext) }],
               decisionLimit,
+              { held: heldDecisions },
             );
             for (const statement of plan.dropped) decisionDropped.add(statement);
             decisionPlanKeys = plan.decisions.map((decision) => decision.key);
@@ -3189,6 +3202,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               ),
             onUnanswered: (statement) => decisionUnanswered.add(statement),
             onDropped: (statement) => decisionDropped.add(statement),
+            held: heldDecisions,
           });
           const entryStateOverrides = resolveEntryStateOverrides(
             chatMeta.entryStateOverrides ?? chatMeta.lorebookEntryStateOverrides,

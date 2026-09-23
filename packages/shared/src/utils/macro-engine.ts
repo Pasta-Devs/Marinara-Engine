@@ -543,6 +543,12 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
     description:
       "The Decision model picks one of the options this statement is compared with, or none; every comparison is false with no Decision model or no answer",
   },
+  {
+    category: "Formatting",
+    syntax: '{{#if decision:"The latest message starts a fight" sticky:3 cooldown:5}}...{{/if}}',
+    description:
+      "After a yes, stays yes for 3 turns without being asked, then reads as no for 5; held turns take no statement slot",
+  },
   { category: "Formatting", syntax: "{{noop}}", description: "No-op placeholder removed from output" },
   { category: "Formatting", syntax: "{{// comment}}", description: "Inline author comment removed from output" },
   {
@@ -951,22 +957,66 @@ function stripOuterQuotes(value: string): string | null {
 const DECISION_OPERAND_PREFIX_RE = /^decision\s*:/iu;
 const DECISION_CHOICE_OPERAND_PREFIX_RE = /^decision_choice\s*:/iu;
 
-function statementAfterPrefix(raw: string, prefix: RegExp): string | null {
+/**
+ * Turns an author can hold a statement's answer for, written after it:
+ * `decision:"..." sticky:3 cooldown:5`. After a yes the statement stays yes for
+ * `sticky` turns, then reads as no for `cooldown` turns, without being asked.
+ */
+export interface DecisionStatementTiming {
+  sticky?: number;
+  cooldown?: number;
+}
+
+/** The most turns a timing modifier holds for. */
+export const MAX_DECISION_TIMING_TURNS = 1000;
+
+// A quoted statement followed only by `name:value` modifiers. Greedy, so a quote inside
+// the statement is part of it: the closing quote is the last one before the modifiers.
+const DECISION_STATEMENT_WITH_MODIFIERS_RE =
+  /^(["\u201c\u201d\u201e\u201f]|['\u2018\u2019\u201a\u201b])([\s\S]*)(["\u201c\u201d\u201e\u201f]|['\u2018\u2019\u201a\u201b])((?:\s+[a-z_]+\s*:\s*\S+)*)\s*$/iu;
+
+function statementAfterPrefix(
+  raw: string,
+  prefix: RegExp,
+): { question: string; timing: DecisionStatementTiming } | null {
   const token = raw.trim();
   if (!prefix.test(token)) return null;
   const rest = token.replace(prefix, "").trim();
+  const quoted = DECISION_STATEMENT_WITH_MODIFIERS_RE.exec(rest);
+  if (quoted && quoteKind(quoted[1]) === quoteKind(quoted[3]) && quoted[4]!.trim()) {
+    const question = stripOuterQuotes(`${quoted[1]}${quoted[2]}${quoted[3]}`) ?? quoted[2]!;
+    if (!question.trim()) return null;
+    const timing: DecisionStatementTiming = {};
+    for (const modifier of quoted[4]!.trim().split(/\s+(?=[a-z_]+\s*:)/iu)) {
+      const [name, value] = modifier.split(":").map((part) => part.trim().toLowerCase());
+      const turns = /^\d+$/u.test(value ?? "") ? Math.min(MAX_DECISION_TIMING_TURNS, Number(value)) : NaN;
+      // Unknown modifiers are ignored, so a later one does not break an older build.
+      if ((name === "sticky" || name === "cooldown") && turns > 0) timing[name] = turns;
+    }
+    return { question, timing };
+  }
   const question = stripOuterQuotes(rest) ?? rest;
-  return question.trim() ? question : null;
+  return question.trim() ? { question, timing: {} } : null;
 }
 
 /** The statement inside a `decision:"..."` operand, as written, or null for any other operand. */
 function decisionQuestionFromOperand(raw: string): string | null {
-  return statementAfterPrefix(raw, DECISION_OPERAND_PREFIX_RE);
+  return statementAfterPrefix(raw, DECISION_OPERAND_PREFIX_RE)?.question ?? null;
 }
 
 /** The statement inside a `decision_choice:"..."` operand, or null for any other operand. */
 function decisionChoiceQuestionFromOperand(raw: string): string | null {
-  return statementAfterPrefix(raw, DECISION_CHOICE_OPERAND_PREFIX_RE);
+  return statementAfterPrefix(raw, DECISION_CHOICE_OPERAND_PREFIX_RE)?.question ?? null;
+}
+
+/** The timing modifiers written after a decision operand's statement. */
+function decisionOperandTiming(raw: string): DecisionStatementTiming {
+  return (
+    (
+      statementAfterPrefix(raw, DECISION_OPERAND_PREFIX_RE) ??
+      statementAfterPrefix(raw, DECISION_CHOICE_OPERAND_PREFIX_RE)
+    )?.timing ?? {}
+  );
 }
 
 /** Comparisons that name one option. `contains` and the numeric operators do not. */
@@ -986,7 +1036,7 @@ export function resolveDecisionQuestionText(question: string, ctx: MacroContext)
   return normalizeDecisionQuestion(resolveMacros(question, { ...ctx, decisions: undefined }, { trimResult: true }));
 }
 
-export interface CollectedDecisionQuestion {
+export interface CollectedDecisionQuestion extends DecisionStatementTiming {
   kind: "noul" | "choice";
   /** As written, before its macros are resolved. */
   question: string;
@@ -1029,7 +1079,7 @@ export function collectDecisionQuestions(template: string): CollectedDecisionQue
           if (operand === undefined) continue;
           const question = decisionQuestionFromOperand(operand);
           if (question) {
-            questions.push({ kind: "noul", question, options: [] });
+            questions.push({ kind: "noul", question, options: [], ...decisionOperandTiming(operand) });
             continue;
           }
           const choice = decisionChoiceQuestionFromOperand(operand);
@@ -1038,7 +1088,12 @@ export function collectDecisionQuestions(template: string): CollectedDecisionQue
             other !== undefined && DECISION_CHOICE_OPERATORS.has(parsed.operator.toLowerCase())
               ? stripOuterQuotes(other)
               : null;
-          lastChoice = { kind: "choice", question: choice, options: literal?.trim() ? [literal.trim()] : [] };
+          lastChoice = {
+            kind: "choice",
+            question: choice,
+            options: literal?.trim() ? [literal.trim()] : [],
+            ...decisionOperandTiming(operand),
+          };
           questions.push(lastChoice);
         }
       }
@@ -1929,9 +1984,14 @@ export function selectConditionalPayloadBranch(
 type PlanTruth = boolean | "unknown";
 type PlanResult = { value: PlanTruth; statements: string[] };
 
-/** Operands a planning pass can read now: fixed for the turn, whatever the prompt does. */
+/**
+ * Operands a planning pass can read now: fixed for the turn, whatever the prompt does.
+ * Conversation fields (`char_about` and the rest) are filled in after planning, so
+ * they are not here and read as unknown.
+ */
+const PLAN_LATE_OPERAND_NAMES = new Set(["char_about", "convo_display", "convo_behavior"]);
 const PLAN_FIXED_OPERAND_NAMES = new Set([
-  ...CHARACTER_CONDITIONAL_OPERAND_NAMES,
+  ...[...CHARACTER_CONDITIONAL_OPERAND_NAMES].filter((name) => !PLAN_LATE_OPERAND_NAMES.has(name)),
   "user",
   "username",
   "userphonetic",
@@ -1995,6 +2055,9 @@ function planConditionOperand(
     }
     return ctx.decisions?.choices?.get(resolved) ?? null;
   }
+  // A settled-only pass follows the branch the real pass takes once decisions are
+  // answered, so every operand that is not a decision reads its current value.
+  if (ctx.decisions?.plannedSettledOnly) return resolveConditionalOperand(raw, ctx, options);
   const token = raw.trim();
   if (/^-?\d+(?:\.\d+)?$/u.test(token)) return token;
   const key = normalizeConditionKey(token);
@@ -2010,7 +2073,10 @@ function planConditionAtom(
   ctx: MacroContext,
   options: ResolveMacroOptions,
 ): PlanResult & { equalityShorthand: EqualityShorthand | null } {
-  const parsed = parseConditionExpression(atom);
+  // A settled-only pass reads macros in the atom (`{{getvar::mode}}`) as the real pass does.
+  const parsed = ctx.decisions?.plannedSettledOnly
+    ? parseResolvedConditionAtom(atom, ctx, options)
+    : parseConditionExpression(atom);
   let effective = parsed;
   let nextShorthand = equalityShorthand;
   if (["=", "==", "is"].includes(parsed.operator) && parsed.right !== undefined) {

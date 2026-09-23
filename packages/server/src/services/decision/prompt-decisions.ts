@@ -34,6 +34,7 @@ import type { DecisionBackend } from "./decision-default.js";
 import { describeDecisionSlot } from "./decision-slots.js";
 import type { LorebookDecisionResolver } from "../lorebook/index.js";
 import { DECISION_CHOICE_NONE, type NoulQuestion } from "./system-one.client.js";
+import { recordDecisionTimer, type DecisionTimerState, type HeldDecision } from "./decision-timers.js";
 
 export interface PlannedDecision {
   kind: "noul" | "choice";
@@ -41,7 +42,15 @@ export interface PlannedDecision {
   key: string;
   /** For a Choice statement, every option it is compared with anywhere this turn. */
   options: string[];
+  /** The longest `sticky:` and `cooldown:` written on any of its occurrences. */
+  sticky?: number;
+  cooldown?: number;
+  /** Set when sticky or cooldown holds its answer this turn: it is not asked, and takes no slot. */
+  held?: HeldDecision;
 }
+
+/** Which statements sticky or cooldown hold this turn (see `heldDecision`). */
+export type HeldDecisions = (kind: "noul" | "choice", key: string) => HeldDecision | undefined;
 
 export interface PromptDecisionPlan {
   decisions: PlannedDecision[];
@@ -212,8 +221,12 @@ export function planPromptDecisions(
     reachable?: ReadonlySet<string>;
   }>,
   limit: number,
+  options: { held?: HeldDecisions } = {},
 ): PromptDecisionPlan {
   const byKey = new Map<string, PlannedDecision>();
+  // A statement sticky or cooldown holds is planned, so its held answer reaches the
+  // prompt, but it is not asked and does not count toward the limit.
+  let counted = 0;
   const optionKeys = new Map<string, Set<string>>();
   const dropped: string[] = [];
   // Each group is resolved in the context it will be evaluated in: an agent template
@@ -232,14 +245,20 @@ export function planPromptDecisions(
           const id = `${collected.kind}\u0000${key}`;
           let planned = byKey.get(id);
           if (!planned) {
-            if (byKey.size >= limit) {
-              if (!dropped.includes(key)) dropped.push(key);
-              continue;
+            const held = options.held?.(collected.kind, key);
+            if (!held) {
+              if (counted >= limit) {
+                if (!dropped.includes(key)) dropped.push(key);
+                continue;
+              }
+              counted += 1;
             }
-            planned = { kind: collected.kind, key, options: [] };
+            planned = { kind: collected.kind, key, options: [], ...(held ? { held } : {}) };
             byKey.set(id, planned);
             optionKeys.set(id, new Set());
           }
+          if (collected.sticky) planned.sticky = Math.max(planned.sticky ?? 0, collected.sticky);
+          if (collected.cooldown) planned.cooldown = Math.max(planned.cooldown ?? 0, collected.cooldown);
           const seen = optionKeys.get(id)!;
           for (const option of collected.options) {
             const normalized = normalizeDecisionQuestion(option).toLowerCase();
@@ -299,10 +318,12 @@ export function cachedPromptDecisionAnswers(plan: PromptDecisionPlan, cacheKey: 
   const choices = new Map<string, string>();
   for (const decision of plan.decisions) {
     if (decision.kind === "noul") {
-      const cached = turn?.noul.get(decision.key);
-      if (cached !== undefined) answers.set(decision.key, cached.yes);
+      const cached = turn?.noul.get(decision.key)?.yes ?? decision.held?.yes;
+      if (cached !== undefined) answers.set(decision.key, cached);
     } else {
-      const choice = turn?.choice.get(choiceCacheKey(decision));
+      const choice =
+        turn?.choice.get(choiceCacheKey(decision)) ??
+        (decision.held ? (decision.held.yes ? decision.held.choice : DECISION_CHOICE_NONE) : undefined);
       if (choice !== undefined) choices.set(decision.key, choice);
     }
   }
@@ -327,9 +348,21 @@ export async function answerPromptDecisions(args: {
    * user opted into waiting for it.
    */
   afterReply?: boolean;
+  /** Sticky and cooldown: a fresh yes on this turn starts the statement's timers. */
+  timers?: { state: DecisionTimerState; turn: number };
 }): Promise<MacroDecisionAnswers> {
   const { plan, backend } = args;
   const turn = promptDecisionTurnCache.get(args.cacheKey);
+  // A held statement is answered by its timer and never asked.
+  for (const decision of plan.decisions) {
+    if (!decision.held) continue;
+    if (decision.kind === "noul") turn.noul.set(decision.key, { p: decision.held.yes ? 1 : 0, yes: decision.held.yes });
+    else
+      turn.choice.set(
+        choiceCacheKey(decision),
+        decision.held.yes && decision.held.choice !== undefined ? decision.held.choice : DECISION_CHOICE_NONE,
+      );
+  }
   const pending = plan.decisions.filter((decision) =>
     decision.kind === "noul" ? !turn.noul.has(decision.key) : !turn.choice.has(choiceCacheKey(decision)),
   );
@@ -356,10 +389,16 @@ export async function answerPromptDecisions(args: {
       pending.forEach((decision, index) => {
         if (decision.kind === "noul") {
           const p = result.answers.get(`d${index}`);
-          if (p !== undefined) turn.noul.set(decision.key, { p, yes: p >= backend.calibration.defaultThreshold });
+          if (p === undefined) return;
+          const yes = p >= backend.calibration.defaultThreshold;
+          turn.noul.set(decision.key, { p, yes });
+          if (args.timers) recordDecisionTimer(args.timers.state, args.timers.turn, decision, { yes });
         } else {
           const choice = result.choices.get(`d${index}`);
-          if (choice !== undefined) turn.choice.set(choiceCacheKey(decision), choice);
+          if (choice === undefined) return;
+          turn.choice.set(choiceCacheKey(decision), choice);
+          if (args.timers && choice !== DECISION_CHOICE_NONE)
+            recordDecisionTimer(args.timers.state, args.timers.turn, decision, { choice });
         }
       });
     } catch (error) {
@@ -441,6 +480,8 @@ export function createLorebookDecisionResolver(args: {
   onUnanswered?: (statement: string) => void;
   /** Told each statement left out for the per-turn limit, for a preview's report. */
   onDropped?: (statement: string) => void;
+  /** Statements sticky or cooldown hold this turn: never asked, and free. */
+  held?: HeldDecisions;
 }): LorebookDecisionResolver {
   const charged = new Set<string>();
   let remaining = args.limit;
@@ -485,8 +526,9 @@ export function createLorebookDecisionResolver(args: {
     const all = planPromptDecisions(
       [{ texts, ctx, reachable: reachableDecisionStatements(texts, ctx) }],
       Number.POSITIVE_INFINITY,
+      { held: args.held },
     );
-    const decisions = all.decisions.filter((decision) => admit(decision.key));
+    const decisions = all.decisions.filter((decision) => decision.held || admit(decision.key));
     if (decisions.length === 0) return;
     const dropped = all.decisions.filter((decision) => !decisions.includes(decision)).map((decision) => decision.key);
     const answers = await args.answer({ decisions, dropped });

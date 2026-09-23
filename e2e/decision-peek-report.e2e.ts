@@ -8,24 +8,16 @@ test("Peek Prompt lists decision statements the per-turn limit drops apart from 
   page,
   request,
 }, testInfo) => {
-  const ids: { character?: string; chat?: string; connection?: string; chatConnection?: string; preset?: string } = {};
-  const previousLimit = ((await (await request.get("/api/decision/prompt-question-limit")).json()) as { limit: number })
-    .limit;
+  const ids: { character?: string; chat?: string; chatConnection?: string; preset?: string } = {};
+  // No global setting is changed, so projects sharing a server cannot disturb each other:
+  // 33 statements go one past the default Decision statements per turn (32), and Peek
+  // Prompt never asks, so the first 32 are unanswered and the last is dropped.
+  const statements = [
+    "Mira draws a sword in the latest message",
+    ...Array.from({ length: 31 }, (_, index) => `Filler statement ${index + 1} holds`),
+    "Mira is soaked by rain in the latest message",
+  ];
   try {
-    // A Decision model is set, but Peek Prompt never asks it, so the first statement is unanswered.
-    const connection = await request.post("/api/connections", {
-      data: {
-        name: `Peek decisions ${testInfo.project.name}`,
-        provider: "decision",
-        decisionSource: "custom",
-        baseUrl: "http://127.0.0.1:9",
-        model: "jev-latest",
-        defaultForAgents: true,
-      },
-    });
-    expect(connection.ok(), await connection.text()).toBeTruthy();
-    ids.connection = ((await connection.json()) as { id: string }).id;
-    expect((await request.post("/api/decision/prompt-question-limit", { data: { limit: 1 } })).ok()).toBeTruthy();
     const character = await request.post("/api/characters", { data: { data: { name: "Mira" } } });
     expect(character.ok(), await character.text()).toBeTruthy();
     ids.character = ((await character.json()) as { id: string }).id;
@@ -44,9 +36,7 @@ test("Peek Prompt lists decision statements the per-turn limit drops apart from 
         identifier: "scene",
         name: "Scene",
         role: "system",
-        content:
-          '{{#if decision:"Mira draws a sword in the latest message"}}Armed.{{/if}} ' +
-          '{{#if decision:"Mira is soaked by rain in the latest message"}}Wet.{{/if}}',
+        content: statements.map((statement) => `{{#if decision:"${statement}"}}Yes.{{/if}}`).join(" "),
       },
       {
         identifier: "off",
@@ -82,9 +72,11 @@ test("Peek Prompt lists decision statements the per-turn limit drops apart from 
     await page.locator("textarea.mari-chat-input-textarea").fill("{{prompt}}");
     await page.locator("button.mari-chat-send-btn").click();
 
-    const unanswered = page.getByRole("status").filter({ hasText: "without an answer for this turn yet: 1" });
+    // The unanswered notice reads differently with and without a Decision model, so it
+    // is found by the statement it lists.
+    const unanswered = page.getByRole("status").filter({ hasText: "Mira draws a sword in the latest message" });
     const dropped = page.getByRole("status").filter({ hasText: "past the per-turn limit, read as no: 1" });
-    await expect(unanswered).toContainText("Mira draws a sword in the latest message");
+    await expect(unanswered).toContainText(": 32.");
     await expect(dropped).toContainText("Mira is soaked by rain in the latest message");
     await expect(unanswered).not.toContainText("soaked by rain");
     await expect(page.getByText("A disabled section asks this")).toHaveCount(0);
@@ -93,10 +85,8 @@ test("Peek Prompt lists decision statements the per-turn limit drops apart from 
     await testInfo.attach("peek-decision-report", { path, contentType: "image/png" });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   } finally {
-    await request.post("/api/decision/prompt-question-limit", { data: { limit: previousLimit } });
     if (ids.chat) await request.delete(`/api/chats/${ids.chat}`);
     if (ids.character) await request.delete(`/api/characters/${ids.character}`);
-    if (ids.connection) await request.delete(`/api/connections/${ids.connection}`);
     if (ids.chatConnection) await request.delete(`/api/connections/${ids.chatConnection}`);
     if (ids.preset) await request.delete(`/api/prompts/${ids.preset}`);
   }

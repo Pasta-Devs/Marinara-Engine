@@ -61,6 +61,21 @@ const settled = (ctx: never) =>
   planDecisionStatements('{{#if decision:"A"}}YES{{else}}NO{{/if}}', ctx, { settledOnly: true }).text;
 assert.equal(settled(mira), "", "settled text leaves an undecided block out");
 assert.equal(settled(answered({ A: true })), "YES", "and follows it once decided");
+assert.deepEqual(
+  reached('{{#if char_about && decision:"X"}}x{{/if}}'),
+  ["X"],
+  "a conversation field is filled in after planning, so it rules nothing out",
+);
+const combat = { ...(mira as object), variables: { mode: "combat" }, localVariables: { mode: "combat" } } as never;
+assert.equal(
+  planDecisionStatements('{{#if var:mode == "combat"}}an ember glows{{/if}}', combat, { settledOnly: true }).text,
+  "an ember glows",
+  "settled text follows a branch a variable decides, as the real pass does",
+);
+assert.equal(
+  planDecisionStatements('{{#if {{getvar::mode}} == "combat"}}GETVAR{{/if}}', combat, { settledOnly: true }).text,
+  "GETVAR",
+);
 const variables: Record<string, string> = {};
 planDecisionStatements("{{setvar::written::yes}}", { ...(mira as object), variables } as never);
 assert.deepEqual(variables, {}, "a planning pass writes nothing");
@@ -127,6 +142,39 @@ assert.deepEqual(
   "nothing unreachable takes one of the limited slots",
 );
 
+// ── sticky and cooldown ───────────────────────────────────────────────────────
+
+const { readDecisionTimers, decisionTurnFor, heldDecision, recordDecisionTimer } =
+  await import("../../packages/server/src/services/decision/decision-timers.js");
+{
+  const timers = readDecisionTimers({ turn: "x", statements: { bad: { yesTurn: -1 } } });
+  assert.deepEqual(timers, { turn: 0, turnId: null, statements: {} }, "malformed timers read as none");
+  const turn1 = decisionTurnFor(timers, "m1");
+  assert.equal(decisionTurnFor(timers, "m1"), turn1, "the same message is the same turn");
+  recordDecisionTimer(timers, turn1, { kind: "noul", key: "Fight", sticky: 2, cooldown: 1 }, { yes: true });
+  recordDecisionTimer(timers, turn1, { kind: "noul", key: "Quiet", sticky: 2 }, { yes: false });
+  const held: Array<boolean | undefined> = [];
+  for (const id of ["m1", "m2", "m3", "m4", "m5"])
+    held.push(heldDecision(timers, decisionTurnFor(timers, id), "noul", "Fight")?.yes);
+  assert.deepEqual(held, [undefined, true, true, false, undefined], "yes turn, sticky 2, cooldown 1, then asked");
+  assert.equal(heldDecision(timers, timers.turn, "noul", "Quiet"), undefined, "a no starts nothing");
+  assert.deepEqual(timers.statements, {}, "a timer that has run out is dropped");
+  const statementText = `{{#if decision:"Fight" sticky:2}}a{{/if}}{{#if decision:"Live"}}b{{/if}}`;
+  const heldPlan = planPromptDecisions([{ texts: [statementText], ctx: mira }], 1, {
+    held: (_kind: string, key: string) => (key === "Fight" ? { yes: false } : undefined),
+  });
+  assert.deepEqual(
+    heldPlan.decisions.map((decision: { key: string; held?: unknown }) => [decision.key, !!decision.held]),
+    [
+      ["Fight", true],
+      ["Live", false],
+    ],
+    "a held statement takes no slot, so the live one is still planned",
+  );
+  assert.deepEqual(heldPlan.dropped, []);
+  assert.equal(heldPlan.decisions[0].sticky, 2, "and its sticky is carried");
+}
+
 // ── processLorebooks: statements in entry text ────────────────────────────────
 
 const requireServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));
@@ -190,6 +238,35 @@ try {
   assert.deepEqual(scanned.asked, [], "with no statements left this turn, nothing is asked");
   assert.deepEqual(scanned.dropped, ["The tower is on fire"], "the statement is reported as dropped");
   assert.ok(scanned.text.includes("TOWER_CALM"), "and reads as no");
+
+  // A held statement in an entry's text is free too: with no slots left it still gets
+  // its held answer, and only the live one is dropped.
+  {
+    const heldCtx = { ...(mira as object), variables: {} } as never as {
+      decisions?: { answers?: ReadonlyMap<string, boolean> };
+    };
+    const planned: Array<[string, boolean]> = [];
+    const heldDropped: string[] = [];
+    const heldResolver = createLorebookDecisionResolver({
+      macroContext: heldCtx as never,
+      limit: 0,
+      held: (_kind: string, key: string) => (key === "The held entry statement" ? { yes: true } : undefined),
+      answer: async (plan: { decisions: Array<{ key: string; held?: { yes: boolean } }> }) => {
+        planned.push(...plan.decisions.map((decision) => [decision.key, !!decision.held] as [string, boolean]));
+        return {
+          answers: new Map(plan.decisions.map((decision) => [decision.key, decision.held?.yes ?? true])),
+          choices: new Map(),
+        };
+      },
+      onDropped: (statement: string) => heldDropped.push(statement),
+    });
+    await heldResolver.answerStatements!([
+      `{{#if decision:"The held entry statement" sticky:2}}x{{/if}}{{#if decision:"Another entry statement"}}y{{/if}}`,
+    ]);
+    assert.deepEqual(planned, [["The held entry statement", true]]);
+    assert.deepEqual(heldDropped, ["Another entry statement"]);
+    assert.equal(heldCtx.decisions?.answers?.get("The held entry statement"), true);
+  }
 
   // One set of probability rolls serves the pre-scan and the real scan, so an entry
   // that activates had its statements asked, even with no Decision field in the book.
@@ -470,6 +547,91 @@ try {
     assert.equal(quiet.statusCode, 200, quiet.body);
     assert.ok((prompts.at(-1) ?? "").includes("TONE_CALM"));
     assert.ok((prompts.at(-1) ?? "").includes("TOWER_FIRE"), "an entry's answer reaches the marker on its own");
+
+    // Sticky and cooldown across real turns, with one statement slot per turn: a held
+    // statement is never sent, and the live one still gets the slot.
+    await createAppSettingsStorage(db).set(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY, "1");
+    const timedPreset = await presets.create({ name: "Timed", parameters: { maxTokens: 256, maxContext: 8192 } });
+    assert(timedPreset);
+    await presets.createSection({
+      presetId: timedPreset.id,
+      identifier: "timed",
+      name: "Timed",
+      content:
+        '{{#if decision:"A fight is on" sticky:2 cooldown:1}}FIGHT_ON{{else}}FIGHT_OFF{{/if}} ' +
+        '{{#if decision:"The live statement holds"}}LIVE_YES{{/if}}',
+    } as never);
+    await presets.createSection({
+      presetId: timedPreset.id,
+      identifier: "history",
+      name: "Chat History",
+      isMarker: true,
+      markerConfig: { type: "chat_history" },
+    } as never);
+    const timedChat = await chats.create({
+      name: "Timed turns",
+      mode: "roleplay",
+      characterIds: [character.id],
+      connectionId: chatConnection.id,
+      promptPresetId: timedPreset.id,
+    } as never);
+    assert(timedChat);
+    await chats.patchMetadata(timedChat.id, { enableAgents: false, enableMemoryRecall: false });
+    const timedTurn = async (payload: Record<string, unknown>) => {
+      const from = decisionBodies.length;
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/generate/",
+        payload: { chatId: timedChat.id, ...payload },
+      });
+      assert.equal(response.statusCode, 200, response.body);
+      return {
+        asked: decisionBodies.slice(from).flatMap((body) => Object.values(body.questions).map((q) => q.instructions)),
+        prompt: prompts.at(-1) ?? "",
+      };
+    };
+    let timed = await timedTurn({ userMessage: "Swords are drawn." });
+    assert.deepEqual(timed.asked, ["A fight is on"], "turn 1: the first statement takes the only slot");
+    assert.ok(timed.prompt.includes("FIGHT_ON"));
+    const timedReply = (await chats.listMessages(timedChat.id))
+      .filter((m: { role: string }) => m.role === "assistant")
+      .at(-1)!;
+    for (const [turnNumber, message, expected] of [
+      [2, "They clash.", "FIGHT_ON"],
+      [3, "They clash again.", "FIGHT_ON"],
+      [4, "They rest.", "FIGHT_OFF"],
+    ] as const) {
+      timed = await timedTurn({ userMessage: message });
+      assert.deepEqual(
+        timed.asked,
+        ["The live statement holds"],
+        `turn ${turnNumber}: sticky or cooldown holds the first statement, so the live one gets the slot`,
+      );
+      assert.ok(timed.prompt.includes(expected), `turn ${turnNumber}: ${expected}`);
+      assert.ok(timed.prompt.includes("LIVE_YES"));
+      if (turnNumber === 2) {
+        const before = JSON.stringify((await chats.getById(timedChat.id))!.metadata);
+        const peekTimed = await app.inject({
+          method: "POST",
+          url: `/api/chats/${timedChat.id}/peek-prompt`,
+          payload: {},
+        });
+        assert.equal(peekTimed.statusCode, 200, peekTimed.body);
+        assert.ok(peekTimed.body.includes("FIGHT_ON"), "Peek Prompt shows the held branch");
+        assert.equal(JSON.stringify((await chats.getById(timedChat.id))!.metadata), before, "and never moves a timer");
+      }
+    }
+    const regenerated = await timedTurn({
+      regenerateMessageId: (await chats.listMessages(timedChat.id))
+        .filter((m: { role: string }) => m.role === "assistant")
+        .at(-1)!.id,
+    });
+    assert.deepEqual(regenerated.asked, [], "a regeneration is the same turn: nothing asked, no timer moved");
+    assert.ok(regenerated.prompt.includes("FIGHT_OFF"));
+    timed = await timedTurn({ userMessage: "The fight resumes." });
+    assert.deepEqual(timed.asked, ["A fight is on"], "turn 5: cooldown is over, so it is asked again");
+    assert.ok(timedReply);
+    await createAppSettingsStorage(db).set(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY, "32");
 
     // Peek Prompt lists what the limit drops, apart from what is merely unanswered.
     await createAppSettingsStorage(db).set(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY, "1");

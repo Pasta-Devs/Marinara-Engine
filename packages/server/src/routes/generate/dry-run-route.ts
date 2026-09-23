@@ -38,12 +38,19 @@ import {
   cachedPromptDecisionAnswers,
   collectTurnDecisionTexts,
   reachableDecisionStatements,
+  type HeldDecisions,
   createLorebookDecisionResolver,
   decisionModelUsable,
   latestTurnDecisionId,
   planPromptDecisions,
   promptDecisionCacheKey,
 } from "../../services/decision/prompt-decisions.js";
+import {
+  DECISION_TIMERS_METADATA_KEY,
+  decisionTurnFor,
+  heldDecision,
+  readDecisionTimers,
+} from "../../services/decision/decision-timers.js";
 import { gameGmPromptDecisionTexts } from "../../services/generation/game-gm-prompt-runtime.js";
 import { DECISION_SETTINGS_KEYS } from "../../services/decision/decision-default.js";
 import { createPromptsStorage } from "../../services/storage/prompts.storage.js";
@@ -997,6 +1004,11 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       await decisionSettings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY),
     );
     let decisionPlanKeys: string[] = [];
+    // Sticky and cooldown (#6582): the timers as they stand this turn, read and never saved.
+    const previewDecisionTimers = readDecisionTimers(chatMeta[DECISION_TIMERS_METADATA_KEY]);
+    const previewDecisionTurn = decisionTurnFor(previewDecisionTimers, latestTurnDecisionId(chatMessages));
+    const heldDecisions: HeldDecisions = (kind, key) =>
+      heldDecision(previewDecisionTimers, previewDecisionTurn, kind, key);
     const decisionLocalSetting = await decisionSettings.get(DECISION_SETTINGS_KEYS.localDefault);
     const decisionConnectionId = (await connections.getDefaultForDecision())?.id ?? null;
     // The cache key uses the setting as generation does; the report says whether it can serve.
@@ -1040,6 +1052,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       const plan = planPromptDecisions(
         [{ texts, ctx: promptMacroContext, reachable: reachableDecisionStatements(texts, promptMacroContext) }],
         decisionLimit,
+        { held: heldDecisions },
       );
       for (const statement of plan.dropped) decisionDropped.add(statement);
       decisionPlanKeys = plan.decisions.map((decision) => decision.key);
@@ -1068,6 +1081,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         ),
       onUnanswered: (statement) => decisionUnanswered.add(statement),
       onDropped: (statement) => decisionDropped.add(statement),
+      held: heldDecisions,
     });
     const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(
       messages: T[],

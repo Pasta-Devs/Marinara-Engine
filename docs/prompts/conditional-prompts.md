@@ -238,6 +238,26 @@ Kaelen is his usual self.
 
 Here the model chooses between "angry", "sad" and "none of these". The short form works too: `decision_choice:"The weather in the latest message" == "rain" || "snow"` offers both options. Write the statement as a subject, such as "Kaelen's mood in the latest message", and the options as short answers to it.
 
+### Sticky and cooldown
+
+A statement can keep its answer for a few turns instead of being asked every turn. Write `sticky:` and `cooldown:` after the statement:
+
+```
+{{#if decision:"The latest message starts a fight" sticky:3 cooldown:5}}
+Keep combat pacing rules in effect.
+{{/if}}
+```
+
+- **sticky:N.** After a yes, the statement stays yes for the next N turns without being asked, so what it gates stays in the prompt.
+- **cooldown:N.** Starts when sticky ends, or right after the yes when there is no sticky. For N turns the statement reads as no and is not asked. Then it is asked again.
+- A turn is each new message the Decision model reads. A regeneration or a swipe of the same message is the same turn, so rerolling a reply never runs a timer down.
+- While sticky or cooldown holds a statement, it is not asked and does not count toward **Decision statements per turn**, so it leaves its slot to another statement.
+- For `decision_choice:`, sticky keeps the chosen option, and cooldown reads every comparison as no. A choice of none of the options starts nothing.
+- A statement written in several places uses the longest sticky and cooldown given anywhere.
+- Peek Prompt shows the held answer and never moves a timer on.
+
+Together, they suit anything that should come in once and then rest: a scene transition, a one-time reminder, or a mood that should last a few turns. For a lorebook entry activated by its **Decision** field, use the entry's own **Sticky** and **Cooldown** instead: a sticky entry stays in without its statement being asked, and an entry on cooldown is not asked about.
+
 ### No answer means no
 
 A decision condition is **false** whenever there is no answer: no Decision model is set, the model did not answer in time, or it failed. For `decision_choice:`, every comparison is false. So the `{{else}}` branch, or nothing, is what a user without a Decision model gets.
@@ -286,7 +306,7 @@ The recommended wordings scored 31 of 32 on Open-Jev 2B, 31 of 32 on Open-Jev 9B
   - statements in lorebook entries that activate this turn, not the rest of the lorebook;
   - statements in blocks that something fixed for the turn has not already ruled out. In `{{#if char == "Dottore" && decision:"..."}}`, the statement is not asked while the character is Mira. A variable can change while the prompt is built, so a condition on a variable never rules a statement out.
 
-  Past the limit, the rest read as no, a warning is logged, and Peek Prompt lists them. On a hosted Decision connection each statement adds to a billed request; on a local model it only adds time.
+  A statement that [sticky or cooldown](#sticky-and-cooldown) holds does not count at all. Past the limit, the rest read as no, a warning is logged, and Peek Prompt lists them. On a hosted Decision connection each statement adds to a billed request; on a local model it only adds time.
 - **Time.** The same budgets as activation questions apply: the Decision connection's **Time limit** (1.5 seconds by default), and 4 seconds for a local model. A model that has to reason first holds off in front of the reply unless you turned on **Also gate agents that run before the reply**.
 - **Once per turn.** Answers are kept for the turn, so a regeneration or a swipe sends the same branches. The Decision model is only asked again when a new message arrives, or when you edit the newest message and regenerate. The one exception is post-processing agents, below: they read the finished reply, so their statements are asked once per reply.
 - **Prompt caching.** A provider's cache reuses the prompt only up to the first thing that changed since the last request; everything from there on is billed again at full price. A branch that changes from turn to turn is such a change, so where it sits decides how much stays cached. Put decision blocks late in the prompt, such as post-history instructions or author's notes, rather than at the top.

@@ -183,6 +183,7 @@ export const ENGINE_OWNED_METADATA_KEY_PREFIXES = Object.freeze([
   "cross",
   "custom",
   "day",
+  "decision",
   "discord",
   "dm",
   "embedding",
