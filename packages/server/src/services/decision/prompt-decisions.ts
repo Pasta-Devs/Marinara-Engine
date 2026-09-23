@@ -507,7 +507,10 @@ export function createLorebookDecisionResolver(args: {
     for (const { key } of keyed) {
       if (!key || seen.has(key)) continue;
       seen.add(key);
-      if (admit(key)) planned.push({ kind: "noul", key, options: [] });
+      // A Decision field has no timing of its own, but the same statement held elsewhere
+      // keeps its held answer here too, and takes no slot.
+      const held = args.held?.("noul", key);
+      if (held || admit(key)) planned.push({ kind: "noul", key, options: [], ...(held ? { held } : {}) });
       else dropped.push(key);
     }
     const plan: PromptDecisionPlan = { decisions: planned, dropped };

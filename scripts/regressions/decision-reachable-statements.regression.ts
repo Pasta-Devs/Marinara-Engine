@@ -260,6 +260,11 @@ try {
       },
       onDropped: (statement: string) => heldDropped.push(statement),
     });
+    // A Decision field's statement held elsewhere gets its held answer, and no slot.
+    const gateAnswers = await heldResolver([{ entryId: "gate", statement: "The held entry statement" }]);
+    assert.equal(gateAnswers.get("gate"), true, "a held gate statement reads its held answer");
+    assert.deepEqual(heldDropped, [], "and is not dropped for want of a slot");
+    planned.length = 0;
     await heldResolver.answerStatements!([
       `{{#if decision:"The held entry statement" sticky:2}}x{{/if}}{{#if decision:"Another entry statement"}}y{{/if}}`,
     ]);
@@ -687,7 +692,11 @@ try {
       payload: {
         chatId: peekChat.id,
         returnPrompt: true,
-        promptParts: { presetText: `{{#if decision:"The parts text asks this"}}PARTS{{/if}}`, includeHistory: true },
+        promptParts: {
+          presetText: `{{#if decision:"The parts text asks this"}}PARTS{{/if}}`,
+          extensionBlocks: [{ role: "system", content: `{{#if decision:"An extension block asks this"}}EXT{{/if}}` }],
+          includeHistory: true,
+        },
       },
     });
     assert.equal(dryRun.statusCode, 200, dryRun.body);
@@ -697,7 +706,11 @@ try {
       ["The parts text asks this"],
       "the parts text gets the slot the unused preset would have taken",
     );
-    assert.equal(dryRunDecisions.dropped, undefined, JSON.stringify(dryRunDecisions));
+    assert.deepEqual(
+      dryRunDecisions.dropped,
+      ["An extension block asks this"],
+      "an extension block's statement is planned too, so the one-slot limit reports it",
+    );
     console.log("decision-reachable-statements regression passed");
   } finally {
     await app.close();

@@ -1031,8 +1031,15 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             : undefined,
         ctx: promptMacroContext,
         extra: [
-          // Prompt parts assemble this text in place of the preset's sections.
+          // Prompt parts assemble this text and their extension blocks in place of the
+          // preset's sections, so those are what they plan from.
           ...(promptParts && typeof promptParts.presetText === "string" ? [promptParts.presetText] : []),
+          ...(promptParts
+            ? (
+                parseJsonArray(promptParts.extensionBlocks) ??
+                (Array.isArray(promptParts.extensionBlocks) ? promptParts.extensionBlocks : [])
+              ).flatMap((block) => (isRecord(block) && typeof block.content === "string" ? [block.content] : []))
+            : []),
           personaDescription,
           activeChatSummary,
           chatMeta.groupScenarioText,
