@@ -82,9 +82,11 @@ export function parseNvidiaSmi(output: string): GpuDevice[] {
       totalBytes: totalMiB * 1024 * 1024,
       usedBytes: Number.isFinite(usedMiB) && usedMiB >= 0 ? usedMiB * 1024 * 1024 : 0,
       driverVersion: parts[5] ?? "",
-      // Older drivers do not expose this column at all, so it stays optional and an
-      // absent value is treated as unknown rather than as unsupported.
-      computeCapability: parts[6] || undefined,
+      // Only a numeric major.minor counts. Older drivers omit the column, and a driver
+      // that cannot read it prints `N/A` or `[N/A]`, which the version compare would
+      // otherwise read as indeterminate and pass. Anything else stays unknown, and an
+      // unknown capability refuses a download (see `meetsComputeCapability`).
+      computeCapability: /^\d+\.\d+$/u.test(parts[6] ?? "") ? parts[6] : undefined,
     });
   }
   return devices;

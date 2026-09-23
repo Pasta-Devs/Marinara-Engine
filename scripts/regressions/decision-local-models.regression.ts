@@ -38,6 +38,7 @@ import {
   assessSidecarLoad,
   compareDriverVersions,
   estimateSlotBytes,
+  meetsComputeCapability,
   parseNvidiaSmi,
   parseNvidiaSmiApps,
   resolveSharedDevice,
@@ -516,6 +517,15 @@ const RECORDED_SMI =
   "0, GPU-b1e6a2e9, NVIDIA GeForce RTX 5090 Laptop GPU, 24463, 182, 615.71.09\n" +
   "1, GPU-aaaa1111, NVIDIA GeForce RTX 3060, 12288, 900, 580.95.05\n";
 const devices = parseNvidiaSmi(RECORDED_SMI);
+// A capability nvidia-smi could not read is unknown, never a pass.
+for (const unreadable of ["N/A", "[N/A]", "[Not Supported]", "12"]) {
+  const [device] = parseNvidiaSmi(`0, GPU-x, NVIDIA Fake, 8192, 10, 615.71.09, ${unreadable}\n`);
+  assert.equal(device!.computeCapability, undefined, `${unreadable} is not a capability`);
+  assert.equal(meetsComputeCapability(device!, "7.5"), null, `${unreadable} reads as unknown`);
+}
+const [readable] = parseNvidiaSmi("0, GPU-x, NVIDIA Fake, 8192, 10, 615.71.09, 6.1\n");
+assert.equal(readable!.computeCapability, "6.1");
+assert.equal(meetsComputeCapability(readable!, "7.5"), false, "a Pascal card is refused by its real capability");
 assert.equal(devices.length, 2);
 assert.equal(devices[0]!.name, "NVIDIA GeForce RTX 5090 Laptop GPU");
 assert.equal(devices[0]!.totalBytes, 24463 * 1024 * 1024);
