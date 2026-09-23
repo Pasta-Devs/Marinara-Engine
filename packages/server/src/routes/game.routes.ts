@@ -12175,7 +12175,9 @@ export async function gameRoutes(app: FastifyInstance) {
 
       return { result: parsed };
     } catch (err) {
-      logger.warn(err, "[game/scene-wrap] Failed to parse LLM response as JSON: %s", raw.slice(0, 200));
+      // Model output stays out of non-debug lines; the text itself is at debug.
+      logger.warn({ err, rawLength: raw.length }, "[game/scene-wrap] Failed to parse LLM response as JSON");
+      logger.debug("[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0, 200));
       return { result: null, raw };
     }
   });

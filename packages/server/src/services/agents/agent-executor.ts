@@ -42,6 +42,7 @@ import {
 } from "@marinara-engine/shared";
 import { getAgentCallTimeoutMs, getMaxToolRounds, isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
+import { failureLevel } from "../../lib/log-context.js";
 import { repairJsonText } from "../../lib/json-repair.js";
 import { LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { normalizeGemma4Delimiters } from "../llm/textual-tool-call-parser.js";
@@ -964,6 +965,8 @@ export async function executeAgent(
       durationMs: Date.now() - startTime,
       error: extractErrorMessage(err),
     });
+    // The one server line for this failure: providers and tool calls rethrow without logging.
+    logger[failureLevel(err, "warn")](err, "[agent] %s failed", config.type);
     return makeError(config, extractErrorMessage(err), startTime);
   }
 }
@@ -1258,7 +1261,8 @@ async function executeAgentWithTools(
       try {
         toolResult = await toolContext.executeToolCall(tc);
       } catch (err) {
-        logger.error(err, "[agent-tools] %s %s failed", config.type, tc.function.name);
+        // executeAgent logs the failure once; this only names the tool for debugging.
+        logger.debug({ err }, "[agent-tools] %s %s failed", config.type, tc.function.name);
         throw err;
       }
       logger.info("[agent-tools] %s %s completed", config.type, tc.function.name);
@@ -1604,7 +1608,11 @@ export async function executeAgentBatch(
           retries.push(entry.value);
         } else {
           // Individual retry also failed — produce error result
-          logger.error(entry.reason, "[agent-batch] Individual retry FAILED for %s", failed[i]!.type);
+          logger[failureLevel(entry.reason)](
+            entry.reason,
+            "[agent-batch] Individual retry FAILED for %s",
+            failed[i]!.type,
+          );
           retries.push(
             makeError(failed[i]!, entry.reason instanceof Error ? entry.reason.message : "Retry failed", startTime),
           );
@@ -1631,7 +1639,7 @@ export async function executeAgentBatch(
       error: errMsg,
       batchedAgentTypes: configs.map((config) => config.type),
     });
-    logger.error(err, "[agent-batch] Batch call FAILED: %s", errMsg);
+    logger[failureLevel(err)](err, "[agent-batch] Batch call FAILED: %s", errMsg);
     return configs.map((c) => makeError(c, errMsg, startTime));
   }
 }

@@ -28,7 +28,8 @@ import { isRequestHostTrusted } from "../middleware/host-validation.js";
 // origins can't grow process memory without bound.
 const MAX_ANNOUNCED_REJECTED_ORIGINS = 2048;
 const announcedRejectedOrigins = new Set<string>();
-const EXPOSED_RESPONSE_HEADERS = ["X-Marinara-Fallback-Used"];
+// X-Request-Id lets the client quote the server log id of a failed request.
+const EXPOSED_RESPONSE_HEADERS = ["X-Marinara-Fallback-Used", "X-Request-Id"];
 
 function announceRejectedOrigin(origin: string) {
   if (announcedRejectedOrigins.has(origin)) return;

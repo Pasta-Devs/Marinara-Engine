@@ -1,6 +1,7 @@
 import { buildDecisionInstructions, type DecisionQuestionShape } from "@marinara-engine/shared";
 import { isProviderLocalUrlsEnabled } from "../../config/runtime-config.js";
-import { logger, logDebugOverride } from "../../lib/logger.js";
+import { logRateLimited } from "../../lib/log-rate-limit.js";
+import { logDebugOverride } from "../../lib/logger.js";
 import { safeFetch } from "../../utils/security.js";
 import type { DecisionConnection } from "./decision-connection.js";
 
@@ -142,6 +143,15 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
           : "network";
   }
   if (onAbort) signal.removeEventListener("abort", onAbort);
-  if (error && error !== "cancelled") logger.warn("[decision] Activation request failed: %s", error);
+  // A gate calls this on every turn, so a server that stays down would repeat the same
+  // warning each time; at most one line per error code per window.
+  if (error && error !== "cancelled")
+    logRateLimited(
+      "warn",
+      `decision.system-one:${error}`,
+      undefined,
+      "[decision] Activation request failed: %s",
+      error,
+    );
   return { answers, choices, ...(error ? { error } : {}), latencyMs: Date.now() - start };
 }

@@ -129,10 +129,8 @@ export async function resolveDecisionBackend(
   const slot = await readDecisionLocalSlot(deps.getLocalDefault);
   if (slot) {
     const resolution = await resolveDecisionSlot(slot, signal);
-    if (!resolution.resolved) {
-      logger.warn("[decision] The selected local model cannot serve decisions: %s", resolution.failure.reason);
-      return null;
-    }
+    // resolveDecisionSlot already wrote the one line for this failure.
+    if (!resolution.resolved) return null;
     const resolved = resolution.resolved;
 
     // The managed decision sidecar is a System One server, not a chat model. Asking it

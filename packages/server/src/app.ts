@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Fastify App Factory
 // ──────────────────────────────────────────────
-import Fastify, { LogController } from "fastify";
+import Fastify, { type FastifyBaseLogger } from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
@@ -30,7 +30,6 @@ import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { getBuildCommit, getBuildLabel } from "./config/build-info.js";
 import {
-  getLogLevel,
   getNodeEnv,
   isRequestLoggingDisabled,
   isAutoCreateDefaultConnectionDisabled,
@@ -56,7 +55,10 @@ import { getRuntimeMemorySnapshot } from "./utils/runtime-memory.js";
 import { getLastFreeze } from "./lib/freeze-detector.js";
 import { buildSidecarHealthSection } from "./services/sidecar/sidecar-slot-report.js";
 import { getPreviousSessionStatus, getUncleanExitHistory } from "./lib/session-postmortem.js";
-import { protectTerminalLogger } from "./lib/logger.js";
+import { followLogLevel, logger, protectTerminalLogger } from "./lib/logger.js";
+import { logRateLimited } from "./lib/log-rate-limit.js";
+import { genRequestId, registerRequestLogging, RequestLogController } from "./lib/request-logging.js";
+import { startup } from "./lib/startup-timeline.js";
 import { openCodeSessionHook } from "./utils/opencode-session.js";
 
 const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
@@ -90,18 +92,25 @@ const SERVER_OS = resolveServerOs();
 
 export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   const hadUserStateBeforeStartup = existsSync(join(getFileStorageDir(), "manifest.json"));
+  const logController = new RequestLogController({ disableRequestLogging: isRequestLoggingDisabled() });
   const app = Fastify({
     // Restart has its own bounded fallback; normal shutdown must not interrupt active generations.
     forceCloseConnections: false,
-    logger: {
-      level: getLogLevel(),
-      transport: getNodeEnv() !== "production" ? { target: "pino-pretty", options: { colorize: true } } : undefined,
-    },
-    logController: new LogController({ disableRequestLogging: isRequestLoggingDisabled() }),
+    // Request lines go through the shared logger (lib/logger.ts), so they carry the
+    // same bootId, serializers and context fields as every other server line.
+    loggerInstance: logger as FastifyBaseLogger,
+    logController,
+    genReqId: genRequestId,
     bodyLimit: MAX_UPLOAD_BYTES, // General-route default; transfer routes opt into streamed or unbounded imports.
     ...(https && { https }),
   });
+  // app.log shares the shared logger's stream, which logger.ts already protects; this
+  // is a no-op then and only matters if Fastify is ever given its own stream again.
   protectTerminalLogger(app.log, getNodeEnv() !== "production");
+  const stopFollowingLogLevel = followLogLevel(app.log);
+  app.addHook("onClose", async () => stopFollowingLogLevel());
+  // requestId on every line of a request, echoed as x-request-id.
+  registerRequestLogging(app, logController);
 
   // Reject attacker-controlled DNS names before CORS or loopback trust can
   // treat a rebound browser request as same-origin local traffic.
@@ -123,7 +132,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   });
 
   // ── Storage ──
-  const db = await getDB();
+  const db = await startup.phase("storage.open", () => getDB());
   app.decorate("db", db);
   app.addHook("onClose", async () => {
     try {
@@ -165,34 +174,36 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   resetTurnGameRegistry();
 
   // ── Seed defaults ──
-  await seedDefaultPreset(db);
-  await seedProfessorMari(db);
+  await startup.phase("seed.preset", () => seedDefaultPreset(db));
+  await startup.phase("seed.mari", () => seedProfessorMari(db));
   if (isAutoCreateDefaultConnectionDisabled()) {
     app.log.info("Skipping default OpenRouter Free connection seed because AUTO_CREATE_DEFAULT_CONNECTION is disabled");
   } else {
-    await seedDefaultConnection(db);
+    await startup.phase("seed.connection", () => seedDefaultConnection(db));
   }
-  await seedDefaultRegexScripts(db);
-  await migrateLegacyDefaultAgentPrompts(db);
-  await migrateCharacterExtendedDescriptionsToLorebooks(db);
+  await startup.phase("seed.regex", () => seedDefaultRegexScripts(db));
+  await startup.phase("migrate.agent-prompts", () => migrateLegacyDefaultAgentPrompts(db));
+  await startup.phase("migrate.extended-descriptions", () => migrateCharacterExtendedDescriptionsToLorebooks(db));
   try {
-    await migrateTtsSettingsToAudioConnection(db);
+    await startup.phase("migrate.tts-audio", () => migrateTtsSettingsToAudioConnection(db));
   } catch (error) {
     app.log.warn(error, "TTS audio-connection migration did not complete; it will retry next startup");
   }
-  await seedDefaultBackgrounds();
-  await seedDefaultGameAssets();
+  await startup.phase("seed.backgrounds", () => seedDefaultBackgrounds());
+  await startup.phase("seed.game-assets", () => seedDefaultGameAssets());
 
   // ── Ensure default asset directories exist, then build manifest ──
-  ensureAssetDirs();
-  buildAssetManifest();
+  await startup.phase("assets.manifest", () => {
+    ensureAssetDirs();
+    buildAssetManifest();
+  });
 
   // ── Recover orphaned gallery images (files on disk without DB records) ──
-  await recoverGalleryImages(db);
+  await startup.phase("gallery.recover", () => recoverGalleryImages(db));
 
   // Legacy extension payloads and any out-of-band code changes are retained as
   // disabled drafts. Execution always requires approval of the exact hash.
-  const personalExtensionTrust = await preparePersonalExtensionTrust(db);
+  const personalExtensionTrust = await startup.phase("extensions.trust", () => preparePersonalExtensionTrust(db));
   if (personalExtensionTrust.legacyRecordsQuarantined > 0) {
     app.log.info(
       "Quarantined %d legacy extension record(s) as Personal Extension drafts",
@@ -255,11 +266,13 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   await app.register(fastifyStatic, { serve: false });
 
   // ── Routes ──
-  await registerRoutes(app);
-  await androidLocalLoginRoute(app);
+  await startup.phase("routes.register", async () => {
+    await registerRoutes(app);
+    await androidLocalLoginRoute(app);
+  });
 
   // Trusted downloaded server capabilities register while Fastify is still mutable.
-  await capabilityModuleRuntime.start(app);
+  await startup.phase("capabilities.start", () => capabilityModuleRuntime.start(app));
   // A package can install its own art during activate(), which runs AFTER the boot-time scan above, so
   // without this its assets stay invisible to everything reading the manifest until the NEXT restart.
   // Idempotent — the same scan the upload routes already re-run. Guarded because it walks files a package
@@ -269,11 +282,11 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   } catch (error) {
     app.log.warn({ err: error }, "[capability] post-activation asset rescan failed; manifest may be stale");
   }
-  await personalServerExtensionRuntime.start(db);
+  await startup.phase("extensions.start", () => personalServerExtensionRuntime.start(db));
   // Server-backed agent definitions are visible only after their runtime reaches
   // functional readiness. Packages without a server entrypoint remain available
   // as soon as their verified files are installed.
-  await initializeCapabilityAgentRegistry();
+  await startup.phase("capabilities.agents", () => initializeCapabilityAgentRegistry());
 
   // ── Server-side autonomous conversation scheduler ──
   startServerAutonomousScheduler(app);
@@ -310,7 +323,8 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     try {
       capabilityPackages = await capabilityPackageManager.diagnostics();
     } catch (error) {
-      app.log.warn(error, "Capability package diagnostics are unavailable");
+      // The client polls health; one line a minute is enough for a lasting failure.
+      logRateLimited("warn", "health.capability-packages", error, "Capability package diagnostics are unavailable");
     }
     // A slot service that throws must not take the health endpoint down with it: this
     // response is also the freeze detector's signal and an uptime check's target.
@@ -318,7 +332,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     try {
       sidecars = buildSidecarHealthSection();
     } catch (error) {
-      app.log.warn(error, "Sidecar health diagnostics are unavailable");
+      logRateLimited("warn", "health.sidecars", error, "Sidecar health diagnostics are unavailable");
     }
     return {
       status: "ok",
