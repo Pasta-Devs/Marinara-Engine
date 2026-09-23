@@ -1359,8 +1359,17 @@ export async function processLorebooks(
     // statements newly waiting, and the statements in the text of entries newly about to
     // activate. A round with nothing new ends it, so a turn without recursion through a
     // decision asks once; three rounds follow a chain two decisions deep.
+    // Only text holding a decision can read differently once more answers are in; the
+    // rest is resolved once, so a random macro in it keeps its roll across rounds.
+    const fixedDiscoveryEntries = new Map(
+      allEntries
+        .filter((entry) => !DECISION_STATEMENT_RE.test(entry.content))
+        .map((entry) => [entry.id, { ...entry, content: discoveryText(entry.content) }]),
+    );
     for (let round = 0; round < 3; round++) {
-      const discoveryEntries = allEntries.map((entry) => ({ ...entry, content: discoveryText(entry.content) }));
+      const discoveryEntries = allEntries.map(
+        (entry) => fixedDiscoveryEntries.get(entry.id) ?? { ...entry, content: discoveryText(entry.content) },
+      );
       const pendingDecisions =
         usesDecisions && resolver !== undefined ? new Set<string>(round === 0 ? locationRequireIds : []) : undefined;
       const preScanOpts: ScanOptions = pendingDecisions ? { ...scanOpts, pendingDecisions } : { ...scanOpts };
