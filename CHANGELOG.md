@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Message voice controls share a compact audio menu. Clear cached voice removes only that message’s audio and regenerates it on the next playback, without discarding other chats’ saved voice lines (#6514).
+
 - Roleplay dice outcomes follow the selected accent. Message usage and Peek Prompt distinguish tool-turn totals from the last request's input size, so repeated tool requests are not mistaken for an oversized context (#6550).
 - Advanced Memory also checks actual provider-reported input after the main reply, resetting to the latest known scene and reusing its recap in Chat Summaries when the input limit is exceeded. Cached input counts; output tokens and cumulative tool-turn usage do not (#6550).
 - Advanced Memory summary prompts request character-name conditions for separate POV knowledge. Recall resolves those conditions for the responding character; raw excerpts are omitted when they could expose a hidden section, while the narrator retains the full recap (#6550).

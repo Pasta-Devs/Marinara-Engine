@@ -105,17 +105,19 @@ test("Roleplay speech keeps tap permission through delayed synthesis and later c
     await page.goto("/");
     const first = page.locator(`[data-message-id="${messages[0].id}"]`);
     const second = page.locator(`[data-message-id="${messages[1].id}"]`);
-    const speak = first.getByRole("button", { name: "Speak", exact: true });
+    const audioMenu = page.getByRole("dialog", { name: /^Voice controls/ });
+    const speak = audioMenu.getByRole("button", { name: "Speak", exact: true });
     await first.scrollIntoViewIfNeeded();
     if (testInfo.project.use.hasTouch) await first.getByText('"First line."', { exact: true }).tap();
     else await first.hover();
+    await first.getByRole("button", { name: /^Voice controls/ }).click();
     if (testInfo.project.use.hasTouch) await speak.tap();
     else await speak.click();
     await expect.poll(() => synthesisRequests).toBe(1);
     await expect.poll(() => page.evaluate(() => window.__ttsPlaybackProof.gesture)).toBe(false);
     expect(await page.evaluate(() => window.__ttsPlaybackProof.primed)).toBe(1);
     releaseSynthesis();
-    await expect(first.getByRole("button", { name: "Pause speaking", exact: true })).toBeVisible();
+    await expect(audioMenu.getByRole("button", { name: "Pause speaking", exact: true })).toBeVisible();
     await expect.poll(() => page.evaluate(() => window.__ttsPlaybackProof.played)).toBe(1);
     await page.evaluate(() => window.__ttsPlaybackProof.finish());
     await expect.poll(() => page.evaluate(() => window.__ttsPlaybackProof.played)).toBe(2);
@@ -124,18 +126,25 @@ test("Roleplay speech keeps tap permission through delayed synthesis and later c
     await second.scrollIntoViewIfNeeded();
     if (testInfo.project.use.hasTouch) await second.getByText('"Another message."', { exact: true }).tap();
     else await second.hover();
-    const secondSpeak = second.getByRole("button", { name: "Speak", exact: true });
+    await second.getByRole("button", { name: /^Voice controls/ }).click();
+    const secondSpeak = audioMenu.getByRole("button", { name: "Speak", exact: true });
     if (testInfo.project.use.hasTouch) await secondSpeak.tap();
     else await secondSpeak.click();
-    await expect(second.getByRole("button", { name: "Stop speaking", exact: true })).toBeVisible();
+    await expect(audioMenu.getByRole("button", { name: "Stop speaking", exact: true })).toBeVisible();
     await expect.poll(() => page.evaluate(() => window.__ttsPlaybackProof.played)).toBe(3);
     expect(await page.evaluate(() => window.__ttsPlaybackProof.elements.length)).toBe(1);
     expect(await page.evaluate(() => window.__ttsPlaybackProof.rejected)).toEqual([]);
     await page.screenshot({ path: testInfo.outputPath("roleplay-voice-playing.png") });
-    const stop = second.getByRole("button", { name: "Stop speaking", exact: true });
+    const stop = audioMenu.getByRole("button", { name: "Stop speaking", exact: true });
     if (testInfo.project.use.hasTouch) await stop.tap();
     else await stop.click();
-    await expect(second.getByRole("button", { name: "Speak", exact: true })).toBeVisible();
+    await expect(audioMenu.getByRole("button", { name: "Speak", exact: true })).toBeVisible();
+    await audioMenu.getByRole("button", { name: "Clear cached voice", exact: true }).click();
+    await expect(secondSpeak).toBeEnabled();
+    expect(synthesisRequests).toBe(3); // Clearing never starts playback.
+    await secondSpeak.click();
+    await expect.poll(() => synthesisRequests).toBe(4);
+    await audioMenu.getByRole("button", { name: "Stop speaking", exact: true }).click();
     expect(
       await page.evaluate(() => {
         const audio = window.__ttsPlaybackProof.elements[0]!;
