@@ -7,6 +7,13 @@ function isBackdropTarget(currentTarget: HTMLElement, target: EventTarget | null
   );
 }
 
+function getHitTarget(event: ReactPointerEvent): EventTarget | null {
+  if (typeof document !== "undefined" && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+    return document.elementFromPoint(event.clientX, event.clientY) ?? event.target;
+  }
+  return event.target;
+}
+
 /**
  * Closes an overlay only when the pointer press, pointer release, and click
  * all occur on its backdrop. A drag or native window-resize gesture that starts
@@ -22,7 +29,8 @@ export function useBackdropDismiss<T extends HTMLElement>(onDismiss: () => void,
   }, []);
 
   const onPointerUpCapture = useCallback((event: ReactPointerEvent<T>) => {
-    pointerEndedOnBackdropRef.current = isBackdropTarget(event.currentTarget, event.target);
+    const releaseTarget = getHitTarget(event);
+    pointerEndedOnBackdropRef.current = isBackdropTarget(event.currentTarget, releaseTarget);
   }, []);
 
   const onPointerCancelCapture = useCallback(() => {
