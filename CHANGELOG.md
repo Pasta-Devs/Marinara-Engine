@@ -14,6 +14,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Claude Opus 5.5 is selectable in Claude connections with its 1M context and 128k output limits, supported reasoning settings, and compatible tool requests (#6544).
 
+- Scene setup lets you choose its persona and Conversation characters. Characters in an active Scene pause automatic messages in the source Conversation until the Scene ends (#6542, #6541).
+- Roleplay tracker widgets tolerate saved blank rows, and Custom Tracker updates discard nameless entries after applying field locks instead of making a chat unusable (#6549).
+
 - Marinara can now download and run a purpose-built decision model for activation questions, as a second local process beside your normal local model. It is off by default and behind a warning, a confirmation carrying your machine's verdict, and a separate size-and-licence step, because it costs about 10 GB of disk and 5 GB of GPU memory and is less accurate on roleplay than the local model you already have. It is faster and slightly smaller; that is the trade. You can also paste a decision model's repository, which is installed only when its own manifest declares a runtime this build ships.
 
 - The decision model preflight checks GPU compute capability, not just whether an NVIDIA card is present. Pascal cards and older cannot run the runtime whatever memory they have, and without this check the download would have been offered and then failed at load.

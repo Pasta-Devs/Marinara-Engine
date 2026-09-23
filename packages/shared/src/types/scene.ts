@@ -64,6 +64,9 @@ export interface ScenePromptPreferences {
   promptPresetId?: string | null;
   /** Scene-local selections, confirmed before planning; not remembered as UI defaults. */
   presetChoices?: Record<string, string | string[]>;
+  /** Scene-local overrides. Omit to retain automatic selection and the source persona. */
+  participantCharacterIds?: string[];
+  personaId?: string | null;
 }
 
 /** Request body for POST /scene/create. */
@@ -79,6 +82,8 @@ export interface SceneCreateRequest {
   /** Optional preset for the scene's generations, alongside its scene instructions. */
   promptPresetId?: string | null;
   presetChoices?: Record<string, string | string[]>;
+  participantCharacterIds?: string[];
+  personaId?: string | null;
 }
 
 /** Response from POST /scene/create. */

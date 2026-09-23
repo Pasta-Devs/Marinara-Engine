@@ -82,6 +82,8 @@ import {
   LOCAL_SIDECAR_CONNECTION_ID,
   normalizeImagePromptInstructions,
   normalizeTextForMatch,
+  parseGroupedSpeakerSegments,
+  stripLeadingMessageTimestamps,
   parseManagedGenerationParameterDefinitions,
   normalizeGameStoryboardKeyframeCount,
   estimateTextTokens,
@@ -676,7 +678,10 @@ import {
   loadCharacterPromptInfo,
   normalizeCharacterRpgStats,
 } from "../services/generation/character-prompt-context.js";
-import { injectSceneContextMessages } from "../services/generation/scene-context-runtime.js";
+import {
+  injectSceneContextMessages,
+  resolveSceneBusyCharacterIds,
+} from "../services/generation/scene-context-runtime.js";
 import { injectCommittedTrackerContext } from "../services/generation/committed-tracker-context.js";
 import { loadPriorBeholderState } from "../services/agents/beholder-state.js";
 import { injectGameGmPromptRuntime } from "../services/generation/game-gm-prompt-runtime.js";
@@ -4389,6 +4394,13 @@ export async function generateRoutes(app: FastifyInstance) {
         // Auto-enable speaker colors for conversation mode groups (system prompt already requests tags)
         const groupSpeakerColors = chatMeta.groupSpeakerColors === true || (chatMode === "conversation" && isGroupChat);
         const groupTurnPromptEnabled = chatMeta.groupTurnPromptEnabled !== false;
+        const restrictMergedResponders =
+          chatMode === "conversation" &&
+          isGroupChat &&
+          groupChatMode === "merged" &&
+          !input.impersonate &&
+          !input.regenerateMessageId &&
+          availableGroupCharacters.length < charInfo.length;
 
         if (isGroupChat && chatMode !== "conversation") {
           // Keep one concrete tagged assistant example while trimming redundant
@@ -4399,6 +4411,12 @@ export async function generateRoutes(app: FastifyInstance) {
         if (isGroupChat) {
           // Inject group chat instructions at the end of the last user message
           const groupInstructions: string[] = [];
+
+          if (restrictMergedResponders) {
+            groupInstructions.push(
+              `- Only ${availableGroupCharacters.map((character) => groupResponderName(character.id)).join(", ")} may respond this turn. Other participants are unavailable; do not write their messages.`,
+            );
+          }
 
           if (groupChatMode === "merged" && groupSpeakerColors && chatMode !== "conversation") {
             const charNames = charInfo.map((c) => c.name);
@@ -6723,6 +6741,17 @@ export async function generateRoutes(app: FastifyInstance) {
           oocMessages: string[];
           characterId: string | null;
         } | null> => {
+          if (
+            chatMode === "conversation" &&
+            (speaksOnlyTargetCharacter || input.continueMessageId) &&
+            targetCharId &&
+            !input.regenerateMessageId &&
+            !input.impersonate &&
+            (await resolveSceneBusyCharacterIds(chats, input.chatId)).includes(targetCharId)
+          ) {
+            sendSseEvent(reply, { type: "offline", characters: [groupResponderName(targetCharId)] });
+            return null;
+          }
           generationProviderOrigin = { model: conn.model, provider: conn.provider };
           let recoveredAlreadyAppliedSpatialTurn = false;
           const pendingGameStateToolCalls: Parameters<typeof executeToolCalls>[0] = [];
@@ -8037,6 +8066,27 @@ export async function generateRoutes(app: FastifyInstance) {
             if (canonicalResponse !== fullResponse) {
               fullResponse = canonicalResponse;
               contentReplaced = true;
+            }
+          }
+          if (restrictMergedResponders) {
+            const speakerNames = (character: { id: string; name: string }) =>
+              [character.name, groupResponderName(character.id)].map(normalizeTextForMatch).filter(Boolean);
+            // A shared display name stays unavailable if any matching character is busy.
+            const unavailableNames = new Set(
+              charInfo.filter((character) => !isAvailableGroupResponder(character.id)).flatMap(speakerNames),
+            );
+            const segments = parseGroupedSpeakerSegments(
+              stripLeadingMessageTimestamps(fullResponse),
+              new Set(charInfo.flatMap(speakerNames)),
+            );
+            const blockedSpeakers = (segments ?? []).flatMap(({ speaker }) =>
+              speaker && unavailableNames.has(normalizeTextForMatch(speaker)) ? [speaker] : [],
+            );
+            if (blockedSpeakers.length) {
+              fullResponse = "";
+              if (!holdForTextRewrite) sendSseEvent(reply, { type: "content_replace", data: "" });
+              sendSseEvent(reply, { type: "offline", characters: [...new Set(blockedSpeakers)] });
+              return null;
             }
           }
           if (conversationCommandsEnabled && !input.impersonate) {
@@ -9511,7 +9561,7 @@ export async function generateRoutes(app: FastifyInstance) {
           let targetCharId =
             typeof input.forCharacterId === "string" && characterIds.includes(input.forCharacterId)
               ? input.forCharacterId
-              : (characterIds[0] ?? null);
+              : ((chatMode === "conversation" ? availableGroupCharacters[0]?.id : characterIds[0]) ?? null);
           const sentMessages = [...finalMessages];
 
           if (generationGuideInstruction) {

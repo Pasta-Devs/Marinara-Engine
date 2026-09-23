@@ -160,9 +160,11 @@ export function ModalRenderer() {
     case "scene-prompt-preferences":
       content = (
         <ScenePromptPreferencesModal
+          key={modal?.props?.chatId as string | undefined}
           open
           onClose={closeModal}
           initialPreferences={modal?.props?.initialPreferences as ScenePromptPreferences}
+          chatId={modal?.props?.chatId as string | undefined}
           sourceLabel={(modal?.props?.sourceLabel as string | null) ?? null}
           onSubmit={modal?.props?.onSubmit as (preferences: ScenePromptPreferences) => void}
           onCancel={modal?.props?.onCancel as (() => void) | undefined}

@@ -15,6 +15,7 @@ import {
   normalizeSummaryTailMessages,
   normalizeWorldCustomFields,
   isTrackerRowsUpdate,
+  isNamedTrackerRow,
   normalizeThinkingTagPairs,
   parseTrackerFieldLocks,
   parseTrackerHiddenFields,
@@ -232,8 +233,12 @@ export function buildLockedPlayerStatsArrayPatch<T>({
   basePlayerStats?: PlayerStats;
 }) {
   const existingPlayerStats = parseSnapshotPlayerStats(snapshot);
-  const lockedPatch = applyTrackerFieldLocksToGameStatePatch({ playerStats: { [field]: values } }, lockState);
-  const lockedValues = extractPlayerStatsPatchArray<T>(lockedPatch, field, values);
+  // Keep row positions until locks are merged, then discard nameless Custom Tracker rows.
+  const rawValues =
+    field === "customTrackerFields" ? values.map((row) => (isNamedTrackerRow(row) ? row : ({} as T))) : values;
+  const lockedPatch = applyTrackerFieldLocksToGameStatePatch({ playerStats: { [field]: rawValues } }, lockState);
+  const mergedValues = extractPlayerStatsPatchArray<T>(lockedPatch, field, rawValues);
+  const lockedValues = field === "customTrackerFields" ? mergedValues.filter(isNamedTrackerRow) : mergedValues;
   const playerStats = { ...(basePlayerStats ?? existingPlayerStats), [field]: lockedValues };
   const existingValues = existingPlayerStats[field];
   const changed = !isDeepStrictEqual(lockedValues, Array.isArray(existingValues) ? existingValues : []);

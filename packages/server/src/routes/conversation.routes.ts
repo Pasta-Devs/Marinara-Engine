@@ -1,3 +1,4 @@
+import { resolveSceneBusyCharacterIds } from "../services/generation/scene-context-runtime.js";
 // ──────────────────────────────────────────────
 // Routes: Conversation Mode Services
 // ──────────────────────────────────────────────
@@ -1060,7 +1061,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
 
     // Filter out characters busy in an active scene
-    const sceneBusyCharIds: string[] = meta.sceneBusyCharIds ?? [];
+    const sceneBusyCharIds = await resolveSceneBusyCharacterIds(chats, chatId, meta);
     const filteredSchedules = { ...autonomySchedules };
     for (const busyId of sceneBusyCharIds) {
       delete filteredSchedules[busyId];
@@ -1262,7 +1263,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     const { schedules, statusOverrides } = await chats.resolveConversationPresenceState(chatId);
     const now = new Date();
     const scheduleNow = toZonedWallClockDate(now, resolveConversationTimeZone(meta));
-    const sceneBusyCharIds: string[] = meta.sceneBusyCharIds ?? [];
+    const sceneBusyCharIds = await resolveSceneBusyCharacterIds(chats, chatId, meta);
     const filteredSchedules = { ...schedules };
     for (const busyId of sceneBusyCharIds) {
       delete filteredSchedules[busyId];

@@ -12,6 +12,7 @@ import {
 } from "../../services/conversation/schedule.service.js";
 import type { GenerationPromptMessage } from "../../services/generation/prompt-message-scope.js";
 import { getActiveTurnGame } from "../../services/turn-games/turn-game-runner.service.js";
+import { resolveSceneBusyCharacterIds } from "../../services/generation/scene-context-runtime.js";
 import { isMessageHiddenFromAI, parseExtra } from "./generate-route-utils.js";
 
 export type ConversationPromptCharacterInfo = {
@@ -47,6 +48,7 @@ export function remainingConversationPresenceDelay(delayMs: number, startedAt: n
 }
 
 type ConversationPresenceChatsStore = {
+  getById(id: string): Promise<{ characterIds: unknown; metadata: unknown } | null | undefined>;
   patchMetadata(
     chatId: string,
     updater: (current: Record<string, unknown>) => Record<string, unknown>,
@@ -161,9 +163,14 @@ export async function resolveConversationPresenceRuntime(args: {
   }
 
   const requestedResponderNames = respondingConvoCharInfo.map((character) => character.displayName);
+  const sceneBusyCharIds = new Set(await resolveSceneBusyCharacterIds(args.chats, args.chatId, args.chatMeta));
   const seatedGameCharIds = await resolveSeatedTurnGameCharacterIds(args.db, args.chatId);
   const effectiveStatus = (character: { charId: string; status: string }): string =>
-    seatedGameCharIds.has(character.charId) ? "online" : character.status;
+    sceneBusyCharIds.has(character.charId)
+      ? "offline"
+      : seatedGameCharIds.has(character.charId)
+        ? "online"
+        : character.status;
 
   if (!args.regenerateMessageId && !args.impersonate) {
     respondingConvoCharInfo = respondingConvoCharInfo.filter((character) => effectiveStatus(character) !== "offline");
@@ -181,8 +188,8 @@ export async function resolveConversationPresenceRuntime(args: {
       args,
     });
   }
-  const respondingConvoCharNames = respondingConvoCharInfo.map((character) => character.displayName);
-  const respondingCharacterIds = respondingConvoCharInfo.map((character) => character.charId);
+  let respondingConvoCharNames = respondingConvoCharInfo.map((character) => character.displayName);
+  let respondingCharacterIds = respondingConvoCharInfo.map((character) => character.charId);
   const presenceDelayStartedAt = Date.now();
   let responderDelays: Record<string, ConversationResponderDelay> = {};
 
@@ -241,6 +248,26 @@ export async function resolveConversationPresenceRuntime(args: {
           args,
           chatMessages,
           finalMessages,
+        });
+      }
+
+      const currentSceneParticipants = new Set(await resolveSceneBusyCharacterIds(args.chats, args.chatId));
+      respondingConvoCharInfo = respondingConvoCharInfo.filter(
+        (character) => !currentSceneParticipants.has(character.charId),
+      );
+      respondingCharacterIds = respondingConvoCharInfo.map((character) => character.charId);
+      respondingConvoCharNames = respondingConvoCharInfo.map((character) => character.displayName);
+      if (respondingCharacterIds.length === 0) {
+        args.writeSse({ type: "offline", characters: requestedResponderNames });
+        args.writeSse({ type: "done" });
+        args.endSse();
+        return buildPresenceResult({
+          ended: true,
+          convoCharInfo,
+          convoCharNames,
+          charNameList,
+          respondingCharacterIds,
+          args,
         });
       }
 

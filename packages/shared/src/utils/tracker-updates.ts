@@ -4,6 +4,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
+export function isNamedTrackerRow(value: unknown): value is Record<string, unknown> & { name: string } {
+  return isRecord(value) && typeof value.name === "string" && value.name.trim().length > 0;
+}
+
 export function isTrackerRowsUpdate(value: unknown): value is { updates?: unknown[]; removed?: unknown[] } {
   return (
     isRecord(value) &&
