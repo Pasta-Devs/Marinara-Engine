@@ -14,6 +14,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Claude Opus 5.5 is selectable in Claude connections with its 1M context and 128k output limits, supported reasoning settings, and compatible tool requests (#6544).
 
+- Scene setup lets you choose its persona and Conversation characters. Characters in an active Scene pause automatic messages in the source Conversation until the Scene ends (#6542, #6541).
+- Roleplay tracker widgets tolerate saved blank rows, and Custom Tracker updates discard nameless entries after applying field locks instead of making a chat unusable (#6549).
+
 - Activation questions can be answered by the local model you already run, on either the main or the utility slot, with no download and nothing leaving your machine. Pick it under **Decision model**, which now lists local models alongside Decision connections and shows why an unavailable entry cannot be used. A **Thinking** setting handles models that always reason first; those gate post-processing agents by default so replies do not wait.
 
 - Support diagnostics report the server's own GPU and each local model slot: what is configured, whether it is running, and the estimated memory it needs, with a combined verdict. The existing GPU line is the browser's, which said nothing about the machine running the local model.

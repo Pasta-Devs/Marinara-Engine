@@ -22,7 +22,10 @@ export interface StartSceneOptions {
 
 let pendingScenePromptPreferencesSettle: ((preferences: ScenePromptPreferences | null) => void) | null = null;
 
-export function requestScenePromptPreferences(sourceLabel?: string | null): Promise<ScenePromptPreferences | null> {
+export function requestScenePromptPreferences(
+  sourceLabel?: string | null,
+  chatId?: string,
+): Promise<ScenePromptPreferences | null> {
   return new Promise((resolve) => {
     let settled = false;
     const settle = (preferences: ScenePromptPreferences | null) => {
@@ -40,13 +43,21 @@ export function requestScenePromptPreferences(sourceLabel?: string | null): Prom
 
     const ui = useUIStore.getState();
     const modalProps = {
+      chatId,
       sourceLabel: sourceLabel ?? null,
       initialPreferences: ui.scenePromptPreferences,
       onSubmit: (preferences: ScenePromptPreferences) => {
         if (settled) return;
         const normalized = normalizeScenePromptPreferences(preferences);
         useUIStore.getState().setScenePromptPreferences(normalized);
-        settle({ ...normalized, ...(preferences.presetChoices ? { presetChoices: preferences.presetChoices } : {}) });
+        settle({
+          ...normalized,
+          ...(preferences.presetChoices ? { presetChoices: preferences.presetChoices } : {}),
+          ...(preferences.participantCharacterIds
+            ? { participantCharacterIds: preferences.participantCharacterIds }
+            : {}),
+          ...(preferences.personaId !== undefined ? { personaId: preferences.personaId } : {}),
+        });
         useUIStore.getState().closeModal();
       },
       onCancel: () => {
@@ -63,7 +74,7 @@ export function requestScenePromptPreferences(sourceLabel?: string | null): Prom
 }
 
 export async function startSceneWithPromptPreferences(options: StartSceneOptions): Promise<SceneCreateResponse | null> {
-  const preferences = await requestScenePromptPreferences(options.initiatorCharName ?? null);
+  const preferences = await requestScenePromptPreferences(options.initiatorCharName ?? null, options.chatId);
   if (!preferences) return null;
 
   const toastId = toast.loading("Planning scene...", { icon: "🎬" });
@@ -103,6 +114,8 @@ export async function startSceneWithPromptPreferences(options: StartSceneOptions
       connectionId: options.connectionId ?? null,
       promptPresetId: preferences.promptPresetId ?? null,
       presetChoices: preferences.presetChoices,
+      participantCharacterIds: preferences.participantCharacterIds,
+      personaId: preferences.personaId,
     });
 
     useChatStore.getState().setActiveChatId(response.chatId);

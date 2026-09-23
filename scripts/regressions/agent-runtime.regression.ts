@@ -22,7 +22,16 @@ import {
 } from "../../packages/server/src/services/llm/base-provider.js";
 import { agentResultTypeSchema } from "../../packages/shared/src/schemas/agent.schema.js";
 import { resolveTrackerRowsUpdate } from "../../packages/shared/src/utils/tracker-updates.js";
-import { buildLockedInventoryTrackerPatch } from "../../packages/server/src/routes/generate/generate-route-utils.js";
+import {
+  buildLockedInventoryTrackerPatch,
+  buildLockedPlayerStatsArrayPatch,
+  resolveTrackerGroupUpdate,
+} from "../../packages/server/src/routes/generate/generate-route-utils.js";
+import {
+  applyTrackerFieldLocksToGameStatePatch,
+  characterTrackerLockKey,
+  customTrackerLockKey,
+} from "../../packages/shared/src/utils/tracker-field-locks.js";
 import {
   AGENT_RESULT_TYPE_VALUES,
   getAgentContextSources,
@@ -30,6 +39,73 @@ import {
   type AgentResult,
 } from "../../packages/shared/src/types/agent.js";
 
+const namedRows = [
+  { name: "Health", value: 0 },
+  { name: "Mood", value: "" },
+];
+const malformedRows = [{}, null, [], { name: "  " }, { name: 42 }, "bad row"];
+const currentCharacters = [
+  { characterId: "a", name: "Alice", mood: "calm" },
+  { characterId: "b", name: "Bob", mood: "annoyed" },
+  { characterId: "c", name: "Carol", mood: "sleepy" },
+];
+const characterLocks = {
+  presentCharacters: currentCharacters,
+  fieldLocks: { [characterTrackerLockKey(currentCharacters[1] as any, 1, "mood")]: true },
+} as any;
+const nextCharacters = resolveTrackerGroupUpdate(
+  [{ characterId: "a", name: "Alice", mood: "excited" }, {}, { name: "NewGuy", mood: "scared" }],
+  currentCharacters,
+  characterLocks,
+  "presentCharacters",
+);
+assert.deepEqual(
+  applyTrackerFieldLocksToGameStatePatch({ presentCharacters: nextCharacters }, characterLocks).presentCharacters,
+  [{ characterId: "a", name: "Alice", mood: "excited" }, currentCharacters[1], { name: "NewGuy", mood: "scared" }],
+  "A blank placeholder cannot shift a locked character onto a new character",
+);
+assert.deepEqual(
+  resolveTrackerRowsUpdate([{ characterId: "npc-1", mood: "wary" }], [], "characterId"),
+  [{ characterId: "npc-1", mood: "wary" }],
+  "ID-only character rows keep their legacy array behavior",
+);
+for (const values of [
+  [...namedRows, ...malformedRows],
+  resolveTrackerRowsUpdate({ updates: malformedRows }, [...namedRows, ...malformedRows])!,
+]) {
+  assert.deepEqual(
+    buildLockedPlayerStatsArrayPatch({ field: "customTrackerFields", values, snapshot: null, lockState: null }).values,
+    namedRows,
+  );
+}
+const currentFields = [
+  { name: "First", value: 1 },
+  { name: "Locked", value: 2 },
+  { name: "Last", value: 3 },
+];
+const customLocks = {
+  playerStats: { customTrackerFields: currentFields },
+  fieldLocks: { [customTrackerLockKey(currentFields[1]!, "value", 1)]: true },
+} as any;
+assert.deepEqual(
+  buildLockedPlayerStatsArrayPatch({
+    field: "customTrackerFields",
+    values: [{ name: "First", value: 4 }, null, { name: "New field", value: 5 }],
+    snapshot: { playerStats: JSON.stringify(customLocks.playerStats) },
+    lockState: customLocks,
+  }).values,
+  [{ name: "First", value: 4 }, currentFields[1], { name: "New field", value: 5 }],
+  "Custom rows are cleaned only after positional locks have been applied",
+);
+assert.deepEqual(
+  resolveTrackerRowsUpdate(
+    { updates: [{ characterId: "alice", mood: "happy" }] },
+    [{ characterId: "alice", name: "Alice" }],
+    "characterId",
+  ),
+  [{ characterId: "alice", name: "Alice", mood: "happy" }],
+  "ID-only character updates keep the existing name",
+);
 class RecordingProvider extends BaseLLMProvider {
   calls = 0;
   options: ChatOptions[] = [];
