@@ -73,3 +73,5 @@ docker-compose.override.yaml
 
 # MCP
 .playwright-mcp
+# Dev MCP local state (journal, logs, lock)
+.dev-mcp/

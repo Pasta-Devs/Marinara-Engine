@@ -1,0 +1,23 @@
+{
+  "name": "@marinara-engine/dev-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Optional developer tool: an MCP server that lets coding agents inspect and drive a local Marinara Engine",
+  "license": "AGPL-3.0",
+  "type": "module",
+  "main": "server.mjs",
+  "bin": {
+    "marinara-dev-mcp": "server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "smoke": "node test/smoke.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76"
+  }
+}
