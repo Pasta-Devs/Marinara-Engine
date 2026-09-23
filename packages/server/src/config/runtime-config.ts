@@ -499,6 +499,24 @@ export function isProviderLocalUrlsEnabled() {
   return isEnabledFlag(process.env.PROVIDER_LOCAL_URLS_ENABLED);
 }
 
+/**
+ * Opt-in: pick lorebook inclusion-group winners with a per-chat seed instead of re-rolling every generation.
+ * The same chat and the same activated candidates then keep the same winner, so the prompt prefix stays stable
+ * for provider prompt caching. Read per call, so a `.env` change applies on the next generation.
+ */
+export function isLorebookStableGroupWinnersEnabled() {
+  return isEnabledFlag(process.env.LOREBOOK_STABLE_GROUP_WINNERS);
+}
+
+/**
+ * Opt-in: keep the full text of activated lorebook entries only on the newest generated message of a chat (its row
+ * and its swipes) and store older messages' scans without it. Off by default, which keeps today's storage shape.
+ * Read per call, so a `.env` change applies on the next generation.
+ */
+export function isLorebookScanCompactionEnabled() {
+  return isEnabledFlag(process.env.LOREBOOK_COMPACT_STORED_SCANS);
+}
+
 export function getEmbeddingRequestTimeoutMs() {
   return parsePositiveIntEnv(process.env.EMBEDDING_TIMEOUT_MS, 300_000, MAX_TIMEOUT_MS);
 }

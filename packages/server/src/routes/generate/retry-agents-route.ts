@@ -144,6 +144,7 @@ import {
 import { createGameStateStorage } from "../../services/storage/game-state.storage.js";
 import { normalizeCharacterRpgStats } from "../../services/generation/character-prompt-context.js";
 import { createLorebooksStorage } from "../../services/storage/lorebooks.storage.js";
+import { storedContentForTextlessScanEntries } from "../../services/lorebook/lorebook-scan-compaction.js";
 import { createCustomToolsStorage } from "../../services/storage/custom-tools.storage.js";
 import { syncGameMapMetaPartyPosition } from "../../services/game/map-position.service.js";
 import {
@@ -1013,13 +1014,24 @@ async function buildRetryAgentContext(args: {
     !Array.isArray(lastAssistantExtra.lorebookScan)
       ? (lastAssistantExtra.lorebookScan as Record<string, unknown>)
       : {};
+  // Scans compacted by the opt-in LOREBOOK_COMPACT_STORED_SCANS keep no entry text; use the stored entry text.
+  const storedLoreContentById = await storedContentForTextlessScanEntries(rawLorebookScan, (id) =>
+    lorebooksStore.getEntry(id),
+  );
+  const scanEntryContent = (row: Record<string, unknown>): string | undefined =>
+    typeof row.content === "string"
+      ? row.content
+      : typeof row.id === "string"
+        ? storedLoreContentById.get(row.id)
+        : undefined;
   const activatedLorebookEntries = (
     Array.isArray(rawLorebookScan.activatedEntries) ? rawLorebookScan.activatedEntries : []
   ).flatMap((entry) => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
     const row = entry as Record<string, unknown>;
-    return typeof row.id === "string" && typeof row.content === "string"
-      ? [{ id: row.id, name: typeof row.name === "string" ? row.name : undefined, content: row.content }]
+    const content = scanEntryContent(row);
+    return typeof row.id === "string" && typeof content === "string"
+      ? [{ id: row.id, name: typeof row.name === "string" ? row.name : undefined, content }]
       : [];
   });
   const semanticLorebookEntries = (
@@ -1033,11 +1045,12 @@ async function buildRetryAgentContext(args: {
       row.matchType === "semantic" ||
       activationSources.includes("semantic") ||
       matchedKeys.some((key) => typeof key === "string" && key.startsWith("[semantic:"));
-    if (!semanticMatch || typeof row.id !== "string" || typeof row.content !== "string") return [];
+    const content = scanEntryContent(row);
+    if (!semanticMatch || typeof row.id !== "string" || typeof content !== "string") return [];
     return [
       {
         id: row.id,
-        content: row.content,
+        content,
         ...(typeof row.semanticScore === "number" && Number.isFinite(row.semanticScore)
           ? { semanticScore: row.semanticScore }
           : {}),

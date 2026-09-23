@@ -326,6 +326,17 @@ Scene video providers are set up as connections inside the app, not as environme
 | `SEEDANCE_VIDEO_POLL_INTERVAL_MS`   | `10000` | How often the server checks a Seedance job.                                                    |
 | `VIDEO_REFERENCE_PUBLIC_BASE_URL`   | empty   | Public HTTPS address of this server, used when a provider must fetch a reference image by URL. |
 
+### Lorebooks
+
+Both settings are off by default and apply on the next generation after a `.env` change.
+
+| Variable                        | Default | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOREBOOK_STABLE_GROUP_WINNERS` | `false` | Keeps the same lorebook inclusion-group winner per chat while the matching candidates stay the same, instead of re-rolling every generation. Keeps the prompt prefix stable for provider prompt caching.                                                                                                                                                                                                                                                         |
+| `LOREBOOK_COMPACT_STORED_SCANS` | `false` | Stores the full text of activated lorebook entries only on the newest assistant or narrator message of a chat (its row and its swipes; an impersonated user turn does not replace it). Older messages keep entry ids, keys and scores, which makes chats with large lorebooks much smaller on disk and in memory. If the newer messages are deleted, Active Context and agent retries show the entry's current stored text for the message that is newest again. |
+
+`scripts/compact-lorebook-scans.mjs` applies the same rule to chats saved before the setting was turned on. Stop the server first; it is a dry run unless you pass `--apply`, and it backs up both message tables before writing.
+
 ### Integrations and extras
 
 | Variable                          | Default                                    | What it does                                                                                                                                                                                                    |
