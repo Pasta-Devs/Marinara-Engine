@@ -564,6 +564,11 @@ try {
     enableMemoryRecall: false,
     customSystemPrompt: `You are {{char}}. {{#if decision:"The conversation turns to food"}}CONVO_YES{{else}}CONVO_NO{{/if}}`,
   });
+  // The chat's own prompt replaces the preset's conversation prompt, so the preset's
+  // statement is never asked.
+  await presets.update(preset.id, {
+    conversationPrompt: `{{#if decision:"The preset conversation prompt applies"}}x{{/if}}`,
+  });
   const beforeConvo = { prompts: prompts.length, decisions: decisionBodies.length };
   const convoTurn = await app.inject({
     method: "POST",
@@ -577,6 +582,7 @@ try {
     0,
     "preset sections are not used in Conversation, so their statements are not asked",
   );
+  assert.equal(asked(beforeConvo.decisions, "The preset conversation prompt applies").length, 0);
   assert.ok(prompts.slice(beforeConvo.prompts).join("\n").includes("CONVO_YES"));
   // Peek Prompt plans from the same sources: the conversation prompt, not the preset.
   const convoPreview = await chats.create({

@@ -2697,13 +2697,15 @@ export async function generateRoutes(app: FastifyInstance) {
             personaDescription,
             activeChatSummary,
             chatMeta.groupScenarioText,
-            // Conversation mode's system prompt replaces the preset sections.
+            // Conversation mode's system prompt replaces the preset sections: the chat's
+            // own prompt when it has one, otherwise the preset's.
             ...(chatMode === "conversation"
               ? [
-                  chatMeta.customSystemPrompt,
-                  resolvedPreset
-                    ? resolvePresetModePrompt(resolvedPreset as Record<string, unknown>, "conversation")
-                    : "",
+                  typeof chatMeta.customSystemPrompt === "string" && chatMeta.customSystemPrompt.trim()
+                    ? chatMeta.customSystemPrompt
+                    : resolvedPreset
+                      ? resolvePresetModePrompt(resolvedPreset as Record<string, unknown>, "conversation")
+                      : "",
                 ]
               : []),
           ],

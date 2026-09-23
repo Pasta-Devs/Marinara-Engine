@@ -3125,8 +3125,9 @@ export async function chatsRoutes(app: FastifyInstance) {
                 chatMeta.groupScenarioText,
                 ...(chatMode === "conversation"
                   ? [
-                      chatMeta.customSystemPrompt,
-                      presetStringField(preset as Record<string, unknown> | null, "conversationPrompt"),
+                      typeof chatMeta.customSystemPrompt === "string" && chatMeta.customSystemPrompt.trim()
+                        ? chatMeta.customSystemPrompt
+                        : presetStringField(preset as Record<string, unknown> | null, "conversationPrompt"),
                     ]
                   : []),
               ],

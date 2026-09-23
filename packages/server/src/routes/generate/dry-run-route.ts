@@ -1011,8 +1011,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           chatMeta.groupScenarioText,
           ...(chatMode === "conversation"
             ? [
-                chatMeta.customSystemPrompt,
-                presetStringField(effectivePreset as Record<string, unknown> | null, "conversationPrompt"),
+                typeof chatMeta.customSystemPrompt === "string" && chatMeta.customSystemPrompt.trim()
+                  ? chatMeta.customSystemPrompt
+                  : presetStringField(effectivePreset as Record<string, unknown> | null, "conversationPrompt"),
               ]
             : []),
         ],
