@@ -371,6 +371,14 @@ try {
     decisionMode: "require",
     decisionStatement: "The vault is open",
   } as never);
+  await lorebooks.createEntry({
+    lorebookId: recursiveBook.id,
+    name: "Vault in scope",
+    content: "SCOPED_VAULT_LORE",
+    keys: ["vault"],
+    decisionMode: "require",
+    decisionStatement: "The vault is guarded",
+  } as never);
   const scopedAsks: string[] = [];
   await processLorebooks(db, [{ role: "user", content: "A lantern swings." }], null, {
     activeLorebookIds: [recursiveBook.id, flatBook.id],
@@ -381,6 +389,7 @@ try {
       return new Map(requests.map((r) => [r.entryId, true]));
     },
   });
+  assert.ok(scopedAsks.includes("The vault is guarded"), "discovery still recurses inside the scope");
   assert.ok(!scopedAsks.includes("The vault is open"), "no statement is asked outside the recursion scope");
 
   // ── generation, the per-turn cache and Peek Prompt ───────────────────────────
