@@ -5823,17 +5823,15 @@ export async function generateRoutes(app: FastifyInstance) {
             .map((agent) => [effectiveAgentPromptTemplate(agent), agent.settings]),
         );
         if (preReplyAgentDecisionTexts.length > 0) {
+          const agentDecisionContext = agentShapedDecisionContext(promptMacroContext);
           const agentDecisions = await answerDecisionPlan(
             planPromptDecisions(
               [
                 { texts: promptDecisionTexts, ctx: promptMacroContext, reachable: promptDecisionReachable },
                 {
                   texts: preReplyAgentDecisionTexts,
-                  ctx: agentShapedDecisionContext(promptMacroContext),
-                  reachable: reachableDecisionStatements(
-                    preReplyAgentDecisionTexts,
-                    agentShapedDecisionContext(promptMacroContext),
-                  ),
+                  ctx: agentDecisionContext,
+                  reachable: reachableDecisionStatements(preReplyAgentDecisionTexts, agentDecisionContext),
                 },
               ],
               promptDecisionLimit,
@@ -10379,6 +10377,7 @@ export async function generateRoutes(app: FastifyInstance) {
             ].map((agent) => [effectiveAgentPromptTemplate(agent), agent.settings]),
           );
 
+          const postAgentDecisionContext = agentShapedDecisionContext(promptMacroContext);
           const postAgentDecisions =
             postAgentDecisionTexts.length > 0
               ? await answerDecisionPlan(
@@ -10386,11 +10385,8 @@ export async function generateRoutes(app: FastifyInstance) {
                     [
                       {
                         texts: postAgentDecisionTexts,
-                        ctx: agentShapedDecisionContext(promptMacroContext),
-                        reachable: reachableDecisionStatements(
-                          postAgentDecisionTexts,
-                          agentShapedDecisionContext(promptMacroContext),
-                        ),
+                        ctx: postAgentDecisionContext,
+                        reachable: reachableDecisionStatements(postAgentDecisionTexts, postAgentDecisionContext),
                       },
                     ],
                     promptDecisionLimit,

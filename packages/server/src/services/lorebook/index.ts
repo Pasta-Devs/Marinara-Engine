@@ -151,8 +151,8 @@ export interface LorebookDecisionResolver {
    */
   answerStatements?: (texts: string[]) => Promise<void>;
   /**
-   * An entry's text with every branch a decision could take, for keyword discovery.
-   * Nothing is answered or written, so discovery finds an entry named in any branch.
+   * An entry's text for keyword discovery, with only the branches its decisions have
+   * already settled. Nothing is asked or written.
    */
   planText?: (text: string) => string;
 }
@@ -1332,26 +1332,41 @@ export async function processLorebooks(
   if ((usesDecisions && resolver) || contentDecisions) {
     const statementsById = new Map(allEntries.map((entry) => [entry.id, entry.decisionStatement]));
     // Recursion reads each activated entry's macro-resolved text, so discovery does
-    // too. With a planning resolver, every branch a decision could take is kept and
-    // nothing is resolved for real. Otherwise a resolution is rolled back at once, so
-    // nothing is committed here; a preview's plain resolver commits nothing either.
-    const discoveryEntries = resolver?.planText
-      ? allEntries.map((entry) =>
-          entry.content.includes("{{") ? { ...entry, content: resolver.planText!(entry.content) } : entry,
-        )
-      : resolveContent
-        ? allEntries.map((entry) => {
-            if (!entry.content.includes("{{")) return entry;
-            const resolved = resolveContent!(entry.content);
-            if (typeof resolved === "string") return { ...entry, content: resolved };
-            resolved.rollback?.();
-            return { ...entry, content: resolved.content };
-          })
-        : allEntries;
-    // Recursion scoped exactly as the real scan scopes it, so discovery never asks
-    // about an entry recursion cannot reach there.
-    const preScan = (preScanOpts: ScanOptions) =>
-      forcedEntriesOnly
+    // too. With a planning resolver, only branches already settled are followed, so an
+    // entry reached through an undecided branch waits for a later round and is never
+    // asked about for a branch that turns out not to be taken. Otherwise a resolution
+    // is rolled back at once, so nothing is committed here; a preview's plain resolver
+    // commits nothing either.
+    const discoveryText = (content: string) => {
+      if (!content.includes("{{")) return content;
+      if (resolver?.planText) return resolver.planText(content);
+      if (!resolveContent) return content;
+      const resolved = resolveContent(content);
+      if (typeof resolved === "string") return resolved;
+      resolved.rollback?.();
+      return resolved.content;
+    };
+    // An entry a location attaches skips the keyword scan, but Require still applies.
+    const locationRequireIds = usesDecisions
+      ? forcedEntries
+          .filter(
+            (entry) => requiresDecisionAnswer(entry) && passesForcedEntryActivationGates(entry, forcedEntryScanOpts),
+          )
+          .map((entry) => entry.id)
+      : [];
+    const askedForText = new Set<string>();
+    // Each round asks what the answers so far have brought in: Require and Trigger
+    // statements newly waiting, and the statements in the text of entries newly about to
+    // activate. A round with nothing new ends it, so a turn without recursion through a
+    // decision asks once; three rounds follow a chain two decisions deep.
+    for (let round = 0; round < 3; round++) {
+      const discoveryEntries = allEntries.map((entry) => ({ ...entry, content: discoveryText(entry.content) }));
+      const pendingDecisions =
+        usesDecisions && resolver !== undefined ? new Set<string>(round === 0 ? locationRequireIds : []) : undefined;
+      const preScanOpts: ScanOptions = pendingDecisions ? { ...scanOpts, pendingDecisions } : { ...scanOpts };
+      // Recursion scoped exactly as the real scan scopes it, so discovery never asks
+      // about an entry recursion cannot reach there.
+      const activated = forcedEntriesOnly
         ? []
         : anyRecursive
           ? recursiveScan(
@@ -1362,38 +1377,34 @@ export async function processLorebooks(
               options?.enableRecursive ? undefined : (entry) => recursiveLorebookIds.has(entry.lorebookId),
             )
           : scanForActivatedEntries(messages, discoveryEntries, preScanOpts);
-    // An entry a location attaches skips the keyword scan, but Require still applies.
-    const locationRequireIds = usesDecisions
-      ? forcedEntries
-          .filter(
-            (entry) => requiresDecisionAnswer(entry) && passesForcedEntryActivationGates(entry, forcedEntryScanOpts),
-          )
-          .map((entry) => entry.id)
-      : [];
-    if (usesDecisions && resolver) {
-      for (let round = 0; round < 2; round++) {
-        const pendingDecisions = new Set<string>(round === 0 ? locationRequireIds : []);
-        preScan({ ...scanOpts, pendingDecisions });
-        const toAsk = [...pendingDecisions].filter((id) => !decisionAnswers.has(id));
-        if (toAsk.length === 0) break;
-        const answers = await resolver(
+      let asked = false;
+      const toAsk = pendingDecisions ? [...pendingDecisions].filter((id) => !decisionAnswers.has(id)) : [];
+      if (toAsk.length > 0) {
+        asked = true;
+        const answers = await resolver!(
           toAsk.map((entryId) => ({ entryId, statement: statementsById.get(entryId) ?? "" })),
         );
         for (const entryId of toAsk) decisionAnswers.set(entryId, answers.get(entryId) === true);
       }
-    }
-    if (contentDecisions) {
-      const activatingIds = new Set(preScan({ ...scanOpts }).map((activated) => activated.entry.id));
-      for (const entry of forcedEntries)
-        if (
-          passesForcedEntryActivationGates(entry, forcedEntryScanOpts) &&
-          (!usesDecisions || !requiresDecisionAnswer(entry) || decisionAnswers.get(entry.id) === true)
-        )
-          activatingIds.add(entry.id);
-      const texts = allEntries
-        .filter((entry) => activatingIds.has(entry.id) && DECISION_STATEMENT_RE.test(entry.content))
-        .map((entry) => entry.content);
-      if (texts.length > 0) await resolver!.answerStatements!(texts);
+      if (contentDecisions) {
+        const activatingIds = new Set(activated.map((entry) => entry.entry.id));
+        for (const entry of forcedEntries)
+          if (
+            passesForcedEntryActivationGates(entry, forcedEntryScanOpts) &&
+            (!usesDecisions || !requiresDecisionAnswer(entry) || decisionAnswers.get(entry.id) === true)
+          )
+            activatingIds.add(entry.id);
+        const newlyActivating = allEntries.filter(
+          (entry) =>
+            activatingIds.has(entry.id) && !askedForText.has(entry.id) && DECISION_STATEMENT_RE.test(entry.content),
+        );
+        if (newlyActivating.length > 0) {
+          asked = true;
+          for (const entry of newlyActivating) askedForText.add(entry.id);
+          await resolver!.answerStatements!(newlyActivating.map((entry) => entry.content));
+        }
+      }
+      if (!asked) break;
     }
   }
 

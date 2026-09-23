@@ -50,6 +50,17 @@ assert.deepEqual(
   "in a group the character differs per section",
 );
 assert.deepEqual(reached('{{#if decision:"{{char}} is angry"}}x{{/if}}'), ["{{char}} is angry", "Mira is angry"]);
+const answered = (answers: Record<string, boolean>) =>
+  ({ ...(mira as object), decisions: { answers: new Map(Object.entries(answers)) } }) as never;
+assert.deepEqual(
+  reached('{{#if decision:"A"}}{{#if decision:"B"}}x{{/if}}{{/if}}', answered({ A: false })),
+  ["A"],
+  "an answer the turn already has settles its block",
+);
+const settled = (ctx: never) =>
+  planDecisionStatements('{{#if decision:"A"}}YES{{else}}NO{{/if}}', ctx, { settledOnly: true }).text;
+assert.equal(settled(mira), "", "settled text leaves an undecided block out");
+assert.equal(settled(answered({ A: true })), "YES", "and follows it once decided");
 const variables: Record<string, string> = {};
 planDecisionStatements("{{setvar::written::yes}}", { ...(mira as object), variables } as never);
 assert.deepEqual(variables, {}, "a planning pass writes nothing");
@@ -191,10 +202,12 @@ try {
     useProbability: true,
   } as never);
   assert(coin);
-  for (const rolls of [
-    [0.9, 0.1],
-    [0.1, 0.9],
-  ]) {
+  // Probability 50 passes on a roll under 0.5. With one shared roll per entry the first
+  // decides; with separate rolls the pre-scan and the real scan would disagree.
+  for (const [rolls, activates] of [
+    [[0.9, 0.1], false],
+    [[0.1, 0.9], true],
+  ] as const) {
     const coinCtx = { ...(mira as object), variables: {} } as never;
     const coinAsks: string[] = [];
     let roll = 0;
@@ -212,10 +225,11 @@ try {
         },
       }),
     });
-    assert.equal(
-      coinScan.activatedEntryIds.includes(coin.id),
-      coinAsks.includes("The coin lands heads"),
-      `rolls ${rolls}: asked exactly when the entry activates`,
+    assert.equal(coinScan.activatedEntryIds.includes(coin.id), activates, `rolls ${rolls}: the first roll decides`);
+    assert.deepEqual(
+      coinAsks,
+      activates ? ["The coin lands heads"] : [],
+      `rolls ${rolls}: asked only when it activates`,
     );
   }
   await lorebooks.removeEntry(coin.id);
@@ -238,25 +252,41 @@ try {
     decisionStatement: "Someone tends the ember",
   } as never);
   assert(hinted && ember);
-  const discoveryAsks: string[] = [];
-  const discoveryCtx = { ...(mira as object), variables: {} } as never;
-  const discovery = await processLorebooks(db, [{ role: "user", content: "Moss covers the stones." }], null, {
-    activeLorebookIds: [book.id],
-    enableRecursive: true,
-    previewOnly: true,
-    random: () => 0.5,
-    resolveContent: (value: string) => resolveMacros(value, discoveryCtx),
-    resolveDecisions: createLorebookDecisionResolver({
-      macroContext: discoveryCtx,
-      limit: 32,
-      answer: async (planned: { decisions: Array<{ key: string }> }) => {
-        discoveryAsks.push(...planned.decisions.map((decision) => decision.key));
-        return { answers: new Map(planned.decisions.map((decision) => [decision.key, true])), choices: new Map() };
-      },
-    }),
-  });
-  assert.ok(discoveryAsks.includes("Someone tends the ember"), "found inside a decision branch");
-  assert.ok(discovery.activatedEntryIds.includes(ember.id));
+  // A branch is followed only once it is decided: on a no, the entry behind it is never
+  // asked about; on a yes, a later round finds it.
+  for (const mossAnswer of [false, true]) {
+    const discoveryAsks: string[] = [];
+    const discoveryCtx = { ...(mira as object), variables: {} } as never;
+    const discovery = await processLorebooks(db, [{ role: "user", content: "Moss covers the stones." }], null, {
+      activeLorebookIds: [book.id],
+      enableRecursive: true,
+      previewOnly: true,
+      random: () => 0.5,
+      resolveContent: (value: string) => resolveMacros(value, discoveryCtx),
+      resolveDecisions: createLorebookDecisionResolver({
+        macroContext: discoveryCtx,
+        limit: 32,
+        answer: async (planned: { decisions: Array<{ key: string }> }) => {
+          discoveryAsks.push(...planned.decisions.map((decision) => decision.key));
+          return {
+            answers: new Map(
+              planned.decisions.map((decision) => [
+                decision.key,
+                decision.key === "The moss hides something" ? mossAnswer : true,
+              ]),
+            ),
+            choices: new Map(),
+          };
+        },
+      }),
+    });
+    assert.equal(
+      discoveryAsks.includes("Someone tends the ember"),
+      mossAnswer,
+      mossAnswer ? "found inside a decision branch once it is a yes" : "never asked behind a no",
+    );
+    assert.equal(discovery.activatedEntryIds.includes(ember.id), mossAnswer);
+  }
   await lorebooks.removeEntry(hinted.id);
   await lorebooks.removeEntry(ember.id);
 

@@ -100,6 +100,8 @@ export interface MacroDecisionAnswers {
    * could reach, both as written and as resolved, so a turn asks only what can matter.
    */
   planned?: Set<string>;
+  /** A planning pass that keeps only branches already settled (see `planDecisionStatements`). */
+  plannedSettledOnly?: boolean;
 }
 
 export interface ResolveMacroOptions {
@@ -1977,7 +1979,8 @@ function planConditionOperand(
 ): string | null {
   const quoted = stripOuterQuotes(raw);
   if (quoted !== null) return quoted;
-  const question = decisionQuestionFromOperand(raw) ?? decisionChoiceQuestionFromOperand(raw);
+  const noulQuestion = decisionQuestionFromOperand(raw);
+  const question = noulQuestion ?? decisionChoiceQuestionFromOperand(raw);
   if (question !== null) {
     // Both forms: as written, so every character's variant of a `{{char}}` statement
     // is kept, and as resolved, for a pass that resolved the macro before this point.
@@ -1985,7 +1988,12 @@ function planConditionOperand(
     if (written) statements.push(written);
     const resolved = resolveDecisionQuestionText(question, ctx);
     if (resolved && resolved !== written) statements.push(resolved);
-    return null;
+    // An answer this turn already has settles the operand; anything else is unknown.
+    if (noulQuestion !== null) {
+      const answer = ctx.decisions?.answers?.get(resolved);
+      return answer === undefined ? null : answer ? "true" : "";
+    }
+    return ctx.decisions?.choices?.get(resolved) ?? null;
   }
   const token = raw.trim();
   if (/^-?\d+(?:\.\d+)?$/u.test(token)) return token;
@@ -2067,6 +2075,8 @@ function planConditionalBranches(
     const result = planCondition(parseConditionSyntax(branch.condition), ctx, options);
     for (const statement of result.statements) planned.add(statement);
     if (result.value === false) continue;
+    // Settled only: an undecided branch, and every branch after it, is left out.
+    if (result.value === "unknown" && ctx.decisions?.plannedSettledOnly) break;
     reached.push(branch.content);
     if (result.value === true) break;
   }
@@ -2075,11 +2085,18 @@ function planConditionalBranches(
 
 /**
  * The decision statements `template` can reach this turn, with every other value in
- * `ctx` as it is. Nothing is written back: variables are copied, and no decision is
- * answered. `text` is the template with every branch that could be taken, which a
- * lorebook scan can search for keywords.
+ * `ctx` as it is. Answers the turn already has count; any other decision is unknown.
+ * Nothing is written back: variables are copied, and nothing is asked.
+ *
+ * `text` is the template with every branch that could be taken, or with `settledOnly`,
+ * only the branches already settled, for a lorebook scan that must not follow a branch
+ * before its decision is answered.
  */
-export function planDecisionStatements(template: string, ctx: MacroContext): { text: string; statements: Set<string> } {
+export function planDecisionStatements(
+  template: string,
+  ctx: MacroContext,
+  options: { settledOnly?: boolean } = {},
+): { text: string; statements: Set<string> } {
   const planned = new Set<string>();
   const text = resolveMacros(
     template,
@@ -2087,7 +2104,13 @@ export function planDecisionStatements(template: string, ctx: MacroContext): { t
       ...ctx,
       variables: { ...ctx.variables },
       ...(ctx.localVariables ? { localVariables: { ...ctx.localVariables } } : {}),
-      decisions: { answers: new Map(), choices: new Map(), unanswered: new Set(), planned },
+      decisions: {
+        answers: ctx.decisions?.answers ?? new Map(),
+        choices: ctx.decisions?.choices ?? new Map(),
+        unanswered: new Set(),
+        planned,
+        ...(options.settledOnly ? { plannedSettledOnly: true } : {}),
+      },
     },
     { trimResult: false },
   );

@@ -499,7 +499,8 @@ export function createLorebookDecisionResolver(args: {
       if (!(decision.kind === "noul" ? answers?.answers : answers?.choices)?.has(decision.key))
         args.onUnanswered?.(decision.key);
   };
-  resolver.planText = (text) => planDecisionStatements(text, args.macroContext).text;
+  // Settled branches only, with the answers so far: a lorebook scan follows a branch once it is decided.
+  resolver.planText = (text) => planDecisionStatements(text, args.macroContext, { settledOnly: true }).text;
   return resolver;
 }
 
