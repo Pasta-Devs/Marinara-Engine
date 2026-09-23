@@ -389,13 +389,6 @@ export function appendRoleplayPromptTail(
   format: WrapFormat,
 ): void {
   if (!personal && !commands) return;
-  let index = messages.length - 1;
-  while (index >= 0 && messages[index]!.role !== "user") index--;
-  if (index < 0) {
-    messages.push({ role: "user", content: "" });
-    index = messages.length - 1;
-  }
-  const message = messages[index]!;
   if (personal) {
     // Trackers are an earlier injection, not necessarily the last user message.
     // Add private state only here, after the shared agent prompt has been copied.
@@ -414,8 +407,26 @@ export function appendRoleplayPromptTail(
         );
         contextMessage.content = `${contextMessage.content.slice(0, end)}${personal}\n${contextMessage.content.slice(end)}`;
       } else contextMessage.content += `\n\n${personal}`;
+      personal = "";
     } else
-      message.content += `\n\n${format === "xml" ? `<context>\n${personal}\n</context>` : format === "markdown" ? `# Context\n${personal}` : `Context:\n${personal}`}`;
+      personal =
+        format === "xml"
+          ? `<context>\n${personal}\n</context>`
+          : format === "markdown"
+            ? `# Context\n${personal}`
+            : `Context:\n${personal}`;
   }
-  if (commands) message.content += `\n\n${commands}`;
+  const tail = [personal, commands].filter(Boolean).join("\n\n");
+  if (!tail) return;
+  let index = messages.length - 1;
+  while (index >= 0 && messages[index]!.role !== "user") index--;
+  if (index < 0 || messages[index]!.contextKind === "history") {
+    // Live instructions must survive history filtering. Keep an explicit
+    // assistant prefill last, but never attach these instructions to history.
+    index = messages.length;
+    const last = messages.at(-1);
+    if (last?.role === "assistant" && last.contextKind !== "history") index--;
+    messages.splice(index, 0, { role: "user", content: "", contextKind: "injection" });
+  }
+  messages[index]!.content += `\n\n${tail}`;
 }
