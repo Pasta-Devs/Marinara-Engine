@@ -10,7 +10,22 @@ import { startup } from "./lib/startup-timeline.js";
 import { startFreezeDetector, stopFreezeDetector } from "./lib/freeze-detector.js";
 import { finalizeSessionExit, noteSessionExitKind, startSessionPostmortem } from "./lib/session-postmortem.js";
 import { armShutdownDeadline } from "./lib/shutdown-deadline.js";
-import { getHost, getPort, getServerProtocol, loadTlsOptions, logStorageDiagnostics } from "./config/runtime-config.js";
+import {
+  createShutdownSignalController,
+  installShutdownSignalHandlers,
+  runtimeStopBudgetFor,
+  shutdownDeadlinesFor,
+} from "./lib/shutdown-signals.js";
+import { setRuntimeStopBudgetMs } from "./lib/shutdown-steps.js";
+import { flushDB } from "./db/connection.js";
+import {
+  getHost,
+  getPort,
+  getServerProtocol,
+  isShutdownEarlyFlushEnabled,
+  loadTlsOptions,
+  logStorageDiagnostics,
+} from "./config/runtime-config.js";
 import { logCsrfTrustSummary } from "./middleware/csrf-protection.js";
 import { startEnvWatcher } from "./config/env-watcher.js";
 import { migrateTaskbarShortcuts } from "./services/setup/taskbar-shortcut-migration.js";
@@ -99,7 +114,18 @@ async function main() {
     // #5838: bound the whole close - sever connections at 4 s, force-exit at
     // 8 s - so a supervisor's stop window (earlyoom ~10 s, Docker 10 s) never
     // expires on a connection-wait and escalates to a write-dropping SIGKILL.
-    armShutdownDeadline(app, signal);
+    // A Windows console close gets a tighter budget (see shutdownDeadlinesFor);
+    // every other signal keeps the defaults above.
+    armShutdownDeadline(app, signal, shutdownDeadlinesFor(signal));
+    setRuntimeStopBudgetMs(runtimeStopBudgetFor(signal));
+
+    // Opt-in (SHUTDOWN_EARLY_FLUSH): start writing pending saves now, while
+    // app.close() may still be waiting on open connections; the store close
+    // inside onClose writes the rest.
+    if (isShutdownEarlyFlushEnabled()) {
+      // The store already logs a failed flush at error level, and the store close retries it.
+      void flushDB().catch(() => {});
+    }
 
     try {
       envWatcher.stop();
@@ -114,17 +140,17 @@ async function main() {
     }
   };
 
-  process.on("SIGTERM", () => {
-    void shutdown("SIGTERM");
-  });
-  process.on("SIGINT", () => {
-    void shutdown("SIGINT");
-  });
-  if (process.platform !== "win32") {
-    process.on("SIGHUP", () => {
-      void shutdown("SIGHUP");
-    });
-  }
+  // Same signals and repeat handling as before by default. Opt-in:
+  // SHUTDOWN_WINDOWS_CONSOLE_SIGNALS adds Ctrl+Break and the console close on
+  // Windows, SHUTDOWN_FORCE_EXIT_ON_REPEAT lets a deliberate second Ctrl+C
+  // force the exit.
+  installShutdownSignalHandlers(
+    createShutdownSignalController({
+      onShutdown: (signal) => {
+        void shutdown(signal);
+      },
+    }),
+  );
 
   try {
     await startup.phase("http.listen", () => app.listen({ port, host }));

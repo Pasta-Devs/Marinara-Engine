@@ -6,6 +6,7 @@ import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import { getDB, closeDB, type DB } from "./db/connection.js";
+import { getRuntimeStopBudgetMs, runShutdownStepsWithin } from "./lib/shutdown-steps.js";
 import { registerRoutes } from "./routes/index.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { ipAllowlistHook } from "./middleware/ip-allowlist.js";
@@ -36,7 +37,9 @@ import {
   getFileStorageDir,
 } from "./config/runtime-config.js";
 import { corsDelegate } from "./config/cors-config.js";
+import { decisionProcessService } from "./services/sidecar/decision-process.service.js";
 import { sidecarProcessService } from "./services/sidecar/sidecar-process.service.js";
+import { utilitySidecarService } from "./services/utility-sidecar/utility-sidecar.service.js";
 import { startServerAutonomousScheduler } from "./services/conversation/server-autonomous-scheduler.service.js";
 import { preparePersonalExtensionTrust } from "./services/setup/personal-extension-trust.js";
 import { personalServerExtensionRuntime } from "./services/extensions/personal-server-extension-runtime.js";
@@ -136,15 +139,41 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   app.decorate("db", db);
   app.addHook("onClose", async () => {
     try {
-      const stopResults = await Promise.allSettled([
-        capabilityModuleRuntime.stop(),
-        personalServerExtensionRuntime.stop(),
-        sidecarProcessService.stop(),
+      // Same concurrent stops as before, now named and bounded: a runtime
+      // whose stop() hangs must not keep closeDB() from flushing before the
+      // shutdown force-exit deadline.
+      const { failed, timedOut, records } = await runShutdownStepsWithin([
+        { name: "capabilityModuleRuntime", run: () => capabilityModuleRuntime.stop() },
+        { name: "personalExtensions", run: () => personalServerExtensionRuntime.stop() },
+        { name: "sidecar", run: () => sidecarProcessService.stop() },
+        // Separate processes with their own stops: shutting down the main sidecar does
+        // not end them, and a Python model loader left behind keeps its GPU memory.
+        { name: "decisionSidecar", run: () => decisionProcessService.stop() },
+        { name: "utilitySidecar", run: () => utilitySidecarService.stop() },
       ]);
-      for (const result of stopResults) {
-        if (result.status === "rejected") {
-          app.log.error(result.reason, "Failed to stop a server runtime service during shutdown");
+      for (const { name, reason, elapsedMs } of failed) {
+        app.log.error(
+          { err: reason, stage: name, elapsedMs },
+          "Failed to stop server runtime service %s during shutdown",
+          name,
+        );
+      }
+      for (const record of records) {
+        if (record.outcome === "ok" && record.elapsedMs > 1_000) {
+          app.log.warn(
+            { stage: record.stage, elapsedMs: record.elapsedMs },
+            "[shutdown] %s took %d ms to stop",
+            record.stage,
+            record.elapsedMs,
+          );
         }
+      }
+      if (timedOut.length > 0) {
+        app.log.warn(
+          { stages: timedOut, timeoutMs: getRuntimeStopBudgetMs() },
+          "[shutdown] %s did not stop within the shutdown budget; closing storage anyway",
+          timedOut.join(", "),
+        );
       }
     } finally {
       await closeDB();
