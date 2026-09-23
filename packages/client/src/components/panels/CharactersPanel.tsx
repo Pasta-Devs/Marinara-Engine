@@ -57,6 +57,7 @@ import {
   parseCardLibrarySearchQuery,
 } from "../../lib/card-library-search";
 import { useUIStore, type CharacterLibrarySort } from "../../stores/ui.store";
+import { sortPanelFolders } from "../../lib/panel-sort";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { normalizeAvatarCrop } from "@marinara-engine/shared";
@@ -71,7 +72,14 @@ import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../..
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 
 type CharacterRow = CharacterCatalogEntry;
-type GroupRow = { id: string; name: string; description: string; characterIds: string; avatarPath: string | null };
+type GroupRow = {
+  id: string;
+  name: string;
+  description: string;
+  characterIds: string;
+  avatarPath: string | null;
+  createdAt: string;
+};
 type ParsedCharacterRow = CharacterRow & { parsed: Record<string, any> };
 type ParsedGroupRow = GroupRow & { memberIds: string[] };
 
@@ -456,6 +464,18 @@ export function CharactersPanel() {
     });
   }, [groups]);
 
+  const sortedGroups = useMemo(() => {
+    const folders = sortPanelFolders(parsedGroups, sort === "favorites" ? "name-asc" : sort);
+    if (sort !== "favorites") return folders;
+    const favorites = new Set(
+      sortedCharacters.filter((character) => character.parsed.extensions?.fav).map((character) => character.id),
+    );
+    return folders.sort(
+      (a, b) =>
+        Number(b.memberIds.some((id) => favorites.has(id))) - Number(a.memberIds.some((id) => favorites.has(id))),
+    );
+  }, [parsedGroups, sort, sortedCharacters]);
+
   const folderedCharacterIds = useMemo(() => {
     const ids = new Set<string>();
     for (const folder of parsedGroups) {
@@ -463,8 +483,8 @@ export function CharactersPanel() {
     }
     return ids;
   }, [parsedGroups]);
-  const visibleCharacterById = useMemo(
-    () => new Map(sortedCharacters.map((character) => [character.id, character])),
+  const characterOrder = useMemo(
+    () => new Map(sortedCharacters.map((character, index) => [character.id, index])),
     [sortedCharacters],
   );
   const folderFilterActive =
@@ -962,10 +982,15 @@ export function CharactersPanel() {
       )}
 
       <div className="flex flex-col gap-0.5">
-        {parsedGroups.map((group) => {
-          const folderMemberIds = folderFilterActive
-            ? group.memberIds.filter((memberId) => visibleCharacterById.has(memberId))
-            : group.memberIds;
+        {sortedGroups.map((group) => {
+          const folderMemberIds = (
+            folderFilterActive
+              ? group.memberIds.filter((memberId) => characterOrder.has(memberId))
+              : [...group.memberIds]
+          ).sort(
+            (a, b) =>
+              (characterOrder.get(a) ?? sortedCharacters.length) - (characterOrder.get(b) ?? sortedCharacters.length),
+          );
           if (folderFilterActive && folderMemberIds.length === 0) return null;
           const isExpanded = (folderFilterActive && folderMemberIds.length > 0) || expandedGroupId === group.id;
           const isEditing = editingGroupId === group.id;

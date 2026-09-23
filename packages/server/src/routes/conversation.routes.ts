@@ -1,3 +1,4 @@
+import { resolveSceneBusyCharacterIds } from "../services/generation/scene-context-runtime.js";
 // ──────────────────────────────────────────────
 // Routes: Conversation Mode Services
 // ──────────────────────────────────────────────
@@ -271,7 +272,7 @@ async function resolveConversationScheduleConnection(connections: ConnectionsSto
   }
 
   const conn = await connections.getWithKey(connId);
-  if (conn && ["image_generation", "video_generation", "audio"].includes(conn.provider)) {
+  if (conn && ["image_generation", "video_generation", "audio", "decision"].includes(conn.provider)) {
     return { conn: null, error: "Choose a language connection for schedule generation" };
   }
   return { conn, error: conn ? null : "The selected connection is unavailable. Choose another connection." };
@@ -1060,7 +1061,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
 
     // Filter out characters busy in an active scene
-    const sceneBusyCharIds: string[] = meta.sceneBusyCharIds ?? [];
+    const sceneBusyCharIds = await resolveSceneBusyCharacterIds(chats, chatId, meta);
     const filteredSchedules = { ...autonomySchedules };
     for (const busyId of sceneBusyCharIds) {
       delete filteredSchedules[busyId];
@@ -1262,7 +1263,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     const { schedules, statusOverrides } = await chats.resolveConversationPresenceState(chatId);
     const now = new Date();
     const scheduleNow = toZonedWallClockDate(now, resolveConversationTimeZone(meta));
-    const sceneBusyCharIds: string[] = meta.sceneBusyCharIds ?? [];
+    const sceneBusyCharIds = await resolveSceneBusyCharacterIds(chats, chatId, meta);
     const filteredSchedules = { ...schedules };
     for (const busyId of sceneBusyCharIds) {
       delete filteredSchedules[busyId];

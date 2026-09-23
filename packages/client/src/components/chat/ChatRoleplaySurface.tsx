@@ -1482,12 +1482,9 @@ export function ChatRoleplaySurface({
     if (!Array.isArray(entries)) return starts;
     for (const entry of entries) {
       if (!entry || typeof entry.messageId !== "string" || !Array.isArray(entry.audienceCharacterIds)) continue;
-      const previous = starts.get(entry.messageId);
-      const audience = readStringArray(entry.audienceCharacterIds);
-      starts.set(
-        entry.messageId,
-        previous?.length === 0 || !audience.length ? [] : [...new Set([...(previous ?? []), ...audience])],
-      );
+      // Older character-specific automatic windows are no longer active.
+      if (entry.audienceCharacterIds.length) continue;
+      starts.set(entry.sceneStartMessageId ?? entry.messageId, []);
     }
     return starts;
   }, [chatMeta.advancedMemory?.enabled, chatMeta.advancedMemoryState]);

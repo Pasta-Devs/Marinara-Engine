@@ -1470,10 +1470,13 @@ export function useUpdateMessageExtra(chatId: string | null) {
         qc.setQueryData(chatKeys.messages(chatId), context.previous);
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _error, { extra }) => {
       if (chatId) {
         qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
         qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
+        if (Object.hasOwn(extra, "isConversationStart")) {
+          qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
+        }
       }
     },
   });
@@ -1571,6 +1574,8 @@ export function usePeekPrompt() {
           assistantPrefill?: string | null;
           tokensPrompt?: number | null;
           tokensCompletion?: number | null;
+          tokensLastRequestInput?: number | null;
+          requestCount?: number;
           tokensCachedPrompt?: number | null;
           tokensCacheWritePrompt?: number | null;
           durationMs?: number | null;
@@ -1578,6 +1583,7 @@ export function usePeekPrompt() {
         } | null;
         gameToolPlanning?: GameToolPlanningInfo | null;
         agentNote?: string;
+        decisions?: { unanswered: string[]; decisionModelSet: boolean };
       }>(`/chats/${chatId}/peek-prompt`, messageId ? { messageId } : {});
     },
   });

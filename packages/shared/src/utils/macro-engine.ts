@@ -48,6 +48,13 @@ export interface MacroContext {
   personaReferences?: Record<string, string>;
   /** Activated lorebook Outlet content keyed by its exact, case-sensitive name */
   outlets?: Record<string, string>;
+  /**
+   * Decision-model answers for `decision:"..."` condition operands, keyed by the
+   * statement after its macros are resolved (see `resolveDecisionQuestionText`).
+   * A statement with no entry reads as false, so a prompt behaves the same with no
+   * Decision model as with one that did not answer.
+   */
+  decisions?: MacroDecisionAnswers;
   /** Per-lorebook total entry counts, keyed by lorebook ID (for {{lorebooksize::ID}}) */
   lorebookEntryCounts?: Record<string, number>;
   /** Current character card fields used by macros like {{description}} */
@@ -80,6 +87,14 @@ export interface MacroContext {
     personaAbout?: string;
     convoBehavior?: string;
   };
+}
+
+export interface MacroDecisionAnswers {
+  answers?: ReadonlyMap<string, boolean>;
+  /** The chosen option for each `decision_choice:"..."` statement, by the same key. */
+  choices?: ReadonlyMap<string, string>;
+  /** Statements evaluated without an answer, for logging and Peek Prompt. */
+  unanswered?: Set<string>;
 }
 
 export interface ResolveMacroOptions {
@@ -508,6 +523,19 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
     syntax: '{{#if character != "Maukie"}}...{{/if}}',
     description: 'Negated comparison; "is not", "not contains", and "not includes" are also supported',
   },
+  {
+    category: "Formatting",
+    syntax: '{{#if decision:"The latest message moves the scene to a new place"}}...{{/if}}',
+    description:
+      "True when the Decision model says the statement is true of the recent messages; false with no Decision model or no answer",
+  },
+  {
+    category: "Formatting",
+    syntax:
+      '{{#if decision_choice:"Kaelen\'s mood in the latest message" == "angry"}}...{{else if decision_choice:"Kaelen\'s mood in the latest message" == "sad"}}...{{/if}}',
+    description:
+      "The Decision model picks one of the options this statement is compared with, or none; every comparison is false with no Decision model or no answer",
+  },
   { category: "Formatting", syntax: "{{noop}}", description: "No-op placeholder removed from output" },
   { category: "Formatting", syntax: "{{// comment}}", description: "Inline author comment removed from output" },
   {
@@ -566,6 +594,7 @@ function macroContextForCharacterProfile(profile: CharacterMacroProfile, base?: 
     personaReferences: base?.personaReferences,
     personaFields: base?.personaFields,
     convoFields: base?.convoFields,
+    decisions: base?.decisions,
     characterFields: {
       phoneticName: profile.phoneticName ?? "",
       description: profile.description ?? "",
@@ -912,6 +941,136 @@ function stripOuterQuotes(value: string): string | null {
     .replace(/\\n/g, "\n");
 }
 
+const DECISION_OPERAND_PREFIX_RE = /^decision\s*:/iu;
+const DECISION_CHOICE_OPERAND_PREFIX_RE = /^decision_choice\s*:/iu;
+
+function statementAfterPrefix(raw: string, prefix: RegExp): string | null {
+  const token = raw.trim();
+  if (!prefix.test(token)) return null;
+  const rest = token.replace(prefix, "").trim();
+  const question = stripOuterQuotes(rest) ?? rest;
+  return question.trim() ? question : null;
+}
+
+/** The statement inside a `decision:"..."` operand, as written, or null for any other operand. */
+function decisionQuestionFromOperand(raw: string): string | null {
+  return statementAfterPrefix(raw, DECISION_OPERAND_PREFIX_RE);
+}
+
+/** The statement inside a `decision_choice:"..."` operand, or null for any other operand. */
+function decisionChoiceQuestionFromOperand(raw: string): string | null {
+  return statementAfterPrefix(raw, DECISION_CHOICE_OPERAND_PREFIX_RE);
+}
+
+/** Comparisons that name one option. `contains` and the numeric operators do not. */
+const DECISION_CHOICE_OPERATORS = new Set(["==", "=", "is", "!=", "is not"]);
+
+/** Whitespace-normalized, so a line break inside a statement does not change its key. */
+export function normalizeDecisionQuestion(text: string): string {
+  return text.replace(/\s+/gu, " ").trim();
+}
+
+/**
+ * A statement's text once its own macros are resolved in `ctx`: the key an answer is
+ * stored and looked up under. Collection and evaluation both go through here, so the
+ * two can never disagree about what was asked.
+ */
+export function resolveDecisionQuestionText(question: string, ctx: MacroContext): string {
+  return normalizeDecisionQuestion(resolveMacros(question, { ...ctx, decisions: undefined }, { trimResult: true }));
+}
+
+export interface CollectedDecisionQuestion {
+  kind: "noul" | "choice";
+  /** As written, before its macros are resolved. */
+  question: string;
+  /** For a Choice statement: the literals it is compared with, as written. */
+  options: string[];
+}
+
+/**
+ * Every decision statement in a template, as written, in order of appearance: each
+ * `decision:"..."`, and each `decision_choice:"..."` with the options it is compared
+ * against (`decision_choice:"..." == "angry"` offers "angry").
+ *
+ * Read with the same tag and condition parsers the engine evaluates with, so a
+ * statement is found exactly when a condition would ask it. The same Choice statement
+ * compared in several places is returned once per place; the caller merges options.
+ */
+export function collectDecisionQuestions(template: string): CollectedDecisionQuestion[] {
+  const questions: CollectedDecisionQuestion[] = [];
+  if (!/decision(?:_choice)?\s*:/iu.test(template)) return questions;
+  const text = stripMacroComments(template);
+  let index = 0;
+  while (index < text.length) {
+    const tag = readNextMacroTag(text, index);
+    if (!tag) break;
+    const condition = parseIfCondition(tag.body) ?? parseElseIfCondition(tag.body);
+    if (condition) {
+      // `decision_choice:"q" == "rain" || "snow"`: the shorthand's later literals
+      // parse as bare atoms, and belong to the Choice statement before them.
+      let lastChoice: CollectedDecisionQuestion | null = null;
+      for (const parsed of parseConditionComparisons(condition)) {
+        if (parsed.right === undefined) {
+          const literal = stripOuterQuotes(parsed.left);
+          if (literal !== null && lastChoice && literal.trim()) lastChoice.options.push(literal.trim());
+          if (literal !== null) continue;
+        }
+        for (const [operand, other] of [
+          [parsed.left, parsed.right],
+          [parsed.right, parsed.left],
+        ] as const) {
+          if (operand === undefined) continue;
+          const question = decisionQuestionFromOperand(operand);
+          if (question) {
+            questions.push({ kind: "noul", question, options: [] });
+            continue;
+          }
+          const choice = decisionChoiceQuestionFromOperand(operand);
+          if (!choice) continue;
+          const literal =
+            other !== undefined && DECISION_CHOICE_OPERATORS.has(parsed.operator.toLowerCase())
+              ? stripOuterQuotes(other)
+              : null;
+          lastChoice = { kind: "choice", question: choice, options: literal?.trim() ? [literal.trim()] : [] };
+          questions.push(lastChoice);
+        }
+      }
+    }
+    index = tag.end;
+  }
+  return questions;
+}
+
+/**
+ * Whether any string inside `value` holds a decision statement: an imported card,
+ * preset or lorebook, parsed. Walks parsed data rather than raw JSON text, whose
+ * escaped quotes the condition parser should never see.
+ */
+export function containsDecisionStatements(value: unknown, depth = 0): boolean {
+  if (depth > 12) return false;
+  if (typeof value === "string")
+    return /decision(?:_choice)?\s*:/iu.test(value) && collectDecisionQuestions(value).length > 0;
+  if (Array.isArray(value)) return value.some((item) => containsDecisionStatements(item, depth + 1));
+  if (value && typeof value === "object")
+    return Object.values(value).some((item) => containsDecisionStatements(item, depth + 1));
+  return false;
+}
+
+/**
+ * The resolved statements a template can ask in this context: one for the context
+ * itself, plus one per character when the statement names `{{char}}` or another
+ * character macro, because a group block or a per-responder pass asks it once per
+ * character.
+ */
+export function resolveDecisionQuestionVariants(question: string, ctx: MacroContext): string[] {
+  const variants = new Set([resolveDecisionQuestionText(question, ctx)]);
+  if (hasCharacterMacro(question))
+    for (const profile of ctx.characterProfiles ?? [])
+      variants.add(resolveDecisionQuestionText(question, macroContextForCharacterProfile(profile, ctx)));
+  variants.delete("");
+  return [...variants];
+}
+
 function normalizeConditionKey(value: string): string {
   return value.trim().replace(/^@/, "").toLowerCase();
 }
@@ -931,6 +1090,26 @@ function resolvePersonaText(ctx: MacroContext): string {
 function resolveConditionalOperand(raw: string, ctx: MacroContext, options: ResolveMacroOptions): string {
   const quoted = stripOuterQuotes(raw);
   if (quoted !== null) return quoted;
+
+  // A decision is true only when an answer says so. Before this branch existed the
+  // operand fell through to its own literal text, which is non-empty and so read as
+  // true on every turn.
+  const decisionQuestion = decisionQuestionFromOperand(raw);
+  if (decisionQuestion !== null) {
+    const key = resolveDecisionQuestionText(decisionQuestion, ctx);
+    const answer = ctx.decisions?.answers?.get(key);
+    if (answer === undefined && key) ctx.decisions?.unanswered?.add(key);
+    return answer === true ? "true" : "";
+  }
+  // The chosen option, compared like any other value. No answer compares equal to
+  // nothing an author would write, so every branch that names an option is false.
+  const choiceQuestion = decisionChoiceQuestionFromOperand(raw);
+  if (choiceQuestion !== null) {
+    const key = resolveDecisionQuestionText(choiceQuestion, ctx);
+    const choice = ctx.decisions?.choices?.get(key);
+    if (choice === undefined && key) ctx.decisions?.unanswered?.add(key);
+    return choice ?? "";
+  }
 
   const token = raw.trim();
   const normalized = normalizeConditionKey(token);
@@ -1018,6 +1197,10 @@ function resolveConditionalOperand(raw: string, ctx: MacroContext, options: Reso
 }
 
 function isCharacterConditionalOperand(raw: string): boolean {
+  // A decision about `{{char}}` asks something different for each character, so it
+  // takes the per-character path like any other character condition.
+  const decisionQuestion = decisionQuestionFromOperand(raw) ?? decisionChoiceQuestionFromOperand(raw);
+  if (decisionQuestion !== null) return hasCharacterMacro(decisionQuestion);
   return CHARACTER_CONDITIONAL_OPERAND_NAMES.has(normalizeConditionKey(raw));
 }
 
@@ -1364,7 +1547,22 @@ function evaluateParsedCondition(
   const left = resolveConditionalOperand(parsed.left, ctx, options);
   if (parsed.operator === "truthy") return left.trim().length > 0 && !/^(false|0|no|off|null|undefined)$/i.test(left);
   const right = resolveConditionalOperand(parsed.right ?? "", ctx, options);
+  // No answer means no, whatever the comparison: without this, `decision_choice:"mood"
+  // != "calm"` would compare "" with "calm" and read as true on every turn for a user
+  // with no Decision model. Checked after both sides resolve, so both are recorded.
+  if (isUnansweredDecisionOperand(parsed.left, ctx) || isUnansweredDecisionOperand(parsed.right ?? "", ctx))
+    return false;
   return compareConditionValues(left, parsed.operator, right);
+}
+
+/** A `decision:` or `decision_choice:` operand that has no answer this turn. */
+function isUnansweredDecisionOperand(raw: string, ctx: MacroContext): boolean {
+  const question = decisionQuestionFromOperand(raw);
+  if (question !== null) return ctx.decisions?.answers?.get(resolveDecisionQuestionText(question, ctx)) === undefined;
+  const choiceQuestion = decisionChoiceQuestionFromOperand(raw);
+  if (choiceQuestion !== null)
+    return ctx.decisions?.choices?.get(resolveDecisionQuestionText(choiceQuestion, ctx)) === undefined;
+  return false;
 }
 
 type EqualityShorthand = Pick<ParsedConditionExpression, "left" | "operator">;
@@ -1914,6 +2112,61 @@ function flattenAgentConditionalMacrosInner(input: string, decodeTextEntities: b
     index = block.endEnd;
   }
 
+  return result;
+}
+
+/** Keep generated summaries inside their readers' scope without nesting duplicate character guards. */
+export function scopeCharacterSummary(input: string, characterNames: readonly string[], depth = 0): string {
+  const names = [...new Set(characterNames)];
+  if (!names.length) return "";
+  if (names.some((name) => name.includes("{{") || name.includes("}}")))
+    throw new Error("Cannot scope a summary: character names must not contain macro delimiters ({{ or }}).");
+  const wrap = (text: string) => {
+    if (!text.trim()) return text;
+    const condition = names
+      .map((name) => `"${name.replace(/\\/gu, "\\\\").replace(/["\u201c\u201d\u201e\u201f]/gu, "\\$&")}"`)
+      .join(" || ");
+    return `{{#if char == ${condition}}}${text}{{/if}}`;
+  };
+  if (depth >= MAX_MACRO_RESOLUTION_DEPTH) return wrap(input);
+  let result = "";
+  let cursor = 0;
+  while (cursor < input.length) {
+    const start = findConditionalStart(input, cursor);
+    if (!start) return result + wrap(input.slice(cursor));
+    const block = findConditionalBranches(input, start.end, start.condition);
+    if (!block) return result + wrap(input.slice(cursor));
+    result += wrap(input.slice(cursor, start.start));
+    // Only character/literal conditions can be simplified now. Keep authored
+    // variable conditions intact so changing a variable still changes visibility.
+    const characterOnly = block.branches.every(
+      ({ condition }) =>
+        condition === null ||
+        (!condition.includes("{{") &&
+          parseConditionComparisons(condition).every(({ left, right }) =>
+            [left, right].every(
+              (operand) =>
+                operand === undefined ||
+                ["char", "charname", "character", "speaker"].includes(normalizeConditionKey(operand)) ||
+                stripOuterQuotes(operand) !== null,
+            ),
+          )),
+    );
+    if (!characterOnly) result += wrap(input.slice(start.start, block.endEnd));
+    else {
+      let remaining = names;
+      for (const branch of block.branches) {
+        const readers = remaining.filter(
+          (name) =>
+            branch.condition === null ||
+            evaluateCondition(branch.condition, { user: "", char: name, characters: [name], variables: {} }),
+        );
+        result += scopeCharacterSummary(input.slice(branch.contentStart, branch.contentEnd), readers, depth + 1);
+        remaining = remaining.filter((name) => !readers.includes(name));
+      }
+    }
+    cursor = block.endEnd;
+  }
   return result;
 }
 

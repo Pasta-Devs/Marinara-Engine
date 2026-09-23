@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/** Distinguishes explicit scene participants from legacy visibility-based assignments. */
+export const ADVANCED_MEMORY_SCENE_AUDIENCE = { id: "scene-audience", revision: "participants-v1" } as const;
+
 export const advancedMemorySettingsSchema = z.object({
   enabled: z.boolean().default(false),
   maxContextTokens: z.number().int().min(1024).max(10_000_000).default(65_000),
@@ -33,8 +36,11 @@ export interface AdvancedMemoryJob {
   completed: number;
   total: number;
   error: string | null;
+  reviewRecordId?: string | null;
   processedMessageId?: string | null;
-  /** Visible live-context starts, separate from manually chosen character knowledge boundaries. */
+  /** Invalidates cached prompts when a user removes an automatic context flag. */
+  contextStartRevision?: number;
+  /** Shared automatic scene reset, controlled by the existing New Start flag UI. */
   contextStarts?: Array<{
     messageId: string;
     audienceCharacterIds: string[];
@@ -57,7 +63,7 @@ export interface AdvancedMemoryRecord {
   startIndex: number;
   endIndex: number;
   messageIds: string[];
-  /** Empty means the shared, non-Individual audience. */
+  /** Scene/excerpt access: empty means narrator only, never all characters. */
   audienceCharacterIds: string[];
   content: string;
   title: string;
@@ -80,6 +86,11 @@ export interface AdvancedMemoryStatus {
   helperModel: string | null;
   summaryModel: string | null;
   warnings: string[];
+  unpreparedScenes?: Array<{
+    sceneId: string;
+    startIndex: number;
+    endIndex: number;
+  }>;
   latestReceipt?: AdvancedMemoryReceipt;
 }
 

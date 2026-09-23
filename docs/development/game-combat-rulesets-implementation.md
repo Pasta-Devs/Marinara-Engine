@@ -28,8 +28,12 @@
 > no budget, hand one back or let its holder buy a standard action with another one, a rider may add
 > itself to the first qualifying hit of a period, and a condition may bend the holder's own saves,
 > halve every kind of harm, keep them from turning on or walking towards whoever applied it, count
-> only while that somebody is in sight, or end when they go down. Reactions, and the windows a
-> signature action is bought in, are still to come.
+> only while that somebody is in sight, or end when they go down. As of slice C5b a fight can be HELD
+> OPEN: a walk that leaves somebody's reach stops where it stands and asks them whether to strike
+> rather than striking for them, and the turn between one actor and the next stops and asks every
+> block with points whether to buy one of its own actions. While a window is open nothing else
+> moves, and the fight picks up exactly where it was held. What else opens a window, and the
+> trigger vocabulary a catalog entry marked `reaction` needs to name one, are still to come.
 
 Status: implementation proposal, September 17, 2026. The AI overhaul does not implement these rulesets. Traditional's speed-follow-up requirement is accepted product direction; thresholds and other defaults below are proposals for tuning. Implement against current `staging`, after checking related work.
 

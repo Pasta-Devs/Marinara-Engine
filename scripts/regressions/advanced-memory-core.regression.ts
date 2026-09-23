@@ -59,6 +59,7 @@ const server = createServer(async (request, response) => {
     beforeSummary = null;
     if (callback) await callback();
     content = JSON.stringify({
+      audience: "all",
       summary: text.includes("CORRECTED_SILVER")
         ? "CORRECTED_SILVER compass."
         : text.includes("CORRECTED_GOLD")
@@ -168,7 +169,7 @@ try {
       model: "gpt-4o-mini",
       baseUrl,
       apiKey: "test-key",
-      maxContext: 4096,
+      maxContext: 16_384,
       defaultForAgents: true,
       embeddingBaseUrl: baseUrl,
       embeddingModel: "memory-proof",
@@ -186,7 +187,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
     },
   });
@@ -355,7 +356,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
       narratorCharacterId: "narrator",
       knowledgeStarts: { alice: null, bob: privateSource[6]!.id },
@@ -578,7 +579,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 256,
       retrieveMinMessages: 1,
       retrieveMaxMessages: 3,
@@ -831,7 +832,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
     },
   });
@@ -893,7 +894,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
     },
   });
@@ -970,7 +971,7 @@ try {
   const dependencySettings = {
     ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
     enabled: true,
-    maxContextTokens: 4096,
+    maxContextTokens: 16_384,
     summaryBudgetTokens: 512,
     knowledgeStarts: { alice: null },
   };
@@ -997,7 +998,7 @@ try {
   });
   await memory.initialize(dependencySource.id);
   const sourceManualScene = (await memory.status(dependencySource.id)).records.find(
-    (record) => record.kind === "scene" && record.content && !record.audienceCharacterIds.length,
+    (record) => record.kind === "scene" && record.content,
   );
   assert(sourceManualScene);
   await memory.updateRecord(dependencySource.id, sourceManualScene.id, {
@@ -1134,7 +1135,7 @@ try {
   });
   await memory.initialize(dependencyTarget.id);
   const localScene = (await memory.status(dependencyTarget.id)).records.find(
-    (record) => record.kind === "scene" && record.content && !record.audienceCharacterIds.length,
+    (record) => record.kind === "scene" && record.content,
   );
   assert(localScene);
   await memory.updateRecord(dependencyTarget.id, localScene.id, {
@@ -1145,7 +1146,11 @@ try {
   const importWithMissingDependencies = {
     ...dependencyExport,
     records: [
-      ...dependencyExport.records,
+      ...dependencyExport.records.map((transfer) =>
+        transfer.record.kind === "excerpt"
+          ? { ...transfer, record: { ...transfer.record, audienceCharacterIds: ["alice"] } }
+          : transfer,
+      ),
       {
         ...exportedDependency,
         record: {
@@ -1185,11 +1190,7 @@ try {
     ],
   };
   const dependencyImport = await memory.importMemory(dependencyTarget.id, importWithMissingDependencies);
-  for (const content of [
-    "IMPORTED_MISSING_SUMMARY_CORRECTION",
-    "MISSING_RECORD_CORRECTION",
-    "INCOMPATIBLE_MACRO_CORRECTION",
-  ]) {
+  for (const content of ["MISSING_RECORD_CORRECTION", "INCOMPATIBLE_MACRO_CORRECTION"]) {
     const imported = dependencyImport.records.find((record) => record.content === content);
     assert(
       imported && !imported.enabled,
@@ -1276,6 +1277,9 @@ try {
     /manually corrected memory.*changed sources/iu,
     "enabled stale manual corrections still require explicit review",
   );
+  const blockedCorrection = (await memory.status(maintenanceTarget.id)).job;
+  assert.equal(blockedCorrection.reviewRecordId, disabledImportedScene.id);
+  assert.match(blockedCorrection.error!, /messages #1–#3 \(alice\)/u);
   assert.equal(
     (await memory.status(maintenanceTarget.id)).records.find((record) => record.id === disabledImportedScene.id)
       ?.content,
@@ -1331,10 +1335,11 @@ try {
     "the disabled excerpt remains unchanged and inspectable",
   );
   await memory.updateRecord(maintenanceTarget.id, editedExcerpt.id, { enabled: true });
-  await assert.rejects(
-    memory.initialize(maintenanceTarget.id),
-    /manually corrected memory.*changed sources/iu,
-    "re-enabled stale excerpt corrections retain the explicit-review guard",
+  await memory.initialize(maintenanceTarget.id);
+  assert.equal(
+    (await memory.status(maintenanceTarget.id)).job.status,
+    "ready",
+    "editing source text does not invalidate an existing excerpt",
   );
   assert.equal(
     (await memory.status(maintenanceTarget.id)).records.find((record) => record.id === editedExcerpt.id)?.content,
@@ -1352,7 +1357,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
     },
   });
@@ -1394,10 +1399,13 @@ try {
   const editableScene = (await memory.status(joinedChat.id)).records.find(
     (record) => record.kind === "scene" && record.content,
   )!;
-  const editableSource = await chats.listMessages(joinedChat.id);
   for (const action of ["toggle", "delete"] as const) {
     if (action === "delete") await memory.updateRecord(joinedChat.id, editableScene.id, { enabled: true });
-    await chats.updateMessageContent(editableSource[0]!.id, `Changed compass promise for ${action}.`);
+    // Changed derived inputs still require new work; a source typo no longer does.
+    await db
+      .update(advancedMemoryRecords)
+      .set({ dependencies: JSON.stringify([{ id: "macro-variables", revision: "previous-input" }]) })
+      .where(eq(advancedMemoryRecords.id, editableScene.id));
     const waiting = new Promise<void>((resolve) => {
       summaryEntered = resolve;
     });
@@ -1451,6 +1459,11 @@ try {
     "resume keeps the deleted scene suppressed while refreshing changed source excerpts",
   );
   assert(!(await memory.status(joinedChat.id)).records.some((record) => record.id === editableScene.id));
+  assert.equal(
+    (await memory.status(joinedChat.id)).unpreparedScenes?.length,
+    0,
+    "deleted scene summaries are not offered for recovery",
+  );
 
   const requireServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));
   const Fastify = requireServer("fastify") as typeof import("fastify").default;
@@ -1680,7 +1693,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
       knowledgeStarts: { alice: null },
     },
@@ -1737,7 +1750,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
       knowledgeStarts: { alice: null, bob: null },
     },
@@ -1746,8 +1759,8 @@ try {
     hiddenMiddleChat.id,
     Array.from({ length: 300 }, (_, index) => ({
       role: "user" as const,
-      content: `${index === 250 ? "SCENE_CHANGE " : ""}${index === 50 ? "HIDDEN_MIDDLE_SECRET" : "Shared compass promise along the mountain path"} ${index}.`,
-      extra: index === 50 ? { hiddenFromAICharacterIds: ["bob"] } : undefined,
+      content: `${index === 250 ? "SCENE_CHANGE " : ""}${index === 50 ? "HIDDEN_MIDDLE_SECRET" : "Shared compass promise along the mountain path. ".repeat(2)} ${index}.`,
+      extra: index === 50 ? { hiddenFromAI: true } : index === 51 ? { hiddenFromAICharacterIds: ["bob"] } : undefined,
     })),
   );
   const privateController = new AbortController();
@@ -1814,7 +1827,7 @@ try {
     advancedMemory: {
       ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
       enabled: true,
-      maxContextTokens: 4096,
+      maxContextTokens: 16_384,
       summaryBudgetTokens: 512,
     },
   });
@@ -1836,7 +1849,7 @@ try {
   assert(cadenceChat);
   await memory.updateSettings(cadenceChat.id, {
     enabled: true,
-    maxContextTokens: 4096,
+    maxContextTokens: 16_384,
     summaryBudgetTokens: 512,
     sceneCheckInterval: 5,
   });
@@ -1879,7 +1892,62 @@ try {
       ends: [{ messageNumber: 2 }, { messageNumber: 4 }],
     }),
   );
+  const pendingScenes = (await memory.status(cadenceChat.id)).unpreparedScenes!;
+  assert.deepEqual(
+    pendingScenes.map(({ startIndex, endIndex }) => [startIndex, endIndex]),
+    [
+      [1, 2],
+      [3, 4],
+    ],
+    "closed scenes without summaries remain visible",
+  );
+  const repairRequests = requests.length;
+  const repairState = JSON.parse((await chats.getById(cadenceChat.id))!.metadata).advancedMemoryState;
+  await chats.patchMetadata(cadenceChat.id, {
+    advancedMemoryState: { ...repairState, status: "error", error: "The summary provider stopped responding." },
+  });
+  await memory.initialize(cadenceChat.id, { sceneId: pendingScenes[0]!.sceneId });
+  assert.equal(
+    (await memory.status(cadenceChat.id)).job.error,
+    null,
+    "successful recovery clears the previous summary failure",
+  );
+  assert.equal(
+    JSON.parse((await chats.getById(cadenceChat.id))!.metadata).advancedMemoryState.sceneCheckMessageId,
+    repairState.sceneCheckMessageId,
+    "targeted recovery preserves scene-check cadence",
+  );
+  const afterRepairJob = (await memory.status(cadenceChat.id)).job;
+  const beforeRepairRetry = requests.length;
+  await memory.initialize(cadenceChat.id, { sceneId: pendingScenes[0]!.sceneId });
+  assert.deepEqual((await memory.status(cadenceChat.id)).job, afterRepairJob);
+  assert.equal(requests.length, beforeRepairRetry, "retrying a completed repair is a no-op");
+  assert.equal(requests.slice(repairRequests).filter((request) => request.kind === "summary").length, 1);
+  assert(
+    !requests.slice(repairRequests).some((request) => request.kind === "classify"),
+    "targeted repair does not reclassify history",
+  );
+  assert.deepEqual(
+    (await memory.status(cadenceChat.id)).unpreparedScenes!.map(({ startIndex, endIndex }) => [startIndex, endIndex]),
+    [[3, 4]],
+  );
+  // A missing scaffold must not make the range disappear either.
+  await db.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, pendingScenes[1]!.sceneId));
+  const existingRecoveredRow = (
+    await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.chatId, cadenceChat.id))
+  ).find((record) => record.kind === "scene" && record.content)!;
+  await db.insert(advancedMemoryRecords).values({
+    ...existingRecoveredRow,
+    id: "obsolete-overlapping-summary",
+    endMessageId: cadenceSource[3]!.id,
+    messageIds: JSON.stringify(cadenceSource.slice(0, 4).map((message) => message.id)),
+  });
+  assert.deepEqual(
+    (await memory.status(cadenceChat.id)).unpreparedScenes!.map(({ startIndex, endIndex }) => [startIndex, endIndex]),
+    [[3, 4]],
+  );
   await memory.maintain(cadenceChat.id);
+  assert.deepEqual((await memory.status(cadenceChat.id)).unpreparedScenes, []);
   const cadenceRecords = (await memory.status(cadenceChat.id)).records;
   assert.equal(
     cadenceRecords.filter((record) => record.kind === "scene" && record.status === "closed").length,
@@ -1892,6 +1960,85 @@ try {
     "tracker commits and archive maintenance do not launch another classifier",
   );
   const editedScene = cadenceRecords.find((record) => record.kind === "scene" && record.status === "closed")!;
+  await memory.updateRecord(cadenceChat.id, editedScene.id, { content: "CORRECTED_GOLD compass." });
+  await memory.reindex(cadenceChat.id);
+  await chats.updateMessageContent(cadenceSource[0]!.id, "A corrected compass promise.");
+  await chats.updateMessageExtra(cadenceSource[0]!.id, {
+    isConversationStart: true,
+    attachments: [{ type: "image", url: "/later-illustration.png" }],
+  });
+  const afterTypo = (await memory.status(cadenceChat.id)).records.find((record) => record.id === editedScene.id)!;
+  assert.equal(
+    await memory.getSceneCheck(cadenceChat.id),
+    null,
+    "old edits and illustrations do not restart scene checks",
+  );
+  assert.equal(afterTypo.embeddingStatus, "vectorized", "text edits and illustrations keep saved scene indexes");
+  assert.equal(afterTypo.content, "CORRECTED_GOLD compass.");
+  const typoRequests = requests.length;
+  await memory.maintain(cadenceChat.id);
+  assert.equal(requests.length, typoRequests, "unchanged scene ranges reuse completed summaries and vectors");
+  await chats.updateMessageExtra(cadenceSource[4]!.id, { isConversationStart: true });
+  const recallCurrent = async () =>
+    memory.prepare({
+      chatId: cadenceChat.id,
+      messages: await chats.listMessages(cadenceChat.id),
+      audienceCharacterIds: [],
+      budgetTokens: 3000,
+      readOnly: true,
+    });
+  assert(
+    (await recallCurrent()).recalledScenes?.includes("A corrected compass promise."),
+    "recall uses edited source text without reindexing",
+  );
+  const swipe = await chats.addSwipe(cadenceSource[1]!.id, "ACTIVE_SWIPE compass promise.");
+  const swipedRecall = await recallCurrent();
+  assert.equal(
+    await memory.getSceneCheck(cadenceChat.id),
+    null,
+    "switching swipes is not a new message for scene-check cadence",
+  );
+  assert(swipedRecall.recalledScenes?.includes("ACTIVE_SWIPE compass promise."));
+  assert(!swipedRecall.recalledScenes?.includes("Recent scene message 1."));
+  await chats.setActiveSwipe(cadenceSource[1]!.id, 0);
+  assert.equal(swipe.index, 1);
+  const restoredRecall = await recallCurrent();
+  assert(restoredRecall.recalledScenes?.includes("Recent scene message 1."));
+  assert(!restoredRecall.recalledScenes?.includes("ACTIVE_SWIPE compass promise."));
+  const beforeSwipeMaintenance = requests.length;
+  await memory.maintain(cadenceChat.id);
+  assert.equal(requests.length, beforeSwipeMaintenance, "switching swipes retains completed indexes");
+  assert.equal(
+    (await memory.status(cadenceChat.id)).records.filter((record) => record.kind === "scene" && record.content).length,
+    2,
+    "switching swipes does not duplicate scenes",
+  );
+  // Repairing a different gap must leave a genuinely blocked correction intact.
+  await db
+    .update(advancedMemoryRecords)
+    .set({ dependencies: JSON.stringify([{ id: "macro-variables", revision: "old-input" }]) })
+    .where(eq(advancedMemoryRecords.id, editedScene.id));
+  await db.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.sceneId, pendingScenes[1]!.sceneId));
+  const beforeIsolatedRepair = (await memory.status(cadenceChat.id)).records.find(
+    (record) => record.id === editedScene.id,
+  )!;
+  await chats.patchMetadata(cadenceChat.id, {
+    advancedMemoryState: {
+      ...JSON.parse((await chats.getById(cadenceChat.id))!.metadata).advancedMemoryState,
+      status: "error",
+      error: "Review the saved correction.",
+      reviewRecordId: editedScene.id,
+    },
+  });
+  await memory.initialize(cadenceChat.id, { sceneId: pendingScenes[1]!.sceneId });
+  const isolatedRepair = await memory.status(cadenceChat.id);
+  assert.deepEqual(
+    isolatedRepair.records.find((record) => record.id === editedScene.id),
+    beforeIsolatedRepair,
+  );
+  assert.equal(isolatedRepair.job.reviewRecordId, editedScene.id);
+  assert.equal(isolatedRepair.job.status, "error");
+  assert.deepEqual(isolatedRepair.unpreparedScenes, []);
   await memory.updateRecord(cadenceChat.id, editedScene.id, { content: "CORRECTED_GOLD compass." });
   await chats.createMessagesBatch(
     cadenceChat.id,
@@ -1941,8 +2088,9 @@ try {
     false,
     "a changed source cannot commit an old scene decision",
   );
-  const changedCheck = await memory.getSceneCheck(cadenceChat.id);
-  assert(changedCheck, "a changed checked source is due even without five new messages");
+  assert.equal(await memory.getSceneCheck(cadenceChat.id), null, "editing checked text does not advance the cadence");
+  const changedCheck = await memory.getSceneCheck(cadenceChat.id, { force: true });
+  assert(changedCheck);
   assert(
     await memory.commitSceneCheck(cadenceChat.id, changedCheck, {
       ends: [{ messageNumber: latestSceneSource.length - 1 }],
@@ -1950,7 +2098,7 @@ try {
   );
   await memory.maintain(cadenceChat.id);
   await chats.updateMessageContent(latestSceneSource.at(-1)!.id, "The rerolled reply stays in the same room.");
-  const rerolledCheck = await memory.getSceneCheck(cadenceChat.id);
+  const rerolledCheck = await memory.getSceneCheck(cadenceChat.id, { force: true });
   assert(rerolledCheck);
   assert(await memory.commitSceneCheck(cadenceChat.id, rerolledCheck, { ends: [] }));
   assert(
@@ -2011,7 +2159,11 @@ try {
     connectionId: connection!.id,
   });
   assert(deferredHistory);
-  await memory.updateSettings(deferredHistory.id, { enabled: true, maxContextTokens: 4096, summaryBudgetTokens: 512 });
+  await memory.updateSettings(deferredHistory.id, {
+    enabled: true,
+    maxContextTokens: 16_384,
+    summaryBudgetTokens: 512,
+  });
   await chats.createMessagesBatch(deferredHistory.id, [
     { role: "user", content: "An older scene." },
     { role: "assistant", content: "SCENE_CHANGE The party reaches another town." },
@@ -2144,7 +2296,7 @@ try {
   const resetSettings = {
     ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
     enabled: true,
-    maxContextTokens: 4096,
+    maxContextTokens: 16_384,
     summaryBudgetTokens: 512,
     knowledgeStarts: { alice: null },
   };
@@ -2216,7 +2368,7 @@ try {
     connectionId: connection!.id,
   });
   assert(backlog);
-  await memory.updateSettings(backlog.id, { enabled: true, maxContextTokens: 4096, summaryBudgetTokens: 512 });
+  await memory.updateSettings(backlog.id, { enabled: true, maxContextTokens: 16_384, summaryBudgetTokens: 512 });
   await chats.createMessagesBatch(
     backlog.id,
     Array.from({ length: 120 }, (_, index) => ({

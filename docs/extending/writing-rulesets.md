@@ -424,7 +424,7 @@ An entry may carry an optional `mechanics` block that says what it does in numbe
 
 The picker shows this block as one line. Who reads the rest depends on which block your ruleset opted in with:
 
-- With a [`combat` block](#combat-a-fight-your-own-rules-resolve), the fight reads its combat effects. `range`, `area` and `friendlyFire` apply on a battlefield with positions; `reaction` still waits for reaction windows. `check` applies to skill checks, as described above.
+- With a [`combat` block](#combat-a-fight-your-own-rules-resolve), the fight reads its combat effects. `range`, `area` and `friendlyFire` apply on a battlefield with positions; `reaction` marks an entry as one that answers something, and until an entry can name the trigger it waits for, an entry marked this way is on no menu. `check` applies to skill checks, as described above.
 - With only a [`battle` block](#battles-lending-the-sheet-to-marinaras-combat), a battle reads `kind`, `range`, `area`, `friendlyFire`, `amount`, `damageType` and `cost`, because those are the parts Marinara's own combat has somewhere to put.
 
 The vocabulary is closed, so a key or a value that is not in the list above is refused instead of being quietly ignored.
@@ -720,9 +720,9 @@ same keys for a d20 system:
   `failsSaves` names saves the condition fails without rolling. The six that need distance or
   movement (`attacks-against-adjacent-advantage`, `attacks-against-far-disadvantage`,
   `attacks-from-adjacent-critical`, `speed-zero`, `half-move-to-stand`, `cannot-approach-source`)
-  are read by a fight on a board and say nothing in one without (see Positions). `cannot-react` is
-  read only for a strike at somebody walking away; the reaction window it will also gate is a later
-  release. Three more keys sit beside the effects:
+  are read by a fight on a board and say nothing in one without (see Positions). `cannot-react`
+  keeps its holder out of the window a walk opens, so they are never asked. Three more keys sit
+  beside the effects:
   - `saves`: which of your saves the two save effects are about. All of them when it is left out,
     and naming it without one of those two effects is refused.
   - `whileSourceInSight`: what counts only while whoever applied it is in the holder's line of
@@ -1096,11 +1096,17 @@ the log says so. There is no three-quarter cover, no total cover and no elevatio
 
 **Strikes at somebody walking away.** Declare `opportunity.budget` and, when a combatant walks out
 of the reach of a standing enemy who can act, has that budget and has something melee to strike
-with, that enemy strikes once with its best melee attack BEFORE the mover leaves the cell, and
-spends the budget. `disengage` prevents it for the rest of the turn, and a strike that drops the
-mover ends the walk where they fell. It is automatic for everybody, the party included, and said in
-the log; CHOOSING whether to take it is a reaction window, and that is a later release. A ruleset
-that declares no `opportunity` has none of this at all.
+with, the walk STOPS where it stands and that enemy is asked whether to strike. Taking it spends the
+budget and resolves exactly as the same attack would on their own turn; letting it go by costs
+nothing. Either way the walk then picks up where it was held, paying for every cell it really
+crossed, and a strike that drops the mover ends the walk where they fell. One chance each for a
+whole walk, however many times the path leaves the same reach. `disengage` prevents it for the rest
+of the turn, and a ruleset that declares no `opportunity` has none of this at all.
+
+The asking is a WINDOW, and it holds the whole fight: nothing else moves until everybody it asks has
+answered. A party member's window is the player's to answer, with the strike or a Pass beside it;
+everybody else's is answered by whoever plays them, a Game Master's boss through the Game Master's
+own decision. See Windows below.
 
 **What an opponent does with a board.** An opponent nobody plays weighs every cell it can reach
 against every option it could take from there, subtracts for each strike the walk would be met by,
@@ -1150,6 +1156,37 @@ A fight with positions is drawn on the board instead of on the portrait stage; s
 what the player does with it. Every distance on it, in the menu and in the log, is said in YOUR
 unit: "Juno moves to 4, 6 for 6 paces and has 2 paces left."
 
+### Windows: holding the fight open
+
+Some moments belong to somebody who is not the one acting. The Engine holds the fight open for them
+rather than deciding for them, and that pause is a window.
+
+Two things open one today, and both come out of what you already declared:
+
+- **Somebody breaks away.** A walk that leaves the reach of an enemy who could strike stops on that
+  step and asks them. See Strikes at somebody walking away, above.
+- **Between one turn and the next.** When a turn ends, every opponent holding `signaturePoints` who
+  can afford one of its own `signature` actions is asked whether to buy one, before the next turn
+  begins. That is the only moment they are bought in: a signature action is on nobody's turn menu,
+  its own included.
+
+What a window does, whichever opened it:
+
+- **Nothing else moves while it is open.** Not the actor whose turn it is, not the end of that turn,
+  not another window. The fight waits.
+- **It asks one at a time**, in turn order, and each is asked once. Passing is always an answer, and
+  costs nothing. Somebody who is asked and has nothing they can take is skipped rather than asked.
+- **It picks up exactly where it was held.** A walk finishes on the cells it had left, paying for
+  every one it really crossed.
+- **Who answers is who plays them.** Your own party member's window is yours, with the option and a
+  Pass beside it on the menu; an opponent's is answered by whoever plays it, and a Game Master's
+  boss is asked through the Game Master, with letting the moment go by as one of its answers.
+- **It is saved with the fight.** A game closed mid-walk comes back with the same people still to
+  ask and the same cells still to walk.
+
+You declare none of this. A ruleset with `opportunity.budget` gets the first, a bestiary with
+`signaturePoints` gets the second, and a ruleset with neither never sees a window.
+
 ### Not yet
 
 Said plainly, because a ruleset should not claim what the Engine does not do:
@@ -1157,12 +1194,10 @@ Said plainly, because a ruleset should not claim what the Engine does not do:
 - **Beyond the modest board**: no three-quarter or total cover, no elevation, no flying over
   obstacles, no squeezing, no mounts, no grapple or shove movement, no hiding or surprise, and
   nothing pushes anybody anywhere.
-- **No reactions**, so nothing interrupts a turn. Choosing whether to strike at somebody walking
-  away is a reaction window, so that strike is automatic today; `cannot-react` is read for it and
-  for nothing else yet.
-- **Signature actions are stored, priced and resolved, but nothing opens the window they are used
-  in.** The points, the options and the spending are all here; what asks a creature for one between
-  one turn and the next arrives with reactions.
+- **Only two things open a window** (see Windows, above): somebody breaking away, and the moment
+  between two turns. An entry marked `reaction` in a catalog cannot say what it waits for yet, so
+  one marked that way is on no menu, and `cannot-react` is read for the window a walk opens and for
+  nothing else.
 - Conditions do what the closed effect list can say and no more. A condition that gives
   disadvantage on ability CHECKS, or one that gets worse in levels the way exhaustion does, is a
   plain record on the sheet today.
@@ -1170,8 +1205,8 @@ Said plainly, because a ruleset should not claim what the Engine does not do:
   opponent's stat block, and an opponent has no sheet to mark, so a ruleset whose health is a track
   cannot soften a blow by its kind. What each kind of harm MARKS is `damageKinds`, which is a
   different question from how much of it lands. A condition with `resist-all` can still reduce damage before it marks a wound.
-- **A rider fires by itself.** Choosing when to spend one is a window, so the first qualifying hit
-  of the period takes it. `on` has one value, `hit`; the rest of the moments arrive with reactions.
+- **A rider fires by itself.** `on` has one value, `hit`, so the first qualifying hit of the period
+  takes it, and there is no moment at which you are asked whether to spend one.
 
 ## Layers: variants of your own ruleset
 

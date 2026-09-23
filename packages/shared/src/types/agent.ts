@@ -7,6 +7,7 @@ import type { BuiltInAgentManifest } from "../features/agents/agent-manifest.typ
 import type { AgentToolConfig, ToolDefinition } from "../features/function-calls/tool-definitions.js";
 import type { ChatMode } from "./chat.js";
 import type { WrapFormat } from "./prompt.js";
+import type { MacroDecisionAnswers } from "../utils/macro-engine.js";
 
 /** When in the generation pipeline an agent runs. */
 export type AgentPhase =
@@ -348,6 +349,11 @@ export interface AgentTaskProgress {
 export interface AgentContext {
   /** Serialize model calls for Game chats sharing limited GPU memory. */
   sequentialExecution?: boolean;
+  /**
+   * This turn's answers for `decision:` and `decision_choice:` conditions in the
+   * agent's prompt template (#6569). Absent means none were asked, which reads as no.
+   */
+  decisions?: MacroDecisionAnswers;
   /**
    * Prose to read instead of the recent messages.
    *

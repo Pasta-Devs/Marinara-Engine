@@ -62,7 +62,7 @@ const server = createServer(async (request, response) => {
       ? partial
         ? '{"summary":"Maukie promised to return'
         : ""
-      : JSON.stringify({ summary: summaryResponse });
+      : JSON.stringify({ summary: summaryResponse, audience: "all" });
   }
   response.end(
     JSON.stringify({
@@ -86,7 +86,8 @@ const { createFileNativeDB } = await import("../../packages/server/src/db/file-b
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
-const { characterDataSchema } = await import("../../packages/shared/dist/index.js");
+const { characterDataSchema, createChatSummaryEntry, scopeCharacterSummary, resolveMacros } =
+  await import("../../packages/shared/dist/index.js");
 const { createAdvancedMemoryService } = await import("../../packages/server/src/services/advanced-memory.js");
 const { createConnectionSchema } = await import("../../packages/shared/src/schemas/connection.schema.ts");
 const { DEFAULT_ADVANCED_MEMORY_SETTINGS } = await import("../../packages/shared/src/types/advanced-memory.ts");
@@ -105,7 +106,7 @@ await app.register(advancedMemoryRoutes, { prefix: "/chats" });
 const settings = {
   ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
   enabled: true,
-  maxContextTokens: 8192,
+  maxContextTokens: 16_384,
   summaryBudgetTokens: 512,
 };
 async function createChat(name: string, hardCap?: number, omitReasoning = false) {
@@ -116,7 +117,7 @@ async function createChat(name: string, hardCap?: number, omitReasoning = false)
       model: "gpt-6-astra",
       baseUrl,
       apiKey: "test-key",
-      maxContext: 8192,
+      maxContext: 16_384,
       ...(hardCap ? { maxTokensOverride: hardCap } : {}),
       embeddingBaseUrl: baseUrl,
       embeddingModel: "memory-proof",
@@ -144,6 +145,40 @@ async function createChat(name: string, hardCap?: number, omitReasoning = false)
   return chat;
 }
 try {
+  const readers = ["Maukie", "Pantalone"];
+  const guarded = '{{#if char == "Maukie"}}River{{/if}}\n{{#if char == "Pantalone"}}Bank{{/if}}';
+  assert.equal(scopeCharacterSummary(guarded, readers), guarded);
+  assert.equal(scopeCharacterSummary(scopeCharacterSummary(guarded, readers), readers), guarded);
+  assert.equal(
+    scopeCharacterSummary(`{{#if char == "Maukie" || "Pantalone"}}${guarded}{{/if}}`, readers),
+    guarded,
+    "existing redundant nesting is flattened without combining private POVs",
+  );
+  const branching = scopeCharacterSummary('{{#if char == "Maukie"}}River{{else}}Bank{{/if}} Shared.', readers);
+  const render = (text: string, char: string, variables: Record<string, string> = {}) =>
+    resolveMacros(text, { user: "Mari", char, characters: [char], variables });
+  assert.equal(render(branching, "Maukie"), "River Shared.");
+  assert.equal(render(branching, "Pantalone"), "Bank Shared.");
+  assert.equal(render(branching, "Uninvited"), "");
+  const dynamic = scopeCharacterSummary('{{#if getvar::revealed == "yes"}}Secret{{/if}}', readers);
+  assert.equal(render(dynamic, "Maukie", { revealed: "yes" }), "Secret");
+  assert.equal(render(dynamic, "Maukie", { revealed: "no" }), "");
+  assert.equal(render(dynamic, "Uninvited", { revealed: "yes" }), "");
+  const descriptionGuard = '{{#if description == "Alchemist"}}A character fact{{/if}}';
+  assert(
+    scopeCharacterSummary(descriptionGuard, readers).includes(descriptionGuard),
+    "character-field conditions need the real profile and cannot be simplified using only a name",
+  );
+  const quotedName = 'The "Doctor"';
+  const quoted = scopeCharacterSummary("Private", [quotedName]);
+  assert.equal(render(quoted, quotedName), "Private");
+  assert.equal(render(quoted, "Maukie"), "");
+  assert.throws(
+    () => scopeCharacterSummary("Private", ["{{user}}"]),
+    /character names must not contain macro delimiters/u,
+    "invalid guard names fail before saving a malformed summary",
+  );
+
   const chat = await createChat("Astra short summary");
   await memory.initialize(chat.id);
   const sceneRequest = requests.find((item) => item.instructions?.startsWith("Identify scene transitions"))!;
@@ -155,15 +190,16 @@ try {
   assert(requests.length > sceneRequestStart);
   assert.equal(
     requests.at(-1)!.max_output_tokens,
-    4096,
-    "the helper connection cannot replace Chat Summary output size",
+    8196,
+    "a small helper connection cap cannot starve automated summary reasoning",
   );
   sceneNeedsReasoningBudget = false;
   const body = requests.find((item) => !item.instructions?.startsWith("Identify scene transitions"))!;
   assert(body.instructions?.includes("self-contained historical recap"));
   assert(body.instructions?.includes('Omit "current situation", "open tensions"'));
   assert(body.max_output_tokens! >= 2048, "short retained memory does not starve reasoning of completion tokens");
-  assert.equal(body.max_output_tokens, 4096, "summary output is not clamped to a fraction of context");
+  assert.equal(body.max_output_tokens, 8196, "automated summaries reserve at least 8,196 output tokens");
+  assert.match(body.instructions!, /Write 2–3 paragraphs/u);
   assert.equal(
     body.reasoning?.effort,
     "low",
@@ -218,17 +254,173 @@ try {
   const sharedSource = await chats.listMessages(sharedChat.id);
   await chats.updateMessageExtra(sharedSource[0]!.id, { hiddenFromAICharacterIds: ["maukie"] });
   await memory.initialize(sharedChat.id);
-  const restrictedScenes = (await memory.status(sharedChat.id)).records.filter(
-    (record) => record.kind === "scene" && record.content && record.embeddingStatus !== "stale",
-  );
-  assert(
-    !restrictedScenes.some((record) => record.audienceCharacterIds.includes("maukie")),
-    "a previously shared scene cannot grant a character hidden history after its scope changes",
-  );
+  const restrictedRecall = await memory.prepare({
+    chatId: sharedChat.id,
+    messages: await chats.listMessages(sharedChat.id),
+    audienceCharacterIds: ["maukie"],
+    budgetTokens: 50_000,
+    readOnly: true,
+  });
+  assert.equal(restrictedRecall.recalledScenes, null, "source hiding still prevents recall after a saved assignment");
   const characters = createCharactersStorage(db);
   const borrower = await characters.create(characterDataSchema.parse({ name: "Maukie" }));
   const narratorActor = await characters.create(characterDataSchema.parse({ name: "Narrator" }));
   assert(borrower && narratorActor);
+  const otherPov = await characters.create(characterDataSchema.parse({ name: "Pantalone" }));
+  assert(otherPov);
+  for (const [mode, characterIds] of [
+    ["merged", [borrower.id, otherPov.id]],
+    ["individual", [borrower.id]],
+  ] as const) {
+    const unrestrictedChat = await createChat(`No POV separation: ${mode}`);
+    await chats.update(unrestrictedChat.id, { characterIds: [...characterIds] });
+    await chats.patchMetadata(unrestrictedChat.id, {
+      groupChatMode: mode,
+      advancedMemory: { ...settings, knowledgeStarts: { [borrower.id]: null, [otherPov.id]: null } },
+    });
+    const unrestrictedStart = requests.length;
+    await memory.initialize(unrestrictedChat.id);
+    const unrestrictedRequest = requests
+      .slice(unrestrictedStart)
+      .find((request) => !request.instructions?.startsWith("Identify scene transitions"))!;
+    assert(unrestrictedRequest.instructions?.startsWith("Summarize the supplied Roleplay events"));
+    assert(!unrestrictedRequest.instructions?.includes("Keep character knowledge separate when POVs switch."));
+  }
+  const correctionChat = await createChat("Archive preserves corrections across separate POVs");
+  await chats.update(correctionChat.id, { characterIds: [borrower.id, otherPov.id, narratorActor.id] });
+  const correctionSource = await chats.listMessages(correctionChat.id);
+  await chats.updateMessageContent(correctionSource[0]!.id, "Maukie privately visits the river: MAUKIE_SOURCE.");
+  await chats.updateMessageContent(correctionSource[1]!.id, "Pantalone is alone at the bank: PANTALONE_SOURCE.");
+  await chats.updateMessageExtra(correctionSource[0]!.id, { hiddenFromAICharacterIds: [otherPov.id] });
+  await chats.updateMessageExtra(correctionSource[1]!.id, { hiddenFromAICharacterIds: [borrower.id] });
+  await chats.createMessage({
+    chatId: correctionChat.id,
+    role: "user",
+    content: "The following morning, a new scene begins.",
+    extra: { isConversationStart: true },
+  });
+  const correctedPovs =
+    '{{#if char == "Maukie"}}MAUKIE_CORRECTION{{/if}}\n{{#if char == "Pantalone"}}PANTALONE_CORRECTION{{/if}}';
+  await chats.patchMetadata(correctionChat.id, {
+    groupChatMode: "individual",
+    advancedMemory: {
+      ...settings,
+      narratorCharacterId: narratorActor.id,
+      knowledgeStarts: { [borrower.id]: null, [otherPov.id]: null },
+    },
+    summaryEntries: [
+      createChatSummaryEntry({
+        id: "pov-corrections",
+        content: correctedPovs,
+        enabled: true,
+        rangeStartIndex: 1,
+        rangeEndIndex: 2,
+      }),
+    ],
+  });
+  const correctionStart = requests.length;
+  await memory.initialize(correctionChat.id);
+  const correctionRequest = requests
+    .slice(correctionStart)
+    .find((request) => !request.instructions?.startsWith("Identify scene transitions"))!;
+  const correctionInput = JSON.stringify(correctionRequest.input);
+  for (const expected of ["MAUKIE_SOURCE", "PANTALONE_SOURCE", "MAUKIE_CORRECTION", "PANTALONE_CORRECTION"])
+    assert(
+      correctionInput.includes(expected),
+      `the archive helper receives ${expected}, regardless of the current POV`,
+    );
+  assert(
+    correctionInput.includes(JSON.stringify(correctedPovs).slice(1, -1)),
+    "authored knowledge conditions stay intact",
+  );
+  assert(correctionRequest.instructions?.includes("Cover every POV and separate arc in the supplied range"));
+
+  const povChat = await createChat("Private knowledge across POVs");
+  await chats.update(povChat.id, { characterIds: [borrower.id, otherPov.id, narratorActor.id] });
+  await chats.patchMetadata(povChat.id, {
+    groupChatMode: "individual",
+    advancedMemory: {
+      ...settings,
+      summaryBudgetTokens: 4096,
+      narratorCharacterId: narratorActor.id,
+      knowledgeStarts: { [borrower.id]: null, [otherPov.id]: null },
+    },
+  });
+  const povSource = await chats.listMessages(povChat.id);
+  await chats.updateMessageContent(
+    povSource[1]!.id,
+    "Elsewhere, Pantalone privately visits the bank: PANTALONE_SOURCE.",
+  );
+  await chats.createMessage({
+    chatId: povChat.id,
+    role: "user",
+    content: "The following morning, the brass compass promise is recalled.",
+    extra: { isConversationStart: true },
+  });
+  const povSummary =
+    '{{#if char == "Maukie" || "Narrator"}}Maukie privately remembers the brass compass promise: MAUKIE_SECRET.{{/if}}\n{{#if char == "Pantalone" || "Narrator"}}Pantalone privately remembers the brass compass promise: PANTALONE_SECRET.{{/if}}';
+  summaryResponse = povSummary;
+  const povRequestStart = requests.length;
+  await memory.initialize(povChat.id);
+  summaryResponse = summary;
+  const povRequest = requests
+    .slice(povRequestStart)
+    .find((request) => !request.instructions?.startsWith("Identify scene transitions"))!;
+  assert(povRequest.instructions?.startsWith("Keep character knowledge separate when POVs switch."));
+  assert.match(povRequest.instructions!, /\{\{#if char == "Exact Name"\}\}/u);
+  assert.match(povRequest.instructions!, /The narrator is "Narrator"/u);
+  assert(JSON.stringify(povRequest.input).includes("PANTALONE_SOURCE"), "the cutoff recap includes the second POV");
+  await memory.checkScenesAfterGeneration(povChat.id);
+  const povStored = JSON.parse((await chats.getById(povChat.id))!.metadata).summaryEntries;
+  assert.equal(
+    povStored.find((entry: { content: string }) => entry.content.includes("MAUKIE_SECRET"))?.content,
+    povSummary,
+    "new constants keep each POV condition once without an extra enclosing character guard",
+  );
+  for (const [id, own, hidden] of [
+    [borrower.id, "MAUKIE_SECRET", "PANTALONE_SECRET"],
+    [otherPov.id, "PANTALONE_SECRET", "MAUKIE_SECRET"],
+  ]) {
+    const recalled = await memory.prepare({
+      chatId: povChat.id,
+      messages: await chats.listMessages(povChat.id),
+      audienceCharacterIds: [id!],
+      budgetTokens: 12000,
+      readOnly: true,
+    });
+    assert(recalled.recalledScenes?.includes(own!));
+    assert(!recalled.recalledScenes?.includes(hidden!));
+    assert(recalled.chatSummary?.includes(own!));
+    assert(!recalled.chatSummary?.includes(hidden!));
+    assert.deepEqual(recalled.receipt.recalledMessageIds, [], "raw excerpts cannot bypass a partial knowledge view");
+    await memory.validatePrepared(povChat.id, await chats.listMessages(povChat.id), recalled.receipt);
+  }
+  const allPovs = await memory.prepare({
+    chatId: povChat.id,
+    messages: await chats.listMessages(povChat.id),
+    audienceCharacterIds: [narratorActor.id],
+    budgetTokens: 12000,
+    readOnly: true,
+  });
+  assert(allPovs.recalledScenes?.includes("MAUKIE_SECRET") && allPovs.recalledScenes.includes("PANTALONE_SECRET"));
+  assert(allPovs.receipt.recalledMessageIds.length > 0, "the narrator can still recall the source excerpt");
+  const povRecord = (await memory.status(povChat.id)).records.find(
+    (record) => record.kind === "scene" && record.status === "closed" && record.content,
+  )!;
+  await memory.updateRecord(povChat.id, povRecord.id, { content: povSummary.split("\n")[0]! });
+  const sameRecap = await memory.prepare({
+    chatId: povChat.id,
+    messages: await chats.listMessages(povChat.id),
+    audienceCharacterIds: [borrower.id],
+    budgetTokens: 12000,
+    readOnly: true,
+  });
+  assert(sameRecap.recalledScenes?.includes("MAUKIE_SECRET"));
+  assert.deepEqual(
+    sameRecap.receipt.recalledMessageIds,
+    [],
+    "matching the narrator's recap text does not grant a character access to raw private source messages",
+  );
   const narratorChat = await createChat("Narrator shares the whole scene archive");
   await chats.update(narratorChat.id, { characterIds: [borrower.id, narratorActor.id] });
   await chats.createMessagesBatch(
@@ -286,10 +478,10 @@ try {
     budgetTokens: 50_000,
     readOnly: true,
   });
-  assert.match(
+  assert.doesNotMatch(
     narratorFullHistory.chatSummary ?? "",
     /Narrator alone keeps/,
-    "enabled narrator constants remain alongside live history",
+    "narrator constants do not duplicate their still-live source messages",
   );
   assert(narratorFullHistory.messageIds.includes(narratorSource[0]!.id), "the narrator knows the early history");
   assert(!narratorFullHistory.messageIds.includes(narratorSource[4]!.id), "explicit narrator hiding still applies");
@@ -536,19 +728,27 @@ try {
     "the connection's explicit parameter omission is preserved",
   );
 
-  const capped = await createChat("Explicit Chat Summary output cap", 8192);
+  const capped = await createChat("Small Chat Summary output size", 8192);
   await chats.patchMetadata(capped.id, { summaryMaxTokens: 256 });
   const requestStart = requests.length;
-  await assert.rejects(memory.initialize(capped.id), /256 of 256 output tokens, 256 of them reasoning/);
+  await memory.initialize(capped.id);
   assert.equal(
     requests.slice(requestStart).filter((item) => !item.instructions?.startsWith("Identify scene transitions")).length,
     1,
-    "empty output does not cause hidden paid retries",
+    "the summary receives enough reasoning room without hidden paid retries",
   );
   assert(
-    requests.slice(requestStart).every((item) => item.max_output_tokens! <= 256),
-    "the explicit Chat Summary output size remains authoritative",
+    requests
+      .slice(requestStart)
+      .filter((item) => !item.instructions?.startsWith("Identify scene transitions"))
+      .every((item) => item.max_output_tokens === 8196),
+    "automated summaries apply the reasoning floor independently of a smaller saved output size",
   );
+
+  const tooSmall = await createChat("Context cannot fit the reasoning reserve");
+  await connections.update(tooSmall.connectionId!, { maxContext: 8192 });
+  await assert.rejects(memory.initialize(tooSmall.id), /output reserve do not fit/u);
+  assert(!(await memory.status(tooSmall.id)).records.some((record) => record.kind === "scene" && record.content));
 
   const truncated = await createChat("Truncated summary");
   partial = true;
@@ -580,7 +780,7 @@ try {
   assert(helper);
   await chats.patchMetadata(sceneOnly.id, {
     advancedMemory: { ...settings, maxContextTokens: 65_000, helperConnectionId: helper.id },
-    summaryMaxTokens: 8192,
+    summaryMaxTokens: 12_000,
   });
   const sceneOnlySource = await chats.listMessages(sceneOnly.id);
   const wholeScene = `SCENE_START ${"Maukie explored the coast and returned the compass. ".repeat(1500)} SCENE_END`;
@@ -599,6 +799,7 @@ try {
     "scene detection and summaries use the selected helper rather than the ordinary summary connection",
   );
   const sceneSummaryRequest = sceneSummaryRequests[0]!;
+  assert.equal(sceneSummaryRequest.max_output_tokens, 12_000, "a larger Chat Summary output setting is preserved");
   const sceneInput = (sceneSummaryRequest.input as Array<{ content: string | Array<{ text: string }> }>)
     .flatMap((item) => (typeof item.content === "string" ? item.content : item.content.map((part) => part.text)))
     .join("\n");

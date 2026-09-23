@@ -193,6 +193,9 @@ for (const mode of ["conversation", "roleplay"] as const) {
   });
 
   test(`${mode} issue sweep: goto loads history and page-size changes refetch`, async ({ page, request }, testInfo) => {
+    // Three history jumps and three full page-size refetches exceed the default
+    // minute on hosted desktop runners; keep the individual assertions bounded.
+    test.setTimeout(90_000);
     const transcript = [
       JSON.stringify({ user_name: "You", character_name: "Guide", chat_metadata: {} }),
       ...Array.from({ length: 120 }, (_, index) =>

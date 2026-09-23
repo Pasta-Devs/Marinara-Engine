@@ -203,6 +203,15 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     usesAuthHeader: false,
     apiKeyHeader: "x-goog-api-key",
   },
+  decision: {
+    id: "decision",
+    name: "Decision",
+    defaultBaseUrl: "https://api.typesafe.ai",
+    modelsEndpoint: "",
+    supportsStreaming: false,
+    usesAuthHeader: true,
+    apiKeyHeader: null,
+  },
   audio: {
     id: "audio",
     name: "Audio",

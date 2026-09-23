@@ -17,6 +17,7 @@ import { resolveSelfCardAssets } from "../../lib/card-asset-links";
 import { cn } from "../../lib/utils";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
 import { handleTextareaTab } from "../../lib/textarea-editing";
+import { DecisionStatementNote } from "./DecisionStatementNote";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
 
 type MacroDefinition = (typeof SUPPORTED_MACROS)[number];
@@ -512,6 +513,7 @@ export function MacroTextarea({
               {formatEstimatedTokens(estimateTextTokens(value), localizeUi)}
             </p>
           ))}
+        <DecisionStatementNote text={value} />
       </div>
       <ExpandedMacroEditor
         open={expanded}

@@ -11,6 +11,10 @@ import {
 import { requestHeadersWithIdentityEncoding, safeFetch, type SafeFetchOptions } from "../../utils/security.js";
 import { estimateTextTokens, sliceTextToTokenBudget, type GenerationParameterSendKey } from "@marinara-engine/shared";
 
+/** For models that reject assistant prefill but can continue an existing reply from history. */
+export const ASSISTANT_CONTINUATION_PROMPT =
+  "Continue the assistant's reply from where it stopped, without repeating existing text.";
+
 /**
  * Shared undici Agent settings. The headers timeout (time to first byte) follows
  * CHAT_GENERATION_TIMEOUT_MS so slow local models get the same budget on background
@@ -195,6 +199,15 @@ function estimateToolDefinitionTokens(tools?: LLMToolDefinition[]): number {
 
 function contextSafetyMargin(maxContext: number): number {
   return Math.max(CONTEXT_SAFETY_MARGIN_TOKENS, Math.ceil(maxContext * CONTEXT_SAFETY_MARGIN_RATIO));
+}
+
+/** Total window needed to retain a prompt allowance without charging reply tokens to it. */
+export function contextWindowForInputBudget(inputBudget: number, maxTokens = 0): number {
+  const usableWindow = (normalizePositiveInteger(inputBudget) ?? 1) + (normalizePositiveInteger(maxTokens) ?? 0);
+  return Math.max(
+    usableWindow + CONTEXT_SAFETY_MARGIN_TOKENS,
+    Math.ceil(usableWindow / (1 - CONTEXT_SAFETY_MARGIN_RATIO)),
+  );
 }
 
 function estimateMessageTokens(message: ChatMessage): number {

@@ -1,3 +1,5 @@
+import { DecisionDefaultControl } from "../connections/DecisionDefaultControl";
+import { DecisionModelModal } from "../modals/DecisionModelModal";
 // ──────────────────────────────────────────────
 // Panel: API Connections (polished, with folders)
 // ──────────────────────────────────────────────
@@ -85,7 +87,7 @@ import {
   PowerOff,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { sortBasicPanelItems } from "../../lib/panel-sort";
+import { sortBasicPanelItems, sortPanelFolders } from "../../lib/panel-sort";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
 import {
@@ -130,6 +132,7 @@ const PROVIDER_COLORS: Record<string, { from: string; to: string; ring: string; 
   image_generation: CONNECTION_ICON_COLORS,
   video_generation: CONNECTION_ICON_COLORS,
   audio: CONNECTION_ICON_COLORS,
+  decision: CONNECTION_ICON_COLORS,
 };
 const DEFAULT_COLOR = CONNECTION_ICON_COLORS;
 
@@ -208,6 +211,8 @@ function getDroppedConnectionIds(event: DragEvent<HTMLElement>, fallbackId: stri
 
 function SidecarCard() {
   const { t: localizeUi } = useUiTranslation();
+  /** The managed decision model installer, opened from inside this card. */
+  const [decisionModalOpen, setDecisionModalOpen] = useState(false);
   const { data: agentConfigs } = useAgentConfigs();
   const { data: capabilityAgents } = useCapabilityAgentRegistry();
   const { data: installedCapabilityPackages } = useInstalledCapabilityPackages();
@@ -669,6 +674,16 @@ function SidecarCard() {
               />
             </div>
           )}
+          {/* Outside the downloaded-model branch on purpose: the decision sidecar is
+              its own model and its own process, so it must not be reachable only by
+              people who already have a chat model installed. */}
+          <button
+            type="button"
+            onClick={() => setDecisionModalOpen(true)}
+            className="mari-chrome-control mari-chrome-control--compact mt-2 w-full text-center"
+          >
+            {localizeUi("ui.panels.sidecarcard.decisionSidecar")}
+          </button>
           {!isDownloaded && (
             <div className="mt-2.5 flex flex-col gap-2 border-t border-sky-400/10 pt-2.5">
               <button
@@ -690,6 +705,7 @@ function SidecarCard() {
               </button>
             </div>
           )}
+          <DecisionModelModal open={decisionModalOpen} onClose={() => setDecisionModalOpen(false)} />
           {status === "server_error" && (
             <div className="mt-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5">
               <div className="text-[0.6875rem] font-medium text-amber-200">
@@ -720,6 +736,8 @@ function SidecarCard() {
 }
 
 type ConnectionRowData = {
+  credentialsFromConnectionId?: string | null;
+  profileImportReviewRequired?: boolean | string;
   id: string;
   name: string;
   provider: string;
@@ -1023,7 +1041,8 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
         (connection) =>
           connection.provider !== "image_generation" &&
           connection.provider !== "video_generation" &&
-          connection.provider !== "audio",
+          connection.provider !== "audio" &&
+          connection.provider !== "decision",
       ),
     [connectionsList],
   );
@@ -1209,6 +1228,7 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
             primaryEmptyLabel={localizeUi("ui.panels.connectiondefaultssection.noDefaultAudioConnection")}
             fallbackModelLabel={localizeUi("ui.panels.connectiondefaultssection.audioGeneration")}
           />
+          <DecisionDefaultControl />
         </div>
       </SmoothFolderContent>
     </section>
@@ -1361,7 +1381,7 @@ function ConnectionRow({
             ...(isLanguageGenerationConnection(conn) ? {} : { unsupported: "connection-kind" as const }),
           }}
         />
-        {conn.provider !== "audio" && (
+        {conn.provider !== "audio" && conn.provider !== "decision" && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -1642,13 +1662,14 @@ export function ConnectionsPanel() {
   // Sorted folder list + local order for optimistic drag-to-reorder
   const sortedFolders = useMemo(() => {
     if (!folders) return [] as ConnectionFolder[];
-    return [...folders].sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [folders]);
+    return sortPanelFolders(folders, sort);
+  }, [folders, sort]);
 
   const [localFolderOrder, setLocalFolderOrder] = useState<string[]>([]);
   useEffect(() => {
-    setLocalFolderOrder(sortedFolders.map((f) => f.id));
-  }, [sortedFolders]);
+    setLocalFolderOrder(sortPanelFolders(folders ?? [], "custom").map((f) => f.id));
+  }, [folders]);
+  const folderOrder = sort === "custom" ? localFolderOrder : sortedFolders.map((folder) => folder.id);
 
   // Split connections into per-folder + unfiled buckets
   const { unfiledConnections, folderConnectionsMap } = useMemo(() => {
@@ -1672,6 +1693,7 @@ export function ConnectionsPanel() {
   };
 
   const handleFolderReorder = (newOrder: string[]) => {
+    if (sort !== "custom") setSort("custom");
     setLocalFolderOrder(newOrder);
     reorderFoldersMut.mutate(newOrder);
   };
@@ -2214,15 +2236,15 @@ export function ConnectionsPanel() {
       )}
 
       {/* Folders (drag-to-reorder) */}
-      {localFolderOrder.length > 0 && (
+      {folderOrder.length > 0 && (
         <Reorder.Group
           axis="y"
-          values={localFolderOrder}
+          values={folderOrder}
           onReorder={handleFolderReorder}
           as="div"
           className="flex flex-col gap-0.5 mt-1"
         >
-          {localFolderOrder.map((folderId) => {
+          {folderOrder.map((folderId) => {
             const folder = sortedFolders.find((f) => f.id === folderId);
             if (!folder) return null;
             const folderEntries = folderConnectionsMap.get(folderId) ?? [];

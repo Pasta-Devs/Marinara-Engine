@@ -78,6 +78,7 @@ import {
   type ImageStyleProfile,
   type ImageStyleProfileSettings,
   type QuoteFormat,
+  type SidecarHealthSection,
   type Theme,
   type VideoGenerationUserSettings,
 } from "@marinara-engine/shared";
@@ -8089,6 +8090,7 @@ function AdvancedSettings() {
           };
         };
     uncleanExitCount?: number;
+    sidecars?: SidecarHealthSection;
   }>({
     queryKey: ["health"],
     // Against a frozen host this fetch would otherwise pend forever, leaving
@@ -8139,6 +8141,10 @@ function AdvancedSettings() {
         // Unavailable instead of asserting a fate it never observed.
         previousSession: health.data?.previousSession,
         uncleanExitCount: health.data?.uncleanExitCount,
+        // The server's own GPU and local model slots. Useful on its own for
+        // "my local model won't load" reports, whether or not the user has
+        // ever touched an activation question.
+        sidecars: health.data?.sidecars,
         clientOs: resolveClientOs(navigator.userAgent, navigator.platform, navigator.maxTouchPoints),
         browser: navigator.userAgent,
         gpu: detectBrowserGpu(),

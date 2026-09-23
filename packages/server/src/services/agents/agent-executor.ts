@@ -184,6 +184,13 @@ function getDefaultPromptForAgent(config: Pick<AgentExecConfig, "type" | "settin
   return getDefaultAgentPrompt(config.type);
 }
 
+/** The template an agent is actually run with: its own, or its default when empty. */
+export function effectiveAgentPromptTemplate(
+  config: Pick<AgentExecConfig, "type" | "settings"> & { promptTemplate?: string | null },
+): string {
+  return config.promptTemplate || getDefaultPromptForAgent(config);
+}
+
 function stringifyAgentSettingMacroValue(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "string") return value;
@@ -280,6 +287,7 @@ export function buildAgentPromptMacroContext(
         }
       : undefined,
     lorebookEntryCounts: context.lorebookEntryCounts,
+    decisions: context.decisions,
   };
 }
 

@@ -4,6 +4,76 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- The browser regression checks on pull requests run in more shards (ten for desktop Chromium and mobile WebKit, eight for mobile Chromium, instead of four each). That is expected to bring them from about 30 minutes to under 20, well clear of the 30-minute limit that a slow run could previously hit (#6573).
+
+- Agent history lookups no longer compare every loaded agent run with every loaded message, preventing long server stalls as more chats are opened (#6562).
+
+- Conditional prompts can ask your Decision model about the scene: `{{#if decision:"..."}}` for yes or no, and `{{#if decision_choice:"..." == "option"}}` to pick one option. They work in presets, cards, lorebooks and agent prompts, are answered once per turn (post-processing agents once per reply), and read as no when there is no Decision model or no answer. A new **Decision statements per turn** setting limits how many are asked, fields that use them warn when no Decision model is set, and imports that contain them say so (#6569).
+
+- A new **Decision Models** guide explains what a decision model is, the three ways to get one (a local model you already run, a hosted Decision connection, or the installable Open-Jev), which to pick, including on Termux, and everywhere Marinara uses it. The agent guide now covers decision statements in an agent's prompt, and the package guide has notes for agent and Game Mode Experience authors.
+
+- Open-Jev 9B can be installed as a decision model alongside 2B. It was more accurate in our tests, but it needs about 22 GB of GPU memory and takes about a second per question, so its request budget grows with the number of questions.
+
+- Installing a decision model after a dropped connection or a sleep keeps the files that already finished, checked against their published sizes and checksums, instead of downloading everything again.
+
+- Development servers, scripts and regression specs no longer stay open after finishing when they log while the log worker is still starting; this intermittently failed the image-dimension regression. The regression summary also names every file that did not pass (#6529).
+
+- Smart response order in group chats can ask your Decision model who should speak, one yes/no question per character, instead of making a full AI call each turn. Turn it on under **Decision model** in the Connections panel. It is off by default. If the decision model does not answer, Smart order makes its usual AI call (#6559).
+
+- Advanced Recall cutoff summaries report activity in the Agents menu and preserve each character POV without duplicating summary conditions (#6557).
+
+- Message voice controls share a compact audio menu. Clear cached voice removes only that message’s audio and regenerates it on the next playback, without discarding other chats’ saved voice lines (#6514).
+
+- Roleplay dice outcomes follow the selected accent. Message usage and Peek Prompt distinguish tool-turn totals from the last request's input size, so repeated tool requests are not mistaken for an oversized context (#6550).
+- Advanced Memory also checks actual provider-reported input after the main reply, resetting to the latest known scene and reusing its recap in Chat Summaries when the input limit is exceeded. Cached input counts; output tokens and cumulative tool-turn usage do not (#6550).
+- Advanced Memory summary prompts request character-name conditions for separate POV knowledge. Recall resolves those conditions for the responding character; raw excerpts are omitted when they could expose a hidden section, while the narrator retains the full recap (#6550).
+
+- GPT-6 Sol and Luna are selectable in OpenAI connections with their documented limits, reasoning controls, and compatible streaming and tool requests (#6546).
+
+- Claude Opus 5.5 is selectable in Claude connections with its 1M context and 128k output limits, supported reasoning settings, and compatible tool requests (#6544).
+
+- Scene setup lets you choose its persona and Conversation characters. Characters in an active Scene pause automatic messages in the source Conversation until the Scene ends (#6542, #6541).
+- Roleplay tracker widgets tolerate saved blank rows, and Custom Tracker updates discard nameless entries after applying field locks instead of making a chat unusable (#6549).
+
+- Marinara can now download and run a purpose-built decision model for activation questions. It runs as its own local process, so it answers them whether or not you also run a local chat model. It is off by default and behind a warning, a confirmation carrying your machine's verdict, and a separate size-and-license step, because it costs about 10 GB of disk and 5 GB of GPU memory. If you already run a local chat model, that model is more accurate on roleplay questions; the decision model is faster and slightly smaller. You can also paste a decision model's repository, which is installed only when its own manifest declares a runtime this build ships.
+
+- On a machine with several NVIDIA GPUs, the decision model installer has a GPU menu for the card it runs on. Where the machine cannot run a decision model at all, the installer offers to set up a Decision connection instead.
+
+- The decision model preflight checks GPU compute capability, not just whether an NVIDIA card is present. Pascal cards and older cannot run the runtime whatever memory they have, and without this check the download would have been offered and then failed at load.
+
+- Activation question thresholds now start from whatever the selected decision model actually answers around, instead of always 0.5. Probabilities are not comparable between models: a general local model answers a clear scene change at 0.99 while a purpose-built decision model answers the same turn at 0.2, so one fixed number made the second kind skip every relevant turn while appearing to work. The editor seeds new questions from the selected model and offers to put its recommended value back.
+
+- Choosing a decision model that turns out to be unusable now leaves your current choice alone. A rejected selection reported the error but also silently switched the Decision model to None, which stopped every activation question until it was noticed.
+
+- Activation questions can be answered by the local model you already run, on either the main or the utility slot, with no download and nothing leaving your machine. Pick it under **Decision model**, which now lists local models alongside Decision connections and shows why an unavailable entry cannot be used. A **Thinking** setting handles models that always reason first; those gate post-processing agents by default so replies do not wait.
+
+- Support diagnostics report the server's own GPU and each local model slot: what is configured, whether it is running, and the estimated memory it needs, with a combined verdict. The existing GPU line is the browser's, which said nothing about the machine running the local model.
+
+- Advanced Memory completes partially covered scene ranges when preparing a missing scene, preserves older manual character corrections through reindexing, and keeps original access data in exports. Scene participants can be returned by name as well as ID; only actual participants receive access (#6537).
+
+- Advanced Memory keeps one memory per scene, assigns access to actual participants, and treats unassigned scenes as narrator-only; an explicit all-participants result grants the current chat characters access. Existing automatic assignments stay narrator-only until reviewed; preparation checks participants while keeping saved summaries (#6533).
+- Custom agents can use optional activation questions with a Decision connection to skip irrelevant turns. Question and keyword controls share one activation card with consistent labels and styling. Keyword and cadence settings still apply; failed decisions leave agents eligible to run. Decision connections support TypeSafe, OpenRouter, and user-run System One endpoints, including linked OpenRouter credentials (#6530).
+
+- Game helpers preserve unconfigured task defaults and explain when saved output limits cut off structured responses (#6511).
+
+- Game Mode honors connection and chat generation parameters instead of replacing them with fixed sampling and output settings (#6511).
+- Grok 4.6 and 4.7 keep enabled tools, including web search, instead of losing them as unrecognized models, with their supported context and reasoning settings (#6521).
+- Sidebar sorting applies to folder rows as well as their contents, including names, dates, and content-based sorts; manual folder ordering remains available (#6497).
+
+- Character, persona, and lorebook folder contents follow the selected sidebar sort order (#6497).
+- The extra-actions menu sits to the left of Emoji, farther from Send, while keeping existing Post Only and Guided Generation actions (#6507).
+- Conversation scene invitations stay beside the proposing reply; open setup when ready, including after cancelling or reloading (#6496).
+- PWA manifest requests include credentials so Android Chrome can read the manifest behind Basic Auth (#6492).
+
+- Advanced Memory scene recaps request 2–3 paragraphs with room for reasoning, and constant-summary consolidation no longer fails on tiny proportional token targets (#6512).
+- Advanced Recall scene checks appear in agent call activity, including shared post-processing tracker calls. Reindexing preserves progress toward the next scene check (#6512).
+- Advanced Memory constants use message-range titles, reject unfinished helper output, and deactivate the originals when a completed compacted replacement is saved. Ranged constants that overlap live context stay out of that prompt and its archived-summary compaction budget (#6512).
+- Advanced Memory's context threshold applies to the outgoing prompt without subtracting reply tokens. Automatic scene resets apply to all characters and can be undone with the existing All flag; temporary open-scene trimming no longer creates persistent character-specific flags (#6512).
+- New Start flag changes save together with Advanced Memory cutoffs, keeping the previous state intact if a save fails (#6512).
+
+- Advanced Memory identifies corrections needing review and exposes unfinished scene summaries for targeted recovery without resetting the archive (#6526).
+- Advanced Memory keeps saved scene indexes across source-text edits, swipes, illustrations and live context flags. Recalled excerpts use current message text, while character-access checks remain enforced (#6526).
+
 - Advanced Memory reindexing rebuilds saved text vectors without rerunning scene detection or summarization. Saved scene corrections no longer depend on outdated generated-summary inputs, and stale scene corrections can be reviewed and saved without changing their text (#6509).
 
 - Removed the obsolete root suggestion-chips implementation brief, `MARI_SUGGESTION_CHIPS_TASK.md` (#6504).
@@ -52,6 +122,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Individual scene memories can be deleted from their editor after confirmation. Original chat messages are kept, and routine preparation does not recreate the deleted summary.
 
 - The schedule editor can generate a week one day at a time using seven smaller requests, preserves the draft on failure, and stops generation when closed (#6449). It offers connection selection and persistent errors, rejects incomplete or overlapping generated days, displays full-day blocks, prevents competing edits during generation, and refreshes the week date after day regeneration (#6455).
+
+- A Game Mode fight can now be held open for somebody who is not the one acting. Walking out of an enemy's reach stops the walk on that step and asks them whether to strike instead of striking for them, and the walk then picks up where it left off, paying for every cell it really crossed. When a turn ends, an opponent holding its own points is asked whether to buy one of its signature actions before the next turn begins, which is the only moment those are bought in. Your own party member's window is yours to answer, with the option and a Pass on the menu; everybody else's is answered by whoever plays them, and a Game Master's boss is asked through the Game Master. Nothing else moves while a window is open, one chance each per walk, and a game closed mid-walk comes back with the same people still to ask. Ruleset packages need no change and no newer Capability API: a ruleset that declares an opportunity budget gets the first, a bestiary with signature points gets the second.
 
 - Advanced Memory resumes unfinished summaries without replaying failed compactions or reporting completed scene detection as new work (#6461).
 

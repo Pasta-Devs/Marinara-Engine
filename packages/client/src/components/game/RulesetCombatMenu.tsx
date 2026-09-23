@@ -10,6 +10,7 @@
 // than listed here, so the half-made choice is HELD by the board and handed back down: one step,
 // two ways of finishing it, and the same pure rules behind both.
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { RULESET_PASS_OPTION } from "@marinara-engine/shared";
 import type { DirectedRulesetOption, DirectedRulesetView, RulesetCombatCell } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
 import { rulesetOptionHasAim, rulesetOptionNeedsAim, rulesetOptionNeedsCell } from "../../lib/ruleset-combat-board";
@@ -81,13 +82,17 @@ export function RulesetCombatMenu({
   const ownRoot = useRef<HTMLDivElement>(null);
   const root = menuRef ?? ownRoot;
   const distance = view.grid?.distance;
-  const actorName = view.combatants.find((combatant) => combatant.id === view.actorId)?.name ?? "";
+  const nameOf = (id: string | undefined) => view.combatants.find((combatant) => combatant.id === id)?.name ?? "";
+  const actorName = nameOf(view.actorId);
+  // While a window holds the fight open the menu below is the ASKED combatant's, not the actor's,
+  // so everything that says whose menu this is says theirs.
+  const askedName = view.window ? nameOf(view.window.actorId) : actorName;
   const groups = useMemo(() => rulesetMenuGroups(view.options), [view.options]);
   // A fresh menu is a fresh choice: the turn moved on, so a half-finished pick from the last one
   // must never be sent against it.
   useEffect(() => {
     setStep(null);
-  }, [view.actorId, view.round, setStep]);
+  }, [view.actorId, view.round, view.window?.id, setStep]);
   // Focus follows a NEW stage or a new option, never every pick: choosing the second of three
   // targets replaces `step`, and pulling focus back to the first button each time would take the
   // keyboard away from somebody working down the list.
@@ -301,9 +306,19 @@ export function RulesetCombatMenu({
     >
       {/* A phone's shell already says whose turn it is right above this, and has no height to say
           it twice; the group names go the same way there and the buttons wrap as one run. */}
-      <p className="hidden text-[0.65rem] uppercase tracking-wide text-white/45 sm:block">
-        {t("game.combat.ruleset.menu.title", { name: actorName })}
-      </p>
+      {/* A window is somebody else's moment inside this turn, so it is said on every width: on a
+          phone the shell above still names the actor, and the two would otherwise contradict. */}
+      {view.window ? (
+        <p className="text-[0.65rem] uppercase tracking-wide text-[var(--primary)]">
+          {view.window.kind === "signature"
+            ? t("game.combat.ruleset.menu.windowBetween", { name: askedName })
+            : t("game.combat.ruleset.menu.windowLeaving", { name: askedName, mover: nameOf(view.window.moverId) })}
+        </p>
+      ) : (
+        <p className="hidden text-[0.65rem] uppercase tracking-wide text-white/45 sm:block">
+          {t("game.combat.ruleset.menu.title", { name: actorName })}
+        </p>
+      )}
       <div className="flex flex-row flex-wrap items-start gap-2 sm:gap-x-6 sm:gap-y-3">
         {groups.map((group) => (
           <section
@@ -338,7 +353,23 @@ export function RulesetCombatMenu({
             </div>
           </section>
         ))}
-        <div className="self-end">
+        <div className="flex flex-wrap gap-2 self-end">
+          {view.window && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                closeStep();
+                onChoose(RULESET_PASS_OPTION, []);
+              }}
+              className={cn(
+                buttonClass,
+                "border-white/10 bg-white/5 text-white/80 hover:border-white/25 hover:bg-white/10 hover:text-white",
+              )}
+            >
+              {t("game.combat.ruleset.menu.pass")}
+            </button>
+          )}
           <button
             type="button"
             disabled={busy}

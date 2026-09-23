@@ -146,7 +146,6 @@ export function resolveGenerationProviderRuntime(args: GenerationProviderRuntime
     if (runtime.effectiveMaxContext !== previousContext) parameterSources.effectiveMaxContext = source;
   };
 
-  const isLocalGemma = (args.connection.model ?? "").toLowerCase().includes("gemma");
   applyParameterOverrides(connectionParams, "connection");
   applyParameterOverrides(chatParams, "chat");
   runtime.customParameters = mergeCustomParameters(
@@ -162,22 +161,7 @@ export function resolveGenerationProviderRuntime(args: GenerationProviderRuntime
     forceParameters("scene", { maxTokens: 8192, reasoningEffort: "maximum", verbosity: "high" });
   }
 
-  if (args.chatMode === "game" && !isLocalGemma) {
-    forceParameters("game", {
-      temperature: 1,
-      maxTokens: 16_384,
-      topP: 1,
-      topK: 0,
-      minP: 0,
-      frequencyPenalty: 0,
-      presencePenalty: 0,
-      reasoningEffort: "maximum",
-      verbosity: null,
-    });
-  }
-
   if (args.chatMode === "game") {
-    if (runtime.maxTokens < 16_384) forceParameters("game", { maxTokens: 16_384 });
     const capped = clampGenerationMaxOutputTokens({
       provider: args.connection.provider,
       model: args.connection.model,

@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Download, RefreshCw, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
-import type { AdvancedMemoryRecord } from "@marinara-engine/shared";
+import { ADVANCED_MEMORY_SCENE_AUDIENCE as SCENE_AUDIENCE, type AdvancedMemoryRecord } from "@marinara-engine/shared";
 import {
   useAdvancedMemoryAction,
   useAdvancedMemorySources,
@@ -26,7 +26,6 @@ const reasonKeys: Record<string, string> = {
 export function AdvancedMemoryInspector({
   chatId,
   characters,
-  individual,
 }: {
   chatId: string;
   characters: MemoryCharacterOption[];
@@ -46,22 +45,8 @@ export function AdvancedMemoryInspector({
   const sources = useAdvancedMemorySources(chatId, showSources ? selectedId : null);
   const records = useMemo(() => {
     const all = status.data?.records ?? [];
-    const sceneKey = (record: AdvancedMemoryRecord) => JSON.stringify([record.sceneId, record.messageIds]);
-    const characterScenes = new Set(
-      all.filter((record) => record.kind === "scene" && record.audienceCharacterIds.length).map(sceneKey),
-    );
     return all
-      .filter(
-        (record) =>
-          record.kind !== "excerpt" &&
-          !(
-            record.kind === "scene" &&
-            !record.audienceCharacterIds.length &&
-            record.enabled &&
-            !record.manualOverride &&
-            characterScenes.has(sceneKey(record))
-          ),
-      )
+      .filter((record) => record.kind !== "excerpt")
       .sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex);
   }, [status.data?.records]);
   const sceneNumbers = new Map(
@@ -74,6 +59,12 @@ export function AdvancedMemoryInspector({
       ? t("chat.advancedMemory.sceneNumber", { number: sceneNumbers.get(record.sceneId) })
       : t(`chat.advancedMemory.kind.${record.kind}`);
   const selected = records.find((record) => record.id === selectedId);
+  const blockedRecord = records.find((record) => record.id === status.data?.job.reviewRecordId);
+  const reviewAudience =
+    selected?.kind === "scene" &&
+    !!selected.content &&
+    !selected.manualOverride &&
+    !selected.dependencies.some((item) => item.id === SCENE_AUDIENCE.id && item.revision === SCENE_AUDIENCE.revision);
   const reviewCorrection =
     selected?.kind === "scene" && selected.manualOverride && selected.embeddingStatus === "stale";
   const audienceChanged =
@@ -84,7 +75,7 @@ export function AdvancedMemoryInspector({
   const audience = (record: AdvancedMemoryRecord) =>
     record.audienceCharacterIds.length > 0
       ? record.audienceCharacterIds.map(characterName).join(", ")
-      : t("chat.advancedMemory.sharedAudience");
+      : t("chat.advancedMemory.narratorOnly");
   const query = search.trim().toLocaleLowerCase();
   const filteredRecords = records.filter((record) =>
     [recordTitle(record), record.title, record.content, record.timeline, audience(record)]
@@ -221,6 +212,44 @@ export function AdvancedMemoryInspector({
           {t("chat.advancedMemory.failed", { message: status.error.message })}
         </p>
       )}
+      {blockedRecord && selectedId !== blockedRecord.id && (
+        <button
+          type="button"
+          className={`${buttonClass} min-h-11 w-full text-left`}
+          onClick={() => openRecord(blockedRecord)}
+        >
+          {t("chat.advancedMemory.reviewMemory", {
+            scene: recordTitle(blockedRecord),
+            start: blockedRecord.startIndex,
+            end: blockedRecord.endIndex,
+            audience: audience(blockedRecord),
+          })}
+        </button>
+      )}
+      <div aria-live="polite" className="space-y-3 empty:my-0">
+        {!selected &&
+          (status.data?.unpreparedScenes ?? []).map((scene) => (
+            <div
+              key={scene.sceneId}
+              className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-xs"
+            >
+              <p className="font-medium">
+                {t("chat.advancedMemory.missingScene", { start: scene.startIndex, end: scene.endIndex })}
+              </p>
+              <p className="text-[var(--muted-foreground)]">{t("chat.advancedMemory.missingSceneHelp")}</p>
+              <button
+                type="button"
+                className={`${buttonClass} min-h-11`}
+                disabled={
+                  pending || !status.data?.settings.enabled || !!status.data?.missingKnowledgeCharacterIds.length
+                }
+                onClick={() => action.mutate({ action: "initialize", sceneId: scene.sceneId })}
+              >
+                {t("chat.advancedMemory.prepareScene")}
+              </button>
+            </div>
+          ))}
+      </div>
       {!status.isLoading && !status.isError && records.length === 0 && (
         <p className="text-xs text-[var(--muted-foreground)]">{t("chat.advancedMemory.emptyArchive")}</p>
       )}
@@ -298,7 +327,12 @@ export function AdvancedMemoryInspector({
             labelPosition="start"
             className="justify-between"
           />
-          {individual && selected.kind === "scene" && selected.id !== selected.sceneId && (
+          {reviewAudience && (
+            <p role="status" className="text-xs text-[var(--muted-foreground)]">
+              {t("chat.advancedMemory.reviewAudienceHelp")}
+            </p>
+          )}
+          {selected.kind === "scene" && selected.id !== selected.sceneId && (
             <div className="space-y-2">
               <button
                 type="button"
@@ -362,8 +396,7 @@ export function AdvancedMemoryInspector({
             disabled={
               action.isPending ||
               !draft.trim() ||
-              (draft === selected.content && !audienceChanged && !reviewCorrection) ||
-              (audienceChanged && !draftAudience.length)
+              (draft === selected.content && !audienceChanged && !reviewCorrection && !reviewAudience)
             }
             onClick={() =>
               action.mutate({
@@ -371,7 +404,7 @@ export function AdvancedMemoryInspector({
                 recordId: selected.id,
                 patch: {
                   ...(draft !== selected.content || reviewCorrection ? { content: draft } : {}),
-                  ...(audienceChanged ? { audienceCharacterIds: draftAudience } : {}),
+                  ...(audienceChanged || reviewAudience ? { audienceCharacterIds: draftAudience } : {}),
                 },
               })
             }

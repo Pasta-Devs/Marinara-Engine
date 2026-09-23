@@ -8,7 +8,7 @@ import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
-import { capImportedRulesetSheets, isPatternSafe } from "@marinara-engine/shared";
+import { capImportedRulesetSheets, containsDecisionStatements, isPatternSafe } from "@marinara-engine/shared";
 import type {
   CharacterBookEntryPosition,
   CharacterBookEntryRole,
@@ -457,7 +457,9 @@ export async function importCharX(buf: Buffer, db: DB, options?: STCharacterImpo
     cardJson._avatarDataUrl = avatarDataUrl;
   }
 
-  return importSTCharacter(cardJson as Record<string, unknown>, db, options);
+  const result = await importSTCharacter(cardJson as Record<string, unknown>, db, options);
+  // The importer reports decision statements (#6569); only the server opens a .charx.
+  return result.success && containsDecisionStatements(cardJson) ? { ...result, usesDecisions: true } : result;
 }
 
 export function inspectCharX(buf: Buffer): STCharacterImportPreview {

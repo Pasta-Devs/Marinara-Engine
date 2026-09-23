@@ -12,6 +12,7 @@ The Local Model is deliberately small. It is meant for background helper work, n
 - Scene effects in Game Mode, such as backgrounds, music, and weather.
 - Lorebook embeddings for semantic search.
 - Microphone transcription in Conversation calls, through a separate speech model.
+- Answering activation questions and decision statements, if you pick it as your Decision model. See [Decision Models](decision-models.md).
 
 The setup window calls it the **Local AI Model**. The connection dropdowns call it **Local Model (sidecar)**. These are the same feature.
 
@@ -203,6 +204,7 @@ For more help, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 ## Related guides
 
 - [Connecting to an AI Provider](connecting-to-a-provider.md)
+- [Decision Models](decision-models.md)
 - [Connecting a Local or Self-Hosted Model](local-self-hosted.md)
 - [Memory Recall and Chat Summaries](../agents/memory.md)
 - [Conversation Audio and Video Calls](../conversation/calls.md)

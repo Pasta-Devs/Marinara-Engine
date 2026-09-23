@@ -5,6 +5,7 @@ import { lazy, Suspense } from "react";
 import { useUIStore } from "../../stores/ui.store";
 import {
   normalizeAvatarCrop,
+  type APIProvider,
   type LorebookCategory,
   type LorebookScope,
   type ScenePromptPreferences,
@@ -109,7 +110,13 @@ export function ModalRenderer() {
       content = <ImportPersonaModal open onClose={closeModal} />;
       break;
     case "create-connection":
-      content = <CreateConnectionModal open onClose={closeModal} />;
+      content = (
+        <CreateConnectionModal
+          open
+          onClose={closeModal}
+          initialProvider={(modal?.props?.provider as APIProvider | undefined) ?? undefined}
+        />
+      );
       break;
     case "import-connection":
       content = <ImportConnectionModal open onClose={closeModal} />;
@@ -160,9 +167,11 @@ export function ModalRenderer() {
     case "scene-prompt-preferences":
       content = (
         <ScenePromptPreferencesModal
+          key={modal?.props?.chatId as string | undefined}
           open
           onClose={closeModal}
           initialPreferences={modal?.props?.initialPreferences as ScenePromptPreferences}
+          chatId={modal?.props?.chatId as string | undefined}
           sourceLabel={(modal?.props?.sourceLabel as string | null) ?? null}
           onSubmit={modal?.props?.onSubmit as (preferences: ScenePromptPreferences) => void}
           onCancel={modal?.props?.onCancel as (() => void) | undefined}

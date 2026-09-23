@@ -23,6 +23,7 @@ import {
   rulesetCellCover,
   rulesetCellDistance,
   rulesetLineOfSight,
+  rulesetOpportunityAttack,
   rulesetPositionOf,
   rulesetReachableCells,
 } from "./grid.js";
@@ -919,4 +920,52 @@ export function rulesetSignatureOptions(
     options.push(option);
   }
   return options;
+}
+
+/** Letting a window go by. Not an action and not on any turn's menu: the one id a window always
+ *  takes, so passing is a choice the fight records rather than a timeout. */
+export const RULESET_PASS_OPTION = "pass";
+
+/**
+ * The menu of the one combatant a window is asking. Everybody else gets nothing, because a window
+ * asks one at a time: the answer spends a budget or points, and two answers at once would spend
+ * them against a fight that had already moved.
+ *
+ * Passing is always legal and is not listed here: it is `RULESET_PASS_OPTION`, which needs no
+ * legality of its own.
+ */
+export function rulesetWindowOptions(
+  definition: RulesetDefinition,
+  state: RulesetEncounterState,
+  actorId: string,
+): RulesetCombatOption[] {
+  const combat = definition.combat;
+  const window = state.window;
+  if (!combat || !window || window.waiting[0] !== actorId) return [];
+  // Points, not a budget, and priced and checked where every other signature option is.
+  if (window.kind === "signature") return rulesetSignatureOptions(definition, state, actorId);
+
+  const actor = rulesetCombatant(state, actorId);
+  const opportunity = combat.opportunity;
+  if (!actor || !opportunity || !rulesetCombatStanding(actor)) return [];
+  // Re-read rather than trusted from when the window opened: an answer before this one may have
+  // taken this combatant out, held them still or spent the very budget this would pay with.
+  const effects = rulesetCombatEffects(definition, combat, actor, state);
+  if (effects.has("cannot-act") || effects.has("cannot-react")) return [];
+  if ((actor.budgets[opportunity.budget] ?? 0) < 1) return [];
+  const mover = window.trigger.kind === "leaves-reach" ? rulesetCombatant(state, window.trigger.moverId) : undefined;
+  if (!mover || !rulesetCombatStanding(mover)) return [];
+  const strike = rulesetOpportunityAttack(actor);
+  if (!strike) return [];
+  return [
+    {
+      id: strike.id,
+      kind: strike.kind,
+      label: strike.label,
+      // Nobody to pick: the strike lands on whoever is walking away, and offering a target would be
+      // offering a choice the fight then ignores.
+      targets: { side: "self", count: 0 },
+      budget: opportunity.budget,
+    },
+  ];
 }

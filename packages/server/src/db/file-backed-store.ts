@@ -2092,6 +2092,63 @@ function membershipSet(condition: { values: unknown[] }): Set<unknown> | null {
   return set;
 }
 
+/**
+ * The equality between a column of the table being joined and a column of a
+ * table already in the context, if the join condition carries one.
+ */
+function equiJoinKey(
+  condition: Condition,
+  joinTable: string,
+  boundTables: ReadonlySet<string>,
+): { probe: Column; buildKey: string } | null {
+  // Rejoining a table replaces its row in the context; it is not a bound probe.
+  if (boundTables.has(joinTable)) return null;
+  if (!condition || !isFileCondition(condition)) return null;
+  if (condition.kind === "file-logical") {
+    if (condition.operator !== "and") return null;
+    for (const entry of condition.conditions) {
+      const key = equiJoinKey(entry, joinTable, boundTables);
+      if (key) return key;
+    }
+    return null;
+  }
+  if (condition.kind !== "file-comparison" || condition.operator !== "eq") return null;
+  const sides = [condition.left, condition.right];
+  for (const [side, other] of [sides, [sides[1], sides[0]]]) {
+    if (!isColumn(side) || !isColumn(other) || !side.table || !other.table) continue;
+    if (tableNameOf(side.table) !== joinTable || !boundTables.has(tableNameOf(other.table))) continue;
+    const meta = getColumnMeta(side);
+    if (meta) return { probe: other, buildKey: meta.key };
+  }
+  return null;
+}
+
+/**
+ * Rows of the joined table worth testing against each context. With an
+ * equality key the rows are bucketed by that column once, so a join costs
+ * one lookup per context instead of one pass over the whole table; the full
+ * join condition is still evaluated on every candidate. Without a key every
+ * row is a candidate.
+ */
+function joinCandidates(
+  join: JoinSpec,
+  joinRows: readonly Row[],
+  boundTables: ReadonlySet<string>,
+): (ctx: RowContext) => readonly Row[] {
+  const key = equiJoinKey(join.condition, join.table.name, boundTables);
+  if (!key) return () => joinRows;
+  const buckets = new Map<unknown, Row[]>();
+  for (const row of joinRows) {
+    const value = row[key.buildKey];
+    if (typeof value === "number" && Number.isNaN(value)) continue;
+    const bucket = buckets.get(value);
+    if (bucket) bucket.push(row);
+    else buckets.set(value, [row]);
+  }
+  const none: Row[] = [];
+  return (ctx) => buckets.get(valueForColumn(ctx, key.probe)) ?? none;
+}
+
 function evaluateCondition(condition: Condition, ctx: RowContext): boolean {
   if (!condition) return true;
   if (!isFileCondition(condition)) return false;
@@ -5308,11 +5365,13 @@ class SelectQuery implements SelectQueryBuilder<any> {
     for (const join of this.joins) this.store.ensureQueryScopeLoaded(join.table, combined);
     let contexts = this.store.rows(this.fromMeta.name).map((row) => this.store.contextForRow(this.fromMeta, row));
 
+    const boundTables = new Set([this.fromMeta.name]);
     for (const join of this.joins) {
       const joinedContexts: RowContext[] = [];
       const joinRows = this.store.rows(join.table.name);
+      const candidatesFor = joinCandidates(join, joinRows, boundTables);
       for (const ctx of contexts) {
-        joinRows.forEach((row) => {
+        for (const row of candidatesFor(ctx)) {
           const candidate: RowContext = {
             rows: { ...ctx.rows, [join.table.name]: row },
             baseTable: ctx.baseTable,
@@ -5321,9 +5380,10 @@ class SelectQuery implements SelectQueryBuilder<any> {
           if (evaluateCondition(join.condition, candidate)) {
             joinedContexts.push(candidate);
           }
-        });
+        }
       }
       contexts = joinedContexts;
+      boundTables.add(join.table.name);
     }
 
     contexts = contexts.filter((ctx) => evaluateCondition(this.condition, ctx));

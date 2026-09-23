@@ -59,14 +59,15 @@ try {
   });
   assert.ok(chat);
   await chats.patchMetadata(chat.id, { enableAgents: false });
-  const generate = async (regenerateMessageId?: string) => {
+  const generate = async (regenerateMessageId?: string, extraInput: Record<string, string> = {}) => {
     const response = await app.inject({
       method: "POST",
       url: "/api/generate/",
-      payload: { chatId: chat.id, regenerateMessageId },
+      payload: { chatId: chat.id, regenerateMessageId, ...extraInput },
     });
     assert.equal(response.statusCode, 200, response.body);
     assert.ok(!response.body.includes('"type":"error"'), response.body);
+    return response;
   };
   await chats.createMessage({ chatId: chat.id, role: "user", content: "Begin." });
   const original = await chats.createMessage({ chatId: chat.id, role: "assistant", content: "Original reply." });
@@ -97,6 +98,30 @@ try {
   assert.notEqual(JSON.parse(visible!.extra).hiddenFromAI, true);
   await chats.setActiveSwipe(original.id, 2);
   assert.equal(JSON.parse((await chats.getMessage(original.id))!.extra).commandOnly, true);
+  content = '[scene: scenario="A quiet laboratory", background="lab.png", plan="Inspect the instruments"]';
+  const sceneResponse = await generate(original.id);
+  assert.ok(sceneResponse.body.includes('"type":"message_saved"'), "Show command-only invitations immediately");
+  assert.ok(!sceneResponse.body.includes('"type":"scene_requested"'), "Do not open scene setup automatically");
+  const invitation = await chats.getMessage(original.id);
+  const invitationExtra = JSON.parse(invitation!.extra);
+  assert.notEqual(invitationExtra.hiddenFromUser, true, "A command-only scene invitation must remain visible");
+  assert.equal(invitationExtra.sceneRequest.prompt, "A quiet laboratory");
+  assert.equal(invitationExtra.sceneRequest.background, "lab.png");
+  assert.equal(invitationExtra.sceneRequest.planHint, "Inspect the instruments");
+  assert.equal(invitationExtra.sceneRequest.connectionId, connection.id, "Retain the resolved chat connection");
+  const sceneSwipe = invitation!.activeSwipeIndex;
+  content = "The scene is still waiting for you.";
+  await generate(undefined, { continueMessageId: original.id });
+  assert.deepEqual(JSON.parse((await chats.getMessage(original.id))!.extra).sceneRequest, invitationExtra.sceneRequest);
+  content = "The conversation continues without a scene.";
+  await generate(original.id);
+  assert.equal(JSON.parse((await chats.getMessage(original.id))!.extra).sceneRequest, null);
+  await chats.setActiveSwipe(original.id, sceneSwipe);
+  assert.deepEqual(JSON.parse((await chats.getMessage(original.id))!.extra).sceneRequest, invitationExtra.sceneRequest);
+  await chats.patchMetadata(chat.id, { conversationCommandToggles: { scene: false } });
+  content = 'We stay here. [scene: scenario="Do not offer this scene"]';
+  await generate(original.id);
+  assert.equal(JSON.parse((await chats.getMessage(original.id))!.extra).sceneRequest, null);
   const manuallyHidden = await chats.createMessage({ chatId: chat.id, role: "assistant", content: "Private note." });
   assert.ok(manuallyHidden);
   await chats.updateMessageExtra(manuallyHidden.id, { hiddenFromUser: true, hiddenFromAI: true });

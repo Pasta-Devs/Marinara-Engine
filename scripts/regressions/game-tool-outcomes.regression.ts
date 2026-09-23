@@ -212,6 +212,11 @@ try {
     assert.equal(info.tokensRejectedPrediction, 3);
     assert.equal(info.tokensAcceptedPrediction, 8);
     assert.equal(info.tokensContext, 230, "context uses the latest request without double-counting cached tokens");
+    assert.equal(
+      info.tokensLastRequestInput,
+      200,
+      "latest input excludes output and does not add included cache again",
+    );
     assert.equal(info.requestCount, 2);
     const savedEvents = response.body
       .split("\n")
@@ -258,6 +263,7 @@ try {
       const swipe = (await chats.getSwipes(saved.id)).find((entry) => entry.index === 1)!;
       const swipeExtra = typeof swipe.extra === "string" ? JSON.parse(swipe.extra) : swipe.extra;
       assert.equal(swipeExtra.generationInfo.tokensContext, 230);
+      assert.equal(swipeExtra.generationInfo.tokensLastRequestInput, 200);
       assert.equal(swipeExtra.generationInfo.requestCount, 2);
       requestedLocation = "Tower";
       const continued = await app.inject({
@@ -333,6 +339,11 @@ try {
       const info = JSON.parse((await chats.listMessages(chat.id)).at(-1)!.extra).generationInfo;
       assert.equal(info.requestCount, 3, "two tool rounds plus the forced final request");
       assert.equal(info.tokensContext, missingUsage ? null : 230);
+      assert.equal(
+        info.tokensLastRequestInput,
+        missingUsage ? null : 200,
+        "missing final usage cannot reuse a prior input size",
+      );
       assert.equal(info.tokensReasoning, missingUsage ? 16 : 28, "all reported requests contribute reasoning");
     }
   } finally {

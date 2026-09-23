@@ -853,6 +853,7 @@ for (const automatic of [false, true]) {
       } else {
         await paragraph.hover();
         if (info.project.name.includes("mobile")) await paragraph.tap();
+        await page.getByRole("button", { name: /^Voice controls/ }).click();
         await page.getByRole("button", { name: "Speak", exact: true }).click();
       }
       await expect(paragraph).toContainText("The archive falls quiet");

@@ -230,8 +230,10 @@ and recharge, the threat clamp, and the 5e package's own creatures and enriched 
 the director's `ruleset` style, split into C3a (session, routes, persistence, enemy choices over the
 menu) and C3b (the Classic shell on real numbers, `coverage.combat` true). C4 the board, split into C4a (the format,
 positions, movement, reach and ranges, areas, cover, opportunity attacks, the picker and the view) and C4b (the board on
-screen, out of the Tactical style's own look). C5 reactions through the director's windows, legendary
-actions, contests and the remaining conditions.
+screen, out of the Tactical style's own look). C5 what a turn can do and what interrupts one, split
+into C5a (the turn economy, riders and the condition vocabulary) and C5b (the window itself: a walk
+held open, and the one a signature action is bought in). C5c and later: what else opens a window,
+legendary actions, contests and the remaining conditions.
 
 ### What C1 settled
 
@@ -317,8 +319,8 @@ actions, contests and the remaining conditions.
   `sequence` (other actions of the same block, in order, one budget for the lot, each part with its
   own target and its own roll, never naming another sequence) and `signature` (bought with the
   block's own `signaturePoints`, refreshed at the start of its own turn, never on its own turn's
-  menu). `rulesetSignatureOptions` prices them and `applyRulesetCombatChoice` spends them; the
-  window that offers one between two turns is C5.
+  menu). `rulesetSignatureOptions` prices them and `applyRulesetCombatChoice` spends them, in the
+  window C5b opens between two turns and nowhere else.
 - **A sequence takes the targets of all its parts.** Hand it fewer and every part takes the ones at
   the front of the list, so one id is "all of it at the same target". A part whose target the fight
   is already over for is skipped, and nothing picks a new one: choosing is the caller's job.
@@ -492,10 +494,49 @@ optional, and a ruleset that declares none of it resolves byte for byte as it di
   refusals, the clauses, the strikes, the economy, the riders, the conditions, both examples, and a
   fight compared event for event with the same fight on a ruleset carrying none of the keys) and
   the board-only condition cases in `game-ruleset-combat-grid.regression.ts`.
-- **Left for C5b and later**: windows, so nothing interrupts a turn and a rider still fires by
-  itself; `on` has one value, `hit`. `combat.standard` stayed a closed list of plain strings,
-  because every ruleset that already ships one writes it that way; what a dodge does BEYOND being
-  harder to hit is said beside it instead, in `combat.standardEffects.dodge.saves`.
+- **Left for C5b and later**: `on` has one value, `hit`, so a rider still fires by itself.
+  `combat.standard` stayed a closed list of plain strings, because every ruleset that already ships
+  one writes it that way; what a dodge does BEYOND being harder to hit is said beside it instead, in
+  `combat.standardEffects.dodge.saves`.
+
+### What C5b settled
+
+C5b is the WINDOW: a fight held open between one step and the next, for somebody who is not the
+current actor.
+
+- **No new key, and no capability bump.** Every part of the vocabulary a window reads was already
+  there: `combat.opportunity.budget` says what a strike at a passer-by costs, a creature's
+  `signature` and `signaturePoints` say what its points buy. What changed is that the Engine asks
+  instead of deciding: an opportunity strike used to be made FOR its holder, and a signature action
+  used to be buyable at any moment that was not its own turn. A package built before this slice
+  plays the same fight, one question at a time.
+- **The window lives in the state.** `RulesetEncounterState.window` holds the kind, what opened it,
+  who is still to answer and, when a walk opened it, the rest of that walk: the cells already
+  crossed, the ones still to cross, what has been paid and everybody already asked. A fight saved
+  mid-walk comes back with the same people still to ask and the same cells still to walk, and
+  `windows` counts every one ever opened so an answer written for a closed one is refused rather
+  than spent on the one that replaced it.
+- **While a window is open, nothing else moves.** Every other choice is refused with `window-open`,
+  including the end of the turn, and an answer naming another window is refused with `stale-window`.
+  There is one entry point either way: `applyRulesetCombatChoice` takes the answer exactly as it
+  takes a turn's choice, off `rulesetWindowOptions` or `RULESET_PASS_OPTION`.
+- **One answer each.** The window asks each waiting combatant once, struck or passed, and drops
+  anybody left with nothing to answer with rather than holding the fight open for a menu with only a
+  pass on it. One chance each for a whole walk, however many times the path leaves the same reach.
+- **A walk is finished even when the last blow ended the fight**, because its own event is what says
+  where the walker really stopped.
+- **The director drives it.** Everybody in a window who is not a person's to play answers there and
+  then, out of the window's own menu and through the same scoring that plays their turn; a Game
+  Master's boss is asked through the Game Master's own decision, with letting the moment go by as
+  one of the answers. The window is left standing only for somebody's own party member, and
+  `DirectedRulesetView.window` is what the client draws the question and its Pass on.
+- **Proven** by the window block in `scripts/regressions/game-ruleset-combat-grid.regression.ts`
+  (held open, the menu, the strike, the pass, the refusals, one chance per walk), the signature
+  windows in `game-ruleset-combat-creatures.regression.ts`, and the boss's own window in
+  `ruleset-combat-director-route.regression.ts`.
+- **Left for C5c and later**: what ELSE opens a window. A catalog entry marked `reaction` names no
+  trigger yet, so it is still on no menu; the vocabulary that says what a reaction answers, and the
+  nesting, cancellation and refunds that come with a counter, are the next slice's.
 
 ### What C4a settled
 
@@ -539,8 +580,8 @@ C4a is the board, on the shared and server sides. C4b is the screen that draws i
 - **Proven** in `scripts/regressions/game-ruleset-combat-grid.regression.ts` (hand-drawn boards,
   scripted dice, both example rulesets, and the byte-for-byte comparison), plus positioned cases in
   `ruleset-combat-director.regression.ts` and `ruleset-combat-director-route.regression.ts`.
-- **Left for C5**: reaction windows, three-quarter and total cover, elevation, flying over
-  obstacles, squeezing, hiding and forced movement.
+- **Left for later**: three-quarter and total cover, elevation, flying over obstacles, squeezing,
+  hiding and forced movement. The reaction window itself is C5b.
 
 ### What C4b settled
 

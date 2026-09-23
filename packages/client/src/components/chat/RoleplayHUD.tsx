@@ -68,6 +68,7 @@ import type {
   TrackerHiddenFields,
 } from "@marinara-engine/shared";
 import {
+  isNamedTrackerRow,
   normalizeTrackerFieldLocksForState,
   normalizeTrackerHiddenFields,
   toggleTrackerFieldLock,
@@ -261,7 +262,9 @@ export function RoleplayHUD({
   const playerStats = gameState?.playerStats ?? null;
   const personaStatus = playerStats?.status ?? "";
   const activeQuests = playerStats?.activeQuests ?? [];
-  const customTrackerFields = playerStats?.customTrackerFields ?? [];
+  const customTrackerFields = Array.isArray(playerStats?.customTrackerFields)
+    ? playerStats.customTrackerFields.filter(isNamedTrackerRow)
+    : [];
   const inventoryTrackerCurrencies = playerStats?.inventoryTrackerCurrencies ?? [];
   const inventoryTrackerEquipped = playerStats?.inventoryTrackerEquipped ?? [];
   const inventoryTrackerInventory = playerStats?.inventoryTrackerInventory ?? [];

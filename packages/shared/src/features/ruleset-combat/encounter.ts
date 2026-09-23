@@ -417,7 +417,9 @@ function abilityAction(
   perCell: number | undefined,
 ): RulesetCombatAction | null {
   const mechanics = entry.mechanics;
-  // A reaction is a timing window a later slice owns.
+  // A reaction answers something, and `reaction` alone does not say what. Until an entry can name
+  // the trigger it waits for, one marked this way is on no menu: not a turn's, because it is not
+  // taken on a turn, and not a window's, because nothing here knows which window it belongs in.
   if (!mechanics || mechanics.reaction) return null;
   // A `utility` entry has nothing to resolve unless it changes what the turn itself may hold: one
   // that hands a budget back, or lets its holder buy a standard action with another one.

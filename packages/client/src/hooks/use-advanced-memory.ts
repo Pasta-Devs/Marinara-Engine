@@ -37,7 +37,7 @@ type AdvancedMemoryAction =
         | Partial<AdvancedMemorySettings>
         | ((current: AdvancedMemorySettings) => Partial<AdvancedMemorySettings>);
     }
-  | { action: "initialize"; settings?: Partial<AdvancedMemorySettings>; debugMode?: boolean }
+  | { action: "initialize"; settings?: Partial<AdvancedMemorySettings>; debugMode?: boolean; sceneId?: string }
   | { action: "cancel" | "reindex" | "reset" }
   | {
       action: "record";
@@ -76,6 +76,7 @@ export function useAdvancedMemoryAction(chatId: string) {
           return api.post<AdvancedMemoryStatus>(`${base}/initialize`, {
             settings: request.settings,
             debugMode: request.debugMode,
+            sceneId: request.sceneId,
           });
         case "import":
           return api.post<AdvancedMemoryStatus>(`${base}/import`, request.envelope);

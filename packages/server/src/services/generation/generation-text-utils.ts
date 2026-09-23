@@ -38,6 +38,19 @@ export function getRequestContextTokens(usage: LLMUsage | undefined, provider: s
   );
 }
 
+/** Input size of one request; never substitute turn-wide billing totals for this value. */
+export function getRequestInputTokens(usage: LLMUsage | undefined, provider: string): number | null {
+  if (!usage || !Number.isFinite(usage.promptTokens) || usage.promptTokens < 0) return null;
+  const count = (value: number | undefined) =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
+  return (
+    usage.promptTokens +
+    (provider === "anthropic" || provider === "claude_subscription"
+      ? count(usage.cachedPromptTokens) + count(usage.cacheWritePromptTokens)
+      : 0)
+  );
+}
+
 export function bumpCharacterVersion(value: unknown): string {
   const raw = typeof value === "string" ? value.trim() : "";
   if (!raw) return "1.1";

@@ -2,7 +2,7 @@
 // TTS Service — Server-proxied audio playback
 // ──────────────────────────────────────────────
 import { TTS_DIALOGUE_PAUSE_MAX_SECONDS } from "@marinara-engine/shared";
-import { getOrCreateCachedTTSAudioBlob } from "./tts-audio-cache";
+import { deleteCachedTTSAudioKeys, getOrCreateCachedTTSAudioBlob } from "./tts-audio-cache";
 import { SILENT_AUDIO_DATA_URI } from "./silent-audio";
 
 export type TTSState = "idle" | "loading" | "playing" | "paused" | "blocked" | "error";
@@ -378,6 +378,23 @@ class TTSService {
       options.cacheAliases,
     );
     return waitForBlobWithAbort(sharedPromise, options.signal);
+  }
+
+  /**
+   * Drop every cached clip belonging to these requests (primary keys and
+   * aliases) so the next speak regenerates them instead of replaying audio
+   * that was synthesized by an older provider or configuration.
+   */
+  async clearCachedAudio(requests: Array<Pick<TTSSpeakRequest, "cacheKey" | "cacheAliases">>): Promise<void> {
+    const keys = new Set<string>();
+    for (const request of requests) {
+      if (request.cacheKey) keys.add(request.cacheKey);
+      for (const alias of request.cacheAliases ?? []) {
+        if (alias) keys.add(alias);
+      }
+    }
+    if (keys.size === 0) return;
+    await deleteCachedTTSAudioKeys([...keys]);
   }
 
   /** Speak the given text. `id` is an optional caller-supplied key (e.g. message id) so callers can track which item is active. */

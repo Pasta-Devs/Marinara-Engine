@@ -39,6 +39,8 @@ interface GenerationInfo {
   assistantPrefill?: string | null;
   tokensPrompt?: number | null;
   tokensCompletion?: number | null;
+  tokensLastRequestInput?: number | null;
+  requestCount?: number;
   tokensCachedPrompt?: number | null;
   tokensCacheWritePrompt?: number | null;
   durationMs?: number | null;
@@ -55,6 +57,7 @@ interface PeekPromptModalProps {
     generationInfo?: GenerationInfo | null;
     gameToolPlanning?: GameToolPlanningInfo | null;
     agentNote?: string;
+    decisions?: { unanswered: string[]; decisionModelSet: boolean };
   };
   onClose: () => void;
 }
@@ -590,6 +593,28 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
           </button>
         </div>
         <div className={cn(NEUTRAL_PANEL_SCROLL_AREA, "min-h-0 flex-1 overflow-y-auto p-4 space-y-2")}>
+          {/* A preview never asks the Decision model, so a decision branch it could not
+              answer is shown as "no". Saying so keeps a preview from being read as final. */}
+          {data.decisions && data.decisions.unanswered.length > 0 && (
+            <div
+              role="status"
+              className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-[0.6875rem] text-[var(--foreground)]"
+            >
+              <p>
+                {localizeUi(
+                  data.decisions.decisionModelSet
+                    ? "ui.chat.peekpromptmodal.decisionsUnanswered"
+                    : "ui.chat.peekpromptmodal.decisionsNoModel",
+                  { count: data.decisions.unanswered.length },
+                )}
+              </p>
+              <ul className="mt-1 list-disc pl-4 text-[var(--muted-foreground)]">
+                {data.decisions.unanswered.slice(0, 12).map((statement) => (
+                  <li key={statement}>{statement}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {/* Generation info panel */}
           {(gen || planner || paramPills.length > 0) && (
             <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/30 px-4 py-3 space-y-2">
@@ -607,7 +632,10 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
                   {gen?.tokensPrompt != null && (
                     <>
                       {" "}
-                      · {fmtTokens(gen.tokensPrompt)} {localizeUi("ui.chat.peekpromptmodal.actualPromptTokens")}
+                      · {fmtTokens(gen.tokensPrompt)}{" "}
+                      {(gen.requestCount ?? 0) > 1
+                        ? localizeUi("ui.chat.peekpromptmodal.turnPromptTokens", { count: gen.requestCount })
+                        : localizeUi("ui.chat.peekpromptmodal.reportedPromptTokens")}
                     </>
                   )}
                   {(gen?.tokensCachedPrompt ?? 0) > 0 && (
@@ -624,6 +652,18 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
                   )}
                 </span>
               </div>
+              {gen?.tokensLastRequestInput != null && (
+                <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.chat.peekpromptmodal.lastRequestInput", {
+                    tokens: fmtTokens(gen.tokensLastRequestInput),
+                  })}
+                </p>
+              )}
+              {(gen?.requestCount ?? 0) > 1 && (
+                <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.chat.peekpromptmodal.toolRequestUsageHint")}
+                </p>
+              )}
               {planner && (
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
                   <span>

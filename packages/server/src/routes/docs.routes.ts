@@ -93,6 +93,7 @@ const DOC_ORDER: Record<string, string[]> = {
     "subscription-clis.md",
     "local-self-hosted.md",
     "local-model.md",
+    "decision-models.md",
     "organizing-connections.md",
   ],
   conversation: [

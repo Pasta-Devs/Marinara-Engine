@@ -1,3 +1,4 @@
+import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import { normalizeGameDifficulty, normalizeWeatherType, combatWeatherSchema } from "@marinara-engine/shared";
 import { resolveCombatWeather } from "../services/game/weather.service.js";
 import { resolveGameConnection } from "../services/game/connection.service.js";
@@ -168,7 +169,6 @@ import {
   resolveAgentPromptTemplate,
   isClaudeAdaptiveOnlyNoSamplingModel,
   sceneAnalysisRequestSchema,
-  resolveProviderReasoningEffort,
   scoreMusic,
   musicAreaSlug,
   scoreAmbient,
@@ -3207,145 +3207,67 @@ function isLikelyTruncatedJsonResponse(raw: string, finishReason: unknown): bool
   return isLengthFinishReason(finishReason) || jsonishLooksTruncated(raw);
 }
 
-function resolveGameReasoningEffort(
-  model: string,
-  reasoningEffort: GenerationParameters["reasoningEffort"] | ChatOptions["reasoningEffort"] | null | undefined,
-  provider?: APIProvider | string | null,
-): ChatOptions["reasoningEffort"] | undefined {
-  if (!reasoningEffort) return undefined;
-  const modelLower = model.toLowerCase();
-  const providerLower = (provider ?? "").toLowerCase();
-  return (
-    resolveProviderReasoningEffort({
-      provider: providerLower,
-      model: modelLower,
-      reasoningEffort,
-    }) ?? undefined
-  );
+export function assertCompleteGameJson(raw: string, finishReason: unknown) {
+  if (isLikelyTruncatedJsonResponse(raw, finishReason))
+    throw new Error(
+      "The response was cut off before its JSON completed. Increase this connection's max output tokens or use a model with a larger output limit, then try again.",
+    );
 }
 
-/** Build model-aware generation options for game calls. */
-function gameGenOptions(
+/** Helper settings are defaults; saved connection/chat parameters take precedence. */
+export function gameGenOptions(
   model: string,
-  overrides: Partial<ChatOptions> = {},
+  defaults: Partial<ChatOptions> = {},
   parameters: StoredGenerationParameters | null = null,
   provider?: APIProvider | string | null,
 ): ChatOptions {
-  const { suppressModelParameters } = resolveModelAccessPolicy({ provider, model });
-  if (suppressModelParameters) {
-    const customParameters = mergeCustomParameters(parameters?.customParameters, overrides.customParameters);
-    const enabledParameters = mergeEnabledParameters(parameters?.enabledParameters, overrides.enabledParameters);
-    const stripped: ChatOptions = {
+  const stored = resolveStoredChatOptions(parameters, provider ?? "", model);
+  const options: ChatOptions = {
+    model,
+    temperature: 1,
+    topP: 1,
+    ...defaults,
+    ...Object.fromEntries(Object.entries(stored).filter(([, value]) => value !== undefined)),
+    maxTokens: resolveStoredMaxTokens(parameters, defaults.maxTokens ?? 8192),
+    maxContext: parameters?.maxContext ?? defaults.maxContext,
+    customParameters: mergeCustomParameters(defaults.customParameters, stored.customParameters),
+    enabledParameters: mergeEnabledParameters(defaults.enabledParameters, stored.enabledParameters),
+  };
+  // Explicitly disabling a setting must also clear a helper default.
+  if (parameters?.reasoningEffort !== undefined || parameters?.enabledParameters?.reasoningEffort === false) {
+    options.reasoningEffort = stored.reasoningEffort;
+    options.enableThinking = !!stored.reasoningEffort && stored.reasoningEffort !== "none";
+  }
+  if (parameters?.verbosity !== undefined) options.verbosity = stored.verbosity;
+
+  if (resolveModelAccessPolicy({ provider, model }).suppressModelParameters) {
+    return {
       model,
       suppressModelParameters: true,
+      maxTokens: options.maxTokens,
+      maxContext: options.maxContext,
+      stream: options.stream,
+      onToken: options.onToken,
+      onThinking: options.onThinking,
+      onResponseParts: options.onResponseParts,
+      signal: options.signal,
+      customParameters: options.customParameters,
+      enabledParameters: options.enabledParameters,
     };
-    if (overrides.stream !== undefined) stripped.stream = overrides.stream;
-    if (overrides.maxTokens !== undefined) stripped.maxTokens = overrides.maxTokens;
-    if (overrides.maxContext !== undefined) stripped.maxContext = overrides.maxContext;
-    if (overrides.onToken) stripped.onToken = overrides.onToken;
-    if (overrides.onThinking) stripped.onThinking = overrides.onThinking;
-    if (overrides.onResponseParts) stripped.onResponseParts = overrides.onResponseParts;
-    if (overrides.signal) stripped.signal = overrides.signal;
-    if (Object.keys(customParameters).length > 0) stripped.customParameters = customParameters;
-    if (enabledParameters) stripped.enabledParameters = enabledParameters;
-    return stripped;
   }
-
-  const m = model.toLowerCase();
-  const providerLower = (provider ?? "").toLowerCase();
-  // Claude adaptive-only models and GPT-5.4/5.5 accept the strongest reasoning tier
-  // (native Anthropic uses "max"; OpenAI-compatible routes use "xhigh").
-  // Claude adaptive-only models also forbid sampling parameters entirely; the Anthropic
-  // provider strips them on the wire, but we omit them here so the
-  // logged options match what is actually sent.
-  const isClaudeAdaptiveOnly = isClaudeAdaptiveOnlyNoSamplingModel(m);
-  const defaultReasoningEffort = resolveProviderReasoningEffort({
-    provider: providerLower,
-    model: m,
-    reasoningEffort: "maximum",
-  });
-  const base: ChatOptions = {
-    model,
-    maxTokens: 8192,
-    verbosity: "high",
-  };
-  if (defaultReasoningEffort) {
-    base.reasoningEffort = defaultReasoningEffort;
-    // Required for providers that actually attach thinking config to the request body.
-    base.enableThinking = true;
+  if (isClaudeAdaptiveOnlyNoSamplingModel(model)) {
+    delete options.temperature;
+    delete options.topP;
+    delete options.topK;
   }
-  if (!isClaudeAdaptiveOnly) {
-    base.temperature = 1;
-    base.topP = 1;
-  }
-
-  if (parameters) {
-    if (typeof parameters.temperature === "number" && !isClaudeAdaptiveOnly) base.temperature = parameters.temperature;
-    if (typeof parameters.maxTokens === "number") base.maxTokens = parameters.maxTokens;
-    if (typeof parameters.maxContext === "number") base.maxContext = parameters.maxContext;
-    if (typeof parameters.topP === "number" && !isClaudeAdaptiveOnly) base.topP = parameters.topP;
-    if (typeof parameters.topK === "number" && !isClaudeAdaptiveOnly) base.topK = parameters.topK;
-    if (typeof parameters.frequencyPenalty === "number") base.frequencyPenalty = parameters.frequencyPenalty;
-    if (typeof parameters.presencePenalty === "number") base.presencePenalty = parameters.presencePenalty;
-    if (parameters.customParameters) {
-      base.customParameters = mergeCustomParameters(base.customParameters, parameters.customParameters);
-    }
-    if (parameters.enabledParameters) {
-      base.enabledParameters = { ...(base.enabledParameters ?? {}), ...parameters.enabledParameters };
-    }
-    if (parameters.reasoningEffort !== undefined) {
-      const resolvedReasoningEffort = resolveGameReasoningEffort(model, parameters.reasoningEffort, provider);
-      if (resolvedReasoningEffort) {
-        base.reasoningEffort = resolvedReasoningEffort;
-        base.enableThinking = true;
-      } else {
-        delete base.reasoningEffort;
-        base.enableThinking = false;
-      }
-    }
-    if (parameters.verbosity !== undefined) {
-      if (parameters.verbosity) {
-        base.verbosity = parameters.verbosity;
-      } else {
-        delete base.verbosity;
-      }
-    }
-  }
-
-  const mergedCustomParameters = mergeCustomParameters(base.customParameters, overrides.customParameters);
-  const mergedEnabledParameters = mergeEnabledParameters(base.enabledParameters, overrides.enabledParameters);
-  const merged: ChatOptions = { ...base, ...overrides };
-  if (Object.keys(mergedCustomParameters).length > 0) {
-    merged.customParameters = mergedCustomParameters;
-  }
-  if (mergedEnabledParameters) {
-    merged.enabledParameters = mergedEnabledParameters;
-  }
-  if (Object.prototype.hasOwnProperty.call(overrides, "reasoningEffort")) {
-    const resolvedReasoningEffort = resolveGameReasoningEffort(model, overrides.reasoningEffort ?? null, provider);
-    if (resolvedReasoningEffort) {
-      merged.reasoningEffort = resolvedReasoningEffort;
-      if (!Object.prototype.hasOwnProperty.call(overrides, "enableThinking")) {
-        merged.enableThinking = true;
-      }
-    } else {
-      delete merged.reasoningEffort;
-      if (!Object.prototype.hasOwnProperty.call(overrides, "enableThinking")) {
-        merged.enableThinking = false;
-      }
-    }
-  }
-  if (Object.prototype.hasOwnProperty.call(overrides, "verbosity") && overrides.verbosity === undefined) {
-    delete merged.verbosity;
-  }
-  return merged;
+  return options;
 }
 
 const SESSION_SUMMARY_MIN_TRANSCRIPT_CHARS = 256;
-const GAME_SETUP_MIN_OUTPUT_TOKENS = 16_384;
+const GAME_SETUP_DEFAULT_OUTPUT_TOKENS = 16_384;
 const EXPERIENCE_GENERATION_MIN_OUTPUT_TOKENS = 1_024;
-const SESSION_CONCLUSION_MIN_OUTPUT_TOKENS = 8192;
-const CAMPAIGN_PROGRESSION_MIN_OUTPUT_TOKENS = SESSION_CONCLUSION_MIN_OUTPUT_TOKENS;
+const SESSION_CONCLUSION_DEFAULT_OUTPUT_TOKENS = 8192;
+const CAMPAIGN_PROGRESSION_DEFAULT_OUTPUT_TOKENS = SESSION_CONCLUSION_DEFAULT_OUTPUT_TOKENS;
 const GAME_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
 const GAME_ASSET_GENERATION_TIMEOUT_MS = 45 * 60 * 1000;
 const GAME_SCENE_VIDEO_GENERATION_TIMEOUT_MS = 31 * 60 * 1000;
@@ -3558,7 +3480,7 @@ async function acquireGameAssetGenerationLock(chatId: string, signal: AbortSigna
     }
   };
 }
-const GAME_LOREBOOK_KEEPER_MIN_OUTPUT_TOKENS = 16_384;
+const GAME_LOREBOOK_KEEPER_DEFAULT_OUTPUT_TOKENS = 16_384;
 const GAME_LOREBOOK_KEEPER_MAX_ENTRIES = 32;
 const SESSION_SUMMARY_TRUNCATION_MARKER = "\n\n[Middle of session transcript truncated to fit context window]\n\n";
 
@@ -4219,7 +4141,7 @@ async function runGameLorebookKeeperAfterConclusion(args: {
     const options = gameGenOptions(
       conn.model,
       {
-        maxTokens: Math.max(GAME_LOREBOOK_KEEPER_MIN_OUTPUT_TOKENS, generationParameters?.maxTokens ?? 0),
+        maxTokens: GAME_LOREBOOK_KEEPER_DEFAULT_OUTPUT_TOKENS,
         temperature: 0.35,
         stream: streaming,
         signal: args.signal,
@@ -4264,6 +4186,7 @@ async function runGameLorebookKeeperAfterConclusion(args: {
       "Game lorebook keeper",
     );
     const extraction = extractLeadingThinkingBlocks(result.content ?? "", generationParameters?.customThinkingTags);
+    assertCompleteGameJson(extraction.content, result.finishReason);
     let parsed: Record<string, unknown>;
     try {
       parsed = parseJSON(extraction.content) as Record<string, unknown>;
@@ -6958,7 +6881,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const setupMaxTokens = clampGameMaxOutputTokens({
       provider: conn.provider,
       model: conn.model,
-      maxTokens: Math.max(GAME_SETUP_MIN_OUTPUT_TOKENS, setupGenerationParameters?.maxTokens ?? 0),
+      maxTokens: GAME_SETUP_DEFAULT_OUTPUT_TOKENS,
       maxTokensOverride: conn.maxTokensOverride,
     });
     const setupAbort = createResponseAbortTracker(reply, GAME_SETUP_GENERATION_TIMEOUT_MS, "Game setup");
@@ -7459,7 +7382,11 @@ export async function gameRoutes(app: FastifyInstance) {
       let recapThinking = "";
       if (summaries.length > 0) {
         try {
-          const { conn, baseUrl } = await resolveConnection(connections, connectionId, newChat.connectionId);
+          const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
+            connections,
+            connectionId,
+            newChat.connectionId,
+          );
           const provider = await createGameMainProvider(connections, conn, baseUrl);
 
           const recapMessages: ChatMessage[] = [
@@ -7476,7 +7403,7 @@ export async function gameRoutes(app: FastifyInstance) {
                 temperature: 0.7,
                 signal: createResponseAbortSignal(reply, GAME_GENERATION_TIMEOUT_MS, "Game session recap"),
               },
-              null,
+              resolveStoredGameGenerationParameters(updatedNewMeta, defaultGenerationParameters),
               conn.provider,
             ),
             "Game session recap",
@@ -7665,7 +7592,7 @@ export async function gameRoutes(app: FastifyInstance) {
       const conclusionOptions = gameGenOptions(
         conn.model,
         {
-          maxTokens: Math.max(SESSION_CONCLUSION_MIN_OUTPUT_TOKENS, conclusionGenerationParameters?.maxTokens ?? 0),
+          maxTokens: SESSION_CONCLUSION_DEFAULT_OUTPUT_TOKENS,
           temperature: 0.45,
           stream: streaming,
           signal: conclusionAbort.signal,
@@ -7721,6 +7648,7 @@ export async function gameRoutes(app: FastifyInstance) {
         );
       }
 
+      assertCompleteGameJson(conclusionExtraction.content, result.finishReason);
       let appliedConclusion: SessionConclusionApplication;
       try {
         const parsedConclusion = parseJSON(conclusionExtraction.content) as Record<string, unknown>;
@@ -8228,7 +8156,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const conclusionOptions = gameGenOptions(
       conn.model,
       {
-        maxTokens: Math.max(SESSION_CONCLUSION_MIN_OUTPUT_TOKENS, conclusionGenerationParameters?.maxTokens ?? 0),
+        maxTokens: SESSION_CONCLUSION_DEFAULT_OUTPUT_TOKENS,
         temperature: 0.45,
         stream: streaming,
         signal: conclusionAbort.signal,
@@ -8275,6 +8203,7 @@ export async function gameRoutes(app: FastifyInstance) {
       result.content ?? "",
       conclusionGenerationParameters?.customThinkingTags,
     );
+    assertCompleteGameJson(conclusionExtraction.content, result.finishReason);
     let appliedConclusion: SessionConclusionApplication;
     try {
       const parsedConclusion = parseJSON(conclusionExtraction.content) as Record<string, unknown>;
@@ -8495,7 +8424,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const progressionOptions = gameGenOptions(
       conn.model,
       {
-        maxTokens: Math.max(CAMPAIGN_PROGRESSION_MIN_OUTPUT_TOKENS, progressionGenerationParameters?.maxTokens ?? 0),
+        maxTokens: CAMPAIGN_PROGRESSION_DEFAULT_OUTPUT_TOKENS,
         temperature: 0.35,
         stream: streaming,
         signal: progressionAbort.signal,
@@ -8568,6 +8497,7 @@ export async function gameRoutes(app: FastifyInstance) {
       extraction.content.length,
       progressionOptions.maxTokens ?? 0,
     );
+    assertCompleteGameJson(extraction.content, result.finishReason);
     let updatedProgression: CampaignProgressionState;
     try {
       const parsedProgression = parseJSON(extraction.content) as Record<string, unknown>;
@@ -9499,7 +9429,11 @@ export async function gameRoutes(app: FastifyInstance) {
     const chat = await chats.getById(chatId);
     if (!chat) throw new Error("Chat not found");
 
-    const { conn, baseUrl } = await resolveConnection(connections, connectionId, chat.connectionId);
+    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
+      connections,
+      connectionId,
+      chat.connectionId,
+    );
     const provider = await createGameMainProvider(connections, conn, baseUrl);
 
     const messages: ChatMessage[] = [
@@ -9517,7 +9451,7 @@ export async function gameRoutes(app: FastifyInstance) {
           temperature: 0.6,
           signal: mapAbortSignal,
         },
-        null,
+        resolveStoredGameGenerationParameters(parseMeta(chat.metadata), defaultGenerationParameters),
         conn.provider,
       ),
       "Game map generation",
@@ -11249,28 +11183,22 @@ export async function gameRoutes(app: FastifyInstance) {
       const signal = createResponseAbortSignal(reply, GAME_GENERATION_TIMEOUT_MS, "Experience generation");
       const release = await acquireGameAssetGenerationLock(req.params.chatId, signal);
       try {
-        // 2048 lifts the STORED parameter so a brief-sized reply has headroom
-        // (mirroring GAME_SETUP_MIN_OUTPUT_TOKENS); the known-model cap still
-        // applies, and an explicit package maxTokens may tighten below the
-        // floor — a caller asking for less gets less.
-        // The override slot is a ceiling; both the connection's own configured
-        // cap and the package's requested tightening must survive, so pass the
-        // tighter of the two.
-        const maxTokens = clampGameMaxOutputTokens({
+        const options = gameGenOptions(
+          conn.model ?? "",
+          { stream: false, maxTokens: 2048, signal },
+          gameGenerationParameters,
+          conn.provider,
+        );
+        options.maxTokens = clampGameMaxOutputTokens({
           provider: conn.provider,
           model: conn.model ?? "",
-          maxTokens: Math.max(2_048, gameGenerationParameters?.maxTokens ?? 0),
+          maxTokens: options.maxTokens!,
           maxTokensOverride:
             input.maxTokens != null && conn.maxTokensOverride != null
               ? Math.min(input.maxTokens, conn.maxTokensOverride)
               : (input.maxTokens ?? conn.maxTokensOverride ?? null),
         });
-        const options = gameGenOptions(
-          conn.model ?? "",
-          { stream: false, maxTokens, signal },
-          gameGenerationParameters,
-          conn.provider,
-        );
+        const maxTokens = options.maxTokens;
         // Set AFTER gameGenOptions (its suppressModelParameters branch drops
         // unknown overrides). Providers under that policy may STILL drop
         // response_format at their own layer — for them the prompt + tolerant
@@ -11355,7 +11283,7 @@ export async function gameRoutes(app: FastifyInstance) {
           });
           // This one-shot prompt has no disposable history. Dropping its system
           // tail would silently discard lore the player explicitly selected.
-          const availableOutputTokens = fit.maxTokens ?? options.maxTokens ?? maxTokens;
+          const availableOutputTokens: number = fit.maxTokens ?? options.maxTokens ?? maxTokens;
           if (fit.trimmed || availableOutputTokens < minimumOutputTokens) {
             return reply.code(422).send({
               code: "context_limit",

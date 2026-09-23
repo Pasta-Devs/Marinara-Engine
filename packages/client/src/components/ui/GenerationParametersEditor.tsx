@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   GENERATION_PARAMETER_SEND_KEYS,
   isZaiMaxReasoningEffortModel,
+  isClaudeOpus55Model,
   customRequestHeadersSchema,
   normalizeThinkingTagPairs,
   type GenerationParameterSendKey,
@@ -275,8 +276,9 @@ export function GenerationParametersFields({
         {effectiveHint(key, displayValue)}
       </p>
     ) : null;
-  const reasoningLevels =
-    provider === "zai" && isZaiMaxReasoningEffortModel(model ?? "")
+  const reasoningLevels = isClaudeOpus55Model(model ?? "")
+    ? REASONING_LEVELS.filter((level) => level !== null)
+    : provider === "zai" && isZaiMaxReasoningEffortModel(model ?? "")
       ? (["low", "high", "maximum"] as const)
       : REASONING_LEVELS;
   const { data: managedDefinitions = [] } = useCustomGenerationParameters();

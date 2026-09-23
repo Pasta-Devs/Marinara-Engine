@@ -43,11 +43,21 @@ export async function shouldSkipAgentByMessageInterval({
   const lastRun = await agentsStore.getLastSuccessfulRunByType(agentType, chatId);
   if (!lastRun) return false;
 
-  const lastRunIdx = messages.findIndex((message) => message.id === lastRun.messageId);
-  if (lastRunIdx < 0) return false;
+  const messagesSince = countMessagesSinceAgentRun(messages, lastRun.messageId, countUpcomingAssistantMessage);
+  return messagesSince !== null && messagesSince < runInterval;
+}
+
+/** Shared cadence/activation count; null means there is no usable successful-run anchor. */
+export function countMessagesSinceAgentRun(
+  messages: ChatMessageLike[],
+  lastMessageId: string | null | undefined,
+  countUpcomingAssistantMessage = false,
+): number | null {
+  if (!lastMessageId) return null;
+  const lastRunIdx = messages.findIndex((message) => message.id === lastMessageId);
+  if (lastRunIdx < 0) return null;
   const messagesSince = messages
     .slice(lastRunIdx + 1)
     .filter((message) => message.role === "user" || message.role === "assistant");
-  const upcomingMessages = countUpcomingAssistantMessage ? 1 : 0;
-  return messagesSince.length + upcomingMessages < runInterval;
+  return messagesSince.length + (countUpcomingAssistantMessage ? 1 : 0);
 }

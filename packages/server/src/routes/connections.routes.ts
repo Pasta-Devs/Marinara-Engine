@@ -1,3 +1,5 @@
+import { resolveDecisionConnection } from "../services/decision/decision-connection.js";
+import { askNoulQuestions } from "../services/decision/system-one.client.js";
 // ──────────────────────────────────────────────
 // Routes: Connections
 // ──────────────────────────────────────────────
@@ -20,7 +22,7 @@ import {
   inferImageSource,
   inferVideoSource,
   isLocalAuthProvider,
-  isOpenAIGpt6AstraModel,
+  isOpenAIGpt6Model,
   localAuthProviderBaseUrl,
   normalizeVideoGenerationProfile,
   type AtlasCloudVideoModelSchemaResponse,
@@ -154,7 +156,7 @@ function usesResponsesEndpointForTestMessage(provider: string, model: string): b
   if (!isOpenAICompatibleProvider(provider) || provider === "custom") return false;
   const normalized = model.toLowerCase();
   return (
-    isOpenAIGpt6AstraModel(normalized) ||
+    (isOpenAIGpt6Model(normalized) && provider !== "openrouter") ||
     normalized.startsWith("gpt-5.6") ||
     normalized.startsWith("gpt-5.5") ||
     normalized.startsWith("gpt-5.4") ||
@@ -441,7 +443,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
   });
 
   app.post("/refresh-local-context", async () => {
-    const candidates = (await storage.list()).filter(canRefreshLocalContext);
+    const candidates = (await storage.list()).filter(
+      (row) => row.provider !== "decision" && canRefreshLocalContext(row),
+    );
     const updated: string[] = [];
     // Each connection makes four bounded metadata probes; keep only three connections active at once.
     for (let index = 0; index < candidates.length; index += 3) {
@@ -592,6 +596,32 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const debugLog = (message: string, ...args: any[]) => logDebugOverride(requestDebug, message, ...args);
     const start = Date.now();
     try {
+      if (conn.provider === "decision") {
+        const resolved = await resolveDecisionConnection(conn, (id) => storage.getWithKey(id));
+        if (!resolved.connection)
+          return {
+            success: false,
+            message: resolved.error,
+            errorCode: resolved.error,
+            latencyMs: Date.now() - start,
+            modelName: null,
+          };
+        const result = await askNoulQuestions({
+          connection: resolved.connection,
+          state: { recent_messages: [{ role: "user", name: "User", content: "The door is open." }] },
+          questions: [{ id: "test", instructions: "The door is open." }],
+          debugMode: requestDebug,
+        });
+        const probability = result.answers.get("test");
+        return {
+          success: probability !== undefined,
+          message: result.error ?? "Decision model answered.",
+          errorCode: result.error,
+          decisionProbability: probability,
+          latencyMs: result.latencyMs,
+          modelName: resolved.connection.model,
+        };
+      }
       if (conn.provider === "claude_subscription") {
         if (!conn.model) {
           return {
@@ -843,6 +873,8 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const conn = await storage.getWithKey(req.params.id);
     if (!conn) return reply.status(404).send({ error: "Connection not found" });
 
+    if (conn.provider === "decision")
+      return { models: [{ id: conn.model || "jev-latest", name: conn.model || "jev-latest" }] };
     try {
       // Claude (Subscription) has no remote /models endpoint — return the
       // curated static list for the subscription path.

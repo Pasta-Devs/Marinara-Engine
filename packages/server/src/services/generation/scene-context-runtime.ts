@@ -6,6 +6,30 @@ type GenerationPromptMessage = {
   content: string;
 };
 
+/** Read the active Scene roster, including Scenes created before every participant was marked busy. */
+export async function resolveSceneBusyCharacterIds(
+  chats: { getById(id: string): Promise<{ characterIds: unknown; metadata: unknown } | null | undefined> },
+  originChatId: string,
+  metadata?: Record<string, unknown>,
+): Promise<string[]> {
+  const parse = (value: unknown) => {
+    try {
+      return typeof value === "string" ? JSON.parse(value) : value;
+    } catch {
+      return null;
+    }
+  };
+  const sourceMetadata = metadata ?? (await chats.getById(originChatId))?.metadata;
+  const source = parse(sourceMetadata);
+  if (typeof source?.activeSceneChatId !== "string") return [];
+  const scene = await chats.getById(source.activeSceneChatId);
+  if (!scene) return [];
+  const meta = parse(scene.metadata);
+  if (meta?.sceneStatus !== "active" || meta.sceneOriginChatId !== originChatId) return [];
+  const ids = parse(scene.characterIds);
+  return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : [];
+}
+
 export function injectSceneContextMessages({
   messages,
   chatMetadata,

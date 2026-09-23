@@ -1,0 +1,8 @@
+# Serving only. Open-Jev's requirements.txt also pins datasets==5.0.0 for training,
+# which the server never imports; accelerate is required because the model loads with
+# device_map, which transformers delegates to it.
+torch>=2.8
+transformers==5.10.2
+peft==0.19.1
+accelerate==1.13.0
+safetensors

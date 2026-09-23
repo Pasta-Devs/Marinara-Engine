@@ -77,6 +77,17 @@ export const UTILITY_SIDECAR_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+/**
+ * The managed decision sidecar's API.
+ *
+ * Sized like the utility slot's: room for the panel to re-read its status while open,
+ * a wall in front of install and remove, which download or delete about ten gigabytes.
+ */
+export const DECISION_SIDECAR_RATE_LIMIT = {
+  max: 60,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
   { pattern: /^\/api\/generate(?:\/|$)/, rule: { key: "generate", limit: 60, windowMs: 60_000 } },
   { pattern: /^\/api\/tts(?:\/|$)/, rule: { key: "tts", limit: 90, windowMs: 60_000 } },
@@ -121,6 +132,14 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
   {
     pattern: /^\/api\/sidecar\/(?:runtime\/install|reinstall|download|model|speech\/download|speech\/model)(?:\/|\?|$)/,
     rule: { key: "sidecar-privileged", limit: 20, windowMs: 60_000 },
+  },
+  {
+    pattern: /^\/api\/decision\/sidecar(?:\/|\?|$)/,
+    rule: {
+      key: "decision-sidecar",
+      limit: DECISION_SIDECAR_RATE_LIMIT.max,
+      windowMs: DECISION_SIDECAR_RATE_LIMIT.timeWindow,
+    },
   },
   { pattern: /^\/api\/haptic\/command(?:\?|$)/, rule: { key: "haptic-command", limit: 30, windowMs: 60_000 } },
   // One-shot LLM call per user click; keep it out of the 600/min default
