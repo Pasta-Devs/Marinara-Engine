@@ -134,6 +134,7 @@ Regression guards:
 - `pnpm regression:prompt` runs fast deterministic checks for prompt assembly, lorebook keyword matching, macros, summaries, and mode-specific generation gates.
 - `pnpm regression:ui` runs the Playwright browser suite across desktop Chromium, Android-sized Chromium, and iPhone-sized WebKit; `pnpm smoke:ui` remains a compatibility alias for the same full UI lane. Pull requests and staging pushes run the same projects independently on hosted runners.
   Each run clears `.tmp/playwright-data` and starts separate desktop and mobile app servers so their mutable fixtures cannot overlap. Stop any process already using the configured Playwright ports before running it; existing fixture state is disposable and the suite does not reuse a running development server.
+- `node scripts/run-regressions.mjs` (what `pnpm regression` runs) gives each regression file its own throwaway `DATA_DIR`, `FILE_STORAGE_DIR` and `.env` (through `MARINARA_ENV_FILE`) and removes them when the file finishes. A regression that sets these variables itself keeps its own values. Use `--filter <text>` to run a subset.
 - `pnpm test` checks the Windows installer layout, then runs the Node regression lane. It does not run the UI lane; invoke `pnpm regression:ui` explicitly for browser validation.
 
 These checks are intentionally small and do not replace manual verification. When you change behavior, include the manual verification you performed and add or update a regression guard for the bug class when practical.
