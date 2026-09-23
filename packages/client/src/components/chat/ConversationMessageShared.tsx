@@ -11,6 +11,7 @@ import {
   type QuoteFormat,
 } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
+import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import type { ReactionSegmentTarget } from "../../lib/reactions";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { resolveSelfCardAssets, type ChatGalleryIndex } from "../../lib/card-asset-links";
@@ -680,10 +681,11 @@ export function ConversationMessageLightbox({
   onClose: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const backdropDismiss = useBackdropDismiss(onClose);
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm max-md:pt-[env(safe-area-inset-top)]"
-      onClick={onClose}
+      {...backdropDismiss}
     >
       <div
         className="flex max-h-[90vh] w-[min(90vw,64rem)] max-w-[90vw] flex-col items-center gap-2"
