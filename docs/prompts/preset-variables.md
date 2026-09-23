@@ -59,6 +59,12 @@ Marinara resolves many built-in macros, such as `{{user}}` and `{{char}}`. After
 
 If a variable with that exact name exists, the placeholder becomes the chosen value. If no variable matches, the `{{NAME}}` text is left exactly as typed. This is why an unknown placeholder shows up unchanged in the output instead of raising an error. For the full macro list, see [Prompt Macros](macros.md).
 
+## Decision blocks in options
+
+An option's value can hold a decision block, `{{#if decision:"..."}}`, like any other prompt text. Only the options the chat has selected are asked about, and they count toward **Decision statements per turn**. For a **Random Pick** variable, every option in the selected pool is asked about, since any of them could be drawn. See [Asking the Decision model](conditional-prompts.md#asking-the-decision-model).
+
+A variable's value lands wherever its `{{name}}` sits, often near the top of the preset. Be very careful with a decision block in an option used there: every turn its answer changes, a caching provider bills the whole prompt as new. See [Decision blocks and prompt caching](presets.md#decision-blocks-and-prompt-caching).
+
 ## Related guides
 
 - [Preset Editor and Prompt Manager](presets.md)

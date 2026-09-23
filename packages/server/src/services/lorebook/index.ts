@@ -142,9 +142,22 @@ export type LorebookBudgetSkipReason = "lorebook" | "chat" | "both" | "location"
 export type LorebookMatchType = "keyword" | "semantic" | "constant" | "sticky" | "decision";
 
 /** Answers entries' decision statements (#6570); see `resolveDecisions` on `processLorebooks`. */
-export type LorebookDecisionResolver = (
-  requests: Array<{ entryId: string; statement: string }>,
-) => Promise<ReadonlyMap<string, boolean>>;
+export interface LorebookDecisionResolver {
+  (requests: Array<{ entryId: string; statement: string }>): Promise<ReadonlyMap<string, boolean>>;
+  /**
+   * Asks the `{{#if decision}}` statements in the text of entries about to activate,
+   * so they have answers before that text is resolved. Only activating entries are
+   * asked about: the rest of a lorebook never reaches the prompt (#6582).
+   */
+  answerStatements?: (texts: string[]) => Promise<void>;
+  /**
+   * An entry's text with every branch a decision could take, for keyword discovery.
+   * Nothing is answered or written, so discovery finds an entry named in any branch.
+   */
+  planText?: (text: string) => string;
+}
+
+const DECISION_STATEMENT_RE = /decision(?:_choice)?\s*:/iu;
 
 /** Whether an entry's activation depends on a decision statement (#6570). */
 export function hasDecisionActivation(entry: Pick<LorebookEntry, "decisionMode" | "decisionStatement">): boolean {
@@ -1311,44 +1324,76 @@ export async function processLorebooks(
     ...(options?.ignoreForcedEntryProbability ? { ignoreProbability: true } : {}),
   };
 
-  if (usesDecisions && options?.resolveDecisions) {
+  // Statements inside entries' text (#6582) are asked only for entries about to
+  // activate, found by the same pure pre-scan, before the real scan resolves them.
+  const resolver = options?.resolveDecisions;
+  const contentDecisions =
+    !!resolver?.answerStatements && allEntries.some((entry) => DECISION_STATEMENT_RE.test(entry.content));
+  if ((usesDecisions && resolver) || contentDecisions) {
     const statementsById = new Map(allEntries.map((entry) => [entry.id, entry.decisionStatement]));
     // Recursion reads each activated entry's macro-resolved text, so discovery does
-    // too. A resolution is rolled back at once, so nothing is committed here; a
-    // preview's plain resolver has nothing to roll back and commits nothing either.
-    const discoveryEntries = resolveContent
-      ? allEntries.map((entry) => {
-          if (!entry.content.includes("{{")) return entry;
-          const resolved = resolveContent!(entry.content);
-          if (typeof resolved === "string") return { ...entry, content: resolved };
-          resolved.rollback?.();
-          return { ...entry, content: resolved.content };
-        })
-      : allEntries;
+    // too. With a planning resolver, every branch a decision could take is kept and
+    // nothing is resolved for real. Otherwise a resolution is rolled back at once, so
+    // nothing is committed here; a preview's plain resolver commits nothing either.
+    const discoveryEntries = resolver?.planText
+      ? allEntries.map((entry) =>
+          entry.content.includes("{{") ? { ...entry, content: resolver.planText!(entry.content) } : entry,
+        )
+      : resolveContent
+        ? allEntries.map((entry) => {
+            if (!entry.content.includes("{{")) return entry;
+            const resolved = resolveContent!(entry.content);
+            if (typeof resolved === "string") return { ...entry, content: resolved };
+            resolved.rollback?.();
+            return { ...entry, content: resolved.content };
+          })
+        : allEntries;
+    // Recursion scoped exactly as the real scan scopes it, so discovery never asks
+    // about an entry recursion cannot reach there.
+    const preScan = (preScanOpts: ScanOptions) =>
+      forcedEntriesOnly
+        ? []
+        : anyRecursive
+          ? recursiveScan(
+              messages,
+              discoveryEntries,
+              preScanOpts,
+              maxRecursionDepth,
+              options?.enableRecursive ? undefined : (entry) => recursiveLorebookIds.has(entry.lorebookId),
+            )
+          : scanForActivatedEntries(messages, discoveryEntries, preScanOpts);
     // An entry a location attaches skips the keyword scan, but Require still applies.
-    const locationRequireIds = forcedEntries
-      .filter((entry) => requiresDecisionAnswer(entry) && passesForcedEntryActivationGates(entry, forcedEntryScanOpts))
-      .map((entry) => entry.id);
-    for (let round = 0; round < 2; round++) {
-      const pendingDecisions = new Set<string>(round === 0 ? locationRequireIds : []);
-      const preScanOpts = { ...scanOpts, pendingDecisions };
-      // Recursion scoped exactly as the real scan scopes it, so discovery never asks
-      // about an entry recursion cannot reach there.
-      if (anyRecursive)
-        recursiveScan(
-          messages,
-          discoveryEntries,
-          preScanOpts,
-          maxRecursionDepth,
-          options?.enableRecursive ? undefined : (entry) => recursiveLorebookIds.has(entry.lorebookId),
+    const locationRequireIds = usesDecisions
+      ? forcedEntries
+          .filter(
+            (entry) => requiresDecisionAnswer(entry) && passesForcedEntryActivationGates(entry, forcedEntryScanOpts),
+          )
+          .map((entry) => entry.id)
+      : [];
+    if (usesDecisions && resolver) {
+      for (let round = 0; round < 2; round++) {
+        const pendingDecisions = new Set<string>(round === 0 ? locationRequireIds : []);
+        preScan({ ...scanOpts, pendingDecisions });
+        const toAsk = [...pendingDecisions].filter((id) => !decisionAnswers.has(id));
+        if (toAsk.length === 0) break;
+        const answers = await resolver(
+          toAsk.map((entryId) => ({ entryId, statement: statementsById.get(entryId) ?? "" })),
         );
-      else scanForActivatedEntries(messages, discoveryEntries, preScanOpts);
-      const toAsk = [...pendingDecisions].filter((id) => !decisionAnswers.has(id));
-      if (toAsk.length === 0) break;
-      const answers = await options.resolveDecisions(
-        toAsk.map((entryId) => ({ entryId, statement: statementsById.get(entryId) ?? "" })),
-      );
-      for (const entryId of toAsk) decisionAnswers.set(entryId, answers.get(entryId) === true);
+        for (const entryId of toAsk) decisionAnswers.set(entryId, answers.get(entryId) === true);
+      }
+    }
+    if (contentDecisions) {
+      const activatingIds = new Set(preScan({ ...scanOpts }).map((activated) => activated.entry.id));
+      for (const entry of forcedEntries)
+        if (
+          passesForcedEntryActivationGates(entry, forcedEntryScanOpts) &&
+          (!usesDecisions || !requiresDecisionAnswer(entry) || decisionAnswers.get(entry.id) === true)
+        )
+          activatingIds.add(entry.id);
+      const texts = allEntries
+        .filter((entry) => activatingIds.has(entry.id) && DECISION_STATEMENT_RE.test(entry.content))
+        .map((entry) => entry.content);
+      if (texts.length > 0) await resolver!.answerStatements!(texts);
     }
   }
 

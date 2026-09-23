@@ -3,8 +3,10 @@
  * `{{#if decision_choice:"..." == "option"}}`.
  *
  * The macro engine is synchronous, so a statement cannot be asked while a condition is
- * evaluated. Instead the turn's statements are found in the raw prompt sources first,
- * asked in one batch, and handed to the engine as answers. The engine then looks each
+ * evaluated. Instead the turn's statements are found in the prompt sources first,
+ * asked in one batch, and handed to the engine as answers. Only statements the turn
+ * can reach are asked (#6582): the parts of a preset it uses, the choices selected,
+ * lorebook entries that activate, and blocks nothing else has already ruled out. The engine then looks each
  * one up wherever it is evaluated: a preset section, a card field, a group block, a
  * per-responder pass, a lorebook entry. A statement with no answer reads as false, so a
  * prompt with no Decision model behaves exactly as it did before this existed.
@@ -18,6 +20,9 @@ import {
   decisionLocalSlotForId,
   DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
   normalizeDecisionQuestion,
+  parseChoiceOptions,
+  planDecisionStatements,
+  resolveChoiceVariableValue,
   resolveDecisionQuestionText,
   resolveDecisionQuestionVariants,
   type MacroContext,
@@ -68,29 +73,85 @@ export function collectDecisionTexts(value: unknown, out: string[] = [], depth =
   return out;
 }
 
+/** A preset as stored, with the choices this turn uses. */
+export interface PresetDecisionParts {
+  sections: ReadonlyArray<{ content?: unknown; enabled?: unknown; groupId?: unknown }>;
+  groups: ReadonlyArray<{ id?: unknown; enabled?: unknown }>;
+  choiceBlocks: ReadonlyArray<{
+    variableName?: unknown;
+    options?: unknown;
+    multiSelect?: unknown;
+    randomPick?: unknown;
+    separator?: unknown;
+  }>;
+  /** The chat's choice for each choice block, by variable name. */
+  choices?: Readonly<Record<string, string | string[]>>;
+}
+
+/**
+ * The preset text a turn uses, as the prompt builder uses it: enabled sections in
+ * enabled groups, and the selected value of each choice block. A choice block's
+ * options are stored as JSON text, so they are parsed here; walking the raw text
+ * would plan an option's statement under a key the prompt never looks up.
+ */
+function presetDecisionTexts(preset: PresetDecisionParts, texts: string[]): void {
+  const enabled = (value: unknown) => value === true || value === "true";
+  const disabledGroups = new Set(
+    preset.groups.filter((group) => !enabled(group.enabled)).map((group) => String(group.id)),
+  );
+  for (const section of preset.sections)
+    if (enabled(section.enabled) && !(typeof section.groupId === "string" && disabledGroups.has(section.groupId)))
+      collectDecisionTexts(section.content, texts);
+  for (const block of preset.choiceBlocks) {
+    const options = parseChoiceOptions(block.options);
+    const selected = preset.choices?.[String(block.variableName)];
+    // A random pick is made later, so every selected option could be the one used.
+    const random = enabled(block.randomPick);
+    collectDecisionTexts(
+      resolveChoiceVariableValue({
+        selected,
+        options,
+        multiSelect: random || block.multiSelect,
+        randomPick: false,
+        separator: random ? "\n" : typeof block.separator === "string" ? block.separator : null,
+      }),
+      texts,
+    );
+  }
+}
+
 /** The pieces of a turn that can hold decision statements, most important first. */
 export interface TurnDecisionSources {
-  /** Preset sections, groups and choice blocks, when the turn uses a preset. */
-  preset?: unknown;
+  /** The preset, when the turn uses one. */
+  preset?: PresetDecisionParts;
   ctx: MacroContext;
   extra?: unknown[];
-  lorebookEntries?: Array<{ content?: unknown }>;
 }
 
 /**
  * Every text this turn resolves that could hold a decision statement. Generation and
  * Peek Prompt both call this, so they plan the same statements from the same sources.
  * Order matters: past the per-turn limit, the last statements found read as no.
+ * Lorebook entries are not here: their statements are asked once the scan knows which
+ * entries activate (see `createLorebookDecisionResolver`).
  */
 export function collectTurnDecisionTexts(sources: TurnDecisionSources): string[] {
   const texts: string[] = [];
-  if (sources.preset !== undefined) collectDecisionTexts(sources.preset, texts);
+  if (sources.preset) presetDecisionTexts(sources.preset, texts);
   collectDecisionTexts([sources.ctx.characterProfiles, sources.ctx.personaFields, ...(sources.extra ?? [])], texts);
-  collectDecisionTexts(
-    (sources.lorebookEntries ?? []).map((entry) => entry.content),
-    texts,
-  );
   return texts;
+}
+
+/**
+ * The statements `texts` can reach this turn, as written and as resolved. A statement
+ * behind a condition already settled without it, like `char == "Dottore"` while the
+ * character is Mira, is left out; anything that could still matter is kept.
+ */
+export function reachableDecisionStatements(texts: readonly string[], ctx: MacroContext): Set<string> {
+  const reachable = new Set<string>();
+  for (const text of texts)
+    for (const statement of planDecisionStatements(text, ctx).statements) reachable.add(statement);
+  return reachable;
 }
 
 /**
@@ -146,6 +207,8 @@ export function agentShapedDecisionContext(ctx: MacroContext): MacroContext {
 export function planPromptDecisions(
   groups: Array<{ texts: string[]; ctx: MacroContext }>,
   limit: number,
+  /** From `reachableDecisionStatements`: anything else is left out before the limit counts. */
+  reachable?: ReadonlySet<string>,
 ): PromptDecisionPlan {
   const byKey = new Map<string, PlannedDecision>();
   const optionKeys = new Map<string, Set<string>>();
@@ -155,7 +218,14 @@ export function planPromptDecisions(
   for (const { texts, ctx } of groups)
     for (const text of texts) {
       for (const collected of collectDecisionQuestions(text)) {
-        for (const key of resolveDecisionQuestionVariants(collected.question, ctx)) {
+        const variants = resolveDecisionQuestionVariants(collected.question, ctx);
+        if (
+          reachable &&
+          !reachable.has(normalizeDecisionQuestion(collected.question)) &&
+          !variants.some((key) => reachable.has(key))
+        )
+          continue;
+        for (const key of variants) {
           const id = `${collected.kind}\u0000${key}`;
           let planned = byKey.get(id);
           if (!planned) {
@@ -345,15 +415,16 @@ export async function answerAgentTemplateDecisions(args: {
 }
 
 /**
- * Answers lorebook entries' decision statements for activation (#6570). Each statement
- * is resolved in the turn's macro context and keyed like a prompt statement, so an
- * entry and a `{{#if decision:"..."}}` asking the same thing share one cached answer.
- * `answer` asks the Decision model (generation) or reads what the turn already has
- * (previews); a statement it has no answer for reads as no.
+ * Answers lorebook entries' decision statements for activation (#6570), and the
+ * `{{#if decision}}` statements in the text of entries about to activate (#6582). Each
+ * statement is resolved in the turn's macro context and keyed like a prompt statement,
+ * so an entry and a prompt asking the same thing share one cached answer. `answer`
+ * asks the Decision model (generation) or reads what the turn already has (previews);
+ * a statement it has no answer for reads as no.
  *
  * `limit` is what the turn has left for new statements, spent across every call (a
- * lorebook scan can ask twice). A statement in `freeKeys`, already planned by the
- * prompt and so already answered this turn, costs nothing.
+ * lorebook scan can ask several times). A statement in `freeKeys`, already planned by
+ * the prompt and so already answered this turn, costs nothing.
  */
 export function createLorebookDecisionResolver(args: {
   macroContext: MacroContext;
@@ -362,10 +433,23 @@ export function createLorebookDecisionResolver(args: {
   answer: (plan: PromptDecisionPlan) => Promise<MacroDecisionAnswers | undefined>;
   /** Told each statement that got no answer, for a preview's report. */
   onUnanswered?: (statement: string) => void;
+  /** Told each statement left out for the per-turn limit, for a preview's report. */
+  onDropped?: (statement: string) => void;
 }): LorebookDecisionResolver {
   const charged = new Set<string>();
   let remaining = args.limit;
-  return async (requests) => {
+  /** Whether a statement may be asked, charging the turn's limit unless it is already paid for. */
+  const admit = (key: string) => {
+    if (args.freeKeys?.has(key) || charged.has(key)) return true;
+    if (remaining <= 0) {
+      args.onDropped?.(key);
+      return false;
+    }
+    remaining -= 1;
+    charged.add(key);
+    return true;
+  };
+  const resolver: LorebookDecisionResolver = async (requests) => {
     const keyed = requests.map((request) => ({
       entryId: request.entryId,
       key: resolveDecisionQuestionText(request.statement, args.macroContext),
@@ -376,24 +460,42 @@ export function createLorebookDecisionResolver(args: {
     for (const { key } of keyed) {
       if (!key || seen.has(key)) continue;
       seen.add(key);
-      if (args.freeKeys?.has(key) || charged.has(key)) {
-        planned.push({ kind: "noul", key, options: [] });
-      } else if (remaining > 0) {
-        remaining -= 1;
-        charged.add(key);
-        planned.push({ kind: "noul", key, options: [] });
-      } else dropped.push(key);
+      if (admit(key)) planned.push({ kind: "noul", key, options: [] });
+      else dropped.push(key);
     }
     const plan: PromptDecisionPlan = { decisions: planned, dropped };
     const answers = plan.decisions.length > 0 ? await args.answer(plan) : undefined;
     const byEntry = new Map<string, boolean>();
     for (const { entryId, key } of keyed) {
       const answer = answers?.answers?.get(key);
-      if (answer === undefined) args.onUnanswered?.(key);
-      else byEntry.set(entryId, answer);
+      if (answer === undefined) {
+        if (!dropped.includes(key)) args.onUnanswered?.(key);
+      } else byEntry.set(entryId, answer);
     }
     return byEntry;
   };
+  resolver.answerStatements = async (texts) => {
+    const ctx = args.macroContext;
+    const all = planPromptDecisions(
+      [{ texts, ctx }],
+      Number.POSITIVE_INFINITY,
+      reachableDecisionStatements(texts, ctx),
+    );
+    const decisions = all.decisions.filter((decision) => admit(decision.key));
+    if (decisions.length === 0) return;
+    const dropped = all.decisions.filter((decision) => !decisions.includes(decision)).map((decision) => decision.key);
+    const answers = await args.answer({ decisions, dropped });
+    // Merged into the turn's answers object in place: the prompt builder and the agents
+    // hold this same object, so they see the new answers without being handed them.
+    const target = (ctx.decisions ??= {});
+    target.answers = new Map([...(target.answers ?? []), ...(answers?.answers ?? [])]);
+    target.choices = new Map([...(target.choices ?? []), ...(answers?.choices ?? [])]);
+    for (const decision of decisions)
+      if (!(decision.kind === "noul" ? answers?.answers : answers?.choices)?.has(decision.key))
+        args.onUnanswered?.(decision.key);
+  };
+  resolver.planText = (text) => planDecisionStatements(text, args.macroContext).text;
+  return resolver;
 }
 
 export { DECISION_CHOICE_NONE };

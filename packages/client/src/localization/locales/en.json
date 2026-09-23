@@ -5205,6 +5205,7 @@
   "ui.chat.peekpromptmodal.cached": "cached",
   "ui.chat.peekpromptmodal.cacheWrite": "cache write",
   "ui.chat.peekpromptmodal.closeAssembledPrompt": "Close assembled prompt",
+  "ui.chat.peekpromptmodal.decisionsDropped": "Decision statements past the per-turn limit, read as no: {{count}}. Raise Decision statements per turn under Decision model in the Connections panel, or use fewer decision blocks.",
   "ui.chat.peekpromptmodal.decisionsNoModel": "Decision statements that read as no because no Decision model is set: {{count}}. Choose one under Decision model in the Connections panel.",
   "ui.chat.peekpromptmodal.decisionsUnanswered": "Decision statements without an answer for this turn yet: {{count}}. This preview shows them as no. They are asked when a reply is generated.",
   "ui.chat.peekpromptmodal.estTokens": "est. tokens",

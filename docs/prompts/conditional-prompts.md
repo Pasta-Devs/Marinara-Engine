@@ -280,7 +280,13 @@ The recommended wordings scored 31 of 32 on Open-Jev 2B, 31 of 32 on Open-Jev 9B
 
 ### Limits and cost
 
-- **Statements per turn.** At most the number set under **Decision model** as **Decision statements per turn** (32 by default) are asked each turn. Past that, the rest read as no, and a warning is logged. On a hosted Decision connection each statement adds to a billed request; on a local model it only adds time.
+- **Statements per turn.** At most the number set under **Decision model** as **Decision statements per turn** (32 by default) are asked each turn. Only statements the turn can actually use count toward it:
+  - statements in enabled preset sections and groups, not disabled ones;
+  - statements in the preset variable options the chat has selected, not the others;
+  - statements in lorebook entries that activate this turn, not the rest of the lorebook;
+  - statements in blocks that something fixed for the turn has not already ruled out. In `{{#if char == "Dottore" && decision:"..."}}`, the statement is not asked while the character is Mira. A variable can change while the prompt is built, so a condition on a variable never rules a statement out.
+
+  Past the limit, the rest read as no, a warning is logged, and Peek Prompt lists them. On a hosted Decision connection each statement adds to a billed request; on a local model it only adds time.
 - **Time.** The same budgets as activation questions apply: the Decision connection's **Time limit** (1.5 seconds by default), and 4 seconds for a local model. A model that has to reason first holds off in front of the reply unless you turned on **Also gate agents that run before the reply**.
 - **Once per turn.** Answers are kept for the turn, so a regeneration or a swipe sends the same branches. The Decision model is only asked again when a new message arrives, or when you edit the newest message and regenerate. The one exception is post-processing agents, below: they read the finished reply, so their statements are asked once per reply.
 - **Prompt caching.** A provider's cache reuses the prompt only up to the first thing that changed since the last request; everything from there on is billed again at full price. A branch that changes from turn to turn is such a change, so where it sits decides how much stays cached. Put decision blocks late in the prompt, such as post-history instructions or author's notes, rather than at the top.
@@ -290,6 +296,8 @@ The recommended wordings scored 31 of 32 on Open-Jev 2B, 31 of 32 on Open-Jev 9B
   - **above the chat history** changes the system prompt, and the whole prompt is billed as new, plus the cost of writing the cache again;
   - **inside the last Cache depth messages**, such as post-history instructions or an author's note at a shallower depth, costs no cached tokens;
   - **in between**, such as an injection at depth 10 with the default Cache depth, keeps the system prompt cached but loses the cached history.
+
+  **If you make presets, be very careful and very purposeful with decision blocks near the top of a preset.** Every turn a block there changes its answer, the system prompt changes with it, and a caching provider bills the whole prompt as new. Keep decision blocks in post-history instructions or a shallow author's note where you can. Put one near the top only when its answer rarely changes and what it adds belongs there. The same goes for decision blocks inside preset variable options, since a variable's value lands wherever its `{{name}}` sits.
 
   Providers also have a minimum below which nothing is cached, for example 512 tokens on Claude Opus 5.5, 1,024 on Claude Sonnet 5 and on OpenAI's GPT-5.6, and 4,096 on Claude Haiku 4.5. Almost any preset is longer than that, so in practice where the first change sits matters far more.
 - **Agents.** In an agent's prompt, decisions for agents that run before or with the reply read the same turn as the prompt. For post-processing agents they read the finished reply as the latest message, so they are asked after the reply, and again when a regenerated swipe changes it. Re-running an agent, for example with a tracker's refresh button or by retrying a failed agent, reuses the answers its turn already has. See [Decision statements in the agent's prompt](../agents/custom-agents.md#decision-statements-in-the-agents-prompt).

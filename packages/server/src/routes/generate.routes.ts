@@ -5,6 +5,7 @@ import {
   createLorebookDecisionResolver,
   collectDecisionTexts,
   collectTurnDecisionTexts,
+  reachableDecisionStatements,
   planPromptDecisions,
   latestTurnDecisionId,
   promptDecisionCacheKey,
@@ -2686,11 +2687,12 @@ export async function generateRoutes(app: FastifyInstance) {
         };
         const decisionPresetParts =
           presetId && resolvedPreset && chatMode !== "conversation" && chatMode !== "game"
-            ? await Promise.all([
-                presets.listSections(presetId),
-                presets.listGroups(presetId),
-                presets.listChoiceBlocksForPreset(presetId),
-              ])
+            ? {
+                sections: await presets.listSections(presetId),
+                groups: await presets.listGroups(presetId),
+                choiceBlocks: await presets.listChoiceBlocksForPreset(presetId),
+                choices: chatChoices,
+              }
             : undefined;
         // Read once here and reused by the semantic lorebook check below.
         const decisionActiveLorebookEntries = await lorebooksStore.listActiveEntries({
@@ -2730,27 +2732,26 @@ export async function generateRoutes(app: FastifyInstance) {
                 )
               : []),
           ],
-          lorebookEntries: decisionActiveLorebookEntries as Array<{ content?: unknown }>,
         });
         // Every decision read before the reply is keyed to the newest message, id and text.
         const preReplyDecisionTurnId = latestTurnDecisionId(chatMessages);
         const promptDecisionPlan = planPromptDecisions(
           [{ texts: promptDecisionTexts, ctx: promptMacroContext }],
           promptDecisionLimit,
+          reachableDecisionStatements(promptDecisionTexts, promptMacroContext),
         );
-        if (promptDecisionTexts.length > 0) {
-          promptMacroContext.decisions = await answerDecisionPlan(
-            promptDecisionPlan,
-            decisionMessages(),
-            preReplyDecisionTurnId,
-          );
-        }
+        // Always an object: statements in activating lorebook entries are answered later
+        // and merged into it, and the prompt builder and agents hold this same object.
+        promptMacroContext.decisions =
+          (promptDecisionPlan.decisions.length > 0
+            ? await answerDecisionPlan(promptDecisionPlan, decisionMessages(), preReplyDecisionTurnId)
+            : undefined) ?? {};
         // Lorebook entries activated by a decision (#6570), asked like the prompt's
         // statements and keyed to the same turn, within what the per-turn limit has left.
         const lorebookDecisions = createLorebookDecisionResolver({
           macroContext: promptMacroContext,
           limit: Math.max(0, promptDecisionLimit - promptDecisionPlan.decisions.length),
-          freeKeys: new Set(promptDecisionPlan.decisions.filter((d) => d.kind === "noul").map((d) => d.key)),
+          freeKeys: new Set(promptDecisionPlan.decisions.map((d) => d.key)),
           answer: (plan) => answerDecisionPlan(plan, decisionMessages(), preReplyDecisionTurnId),
         });
         const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(
@@ -3011,13 +3012,11 @@ export async function generateRoutes(app: FastifyInstance) {
           const preset = resolvedPreset;
           wrapFormat = (preset.wrapFormat as "xml" | "markdown" | "none") || "xml";
           // Read once above, under the same condition, for decision statements.
-          const [sections, groups, choiceBlocks] =
-            decisionPresetParts ??
-            (await Promise.all([
-              presets.listSections(presetId),
-              presets.listGroups(presetId),
-              presets.listChoiceBlocksForPreset(presetId),
-            ]));
+          const { sections, groups, choiceBlocks } = decisionPresetParts ?? {
+            sections: await presets.listSections(presetId),
+            groups: await presets.listGroups(presetId),
+            choiceBlocks: await presets.listChoiceBlocksForPreset(presetId),
+          };
           for (const section of sections) {
             if (section.enabled !== "true" || section.isMarker !== "true" || !section.markerConfig) continue;
             try {

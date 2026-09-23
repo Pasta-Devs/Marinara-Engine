@@ -95,6 +95,11 @@ export interface MacroDecisionAnswers {
   choices?: ReadonlyMap<string, string>;
   /** Statements evaluated without an answer, for logging and Peek Prompt. */
   unanswered?: Set<string>;
+  /**
+   * Set only by a planning pass (`planDecisionStatements`). Every statement the pass
+   * could reach, both as written and as resolved, so a turn asks only what can matter.
+   */
+  planned?: Set<string>;
 }
 
 export interface ResolveMacroOptions {
@@ -1899,12 +1904,194 @@ export function selectConditionalPayloadBranch(
         { condition: null, content: (payload as ConditionalBlockPayload).falsy },
       ];
 
+  if (ctx.decisions?.planned) return planConditionalBranches(branches, ctx.decisions.planned, ctx, options);
   for (const branch of branches) {
     if (branch.condition === null || evaluateCondition(branch.condition, ctx, options)) {
       return branch.content;
     }
   }
   return "";
+}
+
+// ── Planning which decision statements a turn can reach ──────────────────────
+//
+// A normal pass reads a decision with no answer as false, and stops an `&&` at the
+// first false, so it cannot tell which statements matter before they are answered.
+// A planning pass reads every decision as unknown instead, keeps every branch that
+// could be taken, and records a statement only where its answer could change the
+// result. Values fixed for the turn (the character, the persona, the model, a card
+// field, a literal) still decide conditions, so a block they rule out is not asked
+// about. Anything that can change while the prompt is built, such as a variable
+// written by an earlier section, reads as unknown, so nothing that matters is missed.
+
+type PlanTruth = boolean | "unknown";
+type PlanResult = { value: PlanTruth; statements: string[] };
+
+/** Operands a planning pass can read now: fixed for the turn, whatever the prompt does. */
+const PLAN_FIXED_OPERAND_NAMES = new Set([
+  ...CHARACTER_CONDITIONAL_OPERAND_NAMES,
+  "user",
+  "username",
+  "userphonetic",
+  "usernamephonetic",
+  "persona",
+  "personadescription",
+  "personapersonality",
+  "personabackstory",
+  "personaappearance",
+  "personascenario",
+  "characters",
+  "group",
+  "input",
+  "model",
+  "chatid",
+  "description",
+  "personality",
+  "backstory",
+  "appearance",
+  "scenario",
+  "example",
+  "charsysinfo",
+  "charposthistory",
+]);
+
+/** Operands that differ between the characters of a group chat. */
+const PLAN_PER_CHARACTER_OPERAND_NAMES = new Set([
+  ...CHARACTER_CONDITIONAL_OPERAND_NAMES,
+  "description",
+  "personality",
+  "backstory",
+  "appearance",
+  "scenario",
+  "example",
+  "charsysinfo",
+  "charposthistory",
+]);
+
+/** An operand's value in a planning pass, or null when it is unknown. Decisions are recorded. */
+function planConditionOperand(
+  raw: string,
+  statements: string[],
+  ctx: MacroContext,
+  options: ResolveMacroOptions,
+): string | null {
+  const quoted = stripOuterQuotes(raw);
+  if (quoted !== null) return quoted;
+  const question = decisionQuestionFromOperand(raw) ?? decisionChoiceQuestionFromOperand(raw);
+  if (question !== null) {
+    // Both forms: as written, so every character's variant of a `{{char}}` statement
+    // is kept, and as resolved, for a pass that resolved the macro before this point.
+    const written = normalizeDecisionQuestion(question);
+    if (written) statements.push(written);
+    const resolved = resolveDecisionQuestionText(question, ctx);
+    if (resolved && resolved !== written) statements.push(resolved);
+    return null;
+  }
+  const token = raw.trim();
+  if (/^-?\d+(?:\.\d+)?$/u.test(token)) return token;
+  const key = normalizeConditionKey(token);
+  if (!PLAN_FIXED_OPERAND_NAMES.has(key)) return null;
+  const group = (ctx.characterProfiles?.length ?? 0) > 1 || ctx.characters.length > 1;
+  if (group && PLAN_PER_CHARACTER_OPERAND_NAMES.has(key)) return null;
+  return resolveConditionalOperand(raw, ctx, options);
+}
+
+function planConditionAtom(
+  atom: string,
+  equalityShorthand: EqualityShorthand | null,
+  ctx: MacroContext,
+  options: ResolveMacroOptions,
+): PlanResult & { equalityShorthand: EqualityShorthand | null } {
+  const parsed = parseConditionExpression(atom);
+  let effective = parsed;
+  let nextShorthand = equalityShorthand;
+  if (["=", "==", "is"].includes(parsed.operator) && parsed.right !== undefined) {
+    nextShorthand = { left: parsed.left, operator: parsed.operator };
+  } else if (equalityShorthand && parsed.operator === "truthy" && stripOuterQuotes(parsed.left) !== null) {
+    effective = { ...equalityShorthand, right: parsed.left };
+  }
+  const statements: string[] = [];
+  const left = planConditionOperand(effective.left, statements, ctx, options);
+  const right =
+    effective.operator === "truthy" ? "" : planConditionOperand(effective.right ?? "", statements, ctx, options);
+  let value: PlanTruth;
+  if (left === null || right === null) value = "unknown";
+  else if (effective.operator === "truthy")
+    value = left.trim().length > 0 && !/^(false|0|no|off|null|undefined)$/i.test(left);
+  else value = compareConditionValues(left, effective.operator, right);
+  return { value, statements, equalityShorthand: nextShorthand };
+}
+
+/**
+ * A condition's value with decisions unknown, and the statements whose answers could
+ * change it. A statement behind a part that already settles the result is dropped:
+ * `char == "Dottore" && decision:"..."` asks nothing while the character is Mira.
+ */
+function planCondition(node: ConditionSyntaxNode, ctx: MacroContext, options: ResolveMacroOptions): PlanResult {
+  if (node.kind === "atom" || node.kind === "adjacent")
+    return planConditionAtom(conditionSyntaxAtomValue(node)!, null, ctx, options);
+  if (node.kind === "group") return planCondition(node.child, ctx, options);
+  const settles = node.kind === "and" ? false : true;
+  const statements: string[] = [];
+  let unknown = false;
+  let equalityShorthand: EqualityShorthand | null = null;
+  for (const child of node.children) {
+    let result: PlanResult;
+    if (node.kind === "or" && (child.kind === "atom" || child.kind === "adjacent")) {
+      const atom = planConditionAtom(conditionSyntaxAtomValue(child)!, equalityShorthand, ctx, options);
+      equalityShorthand = atom.equalityShorthand;
+      result = atom;
+    } else {
+      result = planCondition(child, ctx, options);
+    }
+    if (result.value === settles) return { value: settles, statements: [] };
+    if (result.value === "unknown") unknown = true;
+    statements.push(...result.statements);
+  }
+  return { value: unknown ? "unknown" : !settles, statements };
+}
+
+/** Every branch a planning pass could take, joined, recording the statements that decide between them. */
+function planConditionalBranches(
+  branches: ConditionalBranchPayload[],
+  planned: Set<string>,
+  ctx: MacroContext,
+  options: ResolveMacroOptions,
+): string {
+  const reached: string[] = [];
+  for (const branch of branches) {
+    if (branch.condition === null) {
+      reached.push(branch.content);
+      break;
+    }
+    const result = planCondition(parseConditionSyntax(branch.condition), ctx, options);
+    for (const statement of result.statements) planned.add(statement);
+    if (result.value === false) continue;
+    reached.push(branch.content);
+    if (result.value === true) break;
+  }
+  return reached.join("\n");
+}
+
+/**
+ * The decision statements `template` can reach this turn, with every other value in
+ * `ctx` as it is. Nothing is written back: variables are copied, and no decision is
+ * answered. `text` is the template with every branch that could be taken, which a
+ * lorebook scan can search for keywords.
+ */
+export function planDecisionStatements(template: string, ctx: MacroContext): { text: string; statements: Set<string> } {
+  const planned = new Set<string>();
+  const text = resolveMacros(
+    template,
+    {
+      ...ctx,
+      variables: { ...ctx.variables },
+      ...(ctx.localVariables ? { localVariables: { ...ctx.localVariables } } : {}),
+      decisions: { answers: new Map(), choices: new Map(), unanswered: new Set(), planned },
+    },
+    { trimResult: false },
+  );
+  return { text, statements: planned };
 }
 
 function resolveVariableOperationMacros(input: string, ctx: MacroContext, options: ResolveMacroOptions): string {
