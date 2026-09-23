@@ -174,7 +174,7 @@ Together, an agent can skip quiet turns entirely and send a smaller prompt on th
 How it runs:
 
 - Pre-generation and parallel agents read the chat before the reply, the same turn the main prompt reads, and share its answers. Post-processing agents read the finished reply as the latest message, and their statements are asked again with it.
-- **Retry agents** reuses the answers its turn already has, and asks only what that turn never asked.
+- Re-running an agent, for example with a tracker's refresh button, by retrying a failed agent, or with **Re-run** on an injection, reuses the answers its turn already has and asks only what that turn never asked.
 - In an agent prompt, `{{char}}` names every character in the chat at once, so in a group `{{char}} is angry` becomes "Kaelen, Alyssa is angry". Name the character, or write "a character".
 - With no answer, a statement reads as no. The agent must still do something sensible with its `{{else}}` branch, because many users will not have a Decision model.
 
