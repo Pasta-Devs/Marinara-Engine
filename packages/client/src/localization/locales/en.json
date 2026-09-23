@@ -675,6 +675,8 @@
   "connections.decision.saveFailed": "Could not save the Decision connection.",
   "connections.decision.separateKey": "Enter a separate key (optional for local servers)",
   "connections.decision.shortcut": "Use this key for decisions (Jev)",
+  "connections.decision.smartOrder": "Also use it to pick who speaks in Smart response order",
+  "connections.decision.smartOrderHelp": "Asks the decision model about each character separately instead of sending one request to your agents connection. Faster and cheaper, but it cannot weigh the characters against each other. If it does not answer, the agents connection picks as before.",
   "connections.decision.source": "Decision source",
   "connections.decision.sources.custom": "Custom System One endpoint",
   "connections.decision.sources.openrouter": "OpenRouter",

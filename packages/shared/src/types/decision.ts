@@ -205,3 +205,10 @@ export const DECISION_LOCAL_DEFAULT_SETTINGS_KEY = "decision-local-default";
  * screen and are unaffected.
  */
 export const DECISION_THINKING_PREGENERATION_SETTINGS_KEY = "decision-thinking-pregeneration";
+
+/**
+ * Whether Smart response order asks the Decision model who should speak, instead of a
+ * chat completion. Off by default: it trades the chat model's multi-candidate reasoning
+ * for a cheaper, faster yes/no per candidate, and that trade is the user's to make.
+ */
+export const DECISION_SMART_ORDER_SETTINGS_KEY = "decision-smart-order";

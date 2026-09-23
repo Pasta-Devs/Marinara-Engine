@@ -87,6 +87,8 @@ When **Mode** is **Individual**, a **Response Order** setting appears. It is a t
 
 - **Sequential** is the default. Every character replies in turn, in the order they appear in the **Characters** list. Reorder the members to change the turn order.
 - **Smart** uses a short hidden AI call to decide which character or characters should reply next. It reads the recent messages and each character's details, and usually picks one speaker. If you write an at-mention like `@Alice` in your message, that overrides its choice.
+
+  If you have chosen a **Decision model** (see [Custom Agents](../agents/custom-agents.md)), you can turn on **Also use it to pick who speaks in Smart response order** under it. Smart order then asks the decision model a yes/no question about each character instead of making a full AI call. That is faster and cheaper, but it judges each character on their own rather than weighing them against each other. In Roleplay it picks the most likely speaker. In Conversation everyone with a reason replies, most likely first. The character who just spoke waits their turn if someone else has a reason to answer. If the decision model does not answer, Smart order makes its usual AI call instead.
 - **Manual** stops any automatic reply. You choose exactly who replies using the **Trigger Response** picker in the message bar.
 
 With **Smart** order, the AI can line up more than one character. Only the first one replies right away. To pick who speaks next, use the **Trigger Response** picker in the message bar. You can also send an empty message to generate the next queued character.

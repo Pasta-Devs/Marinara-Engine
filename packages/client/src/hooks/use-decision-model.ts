@@ -16,6 +16,7 @@ export const decisionKeys = {
   all: ["decision"] as const,
   options: () => [...decisionKeys.all, "options"] as const,
   thinkingPreGeneration: () => [...decisionKeys.all, "thinking-pregeneration"] as const,
+  smartOrder: () => [...decisionKeys.all, "smart-order"] as const,
 };
 
 /**
@@ -101,5 +102,21 @@ export function useSetThinkingPreGeneration() {
   return useMutation({
     mutationFn: (enabled: boolean) => api.post("/decision/thinking-pregeneration", { enabled }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: decisionKeys.thinkingPreGeneration() }),
+  });
+}
+
+export function useDecisionSmartOrder() {
+  return useQuery({
+    queryKey: decisionKeys.smartOrder(),
+    queryFn: () => api.get<{ enabled: boolean }>("/decision/smart-order"),
+    staleTime: 60_000,
+  });
+}
+
+export function useSetDecisionSmartOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) => api.post("/decision/smart-order", { enabled }),
+    onSettled: () => void qc.invalidateQueries({ queryKey: decisionKeys.smartOrder() }),
   });
 }

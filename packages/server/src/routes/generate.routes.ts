@@ -1,5 +1,11 @@
 import { DECISION_SETTINGS_KEYS, resolveDecisionBackend } from "../services/decision/decision-default.js";
 import {
+  chooseSmartResponders,
+  smartOrderQuestions,
+  smartOrderState,
+  type SmartOrderCandidate,
+} from "../services/generation/smart-group-decision.js";
+import {
   activationQuestionSettings,
   bypassActivationQuestion,
   evaluateActivationQuestions,
@@ -6414,9 +6420,91 @@ export async function generateRoutes(app: FastifyInstance) {
           return selected;
         };
 
+        const findLastSpeakerId = (): string | null =>
+          ([...chatMessages]
+            .reverse()
+            .find((message: any) => message.role === "assistant" && typeof message.characterId === "string")
+            ?.characterId as string | undefined) ?? null;
+
+        /**
+         * Smart order answered by the Decision model, when the user turned that on.
+         *
+         * Null means "ask the chat model as before": the switch is off, no decision
+         * model is chosen, it did not answer, or it is a reasoning model that would hold
+         * up the reply. The chat-model selector stays the floor, so this can only save a
+         * call, never lose a turn.
+         */
+        const selectSmartGroupRespondersByDecision = async (): Promise<string[] | null> => {
+          try {
+            if ((await appSettings.get(DECISION_SETTINGS_KEYS.smartOrder)) !== "true") return null;
+            const backend = await resolveDecisionBackend(
+              {
+                getLocalDefault: () => appSettings.get(DECISION_SETTINGS_KEYS.localDefault),
+                getThinkingPreGeneration: async () =>
+                  (await appSettings.get(DECISION_SETTINGS_KEYS.thinkingPreGeneration)) === "true",
+                getDefaultConnection: () => connections.getDefaultForDecision(),
+                getConnectionWithKey: (id) => connections.getWithKey(id),
+                debugMode: requestDebug,
+              },
+              abortController.signal,
+            );
+            // Picking a speaker sits in front of the reply, exactly like a
+            // pre-generation gate, so a reasoning model defers here on the same terms.
+            if (!backend || backend.deferPreGeneration) return null;
+            const candidates: SmartOrderCandidate[] = availableGroupCharacters.map((character) => {
+              const presence = conversationCharacterPresenceById.get(character.id);
+              return {
+                id: character.id,
+                name: presence?.displayName ?? character.name,
+                status: presence?.status,
+                activity: presence?.activity,
+                talkativeness: presence?.talkativeness ?? Math.round(character.talkativeness * 100),
+                about: character.personality || character.description || undefined,
+              };
+            });
+            const transcript = chatMessages
+              .filter((message: any) => message.role === "user" || message.role === "assistant")
+              .map((message: any) => ({
+                role: message.role as string,
+                name: resolveMessageSpeakerName(message),
+                content: stripConversationPromptTimestamps(conversationPromptHistoryContent(message, chatMode)),
+              }));
+            const answers = await backend.ask(
+              smartOrderState(transcript, candidates, backend.maxStateTokens),
+              smartOrderQuestions(candidates),
+            );
+            if (!answers) return null;
+            const chosen = chooseSmartResponders({
+              answers,
+              candidateIds: candidates.map((candidate) => candidate.id),
+              lastSpeakerId: findLastSpeakerId(),
+              threshold: backend.calibration.defaultThreshold,
+              mode: chatMode === "conversation" ? "conversation" : "roleplay",
+            });
+            if (chosen)
+              logger.debug(
+                "[group-smart] Decision model chose %s for chat %s (%s)",
+                chosen.map((id) => charInfo.find((character) => character.id === id)?.name ?? id).join(", "),
+                input.chatId,
+                candidates.map((candidate) => `${candidate.name}=${answers.get(candidate.id)?.toFixed(3)}`).join(" "),
+              );
+            return chosen;
+          } catch (error) {
+            logger.warn(
+              { err: error, chatId: input.chatId },
+              "[group-smart] Decision model failed; asking the chat model",
+            );
+            return null;
+          }
+        };
+
         const selectSmartGroupResponders = async (): Promise<string[]> => {
           const explicitMentionIds = getExplicitlyMentionedCharacterIds();
           if (explicitMentionIds.length > 0) return explicitMentionIds;
+
+          const decided = await selectSmartGroupRespondersByDecision();
+          if (abortController.signal.aborted) return [];
+          if (decided && decided.length > 0) return decided;
 
           const recentTranscript = chatMessages
             .filter((message: any) => message.role === "user" || message.role === "assistant")
@@ -6567,10 +6655,7 @@ export async function generateRoutes(app: FastifyInstance) {
         };
 
         const selectFallbackSmartGroupResponder = (): string[] => {
-          const lastAssistantCharacterId = [...chatMessages]
-            .reverse()
-            .find((message: any) => message.role === "assistant" && typeof message.characterId === "string")
-            ?.characterId as string | undefined;
+          const lastAssistantCharacterId = findLastSpeakerId();
           const fallback =
             availableGroupCharacters.find((character) => character.id !== lastAssistantCharacterId)?.id ??
             availableGroupCharacters[0]?.id ??

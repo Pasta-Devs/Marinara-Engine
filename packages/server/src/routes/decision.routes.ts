@@ -17,6 +17,7 @@ import {
   DECISION_LOCAL_SLOTS,
   DECISION_LOCAL_SLOT_IDS,
   DECISION_THINKING_MODES,
+  DECISION_SMART_ORDER_SETTINGS_KEY,
   DECISION_THINKING_PREGENERATION_SETTINGS_KEY,
   decisionLocalSlotForId,
   DECISION_SIDECAR_SETTINGS_KEY,
@@ -500,6 +501,24 @@ export async function decisionRoutes(app: FastifyInstance) {
     const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body);
     if (enabled) await settings.set(DECISION_THINKING_PREGENERATION_SETTINGS_KEY, "true");
     else await settings.remove(DECISION_THINKING_PREGENERATION_SETTINGS_KEY);
+    return { enabled };
+  });
+
+  /**
+   * Whether Smart response order asks the Decision model who should speak.
+   *
+   * Off by default. The chat-model selector remains the fallback whenever the Decision
+   * model is unset or does not answer, so turning this on can save a call per turn but
+   * never leaves a turn without a speaker.
+   */
+  app.get("/smart-order", async () => ({
+    enabled: (await settings.get(DECISION_SMART_ORDER_SETTINGS_KEY)) === "true",
+  }));
+
+  app.post("/smart-order", async (req) => {
+    const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body);
+    if (enabled) await settings.set(DECISION_SMART_ORDER_SETTINGS_KEY, "true");
+    else await settings.remove(DECISION_SMART_ORDER_SETTINGS_KEY);
     return { enabled };
   });
 

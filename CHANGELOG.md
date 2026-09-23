@@ -8,6 +8,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Development servers, scripts and regression specs no longer stay open after finishing when they log while the log worker is still starting; this intermittently failed the image-dimension regression. The regression summary also names every file that did not pass (#6529).
 
+- Smart response order in group chats can ask your Decision model who should speak, one yes/no question per character, instead of making a full AI call each turn. Turn it on under **Decision model** in the Connections panel. It is off by default. If the decision model does not answer, Smart order makes its usual AI call (#6559).
+
 - Advanced Recall cutoff summaries report activity in the Agents menu and preserve each character POV without duplicating summary conditions (#6557).
 
 - Message voice controls share a compact audio menu. Clear cached voice removes only that message’s audio and regenerates it on the next playback, without discarding other chats’ saved voice lines (#6514).

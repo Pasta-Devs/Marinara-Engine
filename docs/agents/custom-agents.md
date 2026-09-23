@@ -144,6 +144,8 @@ Something has to answer that question. Pick it once, under **Decision model** in
 
 Entries that cannot answer right now stay in the list, greyed out with the reason, so you can see what to fix.
 
+Once a model is chosen, **Also use it to pick who speaks in Smart response order** lets the same model choose the next speaker in group chats. It is off by default. See [Group Chats](../chats/group-chats.md#response-order-individual-only).
+
 ### Use a model you already run
 
 If you have a local model in **Local Model**, you can gate agents with it and never create a connection or pay for a request.
