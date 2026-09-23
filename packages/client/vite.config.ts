@@ -139,6 +139,7 @@ export default defineConfig({
           devOptions: { enabled: false },
           manifest: false, // We use the static manifest.json in public/
           workbox: {
+            importScripts: ["notification-events.js"],
             // Intentionally exclude html so index.html is not precached and does not interfere with the PWA stale-version/update flow.
             globPatterns: ["**/*.{js,css,json,png,svg,ico,woff2}"],
             navigateFallback: null,

@@ -20,31 +20,39 @@ function getHitTarget(event: ReactPointerEvent): EventTarget | null {
  * or ends across boundaries must not be interpreted as an outside click.
  */
 export function useBackdropDismiss<T extends HTMLElement>(onDismiss: () => void, disabled = false) {
+  const pointerIdRef = useRef<number | null>(null);
   const pointerStartedOnBackdropRef = useRef(false);
   const pointerEndedOnBackdropRef = useRef(false);
 
   const onPointerDownCapture = useCallback((event: ReactPointerEvent<T>) => {
-    pointerStartedOnBackdropRef.current = isBackdropTarget(event.currentTarget, event.target);
+    // A second finger cancels dismissal instead of borrowing the first finger's release.
+    pointerIdRef.current = event.isPrimary ? event.pointerId : null;
+    pointerStartedOnBackdropRef.current = event.isPrimary && isBackdropTarget(event.currentTarget, event.target);
     pointerEndedOnBackdropRef.current = false;
   }, []);
 
   const onPointerUpCapture = useCallback((event: ReactPointerEvent<T>) => {
     const releaseTarget = getHitTarget(event);
-    pointerEndedOnBackdropRef.current = isBackdropTarget(event.currentTarget, releaseTarget);
+    pointerEndedOnBackdropRef.current =
+      event.pointerId === pointerIdRef.current && isBackdropTarget(event.currentTarget, releaseTarget);
   }, []);
 
   const onPointerCancelCapture = useCallback(() => {
+    pointerIdRef.current = null;
     pointerStartedOnBackdropRef.current = false;
     pointerEndedOnBackdropRef.current = false;
   }, []);
 
   const onClick = useCallback(
     (event: ReactMouseEvent<T>) => {
+      const clickPointerId = "pointerId" in event.nativeEvent ? event.nativeEvent.pointerId : null;
       const shouldDismiss =
         !disabled &&
+        (clickPointerId === null || clickPointerId === pointerIdRef.current) &&
         pointerStartedOnBackdropRef.current &&
         pointerEndedOnBackdropRef.current &&
         isBackdropTarget(event.currentTarget, event.target);
+      pointerIdRef.current = null;
       pointerStartedOnBackdropRef.current = false;
       pointerEndedOnBackdropRef.current = false;
       if (shouldDismiss) onDismiss();
