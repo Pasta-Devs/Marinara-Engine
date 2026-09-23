@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Agent history lookups no longer compare every loaded agent run with every loaded message, preventing long server stalls as more chats are opened (#6562).
+
 - Development servers, scripts and regression specs no longer stay open after finishing when they log while the log worker is still starting; this intermittently failed the image-dimension regression. The regression summary also names every file that did not pass (#6529).
 
 - Advanced Recall cutoff summaries report activity in the Agents menu and preserve each character POV without duplicating summary conditions (#6557).
