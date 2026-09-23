@@ -452,6 +452,14 @@ export interface ScanOptions {
   recursionPass?: boolean;
   /** Shared per-generation probability rolls, including recursive scan passes. */
   probabilityDecisions?: Map<string, boolean>;
+  /**
+   * Decision activation (#6570): the Decision model's answer for each entry's
+   * statement, by entry id. An entry with no answer here does not activate on its
+   * statement, and is added to `pendingDecisions` so the caller can ask and scan again.
+   */
+  decisionAnswers?: ReadonlyMap<string, boolean>;
+  /** Filled with the ids of entries whose activation waits on an unanswered statement. */
+  pendingDecisions?: Set<string>;
   /** Random source for probability gates; injectable for deterministic tests. */
   random?: () => number;
 }
@@ -485,7 +493,21 @@ export function scanForActivatedEntries(
     recursionPass = false,
     probabilityDecisions = new Map<string, boolean>(),
     random = Math.random,
+    decisionAnswers,
+    pendingDecisions,
   } = options;
+  // Decision activation (#6570). Asked only once an entry would otherwise activate,
+  // after its filters, timing, keywords and probability roll, so a statement is never
+  // paid for when the entry would be skipped anyway. No answer reads as no.
+  const decisionIsYes = (entry: LorebookEntry): boolean => {
+    const answer = decisionAnswers?.get(entry.id);
+    if (answer === undefined) pendingDecisions?.add(entry.id);
+    return answer === true;
+  };
+  const requiresDecision = (entry: LorebookEntry) =>
+    entry.decisionMode === "require" && entry.decisionStatement?.trim().length > 0;
+  const triggersOnDecision = (entry: LorebookEntry) =>
+    entry.decisionMode === "trigger" && entry.decisionStatement?.trim().length > 0;
   const filterContext: LorebookFilterValueContext = {
     activeCharacterIds: makeValueSet(activeCharacterIds),
     activeCharacterTags: makeValueSet(activeCharacterTags),
@@ -561,6 +583,7 @@ export function scanForActivatedEntries(
     // context filters, activation conditions, schedule, and probability gates.
     if (entry.constant) {
       if (!passesEntryProbability(entry)) continue;
+      if (requiresDecision(entry) && !decisionIsYes(entry)) continue;
       activated.push({
         entry,
         matchedKeys: ["[constant]"],
@@ -579,20 +602,38 @@ export function scanForActivatedEntries(
       regexExecutor: vmRegexExecutor,
     };
 
+    // A Trigger statement can activate the entry whenever its keywords do not: the
+    // primary keys miss, or they match but the secondary-key logic rejects them.
+    const tryDecisionTrigger = () => {
+      if (!triggersOnDecision(entry) || !passesEntryProbability(entry) || !decisionIsYes(entry)) return;
+      activated.push({
+        entry,
+        matchedKeys: ["[decision]"],
+        activationSources: ["decision"],
+        injectionOrder: entry.order,
+      });
+      activatedIds.add(entry.id);
+    };
+
     // Test primary keys
     const { matched, matchedKeys } = testPrimaryKeys(entry.keys, entryScanText, matchOptions);
-    if (!matched) continue;
+    if (!matched) {
+      tryDecisionTrigger();
+      continue;
+    }
     const matchedCurrentContext =
       latestUserText.length > 0 ? testPrimaryKeys(entry.keys, latestUserText, matchOptions).matched : false;
 
     // Test secondary keys (selective mode)
     if (entry.selective && entry.secondaryKeys.length > 0) {
       if (!testSecondaryKeys(entry.secondaryKeys, entryScanText, entry.selectiveLogic, matchOptions)) {
+        tryDecisionTrigger();
         continue;
       }
     }
 
     if (!passesEntryProbability(entry)) continue;
+    if (requiresDecision(entry) && !decisionIsYes(entry)) continue;
 
     activated.push({
       entry,
@@ -673,11 +714,28 @@ export function scanForActivatedEntries(
     }
 
     const semanticCountsByLorebookId = new Map<string, number>();
+    // Require statements are asked in similarity order, and only for as many matches as
+    // could still be selected, so a weaker match never takes a stronger one's question.
+    const pendingCountsByLorebookId = new Map<string, number>();
     for (const candidate of semanticCandidates.sort((a, b) => b.similarity - a.similarity)) {
       const lorebookId = candidate.entry.lorebookId;
       const maxMatches = semanticMaxMatchesByLorebookId.get(lorebookId) ?? LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_DEFAULT;
       const selectedCount = semanticCountsByLorebookId.get(lorebookId) ?? 0;
-      if (selectedCount >= maxMatches) continue;
+      const pendingCount = pendingCountsByLorebookId.get(lorebookId) ?? 0;
+      if (selectedCount + pendingCount >= maxMatches) continue;
+      if (requiresDecision(candidate.entry)) {
+        const answer = decisionAnswers?.get(candidate.entry.id);
+        if (answer === undefined) {
+          // Only a pre-scan can still ask it, so only a pre-scan holds its slot; in
+          // the final scan an unanswered statement is a no and frees the slot.
+          if (pendingDecisions) {
+            pendingDecisions.add(candidate.entry.id);
+            pendingCountsByLorebookId.set(lorebookId, pendingCount + 1);
+          }
+          continue;
+        }
+        if (!answer) continue;
+      }
       activated.push({
         entry: candidate.entry,
         matchedKeys: [`[semantic:${candidate.similarity.toFixed(3)}]`],
@@ -710,6 +768,8 @@ export function recursiveScan(
   entries: LorebookEntry[],
   options: ScanOptions = {},
   maxDepth: number = 3,
+  /** Which entries take part in recursion, both driving it and being reached by it. */
+  canRecurse: (entry: LorebookEntry) => boolean = () => true,
 ): ActivatedEntry[] {
   const probabilityDecisions = options.probabilityDecisions ?? new Map<string, boolean>();
   const scanOptions = { ...options, probabilityDecisions };
@@ -720,14 +780,14 @@ export function recursiveScan(
   for (let depth = 0; depth < maxDepth; depth++) {
     // Build text from newly activated entries, excluding those with preventRecursion
     const newContent = newlyActivated
-      .filter((a) => !a.entry.preventRecursion)
+      .filter((a) => !a.entry.preventRecursion && canRecurse(a.entry))
       .map((a) => a.entry.content)
       .join("\n");
 
     if (!newContent) break;
 
     // Scan remaining entries against the content of activated entries
-    const remaining = entries.filter((e) => !activatedIds.has(e.id) && !e.excludeRecursion);
+    const remaining = entries.filter((e) => !activatedIds.has(e.id) && !e.excludeRecursion && canRecurse(e));
     const newMessages: ScanMessage[] = [{ role: "system", content: newContent }];
     const newActivated = scanForActivatedEntries(newMessages, remaining, {
       ...scanOptions,

@@ -41,6 +41,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useUpdateLorebookEntry, useDeleteLorebookEntry, useDuplicateLorebookEntry } from "../../hooks/use-lorebooks";
 import { useUIStore } from "../../stores/ui.store";
 import { MacroTextarea } from "../ui/MacroTextarea";
+import { DecisionStatementNote } from "../ui/DecisionStatementNote";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import type {
   LorebookEntry,
@@ -1289,6 +1290,8 @@ function buildEntrySavePayload(form: Partial<LorebookEntry>) {
     excludeRecursion: form.excludeRecursion,
     delayUntilRecursion: form.delayUntilRecursion,
     excludeFromVectorization: form.excludeFromVectorization,
+    decisionStatement: form.decisionStatement,
+    decisionMode: form.decisionMode,
   };
 }
 
@@ -1626,6 +1629,61 @@ function ExpandedDrawer({
               </button>
             ))}
           </div>
+        </FieldGroup>
+
+        {/* Decision activation (#6570) */}
+        <FieldGroup
+          label={localizeUi("ui.lorebooks.expandeddrawer.decision")}
+          icon={Sparkles}
+          help={localizeUi("ui.lorebooks.expandeddrawer.decisionHelp")}
+        >
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(
+              [
+                ["off", localizeUi("ui.lorebooks.expandeddrawer.decisionModeOff")],
+                ["require", localizeUi("ui.lorebooks.expandeddrawer.decisionModeRequire")],
+                ["trigger", localizeUi("ui.lorebooks.expandeddrawer.decisionModeTrigger")],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={(form.decisionMode ?? "off") === mode}
+                onClick={() => update({ decisionMode: mode })}
+                className={cn(
+                  "rounded-md px-2 py-0.5 text-[0.6875rem] font-medium transition-colors",
+                  (form.decisionMode ?? "off") === mode
+                    ? "mari-chrome-accent-surface mari-accent-animated"
+                    : "text-[var(--muted-foreground)] hover:bg-[var(--marinara-editor-control-bg-hover)]",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {(form.decisionMode ?? "off") !== "off" && (
+            <>
+              <textarea
+                value={form.decisionStatement ?? ""}
+                onChange={(event) => update({ decisionStatement: event.target.value })}
+                onBlur={flushAutosave}
+                maxLength={500}
+                rows={2}
+                aria-label={localizeUi("ui.lorebooks.expandeddrawer.decisionStatement")}
+                className="mari-editor-field mt-2 w-full resize-y px-2.5 py-2 text-xs"
+                placeholder={localizeUi("ui.lorebooks.expandeddrawer.decisionStatementPlaceholder")}
+              />
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                {form.decisionMode === "trigger"
+                  ? localizeUi("ui.lorebooks.expandeddrawer.decisionTriggerHint")
+                  : localizeUi("ui.lorebooks.expandeddrawer.decisionRequireHint")}
+              </p>
+              <DecisionStatementNote
+                active={(form.decisionStatement ?? "").trim().length > 0}
+                message={localizeUi("ui.lorebooks.expandeddrawer.decisionModelMissing")}
+              />
+            </>
+          )}
         </FieldGroup>
       </div>
 

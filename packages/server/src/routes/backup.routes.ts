@@ -45,6 +45,7 @@ import {
   MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY,
   normalizePersonalExtensionCapabilities,
   type ExportEnvelope,
+  parseLorebookDecisionActivation,
 } from "@marinara-engine/shared";
 import { getDataDir } from "../utils/data-dir.js";
 import { getFileStorageDir } from "../config/runtime-config.js";
@@ -492,6 +493,7 @@ function buildCompatibleLorebookExport(lb: Record<string, any>) {
       preventRecursion: entry.preventRecursion === true,
       excludeRecursion: entry.excludeRecursion === true,
       delayUntilRecursion: entry.delayUntilRecursion === true,
+      ...parseLorebookDecisionActivation(entry),
     };
   });
 

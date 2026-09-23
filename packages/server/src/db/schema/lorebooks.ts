@@ -179,6 +179,11 @@ export const lorebookEntries = fileTable("lorebook_entries", {
   /** When true, bulk vectorization skips this entry and semantic matching ignores stored vectors */
   excludeFromVectorization: text("exclude_from_vectorization").notNull().default("false"),
 
+  /** Decision activation (#6570): a statement the Decision model answers about the recent chat. */
+  decisionStatement: text("decision_statement").notNull().default(""),
+  /** How the statement acts: "off", "require" (must also be true) or "trigger" (can activate alone). */
+  decisionMode: text("decision_mode").notNull().default("off"),
+
   /** Pre-computed embedding vector (JSON array of floats) for semantic matching; held in memory as a packed Float64Array (#5592). */
   embedding: vectorText("embedding"),
   /** Stable provider/model/profile identity for the stored embedding */

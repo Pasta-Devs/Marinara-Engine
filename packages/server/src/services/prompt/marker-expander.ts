@@ -24,7 +24,12 @@ import type {
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createAgentsStorage } from "../storage/agents.storage.js";
 import { getCustomAgentImportPolicy } from "../agents/custom-agent-import-policy.service.js";
-import { processLorebooks, type LorebookFinalContentResolver, type LorebookScanResult } from "../lorebook/index.js";
+import {
+  processLorebooks,
+  type LorebookDecisionResolver,
+  type LorebookFinalContentResolver,
+  type LorebookScanResult,
+} from "../lorebook/index.js";
 import { COMMITTED_TRACKER_AGENT_TYPES } from "../generation/committed-tracker-context.js";
 import { cardPromptText } from "./card-text.js";
 import { wrapContent } from "./format-engine.js";
@@ -95,6 +100,8 @@ export interface MarkerContext {
   previewOnly?: boolean;
   /** Resolves prompt macros for final included lorebook entries. May apply macro side effects. */
   resolveLorebookContent?: LorebookFinalContentResolver;
+  /** Answers entries' decision statements (#6570); omitted, decision entries read as no. */
+  resolveLorebookDecisions?: LorebookDecisionResolver;
   /** Standard prompt macro context used before escaping marker leaf text. */
   macroCtx: MacroContext;
   /** Collector for lorebook depth entries — populated during expansion, consumed by the assembler. */
@@ -413,6 +420,7 @@ export async function ensureLorebookScan(ctx: MarkerContext): Promise<LorebookSc
         generationTriggers: ctx.generationTriggers ?? ["chat"],
         previewOnly: ctx.previewOnly === true,
         resolveContent: ctx.resolveLorebookContent,
+        resolveDecisions: ctx.resolveLorebookDecisions,
       },
     ));
 

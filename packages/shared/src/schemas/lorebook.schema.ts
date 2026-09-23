@@ -24,6 +24,22 @@ export const lorebookScopeSchema = z.object({
 export const selectiveLogicSchema = z.enum(["and", "and_all", "or", "not", "not_all"]);
 
 export const lorebookFilterModeSchema = z.enum(["any", "include", "exclude"]);
+export const lorebookDecisionModeSchema = z.enum(["off", "require", "trigger"]);
+
+/**
+ * An entry's decision activation (#6570) from any source: a stored row, an import or a
+ * copy. An unknown mode is `off`, and the statement keeps the 500-character limit.
+ */
+export function parseLorebookDecisionActivation(value: { decisionStatement?: unknown; decisionMode?: unknown }): {
+  decisionStatement: string;
+  decisionMode: z.infer<typeof lorebookDecisionModeSchema>;
+} {
+  const mode = lorebookDecisionModeSchema.safeParse(value.decisionMode);
+  return {
+    decisionStatement: typeof value.decisionStatement === "string" ? value.decisionStatement.slice(0, 500) : "",
+    decisionMode: mode.success ? mode.data : "off",
+  };
+}
 
 export const lorebookMatchingSourceSchema = z.enum([
   "character_name",
@@ -206,6 +222,9 @@ export const createLorebookEntrySchema = z.object({
   activationConditions: z.array(activationConditionSchema).default([]),
   schedule: lorebookScheduleSchema.nullable().default(null),
   excludeFromVectorization: z.boolean().default(false),
+  /** Decision activation (#6570): the statement, as long as an agent activation question. */
+  decisionStatement: z.string().max(500).default(""),
+  decisionMode: lorebookDecisionModeSchema.default("off"),
 });
 
 export const updateLorebookEntrySchema = createLorebookEntrySchema.omit({ lorebookId: true }).partial();
