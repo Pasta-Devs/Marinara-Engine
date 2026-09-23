@@ -195,7 +195,7 @@ If your persona name contains `Dr`, the model is told to address you as Doctor. 
 
 A condition can also ask your **Decision model** about what is happening in the chat. The Decision model is whatever you picked under **Decision model** in the Connections panel: the local model you already run, a hosted Decision connection, or an installed decision model. It reads the last few messages and a statement you write, and says whether the statement is true. It never writes anything into the chat. [Decision Models](../connections/decision-models.md) explains what it is and how to choose one.
 
-This lets a preset, card, lorebook entry or agent prompt send an instruction only on the turns where it applies, instead of sending "if X happens, do Y" on every turn. Some ideas:
+This lets a preset, card, lorebook entry or agent prompt send an instruction only on the turns where it applies, instead of sending "if X happens, do Y" on every turn. To decide whether a whole lorebook entry activates, rather than trimming its text, use the entry's [Decision](../lorebooks/entries.md#decision-activation) field instead. Some ideas:
 
 - **Scene changes.** Describe a new location or time skip only when the scene actually moved.
 - **Scene types.** Load combat, intimacy or tension pacing rules only while that kind of scene is happening.

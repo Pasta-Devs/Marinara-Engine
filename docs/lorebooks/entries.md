@@ -120,6 +120,30 @@ The **Timing** fields in the drawer control an entry's behavior across several m
 
 For example, set **Sticky** to 3 to keep a fact in the prompt for a few turns after it comes up. That way the AI does not forget it mid-scene.
 
+## Decision activation
+
+The drawer's **Decision** field lets your **Decision model** decide whether an entry applies. You write a statement about the recent chat, such as `In the latest message, a dragon is physically present`, and choose how it acts:
+
+- **Off**, the default: the entry activates as usual.
+- **Require**: the entry activates the way it normally would (keywords, **Constant**, semantic matching), and only when the statement is also true. This filters passing mentions: an entry keyed on `dragon` stays out when someone only talks about dragons. On a **Constant** entry it makes the entry situational, for example combat rules with `A fight is happening in the latest message`.
+- **Trigger**: the statement alone can activate the entry, even when none of its keywords appear. This catches paraphrases and situations, for example `The latest message takes place in the Blackwood Forest`. The entry's keywords still activate it too.
+
+Macros such as `{{user}}` and `{{char}}` work in the statement. How to word one so every model reads it the same way is in [Writing statements](../prompts/conditional-prompts.md#writing-statements).
+
+How it runs:
+
+- A statement is asked only when the entry would otherwise activate: after its filters, timing and probability roll, and for **Require**, after its keywords matched. A **Trigger** statement is asked on every turn its lorebook is active, so on a hosted Decision connection keep Trigger entries few.
+- A turn's statements go in one request, with one more for entries that only come in through recursion from another decision entry. They count toward **Decision statements per turn**.
+- Answers are kept for the turn, so a regeneration or a swipe activates the same entries. A **Sticky** entry is not asked again while it stays active.
+- The active-lorebook list shows **decision** for an entry a Trigger statement activated.
+- **Peek Prompt** never asks. It uses the answers the turn already has and lists the statements that have none.
+
+**No answer means no.** With no Decision model, or when it does not answer, a **Require** entry does not activate and a **Trigger** entry activates only by its keywords. The editor warns when no Decision model is set. So give a Trigger entry keywords as well, or keep it to lore the story can do without, and use Require to filter lore, never to carry something the story depends on. See [Decision Models](../connections/decision-models.md).
+
+Decision activation applies to chat turns. Game setup, experience generation, and the lorebook scans agents run for themselves read decision entries as no.
+
+A `{{#if decision:"..."}}` condition inside the entry's content is different: it trims the text of an entry that has already activated, and the entry still uses its token budget and starts its timers. Use the **Decision** field to decide whether the entry activates at all.
+
 ## More entry options
 
 The expanded drawer holds a few more fields.
@@ -405,6 +429,7 @@ Folders only display as groups when you sort by **Order** with no active search.
 ## Related guides
 
 - [Lorebooks Overview](overview.md)
+- [Decision Models](../connections/decision-models.md)
 - [Lorebook Token Budgets and Recursion](token-budgets.md)
 - [Semantic Search for Lorebooks](semantic-search.md)
 - [Knowledge Sources: Retrieval and Router Agents](../agents/knowledge-sources.md)

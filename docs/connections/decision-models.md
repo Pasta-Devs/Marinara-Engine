@@ -13,8 +13,9 @@ It never writes text and never replies in the chat. Because it only has to score
 - **[Activation questions](../agents/custom-agents.md#activation-questions)** decide whether a custom agent runs on a turn.
 - **[Smart response order](../chats/group-chats.md#response-order-individual-only)** can use it to decide who speaks next in a group chat. This is off until you turn it on.
 - **[Decision statements in prompts](../prompts/conditional-prompts.md#asking-the-decision-model)**, `{{#if decision:"..."}}` and `{{#if decision_choice:"..." == "..."}}`, choose which part of a preset, character card, lorebook entry or agent prompt is sent.
+- **[Lorebook decision activation](../lorebooks/entries.md#decision-activation)** decides whether a lorebook entry activates: a statement can be required on top of its keywords, or trigger it alone.
 
-With no Decision model, or when it does not answer in time, nothing breaks. An agent with an activation question runs as if it had none, Smart response order makes its usual AI call, and a decision statement in a prompt reads as no, so its `{{else}}` branch is sent.
+With no Decision model, or when it does not answer in time, nothing breaks. An agent with an activation question runs as if it had none, Smart response order makes its usual AI call, a decision statement in a prompt reads as no (so its `{{else}}` branch is sent), and a lorebook entry that needs a decision does not activate on it.
 
 ## Choosing a Decision model
 
