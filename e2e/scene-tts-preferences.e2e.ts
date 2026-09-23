@@ -144,6 +144,9 @@ for (const theme of ["light", "dark"] as const) {
       expect(firstMeta.presetChoices).toEqual({ length: "Write briefly." });
       await expect(choices).toBeHidden();
 
+      // Finish the first Scene before creating another from the same Conversation.
+      expect((await request.post("/api/scene/abandon", { data: { sceneChatId: sceneIds[0] } })).ok()).toBeTruthy();
+      sceneIds.shift();
       await page.reload();
       await start();
       await expect(setup.getByRole("combobox", { name: "Prompt preset", exact: false })).toHaveValue(preset.id);
