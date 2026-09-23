@@ -180,7 +180,7 @@ Deleting a connection used for a linked key warns you and leaves the Decision co
 
 With a Decision default selected, open a custom agent and enter a **Question** of up to 500 characters. Standard agent macros, including `{{user}}` and `{{char}}`, work in the question. **Scan Depth** controls the recent messages used by both keywords and the question.
 
-- **Run when probability is at least** defaults to 0.50. The agent runs when the probability of “yes” meets or exceeds it. Higher values skip more runs.
+- **Run when probability is at least** starts from whatever the selected decision model answers around, because probabilities are not comparable between models: a general local model answers a clear yes at 0.99, while a purpose-built decision model answers the same turn at 0.2. The agent runs when the probability of “yes” meets or exceeds the threshold, and higher values skip more runs. The editor offers to restore the recommended value whenever yours differs from it.
 - **Bypass the question after this many messages without a successful run** is optional. Once this many user/assistant messages have passed since the agent last ran successfully, the question is bypassed. A new agent, or one whose previous message was deleted, also bypasses the question when this setting is enabled. Keywords and cadence must still allow the run.
 - Pre-generation and parallel agents use the conversation before the reply. Post-processing agents also see the completed reply.
 
@@ -188,7 +188,26 @@ Keywords and cadence are checked first, so an already-skipped agent does not mak
 
 A local model derives its state budget from the slot's own context size rather than from a connection setting.
 
-This setting applies to custom agents. Built-in agent activation and character-activity evaluation keep their existing behavior. Marinara does not install or start Open-Jev through these controls.
+This setting applies to custom agents. Built-in agent activation and character-activity evaluation keep their existing behavior.
+
+### Let Marinara install a decision model
+
+Marinara can also download and run a purpose-built decision model for you. It runs as its own local process, so it answers activation questions whether or not you also run a local chat model. It costs about 10 GB of disk and around 5 GB of GPU memory, on top of any local chat model you run. If you already have one, you probably do not need this: on our measurements that model is **more accurate on roleplay** than the decision model. The decision model is faster, and a little smaller.
+
+It needs Linux with an NVIDIA GPU of compute capability 7.5 or newer (Turing, the RTX 20 series, or later) and driver 580 or newer. Pascal cards and older cannot run it whatever memory they have, because the runtime's kernels do not cover them. Where it cannot run, the option stays visible, says why, and offers to set up a Decision connection instead.
+
+1. Open **Connections**, expand **Local Model**, and choose **Decision sidecar (experimental)**.
+2. Read the warning, then turn on **Enable decision sidecar**. Confirming shows the verdict for your machine, and the button reads **Enable anyway** when that verdict is a warning.
+3. Pick a model and confirm its size and licenses. Nothing downloads before that point.
+4. Select **Decision sidecar** under **Decision model**.
+
+You can also paste a decision model's HuggingFace repository. Marinara reads that repository's own manifest, checks that the artifact type maps to a runtime this build ships, and shows you the base weights it will pull and the total size before offering to install it. A repository it cannot vouch for is refused with the reason rather than installed hopefully.
+
+Thresholds are not comparable between models, so the editor seeds a new question from whatever the selected model answers around. A decision model that answers yes at 0.2 and no at 0.02 needs a threshold near 0.1, not 0.5.
+
+On a machine with more than one NVIDIA GPU, a **GPU** menu chooses the card it loads on. The verdicts are for that card, and changing it stops the model so it starts again there.
+
+Turning the sidecar off stops the process and keeps the files. **Remove files** deletes the model and its runtime, and stays available while the sidecar is off.
 
 ## Attaching tools (Function Calling)
 

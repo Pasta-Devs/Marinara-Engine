@@ -299,6 +299,19 @@ export function formatSupportDiagnostics(diagnostics: SupportDiagnostics): strin
         )
       : (diagnostics.sidecars?.slots ?? []).map(formatSlot)),
     `Sidecar load: ${unreachable ? SERVER_UNREACHABLE_DIAGNOSTIC : formatSidecarLoad(diagnostics.sidecars)}`,
+    // Only printed once the decision sidecar has been turned on. Support reads this to
+    // tell an acknowledged warning from a surprise, so it carries both the time and
+    // the verdict that was on screen at that moment.
+    ...(diagnostics.sidecars?.decisionConsent
+      ? [
+          `Decision sidecar consent: enabled ${diagnostics.sidecars.decisionConsent.confirmedAt} (verdict shown: ${
+            diagnostics.sidecars.decisionConsent.verdict
+              ? (LOAD_VERDICT_LABELS[diagnostics.sidecars.decisionConsent.verdict] ??
+                diagnostics.sidecars.decisionConsent.verdict)
+              : "not recorded"
+          })`,
+        ]
+      : []),
     `Active connection: ${available(diagnostics.connectionName)}`,
     `Connection provider: ${available(diagnostics.connectionProvider)}`,
     `LLM model: ${available(diagnostics.model)}`,

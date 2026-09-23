@@ -1,4 +1,5 @@
 import { DecisionDefaultControl } from "../connections/DecisionDefaultControl";
+import { DecisionModelModal } from "../modals/DecisionModelModal";
 // ──────────────────────────────────────────────
 // Panel: API Connections (polished, with folders)
 // ──────────────────────────────────────────────
@@ -210,6 +211,8 @@ function getDroppedConnectionIds(event: DragEvent<HTMLElement>, fallbackId: stri
 
 function SidecarCard() {
   const { t: localizeUi } = useUiTranslation();
+  /** The managed decision model installer, opened from inside this card. */
+  const [decisionModalOpen, setDecisionModalOpen] = useState(false);
   const { data: agentConfigs } = useAgentConfigs();
   const { data: capabilityAgents } = useCapabilityAgentRegistry();
   const { data: installedCapabilityPackages } = useInstalledCapabilityPackages();
@@ -671,6 +674,16 @@ function SidecarCard() {
               />
             </div>
           )}
+          {/* Outside the downloaded-model branch on purpose: the decision sidecar is
+              its own model and its own process, so it must not be reachable only by
+              people who already have a chat model installed. */}
+          <button
+            type="button"
+            onClick={() => setDecisionModalOpen(true)}
+            className="mari-chrome-control mari-chrome-control--compact mt-2 w-full text-center"
+          >
+            {localizeUi("ui.panels.sidecarcard.decisionSidecar")}
+          </button>
           {!isDownloaded && (
             <div className="mt-2.5 flex flex-col gap-2 border-t border-sky-400/10 pt-2.5">
               <button
@@ -692,6 +705,7 @@ function SidecarCard() {
               </button>
             </div>
           )}
+          <DecisionModelModal open={decisionModalOpen} onClose={() => setDecisionModalOpen(false)} />
           {status === "server_error" && (
             <div className="mt-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5">
               <div className="text-[0.6875rem] font-medium text-amber-200">

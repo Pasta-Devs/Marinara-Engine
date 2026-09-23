@@ -1,5 +1,5 @@
 import { ActivationQuestionFields } from "./ActivationQuestionFields";
-import { useHasDecisionModel } from "../../hooks/use-decision-model";
+import { useDecisionCalibration, useHasDecisionModel } from "../../hooks/use-decision-model";
 // ──────────────────────────────────────────────
 // Full-Page Agent Editor
 // Click an agent → opens this editor
@@ -756,6 +756,21 @@ export function AgentEditor() {
   );
   /** Whether any decision model is chosen, which is what enables the question fields. */
   const hasDecisionModel = useHasDecisionModel();
+  /**
+   * The selected model's operating point. A saved question keeps whatever its author
+   * chose; this only supplies the starting value, because 0.5 is meaningful for a
+   * model that answers around 0.5 and meaningless for one that answers around 0.2.
+   */
+  const decisionCalibration = useDecisionCalibration();
+  /**
+   * Read through a ref inside the reset effect.
+   *
+   * The calibration is a seed taken at reset time, not a trigger: listing it as a
+   * dependency would re-run the whole form reset whenever the options query refetches
+   * and throw away whatever the user had typed.
+   */
+  const decisionCalibrationRef = useRef(decisionCalibration);
+  decisionCalibrationRef.current = decisionCalibration;
   const [localActivationQuestion, setLocalActivationQuestion] = useState("");
   const [localActivationThreshold, setLocalActivationThreshold] = useState(0.5);
   const [localActivationMaxSkip, setLocalActivationMaxSkip] = useState<number | "">("");
@@ -826,6 +841,31 @@ export function AgentEditor() {
   const [youtubeSaving, setYoutubeSaving] = useState(false);
   const [youtubeError, setYoutubeError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  /**
+   * Re-seed the threshold once the decision model's calibration arrives.
+   *
+   * The reset effect reads the calibration through a ref, so an editor opened before
+   * `/api/decision/options` resolves seeds from the fallback 0.5 and keeps it. That
+   * is the wrong number for a model answering around 0.2.
+   *
+   * Fires on the calibration changing, not on the question emptying. Watching the
+   * question would reset a threshold somebody had chosen the moment they cleared the
+   * text to rewrite it, and `dirty` is no better: it is set by any edit anywhere in
+   * the form, so renaming the agent first would strand the fallback 0.5.
+   */
+  const seededCalibrationRef = useRef<number | null>(null);
+  /** Whether the agent on screen brought a threshold of its own. */
+  const storedThresholdRef = useRef(false);
+  useEffect(() => {
+    const seed = decisionCalibration.defaultThreshold;
+    if (seededCalibrationRef.current === seed) return;
+    seededCalibrationRef.current = seed;
+    // An agent that stored its own threshold owns it. One that has a question but
+    // never stored one was seeded from whatever fallback was loaded at the time, so
+    // it still wants the real value.
+    if (storedThresholdRef.current) return;
+    setLocalActivationThreshold(seed);
+  }, [decisionCalibration.defaultThreshold]);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const musicPlayerSource = useUIStore((s) => s.musicPlayerSource);
   const setMusicPlayerSource = useUIStore((s) => s.setMusicPlayerSource);
@@ -868,7 +908,10 @@ export function AgentEditor() {
           : "",
       );
       setLocalActivationQuestion(String(settings.activationQuestion ?? ""));
-      setLocalActivationThreshold(Number(settings.activationThreshold ?? 0.5));
+      storedThresholdRef.current = typeof settings.activationThreshold === "number";
+      setLocalActivationThreshold(
+        Number(settings.activationThreshold ?? decisionCalibrationRef.current.defaultThreshold),
+      );
       setLocalActivationMaxSkip(typeof settings.activationMaxSkip === "number" ? settings.activationMaxSkip : "");
       setLocalActivationScanDepth(
         (settings.activationScanDepth as number | undefined) ?? DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
@@ -981,7 +1024,8 @@ export function AgentEditor() {
       setLocalEchoMessageDelaySeconds(DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS);
       setLocalActivationKeywordsText("");
       setLocalActivationQuestion("");
-      setLocalActivationThreshold(0.5);
+      storedThresholdRef.current = false;
+      setLocalActivationThreshold(decisionCalibrationRef.current.defaultThreshold);
       setLocalActivationMaxSkip("");
       setLocalActivationScanDepth(DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH);
       setLocalInjectAsSection(defaultSettings.injectAsSection === true);
@@ -1046,7 +1090,8 @@ export function AgentEditor() {
       setLocalEchoMessageDelaySeconds(DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS);
       setLocalActivationKeywordsText("");
       setLocalActivationQuestion("");
-      setLocalActivationThreshold(0.5);
+      storedThresholdRef.current = false;
+      setLocalActivationThreshold(decisionCalibrationRef.current.defaultThreshold);
       setLocalActivationMaxSkip("");
       setLocalActivationScanDepth(DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH);
       setLocalInjectAsSection(false);
@@ -2959,6 +3004,7 @@ export function AgentEditor() {
               <ActivationQuestionFields
                 question={localActivationQuestion}
                 threshold={localActivationThreshold}
+                recommendedThreshold={decisionCalibration.defaultThreshold}
                 maxSkip={localActivationMaxSkip}
                 // A local model slot is a decision model too, and it owns no
                 // connection row, so this asks the server which entry is selected

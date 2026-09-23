@@ -11,11 +11,23 @@
  */
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { readFileSync } from "node:fs";
 import {
+  buildDecisionInstructions,
+  DECISION_ARTIFACT_RUNTIMES,
+  DEFAULT_DECISION_CALIBRATION,
+  findDecisionModel,
+  isSafeGitRef,
+  isSafeRepoId,
   normalizeDecisionThinking,
+  parseDecisionSidecarSettings,
+  readDecisionManifest,
+  sanitizeCustomDecisionModel,
+  SIDECAR_DECISION_MODELS,
   SIDECAR_FOOTPRINT_HEADROOM_BYTES,
   type GpuDevice,
 } from "../../packages/shared/src/index.js";
+import { evaluateActivationQuestions } from "../../packages/server/src/services/generation/agent-activation-questions.js";
 import {
   isDirectAnswer,
   normalizeAnswerToken,
@@ -26,6 +38,7 @@ import {
   assessSidecarLoad,
   compareDriverVersions,
   estimateSlotBytes,
+  meetsComputeCapability,
   parseNvidiaSmi,
   parseNvidiaSmiApps,
   resolveSharedDevice,
@@ -38,8 +51,10 @@ import {
   clearDecisionThinkingCache,
   getAnswerStyle,
 } from "../../packages/server/src/services/decision/decision-thinking-cache.js";
-import { isDecisionSlotImplemented } from "../../packages/server/src/services/decision/decision-slots.js";
+import { hasThinkingSetting } from "../../packages/server/src/services/decision/decision-slots.js";
 import { decisionConnectionUnavailable } from "../../packages/server/src/routes/decision.routes.js";
+import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
+import { DECISION_SIDECAR_RATE_LIMIT, rateLimitHook } from "../../packages/server/src/middleware/rate-limit.js";
 
 // ── reading an answer out of log-probabilities ────────────────────────────────
 
@@ -103,6 +118,212 @@ assert.equal(normalizeDecisionThinking(undefined), "auto");
 assert.equal(normalizeDecisionThinking("maybe"), "auto");
 assert.equal(normalizeDecisionThinking("allowed"), "allowed");
 assert.equal(normalizeDecisionThinking("off"), "off");
+
+// A threshold only means something next to the model that produced the probability.
+// Open-Jev 2B answered the same eight roleplay turns yes between 0.15 and 0.59 and no
+// between 0.009 and 0.026, so 0.5 would skip every relevant turn; a general chat model
+// answered 0.97+ and 0.0001. The catalog carries each model's own operating point.
+const openJev = findDecisionModel("open-jev-2b")!;
+assert.ok(openJev, "the curated catalog must carry the measured entry");
+assert.equal(openJev.calibration.defaultThreshold, 0.1);
+assert.ok(
+  openJev.calibration.defaultThreshold > 0.026 && openJev.calibration.defaultThreshold < 0.15,
+  "the default must sit inside the band that classified every measured turn correctly",
+);
+assert.equal(DEFAULT_DECISION_CALIBRATION.defaultThreshold, 0.5, "hosted Jev keeps the documented default");
+assert.equal(DEFAULT_DECISION_CALIBRATION.questionShape, "text", "and its documented wire shape");
+// Every curated entry needs the constraints a preflight cannot guess.
+for (const model of SIDECAR_DECISION_MODELS) {
+  assert.ok(model.minComputeCapability, `${model.id} must state the compute capability its wheels support`);
+  assert.ok(
+    model.platforms.every((p) => p.minDriver),
+    `${model.id} must state a minimum driver`,
+  );
+  assert.ok(model.vramBytes > 0 && model.diskBytes > model.downloadSizeBytes, `${model.id} sizes look wrong`);
+  assert.ok(
+    Object.values(DECISION_ARTIFACT_RUNTIMES).includes(model.runtime),
+    `${model.id} names a runtime nothing can install it with`,
+  );
+  assert.ok(
+    model.artifacts.every((a) => /^[0-9a-f]{40}$/u.test(a.revision)),
+    `${model.id} must pin exact commits`,
+  );
+}
+// A pasted repository is judged by the artifact type it declares, never assumed.
+assert.equal(DECISION_ARTIFACT_RUNTIMES["qwen_lora_adapter_plus_scalar_decision_head"], "open_jev_torch");
+assert.equal(DECISION_ARTIFACT_RUNTIMES["something_invented"], undefined);
+
+// A pasted repository id and ref are interpolated into hub URLs, so a dot-only
+// segment is refused rather than allowed to collapse the path onto a different
+// endpoint: `../name` turns /api/models/../name/tree/x into /api/name/tree/x.
+assert.equal(isSafeRepoId("ZefanCai/Open-Jev-2B"), true);
+assert.equal(isSafeRepoId("Qwen/Qwen3.5-2B"), true);
+assert.equal(isSafeRepoId("../name"), false, "a traversing owner must not reach a URL");
+assert.equal(isSafeRepoId("owner/.."), false);
+assert.equal(isSafeRepoId("./x"), false);
+assert.equal(isSafeRepoId("owner"), false, "one segment is not a repository id");
+assert.equal(isSafeRepoId("a/b/c"), false);
+assert.equal(isSafeRepoId("___/---"), false, "a segment needs at least one alphanumeric");
+assert.equal(isSafeGitRef("0".repeat(40)), true);
+assert.equal(isSafeGitRef("main"), true);
+assert.equal(isSafeGitRef("refs/heads/main"), true);
+assert.equal(isSafeGitRef(".."), false);
+assert.equal(isSafeGitRef("a/../b"), false);
+assert.equal(isSafeGitRef("-x"), false, "a leading dash reads as an option");
+
+// The same rule guards a manifest's declared base model, which is third-party text
+// that this code puts in a URL just as readily as a pasted id.
+assert.deepEqual(
+  readDecisionManifest({
+    artifact_type: "qwen_lora_adapter_plus_scalar_decision_head",
+    base_model: "../evil",
+    base_revision: "0".repeat(40),
+  }),
+  { refusal: "missing_base_model" },
+);
+
+// A package that carries its own base weights is a different install shape than the
+// one this downloader implements, so it is refused rather than half-installed.
+assert.deepEqual(
+  readDecisionManifest({
+    artifact_type: "qwen_lora_adapter_plus_scalar_decision_head",
+    base_model: "Qwen/Qwen3.5-2B",
+    base_revision: "0".repeat(40),
+    base_weights_included: true,
+  }),
+  { refusal: "base_weights_included" },
+);
+
+// A bare index into a lookup table reaches Object.prototype, and every member of it
+// is truthy, so a manifest declaring "constructor" would have walked through the one
+// check that decides whether a pasted repository is installable at all.
+for (const inherited of ["constructor", "toString", "valueOf", "__proto__", "hasOwnProperty"]) {
+  assert.deepEqual(
+    readDecisionManifest({
+      artifact_type: inherited,
+      base_model: "Qwen/Qwen3.5-2B",
+      base_revision: "0".repeat(40),
+    }),
+    { refusal: "unknown_artifact_type" },
+    `${inherited} is an inherited property, not a runtime`,
+  );
+  assert.equal(
+    sanitizeCustomDecisionModel({
+      id: "byo:x",
+      label: "x",
+      runtime: inherited,
+      artifacts: [{ repoId: "a/b", revision: "0".repeat(40) }],
+      downloadSizeBytes: 1,
+      diskBytes: 2,
+      vramBytes: 3,
+    }),
+    null,
+    `${inherited} must not resolve to runtime defaults`,
+  );
+}
+
+// Settings come back from a JSON blob a user can hand-edit; nothing in it may turn
+// the sidecar on or point it at something this build cannot run.
+assert.equal(parseDecisionSidecarSettings(null).enabled, false);
+assert.equal(parseDecisionSidecarSettings("not json").enabled, false);
+assert.equal(parseDecisionSidecarSettings('{"enabled":true,"modelId":"made-up"}').modelId, null);
+assert.equal(parseDecisionSidecarSettings('{"enabled":true,"startPolicy":"nonsense"}').startPolicy, "on_demand");
+
+// Wrapping is what made the wrapped question separate 10.9x instead of 3.8x. The
+// hosted default stays a bare string, because that backend has not been measured.
+assert.equal(buildDecisionInstructions("Did the scene change?", "text"), "Did the scene change?");
+assert.deepEqual(buildDecisionInstructions("Did the scene change?", "task_object"), {
+  task: "Did the scene change?",
+  about: "the latest message of a roleplay conversation",
+});
+
+// An agent that never chose a threshold takes the backend's; one that did keeps it.
+{
+  const candidates = [
+    { agentId: "unset", question: "q", threshold: undefined, scanDepth: 2 },
+    { agentId: "chosen", question: "q", threshold: 0.5, scanDepth: 2 },
+  ];
+  const answers = new Map([
+    ["unset", 0.2],
+    ["chosen", 0.2],
+  ]);
+  const result = await evaluateActivationQuestions({
+    candidates,
+    messages: [{ role: "user", content: "hi" }],
+    maxStateTokens: 4000,
+    defaultThreshold: 0.1,
+    ask: async () => answers,
+  });
+  assert.equal(result.skip.has("unset"), false, "0.2 clears a 0.1 operating point, so the agent runs");
+  assert.equal(result.skip.has("chosen"), true, "0.2 is below an explicitly chosen 0.5, so it does not");
+}
+
+// A pasted repository is judged by what it declares about itself, never by its name.
+// This is the entire safety gate for bring-your-own, so each refusal is pinned.
+assert.deepEqual(readDecisionManifest(null), { refusal: "unreadable_manifest" });
+assert.deepEqual(readDecisionManifest({}), { refusal: "unknown_artifact_type" });
+assert.deepEqual(readDecisionManifest({ artifact_type: "something_invented" }), {
+  refusal: "unknown_artifact_type",
+});
+assert.deepEqual(readDecisionManifest({ artifact_type: "qwen_lora_adapter_plus_scalar_decision_head" }), {
+  refusal: "missing_base_model",
+});
+assert.deepEqual(
+  readDecisionManifest({
+    artifact_type: "qwen_lora_adapter_plus_scalar_decision_head",
+    base_model: "Qwen/Qwen3.5-2B",
+    base_revision: "main",
+  }),
+  { refusal: "unpinned_base_revision" },
+  "a branch would let the weights change under a pinned adapter",
+);
+assert.deepEqual(
+  readDecisionManifest({
+    artifact_type: "qwen_lora_adapter_plus_scalar_decision_head",
+    base_model: "Qwen/Qwen3.5-2B",
+    base_revision: "15852e8c16360a2fea060d615a32b45270f8a8fc",
+  }),
+  { runtime: "open_jev_torch", baseModel: "Qwen/Qwen3.5-2B", baseRevision: "15852e8c16360a2fea060d615a32b45270f8a8fc" },
+);
+
+// A stored custom entry is re-validated on read: a hand-edited one must not be able to
+// name a runtime this build does not ship or claim a weaker hardware floor.
+assert.equal(sanitizeCustomDecisionModel(null), null);
+assert.equal(sanitizeCustomDecisionModel({ runtime: "invented_runtime", artifacts: [] }), null);
+assert.equal(
+  sanitizeCustomDecisionModel({ runtime: "open_jev_torch", artifacts: [{ repoId: "a/b", revision: "main" }] }),
+  null,
+  "an unpinned artifact is not a usable install record",
+);
+{
+  // What a real pasted install writes, with a couple of fields hand-edited to claim
+  // more than the runtime allows.
+  const complete = {
+    id: "byo:a/b@0123456789ab",
+    label: "a/b",
+    description: "Pasted repository. Declares qwen_lora_adapter_plus_scalar_decision_head, loads Qwen/Qwen3.5-2B.",
+    licenses: ["apache-2.0 (a/b)", "apache-2.0 (Qwen/Qwen3.5-2B)"],
+    runtime: "open_jev_torch",
+    artifacts: [{ repoId: "a/b", revision: "0".repeat(40) }],
+    downloadSizeBytes: 4_560_000_000,
+    diskBytes: 10_000_000_000,
+    vramBytes: 4_800_000_000,
+    minComputeCapability: "3.0",
+    calibration: { defaultThreshold: 0.9, questionShape: "text" },
+  };
+  const stored = sanitizeCustomDecisionModel(complete);
+  assert.ok(stored);
+  assert.equal(stored.minComputeCapability, "7.5", "the runtime's floor overrides whatever was stored");
+  assert.equal(stored.calibration.defaultThreshold, 0.1, "and so does its operating point");
+
+  // A record missing a name or carrying a nonsense size would render blank in the
+  // panel and be judged against zero bytes by the preflight, so it is not accepted.
+  assert.equal(sanitizeCustomDecisionModel({ ...complete, id: "" }), null);
+  assert.equal(sanitizeCustomDecisionModel({ ...complete, label: "   " }), null);
+  assert.equal(sanitizeCustomDecisionModel({ ...complete, vramBytes: 0 }), null);
+  assert.equal(sanitizeCustomDecisionModel({ ...complete, diskBytes: -1 }), null);
+  assert.equal(sanitizeCustomDecisionModel({ ...complete, downloadSizeBytes: Number.NaN }), null);
+}
 
 // ── the backend against a recorded llama-server ───────────────────────────────
 
@@ -296,6 +517,15 @@ const RECORDED_SMI =
   "0, GPU-b1e6a2e9, NVIDIA GeForce RTX 5090 Laptop GPU, 24463, 182, 615.71.09\n" +
   "1, GPU-aaaa1111, NVIDIA GeForce RTX 3060, 12288, 900, 580.95.05\n";
 const devices = parseNvidiaSmi(RECORDED_SMI);
+// A capability nvidia-smi could not read is unknown, never a pass.
+for (const unreadable of ["N/A", "[N/A]", "[Not Supported]", "12"]) {
+  const [device] = parseNvidiaSmi(`0, GPU-x, NVIDIA Fake, 8192, 10, 615.71.09, ${unreadable}\n`);
+  assert.equal(device!.computeCapability, undefined, `${unreadable} is not a capability`);
+  assert.equal(meetsComputeCapability(device!, "7.5"), null, `${unreadable} reads as unknown`);
+}
+const [readable] = parseNvidiaSmi("0, GPU-x, NVIDIA Fake, 8192, 10, 615.71.09, 6.1\n");
+assert.equal(readable!.computeCapability, "6.1");
+assert.equal(meetsComputeCapability(readable!, "7.5"), false, "a Pascal card is refused by its real capability");
 assert.equal(devices.length, 2);
 assert.equal(devices[0]!.name, "NVIDIA GeForce RTX 5090 Laptop GPU");
 assert.equal(devices[0]!.totalBytes, 24463 * 1024 * 1024);
@@ -440,11 +670,34 @@ assert.equal(
 // With no device, nothing is asserted about fit.
 assert.equal(assessSidecarLoad({ slots: [slot({ estimatedBytes: 99 * GB })], device: null }).verdict, "recommended");
 
-// A slot this build cannot run must not be selectable or writable through the API,
-// or a setting for it lands on the primary slot's config instead.
-assert.equal(isDecisionSlotImplemented("primary"), true);
-assert.equal(isDecisionSlotImplemented("utility"), true);
-assert.equal(isDecisionSlotImplemented("decision_sidecar"), false);
+// Only the chat slots have a Thinking setting: a decision model scores candidates in
+// one pass and has no text to reason in. This is load bearing rather than cosmetic,
+// because an `else` in the setter would write a decision-sidecar request over the
+// PRIMARY slot's config, which it did once already.
+assert.equal(hasThinkingSetting("primary"), true);
+assert.equal(hasThinkingSetting("utility"), true);
+assert.equal(hasThinkingSetting("decision_sidecar"), false);
+
+// A rejected selection must not change stored state. The 404 and 409 branches in
+// /select sit above the line that clears the local slot, so a stale request cannot
+// answer with an error and silently drop the user to None, which stops every gate.
+{
+  const route = readFileSync(new URL("../../packages/server/src/routes/decision.routes.ts", import.meta.url), "utf8");
+  const body = route.slice(route.indexOf('app.post("/select"'), route.indexOf('app.post("/thinking"'));
+  const clearAt = body.lastIndexOf("settings.remove(DECISION_LOCAL_DEFAULT_SETTINGS_KEY)");
+  const notFoundAt = body.indexOf("status(404)");
+  // The LAST 409 in the route body is the connection branch; the first is the local
+  // slot's, which sits above the clear for a different reason. Matching the first
+  // would have made this assertion pass while testing nothing it claims to.
+  const conflictAt = body.lastIndexOf("status(409)");
+  // Without these, a renamed marker would make indexOf return -1 and every ordering
+  // check below would pass for the wrong reason.
+  assert.ok(clearAt > -1, "the select route must still clear the stored local slot somewhere");
+  assert.ok(notFoundAt > -1, "the select route must still reject an unknown connection");
+  assert.ok(conflictAt > -1, "the select route must still reject an unusable one");
+  assert.ok(notFoundAt < clearAt, "the 404 branch must return before the local slot is cleared");
+  assert.ok(conflictAt < clearAt, "the 409 branch must return before the local slot is cleared");
+}
 
 // The dropdown greys a connection out and the select route refuses it using the same
 // rule, so a stale client cannot store a decision model that cannot sign a request.
@@ -469,5 +722,41 @@ assert.equal(decisionConnectionUnavailable(borrowsMissing, all), "needs_relinkin
 assert.equal(resolveSharedDevice(devices, null), null, "two cards and no name: claim nothing");
 assert.equal(resolveSharedDevice([devices[0]!], null), devices[0]);
 assert.equal(resolveSharedDevice(devices, "RTX 3060"), devices[1]);
+
+// ── the decision sidecar routes are rate-limited ──────────────────────────────
+
+// The per-route config is what a reader and CodeQL see, but only the hook's path table
+// enforces anything. Both are checked: every sidecar route declares the limit, and the
+// hook actually applies it, including to a percent-encoded path.
+{
+  const source = readFileSync(new URL("../../packages/server/src/routes/decision.routes.ts", import.meta.url), "utf8");
+  const sidecarRoutes = [...source.matchAll(/app\.(?:get|post)\("(\/sidecar[^"]*)",([^\n]*)/g)];
+  assert.ok(sidecarRoutes.length >= 7, "every decision sidecar route is found");
+  for (const [, path, rest] of sidecarRoutes)
+    assert.match(rest!, /rateLimit: DECISION_SIDECAR_RATE_LIMIT/, `${path} declares the decision sidecar limit`);
+
+  const limited = Fastify();
+  limited.addHook("onRequest", rateLimitHook);
+  limited.post("/api/decision/sidecar/remove", async () => ({ ok: true }));
+  limited.post("/api/decision/sidecar/inspect", async () => ({ ok: true }));
+  limited.get("/api/decision/options", async () => ({ ok: true }));
+  try {
+    let firstLimited = -1;
+    for (let i = 1; i <= DECISION_SIDECAR_RATE_LIMIT.max + 1; i++) {
+      const res = await limited.inject({ method: "POST", url: "/api/decision/sidecar/remove" });
+      if (res.statusCode === 429) {
+        firstLimited = i;
+        break;
+      }
+    }
+    assert.equal(firstLimited, DECISION_SIDECAR_RATE_LIMIT.max + 1, "the decision sidecar wall engages past its limit");
+    const encoded = await limited.inject({ method: "POST", url: "/api/decision/sidecar/insp%65ct" });
+    assert.equal(encoded.statusCode, 429, "a percent-encoded sidecar path shares the same bucket");
+    const options = await limited.inject({ method: "GET", url: "/api/decision/options" });
+    assert.equal(options.statusCode, 200, "the rest of the decision API keeps the default class");
+  } finally {
+    await limited.close();
+  }
+}
 
 console.log("decision-local-models regression passed");

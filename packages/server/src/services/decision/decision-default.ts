@@ -8,6 +8,8 @@
  */
 import {
   DECISION_LOCAL_DEFAULT_SETTINGS_KEY,
+  DEFAULT_DECISION_CALIBRATION,
+  type DecisionCalibration,
   DECISION_THINKING_PREGENERATION_SETTINGS_KEY,
   DECISION_TIMEOUT_MS,
   decisionLocalSlotForId,
@@ -15,7 +17,7 @@ import {
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { getAnswerStyle } from "./decision-thinking-cache.js";
-import { isDecisionSlotImplemented, decisionSlotContextSize, resolveDecisionSlot } from "./decision-slots.js";
+import { decisionSlotContextSize, resolveDecisionSlot } from "./decision-slots.js";
 import { askSidecarNoulQuestions } from "./sidecar-decision.backend.js";
 import { resolveDecisionConnection, type DecisionConnectionRow } from "./decision-connection.js";
 import { askNoulQuestions, type NoulQuestion } from "./system-one.client.js";
@@ -29,6 +31,13 @@ const SIDECAR_STATE_HEADROOM_TOKENS = 512;
 export interface DecisionBackend {
   /** The budget a state is capped to before it is sent. */
   maxStateTokens: number;
+  /**
+   * Where this model answers, and how it wants the question worded.
+   *
+   * Carried on the backend rather than read from a constant because both are
+   * properties of the model that produces the probability, not of the feature.
+   */
+  calibration: DecisionCalibration;
   /**
    * True when a gate in front of the user's reply should be skipped rather than waited
    * on. Only a reasoning local model sets this, and only while the user has not opted
@@ -51,7 +60,9 @@ export async function readDecisionLocalSlot(
   getLocalDefault: () => Promise<string | null>,
 ): Promise<DecisionLocalSlot | null> {
   const slot = decisionLocalSlotForId(await getLocalDefault());
-  return slot && isDecisionSlotImplemented(slot) ? slot : null;
+  // Whether the slot can actually serve is `resolveDecisionSlot`'s answer, not a
+  // property of the id: a slot with no model is still a real slot.
+  return slot;
 }
 
 /**
@@ -67,12 +78,49 @@ export async function resolveDecisionBackend(
 ): Promise<DecisionBackend | null> {
   const slot = await readDecisionLocalSlot(deps.getLocalDefault);
   if (slot) {
-    const resolution = await resolveDecisionSlot(slot);
+    const resolution = await resolveDecisionSlot(slot, signal);
     if (!resolution.resolved) {
       logger.warn("[decision] The selected local model cannot serve decisions: %s", resolution.failure.reason);
       return null;
     }
     const resolved = resolution.resolved;
+
+    // The managed decision sidecar is a System One server, not a chat model. Asking it
+    // over /v1/chat/completions gets a 404, so the protocol is carried on the resolved
+    // slot rather than assumed from the fact that it is local.
+    if (resolved.protocol === "system_one") {
+      const calibration = resolved.calibration ?? DEFAULT_DECISION_CALIBRATION;
+      // The model's own launch limit, never the main sidecar's context. Overshooting
+      // it is not a truncation, it is a 422 and a failed gate on every long scene.
+      const limit = resolved.maxLengthTokens ?? decisionSlotContextSize(slot);
+      const maxStateTokens = Math.max(256, limit - SIDECAR_STATE_HEADROOM_TOKENS);
+      return {
+        maxStateTokens,
+        calibration,
+        // It scores candidates in one pass and never reasons, so nothing is deferred.
+        deferPreGeneration: false,
+        ask: async (state, questions) =>
+          (
+            await askNoulQuestions({
+              connection: {
+                endpoint: `${resolved.baseUrl}/v1/systemone`,
+                apiKey: "",
+                model: resolved.model,
+                maxStateTokens,
+              },
+              state,
+              questions,
+              // Local and on loopback, but a model still has to run: the sidecar
+              // budget rather than the hosted one.
+              timeoutMs: DECISION_TIMEOUT_MS.sidecar,
+              signal,
+              questionShape: calibration.questionShape,
+              debugMode: deps.debugMode,
+            })
+          ).answers,
+      };
+    }
+
     // Exactly the formula askQuestion uses, so what is deferred matches what is
     // actually slow. Reading the cached verdict without the "auto" guard would keep
     // deferring after the user switched the slot to Off, where every request is a
@@ -82,6 +130,9 @@ export async function resolveDecisionBackend(
       (resolved.thinking === "auto" && getAnswerStyle(resolved.modelIdentity) === "thinks");
     return {
       maxStateTokens: Math.max(256, decisionSlotContextSize(slot) - SIDECAR_STATE_HEADROOM_TOKENS),
+      // A local chat model is prompted, not queried, so it reads the question as
+      // written and answers on the ordinary scale.
+      calibration: DEFAULT_DECISION_CALIBRATION,
       deferPreGeneration: thinks && !(await deps.getThinkingPreGeneration()),
       ask: async (state, questions) => askSidecarNoulQuestions({ slot: resolved, state, questions, signal }),
     };
@@ -95,8 +146,20 @@ export async function resolveDecisionBackend(
     return null;
   }
   const connection = resolved.connection;
+  // Every Decision connection keeps the documented operating point and wire shape.
+  //
+  // Deliberate, including for the `custom` source. A custom endpoint is any System
+  // One host, and this code cannot tell a self-hosted Open-Jev from TypeSafe's own
+  // Jev or anything else that speaks the protocol. Applying one model's measured
+  // calibration to all of them would silently move the operating point under hosts
+  // it was never measured against, which is worse than a default that is merely
+  // wrong for one of them. Self-hosted Open-Jev users tune the threshold per agent,
+  // and the managed sidecar carries its own calibration because there the model is
+  // known.
+  const calibration = DEFAULT_DECISION_CALIBRATION;
   return {
     maxStateTokens: connection.maxStateTokens,
+    calibration,
     deferPreGeneration: false,
     ask: async (state, questions) =>
       (
@@ -106,6 +169,7 @@ export async function resolveDecisionBackend(
           questions,
           timeoutMs: DECISION_TIMEOUT_MS.systemOne,
           signal,
+          questionShape: calibration.questionShape,
           debugMode: deps.debugMode,
         })
       ).answers,

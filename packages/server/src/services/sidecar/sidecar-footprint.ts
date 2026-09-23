@@ -23,7 +23,14 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-const NVIDIA_SMI_QUERY = "index,uuid,name,memory.total,memory.used,driver_version";
+/**
+ * Two queries, because `compute_cap` is not available on every driver and
+ * `nvidia-smi` rejects the WHOLE query when one field is unknown rather than
+ * omitting it. Asking for it unconditionally would report "no NVIDIA GPU" on an
+ * older driver, taking the preflight and the existing diagnostics down with it.
+ */
+const NVIDIA_SMI_BASE_QUERY = "index,uuid,name,memory.total,memory.used,driver_version";
+const NVIDIA_SMI_QUERY = `${NVIDIA_SMI_BASE_QUERY},compute_cap`;
 const NVIDIA_SMI_APPS_QUERY = "pid,used_memory";
 const PROBE_TIMEOUT_MS = 4000;
 /** Matches detectCapabilities' own cache, so a slow probe is never on a request path. */
@@ -75,6 +82,11 @@ export function parseNvidiaSmi(output: string): GpuDevice[] {
       totalBytes: totalMiB * 1024 * 1024,
       usedBytes: Number.isFinite(usedMiB) && usedMiB >= 0 ? usedMiB * 1024 * 1024 : 0,
       driverVersion: parts[5] ?? "",
+      // Only a numeric major.minor counts. Older drivers omit the column, and a driver
+      // that cannot read it prints `N/A` or `[N/A]`, which the version compare would
+      // otherwise read as indeterminate and pass. Anything else stays unknown, and an
+      // unknown capability refuses a download (see `meetsComputeCapability`).
+      computeCapability: /^\d+\.\d+$/u.test(parts[6] ?? "") ? parts[6] : undefined,
     });
   }
   return devices;
@@ -213,6 +225,23 @@ export function assessSidecarLoad(args: {
  * Indices are therefore never compared: with one NVIDIA GPU everything shares it, and
  * with several the match is by name from the slot's launch diagnostics.
  */
+/**
+ * Does this card have kernels in the runtime's wheels?
+ *
+ * The pinned PyTorch build ships `sm_75` and up. A Pascal card has plenty of memory
+ * and a current driver and still cannot run it, so without this check the preflight
+ * would approve a ten gigabyte download that fails at load.
+ *
+ * Null when the probe could not read the capability. Every driver new enough for the
+ * runtime reports it, so an unknown value usually means the detailed query failed
+ * and the fallback answered. What to do about that depends on whether anything is
+ * still to be downloaded, so the caller decides.
+ */
+export function meetsComputeCapability(device: GpuDevice, minimum: string): boolean | null {
+  if (!device.computeCapability) return null;
+  return compareDriverVersions(device.computeCapability, minimum) >= 0;
+}
+
 export function resolveSharedDevice(devices: GpuDevice[], deviceName: string | null): GpuDevice | null {
   if (devices.length === 0) return null;
   if (devices.length === 1) return devices[0]!;
@@ -232,7 +261,16 @@ async function runProbe(): Promise<{ probe: GpuProbe; usageByPid: Map<number, nu
       execFileAsync("nvidia-smi", [`--query-gpu=${NVIDIA_SMI_QUERY}`, "--format=csv,noheader,nounits"], {
         timeout: PROBE_TIMEOUT_MS,
         windowsHide: true,
-      }),
+      }).catch(() =>
+        // Without compute capability the preflight cannot rule a GPU generation out.
+        // Keeping the device is still better than losing the probe entirely: the
+        // preflight refuses a download it cannot vouch for, and a model already on
+        // disk can still be weighed for memory and launched.
+        execFileAsync("nvidia-smi", [`--query-gpu=${NVIDIA_SMI_BASE_QUERY}`, "--format=csv,noheader,nounits"], {
+          timeout: PROBE_TIMEOUT_MS,
+          windowsHide: true,
+        }),
+      ),
       // Best effort: some drivers and container setups report no per-process usage,
       // and the slot lines fall back to the size-based estimate rather than failing.
       execFileAsync("nvidia-smi", [`--query-compute-apps=${NVIDIA_SMI_APPS_QUERY}`, "--format=csv,noheader,nounits"], {
@@ -289,4 +327,25 @@ export function getMeasuredProcessBytes(pid: number | null | undefined): number 
   if (typeof pid !== "number") return null;
   refresh();
   return cached?.usageByPid.get(pid) ?? null;
+}
+
+/**
+ * The probe, waiting for it when it has not run yet.
+ *
+ * `/api/health` must never block, which is why `getGpuProbe` returns a pending
+ * result. A preflight is the opposite case: it is answering "can this machine run
+ * this", and a pending probe there reads as "no NVIDIA GPU", which is a verdict
+ * rather than a delay.
+ */
+export async function awaitGpuProbe(options: { fresh?: boolean } = {}): Promise<GpuProbe> {
+  if (options.fresh) {
+    // A reading taken before a process was stopped still counts its memory, which is
+    // the whole thing a launch-time recheck is trying not to do. Any probe already in
+    // flight started earlier, so it is waited out and then a new one is taken.
+    await inFlight?.catch(() => null);
+    cached = null;
+  }
+  refresh();
+  if (cached) return cached.probe;
+  return (await inFlight)?.probe ?? { vendor: null, devices: [], pending: true };
 }

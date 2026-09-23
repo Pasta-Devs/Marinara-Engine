@@ -10,7 +10,7 @@
  * Nothing here blocks: it reads a cached probe and the slots' own status, so the
  * health endpoint stays fast even when `nvidia-smi` is missing or slow.
  */
-import type { SidecarHealthSection, SidecarSlotFootprint } from "@marinara-engine/shared";
+import type { SidecarHealthSection, SidecarLoadVerdict, SidecarSlotFootprint } from "@marinara-engine/shared";
 import {
   assessSidecarLoad,
   estimateSlotBytes,
@@ -21,6 +21,8 @@ import {
 import { sidecarModelService } from "./sidecar-model.service.js";
 import { sidecarProcessService } from "./sidecar-process.service.js";
 import { utilitySidecarService } from "../utility-sidecar/utility-sidecar.service.js";
+import { decisionProcessService } from "./decision-process.service.js";
+import { decisionSidecarSettings, installedDecisionModel } from "../decision/decision-slots.js";
 
 /**
  * The main slot's status, cached briefly.
@@ -95,35 +97,78 @@ function utilitySlot(): SidecarSlotFootprint {
 }
 
 /**
- * The decision slot, which has no managed runtime in this build.
+ * The managed decision sidecar's slot.
  *
- * Reported as unconfigured rather than omitted, so the report's shape does not change
- * when the managed decision sidecar arrives and so a reader can tell "not installed"
- * from "this build does not know about it".
+ * Reported even when nothing is installed, so the report's shape does not change with
+ * the user's setup and a reader can tell "not installed" from "not reported".
  */
 function decisionSlot(): SidecarSlotFootprint {
+  const settings = decisionSidecarSettings();
+  const model = installedDecisionModel(settings);
+  const status = decisionProcessService.getStatus();
+  const measuredBytes = status.running ? getMeasuredProcessBytes(status.pid) : null;
   return {
     slot: "decision",
-    configured: false,
-    running: false,
-    model: null,
-    fileBytes: null,
-    contextSize: null,
-    backend: null,
-    estimatedBytes: null,
-    measured: false,
+    configured: !!model,
+    running: status.running,
+    model: model?.label ?? null,
+    fileBytes: model?.downloadSizeBytes ?? null,
+    contextSize: model?.maxLengthTokens ?? null,
+    backend: model?.runtime ?? null,
+    // The catalog figure is a measurement from a real run, so it is used directly
+    // rather than derived from a file size the way a GGUF slot's is.
+    estimatedBytes: measuredBytes ?? model?.vramBytes ?? null,
+    measured: measuredBytes !== null,
     onCpu: false,
   };
 }
 
+/**
+ * A stored verdict is a string from an older release or a hand-edited settings file,
+ * so it is matched against the set this build knows rather than cast into it.
+ */
+function normalizeLoadVerdict(value: string | null): SidecarLoadVerdict | null {
+  const known: SidecarLoadVerdict[] = [
+    "unsupported",
+    "not_enough_disk",
+    "wont_fit",
+    "wont_fit_beside_sidecar",
+    "tight",
+    "recommended",
+  ];
+  // Null rather than a default. A value written by an older release, or edited by
+  // hand, says nothing about this machine, and rendering it as "within recommended"
+  // would put a verdict nobody produced into a support report.
+  return known.find((verdict) => verdict === value) ?? null;
+}
+
+/** The slot readings, shared by the health section and the decision preflight. */
+export function readSidecarSlots(): SidecarSlotFootprint[] {
+  return [mainSlot(), utilitySlot(), decisionSlot()];
+}
+
 export function buildSidecarHealthSection(): SidecarHealthSection {
   const gpu = getGpuProbe();
-  const slots = [mainSlot(), utilitySlot(), decisionSlot()];
+  const slots = readSidecarSlots();
   // With one NVIDIA GPU every slot shares it. With several, llama.cpp's launch
   // diagnostics do not name the card a slot landed on, so no device is resolved and
   // no verdict is claimed rather than a wrong one asserted.
   const device = resolveSharedDevice(gpu.devices, null);
   const load =
     device && slots.some((slot) => slot.configured && !slot.onCpu) ? assessSidecarLoad({ slots, device }) : null;
-  return { gpu, slots, load, decisionConsent: null };
+  const settings = decisionSidecarSettings();
+  return {
+    gpu,
+    slots,
+    load,
+    // Only meaningful once someone turned it on. Recording what they were shown at
+    // that moment is the difference between an informed choice and a surprise.
+    decisionConsent:
+      settings.enabled && settings.confirmedAt
+        ? {
+            confirmedAt: settings.confirmedAt,
+            verdict: normalizeLoadVerdict(settings.confirmedVerdict),
+          }
+        : null,
+  };
 }

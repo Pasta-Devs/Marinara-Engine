@@ -12,7 +12,12 @@
  * explicitly, and the whole method depends on those two fields arriving intact.
  */
 import {
+  DECISION_SIDECAR_DEFAULT_SETTINGS,
+  findDecisionModel,
   normalizeDecisionThinking,
+  type DecisionCalibration,
+  type DecisionSidecarSettings,
+  type SidecarDecisionModelInfo,
   type DecisionLocalSlot,
   type DecisionThinkingMode,
   type DecisionUnavailableReason,
@@ -21,6 +26,12 @@ import { logger } from "../../lib/logger.js";
 import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
 import { sidecarProcessService } from "../sidecar/sidecar-process.service.js";
 import { resolveSidecarRequestModel } from "../sidecar/sidecar-request-model.js";
+import { decisionProcessService } from "../sidecar/decision-process.service.js";
+import {
+  decisionRuntimeInstalled,
+  decisionRuntimeService,
+  isDecisionRuntimeSupported,
+} from "../sidecar/decision-runtime.service.js";
 import { utilitySidecarService } from "../utility-sidecar/utility-sidecar.service.js";
 
 /** A slot that is ready to answer, with everything a request needs. */
@@ -39,13 +50,32 @@ export interface ResolvedDecisionSlot {
   /** Friendly label for the dropdown and diagnostics. */
   label: string;
   thinking: DecisionThinkingMode;
+  /**
+   * How to ask this slot a question.
+   *
+   * The two chat slots are prompted over `/v1/chat/completions` and answer through
+   * token log-probabilities. The managed decision sidecar speaks System One at
+   * `/v1/systemone` and rejects a chat request outright, so this is not cosmetic.
+   */
+  protocol: "chat_logprobs" | "system_one";
+  /** The model's own operating point, for a slot that brings one. */
+  calibration?: DecisionCalibration;
+  /**
+   * The input limit this model was launched with.
+   *
+   * A decision model has its own `--max-length` and rejects anything longer with a
+   * 422 instead of truncating, so it must never inherit a chat slot's context size.
+   */
+  maxLengthTokens?: number;
 }
 
 export type DecisionSlotFailure = { slot: DecisionLocalSlot; reason: DecisionUnavailableReason; detail?: string };
 
-/** Which slots this build can serve at all. The decision sidecar arrives with its runtime. */
-export function isDecisionSlotImplemented(slot: DecisionLocalSlot): boolean {
-  return slot === "primary" || slot === "utility";
+/** The catalog entry the user has installed, if the sidecar is enabled at all. */
+export function installedDecisionModel(settings: DecisionSidecarSettings): SidecarDecisionModelInfo | null {
+  if (!settings.enabled) return null;
+  // A pasted model is as installed as a curated one; only where it came from differs.
+  return findDecisionModel(settings.modelId) ?? settings.customModel;
 }
 
 /** The main sidecar's Thinking setting, kept with that slot's own config. */
@@ -77,7 +107,36 @@ export function describeDecisionSlot(
     if (!status.configured || !status.activeModelId) return { available: false, reason: "no_model" };
     return { available: true, label: status.activeModelId };
   }
-  return { available: false, reason: "not_installed" };
+  // The decision sidecar. Each reason is different and each has a different fix, so
+  // they are never collapsed into one "unavailable".
+  if (!isDecisionRuntimeSupported())
+    return {
+      available: false,
+      reason: "unsupported_platform",
+      detail: "Requires Linux with an NVIDIA GPU",
+    };
+  const settings = decisionSidecarSettings();
+  if (!settings.enabled) return { available: false, reason: "not_enabled" };
+  const model = installedDecisionModel(settings);
+  if (!model || !decisionRuntimeInstalled() || !decisionRuntimeService.modelDownloaded(model))
+    return { available: false, reason: "not_installed" };
+  return { available: true, label: model.label };
+}
+
+/**
+ * The stored decision sidecar settings.
+ *
+ * Read through an injected reader so the slot description stays synchronous: the
+ * dropdown asks about every entry on each request and must not wait on the database.
+ */
+let readDecisionSidecarSettings: () => DecisionSidecarSettings = () => ({ ...DECISION_SIDECAR_DEFAULT_SETTINGS });
+
+export function setDecisionSidecarSettingsReader(reader: () => DecisionSidecarSettings): void {
+  readDecisionSidecarSettings = reader;
+}
+
+export function decisionSidecarSettings(): DecisionSidecarSettings {
+  return readDecisionSidecarSettings();
 }
 
 /**
@@ -88,6 +147,7 @@ export function describeDecisionSlot(
  */
 export async function resolveDecisionSlot(
   slot: DecisionLocalSlot,
+  signal?: AbortSignal,
 ): Promise<{ resolved: ResolvedDecisionSlot; failure?: never } | { resolved: null; failure: DecisionSlotFailure }> {
   const description = describeDecisionSlot(slot);
   if (!description.available) return { resolved: null, failure: { slot, ...description } };
@@ -114,6 +174,39 @@ export async function resolveDecisionSlot(
         modelIdentity: `primary:${sidecarModelService.getConfiguredModelRef() ?? ""}:${status.modelSize ?? 0}`,
         label: description.label,
         thinking: primaryThinking(),
+        protocol: "chat_logprobs",
+      },
+    };
+  }
+
+  if (slot === "decision_sidecar") {
+    const model = installedDecisionModel(decisionSidecarSettings());
+    if (!model) return { resolved: null, failure: { slot, reason: "not_installed" } };
+    // Raced against the caller's abort. A cold load takes up to three minutes, and a
+    // generation the user already cancelled must not sit behind it; the process keeps
+    // starting in the background so the next turn finds it ready.
+    const baseUrl = await Promise.race([
+      decisionProcessService.ensureRunning(model),
+      new Promise<null>((resolve) => {
+        if (!signal) return;
+        if (signal.aborted) resolve(null);
+        else signal.addEventListener("abort", () => resolve(null), { once: true });
+      }),
+    ]);
+    if (!baseUrl) return { resolved: null, failure: { slot, reason: "stopped" } };
+    return {
+      resolved: {
+        slot,
+        baseUrl,
+        model: "jev-latest",
+        modelIdentity: `decision:${model.id}`,
+        label: model.label,
+        protocol: "system_one",
+        calibration: model.calibration,
+        maxLengthTokens: model.maxLengthTokens,
+        // A purpose-built decision model never reasons: it scores candidates in one
+        // forward pass and has no text to think in.
+        thinking: "off",
       },
     };
   }
@@ -139,20 +232,38 @@ export async function resolveDecisionSlot(
       modelIdentity: `utility:${activeModelId}:${status.models[activeModelId]?.oid ?? ""}`,
       label: description.label,
       thinking: utilityThinking(),
+      protocol: "chat_logprobs",
     },
   };
 }
 
 /** Context budget the slot was started with, so a decision state can be capped to fit. */
+/**
+ * The input budget a slot was started with.
+ *
+ * Only meaningful for the two chat slots: the decision sidecar carries its own limit
+ * on the resolved slot, because it is a property of the launched model rather than of
+ * anything in the sidecar config.
+ */
 export function decisionSlotContextSize(slot: DecisionLocalSlot): number {
   if (slot === "utility") return utilitySidecarService.getConfig().contextSize;
   return sidecarModelService.getConfig().contextSize;
 }
 
+/**
+ * Which slots have a Thinking setting at all.
+ *
+ * Only the two chat slots. A purpose-built decision model scores candidates in one
+ * forward pass and has no text to reason in, so there is nothing to allow or forbid.
+ */
+export function hasThinkingSetting(slot: DecisionLocalSlot): boolean {
+  return slot === "primary" || slot === "utility";
+}
+
 export function setDecisionSlotThinking(slot: DecisionLocalSlot, thinking: DecisionThinkingMode): void {
-  // Without this guard the else branch catches `decision_sidecar` too, and a setting
-  // for a slot this build cannot run would silently overwrite the primary slot's.
-  if (!isDecisionSlotImplemented(slot)) return;
+  // Explicit per slot rather than an else. An else branch catches `decision_sidecar`
+  // as well and silently writes a setting for it over the primary slot's config,
+  // which is a real bug this had once already.
   if (slot === "utility") utilitySidecarService.setDecisionThinking(thinking);
-  else sidecarModelService.setDecisionThinking(thinking);
+  else if (slot === "primary") sidecarModelService.setDecisionThinking(thinking);
 }

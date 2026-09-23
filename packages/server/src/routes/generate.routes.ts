@@ -4716,6 +4716,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       (charInfo.length === 1 ? charInfo[0]!.name : "Narrator")),
               })),
               maxStateTokens: backend.maxStateTokens,
+              defaultThreshold: backend.calibration.defaultThreshold,
               ask: backend.ask,
             });
             for (const candidate of candidates) {

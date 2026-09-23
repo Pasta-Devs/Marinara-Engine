@@ -1,3 +1,4 @@
+import { buildDecisionInstructions, type DecisionQuestionShape } from "@marinara-engine/shared";
 import { isProviderLocalUrlsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { safeFetch } from "../../utils/security.js";
@@ -22,6 +23,11 @@ export interface DecisionRequest {
   timeoutMs?: number;
   signal?: AbortSignal;
   debugMode?: boolean;
+  /**
+   * How this backend wants the question worded. Defaults to plain text, which is what
+   * every backend shipped before a model was measured wanting otherwise.
+   */
+  questionShape?: DecisionQuestionShape;
 }
 
 /** Safe, bounded System One transport. Error bodies may contain chat data, so never log them. */
@@ -41,7 +47,12 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
     const body = {
       model: req.connection.model,
       state: req.state,
-      questions: Object.fromEntries(req.questions.map((q) => [q.id, { type: "noul", instructions: q.instructions }])),
+      questions: Object.fromEntries(
+        req.questions.map((q) => [
+          q.id,
+          { type: "noul", instructions: buildDecisionInstructions(q.instructions, req.questionShape ?? "text") },
+        ]),
+      ),
     };
     logDebugOverride(
       req.debugMode === true || process.env.DEBUG_AGENTS === "true",

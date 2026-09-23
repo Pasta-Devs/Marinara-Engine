@@ -19,6 +19,16 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Scene setup lets you choose its persona and Conversation characters. Characters in an active Scene pause automatic messages in the source Conversation until the Scene ends (#6542, #6541).
 - Roleplay tracker widgets tolerate saved blank rows, and Custom Tracker updates discard nameless entries after applying field locks instead of making a chat unusable (#6549).
 
+- Marinara can now download and run a purpose-built decision model for activation questions. It runs as its own local process, so it answers them whether or not you also run a local chat model. It is off by default and behind a warning, a confirmation carrying your machine's verdict, and a separate size-and-license step, because it costs about 10 GB of disk and 5 GB of GPU memory. If you already run a local chat model, that model is more accurate on roleplay questions; the decision model is faster and slightly smaller. You can also paste a decision model's repository, which is installed only when its own manifest declares a runtime this build ships.
+
+- On a machine with several NVIDIA GPUs, the decision model installer has a GPU menu for the card it runs on. Where the machine cannot run a decision model at all, the installer offers to set up a Decision connection instead.
+
+- The decision model preflight checks GPU compute capability, not just whether an NVIDIA card is present. Pascal cards and older cannot run the runtime whatever memory they have, and without this check the download would have been offered and then failed at load.
+
+- Activation question thresholds now start from whatever the selected decision model actually answers around, instead of always 0.5. Probabilities are not comparable between models: a general local model answers a clear scene change at 0.99 while a purpose-built decision model answers the same turn at 0.2, so one fixed number made the second kind skip every relevant turn while appearing to work. The editor seeds new questions from the selected model and offers to put its recommended value back.
+
+- Choosing a decision model that turns out to be unusable now leaves your current choice alone. A rejected selection reported the error but also silently switched the Decision model to None, which stopped every activation question until it was noticed.
+
 - Activation questions can be answered by the local model you already run, on either the main or the utility slot, with no download and nothing leaving your machine. Pick it under **Decision model**, which now lists local models alongside Decision connections and shows why an unavailable entry cannot be used. A **Thinking** setting handles models that always reason first; those gate post-processing agents by default so replies do not wait.
 
 - Support diagnostics report the server's own GPU and each local model slot: what is configured, whether it is running, and the estimated memory it needs, with a combined verdict. The existing GPU line is the browser's, which said nothing about the machine running the local model.
