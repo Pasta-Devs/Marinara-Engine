@@ -329,10 +329,10 @@ function asBoundedPositiveInteger(value: unknown, fallback: number, max: number)
 
 /** A Decision connection's own time limit, or null to keep the default. */
 function asDecisionTimeoutMs(value: unknown) {
-  const numberValue = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
-  return value === null || value === "" || !Number.isFinite(numberValue)
-    ? null
-    : resolveDecisionConnectionTimeoutMs(numberValue);
+  // A blank string is unset, not zero: Number(" ") is 0, which would clamp to the minimum.
+  const text = typeof value === "string" ? value.trim() : null;
+  const numberValue = typeof value === "number" ? value : text ? Number(text) : NaN;
+  return Number.isFinite(numberValue) ? resolveDecisionConnectionTimeoutMs(numberValue) : null;
 }
 
 function asNonNegativeInteger(value: unknown, fallback: number) {

@@ -1098,6 +1098,13 @@ export function ConnectionEditor() {
           : false,
       cachingAtDepth: localCachingAtDepth,
       defaultForAgents: localDefaultForAgents,
+      // The Decision fields as edited, so exporting before saving writes what is on screen.
+      decisionSource: localProvider === "decision" ? localDecisionSource : null,
+      maxStateTokens: localProvider === "decision" ? localMaxStateTokens : null,
+      decisionTimeoutMs:
+        localProvider === "decision" && localDecisionTimeoutMs !== DECISION_TIMEOUT_MS.systemOne
+          ? localDecisionTimeoutMs
+          : null,
       embeddingModel: supportsDirectEmbeddings ? localEmbeddingModel : existingEmbeddingModel,
       embeddingBaseUrl: supportsDirectEmbeddings ? embeddingBaseUrlValidation.value : existingEmbeddingBaseUrl,
       embeddingConnectionId: localEmbeddingConnectionId || null,
@@ -1133,6 +1140,9 @@ export function ConnectionEditor() {
   }, [
     conn,
     localProvider,
+    localDecisionSource,
+    localMaxStateTokens,
+    localDecisionTimeoutMs,
     localName,
     localBaseUrl,
     localModel,

@@ -185,6 +185,12 @@ try {
     normalizeImportedConnectionEntry({ ...exported, decisionTimeoutMs: undefined })!.connection.decisionTimeoutMs,
     null,
   );
+  for (const blank of ["", " ", null])
+    assert.equal(
+      normalizeImportedConnectionEntry({ ...exported, decisionTimeoutMs: blank })!.connection.decisionTimeoutMs,
+      null,
+      `a blank limit (${JSON.stringify(blank)}) keeps the default`,
+    );
   assert.equal(
     normalizeImportedConnectionEntry({ ...exported, provider: "openai", decisionTimeoutMs: 3000 })!.connection
       .decisionTimeoutMs,
