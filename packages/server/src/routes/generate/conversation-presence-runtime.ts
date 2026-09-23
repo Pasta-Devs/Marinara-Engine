@@ -99,6 +99,7 @@ export async function resolveConversationPresenceRuntime(args: {
   isGroup: boolean;
   respondingCharacterIds: string[];
   responderDelays: Record<string, ConversationResponderDelay>;
+  mentionResponderDelays?: Record<string, ConversationResponderDelay>;
   presenceDelayStartedAt: number;
   chatMessages: any[];
   finalMessages: GenerationPromptMessage[];
@@ -140,13 +141,14 @@ export async function resolveConversationPresenceRuntime(args: {
       : convoCharInfo;
   let respondingConvoCharInfo = scopedConvoCharInfo.length > 0 ? scopedConvoCharInfo : convoCharInfo;
 
+  const budget = getAutonomousDailyBudget(args.chatMeta);
+  const withinAutonomousBudget = (character: { charId: string }) =>
+    !args.shouldAccountAutonomousGeneration ||
+    args.regenerateMessageId ||
+    args.impersonate ||
+    (budget.counts[character.charId] ?? 0) < dailyCapForCharacter(schedules[character.charId], args.chatMeta);
   if (args.shouldAccountAutonomousGeneration && !args.regenerateMessageId && !args.impersonate) {
-    const budget = getAutonomousDailyBudget(args.chatMeta);
-    respondingConvoCharInfo = respondingConvoCharInfo.filter((character) => {
-      const count = budget.counts[character.charId] ?? 0;
-      const cap = dailyCapForCharacter(schedules[character.charId], args.chatMeta);
-      return count < cap;
-    });
+    respondingConvoCharInfo = respondingConvoCharInfo.filter(withinAutonomousBudget);
 
     if (respondingConvoCharInfo.length === 0) {
       args.writeSse({ type: "done" });
@@ -294,18 +296,29 @@ export async function resolveConversationPresenceRuntime(args: {
     args.writeSse({ type: "typing", characters: convoCharNames });
   }
 
-  return buildPresenceResult({
-    ended: false,
-    convoCharInfo,
-    convoCharNames,
-    charNameList,
-    respondingCharacterIds,
-    responderDelays,
-    presenceDelayStartedAt,
-    args,
-    chatMessages,
-    finalMessages,
-  });
+  return {
+    ...buildPresenceResult({
+      ended: false,
+      convoCharInfo,
+      convoCharNames,
+      charNameList,
+      respondingCharacterIds,
+      responderDelays,
+      presenceDelayStartedAt,
+      args,
+      chatMessages,
+      finalMessages,
+    }),
+    // A targeted first reply may invite another eligible group member afterwards.
+    mentionResponderDelays: Object.fromEntries(
+      convoCharInfo
+        .filter((character) => withinAutonomousBudget(character) && effectiveStatus(character) !== "offline")
+        .map((character) => {
+          const status = effectiveStatus(character) as "online" | "idle" | "dnd";
+          return [character.charId, { status, delayMs: args.skipPresenceDelay ? 0 : getMentionDelay(status) }];
+        }),
+    ),
+  };
 }
 
 async function resolveConversationPromptCharacters(args: {

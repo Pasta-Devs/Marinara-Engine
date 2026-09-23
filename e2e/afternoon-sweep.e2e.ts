@@ -23,6 +23,77 @@ async function prepare(page: Page, chatId?: string) {
   await page.goto("/");
 }
 
+test("RPG pool names keep spaces and blank drafts until committed", async ({ page, request }, info) => {
+  const response = await request.post("/api/characters", {
+    data: {
+      data: {
+        name: "Pool name proof",
+        extensions: {
+          rpgStats: {
+            enabled: true,
+            attributes: [],
+            hp: { value: 20, max: 20 },
+            pools: [{ name: "HP", value: 20, max: 20, color: "#ef4444" }],
+          },
+        },
+      },
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  const character = await response.json();
+  try {
+    await prepare(page);
+    const openEditor = async () => {
+      await page.evaluate(async (id) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().openCharacterDetail(id);
+      }, character.id);
+      if (info.project.name.includes("mobile")) {
+        await page.getByRole("button", { name: "Editor sections", exact: true }).click();
+        await page.getByRole("menuitemradio", { name: "Stats", exact: true }).click();
+      } else {
+        await page.getByRole("button", { name: "Stats", exact: true }).click();
+      }
+    };
+    await openEditor();
+    const name = page.locator('input[placeholder="Name"]').filter({ visible: true });
+    await expect(name).toHaveValue("HP");
+    await name.fill("");
+    await expect(name).toHaveValue("");
+    await name.pressSequentially("Health Points");
+    await expect(name).toHaveValue("Health Points");
+    await expect(name).toBeFocused();
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("spinbutton", { name: "Health Points value", exact: true })).toHaveValue("20");
+    await expect
+      .poll(async () => {
+        const saved = await (await request.get(`/api/characters/${character.id}`)).json();
+        const data = typeof saved.data === "string" ? JSON.parse(saved.data) : saved.data;
+        return data.extensions.rpgStats.pools[0].name;
+      })
+      .toBe("Health Points");
+    await page.reload();
+    await openEditor();
+    await expect(name).toHaveValue("Health Points");
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate(async (theme) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().setTheme(theme);
+      }, theme);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await name.scrollIntoViewIfNeeded();
+      await expect(name).toBeInViewport();
+      await page.screenshot({ path: info.outputPath(`pool-name-${theme}.png`) });
+    }
+    await name.fill("");
+    await name.blur();
+    await expect(name).toHaveValue("Health Points");
+  } finally {
+    await request.delete(`/api/characters/${character.id}`);
+  }
+});
+
 test("agent categories fit and built-in context selections survive save, export and reload", async ({
   page,
   request,
@@ -238,6 +309,8 @@ test("request timeouts can be found, saved and reloaded in Advanced Settings", a
       });
       await page.getByPlaceholder("Search settings").fill("request timeouts");
       await page.getByRole("button", { name: /Request timeouts/ }).click();
+      // The search jump focuses its section after two animation frames.
+      await expect(page.locator("#settings-section-request-timeouts")).toBeFocused();
     };
     await openTimeouts();
     const text = page.getByRole("textbox", { name: "Text generation", exact: true });
