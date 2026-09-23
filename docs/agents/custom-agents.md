@@ -208,7 +208,7 @@ It needs Linux with an NVIDIA GPU of compute capability 7.5 or newer (Turing, th
 
 1. Open **Connections**, expand **Local Model**, and choose **Decision sidecar (experimental)**.
 2. Read the warning, then turn on **Enable decision sidecar**. Confirming shows the verdict for your machine, and the button reads **Enable anyway** when that verdict is a warning.
-3. Pick a model and confirm its size and licenses. Nothing downloads before that point.
+3. Pick a model and confirm its size and licenses. Nothing downloads before that point. **Open-Jev 2B** is the smaller choice. **Open-Jev 9B** was more accurate in our tests, but it needs about 22 GB of GPU memory, so on a 24 GB card nothing else fits beside it, and it takes about a second per question.
 4. Select **Decision sidecar** under **Decision model**.
 
 You can also paste a decision model's HuggingFace repository. Marinara reads that repository's own manifest, checks that the artifact type maps to a runtime this build ships, and shows you the base weights it will pull and the total size before offering to install it. A repository it cannot vouch for is refused with the reason rather than installed hopefully.
