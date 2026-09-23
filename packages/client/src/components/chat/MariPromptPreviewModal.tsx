@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Loader2, X } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import { diffWords } from "../../lib/word-diff";
 import {
   NEUTRAL_PANEL_CLOSE_BUTTON,
@@ -39,6 +40,7 @@ export function MariPromptPreviewModal({
   onClose: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const backdropDismiss = useBackdropDismiss(onClose);
   // The word-diff is an O(m*n) LCS pass over the whole assembled prompt; memoize so it is not
   // recomputed on unrelated re-renders (e.g. while loading).
   const segments = useMemo(() => diffWords(sideToText(before), sideToText(after)), [before, after]);
@@ -87,7 +89,7 @@ export function MariPromptPreviewModal({
   return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 max-md:pt-[env(safe-area-inset-top)]"
-      onClick={onClose}
+      {...backdropDismiss}
     >
       <div
         ref={panelRef}

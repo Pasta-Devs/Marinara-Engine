@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback, useMemo, Component, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import {
   Swords,
   Shield,
@@ -171,13 +172,14 @@ interface TargetSelectionProps {
 
 function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: TargetSelectionProps) {
   const { t: localizeUi } = useUiTranslation();
+  const backdropDismiss = useBackdropDismiss(onCancel);
   return (
     <motion.div
       className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm max-md:pt-[env(safe-area-inset-top)]"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      onClick={onCancel}
+      {...backdropDismiss}
     >
       <motion.div
         className="w-80 max-w-[90vw] rounded-2xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--card)] p-5 shadow-2xl"
@@ -335,6 +337,7 @@ function EncounterConfig() {
 
   const { data: lorebooks } = useLorebooks("spellbook");
   const spellbooks = (lorebooks ?? []) as Lorebook[];
+  const backdropDismiss = useBackdropDismiss(closeConfigModal);
 
   return (
     <motion.div
@@ -342,7 +345,7 @@ function EncounterConfig() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      onClick={closeConfigModal}
+      {...backdropDismiss}
     >
       <motion.div
         className="w-[26.25rem] max-w-[95vw] rounded-2xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--card)] p-5 sm:p-6 shadow-2xl"

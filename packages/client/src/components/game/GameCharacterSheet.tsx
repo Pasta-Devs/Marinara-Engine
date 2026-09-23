@@ -27,6 +27,7 @@ import type {
   RulesetSheetEnvelope,
 } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import { GameRulesetSheet } from "./GameRulesetSheet";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
@@ -333,6 +334,7 @@ export function GameCharacterSheet({
   ruleset,
 }: GameCharacterSheetProps) {
   const { t: localizeUi } = useUiTranslation();
+  const backdropDismiss = useBackdropDismiss(onClose);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
@@ -495,7 +497,7 @@ export function GameCharacterSheet({
     <div
       data-game-skip-bg-nav="true"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 pb-[max(var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4"
-      onClick={onClose}
+      {...backdropDismiss}
     >
       <div
         data-component="GameCharacterSheet"
