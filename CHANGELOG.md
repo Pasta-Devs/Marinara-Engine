@@ -19,6 +19,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Marinara can now download and run a purpose-built decision model for activation questions, as a second local process beside your normal local model. It is off by default and behind a warning, a confirmation carrying your machine's verdict, and a separate size-and-licence step, because it costs about 10 GB of disk and 5 GB of GPU memory and is less accurate on roleplay than the local model you already have. It is faster and slightly smaller; that is the trade. You can also paste a decision model's repository, which is installed only when its own manifest declares a runtime this build ships.
 
+- On a machine with several NVIDIA GPUs, the decision model installer has a GPU menu for the card it runs on. Where the machine cannot run a decision model at all, the installer offers to set up a Decision connection instead.
+
 - The decision model preflight checks GPU compute capability, not just whether an NVIDIA card is present. Pascal cards and older cannot run the runtime whatever memory they have, and without this check the download would have been offered and then failed at load.
 
 - Activation question thresholds now start from whatever the selected decision model actually answers around, instead of always 0.5. Probabilities are not comparable between models: a general local model answers a clear scene change at 0.99 while a purpose-built decision model answers the same turn at 0.2, so one fixed number made the second kind skip every relevant turn while appearing to work. The editor seeds new questions from the selected model and offers to put its recommended value back.

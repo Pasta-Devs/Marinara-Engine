@@ -43,6 +43,39 @@ const PYTHON_VERSION = "3.12";
 /** Written after an artifact's last file lands, so a partial download is visible. */
 const DOWNLOAD_RECEIPT = ".marinara-download.json";
 
+/** What every child process needs from the server's environment, and nothing more. */
+const BASE_ENV_NAMES = ["PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "TZ"] as const;
+/**
+ * What `uv` also needs to reach its package indexes: proxies, in both spellings tools
+ * read, and a custom CA bundle for networks that intercept TLS.
+ */
+const NETWORK_ENV_NAMES = [
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "NO_PROXY",
+  "ALL_PROXY",
+  "http_proxy",
+  "https_proxy",
+  "no_proxy",
+  "all_proxy",
+  "SSL_CERT_FILE",
+  "SSL_CERT_DIR",
+] as const;
+
+/**
+ * The named variables from the server's environment, and only those.
+ *
+ * An allowlist rather than `process.env`, because the children are a third party's
+ * package builds and model loader, and everything the engine holds in its environment
+ * (provider keys, tokens, storage paths) would otherwise be handed to them.
+ */
+export function inheritedEnv(options: { network?: boolean } = {}): NodeJS.ProcessEnv {
+  const names: readonly string[] = options.network ? [...BASE_ENV_NAMES, ...NETWORK_ENV_NAMES] : BASE_ENV_NAMES;
+  return Object.fromEntries(
+    names.map((name) => [name, process.env[name]]).filter(([, value]) => typeof value === "string"),
+  );
+}
+
 export interface DecisionRuntimeInstall {
   directoryPath: string;
   pythonPath: string;
@@ -267,7 +300,12 @@ export class DecisionRuntimeService {
           await retry(
             () =>
               downloadFileWithProgress({
-                url: `https://huggingface.co/${artifact.repoId}/resolve/${artifact.revision}/${file.path}`,
+                // Each segment encoded, the separators kept: a `#`, `?` or `%` in a file
+                // name would otherwise end or rewrite the path and fetch another file.
+                url: `https://huggingface.co/${artifact.repoId}/resolve/${artifact.revision}/${file.path
+                  .split("/")
+                  .map(encodeURIComponent)
+                  .join("/")}`,
                 destPath: destination,
                 signal: abort.signal,
                 expectedBytes: file.size,
@@ -336,7 +374,27 @@ export class DecisionRuntimeService {
       signal,
     });
     if (!info.ok) throw new Error(`Could not read file digests for ${artifact.repoId}`);
-    const described = (await info.json()) as Array<{ path: string; size: number; lfs?: { oid?: string } }>;
+    const described = (await info.json()) as Array<{
+      type?: string;
+      path: string;
+      size: number;
+      lfs?: { oid?: string };
+    }>;
+    // The download list and the receipt both come from this reply, so a path it left
+    // out (a request limit, say) would be neither fetched nor expected, and the model
+    // would read as installed and then fail inside the loader. It must describe the
+    // wanted set exactly, once each, and only files.
+    const describedPaths = new Set(described.map((entry) => entry.path));
+    const missing = wanted.filter((path) => !describedPaths.has(path));
+    if (
+      missing.length > 0 ||
+      described.length !== wanted.length ||
+      describedPaths.size !== described.length ||
+      described.some((entry) => (entry.type !== undefined && entry.type !== "file") || typeof entry.size !== "number")
+    )
+      throw new Error(
+        `Could not read file details for ${artifact.repoId}${missing.length > 0 ? `: ${missing.join(", ")}` : ""}`,
+      );
     return described.map((entry) => ({
       path: entry.path,
       size: entry.size,
@@ -448,7 +506,7 @@ export class DecisionRuntimeService {
     await new Promise<void>((resolve, reject) => {
       const child = spawn(command, args, {
         cwd: options.cwd,
-        env: { ...process.env, ...options.env },
+        env: { ...inheritedEnv({ network: true }), ...options.env },
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
       });

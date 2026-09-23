@@ -250,6 +250,12 @@ export interface DecisionSidecarSettings {
   confirmedAt: string | null;
   /** The preflight verdict displayed when the user confirmed. */
   confirmedVerdict: string | null;
+  /**
+   * The CUDA device the decision sidecar runs on, by `nvidia-smi` index, or null for
+   * the default. Separate from the llama.cpp slots' device, which is a Vulkan index
+   * and names a different card on a machine with an integrated GPU.
+   */
+  cudaDevice: number | null;
 }
 
 export const DECISION_SIDECAR_SETTINGS_KEY = "decision-sidecar";
@@ -261,7 +267,13 @@ export const DECISION_SIDECAR_DEFAULT_SETTINGS: DecisionSidecarSettings = {
   startPolicy: "on_demand",
   confirmedAt: null,
   confirmedVerdict: null,
+  cudaDevice: null,
 };
+
+/** A plausible CUDA device index. Whether that card exists is the preflight's call. */
+export function isCudaDeviceIndex(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value < 64;
+}
 
 /** Accept a stored custom entry only if its runtime and floors still make sense. */
 export function sanitizeCustomDecisionModel(value: unknown): SidecarDecisionModelInfo | null {
@@ -270,8 +282,24 @@ export function sanitizeCustomDecisionModel(value: unknown): SidecarDecisionMode
   const defaults = decisionRuntimeDefaults(model.runtime);
   if (!defaults) return null;
   if (!Array.isArray(model.artifacts) || model.artifacts.length === 0) return null;
-  if (!model.artifacts.every((artifact) => /^[0-9a-f]{40}$/u.test(artifact.revision ?? ""))) return null;
-  if (!model.artifacts.every((artifact) => isSafeRepoId(artifact.repoId ?? ""))) return null;
+  // Each element is checked for shape before any field is read. A null element used
+  // to throw, and the settings parser's catch then reset the whole record, losing
+  // `enabled`, the start policy and the consent record over one bad entry.
+  const artifactOk = (artifact: unknown): boolean => {
+    if (!artifact || typeof artifact !== "object") return false;
+    const entry = artifact as Partial<DecisionModelArtifact>;
+    if (typeof entry.revision !== "string" || !/^[0-9a-f]{40}$/u.test(entry.revision)) return false;
+    if (typeof entry.repoId !== "string" || !isSafeRepoId(entry.repoId)) return false;
+    // The downloader calls `startsWith` on every prefix.
+    return (
+      entry.paths === undefined ||
+      (Array.isArray(entry.paths) && entry.paths.every((prefix) => typeof prefix === "string"))
+    );
+  };
+  if (!model.artifacts.every(artifactOk)) return null;
+  // Both reach the installer dialog as text.
+  if (!Array.isArray(model.licenses) || !model.licenses.every((license) => typeof license === "string")) return null;
+  if (typeof model.description !== "string") return null;
   // An entry with no name or a nonsense size would reach the panel and the preflight,
   // where it would render blank and be judged against zero bytes.
   if (typeof model.id !== "string" || !model.id.trim()) return null;
@@ -295,6 +323,7 @@ export function parseDecisionSidecarSettings(raw: string | null | undefined): De
       startPolicy: parsed.startPolicy === "with_marinara" ? "with_marinara" : "on_demand",
       confirmedAt: typeof parsed.confirmedAt === "string" ? parsed.confirmedAt : null,
       confirmedVerdict: typeof parsed.confirmedVerdict === "string" ? parsed.confirmedVerdict : null,
+      cudaDevice: isCudaDeviceIndex(parsed.cudaDevice) ? parsed.cudaDevice : null,
     };
   } catch {
     // A hand-edited or truncated value must not enable a download.

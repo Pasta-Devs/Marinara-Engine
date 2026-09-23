@@ -14,12 +14,16 @@ const root = mkdtempSync(join(tmpdir(), "marinara-decision-runtime-"));
 const dataDir = join(root, "data");
 const binDir = join(root, "bin");
 const spawnMarker = join(root, "spawned.log");
+const gpuState = join(root, "gpu-state");
 mkdirSync(dataDir, { recursive: true });
 mkdirSync(binDir, { recursive: true });
 process.env.DATA_DIR = dataDir;
 
 // A slow nvidia-smi, so a start spends a real second in its preflight: the window in
 // which a stop used to find nothing to stop.
+// Card size and used memory come from a file, so a case can model a smaller card or
+// a running model's memory without another script.
+writeFileSync(gpuState, "24463 14\n");
 writeFileSync(
   join(binDir, "nvidia-smi"),
   `#!/bin/sh
@@ -27,20 +31,25 @@ sleep 1
 case "$1" in
   --query-compute-apps*) exit 0 ;;
 esac
-echo "0, GPU-fake, NVIDIA Fake 24GB, 24463, 14, 615.71.09, 12.0"
+read total used < "${gpuState}"
+echo "0, GPU-fake, NVIDIA Fake, $total, $used, 615.71.09, 12.0"
 `,
 );
 chmodSync(join(binDir, "nvidia-smi"), 0o755);
 process.env.PATH = `${binDir}:${process.env.PATH ?? ""}`;
 
-const { SIDECAR_DECISION_MODELS } = await import("../../packages/shared/src/index.js");
+const { DECISION_SIDECAR_DEFAULT_SETTINGS, parseDecisionSidecarSettings, SIDECAR_DECISION_MODELS } =
+  await import("../../packages/shared/src/index.js");
+const { setDecisionSidecarSettingsReader } =
+  await import("../../packages/server/src/services/decision/decision-slots.js");
 const { serializeDecisionRuntimeManifestStamp } =
   await import("../../packages/server/src/services/sidecar/runtime-integrity-manifest.js");
-const { artifactSnapshotPath, decisionRuntimeInstalled, decisionRuntimeService } =
+const { artifactSnapshotPath, decisionRuntimeInstalled, decisionRuntimeService, inheritedEnv } =
   await import("../../packages/server/src/services/sidecar/decision-runtime.service.js");
 const { decisionProcessService } =
   await import("../../packages/server/src/services/sidecar/decision-process.service.js");
-const { preflightDecisionModel } = await import("../../packages/server/src/services/sidecar/decision-preflight.js");
+const { configuredCudaIndex, preflightDecisionModel } =
+  await import("../../packages/server/src/services/sidecar/decision-preflight.js");
 const { hubRevisionUrl, isLoadableArtifactFile, listHubFiles } =
   await import("../../packages/server/src/services/sidecar/decision-hub.js");
 const { inspectDecisionRepo } = await import("../../packages/server/src/services/sidecar/decision-byo.js");
@@ -93,6 +102,17 @@ try {
   ])
     assert.equal(isLoadableArtifactFile(path), false, `${path} is refused`);
 
+  // ── children get an allowlisted environment ───────────────────────────────────
+
+  process.env.MARINARA_TEST_SECRET = "sk-should-not-leak";
+  process.env.HTTPS_PROXY = "http://proxy.test:3128";
+  assert.equal(inheritedEnv({ network: true }).MARINARA_TEST_SECRET, undefined, "a server secret is not passed on");
+  assert.equal(inheritedEnv({ network: true }).HTTPS_PROXY, "http://proxy.test:3128", "uv still sees the proxy");
+  assert.equal(inheritedEnv().HTTPS_PROXY, undefined, "the offline model process does not need it");
+  assert.ok(inheritedEnv().PATH, "PATH is kept");
+  delete process.env.MARINARA_TEST_SECRET;
+  delete process.env.HTTPS_PROXY;
+
   // ── the revision URL keeps a slashed ref in one segment ───────────────────────
 
   assert.equal(
@@ -143,8 +163,12 @@ try {
       if (url.includes("/tree/") && url.includes("pasted/model"))
         return Response.json(checkpointFiles.map((path) => ({ type: "file", path, size: 100 })));
       if (url.includes("/tree/")) return Response.json([{ type: "file", path: "model.safetensors", size: 1000 }]);
-      if (url.endsWith("/api/models/pasted/model")) return Response.json({ cardData: { license: "mit" } });
-      if (url.endsWith("/api/models/Qwen/Qwen3.5-2B")) return Response.json({ tags: ["license:apache-2.0"] });
+      // The default branch says something else, so the test can tell which one was read.
+      if (url.endsWith("/api/models/pasted/model")) return Response.json({ cardData: { license: "other" } });
+      if (url.endsWith(`/api/models/pasted/model/revision/${pastedRevision}`))
+        return Response.json({ cardData: { license: "mit" } });
+      if (url.endsWith(`/api/models/Qwen/Qwen3.5-2B/revision/${baseRevision}`))
+        return Response.json({ tags: ["license:apache-2.0"] });
       return new Response("not found", { status: 404 });
     }) as typeof fetch;
 
@@ -154,7 +178,65 @@ try {
   globalThis.fetch = stubRepo(["package/checkpoint/head.pt", "package/checkpoint/model.json"]);
   const inspected = await inspectDecisionRepo("pasted/model", pastedRevision);
   assert.ok("model" in inspected, "a repository of loadable files is accepted");
-  assert.deepEqual(inspected.model.licenses, ["mit (pasted/model)", "apache-2.0 (Qwen/Qwen3.5-2B)"]);
+  assert.deepEqual(
+    inspected.model.licenses,
+    ["mit (pasted/model)", "apache-2.0 (Qwen/Qwen3.5-2B)"],
+    "licences are read at the pinned revisions, not the default branch",
+  );
+
+  // A listing that fails is its own refusal, not a verdict about the repository.
+  const healthy = stubRepo(["package/checkpoint/model.json"]);
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url = String(input instanceof Request ? input.url : input);
+    if (url.includes("/tree/")) return new Response("rate limited", { status: 429 });
+    return healthy(input);
+  }) as typeof fetch;
+  assert.deepEqual(await inspectDecisionRepo("pasted/model", pastedRevision), { refusal: "listing_failed" });
+
+  // ── what gets downloaded is exactly what was described ────────────────────────
+
+  const requested: string[] = [];
+  const downloadStub = (describe: (wanted: string[]) => unknown[]) =>
+    (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input instanceof Request ? input.url : input);
+      requested.push(url);
+      if (url.includes("/tree/"))
+        return Response.json([
+          { type: "file", path: "package/checkpoint/a b#1.json", size: 2 },
+          { type: "file", path: "package/checkpoint/model.json", size: 2 },
+        ]);
+      if (url.includes("/paths-info/"))
+        return Response.json(describe((JSON.parse(String(init?.body)) as { paths: string[] }).paths));
+      return new Response("missing", { status: 404 });
+    }) as typeof fetch;
+  const single = { ...model, artifacts: [model.artifacts[0]!] };
+
+  globalThis.fetch = downloadStub((wanted) => [{ type: "file", path: wanted[0], size: 2 }]);
+  await assert.rejects(
+    decisionRuntimeService.downloadModel(single),
+    /Could not read file details for ZefanCai\/Open-Jev-2B: package\/checkpoint\/model\.json/u,
+    "a paths-info reply that leaves a file out is refused instead of skipping it",
+  );
+  globalThis.fetch = downloadStub((wanted) => [
+    ...wanted.map((path) => ({ type: "file", path, size: 2 })),
+    { type: "file", path: wanted[0], size: 2 },
+  ]);
+  await assert.rejects(
+    decisionRuntimeService.downloadModel(single),
+    /Could not read file details/u,
+    "or duplicates one",
+  );
+
+  requested.length = 0;
+  globalThis.fetch = downloadStub((wanted) => wanted.map((path) => ({ type: "file", path, size: 2 })));
+  await assert.rejects(decisionRuntimeService.downloadModel(single));
+  assert.ok(
+    requested.some((url) =>
+      url.endsWith("/resolve/0c7aa498b1627be8da4acf34c863ff0ee0a92785/package/checkpoint/a%20b%231.json"),
+    ),
+    `each path segment is encoded, separators kept: ${requested.join(" ")}`,
+  );
+  globalThis.fetch = realFetch;
 
   // ── one download at a time ────────────────────────────────────────────────────
 
@@ -176,6 +258,36 @@ try {
     "both callers see the one download's outcome",
   );
   globalThis.fetch = realFetch;
+
+  // ── one bad stored entry does not reset the whole settings record ────────────
+
+  const stored = (customModel: unknown) =>
+    parseDecisionSidecarSettings(
+      JSON.stringify({
+        enabled: true,
+        startPolicy: "with_marinara",
+        confirmedAt: "2026-09-23",
+        customModel,
+        cudaDevice: 1,
+      }),
+    );
+  const pasted = { ...model, id: "byo:pasted", label: "pasted/model" };
+  for (const bad of [
+    { ...pasted, artifacts: [null] },
+    { ...pasted, artifacts: [{ ...pasted.artifacts[0], paths: [7] }] },
+    { ...pasted, licenses: "MIT" },
+    { ...pasted, licenses: [1] },
+  ]) {
+    const parsed = stored(bad);
+    assert.equal(parsed.customModel, null, "the bad entry is dropped");
+    assert.equal(parsed.enabled, true, "and the rest of the record survives");
+    assert.equal(parsed.startPolicy, "with_marinara");
+    assert.equal(parsed.confirmedAt, "2026-09-23");
+  }
+  assert.ok(stored(pasted).customModel, "a well-formed entry is kept");
+  assert.equal(stored(pasted).cudaDevice, 1);
+  assert.equal(parseDecisionSidecarSettings(JSON.stringify({ cudaDevice: -1 })).cudaDevice, null);
+  assert.equal(parseDecisionSidecarSettings(JSON.stringify({ cudaDevice: 1.5 })).cudaDevice, null);
 
   // ── a fake installed runtime ──────────────────────────────────────────────────
 
@@ -227,8 +339,32 @@ exec sleep 30
   const url = await decisionProcessService.ensureRunning(model);
   assert.equal(url, "http://127.0.0.1:9", "an uninterrupted start launches straight away");
   assert.equal(readFileSync(spawnMarker, "utf8").trim(), "started");
+
+  // ── the running model is counted once ─────────────────────────────────────────
+
+  // An 8 GB card with this model already loaded on it. Counted twice it reads as
+  // not fitting; counted once it fits with room to spare.
+  writeFileSync(gpuState, `8192 ${Math.round(model.vramBytes / 1024 / 1024) + 14}\n`);
+  const whileRunning = await preflightDecisionModel(model, { fresh: true });
+  assert.equal(whileRunning.assessment.verdict, "recommended", "the running model is not counted twice");
   await decisionProcessService.stop();
   assert.equal(decisionProcessService.getStatus().running, false);
+  writeFileSync(gpuState, "24463 14\n");
+
+  // ── the chosen GPU is the one weighed ─────────────────────────────────────────
+
+  let settings = { ...DECISION_SIDECAR_DEFAULT_SETTINGS };
+  setDecisionSidecarSettingsReader(() => settings);
+  process.env.MARINARA_DECISION_CUDA_DEVICE = "3";
+  assert.equal(configuredCudaIndex(), 3, "with no choice made, the environment variable still applies");
+  settings = { ...settings, cudaDevice: 0 };
+  assert.equal(configuredCudaIndex(), 0, "a choice in the panel wins over the environment");
+  assert.notEqual((await preflightDecisionModel(model, { fresh: true })).assessment.verdict, "unsupported");
+  settings = { ...settings, cudaDevice: 1 };
+  const missing = await preflightDecisionModel(model, { fresh: true });
+  assert.equal(missing.assessment.verdict, "unsupported", "a chosen card that is gone is not replaced by another");
+  assert.match(missing.reason ?? "", /device 1\) is not present/u);
+  delete process.env.MARINARA_DECISION_CUDA_DEVICE;
 } finally {
   globalThis.fetch = realFetch;
   await decisionProcessService.stop().catch(() => null);

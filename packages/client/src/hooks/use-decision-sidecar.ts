@@ -32,6 +32,10 @@ export interface DecisionSidecarStatus {
   process: { running: boolean; baseUrl: string | null; modelId: string | null; error: string | null };
   logPath: string;
   models: DecisionSidecarModel[];
+  /** NVIDIA GPUs by `nvidia-smi` index, for the device picker. */
+  devices: Array<{ index: number; name: string; totalBytes: number }>;
+  /** The device the sidecar will use: the stored choice, else the default. */
+  cudaDevice: number;
 }
 
 export const decisionSidecarKey = [...decisionKeys.all, "sidecar"] as const;
@@ -109,6 +113,16 @@ export function useInstallDecisionRepo() {
   return useMutation({
     mutationFn: (input: { repoId: string; revision?: string }) =>
       api.post<{ settings: DecisionSidecarSettings }>("/decision/sidecar/install", input),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+export function useSetDecisionDevice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (cudaDevice: number | null) =>
+      api.post<{ settings: DecisionSidecarSettings }>("/decision/sidecar/device", { cudaDevice }),
+    // The verdicts are about the chosen card, so they are re-read with it.
     onSuccess: () => invalidate(qc),
   });
 }

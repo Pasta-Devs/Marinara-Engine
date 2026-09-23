@@ -300,6 +300,8 @@ assert.equal(
   const complete = {
     id: "byo:a/b@0123456789ab",
     label: "a/b",
+    description: "Pasted repository. Declares qwen_lora_adapter_plus_scalar_decision_head, loads Qwen/Qwen3.5-2B.",
+    licenses: ["apache-2.0 (a/b)", "apache-2.0 (Qwen/Qwen3.5-2B)"],
     runtime: "open_jev_torch",
     artifacts: [{ repoId: "a/b", revision: "0".repeat(40) }],
     downloadSizeBytes: 4_560_000_000,

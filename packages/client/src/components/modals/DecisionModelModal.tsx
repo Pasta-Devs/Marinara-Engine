@@ -17,7 +17,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Check, Download, HardDrive, Loader2, Scale, Trash2, Zap } from "lucide-react";
+import { AlertTriangle, Check, Download, HardDrive, Link2, Loader2, Scale, Trash2, Zap } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal.js";
 import {
@@ -27,10 +27,12 @@ import {
   useInspectDecisionRepo,
   useInstallDecisionRepo,
   useRemoveDecisionSidecar,
+  useSetDecisionDevice,
   useSetDecisionStartPolicy,
   type DecisionSidecarModel,
 } from "../../hooks/use-decision-sidecar";
 import { showConfirmDialog } from "../../lib/app-dialogs";
+import { useUIStore } from "../../stores/ui.store";
 
 interface Props {
   open: boolean;
@@ -56,6 +58,8 @@ export function DecisionModelModal({ open, onClose }: Props) {
   const inspect = useInspectDecisionRepo();
   const installRepo = useInstallDecisionRepo();
   const startPolicy = useSetDecisionStartPolicy();
+  const device = useSetDecisionDevice();
+  const openModal = useUIStore((state) => state.openModal);
 
   const data = sidecar.data;
   const models = data?.models ?? [];
@@ -79,7 +83,26 @@ export function DecisionModelModal({ open, onClose }: Props) {
   // The runtime alone is several gigabytes, so an install that stopped before any
   // model landed still needs a way to be removed.
   const hasInstall = !!installedId || !!data?.settings.customModel || data?.runtimeInstalled === true;
-  const busy = enable.isPending || install.isPending || remove.isPending || installRepo.isPending || sidecar.isPending;
+  // Fetching as well as pending: on reopen the cached verdict is on screen while the
+  // fresh one loads, and consent must not be recorded against a stale one.
+  const busy =
+    enable.isPending ||
+    install.isPending ||
+    remove.isPending ||
+    installRepo.isPending ||
+    device.isPending ||
+    sidecar.isPending ||
+    sidecar.isFetching;
+  // Where this machine cannot run any decision model, the way that still works is a
+  // hosted Decision connection, so the panel opens that form rather than naming it.
+  const nothingRuns =
+    !!data &&
+    (!data.supported ||
+      (models.length > 0 && models.every((model) => model.preflight.assessment.verdict === "unsupported")));
+  const openDecisionConnection = () => {
+    onClose();
+    openModal("create-connection", { provider: "decision" });
+  };
 
   /**
    * Turning it on is a decision with a cost, so it is confirmed against the verdict
@@ -172,6 +195,9 @@ export function DecisionModelModal({ open, onClose }: Props) {
         label: model.label,
         base: model.artifacts[1]?.repoId ?? "",
         size: formatBytes(model.downloadSizeBytes),
+        // The download excludes the runtime's own environment, which is several
+        // gigabytes on its own, so the total on disk is named separately.
+        disk: formatBytes(model.diskBytes),
         licenses: model.licenses.join(", "),
       }),
       confirmLabel: localizeUi("ui.modals.decisionmodelmodal.download"),
@@ -293,6 +319,31 @@ export function DecisionModelModal({ open, onClose }: Props) {
           </div>
         ) : (
           <>
+            {/* Only with more than one card: with one there is nothing to choose. */}
+            {data && data.devices.length > 1 && (
+              <label className="flex flex-col gap-1 text-xs">
+                <span className="font-medium">{localizeUi("ui.modals.decisionmodelmodal.gpu")}</span>
+                <select
+                  value={String(data.cudaDevice)}
+                  disabled={busy}
+                  onChange={(event) => device.mutate(Number(event.target.value), { onError: report })}
+                  className="mari-chrome-control px-3 py-2 text-xs"
+                >
+                  {data.devices.map((entry) => (
+                    <option key={entry.index} value={String(entry.index)}>
+                      {localizeUi("ui.modals.decisionmodelmodal.gpuOption", {
+                        index: entry.index,
+                        name: entry.name,
+                        memory: formatBytes(entry.totalBytes),
+                      })}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.modals.decisionmodelmodal.gpuHelp")}
+                </span>
+              </label>
+            )}
             <button
               type="button"
               disabled={busy}
@@ -463,6 +514,17 @@ export function DecisionModelModal({ open, onClose }: Props) {
               </button>
             )}
           </>
+        )}
+
+        {nothingRuns && (
+          <button
+            type="button"
+            onClick={openDecisionConnection}
+            className="mari-chrome-control mari-chrome-control--compact flex items-center justify-center gap-2 text-xs"
+          >
+            <Link2 size="0.75rem" />
+            {localizeUi("ui.modals.decisionmodelmodal.setUpDecisionConnection")}
+          </button>
         )}
       </div>
     </Modal>

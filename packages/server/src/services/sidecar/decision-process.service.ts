@@ -17,8 +17,13 @@ import { join } from "node:path";
 import type { SidecarDecisionModelInfo } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { getDataDir } from "../../utils/data-dir.js";
-import { artifactSnapshotPath, decisionRuntimeInstalled, decisionRuntimeService } from "./decision-runtime.service.js";
-import { preflightDecisionModel } from "./decision-preflight.js";
+import {
+  artifactSnapshotPath,
+  decisionRuntimeInstalled,
+  decisionRuntimeService,
+  inheritedEnv,
+} from "./decision-runtime.service.js";
+import { configuredCudaIndex, preflightDecisionModel } from "./decision-preflight.js";
 
 const LOG_PATH = join(getDataDir(), "sidecar-runtime", "decision", "server.log");
 /** Loading 4.5 GB of weights and building the LoRA takes a while on a cold cache. */
@@ -187,11 +192,8 @@ class DecisionProcessService {
         // provider keys, storage paths, tokens - would otherwise be handed to it for
         // no reason. Nothing below is a secret, and the process needs all of it.
         env: {
-          ...Object.fromEntries(
-            (["PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "TZ"] as const)
-              .map((name) => [name, process.env[name]])
-              .filter(([, value]) => typeof value === "string"),
-          ),
+          // No network variables: the weights are already here and it runs offline.
+          ...inheritedEnv(),
           // CUDA orders devices by compute capability by default while nvidia-smi
           // orders by PCI bus, so without this `cuda:0` can be a different card than
           // the index the preflight measured and the verdict would describe the
@@ -278,8 +280,7 @@ class DecisionProcessService {
    * nothing.
    */
   private device(): string {
-    const configured = process.env.MARINARA_DECISION_CUDA_DEVICE?.trim();
-    return configured && /^\d+$/u.test(configured) ? `cuda:${configured}` : "cuda:0";
+    return `cuda:${configuredCudaIndex()}`;
   }
 
   /**

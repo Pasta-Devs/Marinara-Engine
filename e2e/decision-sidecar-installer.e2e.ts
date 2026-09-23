@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { seedUIState } from "./ui-state-fixture.js";
+
+const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
 /**
  * The managed decision sidecar's installer.
@@ -22,6 +25,12 @@ test("the decision installer warns, gates the model choice behind Enable, and ju
     page,
     { hasCompletedOnboarding: true, rightPanelOpen: false, sidebarOpen: false, theme: "dark" },
     "if-missing",
+  );
+  // Marked seen, as the other specs do: the release notes open over everything on a
+  // fresh profile and would catch every click below.
+  await page.addInitScript(
+    (appVersion) => localStorage.setItem("marinara:whats-new:seen-version", appVersion),
+    version,
   );
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
   await page.goto("/");

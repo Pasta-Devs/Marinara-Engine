@@ -40,7 +40,8 @@ import { decisionProcessService } from "../services/sidecar/decision-process.ser
 import { DECISION_TIMEOUT_MS } from "@marinara-engine/shared";
 import { askNoulQuestions } from "../services/decision/system-one.client.js";
 import { inspectDecisionRepo } from "../services/sidecar/decision-byo.js";
-import { preflightDecisionModel } from "../services/sidecar/decision-preflight.js";
+import { configuredCudaIndex, preflightDecisionModel } from "../services/sidecar/decision-preflight.js";
+import { awaitGpuProbe } from "../services/sidecar/sidecar-footprint.js";
 import {
   decisionRuntimeInstalled,
   decisionRuntimeService,
@@ -209,6 +210,8 @@ export async function decisionRoutes(app: FastifyInstance) {
         preflight: await preflightDecisionModel(model),
       })),
     );
+    // Every preflight above waited for the probe, so this reads the same result.
+    const probe = await awaitGpuProbe();
     return {
       supported: isDecisionRuntimeSupported(),
       // Greyed out rather than hidden when nothing fits: hiding it produces "where is
@@ -219,7 +222,43 @@ export async function decisionRoutes(app: FastifyInstance) {
       process: decisionProcessService.getStatus(),
       logPath: decisionProcessService.getLogPath(),
       models,
+      // For the GPU picker. By `nvidia-smi` index, which is what `cuda:N` means once
+      // the process runs with CUDA_DEVICE_ORDER=PCI_BUS_ID.
+      devices: probe.devices.map((device) => ({
+        index: device.index,
+        name: device.name,
+        totalBytes: device.totalBytes,
+      })),
+      cudaDevice: configuredCudaIndex(),
     };
+  });
+
+  /**
+   * Choose the GPU the decision sidecar runs on, or null for the default.
+   *
+   * A running process is stopped, because it stays on the card it was launched on;
+   * the next start is weighed and placed on the new one.
+   */
+  app.post("/sidecar/device", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req, reply) => {
+    const { cudaDevice } = z.object({ cudaDevice: z.number().int().min(0).max(63).nullable() }).parse(req.body);
+    if (cudaDevice !== null) {
+      const probe = await awaitGpuProbe({ fresh: true });
+      if (!probe.devices.some((device) => device.index === cudaDevice))
+        return reply.status(409).send({ error: `There is no NVIDIA GPU at index ${cudaDevice}` });
+    }
+    // Saved first, stopped second. A gate starting between the two would otherwise read
+    // the old choice and relaunch on the old card. With this order, any start after the
+    // save reads the new card, and the stop cancels any start that began before it.
+    const next = await writeSidecarSettings((current) => ({ ...current, cudaDevice }));
+    await decisionProcessService.stop();
+    if (next.startPolicy === "with_marinara") {
+      const model = installedDecisionModel(next);
+      if (model)
+        void decisionProcessService
+          .ensureRunning(model)
+          .catch((error) => logger.warn(error, "[decision-sidecar] Restart on the new GPU failed"));
+    }
+    return { settings: next };
   });
 
   /**

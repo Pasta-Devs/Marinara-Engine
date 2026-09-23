@@ -25,7 +25,8 @@ export type ByoRefusal =
   | "invalid_repo"
   | "not_found"
   | "unresolvable_revision"
-  | "unsupported_files";
+  | "unsupported_files"
+  | "listing_failed";
 
 async function hubJson<T>(url: string): Promise<T | null> {
   try {
@@ -46,13 +47,12 @@ async function resolveRevision(repoId: string, ref: string): Promise<string | nu
 /**
  * The licence a repository declares on the Hub, named with the repository.
  *
- * Read from the model card's metadata, which is what the Hub itself shows. A
- * repository that declares nothing says so, rather than the dialog saying nothing.
+ * Read from the model card's metadata at the pinned revision, which is the one that
+ * gets downloaded: the default branch's card can say something else. A repository
+ * that declares nothing says so, rather than the dialog saying nothing.
  */
-async function declaredLicense(repoId: string): Promise<string> {
-  const info = await hubJson<{ cardData?: { license?: unknown }; tags?: unknown }>(
-    `https://huggingface.co/api/models/${repoId}`,
-  );
+async function declaredLicense(repoId: string, revision: string): Promise<string> {
+  const info = await hubJson<{ cardData?: { license?: unknown }; tags?: unknown }>(hubRevisionUrl(repoId, revision));
   const fromCard = info?.cardData?.license;
   const fromTags = Array.isArray(info?.tags)
     ? info.tags
@@ -77,12 +77,15 @@ async function repoBytes(
   repoId: string,
   revision: string,
   prefix?: string,
-): Promise<{ bytes: number; unsupported: boolean }> {
+): Promise<{ bytes: number; unsupported: boolean; failed?: true }> {
   let files;
   try {
     files = (await listHubFiles(repoId, revision)).filter((file) => !prefix || file.path.startsWith(prefix));
   } catch {
-    return { bytes: 0, unsupported: false };
+    // Kept apart from an empty listing. A timeout or rate limit would otherwise read
+    // as "bad manifest" or "no base model", a verdict about a repository that is
+    // fine, and the user could not tell a network fault from a real refusal.
+    return { bytes: 0, unsupported: false, failed: true };
   }
   return {
     bytes: files.reduce((sum, file) => sum + file.size, 0),
@@ -118,9 +121,10 @@ export async function inspectDecisionRepo(
   const [checkpoint, base, checkpointLicense, baseLicense] = await Promise.all([
     repoBytes(repoId, revision, "package/"),
     repoBytes(read.baseModel, baseRevision),
-    declaredLicense(repoId),
-    declaredLicense(read.baseModel),
+    declaredLicense(repoId, revision),
+    declaredLicense(read.baseModel, baseRevision),
   ]);
+  if (checkpoint.failed || base.failed) return { refusal: "listing_failed" };
   if (checkpoint.unsupported || base.unsupported) return { refusal: "unsupported_files" };
   const checkpointBytes = checkpoint.bytes;
   const baseBytes = base.bytes;

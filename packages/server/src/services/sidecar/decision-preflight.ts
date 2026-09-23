@@ -31,6 +31,8 @@ import {
   isDecisionRuntimeSupported,
 } from "./decision-runtime.service.js";
 import { readSidecarSlots } from "./sidecar-slot-report.js";
+import { decisionProcessService } from "./decision-process.service.js";
+import { decisionSidecarSettings } from "../decision/decision-slots.js";
 
 export interface DecisionPreflight {
   modelId: string;
@@ -61,12 +63,16 @@ function platformReason(model: SidecarDecisionModelInfo, device: GpuDevice | nul
 }
 
 /**
- * Which CUDA device the sidecar will use.
+ * Which CUDA device the sidecar will use: the panel's choice, then the environment
+ * variable that was the only way to choose before the panel had one, then device 0.
  *
- * Kept in step with the launcher's own choice. Never read from the Vulkan variable
- * the llama.cpp sidecar uses: those index different things.
+ * The launcher and the preflight both read this, so the verdict is always about the
+ * card the process will land on. Never read from the Vulkan variable the llama.cpp
+ * sidecar uses: those index different things.
  */
-function configuredCudaIndex(): number {
+export function configuredCudaIndex(): number {
+  const chosen = decisionSidecarSettings().cudaDevice;
+  if (chosen !== null) return chosen;
   const configured = process.env.MARINARA_DECISION_CUDA_DEVICE?.trim();
   return configured && /^\d+$/u.test(configured) ? Number(configured) : 0;
 }
@@ -90,9 +96,18 @@ export async function preflightDecisionModel(
   const probe = await awaitGpuProbe(options);
   // The decision sidecar runs on a known CUDA index, so on a machine with several
   // cards the verdict is about that one rather than abandoned for lack of a name.
-  const device =
-    probe.devices.find((entry) => entry.index === configuredCudaIndex()) ?? resolveSharedDevice(probe.devices, null);
-  const unsupportedReason = platformReason(model, device);
+  const cudaIndex = configuredCudaIndex();
+  const chosen = decisionSidecarSettings().cudaDevice !== null;
+  // A card picked in the panel that has since gone (removed, or renumbered by a
+  // driver change) is named as such. Falling back to another card would give a
+  // verdict about a device the launcher will not use.
+  const device = chosen
+    ? (probe.devices.find((entry) => entry.index === cudaIndex) ?? null)
+    : (probe.devices.find((entry) => entry.index === cudaIndex) ?? resolveSharedDevice(probe.devices, null));
+  const unsupportedReason =
+    chosen && !device && probe.devices.length > 0
+      ? `The GPU chosen for the decision model (device ${cudaIndex}) is not present`
+      : platformReason(model, device);
   // Free disk only matters for something still to be downloaded. An installed model
   // has already spent its ten gigabytes, so the disk is often below that figure
   // afterwards, and asking for it again would both show "Needs about 10 GB free" for
@@ -103,20 +118,28 @@ export async function preflightDecisionModel(
 
   // The candidate is weighed as a configured slot alongside whatever else is running,
   // so "fits alone" and "fits beside your sidecar" stay distinguishable.
+  const slots = readSidecarSlots();
+  // When this very model is already serving, its memory is inside the card's `used`
+  // figure. Marked running, the load assessment subtracts it from that figure instead
+  // of counting it once as another application and again as the candidate, which made
+  // a model that runs fine read as not fitting.
+  const status = decisionProcessService.getStatus();
+  const alreadyServing = status.running && status.modelId === model.id;
+  const current = slots.find((slot) => slot.slot === "decision");
   const candidate: SidecarSlotFootprint = {
     slot: "decision",
     configured: true,
-    running: false,
+    running: alreadyServing,
     model: model.label,
     fileBytes: null,
     contextSize: model.maxLengthTokens,
     backend: model.runtime,
-    estimatedBytes: model.vramBytes,
-    measured: false,
+    estimatedBytes: alreadyServing ? (current?.estimatedBytes ?? model.vramBytes) : model.vramBytes,
+    measured: alreadyServing && current?.measured === true,
     onCpu: false,
   };
   const assessment = assessSidecarLoad({
-    slots: [...readSidecarSlots().filter((slot) => slot.slot !== "decision"), candidate],
+    slots: [...slots.filter((slot) => slot.slot !== "decision"), candidate],
     device,
     candidate: "decision",
     freeDiskBytes: free,
