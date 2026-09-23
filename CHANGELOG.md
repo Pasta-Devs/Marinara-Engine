@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- The browser regression checks on pull requests run in more shards (ten for desktop Chromium and mobile WebKit, eight for mobile Chromium, instead of four each). That is expected to bring them from about 30 minutes to under 20, well clear of the 30-minute limit that a slow run could previously hit (#6573).
+
 - Agent history lookups no longer compare every loaded agent run with every loaded message, preventing long server stalls as more chats are opened (#6562).
 
 - Conditional prompts can ask your Decision model about the scene: `{{#if decision:"..."}}` for yes or no, and `{{#if decision_choice:"..." == "option"}}` to pick one option. They work in presets, cards, lorebooks and agent prompts, are answered once per turn (post-processing agents once per reply), and read as no when there is no Decision model or no answer. A new **Decision statements per turn** setting limits how many are asked, fields that use them warn when no Decision model is set, and imports that contain them say so (#6569).
