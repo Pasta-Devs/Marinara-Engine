@@ -1224,7 +1224,7 @@ export function CharacterEditor() {
               <ColorsTab formData={formData} updateExtension={updateExtension} avatarUrl={avatarPreview} />
             </section>
             <section data-editor-section="stats">
-              <StatsTab formData={formData} updateExtension={updateExtension} />
+              <StatsTab formData={formData} updateExtension={updateExtension} onDraftChange={markDirty} />
             </section>
             <section data-editor-section="advanced">
               <AdvancedTab
@@ -5021,9 +5021,11 @@ function createNewRpgPool(existing: readonly RPGStatPool[]): RPGStatPool {
 function StatsTab({
   formData,
   updateExtension,
+  onDraftChange,
 }: {
   formData: CharacterData;
   updateExtension: (key: string, value: unknown) => void;
+  onDraftChange: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const stats: RPGStatsConfig = (formData.extensions.rpgStats as RPGStatsConfig) ?? DEFAULT_RPG_STATS;
@@ -5158,6 +5160,7 @@ function StatsTab({
                   <input
                     key={pool.name}
                     defaultValue={pool.name}
+                    onChange={onDraftChange}
                     onBlur={(e) => {
                       const name = e.currentTarget.value.trim() || pool.name;
                       e.currentTarget.value = name;

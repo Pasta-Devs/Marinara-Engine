@@ -9832,11 +9832,12 @@ export async function generateRoutes(app: FastifyInstance) {
                 }
                 const remaining = respondingCharIds.slice(ci + 1).filter((id) => !mentioned.includes(id!));
                 respondingCharIds.splice(ci + 1, respondingCharIds.length, ...mentioned, ...remaining);
+                const pending = respondingCharIds.slice(ci + 1);
                 sendSseEvent(reply, {
                   type: "response_queue",
                   data: {
-                    characterIds: respondingCharIds,
-                    characters: respondingCharIds.map((id, index) => ({
+                    characterIds: pending,
+                    characters: pending.map((id, index) => ({
                       id,
                       name: groupResponderName(id!),
                       order: index + 1,

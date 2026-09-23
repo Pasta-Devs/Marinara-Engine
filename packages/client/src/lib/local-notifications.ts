@@ -132,6 +132,7 @@ export async function showLocalMessageNotification({
 
   try {
     const registration = await navigator.serviceWorker?.getRegistration();
+    if (isAppFocusedForNotifications()) return false;
     if (registration?.active && typeof registration.showNotification === "function") {
       await registration.showNotification(notificationTitle, options);
       return true;
@@ -140,6 +141,7 @@ export async function showLocalMessageNotification({
     console.warn("[Notifications] Service worker delivery failed:", error);
   }
 
+  if (isAppFocusedForNotifications()) return false;
   try {
     // Development and browsers without an active worker can use desktop notifications.
     const notification = new window.Notification(notificationTitle, options);

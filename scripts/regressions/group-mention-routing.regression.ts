@@ -106,12 +106,21 @@ try {
     assert.equal(result.statusCode, 200, result.body);
     assert(!result.body.includes('"type":"error"'), result.body);
     assert.equal(outputs.length, 0, `every invited speaker should respond: ${result.body}`);
-    return result.body
+    const events = result.body
       .split("\n")
       .filter((line) => line.startsWith("data: "))
-      .map((line) => JSON.parse(line.slice(6)))
-      .filter((event) => event.type === "group_turn")
-      .map((event) => event.data.characterId);
+      .map((line) => JSON.parse(line.slice(6)));
+    const completed = new Set<string>();
+    for (const event of events) {
+      if (event.type === "message_saved") completed.add(event.data.characterId);
+      if (event.type === "response_queue") {
+        assert(
+          event.data.characterIds.every((id: string) => !completed.has(id)),
+          "the visible response queue must not restore speakers who already replied",
+        );
+      }
+    }
+    return events.filter((event) => event.type === "group_turn").map((event) => event.data.characterId);
   };
   for (const mode of ["roleplay", "conversation"] as const) {
     const chat = await chats.create({
@@ -202,7 +211,7 @@ try {
 } finally {
   await app.close();
   await new Promise<void>((done) => provider.close(() => done()));
-  closeDB();
+  await closeDB();
   rmSync(dir, { recursive: true, force: true });
 }
 process.stdout.write("Group mention routing regressions passed.\n");

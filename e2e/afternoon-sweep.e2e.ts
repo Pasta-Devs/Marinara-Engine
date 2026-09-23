@@ -62,9 +62,10 @@ test("RPG pool names keep spaces and blank drafts until committed", async ({ pag
     await expect(name).toHaveValue("");
     await name.pressSequentially("Health Points");
     await expect(name).toHaveValue("Health Points");
-    await name.blur();
-    await expect(page.getByRole("spinbutton", { name: "Health Points value", exact: true })).toHaveValue("20");
+    await expect(name).toBeFocused();
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("spinbutton", { name: "Health Points value", exact: true })).toHaveValue("20");
     await expect
       .poll(async () => {
         const saved = await (await request.get(`/api/characters/${character.id}`)).json();

@@ -54,6 +54,8 @@ test("browser alerts use the active worker, alert again for each reply and fall 
     let throwConstructor = true;
     let throwWorker = false;
     let workerActive = true;
+    let focusDuringLookup = false;
+    let focusDuringFailure = false;
     const deliveries: Array<{ channel: string; title: string; options: { tag?: string; renotify?: boolean } }> = [];
     Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
     Object.defineProperty(document, "hasFocus", { configurable: true, value: () => focused });
@@ -73,16 +75,21 @@ test("browser alerts use the active worker, alert again for each reply and fall 
       configurable: true,
       value: {
         // No .ready promise: no worker must fall back without waiting indefinitely.
-        getRegistration: async () =>
-          workerActive
+        getRegistration: async () => {
+          if (focusDuringLookup) focused = true;
+          return workerActive
             ? {
                 active: {},
                 showNotification: async (title: string, options: { tag?: string; renotify?: boolean }) => {
-                  if (throwWorker) throw new Error("Worker delivery unavailable");
+                  if (throwWorker) {
+                    if (focusDuringFailure) focused = true;
+                    throw new Error("Worker delivery unavailable");
+                  }
                   deliveries.push({ channel: "worker", title, options });
                 },
               }
-            : undefined,
+            : undefined;
+        },
       },
     });
     const notify = (enabled = true) => showLocalMessageNotification({ enabled, characterName: "Alice", tag: "chat-1" });
@@ -102,9 +109,22 @@ test("browser alerts use the active worker, alert again for each reply and fall 
     outcomes.push(await notify());
     throwConstructor = true;
     outcomes.push(await notify());
+    throwConstructor = false;
+    throwWorker = false;
+    focusDuringLookup = true;
+    outcomes.push(await notify());
+    focused = false;
+    workerActive = false;
+    outcomes.push(await notify());
+    focused = false;
+    workerActive = true;
+    focusDuringLookup = false;
+    throwWorker = true;
+    focusDuringFailure = true;
+    outcomes.push(await notify());
     return { outcomes, deliveries };
   });
-  expect(result.outcomes).toEqual([true, true, false, false, false, true, true, false]);
+  expect(result.outcomes).toEqual([true, true, false, false, false, true, true, false, false, false, false]);
   expect(result.deliveries.map((delivery) => delivery.channel)).toEqual(["worker", "worker", "desktop", "desktop"]);
   for (const delivery of result.deliveries) {
     expect(delivery.title).toBe("New message from Alice");
