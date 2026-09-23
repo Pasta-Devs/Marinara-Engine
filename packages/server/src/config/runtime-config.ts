@@ -517,6 +517,64 @@ export function isLorebookScanCompactionEnabled() {
   return isEnabledFlag(process.env.LOREBOOK_COMPACT_STORED_SCANS);
 }
 
+// Robustness settings. Every one is off by default, which keeps today's behaviour exactly, and each can be turned on
+// by itself. Read per call unless noted, so a `.env` change applies without a restart where the code path allows it.
+
+/**
+ * Opt-in: retry a refused / unreachable connection or a gateway 502 / 503 at most twice, only before any output
+ * reached the user. Never applied to the primary leg of a connection with a usable fallback: the fallback is faster.
+ */
+export function isProviderTransientRetryEnabled() {
+  return isEnabledFlag(process.env.PROVIDER_RETRY_TRANSIENT_ERRORS);
+}
+
+/** Opt-in: a storage flush skips a shard or manifest write whose content matches this process's last durable write. */
+export function isStorageSkipUnchangedWritesEnabled() {
+  return isEnabledFlag(process.env.STORAGE_SKIP_UNCHANGED_WRITES);
+}
+
+/** Opt-in: large shards serialize in short slices that yield the event loop instead of one blocking call. */
+export function isStorageYieldingSerializeEnabled() {
+  return isEnabledFlag(process.env.STORAGE_YIELDING_SERIALIZE);
+}
+
+/**
+ * Opt-in, Windows only: cache the writer-lease boot id probe (about 1.5 to 2 s of PowerShell on every start) for the
+ * rest of the OS boot. Read once, when the storage module loads.
+ */
+export function isWindowsBootIdCacheEnabled() {
+  return isEnabledFlag(process.env.STORAGE_CACHE_WINDOWS_BOOT_ID);
+}
+
+/** The Windows boot id cache file: inside DATA_DIR, never in a per-user application or install folder. */
+export function getWindowsBootIdCachePath() {
+  return resolve(getDataDir(), ".writer-boot-id.json");
+}
+
+/** Opt-in, Windows only: Ctrl+Break and closing the console window also start the graceful shutdown. */
+export function isShutdownWindowsConsoleSignalsEnabled() {
+  return isEnabledFlag(process.env.SHUTDOWN_WINDOWS_CONSOLE_SIGNALS);
+}
+
+/** Opt-in: a second Ctrl+C (or Ctrl+Break) more than 1.5 s after the first forces the exit. */
+export function isShutdownForceExitOnRepeatEnabled() {
+  return isEnabledFlag(process.env.SHUTDOWN_FORCE_EXIT_ON_REPEAT);
+}
+
+/** Opt-in: start writing pending saves as soon as a stop signal arrives, while connections are still closing. */
+export function isShutdownEarlyFlushEnabled() {
+  return isEnabledFlag(process.env.SHUTDOWN_EARLY_FLUSH);
+}
+
+/**
+ * Opt-in budget (ms) for the runtime stops that run before the store close. 0 or unset waits for every stop, as
+ * before; a positive value moves on to the store close once it has passed. Capped at 2.5 s so the 4 s connection
+ * cut, the budget and the store close still fit inside the 8 s shutdown force exit.
+ */
+export function getShutdownRuntimeStopBudgetMs() {
+  return parsePositiveIntEnv(process.env.SHUTDOWN_RUNTIME_STOP_BUDGET_MS, 0, 2_500);
+}
+
 export function getEmbeddingRequestTimeoutMs() {
   return parsePositiveIntEnv(process.env.EMBEDDING_TIMEOUT_MS, 300_000, MAX_TIMEOUT_MS);
 }

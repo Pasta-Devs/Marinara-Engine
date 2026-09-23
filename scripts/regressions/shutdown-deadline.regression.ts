@@ -128,7 +128,7 @@ const readSource = (path: string) => readFileSync(join(repositoryRoot, path), "u
 const indexTs = readSource("packages/server/src/index.ts");
 assert.match(
   indexTs,
-  /isShuttingDown = true;[^]*?armShutdownDeadline\(app, signal\);[^]*?await app\.close\(\);/u,
+  /isShuttingDown = true;[^]*?armShutdownDeadline\(app, signal(?:, shutdownDeadlinesFor\(signal\))?\);[^]*?await app\.close\(\);/u,
   "signal shutdown arms the deadline before awaiting close",
 );
 const updatesRoutes = readSource("packages/server/src/routes/updates.routes.ts");

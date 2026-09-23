@@ -2,7 +2,7 @@ import { allowsDefaultChatModel } from "./local-context-limit.js";
 import type { ChatCompletionResult, ChatMessage, ChatOptions, LLMUsage } from "./base-provider.js";
 import { BaseLLMProvider } from "./base-provider.js";
 import { createLLMProvider } from "./provider-registry.js";
-import { withRateLimitAwareProvider } from "./rate-limit-aware-provider.js";
+import { RateLimitAwareProvider, withRateLimitAwareProvider } from "./rate-limit-aware-provider.js";
 import { mergeCustomParameters, parseStoredGenerationParameters } from "../../routes/generate/generate-route-utils.js";
 import { logger } from "../../lib/logger.js";
 import { notifyGenerationFallback, type GenerationFallbackNotifier } from "../generation/fallback-notification.js";
@@ -354,9 +354,16 @@ export function withConnectionFallbackProvider({
       primaryConnectionId,
     );
   }
+  // A fallback exists, so a transient failure on the primary goes straight to it instead of
+  // waiting out a transient backoff first (PROVIDER_RETRY_TRANSIENT_ERRORS). Rate limits are
+  // unchanged. A primary that is already wrapped (createLLMProvider with a connectionId, or a
+  // capability package passing one to llm.withFallback) has its own wrapper opted out too, since
+  // admission may sit between it and the outer wrapper below.
+  const primaryLeg = primary instanceof RateLimitAwareProvider ? primary.withoutTransientRetry() : primary;
   const admittedPrimary = withRateLimitAwareProvider(
-    withConnectionAdmissionProvider(primary, primaryConnectionId, primaryMode),
+    withConnectionAdmissionProvider(primaryLeg, primaryConnectionId, primaryMode),
     primaryConnectionId,
+    { transientRetry: false },
   );
   const fallback = withRateLimitAwareProvider(
     withConnectionAdmissionProvider(

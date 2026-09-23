@@ -134,8 +134,22 @@ async function runCleanups(cleanups: Cleanup[]): Promise<void> {
   if (firstError) throw firstError;
 }
 
+/** The last activation failure of one package in this process (admin runtime diagnostics). */
+export interface CapabilityActivationErrorRecord {
+  message: string;
+  at: string;
+}
+
 class CapabilityModuleRuntime {
   private cleanups = new Map<string, Cleanup>();
+  // Last activation failure per package in this process, cleared by the next
+  // successful activation. Read-only diagnostics state.
+  private activationErrors = new Map<string, CapabilityActivationErrorRecord>();
+
+  /** Read-only view for diagnostics: which package runtimes are live now, and recent activation failures. */
+  runtimeState(): { live: string[]; activationErrors: Record<string, CapabilityActivationErrorRecord> } {
+    return { live: [...this.cleanups.keys()].sort(), activationErrors: Object.fromEntries(this.activationErrors) };
+  }
 
   async start(app: FastifyInstance): Promise<void> {
     // Bundled package modules execute before activate(context), so give their
@@ -298,9 +312,14 @@ class CapabilityModuleRuntime {
           await runCleanups(registeredCleanups);
         }
       });
+      this.activationErrors.delete(installed.id);
       logger.info("Activated and verified capability package %s@%s", installed.id, installed.version);
     } catch (error) {
       logger.error(error, "Failed to activate capability package %s@%s", installed.id, installed.version);
+      this.activationErrors.set(installed.id, {
+        message: error instanceof Error ? error.message : String(error),
+        at: new Date().toISOString(),
+      });
       activationLive = false;
       for (const release of toolCleanups.splice(0)) release();
       try {
