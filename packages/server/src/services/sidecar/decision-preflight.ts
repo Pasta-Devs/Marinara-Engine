@@ -25,7 +25,11 @@ import {
   meetsComputeCapability,
   resolveSharedDevice,
 } from "./sidecar-footprint.js";
-import { isDecisionRuntimeSupported } from "./decision-runtime.service.js";
+import {
+  decisionRuntimeInstalled,
+  decisionRuntimeService,
+  isDecisionRuntimeSupported,
+} from "./decision-runtime.service.js";
 import { readSidecarSlots } from "./sidecar-slot-report.js";
 
 export interface DecisionPreflight {
@@ -89,7 +93,13 @@ export async function preflightDecisionModel(
   const device =
     probe.devices.find((entry) => entry.index === configuredCudaIndex()) ?? resolveSharedDevice(probe.devices, null);
   const unsupportedReason = platformReason(model, device);
-  const free = await freeDiskBytes();
+  // Free disk only matters for something still to be downloaded. An installed model
+  // has already spent its ten gigabytes, so the disk is often below that figure
+  // afterwards, and asking for it again would both show "Needs about 10 GB free" for
+  // a model that is sitting there and, because disk is judged before memory, hide the
+  // launch-time memory recheck behind a verdict that says nothing about the GPU.
+  const onDisk = decisionRuntimeInstalled() && decisionRuntimeService.modelDownloaded(model);
+  const free = onDisk ? null : await freeDiskBytes();
 
   // The candidate is weighed as a configured slot alongside whatever else is running,
   // so "fits alone" and "fits beside your sidecar" stay distinguishable.
@@ -110,7 +120,7 @@ export async function preflightDecisionModel(
     device,
     candidate: "decision",
     freeDiskBytes: free,
-    requiredDiskBytes: model.diskBytes,
+    requiredDiskBytes: onDisk ? null : model.diskBytes,
     unsupportedReason,
   });
 

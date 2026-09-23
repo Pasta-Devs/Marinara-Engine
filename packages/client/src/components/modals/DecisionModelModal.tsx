@@ -76,7 +76,9 @@ export function DecisionModelModal({ open, onClose }: Props) {
   const installedId = data?.settings.modelId ?? null;
   // A pasted model is stored whole and has no catalog id, so asking only about
   // modelId would leave its files with no way to remove them from the panel.
-  const hasInstall = !!installedId || !!data?.settings.customModel;
+  // The runtime alone is several gigabytes, so an install that stopped before any
+  // model landed still needs a way to be removed.
+  const hasInstall = !!installedId || !!data?.settings.customModel || data?.runtimeInstalled === true;
   const busy = enable.isPending || install.isPending || remove.isPending || installRepo.isPending || sidecar.isPending;
 
   /**
@@ -170,6 +172,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
         label: model.label,
         base: model.artifacts[1]?.repoId ?? "",
         size: formatBytes(model.downloadSizeBytes),
+        licenses: model.licenses.join(", "),
       }),
       confirmLabel: localizeUi("ui.modals.decisionmodelmodal.download"),
     });
@@ -392,6 +395,11 @@ export function DecisionModelModal({ open, onClose }: Props) {
                             base: inspect.data.model.artifacts[1]?.repoId ?? "",
                           })}
                         </span>
+                        <span>
+                          {localizeUi("ui.modals.decisionmodelmodal.pastedLicenses", {
+                            licenses: inspect.data.model.licenses.join(", "),
+                          })}
+                        </span>
                       </div>
                       {inspect.data.preflight.reason && (
                         <div className="mt-1 text-[0.6875rem] text-[var(--warning)]">
@@ -424,34 +432,35 @@ export function DecisionModelModal({ open, onClose }: Props) {
                   />
                   <span>{localizeUi("ui.modals.decisionmodelmodal.startWithMarinara")}</span>
                 </label>
-
-                {hasInstall && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={async () => {
-                      if (
-                        await showConfirmDialog({
-                          title: localizeUi("ui.modals.decisionmodelmodal.removeTitle"),
-                          message: localizeUi("ui.modals.decisionmodelmodal.removeBody"),
-                          confirmLabel: localizeUi("ui.modals.decisionmodelmodal.remove"),
-                          tone: "destructive",
-                        })
-                      ) {
-                        try {
-                          await remove.mutateAsync();
-                        } catch (error) {
-                          report(error);
-                        }
-                      }
-                    }}
-                    className="mari-chrome-control mari-chrome-control--compact flex items-center justify-center gap-2 text-xs"
-                  >
-                    <Trash2 size="0.75rem" />
-                    {localizeUi("ui.modals.decisionmodelmodal.remove")}
-                  </button>
-                )}
               </div>
+            )}
+            {/* Outside the enabled branch: switching the sidecar off keeps its
+                  files, and deleting them must not require switching it back on. */}
+            {hasInstall && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  if (
+                    await showConfirmDialog({
+                      title: localizeUi("ui.modals.decisionmodelmodal.removeTitle"),
+                      message: localizeUi("ui.modals.decisionmodelmodal.removeBody"),
+                      confirmLabel: localizeUi("ui.modals.decisionmodelmodal.remove"),
+                      tone: "destructive",
+                    })
+                  ) {
+                    try {
+                      await remove.mutateAsync();
+                    } catch (error) {
+                      report(error);
+                    }
+                  }
+                }}
+                className="mari-chrome-control mari-chrome-control--compact flex items-center justify-center gap-2 text-xs"
+              >
+                <Trash2 size="0.75rem" />
+                {localizeUi("ui.modals.decisionmodelmodal.remove")}
+              </button>
             )}
           </>
         )}

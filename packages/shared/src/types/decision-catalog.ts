@@ -152,7 +152,8 @@ export const SIDECAR_DECISION_MODELS: SidecarDecisionModelInfo[] = [
     // every relevant turn. Any threshold from roughly 0.03 to 0.15 classified all
     // eight correctly; 0.1 sits in the middle of that band.
     calibration: { defaultThreshold: 0.1, questionShape: "task_object" },
-    licenses: ["MIT (source)", "Apache-2.0 (adapter)", "Qwen license (base weights)"],
+    // Read from the LICENSE file at each pinned revision. Qwen3.5-2B is Apache-2.0 there.
+    licenses: ["MIT (source)", "Apache-2.0 (adapter)", "Apache-2.0 (base weights)"],
     thirdParty: true,
   },
 ];

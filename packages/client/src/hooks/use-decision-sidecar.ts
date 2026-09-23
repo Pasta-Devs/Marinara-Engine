@@ -96,6 +96,7 @@ export function useInspectDecisionRepo() {
           downloadSizeBytes: number;
           diskBytes: number;
           vramBytes: number;
+          licenses: string[];
           artifacts: Array<{ repoId: string; revision: string }>;
         };
         preflight?: DecisionSidecarModel["preflight"];

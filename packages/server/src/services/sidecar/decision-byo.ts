@@ -18,8 +18,14 @@ import {
   type DecisionManifestRefusal,
   type SidecarDecisionModelInfo,
 } from "@marinara-engine/shared";
+import { hubRevisionUrl, isLoadableArtifactFile, listHubFiles } from "./decision-hub.js";
 
-export type ByoRefusal = DecisionManifestRefusal | "invalid_repo" | "not_found" | "unresolvable_revision";
+export type ByoRefusal =
+  | DecisionManifestRefusal
+  | "invalid_repo"
+  | "not_found"
+  | "unresolvable_revision"
+  | "unsupported_files";
 
 async function hubJson<T>(url: string): Promise<T | null> {
   try {
@@ -33,18 +39,55 @@ async function hubJson<T>(url: string): Promise<T | null> {
 /** Resolve a ref to an exact commit, so what is inspected is what gets installed. */
 async function resolveRevision(repoId: string, ref: string): Promise<string | null> {
   if (/^[0-9a-f]{40}$/u.test(ref)) return ref;
-  const info = await hubJson<{ sha?: unknown }>(`https://huggingface.co/api/models/${repoId}/revision/${ref}`);
+  const info = await hubJson<{ sha?: unknown }>(hubRevisionUrl(repoId, ref));
   return typeof info?.sha === "string" && /^[0-9a-f]{40}$/u.test(info.sha) ? info.sha : null;
 }
 
-async function repoBytes(repoId: string, revision: string, prefix?: string): Promise<number> {
-  const entries =
-    (await hubJson<Array<{ type: string; path: string; size?: number; lfs?: { size?: number } }>>(
-      `https://huggingface.co/api/models/${repoId}/tree/${revision}?recursive=1`,
-    )) ?? [];
-  return entries
-    .filter((entry) => entry.type === "file" && (!prefix || entry.path.startsWith(prefix)))
-    .reduce((sum, entry) => sum + (entry.lfs?.size ?? entry.size ?? 0), 0);
+/**
+ * The licence a repository declares on the Hub, named with the repository.
+ *
+ * Read from the model card's metadata, which is what the Hub itself shows. A
+ * repository that declares nothing says so, rather than the dialog saying nothing.
+ */
+async function declaredLicense(repoId: string): Promise<string> {
+  const info = await hubJson<{ cardData?: { license?: unknown }; tags?: unknown }>(
+    `https://huggingface.co/api/models/${repoId}`,
+  );
+  const fromCard = info?.cardData?.license;
+  const fromTags = Array.isArray(info?.tags)
+    ? info.tags
+        .filter((tag): tag is string => typeof tag === "string" && tag.startsWith("license:"))
+        .map((tag) => tag.slice(8))
+    : [];
+  const names = (Array.isArray(fromCard) ? fromCard : [fromCard, ...fromTags])
+    .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
+    .map((name) => name.trim().slice(0, 60));
+  const unique = [...new Set(names)];
+  return `${unique.length > 0 ? unique.join(" / ") : "not declared"} (${repoId})`;
+}
+
+/**
+ * What installing this part of a repository would download.
+ *
+ * The same listing and the same file rule the downloader uses, so the size shown here
+ * is the size fetched, and a repository carrying a file the runtime would not load as
+ * plain data is refused now rather than after the user agreed to it.
+ */
+async function repoBytes(
+  repoId: string,
+  revision: string,
+  prefix?: string,
+): Promise<{ bytes: number; unsupported: boolean }> {
+  let files;
+  try {
+    files = (await listHubFiles(repoId, revision)).filter((file) => !prefix || file.path.startsWith(prefix));
+  } catch {
+    return { bytes: 0, unsupported: false };
+  }
+  return {
+    bytes: files.reduce((sum, file) => sum + file.size, 0),
+    unsupported: files.some((file) => !isLoadableArtifactFile(file.path)),
+  };
 }
 
 /**
@@ -72,10 +115,15 @@ export async function inspectDecisionRepo(
   if ("refusal" in read) return { refusal: read.refusal };
 
   const baseRevision = read.baseRevision;
-  const [checkpointBytes, baseBytes] = await Promise.all([
+  const [checkpoint, base, checkpointLicense, baseLicense] = await Promise.all([
     repoBytes(repoId, revision, "package/"),
     repoBytes(read.baseModel, baseRevision),
+    declaredLicense(repoId),
+    declaredLicense(read.baseModel),
   ]);
+  if (checkpoint.unsupported || base.unsupported) return { refusal: "unsupported_files" };
+  const checkpointBytes = checkpoint.bytes;
+  const baseBytes = base.bytes;
   // A manifest with no checkpoint beside it describes an install that cannot happen,
   // and a zero total would sail through the preflight as costing nothing.
   if (checkpointBytes === 0) return { refusal: "unreadable_manifest" };
@@ -101,7 +149,9 @@ export async function inspectDecisionRepo(
       // is the backstop, but it is derived from this model's real size rather than
       // copied from the curated entry.
       vramBytes: Math.round(baseBytes * 1.05),
-      licenses: ["Declared by the repository; review them there before installing"],
+      // What each repository declares, which is not a review of it. The dialog still
+      // points the user at the repository pages before they agree.
+      licenses: [checkpointLicense, baseLicense],
       thirdParty: true,
       ...defaults,
     },

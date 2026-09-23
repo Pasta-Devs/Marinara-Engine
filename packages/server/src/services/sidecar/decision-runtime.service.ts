@@ -21,6 +21,7 @@ import { logger } from "../../lib/logger.js";
 import { getDataDir } from "../../utils/data-dir.js";
 import { assertInsideDir } from "../../utils/security.js";
 import { downloadFileWithProgress, isAbortError, retry } from "./sidecar-download.js";
+import { isLoadableArtifactFile, listHubFiles } from "./decision-hub.js";
 import { DECISION_RUNTIME_MANIFEST, serializeDecisionRuntimeManifestStamp } from "./runtime-integrity-manifest.js";
 
 const RUNTIME_DIR = join(getDataDir(), "sidecar-runtime", "decision");
@@ -93,6 +94,14 @@ export class DecisionRuntimeService {
   private activeChild: ChildProcess | null = null;
   private activeFetchAbort: AbortController | null = null;
   private cancelRequested = false;
+  /**
+   * The download in progress, if any.
+   *
+   * One at a time. Two installs of the same model (a double submit, or two tabs) would
+   * otherwise stream into the same temporary files, each unlinking and renaming the
+   * other's partial file, and share one abort slot so a cancel stopped only one.
+   */
+  private activeDownload: { modelId: string; promise: Promise<void> } | null = null;
 
   getPaths(): DecisionRuntimeInstall {
     return { directoryPath: RUNTIME_DIR, pythonPath: VENV_PYTHON, sourcePath: SOURCE_DIR, hfHomePath: HF_HOME };
@@ -117,6 +126,9 @@ export class DecisionRuntimeService {
    */
   async remove(): Promise<void> {
     this.cancel();
+    // Let an aborted install or download finish unwinding first, so nothing is still
+    // writing into the directory being deleted.
+    await Promise.all([this.installPromise?.catch(() => null), this.activeDownload?.promise.catch(() => null)]);
     await rm(RUNTIME_DIR, { recursive: true, force: true });
   }
 
@@ -214,6 +226,23 @@ export class DecisionRuntimeService {
     model: SidecarDecisionModelInfo,
     onProgress?: (progress: SidecarDownloadProgress) => void,
   ): Promise<void> {
+    if (this.activeDownload) {
+      // The same model joins the download already running rather than starting a
+      // second one over the same files.
+      if (this.activeDownload.modelId === model.id) return this.activeDownload.promise;
+      throw new Error("Another decision model is already downloading.");
+    }
+    const promise: Promise<void> = this.download(model, onProgress).finally(() => {
+      if (this.activeDownload?.promise === promise) this.activeDownload = null;
+    });
+    this.activeDownload = { modelId: model.id, promise };
+    return promise;
+  }
+
+  private async download(
+    model: SidecarDecisionModelInfo,
+    onProgress?: (progress: SidecarDownloadProgress) => void,
+  ): Promise<void> {
     this.cancelRequested = false;
     for (const artifact of model.artifacts) {
       const files = await this.listArtifactFiles(artifact);
@@ -288,17 +317,17 @@ export class DecisionRuntimeService {
     artifact: DecisionModelArtifact,
     signal: AbortSignal,
   ): Promise<Array<{ path: string; size: number; sha256?: string }>> {
-    const listing = await fetch(
-      `https://huggingface.co/api/models/${artifact.repoId}/tree/${artifact.revision}?recursive=1`,
-      { signal },
-    );
-    if (!listing.ok) throw new Error(`Could not list ${artifact.repoId} at ${artifact.revision}`);
-    const entries = (await listing.json()) as Array<{ type: string; path: string }>;
-    const wanted = entries
-      .filter((entry) => entry.type === "file")
-      .map((entry) => entry.path)
+    const wanted = (await listHubFiles(artifact.repoId, artifact.revision, signal))
+      .map((file) => file.path)
       .filter((path) => !artifact.paths || artifact.paths.some((prefix) => path.startsWith(prefix)));
     if (wanted.length === 0) throw new Error(`No matching files in ${artifact.repoId} at ${artifact.revision}`);
+    // Checked here as well as at inspection: the inspection is what the user saw, this
+    // is what is about to be written, and the two are separate requests.
+    const unsupported = wanted.filter((path) => !isLoadableArtifactFile(path));
+    if (unsupported.length > 0)
+      throw new Error(
+        `${artifact.repoId} contains files the decision runtime does not load: ${unsupported.join(", ")}`,
+      );
 
     const info = await fetch(`https://huggingface.co/api/models/${artifact.repoId}/paths-info/${artifact.revision}`, {
       method: "POST",

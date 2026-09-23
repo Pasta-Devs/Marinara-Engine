@@ -45,6 +45,16 @@ class DecisionProcessService {
   /** The last model whose start failed, and when, so a gate does not retry it at once. */
   private failedModelId: string | null = null;
   private failedAt = 0;
+  /**
+   * Bumped by every explicit stop.
+   *
+   * A start spends seconds awaiting its preflight before it has a child to kill, and
+   * a stop in that window used to find nothing to stop, after which the start carried
+   * on and launched the process anyway: running while disabled, or launching Python
+   * out of a directory that a remove was deleting. A start remembers the value it
+   * began with and gives up at every checkpoint where it has changed.
+   */
+  private generation = 0;
 
   getStatus(): DecisionProcessStatus {
     return {
@@ -83,6 +93,7 @@ class DecisionProcessService {
       await this.starting.catch(() => null);
     }
     this.startingModelId = model.id;
+    const generation = this.generation;
     this.starting = this.start(model)
       // Every failure path ends as a null, never a rejection. Callers gate on this,
       // and a gate that throws stops an agent rather than running it.
@@ -94,7 +105,9 @@ class DecisionProcessService {
       .then((baseUrl) => {
         if (baseUrl) {
           this.failedModelId = null;
-        } else {
+        } else if (generation === this.generation) {
+          // Only a start that failed on its own backs off. One the user stopped did
+          // not fail, and turning the sidecar straight back on must not wait a minute.
           this.failedModelId = model.id;
           this.failedAt = Date.now();
         }
@@ -108,6 +121,8 @@ class DecisionProcessService {
   }
 
   private async start(model: SidecarDecisionModelInfo): Promise<string | null> {
+    const generation = this.generation;
+    const stopped = () => generation !== this.generation;
     if (!decisionRuntimeInstalled()) {
       this.error = "The decision runtime is not installed.";
       return null;
@@ -123,7 +138,8 @@ class DecisionProcessService {
     // would be counted once as another application's usage and again as the candidate
     // about to start. Restarting the same model would then look like running two of
     // them and could be refused on a card that fits it comfortably.
-    await this.stop();
+    await this.terminate();
+    if (stopped()) return null;
 
     // Conditions change after an install: a bigger sidecar model, a longer context, a
     // game holding memory. The verdict at download time is not a promise about today,
@@ -135,6 +151,8 @@ class DecisionProcessService {
       logger.warn("[decision-sidecar] Refusing to start: %s", this.error);
       return null;
     }
+    // The last check before spawning, with nothing awaited between it and the spawn.
+    if (stopped()) return null;
 
     const runtime = decisionRuntimeService.getPaths();
     mkdirSync(join(LOG_PATH, ".."), { recursive: true });
@@ -205,7 +223,7 @@ class DecisionProcessService {
       };
       const timer = setTimeout(() => {
         logger.warn("[decision-sidecar] Model did not finish loading within %s ms", READY_TIMEOUT_MS);
-        void this.stop();
+        void this.terminate();
         finish(null, "The decision model did not finish loading in time.");
       }, READY_TIMEOUT_MS);
 
@@ -240,6 +258,13 @@ class DecisionProcessService {
       });
     });
 
+    // A stop can also land after the child printed its address but before this line
+    // runs. Publishing that address would hand gates a process nobody wants running.
+    if (stopped() || this.child !== child) {
+      if (this.child === child) await this.terminate();
+      else if (child.exitCode === null) child.kill("SIGTERM");
+      return null;
+    }
     this.baseUrl = baseUrl;
     return baseUrl;
   }
@@ -257,9 +282,24 @@ class DecisionProcessService {
     return configured && /^\d+$/u.test(configured) ? `cuda:${configured}` : "cuda:0";
   }
 
+  /**
+   * Stop the process, and cancel any start that has not finished yet.
+   *
+   * Waits for that start to give up before returning, so a caller about to delete the
+   * runtime never races a launch from inside it.
+   */
   async stop(): Promise<void> {
+    this.generation += 1;
     // An explicit stop is a fresh start's prelude, so it clears the backoff.
     this.failedModelId = null;
+    await this.terminate();
+    await this.starting?.catch(() => null);
+    // The start may have spawned between the first terminate and giving up.
+    await this.terminate();
+  }
+
+  /** Kill the current child, if there is one. Does not touch a start in progress. */
+  private async terminate(): Promise<void> {
     const child = this.child;
     this.child = null;
     this.baseUrl = null;
