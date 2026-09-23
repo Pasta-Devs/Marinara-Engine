@@ -329,6 +329,9 @@ export async function decisionRoutes(app: FastifyInstance) {
         logger.debug("[decision-sidecar] %s %s", progress.phase, progress.label ?? ""),
       );
     } catch (error) {
+      // Logged as well as returned: an install takes long enough that the page which
+      // asked may be gone by the time it fails, and the reason would otherwise vanish.
+      logger.warn(error, "[decision-sidecar] Install of %s failed", model.id);
       return reply.status(400).send({ error: error instanceof Error ? error.message : "Install failed" });
     }
     return {
