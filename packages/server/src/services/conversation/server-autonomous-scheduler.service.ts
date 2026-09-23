@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { logger } from "../../lib/logger.js";
+import { logRateLimited } from "../../lib/log-rate-limit.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import {
   clearGenerationInProgress,
@@ -372,7 +373,13 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
     } catch (err) {
       clearGenerationInProgress(chat.id, generationStartedAt);
       recordFailureBackoff(chat.id, err instanceof Error ? err.message : String(err));
-      logger.warn(err, "[autonomous-scheduler] Failed while evaluating chat %s", chat.id);
+      logRateLimited(
+        "warn",
+        `autonomous-scheduler:${chat.id}`,
+        err,
+        "[autonomous-scheduler] Failed while evaluating chat %s",
+        chat.id,
+      );
     } finally {
       if (!handedOffToTimer) runningChats.delete(chat.id);
     }
@@ -426,7 +433,8 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
       // could leave the scheduler dormant with enabled chats (#4705).
       idleSweepGeneration = concludeAutonomousSweep({ inconclusive, sawEligible, generation });
     } catch (err) {
-      logger.warn(err, "[autonomous-scheduler] Poll failed");
+      // The poll repeats every few seconds; a lasting failure logs once a minute with a repeat count.
+      logRateLimited("warn", "autonomous-scheduler:poll", err, "[autonomous-scheduler] Poll failed");
     } finally {
       polling = false;
       scheduleNext();

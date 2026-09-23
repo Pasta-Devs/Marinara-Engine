@@ -135,10 +135,8 @@ export async function resolveDecisionBackend(
   const slot = await readDecisionLocalSlot(deps.getLocalDefault);
   if (slot) {
     const resolution = await resolveDecisionSlot(slot, signal, deps.inspection?.mode === "inspect");
-    if (!resolution.resolved) {
-      logger.warn("[decision] The selected local model cannot serve decisions: %s", resolution.failure.reason);
-      return null;
-    }
+    // resolveDecisionSlot already wrote the one line for this failure.
+    if (!resolution.resolved) return null;
     const resolved = resolution.resolved;
     if (deps.inspection) deps.inspection.model = resolved.label;
 

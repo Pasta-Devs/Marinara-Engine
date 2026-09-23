@@ -204,6 +204,17 @@ All server-side logging goes through a shared [Pino](https://getpino.io/) logger
 
 - **Route handlers** that already have access to `app.log` or `req.log` may use those instead of the shared logger — they are child loggers of the same Pino instance and inherit the same level.
 
+### Request ids, failures and prompt text
+
+[docs/development/logging.md](docs/development/logging.md) covers the details. `app.ts` builds Fastify on the shared logger (`loggerInstance: logger`), so `req.log` lines and shared-logger lines share one format. In short:
+
+- **Every line in a request carries `requestId`.** This includes lines from the shared `logger` inside services. The id is returned to the client as the `x-request-id` header, so you never pass it around by hand.
+- **One line per failure.** Either log an error or rethrow it, not both. Cancellations (user stops, closed clients) belong at `info`: use `logger[failureLevel(err)](err, "...")` from `lib/log-context.ts`.
+- **Keep causes.** Wrap errors with `new Error("...", { cause: err })` so the cause chain reaches the log.
+- **Rate-limit repeating failures** from pollers, health checks and per-turn hooks with `logRateLimited` from `lib/log-rate-limit.ts`.
+- **Prompt, model and provider text stays at `debug`.** At `warn` and `error`, log its length and the reason, not the text.
+- **Time new boot steps** in `buildApp` with `startup.phase("name", () => ...)` from `lib/startup-timeline.ts`.
+
 ## Before You Open a Pull Request
 
 1. **Open an issue first.** Before writing code, open an issue or check [the tracker](https://github.com/Pasta-Devs/Marinara-Engine/issues) so we can agree on direction, scope, and whether someone else is already on it.

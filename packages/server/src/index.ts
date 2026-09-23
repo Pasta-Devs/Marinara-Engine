@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { buildApp } from "./app.js";
 import { StorageWriterLeaseError } from "./db/file-backed-store.js";
 import { logger } from "./lib/logger.js";
+import { startup } from "./lib/startup-timeline.js";
 import { startFreezeDetector, stopFreezeDetector } from "./lib/freeze-detector.js";
 import { finalizeSessionExit, noteSessionExitKind, startSessionPostmortem } from "./lib/session-postmortem.js";
 import { armShutdownDeadline } from "./lib/shutdown-deadline.js";
@@ -52,9 +53,9 @@ function stopDevelopmentWatcherAfterLeaseConflict(error: unknown): void {
 }
 
 async function main() {
-  const tls = loadTlsOptions();
-  logStorageDiagnostics();
-  const app = await buildApp(tls ?? undefined);
+  const tls = await startup.phase("config.tls", () => loadTlsOptions());
+  await startup.phase("storage.diagnostics", () => logStorageDiagnostics());
+  const app = await startup.phase("app.build", () => buildApp(tls ?? undefined));
   const envWatcher = startEnvWatcher();
   const protocol = tls ? "https" : getServerProtocol();
   const port = getPort();
@@ -126,8 +127,10 @@ async function main() {
   }
 
   try {
-    await app.listen({ port, host });
+    await startup.phase("http.listen", () => app.listen({ port, host }));
     logger.info(`Marinara Engine server listening on ${protocol}://${host}:${port}`);
+    const ready = startup.summary();
+    logger.info(ready, "[startup] Ready in %d ms", ready.elapsedMs);
     startFreezeDetector();
     startSessionPostmortem();
     stopRuntimeMemoryMonitor = startRuntimeMemoryMonitor();
@@ -153,7 +156,12 @@ async function main() {
 }
 
 main().catch((err) => {
-  logger.error(err, "[startup] Unhandled error during server bootstrap");
+  const stage = startup.stageOf(err);
+  logger.error(
+    { err, event: "startup.failed", stage },
+    "[startup] Unhandled error during server bootstrap (in %s)",
+    stage ?? "unknown step",
+  );
   stopDevelopmentWatcherAfterLeaseConflict(err);
   process.exit(1);
 });
