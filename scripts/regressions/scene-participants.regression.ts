@@ -31,12 +31,13 @@ const plan = {
   relationshipHistory: "Friends.",
   participationGuide: "Explore the library.",
 };
+let providerContent = JSON.stringify(plan);
 const provider = createServer(async (req, res) => {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
   requests.push(JSON.parse(Buffer.concat(chunks).toString()));
   res.writeHead(200, { "content-type": "application/json" });
-  res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(plan) }, finish_reason: "stop" }] }));
+  res.end(JSON.stringify({ choices: [{ message: { content: providerContent }, finish_reason: "stop" }] }));
 });
 try {
   await app.ready();
@@ -50,7 +51,13 @@ try {
   };
   const ids: string[] = [];
   for (const name of ["Alice", "Bob", "Charlie"]) {
-    ids.push((await api("POST", "/api/characters", { data: { name } })).id);
+    ids.push(
+      (
+        await api("POST", "/api/characters", {
+          data: { name, extensions: { convoDisplayName: name === "Bob" ? "Robert" : "" } },
+        })
+      ).id,
+    );
   }
   const persona = await api("POST", "/api/characters/personas", { name: "Scene persona", description: "A visitor." });
   const origin = await api("POST", "/api/chats", { name: "Source", mode: "conversation", characterIds: ids });
@@ -147,6 +154,7 @@ try {
   };
   assert.deepEqual((await resolveConversationPresenceRuntime(presenceArgs)).respondingCharacterIds, [ids[2]]);
   assert.equal((await resolveConversationPresenceRuntime({ ...presenceArgs, forCharacterId: ids[0] })).ended, true);
+  providerContent = "I stayed in the Conversation.";
   const mergedReply = await app.inject({
     method: "POST",
     url: "/api/generate/",
@@ -164,6 +172,27 @@ try {
     requests.at(-1)!.messages.some((message) => message.content.includes("Only Charlie may respond this turn")),
     "Merged replies instruct the model to exclude characters currently in a Scene",
   );
+  const savedReply = (await store.listMessages(origin.id)).findLast((message) => message.role === "assistant");
+  assert.equal(savedReply?.characterId, ids[2], "An untagged merged reply belongs to an available character");
+  for (const content of [
+    "[12:01] Alice: I ignored the instruction.",
+    '<speaker="Bob">I ignored it too.</speaker>',
+    "Robert: This uses my Conversation display name.",
+  ]) {
+    providerContent = content;
+    const blocked = await app.inject({
+      method: "POST",
+      url: "/api/generate/",
+      payload: { chatId: origin.id, connectionId: conn.id, streaming: false, skipPresenceDelay: true },
+    });
+    assert.ok(blocked.body.includes('"type":"offline"'), "A rejected reply explains which participants are away");
+    assert.equal(
+      (await store.listMessages(origin.id)).filter((message) => message.role === "assistant").length,
+      1,
+      "A recognized busy speaker cannot be saved even when the model ignores the instruction",
+    );
+  }
+  providerContent = JSON.stringify(plan);
   const before = requests.length;
   for (const invalid of [
     { participantCharacterIds: [] },
@@ -195,6 +224,7 @@ try {
   // A Scene opened while a Conversation reply waits must suppress that delayed reply.
   mock.timers.enable({ apis: ["setTimeout"] });
   let delayed!: () => void;
+  const delayEvents: any[] = [];
   const delayReady = new Promise<void>((resolve) => (delayed = resolve));
   const delayedReply = resolveConversationPresenceRuntime({
     ...presenceArgs,
@@ -209,6 +239,7 @@ try {
       }),
     },
     writeSse: (event: any) => {
+      delayEvents.push(event);
       if (event.type === "delayed") delayed();
     },
   });
@@ -219,6 +250,7 @@ try {
   mock.timers.reset();
   assert.equal(delayedResult.ended, true);
   assert.deepEqual(delayedResult.respondingCharacterIds, []);
+  assert.deepEqual(delayEvents.find((event) => event.type === "offline")?.characters, ["Alice"]);
   await api("POST", "/api/scene/conclude", { sceneChatId: laterScene.chatId, connectionId: conn.id });
   const returned = await api("GET", `/api/chats/${origin.id}/messages`);
   assert.ok(

@@ -82,6 +82,8 @@ import {
   LOCAL_SIDECAR_CONNECTION_ID,
   normalizeImagePromptInstructions,
   normalizeTextForMatch,
+  parseGroupedSpeakerSegments,
+  stripLeadingMessageTimestamps,
   parseManagedGenerationParameterDefinitions,
   normalizeGameStoryboardKeyframeCount,
   estimateTextTokens,
@@ -4392,6 +4394,13 @@ export async function generateRoutes(app: FastifyInstance) {
         // Auto-enable speaker colors for conversation mode groups (system prompt already requests tags)
         const groupSpeakerColors = chatMeta.groupSpeakerColors === true || (chatMode === "conversation" && isGroupChat);
         const groupTurnPromptEnabled = chatMeta.groupTurnPromptEnabled !== false;
+        const restrictMergedResponders =
+          chatMode === "conversation" &&
+          isGroupChat &&
+          groupChatMode === "merged" &&
+          !input.impersonate &&
+          !input.regenerateMessageId &&
+          availableGroupCharacters.length < charInfo.length;
 
         if (isGroupChat && chatMode !== "conversation") {
           // Keep one concrete tagged assistant example while trimming redundant
@@ -4403,13 +4412,7 @@ export async function generateRoutes(app: FastifyInstance) {
           // Inject group chat instructions at the end of the last user message
           const groupInstructions: string[] = [];
 
-          if (
-            chatMode === "conversation" &&
-            groupChatMode === "merged" &&
-            !input.impersonate &&
-            !input.regenerateMessageId &&
-            availableGroupCharacters.length < charInfo.length
-          ) {
+          if (restrictMergedResponders) {
             groupInstructions.push(
               `- Only ${availableGroupCharacters.map((character) => groupResponderName(character.id)).join(", ")} may respond this turn. Other participants are unavailable; do not write their messages.`,
             );
@@ -6744,8 +6747,10 @@ export async function generateRoutes(app: FastifyInstance) {
             !input.regenerateMessageId &&
             !input.impersonate &&
             (await resolveSceneBusyCharacterIds(chats, input.chatId)).includes(targetCharId)
-          )
+          ) {
+            sendSseEvent(reply, { type: "offline", characters: [groupResponderName(targetCharId)] });
             return null;
+          }
           generationProviderOrigin = { model: conn.model, provider: conn.provider };
           let recoveredAlreadyAppliedSpatialTurn = false;
           const pendingGameStateToolCalls: Parameters<typeof executeToolCalls>[0] = [];
@@ -8060,6 +8065,29 @@ export async function generateRoutes(app: FastifyInstance) {
             if (canonicalResponse !== fullResponse) {
               fullResponse = canonicalResponse;
               contentReplaced = true;
+            }
+          }
+          if (restrictMergedResponders) {
+            const characterByName = new Map(
+              charInfo.flatMap((character) =>
+                [character.name, groupResponderName(character.id)].map(
+                  (name) => [normalizeTextForMatch(name), character.id] as const,
+                ),
+              ),
+            );
+            const segments = parseGroupedSpeakerSegments(
+              stripLeadingMessageTimestamps(fullResponse),
+              new Set(characterByName.keys()),
+            );
+            const blockedSpeakers = (segments ?? []).flatMap(({ speaker }) => {
+              const id = speaker ? characterByName.get(normalizeTextForMatch(speaker)) : undefined;
+              return id && !isAvailableGroupResponder(id) ? [groupResponderName(id)] : [];
+            });
+            if (blockedSpeakers.length) {
+              fullResponse = "";
+              if (!holdForTextRewrite) sendSseEvent(reply, { type: "content_replace", data: "" });
+              sendSseEvent(reply, { type: "offline", characters: [...new Set(blockedSpeakers)] });
+              return null;
             }
           }
           if (conversationCommandsEnabled && !input.impersonate) {
@@ -9534,7 +9562,7 @@ export async function generateRoutes(app: FastifyInstance) {
           let targetCharId =
             typeof input.forCharacterId === "string" && characterIds.includes(input.forCharacterId)
               ? input.forCharacterId
-              : (characterIds[0] ?? null);
+              : ((chatMode === "conversation" ? availableGroupCharacters[0]?.id : characterIds[0]) ?? null);
           const sentMessages = [...finalMessages];
 
           if (generationGuideInstruction) {

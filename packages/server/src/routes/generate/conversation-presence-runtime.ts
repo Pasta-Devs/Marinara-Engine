@@ -258,6 +258,7 @@ export async function resolveConversationPresenceRuntime(args: {
       respondingCharacterIds = respondingConvoCharInfo.map((character) => character.charId);
       respondingConvoCharNames = respondingConvoCharInfo.map((character) => character.displayName);
       if (respondingCharacterIds.length === 0) {
+        args.writeSse({ type: "offline", characters: requestedResponderNames });
         args.writeSse({ type: "done" });
         args.endSse();
         return buildPresenceResult({
