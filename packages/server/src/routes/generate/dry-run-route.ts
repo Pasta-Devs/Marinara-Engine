@@ -1038,7 +1038,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             ? (
                 parseJsonArray(promptParts.extensionBlocks) ??
                 (Array.isArray(promptParts.extensionBlocks) ? promptParts.extensionBlocks : [])
-              ).flatMap((block) => (isRecord(block) && typeof block.content === "string" ? [block.content] : []))
+              ).flatMap((block) =>
+                // Only system blocks are assembled (below), so only they are planned.
+                isRecord(block) && block.role === "system" && typeof block.content === "string" ? [block.content] : [],
+              )
             : []),
           personaDescription,
           activeChatSummary,
