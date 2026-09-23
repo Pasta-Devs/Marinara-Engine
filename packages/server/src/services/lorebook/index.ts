@@ -18,6 +18,7 @@ import type {
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import {
+  recursiveScan,
   scanForActivatedEntries,
   lorebookEntryPassesContextFilters,
   passesForcedEntryActivationGates,
@@ -138,7 +139,20 @@ export async function scopeLorebookScanResultToCharacter(
 }
 
 export type LorebookBudgetSkipReason = "lorebook" | "chat" | "both" | "location";
-export type LorebookMatchType = "keyword" | "semantic" | "constant" | "sticky";
+export type LorebookMatchType = "keyword" | "semantic" | "constant" | "sticky" | "decision";
+
+/** Answers entries' decision statements (#6570); see `resolveDecisions` on `processLorebooks`. */
+export type LorebookDecisionResolver = (
+  requests: Array<{ entryId: string; statement: string }>,
+) => Promise<ReadonlyMap<string, boolean>>;
+
+/** Whether an entry's activation depends on a decision statement (#6570). */
+export function hasDecisionActivation(entry: Pick<LorebookEntry, "decisionMode" | "decisionStatement">): boolean {
+  return (
+    (entry.decisionMode === "require" || entry.decisionMode === "trigger") &&
+    (entry.decisionStatement ?? "").trim().length > 0
+  );
+}
 
 export interface LorebookBudgetSkippedEntry {
   id: string;
@@ -614,6 +628,7 @@ function getLorebookMatchType(matchedKeys: string[]): LorebookMatchType {
   if (matchedKeys.some((key) => key.startsWith("[semantic:"))) return "semantic";
   if (matchedKeys.includes("[constant]")) return "constant";
   if (matchedKeys.includes("[sticky]")) return "sticky";
+  if (matchedKeys.includes("[decision]")) return "decision";
   return "keyword";
 }
 
@@ -1055,6 +1070,13 @@ export async function processLorebooks(
     generationTriggers?: string[];
     /** Resolves prompt macros for final included lorebook entries. May apply macro side effects. */
     resolveContent?: LorebookFinalContentResolver;
+    /**
+     * Answers entries' decision statements (#6570): the entry id to true or false for
+     * each statement it could answer. Generation asks the Decision model; a preview
+     * passes answers this turn already has and never asks. Omitted, decision entries
+     * read as no.
+     */
+    resolveDecisions?: LorebookDecisionResolver;
     /** Optional random source for probability and weighted group selection. */
     random?: () => number;
   },
@@ -1264,6 +1286,23 @@ export async function processLorebooks(
         }, 1)
       : 3;
 
+  // Decision activation (#6570). The scan is synchronous and the budget pass below
+  // commits macro side effects, so neither can wait for a model. A pure pre-scan
+  // (recursion included) collects the entries whose activation waits on a statement,
+  // and they are asked in one request; a second pass catches entries that only appear
+  // once another decision entry is in. The real scan then runs once with the answers,
+  // and anything still unanswered reads as no. The probability rolls are shared, so a
+  // pre-scan and the real scan roll the same. An explicit selection (forcedEntriesOnly)
+  // is a person's choice and is never gated.
+  const usesDecisions = !forcedEntriesOnly && allEntries.some(hasDecisionActivation);
+  const decisionAnswers = new Map<string, boolean>();
+  if (usesDecisions) {
+    scanOpts.decisionAnswers = decisionAnswers;
+    scanOpts.probabilityDecisions ??= new Map();
+  }
+  const requiresDecisionAnswer = (entry: LorebookEntry) =>
+    entry.decisionMode === "require" && hasDecisionActivation(entry);
+
   // The one place `ignoreProbability` is ever set. It rides a copy of the scan
   // options so it cannot reach `scanForActivatedEntries` below, and it is off
   // unless the caller asked — every existing caller keeps its rolls.
@@ -1271,8 +1310,51 @@ export async function processLorebooks(
     ...scanOpts,
     ...(options?.ignoreForcedEntryProbability ? { ignoreProbability: true } : {}),
   };
+
+  if (usesDecisions && options?.resolveDecisions) {
+    const statementsById = new Map(allEntries.map((entry) => [entry.id, entry.decisionStatement]));
+    // Recursion reads each activated entry's macro-resolved text, so discovery does
+    // too. A resolution is rolled back at once, so nothing is committed here; a
+    // preview's plain resolver has nothing to roll back and commits nothing either.
+    const discoveryEntries = resolveContent
+      ? allEntries.map((entry) => {
+          if (!entry.content.includes("{{")) return entry;
+          const resolved = resolveContent!(entry.content);
+          if (typeof resolved === "string") return { ...entry, content: resolved };
+          resolved.rollback?.();
+          return { ...entry, content: resolved.content };
+        })
+      : allEntries;
+    // An entry a location attaches skips the keyword scan, but Require still applies.
+    const locationRequireIds = forcedEntries
+      .filter((entry) => requiresDecisionAnswer(entry) && passesForcedEntryActivationGates(entry, forcedEntryScanOpts))
+      .map((entry) => entry.id);
+    for (let round = 0; round < 2; round++) {
+      const pendingDecisions = new Set<string>(round === 0 ? locationRequireIds : []);
+      const preScanOpts = { ...scanOpts, pendingDecisions };
+      // Recursion scoped exactly as the real scan scopes it, so discovery never asks
+      // about an entry recursion cannot reach there.
+      if (anyRecursive)
+        recursiveScan(
+          messages,
+          discoveryEntries,
+          preScanOpts,
+          maxRecursionDepth,
+          options?.enableRecursive ? undefined : (entry) => recursiveLorebookIds.has(entry.lorebookId),
+        );
+      else scanForActivatedEntries(messages, discoveryEntries, preScanOpts);
+      const toAsk = [...pendingDecisions].filter((id) => !decisionAnswers.has(id));
+      if (toAsk.length === 0) break;
+      const answers = await options.resolveDecisions(
+        toAsk.map((entryId) => ({ entryId, statement: statementsById.get(entryId) ?? "" })),
+      );
+      for (const entryId of toAsk) decisionAnswers.set(entryId, answers.get(entryId) === true);
+    }
+  }
+
   const forcedActivatedEntries: ActivatedEntry[] = forcedEntries
     .filter((entry) => passesForcedEntryActivationGates(entry, forcedEntryScanOpts))
+    .filter((entry) => !usesDecisions || !requiresDecisionAnswer(entry) || decisionAnswers.get(entry.id) === true)
     .map((entry) => ({
       entry,
       matchedKeys: ["[current_location]"],

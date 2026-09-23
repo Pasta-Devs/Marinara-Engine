@@ -19,6 +19,7 @@ import {
   personaCreateInputSchema,
   lorebookFilterModeSchema,
   MAX_FILE_SIZES,
+  parseLorebookDecisionActivation,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
@@ -846,6 +847,7 @@ async function importLorebookPayload(data: unknown, db: DB) {
         dynamicState: (e.dynamicState as any) ?? {},
         activationConditions: (e.activationConditions as any) ?? [],
         schedule: (e.schedule as any) ?? null,
+        ...parseLorebookDecisionActivation(e),
       };
     });
     await storage.bulkCreateEntries(newLb.id as string, entries);

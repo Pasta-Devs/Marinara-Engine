@@ -33,7 +33,7 @@ import {
   type AdvancedMemoryPlacement,
   type AdvancedMemoryPromptParts,
 } from "./advanced-memory-prompt.js";
-import type { LorebookScanResult } from "../lorebook/index.js";
+import type { LorebookDecisionResolver, LorebookScanResult } from "../lorebook/index.js";
 import {
   buildReferencedCharacterContext,
   buildReferencedPersonaContext,
@@ -201,6 +201,8 @@ export interface AssemblerInput {
   deferCharacterMacros?: boolean;
   /** This turn's answers for `decision:` and `decision_choice:` conditions (#6569). */
   decisions?: MacroDecisionAnswers;
+  /** Answers lorebook entries' decision statements for activation (#6570). */
+  lorebookDecisions?: LorebookDecisionResolver;
 }
 
 /** Output of the assembler. */
@@ -509,6 +511,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       setLorebookEntryCounts(macroCtx, lorebookEntryCounts);
       return resolveMacrosWithVariableSnapshot(value, macroCtx, deferNameMacroOptions);
     },
+    resolveLorebookDecisions: input.lorebookDecisions,
     onLorebookScan: addActivatedLorebookCardReferences,
     groupScenarioOverrideText: input.groupScenarioOverrideText ?? null,
     includeExampleDialogueInCharacterMarker: !hasDialogueExamplesMarker,

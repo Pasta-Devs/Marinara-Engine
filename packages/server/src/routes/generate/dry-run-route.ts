@@ -38,6 +38,7 @@ import { createLorebooksStorage } from "../../services/storage/lorebooks.storage
 import {
   cachedPromptDecisionAnswers,
   collectTurnDecisionTexts,
+  createLorebookDecisionResolver,
   decisionModelUsable,
   latestTurnDecisionId,
   planPromptDecisions,
@@ -1050,6 +1051,18 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         };
       }
     }
+    // Lorebook entries activated by a decision (#6570) read the answers this turn
+    // already has. The preview never asks, and reports the statements it had none for.
+    const lorebookDecisions = createLorebookDecisionResolver({
+      macroContext: promptMacroContext,
+      limit: Number.POSITIVE_INFINITY,
+      answer: async (plan) =>
+        cachedPromptDecisionAnswers(
+          plan,
+          promptDecisionCacheKey(chatId, latestTurnDecisionId(chatMessages), decisionModelId),
+        ),
+      onUnanswered: (statement) => decisionUnanswered.add(statement),
+    });
     const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(
       messages: T[],
     ): T[] => resolvePromptMessageMacros(messages, promptMacroContext, historyMacroProfilesById);
@@ -1300,6 +1313,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
               generationTriggers: lorebookGenerationTriggers,
               previewOnly: true,
               resolveContent: resolvePromptMacrosForLorebook,
+              resolveDecisions: lorebookDecisions,
             });
             const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
               .filter((content): content is string => typeof content === "string" && content.length > 0)
@@ -1564,6 +1578,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         preserveImpersonatePresetSections: impersonate && effectivePresetSource === "impersonate",
         deferCharacterMacros,
         decisions: promptMacroContext.decisions,
+        lorebookDecisions,
       };
 
       const assembled = await assemblePrompt(assemblerInput);
@@ -1739,6 +1754,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         generationTriggers: lorebookGenerationTriggers,
         previewOnly: true,
         resolveContent: resolvePromptMacrosForLorebook,
+        resolveDecisions: lorebookDecisions,
       });
       const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
         .filter((content): content is string => typeof content === "string" && content.length > 0)

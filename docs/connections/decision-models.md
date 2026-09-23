@@ -13,8 +13,20 @@ It never writes text and never replies in the chat. Because it only has to score
 - **[Activation questions](../agents/custom-agents.md#activation-questions)** decide whether a custom agent runs on a turn.
 - **[Smart response order](../chats/group-chats.md#response-order-individual-only)** can use it to decide who speaks next in a group chat. This is off until you turn it on.
 - **[Decision statements in prompts](../prompts/conditional-prompts.md#asking-the-decision-model)**, `{{#if decision:"..."}}` and `{{#if decision_choice:"..." == "..."}}`, choose which part of a preset, character card, lorebook entry or agent prompt is sent.
+- **[Lorebook decision activation](../lorebooks/entries.md#decision-activation)** decides whether a lorebook entry activates: a statement can be required on top of its keywords, or trigger it alone.
 
-With no Decision model, or when it does not answer in time, nothing breaks. An agent with an activation question runs as if it had none, Smart response order makes its usual AI call, and a decision statement in a prompt reads as no, so its `{{else}}` branch is sent.
+With no Decision model, or when it does not answer in time, nothing breaks. An agent with an activation question runs as if it had none, Smart response order makes its usual AI call, a decision statement in a prompt reads as no (so its `{{else}}` branch is sent), and a lorebook entry that needs a decision does not activate on it.
+
+## What the model sees
+
+Each request holds only the statement and the chat's recent messages, as they are saved in the chat. The model never sees the rest of the prompt: not your preset, the character card, your persona description, lorebook entries (Constant ones included), summaries or agent output. Text the prompt inserts between messages is left out too, such as a lorebook entry or preset prompt placed **@ Depth**. A statement that depends on a fact from any of those has to state the fact itself.
+
+- Decision statements in prompts and lorebook entries, and Smart response order, read the last 5 messages. This number is fixed.
+- Activation questions read the agent's **Scan Depth**, 5 by default.
+- Each message is labeled with its speaker's name. Messages hidden from the AI are left out.
+- Anything checked after the reply, such as a post-processing agent's activation question or a statement in its prompt, also sees the reply just written.
+- Macros in the statement are filled in first, so `{{char}}` arrives as the character's name.
+- When the messages do not fit the model's budget, older messages are dropped first. See [Set up a Decision connection](#set-up-a-decision-connection) for the hosted budget.
 
 ## Choosing a Decision model
 

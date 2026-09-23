@@ -18,6 +18,7 @@ import {
   decisionLocalSlotForId,
   DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
   normalizeDecisionQuestion,
+  resolveDecisionQuestionText,
   resolveDecisionQuestionVariants,
   type MacroContext,
   type MacroDecisionAnswers,
@@ -26,6 +27,7 @@ import { logger } from "../../lib/logger.js";
 import { buildDecisionState, type DecisionMessage } from "../generation/agent-activation-questions.js";
 import type { DecisionBackend } from "./decision-default.js";
 import { describeDecisionSlot } from "./decision-slots.js";
+import type { LorebookDecisionResolver } from "../lorebook/index.js";
 import { DECISION_CHOICE_NONE, type NoulQuestion } from "./system-one.client.js";
 
 export interface PlannedDecision {
@@ -340,6 +342,58 @@ export async function answerAgentTemplateDecisions(args: {
     cacheKey: promptDecisionCacheKey(args.chatId, args.turnId, args.decisionModelId),
     afterReply: args.afterReply ?? true,
   });
+}
+
+/**
+ * Answers lorebook entries' decision statements for activation (#6570). Each statement
+ * is resolved in the turn's macro context and keyed like a prompt statement, so an
+ * entry and a `{{#if decision:"..."}}` asking the same thing share one cached answer.
+ * `answer` asks the Decision model (generation) or reads what the turn already has
+ * (previews); a statement it has no answer for reads as no.
+ *
+ * `limit` is what the turn has left for new statements, spent across every call (a
+ * lorebook scan can ask twice). A statement in `freeKeys`, already planned by the
+ * prompt and so already answered this turn, costs nothing.
+ */
+export function createLorebookDecisionResolver(args: {
+  macroContext: MacroContext;
+  limit: number;
+  freeKeys?: ReadonlySet<string>;
+  answer: (plan: PromptDecisionPlan) => Promise<MacroDecisionAnswers | undefined>;
+  /** Told each statement that got no answer, for a preview's report. */
+  onUnanswered?: (statement: string) => void;
+}): LorebookDecisionResolver {
+  const charged = new Set<string>();
+  let remaining = args.limit;
+  return async (requests) => {
+    const keyed = requests.map((request) => ({
+      entryId: request.entryId,
+      key: resolveDecisionQuestionText(request.statement, args.macroContext),
+    }));
+    const planned: PlannedDecision[] = [];
+    const dropped: string[] = [];
+    const seen = new Set<string>();
+    for (const { key } of keyed) {
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      if (args.freeKeys?.has(key) || charged.has(key)) {
+        planned.push({ kind: "noul", key, options: [] });
+      } else if (remaining > 0) {
+        remaining -= 1;
+        charged.add(key);
+        planned.push({ kind: "noul", key, options: [] });
+      } else dropped.push(key);
+    }
+    const plan: PromptDecisionPlan = { decisions: planned, dropped };
+    const answers = plan.decisions.length > 0 ? await args.answer(plan) : undefined;
+    const byEntry = new Map<string, boolean>();
+    for (const { entryId, key } of keyed) {
+      const answer = answers?.answers?.get(key);
+      if (answer === undefined) args.onUnanswered?.(key);
+      else byEntry.set(entryId, answer);
+    }
+    return byEntry;
+  };
 }
 
 export { DECISION_CHOICE_NONE };
