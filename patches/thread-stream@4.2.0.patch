@@ -1,0 +1,64 @@
+diff --git a/index.js b/index.js
+index 2f1ce3ab4db5ed0e6ec7fa97a88ce07543d10370..e0b923bd801f45355da8462d9e71312089692253 100644
+--- a/index.js
++++ b/index.js
+@@ -33,6 +33,7 @@ function resetIndexes (stream) {
+     Atomics.store(stream[kImpl].state, READ_INDEX, 0)
+     Atomics.store(stream[kImpl].state, WRITE_INDEX, 0)
+   })
++  Atomics.notify(stream[kImpl].state, READ_INDEX)
+ }
+ 
+ class FakeWeakRef {
+diff --git a/lib/wait.js b/lib/wait.js
+index cdf0738975a737374f7b34ce51a51e2d057d43e6..e646b9157326c22a2171698569a0a5b8bf9b4f1e 100644
+--- a/lib/wait.js
++++ b/lib/wait.js
+@@ -8,13 +8,23 @@ const WAIT_MS = 10000
+ function wait (state, index, expected, timeout, done) {
+   const max = timeout === Infinity ? Infinity : Date.now() + timeout
+ 
+-  const check = () => {
++  const check = (previous) => {
+     const current = Atomics.load(state, index)
+-    if (current === expected) {
++    // Use >= rather than ===: the value this wait() observes (READ_INDEX) is
++    // advanced by the worker in jumps toward WRITE_INDEX, so it can skip over
++    // a snapshot of `expected` taken earlier (e.g. the READY handshake). Because
++    // the reader can never fall behind what has already been written, once it
++    // reaches or passes `expected` it is guaranteed to have caught up.
++    if (current >= expected) {
+       done(null, 'ok')
+       return
+     }
+ 
++    if (previous !== undefined && current !== previous) {
++      done(null, 'not-equal')
++      return
++    }
++
+     if (max !== Infinity && Date.now() > max) {
+       done(null, 'timed-out')
+       return
+@@ -25,10 +35,18 @@ function wait (state, index, expected, timeout, done) {
+     const result = Atomics.waitAsync(state, index, current, remaining)
+ 
+     if (result.async) {
+-      result.value.then(check)
++      result.value.then((res) => {
++        if (res === 'ok') {
++          const latest = Atomics.load(state, index)
++          done(null, latest >= expected ? 'ok' : 'not-equal')
++          return
++        }
++
++        check(current)
++      })
+     } else {
+-      // Value already changed (not-equal) - recheck on next tick
+-      setImmediate(check)
++      // Value changed between Atomics.load() and Atomics.waitAsync().
++      setImmediate(done, null, 'not-equal')
+     }
+   }
+ 
