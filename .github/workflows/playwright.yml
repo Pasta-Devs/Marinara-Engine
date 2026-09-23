@@ -100,8 +100,14 @@ jobs:
           fi
           echo "browser=$needed" >> "$GITHUB_OUTPUT"
 
+  # Eight shards per browser lane (#6573). Matrix wall time is the slowest single
+  # shard, and at four every lane's slowest shard ran 27-29 minutes against the
+  # 30-minute timeout. Splitting the last green run's per-test durations eight
+  # ways the way --fully-parallel --shard does puts the slowest at about 17 min
+  # (desktop), 16 (mobile Chromium) and 20 (WebKit), including ~2 minutes of
+  # setup and server boot per shard. Re-measure before changing the count.
   desktop-chromium-shards:
-    name: desktop-chromium ${{ matrix.shard }}/4
+    name: desktop-chromium ${{ matrix.shard }}/8
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
@@ -113,7 +119,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
 
     steps:
       - name: Checkout
@@ -127,7 +133,7 @@ jobs:
           project: desktop-chromium
           browser: chromium
           shard: ${{ matrix.shard }}
-          total-shards: 4
+          total-shards: 8
           server-project: desktop
 
       - name: Upload failure evidence
@@ -140,7 +146,7 @@ jobs:
           retention-days: 7
 
   mobile-chromium-shards:
-    name: mobile-chromium ${{ matrix.shard }}/4
+    name: mobile-chromium ${{ matrix.shard }}/8
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
@@ -152,7 +158,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
 
     steps:
       - name: Checkout
@@ -166,7 +172,7 @@ jobs:
           project: mobile-chromium
           browser: chromium
           shard: ${{ matrix.shard }}
-          total-shards: 4
+          total-shards: 8
           server-project: mobile
 
       - name: Upload failure evidence
@@ -179,9 +185,8 @@ jobs:
           retention-days: 7
 
   mobile-webkit-shards:
-    # Four shards for WebKit (#5637): WebKit-on-Linux is the slowest
-    # lane, and matrix wall time is the slowest single shard.
-    name: mobile-webkit ${{ matrix.shard }}/4
+    # WebKit-on-Linux is the slowest lane (#5637); see the shard count note above.
+    name: mobile-webkit ${{ matrix.shard }}/8
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: changes
@@ -193,7 +198,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
 
     steps:
       - name: Checkout
@@ -207,7 +212,7 @@ jobs:
           project: mobile-webkit
           browser: webkit
           shard: ${{ matrix.shard }}
-          total-shards: 4
+          total-shards: 8
           server-project: mobile
 
       - name: Upload failure evidence
