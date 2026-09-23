@@ -359,6 +359,14 @@ function scoreText(query: string, values: readonly string[]) {
   }, -1);
 }
 
+function scoreContainedText(query: string, values: readonly string[]) {
+  return values.reduce((best, value) => {
+    const normalized = normalizeProfessorMariNavigationQuery(value);
+    if (normalized.length < 2 || normalized.length >= query.length) return best;
+    return query.includes(normalized) ? Math.max(best, 150 + normalized.length) : best;
+  }, -1);
+}
+
 function scoreIntent(
   intent: OmnibarIntent | null,
   result: Pick<OmnibarResult, "id" | "category" | "kind" | "availability" | "control">,
@@ -480,10 +488,20 @@ export function searchOmnibar(query: string, data: OmnibarSearchData): OmnibarRe
       );
   }
   for (const resource of data.resources) {
-    const score = Math.max(
+    const primaryScore = Math.max(
       scoreText(searchQuery, [resource.name, ...(resource.aliases ?? [])]),
       scoreText(fullQuery, [resource.name, ...(resource.aliases ?? [])]),
+      scoreContainedText(fullQuery, [resource.name, ...(resource.aliases ?? [])]),
     );
+    const rawMetadataScore = Math.max(
+      scoreText(searchQuery, resource.searchText ?? []),
+      scoreText(fullQuery, resource.searchText ?? []),
+      scoreContainedText(fullQuery, resource.searchText ?? []),
+    );
+    // Metadata supports literal discovery without letting a long synopsis outrank
+    // an exact, prefix, or whole-word name match. Do not use fuzzy metadata hits.
+    const metadataScore = rawMetadataScore >= 100 ? Math.min(rawMetadataScore, 145) : -1;
+    const score = Math.max(primaryScore, metadataScore);
     if (score >= 0)
       results.push(
         finishResult(

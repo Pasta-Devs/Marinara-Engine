@@ -432,12 +432,19 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const setActiveResultId = (value: string | null) => setSessionValue("activeResultId", value);
   const [mariChatOpen, setMariChatOpen] = useState(() => session.pane === "mari");
   const [mariMounted, setMariMounted] = useState(() => session.pane === "mari");
-  const [mariContext, setMariContext] = useState<ProfessorMariAskContext | null>(null);
+  const [mariContext, setMariContext] = useState<ProfessorMariAskContext | null>(
+    () => session.mariHandoff?.context ?? null,
+  );
   // A counter, not a flag: the same handoff can happen twice with a new query, and
   // a boolean that is already true delivers no change for the child to react to.
   // Matches mariPendingReviewRequest, which solved the same problem.
   const [mariSubmitDraftRequest, setMariSubmitDraftRequest] = useState(0);
   const [mariPendingReviewRequest, setMariPendingReviewRequest] = useState(0);
+  useEffect(() => {
+    if (session.mariHandoff?.draft) {
+      useChatStore.getState().setInputDraft(PROFESSOR_MARI_DRAFT_KEY, session.mariHandoff.draft);
+    }
+  }, [session.mariHandoff?.draft]);
   // Transient on purpose: reopening the omnibar always starts from a bare list.
   const [expandedChoiceId, setExpandedChoiceId] = useState<string | null>(null);
   // Which row has its preview open. Replaces the detail pane on narrow screens:
@@ -1564,7 +1571,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       // Mari finishes while the omnibar is shut is still waiting on reopen.
       setSessionValue("mariHandoff", {
         status: "pending",
-        context: { capability: context.capability, resource: context.resource, field: context.field },
+        context,
+        draft: context.query,
       });
     }
     if (submitDraft) setMariSubmitDraftRequest((current) => current + 1);
@@ -2015,7 +2023,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     }
     if (event.key !== "Tab") return;
     const focusable = Array.from(
-      panelRef.current?.querySelectorAll<HTMLElement>('input, button, [tabindex]:not([tabindex="-1"])') ?? [],
+      panelRef.current?.querySelectorAll<HTMLElement>(
+        'input, textarea, select, button, [tabindex]:not([tabindex="-1"])',
+      ) ?? [],
     ).filter(
       (element) =>
         !element.hasAttribute("disabled") &&

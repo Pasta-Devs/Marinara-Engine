@@ -49,7 +49,7 @@ class OmnibarErrorBoundary extends Component<
 
 function OmnibarErrorPanel({ error, onClose }: { error: unknown; onClose: () => void }) {
   const { t } = useTranslation();
-  const message = error instanceof Error ? `${error.name}: ${error.message}\n${error.stack ?? ""}` : String(error);
+  const message = error instanceof Error ? error.message : String(error);
   return (
     <div
       role="alertdialog"
@@ -63,9 +63,7 @@ function OmnibarErrorPanel({ error, onClose }: { error: unknown; onClose: () => 
         <p className="mt-1 text-sm text-[var(--muted-foreground)]">
           {t("commandCenter.error.description", "Its saved state was cleared. Opening it again should work.")}
         </p>
-        <pre className="mt-3 max-h-56 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-2 text-xs">
-          {message}
-        </pre>
+        <p className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-2 text-sm">{message}</p>
         <button
           type="button"
           onClick={onClose}
@@ -116,11 +114,8 @@ export function GlobalOmnibar() {
           mariHandoff: request.context
             ? {
                 status: "pending",
-                context: {
-                  capability: request.context.capability,
-                  resource: request.context.resource,
-                  field: request.context.field,
-                },
+                context: request.context,
+                draft: request.draft,
               }
             : current.mariHandoff,
         });

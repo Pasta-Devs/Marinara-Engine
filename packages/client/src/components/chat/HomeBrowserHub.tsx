@@ -1230,7 +1230,22 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
         data: row.data,
         comment: typeof row.comment === "string" ? row.comment : null,
       });
-      return display.name.trim() ? [{ kind: "character" as const, id: row.id, name: display.name }] : [];
+      return display.name.trim()
+        ? [
+            {
+              kind: "character" as const,
+              id: row.id,
+              name: display.name,
+              searchText: [
+                display.summary,
+                display.comment,
+                display.description,
+                display.creator,
+                ...(display.tags ?? []),
+              ].filter((value): value is string => Boolean(value)),
+            },
+          ]
+        : [];
     });
     return [
       ...characterResources,

@@ -227,6 +227,32 @@ assert.equal(
   "a fuzzy match remains when no literal result exists",
 );
 
+const summaryMatchResults = searchOmnibar("sarcastic vampire", {
+  commands: [],
+  chats: [],
+  resources: [
+    {
+      id: "eliza",
+      kind: "character",
+      name: "Eliza",
+      description: "A dry-witted immortal with a guarded heart.",
+      searchText: ["A sarcastic vampire who owns a midnight bookshop.", "gothic", "SpicyMarinara"],
+    },
+    { id: "sarcastic-vampire", kind: "character", name: "Sarcastic Vampire" },
+  ],
+  connections: [],
+});
+assert.deepEqual(
+  summaryMatchResults.slice(0, 2).map((result) => result.id),
+  ["character:sarcastic-vampire", "character:eliza"],
+  "character names outrank summary metadata while summaries remain searchable",
+);
+assert.equal(
+  summaryMatchResults.find((result) => result.id === "character:eliza")?.description,
+  "A dry-witted immortal with a guarded heart.",
+  "summary-backed preview text survives search result construction",
+);
+
 const filteredPresentation = presentCommandCenterResults(searchPresentation.results, {
   query: "one",
   filter: "characters",

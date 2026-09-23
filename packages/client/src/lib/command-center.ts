@@ -227,8 +227,8 @@ export type CommandCenterReturnPane = Exclude<CommandCenterPane, "mari">;
  */
 export interface CommandCenterMariHandoff {
   status: "pending" | "working" | "finished";
-  /** Only the part `omnibarCompletionActions` reads, so the stored blob stays small. */
-  context: Pick<ProfessorMariAskContext, "capability" | "resource" | "field"> | null;
+  context: ProfessorMariAskContext | null;
+  draft?: string;
 }
 
 export interface CommandCenterSessionState {
@@ -339,9 +339,16 @@ function normalizeMariHandoff(value: unknown): CommandCenterMariHandoff | null {
       : undefined;
   const field = typeof rawContext?.field === "string" ? rawContext.field.trim().slice(0, 200) : "";
   const context: CommandCenterMariHandoff["context"] = capability
-    ? { capability, ...(resource ? { resource } : {}), ...(field ? { field } : {}) }
+    ? {
+        source: "command-center",
+        capability,
+        query: typeof rawContext?.query === "string" ? rawContext.query.slice(0, 500) : undefined,
+        ...(resource ? { resource } : {}),
+        ...(field ? { field } : {}),
+      }
     : null;
-  return { status, context };
+  const draft = typeof source.draft === "string" ? source.draft.slice(0, 500) : undefined;
+  return { status, context, ...(draft ? { draft } : {}) };
 }
 
 export function readCommandCenterSessionState(

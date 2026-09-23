@@ -134,11 +134,18 @@ export function buildOmnibarCharacterRows({
         kind: "character" as const,
         ...row,
         name: character.name,
-        description: character.description,
+        description: character.summary ?? character.description,
+        searchText: [
+          character.summary,
+          character.comment,
+          character.description,
+          character.creator,
+          ...character.tags,
+        ].filter((value): value is string => Boolean(value)),
         preview: () => ({
           kind: "character" as const,
           title: character.name,
-          description: character.description,
+          description: character.summary ?? character.description,
           categoryLabel: categoryLabels.character,
           media: character.avatarSrc
             ? {

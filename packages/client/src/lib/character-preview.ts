@@ -8,6 +8,8 @@ export interface CharacterPreviewModel {
   name: string;
   avatarSrc?: string;
   avatarCropStyle?: CSSProperties;
+  summary?: string;
+  comment?: string;
   description?: string;
   creator?: string;
   version?: string;
@@ -36,6 +38,8 @@ export function buildCharacterPreviewModel(
     name: display.name,
     ...(typeof record.avatarPath === "string" && record.avatarPath.trim() ? { avatarSrc: record.avatarPath } : {}),
     ...(display.avatarCrop ? { avatarCropStyle: getAvatarCropStyle(display.avatarCrop) } : {}),
+    ...(display.summary?.trim() ? { summary: display.summary.trim() } : {}),
+    ...(display.comment?.trim() ? { comment: display.comment.trim() } : {}),
     ...(display.description?.trim() ? { description: display.description.trim() } : {}),
     ...(display.creator?.trim() ? { creator: display.creator.trim() } : {}),
     ...(typeof record.version === "string" && record.version.trim() ? { version: record.version.trim() } : {}),

@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Professor Mari now preserves closed-surface handoffs, keeps replacement runs from reporting false completion or writing cancellation text into a newer chat, and protects Quick Mari edits from concurrent writes. Quick Mari aside requests also pass validation, and normal omnibar errors no longer show stack traces.
 - Professor Mari's omnibar workspace now keeps completed work in the transcript, shows step progress and result details, and keeps technical tool arguments behind a disclosure.
 - Professor Mari's work steps now use distinct app-data labels such as Reading chat and Reading character. The Details inspector stays out of the way when a full Chats, Skills, Memories, or Context workspace is open.
 - The omnibar now prioritizes named resources, improves previews and empty-state guidance, and keeps settings, keyboard navigation, accessibility announcements, and mobile layout aligned.
@@ -30,6 +31,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Chat connection switchers can now show the latest measured context usage in their popup and around the connection button, with Game usage available under Chat Settings > Connection. The display is enabled by default and can be controlled in Advanced settings (#5577).
 - Character card sprites can now be renamed after upload without replacing the image (#5575).
 - Character cards now support editable metadata summaries, AI-generated summary drafts, and Character Library previews that use the saved summary when available.
+- The omnibar and Home Mari navigator can now find characters by saved summary, comment, description, creator, and tags, while character result previews prefer the saved summary.
 - Character card Conversation profiles now provide controls to generate About Me and Conversation behavior text from the card's available information.
 - The Home Character of the Day widget now uses saved character summaries and offers direct chat-start and character-view actions.
 

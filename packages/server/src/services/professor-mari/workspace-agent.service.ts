@@ -2422,29 +2422,31 @@ export class ProfessorMariWorkspaceService {
     const proposal = this.quickEditProposals.get(id);
     if (!proposal) throw new QuickEditConflictError("Quick edit proposal was not found or has already been applied.");
     this.quickEditProposals.delete(id);
-    const target = await this.readQuickEditTarget({
-      source: "command-center",
-      capability: "edit",
-      resource: proposal.resource,
-      field: proposal.fieldLabel,
-      fieldId: proposal.fieldId,
-    });
-    const validation = target ? validateQuickEditProposal(proposal, target.currentValue) : "stale";
-    if (validation === "expired") {
-      throw new QuickEditConflictError("Quick edit proposal expired. Ask Quick Mari again to refresh it.");
-    }
-    if (!target || validation === "stale") {
-      throw new QuickEditConflictError(
-        "The field changed after Quick Mari prepared this proposal. Nothing was applied.",
-      );
-    }
-    const result = await getMariDbService(this.app.db).executeAction({
-      action: "character.update",
-      id: proposal.resource.id,
-      patch: { [target.fieldKey]: proposal.after },
-      apply: true,
-      reason: `Quick Mari edit proposal for ${proposal.fieldLabel}`,
-      sessionId: "professor-mari-quick",
+    const result = await this.serializeWorkspaceMutation(async () => {
+      const target = await this.readQuickEditTarget({
+        source: "command-center",
+        capability: "edit",
+        resource: proposal.resource,
+        field: proposal.fieldLabel,
+        fieldId: proposal.fieldId,
+      });
+      const validation = target ? validateQuickEditProposal(proposal, target.currentValue) : "stale";
+      if (validation === "expired") {
+        throw new QuickEditConflictError("Quick edit proposal expired. Ask Quick Mari again to refresh it.");
+      }
+      if (!target || validation === "stale") {
+        throw new QuickEditConflictError(
+          "The field changed after Quick Mari prepared this proposal. Nothing was applied.",
+        );
+      }
+      return getMariDbService(this.app.db).executeAction({
+        action: "character.update",
+        id: proposal.resource.id,
+        patch: { [target.fieldKey]: proposal.after },
+        apply: true,
+        reason: `Quick Mari edit proposal for ${proposal.fieldLabel}`,
+        sessionId: "professor-mari-quick",
+      });
     });
     if (!result.ok) {
       // The write failed, not a conflict, so hand the proposal back for a retry.
@@ -3048,23 +3050,28 @@ export class ProfessorMariWorkspaceService {
       args.onEvent({ type: "metadata", data: { connection: connectionSummary(connection) ?? undefined } });
     } catch (err) {
       if (controller.signal.aborted) {
+        const replacedByNewerRun = this.abortController !== controller;
         const hadPartialWorkspaceState =
           assistantText.trim().length > 0 || thinkingText.trim().length > 0 || workspaceTrace.length > 0;
         const content = assistantText.trim()
           ? "Professor Mari workspace run was cancelled after saving the partial response."
           : "Professor Mari workspace run was cancelled.";
         appendTraceStatus(workspaceTrace, content);
-        args.onEvent({ type: "status", data: { content, kind: "info", level: "warning" } });
-        if (!assistantText.trim() && hadPartialWorkspaceState) {
+        if (this.abortController === controller) {
+          args.onEvent({ type: "status", data: { content, kind: "info", level: "warning" } });
+        }
+        if (!replacedByNewerRun && !assistantText.trim() && hadPartialWorkspaceState) {
           assistantText = appendVisibleText(assistantText, content);
         }
-        try {
-          await persistAssistantMessage();
-        } catch (saveErr) {
-          logger.error(
-            saveErr instanceof Error ? saveErr : new Error(String(saveErr)),
-            "[Professor Mari] Failed to persist aborted workspace response",
-          );
+        if (!replacedByNewerRun) {
+          try {
+            await persistAssistantMessage();
+          } catch (saveErr) {
+            logger.error(
+              saveErr instanceof Error ? saveErr : new Error(String(saveErr)),
+              "[Professor Mari] Failed to persist aborted workspace response",
+            );
+          }
         }
       } else {
         this.lastError = err instanceof Error ? err.message : String(err);
@@ -3096,7 +3103,7 @@ export class ProfessorMariWorkspaceService {
       }
     } finally {
       if (this.abortController === controller) this.abortController = null;
-      this.active = false;
+      if (this.abortController === controller) this.active = false;
     }
   }
 

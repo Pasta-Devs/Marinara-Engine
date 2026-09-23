@@ -41,6 +41,8 @@ export interface ProfessorMariNavigationResource {
   id: string;
   name: string;
   aliases?: string[];
+  /** Bounded display metadata used for local discovery, never prompt context. */
+  searchText?: readonly string[];
 }
 
 export interface ProfessorMariNavigationChat {
@@ -309,6 +311,18 @@ function scoreDynamicResource(query: string, resource: ProfessorMariNavigationRe
     if (hintedKinds.includes(resource.kind)) score += 42;
     else if (hintedKinds.length > 0) score -= 90;
     best = Math.max(best, score);
+  }
+
+  if (remainder.length >= 3) {
+    const metadataMatch = (resource.searchText ?? [])
+      .map(normalizeProfessorMariNavigationQuery)
+      .some((value) => value.includes(remainder));
+    if (metadataMatch) {
+      let score = 100 + Math.min(remainder.length, 24);
+      if (hintedKinds.includes(resource.kind)) score += 42;
+      else if (hintedKinds.length > 0) score -= 90;
+      best = Math.max(best, score);
+    }
   }
 
   return best;

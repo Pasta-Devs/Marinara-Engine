@@ -25,7 +25,7 @@ const quickContextSchema = z
       "game-setup",
       "chat-error",
     ]),
-    capability: z.enum(["explain", "recommend", "create", "edit", "repair", "navigate"]),
+    capability: z.enum(["explain", "recommend", "create", "edit", "repair", "navigate"]).optional(),
     query: z.string().max(500).optional(),
     resource: z
       .object({
@@ -40,7 +40,7 @@ const quickContextSchema = z
   })
   .strict()
   .superRefine((context, issueContext) => {
-    if (!isCapabilityAllowedFrom(context.capability, context.source)) {
+    if (context.capability && !isCapabilityAllowedFrom(context.capability, context.source)) {
       issueContext.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["capability"],
