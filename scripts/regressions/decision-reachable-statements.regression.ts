@@ -631,6 +631,31 @@ try {
     timed = await timedTurn({ userMessage: "The fight resumes." });
     assert.deepEqual(timed.asked, ["A fight is on"], "turn 5: cooldown is over, so it is asked again");
     assert.ok(timedReply);
+
+    // A held statement leaves the lorebook's share alone: with two slots, the live
+    // statement takes one and an activating entry's statement still gets the other.
+    await createAppSettingsStorage(db).set(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY, "2");
+    const lanternBook = await lorebooks.create({ name: "Lantern lore" });
+    assert(lanternBook);
+    await lorebooks.createEntry({
+      lorebookId: lanternBook.id,
+      name: "Lantern",
+      content: `{{#if decision:"The lantern is lit"}}LANTERN_LIT{{/if}}`,
+      keys: ["lantern"],
+    } as never);
+    await presets.createSection({
+      presetId: timedPreset.id,
+      identifier: "world",
+      name: "World Info",
+      isMarker: true,
+      markerConfig: { type: "world_info_before" },
+    } as never);
+    await chats.patchMetadata(timedChat.id, { activeLorebookIds: [lanternBook.id] });
+    timed = await timedTurn({ userMessage: "A lantern swings over the fight." });
+    assert.ok(!timed.asked.includes("A fight is on"), "turn 6: sticky holds the fight again");
+    assert.ok(timed.asked.includes("The live statement holds"));
+    assert.ok(timed.asked.includes("The lantern is lit"), "and the held statement costs the lorebook no slot");
+    assert.ok(timed.prompt.includes("LANTERN_LIT"));
     await createAppSettingsStorage(db).set(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY, "32");
 
     // Peek Prompt lists what the limit drops, apart from what is merely unanswered.
@@ -654,6 +679,25 @@ try {
     assert.equal(peek.statusCode, 200, peek.body);
     assert.deepEqual(peek.json().decisions?.unanswered, ["Mira is angry in the latest message"]);
     assert.deepEqual(peek.json().decisions?.dropped, ["The tower is on fire"]);
+    // Custom prompt parts replace the preset's sections with their own text, so the dry
+    // run plans from that text, not from the sections it does not use.
+    const dryRun = await app.inject({
+      method: "POST",
+      url: "/api/generate/dryRun",
+      payload: {
+        chatId: peekChat.id,
+        returnPrompt: true,
+        promptParts: { presetText: `{{#if decision:"The parts text asks this"}}PARTS{{/if}}`, includeHistory: true },
+      },
+    });
+    assert.equal(dryRun.statusCode, 200, dryRun.body);
+    const dryRunDecisions = dryRun.json().prompt?.decisions ?? {};
+    assert.deepEqual(
+      dryRunDecisions.unanswered,
+      ["The parts text asks this"],
+      "the parts text gets the slot the unused preset would have taken",
+    );
+    assert.equal(dryRunDecisions.dropped, undefined, JSON.stringify(dryRunDecisions));
     console.log("decision-reachable-statements regression passed");
   } finally {
     await app.close();

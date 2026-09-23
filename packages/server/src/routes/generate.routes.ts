@@ -2661,12 +2661,20 @@ export async function generateRoutes(app: FastifyInstance) {
           if (!decisionTiming) return;
           const next = JSON.stringify(decisionTiming.state);
           if (next === savedDecisionTimers) return;
-          savedDecisionTimers = next;
           // The turn count only matters while a timer runs, so a chat without one is not written.
-          if (Object.keys(decisionTiming.state.statements).length === 0 && !chatMeta[DECISION_TIMERS_METADATA_KEY])
+          if (Object.keys(decisionTiming.state.statements).length === 0 && !chatMeta[DECISION_TIMERS_METADATA_KEY]) {
+            savedDecisionTimers = next;
             return;
-          chatMeta[DECISION_TIMERS_METADATA_KEY] = decisionTiming.state;
-          await chats.patchMetadata(input.chatId, { [DECISION_TIMERS_METADATA_KEY]: decisionTiming.state });
+          }
+          // A failed write never costs the turn its answers: it is logged, and the next
+          // change tries again.
+          try {
+            await chats.patchMetadata(input.chatId, { [DECISION_TIMERS_METADATA_KEY]: decisionTiming.state });
+            chatMeta[DECISION_TIMERS_METADATA_KEY] = decisionTiming.state;
+            savedDecisionTimers = next;
+          } catch (error) {
+            logger.warn(error, "[decision] Could not save decision timers for chat %s", input.chatId);
+          }
         };
         /** Answer a plan against these messages; undefined when there is nothing to ask or no model. */
         const answerDecisionPlan = async (
@@ -2786,7 +2794,8 @@ export async function generateRoutes(app: FastifyInstance) {
         // statements and keyed to the same turn, within what the per-turn limit has left.
         const lorebookDecisions = createLorebookDecisionResolver({
           macroContext: promptMacroContext,
-          limit: Math.max(0, promptDecisionLimit - promptDecisionPlan.decisions.length),
+          // Held statements took no slot, so they leave the lorebook's share alone.
+          limit: Math.max(0, promptDecisionLimit - promptDecisionPlan.decisions.filter((d) => !d.held).length),
           freeKeys: new Set(promptDecisionPlan.decisions.map((d) => d.key)),
           held: heldDecisions,
           answer: (plan) => answerDecisionPlan(plan, decisionMessages(), preReplyDecisionTurnId),

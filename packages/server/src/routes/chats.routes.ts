@@ -3135,6 +3135,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             await appSettings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY),
           );
           let decisionPlanKeys: string[] = [];
+          let decisionSlotsUsed = 0;
           // Sticky and cooldown (#6582): the timers as they stand this turn, read and never saved.
           const previewDecisionTimers = readDecisionTimers(chatMeta[DECISION_TIMERS_METADATA_KEY]);
           const previewDecisionTurn = decisionTurnFor(previewDecisionTimers, latestTurnDecisionId(filteredMessages));
@@ -3177,6 +3178,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             );
             for (const statement of plan.dropped) decisionDropped.add(statement);
             decisionPlanKeys = plan.decisions.map((decision) => decision.key);
+            decisionSlotsUsed = plan.decisions.filter((decision) => !decision.held).length;
             // Always an object, so answers for activating lorebook entries merge into it.
             promptMacroContext.decisions = {
               ...(plan.decisions.length > 0
@@ -3193,7 +3195,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           const lorebookDecisions = createLorebookDecisionResolver({
             macroContext: promptMacroContext,
             // Spent as generation spends it, so the preview drops what generation would.
-            limit: Math.max(0, decisionLimit - decisionPlanKeys.length),
+            limit: Math.max(0, decisionLimit - decisionSlotsUsed),
             freeKeys: new Set(decisionPlanKeys),
             answer: async (plan) =>
               cachedPromptDecisionAnswers(
