@@ -43,8 +43,16 @@ const PYTHON_VERSION = "3.12";
 /** Written after an artifact's last file lands, so a partial download is visible. */
 const DOWNLOAD_RECEIPT = ".marinara-download.json";
 
-/** What every child process needs from the server's environment, and nothing more. */
-const BASE_ENV_NAMES = ["PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "TZ"] as const;
+/**
+ * What every child process needs from the server's environment, and nothing more.
+ *
+ * `LD_LIBRARY_PATH` because on some hosts (NixOS's `/run/opengl-driver/lib`, some
+ * container setups) the CUDA driver library is reachable only through it, and the
+ * llama.cpp sidecar keeps it too. `CUDA_VISIBLE_DEVICES` is deliberately not passed:
+ * it renumbers the cards, and `cuda:N` must mean the `nvidia-smi` index the preflight
+ * measured.
+ */
+const BASE_ENV_NAMES = ["PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "TZ", "LD_LIBRARY_PATH"] as const;
 /**
  * What `uv` also needs to reach its package indexes: proxies, in both spellings tools
  * read, and a custom CA bundle for networks that intercept TLS.

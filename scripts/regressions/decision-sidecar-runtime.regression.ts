@@ -110,6 +110,12 @@ try {
   assert.equal(inheritedEnv({ network: true }).HTTPS_PROXY, "http://proxy.test:3128", "uv still sees the proxy");
   assert.equal(inheritedEnv().HTTPS_PROXY, undefined, "the offline model process does not need it");
   assert.ok(inheritedEnv().PATH, "PATH is kept");
+  process.env.LD_LIBRARY_PATH = "/run/opengl-driver/lib";
+  process.env.CUDA_VISIBLE_DEVICES = "1";
+  assert.equal(inheritedEnv().LD_LIBRARY_PATH, "/run/opengl-driver/lib", "the model process can find the CUDA driver");
+  assert.equal(inheritedEnv().CUDA_VISIBLE_DEVICES, undefined, "device numbering stays the preflight's");
+  delete process.env.LD_LIBRARY_PATH;
+  delete process.env.CUDA_VISIBLE_DEVICES;
   delete process.env.MARINARA_TEST_SECRET;
   delete process.env.HTTPS_PROXY;
 
