@@ -120,6 +120,7 @@ The left or right side of a condition can be any of these:
 3. A preset variable name, such as `length`. A preset variable is a named value you define in a Prompt Preset. See [Preset Variables](preset-variables.md).
 4. An explicit variable lookup written as `var:name` or `var.name`.
 5. Another macro, whose value is resolved first and then compared.
+6. A question for your Decision model, written as `decision:"..."` or `decision_choice:"..."`. See [Asking the Decision model](#asking-the-decision-model).
 
 If you write a bare word that is not a keyword, Marinara treats it as a variable name. If no variable by that name exists, it uses the word as its own plain text. Quoting your literal values avoids this confusion, so quote them when in doubt.
 
@@ -190,8 +191,119 @@ Address the user as Doctor.
 
 If your persona name contains `Dr`, the model is told to address you as Doctor. If not, the block resolves to nothing.
 
+## Asking the Decision model
+
+A condition can also ask your **Decision model** about what is happening in the chat. The Decision model is whatever you picked under **Decision model** in the Connections panel: the local model you already run, a hosted Decision connection, or an installed decision model. It reads the last few messages and a statement you write, and says whether the statement is true. It never writes anything into the chat. [Decision Models](../connections/decision-models.md) explains what it is and how to choose one.
+
+This lets a preset, card, lorebook entry or agent prompt send an instruction only on the turns where it applies, instead of sending "if X happens, do Y" on every turn. Some ideas:
+
+- **Scene changes.** Describe a new location or time skip only when the scene actually moved.
+- **Scene types.** Load combat, intimacy or tension pacing rules only while that kind of scene is happening.
+- **Answer the question first.** `{{#if decision:"In the latest message, {{user}} asks a direct question"}}Answer it before anything else.{{/if}}`
+- **Card moods.** A character card can hold "when flustered" or "when angry" behavior that only appears when the recent messages show it.
+- **Pacing guards.** A slow-burn preset can hold back escalation instructions until the relationship has visibly moved on.
+- **Group scenes.** In a group block, `{{#if decision:"{{char}} is addressed in the latest message"}}` tells only the addressed character's section to respond directly.
+
+### Yes or no: `decision:`
+
+```
+{{#if decision:"The latest message moves the scene to a new place"}}
+Open your reply by describing the new location in one or two sentences.
+{{/if}}
+```
+
+The condition is true when the Decision model says the statement is true. It works with everything else in this guide: `{{else}}`, `{{else if}}`, `&&`, `||`, parentheses, nesting and group blocks.
+
+```
+{{#if char == "Dottore" && decision:"{{user}} is lying or hiding something"}}
+Dottore notices the inconsistency and files it away.
+{{/if}}
+```
+
+Macros inside the statement are filled in first, so `{{user}}` and `{{char}}` work. In a group block, a statement that names `{{char}}` is asked once for each character.
+
+### One of several answers: `decision_choice:`
+
+`decision_choice:` asks the Decision model to pick one option. The options are the values you compare it with, anywhere in the prompt:
+
+```
+{{#if decision_choice:"Kaelen's mood in the latest message" == "angry"}}
+Kaelen's lines are short and clipped.
+{{else if decision_choice:"Kaelen's mood in the latest message" == "sad"}}
+Kaelen speaks quietly and looks away.
+{{else}}
+Kaelen is his usual self.
+{{/if}}
+```
+
+Here the model chooses between "angry", "sad" and "none of these". The short form works too: `decision_choice:"The weather in the latest message" == "rain" || "snow"` offers both options. Write the statement as a subject, such as "Kaelen's mood in the latest message", and the options as short answers to it.
+
+### No answer means no
+
+A decision condition is **false** whenever there is no answer: no Decision model is set, the model did not answer in time, or it failed. For `decision_choice:`, every comparison is false. So the `{{else}}` branch, or nothing, is what a user without a Decision model gets.
+
+Design for that:
+
+- Use a decision to **add or trim guidance**, never to carry content the story depends on. A missed branch should make a reply slightly less tailored, not break it.
+- Give every decision block a sensible default: either nothing, or an `{{else}}` that is fine on any turn.
+- Do not chain decisions so that one wrong answer changes several others.
+- Do not gate consent, content warnings or safety instructions on a decision. Keep those always present.
+
+Any model will sometimes answer wrongly, and small decision models more often. Nobody needs a particular service to use this: a capable local model is often as good as or better than a small purpose-built decision model. Write for "a Decision model", never "requires Jev".
+
+### Writing statements
+
+These come from tests on a local chat model and on Open-Jev 2B and 9B:
+
+- **State a fact that is either true or false**, like a line in a report. Not a question ("Did the scene change?"), and not an instruction ("If the scene changed, describe it"). A local chat model answered no to an instruction every time, so the block never ran.
+- **Say "in the latest message"** when you mean this turn. The model reads several messages, and "Mira asks questions" was answered yes because an earlier message asked one.
+- **Name who it is about.** "He is angry" was read as the wrong character.
+- **Describe something visible in the text**, an action or something said, not a mood word the model has to interpret ("The scene is intense") or a hidden intention ("Mira is lying").
+- Keep it short. A plain "and" or a negation worked fine in the tests, so write whichever reads naturally.
+
+Use **Test** next to **Decision model**, and try the statement on your own chats: the same statement can score differently on different models.
+
+What the tests showed. Each wording was tried on four labelled roleplay turns (two meant as yes, two as no) on Open-Jev 2B, Open-Jev 9B and a Gemma 4 E4B local model. It is a small sample from one scene, so read it as direction, not as a benchmark.
+
+| Write | Avoid | What happened with the wording to avoid |
+| --- | --- | --- |
+| The latest message moves the scene to a new place. | Did the scene change? | The question pushed Open-Jev 2B's "no" turns over its threshold. The local model was unaffected. |
+| In the latest message, a character draws a weapon or attacks someone. | The scene is intense. | All three called a heated argument "intense". With a vague word, the model decides what it means, not you. |
+| In the latest message, Mira asks Kaelen a direct question. | Mira asks questions. | The local model and Open-Jev 9B said yes when Mira's latest message asked nothing, because an earlier one did. |
+| Kaelen is angry in the latest message. | He is angry. | The local model read "he" as the angry barkeep. |
+| In the latest message, Mira says something that contradicts what she said earlier. | Mira is lying. | No model reliably called a contradiction a lie. |
+| The latest message moves the scene to a new place. | If the scene changed, describe the new location in two sentences. | The local model answered no to the instruction every time, so the block never ran. |
+| Someone is injured in the latest message. | A fight starts and someone is injured and the city guards arrive. | Handled correctly. Splitting is still easier to reuse and debug. |
+| In the latest message, the characters stay in the same place. | The characters did not leave the room. | No difference. Write whichever reads naturally. |
+
+The recommended wordings scored 31 of 32 on Open-Jev 2B, 31 of 32 on Open-Jev 9B and 32 of 32 on the local model. The wordings to avoid scored 26, 25 and 24.
+
+### Limits and cost
+
+- **Statements per turn.** At most the number set under **Decision model** as **Decision statements per turn** (32 by default) are asked each turn. Past that, the rest read as no, and a warning is logged. On a hosted Decision connection each statement adds to a billed request; on a local model it only adds time.
+- **Time.** The same budgets as activation questions apply: 1.5 seconds for a hosted connection, 4 seconds for a local model. A model that has to reason first holds off in front of the reply unless you turned on **Also gate agents that run before the reply**.
+- **Once per turn.** Answers are kept for the turn, so a regeneration or a swipe sends the same branches. The Decision model is only asked again when a new message arrives.
+- **Prompt caching.** A branch that changes from turn to turn changes the prompt from that point on, which breaks a provider's prompt cache after it. Put decision blocks late in the prompt, such as post-history instructions or author's notes, rather than at the top.
+- **Agents.** In an agent's prompt, decisions for agents that run before or with the reply read the same turn as the prompt. For post-processing agents they read the finished reply as the latest message, and are asked again with it. **Retry agents** reuses the answers its turn already has. See [Decision statements in the agent's prompt](../agents/custom-agents.md#decision-statements-in-the-agents-prompt).
+- **Choices on a local model.** A local chat model answers a `decision_choice:` as one yes/no per option, so each option counts as a statement's worth of time.
+
+### When a decision branch never appears
+
+If a user reports that a decision branch never shows up, the likely causes, in order, are:
+
+1. **No Decision model is set.** Every decision condition is false on every turn. The editor shows a warning under any field that uses one.
+2. **The Decision model is not answering.** A hosted connection with a bad key, no credits or a rate limit; a local model that is stopped or too slow for the budget; or an installed decision model that did not start.
+3. **It is a reasoning model** that holds off in front of the reply.
+4. **Too many statements in one turn**, past the per-turn limit.
+5. **It answers, but below its threshold.** Usually the wording, or a model that rates that turn lower than you expect.
+
+Ask the user which Decision model they selected and what **Test** reports. **Peek Prompt** shows the branches that were actually sent. When it has to build a fresh preview, it lists any decision statements that have no answer yet, which read as no there. With the log level set to debug, each statement, its answer and whether it read as yes are logged; see [Logging levels](../CONFIGURATION.md#logging-levels).
+
+The fix is rarely in the preset. When it is, it is usually the wording, or a branch that carries something the prompt cannot do without.
+
 ## Related guides
 
+- [Decision Models](../connections/decision-models.md)
 - [Prompt Macros](macros.md)
 - [Preset Variables](preset-variables.md)
 - [Group Chats and Group Conversations](../chats/group-chats.md)

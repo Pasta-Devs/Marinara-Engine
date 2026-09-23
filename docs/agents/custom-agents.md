@@ -134,90 +134,51 @@ Leave the keyword box empty to disable the keyword filter. Cadence and any activ
 
 ## Activation questions
 
-An **Activation question** asks whether the recent scene needs your custom agent. For example: `Did the characters move to a different location?` This can recognize paraphrases that keywords miss. Leave the question empty to keep the existing behavior.
+An **Activation question** asks whether the recent scene needs your custom agent, for example `In the latest message, the characters move to a different location.` It can recognize paraphrases that keywords miss. Leave it empty to keep the existing behavior.
 
-Something has to answer that question. Pick it once, under **Decision model** in the Connections panel. The list has three groups:
-
-- **None**, the default. No questions are asked and the question fields in the agent editor stay disabled.
-- **Local models**: the model you already run on the main or utility local slot. Nothing is downloaded and nothing leaves your machine.
-- **Connections**: any Decision connection you created, hosted or self-run.
-
-Entries that cannot answer right now stay in the list, greyed out with the reason, so you can see what to fix.
-
-Once a model is chosen, **Also use it to pick who speaks in Smart response order** lets the same model choose the next speaker in group chats. It is off by default. See [Group Chats](../chats/group-chats.md#response-order-individual-only).
-
-### Which one to pick
-
-You do not need a special decision service. The local model you already run is often the best choice: in our tests, a mid-sized local model such as Gemma 4 E4B answered as well as or better than the small purpose-built Open-Jev 2B. A hosted Decision connection and the installable decision model are options for people who do not run a local model, or who want a separate one.
-
-**On Android (Termux),** the installable decision model cannot run, because it needs a PC with an NVIDIA GPU. A small local model on a phone's processor may also be too slow for the 4-second budget. If you want to try activation questions on a phone, a hosted Decision connection is the practical choice, for example Jev through OpenRouter. See [Set up a Decision connection](#set-up-a-decision-connection).
-
-Nothing here is required. With **Decision model** set to **None**, or when the chosen model does not answer in time, nothing breaks: an agent with a question runs as if it had no question, and Smart response order makes its usual AI call.
-
-### Use a model you already run
-
-If you have a local model in **Local Model**, you can gate agents with it and never create a connection or pay for a request.
-
-1. In **Connections**, open **Connection defaults** and set **Decision model** to **Primary local model**, or to **Utility local model** if you have one set up.
-2. Click **Test**. A successful result shows the probability and request time, plus two things that are specific to a local model: whether log-probabilities were available, and whether the model answers directly.
-
-Marinara asks the model a single yes/no question, lets it produce one token, and reads the answer from that token's probabilities. No reply is written, so the request is short. Requests use a 4-second budget, longer than a hosted one, because your slot may already be busy with agent work.
-
-**Thinking.** Most models answer in one word. Some always reason first, whatever they are asked. The **Thinking** setting below the dropdown controls this:
-
-- **Auto** (default) tries the fast one-word method and, if the model cannot answer that way twice in a row, lets that model think first and tells you.
-- **Off** always uses the one-word method. A model that cannot answer that way leaves its agents running.
-- **Allowed** never asks the model to skip reasoning.
-
-A model that thinks first takes seconds, so it only gates **post-processing** agents by default. Those run after the reply is already on screen. Pre-generation and parallel agents run as if they had no question, unless you turn on **Also gate agents that run before the reply**, which makes every reply wait.
-
-**About the numbers.** A general chat model's yes/no probabilities are usable for a threshold, but they were never trained to be calibrated the way a purpose-built decision model's are, and a runtime that returns no log-probabilities answers a flat 1 or 0. Tune the threshold against your own chats rather than trusting the default.
-
-### Set up a Decision connection
-
-1. In **Connections**, create a connection with provider **Decision**.
-2. Choose **TypeSafe**, **OpenRouter**, or **Custom System One endpoint**. Hosted sources need an API key. Custom accepts a System One server you already run, including Open-Jev; enter its base URL without `/v1/systemone` and use the model name it supports.
-3. For OpenRouter, choose a saved OpenRouter connection under **API key source**, or enter a separate key. Its editor also offers **Use this key for decisions (Jev)**. Linked keys follow later key changes automatically. Custom connections may borrow a custom chat connection's key only when both URLs have the same origin (scheme, host, and port).
-4. Save, then select it under **Decision model** in the Connections panel and click **Test**. The test sends a fixed sample, not your chat. A successful result shows the probability and request time.
-
-The Decision default is separate from your chat, agent, image, video, and audio defaults. Choosing **None** disables activation questions without deleting them.
-
-Hosted decisions send the selected recent messages and question to the chosen provider and can incur charges. The state budget defaults to 30,000 estimated tokens for hosted sources and 3,500 for custom servers. Reduce it if your server has a smaller context limit. Marinara drops older messages first, then trims the oldest portion of the newest message. Token estimates can differ from a server's tokenizer; a rejected or over-budget request lets the agent run normally.
-
-Deleting a connection used for a linked key warns you and leaves the Decision connection needing relinking. Imported standalone connection files also need keys or links restored; they never contain API keys or borrowed connection IDs.
+A **Decision model** answers it. Pick one under **Decision model** in the Connections panel: the local model you already run, a hosted Decision connection, or a decision model Marinara installs for you. [Decision Models](../connections/decision-models.md) explains each one, which to pick, and how to set it up. With **Decision model** set to **None**, the default, the question fields in the agent editor stay disabled, and an agent with a question runs as if it had none.
 
 ### Set up your agent
 
-With a Decision default selected, open a custom agent and enter a **Question** of up to 500 characters. Standard agent macros, including `{{user}}` and `{{char}}`, work in the question. **Scan Depth** controls the recent messages used by both keywords and the question.
+With a Decision model selected, open a custom agent and enter a **Question** of up to 500 characters. Standard agent macros, including `{{user}}` and `{{char}}`, work in the question. **Scan Depth** controls the recent messages used by both keywords and the question.
 
-- **Run when probability is at least** starts from whatever the selected decision model answers around, because probabilities are not comparable between models: a general local model answers a clear yes at 0.99, while a purpose-built decision model answers the same turn at 0.2. The agent runs when the probability of “yes” meets or exceeds the threshold, and higher values skip more runs. The editor offers to restore the recommended value whenever yours differs from it.
-- **Bypass the question after this many messages without a successful run** is optional. Once this many user/assistant messages have passed since the agent last ran successfully, the question is bypassed. A new agent, or one whose previous message was deleted, also bypasses the question when this setting is enabled. Keywords and cadence must still allow the run.
+Despite the field's name, write it as a statement of fact about the latest message, not as a question. In our tests a small decision model answered `Did the scene change?` less reliably than `The latest message moves the scene to a new place.` The same advice applies here as to decision statements in prompts; see [Writing statements](../prompts/conditional-prompts.md#writing-statements).
+
+- **Run when probability is at least** starts from whatever the selected decision model answers around, because probabilities are not comparable between models: a general local model answers a clear yes at 0.99, while a purpose-built decision model answers the same turn at 0.2. The agent runs when the probability of “yes” meets or exceeds the threshold, and higher values skip more runs. The editor offers to restore the recommended value whenever yours differs from it. See [Thresholds](../connections/decision-models.md#thresholds).
+- **Bypass the question after this many messages without a successful run** is optional. Once this many user/assistant messages have passed since the agent last ran successfully, the question is bypassed. A new agent, or one whose previous message was deleted, also bypasses the question when this setting is enabled. Keywords and cadence must still allow the run. Consider setting it for an agent that matters: any model sometimes answers wrongly, and this stops one that keeps answering "no" from silencing the agent for good.
 - Pre-generation and parallel agents use the conversation before the reply. Post-processing agents also see the completed reply.
 
 Keywords and cadence are checked first, so an already-skipped agent does not make a paid decision request. Questions sharing a scan depth are batched for each phase. A timeout, unavailable model, or invalid answer lets the affected agent run normally. The budget is 1.5 seconds for a Decision connection and 4 seconds for a local model, or 20 seconds when that model has to think first. Decision requests follow generation cancellation. Ordinary logs omit chat content; debug prompt logging includes the evaluated messages and questions.
 
-A local model derives its state budget from the slot's own context size rather than from a connection setting.
-
 This setting applies to custom agents. Built-in agent activation and character-activity evaluation keep their existing behavior.
 
-### Let Marinara install a decision model
+### Decision statements in the agent's prompt
 
-Marinara can also download and run a purpose-built decision model for you. It runs as its own local process, so it answers activation questions whether or not you also run a local chat model. It costs about 10 GB of disk and around 5 GB of GPU memory, on top of any local chat model you run. If you already have one, you probably do not need this: on our measurements that model is **more accurate on roleplay** than the decision model. The decision model is faster, and a little smaller.
+An activation question decides whether the agent runs. A decision statement in the agent's **Prompt Template** decides what a running agent is told. Both use the same Decision model, and the syntax is the one in [Conditional Prompts](../prompts/conditional-prompts.md#asking-the-decision-model):
 
-It needs Linux with an NVIDIA GPU of compute capability 7.5 or newer (Turing, the RTX 20 series, or later) and driver 580 or newer. Pascal cards and older cannot run it whatever memory they have, because the runtime's kernels do not cover them. Where it cannot run, the option stays visible, says why, and offers to set up a Decision connection instead.
+```
+{{#if decision:"In the latest message, the characters move to a different location"}}
+Update the location field.
+{{else}}
+Leave the location as it is.
+{{/if}}
+```
 
-1. Open **Connections**, expand **Local Model**, and choose **Decision sidecar (experimental)**.
-2. Read the warning, then turn on **Enable decision sidecar**. Confirming shows the verdict for your machine, and the button reads **Enable anyway** when that verdict is a warning.
-3. Pick a model and confirm its size and licenses. Nothing downloads before that point. **Open-Jev 2B** is the smaller choice. **Open-Jev 9B** was more accurate in our tests, but it needs about 22 GB of GPU memory, so on a 24 GB card nothing else fits beside it, and it takes about a second per question.
-4. Select **Decision sidecar** under **Decision model**.
+Together, an agent can skip quiet turns entirely and send a smaller prompt on the turns it does run. Some ideas:
 
-You can also paste a decision model's HuggingFace repository. Marinara reads that repository's own manifest, checks that the artifact type maps to a runtime this build ships, and shows you the base weights it will pull and the total size before offering to install it. A repository it cannot vouch for is refused with the reason rather than installed hopefully.
+- A tracker includes its "update the location" instructions only when the location changed, instead of re-deriving it every turn.
+- An image agent describes a new picture only when the scene looks different.
+- A music agent is told to change tracks only when the mood shifted.
+- A choice picks one of several instruction sets: `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`, `{{else if decision_choice:"The kind of scene in the latest message" == "dialogue"}}`, and so on.
 
-Thresholds are not comparable between models, so the editor seeds a new question from whatever the selected model answers around. A decision model that answers yes at 0.2 and no at 0.02 needs a threshold near 0.1, not 0.5.
+How it runs:
 
-On a machine with more than one NVIDIA GPU, a **GPU** menu chooses the card it loads on. The verdicts are for that card, and changing it stops the model so it starts again there.
+- Pre-generation and parallel agents read the chat before the reply, the same turn the main prompt reads, and share its answers. Post-processing agents read the finished reply as the latest message, and their statements are asked again with it.
+- **Retry agents** reuses the answers its turn already has, and asks only what that turn never asked.
+- In an agent prompt, `{{char}}` names every character in the chat at once, so in a group `{{char}} is angry` becomes "Kaelen, Alyssa is angry". Name the character, or write "a character".
+- With no answer, a statement reads as no. The agent must still do something sensible with its `{{else}}` branch, because many users will not have a Decision model.
 
-Turning the sidecar off stops the process and keeps the files. **Remove files** deletes the model and its runtime, and stays available while the sidecar is off.
+Agents installed from Marinara-Agents render their prompt templates the same way, so they can use decision statements too.
 
 ## Attaching tools (Function Calling)
 
@@ -298,6 +259,7 @@ For safety, Marinara ignores bundled functions, clears tool selections from impo
 ## Related guides
 
 - [Agents: AI Helpers for Your Chats](agents-overview.md)
+- [Decision Models](../connections/decision-models.md)
 - [Downloadable Agents Reference](built-in-agents.md)
 - [Custom Tools](../extending/custom-tools.md)
 - [Macros](../prompts/macros.md)
