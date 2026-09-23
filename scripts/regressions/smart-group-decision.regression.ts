@@ -261,6 +261,17 @@ try {
   assert.equal(decisionCalls.length, before, "no decision request with the switch off");
   assert.equal(selectorCalls.length, 2);
 
+  // 5. Switch left on, but no Decision model chosen any more: the switch is hidden in the
+  // panel, yet the stored value is still true. Smart order must behave as before.
+  await settings.set(DECISION_SMART_ORDER_SETTINGS_KEY, "true");
+  await connections.update(decision.id, { defaultForAgents: false });
+  assert.equal(await connections.getDefaultForDecision(), null, "no Decision model is chosen");
+  selectorAnswer = [bram!.id];
+  const beforeNone = decisionCalls.length;
+  assert.deepEqual(await turn("Who's next?"), ["Bram"], "the chat-model selector chose, as before");
+  assert.equal(decisionCalls.length, beforeNone, "nothing asked a decision model that is not set");
+  assert.equal(selectorCalls.length, 3);
+
   console.log("smart-group-decision regression passed");
 } finally {
   await app.close();
