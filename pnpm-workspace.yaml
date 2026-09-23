@@ -20,6 +20,8 @@ blockExoticSubdeps: true
 
 patchedDependencies:
   onnxruntime-node@1.24.3: patches/onnxruntime-node@1.24.3.patch
+  # Upstream READY-handshake fix (pinojs/thread-stream#246, #251). Drop once a release after 4.2.0 ships it.
+  thread-stream@4.2.0: patches/thread-stream@4.2.0.patch
 
 # Native/build dependencies permitted to run install scripts.
 onlyBuiltDependencies:

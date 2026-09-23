@@ -29,6 +29,9 @@ patchedDependencies:
   onnxruntime-node@1.24.3:
     hash: 0d1b60c41ee69a662db0b7eadccbcfbbe973956a9661915466b313eec81fa56d
     path: patches/onnxruntime-node@1.24.3.patch
+  thread-stream@4.2.0:
+    hash: cea0735510beca9b1e062087ceb84508e2412d4ec9a4f91626659504edd02475
+    path: patches/thread-stream@4.2.0.patch
 
 importers:
 
@@ -6838,7 +6841,7 @@ snapshots:
       real-require: 0.2.0
       safe-stable-stringify: 2.5.0
       sonic-boom: 4.2.1
-      thread-stream: 4.2.0
+      thread-stream: 4.2.0(patch_hash=cea0735510beca9b1e062087ceb84508e2412d4ec9a4f91626659504edd02475)
 
   pkce-challenge@5.0.1: {}
 
@@ -7353,7 +7356,7 @@ snapshots:
       commander: 2.20.3
       source-map-support: 0.5.21
 
-  thread-stream@4.2.0:
+  thread-stream@4.2.0(patch_hash=cea0735510beca9b1e062087ceb84508e2412d4ec9a4f91626659504edd02475):
     dependencies:
       real-require: 1.0.0
 
