@@ -2,6 +2,7 @@
 // Modal: Import Character (JSON / PNG)
 // ──────────────────────────────────────────────
 import { useState, useRef } from "react";
+import { createDecisionImportTracker } from "../../lib/decision-import-notice";
 import { Modal } from "../ui/Modal";
 import { Download, FileJson, Image, CheckCircle, XCircle, Loader2, BookOpen } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -67,6 +68,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
     setPendingLorebookChoice(null);
 
     try {
+      const decisionImports = createDecisionImportTracker();
       const stCharacterFiles: File[] = [];
       const marinaraPayloads: Array<{ file: File; payload: Record<string, unknown> }> = [];
       const marinaraPackages: File[] = [];
@@ -87,6 +89,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
 
         const text = await file.text();
         const json = JSON.parse(text) as Record<string, unknown>;
+        decisionImports.note(file.name, json);
         const isMarinaraEnvelope =
           json.version === 1 && typeof json.type === "string" && (json.type as string).startsWith("marinara_");
 
@@ -212,6 +215,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
       }
 
       setResults(nextResults);
+      decisionImports.notify(nextResults, localizeUi);
       setStatus("done");
 
       if (nextResults.some((result) => result.success)) {

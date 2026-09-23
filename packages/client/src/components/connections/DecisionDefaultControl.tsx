@@ -5,8 +5,10 @@ import type { DecisionLocalSlot, DecisionModelOption, DecisionThinkingMode } fro
 import { DECISION_THINKING_MODES } from "@marinara-engine/shared";
 import {
   useDecisionOptions,
+  useDecisionPromptQuestionLimit,
   useDecisionSmartOrder,
   useSelectDecisionModel,
+  useSetDecisionPromptQuestionLimit,
   useSetDecisionSmartOrder,
   useSetDecisionThinking,
   useSetThinkingPreGeneration,
@@ -40,6 +42,18 @@ export function DecisionDefaultControl() {
   // its old value in between, so without this it visibly bounces.
   const [smartOrderDraft, setSmartOrderDraft] = useState<boolean | null>(null);
   const smartOrderOn = smartOrderDraft ?? smartOrder.data?.enabled ?? false;
+  const questionLimit = useDecisionPromptQuestionLimit();
+  const setQuestionLimit = useSetDecisionPromptQuestionLimit();
+  // Typed freely, saved on blur, so clearing the field to retype does not save a 1.
+  const [questionLimitDraft, setQuestionLimitDraft] = useState<string | null>(null);
+  const commitQuestionLimit = () => {
+    if (questionLimitDraft === null) return;
+    const next = Number(questionLimitDraft);
+    const max = questionLimit.data?.maxLimit ?? 255;
+    if (Number.isInteger(next) && next >= 1 && next <= max && next !== questionLimit.data?.limit)
+      setQuestionLimit.mutate(next, { onSettled: () => setQuestionLimitDraft(null) });
+    else setQuestionLimitDraft(null);
+  };
   useEffect(() => {
     if (smartOrderDraft !== null && smartOrder.data?.enabled === smartOrderDraft) setSmartOrderDraft(null);
   }, [smartOrder.data?.enabled, smartOrderDraft]);
@@ -187,6 +201,32 @@ export function DecisionDefaultControl() {
             </span>
           </span>
         </label>
+      )}
+
+      {selected && (
+        <div className="space-y-1">
+          <label htmlFor="decision-question-limit" className="block text-xs">
+            {t("connections.decision.questionLimit")}
+          </label>
+          <input
+            id="decision-question-limit"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={questionLimit.data?.maxLimit ?? 255}
+            value={questionLimitDraft ?? String(questionLimit.data?.limit ?? "")}
+            disabled={questionLimit.isPending}
+            onChange={(event) => setQuestionLimitDraft(event.target.value)}
+            onBlur={commitQuestionLimit}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") commitQuestionLimit();
+            }}
+            className="w-24 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-sm ring-1 ring-[var(--border)]"
+          />
+          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+            {t("connections.decision.questionLimitHelp", { defaultLimit: questionLimit.data?.defaultLimit ?? 32 })}
+          </p>
+        </div>
       )}
 
       {/* A selected entry that has since become unusable stays selected; gates fail

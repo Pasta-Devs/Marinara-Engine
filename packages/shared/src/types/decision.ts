@@ -212,3 +212,21 @@ export const DECISION_THINKING_PREGENERATION_SETTINGS_KEY = "decision-thinking-p
  * for a cheaper, faster yes/no per candidate, and that trade is the user's to make.
  */
 export const DECISION_SMART_ORDER_SETTINGS_KEY = "decision-smart-order";
+
+/**
+ * How many decision statements prompt conditionals may ask in one turn.
+ *
+ * A limit because a shared preset, card or lorebook decides how many it contains, and
+ * on a hosted Decision connection every statement is part of a billed request. It is
+ * the user's setting because the cost is theirs: nothing, on a local model.
+ */
+export const DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY = "decision-prompt-question-limit";
+export const DEFAULT_DECISION_PROMPT_QUESTION_LIMIT = 32;
+export const MAX_DECISION_PROMPT_QUESTION_LIMIT = 255;
+
+export function parseDecisionPromptQuestionLimit(raw: unknown): number {
+  const value = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() ? Number(raw) : Number.NaN;
+  return Number.isInteger(value) && value >= 1 && value <= MAX_DECISION_PROMPT_QUESTION_LIMIT
+    ? value
+    : DEFAULT_DECISION_PROMPT_QUESTION_LIMIT;
+}

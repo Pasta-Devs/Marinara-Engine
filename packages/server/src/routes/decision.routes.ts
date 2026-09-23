@@ -17,8 +17,12 @@ import {
   DECISION_LOCAL_SLOTS,
   DECISION_LOCAL_SLOT_IDS,
   DECISION_THINKING_MODES,
+  DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
   DECISION_SMART_ORDER_SETTINGS_KEY,
   DECISION_THINKING_PREGENERATION_SETTINGS_KEY,
+  DEFAULT_DECISION_PROMPT_QUESTION_LIMIT,
+  MAX_DECISION_PROMPT_QUESTION_LIMIT,
+  parseDecisionPromptQuestionLimit,
   decisionLocalSlotForId,
   DECISION_SIDECAR_SETTINGS_KEY,
   DEFAULT_DECISION_CALIBRATION,
@@ -514,6 +518,25 @@ export async function decisionRoutes(app: FastifyInstance) {
    * model is unset or does not answer, so turning this on can save a call per turn but
    * never leaves a turn without a speaker.
    */
+  /**
+   * How many decision statements prompt conditionals may ask per turn. A shared
+   * preset or card decides how many it contains, and on a hosted connection each one
+   * is billed, so the user sets the ceiling.
+   */
+  app.get("/prompt-question-limit", async () => ({
+    limit: parseDecisionPromptQuestionLimit(await settings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY)),
+    defaultLimit: DEFAULT_DECISION_PROMPT_QUESTION_LIMIT,
+    maxLimit: MAX_DECISION_PROMPT_QUESTION_LIMIT,
+  }));
+
+  app.post("/prompt-question-limit", async (req) => {
+    const { limit } = z
+      .object({ limit: z.number().int().min(1).max(MAX_DECISION_PROMPT_QUESTION_LIMIT) })
+      .parse(req.body);
+    await settings.set(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY, String(limit));
+    return { limit };
+  });
+
   app.get("/smart-order", async () => ({
     enabled: (await settings.get(DECISION_SMART_ORDER_SETTINGS_KEY)) === "true",
   }));

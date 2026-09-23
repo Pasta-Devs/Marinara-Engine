@@ -1,5 +1,15 @@
 import { DECISION_SETTINGS_KEYS, resolveDecisionBackend } from "../services/decision/decision-default.js";
 import {
+  agentShapedDecisionContext,
+  answerPromptDecisions,
+  collectDecisionTexts,
+  collectTurnDecisionTexts,
+  planPromptDecisions,
+  promptDecisionCacheKey,
+  replyDecisionTurnId,
+  type PromptDecisionPlan,
+} from "../services/decision/prompt-decisions.js";
+import {
   chooseSmartResponders,
   smartOrderQuestions,
   smartOrderState,
@@ -39,6 +49,9 @@ import { randomUUID } from "crypto";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import {
+  DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
+  parseDecisionPromptQuestionLimit,
+  type MacroDecisionAnswers,
   generateRequestSchema,
   getChatTranslationConfig,
   normalizeAdvancedMemorySettings,
@@ -249,6 +262,7 @@ import { executeToolCalls, formatToolExecutionResultForModel } from "../services
 import { createAgentPipeline, type ResolvedAgent, type AgentInjection } from "../services/agents/agent-pipeline.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import {
+  effectiveAgentPromptTemplate,
   executeAgent,
   normalizeAgentContextSize,
   renderAgentPromptTemplate,
@@ -2595,6 +2609,115 @@ export async function generateRoutes(app: FastifyInstance) {
         });
         const conversationMacroFieldsByCharacterId = new Map<string, NonNullable<MacroContext["convoFields"]>>();
         const historyMacroProfilesById = (await resolveCharacterMacroData(app.db, allCharacterIds)).profilesById;
+
+        // Decision statements in prompt conditionals (#6569). Asked once, before anything
+        // below resolves a macro, so every place a condition is evaluated finds its answer.
+        // The backend is only resolved when a statement exists: resolving it can start a
+        // local model.
+        let promptDecisionBackend: Awaited<ReturnType<typeof resolveDecisionBackend>> | undefined;
+        const getPromptDecisionBackend = async () => {
+          if (promptDecisionBackend === undefined)
+            promptDecisionBackend = await resolveDecisionBackend(
+              {
+                getLocalDefault: () => appSettings.get(DECISION_SETTINGS_KEYS.localDefault),
+                getThinkingPreGeneration: async () =>
+                  (await appSettings.get(DECISION_SETTINGS_KEYS.thinkingPreGeneration)) === "true",
+                getDefaultConnection: () => connections.getDefaultForDecision(),
+                getConnectionWithKey: (id) => connections.getWithKey(id),
+                debugMode: requestDebug,
+              },
+              abortController.signal,
+            );
+          return promptDecisionBackend;
+        };
+        const promptDecisionLimit = parseDecisionPromptQuestionLimit(
+          await appSettings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY),
+        );
+        const decisionMessages = (): DecisionMessage[] =>
+          chatMessages.map((message: any) => ({
+            role: message.role,
+            name:
+              message.role === "user"
+                ? personaName
+                : (historyMacroProfilesById.get(message.characterId)?.name ?? "Narrator"),
+            content: typeof message.content === "string" ? message.content : "",
+          }));
+        /** Answer a plan against these messages; undefined when there is nothing to ask or no model. */
+        const answerDecisionPlan = async (
+          plan: PromptDecisionPlan,
+          messages: DecisionMessage[],
+          latestMessageId: string | null,
+          afterReply = false,
+        ): Promise<MacroDecisionAnswers | undefined> => {
+          if (plan.decisions.length === 0) return undefined;
+          const backend = await getPromptDecisionBackend();
+          if (!backend) {
+            logger.debug(
+              "[decision] Chat %s has %d decision statements but no Decision model; they read as no",
+              input.chatId,
+              plan.decisions.length,
+            );
+            return undefined;
+          }
+          return answerPromptDecisions({
+            plan,
+            backend,
+            chatId: input.chatId,
+            messages,
+            afterReply,
+            cacheKey: promptDecisionCacheKey(
+              input.chatId,
+              latestMessageId,
+              (await appSettings.get(DECISION_SETTINGS_KEYS.localDefault)) ??
+                (await connections.getDefaultForDecision())?.id ??
+                null,
+            ),
+          });
+        };
+        const decisionPresetParts =
+          presetId && resolvedPreset && chatMode !== "conversation" && chatMode !== "game"
+            ? await Promise.all([
+                presets.listSections(presetId),
+                presets.listGroups(presetId),
+                presets.listChoiceBlocksForPreset(presetId),
+              ])
+            : undefined;
+        const promptDecisionTexts = collectTurnDecisionTexts({
+          preset: decisionPresetParts,
+          ctx: promptMacroContext,
+          extra: [personaDescription, activeChatSummary, chatMeta.groupScenarioText],
+          lorebookEntries: (await lorebooksStore.listActiveEntries({
+            chatId: input.chatId,
+            characterIds: withIdentityLorebookScope(promptCharacterIds),
+            personaId,
+            activeLorebookIds: chatActiveLorebookIds,
+            excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
+            excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
+          })) as Array<{ content?: unknown }>,
+        });
+        // Agents that run before or beside the reply read the same turn as the prompt.
+        // Post-processing agents read the finished reply, so theirs are asked later.
+        const preReplyAgentDecisionTexts = collectDecisionTexts(
+          pipelineConfiguredPromptAgents
+            .filter((agent) => agent.phase !== "post_processing")
+            .map((agent) => {
+              const settings = effectiveAgentSettingsById.get(agent.id) ?? {};
+              return [effectiveAgentPromptTemplate({ ...agent, settings }), settings];
+            }),
+        );
+        if (promptDecisionTexts.length > 0 || preReplyAgentDecisionTexts.length > 0) {
+          promptMacroContext.decisions = await answerDecisionPlan(
+            planPromptDecisions(
+              [
+                { texts: promptDecisionTexts, ctx: promptMacroContext },
+                { texts: preReplyAgentDecisionTexts, ctx: agentShapedDecisionContext(promptMacroContext) },
+              ],
+              promptDecisionLimit,
+            ),
+            decisionMessages(),
+            [...chatMessages].reverse().find((message: any) => message.id)?.id ?? null,
+          );
+        }
         const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(
           messages: T[],
         ): T[] => resolvePromptMessageMacros(messages, promptMacroContext, historyMacroProfilesById);
@@ -2948,6 +3071,7 @@ export async function generateRoutes(app: FastifyInstance) {
             impersonate: input.impersonate === true,
             preserveImpersonatePresetSections: input.impersonate === true && presetSource === "impersonate",
             deferCharacterMacros,
+            decisions: promptMacroContext.decisions,
           };
 
           const assembled = await assemblePrompt(assemblerInput);
@@ -4555,6 +4679,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
         const agentContext: AgentContext = {
           sequentialExecution: chatMode === "game" && chatMeta.gameSequentialAgents === true,
+          decisions: promptMacroContext.decisions,
           chatId: input.chatId,
           chatMode,
           wrapFormat,
@@ -10170,8 +10295,39 @@ export async function generateRoutes(app: FastifyInstance) {
             );
           }
 
+          // Post-processing agents read the finished reply as the latest message, so
+          // their decision statements are asked with it included, not with the answers
+          // taken before it existed (#6569).
+          const postAgentDecisionTexts = collectDecisionTexts(
+            pipelineConfiguredPromptAgents
+              .filter((agent) => agent.phase === "post_processing")
+              .map((agent) => {
+                const settings = effectiveAgentSettingsById.get(agent.id) ?? {};
+                return [effectiveAgentPromptTemplate({ ...agent, settings }), settings];
+              }),
+          );
+          const postAgentDecisions =
+            postAgentDecisionTexts.length > 0
+              ? await answerDecisionPlan(
+                  planPromptDecisions(
+                    [{ texts: postAgentDecisionTexts, ctx: agentShapedDecisionContext(promptMacroContext) }],
+                    promptDecisionLimit,
+                  ),
+                  [
+                    ...decisionMessages(),
+                    {
+                      role: "assistant",
+                      name: charInfo.length === 1 ? charInfo[0]!.name : "Narrator",
+                      content: completedResponse,
+                    },
+                  ],
+                  replyDecisionTurnId(latestAssistantMessageId, completedResponse),
+                  true,
+                )
+              : undefined;
           const postAgentContext: AgentContext = {
             ...agentContext,
+            ...(postAgentDecisionTexts.length > 0 ? { decisions: postAgentDecisions } : {}),
             mainResponse: completedResponse,
             preGenInjections: contextInjections,
             parallelResults,
@@ -10235,6 +10391,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 ...(await pipeline.postGenerate(completedResponse, {
                   preGenInjections: contextInjections,
                   parallelResults,
+                  ...(postAgentDecisionTexts.length > 0 ? { decisions: postAgentDecisions } : {}),
                 })),
                 ...parallelResults,
               ]

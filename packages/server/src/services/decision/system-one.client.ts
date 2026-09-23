@@ -7,7 +7,15 @@ import type { DecisionConnection } from "./decision-connection.js";
 export interface NoulQuestion {
   id: string;
   instructions: string;
+  /**
+   * Present for a Choice question: the option names it chooses between. Sent as a
+   * System One `choice` question, answered in `choices` rather than `answers`.
+   */
+  options?: string[];
 }
+
+/** The option a Choice question adds so a turn that fits none of the others can say so. */
+export const DECISION_CHOICE_NONE = "none of these";
 export type DecisionRequestError =
   | "timeout"
   | "cancelled"
@@ -33,11 +41,14 @@ export interface DecisionRequest {
 /** Safe, bounded System One transport. Error bodies may contain chat data, so never log them. */
 export async function askNoulQuestions(req: DecisionRequest): Promise<{
   answers: Map<string, number>;
+  /** The chosen option for each Choice question that was answered. */
+  choices: Map<string, string>;
   error?: DecisionRequestError;
   latencyMs: number;
 }> {
   const start = Date.now();
   const answers = new Map<string, number>();
+  const choices = new Map<string, string>();
   const timeout = AbortSignal.timeout(req.timeoutMs ?? 1500);
   const signal = req.signal ? AbortSignal.any([req.signal, timeout]) : timeout;
   let error: DecisionRequestError | undefined;
@@ -48,10 +59,15 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
       model: req.connection.model,
       state: req.state,
       questions: Object.fromEntries(
-        req.questions.map((q) => [
-          q.id,
-          { type: "noul", instructions: buildDecisionInstructions(q.instructions, req.questionShape ?? "text") },
-        ]),
+        req.questions.map((q) => {
+          const instructions = buildDecisionInstructions(q.instructions, req.questionShape ?? "text");
+          if (!q.options) return [q.id, { type: "noul", instructions }];
+          // Descriptions are optional in System One; the option name says it all, and
+          // only the added "none" option needs one.
+          const criteria: Record<string, string | null> = Object.fromEntries(q.options.map((option) => [option, null]));
+          criteria[DECISION_CHOICE_NONE] = "None of the other options apply.";
+          return [q.id, { type: "choice", instructions, criteria }];
+        }),
       ),
     };
     logDebugOverride(
@@ -91,13 +107,24 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
       error = `http_${response.status}`;
     } else {
       const payload = (await response.json()) as {
-        answers?: Record<string, { type?: unknown; noul?: unknown }>;
+        answers?: Record<string, { type?: unknown; noul?: unknown; choice?: unknown }>;
       } | null;
       if (!payload || typeof payload.answers !== "object" || !payload.answers || Array.isArray(payload.answers)) {
         error = "invalid_response";
       } else {
         for (const question of req.questions) {
           const answer = Object.hasOwn(payload.answers, question.id) ? payload.answers[question.id] : undefined;
+          if (question.options) {
+            // Only an option that was offered counts; anything else is a malformed answer.
+            if (
+              answer?.type === "choice" &&
+              typeof answer.choice === "string" &&
+              (question.options.includes(answer.choice) || answer.choice === DECISION_CHOICE_NONE)
+            )
+              choices.set(question.id, answer.choice);
+            else error = "partial_response";
+            continue;
+          }
           if (
             answer?.type === "noul" &&
             typeof answer.noul === "number" &&
@@ -121,5 +148,5 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
   }
   if (onAbort) signal.removeEventListener("abort", onAbort);
   if (error && error !== "cancelled") logger.warn("[decision] Activation request failed: %s", error);
-  return { answers, ...(error ? { error } : {}), latencyMs: Date.now() - start };
+  return { answers, choices, ...(error ? { error } : {}), latencyMs: Date.now() - start };
 }
