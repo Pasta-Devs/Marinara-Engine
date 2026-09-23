@@ -1,11 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { DecisionLocalSlot, DecisionModelOption, DecisionThinkingMode } from "@marinara-engine/shared";
 import { DECISION_THINKING_MODES } from "@marinara-engine/shared";
 import {
   useDecisionOptions,
+  useDecisionPromptQuestionLimit,
+  useDecisionSmartOrder,
   useSelectDecisionModel,
+  useSetDecisionPromptQuestionLimit,
+  useSetDecisionSmartOrder,
   useSetDecisionThinking,
   useSetThinkingPreGeneration,
   useTestDecisionSlot,
@@ -31,6 +35,28 @@ export function DecisionDefaultControl() {
   const testConnection = useTestConnection();
   const preGeneration = useThinkingPreGeneration();
   const setPreGeneration = useSetThinkingPreGeneration();
+  const smartOrder = useDecisionSmartOrder();
+  const setSmartOrder = useSetDecisionSmartOrder();
+  // What the user just clicked, shown until the saved value catches up. Query updates
+  // reach the component a tick after the click, and a controlled checkbox re-renders
+  // its old value in between, so without this it visibly bounces.
+  const [smartOrderDraft, setSmartOrderDraft] = useState<boolean | null>(null);
+  const smartOrderOn = smartOrderDraft ?? smartOrder.data?.enabled ?? false;
+  const questionLimit = useDecisionPromptQuestionLimit();
+  const setQuestionLimit = useSetDecisionPromptQuestionLimit();
+  // Typed freely, saved on blur, so clearing the field to retype does not save a 1.
+  const [questionLimitDraft, setQuestionLimitDraft] = useState<string | null>(null);
+  const commitQuestionLimit = () => {
+    if (questionLimitDraft === null) return;
+    const next = Number(questionLimitDraft);
+    const max = questionLimit.data?.maxLimit ?? 255;
+    if (Number.isInteger(next) && next >= 1 && next <= max && next !== questionLimit.data?.limit)
+      setQuestionLimit.mutate(next, { onSettled: () => setQuestionLimitDraft(null) });
+    else setQuestionLimitDraft(null);
+  };
+  useEffect(() => {
+    if (smartOrderDraft !== null && smartOrder.data?.enabled === smartOrderDraft) setSmartOrderDraft(null);
+  }, [smartOrder.data?.enabled, smartOrderDraft]);
   const [feedback, setFeedback] = useState("");
 
   const entries = options.data?.options ?? [];
@@ -152,6 +178,56 @@ export function DecisionDefaultControl() {
         </button>
       </div>
       <p className="text-xs text-[var(--muted-foreground)]">{t("connections.decision.defaultHelp")}</p>
+
+      {/* Only with a model chosen: with None there is nothing to ask, and the chat
+          model already picks who speaks. */}
+      {selected && (
+        <label className="flex items-start gap-2 text-xs">
+          <input
+            type="checkbox"
+            checked={smartOrderOn}
+            disabled={smartOrder.isPending}
+            onChange={(event) => {
+              const next = event.target.checked;
+              setSmartOrderDraft(next);
+              setSmartOrder.mutate(next, { onError: () => setSmartOrderDraft(null) });
+            }}
+            className="mt-0.5 accent-[var(--primary)]"
+          />
+          <span>
+            {t("connections.decision.smartOrder")}
+            <span className="mt-0.5 block text-[0.625rem] text-[var(--muted-foreground)]">
+              {t("connections.decision.smartOrderHelp")}
+            </span>
+          </span>
+        </label>
+      )}
+
+      {selected && (
+        <div className="space-y-1">
+          <label htmlFor="decision-question-limit" className="block text-xs">
+            {t("connections.decision.questionLimit")}
+          </label>
+          <input
+            id="decision-question-limit"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={questionLimit.data?.maxLimit ?? 255}
+            value={questionLimitDraft ?? String(questionLimit.data?.limit ?? "")}
+            disabled={questionLimit.isPending}
+            onChange={(event) => setQuestionLimitDraft(event.target.value)}
+            onBlur={commitQuestionLimit}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") commitQuestionLimit();
+            }}
+            className="w-24 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-sm ring-1 ring-[var(--border)]"
+          />
+          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+            {t("connections.decision.questionLimitHelp", { defaultLimit: questionLimit.data?.defaultLimit ?? 32 })}
+          </p>
+        </div>
+      )}
 
       {/* A selected entry that has since become unusable stays selected; gates fail
           open and the reason is shown here rather than silently swapping the choice. */}

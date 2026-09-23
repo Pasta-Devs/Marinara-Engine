@@ -12,7 +12,7 @@
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -122,6 +122,26 @@ function verifyRequirementsLock(): void {
     throw new Error(
       "The bundled decision runtime dependency lock failed integrity verification. Reinstall Marinara Engine before retrying; do not bypass the runtime integrity check.",
     );
+  }
+}
+
+/**
+ * Is this file already here, whole?
+ *
+ * Checked by size, and by sha256 wherever the Hub publishes one. A 19 GB install on a
+ * connection that drops or a laptop that sleeps would otherwise start again from the
+ * first shard every time, because the shared downloader deletes its target before each
+ * attempt. A file that fails either check is fetched again rather than trusted.
+ */
+async function alreadyDownloaded(path: string, file: { size: number; sha256?: string }): Promise<boolean> {
+  try {
+    if (!existsSync(path) || statSync(path).size !== file.size) return false;
+    if (!file.sha256) return true;
+    const hash = createHash("sha256");
+    for await (const chunk of createReadStream(path)) hash.update(chunk as Buffer);
+    return hash.digest("hex") === file.sha256.toLowerCase();
+  } catch {
+    return false;
   }
 }
 
@@ -302,6 +322,7 @@ export class DecisionRuntimeService {
           throw new Error(`${artifact.repoId} lists a file outside its own directory: ${file.path}`);
         }
         mkdirSync(dirname(destination), { recursive: true });
+        if (await alreadyDownloaded(destination, file)) continue;
         const abort = new AbortController();
         this.activeFetchAbort = abort;
         try {

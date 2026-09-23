@@ -6,6 +6,7 @@
  * with no GPU and nothing is downloaded.
  */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -250,6 +251,41 @@ try {
     ),
     `each path segment is encoded, separators kept: ${requested.join(" ")}`,
   );
+
+  // A restart resumes: a file already on disk, whole and verified, is not fetched again,
+  // while one whose bytes do not match its digest is.
+  const snapshotDir = artifactSnapshotPath(single.artifacts[0]!);
+  const kept = "package/checkpoint/model.json";
+  const stale = "package/checkpoint/temperature.json";
+  mkdirSync(join(snapshotDir, "package/checkpoint"), { recursive: true });
+  writeFileSync(join(snapshotDir, kept), "{}");
+  writeFileSync(join(snapshotDir, stale), "[]");
+  const digest = createHash("sha256").update("{}").digest("hex");
+  requested.length = 0;
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input instanceof Request ? input.url : input);
+    requested.push(url);
+    if (url.includes("/tree/")) return Response.json([kept, stale].map((path) => ({ type: "file", path, size: 2 })));
+    if (url.includes("/paths-info/"))
+      // Both claim the digest of "{}", so the stale "[]" fails its check.
+      return Response.json(
+        (JSON.parse(String(init?.body)) as { paths: string[] }).paths.map((path) => ({
+          type: "file",
+          path,
+          size: 2,
+          lfs: { oid: digest },
+        })),
+      );
+    return new Response("missing", { status: 404 });
+  }) as typeof fetch;
+  await assert.rejects(decisionRuntimeService.downloadModel(single));
+  const fetched = requested.filter((url) => url.includes("/resolve/"));
+  assert.ok(!fetched.some((url) => url.endsWith(kept)), "a verified file already on disk is not fetched again");
+  assert.ok(
+    fetched.some((url) => url.endsWith(stale)),
+    "a file of the right size with the wrong bytes is fetched again",
+  );
+  rmSync(join(snapshotDir, "package"), { recursive: true, force: true });
   globalThis.fetch = realFetch;
 
   // ── one download at a time ────────────────────────────────────────────────────

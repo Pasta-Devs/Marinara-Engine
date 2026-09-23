@@ -130,6 +130,21 @@ assert.ok(
   openJev.calibration.defaultThreshold > 0.026 && openJev.calibration.defaultThreshold < 0.15,
   "the default must sit inside the band that classified every measured turn correctly",
 );
+// 9B, measured 2026-09-23: roleplay yes at 0.135 and above, no at 0.019 and below.
+const openJev9b = findDecisionModel("open-jev-9b")!;
+assert.ok(openJev9b, "the 9B entry is curated too");
+assert.ok(
+  openJev9b.calibration.defaultThreshold > 0.019 && openJev9b.calibration.defaultThreshold < 0.135,
+  "its default must sit inside the band that classified every measured roleplay turn",
+);
+assert.equal(openJev9b.calibration.questionShape, "task_object");
+assert.ok(openJev9b.perQuestionMs! > 0, "9B answers questions one after another, so its budget grows per question");
+assert.ok(openJev9b.vramBytes > 20e9, "the measured peak, not a guess from the file size");
+assert.equal(
+  sanitizeCustomDecisionModel({ ...openJev9b, id: "byo:x", label: "x", perQuestionMs: 60_000 })?.perQuestionMs,
+  undefined,
+  "a stored custom entry cannot stretch the request budget",
+);
 assert.equal(DEFAULT_DECISION_CALIBRATION.defaultThreshold, 0.5, "hosted Jev keeps the documented default");
 assert.equal(DEFAULT_DECISION_CALIBRATION.questionShape, "text", "and its documented wire shape");
 // Every curated entry needs the constraints a preflight cannot guess.

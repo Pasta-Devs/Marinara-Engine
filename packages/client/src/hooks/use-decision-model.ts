@@ -16,6 +16,8 @@ export const decisionKeys = {
   all: ["decision"] as const,
   options: () => [...decisionKeys.all, "options"] as const,
   thinkingPreGeneration: () => [...decisionKeys.all, "thinking-pregeneration"] as const,
+  smartOrder: () => [...decisionKeys.all, "smart-order"] as const,
+  promptQuestionLimit: () => [...decisionKeys.all, "prompt-question-limit"] as const,
 };
 
 /**
@@ -23,11 +25,12 @@ export const decisionKeys = {
  * serve. The server decides what is offerable so the list and the stored choice
  * cannot disagree, and so a reason is available for each greyed-out row.
  */
-export function useDecisionOptions() {
+export function useDecisionOptions(enabled = true) {
   return useQuery({
     queryKey: decisionKeys.options(),
     queryFn: () => api.get<DecisionModelOptions>("/decision/options"),
     staleTime: 15_000,
+    enabled,
   });
 }
 
@@ -101,5 +104,38 @@ export function useSetThinkingPreGeneration() {
   return useMutation({
     mutationFn: (enabled: boolean) => api.post("/decision/thinking-pregeneration", { enabled }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: decisionKeys.thinkingPreGeneration() }),
+  });
+}
+
+export function useDecisionSmartOrder() {
+  return useQuery({
+    queryKey: decisionKeys.smartOrder(),
+    queryFn: () => api.get<{ enabled: boolean }>("/decision/smart-order"),
+    staleTime: 60_000,
+  });
+}
+
+export function useSetDecisionSmartOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) => api.post("/decision/smart-order", { enabled }),
+    onSettled: () => void qc.invalidateQueries({ queryKey: decisionKeys.smartOrder() }),
+  });
+}
+
+export function useDecisionPromptQuestionLimit() {
+  return useQuery({
+    queryKey: decisionKeys.promptQuestionLimit(),
+    queryFn: () =>
+      api.get<{ limit: number; defaultLimit: number; maxLimit: number }>("/decision/prompt-question-limit"),
+    staleTime: 60_000,
+  });
+}
+
+export function useSetDecisionPromptQuestionLimit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (limit: number) => api.post("/decision/prompt-question-limit", { limit }),
+    onSettled: () => void qc.invalidateQueries({ queryKey: decisionKeys.promptQuestionLimit() }),
   });
 }
