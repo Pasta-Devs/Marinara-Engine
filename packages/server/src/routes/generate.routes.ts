@@ -4403,6 +4403,18 @@ export async function generateRoutes(app: FastifyInstance) {
           // Inject group chat instructions at the end of the last user message
           const groupInstructions: string[] = [];
 
+          if (
+            chatMode === "conversation" &&
+            groupChatMode === "merged" &&
+            !input.impersonate &&
+            !input.regenerateMessageId &&
+            availableGroupCharacters.length < charInfo.length
+          ) {
+            groupInstructions.push(
+              `- Only ${availableGroupCharacters.map((character) => groupResponderName(character.id)).join(", ")} may respond this turn. Other participants are unavailable; do not write their messages.`,
+            );
+          }
+
           if (groupChatMode === "merged" && groupSpeakerColors && chatMode !== "conversation") {
             const charNames = charInfo.map((c) => c.name);
             groupInstructions.push(

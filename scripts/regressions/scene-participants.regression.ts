@@ -147,6 +147,23 @@ try {
   };
   assert.deepEqual((await resolveConversationPresenceRuntime(presenceArgs)).respondingCharacterIds, [ids[2]]);
   assert.equal((await resolveConversationPresenceRuntime({ ...presenceArgs, forCharacterId: ids[0] })).ended, true);
+  const mergedReply = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: {
+      chatId: origin.id,
+      connectionId: conn.id,
+      userMessage: "Hello, everyone.",
+      streaming: false,
+      skipPresenceDelay: true,
+    },
+  });
+  assert.equal(mergedReply.statusCode, 200, mergedReply.body);
+  assert.ok(!mergedReply.body.includes('"type":"error"'), mergedReply.body);
+  assert.ok(
+    requests.at(-1)!.messages.some((message) => message.content.includes("Only Charlie may respond this turn")),
+    "Merged replies instruct the model to exclude characters currently in a Scene",
+  );
   const before = requests.length;
   for (const invalid of [
     { participantCharacterIds: [] },
