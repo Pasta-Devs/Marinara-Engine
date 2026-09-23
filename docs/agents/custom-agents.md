@@ -192,13 +192,13 @@ This setting applies to custom agents. Built-in agent activation and character-a
 
 ### Let Marinara install a decision model
 
-Marinara can also download and run a purpose-built decision model for you, as a second local process beside your normal one. Most people do not need this: it costs about 10 GB of disk and around 5 GB of GPU memory on top of your normal local model, and on our measurements it is **less accurate on roleplay than the local model you already have**. It is faster, and a little smaller. That is the whole trade.
+Marinara can also download and run a purpose-built decision model for you. It runs as its own local process, so it answers activation questions whether or not you also run a local chat model. It costs about 10 GB of disk and around 5 GB of GPU memory, on top of any local chat model you run. If you already have one, you probably do not need this: on our measurements that model is **more accurate on roleplay** than the decision model. The decision model is faster, and a little smaller.
 
 It needs Linux with an NVIDIA GPU of compute capability 7.5 or newer (Turing, the RTX 20 series, or later) and driver 580 or newer. Pascal cards and older cannot run it whatever memory they have, because the runtime's kernels do not cover them. Where it cannot run, the option stays visible, says why, and offers to set up a Decision connection instead.
 
 1. Open **Connections**, expand **Local Model**, and choose **Decision sidecar (experimental)**.
 2. Read the warning, then turn on **Enable decision sidecar**. Confirming shows the verdict for your machine, and the button reads **Enable anyway** when that verdict is a warning.
-3. Pick a model and confirm its size and licences. Nothing downloads before that point.
+3. Pick a model and confirm its size and licenses. Nothing downloads before that point.
 4. Select **Decision sidecar** under **Decision model**.
 
 You can also paste a decision model's HuggingFace repository. Marinara reads that repository's own manifest, checks that the artifact type maps to a runtime this build ships, and shows you the base weights it will pull and the total size before offering to install it. A repository it cannot vouch for is refused with the reason rather than installed hopefully.
