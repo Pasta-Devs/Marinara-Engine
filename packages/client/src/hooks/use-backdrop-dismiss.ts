@@ -9,7 +9,7 @@ function isBackdropTarget(currentTarget: HTMLElement, target: EventTarget | null
 
 function getHitTarget(event: ReactPointerEvent): EventTarget | null {
   if (typeof document !== "undefined" && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
-    return document.elementFromPoint(event.clientX, event.clientY) ?? event.target;
+    return document.elementFromPoint(event.clientX, event.clientY);
   }
   return event.target;
 }
