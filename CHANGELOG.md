@@ -36,6 +36,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - The Decision Models guide now says exactly what a decision model reads: only the statement and the recent chat messages. It never sees the preset, character cards, persona description, lorebook entries or anything inserted **@ Depth**, and decision statements read the last 5 messages.
 
 - The browser regression checks on pull requests run in more shards (ten for desktop Chromium and mobile WebKit, eight for mobile Chromium, instead of four each). That is expected to bring them from about 30 minutes to under 20, well clear of the 30-minute limit that a slow run could previously hit (#6573).
+- The regression runner gives every file its own temporary DATA_DIR, FILE_STORAGE_DIR and empty .env, so a regression can no longer read or lock the data folder named by a developer's .env.
 
 - Agent history lookups no longer compare every loaded agent run with every loaded message, preventing long server stalls as more chats are opened (#6562).
 
