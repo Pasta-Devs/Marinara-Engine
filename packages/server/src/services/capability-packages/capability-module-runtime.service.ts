@@ -44,6 +44,20 @@ import {
   type CapabilityPromptContextContributor,
 } from "./capability-prompt-context.service.js";
 import { registerCapabilityTool, type CapabilityToolRegistration } from "./capability-tool-registry.service.js";
+import { failInjectFastDuring } from "../../lib/fastify-inject-gate.js";
+
+/**
+ * Errors raised by the host's own Fastify lifecycle (the app was booted or started listening before registration
+ * finished) say nothing about the package. Rolling the package back or persisting "error" for them would disable a
+ * healthy package on every later boot, so activation leaves its installed version and status untouched and the next
+ * start retries it.
+ */
+export function isHostLifecycleActivationError(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (code === "FST_ERR_INSTANCE_ALREADY_LISTENING" || code === "AVV_ERR_ROOT_PLG_BOOTED") return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /Root plugin has already booted|Fastify instance is already listening/u.test(message);
+}
 
 type Cleanup = () => void | Promise<void>;
 type CapabilityActivationContext = {
@@ -292,10 +306,12 @@ class CapabilityModuleRuntime {
           runInternalRoute: (options) => runCapabilityInternalRoute(app, installed.id, options),
         },
       };
-      const cleanup = await module.activate(context);
+      // A package that awaits runInternalRoute here during startup gets an error at once instead of hanging startup.
+      const activate = module.activate;
+      const cleanup = await failInjectFastDuring(() => activate.call(module, context));
       if (typeof cleanup === "function") moduleCleanup = cleanup;
       await capabilityPackageManager.markRuntimeReadiness(installed.id, "registered");
-      await module.selfCheck?.(context);
+      await failInjectFastDuring(() => module.selfCheck?.(context));
       await capabilityPackageManager.markRuntimeStatus(installed.id, "active");
       await capabilityPackageManager.markRuntimeReadiness(installed.id, "ready");
       this.cleanups.set(installed.id, async () => {
@@ -315,7 +331,18 @@ class CapabilityModuleRuntime {
       this.activationErrors.delete(installed.id);
       logger.info("Activated and verified capability package %s@%s", installed.id, installed.version);
     } catch (error) {
-      logger.error(error, "Failed to activate capability package %s@%s", installed.id, installed.version);
+      const hostLifecycleError = isHostLifecycleActivationError(error);
+      if (hostLifecycleError) {
+        // Not the package's fault and retried on the next start: one warning instead of an error.
+        logger.warn(
+          error,
+          "Capability package %s@%s was not activated because the server finished starting too early; it will be retried on the next start",
+          installed.id,
+          installed.version,
+        );
+      } else {
+        logger.error(error, "Failed to activate capability package %s@%s", installed.id, installed.version);
+      }
       this.activationErrors.set(installed.id, {
         message: error instanceof Error ? error.message : String(error),
         at: new Date().toISOString(),
@@ -330,6 +357,11 @@ class CapabilityModuleRuntime {
         }
       } catch (cleanupError) {
         logger.warn(cleanupError, "Capability package %s cleanup failed after activation error", installed.id);
+      }
+      if (hostLifecycleError) {
+        // Keep the installed version and status so the next boot activates it normally.
+        if (throwOnFailure) throw error;
+        return;
       }
       const previous = allowRollback ? await capabilityPackageManager.rollbackRuntime(installed.id) : null;
       if (previous) {

@@ -2,6 +2,7 @@
 // Fastify App Factory
 // ──────────────────────────────────────────────
 import Fastify, { type FastifyBaseLogger } from "fastify";
+import { holdInjectUntilRegistered } from "./lib/fastify-inject-gate.js";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
@@ -110,6 +111,8 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   // app.log shares the shared logger's stream, which logger.ts already protects; this
   // is a no-op then and only matters if Fastify is ever given its own stream again.
   protectTerminalLogger(app.log, getNodeEnv() !== "production");
+  // Hold internal inject() calls until every route, hook and package is registered (see fastify-inject-gate.ts).
+  const releaseInjectGate = holdInjectUntilRegistered(app);
   const stopFollowingLogLevel = followLogLevel(app.log);
   app.addHook("onClose", async () => stopFollowingLogLevel());
   // requestId on every line of a request, echoed as x-request-id.
@@ -400,6 +403,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     };
   });
 
+  releaseInjectGate();
   return app;
 }
 
