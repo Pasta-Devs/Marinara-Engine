@@ -882,6 +882,13 @@ try {
     "consolidation receives only selected summaries",
   );
   try {
+    let summaryProgress = beforeCombine.body;
+    const progressDecoder = new TextDecoder();
+    while (!/"type":"agent_progress"[^\n]*"type":"advanced-recall"[^\n]*"stage":"waiting"/u.test(summaryProgress)) {
+      const chunk = await pendingReaders[0]!.read();
+      assert(!chunk.done, "summary activity must reach the Agents menu while the helper is still running");
+      summaryProgress += progressDecoder.decode(chunk.value, { stream: true });
+    }
     const duringCombine = await Promise.race([
       generateConstantsUntilDone(),
       delay(3000).then(() => {
@@ -898,7 +905,7 @@ try {
     releaseHelper();
     summaryGate = undefined;
   }
-  for (const reader of pendingReaders) {
+  for (const [index, reader] of pendingReaders.entries()) {
     const decoder = new TextDecoder();
     let tail = "";
     while (true) {
@@ -911,6 +918,8 @@ try {
       /"type":"advanced_memory_status"[^\n]*"status":"ready"/u,
       "background completion reaches the UI after the main reply is already done",
     );
+    if (index === 0)
+      assert.match(tail, /"type":"agent_progress"[^\n]*"type":"advanced-recall"[^\n]*"stage":"received"/u);
   }
   await memory.checkScenesAfterGeneration(constantsChat.id, { blocking: false });
   assert.equal(
@@ -1134,6 +1143,35 @@ try {
     assert(prepared.chatSummary!.includes(expected!));
     assert(!prepared.chatSummary!.includes(excluded!));
   }
+
+  await chats.patchMetadata(macroChat.id, {
+    groupChatMode: "shared",
+    summaryEntries: [
+      template,
+      createChatSummaryEntry({
+        content: "STABLE_CONSTANT ".repeat(1100),
+        enabled: true,
+        rangeStartIndex: 1,
+        rangeEndIndex: 1,
+      }),
+    ],
+  });
+  calls.length = 0;
+  await memory.checkScenesAfterGeneration(macroChat.id, { blocking: false });
+  assert.equal(calls.length, 1);
+  assert.doesNotMatch(
+    JSON.stringify(calls[0]!.messages),
+    /MAUKIE_SECTION|PANTALONE_SECTION/u,
+    "shared-mode compaction must not resolve a mixed-POV template as only the first character",
+  );
+  assert.deepEqual(
+    JSON.parse((await chats.getById(macroChat.id))!.metadata).summaryEntries.find(
+      (entry: { id: string }) => entry.id === template.id,
+    ),
+    template,
+    "all existing POV sections and their conditions remain saved",
+  );
+  await chats.patchMetadata(macroChat.id, { groupChatMode: "individual" });
 
   const tightTemplate = {
     ...template,

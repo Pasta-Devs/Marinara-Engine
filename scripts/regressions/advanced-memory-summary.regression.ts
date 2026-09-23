@@ -86,7 +86,8 @@ const { createFileNativeDB } = await import("../../packages/server/src/db/file-b
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
-const { characterDataSchema } = await import("../../packages/shared/dist/index.js");
+const { characterDataSchema, createChatSummaryEntry, scopeCharacterSummary, resolveMacros } =
+  await import("../../packages/shared/dist/index.js");
 const { createAdvancedMemoryService } = await import("../../packages/server/src/services/advanced-memory.js");
 const { createConnectionSchema } = await import("../../packages/shared/src/schemas/connection.schema.ts");
 const { DEFAULT_ADVANCED_MEMORY_SETTINGS } = await import("../../packages/shared/src/types/advanced-memory.ts");
@@ -144,6 +145,40 @@ async function createChat(name: string, hardCap?: number, omitReasoning = false)
   return chat;
 }
 try {
+  const readers = ["Maukie", "Pantalone"];
+  const guarded = '{{#if char == "Maukie"}}River{{/if}}\n{{#if char == "Pantalone"}}Bank{{/if}}';
+  assert.equal(scopeCharacterSummary(guarded, readers), guarded);
+  assert.equal(scopeCharacterSummary(scopeCharacterSummary(guarded, readers), readers), guarded);
+  assert.equal(
+    scopeCharacterSummary(`{{#if char == "Maukie" || "Pantalone"}}${guarded}{{/if}}`, readers),
+    guarded,
+    "existing redundant nesting is flattened without combining private POVs",
+  );
+  const branching = scopeCharacterSummary('{{#if char == "Maukie"}}River{{else}}Bank{{/if}} Shared.', readers);
+  const render = (text: string, char: string, variables: Record<string, string> = {}) =>
+    resolveMacros(text, { user: "Mari", char, characters: [char], variables });
+  assert.equal(render(branching, "Maukie"), "River Shared.");
+  assert.equal(render(branching, "Pantalone"), "Bank Shared.");
+  assert.equal(render(branching, "Uninvited"), "");
+  const dynamic = scopeCharacterSummary('{{#if getvar::revealed == "yes"}}Secret{{/if}}', readers);
+  assert.equal(render(dynamic, "Maukie", { revealed: "yes" }), "Secret");
+  assert.equal(render(dynamic, "Maukie", { revealed: "no" }), "");
+  assert.equal(render(dynamic, "Uninvited", { revealed: "yes" }), "");
+  const descriptionGuard = '{{#if description == "Alchemist"}}A character fact{{/if}}';
+  assert(
+    scopeCharacterSummary(descriptionGuard, readers).includes(descriptionGuard),
+    "character-field conditions need the real profile and cannot be simplified using only a name",
+  );
+  const quotedName = 'The "Doctor"';
+  const quoted = scopeCharacterSummary("Private", [quotedName]);
+  assert.equal(render(quoted, quotedName), "Private");
+  assert.equal(render(quoted, "Maukie"), "");
+  assert.throws(
+    () => scopeCharacterSummary("Private", ["{{user}}"]),
+    /character names must not contain macro delimiters/u,
+    "invalid guard names fail before saving a malformed summary",
+  );
+
   const chat = await createChat("Astra short summary");
   await memory.initialize(chat.id);
   const sceneRequest = requests.find((item) => item.instructions?.startsWith("Identify scene transitions"))!;
@@ -251,6 +286,55 @@ try {
     assert(unrestrictedRequest.instructions?.startsWith("Summarize the supplied Roleplay events"));
     assert(!unrestrictedRequest.instructions?.includes("Keep character knowledge separate when POVs switch."));
   }
+  const correctionChat = await createChat("Archive preserves corrections across separate POVs");
+  await chats.update(correctionChat.id, { characterIds: [borrower.id, otherPov.id, narratorActor.id] });
+  const correctionSource = await chats.listMessages(correctionChat.id);
+  await chats.updateMessageContent(correctionSource[0]!.id, "Maukie privately visits the river: MAUKIE_SOURCE.");
+  await chats.updateMessageContent(correctionSource[1]!.id, "Pantalone is alone at the bank: PANTALONE_SOURCE.");
+  await chats.updateMessageExtra(correctionSource[0]!.id, { hiddenFromAICharacterIds: [otherPov.id] });
+  await chats.updateMessageExtra(correctionSource[1]!.id, { hiddenFromAICharacterIds: [borrower.id] });
+  await chats.createMessage({
+    chatId: correctionChat.id,
+    role: "user",
+    content: "The following morning, a new scene begins.",
+    extra: { isConversationStart: true },
+  });
+  const correctedPovs =
+    '{{#if char == "Maukie"}}MAUKIE_CORRECTION{{/if}}\n{{#if char == "Pantalone"}}PANTALONE_CORRECTION{{/if}}';
+  await chats.patchMetadata(correctionChat.id, {
+    groupChatMode: "individual",
+    advancedMemory: {
+      ...settings,
+      narratorCharacterId: narratorActor.id,
+      knowledgeStarts: { [borrower.id]: null, [otherPov.id]: null },
+    },
+    summaryEntries: [
+      createChatSummaryEntry({
+        id: "pov-corrections",
+        content: correctedPovs,
+        enabled: true,
+        rangeStartIndex: 1,
+        rangeEndIndex: 2,
+      }),
+    ],
+  });
+  const correctionStart = requests.length;
+  await memory.initialize(correctionChat.id);
+  const correctionRequest = requests
+    .slice(correctionStart)
+    .find((request) => !request.instructions?.startsWith("Identify scene transitions"))!;
+  const correctionInput = JSON.stringify(correctionRequest.input);
+  for (const expected of ["MAUKIE_SOURCE", "PANTALONE_SOURCE", "MAUKIE_CORRECTION", "PANTALONE_CORRECTION"])
+    assert(
+      correctionInput.includes(expected),
+      `the archive helper receives ${expected}, regardless of the current POV`,
+    );
+  assert(
+    correctionInput.includes(JSON.stringify(correctedPovs).slice(1, -1)),
+    "authored knowledge conditions stay intact",
+  );
+  assert(correctionRequest.instructions?.includes("Cover every POV and separate arc in the supplied range"));
+
   const povChat = await createChat("Private knowledge across POVs");
   await chats.update(povChat.id, { characterIds: [borrower.id, otherPov.id, narratorActor.id] });
   await chats.patchMetadata(povChat.id, {
@@ -263,8 +347,16 @@ try {
     },
   });
   const povSource = await chats.listMessages(povChat.id);
-  await chats.updateMessageExtra(povSource[1]!.id, { isConversationStart: true });
-  await chats.updateMessageContent(povSource[1]!.id, "The following morning, the brass compass promise is recalled.");
+  await chats.updateMessageContent(
+    povSource[1]!.id,
+    "Elsewhere, Pantalone privately visits the bank: PANTALONE_SOURCE.",
+  );
+  await chats.createMessage({
+    chatId: povChat.id,
+    role: "user",
+    content: "The following morning, the brass compass promise is recalled.",
+    extra: { isConversationStart: true },
+  });
   const povSummary =
     '{{#if char == "Maukie" || "Narrator"}}Maukie privately remembers the brass compass promise: MAUKIE_SECRET.{{/if}}\n{{#if char == "Pantalone" || "Narrator"}}Pantalone privately remembers the brass compass promise: PANTALONE_SECRET.{{/if}}';
   summaryResponse = povSummary;
@@ -277,11 +369,13 @@ try {
   assert(povRequest.instructions?.startsWith("Keep character knowledge separate when POVs switch."));
   assert.match(povRequest.instructions!, /\{\{#if char == "Exact Name"\}\}/u);
   assert.match(povRequest.instructions!, /The narrator is "Narrator"/u);
+  assert(JSON.stringify(povRequest.input).includes("PANTALONE_SOURCE"), "the cutoff recap includes the second POV");
   await memory.checkScenesAfterGeneration(povChat.id);
   const povStored = JSON.parse((await chats.getById(povChat.id))!.metadata).summaryEntries;
-  assert(
-    povStored.some((entry: { content: string }) => entry.content.includes(povSummary)),
-    "new constants preserve inner POV conditions",
+  assert.equal(
+    povStored.find((entry: { content: string }) => entry.content.includes("MAUKIE_SECRET"))?.content,
+    povSummary,
+    "new constants keep each POV condition once without an extra enclosing character guard",
   );
   for (const [id, own, hidden] of [
     [borrower.id, "MAUKIE_SECRET", "PANTALONE_SECRET"],
