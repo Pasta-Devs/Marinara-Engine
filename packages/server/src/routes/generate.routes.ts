@@ -2650,29 +2650,37 @@ export async function generateRoutes(app: FastifyInstance) {
           afterReply = false,
         ): Promise<MacroDecisionAnswers | undefined> => {
           if (plan.decisions.length === 0) return undefined;
-          const backend = await getPromptDecisionBackend();
-          if (!backend) {
-            logger.debug(
-              "[decision] Chat %s has %d decision statements but no Decision model; they read as no",
-              input.chatId,
-              plan.decisions.length,
-            );
+          // A Decision model that cannot start or answer never fails the turn: its
+          // statements read as no, like every other decision in this route.
+          try {
+            const backend = await getPromptDecisionBackend();
+            if (!backend) {
+              logger.debug(
+                "[decision] Chat %s has %d decision statements but no Decision model; they read as no",
+                input.chatId,
+                plan.decisions.length,
+              );
+              return undefined;
+            }
+            return await answerPromptDecisions({
+              plan,
+              backend,
+              chatId: input.chatId,
+              messages,
+              afterReply,
+              cacheKey: promptDecisionCacheKey(
+                input.chatId,
+                latestMessageId,
+                (await appSettings.get(DECISION_SETTINGS_KEYS.localDefault)) ??
+                  (await connections.getDefaultForDecision())?.id ??
+                  null,
+              ),
+            });
+          } catch (error) {
+            if (abortController.signal.aborted) throw error;
+            logger.warn(error, "[decision] Prompt decisions failed for chat %s; they read as no", input.chatId);
             return undefined;
           }
-          return answerPromptDecisions({
-            plan,
-            backend,
-            chatId: input.chatId,
-            messages,
-            afterReply,
-            cacheKey: promptDecisionCacheKey(
-              input.chatId,
-              latestMessageId,
-              (await appSettings.get(DECISION_SETTINGS_KEYS.localDefault)) ??
-                (await connections.getDefaultForDecision())?.id ??
-                null,
-            ),
-          });
         };
         const decisionPresetParts =
           presetId && resolvedPreset && chatMode !== "conversation" && chatMode !== "game"
@@ -2685,7 +2693,20 @@ export async function generateRoutes(app: FastifyInstance) {
         const promptDecisionTexts = collectTurnDecisionTexts({
           preset: decisionPresetParts,
           ctx: promptMacroContext,
-          extra: [personaDescription, activeChatSummary, chatMeta.groupScenarioText],
+          extra: [
+            personaDescription,
+            activeChatSummary,
+            chatMeta.groupScenarioText,
+            // Conversation mode's system prompt replaces the preset sections.
+            ...(chatMode === "conversation"
+              ? [
+                  chatMeta.customSystemPrompt,
+                  resolvedPreset
+                    ? resolvePresetModePrompt(resolvedPreset as Record<string, unknown>, "conversation")
+                    : "",
+                ]
+              : []),
+          ],
           lorebookEntries: (await lorebooksStore.listActiveEntries({
             chatId: input.chatId,
             characterIds: withIdentityLorebookScope(promptCharacterIds),
@@ -2697,9 +2718,14 @@ export async function generateRoutes(app: FastifyInstance) {
         });
         // Agents that run before or beside the reply read the same turn as the prompt.
         // Post-processing agents read the finished reply, so theirs are asked later.
+        // Only agents this chat can run: the same set the pipeline resolves below.
         const preReplyAgentDecisionTexts = collectDecisionTexts(
           pipelineConfiguredPromptAgents
-            .filter((agent) => agent.phase !== "post_processing")
+            .filter(
+              (agent) =>
+                agent.phase !== "post_processing" &&
+                ((chatEnableAgents && perChatAgentSet.has(agent.type)) || roleplayCommandAgentIds.has(agent.type)),
+            )
             .map((agent) => {
               const settings = effectiveAgentSettingsById.get(agent.id) ?? {};
               return [effectiveAgentPromptTemplate({ ...agent, settings }), settings];
@@ -10299,12 +10325,9 @@ export async function generateRoutes(app: FastifyInstance) {
           // their decision statements are asked with it included, not with the answers
           // taken before it existed (#6569).
           const postAgentDecisionTexts = collectDecisionTexts(
-            pipelineConfiguredPromptAgents
+            pipelineAgents
               .filter((agent) => agent.phase === "post_processing")
-              .map((agent) => {
-                const settings = effectiveAgentSettingsById.get(agent.id) ?? {};
-                return [effectiveAgentPromptTemplate({ ...agent, settings }), settings];
-              }),
+              .map((agent) => [effectiveAgentPromptTemplate(agent), agent.settings]),
           );
           const postAgentDecisions =
             postAgentDecisionTexts.length > 0

@@ -139,10 +139,12 @@ export function ImportCharacterModal({ open, onClose }: Props) {
             error?: string;
             lorebook?: { lorebookId?: string };
             embeddedLorebook?: { hasEmbeddedLorebook?: boolean; skipped?: boolean; entries?: number };
+            usesDecisions?: boolean;
           }>;
         }>("/import/st-character/batch", form);
 
         for (const result of batchResult.results) {
+          decisionImports.mark(result.filename, result.usesDecisions);
           if (result.lorebook?.lorebookId) importedLorebook = true;
           nextResults.push({
             filename: result.filename,
@@ -196,10 +198,13 @@ export function ImportCharacterModal({ open, onClose }: Props) {
             "timestampOverrides",
             JSON.stringify({ createdAt: file.lastModified, updatedAt: file.lastModified }),
           );
-          const result = await api.upload<{ success: boolean; name?: string; error?: string }>(
-            "/import/marinara-package",
-            form,
-          );
+          const result = await api.upload<{
+            success: boolean;
+            name?: string;
+            error?: string;
+            usesDecisions?: boolean;
+          }>("/import/marinara-package", form);
+          decisionImports.mark(file.name, result.usesDecisions);
           nextResults.push({
             filename: file.name,
             success: result.success,

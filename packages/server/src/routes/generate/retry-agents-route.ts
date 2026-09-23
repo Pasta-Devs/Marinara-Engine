@@ -4651,70 +4651,77 @@ export async function registerRetryAgentsRoute(
       // live turn asked them: pre-generation agents read the chat before the reply, the
       // others read it with the reply, and a turn already asked keeps its answers.
       await runRetrySetupPhase(abortController.signal, async () => {
-        const decisionSettings = createAppSettingsStorage(app.db);
-        const decisionModelId =
-          (await decisionSettings.get(DECISION_SETTINGS_KEYS.localDefault)) ??
-          (await conns.getDefaultForDecision())?.id ??
-          null;
-        const limit = parseDecisionPromptQuestionLimit(
-          await decisionSettings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY),
-        );
-        let backend: Awaited<ReturnType<typeof resolveDecisionBackend>> | undefined;
-        const getBackend = async () =>
-          (backend ??= await resolveDecisionBackend(
-            {
-              getLocalDefault: () => decisionSettings.get(DECISION_SETTINGS_KEYS.localDefault),
-              getThinkingPreGeneration: async () =>
-                (await decisionSettings.get(DECISION_SETTINGS_KEYS.thinkingPreGeneration)) === "true",
-              getDefaultConnection: () => conns.getDefaultForDecision(),
-              getConnectionWithKey: (id) => conns.getWithKey(id),
-              debugMode,
-            },
-            abortController.signal,
-          ));
-        const toDecisionMessages = (messages: any[], context: AgentContext): DecisionMessage[] =>
-          messages.map((message) => ({
-            role: message.role,
-            name:
-              message.role === "user"
-                ? retryPersonaContext.personaName
-                : (context.characters.find((character) => character.id === message.characterId)?.name ?? "Narrator"),
-            content: typeof message.content === "string" ? message.content : "",
-          }));
-        const retried = resolvedAgents.map((entry) => entry.resolved);
-        const answer = (agents: ResolvedAgent[], context: AgentContext, messages: any[], turnId: string | null) =>
-          answerAgentTemplateDecisions({
-            agents: agents.map((agent) => ({
-              template: effectiveAgentPromptTemplate(agent),
-              settings: agent.settings,
-            })),
-            macroContext: buildAgentPromptMacroContext(context),
-            messages: toDecisionMessages(messages, context),
-            turnId,
-            chatId,
-            decisionModelId,
-            limit,
-            getBackend,
-          });
-        if (preGenerationAgentContext && preGenerationRecentMessages) {
-          preGenerationAgentContext.decisions = await answer(
-            retried.filter((agent) => agent.phase === "pre_generation"),
-            preGenerationAgentContext,
-            preGenerationRecentMessages,
-            preGenerationRecentMessages.at(-1)?.id ?? null,
+        try {
+          const decisionSettings = createAppSettingsStorage(app.db);
+          const decisionModelId =
+            (await decisionSettings.get(DECISION_SETTINGS_KEYS.localDefault)) ??
+            (await conns.getDefaultForDecision())?.id ??
+            null;
+          const limit = parseDecisionPromptQuestionLimit(
+            await decisionSettings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY),
           );
+          let backend: Awaited<ReturnType<typeof resolveDecisionBackend>> | undefined;
+          const getBackend = async () =>
+            (backend ??= await resolveDecisionBackend(
+              {
+                getLocalDefault: () => decisionSettings.get(DECISION_SETTINGS_KEYS.localDefault),
+                getThinkingPreGeneration: async () =>
+                  (await decisionSettings.get(DECISION_SETTINGS_KEYS.thinkingPreGeneration)) === "true",
+                getDefaultConnection: () => conns.getDefaultForDecision(),
+                getConnectionWithKey: (id) => conns.getWithKey(id),
+                debugMode,
+              },
+              abortController.signal,
+            ));
+          const toDecisionMessages = (messages: any[], context: AgentContext): DecisionMessage[] =>
+            messages.map((message) => ({
+              role: message.role,
+              name:
+                message.role === "user"
+                  ? retryPersonaContext.personaName
+                  : (context.characters.find((character) => character.id === message.characterId)?.name ?? "Narrator"),
+              content: typeof message.content === "string" ? message.content : "",
+            }));
+          const retried = resolvedAgents.map((entry) => entry.resolved);
+          const answer = (agents: ResolvedAgent[], context: AgentContext, messages: any[], turnId: string | null) =>
+            answerAgentTemplateDecisions({
+              agents: agents.map((agent) => ({
+                template: effectiveAgentPromptTemplate(agent),
+                settings: agent.settings,
+              })),
+              macroContext: buildAgentPromptMacroContext(context),
+              messages: toDecisionMessages(messages, context),
+              turnId,
+              chatId,
+              decisionModelId,
+              limit,
+              getBackend,
+            });
+          if (preGenerationAgentContext && preGenerationRecentMessages) {
+            preGenerationAgentContext.decisions = await answer(
+              retried.filter((agent) => agent.phase === "pre_generation"),
+              preGenerationAgentContext,
+              preGenerationRecentMessages,
+              preGenerationRecentMessages.at(-1)?.id ?? null,
+            );
+          }
+          agentContext.decisions = await answer(
+            preGenerationAgentContext ? retried.filter((agent) => agent.phase !== "pre_generation") : retried,
+            agentContext,
+            recentMessages,
+            lastAssistant
+              ? replyDecisionTurnId(
+                  lastAssistant.id,
+                  typeof lastAssistant.content === "string" ? lastAssistant.content : "",
+                )
+              : (recentMessages.at(-1)?.id ?? null),
+          );
+        } catch (error) {
+          // A Decision model that cannot start or answer never fails the retry: its
+          // statements read as no, as they do on a live turn.
+          if (abortController.signal.aborted) throw error;
+          logger.warn(error, "[retry-agents] Decision answers unavailable for chat %s; they read as no", chatId);
         }
-        agentContext.decisions = await answer(
-          preGenerationAgentContext ? retried.filter((agent) => agent.phase !== "pre_generation") : retried,
-          agentContext,
-          recentMessages,
-          lastAssistant
-            ? replyDecisionTurnId(
-                lastAssistant.id,
-                typeof lastAssistant.content === "string" ? lastAssistant.content : "",
-              )
-            : (recentMessages.at(-1)?.id ?? null),
-        );
       });
 
       const activeLorebookIds = Array.isArray(chatMeta.activeLorebookIds)

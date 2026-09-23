@@ -231,6 +231,9 @@ const { createCharactersStorage } = await import("../../packages/server/src/serv
 const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
 const { createAppSettingsStorage } = await import("../../packages/server/src/services/storage/app-settings.storage.js");
 const { createAgentsStorage } = await import("../../packages/server/src/services/storage/agents.storage.js");
+const { importRoutes } = await import("../../packages/server/src/routes/import.routes.js");
+const multipart = requireServer("@fastify/multipart");
+const AdmZip = requireServer("adm-zip");
 
 let noul = 0.9;
 let choice = "sad";
@@ -284,6 +287,8 @@ app.decorate("activeGenerations", new Map());
 await app.register(generateRoutes, { prefix: "/api/generate" });
 await app.register(chatsRoutes, { prefix: "/api/chats" });
 await app.register(decisionRoutes, { prefix: "/api/decision" });
+await app.register(multipart);
+await app.register(importRoutes, { prefix: "/api/import" });
 
 try {
   await new Promise<void>((done) => provider.listen(0, "127.0.0.1", done));
@@ -454,6 +459,9 @@ try {
       "post_processing",
       `{{#if decision:"The latest reply ends the scene"}}POST_AGENT_YES{{else}}POST_AGENT_NO{{/if}}`,
     ],
+    // Configured but not active in this chat: never asked.
+    ["custom-decision-idle", "pre_generation", `{{#if decision:"The idle pre agent applies"}}x{{/if}}`],
+    ["custom-decision-idle-post", "post_processing", `{{#if decision:"The idle post agent applies"}}x{{/if}}`],
   ] as const)
     assert(
       await agents.create({
@@ -497,6 +505,8 @@ try {
   assert.ok(agentPrompts.includes("PRE_AGENT_YES"), "the pre-reply agent template took the yes branch");
   assert.ok(agentPrompts.includes("POST_AGENT_YES"), "the post-processing agent template took the yes branch");
   assert.equal(asked(from.decisions, "Kaelen is in the scene").length, 1);
+  assert.equal(asked(from.decisions, "The idle pre agent applies").length, 0, "an agent this chat does not run");
+  assert.equal(asked(from.decisions, "The idle post agent applies").length, 0, "nor one that runs after the reply");
   const post = asked(from.decisions, "The latest reply ends the scene");
   assert.equal(post.length, 1, "the post-processing statement is asked once, after the reply");
   const reply = (await chats.listMessages(agentChat.id))
@@ -538,6 +548,108 @@ try {
   assert.ok(retriedPrompts.includes("POST_AGENT_YES"), "the retried post-processing agent keeps its reply's answer");
   assert.equal(decisionBodies.length, beforeRetry.decisions, "a retry of an answered turn asks nothing");
   noul = 0.9;
+
+  // Conversation mode: the chat's system prompt replaces the preset sections, so its
+  // statements are asked and the preset's are not.
+  const convo = await chats.create({
+    name: "Decision conversation",
+    mode: "conversation",
+    characterIds: [character.id],
+    connectionId: chatConnection.id,
+    promptPresetId: preset.id,
+  });
+  assert(convo);
+  await chats.patchMetadata(convo.id, {
+    enableAgents: false,
+    enableMemoryRecall: false,
+    customSystemPrompt: `You are {{char}}. {{#if decision:"The conversation turns to food"}}CONVO_YES{{else}}CONVO_NO{{/if}}`,
+  });
+  const beforeConvo = { prompts: prompts.length, decisions: decisionBodies.length };
+  const convoTurn = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: convo.id, userMessage: "What should we cook tonight?" },
+  });
+  assert.equal(convoTurn.statusCode, 200, convoTurn.body);
+  assert.equal(asked(beforeConvo.decisions, "The conversation turns to food").length, 1);
+  assert.equal(
+    asked(beforeConvo.decisions, "The latest message moves the scene to a new place").length,
+    0,
+    "preset sections are not used in Conversation, so their statements are not asked",
+  );
+  assert.ok(prompts.slice(beforeConvo.prompts).join("\n").includes("CONVO_YES"));
+  // Peek Prompt plans from the same sources: the conversation prompt, not the preset.
+  const convoPreview = await chats.create({
+    name: "Decision conversation preview",
+    mode: "conversation",
+    characterIds: [character.id],
+    connectionId: chatConnection.id,
+    promptPresetId: preset.id,
+  });
+  assert(convoPreview);
+  await chats.patchMetadata(convoPreview.id, {
+    customSystemPrompt: `{{#if decision:"The conversation turns to food"}}CONVO_YES{{/if}}`,
+  });
+  const convoPeek = await app.inject({ method: "POST", url: `/api/chats/${convoPreview.id}/peek-prompt`, payload: {} });
+  assert.equal(convoPeek.statusCode, 200, convoPeek.body);
+  assert.deepEqual(convoPeek.json().decisions?.unanswered, ["The conversation turns to food"]);
+
+  // Imports the browser cannot read (card files, .marinara archives) report their
+  // decision statements from the server, so the importer can say so.
+  const upload = (parts: Array<{ field: string; name: string; bytes: Buffer }>) => {
+    const boundary = `decision-${Date.now().toString(36)}`;
+    return {
+      payload: Buffer.concat([
+        ...parts.flatMap((part) => [
+          Buffer.from(
+            `--${boundary}\r\nContent-Disposition: form-data; name="${part.field}"; filename="${part.name}"\r\nContent-Type: application/octet-stream\r\n\r\n`,
+          ),
+          part.bytes,
+          Buffer.from("\r\n"),
+        ]),
+        Buffer.from(`--${boundary}--\r\n`),
+      ]),
+      headers: { "content-type": `multipart/form-data; boundary=${boundary}` },
+    };
+  };
+  const card = (name: string, description: string) =>
+    Buffer.from(JSON.stringify({ spec: "chara_card_v2", spec_version: "2.0", data: { name, description } }));
+  const batch = await app.inject({
+    method: "POST",
+    url: "/api/import/st-character/batch",
+    ...upload([
+      { field: "files", name: "decides.json", bytes: card("Decides", `{{#if decision:"x"}}y{{/if}}`) },
+      { field: "files", name: "plain.json", bytes: card("Plain", "A plain card.") },
+    ]),
+  });
+  assert.equal(batch.statusCode, 200, batch.body);
+  const byName = new Map(
+    (batch.json().results as Array<{ filename: string; success: boolean; usesDecisions?: boolean }>).map((r) => [
+      r.filename,
+      r,
+    ]),
+  );
+  assert.equal(byName.get("decides.json")?.success, true, batch.body);
+  assert.equal(byName.get("decides.json")?.usesDecisions, true, "a card with a statement is flagged");
+  assert.equal(byName.get("plain.json")?.usesDecisions, undefined, "a plain card is not");
+  const zip = new AdmZip();
+  zip.addFile(
+    "data.json",
+    Buffer.from(
+      JSON.stringify({
+        type: "marinara_persona",
+        version: 1,
+        data: { name: "Deciding persona", description: `{{#if decision_choice:"mood" == "calm"}}z{{/if}}` },
+      }),
+    ),
+  );
+  const pkg = await app.inject({
+    method: "POST",
+    url: "/api/import/marinara-package",
+    ...upload([{ field: "file", name: "persona.marinara", bytes: zip.toBuffer() }]),
+  });
+  assert.equal(pkg.statusCode, 200, pkg.body);
+  assert.equal(pkg.json().usesDecisions, true, "a .marinara archive with a statement is flagged");
 
   // 8. No Decision model: nothing is asked and the else branches are sent.
   await connections.update(decision.id, { defaultForAgents: false });

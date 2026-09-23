@@ -15,6 +15,10 @@ export function createDecisionImportTracker() {
     note(fileName: string, parsed: unknown) {
       if (containsDecisionStatements(parsed)) files.add(fileName);
     },
+    /** Record a file the server parsed (PNG, .charx, .marinara) and flagged. */
+    mark(fileName: string, usesDecisions: boolean | undefined) {
+      if (usesDecisions) files.add(fileName);
+    },
     /** One notice if any file that imported successfully uses them. */
     notify(results: ReadonlyArray<{ filename: string; success: boolean }>, t: TFunction) {
       if (results.some((result) => result.success && files.has(result.filename)))

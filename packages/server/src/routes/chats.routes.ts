@@ -3105,11 +3105,31 @@ export async function chatsRoutes(app: FastifyInstance) {
             (await appSettings.get(DECISION_SETTINGS_KEYS.localDefault)) ??
             (await connections.getDefaultForDecision())?.id ??
             null;
+          // Every live preview below reports the statements it had no answer for.
+          const decisionReport = () =>
+            decisionUnanswered.size > 0
+              ? { decisions: { unanswered: [...decisionUnanswered], decisionModelSet: decisionModelId !== null } }
+              : {};
           {
             const texts = collectTurnDecisionTexts({
-              preset: preset ? [sections, groups, choiceBlocks] : undefined,
+              // The same sources generation plans from: preset sections only outside
+              // Conversation and Game, where the conversation prompt takes their place.
+              preset:
+                preset && chatMode !== "conversation" && chatMode !== "game"
+                  ? [sections, groups, choiceBlocks]
+                  : undefined,
               ctx: promptMacroContext,
-              extra: [personaDescription, chatMeta.groupScenarioText],
+              extra: [
+                personaDescription,
+                resolveRoleplayChatSummary(chatMode, chatMeta),
+                chatMeta.groupScenarioText,
+                ...(chatMode === "conversation"
+                  ? [
+                      chatMeta.customSystemPrompt,
+                      presetStringField(preset as Record<string, unknown> | null, "conversationPrompt"),
+                    ]
+                  : []),
+              ],
               lorebookEntries: (await createLorebooksStorage(app.db).listActiveEntries({
                 chatId: req.params.id,
                 characterIds: lorebookCharacterIds,
@@ -3184,6 +3204,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               source: "live_preview",
               exact: false,
               generationInfo: null,
+              ...decisionReport(),
               agentNote:
                 "No saved model request was available, so this is a live best-effort preview assembled without sending.",
             };
@@ -3248,6 +3269,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               source: "live_preview",
               exact: false,
               generationInfo: null,
+              ...decisionReport(),
               agentNote:
                 "No saved model request was available, so this is a live best-effort preview assembled without sending.",
             };
@@ -3292,6 +3314,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               source: "live_preview",
               exact: false,
               generationInfo: null,
+              ...decisionReport(),
               agentNote:
                 "No saved model request was available, so this is a live best-effort preview assembled without sending.",
             };
@@ -3577,9 +3600,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             source: "live_preview",
             exact: false,
             generationInfo: null,
-            ...(decisionUnanswered.size > 0
-              ? { decisions: { unanswered: [...decisionUnanswered], decisionModelSet: decisionModelId !== null } }
-              : {}),
+            ...decisionReport(),
             agentNote:
               "No saved model request was available, so this is a live best-effort preview assembled without sending.",
           };

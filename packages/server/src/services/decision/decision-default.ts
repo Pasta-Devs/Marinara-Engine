@@ -182,9 +182,13 @@ export async function resolveDecisionBackend(
             },
             state,
             questions,
+            // Each Choice option, and the added "none of these", costs about as much as
+            // one more yes/no statement (measured on Open-Jev 9B), so options count too.
             timeoutMs: Math.min(
               DECISION_TIMEOUT_MS.thinking,
-              DECISION_TIMEOUT_MS.sidecar + (resolved.perQuestionMs ?? 0) * Math.max(0, questions.length - 1),
+              DECISION_TIMEOUT_MS.sidecar +
+                (resolved.perQuestionMs ?? 0) *
+                  Math.max(0, questions.reduce((n, q) => n + (q.options ? q.options.length + 1 : 1), 0) - 1),
             ),
             signal,
             questionShape: calibration.questionShape,

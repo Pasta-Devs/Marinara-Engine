@@ -49,10 +49,13 @@ export function ImportPersonaModal({ open, onClose }: Props) {
             "timestampOverrides",
             JSON.stringify({ createdAt: file.lastModified, updatedAt: file.lastModified }),
           );
-          const data = await api.upload<{ success: boolean; name?: string; error?: string }>(
-            "/import/marinara-package",
-            form,
-          );
+          const data = await api.upload<{
+            success: boolean;
+            name?: string;
+            error?: string;
+            usesDecisions?: boolean;
+          }>("/import/marinara-package", form);
+          decisionImports.mark(file.name, data.usesDecisions);
           nextResults.push({
             filename: file.name,
             success: data.success,

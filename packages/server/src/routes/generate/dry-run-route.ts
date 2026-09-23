@@ -994,8 +994,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       null;
     {
       const texts = collectTurnDecisionTexts({
+        // The same sources generation plans from: preset sections only outside
+        // Conversation and Game, where the conversation prompt takes their place.
         preset:
-          effectivePresetId && effectivePreset
+          effectivePresetId && effectivePreset && chatMode !== "conversation" && chatMode !== "game"
             ? await Promise.all([
                 presets.listSections(effectivePresetId),
                 presets.listGroups(effectivePresetId),
@@ -1003,7 +1005,17 @@ export async function registerDryRunRoute(app: FastifyInstance) {
               ])
             : undefined,
         ctx: promptMacroContext,
-        extra: [personaDescription, activeChatSummary, chatMeta.groupScenarioText],
+        extra: [
+          personaDescription,
+          activeChatSummary,
+          chatMeta.groupScenarioText,
+          ...(chatMode === "conversation"
+            ? [
+                chatMeta.customSystemPrompt,
+                presetStringField(effectivePreset as Record<string, unknown> | null, "conversationPrompt"),
+              ]
+            : []),
+        ],
         lorebookEntries: (await decisionLorebooks.listActiveEntries({
           chatId,
           characterIds: withIdentityLorebookScope(promptCharacterIds),
