@@ -726,8 +726,12 @@ export function scanForActivatedEntries(
       if (requiresDecision(candidate.entry)) {
         const answer = decisionAnswers?.get(candidate.entry.id);
         if (answer === undefined) {
-          pendingDecisions?.add(candidate.entry.id);
-          pendingCountsByLorebookId.set(lorebookId, pendingCount + 1);
+          // Only a pre-scan can still ask it, so only a pre-scan holds its slot; in
+          // the final scan an unanswered statement is a no and frees the slot.
+          if (pendingDecisions) {
+            pendingDecisions.add(candidate.entry.id);
+            pendingCountsByLorebookId.set(lorebookId, pendingCount + 1);
+          }
           continue;
         }
         if (!answer) continue;

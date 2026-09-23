@@ -146,6 +146,25 @@ const semanticAnswered = scanForActivatedEntries(messages, vectored as never, {
 });
 assert.deepEqual(semanticAnswered, [], "a no frees the slot, and the weaker match waits on its own answer");
 assert.ok(semanticPending.has(weak.id));
+const plainWeak = entry({ keys: [] });
+const finalScan = scanForActivatedEntries(
+  messages,
+  [
+    { ...strong, embedding: [1, 0] },
+    { ...plainWeak, embedding: [0.8, 0.6] },
+  ] as never,
+  {
+    chatEmbedding: [1, 0],
+    semanticThreshold: 0.3,
+    semanticMaxMatchesByLorebookId: new Map([["book", 1]]),
+    random: () => 0.5,
+  },
+);
+assert.deepEqual(
+  finalScan.map((a) => a.entry.id),
+  [plainWeak.id],
+  "in the final scan an unanswered statement holds no slot",
+);
 
 // The resolver spends one budget per turn across its calls, and a statement the prompt
 // already planned costs nothing.
