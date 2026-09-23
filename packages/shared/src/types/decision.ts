@@ -120,16 +120,41 @@ export type DecisionAnswerStyle = "direct" | "thinks" | "unknown";
 /**
  * Request budgets, per backend family.
  *
- * System One answers every question of a group in one parallel pass, so 1500 ms is
- * generous. A local slot may already be busy with agent work and answers one question
- * per request, so it gets longer; a model that has to reason first gets longer still,
- * which is why reasoning-mode gates are limited to post-processing by default.
+ * System One answers every question of a group in one parallel pass, so 1500 ms is the
+ * default for a Decision connection. It is not always enough: a hosted provider's
+ * response time varies, so each connection can set its own limit (below). A local
+ * slot may already be busy with agent work and answers one question per request, so
+ * it gets longer; a model that has to reason first gets longer still, which is why
+ * reasoning-mode gates are limited to post-processing by default.
  */
 export const DECISION_TIMEOUT_MS = {
   systemOne: 1500,
   sidecar: 4000,
   thinking: 20_000,
 } as const;
+
+/**
+ * What a Decision connection's own time limit may be set to. `systemOne` above is only
+ * its default: hosted providers answer at very different speeds, and one that is
+ * sometimes slower than 1.5 s looked randomly broken with no way to allow for it (#6580).
+ */
+export const DECISION_CONNECTION_TIMEOUT_BOUNDS_MS = { min: 500, max: 30_000 } as const;
+
+/** A Decision connection's time limit: its own when set, otherwise the default. */
+export function resolveDecisionConnectionTimeoutMs(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return DECISION_TIMEOUT_MS.systemOne;
+  const { min, max } = DECISION_CONNECTION_TIMEOUT_BOUNDS_MS;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+/**
+ * How long the Test button waits: at least 10 s, and 5 s past a longer limit. Always
+ * past the connection's own limit, so a slow answer is reported with its real time
+ * instead of as the same timeout a dead endpoint gives.
+ */
+export function decisionTestTimeoutMs(timeLimitMs: number): number {
+  return Math.max(10_000, timeLimitMs + 5_000);
+}
 
 /** Token budget for a reasoning model to finish thinking and then answer. */
 export const DECISION_THINKING_MAX_TOKENS = 1024;

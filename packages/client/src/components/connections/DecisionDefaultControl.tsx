@@ -16,6 +16,7 @@ import {
   useThinkingPreGeneration,
 } from "../../hooks/use-decision-model";
 import { useTestConnection } from "../../hooks/use-connections";
+import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { useUIStore } from "../../stores/ui.store";
 
 /**
@@ -117,19 +118,7 @@ export function DecisionDefaultControl() {
       return;
     }
     testConnection.mutate(selected.id, {
-      onSuccess: (result) =>
-        setFeedback(
-          result.success
-            ? t("connections.decision.testSuccess", {
-                probability: result.decisionProbability?.toFixed(3),
-                latency: result.latencyMs,
-              })
-            : t("connections.decision.testFailed", {
-                reason: t(`connections.decision.errors.${result.errorCode ?? "network"}`, {
-                  defaultValue: t("connections.decision.errors.network"),
-                }),
-              }),
-        ),
+      onSuccess: (result) => setFeedback(decisionConnectionTestMessage(t, result).message),
       onError: () => setFeedback(t("connections.decision.errors.network")),
     });
   };

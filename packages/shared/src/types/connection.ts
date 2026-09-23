@@ -103,6 +103,8 @@ export interface APIConnection {
   decisionSource?: DecisionSource | null;
   credentialsFromConnectionId?: string | null;
   maxStateTokens?: number | null;
+  /** How long a Decision connection may take to answer, in milliseconds; null is the default. */
+  decisionTimeoutMs?: number | null;
   /** Default voice id/name for speech synthesis on this audio connection. */
   audioVoice: string | null;
   /** Whether this audio connection may generate game sound effects (ElevenLabs only today). */
@@ -165,4 +167,8 @@ export interface ConnectionTestResult {
   modelName: string | null;
   decisionProbability?: number;
   errorCode?: string;
+  /** A Decision connection's limit during chats, to compare `latencyMs` with. */
+  timeLimitMs?: number;
+  /** How long this Decision test waited before giving up. */
+  testTimeoutMs?: number;
 }

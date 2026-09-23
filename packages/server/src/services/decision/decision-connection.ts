@@ -1,4 +1,8 @@
-import { DECISION_SOURCE_BASE_URLS, defaultDecisionStateTokens } from "@marinara-engine/shared";
+import {
+  DECISION_SOURCE_BASE_URLS,
+  defaultDecisionStateTokens,
+  resolveDecisionConnectionTimeoutMs,
+} from "@marinara-engine/shared";
 
 export interface DecisionConnectionRow {
   id: string;
@@ -9,6 +13,7 @@ export interface DecisionConnectionRow {
   decisionSource?: string | null;
   credentialsFromConnectionId?: string | null;
   maxStateTokens?: number | null;
+  decisionTimeoutMs?: number | null;
 }
 
 export interface DecisionConnection {
@@ -16,6 +21,8 @@ export interface DecisionConnection {
   apiKey: string;
   model: string;
   maxStateTokens: number;
+  /** The connection's own time limit. Unset on the managed sidecar, which has its own budget. */
+  timeoutMs?: number;
 }
 
 export type DecisionConnectionError = "invalid_source" | "invalid_url" | "needs_relinking" | "missing_key";
@@ -80,6 +87,7 @@ export async function resolveDecisionConnection(
             : defaultDecisionStateTokens(source),
         ),
       ),
+      timeoutMs: resolveDecisionConnectionTimeoutMs(row.decisionTimeoutMs),
     },
   };
 }
