@@ -4,6 +4,7 @@
 import { useState, useMemo } from "react";
 import { X, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import {
   NEUTRAL_PANEL_HEADER,
   NEUTRAL_PANEL_SCROLL_AREA,
@@ -506,6 +507,7 @@ function ChatHistoryMessage({ entry, roleColor }: { entry: ChatHistoryEntry; rol
 
 export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
   const { t: localizeUi } = useUiTranslation();
+  const backdropDismiss = useBackdropDismiss(onClose);
   const sections = useMemo(
     () => buildDisplaySections(data.messages, data.chatMode === "conversation"),
     [data.chatMode, data.messages],
@@ -556,7 +558,7 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
     <div
       data-chat-floating-panel
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 max-md:pt-[env(safe-area-inset-top)]"
-      onClick={onClose}
+      {...backdropDismiss}
     >
       <div
         className={cn(NEUTRAL_PANEL_SHELL, "mx-4 flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden")}
