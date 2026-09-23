@@ -1547,7 +1547,22 @@ function evaluateParsedCondition(
   const left = resolveConditionalOperand(parsed.left, ctx, options);
   if (parsed.operator === "truthy") return left.trim().length > 0 && !/^(false|0|no|off|null|undefined)$/i.test(left);
   const right = resolveConditionalOperand(parsed.right ?? "", ctx, options);
+  // No answer means no, whatever the comparison: without this, `decision_choice:"mood"
+  // != "calm"` would compare "" with "calm" and read as true on every turn for a user
+  // with no Decision model. Checked after both sides resolve, so both are recorded.
+  if (isUnansweredDecisionOperand(parsed.left, ctx) || isUnansweredDecisionOperand(parsed.right ?? "", ctx))
+    return false;
   return compareConditionValues(left, parsed.operator, right);
+}
+
+/** A `decision:` or `decision_choice:` operand that has no answer this turn. */
+function isUnansweredDecisionOperand(raw: string, ctx: MacroContext): boolean {
+  const question = decisionQuestionFromOperand(raw);
+  if (question !== null) return ctx.decisions?.answers?.get(resolveDecisionQuestionText(question, ctx)) === undefined;
+  const choiceQuestion = decisionChoiceQuestionFromOperand(raw);
+  if (choiceQuestion !== null)
+    return ctx.decisions?.choices?.get(resolveDecisionQuestionText(choiceQuestion, ctx)) === undefined;
+  return false;
 }
 
 type EqualityShorthand = Pick<ParsedConditionExpression, "left" | "operator">;

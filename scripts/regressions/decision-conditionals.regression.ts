@@ -26,8 +26,10 @@ const {
   resolveDeferredCharacterMacros,
   resolveMacros,
   DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
+  DECISION_LOCAL_SLOT_IDS,
   characterDataSchema,
 } = await import("../../packages/shared/dist/index.js");
+const { DECISION_SETTINGS_KEYS } = await import("../../packages/server/src/services/decision/decision-default.js");
 const { agentShapedDecisionContext, answerPromptDecisions, planPromptDecisions, PromptDecisionTurnCache } =
   await import("../../packages/server/src/services/decision/prompt-decisions.js");
 
@@ -59,6 +61,13 @@ assert.equal(run(mood, { choices: new Map([["Kaelen's mood", "angry"]]) }), "ANG
 assert.equal(run(mood, { choices: new Map([["Kaelen's mood", "sad"]]) }), "SAD");
 assert.equal(run(mood, { choices: new Map([["Kaelen's mood", "none of these"]]) }), "CALM");
 assert.equal(run(mood), "CALM", "no answer: every option comparison is false");
+const notCalm = `{{#if decision_choice:"Kaelen's mood" != "calm"}}AGITATED{{else}}STEADY{{/if}}`;
+assert.equal(run(notCalm), "STEADY", "no answer: even a != comparison is false");
+assert.equal(
+  run(notCalm, { choices: new Map([["Kaelen's mood", "none of these"]]) }),
+  "AGITATED",
+  "an answer of none is still an answer",
+);
 
 assert.deepEqual(collectDecisionQuestions(`{{#if decision_choice:"weather" == "rain" || "snow"}}x{{/if}}`), [
   { kind: "choice", question: "weather", options: ["rain", "snow"] },
@@ -97,6 +106,20 @@ assert.equal(resolveDeferredCharacterMacros(deferred, profiles[1]!, { ...base, d
 
 assert.equal(containsDecisionStatements({ sections: [{ content: 'a {{#if decision:"x"}}y{{/if}}' }] }), true);
 assert.equal(containsDecisionStatements({ description: "a decision: to make" }), false, "prose is not a statement");
+
+// The Game prompt's authored sources, chosen the way generation chooses them.
+const { gameGmPromptDecisionTexts } =
+  await import("../../packages/server/src/services/generation/game-gm-prompt-runtime.js");
+assert.deepEqual(gameGmPromptDecisionTexts({ gameSpecialInstructions: "S", customGmPrompt: "C" }, "PRESET"), [
+  "PRESET",
+  "S",
+  "C",
+]);
+assert.equal(
+  gameGmPromptDecisionTexts({ gameSystemPrompt: "CHAT" }, "PRESET")[0],
+  "CHAT",
+  "the chat's own GM prompt wins",
+);
 
 // ── planning ───────────────────────────────────────────────────────────────────
 
@@ -443,6 +466,12 @@ try {
   assert.equal(dry.statusCode, 200, dry.body);
   assert.match(dry.body, /"unanswered":\[/u, "the dry run of the next turn reports unanswered statements");
   assert.equal(decisionBodies.length, beforePreview, "neither preview asked the Decision model");
+  // A local model that cannot serve is no Decision model, as generation treats it.
+  const previewSettings = createAppSettingsStorage(db);
+  await previewSettings.set(DECISION_SETTINGS_KEYS.localDefault, DECISION_LOCAL_SLOT_IDS.primary);
+  const peekUnusable = await app.inject({ method: "POST", url: `/api/chats/${preview.id}/peek-prompt`, payload: {} });
+  assert.equal(peekUnusable.json().decisions?.decisionModelSet, false, "an unusable local model reads as none");
+  await previewSettings.remove(DECISION_SETTINGS_KEYS.localDefault);
 
   // 7. Agent prompt templates. A pre-reply agent reads the same answers as the prompt;
   // a post-processing agent is asked with the finished reply, and asked again when a
@@ -599,6 +628,83 @@ try {
   const convoPeek = await app.inject({ method: "POST", url: `/api/chats/${convoPreview.id}/peek-prompt`, payload: {} });
   assert.equal(convoPeek.statusCode, 200, convoPeek.body);
   assert.deepEqual(convoPeek.json().decisions?.unanswered, ["The conversation turns to food"]);
+
+  // The author's note is resolved in the prompt's macro pass, so its statements are
+  // asked; and editing the newest message then regenerating asks again, because the
+  // turn is keyed by that message's text as well as its id.
+  const noteChat = await chats.create({
+    name: "Decision author's note",
+    mode: "roleplay",
+    characterIds: [character.id],
+    connectionId: chatConnection.id,
+    promptPresetId: preset.id,
+  });
+  assert(noteChat);
+  await chats.patchMetadata(noteChat.id, {
+    enableAgents: false,
+    enableMemoryRecall: false,
+    authorNotes: `{{#if decision:"The author's note statement applies"}}NOTE_YES{{/if}}`,
+  });
+  const noteTurn = async (payload: Record<string, unknown>) => {
+    const from = { prompts: prompts.length, decisions: decisionBodies.length };
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/generate/",
+      payload: { chatId: noteChat.id, ...payload },
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    return from;
+  };
+  let noteFrom = await noteTurn({ userMessage: "First message." });
+  assert.equal(asked(noteFrom.decisions, "The author's note statement applies").length, 1);
+  assert.ok(prompts.slice(noteFrom.prompts).join("\n").includes("NOTE_YES"));
+  const noteMessages = await chats.listMessages(noteChat.id);
+  const noteUser = noteMessages.filter((m: { role: string }) => m.role === "user").at(-1)!;
+  const noteReply = noteMessages.filter((m: { role: string }) => m.role === "assistant").at(-1)!;
+  noteFrom = await noteTurn({ regenerateMessageId: noteReply.id });
+  assert.equal(asked(noteFrom.decisions, "The author's note statement applies").length, 0, "same text: cached");
+  await chats.updateMessageContent(noteUser.id, "First message, edited.");
+  noteFrom = await noteTurn({ regenerateMessageId: noteReply.id });
+  assert.equal(
+    asked(noteFrom.decisions, "The author's note statement applies").length,
+    1,
+    "an edited message is asked again",
+  );
+
+  // Text-rewrite agents run after the other agents, outside the pipeline, and read
+  // the same answers taken with the finished reply.
+  assert(
+    await agents.create({
+      type: "custom-decision-rewrite",
+      name: "custom-decision-rewrite",
+      phase: "post_processing",
+      connectionId: chatConnection.id,
+      promptTemplate: `{{#if decision:"The latest reply needs a rewrite"}}REWRITE_YES{{else}}REWRITE_NO{{/if}}`,
+      settings: { resultType: "text_rewrite" },
+    }),
+  );
+  const rewriteChat = await chats.create({
+    name: "Decision rewrite",
+    mode: "roleplay",
+    characterIds: [character.id],
+    connectionId: chatConnection.id,
+    promptPresetId: preset.id,
+  });
+  assert(rewriteChat);
+  await chats.patchMetadata(rewriteChat.id, {
+    enableAgents: true,
+    enableMemoryRecall: false,
+    activeAgentIds: ["custom-decision-rewrite"],
+  });
+  const beforeRewrite = { prompts: prompts.length, decisions: decisionBodies.length };
+  const rewriteTurn = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: rewriteChat.id, userMessage: "Tell me the whole story." },
+  });
+  assert.equal(rewriteTurn.statusCode, 200, rewriteTurn.body);
+  assert.equal(asked(beforeRewrite.decisions, "The latest reply needs a rewrite").length, 1);
+  assert.ok(prompts.slice(beforeRewrite.prompts).join("\n").includes("REWRITE_YES"), "the rewrite agent read yes");
 
   // Imports the browser cannot read (card files, .marinara archives) report their
   // decision statements from the server, so the importer can say so.

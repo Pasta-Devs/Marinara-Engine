@@ -15,6 +15,7 @@
 import { createHash } from "node:crypto";
 import {
   collectDecisionQuestions,
+  decisionLocalSlotForId,
   DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
   normalizeDecisionQuestion,
   resolveDecisionQuestionVariants,
@@ -24,6 +25,7 @@ import {
 import { logger } from "../../lib/logger.js";
 import { buildDecisionState, type DecisionMessage } from "../generation/agent-activation-questions.js";
 import type { DecisionBackend } from "./decision-default.js";
+import { describeDecisionSlot } from "./decision-slots.js";
 import { DECISION_CHOICE_NONE, type NoulQuestion } from "./system-one.client.js";
 
 export interface PlannedDecision {
@@ -96,6 +98,27 @@ export function collectTurnDecisionTexts(sources: TurnDecisionSources): string[]
  */
 export function replyDecisionTurnId(messageId: string | null | undefined, reply: string): string {
   return `${messageId || "reply"}:${createHash("sha256").update(reply).digest("hex").slice(0, 16)}`;
+}
+
+/**
+ * The turn key for statements read before the reply: the newest message by id and by
+ * text, so editing that message and regenerating asks again instead of reusing answers
+ * about the old text. Generation, Peek Prompt and dry runs all key turns with this.
+ */
+export function latestTurnDecisionId(messages: ReadonlyArray<{ id?: unknown; content?: unknown }>): string | null {
+  const latest = [...messages].reverse().find((message) => typeof message.id === "string" && message.id);
+  if (!latest) return null;
+  return replyDecisionTurnId(latest.id as string, typeof latest.content === "string" ? latest.content : "");
+}
+
+/**
+ * Whether the Decision model setting can answer right now, checked without starting a
+ * local model. Previews use it so "no Decision model" means what generation will do:
+ * a local model that cannot serve reads every statement as no, like having none.
+ */
+export function decisionModelUsable(localSetting: string | null, connectionId: string | null): boolean {
+  const slot = decisionLocalSlotForId(localSetting);
+  return slot ? describeDecisionSlot(slot).available : connectionId !== null;
 }
 
 /** Chat, the newest message the decision reads, and the Decision model that answered. */
@@ -300,6 +323,8 @@ export async function answerAgentTemplateDecisions(args: {
   decisionModelId: string | null;
   limit: number;
   getBackend: () => Promise<DecisionBackend | null>;
+  /** False for pre-generation agents, which a live turn asks in front of the reply. */
+  afterReply?: boolean;
 }): Promise<MacroDecisionAnswers | undefined> {
   const texts = collectDecisionTexts(args.agents.map((agent) => [agent.template, agent.settings]));
   if (texts.length === 0) return undefined;
@@ -313,7 +338,7 @@ export async function answerAgentTemplateDecisions(args: {
     messages: args.messages,
     chatId: args.chatId,
     cacheKey: promptDecisionCacheKey(args.chatId, args.turnId, args.decisionModelId),
-    afterReply: true,
+    afterReply: args.afterReply ?? true,
   });
 }
 

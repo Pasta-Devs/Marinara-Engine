@@ -38,9 +38,12 @@ import { createLorebooksStorage } from "../../services/storage/lorebooks.storage
 import {
   cachedPromptDecisionAnswers,
   collectTurnDecisionTexts,
+  decisionModelUsable,
+  latestTurnDecisionId,
   planPromptDecisions,
   promptDecisionCacheKey,
 } from "../../services/decision/prompt-decisions.js";
+import { gameGmPromptDecisionTexts } from "../../services/generation/game-gm-prompt-runtime.js";
 import { DECISION_SETTINGS_KEYS } from "../../services/decision/decision-default.js";
 import { createPromptsStorage } from "../../services/storage/prompts.storage.js";
 import { createCharactersStorage } from "../../services/storage/characters.storage.js";
@@ -988,10 +991,11 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     // answered and never asks the model itself; what is not answered yet reads as no,
     // and the preview says so rather than implying the prompt is final.
     const decisionUnanswered = new Set<string>();
-    const decisionModelId =
-      (await decisionSettings.get(DECISION_SETTINGS_KEYS.localDefault)) ??
-      (await connections.getDefaultForDecision())?.id ??
-      null;
+    const decisionLocalSetting = await decisionSettings.get(DECISION_SETTINGS_KEYS.localDefault);
+    const decisionConnectionId = (await connections.getDefaultForDecision())?.id ?? null;
+    // The cache key uses the setting as generation does; the report says whether it can serve.
+    const decisionModelId = decisionLocalSetting ?? decisionConnectionId;
+    const decisionModelSet = decisionModelUsable(decisionLocalSetting, decisionConnectionId);
     {
       const texts = collectTurnDecisionTexts({
         // The same sources generation plans from: preset sections only outside
@@ -1016,6 +1020,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
                   : presetStringField(effectivePreset as Record<string, unknown> | null, "conversationPrompt"),
               ]
             : []),
+          // Resolved in the same macro pass as the prompt.
+          chatMeta.authorNotes,
+          ...(chatMode === "game"
+            ? gameGmPromptDecisionTexts(
+                chatMeta,
+                presetStringField(effectivePreset as Record<string, unknown> | null, "gamePrompt"),
+              )
+            : []),
         ],
         lorebookEntries: (await decisionLorebooks.listActiveEntries({
           chatId,
@@ -1031,7 +1043,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           [{ texts, ctx: promptMacroContext }],
           parseDecisionPromptQuestionLimit(await decisionSettings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY)),
         );
-        const latestMessageId = [...chatMessages].reverse().find((message: any) => message.id)?.id ?? null;
+        const latestMessageId = latestTurnDecisionId(chatMessages);
         promptMacroContext.decisions = {
           ...cachedPromptDecisionAnswers(plan, promptDecisionCacheKey(chatId, latestMessageId, decisionModelId)),
           unanswered: decisionUnanswered,
@@ -2050,7 +2062,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           })),
           wrapFormat,
           ...(decisionUnanswered.size > 0
-            ? { decisions: { unanswered: [...decisionUnanswered], decisionModelSet: decisionModelId !== null } }
+            ? { decisions: { unanswered: [...decisionUnanswered], decisionModelSet } }
             : {}),
           ...(advancedContext
             ? {

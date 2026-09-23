@@ -55,7 +55,11 @@ import {
   normalizeAgentContextSize,
 } from "../../services/agents/agent-executor.js";
 import { DECISION_SETTINGS_KEYS, resolveDecisionBackend } from "../../services/decision/decision-default.js";
-import { answerAgentTemplateDecisions, replyDecisionTurnId } from "../../services/decision/prompt-decisions.js";
+import {
+  answerAgentTemplateDecisions,
+  latestTurnDecisionId,
+  replyDecisionTurnId,
+} from "../../services/decision/prompt-decisions.js";
 import type { DecisionMessage } from "../../services/generation/agent-activation-questions.js";
 import { createAppSettingsStorage } from "../../services/storage/app-settings.storage.js";
 import { createAgentConcurrencyLimiter } from "../../services/agents/agent-concurrency.js";
@@ -4683,7 +4687,13 @@ export async function registerRetryAgentsRoute(
               content: typeof message.content === "string" ? message.content : "",
             }));
           const retried = resolvedAgents.map((entry) => entry.resolved);
-          const answer = (agents: ResolvedAgent[], context: AgentContext, messages: any[], turnId: string | null) =>
+          const answer = (
+            agents: ResolvedAgent[],
+            context: AgentContext,
+            messages: any[],
+            turnId: string | null,
+            afterReply: boolean,
+          ) =>
             answerAgentTemplateDecisions({
               agents: agents.map((agent) => ({
                 template: effectiveAgentPromptTemplate(agent),
@@ -4696,13 +4706,17 @@ export async function registerRetryAgentsRoute(
               decisionModelId,
               limit,
               getBackend,
+              afterReply,
             });
           if (preGenerationAgentContext && preGenerationRecentMessages) {
+            // Asked like the live turn asked them, before the reply: the same key, and a
+            // reasoning model holds off unless the user opted into waiting for it.
             preGenerationAgentContext.decisions = await answer(
               retried.filter((agent) => agent.phase === "pre_generation"),
               preGenerationAgentContext,
               preGenerationRecentMessages,
-              preGenerationRecentMessages.at(-1)?.id ?? null,
+              latestTurnDecisionId(preGenerationRecentMessages),
+              false,
             );
           }
           agentContext.decisions = await answer(
@@ -4714,7 +4728,8 @@ export async function registerRetryAgentsRoute(
                   lastAssistant.id,
                   typeof lastAssistant.content === "string" ? lastAssistant.content : "",
                 )
-              : (recentMessages.at(-1)?.id ?? null),
+              : latestTurnDecisionId(recentMessages),
+            true,
           );
         } catch (error) {
           // A Decision model that cannot start or answer never fails the retry: its

@@ -36,7 +36,6 @@ export function ImportPresetModal({ open, onClose }: Props) {
       try {
         const text = await file.text();
         const json = JSON.parse(text);
-        decisionImports.note(file.name, json);
         const manifestEntries = getFolderImportEntries(json, ["presets"]);
         const nativePresetEnvelopes = manifestEntries
           .map((entry) => getFolderManifestConfig(entry))
@@ -57,6 +56,9 @@ export function ImportPresetModal({ open, onClose }: Props) {
                 updatedAt: file.lastModified,
               },
             });
+            // Per envelope: a manifest can hold several presets, and only the ones that
+            // imported count toward the notice.
+            if (data.success) decisionImports.note(file.name, envelope);
             nextResults.push({
               filename: file.name,
               success: data.success,
@@ -74,6 +76,7 @@ export function ImportPresetModal({ open, onClose }: Props) {
             updatedAt: file.lastModified,
           },
         });
+        if (data.success) decisionImports.note(file.name, json);
         nextResults.push({
           filename: file.name,
           success: data.success,

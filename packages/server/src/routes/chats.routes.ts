@@ -80,9 +80,12 @@ import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js
 import {
   cachedPromptDecisionAnswers,
   collectTurnDecisionTexts,
+  decisionModelUsable,
+  latestTurnDecisionId,
   planPromptDecisions,
   promptDecisionCacheKey,
 } from "../services/decision/prompt-decisions.js";
+import { gameGmPromptDecisionTexts } from "../services/generation/game-gm-prompt-runtime.js";
 import { DECISION_SETTINGS_KEYS } from "../services/decision/decision-default.js";
 import {
   createGameStateStorage,
@@ -3101,15 +3104,14 @@ export async function chatsRoutes(app: FastifyInstance) {
           // answered and never asks the model; anything unanswered reads as no, and the
           // preview says so.
           const decisionUnanswered = new Set<string>();
-          const decisionModelId =
-            (await appSettings.get(DECISION_SETTINGS_KEYS.localDefault)) ??
-            (await connections.getDefaultForDecision())?.id ??
-            null;
+          const decisionLocalSetting = await appSettings.get(DECISION_SETTINGS_KEYS.localDefault);
+          const decisionConnectionId = (await connections.getDefaultForDecision())?.id ?? null;
+          // The cache key uses the setting as generation does; the report says whether it can serve.
+          const decisionModelId = decisionLocalSetting ?? decisionConnectionId;
+          const decisionModelSet = decisionModelUsable(decisionLocalSetting, decisionConnectionId);
           // Every live preview below reports the statements it had no answer for.
           const decisionReport = () =>
-            decisionUnanswered.size > 0
-              ? { decisions: { unanswered: [...decisionUnanswered], decisionModelSet: decisionModelId !== null } }
-              : {};
+            decisionUnanswered.size > 0 ? { decisions: { unanswered: [...decisionUnanswered], decisionModelSet } } : {};
           {
             const texts = collectTurnDecisionTexts({
               // The same sources generation plans from: preset sections only outside
@@ -3130,6 +3132,14 @@ export async function chatsRoutes(app: FastifyInstance) {
                         : presetStringField(preset as Record<string, unknown> | null, "conversationPrompt"),
                     ]
                   : []),
+                // Resolved in the same macro pass as the prompt.
+                chatMeta.authorNotes,
+                ...(chatMode === "game"
+                  ? gameGmPromptDecisionTexts(
+                      chatMeta,
+                      presetStringField(preset as Record<string, unknown> | null, "gamePrompt"),
+                    )
+                  : []),
               ],
               lorebookEntries: (await createLorebooksStorage(app.db).listActiveEntries({
                 chatId: req.params.id,
@@ -3145,7 +3155,7 @@ export async function chatsRoutes(app: FastifyInstance) {
                 [{ texts, ctx: promptMacroContext }],
                 parseDecisionPromptQuestionLimit(await appSettings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY)),
               );
-              const latestMessageId = [...filteredMessages].reverse().find((message: any) => message.id)?.id ?? null;
+              const latestMessageId = latestTurnDecisionId(filteredMessages);
               promptMacroContext.decisions = {
                 ...cachedPromptDecisionAnswers(
                   plan,

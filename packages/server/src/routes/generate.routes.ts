@@ -5,6 +5,7 @@ import {
   collectDecisionTexts,
   collectTurnDecisionTexts,
   planPromptDecisions,
+  latestTurnDecisionId,
   promptDecisionCacheKey,
   replyDecisionTurnId,
   type PromptDecisionPlan,
@@ -704,7 +705,7 @@ import {
 } from "../services/generation/scene-context-runtime.js";
 import { injectCommittedTrackerContext } from "../services/generation/committed-tracker-context.js";
 import { loadPriorBeholderState } from "../services/agents/beholder-state.js";
-import { injectGameGmPromptRuntime } from "../services/generation/game-gm-prompt-runtime.js";
+import { gameGmPromptDecisionTexts, injectGameGmPromptRuntime } from "../services/generation/game-gm-prompt-runtime.js";
 import { mergeConversationCharacterMemories } from "../services/generation/conversation-memory-context.js";
 import { injectMemoryRecallContext } from "../services/generation/memory-recall-context.js";
 import { shouldSkipAgentByMessageInterval } from "../services/generation/agent-cadence.js";
@@ -2690,6 +2691,15 @@ export async function generateRoutes(app: FastifyInstance) {
                 presets.listChoiceBlocksForPreset(presetId),
               ])
             : undefined;
+        // Read once here and reused by the semantic lorebook check below.
+        const decisionActiveLorebookEntries = await lorebooksStore.listActiveEntries({
+          chatId: input.chatId,
+          characterIds: withIdentityLorebookScope(promptCharacterIds),
+          personaId,
+          activeLorebookIds: chatActiveLorebookIds,
+          excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
+          excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
+        });
         const promptDecisionTexts = collectTurnDecisionTexts({
           preset: decisionPresetParts,
           ctx: promptMacroContext,
@@ -2697,6 +2707,8 @@ export async function generateRoutes(app: FastifyInstance) {
             personaDescription,
             activeChatSummary,
             chatMeta.groupScenarioText,
+            // Resolved in the same macro pass as the prompt.
+            chatMeta.authorNotes,
             // Conversation mode's system prompt replaces the preset sections: the chat's
             // own prompt when it has one, otherwise the preset's.
             ...(chatMode === "conversation"
@@ -2708,42 +2720,24 @@ export async function generateRoutes(app: FastifyInstance) {
                       : "",
                 ]
               : []),
+            ...(chatMode === "game"
+              ? gameGmPromptDecisionTexts(
+                  chatMeta,
+                  resolvedPreset && presetId
+                    ? resolvePresetModePrompt(resolvedPreset as Record<string, unknown>, "game")
+                    : "",
+                )
+              : []),
           ],
-          lorebookEntries: (await lorebooksStore.listActiveEntries({
-            chatId: input.chatId,
-            characterIds: withIdentityLorebookScope(promptCharacterIds),
-            personaId,
-            activeLorebookIds: chatActiveLorebookIds,
-            excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
-            excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
-          })) as Array<{ content?: unknown }>,
+          lorebookEntries: decisionActiveLorebookEntries as Array<{ content?: unknown }>,
         });
-        // Agents that run before or beside the reply read the same turn as the prompt.
-        // Post-processing agents read the finished reply, so theirs are asked later.
-        // Only agents this chat can run: the same set the pipeline resolves below.
-        const preReplyAgentDecisionTexts = collectDecisionTexts(
-          pipelineConfiguredPromptAgents
-            .filter(
-              (agent) =>
-                agent.phase !== "post_processing" &&
-                ((chatEnableAgents && perChatAgentSet.has(agent.type)) || roleplayCommandAgentIds.has(agent.type)),
-            )
-            .map((agent) => {
-              const settings = effectiveAgentSettingsById.get(agent.id) ?? {};
-              return [effectiveAgentPromptTemplate({ ...agent, settings }), settings];
-            }),
-        );
-        if (promptDecisionTexts.length > 0 || preReplyAgentDecisionTexts.length > 0) {
+        // Every decision read before the reply is keyed to the newest message, id and text.
+        const preReplyDecisionTurnId = latestTurnDecisionId(chatMessages);
+        if (promptDecisionTexts.length > 0) {
           promptMacroContext.decisions = await answerDecisionPlan(
-            planPromptDecisions(
-              [
-                { texts: promptDecisionTexts, ctx: promptMacroContext },
-                { texts: preReplyAgentDecisionTexts, ctx: agentShapedDecisionContext(promptMacroContext) },
-              ],
-              promptDecisionLimit,
-            ),
+            planPromptDecisions([{ texts: promptDecisionTexts, ctx: promptMacroContext }], promptDecisionLimit),
             decisionMessages(),
-            [...chatMessages].reverse().find((message: any) => message.id)?.id ?? null,
+            preReplyDecisionTurnId,
           );
         }
         const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(
@@ -2973,9 +2967,7 @@ export async function generateRoutes(app: FastifyInstance) {
             excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
             excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
           };
-          const activeEntries = (await lorebooksStore.listActiveEntries({
-            ...lorebookScopeFilters,
-          })) as LorebookEntry[];
+          const activeEntries = decisionActiveLorebookEntries as LorebookEntry[];
           const hasVectorizedEntries = activeEntries.some(
             (entry) => Array.isArray(entry.embedding) && entry.embedding.length > 0,
           );
@@ -3004,11 +2996,14 @@ export async function generateRoutes(app: FastifyInstance) {
         if (presetId && resolvedPreset && chatMode !== "conversation" && chatMode !== "game") {
           const preset = resolvedPreset;
           wrapFormat = (preset.wrapFormat as "xml" | "markdown" | "none") || "xml";
-          const [sections, groups, choiceBlocks] = await Promise.all([
-            presets.listSections(presetId),
-            presets.listGroups(presetId),
-            presets.listChoiceBlocksForPreset(presetId),
-          ]);
+          // Read once above, under the same condition, for decision statements.
+          const [sections, groups, choiceBlocks] =
+            decisionPresetParts ??
+            (await Promise.all([
+              presets.listSections(presetId),
+              presets.listGroups(presetId),
+              presets.listChoiceBlocksForPreset(presetId),
+            ]));
           for (const section of sections) {
             if (section.enabled !== "true" || section.isMarker !== "true" || !section.markerConfig) continue;
             try {
@@ -5799,6 +5794,31 @@ export async function generateRoutes(app: FastifyInstance) {
           if (imagePromptInstructions) memory._imagePromptInstructions = imagePromptInstructions;
           return { ...trackerContext, memory };
         };
+        // Decision statements in agent prompt templates (#6569), planned from the agents
+        // that will actually run, with the templates they run with, once activation,
+        // cadence and named-template choices have settled. Planned together with the
+        // prompt's statements, which this turn has already answered, so only new ones are
+        // asked and the per-turn limit covers both. Post-processing agents are asked
+        // after the reply.
+        const preReplyAgentDecisionTexts = collectDecisionTexts(
+          pipelineAgents
+            .filter((agent) => agent.phase !== "post_processing")
+            .map((agent) => [effectiveAgentPromptTemplate(agent), agent.settings]),
+        );
+        if (preReplyAgentDecisionTexts.length > 0) {
+          const agentDecisions = await answerDecisionPlan(
+            planPromptDecisions(
+              [
+                { texts: promptDecisionTexts, ctx: promptMacroContext },
+                { texts: preReplyAgentDecisionTexts, ctx: agentShapedDecisionContext(promptMacroContext) },
+              ],
+              promptDecisionLimit,
+            ),
+            decisionMessages(),
+            preReplyDecisionTurnId,
+          );
+          if (agentDecisions) agentContext.decisions = agentDecisions;
+        }
         let preparedCapabilityPostContext: AgentContext | null = null;
         const pipeline = createAgentPipeline(
           pipelineAgents,
@@ -10323,14 +10343,18 @@ export async function generateRoutes(app: FastifyInstance) {
             );
           }
 
-          // Post-processing agents read the finished reply as the latest message, so
-          // their decision statements are asked with it included, not with the answers
-          // taken before it existed (#6569).
+          // Agents that run after the reply read it as the latest message, so their
+          // decision statements are asked with it included, not with the answers taken
+          // before it existed (#6569). That is the post-processing pipeline, plus the
+          // text-rewrite agents and the Lorebook Keeper, which run outside it.
           const postAgentDecisionTexts = collectDecisionTexts(
-            pipelineAgents
-              .filter((agent) => agent.phase === "post_processing")
-              .map((agent) => [effectiveAgentPromptTemplate(agent), agent.settings]),
+            [
+              ...pipelineAgents.filter((agent) => agent.phase === "post_processing"),
+              ...activatedTextRewriteRunAgents,
+              ...(lorebookKeeperAgent ? [lorebookKeeperAgent] : []),
+            ].map((agent) => [effectiveAgentPromptTemplate(agent), agent.settings]),
           );
+
           const postAgentDecisions =
             postAgentDecisionTexts.length > 0
               ? await answerDecisionPlan(
@@ -10350,9 +10374,10 @@ export async function generateRoutes(app: FastifyInstance) {
                   true,
                 )
               : undefined;
+          const postReplyDecisionContext = postAgentDecisionTexts.length > 0 ? { decisions: postAgentDecisions } : {};
           const postAgentContext: AgentContext = {
             ...agentContext,
-            ...(postAgentDecisionTexts.length > 0 ? { decisions: postAgentDecisions } : {}),
+            ...postReplyDecisionContext,
             mainResponse: completedResponse,
             preGenInjections: contextInjections,
             parallelResults,
@@ -10416,7 +10441,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 ...(await pipeline.postGenerate(completedResponse, {
                   preGenInjections: contextInjections,
                   parallelResults,
-                  ...(postAgentDecisionTexts.length > 0 ? { decisions: postAgentDecisions } : {}),
+                  ...postReplyDecisionContext,
                 })),
                 ...parallelResults,
               ]
@@ -10429,7 +10454,7 @@ export async function generateRoutes(app: FastifyInstance) {
             );
             const lorebookKeeperContext = historicalLorebookTarget
               ? buildHistoricalLorebookKeeperContext(agentContext, lorebookKeeperMessages, historicalLorebookTarget.id)
-              : { ...agentContext, mainResponse: completedResponse };
+              : { ...agentContext, ...postReplyDecisionContext, mainResponse: completedResponse };
             const processedMessageId = historicalLorebookTarget?.id ?? (lastSavedMsg as any)?.id ?? "";
 
             if (lorebookKeeperContext && processedMessageId) {
@@ -12405,6 +12430,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
                 const editorContext: AgentContext = {
                   ...agentContext,
+                  ...postReplyDecisionContext,
                   mainResponse: currentResponseForRewrite,
                   preGenInjections:
                     textRewriteAgent.settings.includePreGenInjections === true ? contextInjections : undefined,
