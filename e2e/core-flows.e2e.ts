@@ -2892,6 +2892,27 @@ test("modal backdrops ignore drag releases but still close on a fresh outside cl
   const backdrop = dialog.locator("[data-backdrop-dismiss-surface]");
   await expect(dialog).toBeVisible();
 
+  const bounds = await backdrop.boundingBox();
+  if (!bounds) throw new Error("Backdrop is not visible");
+  const point = { clientX: bounds.x + 4, clientY: bounds.y + 4 };
+  await panel.dispatchEvent("pointerdown", { bubbles: true, pointerId: 1, pointerType: "touch", isPrimary: true });
+  await backdrop.dispatchEvent("pointerdown", {
+    bubbles: true,
+    pointerId: 2,
+    pointerType: "touch",
+    isPrimary: false,
+    ...point,
+  });
+  await backdrop.dispatchEvent("pointerup", {
+    bubbles: true,
+    pointerId: 1,
+    pointerType: "touch",
+    isPrimary: true,
+    ...point,
+  });
+  await backdrop.dispatchEvent("click", { bubbles: true, ...point });
+  await expect(dialog).toBeVisible();
+
   await panel.dispatchEvent("pointerdown", { bubbles: true, pointerId: 1, pointerType: "mouse" });
   await backdrop.dispatchEvent("pointerup", { bubbles: true, pointerId: 1, pointerType: "mouse" });
   await backdrop.dispatchEvent("click", { bubbles: true });

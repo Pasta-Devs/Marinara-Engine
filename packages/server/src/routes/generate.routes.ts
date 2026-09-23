@@ -2434,6 +2434,7 @@ export async function generateRoutes(app: FastifyInstance) {
           { displayName: string; status: string; activity: string; talkativeness: number }
         >();
         let conversationResponderDelays = new Map<string, ConversationResponderDelay>();
+        let conversationMentionResponderDelays = new Map<string, ConversationResponderDelay>();
         let conversationPresenceDelayStartedAt = Date.now();
         let conversationImportantMemoryBlock: string | null = null;
         // Relocation-macro content captured for the deferred-{{#if}} decode pass
@@ -3237,6 +3238,7 @@ export async function generateRoutes(app: FastifyInstance) {
           conversationCharacterNames = convoCharNames;
           conversationRespondingCharacterIds = new Set(presenceRuntime.respondingCharacterIds);
           conversationResponderDelays = new Map(Object.entries(presenceRuntime.responderDelays));
+          conversationMentionResponderDelays = new Map(Object.entries(presenceRuntime.mentionResponderDelays ?? {}));
           conversationPresenceDelayStartedAt = presenceRuntime.presenceDelayStartedAt;
           conversationCharacterPresenceById = new Map(
             convoCharInfo.map((character) => [
@@ -6543,16 +6545,23 @@ export async function generateRoutes(app: FastifyInstance) {
           return chatMode === "conversation" ? "another group member" : "the narrator";
         };
 
-        const getExplicitlyMentionedCharacterIds = (): string[] => {
+        const getExplicitlyMentionedCharacterIds = (assistantText?: string): string[] => {
           const latestUserText =
-            typeof input.userMessage === "string" && input.userMessage.trim()
+            assistantText ??
+            (typeof input.userMessage === "string" && input.userMessage.trim()
               ? input.userMessage
-              : String([...chatMessages].reverse().find((message: any) => message.role === "user")?.content ?? "");
+              : String([...chatMessages].reverse().find((message: any) => message.role === "user")?.content ?? ""));
           const requestedNames = new Set(
-            (input.mentionedCharacterNames ?? []).map((name: string) => normalizeTextForMatch(name)),
+            (assistantText === undefined ? (input.mentionedCharacterNames ?? []) : []).map((name: string) =>
+              normalizeTextForMatch(name),
+            ),
           );
 
-          return availableGroupCharacters
+          const candidates =
+            assistantText !== undefined && chatMode === "conversation"
+              ? charInfo.filter((character) => conversationMentionResponderDelays.has(character.id))
+              : availableGroupCharacters;
+          return candidates
             .filter((character) => {
               const names = [character.name, conversationCharacterPresenceById.get(character.id)?.displayName].filter(
                 (name): name is string => typeof name === "string" && name.trim().length > 0,
@@ -6560,7 +6569,9 @@ export async function generateRoutes(app: FastifyInstance) {
               if (names.some((name) => requestedNames.has(normalizeTextForMatch(name)))) return true;
               return names.some((name) => {
                 const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                return new RegExp(`@${escaped}(?=$|[\\s\\p{P}\\p{S}])`, "iu").test(latestUserText);
+                return new RegExp(`(?:^|[\\s\\p{P}\\p{S}])@${escaped}(?=$|[\\s\\p{P}\\p{S}])`, "iu").test(
+                  latestUserText,
+                );
               });
             })
             .map((character) => character.id);
@@ -9683,6 +9694,8 @@ export async function generateRoutes(app: FastifyInstance) {
           // Individual group mode: generate one response per character
           sendProgress("generating");
           let runningMessages = [...finalMessages];
+          const routeCharacterMentions =
+            !input.continueMessageId && (chatMode === "conversation" || chatMode === "roleplay");
 
           if (generationGuideInstruction) {
             runningMessages.push({ role: "system", content: generationGuideInstruction });
@@ -9769,6 +9782,14 @@ export async function generateRoutes(app: FastifyInstance) {
             if (charInstruction) {
               messagesWithInstruction.push({ role: "system", content: charInstruction });
             }
+            if (routeCharacterMentions && groupTurnPromptEnabled) {
+              messagesWithInstruction.push({
+                role: "system",
+                contextKind: "injection",
+                content:
+                  "You may address another group member with @Name to invite their next reply. Each available character can reply once in this turn.",
+              });
+            }
 
             const genResult = await generateForCharacter(
               charId,
@@ -9799,6 +9820,31 @@ export async function generateRoutes(app: FastifyInstance) {
               });
             }
             collectedOocMessages.push(...genResult.oocMessages);
+
+            if (routeCharacterMentions) {
+              // Reuse this turn's queue: prioritize mentions, but never revisit a speaker.
+              const visited = new Set(respondingCharIds.slice(0, ci + 1));
+              const mentioned = getExplicitlyMentionedCharacterIds(genResult.response).filter((id) => !visited.has(id));
+              if (mentioned.length > 0) {
+                for (const id of mentioned) {
+                  const delay = conversationMentionResponderDelays.get(id);
+                  if (delay && !conversationResponderDelays.has(id)) conversationResponderDelays.set(id, delay);
+                }
+                const remaining = respondingCharIds.slice(ci + 1).filter((id) => !mentioned.includes(id!));
+                respondingCharIds.splice(ci + 1, respondingCharIds.length, ...mentioned, ...remaining);
+                sendSseEvent(reply, {
+                  type: "response_queue",
+                  data: {
+                    characterIds: respondingCharIds,
+                    characters: respondingCharIds.map((id, index) => ({
+                      id,
+                      name: groupResponderName(id!),
+                      order: index + 1,
+                    })),
+                  },
+                });
+              }
+            }
 
             // Add this character's response to the running context for the next character
             const inTurnMessage = {

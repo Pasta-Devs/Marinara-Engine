@@ -705,7 +705,8 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await inspector.getByRole("button", { name: "Save correction", exact: true }).click();
     await expect.poll(() => status.records[0]?.audienceCharacterIds).toEqual([]);
     await expect(inspector).toContainText("Messages 1–2 · Narrator only");
-    await captureThemes(page, info, "advanced-memory-narrator-only", inspector);
+    // Capture the visible inspector without scrolling its tall container during theme changes.
+    await captureThemes(page, info, "advanced-memory-narrator-only");
     await inspector
       .getByRole("textbox", { name: "Summary text", exact: true })
       .fill("Correction: the notebook is green.");
