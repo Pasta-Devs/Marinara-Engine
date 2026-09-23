@@ -1917,6 +1917,61 @@ function flattenAgentConditionalMacrosInner(input: string, decodeTextEntities: b
   return result;
 }
 
+/** Keep generated summaries inside their readers' scope without nesting duplicate character guards. */
+export function scopeCharacterSummary(input: string, characterNames: readonly string[], depth = 0): string {
+  const names = [...new Set(characterNames)];
+  if (!names.length) return "";
+  if (names.some((name) => name.includes("{{") || name.includes("}}")))
+    throw new Error("Cannot scope a summary: character names must not contain macro delimiters ({{ or }}).");
+  const wrap = (text: string) => {
+    if (!text.trim()) return text;
+    const condition = names
+      .map((name) => `"${name.replace(/\\/gu, "\\\\").replace(/["\u201c\u201d\u201e\u201f]/gu, "\\$&")}"`)
+      .join(" || ");
+    return `{{#if char == ${condition}}}${text}{{/if}}`;
+  };
+  if (depth >= MAX_MACRO_RESOLUTION_DEPTH) return wrap(input);
+  let result = "";
+  let cursor = 0;
+  while (cursor < input.length) {
+    const start = findConditionalStart(input, cursor);
+    if (!start) return result + wrap(input.slice(cursor));
+    const block = findConditionalBranches(input, start.end, start.condition);
+    if (!block) return result + wrap(input.slice(cursor));
+    result += wrap(input.slice(cursor, start.start));
+    // Only character/literal conditions can be simplified now. Keep authored
+    // variable conditions intact so changing a variable still changes visibility.
+    const characterOnly = block.branches.every(
+      ({ condition }) =>
+        condition === null ||
+        (!condition.includes("{{") &&
+          parseConditionComparisons(condition).every(({ left, right }) =>
+            [left, right].every(
+              (operand) =>
+                operand === undefined ||
+                ["char", "charname", "character", "speaker"].includes(normalizeConditionKey(operand)) ||
+                stripOuterQuotes(operand) !== null,
+            ),
+          )),
+    );
+    if (!characterOnly) result += wrap(input.slice(start.start, block.endEnd));
+    else {
+      let remaining = names;
+      for (const branch of block.branches) {
+        const readers = remaining.filter(
+          (name) =>
+            branch.condition === null ||
+            evaluateCondition(branch.condition, { user: "", char: name, characters: [name], variables: {} }),
+        );
+        result += scopeCharacterSummary(input.slice(branch.contentStart, branch.contentEnd), readers, depth + 1);
+        remaining = remaining.filter((name) => !readers.includes(name));
+      }
+    }
+    cursor = block.endEnd;
+  }
+  return result;
+}
+
 function splitTopLevelDoubleColon(input: string): string[] {
   const parts: string[] = [];
   let current = "";
