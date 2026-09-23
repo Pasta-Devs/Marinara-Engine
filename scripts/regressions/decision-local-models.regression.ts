@@ -52,6 +52,8 @@ import {
 } from "../../packages/server/src/services/decision/decision-thinking-cache.js";
 import { hasThinkingSetting } from "../../packages/server/src/services/decision/decision-slots.js";
 import { decisionConnectionUnavailable } from "../../packages/server/src/routes/decision.routes.js";
+import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
+import { DECISION_SIDECAR_RATE_LIMIT, rateLimitHook } from "../../packages/server/src/middleware/rate-limit.js";
 
 // ── reading an answer out of log-probabilities ────────────────────────────────
 
@@ -708,5 +710,41 @@ assert.equal(decisionConnectionUnavailable(borrowsMissing, all), "needs_relinkin
 assert.equal(resolveSharedDevice(devices, null), null, "two cards and no name: claim nothing");
 assert.equal(resolveSharedDevice([devices[0]!], null), devices[0]);
 assert.equal(resolveSharedDevice(devices, "RTX 3060"), devices[1]);
+
+// ── the decision sidecar routes are rate-limited ──────────────────────────────
+
+// The per-route config is what a reader and CodeQL see, but only the hook's path table
+// enforces anything. Both are checked: every sidecar route declares the limit, and the
+// hook actually applies it, including to a percent-encoded path.
+{
+  const source = readFileSync(new URL("../../packages/server/src/routes/decision.routes.ts", import.meta.url), "utf8");
+  const sidecarRoutes = [...source.matchAll(/app\.(?:get|post)\("(\/sidecar[^"]*)",([^\n]*)/g)];
+  assert.ok(sidecarRoutes.length >= 7, "every decision sidecar route is found");
+  for (const [, path, rest] of sidecarRoutes)
+    assert.match(rest!, /rateLimit: DECISION_SIDECAR_RATE_LIMIT/, `${path} declares the decision sidecar limit`);
+
+  const limited = Fastify();
+  limited.addHook("onRequest", rateLimitHook);
+  limited.post("/api/decision/sidecar/remove", async () => ({ ok: true }));
+  limited.post("/api/decision/sidecar/inspect", async () => ({ ok: true }));
+  limited.get("/api/decision/options", async () => ({ ok: true }));
+  try {
+    let firstLimited = -1;
+    for (let i = 1; i <= DECISION_SIDECAR_RATE_LIMIT.max + 1; i++) {
+      const res = await limited.inject({ method: "POST", url: "/api/decision/sidecar/remove" });
+      if (res.statusCode === 429) {
+        firstLimited = i;
+        break;
+      }
+    }
+    assert.equal(firstLimited, DECISION_SIDECAR_RATE_LIMIT.max + 1, "the decision sidecar wall engages past its limit");
+    const encoded = await limited.inject({ method: "POST", url: "/api/decision/sidecar/insp%65ct" });
+    assert.equal(encoded.statusCode, 429, "a percent-encoded sidecar path shares the same bucket");
+    const options = await limited.inject({ method: "GET", url: "/api/decision/options" });
+    assert.equal(options.statusCode, 200, "the rest of the decision API keeps the default class");
+  } finally {
+    await limited.close();
+  }
+}
 
 console.log("decision-local-models regression passed");

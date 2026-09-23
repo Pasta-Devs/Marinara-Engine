@@ -35,6 +35,7 @@ import { createAppSettingsStorage } from "../services/storage/app-settings.stora
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { logger } from "../lib/logger.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { DECISION_SIDECAR_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { decisionProcessService } from "../services/sidecar/decision-process.service.js";
 import { DECISION_TIMEOUT_MS } from "@marinara-engine/shared";
 import { askNoulQuestions } from "../services/decision/system-one.client.js";
@@ -194,7 +195,7 @@ export async function decisionRoutes(app: FastifyInstance) {
   }
 
   /** What the panel needs: the catalog, each entry's verdict, and what is installed. */
-  app.get("/sidecar", async () => {
+  app.get("/sidecar", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async () => {
     const models = await Promise.all(
       SIDECAR_DECISION_MODELS.map(async (model) => ({
         id: model.id,
@@ -228,7 +229,7 @@ export async function decisionRoutes(app: FastifyInstance) {
    * tell an informed choice from a surprise. Disabling stops the process and keeps the
    * download: removing the files is a separate, explicit action.
    */
-  app.post("/sidecar/enable", async (req, reply) => {
+  app.post("/sidecar/enable", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req, reply) => {
     const body = z.object({ enabled: z.boolean(), confirmedVerdict: z.string().max(64).optional() }).parse(req.body);
     if (body.enabled && !isDecisionRuntimeSupported())
       return reply.status(409).send({ error: "The decision sidecar is not supported on this machine" });
@@ -243,7 +244,7 @@ export async function decisionRoutes(app: FastifyInstance) {
     };
   });
 
-  app.post("/sidecar/start-policy", async (req) => {
+  app.post("/sidecar/start-policy", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req) => {
     const { startPolicy } = z.object({ startPolicy: z.enum(["on_demand", "with_marinara"]) }).parse(req.body);
     return { settings: await writeSidecarSettings((current) => ({ ...current, startPolicy })) };
   });
@@ -254,7 +255,7 @@ export async function decisionRoutes(app: FastifyInstance) {
    * Refuses an entry this machine cannot run rather than letting a download start and
    * fail at load, which is the whole point of having a preflight.
    */
-  app.post("/sidecar/install", async (req, reply) => {
+  app.post("/sidecar/install", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Decision model download" })) return;
     const body = z
       .object({
@@ -300,7 +301,7 @@ export async function decisionRoutes(app: FastifyInstance) {
   });
 
   /** Delete the runtime and every downloaded weight. Separate from turning it off. */
-  app.post("/sidecar/remove", async (req, reply) => {
+  app.post("/sidecar/remove", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Decision model removal" })) return;
     await decisionProcessService.stop();
     await decisionRuntimeService.remove();
@@ -323,7 +324,7 @@ export async function decisionRoutes(app: FastifyInstance) {
    * reason it is refused. Read-only on purpose: the user sees the base model it pulls
    * and the total size before they agree to any of it.
    */
-  app.post("/sidecar/inspect", async (req) => {
+  app.post("/sidecar/inspect", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req) => {
     const { repoId, revision } = z
       .object({ repoId: z.string().trim().min(3).max(120), revision: z.string().trim().max(120).optional() })
       .parse(req.body);
@@ -339,7 +340,7 @@ export async function decisionRoutes(app: FastifyInstance) {
     };
   });
 
-  app.post("/sidecar/stop", async () => {
+  app.post("/sidecar/stop", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async () => {
     await decisionProcessService.stop();
     return { process: decisionProcessService.getStatus() };
   });
