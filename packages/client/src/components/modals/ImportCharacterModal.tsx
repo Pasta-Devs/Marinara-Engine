@@ -2,6 +2,7 @@
 // Modal: Import Character (JSON / PNG)
 // ──────────────────────────────────────────────
 import { useState, useRef } from "react";
+import { createDecisionImportTracker } from "../../lib/decision-import-notice";
 import { Modal } from "../ui/Modal";
 import { Download, FileJson, Image, CheckCircle, XCircle, Loader2, BookOpen } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -67,6 +68,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
     setPendingLorebookChoice(null);
 
     try {
+      const decisionImports = createDecisionImportTracker();
       const stCharacterFiles: File[] = [];
       const marinaraPayloads: Array<{ file: File; payload: Record<string, unknown> }> = [];
       const marinaraPackages: File[] = [];
@@ -87,6 +89,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
 
         const text = await file.text();
         const json = JSON.parse(text) as Record<string, unknown>;
+        decisionImports.note(file.name, json);
         const isMarinaraEnvelope =
           json.version === 1 && typeof json.type === "string" && (json.type as string).startsWith("marinara_");
 
@@ -136,10 +139,12 @@ export function ImportCharacterModal({ open, onClose }: Props) {
             error?: string;
             lorebook?: { lorebookId?: string };
             embeddedLorebook?: { hasEmbeddedLorebook?: boolean; skipped?: boolean; entries?: number };
+            usesDecisions?: boolean;
           }>;
         }>("/import/st-character/batch", form);
 
         for (const result of batchResult.results) {
+          decisionImports.mark(result.filename, result.usesDecisions);
           if (result.lorebook?.lorebookId) importedLorebook = true;
           nextResults.push({
             filename: result.filename,
@@ -193,10 +198,13 @@ export function ImportCharacterModal({ open, onClose }: Props) {
             "timestampOverrides",
             JSON.stringify({ createdAt: file.lastModified, updatedAt: file.lastModified }),
           );
-          const result = await api.upload<{ success: boolean; name?: string; error?: string }>(
-            "/import/marinara-package",
-            form,
-          );
+          const result = await api.upload<{
+            success: boolean;
+            name?: string;
+            error?: string;
+            usesDecisions?: boolean;
+          }>("/import/marinara-package", form);
+          decisionImports.mark(file.name, result.usesDecisions);
           nextResults.push({
             filename: file.name,
             success: result.success,
@@ -212,6 +220,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
       }
 
       setResults(nextResults);
+      decisionImports.notify(nextResults, localizeUi);
       setStatus("done");
 
       if (nextResults.some((result) => result.success)) {

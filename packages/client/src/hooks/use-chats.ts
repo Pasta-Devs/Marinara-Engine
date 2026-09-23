@@ -1583,6 +1583,7 @@ export function usePeekPrompt() {
         } | null;
         gameToolPlanning?: GameToolPlanningInfo | null;
         agentNote?: string;
+        decisions?: { unanswered: string[]; decisionModelSet: boolean };
       }>(`/chats/${chatId}/peek-prompt`, messageId ? { messageId } : {});
     },
   });

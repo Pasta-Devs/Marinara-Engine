@@ -593,6 +593,22 @@ require a separate worker or process boundary, which this API does not provide.
 This is not a soft seam. `api.registerTool` only exists on an Engine this new, so a package that
 needs it must declare `capabilityApi` 1.19 and will refuse to install on anything older.
 
+## Decision statements and the Decision model
+
+The user's **Decision model** answers yes/no and choice statements about the recent chat. See [Decision Models](../connections/decision-models.md) for what it is and how users set one up.
+
+An agent prompt template shipped by a package can use decision statements exactly as a user's custom agent does: `{{#if decision:"..."}}` and `{{#if decision_choice:"..." == "..."}}`. The Engine finds them in the template, asks them before the agent runs (after the reply, for a post-processing agent), and resolves the template with the answers. No capability API version is involved. See [Conditional Prompts](../prompts/conditional-prompts.md#asking-the-decision-model) for the syntax and the wording advice, and [Creating Custom Agents](../agents/custom-agents.md#decision-statements-in-the-agents-prompt) for how agent phases read them.
+
+Package runtime code has no way to ask the Decision model directly yet. That needs a capability API method and a version bump of its own.
+
+Design every use for a user with no Decision model, which is most users. A statement with no answer reads as no, so the `{{else}}` branch, or nothing, must be a sensible default. Never write "requires Jev": a user's own local model often answers as well.
+
+### A note for Game Mode Experience developers
+
+Engine combat decides what ordinary enemies do on its own. Every non-boss enemy on the GM's side of a fight gets a role from its skills and class (bruiser, bulwark, skirmisher, marksman, spellcaster, supporter or controller), a proficiency from its level unless the enemy sets one (novice, trained, veteran or master), and a temperament such as reckless, cautious, opportunistic or protective. Beasts and monstrosities are always mindless. Engine code picks these from a seed with no model call, and the game's difficulty changes how consistently enemies play to type. Only authored bosses are directed by the GM through a model call. See [Game Mode combat AI](game-combat-ai-design.md).
+
+More combat improvements are on the way. Before involving a decision model anywhere in the combat pipeline, check that vanilla Engine combat does not already do what you need. If an enemy needs a particular personality, give it the matching proficiency and temperament first. A decision per enemy turn would add a network request, cost and a time limit to something the Engine settles locally and instantly, and a fight would then depend on a model the user may not have set up, which reads as "no".
+
 ## Initial packages
 
 - all currently built-in agents;

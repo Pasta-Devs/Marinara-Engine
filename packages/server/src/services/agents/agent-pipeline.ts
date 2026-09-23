@@ -515,11 +515,14 @@ export function createAgentPipeline(
       options: {
         preGenInjections?: AgentInjection[];
         parallelResults?: AgentResult[];
+        /** Decision answers taken with the finished reply, in place of the pre-reply ones. */
+        decisions?: AgentContext["decisions"];
       } = {},
     ): Promise<AgentResult[]> {
       const postAgents = agents.filter((agent) => agent.phase === "post_processing");
       const fullContext: AgentContext = {
         ...baseContext,
+        ...("decisions" in options ? { decisions: options.decisions } : {}),
         mainResponse,
         preGenInjections: options.preGenInjections ?? preGenerationInjections,
         parallelResults: options.parallelResults ?? parallelPhaseResults,

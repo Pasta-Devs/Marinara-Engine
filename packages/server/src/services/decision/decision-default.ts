@@ -10,6 +10,7 @@ import {
   DECISION_LOCAL_DEFAULT_SETTINGS_KEY,
   DEFAULT_DECISION_CALIBRATION,
   type DecisionCalibration,
+  DECISION_SMART_ORDER_SETTINGS_KEY,
   DECISION_THINKING_PREGENERATION_SETTINGS_KEY,
   DECISION_TIMEOUT_MS,
   decisionLocalSlotForId,
@@ -20,7 +21,7 @@ import { getAnswerStyle } from "./decision-thinking-cache.js";
 import { decisionSlotContextSize, resolveDecisionSlot } from "./decision-slots.js";
 import { askSidecarNoulQuestions } from "./sidecar-decision.backend.js";
 import { resolveDecisionConnection, type DecisionConnectionRow } from "./decision-connection.js";
-import { askNoulQuestions, type NoulQuestion } from "./system-one.client.js";
+import { askNoulQuestions, DECISION_CHOICE_NONE, type NoulQuestion } from "./system-one.client.js";
 
 /**
  * Headroom left for the system prompt and the question when capping a state against a
@@ -45,6 +46,55 @@ export interface DecisionBackend {
    */
   deferPreGeneration: boolean;
   ask: (state: unknown, questions: NoulQuestion[]) => Promise<Map<string, number> | null>;
+  /**
+   * Yes/no and Choice questions together, for prompt conditionals. A question with
+   * `options` is a Choice question; its answer is the chosen option, or
+   * `DECISION_CHOICE_NONE` when none of them fits.
+   */
+  askMixed: (state: unknown, questions: NoulQuestion[]) => Promise<MixedDecisionAnswers>;
+}
+
+export interface MixedDecisionAnswers {
+  answers: Map<string, number>;
+  choices: Map<string, string>;
+}
+
+/**
+ * Choice for a model that only answers yes or no: each option becomes its own
+ * statement, and the likeliest wins if it clears the model's threshold. This is how
+ * Open-Jev answers Choice internally too, one candidate at a time.
+ */
+export async function askChoicesAsStatements(
+  ask: (state: unknown, questions: NoulQuestion[]) => Promise<Map<string, number> | null>,
+  state: unknown,
+  questions: NoulQuestion[],
+  threshold: number,
+): Promise<MixedDecisionAnswers> {
+  const plain = questions.filter((question) => !question.options);
+  const expanded = questions.flatMap((question) =>
+    (question.options ?? []).map((option, index) => ({
+      id: `${question.id}\u0000${index}`,
+      instructions: `${question.instructions}: ${option}`,
+    })),
+  );
+  const answers = (await ask(state, [...plain, ...expanded])) ?? new Map<string, number>();
+  const choices = new Map<string, string>();
+  for (const question of questions) {
+    if (!question.options) continue;
+    let bestOption: string | null = null;
+    let bestP = -1;
+    for (const [index, option] of question.options.entries()) {
+      const p = answers.get(`${question.id}\u0000${index}`);
+      if (p !== undefined && p > bestP) {
+        bestOption = option;
+        bestP = p;
+      }
+    }
+    // No answer at all leaves the question unanswered, which reads as false.
+    if (bestOption !== null) choices.set(question.id, bestP >= threshold ? bestOption : DECISION_CHOICE_NONE);
+  }
+  for (const key of [...answers.keys()]) if (key.includes("\u0000")) answers.delete(key);
+  return { answers, choices };
 }
 
 export interface DecisionDefaultDeps {
@@ -111,13 +161,41 @@ export async function resolveDecisionBackend(
               state,
               questions,
               // Local and on loopback, but a model still has to run: the sidecar
-              // budget rather than the hosted one.
-              timeoutMs: DECISION_TIMEOUT_MS.sidecar,
+              // budget rather than the hosted one, grown per question for a model that
+              // answers them one after another, and never past the reasoning budget.
+              timeoutMs: Math.min(
+                DECISION_TIMEOUT_MS.thinking,
+                DECISION_TIMEOUT_MS.sidecar + (resolved.perQuestionMs ?? 0) * Math.max(0, questions.length - 1),
+              ),
               signal,
               questionShape: calibration.questionShape,
               debugMode: deps.debugMode,
             })
           ).answers,
+        askMixed: async (state, questions) => {
+          const result = await askNoulQuestions({
+            connection: {
+              endpoint: `${resolved.baseUrl}/v1/systemone`,
+              apiKey: "",
+              model: resolved.model,
+              maxStateTokens,
+            },
+            state,
+            questions,
+            // Each Choice option, and the added "none of these", costs about as much as
+            // one more yes/no statement (measured on Open-Jev 9B), so options count too.
+            timeoutMs: Math.min(
+              DECISION_TIMEOUT_MS.thinking,
+              DECISION_TIMEOUT_MS.sidecar +
+                (resolved.perQuestionMs ?? 0) *
+                  Math.max(0, questions.reduce((n, q) => n + (q.options ? q.options.length + 1 : 1), 0) - 1),
+            ),
+            signal,
+            questionShape: calibration.questionShape,
+            debugMode: deps.debugMode,
+          });
+          return { answers: result.answers, choices: result.choices };
+        },
       };
     }
 
@@ -135,6 +213,14 @@ export async function resolveDecisionBackend(
       calibration: DEFAULT_DECISION_CALIBRATION,
       deferPreGeneration: thinks && !(await deps.getThinkingPreGeneration()),
       ask: async (state, questions) => askSidecarNoulQuestions({ slot: resolved, state, questions, signal }),
+      askMixed: (state, questions) =>
+        askChoicesAsStatements(
+          (innerState, inner) =>
+            askSidecarNoulQuestions({ slot: resolved, state: innerState, questions: inner, signal }),
+          state,
+          questions,
+          DEFAULT_DECISION_CALIBRATION.defaultThreshold,
+        ),
     };
   }
 
@@ -173,10 +259,23 @@ export async function resolveDecisionBackend(
           debugMode: deps.debugMode,
         })
       ).answers,
+    askMixed: async (state, questions) => {
+      const result = await askNoulQuestions({
+        connection,
+        state,
+        questions,
+        timeoutMs: DECISION_TIMEOUT_MS.systemOne,
+        signal,
+        questionShape: calibration.questionShape,
+        debugMode: deps.debugMode,
+      });
+      return { answers: result.answers, choices: result.choices };
+    },
   };
 }
 
 export const DECISION_SETTINGS_KEYS = {
   localDefault: DECISION_LOCAL_DEFAULT_SETTINGS_KEY,
   thinkingPreGeneration: DECISION_THINKING_PREGENERATION_SETTINGS_KEY,
+  smartOrder: DECISION_SMART_ORDER_SETTINGS_KEY,
 } as const;

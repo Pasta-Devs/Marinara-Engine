@@ -60,6 +60,8 @@ export interface ResolvedDecisionSlot {
   protocol: "chat_logprobs" | "system_one";
   /** The model's own operating point, for a slot that brings one. */
   calibration?: DecisionCalibration;
+  /** Measured extra time per question, for a model that answers them one at a time. */
+  perQuestionMs?: number;
   /**
    * The input limit this model was launched with.
    *
@@ -203,6 +205,7 @@ export async function resolveDecisionSlot(
         label: model.label,
         protocol: "system_one",
         calibration: model.calibration,
+        perQuestionMs: model.perQuestionMs,
         maxLengthTokens: model.maxLengthTokens,
         // A purpose-built decision model never reasons: it scores candidates in one
         // forward pass and has no text to think in.

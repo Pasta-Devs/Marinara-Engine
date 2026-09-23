@@ -1,6 +1,8 @@
 import { withLatestMessageReply } from "../../services/generation/message-reply.js";
 import type { FastifyInstance } from "fastify";
 import {
+  DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
+  parseDecisionPromptQuestionLimit,
   LOCAL_SIDECAR_CONNECTION_ID,
   isClaudeAdaptiveOnlyNoSamplingModel,
   resolveProviderReasoningEffort,
@@ -31,6 +33,18 @@ import {
   type AdvancedMemoryPlacement,
 } from "../../services/prompt/advanced-memory-prompt.js";
 import { createConnectionsStorage } from "../../services/storage/connections.storage.js";
+import { createAppSettingsStorage } from "../../services/storage/app-settings.storage.js";
+import { createLorebooksStorage } from "../../services/storage/lorebooks.storage.js";
+import {
+  cachedPromptDecisionAnswers,
+  collectTurnDecisionTexts,
+  decisionModelUsable,
+  latestTurnDecisionId,
+  planPromptDecisions,
+  promptDecisionCacheKey,
+} from "../../services/decision/prompt-decisions.js";
+import { gameGmPromptDecisionTexts } from "../../services/generation/game-gm-prompt-runtime.js";
+import { DECISION_SETTINGS_KEYS } from "../../services/decision/decision-default.js";
 import { createPromptsStorage } from "../../services/storage/prompts.storage.js";
 import { createCharactersStorage } from "../../services/storage/characters.storage.js";
 import { createAgentsStorage } from "../../services/storage/agents.storage.js";
@@ -448,6 +462,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
   const chats = createChatsStorage(app.db);
   const connections = createConnectionsStorage(app.db);
   const presets = createPromptsStorage(app.db);
+  const decisionSettings = createAppSettingsStorage(app.db);
+  const decisionLorebooks = createLorebooksStorage(app.db);
   const chars = createCharactersStorage(app.db);
   const regexScriptsStore = createRegexScriptsStorage(app.db);
 
@@ -970,6 +986,70 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       ],
     });
     const historyMacroProfilesById = (await resolveCharacterMacroData(app.db, allCharacterIds)).profilesById;
+
+    // Decision statements (#6569). Peek Prompt shows the branches this turn has already
+    // answered and never asks the model itself; what is not answered yet reads as no,
+    // and the preview says so rather than implying the prompt is final.
+    const decisionUnanswered = new Set<string>();
+    const decisionLocalSetting = await decisionSettings.get(DECISION_SETTINGS_KEYS.localDefault);
+    const decisionConnectionId = (await connections.getDefaultForDecision())?.id ?? null;
+    // The cache key uses the setting as generation does; the report says whether it can serve.
+    const decisionModelId = decisionLocalSetting ?? decisionConnectionId;
+    const decisionModelSet = decisionModelUsable(decisionLocalSetting, decisionConnectionId);
+    {
+      const texts = collectTurnDecisionTexts({
+        // The same sources generation plans from: preset sections only outside
+        // Conversation and Game, where the conversation prompt takes their place.
+        preset:
+          effectivePresetId && effectivePreset && chatMode !== "conversation" && chatMode !== "game"
+            ? await Promise.all([
+                presets.listSections(effectivePresetId),
+                presets.listGroups(effectivePresetId),
+                presets.listChoiceBlocksForPreset(effectivePresetId),
+              ])
+            : undefined,
+        ctx: promptMacroContext,
+        extra: [
+          personaDescription,
+          activeChatSummary,
+          chatMeta.groupScenarioText,
+          ...(chatMode === "conversation"
+            ? [
+                typeof chatMeta.customSystemPrompt === "string" && chatMeta.customSystemPrompt.trim()
+                  ? chatMeta.customSystemPrompt
+                  : presetStringField(effectivePreset as Record<string, unknown> | null, "conversationPrompt"),
+              ]
+            : []),
+          // Resolved in the same macro pass as the prompt.
+          chatMeta.authorNotes,
+          ...(chatMode === "game"
+            ? gameGmPromptDecisionTexts(
+                chatMeta,
+                presetStringField(effectivePreset as Record<string, unknown> | null, "gamePrompt"),
+              )
+            : []),
+        ],
+        lorebookEntries: (await decisionLorebooks.listActiveEntries({
+          chatId,
+          characterIds: withIdentityLorebookScope(promptCharacterIds),
+          personaId,
+          activeLorebookIds: Array.isArray(chatMeta.activeLorebookIds) ? (chatMeta.activeLorebookIds as string[]) : [],
+          excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
+          excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
+        })) as Array<{ content?: unknown }>,
+      });
+      if (texts.length > 0) {
+        const plan = planPromptDecisions(
+          [{ texts, ctx: promptMacroContext }],
+          parseDecisionPromptQuestionLimit(await decisionSettings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY)),
+        );
+        const latestMessageId = latestTurnDecisionId(chatMessages);
+        promptMacroContext.decisions = {
+          ...cachedPromptDecisionAnswers(plan, promptDecisionCacheKey(chatId, latestMessageId, decisionModelId)),
+          unanswered: decisionUnanswered,
+        };
+      }
+    }
     const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(
       messages: T[],
     ): T[] => resolvePromptMessageMacros(messages, promptMacroContext, historyMacroProfilesById);
@@ -1483,6 +1563,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         impersonate,
         preserveImpersonatePresetSections: impersonate && effectivePresetSource === "impersonate",
         deferCharacterMacros,
+        decisions: promptMacroContext.decisions,
       };
 
       const assembled = await assemblePrompt(assemblerInput);
@@ -1980,6 +2061,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             ...(message.providerMetadata ? { providerMetadata: message.providerMetadata } : {}),
           })),
           wrapFormat,
+          ...(decisionUnanswered.size > 0
+            ? { decisions: { unanswered: [...decisionUnanswered], decisionModelSet } }
+            : {}),
           ...(advancedContext
             ? {
                 advancedMemory: {

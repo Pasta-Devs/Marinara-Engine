@@ -112,6 +112,13 @@ export interface SidecarDecisionModelInfo {
   minComputeCapability: string;
   /** Where this model answers, which is not where a general chat model answers. */
   calibration: DecisionCalibration;
+  /**
+   * Measured extra time per question beyond the first, for a model that answers
+   * questions one after another rather than in a single pass. The request budget grows
+   * by this much per question, so a group of questions is not always cut off by a
+   * budget sized for one. Omitted when the extra cost is negligible.
+   */
+  perQuestionMs?: number;
   licenses: string[];
   /** Drives the "not developed by Marinara" wording before anything downloads. */
   thirdParty: true;
@@ -153,6 +160,39 @@ export const SIDECAR_DECISION_MODELS: SidecarDecisionModelInfo[] = [
     // eight correctly; 0.1 sits in the middle of that band.
     calibration: { defaultThreshold: 0.1, questionShape: "task_object" },
     // Read from the LICENSE file at each pinned revision. Qwen3.5-2B is Apache-2.0 there.
+    licenses: ["MIT (source)", "Apache-2.0 (adapter)", "Apache-2.0 (base weights)"],
+    thirdParty: true,
+  },
+  {
+    id: "open-jev-9b",
+    label: "Open-Jev 9B",
+    description:
+      "The larger Open-Jev: more accurate than 2B in our tests, but it needs about 22 GB of GPU memory, so on a 24 GB card nothing else fits beside it, and it takes about a second per question.",
+    runtime: "open_jev_torch",
+    artifacts: [
+      { repoId: "ZefanCai/Open-Jev-9B", revision: "47e966881e489511c0c7f5633a9e1960a676a551", paths: ["package/"] },
+      { repoId: "Qwen/Qwen3.5-9B", revision: "c202236235762e1c871ad0ccb60c8ee5ba337b9a" },
+    ],
+    // 25,588,410 bytes of checkpoint plus 19,329,393,661 bytes of base weights, from
+    // the pinned revisions.
+    downloadSizeBytes: 19_354_982_071,
+    // Measured after a real install on 2026-09-23: weights plus the runtime
+    // environment, with uv's cache already pruned (25,274,581,531 bytes).
+    diskBytes: 25_300_000_000,
+    // Measured at 22,492 MiB peak serving a full batch of eight near max-length 4096.
+    vramBytes: 23_584_571_392,
+    maxLengthTokens: 4096,
+    batchSize: 8,
+    platforms: [{ os: "linux", arch: "x64", gpuVendor: "nvidia", minDriver: "580" }],
+    minComputeCapability: "7.5",
+    // Measured, like 2B. On the eight roleplay turns (object-shaped question) it
+    // answered yes between 0.135 and 0.79 and no at 0.019 or below, and it scored 31
+    // of 32 recommended-statement turns at 0.1. Any threshold from about 0.02 to 0.13
+    // separates the roleplay set; 0.1 matches 2B's operating point.
+    calibration: { defaultThreshold: 0.1, questionShape: "task_object" },
+    // About 1.0 s for one question on a short scene, 3.35 s for four and 6.6 s for
+    // eight: the prefix cache stays off, so each question re-reads the scene.
+    perQuestionMs: 800,
     licenses: ["MIT (source)", "Apache-2.0 (adapter)", "Apache-2.0 (base weights)"],
     thirdParty: true,
   },
@@ -306,8 +346,11 @@ export function sanitizeCustomDecisionModel(value: unknown): SidecarDecisionMode
   if (typeof model.label !== "string" || !model.label.trim()) return null;
   const positive = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0;
   if (!positive(model.vramBytes) || !positive(model.diskBytes) || !positive(model.downloadSizeBytes)) return null;
-  // The runtime's own constraints always win over whatever was stored.
-  return { ...model, ...defaults };
+  // The runtime's own constraints always win over whatever was stored, and a measured
+  // per-question cost belongs to curated entries only: a stored value could otherwise
+  // stretch every request's budget.
+  const { perQuestionMs: _unmeasured, ...rest } = model;
+  return { ...rest, ...defaults };
 }
 
 export function parseDecisionSidecarSettings(raw: string | null | undefined): DecisionSidecarSettings {

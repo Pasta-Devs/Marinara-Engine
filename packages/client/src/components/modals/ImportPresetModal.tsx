@@ -2,6 +2,7 @@
 // Modal: Import Preset (JSON)
 // ──────────────────────────────────────────────
 import { useState, useRef } from "react";
+import { createDecisionImportTracker } from "../../lib/decision-import-notice";
 import { Modal } from "../ui/Modal";
 import { Download, FileJson, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -29,6 +30,8 @@ export function ImportPresetModal({ open, onClose }: Props) {
 
     const nextResults: Array<{ filename: string; success: boolean; message: string }> = [];
 
+    const decisionImports = createDecisionImportTracker();
+
     for (const file of files) {
       try {
         const text = await file.text();
@@ -53,6 +56,9 @@ export function ImportPresetModal({ open, onClose }: Props) {
                 updatedAt: file.lastModified,
               },
             });
+            // Per envelope: a manifest can hold several presets, and only the ones that
+            // imported count toward the notice.
+            if (data.success) decisionImports.note(file.name, envelope);
             nextResults.push({
               filename: file.name,
               success: data.success,
@@ -70,6 +76,7 @@ export function ImportPresetModal({ open, onClose }: Props) {
             updatedAt: file.lastModified,
           },
         });
+        if (data.success) decisionImports.note(file.name, json);
         nextResults.push({
           filename: file.name,
           success: data.success,
@@ -85,6 +92,7 @@ export function ImportPresetModal({ open, onClose }: Props) {
     }
 
     setResults(nextResults);
+    decisionImports.notify(nextResults, localizeUi);
     setStatus("done");
     if (nextResults.some((result) => result.success)) {
       qc.invalidateQueries();

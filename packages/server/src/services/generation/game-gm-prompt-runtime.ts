@@ -88,6 +88,30 @@ export function resolveGameGmPromptTemplate(
   return options.find((option) => option.id === selectedId)?.promptTemplate.trim() || null;
 }
 
+/**
+ * The authored text the GM prompt resolves macros in, so decision statements in it can
+ * be asked before the prompt is built (#6569): the GM prompt template, or the preset's
+ * Game prompt when the chat chose none (as generation applies it), special instructions
+ * and the custom GM prompt.
+ */
+export function gameGmPromptDecisionTexts(chatMetadata: Record<string, unknown>, presetGamePrompt: string): string[] {
+  const setupConfig =
+    chatMetadata.gameSetupConfig &&
+    typeof chatMetadata.gameSetupConfig === "object" &&
+    !Array.isArray(chatMetadata.gameSetupConfig)
+      ? (chatMetadata.gameSetupConfig as Record<string, unknown>)
+      : null;
+  const template = resolveGameGmPromptTemplate(chatMetadata, setupConfig);
+  const chosenNone =
+    !(typeof chatMetadata.gameSystemPrompt === "string" && chatMetadata.gameSystemPrompt.trim()) &&
+    !(typeof chatMetadata.gameGmPromptTemplateId === "string" && chatMetadata.gameGmPromptTemplateId.trim());
+  return [
+    (chosenNone && presetGamePrompt ? presetGamePrompt : template) ?? "",
+    typeof chatMetadata.gameSpecialInstructions === "string" ? chatMetadata.gameSpecialInstructions : "",
+    typeof chatMetadata.customGmPrompt === "string" ? chatMetadata.customGmPrompt : "",
+  ];
+}
+
 function appendGameCardDetails(parts: string[], card: Record<string, unknown> | undefined): void {
   if (!card) return;
   if (card.class) parts.push(`Class: ${card.class}`);
