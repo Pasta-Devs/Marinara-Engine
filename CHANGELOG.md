@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Roleplay regenerations exclude discarded swipe content after tool calls and use current edits to earlier Personal Notes (#6583).
+
 - Each Decision connection has a **Time limit** (0.5 to 30 seconds, 1.5 by default). A hosted provider that is sometimes slower than 1.5 seconds made decisions look randomly broken, with no way to allow for it. **Test** now waits longer and shows how long the answer took next to the limit, and says when an answer would arrive too late during chats (#6580).
 
 - Lorebook entries can be activated by your Decision model. In an entry's new **Decision** field, **Require** makes the entry activate only when a statement about the recent chat is also true (so passing mentions stay out), and **Trigger** lets the statement activate the entry without its keywords. Statements are asked only when the entry could otherwise activate, answered once per turn, and read as no without a Decision model. Imports and exports keep the setting (#6570).
