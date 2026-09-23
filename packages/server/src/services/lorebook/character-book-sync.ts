@@ -21,6 +21,7 @@
 import { like } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import type { CharacterBook, CharacterBookEntry } from "@marinara-engine/shared";
+import { parseLorebookDecisionActivation } from "@marinara-engine/shared";
 import { characters } from "../../db/schema/index.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
@@ -107,6 +108,8 @@ function toCharacterBookEntry(entry: LoreEntryRow, index: number): CharacterBook
     delayUntilRecursion: asBoolean(entry.delayUntilRecursion),
     vectorized: !asBoolean(entry.excludeFromVectorization),
     excludeFromVectorization: asBoolean(entry.excludeFromVectorization),
+    // Marinara extension (#6570), passed back through on import.
+    ...parseLorebookDecisionActivation(entry),
   };
 }
 

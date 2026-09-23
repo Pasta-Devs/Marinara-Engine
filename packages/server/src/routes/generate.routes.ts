@@ -2,6 +2,7 @@ import { DECISION_SETTINGS_KEYS, resolveDecisionBackend } from "../services/deci
 import {
   agentShapedDecisionContext,
   answerPromptDecisions,
+  createLorebookDecisionResolver,
   collectDecisionTexts,
   collectTurnDecisionTexts,
   planPromptDecisions,
@@ -2733,13 +2734,24 @@ export async function generateRoutes(app: FastifyInstance) {
         });
         // Every decision read before the reply is keyed to the newest message, id and text.
         const preReplyDecisionTurnId = latestTurnDecisionId(chatMessages);
+        const promptDecisionPlan = planPromptDecisions(
+          [{ texts: promptDecisionTexts, ctx: promptMacroContext }],
+          promptDecisionLimit,
+        );
         if (promptDecisionTexts.length > 0) {
           promptMacroContext.decisions = await answerDecisionPlan(
-            planPromptDecisions([{ texts: promptDecisionTexts, ctx: promptMacroContext }], promptDecisionLimit),
+            promptDecisionPlan,
             decisionMessages(),
             preReplyDecisionTurnId,
           );
         }
+        // Lorebook entries activated by a decision (#6570), asked like the prompt's
+        // statements and keyed to the same turn, within what the per-turn limit has left.
+        const lorebookDecisions = createLorebookDecisionResolver({
+          macroContext: promptMacroContext,
+          limit: Math.max(0, promptDecisionLimit - promptDecisionPlan.decisions.length),
+          answer: (plan) => answerDecisionPlan(plan, decisionMessages(), preReplyDecisionTurnId),
+        });
         const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(
           messages: T[],
         ): T[] => resolvePromptMessageMacros(messages, promptMacroContext, historyMacroProfilesById);
@@ -2886,6 +2898,7 @@ export async function generateRoutes(app: FastifyInstance) {
             previewOnly: options.previewOnly,
             generationTriggers: lorebookGenerationTriggers,
             resolveContent: resolvePromptMacrosForLorebook,
+            resolveDecisions: lorebookDecisions,
           });
           if (options.recordSnapshot !== false) lorebookScanSnapshot = toLorebookScanSnapshot(lorebookResult);
           rememberKnowledgeRouterActivatedLorebookIds(
@@ -3095,6 +3108,7 @@ export async function generateRoutes(app: FastifyInstance) {
             preserveImpersonatePresetSections: input.impersonate === true && presetSource === "impersonate",
             deferCharacterMacros,
             decisions: promptMacroContext.decisions,
+            lorebookDecisions,
           };
 
           const assembled = await assemblePrompt(assemblerInput);
@@ -3655,6 +3669,7 @@ export async function generateRoutes(app: FastifyInstance) {
             entryTimingStates: (chatMeta.entryTimingStates as Record<string, LorebookEntryTimingState>) ?? undefined,
             generationTriggers: lorebookGenerationTriggers,
             resolveContent: resolvePromptMacrosForLorebook,
+            resolveDecisions: lorebookDecisions,
           });
           lorebookPromptScanResult = lorebookResult;
           lorebookScanSnapshot = toLorebookScanSnapshot(lorebookResult);
@@ -4167,6 +4182,7 @@ export async function generateRoutes(app: FastifyInstance) {
                   (chatMeta.entryTimingStates as Record<string, LorebookEntryTimingState>) ?? undefined,
                 generationTriggers: lorebookGenerationTriggers,
                 resolveContent: resolvePromptMacrosForLorebook,
+                resolveDecisions: lorebookDecisions,
               },
             );
             lorebookPromptScanResult = lorebookResult;

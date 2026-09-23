@@ -18,6 +18,7 @@ import {
   decisionLocalSlotForId,
   DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
   normalizeDecisionQuestion,
+  resolveDecisionQuestionText,
   resolveDecisionQuestionVariants,
   type MacroContext,
   type MacroDecisionAnswers,
@@ -26,6 +27,7 @@ import { logger } from "../../lib/logger.js";
 import { buildDecisionState, type DecisionMessage } from "../generation/agent-activation-questions.js";
 import type { DecisionBackend } from "./decision-default.js";
 import { describeDecisionSlot } from "./decision-slots.js";
+import type { LorebookDecisionResolver } from "../lorebook/index.js";
 import { DECISION_CHOICE_NONE, type NoulQuestion } from "./system-one.client.js";
 
 export interface PlannedDecision {
@@ -340,6 +342,54 @@ export async function answerAgentTemplateDecisions(args: {
     cacheKey: promptDecisionCacheKey(args.chatId, args.turnId, args.decisionModelId),
     afterReply: args.afterReply ?? true,
   });
+}
+
+/** Yes/no statements given as plain text, deduplicated and capped like a prompt's. */
+export function planStatementDecisions(statements: readonly string[], limit: number): PromptDecisionPlan {
+  const decisions: PlannedDecision[] = [];
+  const dropped: string[] = [];
+  const seen = new Set<string>();
+  for (const key of statements) {
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    if (decisions.length >= limit) dropped.push(key);
+    else decisions.push({ kind: "noul", key, options: [] });
+  }
+  return { decisions, dropped };
+}
+
+/**
+ * Answers lorebook entries' decision statements for activation (#6570). Each statement
+ * is resolved in the turn's macro context and keyed like a prompt statement, so an
+ * entry and a `{{#if decision:"..."}}` asking the same thing share one cached answer.
+ * `answer` asks the Decision model (generation) or reads what the turn already has
+ * (previews); a statement it has no answer for reads as no.
+ */
+export function createLorebookDecisionResolver(args: {
+  macroContext: MacroContext;
+  limit: number;
+  answer: (plan: PromptDecisionPlan) => Promise<MacroDecisionAnswers | undefined>;
+  /** Told each statement that got no answer, for a preview's report. */
+  onUnanswered?: (statement: string) => void;
+}): LorebookDecisionResolver {
+  return async (requests) => {
+    const keyed = requests.map((request) => ({
+      entryId: request.entryId,
+      key: resolveDecisionQuestionText(request.statement, args.macroContext),
+    }));
+    const plan = planStatementDecisions(
+      keyed.map(({ key }) => key),
+      args.limit,
+    );
+    const answers = plan.decisions.length > 0 ? await args.answer(plan) : undefined;
+    const byEntry = new Map<string, boolean>();
+    for (const { entryId, key } of keyed) {
+      const answer = answers?.answers?.get(key);
+      if (answer === undefined) args.onUnanswered?.(key);
+      else byEntry.set(entryId, answer);
+    }
+    return byEntry;
+  };
 }
 
 export { DECISION_CHOICE_NONE };

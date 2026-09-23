@@ -1051,8 +1051,17 @@ export function containsDecisionStatements(value: unknown, depth = 0): boolean {
   if (typeof value === "string")
     return /decision(?:_choice)?\s*:/iu.test(value) && collectDecisionQuestions(value).length > 0;
   if (Array.isArray(value)) return value.some((item) => containsDecisionStatements(item, depth + 1));
-  if (value && typeof value === "object")
+  if (value && typeof value === "object") {
+    // A lorebook entry activated by a decision (#6570), wherever the file keeps it.
+    const record = value as Record<string, unknown>;
+    if (
+      (record.decisionMode === "require" || record.decisionMode === "trigger") &&
+      typeof record.decisionStatement === "string" &&
+      record.decisionStatement.trim()
+    )
+      return true;
     return Object.values(value).some((item) => containsDecisionStatements(item, depth + 1));
+  }
   return false;
 }
 

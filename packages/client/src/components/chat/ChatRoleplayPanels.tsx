@@ -68,7 +68,7 @@ function formatSemanticScore(score: number | null | undefined) {
 }
 
 function formatActivationSource(
-  source: "current_location" | "keyword" | "semantic" | "constant" | "sticky" | "recursive",
+  source: "current_location" | "keyword" | "semantic" | "constant" | "sticky" | "recursive" | "decision",
   t: TFunction,
 ) {
   return t(`chat.activeContext.source.${source}`);
@@ -86,9 +86,11 @@ function ActiveLorebookEntryRow({
     order: number;
     lorebookId: string;
     lorebookName: string;
-    activationSources: Array<"current_location" | "keyword" | "semantic" | "constant" | "sticky" | "recursive">;
+    activationSources: Array<
+      "current_location" | "keyword" | "semantic" | "constant" | "sticky" | "recursive" | "decision"
+    >;
     matchedKeys?: string[];
-    matchType?: "keyword" | "semantic" | "constant" | "sticky";
+    matchType?: "keyword" | "semantic" | "constant" | "sticky" | "decision";
     semanticScore?: number;
   };
 }) {

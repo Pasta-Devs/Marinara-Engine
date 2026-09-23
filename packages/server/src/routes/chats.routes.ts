@@ -80,6 +80,7 @@ import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js
 import {
   cachedPromptDecisionAnswers,
   collectTurnDecisionTexts,
+  createLorebookDecisionResolver,
   decisionModelUsable,
   latestTurnDecisionId,
   planPromptDecisions,
@@ -3165,6 +3166,18 @@ export async function chatsRoutes(app: FastifyInstance) {
               };
             }
           }
+          // Lorebook entries activated by a decision (#6570) read the answers this turn
+          // already has. The preview never asks, and reports the statements it had none for.
+          const lorebookDecisions = createLorebookDecisionResolver({
+            macroContext: promptMacroContext,
+            limit: Number.POSITIVE_INFINITY,
+            answer: async (plan) =>
+              cachedPromptDecisionAnswers(
+                plan,
+                promptDecisionCacheKey(req.params.id, latestTurnDecisionId(filteredMessages), decisionModelId),
+              ),
+            onUnanswered: (statement) => decisionUnanswered.add(statement),
+          });
           const entryStateOverrides = resolveEntryStateOverrides(
             chatMeta.entryStateOverrides ?? chatMeta.lorebookEntryStateOverrides,
           );
@@ -3262,6 +3275,7 @@ export async function chatsRoutes(app: FastifyInstance) {
                 generationTriggers,
                 previewOnly: true,
                 resolveContent: resolvePromptMacros,
+                resolveDecisions: lorebookDecisions,
               },
             );
             const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
@@ -3300,6 +3314,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               generationTriggers,
               previewOnly: true,
               resolveContent: resolvePromptMacros,
+              resolveDecisions: lorebookDecisions,
             });
             let messages: Parameters<typeof toPeekPromptMessages>[0] = [...mappedMessages];
             const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
@@ -3349,6 +3364,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             characterIds: assistantCharacterIds,
             lorebookCharacterIds,
             decisions: promptMacroContext.decisions,
+            lorebookDecisions,
             groupCharacterIds: assistantCharacterIds,
             personaId,
             personaName,

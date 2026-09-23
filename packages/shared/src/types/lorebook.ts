@@ -27,7 +27,15 @@ export type LorebookActivationSource =
   | "semantic"
   | "constant"
   | "sticky"
-  | "recursive";
+  | "recursive"
+  | "decision";
+
+/**
+ * How an entry's decision statement acts on activation (#6570). `require`: the entry
+ * activates as it otherwise would and the statement must also be true. `trigger`: the
+ * statement alone can activate it. No answer reads as no in both.
+ */
+export type LorebookDecisionMode = "off" | "require" | "trigger";
 
 /** Include/exclude behavior for contextual lorebook filters. */
 export type LorebookFilterMode = "any" | "include" | "exclude";
@@ -238,6 +246,10 @@ export interface LorebookEntry {
   activationConditions: ActivationCondition[];
   /** Schedule: only active during certain in-game times/dates */
   schedule: LorebookSchedule | null;
+  /** A statement the Decision model answers about the recent chat, used as `decisionMode` says. */
+  decisionStatement: string;
+  /** How `decisionStatement` acts on activation; `off` ignores it. */
+  decisionMode: LorebookDecisionMode;
 
   /** When true, bulk vectorization skips this entry and semantic matching ignores any stored vector */
   excludeFromVectorization: boolean;

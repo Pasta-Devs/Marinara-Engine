@@ -26,7 +26,11 @@ import {
   type SourceMessageRef,
   type UpdateLorebookFolderInput,
 } from "@marinara-engine/shared";
-import { collectEffectivelyDisabledFolderIds, collectFolderSubtreeIds } from "@marinara-engine/shared";
+import {
+  collectEffectivelyDisabledFolderIds,
+  collectFolderSubtreeIds,
+  parseLorebookDecisionActivation,
+} from "@marinara-engine/shared";
 import { normalizeTimestampOverrides, type TimestampOverrides } from "../import/import-timestamps.js";
 import { toPaginatedList } from "../../utils/list-pagination.js";
 import { createChatsStorage } from "./chats.storage.js";
@@ -209,6 +213,8 @@ function parseEntryRow(row: Record<string, unknown>) {
     excludeRecursion: row.excludeRecursion === "true",
     delayUntilRecursion: row.delayUntilRecursion === "true",
     excludeFromVectorization: row.excludeFromVectorization === "true",
+    // Rows written before #6570 have neither column.
+    ...parseLorebookDecisionActivation(row),
     folderId: (row.folderId as string | null | undefined) ?? null,
     keys: parseStringArray(row.keys),
     secondaryKeys: parseStringArray(row.secondaryKeys),
@@ -904,6 +910,7 @@ export function createLorebooksStorage(db: DB) {
         excludeRecursion: String(input.excludeRecursion ?? false),
         delayUntilRecursion: String(input.delayUntilRecursion ?? false),
         excludeFromVectorization: String(input.excludeFromVectorization ?? false),
+        ...parseLorebookDecisionActivation(input),
         sourceAgentId: input.sourceAgentId ?? null,
         sourceMessageRefs: serializeMessageRefs(input.sourceMessageRefs),
         createdAt: timestamp,
@@ -1005,6 +1012,9 @@ export function createLorebooksStorage(db: DB) {
       if (input.delayUntilRecursion !== undefined) updates.delayUntilRecursion = String(input.delayUntilRecursion);
       if (input.excludeFromVectorization !== undefined)
         updates.excludeFromVectorization = String(input.excludeFromVectorization);
+      if (input.decisionStatement !== undefined)
+        updates.decisionStatement = parseLorebookDecisionActivation(input).decisionStatement;
+      if (input.decisionMode !== undefined) updates.decisionMode = parseLorebookDecisionActivation(input).decisionMode;
       if (shouldClearEmbedding) {
         updates.embedding = null;
         updates.embeddingSpaceId = null;

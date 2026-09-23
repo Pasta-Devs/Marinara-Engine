@@ -613,6 +613,8 @@ const CHARACTER_BOOK_ENTRY_PASSTHROUGH_FIELDS = [
   "excludeRecursion",
   "delayUntilRecursion",
   "vectorized",
+  "decisionStatement",
+  "decisionMode",
 ];
 
 function buildCardSpecMetadata(raw: Record<string, unknown>) {

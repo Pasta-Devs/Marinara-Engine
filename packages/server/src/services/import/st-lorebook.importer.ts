@@ -4,11 +4,15 @@
 import type { DB } from "../../db/connection.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import type { CreateLorebookEntryInput, LorebookCategory } from "@marinara-engine/shared";
+import { parseLorebookDecisionActivation } from "@marinara-engine/shared";
 import type { TimestampOverrides } from "./import-timestamps.js";
 import { resolveLorebookEntryRole } from "./lorebook-role.js";
 
 interface STWorldInfoEntry {
   uid?: number;
+  /** Marinara extension (#6570). */
+  decisionStatement?: string;
+  decisionMode?: string;
   id?: number;
   // ST World Info format
   key?: string[] | string;
@@ -484,6 +488,8 @@ export async function importSTLorebook(
       delayUntilRecursion: Boolean(entry.delayUntilRecursion ?? false),
       excludeFromVectorization: entry.vectorized === false ? true : entry.excludeFromVectorization === true,
       locked: Boolean(entry.locked ?? false),
+      // Marinara's own exports carry decision activation (#6570); SillyTavern files do not.
+      ...parseLorebookDecisionActivation(entry),
     };
 
     await storage.createEntry(input);

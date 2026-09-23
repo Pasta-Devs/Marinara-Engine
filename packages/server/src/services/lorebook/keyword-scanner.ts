@@ -452,6 +452,14 @@ export interface ScanOptions {
   recursionPass?: boolean;
   /** Shared per-generation probability rolls, including recursive scan passes. */
   probabilityDecisions?: Map<string, boolean>;
+  /**
+   * Decision activation (#6570): the Decision model's answer for each entry's
+   * statement, by entry id. An entry with no answer here does not activate on its
+   * statement, and is added to `pendingDecisions` so the caller can ask and scan again.
+   */
+  decisionAnswers?: ReadonlyMap<string, boolean>;
+  /** Filled with the ids of entries whose activation waits on an unanswered statement. */
+  pendingDecisions?: Set<string>;
   /** Random source for probability gates; injectable for deterministic tests. */
   random?: () => number;
 }
@@ -485,7 +493,21 @@ export function scanForActivatedEntries(
     recursionPass = false,
     probabilityDecisions = new Map<string, boolean>(),
     random = Math.random,
+    decisionAnswers,
+    pendingDecisions,
   } = options;
+  // Decision activation (#6570). Asked only once an entry would otherwise activate,
+  // after its filters, timing, keywords and probability roll, so a statement is never
+  // paid for when the entry would be skipped anyway. No answer reads as no.
+  const decisionIsYes = (entry: LorebookEntry): boolean => {
+    const answer = decisionAnswers?.get(entry.id);
+    if (answer === undefined) pendingDecisions?.add(entry.id);
+    return answer === true;
+  };
+  const requiresDecision = (entry: LorebookEntry) =>
+    entry.decisionMode === "require" && entry.decisionStatement?.trim().length > 0;
+  const triggersOnDecision = (entry: LorebookEntry) =>
+    entry.decisionMode === "trigger" && entry.decisionStatement?.trim().length > 0;
   const filterContext: LorebookFilterValueContext = {
     activeCharacterIds: makeValueSet(activeCharacterIds),
     activeCharacterTags: makeValueSet(activeCharacterTags),
@@ -561,6 +583,7 @@ export function scanForActivatedEntries(
     // context filters, activation conditions, schedule, and probability gates.
     if (entry.constant) {
       if (!passesEntryProbability(entry)) continue;
+      if (requiresDecision(entry) && !decisionIsYes(entry)) continue;
       activated.push({
         entry,
         matchedKeys: ["[constant]"],
@@ -581,7 +604,19 @@ export function scanForActivatedEntries(
 
     // Test primary keys
     const { matched, matchedKeys } = testPrimaryKeys(entry.keys, entryScanText, matchOptions);
-    if (!matched) continue;
+    if (!matched) {
+      // A Trigger statement can activate the entry without its keywords.
+      if (triggersOnDecision(entry) && passesEntryProbability(entry) && decisionIsYes(entry)) {
+        activated.push({
+          entry,
+          matchedKeys: ["[decision]"],
+          activationSources: ["decision"],
+          injectionOrder: entry.order,
+        });
+        activatedIds.add(entry.id);
+      }
+      continue;
+    }
     const matchedCurrentContext =
       latestUserText.length > 0 ? testPrimaryKeys(entry.keys, latestUserText, matchOptions).matched : false;
 
@@ -593,6 +628,7 @@ export function scanForActivatedEntries(
     }
 
     if (!passesEntryProbability(entry)) continue;
+    if (requiresDecision(entry) && !decisionIsYes(entry)) continue;
 
     activated.push({
       entry,
@@ -668,6 +704,7 @@ export function scanForActivatedEntries(
           continue;
         }
         if (!passesEntryProbability(entry)) continue;
+        if (requiresDecision(entry) && !decisionIsYes(entry)) continue;
         semanticCandidates.push({ entry, similarity });
       }
     }

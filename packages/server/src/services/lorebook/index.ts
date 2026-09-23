@@ -18,6 +18,7 @@ import type {
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import {
+  recursiveScan,
   scanForActivatedEntries,
   lorebookEntryPassesContextFilters,
   passesForcedEntryActivationGates,
@@ -138,7 +139,20 @@ export async function scopeLorebookScanResultToCharacter(
 }
 
 export type LorebookBudgetSkipReason = "lorebook" | "chat" | "both" | "location";
-export type LorebookMatchType = "keyword" | "semantic" | "constant" | "sticky";
+export type LorebookMatchType = "keyword" | "semantic" | "constant" | "sticky" | "decision";
+
+/** Answers entries' decision statements (#6570); see `resolveDecisions` on `processLorebooks`. */
+export type LorebookDecisionResolver = (
+  requests: Array<{ entryId: string; statement: string }>,
+) => Promise<ReadonlyMap<string, boolean>>;
+
+/** Whether an entry's activation depends on a decision statement (#6570). */
+export function hasDecisionActivation(entry: Pick<LorebookEntry, "decisionMode" | "decisionStatement">): boolean {
+  return (
+    (entry.decisionMode === "require" || entry.decisionMode === "trigger") &&
+    (entry.decisionStatement ?? "").trim().length > 0
+  );
+}
 
 export interface LorebookBudgetSkippedEntry {
   id: string;
@@ -614,6 +628,7 @@ function getLorebookMatchType(matchedKeys: string[]): LorebookMatchType {
   if (matchedKeys.some((key) => key.startsWith("[semantic:"))) return "semantic";
   if (matchedKeys.includes("[constant]")) return "constant";
   if (matchedKeys.includes("[sticky]")) return "sticky";
+  if (matchedKeys.includes("[decision]")) return "decision";
   return "keyword";
 }
 
@@ -1055,6 +1070,13 @@ export async function processLorebooks(
     generationTriggers?: string[];
     /** Resolves prompt macros for final included lorebook entries. May apply macro side effects. */
     resolveContent?: LorebookFinalContentResolver;
+    /**
+     * Answers entries' decision statements (#6570): the entry id to true or false for
+     * each statement it could answer. Generation asks the Decision model; a preview
+     * passes answers this turn already has and never asks. Omitted, decision entries
+     * read as no.
+     */
+    resolveDecisions?: LorebookDecisionResolver;
     /** Optional random source for probability and weighted group selection. */
     random?: () => number;
   },
@@ -1289,6 +1311,31 @@ export async function processLorebooks(
   // Nonconstant entries may still earn an independent ordinary activation.
   const locationBudgetSkippedIds = new Set(locationBudgetResult.skipped.map((entry) => entry.id));
   const scannableEntries = allEntries.filter((entry) => !entry.constant || !locationBudgetSkippedIds.has(entry.id));
+  // Decision activation (#6570). The scan is synchronous and the budget pass below
+  // commits macro side effects, so neither can wait for a model. A pure pre-scan
+  // (recursion included, over the entries' raw text) collects the entries whose
+  // activation waits on a statement, and they are asked in one request; a second pass
+  // catches entries that only appear once another decision entry is in. The real scan
+  // then runs once with the answers, and anything still unanswered reads as no. The
+  // probability rolls are shared, so a pre-scan and the real scan roll the same.
+  if (!forcedEntriesOnly && scannableEntries.some(hasDecisionActivation)) {
+    const decisionAnswers = new Map<string, boolean>();
+    scanOpts.decisionAnswers = decisionAnswers;
+    scanOpts.probabilityDecisions ??= new Map();
+    const statementsById = new Map(scannableEntries.map((entry) => [entry.id, entry.decisionStatement]));
+    for (let round = 0; round < 2 && options?.resolveDecisions; round++) {
+      const pendingDecisions = new Set<string>();
+      const preScanOpts = { ...scanOpts, pendingDecisions };
+      if (anyRecursive) recursiveScan(messages, scannableEntries, preScanOpts, maxRecursionDepth);
+      else scanForActivatedEntries(messages, scannableEntries, preScanOpts);
+      const toAsk = [...pendingDecisions].filter((id) => !decisionAnswers.has(id));
+      if (toAsk.length === 0) break;
+      const answers = await options.resolveDecisions(
+        toAsk.map((entryId) => ({ entryId, statement: statementsById.get(entryId) ?? "" })),
+      );
+      for (const entryId of toAsk) decisionAnswers.set(entryId, answers.get(entryId) === true);
+    }
+  }
   const ordinaryActivatedEntries = forcedEntriesOnly
     ? []
     : scanForActivatedEntries(messages, scannableEntries, scanOpts);
