@@ -281,7 +281,7 @@ The recommended wordings scored 31 of 32 on Open-Jev 2B, 31 of 32 on Open-Jev 9B
 ### Limits and cost
 
 - **Statements per turn.** At most the number set under **Decision model** as **Decision statements per turn** (32 by default) are asked each turn. Past that, the rest read as no, and a warning is logged. On a hosted Decision connection each statement adds to a billed request; on a local model it only adds time.
-- **Time.** The same budgets as activation questions apply: 1.5 seconds for a hosted connection, 4 seconds for a local model. A model that has to reason first holds off in front of the reply unless you turned on **Also gate agents that run before the reply**.
+- **Time.** The same budgets as activation questions apply: the Decision connection's **Time limit** (1.5 seconds by default), and 4 seconds for a local model. A model that has to reason first holds off in front of the reply unless you turned on **Also gate agents that run before the reply**.
 - **Once per turn.** Answers are kept for the turn, so a regeneration or a swipe sends the same branches. The Decision model is only asked again when a new message arrives, or when you edit the newest message and regenerate. The one exception is post-processing agents, below: they read the finished reply, so their statements are asked once per reply.
 - **Prompt caching.** A provider's cache reuses the prompt only up to the first thing that changed since the last request; everything from there on is billed again at full price. A branch that changes from turn to turn is such a change, so where it sits decides how much stays cached. Put decision blocks late in the prompt, such as post-history instructions or author's notes, rather than at the top.
 
