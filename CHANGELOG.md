@@ -4,7 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- The browser regression checks on pull requests run in eight shards per lane instead of four, so they finish in about 20 minutes instead of about 30 and no longer fail by brushing the 30-minute limit (#6573).
+- The browser regression checks on pull requests run in more shards (ten for desktop Chromium and mobile WebKit, eight for mobile Chromium, instead of four each), so they finish in about 17 minutes instead of about 30 and no longer fail by brushing the 30-minute limit (#6573).
 
 - Agent history lookups no longer compare every loaded agent run with every loaded message, preventing long server stalls as more chats are opened (#6562).
 
