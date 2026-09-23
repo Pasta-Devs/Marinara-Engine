@@ -344,43 +344,47 @@ export async function answerAgentTemplateDecisions(args: {
   });
 }
 
-/** Yes/no statements given as plain text, deduplicated and capped like a prompt's. */
-export function planStatementDecisions(statements: readonly string[], limit: number): PromptDecisionPlan {
-  const decisions: PlannedDecision[] = [];
-  const dropped: string[] = [];
-  const seen = new Set<string>();
-  for (const key of statements) {
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    if (decisions.length >= limit) dropped.push(key);
-    else decisions.push({ kind: "noul", key, options: [] });
-  }
-  return { decisions, dropped };
-}
-
 /**
  * Answers lorebook entries' decision statements for activation (#6570). Each statement
  * is resolved in the turn's macro context and keyed like a prompt statement, so an
  * entry and a `{{#if decision:"..."}}` asking the same thing share one cached answer.
  * `answer` asks the Decision model (generation) or reads what the turn already has
  * (previews); a statement it has no answer for reads as no.
+ *
+ * `limit` is what the turn has left for new statements, spent across every call (a
+ * lorebook scan can ask twice). A statement in `freeKeys`, already planned by the
+ * prompt and so already answered this turn, costs nothing.
  */
 export function createLorebookDecisionResolver(args: {
   macroContext: MacroContext;
   limit: number;
+  freeKeys?: ReadonlySet<string>;
   answer: (plan: PromptDecisionPlan) => Promise<MacroDecisionAnswers | undefined>;
   /** Told each statement that got no answer, for a preview's report. */
   onUnanswered?: (statement: string) => void;
 }): LorebookDecisionResolver {
+  const charged = new Set<string>();
+  let remaining = args.limit;
   return async (requests) => {
     const keyed = requests.map((request) => ({
       entryId: request.entryId,
       key: resolveDecisionQuestionText(request.statement, args.macroContext),
     }));
-    const plan = planStatementDecisions(
-      keyed.map(({ key }) => key),
-      args.limit,
-    );
+    const planned: PlannedDecision[] = [];
+    const dropped: string[] = [];
+    const seen = new Set<string>();
+    for (const { key } of keyed) {
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      if (args.freeKeys?.has(key) || charged.has(key)) {
+        planned.push({ kind: "noul", key, options: [] });
+      } else if (remaining > 0) {
+        remaining -= 1;
+        charged.add(key);
+        planned.push({ kind: "noul", key, options: [] });
+      } else dropped.push(key);
+    }
+    const plan: PromptDecisionPlan = { decisions: planned, dropped };
     const answers = plan.decisions.length > 0 ? await args.answer(plan) : undefined;
     const byEntry = new Map<string, boolean>();
     for (const { entryId, key } of keyed) {

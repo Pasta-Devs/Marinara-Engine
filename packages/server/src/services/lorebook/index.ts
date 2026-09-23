@@ -1286,6 +1286,23 @@ export async function processLorebooks(
         }, 1)
       : 3;
 
+  // Decision activation (#6570). The scan is synchronous and the budget pass below
+  // commits macro side effects, so neither can wait for a model. A pure pre-scan
+  // (recursion included) collects the entries whose activation waits on a statement,
+  // and they are asked in one request; a second pass catches entries that only appear
+  // once another decision entry is in. The real scan then runs once with the answers,
+  // and anything still unanswered reads as no. The probability rolls are shared, so a
+  // pre-scan and the real scan roll the same. An explicit selection (forcedEntriesOnly)
+  // is a person's choice and is never gated.
+  const usesDecisions = !forcedEntriesOnly && allEntries.some(hasDecisionActivation);
+  const decisionAnswers = new Map<string, boolean>();
+  if (usesDecisions) {
+    scanOpts.decisionAnswers = decisionAnswers;
+    scanOpts.probabilityDecisions ??= new Map();
+  }
+  const requiresDecisionAnswer = (entry: LorebookEntry) =>
+    entry.decisionMode === "require" && hasDecisionActivation(entry);
+
   // The one place `ignoreProbability` is ever set. It rides a copy of the scan
   // options so it cannot reach `scanForActivatedEntries` below, and it is off
   // unless the caller asked — every existing caller keeps its rolls.
@@ -1293,8 +1310,42 @@ export async function processLorebooks(
     ...scanOpts,
     ...(options?.ignoreForcedEntryProbability ? { ignoreProbability: true } : {}),
   };
+
+  if (usesDecisions && options?.resolveDecisions) {
+    const statementsById = new Map(allEntries.map((entry) => [entry.id, entry.decisionStatement]));
+    // Recursion reads each activated entry's macro-resolved text, so discovery does
+    // too. A resolution is rolled back at once, so nothing is committed here; a
+    // preview's plain resolver has nothing to roll back and commits nothing either.
+    const discoveryEntries = resolveContent
+      ? allEntries.map((entry) => {
+          if (!entry.content.includes("{{")) return entry;
+          const resolved = resolveContent!(entry.content);
+          if (typeof resolved === "string") return { ...entry, content: resolved };
+          resolved.rollback?.();
+          return { ...entry, content: resolved.content };
+        })
+      : allEntries;
+    // An entry a location attaches skips the keyword scan, but Require still applies.
+    const locationRequireIds = forcedEntries
+      .filter((entry) => requiresDecisionAnswer(entry) && passesForcedEntryActivationGates(entry, forcedEntryScanOpts))
+      .map((entry) => entry.id);
+    for (let round = 0; round < 2; round++) {
+      const pendingDecisions = new Set<string>(round === 0 ? locationRequireIds : []);
+      const preScanOpts = { ...scanOpts, pendingDecisions };
+      if (anyRecursive) recursiveScan(messages, discoveryEntries, preScanOpts, maxRecursionDepth);
+      else scanForActivatedEntries(messages, discoveryEntries, preScanOpts);
+      const toAsk = [...pendingDecisions].filter((id) => !decisionAnswers.has(id));
+      if (toAsk.length === 0) break;
+      const answers = await options.resolveDecisions(
+        toAsk.map((entryId) => ({ entryId, statement: statementsById.get(entryId) ?? "" })),
+      );
+      for (const entryId of toAsk) decisionAnswers.set(entryId, answers.get(entryId) === true);
+    }
+  }
+
   const forcedActivatedEntries: ActivatedEntry[] = forcedEntries
     .filter((entry) => passesForcedEntryActivationGates(entry, forcedEntryScanOpts))
+    .filter((entry) => !usesDecisions || !requiresDecisionAnswer(entry) || decisionAnswers.get(entry.id) === true)
     .map((entry) => ({
       entry,
       matchedKeys: ["[current_location]"],
@@ -1311,31 +1362,6 @@ export async function processLorebooks(
   // Nonconstant entries may still earn an independent ordinary activation.
   const locationBudgetSkippedIds = new Set(locationBudgetResult.skipped.map((entry) => entry.id));
   const scannableEntries = allEntries.filter((entry) => !entry.constant || !locationBudgetSkippedIds.has(entry.id));
-  // Decision activation (#6570). The scan is synchronous and the budget pass below
-  // commits macro side effects, so neither can wait for a model. A pure pre-scan
-  // (recursion included, over the entries' raw text) collects the entries whose
-  // activation waits on a statement, and they are asked in one request; a second pass
-  // catches entries that only appear once another decision entry is in. The real scan
-  // then runs once with the answers, and anything still unanswered reads as no. The
-  // probability rolls are shared, so a pre-scan and the real scan roll the same.
-  if (!forcedEntriesOnly && scannableEntries.some(hasDecisionActivation)) {
-    const decisionAnswers = new Map<string, boolean>();
-    scanOpts.decisionAnswers = decisionAnswers;
-    scanOpts.probabilityDecisions ??= new Map();
-    const statementsById = new Map(scannableEntries.map((entry) => [entry.id, entry.decisionStatement]));
-    for (let round = 0; round < 2 && options?.resolveDecisions; round++) {
-      const pendingDecisions = new Set<string>();
-      const preScanOpts = { ...scanOpts, pendingDecisions };
-      if (anyRecursive) recursiveScan(messages, scannableEntries, preScanOpts, maxRecursionDepth);
-      else scanForActivatedEntries(messages, scannableEntries, preScanOpts);
-      const toAsk = [...pendingDecisions].filter((id) => !decisionAnswers.has(id));
-      if (toAsk.length === 0) break;
-      const answers = await options.resolveDecisions(
-        toAsk.map((entryId) => ({ entryId, statement: statementsById.get(entryId) ?? "" })),
-      );
-      for (const entryId of toAsk) decisionAnswers.set(entryId, answers.get(entryId) === true);
-    }
-  }
   const ordinaryActivatedEntries = forcedEntriesOnly
     ? []
     : scanForActivatedEntries(messages, scannableEntries, scanOpts);

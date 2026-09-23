@@ -2750,6 +2750,7 @@ export async function generateRoutes(app: FastifyInstance) {
         const lorebookDecisions = createLorebookDecisionResolver({
           macroContext: promptMacroContext,
           limit: Math.max(0, promptDecisionLimit - promptDecisionPlan.decisions.length),
+          freeKeys: new Set(promptDecisionPlan.decisions.filter((d) => d.kind === "noul").map((d) => d.key)),
           answer: (plan) => answerDecisionPlan(plan, decisionMessages(), preReplyDecisionTurnId),
         });
         const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(

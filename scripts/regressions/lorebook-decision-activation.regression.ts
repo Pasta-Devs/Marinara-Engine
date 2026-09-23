@@ -119,6 +119,59 @@ assert.equal(parseLorebookDecisionActivation({ decisionStatement: "x".repeat(900
 assert.equal(containsDecisionStatements({ entries: [{ decisionMode: "trigger", decisionStatement: "x" }] }), true);
 assert.equal(containsDecisionStatements({ entries: [{ decisionMode: "off", decisionStatement: "x" }] }), false);
 
+// Semantic matches: Require statements are asked in similarity order, and only as many
+// as could still be selected.
+const strong = entry({ keys: [], decisionMode: "require", decisionStatement: "Strong match applies" });
+const weak = entry({ keys: [], decisionMode: "require", decisionStatement: "Weak match applies" });
+const vectored = [
+  { ...weak, embedding: [0.8, 0.6] },
+  { ...strong, embedding: [1, 0] },
+];
+const semanticPending = new Set<string>();
+scanForActivatedEntries(messages, vectored as never, {
+  chatEmbedding: [1, 0],
+  semanticThreshold: 0.3,
+  semanticMaxMatchesByLorebookId: new Map([["book", 1]]),
+  pendingDecisions: semanticPending,
+  random: () => 0.5,
+});
+assert.deepEqual([...semanticPending], [strong.id], "only the stronger match is asked while one slot is free");
+const semanticAnswered = scanForActivatedEntries(messages, vectored as never, {
+  chatEmbedding: [1, 0],
+  semanticThreshold: 0.3,
+  semanticMaxMatchesByLorebookId: new Map([["book", 1]]),
+  decisionAnswers: new Map([[strong.id, false]]),
+  pendingDecisions: semanticPending,
+  random: () => 0.5,
+});
+assert.deepEqual(semanticAnswered, [], "a no frees the slot, and the weaker match waits on its own answer");
+assert.ok(semanticPending.has(weak.id));
+
+// The resolver spends one budget per turn across its calls, and a statement the prompt
+// already planned costs nothing.
+const { createLorebookDecisionResolver } =
+  await import("../../packages/server/src/services/decision/prompt-decisions.js");
+const plannedBatches: string[][] = [];
+const resolver = createLorebookDecisionResolver({
+  macroContext: { user: "Mira", char: "Kaelen", characters: ["Kaelen"], variables: {} } as never,
+  limit: 1,
+  freeKeys: new Set(["Asked by the prompt"]),
+  answer: async (plan) => {
+    plannedBatches.push(plan.decisions.map((d) => d.key));
+    return { answers: new Map(plan.decisions.map((d) => [d.key, true])) };
+  },
+});
+await resolver([
+  { entryId: "a", statement: "Asked by the prompt" },
+  { entryId: "b", statement: "New one" },
+  { entryId: "c", statement: "Over the limit" },
+]);
+await resolver([
+  { entryId: "d", statement: "Second round" },
+  { entryId: "e", statement: "New one" },
+]);
+assert.deepEqual(plannedBatches, [["Asked by the prompt", "New one"], ["New one"]]);
+
 // ── processLorebooks: the ask rounds ───────────────────────────────────────────
 
 const requireServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));
@@ -204,6 +257,80 @@ try {
     "two requests: the second for the entry reached through the forest entry's text",
   );
   assert.ok(!calls.flat().includes("They are in a tavern"), "an entry whose keywords never matched is not asked");
+
+  // An entry a map location attaches still needs its Require statement; an explicit
+  // selection does not.
+  const located = await make({
+    name: "Located",
+    content: "LOCATED_LORE",
+    keys: [],
+    decisionMode: "require",
+    decisionStatement: "The party is inside the shrine",
+  });
+  assert(located);
+  const locationScan = async (answer: boolean, forcedEntriesOnly = false) => {
+    const asked: string[] = [];
+    const scanned = await processLorebooks(db, [{ role: "user", content: "They rest." }], null, {
+      activeLorebookIds: [book.id],
+      forcedEntryIds: [located.id],
+      forcedEntriesOnly,
+      previewOnly: true,
+      random: () => 0.5,
+      resolveDecisions: async (requests: Array<{ entryId: string; statement: string }>) => {
+        asked.push(...requests.map((r) => r.statement));
+        return new Map(requests.map((r) => [r.entryId, answer]));
+      },
+    });
+    return { active: scanned.activatedEntryIds.includes(located.id), asked };
+  };
+  let located_ = await locationScan(false);
+  assert.equal(located_.active, false, "a location entry with a no stays out");
+  assert.ok(located_.asked.includes("The party is inside the shrine"));
+  located_ = await locationScan(true);
+  assert.equal(located_.active, true, "and comes in on a yes");
+  located_ = await locationScan(false, true);
+  assert.equal(located_.active, true, "an explicit selection is never gated");
+  assert.deepEqual(located_.asked, []);
+
+  // Recursion reads macro-resolved text, so discovery does too, and rolls back.
+  let rollbacks = 0;
+  const hinted = await make({
+    name: "Hinted",
+    content: "HINT {{lorebook-hint}}",
+    keys: ["moss"],
+    preventRecursion: false,
+  });
+  const revealed = await make({
+    name: "Revealed",
+    content: "REVEALED_LORE",
+    keys: ["ember"],
+    decisionMode: "require",
+    decisionStatement: "Someone tends the ember",
+  });
+  assert(hinted && revealed);
+  const resolvedAsks: string[] = [];
+  const resolvedScan = await processLorebooks(db, [{ role: "user", content: "Moss covers the stones." }], null, {
+    activeLorebookIds: [book.id],
+    previewOnly: true,
+    random: () => 0.5,
+    resolveContent: (value: string) => ({
+      content: value.replace("{{lorebook-hint}}", "an ember glows"),
+      commit: () => {},
+      rollback: () => {
+        rollbacks += 1;
+      },
+    }),
+    resolveDecisions: async (requests: Array<{ entryId: string; statement: string }>) => {
+      resolvedAsks.push(...requests.map((r) => r.statement));
+      return new Map(requests.map((r) => [r.entryId, true]));
+    },
+  });
+  assert.ok(resolvedAsks.includes("Someone tends the ember"), "found through the resolved text");
+  assert.ok(resolvedScan.activatedEntryIds.includes(revealed.id));
+  assert.ok(rollbacks > 0, "discovery rolls its resolutions back");
+  await lorebooks.removeEntry(hinted.id);
+  await lorebooks.removeEntry(revealed.id);
+  await lorebooks.removeEntry(located.id);
 
   // ── generation, the per-turn cache and Peek Prompt ───────────────────────────
 

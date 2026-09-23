@@ -132,7 +132,7 @@ Macros such as `{{user}}` and `{{char}}` work in the statement. How to word one 
 
 How it runs:
 
-- A statement is asked only when the entry would otherwise activate: after its filters, timing and probability roll, and for **Require**, after its keywords matched. A **Trigger** statement is asked on every turn its lorebook is active, so on a hosted Decision connection keep Trigger entries few.
+- A statement is asked only when the entry would otherwise activate: after its filters, timing and probability roll, and for **Require**, once its keywords matched. A **Constant** entry with **Require**, or one a map location attaches, is asked on every turn it would be in the prompt. A **Trigger** statement is asked on every turn its lorebook is active, so on a hosted Decision connection keep Trigger entries few.
 - A turn's statements go in one request, with one more for entries that only come in through recursion from another decision entry. They count toward **Decision statements per turn**.
 - Answers are kept for the turn, so a regeneration or a swipe activates the same entries. A **Sticky** entry is not asked again while it stays active.
 - The active-lorebook list shows **decision** for an entry a Trigger statement activated.

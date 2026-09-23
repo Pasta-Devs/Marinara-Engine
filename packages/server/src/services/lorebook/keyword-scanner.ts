@@ -709,17 +709,29 @@ export function scanForActivatedEntries(
           continue;
         }
         if (!passesEntryProbability(entry)) continue;
-        if (requiresDecision(entry) && !decisionIsYes(entry)) continue;
         semanticCandidates.push({ entry, similarity });
       }
     }
 
     const semanticCountsByLorebookId = new Map<string, number>();
+    // Require statements are asked in similarity order, and only for as many matches as
+    // could still be selected, so a weaker match never takes a stronger one's question.
+    const pendingCountsByLorebookId = new Map<string, number>();
     for (const candidate of semanticCandidates.sort((a, b) => b.similarity - a.similarity)) {
       const lorebookId = candidate.entry.lorebookId;
       const maxMatches = semanticMaxMatchesByLorebookId.get(lorebookId) ?? LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_DEFAULT;
       const selectedCount = semanticCountsByLorebookId.get(lorebookId) ?? 0;
-      if (selectedCount >= maxMatches) continue;
+      const pendingCount = pendingCountsByLorebookId.get(lorebookId) ?? 0;
+      if (selectedCount + pendingCount >= maxMatches) continue;
+      if (requiresDecision(candidate.entry)) {
+        const answer = decisionAnswers?.get(candidate.entry.id);
+        if (answer === undefined) {
+          pendingDecisions?.add(candidate.entry.id);
+          pendingCountsByLorebookId.set(lorebookId, pendingCount + 1);
+          continue;
+        }
+        if (!answer) continue;
+      }
       activated.push({
         entry: candidate.entry,
         matchedKeys: [`[semantic:${candidate.similarity.toFixed(3)}]`],
