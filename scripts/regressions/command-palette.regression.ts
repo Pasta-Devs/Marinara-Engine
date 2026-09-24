@@ -11,6 +11,7 @@ const {
   isShortcutsHelpKey,
   isTypingTarget,
   listRegisteredCommands,
+  paletteFocusReturnTarget,
   PALETTE_SETTINGS_TABS,
   parseRecents,
   pushRecent,
@@ -262,6 +263,22 @@ const palette = source("components/command-palette/CommandPalette.tsx");
 assert.match(palette, /useAllCharacterCatalog\(\)/u, "palette reads the compact character catalog");
 assert.doesNotMatch(palette, /useCharacters\(\)/u, "palette does not load every full character card");
 assert.match(palette, /filterVisibleCommands\(registered\)/u, "registered commands go through the `when` filter");
+// Closing the palette hands focus back to what opened it. The autofocused search field is focused before
+// the dialog's focus scope looks, so the palette records the opener itself when `open` turns on.
+{
+  const opener = { focus: noop };
+  const body = { focus: noop };
+  assert.equal(paletteFocusReturnTarget(opener, body), opener, "the focused opener gets focus back");
+  assert.equal(paletteFocusReturnTarget(body, body), null, "the page body is not an opener");
+  assert.equal(paletteFocusReturnTarget(null, body), null);
+  assert.equal(paletteFocusReturnTarget({} as { focus?: unknown }, body), null, "only focusable elements");
+  assert.match(
+    palette,
+    /useLayoutEffect\(\(\) => \{\s*if \(open\)\s*restoreFocusRef\.current = paletteFocusReturnTarget\(/u,
+    "the opener is recorded in a layout effect, before the search field mounts and autofocuses",
+  );
+  assert.match(palette, /restoreFocusRef=\{restoreFocusRef\}/u, "the recorded opener is passed to the Modal");
+}
 for (const labelKey of palette.matchAll(/t\("(palette\.[A-Za-z.]+)"/gu)) {
   assert.equal(typeof en[labelKey[1]!], "string", `${labelKey[1]} is in en.json`);
 }

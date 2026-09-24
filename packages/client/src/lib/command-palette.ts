@@ -261,6 +261,15 @@ interface TargetLike {
   closest?: (selector: string) => unknown;
 }
 
+/**
+ * Where focus goes back to when the palette closes: the element focused just before it opened
+ * (the shortcut's field, or the top-bar button that was tapped). Null for the page body or nothing.
+ */
+export function paletteFocusReturnTarget<T extends { focus?: unknown }>(active: T | null, body: unknown): T | null {
+  if (!active || active === body || typeof active.focus !== "function") return null;
+  return active;
+}
+
 /** True when keystrokes on `target` are text entry and must not trigger single-key shortcuts. */
 export function isTypingTarget(target: unknown): boolean {
   if (!target || typeof target !== "object") return false;
