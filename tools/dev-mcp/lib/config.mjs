@@ -32,9 +32,16 @@ if (!REPO_LOOKS_RIGHT) {
   );
 }
 
-/** The engine's .env (the same file the server reads when MARINARA_ENV_FILE is not set). Read-only here. */
+/**
+ * The env file the engine reads: MARINARA_ENV_FILE (relative to the repo root, as the server resolves it) when set,
+ * else the repo .env. Engines this tool starts inherit its environment, so both read the same file. Read-only here.
+ */
+export const ENGINE_ENV_FILE = process.env.MARINARA_ENV_FILE?.trim()
+  ? resolve(REPO, process.env.MARINARA_ENV_FILE.trim())
+  : join(REPO, ".env");
+
 function readEngineEnv() {
-  const file = join(REPO, ".env");
+  const file = ENGINE_ENV_FILE;
   const env = {};
   if (!existsSync(file)) return env;
   for (const raw of readFileSync(file, "utf8").split("\n")) {

@@ -94,7 +94,7 @@ All optional. The defaults suit a normal checkout.
 | `MARINARA_DEV_SANDBOX_DIST` | `dist`                                 | Server build folder the sandbox runs                                         |
 | `MARINARA_DEV_PNPM`         | `corepack pnpm`                        | How to run pnpm for builds (plain words and paths only; no shell characters) |
 
-The data and log folders are read from the repo `.env` (`DATA_DIR`, `LOG_DIR`) the same way the server resolves them.
+The port and the data and log folders are read from the engine's env file (`PORT`, `DATA_DIR`, `LOG_DIR`) the same way the server resolves them: `MARINARA_ENV_FILE` when it is set in the tool's environment (engines the tool starts inherit it), else the repo `.env`.
 
 **`.dev-mcp/` holds backups of your cards and chat settings and copies of prompts, which can contain your own campaign text. It must stay out of git:** the root `.gitignore` lists `.dev-mcp/`. If you point `MARINARA_DEV_STATE` somewhere else, keep that folder private too.
 
