@@ -345,8 +345,34 @@ try {
       );
     }
   });
+  await test("invalid scaffolds do not suppress valid saved recap boundaries", async () => {
+    const { chat, messages, row, sceneId } = await fixture();
+    await db.insert(advancedMemoryRecords).values({
+      ...row,
+      id: `${sceneId}-saved-recap`,
+      content: "The original compass scene is already saved.",
+      audienceCharacterIds: '["maukie"]',
+    });
+    await db
+      .update(advancedMemoryRecords)
+      .set({
+        endMessageId: messages[2]!.id,
+        messageIds: JSON.stringify([messages[0]!.id, "deleted-message", messages[1]!.id, messages[2]!.id]),
+      })
+      .where(eq(advancedMemoryRecords.id, sceneId));
+    assert.deepEqual((await memory.status(chat.id)).unpreparedScenes, []);
+    await db
+      .update(advancedMemoryRecords)
+      .set({ messageIds: JSON.stringify([messages[0]!.id, "deleted-message", messages[1]!.id]) })
+      .where(eq(advancedMemoryRecords.id, `${sceneId}-saved-recap`));
+    assert.deepEqual(
+      (await memory.status(chat.id)).unpreparedScenes?.map(({ startIndex, endIndex }) => [startIndex, endIndex]),
+      [[1, 2]],
+      "a stale recap still offers recovery of its own source range",
+    );
+  });
   await test("a correction spanning a recovered boundary can be excluded without losing its text", async () => {
-    for (const boundary of ["shrunk", "expanded", "removed"]) {
+    for (const boundary of ["shrunk", "expanded", "removed", "reopened"]) {
       const { chat, messages, row, sceneId } = await fixture();
       await chats.updateMessageExtra(messages[1]!.id, { hiddenFromAI: true });
       await chats.createMessagesBatch(chat.id, [
@@ -369,8 +395,9 @@ try {
         await db
           .update(advancedMemoryRecords)
           .set({
-            endMessageId: source[3]!.id,
-            messageIds: JSON.stringify(source.slice(0, 4).map((message) => message.id)),
+            status: boundary === "reopened" ? "open" : "closed",
+            endMessageId: source[boundary === "reopened" ? 4 : 3]!.id,
+            messageIds: JSON.stringify(source.slice(0, boundary === "reopened" ? 5 : 4).map((message) => message.id)),
           })
           .where(eq(advancedMemoryRecords.id, sceneId));
       } else
@@ -386,7 +413,7 @@ try {
       const originalSceneId = `scene-${source[originalStart]!.id}`;
       const correctionId = `${originalSceneId}-spanning-correction`;
       const correction = "The original correction describes its authored compass events.";
-      const originalEnd = source[boundary === "expanded" ? 1 : 3]!.id;
+      const originalEnd = source[boundary === "expanded" ? 1 : boundary === "reopened" ? 4 : 3]!.id;
       await db.insert(advancedMemoryRecords).values({
         ...row,
         id: correctionId,
@@ -395,7 +422,7 @@ try {
         endMessageId: originalEnd,
         messageIds: JSON.stringify(
           source
-            .slice(originalStart, boundary === "expanded" ? 2 : 4)
+            .slice(originalStart, boundary === "expanded" ? 2 : boundary === "reopened" ? 5 : 4)
             .filter((message) => message.id !== source[1]!.id)
             .map((message) => message.id),
         ),

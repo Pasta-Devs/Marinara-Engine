@@ -720,8 +720,22 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
   /** Recover ranges from saved boundaries, including a missing scaffold between two scenes. */
   function savedScenes(ctx: Context, current: StoredRecord[]): Scene[] {
     const indexes = new Map(ctx.messages.map((message, index) => [message.id, index]));
-    const scaffolds = current
-      .filter((record) => record.kind === "scene" && record.id === record.sceneId)
+    const scenes = current.filter((record) => {
+      if (record.kind !== "scene") return false;
+      if (record.id !== record.sceneId) return true;
+      const start = indexes.get(record.messageIds[0] ?? "");
+      const end = indexes.get(record.messageIds.at(-1) ?? "");
+      // Structural validity only needs its contiguous source range, not a fresh
+      // scan of the entire chat for each saved scene in the inspector.
+      return (
+        start !== undefined &&
+        end !== undefined &&
+        end >= start &&
+        recordValid(ctx, record, ctx.messages.slice(start, end + 1))
+      );
+    });
+    const scaffolds = scenes
+      .filter((record) => record.id === record.sceneId)
       .map((record) => ({
         start: indexes.get(record.startMessageId) ?? -1,
         end: indexes.get(record.endMessageId) ?? -1,
@@ -729,8 +743,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       .filter(({ start, end }) => start >= 0 && end >= start);
     const starts = new Set<number>([0]);
     let found = false;
-    for (const record of current) {
-      if (record.kind !== "scene") continue;
+    for (const record of scenes) {
       const start = indexes.get(record.startMessageId);
       const end = indexes.get(record.endMessageId);
       if (start === undefined || end === undefined || end < start) continue;
@@ -1532,9 +1545,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       const scene = scenes.find((item) => item.id === record.sceneId);
       if (
         !scene ||
-        (scene.closed &&
-          (record.startMessageId !== ctx.messages[scene.start]!.id ||
-            record.endMessageId !== ctx.messages[scene.end]!.id))
+        (record.status === "closed" && !scene.closed) ||
+        record.startMessageId !== ctx.messages[scene.start]!.id ||
+        record.endMessageId !== ctx.messages[scene.end]!.id
       )
         throw correctionReviewError(ctx, record, true);
     }
@@ -3218,12 +3231,13 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         record.kind === "scene" && (patch.content !== undefined || patch.audienceCharacterIds !== undefined);
       if (correctedScene || (record.kind === "scene" && record.manualOverride && patch.enabled === true)) {
         const scaffold = (await operationRecords(ctx)).find(
-          (item) => item.id === record.sceneId && item.kind === "scene",
+          (item) => item.id === record.sceneId && item.kind === "scene" && recordValid(ctx, item),
         );
         // Preserve the authored range when a scene changes or disappears.
         // Disabling a correction remains available as a safe recovery path.
         if (
           !scaffold ||
+          (record.status === "closed" && scaffold.status === "open") ||
           scaffold.startMessageId !== record.startMessageId ||
           scaffold.endMessageId !== record.endMessageId
         )
