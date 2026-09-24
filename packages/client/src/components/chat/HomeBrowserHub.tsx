@@ -45,6 +45,7 @@ import {
   APP_VERSION,
   BUILT_IN_AGENTS,
   HOME_CUSTOM_WIDGETS_SETTINGS_KEY,
+  isInstalledCapabilityReady,
   normalizeAvatarCrop,
   type AchievementEvent,
   type HomeCustomWidget,
@@ -1946,12 +1947,15 @@ export function HomeBrowserHub({
   useEffect(() => {
     if (!installed.isSuccess || !agents.isSuccess) return;
     const available = new Set(agentWidgets.map((widget) => widget.id));
-    const installedPackageIds = new Set((installed.data ?? []).map((pkg) => pkg.id));
+    // Keep widgets of a temporarily unavailable package; a ready package that stopped declaring one drops it.
+    const unavailablePackageIds = new Set(
+      (installed.data ?? []).filter((pkg) => !isInstalledCapabilityReady(pkg)).map((pkg) => pkg.id),
+    );
     setVisibleWidgets((current) => {
       const next = current.filter((id) => {
         if (!id.startsWith("agent:") || available.has(id)) return true;
         const match = /^agent:package:([^:]+):/.exec(id);
-        return Boolean(match && installedPackageIds.has(match[1]!));
+        return Boolean(match && unavailablePackageIds.has(match[1]!));
       });
       return next.length === current.length ? current : next;
     });

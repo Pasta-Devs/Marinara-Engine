@@ -7374,8 +7374,14 @@ export class MariDbService {
         return undefined;
       }
     };
+    const deletedAgentIds = new Set(
+      changes.filter((change) => change.table === "agent_configs" && !change.afterRaw).map((change) => change.id),
+    );
     for (const change of changes) {
-      if (change.table === "app_settings" && change.id.startsWith("agent_home_widget:")) {
+      const ownerDeleted =
+        !change.afterRaw &&
+        [...deletedAgentIds].some((agentId) => change.id.startsWith(`agent_home_widget:${agentId}:`));
+      if (change.table === "app_settings" && change.id.startsWith("agent_home_widget:") && !ownerDeleted) {
         issues.push({
           level: "error",
           table: "app_settings",
@@ -7934,6 +7940,25 @@ export class MariDbService {
       apply: true,
     }));
     await this.addCascadeDeletes(changes, request.cascade);
+    // Published Home widget state belongs to its agent; plan it in the same journal so Restore reinserts it.
+    const deletedAgentIds = changes.filter((change) => change.table === "agent_configs").map((change) => change.id);
+    if (deletedAgentIds.length > 0) {
+      const settingsMeta = getMeta("app_settings");
+      for (const row of await this.rawRows("app_settings")) {
+        const id = rowId(settingsMeta, row);
+        if (!deletedAgentIds.some((agentId) => id.startsWith(`agent_home_widget:${agentId}:`))) continue;
+        changes.push({
+          table: "app_settings",
+          id,
+          action: "delete",
+          before: parseRow("app_settings", row),
+          after: null,
+          beforeRaw: row,
+          afterRaw: null,
+          apply: true,
+        });
+      }
+    }
     const cascaded = changes.filter((change) => change.cascadeOf);
     if (cascaded.length > 0 && !request.cascade) {
       issues.push({

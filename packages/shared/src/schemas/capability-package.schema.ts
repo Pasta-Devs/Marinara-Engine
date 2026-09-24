@@ -539,6 +539,15 @@ export const capabilityPackageManifestSchema = z
         });
       }
     }
+    for (const [index, widget] of (manifest.contributions?.homeWidgets ?? []).entries()) {
+      if (widget.iconPath && !manifest.files.some((file) => file.path === widget.iconPath)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets", index, "iconPath"],
+          message: "A Home widget icon must be declared in the package file manifest",
+        });
+      }
+    }
     // Every declared asset must be hash-pinned in files[] — the serve path refuses
     // undeclared files, so an unlisted path would install fine and then 404 at
     // runtime. Caught here so it fails at install with a clear reason instead.

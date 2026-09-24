@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { appSettings } from "../../packages/server/src/db/schema/index.js";
 import { createAgentConfigSchema, homeAgentWidgetsSchema } from "../../packages/shared/src/schemas/agent.schema.js";
 
 const widget = { id: "status", title: "Status", description: "Current status", size: "compact" as const };
@@ -74,6 +75,24 @@ try {
   assert.deepEqual(await storage.readHomeWidgetState(agent.id, widget.id), { text: "", updatedAt: null });
   await storage.remove(agent.id);
   assert.equal(await storage.readHomeWidgetState(agent.id, widget.id), null);
+
+  const mariDeleted = await storage.create({
+    type: "custom-widget-mari-delete",
+    name: "Widget delete proof",
+    phase: "post_processing",
+    settings: { homeWidgets: [widget] },
+    promptTemplate: "",
+  });
+  assert.ok(mariDeleted);
+  await storage.publishHomeWidgetState(mariDeleted.id, widget.id, "Ready");
+  const mariDelete = await mari.executeCli({ argv: ["db", "delete", "agent_configs", mariDeleted.id, "--apply"] });
+  assert.equal(mariDelete.ok, true, JSON.stringify(mariDelete));
+  assert.equal(await storage.readHomeWidgetState(mariDeleted.id, widget.id), null);
+  const settingsRows = await db.select().from(appSettings);
+  assert.equal(
+    settingsRows.some((row) => row.key === `agent_home_widget:${mariDeleted.id}:${widget.id}`),
+    false,
+  );
 } finally {
   await closeDB();
   rmSync(dataDir, { recursive: true, force: true });
