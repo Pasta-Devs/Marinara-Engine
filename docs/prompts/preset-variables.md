@@ -63,7 +63,7 @@ If a variable with that exact name exists, the placeholder becomes the chosen va
 
 An option's value can hold a decision block, `{{#if decision:"..."}}`, like any other prompt text. Only the options the chat has selected are asked about, and they count toward **Decision statements per turn**. For a **Random Pick** variable, every option in the selected pool is asked about, since any of them could be drawn. See [Asking the Decision model](conditional-prompts.md#asking-the-decision-model).
 
-A variable's value lands wherever its `{{name}}` sits, often near the top of the preset. Be very careful with a decision block in an option used there: every turn its answer changes, a caching provider bills the whole prompt as new. See [Decision blocks and prompt caching](presets.md#decision-blocks-and-prompt-caching).
+A variable's value lands wherever its `{{name}}` sits. If a decision changes that value near the top of a preset, it can lose much of the provider's prompt-cache reuse, though an earlier unchanged prefix may still qualify. Put frequently changing content later where possible. See [Decision blocks and prompt caching](presets.md#decision-blocks-and-prompt-caching).
 
 ## Related guides
 

@@ -126,19 +126,20 @@ The drawer's **Decision** field lets your **Decision model** decide whether an e
 
 - **Off**, the default: the entry activates as usual.
 - **Require**: the entry activates the way it normally would (keywords, **Constant**, semantic matching), and only when the statement is also true. This filters passing mentions: an entry keyed on `dragon` stays out when someone only talks about dragons. On a **Constant** entry it makes the entry situational, for example combat rules with `A fight is happening in the latest message`.
-- **Trigger**: the statement alone can activate the entry, even when none of its keywords appear. This catches paraphrases and situations, for example `The latest message takes place in the Blackwood Forest`. The entry's keywords still activate it too.
+- **Trigger**: the statement adds a way to activate the entry, even when none of its keywords appear. This catches paraphrases and situations, for example `The latest message takes place in the Blackwood Forest`. Ordinary activation routes, including keywords, **Constant**, semantic matches and attached map locations, remain available.
 
-Macros such as `{{user}}` and `{{char}}` work in the statement. How to word one so every model reads it the same way is in [Writing statements](../prompts/conditional-prompts.md#writing-statements).
+Macros such as `{{user}}` and `{{char}}` work in the statement. For clear wording and a way to test it on your own chats, see [Writing statements](../prompts/conditional-prompts.md#writing-statements).
 
 How it runs:
 
-- A statement is asked only when the entry would otherwise activate, after its filters, timing and probability roll. For **Require**, that means its keywords matched, a semantic match found it, it is **Constant**, or a map location attaches it; the last two are asked on every turn the entry would be in the prompt. A **Trigger** statement is asked on every turn its lorebook is active, so on a hosted Decision connection keep Trigger entries few.
-- A turn's statements go in one request, with one more for entries that only come in through recursion from another decision entry. They count toward **Decision statements per turn**.
-- Answers are kept for the turn, so a regeneration or a swipe activates the same entries. A **Sticky** entry is not asked again while it stays active.
+- **Require** checks an entry that would otherwise qualify through keywords, semantic matching, **Constant**, or an attached map location, subject to its filters, timing and probability roll. It does not scan every unused entry merely because the lorebook is active.
+- **Trigger** can be checked when ordinary keyword activation does not admit an eligible entry. It is not necessarily asked on every turn: a Constant entry, a keyword match or an existing Sticky hold can admit the entry without a Trigger answer. Keep Trigger entries purposeful; they can still add hosted requests.
+- Statements are batched where possible. Activation, entry-content statements and recursive matches can need several batches, so a turn can incur multiple hosted requests. They use the lorebook's share of **Decision statements per turn**; see [Limits and cost](../prompts/conditional-prompts.md#limits-and-cost).
+- Successful answers are normally reused for the same turn and model while cached. Failed answers can be retried, and restart, eviction or changed inputs can cause new requests. A regeneration is not guaranteed to activate identical entries. See [Answer reuse](../prompts/conditional-prompts.md#answer-reuse). A **Sticky** entry is not asked again while its hold applies.
 - The active-lorebook list shows **decision** for an entry a Trigger statement activated.
 - **Peek Prompt** never asks. It uses the answers the turn already has and lists the statements that have none.
 
-**No answer means no.** With no Decision model, or when it does not answer, a **Require** entry does not activate and a **Trigger** entry activates only by its keywords. The editor warns when no Decision model is set. So give a Trigger entry keywords as well, or keep it to lore the story can do without, and use Require to filter lore, never to carry something the story depends on. See [Decision Models](../connections/decision-models.md).
+**No answer means no new decision activation.** With no Decision model, or when it does not answer, **Require** cannot admit a new entry, though an existing Sticky hold can keep one active. **Trigger** adds no activation route; the entry can still activate through its ordinary keywords, Constant, semantic or map-location behavior, subject to their usual rules. The editor warns when no Decision model is set. Give important Trigger entries an ordinary activation route too. Use Require to filter optional lore, never to gate something the story depends on. See [Decision Models](../connections/decision-models.md).
 
 Decision activation applies to chat turns. Game setup, experience generation, and the lorebook scans agents run for themselves read decision entries as no.
 
