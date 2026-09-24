@@ -132,6 +132,20 @@ try {
   assertOk(await write("character.create", { name: "Ordinary", description: "A traveler." }));
   let result = await write("character.create", { name: "Blocked", description: conditional });
   assert.equal(result.ok, false, "ordinary request cannot introduce Decision content");
+  const preview = await write(
+    "character.create",
+    { name: "Decision preview", description: conditional },
+    { apply: false },
+  );
+  assertOk(preview);
+  assert.equal(preview.mode, "dry-run", "preparing a reviewable plan does not require permission to persist it");
+  assert.equal(
+    ((await mari.executeAction({ action: "character.list" })).output as Array<{ name: string }>).some(
+      (row) => row.name === "Decision preview",
+    ),
+    false,
+    "a consent-free preview does not persist authored content",
+  );
   await turn("Add Decision guidance to my character.");
   await record({ category: "authoring", answer: "allow", quote: "Add Decision guidance to my character." });
   result = await write("character.create", { name: "Blocked", description: conditional });
