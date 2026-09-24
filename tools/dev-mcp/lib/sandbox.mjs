@@ -205,7 +205,17 @@ function isolatedEnv() {
  * use. The caller waits for health. `distDir` (relative to packages/server, default "dist") lets a developer test a
  * private build such as "dist-sandbox" without replacing the live engine's dist.
  */
-export async function startSandboxProcess(distDir = process.env.MARINARA_DEV_SANDBOX_DIST || "dist") {
+/** The build folder the sandbox last ran (sandbox_refresh records it), so a plain restart keeps using it. */
+function recordedDist() {
+  try {
+    const value = readFileSync(join(SANDBOX_DIR, "dist.txt"), "utf8").trim();
+    return /^dist[\w-]*$/.test(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function startSandboxProcess(distDir = recordedDist() || process.env.MARINARA_DEV_SANDBOX_DIST || "dist") {
   if (!/^dist[\w-]*$/.test(distDir)) throw new Error(`invalid dist folder name ${distDir}`);
   if (!existsSync(join(SERVER_DIR, distDir, "index.js"))) throw new Error(`no ${distDir}/index.js in packages/server`);
   if (!existsSync(STORAGE) || !existsSync(META_FILE)) {
