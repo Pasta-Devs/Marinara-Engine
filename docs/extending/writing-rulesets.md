@@ -1004,9 +1004,10 @@ lists as its characters says so, whatever those are. Ember Roads' Toll Warden:
   if it does. It may have no `actions` of its own, because its lists are what it does. A creature
   without a sheet still gives the first three and at least one action.
 - **It is checked as the authored data it is.** Every id has to be one your sheet declares, a skill
-  or save is set to one of your proficiency tiers, and a field, score or column holds what it is
-  declared to hold: a number inside its range, one of its values, and so on. There is no `live`
-  part, because what a creature has spent is the fight's to keep.
+  or save is set to one of the proficiency tiers you offer for it, a field, score, bonus or column
+  holds what it is declared to hold (a whole number inside its range, one of its values, and so
+  on), and a list holds no more rows than it allows. There is no `live` part, because what a
+  creature has spent is the fight's to keep.
 - **A row can come out of a catalog.** `_catalog: "<catalog>/<entry>"` names the entry a row was
   picked from, as it does on a character's sheet, and that entry is where a fight reads what the row
   costs and does. The catalog has to be one that feeds that list. When the catalog is written

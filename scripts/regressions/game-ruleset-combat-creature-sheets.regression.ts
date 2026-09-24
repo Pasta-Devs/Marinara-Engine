@@ -306,7 +306,29 @@ function started(input: {
   );
   refused(
     (creature) => (creature.sheet.abilities.str = 31),
-    /creature\.sheet\.abilities\.str: Ability "str" is outside 1 to 30/,
+    /creature\.sheet\.abilities\.str: Ability "str" takes a whole number from 1 to 30/,
+  );
+  refused(
+    (creature) => (creature.sheet.abilities.str = 12.5),
+    /creature\.sheet\.abilities\.str: Ability "str" takes a whole number from 1 to 30/,
+  );
+  refused(
+    (creature) => (creature.sheet.bonuses = { athletics: 41 }),
+    /creature\.sheet\.bonuses\.athletics: Bonus "athletics" takes a whole number from -20 to 40/,
+  );
+  refused(
+    (creature) => (creature.sheet.bonuses = { athletics: 1.5 }),
+    /creature\.sheet\.bonuses\.athletics: Bonus "athletics" takes a whole number from -20 to 40/,
+  );
+  // 5e offers only "none" and "proficient" for a save, so a tier it knows is still refused there.
+  refused(
+    (creature) => (creature.sheet.saves.str_save = "expertise"),
+    /creature\.sheet\.saves\.str_save: This ruleset does not offer "expertise" for saves/,
+  );
+  refused(
+    (creature) =>
+      (creature.sheet.lists.attacks = Array.from({ length: 21 }, (_, index) => ({ name: `Blade ${index}` }))),
+    /creature\.sheet\.lists\.attacks: "attacks" holds at most 20 rows/,
   );
   refused(
     (creature) => (creature.sheet.lists.attacks[0].proficient = "yes"),

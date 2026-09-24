@@ -617,9 +617,10 @@ and an opponent could not pay for anything out of a pool it did not have.
   opponent alike, so the two cannot drift apart. What the block adds (its own actions, signature
   points, riders and the damage it shrugs off) is laid on top.
 - **Checked as authored data**: every id against the sheet's declarations, skills and saves against
-  the proficiency tiers, scores against their range, fields and row cells through the shared
-  `rulesetListRowIssues` (now also run over fields), and `_catalog` against a catalog that feeds the
-  list and, when it is inline, holds the entry.
+  the tiers offered for them, scores and bonuses as whole numbers in their ranges, rows against each
+  list's `maxItems`, fields and row cells through the shared `rulesetListRowIssues` (now also run
+  over fields), and `_catalog` against a catalog that feeds the list and, when it is inline, holds
+  the entry.
 - **The route loads what the sheets read.** `rulesetBestiarySheetCatalogIds` names the catalogs a
   bestiary's sheets pick rows from, and they are loaded after the bestiaries, only when a sheet
   names one.

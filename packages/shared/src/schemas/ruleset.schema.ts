@@ -3197,28 +3197,46 @@ function creatureSheetIssues(
     }
   };
   known("ability", definition.sheet.abilities, sheet.abilities, "abilities");
-  // A score is inside the range the ruleset gives it, exactly as the sheet editor keeps a character's.
+  // A score is a whole number inside the range the ruleset gives it, exactly as the sheet editor keeps
+  // a character's.
   for (const ability of definition.sheet.abilities) {
     const score = sheet.abilities[ability.id];
-    if (score !== undefined && (score < ability.min || score > ability.max)) {
-      add([...at, "abilities", ability.id], `Ability "${ability.id}" is outside ${ability.min} to ${ability.max}`);
+    if (score !== undefined && (!Number.isInteger(score) || score < ability.min || score > ability.max)) {
+      add(
+        [...at, "abilities", ability.id],
+        `Ability "${ability.id}" takes a whole number from ${ability.min} to ${ability.max}`,
+      );
     }
   }
   known("skill", definition.sheet.skills, sheet.skills, "skills");
   known("save", definition.sheet.saves, sheet.saves, "saves");
-  // What a skill or a save is set to is one of the ruleset's own proficiency tiers.
-  const tiers = new Set(definition.resolution.proficiencyTiers.map((tier) => tier.id));
+  // What a skill or a save is set to is one of the ruleset's own proficiency tiers, and one of the
+  // tiers it offers for that kind when it narrows them.
+  const tierIds = definition.resolution.proficiencyTiers.map((tier) => tier.id);
+  const tiers = new Set(tierIds);
+  const offered = {
+    skills: new Set(definition.sheet.skillTiers ?? tierIds),
+    saves: new Set(definition.sheet.saveTiers ?? tierIds),
+  };
   for (const key of ["skills", "saves"] as const) {
     for (const [id, tier] of Object.entries(sheet[key])) {
       if (!tiers.has(tier)) add([...at, key, id], `Unknown proficiency tier "${tier}"`);
+      else if (!offered[key].has(tier)) add([...at, key, id], `This ruleset does not offer "${tier}" for ${key}`);
     }
   }
   // A field holds what that field holds: a number in its range, one of its values, and so on.
   for (const message of rulesetListRowIssues({ columns: definition.sheet.fields }, sheet.fields, "Field")) {
     add([...at, "fields"], message);
   }
-  // A bonus is on a skill or a save, exactly as a character's is.
+  // A bonus is on a skill or a save, and a whole number inside the range the ruleset gives bonuses,
+  // exactly as a character's is.
   known("skill or save", [...definition.sheet.skills, ...definition.sheet.saves], sheet.bonuses, "bonuses");
+  const { min: bonusMin, max: bonusMax } = definition.sheet.bonusRange;
+  for (const [id, bonus] of Object.entries(sheet.bonuses)) {
+    if (!Number.isInteger(bonus) || bonus < bonusMin || bonus > bonusMax) {
+      add([...at, "bonuses", id], `Bonus "${id}" takes a whole number from ${bonusMin} to ${bonusMax}`);
+    }
+  }
   const lists = new Map(definition.sheet.lists.map((list) => [list.id, list]));
   for (const [listId, rows] of Object.entries(sheet.lists)) {
     const list = lists.get(listId);
@@ -3226,6 +3244,7 @@ function creatureSheetIssues(
       add([...at, "lists", listId], `Unknown list "${listId}"`);
       continue;
     }
+    if (rows.length > list.maxItems) add([...at, "lists", listId], `"${listId}" holds at most ${list.maxItems} rows`);
     rows.forEach((row, index) => {
       // Held to exactly what a catalog's row is held to, less the mark that says which entry it is.
       const { [RULESET_CATALOG_ROW_KEY]: _mark, ...values } = row;
