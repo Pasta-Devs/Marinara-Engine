@@ -655,8 +655,9 @@ and an opponent could not pay for anything out of a pool it did not have.
   table to hold them to; the tier hold bounds what they buy.
 - **Open choices are filled by temperament and competence, with no model call.**
   `fillRulesetSheetChoices` fills every list a creature chooses from (an ability source with
-  `onlyWhen`) with entries open to it and payable from its own pools, a fixed count per pool rung and
-  at will by competence (a `ponytail:` ceiling until a ruleset can declare the count), weighted by
+  `onlyWhen`) with entries open to it and payable from its own pools, up to a fixed count per pool
+  rung (1, 2, 2 and 3 from novice to master) and at will (2, 2, 3 and 3), an Engine-side limit until
+  a ruleset can declare how many choices a class has, weighted by
   the entry's nature (harm, support, control, or what bends the turn) against the combat AI's own
   temperament, with competence raising what bends the turn. The route gives the enemy its tactics
   before the fight is built, from the same unit and seed the picker would, so the creature fills

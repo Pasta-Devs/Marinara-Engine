@@ -410,6 +410,8 @@ async function encounterSheetBrief(
     readBy.set(source.list, counts || undefined);
   }
   const lists: EncounterSheetBrief["lists"] = [];
+  // One read per catalog, however many of these lists it feeds.
+  const reads = new Map<string, ReturnType<typeof loadRulesetCatalogEntries>>();
   for (const [id, counts] of readBy) {
     const list = sheet.lists.find((candidate) => candidate.id === id);
     if (!list) continue;
@@ -421,7 +423,8 @@ async function encounterSheetBrief(
       if (!catalog.feeds?.includes(id)) continue;
       for (const filter of catalog.filters ?? []) if (filter.startFrom) openBy.add(filter.startFrom.field);
       try {
-        const read = await loadRulesetCatalogEntries(packageId, definition, catalog);
+        if (!reads.has(catalog.id)) reads.set(catalog.id, loadRulesetCatalogEntries(packageId, definition, catalog));
+        const read = await reads.get(catalog.id)!;
         if (!read.ok) continue;
         for (const entry of read.entries) {
           if (!entry.rows?.some((row) => row.list === id)) continue;
