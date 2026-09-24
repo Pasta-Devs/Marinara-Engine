@@ -600,10 +600,9 @@ function getGameTranslationSource(
   speakerColors?: Map<string, string>,
 ): string {
   const plainSource = () =>
-    (
-      message.role === "assistant" || message.role === "narrator" || message.role === "system"
-        ? stripGmTagsKeepReadables(message.content)
-        : message.content.replace(/^\[(?:To the party|To the GM)]\s*/i, "")
+    (message.role === "assistant" || message.role === "narrator" || message.role === "system"
+      ? stripGmTagsKeepReadables(message.content)
+      : message.content.replace(/^\[(?:To the party|To the GM)]\s*/i, "")
     ).trim();
 
   const prefix = `${message.id}:`;
@@ -4446,13 +4445,7 @@ export function GameNarration({
       !!sourceMessage &&
       !!translatedSegmentText &&
       !isTranslating &&
-      gameTranslationMatchesMessage(
-        sourceMessage,
-        translationSource,
-        segmentEdits,
-        segmentDeletes,
-        speakerColors,
-      );
+      gameTranslationMatchesMessage(sourceMessage, translationSource, segmentEdits, segmentDeletes, speakerColors);
     const segmentDisplayContent = markGameDiceNumbers(
       showTranslationOnly
         ? translatedSegmentText!
