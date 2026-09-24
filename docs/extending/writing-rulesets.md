@@ -916,6 +916,10 @@ is filed under one of your own tiers.
 }
 ```
 
+The numbers below are the plain way to write a creature. One written in your ruleset's own terms,
+as a `sheet`, takes `health`, `defense`, `initiativeModifier`, `speed`, `abilities` and `saves` from
+that sheet instead (see "A creature written in your ruleset's own terms", below).
+
 - `health`: a number, or `{ "dice": "3d6", "flat": 2 }` thrown once when the fight is created. A
   forecast reads the average, so a menu never promises a die nobody has thrown.
 - `defense`, `initiativeModifier`, `speed`: what an attack is rolled against, what it adds to
@@ -931,8 +935,9 @@ is filed under one of your own tiers.
 - `riders`: up to four, the same thing a catalog entry's `rider` is, written on the block. Each one
   is `{ "id": "pack", "name": "Pack", "on": "hit", "oncePer": "turn" | "round", "amount": { "dice": "1d6" } }`,
   with an optional `type` and an optional `actions` naming which of this block's own actions it
-  fires on. A creature has no sheet list to read, so `sources` and `requires` are the two keys it
-  does not have.
+  fires on. A block's rider reads no sheet list, so `sources` and `requires` are the two keys it
+  does not have. A creature written as a sheet gets the riders its lists carry, exactly as a
+  character does.
 - `actions`: up to twelve, each with an `id` of its own. An action carries what a hand-written stat
   block carries (`toHit`, `autoHit`, `damage`, `save`, `applies`, `targetCount`, `reach`, `range`, `area`)
   plus four things only a creature has. `reach` is how far it strikes, `range` how far it is thrown
@@ -948,18 +953,84 @@ is filed under one of your own tiers.
     a creature that strikes twice in one action is written.** One budget pays for the whole
     sequence. A sequence carries nothing of its own and may never name another sequence.
   - `signature`: `{ "cost": n }`, bought with the creature's own points instead of a budget, and
-    only while somebody else is acting. Stored, priced and spent today; see Not yet below.
+    only while somebody else is acting: the fight offers it in the window between one turn and the
+    next (see Windows).
 - A save needs a difficulty on the action itself: `save.difficulty` for a save the action forces, or
   `saveDifficulty` for a condition that ends on a save when the action has no save of its own. A
-  stat block is not a character sheet, so there is nowhere else for that number to come from. A
-  clause's own save may leave its `difficulty` out and fall back to that same number.
+  block action is written in plain numbers even on a creature with a sheet, so that number lives on
+  the action. A clause's own save may leave its `difficulty` out and fall back to that same number.
 - `damage.plus` is the same list of clauses a catalog entry's `plus` is, and reads exactly the same
   way: `"damage": { "dice": "1d6", "flat": 2, "type": "piercing", "plus": [{ "dice": "1d4", "type": "fire" }] }`
   is a bite that carries the heat as its own amount, resisted on its own and doubled on its own.
 
-The 5e draft's own bestiary is four hand-written creatures in
+The 5e draft's own bestiary is five hand-written creatures in
 `docs/development/ruleset-5e-2014.example.json`, covering a sequence, a recharge, a save with a
-condition, resistances and immunities, limited uses and signature points.
+condition, resistances and immunities, limited uses, signature points, and one written as a sheet.
+
+#### A creature written in your ruleset's own terms
+
+A creature does not have to be written in plain numbers. Give it a `sheet` instead, in exactly the
+shape a character's sheet has, and a fight builds it the way it builds a party member: its health,
+defense, saves, initiative, speed and every attack and ability on its lists are whatever your own
+sheet formulas make of it. That is how a ruleset whose opponents have the same abilities, skills and
+lists as its characters says so, whatever those are. Ember Roads' Toll Warden:
+
+```json
+{
+  "id": "toll-warden",
+  "label": "Toll Warden",
+  "creature": {
+    "tier": "pack",
+    "traits": [{ "name": "Knows the road", "text": "It will not follow anyone past the last milestone." }],
+    "sheet": {
+      "abilities": { "brawn": 2, "wits": 1, "heart": 1 },
+      "skills": { "sway": "trained" },
+      "fields": { "calling": "Hauler", "toughness": 3 },
+      "lists": {
+        "gear": [{ "name": "Toll hook", "swing": "brawn", "damage": "1d6", "harm": "cut" }],
+        "knacks": [{ "name": "Hold the Line", "_catalog": "knacks/hold-the-line" }]
+      }
+    }
+  }
+}
+```
+
+- **Every part is optional**: `abilities`, `skills`, `saves`, `bonuses`, `fields` and `lists`, keyed
+  by the ids your sheet declares. Anything left out reads as your sheet's own default, exactly as it
+  would on a blank character. The warden's Grit is 9 because your `grit_max` adds 4, its Toughness
+  and its Brawn, and its Guard is 7 for the same kind of reason.
+- **Each number has one place it comes from.** A creature with a sheet does not also give `health`,
+  `defense`, `initiativeModifier`, `speed`, `abilities` or `saves`, and the Engine refuses the file
+  if it does. It may have no `actions` of its own, because its lists are what it does. A creature
+  without a sheet still gives the first three and at least one action.
+- **It is checked as the authored data it is.** Every id has to be one your sheet declares, a skill
+  or save is set to one of the proficiency tiers you offer for it, a field, score, bonus or column
+  holds what it is declared to hold (a whole number inside its range, one of its values, and so
+  on), and a list holds no more rows than it allows. There is no `live` part, because what a
+  creature has spent is the fight's to keep.
+- **A row can come out of a catalog.** `_catalog: "<catalog>/<entry>"` names the entry a row was
+  picked from, as it does on a character's sheet, and that entry is where a fight reads what the row
+  costs and does. The catalog has to be one that feeds that list. When the catalog is written
+  inline, the entry has to be in it; when it lives in its own file, a row naming an entry the file
+  does not have simply gives the creature nothing. The catalogs a bestiary's sheets name are loaded
+  for the fight along with the bestiary.
+- **What the entry says beside the sheet still counts**: `tier`, `traits`, `actions`,
+  `signaturePoints`, `riders`, `resist`, `vulnerable`, `immune` and `conditionImmunities`.
+- **It pays out of its own pools.** They start full, it spends them on what its lists give it, and
+  it is offered the bigger ways of paying (a spell out of a higher slot) exactly as a party member
+  is, whether the Engine or the Game Master decides for it. The warden's Hold the Line costs it Luck.
+- **On a wound track, its health is the track.** A blow marks the creature's own track by your
+  `damageKinds`, after its `resist`, `vulnerable` and `immune` have had their say, so a creature
+  immune to a kind of harm takes no mark from it.
+- **It is still an opponent.** At zero it is out rather than dying, it never rolls against death, a
+  screen shows what an opponent always showed and none of its sheet, and nothing it spent is written
+  back anywhere, even when a character shares its name.
+- **A sheet that adds up to no health at all** is left out of the fight, and the opening log says
+  why, rather than walking in as something nobody can hurt.
+- A package that ships one declares Capability API 1.34.
+
+The 5e draft's Toll Sergeant is the same thing on a d20 sheet: its Armor Class, hit points, saves
+and two swings an action all come from its own fields and its attacks list.
 
 #### Opponents nobody wrote
 
@@ -971,7 +1042,9 @@ sequence, or its heaviest single action, measured against one target) is inside 
 sequence, and only then the size of the die, and never scales anything down to nothing. Names your
 ruleset does not have are dropped: unknown damage types, conditions and saves, and anything past the
 first six actions. A tier you never declared falls back to the bottom of your scale. Every change
-comes back as a plain sentence, so a log can say what it did.
+comes back as a plain sentence, so a log can say what it did. An invention is always written in
+plain numbers, because the clamp holds it to its tier by its numbers: a proposal that carries a
+`sheet` is not read, and the tier is used instead.
 
 Your own bestiary is never clamped. It is data you wrote, so the Engine takes it as written.
 
@@ -1242,10 +1315,9 @@ Said plainly, because a ruleset should not claim what the Engine does not do:
 - Conditions do what the closed effect list can say and no more. A condition that gives
   disadvantage on ability CHECKS, or one that gets worse in levels the way exhaustion does, is a
   plain record on the sheet today.
-- **Creature stat-block resistances, vulnerabilities and immunities do not describe a wound track.** They live on an
-  opponent's stat block, and an opponent has no sheet to mark, so a ruleset whose health is a track
-  cannot soften a blow by its kind. What each kind of harm MARKS is `damageKinds`, which is a
-  different question from how much of it lands. A condition with `resist-all` can still reduce damage before it marks a wound.
+- **A creature written in plain numbers has no wound track.** On a ruleset whose health is a track,
+  such a creature still loses points; give it a `sheet` and its blows mark boxes, softened first by
+  its own `resist`, `vulnerable` and `immune`.
 - **A rider fires by itself.** `on` has one value, `hit`, so the first qualifying hit of the period
   takes it, and there is no moment at which you are asked whether to spend one.
 

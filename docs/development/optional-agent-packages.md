@@ -1086,6 +1086,28 @@ Use the existing startup-readiness declaration independently when the world must
 be prepared before the opening turn. Declare API 1.18 as the package minimum;
 older hosts cannot interpret this setup declaration.
 
+### Capability API 1.34: a creature written in the ruleset's own terms
+
+A bestiary creature may carry a `sheet`: a character sheet in the ruleset's own terms, as partial as
+it likes. A fight builds it exactly as it builds a party member, so its health, defense, saves,
+initiative, speed and the abilities on its lists come from the ruleset's own declarations, and it
+pays for them out of its own pools. It then gives none of `health`, `defense`, `initiativeModifier`,
+`speed`, `abilities` or `saves` beside the sheet, and may have no block actions of its own:
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 34 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/creatures.json"] } }
+}
+```
+
+The gate reads the ruleset's own bytes and every catalog file the install holds, exactly as 1.27
+does. A row on a creature's sheet may carry `_catalog: "<catalog>/<entry>"` for an entry of a
+catalog that feeds that list, and the Engine loads those catalogs for the fight along with the
+bestiary. Not a soft seam, for the same reason as 1.20 through 1.33: an Engine that cannot read the
+key refuses the whole strict catalog file, so a package that ships one declares 1.34. No permission.
+
 ### Capability API 1.33: the moment a reaction waits for
 
 A catalog entry's `mechanics.reaction` may be an object rather than `true`. `on` names the moment

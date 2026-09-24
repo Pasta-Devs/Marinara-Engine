@@ -149,10 +149,10 @@ const track = (definition: RulesetDefinition, state: RulesetEncounterState, id: 
   const beasts = catalogOf(fiveE, "creatures");
   assert.equal(beasts.holds, "creatures");
   assert.equal(beasts.feeds, undefined, "a bestiary writes no rows, so it feeds no list");
-  assert.equal(beasts.entries!.length, 4);
+  assert.equal(beasts.entries!.length, 5);
   const roads = catalogOf(ember, "road_trouble");
   assert.equal(roads.holds, "creatures");
-  assert.equal(roads.entries!.length, 3);
+  assert.equal(roads.entries!.length, 4);
   // A catalog written before this release reads exactly as it did: rows, and the lists it feeds.
   assert.equal(catalogOf(ember, "knacks").holds, "rows");
   assert.deepEqual(catalogOf(ember, "knacks").feeds, ["knacks", "tricks"]);
@@ -1354,7 +1354,7 @@ const traveller = (live: unknown = {}): RulesetCombatantInput => ({
   const summary = listed.catalogs!.find((catalog) => catalog.id === "creatures")!;
   assert.deepEqual(
     { ...summary },
-    { id: "creatures", label: "Creatures", holds: "creatures", filters: summary.filters, entryCount: 4 },
+    { id: "creatures", label: "Creatures", holds: "creatures", filters: summary.filters, entryCount: 5 },
   );
   assert.equal((summary as { entries?: unknown }).entries, undefined);
 
@@ -1457,8 +1457,9 @@ const traveller = (live: unknown = {}): RulesetCombatantInput => ({
       );
     }
     for (const catalog of doc.catalogs ?? []) {
+      // A creature written as a sheet is later again (1.34), and its gate is pinned in its own lane.
       catalog.entries = (catalog.entries ?? []).filter(
-        (entry: Record<string, any>) => entry.mechanics?.kind !== "rider",
+        (entry: Record<string, any>) => entry.mechanics?.kind !== "rider" && !entry.creature?.sheet,
       );
       for (const entry of catalog.entries) {
         for (const key of ["plus", "free", "gives", "standard", "rider"]) delete entry.mechanics?.[key];

@@ -47,6 +47,13 @@ function ruleset(edit: (doc: Record<string, any>) => void = () => {}): string {
   edit(doc);
   return JSON.stringify(doc, null, 2);
 }
+/** The example's Toll Warden picks a knack out of the knacks catalog by its id, so a case that
+ *  replaces those entries takes the creature out too, rather than leave it pointing at nothing. */
+function withoutSheetCreatures(doc: Record<string, any>): void {
+  for (const catalog of doc.catalogs ?? []) {
+    catalog.entries = catalog.entries?.filter((entry: Record<string, any>) => !entry.creature?.sheet);
+  }
+}
 /** The keys of the example that gate on a LATER declaration than the case at hand is about, so a
  *  case about catalogs is not answered by the gate that came after them. */
 function withoutLaterGates(doc: Record<string, any>): void {
@@ -179,6 +186,7 @@ const catalogFile = (entries: unknown[], catalog = "knacks") =>
       JSON.parse(
         ruleset((doc) => {
           doc.catalogs[0].entries = [entry];
+          withoutSheetCreatures(doc);
           extra(doc);
         }),
       ),
@@ -457,10 +465,11 @@ const installedPackages = packages.map((fixture) => {
   ];
   const manifest = {
     schemaVersion: 2,
-    // 1.29, because the example ruleset carries the combat bridge's battle block, a scaled catalog
+    // 1.34, because the example ruleset carries the combat bridge's battle block, a scaled catalog
     // row, a layer, a combat block, catalog mechanics a fight reads, a catalog of creatures, the
-    // keys that give that fight a board and the ones that say what one turn of it can do.
-    capabilityApi: { major: 1, minor: 29 },
+    // keys that give that fight a board, the ones that say what one turn of it can do, and a
+    // creature written in the ruleset's own terms.
+    capabilityApi: { major: 1, minor: 34 },
     builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
     id: packageId,
     name: fixture.id,
@@ -643,6 +652,7 @@ try {
     ruleset((doc) => {
       doc.version = 2;
       doc.catalogs[0].entries = doc.catalogs[0].entries.slice(0, 2);
+      withoutSheetCreatures(doc);
     }),
     plainRoads,
   ]) {

@@ -77,6 +77,22 @@ document.catalogs = [
   ...(document.catalogs ?? []),
   { id: "spells", label: "Spells", feeds: ["spells"], entries: spellEntries },
 ];
+// And a creature written as a sheet whose spell lives in that same catalog, which the route has to
+// load for the BESTIARY as well as for the party, or the creature walks in with nothing to cast.
+document.catalogs
+  .find((catalog: Record<string, any>) => catalog.id === "creatures")
+  .entries.push({
+    id: "hedge-mender",
+    label: "Hedge Mender",
+    creature: {
+      tier: "cr_1",
+      sheet: {
+        abilities: { str: 8, dex: 12, con: 12, int: 10, wis: 16, cha: 10 },
+        fields: { level: 3, ac: 12, hp_max: 22, spellcasting_ability: "wis", slots_max_1: 2 },
+        lists: { spells: [{ name: "Mending Light", level: 1, prepared: true, _catalog: "spells/mending-light" }] },
+      },
+    },
+  });
 const parsed = parseRulesetDefinition(JSON.parse(JSON.stringify(document)));
 assert.ok(parsed.ok, `the fixture ruleset must import: ${parsed.ok ? "" : parsed.issues.join("; ")}`);
 const definition: RulesetDefinition = parsed.definition;
@@ -596,6 +612,38 @@ try {
     );
   }
 
+  // ── A creature's sheet reads its spells out of the ruleset's other catalogs ──
+  {
+    const game4 = await newGame({ ruleset: true });
+    const response = await post("/combat/start", {
+      chatId: game4.chat.id,
+      anchor: game4.anchor.id,
+      style: "ruleset",
+      // Brenna has no spells of her own, so nothing loads the spell catalog for the party's sake.
+      party: [unit("brenna", "Brenna", "player")],
+      enemies: [{ ...unit("mender", "Hedge Mender", "enemy"), creature: "creatures/hedge-mender" }],
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    const row = await createGameEngineStateStorage(db).getByChatAndMessage(
+      game4.chat.id,
+      game4.anchor.id,
+      0,
+      COMBAT_DIRECTOR_NAMESPACE,
+    );
+    const stored = JSON.parse(row!.state) as {
+      rulesetFight: { encounter: { combatants: Array<Record<string, any>> } };
+    };
+    const mender = stored.rulesetFight.encounter.combatants.find((combatant) => combatant.id === "mender");
+    assert.ok(mender?.sheet, "the creature fights with its sheet");
+    assert.ok(
+      (mender.actions as Array<{ label: string }>).some((action) => action.label === "Mending Light"),
+      "and the spell its sheet lists, read out of the catalog the route loaded for it",
+    );
+    // And the saved fight, sheet and all, loads back.
+    const reread = await app.inject({ url: `/combat/state?chatId=${game4.chat.id}&anchor=${game4.anchor.id}` });
+    assert.equal(reread.statusCode, 200, reread.body);
+  }
+
   // ── A party member with no sheet is refused by name ──
   {
     const game3 = await newGame({ ruleset: true });
@@ -736,6 +784,15 @@ try {
       { health: 12, defense: 13, initiativeModifier: 2, tier: "cr_1_4", actions: [] },
       "a wall of prose",
       { health: 12, defense: 13, initiativeModifier: 2, tier: "cr_1_4", actions: [{ name: "Strike" }], extra: 1 },
+      // An invention is never a sheet: the clamp cannot hold one to its tier.
+      {
+        health: 12,
+        defense: 13,
+        initiativeModifier: 2,
+        tier: "cr_1_4",
+        actions: [{ id: "strike", name: "Strike", budget: "action", toHit: 4, damage: { dice: "1d6" } }],
+        sheet: { fields: { hp_max: 500 } },
+      },
     ]) {
       const dropped = blueprint(malformed);
       assert.ok(dropped.success, `a malformed proposal must not fail the blueprint: ${JSON.stringify(malformed)}`);

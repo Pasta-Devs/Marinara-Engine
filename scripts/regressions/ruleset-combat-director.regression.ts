@@ -680,8 +680,9 @@ for (const setup of [
       spentPools.has("slots_3"),
       `${setup.what}: nothing was ever paid for out of a higher pool, it spent ${[...spentPools].join(", ")}`,
     );
-    // An opponent has nothing to climb. A stat block's actions cost nothing off any pool, so there
-    // is no bigger way for it to pay, whoever plays it, the Engine or a Game Master.
+    // An opponent built from a plain stat block has nothing to climb. A block's actions cost nothing
+    // off any pool, so there is no bigger way for it to pay, whoever plays it, the Engine or a Game
+    // Master. (One whose bestiary entry carries a sheet does; that is pinned in the creatures lane.)
     {
       const encounter = started({
         definition: setup.definition,

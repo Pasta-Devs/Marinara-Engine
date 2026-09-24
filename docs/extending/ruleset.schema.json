@@ -4503,8 +4503,8 @@
                         ],
                         "additionalProperties": false
                       },
-                      "minItems": 1,
-                      "maxItems": 12
+                      "maxItems": 12,
+                      "default": []
                     },
                     "riders": {
                       "type": "array",
@@ -4605,16 +4605,171 @@
                       "minItems": 1,
                       "maxItems": 4
                     },
+                    "sheet": {
+                      "type": "object",
+                      "properties": {
+                        "abilities": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "number"
+                          },
+                          "default": {},
+                          "properties": {
+                            "$comment": {}
+                          }
+                        },
+                        "skills": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string",
+                            "maxLength": 40
+                          },
+                          "default": {},
+                          "properties": {
+                            "$comment": {}
+                          }
+                        },
+                        "saves": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string",
+                            "maxLength": 40
+                          },
+                          "default": {},
+                          "properties": {
+                            "$comment": {}
+                          }
+                        },
+                        "bonuses": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "number"
+                          },
+                          "default": {},
+                          "properties": {
+                            "$comment": {}
+                          }
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "string",
+                                "maxLength": 4000
+                              },
+                              {
+                                "type": "boolean"
+                              }
+                            ]
+                          },
+                          "default": {},
+                          "properties": {
+                            "$comment": {}
+                          }
+                        },
+                        "lists": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "string",
+                                    "maxLength": 4000
+                                  },
+                                  {
+                                    "type": "boolean"
+                                  }
+                                ]
+                              },
+                              "properties": {
+                                "$comment": {}
+                              }
+                            },
+                            "maxItems": 500
+                          },
+                          "default": {},
+                          "properties": {
+                            "$comment": {}
+                          }
+                        },
+                        "$comment": {}
+                      },
+                      "additionalProperties": false
+                    },
                     "$comment": {}
                   },
                   "required": [
-                    "health",
-                    "defense",
-                    "initiativeModifier",
-                    "tier",
-                    "actions"
+                    "tier"
                   ],
-                  "additionalProperties": false
+                  "additionalProperties": false,
+                  "allOf": [
+                    {
+                      "if": {
+                        "required": [
+                          "sheet"
+                        ]
+                      },
+                      "then": {
+                        "not": {
+                          "anyOf": [
+                            {
+                              "required": [
+                                "health"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "defense"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "initiativeModifier"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "speed"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "abilities"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "saves"
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "else": {
+                        "required": [
+                          "health",
+                          "defense",
+                          "initiativeModifier",
+                          "actions"
+                        ],
+                        "properties": {
+                          "actions": {
+                            "minItems": 1
+                          }
+                        }
+                      }
+                    }
+                  ]
                 },
                 "$comment": {}
               },
