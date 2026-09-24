@@ -1,9 +1,10 @@
-import type { AgentContext } from "@marinara-engine/shared";
+import { DEFAULT_GENERATION_PARAMS, type AgentContext } from "@marinara-engine/shared";
 import { NOVELAI_V5_MAX_CHARACTER_PROMPTS } from "../image/character-prompts.js";
 import { logger } from "../../lib/logger.js";
 import { normalizeAgentContextSize, renderAgentPromptTemplate } from "../agents/agent-executor.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
-import type { ChatCompletionResult, ChatMessage } from "../llm/base-provider.js";
+import { measureContextBudget, type ChatCompletionResult, type ChatMessage } from "../llm/base-provider.js";
+import { normalizeMaxContext } from "./generation-parameters.js";
 
 const MANUAL_ILLUSTRATION_MAX_TOKENS = 1_800;
 const MANUAL_ILLUSTRATION_SYSTEM_PROMPT = [
@@ -255,17 +256,28 @@ export async function writeManualIllustratorPromptPlan(args: {
     messages.map((message) => `${message.role}:\n${message.content}`).join("\n\n"),
   );
 
-  const callPromptWriter = (requestMessages: ChatMessage[]): Promise<ChatCompletionResult> =>
-    args.illustratorAgent.provider.chatComplete(requestMessages, {
+  const maxTokens = resolveManualIllustratorMaxTokens(args.illustratorAgent);
+  const maxContext =
+    normalizeMaxContext(args.illustratorAgent.provider.maxContextValue) ?? DEFAULT_GENERATION_PARAMS.maxContext;
+  const callPromptWriter = async (requestMessages: ChatMessage[]): Promise<ChatCompletionResult> => {
+    if (!measureContextBudget(requestMessages, { maxContext, maxTokens }).fits) {
+      throw new Error(
+        "Manual Illustrator request exceeds the connection context limit. Shorten the selected prompt or reduce Illustrator context size, or increase the connection context limit.",
+      );
+    }
+    return args.illustratorAgent.provider.chatComplete(requestMessages, {
       model: args.illustratorAgent.model,
       temperature: 0.55,
-      maxTokens: resolveManualIllustratorMaxTokens(args.illustratorAgent),
+      maxTokens,
+      maxContext,
+      preserveContext: true,
       enableCaching: args.illustratorAgent.enableCaching,
       anthropicExtendedCacheTtl: args.illustratorAgent.anthropicExtendedCacheTtl,
       cachingAtDepth: args.illustratorAgent.cachingAtDepth,
       customParameters: args.illustratorAgent.customParameters,
       signal: args.signal,
     });
+  };
 
   let response = await callPromptWriter(messages);
   let tokensUsed = response.usage?.totalTokens ?? 0;

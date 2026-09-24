@@ -4,7 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- Manual Gallery and `/illustrate` requests preserve the selected custom Illustrator prompt, including perspective and layout instructions alongside or after a response schema (#6597).
+- Manual Gallery and `/illustrate` requests preserve the selected custom Illustrator prompt, including perspective and layout instructions alongside or after a response schema. Requests too large for the connection's context limit report an error instead of silently cutting instructions (#6597).
 - Character-browser imports and PNG downloads no longer crash when browser translation replaces their button labels before the loading icon changes (#6598).
 
 - Update local embeddings and Whisper to Transformers.js 4 with matching ONNX runtimes and retain the native installer's private temporary directories. Upgrade Intiface integration to Buttplug 5 while preserving existing haptic intensity values, including zero, full vibration strength, and directional outputs. Reject incompatible feature ranges before starting output, and stop the device if only some features accept a command (#6603, #6604).

@@ -5726,6 +5726,30 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "Manual Illustrator rejects oversized initial and retry requests without truncating prompts",
+    async run() {
+      for (const retry of [false, true]) {
+        const capture = makeCapturingProvider("!? ".repeat(2300));
+        await assert.rejects(
+          writeManualIllustratorPromptPlan({
+            illustratorAgent: {
+              ...makeRegressionAgentConfig({
+                type: "illustrator",
+                promptTemplate: retry ? "Draw a comic page." : "!? ".repeat(8000),
+                settings: { maxTokens: 256 },
+              }),
+              provider: { ...capture.provider, maxContextValue: 2048 },
+              model: "regression-model",
+            } as any,
+            context: makeRegressionAgentContext(),
+          }),
+          /Manual Illustrator request exceeds the connection context limit/u,
+        );
+        assert.equal(capture.calls.length, retry ? 1 : 0);
+      }
+    },
+  },
+  {
     name: "Roleplay Illustrator background decisions are gated and produce reusable library metadata",
     async run() {
       assert.equal(
