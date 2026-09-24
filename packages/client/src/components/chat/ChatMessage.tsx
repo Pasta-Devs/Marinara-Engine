@@ -2907,6 +2907,7 @@ export const ChatMessage = memo(function ChatMessage({
           ].sort((a, b) => a.offset - b.offset || a.index - b.index)
         : [];
     let paragraphStart = 0;
+    let nextParagraphStart = Number.POSITIVE_INFINITY;
     if (visualNovel) {
       for (let index = 0; index <= activeVnParagraphIndex; index++) {
         const paragraph = vnParagraphs[index] ?? "";
@@ -2914,10 +2915,17 @@ export const ChatMessage = memo(function ChatMessage({
         if (paragraphStart < 0) break;
         if (index < activeVnParagraphIndex) paragraphStart += paragraph.length;
       }
+      const next = vnParagraphs[activeVnParagraphIndex + 1];
+      if (paragraphStart >= 0 && next !== undefined) {
+        const found = fullText.indexOf(next, paragraphStart + text.length);
+        if (found >= 0) nextParagraphStart = found;
+      }
     }
     return commands
-      .map((roll) => ({ ...roll, offset: roll.offset - paragraphStart }))
-      .filter((roll) => paragraphStart >= 0 && roll.offset >= 0 && roll.offset <= text.length);
+      .filter(
+        (command) => paragraphStart >= 0 && command.offset >= paragraphStart && command.offset < nextParagraphStart,
+      )
+      .map((command) => ({ ...command, offset: Math.min(command.offset - paragraphStart, text.length) }));
   }, [isRoleplay, isUser, fullText, extra, visualNovel, activeVnParagraphIndex, vnParagraphs, text.length]);
 
   const renderInlineRoleplayCommand = useCallback(

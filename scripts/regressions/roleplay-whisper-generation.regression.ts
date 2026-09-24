@@ -170,8 +170,29 @@ try {
         id === narrator.id,
         "the sender does not gain recipient knowledge",
       );
+      if (id !== alice.id)
+        assert(
+          content.indexOf("Before.") < content.indexOf("BOB_ONLY_SECRET") &&
+            content.indexOf("BOB_ONLY_SECRET") < content.indexOf("After."),
+          "the private prompt preserves the whisper's position between public statements",
+        );
     }
   }
+  await chats.patchMetadata(chat.id, { inactiveCharacterIds: [narrator.id] });
+  assert(!(await preview(narrator.id)).includes("BOB_ONLY_SECRET"));
+  assert((await preview(bob.id)).includes("BOB_ONLY_SECRET"));
+  await chats.patchMetadata(chat.id, { inactiveCharacterIds: [] });
+  await generate(
+    'Start. [whisper: character="Bob" text="FIRST_SECRET"] [whisper: character="Bob" text="SECOND_SECRET"] End.',
+  );
+  const adjacent = await preview(bob.id);
+  assert(adjacent.indexOf("Start.") < adjacent.indexOf("FIRST_SECRET"));
+  assert(adjacent.indexOf("FIRST_SECRET") < adjacent.indexOf("SECOND_SECRET"));
+  assert(adjacent.indexOf("SECOND_SECRET") < adjacent.indexOf("End."));
+  await generate('Repeat. [whisper: character="Bob" text="REPEATED_ANCHOR_SECRET"] Repeat.');
+  const repeated = await preview(bob.id);
+  assert(repeated.indexOf("Repeat.") < repeated.indexOf("REPEATED_ANCHOR_SECRET"));
+  assert(repeated.indexOf("REPEATED_ANCHOR_SECRET") < repeated.lastIndexOf("Repeat."), repeated);
   await generate("I acknowledge the vision.", alice.id, { impersonate: true });
   for (const content of [prompts.at(-1)!, await preview(alice.id, { impersonate: true })]) {
     assert(content.includes("PERSONA_ONLY_SECRET"));

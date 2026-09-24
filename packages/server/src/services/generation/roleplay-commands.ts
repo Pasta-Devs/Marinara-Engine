@@ -3,6 +3,7 @@ import {
   isRoleplayCommandAllowed,
   getRoleplayPrivateCommands,
   getRoleplayWhispers,
+  getRoleplayCommandContentOffset,
   ROLEPLAY_COMMAND_KEYS,
   normalizeChatSummaryEntries,
   type RoleplayCommandKey,
@@ -233,7 +234,7 @@ export class RoleplayCommandStreamFilter {
 }
 
 type PersonalState = { notes: string; reminders: Map<string, string> };
-type HistoryMessage = { id?: unknown; role?: unknown; characterId?: unknown; extra?: unknown };
+type HistoryMessage = { id?: unknown; role?: unknown; characterId?: unknown; content?: unknown; extra?: unknown };
 
 export function resolveRoleplayWhisperRecipient(
   name: string,
@@ -253,7 +254,7 @@ export function resolveRoleplayWhisperRecipient(
   return match ? { id: match.id, kind: match.kind } : null;
 }
 
-/** Add secrets only to the final viewer's retained history, after copying shared agent prompts. */
+/** Insert secrets at their saved positions in the final viewer's retained history, after copying shared prompts. */
 export function appendRoleplayWhispers(
   prompt: Array<{ id?: string | null; contextKind?: string; content: string }>,
   history: readonly HistoryMessage[],
@@ -282,12 +283,22 @@ export function appendRoleplayWhispers(
         (viewer.kind === recipient.kind && viewer.id === recipient.id),
     );
     if (!whispers.length) continue;
-    message.content += whispers
-      .map(
-        ({ command }) =>
-          `\n\nPrivate whisper to ${command.character} (known only to this recipient and the appointed narrator):\n${command.text}`,
-      )
-      .join("");
+    // History wrappers shift saved offsets. Prefer the unchanged source body, then fall back to edit anchors.
+    const sourceText = typeof source.content === "string" ? source.content : "";
+    const sourceStart = sourceText ? message.content.indexOf(sourceText) : -1;
+    const hasSource = sourceStart >= 0 && sourceStart === message.content.lastIndexOf(sourceText);
+    const positioned = whispers
+      .map((whisper) => ({
+        ...whisper,
+        offset:
+          (hasSource ? sourceStart : 0) +
+          getRoleplayCommandContentOffset(hasSource ? sourceText : message.content, whisper.activity),
+      }))
+      .sort((a, b) => a.offset - b.offset || a.index - b.index);
+    for (const { command, offset } of positioned.reverse()) {
+      const fragment = `\n\n[Private whisper to ${command.character} (known only to this recipient and the appointed narrator)]\n${command.text}\n[End of private whisper]\n\n`;
+      message.content = message.content.slice(0, offset) + fragment + message.content.slice(offset);
+    }
     added = true;
   }
   return added;

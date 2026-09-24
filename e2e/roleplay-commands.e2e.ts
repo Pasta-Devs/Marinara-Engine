@@ -466,10 +466,17 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       await expect(personal).toContainText("A silver door appears in your vision.");
       await expect(personal.getByRole("button")).toHaveCount(0);
       await expect(page.locator("body")).not.toContainText("The hidden key is beneath the blue vase.");
+      await expect(secret.getByRole("button")).toHaveAccessibleDescription("Whisper to Bob");
+      await expect(secret.getByRole("button")).not.toHaveAttribute("aria-controls", /.+/u);
       await page.screenshot({ path: info.outputPath("whisper-concealed.png"), animations: "disabled" });
       await secret.getByRole("button", { name: "Reveal a secret", exact: true }).click();
       await expect(secret).toContainText("The hidden key is beneath the blue vase.");
       await expect(secret.getByRole("button")).toHaveAttribute("aria-expanded", "true");
+      expect(
+        await secret
+          .getByRole("button")
+          .evaluate((button) => document.getElementById(button.getAttribute("aria-controls") ?? "")?.textContent),
+      ).toBe("The hidden key is beneath the blue vase.");
       const order = await secret.evaluate((element) => {
         const range = document.createRange();
         range.selectNodeContents(element.closest('[data-message-id], [role="region"]')!);
@@ -505,6 +512,32 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       await expect(onlySecret).toBeVisible();
       await onlySecret.getByRole("button", { name: "Reveal a secret", exact: true }).click();
       await expect(onlySecret).toContainText("A secret without public narration.");
+      if (presentation === "visual-novel") {
+        output =
+          'First paragraph.\n\n[whisper: character="Bob" text="A secret between paragraphs."]\n\nSecond paragraph.';
+        const between = await generate();
+        // Imported or edited command records may retain an offset inside the blank-line separator.
+        const activity = extra(between.extra).roleplayCommandActivity;
+        const offset = "First paragraph.\n".length;
+        await patch(`/api/chats/${chat.id}/messages/${between.id}/extra`, {
+          roleplayCommandActivity: activity.map((item: Record<string, unknown>) => ({
+            ...item,
+            contentOffset: offset,
+            contentAnchor: between.content.slice(0, offset),
+          })),
+        });
+        await page.reload();
+        const paragraph = page.getByRole("region", { name: "Current paragraph", exact: true });
+        const previous = page.getByRole("button", { name: "Previous paragraph", exact: true });
+        if (await previous.isEnabled()) await previous.click();
+        await expect(paragraph).toContainText("First paragraph.");
+        await expect(paragraph.locator("[data-roleplay-whisper]")).toHaveCount(1);
+        await paragraph.getByRole("button", { name: "Reveal a secret", exact: true }).click();
+        await expect(paragraph).toContainText("A secret between paragraphs.");
+        await page.getByRole("button", { name: "Next paragraph", exact: true }).click();
+        await expect(paragraph).toContainText("Second paragraph.");
+        await expect(paragraph.locator("[data-roleplay-whisper]")).toHaveCount(0);
+      }
       expect(errors).toEqual([]);
     } finally {
       await fixture.cleanup();

@@ -1931,7 +1931,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           : target && (allCharacterIds.length === 1 || dryRunGroupChatMode === "individual")
             ? { id: target, kind: "character" }
             : null,
-        allCharacterIds.includes(chatMeta.roleplayCommandNarratorId as string)
+        characterIds.includes(chatMeta.roleplayCommandNarratorId as string)
           ? (chatMeta.roleplayCommandNarratorId as string)
           : null,
       );

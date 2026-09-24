@@ -1,6 +1,7 @@
 import {
   cloneElement,
   isValidElement,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -33,6 +34,7 @@ export function RoleplayWhisper({
   forPersona: boolean;
 }) {
   const { t } = useTranslation();
+  const id = useId();
   const [revealed, setRevealed] = useState(false);
   const visible = forPersona || revealed;
   return (
@@ -44,12 +46,16 @@ export function RoleplayWhisper({
       <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-[var(--muted-foreground)]">
           <LockKeyhole size="0.875rem" className="shrink-0" aria-hidden />
-          <span className="break-words">{t("roleplay.commands.whisper.to", { character })}</span>
+          <span id={`${id}-recipient`} className="break-words">
+            {t("roleplay.commands.whisper.to", { character })}
+          </span>
         </span>
         {!forPersona && (
           <button
             type="button"
             aria-expanded={visible}
+            aria-describedby={`${id}-recipient`}
+            aria-controls={visible ? `${id}-secret` : undefined}
             className="flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm text-[var(--primary)] hover:bg-[var(--primary)]/10 focus-visible:outline focus-visible:outline-[var(--primary)]"
             onClick={() => setRevealed(!revealed)}
           >
@@ -59,7 +65,9 @@ export function RoleplayWhisper({
         )}
       </span>
       {visible && (
-        <span className="mt-2 block whitespace-pre-wrap break-words text-sm italic leading-relaxed">{text}</span>
+        <span id={`${id}-secret`} className="mt-2 block whitespace-pre-wrap break-words text-sm italic leading-relaxed">
+          {text}
+        </span>
       )}
       {!forPersona && visible && (
         <span className="mt-2 block text-xs text-[var(--muted-foreground)]">
