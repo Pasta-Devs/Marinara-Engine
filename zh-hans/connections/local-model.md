@@ -12,6 +12,8 @@ Local Model 是刻意做小的，用途是后台辅助工作，不适合主聊�
 - Game Mode 的场景效果，比如背景、音乐和天气。
 - 用于语义搜索的世界书嵌入。
 - Conversation(对话模式) 通话中的麦克风转写，走的是另一个语音模型。
+- 选为 Decision 模型后，回答激活问题和判定陈述。见[Decision 模型](decision-models.md)。
+
 
 设置窗口里它叫 **Local AI Model**，连接下拉菜单里它叫 **Local Model (sidecar)**。两者是同一个功能。
 
@@ -203,6 +205,7 @@ SIDECAR_RUNTIME_INSTALL_ENABLED=true
 ## 相关指南
 
 - [连接 AI 服务商](connecting-to-a-provider.md)
+- [Decision 模型](decision-models.md)
 - [连接本地或自托管模型](local-self-hosted.md)
 - [记忆功能与聊天摘要](../agents/memory.md)
 - [Conversation 音频和视频通话](../conversation/calls.md)

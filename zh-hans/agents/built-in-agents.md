@@ -125,7 +125,11 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 - **阶段**：Post-Processing。
 - **适用范围**：仅 Roleplay。
 - **主要设置**：在 **Chat Settings → Agents → Tracker Agents** 中添加或移除；在同一位置打开 **Configure Beholder**，选择连接、模型、提示词、上下文和输出限制。**Add as Prompt Section** 默认开启。
-- **模型建议**：使用 OpenAI GPT-5.5+、Claude Opus 4.8+ 或 Kimi K3+ 等 SOTA 模型，以可靠追踪完整状态。
+- **模型建议**：选择匹配 Beholder 连接后端模型的提示词模板。内置的两个模板针对不同类型模型编写，不能互换。
+  - **SOTA model — one prompt**(高性能模型，单次提示词)（默认）：一次调用覆盖所有追踪字段。使用 OpenAI GPT-5.5+、Claude Opus 4.8+ 或 Kimi K3+ 等强大的通用模型。
+  - **Beholder local model — five passes**(Beholder 本地模型，五次处理)：为本地运行的专门训练的 [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF) 提取模型，每个追踪类别执行一次范围较窄的调用，共五次，例如通过 koboldcpp 或 llama.cpp 运行的 `Beholder-Q8_0.gguf`。该模型训练时每次只回答一个类别，因此单提示词模板偏离其训练分布，只会返回部分状态。Engine 将五个类别的结果合并成一次更新。完全离线且免费。
+
+  Beholder 无法检测连接后面是哪种模型，因此必须手动选择。选错不会造成致命错误，但会降低提取质量：高性能模型能处理两种模板，本地模型则需要五次处理版本。
 - **来源**：根据采用 AGPL-3.0-only 许可证的 [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME) 改编到 Engine 的原生 Agent 运行时。官方包不会加载旧扩展的 DOM、轮询或本地存储运行时。
 
 ### Persona Stats
@@ -187,12 +191,12 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 
 ### Noodle
 
-添加一个可选的本地社交世界，其中包括 Noodle 公共时间线和面向创作者与粉丝角色扮演的 NoodleR 动态流。它在专门的 Home 标签页中打开，不走常规聊天智能体管线。
+添加可选的本地 Noodle 公共时间线。它在专用 Home 标签页中打开，不走常规聊天智能体管线。
 
 - **集成方式**：功能包；提供 Home 标签页、本地路由、生成与媒体流程以及后台调度器。
 - **适用位置**：Home，可选择带入 Conversation、Roleplay 和 Game 聊天中的上下文。
-- **主要设置**：从 **Agents → Download Agents** 安装，并在提示时重启 Marinara Engine。在 Noodle 内可以配置受邀账号、文本和图像连接、时间线刷新、NoodleR Creator 资料、模拟帖文访问权限和受众活动。
-- **数据生命周期**：卸载会移除 Home 标签页，并在重启后停止软件包的路由和调度器，但会保留现有 Noodle 与 NoodleR 数据，以便日后重新安装。
+- **主要设置**：从 **Agents → Download Agents** 安装，并在提示时重启 Marinara Engine。在 Noodle 中可配置受邀账号、文本与图像连接、时间线刷新、随机用户和聊天内容延续。
+- **数据生命周期**：卸载会移除 Home 标签页，并在重启后停止包路由和调度器，同时保留现有 Noodle 数据供将来重装。
 - **完整指南**：[Noodle：应用内社交时间线](../noodle/overview.md)。
 
 ### Long-Term Memory

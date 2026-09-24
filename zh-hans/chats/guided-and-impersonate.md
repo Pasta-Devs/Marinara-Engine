@@ -124,7 +124,7 @@ Quick replies(快捷回复) 菜单会在普通的 Send 按钮旁边加上几个�
 
 这三个操作分别是：
 
-- **Post only**(仅发布)：把打好的消息发到聊天里，但不触发 AI 回复。
+- **Post only**(仅发布)：把打好的消息发到聊天里，但不触发 AI 回复。也可以用 `/send <message>` 斜杠命令执行。
 - **Guide reply**(引导回复)：把打好的文字当成 `/guided` 方向说明发出去，而不是当成普通消息。
 - **Impersonate**：以用户角色的身份生成一条回复，并以打好的文字为方向说明。这个操作在 Conversation 聊天里会被隐藏，因为 Impersonate 在那里用不了。
 

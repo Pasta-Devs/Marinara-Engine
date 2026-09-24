@@ -1,6 +1,6 @@
 # 创建自定义智能体
 
-本指南介绍如何在 Marinara Engine 里做出自己的智能体。智能体是一个小型 AI 帮手，会在聊天过程中自动运行。下面会讲到怎么设置它的运行阶段、能力、输出类型、激活关键词、工具和提示词，最后配一个完整实例。
+本指南介绍如何在 Marinara Engine 里做出自己的智能体。智能体是一个小型 AI 帮手，会在聊天过程中自动运行。下面会讲到怎么设置它的运行阶段、能力、输出类型、激活关键词和问题、工具和提示词，最后配一个完整实例。
 
 还不了解智能体？先读[智能体：聊天里的 AI 帮手](agents-overview.md)打个基础，再回来看这篇。
 
@@ -130,7 +130,61 @@ moonlit ritual
 2. 把 **Scan Depth**(扫描深度) 设为要搜索的最近消息条数，默认是 5，最大是 200。
 3. 之后只有当这些最近消息里出现至少一个关键词时，智能体才会运行。
 
-关键词框留空，智能体就按固定节奏每次都运行。
+关键词框留空会关闭关键词筛选。频率和激活问题仍然适用。
+
+<a id="activation-questions"></a>
+
+## 激活问题
+
+**Activation question**(激活问题) 用来判断最近场景是否需要自定义智能体，例如 `In the latest message, the characters move to a different location.`。它能识别关键词漏掉的改述。留空即可保留原有行为。
+
+回答由 **Decision model**(判定模型) 提供。在 Connections 面板的 **Decision model** 下选择已经运行的本地模型、托管 Decision 连接，或由 Marinara 安装的判定模型。[Decision 模型](../connections/decision-models.md)介绍每种方式、选择建议和设置方法。默认设为 **None**(无) 时，智能体编辑器里的问题字段保持禁用，有问题的智能体也会按没有问题的情况运行。
+
+### 设置智能体
+
+导入带有激活问题或提示词判定陈述的智能体时，会看到链接到 Decision 模型指南的通知。没有选择模型时，通知会解释：激活问题在关键词和 **Trigger Cadence**(触发频率) 允许时放行，提示词陈述则按否处理并使用 `{{else}}` 分支。如果没有 Decision 模型时不应每回合运行，也要设置频率。从 Agent 目录安装包时也显示同样的通知。
+
+选择 Decision 模型后，打开自定义智能体，输入最多 500 个字符的 **Question**(问题)。问题支持 `{{user}}` 和 `{{char}}` 等标准智能体宏。**Scan Depth** 同时控制关键词和问题使用的最近消息。
+
+虽然字段叫问题，但应写成关于最新消息的事实陈述，而不是疑问句。测试中，小型判定模型对 `Did the scene change?` 的回答不如 `The latest message moves the scene to a new place.` 可靠。这里同样适用提示词判定陈述的建议，见[编写陈述](../prompts/conditional-prompts.md#writing-statements)。
+
+- **Run when probability is at least**(运行所需的最低概率) 设置该智能体的阈值。“是”的概率达到或超过它时运行；值越高，跳过越多。编辑器对本地聊天模型和 Decision 连接建议 0.5，对托管辅助进程建议清单中的值（内置 Open-Jev 为 0.1）。自定义端点不会自动获得模型专用校准。用自己的聊天检查阈值，尤其是切换模型之后。更改只影响此激活问题，不影响智能体提示词中的陈述。见[阈值](../connections/decision-models.md#thresholds)。
+- **Bypass the question after this many messages without a successful run**(连续指定消息数未成功运行后跳过问题) 为可选项。自上次成功运行后，经过这么多条用户/助手消息就跳过问题。启用后，新智能体或前次消息已删除的智能体也会跳过问题。关键词和频率仍须允许运行。重要智能体可以考虑设置它：任何模型都会偶尔答错，这能防止持续回答“否”而使智能体永久沉默。
+- 生成前和并行智能体使用回复前的聊天。后处理智能体还会看到完成的回复。
+
+先检查关键词和频率，因此已经跳过的智能体不会发出付费判定请求。相同扫描深度的问题按阶段批处理。超时、模型不可用或答案无效时，相关智能体正常运行。预算为 Decision 连接的 **Time limit**（默认 1.5 秒）、本地模型 4 秒，或需要先推理的本地模型 20 秒。判定请求跟随生成取消。普通日志不含聊天内容；提示词调试日志包含评估的消息和问题。
+
+此设置适用于自定义智能体。内置智能体激活和角色活动评估保持现有行为。
+
+<a id="decision-statements-in-the-agents-prompt"></a>
+
+### 智能体提示词中的判定陈述
+
+激活问题决定智能体是否运行。**Prompt Template** 里的判定陈述决定运行时告诉它什么。两者使用同一个 Decision 模型，语法见[条件提示词](../prompts/conditional-prompts.md#asking-the-decision-model)：
+
+```
+{{#if decision:"In the latest message, the characters move to a different location"}}
+Update the location field.
+{{else}}
+Leave the location as it is.
+{{/if}}
+```
+
+结合使用时，智能体可以完全跳过平静的回合，并在运行时发送更小的提示词。可以这样用：
+
+- 追踪器只在地点改变时加入“更新地点”的指示，而不是每回合重新推导。
+- 图像智能体只在场景外观不同时描述新图片。
+- 音乐智能体只在氛围改变时收到换曲指示。
+- 用选择条件挑选多组指示中的一组：`{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`、`{{else if decision_choice:"The kind of scene in the latest message" == "dialogue"}}` 等。
+
+运行方式：
+
+- 生成前和并行智能体读取回复前的聊天，与主提示词使用同一个回合并共享答案。后处理智能体把完成的回复视为最新消息，带上它重新询问陈述。
+- 通过追踪器刷新按钮、重试失败的智能体或注入上的 **Re-run**(重新运行) 等方式再次运行时，会复用仍缓存着的同回合、同模型、同陈述的成功答案。失败的答案可以重试；服务器重启、缓存移除或输入变化也可能带来新请求。见[答案复用](../prompts/conditional-prompts.md#answer-reuse)。
+- 智能体提示词里的 `{{char}}` 一次指代聊天里的所有角色，因此群聊里的 `{{char}} is angry` 会变成“Kaelen, Alyssa is angry”。请点名角色，或写“某个角色”。
+- 没有答案时，陈述按否处理。许多用户没有 Decision 模型，因此智能体仍须在 `{{else}}` 分支下合理工作。
+
+从 Marinara-Agents 安装的智能体也以相同方式处理提示词模板，所以同样可以使用判定陈述。
 
 ## 挂载工具（Function Calling）
 
@@ -211,6 +265,7 @@ Marinara 读取 `editedText`，把它换进回复里，于是消息就成了英�
 ## 相关指南
 
 - [智能体：聊天里的 AI 帮手](agents-overview.md)
+- [Decision 模型](../connections/decision-models.md)
 - [可下载智能体参考](built-in-agents.md)
 - [自定义工具](../extending/custom-tools.md)
 - [宏](../prompts/macros.md)

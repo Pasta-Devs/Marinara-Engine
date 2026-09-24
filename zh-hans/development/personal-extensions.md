@@ -88,15 +88,17 @@ worker 能拿到的只有：
 
 `marinara.ui.showWindow({ title, elements, onEvent, onClose })` 返回一个句柄，带 `update({ title?, elements? })` 和 `close()`。worker 只负责发送描述符，每个元素都由受信任的 iframe 引导程序用 DOM API 和 `textContent` 构建（绝不用 `innerHTML`）。只有窗口打开期间宿主才会显示那个平时隐藏的沙箱 iframe，关闭后重新藏起来。
 
-`marinara.ui.registerContribution({ id, kind, label, description?, icon?, elements?, onActivate?, onEvent? })` 返回一个冻结的句柄，带 `update(patch)` 和 `remove()`。它支持三个固定位置：
+`marinara.ui.registerContribution({ id, kind, label, description?, icon?, surface?, position?, elements?, onActivate?, onEvent? })` 返回带有 `update(patch)` 和 `remove()` 的冻结句柄，支持以下受信任的宿主位置：
 
-- `button`：在较大屏幕上是顶栏的紧凑操作项，在所有尺寸下都会出现在 Extensions(扩展) 菜单里；
+- `button`：默认是顶栏的紧凑操作项，也可以是由宿主渲染在 `chats`、`bots`、`characters`、`personas`、`lorebooks`、`presets`、`connections`、`agents` 或 `settings` 界面的操作项；
 - `menu-item`：Extensions 菜单里的一个操作项；
 - `panel`：一个入口，点开后进入 Marinara 受信任的 Extensions 侧边面板。
 
+侧栏按钮接受 `position: "header"`、`"before-content"` 或 `"after-content"`。顶栏按钮省略 `position`。图标使用 Marinara 的 Lucide 图标目录中受限的 kebab-case 名称；不支持的名称会回退到拼图图标。
+
 面板元素使用与受约束窗口相同的声明式词汇：`heading`、`text`、`pre`、`button`、`input`、`select`、`toggle`、`slider`、`color` 和 `spacer`。可交互的控件必须有唯一 ID。面板按钮会向 `onEvent` 投递 `{ contributionId, elementId, values }`，其中 `values` 包含每个控件当前的字符串值。用户打开或触发某个贡献项时，`onActivate` 在扩展的 Worker 内运行。状态变化后，扩展可以调用 `handle.update(...)` 来替换自己的标签、描述、图标或面板元素。
 
-客户端会独立校验每一个描述符，通过后才加入运行时存储。贡献项的种类、图标、控件、ID、选项列表、文本长度、面板文本总量、元素数量以及单个扩展的贡献项数量，全部走允许清单并设有上限。React 把扩展提供的文本当作纯文本渲染。扩展控制的 HTML、CSS、URL、React 组件和宿主回调一概不接受。worker 停止、哈希变化，或者它从已批准的运行时响应里消失时，宿主会移除它的全部贡献项。事件只会派发给扩展 ID 和内容哈希都对得上的那个已注册 worker。
+客户端在将每个描述符加入运行时存储前都会独立验证。贡献项类型、界面、位置、控件、ID、选项列表、图标名称语法、文本长度、面板总文本量、元素数量以及每个扩展的贡献项数量都经过验证并设有上限。React 将扩展文本作为文本渲染，不接受扩展控制的 HTML、CSS、URL、React 组件或宿主回调。当 Worker 停止、哈希更改或从已批准的运行时响应中消失时，宿主会移除所有贡献项。事件仅分派给以相同扩展 ID 和内容哈希注册的 Worker。
 
 这里没有 DOM 辅助函数，没有 Marinara API 请求，拿不到父页面的事件，也没有任意的网络能力。iframe 会校验消息并做限流。心跳看门狗会终止失去响应或陷入忙循环的 worker。
 

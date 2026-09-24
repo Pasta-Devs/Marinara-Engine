@@ -120,6 +120,35 @@
 
 比如把 **Sticky** 设成 3，一件事被提到之后还能在提示词里多留几轮，AI 就不会在场景中途把它忘掉。
 
+<a id="decision-activation"></a>
+
+## Decision 激活
+
+抽屉里的 **Decision** 字段让 **Decision model**(判定模型) 决定条目是否适用。写一条关于最近聊天的陈述，例如 `In the latest message, a dragon is physically present`，然后选择行为：
+
+- **Off**(关闭)，默认：条目照常激活。
+- **Require**(必需)：条目按原有方式（关键词、**Constant**、语义匹配）获得激活资格，并且陈述也为真时才激活。它能过滤顺带提及：以 `dragon` 为关键词的条目，在只是谈论龙时不会进入提示词。对 **Constant** 条目，它能使条目按情境出现，例如给战斗规则使用 `A fight is happening in the latest message`。
+- **Trigger**(触发)：陈述增加一条激活路径，即使没有关键词出现也能激活。这能捕捉改述和情境，例如 `The latest message takes place in the Blackwood Forest`。关键词、**Constant**、语义匹配和关联地图位置等普通激活路径仍然保留。
+
+陈述支持 `{{user}}`、`{{char}}` 等宏。清晰措辞和自行测试的方法见[编写陈述](../prompts/conditional-prompts.md#writing-statements)。
+
+运行方式：
+
+- **Require** 检查原本通过关键词、语义匹配、**Constant** 或关联地图位置获得资格的条目，并遵守其筛选、时机和概率掷骰。不会只因世界书已启用就扫描所有未使用条目。
+- **Trigger** 可在普通关键词激活未放行符合条件的条目时检查。并非每回合一定询问：Constant 条目、关键词匹配或已有 Sticky 保持可能无须 Trigger 答案就放行。Trigger 条目仍可能增加托管请求，应有明确用途。
+- 尽量批量处理陈述。激活、条目内容陈述和递归匹配可能需要多批，因此一个回合可能产生多个托管请求。它们使用 **Decision statements per turn**(每回合判定陈述数) 中世界书的份额，见[限制与成本](../prompts/conditional-prompts.md#limits-and-cost)。
+- 成功答案在缓存期间通常会在同一回合、同一模型下复用。失败答案可以重试，重启、缓存移除或输入变化也可能产生新请求。重新生成不保证激活完全相同的条目。见[答案复用](../prompts/conditional-prompts.md#answer-reuse)。**Sticky** 条目在保持有效期间不会再次询问。
+- 活跃世界书列表会给由 Trigger 陈述激活的条目标注 **decision**。
+- **Peek Prompt** 从不询问。它使用该回合已有的答案，并列出没有答案的陈述。
+
+**没有答案就不会新增判定激活。** 没有 Decision 模型或模型不回答时，**Require** 无法放行新条目，不过已有 Sticky 保持仍可让条目继续激活。**Trigger** 不增加激活路径；条目仍可按通常规则通过普通关键词、Constant、语义或地图位置行为激活。没有设置模型时，编辑器会警告。重要的 Trigger 条目也要有普通激活路径。Require 用于筛选可选背景设定，不要控制故事不可缺少的内容。见[Decision 模型](../connections/decision-models.md)。
+
+Decision 激活适用于聊天回合。Game 设置、体验生成，以及智能体为自己执行的世界书扫描，都把 Decision 条目读作否。
+
+条目自身的 **Sticky** 和 **Cooldown** 与 Decision 字段配合。Sticky 期间不再询问陈述，条目仍然保留；Cooldown 期间不询问陈述。因此，Sticky 3、Cooldown 5 的 Trigger 陈述会让条目进入几回合，再休息一段时间，期间不消耗陈述额度。
+
+条目内容里的 `{{#if decision:"..."}}` 条件是另一回事：它裁减已激活条目的文本，条目仍会使用 Token 预算并启动计时。只在条目激活的回合询问，因此世界书其余部分不会消耗 **Decision statements per turn**。要决定条目是否激活，使用 **Decision** 字段。
+
 ## 更多条目选项
 
 展开的面板里还有几个字段。
@@ -405,6 +434,7 @@
 ## 相关指南
 
 - [世界书总览](overview.md)
+- [Decision 模型](../connections/decision-models.md)
 - [世界书的 Token 预算与递归](token-budgets.md)
 - [世界书的语义搜索](semantic-search.md)
 - [知识源：Knowledge Retrieval 与 Knowledge Router 智能体](../agents/knowledge-sources.md)

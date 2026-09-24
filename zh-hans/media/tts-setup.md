@@ -41,16 +41,16 @@ TTS 请求由应用自己的服务器转发。服务商的 API 密钥会加密�
 | ----------------- | ------------------------- | ---------------------- | ------------------------------- |
 | OpenAI-compatible | https://api.openai.com/v1 | tts-1                  | alloy                           |
 | ElevenLabs        | https://api.elevenlabs.io | eleven_multilingual_v2 | 无（必须自己选一个）            |
-| PocketTTS         | http://localhost:49112    | pocket-tts             | alba                            |
+| PocketTTS         | http://localhost:8000    | pocket-tts             | alba                            |
 | xAI Voice         | https://api.x.ai/v1       | grok-tts               | eve                             |
 
 选择 **ElevenLabs** 时，**Model** 输入框会加载当前连接可用的语音合成模型，并且每次打开都会完整显示整个列表。请选择普通的语音合成模型。模型 ID 里带 `ttv` 的是声音设计模型，不是语音合成模型，无法朗读文字。选错了的话，播放会失败，并提示改用语音合成模型。
 
 ### PocketTTS 是一个独立程序
 
-PocketTTS 并没有内置在 Marinara Engine 里。Marinara 的适配层对接的是 [PocketTTS OpenAI-compatible server](https://github.com/teddybear082/pocket-tts-openai_streaming_server)，它同时提供了 Marinara 需要的语音合成接口和声音列表接口。请按照该项目的说明自行安装并运行这个服务器，Marinara 不会替你下载或管理它。
+PocketTTS 并非 Marinara Engine 内置。单独安装[官方 PocketTTS 服务器](https://github.com/kyutai-labs/pocket-tts)，再用 `uvx pocket-tts serve` 启动。Marinara 不会代为下载或管理。
 
-这个兼容服务器默认使用 `http://localhost:49112`。除非改过服务器端口，否则 **Base URL** 保持这个值就行。之前自定义过的 PocketTTS 地址不会被改动。
+官方服务器默认使用 `http://localhost:8000`。没有修改主机或端口时，**Base URL** 保持该值。Marinara 会自动检测官方 multipart `/tts` API。原有 [OpenAI 兼容 PocketTTS 包装服务器](https://github.com/teddybear082/pocket-tts-openai_streaming_server)的自定义 URL 仍受支持。
 
 ## 第 3 步：选择声音（Voice Option）
 
@@ -61,7 +61,7 @@ PocketTTS 并没有内置在 Marinara Engine 里。Marinara 的适配层对接�
 
 ### 所有角色共用一个声音
 
-在 **All Characters Voice** 输入框里选择声音。PocketTTS 会在下拉菜单里列出服务器返回的声音，旁边还留了一个文本框，可以填自定义的声音 ID、URL 或路径。
+在 **All Characters Voice** 字段选择声音。官方 PocketTTS 服务器不提供声音列表端点，因此 Marinara 显示其内置声音，并在下拉框旁保留文本字段，可填写其他内置名称或受支持的声音 URL。兼容包装服务器仍可返回自己的声音列表，接受自定义 ID 或路径。
 
 想从服务商那里加载真实的声音列表，先填好连接信息，再点击 **Refresh voices**(刷新声音列表) 按钮（圆形箭头图标）。这一步可以在开启播放之前做。刷新前会先保存当前卡片，所以刚填的 API 密钥会立刻生效。连接成功之前，应用会显示一份简短的内置备用列表，让输入框不至于是空的。如果服务商返回错误，应用会直接报错，而不会把备用列表伪装成刷新成功的结果。
 

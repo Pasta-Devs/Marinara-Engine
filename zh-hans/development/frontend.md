@@ -360,7 +360,6 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.delete(path)` | `DELETE /api{path}` | 删除资源 |
 | `api.upload(path, FormData)` | `POST /api{path}` | Multipart 文件上传 |
 | `api.download(path, filename)` | `GET /api{path}` | 下载并弹出另存为窗口 |
-| `api.stream(path, body)` | `POST /api{path}` | SSE 异步生成器（只有 token） |
 | `api.streamEvents(path, body)` | `POST /api{path}` | SSE 异步生成器（全部事件类型） |
 
 出错时抛出 `ApiError`，它带有 `status` 和 `message` 属性。
@@ -596,10 +595,13 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 | `spotify` | post_processing | 控制 Music DJ 播放（Spotify、YouTube 或本地音乐） |
 | `knowledge-retrieval` | pre_generation | 从知识源检索上下文 |
 | `knowledge-router` | pre_generation | 路由相关的世界书条目和知识条目 |
+| `long-term-memory` | feature | 存储长期记忆并召回相关上下文 |
 | `haptic` | post_processing | 发送触觉设备指令 |
 | `cyoa` | post_processing | 生成选项提示 |
+| `storyboard` | post_processing | 规划 Game 和 Roleplay 的静态或动画分镜 |
 | `conversation-calls` | feature | 添加 Conversation 语音/视频通话及相关设置 |
 | `hierarchical-maps` | feature | 添加 Roleplay/Game 地图、空间上下文和移动 |
+| `noodle` | feature | 在 Home 中添加本地 Noodle 和 Slurp 社交动态 |
 | `uno` | feature | 添加 Conversation 的 UNO 牌桌 |
 | `chess` | feature | 添加 Conversation 的国际象棋棋盘 |
 | `poker` | feature | 添加 Conversation 的德州扑克牌桌 |
@@ -611,7 +613,7 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 
 智能体产出带类型的结果，由前端负责处理。`packages/shared/src/types/agent.ts` 里的 `AgentResultType` 联合类型包括：
 
-`game_state_update`、`text_rewrite`、`sprite_change`、`echo_message`、`quest_update`、`image_prompt`、`context_injection`、`continuity_check`、`director_event`、`lorebook_update`、`character_card_update`、`background_change`、`character_tracker_update`、`persona_stats_update`、`custom_tracker_update`、`spotify_control`、`youtube_control`、`local_music_control`、`haptic_command`、`cyoa_choices`、`secret_plot`、`game_master_narration`、`party_action`、`game_map_update`、`game_state_transition`、`prompt_patch`、`frontend_theme_update` 和 `about_me_update`。
+`game_state_update`、`text_rewrite`、`sprite_change`、`echo_message`、`quest_update`、`image_prompt`、`context_injection`、`continuity_check`、`director_event`、`lorebook_update`、`character_card_update`、`background_change`、`character_tracker_update`、`persona_stats_update`、`custom_tracker_update`、`inventory_tracker_update`、`spotify_control`、`youtube_control`、`local_music_control`、`haptic_command`、`cyoa_choices`、`secret_plot`、`game_master_narration`、`party_action`、`game_map_update`、`game_state_transition`、`prompt_patch`、`frontend_theme_update` 和 `about_me_update`。
 
 ## 聊天模式
 

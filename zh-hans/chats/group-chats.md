@@ -81,12 +81,19 @@ Game Mode 里没有 **Characters** 这一节，它的队伍在别的地方管理
 
 **Mode** 为 **Merged (Narrator)** 时，可以开启 **Color Dialogues**(对白配色)，默认关闭。开启后，每个角色的台词按各自的配色显示。配色来自 Character Editor 的 **Colors**(颜色) 选项卡，那里设置名字颜色、对白颜色和文本框颜色。具体设置方法见角色编辑指南。
 
+<a id="response-order-individual-only"></a>
+
 ### Response Order(仅 Individual 模式)
 
 **Mode** 为 **Individual** 时会出现 **Response Order**(回复顺序) 设置，是一个三按钮开关。
 
 - **Sequential** 是默认值，所有角色轮流回复，顺序就是 **Characters** 列表里的排列顺序。调整成员顺序即可改变发言次序。
 - **Smart**(智能挑选) 会用一次简短的隐藏 AI 调用来判断接下来该谁回复，它会读最近的消息和每个角色的资料，通常只挑一个发言者。如果消息里写了 `@Alice` 这样的 @ 提及，就以你指定的为准。
+
+  已选择 **Decision model**(判定模型) 时（见 [Decision 模型](../connections/decision-models.md)），可以开启其下的 **Also use it to pick who speaks in Smart response order**(也用于 Smart 回复顺序的发言者选择)。Smart 顺序随后为每位候选人请求独立的是/否评分。这些问题共享最近 5 条消息，以及含候选人姓名、状态、活动、话多程度和简短性格或描述摘录的名单。托管服务商也会收到名单，见[模型能看到什么](../connections/decision-models.md#what-the-model-sees)。
+
+  这些评分可能比完整 AI 回复更快，但速度和成本取决于模型和候选人数。Roleplay 中 Marinara 选择最可能的发言者。Conversation 中，有理由回复的人都会回复，可能性最高的排在前面。刚发言的角色在其他人有理由回答时会等待。如果 Decision 模型不回答，Smart 顺序改用原有 AI 调用。
+
 - **Manual**(手动) 关掉一切自动回复，谁开口完全由你在消息栏的 **Trigger Response**(触发回复) 选择器里指定。
 
 用 **Smart** 顺序时，AI 可能一次排出多个角色，但只有第一个会立刻回复。想让下一位发言，用消息栏的 **Trigger Response** 选择器；也可以发一条空消息，让队列里的下一个角色生成回复。
