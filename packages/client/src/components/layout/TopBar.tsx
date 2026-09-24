@@ -91,7 +91,8 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
   const localize = useLocalizedUiText();
   const { t } = useTranslation();
   const openPalette = useCommandPaletteStore((s) => s.openPalette);
-  const paletteTitle = t("palette.openButton", { shortcut: isApplePlatform() ? "⌘K" : "Ctrl+K" });
+  const applePlatform = isApplePlatform();
+  const paletteTitle = t("palette.openButton", { shortcut: applePlatform ? "⌘K" : "Ctrl+K" });
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
@@ -354,7 +355,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
             )}
             title={paletteTitle}
             aria-label={paletteTitle}
-            aria-keyshortcuts="Control+K Meta+K"
+            aria-keyshortcuts={applePlatform ? "Meta+K" : "Control+K"}
           >
             <Search size={15} className={TOPBAR_ACCENT_ICON_CLASS} />
           </button>

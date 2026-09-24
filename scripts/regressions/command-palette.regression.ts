@@ -165,17 +165,25 @@ const key = (
   shiftKey: false,
   ...modifiers,
 });
-assert.equal(isPaletteShortcut(key("k", { ctrlKey: true })), true);
-assert.equal(isPaletteShortcut(key("K", { metaKey: true })), true);
-assert.equal(isPaletteShortcut(key("k", { ctrlKey: true, shiftKey: true })), false);
-assert.equal(isPaletteShortcut(key("k", { ctrlKey: true, altKey: true })), false, "AltGr+K is not Ctrl+K");
-assert.equal(isPaletteShortcut(key("k")), false);
+assert.equal(isPaletteShortcut(key("k", { ctrlKey: true }), false), true, "Ctrl+K on Windows and Linux");
+assert.equal(isPaletteShortcut(key("K", { metaKey: true }), true), true, "Cmd+K on Apple devices");
+// Only the platform's own modifier: macOS text fields use Ctrl+K to delete to the end of the line.
+assert.equal(isPaletteShortcut(key("k", { ctrlKey: true }), true), false, "Ctrl+K stays with macOS text fields");
+assert.equal(isPaletteShortcut(key("k", { metaKey: true }), false), false, "Windows key+K is not the palette");
+assert.equal(isPaletteShortcut(key("k", { ctrlKey: true, metaKey: true }), true), false);
+assert.equal(isPaletteShortcut(key("k", { ctrlKey: true, shiftKey: true }), false), false);
+assert.equal(isPaletteShortcut(key("k", { ctrlKey: true, altKey: true }), false), false, "AltGr+K is not Ctrl+K");
+assert.equal(isPaletteShortcut(key("k"), false), false);
 // Non-Latin layouts report the local letter in `key`; the physical K key still opens the palette.
-assert.equal(isPaletteShortcut({ ...key("ל", { ctrlKey: true }), code: "KeyK" }), true, "Hebrew layout Ctrl+K");
-assert.equal(isPaletteShortcut({ ...key("л", { metaKey: true }), code: "KeyK" }), true, "Cyrillic layout Cmd+K");
+assert.equal(isPaletteShortcut({ ...key("ל", { ctrlKey: true }), code: "KeyK" }, false), true, "Hebrew layout Ctrl+K");
+assert.equal(isPaletteShortcut({ ...key("л", { metaKey: true }), code: "KeyK" }, true), true, "Cyrillic layout Cmd+K");
 // A Latin layout that moves K elsewhere (Dvorak: physical K types "t") must not open it.
-assert.equal(isPaletteShortcut({ ...key("t", { ctrlKey: true }), code: "KeyK" }), false, "Dvorak Ctrl+T");
-assert.equal(isPaletteShortcut({ ...key("k", { ctrlKey: true }), repeat: true }), false, "held key does not re-toggle");
+assert.equal(isPaletteShortcut({ ...key("t", { ctrlKey: true }), code: "KeyK" }, false), false, "Dvorak Ctrl+T");
+assert.equal(
+  isPaletteShortcut({ ...key("k", { ctrlKey: true }), repeat: true }, false),
+  false,
+  "held key does not re-toggle",
+);
 // The palette never opens over another dialog, and may close itself only when it is the one open.
 assert.equal(canTogglePaletteFromShortcut(0, false), true, "nothing open");
 assert.equal(canTogglePaletteFromShortcut(1, true), true, "only the palette is open");
@@ -340,7 +348,10 @@ for (const [name, value] of Object.entries(en)) {
 }
 
 // Touch users need a visible way in, not only the key binding.
-assert.match(source("components/layout/TopBar.tsx"), /aria-keyshortcuts="Control\+K Meta\+K"/u);
+assert.match(
+  source("components/layout/TopBar.tsx"),
+  /aria-keyshortcuts=\{applePlatform \? "Meta\+K" : "Control\+K"\}/u,
+);
 assert.match(source("components/layout/AppShell.tsx"), /<CommandPaletteHost \/>/u);
 
 console.log("command palette regression passed");

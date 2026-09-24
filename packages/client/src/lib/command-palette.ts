@@ -227,13 +227,16 @@ interface KeyLike {
 }
 
 /**
- * Ctrl+K on Windows/Linux, Cmd+K on macOS (either modifier is accepted).
+ * Ctrl+K on Windows/Linux, Cmd+K on Apple devices. Only the platform's own
+ * modifier counts: on macOS Ctrl+K is the text fields' "delete to end of line"
+ * binding, and the palette also listens while typing, so it must leave it alone.
  * On non-Latin layouts (Hebrew, Cyrillic, ...) `key` is the local letter, so
  * the physical K key is matched through `code` instead, like browser shortcuts.
  * Held-down repeats are ignored so the palette does not flicker open and shut.
  */
-export function isPaletteShortcut(event: KeyLike): boolean {
-  if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || event.repeat) return false;
+export function isPaletteShortcut(event: KeyLike, apple = isApplePlatform()): boolean {
+  const modifier = apple ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+  if (!modifier || event.altKey || event.shiftKey || event.repeat) return false;
   const key = event.key.toLowerCase();
   if (key === "k") return true;
   return !/^[a-z]$/u.test(key) && event.code === "KeyK";
