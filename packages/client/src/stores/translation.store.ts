@@ -19,6 +19,8 @@ interface TranslationStore {
   translating: Record<string, boolean>;
   setTranslation: (id: string, text: string, source?: string) => void;
   removeTranslation: (id: string) => void;
+  /** Drop a cached translation so it can be regenerated, without marking the message hidden. */
+  invalidateTranslation: (id: string) => void;
   setTranslating: (id: string, val: boolean) => void;
   /** Clear all translations (e.g. on chat switch) */
   clearAll: () => void;
@@ -53,6 +55,12 @@ export const useTranslationStore = create<TranslationStore>((set) => ({
         translationSources: sourceRest,
         hiddenTranslationIds: { ...s.hiddenTranslationIds, [id]: true },
       };
+    }),
+  invalidateTranslation: (id) =>
+    set((s) => {
+      const { [id]: _, ...rest } = s.translations;
+      const { [id]: __, ...sourceRest } = s.translationSources;
+      return { translations: rest, translationSources: sourceRest };
     }),
   setTranslating: (id, val) => set((s) => ({ translating: { ...s.translating, [id]: val } })),
   clearAll: () => set({ translations: {}, translationSources: {}, translating: {}, hiddenTranslationIds: {} }),
