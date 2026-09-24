@@ -685,10 +685,14 @@ const paying = (payWith: string | undefined) => (payWith === undefined ? {} : { 
 /**
  * Every option on a menu, and every BIGGER way of paying for one, each with what that costs.
  *
- * A player is offered the pools an ability could be paid from and picks one. Nobody else was: the
- * picker and the Game Master only ever saw the base cost, so an opponent written with a spell that
- * grows never grew it, on a turn or in a window. Each way of paying is its own candidate now, so
- * casting it bigger is weighed against casting it at all rather than being unavailable.
+ * A player is offered the pools an ability could be paid from and picks one. A party member the
+ * Engine plays was not: the picker only ever saw the base cost, so a character handed to the Engine
+ * never cast a spell that grows any bigger, on a turn or in a window. Each way of paying is its own
+ * candidate now, so casting it bigger is weighed against casting it at all.
+ *
+ * Only somebody with a SHEET has pools to pay out of. An opponent is a stat block, and a block's
+ * actions cost nothing off any pool (see `planRulesetCombatCost`), so an opponent, and so a Game
+ * Master's boss, has no bigger way of paying to be offered.
  *
  * The price counts the steps as well as the amount, because one pool of a higher rung is worth more
  * than one of a lower: without that the bigger version reads as free and nothing would ever cast
@@ -1258,7 +1262,9 @@ function windowOptions(
     ...(candidate.action.to ? { to: { ...candidate.action.to } } : {}),
     ...(candidate.action.choice.at ? { at: { ...candidate.action.choice.at } } : {}),
     // Which pool this way of paying spends. Two entries of the same ability differ only by this and
-    // by the label that names it, so dropping it would offer a choice and then ignore it.
+    // by the label that names it, so dropping it would offer a choice and then ignore it. The Game
+    // Master only ever decides for a boss, which is a stat block with no pools, so nothing sets this
+    // today; it is carried so that a boss which ever does pay out of one is not cast at its base.
     ...(candidate.action.choice.payWith !== undefined ? { payWith: candidate.action.choice.payWith } : {}),
   }));
 }
@@ -1433,8 +1439,8 @@ export function commandRulesetCombatDirector(
               optionId: chosen.optionId,
               targetIds: [...(chosen.targetIds ?? [])],
               // Everything the picked option came with. An area is aimed at a CELL, and dropping
-              // it would have the rules refuse the answer and the moment let go instead; the pool
-              // an upcast is paid from is what tells two entries of the same ability apart.
+              // it would have the rules refuse the answer and the moment let go instead. The pool
+              // is carried for the same reason, though no boss pays out of one today.
               ...(chosen.at ? { at: { ...chosen.at } } : {}),
               ...(chosen.payWith !== undefined ? { payWith: chosen.payWith } : {}),
             }

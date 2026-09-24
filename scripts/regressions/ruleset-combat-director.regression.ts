@@ -25,6 +25,7 @@ import { fileURLToPath } from "node:url";
 import {
   currentRulesetActor,
   parseRulesetDefinition,
+  planRulesetCombatCost,
   rowsFromCatalogEntry,
   RULESET_MOVE_OPTION,
   rulesetCombatant,
@@ -679,6 +680,28 @@ for (const setup of [
       spentPools.has("slots_3"),
       `${setup.what}: nothing was ever paid for out of a higher pool, it spent ${[...spentPools].join(", ")}`,
     );
+    // An opponent has nothing to climb. A stat block's actions cost nothing off any pool, so there
+    // is no bigger way for it to pay, whoever plays it, the Engine or a Game Master.
+    {
+      const encounter = started({
+        definition: setup.definition,
+        cards: setup.cards,
+        partyCatalogs: setup.catalogs,
+        party: setup.party,
+        enemies: [{ id: "a", name: setup.enemy }],
+        seed: 1,
+      }).rulesetFight!.encounter;
+      const opponent = rulesetCombatant(encounter, "a")!;
+      for (const action of opponent.actions) {
+        for (const pool of ["slots_1", "slots_2", "slots_3"]) {
+          assert.equal(
+            planRulesetCombatCost(setup.definition, opponent, action, pool),
+            null,
+            `${setup.what}: an opponent's ${action.label} cannot be paid out of ${pool}`,
+          );
+        }
+      }
+    }
     // And the base way of paying is still there beside it: the bigger ways are candidates ADDED to
     // it, not candidates that replaced it. (What the extra rungs are worth against what they buy is
     // the picker's own weighing, and is not pinned here: with the price taken out entirely this

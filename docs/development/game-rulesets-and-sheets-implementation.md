@@ -583,13 +583,16 @@ window it belongs in.
   (on no turn's menu, the window and its trigger, the menu holding only what waits for THIS moment,
   the cancel, the budget spent either way, the pass letting the held action through, the second
   moment that being hurt opens, the answer aimed back at whoever caused it, and no third window).
-- **Paying out of a bigger pool, for everybody.** Folded in from
+- **Paying out of a bigger pool, for a party member the Engine plays.** Folded in from
   [issue #6528](https://github.com/Pasta-Devs/Marinara-Engine/issues/6528), because it is the same
-  seam: a player was offered the pools an ability could be paid from and nobody else was, so the
-  Engine's own picker and the Game Master only ever saw the base cost. The candidate builder now
-  emits one candidate per way of paying, each carrying `choice.payWith`, the forecast the extra
-  steps actually buy, a label naming the pool, and a price that counts the rungs climbed as well as
-  the amount so the bigger version is not mistaken for a free one.
+  seam: a player was offered the pools an ability could be paid from, and the Engine's own picker
+  only ever saw the base cost, so a character handed to the Engine never cast a spell that grows any
+  bigger. The candidate builder now emits one candidate per way of paying, each carrying
+  `choice.payWith`, the forecast the extra steps actually buy, a label naming the pool, and a price
+  that counts the rungs climbed as well as the amount so the bigger version is not mistaken for a
+  free one. **Opponents are untouched, because they have nothing to climb:** a stat block's actions
+  cost nothing off any pool, so neither an opponent the Engine plays nor a Game Master's boss has a
+  bigger way of paying. Giving blocks pools of their own would be a format change, not this one.
 - **Left for later**: a reaction that changes a NUMBER on what it answers rather than stopping it.
   The condition vocabulary is a closed list of names, not modifiers, so "harder to hit until your
   next turn" is not something a ruleset can say yet, whether a reaction says it or anything else
