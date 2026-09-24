@@ -484,7 +484,8 @@ export interface ScanOptions {
   /**
    * Optional seed for inclusion-group winners (normally the chat id). When set, a group with the same activated
    * candidates picks the same entry on every turn instead of re-rolling, which keeps the prompt prefix stable for
-   * provider prompt caching. Ignored when `random` is injected. Unset keeps the per-generation re-roll.
+   * provider prompt caching. It also wins over an injected `random` (which still drives probability gates), so the
+   * Active Context preview picks the same group winner as generation. Unset keeps the per-generation re-roll.
    */
   groupSeed?: string;
 }
@@ -777,7 +778,7 @@ export function scanForActivatedEntries(
   }
 
   // Apply group selection
-  const afterGroups = applyGroupSelection(activated, random, options.random ? undefined : options.groupSeed);
+  const afterGroups = applyGroupSelection(activated, random, options.groupSeed);
 
   // Sort by injection order (lower = higher priority)
   afterGroups.sort((a, b) => a.injectionOrder - b.injectionOrder);

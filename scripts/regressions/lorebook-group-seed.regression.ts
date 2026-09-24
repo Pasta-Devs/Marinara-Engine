@@ -45,9 +45,10 @@ const smaller = scanForActivatedEntries([{ role: "user", content: "delta echo" }
 assert.equal(smaller.length, 1);
 assert.ok(["delta", "echo"].includes(smaller[0]!), "the winner comes from the activated candidates only");
 
-// An injected random source (tests) keeps its own behaviour and ignores the seed.
-assert.deepEqual(winner({ groupSeed: "chat-a", random: () => 0 }), ["alpha"]);
-assert.deepEqual(winner({ groupSeed: "chat-a", random: () => 0.999 }), ["foxtrot"]);
+// A seed also wins over an injected random source (the Active Context preview passes one), so the preview shows
+// the same group winner as generation. The random source still drives everything else.
+assert.deepEqual(winner({ groupSeed: "chat-a", random: () => 0 }), first);
+assert.deepEqual(winner({ groupSeed: "chat-a", random: () => 0.999 }), first);
 
 // Without a seed the scan keeps the existing per-generation random pick.
 assert.deepEqual(winner({ random: () => 0 }), ["alpha"]);
