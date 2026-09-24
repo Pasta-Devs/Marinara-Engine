@@ -11,6 +11,7 @@ import {
   Sparkles,
   FileText,
   VenetianMask,
+  Search,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
@@ -22,6 +23,9 @@ import { YouTubePlayer } from "../chat/YouTubePlayer";
 import { LocalMusicPlayer } from "../chat/LocalMusicPlayer";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
+import { useTranslation } from "react-i18next";
+import { useCommandPaletteStore } from "../../stores/command-palette.store";
+import { isApplePlatform } from "../../lib/command-palette";
 import {
   PersonalExtensionContributionsMenu,
   PersonalExtensionTopbarButtons,
@@ -85,6 +89,9 @@ const CHAT_TOPBAR_GRADIENT_ID = "mari-topbar-chats-gradient";
 
 export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boolean }) {
   const localize = useLocalizedUiText();
+  const { t } = useTranslation();
+  const openPalette = useCommandPaletteStore((s) => s.openPalette);
+  const paletteTitle = t("palette.openButton", { shortcut: isApplePlatform() ? "⌘K" : "Ctrl+K" });
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
@@ -334,6 +341,23 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
           className="mari-topbar-left-controls mari-rgb-icon-scope flex shrink-0 items-center gap-2"
         >
           {mobileTopbarNavigation ? [homeButton, chatsButton] : [chatsButton, homeButton]}
+          {/* Touch screens have no Ctrl+K, so the palette also gets a visible way in. */}
+          <button
+            type="button"
+            onClick={openPalette}
+            data-topbar-hover-key="command-palette"
+            className={cn(
+              TOPBAR_BUTTON_CLASS,
+              "text-[var(--muted-foreground)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
+              isTopbarHovered("command-palette") &&
+                cn(TOPBAR_FORCE_HOVER_CLASS, "text-[var(--marinara-chat-chrome-button-text-hover)]"),
+            )}
+            title={paletteTitle}
+            aria-label={paletteTitle}
+            aria-keyshortcuts="Control+K Meta+K"
+          >
+            <Search size={15} className={TOPBAR_ACCENT_ICON_CLASS} />
+          </button>
         </div>
         {musicDjInstalled ? (
           <>
