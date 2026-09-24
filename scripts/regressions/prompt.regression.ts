@@ -10431,6 +10431,29 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
+    name: "group regexes preserve attachments when they remove all message text",
+    run() {
+      const images = ["data:image/png;base64,fixture"];
+      const files = [{ type: "application/pdf", data: "fixture", filename: "note.pdf" }];
+      const scoped = scopeIndividualGroupMessagesForTarget(
+        [
+          { role: "user", content: "*thought*", contextKind: "history", images },
+          { role: "user", content: "*thought*", contextKind: "history", files },
+          { role: "user", content: "*thought*", contextKind: "history" },
+        ],
+        "maukie",
+        [{ id: "maukie", name: "Maukie" }],
+        (history) =>
+          history.forEach((message) => {
+            message.content = "";
+          }),
+      );
+      assert.equal(scoped.length, 2);
+      assert.deepEqual(scoped[0]?.images, images);
+      assert.deepEqual(scoped[1]?.files, files);
+    },
+  },
+  {
     name: "individual Conversation turns attach only the responding character card",
     run() {
       const scoped = scopeIndividualGroupMessagesForTarget(
