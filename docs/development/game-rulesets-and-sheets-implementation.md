@@ -633,9 +633,43 @@ and an opponent could not pay for anything out of a pool it did not have.
 - **Still an opponent.** Defeat at zero is by side, and so is the death track. The live write-back is
   keyed by side as well as by having a sheet: without that, a sheet-backed opponent that shared a
   party member's name would have overwritten that member's stored sheet.
-- **A Game Master's invention stays a plain block.** `rulesetProposedCreatureSchema` has no `sheet`,
-  because the clamp holds an invention to its tier by its numbers and cannot vouch for a sheet; a
-  proposal that carries one is not read, and the tier is used.
+- **A Game Master's invention may be a sheet too**, because an invented mage needs slots and
+  spells (the user's ruling on the PR). `rulesetProposedCreatureSchema` takes a lenient `sheet` (the
+  character build's schema) and drops the numbers written beside one rather than refusing the
+  proposal. `hold.ts` holds it in three steps: `readProposedRulesetSheet` drops what the ruleset
+  lacks by name, fits values, and turns a row named after a catalog entry into that entry (the
+  route loads every catalog feeding a list a proposed sheet fills); `holdRulesetSheetHealth` moves
+  health into the tier's band through the one field the health pool is read off, or a `sum` with
+  one field in it, and leaves anything else as written with a line; after the fight is built,
+  `holdRulesetCombatant` caps defense, to-hit and save difficulties and scales the best round,
+  counting the biggest affordable payment, on the combatant itself. Strikes bought by one spend wait
+  in hand and may go to any striking row, so a striking round is measured as the row spent on and
+  the rest of its strikes on the heaviest striking row. The block parts beside the sheet
+  still go through the plain clamp. The blueprint prompt carries an `EncounterSheetBrief`: the ids,
+  what each may hold, the lists a fight reads, the field each list's catalogs are opened by, and up
+  to 60 catalog names per list.
+- **An invented enemy that is not a boss follows its ruleset's own classes** (the user's ruling:
+  "so that Sorcerers don't have access to the entire spell list"). No format change was needed: a
+  catalog filter's `startFrom` already names the sheet field its entries are organised by, and
+  `restrictRulesetSheetEntries` keeps only entries whose filter matches the sheet's value, matched
+  by `sheetFieldMatchTexts` (moved to shared so the picker and the fight agree). Slot counts per
+  class level are NOT declared by any ruleset (5e types them into fields), so there is no class
+  table to hold them to; the tier hold bounds what they buy.
+- **Open choices are filled by temperament and competence, with no model call.**
+  `fillRulesetSheetChoices` fills every list a creature chooses from (an ability source with
+  `onlyWhen`) with entries open to it and payable from its own pools, up to a fixed count per pool
+  rung (1, 2, 2 and 3 from novice to master) and at will (2, 2, 3 and 3), an Engine-side limit until
+  a ruleset can declare how many choices a class has, weighted by
+  the entry's nature (harm, support, control, or what bends the turn) against the combat AI's own
+  temperament, with competence raising what bends the turn. The route gives the enemy its tactics
+  before the fight is built, from the same unit and seed the picker would, so the creature fills
+  and fights with one temperament. A boss is exempt from both: the Game Master writes it in full.
+- **A layer that narrows an enum field never costs a creature.** A creature's enum value may be one
+  a layer took out, read back from the definition's own `layers`, and nothing else undeclared:
+  `refineRulesetDefinition` passes `layersApplied`, and the game's catalog loader, which may hold a
+  layered definition, passes `narrowedByLayers`, so a layer is never silently dropped, a bestiary
+  file is never refused over a value a layer took out, and a typo is still refused. Package install
+  never parses catalog files, so there is no install-time path to set.
 - **`no-health`.** A sheet that adds up to no health is left out at fight time with a reason of its
   own, rather than joining unkillable. A bestiary is already refused at import for a field outside
   its range, so this is reached by a formula that adds up to zero or by a hand-built block.
