@@ -71,6 +71,7 @@ import {
   validateVideoAssetFile,
 } from "../utils/media-file-security.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
+import { runGenerationJob } from "../services/generation/generation-job-tracker.js";
 import { isDebugAgentsEnabled } from "../config/runtime-config.js";
 import { parseLibraryPageQuery } from "../utils/list-pagination.js";
 import {
@@ -883,6 +884,9 @@ export async function validateCharacterGalleryReferences<T extends Record<string
   };
 }
 
+/** How long an avatar or character sheet draft may run as a tracked job (feature switch generationJobTracking). */
+const CHARACTER_IMAGE_JOB_TIMEOUT_MS = 1_800_000;
+
 export async function charactersRoutes(app: FastifyInstance) {
   const storage = createCharactersStorage(app.db);
   const catalog = createCharacterCatalog(app.db);
@@ -1266,25 +1270,33 @@ export async function charactersRoutes(app: FastifyInstance) {
     }
 
     try {
-      const result = await generateImage(imgModel, imgBaseUrl, imgApiKey, imgServiceHint, {
-        prompt: compiled.prompt,
-        negativePrompt: compiled.negativePrompt || undefined,
-        model: imgModel || undefined,
-        width,
-        height,
-        referenceImage: referenceImages[0],
-        referenceImages: referenceImages.length > 1 ? referenceImages : undefined,
-        imageEndpointId: conn.imageEndpointId || undefined,
-        comfyWorkflow: conn.comfyuiWorkflow || undefined,
-        imageDefaults,
-        quality: resolveConnectionImageQuality(conn),
-        fallback: imageFallback,
-        onFallback: createReplyFallbackNotifier(reply),
-      });
-      return {
-        image: `data:${result.mimeType};base64,${result.base64}`,
-        prompt: compiled.prompt,
+      const job = {
+        kind: isCharacterSheet ? "character-sheet-draft" : "character-avatar-draft",
+        label: isCharacterSheet ? "Character sheet draft" : "Character avatar draft",
+        timeoutMs: CHARACTER_IMAGE_JOB_TIMEOUT_MS,
       };
+      return await runGenerationJob(app, job, undefined, async (signal) => {
+        const result = await generateImage(imgModel, imgBaseUrl, imgApiKey, imgServiceHint, {
+          prompt: compiled.prompt,
+          negativePrompt: compiled.negativePrompt || undefined,
+          model: imgModel || undefined,
+          width,
+          height,
+          referenceImage: referenceImages[0],
+          referenceImages: referenceImages.length > 1 ? referenceImages : undefined,
+          imageEndpointId: conn.imageEndpointId || undefined,
+          comfyWorkflow: conn.comfyuiWorkflow || undefined,
+          imageDefaults,
+          quality: resolveConnectionImageQuality(conn),
+          fallback: imageFallback,
+          onFallback: createReplyFallbackNotifier(reply),
+          ...(signal ? { signal } : {}),
+        });
+        return {
+          image: `data:${result.mimeType};base64,${result.base64}`,
+          prompt: compiled.prompt,
+        };
+      });
     } catch (err) {
       logger.error(err, "%s generation failed", isCharacterSheet ? "Character sheet" : "Avatar");
       return reply.status(500).send({

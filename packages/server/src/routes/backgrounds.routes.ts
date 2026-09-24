@@ -9,6 +9,7 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { logDebugOverride } from "../lib/logger.js";
+import { runGenerationJob } from "../services/generation/generation-job-tracker.js";
 import { isDebugAgentsEnabled } from "../config/runtime-config.js";
 import { buildAssetManifest, GAME_ASSETS_DIR, getAssetManifest } from "../services/game/asset-manifest.service.js";
 import {
@@ -240,6 +241,9 @@ function sceneBackgroundPromptReviewId(input: { chatId: string; locationSlug?: s
   const suffix = input.locationSlug?.trim() || input.reason?.trim() || "current-scene";
   return `background:${input.chatId}:${suffix}`.slice(0, 200);
 }
+
+/** How long a scene background may run as a tracked job (feature switch generationJobTracking). */
+const BACKGROUND_JOB_TIMEOUT_MS = 1_800_000;
 
 export async function backgroundsRoutes(app: FastifyInstance) {
   // List all backgrounds (includes tags)
@@ -557,38 +561,46 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     if ("response" in resolved) return resolved.response;
     const { context } = resolved;
 
-    const filename = await generateChatBackground({
+    const job = {
+      kind: "scene-background",
+      label: "Scene background",
       chatId: input.chatId,
-      locationSlug: context.locationSlug,
-      sceneDescription: input.sceneDescription.trim(),
-      genre: readTrimmedString(context.setupConfig.genre) ?? undefined,
-      setting: readTrimmedString(context.setupConfig.setting) ?? undefined,
-      currentLocation: context.gameState?.location ?? null,
-      currentWeather: context.gameState?.weather ?? null,
-      currentTimeOfDay: context.gameState?.time ?? null,
-      worldOverview: readTrimmedString(context.metadata.gameWorldOverview),
-      artStyle: resolveGameSetupArtStylePrompt(context.setupConfig) || undefined,
-      reason: input.reason?.trim() || "Manual Gallery background request",
-      sourceMode: context.mode === "game" ? "game" : "roleplay",
-      imgModel: context.imgConn.model || "",
-      imgBaseUrl: context.imgConn.baseUrl || "https://image.pollinations.ai",
-      imgApiKey: context.imgConn.apiKey || "",
-      imgSource: (context.imgConn as any).imageGenerationSource || context.imgConn.model || "",
-      imgService: context.imgConn.imageService || (context.imgConn as any).imageGenerationSource || "",
-      imgEndpointId: context.imgConn.imageEndpointId || undefined,
-      imgComfyWorkflow: context.imgConn.comfyuiWorkflow || undefined,
-      imgDefaults: resolveConnectionImageDefaults(context.imgConn),
-      imgQuality: resolveConnectionImageQuality(context.imgConn),
-      imgFallback: context.imageFallback,
-      styleProfiles: context.imageSettings.styleProfiles,
-      styleProfileId: context.styleProfileId,
-      debugLog: context.debugLog,
-      promptOverridesStorage: createPromptOverridesStorage(app.db),
-      size: context.imageSettings.background,
-      force: input.force,
-      promptOverride: context.promptOverride?.prompt,
-      negativePromptOverride: context.promptOverride?.negativePrompt,
-    });
+      timeoutMs: BACKGROUND_JOB_TIMEOUT_MS,
+    };
+    const filename = await runGenerationJob(app, job, undefined, () =>
+      generateChatBackground({
+        chatId: input.chatId,
+        locationSlug: context.locationSlug,
+        sceneDescription: input.sceneDescription.trim(),
+        genre: readTrimmedString(context.setupConfig.genre) ?? undefined,
+        setting: readTrimmedString(context.setupConfig.setting) ?? undefined,
+        currentLocation: context.gameState?.location ?? null,
+        currentWeather: context.gameState?.weather ?? null,
+        currentTimeOfDay: context.gameState?.time ?? null,
+        worldOverview: readTrimmedString(context.metadata.gameWorldOverview),
+        artStyle: resolveGameSetupArtStylePrompt(context.setupConfig) || undefined,
+        reason: input.reason?.trim() || "Manual Gallery background request",
+        sourceMode: context.mode === "game" ? "game" : "roleplay",
+        imgModel: context.imgConn.model || "",
+        imgBaseUrl: context.imgConn.baseUrl || "https://image.pollinations.ai",
+        imgApiKey: context.imgConn.apiKey || "",
+        imgSource: (context.imgConn as any).imageGenerationSource || context.imgConn.model || "",
+        imgService: context.imgConn.imageService || (context.imgConn as any).imageGenerationSource || "",
+        imgEndpointId: context.imgConn.imageEndpointId || undefined,
+        imgComfyWorkflow: context.imgConn.comfyuiWorkflow || undefined,
+        imgDefaults: resolveConnectionImageDefaults(context.imgConn),
+        imgQuality: resolveConnectionImageQuality(context.imgConn),
+        imgFallback: context.imageFallback,
+        styleProfiles: context.imageSettings.styleProfiles,
+        styleProfileId: context.styleProfileId,
+        debugLog: context.debugLog,
+        promptOverridesStorage: createPromptOverridesStorage(app.db),
+        size: context.imageSettings.background,
+        force: input.force,
+        promptOverride: context.promptOverride?.prompt,
+        negativePromptOverride: context.promptOverride?.negativePrompt,
+      }),
+    );
 
     if (!filename) {
       return reply.status(500).send({ error: "Background image generation failed. Check the image connection." });

@@ -94,6 +94,7 @@ import {
   validateVideoAssetFile,
 } from "../utils/media-file-security.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
+import { generationJobsEnabled, runGenerationJob } from "../services/generation/generation-job-tracker.js";
 
 const GALLERY_DIR = join(DATA_DIR, "gallery");
 const SPRITES_DIR = join(DATA_DIR, "sprites");
@@ -428,7 +429,16 @@ async function resolveSceneVideoConnectionId(
   return defaultConnection?.id ?? null;
 }
 
-function createResponseAbortSignal(reply: FastifyReply, timeoutMs: number, label: string): AbortSignal {
+/**
+ * Aborts on timeout and, unless `followClient` is false, when the client disconnects first. Generations that
+ * run as tracked jobs (feature switch generationJobTracking) pass false so they outlive the tab.
+ */
+function createResponseAbortSignal(
+  reply: FastifyReply,
+  timeoutMs: number,
+  label: string,
+  followClient = true,
+): AbortSignal {
   const controller = new AbortController();
   let finished = false;
   const timeout = setTimeout(() => {
@@ -454,6 +464,7 @@ function createResponseAbortSignal(reply: FastifyReply, timeoutMs: number, label
     cleanup();
   };
 
+  if (!followClient) return controller.signal;
   reply.raw.once("finish", onFinish);
   reply.raw.once("close", onClose);
   return controller.signal;
@@ -1088,6 +1099,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       reply,
       SCENE_VIDEO_GENERATION_TIMEOUT_MS,
       "Scene video generation",
+      !generationJobsEnabled(),
     );
     let prepared: Awaited<ReturnType<typeof prepareGallerySceneVideoRequest>>;
     try {
@@ -1152,42 +1164,50 @@ export async function galleryRoutes(app: FastifyInstance) {
     let savedFilePath: string | null = null;
     let metadataSaved = false;
     try {
-      const generated = await generateVideo(source, baseUrl, apiKey, serviceHint, {
-        prompt,
-        model,
-        durationSeconds,
-        aspectRatio,
-        resolution,
-        comfyWorkflow,
-        comfyLoras,
-        fps: comfyFps,
-        atlasModelOptions,
-        referenceImage,
-        publicReferenceUpload,
-        queue: input.queueMediaGenerationRequests,
-        connectionKey: videoConnectionId,
-        signal: sceneVideoAbortSignal,
-        fallback: videoFallback,
-      });
-      const filePath = await saveVideoToDisk(input.chatId, generated.base64);
-      savedFilePath = filePath;
-      const row = await sceneVideos.create({
+      const job = {
+        kind: "gallery-scene-video",
+        label: "Scene video",
         chatId: input.chatId,
-        filePath,
-        sourceIllustrationTag: `gallery:${galleryImage.id}`,
-        sourceIllustrationPath: sourceGalleryImagePathForMetadata(galleryImage),
-        prompt,
-        provider: source,
-        model,
-        durationSeconds,
-        aspectRatio,
-      });
-      if (!row) throw new Error("Scene video metadata could not be saved");
-      metadataSaved = true;
+        timeoutMs: SCENE_VIDEO_GENERATION_TIMEOUT_MS,
+      };
+      return await runGenerationJob(app, job, sceneVideoAbortSignal, async (sceneVideoAbortSignal) => {
+        const generated = await generateVideo(source, baseUrl, apiKey, serviceHint, {
+          prompt,
+          model,
+          durationSeconds,
+          aspectRatio,
+          resolution,
+          comfyWorkflow,
+          comfyLoras,
+          fps: comfyFps,
+          atlasModelOptions,
+          referenceImage,
+          publicReferenceUpload,
+          queue: input.queueMediaGenerationRequests,
+          connectionKey: videoConnectionId,
+          signal: sceneVideoAbortSignal,
+          fallback: videoFallback,
+        });
+        const filePath = await saveVideoToDisk(input.chatId, generated.base64);
+        savedFilePath = filePath;
+        const row = await sceneVideos.create({
+          chatId: input.chatId,
+          filePath,
+          sourceIllustrationTag: `gallery:${galleryImage.id}`,
+          sourceIllustrationPath: sourceGalleryImagePathForMetadata(galleryImage),
+          prompt,
+          provider: source,
+          model,
+          durationSeconds,
+          aspectRatio,
+        });
+        if (!row) throw new Error("Scene video metadata could not be saved");
+        metadataSaved = true;
 
-      await chats.patchMetadata(input.chatId, () => ({ sceneLastVideoId: row.id }));
-      logger.info("[gallery/generate-scene-video] saved video %s for chat %s", row.id, input.chatId);
-      return { video: serializeSceneVideo(row) };
+        await chats.patchMetadata(input.chatId, () => ({ sceneLastVideoId: row.id }));
+        logger.info("[gallery/generate-scene-video] saved video %s for chat %s", row.id, input.chatId);
+        return { video: serializeSceneVideo(row) };
+      });
     } catch (err) {
       if (savedFilePath && !metadataSaved) {
         await removeSavedVideoFromDisk(savedFilePath).catch((cleanupErr) => {
@@ -1286,7 +1306,12 @@ export async function galleryRoutes(app: FastifyInstance) {
       imageConn.imagePromptInstructions,
     );
 
-    const selfieAbortSignal = createResponseAbortSignal(reply, SCENE_VIDEO_GENERATION_TIMEOUT_MS, "Selfie generation");
+    const selfieAbortSignal = createResponseAbortSignal(
+      reply,
+      SCENE_VIDEO_GENERATION_TIMEOUT_MS,
+      "Selfie generation",
+      !generationJobsEnabled(),
+    );
     let promptRuntime;
     try {
       promptRuntime = await resolveIllustratorPromptRuntime({
@@ -1448,72 +1473,80 @@ export async function galleryRoutes(app: FastifyInstance) {
     }
 
     try {
-      const imageConnectionQueueKey = imageConn.id?.trim() || `${imageServiceHint}:${imageBaseUrl}:${imageModel}`;
-      const imageResults = await generateIllustratorImageVariants({
-        count: meta.illustratorImagesPerGeneration,
-        generate: () =>
-          runImageGenerationRequest({
-            connectionKey: imageConnectionQueueKey,
-            queue: input.queueImageGenerationRequests,
-            signal: selfieAbortSignal,
-            task: () =>
-              generateImage(imageSource, imageBaseUrl, imageConn.apiKey || "", imageServiceHint, {
-                prompt: providerPrompt,
-                negativePrompt: providerNegativePrompt || undefined,
-                model: imageModel,
-                width,
-                height,
-                imageEndpointId: imageConn.imageEndpointId || undefined,
-                comfyWorkflow: imageConn.comfyuiWorkflow || undefined,
-                imageDefaults,
-                quality: resolveConnectionImageQuality(imageConn),
-                referenceImages,
-                signal: selfieAbortSignal,
-                fallback: imageFallback,
-              }),
-          }),
-        onVariantError: (error, index) =>
-          logger.warn(error, "[gallery/selfie] Variant %d failed for chat %s", index + 1, chatId),
-      });
-      const savedImages = [];
-      for (const imageResult of imageResults) {
-        const filePath = saveImageToDisk(chatId, imageResult.base64, imageResult.ext, { shared: true });
-        const image = await storage.create({
-          chatId,
-          filePath,
-          prompt: providerPrompt,
-          provider: imageConn.provider ?? "image_generation",
-          model: imageModel || "unknown",
-          width,
-          height,
-        });
-        if (!image) throw new Error("Generated selfie metadata could not be saved");
-        await persistGeneratedImageToEntityGalleries({
-          sourceFilePath: filePath,
-          sourceChatImageId: image.id,
-          characterIds: [character.id],
-          characterGallery,
-          personaGallery,
-          prompt: providerPrompt,
-          provider: imageConn.provider ?? "image_generation",
-          model: imageModel || "unknown",
-          width,
-          height,
-        });
-        savedImages.push(image);
-      }
-      const image = savedImages[0];
-      if (!image) throw new Error("Image provider did not return a selfie");
-      logger.info(
-        "[gallery/selfie] Generated %d selfie image(s) for %s in chat %s",
-        savedImages.length,
-        characterName,
+      const job = {
+        kind: "gallery-selfie",
+        label: "Conversation selfie",
         chatId,
-      );
-      return {
-        ...image,
-        url: buildGalleryImageUrl(image, chatId),
+        timeoutMs: SCENE_VIDEO_GENERATION_TIMEOUT_MS,
       };
+      return await runGenerationJob(app, job, selfieAbortSignal, async (selfieAbortSignal) => {
+        const imageConnectionQueueKey = imageConn.id?.trim() || `${imageServiceHint}:${imageBaseUrl}:${imageModel}`;
+        const imageResults = await generateIllustratorImageVariants({
+          count: meta.illustratorImagesPerGeneration,
+          generate: () =>
+            runImageGenerationRequest({
+              connectionKey: imageConnectionQueueKey,
+              queue: input.queueImageGenerationRequests,
+              signal: selfieAbortSignal,
+              task: () =>
+                generateImage(imageSource, imageBaseUrl, imageConn.apiKey || "", imageServiceHint, {
+                  prompt: providerPrompt,
+                  negativePrompt: providerNegativePrompt || undefined,
+                  model: imageModel,
+                  width,
+                  height,
+                  imageEndpointId: imageConn.imageEndpointId || undefined,
+                  comfyWorkflow: imageConn.comfyuiWorkflow || undefined,
+                  imageDefaults,
+                  quality: resolveConnectionImageQuality(imageConn),
+                  referenceImages,
+                  signal: selfieAbortSignal,
+                  fallback: imageFallback,
+                }),
+            }),
+          onVariantError: (error, index) =>
+            logger.warn(error, "[gallery/selfie] Variant %d failed for chat %s", index + 1, chatId),
+        });
+        const savedImages = [];
+        for (const imageResult of imageResults) {
+          const filePath = saveImageToDisk(chatId, imageResult.base64, imageResult.ext, { shared: true });
+          const image = await storage.create({
+            chatId,
+            filePath,
+            prompt: providerPrompt,
+            provider: imageConn.provider ?? "image_generation",
+            model: imageModel || "unknown",
+            width,
+            height,
+          });
+          if (!image) throw new Error("Generated selfie metadata could not be saved");
+          await persistGeneratedImageToEntityGalleries({
+            sourceFilePath: filePath,
+            sourceChatImageId: image.id,
+            characterIds: [character.id],
+            characterGallery,
+            personaGallery,
+            prompt: providerPrompt,
+            provider: imageConn.provider ?? "image_generation",
+            model: imageModel || "unknown",
+            width,
+            height,
+          });
+          savedImages.push(image);
+        }
+        const image = savedImages[0];
+        if (!image) throw new Error("Image provider did not return a selfie");
+        logger.info(
+          "[gallery/selfie] Generated %d selfie image(s) for %s in chat %s",
+          savedImages.length,
+          characterName,
+          chatId,
+        );
+        return {
+          ...image,
+          url: buildGalleryImageUrl(image, chatId),
+        };
+      });
     } catch (err) {
       logger.warn(err, "[gallery/selfie] Selfie generation failed for chat %s", chatId);
       const message = err instanceof Error ? err.message : "Selfie generation failed";
@@ -1596,7 +1629,12 @@ export async function galleryRoutes(app: FastifyInstance) {
       return reply.status(500).send({ error: "Gallery image prompt compilation failed" });
     }
 
-    const signal = createResponseAbortSignal(reply, SCENE_VIDEO_GENERATION_TIMEOUT_MS, "Gallery image generation");
+    const signal = createResponseAbortSignal(
+      reply,
+      SCENE_VIDEO_GENERATION_TIMEOUT_MS,
+      "Gallery image generation",
+      !generationJobsEnabled(),
+    );
 
     context.debugLog("[debug/gallery/generate-image] prompt:\n%s", compiledPrompt.prompt);
     if (compiledPrompt.negativePrompt) {
@@ -1606,49 +1644,57 @@ export async function galleryRoutes(app: FastifyInstance) {
     let savedFilePath: string | null = null;
     let metadataSaved = false;
     try {
-      const connectionKey =
-        context.imageConnection.id?.trim() ||
-        `${context.imageServiceHint}:${context.imageBaseUrl}:${context.imageModel}`;
-      const generated = await runImageGenerationRequest({
-        connectionKey,
-        queue: true,
-        signal,
-        task: () =>
-          generateImage(
-            context.imageSource,
-            context.imageBaseUrl,
-            context.imageConnection.apiKey || "",
-            context.imageServiceHint,
-            {
-              prompt: compiledPrompt.prompt,
-              negativePrompt: compiledPrompt.negativePrompt || undefined,
-              model: context.imageModel,
-              width: compiledPrompt.width,
-              height: compiledPrompt.height,
-              imageEndpointId: context.imageConnection.imageEndpointId || undefined,
-              comfyWorkflow: context.imageConnection.comfyuiWorkflow || undefined,
-              imageDefaults: context.imageDefaults,
-              quality: resolveConnectionImageQuality(context.imageConnection),
-              signal,
-              fallback: context.imageFallback,
-            },
-          ),
-      });
-      const filePath = saveImageToDisk(chatId, generated.base64, generated.ext);
-      savedFilePath = filePath;
-      const image = await storage.create({
+      const job = {
+        kind: "gallery-image",
+        label: "Gallery image",
         chatId,
-        filePath,
-        prompt: compiledPrompt.prompt,
-        provider: context.imageConnection.provider ?? "image_generation",
-        model: context.imageModel || "unknown",
-        width: compiledPrompt.width,
-        height: compiledPrompt.height,
+        timeoutMs: SCENE_VIDEO_GENERATION_TIMEOUT_MS,
+      };
+      return await runGenerationJob(app, job, signal, async (signal) => {
+        const connectionKey =
+          context.imageConnection.id?.trim() ||
+          `${context.imageServiceHint}:${context.imageBaseUrl}:${context.imageModel}`;
+        const generated = await runImageGenerationRequest({
+          connectionKey,
+          queue: true,
+          signal,
+          task: () =>
+            generateImage(
+              context.imageSource,
+              context.imageBaseUrl,
+              context.imageConnection.apiKey || "",
+              context.imageServiceHint,
+              {
+                prompt: compiledPrompt.prompt,
+                negativePrompt: compiledPrompt.negativePrompt || undefined,
+                model: context.imageModel,
+                width: compiledPrompt.width,
+                height: compiledPrompt.height,
+                imageEndpointId: context.imageConnection.imageEndpointId || undefined,
+                comfyWorkflow: context.imageConnection.comfyuiWorkflow || undefined,
+                imageDefaults: context.imageDefaults,
+                quality: resolveConnectionImageQuality(context.imageConnection),
+                signal,
+                fallback: context.imageFallback,
+              },
+            ),
+        });
+        const filePath = saveImageToDisk(chatId, generated.base64, generated.ext);
+        savedFilePath = filePath;
+        const image = await storage.create({
+          chatId,
+          filePath,
+          prompt: compiledPrompt.prompt,
+          provider: context.imageConnection.provider ?? "image_generation",
+          model: context.imageModel || "unknown",
+          width: compiledPrompt.width,
+          height: compiledPrompt.height,
+        });
+        if (!image) throw new Error("Generated Gallery image metadata could not be saved");
+        metadataSaved = true;
+        logger.info("[gallery/generate-image] Generated Gallery image for chat %s", chatId);
+        return { ...image, url: buildGalleryImageUrl(image, chatId) };
       });
-      if (!image) throw new Error("Generated Gallery image metadata could not be saved");
-      metadataSaved = true;
-      logger.info("[gallery/generate-image] Generated Gallery image for chat %s", chatId);
-      return { ...image, url: buildGalleryImageUrl(image, chatId) };
     } catch (err) {
       if (savedFilePath && !metadataSaved) {
         try {

@@ -27,6 +27,7 @@ import {
 import { pixelizeImage, PixelizeInputError } from "../services/image/pixelize.service.js";
 import { clampByte, clampUnit, getSharp, type RgbColor } from "../services/image/sharp-runtime.js";
 import { logger } from "../lib/logger.js";
+import { runGenerationJob } from "../services/generation/generation-job-tracker.js";
 import { SPRITE_RENAME_RATE_LIMIT } from "../middleware/rate-limit.js";
 
 const spriteRenameQueues = new Map<string, Promise<void>>();
@@ -236,6 +237,14 @@ type SpritePromptPlan = {
 const SPRITE_GENERATION_TIMEOUT_MS = Number(
   process.env.SPRITE_GENERATION_TIMEOUT_MS ?? process.env.IMAGE_GEN_TIMEOUT_MS ?? 1_800_000,
 );
+
+/** Job options when sprite generations run as tracked jobs (feature switch generationJobTracking). */
+const SPRITE_SHEET_JOB = { kind: "sprite-sheet", label: "Sprite sheet", timeoutMs: SPRITE_GENERATION_TIMEOUT_MS };
+const ANIMATED_EXPRESSIONS_JOB = {
+  kind: "sprite-animated-expressions",
+  label: "Animated expression sprites",
+  timeoutMs: SPRITE_GENERATION_TIMEOUT_MS,
+};
 
 class SpriteGenerationTimeoutError extends Error {
   constructor(timeoutMs: number) {
@@ -2115,7 +2124,7 @@ export async function spritesRoutes(app: FastifyInstance) {
 
     try {
       return await withSpriteGenerationDeadline(
-        (async () => {
+        runGenerationJob(app, ANIMATED_EXPRESSIONS_JOB, undefined, async () => {
           const cells: Array<{ expression: string; base64: string; mimeType: "image/gif" }> = [];
           const failedExpressions: Array<{ expression: string; error: string }> = [];
 
@@ -2176,7 +2185,7 @@ export async function spritesRoutes(app: FastifyInstance) {
             cells,
             ...(failedExpressions.length > 0 ? { failedExpressions } : {}),
           };
-        })(),
+        }),
       );
     } catch (err: any) {
       logger.error(err, "Animated expression generation failed");
@@ -2270,7 +2279,7 @@ export async function spritesRoutes(app: FastifyInstance) {
 
     try {
       return await withSpriteGenerationDeadline(
-        (async () => {
+        runGenerationJob(app, SPRITE_SHEET_JOB, undefined, async () => {
           if (plan.fullBodyExpressionMode) {
             const cells: Array<{ expression: string; base64: string }> = [];
             const failedExpressions: Array<{ expression: string; error: string }> = [];
@@ -2535,7 +2544,7 @@ export async function spritesRoutes(app: FastifyInstance) {
             sheetBase64: sheetBuffer.toString("base64"),
             cells,
           };
-        })(),
+        }),
       );
     } catch (err: any) {
       logger.error(err, "Sprite sheet generation failed");

@@ -225,6 +225,7 @@ const SHARDED_TABLES = [
   "library_folders",
   "mari_instructions",
   "mari_workspace_context",
+  "generation_job_records",
 ];
 const PRIMARY_KEY_COLUMNS = { app_settings: "key", prompt_overrides: "key" };
 const UNSHARD_SENTINEL = ".unshard-in-progress";

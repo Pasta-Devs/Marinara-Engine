@@ -442,6 +442,7 @@ const BUILT_IN_FILE_BACKED_TABLES = [
   "library_folders",
   "mari_instructions",
   "mari_workspace_context",
+  "generation_job_records",
 ] as const;
 
 /**
@@ -826,6 +827,8 @@ export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; 
     // #5073: a Mari workspace chat's attached context is scoped to it and must
     // not outlive it (a leaked shard + stale injection into a reused chat id).
     { parent: "chats", child: "mari_workspace_context", parentKey: "id", childKey: "chatId" },
+    // Generation job records (feature switch generationJobTracking) name their chat; rows without one age out.
+    { parent: "chats", child: "generation_job_records", parentKey: "id", childKey: "chatId" },
     // The influences/notes schemas declare onDelete: cascade on BOTH chat
     // FKs, but the graph never carried them — the rows outlived their chats
     // (invisible inside the old monolith; a permanent leaked shard file once

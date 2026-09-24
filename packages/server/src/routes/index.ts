@@ -64,6 +64,7 @@ import { customAgentRepositoriesRoutes } from "./custom-agent-repositories.route
 import { personalExtensionsRoutes } from "./personal-extensions.routes.js";
 import { notificationSoundRoutes } from "./notification-sound.routes.js";
 import { libraryFoldersRoutes } from "./library-folders.routes.js";
+import { generationJobsRoutes } from "./generation-jobs.routes.js";
 import { androidLocalAuthRoutes } from "../middleware/android-local-auth.js";
 
 export async function registerRoutes(app: FastifyInstance) {
@@ -81,6 +82,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(decisionRoutes, { prefix: "/api/decision" });
   await app.register(connectionFoldersRoutes, { prefix: "/api/connection-folders" });
   await app.register(libraryFoldersRoutes, { prefix: "/api/library-folders" });
+  await app.register(generationJobsRoutes, { prefix: "/api/generation-jobs" });
   await app.register(agentsRoutes, { prefix: "/api/agents" });
   await app.register(utilitySidecarRoutes, { prefix: "/api/utility-sidecar" });
   await app.register(customToolsRoutes, { prefix: "/api/custom-tools" });
