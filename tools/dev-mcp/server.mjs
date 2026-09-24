@@ -39,7 +39,7 @@ import {
   resolveCharacter,
   resolveChat,
 } from "./lib/api.mjs";
-import { build, deploy, readLock, regressions, status, stopEngine, typecheck } from "./lib/engine.mjs";
+import { acquireLock, build, deploy, readLock, regressions, releaseLock, status, stopEngine, typecheck } from "./lib/engine.mjs";
 import { groupedProblems, lookupReference } from "./lib/logs.mjs";
 import { cacheReport, diffPrompts, latestSavedPrompts, outline, peekPrompt } from "./lib/prompts.mjs";
 import { fileSafe, out, pathInside, readActivity, record, safe, sleep, stamp, trimText } from "./lib/util.mjs";
@@ -614,9 +614,14 @@ tool(
   { packages: z.array(z.enum(["shared", "server", "client", "all"])).min(1), reason: z.string().min(5) },
   RISKY,
   async ({ packages, reason }) => {
-    const lock = readLock();
-    if (lock && !lock.stale && lock.agent !== AGENT) throw new Error(`engine lock held by ${lock.agent}: ${lock.purpose}`);
-    const result = await build(packages);
+    // Hold the lock for the whole build, so nobody restarts or rebuilds from a half-written dist.
+    acquireLock(`build: ${reason}`);
+    let result;
+    try {
+      result = await build(packages);
+    } finally {
+      releaseLock();
+    }
     record("build", { packages, reason, ok: result.ok, backup: result.backup });
     return out(result, 30_000, "build");
   },

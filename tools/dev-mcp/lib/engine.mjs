@@ -1,6 +1,7 @@
 // Engine process control: status, lock, quiet wait, stop, build, start, deploy. Process lookup and start/stop are in
 // proc.mjs (Windows and POSIX paths).
 import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { cpSync, existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
@@ -43,17 +44,47 @@ export function readLock() {
   }
 }
 
+/** Identifies this server process as the lock owner. Two clients with the same agent name still get two tokens. */
+const SESSION = `${AGENT}:${process.pid}:${randomUUID()}`;
+
+const lockBody = (purpose) =>
+  JSON.stringify({ agent: AGENT, session: SESSION, at: new Date().toISOString(), purpose, pid: process.pid });
+
+/**
+ * Take the engine lock. The file is created with the exclusive flag, so of two sessions racing for a free (or stale)
+ * lock exactly one wins. A lock this session already holds is refreshed instead.
+ */
 export function acquireLock(purpose) {
-  const held = readLock();
-  if (held && !held.stale && held.agent !== AGENT) {
-    throw new Error(`engine lock held by ${held.agent} since ${held.at} for "${held.purpose}"; wait or ask them`);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const held = readLock();
+    if (held?.session === SESSION) {
+      writeFileSync(LOCK_FILE, lockBody(purpose));
+      return;
+    }
+    if (held && !held.stale) {
+      throw new Error(`engine lock held by ${held.agent} since ${held.at} for "${held.purpose}"; wait or ask them`);
+    }
+    // Remove a stale lock only if it is still the same stale lock, then race for the file like everyone else.
+    if (held?.stale && readLock()?.session === held.session) rmSync(LOCK_FILE, { force: true });
+    try {
+      writeFileSync(LOCK_FILE, lockBody(purpose), { flag: "wx" });
+      return;
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+    }
   }
-  writeFileSync(LOCK_FILE, JSON.stringify({ agent: AGENT, at: new Date().toISOString(), purpose, pid: process.pid }));
+  const held = readLock();
+  throw new Error(`engine lock held by ${held?.agent ?? "another session"}; wait or ask them`);
+}
+
+/** Keep a held lock fresh during long steps, so it is never mistaken for an abandoned one. */
+export function refreshLock() {
+  const held = readLock();
+  if (held?.session === SESSION) writeFileSync(LOCK_FILE, lockBody(held.purpose));
 }
 
 export function releaseLock() {
-  const held = readLock();
-  if (held && held.agent === AGENT) rmSync(LOCK_FILE, { force: true });
+  if (readLock()?.session === SESSION) rmSync(LOCK_FILE, { force: true });
 }
 
 // ------------------------------------------------------------------ status
@@ -134,6 +165,7 @@ export async function waitForQuiet(quietSeconds, maxWaitSeconds) {
     const since = secondsSinceLastGeneration();
     if (since === null || since >= quietSeconds) return { waited: true, secondsQuiet: since };
     if (Date.now() > deadline) return { waited: false, secondsQuiet: since };
+    refreshLock();
     await sleep(15_000);
   }
 }
@@ -266,6 +298,7 @@ export async function build(packages) {
   }
   const results = [];
   for (const pkg of wanted) {
+    refreshLock();
     // A stale tsconfig.tsbuildinfo (for example after a dist restore) makes tsc decide everything is up to date and
     // emit nothing, which produces a dist missing new files. Always build from scratch.
     rmSync(join(REPO, "packages", pkg, "tsconfig.tsbuildinfo"), { force: true });
