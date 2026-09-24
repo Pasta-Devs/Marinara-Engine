@@ -729,6 +729,44 @@ try {
     );
   }
 
+  // ── An invented caster that lists no spells is still filled from the spell catalog ──
+  {
+    // Alone in its fight, so nothing else in it names the spell list and loads the catalog for it.
+    const game6 = await newGame({ ruleset: true, rulesetId: PLAIN_BESTIARY_ID });
+    const response = await post("/combat/start", {
+      chatId: game6.chat.id,
+      anchor: game6.anchor.id,
+      style: "ruleset",
+      party: [unit("brenna", "Brenna", "player")],
+      enemies: [
+        {
+          ...unit("acolyte", "Hedge Acolyte", "enemy"),
+          aiHints: { proficiency: "trained", temperament: "supportive" },
+          tier: "cr_1",
+          proposed: {
+            tier: "cr_1",
+            sheet: { fields: { class: "Cleric", level: 2, hp_max: 16, spellcasting_ability: "wis", slots_max_1: 2 } },
+          },
+        },
+      ],
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    const row = await createGameEngineStateStorage(db).getByChatAndMessage(
+      game6.chat.id,
+      game6.anchor.id,
+      0,
+      COMBAT_DIRECTOR_NAMESPACE,
+    );
+    const stored = JSON.parse(row!.state) as {
+      rulesetFight: { encounter: { combatants: Array<Record<string, any>> } };
+    };
+    const acolyte = stored.rulesetFight.encounter.combatants.find((combatant) => combatant.id === "acolyte");
+    assert.ok(
+      (acolyte?.actions as Array<{ label: string }> | undefined)?.some((action) => action.label === "Mending Light"),
+      "its open choices come from the spell catalog, which the route loaded because it may choose from that list",
+    );
+  }
+
   // ── A party member with no sheet is refused by name ──
   {
     const game3 = await newGame({ ruleset: true });

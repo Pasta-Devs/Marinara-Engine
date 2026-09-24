@@ -7,7 +7,12 @@
 // ability that exists) only run in `parseRulesetDefinition`, which the import uses.
 import { readFile, writeFile } from "node:fs/promises";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { RULESET_SCALED_MAX_COLUMNS, rulesetDefinitionSchema } from "../packages/shared/dist/index.js";
+import {
+  RULESET_CREATURE_PLAIN_NEEDS,
+  RULESET_CREATURE_SHEET_REPLACES,
+  RULESET_SCALED_MAX_COLUMNS,
+  rulesetDefinitionSchema,
+} from "../packages/shared/dist/index.js";
 
 const target = new URL("../docs/extending/ruleset.schema.json", import.meta.url);
 
@@ -133,8 +138,8 @@ function cancelOnlyWhenAimed(node) {
 // initiative, speed, scores and saves from it and gives none of them here, or carries no sheet and
 // gives the three numbers a fight cannot do without, and at least one action. Zod refines that; the
 // editor is told here. The node is found by its shape: `sheet` beside `actions` and `tier`.
-const CREATURE_SHEET_REPLACES = ["health", "defense", "initiativeModifier", "speed", "abilities", "saves"];
-const CREATURE_PLAIN_NEEDS = ["health", "defense", "initiativeModifier"];
+const CREATURE_SHEET_REPLACES = [...RULESET_CREATURE_SHEET_REPLACES];
+const CREATURE_PLAIN_NEEDS = [...RULESET_CREATURE_PLAIN_NEEDS];
 function oneSourceForCreature(node) {
   if (Array.isArray(node)) return node.forEach(oneSourceForCreature);
   if (!node || typeof node !== "object") return;

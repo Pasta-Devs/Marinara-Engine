@@ -1319,10 +1319,20 @@ const creatureSheetSchema = z
   })
   .strict();
 
-/** The keys a creature's sheet says for it, and so the ones it does not also give as numbers. */
-const CREATURE_SHEET_REPLACES = ["health", "defense", "initiativeModifier", "speed", "abilities", "saves"] as const;
+/** The keys a creature's sheet says for it, and so the ones it does not also give as numbers. Exported
+ *  because the published JSON Schema says the same rule and must never drift from this one. */
+export const RULESET_CREATURE_SHEET_REPLACES = [
+  "health",
+  "defense",
+  "initiativeModifier",
+  "speed",
+  "abilities",
+  "saves",
+] as const;
 /** The keys a creature WITHOUT a sheet cannot go without. */
-const CREATURE_PLAIN_NEEDS = ["health", "defense", "initiativeModifier"] as const;
+export const RULESET_CREATURE_PLAIN_NEEDS = ["health", "defense", "initiativeModifier"] as const;
+const CREATURE_SHEET_REPLACES = RULESET_CREATURE_SHEET_REPLACES;
+const CREATURE_PLAIN_NEEDS = RULESET_CREATURE_PLAIN_NEEDS;
 
 const creatureFields = {
   health: creatureHealthSchema,

@@ -218,12 +218,18 @@ async function loadBestiary(
 }
 
 /** The lists the Game Master's invented sheets fill, read off the raw proposals: which catalogs a
- *  fight needs is decided before any proposal is parsed. */
-function proposedSheetLists(enemies: ReadonlyArray<{ proposed?: unknown }>): Set<string> {
+ *  fight needs is decided before any proposal is parsed. Every list a creature CHOOSES from is among
+ *  them too, whether a proposal wrote it or not, because its open choices are filled from there. */
+function proposedSheetLists(
+  definition: RulesetDefinition,
+  enemies: ReadonlyArray<{ proposed?: unknown }>,
+): Set<string> {
   const lists = new Set<string>();
   for (const enemy of enemies) {
     const sheet = (enemy.proposed as { sheet?: { lists?: unknown } } | undefined)?.sheet;
-    if (sheet?.lists && typeof sheet.lists === "object") for (const id of Object.keys(sheet.lists)) lists.add(id);
+    if (!sheet || typeof sheet !== "object") continue;
+    if (sheet.lists && typeof sheet.lists === "object") for (const id of Object.keys(sheet.lists)) lists.add(id);
+    for (const source of definition.combat?.abilities ?? []) if (source.onlyWhen) lists.add(source.list);
   }
   return lists;
 }
@@ -707,7 +713,7 @@ export async function combatDirectorRoutes(
             playerName: persona?.name ?? null,
             live: parseStoredRulesetLive((await visibleLiveRow(input.chatId)).row?.rulesetLive),
             partyCatalogs: await loadFightCatalogs(resolved.packageId, definition, (c) => partyLists.has(c.id)),
-            bestiary: await loadBestiary(resolved.packageId, definition, proposedSheetLists(input.enemies)),
+            bestiary: await loadBestiary(resolved.packageId, definition, proposedSheetLists(definition, input.enemies)),
           });
           if (!built.ok) return reply.code(400).send({ error: built.error });
           state.rulesetFight = built.fight;
