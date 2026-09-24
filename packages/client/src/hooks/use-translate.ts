@@ -11,20 +11,34 @@ import { useTranslationStore, type TranslationConfig } from "../stores/translati
 import { chatKeys, replaceCachedMessage } from "./use-chats";
 
 const translationPersistenceQueues = new Map<string, Promise<void>>();
-const pendingTranslations = new Map<string, { text: string; request: Promise<void> }>();
+const pendingTranslations = new Map<
+  string,
+  { messageId: string; text: string; request: Promise<void>; invalidated: boolean }
+>();
+
+/** Editing a source also invalidates requests that have not returned yet. */
+export function invalidateTranslation(messageId: string) {
+  for (const pending of pendingTranslations.values()) {
+    if (pending.messageId === messageId) pending.invalidated = true;
+  }
+  useTranslationStore.getState().invalidateTranslation(messageId);
+}
 
 function enqueueTranslationPersistence(
   queryClient: QueryClient,
   chatId: string,
   messageId: string,
   extra: Record<string, unknown>,
+  isValid: () => boolean = () => true,
 ) {
   const queueKey = `${chatId}:${messageId}`;
   const previous = translationPersistenceQueues.get(queueKey) ?? Promise.resolve();
   const request = previous
     .catch(() => undefined)
     .then(async () => {
+      if (!isValid()) return;
       await api.patch(`/chats/${chatId}/messages/${messageId}/extra`, extra);
+      if (!isValid()) return;
       queryClient.setQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId), (old) =>
         replaceCachedMessage(old, messageId, (message) => ({
           ...message,
@@ -58,7 +72,7 @@ export function translateMessage(
   const pending = pendingTranslations.get(key);
   if (pending) {
     // Finish the previous source (including persistence) before translating a regenerated reply.
-    return pending.text === text
+    return pending.text === text && !pending.invalidated
       ? pending.request
       : pending.request
           .catch(() => undefined)
@@ -67,6 +81,7 @@ export function translateMessage(
   const store = useTranslationStore.getState();
   const isCurrentChat = () => useTranslationStore.getState().config.chatId === requestChatId;
   if (isCurrentChat()) store.setTranslating(messageId, true);
+  const attempt = { messageId, text, request: Promise.resolve(), invalidated: false };
   const request = (async () => {
     let translatedText: string;
     try {
@@ -80,22 +95,26 @@ export function translateMessage(
         deeplApiKey: config.deeplApiKey,
         deeplxUrl: config.deeplxUrl,
       });
+      if (attempt.invalidated) return;
       translatedText = result.translatedText;
       if (chatId) {
-        await enqueueTranslationPersistence(queryClient, chatId, messageId, {
-          translation: translatedText,
-          translationSource: text,
-          translationHidden: false,
-        }).catch(() => {});
+        await enqueueTranslationPersistence(
+          queryClient,
+          chatId,
+          messageId,
+          { translation: translatedText, translationSource: text, translationHidden: false },
+          () => !attempt.invalidated,
+        ).catch(() => {});
       }
       // Navigation can return to this chat while its extras are being saved.
       // Publish after persistence so a seeded, older translation cannot win.
-      if (isCurrentChat()) store.setTranslation(messageId, translatedText, text);
+      if (!attempt.invalidated && isCurrentChat()) store.setTranslation(messageId, translatedText, text);
     } finally {
       if (isCurrentChat()) store.setTranslating(messageId, false);
     }
   })();
-  pendingTranslations.set(key, { text, request });
+  attempt.request = request;
+  pendingTranslations.set(key, attempt);
   void request
     .finally(() => {
       if (pendingTranslations.get(key)?.request === request) pendingTranslations.delete(key);

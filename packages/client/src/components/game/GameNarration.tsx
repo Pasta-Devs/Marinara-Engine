@@ -593,6 +593,21 @@ function getGameTranslationHtml(
   );
 }
 
+function hasGameSegmentOverrides(
+  messageId: string,
+  segmentEdits?: Map<string, GameSegmentEdit>,
+  segmentDeletes?: Set<string>,
+): boolean {
+  const prefix = `${messageId}:`;
+  for (const key of segmentEdits?.keys() ?? []) {
+    if (key.startsWith(prefix)) return true;
+  }
+  for (const key of segmentDeletes ?? []) {
+    if (key.startsWith(prefix)) return true;
+  }
+  return false;
+}
+
 function getGameTranslationSource(
   message: NarrationMessage,
   segmentEdits?: Map<string, GameSegmentEdit>,
@@ -605,27 +620,8 @@ function getGameTranslationSource(
       : message.content.replace(/^\[(?:To the party|To the GM)]\s*/i, "")
     ).trim();
 
-  const prefix = `${message.id}:`;
-  let hasEdits = false;
-  if (segmentEdits) {
-    for (const key of segmentEdits.keys()) {
-      if (key.startsWith(prefix)) {
-        hasEdits = true;
-        break;
-      }
-    }
-  }
-  let hasDeletes = false;
-  if (segmentDeletes) {
-    for (const key of segmentDeletes) {
-      if (key.startsWith(prefix)) {
-        hasDeletes = true;
-        break;
-      }
-    }
-  }
-  // Untouched messages keep the exact previous behaviour; only edited/deleted ones rebuild.
-  if (!hasEdits && !hasDeletes) return plainSource();
+  // Keep saved translations compatible until a segment edit changes the visible source.
+  if (!hasGameSegmentOverrides(message.id, segmentEdits, segmentDeletes)) return plainSource();
 
   const colors = speakerColors ?? new Map<string, string>();
   const parsed = parseNarrationSegments(message, colors);
@@ -676,46 +672,24 @@ function getGameTranslationSource(
   return joined || plainSource();
 }
 
-function gameTranslationMatchesMessage(
-  message: NarrationMessage,
-  source: string | undefined,
-  segmentEdits?: Map<string, GameSegmentEdit>,
-  segmentDeletes?: Set<string>,
-  speakerColors?: Map<string, string>,
-): boolean {
-  if (source === getGameTranslationSource(message, segmentEdits, segmentDeletes, speakerColors)) {
-    return true;
-  }
-  // `source === message.content` is only a valid alias while the message has no
-  // segment overrides. Once a segment is edited or deleted, the raw content no
-  // longer matches what the segments render, so a translation of the old text
-  // must not suppress retranslation of the changed segments.
-  const segmentKeyPrefix = `${message.id}:`;
-  if (segmentEdits) {
-    for (const key of segmentEdits.keys()) {
-      if (key.startsWith(segmentKeyPrefix)) return false;
-    }
-  }
-  if (segmentDeletes) {
-    for (const key of segmentDeletes.keys()) {
-      if (key.startsWith(segmentKeyPrefix)) return false;
-    }
-  }
-  return source === message.content;
-}
-
 function getGameTranslatedSegmentText(
   message: NarrationMessage,
   translatedText: string | undefined,
   speakerColors: Map<string, string>,
   sourceSegmentIndex: number,
+  preserveInlineNarration: boolean,
 ): string | undefined {
   if (!translatedText?.trim()) return undefined;
   if (message.role === "user") {
     return getGameTranslationSource({ ...message, content: translatedText });
   }
 
-  const translatedSegments = parseNarrationSegments({ ...message, content: translatedText }, speakerColors);
+  // Edits replace an existing segment's body without splitting it into new beats.
+  const translatedSegments = parseNarrationSegments(
+    { ...message, content: translatedText },
+    speakerColors,
+    !preserveInlineNarration,
+  );
   const translatedSegment = translatedSegments[sourceSegmentIndex];
   if (!translatedSegment) {
     return sourceSegmentIndex === 0 ? getGameTranslationSource({ ...message, content: translatedText }) : undefined;
@@ -1558,6 +1532,24 @@ export function GameNarration({
     return null;
   }, [messages]);
 
+  const gameTranslationSources = useMemo(
+    () =>
+      new Map(
+        messages.map((message) => [
+          message.id,
+          getGameTranslationSource(message, segmentEdits, segmentDeletes, speakerColors),
+        ]),
+      ),
+    [messages, segmentEdits, segmentDeletes, speakerColors],
+  );
+  const gameTranslationMatchesMessage = useCallback(
+    (message: NarrationMessage, source: string | undefined) =>
+      source !== undefined &&
+      (source === gameTranslationSources.get(message.id) ||
+        (!hasGameSegmentOverrides(message.id, segmentEdits, segmentDeletes) && source === message.content)),
+    [gameTranslationSources, segmentEdits, segmentDeletes],
+  );
+
   const outcomeNarrationFailed =
     !!latestAssistant && parseMessageExtraRecord(latestAssistant.extra).gameOutcomeNarrationFailed === true;
   const lastAutoTranslation = useRef<{ id: string; source: string } | null>(null);
@@ -1578,20 +1570,14 @@ export function GameNarration({
     )
       return;
     if (useTranslationStore.getState().hiddenTranslationIds[latestAssistant.id]) return;
-    const source = getGameTranslationSource(latestAssistant, segmentEdits, segmentDeletes, speakerColors);
+    const source = gameTranslationSources.get(latestAssistant.id) ?? "";
     if (!source || translating[latestAssistant.id]) return;
     if (serverTranslation.data?.active || serverTranslation.data?.translating) return;
     if (serverTranslation.isPending || serverTranslation.isFetching) return;
     const extra = parseMessageExtraRecord(latestAssistant.extra);
     if (
       typeof extra.automaticTranslationSource === "string" &&
-      gameTranslationMatchesMessage(
-        latestAssistant,
-        extra.automaticTranslationSource,
-        segmentEdits,
-        segmentDeletes,
-        speakerColors,
-      )
+      gameTranslationMatchesMessage(latestAssistant, extra.automaticTranslationSource)
     )
       return; // The server owns this attempt; a failed translation stays manually retryable.
     if (
@@ -1599,9 +1585,6 @@ export function GameNarration({
       gameTranslationMatchesMessage(
         latestAssistant,
         typeof extra.translationSource === "string" ? extra.translationSource : latestAssistant.content,
-        segmentEdits,
-        segmentDeletes,
-        speakerColors,
       )
     )
       return; // The parent seeds saved translations (including hidden ones); do not request them again.
@@ -1610,18 +1593,22 @@ export function GameNarration({
     lastAutoTranslation.current = { id: latestAssistant.id, source };
     if (
       translations[latestAssistant.id] &&
-      gameTranslationMatchesMessage(
-        latestAssistant,
-        translationSources[latestAssistant.id],
-        segmentEdits,
-        segmentDeletes,
-        speakerColors,
-      )
+      gameTranslationMatchesMessage(latestAssistant, translationSources[latestAssistant.id])
     )
       return;
-    void translate(latestAssistant.id, source, latestAssistant.chatId, [latestAssistant.content]);
+    void translate(
+      latestAssistant.id,
+      source,
+      latestAssistant.chatId,
+      hasGameSegmentOverrides(latestAssistant.id, segmentEdits, segmentDeletes) ? [] : [latestAssistant.content],
+    );
   }, [
     parsedActiveChatMetadata.autoTranslate,
+    parsedActiveChatMetadata.translationOutputTargetLang,
+    parsedActiveChatMetadata.translationProvider,
+    parsedActiveChatMetadata.translationTargetLang,
+    gameTranslationSources,
+    gameTranslationMatchesMessage,
     isStreaming,
     generationFailed,
     latestAssistant,
@@ -2261,7 +2248,13 @@ export function GameNarration({
   const activeIsTranslating = activeSourceMessageId ? !!translating[activeSourceMessageId] : false;
   const activeSourceSegmentIndex = active?.sourceSegmentIndex ?? 0;
   const activeTranslatedSegmentText = activeSourceMessage
-    ? getGameTranslatedSegmentText(activeSourceMessage, activeTranslatedText, speakerColors, activeSourceSegmentIndex)
+    ? getGameTranslatedSegmentText(
+        activeSourceMessage,
+        activeTranslatedText,
+        speakerColors,
+        activeSourceSegmentIndex,
+        hasGameSegmentOverrides(activeSourceMessage.id, segmentEdits, segmentDeletes),
+      )
     : undefined;
   const showActiveTranslationOnly =
     translationDisplayOnly &&
@@ -2269,13 +2262,7 @@ export function GameNarration({
     !!activeTranslatedSegmentText &&
     !activeIsTranslating &&
     doneTyping &&
-    gameTranslationMatchesMessage(
-      activeSourceMessage,
-      activeTranslationSource,
-      segmentEdits,
-      segmentDeletes,
-      speakerColors,
-    );
+    gameTranslationMatchesMessage(activeSourceMessage, activeTranslationSource);
   const activeVisibleContent = markGameDiceNumbers(
     active && showActiveTranslationOnly
       ? activeTranslatedSegmentText!
@@ -3680,16 +3667,7 @@ export function GameNarration({
 
   const renderTranslationPanel = useCallback(
     (message: NarrationMessage | null, translatedText?: string, isTranslating = false, className?: string) => {
-      if (
-        message &&
-        !gameTranslationMatchesMessage(
-          message,
-          translationSources[message.id],
-          segmentEdits,
-          segmentDeletes,
-          speakerColors,
-        )
-      )
+      if (message && !gameTranslationMatchesMessage(message, translationSources[message.id]))
         translatedText = undefined;
       if (!message || (!translatedText && !isTranslating)) return null;
       return (
@@ -3710,7 +3688,7 @@ export function GameNarration({
         </div>
       );
     },
-    [gameTextEffectsEnabled, localizeUi, translationSources, segmentEdits, segmentDeletes, speakerColors],
+    [gameTextEffectsEnabled, localizeUi, translationSources, gameTranslationMatchesMessage],
   );
 
   const playClickSfx = useCallback(() => {
@@ -3741,7 +3719,6 @@ export function GameNarration({
             readableContent: content,
             readableType: editingLogSeg.readableType ?? "note",
           });
-          useTranslationStore.getState().invalidateTranslation(options.sourceMessageId);
           setEditingLogSeg(null);
           return;
         }
@@ -3752,7 +3729,6 @@ export function GameNarration({
           options.sourceSegmentIndex,
           speaker ? { content, speaker } : { content },
         );
-        useTranslationStore.getState().invalidateTranslation(options.sourceMessageId);
       }
 
       setEditingLogSeg(null);
@@ -4308,7 +4284,6 @@ export function GameNarration({
       const editInfo = segmentEditInfoRef.current[activeIndex];
       if (editInfo) {
         onEditSegment(editInfo.messageId, editInfo.segmentIndex, { content: editingContent.trim() });
-        useTranslationStore.getState().invalidateTranslation(editInfo.messageId);
       }
     }
     setEditingContent(null);
@@ -4346,34 +4321,22 @@ export function GameNarration({
         onClick={() =>
           void translate(
             activeSourceMessage.id,
-            getGameTranslationSource(activeSourceMessage, segmentEdits, segmentDeletes, speakerColors),
+            gameTranslationSources.get(activeSourceMessage.id) ?? "",
             activeSourceMessage.chatId,
-            [activeSourceMessage.content],
+            hasGameSegmentOverrides(activeSourceMessage.id, segmentEdits, segmentDeletes)
+              ? []
+              : [activeSourceMessage.content],
           )
         }
         disabled={activeIsTranslating}
         className={ACTIVE_SEGMENT_ACTION_BTN}
         title={localizeUi(
-          activeTranslatedText &&
-            gameTranslationMatchesMessage(
-              activeSourceMessage,
-              activeTranslationSource,
-              segmentEdits,
-              segmentDeletes,
-              speakerColors,
-            )
+          activeTranslatedText && gameTranslationMatchesMessage(activeSourceMessage, activeTranslationSource)
             ? "ui.chat.chatmessage.hideTranslation"
             : "ui.chat.chatmessage.translate",
         )}
         aria-label={localizeUi(
-          activeTranslatedText &&
-            gameTranslationMatchesMessage(
-              activeSourceMessage,
-              activeTranslationSource,
-              segmentEdits,
-              segmentDeletes,
-              speakerColors,
-            )
+          activeTranslatedText && gameTranslationMatchesMessage(activeSourceMessage, activeTranslationSource)
             ? "ui.chat.chatmessage.hideTranslation"
             : "ui.chat.chatmessage.translate",
         )}
@@ -4453,14 +4416,20 @@ export function GameNarration({
     const isTranslating = sourceMessageId ? !!translating[sourceMessageId] : false;
     const translatedSegmentText =
       sourceMessage && hasSourceSegmentIndex
-        ? getGameTranslatedSegmentText(sourceMessage, translatedText, speakerColors, sourceSegmentIndex)
+        ? getGameTranslatedSegmentText(
+            sourceMessage,
+            translatedText,
+            speakerColors,
+            sourceSegmentIndex,
+            hasGameSegmentOverrides(sourceMessage.id, segmentEdits, segmentDeletes),
+          )
         : undefined;
     const showTranslationOnly =
       translationDisplayOnly &&
       !!sourceMessage &&
       !!translatedSegmentText &&
       !isTranslating &&
-      gameTranslationMatchesMessage(sourceMessage, translationSource, segmentEdits, segmentDeletes, speakerColors);
+      gameTranslationMatchesMessage(sourceMessage, translationSource);
     const segmentDisplayContent = markGameDiceNumbers(
       showTranslationOnly
         ? translatedSegmentText!
@@ -4530,11 +4499,7 @@ export function GameNarration({
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            void translate(
-              sourceMessageId,
-              getGameTranslationSource(sourceMessage, segmentEdits, segmentDeletes, speakerColors),
-              sourceMessage.chatId,
-            );
+            void translate(sourceMessageId, gameTranslationSources.get(sourceMessage.id) ?? "", sourceMessage.chatId);
           }}
           disabled={isTranslating}
           className={stackedActionButtonClass}
@@ -5051,20 +5016,20 @@ export function GameNarration({
                 const isTranslating = sourceMessageId ? !!translating[sourceMessageId] : false;
                 const translatedSegmentText =
                   sourceMessage && sourceSegmentIndex != null
-                    ? getGameTranslatedSegmentText(sourceMessage, translatedText, speakerColors, sourceSegmentIndex)
+                    ? getGameTranslatedSegmentText(
+                        sourceMessage,
+                        translatedText,
+                        speakerColors,
+                        sourceSegmentIndex,
+                        hasGameSegmentOverrides(sourceMessage.id, segmentEdits, segmentDeletes),
+                      )
                     : undefined;
                 const showTranslationOnly =
                   translationDisplayOnly &&
                   !!sourceMessage &&
                   !!translatedSegmentText &&
                   !isTranslating &&
-                  gameTranslationMatchesMessage(
-                    sourceMessage,
-                    translationSource,
-                    segmentEdits,
-                    segmentDeletes,
-                    speakerColors,
-                  );
+                  gameTranslationMatchesMessage(sourceMessage, translationSource);
                 const displayedLine = showTranslationOnly ? { ...line, content: translatedSegmentText! } : line;
                 const translationPanel =
                   !showTranslationOnly && sourceMessage
@@ -5777,6 +5742,7 @@ export function GameNarration({
                               translatedText,
                               speakerColors,
                               sourceSegmentIndex,
+                              hasGameSegmentOverrides(segmentSourceMessage.id, segmentEdits, segmentDeletes),
                             )
                           : undefined;
                       const showTranslationOnly =
@@ -5784,13 +5750,7 @@ export function GameNarration({
                         !!segmentSourceMessage &&
                         !!translatedSegmentText &&
                         !isTranslating &&
-                        gameTranslationMatchesMessage(
-                          segmentSourceMessage,
-                          translationSource,
-                          segmentEdits,
-                          segmentDeletes,
-                          speakerColors,
-                        );
+                        gameTranslationMatchesMessage(segmentSourceMessage, translationSource);
                       const segmentDisplayContent = markGameDiceNumbers(
                         showTranslationOnly
                           ? translatedSegmentText!
@@ -5927,12 +5887,7 @@ export function GameNarration({
                               event.stopPropagation();
                               void translate(
                                 sourceMessageId,
-                                getGameTranslationSource(
-                                  segmentSourceMessage,
-                                  segmentEdits,
-                                  segmentDeletes,
-                                  speakerColors,
-                                ),
+                                gameTranslationSources.get(segmentSourceMessage.id) ?? "",
                                 segmentSourceMessage.chatId,
                               );
                             }}
@@ -6600,6 +6555,7 @@ function buildTruncationLines(rawContent: string): TruncationLine[] {
 export function parseNarrationSegments(
   message: NarrationMessage,
   speakerColors: Map<string, string>,
+  extractInlineDialogue = true,
 ): NarrationSegment[] {
   // Use stripGmTagsKeepReadables so [Note:] and [Book:] stay inline for position-aware display.
   // Extract them first as placeholders so multi-line readables don't break line-based parsing.
@@ -6797,7 +6753,7 @@ export function parseNarrationSegments(
 
   // If all segments are plain fallback narration (GM didn't use structured format),
   // try to extract inline dialogue like: "Hello," she said. / «Hmm,» he muttered.
-  if (parsed.length > 0 && parsed.every((s) => s.type === "narration")) {
+  if (extractInlineDialogue && parsed.length > 0 && parsed.every((s) => s.type === "narration")) {
     const expanded = splitInlineDialogue(parsed, message.id, speakerColors);
     if (expanded.some((s) => s.type === "dialogue")) {
       return expanded;
