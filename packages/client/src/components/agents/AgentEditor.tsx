@@ -881,7 +881,7 @@ export function AgentEditor() {
 
   // Populate from DB config or built-in defaults
   useEffect(() => {
-    if (!agentDetailId) return false;
+    if (!agentDetailId) return;
     const agentType = dbConfig?.type ?? builtIn?.id ?? agentDetailId;
     const defaultSettings = getDefaultBuiltInAgentSettings(agentType);
     if (dbConfig) {
@@ -1236,7 +1236,7 @@ export function AgentEditor() {
   useEffect(() => {
     if (!isMusicAgent || !dbConfig?.id) {
       setSpotifyStatus(null);
-      return false;
+      return;
     }
     let cancelled = false;
     fetch(`/api/spotify/status?agentId=${encodeURIComponent(dbConfig.id)}`)
@@ -1257,7 +1257,7 @@ export function AgentEditor() {
   useEffect(() => {
     if (!showsYoutubeSettings || !dbConfig?.id) {
       setYoutubeConfigured(false);
-      return false;
+      return;
     }
     let cancelled = false;
     fetch(`/api/youtube/status?agentId=${encodeURIComponent(dbConfig.id)}`)
@@ -1300,7 +1300,7 @@ export function AgentEditor() {
     let cancelled = false;
     if (!utilityAgentType || import.meta.env.VITE_MARINARA_LITE === "true") {
       setUtilitySlotServesThisAgent(false);
-      return false;
+      return;
     }
     void (async () => {
       try {
@@ -1350,7 +1350,7 @@ export function AgentEditor() {
   const handleClose = useCallback(() => {
     if (dirty) {
       setShowUnsavedWarning(true);
-      return false;
+      return;
     }
     closeAgentDetail();
   }, [dirty, closeAgentDetail]);
