@@ -52,14 +52,20 @@ try {
     apply: true,
   });
   assert.equal(mariEquivalentUpdate.ok, true);
-  const mariWidgetPublish = await mari.executeAction({
-    action: "db.update",
-    table: "app_settings",
-    id: `agent_home_widget:${agent.id}:${widget.id}`,
-    data: { value: JSON.stringify({ text: "Bypassed", updatedAt: new Date().toISOString() }) },
-    apply: true,
+  const widgetStateKey = `agent_home_widget:${agent.id}:${widget.id}`;
+  const mariWidgetPublish = await mari.executeCli({
+    argv: [
+      "db",
+      "patch",
+      "app_settings",
+      widgetStateKey,
+      "--json",
+      JSON.stringify({ value: JSON.stringify({ text: "Bypassed", updatedAt: new Date().toISOString() }) }),
+      "--apply",
+    ],
   });
   assert.equal(mariWidgetPublish.ok, false);
+  assert.match(JSON.stringify(mariWidgetPublish), new RegExp(widgetStateKey));
   await assert.rejects(storage.publishHomeWidgetState(agent.id, "other", "Forbidden"));
   await assert.rejects(storage.publishHomeWidgetState(agent.id, widget.id, "x".repeat(501)));
   await storage.update(agent.id, { settings: { homeWidgets: [] } });

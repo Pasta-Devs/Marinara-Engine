@@ -2333,7 +2333,10 @@ export function HomeBrowserHub({
         {customWidget ? (
           <button
             type="button"
-            onClick={() => setEditingCustomWidget(customWidget)}
+            onClick={() => {
+              updateCustomWidgetMutation.reset();
+              setEditingCustomWidget(customWidget);
+            }}
             aria-label={t("home.widgets.editLabel", { widget: customWidget.title })}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)]"
           >
@@ -3557,7 +3560,10 @@ export function HomeBrowserHub({
       </Modal>
       <Modal
         open={editingCustomWidget !== null}
-        onClose={() => setEditingCustomWidget(null)}
+        onClose={() => {
+          updateCustomWidgetMutation.reset();
+          setEditingCustomWidget(null);
+        }}
         title={t("home.widgets.editTitle")}
         width="max-w-md"
       >
