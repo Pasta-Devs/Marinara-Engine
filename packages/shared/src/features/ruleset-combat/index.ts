@@ -24,10 +24,19 @@
 // has. The window lives in the state, so a fight saved mid-walk comes back with the same people
 // still to ask and the same cells still to walk.
 //
+// A catalog entry may say WHICH moment it waits for, and then it is offered in the window that
+// moment opens: `aimed` before something lands on its holder, where taking it may `cancel` what was
+// held, and `harmed` after something has hurt them, where nothing unmakes it. What it costs is paid
+// before anybody is asked, so a cancelled action is stopped from happening rather than from having
+// been bought.
+//
 // What these slices deliberately leave for the ones after them, with the seams already in place:
-//   - what else opens a window. A catalog entry marked `reaction` names no trigger yet, so it is
-//     still left off every menu; the vocabulary that says what a reaction answers is the next
-//     slice's, and this one builds the window it will be answered in.
+//   - a chain of them. The fight keeps ONE window rather than a stack, so nothing opened inside a
+//     window opens another: a counter cannot itself be countered, and a reaction that hurts
+//     somebody opens no second moment.
+//   - a reaction that changes a NUMBER on what it answers rather than stopping it. The condition
+//     vocabulary is a closed list of names, not modifiers, so "harder to hit until your next turn"
+//     is not something a ruleset can say yet, whether a reaction or anything else says it.
 //   - three-quarter and total cover, elevation, flying over obstacles, squeezing, hiding and
 //     surprise, and movement forced on somebody by an attack.
 //   - who an opponent chooses to attack. Everything an enemy could do is on the same menu a player
@@ -103,6 +112,9 @@ export {
   rulesetStandardBudget,
   rulesetStandardName,
   rulesetTargetRefusal,
+  rulesetReactionPointsAtSource,
+  rulesetReactionsAt,
+  rulesetWindowMoment,
   rulesetWindowOptions,
   RULESET_MOVE_OPTION,
   RULESET_PASS_OPTION,

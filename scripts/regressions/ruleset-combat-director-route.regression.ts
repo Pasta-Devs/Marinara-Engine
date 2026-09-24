@@ -24,6 +24,7 @@ import {
   readRulesetLive,
   rowsFromCatalogEntry,
   RULESET_MOVE_OPTION,
+  RULESET_PASS_OPTION,
   rulesetSheetBuildSchema,
   type DirectedCombatView,
   type DirectedCommand,
@@ -644,6 +645,7 @@ try {
     await send({ type: "control", unitId: "brenna", controller: "ai" });
     const callsBefore = bossCalls;
     let windows = 0;
+    let held = 0;
     for (let guard = 0; guard < 300 && !boss.outcome; guard++) {
       if (boss.window?.controller === "gm") {
         windows++;
@@ -652,11 +654,18 @@ try {
           boss.window.options.every((option) => typeof option.optionId === "string"),
           "every window option carries the ruleset's own option id",
         );
+        // A decision the fight is holding open may always be declined, and it says so exactly once:
+        // letting the moment go by is one of the candidates the Engine's own picker weighs, not an
+        // extra line added beside them. A decision about the boss's OWN turn has no such answer.
+        const passes = boss.window.options.filter((option) => option.optionId === RULESET_PASS_OPTION).length;
+        if (boss.ruleset?.window) held++;
+        assert.equal(passes, boss.ruleset?.window ? 1 : 0, `${answer}: one way to let the moment go by`);
         bossAnswer = answer === "good" ? boss.window.options[0]!.id : answer === "bad" ? "not-a-candidate" : null;
       }
       await send({ type: "continue" });
     }
     assert.ok(windows > 0, `${answer}: the boss's turn opened a decision`);
+    assert.ok(held > 0, `${answer}: and at least one of them was a moment the fight was holding open`);
     assert.ok(bossCalls > callsBefore, `${answer}: the Game Master was asked`);
     assert.ok(boss.outcome, `${answer}: the fight still finished, with ${boss.outcome}`);
   }

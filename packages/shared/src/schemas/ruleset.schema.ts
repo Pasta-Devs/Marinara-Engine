@@ -934,7 +934,43 @@ const catalogMechanicsSchema = z
       })
       .optional(),
     concentration: z.boolean().optional(),
-    reaction: z.boolean().optional(),
+    /** Something taken at a MOMENT rather than on a turn. `true` says only that much, and an entry
+     *  that says only that much is on no menu: nothing knows which moment it waits for. An object
+     *  names the moment, and then the entry is offered in the window that moment opens.
+     *
+     *  `on` is a closed list because the Engine has to be the one that notices the moment:
+     *  - `aimed`: somebody is about to do something to the holder. The window opens BEFORE it
+     *    resolves, and what is taken there may `cancel` it.
+     *  - `harmed`: something has just hurt the holder. The window opens AFTER it resolves, because
+     *    the amount is what the moment is about, and nothing taken there unmakes it.
+     *
+     *  `at` says whom what is taken may be aimed at. `source` is whoever caused the moment, which
+     *  is the only target most of these have, and is filled in rather than picked. */
+    reaction: z
+      .union([
+        // `false` has been legal since the key existed and says the entry is not a reaction at all,
+        // which is what leaving it out says. A package that ships one is not broken by this.
+        z.literal(false),
+        z.literal(true),
+        z
+          .object({
+            on: z.enum(["aimed", "harmed"]),
+            at: z.enum(["source", "chosen"]).default("source"),
+            /** Stops what opened the window from happening at all. Only an `aimed` reaction may:
+             *  a moment that has already happened cannot be called off. */
+            cancels: z.literal(true).optional(),
+          })
+          .strict()
+          .superRefine((reaction, ctx) => {
+            if (reaction.cancels && reaction.on !== "aimed") {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Only an "aimed" reaction cancels: what has already happened cannot be called off',
+              });
+            }
+          }),
+      ])
+      .optional(),
     /** How many targets one use may take. One unless it says otherwise. */
     targetCount: z.number().int().min(1).max(20).optional(),
     /** The amount simply lands: no roll and no save. */

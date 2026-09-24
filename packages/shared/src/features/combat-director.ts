@@ -155,6 +155,12 @@ export interface DirectedRulesetView {
   window?: {
     id: string;
     kind: "reaction" | "signature";
+    /** Which moment, for the ones a reaction waits for, and what is happening at it. */
+    moment?: "aimed" | "harmed";
+    label?: string;
+    /** Who caused the moment: whoever aimed the thing, or whoever dealt the damage. Its own field
+     *  rather than `moverId`, which is for the walk that opened a window by leaving a reach. */
+    sourceId?: string;
     /** Who is being asked. The rest of the queue is not named: a client shows one question at a
      *  time, and everybody after this one is answered after this one. */
     actorId: string;
