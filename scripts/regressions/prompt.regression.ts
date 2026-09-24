@@ -5696,9 +5696,10 @@ const cases: RegressionCase[] = [
     name: "Manual Illustrator preserves custom prompts with schema-first and inline instructions",
     async run() {
       for (const promptTemplate of [
-        'Respond with a valid JSON object.\nDraw a three-panel comic from {{user}} POV.',
-        'Decide whether to generate an image. Draw a three-panel comic from {{user}} POV.',
+        "Respond with a valid JSON object.\nDraw a three-panel comic from {{user}} POV.",
+        "Decide whether to generate an image. Draw a three-panel comic from {{user}} POV.",
         '<output_format>{"prompt":"Draw a three-panel comic from {{user}} POV."}</output_format>',
+        `${"Scene guidance. ".repeat(900)}Draw a three-panel comic from {{user}} POV.`,
       ]) {
         const capture = makeCapturingProvider('{"prompt":"A three-panel comic from Mari POV."}');
         await writeManualIllustratorPromptPlan({
@@ -5712,6 +5713,9 @@ const cases: RegressionCase[] = [
         const system = capture.calls[0]![0]!.content;
         assert.match(system, /Draw a three-panel comic from Mari POV\./u);
         assert.doesNotMatch(system, /No selected Illustrator prompt mode supplied/u);
+        assert.ok(
+          system.indexOf("For this manual request, ignore") > system.indexOf("</selected_illustrator_prompt_mode>"),
+        );
       }
     },
   },
@@ -5845,13 +5849,15 @@ const cases: RegressionCase[] = [
       assert.match(manualIllustrationPrompt, /Style target: colored comic page, 2-6 panels/u);
       assert.match(manualIllustrationPrompt, /Build the prompt as a complete comic page/u);
       assert.match(manualIllustrationPrompt, /Combine it with the selected Illustrator prompt mode/u);
-      assert.doesNotMatch(manualIllustrationPrompt, /Generate only for a visually important moment/u);
-      assert.doesNotMatch(manualIllustrationPrompt, /Decide whether the current turn deserves an illustration/u);
-      assert.doesNotMatch(manualIllustrationPrompt, /Only illustrate when the moment deserves a picture/u);
-      assert.doesNotMatch(manualIllustrationPrompt, /Respond with a valid JSON object/u);
+      assert.match(manualIllustrationPrompt, /Generate only for a visually important moment/u);
+      assert.match(manualIllustrationPrompt, /Decide whether the current turn deserves an illustration/u);
+      assert.match(manualIllustrationPrompt, /Only illustrate when the moment deserves a picture/u);
+      assert.match(manualIllustrationPrompt, /Respond with a valid JSON object/u);
       assert.match(manualIllustrationPrompt, /The Illustration button has already selected the output type/u);
-      assert.doesNotMatch(manualIllustrationPrompt, /"shouldGenerate"\s*:/u);
-      assert.doesNotMatch(manualIllustrationPrompt, /"generateBackground"\s*:/u);
+      const manualContract = manualIllustrationPrompt.split("</selected_illustrator_prompt_mode>")[1]!;
+      assert.match(manualContract, /ignore automatic-generation conditions, cadence, and response schemas/u);
+      assert.doesNotMatch(manualContract, /"shouldGenerate"\s*:/u);
+      assert.doesNotMatch(manualContract, /"generateBackground"\s*:/u);
 
       const macroCapture = makeCapturingProvider(
         JSON.stringify({
