@@ -33,7 +33,10 @@ type ConnectedChatsStore = {
 const CONNECTED_CHAT_RECENT_MESSAGE_LIMIT = 20;
 
 /** Latest messages of the connected chat in ascending order, without reading the whole chat when a bounded read exists. */
-async function listRecentConnectedMessages(chats: ConnectedChatsStore, chatId: string): Promise<ConnectedChatMessage[]> {
+async function listRecentConnectedMessages(
+  chats: ConnectedChatsStore,
+  chatId: string,
+): Promise<ConnectedChatMessage[]> {
   if (chats.listMessagesPaginated) return chats.listMessagesPaginated(chatId, CONNECTED_CHAT_RECENT_MESSAGE_LIMIT);
   const all = await chats.listMessages(chatId);
   return all.slice(-CONNECTED_CHAT_RECENT_MESSAGE_LIMIT);

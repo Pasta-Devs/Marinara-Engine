@@ -520,12 +520,20 @@ async function importCharacter(data: unknown, db: DB) {
       }
     } catch (err) {
       if (avatar) await removeUnattachedAvatarFile({ filePath: avatar.filePath });
-      logger.warn(err, "Skipped optional character avatar restore for %s; character row is already imported", result.id);
+      logger.warn(
+        err,
+        "Skipped optional character avatar restore for %s; character row is already imported",
+        result.id,
+      );
     }
     try {
       await restoreSprites(d.sprites, result.id);
     } catch (err) {
-      logger.warn(err, "Skipped optional character sprite restore for %s; character row is already imported", result.id);
+      logger.warn(
+        err,
+        "Skipped optional character sprite restore for %s; character row is already imported",
+        result.id,
+      );
     }
     try {
       const characterSheetImageId = await restoreCharacterGallery(d.gallery, result.id, galleryStorage);
@@ -541,7 +549,11 @@ async function importCharacter(data: unknown, db: DB) {
         );
       }
     } catch (err) {
-      logger.warn(err, "Skipped optional character gallery restore for %s; character row is already imported", result.id);
+      logger.warn(
+        err,
+        "Skipped optional character gallery restore for %s; character row is already imported",
+        result.id,
+      );
     }
   }
   return {

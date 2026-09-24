@@ -122,7 +122,10 @@ export function checkBuildIntegrity(): BuildIntegrity {
   try {
     result = compare(SERVER_ROOT, meta);
   } catch (error) {
-    logger.warn({ err: error, event: "startup.build_check", outcome: "skipped" }, "[startup] Build check could not run");
+    logger.warn(
+      { err: error, event: "startup.build_check", outcome: "skipped" },
+      "[startup] Build check could not run",
+    );
     lastResult = emptyResult("dist", "skipped", meta);
     return lastResult;
   }

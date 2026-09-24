@@ -236,11 +236,7 @@ export function pruneEmptyPromptWrappers(messages: PrunablePromptMessage[]): voi
     const hasAttachments = Boolean(message.images?.length || message.files?.length);
     // Never drop attachment-bearing turns; real chat turns are only dropped when truly empty,
     // never for being a single heading line.
-    const prune = hasAttachments
-      ? false
-      : message.contextKind === "history"
-        ? !content
-        : isEmptyPromptWrapper(content);
+    const prune = hasAttachments ? false : message.contextKind === "history" ? !content : isEmptyPromptWrapper(content);
     if (prune) {
       messages.splice(i, 1);
     } else if (content !== messages[i]!.content) {

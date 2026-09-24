@@ -575,7 +575,10 @@ export async function lorebooksRoutes(app: FastifyInstance) {
         data: { lorebook: lb, entries, folders },
       };
       zip.addFile(
-        uniqueEntryName(toSafeExportName(String(lb.name || "lorebook"), `lorebook-${exportedCount + 1}`), ".marinara.json"),
+        uniqueEntryName(
+          toSafeExportName(String(lb.name || "lorebook"), `lorebook-${exportedCount + 1}`),
+          ".marinara.json",
+        ),
         Buffer.from(JSON.stringify(envelope, null, 2), "utf-8"),
       );
       exportedCount++;

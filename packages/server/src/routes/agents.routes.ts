@@ -539,7 +539,8 @@ export async function agentsRoutes(app: FastifyInstance) {
     if (!config) return reply.status(404).send({ error: "Agent not found" });
 
     const body = (req.body ?? {}) as { image?: unknown };
-    if (typeof body.image !== "string" || !body.image) return reply.status(400).send({ error: "No image data provided" });
+    if (typeof body.image !== "string" || !body.image)
+      return reply.status(400).send({ error: "No image data provided" });
 
     const { buffer, hintedExt } = parseImageUpload(body.image);
     const imageInfo = isAllowedImageBuffer(buffer, `.${hintedExt}`);

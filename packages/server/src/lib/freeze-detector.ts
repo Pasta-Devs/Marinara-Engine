@@ -61,7 +61,13 @@ export function startFreezeDetector(intervalMs: number = FREEZE_DETECTOR_INTERVA
       lastFreeze = { detectedAt: new Date(now).toISOString(), gapMs, suspendedMs };
       logger.warn(
         // Memory and worker gauges show what was busy if the server itself stalled.
-        { event: "runtime.freeze", gapMs, suspendedMs, memory: getRuntimeMemorySnapshot(), workers: sampleWorkerGauges() },
+        {
+          event: "runtime.freeze",
+          gapMs,
+          suspendedMs,
+          memory: getRuntimeMemorySnapshot(),
+          workers: sampleWorkerGauges(),
+        },
         "Process was suspended for ~%d s (timer gap %d ms). Either the host OS froze or slept the server, or the server itself stalled that long — on Android/Termux check the wake lock and battery exemptions, and compare the memory figures in /api/health.",
         Math.round(suspendedMs / 1000),
         gapMs,

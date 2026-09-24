@@ -2273,11 +2273,7 @@ async function writeStoredZipArchive(
     assertZipSafeInteger(centralDirectorySize, "central directory size");
     if (centralDirectorySize > centralDirectoryLimitBytes) {
       throw new ProfileArchiveTooLargeError(
-        profileArchiveSizeError(
-          "Profile archive central directory",
-          centralDirectorySize,
-          centralDirectoryLimitBytes,
-        ),
+        profileArchiveSizeError("Profile archive central directory", centralDirectorySize, centralDirectoryLimitBytes),
       );
     }
     const end = buildEndOfCentralDirectory(
