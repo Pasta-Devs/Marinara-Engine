@@ -20,6 +20,7 @@ export function resolveCapabilityPackageDisplay(manifest: CapabilityPackageManif
     )
     .find(Boolean);
   const canonicalTab = manifest.contributions?.homeBrowserTab;
+  const canonicalWidgets = manifest.contributions?.homeWidgets;
 
   return {
     name: localized?.name ?? manifest.name,
@@ -31,5 +32,14 @@ export function resolveCapabilityPackageDisplay(manifest: CapabilityPackageManif
           ariaLabel: localized?.homeBrowserTab?.ariaLabel ?? canonicalTab.ariaLabel,
         }
       : undefined,
+    ...(canonicalWidgets
+      ? {
+          homeWidgets: canonicalWidgets.map((widget) => ({
+            ...widget,
+            label: localized?.homeWidgets?.[widget.id]?.label ?? widget.label,
+            description: localized?.homeWidgets?.[widget.id]?.description ?? widget.description,
+          })),
+        }
+      : {}),
   };
 }

@@ -24,6 +24,7 @@ interface CapabilityElementProps {
     | "runtime"
     | "world-map"
     | "browser"
+    | "widget"
     | "tracker";
   capabilityProps?: Record<string, unknown>;
   className?: string;
