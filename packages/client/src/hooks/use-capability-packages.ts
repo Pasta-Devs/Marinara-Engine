@@ -476,22 +476,25 @@ interface BulkCapabilityPackageResult {
   succeeded: string[];
   failures: BulkCapabilityPackageFailure[];
   restartRequired: boolean;
+  usesDecisions: boolean;
 }
 
 async function runCapabilityPackageQueue(
   ids: string[],
-  operation: (id: string) => Promise<{ restartRequired: boolean }>,
+  operation: (id: string) => Promise<{ restartRequired: boolean; usesDecisions?: boolean }>,
   onProgress?: BulkCapabilityPackageVariables["onProgress"],
 ): Promise<BulkCapabilityPackageResult> {
   const succeeded: string[] = [];
   const failures: BulkCapabilityPackageFailure[] = [];
   let restartRequired = false;
+  let usesDecisions = false;
 
   for (const [index, id] of ids.entries()) {
     try {
       const result = await operation(id);
       succeeded.push(id);
       restartRequired ||= result.restartRequired;
+      usesDecisions ||= result.usesDecisions ?? false;
     } catch (error) {
       failures.push({ id, error });
     } finally {
@@ -499,7 +502,7 @@ async function runCapabilityPackageQueue(
     }
   }
 
-  return { succeeded, failures, restartRequired };
+  return { succeeded, failures, restartRequired, usesDecisions };
 }
 
 export function useInstallCapabilityPackage() {
@@ -507,10 +510,13 @@ export function useInstallCapabilityPackage() {
   return useMutation({
     mutationFn: (variables: { id: string; expectedVersion: string; expectedArtifactSha256: string }) => {
       const { id, expectedVersion, expectedArtifactSha256 } = variables;
-      return api.post<InstalledCapabilityPackage>(`/capability-packages/${encodeURIComponent(id)}/install`, {
-        expectedVersion,
-        expectedArtifactSha256,
-      });
+      return api.post<InstalledCapabilityPackage & { usesDecisions?: boolean }>(
+        `/capability-packages/${encodeURIComponent(id)}/install`,
+        {
+          expectedVersion,
+          expectedArtifactSha256,
+        },
+      );
     },
     onSettled: invalidate,
   });
@@ -546,14 +552,14 @@ export function useInstallAllCapabilityPackages() {
         packages.map((entry) => entry.manifest.id),
         async (id) => {
           const entry = packages.find((candidate) => candidate.manifest.id === id)!;
-          const result = await api.post<InstalledCapabilityPackage>(
+          const result = await api.post<InstalledCapabilityPackage & { usesDecisions?: boolean }>(
             `/capability-packages/${encodeURIComponent(id)}/install`,
             {
               expectedVersion: entry.manifest.version,
               expectedArtifactSha256: entry.artifact.sha256,
             },
           );
-          return { restartRequired: result.status === "restart-required" };
+          return { restartRequired: result.status === "restart-required", usesDecisions: result.usesDecisions };
         },
         onProgress,
       ),

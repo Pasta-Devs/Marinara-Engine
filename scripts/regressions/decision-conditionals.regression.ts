@@ -106,6 +106,14 @@ assert.equal(resolveDeferredCharacterMacros(deferred, profiles[1]!, { ...base, d
 
 assert.equal(containsDecisionStatements({ sections: [{ content: 'a {{#if decision:"x"}}y{{/if}}' }] }), true);
 assert.equal(containsDecisionStatements({ description: "a decision: to make" }), false, "prose is not a statement");
+assert.equal(containsDecisionStatements({ settings: { activationQuestion: "The scene changes." } }), true);
+assert.equal(containsDecisionStatements([{ defaultSettings: { activationQuestion: "The scene changes." } }]), true);
+assert.equal(containsDecisionStatements({ settings: { activationQuestion: "  " } }), false);
+assert.equal(containsDecisionStatements({ settings: { activationQuestion: false } }), false);
+assert.equal(
+  containsDecisionStatements({ promptTemplate: '{{#if decision_choice:"Weather" == "rain"}}Wet{{/if}}' }),
+  true,
+);
 
 // The Game prompt's authored sources, chosen the way generation chooses them.
 const { gameGmPromptDecisionTexts } =

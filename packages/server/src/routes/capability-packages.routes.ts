@@ -266,9 +266,11 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
         throw error;
       }
       try {
-        return installed.manifest.kind.includes("turn-game") && installed.status !== "restart-required"
-          ? await capabilityModuleRuntime.activatePackage(app, id)
-          : installed;
+        const result =
+          installed.manifest.kind.includes("turn-game") && installed.status !== "restart-required"
+            ? await capabilityModuleRuntime.activatePackage(app, id)
+            : installed;
+        return { ...result, usesDecisions: installed.usesDecisions };
       } finally {
         // A restart-required update leaves the prior runtime active in this
         // process. Keep its agent definitions visible until startup activates

@@ -253,8 +253,13 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       });
       if (presentation === "visual-novel") await page.getByRole("button", { name: "Show chat history" }).click();
       await page.getByRole("button", { name: "Regenerate", exact: true }).last().click();
-      const confirm = page.getByRole("dialog").getByRole("button", { name: "Regenerate", exact: true });
-      if (await confirm.isVisible().catch(() => false)) await confirm.click();
+      // Touch confirmation mounts asynchronously; an immediate visibility check can miss it.
+      if (await page.evaluate(() => window.matchMedia("(pointer: coarse)").matches)) {
+        await page
+          .getByRole("dialog", { name: "Regenerate Message", exact: true })
+          .getByRole("button", { name: "Regenerate", exact: true })
+          .click();
+      }
       await expect.poll(() => mainStarted).toBe(true);
       await expect(sprites).toHaveCount(1);
       await expect(sprite(bob.id)).toBeVisible();

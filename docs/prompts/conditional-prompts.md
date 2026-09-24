@@ -215,7 +215,7 @@ Open your reply by describing the new location in one or two sentences.
 The condition is true when the Decision model says the statement is true. It works with everything else in this guide: `{{else}}`, `{{else if}}`, `&&`, `||`, parentheses, nesting and group blocks.
 
 ```
-{{#if char == "Dottore" && decision:"{{user}} is lying or hiding something"}}
+{{#if char == "Dottore" && decision:"In the latest message, {{user}} says something that contradicts what they said earlier"}}
 Dottore notices the inconsistency and files it away.
 {{/if}}
 ```
@@ -271,13 +271,13 @@ Describe the new weather in a sentence.
 - It is asked the first turn it is reached, then again 3 turns later, and so on.
 - Changing the number takes effect at once: the next check counts from the turn it was last asked.
 - Between checks it reads as no, is not asked, and does not count toward **Decision statements per turn**.
-- Turns count the same way as sticky and cooldown, so a regeneration or a swipe reads the same answer.
+- Turns count the same way as sticky and cooldown, so a regeneration or a swipe does not advance the schedule. Whether it reuses an answer follows the [answer-cache rules](#answer-reuse).
 - Sticky and cooldown still hold a statement's answer; `every:` only decides when a statement they do not hold is asked.
 - A statement written in several places uses the smallest `every:` given anywhere.
 
 ### Priority
 
-When a turn has more statements than **Decision statements per turn** allows, `priority:` decides which are asked:
+When a prompt plan has more statements than its allowance under **Decision statements per turn**, `priority:` decides which are asked. The allowance applies in [several stages](#statement-allowance):
 
 ```
 {{#if decision:"In the latest message, a character is badly hurt" priority:high}}...{{/if}}
@@ -303,7 +303,7 @@ Design for that:
 - Do not chain decisions so that one wrong answer changes several others.
 - Do not gate consent, content warnings or safety instructions on a decision. Keep those always present.
 
-Any model will sometimes answer wrongly, and small decision models more often. Nobody needs a particular service to use this: a capable local model is often as good as or better than a small purpose-built decision model. Write for "a Decision model", never "requires Jev".
+Any model can answer wrongly. Write for "a Decision model", never "requires Jev": a local chat model can answer these statements too. The syntax is shared, but answers and accuracy can differ between models.
 
 ### Writing statements
 
@@ -315,9 +315,14 @@ These come from tests on a local chat model and on Open-Jev 2B and 9B:
 - **Describe something visible in the text**, an action or something said, not a mood word the model has to interpret ("The scene is intense") or a hidden intention ("Mira is lying").
 - Keep it short. A plain "and" or a negation worked fine in the tests, so write whichever reads naturally.
 
-Use **Test** next to **Decision model**, and try the statement on your own chats: the same statement can score differently on different models.
+To test your wording:
 
-What the tests showed. Each wording was tried on four labelled roleplay turns (two meant as yes, two as no) on Open-Jev 2B, Open-Jev 9B and a Gemma 4 E4B local model. It is a small sample from one scene, so read it as direction, not as a benchmark.
+1. Select a model under **Decision model** and click **Test**. This checks the connection with a fixed sample; it does not test your statement or read your current chat.
+2. Add the statement to your prompt and send representative chat messages: some where it should be true, and some where it should be false.
+3. Use **Peek Prompt** to inspect the branch that was sent. If you need the statement's probability and yes/no result, enable [debug logging](../CONFIGURATION.md#logging-levels).
+4. Adjust the wording and test again. Use new messages or change the statement when testing a new case: successful answers can be [reused](#answer-reuse). Opening a fresh Peek Prompt preview does not ask the model.
+
+What the tests showed. Each wording was tried on four labelled roleplay turns (two meant as yes, two as no) on Open-Jev 2B, Open-Jev 9B and a Gemma 4 E4B local model. It is a small sample from one scene, not a general accuracy benchmark or a test of hosted Jev. The table records observations from that sample; it does not promise the same result for another model or chat.
 
 | Write | Avoid | What happened with the wording to avoid |
 | --- | --- | --- |
@@ -330,32 +335,49 @@ What the tests showed. Each wording was tried on four labelled roleplay turns (t
 | Someone is injured in the latest message. | A fight starts and someone is injured and the city guards arrive. | Handled correctly. Splitting is still easier to reuse and debug. |
 | In the latest message, the characters stay in the same place. | The characters did not leave the room. | No difference. Write whichever reads naturally. |
 
-The recommended wordings scored 31 of 32 on Open-Jev 2B, 31 of 32 on Open-Jev 9B and 32 of 32 on the local model. The wordings to avoid scored 26, 25 and 24.
+The recommended wordings scored 31 of 32 on Open-Jev 2B, 31 of 32 on Open-Jev 9B and 32 of 32 on the local model. The wordings to avoid scored 26, 25 and 24. These small-sample results illustrate wording choices; use your own cases to judge which model suits your chats.
 
 ### Limits and cost
 
-- **Statements per turn.** At most the number set under **Decision model** as **Decision statements per turn** (32 by default) are asked each turn. Only statements the turn can actually use count toward it:
-  - statements in enabled preset sections and groups, not disabled ones;
-  - statements in the preset variable options the chat has selected, not the others;
-  - statements in lorebook entries that activate this turn, not the rest of the lorebook;
-  - statements in blocks that something fixed for the turn has not already ruled out. In `{{#if char == "Dottore" && decision:"..."}}`, the statement is not asked while the character is Mira. A variable can change while the prompt is built, so a condition on a variable never rules a statement out.
+#### Statement allowance
 
-  A statement that [sticky, cooldown](#sticky-and-cooldown) or [`every:`](#checking-every-few-turns) holds does not count at all. Past the limit, the [lowest-priority](#priority) statements read as no, a warning is logged, and Peek Prompt lists them. On a hosted Decision connection each statement adds to a billed request; on a local model it only adds time.
-- **Time.** The same budgets as activation questions apply: the Decision connection's **Time limit** (1.5 seconds by default), and 4 seconds for a local model. A model that has to reason first holds off in front of the reply unless you turned on **Also gate agents that run before the reply**.
-- **Once per turn.** Answers are kept for the turn, so a regeneration or a swipe sends the same branches. The Decision model is only asked again when a new message arrives, or when you edit the newest message and regenerate. The one exception is post-processing agents, below: they read the finished reply, so their statements are asked once per reply.
-- **Prompt caching.** A provider's cache reuses the prompt only up to the first thing that changed since the last request; everything from there on is billed again at full price. A branch that changes from turn to turn is such a change, so where it sits decides how much stays cached. Put decision blocks late in the prompt, such as post-history instructions or author's notes, rather than at the top.
+**Decision statements per turn**, under **Decision model**, defaults to 32. Despite its name, it is not one global cap on every Decision request or on spending. Marinara applies it in stages:
 
-  On a direct Anthropic connection with **Enable prompt caching** on, Marinara caches two points: the end of the system prompt (the preset text before the chat history), and the chat message **Cache depth** messages back from the newest one (5 by default). So a decision block:
+1. Statements for the main chat prompt are planned within the allowance. Lorebook decisions then use what that plan leaves available.
+2. For agents that run before or alongside the reply, Marinara makes a combined plan of the main prompt's statements and those agents' prompt statements, using the configured allowance again. This stage does not subtract the lorebook's earlier use, so the total can exceed the setting.
+3. Post-processing agents get a separate allowance after the reply. Their statements read the completed reply.
 
-  - **above the chat history** changes the system prompt, and the whole prompt is billed as new, plus the cost of writing the cache again;
-  - **inside the last Cache depth messages**, such as post-history instructions or an author's note at a shallower depth, costs no cached tokens;
-  - **in between**, such as an injection at depth 10 with the default Cache depth, keeps the system prompt cached but loses the cached history.
+Agent **activation questions** and **Smart response order** are separate from this setting.
 
-  **If you make presets, be very careful and very purposeful with decision blocks near the top of a preset.** Every turn a block there changes its answer, the system prompt changes with it, and a caching provider bills the whole prompt as new. Keep decision blocks in post-history instructions or a shallow author's note where you can. Put one near the top only when its answer rarely changes and what it adds belongs there. The same goes for decision blocks inside preset variable options, since a variable's value lands wherever its `{{name}}` sits.
+Only statements the current stage can use enter its plan: enabled preset sections and groups, selected variable options, and content from activated lorebook entries. A fixed condition can rule a statement out: `{{#if char == "Dottore" && decision:"..."}}` is not asked while the character is Mira. Variables can change during prompt building, so a variable condition does not rule a statement out in advance.
 
-  Providers also have a minimum below which nothing is cached, for example 512 tokens on Claude Opus 5.5, 1,024 on Claude Sonnet 5 and on OpenAI's GPT-5.6, and 4,096 on Claude Haiku 4.5. Almost any preset is longer than that, so in practice where the first change sits matters far more.
-- **Agents.** In an agent's prompt, decisions for agents that run before or with the reply read the same turn as the prompt. For post-processing agents they read the finished reply as the latest message, so they are asked after the reply, and again when a regenerated swipe changes it. Re-running an agent, for example with a tracker's refresh button or by retrying a failed agent, reuses the answers its turn already has. See [Decision statements in the agent's prompt](../agents/custom-agents.md#decision-statements-in-the-agents-prompt).
-- **Choices on a local model.** A local chat model answers a `decision_choice:` as one yes/no per option, so each option counts as a statement's worth of time.
+A statement held by [sticky, cooldown](#sticky-and-cooldown) or [`every:`](#checking-every-few-turns) takes no slot. [Priority](#priority) chooses which statements fit within a prompt plan. Lorebook activation draws on its remaining allowance as entries are considered. Statements left out read as no, and Peek Prompt lists them.
+
+#### Requests and time
+
+One turn can make several billed requests on a hosted Decision connection. Statements can be batched, but lorebook activation, newly activated entry content, recursive matches and agent phases can require more batches. Activation questions batch by Scan Depth and phase; Smart order makes its own request. The statement allowance is not a request-count or currency limit.
+
+A local chat model adds processing time instead of hosted charges. It answers a `decision_choice:` with one yes/no question per option, so a single choice can require several completions.
+
+Each request has a [time limit](../connections/decision-models.md#time-limits): 1.5 seconds by default for a Decision connection, or the local backend's budget. Several requests can add up to a longer wait. A local model that must reason first holds off before the reply unless you turn on **Also gate agents that run before the reply**.
+
+#### Answer reuse
+
+Successful answers are normally reused for the same turn and Decision model, so regenerating often sends the same branches without another request. This cache lives in the running server and holds up to 200 turn keys. A restart or cache eviction can cause another request. A new or edited latest message, a different model, a changed statement or a changed choice's option set can also need a new answer.
+
+Missing or failed answers are not cached as successful no answers: retrying the same turn can ask again and take a different branch. Sticky/cooldown timing is separate from this answer cache.
+
+Agent prompt statements follow the same reuse rules. Before/parallel agents read the pre-reply turn; post-processing agents read the completed reply, so a changed swipe can need new answers. A manual agent re-run reuses successful answers still cached for its inputs. See [Decision statements in the agent's prompt](../agents/custom-agents.md#decision-statements-in-the-agents-prompt).
+
+#### Prompt caching
+
+The provider's **prompt cache** is separate from Marinara's Decision answer cache. It can reuse an unchanged prefix of the prompt sent to your chat model. Changing a decision branch can prevent reuse from that part onward; an earlier unchanged prefix may still qualify. The exact reusable portion and billing depend on the provider, cache boundaries, minimum length and cache lifetime.
+
+**Put changing decision blocks late in the prompt**, such as post-history instructions or a shallow author's note. An early change can lose most cache savings. Keep a decision near the top only when its answer rarely changes and its instructions belong there. The same applies to preset variable options: their text lands wherever `{{name}}` appears.
+
+On a direct Anthropic connection with **Enable prompt caching** on, Marinara marks the end of the system prompt and a chat message **Cache depth** messages back from the newest one (5 by default). A change before history can invalidate the system boundary and later history, though an earlier matching prefix may remain reusable. A change after the marked history boundary can preserve that cached prefix. A change between the two boundaries can preserve the system prefix while losing some cached history. Cache reads and cache writes have different prices.
+
+Minimum cache lengths and supported boundaries vary by model and can change. Check the provider's current [Anthropic prompt-caching guide](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) or [OpenAI prompt-caching guide](https://developers.openai.com/api/docs/guides/prompt-caching) for those details and billing rules.
 
 ### When a decision branch never appears
 
@@ -364,7 +386,7 @@ If a user reports that a decision branch never shows up, the likely causes, in o
 1. **No Decision model is set.** Every decision condition is false on every turn. The editor shows a warning under any field that uses one.
 2. **The Decision model is not answering.** A hosted connection with a bad key, no credits or a rate limit; a local model that is stopped or too slow for the budget; or an installed decision model that did not start.
 3. **It is a reasoning model** that holds off in front of the reply.
-4. **Too many statements in one turn**, past the per-turn limit.
+4. **Too many statements in the relevant planning stage**, past its allowance.
 5. **It answers, but below its threshold.** Usually the wording, or a model that rates that turn lower than you expect.
 
 Ask the user which Decision model they selected and what **Test** reports. **Peek Prompt** shows the branches that were actually sent. When it has to build a fresh preview, it lists any decision statements that have no answer yet, which read as no there. With the log level set to debug, each statement, its answer and whether it read as yes are logged; see [Logging levels](../CONFIGURATION.md#logging-levels).
