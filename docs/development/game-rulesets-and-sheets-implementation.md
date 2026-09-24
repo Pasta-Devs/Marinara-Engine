@@ -633,9 +633,18 @@ and an opponent could not pay for anything out of a pool it did not have.
 - **Still an opponent.** Defeat at zero is by side, and so is the death track. The live write-back is
   keyed by side as well as by having a sheet: without that, a sheet-backed opponent that shared a
   party member's name would have overwritten that member's stored sheet.
-- **A Game Master's invention stays a plain block.** `rulesetProposedCreatureSchema` has no `sheet`,
-  because the clamp holds an invention to its tier by its numbers and cannot vouch for a sheet; a
-  proposal that carries one is not read, and the tier is used.
+- **A Game Master's invention may be a sheet too**, because an invented mage needs slots and
+  spells (the user's ruling on the PR). `rulesetProposedCreatureSchema` takes a lenient `sheet` (the
+  character build's schema) and drops the numbers written beside one rather than refusing the
+  proposal. `hold.ts` holds it in three steps: `readProposedRulesetSheet` drops what the ruleset
+  lacks by name, fits values, and turns a row named after a catalog entry into that entry (the
+  route loads every catalog feeding a list a proposed sheet fills); `holdRulesetSheetHealth` moves
+  health into the tier's band through the one field the health pool is read off, or a `sum` with
+  one field in it, and leaves anything else as written with a line; after the fight is built,
+  `holdRulesetCombatant` caps defense, to-hit and save difficulties and scales the best round,
+  counting the biggest affordable payment, on the combatant itself. The block parts beside the sheet
+  still go through the plain clamp. The blueprint prompt carries an `EncounterSheetBrief`: the ids,
+  what each may hold, the lists a fight reads and up to 60 catalog names per list.
 - **`no-health`.** A sheet that adds up to no health is left out at fight time with a reason of its
   own, rather than joining unkillable. A bestiary is already refused at import for a field outside
   its range, so this is reached by a formula that adds up to zero or by a hand-built block.

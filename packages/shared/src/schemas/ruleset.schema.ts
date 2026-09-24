@@ -1383,10 +1383,56 @@ function creatureSignatureIssues(
   });
 }
 
-/** A creature the Game Master invents for one fight, checked against exactly this before it is
- *  clamped onto the threat scale. Always the plain block: the clamp holds an invention to its tier
- *  by its numbers, and it cannot vouch for a sheet, so a proposal has no `sheet` to carry. */
-export const rulesetProposedCreatureSchema = z.object(creatureFields).strict().superRefine(creatureSignatureIssues);
+/** The keys a Game Master's sheet makes redundant. Dropped rather than refused, because a model that
+ *  wrote a sheet AND a number beside it meant the creature, and the sheet is the one that says it in
+ *  the ruleset's own terms. */
+export const RULESET_PROPOSED_SHEET_REPLACES: readonly string[] = CREATURE_SHEET_REPLACES;
+
+/** A creature the Game Master invents for one fight, checked against exactly this before it is held
+ *  to its tier. Either the plain block, or a `sheet` in the ruleset's own terms, so an invented mage
+ *  has slots and spells. The sheet is read leniently, the way a character's is, because it is a
+ *  model's writing rather than an author's: what the ruleset does not have is dropped by name later,
+ *  against the definition this file cannot see. */
+export const rulesetProposedCreatureSchema = z.preprocess(
+  (value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+    const creature = value as Record<string, unknown>;
+    if (!creature.sheet || typeof creature.sheet !== "object") return value;
+    return Object.fromEntries(
+      Object.entries(creature).filter(([key]) => !RULESET_PROPOSED_SHEET_REPLACES.includes(key)),
+    );
+  },
+  z
+    .object({
+      ...creatureFields,
+      health: creatureFields.health.optional(),
+      defense: creatureFields.defense.optional(),
+      initiativeModifier: creatureFields.initiativeModifier.optional(),
+      actions: z.array(creatureActionSchema).max(RULESET_CREATURE_MAX_ACTIONS).default([]),
+      // Declared further down this file, so read lazily.
+      sheet: z.lazy(() => rulesetSheetBuildSchema).optional(),
+    })
+    .strict()
+    .superRefine((creature, ctx) => {
+      creatureSignatureIssues(creature, ctx);
+      if (creature.sheet) return;
+      for (const key of CREATURE_PLAIN_NEEDS) {
+        if (creature[key] !== undefined) continue;
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `A creature without a sheet needs its ${key}`,
+        });
+      }
+      if (creature.actions.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["actions"],
+          message: "A creature without a sheet needs at least one action, or it has nothing to do",
+        });
+      }
+    }),
+);
 
 /** A creature a bestiary ships: the plain block, or a `sheet` in the ruleset's own terms. With a
  *  sheet it is built the way a party member is, so the numbers the sheet gives are not also given
@@ -3117,7 +3163,7 @@ export type RulesetCatalogMechanics = z.infer<typeof catalogMechanicsSchema>;
 export type RulesetCatalogHolds = RulesetCatalogHeader["holds"];
 /** One opponent, exactly as a bestiary entry writes it. */
 export type RulesetCreature = z.infer<typeof rulesetCreatureSchema>;
-/** A creature the Game Master invents for one fight: always the plain block, never a sheet. */
+/** A creature the Game Master invents for one fight: the plain block, or a sheet in the ruleset's terms. */
 export type RulesetProposedCreature = z.infer<typeof rulesetProposedCreatureSchema>;
 export type RulesetCreatureAction = RulesetCreature["actions"][number];
 export type RulesetCreatureDamage = NonNullable<RulesetCreatureAction["damage"]>;

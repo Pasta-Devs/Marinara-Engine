@@ -18,7 +18,11 @@
  *     of its sheet sent to a screen, and never written back as anybody's sheet, even a party
  *     member's who shares its name.
  *   - A sheet that adds up to no health is left out of the fight with a reason of its own.
- *   - A Game Master's invention is never a sheet: a proposal carrying one is not read.
+ *   - A Game Master's invention may be a sheet too, so an invented mage has slots and spells: read
+ *     leniently (what the ruleset lacks is dropped by name, a row named after a catalog entry IS that
+ *     entry), health held into the tier's band through the one field it is read off, and defense,
+ *     to-hit, save difficulties and the best round (the biggest affordable payment included) held
+ *     on the built combatant.
  *   - The catalogs a bestiary's sheets read are found by id, and a bestiary with no sheets asks for
  *     nothing more.
  *   - Capability API 1.34, inline and in a catalog file.
@@ -34,6 +38,7 @@ import {
   createRulesetEncounter,
   normalizeCharacterLookupName,
   parseRulesetDefinition,
+  planRulesetCombatCost,
   readRulesetLive,
   rulesetBestiarySheetCatalogIds,
   rulesetCombatant,
@@ -575,59 +580,61 @@ for (const setup of [
   assert.equal(luck?.value, 2, "out of its OWN Luck, which started full");
 }
 
+/** The 5e draft with a spell catalog and a caster in its bestiary. */
+const spellbook = parsedOrThrow(
+  variant(fiveEText, (doc) => {
+    doc.id = "5e-spellbook";
+    doc.catalogs.push({
+      id: "spells",
+      label: "Spells",
+      feeds: ["spells"],
+      entries: [
+        {
+          // Written at its own rung and bigger out of a higher one, which is what `perCostStep` says.
+          id: "ember-lance",
+          label: "Ember Lance",
+          rows: [{ list: "spells", values: { name: "Ember Lance", level: 2, prepared: true } }],
+          mechanics: {
+            kind: "attack",
+            attackRoll: true,
+            amount: { dice: "2d6" },
+            damageType: "fire",
+            cost: [{ pool: "slots_2", amount: 1 }],
+            perCostStep: { dice: "2d6" },
+          },
+        },
+      ],
+    });
+    doc.catalogs
+      .find((catalog: Record<string, any>) => catalog.id === "creatures")
+      .entries.push({
+        id: "cinder-adept",
+        label: "Cinder Adept",
+        summary: "A hedge-caster who learned one spell very well.",
+        creature: {
+          tier: "cr_2",
+          sheet: {
+            abilities: { str: 8, dex: 14, con: 12, int: 17, wis: 12, cha: 10 },
+            saves: { int_save: "proficient", wis_save: "proficient" },
+            fields: {
+              level: 5,
+              ac: 12,
+              speed: 30,
+              hp_max: 40,
+              spellcasting_ability: "int",
+              slots_max_2: 2,
+              slots_max_3: 1,
+            },
+            lists: { spells: [{ name: "Ember Lance", level: 2, prepared: true, _catalog: "spells/ember-lance" }] },
+          },
+        },
+      });
+  }),
+  "a 5e variant with a spell catalog and a caster in its bestiary",
+);
+
 // ── And is offered the bigger ways of paying, whoever decides for it ──
 {
-  const spellbook = parsedOrThrow(
-    variant(fiveEText, (doc) => {
-      doc.id = "5e-spellbook";
-      doc.catalogs.push({
-        id: "spells",
-        label: "Spells",
-        feeds: ["spells"],
-        entries: [
-          {
-            // Written at its own rung and bigger out of a higher one, which is what `perCostStep` says.
-            id: "ember-lance",
-            label: "Ember Lance",
-            rows: [{ list: "spells", values: { name: "Ember Lance", level: 2, prepared: true } }],
-            mechanics: {
-              kind: "attack",
-              attackRoll: true,
-              amount: { dice: "2d6" },
-              damageType: "fire",
-              cost: [{ pool: "slots_2", amount: 1 }],
-              perCostStep: { dice: "2d6" },
-            },
-          },
-        ],
-      });
-      doc.catalogs
-        .find((catalog: Record<string, any>) => catalog.id === "creatures")
-        .entries.push({
-          id: "cinder-adept",
-          label: "Cinder Adept",
-          summary: "A hedge-caster who learned one spell very well.",
-          creature: {
-            tier: "cr_2",
-            sheet: {
-              abilities: { str: 8, dex: 14, con: 12, int: 17, wis: 12, cha: 10 },
-              saves: { int_save: "proficient", wis_save: "proficient" },
-              fields: {
-                level: 5,
-                ac: 12,
-                speed: 30,
-                hp_max: 40,
-                spellcasting_ability: "int",
-                slots_max_2: 2,
-                slots_max_3: 1,
-              },
-              lists: { spells: [{ name: "Ember Lance", level: 2, prepared: true, _catalog: "spells/ember-lance" }] },
-            },
-          },
-        });
-    }),
-    "a 5e variant with a spell catalog and a caster in its bestiary",
-  );
   assert.deepEqual(rulesetBestiarySheetCatalogIds(spellbook, bestiariesOf(spellbook)), ["spells"]);
 
   // On the resolver itself: the bigger slot is offered, spent from its own sheet, and buys the dice.
@@ -807,6 +814,28 @@ for (const setup of [
   const shrugged = swingAt(hardened);
   assert.equal(eventsOf(shrugged.events, "damage")[0]?.adjust, "immune");
   assert.deepEqual(marks(hardened, shrugged.state), [], "an immune opponent takes no mark");
+
+  // An invented sheet on a track: the track's length is the ruleset's own, so health is not held.
+  const invented = started({
+    definition: tracked,
+    cards: [card("Juno", travellerBuild())],
+    party: [{ id: "juno", name: "Juno" }],
+    enemies: [
+      {
+        id: "brute",
+        name: "Road Brute",
+        tier: "stray",
+        proposed: { tier: "stray", sheet: { abilities: { brawn: 3 }, fields: { toughness: 6 } } },
+      },
+    ],
+  }).rulesetFight!;
+  assert.deepEqual(rulesetCombatHealth(tracked, tracked.combat!, who(invented.encounter, "brute")), {
+    value: 3,
+    max: 3,
+    temp: 0,
+  });
+  assert.ok(!invented.adjustments.some((line) => /Health/.test(line)), invented.adjustments.join("; "));
+  assert.equal(who(invented.encounter, "brute").sheet!.build.fields.toughness, 6, "and nothing was moved to try");
 }
 
 // ── Out at zero, as an opponent is, and never rolled against death ──
@@ -912,34 +941,146 @@ for (const setup of [
   ]);
 }
 
-// ── A Game Master's invention is never a sheet ──
+// ── A Game Master's invention may be a sheet: read leniently, and held to its tier ──
 {
-  const proposal = {
+  const plainProposal = {
     tier: "cr_1",
     health: 20,
     defense: 12,
     initiativeModifier: 1,
     actions: [{ id: "jab", name: "Jab", budget: "action", toHit: 4, damage: { dice: "1d6", type: "piercing" } }],
   };
-  const carrying = { ...proposal, sheet: { abilities: { str: 30 }, fields: { hp_max: 500 } } };
-  assert.ok(rulesetProposedCreatureSchema.safeParse(proposal).success);
-  assert.ok(!rulesetProposedCreatureSchema.safeParse(carrying).success, "a proposal has no sheet to carry");
-
-  const fightWith = (proposed: unknown) =>
-    started({
-      definition: fiveE,
-      cards: [card("Brenna", fighterBuild())],
-      party: [{ id: "brenna", name: "Brenna" }],
-      enemies: [{ id: "new", name: "Something New", tier: "cr_1", proposed }],
-    }).rulesetFight!;
-  const refusedOne = fightWith(carrying);
-  assert.equal(rulesetCombatant(refusedOne.encounter, "new")?.sheet, undefined);
+  assert.ok(rulesetProposedCreatureSchema.safeParse(plainProposal).success, "the plain proposal reads as ever");
   assert.ok(
-    refusedOne.adjustments.some((line) => /could not be read, so its tier was used/.test(line)),
-    "and the log says the tier was used instead",
+    !rulesetProposedCreatureSchema.safeParse({ tier: "cr_1", actions: plainProposal.actions }).success,
+    "without a sheet, the numbers a fight needs are still needed",
   );
-  const readOne = fightWith(proposal);
-  assert.ok(!readOne.adjustments.some((line) => /could not be read/.test(line)), "the plain proposal is read as ever");
+  // A sheet AND numbers beside it: the model meant the creature, and the sheet says it in the
+  // ruleset's terms, so the numbers go rather than the whole proposal.
+  const both = rulesetProposedCreatureSchema.safeParse({ ...plainProposal, sheet: { fields: { hp_max: 30 } } });
+  assert.ok(both.success, "a proposal carrying a sheet is read");
+  assert.equal(both.data.health, undefined);
+  assert.equal(both.data.defense, undefined);
+  assert.deepEqual(both.data.sheet?.fields, { hp_max: 30 });
+
+  // An invented caster: a mage the Game Master wrote on the ruleset's own sheet, overdone on purpose.
+  const hexer = {
+    tier: "cr_2",
+    health: 99,
+    sheet: {
+      abilities: { int: 20, luck: 3 },
+      saves: { int_save: "proficient", wis_save: "expertise" },
+      fields: { level: 5, ac: 25, hp_max: 200, spellcasting_ability: "int", slots_max_2: 2, slots_max_3: 1 },
+      lists: {
+        spells: [
+          { name: "ember lance", prepared: true },
+          { name: "Wall of Nothing", prepared: true },
+        ],
+      },
+    },
+  };
+  const fight = started({
+    definition: spellbook,
+    cards: [card("Brenna", fighterBuild())],
+    party: [{ id: "brenna", name: "Brenna" }],
+    enemies: [{ id: "hexer", name: "Hedge Hexer", tier: "cr_2", proposed: hexer }],
+  }).rulesetFight!;
+  const said = fight.adjustments.join("\n");
+  const tier = spellbook.combat!.threat!.tiers.find((entry) => entry.id === "cr_2")!;
+  const built = who(fight.encounter, "hexer");
+  assert.ok(built.sheet, "an invented caster fights with its sheet");
+
+  // Read leniently: what the ruleset does not have is dropped by name, and said.
+  assert.match(said, /Hedge Hexer: its sheet says its health, so the numbers written beside it were not used\./);
+  assert.match(said, /Hedge Hexer: "luck" is not on this ruleset's sheet, so dropped\./);
+  assert.match(said, /Hedge Hexer: "expertise" is not offered for wis_save, so it was left at the ruleset's default\./);
+  assert.match(
+    said,
+    /Hedge Hexer: "Wall of Nothing" is in no catalog of this ruleset, so it does nothing in a fight\./,
+  );
+  // A row named after a catalog entry IS that entry, under the entry's own name.
+  const lance = built.actions.find((action) => action.label === "Ember Lance");
+  assert.ok(lance, `the spell named in lower case is the catalog's Ember Lance: ${built.actions.map((a) => a.label)}`);
+  assert.equal(built.sheet!.build.lists.spells?.[0]?._catalog, "spells/ember-lance");
+  assert.equal(built.sheet!.build.lists.spells?.[0]?.level, 2, "and carries the entry's own values");
+
+  // Held to its tier: health through the field it is read off, and the rest on the built combatant.
+  assert.deepEqual(rulesetCombatHealth(spellbook, spellbook.combat!, built), { value: 67, max: 67, temp: 0 });
+  assert.match(said, /Health 200 was pulled into the 27 to 67 of CR 2 through its Hit point maximum, and is now 67\./);
+  assert.equal(built.defense, tier.defense + 2);
+  assert.match(said, /Defense 25 was lowered to 15\./);
+  assert.equal(lance.toHit, tier.toHit + 2, "a spell attack is held like any other to-hit");
+  assert.match(said, /"Ember Lance" now hits at 7 instead of 8\./);
+  // The best round counts the biggest slot it can afford, and what the bigger slot buys gives way first.
+  const biggest =
+    (lance.damage!.count * (lance.damage!.sides + 1)) / 2 +
+    lance.damage!.flat +
+    (lance.use?.perCostStep
+      ? (lance.use.perCostStep.count * (lance.use.perCostStep.sides + 1)) / 2 + lance.use.perCostStep.flat
+      : 0);
+  assert.ok(biggest <= tier.damagePerRound[1], `its best round averages ${biggest}`);
+  assert.match(said, /What a bigger payment buys was scaled down to fit the tier\./);
+  assert.deepEqual(
+    { count: lance.damage!.count, sides: lance.damage!.sides },
+    { count: 2, sides: 6 },
+    "the spell as written still fits, so only its growth was shaved",
+  );
+  assert.ok(planRulesetCombatCost(spellbook, built, lance, "slots_3"), "and it may still pay out of the bigger slot");
+
+  // On Ember Roads, whose health adds its Toughness to a constant and its Brawn: the one field in
+  // the sum is the one moved.
+  const roadFight = started({
+    definition: ember,
+    cards: [card("Juno", travellerBuild())],
+    party: [{ id: "juno", name: "Juno" }],
+    enemies: [
+      {
+        id: "brute",
+        name: "Road Brute",
+        tier: "stray",
+        proposed: { tier: "stray", sheet: { abilities: { brawn: 3 }, fields: { toughness: 6 } } },
+      },
+    ],
+  }).rulesetFight!;
+  assert.deepEqual(rulesetCombatHealth(ember, ember.combat!, who(roadFight.encounter, "brute")), {
+    value: 8,
+    max: 8,
+    temp: 0,
+  });
+  assert.match(
+    roadFight.adjustments.join("\n"),
+    /Road Brute: Health 13 was pulled into the 3 to 8 of Stray trouble through its Toughness, and is now 8\./,
+  );
+
+  // A health formula with no single field in it is left as written, and says so.
+  const stepped = parsedOrThrow(
+    variant(fiveEText, (doc) => {
+      doc.sheet.live.pools.find((pool: Record<string, any>) => pool.id === "hp").max = { derived: "proficiency_bonus" };
+    }),
+    "the 5e draft with health read off a step table",
+  );
+  const steppedFight = started({
+    definition: stepped,
+    cards: [card("Brenna", fighterBuild())],
+    party: [{ id: "brenna", name: "Brenna" }],
+    enemies: [
+      { id: "odd", name: "Odd One", tier: "cr_2", proposed: { tier: "cr_2", sheet: { fields: { level: 5 } } } },
+    ],
+  }).rulesetFight!;
+  assert.match(
+    steppedFight.adjustments.join("\n"),
+    /Odd One: Health 3 is outside the 27 to 67 of CR 2, and it is not read off one field of the sheet, so it was left as written\./,
+  );
+
+  // And the plain proposal is read and clamped exactly as before.
+  const plainFight = started({
+    definition: fiveE,
+    cards: [card("Brenna", fighterBuild())],
+    party: [{ id: "brenna", name: "Brenna" }],
+    enemies: [{ id: "new", name: "Something New", tier: "cr_1", proposed: plainProposal }],
+  }).rulesetFight!;
+  assert.equal(rulesetCombatant(plainFight.encounter, "new")?.sheet, undefined);
+  assert.ok(!plainFight.adjustments.some((line) => /could not be read/.test(line)));
 }
 
 // ── The catalogs a bestiary's sheets read, and nothing more ──

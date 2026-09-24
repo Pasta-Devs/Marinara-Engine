@@ -200,15 +200,31 @@ type RulesetSession = { definition: RulesetDefinition; packageId: string | null 
 
 /** The creatures a fight may meet, and the catalogs their sheets read their lists out of. A creature
  *  described by a sheet takes its spells or tricks from the ruleset's other catalogs, the way a
- *  character does, so those are loaded too; a bestiary with no sheets in it loads nothing more. */
+ *  character does, so those are loaded too; a bestiary with no sheets in it loads nothing more. A
+ *  Game Master's invented sheet names its rows rather than marking them, so every catalog feeding a
+ *  list one of those fills is loaded for it as well. */
 async function loadBestiary(
   packageId: string | null,
   definition: RulesetDefinition,
+  proposedLists: ReadonlySet<string>,
 ): Promise<RulesetCatalogEntriesById> {
   const creatures = await loadFightCatalogs(packageId, definition, (c) => c.holds === "creatures");
-  const lists = new Set(rulesetBestiarySheetCatalogIds(definition, creatures));
-  if (lists.size === 0) return creatures;
-  return { ...creatures, ...(await loadFightCatalogs(packageId, definition, (c) => lists.has(c.id))) };
+  const marked = new Set(rulesetBestiarySheetCatalogIds(definition, creatures));
+  const wanted = (c: NonNullable<RulesetDefinition["catalogs"]>[number]) =>
+    marked.has(c.id) || (c.feeds ?? []).some((list) => proposedLists.has(list));
+  if (marked.size === 0 && proposedLists.size === 0) return creatures;
+  return { ...creatures, ...(await loadFightCatalogs(packageId, definition, wanted)) };
+}
+
+/** The lists the Game Master's invented sheets fill, read off the raw proposals: which catalogs a
+ *  fight needs is decided before any proposal is parsed. */
+function proposedSheetLists(enemies: ReadonlyArray<{ proposed?: unknown }>): Set<string> {
+  const lists = new Set<string>();
+  for (const enemy of enemies) {
+    const sheet = (enemy.proposed as { sheet?: { lists?: unknown } } | undefined)?.sheet;
+    if (sheet?.lists && typeof sheet.lists === "object") for (const id of Object.keys(sheet.lists)) lists.add(id);
+  }
+  return lists;
 }
 
 /** The catalogs this fight needs: the ones the party's own rows came from, and every bestiary the
@@ -682,7 +698,7 @@ export async function combatDirectorRoutes(
             playerName: persona?.name ?? null,
             live: parseStoredRulesetLive((await visibleLiveRow(input.chatId)).row?.rulesetLive),
             partyCatalogs: await loadFightCatalogs(resolved.packageId, definition, (c) => partyLists.has(c.id)),
-            bestiary: await loadBestiary(resolved.packageId, definition),
+            bestiary: await loadBestiary(resolved.packageId, definition, proposedSheetLists(input.enemies)),
           });
           if (!built.ok) return reply.code(400).send({ error: built.error });
           state.rulesetFight = built.fight;

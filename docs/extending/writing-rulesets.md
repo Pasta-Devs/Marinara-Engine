@@ -1027,6 +1027,7 @@ lists as its characters says so, whatever those are. Ember Roads' Toll Warden:
   back anywhere, even when a character shares its name.
 - **A sheet that adds up to no health at all** is left out of the fight, and the opening log says
   why, rather than walking in as something nobody can hurt.
+- A Game Master can invent one too, and it is held to its tier (see Opponents nobody wrote).
 - A package that ships one declares Capability API 1.34.
 
 The 5e draft's Toll Sergeant is the same thing on a d20 sheet: its Armor Class, hit points, saves
@@ -1042,9 +1043,24 @@ sequence, or its heaviest single action, measured against one target) is inside 
 sequence, and only then the size of the die, and never scales anything down to nothing. Names your
 ruleset does not have are dropped: unknown damage types, conditions and saves, and anything past the
 first six actions. A tier you never declared falls back to the bottom of your scale. Every change
-comes back as a plain sentence, so a log can say what it did. An invention is always written in
-plain numbers, because the clamp holds it to its tier by its numbers: a proposal that carries a
-`sheet` is not read, and the tier is used instead.
+comes back as a plain sentence, so a log can say what it did.
+
+An invention may also be written as a `sheet`, the same way a bestiary creature can, and that is how
+an invented mage gets slots and spells. The Game Master is shown your sheet's ids and what each may
+hold, the lists a fight reads, and the names your catalogs offer for them, so a spell is named
+rather than described: a row that names a catalog entry, in any case, becomes that entry, and the
+Game Master's own values (such as a spell being prepared) go on top. The sheet is read leniently,
+because a model wrote it: a name your ruleset does not have is dropped, a value is fitted to its
+field or column, and numbers written beside the sheet are not used. Then it is held to its tier:
+
+- Health goes into the tier's band through the one field your health is read off: the pool's
+  maximum is that field, or is a `sum` with exactly one field in it (5e's hit point maximum, Ember
+  Roads' Toughness). A health formula with no single field in it is left as written, and the log
+  says so. A wound track's length is yours and is never changed.
+- Once the creature is built, defense, to-hit and save difficulties are held to two above the
+  tier's own, and the damage is scaled down until its best round is inside the tier's
+  `damagePerRound`, counting the biggest payment it can afford. What a bigger payment buys gives
+  way first, then the dice, the flat part, a strike, and only then the size of the die.
 
 Your own bestiary is never clamped. It is data you wrote, so the Engine takes it as written.
 

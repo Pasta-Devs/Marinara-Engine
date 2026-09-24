@@ -22,6 +22,8 @@ import {
   deterministicRng,
   findRulesetCreature,
   generateTacticalBattlefield,
+  holdRulesetCombatant,
+  holdRulesetSheetHealth,
   normalizeCharacterLookupName,
   normalizeGameDifficulty,
   normalizeTacticalEnvironment,
@@ -46,6 +48,8 @@ import {
   rulesetReactionPointsAtSource,
   rulesetPositionOf,
   rulesetSheetBuildsByName,
+  readProposedRulesetSheet,
+  RULESET_PROPOSED_SHEET_REPLACES,
   rulesetProposedStatBlock,
   rulesetTierStatBlock,
   rulesetWindowMoment,
@@ -187,6 +191,8 @@ export function createRulesetFight(input: RulesetFightSeed): RulesetFightSeedRes
   if (!combat) return { ok: false, error: "This game's ruleset does not resolve its own fights." };
 
   const adjustments: string[] = [];
+  /** Invented opponents written as sheets, and the tier each is held to once it is built. */
+  const heldToTier = new Map<string, NonNullable<typeof combat.threat>["tiers"][number]>();
   const builds = rulesetSheetBuildsByName(input.cards, input.playerName);
   const combatants: RulesetCombatantInput[] = [];
   for (const member of input.party) {
@@ -226,10 +232,52 @@ export function createRulesetFight(input: RulesetFightSeed): RulesetFightSeedRes
       });
       continue;
     }
-    // A creature invented for this fight is always the plain block: the clamp holds it to its tier
-    // by its numbers and cannot vouch for a sheet, so one that arrives carrying a sheet is not read.
     const proposed =
       opponent.proposed === undefined ? null : rulesetProposedCreatureSchema.safeParse(opponent.proposed);
+    // A creature invented for this fight in the ruleset's own terms: a mage with slots and spells.
+    // Read leniently, held to its tier the way a plain invention is, and held again once it is built.
+    if (proposed?.success && proposed.data.sheet) {
+      const said = (line: string) => adjustments.push(`${opponent.name}: ${line}`);
+      const beside = RULESET_PROPOSED_SHEET_REPLACES.filter(
+        (key) => (opponent.proposed as Record<string, unknown>)[key] !== undefined,
+      );
+      if (beside.length > 0)
+        said(`its sheet says its ${beside.join(", ")}, so the numbers written beside it were not used.`);
+      const read = readProposedRulesetSheet(definition, proposed.data.sheet, input.bestiary);
+      read.adjusted.forEach(said);
+      const tiers = combat.threat?.tiers ?? [];
+      const wanted = opponent.tier ?? proposed.data.tier;
+      const tier = tiers.find((entry) => entry.id === wanted) ?? tiers[0];
+      const held = tier ? holdRulesetSheetHealth(definition, read.sheet, tier) : { sheet: read.sheet, adjusted: [] };
+      held.adjusted.forEach(said);
+      // What the entry adds beside the sheet (its own actions, riders, the damage it shrugs off) is
+      // held by the plain clamp, on a block that borrows the tier's own numbers for the ones the
+      // sheet will give, so only the lines about those parts are said.
+      const { sheet: _sheet, ...parts } = proposed.data;
+      const plain = rulesetProposedStatBlock(definition, {
+        ...parts,
+        health: tier?.health[0] ?? 1,
+        defense: 0,
+        initiativeModifier: 0,
+      });
+      const clamped = plain ? clampRulesetStatBlock(definition, plain, wanted) : null;
+      clamped?.adjusted.forEach(said);
+      const {
+        health: _health,
+        healthDice: _dice,
+        defense: _defense,
+        initiativeModifier: _initiative,
+        ...extras
+      } = clamped?.block ?? { actions: [] };
+      combatants.push({
+        id: opponent.id,
+        name: opponent.name,
+        side: "enemy",
+        block: { ...extras, sheet: held.sheet, ...(tier ? { tier: tier.id } : {}) },
+      });
+      if (tier) heldToTier.set(opponent.id, tier);
+      continue;
+    }
     if (proposed?.success) {
       const block = rulesetProposedStatBlock(definition, proposed.data);
       if (block) {
@@ -265,6 +313,11 @@ export function createRulesetFight(input: RulesetFightSeed): RulesetFightSeedRes
     bestiary: input.bestiary,
     ...(board ? { board } : {}),
   });
+  for (const [id, tier] of heldToTier) {
+    const built = rulesetCombatant(encounter, id);
+    if (!built) continue;
+    for (const line of holdRulesetCombatant(definition, built, tier)) adjustments.push(`${built.name}: ${line}`);
+  }
   const fight: RulesetFightState = {
     encounter,
     eventSeq: 0,
