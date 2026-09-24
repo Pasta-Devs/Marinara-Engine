@@ -21,6 +21,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - New command palette: press **Ctrl+K** (**Cmd+K** on a Mac), or tap the search button in the top bar, to jump to any chat, character, persona, lorebook, preset or Settings tab by typing part of its name, or to run an action such as starting a new chat, opening a panel or switching between light and dark mode. The things you opened most recently are listed first. The palette does not open over another dialog, and a text field that uses Ctrl+K for itself keeps it.
 
 - Press **?** (while not typing) or pick **Keyboard shortcuts** in the command palette to see every keyboard shortcut the app has, grouped by where it works. Shortcuts that only work while a setting is on say which setting.
+- The Claude Agent SDK is now 0.3.280, the first version whose bundled CLI knows Claude Opus 5.5, so a Claude (Subscription) connection can use it. The SDK is exempt from the 24-hour minimum release age because Anthropic publishes it directly.
+
 - Claude (Subscription) keeps the prompt cache across turns for requests built with **Cache-friendly prompt layout**: the full-lore prefix goes before the SDK's dynamic boundary, per-turn blocks after it, and a history cache marker sits on the last finished assistant turn, including when the turn ends on a per-turn injection placed after your message. Requests without those markers are sent exactly as before.
 
 - Decision statements take two more modifiers: `every:3` asks a statement only every 3 turns (reading as no between checks, without taking a statement slot), and `priority:high` or `priority:low` decides which statements are asked first and dropped first when a turn has more than **Decision statements per turn** allows (#6599).

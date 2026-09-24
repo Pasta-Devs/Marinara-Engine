@@ -10,6 +10,11 @@ managePackageManagerVersions: true
 # registry takedowns and advisory systems to catch common compromise waves.
 minimumReleaseAge: 1440
 minimumReleaseAgeIgnoreMissingTime: false
+# The Claude Agent SDK ships new model support (Opus 5.5 arrived in 0.3.280) and is published by Anthropic
+# itself; it is the only package exempt from the delay.
+minimumReleaseAgeExclude:
+  - "@anthropic-ai/claude-agent-sdk"
+  - "@anthropic-ai/claude-agent-sdk-*"
 # Released installs must remain reproducible even when older dependency versions
 # lose trust metadata across pnpm or registry updates.
 trustPolicy: off
