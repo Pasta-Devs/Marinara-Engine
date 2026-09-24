@@ -1,0 +1,106 @@
+# Feature Switches
+
+Some server behaviours are optional. You turn them on in **Settings > Advanced > Features**. Every switch starts off, so a server where nobody opens this section behaves exactly as before.
+
+A change applies straight away. You do not need to restart the server or reload the page.
+
+## Overview
+
+| Switch                                      | Setting key                 | Default | Environment variable                 |
+| ------------------------------------------- | --------------------------- | ------- | ------------------------------------ |
+| **ChatGPT history replay**                  | `chatgptHistoryReplay`      | Off     |                                      |
+| **Cache-friendly prompt layout**            | `cacheFriendlyPromptLayout` | Off     |                                      |
+| **Stable lorebook picks**                   | `stableLorebookGroupPicks`  | Off     | `LOREBOOK_STABLE_GROUP_WINNERS`      |
+| **Retry failed provider calls**             | `providerRetry`             | Off     | `PROVIDER_RETRY_TRANSIENT_ERRORS`    |
+| **Background call cap**                     | `backgroundCallCap`         | Off     | `MARINARA_BACKGROUND_CALLS_PER_HOUR` |
+| **Keep generating when the tab is closed**  | `generationJobTracking`     | Off     |                                      |
+| **Minimize the console to the system tray** | `consoleTray`               | Off     | `MARINARA_CONSOLE_TRAY`              |
+
+Searching settings for `features` takes you to the section.
+
+## Where the settings are stored
+
+All switches are saved together in the `features` app setting, a JSON object of booleans and numbers. Only values that differ from the default are stored. A missing key, an empty object or an unreadable value all mean the default: every switch off, with the default numbers.
+
+The server keeps a copy in memory, so checking a switch costs nothing on busy paths such as provider calls and lorebook scans. Saving from Settings, or any other write to the `features` row, refreshes that copy at once.
+
+The API is `GET` and `PUT /api/app-settings/features`. `PUT` replaces the whole object and rejects unknown keys and out-of-range numbers.
+
+## Switches
+
+### ChatGPT history replay
+
+Setting key: `chatgptHistoryReplay`.
+
+On: Game turns on the ChatGPT subscription reuse the previous prompt and send a cache session id, so more of the prompt can be served from the provider cache.
+
+Off: the prompt is rebuilt every turn and no session id is sent.
+
+### Cache-friendly prompt layout
+
+Setting key: `cacheFriendlyPromptLayout`.
+
+On: World Maps and other blocks that change every turn move next to the current turn, so the start of the prompt stays the same between turns and can be cached by the provider.
+
+Off: the prompt is sent in the order it was assembled.
+
+### Stable lorebook picks
+
+Setting key: `stableLorebookGroupPicks`. Environment variable: `LOREBOOK_STABLE_GROUP_WINNERS`.
+
+On: a lorebook inclusion group keeps the same winner in a chat while its matching candidates stay the same. Other chats and other candidate sets can still pick differently.
+
+Off: the winner is re-rolled on every generation.
+
+### Retry failed provider calls
+
+Setting key: `providerRetry`. Environment variable: `PROVIDER_RETRY_TRANSIENT_ERRORS`.
+
+On: a refused or unreachable connection, or a gateway 502 or 503, is retried up to twice with a short jittered wait, and only before any text reached you. A 504 or a dropped connection is never retried. Not used when the connection has a fallback: the fallback is tried at once instead.
+
+Off: only rate limits are retried, as before.
+
+### Background call cap
+
+Setting keys: `backgroundCallCap` and `backgroundCallsPerHour` (**Calls per hour**, 1 to 100000, default 600). Environment variable: `MARINARA_BACKGROUND_CALLS_PER_HOUR`.
+
+On: automatic model calls that run without you (background agents and maintenance work) are limited per rolling hour. Once the hour is spent, they are refused locally, without sending a request, until the oldest call ages out. Replies you ask for never count and are never refused.
+
+Off: no cap.
+
+### Keep generating when the tab is closed
+
+Setting key: `generationJobTracking`.
+
+On: image, sprite and video jobs keep running after the tab closes. Their status and a short log are saved, and finished results can be picked up later.
+
+Off: jobs are tied to the open tab, as before.
+
+### Minimize the console to the system tray
+
+Setting key: `consoleTray`. Environment variable: `MARINARA_CONSOLE_TRAY`. Windows only.
+
+On: while the server runs in a console window, a Marinara icon sits in the Windows system tray, and minimizing the console hides it from the taskbar.
+
+Off: no tray icon, and the console is left alone.
+
+On Linux, macOS, Android and Docker the switch has no effect and is shown as unavailable.
+
+## Precedence
+
+1. **Environment variable.** When the switch's variable is set, it wins over the saved switch, both on and off, and Settings shows the switch locked with the variable's name. A blank variable counts as unset.
+2. **Saved switch.** The value saved in Settings > Advanced > Features.
+3. **Default.** Off, with the default numbers.
+
+| Variable                             | Controls                                | Values                                                                        |
+| ------------------------------------ | --------------------------------------- | ----------------------------------------------------------------------------- |
+| `LOREBOOK_STABLE_GROUP_WINNERS`      | Stable lorebook picks                   | `true`, `1`, `yes` or `on` turn it on. Any other value turns it off.          |
+| `PROVIDER_RETRY_TRANSIENT_ERRORS`    | Retry failed provider calls             | `true`, `1`, `yes` or `on` turn it on. Any other value turns it off.          |
+| `MARINARA_BACKGROUND_CALLS_PER_HOUR` | Background call cap and Calls per hour  | A positive number sets the cap. `0`, `off`, `false` or `disabled` removes it. |
+| `MARINARA_CONSOLE_TRAY`              | Minimize the console to the system tray | `true`, `1`, `yes` or `on` turn it on. Any other value turns it off.          |
+
+Environment variables are read on every check, so a `.env` change applies without a restart.
+
+## For developers
+
+The registry is `packages/shared/src/schemas/feature-settings.schema.ts`: the switch names, their defaults and the number settings. Add a switch there, with its label and help text under `settings.features.<key>` in the English locale, and it appears in Settings. On the server, check it with `isFeatureEnabled("<key>")` from `packages/server/src/services/features/feature-settings.ts`. In the client, use `useFeatureEnabled("<key>")` from `packages/client/src/hooks/use-feature-settings.ts`.

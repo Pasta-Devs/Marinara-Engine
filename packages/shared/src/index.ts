@@ -62,6 +62,7 @@ export * from "./schemas/custom-sticker.schema.js";
 export * from "./schemas/theme.schema.js";
 export * from "./schemas/app-settings.schema.js";
 export * from "./schemas/impersonate-prompt-templates.schema.js";
+export * from "./schemas/feature-settings.schema.js";
 export * from "./schemas/conversation-call.schema.js";
 export * from "./schemas/noodle.schema.js";
 export * from "./schemas/avatar-crop.schema.js";

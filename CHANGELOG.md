@@ -12,6 +12,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Update local embeddings and Whisper to Transformers.js 4 with matching ONNX runtimes and retain the native installer's private temporary directories. Upgrade Intiface integration to Buttplug 5 while preserving existing haptic intensity values, including zero, full vibration strength, and directional outputs. Reject incompatible feature ranges before starting output, and stop the device if only some features accept a command (#6603, #6604).
 
 - Update static file serving with the latest security fix, refresh TypeScript and formatting tools, and update Android and CI build dependencies. CodeQL initialization and analysis now advance together so security checks continue to run (#6601).
+- New **Settings > Advanced > Features** section for optional server behaviours. Every switch is off by default, so nothing changes until you turn one on. **Stable lorebook picks** and **Retry failed provider calls** can now be turned on there as well as with `LOREBOOK_STABLE_GROUP_WINNERS` and `PROVIDER_RETRY_TRANSIENT_ERRORS`, which still win when set. See docs/configuration/features.md.
 
 - Decision statements take two more modifiers: `every:3` asks a statement only every 3 turns (reading as no between checks, without taking a statement slot), and `priority:high` or `priority:low` decides which statements are asked first and dropped first when a turn has more than **Decision statements per turn** allows (#6599).
 

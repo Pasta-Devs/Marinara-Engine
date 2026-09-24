@@ -7,7 +7,7 @@ import { inArray } from "../../db/file-query.js";
 import { messages as messagesTable } from "../../db/schema/index.js";
 import { estimateTextTokens, LIMITS } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
-import { isLorebookStableGroupWinnersEnabled } from "../../config/runtime-config.js";
+import { isFeatureEnabled } from "../features/feature-settings.js";
 import type {
   CharacterData,
   LorebookActivationSource,
@@ -1285,7 +1285,7 @@ export async function processLorebooks(
     currentMessageIndex,
     ...(options?.random ? { random: options.random } : {}),
     // Opt-in: same chat and same group candidates give the same group winner every turn (prompt-cache stable).
-    ...(options?.chatId && isLorebookStableGroupWinnersEnabled() ? { groupSeed: options.chatId } : {}),
+    ...(options?.chatId && isFeatureEnabled("stableLorebookGroupPicks") ? { groupSeed: options.chatId } : {}),
   };
 
   // Determine recursion settings from relevant enabled lorebooks only.
