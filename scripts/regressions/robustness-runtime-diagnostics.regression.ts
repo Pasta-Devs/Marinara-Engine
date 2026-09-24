@@ -70,6 +70,7 @@ try {
     const response = await app.inject({ method: "GET", url: "/api/admin/runtime-diagnostics" });
     assert.equal(response.statusCode, 200, response.body);
     assert.equal(response.headers["cache-control"], "no-store");
+    assert.equal(response.headers["ratelimit-limit"], "30", "the route has its own rate limit, not the default bucket");
     assert.ok(!response.body.includes(SECRET), "stored secrets never appear in diagnostics");
     assert.ok(!response.body.includes(ROW_TEXT), "row content never appears in diagnostics");
     const body = response.json();

@@ -13,6 +13,7 @@ import {
   ADMIN_RESTART_RATE_LIMIT,
   AVATAR_STORAGE_RATE_LIMIT,
   REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT,
+  RUNTIME_DIAGNOSTICS_RATE_LIMIT,
 } from "../middleware/rate-limit.js";
 import { logger } from "../lib/logger.js";
 import { getRequestTimeoutSettings, saveRequestTimeoutSettings, isDockerRuntime } from "../config/runtime-config.js";
@@ -74,7 +75,7 @@ export async function adminRoutes(app: FastifyInstance) {
   // Read-only runtime detail for support, beyond what /api/health serves:
   // storage residency and whether each capability package runtime is live.
   // Counts and states only, never row content or settings values.
-  app.get("/runtime-diagnostics", async (req, reply) => {
+  app.get("/runtime-diagnostics", { config: { rateLimit: RUNTIME_DIAGNOSTICS_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Runtime diagnostics" })) return;
     reply.header("Cache-Control", "no-store");
     return collectRuntimeDiagnostics();
