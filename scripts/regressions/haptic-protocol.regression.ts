@@ -9,6 +9,9 @@ const serverRequire = createRequire(new URL("../../packages/server/package.json"
 const { WebSocketServer } = createRequire(serverRequire.resolve("buttplug"))("ws");
 type Message = Record<string, any>;
 const received: Message[] = [];
+let rejectSecondOutput = false;
+let pendingOutputReply = false;
+let stoppedBeforeOutputReply = false;
 const feature = (index: number, Output: Record<string, { Value: number[]; Duration?: number[] }>) => ({
   FeatureIndex: index,
   FeatureDescriptor: "Protocol fixture; no physical hardware",
@@ -36,6 +39,14 @@ const Devices = {
     DeviceFeatures: { 0: feature(0, { Temperature: { Value: [10, 100] } }) },
   },
   3: { DeviceIndex: 3, DeviceName: "No output", DeviceFeatures: { 0: feature(0, {}) } },
+  4: {
+    DeviceIndex: 4,
+    DeviceName: "Mixed positive minima",
+    DeviceFeatures: {
+      0: feature(0, { Vibrate: { Value: [0, 20] } }),
+      1: feature(1, { Vibrate: { Value: [20, 100] } }),
+    },
+  },
 };
 const server = new WebSocketServer({ host: "127.0.0.1", port: 0 });
 server.on("connection", (socket: any) => {
@@ -43,6 +54,19 @@ server.on("connection", (socket: any) => {
     for (const message of JSON.parse(data.toString()) as Message[]) {
       received.push(message);
       const Id = Object.values(message)[0].Id;
+      if (message.StopCmd && pendingOutputReply) stoppedBeforeOutputReply = true;
+      if (rejectSecondOutput && message.OutputCmd) {
+        if (message.OutputCmd.FeatureIndex === 1) {
+          socket.send(JSON.stringify([{ Error: { Id, ErrorCode: 4, ErrorMessage: "Simulated feature failure" } }]));
+        } else {
+          pendingOutputReply = true;
+          setTimeout(() => {
+            pendingOutputReply = false;
+            socket.send(JSON.stringify([{ Ok: { Id } }]));
+          }, 50);
+        }
+        continue;
+      }
       const reply = message.RequestServerInfo
         ? {
             ServerInfo: {
@@ -81,7 +105,7 @@ try {
   assert.equal(hapticService.connected, true);
   assert.deepEqual(
     hapticService.devices.map((device) => device.capabilities),
-    [["vibrate", "rotate", "position"], ["position"], ["temperature"], []],
+    [["vibrate", "rotate", "position"], ["position"], ["temperature"], [], ["vibrate"]],
   );
   await hapticService.startScanning();
   assert.equal(hapticService.scanning, true);
@@ -140,11 +164,28 @@ try {
     [{ deviceIndex: 0, action: "position", intensity: 0.5, duration: 6 }, /Duration value/],
     [{ deviceIndex: 3, action: "rotate", intensity: 0 }, /No compatible haptic outputs/],
     [{ deviceIndex: 99, action: "vibrate", intensity: 1 }, /No connected haptic devices/],
+    [{ deviceIndex: 4, action: "vibrate", intensity: 0.1, duration: 0.05 }, /not in the range/],
   ] as Array<[HapticDeviceCommand, RegExp]>) {
     received.length = 0;
     await assert.rejects(hapticService.executeCommand(command), error);
+    await delay(25);
     assert.equal(received.length, 0, "rejected commands must not reach the device");
   }
+
+  rejectSecondOutput = true;
+  received.length = 0;
+  await assert.rejects(
+    hapticService.executeCommand({ deviceIndex: 0, action: "vibrate", intensity: 1, duration: 0.05 }),
+    /Simulated feature failure/,
+  );
+  rejectSecondOutput = false;
+  assert.equal(received.filter((message) => message.OutputCmd).length, 2);
+  assert.equal(received.at(-1)?.StopCmd.DeviceIndex, 0, "partial failure must stop the started features");
+  assert.equal(
+    stoppedBeforeOutputReply,
+    false,
+    "stop must follow all output completions so a late output cannot restart it",
+  );
 
   await output({ deviceIndex: 0, action: "stop" });
   assert.equal(received.at(-1)?.StopCmd.DeviceIndex, 0);

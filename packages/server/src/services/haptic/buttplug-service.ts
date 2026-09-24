@@ -73,20 +73,39 @@ async function runIntensityOutput(
   intensity: number,
   durationMs?: number,
 ): Promise<void> {
-  await Promise.all(
-    [...device.features.values()].map(async (feature) => {
-      const output = feature.output(type);
-      if (!output) return;
-      // Keep v4's zero-based intensity and per-feature maximum. v5 percent()
-      // maps zero to the range minimum, which can mean full reverse rotation.
-      const value = Math.ceil(output.valueRange[1] * intensity);
-      const command =
-        type === OutputType.HwPositionWithDuration
-          ? DeviceOutput.PositionWithDuration.value(value, durationMs!)
-          : new DeviceOutputValueConstructor(type).value(value);
-      await feature.runOutput(command);
-    }),
-  );
+  const commands = [];
+  for (const feature of device.features.values()) {
+    const output = feature.output(type);
+    if (!output) continue;
+    const [min, max] = output.valueRange;
+    // Keep v4's zero-based intensity and per-feature maximum. v5 percent()
+    // maps zero to the range minimum, which can mean full reverse rotation.
+    const value = Math.ceil(max * intensity);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min > max || value < min || value > max) {
+      throw new Error(`${type} value ${value} is not in the range ${min} <= x <= ${max}`);
+    }
+    const command =
+      type === OutputType.HwPositionWithDuration
+        ? DeviceOutput.PositionWithDuration.value(value, durationMs!)
+        : new DeviceOutputValueConstructor(type).value(value);
+    if (type === OutputType.HwPositionWithDuration && output.durationRange) {
+      const [minDuration, maxDuration] = output.durationRange;
+      if (durationMs! < minDuration || durationMs! > maxDuration) {
+        throw new Error(`Duration value ${durationMs} is not in the range ${minDuration} <= x <= ${maxDuration}`);
+      }
+    }
+    commands.push({ feature, command });
+  }
+  // Validate the whole device before starting any feature. If a send still
+  // fails, stop after all sends settle; the caller cannot schedule its timer.
+  const results = await Promise.allSettled(commands.map(({ feature, command }) => feature.runOutput(command)));
+  const failure = results.find((result) => result.status === "rejected");
+  if (failure) {
+    await device
+      .stop()
+      .catch((error) => logger.warn(error, "[haptic] Failed to stop device after partial output failure"));
+    throw failure.reason;
+  }
 }
 
 /** Helper: get all devices from the client Map as an array. */
