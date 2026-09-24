@@ -19,6 +19,7 @@ import {
 import { requestChatHelp } from "../../lib/chat-help-events";
 import { countModalOverlays } from "../../lib/modal-overlay-registry";
 import { chatKeys } from "../../hooks/use-chats";
+import { useGenerationJobsEnabled } from "../../hooks/use-generation-jobs";
 import { useLaunchNewChat } from "../chat/HomeNewChatLauncher";
 import { useCommandPaletteStore } from "../../stores/command-palette.store";
 import { useChatStore } from "../../stores/chat.store";
@@ -50,6 +51,11 @@ export function CommandPaletteHost() {
   // launch() is rebuilt every render; a ref keeps the registered actions stable.
   const launchRef = useRef(launch);
   launchRef.current = launch;
+  // The generation jobs action is listed only while its feature switch is on. `when` reads a ref so
+  // turning the switch on or off does not re-register every action.
+  const generationJobsEnabled = useGenerationJobsEnabled();
+  const generationJobsEnabledRef = useRef(generationJobsEnabled);
+  generationJobsEnabledRef.current = generationJobsEnabled;
 
   useEffect(() => {
     if (paletteOpen) setPaletteLoaded(true);
@@ -183,6 +189,14 @@ export function CommandPaletteHost() {
         title: t("palette.actions.characterLibrary"),
         keywords: ["characters", "cards"],
         run: () => useUIStore.getState().openCharacterLibrary(),
+      }),
+      registerCommand({
+        id: "action:generation-jobs",
+        section: "actions",
+        title: t("palette.actions.generationJobs"),
+        keywords: ["jobs", "images", "background", "tasks"],
+        when: () => generationJobsEnabledRef.current,
+        run: () => useUIStore.getState().openModal("generation-jobs"),
       }),
       ...PANEL_COMMANDS.map(({ panel, labelKey, keywords }) =>
         registerCommand({

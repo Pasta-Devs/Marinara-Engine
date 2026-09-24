@@ -223,6 +223,7 @@ assert.match(host, /isShortcutsHelpKey\(event\) && !isTypingTarget\(event\.targe
     "action:browse-cards",
     "action:character-library",
     "action:chat-guide",
+    "action:generation-jobs",
     "action:home",
     "action:new-conversation",
     "action:new-game",
@@ -233,6 +234,21 @@ assert.match(host, /isShortcutsHelpKey\(event\) && !isTypingTarget\(event\.targe
     "action:toggle-theme",
   ]);
   assert.match(host, /id: `action:panel-\$\{panel\}`/u);
+  // "Open generation jobs" is listed only while the generationJobTracking switch is on.
+  assert.match(host, /const generationJobsEnabled = useGenerationJobsEnabled\(\);/u);
+  assert.match(host, /generationJobsEnabledRef\.current = generationJobsEnabled;/u);
+  assert.match(
+    host,
+    /id: "action:generation-jobs",[\s\S]*?when: \(\) => generationJobsEnabledRef\.current,[\s\S]*?openModal\("generation-jobs"\)/u,
+    "the generation jobs action is gated on the feature switch and opens the jobs viewer",
+  );
+  assert.deepEqual(
+    filterVisibleCommands([{ id: "action:generation-jobs", when: () => false }, { id: "action:home" }]).map(
+      (command) => command.id,
+    ),
+    ["action:home"],
+    "switch off: the generation jobs action is not listed",
+  );
   for (const panel of ["characters", "personas", "lorebooks", "presets", "connections", "agents"]) {
     assert.match(host, new RegExp(`\\{ panel: "${panel}", labelKey: "palette\\.actions\\.open`, "u"));
   }

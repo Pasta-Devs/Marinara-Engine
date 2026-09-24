@@ -1730,6 +1730,7 @@
   "palette.actions.browseCards": "Browse character cards",
   "palette.actions.characterLibrary": "Open character library",
   "palette.actions.chatGuide": "Show chat guide",
+  "palette.actions.generationJobs": "Open generation jobs",
   "palette.actions.home": "Go home",
   "palette.actions.newConversation": "New conversation",
   "palette.actions.newGame": "New game",
