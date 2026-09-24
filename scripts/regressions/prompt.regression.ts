@@ -5693,6 +5693,29 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "Manual Illustrator preserves custom prompts with schema-first and inline instructions",
+    async run() {
+      for (const promptTemplate of [
+        'Respond with a valid JSON object.\nDraw a three-panel comic from {{user}} POV.',
+        'Decide whether to generate an image. Draw a three-panel comic from {{user}} POV.',
+        '<output_format>{"prompt":"Draw a three-panel comic from {{user}} POV."}</output_format>',
+      ]) {
+        const capture = makeCapturingProvider('{"prompt":"A three-panel comic from Mari POV."}');
+        await writeManualIllustratorPromptPlan({
+          illustratorAgent: {
+            ...makeRegressionAgentConfig({ type: "illustrator", promptTemplate }),
+            provider: capture.provider,
+            model: "regression-model",
+          } as any,
+          context: { ...makeRegressionAgentContext(), persona: { name: "Mari" } },
+        });
+        const system = capture.calls[0]![0]!.content;
+        assert.match(system, /Draw a three-panel comic from Mari POV\./u);
+        assert.doesNotMatch(system, /No selected Illustrator prompt mode supplied/u);
+      }
+    },
+  },
+  {
     name: "Roleplay Illustrator background decisions are gated and produce reusable library metadata",
     async run() {
       assert.equal(
