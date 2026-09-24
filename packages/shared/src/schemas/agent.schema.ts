@@ -20,6 +20,32 @@ export const customAgentActivationSettingsSchema = z.object({
   activationMaxSkip: z.number().int().min(1).max(100).optional(),
 });
 
+export const homeAgentWidgetSchema = z
+  .object({
+    id: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+      .max(64),
+    title: z.string().trim().min(1).max(80),
+    description: z.string().trim().max(240),
+    size: z.enum(["compact", "large"]),
+  })
+  .strict();
+export const homeAgentWidgetsSchema = z
+  .array(homeAgentWidgetSchema)
+  .max(3)
+  .refine(
+    (widgets) => new Set(widgets.map((widget) => widget.id)).size === widgets.length,
+    "Widget IDs must be unique",
+  );
+export type HomeAgentWidgetDefinition = z.infer<typeof homeAgentWidgetSchema>;
+
+const agentSettingsSchema = z.record(z.unknown()).superRefine((settings, ctx) => {
+  if (settings.homeWidgets === undefined) return;
+  const result = homeAgentWidgetsSchema.safeParse(settings.homeWidgets);
+  if (!result.success) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid agent Home widgets" });
+});
+
 export const createAgentConfigSchema = z.object({
   type: z.string().min(1),
   name: z.string().min(1).max(200),
@@ -31,7 +57,7 @@ export const createAgentConfigSchema = z.object({
   imagePath: z.string().nullable().default(null),
   resultType: agentResultTypeSchema.optional(),
   promptTemplate: z.string().default(""),
-  settings: z.record(z.unknown()).default({}),
+  settings: agentSettingsSchema.default({}),
 });
 
 export const updateAgentConfigSchema = createAgentConfigSchema.partial();

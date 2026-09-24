@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { eq, ne, and, desc, lte, notInArray } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
-import { agentConfigs, agentRuns, agentMemory, messages } from "../../db/schema/index.js";
+import { agentConfigs, agentRuns, agentMemory, messages, appSettings } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import {
   BUILT_IN_AGENTS,
@@ -13,6 +13,7 @@ import {
   parseAgentSettingsRecord,
   type CreateAgentConfigInput,
   type AgentResult,
+  homeAgentWidgetsSchema,
 } from "@marinara-engine/shared";
 
 const BUILTIN_AGENT_ID_PREFIX = "builtin:";
@@ -106,6 +107,14 @@ function serializeRunWithConfig(row: { agent_runs: AgentRunRow; agent_configs: A
 }
 
 export function createAgentsStorage(db: DB) {
+  const widgetStateKey = (agentId: string, widgetId: string) => `agent_home_widget:${agentId}:${widgetId}`;
+  async function declaredWidget(agentId: string, widgetId: string) {
+    const agent = await getById(agentId);
+    if (!agent || isBuiltInAgentType(agent.type)) return false;
+    const settings = parseAgentSettingsRecord(agent.settings);
+    const parsed = homeAgentWidgetsSchema.safeParse(settings.homeWidgets ?? []);
+    return parsed.success && parsed.data.some((widget) => widget.id === widgetId);
+  }
   async function getById(id: string) {
     const rows = await db.select().from(agentConfigs).where(eq(agentConfigs.id, id));
     return normalizeAgentConfigRow(rows[0] ?? null);
@@ -202,6 +211,34 @@ export function createAgentsStorage(db: DB) {
 
     getByType,
 
+    async readHomeWidgetState(agentId: string, widgetId: string) {
+      if (!(await declaredWidget(agentId, widgetId))) return null;
+      const rows = await db
+        .select()
+        .from(appSettings)
+        .where(eq(appSettings.key, widgetStateKey(agentId, widgetId)));
+      if (!rows[0]) return { text: "", updatedAt: null };
+      try {
+        const value = JSON.parse(rows[0].value) as { text: unknown; updatedAt: unknown };
+        return {
+          text: typeof value.text === "string" ? value.text.slice(0, 500) : "",
+          updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : null,
+        };
+      } catch {
+        return { text: "", updatedAt: null };
+      }
+    },
+
+    async publishHomeWidgetState(agentId: string, widgetId: string, text: string) {
+      if (!(await declaredWidget(agentId, widgetId)) || text.length > 500)
+        throw new Error("Widget publication rejected");
+      const key = widgetStateKey(agentId, widgetId);
+      const updatedAt = now();
+      const row = { key, value: JSON.stringify({ text, updatedAt }), updatedAt };
+      await db.insert(appSettings).values(row).onConflictDoUpdate({ target: appSettings.key, set: row });
+      return { updatedAt };
+    },
+
     ensureBuiltinConfig,
 
     async create(input: CreateAgentConfigInput) {
@@ -238,6 +275,7 @@ export function createAgentsStorage(db: DB) {
 
     async update(id: string, data: Partial<CreateAgentConfigInput>) {
       const updateFields: Record<string, unknown> = { updatedAt: now() };
+      const previous = data.settings !== undefined ? await getById(id) : null;
       if (data.name !== undefined) updateFields.name = data.name;
       if (data.description !== undefined) updateFields.description = data.description;
       if (data.phase !== undefined) {
@@ -259,10 +297,31 @@ export function createAgentsStorage(db: DB) {
         }
       }
       await db.update(agentConfigs).set(updateFields).where(eq(agentConfigs.id, id));
+      if (previous && data.settings) {
+        const oldWidgets = homeAgentWidgetsSchema.safeParse(
+          parseAgentSettingsRecord(previous.settings).homeWidgets ?? [],
+        );
+        const newWidgets = homeAgentWidgetsSchema.safeParse(data.settings.homeWidgets ?? []);
+        if (oldWidgets.success && newWidgets.success) {
+          const retained = new Set(newWidgets.data.map((widget) => widget.id));
+          for (const widget of oldWidgets.data) {
+            if (!retained.has(widget.id)) {
+              await db.delete(appSettings).where(eq(appSettings.key, widgetStateKey(id, widget.id)));
+            }
+          }
+        }
+      }
       return this.getById(id);
     },
 
     async remove(id: string) {
+      const agent = await getById(id);
+      const widgets = homeAgentWidgetsSchema.safeParse(parseAgentSettingsRecord(agent?.settings).homeWidgets ?? []);
+      if (widgets.success) {
+        for (const widget of widgets.data) {
+          await db.delete(appSettings).where(eq(appSettings.key, widgetStateKey(id, widget.id)));
+        }
+      }
       await removeRuntimeData(id);
       await db.delete(agentConfigs).where(eq(agentConfigs.id, id));
     },

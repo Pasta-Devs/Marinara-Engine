@@ -45,6 +45,14 @@ const capabilityPackageManifestBaseSchema = z
               })
               .strict()
               .optional(),
+            homeWidgets: z
+              .record(
+                z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+                z
+                  .object({ label: z.string().min(1).max(80).optional(), description: z.string().max(200).optional() })
+                  .strict(),
+              )
+              .optional(),
           })
           .strict(),
       )
@@ -72,6 +80,8 @@ const capabilityPackageManifestBaseSchema = z
               "game-world-map",
               // Adds a top-level destination to Home's browser shell.
               "home-browser-tab",
+              // Agent-owned cards inside the Home widget grid.
+              "home-widget",
               // Mounts the package's own game UI over the narration.
               "game-surface",
               // Compact package-owned tracker controls in Roleplay chat chrome.
@@ -138,6 +148,23 @@ const capabilityPackageManifestBaseSchema = z
               .optional(),
           })
           .strict()
+          .optional(),
+        homeWidgets: z
+          .array(
+            z
+              .object({
+                id: z
+                  .string()
+                  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+                  .max(64),
+                label: z.string().min(1).max(80),
+                description: z.string().max(200),
+                size: z.enum(["compact", "large"]),
+              })
+              .strict(),
+          )
+          .min(1)
+          .max(3)
           .optional(),
         /** General package-owned static assets (art, sprite atlases, tilemap JSON) served over
          *  `/api/capability-packages/:id/assets/*` through the same verification chain as
@@ -327,7 +354,7 @@ const capabilityPackageManifestBaseSchema = z
 //        and a creature with a sheet may have no block actions of its own. Not a soft seam, for the
 //        same reason as 1.20 through 1.33: an Engine that cannot read the key refuses the whole
 //        strict catalog file, so a package that ships one declares 1.34. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 34 } as const);
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 35 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -431,6 +458,43 @@ export const capabilityPackageManifestSchema = z
           code: z.ZodIssueCode.custom,
           path: ["contributions", "homeBrowserTab"],
           message: 'A package declaring the "home-browser-tab" slot must describe its browser tab',
+        });
+      }
+    }
+    const homeWidgets = manifest.contributions?.homeWidgets;
+    if (manifest.contributions?.slots?.includes("home-widget") || homeWidgets) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major !== 1 || api.minor < 35) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets"],
+          message: "Home widgets require capability API 1.35",
+        });
+      }
+      if (
+        !manifest.kind.includes("agent") ||
+        !manifest.permissions.includes("ui") ||
+        !manifest.entrypoints.client?.trim()
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets"],
+          message: "Agent Home widgets require an agent package with UI permission and a client entrypoint",
+        });
+      }
+      if (!manifest.contributions?.slots?.includes("home-widget") || !homeWidgets?.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets"],
+          message: "The home-widget slot and widget definitions must be declared together",
+        });
+      }
+      const ids = homeWidgets?.map((widget) => widget.id) ?? [];
+      if (new Set(ids).size !== ids.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets"],
+          message: "Home widget IDs must be unique within the agent",
         });
       }
     }

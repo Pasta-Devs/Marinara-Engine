@@ -7364,6 +7364,39 @@ export class MariDbService {
     // transforms cannot bypass the structured preset-action boundary.
     protectPromptPresetSystemKeys(changes);
 
+    // Agent Home widget definitions are edited by the user in Agent Editor or by
+    // a verified package update. Mari's app_data and raw DB paths share this gate.
+    const widgetDefinitions = (settings: unknown): unknown => {
+      if (typeof settings !== "string") return undefined;
+      try {
+        return (JSON.parse(settings) as Record<string, unknown>).homeWidgets;
+      } catch {
+        return undefined;
+      }
+    };
+    for (const change of changes) {
+      if (change.table === "app_settings" && change.id.startsWith("agent_home_widget:")) {
+        issues.push({
+          level: "error",
+          table: "app_settings",
+          id: change.id,
+          message: "Professor Mari cannot publish agent Home widget data. The owning agent must publish it.",
+        });
+      }
+      if (change.table !== "agent_configs" || !change.afterRaw) continue;
+      if (
+        stableJson(widgetDefinitions(change.beforeRaw?.settings)) !==
+        stableJson(widgetDefinitions(change.afterRaw.settings))
+      ) {
+        issues.push({
+          level: "error",
+          table: "agent_configs",
+          id: change.id,
+          message: "Professor Mari cannot change agent Home widgets. Edit them in Agent Editor.",
+        });
+      }
+    }
+
     // #5725: the Permissions Mode governs Mari herself, so she must never be
     // able to rewrite it - by ANY path, including raw db mutations and
     // transforms (change-level, so every planner is covered). Only the user's

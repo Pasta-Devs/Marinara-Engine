@@ -483,6 +483,12 @@ export async function agentsRoutes(app: FastifyInstance) {
     return agent;
   });
 
+  app.get<{ Params: { id: string; widgetId: string } }>("/:id/home-widgets/:widgetId/state", async (req, reply) => {
+    const state = await storage.readHomeWidgetState(req.params.id, req.params.widgetId);
+    if (!state) return reply.status(404).send({ error: "Widget unavailable" });
+    return state;
+  });
+
   app.post("/", async (req) => {
     const input = createAgentConfigSchema.parse(req.body);
     return storage.create(input);

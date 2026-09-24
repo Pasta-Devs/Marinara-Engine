@@ -3240,6 +3240,16 @@ body {
   grid-row: span 2;
 }
 
+.mari-home-feed-grid .mari-home-widget[data-home-widget-size="large"] {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+.mari-home-feed-grid[data-home-grid-columns="1"] .mari-home-widget[data-home-widget-size="large"] {
+  grid-column: span 1;
+  grid-row: span 2;
+}
+
 .mari-home-feed-grid:not([data-home-grid-columns="1"])
   :is(.mari-home-widget--recent, .mari-home-widget--character-library) {
   grid-column: span 2;

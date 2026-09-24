@@ -108,6 +108,8 @@ import {
   normalizeAgentPromptTemplateOptions,
   normalizeStoryboardAgentSettings,
   parseAgentSettingsRecord,
+  homeAgentWidgetsSchema,
+  type HomeAgentWidgetDefinition,
   CUSTOM_AGENT_CONTEXT_SOURCE_IDS,
   type AgentPhase,
   type AgentPromptTemplateOption,
@@ -817,6 +819,7 @@ export function AgentEditor() {
   const [localStoryboardSettings, setLocalStoryboardSettings] = useState<StoryboardAgentSettings>(() =>
     normalizeStoryboardAgentSettings({}),
   );
+  const [localHomeWidgets, setLocalHomeWidgets] = useState<HomeAgentWidgetDefinition[]>([]);
   const [localProseGuardianBanned, setLocalProseGuardianBanned] = useState(DEFAULT_PROSE_GUARDIAN_BANNED_WORDS);
   const [localProseGuardianAvoid, setLocalProseGuardianAvoid] = useState(DEFAULT_PROSE_GUARDIAN_AVOID);
   const [localProseGuardianPrefer, setLocalProseGuardianPrefer] = useState("");
@@ -887,6 +890,8 @@ export function AgentEditor() {
       setLocalPhase(normalizeAgentPhaseForType(agentType, dbConfig.phase));
       setLocalConnectionId(normalizeTextConnectionOverride(dbConfig.connectionId));
       const settings = mergeBuiltInAgentSettings(agentType, dbConfig.settings);
+      const homeWidgets = homeAgentWidgetsSchema.safeParse(settings.homeWidgets ?? []);
+      setLocalHomeWidgets(!builtIn && homeWidgets.success ? homeWidgets.data : []);
       setLocalStoryboardSettings(normalizeStoryboardAgentSettings(settings));
       const promptTemplateSource = settings.promptTemplates ?? defaultSettings.promptTemplates;
       setLocalAuthor(
@@ -1077,6 +1082,7 @@ export function AgentEditor() {
     } else {
       // Brand new custom agent — start empty
       setLocalName("New Agent");
+      setLocalHomeWidgets([]);
       setLocalDescription("");
       setLocalAuthor("");
       setLocalPromptTemplates([]);
@@ -1355,6 +1361,10 @@ export function AgentEditor() {
     if (!agentDetailId) return;
     setSaveError(null);
     const isEditingCustomAgent = isCustomAgent || isNewCustomAgent;
+    if (isEditingCustomAgent && !homeAgentWidgetsSchema.safeParse(localHomeWidgets).success) {
+      setSaveError(localizeUi("ui.agents.agenteditor.invalidHomeWidgets"));
+      return;
+    }
     const agentType = dbConfig?.type ?? builtIn?.id ?? agentDetailId;
     const selectedPhase = resolveCustomAgentPhase(localPhase, localResultType, isEditingCustomAgent);
     const savedPhase = normalizeAgentPhaseForType(agentType, selectedPhase);
@@ -1430,6 +1440,7 @@ export function AgentEditor() {
         author: savedAuthor,
         promptTemplates: savedPromptTemplates,
         ...(isEditingCustomAgent ? { customCapabilities } : {}),
+        ...(isEditingCustomAgent ? { homeWidgets: localHomeWidgets } : {}),
         contextSources: localContextSources,
         ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
         ...(isEditingCustomAgent ? localOutputOptions : {}),
@@ -1566,6 +1577,8 @@ export function AgentEditor() {
     localPrompt,
     localAuthor,
     localPromptTemplates,
+    localHomeWidgets,
+    localizeUi,
     localContextSize,
     localMaxTokens,
     localRunInterval,
@@ -1644,6 +1657,10 @@ export function AgentEditor() {
       toast.error(localizeUi("ui.agents.agenteditor.enableTheMatchingCustomAgentAbilityBeforeExportingThis"));
       return;
     }
+    if (isEditingCustomAgent && !homeAgentWidgetsSchema.safeParse(localHomeWidgets).success) {
+      toast.error(localizeUi("ui.agents.agenteditor.fixHomeWidgetDefinitionsBeforeSaving"));
+      return;
+    }
     const writableLorebookId = localWritableLorebookId.trim();
     const lorebookWriterEnabled =
       isEditingCustomAgent && localLorebookWriteEnabled && customCapabilities.edit_lorebooks === true;
@@ -1667,6 +1684,7 @@ export function AgentEditor() {
       author: savedAuthor,
       promptTemplates: savedPromptTemplates,
       ...(isEditingCustomAgent ? { customCapabilities } : {}),
+      ...(isEditingCustomAgent ? { homeWidgets: localHomeWidgets } : {}),
       contextSources: localContextSources,
       ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
       ...(isEditingCustomAgent ? localOutputOptions : {}),
@@ -2209,6 +2227,103 @@ export function AgentEditor() {
             </div>
             <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">{phaseMeta.description}</p>
           </FieldGroup>
+
+          {(isCustomAgent || isNewCustomAgent) && (
+            <FieldGroup
+              label={localizeUi("ui.agents.agenteditor.homeWidgets")}
+              icon={<Layers size="0.875rem" className="text-[var(--primary)]" />}
+              help={localizeUi("ui.agents.agenteditor.homeWidgetsHelp")}
+            >
+              <div className="space-y-3">
+                {localHomeWidgets.map((widget, index) => (
+                  <div key={widget.id} className="space-y-2 rounded-xl border border-[var(--border)] p-3">
+                    <div className="flex gap-2">
+                      <input
+                        className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 py-1"
+                        aria-label={localizeUi("ui.agents.agenteditor.homeWidgetTitle")}
+                        value={widget.title}
+                        maxLength={80}
+                        onChange={(event) => {
+                          setLocalHomeWidgets((widgets) =>
+                            widgets.map((item) =>
+                              item.id === widget.id ? { ...item, title: event.target.value } : item,
+                            ),
+                          );
+                          markDirty();
+                        }}
+                      />
+                      <button
+                        type="button"
+                        aria-label={localizeUi("ui.agents.agenteditor.removeHomeWidget", { title: widget.title })}
+                        onClick={() => {
+                          setLocalHomeWidgets((widgets) => widgets.filter((item) => item.id !== widget.id));
+                          markDirty();
+                        }}
+                      >
+                        <Trash2 size="1rem" />
+                      </button>
+                    </div>
+                    <input
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 py-1"
+                      aria-label={localizeUi("ui.agents.agenteditor.homeWidgetDescription")}
+                      value={widget.description}
+                      maxLength={240}
+                      onChange={(event) => {
+                        setLocalHomeWidgets((widgets) =>
+                          widgets.map((item) =>
+                            item.id === widget.id ? { ...item, description: event.target.value } : item,
+                          ),
+                        );
+                        markDirty();
+                      }}
+                    />
+                    <label className="flex items-center gap-2 text-xs">
+                      {localizeUi("ui.agents.agenteditor.homeWidgetSize")}
+                      <select
+                        value={widget.size}
+                        onChange={(event) => {
+                          setLocalHomeWidgets((widgets) =>
+                            widgets.map((item) =>
+                              item.id === widget.id
+                                ? { ...item, size: event.target.value as "compact" | "large" }
+                                : item,
+                            ),
+                          );
+                          markDirty();
+                        }}
+                        className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 py-1"
+                      >
+                        <option value="compact">{localizeUi("ui.agents.agenteditor.homeWidgetCompact")}</option>
+                        <option value="large">{localizeUi("ui.agents.agenteditor.homeWidgetLarge")}</option>
+                      </select>
+                    </label>
+                    <span className="sr-only">{index + 1}</span>
+                  </div>
+                ))}
+                {localHomeWidgets.length < 3 && (
+                  <button
+                    type="button"
+                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs"
+                    onClick={() => {
+                      setLocalHomeWidgets((widgets) => [
+                        ...widgets,
+                        {
+                          id: createCustomAgentType("widget"),
+                          title: localizeUi("ui.agents.agenteditor.newHomeWidget"),
+                          description: "",
+                          size: "compact",
+                        },
+                      ]);
+                      markDirty();
+                    }}
+                  >
+                    <Plus size="0.875rem" className="mr-1 inline" />
+                    {localizeUi("ui.agents.agenteditor.addHomeWidget")}
+                  </button>
+                )}
+              </div>
+            </FieldGroup>
+          )}
 
           {(isCustomAgent || isNewCustomAgent) && (
             <FieldGroup
