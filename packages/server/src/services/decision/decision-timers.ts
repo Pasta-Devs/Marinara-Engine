@@ -1,5 +1,6 @@
 /**
- * Sticky and cooldown on decision statements (#6582): `decision:"..." sticky:3 cooldown:5`.
+ * Sticky and cooldown on decision statements (#6582): `decision:"..." sticky:3 cooldown:5`,
+ * and timing (#6599): `every:3` asks a statement only every 3 turns, reading as no between.
  *
  * After a yes, a statement stays yes for `sticky` turns, then reads as no for `cooldown`
  * turns, and is not asked meanwhile, so it takes none of the turn's statement slots. A
@@ -24,12 +25,21 @@ interface DecisionTimerEntry {
   choice?: string;
 }
 
+interface DecisionCheckEntry {
+  /** The turn an `every:` statement was last asked. */
+  checkedTurn: number;
+  /** It is asked again from this turn; before it, it reads as no. */
+  checkedUntil: number;
+}
+
 export interface DecisionTimerState {
   /** How many turns this chat has had since timers were first kept. */
   turn: number;
   /** The last turn's id (`latestTurnDecisionId`), to tell a new turn from the same one again. */
   turnId: string | null;
   statements: Record<string, DecisionTimerEntry>;
+  /** When each `every:` statement is next asked. */
+  checks: Record<string, DecisionCheckEntry>;
 }
 
 export const DECISION_TIMERS_METADATA_KEY = "decisionTimers";
@@ -39,7 +49,7 @@ const nonNegative = (value: unknown) =>
 
 /** The chat's stored timers, or a fresh state when there are none or they are malformed. */
 export function readDecisionTimers(value: unknown): DecisionTimerState {
-  const state: DecisionTimerState = { turn: 0, turnId: null, statements: {} };
+  const state: DecisionTimerState = { turn: 0, turnId: null, statements: {}, checks: {} };
   if (!value || typeof value !== "object") return state;
   const raw = value as Record<string, unknown>;
   state.turn = nonNegative(raw.turn) ?? 0;
@@ -59,7 +69,19 @@ export function readDecisionTimers(value: unknown): DecisionTimerState {
         ...(typeof fields.choice === "string" ? { choice: fields.choice } : {}),
       };
     }
+  if (raw.checks && typeof raw.checks === "object")
+    for (const [key, entry] of Object.entries(raw.checks as Record<string, unknown>)) {
+      if (!entry || typeof entry !== "object") continue;
+      const checkedTurn = nonNegative((entry as Record<string, unknown>).checkedTurn);
+      const checkedUntil = nonNegative((entry as Record<string, unknown>).checkedUntil);
+      if (checkedTurn !== null && checkedUntil !== null) state.checks[key] = { checkedTurn, checkedUntil };
+    }
   return state;
+}
+
+/** Whether the chat keeps any timer at all: only then does the turn count matter. */
+export function hasDecisionTimers(state: DecisionTimerState): boolean {
+  return Object.keys(state.statements).length > 0 || Object.keys(state.checks).length > 0;
 }
 
 /**
@@ -72,25 +94,46 @@ export function decisionTurnFor(state: DecisionTimerState, turnId: string | null
     state.turnId = turnId;
     for (const [key, entry] of Object.entries(state.statements))
       if (state.turn > entry.cooldownUntil) delete state.statements[key];
+    for (const [key, entry] of Object.entries(state.checks))
+      if (state.turn >= entry.checkedUntil) delete state.checks[key];
   }
   return state.turn;
 }
 
 const timerKey = (kind: "noul" | "choice", key: string) => `${kind}\u0000${key}`;
 
-/** What timing holds a statement to on `turn`, or undefined when it is asked as usual. */
+/**
+ * What timing holds a statement to on `turn`, or undefined when it is asked as usual.
+ * `every` is the statement's own `every:`, since a check is only held while it applies.
+ */
 export function heldDecision(
   state: DecisionTimerState,
   turn: number,
   kind: "noul" | "choice",
   key: string,
+  every?: number,
 ): HeldDecision | undefined {
   const entry = state.statements[timerKey(kind, key)];
   // The yes turn itself reads the answer it was given, so a regeneration matches it.
-  if (!entry || turn <= entry.yesTurn) return undefined;
-  if (turn <= entry.stickyUntil) return { yes: true, ...(entry.choice !== undefined ? { choice: entry.choice } : {}) };
-  if (turn <= entry.cooldownUntil) return { yes: false };
+  if (entry && turn > entry.yesTurn) {
+    if (turn <= entry.stickyUntil)
+      return { yes: true, ...(entry.choice !== undefined ? { choice: entry.choice } : {}) };
+    if (turn <= entry.cooldownUntil) return { yes: false };
+  }
+  // Between `every:` checks it reads as no; the check turn itself reads its own answer.
+  const check = every && every > 1 ? state.checks[timerKey(kind, key)] : undefined;
+  if (check && turn > check.checkedTurn && turn < check.checkedUntil) return { yes: false };
   return undefined;
+}
+
+/** After a statement with `every:` is answered on `turn`, hold it until its next check. */
+export function recordDecisionCheck(
+  state: DecisionTimerState,
+  turn: number,
+  decision: { kind: "noul" | "choice"; key: string; every?: number },
+): void {
+  if (!decision.every || decision.every <= 1) return;
+  state.checks[timerKey(decision.kind, decision.key)] = { checkedTurn: turn, checkedUntil: turn + decision.every };
 }
 
 /** Start a statement's timers from a fresh yes (or a chosen option) on `turn`. */

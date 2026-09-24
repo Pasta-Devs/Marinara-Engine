@@ -148,7 +148,7 @@ const { readDecisionTimers, decisionTurnFor, heldDecision, recordDecisionTimer }
   await import("../../packages/server/src/services/decision/decision-timers.js");
 {
   const timers = readDecisionTimers({ turn: "x", statements: { bad: { yesTurn: -1 } } });
-  assert.deepEqual(timers, { turn: 0, turnId: null, statements: {} }, "malformed timers read as none");
+  assert.deepEqual(timers, { turn: 0, turnId: null, statements: {}, checks: {} }, "malformed timers read as none");
   const turn1 = decisionTurnFor(timers, "m1");
   assert.equal(decisionTurnFor(timers, "m1"), turn1, "the same message is the same turn");
   recordDecisionTimer(timers, turn1, { kind: "noul", key: "Fight", sticky: 2, cooldown: 1 }, { yes: true });

@@ -25,6 +25,7 @@ import {
   resolveChoiceVariableValue,
   resolveDecisionQuestionText,
   resolveDecisionQuestionVariants,
+  type DecisionStatementPriority,
   type MacroContext,
   type MacroDecisionAnswers,
 } from "@marinara-engine/shared";
@@ -34,7 +35,12 @@ import type { DecisionBackend } from "./decision-default.js";
 import { describeDecisionSlot } from "./decision-slots.js";
 import type { LorebookDecisionResolver } from "../lorebook/index.js";
 import { DECISION_CHOICE_NONE, type NoulQuestion } from "./system-one.client.js";
-import { recordDecisionTimer, type DecisionTimerState, type HeldDecision } from "./decision-timers.js";
+import {
+  recordDecisionCheck,
+  recordDecisionTimer,
+  type DecisionTimerState,
+  type HeldDecision,
+} from "./decision-timers.js";
 
 export interface PlannedDecision {
   kind: "noul" | "choice";
@@ -45,12 +51,24 @@ export interface PlannedDecision {
   /** The longest `sticky:` and `cooldown:` written on any of its occurrences. */
   sticky?: number;
   cooldown?: number;
-  /** Set when sticky or cooldown holds its answer this turn: it is not asked, and takes no slot. */
+  /** The smallest `every:` written on any of its occurrences. */
+  every?: number;
+  /** The highest `priority:` written on any of its occurrences; unset is medium. */
+  priority?: DecisionStatementPriority;
+  /** Set when sticky, cooldown or `every:` holds its answer this turn: it is not asked, and takes no slot. */
   held?: HeldDecision;
 }
 
-/** Which statements sticky or cooldown hold this turn (see `heldDecision`). */
-export type HeldDecisions = (kind: "noul" | "choice", key: string) => HeldDecision | undefined;
+/** Which statements sticky, cooldown or `every:` hold this turn (see `heldDecision`). */
+export type HeldDecisions = (
+  kind: "noul" | "choice",
+  key: string,
+  modifiers?: { every?: number },
+) => HeldDecision | undefined;
+
+/** High first, then medium (unset), then low. */
+const PRIORITY_RANK = { high: 0, medium: 1, low: 2 } as const;
+const priorityRank = (priority: DecisionStatementPriority | undefined) => PRIORITY_RANK[priority ?? "medium"];
 
 export interface PromptDecisionPlan {
   decisions: PlannedDecision[];
@@ -207,11 +225,13 @@ export function agentShapedDecisionContext(ctx: MacroContext): MacroContext {
 }
 
 /**
- * The turn's decision statements, in source order, merged and capped.
+ * The turn's decision statements, merged and capped.
  *
  * A Choice statement compared with "angry" in one block and "sad" in another is one
- * question with both options. Order is kept so the limit drops the last statements
- * found, which lets the caller put the sources it cares about most first.
+ * question with both options. Past the limit, `priority:low` statements are dropped
+ * first and `priority:high` last; within a priority, the last statements found are,
+ * which lets the caller put the sources it cares about most first. Held statements
+ * are planned, so their held answer reaches the prompt, but take no slot.
  */
 export function planPromptDecisions(
   groups: Array<{
@@ -224,11 +244,7 @@ export function planPromptDecisions(
   options: { held?: HeldDecisions } = {},
 ): PromptDecisionPlan {
   const byKey = new Map<string, PlannedDecision>();
-  // A statement sticky or cooldown holds is planned, so its held answer reaches the
-  // prompt, but it is not asked and does not count toward the limit.
-  let counted = 0;
   const optionKeys = new Map<string, Set<string>>();
-  const dropped: string[] = [];
   // Each group is resolved in the context it will be evaluated in: an agent template
   // sees `{{char}}` as every character's name, a preset section as the responder's.
   for (const { texts, ctx, reachable } of groups)
@@ -244,21 +260,22 @@ export function planPromptDecisions(
         for (const key of variants) {
           const id = `${collected.kind}\u0000${key}`;
           let planned = byKey.get(id);
+          const first = !planned;
           if (!planned) {
-            const held = options.held?.(collected.kind, key);
-            if (!held) {
-              if (counted >= limit) {
-                if (!dropped.includes(key)) dropped.push(key);
-                continue;
-              }
-              counted += 1;
-            }
-            planned = { kind: collected.kind, key, options: [], ...(held ? { held } : {}) };
+            planned = { kind: collected.kind, key, options: [] };
             byKey.set(id, planned);
             optionKeys.set(id, new Set());
           }
           if (collected.sticky) planned.sticky = Math.max(planned.sticky ?? 0, collected.sticky);
           if (collected.cooldown) planned.cooldown = Math.max(planned.cooldown ?? 0, collected.cooldown);
+          if (collected.every) planned.every = Math.min(planned.every ?? collected.every, collected.every);
+          // The highest priority anywhere wins; an occurrence with none counts as medium.
+          const rank = first
+            ? priorityRank(collected.priority)
+            : Math.min(priorityRank(planned.priority), priorityRank(collected.priority));
+          const priority = rank === 0 ? "high" : rank === 2 ? "low" : undefined;
+          if (priority) planned.priority = priority;
+          else delete planned.priority;
           const seen = optionKeys.get(id)!;
           for (const option of collected.options) {
             const normalized = normalizeDecisionQuestion(option).toLowerCase();
@@ -270,7 +287,24 @@ export function planPromptDecisions(
       }
     }
   // A Choice statement nobody compares with an option has nothing to choose between.
-  return { decisions: [...byKey.values()].filter((d) => d.kind === "noul" || d.options.length > 0), dropped };
+  const candidates = [...byKey.values()].filter((d) => d.kind === "noul" || d.options.length > 0);
+  for (const decision of candidates) {
+    const held = options.held?.(decision.kind, decision.key, decision);
+    if (held) decision.held = held;
+  }
+  // Stable, so source order still decides within a priority.
+  const ranked = [...candidates].sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
+  const decisions: PlannedDecision[] = [];
+  const dropped: string[] = [];
+  let counted = 0;
+  for (const decision of ranked) {
+    if (decision.held) decisions.push(decision);
+    else if (counted < limit) {
+      counted += 1;
+      decisions.push(decision);
+    } else if (!dropped.includes(decision.key)) dropped.push(decision.key);
+  }
+  return { decisions, dropped };
 }
 
 /**
@@ -392,13 +426,19 @@ export async function answerPromptDecisions(args: {
           if (p === undefined) return;
           const yes = p >= backend.calibration.defaultThreshold;
           turn.noul.set(decision.key, { p, yes });
-          if (args.timers) recordDecisionTimer(args.timers.state, args.timers.turn, decision, { yes });
+          if (args.timers) {
+            recordDecisionTimer(args.timers.state, args.timers.turn, decision, { yes });
+            recordDecisionCheck(args.timers.state, args.timers.turn, decision);
+          }
         } else {
           const choice = result.choices.get(`d${index}`);
           if (choice === undefined) return;
           turn.choice.set(choiceCacheKey(decision), choice);
-          if (args.timers && choice !== DECISION_CHOICE_NONE)
-            recordDecisionTimer(args.timers.state, args.timers.turn, decision, { choice });
+          if (args.timers) {
+            if (choice !== DECISION_CHOICE_NONE)
+              recordDecisionTimer(args.timers.state, args.timers.turn, decision, { choice });
+            recordDecisionCheck(args.timers.state, args.timers.turn, decision);
+          }
         }
       });
     } catch (error) {
