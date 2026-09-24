@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Roleplay's optional **Whisper** command shares an inline secret only with its recipient and the appointed narrator. Recipients can be characters or your persona; revealing a hidden secret on screen does not give it to other characters' prompts (#6616).
+
 - Roleplay's Expression Engine has an optional **Only show active sprites** toggle. It keeps the current sprites visible while expressions generate, then shows only enabled characters returned by the completed result (#6611).
 
 - Manual Gallery and `/illustrate` requests preserve the selected custom Illustrator prompt, including perspective and layout instructions alongside or after a response schema. Requests too large for the connection's context limit report an error instead of silently cutting instructions (#6597).
