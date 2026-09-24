@@ -204,7 +204,11 @@ function CustomAgentHomeWidget({
     <FeedModule
       eyebrow={ownerName}
       title={label}
-      accent={accent ? HOME_MODULE_ACCENTS[accent] : undefined}
+      accent={
+        accent
+          ? (HOME_MODULE_ACCENTS[accent as keyof typeof HOME_MODULE_ACCENTS] ?? HOME_MODULE_ACCENTS.cyan)
+          : undefined
+      }
       className="h-full"
     >
       <div className="flex h-full min-h-0 flex-col gap-2 text-sm">
