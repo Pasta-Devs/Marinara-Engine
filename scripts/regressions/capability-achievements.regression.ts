@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { capabilityPermissionSchema } from "../../packages/shared/src/index.js";
+import { capabilityPackageManifestSchema, capabilityPermissionSchema } from "../../packages/shared/src/index.js";
 import { createCapabilityAchievementHost } from "../../packages/server/src/services/capability-packages/capability-achievement-host.service.js";
 import {
   capabilityAchievementDefinitions,
@@ -14,6 +14,26 @@ releaseCapabilityAchievements("noodle");
 releaseCapabilityAchievements("other");
 
 assert.ok(capabilityPermissionSchema.options.includes("achievements"));
+
+// ── The declared API version keeps an achievements package off an Engine without the API ──
+const manifest = {
+  schemaVersion: 2 as const,
+  id: "noodle",
+  name: "Noodle",
+  version: "1.0.0",
+  engine: { min: "2.4.0", maxExclusive: "3.0.0" },
+  kind: ["agent"],
+  capabilityApi: { major: 1, minor: 35 },
+  builtAgainst: { engineVersion: "2.4.6", engineCommit: "a".repeat(40) },
+  entrypoints: { server: "server.mjs" },
+  files: [{ path: "server.mjs", sha256: "b".repeat(64), bytes: 10 }],
+  permissions: ["achievements"],
+};
+assert.doesNotThrow(() => capabilityPackageManifestSchema.parse(manifest));
+assert.throws(
+  () => capabilityPackageManifestSchema.parse({ ...manifest, capabilityApi: { major: 1, minor: 34 } }),
+  /permission requires schemaVersion 2 and capabilityApi 1\.35 or newer/,
+);
 
 // ── Ids are namespaced, art resolves to the package asset route ──
 const release = registerCapabilityAchievements(source, [

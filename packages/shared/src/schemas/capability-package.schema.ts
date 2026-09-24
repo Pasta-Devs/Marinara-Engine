@@ -392,6 +392,17 @@ export const capabilityPackageManifestSchema = z
         });
       }
     }
+    // Same reason as `tools`: `registerAchievements` only exists on an Engine this new.
+    if (manifest.permissions.includes("achievements")) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 35)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["permissions"],
+          message: 'The "achievements" permission requires schemaVersion 2 and capabilityApi 1.35 or newer',
+        });
+      }
+    }
     if (manifest.contributions?.gameSurface?.prepareBeforeStart) {
       const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
       if (!api || api.major < 1 || (api.major === 1 && api.minor < 17)) {
