@@ -388,6 +388,11 @@
       "bytes": 15546
     },
     {
+      "path": "extending/writing-rulesets.md",
+      "sha256": "60afb83f24d773bbbb5d1544c00c73a2719aac95a62656299523a20d80bce0bd",
+      "bytes": 118283
+    },
+    {
       "path": "game/combat.md",
       "sha256": "53f28c40e0b186495e0edbfbc06b88af0189a7218e8f7db3eb49e3701c994b1f",
       "bytes": 19856
@@ -404,8 +409,8 @@
     },
     {
       "path": "game/getting-started.md",
-      "sha256": "60b7997c2d433b4c8c56363a39594d4de5ea0158839464b8ee74adbd13ef47a3",
-      "bytes": 27283
+      "sha256": "503879c7673223a7ab42579dc98b3db141fc72e891b618aa02ed76950f2157c3",
+      "bytes": 27634
     },
     {
       "path": "game/hud-widgets.md",
@@ -574,8 +579,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "eb3213b5f1fcce5f3966537a69a77bf2f9f1d252e1992dd0323b51d29d88cbef",
-      "bytes": 19678
+      "sha256": "0e0f08b92cd1a052858f62fdcb5b3d9d7d592f64df2c7d72cc08d55c791bf012",
+      "bytes": 20037
     },
     {
       "path": "noodle/overview.md",
@@ -584,8 +589,8 @@
     },
     {
       "path": "noodle/settings.md",
-      "sha256": "af64332b2e68d0325a5129a41fc4795c9a1cf9b9a85b5b910d63d1a8e6e43fb4",
-      "bytes": 23592
+      "sha256": "6d1b0dfb8c243cc1bb2e41daa1003c341e543603c2dede8a2ab6c80d93934ec5",
+      "bytes": 23466
     },
     {
       "path": "prompts/conditional-prompts.md",

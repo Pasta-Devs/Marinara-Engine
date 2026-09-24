@@ -388,6 +388,11 @@
       "bytes": 13471
     },
     {
+      "path": "extending/writing-rulesets.md",
+      "sha256": "3535338ed3670203c5aa28e870cd20736e096fd1426ff37bfabb80b299b09af4",
+      "bytes": 103568
+    },
+    {
       "path": "game/combat.md",
       "sha256": "fff8103b769dd1ab308ed6dca289d03a4fbf7c18d2d33aeacf73277e57828aec",
       "bytes": 17038
@@ -574,8 +579,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "8ffd5fbb1b5dbfcd692709b4a35099422e6d1c113a92c43d1079b85c09e64b74",
-      "bytes": 16591
+      "sha256": "c2153bc884f643dfae536efec0e0ef59123ad3bf9f67002498f80d4fc60a97c7",
+      "bytes": 17093
     },
     {
       "path": "noodle/overview.md",
