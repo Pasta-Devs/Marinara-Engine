@@ -46,6 +46,14 @@ const capabilityPackageManifestBaseSchema = z
               })
               .strict()
               .optional(),
+            homeWidgets: z
+              .record(
+                z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+                z
+                  .object({ label: z.string().min(1).max(80).optional(), description: z.string().max(200).optional() })
+                  .strict(),
+              )
+              .optional(),
           })
           .strict(),
       )
@@ -73,6 +81,8 @@ const capabilityPackageManifestBaseSchema = z
               "game-world-map",
               // Adds a top-level destination to Home's browser shell.
               "home-browser-tab",
+              // Agent-owned cards inside the Home widget grid.
+              "home-widget",
               // Mounts the package's own game UI over the narration.
               "game-surface",
               // Compact package-owned tracker controls in Roleplay chat chrome.
@@ -139,6 +149,51 @@ const capabilityPackageManifestBaseSchema = z
               .optional(),
           })
           .strict()
+          .optional(),
+        homeWidgets: z
+          .array(
+            z
+              .object({
+                id: z
+                  .string()
+                  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+                  .max(64),
+                label: z.string().min(1).max(80),
+                description: z.string().max(200),
+                size: z.enum(["compact", "large"]),
+                icon: z
+                  .enum([
+                    "activity",
+                    "bell",
+                    "calendar",
+                    "chart",
+                    "circle",
+                    "clock",
+                    "file",
+                    "flame",
+                    "heart",
+                    "image",
+                    "list",
+                    "message",
+                    "sparkles",
+                    "star",
+                    "zap",
+                  ])
+                  .optional(),
+                iconPath: z
+                  .string()
+                  .min(1)
+                  .max(240)
+                  .regex(/\.(?:gif|jpe?g|png|webp)$/iu)
+                  .optional(),
+                accent: z.enum(["cyan", "green", "amber", "orange", "rose", "violet"]).optional(),
+                surface: z.enum(["soft", "solid", "quiet"]).optional(),
+                header: z.enum(["standard", "compact", "banner"]).optional(),
+              })
+              .strict(),
+          )
+          .min(1)
+          .max(3)
           .optional(),
         /** General package-owned static assets (art, sprite atlases, tilemap JSON) served over
          *  `/api/capability-packages/:id/assets/*` through the same verification chain as
@@ -328,6 +383,8 @@ const capabilityPackageManifestBaseSchema = z
 //        and a creature with a sheet may have no block actions of its own. Not a soft seam, for the
 //        same reason as 1.20 through 1.33: an Engine that cannot read the key refuses the whole
 //        strict catalog file, so a package that ships one declares 1.34. No permission.
+// 1.36: package achievements. `api.registerAchievements` adds badges to the Home panel and
+//        `api.runtime.achievements` reads and unlocks them. Requires the `achievements` permission.
 export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 36 } as const);
 
 const capabilityApiVersionSchema = z
@@ -446,6 +503,43 @@ export const capabilityPackageManifestSchema = z
         });
       }
     }
+    const homeWidgets = manifest.contributions?.homeWidgets;
+    if (manifest.contributions?.slots?.includes("home-widget") || homeWidgets) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major !== 1 || api.minor < 35) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets"],
+          message: "Home widgets require capability API 1.35",
+        });
+      }
+      if (
+        !manifest.kind.includes("agent") ||
+        !manifest.permissions.includes("ui") ||
+        !manifest.entrypoints.client?.trim()
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets"],
+          message: "Agent Home widgets require an agent package with UI permission and a client entrypoint",
+        });
+      }
+      if (!manifest.contributions?.slots?.includes("home-widget") || !homeWidgets?.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets"],
+          message: "The home-widget slot and widget definitions must be declared together",
+        });
+      }
+      const ids = homeWidgets?.map((widget) => widget.id) ?? [];
+      if (new Set(ids).size !== ids.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets"],
+          message: "Home widget IDs must be unique within the agent",
+        });
+      }
+    }
     // Icon paths feed the same serve-path allowlist as general assets, so they
     // must be hash-pinned in files[] whether or not the home-browser-tab slot is
     // declared — an unpinned (or traversal-shaped) icon path would otherwise
@@ -456,6 +550,15 @@ export const capabilityPackageManifestSchema = z
           code: z.ZodIssueCode.custom,
           path: ["contributions", "homeBrowserTab", "iconPaths", index],
           message: "A Home browser tab icon must be declared in the package file manifest",
+        });
+      }
+    }
+    for (const [index, widget] of (manifest.contributions?.homeWidgets ?? []).entries()) {
+      if (widget.iconPath && !manifest.files.some((file) => file.path === widget.iconPath)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets", index, "iconPath"],
+          message: "A Home widget icon must be declared in the package file manifest",
         });
       }
     }

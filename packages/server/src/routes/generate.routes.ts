@@ -2546,6 +2546,13 @@ export async function generateRoutes(app: FastifyInstance) {
           });
         const promptGroupResponseOrder = (chatMeta.groupResponseOrder as string) ?? "sequential";
         const promptGroupChatMode = resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode);
+        // Each responder sees other characters as user input. Keep shared history
+        // untouched until those roles are scoped, including replies within this turn.
+        const deferGroupPromptRegex =
+          chatMode === "roleplay" &&
+          allCharacterIds.length > 1 &&
+          promptGroupChatMode === "individual" &&
+          !input.impersonate;
         const promptTargetCharacterId =
           typeof input.forCharacterId === "string" && characterIds.includes(input.forCharacterId)
             ? input.forCharacterId
@@ -2840,21 +2847,23 @@ export async function generateRoutes(app: FastifyInstance) {
         // before it lands in runningMessagesForFollowUp, so each message still
         // gets exactly one pass.
         if (followUpIteration === 0) {
-          const regexScripts = await getPromptRegexScripts();
-          applyRegexScriptsToPromptMessages(mappedMessages, regexScripts, {
-            resolveMacros: (value, randomSeed) =>
-              resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
-            targetCharacterId: promptTargetCharacterId,
-            targetPromptPresetId: presetId ?? null,
-          });
-          if (regenerateUserSourceMessage) {
-            const sourceMessages = [regenerateUserSourceMessage];
-            applyRegexScriptsToPromptMessages(sourceMessages, regexScripts, {
+          if (!deferGroupPromptRegex) {
+            const regexScripts = await getPromptRegexScripts();
+            applyRegexScriptsToPromptMessages(mappedMessages, regexScripts, {
               resolveMacros: (value, randomSeed) =>
                 resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
               targetCharacterId: promptTargetCharacterId,
               targetPromptPresetId: presetId ?? null,
             });
+            if (regenerateUserSourceMessage) {
+              const sourceMessages = [regenerateUserSourceMessage];
+              applyRegexScriptsToPromptMessages(sourceMessages, regexScripts, {
+                resolveMacros: (value, randomSeed) =>
+                  resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
+                targetCharacterId: promptTargetCharacterId,
+                targetPromptPresetId: presetId ?? null,
+              });
+            }
           }
 
           // Always collapse 3+ consecutive blank lines into a double newline —
@@ -2880,7 +2889,7 @@ export async function generateRoutes(app: FastifyInstance) {
               characterId: typeof message.characterId === "string" && message.characterId ? message.characterId : null,
             })),
           );
-          if (shouldPrefixGroupHistorySpeakers) {
+          if (shouldPrefixGroupHistorySpeakers && !deferGroupPromptRegex) {
             const characterNamesById = await getGroupHistoryCharacterNamesById();
             mappedMessages.splice(
               0,
@@ -7234,20 +7243,47 @@ export async function generateRoutes(app: FastifyInstance) {
               ),
             }));
           }
+          const regexScripts = await getPromptRegexScripts();
+          const regexSpeakerNames =
+            deferGroupPromptRegex && shouldPrefixGroupHistorySpeakers
+              ? await getGroupHistoryCharacterNamesById()
+              : null;
+          const targetRegexOptions = {
+            resolveMacros: (value: string, randomSeed?: string) =>
+              resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
+            targetCharacterId: targetCharId,
+            targetPromptPresetId: presetId ?? null,
+          };
           const scopedMessagesForGen =
             isGroupChat && usesIndividualGroupGeneration && targetCharId
-              ? scopeIndividualGroupMessagesForTarget(gameAwareMessagesForGen, targetCharId, charInfo)
+              ? scopeIndividualGroupMessagesForTarget(
+                  gameAwareMessagesForGen,
+                  targetCharId,
+                  charInfo,
+                  deferGroupPromptRegex
+                    ? (history) => {
+                        applyRegexScriptsToPromptMessages(history, regexScripts, targetRegexOptions);
+                        if (regexSpeakerNames) {
+                          const prefixed = prefixGroupIndividualHistorySpeakers(history, {
+                            personaName,
+                            characterNamesById: regexSpeakerNames,
+                            recipientScoped: true,
+                          });
+                          history.forEach((message, index) => {
+                            message.content = prefixed[index]!.content;
+                          });
+                        }
+                      }
+                    : undefined,
+                )
               : gameAwareMessagesForGen;
           const targetScopedMessagesForGen =
             !promptTargetCharacterId && targetCharId
               ? scopedMessagesForGen.map((message) => ({ ...message }))
               : scopedMessagesForGen;
-          if (!promptTargetCharacterId && targetCharId) {
-            applyRegexScriptsToPromptMessages(targetScopedMessagesForGen, await getPromptRegexScripts(), {
-              resolveMacros: (value, randomSeed) =>
-                resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
-              targetCharacterId: targetCharId,
-              targetPromptPresetId: presetId ?? null,
+          if (!deferGroupPromptRegex && !promptTargetCharacterId && targetCharId) {
+            applyRegexScriptsToPromptMessages(targetScopedMessagesForGen, regexScripts, {
+              ...targetRegexOptions,
               targetedOnly: true,
             });
           }
@@ -9944,7 +9980,7 @@ export async function generateRoutes(app: FastifyInstance) {
               contextKind: "history",
               characterId: charId,
             } as const;
-            if (shouldPrefixGroupHistorySpeakers) {
+            if (shouldPrefixGroupHistorySpeakers && !deferGroupPromptRegex) {
               const characterNamesById = await getGroupHistoryCharacterNamesById();
               const [prefixed] = prefixGroupIndividualHistorySpeakers([inTurnMessage], {
                 personaName,

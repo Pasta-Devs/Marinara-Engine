@@ -28,6 +28,7 @@ import {
   EyeOff,
   ExternalLink,
   GripVertical,
+  Pencil,
   Heart,
   LibraryBig,
   MessageCircle,
@@ -42,11 +43,14 @@ import {
 } from "lucide-react";
 import {
   APP_VERSION,
+  BUILT_IN_AGENTS,
   HOME_CUSTOM_WIDGETS_SETTINGS_KEY,
+  isInstalledCapabilityReady,
   normalizeAvatarCrop,
   type AchievementEvent,
   type HomeCustomWidget,
   type HomeCustomWidgetCatalog,
+  homeAgentWidgetsSchema,
 } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
 import { useAgentConfigs } from "../../hooks/use-agents";
@@ -54,6 +58,7 @@ import { useChats } from "../../hooks/use-chats";
 import { useAllCharacterCatalog, usePersonas } from "../../hooks/use-characters";
 import {
   selectHomeBrowserPackages,
+  selectHomeWidgetPackages,
   useCapabilityCatalog,
   useInstalledCapabilityPackages,
 } from "../../hooks/use-capability-packages";
@@ -142,12 +147,113 @@ const HOME_WIDGET_IDS = [
   "achievements",
 ] as const;
 type BuiltInHomeWidgetId = (typeof HOME_WIDGET_IDS)[number];
-type HomeWidgetId = BuiltInHomeWidgetId | `custom:${string}`;
+type HomeWidgetId = BuiltInHomeWidgetId | `custom:${string}` | `agent:${string}`;
+type AgentHomeWidget = {
+  id: HomeWidgetId;
+  kind: "package" | "custom";
+  packageId?: string;
+  agentId?: string;
+  widgetId: string;
+  ownerName: string;
+  label: string;
+  description: string;
+  size: "compact" | "large";
+  icon?: string;
+  iconPath?: string;
+  accent?: "cyan" | "green" | "amber" | "orange" | "rose" | "violet";
+  surface?: "soft" | "solid" | "quiet";
+  header?: "standard" | "compact" | "banner";
+};
+
+function packageHomeWidgetId(packageId: string, widgetId: string): HomeWidgetId {
+  return `agent:package:${packageId}:${widgetId}`;
+}
+
+function CustomAgentHomeWidget({
+  agentId,
+  widgetId,
+  label,
+  ownerName,
+  accent,
+  description,
+  active,
+  onOpenAgent,
+}: {
+  agentId: string;
+  widgetId: string;
+  label: string;
+  ownerName: string;
+  accent?: AgentHomeWidget["accent"];
+  description: string;
+  active: boolean;
+  onOpenAgent: () => void;
+}) {
+  const { t } = useTranslation();
+  const state = useQuery({
+    queryKey: ["agent-home-widget", agentId, widgetId],
+    queryFn: () =>
+      api.get<{ text: string; updatedAt: string | null }>(
+        `/agents/${encodeURIComponent(agentId)}/home-widgets/${encodeURIComponent(widgetId)}/state`,
+      ),
+    enabled: active,
+    refetchInterval: active ? 30_000 : false,
+    refetchOnWindowFocus: true,
+  });
+  const updatedAt = state.data?.updatedAt ? Date.parse(state.data.updatedAt) : NaN;
+  const stale = Number.isFinite(updatedAt) && Date.now() - updatedAt > 24 * 60 * 60_000;
+  return (
+    <FeedModule
+      eyebrow={ownerName}
+      title={label}
+      accent={
+        accent
+          ? (HOME_MODULE_ACCENTS[accent as keyof typeof HOME_MODULE_ACCENTS] ?? HOME_MODULE_ACCENTS.cyan)
+          : undefined
+      }
+      className="h-full"
+    >
+      <div className="flex h-full min-h-0 flex-col gap-2 text-sm">
+        <div className="min-h-0 flex-1 overflow-y-auto" aria-live="polite">
+          {state.isPending
+            ? t("home.widgets.agentLoading")
+            : state.isError
+              ? t("home.widgets.agentUnavailable")
+              : state.data?.text || (
+                  <>
+                    <p>{t("home.widgets.agentEmpty")}</p>
+                    {description && <p className="mt-1 text-xs text-[var(--muted-foreground)]">{description}</p>}
+                  </>
+                )}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          {stale && <span className="text-xs text-[var(--muted-foreground)]">{t("home.widgets.agentStale")}</span>}
+          <button
+            type="button"
+            onClick={onOpenAgent}
+            className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs"
+          >
+            {t("home.widgets.openAgent")}
+          </button>
+          <button
+            type="button"
+            onClick={() => state.refetch()}
+            aria-label={t("home.widgets.refreshAgent")}
+            className="rounded-lg border border-[var(--border)] p-1"
+          >
+            <RefreshCw size="0.875rem" />
+          </button>
+        </div>
+      </div>
+    </FeedModule>
+  );
+}
 
 function isHomeWidgetId(value: unknown): value is HomeWidgetId {
   return (
     typeof value === "string" &&
-    (HOME_WIDGET_IDS.includes(value as BuiltInHomeWidgetId) || /^custom:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value))
+    (HOME_WIDGET_IDS.includes(value as BuiltInHomeWidgetId) ||
+      /^custom:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ||
+      /^agent:(?:package|custom):[A-Za-z0-9_-]+:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value))
   );
 }
 
@@ -427,15 +533,24 @@ function readHomeWidgetVisibility(): HomeWidgetId[] {
   }
 }
 
-function homeWidgetSpotCount(columns: HomeGridColumns, visibleWidgets: readonly HomeWidgetId[]) {
+function homeWidgetSpotCount(
+  columns: HomeGridColumns,
+  visibleWidgets: readonly HomeWidgetId[],
+  largeWidgetIds: ReadonlySet<HomeWidgetId> = new Set(),
+) {
   return visibleWidgets.reduce(
-    (total, id) => total + (id === "recent" || id === "character-library" ? (columns === 1 ? 2 : 4) : 1),
+    (total, id) =>
+      total + (id === "recent" || id === "character-library" || largeWidgetIds.has(id) ? (columns === 1 ? 2 : 4) : 1),
     0,
   );
 }
 
-function homeEmptySlotCount(columns: HomeGridColumns, visibleWidgets: readonly HomeWidgetId[]) {
-  const spotCount = homeWidgetSpotCount(columns, visibleWidgets);
+function homeEmptySlotCount(
+  columns: HomeGridColumns,
+  visibleWidgets: readonly HomeWidgetId[],
+  largeWidgetIds?: ReadonlySet<HomeWidgetId>,
+) {
+  const spotCount = homeWidgetSpotCount(columns, visibleWidgets, largeWidgetIds);
   return spotCount === 0 ? 0 : (columns - (spotCount % columns)) % columns;
 }
 
@@ -444,6 +559,7 @@ function normalizeHomeWidgetSlots(
   columns: HomeGridColumns,
   fallbackOrder: readonly HomeWidgetId[],
   visibleWidgets: readonly HomeWidgetId[],
+  largeWidgetIds?: ReadonlySet<HomeWidgetId>,
 ): HomeWidgetSlot[] {
   const supplied = Array.isArray(value) ? value : [];
   const visible = new Set(visibleWidgets);
@@ -467,7 +583,7 @@ function normalizeHomeWidgetSlots(
     slots.push(id);
   }
 
-  const emptyCount = homeEmptySlotCount(columns, visibleWidgets);
+  const emptyCount = homeEmptySlotCount(columns, visibleWidgets, largeWidgetIds);
   let keptEmpty = 0;
   const normalized = slots.filter((item) => {
     if (item !== null) return true;
@@ -546,6 +662,7 @@ function HomeWidgetFrame({
   id,
   order,
   visible,
+  size,
   dragging,
   onPointerDragStart,
   onPointerDragMove,
@@ -557,6 +674,7 @@ function HomeWidgetFrame({
   id: HomeWidgetId;
   order: number;
   visible: boolean;
+  size?: "compact" | "large";
   dragging: boolean;
   onPointerDragStart: (id: HomeWidgetId, event: ReactPointerEvent<HTMLSpanElement>) => void;
   onPointerDragMove: (event: ReactPointerEvent<HTMLSpanElement>) => void;
@@ -575,6 +693,8 @@ function HomeWidgetFrame({
         dragging && "mari-home-widget--dragging",
       )}
       style={{ order }}
+      data-home-widget-size={size}
+      data-home-widget-kind={id.startsWith("agent:package:") ? "package" : undefined}
     >
       <span
         role="button"
@@ -1614,6 +1734,27 @@ export function HomeBrowserHub({
     onSuccess: (catalog) => queryClient.setQueryData(["home-custom-widgets"], catalog),
     onError: () => queryClient.invalidateQueries({ queryKey: ["home-custom-widgets"] }),
   });
+  const updateCustomWidgetMutation = useMutation({
+    mutationFn: async (updated: HomeCustomWidget) => {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const catalog = await api.get<HomeCustomWidgetCatalog>(`/app-settings/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`);
+        if (!catalog.widgets.some((widget) => widget.id === updated.id)) throw new Error("Widget no longer exists");
+        try {
+          return await api.put<HomeCustomWidgetCatalog>(`/app-settings/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`, {
+            ...catalog,
+            widgets: catalog.widgets.map((widget) =>
+              widget.id === updated.id ? { ...updated, updatedAt: new Date().toISOString() } : widget,
+            ),
+          });
+        } catch (error) {
+          if (!(error instanceof ApiError) || error.status !== 409 || attempt > 0) throw error;
+        }
+      }
+      throw new Error("Home widget catalog changed repeatedly; try again.");
+    },
+    onSuccess: (catalog) => queryClient.setQueryData(["home-custom-widgets"], catalog),
+    onError: () => queryClient.invalidateQueries({ queryKey: ["home-custom-widgets"] }),
+  });
   const installed = useInstalledCapabilityPackages();
   const catalog = useCapabilityCatalog();
   const characterCatalog = useAllCharacterCatalog();
@@ -1637,6 +1778,69 @@ export function HomeBrowserHub({
     (state) => state.showHomeBrowserMobileBookmarksOnOtherTabs,
   );
   const browserPackages = useMemo(() => selectHomeBrowserPackages(installed.data), [installed.data]);
+  const agentWidgetGroups = useMemo(() => {
+    const packageGroups = selectHomeWidgetPackages(installed.data).map((pkg) => {
+      const display = resolveCapabilityPackageDisplay(pkg.manifest, i18n.resolvedLanguage ?? i18n.language);
+      return {
+        id: pkg.id,
+        name: display.name,
+        widgets: (display.homeWidgets ?? []).map((widget): AgentHomeWidget => ({
+          id: packageHomeWidgetId(pkg.id, widget.id),
+          kind: "package",
+          packageId: pkg.id,
+          widgetId: widget.id,
+          ownerName: display.name,
+          label: widget.label,
+          description: widget.description,
+          size: widget.size,
+          icon: widget.icon,
+          iconPath: widget.iconPath,
+          accent: widget.accent,
+          surface: widget.surface,
+          header: widget.header,
+        })),
+      };
+    });
+    const customGroups = (agents.data ?? []).flatMap((agent) => {
+      if (BUILT_IN_AGENTS.some((builtIn) => builtIn.id === agent.type)) return [];
+      const settings = (() => {
+        try {
+          return JSON.parse(agent.settings) as Record<string, unknown>;
+        } catch {
+          return {};
+        }
+      })();
+      const parsed = homeAgentWidgetsSchema.safeParse(settings.homeWidgets ?? []);
+      if (!parsed.success || parsed.data.length === 0) return [];
+      return [
+        {
+          id: agent.id,
+          name: agent.name,
+          widgets: parsed.data.map((widget): AgentHomeWidget => ({
+            id: `agent:custom:${agent.id}:${widget.id}`,
+            kind: "custom",
+            agentId: agent.id,
+            widgetId: widget.id,
+            ownerName: agent.name,
+            label: widget.title,
+            description: widget.description,
+            size: widget.size,
+            icon: widget.icon,
+            accent: widget.accent,
+            surface: widget.surface,
+            header: widget.header,
+          })),
+        },
+      ];
+    });
+    return [...packageGroups, ...customGroups];
+  }, [installed.data, agents.data, i18n.language, i18n.resolvedLanguage]);
+  const agentWidgets = useMemo(() => agentWidgetGroups.flatMap((group) => group.widgets), [agentWidgetGroups]);
+  const agentWidgetsById = useMemo(() => new Map(agentWidgets.map((widget) => [widget.id, widget])), [agentWidgets]);
+  const largeAgentWidgetIds = useMemo(
+    () => new Set(agentWidgets.filter((widget) => widget.size === "large").map((widget) => widget.id)),
+    [agentWidgets],
+  );
   const localizedBrowserPackages = useMemo(
     () =>
       browserPackages.map((item) => ({
@@ -1654,6 +1858,9 @@ export function HomeBrowserHub({
   const [faqOpen, setFaqOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
   const [widgetManagerOpen, setWidgetManagerOpen] = useState(false);
+  const [editingCustomWidget, setEditingCustomWidget] = useState<HomeCustomWidget | null>(null);
+  const [widgetManagerAgentId, setWidgetManagerAgentId] = useState<string | null>(null);
+  const [focusedPackagePostId, setFocusedPackagePostId] = useState<string | null>(null);
   const [mobileBookmarksOpen, setMobileBookmarksOpen] = useState(false);
   const [visibleWidgets, setVisibleWidgets] = useState<HomeWidgetId[]>(readHomeWidgetVisibility);
   const [widgetLayouts, setWidgetLayouts] = useState<HomeWidgetLayouts>(() =>
@@ -1691,10 +1898,27 @@ export function HomeBrowserHub({
     latestNoodleRefreshMarker && latestNoodleRefreshMarker !== seenNoodleRefreshMarker && activeTab !== "noodle",
   );
   const activeWidgetSlots = widgetLayouts[gridColumns];
-  const allWidgetIds = useMemo<HomeWidgetId[]>(() => [...HOME_WIDGET_IDS, ...customWidgetIds], [customWidgetIds]);
+  const allWidgetIds = useMemo<HomeWidgetId[]>(
+    () => [...HOME_WIDGET_IDS, ...customWidgetIds, ...agentWidgets.map((widget) => widget.id)],
+    [agentWidgets, customWidgetIds],
+  );
   const availableWidgetIds = useMemo<HomeWidgetId[]>(
     () => (achievementsEnabled ? allWidgetIds : allWidgetIds.filter((id) => id !== "achievements")),
     [achievementsEnabled, allWidgetIds],
+  );
+  const availableVisibleWidgets = useMemo(
+    () => (achievementsEnabled ? visibleWidgets : visibleWidgets.filter((id) => id !== "achievements")),
+    [achievementsEnabled, visibleWidgets],
+  );
+
+  // Size rows from the full built-in/personal catalog so hiding a widget does not stretch the rest;
+  // agent widgets count only while shown because installs can contribute many optional widgets.
+  const rowHeightReferenceWidgets = useMemo<HomeWidgetId[]>(
+    () => [
+      ...availableWidgetIds.filter((id) => !id.startsWith("agent:")),
+      ...availableVisibleWidgets.filter((id) => id.startsWith("agent:")),
+    ],
+    [availableWidgetIds, availableVisibleWidgets],
   );
 
   useEffect(() => {
@@ -1721,10 +1945,24 @@ export function HomeBrowserHub({
   }, [customWidgets, customWidgetsQuery.isSuccess]);
 
   useEffect(() => {
+    if (!installed.isSuccess || !agents.isSuccess) return;
+    const available = new Set(agentWidgets.map((widget) => widget.id));
+    // Keep widgets of a temporarily unavailable package; a ready package that stopped declaring one drops it.
+    const unavailablePackageIds = new Set(
+      (installed.data ?? []).filter((pkg) => !isInstalledCapabilityReady(pkg)).map((pkg) => pkg.id),
+    );
+    setVisibleWidgets((current) => {
+      const next = current.filter((id) => {
+        if (!id.startsWith("agent:") || available.has(id)) return true;
+        const match = /^agent:package:([^:]+):/.exec(id);
+        return Boolean(match && unavailablePackageIds.has(match[1]!));
+      });
+      return next.length === current.length ? current : next;
+    });
+  }, [agentWidgets, installed.data, installed.isSuccess, agents.isSuccess]);
+
+  useEffect(() => {
     if (!achievementsEnabled) setAchievementsOpen(false);
-    const availableVisibleWidgets = achievementsEnabled
-      ? visibleWidgets
-      : visibleWidgets.filter((id) => id !== "achievements");
     setWidgetLayouts((current) => {
       const next = {} as HomeWidgetLayouts;
       for (const columns of [1, 2, 3, 4] as const) {
@@ -1733,11 +1971,12 @@ export function HomeBrowserHub({
           columns,
           widgetOrderFromSlots(current[columns]),
           availableVisibleWidgets,
+          largeAgentWidgetIds,
         );
       }
       return next;
     });
-  }, [achievementsEnabled, visibleWidgets]);
+  }, [achievementsEnabled, availableVisibleWidgets, largeAgentWidgetIds]);
 
   useLayoutEffect(() => {
     const feedShell = feedShellRef.current;
@@ -1753,7 +1992,10 @@ export function HomeBrowserHub({
         ? (Number.parseFloat(pagePadding.paddingTop) || 0) + (Number.parseFloat(pagePadding.paddingBottom) || 0)
         : 0;
       const pageHeight = content.clientHeight - hero.getBoundingClientRect().height - paddingBlock - 2;
-      const referenceRowCount = Math.max(1, Math.ceil(homeWidgetSpotCount(columns, allWidgetIds) / columns));
+      const referenceRowCount = Math.max(
+        1,
+        Math.ceil(homeWidgetSpotCount(columns, rowHeightReferenceWidgets, largeAgentWidgetIds) / columns),
+      );
       const referenceRowHeight = Math.min(
         HOME_WIDGET_MAX_ROW_HEIGHT,
         Math.max(HOME_WIDGET_MIN_ROW_HEIGHT, (pageHeight - rowGap * (referenceRowCount - 1)) / referenceRowCount),
@@ -1771,7 +2013,7 @@ export function HomeBrowserHub({
       observer?.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [activeTab, allWidgetIds, visibleWidgets]);
+  }, [activeTab, rowHeightReferenceWidgets, largeAgentWidgetIds]);
 
   useEffect(
     () => () => {
@@ -1882,6 +2124,7 @@ export function HomeBrowserHub({
   const address = `marinara/${activeTab}`;
   const selectTab = (tab: string) => {
     setMobileBookmarksOpen(false);
+    if (tab !== "noodle") setFocusedPackagePostId(null);
     const professorSelected = tab === "professor";
     if (professorSelected) {
       pendingProfessorExitTabRef.current = null;
@@ -1970,7 +2213,13 @@ export function HomeBrowserHub({
               else slots.push(id);
             }
           }
-          next[columns] = normalizeHomeWidgetSlots(slots, columns, widgetOrderFromSlots(slots), nextVisible);
+          next[columns] = normalizeHomeWidgetSlots(
+            slots,
+            columns,
+            widgetOrderFromSlots(slots),
+            nextVisible,
+            largeAgentWidgetIds,
+          );
         }
         return next;
       });
@@ -2072,10 +2321,14 @@ export function HomeBrowserHub({
     document.documentElement.classList.remove("mari-home-widget-drag-active");
   };
   const widgetLabel = (id: HomeWidgetId) => {
+    const agentWidget = agentWidgetsById.get(id);
+    if (agentWidget) return agentWidget.label;
     const customWidget = customWidgetsById.get(id);
     return customWidget?.title ?? t(HOME_WIDGET_LABEL_KEYS[id as BuiltInHomeWidgetId]);
   };
   const widgetManagerLabel = (id: HomeWidgetId) => {
+    const agentWidget = agentWidgetsById.get(id);
+    if (agentWidget) return t("home.widgets.managerLabel", { name: agentWidget.ownerName, purpose: agentWidget.label });
     const customWidget = customWidgetsById.get(id);
     if (customWidget) {
       return t("home.widgets.managerLabel", {
@@ -2091,6 +2344,9 @@ export function HomeBrowserHub({
   };
   const widgetFrameProps = (id: HomeWidgetId) => ({
     id,
+    size: agentWidgetsById.get(id)?.size,
+    accent: agentWidgetsById.get(id)?.accent,
+    surface: agentWidgetsById.get(id)?.surface,
     order: activeWidgetSlots.indexOf(id),
     visible: availableWidgetIds.includes(id) && visibleWidgets.includes(id),
     dragging: draggedWidgetId === id,
@@ -2100,6 +2356,76 @@ export function HomeBrowserHub({
     onKeyboardMove: nudgeWidget,
     dragLabel: t("home.widgets.drag", { widget: widgetLabel(id) }),
   });
+  const renderWidgetManagerRow = (id: HomeWidgetId, index: number) => {
+    const enabled = visibleWidgets.includes(id);
+    const label = widgetManagerLabel(id);
+    const customWidget = customWidgetsById.get(id);
+    const tones = [
+      HOME_MODULE_ACCENTS.accent,
+      HOME_MODULE_ACCENTS.cyan,
+      HOME_MODULE_ACCENTS.orange,
+      HOME_MODULE_ACCENTS.violet,
+    ] as const;
+    const tone = tones[index % tones.length];
+    return (
+      <div
+        key={id}
+        className="flex min-h-12 items-center gap-3 rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--card)_90%,var(--accent))] px-3 py-2"
+      >
+        <span
+          className="grid h-8 w-8 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[color-mix(in_srgb,var(--widget-tone)_42%,var(--border))] bg-[color-mix(in_srgb,var(--widget-tone)_13%,var(--card))] p-1.5"
+          style={{ "--widget-tone": tone } as CSSProperties}
+          aria-hidden="true"
+        >
+          <i className="rounded-[0.12rem] bg-[oklch(0.79_0.16_205)]" />
+          <i className="rounded-[0.12rem] bg-[oklch(0.76_0.19_52)]" />
+          <i className="rounded-[0.12rem] bg-[oklch(0.73_0.21_345)]" />
+          <i className="rounded-[0.12rem] bg-[var(--widget-tone)]" />
+        </span>
+        <span className="min-w-0 flex-1 text-sm font-semibold leading-snug text-[var(--foreground)]">{label}</span>
+        {customWidget ? (
+          <button
+            type="button"
+            onClick={() => {
+              updateCustomWidgetMutation.reset();
+              setEditingCustomWidget(customWidget);
+            }}
+            aria-label={t("home.widgets.editLabel", { widget: customWidget.title })}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)]"
+          >
+            <Pencil size="1rem" />
+          </button>
+        ) : null}
+        {customWidget ? (
+          <button
+            type="button"
+            onClick={() => void deleteCustomWidget(customWidget)}
+            disabled={deleteCustomWidgetMutation.isPending}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--secondary)] text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--destructive)] disabled:opacity-50"
+            aria-label={t("home.widgets.deleteLabel", { widget: label })}
+            title={t("home.widgets.deleteLabel", { widget: label })}
+          >
+            <Trash2 size="1rem" />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          aria-label={t(enabled ? "home.widgets.hide" : "home.widgets.show", { widget: label })}
+          onClick={() => toggleWidgetVisibility(id)}
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-[background-color,color,border-color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)] active:scale-95",
+            enabled
+              ? "border-[color-mix(in_srgb,var(--marinara-app-accent-solid)_48%,var(--border))] bg-[color-mix(in_srgb,var(--marinara-app-accent-solid)_16%,var(--card))] text-[var(--marinara-app-accent-solid)]"
+              : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)]",
+          )}
+        >
+          {enabled ? <Eye size="1rem" /> : <EyeOff size="1rem" />}
+        </button>
+      </div>
+    );
+  };
   const trackHomeAction = (event: AchievementEvent) => {
     void trackAchievementEvent(event, { keepalive: true })
       .catch(() => undefined)
@@ -2616,6 +2942,8 @@ export function HomeBrowserHub({
                 debugMode,
                 onClose: () => selectTab("home"),
                 reviewImagePromptsBeforeSend,
+                focusPostId: activeTab === "noodle" ? focusedPackagePostId : null,
+                onFocusPostHandled: () => setFocusedPackagePostId(null),
               }}
             />
           ) : activeTab === "professor" ? (
@@ -3109,6 +3437,46 @@ export function HomeBrowserHub({
                         </HomeWidgetFrame>
                       );
                     })}
+                    {agentWidgets.map((widget) => (
+                      <HomeWidgetFrame key={widget.id} {...widgetFrameProps(widget.id)}>
+                        {widget.kind === "package" && widget.packageId ? (
+                          <CapabilityElement
+                            packageId={widget.packageId}
+                            view="widget"
+                            className="block h-full min-h-0 w-full"
+                            capabilityProps={{
+                              widgetId: widget.widgetId,
+                              widgetLabel: widget.label,
+                              widgetDescription: widget.description,
+                              widgetIcon: widget.icon,
+                              widgetIconPath: widget.iconPath,
+                              widgetAccent: widget.accent,
+                              widgetSurface: widget.surface,
+                              widgetHeader: widget.header,
+                              active: pageActive && activeTab === "home" && visibleWidgets.includes(widget.id),
+                              onOpenPost: (postId: unknown) => {
+                                if (widget.packageId !== "noodle" || typeof postId !== "string" || postId.length > 128)
+                                  return;
+                                setFocusedPackagePostId(postId);
+                                selectTab("noodle");
+                              },
+                              onOpenNoodle: () => selectTab(widget.packageId!),
+                            }}
+                          />
+                        ) : widget.agentId ? (
+                          <CustomAgentHomeWidget
+                            agentId={widget.agentId}
+                            widgetId={widget.widgetId}
+                            label={widget.label}
+                            ownerName={widget.ownerName}
+                            accent={widget.accent}
+                            description={widget.description}
+                            active={pageActive && activeTab === "home" && visibleWidgets.includes(widget.id)}
+                            onOpenAgent={() => useUIStore.getState().openAgentDetail(widget.agentId!)}
+                          />
+                        ) : null}
+                      </HomeWidgetFrame>
+                    ))}
                     {activeWidgetSlots.map((slot, index) =>
                       slot === null ? (
                         <div
@@ -3160,67 +3528,63 @@ export function HomeBrowserHub({
           <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
             {t("home.browser.widgetsWindowDescription")}
           </p>
-          <div className="grid gap-2">
-            {availableWidgetIds.map((id, index) => {
-              const enabled = visibleWidgets.includes(id);
-              const label = widgetManagerLabel(id);
-              const customWidget = customWidgetsById.get(id);
-              const tones = [
-                HOME_MODULE_ACCENTS.accent,
-                HOME_MODULE_ACCENTS.cyan,
-                HOME_MODULE_ACCENTS.orange,
-                HOME_MODULE_ACCENTS.violet,
-              ] as const;
-              const tone = tones[index % tones.length];
-              return (
-                <div
-                  key={id}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--card)_90%,var(--accent))] px-3 py-2"
-                >
-                  <span
-                    className="grid h-8 w-8 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[color-mix(in_srgb,var(--widget-tone)_42%,var(--border))] bg-[color-mix(in_srgb,var(--widget-tone)_13%,var(--card))] p-1.5"
-                    style={{ "--widget-tone": tone } as CSSProperties}
-                    aria-hidden="true"
-                  >
-                    <i className="rounded-[0.12rem] bg-[oklch(0.79_0.16_205)]" />
-                    <i className="rounded-[0.12rem] bg-[oklch(0.76_0.19_52)]" />
-                    <i className="rounded-[0.12rem] bg-[oklch(0.73_0.21_345)]" />
-                    <i className="rounded-[0.12rem] bg-[var(--widget-tone)]" />
-                  </span>
-                  <span className="min-w-0 flex-1 text-sm font-semibold leading-snug text-[var(--foreground)]">
-                    {label}
-                  </span>
-                  {customWidget ? (
-                    <button
-                      type="button"
-                      onClick={() => void deleteCustomWidget(customWidget)}
-                      disabled={deleteCustomWidgetMutation.isPending}
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] transition-[background-color,color,border-color,transform] hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 active:scale-95 disabled:opacity-50"
-                      aria-label={t("home.widgets.deleteLabel", { widget: label })}
-                      title={t("home.widgets.deleteLabel", { widget: label })}
-                    >
-                      <Trash2 size="1rem" />
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={enabled}
-                    aria-label={t(enabled ? "home.widgets.hide" : "home.widgets.show", { widget: label })}
-                    onClick={() => toggleWidgetVisibility(id)}
-                    className={cn(
-                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-[background-color,color,border-color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)] active:scale-95",
-                      enabled
-                        ? "border-[color-mix(in_srgb,var(--marinara-app-accent-solid)_48%,var(--border))] bg-[color-mix(in_srgb,var(--marinara-app-accent-solid)_16%,var(--card))] text-[var(--marinara-app-accent-solid)]"
-                        : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)]",
-                    )}
-                  >
-                    {enabled ? <Eye size="1rem" /> : <EyeOff size="1rem" />}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+          {widgetManagerAgentId ? (
+            <div className="grid gap-2">
+              <button
+                type="button"
+                onClick={() => setWidgetManagerAgentId(null)}
+                className="flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)]"
+              >
+                <ArrowLeft size="1rem" /> {t("home.widgets.backToAgents")}
+              </button>
+              {agentWidgetGroups
+                .find((group) => group.id === widgetManagerAgentId)
+                ?.widgets.map((widget, index) => renderWidgetManagerRow(widget.id, index))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <section className="grid gap-2" aria-label={t("home.widgets.builtInGroup")}>
+                <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-[var(--muted-foreground)]">
+                  {t("home.widgets.builtInGroup")}
+                </h3>
+                {availableWidgetIds
+                  .filter((id) => HOME_WIDGET_IDS.includes(id as BuiltInHomeWidgetId))
+                  .map(renderWidgetManagerRow)}
+              </section>
+              {agentWidgetGroups.length > 0 ? (
+                <section className="grid gap-2" aria-label={t("home.widgets.agentsGroup")}>
+                  <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-[var(--muted-foreground)]">
+                    {t("home.widgets.agentsGroup")}
+                  </h3>
+                  {agentWidgetGroups.map((group, index) =>
+                    group.widgets.length === 1 ? (
+                      renderWidgetManagerRow(group.widgets[0].id, index)
+                    ) : (
+                      <button
+                        key={group.id}
+                        type="button"
+                        onClick={() => setWidgetManagerAgentId(group.id)}
+                        className="flex min-h-12 items-center gap-3 rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--card)_90%,var(--accent))] px-3 py-2 text-left text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)]"
+                      >
+                        <Bot size="1rem" aria-hidden="true" />
+                        <span className="min-w-0 flex-1 truncate">{group.name}</span>
+                        <span className="text-xs text-[var(--muted-foreground)]">{group.widgets.length}</span>
+                        <ChevronRight size="1rem" aria-hidden="true" />
+                      </button>
+                    ),
+                  )}
+                </section>
+              ) : null}
+              {customWidgetIds.length > 0 ? (
+                <section className="grid gap-2" aria-label={t("home.widgets.personalGroup")}>
+                  <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-[var(--muted-foreground)]">
+                    {t("home.widgets.personalGroup")}
+                  </h3>
+                  {customWidgetIds.map(renderWidgetManagerRow)}
+                </section>
+              ) : null}
+            </div>
+          )}
           <div className="border-t border-[var(--border)] pt-3">
             <p className="mb-1 px-1 text-[0.7rem] font-bold uppercase tracking-wide text-[var(--muted-foreground)]">
               {t("home.browser.chromeSettings")}
@@ -3245,6 +3609,101 @@ export function HomeBrowserHub({
             />
           </div>
         </div>
+      </Modal>
+      <Modal
+        open={editingCustomWidget !== null}
+        onClose={() => {
+          updateCustomWidgetMutation.reset();
+          setEditingCustomWidget(null);
+        }}
+        title={t("home.widgets.editTitle")}
+        width="max-w-md"
+      >
+        {editingCustomWidget && (
+          <form
+            className="grid gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void updateCustomWidgetMutation
+                .mutateAsync(editingCustomWidget)
+                .then(() => setEditingCustomWidget(null))
+                .catch(() => {});
+            }}
+          >
+            <label className="grid gap-1 text-sm">
+              {t("home.widgets.editName")}
+              <input
+                required
+                maxLength={80}
+                value={editingCustomWidget.title}
+                onChange={(event) => setEditingCustomWidget({ ...editingCustomWidget, title: event.target.value })}
+                className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2"
+              />
+            </label>
+            <label className="grid gap-1 text-sm">
+              {t("home.widgets.editDescription")}
+              <textarea
+                required
+                maxLength={500}
+                value={editingCustomWidget.description}
+                onChange={(event) =>
+                  setEditingCustomWidget({ ...editingCustomWidget, description: event.target.value })
+                }
+                className="min-h-24 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2"
+              />
+            </label>
+            <label className="grid gap-1 text-sm">
+              {t("home.widgets.editAccent")}
+              <select
+                value={editingCustomWidget.accent}
+                onChange={(event) =>
+                  setEditingCustomWidget({
+                    ...editingCustomWidget,
+                    accent: event.target.value as HomeCustomWidget["accent"],
+                  })
+                }
+                className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2"
+              >
+                {["cyan", "orange", "pink", "violet"].map((accent) => (
+                  <option key={accent} value={accent}>
+                    {t(`home.widgets.accent.${accent}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              {t("home.widgets.editIcon")}
+              <select
+                value={editingCustomWidget.icon}
+                onChange={(event) =>
+                  setEditingCustomWidget({
+                    ...editingCustomWidget,
+                    icon: event.target.value as HomeCustomWidget["icon"],
+                  })
+                }
+                className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2"
+              >
+                {["sparkles", "note", "heart", "star", "book", "compass"].map((icon) => (
+                  <option key={icon} value={icon}>
+                    {t(`home.widgets.icon.${icon}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {updateCustomWidgetMutation.isError && (
+              <p role="alert" className="text-xs text-[var(--destructive)]">
+                {t("home.widgets.editFailed")}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={updateCustomWidgetMutation.isPending}
+              className="min-h-10 rounded-lg bg-[var(--primary)] px-3 text-sm font-semibold text-[var(--primary-foreground)]"
+            >
+              {t("home.widgets.save")}
+            </button>
+          </form>
+        )}
       </Modal>
     </div>
   );

@@ -1,4 +1,9 @@
-import { BUILT_IN_TOOLS, DEFAULT_AGENT_TOOLS, customAgentHasCapability } from "@marinara-engine/shared";
+import {
+  BUILT_IN_TOOLS,
+  DEFAULT_AGENT_TOOLS,
+  customAgentHasCapability,
+  homeAgentWidgetsSchema,
+} from "@marinara-engine/shared";
 import type { AgentContext, SourceMessageRef } from "@marinara-engine/shared";
 import type { LLMToolDefinition } from "../llm/base-provider.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
@@ -37,6 +42,7 @@ import {
 } from "../conversation/timezone.js";
 
 const LORE_SEARCH_MIN_SIMILARITY = 0.25;
+const HOME_WIDGET_PUBLISH_TOOL_NAME = "home_widget_publish";
 
 type CustomToolsStore = {
   listEnabled(): Promise<
@@ -79,7 +85,9 @@ type LorebooksStore = {
   ): Promise<any>;
 };
 
-type AgentsStore = unknown;
+type AgentsStore = {
+  publishHomeWidgetState(agentId: string, widgetId: string, text: string): Promise<{ updatedAt: string }>;
+};
 
 export type ResolveGenerationToolsArgs = {
   requestBody: Record<string, unknown>;
@@ -1096,15 +1104,39 @@ async function resolveToolRuntime(
 
     const agentSettings = parseSettings(agent.settings);
     const agentEnabledNames = Array.isArray(agentSettings.enabledTools) ? (agentSettings.enabledTools as string[]) : [];
-    if (agentEnabledNames.length === 0) continue;
+    const widgetDefinitions = agent.isCustomAgent
+      ? homeAgentWidgetsSchema.safeParse(agentSettings.homeWidgets ?? [])
+      : null;
+    const mayPublishWidget = widgetDefinitions?.success && widgetDefinitions.data.length > 0;
+    if (agentEnabledNames.length === 0 && !mayPublishWidget) continue;
 
     const allowSpotifyAgentTools = agent.type === "spotify";
-    const agentTools = allToolDefs.filter(
+    const agentTools: LLMToolDefinition[] = allToolDefs.filter(
       (toolDef) =>
+        (!mayPublishWidget || toolDef.function.name !== HOME_WIDGET_PUBLISH_TOOL_NAME) &&
         agentEnabledNames.includes(toolDef.function.name) &&
         (toolDef.function.name !== "edit_chat_message" || customAgentHasCapability(agentSettings, "edit_messages")) &&
         (spotifyToolsAvailable || !spotifyToolNames.has(toolDef.function.name) || allowSpotifyAgentTools),
     );
+    if (mayPublishWidget) {
+      agentTools.push({
+        type: "function",
+        function: {
+          name: HOME_WIDGET_PUBLISH_TOOL_NAME,
+          description:
+            "Publish short text to one of this agent's Home widgets. This changes data only, not the widget definition or layout.",
+          parameters: {
+            type: "object",
+            properties: {
+              widgetId: { type: "string", enum: widgetDefinitions.data.map((widget) => widget.id) },
+              text: { type: "string", maxLength: 500 },
+            },
+            required: ["widgetId", "text"],
+            additionalProperties: false,
+          },
+        },
+      });
+    }
     if (agentTools.length === 0) continue;
 
     const allowedToolNames = new Set(agentTools.map((toolDef) => toolDef.function.name));
@@ -1151,6 +1183,22 @@ async function resolveToolRuntime(
             error: `Tool not allowed for agent ${agent.type}: ${call.function.name}`,
             allowed: Array.from(allowedToolNames),
           });
+        }
+        if (mayPublishWidget && call.function.name === HOME_WIDGET_PUBLISH_TOOL_NAME) {
+          try {
+            const args = JSON.parse(call.function.arguments) as Record<string, unknown>;
+            if (
+              typeof args.widgetId !== "string" ||
+              !widgetDefinitions?.success ||
+              !widgetDefinitions.data.some((widget) => widget.id === args.widgetId) ||
+              typeof args.text !== "string" ||
+              args.text.length > 500
+            )
+              throw new Error("Invalid widget publication");
+            return JSON.stringify(await agentsStore.publishHomeWidgetState(agent.id, args.widgetId, args.text));
+          } catch {
+            return JSON.stringify({ error: "Widget publication rejected" });
+          }
         }
         const executionContext = {
           ...baseToolExecutionContext,

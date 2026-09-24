@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- User Input prompt regexes in Roleplay’s Individual group chats also apply to other characters' messages, while each character's own replies keep AI Output rules and character-specific exclusions stay in effect (#6637).
+
 - Roleplay Advanced Memory scans and indexes globally hidden history, including turns hidden manually or by automatic summaries, preserving scene summaries and participant access during initial and later processing. If recovery changes a manually corrected scene's boundaries, disable its old correction to keep the text for reference, or delete it, then prepare history again (#6631).
 
 - Professor Mari can author Decision activation and conditional prompts with live model awareness, lean timing guidance, and separate preferences for use and cache-sensitive placement. Setup warnings are remembered per chat, and an enabled Memory can stop them across future chats. New invalid agent activation settings are rejected instead of silently disabling the question; legacy settings remain editable and undoable without blocking unrelated changes (#6629).
@@ -11,6 +13,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Imports that use decisions now warn when no Decision model is selected, explain the fallback behavior, and link to the Decision Models guide. If the selection cannot be checked, the notice says so without interrupting the import. The notice also covers custom agent imports and Agent catalog installations, including agents with activation questions (#6605).
 
 - Decision model guides now distinguish Jev from Open-Jev and clarify what each feature sends, threshold defaults, statement allowances, answer reuse, lorebook fallbacks, sidecar hardware needs, and prompt-cache costs. Author examples describe observable events and separate connection testing from testing statements in a chat.
+ 
+- Add bounded agent-owned Home widget presentation metadata and full-bleed package widget surfaces.
+
+- Agents can offer up to three Home widgets without placing them automatically. The Widget Manager groups built-in, agent, and personal widgets; users add, hide, restore, and reorder agent widgets, while custom agents can publish bounded text during their normal runs. Capability packages can supply verified interactive widgets in an Engine-owned frame. Noodle's Latest Posts widget is available through its companion agent package (#6621).
 
 - Roleplay's optional **Whisper** command shares an inline secret only with its recipient and the appointed narrator. Recipients can be characters or your persona; revealing a hidden secret on screen does not give it to other characters' prompts (#6616).
 
