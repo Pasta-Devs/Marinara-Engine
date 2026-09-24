@@ -281,12 +281,24 @@ function truncateContent(content: string, targetTokens: number, preserveStartOnl
   return head + TRUNCATION_MARKER + tail;
 }
 
+/**
+ * The full-lore prefix and its dynamic block (cache-friendly prompt layout) are required context:
+ * trimming never removes or truncates them. Unmarked messages are never protected.
+ */
+function isProtectedFullLore(message: ChatMessage | undefined): boolean {
+  return (
+    message?.providerMetadata?.marinaraFullLoreContext === true ||
+    message?.providerMetadata?.marinaraDynamicLoreContext === true
+  );
+}
+
 function findOldestRemovableConversationBlock(
   messages: ChatMessage[],
   preferredKind?: ChatMessage["contextKind"],
 ): { start: number; deleteCount: number } | null {
   for (let index = 0; index < messages.length - 1; index++) {
     const message = messages[index]!;
+    if (isProtectedFullLore(message)) continue;
     if (preferredKind) {
       if (message.contextKind !== preferredKind) continue;
     } else if (message.role === "system") {
@@ -309,7 +321,7 @@ function findOldestRemovableConversationBlock(
 
 function findOldestRemovableSystemMessage(messages: ChatMessage[]): number {
   for (let index = 1; index < messages.length - 1; index++) {
-    if (messages[index]?.role === "system") return index;
+    if (messages[index]?.role === "system" && !isProtectedFullLore(messages[index])) return index;
   }
   return -1;
 }
@@ -323,6 +335,7 @@ function findLargestMessageIndex(
 
   for (let index = 0; index < messages.length; index++) {
     const message = messages[index]!;
+    if (isProtectedFullLore(message)) continue;
     if (!predicate(message, index) || !message.content) continue;
     const tokenEstimate = estimateMessageTokens(message);
     if (tokenEstimate > selectedTokens) {
@@ -457,6 +470,14 @@ export function fitMessagesToContext(
       maxTokens = reducedMaxTokens;
       inputBudget = Math.max(0, usableWindow - maxTokens);
     }
+  }
+
+  // Full lore (cache-friendly prompt layout) that still does not fit with the history gone would leave
+  // only instructions and the current turn to cut. Refuse instead of sending a mangled prompt.
+  if (estimatedTokensAfter > inputBudget && fittedMessages.some(isProtectedFullLore)) {
+    throw new Error(
+      "Full lore exceeds the available context budget with the required prompt. Increase the context limit or turn off full lore for this chat (chat metadata fullLorebookContext: false); lore and instructions were not truncated.",
+    );
   }
 
   while (estimatedTokensAfter > inputBudget && fittedMessages.length > 1) {

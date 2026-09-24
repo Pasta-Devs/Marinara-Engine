@@ -538,6 +538,13 @@ import {
   shouldRunDirectorSecretPlotMaintenance,
 } from "../services/generation/director-secret-plot-runtime.js";
 import { applyPromptPatchOperations } from "../services/generation/prompt-patch-runtime.js";
+import {
+  isCacheFriendlyPromptLayoutActive,
+  normalizePromptCacheLayout,
+  runtimeContextMarker,
+  shouldUseFullLorebookContext,
+  splitFullLorebookContext,
+} from "../services/generation/prompt-cache-layout.js";
 import { resolveGenerationProviderRuntime } from "../services/generation/provider-generation-runtime.js";
 import { supportsNativeToolCalls } from "@marinara-engine/shared";
 import { planGameToolCalls } from "../services/generation/game-tool-planning.js";
@@ -2527,6 +2534,16 @@ export async function generateRoutes(app: FastifyInstance) {
         const lorebookScopeExclusions = resolveLorebookScopeExclusions(chatMode, chatMeta);
         let lorebookScanSnapshot: LorebookScanSnapshot = emptyLorebookScanSnapshot();
         let lorebookPromptScanResult: LorebookScanResult | null = null;
+        // Settings > Features "Cache-friendly prompt layout" (off by default): on a Claude subscription or
+        // ChatGPT connection, per-turn blocks are marked as runtime context and moved next to the current
+        // turn, and the whole lorebook scope becomes one stable `<lore>` prefix. A chat opts out of full
+        // lore with metadata `fullLorebookContext: false`. Off, nothing below changes.
+        const cacheLayoutActive = isCacheFriendlyPromptLayoutActive(conn.provider);
+        const useFullLorebookContext = shouldUseFullLorebookContext(
+          conn.provider,
+          chatMeta.fullLorebookContext === false,
+        );
+        const fullConversationLoreByCharacter = new Map<string, LorebookScanResult>();
         const scopedLorebookScansByCharacterId = new Map<string, Promise<LorebookScanResult>>();
         let presetHandledLorebooks = false;
         let characterAdvancedPromptsInjected = false;
@@ -2921,6 +2938,7 @@ export async function generateRoutes(app: FastifyInstance) {
         ) => {
           sendProgress("lorebooks");
           const lorebookResult = await processLorebooks(app.db, toLorebookScanMessages(), null, {
+            ...(useFullLorebookContext ? { fullContext: true } : {}),
             chatId: input.chatId,
             characterIds: withIdentityLorebookScope(targetCharacterIds),
             personaId,
@@ -2944,6 +2962,9 @@ export async function generateRoutes(app: FastifyInstance) {
             resolveContent: resolvePromptMacrosForLorebook,
             resolveDecisions: lorebookDecisions,
           });
+          if (useFullLorebookContext) {
+            fullConversationLoreByCharacter.set([...targetCharacterIds].sort().join(","), lorebookResult);
+          }
           if (options.recordSnapshot !== false) lorebookScanSnapshot = toLorebookScanSnapshot(lorebookResult);
           rememberKnowledgeRouterActivatedLorebookIds(
             knowledgeRouterActivatedLorebookEntryIds,
@@ -3028,7 +3049,8 @@ export async function generateRoutes(app: FastifyInstance) {
           const hasVectorizedEntries = activeEntries.some(
             (entry) => Array.isArray(entry.embedding) && entry.embedding.length > 0,
           );
-          if (hasVectorizedEntries && memoryRecallVectorizerAvailable) {
+          // Full lore includes every scoped entry, so semantic matching has nothing to select.
+          if (!useFullLorebookContext && hasVectorizedEntries && memoryRecallVectorizerAvailable) {
             const allLorebooks = (await lorebooksStore.list()) as unknown as Lorebook[];
             const relevantLorebooks = filterRelevantLorebooks(allLorebooks, lorebookScopeFilters) as Lorebook[];
             const semanticEmbeddings = await buildLorebookSemanticEmbeddingsById({
@@ -3095,6 +3117,7 @@ export async function generateRoutes(app: FastifyInstance) {
             agentHistoryMessageId: input.regenerateMessageId ?? undefined,
             deferMessagePostProcessing: true,
             db: app.db,
+            ...(useFullLorebookContext ? { fullLorebookContext: true } : {}),
             preset: preset as any,
             sections: sections as any,
             groups: groups as any,
@@ -3695,6 +3718,7 @@ export async function generateRoutes(app: FastifyInstance) {
         if (!presetId && chatMode === "roleplay") {
           sendProgress("lorebooks");
           const lorebookResult = await processLorebooks(app.db, toLorebookScanMessages(), null, {
+            ...(useFullLorebookContext ? { fullContext: true } : {}),
             chatId: input.chatId,
             characterIds: withIdentityLorebookScope(promptCharacterIds),
             personaId,
@@ -3811,6 +3835,7 @@ export async function generateRoutes(app: FastifyInstance) {
             role: "system" as const,
             content: recentSocialMediaActivityBlock,
             contextKind: "injection",
+            ...runtimeContextMarker(cacheLayoutActive),
           });
         }
 
@@ -4102,6 +4127,7 @@ export async function generateRoutes(app: FastifyInstance) {
             wrapFormat,
             promptMacroContext,
             deferCharacterMacros ? { deferCharacterMacros: "all" } : undefined,
+            { markRuntimeContext: cacheLayoutActive },
           );
         }
 
@@ -4207,6 +4233,7 @@ export async function generateRoutes(app: FastifyInstance) {
               toLorebookScanMessages(),
               await selectedGameStateForPrompt(),
               {
+                ...(useFullLorebookContext ? { fullContext: true } : {}),
                 chatId: input.chatId,
                 characterIds: withIdentityLorebookScope(characterIds),
                 personaId,
@@ -4485,7 +4512,11 @@ export async function generateRoutes(app: FastifyInstance) {
         if (convoAwarenessBlock) {
           const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
           const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
-          finalMessages.splice(insertAt, 0, { role: "system", content: convoAwarenessBlock });
+          finalMessages.splice(insertAt, 0, {
+            role: "system",
+            content: convoAwarenessBlock,
+            ...runtimeContextMarker(cacheLayoutActive),
+          });
         }
 
         // ── Memory recall: semantic retrieval of relevant past conversation fragments ──
@@ -4538,6 +4569,7 @@ export async function generateRoutes(app: FastifyInstance) {
             signal: abortController.signal,
             resolveMacros: (value) => resolveMacros(value, promptMacroContext, { trimResult: false }),
             wrapFormat,
+            markRuntimeContext: cacheLayoutActive,
           });
         }
         if (
@@ -7168,6 +7200,7 @@ export async function generateRoutes(app: FastifyInstance) {
               gameAwareMessagesForGen.splice(firstUserIdx >= 0 ? firstUserIdx : gameAwareMessagesForGen.length, 0, {
                 role: "system",
                 content: responderAwarenessBlock,
+                ...runtimeContextMarker(cacheLayoutActive),
               });
             }
           }
@@ -7195,6 +7228,15 @@ export async function generateRoutes(app: FastifyInstance) {
             gameAwareMessagesForGen,
             audienceCharacterIds,
           );
+          let { stable: fullLorebookContext, dynamic: dynamicFullLorebookContext } = useFullLorebookContext
+            ? splitFullLorebookContext(
+                fullConversationLoreByCharacter.get(
+                  [...(deferConversationLorebookScanToResponder && targetCharId ? [targetCharId] : promptCharacterIds)]
+                    .sort()
+                    .join(","),
+                ) ?? lorebookPromptScanResult,
+              )
+            : { stable: undefined, dynamic: undefined };
           if (
             usesIndividualGroupGeneration &&
             deferCharacterMacros &&
@@ -7213,6 +7255,10 @@ export async function generateRoutes(app: FastifyInstance) {
               scopedLorebookScansByCharacterId.set(targetCharId, scopedScanPromise);
             }
             const scopedLorebookScan = await scopedScanPromise;
+            if (useFullLorebookContext) {
+              ({ stable: fullLorebookContext, dynamic: dynamicFullLorebookContext } =
+                splitFullLorebookContext(scopedLorebookScan));
+            }
             gameAwareMessagesForGen = scopeLorebookPromptMessagesForCharacter(
               gameAwareMessagesForGen,
               lorebookPromptScanResult,
@@ -7287,6 +7333,29 @@ export async function generateRoutes(app: FastifyInstance) {
             providerMacroContext,
             historyMacroProfilesById,
           );
+          // Full lore (cache-friendly prompt layout): the stable entries lead the prompt as one prefix, and
+          // the entries whose text holds macros (decision blocks included) resolve per turn in the volatile tail.
+          if (useFullLorebookContext && fullLorebookContext) {
+            preparedMessagesForGen.unshift({
+              role: "system",
+              content: `<lore>\n${fullLorebookContext}\n</lore>`,
+              contextKind: "prompt",
+              providerMetadata: { marinaraFullLoreContext: true, marinaraCacheScope: input.chatId },
+            });
+          }
+          if (useFullLorebookContext && dynamicFullLorebookContext) {
+            const [dynamicLoreMessage] = resolvePromptMessageMacros(
+              [{ role: "system" as const, content: dynamicFullLorebookContext, contextKind: "injection" as const }],
+              providerMacroContext,
+              historyMacroProfilesById,
+            );
+            preparedMessagesForGen.push({
+              role: "system",
+              content: `<lore_dynamic>\n${dynamicLoreMessage?.content ?? dynamicFullLorebookContext}\n</lore_dynamic>`,
+              contextKind: "injection",
+              providerMetadata: { marinaraDynamicLoreContext: true, marinaraRuntimeContext: true },
+            });
+          }
           if (chatMode === "conversation" && conversationIsGroup && !input.impersonate) {
             const turnCharacterName =
               usesIndividualGroupGeneration && groupTurnPromptEnabled && speaksOnlyTargetCharacter && targetCharId
@@ -7529,7 +7598,13 @@ export async function generateRoutes(app: FastifyInstance) {
 
           const initialProviderMessages = advancedPreparedProviderMessages
             ? await fitPromptForSend(advancedPreparedProviderMessages)
-            : prepareProviderMessages(await fitPromptForSend(toProviderMessages(preparedMessagesForGen)));
+            : prepareProviderMessages(
+                await fitPromptForSend(
+                  toProviderMessages(
+                    cacheLayoutActive ? normalizePromptCacheLayout(preparedMessagesForGen) : preparedMessagesForGen,
+                  ),
+                ),
+              );
           finalPromptSent = initialProviderMessages;
           rememberMainPromptPreviewForAgents(initialProviderMessages);
 

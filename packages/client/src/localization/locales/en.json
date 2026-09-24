@@ -2213,7 +2213,7 @@
   "settings.features.backgroundCallCap.help": "Limits automatic background model calls per rolling hour so unattended work cannot run up a bill. Off: no cap.",
   "settings.features.backgroundCallCap.label": "Background call cap",
   "settings.features.backgroundCallsPerHour.label": "Calls per hour",
-  "settings.features.cacheFriendlyPromptLayout.help": "Moves changing blocks such as World Maps next to the current turn so the start of the prompt stays the same and can be cached. Off keeps the assembled order.",
+  "settings.features.cacheFriendlyPromptLayout.help": "On Claude (Subscription) and ChatGPT connections, sends the whole lorebook as one fixed block at the start of the prompt and moves blocks that change every turn next to your message, so the start of the prompt can be cached. Off keeps the keyword lore scan and the assembled order.",
   "settings.features.cacheFriendlyPromptLayout.label": "Cache-friendly prompt layout",
   "settings.features.chatgptHistoryReplay.help": "Game turns on the ChatGPT subscription reuse the previous prompt and send a cache session id. Off rebuilds the prompt every turn.",
   "settings.features.chatgptHistoryReplay.label": "ChatGPT history replay",

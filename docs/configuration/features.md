@@ -40,9 +40,17 @@ Off: the prompt is rebuilt every turn and no session id is sent.
 
 Setting key: `cacheFriendlyPromptLayout`.
 
-On: World Maps and other blocks that change every turn move next to the current turn, so the start of the prompt stays the same between turns and can be cached by the provider.
+Applies to Claude (Subscription) and ChatGPT connections only. Other connections are never affected.
 
-Off: the prompt is sent in the order it was assembled.
+On:
+
+- **Full lore.** Every enabled lorebook entry in the chat's scope is sent as one fixed `<lore>` block at the very start of the prompt, instead of the entries a keyword scan picks each turn. Keywords, decision statements, probability, timing, depth and the token budget do not select entries in this mode. Entries whose text holds macros, decision blocks included, change from turn to turn, so they are sent in a separate `<lore_dynamic>` block after it, near your message. The `<lore>` block is never trimmed to fit the context.
+- **Per-turn blocks move.** Blocks that change every turn (recalled memories, the chat summary when no preset places it, cross-chat awareness, recent social activity) are sent next to your message instead of in the system prompt.
+- On Claude (Subscription), the fixed part goes before the Agent SDK's cache boundary and a cache marker is kept on the last finished reply, so the next turn reads the whole history from the cache.
+
+A chat can keep the keyword lore scan with the chat metadata value `fullLorebookContext: false`.
+
+Off: the keyword lore scan runs as before and the prompt is sent in the order it was assembled, byte for byte as without this switch.
 
 ### Stable lorebook picks
 

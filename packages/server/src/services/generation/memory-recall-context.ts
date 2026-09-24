@@ -11,6 +11,8 @@ import { packRecalledMemories } from "./memory-recall-pack.js";
 type PromptMessage = {
   role: "system" | "user" | "assistant";
   content: string;
+  contextKind?: "prompt" | "history" | "injection";
+  providerMetadata?: Record<string, unknown>;
 };
 
 export function buildMemoryRecallBlock(
@@ -40,6 +42,7 @@ export async function injectMemoryRecallContext({
   signal,
   resolveMacros,
   wrapFormat,
+  markRuntimeContext = false,
 }: {
   db: DB;
   messages: PromptMessage[];
@@ -52,6 +55,8 @@ export async function injectMemoryRecallContext({
   signal?: AbortSignal;
   resolveMacros?: (value: string) => string;
   wrapFormat: WrapFormat;
+  /** Cache-friendly prompt layout active: mark the injected block as runtime context. */
+  markRuntimeContext?: boolean;
 }): Promise<string[]> {
   sendProgress("memory_recall");
   const startedAt = Date.now();
@@ -86,7 +91,20 @@ export async function injectMemoryRecallContext({
 
     const firstUserIdx = messages.findIndex((message) => message.role === "user" || message.role === "assistant");
     const insertAt = firstUserIdx >= 0 ? firstUserIdx : messages.length;
-    messages.splice(insertAt, 0, { role: "system", content: memoriesBlock });
+    // Cache-friendly prompt layout: recalled memories change every turn, so they are marked as runtime
+    // context and moved next to the current turn instead of rewriting the cached prefix.
+    messages.splice(
+      insertAt,
+      0,
+      markRuntimeContext
+        ? {
+            role: "system",
+            content: memoriesBlock,
+            contextKind: "injection",
+            providerMetadata: { marinaraRuntimeContext: true },
+          }
+        : { role: "system", content: memoriesBlock },
+    );
     return resolvedLines;
   } catch (err) {
     logger.error(err, "[memory-recall] Recall failed, skipping");

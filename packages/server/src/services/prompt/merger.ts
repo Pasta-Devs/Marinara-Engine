@@ -16,6 +16,19 @@ export function hasSamePromptAudience(first: ChatMLMessage | undefined, second: 
 }
 
 /**
+ * A block the cache-friendly prompt layout marked (the full-lore prefix, the dynamic lore block or a
+ * runtime block). It is never merged into a neighbour, so it can be placed on its own and the stable
+ * prefix keeps the same bytes. Unmarked messages are never boundaries.
+ */
+export function isPromptCacheBoundary(message: Pick<ChatMLMessage, "providerMetadata"> | undefined): boolean {
+  return (
+    message?.providerMetadata?.marinaraFullLoreContext === true ||
+    message?.providerMetadata?.marinaraDynamicLoreContext === true ||
+    message?.providerMetadata?.marinaraRuntimeContext === true
+  );
+}
+
+/**
  * Merge consecutive messages that share the same role, with a double-newline separator.
  *
  * Rules:
@@ -41,6 +54,7 @@ export function mergeAdjacentMessages(messages: ChatMLMessage[]): ChatMLMessage[
   };
 
   const canMerge = (a: ChatMLMessage, b: ChatMLMessage) => {
+    if (isPromptCacheBoundary(a) || isPromptCacheBoundary(b)) return false;
     if (a.role !== b.role) return false;
     // Reasoning/signatures must stay paired with their own assistant output.
     if (a.role === "assistant" && (a.providerMetadata || b.providerMetadata)) return false;
@@ -128,6 +142,8 @@ export function squashLeadingSystemMessages(messages: ChatMLMessage[]): ChatMLMe
   for (let index = 1; index <= leadingSystemMessages.length; index += 1) {
     if (
       index < leadingSystemMessages.length &&
+      !isPromptCacheBoundary(leadingSystemMessages[runStart]) &&
+      !isPromptCacheBoundary(leadingSystemMessages[index]) &&
       hasSamePromptAudience(leadingSystemMessages[runStart], leadingSystemMessages[index]!)
     ) {
       continue;

@@ -163,6 +163,11 @@ export interface AssemblerInput {
   excludedLorebookSourceAgentIds?: string[];
   /** When true, lorebook markers expand to empty content without scanning global or scoped lorebooks. */
   disableLorebooks?: boolean;
+  /**
+   * Full-lore mode (cache-friendly prompt layout): the scan carries every scoped entry in
+   * `lorebookScanResult.fullContext` for the caller to place, and lorebook markers expand empty.
+   */
+  fullLorebookContext?: boolean;
   /** Pre-computed embedding of chat context for semantic lorebook matching. */
   chatEmbedding?: number[] | null;
   /** Per-lorebook pre-computed embeddings for semantic lorebook matching. */
@@ -497,6 +502,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     excludedLorebookIds: input.excludedLorebookIds ?? [],
     excludedLorebookSourceAgentIds: input.excludedLorebookSourceAgentIds ?? [],
     disableLorebooks: input.disableLorebooks === true,
+    ...(input.fullLorebookContext ? { fullLorebookContext: true } : {}),
     chatEmbedding: input.chatEmbedding ?? null,
     semanticEmbeddingsByLorebookId: input.semanticEmbeddingsByLorebookId,
     semanticEmbeddingSpaceId: input.semanticEmbeddingSpaceId,
@@ -525,6 +531,8 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   let lorebookDepthEntriesCount = 0;
   let hasChatSummaryMarker = false;
   let outletScanAttempted = false;
+  // Full lore is placed by the caller even when no preset section holds a lorebook marker.
+  if (input.fullLorebookContext) await ensureLorebookScan(markerCtx);
   let idMacroCardMarkerSection: ResolvedSection | null = null;
   const runtimeAgentTypesUsed = new Set<string>();
 
@@ -1033,6 +1041,7 @@ export function appendFallbackChatSummaryToSystemPrompt(
   wrapFormat: WrapFormat,
   macroCtx: MacroContext,
   macroOptions?: ResolveMacroOptions,
+  options: { markRuntimeContext?: boolean } = {},
 ): ChatMLMessage[] {
   const summary = sanitizePromptLeaf(resolveMacros(chatSummary ?? "", macroCtx, macroOptions), wrapFormat).trim();
   if (!summary) return messages;
@@ -1046,6 +1055,19 @@ export function appendFallbackChatSummaryToSystemPrompt(
     const message = next[i]!;
     if (message.role !== "system" || message.contextKind === "history") break;
     lastLeadingSystemIdx = i;
+  }
+
+  if (options.markRuntimeContext) {
+    // Cache-friendly prompt layout: the summary changes as the chat goes on, so it becomes its own
+    // runtime block (moved next to the current turn) instead of rewriting the system prompt.
+    const summaryBlock: ChatMLMessage = {
+      role: "system",
+      content: wrapped,
+      contextKind: "injection",
+      providerMetadata: { marinaraRuntimeContext: true },
+    };
+    next.splice(lastLeadingSystemIdx + 1, 0, summaryBlock);
+    return next;
   }
 
   if (lastLeadingSystemIdx >= 0) {

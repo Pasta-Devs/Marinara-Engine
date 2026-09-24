@@ -33,6 +33,12 @@ import {
 import { applyTokenBudget, processActivatedEntries } from "./prompt-injector.js";
 
 export interface LorebookScanResult {
+  /** Full-lore mode only: every scoped entry, carried apart from the positioned blocks. */
+  fullContext?: string;
+  /** Full-lore mode only: the entries whose stored text has no macro syntax (the cacheable prefix). */
+  stableFullContext?: string;
+  /** Full-lore mode only: the entries whose stored text has macro syntax, decision blocks included. */
+  dynamicFullContext?: string;
   worldInfoBefore: string;
   worldInfoAfter: string;
   depthEntries: Array<{ content: string; role: "system" | "user" | "assistant"; depth: number; order: number }>;
@@ -93,7 +99,28 @@ export function scopeLorebookScanResultToCharacterContext(
     });
   }
 
-  const processed = processActivatedEntries(scopedActivatedEntries, 0);
+  const processed =
+    result.fullContext !== undefined
+      ? {
+          worldInfoBefore: "",
+          worldInfoAfter: "",
+          depthEntries: [],
+          outlets: {},
+          fullContext: scopedActivatedEntries.map(({ entry }) => entry.content).join("\n\n"),
+          stableFullContext: scopedActivatedEntries
+            .filter(({ rawContent, entry }) => !hasMacroTemplateSyntax(rawContent ?? entry.content))
+            .map(({ entry }) => entry.content)
+            .join("\n\n"),
+          dynamicFullContext: scopedActivatedEntries
+            .filter(({ rawContent, entry }) => hasMacroTemplateSyntax(rawContent ?? entry.content))
+            .map(({ entry }) => entry.content)
+            .join("\n\n"),
+          totalEntries: scopedActivatedEntries.length,
+          totalTokensEstimate: Math.ceil(
+            scopedActivatedEntries.reduce((sum, { entry }) => sum + entry.content.length, 0) / 4,
+          ),
+        }
+      : processActivatedEntries(scopedActivatedEntries, 0);
   const scopedIds = new Set(scopedActivatedEntries.map((entry) => entry.entry.id));
   const scopedSkippedEntries = result.budgetSkippedEntries.filter((entry) => {
     const storedEntry = entriesById.get(entry.id);
@@ -113,6 +140,67 @@ export function scopeLorebookScanResultToCharacterContext(
     activatedEntryIds: scopedActivatedEntries.map((entry) => entry.entry.id),
     activatedEntries: result.activatedEntries.filter((entry) => scopedIds.has(entry.id)),
     budgetSkippedEntries: scopedSkippedEntries,
+  };
+}
+
+/** Any stored macro template makes an entry turn-dependent for cache partitioning. */
+function hasMacroTemplateSyntax(value: string): boolean {
+  return /\{\{/u.test(value);
+}
+
+/**
+ * Full-lore mode: every enabled entry in scope, in a deterministic order (lorebook id, entry order,
+ * entry id), without keyword, semantic, decision, probability, timing, depth or budget selection.
+ * Entries whose stored text holds macro syntax (decision blocks included) resolve per turn, so they are
+ * kept apart as the dynamic part and never enter the stable prefix.
+ */
+export function buildFullLorebookContext(
+  entries: readonly LorebookEntry[],
+  resolveContent?: LorebookFinalContentResolver,
+): LorebookScanResult {
+  const compareId = (left: string, right: string) => (left < right ? -1 : left > right ? 1 : 0);
+  const dynamicEntryIds = new Set(
+    entries.filter((entry) => hasMacroTemplateSyntax(entry.content)).map((entry) => entry.id),
+  );
+  const activatedEntries = [...entries]
+    .sort(
+      (left, right) =>
+        compareId(left.lorebookId, right.lorebookId) || left.order - right.order || compareId(left.id, right.id),
+    )
+    .map((entry) => {
+      const resolved = resolveContent?.(entry.content) ?? entry.content;
+      if (typeof resolved !== "string") resolved.commit?.();
+      return {
+        id: entry.id,
+        name: entry.name,
+        content: typeof resolved === "string" ? resolved : resolved.content,
+        matchedKeys: ["[full_lore]"],
+        activationSources: ["constant" as const],
+        matchType: "constant" as const,
+      };
+    });
+  const fullContext = activatedEntries.map((entry) => entry.content).join("\n\n");
+  const stableFullContext = activatedEntries
+    .filter((entry) => !dynamicEntryIds.has(entry.id))
+    .map((entry) => entry.content)
+    .join("\n\n");
+  const dynamicFullContext = activatedEntries
+    .filter((entry) => dynamicEntryIds.has(entry.id))
+    .map((entry) => entry.content)
+    .join("\n\n");
+  return {
+    fullContext,
+    stableFullContext,
+    dynamicFullContext,
+    worldInfoBefore: "",
+    worldInfoAfter: "",
+    depthEntries: [],
+    outlets: {},
+    totalEntries: activatedEntries.length,
+    totalTokensEstimate: Math.ceil(fullContext.length / 4),
+    activatedEntryIds: activatedEntries.map((entry) => entry.id),
+    activatedEntries,
+    budgetSkippedEntries: [],
   };
 }
 
@@ -1052,6 +1140,11 @@ export async function processLorebooks(
      *  budgets; the caller must check the completed prompt against model context.
      *  Omitted keeps the ordinary scan, so every existing caller is unchanged. */
     forcedEntriesOnly?: boolean;
+    /**
+     * Full-lore mode (cache-friendly prompt layout): include every enabled, scoped entry in one
+     * deterministic prefix instead of activation scanning. Ignored with `forcedEntriesOnly`.
+     */
+    fullContext?: boolean;
     /** Token ceiling for the forced entries alone. Omitted keeps the 2,048-token
      *  current-location default, which is sized for a location's own lore rather
      *  than for a caller that hands over a deliberate, player-made selection. */
@@ -1229,7 +1322,7 @@ export async function processLorebooks(
       activatedEntryIds: [],
       activatedEntries: [],
       budgetSkippedEntries: [],
-      ...(!previewOnly && hasSerializedTimingStates(options?.entryTimingStates)
+      ...(!options?.fullContext && !previewOnly && hasSerializedTimingStates(options?.entryTimingStates)
         ? { updatedEntryTimingStates: {} }
         : {}),
     };
@@ -1256,6 +1349,19 @@ export async function processLorebooks(
     options?.personaId ?? null,
     gameState ?? null,
   );
+
+  if (options?.fullContext && !forcedEntriesOnly) {
+    return buildFullLorebookContext(
+      allEntries.filter((entry) =>
+        lorebookEntryPassesContextFilters(entry, {
+          activeCharacterIds: matchingContext.activeCharacterIds,
+          activeCharacterTags: matchingContext.activeCharacterTags,
+          generationTriggers: options.generationTriggers ?? ["chat"],
+        }),
+      ),
+      resolveContent,
+    );
+  }
 
   // Scan for activated entries.
   // Bound the default global scan window so a lorebook/entry that leaves

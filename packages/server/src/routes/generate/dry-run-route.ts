@@ -64,6 +64,12 @@ import {
 } from "../../services/spatial-context/projection.js";
 import { buildImpersonateInstruction } from "../../services/conversation/impersonate-prompt.js";
 import { processLorebooks } from "../../services/lorebook/index.js";
+import {
+  isCacheFriendlyPromptLayoutActive,
+  normalizePromptCacheLayout,
+  shouldUseFullLorebookContext,
+  splitFullLorebookContext,
+} from "../../services/generation/prompt-cache-layout.js";
 import { resolveLorebookScopeExclusions } from "../../services/lorebook/game-lorebook-scope.js";
 import { injectAtDepth } from "../../services/lorebook/prompt-injector.js";
 import { createLLMProvider } from "../../services/llm/provider-registry.js";
@@ -633,6 +639,11 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     // Pull existing messages, apply the same conversation-start + context limit filtering
     const allChatMessages = await chats.listMessages(chatId);
     const chatMode = (chat.mode as string) ?? "roleplay";
+    // Mirror /api/generate: the cache-friendly prompt layout (Settings > Features, off by default).
+    const cacheLayoutActive = isCacheFriendlyPromptLayoutActive(conn.provider);
+    const useFullLorebookContext = shouldUseFullLorebookContext(conn.provider, chatMeta.fullLorebookContext === false);
+    let fullLorebookContext: string | undefined;
+    let dynamicFullLorebookContext: string | undefined;
     const advancedMemorySettings = normalizeAdvancedMemorySettings(chatMeta.advancedMemory);
     const advancedMemoryEnabled = chatMode === "roleplay" && advancedMemorySettings.enabled;
     // Prompt inspection previews the main reply; auxiliary dry-run generations
@@ -1319,6 +1330,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
               content: m.content,
             }));
             const lorebookResult = await processLorebooks(app.db, scanMessages, null, {
+              ...(useFullLorebookContext ? { fullContext: true } : {}),
               chatId,
               characterIds: withIdentityLorebookScope(promptCharacterIds),
               personaId,
@@ -1349,6 +1361,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
               resolveContent: resolvePromptMacrosForLorebook,
               resolveDecisions: lorebookDecisions,
             });
+            if (useFullLorebookContext) {
+              ({ stable: fullLorebookContext, dynamic: dynamicFullLorebookContext } =
+                splitFullLorebookContext(lorebookResult));
+            }
             const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
               .filter((content): content is string => typeof content === "string" && content.length > 0)
               .join("\n");
@@ -1615,7 +1631,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         lorebookDecisions,
       };
 
-      const assembled = await assemblePrompt(assemblerInput);
+      const assembled = await assemblePrompt(
+        useFullLorebookContext ? { ...assemblerInput, fullLorebookContext: true } : assemblerInput,
+      );
+      if (useFullLorebookContext) {
+        ({ stable: fullLorebookContext, dynamic: dynamicFullLorebookContext } = splitFullLorebookContext(
+          assembled.lorebookScanResult,
+        ));
+      }
       Object.assign(promptMacroContext.variables, assembled.macroVariables);
       promptMacroContext.agentData = {
         ...promptMacroContext.agentData,
@@ -1760,6 +1783,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         content: m.content,
       }));
       const lorebookResult = await processLorebooks(app.db, scanMessages, null, {
+        ...(useFullLorebookContext ? { fullContext: true } : {}),
         chatId,
         characterIds: withIdentityLorebookScope(promptCharacterIds),
         personaId,
@@ -1790,6 +1814,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         resolveContent: resolvePromptMacrosForLorebook,
         resolveDecisions: lorebookDecisions,
       });
+      if (useFullLorebookContext) {
+        ({ stable: fullLorebookContext, dynamic: dynamicFullLorebookContext } =
+          splitFullLorebookContext(lorebookResult));
+      }
       const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
         .filter((content): content is string => typeof content === "string" && content.length > 0)
         .join("\n");
@@ -2025,6 +2053,23 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       m.content = m.content.replace(/\n([ \t]*\n){2,}/g, "\n\n");
     }
 
+    if (useFullLorebookContext && fullLorebookContext) {
+      finalMessages.unshift({
+        role: "system",
+        content: `<lore>\n${fullLorebookContext}\n</lore>`,
+        contextKind: "prompt",
+        providerMetadata: { marinaraFullLoreContext: true, marinaraCacheScope: chatId },
+      });
+    }
+    if (useFullLorebookContext && dynamicFullLorebookContext) {
+      finalMessages.push({
+        role: "system",
+        content: `<lore_dynamic>\n${resolvePromptMacros(dynamicFullLorebookContext)}\n</lore_dynamic>`,
+        contextKind: "injection",
+        providerMetadata: { marinaraDynamicLoreContext: true, marinaraRuntimeContext: true },
+      });
+    }
+
     const toProviderMessages = (
       promptMessages: Array<{
         role: "system" | "user" | "assistant";
@@ -2091,7 +2136,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     const fit = advancedContext
       ? { messages: advancedContext.providerMessages, maxTokensForSend: advancedContext.maxTokens }
       : fitMessagesForModelAccess({
-          messages: limitPastReasoningMetadata(toProviderMessages(finalMessages as any), chatMeta),
+          messages: limitPastReasoningMetadata(
+            toProviderMessages((cacheLayoutActive ? normalizePromptCacheLayout(finalMessages) : finalMessages) as any),
+            chatMeta,
+          ),
           policy: { ...modelAccessPolicy, effectiveMaxContext },
           maxTokens,
         });

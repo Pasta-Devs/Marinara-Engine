@@ -78,6 +78,8 @@ export interface MarkerContext {
   excludedLorebookSourceAgentIds?: string[];
   /** When true, lorebook markers expand to empty content without scanning global or scoped lorebooks. */
   disableLorebooks?: boolean;
+  /** Full-lore mode (cache-friendly prompt layout): scan every scoped entry into one stable prefix. */
+  fullLorebookContext?: boolean;
   /** Pre-computed embedding of the chat context for semantic lorebook matching. */
   chatEmbedding?: number[] | null;
   /** Per-lorebook pre-computed embeddings for semantic lorebook matching. */
@@ -404,6 +406,7 @@ export async function ensureLorebookScan(ctx: MarkerContext): Promise<LorebookSc
       ctx.gameState ?? null,
       {
         chatId: ctx.chatId,
+        ...(ctx.fullLorebookContext ? { fullContext: true } : {}),
         characterIds: ctx.lorebookCharacterIds ?? ctx.characterIds,
         personaId: ctx.personaId ?? null,
         activeLorebookIds: ctx.activeLorebookIds,

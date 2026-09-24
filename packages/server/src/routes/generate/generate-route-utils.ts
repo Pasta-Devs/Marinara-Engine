@@ -36,6 +36,7 @@ import {
   type WrapFormat,
 } from "@marinara-engine/shared";
 import { wrapContent } from "../../services/prompt/format-engine.js";
+import { isPromptCacheBoundary } from "../../services/prompt/merger.js";
 import { parseStoredRulesetLive } from "../../services/storage/game-state.storage.js";
 import {
   appendReadableAttachmentsToContent,
@@ -708,7 +709,8 @@ export function appendNonLeadingSystemMessagesToLastUser<T extends PromptRoleMes
       continue;
     }
 
-    if (cloned.role === "system") {
+    // Blocks marked by the cache-friendly prompt layout keep their own system message; the provider places them.
+    if (cloned.role === "system" && !isPromptCacheBoundary(cloned)) {
       const converted = { ...cloned, role: "user" as const };
       if (cloned.contextKind === "history" || cloned.contextKind === "injection") {
         result.push(converted as T);
@@ -758,6 +760,8 @@ export function postProcessMessages(
       previous.role === message.role &&
       !protocolMessage &&
       !previous.tool_calls?.length &&
+      !isPromptCacheBoundary(previous) &&
+      !isPromptCacheBoundary(message) &&
       !(message.role === "assistant" && (previous.providerMetadata || message.providerMetadata));
     if (canMerge && (leadingSystem || apply || single)) {
       appendPromptMessageContent(previous, message);

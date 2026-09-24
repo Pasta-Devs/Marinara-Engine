@@ -1963,6 +1963,17 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     let sawNonSystemInput = false;
     for (const m of messages) {
+      if (
+        this.isOpenAIChatGPTProvider() &&
+        m.role === "system" &&
+        m.providerMetadata?.marinaraFullLoreContext === true
+      ) {
+        // Cache-friendly prompt layout: only the stable full-lore prefix goes in instructions. Later
+        // system messages stay system messages in input, so a change in them never rewrites this prefix.
+        instructions = m.content;
+        sawNonSystemInput = true;
+        continue;
+      }
       if (m.role === "system") {
         if (m.content?.trim()) {
           if (!sawNonSystemInput) {
