@@ -21,10 +21,13 @@ import pino from "pino";
 import { randomBytes } from "node:crypto";
 import type { EventEmitter } from "node:events";
 import { writeSync } from "node:fs";
+import { join } from "node:path";
+import { format } from "node:util";
 import { hostname } from "node:os";
 import { isatty } from "node:tty";
-import { getLogLevel, getNodeEnv } from "../config/runtime-config.js";
+import { getDataDir, getLogLevel, getNodeEnv, isPromptDebugFileLoggingEnabled } from "../config/runtime-config.js";
 import { logContextMixin } from "./log-context.js";
+import { RotatingFileSink } from "./rotating-sink.js";
 
 type TerminalLogStream = EventEmitter & {
   fd?: number;
@@ -122,7 +125,50 @@ export function followLogLevel(child: { level: string }): () => void {
   };
 }
 
+const PROMPT_DEBUG_FILE_BYTES = 10 * 1024 * 1024;
+const PROMPT_DEBUG_FILES_KEPT = 3;
+let promptDebugSink: RotatingFileSink | undefined;
+
+/** Where LOG_PROMPT_DEBUG_FILES writes: DATA_DIR/logs/prompt-debug. */
+export function getPromptDebugLogDirectory(): string {
+  return join(getDataDir(), "logs", "prompt-debug");
+}
+
+function writePromptDebugLine(level: number, message: string, args: unknown[]): void {
+  if (!promptDebugSink) {
+    const directory = getPromptDebugLogDirectory();
+    promptDebugSink = new RotatingFileSink({
+      directory,
+      prefix: "prompt-debug",
+      runId: bootId,
+      maxBytes: PROMPT_DEBUG_FILE_BYTES,
+      keep: PROMPT_DEBUG_FILES_KEPT,
+    });
+    logger.info({ event: "log.prompt_debug_files", directory }, "[logger] Prompt debug output goes to %s", directory);
+  }
+  promptDebugSink.write(
+    JSON.stringify({
+      level,
+      time: Date.now(),
+      pid: process.pid,
+      bootId,
+      ...logContextMixin({}, level),
+      debugPrompt: true,
+      msg: format(message, ...args),
+    }),
+  );
+}
+
+/**
+ * Prompt and model text for debugging: shown when the chat's debug mode is on (`overrideEnabled`) or at
+ * LOG_LEVEL=debug. With LOG_PROMPT_DEBUG_FILES it goes to DATA_DIR/logs/prompt-debug/ instead of the console.
+ */
 export function logDebugOverride(overrideEnabled: boolean, message: string, ...args: any[]) {
+  if (isPromptDebugFileLoggingEnabled()) {
+    const debugEnabled = logger.isLevelEnabled("debug");
+    if (overrideEnabled || debugEnabled) writePromptDebugLine(debugEnabled ? 20 : 40, message, args);
+    return;
+  }
   if (overrideEnabled && !logger.isLevelEnabled("debug")) {
     // Default LOG_LEVEL is warn, so explicit UI debug mode must log at warn to be visible.
     logger.warn(message, ...args);

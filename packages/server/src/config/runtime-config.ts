@@ -362,6 +362,14 @@ export function isRequestLoggingDisabled() {
   return false;
 }
 
+/**
+ * Opt-in (LOG_PROMPT_DEBUG_FILES): prompt debug output (debug mode in the UI, or LOG_LEVEL=debug) goes to rotating
+ * files under DATA_DIR/logs/prompt-debug/ instead of the console. Off: the console, as before.
+ */
+export function isPromptDebugFileLoggingEnabled() {
+  return isEnabledFlag(process.env.LOG_PROMPT_DEBUG_FILES);
+}
+
 export function getServerProtocol() {
   return getTlsFilePaths() ? "https" : "http";
 }

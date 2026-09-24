@@ -205,6 +205,14 @@ That preset shows the same prompt and model detail as `debug`, but hides repeate
 LOG_DISABLE_REQUEST_LOGGING=true
 ```
 
+To keep long prompts out of the console, set this and restart (or save the `.env`):
+
+```
+LOG_PROMPT_DEBUG_FILES=true
+```
+
+Prompt and model text that debug mode or `LOG_LEVEL=debug` would print then goes to JSON line files in `logs/prompt-debug/` inside the data folder instead: one file per server run and a new file every 10 MiB, and only the three newest earlier files are kept. The files hold your prompts, so treat them like chat data. Off by default, which prints to the console as before.
+
 Browser logging is separate and is not controlled by `LOG_LEVEL`.
 
 The server also samples its own memory and event loop once a minute. A `runtime.memory` line with heap, process (RSS), external and array buffer memory, the event-loop delay and a few numbers from each background worker is written at `debug` every 5 minutes and at `info` every 30 minutes. One `warn` line (`runtime.memory_pressure`, `ME_MEMORY_PRESSURE`) marks the start of a pressure episode: the Node heap above 85% of its limit, RSS above `MARINARA_RSS_WARN_MIB` (default: the heap limit), or an event-loop delay (p99) over 1 s. One `info` line says when it recovered. A stall or host sleep line (`runtime.freeze`) carries the same memory and worker figures.
