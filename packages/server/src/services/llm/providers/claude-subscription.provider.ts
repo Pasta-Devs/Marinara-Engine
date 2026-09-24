@@ -36,6 +36,7 @@ import {
   currentToSdkUserMessage,
   SDK_VERSION,
   splitHistoryForResume,
+  selectHistoryBreakpointIndex,
   type SdkUserMessageForPrompt,
 } from "./claude-subscription/jsonl-entries.js";
 import { ResumeSessionStore, resumeScratchCwd } from "./claude-subscription/session-store.js";
@@ -150,18 +151,77 @@ async function* singleMessageIterable(msg: SdkUserMessageForPrompt): AsyncIterab
 }
 
 /**
- * Extract system-role messages into a single concatenated string for the
- * SDK's `systemPrompt` option, used by both the fold path and the resume
- * path. System messages never ride in the JSONL.
+ * The SDK's marker that splits a `string[]` system prompt into a static,
+ * cross-session cacheable prefix and a per-request dynamic part.
  */
-function extractSystemPrompt(messages: ChatMessage[]): string | undefined {
-  const blocks: string[] = [];
-  for (const m of messages) {
-    if (m.role !== "system") continue;
-    const text = m.content?.trim();
-    if (text) blocks.push(text);
+export const CLAUDE_SYSTEM_PROMPT_DYNAMIC_BOUNDARY = "__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__";
+
+function isMarkedDynamicSystemBlock(message: ChatMessage): boolean {
+  return (
+    message.providerMetadata?.marinaraRuntimeContext === true ||
+    message.providerMetadata?.marinaraDynamicLoreContext === true
+  );
+}
+
+/**
+ * Build the SDK's `systemPrompt` option from the system-role messages, used by
+ * both the fold path and the resume path. System messages never ride in the
+ * JSONL.
+ *
+ * Unmarked requests get one string, the system messages joined as before.
+ * When a request carries prompt-cache markers (the full-lore prefix, or
+ * runtime / dynamic lore blocks, set by the cache-friendly prompt layout),
+ * the marked lore leads, the other leading system text follows, and the
+ * dynamic blocks sit after the SDK's dynamic boundary, so a change in them
+ * does not rewrite the cached prefix.
+ */
+function buildSystemPrompt(messages: ChatMessage[]): string | string[] | undefined {
+  const systemMessages = messages.filter((message) => message.role === "system" && message.content?.trim());
+  if (systemMessages.length === 0) return undefined;
+
+  const hasTypedDynamicBlock = systemMessages.some(isMarkedDynamicSystemBlock);
+  const hasMarkedStaticLore = systemMessages.some(
+    (message) => message.providerMetadata?.marinaraFullLoreContext === true,
+  );
+  if (!hasTypedDynamicBlock && !hasMarkedStaticLore) {
+    return systemMessages.map((message) => message.content!.trim()).join("\n\n");
   }
-  return blocks.length > 0 ? blocks.join("\n\n") : undefined;
+
+  const firstDynamicIndex = systemMessages.findIndex(isMarkedDynamicSystemBlock);
+  const leadingStatic = systemMessages.filter((message, index) => {
+    if (message.providerMetadata?.marinaraFullLoreContext === true) return false;
+    return firstDynamicIndex < 0 ? true : index < firstDynamicIndex;
+  });
+  const staticLore = systemMessages.filter((message) => message.providerMetadata?.marinaraFullLoreContext === true);
+  const dynamic = systemMessages.filter(
+    (message) =>
+      message.providerMetadata?.marinaraFullLoreContext !== true &&
+      (isMarkedDynamicSystemBlock(message) || !leadingStatic.includes(message)),
+  );
+
+  return [
+    ...staticLore.map((message) => message.content!.trim()),
+    ...leadingStatic.map((message) => message.content!.trim()),
+    CLAUDE_SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
+    ...dynamic.map((message) => message.content!.trim()),
+  ];
+}
+
+/**
+ * Marked runtime system blocks placed after the conversation started travel
+ * as user turns, so they stay next to the turn they describe instead of
+ * joining the system prompt. Unmarked messages are left as they are.
+ */
+function normalizeMarkedRuntimeSystemMessages(messages: ChatMessage[]): ChatMessage[] {
+  const firstNonSystemIndex = messages.findIndex((message) => message.role !== "system");
+  if (firstNonSystemIndex < 0) return messages;
+
+  return messages.map((message, index) => {
+    if (index <= firstNonSystemIndex || message.role !== "system" || !isMarkedDynamicSystemBlock(message)) {
+      return message;
+    }
+    return { ...message, role: "user" as const };
+  });
 }
 
 /**
@@ -222,7 +282,7 @@ function renderTranscript(messages: ChatMessage[]): { systemPrompt: string | und
  */
 interface PromptSelection {
   promptArg: string | AsyncIterable<unknown>;
-  systemPrompt: string | undefined;
+  systemPrompt: string | string[] | undefined;
   resumeSessionId: string | null;
   resumeCwd: string | null;
   sessionStore: ResumeSessionStore | null;
@@ -233,10 +293,15 @@ interface PromptSelection {
  * everything the SDK call needs. Resolved per-call so env-var changes take
  * effect on the next request without a restart.
  */
-function selectPromptPath(messages: ChatMessage[], model: string): PromptSelection {
+function selectPromptPath(
+  messages: ChatMessage[],
+  model: string,
+  historyBreakpointTtl?: "5m" | "1h",
+  historyBreakpointIndex?: number | null,
+): PromptSelection {
   if (isClaudeSubscriptionResumeEnabled()) {
     try {
-      return buildResumeSelection(messages, model);
+      return buildResumeSelection(messages, model, historyBreakpointTtl, historyBreakpointIndex);
     } catch (err) {
       // The only realistic failure is creating the scratch working directory
       // on a read-only / permission-locked data dir. Degrade to the fold path
@@ -247,9 +312,17 @@ function selectPromptPath(messages: ChatMessage[], model: string): PromptSelecti
   return buildFoldSelection(messages);
 }
 
-function buildResumeSelection(messages: ChatMessage[], model: string): PromptSelection {
+function buildResumeSelection(
+  messages: ChatMessage[],
+  model: string,
+  historyBreakpointTtl?: "5m" | "1h",
+  historyBreakpointIndex?: number | null,
+): PromptSelection {
   const split = splitHistoryForResume(messages);
-  const systemPrompt = extractSystemPrompt(messages);
+  const systemPrompt = buildSystemPrompt(messages);
+  const cacheMarked = messages.some(
+    (message) => message.role === "system" && message.providerMetadata?.marinaraFullLoreContext === true,
+  );
   if (split.shape === "trailing-assistant-continue") {
     logger.warn(
       "[claude-subscription] assistant prefill routed through synthetic continuation prompt because SDK prompts are user-only (prefillChars=%d)",
@@ -284,12 +357,14 @@ function buildResumeSelection(messages: ChatMessage[], model: string): PromptSel
     split.history,
     { sessionId, cwd, version: SDK_VERSION, gitBranch: "main", permissionMode: "bypassPermissions" },
     model,
+    cacheMarked ? { historyBreakpointIndex, historyBreakpointTtl, textBlocks: true } : {},
   );
   logger.debug(
-    "[claude-subscription] resume path: shape=%s sessionId=%s historyLen=%d",
+    "[claude-subscription] resume path: shape=%s sessionId=%s historyLen=%d historyBreakpointIndex=%s",
     split.shape,
     sessionId,
     split.history.length,
+    historyBreakpointIndex ?? "none",
   );
   return {
     promptArg: singleMessageIterable(currentToSdkUserMessage(split.current)),
@@ -305,7 +380,7 @@ function buildFoldSelection(messages: ChatMessage[]): PromptSelection {
   const folded = renderTranscript(messages);
   return {
     promptArg: folded.prompt,
-    systemPrompt: folded.systemPrompt,
+    systemPrompt: buildSystemPrompt(messages),
     resumeSessionId: null,
     resumeCwd: null,
     sessionStore: null,
@@ -350,9 +425,17 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
     const contextFit = this.fitMessagesToContext(messages, { ...options, maxTokens: configuredMaxTokens });
     this.logContextTrim(contextFit, options.model);
 
+    // Cache markers only exist on requests built by the cache-friendly prompt layout; without them the
+    // messages, the system prompt and the replayed history are exactly what they were before.
+    const providerMessages = normalizeMarkedRuntimeSystemMessages(contextFit.messages);
+    const hasApiKey = Boolean(this.apiKey || process.env.ANTHROPIC_API_KEY);
+    const historyBreakpointIndex = !hasApiKey ? selectHistoryBreakpointIndex(providerMessages) : null;
+    const historyBreakpointTtl = !hasApiKey ? (process.env.FORCE_PROMPT_CACHING_5M === "1" ? "5m" : "1h") : undefined;
     const { promptArg, systemPrompt, resumeSessionId, resumeCwd, sessionStore } = selectPromptPath(
-      contextFit.messages,
+      providerMessages,
       options.model,
+      historyBreakpointTtl,
+      historyBreakpointIndex,
     );
 
     const { query } = await loadSdk();
@@ -377,7 +460,7 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
     // posture leaks several things the user never asked for into every
     // request, so we override each one explicitly:
     //
-    //   • Use a plain-string `systemPrompt` (the caller's content as-is)
+    //   • Use caller-owned system content (string or cache-boundary array)
     //     instead of wrapping it under the `claude_code` preset. The preset
     //     injects ~thousands of tokens of Claude-Code-agent framing
     //     ("You are Claude Code, Anthropic's CLI...") which is wrong for
@@ -463,6 +546,10 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
       ...process.env,
       ENABLE_CLAUDEAI_MCP_SERVERS: "false",
       ...(this.apiKey ? { ANTHROPIC_API_KEY: this.apiKey } : {}),
+      // A replayed history carrying a one-hour marker needs the CLI's one-hour caching on as well.
+      ...(resumeSessionId && sessionStore && historyBreakpointIndex != null && historyBreakpointTtl === "1h"
+        ? { ENABLE_PROMPT_CACHING_1H: "1" }
+        : {}),
     };
 
     const sdkOptionRecord = sdkOptions as Record<string, unknown>;

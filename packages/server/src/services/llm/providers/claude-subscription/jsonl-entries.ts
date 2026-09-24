@@ -30,6 +30,7 @@ import { logger } from "../../../../lib/logger.js";
 export interface TextBlock {
   type: "text";
   text: string;
+  cache_control?: { type: "ephemeral"; ttl?: "5m" | "1h" };
 }
 export interface ThinkingBlock {
   type: "thinking";
@@ -163,7 +164,10 @@ function imageBlocksFromDataUrls(urls: readonly string[]): ImageBlock[] {
  *  - role "tool" with `tool_call_id` → single `tool_result` block.
  *  - role "user" with `images` → image blocks (Anthropic-conventional first)
  *    followed by an optional text block.
- *  - plain text → string content (smaller files, identical wire result).
+ *  - plain text → string content (smaller files, identical wire result), or
+ *    one text block when `textBlocks` is set. A cache-marked request uses the
+ *    block form so a turn replayed as history keeps the shape the SDK sent it
+ *    in as the current turn, and the cached prefix still matches.
  */
 export function buildUserEntry(args: {
   message: ChatMessage;
@@ -172,10 +176,11 @@ export function buildUserEntry(args: {
   timestamp?: string;
   uuid?: string;
   promptId?: string;
+  textBlocks?: boolean;
 }): SyntheticUserEntry {
   const { message } = args;
   const text = message.content ?? "";
-  let content: string | UserContentBlock[] = text;
+  let content: string | UserContentBlock[] = args.textBlocks ? [{ type: "text", text }] : text;
 
   if (message.role === "tool") {
     // `tool_call_id` is optional on ChatMessage but mandatory for a valid
@@ -240,13 +245,21 @@ export function buildAssistantEntry(args: {
   uuid?: string;
   messageId?: string;
   requestId?: string;
+  cacheBreakpointTtl?: "5m" | "1h";
 }): SyntheticAssistantEntry {
   const { message } = args;
   const text = message.content ?? "";
   const toolCalls = message.tool_calls ?? [];
 
   const blocks: AssistantContentBlock[] = [];
-  if (text) blocks.push({ type: "text", text });
+  if (text)
+    blocks.push({
+      type: "text",
+      text,
+      ...(args.cacheBreakpointTtl
+        ? { cache_control: { type: "ephemeral" as const, ttl: args.cacheBreakpointTtl } }
+        : {}),
+    });
   for (const tc of toolCalls) {
     blocks.push({
       type: "tool_use",
@@ -290,11 +303,20 @@ export function buildAssistantEntry(args: {
  * System messages are excluded — they ride the SDK's `systemPrompt` option,
  * not the transcript. Each entry points its `parentUuid` at the prior entry's
  * `uuid` so the SDK can walk the conversation back to its root.
+ *
+ * `historyBreakpointIndex` (from selectHistoryBreakpointIndex) puts one cache
+ * marker on that assistant entry; `textBlocks` writes plain user text as one
+ * text block. Both are only set for cache-marked requests.
  */
 export function assembleEntries(
   history: readonly ChatMessage[],
   meta: CommonSessionMeta,
   model: string,
+  options: {
+    historyBreakpointIndex?: number | null;
+    historyBreakpointTtl?: "5m" | "1h";
+    textBlocks?: boolean;
+  } = {},
 ): SyntheticEntry[] {
   const entries: SyntheticEntry[] = [];
   let parentUuid: string | null = null;
@@ -303,16 +325,96 @@ export function assembleEntries(
     if (m.role === "system") continue;
 
     if (m.role === "user" || m.role === "tool") {
-      const entry = buildUserEntry({ message: m, parentUuid, meta });
+      const entry = buildUserEntry({ message: m, parentUuid, meta, textBlocks: options.textBlocks });
       entries.push(entry);
       parentUuid = entry.uuid;
     } else if (m.role === "assistant") {
-      const entry = buildAssistantEntry({ message: m, parentUuid, meta, model });
+      const entry = buildAssistantEntry({
+        message: m,
+        parentUuid,
+        meta,
+        model,
+        cacheBreakpointTtl:
+          options.historyBreakpointIndex === entries.length ? options.historyBreakpointTtl : undefined,
+      });
       entries.push(entry);
       parentUuid = entry.uuid;
     }
   }
   return entries;
+}
+
+/**
+ * Pick the completed history assistant turn that ends the stable part of a
+ * cache-marked request, or null. Only requests that carry the marked full-lore
+ * prefix (`providerMetadata.marinaraFullLoreContext`) qualify, and only when
+ * they are plain text with no runtime system block left in the system prompt.
+ * The SDK may already spend up to three ephemeral markers on its own request
+ * sections; this adds one history marker, keeping the total at four.
+ *
+ * The mutable tail is everything after that assistant turn: per-turn
+ * injections and the single current user turn, in whatever order the prompt
+ * builder placed them. A turn that ends on an injection placed after the user
+ * turn still gets the marker; requiring the user turn to be last left those
+ * requests without one, so the next turn wrote the whole history again.
+ */
+export function selectHistoryBreakpointIndex(messages: readonly ChatMessage[]): number | null {
+  if (
+    !messages.some((message) => message.role === "system" && message.providerMetadata?.marinaraFullLoreContext === true)
+  ) {
+    return null;
+  }
+  if (
+    messages.some(
+      (message) =>
+        message.role === "system" &&
+        (message.providerMetadata?.marinaraRuntimeContext === true ||
+          message.providerMetadata?.marinaraDynamicLoreContext === true) &&
+        message.content.trim(),
+    )
+  ) {
+    return null;
+  }
+  if (
+    messages.some((message) => {
+      const rawMessage = message as ChatMessage & { cache_control?: unknown; cacheControl?: unknown };
+      return (
+        message.role === "tool" ||
+        Array.isArray(message.content) ||
+        (message.images?.length ?? 0) > 0 ||
+        (message.files?.length ?? 0) > 0 ||
+        (message.media?.length ?? 0) > 0 ||
+        (message.tool_calls?.length ?? 0) > 0 ||
+        rawMessage.cache_control !== undefined ||
+        rawMessage.cacheControl !== undefined
+      );
+    })
+  ) {
+    return null;
+  }
+
+  const nonSystem = messages.filter((message) => message.role !== "system");
+  if (nonSystem.length < 2 || nonSystem.at(-1)?.role !== "user") return null;
+  const lastIndex = nonSystem.length - 1;
+  for (let index = lastIndex - 1; index >= 0; index -= 1) {
+    const candidate = nonSystem[index]!;
+    if (candidate.role !== "assistant" || candidate.contextKind !== "history" || !candidate.content.trim()) continue;
+    const tail = nonSystem.slice(index + 1);
+    const tailUserTurns = tail.filter((message) => message.contextKind === "history").length;
+    if (
+      tailUserTurns === 1 &&
+      tail.every(
+        (message) =>
+          message.role === "user" &&
+          (message.contextKind === "injection" ||
+            message.contextKind === undefined ||
+            message.contextKind === "history"),
+      )
+    ) {
+      return index;
+    }
+  }
+  return null;
 }
 
 // ──────────────────────────────────────────────
