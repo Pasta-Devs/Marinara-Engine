@@ -167,6 +167,9 @@ export async function readCapabilityAchievementProgress(packageId?: string): Pro
   const results = await Promise.all(
     entries.map(async (entry) => {
       try {
+        // ponytail: like capability tools, the deadline bounds asynchronous waits only. Packages run
+        // as trusted code in this process, so a callback that blocks synchronously blocks the event
+        // loop; hard cancellation would need a worker or process boundary this runtime does not have.
         const value = await withDeadline(
           activeProgressReads.run(new Set([...active, entry.packageId]), () => Promise.resolve(entry.readProgress?.())),
           `Capability achievement progress for ${entry.definition.id}`,

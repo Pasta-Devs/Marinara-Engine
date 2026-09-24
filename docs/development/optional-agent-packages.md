@@ -1119,7 +1119,8 @@ Rules worth knowing:
   or neither; the
   Engine unlocks it on the same pass as its own ranked badges once the count reaches the target. Keep
   the counter in the persistence host. A callback that throws, or does not settle within **2 seconds**,
-  reports zero and is logged.
+  reports zero and is logged. As with tools, this bounds asynchronous waits only: synchronous work
+  that blocks the event loop cannot be interrupted.
 - `iconPath` is a path inside the package's asset root, served from the package assets route. A locked
   card still shows the padlock. When the art fails to load, the card falls back to `icon` (default
   `trophy`).
