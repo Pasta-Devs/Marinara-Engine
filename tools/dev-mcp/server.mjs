@@ -612,7 +612,7 @@ tool(
     filter: z.string().optional().describe("Substring of the regression file path"),
     timeoutMinutes: z.number().min(1).max(120).default(20),
   },
-  READ,
+  WRITE,
   async ({ filter, timeoutMinutes }) => out(await regressions(filter, timeoutMinutes * 60_000), 40_000, "regressions"),
 );
 
