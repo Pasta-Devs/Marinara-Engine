@@ -38,7 +38,9 @@ assert.equal(summary.slowest[0]?.stage, "nested.inner", "the summary ranks steps
 const index = readFileSync(new URL("../../packages/server/src/index.ts", import.meta.url), "utf8");
 assert.match(index, /startup\.phase\("app\.build"/u);
 assert.match(index, /Marinara Engine server listening on/u);
-assert.match(index, /logger\.info\(ready, "\[startup\] Ready in %d ms"/u);
+// Info normally; warn when the startup build check found a stale dist (buildStale in the same line).
+assert.match(index, /logger\[buildIntegrity\.stale \? "warn" : "info"\]\(ready, "\[startup\] Ready in %d ms"/u);
+assert.match(index, /buildStale: buildIntegrity\.stale/u);
 assert.match(index, /startup\.stageOf\(err\)/u, "a bootstrap failure names its step");
 
 console.info("Logging startup timeline regression passed");

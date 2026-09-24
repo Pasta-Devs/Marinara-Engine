@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import { logger } from "../lib/logger.js";
+import { verifyDistAgainstMeta } from "../lib/build-integrity.js";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { execFile } from "child_process";
 import { existsSync, readFileSync } from "fs";
@@ -734,6 +735,41 @@ async function runPinnedBuild(root: string) {
   );
 }
 
+/**
+ * Checks the fresh dist against the build-meta.json the build just wrote: every
+ * src module must have its dist file and the built commit must be the update
+ * target. Logs one `update.build.verify` line and throws on a mismatch
+ * (errorCode ME_UPDATE_BUILD_STALE), so a partial build is never announced as a
+ * successful update.
+ */
+export function verifyPinnedBuild(root: string, targetHead: string) {
+  const verify = verifyDistAgainstMeta(resolve(root, "packages", "server"), targetHead);
+  const stale = verify.outcome === "failed" || !verify.commitMatches;
+  const fields = {
+    event: "update.build.verify",
+    outcome: stale ? "failed" : verify.outcome,
+    buildCommit: verify.commit,
+    targetHead,
+    commitMatches: verify.commitMatches,
+    missingCount: verify.missingCount,
+    missingSample: verify.missingInDist,
+    ...(stale ? { errorCode: "ME_UPDATE_BUILD_STALE" } : {}),
+  };
+  if (!stale) {
+    logger.info(fields, "[Update] Built dist verified");
+    return;
+  }
+  logger.warn(fields, "[Update] Built dist does not match the update target");
+  const detail = !verify.commitMatches
+    ? `the build reports commit ${verify.commit ?? "unknown"} instead of ${targetHead}`
+    : verify.missingCount > 0
+      ? `${verify.missingCount} server modules are missing from dist`
+      : "the build metadata is missing or unreadable";
+  throw Object.assign(new Error(`The rebuilt server does not match the update: ${detail}.`), {
+    errorCode: "ME_UPDATE_BUILD_STALE",
+  });
+}
+
 async function resolveLatestReleaseFromGitHub(signal: AbortSignal) {
   const tagsRes = await fetch(GITHUB_TAGS_API, {
     headers: buildRequestHeaders(),
@@ -1220,8 +1256,9 @@ export async function updatesRoutes(app: FastifyInstance) {
       // near-full dependency reinstall, so this step gets a generous budget.
       await runPinnedPnpm(root, PNPM_UPDATE_INSTALL_ARGS, 300_000);
 
-      // Step 3: Rebuild all packages
+      // Step 3: Rebuild all packages, then check dist really is the target build.
       await runPinnedBuild(root);
+      verifyPinnedBuild(root, targetHead);
 
       // Step 4: Signal exit so the user can relaunch with the new version.
       // Send response first, then schedule exit.

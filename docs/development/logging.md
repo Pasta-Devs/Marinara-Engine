@@ -53,6 +53,14 @@ const db = await startup.phase("storage.open", () => getDB());
 
 Phases do not add `stage` to the log context. Services started during a phase keep timers, and those timers would otherwise carry that stage for the life of the process.
 
+### Build check
+
+`pnpm build` writes a source inventory into `dist/config/build-meta.json` (`builtAt`, `srcFileCount` and the sorted list of `src` modules), and fails when a `src` module has no compiled `dist` file after one rebuild with a fresh `tsconfig.tsbuildinfo`.
+
+The first startup phase, `build.integrity` (`lib/build-integrity.ts`), compares that inventory with `dist` and, when `src` is present, with `src`. Under `tsx` (`pnpm dev`) it is skipped. A module missing from `dist`, a `src` file changed after `builtAt` or a `src` file the build never saw logs one warn `startup.build_check` line with `errorCode: "ME_BUILD_STALE"` and the first ten paths of each kind, and the `startup.ready` line then carries `buildStale: true` at warn. A clean build logs at debug. The check never stops the server; on this repository it takes about 60 ms.
+
+The in-app updater runs the same comparison after its rebuild and logs one `update.build.verify` line. A missing module or a build commit that is not the update target fails the update with `ME_UPDATE_BUILD_STALE` instead of reporting success.
+
 ## One line per failure
 
 A failure should produce exactly one line, written by the code that decides what happens next.

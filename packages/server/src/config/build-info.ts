@@ -12,9 +12,15 @@ const MONOREPO_ROOT = resolve(SERVER_ROOT, "../..");
 const BUILD_META_PATH = resolve(__dirname, "build-meta.json");
 const COMMIT_LENGTH = 12;
 
-type BuildMeta = {
+export type BuildMeta = {
   commit?: string | null;
   branch?: string | null;
+  builtAt?: string;
+  srcFileCount?: number;
+  srcNewestMtimeMs?: number;
+  srcNewestFile?: string | null;
+  /** Sorted src-relative .ts paths (forward slashes, no .d.ts) that this build compiled. */
+  srcFiles?: string[];
 };
 
 let cachedCommit: string | null | undefined;
@@ -60,6 +66,11 @@ function readBuildMeta() {
     cachedBuildMeta = null;
   }
   return cachedBuildMeta;
+}
+
+/** The dist build metadata (commit, builtAt, source inventory), or null under tsx or when it is missing. */
+export function getBuildMeta(): BuildMeta | null {
+  return readBuildMeta();
 }
 
 function readBuiltCommit() {
