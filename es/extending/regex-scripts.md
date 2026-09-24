@@ -101,6 +101,8 @@ El campo **Apply To** (aplicar a) decide qué lado del chat vigila un script. Al
 
 Usa **AI Output** para limpiar lo que escribe el modelo. Usa **User Input** para corregir o reformar tu propio texto.
 
+Con **Only Prompt** o **Both**, en un chat **Roleplay** con el modo de grupo **Individual** (respuestas individuales), la aplicación depende del personaje que recibe el prompt: tus mensajes y los de otros personajes usan **User Input**, mientras que las respuestas propias del personaje que va a responder usan **AI Output**. Esto también se aplica a las respuestas anteriores del mismo turno del grupo. Las restricciones por personaje siguen determinando quién recibe el prompt modificado, así que un narrador excluido de un script que oculta pensamientos conserva los pensamientos originales. Usa **Only Prompt** para mantener intacto el texto guardado del chat.
+
 ## Apply Mode: Only Display, Only Prompt o Both
 
 El selector **Apply Mode** (modo de aplicación) vive dentro de **Advanced Options** (opciones avanzadas). Decide cuándo tiene efecto la reescritura. Esto es distinto de la ubicación. Un script nuevo empieza en **Only Display**.

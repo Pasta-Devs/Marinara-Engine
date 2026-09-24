@@ -101,6 +101,8 @@ She smiles Hello there.
 
 想整理模型写出来的内容就用 **AI Output**，想修正或重塑自己写的文字就用 **User Input**。
 
+在使用**Individual**(单独回复)群聊模式的**Roleplay**(角色扮演)聊天中，选择**Only Prompt**或**Both**时，应用范围以接收提示词的角色为准：你的消息和其他角色的消息使用**User Input**，即将回复的角色自己此前的回复使用**AI Output**。同一轮群聊中较早生成的回复也遵循这条规则。角色限制仍然决定谁会收到改写后的提示词，因此，如果隐藏想法的脚本排除了旁白，旁白仍会收到原本的想法。要保留已保存的聊天原文，选择**Only Prompt**。
+
 ## Apply Mode：Only Display、Only Prompt 还是 Both
 
 **Apply Mode**(应用模式) 选择器在 **Advanced Options**(高级选项) 里面，决定改写在什么时候生效。它和生效环节是两回事。新脚本默认是 **Only Display**。

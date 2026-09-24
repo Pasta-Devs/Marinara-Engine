@@ -101,6 +101,8 @@ Das Feld **Apply To** (Anwenden auf) legt fest, welche Seite des Chats ein Skrip
 
 Nimm **AI Output**, um aufzuräumen, was das Modell schreibt. Nimm **User Input**, um deinen eigenen Text zu korrigieren oder umzuformen.
 
+Bei **Only Prompt** und **Both** in einem **Roleplay**-Chat mit dem Gruppenmodus **Individual** (einzelne Antworten) richtet sich der Anwendungsbereich nach dem Charakter, der den Prompt erhält: Deine Nachrichten und die Nachrichten anderer Charaktere fallen unter **User Input**, die eigenen Antworten des antwortenden Charakters unter **AI Output**. Das gilt auch für Antworten früher im selben Gruppenzug. Die Charakterbeschränkungen bestimmen weiterhin, wer den umgeschriebenen Prompt erhält. Ein Erzähler, der von einem Skript zum Ausblenden von Gedanken ausgenommen ist, erhält deshalb die ursprünglichen Gedanken. Wähle **Only Prompt**, damit der gespeicherte Chattext unverändert bleibt.
+
 ## Apply Mode: Only Display, Only Prompt oder Both
 
 Die Auswahl **Apply Mode** (Wirkungsbereich) sitzt in den **Advanced Options** (Erweiterte Optionen). Sie bestimmt, wann die Umschreibung greift – unabhängig von der Platzierung. Ein neues Skript startet mit **Only Display**.
