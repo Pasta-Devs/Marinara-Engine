@@ -63,7 +63,7 @@ for (const theme of ["light", "dark"] as const) {
       await page.keyboard.press("Enter");
       await expect(lorebook).toBeVisible();
       await expect(lorebook.locator("textarea")).toHaveValue("### Library\n\nA quiet library.");
-      expect(commits).toEqual([]);
+      await expect.poll(() => commits).toEqual([]);
       await page.screenshot({ path: info.outputPath(`review-focus-${theme}.png`) });
 
       await page.keyboard.press("Tab");
@@ -79,7 +79,7 @@ for (const theme of ["light", "dark"] as const) {
       await page.keyboard.press("Enter");
       await expect(summary).toBeVisible();
       await expect(summary.locator("textarea")).toHaveValue("The group visited the library.");
-      expect(commits).toEqual([
+      await expect.poll(() => commits).toEqual([
         {
           kind: "lorebook_update",
           text: "### Library\n\nAn edited library.",
