@@ -644,7 +644,27 @@ and an opponent could not pay for anything out of a pool it did not have.
   `holdRulesetCombatant` caps defense, to-hit and save difficulties and scales the best round,
   counting the biggest affordable payment, on the combatant itself. The block parts beside the sheet
   still go through the plain clamp. The blueprint prompt carries an `EncounterSheetBrief`: the ids,
-  what each may hold, the lists a fight reads and up to 60 catalog names per list.
+  what each may hold, the lists a fight reads, the field each list's catalogs are opened by, and up
+  to 60 catalog names per list.
+- **An invented enemy that is not a boss follows its ruleset's own classes** (the user's ruling:
+  "so that Sorcerers don't have access to the entire spell list"). No format change was needed: a
+  catalog filter's `startFrom` already names the sheet field its entries are organised by, and
+  `restrictRulesetSheetEntries` keeps only entries whose filter matches the sheet's value, matched
+  by `sheetFieldMatchTexts` (moved to shared so the picker and the fight agree). Slot counts per
+  class level are NOT declared by any ruleset (5e types them into fields), so there is no class
+  table to hold them to; the tier hold bounds what they buy.
+- **Open choices are filled by temperament and competence, with no model call.**
+  `fillRulesetSheetChoices` fills every list a creature chooses from (an ability source with
+  `onlyWhen`) with entries open to it and payable from its own pools, a fixed count per pool rung and
+  at will by competence (a `ponytail:` ceiling until a ruleset can declare the count), weighted by
+  the entry's nature (harm, support, control, or what bends the turn) against the combat AI's own
+  temperament, with competence raising what bends the turn. The route gives the enemy its tactics
+  before the fight is built, from the same unit and seed the picker would, so the creature fills
+  and fights with one temperament. A boss is exempt from both: the Game Master writes it in full.
+- **A layer that narrows an enum field never costs a creature.** Creature sheets are held to enum
+  values only against the definition as written: `refineRulesetDefinition` passes `layersApplied`,
+  and the game's catalog loader, which may hold a layered definition, passes `narrowedByLayers`, so a
+  layer is never silently dropped and a bestiary file never refused over a value a layer took out.
 - **`no-health`.** A sheet that adds up to no health is left out at fight time with a reason of its
   own, rather than joining unkillable. A bestiary is already refused at import for a field outside
   its range, so this is reached by a formula that adds up to zero or by a hand-built block.
