@@ -3,7 +3,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { basename, extname, relative, resolve, sep, win32 } from "node:path";
 import { brotliDecompressSync, gunzipSync, zstdDecompressSync } from "node:zlib";
 import { Agent } from "undici";
-import { isLoopbackIp, isPrivateNetworkIp } from "../middleware/ip-allowlist.js";
+import { isLoopbackIp, isNonRoutableNetworkIp, isPrivateNetworkIp } from "../middleware/ip-allowlist.js";
 import { logger } from "../lib/logger.js";
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from "@marinara-engine/shared";
 import { requestHeadersWithOpenRouterAttribution } from "./openrouter-attribution.js";
@@ -211,7 +211,9 @@ const RESERVED_CIDRS = [...RESERVED_IPV4_CIDRS, ...RESERVED_IPV6_CIDRS]
   .filter((entry): entry is CidrEntry => Boolean(entry));
 
 function isReservedIp(ip: string): boolean {
-  if (isLoopbackIp(ip) || isPrivateNetworkIp(ip)) return true;
+  // Built-in ranges always count, so a narrowed TRUSTED_PRIVATE_NETWORKS cannot unblock them;
+  // operator-added ranges also count, so a widened list keeps its internal hosts blocked.
+  if (isLoopbackIp(ip) || isNonRoutableNetworkIp(ip) || isPrivateNetworkIp(ip)) return true;
   const bytes = ipToBytes(ip);
   if (!bytes) return true;
   return RESERVED_CIDRS.some((cidr) => matchesCidr(bytes, cidr));
@@ -602,6 +604,8 @@ const CROSS_ORIGIN_REDIRECT_STRIPPED_HEADERS = [
   "xi-api-key",
   "x-api-key",
   "api-key",
+  "x-goog-api-key",
+  "apikey",
   "x-opencode-session",
   "content-type",
   "content-length",
@@ -671,8 +675,9 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
       dispatcher: dispatcher ?? internalDispatcher,
     } as unknown as RequestInit);
     if (response.status >= 300 && response.status < 400 && response.headers.has("location")) {
-      if (i === redirects) throw new Error("Outbound request exceeded redirect limit");
+      await response.body?.cancel().catch(() => undefined);
       await internalDispatcher?.close().catch(() => undefined);
+      if (i === redirects) throw new Error("Outbound request exceeded redirect limit");
       const previousUrl = current.url;
       const nextUrl = new URL(response.headers.get("location")!, previousUrl);
       if (nextUrl.origin !== previousUrl.origin) {

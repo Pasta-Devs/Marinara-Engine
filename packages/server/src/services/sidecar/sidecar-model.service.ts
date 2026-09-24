@@ -31,6 +31,7 @@ import { mlxRuntimeService } from "./mlx-runtime.service.js";
 import { sidecarRuntimeService } from "./sidecar-runtime.service.js";
 import { assertSupportedLlamaCppModelPath, isSupportedLlamaCppModelFilename } from "./sidecar-model-files.js";
 import { logger } from "../../lib/logger.js";
+import { logSuppressed } from "../../lib/best-effort.js";
 
 export const MODELS_DIR = join(getDataDir(), "models");
 export const CUSTOM_MODELS_DIR = join(MODELS_DIR, "custom");
@@ -388,7 +389,13 @@ class SidecarModelService {
       }
     }
 
-    unlinkSync(previousPath);
+    try {
+      unlinkSync(previousPath);
+    } catch (error) {
+      // The new model is already committed; a locked old file (Windows, llama-server still
+      // holding it open) must not undo the switch, so leave it on disk.
+      logSuppressed(error, { event: "sidecar.model.cleanup", stage: "unlink-previous", path: previousPath });
+    }
   }
 
   private async fetchRepoInfo(repo: string): Promise<HuggingFaceModelApiResponse> {
@@ -627,9 +634,9 @@ class SidecarModelService {
         this.emitProgress(this.buildModelErrorProgress(error), onProgress);
         throw error;
       }
-      this.cleanupPreviousModel(previousConfig, nextConfig);
       this.config = nextConfig;
       this.saveConfig();
+      this.cleanupPreviousModel(previousConfig, nextConfig);
       this.status = "downloaded";
       return;
     }
@@ -646,9 +653,9 @@ class SidecarModelService {
       customModelRepo: null,
     };
     if (existsSync(destination) && this.isUsableModelFile(destination, expectedBytes)) {
-      this.cleanupPreviousModel(previousConfig, nextConfig);
       this.config = nextConfig;
       this.saveConfig();
+      this.cleanupPreviousModel(previousConfig, nextConfig);
       this.status = "downloaded";
       const downloadedBytes = expectedBytes ?? statSync(destination).size;
       this.emitProgress(
@@ -682,9 +689,9 @@ class SidecarModelService {
       onProgress,
     );
 
-    this.cleanupPreviousModel(previousConfig, nextConfig);
     this.config = nextConfig;
     this.saveConfig();
+    this.cleanupPreviousModel(previousConfig, nextConfig);
     this.status = "downloaded";
   }
 
@@ -752,9 +759,9 @@ class SidecarModelService {
         this.emitProgress(this.buildModelErrorProgress(error), onProgress);
         throw error;
       }
-      this.cleanupPreviousModel(previousConfig, nextConfig);
       this.config = nextConfig;
       this.saveConfig();
+      this.cleanupPreviousModel(previousConfig, nextConfig);
       this.status = "downloaded";
       return selected;
     }
@@ -804,9 +811,9 @@ class SidecarModelService {
       );
     }
 
-    this.cleanupPreviousModel(previousConfig, nextConfig);
     this.config = nextConfig;
     this.saveConfig();
+    this.cleanupPreviousModel(previousConfig, nextConfig);
     this.status = "downloaded";
     return selected;
   }
@@ -921,6 +928,10 @@ class SidecarModelService {
 
   setStatus(status: SidecarStatus): void {
     this.status = status;
+  }
+
+  isDownloadingModel(): boolean {
+    return this.status === "downloading_model";
   }
 
   emitExternalProgress(progress: SidecarDownloadProgress): void {

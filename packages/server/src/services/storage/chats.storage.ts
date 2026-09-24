@@ -39,7 +39,7 @@ import {
   conversationCallMessages,
   lorebookEntries,
 } from "../../db/schema/index.js";
-import { newId, now } from "../../utils/id-generator.js";
+import { newId, newTimeSortableId, now } from "../../utils/id-generator.js";
 import { parseSourceMessageRefs } from "./lorebook-provenance.js";
 import { existsSync, rmSync } from "fs";
 import { join } from "path";
@@ -557,13 +557,13 @@ function isValidLegacySchedule(value: unknown): value is WeekSchedule {
       Array.isArray(day) &&
       day.every(
         (block) =>
-          (isPlainRecord(block) &&
-            typeof block.time === "string" &&
-            typeof block.activity === "string" &&
-            block.status === "online") ||
-          block.status === "idle" ||
-          block.status === "dnd" ||
-          block.status === "offline",
+          isPlainRecord(block) &&
+          typeof block.time === "string" &&
+          typeof block.activity === "string" &&
+          (block.status === "online" ||
+            block.status === "idle" ||
+            block.status === "dnd" ||
+            block.status === "offline"),
       ),
   );
 }
@@ -2465,10 +2465,18 @@ export function createChatsStorage(db: DB) {
           existingExtra.conversationCommandContent.trim() !== "" &&
           existingExtra.commandOnly !== true &&
           content !== (existing?.content ?? "");
+        // Stored Gemini parts are replayed in place of `content` on later turns, so
+        // an edit must drop them too or Gemini keeps reading the pre-edit text.
+        const contentChanged = content !== (existing?.content ?? "");
+        const clearGeminiParts = contentChanged && existingExtra.geminiParts != null;
 
         const messagePatch: Record<string, unknown> = { content };
-        if (clearCommandContent) {
-          messagePatch.extra = JSON.stringify({ ...existingExtra, conversationCommandContent: null });
+        if (clearCommandContent || clearGeminiParts) {
+          messagePatch.extra = JSON.stringify({
+            ...existingExtra,
+            ...(clearCommandContent ? { conversationCommandContent: null } : {}),
+            ...(clearGeminiParts ? { geminiParts: null } : {}),
+          });
         }
         // One transaction around the messages row and its swipe mirror
         // (#5600): the store defers flushes while a transaction is active, so
@@ -2487,17 +2495,21 @@ export function createChatsStorage(db: DB) {
             const activeSwipe = swipes.find((s: any) => s.index === msg.activeSwipeIndex);
             if (activeSwipe) {
               const swipePatch: Record<string, unknown> = { content };
-              if (clearCommandContent) {
-                const swipeExtra = parseExtraRecord(activeSwipe.extra);
-                // Clear only a raw copy this swipe itself carries, and never a
-                // command-only carrier's.
-                if (
-                  typeof swipeExtra.conversationCommandContent === "string" &&
-                  swipeExtra.conversationCommandContent.trim() !== "" &&
-                  swipeExtra.commandOnly !== true
-                ) {
-                  swipePatch.extra = JSON.stringify({ ...swipeExtra, conversationCommandContent: null });
-                }
+              const swipeExtra = parseExtraRecord(activeSwipe.extra);
+              // Clear only a raw copy this swipe itself carries, and never a
+              // command-only carrier's.
+              const clearSwipeCommandContent =
+                clearCommandContent &&
+                typeof swipeExtra.conversationCommandContent === "string" &&
+                swipeExtra.conversationCommandContent.trim() !== "" &&
+                swipeExtra.commandOnly !== true;
+              const clearSwipeGeminiParts = contentChanged && swipeExtra.geminiParts != null;
+              if (clearSwipeCommandContent || clearSwipeGeminiParts) {
+                swipePatch.extra = JSON.stringify({
+                  ...swipeExtra,
+                  ...(clearSwipeCommandContent ? { conversationCommandContent: null } : {}),
+                  ...(clearSwipeGeminiParts ? { geminiParts: null } : {}),
+                });
               }
               await db
                 .update(messageSwipes)
@@ -3169,6 +3181,10 @@ export function createChatsStorage(db: DB) {
         const swipes = await this.getSwipes(messageId);
         const target = swipes.find((s: any) => s.index === index);
         if (!target) return null;
+        // Selecting the swipe that is already active is a no-op. Running the backfill and then
+        // restoring the pre-read target snapshot would drop message-only data such as attachments.
+        const current = await this.getMessage(messageId);
+        if (current && (current.activeSwipeIndex ?? 0) === index) return current;
         await reconcileEffects(await readMessage(messageId), true, locked);
 
         // Before switching, save current message content and extra onto the outgoing swipe.
@@ -3401,6 +3417,44 @@ export function createChatsStorage(db: DB) {
       });
     },
 
+    /**
+     * Append an attachment to a swipe row and, when that swipe is still active, to the message mirror,
+     * in one critical section. Doing the two writes as separate queued calls lets a swipe switch run in
+     * between: it copies the mirror (without the attachment) over the swipe row, erasing it, or makes
+     * the mirror belong to another swipe. Returns the updated message when the mirror was written.
+     */
+    async appendSwipeAttachmentAndActiveMirror(
+      messageId: string,
+      swipeIndex: number,
+      attachment: Record<string, unknown>,
+    ) {
+      return withPatchQueue(messageExtraPatchQueues, messageId, async () => {
+        const swipes = await this.getSwipes(messageId);
+        const target = swipes.find((s: any) => s.index === swipeIndex);
+        // A message can have no swipe rows (for example after a trash restore of a
+        // snapshot without swipes). Skip only the swipe write then; the active-message
+        // mirror below still keeps the attachment.
+        if (target) {
+          const swipeExtra = parseExtraRecord(target.extra);
+          const swipeAttachments = Array.isArray(swipeExtra.attachments) ? swipeExtra.attachments : [];
+          await db
+            .update(messageSwipes)
+            .set({ extra: JSON.stringify({ ...swipeExtra, attachments: [...swipeAttachments, attachment] }) })
+            .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.id, target.id)));
+        }
+        const msg = await this.getMessage(messageId);
+        if (!msg || (msg.activeSwipeIndex ?? 0) !== swipeIndex) return null;
+        const msgExtra = parseExtraRecord(msg.extra);
+        const msgAttachments = Array.isArray(msgExtra.attachments) ? msgExtra.attachments : [];
+        await db
+          .update(messages)
+          .set({ extra: JSON.stringify({ ...msgExtra, attachments: [...msgAttachments, attachment] }) })
+          .where(and(eq(messages.id, messageId), eq(messages.activeSwipeIndex, swipeIndex)));
+        const next = await this.getMessage(messageId);
+        return next && (next.activeSwipeIndex ?? 0) === swipeIndex ? next : null;
+      });
+    },
+
     // ── Chat Connections ──
 
     /** Bidirectionally link two chats. */
@@ -3470,7 +3524,8 @@ export function createChatsStorage(db: DB) {
 
     /** Create a durable note from a conversation → its connected roleplay, then prune oldest past the char budget. */
     async createNote(sourceChatId: string, targetChatId: string, content: string, anchorMessageId?: string) {
-      const id = newId();
+      // Time-sortable so the id tie-break below follows creation order when createdAt ties.
+      const id = newTimeSortableId();
       await db.insert(conversationNotes).values({
         id,
         sourceChatId,
@@ -3487,11 +3542,12 @@ export function createChatsStorage(db: DB) {
         .orderBy(desc(conversationNotes.createdAt), desc(conversationNotes.id));
 
       const toDelete: string[] = [];
-      let total = 0;
+      // Always keep the note just created even if it alone exceeds the budget.
+      let total = content.length;
       for (let i = 0; i < all.length; i++) {
+        if (all[i]!.id === id) continue;
         total += all[i]!.content.length;
-        // Always keep the newest note even if it alone exceeds the budget.
-        if (i > 0 && total > CONVERSATION_NOTES_BUDGET_CHARS) {
+        if (total > CONVERSATION_NOTES_BUDGET_CHARS) {
           toDelete.push(all[i]!.id);
         }
       }

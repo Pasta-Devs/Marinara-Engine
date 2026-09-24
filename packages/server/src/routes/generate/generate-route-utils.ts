@@ -1486,7 +1486,7 @@ export function injectIntoOutputFormatOrLastUser(
     if (msg.content.includes("</output_format>")) {
       messages[i] = {
         ...msg,
-        content: msg.content.replace("</output_format>", prefix + block + "\n</output_format>"),
+        content: msg.content.replace("</output_format>", () => prefix + block + "\n</output_format>"),
       };
       return;
     }

@@ -473,6 +473,7 @@ import {
   validateSpriteExpressionEntries,
 } from "./generate/expression-agent-utils.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
+import { logSuppressed } from "../lib/best-effort.js";
 import {
   buildHistoricalLorebookKeeperContext,
   customAgentUsesLorebookReadBehind,
@@ -1748,6 +1749,9 @@ export async function generateRoutes(app: FastifyInstance) {
         rawSelectedGameStateSnapshotPromise,
         ownerSpatialProjectionPromise,
       ]).then(([snapshot, projection]) => projectGameSnapshotLocation(snapshot, projection));
+      // Mark a rejection as handled right away so it cannot become an unhandledRejection (which exits the
+      // process) on turns that never await it; the real awaits below still receive the rejection.
+      void selectedGameStateSnapshotPromise.catch(() => undefined);
       const selectedGameStateForPrompt = async (): Promise<Record<string, unknown> | null> => {
         const row = await selectedGameStateSnapshotPromise;
         return row ? (parseGameStateRow(row as Record<string, unknown>) as unknown as Record<string, unknown>) : null;
@@ -3349,6 +3353,9 @@ export async function generateRoutes(app: FastifyInstance) {
               maxContext: conn.maxContext,
               openrouterProvider: conn.openrouterProvider,
               maxTokensOverride: conn.maxTokensOverride,
+              claudeFastMode: conn.claudeFastMode,
+              treatAsLocalEndpoint: conn.treatAsLocalEndpoint,
+              defaultParameters: conn.defaultParameters,
             },
             connectionId: conn.id,
             baseUrl,
@@ -3359,6 +3366,7 @@ export async function generateRoutes(app: FastifyInstance) {
               signal: abortController.signal,
             },
             summaryVectorizerAvailable: memoryRecallVectorizerAvailable,
+            signal: abortController.signal,
           });
           finalMessages = preparedHistory.finalMessages;
 
@@ -3582,9 +3590,9 @@ export async function generateRoutes(app: FastifyInstance) {
           if (crossChatEnabled && !input.regenerateMessageId && !conversationScopesAwarenessToResponder) {
             const { buildAwarenessBlock } = await import("../services/conversation/awareness.service.js");
             const charNameMap = new Map<string, string>();
-            for (let ci = 0; ci < characterIds.length; ci++) {
-              if (convoCharInfo[ci]) charNameMap.set(characterIds[ci]!, convoCharInfo[ci]!.name);
-            }
+            // Key by each entry's own id: convoCharInfo skips ids whose character row is missing,
+            // so pairing by index with characterIds would shift names onto the wrong characters.
+            for (const info of convoCharInfo) charNameMap.set(info.charId, info.name);
             convoAwarenessBlock = await buildAwarenessBlock(
               app.db,
               input.chatId,
@@ -3802,7 +3810,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
         // Skip OOC injection entirely for scene chats — scenes are self-contained
         const isSceneChat = chatMeta.sceneStatus === "active";
-        await injectConnectedConversationPromptBlocks({
+        const { consumedInfluenceIds: injectedConnectedInfluenceIds } = await injectConnectedConversationPromptBlocks({
           chatMode,
           connectedChatId: chat.connectedChatId,
           isSceneChat,
@@ -3810,6 +3818,24 @@ export async function generateRoutes(app: FastifyInstance) {
           chats,
           finalMessages,
         });
+
+        // Marked only after a message for this turn is saved, so a failed or stopped
+        // generation keeps its OOC influences pending for the retry.
+        const markInjectedConnectedInfluencesConsumed = async () => {
+          const ids = injectedConnectedInfluenceIds.splice(0);
+          for (const id of ids) {
+            try {
+              await chats.markInfluenceConsumed(id, input.chatId);
+            } catch (err) {
+              logSuppressed(err, {
+                event: "generation.influence_consume",
+                stage: "influence.consume",
+                chatId: input.chatId,
+                influenceId: id,
+              });
+            }
+          }
+        };
 
         const noodlePromptContext = getCapabilityService<{
           build(input: {
@@ -7921,9 +7947,26 @@ export async function generateRoutes(app: FastifyInstance) {
               if (rollRequestAbort?.signal.aborted)
                 result = { ...result, content: fullResponse.slice(roundResponseStart), toolCalls: [] };
 
+              // A provider that parsed textual tool calls out of streamed content (for example
+              // <tool_call>{...}</tool_call> from a local model) returns empty content plus the calls,
+              // but the markup already went through onToken. Drop this round's streamed text so the
+              // raw tool-call markup is not saved with the reply, matching the non-streaming path.
+              if (
+                !gameToolPlan &&
+                result.toolCalls.length &&
+                !result.content &&
+                fullResponse.length > roundResponseStart
+              ) {
+                fullResponse = fullResponse.slice(0, roundResponseStart);
+                if (input.streaming && !holdForTextRewrite) {
+                  sendSseEvent(reply, { type: "content_replace", data: fullResponse });
+                }
+              }
+
               // If provider doesn't support onToken (fell back to non-streaming),
-              // write the content conventionally
-              if (result.content && !fullResponse.endsWith(result.content)) {
+              // write the content conventionally. Only when nothing streamed this round: a suffix
+              // test would drop a round whose text happens to end what an earlier round wrote.
+              if (result.content && fullResponse.length === roundResponseStart) {
                 await writeContentChunked(result.content);
               }
 
@@ -9188,25 +9231,56 @@ export async function generateRoutes(app: FastifyInstance) {
                 input.chatId,
               );
               if (input.regenerateMessageId) await chats.addSwipe(input.regenerateMessageId, "");
+              // A continuation anchors to the message being continued, the same message the normal
+              // save path updates, instead of adding a new hidden message after it. That message
+              // already has visible prose, so it keeps its own extra and is not marked hidden.
               const savedMsg = input.regenerateMessageId
                 ? await chats.getMessage(input.regenerateMessageId)
-                : await chats.createMessage({
-                    chatId: input.chatId,
-                    role: "assistant",
-                    characterId: targetCharId,
-                    content: "",
-                  });
-              const anchoredMsg = savedMsg?.id
-                ? await chats.updateMessageExtra(savedMsg.id, {
-                    hiddenFromUser: !sceneRequest,
-                    hiddenFromAI: !conversationCommandContent,
-                    commandOnly: true,
-                    sceneRequest,
-                    conversationCommandContent: conversationCommandContent ?? null,
-                    isGenerated: true,
-                    encryptedReasoning: encryptedReasoningItems?.length ? encryptedReasoningItems : null,
-                  })
-                : savedMsg;
+                : input.continueMessageId
+                  ? ((await chats.getMessage(input.continueMessageId)) ?? continueTargetMessage)
+                  : await chats.createMessage({
+                      chatId: input.chatId,
+                      role: "assistant",
+                      characterId: targetCharId,
+                      content: "",
+                    });
+              let anchoredMsg = savedMsg;
+              if (savedMsg?.id && !input.continueMessageId) {
+                anchoredMsg = await chats.updateMessageExtra(savedMsg.id, {
+                  hiddenFromUser: !sceneRequest,
+                  hiddenFromAI: !conversationCommandContent,
+                  commandOnly: true,
+                  sceneRequest,
+                  conversationCommandContent: conversationCommandContent ?? null,
+                  isGenerated: true,
+                  encryptedReasoning: encryptedReasoningItems?.length ? encryptedReasoningItems : null,
+                });
+              } else if (savedMsg?.id && input.continueMessageId) {
+                // The continued message keeps its visible prose and flags. Only record what this
+                // command-only continuation issued, so later prompts still show the model its command.
+                const continuedExtraPatch: Record<string, unknown> = {};
+                if (chatMode === "conversation" && !input.impersonate && conversationCommandContent) {
+                  const continuedExtra = parseExtra(savedMsg.extra);
+                  const existingCommandContent =
+                    typeof continuedExtra.conversationCommandContent === "string" &&
+                    continuedExtra.conversationCommandContent.trim()
+                      ? continuedExtra.conversationCommandContent
+                      : typeof savedMsg.content === "string"
+                        ? savedMsg.content
+                        : "";
+                  continuedExtraPatch.conversationCommandContent = appendContinuationMessageContent(
+                    existingCommandContent,
+                    conversationCommandContent,
+                    input.continueAddsNewline,
+                  );
+                }
+                if (sceneRequest) continuedExtraPatch.sceneRequest = sceneRequest;
+                if (encryptedReasoningItems?.length) continuedExtraPatch.encryptedReasoning = encryptedReasoningItems;
+                if (Object.keys(continuedExtraPatch).length > 0) {
+                  anchoredMsg = (await chats.updateMessageExtra(savedMsg.id, continuedExtraPatch)) ?? savedMsg;
+                }
+              }
+              if (anchoredMsg?.id) await markInjectedConnectedInfluencesConsumed();
               if (sceneRequest && anchoredMsg?.id) {
                 sendSseEvent(reply, { type: "message_saved", data: anchoredMsg });
               }
@@ -9229,7 +9303,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     messageId: anchoredMsg.id,
                     swipeIndex: anchoredMsg.activeSwipeIndex ?? 0,
                     regenerate: Boolean(input.regenerateMessageId),
-                    continuation: false,
+                    continuation: Boolean(input.continueMessageId),
                     directive: assistantSpatialDirective,
                   },
                   chatMeta,
@@ -9249,7 +9323,7 @@ export async function generateRoutes(app: FastifyInstance) {
               if (markGenerationCommitted && anchoredMsg?.id) {
                 generationComplete = true;
               }
-              if (chatMode === "conversation" && !input.regenerateMessageId) {
+              if (chatMode === "conversation" && !input.regenerateMessageId && !input.continueMessageId) {
                 recordAssistantActivity(
                   input.chatId,
                   input.autonomous ? (targetCharId ?? undefined) : undefined,
@@ -9384,6 +9458,7 @@ export async function generateRoutes(app: FastifyInstance) {
             });
             savedSwipeIndex = 0;
           }
+          if (savedMsg?.id) await markInjectedConnectedInfluencesConsumed();
           // Empty messageId on the paths that save no message; that costs the claim, never the effect.
           if (savedMsg?.id && savedSwipeIndex !== null && outputTranslationConfig && !input.impersonate) {
             translationMessages.set(savedMsg.id, savedSwipeIndex);
@@ -10868,8 +10943,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       name: command.description,
                       url: `/api/game-assets/file/${audio.path.split("/").map(encodeURIComponent).join("/")}`,
                     };
-                    await chats.appendSwipeAttachment(request.messageId, request.swipeIndex, attachment);
-                    const message = await chats.appendMessageAttachmentForActiveSwipe(
+                    const message = await chats.appendSwipeAttachmentAndActiveMirror(
                       request.messageId,
                       request.swipeIndex,
                       attachment,
@@ -11513,6 +11587,10 @@ export async function generateRoutes(app: FastifyInstance) {
                         for (const npc of charsNeedingAvatars) {
                           try {
                             const npcName = npc.name as string;
+                            // Same guard as the disk lookup: a name with no letters or digits has
+                            // no slug and would be written to a shared "<chatId>/.png".
+                            const safeName = npcAvatarSlug(npcName);
+                            if (!safeName) continue;
                             const appearance = (npc.appearance as string) || "";
                             const outfit = (npc.outfit as string) || "";
                             const prompt =
@@ -11544,7 +11622,6 @@ export async function generateRoutes(app: FastifyInstance) {
                             });
 
                             // Save to NPC avatars directory
-                            const safeName = npcAvatarSlug(npcName);
                             const npcDir = join(NPC_AVATAR_DIR, input.chatId);
                             if (!existsSync(npcDir)) mkdirSync(npcDir, { recursive: true });
                             writeFileSync(join(npcDir, `${safeName}.png`), Buffer.from(imageResult.base64, "base64"));
@@ -12103,10 +12180,21 @@ export async function generateRoutes(app: FastifyInstance) {
             ) {
               const illData = result.data as Record<string, unknown>;
               const shouldGenerate = illData.shouldGenerate === true;
-              const imagePrompt = ((illData.prompt as string) ?? "").trim();
-              const negativePrompt = ((illData.negativePrompt as string) ?? "").trim();
-              const style = ((illData.style as string) ?? "").trim();
-              const illCharacters = Array.isArray(illData.characters) ? (illData.characters as string[]) : [];
+              // Agent JSON is untyped: a non-string field must not throw from .trim() and abort the turn.
+              const imagePrompt = typeof illData.prompt === "string" ? illData.prompt.trim() : "";
+              const negativePrompt = typeof illData.negativePrompt === "string" ? illData.negativePrompt.trim() : "";
+              const style =
+                typeof illData.style === "string"
+                  ? illData.style.trim()
+                  : Array.isArray(illData.style)
+                    ? illData.style
+                        .filter((s): s is string => typeof s === "string")
+                        .join(", ")
+                        .trim()
+                    : "";
+              const illCharacters = Array.isArray(illData.characters)
+                ? illData.characters.filter((c): c is string => typeof c === "string")
+                : [];
               const resultAgent = resolvedAgents.find((agent) => agent.id === result.agentId);
               const fallbackIllustratorAgent = resolvedAgents.find((agent) => agent.type === "illustrator");
               const imagePromptAgent =
@@ -12126,7 +12214,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
               // Always log what the illustrator decided
               logger.debug(
-                `[illustrator] shouldGenerate=${shouldGenerate}, generateBackground=${requestedBackground}, reason="${(illData.reason as string) ?? "none"}", prompt="${imagePrompt.slice(0, 500) || "(empty)"}"${illData.parseError ? " [JSON PARSE ERROR — raw: " + ((illData.raw as string) ?? "").slice(0, 300) + "]" : ""}`,
+                `[illustrator] shouldGenerate=${shouldGenerate}, generateBackground=${requestedBackground}, reason="${typeof illData.reason === "string" ? illData.reason : "none"}", prompt="${imagePrompt.slice(0, 500) || "(empty)"}"${illData.parseError ? " [JSON PARSE ERROR — raw: " + ((illData.raw as string) ?? "").slice(0, 300) + "]" : ""}`,
               );
 
               if (!commandTarget && automaticBackgroundsEnabled && illustratorBackgroundAgent) {
@@ -12583,15 +12671,11 @@ export async function generateRoutes(app: FastifyInstance) {
                           };
 
                           // Always persist to the swipe row so the attachment survives
-                          // swipe switches even if the user has already navigated away.
-                          await chats.appendSwipeAttachment(messageId, targetSwipeIndex, attachment);
-
-                          // Also update the live message row if this swipe is still active,
-                          // so the SSE illustration event is immediately visible.
-                          const msgRow = await chats.getMessage(messageId);
-                          if (msgRow && (msgRow.activeSwipeIndex ?? 0) === targetSwipeIndex) {
-                            await chats.appendMessageAttachment(messageId, attachment);
-                          }
+                          // swipe switches even if the user has already navigated away, and
+                          // update the live message row if this swipe is still active, so the
+                          // SSE illustration event is immediately visible. One locked step, so a
+                          // swipe switch cannot land between the two writes.
+                          await chats.appendSwipeAttachmentAndActiveMirror(messageId, targetSwipeIndex, attachment);
                         }
 
                         // Notify client
@@ -12601,7 +12685,7 @@ export async function generateRoutes(app: FastifyInstance) {
                             messageId,
                             imageUrl,
                             prompt: renderedPrompt,
-                            reason: illData.reason,
+                            reason: typeof illData.reason === "string" ? illData.reason : undefined,
                             galleryId: (galleryEntry as any)?.id,
                           },
                         });
@@ -12609,7 +12693,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       logger.info(
                         "[illustrator] Generated %d illustration(s): %s...",
                         imageResults.length,
-                        (illData.reason as string)?.slice(0, 80) ?? imagePrompt.slice(0, 80),
+                        (typeof illData.reason === "string" ? illData.reason : imagePrompt).slice(0, 80),
                       );
                     } catch (illErr) {
                       logger.error(illErr, "[illustrator] Image generation failed");
@@ -12858,6 +12942,8 @@ export async function generateRoutes(app: FastifyInstance) {
           };
           try {
             for (const { command, characterId, messageId, swipeIndex } of collectedCommands) {
+              // A Stop pressed while an earlier command ran skips the rest.
+              if (abortController.signal.aborted) break;
               try {
                 await handleConversationScheduleCommand({
                   command,
@@ -12910,6 +12996,7 @@ export async function generateRoutes(app: FastifyInstance) {
                   sendEvent: (payload) => {
                     sendSseEvent(reply, payload);
                   },
+                  signal: abortController.signal,
                 });
 
                 await handleConversationCallCommand({

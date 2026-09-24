@@ -5,7 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { isOpenAIGptImageModel, isOpenAIGptImage2Model, supportsOpenAIImageCustomSize } from "@marinara-engine/shared";
 import AdmZip from "adm-zip";
 import { execFile } from "child_process";
-import { existsSync, mkdirSync, readdirSync, unlinkSync, statSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, realpathSync, unlinkSync, statSync, readFileSync } from "fs";
 import { randomUUID } from "crypto";
 import { writeFile, mkdir, unlink, copyFile, rm, readFile, mkdtemp, rename } from "fs/promises";
 import { tmpdir } from "os";
@@ -28,6 +28,7 @@ import { pixelizeImage, PixelizeInputError } from "../services/image/pixelize.se
 import { clampByte, clampUnit, getSharp, type RgbColor } from "../services/image/sharp-runtime.js";
 import { logger } from "../lib/logger.js";
 import { runGenerationJob } from "../services/generation/generation-job-tracker.js";
+import { logSuppressed } from "../lib/best-effort.js";
 import { SPRITE_RENAME_RATE_LIMIT } from "../middleware/rate-limit.js";
 
 const spriteRenameQueues = new Map<string, Promise<void>>();
@@ -46,6 +47,22 @@ async function withSpriteRenameLock<T>(characterId: string, operation: () => Pro
   } finally {
     release();
     if (spriteRenameQueues.get(characterId) === queuedTail) spriteRenameQueues.delete(characterId);
+  }
+}
+
+/** True when both paths name the same file on disk (also across case-only differences on case-insensitive filesystems). */
+function isSameSpriteFile(a: string, b: string): boolean {
+  if (a === b) return true;
+  try {
+    // bigint: NTFS file IDs are 64-bit and lose precision as a JS Number, so
+    // two nearby files could otherwise compare as the same file.
+    const statA = statSync(a, { bigint: true });
+    const statB = statSync(b, { bigint: true });
+    if (statA.ino !== 0n && statB.ino !== 0n) return statA.ino === statB.ino && statA.dev === statB.dev;
+    // Filesystems without inode numbers: fall back to the resolved on-disk path.
+    return realpathSync.native(a) === realpathSync.native(b);
+  } catch {
+    return false;
   }
 }
 
@@ -1384,7 +1401,7 @@ export async function spritesRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "No sprites found" });
     }
 
-    const body = req.body as { expressions?: unknown; folderName?: unknown };
+    const body = (req.body ?? {}) as { expressions?: unknown; folderName?: unknown };
     const requestedExpressions =
       Array.isArray(body.expressions) && body.expressions.length > 0
         ? new Set(body.expressions.map((expr) => normalizeSpriteExpression(String(expr))).filter(Boolean))
@@ -1424,7 +1441,7 @@ export async function spritesRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid character ID" });
     }
 
-    const body = req.body as { expression?: string; image?: string };
+    const body = (req.body ?? {}) as { expression?: string; image?: string };
 
     if (!body.expression?.trim()) {
       return reply.status(400).send({ error: "Expression label is required" });
@@ -1449,14 +1466,31 @@ export async function spritesRoutes(app: FastifyInstance) {
       }
     }
 
+    const filename = `${expression}.${ext}`;
+    if (!SPRITE_FILE_RE.test(filename)) {
+      // Types outside SPRITE_FILE_RE (bmp, tiff, heic...) would be invisible to
+      // listing, export and cleanup, and the replace step below would delete the
+      // working sprite in their favour.
+      return reply.status(400).send({ error: `Unsupported sprite image type "${ext}"` });
+    }
+
     const dir = join(SPRITES_ROOT, characterId);
     await mkdir(dir, { recursive: true });
-
-    const filename = `${expression}.${ext}`;
     const filepath = join(dir, filename);
-    await writeFile(filepath, Buffer.from(base64, "base64"));
-
-    const mtime = statSync(filepath).mtimeMs;
+    const mtime = await withSpriteRenameLock(characterId, async () => {
+      await writeFile(filepath, Buffer.from(base64, "base64"));
+      // A replacement with a different extension must not leave the old file
+      // behind as a second sprite for the same expression. Delete siblings only
+      // after the new file is written so a failed write cannot lose the sprite.
+      for (const sibling of readdirSync(dir)) {
+        if (!SPRITE_FILE_RE.test(sibling) || sibling.slice(0, -extname(sibling).length) !== expression) continue;
+        if (isSameSpriteFile(join(dir, sibling), filepath)) continue;
+        await unlink(join(dir, sibling)).catch((err: unknown) => {
+          logSuppressed(err, { event: "sprite.upload.replace_cleanup", characterId, file: sibling });
+        });
+      }
+      return statSync(filepath).mtimeMs;
+    });
     return {
       expression,
       filename,
@@ -1474,7 +1508,7 @@ export async function spritesRoutes(app: FastifyInstance) {
    * Returns: { imageBase64, report: { width, height, paletteSize, seamScoreX, seamScoreY, tileable } }
    */
   app.post("/pixelize", async (req, reply) => {
-    const body = req.body as {
+    const body = (req.body ?? {}) as {
       imageBase64?: string;
       targetWidth?: number;
       targetHeight?: number;
@@ -1534,7 +1568,7 @@ export async function spritesRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "No sprites found" });
     }
 
-    const body = req.body as { expressions?: string[]; cleanupStrength?: number; engine?: SpriteCleanupEngine };
+    const body = (req.body ?? {}) as { expressions?: string[]; cleanupStrength?: number; engine?: SpriteCleanupEngine };
     const requestedExpressions =
       Array.isArray(body.expressions) && body.expressions.length > 0
         ? new Set(body.expressions.map((expr) => normalizeSpriteExpression(String(expr))).filter(Boolean))
@@ -1575,9 +1609,16 @@ export async function spritesRoutes(app: FastifyInstance) {
           throw new Error("Only PNG, JPEG, WEBP, and AVIF sprites can be background-cleaned");
         }
 
-        const output = await removeSpriteBackgroundPng(readFileSync(inputPath), cleanupStrength, cleanupEngine);
         const outputFilename = `${expression}.png`;
         const outputPath = join(dir, outputFilename);
+        const writesInPlace = isSameSpriteFile(inputPath, outputPath);
+        if (!writesInPlace && existsSync(outputPath)) {
+          // Another file (e.g. a PNG next to this JPEG) already holds this
+          // expression; overwriting it would lose it without a backup.
+          throw new Error("Another file for this expression already exists");
+        }
+
+        const output = await removeSpriteBackgroundPng(readFileSync(inputPath), cleanupStrength, cleanupEngine);
         await mkdir(backupDir, { recursive: true });
         await copyFile(inputPath, join(backupDir, filename));
         manifest.entries.push({
@@ -1589,7 +1630,7 @@ export async function spritesRoutes(app: FastifyInstance) {
         await writeFile(join(backupDir, "manifest.json"), JSON.stringify(manifest, null, 2));
         await writeFile(outputPath, output.buffer);
 
-        if (filename !== outputFilename) {
+        if (!writesInPlace) {
           try {
             unlinkSync(inputPath);
           } catch (unlinkErr) {
@@ -1641,7 +1682,7 @@ export async function spritesRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid character ID" });
     }
 
-    const body = req.body as { backupId?: string };
+    const body = (req.body ?? {}) as { backupId?: string };
     if (!isSafeBackupId(body.backupId)) {
       return reply.status(400).send({ error: "Invalid backup ID" });
     }
@@ -1846,7 +1887,7 @@ export async function spritesRoutes(app: FastifyInstance) {
    * Build the exact sprite image prompt(s) before provider requests are sent.
    */
   app.post("/generate-sheet/preview", async (req, reply) => {
-    const body = req.body as SpriteGenerateSheetBody;
+    const body = (req.body ?? {}) as SpriteGenerateSheetBody;
 
     if (!body.connectionId) {
       return reply.status(400).send({ error: "connectionId is required" });
@@ -2007,7 +2048,7 @@ export async function spritesRoutes(app: FastifyInstance) {
    * Build the exact animated portrait video prompt(s) before provider requests are sent.
    */
   app.post("/generate-animated-expressions/preview", async (req, reply) => {
-    const body = req.body as SpriteGenerateAnimatedBody;
+    const body = (req.body ?? {}) as SpriteGenerateAnimatedBody;
 
     if (!body.connectionId) {
       return reply.status(400).send({ error: "connectionId is required" });
@@ -2070,7 +2111,7 @@ export async function spritesRoutes(app: FastifyInstance) {
    * Generate short expression videos, convert them to GIF sprites, and return them as sprite cells.
    */
   app.post("/generate-animated-expressions", async (req, reply) => {
-    const body = req.body as SpriteGenerateAnimatedBody;
+    const body = (req.body ?? {}) as SpriteGenerateAnimatedBody;
 
     if (!body.connectionId) {
       return reply.status(400).send({ error: "connectionId is required" });
@@ -2206,7 +2247,7 @@ export async function spritesRoutes(app: FastifyInstance) {
    * Returns: { sheetBase64, cells: [{ expression, base64 }] }
    */
   app.post("/generate-sheet", async (req, reply) => {
-    const body = req.body as SpriteGenerateSheetBody;
+    const body = (req.body ?? {}) as SpriteGenerateSheetBody;
 
     if (!body.connectionId) {
       return reply.status(400).send({ error: "connectionId is required" });
@@ -2487,10 +2528,13 @@ export async function spritesRoutes(app: FastifyInstance) {
 
           // Native transparency is preferred; a flat matte is removed automatically when a provider cannot return alpha.
           // Keep this resilient: if cleanup fails, continue with the original image rather than throwing.
+          let sheetCleanedByAi = false;
           if (shouldCleanBackground) {
             const originalSheetBuffer = sheetBuffer;
             try {
-              sheetBuffer = (await removeSpriteBackgroundPng(sheetBuffer, cleanupStrength)).buffer;
+              const cleaned = await removeSpriteBackgroundPng(sheetBuffer, cleanupStrength);
+              sheetBuffer = cleaned.buffer;
+              sheetCleanedByAi = cleaned.engine === "backgroundremover";
               metadata = await sharp(sheetBuffer).metadata();
             } catch (bgErr) {
               logger.warn(bgErr, "Sprite background cleanup failed; continuing with original image");
@@ -2522,7 +2566,9 @@ export async function spritesRoutes(app: FastifyInstance) {
                     .extract({ left, top, width: cellWidth, height: cellHeight })
                     .png()
                     .toBuffer();
-                  if (shouldCleanBackground) {
+                  // Skip the per-cell pass when the AI remover already cleaned the whole
+                  // sheet; rerunning it per cell only erodes edges and spawns N processes.
+                  if (shouldCleanBackground && !sheetCleanedByAi) {
                     try {
                       cellBuffer = (await removeSpriteBackgroundPng(cellBuffer, cleanupStrength)).buffer;
                     } catch (bgErr) {
@@ -2565,7 +2611,7 @@ export async function spritesRoutes(app: FastifyInstance) {
    * Returns: { cells: [{ expression, base64 }] }
    */
   app.post("/cleanup", async (req, reply) => {
-    const body = req.body as {
+    const body = (req.body ?? {}) as {
       cells?: Array<{ expression?: string; base64?: string }>;
       cleanupStrength?: number;
       engine?: SpriteCleanupEngine;

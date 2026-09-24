@@ -27,7 +27,17 @@ type ConnectedCharacterRow = {
 type ConnectedChatsStore = {
   getById(id: string): Promise<ConnectedChatRow | null>;
   listMessages(chatId: string): Promise<ConnectedChatMessage[]>;
+  listMessagesPaginated?(chatId: string, limit: number): Promise<ConnectedChatMessage[]>;
 };
+
+const CONNECTED_CHAT_RECENT_MESSAGE_LIMIT = 20;
+
+/** Latest messages of the connected chat in ascending order, without reading the whole chat when a bounded read exists. */
+async function listRecentConnectedMessages(chats: ConnectedChatsStore, chatId: string): Promise<ConnectedChatMessage[]> {
+  if (chats.listMessagesPaginated) return chats.listMessagesPaginated(chatId, CONNECTED_CHAT_RECENT_MESSAGE_LIMIT);
+  const all = await chats.listMessages(chatId);
+  return all.slice(-CONNECTED_CHAT_RECENT_MESSAGE_LIMIT);
+}
 
 type ConnectedCharactersStore = {
   getById(id: string): Promise<ConnectedCharacterRow | null>;
@@ -61,8 +71,7 @@ export async function resolveConversationConnectedChatContext(args: {
   const nestedSection = (content: string, name: string): string => wrapContent(content, name, args.wrapFormat, 1);
 
   if (connectedChat && connectedChat.mode === "roleplay") {
-    const rpMessages = await args.chats.listMessages(connectedChat.id);
-    const recentRp = rpMessages.slice(-20);
+    const recentRp = await listRecentConnectedMessages(args.chats, connectedChat.id);
 
     const rpCharIds: string[] =
       typeof connectedChat.characterIds === "string"
@@ -143,8 +152,7 @@ export async function resolveConversationConnectedChatContext(args: {
         }>)
       : [];
     const latestSummary = storedSummaries[storedSummaries.length - 1] ?? null;
-    const gameMessages = await args.chats.listMessages(connectedChat.id);
-    const recentGame = gameMessages.slice(-20);
+    const recentGame = await listRecentConnectedMessages(args.chats, connectedChat.id);
     const latestConnectedState =
       (await args.gameStateStore.getLatestCommitted(connectedChat.id)) ??
       (await args.gameStateStore.getLatest(connectedChat.id));

@@ -2,7 +2,7 @@
 // Routes: Import (SillyTavern data)
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { execFile } from "child_process";
+import { execFile, type ChildProcess } from "child_process";
 import { inflateSync } from "node:zlib";
 import { platform, homedir } from "os";
 import { readdir, stat } from "fs/promises";
@@ -127,13 +127,23 @@ function pickFolder(): Promise<string | null> {
       resolve(val);
     };
 
-    const timer = setTimeout(() => done(null), PICK_FOLDER_TIMEOUT_MS);
+    // Keep the current dialog process so the timeout can close it instead of
+    // leaving a stray dialog (and its process) open after we give up.
+    let child: ChildProcess | null = null;
+    const timer = setTimeout(() => {
+      try {
+        child?.kill();
+      } catch {
+        /* ignore */
+      }
+      done(null);
+    }, PICK_FOLDER_TIMEOUT_MS);
     const cleanup = () => clearTimeout(timer);
 
     const os = platform();
 
     if (os === "darwin") {
-      execFile(
+      child = execFile(
         "osascript",
         ["-e", 'POSIX path of (choose folder with prompt "Select your SillyTavern folder")'],
         (err, stdout) => {
@@ -163,7 +173,7 @@ function pickFolder(): Promise<string | null> {
           `if ($d.ShowDialog($f) -eq 'OK') { $d.SelectedPath } else { '' };` +
           `$f.Dispose()`,
       ];
-      execFile("powershell.exe", ps, (err, stdout) => {
+      child = execFile("powershell.exe", ps, (err, stdout) => {
         cleanup();
         if (err) return done(null);
         const p = stdout.trim();
@@ -171,7 +181,7 @@ function pickFolder(): Promise<string | null> {
       });
     } else {
       // Linux — try zenity first, then kdialog
-      execFile(
+      child = execFile(
         "zenity",
         ["--file-selection", "--directory", "--title=Select your SillyTavern folder"],
         (err, stdout) => {
@@ -179,7 +189,8 @@ function pickFolder(): Promise<string | null> {
             cleanup();
             return done(stdout.trim());
           }
-          execFile(
+          if (resolved) return;
+          child = execFile(
             "kdialog",
             ["--getexistingdirectory", ".", "--title", "Select your SillyTavern folder"],
             (err2, stdout2) => {
@@ -306,6 +317,11 @@ function readTimestampOverridesValue(value: unknown) {
     return normalizeTimestampOverrides(value as Record<string, unknown>);
   }
   return undefined;
+}
+
+/** True when a parsed JSON request body is a plain object (not null, an array or a primitive). */
+export function isJsonObjectBody(body: unknown): body is Record<string, unknown> {
+  return !!body && typeof body === "object" && !Array.isArray(body);
 }
 
 function readTimestampOverridesFromBody(body: Record<string, unknown>) {
@@ -473,13 +489,17 @@ async function importCharacterBuffer(
   }
 
   if (fileName.toLowerCase().endsWith(".charx")) {
-    return importCharX(buffer, db, {
-      timestampOverrides,
-      importEmbeddedLorebook,
-      tagImportMode,
-      existingTagKeys,
-      regexScriptScope,
-    });
+    try {
+      return await importCharX(buffer, db, {
+        timestampOverrides,
+        importEmbeddedLorebook,
+        tagImportMode,
+        existingTagKeys,
+        regexScriptScope,
+      });
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   let json: Record<string, unknown>;
@@ -688,7 +708,10 @@ export async function importRoutes(app: FastifyInstance) {
   });
 
   /** Import a Marinara Engine export (.marinara.json). */
-  app.post("/marinara", { bodyLimit: IMPORT_BODY_LIMIT_BYTES }, async (req) => {
+  app.post("/marinara", { bodyLimit: IMPORT_BODY_LIMIT_BYTES }, async (req, reply) => {
+    if (!isJsonObjectBody(req.body)) {
+      return reply.status(400).send({ success: false, error: "Expected a JSON object body" });
+    }
     const body = req.body as Record<string, unknown>;
     const timestampOverrides = readTimestampOverridesFromBody(body);
     const payload =
@@ -773,7 +796,13 @@ export async function importRoutes(app: FastifyInstance) {
               : ext === "avif"
                 ? "image/avif"
                 : "image/png";
-      const dataUrl = `data:${mime};base64,${avatarEntry.getData().toString("base64")}`;
+      let avatarBytes: Buffer;
+      try {
+        avatarBytes = avatarEntry.getData();
+      } catch {
+        return reply.status(400).send({ success: false, error: "Could not read package avatar" });
+      }
+      const dataUrl = `data:${mime};base64,${avatarBytes.toString("base64")}`;
       (envelope.data as Record<string, unknown>).avatar = dataUrl;
     }
     const timestampOverrides = readTimestampOverridesFromMultipart(file as any);
@@ -995,14 +1024,20 @@ export async function importRoutes(app: FastifyInstance) {
   });
 
   /** Import a SillyTavern prompt preset (JSON body). */
-  app.post("/st-preset", async (req) => {
+  app.post("/st-preset", async (req, reply) => {
+    if (!isJsonObjectBody(req.body)) {
+      return reply.status(400).send({ success: false, error: "Expected a JSON object body" });
+    }
     const body = req.body as Record<string, unknown>;
     const fileName = typeof body.__filename === "string" ? body.__filename : undefined;
     return importSTPreset(body, app.db, fileName, { timestampOverrides: readTimestampOverridesFromBody(body) });
   });
 
   /** Import a SillyTavern World Info / lorebook (JSON body). */
-  app.post("/st-lorebook", async (req) => {
+  app.post("/st-lorebook", async (req, reply) => {
+    if (!isJsonObjectBody(req.body)) {
+      return reply.status(400).send({ success: false, error: "Expected a JSON object body" });
+    }
     const body = req.body as Record<string, unknown>;
     const fallbackName = typeof body.__filename === "string" ? body.__filename : undefined;
     return importSTLorebook(body, app.db, {

@@ -320,6 +320,36 @@ export function getCustomLorebookBackfillChunk<T extends { id: string; role: str
   };
 }
 
+/**
+ * Backfill cursor carried on an approval-gated lorebook proposal. The cursor is
+ * advanced only when the proposal is committed, so a pending chunk is not
+ * skipped, but an approved one is not re-run forever either.
+ */
+export type CustomLorebookBackfillCursorPayload = { agentConfigId: string; messageId: string };
+
+export function readCustomLorebookBackfillCursorPayload(value: unknown): CustomLorebookBackfillCursorPayload | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const agentConfigId = typeof record.agentConfigId === "string" ? record.agentConfigId.trim() : "";
+  const messageId = typeof record.messageId === "string" ? record.messageId.trim() : "";
+  return agentConfigId && messageId ? { agentConfigId, messageId } : null;
+}
+
+/**
+ * Only move the cursor forward, and only onto a message that still exists in the
+ * chat, so approving a stale duplicate proposal cannot rewind a newer cursor.
+ */
+export function shouldAdvanceCustomLorebookBackfillCursor(
+  orderedMessageIds: string[],
+  currentCursor: string | null,
+  nextCursor: string,
+): boolean {
+  const nextIndex = orderedMessageIds.indexOf(nextCursor);
+  if (nextIndex < 0) return false;
+  if (!currentCursor) return true;
+  return orderedMessageIds.indexOf(currentCursor) < nextIndex;
+}
+
 export function buildHistoricalLorebookKeeperContext<T extends LorebookKeeperMessage>(
   baseContext: AgentContext,
   messages: T[],
@@ -383,8 +413,11 @@ function dedupeKeeperContentParagraphs(content: string): string {
 
   for (const paragraph of paragraphs) {
     const comparable = normalizeKeeperFactForComparison(paragraph);
-    if (!comparable || seen.has(comparable)) continue;
-    seen.add(comparable);
+    // Punctuation-only paragraphs (such as "---" section breaks) are kept verbatim.
+    if (comparable) {
+      if (seen.has(comparable)) continue;
+      seen.add(comparable);
+    }
     deduped.push(paragraph);
   }
 
@@ -424,10 +457,28 @@ export function mergeLorebookKeeperUpdateContent(args: {
   // when Lorebook Keeper supplied facts without a replacement.
   const baseContent = replacement || existing;
   if (facts.length === 0) return baseContent;
-  const existingComparable = normalizeKeeperFactForComparison(baseContent);
+  // Compare whole lines and sentences, not substrings, so "Mara is a mage" is not
+  // treated as known just because the entry says "Mara is a mage hunter".
+  // Whole lines count too, so a multi-sentence fact the keeper already appended
+  // as one bullet still matches itself on the next pass.
+  // A fact made only of sentences the entry already holds (for example a restatement of
+  // part of a longer prose line) is known as well. A sentence may end in a closing quote
+  // or bracket, as in `She said "no." Then left.`
+  const stripBullet = (unit: string) => unit.replace(/^\s*(?:[-*]|\u2022)\s+/, "");
+  const splitSentences = (text: string) => text.split(/(?<=[.!?]["'\u201D\u2019)\]]*)\s+/);
+  const baseLines = baseContent.split(/\r?\n+/);
+  const baseUnits = new Set(
+    [...baseLines, ...baseLines.flatMap((line) => splitSentences(stripBullet(line)))]
+      .map((unit) => normalizeKeeperFactForComparison(stripBullet(unit)))
+      .filter(Boolean),
+  );
   const novelFacts = facts.filter((fact) => {
     const comparable = normalizeKeeperFactForComparison(fact);
-    return comparable.length > 0 && !existingComparable.includes(comparable);
+    if (comparable.length === 0 || baseUnits.has(comparable)) return false;
+    const factSentences = splitSentences(stripBullet(fact))
+      .map((sentence) => normalizeKeeperFactForComparison(sentence))
+      .filter(Boolean);
+    return !(factSentences.length > 1 && factSentences.every((sentence) => baseUnits.has(sentence)));
   });
 
   if (novelFacts.length === 0) return baseContent;

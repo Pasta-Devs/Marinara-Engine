@@ -360,6 +360,13 @@ class SidecarProcessService {
       this.manuallyUnloaded = false;
     }
 
+    // While a model download is running the config still names the old model. Auto-starting it
+    // would reload (and on Windows lock) the file the download is about to replace, and would
+    // overwrite the downloading_model status. Only explicit force starts may proceed.
+    if (!options.forceStart && sidecarModelService.isDownloadingModel()) {
+      return;
+    }
+
     if (!modelRef) {
       await this.stopUnlocked();
       this.clearStartupFailure();
@@ -625,13 +632,15 @@ class SidecarProcessService {
     let activeRuntime: SidecarRuntimeInstall | null = runtime;
     const attemptedVariants = new Set<string>();
     let lastError: Error | null = null;
+    // Record every attempt, including a fallback runtime, under the requested runtime's signature:
+    // that is what syncUnlocked computes, so a working fallback is kept and a failed one is remembered.
+    const requestedSignature = this.buildRuntimeSignature("llama_cpp", runtime, modelPath);
 
     while (activeRuntime) {
-      const runtimeSignature = this.buildRuntimeSignature("llama_cpp", activeRuntime, modelPath);
       attemptedVariants.add(activeRuntime.variant);
 
       try {
-        await this.startLlamaForInstalledRuntimeUnlocked(activeRuntime, modelPath, runtimeSignature);
+        await this.startLlamaForInstalledRuntimeUnlocked(activeRuntime, modelPath, requestedSignature);
         return;
       } catch (error) {
         if (error instanceof SidecarStartupCancelledError) {
@@ -657,13 +666,13 @@ class SidecarProcessService {
           continue;
         }
 
-        this.rememberStartupFailure(runtimeSignature, activeRuntime.variant, lastError);
+        this.rememberStartupFailure(requestedSignature, activeRuntime.variant, lastError);
         throw lastError;
       }
     }
 
     this.rememberStartupFailure(
-      this.buildRuntimeSignature("llama_cpp", runtime, modelPath),
+      requestedSignature,
       runtime.variant,
       lastError ?? new Error("The local sidecar server failed to start"),
     );

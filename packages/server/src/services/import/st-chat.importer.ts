@@ -291,7 +291,16 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
   }
 
   // Parse header
-  const header = JSON.parse(lines[0]!) as STChatHeader;
+  let parsedHeader: unknown;
+  try {
+    parsedHeader = JSON.parse(lines[0]!);
+  } catch {
+    return { error: "Invalid JSONL: header is not valid JSON" };
+  }
+  if (!isRecord(parsedHeader)) {
+    return { error: "Invalid JSONL: header is not an object" };
+  }
+  const header = parsedHeader as STChatHeader;
   const characterName = header.character_name ?? "Unknown";
   const userName = header.user_name ?? "User";
   const headerMetadata = isRecord(header.chat_metadata) ? header.chat_metadata : {};

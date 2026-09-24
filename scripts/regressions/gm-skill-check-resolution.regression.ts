@@ -506,7 +506,10 @@ assert.match(
 
 const generateRoutes = readFileSync(join(root, "packages/server/src/routes/generate.routes.ts"), "utf8");
 const resolutionAt = generateRoutes.indexOf("resolveSkillCheckTagsInContent(fullResponse");
-const contentReplaceAt = generateRoutes.indexOf(`type: "content_replace", data: fullResponse`);
+// The post-processing frame, not the tool loop's earlier replace of streamed tool-call markup.
+const contentReplaceAt = generateRoutes.search(
+  /if \(contentReplaced\) \{\s*if \(!holdForTextRewrite\) \{\s*sendSseEvent\(reply, \{ type: "content_replace", data: fullResponse \}\);/u,
+);
 assert.ok(resolutionAt > 0, "generation post-processing must roll the GM's checks");
 assert.ok(contentReplaceAt > 0);
 assert.ok(

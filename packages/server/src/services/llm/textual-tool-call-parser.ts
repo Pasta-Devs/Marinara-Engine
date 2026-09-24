@@ -67,12 +67,17 @@ function rawToolCalls(payload: Record<string, unknown>): unknown[] {
 
 type ParsedTaggedSnippet = {
   text: string;
+  /** Offsets of the whole pattern match in the original content. */
+  start: number;
+  end: number;
   recoveryText?: string;
+  /** Offset of recoveryText in the original content. */
+  recoveryStart?: number;
   allowCommandFallback: boolean;
   allowAnonymousJsonPayload: boolean;
 };
 
-function extractBalancedJson(text: string): string | null {
+function extractBalancedJsonSpan(text: string): { text: string; start: number } | null {
   const brace = text.indexOf("{");
   const bracket = text.indexOf("[");
   const start = brace === -1 ? bracket : bracket === -1 ? brace : Math.min(brace, bracket);
@@ -102,7 +107,7 @@ function extractBalancedJson(text: string): string | null {
       depth += 1;
     } else if (char === close) {
       depth -= 1;
-      if (depth === 0) return text.slice(start, index + 1);
+      if (depth === 0) return { text: text.slice(start, index + 1), start };
     }
   }
   return null;
@@ -132,12 +137,16 @@ function parseTaggedSnippets(content: string): ParsedTaggedSnippet[] {
   ];
   for (const pattern of patterns) {
     for (const match of content.matchAll(pattern.re)) {
+      const start = match.index ?? 0;
       const opening = match[1] ?? "";
       const snippet = match[2]?.trim();
       if (snippet) {
         snippets.push({
           text: snippet,
-          recoveryText: opening ? content.slice((match.index ?? 0) + opening.length) : undefined,
+          start,
+          end: start + match[0].length,
+          recoveryText: opening ? content.slice(start + opening.length) : undefined,
+          recoveryStart: opening ? start + opening.length : undefined,
           allowCommandFallback: pattern.allowCommandFallback,
           allowAnonymousJsonPayload: pattern.allowAnonymousJsonPayload,
         });
@@ -146,7 +155,13 @@ function parseTaggedSnippets(content: string): ParsedTaggedSnippet[] {
   }
   const trimmed = content.trim();
   if (/^(?:call\s*:\s*)?[A-Za-z_][\w.-]*\s*\{[\s\S]*\}$/.test(trimmed)) {
-    snippets.push({ text: trimmed, allowCommandFallback: false, allowAnonymousJsonPayload: false });
+    snippets.push({
+      text: trimmed,
+      start: 0,
+      end: content.length,
+      allowCommandFallback: false,
+      allowAnonymousJsonPayload: false,
+    });
   }
   return snippets;
 }
@@ -176,7 +191,10 @@ function appendArrayToolCalls(
   }
 }
 
-function snippetToPayload(snippet: string, options: Omit<ParsedTaggedSnippet, "text">): Record<string, unknown> | null {
+function snippetToPayload(
+  snippet: string,
+  options: Pick<ParsedTaggedSnippet, "allowCommandFallback" | "allowAnonymousJsonPayload">,
+): Record<string, unknown> | null {
   const jsonPayload = parseJsonishObject(snippet);
   if (jsonPayload) {
     if (typeof jsonPayload.name === "string" || typeof jsonPayload.tool === "string") return jsonPayload;
@@ -283,27 +301,57 @@ export function parseTextualToolCalls(
     if (calls.length > 0) return calls;
   }
 
-  parseTaggedSnippets(content).forEach((snippet) => {
-    const snippetText = normalizeSnippetText(snippet.text);
-    if (appendArrayToolCalls(snippetText, calls, knownTools, hasBashTool)) return;
+  // Source ranges that already produced at least one call. The patterns overlap
+  // (a ``` fence inside <tool_call>, a <|python_tag|> around a fence, a fence
+  // around a tag), so a snippet whose range overlaps a claimed one is the same
+  // call seen twice and is skipped. A range is claimed only once it yields a
+  // call, so a tag that fails to parse never hides a valid fence inside it.
+  const claimed: Array<[number, number]> = [];
+  const overlapsClaimed = (start: number, end: number) => claimed.some(([s, e]) => start < e && s < end);
 
+  parseTaggedSnippets(content).forEach((snippet) => {
+    const before = calls.length;
     const options = {
       allowCommandFallback: snippet.allowCommandFallback,
       allowAnonymousJsonPayload: snippet.allowAnonymousJsonPayload,
     };
-    let payload = snippetToPayload(snippetText, options);
+    let payload: Record<string, unknown> | null = null;
+    // A snippet overlapping a claimed range is not parsed whole (that would
+    // repeat the claimed call), but its recovery below may still find a
+    // separate call outside the claimed span, e.g. an unclosed tag's own JSON.
+    if (!overlapsClaimed(snippet.start, snippet.end)) {
+      const snippetText = normalizeSnippetText(snippet.text);
+      if (appendArrayToolCalls(snippetText, calls, knownTools, hasBashTool)) {
+        if (calls.length > before) claimed.push([snippet.start, snippet.end]);
+        return;
+      }
+      payload = snippetToPayload(snippetText, options);
+    }
+    let range: [number, number] = [snippet.start, snippet.end];
     if (!payload && snippet.recoveryText) {
-      const recovered = extractBalancedJson(snippet.recoveryText);
+      const recovered = extractBalancedJsonSpan(snippet.recoveryText);
       if (recovered) {
-        const recoveredText = normalizeSnippetText(recovered);
+        // Claim only the recovered JSON, not the rest of an unclosed tag, so
+        // later fenced calls after it still parse.
+        const recoveredStart = (snippet.recoveryStart ?? 0) + recovered.start;
+        const recoveredRange: [number, number] = [recoveredStart, recoveredStart + recovered.text.length];
+        if (overlapsClaimed(recoveredRange[0], recoveredRange[1])) return;
+        const recoveredText = normalizeSnippetText(recovered.text);
         if (parseJsonishObject(recoveredText) || recoveredText.trim().startsWith("[")) {
-          if (appendArrayToolCalls(recoveredText, calls, knownTools, hasBashTool)) return;
+          range = recoveredRange;
+          if (appendArrayToolCalls(recoveredText, calls, knownTools, hasBashTool)) {
+            if (calls.length > before) claimed.push(range);
+            return;
+          }
           payload = snippetToPayload(recoveredText, options);
         }
       }
     }
     const call = toolCallFromRaw(payload, calls.length, knownTools, hasBashTool);
-    if (call) calls.push(call);
+    if (call) {
+      calls.push(call);
+      claimed.push(range);
+    }
   });
   return calls;
 }

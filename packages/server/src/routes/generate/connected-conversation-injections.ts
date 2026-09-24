@@ -31,8 +31,11 @@ export async function injectConnectedConversationPromptBlocks(args: {
   chatId: string;
   chats: ConnectedConversationStore;
   finalMessages: PromptMessage[];
-}): Promise<void> {
+}): Promise<{ consumedInfluenceIds: string[] }> {
   const { chatMode, connectedChatId, isSceneChat, chatId, chats, finalMessages } = args;
+  // Influences are only returned here, never marked. The caller marks them consumed once the
+  // turn they steered has been saved, so a failed or stopped generation leaves them pending.
+  let consumedInfluenceIds: string[] = [];
   if ((chatMode === "roleplay" || chatMode === "game") && connectedChatId && !isSceneChat) {
     const pendingInfluences = await chats.listPendingInfluences(chatId);
     if (pendingInfluences.length > 0) {
@@ -54,9 +57,7 @@ export async function injectConnectedConversationPromptBlocks(args: {
         injectBeforeLastUser(finalMessages, influenceBlock);
       }
 
-      for (const inf of pendingInfluences) {
-        await chats.markInfluenceConsumed(inf.id, chatId);
-      }
+      consumedInfluenceIds = pendingInfluences.map((inf) => inf.id);
     }
   }
 
@@ -105,4 +106,6 @@ export async function injectConnectedConversationPromptBlocks(args: {
       }
     }
   }
+
+  return { consumedInfluenceIds };
 }

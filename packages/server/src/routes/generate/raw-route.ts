@@ -308,11 +308,15 @@ export async function registerRawRoute(app: FastifyInstance) {
     const runId = body.runId || randomUUID();
     activeRawRuns.set(runId, { abortController, connectionId: body.connectionId });
 
+    // Listen on the response socket: req.raw has already emitted "close" once
+    // Fastify consumed the body, so a listener there never sees a disconnect.
+    let completed = false;
     const onClose = () => {
+      if (completed) return;
       abortController.abort();
       activeRawRuns.delete(runId);
     };
-    req.raw.on("close", onClose);
+    reply.raw.on("close", onClose);
 
     const runOptions = {
       model: conn.model,
@@ -363,7 +367,13 @@ export async function registerRawRoute(app: FastifyInstance) {
           full += result.content;
           await sendTokenTextChunked(result.content);
         }
-        sendSseEvent(reply, { type: "result", data: { content: full || result.content || "" } });
+        // Providers return partial content with finishReason "abort" instead of
+        // throwing once tokens have arrived, so report that as an abort.
+        const wasAborted = abortController.signal.aborted || result.finishReason === "abort";
+        sendSseEvent(reply, {
+          type: wasAborted ? "aborted" : "result",
+          data: { content: full || result.content || "" },
+        });
         sendSseEvent(reply, { type: "done", data: "" });
       } catch (err) {
         if (abortController.signal.aborted || isAbortError(err)) {
@@ -374,7 +384,8 @@ export async function registerRawRoute(app: FastifyInstance) {
         }
         sendSseEvent(reply, { type: "done", data: "" });
       } finally {
-        req.raw.off("close", onClose);
+        completed = true;
+        reply.raw.off("close", onClose);
         activeRawRuns.delete(runId);
         stopKeepalive();
         reply.raw.end();
@@ -385,6 +396,9 @@ export async function registerRawRoute(app: FastifyInstance) {
     reply.header("x-raw-runid", runId);
     try {
       const result = await provider.chatComplete(providerMessages, runOptions);
+      if (abortController.signal.aborted || result.finishReason === "abort") {
+        return reply.send({ aborted: true, content: (result.content ?? "").trimEnd(), runId });
+      }
       return reply.send({
         content: (result.content ?? "").trimEnd(),
         runId,
@@ -396,7 +410,8 @@ export async function registerRawRoute(app: FastifyInstance) {
       logger.error(err, "[raw] Generation failed");
       return reply.status(500).send({ error: err instanceof Error ? err.message : "Raw generation failed", runId });
     } finally {
-      req.raw.off("close", onClose);
+      completed = true;
+      reply.raw.off("close", onClose);
       activeRawRuns.delete(runId);
     }
   });

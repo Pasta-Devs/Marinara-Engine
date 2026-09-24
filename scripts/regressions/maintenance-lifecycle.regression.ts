@@ -32,7 +32,8 @@ assert.match(
   /collectPastReasoningMetadata\(\s*chatMessages,[\s\S]*scopedMessages[\s\S]*extra\.commandOnly === true/u,
 );
 
-const hiddenAnchorStart = generateRouteSource.indexOf("const anchoredMsg = savedMsg?.id");
+// The command-only anchor now also covers continuations, so it starts from the saved message.
+const hiddenAnchorStart = generateRouteSource.indexOf("let anchoredMsg = savedMsg;");
 const hiddenAnchorEnd = generateRouteSource.indexOf(
   "\n              if (\n                anchoredMsg?.id",
   hiddenAnchorStart,

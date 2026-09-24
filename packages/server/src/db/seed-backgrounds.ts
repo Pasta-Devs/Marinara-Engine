@@ -4,7 +4,8 @@
 // Images sourced from Unsplash (https://unsplash.com/license — free for any use).
 // ──────────────────────────────────────────────
 import { logger } from "../lib/logger.js";
-import { existsSync, mkdirSync, readdirSync, copyFileSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, copyFileSync, readFileSync, renameSync, rmSync, writeFileSync } from "fs";
+import { randomUUID } from "crypto";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { DATA_DIR } from "../utils/data-dir.js";
@@ -77,19 +78,62 @@ export async function seedDefaultBackgrounds(backgroundDir = BG_DIR) {
   // Build meta.json with tags
   const metaPath = join(backgroundDir, "meta.json");
   let meta: Record<string, { tags: string[] }> = {};
-  if (existsSync(metaPath)) {
+  const metaExisted = existsSync(metaPath);
+  let unreadable = false;
+  let preserveFailed = false;
+  if (metaExisted) {
     try {
-      meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+      const parsed: unknown = JSON.parse(readFileSync(metaPath, "utf-8"));
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        meta = parsed as Record<string, { tags: string[] }>;
+      } else {
+        unreadable = true;
+      }
     } catch {
-      /* start fresh */
+      unreadable = true;
     }
   }
+  if (unreadable) {
+    // Keep the unreadable file for manual recovery instead of overwriting the
+    // user's tags with a rebuilt map.
+    const corruptPath = `${metaPath}.corrupt-${Date.now()}`;
+    try {
+      renameSync(metaPath, corruptPath);
+      logger.warn(
+        {
+          event: "storage.json_corrupt",
+          path: metaPath,
+          backupPath: corruptPath,
+          outcome: "ok",
+          reason: "preserved-and-rebuilt",
+        },
+        `[seed] Background meta.json was unreadable; preserved it as ${corruptPath} and rebuilt it`,
+      );
+    } catch (err) {
+      logger.warn(
+        { event: "storage.json_corrupt", path: metaPath, err, outcome: "skipped", reason: "preserve-failed" },
+        "[seed] Background meta.json is unreadable and could not be preserved; leaving it untouched",
+      );
+      preserveFailed = true;
+    }
+  }
+  let changed = !preserveFailed && (!metaExisted || unreadable);
   for (const filename of [BLACK_BACKGROUND_FILENAME, ...assetFiles]) {
     if (!meta[filename]) {
       meta[filename] = { tags: BACKGROUND_TAGS[filename] ?? [] };
+      changed = !preserveFailed;
     }
   }
-  writeFileSync(metaPath, JSON.stringify(meta, null, 2), "utf-8");
+  if (changed) {
+    // Temp file + rename, so a crash never leaves a torn meta.json.
+    const temporaryPath = `${metaPath}.${process.pid}.${randomUUID()}.tmp`;
+    try {
+      writeFileSync(temporaryPath, JSON.stringify(meta, null, 2), "utf-8");
+      renameSync(temporaryPath, metaPath);
+    } finally {
+      if (existsSync(temporaryPath)) rmSync(temporaryPath, { force: true });
+    }
+  }
 
   if (hasExistingCollection) {
     if (installedBlackBackground) logger.info("[seed] Restored default Black.jpg background");

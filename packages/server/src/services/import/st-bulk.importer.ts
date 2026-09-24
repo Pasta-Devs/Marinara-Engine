@@ -1,9 +1,9 @@
 // ──────────────────────────────────────────────
 // Importer: SillyTavern Bulk Import (folder scan)
 // ──────────────────────────────────────────────
-import { readdir, readFile, stat, copyFile, mkdir } from "fs/promises";
+import { readdir, readFile, stat, copyFile, mkdir, realpath } from "fs/promises";
 import { join, extname, basename, relative } from "path";
-import { existsSync, readdirSync } from "fs";
+import { existsSync, readdirSync, createReadStream } from "fs";
 import { randomUUID } from "crypto";
 import { inflateSync } from "node:zlib";
 import type { DB } from "../../db/connection.js";
@@ -161,6 +161,45 @@ async function listFilesRecursive(dir: string, ext?: string): Promise<string[]> 
   return results;
 }
 
+/**
+ * Read only the first line of a text file (no byte cap: ST chat headers can carry large metadata).
+ * Cuts at the first LF only, like the old split on LF: readline would also end a line at
+ * U+2028/U+2029, which JSON.stringify leaves raw inside strings, and at a lone CR.
+ * A trailing CR is kept (JSON.parse accepts it as whitespace).
+ */
+async function readFirstLine(path: string): Promise<string> {
+  const stream = createReadStream(path);
+  const chunks: Buffer[] = [];
+  try {
+    for await (const chunk of stream as AsyncIterable<Buffer>) {
+      const newline = chunk.indexOf(0x0a);
+      if (newline !== -1) {
+        chunks.push(chunk.subarray(0, newline));
+        break;
+      }
+      chunks.push(chunk);
+    }
+  } finally {
+    stream.destroy();
+  }
+  // Decode once at the end so a multi-byte character split across chunks stays intact.
+  return Buffer.concat(chunks).toString("utf-8");
+}
+
+/** importSTChat reports a bad file as { error } instead of throwing; count it as a failure, not an import. */
+function throwIfChatImportFailed(result: unknown): void {
+  if (result && typeof result === "object" && "error" in result && typeof result.error === "string") {
+    throw new Error(result.error);
+  }
+}
+
+/** Identity of a directory, so differently cased spellings of one folder are scanned once. */
+async function directoryIdentity(dir: string): Promise<string> {
+  const info = await stat(dir, { bigint: true });
+  if (info.ino !== 0n) return `${info.dev}:${info.ino}`;
+  return await realpath(dir);
+}
+
 function makeScanItemId(category: string, dataDir: string, filePath: string) {
   return `${category}:${relative(dataDir, filePath).replace(/\\/g, "/")}`;
 }
@@ -298,8 +337,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
     const jsonlFiles = await listFilesRecursive(chatsDir, ".jsonl");
     for (const f of jsonlFiles) {
       try {
-        const content = await readFile(f, "utf-8");
-        const firstLine = content.split("\n")[0];
+        const firstLine = await readFirstLine(f);
         if (firstLine) {
           const header = JSON.parse(firstLine);
           const fileBaseName = basename(f, ".jsonl");
@@ -323,8 +361,20 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
   }
 
   // 3. Presets — JSON files in TextGen Settings/ and OpenAI Settings/
+  // On case-insensitive filesystems (Windows/macOS) both spellings resolve to the same folder;
+  // dedupe by directory identity so each preset is listed (and imported) once.
+  const seenPresetDirs = new Set<string>();
   for (const folder of ["TextGen Settings", "OpenAI Settings", "textgen settings", "openai settings"]) {
     const presetDir = join(dataDir, folder);
+    if (!existsSync(presetDir)) continue;
+    let dirKey: string;
+    try {
+      dirKey = await directoryIdentity(presetDir);
+    } catch {
+      continue;
+    }
+    if (seenPresetDirs.has(dirKey)) continue;
+    seenPresetDirs.add(dirKey);
     const files = await listFiles(presetDir, ".json");
     for (const f of files) {
       try {
@@ -691,13 +741,14 @@ export async function runSTBulkImport(
           charGroupIds.set(groupKey, groupId);
         }
 
-        await importSTChat(content, db, {
+        const chatResult = await importSTChat(content, db, {
           characterId: charId,
           chatName: ct.characterName,
           branchName: ct.chatName ?? basename(ct.path, ".jsonl"),
           groupId,
           timestampOverrides: getFileTimestampOverrides(fileInfo),
         });
+        throwIfChatImportFailed(chatResult);
 
         imported.chats++;
       } catch (err) {
@@ -731,13 +782,14 @@ export async function runSTBulkImport(
         if (!gcGroupIds.has(groupKey)) {
           gcGroupIds.set(groupKey, randomUUID());
         }
-        await importSTChat(content, db, {
+        const groupChatResult = await importSTChat(content, db, {
           chatName: gc.groupName,
           speakerMap,
           mode: "roleplay",
           groupId: gcGroupIds.get(groupKey)!,
           timestampOverrides: getFileTimestampOverrides(fileInfo),
         });
+        throwIfChatImportFailed(groupChatResult);
         imported.groupChats++;
       } catch (err) {
         errors.push(`Group chat "${gc.groupName}": ${(err as Error).message}`);

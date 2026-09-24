@@ -5,6 +5,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import AdmZip from "adm-zip";
 import { logger } from "../lib/logger.js";
+import { logSuppressed } from "../lib/best-effort.js";
 import { cardPromptText } from "../services/prompt/card-text.js";
 import {
   DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
@@ -119,6 +120,7 @@ import {
   resolveChatSummaryTemperatureOptions,
 } from "../services/chat-summary/connection-resolution.js";
 import { generateMissingConversationSummaries } from "../services/conversation/auto-summary.service.js";
+import { resolveConversationTimeZone } from "../services/conversation/timezone.js";
 import { clearChatActivity, recordUserReaction } from "../services/conversation/autonomous.service.js";
 import { rebuildMemoryChunks } from "../services/memory-recall.js";
 import { createAdvancedMemoryService } from "../services/advanced-memory.js";
@@ -168,7 +170,13 @@ import { npcAvatarSlug, sanitizeGameNpcAvatarUrls } from "../services/game/npc-a
 import { buildCommittedTrackerContextBlock } from "../services/generation/committed-tracker-context.js";
 import { normalizeBeholderState } from "../services/agents/beholder-state.js";
 import { parseLorebookWriteApprovalText } from "./generate/agent-write-approval.js";
-import { getLorebookNamingScheme, persistLorebookKeeperUpdates } from "./generate/lorebook-keeper-utils.js";
+import {
+  CUSTOM_LOREBOOK_BACKFILL_CURSOR_KEY,
+  getLorebookNamingScheme,
+  persistLorebookKeeperUpdates,
+  readCustomLorebookBackfillCursorPayload,
+  shouldAdvanceCustomLorebookBackfillCursor,
+} from "./generate/lorebook-keeper-utils.js";
 import {
   clampRoleplaySummaryMaxTokens,
   formatRoleplaySummaryChatLog,
@@ -1269,7 +1277,10 @@ export async function chatsRoutes(app: FastifyInstance) {
   app.patch<{ Params: { id: string } }>("/:id/metadata", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
-    const incoming = req.body as Record<string, unknown>;
+    const incoming = req.body as Record<string, unknown> | undefined;
+    if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
+      return reply.status(400).send({ error: "Request body must be a JSON object" });
+    }
     // Validate Discord webhook URL if provided
     if (typeof incoming.discordWebhookUrl === "string" && incoming.discordWebhookUrl.trim()) {
       const url = incoming.discordWebhookUrl.trim();
@@ -1737,6 +1748,35 @@ export async function chatsRoutes(app: FastifyInstance) {
         sourceMessageRefs: approvalRefs,
         updates,
       });
+      // A custom-agent backfill chunk only advances its cursor once its proposal is
+      // committed; without this, approval mode would re-run the same chunk forever.
+      const backfillCursor = readCustomLorebookBackfillCursorPayload(payload.backfillCursor);
+      if (backfillCursor) {
+        try {
+          const agentsStore = createAgentsStorage(app.db);
+          const memory = await agentsStore.getMemory(backfillCursor.agentConfigId, req.params.id);
+          const currentCursor =
+            typeof memory[CUSTOM_LOREBOOK_BACKFILL_CURSOR_KEY] === "string"
+              ? (memory[CUSTOM_LOREBOOK_BACKFILL_CURSOR_KEY] as string)
+              : null;
+          const orderedMessageIds = (await storage.listMessages(req.params.id)).map((message) => message.id);
+          if (shouldAdvanceCustomLorebookBackfillCursor(orderedMessageIds, currentCursor, backfillCursor.messageId)) {
+            await agentsStore.setMemory(
+              backfillCursor.agentConfigId,
+              req.params.id,
+              CUSTOM_LOREBOOK_BACKFILL_CURSOR_KEY,
+              backfillCursor.messageId,
+            );
+          }
+        } catch (err) {
+          logSuppressed(err, {
+            event: "agent.run",
+            stage: "backfill-cursor.approval-commit",
+            chatId: req.params.id,
+            agentConfigId: backfillCursor.agentConfigId,
+          });
+        }
+      }
       return { ok: true, targetLorebookId };
     }
 
@@ -1820,6 +1860,8 @@ export async function chatsRoutes(app: FastifyInstance) {
       personaName,
       charIdToName,
       rolloverHour: Math.max(0, Math.min(11, Math.floor((chatMeta.dayRolloverHour as number | undefined) ?? 4))),
+      // Bucket days in the chat's own time zone, like the generation path does.
+      timeZone: resolveConversationTimeZone(chatMeta),
       maxTokens: clampRoleplaySummaryMaxTokens(chatMeta.summaryMaxTokens),
       maxMissingDays,
     });
@@ -1866,7 +1908,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
   // Connect two chats bidirectionally
   app.post<{ Params: { id: string } }>("/:id/connect", async (req, reply) => {
-    const { targetChatId } = req.body as { targetChatId: string };
+    const { targetChatId } = (req.body ?? {}) as { targetChatId?: string };
     if (!targetChatId || typeof targetChatId !== "string") {
       return reply.status(400).send({ error: "targetChatId is required" });
     }
@@ -1941,13 +1983,15 @@ export async function chatsRoutes(app: FastifyInstance) {
       const meta = parseExtra(chat.metadata) as Record<string, unknown>;
       const originId = meta.sceneOriginChatId;
       if (typeof originId === "string" && originId) {
-        const origin = await storage.getById(originId);
-        if (origin) {
-          const originMeta = parseExtra(origin.metadata) as Record<string, unknown>;
-          delete originMeta.activeSceneChatId;
-          delete originMeta.sceneBusyCharIds;
-          await storage.updateMetadata(originId, originMeta);
-        }
+        // Only clear the pointer when it still names this chat: a concluded scene keeps its
+        // sceneOriginChatId while the origin may already point at a newer running scene.
+        // Queued patch so a concurrent metadata write on the origin is not overwritten.
+        const deletedChatId = req.params.id;
+        await storage.patchMetadata(originId, (current) =>
+          current.activeSceneChatId === deletedChatId
+            ? { activeSceneChatId: undefined, sceneBusyCharIds: undefined }
+            : {},
+        );
       }
     }
     const activeGenerations = (
@@ -1957,10 +2001,12 @@ export async function chatsRoutes(app: FastifyInstance) {
     ).activeGenerations;
     activeGenerations?.get(req.params.id)?.abortController?.abort();
     activeGenerations?.delete(req.params.id);
-    clearChatActivity(req.params.id);
     // Disconnect from partner chat before deleting
     await storage.disconnectChat(req.params.id);
     await storage.remove(req.params.id);
+    // Clear after the row is gone so an in-flight autonomous check that still
+    // found the chat cannot recreate the activity state afterwards.
+    clearChatActivity(req.params.id);
     return reply.status(204).send();
   });
 
@@ -2265,7 +2311,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
   // Bulk delete messages
   app.post<{ Params: { chatId: string } }>("/:chatId/messages/bulk-delete", async (req, reply) => {
-    const { messageIds } = req.body as { messageIds: string[] };
+    const { messageIds } = (req.body ?? {}) as { messageIds?: string[] };
     if (!Array.isArray(messageIds) || messageIds.length === 0) {
       return reply.status(400).send({ error: "messageIds array is required" });
     }
@@ -2275,7 +2321,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
   // Edit message content
   app.patch<{ Params: { chatId: string; messageId: string } }>("/:chatId/messages/:messageId", async (req, reply) => {
-    const { content } = req.body as { content: string };
+    const { content } = (req.body ?? {}) as { content?: string };
     if (typeof content !== "string") return reply.status(400).send({ error: "content is required" });
     const updated = await storage.updateMessageContent(req.params.messageId, content);
     if (!updated) return reply.status(404).send({ error: "Message not found" });
@@ -2388,7 +2434,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   app.patch<{ Params: { chatId: string }; Body: { messageIds: string[]; hidden: boolean } }>(
     "/:chatId/messages/bulk-hidden",
     async (req, reply) => {
-      const { messageIds, hidden } = req.body;
+      const { messageIds, hidden } = (req.body ?? {}) as Partial<{ messageIds: string[]; hidden: boolean }>;
       if (!Array.isArray(messageIds) || messageIds.length === 0) {
         return reply.status(400).send({ error: "messageIds must be a non-empty array" });
       }
@@ -3743,16 +3789,20 @@ export async function chatsRoutes(app: FastifyInstance) {
   });
 
   // Add a swipe
-  app.post<{ Params: { chatId: string; messageId: string } }>("/:chatId/messages/:messageId/swipes", async (req) => {
-    const { content, silent } = req.body as { content: string; silent?: boolean };
-    return storage.addSwipe(req.params.messageId, content, silent);
-  });
+  app.post<{ Params: { chatId: string; messageId: string } }>(
+    "/:chatId/messages/:messageId/swipes",
+    async (req, reply) => {
+      const { content, silent } = (req.body ?? {}) as { content?: string; silent?: boolean };
+      if (typeof content !== "string") return reply.status(400).send({ error: "content is required" });
+      return storage.addSwipe(req.params.messageId, content, silent);
+    },
+  );
 
   // Add multiple swipes in one round trip. Used for alternate greetings during chat setup.
   app.post<{ Params: { chatId: string; messageId: string } }>(
     "/:chatId/messages/:messageId/swipes/bulk",
     async (req, reply) => {
-      const { contents, silent } = req.body as { contents?: unknown; silent?: boolean };
+      const { contents, silent } = (req.body ?? {}) as { contents?: unknown; silent?: boolean };
       if (!Array.isArray(contents)) {
         return reply.status(400).send({ error: "contents must be a non-empty array of strings" });
       }
@@ -3832,8 +3882,11 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Set active swipe
   app.put<{ Params: { chatId: string; messageId: string } }>(
     "/:chatId/messages/:messageId/active-swipe",
-    async (req) => {
-      const { index } = req.body as { index: number };
+    async (req, reply) => {
+      const { index } = (req.body ?? {}) as { index?: unknown };
+      if (typeof index !== "number" || !Number.isInteger(index) || index < 0) {
+        return reply.status(400).send({ error: "index must be a non-negative integer" });
+      }
       return storage.setActiveSwipe(req.params.messageId, index);
     },
   );
@@ -4954,6 +5007,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       let combinedEntry: ChatSummaryEntry | null = null;
       let combinedEntries: ChatSummaryEntry[] = [];
       let combinedSummary: string | null = null;
+      let combineConflict = false;
       throwIfChatSummaryAborted(signal);
       const updatedChat = await storage.patchMetadata(req.params.id, (freshMeta) => {
         throwIfChatSummaryAborted(signal);
@@ -4962,7 +5016,9 @@ export async function chatsRoutes(app: FastifyInstance) {
         });
         const selected = entries.filter((entry) => requestedIds.has(entry.id));
         if (selected.length !== requestedIds.size) {
-          throw new Error("One or more selected summary entries changed while they were being combined");
+          // Another tab changed the selection during the LLM call: report a 409, not a 500.
+          combineConflict = true;
+          return {};
         }
 
         const messageIds = Array.from(new Set(selected.flatMap((entry) => entry.messageIds ?? [])));
@@ -4999,6 +5055,11 @@ export async function chatsRoutes(app: FastifyInstance) {
           summaryEntries: combinedEntries,
         };
       });
+      if (combineConflict) {
+        return reply
+          .status(409)
+          .send({ error: "One or more selected summary entries changed while they were being combined" });
+      }
       const persistedCombinedEntry = combinedEntry as ChatSummaryEntry | null;
       if (!updatedChat || !persistedCombinedEntry) {
         return reply.status(404).send({ error: "Chat not found" });

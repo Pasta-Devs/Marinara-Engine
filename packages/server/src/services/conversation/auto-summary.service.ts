@@ -75,6 +75,8 @@ interface GenerateMissingConversationSummariesOptions {
   timeoutMs?: number;
   maxTokens?: number;
   maxMissingDays?: number;
+  /** Request abort signal. An abort stops the run and is rethrown, never recorded as a summary failure. */
+  signal?: AbortSignal;
 }
 
 const DEFAULT_SUMMARY_TIMEOUT_MS = 300_000;
@@ -224,11 +226,36 @@ function buildDayBuckets(
   );
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Summary timeout")), ms)),
-  ]);
+/** The summary call ran past its time limit; the provider request was aborted. */
+export class SummaryTimeoutError extends Error {
+  readonly timeoutMs: number;
+  constructor(timeoutMs: number) {
+    super("Summary timeout");
+    this.name = "TimeoutError";
+    this.timeoutMs = timeoutMs;
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, signal?: AbortSignal, onTimeout?: () => void): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let onAbort: (() => void) | undefined;
+  const guard = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      // Reject first so the race settles as a timeout, not as the abort it triggers.
+      reject(new SummaryTimeoutError(ms));
+      onTimeout?.();
+    }, ms);
+    timer.unref?.();
+    if (signal) {
+      onAbort = () => reject(signal.reason ?? new Error("Summary aborted"));
+      if (signal.aborted) onAbort();
+      else signal.addEventListener("abort", onAbort, { once: true });
+    }
+  });
+  return Promise.race([promise, guard]).finally(() => {
+    if (timer) clearTimeout(timer);
+    if (signal && onAbort) signal.removeEventListener("abort", onAbort);
+  });
 }
 
 function cleanJsonishResponse(raw: string): string {
@@ -307,17 +334,33 @@ async function summarizeTranscript(
   userContent: string,
   timeoutMs: number,
   maxTokens = 4096,
+  signal?: AbortSignal,
 ): Promise<DaySummaryEntry> {
-  const result = await withTimeout(
-    provider.chatComplete(
-      [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-      { model, temperature: 0.3, maxTokens },
-    ),
-    timeoutMs,
-  );
+  signal?.throwIfAborted();
+  // Own controller so a timeout also cancels the in-flight provider request,
+  // while a caller abort still reaches it.
+  const requestController = new AbortController();
+  const forwardAbort = () => requestController.abort(signal?.reason);
+  signal?.addEventListener("abort", forwardAbort, { once: true });
+  let result: Awaited<ReturnType<BaseLLMProvider["chatComplete"]>>;
+  try {
+    result = await withTimeout(
+      provider.chatComplete(
+        [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        { model, temperature: 0.3, maxTokens, signal: requestController.signal },
+      ),
+      timeoutMs,
+      signal,
+      () => requestController.abort(new SummaryTimeoutError(timeoutMs)),
+    );
+  } finally {
+    signal?.removeEventListener("abort", forwardAbort);
+  }
+  // Some providers report an abort as an empty "abort" finish instead of throwing.
+  signal?.throwIfAborted();
   return parseSummaryResponse(result.content ?? "");
 }
 
@@ -327,6 +370,7 @@ async function summarizeDayBucket(
   bucket: ConversationSummaryDayBucket,
   timeoutMs: number,
   maxTokens: number,
+  signal?: AbortSignal,
 ): Promise<DaySummaryEntry> {
   const transcriptLines = bucket.msgs.map((message) => `${message.author}: ${message.content}`);
   const chunks = chunkTranscriptLines(transcriptLines, DAILY_TRANSCRIPT_CHUNK_CHARS);
@@ -339,6 +383,7 @@ async function summarizeDayBucket(
       chunks[0] ?? "",
       timeoutMs,
       maxTokens,
+      signal,
     );
   }
 
@@ -351,6 +396,7 @@ async function summarizeDayBucket(
       chunks[i]!,
       timeoutMs,
       maxTokens,
+      signal,
     );
     if (partial.summary || partial.keyDetails.length > 0) partials.push(partial);
   }
@@ -374,6 +420,7 @@ async function summarizeDayBucket(
     combinedInput,
     timeoutMs,
     maxTokens,
+    signal,
   );
 }
 
@@ -490,7 +537,15 @@ export async function generateMissingConversationSummaries(
 
   for (const bucket of bucketsToProcess) {
     try {
-      const entry = await summarizeDayBucket(options.provider, options.model, bucket, timeoutMs, maxTokens);
+      options.signal?.throwIfAborted();
+      const entry = await summarizeDayBucket(
+        options.provider,
+        options.model,
+        bucket,
+        timeoutMs,
+        maxTokens,
+        options.signal,
+      );
       if (entry.summary || entry.keyDetails.length > 0) {
         daySummaries[bucket.date] = entry;
         newlyGeneratedDays[bucket.date] = entry;
@@ -500,6 +555,7 @@ export async function generateMissingConversationSummaries(
         }
       }
     } catch (error) {
+      if (options.signal?.aborted) throw error;
       const message = errorMessage(error);
       failedDays.push({ date: bucket.date, error: message });
       summaryFailures.days[bucket.date] = recordSummaryFailure(
@@ -555,6 +611,7 @@ export async function generateMissingConversationSummaries(
         dayBlocks.join("\n\n"),
         timeoutMs,
         maxTokens,
+        options.signal,
       );
       if (entry.summary || entry.keyDetails.length > 0) {
         weekSummaries[weekKey] = entry;
@@ -565,6 +622,7 @@ export async function generateMissingConversationSummaries(
         }
       }
     } catch (error) {
+      if (options.signal?.aborted) throw error;
       const message = errorMessage(error);
       failedWeeks.push({ weekKey, error: message });
       summaryFailures.weeks[weekKey] = recordSummaryFailure(

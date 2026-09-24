@@ -12,6 +12,7 @@ import {
   type SidecarSpeechStatusResponse,
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
+import { logSuppressed } from "../../lib/best-effort.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 
 const MODELS_DIR = join(DATA_DIR, "models");
@@ -251,6 +252,9 @@ class SidecarSpeechService {
   private pipeline: AsrPipeline | null = null;
   private loadingPromise: Promise<AsrPipeline> | null = null;
   private removingAllModels = false;
+  private loadGeneration = 0;
+  /** True while the in-flight load is a network download rather than a local cache load. */
+  private loadingIsDownload = false;
   private downloadProgress: SidecarDownloadProgress | null = null;
   private lastError: string | null = null;
 
@@ -357,15 +361,28 @@ class SidecarSpeechService {
     if (this.removingAllModels) {
       throw new Error("Local Whisper is being removed with the Calls package.");
     }
-    if (this.pipeline && this.activeModelId === modelId) return this.pipeline;
-    if (this.loadingPromise && this.activeModelId === modelId) return this.loadingPromise;
+    // Run loads one at a time: a load of another model waits for the current one
+    // so two native pipelines never load at once and neither result is leaked.
+    // Re-check after every await so concurrent callers cannot both start a load.
+    for (;;) {
+      while (this.loadingPromise) {
+        if (this.activeModelId === modelId) return this.loadingPromise;
+        await this.loadingPromise.catch(() => undefined);
+      }
+      if (this.removingAllModels) {
+        throw new Error("Local Whisper is being removed with the Calls package.");
+      }
+      if (this.pipeline && this.activeModelId === modelId) return this.pipeline;
+      if (!this.pipeline) break;
+      await this.disposeCurrentPipeline();
+    }
 
-    await this.disposeCurrentPipeline();
+    const generation = ++this.loadGeneration;
     this.activeModelId = modelId;
     this.status = options.localFilesOnly ? "loading" : "downloading_model";
     this.lastError = null;
 
-    this.loadingPromise = (async () => {
+    const promise = (async () => {
       if (!this.isAvailable()) {
         const runtime = getOnnxRuntimeDiagnostics();
         const installed = runtime.installedBindingArchs.length > 0 ? runtime.installedBindingArchs.join(", ") : "none";
@@ -387,6 +404,16 @@ class SidecarSpeechService {
         progress_callback: options.progress as never,
       })) as AsrPipeline;
       logger.info("[sidecar-speech] Loaded %s in %dms", model.repoId, Date.now() - startedAt);
+      if (generation !== this.loadGeneration || this.removingAllModels) {
+        // A delete ran while this load was in flight: drop the result instead of
+        // restoring the removed model.
+        await (loaded as AsrPipeline & { dispose?: () => Promise<void> })
+          .dispose?.()
+          .catch((error: unknown) =>
+            logSuppressed(error, { event: "sidecar.speech.load", stage: "dispose-superseded", modelId }),
+          );
+        throw new Error("Local Whisper load was superseded");
+      }
       this.pipeline = loaded;
       this.status = "ready";
       this.downloadProgress = null;
@@ -394,17 +421,24 @@ class SidecarSpeechService {
       this.saveConfig();
       return loaded;
     })();
+    this.loadingPromise = promise;
+    this.loadingIsDownload = !options.localFilesOnly;
 
     try {
-      return await this.loadingPromise;
+      return await promise;
     } catch (error) {
-      this.pipeline = null;
-      this.activeModelId = null;
-      this.lastError = error instanceof Error ? error.message : "Local Whisper failed to load";
-      this.status = "error";
+      if (generation === this.loadGeneration) {
+        this.pipeline = null;
+        this.activeModelId = null;
+        this.lastError = error instanceof Error ? error.message : "Local Whisper failed to load";
+        this.status = "error";
+      }
       throw error;
     } finally {
-      this.loadingPromise = null;
+      if (this.loadingPromise === promise) {
+        this.loadingPromise = null;
+        this.loadingIsDownload = false;
+      }
       if ((this.status as SidecarSpeechStatus) !== "ready") this.downloadProgress = null;
     }
   }
@@ -443,17 +477,32 @@ class SidecarSpeechService {
   }
 
   async deleteModel(modelId?: SidecarSpeechModelId | null): Promise<void> {
+    // Discard an in-flight download or load of the model being deleted and wait for it,
+    // so it cannot recreate the cache and mark the deleted model ready after we remove it.
+    // A load of a different model is left alone: it is not what the caller asked to delete.
+    if (modelId) {
+      while (this.loadingPromise && this.activeModelId === modelId) {
+        this.loadGeneration++;
+        await this.loadingPromise.catch(() => undefined);
+      }
+    } else {
+      this.loadGeneration++;
+      while (this.loadingPromise) await this.loadingPromise.catch(() => undefined);
+    }
     const targetModelId = modelId ?? this.config.modelId ?? this.getDownloadedModelId();
     if (!targetModelId) return;
-    await this.disposeCurrentPipeline();
+    if (this.activeModelId === targetModelId && !this.loadingPromise) await this.disposeCurrentPipeline();
     rmSync(safeModelCachePath(getSpeechModel(targetModelId).repoId), { recursive: true, force: true });
     if (this.config.modelId === targetModelId) {
       this.config = { modelId: null };
       this.saveConfig();
     }
-    this.status = this.detectStatus();
-    this.lastError = null;
-    this.downloadProgress = null;
+    // Leave the status and progress of another model's in-flight load untouched.
+    if (!this.loadingPromise) {
+      this.status = this.detectStatus();
+      this.lastError = null;
+      this.downloadProgress = null;
+    }
   }
 
   async deleteAllModels(): Promise<void> {
@@ -462,7 +511,8 @@ class SidecarSpeechService {
       // A disconnected download request can still be finishing on the server.
       // Wait for it before removing the cache so it cannot recreate package-owned
       // Whisper files after Conversation Calls has been uninstalled.
-      await this.loadingPromise?.catch(() => undefined);
+      this.loadGeneration++;
+      while (this.loadingPromise) await this.loadingPromise.catch(() => undefined);
       await this.disposeCurrentPipeline();
       for (const model of SIDECAR_SPEECH_MODELS) {
         rmSync(safeModelCachePath(model.repoId), { recursive: true, force: true });
@@ -478,6 +528,16 @@ class SidecarSpeechService {
   }
 
   async transcribeWav(buffer: Buffer): Promise<string> {
+    // Resolve the model only once no load is in flight. Resolving it first and then
+    // waiting would load the stale model after a switch and write it back to the
+    // config, undoing the user's new choice. A download can take minutes, so fail
+    // fast instead of stalling the call behind it.
+    while (this.loadingPromise) {
+      if (this.loadingIsDownload) {
+        throw new Error("Local Whisper is downloading a model. Try again when the download finishes.");
+      }
+      await this.loadingPromise.catch(() => undefined);
+    }
     const configuredModelId = this.config.modelId;
     const modelId =
       configuredModelId && this.isModelDownloaded(configuredModelId)

@@ -1698,6 +1698,38 @@ async function probeWriterLeaseLiveness(path: string, token: string): Promise<"a
 class WriterLeasePendingError extends Error {}
 
 const WRITER_LEASE_RETRY_DELAY_MS = 10;
+// Windows boot ids are LastBootUpTime timestamps, which Windows derives from
+// the wall clock, so every NTP step shifts them by the size of the step. A
+// live writer always acquired its lease after the current boot, so a
+// timestamp-shaped boot id proves an earlier boot only when the current boot
+// time is later than the lease's acquiredAt by more than this slack.
+const WINDOWS_BOOT_ID_SLACK_MS = 5 * 60_000;
+const TIMESTAMP_BOOT_ID = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
+
+function timestampBootIdMs(bootId: string | undefined | null): number | null {
+  if (!bootId || !TIMESTAMP_BOOT_ID.test(bootId)) return null;
+  const parsed = Date.parse(bootId);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * Whether a v4 lease's boot id proves it was taken in an earlier boot.
+ * Opaque ids (the Linux kernel boot_id) compare exactly. Timestamp ids
+ * (Windows LastBootUpTime) tolerate clock steps: the lease is from an earlier
+ * boot only when the current boot started after the lease was acquired.
+ */
+export function writerLeaseFromEarlierBoot(
+  record: { bootId?: string; acquiredAt?: string },
+  writerBootId: string,
+): boolean {
+  if (record.bootId === writerBootId) return false;
+  const currentBootMs = timestampBootIdMs(writerBootId);
+  const leaseBootMs = timestampBootIdMs(record.bootId);
+  if (currentBootMs === null || leaseBootMs === null) return true;
+  const acquiredAt = Date.parse(record.acquiredAt ?? "");
+  if (!Number.isFinite(acquiredAt)) return false;
+  return currentBootMs > acquiredAt + WINDOWS_BOOT_ID_SLACK_MS;
+}
 
 function invalidWriterLeaseError(path: string, cause: unknown) {
   return new StorageWriterLeaseError(
@@ -2659,7 +2691,16 @@ class FileTableStore {
       const pidProofUsable =
         hostProof !== "local-storage" ||
         (writerPidNamespace !== null && existing.record.pidNamespace === writerPidNamespace);
-      if (existing.record.version === 4 && sameHost && writerBootId && existing.record.bootId !== writerBootId) {
+      // Windows boot ids move with every clock step, so they are compared as
+      // times against acquiredAt rather than as exact ids (see
+      // writerLeaseFromEarlierBoot). A shifted id on a live writer's lease
+      // falls through to the PID proofs below.
+      if (
+        existing.record.version === 4 &&
+        sameHost &&
+        writerBootId &&
+        writerLeaseFromEarlierBoot(existing.record, writerBootId)
+      ) {
         staleReason = "boot";
       } else if (existing.record.version === 3 || (existing.record.version === 4 && existing.record.scopeId)) {
         // A socket refusal is proof only within the same host kernel. Shared
@@ -2870,8 +2911,12 @@ class FileTableStore {
       // A copied/restored profile can retain the byte-for-byte pre-shard
       // backup while losing the shard directory itself. Recover only when the
       // manifest proves rows are expected and there are zero shard files;
-      // partial shard sets are ambiguous and must never be auto-merged.
-      if (!monolithPresent && shardPrimaries.length === 0 && expectedRowCount > 0) {
+      // partial shard sets are ambiguous and must never be auto-merged. The
+      // shard directory itself must be missing: an EMPTY directory is what a
+      // deliberately emptied table leaves behind (saveShardedTable unlinks the
+      // files, never the directory), so a crash before the manifest rewrite
+      // must not revive rows the user deleted.
+      if (!monolithPresent && !shardDirPresent && expectedRowCount > 0) {
         const preservedSource = [`${monolithPath}.pre-shard`, `${monolithBak}.pre-shard`].find((path) =>
           existsSync(path),
         );
@@ -2885,6 +2930,20 @@ class FileTableStore {
             expectedRowCount,
           );
         }
+      } else if (!monolithPresent && shardDirPresent && shardPrimaries.length === 0 && expectedRowCount > 0) {
+        logger.warn(
+          {
+            event: "storage.migrate",
+            table,
+            stage: "pre-shard-restore",
+            expectedRowCount,
+            outcome: "skipped",
+            reason: "shard-dir-empty",
+          },
+          "[file-storage] %s: manifest expects %d rows but the shard directory is empty; not auto-restoring the .pre-shard backup (possible interrupted delete). Restore it manually if data is missing.",
+          table,
+          expectedRowCount,
+        );
       }
 
       if (!monolithPresent) {

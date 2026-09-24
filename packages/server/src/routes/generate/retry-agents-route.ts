@@ -3032,15 +3032,32 @@ async function applyRetryResultEffects(args: {
 
         const nextLocation = typeof lockedWorldStatePatch.location === "string" ? lockedWorldStatePatch.location : null;
         if (retryCompatibilityLocation === null) {
-          const existingGameMap = (chatMeta.gameMap as GameMap | null) ?? null;
-          const syncedMeta = syncGameMapMetaPartyPosition(chatMeta, nextLocation);
-          const syncedGameMap = (syncedMeta.gameMap as GameMap | null) ?? null;
-          if (syncedGameMap && syncedGameMap !== existingGameMap) {
-            Object.assign(chatMeta, syncedMeta);
-            assertRetryActive();
-            await chats.updateMetadata(chatId, chatMeta);
-            assertRetryActive();
-            sendSseEvent(reply, { type: "game_map_update", data: syncedGameMap });
+          // Sync against fresh metadata inside the per-chat patch queue and write only the map
+          // keys: `chatMeta` is the request-start snapshot, and replacing the whole blob with it
+          // would roll back macro variables and settings saved while the agents ran.
+          let mapPositionChanged = false;
+          assertRetryActive();
+          const updatedChat = await chats.patchMetadata(chatId, (freshMeta) => {
+            const existingGameMap = (freshMeta.gameMap as GameMap | null) ?? null;
+            const syncedMeta = syncGameMapMetaPartyPosition(freshMeta, nextLocation);
+            const syncedGameMap = (syncedMeta.gameMap as GameMap | null) ?? null;
+            if (!syncedGameMap || syncedGameMap === existingGameMap) return {};
+            mapPositionChanged = true;
+            return {
+              gameMap: syncedMeta.gameMap,
+              gameMaps: syncedMeta.gameMaps,
+              activeGameMapId: syncedMeta.activeGameMapId,
+            };
+          });
+          assertRetryActive();
+          if (updatedChat) {
+            const persistedMeta = parseExtra(updatedChat.metadata) as Record<string, unknown>;
+            chatMeta.gameMap = persistedMeta.gameMap;
+            chatMeta.gameMaps = persistedMeta.gameMaps;
+            chatMeta.activeGameMapId = persistedMeta.activeGameMapId;
+            if (mapPositionChanged && persistedMeta.gameMap) {
+              sendSseEvent(reply, { type: "game_map_update", data: persistedMeta.gameMap });
+            }
           }
         }
 
@@ -3483,10 +3500,21 @@ async function applyRetryResultEffects(args: {
           isManualIllustratorImageRequest ||
           (forceImageGeneration && !usesChatIllustratorSettings) ||
           illData.shouldGenerate === true;
-        const imagePrompt = ((illData.prompt as string) ?? "").trim();
-        const negativePrompt = ((illData.negativePrompt as string) ?? "").trim();
-        const style = ((illData.style as string) ?? "").trim();
-        const illCharacters = Array.isArray(illData.characters) ? (illData.characters as string[]) : [];
+        // Agent JSON is untyped: a non-string field must not throw from .trim() and abort the turn.
+        const imagePrompt = typeof illData.prompt === "string" ? illData.prompt.trim() : "";
+        const negativePrompt = typeof illData.negativePrompt === "string" ? illData.negativePrompt.trim() : "";
+        const style =
+          typeof illData.style === "string"
+            ? illData.style.trim()
+            : Array.isArray(illData.style)
+              ? illData.style
+                  .filter((s): s is string => typeof s === "string")
+                  .join(", ")
+                  .trim()
+              : "";
+        const illCharacters = Array.isArray(illData.characters)
+          ? illData.characters.filter((c): c is string => typeof c === "string")
+          : [];
 
         if (shouldGenerate && imagePrompt) {
           const rawImagePositivePrompt = imagePromptAgent?.resolved.settings?.imagePositivePrompt;
@@ -3938,7 +3966,7 @@ async function applyRetryResultEffects(args: {
                   messageId: retryMessageId,
                   imageUrl,
                   prompt: renderedPrompt,
-                  reason: illData.reason,
+                  reason: typeof illData.reason === "string" ? illData.reason : undefined,
                   galleryId: (galleryEntry as any)?.id,
                 },
               });
@@ -3946,7 +3974,7 @@ async function applyRetryResultEffects(args: {
             logger.info(
               "[retry-agents] Illustrator generated %d image(s): %s...",
               imageResults.length,
-              (illData.reason as string | undefined)?.slice(0, 80) ?? imagePrompt.slice(0, 80),
+              (typeof illData.reason === "string" ? illData.reason : imagePrompt).slice(0, 80),
             );
             if (retryMessageId) {
               try {
@@ -5081,6 +5109,31 @@ export async function registerRetryAgentsRoute(
             })
           : result,
       );
+      if (customLorebookBackfillTarget) {
+        // A pending backfill proposal carries its cursor so the approval commit can
+        // advance it; otherwise approval mode would re-run the first chunk forever.
+        const backfillTarget = customLorebookBackfillTarget;
+        results = results.map((result) => {
+          if (result.agentId !== backfillTarget.agentConfigId || !isAgentWriteApprovalEnvelope(result.data)) {
+            return result;
+          }
+          const envelope = result.data;
+          if (envelope.approval.kind !== "lorebook_update") return result;
+          return {
+            ...result,
+            data: {
+              ...envelope,
+              approval: {
+                ...envelope.approval,
+                payload: {
+                  ...envelope.approval.payload,
+                  backfillCursor: { agentConfigId: backfillTarget.agentConfigId, messageId: backfillTarget.messageId },
+                },
+              },
+            },
+          };
+        });
+      }
       const runFinalizer = agentContext.sequentialExecution
         ? createAgentConcurrencyLimiter(1)
         : <T>(task: () => Promise<T>) => task();

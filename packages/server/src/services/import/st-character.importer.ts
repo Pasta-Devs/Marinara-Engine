@@ -336,13 +336,12 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
 
   // Import any regex scripts embedded in the ST card, scoped to this character.
   if (charId) {
-    const cardData = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : raw;
-    const cardExtensions =
-      cardData.extensions && typeof cardData.extensions === "object"
-        ? (cardData.extensions as Record<string, unknown>)
-        : {};
+    // Read from the normalized extensions: convertRisuToV2 lifts Risu-style
+    // regex_scripts / regexScripts there, and V1/V2/V3 cards keep theirs as-is.
+    const normalizedExtensions =
+      data.extensions && typeof data.extensions === "object" ? (data.extensions as Record<string, unknown>) : {};
     const importedRegex = convertStRegexScripts(
-      cardExtensions.regex_scripts,
+      normalizedExtensions.regex_scripts,
       charId,
       options?.regexScriptScope ?? "character",
     );
@@ -553,9 +552,10 @@ function selectBestCharacterBook(...books: unknown[]): unknown {
 function normalizeCharacterBookPosition(value: unknown): CharacterBookEntryPosition {
   if (typeof value === "string") {
     if (value === "after_char" || value === "at_depth" || value === "depth") return value;
+    if (value === "outlet") return 7;
     return "before_char";
   }
-  if (typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 6) {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 7) {
     return value as CharacterBookEntryPosition;
   }
   return "before_char";
@@ -614,6 +614,7 @@ const CHARACTER_BOOK_ENTRY_PASSTHROUGH_FIELDS = [
   "vectorized",
   "decisionStatement",
   "decisionMode",
+  "outletName",
 ];
 
 function buildCardSpecMetadata(raw: Record<string, unknown>) {
