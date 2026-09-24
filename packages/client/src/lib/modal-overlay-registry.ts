@@ -58,6 +58,11 @@ export function isModalOverlayOpen(): boolean {
   return openOverlays.length > 0;
 }
 
+/** How many `Modal`s are open, e.g. to tell "only the palette" from "the palette over a dialog". */
+export function countModalOverlays(): number {
+  return openOverlays.length;
+}
+
 /** Test seam: drop all state so a regression can drive the module repeatedly. */
 export function __resetModalOverlayRegistryForTests() {
   openOverlays = [];

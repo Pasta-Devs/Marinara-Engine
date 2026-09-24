@@ -1,0 +1,234 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const {
+  canTogglePaletteFromShortcut,
+  filterVisibleCommands,
+  formatShortcutKey,
+  fuzzyScore,
+  isPaletteListedChat,
+  isPaletteShortcut,
+  listRegisteredCommands,
+  PALETTE_SETTINGS_TABS,
+  parseRecents,
+  pushRecent,
+  rankCommands,
+  registerCommand,
+  subscribeToCommands,
+} = await import("../../packages/client/src/lib/command-palette.js");
+
+const noop = () => undefined;
+const source = (path: string) => readFileSync(new URL(`../../packages/client/src/${path}`, import.meta.url), "utf8");
+const en = JSON.parse(source("localization/locales/en.json")) as Record<string, unknown>;
+
+// ── Fuzzy scoring prefers exact > prefix > word start > substring > subsequence ──
+{
+  const exact = fuzzyScore("aria", "Aria")!;
+  const prefix = fuzzyScore("ari", "Aria Blackwood")!;
+  const wordStart = fuzzyScore("black", "Aria Blackwood")!;
+  const substring = fuzzyScore("ckwo", "Aria Blackwood")!;
+  const subsequence = fuzzyScore("abw", "Aria Blackwood")!;
+  assert.ok(exact > prefix && prefix > wordStart && wordStart > substring && substring > subsequence);
+  assert.equal(fuzzyScore("xyz", "Aria Blackwood"), null);
+  assert.equal(fuzzyScore("", "anything"), 0);
+  assert.ok(fuzzyScore("cafe", "Café Noir")! > 800, "accents are ignored (prefix match)");
+  assert.ok(fuzzyScore("(", "a (b)") != null, "regex characters in the query are literal");
+  assert.ok(fuzzyScore("black", "Aria Blackwood")! > fuzzyScore("black", "Unblackened")!, "cached word pattern");
+  assert.ok(fuzzyScore("wood", "Dark wood")! > fuzzyScore("wood", "Aria Blackwood")!, "pattern follows the new query");
+}
+
+// ── Ranking: recents first on empty query, then the fallback group; boosted near-ties ──
+{
+  const commands = [
+    { id: "action:new", title: "New conversation", section: "actions" as const, run: noop },
+    { id: "chat:1", title: "Tavern night", section: "chats" as const, run: noop },
+    { id: "chat:2", title: "Tavern day", section: "chats" as const, run: noop },
+    {
+      id: "character:1",
+      title: "Nova",
+      subtitle: "Character",
+      keywords: ["starlight"],
+      section: "characters" as const,
+      run: noop,
+    },
+  ];
+  const empty = rankCommands(commands, "", ["chat:2"], {
+    emptyQueryFallback: (command) => command.section === "actions",
+  });
+  assert.deepEqual(
+    empty.map((command) => command.id),
+    ["chat:2", "action:new"],
+    "empty query shows recents, then actions, never every chat",
+  );
+  assert.deepEqual(
+    rankCommands(commands, "tavern", ["chat:2"]).map((command) => command.id),
+    ["chat:2", "chat:1"],
+    "a recent item wins a tie",
+  );
+  assert.deepEqual(
+    rankCommands(commands, "starlight", []).map((command) => command.id),
+    ["character:1"],
+    "hidden keywords match",
+  );
+  assert.equal(rankCommands(commands, "t", [], { limit: 1 }).length, 1);
+}
+
+// ── Recents ──
+assert.deepEqual(pushRecent(["a", "b", "c"], "b"), ["b", "a", "c"]);
+assert.equal(
+  pushRecent(
+    Array.from({ length: 20 }, (_, index) => `x${index}`),
+    "new",
+  ).length,
+  12,
+);
+assert.deepEqual(parseRecents('["a", 1, "b"]'), ["a", "b"]);
+assert.deepEqual(parseRecents("{broken"), []);
+assert.deepEqual(parseRecents(null), []);
+
+// ── Registry: register, replace, unregister, and notify subscribers ──
+{
+  let notifications = 0;
+  const unsubscribe = subscribeToCommands(() => notifications++);
+  const first = { id: "test:cmd", title: "First", run: noop };
+  const second = { id: "test:cmd", title: "Second", run: noop };
+  const unregisterFirst = registerCommand(first);
+  const unregisterSecond = registerCommand(second);
+  assert.equal(listRegisteredCommands().filter((command) => command.id === "test:cmd").length, 1);
+  assert.equal(listRegisteredCommands().find((command) => command.id === "test:cmd")?.title, "Second");
+  unregisterFirst();
+  assert.ok(
+    listRegisteredCommands().some((command) => command.id === "test:cmd"),
+    "a stale unregister must not remove its replacement",
+  );
+  const snapshot = listRegisteredCommands();
+  assert.equal(listRegisteredCommands(), snapshot, "snapshot is stable between changes (useSyncExternalStore)");
+  unregisterSecond();
+  assert.equal(
+    listRegisteredCommands().some((command) => command.id === "test:cmd"),
+    false,
+  );
+  assert.equal(notifications, 3);
+  unsubscribe();
+}
+
+// ── Filtering: `when` hides commands, and a throwing `when` hides only its own command ──
+{
+  const visible = filterVisibleCommands([
+    { id: "always", title: "Always", run: noop },
+    { id: "shown", title: "Shown", when: () => true, run: noop },
+    { id: "hidden", title: "Hidden", when: () => false, run: noop },
+    {
+      id: "broken",
+      title: "Broken",
+      when: () => {
+        throw new Error("no active chat");
+      },
+      run: noop,
+    },
+  ]);
+  assert.deepEqual(
+    visible.map((command) => command.id),
+    ["always", "shown"],
+  );
+}
+
+// ── Chats: the conversation that backs a game is part of that game, not its own entry ──
+assert.equal(isPaletteListedChat({ mode: "roleplay", metadata: {} }), true);
+assert.equal(isPaletteListedChat({ mode: "game", metadata: { gameId: "game-1" } }), true);
+assert.equal(isPaletteListedChat({ mode: "conversation", metadata: null }), true);
+assert.equal(isPaletteListedChat({ mode: "conversation" }), true);
+assert.equal(isPaletteListedChat({ mode: "conversation", metadata: { gameId: "game-1" } }), false);
+
+// ── Settings tabs: every palette entry is a real Settings tab with a localized label ──
+{
+  const settingsPanel = source("components/panels/SettingsPanel.tsx");
+  for (const tab of PALETTE_SETTINGS_TABS) {
+    assert.match(settingsPanel, new RegExp(`id: "${tab.id}"`, "u"), `Settings has a "${tab.id}" tab`);
+    assert.equal(typeof en[tab.labelKey], "string", `${tab.labelKey} is in en.json`);
+  }
+}
+
+// ── Key handling ──
+const key = (
+  value: string,
+  modifiers: Partial<Record<"ctrlKey" | "metaKey" | "altKey" | "shiftKey", boolean>> = {},
+) => ({
+  key: value,
+  ctrlKey: false,
+  metaKey: false,
+  altKey: false,
+  shiftKey: false,
+  ...modifiers,
+});
+assert.equal(isPaletteShortcut(key("k", { ctrlKey: true })), true);
+assert.equal(isPaletteShortcut(key("K", { metaKey: true })), true);
+assert.equal(isPaletteShortcut(key("k", { ctrlKey: true, shiftKey: true })), false);
+assert.equal(isPaletteShortcut(key("k", { ctrlKey: true, altKey: true })), false, "AltGr+K is not Ctrl+K");
+assert.equal(isPaletteShortcut(key("k")), false);
+// Non-Latin layouts report the local letter in `key`; the physical K key still opens the palette.
+assert.equal(isPaletteShortcut({ ...key("ל", { ctrlKey: true }), code: "KeyK" }), true, "Hebrew layout Ctrl+K");
+assert.equal(isPaletteShortcut({ ...key("л", { metaKey: true }), code: "KeyK" }), true, "Cyrillic layout Cmd+K");
+// A Latin layout that moves K elsewhere (Dvorak: physical K types "t") must not open it.
+assert.equal(isPaletteShortcut({ ...key("t", { ctrlKey: true }), code: "KeyK" }), false, "Dvorak Ctrl+T");
+assert.equal(isPaletteShortcut({ ...key("k", { ctrlKey: true }), repeat: true }), false, "held key does not re-toggle");
+// The palette never opens over another dialog, and may close itself only when it is the one open.
+assert.equal(canTogglePaletteFromShortcut(0, false), true, "nothing open");
+assert.equal(canTogglePaletteFromShortcut(1, true), true, "only the palette is open");
+assert.equal(canTogglePaletteFromShortcut(2, true), false, "palette opened over another dialog");
+assert.equal(canTogglePaletteFromShortcut(1, false), false, "another dialog is open");
+assert.equal(formatShortcutKey("Mod", true), "⌘");
+assert.equal(formatShortcutKey("Mod", false), "Ctrl");
+assert.equal(formatShortcutKey("K", false), "K");
+
+// ── Host wiring ──
+const host = source("components/command-palette/CommandPaletteHost.tsx");
+// A field that binds Ctrl+K itself and calls preventDefault() keeps the key.
+assert.match(host, /if \(event\.defaultPrevented \|\| event\.isComposing\) return;/u);
+assert.match(
+  host,
+  /isPaletteShortcut\(event\)\) \{[\s\S]*?if \(!canTogglePaletteFromShortcut\(countModalOverlays\(\), palette\.paletteOpen\)\) return;/u,
+  "the shortcut does not open the palette over another dialog",
+);
+
+// The built-in actions are exactly the ones below: each opens something that exists in the app.
+{
+  const registeredIds = [...host.matchAll(/id: "(action:[^"]+)"/gu)].map((match) => match[1]);
+  assert.deepEqual(registeredIds.sort(), [
+    "action:browse-cards",
+    "action:character-library",
+    "action:chat-guide",
+    "action:home",
+    "action:new-conversation",
+    "action:new-game",
+    "action:new-roleplay",
+    "action:open-settings",
+    "action:toggle-chats",
+    "action:toggle-theme",
+  ]);
+  assert.match(host, /id: `action:panel-\$\{panel\}`/u);
+  for (const panel of ["characters", "personas", "lorebooks", "presets", "connections", "agents"]) {
+    assert.match(host, new RegExp(`\\{ panel: "${panel}", labelKey: "palette\\.actions\\.open`, "u"));
+  }
+  for (const labelKey of host.matchAll(/"(palette\.[A-Za-z.]+)"/gu)) {
+    assert.equal(typeof en[labelKey[1]!], "string", `${labelKey[1]} is in en.json`);
+  }
+}
+
+// Big libraries: the palette lists characters from the compact catalog, never the full-card list.
+const palette = source("components/command-palette/CommandPalette.tsx");
+assert.match(palette, /useAllCharacterCatalog\(\)/u, "palette reads the compact character catalog");
+assert.doesNotMatch(palette, /useCharacters\(\)/u, "palette does not load every full character card");
+assert.match(palette, /filterVisibleCommands\(registered\)/u, "registered commands go through the `when` filter");
+for (const labelKey of palette.matchAll(/t\("(palette\.[A-Za-z.]+)"/gu)) {
+  assert.equal(typeof en[labelKey[1]!], "string", `${labelKey[1]} is in en.json`);
+}
+for (const [name, value] of Object.entries(en)) {
+  if (name.startsWith("palette.")) assert.ok(!String(value).includes("\u2014"), `${name} has no em dash`);
+}
+
+// Touch users need a visible way in, not only the key binding.
+assert.match(source("components/layout/TopBar.tsx"), /aria-keyshortcuts="Control\+K Meta\+K"/u);
+assert.match(source("components/layout/AppShell.tsx"), /<CommandPaletteHost \/>/u);
+
+console.log("command palette regression passed");

@@ -17,16 +17,15 @@ type HomeNewChatLauncherProps = {
   ariaLabel?: string;
 };
 
-export function HomeNewChatLauncher({ mode, className, children, ariaLabel }: HomeNewChatLauncherProps = {}) {
+/** Creates a chat in `mode` with the starred settings profile, or opens the connection gate when none exist. */
+export function useLaunchNewChat() {
   const { t: localizeUi } = useUiTranslation();
-  const [selectorOpen, setSelectorOpen] = useState(false);
   const { data: connections } = useConnections();
   const { data: chatPresetsData } = useChatPresets();
   const createChat = useCreateChat();
   const applyChatPreset = useApplyChatPreset();
 
-  const selectMode = (mode: ChatLaunchMode) => {
-    setSelectorOpen(false);
+  const launch = (mode: ChatLaunchMode) => {
     const connectionRows = ((connections ?? []) as Array<{ id: string }>).filter((connection) => !!connection.id);
     const store = useChatStore.getState();
     if (connectionRows.length === 0) {
@@ -64,6 +63,19 @@ export function HomeNewChatLauncher({ mode, className, children, ariaLabel }: Ho
     );
   };
 
+  return { launch, isPending: createChat.isPending };
+}
+
+export function HomeNewChatLauncher({ mode, className, children, ariaLabel }: HomeNewChatLauncherProps = {}) {
+  const { t: localizeUi } = useUiTranslation();
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const { launch, isPending } = useLaunchNewChat();
+
+  const selectMode = (mode: ChatLaunchMode) => {
+    setSelectorOpen(false);
+    launch(mode);
+  };
+
   return (
     <>
       <button
@@ -92,7 +104,7 @@ export function HomeNewChatLauncher({ mode, className, children, ariaLabel }: Ho
           open={selectorOpen}
           onClose={() => setSelectorOpen(false)}
           onSelectMode={selectMode}
-          isPending={createChat.isPending}
+          isPending={isPending}
         />
       ) : null}
     </>
