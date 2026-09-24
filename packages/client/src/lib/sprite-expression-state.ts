@@ -1,6 +1,7 @@
 import { parseMessageExtraRecord } from "./chat-message-extra";
 
 interface SpriteExpressionMessage {
+  role?: string;
   extra?: unknown;
 }
 
@@ -34,4 +35,35 @@ export function resolveSpriteExpressionState(
   }
 
   return expressions;
+}
+
+/** Find the latest completed expression turn, skipping messages whose expressions are still pending. */
+export function resolveLatestSpriteExpressionTurn(
+  messages: readonly (SpriteExpressionMessage & { id: string })[] | undefined,
+) {
+  for (let index = (messages?.length ?? 0) - 1; index >= 0; index--) {
+    const message = messages![index]!;
+    if (message.role !== "assistant") continue;
+    const extra = parseMessageExtraRecord(message.extra);
+    if (Array.isArray(extra.expressionSpriteIds)) {
+      const characterIds = extra.expressionSpriteIds.filter((id): id is string => typeof id === "string" && !!id);
+      return { characterIds, messageId: message.id, messageIndex: index };
+    }
+
+    // Older turns only stored sparse expressions, with persona expressions on the preceding user message.
+    const characterIds = Object.keys(normalizeSpriteExpressionMap(extra.spriteExpressions));
+    if (characterIds.length > 0) {
+      for (let previous = index - 1; previous >= 0; previous--) {
+        const prior = messages![previous]!;
+        if (prior.role === "assistant") break;
+        if (prior.role !== "user") continue;
+        characterIds.push(
+          ...Object.keys(normalizeSpriteExpressionMap(parseMessageExtraRecord(prior.extra).spriteExpressions)),
+        );
+        break;
+      }
+      return { characterIds, messageId: message.id, messageIndex: index };
+    }
+  }
+  return undefined;
 }

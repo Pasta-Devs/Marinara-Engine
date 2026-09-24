@@ -40,6 +40,8 @@ interface ExpressionSpriteSettingsProps {
   onToggleDisplayMode: (mode: SpriteDisplayMode) => void;
   expressionAvatarsEnabled: boolean;
   onToggleExpressionAvatars: () => void;
+  onlyActiveSprites: boolean;
+  onToggleOnlyActiveSprites?: () => void;
   ownerCount: number;
   ownersLoading: boolean;
   choicesLoading: boolean;
@@ -74,6 +76,8 @@ export function ExpressionSpriteSettings({
   onToggleDisplayMode,
   expressionAvatarsEnabled,
   onToggleExpressionAvatars,
+  onlyActiveSprites,
+  onToggleOnlyActiveSprites,
   ownerCount,
   ownersLoading,
   choicesLoading,
@@ -106,6 +110,15 @@ export function ExpressionSpriteSettings({
   return (
     <>
       <SpriteDisplayModeToggle modes={displayModes} onToggle={onToggleDisplayMode} />
+
+      {onToggleOnlyActiveSprites && (
+        <AgentSettingsToggle
+          label={localizeUi("ui.chat.expressionSprites.onlyActive")}
+          description={localizeUi("ui.chat.expressionSprites.onlyActiveDescription")}
+          enabled={onlyActiveSprites}
+          onToggle={onToggleOnlyActiveSprites}
+        />
+      )}
 
       <AgentSettingsToggle
         label={localizeUi("ui.chat.expressionsetupfields.expressionAvatars")}

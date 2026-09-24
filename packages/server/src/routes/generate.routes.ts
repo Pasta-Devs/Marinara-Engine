@@ -10996,13 +10996,13 @@ export async function generateRoutes(app: FastifyInstance) {
                 spriteData.expressions = validatedExpressions;
               }
               // Persist validated expressions onto the message/swipe extra so they survive page refresh
-              // and swipe switching. The chat-level metadata is also updated for backward compat.
+              // and swipe switching. Keep sparse appearances on empty results; the completed owner list controls visibility.
               const persistedExpressions =
                 spriteData.expressions?.filter(
                   (entry): entry is { characterId: string; expression: string } =>
                     typeof entry.characterId === "string" && typeof entry.expression === "string",
                 ) ?? [];
-              if (persistedExpressions.length > 0) {
+              if (Array.isArray(spriteData.expressions)) {
                 const exprMap: Record<string, string> = {};
                 const personaExprMap: Record<string, string> = {};
                 for (const e of persistedExpressions) {
@@ -11013,9 +11013,10 @@ export async function generateRoutes(app: FastifyInstance) {
                   }
                 }
                 try {
-                  if (Object.keys(exprMap).length > 0) {
-                    await chats.updateMessageExtraForSwipe(messageId, targetSwipeIndex, { spriteExpressions: exprMap });
-                  }
+                  await chats.updateMessageExtraForSwipe(messageId, targetSwipeIndex, {
+                    ...(Object.keys(exprMap).length > 0 ? { spriteExpressions: exprMap } : {}),
+                    expressionSpriteIds: persistedExpressions.map((entry) => entry.characterId),
+                  });
                   if (Object.keys(personaExprMap).length > 0) {
                     const personaMessageId =
                       currentTurnUserMessageId ?? (await findLastUserMessageIdBefore(chats, input.chatId, messageId));

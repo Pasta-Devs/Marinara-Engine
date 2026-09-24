@@ -303,7 +303,10 @@ import {
   buildInitialAgentAddSetupState,
 } from "../../packages/client/src/components/chat/AgentAddSetupFields.js";
 import { resolveSpriteTransition } from "../../packages/client/src/lib/sprite-transition.js";
-import { resolveSpriteExpressionState } from "../../packages/client/src/lib/sprite-expression-state.js";
+import {
+  resolveLatestSpriteExpressionTurn,
+  resolveSpriteExpressionState,
+} from "../../packages/client/src/lib/sprite-expression-state.js";
 import {
   parseIllustratorPromptReviewOverride,
   resolveIllustratorPromptSubmission,
@@ -1096,6 +1099,38 @@ assert.deepEqual(
   { "character-a": "neutral" },
 );
 assert.deepEqual(findMissingComfyReferenceSlots(comfyReferenceWorkflow, "reference_image", 1), [1]);
+const completedExpressionMessages = [
+  { id: "completed", role: "assistant", extra: { expressionSpriteIds: ["character-a", "persona"] } },
+  { id: "user", role: "user", extra: {} },
+  { id: "pending", role: "assistant", extra: {} },
+];
+assert.deepEqual(resolveLatestSpriteExpressionTurn(completedExpressionMessages), {
+  characterIds: ["character-a", "persona"],
+  messageId: "completed",
+  messageIndex: 0,
+});
+assert.deepEqual(
+  resolveLatestSpriteExpressionTurn([
+    ...completedExpressionMessages,
+    {
+      id: "empty",
+      role: "assistant",
+      extra: JSON.stringify({ expressionSpriteIds: [], spriteExpressions: { "character-a": "happy" } }),
+    },
+  ]),
+  { characterIds: [], messageId: "empty", messageIndex: 3 },
+  "a completed empty result is distinct from a pending or failed expression turn",
+);
+assert.deepEqual(
+  resolveLatestSpriteExpressionTurn([
+    { id: "legacy-persona", role: "user", extra: { spriteExpressions: { persona: "happy" } } },
+    { id: "legacy", role: "assistant", extra: { spriteExpressions: { "character-b": "neutral" } } },
+  ]),
+  { characterIds: ["character-b", "persona"], messageId: "legacy", messageIndex: 1 },
+  "legacy expression turns retain both character and persona owners",
+);
+assert.equal(resolveLatestSpriteExpressionTurn([{ id: "pending", role: "assistant", extra: {} }]), undefined);
+assert.equal(resolveLatestSpriteExpressionTurn(undefined), undefined);
 assert.deepEqual(findMissingComfyReferenceSlots(comfyReferenceWorkflow, "reference_image_name", 1), [2]);
 assert.equal(numberedComfyReferencePlaceholder("reference_image_name", 2), "%reference_image_name_03%");
 
@@ -5303,7 +5338,11 @@ const termuxClientBuildBlock = termuxLauncher
   .split("if ! node scripts/check-client-build.mjs; then\n")[1]
   ?.split("\nfi")[0];
 assert.ok(termuxClientBuildBlock, "Termux must handle an incomplete client build");
-assert.equal(termuxClientBuildBlock.match(/build_termux_client/gu)?.length, 2, "Initial build and retry must use the bounded build heap");
+assert.equal(
+  termuxClientBuildBlock.match(/build_termux_client/gu)?.length,
+  2,
+  "Initial build and retry must use the bounded build heap",
+);
 const termuxClientBuildHelper = termuxLauncher.split("build_termux_client() (")[1]?.split("\n)")[0];
 assert.ok(termuxClientBuildHelper, "Termux must define the isolated client build helper");
 assert.match(termuxClientBuildHelper, /SKIP_PWA=1 run_pnpm --filter @marinara-engine\/client exec vite build/u);
