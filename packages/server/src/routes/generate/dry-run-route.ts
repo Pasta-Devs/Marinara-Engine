@@ -834,7 +834,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           : null;
     const promptCharacterIds = resolvePromptCharacterIdsForTarget(characterIds, promptTargetCharacterId);
     const deferGroupPromptRegex =
-      (chatMode === "roleplay" ? allCharacterIds.length > 1 : characterIds.length > 1) &&
+      chatMode === "roleplay" &&
+      allCharacterIds.length > 1 &&
       dryRunGroupChatMode === "individual" &&
       Boolean(promptTargetCharacterId) &&
       !impersonate;

@@ -2549,7 +2549,8 @@ export async function generateRoutes(app: FastifyInstance) {
         // Each responder sees other characters as user input. Keep shared history
         // untouched until those roles are scoped, including replies within this turn.
         const deferGroupPromptRegex =
-          (chatMode === "roleplay" ? allCharacterIds.length > 1 : characterIds.length > 1) &&
+          chatMode === "roleplay" &&
+          allCharacterIds.length > 1 &&
           promptGroupChatMode === "individual" &&
           !input.impersonate;
         const promptTargetCharacterId =
@@ -9858,17 +9859,15 @@ export async function generateRoutes(app: FastifyInstance) {
                   // Only an older quote needs rebuilding; preserve other already-formatted history.
                   if (known && (index < 0 || !parseExtra(message.extra).replyTo)) continue;
                   const mapped = await mapChatHistoryMessageForPrompt(message, latestUserMessageId);
-                  if (!deferGroupPromptRegex) {
-                    applyRegexScriptsToPromptMessages([mapped], await getPromptRegexScripts(), {
-                      resolveMacros: (value, randomSeed) =>
-                        resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
-                      targetCharacterId: promptTargetCharacterId,
-                      targetPromptPresetId: presetId ?? null,
-                    });
-                  }
+                  applyRegexScriptsToPromptMessages([mapped], await getPromptRegexScripts(), {
+                    resolveMacros: (value, randomSeed) =>
+                      resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
+                    targetCharacterId: promptTargetCharacterId,
+                    targetPromptPresetId: presetId ?? null,
+                  });
                   mapped.content = mapped.content.replace(/\n([ \t]*\n){2,}/g, "\n\n");
                   let resolved = resolveHistoryMessageMacros([mapped])[0] ?? mapped;
-                  if (shouldPrefixGroupHistorySpeakers && !deferGroupPromptRegex) {
+                  if (shouldPrefixGroupHistorySpeakers) {
                     resolved =
                       prefixGroupIndividualHistorySpeakers([resolved], {
                         personaName,
@@ -13031,16 +13030,13 @@ export async function generateRoutes(app: FastifyInstance) {
             const newMariMsg: GenerationPromptMessage = {
               role: "assistant",
               content: lastResponseText,
-              contextKind: "history",
               characterId: null,
             };
-            if (!deferGroupPromptRegex) {
-              applyRegexScriptsToPromptMessages([newMariMsg], await regexScriptsStore.list(), {
-                resolveMacros: (value, randomSeed) =>
-                  resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
-                targetPromptPresetId: presetId ?? null,
-              });
-            }
+            applyRegexScriptsToPromptMessages([newMariMsg], await regexScriptsStore.list(), {
+              resolveMacros: (value, randomSeed) =>
+                resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
+              targetPromptPresetId: presetId ?? null,
+            });
             newMariMsg.content = newMariMsg.content.replace(/\n([ \t]*\n){2,}/g, "\n\n");
             runningMessagesForFollowUp.push(resolveHistoryMessageMacros([newMariMsg])[0] ?? newMariMsg);
           }

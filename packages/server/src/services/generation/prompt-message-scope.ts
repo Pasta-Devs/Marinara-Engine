@@ -355,7 +355,7 @@ export function scopeIndividualGroupMessagesForTarget(
 
       return next;
     })
-    .filter((message) => message.content.trim());
+    .filter((message) => message.content.trim() || message.images?.length || message.files?.length);
 
   if (transformHistory) {
     const history = scoped.filter((message) => message.contextKind === "history");
@@ -365,7 +365,9 @@ export function scopeIndividualGroupMessagesForTarget(
     }
     transformHistory(history);
   }
-  const nonEmpty = scoped.filter((message) => message.content.trim());
+  const nonEmpty = scoped.filter(
+    (message) => message.content.trim() || message.images?.length || message.files?.length,
+  );
   reassignHistoryLastMessageWrapper(nonEmpty, messages);
   pruneEmptyPromptWrappers(nonEmpty);
   return nonEmpty;

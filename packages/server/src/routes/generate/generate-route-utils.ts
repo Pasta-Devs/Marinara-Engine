@@ -1003,7 +1003,9 @@ export function prefixGroupIndividualHistorySpeakers<T extends SpeakerPrefixMess
   return messages.map((message) => {
     let speakerName: string | null = null;
     if (options.recipientScoped && message.characterId) {
-      speakerName = options.characterNamesById.get(message.characterId) ?? null;
+      speakerName =
+        options.characterNamesById.get(message.characterId) ??
+        (typeof message.name === "string" && message.name.trim() ? message.name.trim() : null);
     } else if (message.role === "user") {
       speakerName = message.personaSnapshotName?.trim() || personaName;
     } else if (message.role === "assistant") {
