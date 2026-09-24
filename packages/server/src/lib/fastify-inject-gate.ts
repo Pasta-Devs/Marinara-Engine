@@ -92,7 +92,14 @@ export function holdInjectUntilRegistered(app: FastifyInstance, options: InjectG
     });
     if (callback) {
       held.then(
-        () => originalInject(...args),
+        () => {
+          // A synchronous throw would otherwise become an unhandled rejection instead of reaching the caller.
+          try {
+            originalInject(...args);
+          } catch (error) {
+            callback(error);
+          }
+        },
         (error: unknown) => callback(error),
       );
       return undefined;

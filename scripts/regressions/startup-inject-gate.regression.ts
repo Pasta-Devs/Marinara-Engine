@@ -45,6 +45,22 @@ assert.equal(await callbackResult, 200);
 await app.close();
 await app2.close();
 
+// A held callback-style call whose inject() throws synchronously once released reports the error to its callback
+// instead of leaving an unhandled rejection.
+const throwing = {
+  inject: (..._args: unknown[]) => {
+    throw new Error("synchronous inject failure fixture");
+  },
+};
+const releaseThrowing = holdInjectUntilRegistered(
+  throwing as unknown as Parameters<typeof holdInjectUntilRegistered>[0],
+);
+const syncThrow = new Promise<unknown>((resolve) =>
+  (throwing.inject as (options: unknown, callback: (error: unknown) => void) => void)({ url: "/x" }, resolve),
+);
+releaseThrowing();
+assert.match(String((await syncThrow) as Error), /synchronous inject failure fixture/u);
+
 // Startup must not hang on a call that registration itself awaits (a capability package awaiting runInternalRoute
 // inside activate() or selfCheck()): inside failInjectFastDuring such a call fails at once, promise and callback style.
 const app3 = Fastify();
