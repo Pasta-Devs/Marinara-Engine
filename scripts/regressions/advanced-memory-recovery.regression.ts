@@ -298,42 +298,52 @@ try {
     assert.equal(disabled.records.find((record) => record.kind === "scene" && record.content)!.enabled, false);
   });
   await test("a correction with legacy globally hidden gaps can be reviewed and saved without losing its text", async () => {
-    const { chat, messages, row, sceneId } = await fixture();
-    await chats.updateMessageExtra(messages[1]!.id, { hiddenFromAI: true });
-    const sourceIds = messages.map((message) => message.id);
-    await db
-      .update(advancedMemoryRecords)
-      .set({
+    for (const edit of ["text", "audience"] as const) {
+      const { chat, messages, row, sceneId } = await fixture();
+      await chats.updateMessageExtra(messages[1]!.id, { hiddenFromAI: true });
+      const sourceIds = messages.map((message) => message.id);
+      await db
+        .update(advancedMemoryRecords)
+        .set({
+          endMessageId: messages[2]!.id,
+          messageIds: JSON.stringify(sourceIds),
+        })
+        .where(eq(advancedMemoryRecords.id, sceneId));
+      const correctionId = `${sceneId}-corrected`;
+      await db.insert(advancedMemoryRecords).values({
+        ...row,
+        id: correctionId,
         endMessageId: messages[2]!.id,
-        messageIds: JSON.stringify(sourceIds),
-      })
-      .where(eq(advancedMemoryRecords.id, sceneId));
-    const correctionId = `${sceneId}-corrected`;
-    await db.insert(advancedMemoryRecords).values({
-      ...row,
-      id: correctionId,
-      endMessageId: messages[2]!.id,
-      messageIds: JSON.stringify([messages[0]!.id, messages[2]!.id]),
-      audienceCharacterIds: '["maukie"]',
-      manualOverride: 1,
-      content: "The corrected compass promise stays intact.",
-    });
-    await assert.rejects(memory.initialize(chat.id, { sceneId }), /manually corrected memory/);
-    const before = (await memory.status(chat.id)).records.find((record) => record.id === correctionId)!;
-    assert.equal(before.content, "The corrected compass promise stays intact.");
-    await memory.updateRecord(chat.id, correctionId, { content: before.content });
-    const reviewed = (await memory.status(chat.id)).records.find((record) => record.id === correctionId)!;
-    assert.equal(reviewed.content, before.content);
-    assert.deepEqual(reviewed.messageIds, sourceIds, "saving acknowledges the hidden gap in the original source range");
-    assert.deepEqual(reviewed.audienceCharacterIds, ["maukie"]);
-    const paid = summaryRequests.length;
-    await memory.initialize(chat.id, { sceneId });
-    assert.equal(summaryRequests.length, paid, "an acknowledged correction needs no new summary");
-    await chats.updateMessageExtra(messages[1]!.id, { hiddenFromAICharacterIds: ["maukie"] });
-    await assert.rejects(
-      memory.updateRecord(chat.id, correctionId, { content: before.content }),
-      /no longer available/,
-    );
+        messageIds: JSON.stringify([messages[0]!.id, messages[2]!.id]),
+        audienceCharacterIds: '["maukie"]',
+        manualOverride: 1,
+        content: "The corrected compass promise stays intact.",
+      });
+      await assert.rejects(memory.initialize(chat.id, { sceneId }), /manually corrected memory/);
+      const before = (await memory.status(chat.id)).records.find((record) => record.id === correctionId)!;
+      assert.equal(before.content, "The corrected compass promise stays intact.");
+      await memory.updateRecord(
+        chat.id,
+        correctionId,
+        edit === "text" ? { content: before.content } : { audienceCharacterIds: ["maukie"] },
+      );
+      const reviewed = (await memory.status(chat.id)).records.find((record) => record.id === correctionId)!;
+      assert.equal(reviewed.content, before.content);
+      assert.deepEqual(
+        reviewed.messageIds,
+        sourceIds,
+        "saving acknowledges the hidden gap in the original source range",
+      );
+      assert.deepEqual(reviewed.audienceCharacterIds, ["maukie"]);
+      const paid = summaryRequests.length;
+      await memory.initialize(chat.id, { sceneId });
+      assert.equal(summaryRequests.length, paid, "an acknowledged correction needs no new summary");
+      await chats.updateMessageExtra(messages[1]!.id, { hiddenFromAICharacterIds: ["maukie"] });
+      await assert.rejects(
+        memory.updateRecord(chat.id, correctionId, { content: before.content }),
+        /no longer available/,
+      );
+    }
   });
   await test("named participants resolve to separate chat characters and unknown names never grant access", async () => {
     for (const [result, expected] of [

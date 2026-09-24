@@ -3181,9 +3181,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       const ctx = await context(chatId);
       const record = await getRecord(chatId, recordId);
       await validateAudience(ctx, record);
+      const correctedScene =
+        record.kind === "scene" && (patch.content !== undefined || patch.audienceCharacterIds !== undefined);
       // Explicitly saving a corrected legacy recap acknowledges globally hidden
       // gaps in its original range; preparation never silently widens that correction.
-      if (record.kind === "scene" && patch.content !== undefined) {
+      if (correctedScene) {
         const start = ctx.messages.findIndex((message) => message.id === record.startMessageId);
         const end = ctx.messages.findIndex((message) => message.id === record.endMessageId);
         if (start >= 0 && end >= start) {
@@ -3202,8 +3204,6 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           ? record.audienceCharacterIds
           : [...new Set(patch.audienceCharacterIds)].sort();
       const audienceChanged = hash(audience) !== hash([...record.audienceCharacterIds].sort());
-      const correctedScene =
-        record.kind === "scene" && (patch.content !== undefined || patch.audienceCharacterIds !== undefined);
       const sourceFingerprint = fingerprint(ctx, source, audience);
       const eligibleIds =
         correctedScene && audience.length
