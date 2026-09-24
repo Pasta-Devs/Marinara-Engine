@@ -20,7 +20,8 @@ async function sh(file, args, options = {}) {
   return stdout.trim();
 }
 
-const psq = (value) => String(value).replace(/'/g, "''");
+// PowerShell treats the typographic single quotes as quote characters too, so they are doubled as well.
+const psq = (value) => String(value).replace(/['\u2018\u2019\u201A\u201B]/g, "$&$&");
 export async function powershell(script, options = {}) {
   return sh("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], options);
 }

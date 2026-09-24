@@ -1,19 +1,31 @@
-// Engine log access. The server writes JSON lines to LOG_DIR/marinara-<pid>-<run>.log (see LOGGING.md and
-// docs/development/logging.md). Field names follow the server's shared vocabulary: event, requestId, operationId,
-// operation, stage, errorId, errorCode (older lines: code), err, elapsedMs, bootId.
+// Engine log access. Engines that write log files put JSON lines in LOG_DIR/marinara-<pid>-<run>.log. When there
+// are none, the tool reads the output it captured itself for an engine it started (restart_engine or the sandbox),
+// which in production is the same JSON lines on stdout. Field names follow the request-trail logging vocabulary
+// (event, requestId, operationId, operation, stage, errorId, errorCode, err, elapsedMs, bootId); lines from engines
+// without it (Fastify's reqId and req.url) are read too, so every lookup degrades instead of failing.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { LOG_DIR } from "./config.mjs";
+import { INSTANCE, LOG_DIR, RUN_DIR, SANDBOX_DIR } from "./config.mjs";
 
 const LEVELS = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
 
+/** Output files this tool captured for engines it started (see startEngine and the sandbox). */
+const CAPTURED_OUTPUT =
+  INSTANCE === "sandbox" ? [join(SANDBOX_DIR, "sandbox.log")] : [join(RUN_DIR, "live-server.out.log")];
+
 export function logFiles(limit = 3, dir = LOG_DIR) {
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((name) => /^marinara-.*\.log$/.test(name))
-    .map((name) => ({ name, path: join(dir, name), mtime: statSync(join(dir, name)).mtimeMs }))
-    .sort((a, b) => b.mtime - a.mtime)
-    .slice(0, limit);
+  const files = existsSync(dir)
+    ? readdirSync(dir)
+        .filter((name) => /^marinara-.*\.log$/.test(name))
+        .map((name) => ({ name, path: join(dir, name), mtime: statSync(join(dir, name)).mtimeMs }))
+    : [];
+  // Engines without log files: fall back to the captured output, so logs and lookup_error still have a source.
+  if (!files.length && dir === LOG_DIR) {
+    for (const path of CAPTURED_OUTPUT) {
+      if (existsSync(path)) files.push({ name: path.split(/[\\/]/).pop(), path, mtime: statSync(path).mtimeMs });
+    }
+  }
+  return files.sort((a, b) => b.mtime - a.mtime).slice(0, limit);
 }
 
 function* entries(files) {
@@ -164,7 +176,8 @@ export function lastStartupReady() {
 export function secondsSinceLastGeneration() {
   let last = 0;
   for (const entry of entries(logFiles(2))) {
-    const op = String(entry.operation ?? "");
+    // `operation` comes from the request-trail logging; older engines only have Fastify's req.url.
+    const op = String(entry.operation ?? (entry.req?.url ? `${entry.req.method ?? ""} ${entry.req.url}` : ""));
     const event = String(entry.event ?? "");
     const player =
       event.startsWith("generation.") ||

@@ -2,7 +2,7 @@
 // proc.mjs (Windows and POSIX paths).
 import { execFile } from "node:child_process";
 import { cpSync, existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import {
   AGENT,
@@ -194,21 +194,36 @@ export async function startEngine(timeoutSeconds = 720) {
 
 // ------------------------------------------------------------------ pnpm / tsc / regressions
 
+/** corepack's own script next to the running node, so the default command needs no shell on Windows. */
+const COREPACK_JS = join(dirname(process.execPath), "node_modules", "corepack", "dist", "corepack.js");
+
 function pnpmCommand() {
   const parts = (process.env.MARINARA_DEV_PNPM || "corepack pnpm").trim().split(/\s+/);
-  return { file: parts[0], prefix: parts.slice(1) };
+  if (parts[0] === "corepack" && existsSync(COREPACK_JS)) {
+    return { file: process.execPath, prefix: [COREPACK_JS, ...parts.slice(1)], shell: false };
+  }
+  // Anything else is a .cmd shim on Windows, which Node only runs through a shell: allow plain words and paths only.
+  if (IS_WINDOWS && !parts.every((part) => /^[A-Za-z0-9_@.:/\\-]+$/.test(part))) {
+    throw new Error("MARINARA_DEV_PNPM may only contain a command and plain arguments (no shell characters or spaces in paths)");
+  }
+  return { file: parts[0], prefix: parts.slice(1), shell: IS_WINDOWS };
 }
 
 async function pnpm(args, timeoutMs = 15 * 60_000) {
-  const { file, prefix } = pnpmCommand();
+  let command;
+  try {
+    command = pnpmCommand();
+  } catch (error) {
+    return { ok: false, output: error.message };
+  }
+  const { file, prefix, shell } = command;
   try {
     const { stdout, stderr } = await run(file, [...prefix, ...args], {
       cwd: REPO,
       windowsHide: true,
       timeout: timeoutMs,
       maxBuffer: 64 * 1024 * 1024,
-      // corepack and pnpm are .cmd shims on Windows, which Node only runs through a shell.
-      shell: IS_WINDOWS,
+      shell,
     });
     return { ok: true, output: `${stdout}\n${stderr}` };
   } catch (error) {

@@ -37,10 +37,16 @@ function readEngineEnv() {
   const file = join(REPO, ".env");
   const env = {};
   if (!existsSync(file)) return env;
-  for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
-    const match = /^\s*(?:export\s+)?([A-Za-z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
-    if (!match) continue;
-    env[match[1]] = match[2].replace(/^"(.*)"$/, "$1").replace(/^'(.*)'$/, "$1");
+  for (const raw of readFileSync(file, "utf8").split("\n")) {
+    const line = raw.trim().replace(/^export\s+/, "");
+    const eq = line.indexOf("=");
+    if (eq < 1 || line.startsWith("#")) continue;
+    const key = line.slice(0, eq).trim();
+    if (!/^[A-Za-z0-9_]+$/.test(key)) continue;
+    let value = line.slice(eq + 1).trim();
+    const quote = value[0];
+    if ((quote === '"' || quote === "'") && value.length > 1 && value.endsWith(quote)) value = value.slice(1, -1);
+    env[key] = value;
   }
   return env;
 }

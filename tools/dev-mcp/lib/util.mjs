@@ -1,6 +1,6 @@
 // Output bounding, JSON helpers, activity log.
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { ACTIVITY_FILE, AGENT, OUT_DIR } from "./config.mjs";
 
 export const parse = (value) => {
@@ -13,7 +13,21 @@ export const parse = (value) => {
 };
 
 export const stamp = () => new Date().toISOString().replace(/[:.]/g, "-");
-export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+export const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+
+/** An id (chat, character) reduced to characters that are safe in a file name. */
+export const fileSafe = (value) => String(value).replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 80) || "_";
+
+/**
+ * Resolve `path` (relative paths from `base`) and refuse anything outside `root`, so a caller cannot make a tool
+ * read an arbitrary file.
+ */
+export function pathInside(root, path, base = root) {
+  const rootDir = resolve(root);
+  const full = resolve(base, String(path));
+  if (!full.startsWith(rootDir + sep)) throw new Error(`${path} is outside ${root}`);
+  return full;
+}
 
 /**
  * Tool result text, capped. Anything longer is written in full to a file and the path is returned with a preview,

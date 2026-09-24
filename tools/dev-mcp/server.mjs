@@ -42,7 +42,7 @@ import {
 import { build, deploy, readLock, regressions, status, stopEngine, typecheck } from "./lib/engine.mjs";
 import { groupedProblems, lookupReference } from "./lib/logs.mjs";
 import { cacheReport, diffPrompts, latestSavedPrompts, outline, peekPrompt } from "./lib/prompts.mjs";
-import { out, readActivity, record, safe, sleep, stamp, trimText } from "./lib/util.mjs";
+import { fileSafe, out, pathInside, readActivity, record, safe, sleep, stamp, trimText } from "./lib/util.mjs";
 
 const server = new McpServer({ name: INSTANCE === "sandbox" ? "marinara-sandbox" : "marinara-dev", version: VERSION });
 
@@ -253,7 +253,7 @@ tool(
     }
     const promptMessages = Array.isArray(peek?.messages) ? peek.messages : [];
     if (!promptMessages.length) return out({ chat: c.name, note: "no stored prompt for that message", raw: Object.keys(peek ?? {}) });
-    const file = join(OUT_DIR, `prompt-${c.id}-${stamp()}.json`);
+    const file = join(OUT_DIR, `prompt-${fileSafe(c.id)}-${stamp()}.json`);
     writeFileSync(file, JSON.stringify(promptMessages, null, 2), "utf8");
     const result = {
       chat: { id: c.id, name: c.name },
@@ -311,7 +311,7 @@ tool(
     mode: z.enum(["last-two", "next"]).default("last-two"),
     messageIdA: z.string().optional(),
     messageIdB: z.string().optional(),
-    fileA: z.string().optional().describe("A fullPromptFile saved by get_prompt"),
+    fileA: z.string().optional().describe("A fullPromptFile saved by get_prompt (must be inside the state folder)"),
     fileB: z.string().optional(),
   },
   READ,
@@ -320,9 +320,11 @@ tool(
     const c = await resolveChat(chat);
     let a;
     let b;
+    // Only prompt files this tool saved (under the state folder) can be read; a relative name is taken from out/.
     const readFile = (path) => {
-      if (!existsSync(path)) throw new Error(`no such file: ${path}`);
-      return JSON.parse(readFileSync(path, "utf8"));
+      const full = pathInside(STATE_DIR, path, OUT_DIR);
+      if (!existsSync(full)) throw new Error(`no such file: ${full}`);
+      return JSON.parse(readFileSync(full, "utf8"));
     };
     if (fileA) {
       a = { id: fileA, messages: readFile(fileA) };
@@ -349,7 +351,7 @@ tool(
 tool(
   "chat_settings",
   "A chat's working settings: connection, preset, game special instructions (with length vs the 2000-character " +
-    "limit), continuity config, party, and any metadata keys you name.",
+    "limit), party, and any metadata keys you name.",
   { chat: chatRef, keys: z.array(z.string()).optional().describe("Extra metadata keys to include verbatim") },
   READ,
   async ({ chat, keys }) => {
@@ -367,7 +369,6 @@ tool(
       session: m.gameSessionNumber ?? null,
       gameSpecialInstructions: special,
       gameSpecialInstructionsLength: special?.length ?? 0,
-      gameContinuity: m.gameContinuity ?? null,
       metadataKeys: Object.keys(m).sort(),
       ...(keys?.length ? { extra: Object.fromEntries(keys.map((k) => [k, m[k] ?? null])) } : {}),
     });
@@ -395,27 +396,9 @@ tool(
   "Follow a reference through the logs: an errorId (the reference shown in an error toast or API error) or a request " +
     "id (the x-request-id response header). Returns the matching lines with stack traces and the whole trail of the " +
     "same requestId (or operationId for background work) in time order, including the request.end line.",
-  { reference: z.string().min(6) },
+  { reference: z.string().min(5) },
   READ,
   async ({ reference }) => out(lookupReference(reference), 40_000, "error"),
-);
-
-tool(
-  "continuity_status",
-  "Continuity / campaign memory health for a game chat: mode, batch counts by status, gaps, summary refresh state. " +
-    "Needs an engine version with the /api/game/:chatId/continuity endpoint.",
-  { chat: chatRef },
-  READ,
-  async ({ chat }) => {
-    await requireOnline();
-    const c = await resolveChat(chat);
-    try {
-      return out(await api(`/game/${encodeURIComponent(c.id)}/continuity`), 30_000, "continuity");
-    } catch (error) {
-      if (error.status === 404) throw new Error("this engine version has no continuity status endpoint (or the chat is not a game chat)");
-      throw error;
-    }
-  },
 );
 
 tool(
@@ -538,7 +521,7 @@ tool(
     }
     if (!Object.keys(patch).length) throw new Error("nothing to change");
     if (dryRun) return out({ id: ref.id, name: data.name, wouldPatch: patch });
-    const backup = join(BACKUP_DIR, `character-${ref.id}-${stamp()}.json`);
+    const backup = join(BACKUP_DIR, `character-${fileSafe(ref.id)}-${stamp()}.json`);
     writeFileSync(backup, JSON.stringify(live, null, 2), "utf8");
     await api(`/characters/${encodeURIComponent(ref.id)}`, { method: "PATCH", body: { data: patch, versionReason: reason } });
     const after = await getCharacter(ref.id);
@@ -556,7 +539,7 @@ tool(
 
 tool(
   "set_chat_metadata",
-  "Set chat metadata keys through the engine's API (e.g. gameSpecialInstructions, gameContinuity). The previous " +
+  "Set chat metadata keys through the engine's API (e.g. gameSpecialInstructions). The previous " +
     "values are backed up and the change recorded in the activity log. gameSpecialInstructions is refused over 2000 " +
     "characters (the engine's limit). For a text edit inside a string value, use `replace` instead of `set`. Use dryRun " +
     "to preview.",
@@ -584,7 +567,7 @@ tool(
       throw new Error(`gameSpecialInstructions would be ${patch.gameSpecialInstructions.length} chars; the limit is 2000`);
     }
     if (dryRun) return out({ chat: c.name, wouldSet: patch });
-    const backup = join(BACKUP_DIR, `chatmeta-${c.id}-${stamp()}.json`);
+    const backup = join(BACKUP_DIR, `chatmeta-${fileSafe(c.id)}-${stamp()}.json`);
     writeFileSync(backup, JSON.stringify(Object.fromEntries(Object.keys(patch).map((k) => [k, meta[k] ?? null])), null, 2), "utf8");
     await api(`/chats/${encodeURIComponent(c.id)}/metadata`, { method: "PATCH", body: patch });
     const after = (await getChat(c.id)).metadata ?? {};

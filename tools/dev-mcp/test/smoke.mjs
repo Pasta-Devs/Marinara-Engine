@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const EXPECTED_TOOLS = [
   "engine_status", "activity_log", "sandbox_refresh", "sandbox_stop", "list_chats", "read_messages", "get_prompt",
-  "cache_report", "diff_prompts", "chat_settings", "logs", "lookup_error", "continuity_status", "list_connections",
+  "cache_report", "diff_prompts", "chat_settings", "logs", "lookup_error", "list_connections",
   "find_characters", "get_character", "edit_character", "set_chat_metadata", "git_status", "typecheck",
   "run_regressions", "build", "restart_engine", "api_request",
 ];
@@ -61,9 +61,6 @@ if (online) {
     await call("cache_report", { chat, last: 5 });
     await call("get_prompt", { chat, which: "next", grep: "the" }, { show: 800 });
     await call("diff_prompts", { chat, mode: "next" }, { expectError: null });
-    const cont = await client.callTool({ name: "continuity_status", arguments: { chat } });
-    console.log(`\n== continuity_status ${cont.isError ? "ERROR (acceptable: needs a game chat and a recent engine)" : "ok"}`);
-    console.log(String(cont.content?.[0]?.text ?? "").slice(0, 300));
     await call("set_chat_metadata", { chat, reason: "smoke test dry run", set: { smokeTestDryRun: true }, dryRun: true });
   }
   const connections = await call("list_connections");
