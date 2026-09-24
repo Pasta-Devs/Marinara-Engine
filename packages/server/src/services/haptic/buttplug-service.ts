@@ -27,11 +27,6 @@ import { normalizeHapticAction, normalizeHapticPattern } from "@marinara-engine/
 import { getIntifaceUrl } from "../../config/runtime-config.js";
 import { buildHapticPatternSteps, describeHapticDeviceType } from "../generation/haptic-runtime.js";
 
-const POSITION_WITH_DURATION_OUTPUT =
-  (OutputType as unknown as Record<string, OutputType | undefined>).HwPositionWithDuration ??
-  (OutputType as unknown as Record<string, OutputType | undefined>).PositionWithDuration ??
-  null;
-
 /** OutputType values we map to capabilities. */
 const CAPABILITY_TYPES: Array<{ type: OutputType; cap: HapticCapability }> = [
   { type: OutputType.Vibrate, cap: "vibrate" },
@@ -40,11 +35,11 @@ const CAPABILITY_TYPES: Array<{ type: OutputType; cap: HapticCapability }> = [
   { type: OutputType.Constrict, cap: "constrict" },
   { type: OutputType.Inflate, cap: "inflate" },
   { type: OutputType.Position, cap: "position" },
+  { type: OutputType.HwPositionWithDuration, cap: "position" },
   { type: OutputType.Temperature, cap: "temperature" },
   { type: OutputType.Spray, cap: "spray" },
   { type: OutputType.Led, cap: "led" },
 ];
-if (POSITION_WITH_DURATION_OUTPUT) CAPABILITY_TYPES.push({ type: POSITION_WITH_DURATION_OUTPUT, cap: "position" });
 
 /** Map our action strings to buttplug OutputType. */
 const ACTION_TO_OUTPUT: Partial<Record<HapticDeviceCommand["action"], OutputType>> = {
@@ -70,6 +65,28 @@ function durationSeconds(value: unknown): number {
 
 function deviceName(device: ButtplugClientDevice): string {
   return device.displayName || device.name || `Device ${device.index}`;
+}
+
+async function runIntensityOutput(
+  device: ButtplugClientDevice,
+  type: OutputType,
+  intensity: number,
+  durationMs?: number,
+): Promise<void> {
+  await Promise.all(
+    [...device.features.values()].map(async (feature) => {
+      const output = feature.output(type);
+      if (!output) return;
+      // Keep v4's zero-based intensity and per-feature maximum. v5 percent()
+      // maps zero to the range minimum, which can mean full reverse rotation.
+      const value = Math.ceil(output.valueRange[1] * intensity);
+      const command =
+        type === OutputType.HwPositionWithDuration
+          ? DeviceOutput.PositionWithDuration.value(value, durationMs!)
+          : new DeviceOutputValueConstructor(type).value(value);
+      await feature.runOutput(command);
+    }),
+  );
 }
 
 /** Helper: get all devices from the client Map as an array. */
@@ -224,11 +241,11 @@ class ButtplugService {
       try {
         if (action === "position") {
           const durationMs = Math.max(1, duration || 1) * 1000;
-          if (POSITION_WITH_DURATION_OUTPUT && device.hasOutput(POSITION_WITH_DURATION_OUTPUT)) {
-            await device.runOutput(DeviceOutput.PositionWithDuration.percent(intensity, durationMs));
+          if (device.hasOutput(OutputType.HwPositionWithDuration)) {
+            await runIntensityOutput(device, OutputType.HwPositionWithDuration, intensity, durationMs);
             successfulTargets++;
           } else if (device.hasOutput(OutputType.Position)) {
-            await device.runOutput(DeviceOutput.Position.percent(intensity));
+            await runIntensityOutput(device, OutputType.Position, intensity);
             successfulTargets++;
           } else {
             unsupportedDevices.push(deviceName(device));
@@ -242,8 +259,7 @@ class ButtplugService {
           unsupportedDevices.push(deviceName(device));
           continue;
         }
-        const outCmd = new DeviceOutputValueConstructor(selectedOutputType).percent(intensity);
-        await device.runOutput(outCmd);
+        await runIntensityOutput(device, selectedOutputType, intensity);
         successfulTargets++;
       } catch (err) {
         firstFailure ??= err;
