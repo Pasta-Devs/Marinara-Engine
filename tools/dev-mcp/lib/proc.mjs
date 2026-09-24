@@ -136,12 +136,14 @@ export function engineRoot(proc) {
 }
 
 /**
- * True when something in the listener's chain looks like the engine. A listener whose command line cannot be read
+ * True when the listening process looks like the engine. A listener whose command line cannot be read
  * (netstat or PID-file fallbacks) counts only if it is the process this tool started on that port.
  */
 export function looksLikeEngine(proc, port) {
   if (proc.chain[0]?.cmd == null) return port !== undefined && proc.pid === readPidFile(port);
-  return proc.chain.some((p) => ENGINE_CMD.test(String(p.cmd ?? "")));
+  // The listener itself must be the engine: an unrelated server started under an engine-looking ancestor (a
+  // `pnpm start` of another project, say) is not.
+  return ENGINE_CMD.test(String(proc.chain[0].cmd));
 }
 
 // ------------------------------------------------------------------ stop
