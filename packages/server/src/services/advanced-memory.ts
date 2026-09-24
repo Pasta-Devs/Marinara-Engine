@@ -234,7 +234,7 @@ function policyFingerprint(ctx: Context): string {
 
 function preparationPolicyRevision(ctx: Context): string {
   return hash([
-    "scene-access-recovery-v14", // Invalidate reusable contexts without rebuilding valid source archives.
+    "hidden-history-archive-v15", // Invalidate reusable contexts without rebuilding valid source archives.
     policyFingerprint(ctx),
     ctx.settings,
     ctx.metadata.summaryEntries,
@@ -246,7 +246,13 @@ function preparationPolicyRevision(ctx: Context): string {
 }
 
 function fingerprint(ctx: Context, messages: readonly AdvancedMemoryMessage[], audience: string[]): string {
-  return hash([advancedMemorySourceFingerprint(messages), policyFingerprint(ctx), [...audience].sort()]);
+  return hash([
+    advancedMemorySourceFingerprint(messages),
+    policyFingerprint(ctx),
+    [...audience].sort(),
+    // Old checkpoints skipped globally hidden turns. Visible-only archives stay reusable.
+    ...(messages.some((message) => object(message.extra).hiddenFromAI === true) ? ["hidden-history-v1"] : []),
+  ]);
 }
 
 function contextStartMessageId(messages: readonly AdvancedMemoryMessage[], audience: string[]): string {
@@ -305,19 +311,19 @@ async function serialized<T>(chatId: string, run: () => Promise<T>): Promise<T> 
   }
 }
 
-/** Start flags trim live context; archives honor hiding and confirmed character knowledge boundaries. */
+/** Archives include globally hidden history; both views honor character-specific knowledge restrictions. */
 export function selectAdvancedMemoryMessages(
   messages: readonly AdvancedMemoryMessage[],
   settings: AdvancedMemorySettings,
   audienceCharacterIds: string[],
   individual = true,
-  respectContextStart = true,
+  view: "live" | "archive" = "live",
 ): AdvancedMemoryMessage[] {
   let start = 0;
   for (let index = 0; index < messages.length; index++) {
     const extra = object(messages[index]!.extra);
     if (
-      respectContextStart &&
+      view === "live" &&
       (extra.isConversationStart === true ||
         strings(extra.conversationStartForCharacterIds).some((id) => audienceCharacterIds.includes(id)))
     )
@@ -343,7 +349,7 @@ export function selectAdvancedMemoryMessages(
   return messages.slice(start).filter((message) => {
     const extra = object(message.extra);
     return (
-      extra.hiddenFromAI !== true &&
+      (view === "archive" || extra.hiddenFromAI !== true) &&
       extra.commandOnly !== true &&
       !strings(extra.hiddenFromAICharacterIds).some((id) => audienceCharacterIds.includes(id)) &&
       (message.role === "user" || message.role === "assistant" || message.role === "narrator") &&
@@ -358,7 +364,7 @@ function audienceView(ctx: Context, audience: string[]): string[] {
 }
 
 function sceneSource(ctx: Context, messages = ctx.messages): AdvancedMemoryMessage[] {
-  return selectAdvancedMemoryMessages(messages, ctx.settings, audienceView(ctx, []), false, false);
+  return selectAdvancedMemoryMessages(messages, ctx.settings, audienceView(ctx, []), false, "archive");
 }
 
 function allowed(
@@ -371,7 +377,7 @@ function allowed(
     ctx.settings,
     audience.length ? audience : ctx.characterIds,
     ctx.individual && audience.length > 0,
-    false,
+    "archive",
   );
 }
 
@@ -697,12 +703,16 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       });
   }
 
-  function correctionReviewError(ctx: Context, record: StoredRecord) {
+  function correctionReviewError(ctx: Context, record: StoredRecord, sceneRangeChanged = false) {
     const start = ctx.messages.findIndex((message) => message.id === record.startMessageId) + 1;
     const end = ctx.messages.findIndex((message) => message.id === record.endMessageId) + 1;
     const audience = record.audienceCharacterIds.map((id) => ctx.names.get(id) ?? id).join(", ") || "Narrator only";
     return new Error(
-      `The manually corrected memory for messages #${start}–#${end} (${audience}) has changed sources or supporting summaries. Open this memory in Access memories for this chat, review its text and character access, then choose Save correction before preparing memory again.`,
+      `The manually corrected memory for messages #${start}–#${end} (${audience}) ${
+        sceneRangeChanged
+          ? "spans a changed scene boundary. Disable or delete this memory in Access memories for this chat, then prepare history again. Disabling keeps its text for reference."
+          : "has changed sources or supporting summaries. Open this memory in Access memories for this chat, review its text and character access, then choose Save correction before preparing memory again."
+      }`,
       { cause: { reviewRecordId: record.id } },
     );
   }
@@ -710,13 +720,37 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
   /** Recover ranges from saved boundaries, including a missing scaffold between two scenes. */
   function savedScenes(ctx: Context, current: StoredRecord[]): Scene[] {
     const indexes = new Map(ctx.messages.map((message, index) => [message.id, index]));
+    const scenes = current.filter((record) => {
+      if (record.kind !== "scene") return false;
+      if (record.id !== record.sceneId) return true;
+      const start = indexes.get(record.messageIds[0] ?? "");
+      const end = indexes.get(record.messageIds.at(-1) ?? "");
+      // Structural validity only needs its contiguous source range, not a fresh
+      // scan of the entire chat for each saved scene in the inspector.
+      return (
+        start !== undefined &&
+        end !== undefined &&
+        end >= start &&
+        recordValid(ctx, record, ctx.messages.slice(start, end + 1))
+      );
+    });
+    const scaffolds = scenes
+      .filter((record) => record.id === record.sceneId)
+      .map((record) => ({
+        start: indexes.get(record.startMessageId) ?? -1,
+        end: indexes.get(record.endMessageId) ?? -1,
+      }))
+      .filter(({ start, end }) => start >= 0 && end >= start);
     const starts = new Set<number>([0]);
     let found = false;
-    for (const record of current) {
-      if (record.kind !== "scene") continue;
+    for (const record of scenes) {
       const start = indexes.get(record.startMessageId);
       const end = indexes.get(record.endMessageId);
       if (start === undefined || end === undefined || end < start) continue;
+      // Recovered scaffolds outrank old correction ranges. Saved summaries
+      // recover missing scaffolds only where no current scene covers their start.
+      if (record.id !== record.sceneId && scaffolds.some((scene) => start >= scene.start && start <= scene.end))
+        continue;
       found = true;
       starts.add(start);
       if (record.status === "closed") starts.add(end + 1);
@@ -1267,10 +1301,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const candidates = ctx.messages
       .map((message, index) => ({ message, index }))
       .filter(
-        ({ message, index }) =>
-          index >= Math.max(0, fromIndex - 4) &&
-          object(message.extra).hiddenFromAI !== true &&
-          object(message.extra).commandOnly !== true,
+        ({ message, index }) => index >= Math.max(0, fromIndex - 4) && object(message.extra).commandOnly !== true,
       );
     const trackerSnapshots = await gameStates.getCommittedForMessages(
       ctx.chatId,
@@ -1365,9 +1396,15 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       for (const record of await operationRecords(ctx)) {
         if (record.id === record.sceneId && record.kind === "scene" && recordValid(ctx, record)) {
           const start = ctx.messages.findIndex((message) => message.id === record.startMessageId);
-          if (start >= 0 && start <= through) knownStarts.add(start);
+          if (start >= 0 && start <= Math.min(fromIndex, through)) knownStarts.add(start);
           const end = ctx.messages.findIndex((message) => message.id === record.endMessageId);
-          if (record.status === "closed" && end >= 0 && end <= through) knownStarts.add(end + 1);
+          if (
+            record.status === "closed" &&
+            end >= 0 &&
+            end <= through &&
+            (end < fromIndex || end === ctx.messages.length - 1)
+          )
+            knownStarts.add(end + 1);
         }
       }
       const orderedStarts = [...knownStarts].filter((start) => start <= through + 1).sort((a, b) => a - b);
@@ -1376,6 +1413,15 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         const end = (orderedStarts[index + 1] ?? through + 1) - 1;
         const scene = { id: `scene-${ctx.messages[start]!.id}`, start, end, closed: index < orderedStarts.length - 1 };
         await put(ctx, buildRecord(ctx, scene, "scene", [], ctx.messages.slice(start, end + 1), ""), options);
+      }
+      // Retire obsolete boundaries only after their replacement batch is committed,
+      // so a cancelled scan cannot restore them from an older scaffold on resume.
+      for (const record of [...(await operationRecords(ctx))]) {
+        if (record.kind !== "scene" || record.id !== record.sceneId) continue;
+        const start = ctx.messages.findIndex((message) => message.id === record.startMessageId);
+        if (start <= fromIndex || start > through || knownStarts.has(start)) continue;
+        await db.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, record.id));
+        ctx.recordCache = ctx.recordCache!.filter((item) => item.id !== record.id);
       }
       await chats.patchMetadata(
         ctx.chatId,
@@ -1431,6 +1477,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       (record) => record.kind === "scene" && record.id === record.sceneId && recordValid(ctx, record),
     );
     const starts = new Set<number>([0]);
+    // Old scans may have skipped hidden history; once migrated, visibility changes keep paid scene decisions.
+    const canReuseClassifiedScenes =
+      state.hiddenHistoryClassified === true ||
+      !ctx.messages.some((message) => object(message.extra).hiddenFromAI === true);
     // Archive refresh does not imply that the scene classifier has reviewed those messages.
     let from = options.detectScenes === false && prefixUnchanged ? processedIndex + 1 : 0;
     for (const record of structural) {
@@ -1441,7 +1491,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       if (record.status === "closed") {
         starts.add(end + 1);
         // Already archived scenes keep their boundaries across ordinary edits.
-        if (state.historyClassified === true) from = Math.max(from, end + 1);
+        if (state.historyClassified === true && canReuseClassifiedScenes) from = Math.max(from, end + 1);
       }
     }
     const classifiedIndex =
@@ -1467,8 +1517,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       },
       options,
     );
-    if (needsClassification)
+    if (needsClassification) {
+      for (const start of starts) if (start > from && start < ctx.messages.length) starts.delete(start);
       for (const start of await classify(ctx, from, options, processedIndex < 0)) starts.add(start);
+    }
     const ordered = [...starts].filter((index) => index <= ctx.messages.length).sort((a, b) => a - b);
     const scenes: Scene[] = repair
       ? [repair]
@@ -1480,6 +1532,25 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             end: (ordered[index + 1] ?? ctx.messages.length) - 1,
             closed: index < ordered.length - 1,
           }));
+    const saved = sceneRecords(existing);
+    for (const record of saved) {
+      if (
+        record.kind !== "scene" ||
+        record.id === record.sceneId ||
+        !record.manualOverride ||
+        !record.enabled ||
+        (repair && record.sceneId !== repair.id)
+      )
+        continue;
+      const scene = scenes.find((item) => item.id === record.sceneId);
+      if (
+        !scene ||
+        (record.status === "closed" && !scene.closed) ||
+        record.startMessageId !== ctx.messages[scene.start]!.id ||
+        record.endMessageId !== ctx.messages[scene.end]!.id
+      )
+        throw correctionReviewError(ctx, record, true);
+    }
     const embeddingSource = await resolveMemoryRecallEmbeddingSource(db, {
       chatMetadata: ctx.metadata,
       connectionId: ctx.connectionId,
@@ -1489,7 +1560,6 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       signal: options.signal,
     };
     const retained = new Set<string>();
-    const saved = sceneRecords(existing);
     const visibleIds = new Set(sceneSource(ctx).map((message) => message.id));
     for (let index = 0; index < scenes.length; index++) {
       const scene = scenes[index]!;
@@ -1514,8 +1584,12 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           const candidate = buildRecord(ctx, scene, "scene", audience, source, "pending");
           const previousRecord = previousScene;
           if (previousRecord) candidate.id = previousRecord.id;
+          const sourceIds = new Set(source.map((message) => message.id));
           const previousValid =
-            previousRecord && recordValid(ctx, previousRecord) && dependenciesValid(previousRecord, existing, ctx);
+            previousRecord &&
+            previousRecord.messageIds.every((id) => sourceIds.has(id)) &&
+            recordValid(ctx, previousRecord) &&
+            dependenciesValid(previousRecord, existing, ctx);
           // Disabled records remain inspectable; maintenance must not rebuild over their corrections.
           let record =
             previousRecord &&
@@ -1532,7 +1606,6 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           const entries = sourceEntries(ctx, source, false).filter(
             (entry) => entry.messageIds?.length || entry.rangeStartIndex,
           );
-          const sourceIds = new Set(source.map((message) => message.id));
           const corrections = existing.filter(
             (item) =>
               item.kind === "scene" &&
@@ -1673,11 +1746,13 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           processedMessageId: ctx.messages.at(-1)?.id ?? null,
           sourceFingerprint: fingerprint(ctx, ctx.messages, []),
           activeSceneId: scenes.at(-1)?.id ?? null,
+          ...(state.historyClassified === true && canReuseClassifiedScenes ? { hiddenHistoryClassified: true } : {}),
           ...(options.detectScenes !== false
             ? {
                 classifiedMessageId: ctx.messages.at(-1)?.id ?? null,
                 classifiedSourceFingerprint: fingerprint(ctx, ctx.messages, []),
                 historyClassified: true,
+                hiddenHistoryClassified: true,
               }
             : {}),
           ...(options.detectScenes !== false || !Object.prototype.hasOwnProperty.call(state, "sceneCheckMessageId")
@@ -1832,14 +1907,12 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       windowStartMessageId: window[0]!.id,
       sourceFingerprint: advancedMemorySourceFingerprint(ctx.messages),
       policyRevision: preparationPolicyRevision(ctx),
-      messages: window
-        .filter((message) => object(message.extra).hiddenFromAI !== true)
-        .map((message) => ({
-          messageId: message.id,
-          messageNumber: ctx.messages.indexOf(message) + 1,
-          role: message.role,
-          content: message.content,
-        })),
+      messages: window.map((message) => ({
+        messageId: message.id,
+        messageNumber: ctx.messages.indexOf(message) + 1,
+        role: message.role,
+        content: message.content,
+      })),
       prompt: SCENE_CHECK_PROMPT,
     };
   }
@@ -1878,7 +1951,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
                 windowStart + index + 1 === message.messageNumber &&
                 source.role === message.role &&
                 source.content === message.content &&
-                object(source.extra).hiddenFromAI !== true,
+                object(source.extra).commandOnly !== true,
             ),
       )
     )
@@ -1942,6 +2015,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           ...object(fresh.advancedMemoryState),
           sceneCheckMessageId: request.asOfMessageId,
           sceneCheckSourceFingerprint: request.sourceFingerprint,
+          ...(state.historyClassified === true &&
+          !ctx.messages.some((message) => object(message.extra).hiddenFromAI === true)
+            ? { hiddenHistoryClassified: true }
+            : {}),
           status: "ready",
           stage: "ready",
           error: null,
@@ -2369,7 +2446,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           id,
           new Set(
             allowed(ctx, ctx.messages, audience)
-              .filter((message) => indexes.get(message.id)! > boundaryIndex)
+              .filter(
+                (message) => object(message.extra).hiddenFromAI !== true && indexes.get(message.id)! > boundaryIndex,
+              )
               .map((message) => message.id),
           ),
         ];
@@ -2566,6 +2645,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     if (ctx.individual && !audience.length && input.audienceMode !== "owner")
       throw new Error("Individual Advanced Memory requires a responding character");
     const eligible = allowed(ctx, sources, audience);
+    const visible = eligible.filter((message) => object(message.extra).hiddenFromAI !== true);
     const available = withSourceTimelines(
       sceneRecords(await operationRecords(ctx)).filter((record) => recordValid(ctx, record)),
       sources,
@@ -2579,7 +2659,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       sourceFingerprint: advancedMemorySourceFingerprint(sources),
       policyRevision: preparationPolicyRevision(ctx),
       recordRevisions: {},
-      estimatedTokensBefore: historySize(ctx, eligible),
+      estimatedTokensBefore: historySize(ctx, visible),
       estimatedTokensAfter: 0,
       budgetTokens: input.budgetTokens,
       boundaryMessageId: null,
@@ -2599,7 +2679,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     }
     const { boundaryIndex: initialBoundary } = contextBoundary(ctx, audience, historical);
     let boundaryIndex = initialBoundary;
-    let live = eligible.filter((message) => indexes.get(message.id)! > boundaryIndex);
+    let live = visible.filter((message) => indexes.get(message.id)! > boundaryIndex);
     const constants = sourceEntries(ctx, sources, historical)
       .map((entry) => {
         const covered = entry.messageIds?.length
@@ -2634,9 +2714,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     for (const scene of scenes) {
       if (historySize(ctx, live) + tokenSize(chatSummary) <= budget) break;
       const end = indexes.get(scene.endMessageId);
-      if (end === undefined || end <= boundaryIndex || end >= (indexes.get(eligible.at(-1)?.id ?? "") ?? -1)) continue;
+      if (end === undefined || end <= boundaryIndex || end >= (indexes.get(visible.at(-1)?.id ?? "") ?? -1)) continue;
       boundaryIndex = end;
-      live = eligible.filter((message) => indexes.get(message.id)! > boundaryIndex);
+      live = visible.filter((message) => indexes.get(message.id)! > boundaryIndex);
       chatSummary = constantText();
       if (!receipt.reasons.includes("scene-boundary-rollover")) receipt.reasons.push("scene-boundary-rollover");
       // Reset to the newest known scene, then let this window grow again.
@@ -2743,7 +2823,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           : record.messageIds.some((id) => !liveIds.has(id))),
     );
     // The caller's generic group query may contain a hidden speaker; construct the actual query from this audience's source view.
-    const query = eligible
+    const query = visible
       .slice(-4)
       .map((message) => message.content)
       .join("\n")
@@ -2807,7 +2887,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const excerptIds = new Set<string>();
     const selectedScenes = new Set<string>();
     const recalledRecords: StoredRecord[] = [];
-    const lastUser = [...eligible].reverse().find((message) => message.role === "user");
+    const lastUser = [...visible].reverse().find((message) => message.role === "user");
     const recallIntroduction =
       "Included below are recalled memories of scenes from the past chat history, together with small message excerpts from them. " +
       `Present message range in the context is: ${live.length ? `#${indexes.get(live[0]!.id)! + 1}–#${indexes.get(live.at(-1)!.id)! + 1}` : "none"}, ` +
@@ -3147,14 +3227,43 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       const ctx = await context(chatId);
       const record = await getRecord(chatId, recordId);
       await validateAudience(ctx, record);
+      const correctedScene =
+        record.kind === "scene" && (patch.content !== undefined || patch.audienceCharacterIds !== undefined);
+      if (correctedScene || (record.kind === "scene" && record.manualOverride && patch.enabled === true)) {
+        const scaffold = (await operationRecords(ctx)).find(
+          (item) => item.id === record.sceneId && item.kind === "scene" && recordValid(ctx, item),
+        );
+        // Preserve the authored range when a scene changes or disappears.
+        // Disabling a correction remains available as a safe recovery path.
+        if (
+          !scaffold ||
+          (record.status === "closed" && scaffold.status === "open") ||
+          scaffold.startMessageId !== record.startMessageId ||
+          scaffold.endMessageId !== record.endMessageId
+        )
+          throw correctionReviewError(ctx, record, true);
+      }
+      // Explicitly saving a corrected legacy recap acknowledges globally hidden
+      // gaps in its original range; preparation never silently widens that correction.
+      if (correctedScene) {
+        const start = ctx.messages.findIndex((message) => message.id === record.startMessageId);
+        const end = ctx.messages.findIndex((message) => message.id === record.endMessageId);
+        if (start >= 0 && end >= start) {
+          const hidden = sceneSource(ctx, ctx.messages.slice(start, end + 1))
+            .filter((message) => object(message.extra).hiddenFromAI === true)
+            .map((message) => message.id);
+          const order = new Map(ctx.messages.map((message, index) => [message.id, index]));
+          record.messageIds = [...new Set([...record.messageIds, ...hidden])].sort(
+            (left, right) => (order.get(left) ?? -1) - (order.get(right) ?? -1),
+          );
+        }
+      }
       const source = ctx.messages.filter((message) => record.messageIds.includes(message.id));
       const audience =
         patch.audienceCharacterIds === undefined
           ? record.audienceCharacterIds
           : [...new Set(patch.audienceCharacterIds)].sort();
       const audienceChanged = hash(audience) !== hash([...record.audienceCharacterIds].sort());
-      const correctedScene =
-        record.kind === "scene" && (patch.content !== undefined || patch.audienceCharacterIds !== undefined);
       const sourceFingerprint = fingerprint(ctx, source, audience);
       const eligibleIds =
         correctedScene && audience.length
@@ -3171,7 +3280,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           "This scene's message range is no longer available to its selected characters. Review character access or exclude the scene from recall",
         );
       const changes = {
-        ...(correctedScene ? { audienceCharacterIds: JSON.stringify(audience) } : {}),
+        ...(correctedScene
+          ? { audienceCharacterIds: JSON.stringify(audience), messageIds: JSON.stringify(record.messageIds) }
+          : {}),
         ...(patch.content !== undefined
           ? {
               content: patch.content.trim(),

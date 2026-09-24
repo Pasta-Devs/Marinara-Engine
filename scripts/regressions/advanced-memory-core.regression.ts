@@ -1780,7 +1780,7 @@ try {
     "a discontiguous scoped partial result can checkpoint before cancellation",
   );
   const firstPrivateBatch = requests.slice(beforePrivateCache).find((request) => request.kind === "summary");
-  assert(firstPrivateBatch && !firstPrivateBatch.text.includes("HIDDEN_MIDDLE_SECRET"));
+  assert(firstPrivateBatch?.text.includes("HIDDEN_MIDDLE_SECRET"), "global hides stay in resumable summary batches");
   const privateResumeStart = requests.length;
   await memory.initialize(hiddenMiddleChat.id);
   assert.notEqual(

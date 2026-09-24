@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -11,6 +12,8 @@ process.env.NODE_ENV = "test";
 process.env.LOG_LEVEL = "silent";
 process.env.MARINARA_LITE = "true";
 let summaries = 0;
+const classifiedIds = new Set<string>();
+const summaryInputs: string[] = [];
 const provider = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
@@ -26,6 +29,7 @@ const provider = createServer(async (request, response) => {
   const classification = system.content.startsWith("Identify scene transitions");
   let result;
   if (classification) {
+    for (const message of JSON.parse(transcript.content)) classifiedIds.add(message.messageId);
     result = {
       starts: JSON.parse(transcript.content)
         .filter((message: { content: string }) => message.content.startsWith("SCENE_CHANGE"))
@@ -33,6 +37,7 @@ const provider = createServer(async (request, response) => {
     };
   } else {
     summaries++;
+    summaryInputs.push(transcript.content);
     assert.match(system.content, /merely mentioned, remembered, discussed/);
     assert.match(system.content, /user-only participation means \[\]/);
     assert.match(system.content, /"all" ONLY/);
@@ -61,7 +66,8 @@ const provider = createServer(async (request, response) => {
 const { createFileNativeDB } = await import("../../packages/server/src/db/file-backed-store.js");
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
-const { createAdvancedMemoryService } = await import("../../packages/server/src/services/advanced-memory.js");
+const { createAdvancedMemoryService, advancedMemorySourceFingerprint } =
+  await import("../../packages/server/src/services/advanced-memory.js");
 const { advancedMemoryRecords } = await import("../../packages/server/src/db/schema/advanced-memory.js");
 const { eq } = await import("../../packages/server/src/db/file-query.js");
 const db = await createFileNativeDB();
@@ -120,8 +126,41 @@ try {
       extra: { isConversationStart: true },
     },
   ]);
+  const original = await chats.listMessages(chat.id);
+  const hiddenIds = original.slice(0, 8).map((message) => message.id);
+  // Both automatic summary hides and manual hides use the same global flag.
+  await chats.bulkSetHiddenFromAI(chat.id, hiddenIds, true);
+  const { createChatSummaryEntry } = await import("../../packages/shared/src/index.js");
+  await chats.patchMetadata(chat.id, {
+    summaryEntries: [
+      createChatSummaryEntry({
+        content: "A past scene was summarized.",
+        enabled: false,
+        messageIds: hiddenIds.slice(0, 2),
+        hiddenMessageIds: hiddenIds.slice(0, 2),
+      }),
+    ],
+  });
   await memory.initialize(chat.id);
   const source = await chats.listMessages(chat.id);
+  assert(
+    hiddenIds.every((id) => classifiedIds.has(id)),
+    "initial classification scans all globally hidden turns",
+  );
+  assert(
+    summaryInputs.some((text) => text.includes("ONLY_MAUKIE")),
+    "hidden participation reaches the summarizer",
+  );
+  const indexed = (await memory.status(chat.id)).records.filter((record) => record.kind === "excerpt");
+  assert(
+    hiddenIds.every((id) => indexed.some((record) => record.messageIds.includes(id))),
+    "all hidden turns are indexed",
+  );
+  assert(
+    indexed.every((record) => record.embeddingStatus === "vectorized"),
+    "hidden excerpts receive embeddings",
+  );
+  assert.deepEqual(await chats.listMessages(chat.id), source, "scanning never unhides source messages");
   const scenes = () =>
     memory
       .status(chat.id)
@@ -283,6 +322,207 @@ try {
     3,
     "deleting the single scene deletes all its legacy copies without resurrection",
   );
+  const historicalChat = await chats.create({
+    name: "Previously skipped hidden history",
+    mode: "roleplay",
+    characterIds: ["maukie", "pantalone", "narrator"],
+    connectionId: connection.id,
+  });
+  assert(historicalChat);
+  const knowledgeStarts = { maukie: null, pantalone: null };
+  await chats.patchMetadata(historicalChat.id, {
+    groupChatMode: "individual",
+    advancedMemory: {
+      enabled: true,
+      narratorCharacterId: "narrator",
+      knowledgeStarts,
+      retrieveMinMessages: 1,
+      retrieveMaxMessages: 3,
+      retrieveMaxScenes: 10,
+    },
+  });
+  await chats.createMessagesBatch(historicalChat.id, [
+    { role: "user", content: "ONLY_MAUKIE Maukie makes a compass promise.", extra: { hiddenFromAI: true } },
+    { role: "user", content: "SCENE_CHANGE EVERYONE_PRESENT A compass reunion.", extra: { hiddenFromAI: true } },
+    { role: "assistant", characterId: "maukie", content: "Everyone remembers the compass promise." },
+    { role: "user", content: "SCENE_CHANGE What about the compass promise?" },
+  ]);
+  let history = await chats.listMessages(historicalChat.id);
+  const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  const oldFingerprint = hash([
+    advancedMemorySourceFingerprint(history),
+    hash([true, ["maukie", "pantalone", "narrator"], knowledgeStarts, "narrator"]),
+    [],
+  ]);
+  // An old successful scan omitted a hidden scene transition, but saved a later closed boundary.
+  for (const [start, end] of [
+    [0, 1],
+    [2, 2],
+  ] as const) {
+    const legacyScene = `scene-${history[start]!.id}`;
+    await db.insert(advancedMemoryRecords).values({
+      id: legacyScene,
+      sceneId: legacyScene,
+      chatId: historicalChat.id,
+      kind: "scene",
+      status: "closed",
+      startMessageId: history[start]!.id,
+      endMessageId: history[end]!.id,
+      messageIds: JSON.stringify(history.slice(start, end + 1).map((message) => message.id)),
+      audienceCharacterIds: "[]",
+      content: "",
+      title: "Scene",
+      timeline: null,
+      enabled: 1,
+      manualOverride: 0,
+      sourceFingerprint: "legacy",
+      dependencies: "[]",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+  }
+  await chats.patchMetadata(historicalChat.id, {
+    advancedMemoryState: {
+      status: "ready",
+      stage: "ready",
+      historyClassified: true,
+      processedMessageId: history.at(-1)!.id,
+      classifiedMessageId: history.at(-1)!.id,
+      sourceFingerprint: oldFingerprint,
+      classifiedSourceFingerprint: oldFingerprint,
+    },
+  });
+  // Maintenance can run before an explicit scan. It must not certify the old classification checkpoint.
+  await memory.maintain(historicalChat.id);
+  classifiedIds.clear();
+  const cancellation = new AbortController();
+  await assert.rejects(
+    memory.initialize(historicalChat.id, {
+      signal: cancellation.signal,
+      onProgress: (event) => {
+        if (event.stage === "classifying" && event.completed === history.length)
+          cancellation.abort(new Error("Pause after the recovered classification batch"));
+      },
+    }),
+  );
+  assert(
+    history.every((message) => classifiedIds.has(message.id)),
+    "legacy checkpoints re-scan skipped hidden history",
+  );
+  classifiedIds.clear();
+  await memory.initialize(historicalChat.id);
+  assert.equal(classifiedIds.size, 0, "resume reuses recovered classification without reviving obsolete boundaries");
+  const recovered = (await memory.status(historicalChat.id)).records.filter(
+    (record) => record.kind === "scene" && record.content,
+  );
+  assert.deepEqual(
+    recovered.map((record) => [record.startIndex, record.endIndex]),
+    [
+      [1, 1],
+      [2, 3],
+    ],
+  );
+  assert.deepEqual(
+    recovered[0]!.audienceCharacterIds,
+    ["maukie"],
+    "recovered hidden scenes get their own participants",
+  );
+  const prepared = await memory.prepare({
+    chatId: historicalChat.id,
+    messages: history,
+    audienceCharacterIds: ["maukie"],
+    budgetTokens: 12000,
+    readOnly: true,
+  });
+  assert.deepEqual(
+    prepared.messageIds,
+    history.slice(2).map((message) => message.id),
+    "hidden turns remain out of live context without any start marker",
+  );
+  assert(
+    prepared.receipt.recalledSceneIds.includes(recovered[0]!.sceneId),
+    "hidden history can be recalled as scoped memory",
+  );
+  classifiedIds.clear();
+  const paidSummaries = summaries;
+  await memory.initialize(historicalChat.id);
+  assert.equal(classifiedIds.size, 0, "completed scans reuse their hidden-history checkpoint");
+  assert.equal(summaries, paidSummaries, "completed summaries are reused");
+
+  await chats.createMessagesBatch(historicalChat.id, [
+    { role: "user", content: "SCENE_CHANGE ONLY_MAUKIE Another compass promise.", extra: { hiddenFromAI: true } },
+    {
+      role: "assistant",
+      characterId: "maukie",
+      content: "The hidden compass promise is fulfilled.",
+      extra: { hiddenFromAI: true },
+    },
+    { role: "user", content: "SCENE_CHANGE Remember the compass promise." },
+    { role: "user", content: "COMMAND_ONLY_MUST_STAY_EXCLUDED", extra: { commandOnly: true, hiddenFromAI: true } },
+  ]);
+  history = await chats.listMessages(historicalChat.id);
+  await memory.initialize(historicalChat.id);
+  assert(
+    classifiedIds.has(history[4]!.id) && classifiedIds.has(history[5]!.id),
+    "later scans also classify new hidden turns",
+  );
+  assert(!classifiedIds.has(history[7]!.id), "command-only messages remain excluded");
+  const later = (await memory.status(historicalChat.id)).records;
+  assert(
+    later.some(
+      (record) =>
+        record.kind === "scene" &&
+        record.messageIds.includes(history[5]!.id) &&
+        record.audienceCharacterIds.includes("maukie"),
+    ),
+    "later hidden scenes are summarized and attributed",
+  );
+  assert(
+    later.some(
+      (record) =>
+        record.kind === "excerpt" &&
+        record.messageIds.includes(history[5]!.id) &&
+        record.embeddingStatus === "vectorized",
+    ),
+    "later hidden turns are indexed and embedded",
+  );
+  await chats.createMessage({
+    chatId: historicalChat.id,
+    role: "user",
+    content: "NEW_HIDDEN_END Maukie fulfills the compass promise.",
+    extra: { hiddenFromAI: true },
+  });
+  history = await chats.listMessages(historicalChat.id);
+  const sceneCheck = await memory.getSceneCheck(historicalChat.id, { force: true });
+  assert(sceneCheck);
+  assert(
+    sceneCheck.messages.some((message) => message.messageId === history[5]!.id),
+    "post-generation checks read hidden turns",
+  );
+  assert(!sceneCheck.messages.some((message) => message.messageId === history[7]!.id));
+  assert(
+    await memory.commitSceneCheck(historicalChat.id, sceneCheck, { ends: [{ messageNumber: history.length }] }),
+    "a hidden source may end a scene",
+  );
+  assert.deepEqual(
+    await chats.listMessages(historicalChat.id),
+    history,
+    "all processing preserves hide flags and source text",
+  );
+  await memory.maintain(historicalChat.id);
+  assert(
+    summaryInputs.some((text) => text.includes("NEW_HIDDEN_END")),
+    "post-generation preparation summarizes hidden turns",
+  );
+  classifiedIds.clear();
+  const beforeVisibilityChange = summaries;
+  await chats.updateMessageExtra(history[0]!.id, { hiddenFromAI: false });
+  await memory.initialize(historicalChat.id);
+  assert.equal(classifiedIds.size, 0, "unhiding already classified history does not repeat paid scene decisions");
+  await chats.updateMessageExtra(history[0]!.id, { hiddenFromAI: true });
+  await memory.initialize(historicalChat.id);
+  assert.equal(classifiedIds.size, 0, "hiding already classified history does not repeat paid scene decisions");
+  assert.equal(summaries, beforeVisibilityChange, "visibility-only edits keep completed summaries");
   console.log(
     "Advanced Memory narrator-only defaults, participant access, shared scenes and legacy duplicate corrections passed.",
   );
