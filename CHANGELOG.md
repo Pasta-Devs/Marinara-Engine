@@ -4,7 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- Professor Mari is gaining Decision-aware authoring for presets, agents, lorebooks, and characters, with remembered preferences for usage and setup reminders (#6629).
+- Professor Mari can author Decision activation and conditional prompts with live model awareness, lean timing guidance, and separate preferences for use and cache-sensitive placement. Setup warnings are remembered per chat, and an enabled Memory can stop them across future chats. Invalid agent activation settings are rejected instead of silently disabling the question (#6629).
 
 - Imports that use decisions now warn when no Decision model is selected, explain the fallback behavior, and link to the Decision Models guide. If the selection cannot be checked, the notice says so without interrupting the import. The notice also covers custom agent imports and Agent catalog installations, including agents with activation questions (#6605).
 

@@ -39,6 +39,7 @@ import { getMariImagesService } from "./mari-images.service.js";
 import { executeWikiCli } from "../professor-mari/fandom-mediawiki/wiki-cli.js";
 import {
   LIMITS,
+  customAgentActivationSettingsSchema,
   PROFESSOR_MARI_ID,
   HOME_CUSTOM_WIDGET_LIMIT,
   HOME_CUSTOM_WIDGETS_SETTINGS_KEY,
@@ -63,6 +64,7 @@ import {
   lorebookDecisionModeSchema,
   parseLorebookDecisionActivation,
 } from "@marinara-engine/shared";
+import { guardMariDecisionWrites, MARI_DECISION_STATE_KEY } from "../professor-mari/decision-authoring.js";
 import { computePersonalExtensionHash } from "../extensions/personal-extension-hash.js";
 import { HomeWidgetCatalogConflictError, replaceHomeWidgetCatalog } from "../home-widget-catalog.service.js";
 import { createMariWherePredicate } from "./mari-where-expression.js";
@@ -1306,10 +1308,20 @@ function boolText(value: boolean): string {
 
 function normalizeAgentActionData(input: Row, existing?: Row | null): Row {
   const name = firstString(input, ["name"]) ?? (typeof existing?.name === "string" ? existing.name : "");
-  const settings = {
-    ...(isRecord(existing?.settings) ? existing.settings : parseJsonRecordValue(existing?.settings)),
-    ...(isRecord(input.settings) ? input.settings : {}),
-  };
+  const settings = deepMerge(
+    isRecord(existing?.settings) ? existing.settings : parseJsonRecordValue(existing?.settings),
+    isRecord(input.settings) ? input.settings : {},
+  ) as Row;
+  // Match the editor's clear behavior without wiping unrelated package settings.
+  for (const key of [
+    "activationQuestion",
+    "activationThreshold",
+    "activationScanDepth",
+    "activationMaxSkip",
+    "runInterval",
+  ]) {
+    if (isRecord(input.settings) && (input.settings[key] === null || input.settings[key] === "")) delete settings[key];
+  }
   const resultType = firstString(input, ["resultType", "result_type"]);
   if (resultType) settings.resultType = resultType;
   const row: Row = {
@@ -1333,7 +1345,9 @@ function normalizeAgentActionData(input: Row, existing?: Row | null): Row {
     promptTemplate:
       firstString(input, ["promptTemplate", "prompt_template", "prompt"]) ??
       (typeof existing?.promptTemplate === "string" ? existing.promptTemplate : ""),
-    settings,
+    // Already merged above. Serialize so the generic patch planner does not
+    // merge removed activation fields back in from the previous row.
+    settings: JSON.stringify(settings),
   };
   delete row.agentType;
   delete row.agent_type;
@@ -5504,6 +5518,30 @@ export class MariDbService {
       issues.push({ level: "error", table: "agent_configs", id, message: "Agent promptTemplate must be a string" });
     }
     const settings = tryParseJsonColumn(row, "settings");
+    if (isRecord(settings)) {
+      const activation = customAgentActivationSettingsSchema.safeParse(settings);
+      if (!activation.success) {
+        for (const issue of activation.error.issues) {
+          issues.push({
+            level: "error",
+            table: "agent_configs",
+            id,
+            message: `Agent settings.${issue.path.join(".")}: ${issue.message}`,
+          });
+        }
+      }
+      if (
+        settings.runInterval !== undefined &&
+        (!Number.isSafeInteger(settings.runInterval) || Number(settings.runInterval) < 1)
+      ) {
+        issues.push({
+          level: "error",
+          table: "agent_configs",
+          id,
+          message: "Agent settings.runInterval must be a positive integer",
+        });
+      }
+    }
     if (settings !== undefined && !isRecord(settings)) {
       issues.push({ level: "error", table: "agent_configs", id, message: "Agent settings must be a JSON object" });
     }
@@ -7234,6 +7272,7 @@ export class MariDbService {
     }
 
     try {
+      await guardMariDecisionWrites(plan.changes);
       await this.captureDeletedLorebookEmbeddings(plan.changes);
       const journalPath = await this.applyPlan(plan);
       const syncOutcomes = await this.syncAffectedCharacterBooks(plan.changes);
@@ -7339,6 +7378,18 @@ export class MariDbService {
     };
     for (const change of changes) {
       if (change.table !== "chats" || !change.afterRaw) continue;
+      if (
+        stableJson(parseJsonRecordValue(change.afterRaw.metadata)[MARI_DECISION_STATE_KEY]) !==
+        stableJson(parseJsonRecordValue(change.beforeRaw?.metadata)[MARI_DECISION_STATE_KEY])
+      ) {
+        issues.push({
+          level: "error",
+          table: "chats",
+          id: change.id,
+          message:
+            "Use decision.record in the active Mari chat for Decision interaction state; raw metadata cannot authorize authoring.",
+        });
+      }
       if (chatModeMetadataValue(change.afterRaw.metadata) !== chatModeMetadataValue(change.beforeRaw?.metadata)) {
         issues.push({
           level: "error",
