@@ -458,7 +458,7 @@ async function encounterSheetBrief(
             ? [`${field.id} true or false`]
             : field.type === "dice"
               ? [`${field.id} dice such as 1d8`]
-              : [],
+              : [`${field.id} text up to ${field.maxLength} characters`],
     ),
     lists,
   };

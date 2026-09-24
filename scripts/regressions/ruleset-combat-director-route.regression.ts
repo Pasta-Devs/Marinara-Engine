@@ -875,6 +875,7 @@ try {
     assert.match(text, /a row counts only when "prepared" is true or when "level" is 0/);
     assert.match(text, /\{"name":"<name>"\}.*Mending Light/);
     assert.match(text, /Which of these a creature may have depends on fields\.class, so set it\./);
+    assert.match(text, /fields: .*class text up to \d+ characters/, "including the text field it is told to set");
     assert.match(text, /A boss is written in full by you and may be the exception/);
     assert.ok(
       brief!.sheet.lists.every((list) => list.names.length <= 60),

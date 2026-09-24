@@ -198,7 +198,11 @@ function started(input: {
     playerName: null,
     live: null,
     partyCatalogs: {},
-    bestiary: fightCatalogs(input.definition),
+    // Every inline catalog, as the route loads whatever an invented sheet may name or be filled from.
+    bestiary: {
+      ...Object.fromEntries((input.definition.catalogs ?? []).map((catalog) => [catalog.id, catalog.entries ?? []])),
+      ...fightCatalogs(input.definition),
+    },
   });
   assert.ok(built.ok, `the fight was supposed to start: ${built.ok ? "" : built.error}`);
   const state = createCombatDirector({
@@ -1160,6 +1164,31 @@ const spellbook = parsedOrThrow(
       `"${action.label}" and the rest of its strikes on the heaviest row average ${round}`,
     );
   }
+
+  // An entry that writes two rows (a feature and the counter that tracks its uses) brings both when
+  // it is named, or the feature could never be used.
+  const effortFight = started({
+    definition: fiveE,
+    cards: [card("Brenna", fighterBuild())],
+    party: [{ id: "brenna", name: "Brenna" }],
+    enemies: [
+      {
+        id: "veteran",
+        name: "Road Veteran",
+        tier: "cr_1",
+        proposed: {
+          tier: "cr_1",
+          sheet: { fields: { level: 3, hp_max: 30 }, lists: { features: [{ name: "second effort" }] } },
+        },
+      },
+    ],
+  }).rulesetFight!;
+  const effortSheet = who(effortFight.encounter, "veteran").sheet!.build;
+  assert.deepEqual(
+    effortSheet.lists.counters?.map((row) => [row.name, row.max, row._catalog]),
+    [["Second Effort", 1, "feats/second-effort"]],
+    "the counter came with the feature",
+  );
 
   // A health formula with no single field in it is left as written, and says so.
   const stepped = parsedOrThrow(

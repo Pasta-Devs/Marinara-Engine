@@ -110,6 +110,28 @@ function entryFor(
   return null;
 }
 
+/** The rows an entry writes onto OTHER lists than the one it was named or filled in on, such as the
+ *  counter that tracks a feature beside the feature itself, added once each, the way picking the
+ *  entry adds them to a character's sheet. Without them a feature whose uses a counter tracks
+ *  could never be used. */
+function addCompanionRows(
+  definition: RulesetDefinition,
+  sheet: RulesetSheetBuild,
+  catalogId: string,
+  entry: RulesetCatalogEntry,
+  listId: string,
+): void {
+  const mark = `${catalogId}/${entry.id}`;
+  for (const row of entry.rows ?? []) {
+    if (row.list === listId) continue;
+    const list = definition.sheet.lists.find((candidate) => candidate.id === row.list);
+    if (!list) continue;
+    const rows = (sheet.lists[row.list] ??= []);
+    if (rows.length >= list.maxItems || rows.some((existing) => existing[RULESET_CATALOG_ROW_KEY] === mark)) continue;
+    rows.push({ ...row.values, [RULESET_CATALOG_ROW_KEY]: mark });
+  }
+}
+
 /**
  * A Game Master's sheet, read leniently against the ruleset: every id kept is one the ruleset
  * declares and every value one its field or column can hold, and a row named after a catalog entry
@@ -183,6 +205,7 @@ export function readProposedRulesetSheet(
   }
 
   const nothing: string[] = [];
+  const picked: Array<{ catalogId: string; entry: RulesetCatalogEntry; listId: string }> = [];
   for (const [listId, rows] of Object.entries(proposed.lists ?? {})) {
     const list = declared.lists.find((candidate) => candidate.id === listId);
     if (!list) {
@@ -218,6 +241,7 @@ export function readProposedRulesetSheet(
       // are chosen, naming the entry is choosing it.
       const chosenBy = found ? readyColumnOf(definition, list.id) : undefined;
       if (chosenBy) built[chosenBy] = true;
+      if (found) picked.push({ ...found, listId: list.id });
       if (!found && fedByACatalog) {
         const name = nameColumn ? built[nameColumn.id] : undefined;
         if (typeof name === "string") nothing.push(name);
@@ -231,6 +255,7 @@ export function readProposedRulesetSheet(
     if (kept.length > 0) sheet.lists[listId] = kept;
   }
 
+  for (const { catalogId, entry, listId } of picked) addCompanionRows(definition, sheet, catalogId, entry, listId);
   if (unknown.length > 0) {
     adjusted.push(`${listed(unknown)} ${unknown.length === 1 ? "is" : "are"} not on this ruleset's sheet, so dropped.`);
   }
@@ -435,6 +460,7 @@ export function fillRulesetSheetChoices(
           [ready]: true,
           [RULESET_CATALOG_ROW_KEY]: `${catalogId}/${entry.id}`,
         });
+        addCompanionRows(definition, sheet, catalogId, entry, list.id);
         filled.push(entry.label);
       }
     }
@@ -630,7 +656,6 @@ export function holdRulesetCombatant(
   // buys says least about the creature, so it gives way first, then the dice, the flat part, a
   // strike, and only then the size of the die.
   const cap = tier.damagePerRound[1];
-  const byId = new Map(combatant.actions.map((action) => [action.id, action]));
   let scaled = false;
   let growth = false;
   for (let guard = 0; guard < 500; guard++) {
