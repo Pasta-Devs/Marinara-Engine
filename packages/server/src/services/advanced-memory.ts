@@ -703,12 +703,16 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       });
   }
 
-  function correctionReviewError(ctx: Context, record: StoredRecord) {
+  function correctionReviewError(ctx: Context, record: StoredRecord, sceneRangeChanged = false) {
     const start = ctx.messages.findIndex((message) => message.id === record.startMessageId) + 1;
     const end = ctx.messages.findIndex((message) => message.id === record.endMessageId) + 1;
     const audience = record.audienceCharacterIds.map((id) => ctx.names.get(id) ?? id).join(", ") || "Narrator only";
     return new Error(
-      `The manually corrected memory for messages #${start}–#${end} (${audience}) has changed sources or supporting summaries. Open this memory in Access memories for this chat, review its text and character access, then choose Save correction before preparing memory again.`,
+      `The manually corrected memory for messages #${start}–#${end} (${audience}) ${
+        sceneRangeChanged
+          ? "spans a changed scene boundary. Disable or delete this memory in Access memories for this chat, then prepare history again. Disabling keeps its text for reference."
+          : "has changed sources or supporting summaries. Open this memory in Access memories for this chat, review its text and character access, then choose Save correction before preparing memory again."
+      }`,
       { cause: { reviewRecordId: record.id } },
     );
   }
@@ -1538,6 +1542,13 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           const candidate = buildRecord(ctx, scene, "scene", audience, source, "pending");
           const previousRecord = previousScene;
           if (previousRecord) candidate.id = previousRecord.id;
+          if (
+            previousRecord?.manualOverride &&
+            previousRecord.enabled &&
+            (previousRecord.startMessageId !== candidate.startMessageId ||
+              previousRecord.endMessageId !== candidate.endMessageId)
+          )
+            throw correctionReviewError(ctx, previousRecord, true);
           const sourceIds = new Set(source.map((message) => message.id));
           const previousValid =
             previousRecord &&
@@ -3186,6 +3197,16 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       // Explicitly saving a corrected legacy recap acknowledges globally hidden
       // gaps in its original range; preparation never silently widens that correction.
       if (correctedScene) {
+        const scaffold = (await operationRecords(ctx)).find(
+          (item) => item.id === record.sceneId && item.kind === "scene",
+        );
+        // A recap can contain facts from the old wider range. Re-labeling it as
+        // a shorter scene would falsify its source coverage and historical access.
+        if (
+          scaffold &&
+          (scaffold.startMessageId !== record.startMessageId || scaffold.endMessageId !== record.endMessageId)
+        )
+          throw correctionReviewError(ctx, record, true);
         const start = ctx.messages.findIndex((message) => message.id === record.startMessageId);
         const end = ctx.messages.findIndex((message) => message.id === record.endMessageId);
         if (start >= 0 && end >= start) {

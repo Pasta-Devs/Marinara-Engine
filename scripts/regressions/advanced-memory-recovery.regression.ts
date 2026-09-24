@@ -345,6 +345,79 @@ try {
       );
     }
   });
+  await test("a correction spanning a recovered boundary can be excluded without losing its text", async () => {
+    for (const expanded of [false, true]) {
+      const { chat, messages, row, sceneId } = await fixture();
+      await chats.updateMessageExtra(messages[1]!.id, { hiddenFromAI: true });
+      await chats.createMessagesBatch(chat.id, [
+        {
+          role: "assistant",
+          characterId: "maukie",
+          content: "The later compass scene also ends.",
+          createdAt: new Date(Date.parse(messages.at(-1)!.createdAt) + 1000).toISOString(),
+        },
+        {
+          role: "user",
+          content: "A fresh compass scene begins.",
+          extra: { isConversationStart: true },
+          createdAt: new Date(Date.parse(messages.at(-1)!.createdAt) + 2000).toISOString(),
+        },
+      ]);
+      const source = await chats.listMessages(chat.id);
+      const laterSceneId = `scene-${source[2]!.id}`;
+      if (expanded) {
+        await db
+          .update(advancedMemoryRecords)
+          .set({
+            endMessageId: source[3]!.id,
+            messageIds: JSON.stringify(source.slice(0, 4).map((message) => message.id)),
+          })
+          .where(eq(advancedMemoryRecords.id, sceneId));
+      } else
+        await db.insert(advancedMemoryRecords).values({
+          ...row,
+          id: laterSceneId,
+          sceneId: laterSceneId,
+          startMessageId: source[2]!.id,
+          endMessageId: source[3]!.id,
+          messageIds: JSON.stringify(source.slice(2, 4).map((message) => message.id)),
+        });
+      const correctionId = `${sceneId}-spanning-correction`;
+      const correction = "The original correction describes its authored compass events.";
+      const originalEnd = source[expanded ? 1 : 3]!.id;
+      await db.insert(advancedMemoryRecords).values({
+        ...row,
+        id: correctionId,
+        endMessageId: originalEnd,
+        messageIds: JSON.stringify(expanded ? [source[0]!.id] : [source[0]!.id, source[2]!.id, source[3]!.id]),
+        audienceCharacterIds: '["maukie"]',
+        manualOverride: 1,
+        content: correction,
+      });
+      const paid = summaryRequests.length;
+      await assert.rejects(memory.initialize(chat.id, { detectScenes: false }), /Disable or delete/);
+      assert.equal(summaryRequests.length, paid, "changed boundaries never regenerate over a manual correction");
+      await assert.rejects(memory.updateRecord(chat.id, correctionId, { content: correction }), /Disable or delete/);
+      assert.equal(
+        (await memory.status(chat.id)).records.find((record) => record.id === correctionId)!.content,
+        correction,
+      );
+      await memory.updateRecord(chat.id, correctionId, { enabled: false });
+      await memory.initialize(chat.id, { detectScenes: false });
+      const status = await memory.status(chat.id);
+      assert.equal(status.job.status, "ready", "disabling the spanning correction unblocks preparation");
+      const preserved = status.records.find((record) => record.id === correctionId)!;
+      assert.equal(preserved.content, correction);
+      assert.equal(preserved.enabled, false);
+      assert.equal(
+        preserved.endMessageId,
+        originalEnd,
+        "the authored source range is never silently shortened or expanded",
+      );
+      if (!expanded) assert(status.records.some((record) => record.sceneId === laterSceneId && record.content));
+      assert.deepEqual(await chats.listMessages(chat.id), source);
+    }
+  });
   await test("named participants resolve to separate chat characters and unknown names never grant access", async () => {
     for (const [result, expected] of [
       [["Pantalone"], ["pantalone"]],
