@@ -216,6 +216,7 @@ has_git_worktree_changes() {
 # deletes something.
 CLEAN_FAILED=0
 if [ -d ".git" ]; then
+    node scripts/preserve-untracked-src.mjs
     if ! git clean -fd -- packages/shared/src packages/server/src packages/client/src 2>/dev/null; then
         CLEAN_FAILED=1
     fi

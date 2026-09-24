@@ -123,6 +123,7 @@ set "PNPM_RESOLUTION_FAILED=0"
 :: something, so a stray file of your own does not vanish without a trace.
 set "CLEAN_FAILED=0"
 if exist ".git" (
+    node scripts\preserve-untracked-src.mjs
     git clean -fd -- packages/shared/src packages/server/src packages/client/src 2>nul
     if errorlevel 1 set "CLEAN_FAILED=1"
 )
