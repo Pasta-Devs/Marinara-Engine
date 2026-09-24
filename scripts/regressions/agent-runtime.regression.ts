@@ -882,6 +882,38 @@ assert.equal(unionProvider.calls, 1, "agents with different context selections s
 assert.match(JSON.stringify(unionProvider.messages), /UNIQUE_CHARACTER_CONTEXT/);
 assert.match(JSON.stringify(unionProvider.messages), /UNIQUE_PERSONA_CONTEXT/);
 
+const longLore = {
+  description: `${"Description. ".repeat(250)}The palace has violet windows.`,
+  personality: `${"Personality. ".repeat(150)}Keeps a silver pocket watch.`,
+  backstory: `${"Backstory. ".repeat(150)}The city floats above the sea.`,
+  appearance: `${"Appearance. ".repeat(150)}Wears a bright red cloak.`,
+  scenario: `${"Scenario. ".repeat(150)}Snow covers the courtyard.`,
+};
+const longLoreContext: AgentContext = {
+  ...context,
+  characters: [{ id: "long-card", name: "Alice", ...longLore }],
+  persona: { name: "Reader", description: `${"Persona. ".repeat(300)}Carries a blue lantern.` },
+};
+const illustrator = makeAgent("illustrator", "image_prompt");
+const fullLoreProvider = new RecordingProvider('{"prompt":"An illustration"}');
+await executeAgent(illustrator, longLoreContext, fullLoreProvider, "agent-model");
+const fullLoreBatchProvider = new RecordingProvider(
+  '{"world-state":{"weather":"rain"},"quest":{"quests":[]}}',
+);
+await executeAgentBatch(
+  [makeAgent("world-state", "game_state_update"), makeAgent("quest", "quest_update")],
+  longLoreContext,
+  fullLoreBatchProvider,
+  "agent-model",
+);
+for (const provider of [fullLoreProvider, fullLoreBatchProvider]) {
+  assert.equal(provider.calls, 1);
+  const system = provider.messages[0]!.find((message) => message.role === "system")!.content;
+  for (const value of [...Object.values(longLore), longLoreContext.persona!.description]) {
+    assert.ok(system.includes(value!), "agent prompts must preserve the complete selected card and persona lore");
+  }
+}
+
 let previousOutputLoads = 0;
 const previousContext: AgentContext = {
   ...selectiveContext,
