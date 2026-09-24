@@ -155,12 +155,6 @@ Diese Tabelle listet jede Noodle-Einstellung mit Standardwert und Bereich.
 | **Generation connection** | keine | jede Textverbindung (für den Refresh nötig) |
 | **Professor Mari participates** | on | on oder off |
 | **Refreshes/day** | 2 | 0 bis 24 (0 schaltet automatische Refreshes aus) |
-| **Automatic posting schedule** | on | on oder off |
-| **Posts/day** | 4 | 1 bis 24 |
-| **Night quiet** | on | Character-Creator überspringen 23:00–07:00 Uhr |
-| **Automatic pro Creator** | off | Die geführte Einrichtung kann es einschalten |
-| **Images pro Creator** | off | Die geführte Einrichtung kann es einschalten |
-| **Automatische Creator-Antworten** | 10 pro 24 Stunden | installationsweit, nicht pro Creator |
 | **Active selection** | Random range | Random range, Exact count, All invited |
 | **Min active** | 2 | 1 bis 100 (nur bei Random range) |
 | **Max active** | 5 | 1 bis 100 (nur bei Random range) |

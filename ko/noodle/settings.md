@@ -155,7 +155,6 @@ Noodle 활동을 채팅에 나타나게 하려면 해당하는 **Carryover to ch
 | **Generation connection** | 없음 | 텍스트 연결 전체(새로고침에 필수) |
 | **Professor Mari participates** | on | on 또는 off |
 | **Refreshes/day** | 2 | 0에서 24(0이면 자동 새로고침 끔) |
-| 크리에이터 자동 답글 | 24시간당 10개 | 크리에이터별이 아닌 설치 전체 기준 |
 | **Active selection** | Random range | Random range, Exact count, All invited |
 | **Min active** | 2 | 1에서 100(Random range일 때만) |
 | **Max active** | 5 | 1에서 100(Random range일 때만) |

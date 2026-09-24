@@ -105,7 +105,8 @@ Character Voices 상자의 **Refresh**(새로고침) 버튼은 한 목소리 모
 
 **Speed**(속도) 슬라이더는 말하는 속도를 조절합니다. 조절 가능한 범위는 Source에 따라 다릅니다.
 
-- OpenAI-compatible과 PocketTTS: 보통 속도의 0.25배에서 4.0배까지.
+- OpenAI-compatible: 보통 속도의 0.25배에서 4.0배까지.
+- PocketTTS: 호환 래퍼는 0.25배에서 4.0배의 속도 설정을 사용할 수 있습니다. 공식 서버는 현재 합성 속도를 자체적으로 제어합니다.
 - ElevenLabs: 0.7배에서 1.2배까지.
 - xAI Voice: 0.7배에서 1.5배까지.
 
@@ -160,7 +161,7 @@ TTS를 켜면 캐릭터 메시지와 서술 메시지 아래 도구 모음에 **
 ## 문제 해결
 
 - 아무 소리도 나지 않을 때: 먼저 **Enable TTS** 스위치가 켜져 있는지 확인하세요. 그다음 해당 모드의 **Auto-play** 토글을 확인하거나 메시지별 **Speak** 버튼을 쓰세요. **Speak** 버튼과 자동 재생 항목은 TTS를 켠 뒤에만 나타납니다.
-- 드롭다운에 목소리가 없을 때: TTS를 켜고 올바른 API 키를 넣은 상태로 카드를 저장한 다음 **Refresh voices**를 클릭하세요. PocketTTS라면 호환 서버에서 `<Base URL>/v1/voices`가 응답하는지도 확인하세요.
+- 드롭다운에 목소리가 없을 때: TTS를 켜고, 제공자가 키를 요구한다면 올바른 API 키를 넣은 상태로 카드를 저장한 다음 **Refresh voices**를 클릭하세요. 공식 PocketTTS 서버는 목소리 목록 엔드포인트가 없으므로 Marinara의 내장 목록을 사용합니다. 호환 PocketTTS 래퍼라면 `<Base URL>/v1/voices`가 응답하는지 확인하세요.
 - ElevenLabs가 말하지 않을 때: "Select an ElevenLabs voice" 자리표시자가 아니라 실제 목소리를 골랐는지 확인하세요. **Model**이 ID에 `ttv`가 들어간 목소리 디자인 모델이 아니라 음성 합성 모델인지도 확인하세요.
 - 로컬 주소의 자체 TTS 서버가 차단될 때: 서버 설정 `TTS_LOCAL_URLS_ENABLED`를 켜세요. 이 설정을 켜면 앱이 OpenAI-compatible 방식이나 ElevenLabs 방식 서버의 로컬 주소, 사설 주소에 접근할 수 있습니다. PocketTTS에는 이 설정이 필요 없습니다. [서버 설정 참고 문서](../CONFIGURATION.md)를 참고하세요.
 - 설정을 빠르게 시험해 보려면: 카드의 **Preview**(미리 듣기) 버튼을 클릭해 현재 설정으로 짧은 예시 문장을 재생해 보세요.

@@ -337,14 +337,14 @@ Wyniki testów. Każde sformułowanie sprawdzono na czterech oznaczonych turach 
 
 | Pisz | Unikaj | Co się stało przy sformułowaniu do unikania |
 | --- | --- | --- |
-| The latest message moves the scene to a new place. | Did the scene change?  Pytanie przesunęło tury "nie" Open-Jev 2B ponad próg. Nie wpłynęło na model lokalny. |
-| In the latest message, a character draws a weapon or attacks someone. | The scene is intense.  Wszystkie trzy uznały gorącą kłótnię za "intense". Przy niejasnym słowie znaczenie wybiera model, nie ty. |
-| In the latest message, Mira asks Kaelen a direct question. | Mira asks questions.  Model lokalny i Open-Jev 9B odpowiedziały tak, gdy najnowsza wiadomość Miry nie zawierała pytania, ponieważ wcześniejsza je zawierała. |
-| Kaelen is angry in the latest message. | He is angry.  Model lokalny odczytał "he" jako rozzłoszczonego karczmarza. |
-| In the latest message, Mira says something that contradicts what she said earlier. | Mira is lying.  Żaden model nie uznawał sprzeczności za kłamstwo w wiarygodny sposób. |
-| The latest message moves the scene to a new place. | If the scene changed, describe the new location in two sentences.  Model lokalny zawsze odpowiadał nie na instrukcję, więc blok nigdy się nie uruchamiał. |
-| Someone is injured in the latest message. | A fight starts and someone is injured and the city guards arrive.  Obsłużone poprawnie. Rozdzielenie nadal ułatwia ponowne użycie i debugowanie. |
-| In the latest message, the characters stay in the same place. | The characters did not leave the room.  Bez różnicy. Wybierz naturalne sformułowanie. |
+| The latest message moves the scene to a new place. | Did the scene change? | Pytanie przesunęło tury "nie" Open-Jev 2B ponad próg. Nie wpłynęło na model lokalny. |
+| In the latest message, a character draws a weapon or attacks someone. | The scene is intense. | Wszystkie trzy uznały gorącą kłótnię za "intense". Przy niejasnym słowie znaczenie wybiera model, nie ty. |
+| In the latest message, Mira asks Kaelen a direct question. | Mira asks questions. | Model lokalny i Open-Jev 9B odpowiedziały tak, gdy najnowsza wiadomość Miry nie zawierała pytania, ponieważ wcześniejsza je zawierała. |
+| Kaelen is angry in the latest message. | He is angry. | Model lokalny odczytał "he" jako rozzłoszczonego karczmarza. |
+| In the latest message, Mira says something that contradicts what she said earlier. | Mira is lying. | Żaden model nie uznawał sprzeczności za kłamstwo w wiarygodny sposób. |
+| The latest message moves the scene to a new place. | If the scene changed, describe the new location in two sentences. | Model lokalny zawsze odpowiadał nie na instrukcję, więc blok nigdy się nie uruchamiał. |
+| Someone is injured in the latest message. | A fight starts and someone is injured and the city guards arrive. | Obsłużone poprawnie. Rozdzielenie nadal ułatwia ponowne użycie i debugowanie. |
+| In the latest message, the characters stay in the same place. | The characters did not leave the room. | Bez różnicy. Wybierz naturalne sformułowanie. |
 
 Zalecane sformułowania uzyskały 31 z 32 w Open-Jev 2B, 31 z 32 w Open-Jev 9B i 32 z 32 w modelu lokalnym. Sformułowania do unikania uzyskały 26, 25 i 24. Te wyniki z małej próbki ilustrują wybór słów; dobieraj model do swoich czatów na własnych przypadkach.
 

@@ -496,7 +496,7 @@ difficulty?, onSuccess: "none" | "half" } }` : chaque partie est lancée, typée
 }
 ```
 
-Ce n'est pas une intégration facultative, pour la même raison que 1.20–1.28 : un moteur qui ne comprend pas ces clés refuse le ensemble de règles entier ou le catalogue qui les contient. L'installation lit les octets vérifiés de `ruleset.json` et de chaque `catalogs/<id>.json` déclaré, et les refuse sous une déclaration antérieure. Aucun nouveau droit, aucun changement pour les ensembles de règles qui ne déclarent rien de cela.
+Ce n'est pas une intégration facultative, pour la même raison que 1.20–1.28 : un moteur qui ne comprend pas ces clés refuse l'ensemble de règles entier ou le catalogue qui les contient. L'installation lit les octets vérifiés de `ruleset.json` et de chaque `catalogs/<id>.json` déclaré, et les refuse sous une déclaration antérieure. Aucun nouveau droit, aucun changement pour les ensembles de règles qui ne déclarent rien de cela.
 
 ### Capability API 1.28 : combat de l'ensemble de règles sur un plateau
 
@@ -512,7 +512,7 @@ Le bloc `combat` peut définir la valeur d'une case dans sa propre distance (`di
 
 Déclarer `ranged`, `cover`, `opportunity` ou une portée d'arme SANS `distance` est refusé à l'importation : cela n'a aucun sens sans case pour la mesurer. Le plateau réutilise le générateur, le terrain et le déploiement du style tactique existant ; aucun second modèle de champ ni permission n'est ajouté.
 
-Ce n'est pas une intégration facultative, pour la même raison que 1.20–1.27 : un moteur qui ne comprend pas ces clés refuse le ensemble de règles entier ou le catalogue contenant une créature avec une paire pour portée. L'installation lit les octets vérifiés de `ruleset.json` et de chaque `catalogs/<id>.json` déclaré, et les refuse sous une déclaration antérieure. Aucun changement pour les ensembles de règles qui ne définissent pas de distance.
+Ce n'est pas une intégration facultative, pour la même raison que 1.20–1.27 : un moteur qui ne comprend pas ces clés refuse l'ensemble de règles entier ou le catalogue contenant une créature avec une paire pour portée. L'installation lit les octets vérifiés de `ruleset.json` et de chaque `catalogs/<id>.json` déclaré, et les refuse sous une déclaration antérieure. Aucun changement pour les ensembles de règles qui ne définissent pas de distance.
 
 ### Capability API 1.26: format de combat
 

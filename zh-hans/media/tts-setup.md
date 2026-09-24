@@ -105,7 +105,8 @@ Character Voices 区域里的 **Refresh** 按钮会重新加载同一份服务�
 
 **Speed**(语速) 滑块控制说话的快慢。可用范围随 Source 变化：
 
-- OpenAI-compatible 和 PocketTTS：正常语速的 0.25 到 4.0 倍。
+- OpenAI-compatible：正常语速的 0.25 到 4.0 倍。
+- PocketTTS：兼容包装服务器可使用 0.25 到 4.0 倍的语速设置；官方服务器目前自行控制合成速度。
 - ElevenLabs：0.7 到 1.2 倍。
 - xAI Voice：0.7 到 1.5 倍。
 
@@ -160,7 +161,7 @@ TTS 开启之后，每条角色消息或旁白消息下方的工具栏里会出�
 ## 故障排查
 
 - 完全没有声音：先确认 **Enable TTS** 开关已打开，再检查对应模式的 **Auto-play** 开关，或者直接用消息上的 **Speak** 按钮。**Speak** 按钮和自动朗读选项只有在 TTS 开启后才会出现。
-- 下拉菜单里没有声音：在 TTS 已开启、API 密钥有效的状态下保存卡片，然后点击 **Refresh voices**。使用 PocketTTS 时，还要确认兼容服务器的 `<Base URL>/v1/voices` 有响应。
+- 下拉菜单里没有声音：在 TTS 已开启、且已按提供商要求填写有效 API 密钥（如需）的状态下保存卡片，然后点击 **Refresh voices**。官方 PocketTTS 服务器没有声音列表端点，因此使用 Marinara 的内置列表。如果使用兼容 PocketTTS 包装服务器，请确认 `<Base URL>/v1/voices` 有响应。
 - ElevenLabs 不出声：确认选中的是一个真正的声音，而不是“Select an ElevenLabs voice”占位文字。同时检查 **Model** 是语音合成模型，而不是 ID 里带 `ttv` 的声音设计模型。
 - 本地地址上的自建 TTS 服务器被拦截：打开服务器设置 `TTS_LOCAL_URLS_ENABLED`。它允许应用访问 OpenAI 兼容或 ElevenLabs 风格服务器的本地地址和内网地址。PocketTTS 不需要这个设置。参见[服务器配置参考](../CONFIGURATION.md)。
 - 想快速验证配置：点击卡片里的 **Preview**(预览) 按钮，用当前设置播放一小段示例语音。

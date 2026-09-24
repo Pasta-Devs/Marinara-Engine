@@ -337,14 +337,14 @@ Describe the new weather in a sentence.
 
 | लिखें | इससे बचें | बचने वाले शब्दांकन पर क्या हुआ |
 | --- | --- | --- |
-| The latest message moves the scene to a new place. | Did the scene change?  सवाल ने Open-Jev 2B के "नहीं" टर्न सीमा से ऊपर कर दिए। स्थानीय मॉडल पर असर नहीं पड़ा। |
-| In the latest message, a character draws a weapon or attacks someone. | The scene is intense.  तीनों ने गरम बहस को "intense" कहा। अस्पष्ट शब्द का मतलब आप नहीं, मॉडल तय करता है। |
-| In the latest message, Mira asks Kaelen a direct question. | Mira asks questions.  स्थानीय मॉडल और Open-Jev 9B ने Mira के आखिरी संदेश में सवाल न होने पर हाँ कहा, क्योंकि पुराने संदेश में था। |
-| Kaelen is angry in the latest message. | He is angry.  स्थानीय मॉडल ने "he" को गुस्से वाला बारकीपर समझा। |
-| In the latest message, Mira says something that contradicts what she said earlier. | Mira is lying.  किसी मॉडल ने विरोधाभास को भरोसेमंद तरीके से झूठ नहीं कहा। |
-| The latest message moves the scene to a new place. | If the scene changed, describe the new location in two sentences.  स्थानीय मॉडल ने निर्देश पर हर बार नहीं कहा, इसलिए ब्लॉक कभी नहीं चला। |
-| Someone is injured in the latest message. | A fight starts and someone is injured and the city guards arrive.  सही संभाला गया। फिर भी अलग कथन दोबारा इस्तेमाल और डिबग करना आसान है। |
-| In the latest message, the characters stay in the same place. | The characters did not leave the room.  कोई अंतर नहीं। स्वाभाविक शब्द लिखें। |
+| The latest message moves the scene to a new place. | Did the scene change? | सवाल ने Open-Jev 2B के "नहीं" टर्न सीमा से ऊपर कर दिए। स्थानीय मॉडल पर असर नहीं पड़ा। |
+| In the latest message, a character draws a weapon or attacks someone. | The scene is intense. | तीनों ने गरम बहस को "intense" कहा। अस्पष्ट शब्द का मतलब आप नहीं, मॉडल तय करता है। |
+| In the latest message, Mira asks Kaelen a direct question. | Mira asks questions. | स्थानीय मॉडल और Open-Jev 9B ने Mira के आखिरी संदेश में सवाल न होने पर हाँ कहा, क्योंकि पुराने संदेश में था। |
+| Kaelen is angry in the latest message. | He is angry. | स्थानीय मॉडल ने "he" को गुस्से वाला बारकीपर समझा। |
+| In the latest message, Mira says something that contradicts what she said earlier. | Mira is lying. | किसी मॉडल ने विरोधाभास को भरोसेमंद तरीके से झूठ नहीं कहा। |
+| The latest message moves the scene to a new place. | If the scene changed, describe the new location in two sentences. | स्थानीय मॉडल ने निर्देश पर हर बार नहीं कहा, इसलिए ब्लॉक कभी नहीं चला। |
+| Someone is injured in the latest message. | A fight starts and someone is injured and the city guards arrive. | सही संभाला गया। फिर भी अलग कथन दोबारा इस्तेमाल और डिबग करना आसान है। |
+| In the latest message, the characters stay in the same place. | The characters did not leave the room. | कोई अंतर नहीं। स्वाभाविक शब्द लिखें। |
 
 सुझाए शब्दांकन ने Open-Jev 2B पर 32 में 31, Open-Jev 9B पर 31 और स्थानीय मॉडल पर 32 सही दिए। बचने वाले शब्दांकन ने 26, 25 और 24 दिए। छोटे नमूने के ये नतीजे शब्दों का चुनाव समझाते हैं; अपनी चैट का मॉडल अपने केस से तय करें।
 

@@ -12,6 +12,7 @@ Das Local Model ist bewusst klein gehalten. Gedacht ist es für Hilfsaufgaben im
 - Szeneneffekte im Game Mode, etwa Hintergründe, Musik und Wetter.
 - Lorebook-Embeddings für die semantische Suche.
 - Mikrofon-Transkription in Conversation-Anrufen, über ein separates Sprachmodell.
+- Aktivierungsfragen und Decision-Bedingungen beantworten, wenn du es als Decision-Modell auswählst. Siehe [Decision-Modelle](decision-models.md).
 
 Im Einrichtungsfenster heißt es **Local AI Model**. In den Verbindungs-Dropdowns heißt es **Local Model (sidecar)**. Gemeint ist beide Male dasselbe.
 
@@ -60,8 +61,6 @@ Das Installieren oder Neuinstallieren der Runtime ist eine geschützte Aktion. B
 Marinara lädt ausschließlich die llama.cpp-, MLX- und uv-Versionen herunter, die für deine Engine-Version freigegeben sind. Vor dem Entpacken oder Ausführen prüft Marinara die exakte Dateigröße und die SHA-256-Prüfsumme. Auch die Python-Abhängigkeiten für MLX sind auf feste Versionen und Hashes festgelegt; erst danach installiert Marinara die geprüfte mlx-lm-Quelle, ohne zusätzliche Pakete aufzulösen. Neue Runtime-Versionen kommen deshalb über geprüfte Marinara-Updates und nicht still über einen „latest“-Build von upstream.
 
 ## Ein Modell herunterladen
-
-- Aktivierungsfragen und Decision-Bedingungen beantworten, wenn du es als Decision-Modell auswählst. Siehe [Decision-Modelle](decision-models.md).
 
 Das Einrichtungsfenster bietet zwei Wege zu einem Modell.
 

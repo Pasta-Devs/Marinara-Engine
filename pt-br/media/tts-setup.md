@@ -61,7 +61,7 @@ A configuração **Voice Option** (opção de voz) define como as vozes são dis
 
 ### Uma voz para todos os personagens
 
-Escolha a voz no campo **All Characters Voice**. No PocketTTS, o menu suspenso mostra as vozes que o servidor retorna e, ao lado, fica um campo de texto para um ID, endereço ou caminho de voz personalizado.
+Escolha a voz no campo **All Characters Voice**. O servidor oficial do PocketTTS não expõe um endpoint para listar vozes, então o Marinara mostra suas vozes integradas e mantém um campo de texto ao lado do menu suspenso para outro nome integrado ou uma URL de voz compatível. Os servidores adaptadores compatíveis ainda podem retornar sua própria lista de vozes e aceitar identificadores ou caminhos personalizados.
 
 Para carregar a lista real de vozes do provedor, preencha os dados da conexão e clique no botão **Refresh voices** (o ícone de seta circular). Isso funciona mesmo antes de você liberar a reprodução. A atualização salva o card primeiro, então uma chave de API recém-digitada já é usada na hora. Antes da conexão, o aplicativo mostra uma lista curta embutida para o campo não ficar vazio. Se o provedor retornar erro, o erro aparece: essa lista de reserva nunca é apresentada como se fosse uma atualização bem-sucedida.
 
@@ -105,7 +105,8 @@ A configuração **Audio Format** (formato do áudio) escolhe entre **MP3** (o p
 
 O controle deslizante **Speed** (velocidade) define a rapidez da fala. A faixa permitida depende do Source:
 
-- OpenAI-compatible e PocketTTS: de 0.25 a 4.0 vezes a velocidade normal.
+- OpenAI-compatible: de 0.25 a 4.0 vezes a velocidade normal.
+- PocketTTS: adaptadores compatíveis podem usar a configuração de velocidade de 0.25 a 4.0; atualmente, o servidor oficial controla a velocidade de síntese por conta própria.
 - ElevenLabs: de 0.7 a 1.2 vezes.
 - xAI Voice: de 0.7 a 1.5 vezes.
 
@@ -160,7 +161,7 @@ Esse ajuste vale apenas durante as chamadas de áudio e vídeo do Conversation. 
 ## Solução de problemas
 
 - Nada é falado: confirme se o botão **Enable TTS** está ligado. Depois verifique o botão de **Auto-play** do modo certo, ou use o botão **Speak** da mensagem. O botão **Speak** e as opções de leitura automática só aparecem depois que o TTS é ativado.
-- Nenhuma voz no menu suspenso: salve o card com o TTS ativado e uma chave de API válida, depois clique em **Refresh voices**. No PocketTTS, confira também se `<Base URL>/v1/voices` responde no servidor compatível.
+- Nenhuma voz no menu suspenso: salve o card com o TTS ativado e, se o provedor exigir, uma chave de API válida, depois clique em **Refresh voices**. O servidor oficial do PocketTTS usa a lista integrada do Marinara porque não possui um endpoint para listar vozes. Para um adaptador compatível do PocketTTS, verifique se `<Base URL>/v1/voices` responde.
 - O ElevenLabs não fala: verifique se você escolheu uma voz de verdade, e não o texto de exemplo "Select an ElevenLabs voice". Confira também se o campo **Model** tem um modelo de fala, e não um modelo de desenho de voz com `ttv` no ID.
 - Um servidor de TTS próprio em endereço local está bloqueado: ative a configuração de servidor `TTS_LOCAL_URLS_ENABLED`. Com isso, o aplicativo alcança um endereço local ou privado em servidores no formato OpenAI-compatible ou ElevenLabs. O PocketTTS não precisa dessa configuração. Veja [Referência de configuração do servidor](../CONFIGURATION.md).
 - Para testar tudo rapidamente: clique no botão **Preview** dentro do card e ouça uma frase curta de amostra com as configurações atuais.

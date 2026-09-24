@@ -103,7 +103,8 @@ Ustawienie **Audio Format** pozwala wybrać **MP3** (wartość domyślna) albo *
 
 Suwak **Speed** decyduje o tempie mowy. Dopuszczalny zakres zależy od źródła:
 
-- OpenAI-compatible i PocketTTS: od 0.25 do 4.0 normalnej prędkości.
+- OpenAI-compatible: od 0.25 do 4.0 normalnej prędkości.
+- PocketTTS: zgodne adaptery mogą korzystać z ustawienia prędkości od 0.25 do 4.0; oficjalny serwer obecnie sam steruje prędkością syntezy.
 - ElevenLabs: od 0.7 do 1.2.
 - xAI Voice: od 0.7 do 1.5.
 
@@ -160,7 +161,7 @@ Ta zmiana działa wyłącznie podczas rozmów audio i wideo w trybie Conversatio
 ## Rozwiązywanie problemów
 
 - Nic nie jest odczytywane: sprawdź, czy przełącznik **Enable TTS** jest włączony. Potem sprawdź właściwy dla danego trybu przełącznik **Auto-play** albo użyj przycisku **Speak** przy wiadomości. Przycisk **Speak** i opcje automatycznego odtwarzania pojawiają się dopiero po włączeniu TTS.
-- Brak głosów na liście rozwijanej: zapisz sekcję z włączonym TTS i poprawnym kluczem API, a potem kliknij przycisk **Refresh voices**. W przypadku źródła PocketTTS sprawdź dodatkowo, czy zgodny serwer odpowiada pod adresem `<Base URL>/v1/voices`.
+- Brak głosów na liście rozwijanej: zapisz sekcję z włączonym TTS i, jeśli dostawca go wymaga, poprawnym kluczem API, a potem kliknij przycisk **Refresh voices**. Oficjalny serwer PocketTTS korzysta z wbudowanej listy Marinara, ponieważ nie udostępnia punktu końcowego listy głosów. W przypadku zgodnego adaptera PocketTTS sprawdź, czy `<Base URL>/v1/voices` odpowiada.
 - ElevenLabs nie mówi: sprawdź, czy wybrany jest prawdziwy głos, a nie tekst zastępczy "Select an ElevenLabs voice". Sprawdź też, czy w polu **Model** stoi model mowy, a nie model projektowania głosu z `ttv` w identyfikatorze.
 - Własny serwer TTS pod adresem lokalnym jest blokowany: włącz na serwerze ustawienie `TTS_LOCAL_URLS_ENABLED`. Dzięki temu aplikacja sięgnie po adres lokalny lub prywatny w przypadku serwerów zgodnych z OpenAI oraz serwerów w stylu ElevenLabs. Źródło PocketTTS tego ustawienia nie potrzebuje. Zobacz [Konfiguracja serwera](../CONFIGURATION.md).
 - Szybki test konfiguracji: kliknij przycisk **Preview** w sekcji, żeby odtworzyć krótką próbkę z bieżącymi ustawieniami.

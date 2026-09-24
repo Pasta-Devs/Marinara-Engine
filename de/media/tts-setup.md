@@ -103,7 +103,8 @@ Die Einstellung **Audio Format** wählt zwischen **MP3** (Standard) und **WAV**.
 
 Der Schieberegler **Speed** bestimmt das Sprechtempo. Der zulässige Bereich hängt von der Source ab:
 
-- OpenAI-compatible und PocketTTS: 0,25- bis 4,0-fache Normalgeschwindigkeit.
+- OpenAI-compatible: 0,25- bis 4,0-fache Normalgeschwindigkeit.
+- PocketTTS: Kompatible Wrapper können die Einstellung von 0,25 bis 4,0 verwenden; der offizielle Server steuert die Synthesegeschwindigkeit derzeit selbst.
 - ElevenLabs: 0,7- bis 1,2-fach.
 - xAI Voice: 0,7- bis 1,5-fach.
 
@@ -160,7 +161,7 @@ Diese Vorgabe greift ausschließlich bei Audio- und Videoanrufen in Conversation
 ## Fehlerbehebung
 
 - Nichts wird gesprochen: Prüf, ob der Schalter **Enable TTS** an ist. Kontrollier dann den passenden **Auto-play**-Schalter für den Modus oder nutze die Schaltfläche **Speak** an der Nachricht. **Speak** und die Auto-play-Optionen erscheinen erst, nachdem TTS aktiviert ist.
-- Keine Stimmen im Dropdown-Menü: Speicher die Karte mit aktiviertem TTS und gültigem API-Key und klick dann auf **Refresh voices**. Bei PocketTTS prüf zusätzlich, ob `<Base URL>/v1/voices` vom kompatiblen Server antwortet.
+- Keine Stimmen im Dropdown-Menü: Speicher die Karte mit aktiviertem TTS und, falls der Anbieter einen verlangt, gültigem API-Key und klick dann auf **Refresh voices**. Der offizielle PocketTTS-Server verwendet Marinaras eingebaute Stimmenliste, weil er keinen Endpunkt für eine Stimmenliste hat. Bei einem kompatiblen PocketTTS-Wrapper prüf, ob `<Base URL>/v1/voices` antwortet.
 - ElevenLabs spricht nicht: Achte darauf, dass eine echte Stimme gewählt ist und nicht der Platzhalter „Select an ElevenLabs voice“. Prüf außerdem, ob unter **Model** ein Sprachmodell steht und kein Voice-Design-Modell, dessen ID `ttv` enthält.
 - Ein selbst gehosteter TTS-Server auf einer lokalen Adresse wird blockiert: Aktiviere die Server-Einstellung `TTS_LOCAL_URLS_ENABLED`. Damit erreicht die App lokale oder private Adressen für OpenAI-kompatible oder ElevenLabs-artige Server. PocketTTS braucht diese Einstellung nicht. Siehe [Referenz der Server-Konfiguration](../CONFIGURATION.md).
 - Einrichtung schnell testen: Klick auf die Schaltfläche **Preview** in der Karte, um mit den aktuellen Einstellungen eine kurze Beispielzeile abzuspielen.

@@ -337,14 +337,14 @@ Describe the new weather in a sentence.
 
 | Пишите | Избегайте | Что произошло с нежелательной формулировкой |
 | --- | --- | --- |
-| The latest message moves the scene to a new place. | Did the scene change?  Вопрос поднял случаи "нет" Open-Jev 2B выше порога. Локальная модель не изменилась. |
-| In the latest message, a character draws a weapon or attacks someone. | The scene is intense.  Все три назвали жаркий спор "intense". Значение расплывчатого слова определяет модель, не вы. |
-| In the latest message, Mira asks Kaelen a direct question. | Mira asks questions.  Локальная модель и Open-Jev 9B ответили да без вопроса в последнем сообщении Mira, потому что вопрос был раньше. |
-| Kaelen is angry in the latest message. | He is angry.  Локальная модель поняла "he" как злого трактирщика. |
-| In the latest message, Mira says something that contradicts what she said earlier. | Mira is lying.  Ни одна модель не называла противоречие ложью надежно. |
-| The latest message moves the scene to a new place. | If the scene changed, describe the new location in two sentences.  Локальная модель всегда отвечала нет на инструкцию, и блок не выполнялся. |
-| Someone is injured in the latest message. | A fight starts and someone is injured and the city guards arrive.  Обработано правильно. Разделенные утверждения все же проще переиспользовать и отлаживать. |
-| In the latest message, the characters stay in the same place. | The characters did not leave the room.  Разницы нет. Выбирайте естественную формулировку. |
+| The latest message moves the scene to a new place. | Did the scene change? | Вопрос поднял случаи "нет" Open-Jev 2B выше порога. Локальная модель не изменилась. |
+| In the latest message, a character draws a weapon or attacks someone. | The scene is intense. | Все три назвали жаркий спор "intense". Значение расплывчатого слова определяет модель, не вы. |
+| In the latest message, Mira asks Kaelen a direct question. | Mira asks questions. | Локальная модель и Open-Jev 9B ответили да без вопроса в последнем сообщении Mira, потому что вопрос был раньше. |
+| Kaelen is angry in the latest message. | He is angry. | Локальная модель поняла "he" как злого трактирщика. |
+| In the latest message, Mira says something that contradicts what she said earlier. | Mira is lying. | Ни одна модель не называла противоречие ложью надежно. |
+| The latest message moves the scene to a new place. | If the scene changed, describe the new location in two sentences. | Локальная модель всегда отвечала нет на инструкцию, и блок не выполнялся. |
+| Someone is injured in the latest message. | A fight starts and someone is injured and the city guards arrive. | Обработано правильно. Разделенные утверждения все же проще переиспользовать и отлаживать. |
+| In the latest message, the characters stay in the same place. | The characters did not leave the room. | Разницы нет. Выбирайте естественную формулировку. |
 
 Рекомендованные формулировки дали 31 из 32 на Open-Jev 2B, 31 из 32 на Open-Jev 9B и 32 из 32 на локальной модели. Нежелательные – 26, 25 и 24. Эта малая выборка иллюстрирует выбор слов; подходящую модель определяйте по собственным случаям.
 

@@ -155,7 +155,6 @@ Noodleのアクティビティーをチャットに出すには、対応する**
 | **Generation connection** | なし | テキスト用の接続すべて(更新に必須) |
 | **Professor Mari participates** | on | onまたはoff |
 | **Refreshes/day** | 2 | 0から24(0で自動更新をオフ) |
-| クリエイターの自動返信 | 24時間あたり10件 | クリエイター単位ではなくインストール全体 |
 | **Active selection** | Random range | Random range、Exact count、All invited |
 | **Min active** | 2 | 1から100(Random rangeのときのみ) |
 | **Max active** | 5 | 1から100(Random rangeのときのみ) |

@@ -155,7 +155,6 @@ Noodle 和聊天可以双向共享上下文。这是两个各自独立的功能�
 | **Generation connection** | 无 | 任意文本连接（刷新必需） |
 | **Professor Mari participates** | on | on 或 off |
 | **Refreshes/day** | 2 | 0 到 24(设为 0 关闭自动刷新) |
-| 创作者自动回复 | 每 24 小时 10 条 | 全安装共享，而非每位创作者 |
 | **Active selection** | Random range | Random range、Exact count、All invited |
 | **Min active** | 2 | 1 到 100(仅 Random range) |
 | **Max active** | 5 | 1 到 100(仅 Random range) |

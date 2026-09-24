@@ -209,8 +209,8 @@
     },
     {
       "path": "connections/local-model.md",
-      "sha256": "2ea4edab3e28cde2b5b6f5f252862fdb5247f1d5bfcc9ff42cd6160cfa22ef7c",
-      "bytes": 18269
+      "sha256": "ece265229a5612d8b73045c58c4bf3822cfd475354326d916fe2846e5ff4b9de",
+      "bytes": 18268
     },
     {
       "path": "connections/local-self-hosted.md",
@@ -304,8 +304,8 @@
     },
     {
       "path": "development/file-storage.md",
-      "sha256": "34af383e56bb53739eb375354782d5c5c1794ec51da28887439bc8c31cb4ae86",
-      "bytes": 7255
+      "sha256": "70ebe95566028040d8f7f34f40fcf3503bec22be0a5e26195e4116d314686074",
+      "bytes": 7259
     },
     {
       "path": "development/frontend.md",
@@ -331,6 +331,11 @@
       "path": "development/game-combat-rulesets-implementation.md",
       "sha256": "5ef29d2a036b1ccd1cac683c0dd1888e944cf3f435db06f884c83afdd71a84f3",
       "bytes": 27513
+    },
+    {
+      "path": "development/game-rulesets-and-sheets-implementation.md",
+      "sha256": "73b51bc9c1a086be78427b6c77e0d0478b211d83890b8f68338f5a91f5c5d337",
+      "bytes": 133375
     },
     {
       "path": "development/hierarchical-locations-prd-v3.md",
@@ -386,6 +391,11 @@
       "path": "extending/writing-personal-extensions.md",
       "sha256": "3605f0bd8db40cdbfbc611f584cfa756c2cf76ea8bac381fcdfc19d6fc7f101b",
       "bytes": 13601
+    },
+    {
+      "path": "extending/writing-rulesets.md",
+      "sha256": "3e9ac3375fcd84b7f4cd10aaf7b82b569ac534e112399c82e567bdbc63b1659e",
+      "bytes": 113600
     },
     {
       "path": "game/combat.md",
@@ -574,8 +584,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "37798969c6b4a16514653a7d3eaf04ddcd9b85637739ad180826719b5f7395fe",
-      "bytes": 16570
+      "sha256": "0f5b995005b2f72676d2b515a3599774e667007fb5c54da5d55fb4bcd520dea3",
+      "bytes": 16870
     },
     {
       "path": "noodle/overview.md",
@@ -584,8 +594,8 @@
     },
     {
       "path": "noodle/settings.md",
-      "sha256": "0690af518860f242aa678c4775341b858458025f3c979bd8271f94cd49dc6acc",
-      "bytes": 19569
+      "sha256": "3ba8114c13c34a656dab36f5c36872ae67bd375c74689fd1ab034eaf2b872aed",
+      "bytes": 19142
     },
     {
       "path": "prompts/conditional-prompts.md",

@@ -153,7 +153,6 @@ Esta tabela lista todas as configurações do Noodle com o valor padrão e a fai
 
 | Configuração | Padrão | Faixa ou opções |
 |---|---|---|
-| **Enable NoodleR** | off | on ou off |
 | **Generation connection** | nenhuma | qualquer conexão de texto (obrigatória para a atualização) |
 | **Professor Mari participates** | on | on ou off |
 | **Refreshes/day** | 2 | 0 a 24 (0 desliga as atualizações automáticas) |
