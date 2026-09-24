@@ -34,7 +34,7 @@ import {
   rulesetCheckModifier,
   type EvaluatedRulesetSheet,
 } from "../rulesets/sheet-math.js";
-import { findRulesetCreatureEntry, rulesetCreatureBlock } from "./creatures.js";
+import { findRulesetCreatureEntry, isRulesetPlainStatBlock, rulesetCreatureBlock } from "./creatures.js";
 import { parseRulesetCombatDice, rollRulesetDice, rulesetCombatRoller, sumOf } from "./dice.js";
 import { rulesetInCells, rulesetLineOfSight, rulesetPositionOf } from "./grid.js";
 import type {
@@ -96,8 +96,9 @@ export function rulesetCombatHealth(
   combatant: RulesetCombatant,
 ): RulesetCombatHealth {
   // A copy, always: an opponent's health lives in the state, and a caller that read it before a
-  // blow has to still be holding what it was before. An opponent is written in plain numbers
-  // whichever shape the party's health takes: a stat block has no character sheet to mark.
+  // blow has to still be holding what it was before. An opponent without a sheet is written in
+  // plain numbers whichever shape the party's health takes; one with a sheet is read below, exactly
+  // as a party member is.
   if (!combatant.sheet) return { ...(combatant.health ?? { value: 0, max: 0, temp: 0 }) };
   const live = readRulesetLive(definition, combatant.sheet.build, combatant.sheet.live);
   const health = combat.health;
@@ -755,6 +756,76 @@ function blockActions(block: RulesetStatBlockLike, perCell: number | undefined):
   }));
 }
 
+/**
+ * A combatant built from a sheet: every number it fights with read off the ruleset's own
+ * declarations. A party member is one, and so is an opponent whose creature carries a sheet, which
+ * is why this is one function rather than two that could drift apart.
+ */
+function sheetCombatant(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  input: {
+    id: string;
+    name: string;
+    side: RulesetCombatant["side"];
+    initiativeRoll: number[];
+    build: RulesetSheetBuild;
+    live: RulesetLiveState;
+    catalogs: RulesetCatalogEntriesById;
+    perCell: number | undefined;
+  },
+): RulesetCombatant {
+  const { build, perCell } = input;
+  const evaluated = evaluateRulesetSheet(definition, build);
+  const catalogs = narrowCatalogs(build, input.catalogs);
+  const modifier = combat.initiative.modifier
+    ? resolveRulesetValueRef(definition, build, combat.initiative.modifier, evaluated)
+    : 0;
+  const saves: Record<string, number> = {};
+  for (const save of definition.sheet.saves) {
+    saves[save.id] = rulesetCheckModifier(evaluated, {
+      type: "save",
+      id: save.id,
+      label: save.label,
+      ...(save.ability ? { ability: save.ability } : {}),
+    });
+  }
+  const abilities = (combat.abilities ?? []).map((source, index) =>
+    abilityActions(definition, combat, source, index, build, catalogs, evaluated, perCell),
+  );
+  const actions = [
+    ...(combat.attacks ?? []).flatMap((source, index) =>
+      attackActions(definition, source, index, build, evaluated, perCell),
+    ),
+    ...abilities.flatMap((entry) => entry.actions),
+  ];
+  const riders = abilities.flatMap((entry) => entry.riders);
+  return {
+    id: input.id,
+    name: input.name,
+    side: input.side,
+    initiativeRoll: input.initiativeRoll,
+    initiativeModifier: modifier,
+    initiative: sumOf(input.initiativeRoll) + modifier,
+    budgets: fullBudgets(combat),
+    actions,
+    uses: startingUses(actions),
+    spent: [],
+    ...(riders.length > 0 ? { riders } : {}),
+    tracked: [],
+    concentrating: null,
+    flags: {},
+    down: false,
+    dying: false,
+    stable: false,
+    defeated: false,
+    defense: Math.round(resolveRulesetValueRef(definition, build, combat.defense, evaluated)),
+    saves,
+    speed: combat.economy.movement ? resolveRulesetValueRef(definition, build, combat.economy.movement, evaluated) : 0,
+    sheet: { build, live: input.live, catalogs },
+  };
+}
+
 /** What an action still has left of itself, before anything is spent on it. */
 function startingUses(actions: readonly RulesetCombatAction[]): Record<string, number> {
   const uses: Record<string, number> = {};
@@ -883,6 +954,47 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
         continue;
       }
       const initiativeRoll = rollRulesetDice(roll, combat.initiative.dice.count, combat.initiative.dice.sides);
+      if (block.sheet) {
+        // Described in the ruleset's own terms, so built exactly as a party member is: its health,
+        // defense, saves, speed, initiative and the abilities on its lists all come from what the
+        // ruleset declares. The sheet exists for this fight only and is written back nowhere. What
+        // the block adds on top (its own actions, points, riders and the damage it shrugs off)
+        // is kept beside it.
+        const combatant = sheetCombatant(definition, combat, {
+          id: entry.id,
+          name: entry.name,
+          side: "enemy",
+          initiativeRoll,
+          build: block.sheet,
+          live: {},
+          catalogs: input.bestiary ?? {},
+          perCell,
+        });
+        combatant.actions = [...combatant.actions, ...blockActions(block, perCell)];
+        combatant.uses = startingUses(combatant.actions);
+        if (block.signaturePoints !== undefined) {
+          combatant.signature = { points: block.signaturePoints, max: block.signaturePoints };
+        }
+        if (block.riders?.length) {
+          combatant.riders = [...(combatant.riders ?? []), ...block.riders.map((rider) => ({ ...rider }))];
+        }
+        combatant.block = block;
+        // A sheet that gives it no health at all is a creature that could never be hurt or ever
+        // stand: left out, and the opening says why, rather than walked in as something unkillable.
+        const health = rulesetCombatHealth(definition, combat, combatant);
+        if (health.max <= 0) {
+          refused.push({ type: "refused", actorId: entry.id, reason: "no-health" });
+          continue;
+        }
+        state.combatants.push(combatant);
+        continue;
+      }
+      // A block that is neither: no sheet, and missing a number it cannot fight without. A schema
+      // keeps every shipped creature out of here; this keeps a hand-built one out too.
+      if (!isRulesetPlainStatBlock(block)) {
+        refused.push({ type: "refused", actorId: entry.id, reason: "unknown-creature" });
+        continue;
+      }
       // Dice health is thrown once, here, so the same seed always builds the same opponent.
       const health = block.healthDice
         ? sumOf(rollRulesetDice(roll, block.healthDice.count, block.healthDice.sides)) + block.healthDice.flat
@@ -920,57 +1032,16 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
       continue;
     }
     const initiativeRoll = rollRulesetDice(roll, combat.initiative.dice.count, combat.initiative.dice.sides);
-    const build = entry.build;
-    const evaluated = evaluateRulesetSheet(definition, build);
-    const catalogs = narrowCatalogs(build, entry.catalogs ?? {});
-    const modifier = combat.initiative.modifier
-      ? resolveRulesetValueRef(definition, build, combat.initiative.modifier, evaluated)
-      : 0;
-    const saves: Record<string, number> = {};
-    for (const save of definition.sheet.saves) {
-      saves[save.id] = rulesetCheckModifier(evaluated, {
-        type: "save",
-        id: save.id,
-        label: save.label,
-        ...(save.ability ? { ability: save.ability } : {}),
-      });
-    }
-    const abilities = (combat.abilities ?? []).map((source, index) =>
-      abilityActions(definition, combat, source, index, build, catalogs, evaluated, perCell),
-    );
-    const actions = [
-      ...(combat.attacks ?? []).flatMap((source, index) =>
-        attackActions(definition, source, index, build, evaluated, perCell),
-      ),
-      ...abilities.flatMap((entry) => entry.actions),
-    ];
-    const riders = abilities.flatMap((entry) => entry.riders);
-    const combatant: RulesetCombatant = {
+    const combatant = sheetCombatant(definition, combat, {
       id: entry.id,
       name: entry.name,
       side: "party",
       initiativeRoll,
-      initiativeModifier: modifier,
-      initiative: sumOf(initiativeRoll) + modifier,
-      budgets: fullBudgets(combat),
-      actions,
-      uses: startingUses(actions),
-      spent: [],
-      ...(riders.length > 0 ? { riders } : {}),
-      tracked: [],
-      concentrating: null,
-      flags: {},
-      down: false,
-      dying: false,
-      stable: false,
-      defeated: false,
-      defense: Math.round(resolveRulesetValueRef(definition, build, combat.defense, evaluated)),
-      saves,
-      speed: combat.economy.movement
-        ? resolveRulesetValueRef(definition, build, combat.economy.movement, evaluated)
-        : 0,
-      sheet: { build, live: readStoredLive(entry.live), catalogs },
-    };
+      build: entry.build,
+      live: readStoredLive(entry.live),
+      catalogs: entry.catalogs ?? {},
+      perCell,
+    });
     // A member who walked in at zero is already down, which is the honest reading of their sheet.
     const health = rulesetCombatHealth(definition, combat, combatant);
     if (health.value <= 0 && health.max > 0) {

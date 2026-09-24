@@ -301,9 +301,9 @@ function afterBlow(
  * lands AT ALL, so a miss and a blow softened to nothing mark nothing. Which KIND it marks is the
  * same block's own answer, never a guess.
  *
- * Resistances, vulnerabilities and immunities are not in the picture here: they live on a stat
- * block, and a combatant with a stat block has no sheet to mark. They still do exactly what they
- * always did to an opponent's own numbers, above.
+ * Resistances, vulnerabilities and immunities are not in the picture here: they are read off the
+ * block before this is reached (see `applyDamage`), so a creature whose entry carries both a sheet
+ * and a hide has the blow softened first and marked after, and one it is immune to marks nothing.
  */
 function writeHealthLoss(
   ctx: RulesetCombatContext,
@@ -962,8 +962,8 @@ export function applyRulesetCombatChoice(
 /**
  * One signature action, bought with the actor's own points. It spends no budget and takes no turn:
  * it is what a creature does while somebody else is acting, which is why the actor whose turn it is
- * has none to spend. The window that offers it is a later slice; the price, the refusals and the
- * resolution are all here.
+ * has none to spend. The window between two turns is where it is offered (`openSignatureWindow`);
+ * the price, the refusals and the resolution are all here.
  */
 /** The outcome, said once. The window path ends a fight in more than one place, and a log that
  *  said so twice would read as two endings. */

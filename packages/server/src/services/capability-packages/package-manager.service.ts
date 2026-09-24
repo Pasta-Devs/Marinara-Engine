@@ -565,6 +565,17 @@ const OLD_CONDITION_EFFECTS: ReadonlySet<string> = new Set([
   "ends-on-damage",
 ]);
 
+/** A creature described by a sheet in the ruleset's own terms. The key is new in 1.34, and an Engine
+ *  before it refuses the whole strict catalog file, both for the key and for the fixed numbers such
+ *  a creature no longer carries. */
+function entriesCarryCreatureSheets(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) => {
+    const creature = entry && typeof entry === "object" ? (entry as { creature?: unknown }).creature : undefined;
+    return !!creature && typeof creature === "object" && (creature as { sheet?: unknown }).sheet !== undefined;
+  });
+}
+
 /** An entry that says WHICH moment it waits for. `reaction: true` has been legal since the key
  *  existed and says only that much; an OBJECT there is 1.33, and an Engine that knows only the
  *  boolean refuses the whole strict catalog file. */
@@ -709,6 +720,9 @@ export function getCapabilityPackageInstallIssue(
     // And the moment a reaction waits for, which is new in 1.33.
     const momentIssue =
       "A ruleset whose reactions name the moment they wait for requires schemaVersion 2 and capabilityApi 1.33 or newer";
+    // And a creature written in the ruleset's own terms, which is new in 1.34.
+    const sheetIssue =
+      "A ruleset whose creatures carry a sheet of their own requires schemaVersion 2 and capabilityApi 1.34 or newer";
     for (const catalog of catalogs) {
       const header =
         catalog && typeof catalog === "object"
@@ -723,6 +737,7 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryCreatureEconomy(header.entries) && !declaresApi(29)) return economyIssue;
       if (entriesCarryCheckEffects(header.entries) && !declaresApi(30)) return checkIssue;
       if (entriesCarryReactionMoments(header.entries) && !declaresApi(33)) return momentIssue;
+      if (entriesCarryCreatureSheets(header.entries) && !declaresApi(34)) return sheetIssue;
       const asset = header.asset;
       if (typeof asset !== "string") continue;
       // A path that does not normalize is never a declared one, whatever else failed to normalize.
@@ -740,6 +755,7 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryCreatureEconomy(fileEntries) && !declaresApi(29)) return economyIssue;
       if (entriesCarryCheckEffects(fileEntries) && !declaresApi(30)) return checkIssue;
       if (entriesCarryReactionMoments(fileEntries) && !declaresApi(33)) return momentIssue;
+      if (entriesCarryCreatureSheets(fileEntries) && !declaresApi(34)) return sheetIssue;
     }
   }
   // The battle block lives inside the ruleset file too, so it is read the same way and for the same

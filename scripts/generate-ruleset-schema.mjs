@@ -129,6 +129,28 @@ function cancelOnlyWhenAimed(node) {
   }
 }
 
+// A creature either carries a sheet in the ruleset's own terms, and then takes its health, defense,
+// initiative, speed, scores and saves from it and gives none of them here, or carries no sheet and
+// gives the three numbers a fight cannot do without, and at least one action. Zod refines that; the
+// editor is told here. The node is found by its shape: `sheet` beside `actions` and `tier`.
+const CREATURE_SHEET_REPLACES = ["health", "defense", "initiativeModifier", "speed", "abilities", "saves"];
+const CREATURE_PLAIN_NEEDS = ["health", "defense", "initiativeModifier"];
+function oneSourceForCreature(node) {
+  if (Array.isArray(node)) return node.forEach(oneSourceForCreature);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(oneSourceForCreature);
+  const properties = node.properties;
+  if (node.type !== "object" || !properties?.sheet || !properties.actions || !properties.tier) return;
+  node.allOf = [
+    ...(node.allOf ?? []),
+    {
+      if: { required: ["sheet"] },
+      then: { not: { anyOf: CREATURE_SHEET_REPLACES.map((key) => ({ required: [key] })) } },
+      else: { required: [...CREATURE_PLAIN_NEEDS, "actions"], properties: { actions: { minItems: 1 } } },
+    },
+  ];
+}
+
 // A creature action's damage, and every clause beside it, names dice, a flat amount, or both: an
 // empty one is refused by the Engine, and that too is a refinement. The node is found by its shape:
 // `dice`, `flat` and `type`, and nothing but the keys a blow or a clause carries.
@@ -260,6 +282,7 @@ requireOneEntryContent(schema);
 requireCatalogFeeds(schema);
 requireSaveEndsUntilSave(schema);
 cancelOnlyWhenAimed(schema);
+oneSourceForCreature(schema);
 requireDamageAmount(schema);
 requireDistanceForMeasured(schema);
 boundScaledColumns(schema);
