@@ -70,8 +70,6 @@ const MAX_AGENT_CONTEXT_MESSAGES = 200;
 const EXPRESSION_AGENT_RECENT_CONTEXT_MESSAGES = 2;
 const EXPRESSION_AGENT_CONTEXT_CHAR_LIMIT = 1200;
 const EXPRESSION_AGENT_RESPONSE_CHAR_LIMIT = 6000;
-const CHARACTER_LORE_DESCRIPTION_LIMIT = 2000;
-const CHARACTER_LORE_FIELD_LIMIT = 1200;
 const DEFAULT_AGENT_TEMPERATURE = 0.7;
 const ILLUSTRATOR_AGENT_CALL_TIMEOUT_MS = 30 * 60_000;
 const AGENT_BATCH_FALLBACK_MAX_CONCURRENT = 4;
@@ -2854,11 +2852,11 @@ function buildLoreBlock(context: AgentContext, sources: CustomAgentContextSource
     parts.push(`<characters>`);
     for (const char of context.characters) {
       parts.push(`<character id="${char.id}" name="${char.name}">`);
-      pushLoreField(parts, "Description", char.description, CHARACTER_LORE_DESCRIPTION_LIMIT);
-      pushLoreField(parts, "Personality", char.personality, CHARACTER_LORE_FIELD_LIMIT);
-      pushLoreField(parts, "Backstory", char.backstory, CHARACTER_LORE_FIELD_LIMIT);
-      pushLoreField(parts, "Appearance", char.appearance, CHARACTER_LORE_FIELD_LIMIT);
-      pushLoreField(parts, "Scenario", char.scenario, CHARACTER_LORE_FIELD_LIMIT);
+      pushLoreField(parts, "Description", char.description);
+      pushLoreField(parts, "Personality", char.personality);
+      pushLoreField(parts, "Backstory", char.backstory);
+      pushLoreField(parts, "Appearance", char.appearance);
+      pushLoreField(parts, "Scenario", char.scenario);
       if (char.rpgStats?.enabled) {
         const pools = normalizeRpgStatPools(char.rpgStats);
         if (pools.length > 0) {
@@ -2882,7 +2880,7 @@ function buildLoreBlock(context: AgentContext, sources: CustomAgentContextSource
   if (sources.persona && context.persona) {
     parts.push(`<user_persona>`);
     parts.push(`Name: ${context.persona.name}`);
-    if (context.persona.description) parts.push(`Description: ${context.persona.description.slice(0, 2000)}`);
+    if (context.persona.description) parts.push(`Description: ${context.persona.description}`);
     if (context.persona.personality) parts.push(`Personality: ${context.persona.personality}`);
     if (context.persona.backstory) parts.push(`Backstory: ${context.persona.backstory}`);
     if (context.persona.appearance) parts.push(`Appearance: ${context.persona.appearance}`);
@@ -2919,10 +2917,10 @@ function buildLoreBlock(context: AgentContext, sources: CustomAgentContextSource
   return parts.join("\n");
 }
 
-function pushLoreField(parts: string[], label: string, value: string | undefined, limit: number): void {
+function pushLoreField(parts: string[], label: string, value: string | undefined): void {
   const text = value?.trim();
   if (!text) return;
-  parts.push(`${label}: ${text.slice(0, limit)}`);
+  parts.push(`${label}: ${text}`);
 }
 
 function buildAvailableSpritesBlock(context: AgentContext): string {
