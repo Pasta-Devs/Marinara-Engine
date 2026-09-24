@@ -353,6 +353,31 @@ export const encounterBlueprintSchema = z
  *  is the upgrade path. */
 export const ENCOUNTER_BESTIARY_INDEX_MAX = 60;
 
+/** How many catalog entry names one list of the sheet brief shows. The names are what lets a Game
+ *  Master give an invented caster spells this ruleset actually has.
+ *  ponytail: the first ones in declaration order, with no filtering by tier or level. A long catalog
+ *  wants the names narrowed to the tier being written, and that is the upgrade path. */
+export const ENCOUNTER_SHEET_NAMES_MAX = 60;
+
+/** The ruleset's own sheet, as a Game Master needs it to write an invented creature on it: every id
+ *  with what it may hold, and the lists a fight reads with the names their catalogs offer. */
+export interface EncounterSheetBrief {
+  abilities: string[];
+  skills: { ids: string[]; tiers: string[] };
+  saves: { ids: string[]; tiers: string[] };
+  fields: string[];
+  lists: Array<{
+    id: string;
+    columns: string[];
+    counts?: string;
+    nameColumn?: string;
+    /** The sheet fields its catalogs are organised by (a filter that `startFrom`s them). */
+    openBy: string[];
+    names: string[];
+    more: number;
+  }>;
+}
+
 /** What a ruleset that resolves its own fights lends the blueprint prompt: the rungs an opponent is
  *  picked from, the names already written, and the ids a proposed stat block has to be written in. */
 export interface EncounterRulesetBrief {
@@ -361,6 +386,82 @@ export interface EncounterRulesetBrief {
   budgets: string[];
   saves: string[];
   damageTypes: string[];
+  sheet: EncounterSheetBrief;
+}
+
+/** The sheet brief, with the names each catalog-fed list offers read out of the catalogs that feed
+ *  it. A catalog that cannot be read costs its list the names, never the prompt. */
+async function encounterSheetBrief(
+  definition: RulesetDefinition,
+  packageId: string | null,
+): Promise<EncounterSheetBrief> {
+  const sheet = definition.sheet;
+  const tierIds = definition.resolution.proficiencyTiers.map((tier) => tier.id);
+  const combat = definition.combat!;
+  const readBy = new Map<string, string | undefined>();
+  for (const source of combat.attacks ?? []) readBy.set(source.list, undefined);
+  for (const source of combat.abilities ?? []) {
+    const counts = [
+      source.onlyWhen ? `a row counts only when "${source.onlyWhen}" is true` : "",
+      source.alwaysWhen ? `or when "${source.alwaysWhen.column}" is ${JSON.stringify(source.alwaysWhen.equals)}` : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    readBy.set(source.list, counts || undefined);
+  }
+  const lists: EncounterSheetBrief["lists"] = [];
+  // One read per catalog, however many of these lists it feeds.
+  const reads = new Map<string, ReturnType<typeof loadRulesetCatalogEntries>>();
+  for (const [id, counts] of readBy) {
+    const list = sheet.lists.find((candidate) => candidate.id === id);
+    if (!list) continue;
+    const nameColumn = list.columns.find((column) => column.type === "text")?.id;
+    const names: string[] = [];
+    const openBy = new Set<string>();
+    let total = 0;
+    for (const catalog of definition.catalogs ?? []) {
+      if (!catalog.feeds?.includes(id)) continue;
+      for (const filter of catalog.filters ?? []) if (filter.startFrom) openBy.add(filter.startFrom.field);
+      try {
+        if (!reads.has(catalog.id)) reads.set(catalog.id, loadRulesetCatalogEntries(packageId, definition, catalog));
+        const read = await reads.get(catalog.id)!;
+        if (!read.ok) continue;
+        for (const entry of read.entries) {
+          if (!entry.rows?.some((row) => row.list === id)) continue;
+          total++;
+          if (names.length < ENCOUNTER_SHEET_NAMES_MAX) names.push(entry.label);
+        }
+      } catch (error) {
+        logger.warn(error, "[game/combat:init] Could not read catalog %s of %s", catalog.id, definition.id);
+      }
+    }
+    lists.push({
+      id,
+      columns: list.columns.map((column) => `${column.id} (${column.type}${column.required ? ", required" : ""})`),
+      ...(counts ? { counts } : {}),
+      ...(nameColumn ? { nameColumn } : {}),
+      openBy: [...openBy],
+      names,
+      more: total - names.length,
+    });
+  }
+  return {
+    abilities: sheet.abilities.map((ability) => `${ability.id} ${ability.min} to ${ability.max}`),
+    skills: { ids: sheet.skills.map((skill) => skill.id), tiers: sheet.skillTiers ?? tierIds },
+    saves: { ids: sheet.saves.map((save) => save.id), tiers: sheet.saveTiers ?? tierIds },
+    fields: sheet.fields.flatMap((field) =>
+      field.type === "number"
+        ? [`${field.id} ${field.min} to ${field.max}`]
+        : field.type === "enum"
+          ? [`${field.id} one of ${field.values.join("|")}`]
+          : field.type === "boolean"
+            ? [`${field.id} true or false`]
+            : field.type === "dice"
+              ? [`${field.id} dice such as 1d8`]
+              : [`${field.id} text up to ${field.maxLength} characters`],
+    ),
+    lists,
+  };
 }
 
 /** The brief for a game whose ruleset declares `combat`, or null for every other game, which gets
@@ -394,6 +495,7 @@ export async function encounterRulesetBrief(
     budgets: combat.economy.budgets.map((budget) => budget.id),
     saves: definition.sheet.saves.map((save) => save.id),
     damageTypes: [...(combat.damageTypes ?? [])],
+    sheet: await encounterSheetBrief(definition, packageId),
   };
 }
 
@@ -544,6 +646,22 @@ export function buildInitPrompt(
     inst += `- Add "proposed" only for an enemy that is in no bestiary and needs its own numbers. The Engine pulls a proposal onto the tier's scale, so write what the enemy IS and let it be adjusted.\n`;
     inst += `- Inside "proposed", every id must come from this ruleset: budgets are ${ruleset.budgets.join(", ") || "none"}; saves are ${ruleset.saves.join(", ") || "none"}; damage types are ${ruleset.damageTypes.join(", ") || "untyped only"}. A name this ruleset does not have is dropped.\n`;
     inst += `- Keep the hp, attack, defense, speed and level fields as well. They are the Engine's own numbers and are used outside the fight.\n`;
+    const sheet = ruleset.sheet;
+    inst += `- An enemy whose power comes from this ruleset's own lists and pools (a spellcaster, say) may be proposed as a SHEET instead of numbers: "proposed": {"tier":"tier id","sheet":{"abilities":{},"skills":{},"saves":{},"fields":{},"lists":{}}}. Give no health, defense, initiativeModifier, speed, abilities or saves beside a sheet: the Engine builds it exactly as it builds a character, fills in anything left out with the ruleset's defaults, and then holds it to the tier. Every id must come from this sheet:\n`;
+    inst += `  - abilities: ${sheet.abilities.join(", ") || "none"}\n`;
+    inst += `  - skills, each set to one of ${sheet.skills.tiers.join("|")}: ${sheet.skills.ids.join(", ") || "none"}\n`;
+    inst += `  - saves, each set to one of ${sheet.saves.tiers.join("|")}: ${sheet.saves.ids.join(", ") || "none"}\n`;
+    inst += `  - fields: ${sheet.fields.join("; ") || "none"}\n`;
+    for (const list of sheet.lists) {
+      inst += `  - lists.${list.id}: rows of ${list.columns.join(", ")}${list.counts ? `; ${list.counts}` : ""}\n`;
+      if (list.nameColumn && list.names.length > 0) {
+        inst += `    A row may name an entry this ruleset offers, as {"${list.nameColumn}":"<name>"}, and the Engine fills in the rest of it: ${list.names.join(", ")}${list.more > 0 ? `, and ${list.more} more` : ""}.\n`;
+      }
+      if (list.openBy.length > 0) {
+        inst += `    Which of these a creature may have depends on ${list.openBy.map((field) => `fields.${field}`).join(" and ")}, so set it.\n`;
+      }
+    }
+    inst += `  - An enemy that is not a boss may only have what this ruleset opens to its sheet, and only needs the entries it should certainly have: the Engine fills its other choices from its aiHints, by temperament and proficiency. A boss is written in full by you and may be the exception: it may have anything this ruleset offers, and nothing is filled in for it.\n`;
   }
 
   msgs.push({ role: "user", content: inst });

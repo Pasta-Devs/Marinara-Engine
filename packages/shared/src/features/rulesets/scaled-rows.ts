@@ -17,6 +17,7 @@ import {
   type RulesetCatalogEntry,
   type RulesetCatalogEntryRow,
   type RulesetDefinition,
+  type RulesetField,
   type RulesetList,
   type RulesetSheetBuild,
 } from "../../schemas/ruleset.schema.js";
@@ -157,4 +158,20 @@ export function scaledRowColumns(
   return Object.keys(spec.scaled).filter(
     (columnId) => list.columns.find((column) => column.id === columnId)?.type === "number",
   );
+}
+
+/** The texts that could name the sheet's own value of a field. A catalog names a value the way a
+ *  player reads it, so an enum's display label has to be tried beside the stored value. */
+export function sheetFieldMatchTexts(
+  field: RulesetField | undefined,
+  stored: string | number | boolean | undefined,
+): string[] {
+  const value = stored === undefined ? field?.default : stored;
+  if (value === undefined || value === "") return [];
+  const texts = [String(value)];
+  if (field?.type === "enum" && typeof value === "string") {
+    const shown = field.valueLabels?.[value];
+    if (shown) texts.push(shown);
+  }
+  return texts;
 }

@@ -1319,10 +1319,20 @@ const creatureSheetSchema = z
   })
   .strict();
 
-/** The keys a creature's sheet says for it, and so the ones it does not also give as numbers. */
-const CREATURE_SHEET_REPLACES = ["health", "defense", "initiativeModifier", "speed", "abilities", "saves"] as const;
+/** The keys a creature's sheet says for it, and so the ones it does not also give as numbers. Exported
+ *  because the published JSON Schema says the same rule and must never drift from this one. */
+export const RULESET_CREATURE_SHEET_REPLACES = [
+  "health",
+  "defense",
+  "initiativeModifier",
+  "speed",
+  "abilities",
+  "saves",
+] as const;
 /** The keys a creature WITHOUT a sheet cannot go without. */
-const CREATURE_PLAIN_NEEDS = ["health", "defense", "initiativeModifier"] as const;
+export const RULESET_CREATURE_PLAIN_NEEDS = ["health", "defense", "initiativeModifier"] as const;
+const CREATURE_SHEET_REPLACES = RULESET_CREATURE_SHEET_REPLACES;
+const CREATURE_PLAIN_NEEDS = RULESET_CREATURE_PLAIN_NEEDS;
 
 const creatureFields = {
   health: creatureHealthSchema,
@@ -1383,10 +1393,56 @@ function creatureSignatureIssues(
   });
 }
 
-/** A creature the Game Master invents for one fight, checked against exactly this before it is
- *  clamped onto the threat scale. Always the plain block: the clamp holds an invention to its tier
- *  by its numbers, and it cannot vouch for a sheet, so a proposal has no `sheet` to carry. */
-export const rulesetProposedCreatureSchema = z.object(creatureFields).strict().superRefine(creatureSignatureIssues);
+/** The keys a Game Master's sheet makes redundant. Dropped rather than refused, because a model that
+ *  wrote a sheet AND a number beside it meant the creature, and the sheet is the one that says it in
+ *  the ruleset's own terms. */
+export const RULESET_PROPOSED_SHEET_REPLACES: readonly string[] = CREATURE_SHEET_REPLACES;
+
+/** A creature the Game Master invents for one fight, checked against exactly this before it is held
+ *  to its tier. Either the plain block, or a `sheet` in the ruleset's own terms, so an invented mage
+ *  has slots and spells. The sheet is read leniently, the way a character's is, because it is a
+ *  model's writing rather than an author's: what the ruleset does not have is dropped by name later,
+ *  against the definition this file cannot see. */
+export const rulesetProposedCreatureSchema = z.preprocess(
+  (value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+    const creature = value as Record<string, unknown>;
+    if (!creature.sheet || typeof creature.sheet !== "object") return value;
+    return Object.fromEntries(
+      Object.entries(creature).filter(([key]) => !RULESET_PROPOSED_SHEET_REPLACES.includes(key)),
+    );
+  },
+  z
+    .object({
+      ...creatureFields,
+      health: creatureFields.health.optional(),
+      defense: creatureFields.defense.optional(),
+      initiativeModifier: creatureFields.initiativeModifier.optional(),
+      actions: z.array(creatureActionSchema).max(RULESET_CREATURE_MAX_ACTIONS).default([]),
+      // Declared further down this file, so read lazily.
+      sheet: z.lazy(() => rulesetSheetBuildSchema).optional(),
+    })
+    .strict()
+    .superRefine((creature, ctx) => {
+      creatureSignatureIssues(creature, ctx);
+      if (creature.sheet) return;
+      for (const key of CREATURE_PLAIN_NEEDS) {
+        if (creature[key] !== undefined) continue;
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `A creature without a sheet needs its ${key}`,
+        });
+      }
+      if (creature.actions.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["actions"],
+          message: "A creature without a sheet needs at least one action, or it has nothing to do",
+        });
+      }
+    }),
+);
 
 /** A creature a bestiary ships: the plain block, or a `sheet` in the ruleset's own terms. With a
  *  sheet it is built the way a party member is, so the numbers the sheet gives are not also given
@@ -2517,7 +2573,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     });
     // Inline entries go through exactly the checks an asset file's entries go through at read time,
     // so a catalog can never write a row the sheet could not hold whichever way it ships.
-    for (const entryIssue of rulesetCatalogEntryIssues(def, catalog, catalog.entries ?? [])) {
+    for (const entryIssue of rulesetCatalogEntryIssues(def, catalog, catalog.entries ?? [], layersApplied)) {
       issue([...path, "entries", ...entryIssue.path], entryIssue.message);
     }
   });
@@ -3117,7 +3173,7 @@ export type RulesetCatalogMechanics = z.infer<typeof catalogMechanicsSchema>;
 export type RulesetCatalogHolds = RulesetCatalogHeader["holds"];
 /** One opponent, exactly as a bestiary entry writes it. */
 export type RulesetCreature = z.infer<typeof rulesetCreatureSchema>;
-/** A creature the Game Master invents for one fight: always the plain block, never a sheet. */
+/** A creature the Game Master invents for one fight: the plain block, or a sheet in the ruleset's terms. */
 export type RulesetProposedCreature = z.infer<typeof rulesetProposedCreatureSchema>;
 export type RulesetCreatureAction = RulesetCreature["actions"][number];
 export type RulesetCreatureDamage = NonNullable<RulesetCreatureAction["damage"]>;
@@ -3189,6 +3245,7 @@ function creatureSheetIssues(
   sheet: NonNullable<RulesetCreature["sheet"]>,
   at: (string | number)[],
   add: (path: (string | number)[], message: string) => void,
+  narrowedByLayers: boolean,
 ): void {
   const known = (kind: string, ids: readonly { id: string }[], values: Record<string, unknown>, key: string) => {
     const names = new Set(ids.map((entry) => entry.id));
@@ -3224,9 +3281,29 @@ function creatureSheetIssues(
       else if (!offered[key].has(tier)) add([...at, key, id], `This ruleset does not offer "${tier}" for ${key}`);
     }
   }
-  // A field holds what that field holds: a number in its range, one of its values, and so on.
-  for (const message of rulesetListRowIssues({ columns: definition.sheet.fields }, sheet.fields, "Field")) {
-    add([...at, "fields"], message);
+  // A field holds what that field holds: a number in its range, one of its values, and so on. A layer
+  // narrows an enum field for what a PLAYER may pick; a creature written against the ruleset keeps its
+  // value, which then reads as the field's default exactly as a character's does. So a definition
+  // whose layers are applied does not hold a creature to the values a layer took out.
+  const enums = new Map(
+    definition.sheet.fields.flatMap((field) => (field.type === "enum" ? [[field.id, field] as const] : [])),
+  );
+  const plain = Object.fromEntries(Object.entries(sheet.fields).filter(([id]) => !enums.has(id)));
+  const others = definition.sheet.fields.filter((field) => !enums.has(field.id));
+  for (const message of rulesetListRowIssues({ columns: others }, plain, "Field")) add([...at, "fields"], message);
+  for (const [id, field] of enums) {
+    const value = sheet.fields[id];
+    if (value === undefined) continue;
+    // The values a layer took out of this field are still the field's own; nothing else is. A layered
+    // definition keeps its `layers`, so exactly those can be read back.
+    const removed = narrowedByLayers
+      ? (definition.layers ?? []).flatMap((layer) =>
+          (layer.fields ?? []).flatMap((entry) => (entry.id === id ? entry.removeValues : [])),
+        )
+      : [];
+    if (typeof value !== "string" || !(field.values.includes(value) || removed.includes(value))) {
+      add([...at, "fields"], `Field "${id}" takes one of its declared values`);
+    }
   }
   // A bonus is on a skill or a save, and a whole number inside the range the ruleset gives bonuses,
   // exactly as a character's is.
@@ -3283,6 +3360,7 @@ function creatureIssues(
   creature: RulesetCreature,
   at: (string | number)[],
   add: (path: (string | number)[], message: string) => void,
+  narrowedByLayers: boolean,
 ): void {
   const combat = definition.combat;
   if (!combat) {
@@ -3319,7 +3397,7 @@ function creatureIssues(
     if (!conditions.has(condition)) add([...at, "conditionImmunities", index], `Unknown condition "${condition}"`);
   });
 
-  if (creature.sheet) creatureSheetIssues(definition, creature.sheet, [...at, "sheet"], add);
+  if (creature.sheet) creatureSheetIssues(definition, creature.sheet, [...at, "sheet"], add, narrowedByLayers);
 
   const byId = new Map<string, RulesetCreatureAction>();
   creature.actions.forEach((action, index) => {
@@ -3389,6 +3467,8 @@ export function rulesetCatalogEntryIssues(
   definition: RulesetDefinition,
   catalog: RulesetCatalogHeader,
   entries: readonly RulesetCatalogEntry[],
+  /** True when `definition` may have its layers applied (see `creatureSheetIssues`). */
+  narrowedByLayers = false,
 ): RulesetCatalogEntryIssue[] {
   const issues: RulesetCatalogEntryIssue[] = [];
   const add = (path: (string | number)[], message: string) => issues.push({ path, message });
@@ -3421,7 +3501,7 @@ export function rulesetCatalogEntryIssues(
     } else if (!holdsCreatures && entry.creature) {
       add([index, "creature"], `Catalog "${catalog.id}" holds rows, so an entry cannot carry a creature`);
     }
-    if (entry.creature) creatureIssues(definition, entry.creature, [index, "creature"], add);
+    if (entry.creature) creatureIssues(definition, entry.creature, [index, "creature"], add, narrowedByLayers);
 
     for (const [filterId, value] of Object.entries(entry.filters ?? {})) {
       const filter = filterById.get(filterId);
@@ -3682,6 +3762,8 @@ export function parseRulesetCatalogFile(
   definition: RulesetDefinition,
   catalogId: string,
   input: unknown,
+  /** True when `definition` may have its layers applied: a game's, rather than the file as written. */
+  narrowedByLayers = false,
 ): RulesetCatalogParseResult {
   const catalog = definition.catalogs?.find((entry) => entry.id === catalogId);
   if (!catalog) return { ok: false, issues: [`(root): "${catalogId}" is not a catalog of this ruleset`] };
@@ -3695,7 +3777,7 @@ export function parseRulesetCatalogFile(
   if (parsed.data.catalog !== catalogId) {
     return { ok: false, issues: [`catalog: this file is for "${parsed.data.catalog}", not "${catalogId}"`] };
   }
-  const issues = rulesetCatalogEntryIssues(definition, catalog, parsed.data.entries);
+  const issues = rulesetCatalogEntryIssues(definition, catalog, parsed.data.entries, narrowedByLayers);
   if (issues.length > 0) {
     return {
       ok: false,

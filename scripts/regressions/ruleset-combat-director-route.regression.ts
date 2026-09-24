@@ -61,6 +61,7 @@ const spellEntries = [
   {
     id: "mending-light",
     label: "Mending Light",
+    filters: { classes: ["Cleric", "Wizard"] },
     rows: [{ list: "spells", values: { name: "Mending Light", level: 1, prepared: true } }],
     mechanics: {
       kind: "heal",
@@ -75,7 +76,23 @@ const spellRows = spellEntries.flatMap((entry) => rowsFromCatalogEntry("spells",
 // it finds any catalog: from the ruleset the game pins.
 document.catalogs = [
   ...(document.catalogs ?? []),
-  { id: "spells", label: "Spells", feeds: ["spells"], entries: spellEntries },
+  {
+    id: "spells",
+    label: "Spells",
+    feeds: ["spells"],
+    // Open by class, as the 5e package's list is, so an invented caster is held to its own.
+    filters: [{ id: "classes", label: "Class", type: "tags", startFrom: { field: "class" } }],
+    entries: [
+      ...spellEntries,
+      {
+        id: "sacred-spark",
+        label: "Sacred Spark",
+        filters: { classes: ["Cleric"] },
+        rows: [{ list: "spells", values: { name: "Sacred Spark", level: 0, prepared: false } }],
+        mechanics: { kind: "attack", attackRoll: true, amount: { dice: "1d8" }, damageType: "radiant" },
+      },
+    ],
+  },
 ];
 // And a creature written as a sheet whose spell lives in that same catalog, which the route has to
 // load for the BESTIARY as well as for the party, or the creature walks in with nothing to cast.
@@ -137,6 +154,22 @@ await createGameRulesetsStorage(db).put({
   sourceKind: "local",
   definition: fixtureText,
 });
+// The same ruleset with no bestiary sheet that marks a spell, so the only thing that can make the
+// route load the spell catalog is a Game Master's invented sheet naming one.
+const PLAIN_BESTIARY_ID = "local/5e-plain-bestiary";
+const plainBestiary = JSON.parse(fixtureText) as Record<string, any>;
+plainBestiary.id = "5e-plain-bestiary";
+for (const catalog of plainBestiary.catalogs) {
+  if (catalog.holds === "creatures") {
+    catalog.entries = catalog.entries.filter((entry: Record<string, any>) => !entry.creature?.sheet);
+  }
+}
+await createGameRulesetsStorage(db).put({
+  rulesetId: PLAIN_BESTIARY_ID,
+  version: 1,
+  sourceKind: "local",
+  definition: JSON.stringify(plainBestiary),
+});
 
 const unit = (id: string, name: string, side: "player" | "enemy") => ({
   id,
@@ -152,14 +185,14 @@ const unit = (id: string, name: string, side: "player" | "enemy") => ({
 });
 const post = (url: string, payload: unknown) => app.inject({ method: "POST", url, payload });
 
-async function newGame(options: { ruleset: boolean; gm?: boolean }) {
+async function newGame(options: { ruleset: boolean; gm?: boolean; rulesetId?: string }) {
   const chat = await chats.create({ name: "Ruleset fight", mode: "game", characterIds: [] });
   const anchor = await chats.createMessage({ chatId: chat.id, role: "assistant", content: "[state: combat]" });
   await chats.patchMetadata(chat.id, {
     gameSetupConfig: { combatDirector: true, gmBossControl: options.gm === true, difficulty: "Normal" },
     ...(options.ruleset
       ? {
-          gameRuleset: { id: RULESET_ID, version: 1, packageId: null, options: {} },
+          gameRuleset: { id: options.rulesetId ?? RULESET_ID, version: 1, packageId: null, options: {} },
           gameCharacterCards: [
             { name: "Brenna", rulesetSheet: { v: 1, build: fighterBuild } },
             { name: "Corwin", rulesetSheet: { v: 1, build: wizardBuild } },
@@ -644,6 +677,96 @@ try {
     assert.equal(reread.statusCode, 200, reread.body);
   }
 
+  // ── A Game Master's invented caster names its spell, and the route loads the catalog for it ──
+  {
+    const game5 = await newGame({ ruleset: true, rulesetId: PLAIN_BESTIARY_ID });
+    const response = await post("/combat/start", {
+      chatId: game5.chat.id,
+      anchor: game5.anchor.id,
+      style: "ruleset",
+      party: [unit("brenna", "Brenna", "player")],
+      enemies: [
+        {
+          ...unit("hexer", "Hedge Hexer", "enemy"),
+          aiHints: { proficiency: "master", temperament: "protective" },
+          tier: "cr_1",
+          proposed: {
+            tier: "cr_1",
+            sheet: {
+              abilities: { wis: 14 },
+              fields: { class: "Cleric", level: 3, hp_max: 20, spellcasting_ability: "wis", slots_max_1: 2 },
+              lists: { spells: [{ name: "mending light", prepared: true }] },
+            },
+          },
+        },
+      ],
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    const row = await createGameEngineStateStorage(db).getByChatAndMessage(
+      game5.chat.id,
+      game5.anchor.id,
+      0,
+      COMBAT_DIRECTOR_NAMESPACE,
+    );
+    const stored = JSON.parse(row!.state) as {
+      enemies: Array<{ id: string; tactics?: { proficiency: string; adjective: string } }>;
+      rulesetFight: { adjustments: string[]; encounter: { combatants: Array<Record<string, any>> } };
+    };
+    const hexer = stored.rulesetFight.encounter.combatants.find((combatant) => combatant.id === "hexer");
+    assert.ok(hexer?.sheet, "the invented caster fights with its sheet");
+    assert.ok(
+      (hexer.actions as Array<{ label: string }>).some((action) => action.label === "Mending Light"),
+      "and with the spell it named, read out of the catalog the route loaded for its sheet",
+    );
+    // Its open choices were filled by the very tactics it fights with, from its own hints.
+    const tactics = stored.enemies.find((enemy) => enemy.id === "hexer")?.tactics;
+    assert.equal(tactics?.proficiency, "master", "its tactics were given to it when the fight began");
+    assert.ok(
+      stored.rulesetFight.adjustments.includes(
+        `Hedge Hexer: Filled in for a master, ${tactics!.adjective} creature: "Sacred Spark".`,
+      ),
+      stored.rulesetFight.adjustments.join("; "),
+    );
+  }
+
+  // ── An invented caster that lists no spells is still filled from the spell catalog ──
+  {
+    // Alone in its fight, so nothing else in it names the spell list and loads the catalog for it.
+    const game6 = await newGame({ ruleset: true, rulesetId: PLAIN_BESTIARY_ID });
+    const response = await post("/combat/start", {
+      chatId: game6.chat.id,
+      anchor: game6.anchor.id,
+      style: "ruleset",
+      party: [unit("brenna", "Brenna", "player")],
+      enemies: [
+        {
+          ...unit("acolyte", "Hedge Acolyte", "enemy"),
+          aiHints: { proficiency: "trained", temperament: "supportive" },
+          tier: "cr_1",
+          proposed: {
+            tier: "cr_1",
+            sheet: { fields: { class: "Cleric", level: 2, hp_max: 16, spellcasting_ability: "wis", slots_max_1: 2 } },
+          },
+        },
+      ],
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    const row = await createGameEngineStateStorage(db).getByChatAndMessage(
+      game6.chat.id,
+      game6.anchor.id,
+      0,
+      COMBAT_DIRECTOR_NAMESPACE,
+    );
+    const stored = JSON.parse(row!.state) as {
+      rulesetFight: { encounter: { combatants: Array<Record<string, any>> } };
+    };
+    const acolyte = stored.rulesetFight.encounter.combatants.find((combatant) => combatant.id === "acolyte");
+    assert.ok(
+      (acolyte?.actions as Array<{ label: string }> | undefined)?.some((action) => action.label === "Mending Light"),
+      "its open choices come from the spell catalog, which the route loaded because it may choose from that list",
+    );
+  }
+
   // ── A party member with no sheet is refused by name ──
   {
     const game3 = await newGame({ ruleset: true });
@@ -744,6 +867,20 @@ try {
     assert.match(text, /Thorn Lurker \[cr_1_2\]/);
     assert.match(text, /"creature"/);
     assert.match(text, /"proposed"/);
+    // The ruleset's own sheet, so an invented caster can be written on it.
+    assert.match(text, /may be proposed as a SHEET/);
+    assert.match(text, /abilities: str 1 to 30, dex 1 to 30/);
+    assert.match(text, /saves, each set to one of none\|proficient: str_save/);
+    assert.match(text, /lists\.spells: rows of name \(text, required\)/);
+    assert.match(text, /a row counts only when "prepared" is true or when "level" is 0/);
+    assert.match(text, /\{"name":"<name>"\}.*Mending Light/);
+    assert.match(text, /Which of these a creature may have depends on fields\.class, so set it\./);
+    assert.match(text, /fields: .*class text up to \d+ characters/, "including the text field it is told to set");
+    assert.match(text, /A boss is written in full by you and may be the exception/);
+    assert.ok(
+      brief!.sheet.lists.every((list) => list.names.length <= 60),
+      "the names are bounded",
+    );
     // Nothing today's prompt says is taken away: the ruleset's terms are only ever added.
     assert.deepEqual(withBrief.slice(0, -1), plain.slice(0, -1), "only the instruction message changes");
     for (const line of plain.at(-1)!.content.split("\n")) {
@@ -779,20 +916,21 @@ try {
     assert.equal(keptEnemy.creature, "thorn-lurker");
     assert.equal(keptEnemy.tier, "cr_1_4");
     assert.ok(keptEnemy.proposed, "a stat block in the shared form survives");
+    // An invention may be a sheet in the ruleset's own terms, and numbers written beside it go.
+    const caster = blueprint({
+      tier: "cr_1_4",
+      health: 12,
+      sheet: { abilities: { int: 16 }, lists: { spells: [{ name: "Mending Light", prepared: true }] } },
+    });
+    assert.ok(caster.success, JSON.stringify(caster.error?.issues));
+    const casterProposal = (caster.data!.enemies[0] as Record<string, any>).proposed;
+    assert.ok(casterProposal?.sheet, "a proposed sheet survives the blueprint");
+    assert.equal(casterProposal.health, undefined, "and the number beside it is not kept");
     for (const malformed of [
       { health: 12 },
       { health: 12, defense: 13, initiativeModifier: 2, tier: "cr_1_4", actions: [] },
       "a wall of prose",
       { health: 12, defense: 13, initiativeModifier: 2, tier: "cr_1_4", actions: [{ name: "Strike" }], extra: 1 },
-      // An invention is never a sheet: the clamp cannot hold one to its tier.
-      {
-        health: 12,
-        defense: 13,
-        initiativeModifier: 2,
-        tier: "cr_1_4",
-        actions: [{ id: "strike", name: "Strike", budget: "action", toHit: 4, damage: { dice: "1d6" } }],
-        sheet: { fields: { hp_max: 500 } },
-      },
     ]) {
       const dropped = blueprint(malformed);
       assert.ok(dropped.success, `a malformed proposal must not fail the blueprint: ${JSON.stringify(malformed)}`);
