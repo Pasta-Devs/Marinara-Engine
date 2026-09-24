@@ -346,7 +346,7 @@ try {
     }
   });
   await test("a correction spanning a recovered boundary can be excluded without losing its text", async () => {
-    for (const expanded of [false, true]) {
+    for (const boundary of ["shrunk", "expanded", "removed"]) {
       const { chat, messages, row, sceneId } = await fixture();
       await chats.updateMessageExtra(messages[1]!.id, { hiddenFromAI: true });
       await chats.createMessagesBatch(chat.id, [
@@ -365,7 +365,7 @@ try {
       ]);
       const source = await chats.listMessages(chat.id);
       const laterSceneId = `scene-${source[2]!.id}`;
-      if (expanded) {
+      if (boundary !== "shrunk") {
         await db
           .update(advancedMemoryRecords)
           .set({
@@ -382,14 +382,23 @@ try {
           endMessageId: source[3]!.id,
           messageIds: JSON.stringify(source.slice(2, 4).map((message) => message.id)),
         });
-      const correctionId = `${sceneId}-spanning-correction`;
+      const originalStart = boundary === "removed" ? 2 : 0;
+      const originalSceneId = `scene-${source[originalStart]!.id}`;
+      const correctionId = `${originalSceneId}-spanning-correction`;
       const correction = "The original correction describes its authored compass events.";
-      const originalEnd = source[expanded ? 1 : 3]!.id;
+      const originalEnd = source[boundary === "expanded" ? 1 : 3]!.id;
       await db.insert(advancedMemoryRecords).values({
         ...row,
         id: correctionId,
+        sceneId: originalSceneId,
+        startMessageId: source[originalStart]!.id,
         endMessageId: originalEnd,
-        messageIds: JSON.stringify(expanded ? [source[0]!.id] : [source[0]!.id, source[2]!.id, source[3]!.id]),
+        messageIds: JSON.stringify(
+          source
+            .slice(originalStart, boundary === "expanded" ? 2 : 4)
+            .filter((message) => message.id !== source[1]!.id)
+            .map((message) => message.id),
+        ),
         audienceCharacterIds: '["maukie"]',
         manualOverride: 1,
         content: correction,
@@ -414,7 +423,10 @@ try {
         originalEnd,
         "the authored source range is never silently shortened or expanded",
       );
-      if (!expanded) assert(status.records.some((record) => record.sceneId === laterSceneId && record.content));
+      await assert.rejects(memory.updateRecord(chat.id, correctionId, { enabled: true }), /Disable or delete/);
+      assert.equal((await memory.status(chat.id)).records.find((record) => record.id === correctionId)!.enabled, false);
+      if (boundary === "shrunk")
+        assert(status.records.some((record) => record.sceneId === laterSceneId && record.content));
       assert.deepEqual(await chats.listMessages(chat.id), source);
     }
   });

@@ -1508,6 +1508,25 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             end: (ordered[index + 1] ?? ctx.messages.length) - 1,
             closed: index < ordered.length - 1,
           }));
+    const saved = sceneRecords(existing);
+    for (const record of saved) {
+      if (
+        record.kind !== "scene" ||
+        record.id === record.sceneId ||
+        !record.manualOverride ||
+        !record.enabled ||
+        (repair && record.sceneId !== repair.id)
+      )
+        continue;
+      const scene = scenes.find((item) => item.id === record.sceneId);
+      if (
+        !scene ||
+        (scene.closed &&
+          (record.startMessageId !== ctx.messages[scene.start]!.id ||
+            record.endMessageId !== ctx.messages[scene.end]!.id))
+      )
+        throw correctionReviewError(ctx, record, true);
+    }
     const embeddingSource = await resolveMemoryRecallEmbeddingSource(db, {
       chatMetadata: ctx.metadata,
       connectionId: ctx.connectionId,
@@ -1517,7 +1536,6 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       signal: options.signal,
     };
     const retained = new Set<string>();
-    const saved = sceneRecords(existing);
     const visibleIds = new Set(sceneSource(ctx).map((message) => message.id));
     for (let index = 0; index < scenes.length; index++) {
       const scene = scenes[index]!;
@@ -1542,13 +1560,6 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           const candidate = buildRecord(ctx, scene, "scene", audience, source, "pending");
           const previousRecord = previousScene;
           if (previousRecord) candidate.id = previousRecord.id;
-          if (
-            previousRecord?.manualOverride &&
-            previousRecord.enabled &&
-            (previousRecord.startMessageId !== candidate.startMessageId ||
-              previousRecord.endMessageId !== candidate.endMessageId)
-          )
-            throw correctionReviewError(ctx, previousRecord, true);
           const sourceIds = new Set(source.map((message) => message.id));
           const previousValid =
             previousRecord &&
@@ -3194,19 +3205,22 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       await validateAudience(ctx, record);
       const correctedScene =
         record.kind === "scene" && (patch.content !== undefined || patch.audienceCharacterIds !== undefined);
-      // Explicitly saving a corrected legacy recap acknowledges globally hidden
-      // gaps in its original range; preparation never silently widens that correction.
-      if (correctedScene) {
+      if (correctedScene || (record.kind === "scene" && record.manualOverride && patch.enabled === true)) {
         const scaffold = (await operationRecords(ctx)).find(
           (item) => item.id === record.sceneId && item.kind === "scene",
         );
-        // A recap can contain facts from the old wider range. Re-labeling it as
-        // a shorter scene would falsify its source coverage and historical access.
+        // Preserve the authored range when a scene changes or disappears.
+        // Disabling a correction remains available as a safe recovery path.
         if (
-          scaffold &&
-          (scaffold.startMessageId !== record.startMessageId || scaffold.endMessageId !== record.endMessageId)
+          !scaffold ||
+          scaffold.startMessageId !== record.startMessageId ||
+          scaffold.endMessageId !== record.endMessageId
         )
           throw correctionReviewError(ctx, record, true);
+      }
+      // Explicitly saving a corrected legacy recap acknowledges globally hidden
+      // gaps in its original range; preparation never silently widens that correction.
+      if (correctedScene) {
         const start = ctx.messages.findIndex((message) => message.id === record.startMessageId);
         const end = ctx.messages.findIndex((message) => message.id === record.endMessageId);
         if (start >= 0 && end >= start) {
