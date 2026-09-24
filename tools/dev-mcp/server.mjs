@@ -121,8 +121,11 @@ tool(
     dist: z
       .string()
       .regex(/^dist[\w-]*$/)
-      .default("dist")
-      .describe("Server build folder under packages/server to run, e.g. 'dist-sandbox' for a private test build"),
+      .optional()
+      .describe(
+        "Server build folder under packages/server to run, e.g. 'dist-sandbox' for a private test build. Omitted: " +
+          "the folder the sandbox last ran, else MARINARA_DEV_SANDBOX_DIST, else 'dist'.",
+      ),
     copyData: z.boolean().default(true).describe("false = just restart the sandbox on its current data"),
   },
   WRITE,

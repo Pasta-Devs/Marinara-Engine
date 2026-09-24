@@ -82,17 +82,17 @@ To work in the sandbox as well, register a second copy with `MARINARA_DEV_INSTAN
 
 All optional. The defaults suit a normal checkout.
 
-| Variable                    | Default                                | Meaning                                                                      |
-| --------------------------- | -------------------------------------- | ---------------------------------------------------------------------------- |
-| `MARINARA_DEV_REPO`         | two folders above `tools/dev-mcp`      | Repository root                                                              |
-| `MARINARA_DEV_STATE`        | `<repo>/.dev-mcp`                      | Backups, lock, activity log, saved prompts, large outputs, the sandbox       |
-| `MARINARA_DEV_AGENT`        | `unknown-agent`                        | Name written to the activity log and the lock; give each client its own      |
-| `MARINARA_DEV_INSTANCE`     | `live`                                 | `sandbox` points every tool at the sandbox                                   |
-| `MARINARA_DEV_PORT`         | `PORT` from the repo `.env`, else 7860 | Engine port                                                                  |
-| `MARINARA_DEV_SANDBOX_PORT` | 7862                                   | Sandbox port                                                                 |
-| `MARINARA_DEV_SANDBOX_DIR`  | `<state>/sandbox`                      | Sandbox folder                                                               |
-| `MARINARA_DEV_SANDBOX_DIST` | `dist`                                 | Server build folder the sandbox runs                                         |
-| `MARINARA_DEV_PNPM`         | `corepack pnpm`                        | How to run pnpm for builds (plain words and paths only; no shell characters) |
+| Variable                    | Default                                | Meaning                                                                                         |
+| --------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `MARINARA_DEV_REPO`         | two folders above `tools/dev-mcp`      | Repository root                                                                                 |
+| `MARINARA_DEV_STATE`        | `<repo>/.dev-mcp`                      | Backups, lock, activity log, saved prompts, large outputs, the sandbox                          |
+| `MARINARA_DEV_AGENT`        | `unknown-agent`                        | Name written to the activity log and the lock; give each client its own                         |
+| `MARINARA_DEV_INSTANCE`     | `live`                                 | `sandbox` points every tool at the sandbox                                                      |
+| `MARINARA_DEV_PORT`         | `PORT` from the repo `.env`, else 7860 | Engine port                                                                                     |
+| `MARINARA_DEV_SANDBOX_PORT` | 7862                                   | Sandbox port                                                                                    |
+| `MARINARA_DEV_SANDBOX_DIR`  | `<state>/sandbox`                      | Sandbox folder                                                                                  |
+| `MARINARA_DEV_SANDBOX_DIST` | `dist`                                 | Server build folder the sandbox runs when none is given and none was recorded by an earlier run |
+| `MARINARA_DEV_PNPM`         | `corepack pnpm`                        | How to run pnpm for builds (plain words and paths only; no shell characters)                    |
 
 The port and the data and log folders are read from the engine's env file (`PORT`, `DATA_DIR`, `LOG_DIR`) the same way the server resolves them: `MARINARA_ENV_FILE` when it is set in the tool's environment (engines the tool starts inherit it), else the repo `.env`.
 
