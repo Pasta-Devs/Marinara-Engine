@@ -323,6 +323,22 @@ for (const [name, value] of Object.entries(en)) {
   assert.match(source("components/command-palette/KeyboardShortcutsOverlay.tsx"), /KEYBOARD_SHORTCUT_GROUPS\.map/u);
 }
 
+// Opening a chat or Home from the palette closes overlaying panels by the shell's own overlay test
+// (isMobileShellViewport), not a fixed width, so nothing is left covering what was opened.
+{
+  const navigation = source("components/command-palette/palette-navigation.ts");
+  assert.match(
+    navigation,
+    /if \(isMobileShellViewport\(\)\) \{\s+ui\.setSidebarOpen\(false\);\s+ui\.closeRightPanel\(\);/u,
+  );
+  assert.doesNotMatch(navigation, /innerWidth/u, "no fixed breakpoint in palette navigation");
+  assert.match(
+    host,
+    /id: "action:home"[\s\S]*?if \(!isMobileShellViewport\(\)\) return;\s+ui\.setSidebarOpen\(false\);\s+ui\.closeRightPanel\(\);/u,
+    "Home closes overlaying panels like the top bar's Home button",
+  );
+}
+
 // Touch users need a visible way in, not only the key binding.
 assert.match(source("components/layout/TopBar.tsx"), /aria-keyshortcuts="Control\+K Meta\+K"/u);
 assert.match(source("components/layout/AppShell.tsx"), /<CommandPaletteHost \/>/u);

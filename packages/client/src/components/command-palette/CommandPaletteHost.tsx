@@ -22,7 +22,7 @@ import { chatKeys } from "../../hooks/use-chats";
 import { useLaunchNewChat } from "../chat/HomeNewChatLauncher";
 import { useCommandPaletteStore } from "../../stores/command-palette.store";
 import { useChatStore } from "../../stores/chat.store";
-import { useUIStore, type Panel } from "../../stores/ui.store";
+import { isMobileShellViewport, useUIStore, type Panel } from "../../stores/ui.store";
 import { confirmLeaveDirtyEditor } from "./palette-navigation";
 
 const CommandPalette = lazy(() => import("./CommandPalette").then((module) => ({ default: module.CommandPalette })));
@@ -123,7 +123,12 @@ export function CommandPaletteHost() {
           if (!(await confirmLeaveDirtyEditor())) return;
           window.dispatchEvent(new Event("marinara:home-professor-mari-close"));
           useChatStore.getState().setActiveChatId(null);
-          useUIStore.getState().closeAllDetails();
+          const ui = useUIStore.getState();
+          ui.closeAllDetails();
+          // Like the top bar's Home button: in the overlay layout, panels covering Home close too.
+          if (!isMobileShellViewport()) return;
+          ui.setSidebarOpen(false);
+          ui.closeRightPanel();
         },
       }),
       registerCommand({

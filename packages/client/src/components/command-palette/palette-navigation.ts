@@ -2,7 +2,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { hasEditorLeaveHandler } from "../../lib/editor-leave";
 import { translate } from "../../localization/i18n";
 import { useChatStore } from "../../stores/chat.store";
-import { useUIStore } from "../../stores/ui.store";
+import { isMobileShellViewport, useUIStore } from "../../stores/ui.store";
 
 /**
  * Same guard the chat sidebar uses before navigating away from an editor:
@@ -25,7 +25,8 @@ export async function openChatFromPalette(chatId: string) {
   const ui = useUIStore.getState();
   if (ui.hasAnyDetailOpen()) ui.closeAllDetails();
   useChatStore.getState().setActiveChatId(chatId);
-  if (window.innerWidth < 768) {
+  // Same test as the shell's overlay layout: while panels overlay the chat, close them so it shows.
+  if (isMobileShellViewport()) {
     ui.setSidebarOpen(false);
     ui.closeRightPanel();
   }
