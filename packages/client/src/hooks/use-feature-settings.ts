@@ -19,7 +19,8 @@ export function useFeatureSettings() {
   return useQuery<FeatureSettingsResponse>({
     queryKey: featureSettingsKeys.all,
     queryFn: () => api.get<FeatureSettingsResponse>(FEATURES_PATH),
-    staleTime: 5 * 60_000,
+    // Short, like the extension policy query: a .env change can lock or unlock a switch while Settings is open.
+    staleTime: 30_000,
   });
 }
 
