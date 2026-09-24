@@ -413,6 +413,7 @@ function dropOneStrike(sequence: NonNullable<RulesetStatBlockAction["sequence"]>
  *  number and wrong about the game, so the size steps along real dice and only falls back to one
  *  face less for a die that is not among them. */
 const RULESET_CLAMP_DICE = [100, 20, 12, 10, 8, 6, 4, 3, 2] as const;
+/** The next die down the ladder above, or one face less for a die that is not on it. */
 export function smallerDie(sides: number): number {
   return RULESET_CLAMP_DICE.find((size) => size < sides) ?? sides - 1;
 }

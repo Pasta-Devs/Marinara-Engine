@@ -1262,6 +1262,7 @@ const spellbook = parsedOrThrow(
 
 // ── An invented enemy keeps only what its ruleset opens to it, and the rest is filled by how it fights ──
 {
+  /** An invented Sorcerer's proposal, with fields and named spells on top of a plain one. */
   const sorcerer = (fields: Record<string, unknown> = {}, spells: Array<Record<string, unknown>> = []) => ({
     tier: "cr_2",
     sheet: {
@@ -1278,6 +1279,7 @@ const spellbook = parsedOrThrow(
       lists: { spells },
     },
   });
+  /** A spellbook fight against one invented caster, as the route would build it. */
   const fightOf = (proposed: unknown, extra: Partial<RulesetFightOpponent> = {}, seed = 7) =>
     started({
       definition: spellbook,
@@ -1337,6 +1339,7 @@ const spellbook = parsedOrThrow(
   );
 
   // Temperament and competence tilt the draw, over many fights.
+  /** How often each kind of first-rung spell is filled in over sixty fights, for one temperament. */
   const tally = (tactics: { proficiency: CombatTactics["proficiency"]; adjective: CombatTactics["adjective"] }) => {
     const out = { support: 0, harm: 0, meta: 0, picks: 0 };
     for (let seed = 1; seed <= 60; seed++) {
@@ -1371,6 +1374,7 @@ const spellbook = parsedOrThrow(
 
 // ── A layer that narrows a field never costs a creature written with the value it took out ──
 {
+  /** The 5e draft with a layer that takes "cha" out, and the Toll Sergeant written with `value`. */
   const narrowed = (value: string) =>
     variant(fiveEText, (doc) => {
       doc.layers = [

@@ -44,12 +44,14 @@ type SheetScalar = string | number | boolean;
 /** How many names one sentence lists before it says "and N more". */
 const NAMES_SHOWN = 4;
 
+/** Names for a log line, quoted, the first few and a count of the rest. */
 function listed(names: readonly string[]): string {
   const shown = names.slice(0, NAMES_SHOWN).map((name) => `"${name}"`);
   const more = names.length - shown.length;
   return more > 0 ? `${shown.join(", ")} and ${more} more` : shown.join(", ");
 }
 
+/** Whether two values are the same word, ignoring case and the space around it. */
 const sameName = (left: unknown, right: unknown) =>
   typeof left === "string" && typeof right === "string" && left.trim().toLowerCase() === right.trim().toLowerCase();
 
