@@ -1123,8 +1123,8 @@ export function collectDecisionQuestions(template: string): CollectedDecisionQue
 }
 
 /**
- * Whether any string inside `value` holds a decision statement: an imported card,
- * preset or lorebook, parsed. Walks parsed data rather than raw JSON text, whose
+ * Whether parsed import data uses decisions: prompt statements, lorebook activation,
+ * or agent activation questions. Walks parsed data rather than raw JSON text, whose
  * escaped quotes the condition parser should never see.
  */
 export function containsDecisionStatements(value: unknown, depth = 0): boolean {
@@ -1135,6 +1135,7 @@ export function containsDecisionStatements(value: unknown, depth = 0): boolean {
   if (value && typeof value === "object") {
     // A lorebook entry activated by a decision (#6570), wherever the file keeps it.
     const record = value as Record<string, unknown>;
+    if (typeof record.activationQuestion === "string" && record.activationQuestion.trim()) return true;
     if (
       (record.decisionMode === "require" || record.decisionMode === "trigger") &&
       typeof record.decisionStatement === "string" &&

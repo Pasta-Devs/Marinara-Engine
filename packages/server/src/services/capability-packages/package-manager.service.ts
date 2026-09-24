@@ -6,6 +6,7 @@ import AdmZip from "adm-zip";
 import { z } from "zod";
 import {
   APP_VERSION,
+  containsDecisionStatements,
   parseCapabilityCatalogWithCompat,
   capabilityPackageManifestSchema,
   compareCapabilityPackageVersions,
@@ -1127,11 +1128,13 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
   if (agentDetailIds.length > 0 && !installedManifest.entrypoints.agents) {
     throw new Error("Agent detail contributions require agent definitions");
   }
+  let usesDecisions = false;
   if (installedManifest.entrypoints.agents) {
     const agentsPath = normalizeArchivePath(installedManifest.entrypoints.agents);
     const agentsFile = verifiedFiles.get(agentsPath);
     if (!agentsFile) throw new Error("Package agent definitions are missing");
     const agentDefinitions = packagedAgentDefinitionsSchema.parse(JSON.parse(agentsFile.toString("utf8")));
+    usesDecisions = containsDecisionStatements(agentDefinitions);
     for (const agentId of agentDetailIds) {
       const detailIssue = getCapabilityAgentDetailDefinitionIssue(agentId, agentDefinitions);
       if (detailIssue) throw new Error(detailIssue);
@@ -1206,7 +1209,7 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
     } catch (error) {
       logger.warn(error, "Could not clear the deferred update marker for capability package %s", manifest.id);
     }
-    return installed;
+    return { ...installed, usesDecisions };
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }

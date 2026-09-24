@@ -140,6 +140,8 @@ A **Decision model** answers it. Pick one under **Decision model** in the Connec
 
 ### Set up your agent
 
+People who import an agent with an activation question or decision statements in its prompt see a notice linking to the Decision Models guide. Without a selected Decision model, it explains that activation questions let the agent run whenever its keywords and **Trigger Cadence** allow, while prompt statements read as no and use their `{{else}}` branch. Set a cadence too if your agent should not run every turn without a Decision model. The same notice appears when installing a package from the Agent catalog.
+
 With a Decision model selected, open a custom agent and enter a **Question** of up to 500 characters. Standard agent macros, including `{{user}}` and `{{char}}`, work in the question. **Scan Depth** controls the recent messages used by both keywords and the question.
 
 Despite the field's name, write it as a statement of fact about the latest message, not as a question. In our tests a small decision model answered `Did the scene change?` less reliably than `The latest message moves the scene to a new place.` The same advice applies here as to decision statements in prompts; see [Writing statements](../prompts/conditional-prompts.md#writing-statements).

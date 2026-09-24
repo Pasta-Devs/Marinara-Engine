@@ -52,6 +52,8 @@ You do not need a special decision service. The local model you already run is o
 
 Presets, cards and agents should be written for "a Decision model", never "requires Jev". Whichever one a user picks, the same statements work.
 
+When someone imports content that uses decisions, Marinara shows a notice with a link to this guide. This includes custom agents and Agent catalog installs. If no Decision model is selected, the notice explains the fallback: prompt statements read as no, lorebook entries cannot activate on a decision, and agent activation questions let the agent run whenever its keywords and **Trigger Cadence** allow. Give an agent a cadence as well if it should not run every turn without a Decision model. Whole-profile ZIP restoration does not show this import notice.
+
 ## Use a model you already run
 
 If you have a local model in **Local Model**, you can use it for decisions and never create a connection or pay for a request.

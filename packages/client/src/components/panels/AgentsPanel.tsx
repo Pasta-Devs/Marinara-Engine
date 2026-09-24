@@ -45,6 +45,7 @@ import {
   BUILT_IN_AGENTS,
   DEFAULT_AGENT_TOOLS,
   communityRulesetId,
+  containsDecisionStatements,
   getDefaultBuiltInAgentSettings,
   getFolderImportEntries,
   isAgentConfigDeleted,
@@ -59,6 +60,7 @@ import {
 } from "@marinara-engine/shared";
 import { confirmNonEmptyFolderDelete, showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
+import { notifyDecisionImport } from "../../lib/decision-import-notice";
 import { rulesetRepositoryLabel } from "../../lib/ruleset-source";
 import { sortBasicPanelItems, sortPanelFolders } from "../../lib/panel-sort";
 import { downloadZipFile } from "../../lib/download-zip";
@@ -786,6 +788,7 @@ export function AgentsPanel() {
   const handleApproveAgentImport = useCallback(async () => {
     if (!pendingAgentImport) return;
     let imported = 0;
+    let usesDecisions = false;
     const failed: string[] = [];
     const failedAgents: NormalizedAgentImport[] = [];
     for (const candidate of pendingAgentImport.agents) {
@@ -798,12 +801,14 @@ export function AgentsPanel() {
           acknowledgePermissions: true,
         });
         imported++;
+        usesDecisions ||= containsDecisionStatements(agent);
       } catch (error) {
         failed.push(error instanceof Error ? error.message : `Failed to import ${candidate.name}`);
         failedAgents.push(candidate);
       }
     }
 
+    void notifyDecisionImport(usesDecisions, localizeUi);
     if (imported > 0) {
       setAgentImportSuccess(
         `${localizeUi("settings.agentImports.import.success", { count: imported })}${

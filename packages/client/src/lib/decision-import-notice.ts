@@ -1,9 +1,32 @@
 import type { TFunction } from "i18next";
 import { toast } from "sonner";
-import { containsDecisionStatements } from "@marinara-engine/shared";
+import { containsDecisionStatements, type DecisionModelOptions } from "@marinara-engine/shared";
+import { api } from "./api-client";
+import { useUIStore } from "../stores/ui.store";
+
+/** Read the selection after import, so loading editor queries cannot imply None. */
+export async function notifyDecisionImport(usesDecisions: boolean, t: TFunction) {
+  if (!usesDecisions) return;
+  // A failed settings lookup must not turn a successful import into a failure.
+  const options = await api.get<DecisionModelOptions>("/decision/options").catch(() => null);
+  const missingModel = options !== null && !options.selected;
+  const notify = missingModel ? toast.warning : toast.info;
+  notify(t(missingModel ? "ui.lib.decisionimportnotice.noModel" : "ui.lib.decisionimportnotice.usesDecisions"), {
+    duration: 20_000,
+    classNames: {
+      toast: "!grid !grid-cols-[auto_1fr]",
+      icon: "!self-start !mt-0.5",
+      actionButton: "!col-start-2 !ml-0 !justify-self-start !min-h-9",
+    },
+    action: {
+      label: t("ui.lib.decisionimportnotice.openGuide"),
+      onClick: () => useUIStore.getState().openModal("docs-viewer", { initialDoc: "connections/decision-models.md" }),
+    },
+  });
+}
 
 /**
- * Imported cards, presets, lorebooks and personas can carry decision statements
+ * Imported cards, presets, lorebooks, personas and agents can carry decisions
  * (`{{#if decision:"..."}}`). Those need a Decision model, and on a hosted connection
  * each one is part of a billed request, so the importer is told once per batch rather
  * than finding out from a prompt that never changes.
@@ -21,8 +44,10 @@ export function createDecisionImportTracker() {
     },
     /** One notice if any file that imported successfully uses them. */
     notify(results: ReadonlyArray<{ filename: string; success: boolean }>, t: TFunction) {
-      if (results.some((result) => result.success && files.has(result.filename)))
-        toast.info(t("ui.lib.decisionimportnotice.usesDecisions"), { duration: 10_000 });
+      return notifyDecisionImport(
+        results.some((result) => result.success && files.has(result.filename)),
+        t,
+      );
     },
   };
 }
