@@ -238,6 +238,26 @@ Kaelen is his usual self.
 
 Here the model chooses between "angry", "sad" and "none of these". The short form works too: `decision_choice:"The weather in the latest message" == "rain" || "snow"` offers both options. Write the statement as a subject, such as "Kaelen's mood in the latest message", and the options as short answers to it.
 
+### Sticky and cooldown
+
+A statement can keep its answer for a few turns instead of being asked every turn. Write `sticky:` and `cooldown:` after the statement:
+
+```
+{{#if decision:"The latest message starts a fight" sticky:3 cooldown:5}}
+Keep combat pacing rules in effect.
+{{/if}}
+```
+
+- **sticky:N.** After a yes, the statement stays yes for the next N turns without being asked, so what it gates stays in the prompt.
+- **cooldown:N.** Starts when sticky ends, or right after the yes when there is no sticky. For N turns the statement reads as no and is not asked. Then it is asked again.
+- A turn is each new message the Decision model reads. A regeneration or a swipe of the same message is the same turn, so rerolling a reply never runs a timer down.
+- While sticky or cooldown holds a statement, it is not asked and does not count toward **Decision statements per turn**, so it leaves its slot to another statement.
+- For `decision_choice:`, sticky keeps the chosen option, and cooldown reads every comparison as no. A choice of none of the options starts nothing.
+- A statement written in several places uses the longest sticky and cooldown given anywhere.
+- Peek Prompt shows the held answer and never moves a timer on.
+
+Together, they suit anything that should come in once and then rest: a scene transition, a one-time reminder, or a mood that should last a few turns. For a lorebook entry activated by its **Decision** field, use the entry's own **Sticky** and **Cooldown** instead: a sticky entry stays in without its statement being asked, and an entry on cooldown is not asked about.
+
 ### No answer means no
 
 A decision condition is **false** whenever there is no answer: no Decision model is set, the model did not answer in time, or it failed. For `decision_choice:`, every comparison is false. So the `{{else}}` branch, or nothing, is what a user without a Decision model gets.
@@ -280,7 +300,13 @@ The recommended wordings scored 31 of 32 on Open-Jev 2B, 31 of 32 on Open-Jev 9B
 
 ### Limits and cost
 
-- **Statements per turn.** At most the number set under **Decision model** as **Decision statements per turn** (32 by default) are asked each turn. Past that, the rest read as no, and a warning is logged. On a hosted Decision connection each statement adds to a billed request; on a local model it only adds time.
+- **Statements per turn.** At most the number set under **Decision model** as **Decision statements per turn** (32 by default) are asked each turn. Only statements the turn can actually use count toward it:
+  - statements in enabled preset sections and groups, not disabled ones;
+  - statements in the preset variable options the chat has selected, not the others;
+  - statements in lorebook entries that activate this turn, not the rest of the lorebook;
+  - statements in blocks that something fixed for the turn has not already ruled out. In `{{#if char == "Dottore" && decision:"..."}}`, the statement is not asked while the character is Mira. A variable can change while the prompt is built, so a condition on a variable never rules a statement out.
+
+  A statement that [sticky or cooldown](#sticky-and-cooldown) holds does not count at all. Past the limit, the rest read as no, a warning is logged, and Peek Prompt lists them. On a hosted Decision connection each statement adds to a billed request; on a local model it only adds time.
 - **Time.** The same budgets as activation questions apply: the Decision connection's **Time limit** (1.5 seconds by default), and 4 seconds for a local model. A model that has to reason first holds off in front of the reply unless you turned on **Also gate agents that run before the reply**.
 - **Once per turn.** Answers are kept for the turn, so a regeneration or a swipe sends the same branches. The Decision model is only asked again when a new message arrives, or when you edit the newest message and regenerate. The one exception is post-processing agents, below: they read the finished reply, so their statements are asked once per reply.
 - **Prompt caching.** A provider's cache reuses the prompt only up to the first thing that changed since the last request; everything from there on is billed again at full price. A branch that changes from turn to turn is such a change, so where it sits decides how much stays cached. Put decision blocks late in the prompt, such as post-history instructions or author's notes, rather than at the top.
@@ -290,6 +316,8 @@ The recommended wordings scored 31 of 32 on Open-Jev 2B, 31 of 32 on Open-Jev 9B
   - **above the chat history** changes the system prompt, and the whole prompt is billed as new, plus the cost of writing the cache again;
   - **inside the last Cache depth messages**, such as post-history instructions or an author's note at a shallower depth, costs no cached tokens;
   - **in between**, such as an injection at depth 10 with the default Cache depth, keeps the system prompt cached but loses the cached history.
+
+  **If you make presets, be very careful and very purposeful with decision blocks near the top of a preset.** Every turn a block there changes its answer, the system prompt changes with it, and a caching provider bills the whole prompt as new. Keep decision blocks in post-history instructions or a shallow author's note where you can. Put one near the top only when its answer rarely changes and what it adds belongs there. The same goes for decision blocks inside preset variable options, since a variable's value lands wherever its `{{name}}` sits.
 
   Providers also have a minimum below which nothing is cached, for example 512 tokens on Claude Opus 5.5, 1,024 on Claude Sonnet 5 and on OpenAI's GPT-5.6, and 4,096 on Claude Haiku 4.5. Almost any preset is longer than that, so in practice where the first change sits matters far more.
 - **Agents.** In an agent's prompt, decisions for agents that run before or with the reply read the same turn as the prompt. For post-processing agents they read the finished reply as the latest message, so they are asked after the reply, and again when a regenerated swipe changes it. Re-running an agent, for example with a tracker's refresh button or by retrying a failed agent, reuses the answers its turn already has. See [Decision statements in the agent's prompt](../agents/custom-agents.md#decision-statements-in-the-agents-prompt).

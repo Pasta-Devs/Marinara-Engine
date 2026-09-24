@@ -162,6 +162,14 @@ Click **Edit Prompt** to type a prompt just for this chat. The editor opens as *
 
 Game chats also have an **Extra instructions** box. Text there is added to the Game prompt. It has a limit of 2000 characters. A sample instruction is "Write in the style of Terry Pratchett."
 
+## Decision blocks and prompt caching
+
+A section can hold a decision block, `{{#if decision:"..."}}`, so that part of the preset is sent only on turns where a statement about the chat is true. See [Asking the Decision model](conditional-prompts.md#asking-the-decision-model).
+
+**Be very careful and very purposeful when you put a decision block near the top of a preset.** Providers that cache prompts reuse a prompt only up to the first thing that changed since the last request. A section above the chat history is part of the system prompt, so every turn its decision changes answer, the whole prompt is billed as new. Put decision blocks late in the prompt, such as in post-history instructions, and keep one at the top only when its answer rarely changes. The details are in the **Prompt caching** note under [Limits and cost](conditional-prompts.md#limits-and-cost).
+
+Statements in disabled sections and groups are never asked, and do not count toward **Decision statements per turn**.
+
 ## Checking what the AI received
 
 To confirm which preset and sections actually reached the AI, use **Peek Prompt**. It shows the fully assembled prompt for a message. This is the fastest way to debug an odd response. See [Peek Prompt: See What the AI Received](../chats/peek-prompt.md).

@@ -142,7 +142,9 @@ How it runs:
 
 Decision activation applies to chat turns. Game setup, experience generation, and the lorebook scans agents run for themselves read decision entries as no.
 
-A `{{#if decision:"..."}}` condition inside the entry's content is different: it trims the text of an entry that has already activated, and the entry still uses its token budget and starts its timers. Use the **Decision** field to decide whether the entry activates at all.
+The entry's own **Sticky** and **Cooldown** work with its Decision field. While an entry is sticky it stays in without its statement being asked again, and while it is on cooldown its statement is not asked. So a Trigger statement with Sticky 3 and Cooldown 5 brings the entry in for a few turns, then rests it, without spending statements on it meanwhile.
+
+A `{{#if decision:"..."}}` condition inside the entry's content is different: it trims the text of an entry that has already activated, and the entry still uses its token budget and starts its timers. It is asked only on turns the entry activates, so the rest of a lorebook never uses up **Decision statements per turn**. Use the **Decision** field to decide whether the entry activates at all.
 
 ## More entry options
 

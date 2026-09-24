@@ -238,7 +238,7 @@ You can also type `/macros` in the chat box (the short form `/macro` works too).
 
 Conditional blocks can combine comparisons with `||` (OR), `&&` (AND), and parentheses. Equality lists may use the compact form `{{#if character == "Maukie" || "Pantalone"}}`. See [Conditional Prompts](conditional-prompts.md) for precedence, group-chat examples, and the full operator list.
 
-A condition can also ask your Decision model about the scene: `{{#if decision:"The latest message moves the scene to a new place"}}` for yes or no, and `{{#if decision_choice:"Kaelen's mood in the latest message" == "angry"}}` to pick one option. With no Decision model, or no answer, these read as no. See [Asking the Decision model](conditional-prompts.md#asking-the-decision-model).
+A condition can also ask your Decision model about the scene: `{{#if decision:"The latest message moves the scene to a new place"}}` for yes or no, and `{{#if decision_choice:"Kaelen's mood in the latest message" == "angry"}}` to pick one option. With no Decision model, or no answer, these read as no. See [Asking the Decision model](conditional-prompts.md#asking-the-decision-model). Add `sticky:3 cooldown:5` after a statement to keep a yes for three turns and then rest it for five; see [Sticky and cooldown](conditional-prompts.md#sticky-and-cooldown).
 
 ## Common mistakes
 

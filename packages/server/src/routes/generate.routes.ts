@@ -1,10 +1,19 @@
 import { DECISION_SETTINGS_KEYS, resolveDecisionBackend } from "../services/decision/decision-default.js";
 import {
+  DECISION_TIMERS_METADATA_KEY,
+  decisionTurnFor,
+  heldDecision,
+  readDecisionTimers,
+  type DecisionTimerState,
+} from "../services/decision/decision-timers.js";
+import {
   agentShapedDecisionContext,
   answerPromptDecisions,
   createLorebookDecisionResolver,
   collectDecisionTexts,
   collectTurnDecisionTexts,
+  reachableDecisionStatements,
+  type HeldDecisions,
   planPromptDecisions,
   latestTurnDecisionId,
   promptDecisionCacheKey,
@@ -2645,6 +2654,29 @@ export async function generateRoutes(app: FastifyInstance) {
                 : (historyMacroProfilesById.get(message.characterId)?.name ?? "Narrator"),
             content: typeof message.content === "string" ? message.content : "",
           }));
+        // Sticky and cooldown (#6582): the chat's statement timers, moved on to this turn
+        // once the turn is known below, and saved whenever they change.
+        let decisionTiming: { state: DecisionTimerState; turn: number } | undefined;
+        let savedDecisionTimers = JSON.stringify(readDecisionTimers(chatMeta[DECISION_TIMERS_METADATA_KEY]));
+        const saveDecisionTimers = async () => {
+          if (!decisionTiming) return;
+          const next = JSON.stringify(decisionTiming.state);
+          if (next === savedDecisionTimers) return;
+          // The turn count only matters while a timer runs, so a chat without one is not written.
+          if (Object.keys(decisionTiming.state.statements).length === 0 && !chatMeta[DECISION_TIMERS_METADATA_KEY]) {
+            savedDecisionTimers = next;
+            return;
+          }
+          // A failed write never costs the turn its answers: it is logged, and the next
+          // change tries again.
+          try {
+            await chats.patchMetadata(input.chatId, { [DECISION_TIMERS_METADATA_KEY]: decisionTiming.state });
+            chatMeta[DECISION_TIMERS_METADATA_KEY] = decisionTiming.state;
+            savedDecisionTimers = next;
+          } catch (error) {
+            logger.warn(error, "[decision] Could not save decision timers for chat %s", input.chatId);
+          }
+        };
         /** Answer a plan against these messages; undefined when there is nothing to ask or no model. */
         const answerDecisionPlan = async (
           plan: PromptDecisionPlan,
@@ -2665,12 +2697,13 @@ export async function generateRoutes(app: FastifyInstance) {
               );
               return undefined;
             }
-            return await answerPromptDecisions({
+            const answers = await answerPromptDecisions({
               plan,
               backend,
               chatId: input.chatId,
               messages,
               afterReply,
+              timers: decisionTiming,
               cacheKey: promptDecisionCacheKey(
                 input.chatId,
                 latestMessageId,
@@ -2679,6 +2712,8 @@ export async function generateRoutes(app: FastifyInstance) {
                   null,
               ),
             });
+            await saveDecisionTimers();
+            return answers;
           } catch (error) {
             if (abortController.signal.aborted) throw error;
             logger.warn(error, "[decision] Prompt decisions failed for chat %s; they read as no", input.chatId);
@@ -2691,7 +2726,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 presets.listSections(presetId),
                 presets.listGroups(presetId),
                 presets.listChoiceBlocksForPreset(presetId),
-              ])
+              ]).then(([sections, groups, choiceBlocks]) => ({ sections, groups, choiceBlocks, choices: chatChoices }))
             : undefined;
         // Read once here and reused by the semantic lorebook check below.
         const decisionActiveLorebookEntries = await lorebooksStore.listActiveEntries({
@@ -2731,27 +2766,38 @@ export async function generateRoutes(app: FastifyInstance) {
                 )
               : []),
           ],
-          lorebookEntries: decisionActiveLorebookEntries as Array<{ content?: unknown }>,
         });
         // Every decision read before the reply is keyed to the newest message, id and text.
         const preReplyDecisionTurnId = latestTurnDecisionId(chatMessages);
+        const decisionTimerState = readDecisionTimers(chatMeta[DECISION_TIMERS_METADATA_KEY]);
+        decisionTiming = {
+          state: decisionTimerState,
+          turn: decisionTurnFor(decisionTimerState, preReplyDecisionTurnId),
+        };
+        const decisionTurn = decisionTiming.turn;
+        const heldDecisions: HeldDecisions = (kind, key) => heldDecision(decisionTimerState, decisionTurn, kind, key);
+        await saveDecisionTimers();
+        // Worked out once: the agents' plan below includes the prompt's statements too.
+        const promptDecisionReachable = reachableDecisionStatements(promptDecisionTexts, promptMacroContext);
         const promptDecisionPlan = planPromptDecisions(
-          [{ texts: promptDecisionTexts, ctx: promptMacroContext }],
+          [{ texts: promptDecisionTexts, ctx: promptMacroContext, reachable: promptDecisionReachable }],
           promptDecisionLimit,
+          { held: heldDecisions },
         );
-        if (promptDecisionTexts.length > 0) {
-          promptMacroContext.decisions = await answerDecisionPlan(
-            promptDecisionPlan,
-            decisionMessages(),
-            preReplyDecisionTurnId,
-          );
-        }
+        // Always an object: statements in activating lorebook entries are answered later
+        // and merged into it, and the prompt builder and agents hold this same object.
+        promptMacroContext.decisions =
+          (promptDecisionPlan.decisions.length > 0
+            ? await answerDecisionPlan(promptDecisionPlan, decisionMessages(), preReplyDecisionTurnId)
+            : undefined) ?? {};
         // Lorebook entries activated by a decision (#6570), asked like the prompt's
         // statements and keyed to the same turn, within what the per-turn limit has left.
         const lorebookDecisions = createLorebookDecisionResolver({
           macroContext: promptMacroContext,
-          limit: Math.max(0, promptDecisionLimit - promptDecisionPlan.decisions.length),
-          freeKeys: new Set(promptDecisionPlan.decisions.filter((d) => d.kind === "noul").map((d) => d.key)),
+          // Held statements took no slot, so they leave the lorebook's share alone.
+          limit: Math.max(0, promptDecisionLimit - promptDecisionPlan.decisions.filter((d) => !d.held).length),
+          freeKeys: new Set(promptDecisionPlan.decisions.map((d) => d.key)),
+          held: heldDecisions,
           answer: (plan) => answerDecisionPlan(plan, decisionMessages(), preReplyDecisionTurnId),
         });
         const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(
@@ -3012,13 +3058,13 @@ export async function generateRoutes(app: FastifyInstance) {
           const preset = resolvedPreset;
           wrapFormat = (preset.wrapFormat as "xml" | "markdown" | "none") || "xml";
           // Read once above, under the same condition, for decision statements.
-          const [sections, groups, choiceBlocks] =
-            decisionPresetParts ??
-            (await Promise.all([
-              presets.listSections(presetId),
-              presets.listGroups(presetId),
-              presets.listChoiceBlocksForPreset(presetId),
-            ]));
+          const [sections, groups, choiceBlocks] = decisionPresetParts
+            ? [decisionPresetParts.sections, decisionPresetParts.groups, decisionPresetParts.choiceBlocks]
+            : await Promise.all([
+                presets.listSections(presetId),
+                presets.listGroups(presetId),
+                presets.listChoiceBlocksForPreset(presetId),
+              ]);
           for (const section of sections) {
             if (section.enabled !== "true" || section.isMarker !== "true" || !section.markerConfig) continue;
             try {
@@ -5825,13 +5871,19 @@ export async function generateRoutes(app: FastifyInstance) {
             .map((agent) => [effectiveAgentPromptTemplate(agent), agent.settings]),
         );
         if (preReplyAgentDecisionTexts.length > 0) {
+          const agentDecisionContext = agentShapedDecisionContext(promptMacroContext);
           const agentDecisions = await answerDecisionPlan(
             planPromptDecisions(
               [
-                { texts: promptDecisionTexts, ctx: promptMacroContext },
-                { texts: preReplyAgentDecisionTexts, ctx: agentShapedDecisionContext(promptMacroContext) },
+                { texts: promptDecisionTexts, ctx: promptMacroContext, reachable: promptDecisionReachable },
+                {
+                  texts: preReplyAgentDecisionTexts,
+                  ctx: agentDecisionContext,
+                  reachable: reachableDecisionStatements(preReplyAgentDecisionTexts, agentDecisionContext),
+                },
               ],
               promptDecisionLimit,
+              { held: heldDecisions },
             ),
             decisionMessages(),
             preReplyDecisionTurnId,
@@ -10419,12 +10471,20 @@ export async function generateRoutes(app: FastifyInstance) {
             ].map((agent) => [effectiveAgentPromptTemplate(agent), agent.settings]),
           );
 
+          const postAgentDecisionContext = agentShapedDecisionContext(promptMacroContext);
           const postAgentDecisions =
             postAgentDecisionTexts.length > 0
               ? await answerDecisionPlan(
                   planPromptDecisions(
-                    [{ texts: postAgentDecisionTexts, ctx: agentShapedDecisionContext(promptMacroContext) }],
+                    [
+                      {
+                        texts: postAgentDecisionTexts,
+                        ctx: postAgentDecisionContext,
+                        reachable: reachableDecisionStatements(postAgentDecisionTexts, postAgentDecisionContext),
+                      },
+                    ],
                     promptDecisionLimit,
+                    { held: heldDecisions },
                   ),
                   [
                     ...decisionMessages(),

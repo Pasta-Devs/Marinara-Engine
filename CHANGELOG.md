@@ -4,6 +4,12 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Decision statements that cannot affect a turn no longer use up **Decision statements per turn**. Only statements in enabled preset sections, selected preset variable options, lorebook entries that activate, and blocks not already ruled out are asked. Peek Prompt lists any statements the limit leaves out, and the preset guides now warn preset makers to be careful with decision blocks near the top of a preset, where a changing answer makes caching providers bill the whole prompt again (#6582).
+
+- A decision block inside a preset variable option now works. It was planned under the wrong key, so it read as no on every turn (#6582).
+
+- Decision statements can keep their answer for a few turns: `{{#if decision:"..." sticky:3 cooldown:5}}` stays yes for 3 turns after a yes, then reads as no for 5, without being asked or taking a statement slot meanwhile. Regenerations and swipes do not count as turns (#6582).
+
 - RPG pool names can be cleared and typed with spaces without resetting to HP or MP while editing (#6566).
 - Chat and game dialogs stay open when a drag ends on their backdrop, and overlapping pointers cannot combine into an accidental dismissal (#6576, #6577).
 - Browser notifications use the app's service worker when available and alert again for each completed reply in the same chat (#6571).

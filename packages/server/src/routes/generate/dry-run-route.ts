@@ -34,16 +34,23 @@ import {
 } from "../../services/prompt/advanced-memory-prompt.js";
 import { createConnectionsStorage } from "../../services/storage/connections.storage.js";
 import { createAppSettingsStorage } from "../../services/storage/app-settings.storage.js";
-import { createLorebooksStorage } from "../../services/storage/lorebooks.storage.js";
 import {
   cachedPromptDecisionAnswers,
   collectTurnDecisionTexts,
+  reachableDecisionStatements,
+  type HeldDecisions,
   createLorebookDecisionResolver,
   decisionModelUsable,
   latestTurnDecisionId,
   planPromptDecisions,
   promptDecisionCacheKey,
 } from "../../services/decision/prompt-decisions.js";
+import {
+  DECISION_TIMERS_METADATA_KEY,
+  decisionTurnFor,
+  heldDecision,
+  readDecisionTimers,
+} from "../../services/decision/decision-timers.js";
 import { gameGmPromptDecisionTexts } from "../../services/generation/game-gm-prompt-runtime.js";
 import { DECISION_SETTINGS_KEYS } from "../../services/decision/decision-default.js";
 import { createPromptsStorage } from "../../services/storage/prompts.storage.js";
@@ -464,7 +471,6 @@ export async function registerDryRunRoute(app: FastifyInstance) {
   const connections = createConnectionsStorage(app.db);
   const presets = createPromptsStorage(app.db);
   const decisionSettings = createAppSettingsStorage(app.db);
-  const decisionLorebooks = createLorebooksStorage(app.db);
   const chars = createCharactersStorage(app.db);
   const regexScriptsStore = createRegexScriptsStorage(app.db);
 
@@ -992,6 +998,18 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     // answered and never asks the model itself; what is not answered yet reads as no,
     // and the preview says so rather than implying the prompt is final.
     const decisionUnanswered = new Set<string>();
+    // Statements past the per-turn limit, which generation would not ask either.
+    const decisionDropped = new Set<string>();
+    const decisionLimit = parseDecisionPromptQuestionLimit(
+      await decisionSettings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY),
+    );
+    let decisionPlanKeys: string[] = [];
+    let decisionSlotsUsed = 0;
+    // Sticky and cooldown (#6582): the timers as they stand this turn, read and never saved.
+    const previewDecisionTimers = readDecisionTimers(chatMeta[DECISION_TIMERS_METADATA_KEY]);
+    const previewDecisionTurn = decisionTurnFor(previewDecisionTimers, latestTurnDecisionId(chatMessages));
+    const heldDecisions: HeldDecisions = (kind, key) =>
+      heldDecision(previewDecisionTimers, previewDecisionTurn, kind, key);
     const decisionLocalSetting = await decisionSettings.get(DECISION_SETTINGS_KEYS.localDefault);
     const decisionConnectionId = (await connections.getDefaultForDecision())?.id ?? null;
     // The cache key uses the setting as generation does; the report says whether it can serve.
@@ -1002,15 +1020,28 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         // The same sources generation plans from: preset sections only outside
         // Conversation and Game, where the conversation prompt takes their place.
         preset:
-          effectivePresetId && effectivePreset && chatMode !== "conversation" && chatMode !== "game"
+          // Custom prompt parts replace the preset's sections with their own text (below).
+          !promptParts && effectivePresetId && effectivePreset && chatMode !== "conversation" && chatMode !== "game"
             ? await Promise.all([
                 presets.listSections(effectivePresetId),
                 presets.listGroups(effectivePresetId),
                 presets.listChoiceBlocksForPreset(effectivePresetId),
-              ])
+              ]).then(([sections, groups, choiceBlocks]) => ({ sections, groups, choiceBlocks, choices: chatChoices }))
             : undefined,
         ctx: promptMacroContext,
         extra: [
+          // Prompt parts assemble this text and their extension blocks in place of the
+          // preset's sections, so those are what they plan from.
+          ...(promptParts && typeof promptParts.presetText === "string" ? [promptParts.presetText] : []),
+          ...(promptParts
+            ? (
+                parseJsonArray(promptParts.extensionBlocks) ??
+                (Array.isArray(promptParts.extensionBlocks) ? promptParts.extensionBlocks : [])
+              ).flatMap((block) =>
+                // Only system blocks are assembled (below), so only they are planned.
+                isRecord(block) && block.role === "system" && typeof block.content === "string" ? [block.content] : [],
+              )
+            : []),
           personaDescription,
           activeChatSummary,
           chatMeta.groupScenarioText,
@@ -1030,38 +1061,41 @@ export async function registerDryRunRoute(app: FastifyInstance) {
               )
             : []),
         ],
-        lorebookEntries: (await decisionLorebooks.listActiveEntries({
-          chatId,
-          characterIds: withIdentityLorebookScope(promptCharacterIds),
-          personaId,
-          activeLorebookIds: Array.isArray(chatMeta.activeLorebookIds) ? (chatMeta.activeLorebookIds as string[]) : [],
-          excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
-          excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
-        })) as Array<{ content?: unknown }>,
       });
-      if (texts.length > 0) {
-        const plan = planPromptDecisions(
-          [{ texts, ctx: promptMacroContext }],
-          parseDecisionPromptQuestionLimit(await decisionSettings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY)),
-        );
-        const latestMessageId = latestTurnDecisionId(chatMessages);
-        promptMacroContext.decisions = {
-          ...cachedPromptDecisionAnswers(plan, promptDecisionCacheKey(chatId, latestMessageId, decisionModelId)),
-          unanswered: decisionUnanswered,
-        };
-      }
+      const plan = planPromptDecisions(
+        [{ texts, ctx: promptMacroContext, reachable: reachableDecisionStatements(texts, promptMacroContext) }],
+        decisionLimit,
+        { held: heldDecisions },
+      );
+      for (const statement of plan.dropped) decisionDropped.add(statement);
+      decisionPlanKeys = plan.decisions.map((decision) => decision.key);
+      decisionSlotsUsed = plan.decisions.filter((decision) => !decision.held).length;
+      // Always an object, so answers for activating lorebook entries merge into it.
+      promptMacroContext.decisions = {
+        ...(plan.decisions.length > 0
+          ? cachedPromptDecisionAnswers(
+              plan,
+              promptDecisionCacheKey(chatId, latestTurnDecisionId(chatMessages), decisionModelId),
+            )
+          : {}),
+        unanswered: decisionUnanswered,
+      };
     }
     // Lorebook entries activated by a decision (#6570) read the answers this turn
     // already has. The preview never asks, and reports the statements it had none for.
     const lorebookDecisions = createLorebookDecisionResolver({
       macroContext: promptMacroContext,
-      limit: Number.POSITIVE_INFINITY,
+      // Spent as generation spends it, so the preview drops what generation would.
+      limit: Math.max(0, decisionLimit - decisionSlotsUsed),
+      freeKeys: new Set(decisionPlanKeys),
       answer: async (plan) =>
         cachedPromptDecisionAnswers(
           plan,
           promptDecisionCacheKey(chatId, latestTurnDecisionId(chatMessages), decisionModelId),
         ),
       onUnanswered: (statement) => decisionUnanswered.add(statement),
+      onDropped: (statement) => decisionDropped.add(statement),
+      held: heldDecisions,
     });
     const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(
       messages: T[],
@@ -2077,8 +2111,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             ...(message.providerMetadata ? { providerMetadata: message.providerMetadata } : {}),
           })),
           wrapFormat,
-          ...(decisionUnanswered.size > 0
-            ? { decisions: { unanswered: [...decisionUnanswered], decisionModelSet } }
+          ...(decisionUnanswered.size > 0 || decisionDropped.size > 0
+            ? {
+                decisions: {
+                  unanswered: [...decisionUnanswered].filter((statement) => !decisionDropped.has(statement)),
+                  ...(decisionDropped.size > 0 ? { dropped: [...decisionDropped] } : {}),
+                  decisionModelSet,
+                },
+              }
             : {}),
           ...(advancedContext
             ? {

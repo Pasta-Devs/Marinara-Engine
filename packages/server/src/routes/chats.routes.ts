@@ -80,12 +80,20 @@ import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js
 import {
   cachedPromptDecisionAnswers,
   collectTurnDecisionTexts,
+  reachableDecisionStatements,
+  type HeldDecisions,
   createLorebookDecisionResolver,
   decisionModelUsable,
   latestTurnDecisionId,
   planPromptDecisions,
   promptDecisionCacheKey,
 } from "../services/decision/prompt-decisions.js";
+import {
+  DECISION_TIMERS_METADATA_KEY,
+  decisionTurnFor,
+  heldDecision,
+  readDecisionTimers,
+} from "../services/decision/decision-timers.js";
 import { gameGmPromptDecisionTexts } from "../services/generation/game-gm-prompt-runtime.js";
 import { DECISION_SETTINGS_KEYS } from "../services/decision/decision-default.js";
 import {
@@ -3105,6 +3113,8 @@ export async function chatsRoutes(app: FastifyInstance) {
           // answered and never asks the model; anything unanswered reads as no, and the
           // preview says so.
           const decisionUnanswered = new Set<string>();
+          // Statements past the per-turn limit, which generation would not ask either.
+          const decisionDropped = new Set<string>();
           const decisionLocalSetting = await appSettings.get(DECISION_SETTINGS_KEYS.localDefault);
           const decisionConnectionId = (await connections.getDefaultForDecision())?.id ?? null;
           // The cache key uses the setting as generation does; the report says whether it can serve.
@@ -3112,14 +3122,32 @@ export async function chatsRoutes(app: FastifyInstance) {
           const decisionModelSet = decisionModelUsable(decisionLocalSetting, decisionConnectionId);
           // Every live preview below reports the statements it had no answer for.
           const decisionReport = () =>
-            decisionUnanswered.size > 0 ? { decisions: { unanswered: [...decisionUnanswered], decisionModelSet } } : {};
+            decisionUnanswered.size > 0 || decisionDropped.size > 0
+              ? {
+                  decisions: {
+                    unanswered: [...decisionUnanswered].filter((statement) => !decisionDropped.has(statement)),
+                    ...(decisionDropped.size > 0 ? { dropped: [...decisionDropped] } : {}),
+                    decisionModelSet,
+                  },
+                }
+              : {};
+          const decisionLimit = parseDecisionPromptQuestionLimit(
+            await appSettings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY),
+          );
+          let decisionPlanKeys: string[] = [];
+          let decisionSlotsUsed = 0;
+          // Sticky and cooldown (#6582): the timers as they stand this turn, read and never saved.
+          const previewDecisionTimers = readDecisionTimers(chatMeta[DECISION_TIMERS_METADATA_KEY]);
+          const previewDecisionTurn = decisionTurnFor(previewDecisionTimers, latestTurnDecisionId(filteredMessages));
+          const heldDecisions: HeldDecisions = (kind, key) =>
+            heldDecision(previewDecisionTimers, previewDecisionTurn, kind, key);
           {
             const texts = collectTurnDecisionTexts({
               // The same sources generation plans from: preset sections only outside
               // Conversation and Game, where the conversation prompt takes their place.
               preset:
                 preset && chatMode !== "conversation" && chatMode !== "game"
-                  ? [sections, groups, choiceBlocks]
+                  ? { sections, groups, choiceBlocks, choices: chatChoices }
                   : undefined,
               ctx: promptMacroContext,
               extra: [
@@ -3142,41 +3170,41 @@ export async function chatsRoutes(app: FastifyInstance) {
                     )
                   : []),
               ],
-              lorebookEntries: (await createLorebooksStorage(app.db).listActiveEntries({
-                chatId: req.params.id,
-                characterIds: lorebookCharacterIds,
-                personaId,
-                activeLorebookIds,
-                excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
-                excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
-              })) as Array<{ content?: unknown }>,
             });
-            if (texts.length > 0) {
-              const plan = planPromptDecisions(
-                [{ texts, ctx: promptMacroContext }],
-                parseDecisionPromptQuestionLimit(await appSettings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY)),
-              );
-              const latestMessageId = latestTurnDecisionId(filteredMessages);
-              promptMacroContext.decisions = {
-                ...cachedPromptDecisionAnswers(
-                  plan,
-                  promptDecisionCacheKey(req.params.id, latestMessageId, decisionModelId),
-                ),
-                unanswered: decisionUnanswered,
-              };
-            }
+            const plan = planPromptDecisions(
+              [{ texts, ctx: promptMacroContext, reachable: reachableDecisionStatements(texts, promptMacroContext) }],
+              decisionLimit,
+              { held: heldDecisions },
+            );
+            for (const statement of plan.dropped) decisionDropped.add(statement);
+            decisionPlanKeys = plan.decisions.map((decision) => decision.key);
+            decisionSlotsUsed = plan.decisions.filter((decision) => !decision.held).length;
+            // Always an object, so answers for activating lorebook entries merge into it.
+            promptMacroContext.decisions = {
+              ...(plan.decisions.length > 0
+                ? cachedPromptDecisionAnswers(
+                    plan,
+                    promptDecisionCacheKey(req.params.id, latestTurnDecisionId(filteredMessages), decisionModelId),
+                  )
+                : {}),
+              unanswered: decisionUnanswered,
+            };
           }
           // Lorebook entries activated by a decision (#6570) read the answers this turn
           // already has. The preview never asks, and reports the statements it had none for.
           const lorebookDecisions = createLorebookDecisionResolver({
             macroContext: promptMacroContext,
-            limit: Number.POSITIVE_INFINITY,
+            // Spent as generation spends it, so the preview drops what generation would.
+            limit: Math.max(0, decisionLimit - decisionSlotsUsed),
+            freeKeys: new Set(decisionPlanKeys),
             answer: async (plan) =>
               cachedPromptDecisionAnswers(
                 plan,
                 promptDecisionCacheKey(req.params.id, latestTurnDecisionId(filteredMessages), decisionModelId),
               ),
             onUnanswered: (statement) => decisionUnanswered.add(statement),
+            onDropped: (statement) => decisionDropped.add(statement),
+            held: heldDecisions,
           });
           const entryStateOverrides = resolveEntryStateOverrides(
             chatMeta.entryStateOverrides ?? chatMeta.lorebookEntryStateOverrides,
