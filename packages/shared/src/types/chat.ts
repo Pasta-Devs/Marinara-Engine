@@ -389,6 +389,8 @@ export interface ChatMetadata {
   spriteCharacterIds?: string[];
   /** Which sprite file families the roleplay Expression Engine may display. */
   spriteDisplayModes?: Array<"expressions" | "full-body">;
+  /** Only show roleplay sprites returned by the latest completed Expression Engine result. Off by default. */
+  expressionOnlyActiveSprites?: boolean;
   /** Preferred sidebar / default layout side for chat sprites. */
   spritePosition?: SpriteSide;
   /**
@@ -891,6 +893,8 @@ export interface MessageExtra {
   mariDeferredMutations?: boolean | null;
   /** Per-swipe sprite expressions from the Expression Engine agent */
   spriteExpressions?: Record<string, string> | null;
+  /** All sprite owners in the completed expression result, including the persona. Empty means none. */
+  expressionSpriteIds?: string[];
   /** Per-swipe CYOA choices from the CYOA Choices agent */
   cyoaChoices?: Array<{ label: string; text: string }> | null;
   /** Presentation-only Game Mode cues retained so completed turns can be replayed without rerunning scene analysis. */
