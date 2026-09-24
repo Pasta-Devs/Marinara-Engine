@@ -201,6 +201,23 @@ export function selectHomeBrowserPackages(
     );
 }
 
+/** Agent packages with validated Home widget declarations and an available client runtime. */
+export function selectHomeWidgetPackages(
+  installed: InstalledCapabilityPackage[] | undefined,
+): InstalledCapabilityPackage[] {
+  return (installed ?? [])
+    .map((pkg) => (isInstalledCapabilityReady(pkg) ? pkg : resolveCapabilityPackageAvailableUntilRestart(pkg)))
+    .filter(
+      (pkg): pkg is InstalledCapabilityPackage =>
+        pkg !== null &&
+        pkg.manifest.kind.includes("agent") &&
+        pkg.manifest.permissions.includes("ui") &&
+        Boolean(pkg.manifest.contributions?.slots?.includes("home-widget")) &&
+        Boolean(pkg.manifest.contributions?.homeWidgets?.length) &&
+        Boolean(pkg.manifest.entrypoints.client?.trim()),
+    );
+}
+
 export function useInstalledCapabilityPackages(enabled = true) {
   return useQuery({
     queryKey: capabilityPackageKeys.installed(),
