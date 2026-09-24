@@ -17,8 +17,7 @@ import { capabilityPackageManager } from "../capability-packages/package-manager
 
 /** One catalog's entries, or the author's own issue lines for a file the Engine will not read. */
 export type RulesetCatalogEntriesResult =
-  | { ok: true; entries: RulesetCatalogEntry[] }
-  | { ok: false; issues: string[] };
+  { ok: true; entries: RulesetCatalogEntry[] } | { ok: false; issues: string[] };
 
 /** Where a catalog's entries are. `sha256` is the pinned hash of the asset, which is what a caller
  *  builds a validator out of; `read` parses and checks the file against the ruleset. */

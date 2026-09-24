@@ -116,15 +116,13 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
   // installed" when its ruleset is absent, and must not say that because the lookup failed.
   // Imported rulesets are listed whatever the import policy says, for the same reason: an existing
   // sheet has to stay readable after the switch goes off. `source` is what tells the two apart.
-  app.get(
-    "/rulesets",
-    async (): Promise<InstalledRuleset[]> =>
-      [...(await readRulesetRegistry(app.db)).values()].map(({ definition, packageId, source, versions }) => ({
-        packageId,
-        definition: listedRulesetDefinition(definition),
-        ...(source ? { source } : {}),
-        ...(versions ? { versions: [...versions.keys()].sort((left, right) => left - right) } : {}),
-      })),
+  app.get("/rulesets", async (): Promise<InstalledRuleset[]> =>
+    [...(await readRulesetRegistry(app.db)).values()].map(({ definition, packageId, source, versions }) => ({
+      packageId,
+      definition: listedRulesetDefinition(definition),
+      ...(source ? { source } : {}),
+      ...(versions ? { versions: [...versions.keys()].sort((left, right) => left - right) } : {}),
+    })),
   );
   // One stored version of an IMPORTED ruleset. The list above carries only the newest definition,
   // but a game plays on the exact version it pinned, so the in-game sheet has to be able to ask for

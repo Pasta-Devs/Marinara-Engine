@@ -897,7 +897,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       throw new Error("The summary prompt and output reserve do not fit this model's context limit");
     let parts = inputs.filter(Boolean).flatMap((text) => {
       const pieces: string[] = [];
-      for (let offset = 0; offset < text.length; ) {
+      for (let offset = 0; offset < text.length;) {
         const piece = sliceTextToTokenBudget(text.slice(offset), inputBudget);
         pieces.push(piece);
         offset += piece.length;

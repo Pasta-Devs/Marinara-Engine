@@ -69,12 +69,7 @@ export interface SidecarSlotFootprint {
 }
 
 export type SidecarLoadVerdict =
-  | "unsupported"
-  | "not_enough_disk"
-  | "wont_fit"
-  | "wont_fit_beside_sidecar"
-  | "tight"
-  | "recommended";
+  "unsupported" | "not_enough_disk" | "wont_fit" | "wont_fit_beside_sidecar" | "tight" | "recommended";
 
 /** Headroom below which a fit is reported as tight rather than recommended. */
 export const SIDECAR_FOOTPRINT_HEADROOM_BYTES = 1_500_000_000;

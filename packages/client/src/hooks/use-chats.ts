@@ -216,14 +216,7 @@ export function applyRecentMessageContentEditsToData(
 }
 
 export type ExpungeScope =
-  | "chats"
-  | "characters"
-  | "personas"
-  | "lorebooks"
-  | "presets"
-  | "connections"
-  | "automation"
-  | "media";
+  "chats" | "characters" | "personas" | "lorebooks" | "presets" | "connections" | "automation" | "media";
 
 export interface ConversationSummaryBackfillResult {
   generatedDays: string[];

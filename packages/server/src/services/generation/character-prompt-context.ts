@@ -76,13 +76,7 @@ export function normalizeCharacterRpgStats(value: unknown): RPGStatsConfig | und
 }
 
 type CharacterFallbackFieldKey =
-  | "description"
-  | "personality"
-  | "scenario"
-  | "backstory"
-  | "appearance"
-  | "systemPrompt"
-  | "mesExample";
+  "description" | "personality" | "scenario" | "backstory" | "appearance" | "systemPrompt" | "mesExample";
 type PersonaFallbackFieldKey = "description" | "personality" | "backstory" | "appearance" | "scenario";
 
 const CHARACTER_FALLBACK_FIELDS: Array<{

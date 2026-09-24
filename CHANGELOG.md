@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Update static file serving with the latest security fix, refresh TypeScript and formatting tools, and update Android and CI build dependencies. CodeQL initialization and analysis now advance together so security checks continue to run (#6601).
+
 - Decision statements take two more modifiers: `every:3` asks a statement only every 3 turns (reading as no between checks, without taking a statement slot), and `priority:high` or `priority:low` decides which statements are asked first and dropped first when a turn has more than **Decision statements per turn** allows (#6599).
 
 - Decision statements that cannot affect a turn no longer use up **Decision statements per turn**. Only statements in enabled preset sections, selected preset variable options, lorebook entries that activate, and blocks not already ruled out are asked. Peek Prompt lists any statements the limit leaves out, and the preset guides now warn preset makers to be careful with decision blocks near the top of a preset, where a changing answer makes caching providers bill the whole prompt again (#6582).

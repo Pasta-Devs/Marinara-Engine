@@ -170,12 +170,7 @@ export const DECISION_AUTO_THINKING_FAILURES = 2;
 
 /** Why an entry in the Decision model dropdown cannot serve right now. */
 export type DecisionUnavailableReason =
-  | "no_model"
-  | "not_enabled"
-  | "not_installed"
-  | "unsupported_platform"
-  | "needs_relinking"
-  | "stopped";
+  "no_model" | "not_enabled" | "not_installed" | "unsupported_platform" | "needs_relinking" | "stopped";
 
 /** One row of the Decision model dropdown. Unavailable entries are shown, never hidden. */
 export interface DecisionModelOption {

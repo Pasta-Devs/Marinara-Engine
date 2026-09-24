@@ -310,8 +310,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
           ...(data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>),
           embeddedLorebook: {
             ...(((data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>)?.embeddedLorebook as
-              | Record<string, unknown>
-              | undefined) ?? {}),
+              Record<string, unknown> | undefined) ?? {}),
             hasEmbeddedLorebook: true,
             lorebookId: result.lorebookId as string,
           },

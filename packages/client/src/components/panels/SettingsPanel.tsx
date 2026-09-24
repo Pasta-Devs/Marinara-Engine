@@ -8230,12 +8230,7 @@ function AdvancedSettings() {
     channelSwitch?: boolean;
     updatesApplyEnabled?: boolean;
     applyUnavailableReason?:
-      | "disabled"
-      | "hard-disabled"
-      | "dev-branch"
-      | "unsupported-install"
-      | "container-install"
-      | null;
+      "disabled" | "hard-disabled" | "dev-branch" | "unsupported-install" | "container-install" | null;
     manualUpdateCommand?: string | null;
     manualUpdateHint?: string | null;
   }>({

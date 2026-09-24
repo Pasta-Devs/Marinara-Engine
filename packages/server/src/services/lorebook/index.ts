@@ -557,8 +557,7 @@ type LorebookResolutionPass = {
 };
 
 type BudgetedLorebookEntrySelection =
-  | { selected: true; entry: ActivatedEntry }
-  | { selected: false; skipped?: LorebookBudgetSkipCandidate };
+  { selected: true; entry: ActivatedEntry } | { selected: false; skipped?: LorebookBudgetSkipCandidate };
 
 function resolveLorebookResolutionPass(
   candidates: ActivatedEntry[],

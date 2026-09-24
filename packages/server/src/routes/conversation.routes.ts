@@ -106,8 +106,7 @@ type AutonomousIntentPayload = {
 };
 
 type AutonomousCandidateEvaluation =
-  | { ok: true; intent: AutonomousIntentPayload }
-  | { ok: false; reason: "daily_budget_exhausted" | "intent_cooldown" };
+  { ok: true; intent: AutonomousIntentPayload } | { ok: false; reason: "daily_budget_exhausted" | "intent_cooldown" };
 
 /**
  * Chats whose in-memory activity state has been seeded from the transcript

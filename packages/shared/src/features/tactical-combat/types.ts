@@ -288,7 +288,6 @@ export interface TacticalForecast {
 // ── Results ──
 
 export type ApplyActionResult =
-  | { ok: true; state: TacticalCombatState; events: TacticalEvent[] }
-  | { ok: false; error: string };
+  { ok: true; state: TacticalCombatState; events: TacticalEvent[] } | { ok: false; error: string };
 
 export type { Combatant } from "../../types/game.js";

@@ -9712,8 +9712,7 @@ function GameSurfaceComponent({
               weaknesses: (gc.weaknesses as string[]) || [],
               extra: (gc.extra as Record<string, string>) || {},
               rpgStats: gc.rpgStats as
-                | { attributes: Array<{ name: string; value: number }>; hp: { value: number; max: number } }
-                | undefined,
+                { attributes: Array<{ name: string; value: number }>; hp: { value: number; max: number } } | undefined,
             }
           : undefined,
       };

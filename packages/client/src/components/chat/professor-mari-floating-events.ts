@@ -3,8 +3,7 @@ export const PROFESSOR_MARI_FLOATING_HIDE_EVENT = "marinara:professor-mari-float
 export const PROFESSOR_MARI_FLOATING_STORAGE_KEY = "marinara:professor-mari-floating-enabled";
 
 export type ProfessorMariFloatingEventType =
-  | typeof PROFESSOR_MARI_FLOATING_SHOW_EVENT
-  | typeof PROFESSOR_MARI_FLOATING_HIDE_EVENT;
+  typeof PROFESSOR_MARI_FLOATING_SHOW_EVENT | typeof PROFESSOR_MARI_FLOATING_HIDE_EVENT;
 
 export function readProfessorMariFloatingEnabled() {
   try {

@@ -2039,8 +2039,7 @@ export function HomeBrowserHub({
     }
     const element = document.elementFromPoint(event.clientX, event.clientY);
     const widgetTarget = element?.closest<HTMLElement>("[data-home-widget-id]")?.dataset.homeWidgetId as
-      | HomeWidgetId
-      | undefined;
+      HomeWidgetId | undefined;
     if (widgetTarget) {
       moveDraggedWidget({ kind: "widget", id: widgetTarget });
       return;

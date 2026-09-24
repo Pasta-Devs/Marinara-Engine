@@ -160,18 +160,7 @@ export interface CharacterBook {
 }
 
 export type CharacterBookEntryPosition =
-  | "before_char"
-  | "after_char"
-  | "at_depth"
-  | "depth"
-  | 0
-  | 1
-  | 2
-  | 3
-  | 4
-  | 5
-  | 6
-  | 7;
+  "before_char" | "after_char" | "at_depth" | "depth" | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type CharacterBookEntryRole = "system" | "user" | "assistant" | 0 | 1 | 2;
 
 /** A single entry in a character book. */

@@ -56,8 +56,7 @@ function hasOwnKey(object: object, key: string): boolean {
 }
 
 export type TacticalBattlefieldBriefValidation =
-  | { ok: true; brief?: TacticalBattlefieldBrief }
-  | { ok: false; error: string };
+  { ok: true; brief?: TacticalBattlefieldBrief } | { ok: false; error: string };
 
 /**
  * Validates only the bounded structured brief. Board-specific checks happen
@@ -90,17 +89,15 @@ export function validateTacticalBattlefieldBrief(value: unknown): TacticalBattle
     if (!(typeof feature.terrain === "string" && hasOwnKey(TERRAIN_DATA, feature.terrain))) {
       return { ok: false, error: "Unknown battlefield terrain." };
     }
-    if (
-      !(
-        typeof feature.placement === "string" &&
-        FEATURE_PLACEMENTS.includes(feature.placement as (typeof FEATURE_PLACEMENTS)[number])
-      )
-    ) {
+    if (!(
+      typeof feature.placement === "string" &&
+      FEATURE_PLACEMENTS.includes(feature.placement as (typeof FEATURE_PLACEMENTS)[number])
+    )) {
       return { ok: false, error: "Unknown battlefield feature placement." };
     }
-    if (
-      !(typeof feature.shape === "string" && FEATURE_SHAPES.includes(feature.shape as (typeof FEATURE_SHAPES)[number]))
-    ) {
+    if (!(
+      typeof feature.shape === "string" && FEATURE_SHAPES.includes(feature.shape as (typeof FEATURE_SHAPES)[number])
+    )) {
       return { ok: false, error: "Unknown battlefield feature shape." };
     }
     if (feature.shape === "barrier" && !TERRAIN_DATA[feature.terrain as TacticalTerrain].impassable) {

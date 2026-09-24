@@ -90,8 +90,7 @@ interface Attachment {
 }
 
 type EmojiCompletion =
-  | ({ kind: "custom" } & ConversationCustomEmoji)
-  | ({ kind: "standard"; source: "Standard" } & StandardEmojiShortcode);
+  ({ kind: "custom" } & ConversationCustomEmoji) | ({ kind: "standard"; source: "Standard" } & StandardEmojiShortcode);
 
 const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "csv",

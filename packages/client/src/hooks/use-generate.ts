@@ -1930,8 +1930,7 @@ export function useGenerate() {
 
             case "spatial_transition_rejected": {
               const transitionData = event.data as
-                | { chatId?: string; commandId?: string; code?: string; message?: string }
-                | undefined;
+                { chatId?: string; commandId?: string; code?: string; message?: string } | undefined;
               if (transitionData?.chatId === params.chatId && transitionData.commandId) {
                 spatialCapabilityRefreshDispatched = true;
                 const pending = useChatStore.getState().pendingSpatialTransitions.get(params.chatId);

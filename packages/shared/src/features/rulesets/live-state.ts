@@ -536,8 +536,7 @@ export type RulesetSheetRefusal =
   | "malformed";
 
 export type RulesetSheetOpResult =
-  | { ok: true; live: RulesetLiveState; now: string }
-  | { ok: false; reason: RulesetSheetRefusal };
+  { ok: true; live: RulesetLiveState; now: string } | { ok: false; reason: RulesetSheetRefusal };
 
 /** The op names a tag may spell. `heal` is an alias the tag layer folds into `restore`, and `cast`
  *  one it folds into `use`. */
@@ -865,8 +864,7 @@ export function rulesetEntryNamed(
 }
 
 export type RulesetUsePlan =
-  | { ok: true; label: string; steps: RulesetUseStep[] }
-  | { ok: false; reason: RulesetSheetRefusal };
+  { ok: true; label: string; steps: RulesetUseStep[] } | { ok: false; reason: RulesetSheetRefusal };
 
 /** The column a Game Master sees a row of this list under: what the sheet block prints it as, then
  *  the name a row pool is keyed by, then the first text column the list has. */

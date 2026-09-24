@@ -923,8 +923,7 @@ export const ChatArea = memo(function ChatArea() {
     // generate. Prefer the live override/schedule-derived status (matching the presence pill, via
     // the shared resolver) over the generation-time snapshot, which only refreshes on generation.
     const chatStatuses = convoMeta.conversationCharacterStatuses as
-      | Record<string, { status?: string; activity?: string }>
-      | undefined;
+      Record<string, { status?: string; activity?: string }> | undefined;
     const presenceIds = new Set<string>([
       ...Object.keys(chatStatuses ?? {}),
       ...Object.keys((convoMeta.conversationStatusOverrides as Record<string, unknown> | undefined) ?? {}),

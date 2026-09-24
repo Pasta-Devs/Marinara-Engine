@@ -628,7 +628,7 @@ export function encodeShardKey(rawKey: string): string {
 export function decodeShardKey(encoded: string): string | null {
   if (!encoded || encoded.startsWith("%h")) return null;
   const bytes: number[] = [];
-  for (let i = 0; i < encoded.length; ) {
+  for (let i = 0; i < encoded.length;) {
     const char = encoded[i]!;
     if (char === "%") {
       const hex = encoded.slice(i + 1, i + 3);

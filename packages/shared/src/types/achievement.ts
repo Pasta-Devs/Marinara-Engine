@@ -17,12 +17,7 @@ export type AchievementIconKey =
 export type AchievementCategory = "community" | "collection" | "creation" | "milestone";
 
 export type AchievementMetric =
-  | "conversationChats"
-  | "roleplayChats"
-  | "gameChats"
-  | "characters"
-  | "lorebooks"
-  | "personas";
+  "conversationChats" | "roleplayChats" | "gameChats" | "characters" | "lorebooks" | "personas";
 
 export interface AchievementDefinition {
   id: string;

@@ -22,13 +22,7 @@ export type LorebookEntryPosition = 0 | 1 | 2 | 7;
 
 /** Why an entry was activated for the current generation. */
 export type LorebookActivationSource =
-  | "current_location"
-  | "keyword"
-  | "semantic"
-  | "constant"
-  | "sticky"
-  | "recursive"
-  | "decision";
+  "current_location" | "keyword" | "semantic" | "constant" | "sticky" | "recursive" | "decision";
 
 /**
  * How an entry's decision statement acts on activation (#6570). `require`: the entry

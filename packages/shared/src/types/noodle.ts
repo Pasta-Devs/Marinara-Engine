@@ -21,12 +21,7 @@ export type NoodleParticipantSelectionMode = "all" | "random_range" | "exact";
 export type NoodleIdentityDisclosure = "open" | "hinted" | "secret";
 export type NoodlerOnboardingState = "incomplete" | "zero" | "completed";
 export type NoodlerFanArchetype =
-  | "ordinary"
-  | "eccentric"
-  | "crossFandom"
-  | "raider"
-  | "organicDiscovery"
-  | "freeResource";
+  "ordinary" | "eccentric" | "crossFandom" | "raider" | "organicDiscovery" | "freeResource";
 
 export interface NoodlerSourceSnapshot {
   publicDisplayName: string;

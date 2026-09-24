@@ -1033,9 +1033,7 @@ function resolveReferenceImageBase64(input?: string): string | undefined {
 }
 
 export type FullBodyReferenceRole =
-  | { kind: "neutral-full-body" }
-  | { kind: "expression"; expression: string }
-  | { kind: "identity" };
+  { kind: "neutral-full-body" } | { kind: "expression"; expression: string } | { kind: "identity" };
 
 export function buildFullBodyReferenceContract(roles: FullBodyReferenceRole[]): string {
   if (roles.length === 0) return "";

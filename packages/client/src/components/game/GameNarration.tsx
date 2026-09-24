@@ -1050,13 +1050,11 @@ function formatSkillCheckLogContent(
     };
   });
   return [
-    ...diceRolls.map(
-      (roll, index): NarrationSegment => ({
-        id: `${message.id}-dice-roll-log-${index}`,
-        type: "system",
-        content: `🎲 ${roll.notation}: ${roll.rolls.join(" + ")}${roll.modifier ? ` ${roll.modifier > 0 ? "+" : "−"} ${Math.abs(roll.modifier)}` : ""} = ${roll.total}`,
-      }),
-    ),
+    ...diceRolls.map((roll, index): NarrationSegment => ({
+      id: `${message.id}-dice-roll-log-${index}`,
+      type: "system",
+      content: `🎲 ${roll.notation}: ${roll.rolls.join(" + ")}${roll.modifier ? ` ${roll.modifier > 0 ? "+" : "−"} ${Math.abs(roll.modifier)}` : ""} = ${roll.total}`,
+    })),
     ...checkSegments,
     ...formatGameDiceTurnNoticeSegments(message, localizeUi),
   ];

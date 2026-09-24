@@ -17,12 +17,7 @@ export interface NoulQuestion {
 /** The option a Choice question adds so a turn that fits none of the others can say so. */
 export const DECISION_CHOICE_NONE = "none of these";
 export type DecisionRequestError =
-  | "timeout"
-  | "cancelled"
-  | "network"
-  | "invalid_response"
-  | "partial_response"
-  | `http_${number}`;
+  "timeout" | "cancelled" | "network" | "invalid_response" | "partial_response" | `http_${number}`;
 
 export interface DecisionRequest {
   connection: DecisionConnection;

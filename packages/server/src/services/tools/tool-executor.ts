@@ -36,8 +36,7 @@ import {
 } from "@marinara-engine/shared";
 
 type ToolExecutionOutcome =
-  | { result: unknown; success: true; httpStatus?: never }
-  | { result: unknown; success: false; httpStatus?: number };
+  { result: unknown; success: true; httpStatus?: never } | { result: unknown; success: false; httpStatus?: number };
 export type { ToolArgumentsValidator };
 
 export interface ToolExecutionResult {
