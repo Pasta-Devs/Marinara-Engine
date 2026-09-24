@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { logger } from "../../lib/logger.js";
 import { logRateLimited } from "../../lib/log-rate-limit.js";
 import { registerWorkerGauge } from "../../lib/worker-gauges.js";
+import { tryConsumeBackgroundCall } from "../generation/background-call-budget.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import {
   clearGenerationInProgress,
@@ -201,6 +202,12 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
     const promptNow = toZonedWallClockDate(new Date(), promptTimeZone);
     const { intent, onCooldown, disabled } = resolveAvailableIntent(chatId, characterId, schedule, chatMeta, promptNow);
     if (onCooldown || disabled) {
+      clearGenerationInProgress(chatId, claimedAt);
+      return false;
+    }
+    // Background call cap (off by default): an unattended turn is refused locally once the hourly cap is spent.
+    // The budget logs the pause once; the chat is simply picked up again by a later poll.
+    if (!tryConsumeBackgroundCall(`autonomous:${chatId}`).allowed) {
       clearGenerationInProgress(chatId, claimedAt);
       return false;
     }

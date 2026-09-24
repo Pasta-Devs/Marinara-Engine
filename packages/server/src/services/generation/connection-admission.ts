@@ -1,6 +1,7 @@
 import type { ChatCompletionResult, ChatMessage, ChatOptions, LLMUsage } from "../llm/base-provider.js";
 import { BaseLLMProvider } from "../llm/base-provider.js";
 import { logger } from "../../lib/logger.js";
+import { tryConsumeBackgroundCall } from "./background-call-budget.js";
 
 // Admission keys identify one physical provider endpoint. Text work keys on the configured
 // connection id; image work keys on the resolved base URL plus the endpoint id where the
@@ -42,8 +43,17 @@ export function admissionModeForRequest(headers: Record<string, unknown>): Conne
 }
 
 export class BackgroundConnectionBusyError extends Error {
-  constructor(readonly connectionId: string) {
-    super(`Connection ${connectionId} is not available for background generation.`);
+  constructor(
+    readonly connectionId: string,
+    /** "budget": the Background call cap refused it (no request was sent); retry after retryAfterMs. */
+    readonly reason: "busy" | "budget" = "busy",
+    readonly retryAfterMs?: number,
+  ) {
+    super(
+      reason === "budget"
+        ? `No request was sent to the provider. Automatic model calls reached the hourly cap; retry in about ${Math.ceil((retryAfterMs ?? 60_000) / 60_000)} minutes.`
+        : `Connection ${connectionId} is not available for background generation.`,
+    );
     this.name = "BackgroundConnectionBusyError";
   }
 }
@@ -149,6 +159,12 @@ async function beginConnectionAttempt(
 
   const admission = tryBackgroundConnection(connectionId, new Date());
   if (!admission.acquired) throw new BackgroundConnectionBusyError(connectionId);
+  // Booked only once the connection is actually free, so busy refusals never spend the hourly cap.
+  const budget = tryConsumeBackgroundCall(`connection:${connectionId}`);
+  if (!budget.allowed) {
+    admission.release();
+    throw new BackgroundConnectionBusyError(connectionId, "budget", budget.retryAfterMs);
+  }
   try {
     return { release: admission.release, finalize: (await mode.beforeAttempt?.()) || undefined };
   } catch (error) {

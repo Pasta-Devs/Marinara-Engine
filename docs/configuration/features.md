@@ -64,7 +64,7 @@ Off: only rate limits are retried, as before.
 
 Setting keys: `backgroundCallCap` and `backgroundCallsPerHour` (**Calls per hour**, 1 to 100000, default 600). Environment variable: `MARINARA_BACKGROUND_CALLS_PER_HOUR`.
 
-On: automatic model calls that run without you (background agents and maintenance work) are limited per rolling hour. Once the hour is spent, they are refused locally, without sending a request, until the oldest call ages out. Replies you ask for never count and are never refused.
+On: automatic model calls that run without you are limited per rolling hour. They are the turns the server-side scheduler starts for autonomous messages, and any provider call made in background mode (automatic work that yields to your own requests). Once the hour is spent, they are refused locally, without sending a request, until the oldest call ages out. The server logs one warning when the cap is reached and one line when calls resume. Replies you ask for never count and are never refused.
 
 Off: no cap.
 
