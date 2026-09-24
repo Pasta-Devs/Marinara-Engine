@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, chmod } from "node:fs/promises";
+import { mkdir, readFile, writeFile, chmod, rename, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { APP_VERSION } from "@marinara-engine/shared";
@@ -218,8 +218,17 @@ async function refreshAuth(auth: CodexAuthJson, authFilePath: string): Promise<O
   auth.last_refresh = new Date().toISOString();
 
   await mkdir(dirname(authFilePath), { recursive: true });
-  await writeFile(authFilePath, `${JSON.stringify(auth, null, 2)}\n`, "utf8");
-  await chmod(authFilePath, 0o600).catch(() => {});
+  // Write a sibling temp file and rename it over auth.json so a crash mid-write can never leave a
+  // truncated file (and lose the rotated refresh token) for us or the Codex CLI to read.
+  const tmpPath = `${authFilePath}.${process.pid}.${Date.now()}.tmp`;
+  try {
+    await writeFile(tmpPath, `${JSON.stringify(auth, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+    await chmod(tmpPath, 0o600).catch(() => {});
+    await rename(tmpPath, authFilePath);
+  } catch (err) {
+    await unlink(tmpPath).catch(() => {});
+    throw err;
+  }
   logger.info("[openai-chatgpt] Refreshed local Codex ChatGPT auth token");
 
   return authFromJson(auth, authFilePath, true);

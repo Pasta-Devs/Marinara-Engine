@@ -207,7 +207,12 @@ export async function warmLorebookEntryEmbeddings(
   for (let index = 0; index < candidates.length; index++) {
     const vector = embeddings[index];
     if (!vector || vector.length === 0) continue;
-    await storage.updateEntryEmbedding(candidates[index]!.id, vector, embeddingSpaceId);
+    await storage.updateEntryEmbedding(
+      candidates[index]!.id,
+      vector,
+      embeddingSpaceId,
+      candidates[index]!.updatedAt,
+    );
     candidates[index]!.embedding = vector;
     candidates[index]!.embeddingSpaceId = embeddingSpaceId;
     embedded += 1;

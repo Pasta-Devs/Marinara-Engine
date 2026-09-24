@@ -81,76 +81,26 @@ export async function generateVideo(
 ): Promise<VideoGenerationResult> {
   // The request deadline begins when the queued task starts; queue wait time is
   // governed separately by the shared media-generation queue.
-  return runMediaGenerationRequest({
-    connectionKey: request.connectionKey ?? `${serviceHint || source}:${baseUrl}`,
-    queue: request.queue === true,
-    signal: request.signal,
-    task: () => generateVideoUnqueued(source, baseUrl, apiKey, serviceHint, request),
-  });
-}
-
-async function generateVideoUnqueued(
-  source: string,
-  baseUrl: string,
-  apiKey: string,
-  serviceHint: string,
-  request: VideoGenerationRequest,
-): Promise<VideoGenerationResult> {
-  const resolvedService =
-    normalizeVideoService(source) === "swarmui" || normalizeVideoService(source) === "nanogpt"
-      ? normalizeVideoService(source)
-      : normalizeVideoService(serviceHint || source);
-  const primaryRequest = { ...request, fallback: undefined };
+  // The fallback hop runs AFTER the primary's queued task returns, so the primary
+  // releases its media permit and connection turn first. Retrying from inside the
+  // task would park in the fallback connection's FIFO while holding a shared
+  // permit, which can deadlock with a request at the head of that FIFO.
+  let primaryStarted = false;
   try {
-    if (resolvedService === "gemini_omni") {
-      return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
-        generateGeminiOmniVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
-      );
-    }
-    if (resolvedService === "google_veo") {
-      return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
-        generateGoogleVeoVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
-      );
-    }
-    if (resolvedService === "xai") {
-      return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
-        generateXaiVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
-      );
-    }
-    if (resolvedService === "openrouter") {
-      return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
-        generateOpenRouterVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
-      );
-    }
-    if (resolvedService === "nanogpt") {
-      return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
-        generateNanoGptVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
-      );
-    }
-    if (resolvedService === "atlas") {
-      return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
-        generateAtlasCloudVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
-      );
-    }
-    if (resolvedService === "seedance") {
-      return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
-        generateSeedanceVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
-      );
-    }
-    if (resolvedService === "comfyui") {
-      return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
-        generateComfyUiVideo(baseUrl, { ...primaryRequest, signal }),
-      );
-    }
-    if (resolvedService === "swarmui") {
-      return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
-        generateSwarmUiVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
-      );
-    }
-    throw new Error(`Unsupported video generation service: ${resolvedService || serviceHint || source}`);
+    return await runMediaGenerationRequest({
+      connectionKey: request.connectionKey ?? `${serviceHint || source}:${baseUrl}`,
+      queue: request.queue === true,
+      signal: request.signal,
+      task: () => {
+        primaryStarted = true;
+        return generateVideoUnqueued(source, baseUrl, apiKey, serviceHint, request);
+      },
+    });
   } catch (error) {
     const fallback = request.fallback;
-    if (!fallback || request.signal?.aborted) throw error;
+    // Queue wait failures (timeout, abort) never reached the provider and keep
+    // their previous behaviour of not triggering a fallback.
+    if (!fallback || !primaryStarted || request.signal?.aborted) throw error;
     logger.warn(
       error,
       "[video-fallback] Primary video generation failed; retrying with connection %s (%s)",
@@ -178,6 +128,66 @@ async function generateVideoUnqueued(
       connectionKey: fallback.connectionId,
     });
   }
+}
+
+async function generateVideoUnqueued(
+  source: string,
+  baseUrl: string,
+  apiKey: string,
+  serviceHint: string,
+  request: VideoGenerationRequest,
+): Promise<VideoGenerationResult> {
+  const resolvedService =
+    normalizeVideoService(source) === "swarmui" || normalizeVideoService(source) === "nanogpt"
+      ? normalizeVideoService(source)
+      : normalizeVideoService(serviceHint || source);
+  const primaryRequest = { ...request, fallback: undefined };
+  if (resolvedService === "gemini_omni") {
+    return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
+      generateGeminiOmniVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
+    );
+  }
+  if (resolvedService === "google_veo") {
+    return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
+      generateGoogleVeoVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
+    );
+  }
+  if (resolvedService === "xai") {
+    return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
+      generateXaiVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
+    );
+  }
+  if (resolvedService === "openrouter") {
+    return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
+      generateOpenRouterVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
+    );
+  }
+  if (resolvedService === "nanogpt") {
+    return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
+      generateNanoGptVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
+    );
+  }
+  if (resolvedService === "atlas") {
+    return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
+      generateAtlasCloudVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
+    );
+  }
+  if (resolvedService === "seedance") {
+    return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
+      generateSeedanceVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
+    );
+  }
+  if (resolvedService === "comfyui") {
+    return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
+      generateComfyUiVideo(baseUrl, { ...primaryRequest, signal }),
+    );
+  }
+  if (resolvedService === "swarmui") {
+    return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
+      generateSwarmUiVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
+    );
+  }
+  throw new Error(`Unsupported video generation service: ${resolvedService || serviceHint || source}`);
 }
 
 export function resolveVideoReferencePublicUploadOptions(
@@ -774,7 +784,7 @@ async function generateGeminiOmniVideo(
       allowMdns: false,
       allowedProtocols: ["https:"],
     },
-    maxResponseBytes: MAX_VIDEO_RESPONSE_BYTES,
+    maxResponseBytes: MAX_VIDEO_JSON_RESPONSE_BYTES,
     decodeCompressedResponse: true,
   });
 
@@ -796,6 +806,7 @@ async function generateGeminiOmniVideo(
     throw new Error("Gemini Omni response did not include a video/mp4 payload");
   }
   const buffer = Buffer.from(stripDataUrl(video), "base64");
+  if (buffer.length > MAX_VIDEO_RESPONSE_BYTES) throw new Error("Gemini Omni video exceeds size limit");
   if (!isMp4Buffer(buffer)) throw new Error("Gemini Omni returned a non-MP4 video payload");
   return { base64: buffer.toString("base64"), mimeType: "video/mp4", ext: "mp4" };
 }

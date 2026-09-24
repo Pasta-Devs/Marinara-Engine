@@ -22,6 +22,11 @@ const SHORTCUT_TITLE = "Marinara Engine";
 // calls cannot block Fastify startup.
 const SPAWN_TIMEOUT_MS = 5_000;
 
+// Windows PowerShell 5.1 writes redirected stdout in the OEM code page, so a
+// non-ASCII install path (for example C:\Users\José) would come back garbled
+// and never match. Force UTF-8 output for the commands whose stdout we parse.
+const PS_UTF8_OUTPUT = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ";
+
 type ChildRunResult = {
   status: number | null;
   stdout: string;
@@ -37,17 +42,24 @@ function runChild(
   return new Promise((resolveResult) => {
     let settled = false;
     let timedOut = false;
-    let stdout = "";
-    let stderr = "";
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
     let timeout: NodeJS.Timeout | undefined;
     let killFallback: NodeJS.Timeout | undefined;
 
-    const finish = (result: ChildRunResult) => {
+    const finish = (status: number | null) => {
       if (settled) return;
       settled = true;
       if (timeout) clearTimeout(timeout);
       if (killFallback) clearTimeout(killFallback);
-      resolveResult(result);
+      // Decode once after collecting everything so multibyte sequences split
+      // across chunks are not corrupted.
+      resolveResult({
+        status,
+        stdout: Buffer.concat(stdoutChunks).toString("utf8"),
+        stderr: Buffer.concat(stderrChunks).toString("utf8"),
+        timedOut,
+      });
     };
 
     const child = spawn(command, args, {
@@ -59,29 +71,32 @@ function runChild(
       timedOut = true;
       child.kill();
       killFallback = setTimeout(() => {
-        finish({ status: null, stdout, stderr, timedOut });
+        finish(null);
       }, 1_000);
       killFallback.unref?.();
     }, options.timeoutMs ?? SPAWN_TIMEOUT_MS);
     timeout.unref?.();
 
     child.stdout?.on("data", (chunk: Buffer | string) => {
-      stdout += chunk.toString();
+      stdoutChunks.push(Buffer.from(chunk));
     });
     child.stderr?.on("data", (chunk: Buffer | string) => {
-      stderr += chunk.toString();
+      stderrChunks.push(Buffer.from(chunk));
     });
     child.on("error", () => {
-      finish({ status: null, stdout, stderr, timedOut });
+      finish(null);
     });
     child.on("close", (code) => {
-      finish({ status: timedOut ? null : code, stdout, stderr, timedOut });
+      finish(timedOut ? null : code);
     });
   });
 }
 
 async function readShortcutTarget(lnkPath: string): Promise<string | null> {
-  const cmd = "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:LNK); " + "Write-Output $s.TargetPath";
+  const cmd =
+    PS_UTF8_OUTPUT +
+    "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:LNK); " +
+    "Write-Output $s.TargetPath";
   const res = await runChild(
     "powershell.exe",
     ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", cmd],
@@ -122,7 +137,10 @@ async function rewriteShortcut(
 }
 
 async function readShortcutIconLocation(lnkPath: string): Promise<string | null> {
-  const cmd = "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:LNK); " + "Write-Output $s.IconLocation";
+  const cmd =
+    PS_UTF8_OUTPUT +
+    "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:LNK); " +
+    "Write-Output $s.IconLocation";
   const res = await runChild(
     "powershell.exe",
     ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", cmd],

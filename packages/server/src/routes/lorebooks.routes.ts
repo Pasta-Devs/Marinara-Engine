@@ -544,6 +544,16 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     }
 
     const zip = new AdmZip();
+    // adm-zip replaces an existing entry with the same name, so lorebooks that
+    // share a (sanitized) name need a unique suffix or all but one are dropped.
+    // Compared case-insensitively to also survive extraction on Windows/macOS.
+    const usedNames = new Set<string>();
+    const uniqueEntryName = (base: string, ext: string) => {
+      let candidate = `${base}${ext}`;
+      for (let n = 2; usedNames.has(candidate.toLowerCase()); n++) candidate = `${base} (${n})${ext}`;
+      usedNames.add(candidate.toLowerCase());
+      return candidate;
+    };
     let exportedCount = 0;
     for (const id of ids) {
       const lb = (await storage.getById(id)) as Record<string, unknown> | null;
@@ -552,7 +562,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       const folders = await storage.listFolders(id);
       if (format === "compatible") {
         zip.addFile(
-          `${toSafeExportName(String(lb.name || "lorebook"), `lorebook-${exportedCount + 1}`)}.json`,
+          uniqueEntryName(toSafeExportName(String(lb.name || "lorebook"), `lorebook-${exportedCount + 1}`), ".json"),
           Buffer.from(JSON.stringify(buildCompatibleLorebookExport(lb, entries), null, 2), "utf-8"),
         );
         exportedCount++;
@@ -565,7 +575,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
         data: { lorebook: lb, entries, folders },
       };
       zip.addFile(
-        `${toSafeExportName(String(lb.name || "lorebook"), `lorebook-${exportedCount + 1}`)}.marinara.json`,
+        uniqueEntryName(toSafeExportName(String(lb.name || "lorebook"), `lorebook-${exportedCount + 1}`), ".marinara.json"),
         Buffer.from(JSON.stringify(envelope, null, 2), "utf-8"),
       );
       exportedCount++;
@@ -726,6 +736,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     const targetEntries = (await storage.listEntries(targetLorebookId)) as LorebookEntry[];
     const maxTargetOrder = targetEntries.reduce((max, entry) => Math.max(max, entry.order ?? 0), 0);
     const created: LorebookEntry[] = [];
+    let sourceRemovalStarted = false;
     try {
       for (const [index, entry] of sourceEntries.entries()) {
         const transferred = (await storage.createEntry(
@@ -735,14 +746,20 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       }
 
       if (operation === "move") {
+        sourceRemovalStarted = true;
         for (const entry of sourceEntries) {
           await storage.removeEntry(entry.id);
         }
         await syncCharacterBookFromLorebook(app.db, req.params.id);
       }
     } catch (err) {
-      if (created.length > 0) {
+      if (!sourceRemovalStarted && created.length > 0) {
         await Promise.allSettled(created.map((entry) => storage.removeEntry(entry.id)));
+      } else if (sourceRemovalStarted) {
+        // Some sources may already be gone, so keep the copies (every entry then
+        // exists in at least one lorebook) and resync both sides.
+        await syncCharacterBookFromLorebook(app.db, req.params.id);
+        await syncCharacterBookFromLorebook(app.db, targetLorebookId);
       }
       throw err;
     }
@@ -1308,7 +1325,12 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       for (let j = 0; j < batchEntries.length; j++) {
         const entry = batchEntries[j] as Record<string, unknown>;
         if (embeddings[j]) {
-          await storage.updateEntryEmbedding(entry.id as string, embeddings[j]!, embeddingSpaceId);
+          await storage.updateEntryEmbedding(
+            entry.id as string,
+            embeddings[j]!,
+            embeddingSpaceId,
+            typeof entry.updatedAt === "string" ? entry.updatedAt : null,
+          );
           vectorized++;
         }
       }

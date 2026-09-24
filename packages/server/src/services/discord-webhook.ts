@@ -22,6 +22,7 @@ interface WebhookPayload {
 
 // ── Per-webhook rate-limit queue (Discord allows ~5 req/5s per webhook) ──
 const MIN_INTERVAL_MS = 1200; // ~50 req/min — safe headroom
+const MAX_RATE_LIMIT_ATTEMPTS = 3;
 const webhookQueues = new Map<string, { busy: boolean; queue: Array<() => Promise<void>> }>();
 
 function enqueue(webhookUrl: string, task: () => Promise<void>) {
@@ -81,23 +82,32 @@ export function postToDiscordWebhook(
     if (opts.username) body.username = opts.username.slice(0, 80);
     if (opts.avatarUrl) body.avatar_url = opts.avatarUrl;
 
-    try {
-      const res = await safeFetch(webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        maxResponseBytes: 128 * 1024,
-      });
+    for (let attempt = 1; attempt <= MAX_RATE_LIMIT_ATTEMPTS; attempt++) {
+      try {
+        const res = await safeFetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          maxResponseBytes: 128 * 1024,
+        });
 
-      // Respect Discord rate limit (429)
-      if (res.status === 429) {
-        const retryAfter = Number(res.headers.get("Retry-After") || "2") * 1000;
-        await sleep(retryAfter);
-      } else if (!res.ok) {
-        logger.error("[discord-webhook] POST failed (%d): %s", res.status, await res.text().catch(() => ""));
+        // Respect Discord rate limit (429), then re-send so the message is not lost
+        if (res.status === 429) {
+          const retryAfterSec = Number(res.headers.get("Retry-After"));
+          await sleep((Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec : 2) * 1000);
+          if (attempt === MAX_RATE_LIMIT_ATTEMPTS) {
+            logger.warn("[discord-webhook] Rate limited; message dropped after %d attempts", MAX_RATE_LIMIT_ATTEMPTS);
+          }
+          continue;
+        }
+        if (!res.ok) {
+          logger.error("[discord-webhook] POST failed (%d): %s", res.status, await res.text().catch(() => ""));
+        }
+        return;
+      } catch (err) {
+        logger.error(err, "[discord-webhook] Network error");
+        return;
       }
-    } catch (err) {
-      logger.error(err, "[discord-webhook] Network error");
     }
   });
 }

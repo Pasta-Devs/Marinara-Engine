@@ -299,19 +299,32 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
   }
 
   private async chatCompleteChain(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
+    // Like chat(): once the primary has streamed visible text through onToken, falling back would
+    // append a second reply to what the caller already received, so rethrow instead.
+    let emittedUsableOutput = false;
+    const primaryOptions = options.onToken
+      ? {
+          ...options,
+          onToken: async (chunk: string) => {
+            emittedUsableOutput ||= chunk.trim().length > 0;
+            await options.onToken?.(chunk);
+          },
+        }
+      : options;
     try {
       const result = await this.primary.chatComplete(
         prepareAssistantReasoningPrefillMessages(messages, this.primarySupportsAssistantReasoningPrefill),
-        options,
+        primaryOptions,
       );
       const hasUsableOutput = Boolean(result.content?.trim()) || result.toolCalls.length > 0;
-      if (hasUsableOutput || options.signal?.aborted) {
-        if (hasUsableOutput) this.onProviderUsed?.({ kind: "primary" });
+      if (hasUsableOutput || emittedUsableOutput || options.signal?.aborted) {
+        if (hasUsableOutput || emittedUsableOutput) this.onProviderUsed?.({ kind: "primary" });
         return result;
       }
       await this.logFallback(new Error("Primary provider returned an empty completion"));
     } catch (error) {
-      if (isAbortFailure(error, options.signal) || isConnectionAdmissionFailure(error)) throw error;
+      if (emittedUsableOutput || isAbortFailure(error, options.signal) || isConnectionAdmissionFailure(error))
+        throw error;
       await this.logFallback(error);
     }
     options.signal?.throwIfAborted();

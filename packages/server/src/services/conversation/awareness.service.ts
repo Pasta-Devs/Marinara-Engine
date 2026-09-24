@@ -8,7 +8,7 @@
 
 import type { WrapFormat } from "@marinara-engine/shared";
 
-import { eq } from "../../db/file-query.js";
+import { and, eq, gte } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { chats, messages } from "../../db/schema/index.js";
 import { wrapContent } from "../prompt/format-engine.js";
@@ -97,6 +97,7 @@ interface ChatRow {
   mode: string;
   personaId: string | null;
   personaCharacterId: string | null;
+  lastMessageAt?: string | null;
 }
 
 interface MessageRow {
@@ -211,6 +212,7 @@ export async function buildAwarenessBlock(
       mode: chats.mode,
       personaId: chats.personaId,
       personaCharacterId: chats.personaCharacterId,
+      lastMessageAt: chats.lastMessageAt,
     })
     .from(chats)
     .where(eq(chats.mode, "conversation"));
@@ -239,6 +241,13 @@ export async function buildAwarenessBlock(
     const timestamp = new Date(createdAt).getTime();
     return windows.some((window) => timestamp >= window.start.getTime() && timestamp <= window.end.getTime());
   };
+  // Every window ends at "now", so the earliest start bounds what can match. A sibling whose newest
+  // message is older than that is skipped without loading its chat unit, and the message read is
+  // bounded (with a minute of slack) so rows far outside the window are not projected and sorted.
+  const earliestWindowStart = Math.min(...windows.map((window) => window.start.getTime()));
+  const earliestCreatedAt = Number.isFinite(earliestWindowStart)
+    ? new Date(earliestWindowStart - 60_000).toISOString()
+    : null;
 
   // 3. Pull messages from sibling chats within the time windows
   const charStorage = createCharactersStorage(db);
@@ -251,6 +260,10 @@ export async function buildAwarenessBlock(
   >();
 
   for (const chat of siblingChats) {
+    if (chat.lastMessageAt) {
+      const lastMessageTime = Date.parse(chat.lastMessageAt);
+      if (Number.isFinite(lastMessageTime) && lastMessageTime < earliestWindowStart) continue;
+    }
     const charIds: string[] = JSON.parse(chat.characterIds);
     const memberNames = charIds.map((id) => characterNames.get(id) ?? "Unknown");
     const chatUserName = await resolveChatPersonaName(chat);
@@ -267,7 +280,11 @@ export async function buildAwarenessBlock(
         extra: messages.extra,
       })
       .from(messages)
-      .where(eq(messages.chatId, chat.id))
+      .where(
+        earliestCreatedAt
+          ? and(eq(messages.chatId, chat.id), gte(messages.createdAt, earliestCreatedAt))
+          : eq(messages.chatId, chat.id),
+      )
       .orderBy(messages.createdAt)) as MessageRow[];
     const filteredRows = rows.filter((row) => !isMessageHiddenFromAI(row) && isWithinRequestedWindow(row.createdAt));
 

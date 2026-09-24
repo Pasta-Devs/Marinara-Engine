@@ -58,7 +58,8 @@ export function createConnectionsStorage(db: DB) {
         .select()
         .from(apiConnections)
         .where(and(eq(apiConnections.isDefault, "true"), ne(apiConnections.profileImportReviewRequired, "true")));
-      return rows[0] ?? null;
+      // Only a language connection can serve as the chat default; ignore media rows left flagged by older data.
+      return rows.find((candidate) => defaultCategoryForProvider(candidate.provider) === "language") ?? null;
     },
 
     /** Get the language connection used after a main generation failure. */
@@ -231,7 +232,7 @@ export function createConnectionsStorage(db: DB) {
         model: input.model ?? "",
         imagePath: input.imagePath ?? null,
         maxContext: input.maxContext ?? 128000,
-        isDefault: String(input.provider !== "decision" && (input.isDefault ?? false)),
+        isDefault: String(providerCategory === "language" && (input.isDefault ?? false)),
         fallbackForMain: String(providerCategory === "language" && (input.fallbackForMain ?? false)),
         useForRandom: String(input.provider !== "decision" && (input.useForRandom ?? false)),
         defaultForAgents: String(input.defaultForAgents ?? false),
@@ -270,7 +271,7 @@ export function createConnectionsStorage(db: DB) {
       };
       await db.transaction(async (tx) => {
         // If this is set as default, unset others.
-        if (input.isDefault && input.provider !== "decision") {
+        if (providerCategory === "language" && input.isDefault) {
           await tx.update(apiConnections).set({ isDefault: "false" });
           values.fallbackForMain = "false";
         }
@@ -372,7 +373,7 @@ export function createConnectionsStorage(db: DB) {
       ) {
         updateFields.profileImportReviewRequired = "false";
       }
-      const shouldClearDefault = data.isDefault === true;
+      const shouldClearDefault = effectiveProviderCategory === "language" && data.isDefault === true;
       const shouldClearMainFallback = effectiveProviderCategory === "language" && data.fallbackForMain === true;
       const shouldClearAgentDefaults =
         data.defaultForAgents === true ||
@@ -402,13 +403,14 @@ export function createConnectionsStorage(db: DB) {
       if (data.imagePath !== undefined) updateFields.imagePath = data.imagePath;
       if (data.maxContext !== undefined) updateFields.maxContext = data.maxContext;
       if (data.isDefault !== undefined) {
-        updateFields.isDefault = String(data.isDefault);
+        updateFields.isDefault = String(effectiveProviderCategory === "language" && data.isDefault);
       }
       if (data.fallbackForMain !== undefined) {
         updateFields.fallbackForMain = String(effectiveProviderCategory === "language" && data.fallbackForMain);
       }
       if (data.provider !== undefined && effectiveProviderCategory !== "language") {
         updateFields.fallbackForMain = "false";
+        updateFields.isDefault = "false";
       }
       if (data.useForRandom !== undefined) {
         updateFields.useForRandom = String(data.useForRandom);

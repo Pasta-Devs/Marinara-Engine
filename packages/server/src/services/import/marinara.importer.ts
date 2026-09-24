@@ -511,28 +511,37 @@ async function importCharacter(data: unknown, db: DB) {
 
   const result = await storage.create(normalizedCharacterData, undefined, readTimestampOverrides(d), comment);
   if (result?.id) {
-    const avatar = await saveAvatarFromDataUrl(d.avatar, "character", result.id);
-    if (avatar) {
-      try {
+    let avatar: SavedAvatar | null = null;
+    try {
+      avatar = await saveAvatarFromDataUrl(d.avatar, "character", result.id);
+      if (avatar) {
         const updated = await storage.updateAvatar(result.id, avatar.avatarPath);
         if (!updated) await removeUnattachedAvatarFile({ filePath: avatar.filePath });
-      } catch (error) {
-        await removeUnattachedAvatarFile({ filePath: avatar.filePath });
-        throw error;
       }
+    } catch (err) {
+      if (avatar) await removeUnattachedAvatarFile({ filePath: avatar.filePath });
+      logger.warn(err, "Skipped optional character avatar restore for %s; character row is already imported", result.id);
     }
-    await restoreSprites(d.sprites, result.id);
-    const characterSheetImageId = await restoreCharacterGallery(d.gallery, result.id, galleryStorage);
-    if (characterSheetImageId) {
-      await storage.update(
-        result.id,
-        { extensions: { characterSheetImageId, useCharacterSheetAsReference } } as Partial<CharacterData>,
-        undefined,
-        {
-          skipVersionSnapshot: true,
-          mergeExtensions: true,
-        },
-      );
+    try {
+      await restoreSprites(d.sprites, result.id);
+    } catch (err) {
+      logger.warn(err, "Skipped optional character sprite restore for %s; character row is already imported", result.id);
+    }
+    try {
+      const characterSheetImageId = await restoreCharacterGallery(d.gallery, result.id, galleryStorage);
+      if (characterSheetImageId) {
+        await storage.update(
+          result.id,
+          { extensions: { characterSheetImageId, useCharacterSheetAsReference } } as Partial<CharacterData>,
+          undefined,
+          {
+            skipVersionSnapshot: true,
+            mergeExtensions: true,
+          },
+        );
+      }
+    } catch (err) {
+      logger.warn(err, "Skipped optional character gallery restore for %s; character row is already imported", result.id);
     }
   }
   return {
@@ -964,10 +973,12 @@ async function importPreset(data: unknown, db: DB) {
   }
 
   // Remap section/group order arrays
-  const oldSectionOrder = safeParseJson(p.sectionOrder, []) as string[];
-  const newSectionOrder = oldSectionOrder.map((sid) => sectionMap.get(sid)).filter(Boolean) as string[];
-  const oldGroupOrder = safeParseJson(p.groupOrder, []) as string[];
-  const newGroupOrder = oldGroupOrder.map((gid) => groupMap.get(gid)).filter(Boolean) as string[];
+  const parsedSectionOrder = safeParseJson<unknown>(p.sectionOrder, []);
+  const oldSectionOrder: unknown[] = Array.isArray(parsedSectionOrder) ? parsedSectionOrder : [];
+  const newSectionOrder = oldSectionOrder.map((sid) => sectionMap.get(String(sid))).filter(Boolean) as string[];
+  const parsedGroupOrder = safeParseJson<unknown>(p.groupOrder, []);
+  const oldGroupOrder: unknown[] = Array.isArray(parsedGroupOrder) ? parsedGroupOrder : [];
+  const newGroupOrder = oldGroupOrder.map((gid) => groupMap.get(String(gid))).filter(Boolean) as string[];
   const defaultChoices = safeParseJson<unknown>(p.defaultChoices, {});
   await storage.update(newPreset.id, {
     sectionOrder: newSectionOrder,

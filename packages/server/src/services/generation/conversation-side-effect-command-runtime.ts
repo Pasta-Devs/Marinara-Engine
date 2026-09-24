@@ -12,7 +12,12 @@ import {
 type CharactersStore = {
   getById(id: string): Promise<{ data: unknown } | null>;
   list(): Promise<Array<{ id: string; data: unknown }>>;
-  update(id: string, data: Record<string, unknown>): Promise<unknown>;
+  update(
+    id: string,
+    data: Record<string, unknown>,
+    avatarPath?: string,
+    options?: { skipVersionSnapshot?: boolean },
+  ): Promise<unknown>;
 };
 
 type ChatsStore = {
@@ -78,7 +83,7 @@ async function handleMemoryCommand(
   }
 
   const targetData = parseRecord(targetChar.data) ?? {};
-  const extensions = { ...(parseRecord(targetData.extensions) ?? {}) };
+  const extensions = parseRecord(targetData.extensions) ?? {};
   const memories = Array.isArray(extensions.characterMemories)
     ? ([...extensions.characterMemories] as CharacterMemory[])
     : [];
@@ -90,8 +95,11 @@ async function handleMemoryCommand(
     createdAt: new Date().toISOString(),
   });
 
-  extensions.characterMemories = memories;
-  await args.chars.update(targetChar.id, { extensions });
+  // Memories are runtime state: send only this key (other extension keys merge from the live row)
+  // and skip the version snapshot so AI memories do not bump the card version.
+  await args.chars.update(targetChar.id, { extensions: { characterMemories: memories } }, undefined, {
+    skipVersionSnapshot: true,
+  });
 
   const targetDisplayName =
     typeof targetData.name === "string" && targetData.name.trim() ? targetData.name : targetChar.id;

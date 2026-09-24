@@ -8,7 +8,7 @@
 // the prompt pipeline, command parsing, and tool execution.
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BaseLLMProvider, type ChatMessage, type ChatOptions, type LLMUsage } from "../base-provider.js";
@@ -42,9 +42,23 @@ const GROK_CLI_SYSTEM_PROMPT =
   "You are Marinara Engine's one-shot chat completion backend. Return exactly one assistant response for the transcript. Do not inspect files, run tools, ask clarifying questions, plan, or continue beyond the final answer.";
 const STALE_GROK_CLI_MODEL_IDS = new Set(["grok-build-latest", "grok-build-0.1"]);
 
-function getGrokScratchDir(): Promise<string> {
-  grokScratchDirPromise ??= mkdtemp(GROK_SCRATCH_PREFIX);
-  return grokScratchDirPromise;
+async function getGrokScratchDir(): Promise<string> {
+  if (grokScratchDirPromise) {
+    try {
+      const dir = await grokScratchDirPromise;
+      if ((await stat(dir)).isDirectory()) return dir;
+    } catch {
+      // The cached mkdtemp rejected, or OS temp cleanup pruned the directory
+      // during a long uptime; fall through and create a fresh one.
+    }
+    grokScratchDirPromise = null;
+  }
+  const created = mkdtemp(GROK_SCRATCH_PREFIX);
+  grokScratchDirPromise = created;
+  created.catch(() => {
+    if (grokScratchDirPromise === created) grokScratchDirPromise = null;
+  });
+  return created;
 }
 
 export interface GrokCliModel {
@@ -239,11 +253,15 @@ async function runGrokCliCommand(
   let requestTimer: NodeJS.Timeout | null = null;
   let killTimer: NodeJS.Timeout | null = null;
 
-  child.stdout?.on("data", (chunk: Buffer) => {
-    stdout += chunk.toString("utf8");
+  // setEncoding decodes through a StringDecoder, so a multibyte character
+  // split across two pipe reads is not turned into U+FFFD on both halves.
+  child.stdout?.setEncoding("utf8");
+  child.stderr?.setEncoding("utf8");
+  child.stdout?.on("data", (chunk: string) => {
+    stdout += chunk;
   });
-  child.stderr?.on("data", (chunk: Buffer) => {
-    stderr += chunk.toString("utf8");
+  child.stderr?.on("data", (chunk: string) => {
+    stderr += chunk;
   });
 
   const terminateChild = () => {
@@ -288,6 +306,14 @@ async function runGrokCliCommand(
     return { ...result, stdout, stderr };
   } catch (err) {
     if (err instanceof Error && /ENOENT/.test(err.message)) {
+      // A missing cwd also surfaces as "spawn grok ENOENT"; do not blame the install for it.
+      const scratchDirExists = await stat(grokScratchDir).then(
+        (info) => info.isDirectory(),
+        () => false,
+      );
+      if (!scratchDirExists) {
+        throw new Error("Grok CLI scratch directory went missing during the request. Retry the request.");
+      }
       throw new Error(
         "Grok CLI is not installed or not on PATH. Install it with `curl -fsSL https://x.ai/cli/install.sh | bash`, then run `grok login` as the same OS user that starts Marinara.",
       );

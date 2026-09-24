@@ -440,7 +440,7 @@ function parseScheduleResponse(content: string): Omit<WeekSchedule, "weekStart">
   const data = parseRepairedJson<{
     talkativeness?: number;
     inactivityThresholdMinutes?: number;
-    days?: Record<string, Array<{ time: string; activity: string; status?: string }>>;
+    days?: Record<string, unknown>;
   }>(content);
 
   const days: Record<string, DaySchedule> = {};

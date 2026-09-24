@@ -547,10 +547,15 @@ export async function resolveAgentPipelineAgents({
   }
 
   const resolvedTypes = new Set(resolvedAgents.map((agent) => agent.type));
+  // A built-in with its own config row was handled by the loop above, even when that
+  // loop skipped it (Local Model unavailable, or its connection deleted or unusable).
+  // Re-resolving it here would run it on the default or chat connection with default
+  // settings, which contradicts the skip warning. Matches retry-agents-route.
+  const configuredTypes = new Set(enabledConfigs.map((cfg) => cfg.type as string));
   const builtInFallbacks =
     chatEnableAgents && hasPerChatAgentList
       ? BUILT_IN_AGENTS.filter((agent) => {
-          if (resolvedTypes.has(agent.id)) return false;
+          if (resolvedTypes.has(agent.id) || configuredTypes.has(agent.id)) return false;
           if (deletedBuiltInTypes.has(agent.id)) return false;
           if (isBuiltInAgentHostManaged(agent.id)) return false;
           if (isBuiltInAgentRuntimeDisabled(agent.id)) return false;

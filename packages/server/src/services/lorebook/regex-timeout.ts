@@ -2,10 +2,14 @@
 //
 // The shared static check (isPatternSafe) catches the common ReDoS shapes before
 // compilation, but expert-crafted patterns can still pass that check and explode
-// on specific input. This wrapper runs the regex.test call inside a fresh V8 vm
+// on specific input. This wrapper runs the regex.test call inside a V8 vm
 // context with a hard timeout — the engine inserts interrupt checks during
 // regex execution, so catastrophic backtracking aborts instead of stalling the
-// event loop indefinitely.
+// event loop indefinitely. One context and precompiled scripts are reused for
+// every call: contexts share the isolate, so the timeout interrupt works the
+// same in a reused context, and a fresh context per call cost about a
+// millisecond each on the generation hot path. Calls are synchronous on one
+// thread, so they cannot interleave on the shared globals.
 //
 // On timeout: log a warning with the pattern source so the lorebook author can
 // see why an entry stopped activating, and return false. We deliberately do NOT
@@ -19,18 +23,29 @@ import { logger } from "../../lib/logger.js";
 /** Default per-call timeout for a single regex.test against chat context, in ms. */
 export const DEFAULT_REGEX_TIMEOUT_MS = 50;
 
+const sharedContext: Record<string, unknown> = vm.createContext(Object.create(null));
+const testScript = new vm.Script("(new RegExp(__pattern, __flags)).test(__text)");
+const replaceScript = new vm.Script("__text.replace(new RegExp(__pattern, __flags), '')");
+
+function runBounded(script: vm.Script, regex: RegExp, text: string, timeoutMs: number): unknown {
+  // Only strings cross into the context and a new RegExp is built per call, so
+  // no lastIndex or other state carries over between calls.
+  sharedContext.__pattern = regex.source;
+  sharedContext.__flags = regex.flags;
+  sharedContext.__text = text;
+  try {
+    return script.runInContext(sharedContext, { timeout: timeoutMs, displayErrors: false });
+  } finally {
+    // Do not retain large chat text between calls.
+    sharedContext.__text = "";
+  }
+}
+
 /** Build a regex executor that runs `regex.test(text)` under a vm timeout. */
 export function createTimeoutRegexExecutor(timeoutMs: number = DEFAULT_REGEX_TIMEOUT_MS) {
   return function vmRegexExecutor(regex: RegExp, text: string): boolean {
-    // The vm context only needs the regex + text; we recompile inside the vm so
-    // the interrupt check is wired through the new isolate's regex execution.
-    const context = vm.createContext({ __pattern: regex.source, __flags: regex.flags, __text: text });
     try {
-      const result = vm.runInContext("(new RegExp(__pattern, __flags)).test(__text)", context, {
-        timeout: timeoutMs,
-        displayErrors: false,
-      });
-      return Boolean(result);
+      return Boolean(runBounded(testScript, regex, text, timeoutMs));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // V8 surfaces timeouts as "Script execution timed out." — log warn and skip the entry.
@@ -60,12 +75,8 @@ export const vmRegexExecutor = createTimeoutRegexExecutor();
 /** Build a guard that proves `text.replace(regex, "")` returns within a vm timeout. */
 export function createTimeoutRegexReplaceGuard(timeoutMs: number = DEFAULT_REGEX_TIMEOUT_MS) {
   return function vmRegexReplaceGuard(regex: RegExp, text: string): boolean {
-    const context = vm.createContext({ __pattern: regex.source, __flags: regex.flags, __text: text });
     try {
-      vm.runInContext("__text.replace(new RegExp(__pattern, __flags), '')", context, {
-        timeout: timeoutMs,
-        displayErrors: false,
-      });
+      runBounded(replaceScript, regex, text, timeoutMs);
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

@@ -138,9 +138,46 @@ export function concludeAutonomousSweep(args: {
   return !args.inconclusive && !args.sawEligible ? args.generation : null;
 }
 
+/**
+ * Round-robin order for one sweep: start just after the chat the previous
+ * sweep dispatched last, so the concurrency cap does not keep handing both
+ * slots to the same chats at the top of the updatedAt-sorted list. A cursor
+ * that is no longer eligible falls back to the top of the list.
+ */
+export function orderAutonomousSweepCandidates<T extends { id: string }>(eligible: T[], cursorId: string | null): T[] {
+  const start = cursorId ? eligible.findIndex((chat) => chat.id === cursorId) + 1 : 0;
+  return [...eligible.slice(start), ...eligible.slice(0, start)];
+}
+
+/**
+ * Fire-time re-validation for a busy-delayed autonomous generation. The delay
+ * can be long (up to the configured dnd/idle minutes), so the state captured
+ * when the timer was armed may no longer hold. Returns the reason to abort, or
+ * null when generation may proceed.
+ */
+export function getDelayedAutonomousAbortReason(args: {
+  claimedAt: number | undefined;
+  state: { generationInProgressSince: number | null; lastUserMessageAt: number } | undefined;
+  chat: RawChat | null | undefined;
+}): string | null {
+  const { claimedAt, state, chat } = args;
+  if (claimedAt != null) {
+    // User or assistant activity released the claim, or someone re-took it.
+    if (state?.generationInProgressSince !== claimedAt) return "claim_released";
+    // The user spoke after the claim (replies that preserve the claim).
+    if (state.lastUserMessageAt > claimedAt) return "user_replied";
+  }
+  if (!chat || !shouldConsiderChat(chat)) return "chat_ineligible";
+  return null;
+}
+
 export function startServerAutonomousScheduler(app: FastifyInstance) {
   const chats = createChatsStorage(app.db);
   const runningChats = new Set<string>();
+  // Chats waiting on a busy-delay timer. Kept apart from runningChats so a
+  // pending delay does not hold one of the evaluation slots.
+  const delayedChats = new Set<string>();
+  let sweepCursorId: string | null = null;
   const failureBackoffByChat = new Map<string, AutonomousFailureBackoff>();
   let stopped = false;
   let polling = false;
@@ -269,7 +306,7 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
   };
 
   // Runs after a busy delay on a per-chat timer so the poll loop isn't blocked.
-  // Owns the runningChats slot until it finishes.
+  // Owns the chat's delayedChats entry until it finishes.
   const scheduleDelayedGeneration = (
     chatId: string,
     characterId: string,
@@ -290,7 +327,20 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
             clearGenerationInProgress(chatId, claimedAt);
             return;
           }
-          const generated = await generateAutonomousMessage(chatId, characterId, schedule, chatMeta, claimedAt);
+          // Re-validate against current state: the chat or the user may have
+          // moved on while the timer waited.
+          const currentChat = (await chats.getById(chatId)) as RawChat | null | undefined;
+          const abortReason = getDelayedAutonomousAbortReason({
+            claimedAt,
+            state: getActivityState(chatId),
+            chat: currentChat,
+          });
+          if (abortReason) {
+            clearGenerationInProgress(chatId, claimedAt);
+            return;
+          }
+          const currentMeta = currentChat ? parseMetadata(currentChat.metadata) : chatMeta;
+          const generated = await generateAutonomousMessage(chatId, characterId, schedule, currentMeta, claimedAt);
           if (generated) {
             logger.info("[autonomous-scheduler] Generated autonomous message for chat %s (after delay)", chatId);
           }
@@ -298,7 +348,7 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
           clearGenerationInProgress(chatId, claimedAt);
           logger.warn(err, "[autonomous-scheduler] Failed during delayed generation for chat %s", chatId);
         } finally {
-          runningChats.delete(chatId);
+          delayedChats.delete(chatId);
         }
       })();
     }, delayMs);
@@ -307,6 +357,7 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
 
   const evaluateChat = async (chat: RawChat) => {
     if (runningChats.has(chat.id)) return;
+    if (delayedChats.has(chat.id)) return;
     if (isChatOnFailureBackoff(chat.id)) return;
     const activeGenerations = (app as unknown as { activeGenerations?: Map<string, unknown> }).activeGenerations;
     if (activeGenerations?.has(chat.id)) return;
@@ -316,7 +367,6 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
 
     runningChats.add(chat.id);
     let generationStartedAt: number | undefined;
-    let handedOffToTimer = false;
     try {
       const checkResponse = await app.inject({
         method: "POST",
@@ -368,7 +418,7 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
         }
         const delayMs = getBusyDelay(status, schedule);
         if (delayMs > 0) {
-          handedOffToTimer = true;
+          delayedChats.add(chat.id);
           scheduleDelayedGeneration(chat.id, characterId, schedule, freshMeta, generationStartedAt, delayMs);
           return;
         }
@@ -389,7 +439,7 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
         chat.id,
       );
     } finally {
-      if (!handedOffToTimer) runningChats.delete(chat.id);
+      runningChats.delete(chat.id);
     }
   };
 
@@ -418,22 +468,23 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
         return;
       }
       const allChats = (await chats.list()) as RawChat[];
-      let sawEligible = false;
+      const eligible = allChats.filter(shouldConsiderChat);
+      const sawEligible = eligible.length > 0;
       let inconclusive = false;
-      for (const chat of allChats) {
+      for (const chat of orderAutonomousSweepCandidates(eligible, sweepCursorId)) {
         if (stopped) {
           inconclusive = true;
           break;
         }
         if (runningChats.size >= MAX_SERVER_AUTONOMOUS_CONCURRENT_EVALUATIONS) {
-          // The cap break fires BEFORE eligibility is evaluated, so this sweep
-          // proves nothing about the remaining chats.
+          // Chats after the cap break were not evaluated this sweep, so it
+          // proves nothing about them.
           inconclusive = true;
           break;
         }
-        if (!shouldConsiderChat(chat)) continue;
-        sawEligible = true;
+        if (runningChats.has(chat.id) || delayedChats.has(chat.id)) continue;
         void evaluateChat(chat);
+        sweepCursorId = chat.id;
       }
       // Only a sweep that evaluated EVERY chat may record the none-eligible
       // conclusion: delayed generations can finish through paths that never

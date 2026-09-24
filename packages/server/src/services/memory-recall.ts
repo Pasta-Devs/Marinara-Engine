@@ -224,15 +224,22 @@ async function pruneStaleNativeMemoryChunks(
 
   if (chunks.length === 0) return;
 
-  const messageTimes = currentMessages.map((message) => message.createdAt);
-  const messageTimeSet = new Set(messageTimes);
+  // currentMessages is sorted by createdAt, so a chunk's span size is the distance between the
+  // first index of its first anchor and the last index of its last anchor. Index lookups keep
+  // this pass O(chunks + messages) instead of rescanning every message for every chunk.
+  const firstIndexByTime = new Map<string, number>();
+  const lastIndexByTime = new Map<string, number>();
+  currentMessages.forEach((message, index) => {
+    if (!firstIndexByTime.has(message.createdAt)) firstIndexByTime.set(message.createdAt, index);
+    lastIndexByTime.set(message.createdAt, index);
+  });
   let invalidateFrom: string | null = null;
 
   for (const chunk of chunks) {
-    const hasAnchors = messageTimeSet.has(chunk.firstMessageAt) && messageTimeSet.has(chunk.lastMessageAt);
-    const spanMessageCount = hasAnchors
-      ? messageTimes.filter((createdAt) => createdAt >= chunk.firstMessageAt && createdAt <= chunk.lastMessageAt).length
-      : 0;
+    const start = firstIndexByTime.get(chunk.firstMessageAt);
+    const end = lastIndexByTime.get(chunk.lastMessageAt);
+    const hasAnchors = start !== undefined && end !== undefined;
+    const spanMessageCount = hasAnchors && end >= start ? end - start + 1 : 0;
 
     if (!hasAnchors || (chunk.messageCount > 0 && spanMessageCount !== chunk.messageCount)) {
       invalidateFrom = chunk.firstMessageAt;

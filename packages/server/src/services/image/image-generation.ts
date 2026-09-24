@@ -70,20 +70,21 @@ import { buildAtlasCloudImageRequest, runAtlasCloudPrediction } from "../media/a
 // (prepareNovelAiDirectorReferenceImages) hard-throws when sharp is unavailable.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SharpFn = any;
-let _sharp: SharpFn | null = null;
-let _sharpLoadAttempted = false;
-async function tryLoadSharp(): Promise<SharpFn | null> {
-  if (_sharp || _sharpLoadAttempted) return _sharp;
-  _sharpLoadAttempted = true;
-  try {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - optional native dep
-    const mod = await import("sharp");
-    _sharp = (mod.default ?? mod) as SharpFn;
-    return _sharp;
-  } catch {
-    return null;
-  }
+// Memoise the in-flight load so concurrent first callers all await the same import
+// instead of seeing a "load attempted" flag before sharp has actually resolved.
+let _sharpPromise: Promise<SharpFn | null> | null = null;
+function tryLoadSharp(): Promise<SharpFn | null> {
+  _sharpPromise ??= (async () => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore - optional native dep
+      const mod = await import("sharp");
+      return (mod.default ?? mod) as SharpFn;
+    } catch {
+      return null;
+    }
+  })();
+  return _sharpPromise;
 }
 
 async function resizeBase64ToExactSize(b64: string, width: number, height: number): Promise<string> {
@@ -3202,10 +3203,14 @@ function replaceComfyUiPlaceholders(value: unknown, replacements: Record<string,
     const exactReplacement = replacements[value];
     if (exactReplacement !== undefined) return exactReplacement;
 
-    return Object.entries(replacements).reduce(
-      (resolved, [placeholder, replacement]) => resolved.replaceAll(placeholder, String(replacement)),
-      value,
-    );
+    // Single pass with a callback: no "$" pattern expansion in the inserted text, and
+    // text that was already inserted is never scanned for further placeholders.
+    const keys = Object.keys(replacements)
+      .filter((key) => key.length > 0)
+      .sort((a, b) => b.length - a.length)
+      .map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    if (keys.length === 0) return value;
+    return value.replace(new RegExp(keys.join("|"), "g"), (match) => String(replacements[match]));
   }
 
   if (Array.isArray(value)) {
@@ -3358,59 +3363,110 @@ async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promi
   // Poll for completion. Default is longer than most image requests so slow/editing workflows can finish.
   const pollTimeoutMs = Math.max(1000, COMFYUI_GEN_TIMEOUT_SECONDS * 1000);
   const pollStartedAt = Date.now();
-  while (Date.now() - pollStartedAt < pollTimeoutMs) {
-    await sleepWithAbort(1000, request.signal);
+  // Set once ComfyUI reports the prompt as ended (outputs, failure or completion), so an
+  // error after that point does not try to cancel a prompt that is no longer queued.
+  let promptEnded = false;
+  try {
+    while (Date.now() - pollStartedAt < pollTimeoutMs) {
+      await sleepWithAbort(1000, request.signal);
 
-    const historyResp = await localImageBackendFetch(`${base}/history/${promptId}`, {
-      signal: imageRequestSignal(request),
-    });
-    if (!historyResp.ok) continue;
+      const historyResp = await localImageBackendFetch(`${base}/history/${promptId}`, {
+        signal: imageRequestSignal(request),
+      });
+      if (!historyResp.ok) continue;
 
-    const history = (await historyResp.json()) as Record<string, ComfyUiHistoryEntry>;
+      const history = (await historyResp.json()) as Record<string, ComfyUiHistoryEntry>;
 
-    const entry = history[promptId];
-    const statusError = getComfyUiStatusError(entry?.status);
-    if (statusError) throw new Error(`ComfyUI workflow failed: ${statusError}`);
-    if (!entry?.outputs) {
-      if (isComfyUiStatusComplete(entry?.status)) {
-        throw new Error("ComfyUI workflow completed without image outputs.");
+      const entry = history[promptId];
+      const statusError = getComfyUiStatusError(entry?.status);
+      if (statusError) {
+        promptEnded = true;
+        throw new Error(`ComfyUI workflow failed: ${statusError}`);
       }
-      continue;
-    }
+      if (!entry?.outputs) {
+        if (isComfyUiStatusComplete(entry?.status)) {
+          promptEnded = true;
+          throw new Error("ComfyUI workflow completed without image outputs.");
+        }
+        continue;
+      }
+      promptEnded = true;
 
-    // Video Helper Suite's Video Combine reports animated WebP files as "gifs".
-    for (const outputKey of COMFYUI_OUTPUT_FILE_KEYS) {
-      for (const nodeOutput of Object.values(entry.outputs)) {
-        const outputFiles = nodeOutput[outputKey];
-        if (outputFiles && outputFiles.length > 0) {
-          const img = outputFiles[0]!;
-          const params = new URLSearchParams({
-            filename: img.filename,
-            subfolder: img.subfolder || "",
-            type: img.type || "output",
-          });
+      // Video Helper Suite's Video Combine reports animated WebP files as "gifs".
+      for (const outputKey of COMFYUI_OUTPUT_FILE_KEYS) {
+        for (const nodeOutput of Object.values(entry.outputs)) {
+          const outputFiles = nodeOutput[outputKey];
+          if (outputFiles && outputFiles.length > 0) {
+            const img = outputFiles[0]!;
+            const params = new URLSearchParams({
+              filename: img.filename,
+              subfolder: img.subfolder || "",
+              type: img.type || "output",
+            });
 
-          const imgResp = await localImageBackendFetch(`${base}/view?${params}`, {
-            signal: imageRequestSignal(request),
-          });
-          if (!imgResp.ok) {
-            throw new Error(`ComfyUI image fetch failed (${imgResp.status})`);
+            const imgResp = await localImageBackendFetch(`${base}/view?${params}`, {
+              signal: imageRequestSignal(request),
+            });
+            if (!imgResp.ok) {
+              throw new Error(`ComfyUI image fetch failed (${imgResp.status})`);
+            }
+
+            const arrayBuffer = await imgResp.arrayBuffer();
+            const base64 = Buffer.from(arrayBuffer).toString("base64");
+            const { mimeType, ext } = imageResultMetadata(img.filename, imgResp.headers.get("content-type"), base64);
+            return { base64, mimeType, ext };
           }
-
-          const arrayBuffer = await imgResp.arrayBuffer();
-          const base64 = Buffer.from(arrayBuffer).toString("base64");
-          const { mimeType, ext } = imageResultMetadata(img.filename, imgResp.headers.get("content-type"), base64);
-          return { base64, mimeType, ext };
         }
       }
+
+      if (isComfyUiStatusComplete(entry.status)) {
+        throw new Error("ComfyUI workflow completed without image outputs.");
+      }
+      // Outputs are present but not final yet; the prompt may still be running.
+      promptEnded = false;
     }
 
-    if (isComfyUiStatusComplete(entry.status)) {
-      throw new Error("ComfyUI workflow completed without image outputs.");
-    }
+    throw new Error(`ComfyUI generation timed out after ${Math.round(pollTimeoutMs / 1000)} seconds`);
+  } catch (err) {
+    // Abort, deadline or lost connection: tell ComfyUI to drop the prompt so it does not
+    // keep holding the GPU after Marinara has given up on it. Best effort, not awaited.
+    if (!promptEnded) void cancelComfyUiPrompt(base, promptId);
+    throw err;
   }
+}
 
-  throw new Error(`ComfyUI generation timed out after ${Math.round(pollTimeoutMs / 1000)} seconds`);
+/**
+ * Best-effort cancel of a ComfyUI prompt that Marinara stopped waiting for. Interrupts it
+ * only when it is the one currently running (a bare /interrupt would stop whatever prompt
+ * is running, possibly another client's); otherwise removes it from the pending queue.
+ */
+export async function cancelComfyUiPrompt(base: string, promptId: string): Promise<void> {
+  try {
+    const queueResp = await localImageBackendFetch(`${base}/queue`, { signal: AbortSignal.timeout(5000) });
+    const queueJson = queueResp.ok
+      ? ((await queueResp.json().catch(() => null)) as { queue_running?: unknown } | null)
+      : null;
+    const running =
+      Array.isArray(queueJson?.queue_running) &&
+      queueJson.queue_running.some((item) => Array.isArray(item) && item[1] === promptId);
+    if (running) {
+      await localImageBackendFetch(`${base}/interrupt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt_id: promptId }),
+        signal: AbortSignal.timeout(5000),
+      });
+    } else {
+      await localImageBackendFetch(`${base}/queue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ delete: [promptId] }),
+        signal: AbortSignal.timeout(5000),
+      });
+    }
+  } catch (err) {
+    logger.warn(err, "[comfyui] Failed to cancel abandoned prompt %s", promptId);
+  }
 }
 
 // ── SwarmUI ──

@@ -271,7 +271,7 @@ async function expandCharacter(config: MarkerConfig, ctx: MarkerContext): Promis
     // Always wrap in a character-name parent tag
     const charBlock = charParts.filter(Boolean).join("\n");
     if (charBlock) {
-      parts.push(wrapContent(charBlock, data.name, ctx.wrapFormat, 1));
+      parts.push(wrapContent(charBlock, profile.name, ctx.wrapFormat, 1));
     }
   }
 
@@ -288,7 +288,9 @@ function macroContextForCharacterProfile(base: MacroContext, profile: CharacterM
   return {
     ...base,
     char: profile.name,
+    charPhonetic: profile.phoneticName || profile.name,
     characterFields: {
+      phoneticName: profile.phoneticName ?? "",
       description: profile.description,
       personality: profile.personality,
       backstory: profile.backstory,
@@ -303,7 +305,8 @@ function macroContextForCharacterProfile(base: MacroContext, profile: CharacterM
 
 function characterMacroProfileFromData(data: CharacterData): CharacterMacroProfile {
   return {
-    name: data.name ?? "Character",
+    name: data.name || "Character",
+    phoneticName: data.extensions?.phoneticName?.trim() ?? "",
     description: data.description ?? "",
     personality: data.personality ?? "",
     backstory: data.extensions?.backstory ?? "",
@@ -351,7 +354,7 @@ function getCharacterField(data: CharacterData, field: string): string {
 
 async function expandPersona(_config: MarkerConfig, ctx: MarkerContext): Promise<ExpandedMarker> {
   const parts: string[] = [];
-  const pName = ctx.personaName || "User";
+  const pName = ctx.personaName?.trim() || "User";
 
   const personaDescription = cardPromptText(ctx.personaDescription);
   const personaPersonality = cardPromptText(ctx.personaFields?.personality);

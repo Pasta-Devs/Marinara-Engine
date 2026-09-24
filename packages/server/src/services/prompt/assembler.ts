@@ -787,7 +787,11 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   }
 
   // ── Final: Drop any messages with empty/whitespace-only content ──
-  finalMessages = finalMessages.filter((m) => m.content?.trim());
+  // Keep empty messages that carry attachments or assistant reasoning metadata (same rule as mergeAdjacentMessages).
+  finalMessages = finalMessages.filter(
+    (m) =>
+      m.content?.trim() || m.images?.length || m.files?.length || (m.role === "assistant" && m.providerMetadata),
+  );
 
   return {
     messages: finalMessages,

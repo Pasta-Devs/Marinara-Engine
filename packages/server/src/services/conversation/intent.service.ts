@@ -94,7 +94,7 @@ export function resolveIntent(
 
   if (
     current?.status === "idle" &&
-    MEAL_KEYWORDS.some((keyword) => current.activity.toLowerCase().includes(keyword)) &&
+    MEAL_KEYWORDS.some((keyword) => (current.activity ?? "").toLowerCase().includes(keyword)) &&
     blockDurationMinutes(current) <= 90
   ) {
     return "meal_break";

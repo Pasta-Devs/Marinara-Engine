@@ -69,10 +69,20 @@ function ensureDir() {
   }
 }
 
-function readMeta(): MetaStore {
+function readMetaStrict(): MetaStore {
   if (!existsSync(META_FILE)) return {};
+  const parsed: unknown = JSON.parse(readFileSync(META_FILE, "utf-8"));
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("knowledge-sources meta.json is not an object");
+  }
+  return parsed as MetaStore;
+}
+
+// Read-only callers keep the soft fallback; writers must use readMetaStrict so
+// an unreadable meta.json is never overwritten with a view built from {}.
+function readMeta(): MetaStore {
   try {
-    return JSON.parse(readFileSync(META_FILE, "utf-8"));
+    return readMetaStrict();
   } catch {
     return {};
   }
@@ -100,7 +110,18 @@ async function writeMeta(mutator: MetaStoreUpdater) {
   // prior committed state — a pre-captured snapshot would let two overlapping
   // upload/delete calls each persist their own stale view (lost update / TOCTOU).
   const apply = async () => {
-    const next = await mutator(readMeta());
+    let current: MetaStore;
+    try {
+      current = readMetaStrict();
+    } catch (err) {
+      // Keep the corrupt file for recovery instead of silently replacing it
+      // (which would drop every previously uploaded source).
+      if (existsSync(META_FILE)) {
+        await rename(META_FILE, `${META_FILE}.corrupt-${Date.now()}`).catch(() => {});
+      }
+      throw err;
+    }
+    const next = await mutator(current);
     // Atomic write: a crash mid-write must not leave a truncated meta.json.
     const tmp = `${META_FILE}.tmp`;
     await writeFile(tmp, JSON.stringify(next, null, 2), "utf-8");
@@ -231,7 +252,20 @@ export async function knowledgeSourcesRoutes(app: FastifyInstance) {
     const filename = `${id}${ext}`;
     const filePath = join(SOURCES_DIR, filename);
 
-    await pipeline(data.file, createWriteStream(filePath));
+    try {
+      await pipeline(data.file, createWriteStream(filePath));
+    } catch (err) {
+      // Remove the partial file; the global error handler maps the multipart
+      // size-limit error (statusCode 413) to a 413 response.
+      await unlink(filePath).catch(() => {});
+      throw err;
+    }
+    // @fastify/multipart ends (rather than errors) the stream at the size limit
+    // and flags it as truncated; never keep a cut-off source.
+    if (data.file.truncated) {
+      await unlink(filePath).catch(() => {});
+      return reply.status(413).send({ error: "File too large" });
+    }
 
     const fileInfo = await stat(filePath);
     const entry: SourceMeta = {
@@ -241,10 +275,16 @@ export async function knowledgeSourcesRoutes(app: FastifyInstance) {
       size: fileInfo.size,
       uploadedAt: new Date().toISOString(),
     };
-    await writeMeta((current) => {
-      current[id] = entry;
-      return current;
-    });
+    try {
+      await writeMeta((current) => {
+        current[id] = entry;
+        return current;
+      });
+    } catch (err) {
+      // Without a meta entry the file is unreachable, so do not leave it behind.
+      await unlink(filePath).catch(() => {});
+      throw err;
+    }
     // No cache invalidation needed: each upload mints a fresh nanoid, so there is
     // never a prior extracted-text entry for this id. (Delete invalidates on removal.)
 

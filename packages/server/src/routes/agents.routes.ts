@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import { existsSync } from "fs";
-import { mkdir, readFile, writeFile } from "fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { extname, join } from "path";
 import {
   agentSuiteRewriteSchema,
@@ -30,15 +30,19 @@ import {
   setCustomAgentImportsEnabled,
 } from "../services/agents/custom-agent-import-policy.service.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
+import { agentConfigs } from "../db/schema/index.js";
+import { eq } from "../db/file-query.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { normalizeBeholderState } from "../services/agents/beholder-state.js";
+import { logger } from "../lib/logger.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
 import { z } from "zod";
 
 const AGENT_IMAGES_DIR = join(DATA_DIR, "agents", "images");
+const AGENT_IMAGE_URL_PREFIX = "/api/agents/images/file/";
 const IMPORT_UNSAFE_AGENT_SETTING_KEYS = new Set([
   "spotifyAccessToken",
   "spotifyRefreshToken",
@@ -205,6 +209,25 @@ export async function agentsRoutes(app: FastifyInstance) {
   const storage = createAgentsStorage(app.db);
   const chats = createChatsStorage(app.db);
   const connections = createConnectionsStorage(app.db);
+  /**
+   * Delete an uploaded agent image once no agent row points at it any more.
+   * Rows are read directly (not via storage.list) so soft-deleted built-ins and
+   * duplicated agents that share one imagePath still count as references.
+   */
+  const removeAgentImageIfUnreferenced = async (imagePath: string | null | undefined) => {
+    if (!imagePath?.startsWith(AGENT_IMAGE_URL_PREFIX)) return;
+    const filepath = getSafeAgentImagePath(imagePath.slice(AGENT_IMAGE_URL_PREFIX.length));
+    if (!filepath) return;
+    try {
+      const refs = await app.db.select().from(agentConfigs).where(eq(agentConfigs.imagePath, imagePath));
+      if (refs.length > 0) return;
+      await unlink(filepath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        logger.warn(error, "Could not remove unreferenced agent image %s", filepath);
+      }
+    }
+  };
   const getOrCreateConfigByType = async (agentType: string) => {
     const existing = await storage.getByType(agentType);
     if (existing) return existing;
@@ -494,20 +517,29 @@ export async function agentsRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "Agent is not configured" });
     }
     const data = updateAgentConfigSchema.parse(req.body);
-    return storage.update(config.id, data);
+    const updated = await storage.update(config.id, data);
+    if (updated && data.imagePath !== undefined && data.imagePath !== config.imagePath) {
+      await removeAgentImageIfUnreferenced(config.imagePath);
+    }
+    return updated;
   });
 
   app.patch<{ Params: { id: string } }>("/:id", async (req) => {
     const data = updateAgentConfigSchema.parse(req.body);
-    return storage.update(req.params.id, data);
+    const previous = data.imagePath !== undefined ? await storage.getById(req.params.id) : null;
+    const updated = await storage.update(req.params.id, data);
+    if (updated && previous && data.imagePath !== previous.imagePath) {
+      await removeAgentImageIfUnreferenced(previous.imagePath);
+    }
+    return updated;
   });
 
   app.post<{ Params: { id: string } }>("/:id/image", async (req, reply) => {
     const config = (await storage.getById(req.params.id)) ?? (await getOrCreateConfigByType(req.params.id));
     if (!config) return reply.status(404).send({ error: "Agent not found" });
 
-    const body = req.body as { image?: string };
-    if (!body.image) return reply.status(400).send({ error: "No image data provided" });
+    const body = (req.body ?? {}) as { image?: unknown };
+    if (typeof body.image !== "string" || !body.image) return reply.status(400).send({ error: "No image data provided" });
 
     const { buffer, hintedExt } = parseImageUpload(body.image);
     const imageInfo = isAllowedImageBuffer(buffer, `.${hintedExt}`);
@@ -521,8 +553,14 @@ export async function agentsRoutes(app: FastifyInstance) {
     const filepath = assertInsideDir(AGENT_IMAGES_DIR, join(AGENT_IMAGES_DIR, filename));
     await writeFile(filepath, buffer);
 
-    const updated = await storage.update(config.id, { imagePath: `/api/agents/images/file/${filename}` });
-    if (!updated) return reply.status(404).send({ error: "Agent not found" });
+    const previousImagePath = config.imagePath;
+    const nextImagePath = `${AGENT_IMAGE_URL_PREFIX}${filename}`;
+    const updated = await storage.update(config.id, { imagePath: nextImagePath });
+    if (!updated) {
+      await removeAgentImageIfUnreferenced(nextImagePath);
+      return reply.status(404).send({ error: "Agent not found" });
+    }
+    if (previousImagePath !== nextImagePath) await removeAgentImageIfUnreferenced(previousImagePath);
     return updated;
   });
 
@@ -537,6 +575,7 @@ export async function agentsRoutes(app: FastifyInstance) {
         await storage.softDeleteBuiltIn(builtInByType?.id ?? existingBuiltInType!);
       } else {
         await storage.remove(req.params.id);
+        await removeAgentImageIfUnreferenced(existing?.imagePath);
       }
       return reply.status(204).send();
     } catch (err) {

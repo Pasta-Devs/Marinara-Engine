@@ -141,8 +141,12 @@ export function createPromptsStorage(db: DB) {
     },
 
     async setDefault(id: string) {
-      // Clear all existing defaults, then set the one
-      await db.update(promptPresets).set({ isDefault: "false", updatedAt: now() });
+      // Clear the existing default(s), then set the one. Only touch rows that are
+      // currently default so untouched presets keep their updatedAt order.
+      await db
+        .update(promptPresets)
+        .set({ isDefault: "false", updatedAt: now() })
+        .where(eq(promptPresets.isDefault, "true"));
       await db.update(promptPresets).set({ isDefault: "true", updatedAt: now() }).where(eq(promptPresets.id, id));
       return this.getById(id);
     },

@@ -1077,6 +1077,10 @@ export function resolveBudgetAndRecursivelyActivateLorebookEntriesWithDiagnostic
     frontier = scanForActivatedEntries([{ role: "system", content: recursiveContent }], remaining, {
       ...scanOptions,
       pinnedScanMessages: [],
+      // Semantic matching scores the chat, not the recursive text, so leaving it
+      // on would add another vectorMaxResults batch at every depth.
+      chatEmbedding: null,
+      semanticEmbeddingsByLorebookId: new Map(),
       recursionPass: true,
     });
   }
@@ -1544,9 +1548,11 @@ export async function processLorebooks(
   // Nonconstant entries may still earn an independent ordinary activation.
   const locationBudgetSkippedIds = new Set(locationBudgetResult.skipped.map((entry) => entry.id));
   const scannableEntries = allEntries.filter((entry) => !entry.constant || !locationBudgetSkippedIds.has(entry.id));
-  const ordinaryActivatedEntries = forcedEntriesOnly
-    ? []
-    : scanForActivatedEntries(messages, scannableEntries, scanOpts);
+  // The recursive resolver scans the same messages and entries at depth 0, so
+  // scanning here as well would roll probability twice and could let two
+  // members of one inclusion group through. Only the non-recursive path needs it.
+  const ordinaryActivatedEntries =
+    forcedEntriesOnly || anyRecursive ? [] : scanForActivatedEntries(messages, scannableEntries, scanOpts);
   const initialActivatedEntries = mergeActivatedEntries(ordinaryActivatedEntries, locationBudgetResult.selected);
   const baseBudgetResult = anyRecursive
     ? resolveBudgetAndRecursivelyActivateLorebookEntriesWithDiagnostics(

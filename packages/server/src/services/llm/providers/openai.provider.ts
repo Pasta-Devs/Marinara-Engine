@@ -2564,6 +2564,8 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
     } finally {
       options.signal?.removeEventListener("abort", onAbortResponses);
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
     }
 
     if (streamUsage) return streamUsage;
@@ -2880,6 +2882,8 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
     } finally {
       options.signal?.removeEventListener("abort", onAbortCCR);
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
     }
     // Check if we got tool calls
     if (functionCalls.length > 0) {

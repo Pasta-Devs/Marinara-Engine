@@ -608,22 +608,26 @@ export class PersonalServerExtensionRuntime {
       }
     });
 
-    await this.send(active, {
-      type: "start",
-      id: extension.id,
-      name: extension.name,
-      contentHash: extension.contentHash,
-      source: extension.serverJs,
-      tokenEstimatorSource: getSerializedTextTokenEstimator(),
-    });
-    const timeout = new Promise<never>((_, reject) => {
-      const timer = setTimeout(
-        () => reject(new Error("Personal extension sandbox startup timed out")),
-        STARTUP_TIMEOUT_MS,
-      );
-      timer.unref?.();
-    });
+    // `startup` can reject (spawn error, early exit) before the race below
+    // attaches a handler; mark it handled so the process-wide
+    // unhandledRejection hook does not exit the server. The race still sees it.
+    startup.catch(() => undefined);
     try {
+      await this.send(active, {
+        type: "start",
+        id: extension.id,
+        name: extension.name,
+        contentHash: extension.contentHash,
+        source: extension.serverJs,
+        tokenEstimatorSource: getSerializedTextTokenEstimator(),
+      });
+      const timeout = new Promise<never>((_, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error("Personal extension sandbox startup timed out")),
+          STARTUP_TIMEOUT_MS,
+        );
+        timer.unref?.();
+      });
       await Promise.race([startup, timeout]);
       // The close-time drain can resolve the startup race from a child that
       // already exited (its `ready` was still sitting in the output file, and

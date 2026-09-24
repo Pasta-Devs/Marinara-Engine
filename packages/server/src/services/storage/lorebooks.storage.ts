@@ -1140,16 +1140,30 @@ export function createLorebooksStorage(db: DB) {
       return { updated: rows.length };
     },
 
-    /** Update just the embedding vector for an entry. */
-    async updateEntryEmbedding(id: string, embedding: number[] | null, embeddingSpaceId: string | null = null) {
+    /**
+     * Store an entry's embedding vector. Pass `expectedUpdatedAt` (the entry's
+     * updatedAt when the embedded text was read) so a vector computed from text
+     * that was edited meanwhile is dropped instead of stored. updatedAt is not
+     * bumped here: it is the optimistic-concurrency token for updateEntry's
+     * provenance check, and an embedding is derived data, not an edit.
+     */
+    async updateEntryEmbedding(
+      id: string,
+      embedding: number[] | null,
+      embeddingSpaceId: string | null = null,
+      expectedUpdatedAt?: string | null,
+    ) {
       await db
         .update(lorebookEntries)
         .set({
           embedding: embedding ? JSON.stringify(embedding) : null,
           embeddingSpaceId: embedding ? embeddingSpaceId : null,
-          updatedAt: now(),
         })
-        .where(eq(lorebookEntries.id, id));
+        .where(
+          expectedUpdatedAt
+            ? and(eq(lorebookEntries.id, id), eq(lorebookEntries.updatedAt, expectedUpdatedAt))
+            : eq(lorebookEntries.id, id),
+        );
     },
 
     /** Remove every stored embedding vector for entries in one lorebook. */

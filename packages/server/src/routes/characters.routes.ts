@@ -59,7 +59,7 @@ import {
   uploadConversationCallCharacterVideoClip,
 } from "../services/conversation/call-character-videos.service.js";
 import { removeSavedVideoFromDisk } from "../services/video/video-generation.js";
-import { writeFile, mkdir, readFile, readdir, stat, unlink } from "fs/promises";
+import { writeFile, mkdir, readFile, readdir, rename, stat, unlink } from "fs/promises";
 import { join } from "path";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { createWriteStream, existsSync, rmSync, unlinkSync } from "fs";
@@ -299,7 +299,42 @@ async function readGalleryVideoManifest(root: string, entityId: string): Promise
 async function writeGalleryVideoManifest(root: string, entityId: string, manifest: GalleryVideoManifest) {
   const dir = ensureGalleryVideoDir(root, entityId);
   await mkdir(dir, { recursive: true });
-  await writeFile(galleryVideoManifestPath(root, entityId), JSON.stringify(manifest, null, 2));
+  // Write to a temp file and rename it over the manifest so a crash mid-write
+  // cannot leave a torn file that the reader would turn into an empty list.
+  const manifestPath = galleryVideoManifestPath(root, entityId);
+  const tempPath = assertInsideDir(dir, join(dir, `manifest.json.${newId()}.tmp`));
+  try {
+    await writeFile(tempPath, JSON.stringify(manifest, null, 2));
+    await rename(tempPath, manifestPath);
+  } catch (error) {
+    await unlink(tempPath).catch(() => undefined);
+    throw error;
+  }
+}
+
+const galleryVideoManifestLocks = new Map<string, Promise<unknown>>();
+
+/** Serialize manifest read-modify-write cycles per (root, entity) so concurrent edits do not drop entries. */
+export function withGalleryVideoManifestLock<T>(root: string, entityId: string, fn: () => Promise<T>): Promise<T> {
+  const key = `${root}|${entityId}`;
+  const prev = galleryVideoManifestLocks.get(key) ?? Promise.resolve();
+  const next = prev.catch(() => undefined).then(fn);
+  const tail = next.catch(() => undefined);
+  galleryVideoManifestLocks.set(key, tail);
+  void tail.then(() => {
+    if (galleryVideoManifestLocks.get(key) === tail) galleryVideoManifestLocks.delete(key);
+  });
+  return next;
+}
+
+export function prependGalleryVideoEntry(root: string, entityId: string, entry: GalleryVideoEntry) {
+  return withGalleryVideoManifestLock(root, entityId, async () => {
+    const manifest = await readGalleryVideoManifest(root, entityId);
+    await writeGalleryVideoManifest(root, entityId, {
+      version: 1,
+      videos: [entry, ...manifest.videos.filter((video) => video.id !== entry.id)],
+    });
+  });
 }
 
 function toGalleryVideoClip(input: {
@@ -338,22 +373,32 @@ async function listGalleryVideoClips(root: string, entityId: string, entityKind:
   return manifest.videos.map((entry) => toGalleryVideoClip({ entry, entityId, entityKind }));
 }
 
-async function removeGalleryVideoClip(root: string, entityId: string, clipId: string) {
+/** Remove every uploaded gallery video (and the manifest) of a deleted character or persona. */
+export function removeGalleryVideoDir(root: string, entityId: string) {
+  return withGalleryVideoManifestLock(root, entityId, async () => {
+    const dir = ensureGalleryVideoDir(root, entityId);
+    if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+  });
+}
+
+export async function removeGalleryVideoClip(root: string, entityId: string, clipId: string) {
   const videoId = clipId.slice("uploaded:".length);
   if (!videoId || isUnsafePathSegment(videoId)) return false;
-  const manifest = await readGalleryVideoManifest(root, entityId);
-  const entry = manifest.videos.find((video) => video.id === videoId);
-  if (!entry) return false;
-  const dir = ensureGalleryVideoDir(root, entityId);
-  const filePath = assertInsideDir(dir, join(dir, entry.filename));
-  await unlink(filePath).catch((error: NodeJS.ErrnoException) => {
-    if (error.code !== "ENOENT") throw error;
+  return withGalleryVideoManifestLock(root, entityId, async () => {
+    const manifest = await readGalleryVideoManifest(root, entityId);
+    const entry = manifest.videos.find((video) => video.id === videoId);
+    if (!entry) return false;
+    const dir = ensureGalleryVideoDir(root, entityId);
+    const filePath = assertInsideDir(dir, join(dir, entry.filename));
+    await unlink(filePath).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== "ENOENT") throw error;
+    });
+    await writeGalleryVideoManifest(root, entityId, {
+      version: 1,
+      videos: manifest.videos.filter((video) => video.id !== videoId),
+    });
+    return true;
   });
-  await writeGalleryVideoManifest(root, entityId, {
-    version: 1,
-    videos: manifest.videos.filter((video) => video.id !== videoId),
-  });
-  return true;
 }
 
 function isUnsafePathSegment(value: string) {
@@ -1467,6 +1512,12 @@ export async function charactersRoutes(app: FastifyInstance) {
     if (!hasSharedLocalFile && existsSync(galleryDir)) {
       rmSync(galleryDir, { recursive: true, force: true });
     }
+    // Uploaded gallery videos are keyed only by this id and never shared.
+    try {
+      await removeGalleryVideoDir(CHARACTER_GALLERY_VIDEO_ROOT, id);
+    } catch (err) {
+      logger.error(err, "Failed to remove gallery videos for deleted character %s", id);
+    }
     return reply.status(204).send();
   });
 
@@ -1803,7 +1854,6 @@ export async function charactersRoutes(app: FastifyInstance) {
 
     const fields = data.fields as Record<string, unknown>;
     const timestamp = new Date().toISOString();
-    const manifest = await readGalleryVideoManifest(CHARACTER_GALLERY_VIDEO_ROOT, id);
     const entry: GalleryVideoEntry = {
       id: videoId,
       filename,
@@ -1816,10 +1866,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       createdAt: timestamp,
       updatedAt: timestamp,
     };
-    await writeGalleryVideoManifest(CHARACTER_GALLERY_VIDEO_ROOT, id, {
-      version: 1,
-      videos: [entry, ...manifest.videos],
-    });
+    await prependGalleryVideoEntry(CHARACTER_GALLERY_VIDEO_ROOT, id, entry);
     return toGalleryVideoClip({ entry, entityId: id, entityKind: "character" });
   });
 
@@ -1860,7 +1907,17 @@ export async function charactersRoutes(app: FastifyInstance) {
     const filename = `${newId()}${ext}`;
     const filePath = join(dir, filename);
 
-    await pipeline(data.file, createWriteStream(filePath));
+    try {
+      await pipeline(data.file, createWriteStream(filePath));
+    } catch (err) {
+      await unlink(filePath).catch(() => undefined);
+      throw err;
+    }
+    // req.file() does not reject over-limit files; the stream just ends early.
+    if (isMultipartFileTruncated(data)) {
+      await unlink(filePath).catch(() => undefined);
+      return reply.status(413).send({ error: "Gallery image upload is too large." });
+    }
 
     const fields = data.fields as Record<string, { value?: string } | undefined>;
     const prompt = fields?.prompt?.value ?? "";
@@ -1869,20 +1926,27 @@ export async function charactersRoutes(app: FastifyInstance) {
     const width = fields?.width?.value ? parseInt(fields.width.value, 10) : undefined;
     const height = fields?.height?.value ? parseInt(fields.height.value, 10) : undefined;
 
-    const image = await characterGallery.create({
-      characterId: id,
-      filePath: `characters/${id}/${filename}`,
-      prompt,
-      provider,
-      model,
-      width: Number.isFinite(width) ? width : undefined,
-      height: Number.isFinite(height) ? height : undefined,
-    });
+    try {
+      const image = await characterGallery.create({
+        characterId: id,
+        filePath: `characters/${id}/${filename}`,
+        prompt,
+        provider,
+        model,
+        width: Number.isFinite(width) ? width : undefined,
+        height: Number.isFinite(height) ? height : undefined,
+      });
 
-    return {
-      ...image,
-      url: `/api/characters/${id}/gallery/file/${encodeURIComponent(filename)}`,
-    };
+      return {
+        ...image,
+        url: `/api/characters/${id}/gallery/file/${encodeURIComponent(filename)}`,
+      };
+    } catch (err) {
+      // Roll back the just-written file so a metadata failure can't strand an orphan on disk.
+      await unlink(filePath).catch(() => undefined);
+      logger.error(err, "Failed to persist character gallery image for %s", id);
+      return reply.status(500).send({ error: "Failed to save image metadata" });
+    }
   });
 
   app.get<{ Params: { id: string; filename: string } }>("/:id/gallery/file/:filename", async (req, reply) => {
@@ -2057,18 +2121,9 @@ export async function charactersRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Character does not have an embedded lorebook" });
     }
 
-    const extensions =
-      charData.extensions && typeof charData.extensions === "object"
-        ? ({ ...(charData.extensions as Record<string, unknown>) } as Record<string, unknown>)
-        : {};
-    const importMetadata =
-      extensions.importMetadata && typeof extensions.importMetadata === "object"
-        ? ({ ...(extensions.importMetadata as Record<string, unknown>) } as Record<string, unknown>)
-        : {};
-    const embeddedLorebookMetadata =
-      importMetadata.embeddedLorebook && typeof importMetadata.embeddedLorebook === "object"
-        ? ({ ...(importMetadata.embeddedLorebook as Record<string, unknown>) } as Record<string, unknown>)
-        : {};
+    const embeddedLorebookMetadata = parseCharacterDataRecord(
+      parseCharacterDataRecord(parseCharacterDataRecord(charData.extensions).importMetadata).embeddedLorebook,
+    );
 
     const result = await importSTLorebook(
       {
@@ -2089,17 +2144,23 @@ export async function charactersRoutes(app: FastifyInstance) {
       return reply.status(500).send({ error: result?.error ?? "Failed to import embedded lorebook" });
     }
 
-    extensions.importMetadata = {
-      ...importMetadata,
-      embeddedLorebook: {
-        ...embeddedLorebookMetadata,
-        hasEmbeddedLorebook: true,
-        lorebookId: result.lorebookId,
-      },
-    };
-
-    await storage.update(req.params.id, {
-      extensions: extensions as any,
+    // The import can take a while; patch only the embedded-lorebook pointer on the
+    // live row, inside the character queue, so edits saved meanwhile are kept.
+    await enqueueUpdate(characterUpdateQueues, req.params.id, async () => {
+      const fresh = await storage.getById(req.params.id);
+      if (!fresh) return null;
+      return storage.update(
+        req.params.id,
+        {
+          extensions: {
+            importMetadata: {
+              embeddedLorebook: { hasEmbeddedLorebook: true, lorebookId: result.lorebookId },
+            },
+          },
+        } as unknown as Partial<CharacterData>,
+        undefined,
+        { mergeExtensions: true },
+      );
     });
 
     return {
@@ -2236,8 +2297,22 @@ export async function charactersRoutes(app: FastifyInstance) {
       pngBuffer = createMinimalPng();
     }
 
-    // Inject "chara" tEXt chunk into the PNG
-    const resultPng = injectTextChunk(pngBuffer, "chara", charaBase64);
+    // Inject "chara" tEXt chunk into the PNG. A malformed avatar PNG (truncated
+    // chunk) is re-encoded through sharp, or replaced by the minimal fallback.
+    let resultPng: Buffer;
+    try {
+      resultPng = injectTextChunk(pngBuffer, "chara", charaBase64);
+    } catch (err) {
+      logger.warn(err, "Avatar PNG is malformed; re-encoding for character card export");
+      let fallbackPng: Buffer;
+      try {
+        const sharp = (await import("sharp")).default;
+        fallbackPng = await sharp(pngBuffer).png().toBuffer();
+      } catch {
+        fallbackPng = createMinimalPng();
+      }
+      resultPng = injectTextChunk(fallbackPng, "chara", charaBase64);
+    }
 
     const safeName = encodeURIComponent(charData.name || "character");
     return reply
@@ -2579,6 +2654,12 @@ export async function charactersRoutes(app: FastifyInstance) {
     if (!hasSharedLocalFile && existsSync(galleryDir)) {
       rmSync(galleryDir, { recursive: true, force: true });
     }
+    // Uploaded gallery videos are keyed only by this id and never shared.
+    try {
+      await removeGalleryVideoDir(PERSONA_GALLERY_VIDEO_ROOT, id);
+    } catch (err) {
+      logger.error(err, "Failed to remove gallery videos for deleted persona %s", id);
+    }
     return reply.status(204).send();
   });
 
@@ -2859,7 +2940,6 @@ export async function charactersRoutes(app: FastifyInstance) {
 
     const fields = data.fields as Record<string, unknown>;
     const timestamp = new Date().toISOString();
-    const manifest = await readGalleryVideoManifest(PERSONA_GALLERY_VIDEO_ROOT, id);
     const entry: GalleryVideoEntry = {
       id: videoId,
       filename,
@@ -2872,10 +2952,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       createdAt: timestamp,
       updatedAt: timestamp,
     };
-    await writeGalleryVideoManifest(PERSONA_GALLERY_VIDEO_ROOT, id, {
-      version: 1,
-      videos: [entry, ...manifest.videos],
-    });
+    await prependGalleryVideoEntry(PERSONA_GALLERY_VIDEO_ROOT, id, entry);
     return toGalleryVideoClip({ entry, entityId: id, entityKind: "persona" });
   });
 
@@ -2975,7 +3052,17 @@ export async function charactersRoutes(app: FastifyInstance) {
     const filename = `${newId()}${ext}`;
     const filePath = join(dir, filename);
 
-    await pipeline(data.file, createWriteStream(filePath));
+    try {
+      await pipeline(data.file, createWriteStream(filePath));
+    } catch (err) {
+      await unlink(filePath).catch(() => undefined);
+      throw err;
+    }
+    // req.file() does not reject over-limit files; the stream just ends early.
+    if (isMultipartFileTruncated(data)) {
+      await unlink(filePath).catch(() => undefined);
+      return reply.status(413).send({ error: "Gallery image upload is too large." });
+    }
 
     const fields = data.fields as Record<string, { value?: string } | undefined>;
     const prompt = fields?.prompt?.value ?? "";
@@ -3182,9 +3269,11 @@ export async function charactersRoutes(app: FastifyInstance) {
     return storage.createGroup(input.name, input.description ?? "", input.characterIds ?? []);
   });
 
-  app.patch<{ Params: { id: string } }>("/groups/:id", async (req) => {
+  app.patch<{ Params: { id: string } }>("/groups/:id", async (req, reply) => {
     const input = updateGroupSchema.parse(req.body);
-    return storage.updateGroup(req.params.id, input);
+    const group = await storage.updateGroup(req.params.id, input);
+    if (!group) return reply.status(404).send({ error: "Group not found" });
+    return group;
   });
 
   app.delete<{ Params: { id: string } }>("/groups/:id", async (req, reply) => {
@@ -3209,9 +3298,11 @@ export async function charactersRoutes(app: FastifyInstance) {
     return storage.createPersonaGroup(input.name, input.description ?? "", input.personaIds ?? []);
   });
 
-  app.patch<{ Params: { id: string } }>("/persona-groups/:id", async (req) => {
+  app.patch<{ Params: { id: string } }>("/persona-groups/:id", async (req, reply) => {
     const input = updatePersonaGroupSchema.parse(req.body);
-    return storage.updatePersonaGroup(req.params.id, input);
+    const group = await storage.updatePersonaGroup(req.params.id, input);
+    if (!group) return reply.status(404).send({ error: "Persona group not found" });
+    return group;
   });
 
   app.delete<{ Params: { id: string } }>("/persona-groups/:id", async (req, reply) => {
@@ -3237,8 +3328,8 @@ export function createMinimalPng(): Buffer {
   ihdrData[12] = 0; // interlace
 
   // IDAT: deflate-compressed scanline (filter byte 0 + 4 zero bytes for transparent pixel)
-  // Pre-computed deflate of [0, 0, 0, 0, 0]
-  const idatData = Buffer.from([0x78, 0x01, 0x62, 0x60, 0x60, 0x60, 0x60, 0x00, 0x00, 0x00, 0x05, 0x00, 0x01]);
+  // Pre-computed zlib deflate of [0, 0, 0, 0, 0] (equals zlib.deflateSync(Buffer.alloc(5)))
+  const idatData = Buffer.from([0x78, 0x9c, 0x63, 0x60, 0x00, 0x02, 0x00, 0x00, 0x05, 0x00, 0x01]);
 
   const chunks: Buffer[] = [
     PNG_SIGNATURE,
@@ -3287,10 +3378,14 @@ export function injectTextChunk(png: Buffer, keyword: string, text: string): Buf
   let offset = 8;
   let inserted = false;
 
-  while (offset < png.length) {
+  // Bounded walk: a chunk header needs 12 bytes, and anything after IEND is dropped.
+  while (offset + 12 <= png.length) {
     const chunkLen = png.readUInt32BE(offset);
     const chunkType = png.subarray(offset + 4, offset + 8).toString("ascii");
     const totalChunkSize = 4 + 4 + chunkLen + 4; // length + type + data + crc
+    if (offset + totalChunkSize > png.length) {
+      throw new Error(`Truncated PNG chunk ${chunkType}`);
+    }
     const chunkBuf = png.subarray(offset, offset + totalChunkSize);
     const chunkData = png.subarray(offset + 8, offset + 8 + chunkLen);
     const embeddedKeyword = readPngTextKeyword(chunkType, chunkData);
@@ -3306,6 +3401,7 @@ export function injectTextChunk(png: Buffer, keyword: string, text: string): Buf
     }
     parts.push(chunkBuf);
     offset += totalChunkSize;
+    if (chunkType === "IEND") break;
   }
 
   // If no IDAT found (shouldn't happen), append before end

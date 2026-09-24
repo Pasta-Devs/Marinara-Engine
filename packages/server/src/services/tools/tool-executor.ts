@@ -1113,15 +1113,28 @@ async function spotifyGetPlaylists(
       return { error: `Spotify API error (${res.status}): ${body.slice(0, 200)}` };
     }
     const data = (await res.json()) as {
-      items?: Array<{ id: string; name: string; uri: string; tracks: { total: number }; description: string }>;
+      items?: Array<{
+        id?: string;
+        name?: string;
+        uri?: string;
+        // Spotify strips `tracks.total` for Development Mode apps and may name the field `items`.
+        tracks?: { total?: number } | null;
+        items?: { total?: number } | null;
+        description?: string | null;
+      } | null>;
     };
-    const playlists = (data.items ?? []).map((p) => ({
-      id: p.id,
-      name: p.name,
-      uri: p.uri,
-      trackCount: p.tracks.total,
-      description: (p.description || "").slice(0, 100),
-    }));
+    const playlists = (data.items ?? [])
+      .filter((p): p is NonNullable<typeof p> => !!p)
+      .map((p) => {
+        const total = p.tracks?.total ?? p.items?.total;
+        return {
+          id: p.id,
+          name: p.name,
+          uri: p.uri,
+          trackCount: typeof total === "number" ? total : null,
+          description: (p.description || "").slice(0, 100),
+        };
+      });
     return {
       playlists,
       count: playlists.length,

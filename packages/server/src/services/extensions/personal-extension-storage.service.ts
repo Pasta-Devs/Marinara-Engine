@@ -237,7 +237,10 @@ export function createPersonalExtensionsStorage(db: DB) {
       const existing = await getById(id);
       if (!existing) return null;
       if (existing.contentHash !== contentHash) {
-        throw new Error("Extension content changed before approval. Review the current code and try again.");
+        throw Object.assign(
+          new Error("Extension content changed before approval. Review the current code and try again."),
+          { statusCode: 409 },
+        );
       }
       await db
         .update(installedExtensions)
@@ -272,7 +275,7 @@ export function createPersonalExtensionsStorage(db: DB) {
       const existing = await getById(id);
       if (!existing) return null;
       const revision = existing.revisions.find((candidate) => candidate.contentHash === contentHash);
-      if (!revision) throw new Error("Extension revision not found");
+      if (!revision) throw Object.assign(new Error("Extension revision not found"), { statusCode: 404 });
       const nextRevisions = [
         revisionFrom(existing),
         ...existing.revisions.filter((candidate) => candidate.contentHash !== contentHash),

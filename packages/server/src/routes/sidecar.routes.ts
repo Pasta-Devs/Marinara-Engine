@@ -241,7 +241,21 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
     return { models };
   });
 
+  // The close handler below cancels process-wide downloads and installs, so only
+  // one setup stream may own that work at a time. The owner releases it when it
+  // finishes or disconnects (its disconnect already cancels the shared work).
+  let activeSetupStream: object | null = null;
+
   async function handleDownloadSse(reply: FastifyReply, task: () => Promise<void>): Promise<void> {
+    if (activeSetupStream) {
+      reply.status(409).send({ error: "Another sidecar download or runtime install is already in progress" });
+      return;
+    }
+    const streamOwner = {};
+    activeSetupStream = streamOwner;
+    const releaseSetupStream = () => {
+      if (activeSetupStream === streamOwner) activeSetupStream = null;
+    };
     reply.hijack();
     reply.raw.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -251,6 +265,7 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
 
     let completed = false;
     const cancelActiveWork = () => {
+      releaseSetupStream();
       if (completed) return;
       sidecarModelService.cancelDownload();
       mlxRuntimeService.cancelInstall();
@@ -298,6 +313,7 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
     } finally {
       sidecarModelService.removeProgressListener(listener);
       completed = true;
+      releaseSetupStream();
       if (!reply.raw.destroyed && !reply.raw.writableEnded) {
         try {
           reply.raw.end();

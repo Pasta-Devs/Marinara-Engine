@@ -355,7 +355,7 @@ export function scopeIndividualGroupMessagesForTarget(
 
       return next;
     })
-    .filter((message) => message.content.trim());
+    .filter((message) => message.content.trim() || message.images?.length || message.files?.length);
 
   reassignHistoryLastMessageWrapper(scoped);
   pruneEmptyPromptWrappers(scoped);

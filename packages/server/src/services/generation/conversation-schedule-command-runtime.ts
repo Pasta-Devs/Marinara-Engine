@@ -7,8 +7,10 @@ import { logger } from "../../lib/logger.js";
 import { getEnabledConversationSchedules } from "./conversation-context-utils.js";
 
 type ChatsStore = {
-  getById(id: string): Promise<{ metadata?: unknown } | null>;
-  updateMetadata(id: string, patch: Record<string, unknown>): Promise<unknown>;
+  patchMetadata(
+    id: string,
+    updater: (current: Record<string, unknown>) => Record<string, unknown> | Promise<Record<string, unknown>>,
+  ): Promise<unknown>;
 };
 
 type ScheduleBlock = {
@@ -34,22 +36,28 @@ export async function handleConversationScheduleCommand(args: {
   const command = args.command as ScheduleUpdateCommand;
   if (!args.characterId || (!command.status && !command.activity)) return true;
 
-  const freshChat = await args.chats.getById(args.chatId);
-  const freshMeta = parseRecord(freshChat?.metadata) ?? {};
-  const schedules = getEnabledConversationSchedules(freshMeta) as Record<string, WeekScheduleRecord>;
-  const schedule = schedules[args.characterId];
-  if (!schedule) return true;
+  const characterId = args.characterId;
+  // Read and write inside the per-chat metadata patch queue so a concurrent metadata patch
+  // is neither lost nor overwritten with a stale snapshot. The change is made on a deep clone
+  // so the queue's pre-updater snapshot is never mutated in place.
+  let applied = false;
+  await args.chats.patchMetadata(args.chatId, (current) => {
+    const schedules = structuredClone(getEnabledConversationSchedules(current)) as Record<string, WeekScheduleRecord>;
+    const schedule = schedules[characterId];
+    if (!schedule) return {};
 
-  const nowDate = new Date();
-  const dayName = DAYS_LIST[(nowDate.getDay() + 6) % 7]!;
-  const daySchedule = schedule.days?.[dayName] ?? [];
-  const currentMinutes = nowDate.getHours() * 60 + nowDate.getMinutes();
-  const updated = updateCurrentScheduleBlock(daySchedule, currentMinutes, command);
-  if (!updated) return true;
+    const nowDate = new Date();
+    const dayName = DAYS_LIST[(nowDate.getDay() + 6) % 7]!;
+    const daySchedule = schedule.days?.[dayName] ?? [];
+    const currentMinutes = nowDate.getHours() * 60 + nowDate.getMinutes();
+    if (!updateCurrentScheduleBlock(daySchedule, currentMinutes, command)) return {};
 
-  schedule.days = { ...(schedule.days ?? {}), [dayName]: daySchedule };
-  schedules[args.characterId] = schedule;
-  await args.chats.updateMetadata(args.chatId, { ...freshMeta, characterSchedules: schedules });
+    schedule.days = { ...(schedule.days ?? {}), [dayName]: daySchedule };
+    schedules[characterId] = schedule;
+    applied = true;
+    return { characterSchedules: schedules };
+  });
+  if (!applied) return true;
 
   args.sendUpdated({ characterId: args.characterId, status: command.status, activity: command.activity });
   logger.info(
@@ -98,19 +106,4 @@ function updateCurrentScheduleBlock(
     return true;
   }
   return false;
-}
-
-function parseRecord(value: unknown): Record<string, unknown> | null {
-  if (!value) return null;
-  if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-        ? (parsed as Record<string, unknown>)
-        : null;
-    } catch {
-      return null;
-    }
-  }
-  return typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }

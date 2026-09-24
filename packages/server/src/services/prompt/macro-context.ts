@@ -119,7 +119,7 @@ export function resolveMacrosForPreview(
   return resolveMacros(template, cloneMacroContextForPreview(macroCtx), options);
 }
 
-export function extractCharacterReferenceIds(sources: readonly string[]): string[] {
+export function extractCharacterReferenceIds(sources: readonly string[], excludeIds?: ReadonlySet<string>): string[] {
   const ids: string[] = [];
   const seen = new Set<string>();
   for (const source of sources) {
@@ -127,6 +127,7 @@ export function extractCharacterReferenceIds(sources: readonly string[]): string
       const id = match[1]!;
       if (seen.has(id)) continue;
       seen.add(id);
+      if (excludeIds?.has(id)) continue;
       ids.push(id);
       if (ids.length >= MAX_REFERENCED_CHARACTERS) return ids;
     }
@@ -428,7 +429,7 @@ export async function buildReferencedCharacterContext(input: {
     if (data) sources.push(...referencedCharacterSourceFields(data));
   }
 
-  const candidateIds = extractCharacterReferenceIds(sources)
+  const candidateIds = extractCharacterReferenceIds(sources, activeIds)
     .filter((id) => !activeIds.has(id))
     .slice(0, Math.max(0, input.maxReferences ?? MAX_REFERENCED_CHARACTERS));
   const referencedRows = await Promise.all(candidateIds.map((id) => characters.getById(id)));
@@ -836,7 +837,7 @@ export async function collectCharacterDepthPromptEntries(
     const content = resolveMacros(depthPrompt.prompt, {
       ...macroCtx,
       char: data?.name ?? macroCtx.char,
-      charPhonetic: data?.extensions?.phoneticName ?? macroCtx.charPhonetic,
+      charPhonetic: data?.extensions?.phoneticName?.trim() || data?.name || macroCtx.char,
       characterFields: {
         phoneticName: data?.extensions?.phoneticName ?? "",
         description: data?.description ?? "",
@@ -879,7 +880,7 @@ export async function collectCharacterPostHistoryEntries(
     const content = resolveMacros(raw, {
       ...macroCtx,
       char: data.name ?? macroCtx.char,
-      charPhonetic: data.extensions?.phoneticName ?? macroCtx.charPhonetic,
+      charPhonetic: data.extensions?.phoneticName?.trim() || data.name || macroCtx.char,
       characterFields: {
         phoneticName: data.extensions?.phoneticName ?? "",
         description: data.description ?? "",

@@ -98,8 +98,11 @@ export async function generateRunPodComfyUI(
   const negativePrompt = mergeNegativePrompt(defaults.negativePromptPrefix, request.negativePrompt);
 
   let wfStr = request.comfyWorkflow;
-  wfStr = wfStr.replace(/%prompt%/g, escapeJsonStr(prompt));
-  wfStr = wfStr.replace(/%negative_prompt%/g, escapeJsonStr(negativePrompt));
+  // Function replacements keep "$" sequences in the text from being read as replacement patterns.
+  const promptJson = escapeJsonStr(prompt);
+  const negativePromptJson = escapeJsonStr(negativePrompt);
+  wfStr = wfStr.replace(/%prompt%/g, () => promptJson);
+  wfStr = wfStr.replace(/%negative_prompt%/g, () => negativePromptJson);
   wfStr = wfStr.replace(/%width%/g, String(request.width ?? 512));
   wfStr = wfStr.replace(/%height%/g, String(request.height ?? 768));
   wfStr = wfStr.replace(/%seed%/g, String(resolvedSeed));
@@ -107,13 +110,16 @@ export async function generateRunPodComfyUI(
   wfStr = wfStr.replace(/%cfg%/g, String(defaults.cfgScale));
   wfStr = wfStr.replace(/%cfg_scale%/g, String(defaults.cfgScale));
   wfStr = wfStr.replace(/%scale%/g, String(defaults.cfgScale));
-  wfStr = wfStr.replace(/%sampler%/g, escapeJsonStr(defaults.sampler));
-  wfStr = wfStr.replace(/%scheduler%/g, escapeJsonStr(defaults.scheduler));
+  const samplerJson = escapeJsonStr(defaults.sampler);
+  const schedulerJson = escapeJsonStr(defaults.scheduler);
+  wfStr = wfStr.replace(/%sampler%/g, () => samplerJson);
+  wfStr = wfStr.replace(/%scheduler%/g, () => schedulerJson);
   wfStr = wfStr.replace(/%denoise%/g, String(defaults.denoisingStrength));
   wfStr = wfStr.replace(/%denoising_strength%/g, String(defaults.denoisingStrength));
   wfStr = wfStr.replace(/%clip_skip%/g, String(defaults.clipSkip ?? 0));
   if (request.model) {
-    wfStr = wfStr.replace(/%model%/g, escapeJsonStr(request.model));
+    const modelJson = escapeJsonStr(request.model);
+    wfStr = wfStr.replace(/%model%/g, () => modelJson);
   }
   const referenceImages = collectRunPodReferenceImages(request, defaults);
   for (let i = 0; i < referenceImages.length; i++) {
@@ -159,34 +165,56 @@ export async function generateRunPodComfyUI(
   }
 
   // ── Step 2: Poll for completion ──
-  for (let attempt = 0; attempt < RUNPOD_MAX_POLLS; attempt++) {
-    await runPodSleep(runPodPollIntervalMs(), request.signal);
+  // Any exit before RunPod reports a terminal state (abort, timeout, status error)
+  // sends a best-effort cancel so the serverless worker stops spending GPU time.
+  let terminal = false;
+  try {
+    for (let attempt = 0; attempt < RUNPOD_MAX_POLLS; attempt++) {
+      await runPodSleep(runPodPollIntervalMs(), request.signal);
 
-    const statusResp = await runPodFetch(buildRunPodUrl(baseUrl, endpointIdSegment, "status", jobId), request, {
-      method: "GET",
-      headers,
-      signal: runPodFetchSignal(request),
-    });
+      const statusResp = await runPodFetch(buildRunPodUrl(baseUrl, endpointIdSegment, "status", jobId), request, {
+        method: "GET",
+        headers,
+        signal: runPodFetchSignal(request),
+      });
 
-    if (!statusResp.ok) {
-      const errText = await statusResp.text().catch(() => "Unknown error");
-      throw new Error(`RunPod status check failed (${statusResp.status}): ${sanitizeRunPodError(errText)}`);
+      if (!statusResp.ok) {
+        const errText = await statusResp.text().catch(() => "Unknown error");
+        throw new Error(`RunPod status check failed (${statusResp.status}): ${sanitizeRunPodError(errText)}`);
+      }
+
+      const status = (await statusResp.json()) as RunPodStatusResponse;
+
+      switch (status.status) {
+        case "COMPLETED":
+          terminal = true;
+          return extractRunPodImage(status, endpointId);
+        case "FAILED":
+          terminal = true;
+          throw new Error(`RunPod generation failed: ${status.error || "Unknown error"}`);
+        case "CANCELLED":
+          terminal = true;
+          throw new Error("RunPod generation was cancelled");
+        // IN_QUEUE / IN_PROGRESS → keep polling
+      }
     }
 
-    const status = (await statusResp.json()) as RunPodStatusResponse;
-
-    switch (status.status) {
-      case "COMPLETED":
-        return extractRunPodImage(status, endpointId);
-      case "FAILED":
-        throw new Error(`RunPod generation failed: ${status.error || "Unknown error"}`);
-      case "CANCELLED":
-        throw new Error("RunPod generation was cancelled");
-      // IN_QUEUE / IN_PROGRESS → keep polling
+    throw new Error(`RunPod generation timed out after ${COMFYUI_GEN_TIMEOUT_SECONDS} seconds`);
+  } catch (error) {
+    if (!terminal) {
+      void runPodFetch(buildRunPodUrl(baseUrl, endpointIdSegment, "cancel", jobId), request, {
+        method: "POST",
+        headers,
+        // Independent of request.signal, which may already be aborted.
+        signal: AbortSignal.timeout(5_000),
+      })
+        .then((resp) => resp.body?.cancel())
+        .catch((cancelError) => {
+          logger.debug(cancelError, "RunPod cancel request for job %s failed", jobId);
+        });
     }
+    throw error;
   }
-
-  throw new Error(`RunPod generation timed out after ${COMFYUI_GEN_TIMEOUT_SECONDS} seconds`);
 }
 
 function collectRunPodReferenceImages(request: ImageGenRequest, defaults: ComfyUiDefaults): string[] {
@@ -446,12 +474,7 @@ function decodeDataUrl(dataUrl: string): ImageGenResult {
   return decoded;
 }
 
-/** Escape a string for safe insertion into a JSON string value (backslash + quote escaping). */
+/** Escape a string for safe insertion into a JSON string value (quotes, backslashes and every control character). */
 function escapeJsonStr(str: string): string {
-  return str
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, "\\n")
-    .replace(/\r/g, "\\r")
-    .replace(/\t/g, "\\t");
+  return JSON.stringify(str).slice(1, -1);
 }

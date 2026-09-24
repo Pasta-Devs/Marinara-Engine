@@ -8,6 +8,7 @@ import { join } from "path";
 import { MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY, PROFESSOR_MARI_ID, TTS_SETTINGS_KEY } from "@marinara-engine/shared";
 import { DATA_DIR } from "../utils/data-dir.js";
 import * as schema from "../db/schema/index.js";
+import { REGEX_DEFAULTS_SEEDED_KEY } from "../db/seed-regex.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import {
   ADMIN_RESTART_RATE_LIMIT,
@@ -292,6 +293,10 @@ export async function adminRoutes(app: FastifyInstance) {
       await runDelete("agent_configs", () => db.delete(schema.agentConfigs).run());
       await runDelete("custom_tools", () => db.delete(schema.customTools).run());
       await runDelete("regex_scripts", () => db.delete(schema.regexScripts).run());
+      // Clear the seed marker too, so the built-in scripts come back on the next start as on a fresh install.
+      await runDelete("regex_defaults_marker", () =>
+        db.delete(schema.appSettings).where(eq(schema.appSettings.key, REGEX_DEFAULTS_SEEDED_KEY)).run(),
+      );
       await runDelete("custom_themes", () => db.delete(schema.customThemes).run());
       await runDelete("library_folders:agents", () =>
         db.delete(schema.libraryFolders).where(eq(schema.libraryFolders.scope, "agents")).run(),
@@ -324,7 +329,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
   app.post<{ Body: { confirm: boolean; scopes?: ExpungeScope[] } }>("/expunge", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Admin data expunge" })) return;
-    const { confirm, scopes } = req.body as { confirm?: boolean; scopes?: unknown[] };
+    const { confirm, scopes } = (req.body ?? {}) as { confirm?: boolean; scopes?: unknown[] };
     if (!confirm) {
       return reply.status(400).send({ error: "Must send { confirm: true } to proceed" });
     }
@@ -336,7 +341,7 @@ export async function adminRoutes(app: FastifyInstance) {
   // Clear all data — compatibility wrapper around scoped expunge.
   app.post<{ Body: { confirm: boolean } }>("/clear-all", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Admin data clearing" })) return;
-    const { confirm } = req.body as { confirm?: boolean };
+    const { confirm } = (req.body ?? {}) as { confirm?: boolean };
     if (!confirm) {
       return reply.status(400).send({ error: "Must send { confirm: true } to proceed" });
     }

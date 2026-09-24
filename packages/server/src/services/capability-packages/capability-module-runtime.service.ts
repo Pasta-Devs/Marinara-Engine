@@ -171,6 +171,12 @@ class CapabilityModuleRuntime {
     // Without this, a package can derive DATA_DIR from its nested server.mjs
     // location and fail to see host-owned models and storage.
     prepareCapabilityRuntimeEnvironment();
+    // Snapshots belong to a single process; any found at boot were left behind by an unclean exit.
+    try {
+      await rm(join(DATA_DIR, "capability-runtime-snapshots"), { recursive: true, force: true });
+    } catch (error) {
+      logger.warn(error, "Could not remove stale capability runtime snapshots");
+    }
     await this.ensureModuleResolution();
     for (const runtimePackage of await capabilityPackageManager.runtimePackages()) {
       await this.activateOne(app, runtimePackage, true, false);
@@ -368,8 +374,12 @@ class CapabilityModuleRuntime {
         logger.warn("Rolling capability package %s back to %s", installed.id, previous.installed.version);
         await this.activateOne(app, previous, false, false);
         if (throwOnFailure) {
+          // The rollback activation swallows its own failure, so only a registered runtime proves it came back.
+          const restored = this.cleanups.has(installed.id);
           throw new Error(
-            `Could not activate ${installed.id}@${installed.version}; restored ${previous.installed.version}`,
+            restored
+              ? `Could not activate ${installed.id}@${installed.version}; restored ${previous.installed.version}`
+              : `Could not activate ${installed.id}@${installed.version}, and rolling back to ${previous.installed.version} also failed`,
             { cause: error },
           );
         }

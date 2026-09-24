@@ -63,8 +63,8 @@ export function bumpCharacterVersion(value: unknown): string {
   return `${prefix}${next}${suffix}`;
 }
 
-const COMPLETE_OUTPUT_END_RE = /[.!?…。！？]["'”’)\]}»›]*$/;
-const COMPLETE_SENTENCE_RE = /[.!?…。！？](?:["'”’)\]}»›]+)?(?=\s|$)/g;
+const COMPLETE_OUTPUT_END_RE = /[.!?…。！？]["'”’)\]}»›*_~`]*$/;
+const COMPLETE_SENTENCE_RE = /[.!?…。！？](?:["'”’)\]}»›*_~`]+)?(?=\s|$)/g;
 
 export function trimIncompleteModelEnding(content: string): string {
   const trailingWhitespace = content.match(/\s*$/)?.[0] ?? "";

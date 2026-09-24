@@ -227,10 +227,21 @@ export function clearUnusedRuntimeAgentSections(
 
 export const clearUnusedRuntimeAgentSectionsForTest = clearUnusedRuntimeAgentSections;
 
-export function pruneEmptyPromptWrappers(messages: Array<{ content: string }>): void {
+type PrunablePromptMessage = { content: string; contextKind?: string; images?: unknown[]; files?: unknown[] };
+
+export function pruneEmptyPromptWrappers(messages: PrunablePromptMessage[]): void {
   for (let i = messages.length - 1; i >= 0; i--) {
-    const content = messages[i]!.content.trim();
-    if (isEmptyPromptWrapper(content)) {
+    const message = messages[i]!;
+    const content = message.content.trim();
+    const hasAttachments = Boolean(message.images?.length || message.files?.length);
+    // Never drop attachment-bearing turns; real chat turns are only dropped when truly empty,
+    // never for being a single heading line.
+    const prune = hasAttachments
+      ? false
+      : message.contextKind === "history"
+        ? !content
+        : isEmptyPromptWrapper(content);
+    if (prune) {
       messages.splice(i, 1);
     } else if (content !== messages[i]!.content) {
       messages[i] = { ...messages[i]!, content };

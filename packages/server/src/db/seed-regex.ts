@@ -3,12 +3,28 @@
 // Ships built-in regex scripts for common text cleaning tasks.
 // ──────────────────────────────────────────────
 import type { DB } from "./connection.js";
-import { regexScripts } from "./schema/index.js";
+import { appSettings, regexScripts } from "./schema/index.js";
 import { now } from "../utils/id-generator.js";
 import { eq } from "./file-query.js";
 
 export const CLEAN_HTML_ID = "default-clean-html";
 const COLLAPSE_NEWLINES_ID = "default-collapse-newlines";
+
+/**
+ * app_settings key holding a JSON array of default regex script ids that were
+ * already seeded once. A default the user deletes stays deleted.
+ */
+export const REGEX_DEFAULTS_SEEDED_KEY = "regexDefaultsSeeded";
+
+function parseSeededIds(value: string | null | undefined): Set<string> {
+  if (!value) return new Set();
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return new Set(Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
 
 export const LEGACY_CLEAN_HTML_FIND_REGEX = String.raw`[ \t]?<(?!--)(?!\/?(?:font|lie|filter)\b)(?:"[^"]*"|'[^']*'|[^'">])*>`;
 
@@ -65,9 +81,30 @@ export async function seedDefaultRegexScripts(db: DB) {
     },
   ];
 
-  const toInsert = defaults.filter((d) => !existingIds.has(d.id));
+  const seededRows = await db.select().from(appSettings).where(eq(appSettings.key, REGEX_DEFAULTS_SEEDED_KEY));
+  const seededRow = seededRows[0];
+  const seededIds = parseSeededIds(seededRow?.value);
+  if (!seededRow && existing.length > 0) {
+    // Installs from before the seeded list existed re-seeded every start, so any
+    // default missing from a non-empty table was deleted by the user.
+    for (const d of defaults) seededIds.add(d.id);
+  }
+
+  const toInsert = defaults.filter((d) => !existingIds.has(d.id) && !seededIds.has(d.id));
   if (toInsert.length > 0) {
     await db.insert(regexScripts).values(toInsert);
+  }
+
+  const nextSeeded = [...new Set([...seededIds, ...defaults.map((d) => d.id)])];
+  if (!seededRow) {
+    await db
+      .insert(appSettings)
+      .values({ key: REGEX_DEFAULTS_SEEDED_KEY, value: JSON.stringify(nextSeeded), updatedAt: timestamp });
+  } else if (seededRow.value !== JSON.stringify(nextSeeded)) {
+    await db
+      .update(appSettings)
+      .set({ value: JSON.stringify(nextSeeded), updatedAt: timestamp })
+      .where(eq(appSettings.key, REGEX_DEFAULTS_SEEDED_KEY));
   }
 
   const legacyCleanHtml = existing.find(shouldMigrateCleanHtmlPattern);

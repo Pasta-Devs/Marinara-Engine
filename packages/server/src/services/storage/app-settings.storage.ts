@@ -17,12 +17,13 @@ export function createAppSettingsStorage(db: DB) {
 
     async set(key: string, value: string): Promise<void> {
       const timestamp = now();
-      const existing = await db.select().from(appSettings).where(eq(appSettings.key, key));
-      if (existing.length > 0) {
-        await db.update(appSettings).set({ value, updatedAt: timestamp }).where(eq(appSettings.key, key));
-      } else {
-        await db.insert(appSettings).values({ key, value, updatedAt: timestamp });
-      }
+      // Single atomic upsert: a select-then-insert lets two concurrent first
+      // writes of the same key both take the insert branch while a write turn
+      // is pending, and the second one then fails the primary-key check.
+      await db
+        .insert(appSettings)
+        .values({ key, value, updatedAt: timestamp })
+        .onConflictDoUpdate({ target: appSettings.key, set: { value, updatedAt: timestamp } });
       // Feature switches are read from an in-memory copy on hot paths; refresh it on every write.
       if (key === FEATURE_SETTINGS_KEY) applyFeatureSettingsValue(value);
     },

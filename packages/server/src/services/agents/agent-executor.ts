@@ -2355,8 +2355,24 @@ interface LocalMusicTrack {
   tags: string;
 }
 
+const EXTERNAL_MUSIC_CACHE_TTL_MS = 60_000;
+const EXTERNAL_MUSIC_MAX_DEPTH = 8;
+const EXTERNAL_MUSIC_MAX_DIRS = 2000;
+const externalMusicTrackCache = new Map<string, { at: number; tracks: LocalMusicTrack[] }>();
+
+function getCachedExternalLocalMusicTracks(root: string): LocalMusicTrack[] {
+  const now = Date.now();
+  const hit = externalMusicTrackCache.get(root);
+  if (hit && now - hit.at < EXTERNAL_MUSIC_CACHE_TTL_MS) return hit.tracks;
+  const tracks = collectExternalLocalMusicTracks(root);
+  if (externalMusicTrackCache.size >= 32) externalMusicTrackCache.clear();
+  externalMusicTrackCache.set(root, { at: now, tracks });
+  return tracks;
+}
+
 function collectExternalLocalMusicTracks(root: string, maxTracks = 120): LocalMusicTrack[] {
   const tracks: LocalMusicTrack[] = [];
+  let dirsVisited = 0;
   if (!existsSync(root)) return tracks;
   try {
     if (!statSync(root).isDirectory()) return tracks;
@@ -2365,8 +2381,9 @@ function collectExternalLocalMusicTracks(root: string, maxTracks = 120): LocalMu
     return tracks;
   }
 
-  const walk = (dir: string) => {
-    if (tracks.length >= maxTracks) return;
+  const walk = (dir: string, depth: number) => {
+    if (tracks.length >= maxTracks || depth > EXTERNAL_MUSIC_MAX_DEPTH) return;
+    if (++dirsVisited > EXTERNAL_MUSIC_MAX_DIRS) return;
     let entries: Dirent[];
     try {
       entries = readdirSync(dir, { withFileTypes: true });
@@ -2380,7 +2397,7 @@ function collectExternalLocalMusicTracks(root: string, maxTracks = 120): LocalMu
       const entryPath = join(dir, entry.name);
       if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) {
-        walk(entryPath);
+        walk(entryPath, depth + 1);
         continue;
       }
       if (!entry.isFile() || !LOCAL_MUSIC_AUDIO_EXTENSIONS.has(extname(entry.name).toLowerCase())) continue;
@@ -2393,7 +2410,7 @@ function collectExternalLocalMusicTracks(root: string, maxTracks = 120): LocalMu
     }
   };
 
-  walk(root);
+  walk(root, 0);
   return tracks;
 }
 
@@ -2425,7 +2442,7 @@ function buildGameAssetsLocalMusicBlock(settings: Record<string, unknown>): stri
 function buildExternalLocalMusicBlock(settings: Record<string, unknown>): string {
   const folder = normalizeExternalMusicFolder(settings.customMusicExternalFolder ?? settings.localMusicExternalFolder);
   const parts = [`<available_local_music source="folder" folder="${escapeXml(folder ?? "")}">`];
-  const tracks = folder ? collectExternalLocalMusicTracks(folder) : [];
+  const tracks = folder ? getCachedExternalLocalMusicTracks(folder) : [];
 
   if (tracks.length === 0) {
     parts.push(`No tracks found in the selected custom music folder. Return action "none".`);
@@ -3290,7 +3307,7 @@ function buildAgentExtras(
     parts.push(`</previous_extractions>`);
   }
 
-  if (context.memory._connectedDevices) {
+  if (agentTypes.includes("haptic") && context.memory._connectedDevices) {
     const devices = context.memory._connectedDevices as Array<{
       name: string;
       type?: string;
@@ -3306,14 +3323,23 @@ function buildAgentExtras(
     parts.push(`</connected_devices>`);
   }
 
-  if (typeof context.memory._hapticSettings === "string") {
+  if (agentTypes.includes("haptic") && typeof context.memory._hapticSettings === "string") {
     parts.push(`<haptic_settings>`);
     parts.push(context.memory._hapticSettings);
     parts.push(`</haptic_settings>`);
   }
 
-  if (context.memory._lastCyoaChoices) {
-    const lastChoices = context.memory._lastCyoaChoices as Array<{ label: string; text: string }>;
+  const rawLastCyoaChoices = agentTypes.includes("cyoa") ? context.memory._lastCyoaChoices : undefined;
+  const lastChoices = Array.isArray(rawLastCyoaChoices)
+    ? rawLastCyoaChoices.filter(
+        (c): c is { label: string; text: string } =>
+          !!c &&
+          typeof c === "object" &&
+          typeof (c as { label?: unknown }).label === "string" &&
+          typeof (c as { text?: unknown }).text === "string",
+      )
+    : [];
+  if (lastChoices.length > 0) {
     parts.push(`<previous_cyoa_choices>`);
     parts.push(
       `These are the choices you generated last time. Do NOT repeat them — provide fresh, meaningfully different options.`,
@@ -3551,6 +3577,15 @@ function parseAgentResponse(
   return { type: resultType, data: { text: sanitizeTextAgentResponse(responseText) } };
 }
 
+function parsesAsJson(text: string): boolean {
+  try {
+    JSON.parse(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Extract JSON from a response that may contain markdown fences. */
 function extractJson(text: string, allowRepair = true): string {
   // Strip leading thinking blocks BEFORE the fence match: with
@@ -3562,14 +3597,22 @@ function extractJson(text: string, allowRepair = true): string {
   // Gemma 4 emits <|"|>…<|"|> string delimiters; the tool-call parser already
   // tolerates them, so the agent JSON path must too.
   if (text.includes('<|"|>')) text = normalizeGemma4Delimiters(text);
-  const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)(?:\n?```|$)/i);
+  // A ``` inside a string value of a bare, valid object must not replace the
+  // object with the fenced code, so a fence that opens after the JSON start is
+  // only used when the unfenced slice does not parse on its own.
+  const objectStart = text.indexOf("{");
+  const arrayStart = text.indexOf("[");
+  const starts = [objectStart, arrayStart].filter((index) => index >= 0);
+  const jsonStart = starts.length > 0 ? Math.min(...starts) : -1;
+  const fenceIndex = text.indexOf("```");
+  const fenceMatch =
+    fenceIndex >= 0 && (jsonStart < 0 || fenceIndex < jsonStart || !parsesAsJson(text.slice(jsonStart)))
+      ? text.match(/```(?:json)?\s*\n?([\s\S]*?)(?:\n?```|$)/i)
+      : null;
   if (fenceMatch) {
     text = fenceMatch[1]!.trim();
-  } else {
-    const objectStart = text.indexOf("{");
-    const arrayStart = text.indexOf("[");
-    const starts = [objectStart, arrayStart].filter((index) => index >= 0);
-    if (starts.length > 0) text = text.slice(Math.min(...starts));
+  } else if (jsonStart >= 0) {
+    text = text.slice(jsonStart);
   }
 
   return allowRepair ? (repairJsonText(text) ?? text) : text;

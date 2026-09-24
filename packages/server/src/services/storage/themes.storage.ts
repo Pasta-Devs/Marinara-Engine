@@ -73,13 +73,15 @@ export function createThemesStorage(db: DB) {
     },
 
     async setActive(id: string | null) {
-      const activeTheme = await this.getActive();
-      if (activeTheme) {
-        await db.update(customThemes).set({ isActive: "false" }).where(eq(customThemes.id, activeTheme.id));
-      }
-      if (!id) return null;
-      await db.update(customThemes).set({ isActive: "true" }).where(eq(customThemes.id, id));
-      return this.getById(id);
+      // One serialized transaction that clears every active row, so overlapping
+      // calls cannot leave two themes active (and existing duplicates self-heal).
+      return db.transaction(async (tx) => {
+        await tx.update(customThemes).set({ isActive: "false" }).where(eq(customThemes.isActive, "true"));
+        if (!id) return null;
+        await tx.update(customThemes).set({ isActive: "true" }).where(eq(customThemes.id, id));
+        const rows = await tx.select().from(customThemes).where(eq(customThemes.id, id));
+        return rows[0] ? mapTheme(rows[0]) : null;
+      });
     },
 
     async remove(id: string) {

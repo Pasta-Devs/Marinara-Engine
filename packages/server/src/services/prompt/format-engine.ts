@@ -8,9 +8,9 @@ import { nameToXmlTag } from "@marinara-engine/shared";
  * Convert a display name to a Markdown heading slug.
  * "World Info (Before)" → "World Info Before"
  */
-function nameToMarkdownHeading(name: string): string {
-  return name
-    .replace(/[^a-zA-Z0-9\s_-]/g, "")
+function nameToMarkdownHeading(name: string | null | undefined): string {
+  return String(name ?? "")
+    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -42,13 +42,13 @@ export function wrapContent(content: string, sectionName: string, format: WrapFo
   if (format === "none") return trimmed;
 
   if (format === "xml") {
-    const tag = nameToXmlTag(sectionName);
+    const tag = nameToXmlTag(sectionName) || "section";
     const indented = indent(trimmed, 1);
     return `<${tag}>\n${indented}\n</${tag}>`;
   }
 
   // Markdown — depth determines heading level: 0 → ##, 1 → ###, 2 → ####
-  const heading = nameToMarkdownHeading(sectionName);
+  const heading = nameToMarkdownHeading(sectionName) || "Section";
   const hashes = "#".repeat(Math.min(depth + 2, 6));
   return `${hashes} ${heading}\n${trimmed}`;
 }
@@ -67,11 +67,11 @@ export function wrapGroup(childrenContent: string, groupName: string, format: Wr
   if (format === "none") return trimmed;
 
   if (format === "xml") {
-    const tag = nameToXmlTag(groupName);
+    const tag = nameToXmlTag(groupName) || "section";
     const indented = indent(trimmed, 1);
     return `<${tag}>\n${indented}\n</${tag}>`;
   }
 
-  const heading = nameToMarkdownHeading(groupName);
+  const heading = nameToMarkdownHeading(groupName) || "Section";
   return `# ${heading}\n${trimmed}`;
 }

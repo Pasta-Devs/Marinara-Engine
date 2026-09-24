@@ -172,6 +172,7 @@ export async function stageProfileImportAssets(
   const assets: StagedProfileImportAsset[] = [];
   const skipped: StagedProfileImportAssets["skipped"] = [];
   const seenPaths = new Set<string>();
+  const seenFoldedPaths = new Set<string>();
   let totalBytes = 0;
   let declaredBytes = 0;
 
@@ -182,6 +183,17 @@ export async function stageProfileImportAssets(
         throw new ProfileImportAssetValidationError(`Profile contains duplicate asset path ${input.path}.`);
       }
       seenPaths.add(input.path);
+      // Case-insensitive filesystems (Windows, default macOS) map case variants to one file,
+      // which would make staging, promotion and rollback backups collide.
+      const foldedPath = parts.join("/").toLowerCase();
+      if (seenFoldedPaths.has(foldedPath)) {
+        skipped.push({
+          path: input.path,
+          message: `Profile asset ${input.path} differs only by letter case from another asset and was skipped.`,
+        });
+        continue;
+      }
+      seenFoldedPaths.add(foldedPath);
       if (!Number.isSafeInteger(input.expectedSize) || input.expectedSize < 0) {
         skipped.push({ path: input.path, message: `Profile asset ${input.path} has an invalid manifest size.` });
         continue;
@@ -246,7 +258,7 @@ export async function promoteStagedProfileAssets(stage: StagedProfileImportAsset
   for (const asset of stage.assets) {
     await mkdir(dirname(asset.outputPath), { recursive: true });
     asset.hadExistingOutput = existsSync(asset.outputPath);
-    if (asset.hadExistingOutput) {
+    if (asset.hadExistingOutput && !existsSync(asset.backupPath)) {
       await mkdir(dirname(asset.backupPath), { recursive: true });
       await copyFile(asset.outputPath, asset.backupPath);
     }

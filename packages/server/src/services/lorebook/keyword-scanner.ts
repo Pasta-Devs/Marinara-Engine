@@ -800,6 +800,13 @@ export function recursiveScan(
   const scanOptions = { ...options, probabilityDecisions };
   const allActivated = scanForActivatedEntries(messages, entries, scanOptions);
   const activatedIds = new Set(allActivated.map((a) => a.entry.id));
+  // Inclusion groups that already have a winner, matching the generation path in index.ts.
+  const groupKey = (e: LorebookEntry) => e.group || null;
+  const selectedGroups = new Set<string>();
+  for (const a of allActivated) {
+    const g = groupKey(a.entry);
+    if (g) selectedGroups.add(g);
+  }
   let newlyActivated = allActivated;
 
   for (let depth = 0; depth < maxDepth; depth++) {
@@ -812,12 +819,16 @@ export function recursiveScan(
     if (!newContent) break;
 
     // Scan remaining entries against the content of activated entries
-    const remaining = entries.filter((e) => !activatedIds.has(e.id) && !e.excludeRecursion && canRecurse(e));
+    const remaining = entries.filter((e) => {
+      const g = groupKey(e);
+      return !activatedIds.has(e.id) && !e.excludeRecursion && canRecurse(e) && !(g && selectedGroups.has(g));
+    });
     const newMessages: ScanMessage[] = [{ role: "system", content: newContent }];
     const newActivated = scanForActivatedEntries(newMessages, remaining, {
       ...scanOptions,
       pinnedScanMessages: [],
       chatEmbedding: null,
+      semanticEmbeddingsByLorebookId: new Map(),
       recursionPass: true,
     });
 
@@ -826,6 +837,8 @@ export function recursiveScan(
     newlyActivated = [];
     for (const a of newActivated) {
       activatedIds.add(a.entry.id);
+      const g = groupKey(a.entry);
+      if (g) selectedGroups.add(g);
       allActivated.push(a);
       newlyActivated.push(a);
     }
