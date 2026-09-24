@@ -71,9 +71,9 @@ function prepareIntensityOutput(
   device: ButtplugClientDevice,
   type: OutputType,
   intensity: number,
-  durationMs?: number,
+  durationMs: number,
 ): () => Promise<void> {
-  const commands = [];
+  const commands: Array<() => Promise<void>> = [];
   for (const feature of device.features.values()) {
     const output = feature.output(type);
     if (!output) continue;
@@ -86,20 +86,20 @@ function prepareIntensityOutput(
     }
     const command =
       type === OutputType.HwPositionWithDuration
-        ? DeviceOutput.PositionWithDuration.value(value, durationMs!)
+        ? DeviceOutput.PositionWithDuration.value(value, durationMs)
         : new DeviceOutputValueConstructor(type).value(value);
     if (type === OutputType.HwPositionWithDuration && output.durationRange) {
       const [minDuration, maxDuration] = output.durationRange;
-      if (durationMs! < minDuration || durationMs! > maxDuration) {
+      if (durationMs < minDuration || durationMs > maxDuration) {
         throw new Error(`Duration value ${durationMs} is not in the range ${minDuration} <= x <= ${maxDuration}`);
       }
     }
-    commands.push({ feature, command });
+    commands.push(() => feature.runOutput(command));
   }
   // Validate the whole device before starting any feature. If a send still
   // fails, stop after all sends settle; the caller cannot schedule its timer.
   return async () => {
-    const results = await Promise.allSettled(commands.map(({ feature, command }) => feature.runOutput(command)));
+    const results = await Promise.allSettled(commands.map((send) => send()));
     const failure = results.find((result) => result.status === "rejected");
     if (failure) {
       await device
