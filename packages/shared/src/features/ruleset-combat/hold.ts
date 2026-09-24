@@ -8,6 +8,9 @@
 //   1. `readProposedRulesetSheet`: a model's sheet is read the way a character's is, leniently.
 //      Anything the ruleset does not have is dropped by name, a value is fitted to its field or
 //      column, and a row named after a catalog entry becomes that entry, so "Fireball" is Fireball.
+//      For anything but a boss, `restrictRulesetSheetEntries` then keeps only the entries the ruleset
+//      opens to that sheet (a Sorcerer's spells, not every spell), and `fillRulesetSheetChoices`
+//      fills the choices it left open by its temperament and competence, with no model call.
 //   2. `holdRulesetSheetHealth`: health goes into the tier's band through the one field the
 //      ruleset's health is read off, which is a sheet edit, so every reader agrees on it.
 //   3. `holdRulesetCombatant`: once the fight is built, defense, to-hit, save difficulties and the
@@ -27,7 +30,9 @@ import {
   type RulesetListColumn,
   type RulesetSheetBuild,
 } from "../../schemas/ruleset.schema.js";
+import { combatAiHash, type CombatTactics } from "../combat-ai.js";
 import { readRulesetLive } from "../rulesets/live-state.js";
+import { sheetFieldMatchTexts } from "../rulesets/scaled-rows.js";
 import { resolveRulesetValueRef } from "../rulesets/sheet-math.js";
 import { heaviestRider, RULESET_CLAMP_HEADROOM, smallerDie } from "./creatures.js";
 import { rulesetAverageAmount, rulesetAverageDamage } from "./dice.js";
@@ -209,6 +214,10 @@ export function readProposedRulesetSheet(
           }
         : own;
       if (list.columns.some((column) => column.required && built[column.id] === undefined)) continue;
+      // A spell the Game Master named is one it has ready: in a list whose rows count only once they
+      // are chosen, naming the entry is choosing it.
+      const chosenBy = found ? readyColumnOf(definition, list.id) : undefined;
+      if (chosenBy) built[chosenBy] = true;
       if (!found && fedByACatalog) {
         const name = nameColumn ? built[nameColumn.id] : undefined;
         if (typeof name === "string") nothing.push(name);
@@ -231,6 +240,213 @@ export function readProposedRulesetSheet(
     );
   }
   return { sheet, adjusted };
+}
+
+/** The boolean column a fight reads to know a row of this list is ready (5e's "prepared"), when a
+ *  combat ability source says its rows count only once chosen. Such a list is one a creature
+ *  CHOOSES from, which is what makes it a list whose open choices can be filled in. */
+function readyColumnOf(definition: RulesetDefinition, listId: string): string | undefined {
+  return definition.combat?.abilities?.find((source) => source.list === listId && source.onlyWhen)?.onlyWhen;
+}
+
+/** The sheet fields a catalog is organised by: every filter that `startFrom`s one says which of its
+ *  entries belong to a sheet with that value, 5e's spell list by class. Nothing here knows either
+ *  word; the ruleset says it. */
+function boundFilters(definition: RulesetDefinition, catalogId: string) {
+  const catalog = definition.catalogs?.find((candidate) => candidate.id === catalogId);
+  return (catalog?.filters ?? []).flatMap((filter) => {
+    const fieldId = filter.startFrom?.field;
+    const field = definition.sheet.fields.find((candidate) => candidate.id === fieldId);
+    return fieldId && field ? [{ filter, field }] : [];
+  });
+}
+
+/** Whether a catalog entry is open to this sheet under every filter its catalog binds to a field,
+ *  matched the way the picker opens on it. A sheet that leaves such a field empty has nothing open. */
+function entryOpenTo(
+  definition: RulesetDefinition,
+  catalogId: string,
+  entry: RulesetCatalogEntry,
+  sheet: RulesetSheetBuild,
+): boolean {
+  return boundFilters(definition, catalogId).every(({ filter, field }) => {
+    const texts = sheetFieldMatchTexts(field, sheet.fields[field.id]).map((text) => text.trim().toLowerCase());
+    const value = entry.filters?.[filter.id];
+    const values = Array.isArray(value) ? value : value === undefined ? [] : [value];
+    return values.some((candidate) => texts.includes(String(candidate).trim().toLowerCase()));
+  });
+}
+
+/**
+ * Only the entries the ruleset opens to this sheet: a row out of a catalog whose filters are bound
+ * to a sheet field (5e's spells by class) is kept only when the sheet's own value opens it. Rows not
+ * out of such a catalog are untouched. What went is said, and why.
+ */
+export function restrictRulesetSheetEntries(
+  definition: RulesetDefinition,
+  proposed: RulesetSheetBuild,
+  catalogs: RulesetCatalogEntriesById,
+): { sheet: RulesetSheetBuild; adjusted: string[] } {
+  const sheet = structuredClone(proposed);
+  const shut = new Map<string, string[]>();
+  for (const [listId, rows] of Object.entries(sheet.lists)) {
+    sheet.lists[listId] = rows.filter((row) => {
+      const mark = row[RULESET_CATALOG_ROW_KEY];
+      if (typeof mark !== "string") return true;
+      const catalogId = mark.slice(0, mark.indexOf("/"));
+      const entry = catalogs[catalogId]?.find((candidate) => candidate.id === mark.slice(mark.indexOf("/") + 1));
+      if (!entry || entryOpenTo(definition, catalogId, entry, sheet)) return true;
+      const reason = boundFilters(definition, catalogId)
+        .map(({ field }) => {
+          const value = sheet.fields[field.id] ?? field.default;
+          return value === undefined || value === "" ? `no ${field.label}` : `${field.label} ${value}`;
+        })
+        .join(" and ");
+      shut.set(reason, [...(shut.get(reason) ?? []), entry.label]);
+      return false;
+    });
+  }
+  const adjusted = [...shut].map(
+    ([reason, names]) =>
+      `${listed(names)} ${names.length === 1 ? "is" : "are"} not open to a sheet with ${reason} in this ruleset, so dropped.`,
+  );
+  return { sheet, adjusted };
+}
+
+type Nature = "offense" | "support" | "control" | "meta" | "other";
+
+/** What an entry is for in a fight, read off its mechanics: dealing harm, holding up an ally,
+ *  holding back a foe, or bending the turn itself (a reaction, a counter, an extra action). */
+function natureOf(entry: RulesetCatalogEntry): Nature {
+  const mechanics = entry.mechanics;
+  if (!mechanics) return "other";
+  if (mechanics.reaction || mechanics.gives || mechanics.standard || mechanics.kind === "rider") return "meta";
+  if (mechanics.kind === "heal" || mechanics.kind === "buff" || mechanics.temporary) return "support";
+  if (mechanics.kind === "debuff") return "control";
+  if (mechanics.kind === "attack") return mechanics.amount ? "offense" : "control";
+  return "other";
+}
+
+/** How strongly each temperament reaches for each kind of entry. One where nothing is said is 1. */
+const LEANING: Record<CombatTactics["adjective"], Partial<Record<Nature, number>>> = {
+  mindless: { offense: 3, support: 0.5, control: 0.5, meta: 0.25 },
+  reckless: { offense: 3, support: 0.5, control: 0.75 },
+  cautious: { control: 2, support: 1.5, meta: 1.5 },
+  opportunistic: { offense: 2, control: 2 },
+  protective: { support: 3, control: 1.5 },
+  supportive: { support: 4, meta: 1.5, offense: 0.5 },
+  disciplined: { offense: 1.5, control: 1.5, meta: 1.5 },
+  cowardly: { control: 2, meta: 2, support: 1.5, offense: 0.5 },
+  patient: { control: 2, meta: 2 },
+  methodical: { control: 2.5, meta: 1.5 },
+  coordinated: { support: 2, control: 2 },
+};
+
+const COMPETENCE = ["novice", "trained", "veteran", "master"] as const;
+
+/** How many open choices one rung of pools is given, and how many things it can use at will, by
+ *  competence: a master has more ready than a novice.
+ *  ponytail: a fixed count per rung, because no ruleset declares how many choices a class has. The
+ *  upgrade path is a ruleset-declared count, read here in place of these. */
+const PER_RUNG = [1, 2, 2, 3] as const;
+const AT_WILL = [2, 2, 3, 3] as const;
+
+/**
+ * The choices a sheet left open, filled by its temperament and competence rather than by another
+ * model call: for every list a creature chooses from (see `readyColumnOf`), and out of the entries
+ * the ruleset opens to it (see `entryOpenTo`) and it can pay for from its own pools, each rung is
+ * topped up to a small count and what it can use at will likewise. A protective creature reaches for
+ * what holds up its side, a reckless one for harm, and the more competent it is the likelier it is to
+ * carry what bends the turn. Drawn from `key`, so the same fight always fills the same way.
+ */
+export function fillRulesetSheetChoices(
+  definition: RulesetDefinition,
+  proposed: RulesetSheetBuild,
+  catalogs: RulesetCatalogEntriesById,
+  tactics: Pick<CombatTactics, "proficiency" | "adjective">,
+  key: string,
+): { sheet: RulesetSheetBuild; adjusted: string[] } {
+  const sheet = structuredClone(proposed);
+  const competence = Math.max(0, COMPETENCE.indexOf(tactics.proficiency));
+  const pools = new Map(readRulesetLive(definition, sheet, {}).pools.map((pool) => [pool.key, pool.max]));
+  const groups = new Map<string, string[]>();
+  for (const pool of definition.sheet.live.pools) {
+    if (pool.group) groups.set(pool.group, [...(groups.get(pool.group) ?? []), pool.id]);
+  }
+  const has = (target: string) =>
+    (pools.get(target) ?? 0) > 0 || (groups.get(target) ?? []).some((pool) => (pools.get(pool) ?? 0) > 0);
+  const rungOf = (entry: RulesetCatalogEntry) => entry.mechanics?.cost?.[0]?.pool ?? "";
+  const payable = (entry: RulesetCatalogEntry) => (entry.mechanics?.cost ?? []).every((term) => has(term.pool));
+  const filled: string[] = [];
+
+  for (const list of definition.sheet.lists) {
+    const ready = readyColumnOf(definition, list.id);
+    if (!ready) continue;
+    const rows = (sheet.lists[list.id] ??= []);
+    const held = new Set(rows.map((row) => row[RULESET_CATALOG_ROW_KEY]).filter((mark) => typeof mark === "string"));
+    const candidates = (definition.catalogs ?? [])
+      .filter((catalog) => catalog.feeds?.includes(list.id) && boundFilters(definition, catalog.id).length > 0)
+      .flatMap((catalog) =>
+        (catalogs[catalog.id] ?? [])
+          .filter(
+            (entry) =>
+              entry.mechanics &&
+              entry.rows?.some((row) => row.list === list.id) &&
+              !held.has(`${catalog.id}/${entry.id}`) &&
+              entryOpenTo(definition, catalog.id, entry, sheet) &&
+              payable(entry),
+          )
+          .map((entry) => ({ catalogId: catalog.id, entry })),
+      );
+    // What it already has counts toward each rung, whoever chose it.
+    const count = new Map<string, number>();
+    for (const row of rows) {
+      const mark = row[RULESET_CATALOG_ROW_KEY];
+      if (typeof mark !== "string") continue;
+      const entry = catalogs[mark.slice(0, mark.indexOf("/"))]?.find(
+        (candidate) => candidate.id === mark.slice(mark.indexOf("/") + 1),
+      );
+      if (entry) count.set(rungOf(entry), (count.get(rungOf(entry)) ?? 0) + 1);
+    }
+    for (const rung of [...new Set(candidates.map(({ entry }) => rungOf(entry)))]) {
+      let pool = candidates.filter(({ entry }) => rungOf(entry) === rung);
+      const want = (rung === "" ? AT_WILL : PER_RUNG)[competence]! - (count.get(rung) ?? 0);
+      for (let draw = 0; draw < want && pool.length > 0 && rows.length < list.maxItems; draw++) {
+        const weights = pool.map(({ entry }) => {
+          const nature = natureOf(entry);
+          const leaning = LEANING[tactics.adjective][nature] ?? (nature === "other" ? 0.5 : 1);
+          return leaning * (nature === "meta" ? 0.25 + (2 * competence) / 3 : 1);
+        });
+        let roll =
+          (combatAiHash(`${key}:${list.id}:${rung}:${draw}`) / 0x100000000) *
+          weights.reduce((total, weight) => total + weight, 0);
+        let picked = pool.length - 1;
+        for (let index = 0; index < pool.length; index++) {
+          roll -= weights[index]!;
+          if (roll < 0) {
+            picked = index;
+            break;
+          }
+        }
+        const { catalogId, entry } = pool[picked]!;
+        pool = pool.filter((_, index) => index !== picked);
+        rows.push({
+          ...(entry.rows?.find((row) => row.list === list.id)?.values ?? {}),
+          [ready]: true,
+          [RULESET_CATALOG_ROW_KEY]: `${catalogId}/${entry.id}`,
+        });
+        filled.push(entry.label);
+      }
+    }
+    if (rows.length === 0) delete sheet.lists[list.id];
+  }
+  return {
+    sheet,
+    adjusted:
+      filled.length > 0
+        ? [`Filled in for a ${tactics.proficiency}, ${tactics.adjective} creature: ${listed(filled)}.`]
+        : [],
+  };
 }
 
 /** The number field the ruleset's health pool is read off: its maximum IS the field, or is a sum with

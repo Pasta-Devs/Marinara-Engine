@@ -21,6 +21,7 @@ import {
   currentRulesetActor,
   deterministicRng,
   findRulesetCreature,
+  fillRulesetSheetChoices,
   generateTacticalBattlefield,
   holdRulesetCombatant,
   holdRulesetSheetHealth,
@@ -49,6 +50,7 @@ import {
   rulesetPositionOf,
   rulesetSheetBuildsByName,
   readProposedRulesetSheet,
+  restrictRulesetSheetEntries,
   RULESET_PROPOSED_SHEET_REPLACES,
   rulesetProposedStatBlock,
   rulesetTierStatBlock,
@@ -76,6 +78,7 @@ import {
   type RulesetLiveStates,
   type TacticalBattlefieldBrief,
   type TacticalGrid,
+  type CombatTactics,
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { combatDirectorView, type CombatDirectorState } from "./combat-director.service.js";
@@ -150,6 +153,9 @@ export interface RulesetFightOpponent {
   /** A stat block the Game Master proposed, in the shared creature form. Clamped onto the scale. */
   proposed?: unknown;
   boss?: boolean;
+  /** How it fights: the same competence and temperament its choices in the fight are made with,
+   *  which is also what fills an invented sheet's open choices. Assigned here when not given. */
+  tactics?: Pick<CombatTactics, "proficiency" | "adjective">;
 }
 
 export interface RulesetFightSeed {
@@ -245,10 +251,33 @@ export function createRulesetFight(input: RulesetFightSeed): RulesetFightSeedRes
         said(`its sheet says its ${beside.join(", ")}, so the numbers written beside it were not used.`);
       const read = readProposedRulesetSheet(definition, proposed.data.sheet, input.bestiary);
       read.adjusted.forEach(said);
+      // A boss is the Game Master's to write in full, as the exception it may be. Anything else keeps
+      // only what the ruleset opens to its sheet (a Sorcerer's spells, not every spell) and has the
+      // choices it left open filled by its temperament and competence, without another model call.
+      let sheet = read.sheet;
+      if (!opponent.boss) {
+        const open = restrictRulesetSheetEntries(definition, sheet, input.bestiary);
+        open.adjusted.forEach(said);
+        const tactics =
+          opponent.tactics ??
+          assignCombatTactics(
+            { id: opponent.id, hp: 1, maxHp: 1, attack: 0, defense: 0, speed: 0, level: 1 },
+            input.seed,
+          );
+        const filled = fillRulesetSheetChoices(
+          definition,
+          open.sheet,
+          input.bestiary,
+          tactics,
+          `choices:${input.seed}:${opponent.id}`,
+        );
+        filled.adjusted.forEach(said);
+        sheet = filled.sheet;
+      }
       const tiers = combat.threat?.tiers ?? [];
       const wanted = opponent.tier ?? proposed.data.tier;
       const tier = tiers.find((entry) => entry.id === wanted) ?? tiers[0];
-      const held = tier ? holdRulesetSheetHealth(definition, read.sheet, tier) : { sheet: read.sheet, adjusted: [] };
+      const held = tier ? holdRulesetSheetHealth(definition, sheet, tier) : { sheet, adjusted: [] };
       held.adjusted.forEach(said);
       // What the entry adds beside the sheet (its own actions, riders, the damage it shrugs off) is
       // held by the plain clamp, on a block that borrows the tier's own numbers for the ones the

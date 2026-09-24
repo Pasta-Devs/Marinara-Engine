@@ -18,6 +18,9 @@
  *     of its sheet sent to a screen, and never written back as anybody's sheet, even a party
  *     member's who shares its name.
  *   - A sheet that adds up to no health is left out of the fight with a reason of its own.
+ *   - An invented enemy that is not a boss keeps only the entries its ruleset opens to its sheet (the
+ *     spell list by class), and the choices it left open are filled by its temperament and
+ *     competence, only with what it can pay for, the same way every time. A boss is written in full.
  *   - A Game Master's invention may be a sheet too, so an invented mage has slots and spells: read
  *     leniently (what the ruleset lacks is dropped by name, a row named after a catalog entry IS that
  *     entry), health held into the tier's band through the one field it is read off, and defense,
@@ -37,15 +40,19 @@ import {
   applyRulesetCombatChoice,
   createRulesetEncounter,
   normalizeCharacterLookupName,
+  parseRulesetCatalogFile,
   parseRulesetDefinition,
   planRulesetCombatCost,
   readRulesetLive,
+  resolveRulesetLayers,
   rulesetBestiarySheetCatalogIds,
   rulesetCombatant,
   rulesetCombatHealth,
   rulesetCombatOptions,
+  rulesetLayerOptionKey,
   rulesetProposedCreatureSchema,
   rulesetSheetBuildSchema,
+  type CombatTactics,
   type RulesetCatalogEntriesById,
   type RulesetCatalogEntry,
   type RulesetCombatant,
@@ -584,25 +591,72 @@ for (const setup of [
 const spellbook = parsedOrThrow(
   variant(fiveEText, (doc) => {
     doc.id = "5e-spellbook";
+    /** A spell of this little list: which classes it is open to, its rung, and what it does. */
+    const spell = (
+      id: string,
+      label: string,
+      classes: string[],
+      level: number,
+      mechanics: Record<string, unknown>,
+    ) => ({
+      id,
+      label,
+      filters: { classes },
+      rows: [{ list: "spells", values: { name: label, level, prepared: false } }],
+      mechanics: { ...mechanics, ...(level > 0 ? { cost: [{ pool: `slots_${level}`, amount: 1 }] } : {}) },
+    });
     doc.catalogs.push({
       id: "spells",
       label: "Spells",
       feeds: ["spells"],
+      // Open by the sheet's class, exactly as the 5e package's spell list is.
+      filters: [{ id: "classes", label: "Class", type: "tags", startFrom: { field: "class" } }],
       entries: [
-        {
-          // Written at its own rung and bigger out of a higher one, which is what `perCostStep` says.
-          id: "ember-lance",
-          label: "Ember Lance",
-          rows: [{ list: "spells", values: { name: "Ember Lance", level: 2, prepared: true } }],
-          mechanics: {
-            kind: "attack",
-            attackRoll: true,
-            amount: { dice: "2d6" },
-            damageType: "fire",
-            cost: [{ pool: "slots_2", amount: 1 }],
-            perCostStep: { dice: "2d6" },
-          },
-        },
+        // Written at its own rung and bigger out of a higher one, which is what `perCostStep` says.
+        spell("ember-lance", "Ember Lance", ["Sorcerer", "Wizard"], 2, {
+          kind: "attack",
+          attackRoll: true,
+          amount: { dice: "2d6" },
+          damageType: "fire",
+          perCostStep: { dice: "2d6" },
+        }),
+        spell("frost-mote", "Frost Mote", ["Sorcerer", "Wizard"], 0, {
+          kind: "attack",
+          attackRoll: true,
+          amount: { dice: "1d8" },
+          damageType: "cold",
+        }),
+        spell("spark-lash", "Spark Lash", ["Sorcerer"], 1, {
+          kind: "attack",
+          attackRoll: true,
+          amount: { dice: "2d6" },
+          damageType: "lightning",
+        }),
+        spell("warding-word", "Warding Word", ["Sorcerer", "Cleric"], 1, {
+          kind: "buff",
+          targets: "ally",
+          temporary: { dice: "1d6", flat: 2 },
+        }),
+        spell("kindle-heart", "Kindle Heart", ["Sorcerer"], 1, {
+          kind: "heal",
+          targets: "ally",
+          amount: { dice: "1d6", flat: 2 },
+        }),
+        spell("binding-glare", "Binding Glare", ["Sorcerer"], 1, {
+          kind: "debuff",
+          save: { save: "wis_save", onSuccess: "negates" },
+          applies: [{ condition: "restrained", duration: { rounds: 1 } }],
+        }),
+        spell("hex-counter", "Hex Counter", ["Sorcerer"], 1, {
+          kind: "utility",
+          reaction: { on: "aimed", cancels: true },
+          budget: "reaction",
+        }),
+        spell("mending-touch", "Mending Touch", ["Cleric"], 1, {
+          kind: "heal",
+          targets: "ally",
+          amount: { dice: "1d8", flat: 2 },
+        }),
       ],
     });
     doc.catalogs
@@ -970,7 +1024,15 @@ const spellbook = parsedOrThrow(
     sheet: {
       abilities: { int: 20, luck: 3 },
       saves: { int_save: "proficient", wis_save: "expertise" },
-      fields: { level: 5, ac: 25, hp_max: 200, spellcasting_ability: "int", slots_max_2: 2, slots_max_3: 1 },
+      fields: {
+        class: "Sorcerer",
+        level: 5,
+        ac: 25,
+        hp_max: 200,
+        spellcasting_ability: "int",
+        slots_max_2: 2,
+        slots_max_3: 1,
+      },
       lists: {
         spells: [
           { name: "ember lance", prepared: true },
@@ -1081,6 +1143,152 @@ const spellbook = parsedOrThrow(
   }).rulesetFight!;
   assert.equal(rulesetCombatant(plainFight.encounter, "new")?.sheet, undefined);
   assert.ok(!plainFight.adjustments.some((line) => /could not be read/.test(line)));
+}
+
+// ── An invented enemy keeps only what its ruleset opens to it, and the rest is filled by how it fights ──
+{
+  const sorcerer = (fields: Record<string, unknown> = {}, spells: Array<Record<string, unknown>> = []) => ({
+    tier: "cr_2",
+    sheet: {
+      abilities: { cha: 16 },
+      fields: {
+        class: "Sorcerer",
+        level: 5,
+        hp_max: 40,
+        spellcasting_ability: "cha",
+        slots_max_1: 4,
+        slots_max_2: 2,
+        ...fields,
+      },
+      lists: { spells },
+    },
+  });
+  const fightOf = (proposed: unknown, extra: Partial<RulesetFightOpponent> = {}, seed = 7) =>
+    started({
+      definition: spellbook,
+      cards: [card("Brenna", fighterBuild())],
+      party: [{ id: "brenna", name: "Brenna" }],
+      enemies: [{ id: "caster", name: "Road Caster", tier: "cr_2", proposed, ...extra }],
+      seed,
+    }).rulesetFight!;
+  const rowsOf = (fight: ReturnType<typeof fightOf>) => who(fight.encounter, "caster").sheet!.build.lists.spells ?? [];
+  const spellsOf = (fight: ReturnType<typeof fightOf>) => rowsOf(fight).map((row) => String(row.name));
+  const firstRung = ["Spark Lash", "Warding Word", "Kindle Heart", "Binding Glare", "Hex Counter"];
+
+  // Only what the ruleset opens to a Sorcerer: a Cleric's spell named for it is dropped, and said.
+  const named = fightOf(sorcerer({}, [{ name: "Mending Touch" }, { name: "Spark Lash" }]));
+  assert.match(
+    named.adjustments.join("\n"),
+    /Road Caster: "Mending Touch" is not open to a sheet with Class Sorcerer in this ruleset, so dropped\./,
+  );
+  assert.ok(!spellsOf(named).includes("Mending Touch"));
+  // A spell it names is one it has ready, without being told so.
+  assert.equal(rowsOf(named).find((row) => row.name === "Spark Lash")?.prepared, true);
+  // A caster that names no class has nothing open to it in a list organised by class.
+  const classless = fightOf(sorcerer({ class: "" }, [{ name: "Spark Lash" }]));
+  assert.match(
+    classless.adjustments.join("\n"),
+    /Road Caster: "Spark Lash" is not open to a sheet with no Class in this ruleset, so dropped\./,
+  );
+  assert.deepEqual(spellsOf(classless), []);
+
+  // The choices it left open are filled: only with its class's spells, only what it can pay for.
+  const veteran = { proficiency: "veteran", adjective: "disciplined" } as const;
+  const filled = fightOf(sorcerer(), { tactics: veteran });
+  const names = spellsOf(filled);
+  assert.match(filled.adjustments.join("\n"), /Road Caster: Filled in for a veteran, disciplined creature: /);
+  assert.equal(names.filter((name) => firstRung.includes(name)).length, 2, `two of its first rung: ${names}`);
+  assert.ok(names.includes("Ember Lance"), "its one second-rung spell");
+  assert.ok(names.includes("Frost Mote"), "and what it can cast at will");
+  assert.ok(!names.includes("Mending Touch"), "never a spell its class does not have");
+  assert.ok(
+    rowsOf(filled).every((row) => row.prepared === true),
+    "and every one of them ready",
+  );
+  assert.deepEqual(spellsOf(fightOf(sorcerer(), { tactics: veteran })), names, "the same fight fills the same way");
+  assert.ok(
+    who(filled.encounter, "caster").actions.some((action) => action.label === "Ember Lance"),
+    "and the fight offers what was filled in",
+  );
+  const lowSlots = fightOf(sorcerer({ slots_max_2: 0 }), { tactics: veteran });
+  assert.ok(!spellsOf(lowSlots).includes("Ember Lance"), "nothing it could never pay for");
+  // What it named counts toward a rung: a novice that named one first-rung spell gets no other.
+  const novice = fightOf(sorcerer({}, [{ name: "Spark Lash" }]), {
+    tactics: { proficiency: "novice", adjective: "disciplined" },
+  });
+  assert.deepEqual(
+    spellsOf(novice).filter((name) => firstRung.includes(name)),
+    ["Spark Lash"],
+  );
+
+  // Temperament and competence tilt the draw, over many fights.
+  const tally = (tactics: { proficiency: CombatTactics["proficiency"]; adjective: CombatTactics["adjective"] }) => {
+    const out = { support: 0, harm: 0, meta: 0, picks: 0 };
+    for (let seed = 1; seed <= 60; seed++) {
+      const picked = spellsOf(fightOf(sorcerer(), { tactics }, seed)).filter((name) => firstRung.includes(name));
+      out.picks += picked.length;
+      out.support += picked.filter((name) => name === "Warding Word" || name === "Kindle Heart").length;
+      out.harm += picked.filter((name) => name === "Spark Lash").length;
+      out.meta += picked.filter((name) => name === "Hex Counter").length;
+    }
+    return out;
+  };
+  const protective = tally({ proficiency: "veteran", adjective: "protective" });
+  const reckless = tally({ proficiency: "veteran", adjective: "reckless" });
+  // Margins, not a bare "more": without any leaning the two come out level, and luck alone must not pass.
+  assert.ok(
+    protective.support >= 1.4 * reckless.support,
+    `protective ${protective.support}, reckless ${reckless.support}`,
+  );
+  assert.ok(reckless.harm >= 3 * protective.harm, `reckless ${reckless.harm}, protective ${protective.harm}`);
+  const master = tally({ proficiency: "master", adjective: "disciplined" });
+  const green = tally({ proficiency: "novice", adjective: "disciplined" });
+  assert.ok(
+    master.meta / master.picks >= (2 * green.meta) / green.picks,
+    `a master carries what bends the turn more often: ${master.meta}/${master.picks} against ${green.meta}/${green.picks}`,
+  );
+
+  // A boss is the Game Master's to write in full: the Cleric's spell stays, and nothing is filled in.
+  const boss = fightOf(sorcerer({}, [{ name: "Mending Touch" }]), { boss: true, tactics: veteran });
+  assert.deepEqual(spellsOf(boss), ["Mending Touch"]);
+  assert.ok(!boss.adjustments.some((line) => /Filled in|not open/.test(line)), boss.adjustments.join("; "));
+}
+
+// ── A layer that narrows a field never costs a creature written with the value it took out ──
+{
+  const narrowed = (value: string) =>
+    variant(fiveEText, (doc) => {
+      doc.layers = [
+        { id: "no_charm", label: "No charm", fields: [{ id: "spellcasting_ability", removeValues: ["cha"] }] },
+      ];
+      const bestiary = doc.catalogs.find((catalog: Record<string, any>) => catalog.id === "creatures");
+      const sergeant = bestiary.entries.find((entry: Record<string, any>) => entry.id === "toll-sergeant");
+      sergeant.creature.sheet.fields.spellcasting_ability = value;
+    });
+  const base = parsedOrThrow(narrowed("cha"), "the 5e draft with a layer and a creature that uses what it removes");
+  const layered = resolveRulesetLayers(base, { [rulesetLayerOptionKey("no_charm")]: true });
+  assert.deepEqual(
+    layered.applied.map((layer) => layer.id),
+    ["no_charm"],
+    "the layer still applies: it narrows what a player may pick, not what a creature was written as",
+  );
+  // The same creatures read from a file against the game's layered definition are kept, which is
+  // what the game's catalog loader asks for.
+  const file = {
+    schemaVersion: 1,
+    catalog: "creatures",
+    entries: narrowed("cha").catalogs.find((catalog: Record<string, any>) => catalog.id === "creatures").entries,
+  };
+  assert.ok(parseRulesetCatalogFile(layered.definition, "creatures", file, true).ok);
+  assert.ok(
+    !parseRulesetCatalogFile(layered.definition, "creatures", file).ok,
+    "held to the narrowed values it would be refused, which is why the loader says the definition is layered",
+  );
+  // Without a layer, a creature is still held to the field's values.
+  assert.match(
+    issuesOf(narrowed("chr")),
+    /creature\.sheet\.fields: Field "spellcasting_ability" takes one of its declared values/,
+  );
 }
 
 // ── The catalogs a bestiary's sheets read, and nothing more ──

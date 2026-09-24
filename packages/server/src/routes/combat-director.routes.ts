@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
+  assignCombatTactics,
   TERRAIN_DATA,
   combatBossSchema,
   combatInterruptFields,
@@ -646,6 +647,13 @@ export async function combatDirectorRoutes(
         const weatherSource = checkpointRestore
           ? (committedWeather ?? meta.gameWeather)
           : (meta.gameWeather ?? committedWeather);
+        // An invented sheet's open choices are filled by how it fights, so it is given its tactics now,
+        // from the same unit and seed the fight would later give them from, and both read the same.
+        for (const enemy of input.enemies) {
+          if ((enemy.proposed as { sheet?: unknown } | undefined)?.sheet) {
+            enemy.tactics ??= assignCombatTactics(enemy as Combatant, battlefield.seed);
+          }
+        }
         const state = createCombatDirector({
           ...input,
           inventory: Array.isArray(meta.gameInventory) ? meta.gameInventory : [],
@@ -692,6 +700,7 @@ export async function combatDirectorRoutes(
               ...(enemy.creature !== undefined ? { creature: enemy.creature } : {}),
               ...(enemy.tier !== undefined ? { tier: enemy.tier } : {}),
               ...(enemy.proposed !== undefined ? { proposed: enemy.proposed } : {}),
+              ...(enemy.tactics ? { tactics: enemy.tactics } : {}),
               boss: !!enemy.boss,
             })),
             cards,

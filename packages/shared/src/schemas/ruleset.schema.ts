@@ -2563,7 +2563,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     });
     // Inline entries go through exactly the checks an asset file's entries go through at read time,
     // so a catalog can never write a row the sheet could not hold whichever way it ships.
-    for (const entryIssue of rulesetCatalogEntryIssues(def, catalog, catalog.entries ?? [])) {
+    for (const entryIssue of rulesetCatalogEntryIssues(def, catalog, catalog.entries ?? [], layersApplied)) {
       issue([...path, "entries", ...entryIssue.path], entryIssue.message);
     }
   });
@@ -3235,6 +3235,7 @@ function creatureSheetIssues(
   sheet: NonNullable<RulesetCreature["sheet"]>,
   at: (string | number)[],
   add: (path: (string | number)[], message: string) => void,
+  narrowedByLayers: boolean,
 ): void {
   const known = (kind: string, ids: readonly { id: string }[], values: Record<string, unknown>, key: string) => {
     const names = new Set(ids.map((entry) => entry.id));
@@ -3270,9 +3271,22 @@ function creatureSheetIssues(
       else if (!offered[key].has(tier)) add([...at, key, id], `This ruleset does not offer "${tier}" for ${key}`);
     }
   }
-  // A field holds what that field holds: a number in its range, one of its values, and so on.
-  for (const message of rulesetListRowIssues({ columns: definition.sheet.fields }, sheet.fields, "Field")) {
-    add([...at, "fields"], message);
+  // A field holds what that field holds: a number in its range, one of its values, and so on. A layer
+  // narrows an enum field for what a PLAYER may pick; a creature written against the ruleset keeps its
+  // value, which then reads as the field's default exactly as a character's does. So a definition
+  // whose layers are applied does not hold a creature to the values a layer took out.
+  const enums = new Map(
+    definition.sheet.fields.flatMap((field) => (field.type === "enum" ? [[field.id, field] as const] : [])),
+  );
+  const plain = Object.fromEntries(Object.entries(sheet.fields).filter(([id]) => !enums.has(id)));
+  const others = definition.sheet.fields.filter((field) => !enums.has(field.id));
+  for (const message of rulesetListRowIssues({ columns: others }, plain, "Field")) add([...at, "fields"], message);
+  for (const [id, field] of enums) {
+    const value = sheet.fields[id];
+    if (value === undefined) continue;
+    if (typeof value !== "string" || (!narrowedByLayers && !field.values.includes(value))) {
+      add([...at, "fields"], `Field "${id}" takes one of its declared values`);
+    }
   }
   // A bonus is on a skill or a save, and a whole number inside the range the ruleset gives bonuses,
   // exactly as a character's is.
@@ -3329,6 +3343,7 @@ function creatureIssues(
   creature: RulesetCreature,
   at: (string | number)[],
   add: (path: (string | number)[], message: string) => void,
+  narrowedByLayers: boolean,
 ): void {
   const combat = definition.combat;
   if (!combat) {
@@ -3365,7 +3380,7 @@ function creatureIssues(
     if (!conditions.has(condition)) add([...at, "conditionImmunities", index], `Unknown condition "${condition}"`);
   });
 
-  if (creature.sheet) creatureSheetIssues(definition, creature.sheet, [...at, "sheet"], add);
+  if (creature.sheet) creatureSheetIssues(definition, creature.sheet, [...at, "sheet"], add, narrowedByLayers);
 
   const byId = new Map<string, RulesetCreatureAction>();
   creature.actions.forEach((action, index) => {
@@ -3435,6 +3450,8 @@ export function rulesetCatalogEntryIssues(
   definition: RulesetDefinition,
   catalog: RulesetCatalogHeader,
   entries: readonly RulesetCatalogEntry[],
+  /** True when `definition` may have its layers applied (see `creatureSheetIssues`). */
+  narrowedByLayers = false,
 ): RulesetCatalogEntryIssue[] {
   const issues: RulesetCatalogEntryIssue[] = [];
   const add = (path: (string | number)[], message: string) => issues.push({ path, message });
@@ -3467,7 +3484,7 @@ export function rulesetCatalogEntryIssues(
     } else if (!holdsCreatures && entry.creature) {
       add([index, "creature"], `Catalog "${catalog.id}" holds rows, so an entry cannot carry a creature`);
     }
-    if (entry.creature) creatureIssues(definition, entry.creature, [index, "creature"], add);
+    if (entry.creature) creatureIssues(definition, entry.creature, [index, "creature"], add, narrowedByLayers);
 
     for (const [filterId, value] of Object.entries(entry.filters ?? {})) {
       const filter = filterById.get(filterId);
@@ -3728,6 +3745,8 @@ export function parseRulesetCatalogFile(
   definition: RulesetDefinition,
   catalogId: string,
   input: unknown,
+  /** True when `definition` may have its layers applied: a game's, rather than the file as written. */
+  narrowedByLayers = false,
 ): RulesetCatalogParseResult {
   const catalog = definition.catalogs?.find((entry) => entry.id === catalogId);
   if (!catalog) return { ok: false, issues: [`(root): "${catalogId}" is not a catalog of this ruleset`] };
@@ -3741,7 +3760,7 @@ export function parseRulesetCatalogFile(
   if (parsed.data.catalog !== catalogId) {
     return { ok: false, issues: [`catalog: this file is for "${parsed.data.catalog}", not "${catalogId}"`] };
   }
-  const issues = rulesetCatalogEntryIssues(definition, catalog, parsed.data.entries);
+  const issues = rulesetCatalogEntryIssues(definition, catalog, parsed.data.entries, narrowedByLayers);
   if (issues.length > 0) {
     return {
       ok: false,

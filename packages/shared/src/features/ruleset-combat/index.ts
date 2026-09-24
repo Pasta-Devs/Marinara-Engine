@@ -52,7 +52,13 @@ export {
   rulesetAverageDamage,
   rulesetCombatRoller,
 } from "./dice.js";
-export { holdRulesetCombatant, holdRulesetSheetHealth, readProposedRulesetSheet } from "./hold.js";
+export {
+  fillRulesetSheetChoices,
+  holdRulesetCombatant,
+  holdRulesetSheetHealth,
+  readProposedRulesetSheet,
+  restrictRulesetSheetEntries,
+} from "./hold.js";
 export {
   clampRulesetStatBlock,
   findRulesetCreature,

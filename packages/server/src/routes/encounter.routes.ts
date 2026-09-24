@@ -366,7 +366,16 @@ export interface EncounterSheetBrief {
   skills: { ids: string[]; tiers: string[] };
   saves: { ids: string[]; tiers: string[] };
   fields: string[];
-  lists: Array<{ id: string; columns: string[]; counts?: string; nameColumn?: string; names: string[]; more: number }>;
+  lists: Array<{
+    id: string;
+    columns: string[];
+    counts?: string;
+    nameColumn?: string;
+    /** The sheet fields its catalogs are organised by (a filter that `startFrom`s them). */
+    openBy: string[];
+    names: string[];
+    more: number;
+  }>;
 }
 
 /** What a ruleset that resolves its own fights lends the blueprint prompt: the rungs an opponent is
@@ -406,9 +415,11 @@ async function encounterSheetBrief(
     if (!list) continue;
     const nameColumn = list.columns.find((column) => column.type === "text")?.id;
     const names: string[] = [];
+    const openBy = new Set<string>();
     let total = 0;
     for (const catalog of definition.catalogs ?? []) {
       if (!catalog.feeds?.includes(id)) continue;
+      for (const filter of catalog.filters ?? []) if (filter.startFrom) openBy.add(filter.startFrom.field);
       try {
         const read = await loadRulesetCatalogEntries(packageId, definition, catalog);
         if (!read.ok) continue;
@@ -426,6 +437,7 @@ async function encounterSheetBrief(
       columns: list.columns.map((column) => `${column.id} (${column.type}${column.required ? ", required" : ""})`),
       ...(counts ? { counts } : {}),
       ...(nameColumn ? { nameColumn } : {}),
+      openBy: [...openBy],
       names,
       more: total - names.length,
     });
@@ -642,7 +654,11 @@ export function buildInitPrompt(
       if (list.nameColumn && list.names.length > 0) {
         inst += `    A row may name an entry this ruleset offers, as {"${list.nameColumn}":"<name>"}, and the Engine fills in the rest of it: ${list.names.join(", ")}${list.more > 0 ? `, and ${list.more} more` : ""}.\n`;
       }
+      if (list.openBy.length > 0) {
+        inst += `    Which of these a creature may have depends on ${list.openBy.map((field) => `fields.${field}`).join(" and ")}, so set it.\n`;
+      }
     }
+    inst += `  - An enemy that is not a boss may only have what this ruleset opens to its sheet, and only needs the entries it should certainly have: the Engine fills its other choices from its aiHints, by temperament and proficiency. A boss is written in full by you and may be the exception: it may have anything this ruleset offers, and nothing is filled in for it.\n`;
   }
 
   msgs.push({ role: "user", content: inst });

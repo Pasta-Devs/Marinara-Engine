@@ -61,6 +61,7 @@ const spellEntries = [
   {
     id: "mending-light",
     label: "Mending Light",
+    filters: { classes: ["Cleric", "Wizard"] },
     rows: [{ list: "spells", values: { name: "Mending Light", level: 1, prepared: true } }],
     mechanics: {
       kind: "heal",
@@ -75,7 +76,23 @@ const spellRows = spellEntries.flatMap((entry) => rowsFromCatalogEntry("spells",
 // it finds any catalog: from the ruleset the game pins.
 document.catalogs = [
   ...(document.catalogs ?? []),
-  { id: "spells", label: "Spells", feeds: ["spells"], entries: spellEntries },
+  {
+    id: "spells",
+    label: "Spells",
+    feeds: ["spells"],
+    // Open by class, as the 5e package's list is, so an invented caster is held to its own.
+    filters: [{ id: "classes", label: "Class", type: "tags", startFrom: { field: "class" } }],
+    entries: [
+      ...spellEntries,
+      {
+        id: "sacred-spark",
+        label: "Sacred Spark",
+        filters: { classes: ["Cleric"] },
+        rows: [{ list: "spells", values: { name: "Sacred Spark", level: 0, prepared: false } }],
+        mechanics: { kind: "attack", attackRoll: true, amount: { dice: "1d8" }, damageType: "radiant" },
+      },
+    ],
+  },
 ];
 // And a creature written as a sheet whose spell lives in that same catalog, which the route has to
 // load for the BESTIARY as well as for the party, or the creature walks in with nothing to cast.
@@ -671,12 +688,13 @@ try {
       enemies: [
         {
           ...unit("hexer", "Hedge Hexer", "enemy"),
+          aiHints: { proficiency: "master", temperament: "protective" },
           tier: "cr_1",
           proposed: {
             tier: "cr_1",
             sheet: {
               abilities: { wis: 14 },
-              fields: { level: 3, hp_max: 20, spellcasting_ability: "wis", slots_max_1: 2 },
+              fields: { class: "Cleric", level: 3, hp_max: 20, spellcasting_ability: "wis", slots_max_1: 2 },
               lists: { spells: [{ name: "mending light", prepared: true }] },
             },
           },
@@ -691,13 +709,23 @@ try {
       COMBAT_DIRECTOR_NAMESPACE,
     );
     const stored = JSON.parse(row!.state) as {
-      rulesetFight: { encounter: { combatants: Array<Record<string, any>> } };
+      enemies: Array<{ id: string; tactics?: { proficiency: string; adjective: string } }>;
+      rulesetFight: { adjustments: string[]; encounter: { combatants: Array<Record<string, any>> } };
     };
     const hexer = stored.rulesetFight.encounter.combatants.find((combatant) => combatant.id === "hexer");
     assert.ok(hexer?.sheet, "the invented caster fights with its sheet");
     assert.ok(
       (hexer.actions as Array<{ label: string }>).some((action) => action.label === "Mending Light"),
       "and with the spell it named, read out of the catalog the route loaded for its sheet",
+    );
+    // Its open choices were filled by the very tactics it fights with, from its own hints.
+    const tactics = stored.enemies.find((enemy) => enemy.id === "hexer")?.tactics;
+    assert.equal(tactics?.proficiency, "master", "its tactics were given to it when the fight began");
+    assert.ok(
+      stored.rulesetFight.adjustments.includes(
+        `Hedge Hexer: Filled in for a master, ${tactics!.adjective} creature: "Sacred Spark".`,
+      ),
+      stored.rulesetFight.adjustments.join("; "),
     );
   }
 
@@ -808,6 +836,8 @@ try {
     assert.match(text, /lists\.spells: rows of name \(text, required\)/);
     assert.match(text, /a row counts only when "prepared" is true or when "level" is 0/);
     assert.match(text, /\{"name":"<name>"\}.*Mending Light/);
+    assert.match(text, /Which of these a creature may have depends on fields\.class, so set it\./);
+    assert.match(text, /A boss is written in full by you and may be the exception/);
     assert.ok(
       brief!.sheet.lists.every((list) => list.names.length <= 60),
       "the names are bounded",
