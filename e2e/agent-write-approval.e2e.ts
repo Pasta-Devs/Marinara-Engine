@@ -75,6 +75,7 @@ for (const theme of ["light", "dark"] as const) {
 
       const summary = page.getByRole("dialog", { name: "Review Summary Update", exact: true });
       await expect(summary).toBeVisible();
+      await expect(summary.getByText("Pending update", { exact: true }).locator("../..")).toBeFocused();
       await page.keyboard.press("Space");
       await page.keyboard.press("Enter");
       await expect(summary).toBeVisible();
