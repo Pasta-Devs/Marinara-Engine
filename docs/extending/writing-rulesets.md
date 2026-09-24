@@ -1161,7 +1161,7 @@ unit: "Juno moves to 4, 6 for 6 paces and has 2 paces left."
 Some moments belong to somebody who is not the one acting. The Engine holds the fight open for them
 rather than deciding for them, and that pause is a window.
 
-Two things open one today, and both come out of what you already declared:
+Four things open one, and two of them come out of what you already declared:
 
 - **Somebody breaks away.** A walk that leaves the reach of an enemy who could strike stops on that
   step and asks them. See Strikes at somebody walking away, above.
@@ -1169,6 +1169,14 @@ Two things open one today, and both come out of what you already declared:
   can afford one of its own `signature` actions is asked whether to buy one, before the next turn
   begins. That is the only moment they are bought in: a signature action is on nobody's turn menu,
   its own included.
+- **Something is aimed at somebody.** Before it resolves, everybody on the OTHER side it is
+  pointed at who holds an entry waiting for that moment is asked. A friend healing you is not a
+  threat to answer, so a friend's action opens no window.
+- **Something has hurt somebody.** After it resolves, everybody it damaged who holds an entry
+  waiting for THAT moment is asked, whoever did it. Being hurt is a fact about you; an entry pointed
+  back at whoever caused it still cannot be pointed at a friend.
+
+The last two are what a catalog entry asks for by naming the moment it waits for.
 
 What a window does, whichever opened it:
 
@@ -1184,8 +1192,33 @@ What a window does, whichever opened it:
 - **It is saved with the fight.** A game closed mid-walk comes back with the same people still to
   ask and the same cells still to walk.
 
-You declare none of this. A ruleset with `opportunity.budget` gets the first, a bestiary with
-`signaturePoints` gets the second, and a ruleset with neither never sees a window.
+The first two you declare nothing for: a ruleset with `opportunity.budget` gets one, a bestiary with
+`signaturePoints` gets the other, and a ruleset with neither never sees them.
+
+**Saying which moment an entry waits for.** Write `mechanics.reaction` as an object instead of
+`true`:
+
+```json
+"reaction": { "on": "aimed", "at": "source", "cancels": true }
+```
+
+- `on` is `aimed` or `harmed`, and it is what puts the entry on that window's menu. Those two are
+  the only moments the Engine watches for. An entry that still says `"reaction": true` says only
+  that it is not taken on a turn, which is not enough to offer it anywhere, so it stays on no menu.
+- `at` is `source` (the default) or `chosen`. `source` points what is taken at whoever caused the
+  moment and fills the target in, so nobody is asked to pick; `chosen` keeps the entry's own
+  targets and asks.
+- `cancels` stops what the window was holding from happening at all. Only an `aimed` entry may say
+  it: a moment that has already happened cannot be called off.
+
+Give it a `budget` too, or it spends the list's default. A reaction almost always spends a budget of
+its own, which is what stops one turn holding several.
+
+**What it costs is spent before anybody is asked.** A cancelled action is stopped from happening,
+not from having been bought: the budget and the pools are already gone. If your system refunds
+them, it cannot say so yet.
+
+A package that names a moment needs Capability API 1.33.
 
 ### Not yet
 
@@ -1194,10 +1227,18 @@ Said plainly, because a ruleset should not claim what the Engine does not do:
 - **Beyond the modest board**: no three-quarter or total cover, no elevation, no flying over
   obstacles, no squeezing, no mounts, no grapple or shove movement, no hiding or surprise, and
   nothing pushes anybody anywhere.
-- **Only two things open a window** (see Windows, above): somebody breaking away, and the moment
-  between two turns. An entry marked `reaction` in a catalog cannot say what it waits for yet, so
-  one marked that way is on no menu, and `cannot-react` is read for the window a walk opens and for
-  nothing else.
+- **An entry may wait for two moments only**, `aimed` and `harmed` (see Windows, above). Those are
+  the moments the Engine notices on an entry's behalf; the other two windows, somebody breaking away
+  and the pause between two turns, are opened by the fight itself and are not moments an entry can
+  ask for. There is no moment for a save being rolled, a spell being cast as such, a death, a turn
+  beginning, or anything falling.
+- **No chain of them.** The fight keeps one window rather than a stack, so nothing opened inside a
+  window opens another: a counter cannot itself be countered, and what a reaction deals opens no
+  further moment.
+- **A reaction stops something or does something; it cannot change a number on it.** There is no way
+  to say "harder to hit until your next turn", because a condition is a name off a closed list
+  rather than a modifier. That is a limit of conditions, not of reactions.
+- **Nothing is refunded.** What a cancelled action cost is spent.
 - Conditions do what the closed effect list can say and no more. A condition that gives
   disadvantage on ability CHECKS, or one that gets worse in levels the way exhaustion does, is a
   plain record on the sheet today.

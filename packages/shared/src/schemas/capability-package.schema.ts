@@ -310,7 +310,15 @@ const capabilityPackageManifestBaseSchema = z
 //        for. Not a soft seam, for the same reason as 1.20 through 1.31: an Engine that cannot read
 //        the key refuses the whole ruleset file, so a package that ships it declares 1.32. No
 //        permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 32 } as const);
+// 1.33: a catalog entry that says WHICH moment it waits for. `mechanics.reaction` may be an object
+//        rather than `true`: `on` names the moment the Engine notices ("aimed" before something
+//        lands on its holder, "harmed" after something has hurt them), `at` says whom what is taken
+//        is pointed at, and `cancels` stops what the window was holding from happening at all. An
+//        entry that still says only `true` is on no menu, exactly as before, so a package that
+//        ships one needs nothing newer. Not a soft seam, for the same reason as 1.20 through 1.32:
+//        an Engine that cannot read the object refuses the whole catalog asset, so a package that
+//        ships one declares 1.33. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 33 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

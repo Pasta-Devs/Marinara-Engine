@@ -642,6 +642,10 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     ],
     ["window", say({ type: "window", window: "w1", kind: "reaction", waiting: ["lurker"], moverId: "brenna" })],
     ["pass", say({ type: "pass", actorId: "lurker", window: "w1" })],
+    [
+      "cancelled",
+      say({ type: "cancelled", actorId: "brenna", optionId: "ability:0:0", label: "Fireball", byId: "lurker" }),
+    ],
     ["cover", say({ type: "cover", targetId: "lurker", bonus: 2, defense: 15 })],
     [
       "area",
@@ -666,6 +670,31 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
 
   // The exact strings, so rewording one is a decision rather than an accident.
   assert.equal(printed.get("window"), "Brenna breaks away, and Thorn Lurker may strike.");
+  assert.equal(printed.get("cancelled"), "Thorn Lurker stops Brenna: Fireball never happens.");
+  assert.equal(
+    line(fiveE, state, {
+      type: "window",
+      window: "w3",
+      kind: "reaction",
+      waiting: ["lurker"],
+      sourceId: "brenna",
+      moment: "aimed",
+      label: "Fireball",
+    }),
+    "Brenna aims Fireball at Thorn Lurker, who may answer.",
+  );
+  assert.equal(
+    line(fiveE, state, {
+      type: "window",
+      window: "w4",
+      kind: "reaction",
+      waiting: ["lurker"],
+      sourceId: "brenna",
+      moment: "harmed",
+      label: "Fireball",
+    }),
+    "Fireball hurts Thorn Lurker, who may answer.",
+  );
   assert.equal(printed.get("pass"), "Thorn Lurker lets the moment go by.");
   assert.equal(
     line(fiveE, state, { type: "window", window: "w2", kind: "signature", waiting: ["lurker"] }),

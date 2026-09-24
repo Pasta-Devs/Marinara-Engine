@@ -141,6 +141,15 @@ export function rulesetRefusalText(code: string | undefined, serverText: string,
 
 const STANDARD_ACTIONS = new Set(["dash", "disengage", "dodge", "help", "hide", "ready"]);
 
+/** What each kind of held-open moment is called on screen. A window is not an interruption to
+ *  apologise for: each of these says what is happening and who may answer it. */
+const WINDOW_LINES = {
+  between: "windowBetween",
+  leaving: "windowLeaving",
+  aimed: "windowAimed",
+  harmed: "windowHarmed",
+} as const;
+
 /**
  * One event as one line, or null for an event that says nothing a reader wants (a fight that is
  * still going, an id the fight no longer holds). Never throws: a saved fight read by a newer or an
@@ -293,13 +302,20 @@ export function rulesetCombatEventLine(
     case "window":
       // Who the fight stopped for. The window between two turns is nobody's interruption, so it is
       // said as a pause rather than as somebody being caught out.
-      return key(event.kind === "signature" ? "windowBetween" : "windowLeaving", {
+      return key(WINDOW_LINES[event.moment ?? (event.kind === "signature" ? "between" : "leaving")], {
         actor: names.combatant(event.waiting[0] ?? ""),
         others: Math.max(0, event.waiting.length - 1),
-        mover: names.combatant(event.moverId ?? ""),
+        mover: names.combatant(event.sourceId ?? event.moverId ?? ""),
+        label: event.label ?? "",
       });
     case "pass":
       return key("pass", { actor: names.combatant(event.actorId) });
+    case "cancelled":
+      return key("cancelled", {
+        actor: names.combatant(event.actorId),
+        label: event.label,
+        by: names.combatant(event.byId),
+      });
     case "opportunity":
       return key("opportunity", {
         actor: names.combatant(event.actorId),

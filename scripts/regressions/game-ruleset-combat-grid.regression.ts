@@ -1330,6 +1330,22 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
   assert.deepEqual(firstOf(took.events, "move").to, { x: 5, y: 1 }, "and the walk picked up where it stopped");
   assert.equal(firstOf(took.events, "move").cost, 5, "paying for every cell it really crossed");
 
+  // A fight saved in the middle of a walk by an Engine from before a resume said what kind it was
+  // comes back as one: answering the window still finishes the walk, rather than leaving the
+  // walker standing on the step they were asked about.
+  {
+    const saved = JSON.parse(JSON.stringify(held.state)) as RulesetEncounterState;
+    delete (saved.window!.resume as { kind?: string }).kind;
+    const resumed = act(fiveE, saved, {
+      actorId: "snag",
+      optionId: RULESET_PASS_OPTION,
+      targetIds: [],
+      window: saved.window!.id,
+    });
+    assert.equal(resumed.state.window, undefined);
+    assert.deepEqual(firstOf(resumed.events, "move").to, { x: 5, y: 1 }, "an old save's walk still finishes");
+  }
+
   // Letting it go by costs nothing and finishes the same walk.
   const let_go = act(fiveE, held.state, { actorId: "snag", optionId: RULESET_PASS_OPTION, targetIds: [], window: window.id });
   assert.deepEqual(firstOf(let_go.events, "pass"), { type: "pass", actorId: "snag", window: window.id });

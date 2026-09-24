@@ -3495,7 +3495,60 @@
                       "type": "boolean"
                     },
                     "reaction": {
-                      "type": "boolean"
+                      "anyOf": [
+                        {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "string",
+                              "enum": [
+                                "aimed",
+                                "harmed"
+                              ]
+                            },
+                            "at": {
+                              "type": "string",
+                              "enum": [
+                                "source",
+                                "chosen"
+                              ],
+                              "default": "source"
+                            },
+                            "cancels": {
+                              "type": "boolean",
+                              "const": true
+                            },
+                            "$comment": {}
+                          },
+                          "required": [
+                            "on"
+                          ],
+                          "additionalProperties": false,
+                          "if": {
+                            "required": [
+                              "cancels"
+                            ]
+                          },
+                          "then": {
+                            "properties": {
+                              "on": {
+                                "const": "aimed"
+                              }
+                            },
+                            "required": [
+                              "on"
+                            ]
+                          }
+                        }
+                      ]
                     },
                     "targetCount": {
                       "type": "integer",

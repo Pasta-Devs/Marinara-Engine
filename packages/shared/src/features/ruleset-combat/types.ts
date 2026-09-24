@@ -224,6 +224,9 @@ export interface RulesetCombatAction {
   sequence?: RulesetCombatSequenceStep[];
   /** Bought with the actor's own points at the end of somebody else's turn, not with a budget. */
   signature?: { cost: number };
+  /** Taken at a MOMENT rather than on a turn: which moment, whom it may be aimed at, and whether
+   *  taking it stops what opened the window. On no turn's menu, ever. */
+  reaction?: { on: RulesetReactionMoment; at: "source" | "chosen"; cancels?: true };
   /** IN CELLS, resolved once when the fight began, and read only by a positioned fight. An action
    *  with neither reaches one cell, which is the smallest step a board has. */
   reach?: number;
@@ -383,12 +386,39 @@ export type RulesetWindowTrigger =
   /** A walk left this one's reach. `from` and `to` are the step that did it, not the whole walk. */
   | { kind: "leaves-reach"; moverId: string; from: RulesetCombatCell; to: RulesetCombatCell }
   /** One turn has ended and the next has not begun. */
-  | { kind: "between-turns"; nextActorId: string };
+  | { kind: "between-turns"; nextActorId: string }
+  /** Something is ABOUT to land on the ones being asked. It is already paid for and is held here
+   *  until they have answered, and an answer that cancels stops it from happening at all. */
+  | { kind: "aimed"; sourceId: string; optionId: string; label: string }
+  /** Something has just hurt the ones being asked. It has already happened: nothing answered here
+   *  unmakes it, and `sourceId` is whoever dealt it, for a reaction aimed back at them. */
+  | { kind: "harmed"; sourceId: string; label: string };
+
+/** The moments the Engine notices, and opens a window for. `aimed` is before something lands on
+ *  the holder, `harmed` is after something has hurt them. */
+export type RulesetReactionMoment = "aimed" | "harmed";
+
+/** What the fight goes back to once the window closes. A window opened after something has already
+ *  happened carries none: there is nothing to pick up. */
+export type RulesetWindowResume = RulesetWalkResume | RulesetActionResume;
+
+/** Something paid for and held while everybody it is aimed at is asked. It resolves when the window
+ *  closes, from the state as it stands then, unless an answer called it off. */
+export interface RulesetActionResume {
+  kind: "action";
+  actorId: string;
+  optionId: string;
+  targetIds: string[];
+  payWith?: string;
+  /** An answer stopped it. What it cost is still spent: it was paid for before the asking. */
+  cancelled?: true;
+}
 
 /** A walk stopped in its tracks, with everything needed to finish it exactly as it would have gone:
  *  the cells already crossed, the ones still to cross, what has been paid so far and who has
  *  already struck, so nobody strikes the same passer-by twice. */
-export interface RulesetWindowResume {
+export interface RulesetWalkResume {
+  kind: "walk";
   actorId: string;
   from: RulesetCombatCell;
   walked: RulesetCombatCell[];
@@ -558,9 +588,23 @@ export type RulesetCombatEvent =
   | { type: "opportunity"; actorId: string; targetId: string; label: string; budget: string }
   /** The fight was held open, and for whom. Everything those combatants then take is its own event,
    *  exactly as it is on a turn, so a log reads the window as an interruption rather than a mode. */
-  | { type: "window"; window: string; kind: RulesetWindowKind; waiting: string[]; moverId?: string }
+  | {
+      type: "window";
+      window: string;
+      kind: RulesetWindowKind;
+      waiting: string[];
+      moverId?: string;
+      /** Which moment opened it, for the ones a reaction waits for, what is happening at it, and
+       *  who is doing it. */
+      moment?: RulesetReactionMoment;
+      label?: string;
+      sourceId?: string;
+    }
   /** Somebody let their window go by without spending anything. */
   | { type: "pass"; actorId: string; window: string }
+  /** Something held open by a window was called off, and never happened. What it cost stays spent:
+   *  it was paid for before anybody was asked. */
+  | { type: "cancelled"; actorId: string; optionId: string; label: string; byId: string }
   /** What the ground the target stands on added to the defense the next attack is rolled against. */
   | { type: "cover"; targetId: string; bonus: number; defense: number }
   /** Where an area landed, and the cells it covered. */

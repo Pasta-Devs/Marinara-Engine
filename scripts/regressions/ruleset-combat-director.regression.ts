@@ -25,6 +25,7 @@ import { fileURLToPath } from "node:url";
 import {
   currentRulesetActor,
   parseRulesetDefinition,
+  planRulesetCombatCost,
   rowsFromCatalogEntry,
   RULESET_MOVE_OPTION,
   rulesetCombatant,
@@ -32,6 +33,7 @@ import {
   rulesetCombatStanding,
   rulesetReachableCells,
   rulesetSheetBuildSchema,
+  rulesetWindowOptions,
   type RulesetCatalogEntriesById,
   type RulesetLiveStates,
   type RulesetCatalogEntry,
@@ -48,6 +50,7 @@ import {
   directedRulesetView,
   rulesetDirectorStage,
   rulesetFightLiveStates,
+  rulesetWindowTargetOf,
   syncRulesetCombatants,
   type RulesetFightOpponent,
 } from "../../packages/server/src/services/game/ruleset-combat-director.service.js";
@@ -94,6 +97,20 @@ const spellEntries = [
       cost: [{ pool: "slots_1", amount: 1 }],
     },
   },
+  {
+    // Written at its lowest rung and bigger out of a higher one, which is what `perCostStep` says.
+    id: "ember-lance",
+    label: "Ember Lance",
+    rows: [{ list: "spells", values: { name: "Ember Lance", level: 1, prepared: true } }],
+    mechanics: {
+      kind: "attack",
+      attackRoll: true,
+      amount: { dice: "2d6" },
+      damageType: "fire",
+      cost: [{ pool: "slots_2", amount: 1 }],
+      perCostStep: { dice: "2d6" },
+    },
+  },
 ] as unknown as RulesetCatalogEntry[];
 const spellRows = spellEntries.flatMap((entry) => rowsFromCatalogEntry("spells", entry).map((row) => row.row));
 const spellCatalogs: RulesetCatalogEntriesById = { spells: spellEntries };
@@ -113,7 +130,16 @@ const wizardBuild = () =>
   build({
     abilities: { str: 8, dex: 14, con: 12, int: 18, wis: 12, cha: 10 },
     saves: { int_save: "proficient", wis_save: "proficient" },
-    fields: { level: 7, ac: 12, speed: 30, hp_max: 38, spellcasting_ability: "int", slots_max_1: 4 },
+    fields: {
+      level: 7,
+      ac: 12,
+      speed: 30,
+      hp_max: 38,
+      spellcasting_ability: "int",
+      slots_max_1: 4,
+      slots_max_2: 3,
+      slots_max_3: 3,
+    },
     lists: { spells: spellRows },
   });
 const fiveECards = [card("Brenna", fighterBuild()), card("Corwin", wizardBuild()), card("Tam", null)];
@@ -604,6 +630,8 @@ for (const setup of [
   },
 ]) {
   let resolved = 0;
+  /** Which pools the picker actually paid out of, over the whole sweep. */
+  const spentPools = new Set<string>();
   for (let seed = 1; seed <= 40; seed++) {
     const state = started({
       definition: setup.definition,
@@ -626,6 +654,7 @@ for (const setup of [
       assert.ok(commandRulesetCombatDirector(setup.definition, state, { type: "continue" }).ok);
       resolved++;
       const events = state.rulesetFight!.events.slice(-40).map((entry) => entry.event);
+      for (const event of events) if (event.type === "spend") spentPools.add(event.pool);
       assert.ok(
         !events.some((event) => event.type === "refused"),
         `${setup.what} seed ${seed}: the picker chose something the rules refused`,
@@ -640,6 +669,49 @@ for (const setup of [
     }
   }
   assert.ok(resolved >= 100, `${setup.what}: ${resolved} seeded turns were resolved`);
+  // Paying out of a BIGGER pool is a candidate of its own, so the picker weighs casting something
+  // bigger against casting it at all. Only the 5e draft has a pool family to climb.
+  //
+  // The party's two paid spells are written one rung apart and only one of them grows, so each pool
+  // names exactly one thing: `slots_1` is Mending Light, `slots_2` is Ember Lance as written, and
+  // `slots_3` can only be Ember Lance cast out of a bigger slot.
+  if (setup.what === "5e") {
+    assert.ok(
+      spentPools.has("slots_3"),
+      `${setup.what}: nothing was ever paid for out of a higher pool, it spent ${[...spentPools].join(", ")}`,
+    );
+    // An opponent has nothing to climb. A stat block's actions cost nothing off any pool, so there
+    // is no bigger way for it to pay, whoever plays it, the Engine or a Game Master.
+    {
+      const encounter = started({
+        definition: setup.definition,
+        cards: setup.cards,
+        partyCatalogs: setup.catalogs,
+        party: setup.party,
+        enemies: [{ id: "a", name: setup.enemy }],
+        seed: 1,
+      }).rulesetFight!.encounter;
+      const opponent = rulesetCombatant(encounter, "a")!;
+      for (const action of opponent.actions) {
+        for (const pool of ["slots_1", "slots_2", "slots_3"]) {
+          assert.equal(
+            planRulesetCombatCost(setup.definition, opponent, action, pool),
+            null,
+            `${setup.what}: an opponent's ${action.label} cannot be paid out of ${pool}`,
+          );
+        }
+      }
+    }
+    // And the base way of paying is still there beside it: the bigger ways are candidates ADDED to
+    // it, not candidates that replaced it. (What the extra rungs are worth against what they buy is
+    // the picker's own weighing, and is not pinned here: with the price taken out entirely this
+    // sweep still casts it as written somewhere, because a caster out of third-level slots has
+    // nothing else to spend.)
+    assert.ok(
+      spentPools.has("slots_2"),
+      `${setup.what}: the base way of paying vanished, it spent only ${[...spentPools].join(", ")}`,
+    );
+  }
 }
 
 // ── The picker leaves the dying alone, and points an ability at everybody it may take ──
@@ -1245,3 +1317,101 @@ for (const setup of [
 console.log(
   "Ruleset combat director: sheets, bestiaries, clamps, tiers, refusals, one turn per continue, the picker, the board, summaries and a JSON round trip passed.",
 );
+
+// ── A party member the Engine plays answers its own windows, and may let one go ──
+{
+  // Sear waits for its holder to be hurt and is pointed back at whoever did it. It lives in this
+  // fight alone: a party member the PLAYER plays who holds it is asked, and the fight waits, which
+  // is right, and would hold up every other case in this file that is not about reactions.
+  const sear = {
+    id: "sear",
+    label: "Sear",
+    rows: [{ list: "spells", values: { name: "Sear", level: 1, prepared: true } }],
+    mechanics: {
+      kind: "attack",
+      reaction: { on: "harmed" },
+      budget: "reaction",
+      amount: { dice: "2d10" },
+      damageType: "fire",
+      save: { save: "dex_save", onSuccess: "half" },
+      cost: [{ pool: "slots_1", amount: 1 }],
+    },
+  } as unknown as RulesetCatalogEntry;
+  const searRows = rowsFromCatalogEntry("spells", sear).map((row) => row.row);
+  const base = wizardBuild();
+  const reactive = { ...base, lists: { ...base.lists, spells: [...(base.lists?.spells ?? []), ...searRows] } };
+  const moments = { opened: 0, taken: 0, letGo: 0 };
+  for (let seed = 1; seed <= 40; seed++) {
+    const state = started({
+      definition: fiveE,
+      cards: [card("Corwin", reactive)],
+      partyCatalogs: { spells: [...spellEntries, sear] },
+      party: [{ id: "corwin", name: "Corwin" }],
+      enemies: [
+        { id: "a", name: "Thorn Lurker" },
+        { id: "b", name: "Thorn Lurker" },
+      ],
+      seed,
+    });
+    commandRulesetCombatDirector(fiveE, state, { type: "control", unitId: "corwin", controller: "ai" });
+    for (let turn = 0; turn < 10 && !state.outcome; turn++) {
+      const before = state.rulesetFight!.events.length;
+      assert.ok(commandRulesetCombatDirector(fiveE, state, { type: "continue" }).ok);
+      assert.equal(
+        state.rulesetFight!.encounter.window,
+        undefined,
+        `seed ${seed}: nobody the Engine plays leaves a window open`,
+      );
+      const events = state.rulesetFight!.events.slice(before).map((entry) => entry.event);
+      assert.ok(!events.some((event) => event.type === "refused"), `seed ${seed}: an answer the rules refused`);
+      for (const event of events) {
+        if (event.type === "window" && event.moment === "harmed") moments.opened++;
+        if (event.type === "pass") moments.letGo++;
+        if (event.type === "budget" && event.budget === "reaction" && event.actorId === "corwin") moments.taken++;
+      }
+    }
+  }
+  // Whom an option that asks for nobody really lands on, which is what it is weighed against: the
+  // one who hurt its holder, for a reaction pointed back at them, and the one walking away, for a
+  // strike at a passer-by. Held open by hand here, so the answer is read rather than guessed at.
+  {
+    const state = started({
+      definition: fiveE,
+      cards: [card("Corwin", reactive)],
+      partyCatalogs: { spells: [...spellEntries, sear] },
+      party: [{ id: "corwin", name: "Corwin" }],
+      enemies: [{ id: "a", name: "Thorn Lurker" }],
+      seed: 1,
+    });
+    const held = structuredClone(state.rulesetFight!.encounter);
+    held.window = {
+      id: "w1",
+      kind: "reaction",
+      trigger: { kind: "harmed", sourceId: "a", label: "Bite" },
+      waiting: ["corwin"],
+    };
+    const corwin = rulesetCombatant(held, "corwin")!;
+    const answer = rulesetWindowOptions(fiveE, held, "corwin").find((option) => option.label === "Sear");
+    assert.ok(answer, "Sear is offered at the moment it waits for");
+    assert.deepEqual(answer.targets, { side: "self", count: 0 }, "and asks nobody whom to point at");
+    assert.equal(rulesetWindowTargetOf(held, corwin, answer), "a", "because it lands on whoever hurt its holder");
+    held.window = {
+      ...held.window,
+      trigger: { kind: "leaves-reach", moverId: "a", from: { x: 0, y: 0 }, to: { x: 1, y: 0 } },
+    };
+    assert.equal(rulesetWindowTargetOf(held, corwin, answer), "a", "a strike at a passer-by lands on the passer-by");
+    held.window = { ...held.window, trigger: { kind: "between-turns", nextActorId: "a" } };
+    assert.equal(rulesetWindowTargetOf(held, corwin, answer), undefined, "and a pause between turns points at nobody");
+  }
+
+  assert.ok(moments.opened > 0, "being hurt opened windows for a party member the Engine plays");
+  assert.ok(moments.taken > 0, "and the Engine answered them, pointed back at whoever did it");
+  // Availability alone never forces a spend: letting the moment go by is a candidate like any other,
+  // weighed the way ending a turn is, and over forty seeded fights the picker does choose it.
+  assert.ok(moments.letGo > 0, "and at least once it let the moment go by");
+  assert.equal(
+    moments.taken + moments.letGo,
+    moments.opened,
+    "every window answered exactly once, one way or the other",
+  );
+}

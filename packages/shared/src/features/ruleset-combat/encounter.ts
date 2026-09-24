@@ -417,13 +417,18 @@ function abilityAction(
   perCell: number | undefined,
 ): RulesetCombatAction | null {
   const mechanics = entry.mechanics;
-  // A reaction answers something, and `reaction` alone does not say what. Until an entry can name
-  // the trigger it waits for, one marked this way is on no menu: not a turn's, because it is not
-  // taken on a turn, and not a window's, because nothing here knows which window it belongs in.
-  if (!mechanics || mechanics.reaction) return null;
+  if (!mechanics) return null;
+  // A reaction answers something, and `reaction: true` says only that much. An entry that names no
+  // moment is on no menu at all: not a turn's, because it is not taken on a turn, and not a
+  // window's, because nothing here knows which window it belongs in.
+  if (mechanics.reaction === true) return null;
+  // `false` says the same as leaving it out: not a reaction at all.
+  const moment = typeof mechanics.reaction === "object" ? mechanics.reaction : undefined;
   // A `utility` entry has nothing to resolve unless it changes what the turn itself may hold: one
-  // that hands a budget back, or lets its holder buy a standard action with another one.
-  if (mechanics.kind === "utility" && !mechanics.gives && !mechanics.standard) return null;
+  // that hands a budget back, lets its holder buy a standard action with another one, or stops
+  // something from happening at all. Calling something off IS what such an entry does.
+  const cancels = moment?.cancels === true;
+  if (mechanics.kind === "utility" && !mechanics.gives && !mechanics.standard && !cancels) return null;
   const resolve = (ref: RulesetValueRef) => resolveRulesetValueRef(definition, build, ref, evaluated);
   const amount = amountOf(mechanics.amount);
   // A scaling amount grows in DICE: the table says how many to add at each step of what it reads.
@@ -442,6 +447,17 @@ function abilityAction(
     label: name,
     budget: mechanics.budget ?? source.budget,
     targets: targetsOf(mechanics),
+    ...(moment
+      ? {
+          reaction: {
+            on: moment.on,
+            // The schema defaults it, but a caller handing entries in unparsed does not, and an
+            // `undefined` here would not survive the trip through JSON the state has to make.
+            at: moment.at ?? "source",
+            ...(moment.cancels ? { cancels: true as const } : {}),
+          },
+        }
+      : {}),
     use: {
       name,
       ...(cost ? { pool: cost.pool } : {}),
