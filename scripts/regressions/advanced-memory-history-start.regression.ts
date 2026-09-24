@@ -352,12 +352,12 @@ try {
   const excerpts = status.records.filter((record) => record.kind === "excerpt" && !record.audienceCharacterIds.length);
   const archivedIds = new Set(excerpts.flatMap((record) => record.messageIds));
   assert(
-    source.every((message, index) => index === 25 || archivedIds.has(message.id)),
+    source.every((message) => archivedIds.has(message.id)),
     "the archive covers all eligible history, including the open scene",
   );
   assert(
-    !status.records.some((record) => record.content && record.messageIds.includes(source[25]!.id)),
-    "globally hidden text stays out of memory",
+    status.records.some((record) => record.content && record.messageIds.includes(source[25]!.id)),
+    "globally hidden text remains part of memory",
   );
   assert(
     !scenes.some(

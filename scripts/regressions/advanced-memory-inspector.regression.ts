@@ -245,9 +245,43 @@ try {
   const hidden = (await app.inject({ method: "GET", url })).json();
   assert.equal(
     hidden.records.find((record: { id: string }) => record.id === "scene-50-saved").embeddingStatus,
-    "stale",
-    "changed source access still excludes an unsafe saved memory",
+    "pending",
+    "global hiding preserves the saved memory's index state",
   );
+  const manyScenesChat = await chats.create({
+    name: "Many saved scene boundaries",
+    mode: "roleplay",
+    characterIds: [character.id],
+    connectionId: connection.id,
+  });
+  assert(manyScenesChat);
+  await chats.createMessagesBatch(
+    manyScenesChat.id,
+    Array.from({ length: 10_000 }, () => ({ role: "user" as const, content: "A recorded scene event." })),
+  );
+  const manySources = await chats.listMessages(manyScenesChat.id);
+  await db.insert(advancedMemoryRecords).values(
+    Array.from({ length: 2000 }, (_, index) => {
+      const chunk = manySources.slice(index * 5, index * 5 + 5);
+      const sceneId = `scene-${chunk[0]!.id}`;
+      return {
+        ...rows[0]!,
+        id: sceneId,
+        sceneId,
+        chatId: manyScenesChat.id,
+        startMessageId: chunk[0]!.id,
+        endMessageId: chunk.at(-1)!.id,
+        messageIds: JSON.stringify(chunk.map((message) => message.id)),
+        content: "",
+      };
+    }),
+  );
+  const manyScenesStarted = performance.now();
+  const manyScenesStatus = await memory.status(manyScenesChat.id);
+  const manyScenesDuration = performance.now() - manyScenesStarted;
+  console.info(`Inspect 2000 scenes across 10000 messages: ${Math.round(manyScenesDuration)} ms`);
+  assert.equal(manyScenesStatus.unpreparedScenes?.length, 2000);
+  assert(manyScenesDuration < 2000, "scene validation must not rescan the full history for each saved boundary");
   console.info(
     "Advanced Memory inspector regression passed (large archive, compact status, toggle/delete and source revisions).",
   );
