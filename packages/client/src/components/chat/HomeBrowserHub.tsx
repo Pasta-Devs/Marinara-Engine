@@ -1910,6 +1910,16 @@ export function HomeBrowserHub({
     [achievementsEnabled, visibleWidgets],
   );
 
+  // Size rows from the full built-in/personal catalog so hiding a widget does not stretch the rest;
+  // agent widgets count only while shown because installs can contribute many optional widgets.
+  const rowHeightReferenceWidgets = useMemo<HomeWidgetId[]>(
+    () => [
+      ...availableWidgetIds.filter((id) => !id.startsWith("agent:")),
+      ...availableVisibleWidgets.filter((id) => id.startsWith("agent:")),
+    ],
+    [availableWidgetIds, availableVisibleWidgets],
+  );
+
   useEffect(() => {
     if (!customWidgetsQuery.isSuccess) return;
     let knownIds: string[] = [];
@@ -1980,7 +1990,7 @@ export function HomeBrowserHub({
       const pageHeight = content.clientHeight - hero.getBoundingClientRect().height - paddingBlock - 2;
       const referenceRowCount = Math.max(
         1,
-        Math.ceil(homeWidgetSpotCount(columns, availableVisibleWidgets, largeAgentWidgetIds) / columns),
+        Math.ceil(homeWidgetSpotCount(columns, rowHeightReferenceWidgets, largeAgentWidgetIds) / columns),
       );
       const referenceRowHeight = Math.min(
         HOME_WIDGET_MAX_ROW_HEIGHT,
@@ -1999,7 +2009,7 @@ export function HomeBrowserHub({
       observer?.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [activeTab, availableVisibleWidgets, largeAgentWidgetIds]);
+  }, [activeTab, rowHeightReferenceWidgets, largeAgentWidgetIds]);
 
   useEffect(
     () => () => {

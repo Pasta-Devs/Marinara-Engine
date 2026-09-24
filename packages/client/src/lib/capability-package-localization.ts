@@ -32,10 +32,14 @@ export function resolveCapabilityPackageDisplay(manifest: CapabilityPackageManif
           ariaLabel: localized?.homeBrowserTab?.ariaLabel ?? canonicalTab.ariaLabel,
         }
       : undefined,
-    homeWidgets: canonicalWidgets?.map((widget) => ({
-      ...widget,
-      label: localized?.homeWidgets?.[widget.id]?.label ?? widget.label,
-      description: localized?.homeWidgets?.[widget.id]?.description ?? widget.description,
-    })),
+    ...(canonicalWidgets
+      ? {
+          homeWidgets: canonicalWidgets.map((widget) => ({
+            ...widget,
+            label: localized?.homeWidgets?.[widget.id]?.label ?? widget.label,
+            description: localized?.homeWidgets?.[widget.id]?.description ?? widget.description,
+          })),
+        }
+      : {}),
   };
 }
