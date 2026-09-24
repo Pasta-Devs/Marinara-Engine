@@ -683,10 +683,25 @@ function gameTranslationMatchesMessage(
   segmentDeletes?: Set<string>,
   speakerColors?: Map<string, string>,
 ): boolean {
-  return (
-    source === getGameTranslationSource(message, segmentEdits, segmentDeletes, speakerColors) ||
-    source === message.content
-  );
+  if (source === getGameTranslationSource(message, segmentEdits, segmentDeletes, speakerColors)) {
+    return true;
+  }
+  // `source === message.content` is only a valid alias while the message has no
+  // segment overrides. Once a segment is edited or deleted, the raw content no
+  // longer matches what the segments render, so a translation of the old text
+  // must not suppress retranslation of the changed segments.
+  const segmentKeyPrefix = `${message.id}:`;
+  if (segmentEdits) {
+    for (const key of segmentEdits.keys()) {
+      if (key.startsWith(segmentKeyPrefix)) return false;
+    }
+  }
+  if (segmentDeletes) {
+    for (const key of segmentDeletes.keys()) {
+      if (key.startsWith(segmentKeyPrefix)) return false;
+    }
+  }
+  return source === message.content;
 }
 
 function getGameTranslatedSegmentText(
