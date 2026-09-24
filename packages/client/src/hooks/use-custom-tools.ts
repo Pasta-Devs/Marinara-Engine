@@ -66,6 +66,7 @@ export function useUpdateCustomTool() {
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) => api.patch(`/custom-tools/${id}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: toolKeys.all });
+      qc.invalidateQueries({ queryKey: agentKeys.all });
     },
   });
 }

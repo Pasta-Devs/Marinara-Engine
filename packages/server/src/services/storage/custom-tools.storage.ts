@@ -107,7 +107,34 @@ export function createCustomToolsStorage(db: DB) {
         updateFields.enabled = String(data.enabled);
       }
       if (data.sortOrder !== undefined) updateFields.sortOrder = data.sortOrder;
-      await db.update(customTools).set(updateFields).where(eq(customTools.id, id));
+      const renamedFrom = data.name !== undefined && data.name !== current.name ? current.name : null;
+      if (!renamedFrom) {
+        await db.update(customTools).set(updateFields).where(eq(customTools.id, id));
+        return this.getById(id);
+      }
+      // Agents enable custom tools by name, so carry the rename into their enabledTools lists.
+      const newName = data.name!;
+      const timestamp = updateFields.updatedAt as string;
+      await db.transaction(async (tx) => {
+        const configs = await tx.select().from(agentConfigs);
+        for (const config of configs) {
+          const settings = parseAgentSettingsRecord(config.settings);
+          if (!Array.isArray(settings.enabledTools) || !settings.enabledTools.includes(renamedFrom)) continue;
+          await tx
+            .update(agentConfigs)
+            .set({
+              settings: JSON.stringify({
+                ...settings,
+                enabledTools: Array.from(
+                  new Set(settings.enabledTools.map((name) => (name === renamedFrom ? newName : name))),
+                ),
+              }),
+              updatedAt: timestamp,
+            })
+            .where(eq(agentConfigs.id, config.id));
+        }
+        await tx.update(customTools).set(updateFields).where(eq(customTools.id, id));
+      });
       return this.getById(id);
     },
 

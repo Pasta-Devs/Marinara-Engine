@@ -1508,34 +1508,57 @@ export async function galleryRoutes(app: FastifyInstance) {
             logger.warn(error, "[gallery/selfie] Variant %d failed for chat %s", index + 1, chatId),
         });
         const savedImages = [];
+        let lastSaveError: unknown = null;
         for (const imageResult of imageResults) {
-          const filePath = saveImageToDisk(chatId, imageResult.base64, imageResult.ext, { shared: true });
-          const image = await storage.create({
-            chatId,
-            filePath,
-            prompt: providerPrompt,
-            provider: imageConn.provider ?? "image_generation",
-            model: imageModel || "unknown",
-            width,
-            height,
-          });
-          if (!image) throw new Error("Generated selfie metadata could not be saved");
-          await persistGeneratedImageToEntityGalleries({
-            sourceFilePath: filePath,
-            sourceChatImageId: image.id,
-            characterIds: [character.id],
-            characterGallery,
-            personaGallery,
-            prompt: providerPrompt,
-            provider: imageConn.provider ?? "image_generation",
-            model: imageModel || "unknown",
-            width,
-            height,
-          });
-          savedImages.push(image);
+          // One variant that fails to save must not discard the variants already saved, nor leave its file behind.
+          let savedFilePath: string | null = null;
+          let savedImage: Awaited<ReturnType<typeof storage.create>> = null;
+          try {
+            const filePath = saveImageToDisk(chatId, imageResult.base64, imageResult.ext, { shared: true });
+            savedFilePath = filePath;
+            const image = await storage.create({
+              chatId,
+              filePath,
+              prompt: providerPrompt,
+              provider: imageConn.provider ?? "image_generation",
+              model: imageModel || "unknown",
+              width,
+              height,
+            });
+            if (!image) throw new Error("Generated selfie metadata could not be saved");
+            savedImage = image;
+            await persistGeneratedImageToEntityGalleries({
+              sourceFilePath: filePath,
+              sourceChatImageId: image.id,
+              characterIds: [character.id],
+              characterGallery,
+              personaGallery,
+              prompt: providerPrompt,
+              provider: imageConn.provider ?? "image_generation",
+              model: imageModel || "unknown",
+              width,
+              height,
+            });
+            savedImages.push(image);
+          } catch (err) {
+            if (savedImage) {
+              // The chat gallery row is committed; keep reporting it so the response matches storage.
+              savedImages.push(savedImage);
+            } else if (savedFilePath) {
+              try {
+                removeSavedImageFromDisk(savedFilePath);
+              } catch (cleanupErr) {
+                logger.warn(cleanupErr, "[gallery/selfie] Failed to clean up orphaned image file %s", savedFilePath);
+              }
+            }
+            logger.warn(err, "[gallery/selfie] Failed to save selfie variant for chat %s", chatId);
+            lastSaveError = err;
+          }
         }
         const image = savedImages[0];
-        if (!image) throw new Error("Image provider did not return a selfie");
+        if (!image) {
+          throw lastSaveError instanceof Error ? lastSaveError : new Error("Image provider did not return a selfie");
+        }
         logger.info(
           "[gallery/selfie] Generated %d selfie image(s) for %s in chat %s",
           savedImages.length,

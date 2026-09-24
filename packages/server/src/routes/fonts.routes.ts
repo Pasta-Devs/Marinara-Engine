@@ -124,6 +124,14 @@ async function readFontMetadata(): Promise<Record<string, FontMetadataEntry>> {
   }
 }
 
+/** Serializes font-metadata.json read-modify-write cycles across concurrent requests. */
+let fontMetadataQueue: Promise<unknown> = Promise.resolve();
+function withFontMetadataLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = fontMetadataQueue.then(fn, fn);
+  fontMetadataQueue = run.catch(() => {});
+  return run;
+}
+
 async function writeFontMetadata(metadata: Record<string, FontMetadataEntry>) {
   ensureDir();
   const tempFile = `${FONT_METADATA_FILE}.${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`;
@@ -283,20 +291,24 @@ async function replaceManagedGoogleFontFiles(
       installedTargets.push(target.filename);
     }
 
-    const nextMetadata = { ...metadata };
-    for (const { filename } of backups) {
-      delete nextMetadata[filename];
-    }
-    for (const item of downloaded) {
-      nextMetadata[item.filename] = {
-        family,
-        weight: item.face.weight,
-        style: item.face.style,
-        ...(item.face.unicodeRange ? { unicodeRange: item.face.unicodeRange } : {}),
-        source: "google",
-      };
-    }
-    await writeFontMetadata(nextMetadata);
+    // Re-read inside the lock: the caller's snapshot predates the (possibly long) shard downloads,
+    // so merging into it would drop entries another family's download wrote in the meantime.
+    await withFontMetadataLock(async () => {
+      const nextMetadata = await readFontMetadata();
+      for (const { filename } of backups) {
+        delete nextMetadata[filename];
+      }
+      for (const item of downloaded) {
+        nextMetadata[item.filename] = {
+          family,
+          weight: item.face.weight,
+          style: item.face.style,
+          ...(item.face.unicodeRange ? { unicodeRange: item.face.unicodeRange } : {}),
+          source: "google",
+        };
+      }
+      await writeFontMetadata(nextMetadata);
+    });
 
     await Promise.all(backups.map(({ backupFilename }) => unlink(join(FONTS_DIR, backupFilename)).catch(() => {})));
   } catch (err) {
@@ -385,7 +397,7 @@ export async function fontsRoutes(app: FastifyInstance) {
 
   /** Download a font from Google Fonts and save to data/fonts/ */
   app.post("/google/download", async (req, reply) => {
-    const { family } = req.body as { family?: string };
+    const family = (req.body as { family?: unknown } | null | undefined)?.family;
 
     if (!family || typeof family !== "string") {
       return reply.status(400).send({ error: "Font family name is required" });

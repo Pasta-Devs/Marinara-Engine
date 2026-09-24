@@ -13,7 +13,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createServer } from "node:net";
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import {
   UTILITY_SIDECAR_DEFAULT_CONFIG,
@@ -57,7 +57,8 @@ export function utilitySlotServesAgent(
   // Selected is enough — the process starts on demand. Requiring it to be already
   // running would hand the agent back to its paid connection after every restart,
   // silently, which is the failure this slot exists to avoid.
-  return !!status.models[agentType] && status.runtimeInstalled;
+  // Own keys only: an agent named after an Object.prototype member is not installed.
+  return Object.hasOwn(status.models, agentType) && !!status.models[agentType] && status.runtimeInstalled;
 }
 
 /**
@@ -112,11 +113,24 @@ function assertInsideUtilityDir(candidate: string): string {
  * empty id resolved to the utility root itself — so removing it would have taken the
  * whole directory with it.
  */
+const RESERVED_MODEL_IDS = new Set(["__proto__", "constructor", "prototype"]);
+
 function assertValidModelId(modelId: string): string {
-  if (!/^[A-Za-z0-9._-]+$/.test(modelId) || modelId === "." || modelId === "..") {
+  if (!/^[A-Za-z0-9._-]+$/.test(modelId) || modelId === "." || modelId === ".." || RESERVED_MODEL_IDS.has(modelId)) {
     throw new Error(`Invalid utility model id: ${JSON.stringify(modelId)}`);
   }
   return modelId;
+}
+
+/**
+ * The installed record for `modelId`, by own property only. The models map is a plain
+ * object from JSON, so a bare index would treat "toString" or "constructor" as installed.
+ */
+function installedModel(
+  models: Record<string, UtilitySidecarModelSource>,
+  modelId: string,
+): UtilitySidecarModelSource | undefined {
+  return Object.hasOwn(models, modelId) ? models[modelId] : undefined;
 }
 
 function modelDirPath(modelId: string): string {
@@ -139,6 +153,8 @@ export class UtilitySidecarService {
   private starting: Promise<void> | null = null;
   /** In-progress shutdown, so a start cannot race a process that is still exiting. */
   private stopping: Promise<void> | null = null;
+  /** Models whose file is being replaced; start() refuses them until the swap is done. */
+  private installing = new Set<string>();
 
   constructor() {
     this.config = this.readConfig();
@@ -162,7 +178,16 @@ export class UtilitySidecarService {
 
   private writeConfig(): void {
     mkdirSync(UTILITY_DIR, { recursive: true });
-    writeFileSync(CONFIG_PATH, `${JSON.stringify(this.config, null, 2)}\n`, "utf8");
+    // Temp file plus rename: a crash or a full disk mid-write must not leave a truncated
+    // config, which readConfig would replace with defaults and drop every installed model.
+    const tmp = `${CONFIG_PATH}.${process.pid}.tmp`;
+    try {
+      writeFileSync(tmp, `${JSON.stringify(this.config, null, 2)}\n`, "utf8");
+      renameSync(tmp, CONFIG_PATH);
+    } catch (error) {
+      rmSync(tmp, { force: true });
+      throw error;
+    }
   }
 
   getConfig(): UtilitySidecarConfig {
@@ -225,8 +250,9 @@ export class UtilitySidecarService {
   /**
    * Download a model into this slot.
    *
-   * Refuses to run while the utility process is up, so a file is never replaced under
-   * a running server. The main sidecar is untouched throughout.
+   * The new file is staged beside the live one, and the process is stopped and kept down
+   * only for the swap, so a file is never replaced under a running server and a failed
+   * download leaves the working copy in place. The main sidecar is untouched throughout.
    */
   async installModel(args: {
     modelId: string;
@@ -238,43 +264,67 @@ export class UtilitySidecarService {
     const { modelId, repo, file } = args;
     if (!isValidRepo(repo)) throw new Error("Expected a HuggingFace repo of the form owner/name");
     if (!isValidModelFile(file)) throw new Error("Expected a .gguf file name");
+    assertValidModelId(modelId);
 
-    const wasActive = this.config.activeModelId === modelId;
-    if (wasActive) await this.stop();
-
-    const entries = await this.listRepoFiles(repo);
-    const entry = entries.find((candidate) => candidate.path === file);
-    if (!entry) throw new Error(`${file} is not in ${repo}`);
-    const version = UtilitySidecarService.entryVersion(entry);
-
+    if (this.installing.has(modelId)) throw new Error(`${modelId} is already being installed`);
+    this.installing.add(modelId);
     const destination = modelFilePath(modelId, file);
-    mkdirSync(dirname(destination), { recursive: true });
-    await downloadFileWithProgress({
-      url: `https://huggingface.co/${repo}/resolve/main/${encodeURI(file)}`,
-      destPath: destination,
-      expectedBytes: version.bytes,
-      signal: args.signal,
-      progress: { phase: "model", label: `${repo}/${file}` } as SidecarDownloadProgress,
-      onProgress: args.onProgress,
-    });
+    const staged = `${destination}.staged`;
+    try {
+      const entries = await this.listRepoFiles(repo);
+      const entry = entries.find((candidate) => candidate.path === file);
+      if (!entry) throw new Error(`${file} is not in ${repo}`);
+      const version = UtilitySidecarService.entryVersion(entry);
 
-    const record: UtilitySidecarModelSource = {
-      repo,
-      file,
-      oid: version.oid,
-      bytes: existsSync(destination) ? statSync(destination).size : version.bytes,
-      downloadedAt: new Date().toISOString(),
-    };
-    this.config.models[modelId] = record;
-    if (!this.config.activeModelId) this.config.activeModelId = modelId;
-    this.writeConfig();
-    logger.info(`[utility-sidecar] installed ${modelId} from ${repo}/${file}`);
-    return record;
+      mkdirSync(dirname(destination), { recursive: true });
+      // Download beside the live file: the working copy keeps serving meanwhile, and a
+      // failed or aborted download leaves it untouched.
+      await downloadFileWithProgress({
+        url: `https://huggingface.co/${repo}/resolve/main/${encodeURI(file)}`,
+        destPath: staged,
+        expectedBytes: version.bytes,
+        signal: args.signal,
+        progress: { phase: "model", label: `${repo}/${file}` } as SidecarDownloadProgress,
+        onProgress: args.onProgress,
+      });
+
+      // Only now take the process down (the installing guard keeps it down), then swap.
+      if (this.config.activeModelId === modelId || this.runningModelId === modelId) await this.stop();
+      renameSync(staged, destination);
+
+      const previous = installedModel(this.config.models, modelId);
+      const record: UtilitySidecarModelSource = {
+        repo,
+        file,
+        oid: version.oid,
+        bytes: existsSync(destination) ? statSync(destination).size : version.bytes,
+        downloadedAt: new Date().toISOString(),
+      };
+      this.config.models[modelId] = record;
+      if (!this.config.activeModelId) this.config.activeModelId = modelId;
+      this.writeConfig();
+      if (previous && previous.file !== file) {
+        try {
+          rmSync(modelFilePath(modelId, previous.file), { force: true });
+        } catch (error) {
+          logger.warn(error, "[utility-sidecar] Could not remove the replaced model file");
+        }
+      }
+      logger.info(`[utility-sidecar] installed ${modelId} from ${repo}/${file}`);
+      return record;
+    } finally {
+      try {
+        rmSync(staged, { force: true });
+      } catch {
+        // Best-effort cleanup of a staged download that was never swapped in.
+      }
+      this.installing.delete(modelId);
+    }
   }
 
   /** Is there a newer build than the one installed? Honest about not knowing. */
   async checkForUpdate(modelId: string): Promise<UtilitySidecarUpdateCheck> {
-    const installed = this.config.models[modelId];
+    const installed = installedModel(this.config.models, modelId);
     if (!installed) throw new Error(`No utility model installed as ${modelId}`);
     const entries = await this.listRepoFiles(installed.repo);
     const available = UtilitySidecarService.entryVersion(
@@ -301,7 +351,7 @@ export class UtilitySidecarService {
    */
   async removeModel(modelId: string): Promise<void> {
     assertValidModelId(modelId);
-    const installed = this.config.models[modelId];
+    const installed = installedModel(this.config.models, modelId);
     if (!installed) return;
     if (this.config.activeModelId === modelId) {
       this.config.activeModelId = null;
@@ -375,7 +425,7 @@ export class UtilitySidecarService {
     // through as "clear", which quietly turns a malformed request into a state change.
     if (modelId !== null) {
       assertValidModelId(modelId);
-      if (!this.config.models[modelId]) throw new Error(`No utility model installed as ${modelId}`);
+      if (!installedModel(this.config.models, modelId)) throw new Error(`No utility model installed as ${modelId}`);
     }
     const changed = this.config.activeModelId !== modelId;
     this.config.activeModelId = modelId;
@@ -435,7 +485,9 @@ export class UtilitySidecarService {
         this.starting = null;
       });
       await this.starting;
-      if (this.runningModelId === this.config.activeModelId) return this.getStatus();
+      // Loop again only if the selection changed while we were starting. A failed start
+      // of the same model is final for this call; the reason is in startupError.
+      if (this.config.activeModelId === wanted) return this.getStatus();
     }
     return this.getStatus();
   }
@@ -443,9 +495,13 @@ export class UtilitySidecarService {
   private async start(): Promise<void> {
     this.startupError = null;
     const modelId = this.config.activeModelId;
-    const installed = modelId ? this.config.models[modelId] : null;
+    const installed = modelId ? installedModel(this.config.models, modelId) : null;
     if (!modelId || !installed) {
       this.startupError = "No utility model selected";
+      return;
+    }
+    if (this.installing.has(modelId)) {
+      this.startupError = "The utility model is being updated";
       return;
     }
     const modelPath = modelFilePath(modelId, installed.file);
@@ -504,6 +560,14 @@ export class UtilitySidecarService {
       child.on("error", (error) => {
         this.startupError = error.message;
         logger.warn(error, "[utility-sidecar] llama-server failed to start");
+        // A spawn error (ENOENT, EACCES) emits no 'exit', so tear the slot down here or
+        // waitUntilAnswering polls a dead child until its timeout.
+        if (this.child === child) {
+          this.child = null;
+          this.port = null;
+          this.ready = false;
+          this.runningModelId = null;
+        }
       });
 
       this.startupError = null;
@@ -597,7 +661,7 @@ export class UtilitySidecarService {
   /** Digest of the active model file, for the operator to confirm what is loaded. */
   activeModelDigest(): string | null {
     const modelId = this.config.activeModelId;
-    const installed = modelId ? this.config.models[modelId] : null;
+    const installed = modelId ? installedModel(this.config.models, modelId) : null;
     if (!modelId || !installed) return null;
     const path = modelFilePath(modelId, installed.file);
     if (!existsSync(path)) return null;

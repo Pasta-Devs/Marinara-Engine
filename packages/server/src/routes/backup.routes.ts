@@ -111,6 +111,9 @@ const PROFILE_IMPORT_BODY_LIMIT_BYTES = 256 * 1024 * 1024;
 const PROFILE_IMPORT_ARCHIVE_LIMIT_BYTES = 2 * 1024 * 1024 * 1024;
 const PROFILE_ARCHIVE_ENTRY_LIMIT_BYTES = 256 * 1024 * 1024;
 const PROFILE_ARCHIVE_CENTRAL_DIRECTORY_LIMIT_BYTES = 8 * 1024 * 1024;
+// Full backups and native profile exports can hold far more files than a capped profile archive.
+// Keep a bound because the reader allocates a buffer the size of the central directory.
+const FULL_BACKUP_CENTRAL_DIRECTORY_LIMIT_BYTES = 256 * 1024 * 1024;
 const PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES = 2 * 1024 * 1024 * 1024;
 const LARGE_STORED_IMAGE_EXTENSIONS = new Set([".avif", ".gif", ".jpeg", ".jpg", ".png", ".webp"]);
 const LARGE_STORED_VIDEO_EXTENSIONS = new Set([".mov", ".mp4", ".webm"]);
@@ -519,11 +522,20 @@ async function buildCompatibleProfileZip(app: FastifyInstance) {
   });
   const data = envelope.data as Record<string, any>;
   const zip = new AdmZip();
+  // AdmZip.addFile overwrites an existing entry with the same name, and names are compared
+  // case-insensitively when the ZIP is extracted on Windows or macOS, so keep every entry unique.
+  const usedEntryNames = new Set<string>();
+  const uniqueEntryName = (folder: string, base: string) => {
+    let candidate = `${folder}/${base}.json`;
+    for (let n = 2; usedEntryNames.has(candidate.toLowerCase()); n++) candidate = `${folder}/${base} (${n}).json`;
+    usedEntryNames.add(candidate.toLowerCase());
+    return candidate;
+  };
 
   for (const [index, character] of (Array.isArray(data.characters) ? data.characters : []).entries()) {
     const charData = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
     zip.addFile(
-      `characters/${toSafeExportName(String(charData?.name ?? "character"), `character-${index + 1}`)}.json`,
+      uniqueEntryName("characters", toSafeExportName(String(charData?.name ?? "character"), `character-${index + 1}`)),
       Buffer.from(JSON.stringify({ spec: "chara_card_v2", spec_version: "2.0", data: charData }, null, 2), "utf8"),
     );
   }
@@ -539,14 +551,14 @@ async function buildCompatibleProfileZip(app: FastifyInstance) {
       ...personaData
     } = persona as Record<string, unknown>;
     zip.addFile(
-      `personas/${toSafeExportName(String(personaData.name ?? "persona"), `persona-${index + 1}`)}.json`,
+      uniqueEntryName("personas", toSafeExportName(String(personaData.name ?? "persona"), `persona-${index + 1}`)),
       Buffer.from(JSON.stringify(personaData, null, 2), "utf8"),
     );
   }
 
   for (const [index, lorebook] of (Array.isArray(data.lorebooks) ? data.lorebooks : []).entries()) {
     zip.addFile(
-      `lorebooks/${toSafeExportName(String(lorebook.name ?? "lorebook"), `lorebook-${index + 1}`)}.json`,
+      uniqueEntryName("lorebooks", toSafeExportName(String(lorebook.name ?? "lorebook"), `lorebook-${index + 1}`)),
       Buffer.from(JSON.stringify(buildCompatibleLorebookExport(lorebook), null, 2), "utf8"),
     );
   }
@@ -2157,6 +2169,9 @@ async function writeStoredZipArchive(
   const totalLimitBytes = options.unlimitedArchiveSize
     ? Number.MAX_SAFE_INTEGER
     : PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES;
+  const centralDirectoryLimitBytes = options.unlimitedArchiveSize
+    ? FULL_BACKUP_CENTRAL_DIRECTORY_LIMIT_BYTES
+    : PROFILE_ARCHIVE_CENTRAL_DIRECTORY_LIMIT_BYTES;
 
   try {
     for (const source of sources) {
@@ -2232,13 +2247,13 @@ async function writeStoredZipArchive(
           ),
         );
       }
-      if (nextCentralDirectorySize > PROFILE_ARCHIVE_CENTRAL_DIRECTORY_LIMIT_BYTES) {
+      if (nextCentralDirectorySize > centralDirectoryLimitBytes) {
         await output.truncate(entryStart);
         throw new ProfileArchiveTooLargeError(
           profileArchiveSizeError(
             "Profile archive central directory",
             nextCentralDirectorySize,
-            PROFILE_ARCHIVE_CENTRAL_DIRECTORY_LIMIT_BYTES,
+            centralDirectoryLimitBytes,
           ),
         );
       }
@@ -2256,12 +2271,12 @@ async function writeStoredZipArchive(
     }
     const centralDirectorySize = position - centralDirectoryOffset;
     assertZipSafeInteger(centralDirectorySize, "central directory size");
-    if (centralDirectorySize > PROFILE_ARCHIVE_CENTRAL_DIRECTORY_LIMIT_BYTES) {
+    if (centralDirectorySize > centralDirectoryLimitBytes) {
       throw new ProfileArchiveTooLargeError(
         profileArchiveSizeError(
           "Profile archive central directory",
           centralDirectorySize,
-          PROFILE_ARCHIVE_CENTRAL_DIRECTORY_LIMIT_BYTES,
+          centralDirectoryLimitBytes,
         ),
       );
     }
@@ -2493,12 +2508,13 @@ async function readProfileZipArchive(filePath: string): Promise<ProfileZipArchiv
       eocdSearch,
       eocdOffset,
     );
-    if (centralDirectorySize > PROFILE_ARCHIVE_CENTRAL_DIRECTORY_LIMIT_BYTES) {
+    // Stored full backups may carry a large central directory; accept what the writer can produce.
+    if (centralDirectorySize > FULL_BACKUP_CENTRAL_DIRECTORY_LIMIT_BYTES) {
       throw new ProfileImportRequestError(
         profileArchiveSizeError(
           "Profile archive central directory",
           centralDirectorySize,
-          PROFILE_ARCHIVE_CENTRAL_DIRECTORY_LIMIT_BYTES,
+          FULL_BACKUP_CENTRAL_DIRECTORY_LIMIT_BYTES,
         ),
       );
     }

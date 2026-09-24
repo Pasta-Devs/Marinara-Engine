@@ -2,6 +2,7 @@
 // Routes: Chat settings profiles (legacy route/storage names use "chat preset")
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import {
   chatModeSchema,
   createChatPresetSchema,
@@ -13,6 +14,8 @@ import {
 } from "@marinara-engine/shared";
 import { createChatPresetsStorage } from "../services/storage/chat-presets.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
+
+const duplicateChatPresetSchema = z.object({ name: z.string().trim().min(1).max(120).optional() });
 
 function toSafeExportName(name: string, fallback: string) {
   const sanitized = name
@@ -86,8 +89,8 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
 
   /** Duplicate a profile (the "Save As" button). */
   app.post<{ Params: { id: string } }>("/:id/duplicate", async (req, reply) => {
-    const body = (req.body ?? {}) as { name?: string };
-    const duplicated = await storage.duplicate(req.params.id, body.name);
+    const { name } = duplicateChatPresetSchema.parse(req.body ?? {});
+    const duplicated = await storage.duplicate(req.params.id, name);
     if (!duplicated) return reply.status(404).send({ error: "Settings profile not found" });
     return duplicated;
   });

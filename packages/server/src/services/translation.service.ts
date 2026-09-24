@@ -26,6 +26,15 @@ import type { GenerationFallbackNotifier } from "./generation/fallback-notificat
 
 const GOOGLE_MAX_LENGTH = 5000;
 
+/** Parse a provider's JSON reply, turning a non-JSON body (proxy or login page) into a 502 that names it. */
+async function parseProviderJson<T>(response: Response, provider: string): Promise<T> {
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw Object.assign(new Error(`${provider} returned a non-JSON response`), { statusCode: 502 });
+  }
+}
+
 const translateSchema = z.object({
   chatId: z.string().optional(),
   debugMode: z.boolean().optional(),
@@ -248,7 +257,7 @@ async function translateWithDeepLX(input: z.infer<typeof translateSchema>) {
     throw Object.assign(new Error(`DeepLX returned ${response.status}`), { statusCode: 502 });
   }
 
-  const data = (await response.json()) as { data?: string; alternatives?: string[] };
+  const data = await parseProviderJson<{ data?: string; alternatives?: string[] }>(response, "DeepLX");
   const translated = data.data || data.alternatives?.[0] || "";
   return { translatedText: translated };
 }
@@ -283,7 +292,7 @@ async function translateWithDeepL(input: z.infer<typeof translateSchema>) {
     throw Object.assign(new Error(`DeepL API returned ${response.status}`), { statusCode: 502 });
   }
 
-  const data = (await response.json()) as { translations?: Array<{ text: string }> };
+  const data = await parseProviderJson<{ translations?: Array<{ text: string }> }>(response, "DeepL API");
   return { translatedText: data.translations?.[0]?.text ?? "" };
 }
 
@@ -303,9 +312,13 @@ async function translateWithGoogle(input: z.infer<typeof translateSchema>) {
   url.searchParams.set("sl", "auto");
   url.searchParams.set("tl", input.targetLanguage);
   url.searchParams.set("dt", "t");
-  url.searchParams.set("q", input.text);
 
+  // The text goes in a form body, not the query string: percent-encoded non-Latin text
+  // grows 6-9x and overflows Google's URL length limit well under GOOGLE_MAX_LENGTH.
   const response = await safeFetch(url.toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+    body: new URLSearchParams({ q: input.text }).toString(),
     signal: AbortSignal.timeout(15_000),
     maxResponseBytes: 1024 * 1024,
   }).catch((err) => {
@@ -318,7 +331,7 @@ async function translateWithGoogle(input: z.infer<typeof translateSchema>) {
     throw Object.assign(new Error(`Google Translate returned ${response.status}`), { statusCode: 502 });
   }
 
-  const data = (await response.json()) as unknown;
+  const data = await parseProviderJson<unknown>(response, "Google Translate");
 
   // Google returns nested arrays: [[["translated text", "original text", ...], ...], ...]
   let translated = "";

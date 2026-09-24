@@ -325,6 +325,10 @@ export function validateSpriteExpressionEntries<T extends SpriteExpressionEntry>
 
   const validated: T[] = [];
   for (const entry of expressions) {
+    if (!entry || typeof entry !== "object") {
+      warnings.push({ message: "Malformed expression entry, skipping" });
+      continue;
+    }
     if (typeof entry.characterId !== "string" && typeof entry.characterName !== "string") {
       warnings.push({ message: "Malformed expression entry without character identity — skipping" });
       continue;

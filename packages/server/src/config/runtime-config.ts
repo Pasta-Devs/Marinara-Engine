@@ -209,18 +209,11 @@ export function reloadRuntimeEnv(): EnvReloadResult {
   const updated: string[] = [];
   const unchanged: string[] = [];
   const removed: string[] = [];
+  const previousValues = new Map<string, string | undefined>();
 
   for (const [key, value] of Object.entries(parsed)) {
-    const previous = process.env[key];
-    if (!envFileKeys.has(key)) {
-      added.push(key);
-      process.env[key] = value;
-    } else if (previous !== value) {
-      updated.push(key);
-      process.env[key] = value;
-    } else {
-      unchanged.push(key);
-    }
+    previousValues.set(key, process.env[key]);
+    process.env[key] = value;
   }
 
   for (const key of envFileKeys) {
@@ -232,6 +225,17 @@ export function reloadRuntimeEnv(): EnvReloadResult {
 
   applySavedRequestTimeouts();
   normalizeRuntimeTimezoneEnv();
+
+  // Classify after the saved request timeouts and TZ normalization have been
+  // applied, so a key only counts as updated when its effective value changed.
+  // Otherwise a .env timeout line that .env.timeouts.json overrides would be
+  // reported (with a restart warning) on every unrelated .env edit.
+  for (const key of Object.keys(parsed)) {
+    if (!envFileKeys.has(key)) added.push(key);
+    else if (previousValues.get(key) !== process.env[key]) updated.push(key);
+    else unchanged.push(key);
+  }
+
   envFileKeys = newKeys;
   return { added, updated, removed, unchanged };
 }

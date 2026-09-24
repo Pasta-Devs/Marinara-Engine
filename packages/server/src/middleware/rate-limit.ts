@@ -215,7 +215,17 @@ export function rateLimitHook(request: FastifyRequest, reply: FastifyReply, done
   const now = Date.now();
   sweepExpired(now);
 
-  const rule = selectRule(request.url);
+  let rule = selectRule(request.url);
+  // Routes that declare config.rateLimit and have no ROUTE_RULES entry get their
+  // declared limit instead of the permissive default bucket.
+  const routeLimit = request.routeOptions?.config?.rateLimit;
+  if (rule === DEFAULT_RULE && routeLimit && request.routeOptions.url) {
+    rule = {
+      key: `route:${request.method}:${request.routeOptions.url}`,
+      limit: routeLimit.max,
+      windowMs: routeLimit.timeWindow,
+    };
+  }
   const key = `${rule.key}:${request.ip}`;
   const bucket = buckets.get(key);
   const activeBucket = bucket && bucket.resetAt > now ? bucket : { count: 0, resetAt: now + rule.windowMs };

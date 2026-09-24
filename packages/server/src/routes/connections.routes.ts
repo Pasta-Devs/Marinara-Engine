@@ -5,7 +5,7 @@ import { askNoulQuestions } from "../services/decision/system-one.client.js";
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import { existsSync } from "fs";
-import { mkdir, readFile, writeFile } from "fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { extname, join } from "path";
 import {
   ATLAS_CLOUD_IMAGE_MODELS,
@@ -377,6 +377,31 @@ function getSafeConnectionImagePath(filename: string): string | null {
   }
 }
 
+const CONNECTION_IMAGE_URL_PREFIX = "/api/connections/images/file/";
+
+async function unlinkConnectionImageFile(filepath: string) {
+  try {
+    await unlink(filepath);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      logger.warn(err, "Could not remove connection image %s", filepath);
+    }
+  }
+}
+
+/** Delete an uploaded connection image once no connection points at it (duplicates share one file). */
+async function removeConnectionImageIfUnreferenced(
+  storage: ReturnType<typeof createConnectionsStorage>,
+  imagePath: string | null | undefined,
+) {
+  if (!imagePath?.startsWith(CONNECTION_IMAGE_URL_PREFIX)) return;
+  const filepath = getSafeConnectionImagePath(imagePath.slice(CONNECTION_IMAGE_URL_PREFIX.length));
+  if (!filepath) return;
+  const connections = await storage.list();
+  if (connections.some((conn: { imagePath?: string | null }) => conn.imagePath === imagePath)) return;
+  await unlinkConnectionImageFile(filepath);
+}
+
 function buildStabilityUrl(baseUrl: string, targetPath: string): string {
   try {
     const url = new URL(baseUrl);
@@ -502,6 +527,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const validationError = nanoGptVideoConnectionError({ ...current, ...data });
     if (validationError) return reply.status(400).send({ error: validationError });
     const updated = await storage.update(req.params.id, data);
+    if (data.imagePath !== undefined && data.imagePath !== current.imagePath) {
+      await removeConnectionImageIfUnreferenced(storage, current.imagePath);
+    }
     resetMemoryRecallVectorizerCache();
     return maskConnection(updated);
   });
@@ -525,8 +553,12 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const filepath = assertInsideDir(CONNECTION_IMAGES_DIR, join(CONNECTION_IMAGES_DIR, filename));
     await writeFile(filepath, buffer);
 
-    const updated = await storage.update(req.params.id, { imagePath: `/api/connections/images/file/${filename}` });
-    if (!updated) return reply.status(404).send({ error: "Connection not found" });
+    const updated = await storage.update(req.params.id, { imagePath: `${CONNECTION_IMAGE_URL_PREFIX}${filename}` });
+    if (!updated) {
+      await unlinkConnectionImageFile(filepath);
+      return reply.status(404).send({ error: "Connection not found" });
+    }
+    await removeConnectionImageIfUnreferenced(storage, connection.imagePath);
     return maskConnection(updated);
   });
 
@@ -576,7 +608,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
   });
 
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
+    const existing = await storage.getById(req.params.id);
     await storage.remove(req.params.id);
+    await removeConnectionImageIfUnreferenced(storage, existing?.imagePath);
     resetMemoryRecallVectorizerCache();
     return reply.status(204).send();
   });

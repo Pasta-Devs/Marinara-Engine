@@ -251,6 +251,10 @@ export async function customEmojisRoutes(app: FastifyInstance) {
     let skipped = 0;
 
     for (const entry of entries) {
+      if (!entry || typeof entry !== "object") {
+        skipped++;
+        continue;
+      }
       const name = typeof entry.name === "string" ? entry.name.trim().toLowerCase() : "";
       const dataUrl = typeof entry.dataUrl === "string" ? entry.dataUrl : "";
       const match = dataUrl.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);

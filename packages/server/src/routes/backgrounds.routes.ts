@@ -3,7 +3,6 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { existsSync, mkdirSync, readdirSync, unlinkSync, readFileSync, writeFileSync, renameSync, statSync } from "fs";
-import { writeFile } from "fs/promises";
 import { join, extname, basename, parse as parsePath } from "path";
 import { randomUUID } from "crypto";
 import { z } from "zod";
@@ -78,7 +77,14 @@ function readMeta(): MetaMap {
 
 function writeMeta(meta: MetaMap) {
   ensureDir();
-  writeFileSync(META_PATH, JSON.stringify(meta, null, 2), "utf-8");
+  // Write to a temp file and rename, so a crash or full disk never leaves a torn meta.json.
+  const temporaryPath = `${META_PATH}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(temporaryPath, JSON.stringify(meta, null, 2), "utf-8");
+    renameSync(temporaryPath, META_PATH);
+  } finally {
+    if (existsSync(temporaryPath)) unlinkSync(temporaryPath);
+  }
 }
 
 function readOrganization(): BackgroundLibraryOrganization {
@@ -166,12 +172,24 @@ function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9 _.\-]/g, "").trim();
 }
 
-/** Given a desired filename, return a unique filename that doesn't collide with existing files. */
-function uniqueFilename(desired: string): string {
-  if (!existsSync(join(BG_DIR, desired))) return desired;
+/**
+ * Given a desired filename, return a unique filename that doesn't collide with existing files.
+ * A name is also taken when another background shares its stem (case-insensitive), because the
+ * asset manifest tags user backgrounds by stem. `ignore` is the file being renamed, if any.
+ */
+function uniqueFilename(desired: string, ignore?: string): string {
   const { name, ext } = parsePath(desired);
+  const ignoreLower = ignore?.toLowerCase();
+  const stems = new Set(
+    readdirSync(BG_DIR)
+      .filter((f) => f.toLowerCase() !== ignoreLower && ALLOWED_EXTS.has(extname(f).toLowerCase()))
+      .map((f) => parsePath(f).name.toLowerCase()),
+  );
+  const taken = (stem: string, file: string) =>
+    stems.has(stem.toLowerCase()) || (file.toLowerCase() !== ignoreLower && existsSync(join(BG_DIR, file)));
+  if (!taken(name, desired)) return desired;
   let i = 2;
-  while (existsSync(join(BG_DIR, `${name}_${i}${ext}`))) i++;
+  while (taken(`${name}_${i}`, `${name}_${i}${ext}`)) i++;
   return `${name}_${i}${ext}`;
 }
 
@@ -396,10 +414,11 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: `Unsupported file type: ${ext}` });
     }
 
-    // Use the original filename (sanitised) instead of a UUID
-    const sanitized = sanitizeFilename(basename(data.filename));
-    const safeName = sanitized ? uniqueFilename(sanitized) : uniqueFilename(`background${ext}`);
-    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, safeName));
+    // Use the original filename (sanitised) instead of a UUID. Only the stem is sanitised, so a
+    // fully non-ASCII name falls back to "background" instead of becoming a hidden ".png".
+    const stem = sanitizeFilename(parsePath(basename(data.filename)).name)
+      .replace(/^\.+/, "")
+      .trim();
     let buffer: Buffer;
     try {
       buffer = await data.toBuffer();
@@ -412,7 +431,19 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     if (!isAllowedImageBuffer(buffer, ext)) {
       return reply.status(400).send({ error: "Unsupported or invalid image file" });
     }
-    await writeFile(filePath, buffer);
+    // Choose the name only now, with no await between the check and the write, and write with
+    // "wx" so parallel uploads that sanitise to the same name never overwrite each other.
+    let safeName = uniqueFilename(`${stem || "background"}${ext}`);
+    for (let attempt = 0; ; attempt++) {
+      const filePath = assertInsideDir(BG_DIR, join(BG_DIR, safeName));
+      try {
+        writeFileSync(filePath, buffer, { flag: "wx" });
+        break;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== "EEXIST" || attempt >= 50) throw err;
+        safeName = uniqueFilename(safeName);
+      }
+    }
 
     // Store metadata
     const meta = readMeta();
@@ -673,7 +704,9 @@ export async function backgroundsRoutes(app: FastifyInstance) {
 
     // Keep the existing extension
     const ext = extname(filename).toLowerCase();
-    const rawName = sanitizeFilename(body.name.replace(/\.[^.]+$/, "")); // strip any extension they included
+    const rawName = sanitizeFilename(body.name.replace(/\.[^.]+$/, "")) // strip any extension they included
+      .replace(/^\.+/, "")
+      .trim();
     if (!rawName) {
       return reply.status(400).send({ error: "Name is empty after sanitisation" });
     }
@@ -683,7 +716,12 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return { success: true, filename, url: `/api/backgrounds/file/${encodeURIComponent(filename)}` };
     }
 
-    const newFilename = uniqueFilename(desired);
+    const newFilename = uniqueFilename(desired, filename);
+    // The suffix search can land back on the file's own name (e.g. "forest_2.jpg" renamed to "forest" while
+    // forest.png exists). Nothing moves then, and the metadata move below would delete its own entry.
+    if (newFilename === filename) {
+      return { success: true, filename, url: `/api/backgrounds/file/${encodeURIComponent(filename)}` };
+    }
     const newPath = assertInsideDir(BG_DIR, join(BG_DIR, newFilename));
 
     renameSync(filePath, newPath);

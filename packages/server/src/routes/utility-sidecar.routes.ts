@@ -17,7 +17,8 @@ const modelIdSchema = z
   .trim()
   .min(1)
   .max(64)
-  .regex(/^[A-Za-z0-9._-]+$/, "Model id may contain letters, numbers, dot, dash and underscore");
+  .regex(/^[A-Za-z0-9._-]+$/, "Model id may contain letters, numbers, dot, dash and underscore")
+  .refine((id) => ![".", "..", "__proto__", "constructor", "prototype"].includes(id), "Reserved model id");
 
 const installSchema = z.object({
   modelId: modelIdSchema,
@@ -52,7 +53,7 @@ export async function utilitySidecarRoutes(app: FastifyInstance) {
       const agentType = modelIdSchema.parse(req.params.agentType);
       const status = utilitySidecarService.getStatus();
       const serves = utilitySidecarService.servesAgent(agentType);
-      const installed = status.models[agentType];
+      const installed = Object.hasOwn(status.models, agentType) ? status.models[agentType] : undefined;
       return {
         agentType,
         source: serves ? ("utility-sidecar" as const) : ("agent-connection" as const),

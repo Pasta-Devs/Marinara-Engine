@@ -108,7 +108,8 @@ function parseCIDR(entry: string): CIDREntry | null {
 
     // If the original was an IPv4 CIDR (e.g. /24), shift it into the IPv6-mapped range
     const isV4 = ip.includes(".") && !ip.includes(":");
-    if (isV4 && prefixLen <= 32) {
+    if (isV4) {
+      if (prefixLen > 32) return null; // invalid IPv4 prefix; callers log and ignore it
       prefixLen += 96; // offset into the ::ffff: prefix
     }
   }
@@ -412,6 +413,8 @@ export function isLocalInferenceBaseUrl(baseUrl: string): boolean {
     if (hostname === "localhost" || isLoopbackIp(hostname)) return true;
     if (hostname.endsWith(".local") || hostname.endsWith(".localhost")) return true;
     if (hostname === "host.docker.internal" || hostname === "host.containers.internal") return true;
+    // IPv6 literal: judge by address range, not the dotless single-label rule.
+    if (hostname.includes(":")) return isNonRoutableNetworkIp(hostname);
     if (!hostname.includes(".") || hostname.endsWith(".internal")) return true;
     return isNonRoutableNetworkIp(hostname);
   } catch {

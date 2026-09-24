@@ -128,9 +128,62 @@ function readWebpDimensions(buffer: Buffer): ImageDimensions | null {
   return null;
 }
 
+// Walks the ISO-BMFF boxes that start at `start` and end before `end`, returning [type, dataStart, boxEnd] tuples.
+function listIsoBoxes(buffer: Buffer, start: number, end: number): Array<[string, number, number]> {
+  const boxes: Array<[string, number, number]> = [];
+  let offset = start;
+  while (offset + 8 <= end) {
+    let size = buffer.readUInt32BE(offset);
+    const type = buffer.subarray(offset + 4, offset + 8).toString("ascii");
+    let headerSize = 8;
+    if (size === 1) {
+      if (offset + 16 > end) break;
+      const large = buffer.readBigUInt64BE(offset + 8);
+      if (large > BigInt(end - offset)) break;
+      size = Number(large);
+      headerSize = 16;
+    } else if (size === 0) {
+      size = end - offset;
+    }
+    if (size < headerSize || offset + size > end) break;
+    boxes.push([type, offset + headerSize, offset + size]);
+    offset += size;
+  }
+  return boxes;
+}
+
+function readAvifDimensions(buffer: Buffer): ImageDimensions | null {
+  if (buffer.length < 16 || buffer.subarray(4, 8).toString("ascii") !== "ftyp") return null;
+  const topLevel = listIsoBoxes(buffer, 0, buffer.length);
+  const ftyp = topLevel[0];
+  if (!ftyp || ftyp[0] !== "ftyp") return null;
+  const brands = buffer.subarray(ftyp[1], ftyp[2]).toString("ascii");
+  if (!brands.includes("avif") && !brands.includes("avis")) return null;
+  // meta (full box) > iprp > ipco > ispe. Grid images carry one ispe per tile plus one for the
+  // full canvas, so keep the largest.
+  const meta = topLevel.find(([type]) => type === "meta");
+  if (!meta) return null;
+  const iprp = listIsoBoxes(buffer, meta[1] + 4, meta[2]).find(([type]) => type === "iprp");
+  if (!iprp) return null;
+  const ipco = listIsoBoxes(buffer, iprp[1], iprp[2]).find(([type]) => type === "ipco");
+  if (!ipco) return null;
+  let best: ImageDimensions | null = null;
+  for (const [type, dataStart, boxEnd] of listIsoBoxes(buffer, ipco[1], ipco[2])) {
+    if (type !== "ispe" || dataStart + 12 > boxEnd) continue;
+    const width = buffer.readUInt32BE(dataStart + 4);
+    const height = buffer.readUInt32BE(dataStart + 8);
+    if (width > 0 && height > 0 && (!best || width * height > best.width * best.height)) best = { width, height };
+  }
+  return best;
+}
+
 export function readImageDimensionsFromBuffer(buffer: Buffer): ImageDimensions | null {
   return (
-    readPngDimensions(buffer) ?? readGifDimensions(buffer) ?? readJpegDimensions(buffer) ?? readWebpDimensions(buffer)
+    readPngDimensions(buffer) ??
+    readGifDimensions(buffer) ??
+    readJpegDimensions(buffer) ??
+    readWebpDimensions(buffer) ??
+    readAvifDimensions(buffer)
   );
 }
 

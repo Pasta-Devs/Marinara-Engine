@@ -94,6 +94,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
+// Model-authored JSON keeps "__proto__" as an own key; using it (or these other
+// names) as an index into a plain accumulator object would reach Object.prototype.
+const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+function isSafeKey(key: string): boolean {
+  return !UNSAFE_KEYS.has(key);
+}
+
+function ownRecord(container: Record<string, unknown>, key: string): Record<string, unknown> | null {
+  if (!Object.hasOwn(container, key)) return null;
+  const value = container[key];
+  return isRecord(value) ? value : null;
+}
+
 function parseMaybeJson(value: unknown): unknown {
   if (typeof value !== "string") return value;
   try {
@@ -194,20 +208,48 @@ function wornItemIdentity(item: BeholderWornItem): string {
   return item.item.toLocaleLowerCase("en-US");
 }
 
-function mergeWornItems(current: BeholderWornItem[] | undefined, updates: BeholderWornItem[]): BeholderWornItem[] {
-  const merged = [...(current ?? [])];
+/**
+ * Bound a merged list to `max` entries. normalize* keeps the FIRST entries, which
+ * would discard exactly what a merge just appended, so instead drop the oldest
+ * entries this delta did not touch, and only then the oldest touched ones.
+ */
+function boundKeepingTouched<T>(merged: T[], touched: ReadonlySet<number>, max: number): T[] {
+  if (merged.length <= max) return merged;
+  const overflow = merged.length - max;
+  const dropped = new Set<number>();
+  for (let index = 0; index < merged.length && dropped.size < overflow; index += 1) {
+    if (!touched.has(index)) dropped.add(index);
+  }
+  // Every remaining entry was touched by this delta: fall back to dropping the oldest.
+  for (let index = 0; index < merged.length && dropped.size < overflow; index += 1) {
+    dropped.add(index);
+  }
+  return merged.filter((_, index) => !dropped.has(index));
+}
+
+function mergeWornItems(
+  current: BeholderWornItem[] | undefined,
+  updates: BeholderWornItem[],
+  removals: ReadonlySet<string> = new Set(),
+): BeholderWornItem[] {
+  // Garments coming off this turn leave before the cap is applied, so a swap on a full slot
+  // (worn + worn_remove together) does not also evict an untouched garment.
+  const merged = (current ?? []).filter((item) => !removals.has(wornItemIdentity(item)));
   const indexes = new Map(merged.map((item, index) => [wornItemIdentity(item), index]));
+  const touched = new Set<number>();
   for (const item of updates) {
     const identity = wornItemIdentity(item);
     const existingIndex = indexes.get(identity);
     if (existingIndex === undefined) {
       indexes.set(identity, merged.length);
+      touched.add(merged.length);
       merged.push(item);
     } else {
       merged[existingIndex] = item;
+      touched.add(existingIndex);
     }
   }
-  return merged;
+  return boundKeepingTouched(merged, touched, MAX_WORN_ITEMS_PER_SLOT);
 }
 
 function woundIdentity(wound: BeholderWound): string {
@@ -230,22 +272,11 @@ function mergeWounds(current: BeholderWound[] | undefined, updates: BeholderWoun
       touched.add(existingIndex);
     }
   }
-  if (merged.length <= MAX_WOUNDS_PER_SLOT) return merged;
-
   // Bound the slot here rather than leaving it to normalizeSlotState, which keeps
   // the FIRST entries and would therefore discard exactly the wounds this merge
   // just appended. Overflow policy: drop the oldest wounds this delta did not
   // touch, so both newly added and freshly re-described injuries survive.
-  const overflow = merged.length - MAX_WOUNDS_PER_SLOT;
-  const dropped = new Set<number>();
-  for (let index = 0; index < merged.length && dropped.size < overflow; index += 1) {
-    if (!touched.has(index)) dropped.add(index);
-  }
-  // Every remaining entry was touched by this delta: fall back to dropping the oldest.
-  for (let index = 0; index < merged.length && dropped.size < overflow; index += 1) {
-    dropped.add(index);
-  }
-  return merged.filter((_, index) => !dropped.has(index));
+  return boundKeepingTouched(merged, touched, MAX_WOUNDS_PER_SLOT);
 }
 
 /**
@@ -304,6 +335,7 @@ export function isBeholderLaneResponse(value: unknown): boolean {
 
 function mergeLaneSlot(target: Record<string, unknown>, incoming: Record<string, unknown>): void {
   for (const [field, value] of Object.entries(incoming)) {
+    if (!isSafeKey(field)) continue;
     if (field === "worn_remove" && Array.isArray(target.worn_remove) && Array.isArray(value)) {
       target.worn_remove = [...target.worn_remove, ...value];
       continue;
@@ -330,8 +362,8 @@ export function mergeBeholderLaneDeltas(responses: readonly unknown[]): {
     if (!isRecord(parsed) || parsed.changed !== true || !isRecord(parsed.delta)) continue;
 
     for (const [charName, rawCharacter] of Object.entries(parsed.delta)) {
-      if (!isRecord(rawCharacter)) continue;
-      const character = (isRecord(delta[charName]) ? delta[charName] : {}) as Record<string, unknown>;
+      if (!isSafeKey(charName) || !isRecord(rawCharacter)) continue;
+      const character = ownRecord(delta, charName) ?? {};
 
       if (typeof rawCharacter.species === "string" && rawCharacter.species.trim()) {
         character.species = rawCharacter.species;
@@ -339,10 +371,10 @@ export function mergeBeholderLaneDeltas(responses: readonly unknown[]): {
       }
 
       if (isRecord(rawCharacter.body)) {
-        const body = (isRecord(character.body) ? character.body : {}) as Record<string, unknown>;
+        const body = ownRecord(character, "body") ?? {};
         for (const [slotName, rawSlot] of Object.entries(rawCharacter.body)) {
-          if (!isRecord(rawSlot)) continue;
-          const slot = (isRecord(body[slotName]) ? body[slotName] : {}) as Record<string, unknown>;
+          if (!isSafeKey(slotName) || !isRecord(rawSlot)) continue;
+          const slot = ownRecord(body, slotName) ?? {};
           mergeLaneSlot(slot, rawSlot);
           body[slotName] = slot;
           // The species lane emits empty exotic-slot stubs ({"tail": {}}) as an
@@ -381,6 +413,12 @@ function mergeSlotDelta(
   // bare flag unless the delta explicitly restores it first.
   if (next.missing) return { state: next, used };
 
+  const pendingWornRemovals = new Set(
+    (Array.isArray(rawDelta.worn_remove) ? rawDelta.worn_remove : [])
+      .filter((entry): entry is string => typeof entry === "string")
+      .map((entry) => entry.trim().toLocaleLowerCase("en-US"))
+      .filter((entry) => entry.length > 0),
+  );
   if (Array.isArray(rawDelta.worn)) {
     if (rawDelta.worn.length === 0) {
       delete next.worn;
@@ -391,7 +429,7 @@ function mergeSlotDelta(
         .map(normalizeWornItem)
         .filter((item) => item !== null);
       if (wornUpdates.length > 0) {
-        next.worn = mergeWornItems(next.worn, wornUpdates);
+        next.worn = mergeWornItems(next.worn, wornUpdates, pendingWornRemovals);
         used = true;
       }
     }
@@ -686,14 +724,14 @@ export function beholderDeltaLacksRemoval(delta: unknown): boolean {
 export function mergeBeholderWornRemovals(delta: Record<string, unknown>, repair: unknown): Record<string, unknown> {
   if (!isRecord(repair)) return delta;
   for (const [name, characterDelta] of Object.entries(repair)) {
-    if (!isRecord(characterDelta) || !isRecord(characterDelta.body)) continue;
+    if (!isSafeKey(name) || !isRecord(characterDelta) || !isRecord(characterDelta.body)) continue;
     for (const [slotName, slotState] of Object.entries(characterDelta.body)) {
-      if (!isRecord(slotState)) continue;
+      if (!isSafeKey(slotName) || !isRecord(slotState)) continue;
       const removals = slotState.worn_remove;
       if (!Array.isArray(removals) || removals.length === 0) continue;
-      const target = (isRecord(delta[name]) ? delta[name] : (delta[name] = {})) as Record<string, unknown>;
-      const body = (isRecord(target.body) ? target.body : (target.body = {})) as Record<string, unknown>;
-      const slot = (isRecord(body[slotName]) ? body[slotName] : (body[slotName] = {})) as Record<string, unknown>;
+      const target = ownRecord(delta, name) ?? (delta[name] = {});
+      const body = ownRecord(target, "body") ?? (target.body = {});
+      const slot = ownRecord(body, slotName) ?? (body[slotName] = {});
       const existing = Array.isArray(slot.worn_remove) ? (slot.worn_remove as unknown[]) : [];
       slot.worn_remove = [...new Set([...existing, ...removals])];
     }
@@ -744,6 +782,7 @@ export function resolveBeholderStateResponse(
     body: { ...character.body },
   }));
   let used = false;
+  const touchedCharacters = new Set<number>();
 
   for (const [rawKey, rawCharacterDelta] of Object.entries(parsed.delta).slice(0, MAX_CHARACTERS)) {
     if (!isRecord(rawCharacterDelta)) continue;
@@ -776,8 +815,13 @@ export function resolveBeholderStateResponse(
 
     if (!characterUsed) continue;
     used = true;
-    if (existingIndex >= 0) characters[existingIndex] = next;
-    else characters.push(next);
+    if (existingIndex >= 0) {
+      characters[existingIndex] = next;
+      touchedCharacters.add(existingIndex);
+    } else {
+      touchedCharacters.add(characters.length);
+      characters.push(next);
+    }
   }
 
   if (!used) {
@@ -787,7 +831,11 @@ export function resolveBeholderStateResponse(
     if (refusedManualOnlyFlags) return { state: prior, valid: true };
     return { state: prior, valid: false, error: "Beholder returned an empty or unusable state delta." };
   }
-  const normalized = normalizeBeholderState({ characters });
+  // normalizeBeholderState keeps the FIRST MAX_CHARACTERS entries, which would drop
+  // a newly introduced character; evict the oldest untouched ones instead.
+  const normalized = normalizeBeholderState({
+    characters: boundKeepingTouched(characters, touchedCharacters, MAX_CHARACTERS),
+  });
   return normalized
     ? { state: normalized, valid: true }
     : { state: prior, valid: false, error: "Beholder returned a state delta that could not be normalized." };

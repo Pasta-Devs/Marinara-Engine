@@ -294,7 +294,14 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
         continue;
       }
       const patch = buildCapabilityAgentCleanupPatch(metadata, removed.agentIds);
-      if (patch) await chats.patchMetadata(chat.id, patch, { touchUpdatedAt: false });
+      // The list() snapshot only picks which chats to touch. Recompute the patch from the metadata
+      // read inside the per-chat queue so concurrent agent edits are not overwritten.
+      if (patch)
+        await chats.patchMetadata(
+          chat.id,
+          (current) => buildCapabilityAgentCleanupPatch(current, removed.agentIds) ?? {},
+          { touchUpdatedAt: false },
+        );
     }
     const agents = createAgentsStorage(app.db);
     for (const agentId of removed.agentIds) {

@@ -689,6 +689,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         chatMessages = chatMessages.filter((message) => timelineIds.has(message.id));
       }
     }
+    if (regenerateMessageId) {
+      // Match /generate: the message being regenerated never stays in the history, in any mode.
+      chatMessages = chatMessages.filter((message: any) => message.id !== regenerateMessageId);
+    }
     const dryRunBeholderState = await loadPriorBeholderState({
       agentsStore: createAgentsStorage(app.db),
       chatId,
@@ -2205,11 +2209,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       const runId = randomUUID();
       activeDryRuns.set(runId, { abortController, chatId });
 
+      // Listen on the response: req.raw has usually closed already once the body was read.
+      let completed = false;
       const onClose = () => {
+        if (completed || reply.raw.writableEnded) return;
         abortController.abort();
         activeDryRuns.delete(runId);
       };
-      req.raw.on("close", onClose);
+      reply.raw.on("close", onClose);
 
       startSseReply(reply, { "X-Accel-Buffering": "no" });
       sendSseEvent(reply, { type: "dryrun_started", data: { runId } });
@@ -2267,6 +2274,12 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           signal: abortController.signal,
         });
 
+        if (abortController.signal.aborted || result.finishReason === "abort") {
+          sendSseEvent(reply, { type: "aborted", data: full ? { content: full } : "" });
+          sendSseEvent(reply, { type: "done", data: "" });
+          return;
+        }
+
         if (result.content && !full.endsWith(result.content)) {
           await onToken(result.content);
         }
@@ -2284,7 +2297,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         sendSseEvent(reply, { type: "error", data: message });
         sendSseEvent(reply, { type: "done", data: "" });
       } finally {
-        req.raw.off("close", onClose);
+        completed = true;
+        reply.raw.off("close", onClose);
         activeDryRuns.delete(runId);
         clearInterval(keepaliveTimer);
         reply.raw.end();
@@ -2301,11 +2315,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     const runId = providedRunId || randomUUID();
     activeDryRuns.set(runId, { abortController, chatId });
 
+    // Listen on the response: req.raw has usually closed already once the body was read.
+    let completed = false;
     const onClose = () => {
+      if (completed || reply.raw.writableEnded) return;
       abortController.abort();
       activeDryRuns.delete(runId);
     };
-    req.raw.on("close", onClose);
+    reply.raw.on("close", onClose);
 
     reply.header("x-dryrun-runid", runId);
 
@@ -2334,6 +2351,13 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         signal: abortController.signal,
       });
 
+      if (abortController.signal.aborted || result.finishReason === "abort") {
+        completed = true;
+        const partialContent = (result.content ?? "").trimEnd();
+        return reply.send({ aborted: true, runId, ...(partialContent ? { partialContent } : {}) });
+      }
+
+      completed = true;
       return reply.send({
         content: (result.content ?? "").trimEnd(),
         runId,
@@ -2346,7 +2370,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       const message = err instanceof Error ? err.message : "Dry run generation failed";
       return reply.status(500).send({ error: message, runId });
     } finally {
-      req.raw.off("close", onClose);
+      completed = true;
+      reply.raw.off("close", onClose);
       activeDryRuns.delete(runId);
     }
   });

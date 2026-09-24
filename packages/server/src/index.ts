@@ -99,17 +99,44 @@ async function main() {
   process.once("exit", (code) => {
     finalizeSessionExit(code);
   });
-  process.on("uncaughtException", (err) => {
-    logFatalProcessError(err, "[process] Uncaught exception; reaping sidecar before exit");
+  // A bare process.exit(1) here would skip Fastify onClose (closeDB, then
+  // fileStore.close, then flush) and the store's beforeExit handler, silently
+  // dropping writes still in the debounce window that the API already
+  // acknowledged. Close gracefully instead, bounded by the shutdown deadline.
+  const fatalExit = (reason: unknown, message: string) => {
+    logFatalProcessError(reason, message);
     noteSessionExitKind("crash");
     reapSidecar();
-    process.exit(1);
+    if (isShuttingDown) {
+      // A second fatal error, or one during a signal shutdown: the close in
+      // progress is already bounded by its own deadline, so let it finish the
+      // flush rather than cutting it short or re-entering close.
+      return;
+    }
+    isShuttingDown = true;
+    // Sever connections at 4 s and force exit(1) at 8 s if close or flush hangs.
+    armShutdownDeadline(app, "crash", { exitCode: 1 });
+    try {
+      envWatcher.stop();
+      stopRuntimeMemoryMonitor();
+      stopFreezeDetector();
+    } catch {
+      // Best effort: the flush below matters more than tidy watcher teardown.
+    }
+    void app
+      .close()
+      .catch((err) => {
+        logger.error(err, "[process] Graceful close after a fatal error failed");
+      })
+      .finally(() => {
+        process.exit(1);
+      });
+  };
+  process.on("uncaughtException", (err) => {
+    fatalExit(err, "[process] Uncaught exception; closing gracefully before exit");
   });
   process.on("unhandledRejection", (reason) => {
-    logFatalProcessError(reason, "[process] Unhandled rejection; reaping sidecar before exit");
-    noteSessionExitKind("crash");
-    reapSidecar();
-    process.exit(1);
+    fatalExit(reason, "[process] Unhandled rejection; closing gracefully before exit");
   });
 
   const shutdown = async (signal: NodeJS.Signals) => {
