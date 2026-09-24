@@ -2,15 +2,18 @@ import {
   isRoleplayCommandEnabled,
   isRoleplayCommandAllowed,
   getRoleplayPrivateCommands,
+  getRoleplayWhispers,
   ROLEPLAY_COMMAND_KEYS,
   normalizeChatSummaryEntries,
   type RoleplayCommandKey,
   type RoleplayCommand,
   type RoleplayCommandActivity,
+  type RoleplayWhisperRecipient,
   type WrapFormat,
 } from "@marinara-engine/shared";
 import { parseQuotedParam } from "../conversation/character-commands.js";
 import { wrapContent } from "../prompt/format-engine.js";
+import { normalizeCharacterLookupName } from "../game/name-normalization.js";
 
 export type { RoleplayCommand } from "@marinara-engine/shared";
 
@@ -109,6 +112,11 @@ function readCommand(type: string, body: string): RoleplayCommand | null {
       const part = field("part", 8_000);
       return part ? { type, part } : null;
     }
+    case "whisper": {
+      const character = field("character", 200);
+      const text = field("text", 16_000);
+      return character && text ? { type, character, text } : null;
+    }
     default:
       return null;
   }
@@ -143,7 +151,11 @@ export function parseRoleplayCommands(text: string): {
     const command = end - match.index <= MAX_COMMAND_LENGTH ? readCommand(match[1]!.toLowerCase(), body) : null;
     if (command && commands.length < 24) {
       commands.push(command);
-      activity.push({ command, raw: text.slice(match.index, end) });
+      activity.push({
+        command,
+        raw: text.slice(match.index, end),
+        ...(command.type === "whisper" ? { contentOffset: content.length } : {}),
+      });
       if (command.type === "roll" && !roll) roll = { command, start: match.index, end };
     } else invalid++;
     cursor = end;
@@ -222,6 +234,64 @@ export class RoleplayCommandStreamFilter {
 
 type PersonalState = { notes: string; reminders: Map<string, string> };
 type HistoryMessage = { id?: unknown; role?: unknown; characterId?: unknown; extra?: unknown };
+
+export function resolveRoleplayWhisperRecipient(
+  name: string,
+  characters: readonly { id: string; name: string }[],
+  persona: { id: string; name: string },
+): RoleplayWhisperRecipient | null {
+  const participants = [
+    ...characters
+      .filter((character) => character.id !== persona.id)
+      .map((character) => ({ ...character, kind: "character" as const })),
+    { ...persona, kind: "persona" as const },
+  ];
+  const matches = participants.filter(
+    (participant) => normalizeCharacterLookupName(participant.name) === normalizeCharacterLookupName(name),
+  );
+  const match = matches.length === 1 ? matches[0] : undefined;
+  return match ? { id: match.id, kind: match.kind } : null;
+}
+
+/** Add secrets only to the final viewer's retained history, after copying shared agent prompts. */
+export function appendRoleplayWhispers(
+  prompt: Array<{ id?: string | null; contextKind?: string; content: string }>,
+  history: readonly HistoryMessage[],
+  viewer: RoleplayWhisperRecipient | null,
+  narratorId: string | null,
+): boolean {
+  if (!viewer) return false;
+  const sources = new Map(history.map((message) => [message.id, message]));
+  let added = false;
+  for (const message of prompt) {
+    if (!message.id || message.contextKind !== "history") continue;
+    const source = sources.get(message.id);
+    if (source?.role !== "assistant") continue;
+    let extra = source.extra;
+    if (typeof extra === "string") {
+      try {
+        extra = JSON.parse(extra);
+      } catch {
+        continue;
+      }
+    }
+    if (!extra || typeof extra !== "object") continue;
+    const whispers = getRoleplayWhispers(extra as Record<string, unknown>).filter(
+      ({ recipient }) =>
+        (viewer.kind === "character" && viewer.id === narratorId) ||
+        (viewer.kind === recipient.kind && viewer.id === recipient.id),
+    );
+    if (!whispers.length) continue;
+    message.content += whispers
+      .map(
+        ({ command }) =>
+          `\n\nPrivate whisper to ${command.character} (known only to this recipient and the appointed narrator):\n${command.text}`,
+      )
+      .join("");
+    added = true;
+  }
+  return added;
+}
 
 export function readRoleplayPersonalState(
   messages: readonly HistoryMessage[],
@@ -359,6 +429,10 @@ export function buildRoleplayCommandsReminder(args: {
   if (args.privateAvailable && enabled("memory"))
     lines.push(
       '- [memory: id="short-stable-id" content="what to revisit and when"] adds or updates a reminder, available to you and narrator alone. Keep it short; only up to three reminders can exist at the same time; if you create more, the oldest one will be removed. [dismiss_memory: id="id"] removes it when fulfilled or no longer relevant.',
+    );
+  if (args.privateAvailable && enabled("whisper"))
+    lines.push(
+      '- [whisper: character="name" text="text hidden from anyone but the specified character"] Hides a part of the message and makes it available only to a selected character. No one else will be able to access it, except for the appointed narrator. This can be used to whisper secrets, show visions, etc. Name exactly one chat character or the user\'s persona. Put the command where the secret belongs in the message, and do not repeat its text in public narration.',
     );
   if (enabled("roll"))
     lines.push(

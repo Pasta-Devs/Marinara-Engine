@@ -370,6 +370,150 @@ async function createFixture(request: APIRequestContext, baseUrl: string, names:
   };
 }
 
+for (const presentation of ["classic", "visual-novel"] as const) {
+  test(`Roleplay whispers reveal only on screen and preserve recipient privacy (${presentation})`, async ({
+    page,
+    request,
+  }, info) => {
+    test.setTimeout(90_000);
+    let output =
+      'Before the secret. [whisper: character="Bob" text="The hidden key is beneath the blue vase."] Between the secrets. [whisper: character="Mari" text="A silver door appears in your vision."] After the secret.';
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    const provider = createServer(async (incoming, response) => {
+      incoming.resume();
+      response.writeHead(200, { "content-type": "text/event-stream", connection: "close" });
+      response.end(
+        `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: output }, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`,
+      );
+    });
+    await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+    const address = provider.address();
+    if (!address || typeof address === "string") throw new Error("Fixture did not bind");
+    const fixture = await createFixture(request, `http://127.0.0.1:${address.port}/v1`, ["Alice", "Bob", "Narrator"]);
+    const { chat, characters } = fixture;
+    const [alice, bob, narrator] = characters;
+    const patch = async (path: string, data: unknown) => {
+      const response = await request.patch(path, { data });
+      expect(response.ok(), await response.text()).toBeTruthy();
+    };
+    const preview = async (forCharacterId: string) => {
+      const response = await request.post("/api/generate/dryRun", {
+        data: { chatId: chat.id, forCharacterId, returnPrompt: true },
+      });
+      expect(response.ok(), await response.text()).toBeTruthy();
+      return contentOf((await response.json()).prompt);
+    };
+    const generate = async () => {
+      const response = await request.post("/api/generate", { data: { chatId: chat.id, forCharacterId: narrator.id } });
+      expect(response.ok(), await response.text()).toBeTruthy();
+      expect(await response.text()).not.toContain('"type":"error"');
+      const rows = await (await request.get(`/api/chats/${chat.id}/messages`)).json();
+      await page.reload();
+      return rows.at(-1);
+    };
+    try {
+      const personaResponse = await request.post("/api/characters/personas", { data: { name: "Mari" } });
+      expect(personaResponse.ok()).toBeTruthy();
+      const persona = await personaResponse.json();
+      fixture.resources.push(`/api/characters/personas/${persona.id}`);
+      await patch(`/api/chats/${chat.id}`, { personaId: persona.id });
+      await patch(`/api/chats/${chat.id}/metadata`, { roleplayDisplayStyle: presentation });
+      await openChat(page, chat.id, {
+        theme: presentation === "classic" ? "dark" : "light",
+        trackerPanelEnabled: false,
+        trackerPanelOpen: false,
+      });
+      await page.evaluate(async () => {
+        const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+        useChatStore.getState().setShouldOpenSettings(true);
+      });
+      const section = page.locator('[data-chat-settings-section="roleplay-agents"]');
+      const header = section.locator('[role="button"][aria-expanded]').first();
+      if ((await header.getAttribute("aria-expanded")) === "false") await header.click();
+      const commands = page.locator("[data-roleplay-commands]");
+      await commands.getByRole("button", { name: "Expand Commands", exact: true }).click();
+      await commands
+        .locator("label")
+        .filter({ hasText: /^Commands$/u })
+        .click();
+      const toggle = commands.getByRole("checkbox", { name: /^Whisper\b/u });
+      await expect(toggle).not.toBeChecked();
+      await toggle.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: info.outputPath("whisper-default-off.png"), animations: "disabled" });
+      await commands
+        .locator("label")
+        .filter({ hasText: /^Whisper$/u })
+        .click();
+      await commands.getByRole("combobox", { name: "Who can whisper" }).selectOption("narrator");
+      await commands.getByRole("combobox", { name: /^Narrator character/u }).selectOption(narrator.id);
+      await expect
+        .poll(async () => extra((await (await request.get(`/api/chats/${chat.id}`)).json()).metadata))
+        .toMatchObject({
+          roleplayCommandToggles: { whisper: true },
+          roleplayWhisperAudience: "narrator",
+          roleplayCommandNarratorId: narrator.id,
+        });
+      await page.getByRole("button", { name: /^Close chat settings$/iu }).click();
+      const saved = await generate();
+      const bubble =
+        presentation === "visual-novel"
+          ? page.getByRole("region", { name: "Current paragraph", exact: true })
+          : page.locator(`[data-message-id="${saved.id}"]`);
+      const secret = bubble.locator("[data-roleplay-whisper]").filter({ hasText: "Whisper to Bob" });
+      const personal = bubble.locator("[data-roleplay-whisper]").filter({ hasText: "Whisper to Mari" });
+      await expect(secret).toBeVisible();
+      await expect(personal).toContainText("A silver door appears in your vision.");
+      await expect(personal.getByRole("button")).toHaveCount(0);
+      await expect(page.locator("body")).not.toContainText("The hidden key is beneath the blue vase.");
+      await page.screenshot({ path: info.outputPath("whisper-concealed.png"), animations: "disabled" });
+      await secret.getByRole("button", { name: "Reveal a secret", exact: true }).click();
+      await expect(secret).toContainText("The hidden key is beneath the blue vase.");
+      await expect(secret.getByRole("button")).toHaveAttribute("aria-expanded", "true");
+      const order = await secret.evaluate((element) => {
+        const range = document.createRange();
+        range.selectNodeContents(element.closest('[data-message-id], [role="region"]')!);
+        range.setEndBefore(element);
+        const before = range.toString();
+        range.selectNodeContents(element.closest('[data-message-id], [role="region"]')!);
+        range.setStartAfter(element);
+        return { before, after: range.toString() };
+      });
+      expect(order.before).toContain("Before the secret.");
+      expect(order.after).toContain("Between the secrets.");
+      const bounds = await secret.boundingBox();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
+      await page.screenshot({ path: info.outputPath("whisper-revealed.png"), animations: "disabled" });
+      expect(await preview(alice.id)).not.toContain("The hidden key is beneath the blue vase.");
+      expect(await preview(alice.id)).not.toContain("A silver door appears in your vision.");
+      expect(await preview(bob.id)).toContain("The hidden key is beneath the blue vase.");
+      expect(await preview(bob.id)).not.toContain("A silver door appears in your vision.");
+      expect(await preview(narrator.id)).toContain("A silver door appears in your vision.");
+      await secret.getByRole("button", { name: "Hide the secret", exact: true }).click();
+      await expect(secret).not.toContainText("The hidden key is beneath the blue vase.");
+      await secret.getByRole("button", { name: "Reveal a secret", exact: true }).click();
+      await page.reload();
+      await expect(secret).not.toContainText("The hidden key is beneath the blue vase.");
+      await expect(personal).toContainText("A silver door appears in your vision.");
+      output = '[whisper: character="Bob" text="A secret without public narration."]';
+      const only = await generate();
+      const onlySecret =
+        presentation === "visual-novel"
+          ? page.getByRole("region", { name: "Current paragraph", exact: true }).locator("[data-roleplay-whisper]")
+          : page.locator(`[data-message-id="${only.id}"] [data-roleplay-whisper]`);
+      await expect(onlySecret).toBeVisible();
+      await onlySecret.getByRole("button", { name: "Reveal a secret", exact: true }).click();
+      await expect(onlySecret).toContainText("A secret without public narration.");
+      expect(errors).toEqual([]);
+    } finally {
+      await fixture.cleanup();
+      provider.closeAllConnections();
+      await new Promise<void>((resolve) => provider.close(() => resolve()));
+    }
+  });
+}
+
 test("Roleplay continue streams inside the last reply while an empty send creates a new message", async ({
   page,
   request,

@@ -65,7 +65,7 @@ export function RoleplayCommandsSettings({
                         ? installedAgentIds.has("spotify") &&
                           metadata.enableAgents === true &&
                           metadata.activeAgentIds?.includes("spotify") === true
-                        : key === "notes" || key === "memory"
+                        : key === "notes" || key === "memory" || key === "whisper"
                           ? privateAvailable
                           : true;
                 const checked = available && isRoleplayCommandEnabled(metadata, key);
@@ -74,7 +74,9 @@ export function RoleplayCommandsSettings({
                     ? "roleplayRollAudience"
                     : key === "document"
                       ? "roleplayDocumentAudience"
-                      : "roleplayCombatAudience";
+                      : key === "whisper"
+                        ? "roleplayWhisperAudience"
+                        : "roleplayCombatAudience";
                 const showAudienceWarning = metadata[audienceKey] === "narrator" && (!privateAvailable || !hasNarrator);
                 return (
                   <div key={key} className="flex flex-col gap-2">
@@ -83,7 +85,7 @@ export function RoleplayCommandsSettings({
                       description={
                         !available
                           ? t(
-                              key === "notes" || key === "memory"
+                              key === "notes" || key === "memory" || key === "whisper"
                                 ? "roleplay.commands.individualRequired"
                                 : key === "illustrate"
                                   ? "roleplay.commands.agentAttachedRequired"
@@ -108,7 +110,7 @@ export function RoleplayCommandsSettings({
                       )}
                       labelClassName="text-[0.6875rem] font-medium"
                     />
-                    {checked && (key === "roll" || key === "combat" || key === "document") && (
+                    {checked && (key === "roll" || key === "combat" || key === "document" || key === "whisper") && (
                       <div className="flex flex-col gap-1.5 text-xs">
                         <label htmlFor={`${chat.id}:${key}-audience`}>{t(`roleplay.commands.${key}.audience`)}</label>
                         <select
