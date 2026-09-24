@@ -4,7 +4,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- Imports that use decisions now warn when no Decision model is selected, explain the fallback behavior, and link to the Decision Models guide. The notice also covers custom agent imports and Agent catalog installations, including agents with activation questions (#6605).
+- Imports that use decisions now warn when no Decision model is selected, explain the fallback behavior, and link to the Decision Models guide. If the selection cannot be checked, the notice says so without interrupting the import. The notice also covers custom agent imports and Agent catalog installations, including agents with activation questions (#6605).
+
+- Browser sprite checks wait for the touch-device regeneration confirmation, preventing intermittent CI timeouts while the dialog is still open.
 
 - Decision model guides now distinguish Jev from Open-Jev and clarify what each feature sends, threshold defaults, statement allowances, answer reuse, lorebook fallbacks, sidecar hardware needs, and prompt-cache costs. Author examples describe observable events and separate connection testing from testing statements in a chat.
 

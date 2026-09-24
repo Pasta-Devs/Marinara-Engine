@@ -7164,6 +7164,7 @@
   "ui.layout.userstatusfooter.customActivity": "Custom activity",
   "ui.layout.userstatusfooter.recentStatus": "Recent status",
   "ui.layout.userstatusfooter.whatAreYouDoing": "What are you doing?",
+  "ui.lib.decisionimportnotice.modelUnknown": "This import uses decisions. Marinara couldn't check whether a Decision model is selected. Check Decision model in Connections, or open the guide for setup and fallback behavior.",
   "ui.lib.decisionimportnotice.noModel": "This import uses decisions, but no Decision model is selected. Prompt statements read as no, so their else branch is used. Lorebook entries cannot activate on a decision. Agents with activation questions run whenever their keywords and Trigger Cadence allow. Choose a Decision model in Connections to use these conditions.",
   "ui.lib.decisionimportnotice.openGuide": "Open guide",
   "ui.lib.decisionimportnotice.usesDecisions": "This import uses decisions about the recent chat. A hosted Decision connection makes billed requests. Limit prompt and lorebook statements with Decision statements per turn under Decision model in Connections. Agent activation questions are not included in that limit.",

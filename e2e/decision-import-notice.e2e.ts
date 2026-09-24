@@ -4,9 +4,13 @@ import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
-async function prepare(page: Page, selected: string | null) {
+async function prepare(page: Page, selected: string | null | undefined) {
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
-  await page.route("**/api/decision/options", (route) => route.fulfill({ json: { selected, options: [] } }));
+  await page.route("**/api/decision/options", (route) =>
+    selected === undefined
+      ? route.fulfill({ status: 503, json: { error: "Fixture options unavailable" } })
+      : route.fulfill({ json: { selected, options: [] } }),
+  );
   await page.route("**/api/agents/import-policy", (route) => route.fulfill({ json: { enabled: true } }));
   await page.route("**/api/agents", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/capability-packages/agents", (route) => route.fulfill({ json: [] }));
@@ -14,8 +18,9 @@ async function prepare(page: Page, selected: string | null) {
   await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
 }
 
-for (const selected of [null, "fixture-decision"]) {
-  test(`custom agent import explains decisions with ${selected ? "a model" : "no model"}`, async ({ page }, info) => {
+for (const selected of [null, "fixture-decision", undefined]) {
+  const selection = selected === undefined ? "an unavailable model lookup" : selected ? "a model" : "no model";
+  test(`custom agent import explains decisions with ${selection}`, async ({ page }, info) => {
     await prepare(page, selected);
     await page.route("**/api/agents/import", async (route) => {
       const { agent } = route.request().postDataJSON();
@@ -73,15 +78,21 @@ for (const selected of [null, "fixture-decision"]) {
         promptTemplate: '{{#if decision:"It rains."}}Describe rain.{{else}}Describe the sky.{{/if}}',
       },
     ]);
+    await expect(page.getByRole("status").filter({ hasText: "Imported 2 Agents." })).toBeVisible();
     const notice = page
       .locator("[data-sonner-toast]")
       .filter({ has: page.getByRole("button", { name: "Open guide", exact: true }) });
     await expect(notice).toHaveCount(1);
-    await expect(notice).toHaveAttribute("data-type", selected ? "info" : "warning");
-    await expect(notice).toContainText(selected ? "billed requests" : "keywords and Trigger Cadence allow");
-    if (!selected) {
+    await expect(notice).toHaveAttribute("data-type", selected === null ? "warning" : "info");
+    if (selected === undefined) {
+      await expect(notice).toContainText("couldn't check whether a Decision model is selected");
+      await expect(notice).not.toContainText("no Decision model is selected");
+    } else if (selected === null) {
+      await expect(notice).toContainText("keywords and Trigger Cadence allow");
       await expect(notice).toContainText("else branch");
       await expect(notice).toContainText("Lorebook entries cannot activate");
+    } else {
+      await expect(notice).toContainText("billed requests");
     }
     for (const theme of ["dark", "light"]) {
       await page.evaluate(async (theme) => {

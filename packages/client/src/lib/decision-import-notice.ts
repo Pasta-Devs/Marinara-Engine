@@ -11,7 +11,13 @@ export async function notifyDecisionImport(usesDecisions: boolean, t: TFunction)
   const options = await api.get<DecisionModelOptions>("/decision/options").catch(() => null);
   const missingModel = options !== null && !options.selected;
   const notify = missingModel ? toast.warning : toast.info;
-  notify(t(missingModel ? "ui.lib.decisionimportnotice.noModel" : "ui.lib.decisionimportnotice.usesDecisions"), {
+  const messageKey =
+    options === null
+      ? "ui.lib.decisionimportnotice.modelUnknown"
+      : missingModel
+        ? "ui.lib.decisionimportnotice.noModel"
+        : "ui.lib.decisionimportnotice.usesDecisions";
+  notify(t(messageKey), {
     duration: 20_000,
     classNames: {
       toast: "!grid !grid-cols-[auto_1fr]",
