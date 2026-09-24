@@ -355,7 +355,7 @@ function PaletteContent({ onClose, inputRef }: { onClose: () => void; inputRef: 
                     )}
                   </span>
                   {command.shortcut ? (
-                    <kbd className="shrink-0 rounded border border-[var(--border)] px-1.5 py-0.5 font-mono text-[0.625rem] text-[var(--muted-foreground)] [@media(pointer:coarse)]:text-[0.6875rem]">
+                    <kbd className="shrink-0 rounded border border-[var(--border)] px-1.5 py-0.5 font-sans text-[0.625rem] text-[var(--muted-foreground)] [@media(pointer:coarse)]:text-[0.6875rem]">
                       {command.shortcut}
                     </kbd>
                   ) : index === active ? (

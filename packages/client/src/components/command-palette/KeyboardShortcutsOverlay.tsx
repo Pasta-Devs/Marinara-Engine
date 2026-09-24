@@ -40,7 +40,7 @@ export function KeyboardShortcutsOverlay() {
                             {combo.map((key) => (
                               <kbd
                                 key={key}
-                                className="min-w-5 rounded border border-[var(--border)] bg-[var(--secondary)]/60 px-1.5 py-0.5 text-center font-mono text-[0.625rem] text-[var(--foreground)] [@media(pointer:coarse)]:text-[0.6875rem] shadow-[inset_0_-1px_0_var(--border)]"
+                                className="min-w-5 rounded border border-[var(--border)] bg-[var(--secondary)]/60 px-1.5 py-0.5 text-center font-sans text-[0.625rem] text-[var(--foreground)] [@media(pointer:coarse)]:text-[0.6875rem]"
                               >
                                 {formatShortcutKey(key, apple)}
                               </kbd>
