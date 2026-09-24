@@ -415,6 +415,7 @@ try {
       await memory.initialize(chat.id, { detectScenes: false });
       const status = await memory.status(chat.id);
       assert.equal(status.job.status, "ready", "disabling the spanning correction unblocks preparation");
+      assert.deepEqual(status.unpreparedScenes, [], "retained corrections do not restore obsolete scene boundaries");
       const preserved = status.records.find((record) => record.id === correctionId)!;
       assert.equal(preserved.content, correction);
       assert.equal(preserved.enabled, false);

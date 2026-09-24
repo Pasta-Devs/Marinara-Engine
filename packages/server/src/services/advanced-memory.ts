@@ -720,6 +720,13 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
   /** Recover ranges from saved boundaries, including a missing scaffold between two scenes. */
   function savedScenes(ctx: Context, current: StoredRecord[]): Scene[] {
     const indexes = new Map(ctx.messages.map((message, index) => [message.id, index]));
+    const scaffolds = current
+      .filter((record) => record.kind === "scene" && record.id === record.sceneId)
+      .map((record) => ({
+        start: indexes.get(record.startMessageId) ?? -1,
+        end: indexes.get(record.endMessageId) ?? -1,
+      }))
+      .filter(({ start, end }) => start >= 0 && end >= start);
     const starts = new Set<number>([0]);
     let found = false;
     for (const record of current) {
@@ -727,6 +734,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       const start = indexes.get(record.startMessageId);
       const end = indexes.get(record.endMessageId);
       if (start === undefined || end === undefined || end < start) continue;
+      // Recovered scaffolds outrank old correction ranges. Saved summaries
+      // recover missing scaffolds only where no current scene covers their start.
+      if (record.id !== record.sceneId && scaffolds.some((scene) => start >= scene.start && start <= scene.end))
+        continue;
       found = true;
       starts.add(start);
       if (record.status === "closed") starts.add(end + 1);
