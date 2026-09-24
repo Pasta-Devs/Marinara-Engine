@@ -12,6 +12,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Update local embeddings and Whisper to Transformers.js 4 with matching ONNX runtimes and retain the native installer's private temporary directories. Upgrade Intiface integration to Buttplug 5 while preserving existing haptic intensity values, including zero, full vibration strength, and directional outputs. Reject incompatible feature ranges before starting output, and stop the device if only some features accept a command (#6603, #6604).
 
 - Update static file serving with the latest security fix, refresh TypeScript and formatting tools, and update Android and CI build dependencies. CodeQL initialization and analysis now advance together so security checks continue to run (#6601).
+
 - The command palette has an **Open generation jobs** action while **Keep generating when the tab is closed** is on. With the switch off the action is not listed.
 
 - **Minimize the console to the system tray** (Settings > Advanced > Features, Windows only, off by default, or `MARINARA_CONSOLE_TRAY`): a Marinara tray icon with Open, Show or Hide console and Quit, and the server console hides from the taskbar while minimized. Quit shuts the server down gracefully. On other systems the switch is shown as unavailable. See docs/configuration/features.md.

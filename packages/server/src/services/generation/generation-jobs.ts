@@ -134,13 +134,7 @@ export function withoutEchoedPrompt(error: unknown): unknown {
 }
 
 export type GenerationJobLogState =
-  | "accepted"
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "recovered"
-  | "expired";
+  "accepted" | "running" | "completed" | "failed" | "cancelled" | "recovered" | "expired";
 
 /**
  * Writes the one `job.state` line of a transition: info for accepted, running, completed, cancelled and

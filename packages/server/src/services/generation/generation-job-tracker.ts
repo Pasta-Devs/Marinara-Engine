@@ -57,23 +57,10 @@ export function mediaKindFor(sourceKind: string): GenerationJobMediaKind | null 
 
 export type TrackedJobStatus = "accepted" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
 export type JobLogState =
-  | "accepted"
-  | "running"
-  | "progress"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "recovered"
-  | "expired";
+  "accepted" | "running" | "progress" | "completed" | "failed" | "cancelled" | "recovered" | "expired";
 export type JobOutcome = "ok" | "failed" | "cancelled" | "skipped";
 export type JobLogStage =
-  | "accept"
-  | "work"
-  | "heartbeat"
-  | "settle"
-  | "server-restart"
-  | "client-reattach"
-  | "retention";
+  "accept" | "work" | "heartbeat" | "settle" | "server-restart" | "client-reattach" | "retention";
 
 /** One structured lifecycle event: the exact object logged and stored in the record's trail. */
 export interface GenerationJobLogEvent {
