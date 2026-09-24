@@ -7,7 +7,7 @@
 //          top engine process (the run-server supervisor forwards it to the server) and SIGKILL for the whole tree
 //          after a grace period; spawn(detached) to start.
 import { execFile, spawn } from "node:child_process";
-import { existsSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { IS_WINDOWS, RUN_DIR } from "./config.mjs";
@@ -229,15 +229,17 @@ export async function startDetached({ cwd, args, env, outLog, errLog, windowsSta
     if (!pid) throw new Error(`Start-Process did not return a PID (PowerShell exit code ${code})`);
     return pid;
   }
-  const child = spawn(process.execPath, args, {
-    cwd,
-    env,
-    detached: true,
-    stdio: ["ignore", openSync(outLog, "a"), openSync(errLog, "a")],
-    windowsHide: true,
-  });
-  child.unref();
-  return child.pid;
+  const out = openSync(outLog, "a");
+  const err = openSync(errLog, "a");
+  try {
+    const child = spawn(process.execPath, args, { cwd, env, detached: true, stdio: ["ignore", out, err], windowsHide: true });
+    child.unref();
+    return child.pid;
+  } finally {
+    // The child holds its own copies; the parent's would leak on every start.
+    closeSync(out);
+    closeSync(err);
+  }
 }
 
 export function tail(file, lines = 12) {

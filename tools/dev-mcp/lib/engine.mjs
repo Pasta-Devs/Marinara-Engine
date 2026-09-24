@@ -196,7 +196,8 @@ async function waitForHealth(timeoutSeconds, pid, errLog) {
     }
     await sleep(3000);
   }
-  throw new Error(`engine did not answer /api/health within ${timeoutSeconds} s; see ${errLog}`);
+  if (pid && isAlive(pid)) await stopTree(pid);
+  throw new Error(`engine did not answer /api/health within ${timeoutSeconds} s and was stopped; see ${errLog}`);
 }
 
 /**
