@@ -73,11 +73,6 @@ export function registerCapabilityAchievements(
   source: AchievementSource,
   achievements: readonly PackagedAchievementDefinition[],
 ): () => void {
-  if (achievements.length > MAX_ACHIEVEMENTS_PER_PACKAGE) {
-    throw new Error(
-      `Capability package ${source.packageId} may register at most ${MAX_ACHIEVEMENTS_PER_PACKAGE} achievements`,
-    );
-  }
   const registered: Array<[string, RegisteredAchievement]> = [];
   for (const packaged of achievements) {
     const localId = packaged.id.trim();
@@ -119,6 +114,17 @@ export function registerCapabilityAchievements(
         ...(packaged.readProgress ? { readProgress: packaged.readProgress } : {}),
       },
     ]);
+  }
+  // The limit is per package, not per call: count what it already owns that this batch does not
+  // replace, so repeated calls cannot add up past it.
+  const batchIds = new Set(registered.map(([id]) => id));
+  const kept = [...byId.entries()].filter(
+    ([id, entry]) => entry.packageId === source.packageId && !batchIds.has(id),
+  ).length;
+  if (kept + batchIds.size > MAX_ACHIEVEMENTS_PER_PACKAGE) {
+    throw new Error(
+      `Capability package ${source.packageId} may register at most ${MAX_ACHIEVEMENTS_PER_PACKAGE} achievements`,
+    );
   }
   // Nothing is published until every entry validates, so a bad third badge cannot leave the first
   // two half-registered in a panel the user is already looking at.
@@ -175,12 +181,15 @@ export async function readCapabilityAchievementProgress(packageId?: string): Pro
           `Capability achievement progress for ${entry.definition.id}`,
           PROGRESS_TIMEOUT_MS,
         );
+        // A package re-activated while this callback was pending has a new entry under the same id,
+        // possibly with a new target. The old count must not be compared against it.
+        if (byId.get(entry.definition.id) !== entry) return null;
         return [entry.definition.id, Number.isFinite(value) ? Math.max(0, Math.trunc(value as number)) : 0] as const;
       } catch (error) {
         logger.warn(error, "[capability/achievements] Package %s failed reporting progress", entry.packageId);
-        return [entry.definition.id, 0] as const;
+        return byId.get(entry.definition.id) === entry ? ([entry.definition.id, 0] as const) : null;
       }
     }),
   );
-  return new Map(results);
+  return new Map(results.filter((result) => result !== null));
 }

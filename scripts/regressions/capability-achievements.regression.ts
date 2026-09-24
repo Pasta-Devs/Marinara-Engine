@@ -116,6 +116,38 @@ assert.equal(onlyOther.get("other.loop"), 2);
 assert.equal(nestedCalls, 1);
 releaseOther();
 
+// ── The per-package limit counts earlier calls too ──
+const many = (prefix: string, count: number) =>
+  Array.from({ length: count }, (_, index) => ({ id: `${prefix}_${index}`, title: "X", description: "X" }));
+const limitSource = { ...source, packageId: "limit", packageName: "Limit" };
+const releaseFirst = registerCapabilityAchievements(limitSource, many("a", 20));
+assert.throws(() => registerCapabilityAchievements(limitSource, many("b", 13)), /at most 32/);
+const releaseReplace = registerCapabilityAchievements(limitSource, many("a", 20));
+assert.equal(capabilityAchievementDefinitions("limit").length, 20, "replacing ids does not count twice");
+releaseReplace();
+releaseFirst();
+
+// ── A count from a superseded registration is discarded ──
+let finishSlowRead: (value: number) => void = () => {};
+const slowSource = { ...source, packageId: "slow", packageName: "Slow" };
+const releaseOld = registerCapabilityAchievements(slowSource, [
+  {
+    id: "count",
+    title: "X",
+    description: "X",
+    target: 5,
+    readProgress: () => new Promise<number>((resolve) => (finishSlowRead = resolve)),
+  },
+]);
+const pendingRead = readCapabilityAchievementProgress("slow");
+releaseOld();
+const releaseNew = registerCapabilityAchievements(slowSource, [
+  { id: "count", title: "X", description: "X", target: 50, readProgress: () => 1 },
+]);
+finishSlowRead(49);
+assert.equal((await pendingRead).has("slow.count"), false, "a stale count must not reach the new target");
+releaseNew();
+
 // ── The host only touches badges the calling package owns, and only with the permission ──
 assert.ok(isCapabilityAchievementOwnedBy("noodle", "noodle.first_run"));
 assert.ok(!isCapabilityAchievementOwnedBy("other", "noodle.first_run"));
