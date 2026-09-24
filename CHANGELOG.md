@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Game translations use edited narration, dialogue, and readable text, preserve segment alignment, and discard translation requests invalidated by a later edit or deletion (#6615).
+
 - Agents, including Illustrator, receive complete character card lore and persona descriptions instead of silently losing details beyond the old field limits (#6620).
 
 - User Input prompt regexes in Roleplay’s Individual group chats also apply to other characters' messages, while each character's own replies keep AI Output rules and character-specific exclusions stay in effect (#6637).
