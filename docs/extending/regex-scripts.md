@@ -101,6 +101,8 @@ The **Apply To** field decides which side of the chat a script watches. At least
 
 Use **AI Output** to clean up what the model writes. Use **User Input** to fix or reshape your own text.
 
+For **Only Prompt** and **Both** in an **Individual** group chat, placement follows the character receiving the prompt: your messages and other characters' messages use **User Input**, while the responding character's own replies use **AI Output**. This also applies to replies earlier in the same group turn. Character restrictions still select who receives the rewritten prompt, so a narrator excluded from a thought-hiding script keeps the original thoughts. Use **Only Prompt** to keep the saved chat text intact.
+
 ## Apply Mode: Only Display, Only Prompt, or Both
 
 The **Apply Mode** selector lives inside **Advanced Options**. It decides when the rewrite takes effect. This is separate from placement. A new script starts on **Only Display**.

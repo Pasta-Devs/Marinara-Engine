@@ -320,6 +320,7 @@ export function scopeIndividualGroupMessagesForTarget(
   messages: GenerationPromptMessage[],
   targetCharacterId: string | null,
   characters: CharacterPromptScopeInfo[],
+  transformHistory?: (messages: GenerationPromptMessage[]) => void,
 ): GenerationPromptMessage[] {
   if (!targetCharacterId) return messages;
   const targetCharacter = characters.find((character) => character.id === targetCharacterId);
@@ -357,9 +358,18 @@ export function scopeIndividualGroupMessagesForTarget(
     })
     .filter((message) => message.content.trim());
 
-  reassignHistoryLastMessageWrapper(scoped);
-  pruneEmptyPromptWrappers(scoped);
-  return scoped;
+  if (transformHistory) {
+    const history = scoped.filter((message) => message.contextKind === "history");
+    // Regex anchors address the message body, not the assembler's history wrappers.
+    for (const message of history) {
+      message.content = stripChatHistoryMarkdownWrappers(stripChatHistoryXmlWrappers(message.content));
+    }
+    transformHistory(history);
+  }
+  const nonEmpty = scoped.filter((message) => message.content.trim());
+  reassignHistoryLastMessageWrapper(nonEmpty, messages);
+  pruneEmptyPromptWrappers(nonEmpty);
+  return nonEmpty;
 }
 
 function escapeRegExp(value: string): string {

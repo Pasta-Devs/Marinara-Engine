@@ -108,7 +108,10 @@ import {
   limitPastReasoningMetadata,
   normalizeChatTopP,
 } from "../../services/generation/generation-parameters.js";
-import { filterPromptMessagesForCharacterAudience } from "../../services/generation/prompt-message-scope.js";
+import {
+  filterPromptMessagesForCharacterAudience,
+  scopeIndividualGroupMessagesForTarget,
+} from "../../services/generation/prompt-message-scope.js";
 import { applyAllSegmentEdits } from "../../services/game/segment-edits.js";
 import { applyRegexScriptsToPromptMessages } from "../../services/regex/regex-application.js";
 import { sendSseEvent, startSseReply } from "./sse.js";
@@ -830,6 +833,11 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           ? (characterIds[0] ?? null)
           : null;
     const promptCharacterIds = resolvePromptCharacterIdsForTarget(characterIds, promptTargetCharacterId);
+    const deferGroupPromptRegex =
+      (chatMode === "roleplay" ? allCharacterIds.length > 1 : characterIds.length > 1) &&
+      dryRunGroupChatMode === "individual" &&
+      Boolean(promptTargetCharacterId) &&
+      !impersonate;
     const promptGroupResponseOrder = (chatMeta.groupResponseOrder as string) ?? "sequential";
     const deferCharacterMacros =
       characterIds.length > 1 &&
@@ -1114,11 +1122,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     };
 
     // Apply regex scripts to prompt messages (mirrors main /generate, but stays read-only).
-    applyRegexScriptsToPromptMessages(mappedMessages, await regexScriptsStore.list(), {
-      resolveMacros: (value, randomSeed) => resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
-      targetCharacterId: promptTargetCharacterId,
-      targetPromptPresetId: effectivePresetId,
-    });
+    if (!deferGroupPromptRegex) {
+      applyRegexScriptsToPromptMessages(mappedMessages, await regexScriptsStore.list(), {
+        resolveMacros: (value, randomSeed) =>
+          resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
+        targetCharacterId: promptTargetCharacterId,
+        targetPromptPresetId: effectivePresetId,
+      });
+    }
 
     for (const msg of mappedMessages) {
       msg.content = msg.content.replace(/\n([ \t]*\n){2,}/g, "\n\n");
@@ -1668,6 +1679,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         id: m.id,
         role: m.role,
         content: m.content,
+        characterId: m.characterId,
         ...(m.contextKind ? { contextKind: m.contextKind } : {}),
         ...(m.providerMetadata ? { providerMetadata: m.providerMetadata } : {}),
         ...(m.images ? { images: m.images } : {}),
@@ -1881,6 +1893,22 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       trackerSectionTokens,
     );
     clearUnusedRuntimeAgentSections(finalMessages, trackerSectionTokens);
+
+    if (deferGroupPromptRegex) {
+      const regexScripts = await regexScriptsStore.list();
+      finalMessages = scopeIndividualGroupMessagesForTarget(
+        finalMessages,
+        promptTargetCharacterId,
+        [...historyMacroProfilesById].map(([id, profile]) => ({ ...profile, id, mesExample: profile.example })),
+        (history) =>
+          applyRegexScriptsToPromptMessages(history, regexScripts, {
+            resolveMacros: (value, randomSeed) =>
+              resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
+            targetCharacterId: promptTargetCharacterId,
+            targetPromptPresetId: effectivePresetId,
+          }),
+      );
+    }
 
     // ── Impersonate: same instruction block as POST /api/generate (no DB writes) ──
     if (impersonate) {
