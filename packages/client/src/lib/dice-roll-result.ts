@@ -1,4 +1,8 @@
-import { getRoleplayCommandActivity, type DiceRollResult } from "@marinara-engine/shared";
+import {
+  getRoleplayCommandActivity,
+  getRoleplayCommandContentOffset,
+  type DiceRollResult,
+} from "@marinara-engine/shared";
 
 /**
  * Narrow an untrusted payload — a stored message extra or a `tool_result` SSE frame — to a
@@ -33,23 +37,7 @@ export function readRoleplayDiceRolls(text: string, extra: Record<string, unknow
       } catch {
         return [];
       }
-      let offset = text.length;
-      const expected = item.contentOffset;
-      const anchor = item.contentAnchor;
-      if (
-        typeof expected === "number" &&
-        Number.isSafeInteger(expected) &&
-        expected >= 0 &&
-        typeof anchor === "string" &&
-        anchor.length > 0
-      ) {
-        const currentAnchor =
-          expected === 0 ? text.slice(0, anchor.length) : text.slice(Math.max(0, expected - anchor.length), expected);
-        if (expected <= text.length && currentAnchor === anchor) offset = expected;
-        else if (text.indexOf(anchor) >= 0 && text.indexOf(anchor) === text.lastIndexOf(anchor))
-          offset = text.indexOf(anchor) + (expected === 0 ? 0 : anchor.length);
-      }
-      return [{ index, offset, result: item.result }];
+      return [{ index, offset: getRoleplayCommandContentOffset(text, item), result: item.result }];
     })
     .sort((a, b) => a.offset - b.offset || a.index - b.index);
 }

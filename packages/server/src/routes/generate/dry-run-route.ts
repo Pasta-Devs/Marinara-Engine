@@ -19,6 +19,7 @@ import {
 } from "@marinara-engine/shared";
 import {
   appendRoleplayPromptTail,
+  appendRoleplayWhispers,
   buildRoleplayCommandsReminder,
   buildRoleplayPersonalContext,
 } from "../../services/generation/roleplay-commands.js";
@@ -144,7 +145,10 @@ import {
   type PromptAttachment,
 } from "../generate/generate-route-utils.js";
 import { buildGenerationPromptPresetCandidates, type PromptPresetCandidateSource } from "./prompt-preset-selection.js";
-import { CONVERSATION_NO_REPEAT_INSTRUCTION } from "./conversation-prompt-formatting.js";
+import {
+  CONVERSATION_NO_REPEAT_INSTRUCTION,
+  conversationPromptHistoryContent,
+} from "./conversation-prompt-formatting.js";
 import { createGameStateStorage, type GameStateVisibleAnchor } from "../../services/storage/game-state.storage.js";
 import {
   buildCommittedTrackerContextBlock,
@@ -772,7 +776,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         id: typeof m.id === "string" ? m.id : null,
         role: m.role === "narrator" ? ("system" as const) : (m.role as "user" | "assistant" | "system"),
         content: withLatestMessageReply(
-          appendReadableAttachmentsToContent((m.content as string) ?? "", attachments),
+          appendReadableAttachmentsToContent(
+            chatMode === "roleplay" ? conversationPromptHistoryContent(m, chatMode) : ((m.content as string) ?? ""),
+            attachments,
+          ),
           extra.replyTo,
           m.role === "user" && m.id === latestReplyUserMessageId,
         ),
@@ -1913,6 +1920,22 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     // Mirror the live route's provider-boundary macro guard so Peek Prompt is
     // both accurate and incapable of exposing late raw identity macros (#3704).
     finalMessages = resolveHistoryMessageMacros(finalMessages);
+
+    if (chatMode === "roleplay") {
+      const target = promptTargetCharacterId ?? (allCharacterIds.length === 1 ? allCharacterIds[0]! : null);
+      appendRoleplayWhispers(
+        finalMessages,
+        chatMessages,
+        impersonate
+          ? { id: persona?.id ?? "user", kind: "persona" }
+          : target && (allCharacterIds.length === 1 || dryRunGroupChatMode === "individual")
+            ? { id: target, kind: "character" }
+            : null,
+        characterIds.includes(chatMeta.roleplayCommandNarratorId as string)
+          ? (chatMeta.roleplayCommandNarratorId as string)
+          : null,
+      );
+    }
 
     if (chatMode === "roleplay" && !impersonate) {
       const personalCharacters = [...(await resolveCharacterNameMap(allCharacterIds, (id) => chars.getById(id)))].map(

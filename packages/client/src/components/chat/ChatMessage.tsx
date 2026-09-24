@@ -4,10 +4,20 @@ import { useMessagePresetVariables } from "../../hooks/use-message-preset-variab
 // ──────────────────────────────────────────────
 import { createPortal } from "react-dom";
 import { cn, copyToClipboard, getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
-import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
+import {
+  normalizeAvatarCrop,
+  getRoleplayWhispers,
+  getRoleplayCommandContentOffset,
+  type AvatarCrop,
+} from "@marinara-engine/shared";
 import { applyInlineMarkdown, renderMarkdownBlocks, applyInlineMarkdownHTML } from "../../lib/markdown";
 import { MessageReplyPreview, ReplyToMessageButton } from "./MessageReplyPreview";
-import { RoleplayCommandResults, RoleplayDiceRoll, replaceRoleplayDiceMarkers } from "./RoleplayCommandResults";
+import {
+  RoleplayCommandResults,
+  RoleplayDiceRoll,
+  RoleplayWhisper,
+  replaceRoleplayCommandMarkers,
+} from "./RoleplayCommandResults";
 import { splitRoleplayParagraphs } from "../../lib/roleplay-vn-paragraphs";
 import {
   notifyRoleplayTTSParagraph,
@@ -2884,9 +2894,20 @@ export const ChatMessage = memo(function ChatMessage({
     return `mari-html-message-${suffix || "content"}`;
   }, [message.id]);
 
-  const inlineRoleplayRolls = useMemo(() => {
-    const rolls = isRoleplay && !isUser ? readRoleplayDiceRolls(fullText, extra) : [];
+  const inlineRoleplayCommands = useMemo(() => {
+    const commands =
+      isRoleplay && !isUser
+        ? [
+            ...readRoleplayDiceRolls(fullText, extra).map((roll) => ({ ...roll, kind: "roll" as const })),
+            ...getRoleplayWhispers(extra).map((whisper) => ({
+              ...whisper,
+              kind: "whisper" as const,
+              offset: getRoleplayCommandContentOffset(fullText, whisper.activity),
+            })),
+          ].sort((a, b) => a.offset - b.offset || a.index - b.index)
+        : [];
     let paragraphStart = 0;
+    let nextParagraphStart = Number.POSITIVE_INFINITY;
     if (visualNovel) {
       for (let index = 0; index <= activeVnParagraphIndex; index++) {
         const paragraph = vnParagraphs[index] ?? "";
@@ -2894,11 +2915,37 @@ export const ChatMessage = memo(function ChatMessage({
         if (paragraphStart < 0) break;
         if (index < activeVnParagraphIndex) paragraphStart += paragraph.length;
       }
+      const next = vnParagraphs[activeVnParagraphIndex + 1];
+      if (paragraphStart >= 0 && next !== undefined) {
+        const found = fullText.indexOf(next, paragraphStart + text.length);
+        if (found >= 0) nextParagraphStart = found;
+      }
     }
-    return rolls
-      .map((roll) => ({ ...roll, offset: roll.offset - paragraphStart }))
-      .filter((roll) => paragraphStart >= 0 && roll.offset >= 0 && roll.offset <= text.length);
+    return commands
+      .filter(
+        (command) => paragraphStart >= 0 && command.offset >= paragraphStart && command.offset < nextParagraphStart,
+      )
+      .map((command) => ({ ...command, offset: Math.min(command.offset - paragraphStart, text.length) }));
   }, [isRoleplay, isUser, fullText, extra, visualNovel, activeVnParagraphIndex, vnParagraphs, text.length]);
+
+  const renderInlineRoleplayCommand = useCallback(
+    (command: (typeof inlineRoleplayCommands)[number]) =>
+      command.kind === "whisper" ? (
+        <RoleplayWhisper
+          key={`whisper-${message.id}-${message.activeSwipeIndex}-${command.index}-${personaInfo?.id}`}
+          character={command.command.character}
+          text={command.command.text}
+          forPersona={command.recipient.kind === "persona" && command.recipient.id === (personaInfo?.id ?? "user")}
+        />
+      ) : (
+        <RoleplayDiceRoll
+          key={`roll-${message.id}-${message.activeSwipeIndex}-${command.index}`}
+          result={command.result}
+          createdAt={message.createdAt}
+        />
+      ),
+    [message.id, message.activeSwipeIndex, message.createdAt, personaInfo?.id],
+  );
 
   const renderedContent = useMemo(() => {
     const renderPart = (part: string) =>
@@ -2918,22 +2965,15 @@ export const ChatMessage = memo(function ChatMessage({
     while (text.includes(markerPrefix)) markerPrefix = "\uE000" + markerPrefix;
     const slots = new Map<string, ReactNode>();
     let markedText = text;
-    for (const roll of inlineRoleplayRolls) {
-      const marker = `${markerPrefix}${roll.index}\uE001`;
-      slots.set(
-        marker,
-        <RoleplayDiceRoll
-          key={`roll-${message.id}-${message.activeSwipeIndex}-${roll.index}`}
-          result={roll.result}
-          createdAt={message.createdAt}
-        />,
-      );
+    for (const command of inlineRoleplayCommands) {
+      const marker = `${markerPrefix}${command.index}\uE001`;
+      slots.set(marker, renderInlineRoleplayCommand(command));
     }
-    for (const roll of [...inlineRoleplayRolls].reverse()) {
+    for (const roll of [...inlineRoleplayCommands].reverse()) {
       const marker = `${markerPrefix}${roll.index}\uE001`;
       markedText = markedText.slice(0, roll.offset) + marker + markedText.slice(roll.offset);
     }
-    const prose = replaceRoleplayDiceMarkers(renderPart(markedText), slots);
+    const prose = replaceRoleplayCommandMarkers(renderPart(markedText), slots);
     return (
       <>
         {isUser && <MessageReplyPreview reply={extra.replyTo} />}
@@ -2941,11 +2981,9 @@ export const ChatMessage = memo(function ChatMessage({
       </>
     );
   }, [
-    inlineRoleplayRolls,
+    inlineRoleplayCommands,
+    renderInlineRoleplayCommand,
     extra.replyTo,
-    message.id,
-    message.activeSwipeIndex,
-    message.createdAt,
     isUser,
     text,
     dialogueColor,
@@ -3041,17 +3079,11 @@ export const ChatMessage = memo(function ChatMessage({
   const showTranslationOnly =
     translationDisplayOnly && !!effectiveTranslationText && !isTranslating && translationSource === message.content;
   // A translation has no reliable source-text offsets. Keep its visible
-  // paragraph's rolls after the translated prose, preserving their real values.
+  // paragraph's command results after the translated prose.
   const renderedTranslationOnly = (
     <>
       {renderedTranslation}
-      {inlineRoleplayRolls.map((roll) => (
-        <RoleplayDiceRoll
-          key={`translated-roll-${message.id}-${message.activeSwipeIndex}-${roll.index}`}
-          result={roll.result}
-          createdAt={message.createdAt}
-        />
-      ))}
+      {inlineRoleplayCommands.map(renderInlineRoleplayCommand)}
     </>
   );
 

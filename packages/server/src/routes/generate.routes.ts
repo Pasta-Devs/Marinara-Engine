@@ -172,10 +172,12 @@ import {
 import { prepareRoleplayRoll } from "../services/generation/roleplay-rolls.js";
 import {
   appendRoleplayPromptTail,
+  appendRoleplayWhispers,
   buildRoleplayCommandsReminder,
   buildRoleplayPersonalContext,
   parseRoleplayCommands,
   roleplayCommandKey,
+  resolveRoleplayWhisperRecipient,
   RoleplayCommandStreamFilter,
   type RoleplayCommand,
 } from "../services/generation/roleplay-commands.js";
@@ -7346,6 +7348,20 @@ export async function generateRoutes(app: FastifyInstance) {
           const roleplayPrivateAvailable =
             Boolean(targetCharId) && (allCharacterIds.length === 1 || usesIndividualGroupGeneration);
           const roleplayCallerId = roleplayPrivateAvailable && speaksOnlyTargetCharacter ? targetCharId : null;
+          const roleplayWhisperContext =
+            chatMode === "roleplay" &&
+            appendRoleplayWhispers(
+              preparedMessagesForGen,
+              roleplayTimeline,
+              input.impersonate
+                ? { id: identity?.id ?? "user", kind: "persona" }
+                : roleplayCallerId
+                  ? { id: roleplayCallerId, kind: "character" }
+                  : null,
+              charInfo.some((character) => character.id === chatMeta.roleplayCommandNarratorId)
+                ? (chatMeta.roleplayCommandNarratorId as string)
+                : null,
+            );
           const latestRoleplayMessage = roleplayTimeline.at(-1);
           const roleplayInterruptionTarget =
             chatMode === "roleplay" &&
@@ -7372,7 +7388,7 @@ export async function generateRoutes(app: FastifyInstance) {
             !input.impersonate &&
             isRoleplayCommandAllowed(chatMeta, "roll", roleplayCallerId);
           const roleplayActivity: RoleplayCommandActivity[] = [];
-          const roleplayRollPrefixes = new Map<RoleplayCommandActivity, string>();
+          const roleplayInlinePrefixes = new Map<RoleplayCommandActivity, string>();
           const responderToolDefs =
             chatMode === "roleplay"
               ? toolDefs
@@ -7963,7 +7979,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       ...(tr.success ? { result: tr.result } : {}),
                     };
                     roleplayActivity.push(activity);
-                    roleplayRollPrefixes.set(activity, parseRoleplayCommands(fullResponse).content);
+                    roleplayInlinePrefixes.set(activity, parseRoleplayCommands(fullResponse).content);
                   }
                 }
                 if (tr.name === "update_game_state" && tr.success) {
@@ -8324,6 +8340,19 @@ export async function generateRoutes(app: FastifyInstance) {
                 if (!roleplayPrivateAvailable || !targetCharId) continue;
               }
               if (command.type === "roll") continue; // Recorded with its actual tool result.
+              if (command.type === "whisper") {
+                if (!roleplayPrivateAvailable || !roleplayCallerId) continue;
+                const recipient = resolveRoleplayWhisperRecipient(command.character, charInfo, {
+                  id: identity?.id ?? "user",
+                  name: personaName,
+                });
+                if (!recipient) {
+                  sendSseEvent(reply, { type: "roleplay_command_error", data: { invalid: true } });
+                  continue;
+                }
+                activity.whisperRecipient = recipient;
+                roleplayInlinePrefixes.set(activity, parsed.content.slice(0, activity.contentOffset));
+              }
               if (command.type === "document") activity.documentStyle = Math.floor(Math.random() * 3);
               const requiredAgent =
                 command.type === "illustrate"
@@ -9455,7 +9484,7 @@ export async function generateRoutes(app: FastifyInstance) {
               const previousExtra = input.continueMessageId
                 ? parseExtra((await chats.getMessage(savedMsg.id))?.extra)
                 : {};
-              for (const [activity, rawPrefix] of roleplayRollPrefixes) {
+              for (const [activity, rawPrefix] of roleplayInlinePrefixes) {
                 const prefix = stripSpacesBeforeLineBreaks(rawPrefix).trim();
                 const anchor = prefix.slice(-80);
                 const prefixStart = fullResponse.indexOf(prefix);
@@ -9479,7 +9508,10 @@ export async function generateRoutes(app: FastifyInstance) {
               extraUpdate.roleplayPrivateCommands = null;
               extraUpdate.roleplayDocuments = null;
               extraUpdate.roleplayPrivateContext = Boolean(
-                roleplayPersonalContext || roleplayHadCommands || previousExtra.roleplayPrivateContext,
+                roleplayPersonalContext ||
+                roleplayWhisperContext ||
+                roleplayHadCommands ||
+                previousExtra.roleplayPrivateContext,
               );
               extraUpdate.roleplayPrivateOnly = false;
               if (
