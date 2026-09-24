@@ -4,7 +4,7 @@ This follow-up addresses [#6645](https://github.com/Pasta-Devs/Marinara-Engine/i
 
 ## Source and scope
 
-- English source: [PR #6635](https://github.com/Pasta-Devs/Marinara-Engine/pull/6635), commit `6c900594d06e6de14e1d4c4577bc78b1ce86232b`. The source PR was still open when translation began; this follow-up depends on that feature.
+- English source: [PR #6635](https://github.com/Pasta-Devs/Marinara-Engine/pull/6635), commit `6c900594d06e6de14e1d4c4577bc78b1ce86232b`. The source PR was still open when translation began; this follow-up depends on that feature. Its later head `4a5fe1eb874269185acd8e991c7a4fbb7427061d` was checked during integration and has identical documentation.
 - Translation baseline: `a0df7a43f85a081be0d5eed9fbd8b459ea826bc4` on `docs-i18n`.
 - Pages: `home/achievements.md` and `development/optional-agent-packages.md` in `de`, `es`, `fr`, `hi`, `ja`, `ko`, `pl`, `pt-br`, `ru`, and `zh-hans`.
 - Translate the new agent-achievement section and Capability API 1.36 section, preserving executable examples, identifiers and link targets. Existing API 1.32 guidance is already present from the merged catchup.
@@ -21,5 +21,5 @@ While adding API 1.36, the same page’s API 1.34 text was found to prohibit blo
 - Integration corrected three new API headings from level two to the source’s level three before the final check passed.
 - All ten manifests were rebuilt against the pinned source and passed the official pack validator: **132 translated guides / 132 English guides** per pack, with matching hashes and no missing or orphaned guides.
 - `pnpm install` and `pnpm check` passed in the unchanged Engine checkout. The first restricted check could not run its context loader; the permitted rerun completed successfully. No application code or release metadata changed.
-- Local CodeRabbit review is in progress; its result will be recorded before readiness.
+- Local CodeRabbit review completed over all 31 changed files (`a0df7a43f..7c9327d74`) with zero findings. The review covered the translations, seven adjacent wording corrections, generated manifests and this record.
 - Manual Download & Replace, in-app display/search and independent native-reader sampling remain unperformed human checks. No runtime verification of the feature in #6635 is claimed by this translation PR.
