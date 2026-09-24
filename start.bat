@@ -403,9 +403,9 @@ echo    Press Ctrl+C to stop
 echo  ==========================================
 echo.
 
-:: Open browser after a short delay (use explorer.exe as fallback)
+:: Open the browser only once the server answers /api/health (scripts\open-when-ready.cmd polls it).
 if defined AUTO_OPEN_BROWSER_ENABLED (
-    start "" cmd /c "timeout /t 4 /nobreak >nul && start %PROTOCOL%://%BROWSER_HOST%:%PORT% || explorer %PROTOCOL%://%BROWSER_HOST%:%PORT%"
+    start "" /min cmd /c ""%~dp0scripts\open-when-ready.cmd" "%PROTOCOL%://%BROWSER_HOST%:%PORT%""
 ) else (
     echo  [OK] Auto-open disabled ^(AUTO_OPEN_BROWSER=%AUTO_OPEN_BROWSER%^)
 )
