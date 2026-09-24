@@ -9,6 +9,7 @@ export const ROLEPLAY_COMMAND_KEYS = [
   "combat",
   "dm",
   "interrupt",
+  "whisper",
 ] as const;
 
 export type RoleplayCommandKey = (typeof ROLEPLAY_COMMAND_KEYS)[number];
@@ -44,7 +45,13 @@ export type RoleplayCommand =
     }
   | { type: "combat" }
   | { type: "dm"; character: string; message: string }
+  | { type: "whisper"; character: string; text: string }
   | { type: "interrupt"; part: string };
+
+export interface RoleplayWhisperRecipient {
+  id: string;
+  kind: "character" | "persona";
+}
 
 export interface RoleplayCommandActivity {
   command: RoleplayCommand;
@@ -56,8 +63,10 @@ export interface RoleplayCommandActivity {
   /** Saved presentation choices belong to this command occurrence and message swipe. */
   documentStyle?: number;
   contentOffset?: number;
-  /** Adjacent text before the roll, or after it when contentOffset is zero. */
+  /** Adjacent text before the inline command, or after it when contentOffset is zero. */
   contentAnchor?: string;
+  /** Resolve once so a rename cannot redirect a saved secret. */
+  whisperRecipient?: RoleplayWhisperRecipient;
   /** Exact before/after text makes interruption reversible without overwriting later edits. */
   interruption?: {
     targetMessageId: string;
@@ -124,6 +133,45 @@ export function getRoleplayDocuments(extra: Record<string, unknown>): RoleplayDo
   );
 }
 
+export function getRoleplayWhispers(extra: Record<string, unknown>) {
+  return getRoleplayCommandActivity(extra).flatMap((activity, index) => {
+    const { command, whisperRecipient: recipient } = activity;
+    return !activity.deleted &&
+      !activity.error &&
+      command.type === "whisper" &&
+      typeof command.character === "string" &&
+      typeof command.text === "string" &&
+      command.text.length > 0 &&
+      command.text.length <= 16_000 &&
+      recipient &&
+      typeof recipient.id === "string" &&
+      recipient.id.length > 0 &&
+      (recipient.kind === "character" || recipient.kind === "persona")
+      ? [{ activity, index, command, recipient }]
+      : [];
+  });
+}
+
+/** Keep an inline result near its original text after edits; ambiguous anchors fall back to the end. */
+export function getRoleplayCommandContentOffset(text: string, item: RoleplayCommandActivity): number {
+  const expected = item.contentOffset;
+  const anchor = item.contentAnchor;
+  if (
+    typeof expected === "number" &&
+    Number.isSafeInteger(expected) &&
+    expected >= 0 &&
+    typeof anchor === "string" &&
+    anchor.length > 0
+  ) {
+    const currentAnchor =
+      expected === 0 ? text.slice(0, anchor.length) : text.slice(Math.max(0, expected - anchor.length), expected);
+    if (expected <= text.length && currentAnchor === anchor) return expected;
+    if (text.indexOf(anchor) >= 0 && text.indexOf(anchor) === text.lastIndexOf(anchor))
+      return text.indexOf(anchor) + (expected === 0 ? 0 : anchor.length);
+  }
+  return text.length;
+}
+
 export function roleplayCommandsEnabled(metadata: Record<string, unknown>): boolean {
   // Preserve an existing explicit DM opt-in. New chats have no enabled commands.
   return (
@@ -152,7 +200,8 @@ export function isRoleplayCommandAllowed(
   if (
     (key === "roll" && metadata.roleplayRollAudience === "narrator") ||
     (key === "combat" && metadata.roleplayCombatAudience === "narrator") ||
-    (key === "document" && metadata.roleplayDocumentAudience === "narrator")
+    (key === "document" && metadata.roleplayDocumentAudience === "narrator") ||
+    (key === "whisper" && metadata.roleplayWhisperAudience === "narrator")
   ) {
     if (!characterId || characterId !== metadata.roleplayCommandNarratorId) return false;
   }

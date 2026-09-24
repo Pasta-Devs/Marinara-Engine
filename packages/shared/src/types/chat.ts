@@ -492,6 +492,7 @@ export interface ChatMetadata {
   roleplayRollAudience?: RoleplayCommandAudience;
   roleplayCombatAudience?: RoleplayCommandAudience;
   roleplayDocumentAudience?: RoleplayCommandAudience;
+  roleplayWhisperAudience?: RoleplayCommandAudience;
   roleplaySoundConnectionId?: string | null;
   /** Chat-scoped Intiface Central WebSocket URL for haptic manual and auto-connect. */
   hapticIntifaceUrl?: string | null;

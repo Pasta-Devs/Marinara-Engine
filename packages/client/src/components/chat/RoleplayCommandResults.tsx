@@ -1,6 +1,7 @@
 import {
   cloneElement,
   isValidElement,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -9,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, LockKeyhole, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getRoleplayCommandActivity, type RoleplayCommandActivity } from "@marinara-engine/shared";
 import { useUpdateMessageExtra } from "../../hooks/use-chats";
@@ -22,6 +23,60 @@ import { AnimatedDiceRoll, shouldAnimateDiceRollMessage } from "../dice/Animated
 import { isDiceRollResult } from "../../lib/dice-roll-result";
 
 const loadedAt = Date.now();
+
+export function RoleplayWhisper({
+  character,
+  text,
+  forPersona,
+}: {
+  character: string;
+  text: string;
+  forPersona: boolean;
+}) {
+  const { t } = useTranslation();
+  const id = useId();
+  const [revealed, setRevealed] = useState(false);
+  const visible = forPersona || revealed;
+  return (
+    <span
+      className="my-3 block min-w-0 max-w-full rounded-lg border border-[var(--primary)]/25 bg-[var(--card)] px-4 py-3 text-[var(--foreground)] whitespace-normal [text-shadow:none] [-webkit-text-stroke:0px]"
+      data-roleplay-whisper
+      onDoubleClick={(event) => event.stopPropagation()}
+    >
+      <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-[var(--muted-foreground)]">
+          <LockKeyhole size="0.875rem" className="shrink-0" aria-hidden />
+          <span id={`${id}-recipient`} className="break-words">
+            {t("roleplay.commands.whisper.to", { character })}
+          </span>
+        </span>
+        {!forPersona && (
+          <button
+            type="button"
+            aria-expanded={visible}
+            aria-describedby={`${id}-recipient`}
+            aria-controls={visible ? `${id}-secret` : undefined}
+            className="flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm text-[var(--primary)] hover:bg-[var(--primary)]/10 focus-visible:outline focus-visible:outline-[var(--primary)]"
+            onClick={() => setRevealed(!revealed)}
+          >
+            {visible ? <EyeOff size="0.875rem" aria-hidden /> : <Eye size="0.875rem" aria-hidden />}
+            <span>{t(visible ? "roleplay.commands.whisper.hide" : "roleplay.commands.whisper.reveal")}</span>
+          </button>
+        )}
+      </span>
+      {visible && (
+        <span id={`${id}-secret`} className="mt-2 block whitespace-pre-wrap break-words text-sm italic leading-relaxed">
+          {text}
+        </span>
+      )}
+      {!forPersona && visible && (
+        <span className="mt-2 block text-xs text-[var(--muted-foreground)]">
+          {t("roleplay.commands.whisper.revealedHint")}
+        </span>
+      )}
+    </span>
+  );
+}
 
 export function RoleplayDiceRoll({ result, createdAt }: { result: string; createdAt: string }) {
   const roll = useMemo(() => {
@@ -42,7 +97,7 @@ export function RoleplayDiceRoll({ result, createdAt }: { result: string; create
 
 // The HTML has already passed ChatMessage's sanitizer. Insert only text-node
 // slots into that complete document, so an inline roll cannot break its tags.
-function RoleplayDiceHtml({ element, slots }: { element: ReactElement; slots: Map<string, ReactNode> }) {
+function RoleplayCommandHtml({ element, slots }: { element: ReactElement; slots: Map<string, ReactNode> }) {
   const ref = useRef<HTMLDivElement>(null);
   // Keep the host element identical while portals mount. Reapplying
   // dangerouslySetInnerHTML would discard their DOM targets.
@@ -83,7 +138,7 @@ function RoleplayDiceHtml({ element, slots }: { element: ReactElement; slots: Ma
 }
 
 /** Replace private, render-only text markers after parsing the complete prose once. */
-export function replaceRoleplayDiceMarkers(content: ReactNode, slots: Map<string, ReactNode>): ReactNode {
+export function replaceRoleplayCommandMarkers(content: ReactNode, slots: Map<string, ReactNode>): ReactNode {
   if (!slots.size) return content;
   const pattern = new RegExp(`(${[...slots.keys()].join("|")})`, "u");
   const used = new Set<string>();
@@ -104,7 +159,7 @@ export function replaceRoleplayDiceMarkers(content: ReactNode, slots: Map<string
       for (const marker of slots.keys()) used.add(marker);
       // Remount when the sanitized document changes; React owns the surrounding
       // element, while portals own only the empty slots created inside it.
-      return <RoleplayDiceHtml key={`${node.props.className}:${html}`} element={node} slots={slots} />;
+      return <RoleplayCommandHtml key={`${node.props.className}:${html}`} element={node} slots={slots} />;
     }
     return node.props.children === undefined ? node : cloneElement(node, {}, visit(node.props.children));
   };
@@ -358,34 +413,36 @@ export function RoleplayCommandResults({
           attachment.url.startsWith("/api/game-assets/file/sfx/"),
       )
     : [];
-  if (!activity.length && !sounds.length) return null;
+  if (!activity.some((item) => item.command.type !== "whisper") && !sounds.length) return null;
   return (
     <div className="mt-3 space-y-2" data-roleplay-command-results onDoubleClick={(event) => event.stopPropagation()}>
-      {activity.map((item, index) => (
-        <CommandNotice
-          key={`${messageId}:${swipeIndex}:${index}`}
-          item={item}
-          characterName={characterName}
-          pending={isStreaming || chatGenerating || mutation.isPending || restore.isPending}
-          restore={() => restore.mutateAsync({ messageId, swipeIndex, activityIndex: index })}
-          soundUrl={
-            item.command.type === "sound"
-              ? sounds.find((sound) => sound.name === (item.command as { description: string }).description)?.url
-              : undefined
-          }
-          update={(next) =>
-            mutation.mutateAsync({
-              messageId,
-              swipeIndex,
-              extra: {
-                roleplayCommandActivity: activity.map((record, i) => (i === index ? next : record)),
-                roleplayPrivateCommands: null,
-                roleplayDocuments: null,
-              },
-            })
-          }
-        />
-      ))}
+      {activity.map((item, index) =>
+        item.command.type === "whisper" ? null : (
+          <CommandNotice
+            key={`${messageId}:${swipeIndex}:${index}`}
+            item={item}
+            characterName={characterName}
+            pending={isStreaming || chatGenerating || mutation.isPending || restore.isPending}
+            restore={() => restore.mutateAsync({ messageId, swipeIndex, activityIndex: index })}
+            soundUrl={
+              item.command.type === "sound"
+                ? sounds.find((sound) => sound.name === (item.command as { description: string }).description)?.url
+                : undefined
+            }
+            update={(next) =>
+              mutation.mutateAsync({
+                messageId,
+                swipeIndex,
+                extra: {
+                  roleplayCommandActivity: activity.map((record, i) => (i === index ? next : record)),
+                  roleplayPrivateCommands: null,
+                  roleplayDocuments: null,
+                },
+              })
+            }
+          />
+        ),
+      )}
       {!activity.some((item) => item.command.type === "sound") &&
         sounds.map((sound, index) => (
           <audio
