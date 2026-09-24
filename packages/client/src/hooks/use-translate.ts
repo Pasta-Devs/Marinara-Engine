@@ -15,10 +15,11 @@ const pendingTranslations = new Map<
   string,
   { messageId: string; text: string; request: Promise<void>; invalidated: boolean }
 >();
+const queuedTranslations = new Set<{ messageId: string; invalidated: boolean }>();
 
 /** Editing a source also invalidates requests that have not returned yet. */
 export function invalidateTranslation(messageId: string) {
-  for (const pending of pendingTranslations.values()) {
+  for (const pending of [...pendingTranslations.values(), ...queuedTranslations]) {
     if (pending.messageId === messageId) pending.invalidated = true;
   }
   useTranslationStore.getState().invalidateTranslation(messageId);
@@ -72,11 +73,15 @@ export function translateMessage(
   const pending = pendingTranslations.get(key);
   if (pending) {
     // Finish the previous source (including persistence) before translating a regenerated reply.
-    return pending.text === text && !pending.invalidated
-      ? pending.request
-      : pending.request
-          .catch(() => undefined)
-          .then(() => translateMessage(queryClient, messageId, text, config, chatId));
+    if (pending.text === text && !pending.invalidated) return pending.request;
+    const queued = { messageId, invalidated: false };
+    queuedTranslations.add(queued);
+    return pending.request
+      .catch(() => undefined)
+      .then(() => {
+        queuedTranslations.delete(queued);
+        if (!queued.invalidated) return translateMessage(queryClient, messageId, text, config, chatId);
+      });
   }
   const store = useTranslationStore.getState();
   const isCurrentChat = () => useTranslationStore.getState().config.chatId === requestChatId;

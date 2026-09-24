@@ -665,7 +665,7 @@ function getGameTranslationSource(
     }
     // A blank line inside a narration segment splits it in two on the way back through
     // the parser and shifts every later segment index, so keep single newlines only.
-    return withEdit.content.replace(/\n{2,}/g, "\n");
+    return withEdit.content.replace(/\r?\n(?:[ \t]*\r?\n)+/g, "\n");
   });
 
   const joined = rebuilt.join("\n\n").trim();
