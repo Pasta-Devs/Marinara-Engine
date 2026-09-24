@@ -532,10 +532,15 @@ interface SheetRound {
   average: number;
   action: RulesetCombatAction | null;
   steps: number;
+  /** The actions the round is made of: a sequence's steps, or a striking row and the heaviest one
+   *  the rest of its strikes may go to. */
+  parts: RulesetCombatAction[];
 }
 
 /** The heaviest round one spend buys against one target: every strike it buys, the biggest payment
- *  it can afford, and the heaviest rider counted once on top, exactly as the plain clamp counts. */
+ *  it can afford, and the heaviest rider counted once on top, exactly as the plain clamp counts.
+ *  Strikes bought by one spend wait in hand and may go to ANY row that declares strikes, so a
+ *  striking round is the row spent on and then the rest of its strikes on the heaviest such row. */
 function bestSheetRound(definition: RulesetDefinition, combatant: RulesetCombatant): SheetRound {
   const pools = poolValues(definition, combatant);
   const byId = new Map(combatant.actions.map((action) => [action.id, action]));
@@ -547,13 +552,28 @@ function bestSheetRound(definition: RulesetDefinition, combatant: RulesetCombata
     const grown = steps > 0 ? steps * rulesetAverageAmount(action.use!.perCostStep!) : 0;
     return Math.max(0, rulesetAverageDamage(action.damage) + grown);
   };
-  let best: SheetRound = { average: 0, action: null, steps: 0 };
+  const striking = combatant.actions.filter((action) => action.strikes !== undefined);
+  const heaviestStrike = striking.reduce<RulesetCombatAction | null>(
+    (best, action) => (!best || once(action) > once(best) ? action : best),
+    null,
+  );
+  let best: SheetRound = { average: 0, action: null, steps: 0, parts: [] };
   for (const action of combatant.actions) {
+    const parts = action.sequence
+      ? action.sequence.flatMap((step) => {
+          const part = byId.get(step.actionId);
+          return part ? [part] : [];
+        })
+      : action.strikes !== undefined && heaviestStrike && heaviestStrike !== action
+        ? [action, heaviestStrike]
+        : [action];
     const average = action.sequence
       ? action.sequence.reduce((total, step) => total + step.times * once(byId.get(step.actionId)), 0)
-      : once(action) * Math.max(1, action.strikes ?? 1);
+      : once(action) + Math.max(0, (action.strikes ?? 1) - 1) * once(heaviestStrike ?? action);
     const round = average > 0 ? average + carried : 0;
-    if (round > best.average) best = { average: round, action, steps: stepsAffordable(definition, action, pools) };
+    if (round > best.average) {
+      best = { average: round, action, steps: stepsAffordable(definition, action, pools), parts };
+    }
   }
   return best;
 }
@@ -617,12 +637,7 @@ export function holdRulesetCombatant(
     const round = bestSheetRound(definition, combatant);
     if (round.average <= cap || !round.action) break;
     const action = round.action;
-    const parts = action.sequence
-      ? action.sequence.flatMap((step) => {
-          const part = byId.get(step.actionId);
-          return part ? [part] : [];
-        })
-      : [action];
+    const parts = round.parts;
     const grown = parts.find((part) => part.use?.perCostStep && round.steps > 0);
     if (grown?.use?.perCostStep) {
       if (!shave(grown.use.perCostStep)) delete grown.use.perCostStep;
@@ -636,6 +651,8 @@ export function holdRulesetCombatant(
     const heaviest = amounts[0];
     if (heaviest && heaviest.count > 1 && heaviest.sides > 0) heaviest.count -= 1;
     else if (heaviest && heaviest.flat > (heaviest.count > 0 && heaviest.sides > 0 ? 0 : 1)) heaviest.flat -= 1;
+    // One strike fewer on the row spent on. Any other row whose strikes still make too big a round
+    // is measured by the round above, which counts strikes in hand going to the heaviest row.
     else if (!action.sequence && (action.strikes ?? 1) > 1) action.strikes = (action.strikes ?? 1) - 1;
     else if (!heaviest || !shave(heaviest)) break;
     scaled = true;

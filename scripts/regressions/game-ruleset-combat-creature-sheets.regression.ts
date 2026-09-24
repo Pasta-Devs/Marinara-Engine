@@ -462,7 +462,7 @@ for (const setup of [
   });
   const sergeant = who(state, "sergeant");
   assert.equal(sergeant.defense, 17, "its Armor Class field");
-  assert.deepEqual(rulesetCombatHealth(fiveE, fiveE.combat!, sergeant), { value: 52, max: 52, temp: 0 });
+  assert.deepEqual(rulesetCombatHealth(fiveE, fiveE.combat!, sergeant), { value: 80, max: 80, temp: 0 });
   assert.equal(sergeant.saves.str_save, 6, "+3 from Strength and +3 proficiency at level 5");
   assert.equal(sergeant.saves.dex_save, 1, "a save it is not proficient in is its ability alone");
   assert.equal(sergeant.initiativeModifier, 1, "Dexterity, by the ruleset's own initiative formula");
@@ -931,9 +931,9 @@ const spellbook = parsedOrThrow(
   const projected = directedRulesetView(fiveE, state);
   assert.ok(projected);
   const sergeant = projected.combatants.find((combatant) => combatant.id === "sergeant")!;
-  assert.equal(sergeant.health.max, 52);
+  assert.equal(sergeant.health.max, 80);
   assert.equal(sergeant.defense, 17);
-  assert.equal(sergeant.tier, "cr_2");
+  assert.equal(sergeant.tier, "cr_5");
   assert.equal(sergeant.deathTrack, undefined, "an opponent never rolls against death, sheet or no sheet");
   const text = JSON.stringify(projected);
   for (const leak of ["hp_max", "attacks_per_action", '"build"', '"live"']) {
@@ -1113,6 +1113,53 @@ const spellbook = parsedOrThrow(
     roadFight.adjustments.join("\n"),
     /Road Brute: Health 13 was pulled into the 3 to 8 of Stray trouble through its Toughness, and is now 8\./,
   );
+
+  // Strikes bought by one spend wait in hand and may go to ANY striking row, so a round is one spend
+  // on a light row and the rest on the heaviest. A weak dagger looks harmless struck three times, and
+  // only the mixed round (one dagger, then two greataxe swings) shows what the tier has to hold.
+  const duelFight = started({
+    definition: fiveE,
+    cards: [card("Brenna", fighterBuild())],
+    party: [{ id: "brenna", name: "Brenna" }],
+    enemies: [
+      {
+        id: "duelist",
+        name: "Road Duelist",
+        tier: "cr_3",
+        proposed: {
+          tier: "cr_3",
+          sheet: {
+            abilities: { str: 16, dex: 10 },
+            fields: { level: 5, hp_max: 60, ac: 14, attacks_per_action: 3 },
+            lists: {
+              attacks: [
+                { name: "Dagger", ability: "dex", proficient: true, damage: "1d4", damage_type: "piercing" },
+                { name: "Greataxe", ability: "str", proficient: true, damage: "1d12", damage_type: "slashing" },
+              ],
+            },
+          },
+        },
+      },
+    ],
+  }).rulesetFight!;
+  const duelist = who(duelFight.encounter, "duelist");
+  const striking = duelist.actions.filter((action) => action.strikes !== undefined);
+  assert.deepEqual(
+    striking.map((action) => action.label).sort(),
+    ["Dagger", "Greataxe"],
+    "both of its weapons take strikes out of one hand",
+  );
+  const average = (action: (typeof striking)[number]) =>
+    (action.damage!.count * (action.damage!.sides + 1)) / 2 + action.damage!.flat;
+  const heaviest = Math.max(...striking.map(average));
+  const cr3 = fiveE.combat!.threat!.tiers.find((entry) => entry.id === "cr_3")!;
+  for (const action of striking) {
+    const round = average(action) + (action.strikes! - 1) * heaviest;
+    assert.ok(
+      round <= cr3.damagePerRound[1],
+      `"${action.label}" and the rest of its strikes on the heaviest row average ${round}`,
+    );
+  }
 
   // A health formula with no single field in it is left as written, and says so.
   const stepped = parsedOrThrow(

@@ -642,7 +642,9 @@ and an opponent could not pay for anything out of a pool it did not have.
   health into the tier's band through the one field the health pool is read off, or a `sum` with
   one field in it, and leaves anything else as written with a line; after the fight is built,
   `holdRulesetCombatant` caps defense, to-hit and save difficulties and scales the best round,
-  counting the biggest affordable payment, on the combatant itself. The block parts beside the sheet
+  counting the biggest affordable payment, on the combatant itself. Strikes bought by one spend wait
+  in hand and may go to any striking row, so a striking round is measured as the row spent on and
+  the rest of its strikes on the heaviest striking row. The block parts beside the sheet
   still go through the plain clamp. The blueprint prompt carries an `EncounterSheetBrief`: the ids,
   what each may hold, the lists a fight reads, the field each list's catalogs are opened by, and up
   to 60 catalog names per list.

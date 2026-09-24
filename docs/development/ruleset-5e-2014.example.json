@@ -1557,12 +1557,12 @@
           "label": "Toll Sergeant",
           "summary": "A tired soldier who holds a bridge for whoever paid last.",
           "filters": {
-            "challenge": "CR 2",
+            "challenge": "CR 5",
             "kind": "Humanoid",
             "places": ["Roads", "Bridges"]
           },
           "creature": {
-            "tier": "cr_2",
+            "tier": "cr_5",
             "traits": [
               {
                 "name": "Paid in advance",
@@ -1590,7 +1590,7 @@
                 "level": 5,
                 "ac": 17,
                 "speed": 30,
-                "hp_max": 52,
+                "hp_max": 80,
                 "attacks_per_action": 2
               },
               "lists": {
