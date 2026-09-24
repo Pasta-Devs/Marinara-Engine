@@ -125,8 +125,14 @@ export async function listenerProcess(port) {
 const ENGINE_CMD = /run-server\.mjs|dist[\w-]*[\\/]index\.js|start(-local)?\.(bat|sh)|pnpm.*start/i;
 
 export function engineRoot(proc) {
-  const engineChain = proc.chain.filter((p) => ENGINE_CMD.test(String(p.cmd ?? "")));
-  return engineChain[engineChain.length - 1] ?? proc.chain[0];
+  // Climb only through consecutive engine processes: an unrelated ancestor whose command line happens to match (a
+  // shell that once ran `pnpm start`, say) must never become the root of the tree that is killed.
+  let root = proc.chain[0];
+  for (const parent of proc.chain.slice(1)) {
+    if (!ENGINE_CMD.test(String(parent.cmd ?? ""))) break;
+    root = parent;
+  }
+  return root;
 }
 
 /** False when the listener's command line is known and nothing in its chain looks like the engine. */
