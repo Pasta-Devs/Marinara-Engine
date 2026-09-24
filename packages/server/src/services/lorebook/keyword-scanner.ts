@@ -416,7 +416,11 @@ function applyGroupSelection(entries: ActivatedEntry[], random: () => number, gr
 
   for (const [group, groupEntries] of grouped) {
     const stickyEntries = groupEntries.filter((entry) => entry.sticky);
-    const candidates = stickyEntries.length > 0 ? stickyEntries : groupEntries;
+    const pool = stickyEntries.length > 0 ? stickyEntries : groupEntries;
+    // A seeded roll must map to the same entry whatever order the candidates activated in, so seeded picks use id order.
+    const candidates = groupSeed
+      ? [...pool].sort((a, b) => (a.entry.id < b.entry.id ? -1 : a.entry.id > b.entry.id ? 1 : 0))
+      : pool;
     const selected = pickWeightedGroupEntry(
       candidates,
       groupSeed ? seededGroupRandom(groupSeed, group, candidates) : random,

@@ -36,6 +36,12 @@ for (let turn = 0; turn < 20; turn += 1) {
   );
 }
 
+// The activation order of the candidates does not change a seeded pick.
+const reversed = scanForActivatedEntries(scene, [...entries].reverse(), { groupSeed: "chat-a" })
+  .filter((row) => row.entry.group === "notes")
+  .map((row) => row.entry.id);
+assert.deepEqual(reversed, first, "candidates that activate in another order keep the same seeded winner");
+
 const acrossChats = new Set(Array.from({ length: 30 }, (_, index) => winner({ groupSeed: `chat-${index}` })[0]));
 assert.ok(acrossChats.size > 1, "different chats still get different winners");
 
