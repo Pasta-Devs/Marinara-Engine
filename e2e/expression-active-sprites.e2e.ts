@@ -168,7 +168,20 @@ for (const presentation of ["classic", "visual-novel"] as const) {
         { id: chat.id, version },
       );
       await page.goto("/");
+      const waitForGeneration = async () => {
+        await expect
+          .poll(async () => {
+            const status = await (await request.get(`/api/generate/status/${chat.id}`)).json();
+            const processing = await page.evaluate(async (chatId) => {
+              const { useAgentStore } = await import("/src/stores/agent.store.ts" as string);
+              return useAgentStore.getState().processingChatIds.includes(chatId);
+            }, chat.id);
+            return !!status.active || !!status.translating || processing;
+          })
+          .toBe(false);
+      };
       const reload = async () => {
+        await waitForGeneration();
         // Finish the generation's background cache/status requests before unloading WebKit's document.
         await page.waitForLoadState("networkidle");
         await page.reload();
@@ -267,14 +280,7 @@ for (const presentation of ["classic", "visual-novel"] as const) {
           ids: record((await latest()).extra).expressionSpriteIds,
         }))
         .toEqual({ swipe: 1, ids: [bob.id] });
-      await expect
-        .poll(() =>
-          page.evaluate(async (chatId) => {
-            const { useAgentStore } = await import("/src/stores/agent.store.ts" as string);
-            return useAgentStore.getState().processingChatIds.includes(chatId);
-          }, chat.id),
-        )
-        .toBe(false);
+      await waitForGeneration();
       const returnToVisualNovel = page.getByRole("button", { name: "Return to Visual Novel" });
       if (await returnToVisualNovel.isVisible()) await returnToVisualNovel.click();
 
