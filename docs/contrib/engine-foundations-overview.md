@@ -2,7 +2,7 @@
 
 This page walks through the `contrib/engine-foundations` branch one piece at a time. Every piece builds on code that is already in Marinara Engine and already works well. Nothing here renames an upstream API, replaces the shared logger or changes a file's conventions. Where a piece changes behaviour for everyone, that is said plainly. Everything else is off until you turn it on.
 
-The branch sits on top of `staging` (`1bd1e1a5f`). It started as the seven `contrib/dev-foundations` commits (sections 1 to 6) and was widened with a feature switch mechanism and the features built on it (sections 7 to 11). In order:
+The branch sits on top of `staging` (`1bd1e1a5f`). It started as the seven `contrib/dev-foundations` commits (sections 1 to 6) and was widened with a feature switch mechanism and the features built on it (sections 7 to 11), then with engine, logging and robustness fixes (section 12). In order:
 
 | Commit      | Piece                                                                            | Section |
 | ----------- | -------------------------------------------------------------------------------- | ------- |
@@ -25,8 +25,22 @@ The branch sits on top of `staging` (`1bd1e1a5f`). It started as the seven `cont
 | `a3a05393a` | Prompt caching: ChatGPT cache session, unused replay switch removed              | 11c     |
 | `cd54d4003` | Prompt caching: per-chat warning before a low-cache send                         | 11d     |
 | `6bad2b848` | Prompt caching: diagnostics, next-turn Peek Prompt preview, cache share per turn | 11e     |
+| `9adf5018a` | Docs: this page, widened to sections 7 to 11                                     |         |
+| `ef2769ce1` | "Open generation jobs" in the command palette                                    | 10      |
+| `16f852beb` | Build integrity check at startup and after updates                               | 12a     |
+| `7cc00aa34` | Runtime memory telemetry with worker gauges                                      | 12b     |
+| `6b8551592` | Prompt debug files (`LOG_PROMPT_DEBUG_FILES`)                                    | 12c     |
+| `13a1baaec` | Background call cap wired to an hourly budget (`backgroundCallCap`)              | 12d     |
+| `64a1afdfb` | Launcher: back up untracked source files before `git clean`                      | 12e     |
+| `e0656fa4d` | Launcher: open the browser once `/api/health` answers (Windows)                  | 12e     |
+| `91ced8909` | Retry once without reasoning-off when a model always reasons                     | 12f     |
+| `0561fa562` | Reviewed fixes: routes and middleware                                            | 12g     |
+| `0ebcb1ebd` | Logged best-effort helpers                                                       | 12g     |
+| `3e64168d9` | Reviewed fixes: services and storage                                             | 12g     |
+| `368a045ba` | Reviewed fixes: storage recovery, chat and generate routes, importers, SSRF      | 12g     |
+| `16c7159f3` | `cache` and `marinara` metadata namespaces marked engine-owned                   | 12h     |
 
-The branch ends with this page and the palette action that opens generation jobs (section 10).
+The branch ends with the engine, logging and robustness fixes (section 12).
 
 For each piece you will find: what exists today, what this adds, what stays exactly the same, how to check it yourself and how to turn it off or revert it.
 
@@ -260,7 +274,7 @@ It checks that a held call runs after release and reaches a route added later, t
 - On the server, `isFeatureEnabled()` in `services/features/feature-settings.ts` reads an in-memory copy, so busy paths pay nothing. The copy is loaded when the app-settings routes register and refreshed on every write or removal of the row, after Professor Mari database commands that touch it, and after a `.env` reload. `GET` and `PUT /api/app-settings/features`; `PUT` validates strictly.
 - Environment variables still win when set, both on and off. `LOREBOOK_STABLE_GROUP_WINNERS` and `PROVIDER_RETRY_TRANSIENT_ERRORS` now pin the **Stable lorebook picks** and **Retry failed provider calls** switches instead of being read on their own. `MARINARA_CONSOLE_TRAY` and `MARINARA_BACKGROUND_CALLS_PER_HOUR` lock the switches they control.
 - The client lists every switch in Settings > Advanced > Features, shows a switch pinned by an environment variable as locked with the variable's name, and shows the console tray switch as unavailable off Windows. Other components use `useFeatureEnabled()`.
-- The registry also lists **Background call cap** (`backgroundCallCap`, with `backgroundCallsPerHour`, default 600). Nothing on the branch at this point reads it; the code it would gate is not part of the commits described on this page.
+- The registry also lists **Background call cap** (`backgroundCallCap`, with `backgroundCallsPerHour`, default 600). Nothing reads it at this commit; `13a1baaec` wires it to an hourly budget (section 12d).
 
 **What stays exactly the same.** Every switch defaults off, so an install that never opens the section behaves exactly as before. An environment variable that was set before keeps the same effect.
 
@@ -406,9 +420,132 @@ About numbers: the only measurement available is from the fork this work comes f
 
 ---
 
-## Engine, logging and robustness fixes
+## 12. Engine, logging and robustness fixes
 
-Filled in when the engine batch lands.
+Two of these pieces have a setting (12c and 12d), both off by default. The rest are bug fixes, report-only checks or launcher safety steps with no switch; each says so.
+
+### 12a. Build integrity check (`16f852beb`)
+
+**What exists today.** A stale `tsconfig.tsbuildinfo`, a partial copy or an edit made after `pnpm build` can leave `dist` without modules that `src` has, or older than `src`. That shows up much later as a confusing "Cannot find module", or as behaviour that ignores a fix.
+
+**What this adds.**
+
+- `write-build-meta.mjs` adds a source inventory (`builtAt`, `srcFileCount`, the sorted list of `src` modules) to `dist/config/build-meta.json`. `build.mjs` fails when a `src` module has no `dist` file, after one rebuild with a fresh tsbuildinfo.
+- `lib/build-integrity.ts` runs as the first startup phase, `build.integrity`, and compares the inventory with `dist` and `src`. Any finding logs one `warn` line `startup.build_check` (`ME_BUILD_STALE`), and `startup.ready` carries `buildStale`. It is skipped under tsx and never throws, so it cannot stop a start. It took about 60 ms for 613 modules on Windows.
+- The in-app updater checks the rebuilt `dist` (every module present, built commit is the update target) and fails with `ME_UPDATE_BUILD_STALE` instead of reporting success for a build that does not match.
+
+**What stays exactly the same.** No start is stopped by the check, including one with a stale build; it only reports. Runs under tsx are not checked.
+
+**How to check it yourself.** `node scripts/run-regressions.mjs --filter build-integrity`.
+
+**How to turn it off / revert.** There is no switch: it only reports, and fails a build or update that is already broken. `git revert 16f852beb`.
+
+### 12b. Runtime memory telemetry with worker gauges (`7cc00aa34`)
+
+**What exists today.** A memory spike or a stall leaves one "heap is near its limit" line or a bare "process was suspended" line, with nothing about what was running.
+
+**What this adds.**
+
+- `utils/runtime-memory.ts`: the snapshot adds `heapTotal`, `external` and `arrayBuffers`. The monitor also tracks the event-loop delay (p99) and the RSS and heap peaks, writes `runtime.memory` at `debug` every 5th sample and at `info` every 30th, and logs one `warn` line `runtime.memory_pressure` (`ME_MEMORY_PRESSURE`) per episode of heap, RSS or loop pressure, closed by one `info` "recovered" line after two calm samples. `MARINARA_RSS_WARN_MIB` sets the RSS level (default: the heap limit). The monitor now starts before `buildApp`, so the startup peak is captured, and `startup.ready` carries memory and peaks.
+- `lib/worker-gauges.ts`: background workers register a cheap, synchronous sampler that reports counts only, never content. Registered: storage (resident chat units, dirty tables, the five largest tables by row count), the autonomous scheduler and the local model sidecar. A sampler that throws yields `{ error: true }`.
+- `runtime.freeze` lines carry the memory snapshot and the gauges. `GET /api/admin/runtime-diagnostics` (section 4e) adds memory peaks, the startup build check result and the worker gauges.
+
+Measured cost: the event-loop histogram (20 ms resolution) cut `setImmediate` throughput by 0.34% in a busy-loop benchmark; one sample is well under a millisecond.
+
+**What stays exactly the same.** No stored data, prompt or request changes. The admin route stays read-only.
+
+**How to check it yourself.** `node scripts/run-regressions.mjs --filter runtime-memory-telemetry` and `--filter robustness-runtime-diagnostics`. Details of the log lines are in `docs/CONFIGURATION.md` under logging levels.
+
+**How to turn it off / revert.** There is no switch: it is logging and a read-only admin reply. `git revert 7cc00aa34`.
+
+### 12c. Prompt debug files (`LOG_PROMPT_DEBUG_FILES`, off) (`6b8551592`)
+
+**What exists today.** Debug mode (and `LOG_LEVEL=debug`) prints whole prompts and model replies to the console, where they flood the terminal and mix with everything else.
+
+**What this adds.**
+
+- `lib/rotating-sink.ts`: synchronous, append-only JSON line files, one per process run, rotated past a size limit, pruned to a number of inactive files and an age, with oversized records cut down to their identifying fields. A write failure never throws; it is reported on stderr at most every 30 s, and the next file records how many lines were lost.
+- `logDebugOverride`, the one path prompt debug output takes (capability package `debugOverride` included): with `LOG_PROMPT_DEBUG_FILES=true` the line goes to `DATA_DIR/logs/prompt-debug/prompt-debug-<pid>-<boot>.log` (10 MiB per file, three earlier files kept) with its level and request context, instead of the console. One `info` line says where the files are.
+
+**What stays exactly the same.** With the variable unset (the default), nothing is written to disk and the console output is unchanged. The files hold prompt text, which is why this is off unless asked for.
+
+**How to check it yourself.** `node scripts/run-regressions.mjs --filter rotating-sink` and `--filter prompt-debug-files`. Documented in `docs/CONFIGURATION.md` and `.env.example`.
+
+**How to turn it off / revert.** Leave `LOG_PROMPT_DEBUG_FILES` unset. `git revert 6b8551592`.
+
+### 12d. Background call cap (switch `backgroundCallCap`, off) (`13a1baaec`)
+
+**What exists today.** Automatic model calls made in the background (for example the autonomous scheduler's unattended turns) have no hourly limit. Section 7 added the **Background call cap** switch and **Calls per hour** to the registry, but nothing read them.
+
+**What this adds.**
+
+- `services/generation/background-call-budget.ts`: a rolling one-hour window of automatic model calls. Once the cap is spent a call is refused locally, so no request reaches the provider, until the oldest call ages out. One `warn` line when the cap is reached, one `info` line when calls resume.
+- `connection-admission`: a provider call admitted in background mode is booked once the connection is actually free (a busy refusal spends nothing). A refusal throws `BackgroundConnectionBusyError` with reason `"budget"`.
+- The server-side autonomous scheduler books each unattended turn before it calls `/api/generate`, and skips the turn when refused; a later poll retries.
+
+**What stays exactly the same.** With the switch off (the default), there is no cap and nothing is counted. Interactive requests never count and are never refused.
+
+**How to check it yourself.** `node scripts/run-regressions.mjs --filter background-call-cap`. In the app: Settings > Advanced > Features.
+
+**How to turn it off / revert.** Turn the switch off. `backgroundCallsPerHour` defaults to 600, and `MARINARA_BACKGROUND_CALLS_PER_HOUR` still wins when set. `git revert 13a1baaec`.
+
+### 12e. Launcher safety (`64a1afdfb`, `e0656fa4d`)
+
+**What exists today.** Every launcher runs `git clean -fd` on the `packages/shared`, `server` and `client` `src` trees to remove leftovers that a failed Windows checkout could not delete. On a development checkout the same command silently deletes new source files that were never committed. Separately, `start.bat` opens the app URL after a fixed 4 seconds, so a slow start (a large data folder, a first build, a slow disk) lands on a connection error page.
+
+**What this adds.**
+
+- `scripts/preserve-untracked-src.mjs` lists exactly what the clean would remove (untracked, not ignored, under the three `src` trees) and copies it to `.tmp/untracked-src-backups/<timestamp>/` first. `start.bat`, `start.sh` and `start-termux.sh` run it right before the clean. It always exits 0, so a backup problem never blocks startup, and it prints one line when it copied something.
+- `scripts/open-when-ready.cmd` polls `<url>/api/health` with curl every 2 s (up to 15 minutes) and opens the browser once it answers; without curl it keeps a short fixed delay. `start.bat` starts it minimized in place of the fixed delay. `OPEN_WHEN_READY_DRY_RUN` prints instead of opening, for tests. `.gitattributes` checks `.cmd` files out with CRLF like `.bat` files, because cmd labels and `goto` misbehave in LF-only batch files.
+
+**What stays exactly the same.** The clean still runs. With no untracked source files nothing is copied. `AUTO_OPEN_BROWSER` still decides whether a browser opens at all.
+
+**How to check it yourself.** `node scripts/run-regressions.mjs --filter preserve-untracked-src` and `--filter open-when-ready` (both under `scripts/regressions/launcher/`; the second runs the helper against a local server on Windows).
+
+**How to turn it off / revert.** There is no switch. `git revert e0656fa4d 64a1afdfb`.
+
+### 12f. Retry once without reasoning-off when a model always reasons (`91ced8909`)
+
+**What exists today.** Some models always reason, and their OpenAI-compatible gateways answer a request that turns reasoning off with HTTP 400. The per-model rules in `glm-request-compat.ts` cover the models already known; any other such model fails the whole generation.
+
+**What this adds.** The Chat Completions path (streaming and not) checks a 400 from a request that carried a reasoning-disable field (`enable_thinking` false, thinking disabled, `reasoning_effort` none, `reasoning.enabled` false or effort none). When the error says reasoning cannot be disabled, it removes those fields, sends the request once more, and remembers the model per base URL (at most 256) so later requests skip the disable. One rate-limited `warn` line names the model. The logic is in `reasoning-disable-rejection.ts`.
+
+**What stays exactly the same.** Any other 400 or status is returned unchanged. The retry happens before any output reached the caller, so nothing is replayed. Every request that succeeds today is sent unchanged.
+
+**How to check it yourself.** `node scripts/run-regressions.mjs --filter openai-reasoning-disable-retry` and `--filter glm53-nanogpt-reasoning-off`.
+
+**How to turn it off / revert.** There is no switch: this is a bug fix for a hard failure, and the retry only drops a field the provider refused. `git revert 91ced8909`.
+
+### 12g. Reviewed server fixes (`0561fa562`, `0ebcb1ebd`, `3e64168d9`, `368a045ba`)
+
+**What exists today.** A review of the server found bugs across routes, middleware, services, storage and importers. Each is small on its own; the commit messages list every one.
+
+**What this adds.** Fixes in three groups, each fix with its own regression named `server-hunt-b<N>`, plus one helper module:
+
+- Routes and middleware (`0561fa562`): `.env` reload no longer reports false restart warnings; an uncaught exception or unhandled rejection now closes the app gracefully (keeping exit code 1) instead of dropping writes still in the store's debounce window; IP allowlist and rate-limit fixes (an IPv4 prefix over 32 is rejected, IPv6 local hosts are judged by address range, per-route `config.rateLimit` is read); backgrounds, backup and capability package export, chat preset, connection image, emoji and sticker, font and gallery, dry run, translation sidecar and Beholder state fixes.
+- Best-effort helpers (`0ebcb1ebd`): `lib/best-effort.ts` adds `logSuppressed`, `orFallback` and `bestEffort`, so a deliberately swallowed failure (a cleanup, a cursor advance, a cache write) is logged, rate limited to one line a minute per event, chat and stage, instead of hidden in an empty catch. No behaviour change on its own.
+- Services and storage (`3e64168d9`): deleted built-in regex scripts no longer come back on every start; admin, agents, characters, knowledge source and lorebook routes validate bodies and leave no file behind after a failed upload; agent executor, capability packages, autonomous scheduler (round-robin), Discord webhook 429 retry, personal extensions, memory commands and recall, media (sharp, ComfyUI, RunPod), importers, provider fallback and streams, lorebook scans, prompt assembly, app settings, embeddings, Spotify, utility sidecar, Gemini and taskbar shortcut fixes.
+- Storage recovery, chat and generate routes, importers, sidecars and SSRF (`368a045ba`): an empty shard directory no longer revives deleted rows, a Windows writer lease is judged with clock steps in mind, and a corrupt background `meta.json` is kept aside; chats, conversation and generate routes write only the fields they own and validate bodies; OOC influences, `/raw`, import routes, sprites, the conversation summary timeout, SillyTavern and RisuAI importers, tool calls in fences and the local sidecar are fixed; reserved ranges stay blocked for SSRF whatever `TRUSTED_PRIVATE_NETWORKS` says, and Google and Horde keys are dropped on cross-origin redirects.
+
+A few fixes from the review were not ported, because upstream has since changed or replaced the code they touch, or the file exists only in the fork. The commit messages name them.
+
+**What stays exactly the same.** Every request that worked before gets the same answer. Existing regressions that moved with the new code (`capability-gm-verbs`, `gm-skill-check-resolution`, `maintenance-lifecycle`, `roleplay-streaming`) were updated in `368a045ba`.
+
+**How to check it yourself.** `node scripts/run-regressions.mjs --filter server-hunt-b` runs the whole set, or `--filter server-hunt-b15` for one fix; `--filter best-effort` for the helpers. The b3 regression boots the server twice (about 50 s), so it is `server-hunt-b3.slow-regression.ts` and runs directly with tsx: `npx tsx scripts/regressions/server-hunt-b3.slow-regression.ts`.
+
+**How to turn it off / revert.** There is no switch: these are bug fixes. `git revert 368a045ba 3e64168d9 0ebcb1ebd 0561fa562` (newest first).
+
+### 12h. Engine-owned metadata namespaces (`16c7159f3`)
+
+**What exists today.** `ENGINE_OWNED_METADATA_KEY_PREFIXES` in `packages/shared/src/schemas/gm-verb-table.schema.ts` lists the top-level chat metadata namespaces the engine writes, so GM verbs cannot write them.
+
+**What this adds.** The `cache` and `marinara` prefixes. The per-chat cache send guard (`cacheSendGuard`, section 11d) and the generation job markers (section 8) write keys under those namespaces.
+
+**What stays exactly the same.** Every other prefix and every GM verb that writes a namespace outside the list.
+
+**How to check it yourself.** `node scripts/run-regressions.mjs --filter capability-gm-verbs`, which requires every engine-written namespace to be listed.
+
+**How to turn it off / revert.** There is no switch. `git revert 16c7159f3`, after reverting the commits that write those keys.
 
 ---
 
@@ -416,4 +553,6 @@ Filled in when the engine batch lands.
 
 For the original seven commits (sections 1 to 6), on the earlier `staging` base `60ed7ec80`: the full Node regression suite gave the same result with and without these commits. Four files fail identically on plain `staging` on the Windows test machine (`decision-sidecar-runtime`, `gallery-previews`, `request-timeouts`, `server-signal-shutdown`); their causes are local (a disk-space check for a model download, temp-folder `EPERM`, a `D:` ESM URL, Ctrl+C in PowerShell), not these changes. The other 372 of 376 passed. `tsc --noEmit` passes for shared, server and client. No paid model calls were made.
 
-The later pieces (sections 7 to 11) were each checked with their own regressions and `tsc` when committed. A full-suite comparison on the current base has not been recorded on this page yet.
+The later pieces (sections 7 to 12) were each checked with their own regressions and `tsc` when committed. A full-suite comparison on the current base has not been recorded on this page yet.
+
+Full serial suite on Windows, this branch: 448 of 453 regression files pass. The 5 that fail (`decision-sidecar-runtime`, `gallery-previews`, `request-timeouts`, `server-signal-shutdown`, `storage-writer-lock`) fail the same way on plain staging `1bd1e1a5f` on the same machine (362 of 367 there); they depend on the machine (Linux-only runtime, Windows file locking and console signals), not on these commits. Server, client and shared type checks, lint (0 errors), Prettier, the locale checks and both builds pass.
