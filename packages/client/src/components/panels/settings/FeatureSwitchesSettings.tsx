@@ -93,7 +93,7 @@ export function FeatureSwitchesSettings({ anchorId }: { anchorId?: string }) {
               <button
                 type="button"
                 onClick={() => useUIStore.getState().openModal("generation-jobs")}
-                className="mx-1.5 mb-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
+                className="mx-1.5 mb-1.5 min-h-9 rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
               >
                 {t("settings.features.generationJobTracking.open")}
               </button>

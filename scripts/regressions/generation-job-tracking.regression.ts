@@ -192,6 +192,11 @@ try {
     /name === "generationJobTracking" && enabled \?[\s\S]{0,200}openModal\("generation-jobs"\)/,
     "the Open generation jobs button sits under the switch row, only while it is on",
   );
+  assert.match(
+    read("../../packages/client/src/components/panels/settings/FeatureSwitchesSettings.tsx"),
+    /openModal\("generation-jobs"\)\}\s*className="[^"]*\bmin-h-9\b/,
+    "the Open generation jobs button is at least 36px tall, a usable touch target on phones",
+  );
 
   // ── Store on its own: persistence, cancel, timeout, restart recovery ──
   const storeRoot = mkdtempSync(join(tmpdir(), "marinara-generation-store-"));
