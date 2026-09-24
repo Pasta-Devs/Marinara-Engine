@@ -108,8 +108,9 @@ function serializeRunWithConfig(row: { agent_runs: AgentRunRow; agent_configs: A
 
 export function createAgentsStorage(db: DB) {
   const widgetStateKey = (agentId: string, widgetId: string) => `agent_home_widget:${agentId}:${widgetId}`;
-  async function declaredWidget(agentId: string, widgetId: string) {
-    const agent = await getById(agentId);
+  async function declaredWidget(agentId: string, widgetId: string, sourceDb: DB = db) {
+    const rows = await sourceDb.select().from(agentConfigs).where(eq(agentConfigs.id, agentId));
+    const agent = normalizeAgentConfigRow(rows[0] ?? null);
     if (!agent || isBuiltInAgentType(agent.type)) return false;
     const settings = parseAgentSettingsRecord(agent.settings);
     const parsed = homeAgentWidgetsSchema.safeParse(settings.homeWidgets ?? []);
@@ -230,13 +231,15 @@ export function createAgentsStorage(db: DB) {
     },
 
     async publishHomeWidgetState(agentId: string, widgetId: string, text: string) {
-      if (!(await declaredWidget(agentId, widgetId)) || text.length > 500)
-        throw new Error("Widget publication rejected");
-      const key = widgetStateKey(agentId, widgetId);
-      const updatedAt = now();
-      const row = { key, value: JSON.stringify({ text, updatedAt }), updatedAt };
-      await db.insert(appSettings).values(row).onConflictDoUpdate({ target: appSettings.key, set: row });
-      return { updatedAt };
+      if (text.length > 500) throw new Error("Widget publication rejected");
+      return db.transaction(async (tx) => {
+        if (!(await declaredWidget(agentId, widgetId, tx))) throw new Error("Widget publication rejected");
+        const key = widgetStateKey(agentId, widgetId);
+        const updatedAt = now();
+        const row = { key, value: JSON.stringify({ text, updatedAt }), updatedAt };
+        await tx.insert(appSettings).values(row).onConflictDoUpdate({ target: appSettings.key, set: row });
+        return { updatedAt };
+      });
     },
 
     ensureBuiltinConfig,

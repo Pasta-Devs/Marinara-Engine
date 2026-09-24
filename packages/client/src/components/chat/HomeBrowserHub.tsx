@@ -171,12 +171,18 @@ function packageHomeWidgetId(packageId: string, widgetId: string): HomeWidgetId 
 function CustomAgentHomeWidget({
   agentId,
   widgetId,
+  label,
+  ownerName,
+  accent,
   description,
   active,
   onOpenAgent,
 }: {
   agentId: string;
   widgetId: string;
+  label: string;
+  ownerName: string;
+  accent?: AgentHomeWidget["accent"];
   description: string;
   active: boolean;
   onOpenAgent: () => void;
@@ -195,38 +201,45 @@ function CustomAgentHomeWidget({
   const updatedAt = state.data?.updatedAt ? Date.parse(state.data.updatedAt) : NaN;
   const stale = Number.isFinite(updatedAt) && Date.now() - updatedAt > 24 * 60 * 60_000;
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 text-sm">
-      <div className="min-h-0 flex-1 overflow-y-auto" aria-live="polite">
-        {state.isPending
-          ? t("home.widgets.agentLoading")
-          : state.isError
-            ? t("home.widgets.agentUnavailable")
-            : state.data?.text || (
-                <>
-                  <p>{t("home.widgets.agentEmpty")}</p>
-                  {description && <p className="mt-1 text-xs text-[var(--muted-foreground)]">{description}</p>}
-                </>
-              )}
+    <FeedModule
+      eyebrow={ownerName}
+      title={label}
+      accent={accent ? HOME_MODULE_ACCENTS[accent] : undefined}
+      className="h-full"
+    >
+      <div className="flex h-full min-h-0 flex-col gap-2 text-sm">
+        <div className="min-h-0 flex-1 overflow-y-auto" aria-live="polite">
+          {state.isPending
+            ? t("home.widgets.agentLoading")
+            : state.isError
+              ? t("home.widgets.agentUnavailable")
+              : state.data?.text || (
+                  <>
+                    <p>{t("home.widgets.agentEmpty")}</p>
+                    {description && <p className="mt-1 text-xs text-[var(--muted-foreground)]">{description}</p>}
+                  </>
+                )}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          {stale && <span className="text-xs text-[var(--muted-foreground)]">{t("home.widgets.agentStale")}</span>}
+          <button
+            type="button"
+            onClick={onOpenAgent}
+            className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs"
+          >
+            {t("home.widgets.openAgent")}
+          </button>
+          <button
+            type="button"
+            onClick={() => state.refetch()}
+            aria-label={t("home.widgets.refreshAgent")}
+            className="rounded-lg border border-[var(--border)] p-1"
+          >
+            <RefreshCw size="0.875rem" />
+          </button>
+        </div>
       </div>
-      <div className="flex items-center justify-between gap-2">
-        {stale && <span className="text-xs text-[var(--muted-foreground)]">{t("home.widgets.agentStale")}</span>}
-        <button
-          type="button"
-          onClick={onOpenAgent}
-          className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs"
-        >
-          {t("home.widgets.openAgent")}
-        </button>
-        <button
-          type="button"
-          onClick={() => state.refetch()}
-          aria-label={t("home.widgets.refreshAgent")}
-          className="rounded-lg border border-[var(--border)] p-1"
-        >
-          <RefreshCw size="0.875rem" />
-        </button>
-      </div>
-    </div>
+    </FeedModule>
   );
 }
 
@@ -1919,11 +1932,16 @@ export function HomeBrowserHub({
   useEffect(() => {
     if (!installed.isSuccess || !agents.isSuccess) return;
     const available = new Set(agentWidgets.map((widget) => widget.id));
+    const installedPackageIds = new Set((installed.data ?? []).map((pkg) => pkg.id));
     setVisibleWidgets((current) => {
-      const next = current.filter((id) => !id.startsWith("agent:") || available.has(id));
+      const next = current.filter((id) => {
+        if (!id.startsWith("agent:") || available.has(id)) return true;
+        const match = /^agent:package:([^:]+):/.exec(id);
+        return Boolean(match && installedPackageIds.has(match[1]!));
+      });
       return next.length === current.length ? current : next;
     });
-  }, [agentWidgets, installed.isSuccess, agents.isSuccess]);
+  }, [agentWidgets, installed.data, installed.isSuccess, agents.isSuccess]);
 
   useEffect(() => {
     if (!achievementsEnabled) setAchievementsOpen(false);
@@ -2309,6 +2327,8 @@ export function HomeBrowserHub({
   const widgetFrameProps = (id: HomeWidgetId) => ({
     id,
     size: agentWidgetsById.get(id)?.size,
+    accent: agentWidgetsById.get(id)?.accent,
+    surface: agentWidgetsById.get(id)?.surface,
     order: activeWidgetSlots.indexOf(id),
     visible: availableWidgetIds.includes(id) && visibleWidgets.includes(id),
     dragging: draggedWidgetId === id,
@@ -3429,6 +3449,9 @@ export function HomeBrowserHub({
                           <CustomAgentHomeWidget
                             agentId={widget.agentId}
                             widgetId={widget.widgetId}
+                            label={widget.label}
+                            ownerName={widget.ownerName}
+                            accent={widget.accent}
                             description={widget.description}
                             active={pageActive && activeTab === "home" && visibleWidgets.includes(widget.id)}
                             onOpenAgent={() => useUIStore.getState().openAgentDetail(widget.agentId!)}
@@ -3625,7 +3648,7 @@ export function HomeBrowserHub({
               >
                 {["cyan", "orange", "pink", "violet"].map((accent) => (
                   <option key={accent} value={accent}>
-                    {accent}
+                    {t(`home.widgets.accent.${accent}`)}
                   </option>
                 ))}
               </select>
@@ -3644,7 +3667,7 @@ export function HomeBrowserHub({
               >
                 {["sparkles", "note", "heart", "star", "book", "compass"].map((icon) => (
                   <option key={icon} value={icon}>
-                    {icon}
+                    {t(`home.widgets.icon.${icon}`)}
                   </option>
                 ))}
               </select>
