@@ -370,7 +370,7 @@ export interface CapabilityEmbeddingHost {
 
 export interface CapabilityRuntimeHost {
   /** Read and unlock the package's own achievements. Requires the `achievements`
-   *  permission and capability API 1.35. */
+   *  permission and capability API 1.36. */
   achievements: CapabilityAchievementHost;
   /** Live provider/media services. Requires capability API 1.31. */
   integrations?: CapabilityIntegrationHost;

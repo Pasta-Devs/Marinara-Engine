@@ -1086,7 +1086,7 @@ Use the existing startup-readiness declaration independently when the world must
 be prepared before the opening turn. Declare API 1.18 as the package minimum;
 older hosts cannot interpret this setup declaration.
 
-### Capability API 1.35: package achievements
+### Capability API 1.36: package achievements
 
 A package holding the new `achievements` permission can add badges to the Home **Achievements** panel,
 read whether they are unlocked, and unlock them. The panel shows them under a section headed with the
@@ -1129,7 +1129,7 @@ Rules worth knowing:
   badges, and show again when the package returns.
 
 `api.registerAchievements` and `api.runtime.achievements` only exist on an Engine this new, so a
-package that uses them declares `capabilityApi` 1.35.
+package that uses them declares `capabilityApi` 1.36.
 
 ### Capability API 1.34: a creature written in the ruleset's own terms
 

@@ -328,7 +328,7 @@ const capabilityPackageManifestBaseSchema = z
 //        and a creature with a sheet may have no block actions of its own. Not a soft seam, for the
 //        same reason as 1.20 through 1.33: an Engine that cannot read the key refuses the whole
 //        strict catalog file, so a package that ships one declares 1.34. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 35 } as const);
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 36 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -395,11 +395,11 @@ export const capabilityPackageManifestSchema = z
     // Same reason as `tools`: `registerAchievements` only exists on an Engine this new.
     if (manifest.permissions.includes("achievements")) {
       const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
-      if (!api || api.major < 1 || (api.major === 1 && api.minor < 35)) {
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 36)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["permissions"],
-          message: 'The "achievements" permission requires schemaVersion 2 and capabilityApi 1.35 or newer',
+          message: 'The "achievements" permission requires schemaVersion 2 and capabilityApi 1.36 or newer',
         });
       }
     }

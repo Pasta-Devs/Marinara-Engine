@@ -23,7 +23,7 @@ const manifest = {
   version: "1.0.0",
   engine: { min: "2.4.0", maxExclusive: "3.0.0" },
   kind: ["agent"],
-  capabilityApi: { major: 1, minor: 35 },
+  capabilityApi: { major: 1, minor: 36 },
   builtAgainst: { engineVersion: "2.4.6", engineCommit: "a".repeat(40) },
   entrypoints: { server: "server.mjs" },
   files: [{ path: "server.mjs", sha256: "b".repeat(64), bytes: 10 }],
@@ -31,8 +31,8 @@ const manifest = {
 };
 assert.doesNotThrow(() => capabilityPackageManifestSchema.parse(manifest));
 assert.throws(
-  () => capabilityPackageManifestSchema.parse({ ...manifest, capabilityApi: { major: 1, minor: 34 } }),
-  /permission requires schemaVersion 2 and capabilityApi 1\.35 or newer/,
+  () => capabilityPackageManifestSchema.parse({ ...manifest, capabilityApi: { major: 1, minor: 35 } }),
+  /permission requires schemaVersion 2 and capabilityApi 1\.36 or newer/,
 );
 
 // ── Ids are namespaced, art resolves to the package asset route ──
