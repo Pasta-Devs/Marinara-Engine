@@ -46,6 +46,8 @@ export const generateRequestSchema = z.object({
   pendingSpatialTransition: pendingSpatialTransitionSchema.nullable().optional().default(null),
 
   impersonate: z.boolean().optional().default(false),
+  /** The player saw the low prompt-cache warning ("Warn before a low-cache send") and chose to send anyway. */
+  cacheGuardAcknowledged: z.boolean().optional().default(false),
   /** When true, this generation drives the active turn-game's bot seats instead of a normal chat reply. */
   turnGameBots: z.boolean().optional().default(false),
   streaming: z.boolean().optional().default(true),

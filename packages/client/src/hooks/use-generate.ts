@@ -2,6 +2,8 @@
 // React Query: Generation (streaming + agent pipeline)
 // ──────────────────────────────────────────────
 import { useCallback, useRef } from "react";
+import { cacheGuardWarningMessage, isCacheGuardWarning } from "../lib/cache-guard-warning";
+import { showConfirmDialog } from "../lib/app-dialogs";
 import { audioManager } from "../lib/game-audio";
 import { normalizeEchoChamberMessages } from "../lib/echo-chamber-queue";
 import { characterDataSchema, normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
@@ -1253,6 +1255,8 @@ export function useGenerate() {
       turnGameBots?: boolean;
       /** Structured Roleplay/Game movement committed atomically with this owner turn. */
       pendingSpatialTransition?: PendingSpatialTransition;
+      /** The player saw the low prompt-cache warning and chose to send anyway. */
+      cacheGuardAcknowledged?: boolean;
     }) => {
       // Prevent concurrent generations for the same chat. Different chats may
       // keep generating in the background while the user navigates elsewhere.
@@ -3045,6 +3049,38 @@ export function useGenerate() {
                   useUIStore.getState().setSettingsTab(tab as any);
                 }
               }
+              break;
+            }
+
+            case "cache_warning": {
+              // "Warn before a low-cache send": nothing reached the model. Ask once the stream has released this
+              // chat, then resend the saved message with the acknowledgement if the player chooses to.
+              const warning = event.data;
+              if (!isCacheGuardWarning(warning)) break;
+              const chatId = params.chatId;
+              // Keep regenerate/continue/target params so the resend repeats the same kind of turn. Drop only the
+              // one-shot user-turn fields: the server already saved the held user message.
+              const {
+                userMessage: _userMessage,
+                attachments: _attachments,
+                replyTo: _replyTo,
+                pendingSpatialTransition: _pendingSpatialTransition,
+                ...resendParams
+              } = params;
+              const resend = { ...resendParams, cacheGuardAcknowledged: true };
+              void (async () => {
+                for (let wait = 0; wait < 100 && useChatStore.getState().abortControllers.has(chatId); wait += 1) {
+                  await new Promise((resolve) => setTimeout(resolve, 100));
+                }
+                const sendAnyway = await showConfirmDialog({
+                  title: translate("ui.cacheGuardWarning.title"),
+                  message: cacheGuardWarningMessage(warning),
+                  confirmLabel: translate("ui.cacheGuardWarning.sendAnyway"),
+                  cancelLabel: translate("ui.cacheGuardWarning.cancel"),
+                  tone: "destructive",
+                });
+                if (sendAnyway) await generate(resend);
+              })();
               break;
             }
 

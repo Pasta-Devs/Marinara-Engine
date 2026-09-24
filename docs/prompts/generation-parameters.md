@@ -111,6 +111,14 @@ This is an advanced field. A wrong key can make the provider reject the request.
 
 When you enable it, the count starts at 50. You can set any number from 1 to 9999. A smaller number sends less history, which can lower cost and speed things up. It also means the AI remembers less of the older conversation. This setting is off by default.
 
+## Warn before a low-cache send
+
+**Warn before a low-cache send** is off by default. Turn it on to be asked before a message goes out when most of the prompt would have to be cached again: for example after you changed a character card or a preset section near the top of the prompt, or after a long pause that let the provider's cache expire. Caching providers bill cached input at a fraction of the normal price, so a send that misses the cache costs noticeably more on long chats.
+
+It applies to Claude, Claude (Subscription), and ChatGPT chats that use **Cache-friendly prompt layout** (Settings > Advanced > Features). Before the reply is requested, Marinara compares the prompt with the last one sent in this chat on the same connection. When the share it expects to be cached is below **Warn below (%)** (80 by default), nothing is sent to the model: your message is saved, and a dialog says how much would be cached and where the prompt first changed. Choose **Send anyway** to send it, or **Cancel** to send it later.
+
+The estimate counts characters, not tokens, and treats a Claude cache as expired after an hour, so it is a guide rather than the provider's own number. The first send after you turn the warning on is never held, because there is nothing to compare it with yet. Group chats that generate each character's reply separately are not checked. While it is on, Marinara keeps a small fingerprint of the last prompt sent (a hash and length per message, plus its first 80 characters so the warning can say where the prompt changed) in the `cache-guard` folder of the data directory, so a restart does not forget it.
+
 ## Exclude Past Reasoning
 
 **Exclude Past Reasoning** is on by default. It keeps saved thinking and reasoning from earlier turns out of new prompts. That reasoning is not sent to the model again.

@@ -539,6 +539,12 @@ import {
 } from "../services/generation/director-secret-plot-runtime.js";
 import { applyPromptPatchOperations } from "../services/generation/prompt-patch-runtime.js";
 import {
+  CacheGuardHold,
+  checkCacheSendGuard,
+  recordSentPrompt,
+  type PromptFingerprint,
+} from "../services/generation/cache-send-guard.js";
+import {
   isCacheFriendlyPromptLayoutActive,
   normalizePromptCacheLayout,
   runtimeContextMarker,
@@ -7830,6 +7836,23 @@ export async function generateRoutes(app: FastifyInstance) {
                 } else {
                   loopMessages = await fitPromptForSend(loopMessages);
                   rememberMainPromptPreviewForAgents(loopMessages);
+                  // Per-chat "Warn before a low-cache send" (off unless enabled): may hold before any model call.
+                  // Individual group replies each build their own prompt, so they are never compared.
+                  const toolRoundFingerprint: PromptFingerprint | null =
+                    round === 0 && !input.impersonate && !usesIndividualGroupGeneration
+                      ? await checkCacheSendGuard({
+                          chatId: input.chatId,
+                          chatMetadata: chatMeta,
+                          scope: {
+                            provider: conn.provider,
+                            model: conn.model,
+                            connectionId: conn.id,
+                            requestKind: "tool-round",
+                          },
+                          messages: loopMessages,
+                          acknowledged: input.cacheGuardAcknowledged === true,
+                        })
+                      : null;
                   logPromptSentToModel(
                     loopMessages,
                     round === 0 ? "Prompt sent to model" : `Prompt sent to model (tool round ${round + 1})`,
@@ -7880,6 +7903,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     }),
                   );
                   await recordAcceptedLongTermMemoryPrompt(loopMessages);
+                  if (toolRoundFingerprint) await recordSentPrompt(input.chatId, toolRoundFingerprint);
                 }
               } catch (err: any) {
                 // If the error was caused by an abort, cancel silently and skip post-processing.
@@ -8223,10 +8247,28 @@ export async function generateRoutes(app: FastifyInstance) {
             // transport reports none. A planner's synthetic tool_calls is not it.
             finishReason = undefined;
             rememberMainPromptPreviewForAgents(narratorMessages);
+            // Per-chat "Warn before a low-cache send" (off unless enabled): may hold before any model call.
+            // Individual group replies each build their own prompt, so they are never compared.
+            const narratorFingerprint =
+              input.impersonate || usesIndividualGroupGeneration
+                ? null
+                : await checkCacheSendGuard({
+                    chatId: input.chatId,
+                    chatMetadata: chatMeta,
+                    scope: {
+                      provider: conn.provider,
+                      model: conn.model,
+                      connectionId: conn.id,
+                      requestKind: "narrator",
+                    },
+                    messages: narratorMessages,
+                    acknowledged: input.cacheGuardAcknowledged === true,
+                  });
             logPromptSentToModel(narratorMessages);
             const gen = provider.chat(narratorMessages, textChatOptions);
             try {
               let result = await withLlmRequestTimeout(chatGenerationTimeoutMs, () => gen.next());
+              if (narratorFingerprint) await recordSentPrompt(input.chatId, narratorFingerprint);
               await recordAcceptedLongTermMemoryPrompt(narratorMessages);
               while (!result.done) {
                 if (abortController.signal.aborted) {
@@ -13179,6 +13221,16 @@ export async function generateRoutes(app: FastifyInstance) {
         );
       }
     } catch (err) {
+      if (err instanceof CacheGuardHold) {
+        // Nothing was sent to the model. The player's message is saved; the client asks whether to send anyway.
+        logger.info(
+          { chatId: input.chatId, ...err.prediction, firstChange: err.prediction.firstChange?.label },
+          "[cache-guard] Held a send with a low predicted cache hit",
+        );
+        sendSseEvent(reply, { type: "cache_warning", data: err.prediction });
+        sendSseEvent(reply, { type: "done", data: "" });
+        return;
+      }
       if (abortController.signal.aborted || isAbortLikeError(err)) {
         logger.info({ chatId: input.chatId }, "[generate] Generation stopped before it finished");
         return;

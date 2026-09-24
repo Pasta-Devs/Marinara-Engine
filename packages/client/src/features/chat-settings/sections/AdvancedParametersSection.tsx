@@ -53,6 +53,8 @@ interface AdvancedParametersSectionProps {
   onChatParametersChange: (chatParameters: Record<string, unknown>) => void;
   onContextMessageLimitChange: (value: number | null) => void;
   onExcludePastReasoningChange: (value: boolean) => void;
+  /** Per-chat "Warn before a low-cache send" (chat.metadata.cacheSendGuard). */
+  onCacheSendGuardChange: (cacheSendGuard: Record<string, unknown>) => void;
   onPastReasoningLimitChange: (value: number) => void;
   onImageCaptioningChange: (patch: {
     imageCaptioningEnabled?: boolean;
@@ -72,6 +74,7 @@ export function AdvancedParametersSection({
   onChatParametersChange,
   onContextMessageLimitChange,
   onExcludePastReasoningChange,
+  onCacheSendGuardChange,
   onPastReasoningLimitChange,
   onImageCaptioningChange,
 }: AdvancedParametersSectionProps) {
@@ -95,6 +98,16 @@ export function AdvancedParametersSection({
   const params = (metadata.chatParameters as Record<string, unknown>) ?? {};
   const effectiveParams = getEditableGenerationParameters(defaults, params);
   const excludeReasoningEnabled = excludePastReasoning !== false;
+  // Same defaults as the server's readCacheGuardSettings: off unless turned on, warn below 80%.
+  const cacheSendGuard =
+    metadata.cacheSendGuard && typeof metadata.cacheSendGuard === "object" && !Array.isArray(metadata.cacheSendGuard)
+      ? (metadata.cacheSendGuard as Record<string, unknown>)
+      : {};
+  const cacheGuardEnabled = cacheSendGuard.enabled === true;
+  const cacheGuardThreshold =
+    typeof cacheSendGuard.thresholdPercent === "number" && Number.isFinite(cacheSendGuard.thresholdPercent)
+      ? Math.min(100, Math.max(0, cacheSendGuard.thresholdPercent))
+      : 80;
   const captioningEnabled =
     typeof imageCaptioningEnabled === "boolean"
       ? imageCaptioningEnabled
@@ -266,6 +279,41 @@ export function AdvancedParametersSection({
                 />
                 <span className="text-[0.625rem] text-[var(--muted-foreground)]">
                   {localizeUi("ui.agents.agenteditor.messages")}
+                </span>
+              </div>
+            )}
+            <SettingsSwitch
+              label={localizeUi("chat.settings.cacheGuard.enabled")}
+              description={localizeUi("chat.settings.cacheGuard.enabledHelp")}
+              checked={cacheGuardEnabled}
+              onChange={(enabled) => onCacheSendGuardChange({ ...cacheSendGuard, enabled })}
+              labelPosition="start"
+              className={cn(
+                "justify-between rounded-lg px-3 py-2.5 text-left",
+                cacheGuardEnabled
+                  ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                  : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+              )}
+              labelClassName="text-xs font-medium"
+            />
+            {cacheGuardEnabled && (
+              <div className="flex items-center gap-2 px-1">
+                <DraftNumberInput
+                  aria-label={localizeUi("chat.settings.cacheGuard.threshold")}
+                  min={0}
+                  max={100}
+                  value={cacheGuardThreshold}
+                  onCommit={(value) =>
+                    onCacheSendGuardChange({
+                      ...cacheSendGuard,
+                      thresholdPercent: Math.max(0, Math.min(100, Math.round(value))),
+                    })
+                  }
+                  selectOnFocus
+                  className="w-20 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+                />
+                <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                  {localizeUi("chat.settings.cacheGuard.threshold")}
                 </span>
               </div>
             )}

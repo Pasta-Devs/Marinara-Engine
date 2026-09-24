@@ -9609,6 +9609,7 @@ export function ChatSettingsDrawer({
               onExcludePastReasoningChange={(excludePastReasoning) =>
                 updateMeta.mutate({ id: chat.id, excludePastReasoning })
               }
+              onCacheSendGuardChange={(cacheSendGuard) => updateMeta.mutate({ id: chat.id, cacheSendGuard })}
               onPastReasoningLimitChange={(pastReasoningLimit) =>
                 updateMeta.mutate({ id: chat.id, pastReasoningLimit })
               }

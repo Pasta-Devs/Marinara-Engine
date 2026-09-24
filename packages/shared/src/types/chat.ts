@@ -762,6 +762,12 @@ export interface ChatMetadata {
   excludePastReasoning?: boolean;
   /** Most recent assistant reasoning blocks to replay when enabled. Default: 1; 0 includes all. */
   pastReasoningLimit?: number;
+  /**
+   * "Warn before a low-cache send": hold a send whose predicted prompt-cache hit is below `thresholdPercent`
+   * (default 80) and ask first. Off unless `enabled` is true. `ttlMinutes` (default 60) is how long a sent
+   * prompt counts as cached on Anthropic-style providers.
+   */
+  cacheSendGuard?: { enabled?: boolean; thresholdPercent?: number; ttlMinutes?: number };
 
   /** Any extra key-value data */
   [key: string]: unknown;
