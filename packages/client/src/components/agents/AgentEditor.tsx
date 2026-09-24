@@ -881,7 +881,7 @@ export function AgentEditor() {
 
   // Populate from DB config or built-in defaults
   useEffect(() => {
-    if (!agentDetailId) return;
+    if (!agentDetailId) return false;
     const agentType = dbConfig?.type ?? builtIn?.id ?? agentDetailId;
     const defaultSettings = getDefaultBuiltInAgentSettings(agentType);
     if (dbConfig) {
@@ -1236,7 +1236,7 @@ export function AgentEditor() {
   useEffect(() => {
     if (!isMusicAgent || !dbConfig?.id) {
       setSpotifyStatus(null);
-      return;
+      return false;
     }
     let cancelled = false;
     fetch(`/api/spotify/status?agentId=${encodeURIComponent(dbConfig.id)}`)
@@ -1257,7 +1257,7 @@ export function AgentEditor() {
   useEffect(() => {
     if (!showsYoutubeSettings || !dbConfig?.id) {
       setYoutubeConfigured(false);
-      return;
+      return false;
     }
     let cancelled = false;
     fetch(`/api/youtube/status?agentId=${encodeURIComponent(dbConfig.id)}`)
@@ -1300,7 +1300,7 @@ export function AgentEditor() {
     let cancelled = false;
     if (!utilityAgentType || import.meta.env.VITE_MARINARA_LITE === "true") {
       setUtilitySlotServesThisAgent(false);
-      return;
+      return false;
     }
     void (async () => {
       try {
@@ -1350,7 +1350,7 @@ export function AgentEditor() {
   const handleClose = useCallback(() => {
     if (dirty) {
       setShowUnsavedWarning(true);
-      return;
+      return false;
     }
     closeAgentDetail();
   }, [dirty, closeAgentDetail]);
@@ -1558,8 +1558,10 @@ export function AgentEditor() {
       setDirty(false);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
+      return true;
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save agent config");
+      return false;
     }
   }, [
     agentDetailId,
@@ -2116,8 +2118,7 @@ export function AgentEditor() {
             </button>
             <button
               onClick={async () => {
-                await handleSave();
-                closeAgentDetail();
+                if (await handleSave()) closeAgentDetail();
               }}
               className="rounded-lg bg-amber-500/20 px-3 py-1 hover:bg-amber-500/30"
             >
