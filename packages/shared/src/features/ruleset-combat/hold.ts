@@ -673,9 +673,13 @@ export function holdRulesetCombatant(
       scaled = true;
       continue;
     }
-    const amounts = parts
-      .flatMap((part) => (part.damage ? [part.damage, ...(part.damage.plus ?? [])] : []))
-      .sort((left, right) => rulesetAverageAmount(right) - rulesetAverageAmount(left));
+    // The rider the round counts is shaved like any other amount on it, as the plain clamp shaves it,
+    // or a heavy one would leave the round over the cap with every action already at its least.
+    const rider = heaviestRider(combatant.riders);
+    const amounts = [
+      ...parts.flatMap((part) => (part.damage ? [part.damage, ...(part.damage.plus ?? [])] : [])),
+      ...(rider ? [rider.amount] : []),
+    ].sort((left, right) => rulesetAverageAmount(right) - rulesetAverageAmount(left));
     const heaviest = amounts[0];
     if (heaviest && heaviest.count > 1 && heaviest.sides > 0) heaviest.count -= 1;
     else if (heaviest && heaviest.flat > (heaviest.count > 0 && heaviest.sides > 0 ? 0 : 1)) heaviest.flat -= 1;

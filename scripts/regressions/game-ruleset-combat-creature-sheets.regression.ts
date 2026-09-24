@@ -1190,6 +1190,45 @@ const spellbook = parsedOrThrow(
     "the counter came with the feature",
   );
 
+  // A rider the round counts is shaved like any other amount on it, or a heavy one would leave the
+  // round over the cap with the weapon already at its least.
+  const venomFight = started({
+    definition: fiveE,
+    cards: [card("Brenna", fighterBuild())],
+    party: [{ id: "brenna", name: "Brenna" }],
+    enemies: [
+      {
+        id: "stinger",
+        name: "Road Stinger",
+        tier: "cr_1",
+        proposed: {
+          tier: "cr_1",
+          riders: [{ id: "venom", name: "Venom", on: "hit", oncePer: "turn", amount: { dice: "6d6" } }],
+          sheet: {
+            abilities: { dex: 10 },
+            fields: { level: 3, hp_max: 30, ac: 12 },
+            lists: {
+              attacks: [{ name: "Dagger", ability: "dex", proficient: true, damage: "1d4", damage_type: "piercing" }],
+            },
+          },
+        },
+      },
+    ],
+  }).rulesetFight!;
+  const cr1 = fiveE.combat!.threat!.tiers.find((entry) => entry.id === "cr_1")!;
+  const stinger = who(venomFight.encounter, "stinger");
+  const dagger = stinger.actions.find((action) => action.label === "Dagger")!;
+  const venom = stinger.riders?.find((rider) => rider.label === "Venom");
+  assert.ok(venom, "its rider is carried");
+  const averageOf = (amount: { count: number; sides: number; flat: number }) =>
+    (amount.count * (amount.sides + 1)) / 2 + amount.flat;
+  const stingerRound = averageOf(dagger.damage!) + averageOf(venom.amount);
+  assert.ok(stingerRound <= cr1.damagePerRound[1], `the dagger and its venom average ${stingerRound}`);
+  assert.match(
+    venomFight.adjustments.join("\n"),
+    /Road Stinger: The damage was scaled down until the best round averages/,
+  );
+
   // A health formula with no single field in it is left as written, and says so.
   const stepped = parsedOrThrow(
     variant(fiveEText, (doc) => {
