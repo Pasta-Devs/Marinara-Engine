@@ -54,6 +54,16 @@ A few notes on the list:
 - The **Collection** achievements count everything of that type in your library. Imported and downloaded items count too, not just ones you build yourself. For **Hoarder**, the built-in Professor Mari character is the one exception: it never counts.
 - For the community achievements, just visiting the link is enough. You do not need to sign up or finish anything on the other site.
 
+## Achievements from agents
+
+Installed agents can add achievements of their own. These show in the same **Achievements** window, after the built-in ones, under a heading such as **From Noodle**. The section only shows for agents that added achievements.
+
+An agent's achievements follow the same rules as the built-in ones. They start locked, some have a progress bar, and you get the same pop-up notice when one unlocks. An agent can show its own badge art on unlocked cards.
+
+If you remove an agent, its section goes away. Your unlocks are kept. If you install the agent again, its unlocked achievements show as unlocked again.
+
+The count at the top of the window includes the achievements of the agents you have installed.
+
 ## The Achievements setting
 
 You can turn the whole feature on or off with one toggle. Open **Settings**, go to the **General** tab, and find the **App Behavior** section. The toggle is labeled **Achievements**, and it is on by default.

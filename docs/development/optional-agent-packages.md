@@ -1086,6 +1086,51 @@ Use the existing startup-readiness declaration independently when the world must
 be prepared before the opening turn. Declare API 1.18 as the package minimum;
 older hosts cannot interpret this setup declaration.
 
+### Capability API 1.35: package achievements
+
+A package holding the new `achievements` permission can add badges to the Home **Achievements** panel,
+read whether they are unlocked, and unlock them. The panel shows them under a section headed with the
+package name, after the Engine's own badges.
+
+```ts
+export async function activate({ api }) {
+  api.registerAchievements([
+    { id: "first_run", title: "First Run", description: "Ran the package once.", iconPath: "art/first-run.png" },
+    {
+      id: "ten_runs",
+      title: "Regular",
+      description: "Ran the package ten times.",
+      target: 10,
+      readProgress: () => runs,
+    },
+  ]);
+  // Later, when the package decides a badge is earned:
+  if (await api.runtime.achievements.unlock("first_run")) celebrate();
+}
+```
+
+Rules worth knowing:
+
+- Ids are namespaced to `<packageId>.<id>`. A built-in id has no dot, so the two cannot collide. The
+  host accepts the local or the namespaced id, and refuses any id the package did not register itself.
+- `unlock(id)` resolves `true` only for the call that unlocked the badge. `isUnlocked(id)` and `list()`
+  read state; `list()` returns the package's own badges with progress.
+- Counting stays with the package. A ranked badge sets `target` and a `readProgress` callback; the
+  Engine unlocks it on the same pass as its own ranked badges once the count reaches the target. Keep
+  the counter in the persistence host. A callback that throws, or does not settle within **2 seconds**,
+  reports zero and is logged.
+- `iconPath` is a path inside the package's asset root, served from the package assets route. A locked
+  card still shows the padlock. When the art fails to load, the card falls back to `icon` (default
+  `trophy`).
+- `title` and `description` are the display text. A locale pack can override them through
+  `capabilityAchievements.<packageId>.<id>.title` and `.description`.
+- At most **32 badges per package**. A batch with one invalid entry registers nothing.
+- Deactivating or removing the package hides its badges. Unlocks are kept, as with the Engine's own
+  badges, and show again when the package returns.
+
+`api.registerAchievements` and `api.runtime.achievements` only exist on an Engine this new, so a
+package that uses them declares `capabilityApi` 1.35.
+
 ### Capability API 1.34: a creature written in the ruleset's own terms
 
 A bestiary creature may carry a `sheet`: a character sheet in the ruleset's own terms, as partial as

@@ -9,6 +9,7 @@ export const MAX_RELEASE_NOTE_VERSIONS = 20;
 
 export const capabilityPackageKindSchema = z.enum(["agent", "maps", "conversation-calls", "turn-game", "ruleset"]);
 export const capabilityPermissionSchema = z.enum([
+  "achievements",
   "agent-runtime",
   "chat-read",
   "chat-write",
@@ -327,7 +328,7 @@ const capabilityPackageManifestBaseSchema = z
 //        and a creature with a sheet may have no block actions of its own. Not a soft seam, for the
 //        same reason as 1.20 through 1.33: an Engine that cannot read the key refuses the whole
 //        strict catalog file, so a package that ships one declares 1.34. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 34 } as const);
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 35 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

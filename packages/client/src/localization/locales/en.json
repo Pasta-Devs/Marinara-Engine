@@ -1418,6 +1418,7 @@
   "home.achievements.lockedDescription": "Unlock this achievement to reveal its title and badge.",
   "home.achievements.noneObtained": "Nothing obtained yet",
   "home.achievements.open": "Open Achievements",
+  "home.achievements.packageSection": "From {{name}}",
   "home.achievements.profileSummary": "{{unlocked}} of {{total}} achievements unlocked in this profile.",
   "home.achievements.progress": "Progress",
   "home.achievements.summary": "{{unlocked}} of {{total}} unlocked",
