@@ -1022,12 +1022,11 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         preset:
           // Custom prompt parts replace the preset's sections with their own text (below).
           !promptParts && effectivePresetId && effectivePreset && chatMode !== "conversation" && chatMode !== "game"
-            ? {
-                sections: await presets.listSections(effectivePresetId),
-                groups: await presets.listGroups(effectivePresetId),
-                choiceBlocks: await presets.listChoiceBlocksForPreset(effectivePresetId),
-                choices: chatChoices,
-              }
+            ? await Promise.all([
+                presets.listSections(effectivePresetId),
+                presets.listGroups(effectivePresetId),
+                presets.listChoiceBlocksForPreset(effectivePresetId),
+              ]).then(([sections, groups, choiceBlocks]) => ({ sections, groups, choiceBlocks, choices: chatChoices }))
             : undefined,
         ctx: promptMacroContext,
         extra: [

@@ -2722,12 +2722,11 @@ export async function generateRoutes(app: FastifyInstance) {
         };
         const decisionPresetParts =
           presetId && resolvedPreset && chatMode !== "conversation" && chatMode !== "game"
-            ? {
-                sections: await presets.listSections(presetId),
-                groups: await presets.listGroups(presetId),
-                choiceBlocks: await presets.listChoiceBlocksForPreset(presetId),
-                choices: chatChoices,
-              }
+            ? await Promise.all([
+                presets.listSections(presetId),
+                presets.listGroups(presetId),
+                presets.listChoiceBlocksForPreset(presetId),
+              ]).then(([sections, groups, choiceBlocks]) => ({ sections, groups, choiceBlocks, choices: chatChoices }))
             : undefined;
         // Read once here and reused by the semantic lorebook check below.
         const decisionActiveLorebookEntries = await lorebooksStore.listActiveEntries({
@@ -3059,11 +3058,13 @@ export async function generateRoutes(app: FastifyInstance) {
           const preset = resolvedPreset;
           wrapFormat = (preset.wrapFormat as "xml" | "markdown" | "none") || "xml";
           // Read once above, under the same condition, for decision statements.
-          const { sections, groups, choiceBlocks } = decisionPresetParts ?? {
-            sections: await presets.listSections(presetId),
-            groups: await presets.listGroups(presetId),
-            choiceBlocks: await presets.listChoiceBlocksForPreset(presetId),
-          };
+          const [sections, groups, choiceBlocks] = decisionPresetParts
+            ? [decisionPresetParts.sections, decisionPresetParts.groups, decisionPresetParts.choiceBlocks]
+            : await Promise.all([
+                presets.listSections(presetId),
+                presets.listGroups(presetId),
+                presets.listChoiceBlocksForPreset(presetId),
+              ]);
           for (const section of sections) {
             if (section.enabled !== "true" || section.isMarker !== "true" || !section.markerConfig) continue;
             try {
