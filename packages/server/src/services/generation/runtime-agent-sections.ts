@@ -227,10 +227,12 @@ export function clearUnusedRuntimeAgentSections(
 
 export const clearUnusedRuntimeAgentSectionsForTest = clearUnusedRuntimeAgentSections;
 
-export function pruneEmptyPromptWrappers(messages: Array<{ content: string }>): void {
+export function pruneEmptyPromptWrappers(
+  messages: Array<{ content: string; images?: readonly unknown[] | null; files?: readonly unknown[] | null }>,
+): void {
   for (let i = messages.length - 1; i >= 0; i--) {
     const content = messages[i]!.content.trim();
-    if (isEmptyPromptWrapper(content)) {
+    if (isEmptyPromptWrapper(content) && !messages[i]!.images?.length && !messages[i]!.files?.length) {
       messages.splice(i, 1);
     } else if (content !== messages[i]!.content) {
       messages[i] = { ...messages[i]!, content };
