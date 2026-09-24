@@ -27,62 +27,67 @@ await client.connect(
 );
 
 const failures = [];
-const { tools } = await client.listTools();
-console.log(`tools (${tools.length}): ${tools.map((t) => t.name).join(", ")}`);
-const missing = EXPECTED_TOOLS.filter((name) => !tools.some((t) => t.name === name));
-if (missing.length) failures.push(`missing tools: ${missing.join(", ")}`);
+try {
+  const { tools } = await client.listTools();
+  console.log(`tools (${tools.length}): ${tools.map((t) => t.name).join(", ")}`);
+  const missing = EXPECTED_TOOLS.filter((name) => !tools.some((t) => t.name === name));
+  if (missing.length) failures.push(`missing tools: ${missing.join(", ")}`);
 
-async function call(name, args = {}, { expectError = false, show = 600 } = {}) {
-  const started = Date.now();
-  const result = await client.callTool({ name, arguments: args });
-  const text = result.content?.[0]?.text ?? "";
-  const ok = expectError === null || Boolean(result.isError) === expectError;
-  console.log(`\n== ${name} ${result.isError ? "ERROR" : "ok"}${ok ? "" : "  <-- UNEXPECTED"} (${Date.now() - started} ms, ${text.length} chars)`);
-  console.log(text.slice(0, show));
-  if (!ok) failures.push(`${name}: ${text.slice(0, 200)}`);
-  return { text, isError: result.isError, json: (() => { try { return JSON.parse(text); } catch { return null; } })() };
-}
-
-const statusResult = await call("engine_status", {}, { show: 1500 });
-const online = statusResult.json?.online === true;
-await call("activity_log", { limit: 3 });
-await call("git_status");
-const logs = await call("logs", { minutes: 60 * 24 * 3, limit: 5 });
-const ref = logs.json?.find((g) => g.lastErrorId)?.lastErrorId ?? logs.json?.find((g) => g.lastRequestId)?.lastRequestId;
-if (ref) await call("lookup_error", { reference: ref }, { show: 1200 });
-else console.log("\n(no errorId or requestId in recent logs; lookup_error skipped)");
-
-if (online) {
-  const chats = await call("list_chats", { limit: 5 });
-  const chat = process.argv[2] ?? chats.json?.[0]?.id;
-  if (chat) {
-    await call("chat_settings", { chat });
-    await call("read_messages", { chat, last: 2, maxCharsEach: 200 });
-    await call("cache_report", { chat, last: 5 });
-    await call("get_prompt", { chat, which: "next", grep: "the" }, { show: 800 });
-    await call("diff_prompts", { chat, mode: "next" }, { expectError: null });
-    await call("set_chat_metadata", { chat, reason: "smoke test dry run", set: { smokeTestDryRun: true }, dryRun: true });
+  async function call(name, args = {}, { expectError = false, show = 600 } = {}) {
+    const started = Date.now();
+    const result = await client.callTool({ name, arguments: args });
+    const text = result.content?.[0]?.text ?? "";
+    const ok = expectError === null || Boolean(result.isError) === expectError;
+    console.log(`\n== ${name} ${result.isError ? "ERROR" : "ok"}${ok ? "" : "  <-- UNEXPECTED"} (${Date.now() - started} ms, ${text.length} chars)`);
+    console.log(text.slice(0, show));
+    if (!ok) failures.push(`${name}: ${text.slice(0, 200)}`);
+    return { text, isError: result.isError, json: (() => { try { return JSON.parse(text); } catch { return null; } })() };
   }
-  const connections = await call("list_connections");
-  if (/apiKey|baseUrl/i.test(connections.text)) failures.push("list_connections leaked a key or base URL field");
-  const found = await call("find_characters", { query: "the", limit: 2 });
-  const character = found.json?.[0]?.id;
-  if (character) {
-    const card = await call("get_character", { character, fields: ["name", "personality"] });
-    const personality = card.json?.data?.personality;
-    await call("edit_character", {
-      character,
-      reason: "smoke test dry run",
-      set: { personality: typeof personality === "string" ? personality : "" },
-      dryRun: true,
-    }, { show: 200 });
-  }
-  await call("api_request", { path: "/health" }, { show: 300 });
-  await call("api_request", { path: "/chats", method: "POST", body: {} }, { expectError: true });
-} else {
-  console.log("\n(engine offline: online tools skipped)");
-}
 
-await client.close();
+  const statusResult = await call("engine_status", {}, { show: 1500 });
+  const online = statusResult.json?.online === true;
+  await call("activity_log", { limit: 3 });
+  await call("git_status");
+  const logs = await call("logs", { minutes: 60 * 24 * 3, limit: 5 });
+  const ref = logs.json?.find((g) => g.lastErrorId)?.lastErrorId ?? logs.json?.find((g) => g.lastRequestId)?.lastRequestId;
+  if (ref) await call("lookup_error", { reference: ref }, { show: 1200 });
+  else console.log("\n(no errorId or requestId in recent logs; lookup_error skipped)");
+
+  if (online) {
+    const chats = await call("list_chats", { limit: 5 });
+    const chat = process.argv[2] ?? chats.json?.[0]?.id;
+    if (chat) {
+      await call("chat_settings", { chat });
+      await call("read_messages", { chat, last: 2, maxCharsEach: 200 });
+      await call("cache_report", { chat, last: 5 });
+      await call("get_prompt", { chat, which: "next", grep: "the" }, { show: 800 });
+      await call("diff_prompts", { chat, mode: "next" }, { expectError: null });
+      await call("set_chat_metadata", { chat, reason: "smoke test dry run", set: { smokeTestDryRun: true }, dryRun: true });
+    }
+    const connections = await call("list_connections");
+    if (/apiKey|baseUrl/i.test(connections.text)) failures.push("list_connections leaked a key or base URL field");
+    const found = await call("find_characters", { query: "the", limit: 2 });
+    const character = found.json?.[0]?.id;
+    if (character) {
+      const card = await call("get_character", { character, fields: ["name", "personality"] });
+      const personality = card.json?.data?.personality;
+      await call("edit_character", {
+        character,
+        reason: "smoke test dry run",
+        set: { personality: typeof personality === "string" ? personality : "" },
+        dryRun: true,
+      }, { show: 200 });
+    }
+    await call("api_request", { path: "/health" }, { show: 300 });
+    // /health has no POST route, so even a broken guard could not write anything; the refusal must be the guard's.
+    const refused = await call("api_request", { path: "/health", method: "POST", body: {} }, { expectError: true });
+    if (!refused.text.includes("need confirm: true")) failures.push(`api_request: expected the confirm refusal, got ${refused.text.slice(0, 200)}`);
+  } else {
+    console.log("\n(engine offline: online tools skipped)");
+  }
+
+} finally {
+  await client.close();
+}
 console.log(failures.length ? `\nSMOKE FAILED:\n- ${failures.join("\n- ")}` : "\nSMOKE PASSED");
 process.exitCode = failures.length ? 1 : 0;
