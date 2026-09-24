@@ -779,13 +779,7 @@ function scopeLorebookPromptMessagesForCharacter(
 const PROFESSOR_MARI_INTERNAL_CHAT_MARKER = "professor-mari";
 const INDIVIDUAL_CONVERSATION_LOREBOOK_TOKEN = "__MARINARA_INDIVIDUAL_CONVERSATION_LOREBOOK__";
 type ConversationContextMacroKey =
-  | "context"
-  | "commands"
-  | "reactRules"
-  | "replyRules"
-  | "memories"
-  | "lorebook"
-  | "aboutMe";
+  "context" | "commands" | "reactRules" | "replyRules" | "memories" | "lorebook" | "aboutMe";
 type ConversationRelocationMacroKey = Exclude<ConversationContextMacroKey, "aboutMe">;
 type ConversationContextMacroSlots = Record<ConversationContextMacroKey, boolean>;
 
@@ -10521,8 +10515,7 @@ export async function generateRoutes(app: FastifyInstance) {
               }>;
             };
             const availableSprites = agentContext.memory._availableSprites as
-              | Array<{ characterId: string; characterName: string; expressions: string[] }>
-              | undefined;
+              Array<{ characterId: string; characterName: string; expressions: string[] }> | undefined;
             const rawExpressions = Array.isArray(spriteData.expressions) ? spriteData.expressions : [];
             const validation = validateSpriteExpressionEntries(rawExpressions, availableSprites);
             let validatedExpressions = validation.expressions as typeof spriteData.expressions;
@@ -10915,8 +10908,7 @@ export async function generateRoutes(app: FastifyInstance) {
               }
               if (bgData.chosen) {
                 const availableBgs = agentContext.memory._availableBackgrounds as
-                  | Array<{ filename: string }>
-                  | undefined;
+                  Array<{ filename: string }> | undefined;
                 if (availableBgs) {
                   const valid = availableBgs.some((b) => b.filename === bgData.chosen);
                   if (!valid) {
@@ -10969,8 +10961,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 }>;
               };
               const availableSprites = agentContext.memory._availableSprites as
-                | Array<{ characterId: string; characterName: string; expressions: string[] }>
-                | undefined;
+                Array<{ characterId: string; characterName: string; expressions: string[] }> | undefined;
               if (Array.isArray(spriteData.expressions)) {
                 const validation = validateSpriteExpressionEntries(spriteData.expressions, availableSprites);
                 let validatedExpressions = validation.expressions as typeof spriteData.expressions;
@@ -11390,8 +11381,7 @@ export async function generateRoutes(app: FastifyInstance) {
                         const imageSettings = await loadImageGenerationUserSettings(app.db);
                         const styleProfileId =
                           ((chatMeta.gameSetupConfig as Record<string, unknown> | undefined)?.imageStyleProfileId as
-                            | string
-                            | undefined) ??
+                            string | undefined) ??
                           (chatMeta.imageStyleProfileId as string | undefined) ??
                           null;
                         const generatedAvatarPaths = new Map<string, string>();

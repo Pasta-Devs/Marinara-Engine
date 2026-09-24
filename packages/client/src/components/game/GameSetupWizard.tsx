@@ -702,8 +702,7 @@ export function GameSetupWizard({
     entryPickerOpened || activeLorebookEntryIds.length > 0 ? eligibleBooks.map((book) => book.id) : [],
   );
   const entryOverrides = (chatMetadata?.entryStateOverrides ?? chatMetadata?.lorebookEntryStateOverrides) as
-    | Record<string, { enabled?: boolean }>
-    | undefined;
+    Record<string, { enabled?: boolean }> | undefined;
   const eligibleEntries = entryQuery.entries?.filter(
     (entry) => entry.enabled && entryOverrides?.[entry.id]?.enabled !== false,
   );

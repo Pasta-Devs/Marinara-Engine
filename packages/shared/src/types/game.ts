@@ -776,14 +776,7 @@ export interface DirectionCommand {
 
 /** Available widget types the model can use for custom HUD elements. */
 export type HudWidgetType =
-  | "progress_bar"
-  | "gauge"
-  | "relationship_meter"
-  | "counter"
-  | "stat_block"
-  | "list"
-  | "inventory_grid"
-  | "timer";
+  "progress_bar" | "gauge" | "relationship_meter" | "counter" | "stat_block" | "list" | "inventory_grid" | "timer";
 
 /** Milestone marker on a progress/relationship bar. */
 export interface WidgetMilestone {
@@ -909,13 +902,7 @@ export interface PartyDialogueLine {
 // ── Checkpoints ──
 
 export type CheckpointTrigger =
-  | "manual"
-  | "session_start"
-  | "session_end"
-  | "combat_start"
-  | "combat_end"
-  | "location_change"
-  | "auto_interval";
+  "manual" | "session_start" | "session_end" | "combat_start" | "combat_end" | "location_change" | "auto_interval";
 
 export interface GameCheckpoint {
   id: string;
@@ -950,20 +937,10 @@ export interface GeneratedSceneVideo {
 }
 
 export type GameStoryboardStatus =
-  | "planning"
-  | "rendering_images"
-  | "rendering_videos"
-  | "complete"
-  | "partial"
-  | "failed";
+  "planning" | "rendering_images" | "rendering_videos" | "complete" | "partial" | "failed";
 
 export type GameStoryboardKeyframeStatus =
-  | "planned"
-  | "rendering_image"
-  | "image_complete"
-  | "rendering_video"
-  | "complete"
-  | "failed";
+  "planned" | "rendering_image" | "image_complete" | "rendering_video" | "complete" | "failed";
 
 export type StoryboardAnimationSuitability = "suitable" | "simplify" | "subtle" | "regenerate";
 

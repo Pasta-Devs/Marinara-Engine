@@ -20,14 +20,7 @@ export type MariWorkspaceToolName =
   | "app_data";
 
 export type MariChipEntity =
-  | "characters"
-  | "lorebooks"
-  | "personas"
-  | "presets"
-  | "connections"
-  | "agents"
-  | "settings"
-  | "chat";
+  "characters" | "lorebooks" | "personas" | "presets" | "connections" | "agents" | "settings" | "chat";
 
 export type MariChipTone = "default" | "danger" | "caution" | "success";
 
@@ -488,9 +481,7 @@ export interface MariSensitiveFileApproval {
 }
 
 export type MariWorkspacePendingApproval =
-  | MariDbPendingApproval
-  | MariDependencyInstallApproval
-  | MariSensitiveFileApproval;
+  MariDbPendingApproval | MariDependencyInstallApproval | MariSensitiveFileApproval;
 
 export interface MariDbHistoryEntry {
   id: string;

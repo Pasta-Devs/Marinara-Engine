@@ -6,12 +6,7 @@ export const NOODLE_FAN_ACTIVITY_MAX_CREATORS_PER_RUN = 12 as const;
 export const NOODLE_FAN_ACTIVITY_MAX_ACTIVITIES_PER_CREATOR = 4 as const;
 
 export type NoodleFanActivityRunStatus =
-  | "scheduled"
-  | "generating"
-  | "applying"
-  | "completed"
-  | "skipped"
-  | "abandoned";
+  "scheduled" | "generating" | "applying" | "completed" | "skipped" | "abandoned";
 
 export interface NoodleFanAcceptedActivity {
   id: string;

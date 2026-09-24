@@ -34,8 +34,7 @@ type AdvancedMemoryAction =
   | {
       action: "settings";
       settings:
-        | Partial<AdvancedMemorySettings>
-        | ((current: AdvancedMemorySettings) => Partial<AdvancedMemorySettings>);
+        Partial<AdvancedMemorySettings> | ((current: AdvancedMemorySettings) => Partial<AdvancedMemorySettings>);
     }
   | { action: "initialize"; settings?: Partial<AdvancedMemorySettings>; debugMode?: boolean; sceneId?: string }
   | { action: "cancel" | "reindex" | "reset" }

@@ -15,8 +15,7 @@ export type WorkspaceShellSandboxBackend = "macos-seatbelt" | "linux-bubblewrap"
 export type WorkspaceProcessIsolationBackend = WorkspaceShellSandboxBackend | "node-permission-opt-in";
 
 export type WorkspaceShellSandboxStatus =
-  | { available: true; backend: WorkspaceShellSandboxBackend }
-  | { available: false; backend: null; reason: string };
+  { available: true; backend: WorkspaceShellSandboxBackend } | { available: false; backend: null; reason: string };
 
 export type WorkspaceSandboxedShell = {
   backend: WorkspaceProcessIsolationBackend;

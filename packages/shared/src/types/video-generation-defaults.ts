@@ -1,13 +1,7 @@
 import type { ComfyUiLoraSetting } from "./image-generation-defaults.js";
 
 export type VideoDefaultsService =
-  | "gemini_omni"
-  | "google_veo"
-  | "xai"
-  | "openrouter"
-  | "atlas"
-  | "seedance"
-  | "comfyui";
+  "gemini_omni" | "google_veo" | "xai" | "openrouter" | "atlas" | "seedance" | "comfyui";
 
 export type VideoAspectRatio = "16:9" | "9:16";
 export type VideoResolution = "480p" | "720p" | "1080p";

@@ -61,11 +61,7 @@ export interface SpatialContextDefinition {
 }
 
 export type SpatialSnapshotSource =
-  | "bootstrap"
-  | "owner_turn"
-  | "assistant_swipe"
-  | "definition_repair"
-  | "branch_copy";
+  "bootstrap" | "owner_turn" | "assistant_swipe" | "definition_repair" | "branch_copy";
 
 export interface SpatialContextSnapshot {
   id: string;

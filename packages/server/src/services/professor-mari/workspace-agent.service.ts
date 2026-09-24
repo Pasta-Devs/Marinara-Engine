@@ -3422,7 +3422,7 @@ ${sections.join("\n\n")}
     onEvent: PromptEventSink,
   ): Promise<WorkspaceCommandResult[]> {
     const results: WorkspaceCommandResult[] = [];
-    for (let index = 0; index < commands.length; ) {
+    for (let index = 0; index < commands.length;) {
       const command = commands[index]!;
       if (!isReadOnlyWorkspaceCommand(command)) {
         results.push(await this.executeWorkspaceCommand(command, signal, trace, onEvent));

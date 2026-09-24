@@ -399,9 +399,7 @@ interface CombatLogEntry {
 type CombatImpactTone = "hit" | "critical" | "miss" | "heal" | "reaction";
 
 type CombatVoiceEntry =
-  | { status: "loading"; urls?: undefined }
-  | { status: "ready"; urls: string[] }
-  | { status: "error"; urls?: undefined };
+  { status: "loading"; urls?: undefined } | { status: "ready"; urls: string[] } | { status: "error"; urls?: undefined };
 
 type CombatVoiceLine = PartyDialogueLine & {
   chunks: string[];

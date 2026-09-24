@@ -5,13 +5,7 @@ export const CHAT_RESOURCE_ASSIGN_EVENT = "marinara:assign-chat-resource";
 export const CHAT_RESOURCE_AGENT_SETUP_EVENT = "marinara:setup-chat-agent";
 
 export type ChatResourceDragKind =
-  | "character"
-  | "lorebook"
-  | "agent"
-  | "persona"
-  | "preset"
-  | "connection"
-  | "background";
+  "character" | "lorebook" | "agent" | "persona" | "preset" | "connection" | "background";
 
 export type ChatResourceDragPayload = {
   version: 1;

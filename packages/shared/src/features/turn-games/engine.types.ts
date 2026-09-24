@@ -52,8 +52,7 @@ export interface GameEvent {
 
 /** Result of attempting a move. Engines never throw on illegal input — they return `ok: false`. */
 export type MoveResult<TState, TMove> =
-  | { ok: true; state: TState; events: GameEvent[] }
-  | { ok: false; error: string; legalMoves: TMove[] };
+  { ok: true; state: TState; events: GameEvent[] } | { ok: false; error: string; legalMoves: TMove[] };
 
 /**
  * What the model is told on a given seat's turn. Engine-authored so prose can

@@ -3846,8 +3846,7 @@ function ImageGenerationDefaultsPanel({
   onExpandedChange: (expanded: boolean) => void;
   onChange: (
     next:
-      | ImageGenerationDefaultsProfile
-      | ((current: ImageGenerationDefaultsProfile) => ImageGenerationDefaultsProfile),
+      ImageGenerationDefaultsProfile | ((current: ImageGenerationDefaultsProfile) => ImageGenerationDefaultsProfile),
   ) => void;
   onReset: () => void;
 }) {

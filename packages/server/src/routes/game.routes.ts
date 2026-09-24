@@ -6789,8 +6789,7 @@ export async function gameRoutes(app: FastifyInstance) {
         forcedEntryIds: setupConfig.activeLorebookEntryIds,
         ignoreForcedEntryProbability: true,
         entryStateOverrides: (meta.entryStateOverrides ?? meta.lorebookEntryStateOverrides) as
-          | Record<string, { ephemeral?: number | null; enabled?: boolean }>
-          | undefined,
+          Record<string, { ephemeral?: number | null; enabled?: boolean }> | undefined,
         excludedLorebookIds: setupLorebookScopeExclusions.excludedLorebookIds,
         excludedSourceAgentIds: setupLorebookScopeExclusions.excludedSourceAgentIds,
         generationTriggers: ["game_setup", "game"],
@@ -11091,8 +11090,7 @@ export async function gameRoutes(app: FastifyInstance) {
           excludedLorebookIds: loreScopeExclusions.excludedLorebookIds,
           excludedSourceAgentIds: loreScopeExclusions.excludedSourceAgentIds,
           entryStateOverrides: (meta.entryStateOverrides ?? meta.lorebookEntryStateOverrides) as
-            | Record<string, { ephemeral?: number | null; enabled?: boolean }>
-            | undefined,
+            Record<string, { ephemeral?: number | null; enabled?: boolean }> | undefined,
           forcedEntryIds: input.lorebookEntryIds,
           // The selection is exact. Without this the ordinary scope-based scan runs
           // beside it and every global book — plus anything bound to the party, the

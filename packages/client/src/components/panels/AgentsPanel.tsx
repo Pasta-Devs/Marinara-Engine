@@ -879,14 +879,12 @@ export function AgentsPanel() {
           : await (async () => {
               const parsed = JSON.parse(await file.text());
               return {
-                agents: getAgentImportEntries(parsed).map(
-                  (raw): FolderPackageImportEntry => ({
-                    raw,
-                    path: file.name,
-                    basePath: "",
-                    resolveTextFile: () => null,
-                  }),
-                ),
+                agents: getAgentImportEntries(parsed).map((raw): FolderPackageImportEntry => ({
+                  raw,
+                  path: file.name,
+                  basePath: "",
+                  resolveTextFile: () => null,
+                })),
                 skippedFunctionCount: getFolderImportEntries(parsed, ["functions", "customTools", "tools"]).length,
               };
             })();

@@ -39,8 +39,7 @@ export interface TacticalEncounterBlueprintAdditions {
 }
 
 export type TacticalEncounterBlueprintValidation =
-  | { ok: true; blueprint: TacticalEncounterBlueprintAdditions }
-  | { ok: false; error: string };
+  { ok: true; blueprint: TacticalEncounterBlueprintAdditions } | { ok: false; error: string };
 
 /** Validate and normalize only the tactical fields produced by the encounter model. */
 export function validateTacticalEncounterBlueprint(value: unknown): TacticalEncounterBlueprintValidation {
@@ -89,8 +88,7 @@ export function validateTacticalEncounterBlueprint(value: unknown): TacticalEnco
 }
 
 export type TacticalStartPreferences =
-  | { ok: true; seed: number; battlefield?: TacticalBattlefieldBrief }
-  | { ok: false; error: string };
+  { ok: true; seed: number; battlefield?: TacticalBattlefieldBrief } | { ok: false; error: string };
 
 /** Resolve setup-owned preferences before request hints; setup size is authoritative; obsolete setup seeds are ignored. */
 export function resolveTacticalStartPreferences(args: {

@@ -67,7 +67,7 @@
     "@types/node": "^24.13.5",
     "adm-zip": "^0.6.1",
     "esbuild": "^0.28.1",
-    "prettier": "^3.8.3",
+    "prettier": "^3.9.8",
     "typescript": "^5.9.3",
     "zod-to-json-schema": "^3.25.2"
   },

@@ -118,12 +118,10 @@ function scalarEquals(left: unknown, right: unknown, loose: boolean) {
 function compare(left: unknown, right: unknown, operator: string) {
   if (operator === "===" || operator === "==") return scalarEquals(left, right, operator === "==");
   if (operator === "!==" || operator === "!=") return !scalarEquals(left, right, operator === "!=");
-  if (
-    !(
-      (typeof left === "number" && typeof right === "number") ||
-      (typeof left === "string" && typeof right === "string")
-    )
-  ) {
+  if (!(
+    (typeof left === "number" && typeof right === "number") ||
+    (typeof left === "string" && typeof right === "string")
+  )) {
     return false;
   }
   if (operator === ">") return left > right;

@@ -13,13 +13,7 @@ import { newId, now } from "../../utils/id-generator.js";
 import { logger } from "../../lib/logger.js";
 
 export type CheckpointTrigger =
-  | "manual"
-  | "session_start"
-  | "session_end"
-  | "combat_start"
-  | "combat_end"
-  | "location_change"
-  | "auto_interval";
+  "manual" | "session_start" | "session_end" | "combat_start" | "combat_end" | "location_change" | "auto_interval";
 
 export interface CreateCheckpointInput {
   chatId: string;

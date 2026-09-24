@@ -28,14 +28,7 @@ import {
 } from "../services/image/avatar-file-lifecycle.js";
 
 type ExpungeScope =
-  | "chats"
-  | "characters"
-  | "personas"
-  | "lorebooks"
-  | "presets"
-  | "connections"
-  | "automation"
-  | "media";
+  "chats" | "characters" | "personas" | "lorebooks" | "presets" | "connections" | "automation" | "media";
 
 const ALL_EXPUNGE_SCOPES: ExpungeScope[] = [
   "chats",

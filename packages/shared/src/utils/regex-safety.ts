@@ -323,7 +323,7 @@ function hasPolynomialBacktrackingRisk(source: string, maxRepetition: number): b
     }
   };
 
-  for (let i = 0; i < source.length; ) {
+  for (let i = 0; i < source.length;) {
     const c = source[i]!;
 
     if (c === "\\") {

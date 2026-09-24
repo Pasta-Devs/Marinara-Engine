@@ -115,7 +115,7 @@ export function normalizeBeholderProse(message: string): string {
   // Strip to a fixed point: one pass over `<scr<script>ipt>` removes the inner tag
   // and leaves a working one behind. Each pass strictly shortens the text, so this
   // terminates.
-  for (let previous = ""; previous !== text; ) {
+  for (let previous = ""; previous !== text;) {
     previous = text;
     text = text.replace(/<[^>]+>/gu, "");
   }

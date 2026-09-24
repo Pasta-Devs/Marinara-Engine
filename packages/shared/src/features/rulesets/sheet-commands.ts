@@ -56,8 +56,7 @@ const PARTY_TARGET = "party";
 /** A party summary is capped again by the tag writer; this keeps the join itself bounded. */
 
 type TargetMatch =
-  | { cards: SheetCommandCard[]; who: string }
-  | { refusal: "unknown-character" | "ambiguous-character" };
+  { cards: SheetCommandCard[]; who: string } | { refusal: "unknown-character" | "ambiguous-character" };
 
 /** Apply every sheet command in a reply, in order, and rewrite each tag with what happened.
  *  Pure: the context and its live state are never mutated, and nothing here throws. */

@@ -138,15 +138,7 @@ export function PartyOverlayBox({
 }
 
 type ExpressionReactionEffect =
-  | "pop"
-  | "anger"
-  | "sparkle"
-  | "heart"
-  | "tear"
-  | "stress"
-  | "thought"
-  | "focus"
-  | "sleep";
+  "pop" | "anger" | "sparkle" | "heart" | "tear" | "stress" | "thought" | "focus" | "sleep";
 
 const EXPRESSION_REACTIONS: Record<string, { symbol: string; color: string; effect: ExpressionReactionEffect }> = {
   angry: { symbol: "❗", color: "text-red-400", effect: "anger" },
