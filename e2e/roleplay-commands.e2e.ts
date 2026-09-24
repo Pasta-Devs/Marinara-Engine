@@ -380,6 +380,22 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       'Before the secret. [whisper: character="Bob" text="The hidden key is beneath the blue vase."] Between the secrets. [whisper: character="Mari" text="A silver door appears in your vision."] After the secret.';
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    // openChat already stubs settings. Resolve that stub in-page so WebKit's
+    // intercepted beforeunload writes do not report false CORS page errors.
+    await page.addInitScript(() => {
+      const fetch = window.fetch.bind(window);
+      window.fetch = (input, init) => {
+        const url = new URL(input instanceof Request ? input.url : String(input), location.href);
+        if (url.origin === location.origin && url.pathname === "/api/app-settings/ui") {
+          return Promise.resolve(
+            new Response(JSON.stringify({ value: "" }), {
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        }
+        return fetch(input, init);
+      };
+    });
     const provider = createServer(async (incoming, response) => {
       incoming.resume();
       response.writeHead(200, { "content-type": "text/event-stream", connection: "close" });
