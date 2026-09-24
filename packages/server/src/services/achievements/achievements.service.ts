@@ -16,6 +16,7 @@ import type { DB } from "../../db/connection.js";
 import {
   capabilityAchievementDefinitions,
   readCapabilityAchievementProgress,
+  type CapabilityAchievementCount,
 } from "../capability-packages/capability-achievement-registry.service.js";
 import { isFileUniqueConstraintError } from "../../db/file-schema.js";
 import { achievementUnlocks, characters, chats, lorebooks, personas } from "../../db/schema/index.js";
@@ -53,12 +54,12 @@ function buildProgress(
   definition: AchievementDefinition,
   unlockedRow: AchievementUnlockRow | null,
   counts: AchievementCounts,
-  packageProgress: Map<string, number>,
+  packageProgress: Map<string, CapabilityAchievementCount>,
 ): AchievementProgress {
   const target = definition.target ?? null;
   const progress = definition.metric
     ? (counts[definition.metric] ?? 0)
-    : (packageProgress.get(definition.id) ?? (unlockedRow ? 1 : 0));
+    : (packageProgress.get(definition.id)?.count ?? (unlockedRow ? 1 : 0));
 
   return {
     id: definition.id,
@@ -71,11 +72,13 @@ function buildProgress(
 
 /** Every ranked badge whose count has reached its target — Engine metrics and package counters
  *  alike, so a package's badge unlocks on the same pass the Engine's do. */
-function collectMetricUnlockIds(counts: AchievementCounts, packageProgress: Map<string, number>) {
+function collectMetricUnlockIds(counts: AchievementCounts, packageProgress: Map<string, CapabilityAchievementCount>) {
   return allDefinitions().flatMap((definition) => {
     if (!definition.target) return [];
-    const value = definition.metric ? counts[definition.metric] : packageProgress.get(definition.id);
-    return value !== undefined && value >= definition.target ? [definition.id] : [];
+    if (definition.metric) return counts[definition.metric] >= definition.target ? [definition.id] : [];
+    // A package count is judged against the target it was read for, not this definition's.
+    const read = packageProgress.get(definition.id);
+    return read && read.count >= read.target ? [definition.id] : [];
   });
 }
 
@@ -106,7 +109,7 @@ export function createAchievementsService(db: DB) {
   async function unlockIds(
     ids: Iterable<string>,
     counts: AchievementCounts,
-    packageProgress: Map<string, number>,
+    packageProgress: Map<string, CapabilityAchievementCount>,
   ): Promise<AchievementProgress[]> {
     const uniqueIds = [...new Set(ids)].filter((id) => !!definitionById(id));
     if (uniqueIds.length === 0) return [];

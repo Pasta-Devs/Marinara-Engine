@@ -61,8 +61,8 @@ assert.deepEqual(definitions[0]!.source, source);
 
 // ── A failing progress callback reports zero instead of failing the panel ──
 const progress = await readCapabilityAchievementProgress();
-assert.equal(progress.get("noodle.ten_runs"), 4);
-assert.equal(progress.get("noodle.broken"), 0);
+assert.deepEqual(progress.get("noodle.ten_runs"), { count: 4, target: 10 });
+assert.deepEqual(progress.get("noodle.broken"), { count: 0, target: 1 });
 
 // ── One package cannot claim another's id, or a built-in one ──
 assert.throws(
@@ -112,7 +112,7 @@ const releaseOther = registerCapabilityAchievements({ ...source, packageId: "oth
 ]);
 const onlyOther = await readCapabilityAchievementProgress("other");
 assert.deepEqual([...onlyOther.keys()], ["other.loop"]);
-assert.equal(onlyOther.get("other.loop"), 2);
+assert.deepEqual(onlyOther.get("other.loop"), { count: 2, target: 5 });
 assert.equal(nestedCalls, 1);
 releaseOther();
 
@@ -147,6 +147,31 @@ const releaseNew = registerCapabilityAchievements(slowSource, [
 finishSlowRead(49);
 assert.equal((await pendingRead).has("slow.count"), false, "a stale count must not reach the new target");
 releaseNew();
+
+// ── A count keeps the target it was read against, even if its badge is replaced before the
+//    whole read settles (badge A finishes, badge B is still pending, A is replaced) ──
+let finishB: (value: number) => void = () => {};
+const boundSource = { ...source, packageId: "bound", packageName: "Bound" };
+const releaseA = registerCapabilityAchievements(boundSource, [
+  { id: "a", title: "A", description: "A", target: 10, readProgress: () => 3 },
+]);
+const releaseB = registerCapabilityAchievements(boundSource, [
+  { id: "b", title: "B", description: "B", target: 5, readProgress: () => new Promise<number>((r) => (finishB = r)) },
+]);
+const boundRead = readCapabilityAchievementProgress("bound");
+await new Promise((resolve) => setImmediate(resolve));
+releaseA();
+const releaseA2 = registerCapabilityAchievements(boundSource, [
+  { id: "a", title: "A", description: "A", target: 2, readProgress: () => 3 },
+]);
+finishB(1);
+assert.deepEqual(
+  (await boundRead).get("bound.a"),
+  { count: 3, target: 10 },
+  "the count must carry the old target, so it cannot meet the new, lower one",
+);
+releaseA2();
+releaseB();
 
 // ── The host only touches badges the calling package owns, and only with the permission ──
 assert.ok(isCapabilityAchievementOwnedBy("noodle", "noodle.first_run"));

@@ -165,7 +165,17 @@ const activeProgressReads = new AsyncLocalStorage<ReadonlySet<string>>();
  * package whose callback fails or hangs reports zero, because one broken package must not fail the
  * whole Achievements panel. A package already reading its progress up the call chain is skipped.
  */
-export async function readCapabilityAchievementProgress(packageId?: string): Promise<Map<string, number>> {
+/** A count and the target of the registration that produced it. The unlock decision uses this
+ *  target, never a later definition, so a badge replaced after its count was read cannot be
+ *  unlocked by a count taken against a different target. */
+export interface CapabilityAchievementCount {
+  count: number;
+  target: number;
+}
+
+export async function readCapabilityAchievementProgress(
+  packageId?: string,
+): Promise<Map<string, CapabilityAchievementCount>> {
   const active = activeProgressReads.getStore() ?? new Set<string>();
   const entries = [...byId.values()].filter(
     (entry) => entry.readProgress && (!packageId || entry.packageId === packageId) && !active.has(entry.packageId),
@@ -184,10 +194,13 @@ export async function readCapabilityAchievementProgress(packageId?: string): Pro
         // A package re-activated while this callback was pending has a new entry under the same id,
         // possibly with a new target. The old count must not be compared against it.
         if (byId.get(entry.definition.id) !== entry) return null;
-        return [entry.definition.id, Number.isFinite(value) ? Math.max(0, Math.trunc(value as number)) : 0] as const;
+        const count = Number.isFinite(value) ? Math.max(0, Math.trunc(value as number)) : 0;
+        return [entry.definition.id, { count, target: entry.definition.target ?? Infinity }] as const;
       } catch (error) {
         logger.warn(error, "[capability/achievements] Package %s failed reporting progress", entry.packageId);
-        return byId.get(entry.definition.id) === entry ? ([entry.definition.id, 0] as const) : null;
+        return byId.get(entry.definition.id) === entry
+          ? ([entry.definition.id, { count: 0, target: entry.definition.target ?? Infinity }] as const)
+          : null;
       }
     }),
   );
