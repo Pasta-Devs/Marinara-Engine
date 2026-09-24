@@ -108,7 +108,7 @@ assert.match(
 // store already logged it at error level and the store close retries it).
 assert.match(
   readFileSync(join(root, "packages/server/src/index.ts"), "utf8"),
-  /if \(isShutdownEarlyFlushEnabled\(\)\) \{(?:\s*\/\/.*)*\s*void flushDB\(\)\.catch\(\(\) => \{\}\);/u,
+  /if \(isShutdownEarlyFlushEnabled\(\)\) \{(?:\s*\/\/[^\n]*\n)*\s*void flushDB\(\)\.catch\(\(\) => \{\}\);/u,
 );
 
 // 2. Opt-in signal controller: duplicates ignored, deliberate repeat forces exit once.
@@ -180,7 +180,7 @@ assert.match(
   // shutdown() itself refuses to run while any close is in progress ...
   assert.match(
     source,
-    /const shutdown = async \(signal: NodeJS\.Signals\) => \{(?:\s*\/\/.*)*\s*if \(isShuttingDown\) \{[^}]*return;\s*\}\s*isShuttingDown = true;/u,
+    /const shutdown = async \(signal: NodeJS\.Signals\) => \{(?:\s*\/\/[^\n]*\n)*\s*if \(isShuttingDown\) \{[^}]*return;\s*\}\s*isShuttingDown = true;/u,
     "shutdown() must keep its isShuttingDown guard",
   );
   // ... so the controller needs no alreadyStopping hook in index.ts: only the
