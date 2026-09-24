@@ -4048,9 +4048,13 @@ async function applyRetryResultEffects(args: {
       }
       try {
         const chatsDb = createChatsStorage(app.db);
-        if (Object.keys(exprMap).length > 0) {
+        if (Array.isArray(spriteData.expressions)) {
           assertRetryActive();
-          await chatsDb.updateMessageExtraForSwipe(retryMessageId, retrySwipeIndex, { spriteExpressions: exprMap });
+          // An empty result hides sprites via the owner list without resetting their retained appearances.
+          await chatsDb.updateMessageExtraForSwipe(retryMessageId, retrySwipeIndex, {
+            ...(Object.keys(exprMap).length > 0 ? { spriteExpressions: exprMap } : {}),
+            expressionSpriteIds: spriteData.expressions.map((entry) => entry.characterId),
+          });
           assertRetryActive();
         }
         if (Object.keys(personaExprMap).length > 0) {

@@ -4843,6 +4843,8 @@
   "ui.chat.expressionsetupfields.replaceMessageAvatarsWithTheSelectedExpressionSprite": "Replace message avatars with the selected expression sprite.",
   "ui.chat.expressionsetupfields.spriteLayout": "Sprite Layout",
   "ui.chat.expressionsetupfields.spriteOwners": "Sprite Owners",
+  "ui.chat.expressionSprites.onlyActive": "Only show active sprites",
+  "ui.chat.expressionSprites.onlyActiveDescription": "Show only characters returned by the latest completed expression result. Keep the current sprites visible while the next result is generating.",
   "ui.chat.gameprompttemplateselect.value1": "{{value1}}",
   "ui.chat.gamestoryboardpromptlibrary.addACopyEditItHereThenChooseIt": "Add a copy, edit it here, then choose it from the",
   "ui.chat.gamestoryboardpromptlibrary.builtIn": "Built-in",

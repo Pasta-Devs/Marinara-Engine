@@ -1250,6 +1250,7 @@ type RoleplaySurfaceProps = {
   spriteCharacterIds: string[];
   spriteDisplayModes: SpriteDisplayMode[];
   spriteExpressions: Record<string, string>;
+  visibleExpressionSpriteIds?: readonly string[];
   expressionAvatarResolver?: ExpressionAvatarResolver;
   spritePlacements: Record<string, SpritePlacement>;
   spriteScale: number;
@@ -1372,6 +1373,7 @@ export function ChatRoleplaySurface({
   spriteCharacterIds,
   spriteDisplayModes,
   spriteExpressions,
+  visibleExpressionSpriteIds,
   expressionAvatarResolver,
   spritePlacements,
   spriteScale,
@@ -2164,6 +2166,7 @@ export function ChatRoleplaySurface({
           <Suspense fallback={null}>
             <SpriteOverlay
               characterIds={spriteCharacterIds}
+              visibleCharacterIds={visibleExpressionSpriteIds}
               messages={msgPayload}
               side={visualNovel ? "center" : spritePosition}
               spriteDisplayModes={spriteDisplayModes}
@@ -2175,7 +2178,9 @@ export function ChatRoleplaySurface({
               expressionSpriteScale={expressionSpriteScale}
               fullBodySpriteScale={fullBodySpriteScale}
               spriteScaleMultiplier={visualNovel ? vnSpriteScale : 1}
-              activeCharacterIds={visualNovel ? activeVnSpriteIds : undefined}
+              activeCharacterIds={
+                visualNovel && chatMeta.expressionOnlyActiveSprites !== true ? activeVnSpriteIds : undefined
+              }
               spriteOpacity={spriteOpacity}
               expressionSpriteOpacity={expressionSpriteOpacity}
               fullBodySpriteOpacity={fullBodySpriteOpacity}
