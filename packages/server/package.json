@@ -20,13 +20,13 @@
     "@fastify/cors": "^11.3.0",
     "@fastify/multipart": "^10.1.1",
     "@fastify/static": "^10.1.4",
-    "@huggingface/transformers": "^3.8.1",
+    "@huggingface/transformers": "^4.3.0",
     "@marinara-engine/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "1.30.0",
     "adm-zip": "^0.6.1",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
-    "buttplug": "4.0.1",
+    "buttplug": "5.0.2",
     "dotenv": "^17.4.2",
     "fastify": "^5.12.5",
     "jsonrepair": "^3.15.0",
@@ -40,8 +40,8 @@
   },
   "optionalDependencies": {
     "@img/sharp-wasm32": "0.35.4",
-    "onnxruntime-node": "^1.24.3",
-    "onnxruntime-web": "^1.27.0",
+    "onnxruntime-node": "1.30.0",
+    "onnxruntime-web": "1.31.0-dev.20260914-8d85527a0",
     "sharp": "^0.35.4"
   },
   "devDependencies": {

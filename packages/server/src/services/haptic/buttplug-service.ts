@@ -27,11 +27,6 @@ import { normalizeHapticAction, normalizeHapticPattern } from "@marinara-engine/
 import { getIntifaceUrl } from "../../config/runtime-config.js";
 import { buildHapticPatternSteps, describeHapticDeviceType } from "../generation/haptic-runtime.js";
 
-const POSITION_WITH_DURATION_OUTPUT =
-  (OutputType as unknown as Record<string, OutputType | undefined>).HwPositionWithDuration ??
-  (OutputType as unknown as Record<string, OutputType | undefined>).PositionWithDuration ??
-  null;
-
 /** OutputType values we map to capabilities. */
 const CAPABILITY_TYPES: Array<{ type: OutputType; cap: HapticCapability }> = [
   { type: OutputType.Vibrate, cap: "vibrate" },
@@ -40,11 +35,11 @@ const CAPABILITY_TYPES: Array<{ type: OutputType; cap: HapticCapability }> = [
   { type: OutputType.Constrict, cap: "constrict" },
   { type: OutputType.Inflate, cap: "inflate" },
   { type: OutputType.Position, cap: "position" },
+  { type: OutputType.HwPositionWithDuration, cap: "position" },
   { type: OutputType.Temperature, cap: "temperature" },
   { type: OutputType.Spray, cap: "spray" },
   { type: OutputType.Led, cap: "led" },
 ];
-if (POSITION_WITH_DURATION_OUTPUT) CAPABILITY_TYPES.push({ type: POSITION_WITH_DURATION_OUTPUT, cap: "position" });
 
 /** Map our action strings to buttplug OutputType. */
 const ACTION_TO_OUTPUT: Partial<Record<HapticDeviceCommand["action"], OutputType>> = {
@@ -70,6 +65,49 @@ function durationSeconds(value: unknown): number {
 
 function deviceName(device: ButtplugClientDevice): string {
   return device.displayName || device.name || `Device ${device.index}`;
+}
+
+function prepareIntensityOutput(
+  device: ButtplugClientDevice,
+  type: OutputType,
+  intensity: number,
+  durationMs: number,
+): () => Promise<void> {
+  const commands: Array<() => Promise<void>> = [];
+  for (const feature of device.features.values()) {
+    const output = feature.output(type);
+    if (!output) continue;
+    const [min, max] = output.valueRange;
+    // Keep v4's zero-based intensity and per-feature maximum. v5 percent()
+    // maps zero to the range minimum, which can mean full reverse rotation.
+    const value = Math.ceil(max * intensity);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min > max || value < min || value > max) {
+      throw new Error(`${type} value ${value} is not in the range ${min} <= x <= ${max}`);
+    }
+    const command =
+      type === OutputType.HwPositionWithDuration
+        ? DeviceOutput.PositionWithDuration.value(value, durationMs)
+        : new DeviceOutputValueConstructor(type).value(value);
+    if (type === OutputType.HwPositionWithDuration && output.durationRange) {
+      const [minDuration, maxDuration] = output.durationRange;
+      if (durationMs < minDuration || durationMs > maxDuration) {
+        throw new Error(`Duration value ${durationMs} is not in the range ${minDuration} <= x <= ${maxDuration}`);
+      }
+    }
+    commands.push(() => feature.runOutput(command));
+  }
+  // Validate the whole device before starting any feature. If a send still
+  // fails, stop after all sends settle; the caller cannot schedule its timer.
+  return async () => {
+    const results = await Promise.allSettled(commands.map((send) => send()));
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure) {
+      await device
+        .stop()
+        .catch((error) => logger.warn(error, "[haptic] Failed to stop device after partial output failure"));
+      throw failure.reason;
+    }
+  };
 }
 
 /** Helper: get all devices from the client Map as an array. */
@@ -196,8 +234,6 @@ class ButtplugService {
     const action = normalizeHapticAction(cmd.action);
     if (!action) throw new Error(`Unknown action: ${String(cmd.action)}`);
 
-    if (options.clearExistingTimers) this.clearTimersForTarget(cmd.deviceIndex);
-
     // Handle stop command
     if (action === "stop") {
       this.clearTimersForTarget(cmd.deviceIndex);
@@ -209,41 +245,44 @@ class ButtplugService {
 
     const pattern = normalizeHapticPattern(cmd.pattern);
     if (pattern && pattern !== "steady") {
-      await this.executePatternCommand({ ...cmd, action }, pattern);
+      await this.executePatternCommand({ ...cmd, action }, pattern, options);
       return;
     }
 
     const outputType = ACTION_TO_OUTPUT[action];
     const intensity = clampUnit(cmd.intensity, 0.5);
     const duration = durationSeconds(cmd.duration);
-    let successfulTargets = 0;
-    let firstFailure: unknown = null;
     const unsupportedDevices: string[] = [];
+    const prepared = [];
 
     for (const device of targets) {
+      const selectedOutputType =
+        action === "position"
+          ? device.hasOutput(OutputType.HwPositionWithDuration)
+            ? OutputType.HwPositionWithDuration
+            : OutputType.Position
+          : outputType;
+      if (!selectedOutputType || !device.hasOutput(selectedOutputType)) {
+        unsupportedDevices.push(deviceName(device));
+        continue;
+      }
+      prepared.push({
+        device,
+        send: prepareIntensityOutput(device, selectedOutputType, intensity, Math.max(1, duration || 1) * 1000),
+      });
+    }
+    if (prepared.length === 0) {
+      const targetNames = unsupportedDevices.length > 0 ? unsupportedDevices.join(", ") : "selected devices";
+      throw new Error(`No compatible haptic outputs for action "${action}" on ${targetNames}`);
+    }
+
+    // An invalid replacement must leave the previous output's stop timer intact.
+    if (options.clearExistingTimers) this.clearTimersForTarget(cmd.deviceIndex);
+    let successfulTargets = 0;
+    let firstFailure: unknown = null;
+    for (const { device, send } of prepared) {
       try {
-        if (action === "position") {
-          const durationMs = Math.max(1, duration || 1) * 1000;
-          if (POSITION_WITH_DURATION_OUTPUT && device.hasOutput(POSITION_WITH_DURATION_OUTPUT)) {
-            await device.runOutput(DeviceOutput.PositionWithDuration.percent(intensity, durationMs));
-            successfulTargets++;
-          } else if (device.hasOutput(OutputType.Position)) {
-            await device.runOutput(DeviceOutput.Position.percent(intensity));
-            successfulTargets++;
-          } else {
-            unsupportedDevices.push(deviceName(device));
-          }
-          continue;
-        }
-
-        const selectedOutputType = outputType;
-
-        if (!selectedOutputType || !device.hasOutput(selectedOutputType)) {
-          unsupportedDevices.push(deviceName(device));
-          continue;
-        }
-        const outCmd = new DeviceOutputValueConstructor(selectedOutputType).percent(intensity);
-        await device.runOutput(outCmd);
+        await send();
         successfulTargets++;
       } catch (err) {
         firstFailure ??= err;
@@ -254,11 +293,6 @@ class ButtplugService {
     if (successfulTargets === 0 && firstFailure) {
       throw firstFailure instanceof Error ? firstFailure : new Error(String(firstFailure));
     }
-    if (successfulTargets === 0) {
-      const targetNames = unsupportedDevices.length > 0 ? unsupportedDevices.join(", ") : "selected devices";
-      throw new Error(`No compatible haptic outputs for action "${action}" on ${targetNames}`);
-    }
-
     // Schedule auto-stop if duration is specified and action isn't position
     if (duration > 0 && action !== "position" && successfulTargets > 0) {
       this.setStopTimer(cmd.deviceIndex, duration, targets);
@@ -279,7 +313,11 @@ class ButtplugService {
     return device ? [device] : []; // return empty if index not found
   }
 
-  private async executePatternCommand(cmd: HapticDeviceCommand, pattern: HapticFeedbackPattern): Promise<void> {
+  private async executePatternCommand(
+    cmd: HapticDeviceCommand,
+    pattern: HapticFeedbackPattern,
+    options: { clearExistingTimers: boolean },
+  ): Promise<void> {
     const intensity = clampUnit(cmd.intensity, 0.5);
     const duration = durationSeconds(cmd.duration) || 1.5;
     const steps = buildHapticPatternSteps(cmd.action, pattern, intensity, duration);
@@ -294,7 +332,7 @@ class ButtplugService {
       };
 
       if (step.delayMs <= 0) {
-        await this.executeCommandInternal(stepCommand, { clearExistingTimers: false });
+        await this.executeCommandInternal(stepCommand, options);
         continue;
       }
 
