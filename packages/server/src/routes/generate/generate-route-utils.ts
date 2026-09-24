@@ -994,13 +994,17 @@ export function prefixGroupIndividualHistorySpeakers<T extends SpeakerPrefixMess
   options: {
     personaName: string;
     characterNamesById: ReadonlyMap<string, string>;
+    /** Individual group roles are relative to the recipient; characterId still identifies the speaker. */
+    recipientScoped?: boolean;
   },
 ): T[] {
   const personaName = options.personaName.trim() || "User";
 
   return messages.map((message) => {
     let speakerName: string | null = null;
-    if (message.role === "user") {
+    if (options.recipientScoped && message.characterId) {
+      speakerName = options.characterNamesById.get(message.characterId) ?? null;
+    } else if (message.role === "user") {
       speakerName = message.personaSnapshotName?.trim() || personaName;
     } else if (message.role === "assistant") {
       speakerName =

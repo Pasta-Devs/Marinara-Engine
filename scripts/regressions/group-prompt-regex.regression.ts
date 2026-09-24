@@ -97,21 +97,21 @@ try {
     groupChatMode: "individual",
     groupResponseOrder: "manual",
   });
-  const original = await Promise.all([
-    chats.createMessage({ chatId: chat.id, role: "user", content: "PERSONA_PUBLIC *PERSONA_THOUGHT*" }),
-    chats.createMessage({
+  const original = [
+    await chats.createMessage({ chatId: chat.id, role: "user", content: "PERSONA_PUBLIC *PERSONA_THOUGHT*" }),
+    await chats.createMessage({
       chatId: chat.id,
       role: "assistant",
       characterId: pantalone.id,
       content: "PANTALONE_PUBLIC *PANTALONE_THOUGHT*",
     }),
-    chats.createMessage({
+    await chats.createMessage({
       chatId: chat.id,
       role: "assistant",
       characterId: maukie.id,
       content: "MAUKIE_PUBLIC *MAUKIE_THOUGHT*",
     }),
-  ]);
+  ];
   const hideThoughts = await scripts.create({
     name: "Hide thoughts",
     findRegex: "\\*[^*]*\\*",
@@ -214,13 +214,36 @@ try {
     applyMode: "prompt",
   });
   assert(anchored);
-  for (const messages of [(await generate(maukie.id))[0]!, await preview(maukie.id)]) {
-    const text = JSON.stringify(messages);
-    assert(text.includes("PERSONA_ANCHORED"));
-    assert(!text.includes("PERSONA_PUBLIC_ONCE"));
-    assert(text.includes("<chat_history>"), "prompt wrappers survive history regexes");
+  for (const groupSpeakerNamesInHistory of [false, true]) {
+    await chats.patchMetadata(chat.id, { groupSpeakerNamesInHistory });
+    for (const messages of [(await generate(maukie.id))[0]!, await preview(maukie.id)]) {
+      const text = JSON.stringify(messages);
+      assert(text.includes("PERSONA_ANCHORED"));
+      assert(!text.includes("PERSONA_PUBLIC_ONCE"));
+      assert(text.includes("<chat_history>"), "prompt wrappers survive history regexes");
+      if (groupSpeakerNamesInHistory) {
+        assert(text.includes("Pantalone: PANTALONE_PUBLIC_ONCE"));
+        assert(text.includes("Maukie: MAUKIE_PUBLIC_ONCE"));
+      }
+    }
   }
+  await chats.patchMetadata(chat.id, { groupSpeakerNamesInHistory: false });
   await scripts.remove(anchored.id);
+
+  const inactiveReply = await chats.createMessage({
+    chatId: chat.id,
+    role: "assistant",
+    characterId: maukie.id,
+    content: "Regenerate this reply.",
+  });
+  assert(inactiveReply);
+  await chats.patchMetadata(chat.id, { inactiveCharacterIds: [maukie.id], groupResponseOrder: "manual" });
+  assertThoughts(
+    (await generate(maukie.id, ["Regenerated."], { regenerateMessageId: inactiveReply.id }))[0]!,
+    maukie.id,
+    false,
+  );
+  await chats.patchMetadata(chat.id, { inactiveCharacterIds: [] });
 
   // AI Output uses the inverse perspective; display-only and wrong-preset rules stay out.
   await scripts.update(hideThoughts.id, { placement: ["ai_output"], targetCharacterIds: [maukie.id] });

@@ -322,10 +322,9 @@ export function scopeIndividualGroupMessagesForTarget(
   characters: CharacterPromptScopeInfo[],
   transformHistory?: (messages: GenerationPromptMessage[]) => void,
 ): GenerationPromptMessage[] {
-  if (!targetCharacterId) return messages;
   const targetCharacter = characters.find((character) => character.id === targetCharacterId);
-  if (!targetCharacter) return messages;
-  const otherCharacters = characters.filter((character) => character.id !== targetCharacterId);
+  if (!targetCharacter && !transformHistory) return messages;
+  const otherCharacters = targetCharacter ? characters.filter((character) => character.id !== targetCharacterId) : [];
 
   const scoped = messages
     .map((message) => {
@@ -339,7 +338,7 @@ export function scopeIndividualGroupMessagesForTarget(
         next = { ...next, content };
       }
 
-      if (isHistoryMessage) {
+      if (isHistoryMessage && targetCharacterId) {
         if (next.characterId) {
           const role = next.characterId === targetCharacterId ? "assistant" : "user";
           next = { ...next, role };

@@ -2888,7 +2888,7 @@ export async function generateRoutes(app: FastifyInstance) {
               characterId: typeof message.characterId === "string" && message.characterId ? message.characterId : null,
             })),
           );
-          if (shouldPrefixGroupHistorySpeakers) {
+          if (shouldPrefixGroupHistorySpeakers && !deferGroupPromptRegex) {
             const characterNamesById = await getGroupHistoryCharacterNamesById();
             mappedMessages.splice(
               0,
@@ -7243,6 +7243,10 @@ export async function generateRoutes(app: FastifyInstance) {
             }));
           }
           const regexScripts = await getPromptRegexScripts();
+          const regexSpeakerNames =
+            deferGroupPromptRegex && shouldPrefixGroupHistorySpeakers
+              ? await getGroupHistoryCharacterNamesById()
+              : null;
           const targetRegexOptions = {
             resolveMacros: (value: string, randomSeed?: string) =>
               resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
@@ -7256,7 +7260,19 @@ export async function generateRoutes(app: FastifyInstance) {
                   targetCharId,
                   charInfo,
                   deferGroupPromptRegex
-                    ? (history) => applyRegexScriptsToPromptMessages(history, regexScripts, targetRegexOptions)
+                    ? (history) => {
+                        applyRegexScriptsToPromptMessages(history, regexScripts, targetRegexOptions);
+                        if (regexSpeakerNames) {
+                          const prefixed = prefixGroupIndividualHistorySpeakers(history, {
+                            personaName,
+                            characterNamesById: regexSpeakerNames,
+                            recipientScoped: true,
+                          });
+                          history.forEach((message, index) => {
+                            message.content = prefixed[index]!.content;
+                          });
+                        }
+                      }
                     : undefined,
                 )
               : gameAwareMessagesForGen;
@@ -9852,7 +9868,7 @@ export async function generateRoutes(app: FastifyInstance) {
                   }
                   mapped.content = mapped.content.replace(/\n([ \t]*\n){2,}/g, "\n\n");
                   let resolved = resolveHistoryMessageMacros([mapped])[0] ?? mapped;
-                  if (shouldPrefixGroupHistorySpeakers) {
+                  if (shouldPrefixGroupHistorySpeakers && !deferGroupPromptRegex) {
                     resolved =
                       prefixGroupIndividualHistorySpeakers([resolved], {
                         personaName,
@@ -9965,7 +9981,7 @@ export async function generateRoutes(app: FastifyInstance) {
               contextKind: "history",
               characterId: charId,
             } as const;
-            if (shouldPrefixGroupHistorySpeakers) {
+            if (shouldPrefixGroupHistorySpeakers && !deferGroupPromptRegex) {
               const characterNamesById = await getGroupHistoryCharacterNamesById();
               const [prefixed] = prefixGroupIndividualHistorySpeakers([inTurnMessage], {
                 personaName,

@@ -1140,7 +1140,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       chatMode !== "game" &&
       dryRunGroupChatMode === "individual" &&
       (chatMode === "conversation" || chatMeta.groupSpeakerNamesInHistory === true);
-    if (shouldPrefixGroupHistorySpeakers) {
+    if (shouldPrefixGroupHistorySpeakers && !deferGroupPromptRegex) {
       const characterNamesById = await resolveCharacterNameMap(allCharacterIds, (id) => chars.getById(id));
       mappedMessages = prefixGroupIndividualHistorySpeakers(mappedMessages, {
         personaName,
@@ -1896,17 +1896,31 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
     if (deferGroupPromptRegex) {
       const regexScripts = await regexScriptsStore.list();
+      const regexSpeakerNames = shouldPrefixGroupHistorySpeakers
+        ? await resolveCharacterNameMap(allCharacterIds, (id) => chars.getById(id))
+        : null;
       finalMessages = scopeIndividualGroupMessagesForTarget(
         finalMessages,
         promptTargetCharacterId,
         [...historyMacroProfilesById].map(([id, profile]) => ({ ...profile, id, mesExample: profile.example })),
-        (history) =>
+        (history) => {
           applyRegexScriptsToPromptMessages(history, regexScripts, {
             resolveMacros: (value, randomSeed) =>
               resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
             targetCharacterId: promptTargetCharacterId,
             targetPromptPresetId: effectivePresetId,
-          }),
+          });
+          if (regexSpeakerNames) {
+            const prefixed = prefixGroupIndividualHistorySpeakers(history, {
+              personaName,
+              characterNamesById: regexSpeakerNames,
+              recipientScoped: true,
+            });
+            history.forEach((message, index) => {
+              message.content = prefixed[index]!.content;
+            });
+          }
+        },
       );
     }
 
