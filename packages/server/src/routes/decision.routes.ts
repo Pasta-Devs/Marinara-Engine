@@ -66,6 +66,9 @@ import { probeDecisionSlot } from "../services/decision/sidecar-decision.backend
 import { sidecarModelService } from "../services/sidecar/sidecar-model.service.js";
 import { utilitySidecarService } from "../services/utility-sidecar/utility-sidecar.service.js";
 
+import { decisionConnectionUnavailable, readSelectedDecisionModel } from "../services/decision/decision-status.js";
+export { decisionConnectionUnavailable } from "../services/decision/decision-status.js";
+
 const slotSchema = z.enum(DECISION_LOCAL_SLOTS);
 const selectSchema = z.object({ id: z.string().trim().max(128).nullable() });
 const thinkingSchema = z.object({ slot: slotSchema, thinking: z.enum(DECISION_THINKING_MODES) });
@@ -104,29 +107,6 @@ function slotModelIdentity(slot: DecisionLocalSlot): string {
   }
   const status = sidecarModelService.getStatus();
   return `primary:${sidecarModelService.getConfiguredModelRef() ?? ""}:${status.modelSize ?? 0}`;
-}
-
-interface DecisionConnectionRowSummary {
-  id: string;
-  credentialsFromConnectionId?: string | null;
-  profileImportReviewRequired?: unknown;
-}
-
-/**
- * Why a Decision connection cannot serve, or null when it can.
- *
- * A borrowed key whose connection is gone cannot sign a request, and copying the key
- * across on deletion would be a silent credential move. One function so the list and
- * the writer cannot drift into disagreeing about what is selectable.
- */
-export function decisionConnectionUnavailable(
-  row: DecisionConnectionRowSummary,
-  rows: DecisionConnectionRowSummary[],
-): "needs_relinking" | null {
-  if (row.profileImportReviewRequired === "true") return "needs_relinking";
-  if (!row.credentialsFromConnectionId) return null;
-  const lender = rows.find((other) => other.id === row.credentialsFromConnectionId);
-  return lender && lender.profileImportReviewRequired !== "true" ? null : "needs_relinking";
 }
 
 function localOption(slot: DecisionLocalSlot, selectedId: string | null): DecisionModelOption {
@@ -392,12 +372,7 @@ export async function decisionRoutes(app: FastifyInstance) {
     return { process: decisionProcessService.getStatus() };
   });
 
-  const readSelected = async (): Promise<string | null> => {
-    const local = await settings.get(DECISION_LOCAL_DEFAULT_SETTINGS_KEY);
-    if (decisionLocalSlotForId(local)) return local;
-    const row = await connections.getDefaultForDecision();
-    return row?.id ?? null;
-  };
+  const readSelected = () => readSelectedDecisionModel(app.db);
 
   /** Every entry the dropdown offers, with the reason for each one it cannot use. */
   app.get("/options", async (): Promise<DecisionModelOptions> => {
