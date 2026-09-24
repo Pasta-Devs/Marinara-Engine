@@ -5419,7 +5419,8 @@ export class MariDbService {
         }
         addCharacterDataShapeIssues(tableName, row, id, issues);
         if (tableName === "agent_configs") {
-          this.validateAgentConfigRow(row, id, issues);
+          const change = changes?.find((entry) => entry.table === tableName && entry.id === id);
+          this.validateAgentConfigRow(row, id, issues, change?.beforeRaw);
         }
         if (tableName === "custom_tools") {
           this.validateCustomToolRow(row, id, issues);
@@ -5476,7 +5477,12 @@ export class MariDbService {
     return validationFromIssues(issues);
   }
 
-  private validateAgentConfigRow(row: Row, idValue: unknown, issues: MariDbValidationIssue[]) {
+  private validateAgentConfigRow(
+    row: Row,
+    idValue: unknown,
+    issues: MariDbValidationIssue[],
+    previousRow?: Row | null,
+  ) {
     const id = idValue == null ? null : String(idValue);
     if (typeof row.type !== "string" || row.type.trim().length === 0) {
       issues.push({ level: "error", table: "agent_configs", id, message: "Agent type must be a non-empty string" });
@@ -5519,7 +5525,15 @@ export class MariDbService {
     }
     const settings = tryParseJsonColumn(row, "settings");
     if (isRecord(settings)) {
-      const activation = customAgentActivationSettingsSchema.safeParse(settings);
+      // Legacy imports/packages accepted arbitrary settings. Validate new values on edits,
+      // preserve the original values on undo, and audit every field in explicit db validate.
+      const previousSettings = previousRow ? tryParseJsonColumn(previousRow, "settings") : undefined;
+      const changedSettings = isRecord(previousSettings)
+        ? Object.fromEntries(
+            Object.entries(settings).filter(([key, value]) => stableJson(value) !== stableJson(previousSettings[key])),
+          )
+        : settings;
+      const activation = customAgentActivationSettingsSchema.safeParse(changedSettings);
       if (!activation.success) {
         for (const issue of activation.error.issues) {
           issues.push({
@@ -5531,8 +5545,8 @@ export class MariDbService {
         }
       }
       if (
-        settings.runInterval !== undefined &&
-        (!Number.isSafeInteger(settings.runInterval) || Number(settings.runInterval) < 1)
+        changedSettings.runInterval !== undefined &&
+        (!Number.isSafeInteger(changedSettings.runInterval) || Number(changedSettings.runInterval) < 1)
       ) {
         issues.push({
           level: "error",
@@ -8229,7 +8243,7 @@ export class MariDbService {
         }
       }
       addCharacterDataShapeIssues(change.table, row, change.id, issues);
-      if (change.table === "agent_configs") this.validateAgentConfigRow(row, change.id, issues);
+      if (change.table === "agent_configs") this.validateAgentConfigRow(row, change.id, issues, change.beforeRaw);
       if (change.table === "custom_tools") this.validateCustomToolRow(row, change.id, issues);
     }
 
