@@ -6,13 +6,17 @@
 // status and the sidecars, so none of that is repeated here. This adds only
 // what health does not carry: process uptime, storage residency detail and
 // whether each capability package runtime is actually live (and its last
-// activation failure in this process).
+// activation failure in this process), memory peaks, the startup build check
+// and the worker gauges.
 // Counts and states only: no row content, no settings values, no connection
 // details. Every section is collected on its own, so one failing source
 // degrades to { error } instead of failing the whole snapshot.
 import { getFileStoreStats } from "../db/connection.js";
 import { capabilityModuleRuntime } from "../services/capability-packages/capability-module-runtime.service.js";
 import { capabilityPackageManager } from "../services/capability-packages/package-manager.service.js";
+import { getRuntimeMemoryPeaks } from "../utils/runtime-memory.js";
+import { getLastBuildIntegrity } from "./build-integrity.js";
+import { sampleWorkerGauges } from "./worker-gauges.js";
 
 const MAX_ERROR_TEXT = 500;
 
@@ -37,6 +41,10 @@ export function collectProcessDiagnostics() {
     node: process.version,
     platform: process.platform,
     uptimeSeconds: Math.round(process.uptime()),
+    // The current memory snapshot is in /api/health; only the peaks are here.
+    memoryPeaks: getRuntimeMemoryPeaks(),
+    // The startup check of dist against its sources (null before it ran).
+    buildIntegrity: getLastBuildIntegrity(),
   };
 }
 
@@ -130,15 +138,18 @@ export async function collectCapabilityPackageDiagnostics() {
 }
 
 export async function collectRuntimeDiagnostics() {
-  const [processInfo, storage, capabilityPackages] = await Promise.all([
+  const [processInfo, storage, capabilityPackages, workers] = await Promise.all([
     section(collectProcessDiagnostics),
     section(collectStorageDiagnostics),
     section(collectCapabilityPackageDiagnostics),
+    // The same samples runtime.memory and runtime.freeze lines carry.
+    section(sampleWorkerGauges),
   ]);
   return {
     generatedAt: new Date().toISOString(),
     process: processInfo,
     storage,
     capabilityPackages,
+    workers,
   };
 }

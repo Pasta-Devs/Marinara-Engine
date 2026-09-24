@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { logger } from "../../lib/logger.js";
 import { logRateLimited } from "../../lib/log-rate-limit.js";
+import { registerWorkerGauge } from "../../lib/worker-gauges.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import {
   clearGenerationInProgress,
@@ -441,8 +442,14 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
     }
   };
 
+  const unregisterGauge = registerWorkerGauge("autonomous", () => ({
+    runningChats: runningChats.size,
+    backedOff: failureBackoffByChat.size,
+  }));
+
   const stop = () => {
     stopped = true;
+    unregisterGauge();
     if (pollTimer) clearTimeout(pollTimer);
     pollTimer = null;
   };

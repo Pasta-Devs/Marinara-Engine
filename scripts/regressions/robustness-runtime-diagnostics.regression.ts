@@ -1,7 +1,8 @@
 // Admin runtime diagnostics: GET /api/admin/runtime-diagnostics is privileged,
 // never cached, carries counts and states only (no row content, no stored
-// secrets) and adds what /api/health leaves out: storage residency and whether
-// each capability package runtime is actually live.
+// secrets) and adds what /api/health leaves out: storage residency, whether
+// each capability package runtime is actually live, memory peaks, the startup
+// build check and the worker gauges.
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -81,6 +82,16 @@ try {
     assert.ok(Array.isArray(body.storage.dirtyTables));
     assert.equal("tables" in body.storage, false, "per-table detail stays out of the reply");
     assert.ok(body.capabilityPackages.counts && Array.isArray(body.capabilityPackages.packages));
+    // Memory peaks, the startup build check (not run under the regression runner) and the worker gauges.
+    assert.ok(body.process.memoryPeaks.peakRssMiB > 0, "memory peaks are reported");
+    assert.equal(typeof body.process.memoryPeaks.peakHeapUsedMiB, "number");
+    assert.equal(body.process.buildIntegrity, null);
+    assert.equal(typeof body.workers.storage?.dirtyTableCount, "number", "the open store registers its gauge");
+    assert.ok(Array.isArray(body.workers.storage?.topTables));
+    assert.ok(
+      body.workers.storage.topTables.every((entry: Record<string, unknown>) => Object.keys(entry).sort().join() === "rows,table"),
+      "the storage gauge carries table names and row counts only",
+    );
     for (const key of ["version", "build", "memory", "sidecars"]) {
       assert.equal(key in body, false, `${key} is served by /api/health, not repeated here`);
     }
@@ -137,6 +148,8 @@ try {
     await app.close();
   }
   assert.equal(getFileStoreStats(), null, "stats are gone once storage closes");
+  const { sampleWorkerGauges } = await import("../../packages/server/src/lib/worker-gauges.js");
+  assert.equal("storage" in sampleWorkerGauges(), false, "the storage gauge is removed when the store closes");
   console.info("Runtime diagnostics regression passed.");
 } finally {
   rmSync(dataDir, { recursive: true, force: true });

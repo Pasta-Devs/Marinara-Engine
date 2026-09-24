@@ -36,7 +36,7 @@ import {
   startConsoleTrayService,
   stopConsoleTrayService,
 } from "./services/console-tray/console-tray.service.js";
-import { startRuntimeMemoryMonitor } from "./utils/runtime-memory.js";
+import { getRuntimeMemoryPeaks, getRuntimeMemorySnapshot, startRuntimeMemoryMonitor } from "./utils/runtime-memory.js";
 
 function isAddressInUseError(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && "code" in err && err.code === "EADDRINUSE";
@@ -78,13 +78,14 @@ async function main() {
   const buildIntegrity = await startup.phase("build.integrity", () => checkBuildIntegrity());
   const tls = await startup.phase("config.tls", () => loadTlsOptions());
   await startup.phase("storage.diagnostics", () => logStorageDiagnostics());
+  // Started before buildApp so the startup memory peak is captured.
+  const stopRuntimeMemoryMonitor = startRuntimeMemoryMonitor();
   const app = await startup.phase("app.build", () => buildApp(tls ?? undefined));
   const envWatcher = startEnvWatcher();
   const protocol = tls ? "https" : getServerProtocol();
   const port = getPort();
   const host = getHost();
   let isShuttingDown = false;
-  let stopRuntimeMemoryMonitor: () => void = () => undefined;
 
   const reapSidecar = () => {
     sidecarProcessService.killCurrentChildForProcessExit();
@@ -167,11 +168,14 @@ async function main() {
   try {
     await startup.phase("http.listen", () => app.listen({ port, host }));
     logger.info(`Marinara Engine server listening on ${protocol}://${host}:${port}`);
-    const ready = { ...startup.summary(), buildStale: buildIntegrity.stale };
+    const ready = {
+      ...startup.summary(),
+      buildStale: buildIntegrity.stale,
+      memory: { ...getRuntimeMemorySnapshot(), ...getRuntimeMemoryPeaks() },
+    };
     logger[buildIntegrity.stale ? "warn" : "info"](ready, "[startup] Ready in %d ms", ready.elapsedMs);
     startFreezeDetector();
     startSessionPostmortem();
-    stopRuntimeMemoryMonitor = startRuntimeMemoryMonitor();
     logCsrfTrustSummary();
     scheduleTaskbarShortcutMigration();
     // Windows only, feature switch "consoleTray": tray icon, and the console hides when minimized.

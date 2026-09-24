@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "child_process";
 import { logger } from "../../lib/logger.js";
 import { runWithRootLogContext } from "../../lib/log-context.js";
+import { registerWorkerGauge } from "../../lib/worker-gauges.js";
 import { createWriteStream, existsSync, readFileSync, writeFileSync, type WriteStream } from "fs";
 import { createServer } from "net";
 import { dirname, join } from "path";
@@ -94,6 +95,17 @@ class SidecarProcessService {
   private manuallyUnloaded = false;
   private syncLock: Promise<void> = Promise.resolve();
   private childErrors = new WeakMap<ChildProcess, Error>();
+
+  /** Cheap numbers for runtime.memory lines (worker gauge "sidecar"). */
+  sampleGauge(): Record<string, unknown> {
+    return {
+      running: this.child ? 1 : 0,
+      ready: this.ready,
+      starting: this.starting,
+      pid: this.child?.pid,
+      crashCount: this.unexpectedCrashCount,
+    };
+  }
 
   isReady(): boolean {
     return this.ready && this.baseUrl !== null;
@@ -960,3 +972,4 @@ class SidecarProcessService {
 }
 
 export const sidecarProcessService = new SidecarProcessService();
+registerWorkerGauge("sidecar", () => sidecarProcessService.sampleGauge());

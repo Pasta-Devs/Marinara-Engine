@@ -31,6 +31,7 @@ import { hostname, networkInterfaces, uptime } from "node:os";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { STORAGE_MIGRATION_NOTICE_SETTINGS_KEY, type StorageMigrationNotice } from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
+import { registerWorkerGauge } from "../lib/worker-gauges.js";
 import {
   getFileStorageDir,
   getMaxResidentChatUnits,
@@ -2437,6 +2438,7 @@ class FileTableStore {
    * orphan swipes resident, and the shard is pathological-tiny by design.
    */
   private loadedUnits = new Set<string>();
+  private unregisterGauge: (() => void) | null = null;
   /**
    * Primary keys whose RESIDENT copy came from a foreign shard file (#5592
    * Phase 2) — per table. The eager loader's dedup rule is "the canonical
@@ -3646,6 +3648,8 @@ class FileTableStore {
   }
 
   private async finishClose() {
+    this.unregisterGauge?.();
+    this.unregisterGauge = null;
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
@@ -5542,6 +5546,23 @@ class FileTableStore {
       void this.flush();
     };
     process.on("beforeExit", this.beforeExitHandler);
+
+    this.unregisterGauge?.();
+    this.unregisterGauge = registerWorkerGauge("storage", () => this.sampleGauge());
+  }
+
+  /** Cheap numbers for runtime.memory and runtime.freeze lines (worker gauge "storage"). */
+  private sampleGauge(): Record<string, unknown> {
+    const topTables = [...this.tables]
+      .map(([table, rows]) => ({ table, rows: rows.length }))
+      .sort((a, b) => b.rows - a.rows)
+      .slice(0, 5);
+    return {
+      residentChatUnits: this.loadedUnits.size,
+      fullyResidentLazyTables: this.getFullyResidentLazyTables().size,
+      dirtyTableCount: this.dirtyTables.size,
+      topTables,
+    };
   }
 }
 
