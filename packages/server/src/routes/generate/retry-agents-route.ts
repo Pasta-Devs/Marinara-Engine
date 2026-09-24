@@ -1018,12 +1018,13 @@ async function buildRetryAgentContext(args: {
   const storedLoreContentById = await storedContentForTextlessScanEntries(rawLorebookScan, (id) =>
     lorebooksStore.getEntry(id),
   );
-  const scanEntryContent = (row: Record<string, unknown>): string | undefined =>
-    typeof row.content === "string"
-      ? row.content
-      : typeof row.id === "string"
-        ? storedLoreContentById.get(row.id)
-        : undefined;
+  // Stored scan text was resolved when it was generated; the stored entry text still holds its macros.
+  const scanEntryContent = (row: Record<string, unknown>): string | undefined => {
+    if (typeof row.content === "string") return row.content;
+    const stored = typeof row.id === "string" ? storedLoreContentById.get(row.id) : undefined;
+    if (stored === undefined) return undefined;
+    return resolveHistoryMessageMacros([{ content: stored, characterId: null }])[0]?.content ?? stored;
+  };
   const activatedLorebookEntries = (
     Array.isArray(rawLorebookScan.activatedEntries) ? rawLorebookScan.activatedEntries : []
   ).flatMap((entry) => {
