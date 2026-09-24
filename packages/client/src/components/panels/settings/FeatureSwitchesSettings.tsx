@@ -19,7 +19,6 @@ export const FEATURE_SWITCHES_CONTROL_ID = "feature-switches";
 
 /** Server switches in display order, each with the number setting it owns (if any). */
 const SERVER_SWITCHES: ReadonlyArray<{ name: FeatureSwitchName; number?: FeatureNumberName }> = [
-  { name: "chatgptHistoryReplay" },
   { name: "cacheFriendlyPromptLayout" },
   { name: "stableLorebookGroupPicks" },
   { name: "providerRetry" },

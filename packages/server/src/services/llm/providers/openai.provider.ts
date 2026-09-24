@@ -36,6 +36,7 @@ import {
   glm53CustomGatewayReasoningEffort,
   isGlm53MandatoryReasoningModel,
 } from "./glm-request-compat.js";
+import { resolveOpenAIChatGPTCacheIdentity } from "./openai-chatgpt-cache.js";
 
 /**
  * Models routed through the Responses API (`/responses`).
@@ -2144,6 +2145,10 @@ export class OpenAIProvider extends BaseLLMProvider {
       ),
       store: false, // don't persist responses on OpenAI side
     };
+    // Cache-friendly prompt layout: a stable per-chat routing key for full-lore requests. The ChatGPT
+    // backend rejects prompt_cache_options and content breakpoints, so it relies on automatic caching.
+    const chatGptCacheIdentity = isOpenAIChatGPT ? resolveOpenAIChatGPTCacheIdentity(messages) : undefined;
+    if (chatGptCacheIdentity) body.prompt_cache_key = `me-lore-${chatGptCacheIdentity}`;
     const shouldStreamResponses =
       !this.isResponsesStreamingUnsupportedModel(options.model) && (isOpenAIChatGPT || (options.stream ?? true));
 

@@ -12,7 +12,6 @@ import { z } from "zod";
 export const FEATURE_SETTINGS_KEY = "features";
 
 export const FEATURE_SWITCH_NAMES = [
-  "chatgptHistoryReplay",
   "cacheFriendlyPromptLayout",
   "stableLorebookGroupPicks",
   "providerRetry",
@@ -24,7 +23,6 @@ export type FeatureSwitchName = (typeof FEATURE_SWITCH_NAMES)[number];
 
 /** Default of each switch when nothing is saved and no environment variable pins it. */
 export const FEATURE_SWITCH_DEFAULTS: Readonly<Record<FeatureSwitchName, boolean>> = {
-  chatgptHistoryReplay: false,
   cacheFriendlyPromptLayout: false,
   stableLorebookGroupPicks: false,
   providerRetry: false,
@@ -48,7 +46,6 @@ const numberSchema = (name: FeatureNumberName) => {
 
 export const featureSettingsSchema = z
   .object({
-    chatgptHistoryReplay: z.boolean().optional(),
     cacheFriendlyPromptLayout: z.boolean().optional(),
     stableLorebookGroupPicks: z.boolean().optional(),
     providerRetry: z.boolean().optional(),

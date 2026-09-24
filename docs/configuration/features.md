@@ -8,7 +8,6 @@ A change applies straight away. You do not need to restart the server or reload 
 
 | Switch                                      | Setting key                 | Default | Environment variable                 |
 | ------------------------------------------- | --------------------------- | ------- | ------------------------------------ |
-| **ChatGPT history replay**                  | `chatgptHistoryReplay`      | Off     |                                      |
 | **Cache-friendly prompt layout**            | `cacheFriendlyPromptLayout` | Off     |                                      |
 | **Stable lorebook picks**                   | `stableLorebookGroupPicks`  | Off     | `LOREBOOK_STABLE_GROUP_WINNERS`      |
 | **Retry failed provider calls**             | `providerRetry`             | Off     | `PROVIDER_RETRY_TRANSIENT_ERRORS`    |
@@ -28,14 +27,6 @@ The API is `GET` and `PUT /api/app-settings/features`. `PUT` replaces the whole 
 
 ## Switches
 
-### ChatGPT history replay
-
-Setting key: `chatgptHistoryReplay`.
-
-On: Game turns on the ChatGPT subscription reuse the previous prompt and send a cache session id, so more of the prompt can be served from the provider cache.
-
-Off: the prompt is rebuilt every turn and no session id is sent.
-
 ### Cache-friendly prompt layout
 
 Setting key: `cacheFriendlyPromptLayout`.
@@ -46,6 +37,7 @@ On:
 
 - **Full lore.** Every enabled lorebook entry in the chat's scope is sent as one fixed `<lore>` block at the very start of the prompt, instead of the entries a keyword scan picks each turn. Keywords, decision statements, probability, timing, depth and the token budget do not select entries in this mode. Entries whose text holds macros, decision blocks included, change from turn to turn, so they are sent in a separate `<lore_dynamic>` block after it, near your message. The `<lore>` block is never trimmed to fit the context.
 - **Per-turn blocks move.** Blocks that change every turn (recalled memories, the chat summary when no preset places it, cross-chat awareness, recent social activity) are sent next to your message instead of in the system prompt.
+- On ChatGPT, only the `<lore>` block is sent as instructions, and requests for the same chat share a cache session (a `session-id` header and a `prompt_cache_key` derived from the chat id), so they reach the same cache.
 - On Claude (Subscription), the fixed part goes before the Agent SDK's cache boundary and a cache marker is kept on the last finished reply, so the next turn reads the whole history from the cache.
 
 A chat can keep the keyword lore scan with the chat metadata value `fullLorebookContext: false`.

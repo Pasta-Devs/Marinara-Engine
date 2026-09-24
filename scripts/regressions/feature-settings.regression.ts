@@ -36,7 +36,6 @@ try {
   assert.deepEqual([...FEATURE_SWITCH_NAMES].sort(), [
     "backgroundCallCap",
     "cacheFriendlyPromptLayout",
-    "chatgptHistoryReplay",
     "consoleTray",
     "generationJobTracking",
     "providerRetry",
@@ -102,21 +101,21 @@ try {
   const db = await getDB();
   const storage = createAppSettingsStorage(db);
   // A value saved before startup is loaded when the routes register.
-  await storage.set(FEATURE_SETTINGS_KEY, JSON.stringify({ chatgptHistoryReplay: true }));
+  await storage.set(FEATURE_SETTINGS_KEY, JSON.stringify({ cacheFriendlyPromptLayout: true }));
   resetFeatureSettingsForTests();
-  assert.equal(isFeatureEnabled("chatgptHistoryReplay"), false);
+  assert.equal(isFeatureEnabled("cacheFriendlyPromptLayout"), false);
 
   const fastify = Fastify();
   fastify.decorate("db", db);
   await fastify.register(appSettingsRoutes, { prefix: "/api/app-settings" });
   app = fastify as unknown as TestApp;
   await app.ready();
-  assert.equal(isFeatureEnabled("chatgptHistoryReplay"), true, "startup primes the cache");
+  assert.equal(isFeatureEnabled("cacheFriendlyPromptLayout"), true, "startup primes the cache");
 
   const read = await app.inject({ method: "GET", url: "/api/app-settings/features" });
   assert.equal(read.statusCode, 200);
   assert.deepEqual(read.json(), {
-    settings: { chatgptHistoryReplay: true },
+    settings: { cacheFriendlyPromptLayout: true },
     envOverrides: {},
     effective: {},
     unavailable: process.platform === "win32" ? {} : { consoleTray: "windowsOnly" },
@@ -130,7 +129,7 @@ try {
   assert.equal(saved.statusCode, 200);
   assert.deepEqual(saved.json().settings, { backgroundCallCap: true, backgroundCallsPerHour: 120 });
   assert.equal(isFeatureEnabled("backgroundCallCap"), true, "a save takes effect at once");
-  assert.equal(isFeatureEnabled("chatgptHistoryReplay"), false, "omitted keys return to the default (off)");
+  assert.equal(isFeatureEnabled("cacheFriendlyPromptLayout"), false, "omitted keys return to the default (off)");
   assert.equal(getFeatureNumber("backgroundCallsPerHour"), 120);
   assert.equal(JSON.parse((await storage.get(FEATURE_SETTINGS_KEY))!).backgroundCallCap, true, "persisted");
 
