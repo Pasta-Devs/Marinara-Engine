@@ -216,6 +216,7 @@ export function readProposedRulesetSheet(
     }
     const fedByACatalog = (definition.catalogs ?? []).some((catalog) => catalog.feeds?.includes(list.id));
     const kept: Array<Record<string, SheetScalar>> = [];
+    let overflow = false;
     for (const row of Array.isArray(rows) ? rows : []) {
       if (!row || typeof row !== "object") continue;
       const own: Record<string, SheetScalar> = {};
@@ -239,6 +240,11 @@ export function readProposedRulesetSheet(
           }
         : own;
       if (list.columns.some((column) => column.required && built[column.id] === undefined)) continue;
+      // Past the list's own limit a row is not kept, so it brings no companion and is named in no line.
+      if (kept.length >= list.maxItems) {
+        overflow = true;
+        continue;
+      }
       // A spell the Game Master named is one it has ready: in a list whose rows count only once they
       // are chosen, naming the entry is choosing it.
       const chosenBy = found ? readyColumnOf(definition, list.id) : undefined;
@@ -250,10 +256,7 @@ export function readProposedRulesetSheet(
       }
       kept.push(built);
     }
-    if (kept.length > list.maxItems) {
-      adjusted.push(`Only the first ${list.maxItems} rows of ${list.label} were kept.`);
-      kept.length = list.maxItems;
-    }
+    if (overflow) adjusted.push(`Only the first ${list.maxItems} rows of ${list.label} were kept.`);
     if (kept.length > 0) sheet.lists[listId] = kept;
   }
 

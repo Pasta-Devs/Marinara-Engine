@@ -1189,6 +1189,42 @@ const spellbook = parsedOrThrow(
     [["Second Effort", 1, "feats/second-effort"]],
     "the counter came with the feature",
   );
+  // A row past its list's limit is not kept, so it brings no counter and is named in no line.
+  const features = fiveE.sheet.lists.find((list) => list.id === "features")!;
+  const featureLimit = features.maxItems;
+  const crowdedFight = started({
+    definition: fiveE,
+    cards: [card("Brenna", fighterBuild())],
+    party: [{ id: "brenna", name: "Brenna" }],
+    enemies: [
+      {
+        id: "crowded",
+        name: "Road Crowd",
+        tier: "cr_1",
+        proposed: {
+          tier: "cr_1",
+          sheet: {
+            fields: { level: 3, hp_max: 30 },
+            lists: {
+              features: [
+                ...Array.from({ length: featureLimit }, (_, index) => ({ name: `Knack ${index}`, text: "A habit." })),
+                { name: "second effort" },
+              ],
+            },
+          },
+        },
+      },
+    ],
+  }).rulesetFight!;
+  const crowdedSheet = who(crowdedFight.encounter, "crowded").sheet!.build;
+  assert.equal(crowdedSheet.lists.features?.length, featureLimit);
+  assert.equal(crowdedSheet.lists.counters, undefined, "the feature past the limit brought no counter");
+  assert.ok(
+    crowdedFight.adjustments.includes(
+      `Road Crowd: Only the first ${featureLimit} rows of ${features.label} were kept.`,
+    ),
+    crowdedFight.adjustments.join("; "),
+  );
 
   // A rider the round counts is shaved like any other amount on it, or a heavy one would leave the
   // round over the cap with the weapon already at its least.
