@@ -32,15 +32,24 @@ export const engineProcess = (port = PORT) => listenerProcess(port);
 
 // ------------------------------------------------------------------ lock
 
+const LOCK_STALE_MS = 45 * 60_000;
+
 export function readLock() {
   if (!existsSync(LOCK_FILE)) return null;
   try {
     const lock = JSON.parse(readFileSync(LOCK_FILE, "utf8"));
     // A lock older than 45 minutes is abandoned (a crashed agent), not held.
-    if (Date.now() - Date.parse(lock.at) > 45 * 60_000) return { ...lock, stale: true };
+    if (!(Date.now() - Date.parse(lock.at) <= LOCK_STALE_MS)) return { ...lock, stale: true };
     return lock;
   } catch {
-    return null;
+    // An unreadable lock (a write cut short) is judged by its file time, so it neither frees the lock at once nor
+    // blocks it forever.
+    try {
+      const at = statSync(LOCK_FILE).mtimeMs;
+      return { agent: "unknown (unreadable lock file)", at: new Date(at).toISOString(), purpose: "unknown", stale: Date.now() - at > LOCK_STALE_MS };
+    } catch {
+      return null;
+    }
   }
 }
 
