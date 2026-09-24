@@ -563,6 +563,39 @@ Importar un archivo de configuración restaura una Experience instalada y compat
 
 Usa de forma independiente la declaración existente de disponibilidad de inicio cuando el mundo deba prepararse antes del primer turno. Declara API 1.18 como mínimo del paquete; los hosts anteriores no pueden interpretar esta declaración de configuración.
 
+### Capability API 1.36: logros de los paquetes
+
+Un paquete con el nuevo permiso `achievements` puede añadir insignias al panel **Achievements** (Logros) de la pantalla de inicio, consultar si están desbloqueadas y desbloquearlas. El panel las muestra en una sección cuyo encabezado es el nombre del paquete, después de las insignias propias de Engine.
+
+```ts
+export async function activate({ api }) {
+  api.registerAchievements([
+    { id: "first_run", title: "First Run", description: "Ran the package once.", iconPath: "art/first-run.png" },
+    {
+      id: "ten_runs",
+      title: "Regular",
+      description: "Ran the package ten times.",
+      target: 10,
+      readProgress: () => runs,
+    },
+  ]);
+  // Later, when the package decides a badge is earned:
+  if (await api.runtime.achievements.unlock("first_run")) celebrate();
+}
+```
+
+Reglas que conviene conocer:
+
+- Los identificadores usan el espacio de nombres `<packageId>.<id>`. Los identificadores integrados no contienen ningún punto, por lo que no pueden entrar en conflicto con los del paquete. El host acepta el identificador local o el que incluye el espacio de nombres, y rechaza cualquier identificador que el propio paquete no haya registrado.
+- `unlock(id)` se resuelve con `true` solo para la llamada que haya desbloqueado la insignia. `isUnlocked(id)` y `list()` consultan el estado; `list()` devuelve las insignias propias del paquete con su progreso.
+- El recuento queda a cargo del paquete. Una insignia por niveles define `target` y un callback `readProgress`: ambos o ninguno. Engine la desbloquea en la misma pasada que sus propias insignias por niveles cuando el recuento alcanza la meta. Guarda el contador en el host de persistencia. Si un callback lanza una excepción o no se resuelve en **2 segundos**, se informa de un valor cero y se registra el problema. Al igual que con las herramientas, esto solo limita las esperas asíncronas: el trabajo síncrono que bloquea el bucle de eventos no se puede interrumpir.
+- `iconPath` es una ruta dentro del directorio raíz de recursos del paquete, que se sirve desde la ruta de recursos del paquete. Una tarjeta bloqueada sigue mostrando el candado. Si la imagen no se carga, la tarjeta recurre a `icon` (por defecto, `trophy`).
+- `title` y `description` son el texto que se muestra. Un paquete de idioma puede sustituirlos mediante `capabilityAchievements.<packageId>.<id>.title` y `.description`.
+- Como máximo, **32 insignias por paquete**. Un lote con una sola entrada no válida no registra nada.
+- Desactivar o eliminar el paquete oculta sus insignias. Los desbloqueos se conservan, igual que los de las insignias propias de Engine, y vuelven a mostrarse cuando el paquete regresa.
+
+`api.registerAchievements` y `api.runtime.achievements` solo existen en un Engine de esta versión o posterior, así que un paquete que los utilice declara `capabilityApi` 1.36.
+
 ### Capability API 1.34: una criatura escrita en los términos del conjunto
 
 Una criatura de bestiario puede incluir `sheet`: una ficha expresada en los términos del conjunto, tan parcial como se desee. El combate la construye igual que la de un miembro del grupo: salud, defensa, salvaciones, iniciativa, velocidad y capacidades de sus listas proceden de las declaraciones del conjunto y se pagan con sus propias reservas. No declara además `health`, `defense`, `initiativeModifier`, `speed`, `abilities` ni `saves`, y puede no tener acciones de bloque propias:

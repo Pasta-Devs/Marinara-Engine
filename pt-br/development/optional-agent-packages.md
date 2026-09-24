@@ -564,6 +564,39 @@ A importação de um arquivo de configuração restaura uma Experience instalada
 
 Use a declaração existente de prontidão para inicialização de forma independente quando o mundo precisar estar preparado antes do primeiro turno. Declare API 1.18 como mínimo do pacote; hosts anteriores não conseguem interpretar essa declaração de configuração.
 
+### Capability API 1.36: conquistas dos pacotes
+
+Um pacote com a nova permissão `achievements` pode adicionar medalhas ao painel **Achievements** (conquistas) da tela inicial, consultar se estão desbloqueadas e desbloqueá-las. O painel as mostra em uma seção com o nome do pacote como título, depois das medalhas do próprio Engine.
+
+```ts
+export async function activate({ api }) {
+  api.registerAchievements([
+    { id: "first_run", title: "First Run", description: "Ran the package once.", iconPath: "art/first-run.png" },
+    {
+      id: "ten_runs",
+      title: "Regular",
+      description: "Ran the package ten times.",
+      target: 10,
+      readProgress: () => runs,
+    },
+  ]);
+  // Later, when the package decides a badge is earned:
+  if (await api.runtime.achievements.unlock("first_run")) celebrate();
+}
+```
+
+Regras que vale a pena conhecer:
+
+- Os IDs usam o espaço de nomes `<packageId>.<id>`. Um ID integrado não contém ponto, então os dois não podem entrar em conflito. O host aceita o ID local ou o que inclui o espaço de nomes e recusa qualquer ID que o próprio pacote não tenha registrado.
+- `unlock(id)` resolve com `true` apenas para a chamada que desbloqueou a medalha. `isUnlocked(id)` e `list()` leem o estado; `list()` retorna as medalhas do próprio pacote com o progresso.
+- A contagem fica a cargo do pacote. Uma medalha graduada define `target` e um callback `readProgress`: ambos ou nenhum. Engine a desbloqueia na mesma passagem em que verifica suas próprias medalhas graduadas, assim que a contagem atinge a meta. Mantenha o contador no host de persistência. Se um callback lançar uma exceção ou não concluir em **2 segundos**, o valor informado será zero e o problema será registrado. Assim como nas ferramentas, isso limita apenas as esperas assíncronas: o trabalho síncrono que bloqueia o loop de eventos não pode ser interrompido.
+- `iconPath` é um caminho dentro do diretório raiz de recursos do pacote, servido pela rota de recursos do pacote. Um card bloqueado continua mostrando o cadeado. Se a imagem não carregar, o card usa `icon` como alternativa (`trophy` por padrão).
+- `title` e `description` são os textos exibidos. Um pacote de idioma pode substituí-los por meio de `capabilityAchievements.<packageId>.<id>.title` e `.description`.
+- No máximo **32 medalhas por pacote**. Um lote com uma única entrada inválida não registra nada.
+- Desativar ou remover o pacote oculta suas medalhas. Os desbloqueios são mantidos, como os das medalhas do próprio Engine, e voltam a aparecer quando o pacote retorna.
+
+`api.registerAchievements` e `api.runtime.achievements` só existem em um Engine desta versão ou de uma versão mais recente, então um pacote que os utiliza declara `capabilityApi` 1.36.
+
 ### Capability API 1.34: uma criatura escrita nos termos do conjunto
 
 Uma criatura de bestiário pode conter `sheet`: uma ficha nos termos do conjunto, tão parcial quanto necessário. A luta a constrói como a de um membro do grupo: saúde, defesa, salvaguardas, iniciativa, velocidade e habilidades das listas vêm das declarações do conjunto e são pagas com suas próprias reservas. Ela não declara também `health`, `defense`, `initiativeModifier`, `speed`, `abilities` nem `saves`, e pode não ter ações de bloco próprias:

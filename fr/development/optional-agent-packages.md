@@ -564,6 +564,39 @@ L'importation d'un fichier de configuration restaure une Experience installée e
 
 Utilise indépendamment la déclaration existante de disponibilité au démarrage lorsque le monde doit être préparé avant le premier tour. Déclare API 1.18 comme minimum du package ; les hôtes plus anciens ne savent pas interpréter cette déclaration de configuration.
 
+### Capability API 1.36 : les succès des packages
+
+Un package disposant du nouveau droit `achievements` peut ajouter des badges au panneau **Achievements** (succès) de l'écran d'accueil, consulter leur état de déblocage et les débloquer. Le panneau les affiche dans une section portant le nom du package, après les badges propres à Engine.
+
+```ts
+export async function activate({ api }) {
+  api.registerAchievements([
+    { id: "first_run", title: "First Run", description: "Ran the package once.", iconPath: "art/first-run.png" },
+    {
+      id: "ten_runs",
+      title: "Regular",
+      description: "Ran the package ten times.",
+      target: 10,
+      readProgress: () => runs,
+    },
+  ]);
+  // Later, when the package decides a badge is earned:
+  if (await api.runtime.achievements.unlock("first_run")) celebrate();
+}
+```
+
+Quelques règles à connaître :
+
+- Les identifiants utilisent l'espace de noms `<packageId>.<id>`. Un identifiant intégré ne contient aucun point : les deux ne peuvent donc pas entrer en conflit. L'hôte accepte l'identifiant local ou celui qui inclut l'espace de noms et refuse tout identifiant que le package n'a pas enregistré lui-même.
+- `unlock(id)` se résout avec `true` uniquement pour l'appel qui a débloqué le badge. `isUnlocked(id)` et `list()` lisent l'état ; `list()` renvoie les badges propres au package avec leur progression.
+- Le comptage reste à la charge du package. Un badge à paliers définit `target` et un callback `readProgress` : les deux ou aucun. Engine le débloque lors du même passage que ses propres badges à paliers une fois le compteur arrivé à l'objectif. Conserve le compteur dans l'hôte de persistance. Si un callback lève une exception ou ne se termine pas dans les **2 secondes**, la valeur signalée est zéro et le problème est journalisé. Comme pour les outils, cette limite ne concerne que les attentes asynchrones : un traitement synchrone qui bloque la boucle d'événements ne peut pas être interrompu.
+- `iconPath` est un chemin à l'intérieur du répertoire racine des ressources du package, servi par la route des ressources du package. Une carte verrouillée affiche toujours le cadenas. Si l'illustration ne se charge pas, la carte utilise `icon` en remplacement (`trophy` par défaut).
+- `title` et `description` sont les textes affichés. Un pack de langue peut les remplacer au moyen de `capabilityAchievements.<packageId>.<id>.title` et `.description`.
+- Au maximum **32 badges par package**. Un lot contenant une seule entrée invalide n'enregistre rien.
+- Désactiver ou supprimer le package masque ses badges. Les déblocages sont conservés, comme ceux des badges propres à Engine, et réapparaissent au retour du package.
+
+`api.registerAchievements` et `api.runtime.achievements` n'existent que dans un Engine de cette version ou d'une version ultérieure : un package qui les utilise déclare donc `capabilityApi` 1.36.
+
 ### Capability API 1.34 : une créature écrite dans les termes de l'ensemble de règles
 
 Une créature de bestiaire peut porter `sheet` : une fiche dans les termes de l'ensemble de règles, aussi partielle que souhaité. Le combat la construit comme celle d'un membre du groupe : santé, défense, sauvegardes, initiative, vitesse et capacités des listes proviennent des déclarations de l'ensemble et sont payées avec ses propres réserves. Elle ne déclare pas en plus `health`, `defense`, `initiativeModifier`, `speed`, `abilities` ou `saves`, et peut n'avoir aucune action de bloc propre :

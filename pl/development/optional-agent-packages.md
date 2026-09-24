@@ -556,9 +556,42 @@ Deklarowanie `ranged`, `cover`, `opportunity` albo zasięgu broni BEZ `distance`
 
 To nie jest miękki interfejs, jak w 1.20-1.27: Engine nieznający kluczy odrzuca cały plik zasad albo katalog ze stworzeniem o podwójnym zasięgu. Instalacja czyta zweryfikowane bajty `ruleset.json` i wszystkich zadeklarowanych `catalogs/<id>.json`, odrzucając starszą deklarację. Bez zmian dla zestawu bez odległości.
 
+### Capability API 1.36: osiągnięcia pakietów
+
+Pakiet z nowym uprawnieniem `achievements` może dodawać odznaki do panelu **Achievements** (osiągnięcia) na ekranie głównym, odczytywać, czy są odblokowane, i je odblokowywać. Panel pokazuje je w sekcji z nazwą pakietu w nagłówku, za odznakami samej aplikacji Marinara Engine.
+
+```ts
+export async function activate({ api }) {
+  api.registerAchievements([
+    { id: "first_run", title: "First Run", description: "Ran the package once.", iconPath: "art/first-run.png" },
+    {
+      id: "ten_runs",
+      title: "Regular",
+      description: "Ran the package ten times.",
+      target: 10,
+      readProgress: () => runs,
+    },
+  ]);
+  // Later, when the package decides a badge is earned:
+  if (await api.runtime.achievements.unlock("first_run")) celebrate();
+}
+```
+
+Zasady, które warto znać:
+
+- Identyfikatory otrzymują przestrzeń nazw `<packageId>.<id>`. Wbudowany identyfikator nie zawiera kropki, więc nie może dojść do kolizji. Host przyjmuje identyfikator lokalny lub z przestrzenią nazw i odrzuca każdy identyfikator, którego pakiet sam nie zarejestrował.
+- `unlock(id)` zwraca po zakończeniu `true` tylko dla wywołania, które odblokowało odznakę. `isUnlocked(id)` i `list()` odczytują stan; `list()` zwraca własne odznaki pakietu wraz z postępem.
+- Za zliczanie odpowiada pakiet. Odznaka z rangą ustawia `target` i funkcję zwrotną `readProgress` – oba albo żadne. Aplikacja Marinara Engine odblokowuje ją podczas tego samego przebiegu co własne odznaki z rangami, gdy licznik osiągnie cel. Przechowuj licznik w hoście trwałego zapisu. Funkcja zwrotna, która zgłosi wyjątek lub nie zakończy się w ciągu **2 sekund**, zgłasza zero, a zdarzenie trafia do dziennika. Tak jak w przypadku narzędzi, limit obejmuje wyłącznie oczekiwanie asynchroniczne: pracy synchronicznej blokującej pętlę zdarzeń nie da się przerwać.
+- `iconPath` to ścieżka wewnątrz katalogu głównego zasobów pakietu, udostępniana przez trasę zasobów pakietu. Zablokowana karta nadal pokazuje kłódkę. Jeśli grafika się nie wczyta, karta używa `icon` (domyślnie `trophy`).
+- `title` i `description` to wyświetlany tekst. Pakiet językowy może je zastąpić przez `capabilityAchievements.<packageId>.<id>.title` i `.description`.
+- Maksymalnie **32 odznaki na pakiet**. Partia zawierająca choć jeden nieprawidłowy wpis nie rejestruje niczego.
+- Dezaktywacja lub usunięcie pakietu ukrywa jego odznaki. Odblokowania zostają zapisane, tak jak w przypadku własnych odznak aplikacji Marinara Engine, i pojawiają się ponownie po powrocie pakietu.
+
+`api.registerAchievements` i `api.runtime.achievements` są dostępne dopiero w tak nowej wersji aplikacji Marinara Engine, więc korzystający z nich pakiet deklaruje `capabilityApi` 1.36.
+
 ### Capability API 1.34: stworzenie opisane zasadami zestawu
 
-Stworzenie bestiariusza może mieć `sheet`: dowolnie częściowy arkusz w kategoriach zestawu. Walka buduje go jak członka drużyny, więc zdrowie, obrona, rzuty obronne, inicjatywa, szybkość i zdolności list pochodzą z deklaracji zestawu, a koszty z własnych pul. Obok arkusza nie podaje wtedy `health`, `defense`, `initiativeModifier`, `speed`, `abilities` ani `saves` i nie może mieć własnych akcji bloku:
+Stworzenie bestiariusza może mieć `sheet`: dowolnie częściowy arkusz w kategoriach zestawu. Walka buduje go jak członka drużyny, więc zdrowie, obrona, rzuty obronne, inicjatywa, szybkość i zdolności list pochodzą z deklaracji zestawu, a koszty z własnych pul. Obok arkusza nie podaje wtedy `health`, `defense`, `initiativeModifier`, `speed`, `abilities` ani `saves` i nie musi mieć własnych akcji bloku:
 
 ```json
 {

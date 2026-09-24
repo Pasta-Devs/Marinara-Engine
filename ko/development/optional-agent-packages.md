@@ -572,9 +572,42 @@ Engine 전투와 데이터를 연결하는 기능이며 완전한 테이블톱 �
 
 첫 턴 전에 월드를 준비해야 한다면 기존 시작 준비 선언을 별도로 사용하세요. 패키지의 최소 버전으로 API 1.18을 선언하세요. 이전 호스트는 이 설정 선언을 해석하지 못합니다.
 
+### Capability API 1.36: 패키지 업적
+
+새로운 `achievements` 권한이 있는 패키지는 홈의 **Achievements**(업적) 패널에 배지를 추가하고, 열렸는지 확인하고, 직접 열 수 있습니다. 패널에서는 Engine 자체 배지 뒤에 패키지 이름을 제목으로 한 섹션에 표시합니다.
+
+```ts
+export async function activate({ api }) {
+  api.registerAchievements([
+    { id: "first_run", title: "First Run", description: "Ran the package once.", iconPath: "art/first-run.png" },
+    {
+      id: "ten_runs",
+      title: "Regular",
+      description: "Ran the package ten times.",
+      target: 10,
+      readProgress: () => runs,
+    },
+  ]);
+  // Later, when the package decides a badge is earned:
+  if (await api.runtime.achievements.unlock("first_run")) celebrate();
+}
+```
+
+알아 두어야 할 규칙은 다음과 같습니다.
+
+- ID에는 `<packageId>.<id>` 네임스페이스가 붙습니다. 기본 제공 ID에는 점이 없으므로 서로 충돌하지 않습니다. 호스트는 로컬 ID와 네임스페이스가 붙은 ID를 모두 받으며, 패키지가 직접 등록하지 않은 ID는 거부합니다.
+- `unlock(id)`는 배지를 실제로 연 호출에만 `true`를 반환합니다. `isUnlocked(id)`와 `list()`는 상태를 읽으며, `list()`는 패키지 자체 배지를 진행 상황과 함께 반환합니다.
+- 개수 집계는 패키지가 담당합니다. 등급제 배지는 `target`과 `readProgress` 콜백을 둘 다 설정하거나 둘 다 생략합니다. 개수가 목표에 도달하면 Engine이 자체 등급제 배지를 확인하는 같은 처리 과정에서 업적을 엽니다. 카운터는 영속성 호스트에 보관하세요. 콜백이 예외를 던지거나 **2초** 안에 완료되지 않으면 0으로 보고하고 로그에 기록합니다. 도구와 마찬가지로 이 제한은 비동기 대기에만 적용됩니다. 이벤트 루프를 막는 동기 작업은 중단할 수 없습니다.
+- `iconPath`는 패키지 자산 루트 안의 경로이며 패키지 자산 라우트에서 제공합니다. 잠긴 카드에는 계속 자물쇠가 표시됩니다. 이미지를 불러오지 못하면 `icon`으로 대체합니다(기본값은 `trophy`).
+- `title`과 `description`은 표시할 텍스트입니다. 언어 팩에서 `capabilityAchievements.<packageId>.<id>.title`과 `.description`으로 덮어쓸 수 있습니다.
+- **패키지당 배지는 최대 32개**입니다. 일괄 등록에 잘못된 항목이 하나라도 있으면 아무것도 등록하지 않습니다.
+- 패키지를 비활성화하거나 제거하면 배지가 숨겨집니다. Engine 자체 배지처럼 업적을 연 기록은 유지되며, 패키지가 돌아오면 다시 표시됩니다.
+
+`api.registerAchievements`와 `api.runtime.achievements`는 이 API를 지원하는 새로운 Engine에만 있으므로, 이를 사용하는 패키지는 `capabilityApi` 1.36을 선언합니다.
+
 ### Capability API 1.34: 규칙 집합 자체 형식으로 작성한 생물
 
-도감 생물은 규칙 집합 자체 형식의 캐릭터 시트인 `sheet`를 가질 수 있으며 필요한 부분만 채워도 됩니다. 전투는 동료와 똑같이 구성하므로 체력, 방어, 내성, 우선권, 속도, 목록의 능력은 규칙 집합 선언에서 가져오고 자체 풀로 지불합니다. 이 경우 시트 옆에 `health`, `defense`, `initiativeModifier`, `speed`, `abilities`, `saves`를 주지 않으며 자체 블록 행동도 가질 수 없습니다.
+도감 생물은 규칙 집합 자체 형식의 캐릭터 시트인 `sheet`를 가질 수 있으며 필요한 부분만 채워도 됩니다. 전투는 동료와 똑같이 구성하므로 체력, 방어, 내성, 우선권, 속도, 목록의 능력은 규칙 집합 선언에서 가져오고 자체 풀로 지불합니다. 이 경우 시트 옆에 `health`, `defense`, `initiativeModifier`, `speed`, `abilities`, `saves`를 주지 않으며 자체 블록 행동은 생략할 수 있습니다.
 
 ```json
 {

@@ -54,6 +54,16 @@ Algunas notas sobre la lista:
 - Los logros de **Collection** cuentan todo lo de ese tipo en tu biblioteca. Los elementos importados y descargados también cuentan, no solo los que creas tú. Para **Hoarder**, el personaje integrado Professor Mari es la única excepción: nunca cuenta.
 - Para los logros de comunidad, basta con visitar el enlace. No necesitas registrarte ni terminar nada en el otro sitio.
 
+## Logros de los agentes
+
+Los agentes instalados pueden añadir sus propios logros. Estos aparecen en la misma ventana **Achievements**, después de los integrados, bajo un encabezado como **From Noodle** (De Noodle). La sección solo aparece para los agentes que hayan añadido logros.
+
+Los logros de un agente siguen las mismas reglas que los integrados. Empiezan bloqueados, algunos tienen una barra de progreso y recibes el mismo aviso emergente cuando se desbloquea uno. Un agente puede mostrar sus propias imágenes de insignias en las tarjetas desbloqueadas.
+
+Si eliminas un agente, su sección desaparece. Tus desbloqueos se conservan. Si vuelves a instalar el agente, sus logros desbloqueados vuelven a aparecer como desbloqueados.
+
+El contador en la parte superior de la ventana incluye los logros de los agentes que tienes instalados.
+
 ## El ajuste de logros
 
 Puedes activar o desactivar toda la función con un solo interruptor. Abre **Settings** (Configuración), ve a la pestaña **General** y busca la sección **App Behavior** (Comportamiento de la app). El interruptor se llama **Achievements**, y está activado de forma predeterminada.

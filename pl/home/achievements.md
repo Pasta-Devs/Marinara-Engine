@@ -54,6 +54,16 @@ Kilka uwag do tej listy:
 - Osiągnięcia z kategorii **Collection** liczą wszystkie elementy danego typu w bibliotece. Liczą się także rzeczy zaimportowane i pobrane, nie tylko zrobione samodzielnie. Przy odznace **Hoarder** jest jeden wyjątek: wbudowana postać Professor Mari nigdy się nie liczy.
 - W przypadku osiągnięć społecznościowych wystarczy samo odwiedzenie linku. Nie trzeba się rejestrować ani niczego kończyć w drugim serwisie.
 
+## Osiągnięcia od agentów
+
+Zainstalowani agenci mogą dodawać własne osiągnięcia. Pojawiają się one w tym samym oknie **Achievements**, za osiągnięciami wbudowanymi, pod nagłówkiem takim jak **From Noodle** (od agenta Noodle). Taka sekcja pojawia się tylko dla agentów, którzy dodali osiągnięcia.
+
+Osiągnięcia agenta działają według tych samych zasad co wbudowane. Początkowo są zablokowane, niektóre mają pasek postępu, a po odblokowaniu pojawia się takie samo podręczne powiadomienie. Agent może pokazywać własną grafikę odznaki na odblokowanych kartach.
+
+Jeśli usuniesz agenta, jego sekcja zniknie. Odblokowane osiągnięcia zostają zapisane. Jeśli ponownie zainstalujesz agenta, zdobyte wcześniej osiągnięcia znów będą widoczne jako odblokowane.
+
+Licznik na górze okna uwzględnia osiągnięcia zainstalowanych agentów.
+
 ## Ustawienie Achievements
 
 Całą funkcję włącza i wyłącza jeden przełącznik. Otwórz panel **Settings** (Ustawienia), przejdź na zakładkę **General** i znajdź sekcję **App Behavior**. Przełącznik nosi nazwę **Achievements** i domyślnie jest włączony.

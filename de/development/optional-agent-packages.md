@@ -567,9 +567,42 @@ Der `combat`-Block kann über `distance: { label, perCell }` den Wert eines Feld
 
 Wie 1.20 bis 1.27 ist dies keine weiche Schnittstelle: Unbekannte Schlüssel lassen die ganze Regelsatzdatei oder den Katalog mit einer Kreatur und zweiteiliger Reichweite scheitern. Die Installation prüft die verifizierten Bytes von `ruleset.json` und jeder deklarierten Datei `catalogs/<id>.json` und lehnt sie unter älterer Deklaration ab. Ohne Entfernungsangaben ändert sich nichts.
 
+### Capability API 1.36: Errungenschaften aus Paketen
+
+Ein Paket mit der neuen Berechtigung `achievements` kann dem Panel **Achievements** (Errungenschaften) auf dem Home-Bildschirm Abzeichen hinzufügen, ihren Freischaltstatus lesen und sie freischalten. Das Panel zeigt sie nach den Engine-eigenen Abzeichen in einem Abschnitt mit dem Paketnamen als Überschrift.
+
+```ts
+export async function activate({ api }) {
+  api.registerAchievements([
+    { id: "first_run", title: "First Run", description: "Ran the package once.", iconPath: "art/first-run.png" },
+    {
+      id: "ten_runs",
+      title: "Regular",
+      description: "Ran the package ten times.",
+      target: 10,
+      readProgress: () => runs,
+    },
+  ]);
+  // Later, when the package decides a badge is earned:
+  if (await api.runtime.achievements.unlock("first_run")) celebrate();
+}
+```
+
+Diese Regeln solltest du kennen:
+
+- IDs erhalten den Namensraum `<packageId>.<id>`. Eine mitgelieferte ID enthält keinen Punkt, sodass die beiden nicht kollidieren können. Der Host akzeptiert die lokale ID oder die ID mit Namensraum und lehnt jede ID ab, die das Paket nicht selbst registriert hat.
+- `unlock(id)` liefert nur bei dem Aufruf `true`, der das Abzeichen freigeschaltet hat. `isUnlocked(id)` und `list()` lesen den Zustand; `list()` liefert die eigenen Abzeichen des Pakets samt Fortschritt.
+- Den Zähler verwaltet das Paket. Ein Abzeichen mit Zielwert deklariert `target` und einen Callback `readProgress` – entweder beide Angaben oder keine von beiden. Sobald der Zähler den Zielwert erreicht, schaltet die Engine das Abzeichen im selben Durchlauf wie ihre eigenen gestuften Abzeichen frei. Bewahre den Zähler im Persistenz-Host auf. Ein Callback, der einen Fehler auslöst oder nicht innerhalb von **2 Sekunden** abschließt, meldet null und wird protokolliert. Wie bei Tools begrenzt das nur asynchrones Warten: Synchrone Arbeit, die die Ereignisschleife blockiert, lässt sich nicht unterbrechen.
+- `iconPath` ist ein Pfad innerhalb des Asset-Stammverzeichnisses des Pakets und wird über die Route für Paket-Assets ausgeliefert. Eine gesperrte Karte zeigt weiterhin das Schloss. Lädt das Bild nicht, verwendet die Karte stattdessen `icon` (Standard: `trophy`).
+- `title` und `description` sind die Anzeigetexte. Ein Sprachpaket kann sie über `capabilityAchievements.<packageId>.<id>.title` und `.description` überschreiben.
+- Höchstens **32 Abzeichen pro Paket**. Enthält eine Registrierungsgruppe auch nur einen ungültigen Eintrag, wird keiner ihrer Einträge registriert.
+- Deaktivieren oder Entfernen des Pakets blendet seine Abzeichen aus. Freischaltungen bleiben wie bei den Engine-eigenen Abzeichen erhalten und erscheinen wieder, wenn das Paket zurückkehrt.
+
+`api.registerAchievements` und `api.runtime.achievements` gibt es erst ab dieser Engine-Version. Ein Paket, das sie nutzt, deklariert daher `capabilityApi` 1.36.
+
 ### Capability API 1.34: eine Kreatur in den Begriffen des Regelsatzes
 
-Eine Bestiariumskreatur darf einen `sheet` tragen: einen beliebig unvollständigen Charakterbogen in den Begriffen des Regelsatzes. Der Kampf baut ihn genauso auf wie den eines Gruppenmitglieds. Gesundheit, Verteidigung, Rettungswürfe, Initiative, Geschwindigkeit und Listenfähigkeiten stammen aus den Deklarationen des Regelsatzes und werden aus den eigenen Pools bezahlt. Neben dem Bogen darf sie weder `health`, `defense`, `initiativeModifier`, `speed`, `abilities` noch `saves` angeben und keine eigenen Blockaktionen besitzen:
+Eine Bestiariumskreatur darf einen `sheet` tragen: einen beliebig unvollständigen Charakterbogen in den Begriffen des Regelsatzes. Der Kampf baut ihn genauso auf wie den eines Gruppenmitglieds. Gesundheit, Verteidigung, Rettungswürfe, Initiative, Geschwindigkeit und Listenfähigkeiten stammen aus den Deklarationen des Regelsatzes und werden aus den eigenen Pools bezahlt. Neben dem Bogen darf sie weder `health`, `defense`, `initiativeModifier`, `speed`, `abilities` noch `saves` angeben; eigene Blockaktionen kann sie weglassen:
 
 ```json
 {

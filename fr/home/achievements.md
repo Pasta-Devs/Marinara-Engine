@@ -54,6 +54,16 @@ Quelques précisions sur cette liste :
 - Les succès **Collection** comptent tout ce que ta bibliothèque contient de ce type. Les éléments importés et téléchargés comptent aussi, pas seulement ceux que tu crées toi-même. Pour **Hoarder**, le personnage Professor Mari intégré fait exception : il ne compte jamais.
 - Pour les succès **Community**, il suffit d'ouvrir le lien. Inutile de créer un compte ou de terminer quoi que ce soit sur le site en question.
 
+## Les succès des agents
+
+Les agents installés peuvent ajouter leurs propres succès. Ils apparaissent dans la même fenêtre **Achievements**, après les succès intégrés, sous un titre tel que **From Noodle** (de Noodle). Cette section ne s'affiche que pour les agents qui ont ajouté des succès.
+
+Les succès d'un agent suivent les mêmes règles que les succès intégrés. Ils sont verrouillés au départ, certains ont une barre de progression et tu reçois la même notification lorsqu'un succès se débloque. Un agent peut afficher ses propres illustrations de badges sur les cartes débloquées.
+
+Si tu supprimes un agent, sa section disparaît. Tes déblocages sont conservés. Si tu réinstalles l'agent, ses succès déjà débloqués réapparaissent comme débloqués.
+
+Le compteur en haut de la fenêtre inclut les succès des agents que tu as installés.
+
 ## Le réglage Achievements
 
 Un seul interrupteur active ou désactive toute la fonctionnalité. Ouvre **Settings** (Paramètres), va dans l'onglet **General**, puis repère la section **App Behavior**. L'interrupteur s'appelle **Achievements**, et il est activé par défaut.
