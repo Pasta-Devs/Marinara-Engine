@@ -59,6 +59,12 @@ Marinara résout de nombreuses macros intégrées, comme `{{user}}` et `{{char}}
 
 S'il existe une variable portant exactement ce nom, l'emplacement prend la valeur retenue. Si aucune variable ne correspond, le texte `{{NAME}}` reste exactement tel que tu l'as saisi. C'est pourquoi un emplacement inconnu ressort inchangé dans le résultat au lieu de provoquer une erreur. Pour la liste complète des macros, voir [Macros de prompt](macros.md).
 
+## Blocs de décision dans les options
+
+La valeur d'une option peut contenir un bloc `{{#if decision:"..."}}`, comme tout autre texte de prompt. Seules les options sélectionnées dans le chat sont interrogées et comptent dans **Decision statements per turn** (énoncés de décision par tour). Pour une variable **Random Pick**, toutes les options du groupe sélectionné sont interrogées, car chacune peut être tirée. Consulte [Interroger le Decision model](conditional-prompts.md#asking-the-decision-model).
+
+La valeur d'une variable arrive à l'emplacement de `{{name}}`. Si une décision la change près du début d'un preset, elle peut faire perdre une grande part de la réutilisation du cache du fournisseur, même si un préfixe antérieur inchangé reste admissible. Place le contenu changeant plus tard si possible. Consulte [Blocs de décision et cache de prompts](presets.md#decision-blocks-and-prompt-caching).
+
 ## Guides associés
 
 - [Éditeur de preset et Prompt Manager](presets.md)

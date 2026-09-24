@@ -41,16 +41,16 @@ La app rellena estos valores predeterminados por **Source**:
 | ----------------- | ------------------------- | ---------------------- | ------------------------------- |
 | OpenAI-compatible | https://api.openai.com/v1 | tts-1                  | alloy                           |
 | ElevenLabs        | https://api.elevenlabs.io | eleven_multilingual_v2 | ninguna (debes elegir una)      |
-| PocketTTS         | http://localhost:49112    | pocket-tts             | alba                            |
+| PocketTTS         | http://localhost:8000    | pocket-tts             | alba                            |
 | xAI Voice         | https://api.x.ai/v1       | grok-tts               | eve                             |
 
 Para **ElevenLabs**, el campo **Model** carga los modelos capaces de sintetizar voz disponibles mediante tu conexión y siempre mantiene visible la lista completa cuando lo abres. Elige un modelo de voz normal. Los IDs de modelo que contienen `ttv` son modelos de diseño de voz, no modelos de voz, y no pueden leer texto en voz alta. Si eliges uno por error, la reproducción falla con un error que te indica que uses un modelo de voz en su lugar.
 
 ### PocketTTS es un programa aparte
 
-PocketTTS no viene integrado en Marinara Engine. El adaptador de Marinara usa el [servidor compatible con OpenAI de PocketTTS](https://github.com/teddybear082/pocket-tts-openai_streaming_server), que expone tanto el endpoint de voz como el de lista de voces que Marinara necesita. Instala y ejecuta ese servidor siguiendo sus instrucciones; Marinara no lo descarga ni lo administra por ti.
+PocketTTS no está integrado en Marinara Engine. Instala [el servidor oficial de PocketTTS](https://github.com/kyutai-labs/pocket-tts) por separado y luego inícialo con `uvx pocket-tts serve`. Marinara no lo descarga ni administra por ti.
 
-El servidor compatible usa `http://localhost:49112` de forma predeterminada. Deja el **Base URL** en ese valor a menos que hayas cambiado el puerto del servidor. Las URLs personalizadas de PocketTTS que ya existan quedan sin cambios.
+El servidor oficial usa `http://localhost:8000` de forma predeterminada. Deja **Base URL** con ese valor salvo que hayas cambiado el host o el puerto. Marinara detecta automáticamente la API multipart oficial `/tts`. Las URL personalizadas existentes del [adaptador de PocketTTS compatible con OpenAI](https://github.com/teddybear082/pocket-tts-openai_streaming_server) siguen siendo compatibles.
 
 ## Paso 3: Elige una voz (Voice Option)
 
@@ -61,7 +61,7 @@ El ajuste **Voice Option** (Opción de voz) decide cómo se asignan las voces:
 
 ### One voice for all characters
 
-Elige la voz en el campo **All Characters Voice**. PocketTTS muestra en un menú desplegable las voces que devuelve tu servidor y mantiene a su lado un campo de texto para un ID de voz, una URL o una ruta personalizados.
+Elige la voz en el campo **All Characters Voice**. El servidor oficial de PocketTTS no expone un endpoint para listar voces, por lo que Marinara muestra sus voces integradas y mantiene un campo de texto junto al menú desplegable para otro nombre integrado o una URL de voz compatible. Los servidores adaptadores compatibles pueden seguir devolviendo su propia lista de voces y aceptar identificadores o rutas personalizados.
 
 Para cargar la lista de voces real de tu proveedor, introduce los datos de conexión y haz clic en el botón **Refresh voices** (el icono de flecha circular). Puedes hacerlo antes de activar la reproducción. Al actualizar, primero se guarda la tarjeta actual, por lo que una clave API recién introducida se usa de inmediato. Antes de conectarte, la app muestra una breve lista de reserva integrada para que el campo no esté vacío. Si el proveedor devuelve un error, la app lo muestra en vez de presentar silenciosamente esa lista de reserva como si la actualización hubiera funcionado.
 
@@ -105,7 +105,8 @@ El ajuste **Audio Format** elige **MP3** (el predeterminado) o **WAV**. Usa WAV 
 
 El control deslizante **Speed** controla la velocidad a la que habla la voz. El rango permitido depende del **Source**:
 
-- OpenAI-compatible y PocketTTS: de 0.25 a 4.0 veces la velocidad normal.
+- OpenAI-compatible: de 0.25 a 4.0 veces la velocidad normal.
+- PocketTTS: los adaptadores compatibles pueden usar el ajuste de velocidad de 0.25 a 4.0; actualmente, el servidor oficial controla por sí mismo la velocidad de síntesis.
 - ElevenLabs: de 0.7 a 1.2 veces.
 - xAI Voice: de 0.7 a 1.5 veces.
 
@@ -160,7 +161,7 @@ Esta anulación se usa solo durante las llamadas de audio y video de Conversatio
 ## Solución de problemas
 
 - No habla nada: confirma que el interruptor **Enable TTS** está activado. Luego revisa el interruptor de **Auto-play** correcto para cada modo, o usa el botón **Speak** por mensaje. El botón **Speak** y las opciones de reproducción automática solo aparecen después de activar TTS.
-- No hay voces en el menú desplegable: guarda la tarjeta con TTS activado y un API key válido, luego haz clic en **Refresh voices**. Para PocketTTS, verifica además que `<Base URL>/v1/voices` responda desde el servidor compatible.
+- No hay voces en el menú desplegable: guarda la tarjeta con TTS activado y, si el proveedor lo requiere, un API key válido, luego haz clic en **Refresh voices**. El servidor oficial de PocketTTS usa la lista integrada de Marinara porque no tiene un endpoint para listar voces. Para un adaptador compatible de PocketTTS, verifica que `<Base URL>/v1/voices` responda.
 - ElevenLabs no habla: asegúrate de haber seleccionado una voz real, no el marcador de posición "Select an ElevenLabs voice". Comprueba también que el **Model** sea un modelo de voz, no un modelo de diseño de voz cuyo ID contenga `ttv`.
 - Un servidor de TTS autoalojado en una dirección local está bloqueado: activa el ajuste del servidor `TTS_LOCAL_URLS_ENABLED`. Permite que la app llegue a una dirección local o privada para servidores compatibles con OpenAI o de estilo ElevenLabs. PocketTTS no necesita este ajuste. Consulta [Referencia de configuración del servidor](../CONFIGURATION.md).
 - Prueba tu configuración rápido: haz clic en el botón **Preview** de la tarjeta para reproducir una breve línea de muestra con tus ajustes actuales.

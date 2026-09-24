@@ -41,16 +41,16 @@ TTS 请求由应用自己的服务器转发。服务商的 API 密钥会加密�
 | ----------------- | ------------------------- | ---------------------- | ------------------------------- |
 | OpenAI-compatible | https://api.openai.com/v1 | tts-1                  | alloy                           |
 | ElevenLabs        | https://api.elevenlabs.io | eleven_multilingual_v2 | 无（必须自己选一个）            |
-| PocketTTS         | http://localhost:49112    | pocket-tts             | alba                            |
+| PocketTTS         | http://localhost:8000    | pocket-tts             | alba                            |
 | xAI Voice         | https://api.x.ai/v1       | grok-tts               | eve                             |
 
 选择 **ElevenLabs** 时，**Model** 输入框会加载当前连接可用的语音合成模型，并且每次打开都会完整显示整个列表。请选择普通的语音合成模型。模型 ID 里带 `ttv` 的是声音设计模型，不是语音合成模型，无法朗读文字。选错了的话，播放会失败，并提示改用语音合成模型。
 
 ### PocketTTS 是一个独立程序
 
-PocketTTS 并没有内置在 Marinara Engine 里。Marinara 的适配层对接的是 [PocketTTS OpenAI-compatible server](https://github.com/teddybear082/pocket-tts-openai_streaming_server)，它同时提供了 Marinara 需要的语音合成接口和声音列表接口。请按照该项目的说明自行安装并运行这个服务器，Marinara 不会替你下载或管理它。
+PocketTTS 并非 Marinara Engine 内置。单独安装[官方 PocketTTS 服务器](https://github.com/kyutai-labs/pocket-tts)，再用 `uvx pocket-tts serve` 启动。Marinara 不会代为下载或管理。
 
-这个兼容服务器默认使用 `http://localhost:49112`。除非改过服务器端口，否则 **Base URL** 保持这个值就行。之前自定义过的 PocketTTS 地址不会被改动。
+官方服务器默认使用 `http://localhost:8000`。没有修改主机或端口时，**Base URL** 保持该值。Marinara 会自动检测官方 multipart `/tts` API。原有 [OpenAI 兼容 PocketTTS 包装服务器](https://github.com/teddybear082/pocket-tts-openai_streaming_server)的自定义 URL 仍受支持。
 
 ## 第 3 步：选择声音（Voice Option）
 
@@ -61,7 +61,7 @@ PocketTTS 并没有内置在 Marinara Engine 里。Marinara 的适配层对接�
 
 ### 所有角色共用一个声音
 
-在 **All Characters Voice** 输入框里选择声音。PocketTTS 会在下拉菜单里列出服务器返回的声音，旁边还留了一个文本框，可以填自定义的声音 ID、URL 或路径。
+在 **All Characters Voice** 字段选择声音。官方 PocketTTS 服务器不提供声音列表端点，因此 Marinara 显示其内置声音，并在下拉框旁保留文本字段，可填写其他内置名称或受支持的声音 URL。兼容包装服务器仍可返回自己的声音列表，接受自定义 ID 或路径。
 
 想从服务商那里加载真实的声音列表，先填好连接信息，再点击 **Refresh voices**(刷新声音列表) 按钮（圆形箭头图标）。这一步可以在开启播放之前做。刷新前会先保存当前卡片，所以刚填的 API 密钥会立刻生效。连接成功之前，应用会显示一份简短的内置备用列表，让输入框不至于是空的。如果服务商返回错误，应用会直接报错，而不会把备用列表伪装成刷新成功的结果。
 
@@ -105,7 +105,8 @@ Character Voices 区域里的 **Refresh** 按钮会重新加载同一份服务�
 
 **Speed**(语速) 滑块控制说话的快慢。可用范围随 Source 变化：
 
-- OpenAI-compatible 和 PocketTTS：正常语速的 0.25 到 4.0 倍。
+- OpenAI-compatible：正常语速的 0.25 到 4.0 倍。
+- PocketTTS：兼容包装服务器可使用 0.25 到 4.0 倍的语速设置；官方服务器目前自行控制合成速度。
 - ElevenLabs：0.7 到 1.2 倍。
 - xAI Voice：0.7 到 1.5 倍。
 
@@ -160,7 +161,7 @@ TTS 开启之后，每条角色消息或旁白消息下方的工具栏里会出�
 ## 故障排查
 
 - 完全没有声音：先确认 **Enable TTS** 开关已打开，再检查对应模式的 **Auto-play** 开关，或者直接用消息上的 **Speak** 按钮。**Speak** 按钮和自动朗读选项只有在 TTS 开启后才会出现。
-- 下拉菜单里没有声音：在 TTS 已开启、API 密钥有效的状态下保存卡片，然后点击 **Refresh voices**。使用 PocketTTS 时，还要确认兼容服务器的 `<Base URL>/v1/voices` 有响应。
+- 下拉菜单里没有声音：在 TTS 已开启、且已按提供商要求填写有效 API 密钥（如需）的状态下保存卡片，然后点击 **Refresh voices**。官方 PocketTTS 服务器没有声音列表端点，因此使用 Marinara 的内置列表。如果使用兼容 PocketTTS 包装服务器，请确认 `<Base URL>/v1/voices` 有响应。
 - ElevenLabs 不出声：确认选中的是一个真正的声音，而不是“Select an ElevenLabs voice”占位文字。同时检查 **Model** 是语音合成模型，而不是 ID 里带 `ttv` 的声音设计模型。
 - 本地地址上的自建 TTS 服务器被拦截：打开服务器设置 `TTS_LOCAL_URLS_ENABLED`。它允许应用访问 OpenAI 兼容或 ElevenLabs 风格服务器的本地地址和内网地址。PocketTTS 不需要这个设置。参见[服务器配置参考](../CONFIGURATION.md)。
 - 想快速验证配置：点击卡片里的 **Preview**(预览) 按钮，用当前设置播放一小段示例语音。

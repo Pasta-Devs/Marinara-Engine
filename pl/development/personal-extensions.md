@@ -88,15 +88,17 @@ Zdolności deklaruje się w danych rozszerzenia, zapisuje przy każdej wersji, p
 
 Wywołanie `marinara.ui.showWindow({ title, elements, onEvent, onClose })` zwraca uchwyt z metodami `update({ title?, elements? })` i `close()`. Wątek Worker wysyła wyłącznie deskryptory, a każdy element buduje zaufany kod startowy ramki, korzystając z interfejsów DOM i `textContent` (nigdy `innerHTML`). Aplikacja odsłania normalnie ukrytą ramkę piaskownicy tylko na czas otwartego okna i chowa ją z powrotem po zamknięciu.
 
-Wywołanie `marinara.ui.registerContribution({ id, kind, label, description?, icon?, elements?, onActivate?, onEvent? })` zwraca zamrożony uchwyt z metodami `update(patch)` i `remove()`. Obsługuje trzy stałe miejsca:
+`marinara.ui.registerContribution({ id, kind, label, description?, icon?, surface?, position?, elements?, onActivate?, onEvent? })` zwraca zamrożony uchwyt z `update(patch)` i `remove()`. Obsługuje te zaufane miejsca hosta:
 
-- `button`: zwarta akcja na górnym pasku przy większych ekranach, a wszędzie dodatkowo akcja w menu **Extensions** (rozszerzenia);
+- `button`: domyślnie zwarta akcja na górnym pasku albo akcja renderowana przez hosta na powierzchni `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents` lub `settings`;
 - `menu-item`: akcja w menu **Extensions**;
 - `panel`: wpis, który otwiera zaufany panel boczny **Extensions** aplikacji Marinara Engine.
 
+Przyciski panelu bocznego przyjmują `position: "header"`, `"before-content"` lub `"after-content"`. Przyciski górnego paska pomijają `position`. Ikony to ograniczone długością nazwy kebab-case z katalogu Lucide aplikacji Marinara; nieobsługiwane nazwy wracają do ikony puzzla.
+
 Elementy panelu korzystają z tego samego deklaratywnego słownika co okna ograniczone: `heading`, `text`, `pre`, `button`, `input`, `select`, `toggle`, `slider`, `color` i `spacer`. Kontrolki interaktywne wymagają unikalnych identyfikatorów. Przycisk w panelu wysyła do `onEvent` obiekt `{ contributionId, elementId, values }`; pole `values` zawiera aktualną wartość tekstową każdej kontrolki. Funkcja `onActivate` wykonuje się wewnątrz wątku Worker rozszerzenia, gdy użytkownik otworzy albo wywoła dany wkład. Po zmianie stanu rozszerzenie może wywołać `handle.update(...)`, żeby podmienić etykietę, opis, ikonę lub elementy panelu.
 
-Klient niezależnie sprawdza każdy deskryptor, zanim doda go do magazynu środowiska uruchomieniowego. Rodzaje wkładów, ikony, kontrolki, identyfikatory, listy opcji, długości tekstów, łączny tekst panelu, liczba elementów oraz liczba wkładów na jedno rozszerzenie mają listę dozwolonych wartości i twarde limity. React renderuje tekst rozszerzenia jako tekst. Kod HTML, CSS, adresy URL, komponenty React ani funkcje zwrotne gospodarza pochodzące z rozszerzenia nie są przyjmowane. Aplikacja usuwa wszystkie wkłady, gdy wątek Worker zostaje zatrzymany, gdy zmienia się jego skrót albo gdy znika on z odpowiedzi o zatwierdzonym środowisku uruchomieniowym. Zdarzenia trafiają wyłącznie do wątku Worker zarejestrowanego dla tego samego identyfikatora rozszerzenia i tego samego skrótu treści.
+Klient niezależnie sprawdza każdy deskryptor przed dodaniem do magazynu środowiska. Rodzaje wkładu, powierzchnie, pozycje, kontrolki, ID, listy opcji, składnia nazw ikon, długości tekstu, łączny tekst panelu, liczba elementów i liczba wkładów na rozszerzenie są walidowane i ograniczane. React renderuje tekst rozszerzenia jako tekst. Nie przyjmuje HTML, CSS, URL, komponentu React ani funkcji zwrotnej hosta kontrolowanych przez rozszerzenie. Host usuwa wszystkie wkłady po zatrzymaniu workera, zmianie jego hasza lub zniknięciu z zatwierdzonej odpowiedzi środowiska. Zdarzenia trafiają tylko do workera zarejestrowanego dla tego samego ID rozszerzenia i hasza zawartości.
 
 Nie ma tu pomocnika do drzewa DOM, dostępu do API aplikacji Marinara Engine, dostępu do zdarzeń dokumentu nadrzędnego ani dowolnego dostępu do sieci. Ramka iframe sprawdza komunikaty i ogranicza ich częstotliwość. Strażnik oparty na sygnale życia kończy wątek Worker, który nie odpowiada albo kręci się w pętli.
 

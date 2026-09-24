@@ -125,7 +125,11 @@ Kiedy powracająca postać znów pojawia się w scenie, Character Tracker używa
 - **Faza**: Post-Processing.
 - **Gdzie działa**: tylko Roleplay.
 - **Najważniejsze ustawienia**: dodaj go lub usuń w **Chat Settings → Agents → Tracker Agents**; otwórz tam **Configure Beholder**, aby wybrać połączenie, model, prompt, kontekst i limity wyniku. Opcja **Add as Prompt Section** jest domyślnie włączona.
-- **Zalecany model**: do niezawodnego śledzenia pełnego stanu użyj modelu SOTA, na przykład OpenAI GPT-5.5+, Claude Opus 4.8+ albo Kimi K3+.
+- **Zalecany model**: wybierz szablon promptu pasujący do modelu połączenia Beholder. Dwa dostarczone szablony nie są wymienne – każdy jest przeznaczony dla innego rodzaju modelu.
+  - **SOTA model — one prompt** (model SOTA – jeden prompt, domyślnie): jedno wywołanie obejmuje wszystkie śledzone pola. Użyj silnego modelu ogólnego, np. OpenAI GPT-5.5+, Claude Opus 4.8+ lub Kimi K3+.
+  - **Beholder local model — five passes** (lokalny model Beholder – pięć przebiegów): pięć wąskich wywołań, po jednym na obszar śledzenia, do specjalnie wytrenowanego ekstraktora [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF) uruchomionego lokalnie (np. `Beholder-Q8_0.gguf` przez koboldcpp lub llama.cpp). Model wytrenowano do odpowiadania na jeden obszar naraz, więc szablon jednego promptu odbiega od treningu i zwraca częściowy stan. Engine łączy pięć wyników w jedną aktualizację. Działa całkowicie offline i bez opłat.
+
+  Beholder nie wykrywa modelu za połączeniem, więc wybór pozostaje ręczny. Niedopasowanie nie powoduje awarii, ale pogarsza ekstrakcję: model SOTA obsługuje oba szablony, a model lokalny wymaga pięciu przebiegów.
 - **Pochodzenie**: dostosowano do natywnego środowiska Agent w Engine na podstawie projektu [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME), objętego wyłącznie licencją AGPL-3.0. Oficjalny pakiet nie ładuje DOM, odpytywania ani środowiska pamięci lokalnej ze starszego rozszerzenia.
 
 ### Persona Stats
@@ -187,12 +191,12 @@ Symuluje publiczność reagującą na żywo na twoją scenę; jej reakcje pokazu
 
 ### Noodle
 
-Dodaje opcjonalny lokalny świat społecznościowy z publiczną osią czasu Noodle oraz kanałem roleplay NoodleR dla twórców i fanów. Otwiera się w osobnej karcie Home zamiast działać w zwykłym potoku agentów czatu.
+Dodaje opcjonalną lokalną publiczną oś czasu Noodle. Otwiera się w osobnej karcie Home zamiast działać w zwykłym potoku agentów czatu.
 
 - **Integracja**: pakiet funkcji; udostępnia kartę Home, lokalne trasy, procesy generowania i multimediów oraz harmonogramy w tle.
 - **Gdzie działa**: Home, z opcjonalnym kontekstem przenoszonym z czatów Conversation, Roleplay i Game.
-- **Najważniejsze ustawienia**: zainstaluj go przez **Agents → Download Agents** i uruchom ponownie Marinara Engine, gdy pojawi się taka prośba. W Noodle można skonfigurować zaproszone konta, połączenia tekstowe i obrazowe, odświeżanie osi czasu, profile NoodleR Creator, dostęp do symulowanych wpisów oraz aktywność odbiorców.
-- **Cykl życia danych**: odinstalowanie usuwa kartę Home i po ponownym uruchomieniu zatrzymuje trasy oraz harmonogramy pakietu, ale zachowuje istniejące dane Noodle i NoodleR na wypadek późniejszej instalacji.
+- **Najważniejsze ustawienia**: zainstaluj go przez **Agents → Download Agents** i uruchom ponownie Marinara Engine, gdy pojawi się taka prośba. W Noodle możesz skonfigurować zaproszone konta, połączenia tekstowe i obrazowe, odświeżanie osi czasu, losowych użytkowników oraz przenoszenie treści do czatów.
+- **Cykl życia danych**: odinstalowanie usuwa kartę Home i po ponownym uruchomieniu zatrzymuje trasy oraz harmonogramy pakietu, zachowując istniejące dane Noodle na wypadek późniejszej instalacji.
 - **Pełny przewodnik**: [Noodle: oś czasu społeczności w aplikacji](../noodle/overview.md).
 
 ### Long-Term Memory

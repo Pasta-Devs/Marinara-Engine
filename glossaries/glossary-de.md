@@ -571,3 +571,17 @@ Cycle precedent for the new `development/game-combat-ai-design.md`,
 
 These are documented translation choices from this cycle, not a claim of a new
 independent native-reader panel review. Existing pack-wide rules still apply.
+
+## Decision authoring and catchup (2026-09-24)
+
+- Use **Decision-Modell** in prose for the selected decision backend; keep the
+  English UI label **Decision model** and gloss it once as *Entscheidungsmodell*.
+- Use **Aktivierungsfrage** for an agent activation question and **Aussage** for
+  a factual statement. A prompt **Decision-Bedingung** evaluates that statement;
+  it is not an agent's activation gate.
+- Distinguish **Antwort-Cache** (Decision answer reuse) from **Prompt-Cache**
+  (provider prefix reuse), and **Aussagenkontingent** from a request/spending cap.
+- Keep modifier literals (`sticky:`, `cooldown:`, `every:`, `priority:`), API keys,
+  code examples and link fragments exactly as in English.
+- The added historical API and combat handoff text describes its source's state
+  and limitations; translating it does not claim a fresh implementation test.

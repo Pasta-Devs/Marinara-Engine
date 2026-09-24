@@ -76,6 +76,8 @@ Character Editor 会把聊天区域换成一整页的工作区，顶部横贯的
 - **Alternate Greetings**(备选开场白)。额外的开场白。开新聊天时可以挑一条用。用上下按钮调整顺序，用 X 删除。
 - **Example Dialogue**(对话示例)。示范角色语气的对话样例。用 `<START>` 分隔每段对话，用 `{{user}}` 和 `{{char}}` 作为占位文字。
 
+问候语和示例消息也可以展示角色 Gallery 中的图片，参见[角色图库 → 在消息和问候语中复用图库图片](galleries.md#reuse-a-gallery-image-in-messages-and-greetings)。
+
 一段简短的 Example Dialogue 长这样：
 
 ```

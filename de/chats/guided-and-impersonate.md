@@ -124,7 +124,7 @@ Welche Aktionen erscheinen, legst du in den Einstellungen fest.
 
 Diese drei Aktionen gibt es:
 
-- **Post only**: stellt deine getippte Nachricht in den Chat, ohne eine KI-Antwort auszulösen.
+- **Post only**: stellt deine getippte Nachricht in den Chat, ohne eine KI-Antwort auszulösen. Das geht auch mit dem Slash-Befehl `/send <message>`.
 - **Guide reply**: schickt deinen getippten Text als `/guided`-Vorgabe statt als normale Nachricht.
 - **Impersonate**: generiert eine Antwort als deine Persona und nutzt den getippten Text als Vorgabe. In Conversation-Chats ist diese Aktion ausgeblendet, weil Impersonate dort nicht funktioniert.
 

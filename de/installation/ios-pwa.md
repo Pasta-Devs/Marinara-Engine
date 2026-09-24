@@ -72,6 +72,8 @@ Chats, Charaktere und Einstellungen liegen auf dem Server, nicht auf dem iPhone 
 
 ## Fehlerbehebung
 
+**Die Home-Screen-App schließt sich oder wird während der Generierung leer.** Öffne sie erneut und kehre zum Chat zurück. Einen gesunden Server musst du nicht neu starten. Automatische Chat-Antworten und manuelle oder wiederholte Bildanfragen ausschließlich über Illustrator laufen nach einem verlorenen Browserkontakt auf dem Server weiter. Der wieder geöffnete Chat prüft auf laufende Arbeit und lädt gespeicherte Nachrichten und Galeriebilder nach deren Abschluss neu. **Stop** bricht die Generierung des gewählten Chats weiterhin ab. Tritt der leere Bildschirm erneut auf, melde deine Support Diagnostics und ob erneutes Öffnen den Chat zurückbringt. Diese Wiederherstellung erkennt oder verhindert nicht jeden iOS-Browserfehler.
+
 **Die Seite lädt in Safari nicht.** Prüf, ob der Server auf dem Host-Gerät noch läuft. Prüf, ob beide Geräte im selben Netzwerk oder im selben Tailscale-Netzwerk sind. Kontrollier IP-Adresse und Port `7860`. Bei tiefer gehenden Netzwerkfragen helfen der [Leitfaden zum Fernzugriff](../REMOTE_ACCESS.md) und die [Fehlerbehebung für Marinara Engine](../TROUBLESHOOTING.md).
 
 **Safari fragt nach Benutzername und Passwort.** Dann ist der Passwortschutz für entfernte Geräte aktiviert. Hol dir Benutzername und Passwort bei der Person, die den Server betreibt. Die Einrichtung beschreibt der [Leitfaden zum Fernzugriff](../REMOTE_ACCESS.md).

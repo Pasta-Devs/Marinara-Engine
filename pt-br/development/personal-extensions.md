@@ -88,15 +88,17 @@ As capacidades são declaradas na carga da extensão, salvas em toda revisão, e
 
 A chamada `marinara.ui.showWindow({ title, elements, onEvent, onClose })` devolve um handle com `update({ title?, elements? })` e `close()`. O worker só envia descritores; o bootstrap confiável do iframe monta cada elemento com APIs de DOM e `textContent` (nunca `innerHTML`). O host revela o iframe da sandbox, normalmente oculto, apenas enquanto uma janela está aberta, e volta a escondê-lo quando ela fecha.
 
-A chamada `marinara.ui.registerContribution({ id, kind, label, description?, icon?, elements?, onActivate?, onEvent? })` devolve um handle congelado com `update(patch)` e `remove()`. Ela aceita três locais fixos:
+`marinara.ui.registerContribution({ id, kind, label, description?, icon?, surface?, position?, elements?, onActivate?, onEvent? })` retorna um identificador congelado com `update(patch)` e `remove()`. Tem suporte a estes locais confiáveis do host:
 
-- `button`: uma ação compacta na barra superior em telas maiores e uma ação no menu **Extensions** (extensões) em qualquer tela;
+- `button`: uma ação compacta na barra superior por padrão, ou uma ação renderizada pelo host na superfície `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents` ou `settings`;
 - `menu-item`: uma ação no menu **Extensions**;
 - `panel`: um item que abre o painel lateral confiável **Extensions** do Marinara.
 
+Botões do painel lateral aceitam `position: "header"`, `"before-content"` ou `"after-content"`. Botões da barra superior omitem `position`. Os ícones são nomes kebab-case limitados do catálogo Lucide do Marinara; nomes sem suporte usam o ícone de quebra-cabeça.
+
 Os elementos do painel usam o mesmo vocabulário declarativo das janelas restritas: `heading`, `text`, `pre`, `button`, `input`, `select`, `toggle`, `slider`, `color` e `spacer`. Controles interativos precisam de IDs únicos. Um botão do painel envia `{ contributionId, elementId, values }` para `onEvent`; o campo `values` traz o valor de texto atual de cada controle. O `onActivate` roda dentro do Worker da extensão quando o usuário abre ou aciona a contribuição. Depois de uma mudança de estado, a extensão pode chamar `handle.update(...)` para trocar o próprio rótulo, a descrição, o ícone ou os elementos do painel.
 
-O cliente valida cada descritor por conta própria antes de adicioná-lo ao armazenamento de execução. Tipos de contribuição, ícones, controles, IDs, listas de opções, tamanho dos textos, texto total do painel, quantidade de elementos e quantidade de contribuições por extensão passam por lista de permissões e têm limite máximo. React renderiza o texto da extensão como texto. Nenhum HTML, CSS, URL, componente React ou callback do host controlado pela extensão é aceito. O host remove todas as contribuições quando o worker é encerrado, quando o hash dele muda ou quando ele some da resposta de execução aprovada. Os eventos só são entregues ao worker registrado com o mesmo ID de extensão e o mesmo hash de conteúdo.
+O cliente valida cada descritor por conta própria antes de adicioná-lo ao armazenamento de execução. Tipos de contribuição, superfícies, posições, controles, IDs, listas de opções, sintaxe dos nomes de ícones, comprimentos de texto, texto total do painel, quantidade de elementos e quantidade de contribuições por extensão são validados e limitados. React renderiza o texto da extensão como texto. Nenhum HTML, CSS, URL, componente React ou callback do host controlado pela extensão é aceito. O host remove todas as contribuições quando o worker é encerrado, quando o hash dele muda ou quando ele some da resposta de execução aprovada. Os eventos só são entregues ao worker registrado com o mesmo ID de extensão e o mesmo hash de conteúdo.
 
 Não existe auxiliar de DOM, requisição à API do Marinara, acesso a eventos do pai nem capacidade de rede arbitrária. O iframe valida as mensagens e limita a frequência delas. Um watchdog de heartbeat encerra o worker que não responde ou que entra em laço infinito.
 

@@ -41,6 +41,22 @@ Den Kampf startest du nicht selbst. Der GM eröffnet ihn, sobald die Geschichte 
 
 Auf dem Kampfbildschirm steht deine Party auf der einen Seite, die Gegner stehen auf der anderen. Jeder Kämpfer hat eine Lebensleiste (HP, Trefferpunkte) und, sofern er Fertigkeiten einsetzt, eine Magieleiste (MP, Magiepunkte). Oben zeigt **Next:** an, wer als Nächstes am Zug ist. Ein Rundenzähler nennt **Round** und die aktuelle Rundennummer.
 
+<a id="games-whose-ruleset-resolves-its-own-fights"></a>
+
+### Spiele mit eigener Kampfauflösung des Regelsatzes
+
+Ein Regelsatz kann einen ganzen Kampf nach seinen eigenen Regeln auflösen, statt Marinaras Kampf nur einige Werte zu leihen. Dann gehören ihm auch die Angaben auf dem Kampfbildschirm: die Angriffe und Fähigkeiten deines Charakters, seine Aktionsökonomie, seine Zustände und ein Protokoll mit der tatsächlichen Rechnung. Alles wird sofort bei der Ausführung in den Charakterbogen geschrieben.
+
+Auch was ein Zug umfasst, bestimmt der Regelsatz. Ein Treffer kann mehrere Schadensarten zugleich verursachen; jeder Teil wird getrennt gewürfelt, durch Resistenzen gemindert und mit Rettungswürfen geprüft, bleibt aber Teil desselben Treffers. Ein Aktionsverbrauch kann mehrere Angriffe kaufen. Solange welche übrig sind, bietet das Menü sie kostenlos mit Restzahl an; du kannst dazwischen eine andere Waffe verwenden oder gehen. Eine Fähigkeit kann kostenlos sein, nur für diesen Zug eine zweite Aktion geben oder Sprinten, Rückzug und Verstecken mit einem kleineren Teil des Zuges erlauben. Automatisches Verhalten, etwa Zusatzschaden beim ersten passenden Treffer eines Zuges, wird ohne Auswahl hinzugefügt und im Protokoll genannt. Ein Zustand kann eigene Rettungswürfe erschweren oder erleichtern, alle Schadensarten halbieren, Angriffe auf seinen Verursacher oder Annäherung an ihn verhindern oder bei dessen Ausfall enden.
+
+Ein solcher Regelsatz kann auch festlegen, was ein Spielfeldquadrat in seinen eigenen Einheiten bedeutet, etwa Fuß oder Schritte. Dann findet ein Kampf mit **Combat Preference** gleich **Tactical** auf einem erzeugten Spielfeld statt: mit denselben Karten, demselben Gelände und derselben Aufstellung wie die oben beschriebenen Tactical-Kämpfe. Die Präferenz wirkt damit auch hier. Ohne Entfernungsangaben oder bei **Classic** bleibt der Kampf wie bisher ohne räumliche Einschränkung der Zielauswahl.
+
+Auf diesem Spielfeld entscheiden die Werte des Regelsatzes: Bewegung pro Zug folgt seiner Bewegungsregel oder der Geschwindigkeit einer Kreatur; Waffenreichweite folgt ihren Zeilen; Fähigkeiten erzeugen wirkliche Kreis-, Kegel- oder Linienflächen; Wände blockieren Schüsse; Deckung wirkt nach den Regeln. Wer die Reichweite eines Gegners verlässt, erlaubt ihm einen Angriff, wenn der Regelsatz dessen Kosten festlegt. Bewegung geht in acht Richtungen für jeweils ein Feld, wie auf den Tischrollenspielrastern dieser Regeln, statt in den vier Richtungen von Marinaras eigenen Tactical-Kämpfen oben.
+
+Das Spielfeld ist sichtbar. Jedes Feld ist eine Schaltfläche, erreichbar mit Zeiger oder Pfeiltasten, und beschreibt Gelände, Besetzung und Bewegungskosten. **Move** (bewegen) markiert erreichbare Felder mit ihren Kosten in der Einheit des Regelsatzes, zeichnet beim Zeigen oder Fokussieren den Weg und markiert Felder mit drohenden Angriffen bernsteinfarben; die Gegner werden darunter genannt. Eine Aktion mit Ziel markiert zulässige Ziele, die du auf dem Brett oder in der Liste wählen kannst. Ohne erreichbares Ziel erscheint **Nobody is in reach. Move closer.** statt eines wirkungslosen Angriffs. Flächenaktionen zielen auf ein Feld: Erreichbare Zielfelder leuchten, und das Feld unter dem Zeiger nennt alle Betroffenen einschließlich Verbündeter. Bewegung lässt sich vor und nach einer Aktion ausgeben. Das Menü kehrt mit dem Rest zurück; darunter steht **Movement** (Bewegung) in der Einheit des Regelsatzes. Escape bricht eine angefangene Auswahl ab und bringt den Tastaturfokus zurück ins Menü.
+
+Dreivierteldeckung, Höhe, Überfliegen von Hindernissen, Verstecken, erzwungene Bewegung und die Entscheidung über einen Angriff auf jemanden, der sich entfernt, sind jeweils gesonderte künftige Arbeiten.
+
 <a id="games-that-use-a-ruleset"></a>
 
 ### Spiele mit einem Regelsatz

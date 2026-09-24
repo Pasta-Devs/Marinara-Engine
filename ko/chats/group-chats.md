@@ -81,12 +81,19 @@ Roleplay 모드에서는 그룹 채팅의 **Chat Settings**에 **Group Chat** �
 
 **Mode**가 **Merged (Narrator)**일 때는 **Color Dialogues**(색상 대사)를 켤 수 있습니다. 기본값은 꺼짐입니다. 켜면 각 캐릭터의 대사가 그 캐릭터에 지정된 색으로 표시됩니다. 이 색은 캐릭터 편집기의 **Colors** 탭에서 가져옵니다. 이 탭에서 이름 색, 대사 색, 상자 색을 정합니다. 색을 지정하는 방법은 캐릭터 편집 가이드를 참고하세요.
 
+<a id="response-order-individual-only"></a>
+
 ### Response Order(Individual 모드 전용)
 
 **Mode**가 **Individual**이면 **Response Order**(응답 순서) 설정이 나타납니다. 버튼 3개짜리 토글입니다.
 
 - **Sequential**이 기본값입니다. **Characters** 목록에 표시된 순서대로 모든 캐릭터가 차례로 답변합니다. 턴 순서를 바꾸려면 멤버 순서를 바꾸세요.
 - **Smart**는 짧은 숨은 AI 호출로 다음에 답변할 캐릭터를 정합니다. 최근 메시지와 각 캐릭터의 정보를 읽고 보통 한 명을 고릅니다. 메시지에 `@Alice`처럼 멘션을 적으면 그 선택을 덮어씁니다.
+
+  **Decision model**(판정 모델)을 선택했다면([Decision 모델](../connections/decision-models.md) 참고), 그 아래의 **Also use it to pick who speaks in Smart response order**(Smart 응답 순서의 발언자 선택에도 사용)를 켤 수 있습니다. Smart 순서는 후보마다 별도의 예/아니요 점수를 요청합니다. 질문은 최근 메시지 5개와 후보의 이름, 상태, 활동, 발언 빈도, 짧은 성격 또는 설명이 담긴 명단을 공유합니다. 호스팅 제공자에게는 명단도 전달합니다. [모델에 전달되는 정보](../connections/decision-models.md#what-the-model-sees)를 참고하세요.
+
+  전체 AI 답글보다 점수를 빠르게 얻을 수 있지만 속도와 비용은 모델과 후보 수에 따라 달라집니다. Roleplay에서는 가능성이 가장 높은 발언자를 고릅니다. Conversation에서는 답할 이유가 있는 모두가 가능성이 높은 순서로 답합니다. 방금 말한 캐릭터는 다른 후보에게 답할 이유가 있으면 기다립니다. Decision 모델이 답하지 않으면 기존 AI 호출을 사용합니다.
+
 - **Manual**은 자동 답변을 모두 멈춥니다. 메시지 입력 막대의 **Trigger Response**(응답 트리거) 선택기로 답변할 캐릭터를 직접 고릅니다.
 
 **Smart** 순서에서는 AI가 캐릭터를 여러 명 대기시킬 수 있습니다. 바로 답변하는 것은 첫 번째 캐릭터뿐입니다. 다음 발언자를 고르려면 메시지 입력 막대의 **Trigger Response** 선택기를 사용하세요. 빈 메시지를 보내 대기 중인 다음 캐릭터의 답변을 생성할 수도 있습니다.

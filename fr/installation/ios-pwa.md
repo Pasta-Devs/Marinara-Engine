@@ -78,6 +78,8 @@ Les chats, les personnages et les réglages sont stockés sur le serveur, pas su
 
 **Safari affiche toujours une ancienne version.** Recharge d'abord la page. Si elle a encore l'air ancienne, suis les étapes de la section Effacer et réinstaller la PWA, plus haut.
 
+**L'application de l'écran d'accueil se ferme ou devient blanche pendant la génération.** Rouvre-la et retourne au chat. Inutile de redémarrer un serveur sain. Les réponses automatiques et les demandes d'image manuelles ou réessayées utilisant uniquement Illustrator continuent sur le serveur après la perte de connexion du navigateur. Le chat rouvert recherche le travail inachevé puis actualise les messages enregistrés et les images de galerie à la fin. **Stop** annule toujours la génération du chat sélectionné. Si l'écran blanc revient, communique tes Support Diagnostics et précise si la réouverture restaure le chat ; cette récupération ne diagnostique ni n'empêche tous les échecs du navigateur iOS.
+
 **Un bandeau rouge annonce que les enregistrements échoueront silencieusement.** C'est un avertissement de confiance réseau émis par le serveur, pas un problème d'iPhone ou d'iPad. Le propriétaire du serveur doit accorder sa confiance à ton adresse. Va voir le [guide d'accès à distance](../REMOTE_ACCESS.md) et [Résoudre les problèmes de Marinara Engine](../TROUBLESHOOTING.md).
 
 **Les actions privilégiées sont bloquées.** Certaines actions de maintenance exigent un secret d'administration fourni par le propriétaire du serveur. Sur ton iPhone ou ton iPad, cette valeur s'enregistre dans **Settings**, puis **Advanced**, puis **Admin Access** (accès administrateur). Le [guide d'accès à distance](../REMOTE_ACCESS.md) explique ce qu'est le secret d'administration et comment en obtenir un.

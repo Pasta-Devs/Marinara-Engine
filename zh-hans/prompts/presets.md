@@ -162,6 +162,16 @@
 
 Game 聊天还多一个 **Extra instructions**(额外指令) 输入框，里面的文字会追加到 Game 提示词后面，上限 2000 个字符。可以这样写：“Write in the style of Terry Pratchett.”
 
+<a id="decision-blocks-and-prompt-caching"></a>
+
+## 判定块与提示词缓存
+
+小节可以包含 `{{#if decision:"..."}}` 判定块，只在关于聊天的陈述为真的回合发送这部分预设。见[询问 Decision 模型](conditional-prompts.md#asking-the-decision-model)。
+
+**把会变化的判定块放在提示词后面**，例如历史记录之后的指示。分支变化可能使服务商无法复用从该位置开始的提示词，因此靠前的变化可能损失大部分缓存节省。更早且未变化的前缀仍可能符合条件；不一定整段提示词都按新输入计费。只有答案很少变化、指示也确实应放在前面时，才把判定留在开头。各服务商的细节见[提示词缓存](conditional-prompts.md#prompt-caching)。
+
+禁用的小节和分组里的陈述从不询问，也不计入 **Decision statements per turn**(每回合判定陈述数)。
+
 ## 确认 AI 实际收到了什么
 
 想确认到底是哪个预设、哪些小节真的送到了 AI 那里，用 **Peek Prompt**。它会显示某条消息完整组装后的提示词，排查回复不对劲的问题时这是最快的办法。见 [Peek Prompt：查看 AI 收到的内容](../chats/peek-prompt.md)。

@@ -10,7 +10,7 @@
 GM narration
   -> Animation Planner
      -> imagePrompt -> image connection -> first-frame illustration
-     -> narrationBeat -> LTX Director Video -> %prompt%
+     -> narrationBeat -> Narration Passthrough -> %prompt%
   -> first frame + prompt -> ComfyUI LTX 2.3 workflow -> MP4 clip
 ```
 
@@ -166,7 +166,7 @@ Animation Planner 已经拿到了本回合分镜的角色外观上下文，所�
 | 设置项 | 建议值 |
 | --- | --- |
 | **Video Connection** | 上面创建的那个 LTX 2.3 ComfyUI 连接 |
-| **Game Video Prompt** | **LTX Director Video** |
+| **Game Video Prompt** | **Narration Passthrough** |
 
 通用的 **Game Video Prompt** 管的是 Gallery 和 Game Assets 里手动触发的动画。分镜片段可以单独选自己的提示词，不影响这些动画操作。
 
@@ -180,13 +180,13 @@ Animation Planner 已经拿到了本回合分镜的角色外观上下文，所�
 | **Automatic Storyboard Animations** | On |
 | **Use NovelAI Character Prompts** | Off |
 | **Keyframes per Turn** | 平时用 3；第一次做 8 GB 显存测试时先用 1 |
-| **Animation Clip Duration** | 6 秒 |
+| **Animation Clip Duration** | 5 秒 |
 | **Viewer Display** | 测试期间用 Floating |
 | **Illustration Planner** | **Still Keyframes**；保留作为纯静态图的兜底 |
 | **Animation Planner** | **LTX Simple Image-to-Video** |
 | **Use Storyboard Template** | On |
 | **Storyboard Illustration Prompt** | **Storyboard First Frame** |
-| **Storyboard Video Prompt** | **LTX Director Video** |
+| **Storyboard Video Prompt** | **Narration Passthrough** |
 
 **LTX Simple Image-to-Video** 是推荐的默认选项。它会规划出一张适合做动画的首帧，外加一段 4 到 8 句的直白运动提示词。它偏向一个主要动作、一种镜头行为、克制的环境运动，以及相关的音频或简短对白。
 
@@ -196,7 +196,7 @@ Animation Planner 已经拿到了本回合分镜的角色外观上下文，所�
 
 **Storyboard First Frame** 会把 Animation Planner 写好的完整自然语言 T=0 场景原样交给 Krea，不再添加关键帧标题、提示词标签、重复的外观说明或战役美术方向。**Use Storyboard Template** 要保持开启，这个格式化器才会真正生效。
 
-**LTX Director Video** 有意做得很轻。它只是把 Animation Planner 完成的 `narrationBeat` 按通用视频提示词约定传下去，不在外面再套一层场景复述。
+**Narration Passthrough** 有意做得很轻。它只是把 Animation Planner 完成的 `narrationBeat` 按通用视频提示词约定传下去，不在外面再套一层场景复述。
 
 每个关键帧会产生一个 Krea 图像任务和一个本地 LTX 视频任务。所以 3 个关键帧就是 3 次首帧渲染加 3 次视频渲染。8 GB 显存的显卡先用 1 个关键帧、480p 起步。跑通之后再往 3 个关键帧和更高分辨率上加。
 
@@ -204,7 +204,7 @@ Animation Planner 已经拿到了本回合分镜的角色外观上下文，所�
 
 挑一个已经生成完的 GM(游戏主持人) 回合，里面要有一个明显的视觉动作，比如推开一扇门、朝声音的方向看过去、走上几步，或者说一句短台词。
 
-1. 想最快做完低显存检查，可以临时把 **Keyframes per Turn** 设成 1，**Animation Clip Duration** 保持 6 秒。常规的已验证配置用 3 个关键帧。
+1. 想最快做完低显存检查，可以临时把 **Keyframes per Turn** 设成 1，**Animation Clip Duration** 保持 5 秒。常规的已验证配置用 3 个关键帧。
 2. 等当前这个 GM 回合彻底完成之后，再把两个分镜自动开关打开。
 3. 打开 Gallery，对那个已完成的 GM 回合选择 **Create storyboard**。这样就能手动启动完整的插图加动画流程，不用等下一个回合。
 4. 如果开了提示词展示，提交之前先看一眼首帧提示词。
@@ -221,7 +221,7 @@ Animation Planner 已经拿到了本回合分镜的角色外观上下文，所�
 - `imagePrompt`：只写 T=0 时刻可见的首帧；
 - `narrationBeat`：完整的 LTX 图生视频提示词，描述接下来发生什么。
 
-这两个字段都由选中的 Animation Planner 写。**Storyboard First Frame** 负责排版 `imagePrompt`，把这段自然语言的 T=0 场景发给 Krea 2。图像出来之后，**LTX Director Video** 解析成 `narrationBeat`。Marinara 把它放进常规视频请求的 `prompt` 字段，替换 ComfyUI 工作流里的 `%prompt%`，上传首帧，再把 `%reference_image_name%` 换成它在 ComfyUI 里的文件名。
+这两个字段都由选中的 Animation Planner 写。**Storyboard First Frame** 负责排版 `imagePrompt`，把这段自然语言的 T=0 场景发给 Krea 2。图像出来之后，**Narration Passthrough** 解析成 `narrationBeat`。Marinara 把它放进常规视频请求的 `prompt` 字段，替换 ComfyUI 工作流里的 `%prompt%`，上传首帧，再把 `%reference_image_name%` 换成它在 ComfyUI 里的文件名。
 
 不需要建两段局部提示词。对这几个分镜预设来说，单个全局提示词就是常规做法。
 

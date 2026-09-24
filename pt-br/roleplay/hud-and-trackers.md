@@ -30,7 +30,7 @@ O **Inventory Tracker** dedicado é separado do inventário do Persona Stats. El
 
 Cada entrada é uma pequena pílula. As pílulas seguem pela largura do painel e quebram para a linha seguinte, então uma lista longa de itens continua legível em vez de esticar numa coluna alta. A quantidade só aparece quando é maior que um, escrita como `×4` depois do nome; um item sozinho mostra apenas o nome. Num painel estreito, as pílulas ficam uma por linha.
 
-Para mudar uma quantidade que agora é um, ative o modo de adição ou o modo de bloqueio: os dois revelam o controle de quantidade em todas as entradas.
+Para mudar uma quantidade que agora é um, ative **add mode** (modo de adição) ou **lock mode** (modo de bloqueio): os dois revelam o controle de quantidade em todas as entradas.
 
 O widget **Present Characters** mostra até três emojis de personagem, mais uma contagem "+N" para os demais. Os widgets **Inventory** e **Custom Tracker** alternam entre as entradas, uma de cada vez.
 

@@ -41,16 +41,16 @@ TTSをオンにしただけでは、何も読み上げは始まりません。�
 | ----------------- | ------------------------- | ---------------------- | ------------------------------- |
 | OpenAI-compatible | https://api.openai.com/v1 | tts-1                  | alloy                           |
 | ElevenLabs        | https://api.elevenlabs.io | eleven_multilingual_v2 | なし(自分で選ぶ必要があります) |
-| PocketTTS         | http://localhost:49112    | pocket-tts             | alba                            |
+| PocketTTS         | http://localhost:8000    | pocket-tts             | alba                            |
 | xAI Voice         | https://api.x.ai/v1       | grok-tts               | eve                             |
 
 **ElevenLabs**の場合、**Model**欄には接続経由で使える読み上げ対応モデルが読み込まれ、開いたときは常に全一覧が見えたままになります。通常の読み上げモデルを選んでください。IDに`ttv`を含むモデルは音声デザイン用で、読み上げには使えません。誤って選ぶと、読み上げモデルを使うように促すエラーが出て再生に失敗します。
 
 ### PocketTTSは別のプログラムです
 
-PocketTTSはMarinara Engineに内蔵されていません。Marinaraのアダプターが利用するのは[PocketTTS OpenAI-compatible server](https://github.com/teddybear082/pocket-tts-openai_streaming_server)で、Marinaraに必要な読み上げと声一覧の両方のエンドポイントを備えています。このサーバーの手順に従ってインストールし、起動してください。Marinaraがダウンロードや管理を代行することはありません。
+PocketTTSはMarinara Engineに内蔵されていません。[公式PocketTTSサーバー](https://github.com/kyutai-labs/pocket-tts)を別途インストールし、`uvx pocket-tts serve`で起動してください。Marinaraがダウンロードや管理を代行することはありません。
 
-対応サーバーはデフォルトで`http://localhost:49112`を使います。サーバーのポートを変更していないかぎり、**Base URL**はこの値のままにします。すでに独自のPocketTTS用URLを設定している場合、その値は変わりません。
+公式サーバーのデフォルトは`http://localhost:8000`です。ホストやポートを変えていなければ、**Base URL**はこの値のままにします。Marinaraは公式のmultipart `/tts` APIを自動検出します。[OpenAI互換PocketTTSラッパー](https://github.com/teddybear082/pocket-tts-openai_streaming_server)用の既存の独自URLも引き続き使えます。
 
 ## ステップ3: 声を選ぶ(Voice Option)
 
@@ -61,7 +61,7 @@ PocketTTSはMarinara Engineに内蔵されていません。Marinaraのアダプ
 
 ### すべてのキャラクターで1つの声を使う
 
-声は**All Characters Voice**欄で選びます。PocketTTSでは、サーバーが返した声をドロップダウンに表示し、その横に独自の声のID、URL、パスを入力できるテキスト欄も用意します。
+**All Characters Voice**欄で音声を選びます。公式PocketTTSサーバーには音声一覧エンドポイントがないため、Marinaraは組み込み音声を表示し、別の組み込み名や対応する音声URLを入力できる欄をドロップダウンの隣に残します。互換ラッパーサーバーは独自の音声一覧とカスタムIDやパスを引き続き使えます。
 
 プロバイダーから実際の声一覧を読み込むには、接続情報を入力して**Refresh voices**(声の再読み込み)ボタン(円形の矢印アイコン)をクリックします。これは再生を有効にする前でも実行できます。再読み込みの前にカードを保存するので、入力したばかりのAPIキーもすぐに使われます。接続前は、欄が空にならないよう、アプリが短い内蔵の代替一覧を表示します。プロバイダー側でエラーが起きたときは、その代替一覧を成功したかのように見せず、エラーを表示します。
 
@@ -105,7 +105,8 @@ Character Voicesの枠にある**Refresh**ボタンを押すと、1つの声を�
 
 **Speed**(話す速さ)のスライダーで、声が話す速さを調整します。指定できる範囲はSourceによって異なります。
 
-- OpenAI-compatibleとPocketTTS: 通常の0.25倍から4.0倍。
+- OpenAI-compatible: 通常の0.25倍から4.0倍。
+- PocketTTS: 互換ラッパーでは0.25倍から4.0倍の速度設定を使えます。公式サーバーでは現在、合成速度をサーバー自身が制御します。
 - ElevenLabs: 0.7倍から1.2倍。
 - xAI Voice: 0.7倍から1.5倍。
 
@@ -160,7 +161,7 @@ TTSをオンにすると、キャラクターや語り手のメッセージの�
 ## トラブルシューティング
 
 - 何も読み上げない: まず**Enable TTS**のスイッチがオンか確かめます。次に、使っているモードに対応する**Auto-play**のトグルを確認するか、メッセージごとの**Speak**ボタンを使います。**Speak**ボタンと自動再生の項目は、TTSを有効にしてから表示されます。
-- ドロップダウンに声が出ない: TTSを有効にして正しいAPIキーを入れた状態でカードを保存し、**Refresh voices**をクリックします。PocketTTSの場合は、対応サーバーで`<Base URL>/v1/voices`が応答するかも確認します。
+- ドロップダウンに声が出ない: TTSを有効にし、プロバイダーがキーを必要とする場合は正しいAPIキーを入れた状態でカードを保存し、**Refresh voices**をクリックします。公式PocketTTSサーバーには音声一覧エンドポイントがないため、Marinaraの組み込み一覧を使います。互換PocketTTSラッパーの場合は、`<Base URL>/v1/voices`が応答することを確認してください。
 - ElevenLabsが読み上げない: プレースホルダーの「Select an ElevenLabs voice」ではなく、実際の声を選んでいるか確かめます。**Model**が読み上げモデルであり、IDに`ttv`を含む音声デザイン用モデルでないことも確認します。
 - ローカルアドレスにある自前のTTSサーバーがブロックされる: サーバー設定`TTS_LOCAL_URLS_ENABLED`をオンにします。これでOpenAI-compatibleやElevenLabs形式のサーバーについて、ローカルアドレスやプライベートアドレスへ接続できるようになります。PocketTTSにこの設定は不要です。[サーバー設定リファレンス](../CONFIGURATION.md)を参照してください。
 - 設定をすぐ試す: カード内の**Preview**(試聴)ボタンをクリックすると、現在の設定で短いサンプルを再生できます。

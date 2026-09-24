@@ -125,7 +125,11 @@ Suit les vêtements actuels de chaque personnage, par zone du corps, ainsi que l
 - **Phase** : Post-Processing.
 - **Où ça marche** : Roleplay uniquement.
 - **Réglages clés** : ajoute-le ou retire-le sous **Chat Settings → Agents → Tracker Agents** ; ouvre **Configure Beholder** au même endroit pour choisir sa connexion, son modèle, son prompt, son contexte et ses limites de sortie. **Add as Prompt Section** est activé par défaut.
-- **Modèle recommandé** : utilise un modèle SOTA comme OpenAI GPT-5.5+, Claude Opus 4.8+ ou Kimi K3+ pour un suivi fiable de l'état complet.
+- **Modèle recommandé** : choisis le modèle de prompt qui correspond au modèle derrière la connexion de Beholder. Les deux modèles de prompt fournis ne sont pas interchangeables : chacun est écrit pour un type de modèle différent.
+  - **SOTA model — one prompt** (modèle SOTA – un prompt, par défaut) : un appel couvrant tous les champs suivis. Utilise un modèle général puissant comme OpenAI GPT-5.5+, Claude Opus 4.8+ ou Kimi K3+.
+  - **Beholder local model — five passes** (modèle local Beholder – cinq passes) : cinq appels ciblés, un par catégorie suivie, pour l'extracteur [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF), spécialement entraîné et exécuté localement (par exemple `Beholder-Q8_0.gguf` derrière koboldcpp ou llama.cpp). Ce modèle est entraîné pour répondre à une catégorie à la fois ; le modèle de prompt unique sort donc de son cadre d'entraînement et renvoie un état partiel. Engine réunit les cinq résultats en une seule mise à jour. Il fonctionne entièrement hors ligne et sans frais.
+
+  Beholder ne peut pas détecter le modèle derrière une connexion ; le choix reste donc manuel. Une discordance n'est pas fatale, mais dégrade l'extraction : un modèle SOTA accepte les deux modèles de prompt, tandis que le modèle local nécessite celui à cinq passes.
 - **Origine** : adapté à l'environnement Agent natif d'Engine à partir de [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME), sous licence AGPL-3.0-only. Le package officiel ne charge ni le DOM, ni le polling, ni l'environnement de stockage local de l'ancienne extension.
 
 ### Persona Stats
@@ -187,12 +191,12 @@ Simule un public en direct qui réagit à ta scène, sous la forme d'un widget *
 
 ### Noodle
 
-Ajoute un monde social local facultatif avec le fil public Noodle et le fil de jeu de rôle entre créateurs et fans NoodleR. Il s'ouvre dans un onglet Home dédié au lieu de passer par le pipeline habituel des agents de chat.
+Ajoute le fil public local facultatif de Noodle. Il s'ouvre dans un onglet Home dédié au lieu de passer par le pipeline habituel des agents de chat.
 
 - **Intégration** : pack de fonctionnalités ; il apporte l'onglet Home, les routes locales, les flux de génération et de médias, ainsi que les planificateurs en arrière-plan.
 - **Modes compatibles** : Home, avec du contexte facultatif provenant des chats Conversation, Roleplay et Game.
-- **Réglages principaux** : installe-le depuis **Agents → Download Agents**, puis redémarre Marinara Engine lorsqu'on te le demande. Dans Noodle, tu peux configurer les comptes invités, les connexions de texte et d'image, les actualisations du fil, les profils Creator NoodleR, l'accès aux publications simulées et l'activité du public.
-- **Cycle de vie des données** : la désinstallation retire l'onglet Home et arrête les routes et planificateurs du pack après redémarrage, tout en conservant les données Noodle et NoodleR existantes pour une réinstallation ultérieure.
+- **Réglages principaux** : installe-le depuis **Agents → Download Agents**, puis redémarre Marinara Engine lorsque cela t'est demandé. Dans Noodle, tu peux configurer les comptes invités, les connexions de texte et d'image, les actualisations du fil, les utilisateurs aléatoires et le transfert de contexte vers les chats.
+- **Cycle de vie des données** : la désinstallation retire l'onglet Home et arrête les routes et planificateurs du paquet après redémarrage, en conservant les données Noodle existantes pour une réinstallation ultérieure.
 - **Guide complet** : [Noodle : le fil social intégré](../noodle/overview.md).
 
 ### Long-Term Memory

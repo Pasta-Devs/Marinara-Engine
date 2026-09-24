@@ -1,0 +1,2184 @@
+{
+  "$comment": "First-party 5e ruleset on SRD 5.1. Every id here is this file's own choice: the Engine never looks for 'level', 'dex' or 'slots'. A $comment key is allowed on any object and ignored.",
+  "schemaVersion": 1,
+  "id": "5e-2014",
+  "version": 1,
+  "name": "5e (SRD 5.1)",
+  "edition": "System Reference Document 5.1, 2014 rules",
+  "license": {
+    "spdx": "CC-BY-4.0",
+    "attribution": "This work includes material taken from the System Reference Document 5.1 (\"SRD 5.1\") by Wizards of the Coast LLC and available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License available at https://creativecommons.org/licenses/by/4.0/legalcode."
+  },
+  "coverage": {
+    "checks": true,
+    "saves": true,
+    "sheet": true,
+    "resources": true,
+    "rests": true,
+    "combat": true,
+    "summary": "Ability checks, skill checks, saving throws, the full character sheet, spell slots, hit dice, class resources, conditions and rests. Battles follow these rules: initiative, the action economy, attack rolls against AC, saves, conditions and dying."
+  },
+  "resolution": {
+    "kind": "dice-sum",
+    "dice": {
+      "count": 1,
+      "sides": 20
+    },
+    "abilityModifier": {
+      "op": "floorHalfMinusTen"
+    },
+    "proficiency": {
+      "bonus": {
+        "derived": "proficiency_bonus"
+      }
+    },
+    "proficiencyTiers": [
+      {
+        "id": "none",
+        "label": "Not proficient",
+        "multiplier": 0
+      },
+      {
+        "id": "half",
+        "label": "Half proficiency",
+        "multiplier": 0.5,
+        "round": "down"
+      },
+      {
+        "id": "proficient",
+        "label": "Proficient",
+        "multiplier": 1
+      },
+      {
+        "id": "expertise",
+        "label": "Expertise",
+        "multiplier": 2
+      }
+    ],
+    "advantage": true,
+    "naturals": {
+      "$comment": "2014 rules: a natural 20 or 1 decides attack rolls only. Checks and saves are pure arithmetic, unlike Marinara's own rules.",
+      "check": "none",
+      "save": "none"
+    },
+    "difficultyLadder": [
+      {
+        "label": "Very easy",
+        "dc": 5
+      },
+      {
+        "label": "Easy",
+        "dc": 10
+      },
+      {
+        "label": "Medium",
+        "dc": 15
+      },
+      {
+        "label": "Hard",
+        "dc": 20
+      },
+      {
+        "label": "Very hard",
+        "dc": 25
+      },
+      {
+        "label": "Nearly impossible",
+        "dc": 30
+      }
+    ]
+  },
+  "sheet": {
+    "version": 1,
+    "sections": [
+      {
+        "id": "identity",
+        "label": "Identity"
+      },
+      {
+        "id": "combat",
+        "label": "Combat"
+      },
+      {
+        "id": "spellcasting",
+        "label": "Spellcasting"
+      }
+    ],
+    "abilities": [
+      {
+        "id": "str",
+        "label": "Strength",
+        "short": "STR",
+        "min": 1,
+        "max": 30,
+        "default": 10
+      },
+      {
+        "id": "dex",
+        "label": "Dexterity",
+        "short": "DEX",
+        "min": 1,
+        "max": 30,
+        "default": 10
+      },
+      {
+        "id": "con",
+        "label": "Constitution",
+        "short": "CON",
+        "min": 1,
+        "max": 30,
+        "default": 10
+      },
+      {
+        "id": "int",
+        "label": "Intelligence",
+        "short": "INT",
+        "min": 1,
+        "max": 30,
+        "default": 10
+      },
+      {
+        "id": "wis",
+        "label": "Wisdom",
+        "short": "WIS",
+        "min": 1,
+        "max": 30,
+        "default": 10
+      },
+      {
+        "id": "cha",
+        "label": "Charisma",
+        "short": "CHA",
+        "min": 1,
+        "max": 30,
+        "default": 10
+      }
+    ],
+    "saves": [
+      {
+        "id": "str_save",
+        "label": "Strength save",
+        "ability": "str"
+      },
+      {
+        "id": "dex_save",
+        "label": "Dexterity save",
+        "ability": "dex"
+      },
+      {
+        "id": "con_save",
+        "label": "Constitution save",
+        "ability": "con"
+      },
+      {
+        "id": "int_save",
+        "label": "Intelligence save",
+        "ability": "int"
+      },
+      {
+        "id": "wis_save",
+        "label": "Wisdom save",
+        "ability": "wis"
+      },
+      {
+        "id": "cha_save",
+        "label": "Charisma save",
+        "ability": "cha"
+      }
+    ],
+    "saveTiers": ["none", "proficient"],
+    "skills": [
+      {
+        "id": "acrobatics",
+        "label": "Acrobatics",
+        "ability": "dex"
+      },
+      {
+        "id": "animal_handling",
+        "label": "Animal Handling",
+        "ability": "wis"
+      },
+      {
+        "id": "arcana",
+        "label": "Arcana",
+        "ability": "int"
+      },
+      {
+        "id": "athletics",
+        "label": "Athletics",
+        "ability": "str"
+      },
+      {
+        "id": "deception",
+        "label": "Deception",
+        "ability": "cha"
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "ability": "int"
+      },
+      {
+        "id": "insight",
+        "label": "Insight",
+        "ability": "wis"
+      },
+      {
+        "id": "intimidation",
+        "label": "Intimidation",
+        "ability": "cha"
+      },
+      {
+        "id": "investigation",
+        "label": "Investigation",
+        "ability": "int"
+      },
+      {
+        "id": "medicine",
+        "label": "Medicine",
+        "ability": "wis"
+      },
+      {
+        "id": "nature",
+        "label": "Nature",
+        "ability": "int"
+      },
+      {
+        "id": "perception",
+        "label": "Perception",
+        "ability": "wis"
+      },
+      {
+        "id": "performance",
+        "label": "Performance",
+        "ability": "cha"
+      },
+      {
+        "id": "persuasion",
+        "label": "Persuasion",
+        "ability": "cha"
+      },
+      {
+        "id": "religion",
+        "label": "Religion",
+        "ability": "int"
+      },
+      {
+        "id": "sleight_of_hand",
+        "label": "Sleight of Hand",
+        "ability": "dex"
+      },
+      {
+        "id": "stealth",
+        "label": "Stealth",
+        "ability": "dex"
+      },
+      {
+        "id": "survival",
+        "label": "Survival",
+        "ability": "wis"
+      }
+    ],
+    "fields": [
+      {
+        "id": "level",
+        "label": "Level",
+        "type": "number",
+        "min": 1,
+        "max": 20,
+        "default": 1,
+        "section": "identity"
+      },
+      {
+        "id": "class",
+        "label": "Class",
+        "type": "text",
+        "maxLength": 80,
+        "section": "identity"
+      },
+      {
+        "id": "subclass",
+        "label": "Subclass",
+        "type": "text",
+        "maxLength": 80,
+        "section": "identity"
+      },
+      {
+        "id": "race",
+        "label": "Race",
+        "type": "text",
+        "maxLength": 80,
+        "section": "identity"
+      },
+      {
+        "id": "background",
+        "label": "Background",
+        "type": "text",
+        "maxLength": 80,
+        "section": "identity"
+      },
+      {
+        "id": "alignment",
+        "label": "Alignment",
+        "type": "text",
+        "maxLength": 40,
+        "section": "identity"
+      },
+      {
+        "id": "xp",
+        "label": "Experience points",
+        "type": "number",
+        "min": 0,
+        "max": 999999,
+        "default": 0,
+        "section": "identity"
+      },
+      {
+        "id": "ac",
+        "label": "Armor Class",
+        "type": "number",
+        "min": 0,
+        "max": 40,
+        "default": 10,
+        "section": "combat"
+      },
+      {
+        "id": "speed",
+        "label": "Speed (ft)",
+        "type": "number",
+        "min": 0,
+        "max": 300,
+        "default": 30,
+        "section": "combat"
+      },
+      {
+        "id": "initiative_misc",
+        "label": "Initiative bonus (other)",
+        "type": "number",
+        "min": -10,
+        "max": 20,
+        "default": 0,
+        "section": "combat"
+      },
+      {
+        "$comment": "How many strikes one Attack buys. The combat block reads it as the weapon list's strikes, so a character who gains a second attack simply raises this number.",
+        "id": "attacks_per_action",
+        "label": "Attacks per Attack action",
+        "type": "number",
+        "min": 1,
+        "max": 4,
+        "default": 1,
+        "section": "combat"
+      },
+      {
+        "id": "hp_max",
+        "label": "Hit point maximum",
+        "type": "number",
+        "min": 1,
+        "max": 999,
+        "default": 8,
+        "section": "combat"
+      },
+      {
+        "id": "hit_die",
+        "label": "Hit die",
+        "type": "enum",
+        "values": ["d6", "d8", "d10", "d12"],
+        "default": "d8",
+        "section": "combat"
+      },
+      {
+        "id": "spellcasting_ability",
+        "label": "Spellcasting ability",
+        "type": "enum",
+        "values": ["none", "int", "wis", "cha"],
+        "valueLabels": {
+          "none": "None",
+          "int": "Intelligence",
+          "wis": "Wisdom",
+          "cha": "Charisma"
+        },
+        "default": "none",
+        "section": "spellcasting"
+      },
+      {
+        "id": "slots_max_1",
+        "label": "1st-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_2",
+        "label": "2nd-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_3",
+        "label": "3rd-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_4",
+        "label": "4th-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_5",
+        "label": "5th-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_6",
+        "label": "6th-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_7",
+        "label": "7th-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_8",
+        "label": "8th-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_9",
+        "label": "9th-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "pact_slots_max",
+        "label": "Pact Magic slots",
+        "type": "number",
+        "min": 0,
+        "max": 4,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "pact_slot_level",
+        "label": "Pact slot level",
+        "type": "number",
+        "min": 1,
+        "max": 5,
+        "default": 1,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      }
+    ],
+    "derived": [
+      {
+        "id": "proficiency_bonus",
+        "label": "Proficiency bonus",
+        "op": "stepTable",
+        "from": {
+          "field": "level"
+        },
+        "table": [
+          [1, 2],
+          [5, 3],
+          [9, 4],
+          [13, 5],
+          [17, 6]
+        ],
+        "section": "identity"
+      },
+      {
+        "id": "initiative",
+        "label": "Initiative",
+        "op": "sum",
+        "of": [
+          {
+            "abilityMod": "dex"
+          },
+          {
+            "field": "initiative_misc"
+          }
+        ],
+        "section": "combat"
+      },
+      {
+        "id": "passive_perception",
+        "label": "Passive Perception",
+        "op": "sum",
+        "of": [
+          {
+            "const": 10
+          },
+          {
+            "skillMod": "perception"
+          }
+        ],
+        "section": "combat"
+      },
+      {
+        "id": "spell_save_dc",
+        "label": "Spell save DC",
+        "op": "sum",
+        "of": [
+          {
+            "const": 8
+          },
+          {
+            "derived": "proficiency_bonus"
+          },
+          {
+            "abilityModFromField": "spellcasting_ability"
+          }
+        ],
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "spell_attack",
+        "label": "Spell attack bonus",
+        "op": "sum",
+        "of": [
+          {
+            "derived": "proficiency_bonus"
+          },
+          {
+            "abilityModFromField": "spellcasting_ability"
+          }
+        ],
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      }
+    ],
+    "lists": [
+      {
+        "id": "attacks",
+        "label": "Attacks",
+        "section": "combat",
+        "maxItems": 20,
+        "columns": [
+          {
+            "id": "name",
+            "label": "Name",
+            "type": "text",
+            "maxLength": 80,
+            "required": true
+          },
+          {
+            "id": "ability",
+            "label": "Ability",
+            "type": "enum",
+            "values": ["str", "dex", "con", "int", "wis", "cha"]
+          },
+          {
+            "id": "proficient",
+            "label": "Proficient",
+            "type": "boolean",
+            "default": true
+          },
+          {
+            "id": "bonus",
+            "label": "Other bonus",
+            "type": "number",
+            "min": -5,
+            "max": 10,
+            "default": 0
+          },
+          {
+            "$comment": "Set on a weapon a rider may come off. The rider names this column; nothing in the Engine knows the word.",
+            "id": "finesse",
+            "label": "Finesse or ranged",
+            "type": "boolean",
+            "default": false
+          },
+          {
+            "$comment": "Set on a weapon that fires once a turn however many attacks its wielder has. The combat block names this column as strikesCappedBy; nothing in the Engine knows the word \"loading\".",
+            "id": "loading",
+            "label": "Loading",
+            "type": "boolean",
+            "default": false
+          },
+          {
+            "id": "damage",
+            "label": "Damage dice",
+            "type": "dice",
+            "example": "1d8"
+          },
+          {
+            "id": "damage_type",
+            "label": "Damage type",
+            "type": "text",
+            "maxLength": 30
+          },
+          {
+            "$comment": "Distances in feet, which is what this file's combat block says a cell is five of. A melee weapon's reach is 5; a reach weapon's is 10. A weapon that is thrown or shot fills the range columns in as well. A column left at 0 means the weapon carries no such distance, which is why an ordinary sword keeps both range columns at 0.",
+            "id": "reach",
+            "label": "Reach (ft)",
+            "type": "number",
+            "min": 0,
+            "max": 30,
+            "default": 5
+          },
+          {
+            "id": "range",
+            "label": "Range (ft)",
+            "type": "number",
+            "min": 0,
+            "max": 1200,
+            "default": 0
+          },
+          {
+            "id": "long_range",
+            "label": "Long range (ft)",
+            "type": "number",
+            "min": 0,
+            "max": 3000,
+            "default": 0
+          }
+        ]
+      },
+      {
+        "id": "spells",
+        "label": "Spells",
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        },
+        "maxItems": 150,
+        "columns": [
+          {
+            "id": "name",
+            "label": "Name",
+            "type": "text",
+            "maxLength": 80,
+            "required": true
+          },
+          {
+            "id": "level",
+            "label": "Level",
+            "type": "number",
+            "min": 0,
+            "max": 9,
+            "default": 0
+          },
+          {
+            "id": "prepared",
+            "label": "Prepared",
+            "type": "boolean",
+            "default": true
+          },
+          {
+            "id": "ritual",
+            "label": "Ritual",
+            "type": "boolean",
+            "default": false
+          },
+          {
+            "id": "concentration",
+            "label": "Concentration",
+            "type": "boolean",
+            "default": false
+          },
+          {
+            "id": "notes",
+            "label": "Notes",
+            "type": "text",
+            "maxLength": 300
+          }
+        ]
+      },
+      {
+        "id": "features",
+        "label": "Features and traits",
+        "maxItems": 60,
+        "columns": [
+          {
+            "id": "name",
+            "label": "Name",
+            "type": "text",
+            "maxLength": 80,
+            "required": true
+          },
+          {
+            "id": "text",
+            "label": "Description",
+            "type": "longtext",
+            "maxLength": 800
+          }
+        ]
+      },
+      {
+        "$comment": "Ki, Rage, Sorcery Points, Channel Divinity, Bardic Inspiration and the like, without shipping class tables. Each row is a live pool.",
+        "id": "counters",
+        "label": "Class resources",
+        "maxItems": 12,
+        "pools": {
+          "nameColumn": "name",
+          "maxColumn": "max",
+          "rechargeColumn": "recharge"
+        },
+        "columns": [
+          {
+            "id": "name",
+            "label": "Name",
+            "type": "text",
+            "maxLength": 40,
+            "required": true
+          },
+          {
+            "id": "max",
+            "label": "Maximum",
+            "type": "number",
+            "min": 0,
+            "max": 99,
+            "default": 1
+          },
+          {
+            "id": "recharge",
+            "label": "Recharges on",
+            "type": "enum",
+            "values": ["short", "long", "none"],
+            "valueLabels": {
+              "short": "Short rest",
+              "long": "Long rest",
+              "none": "Never"
+            },
+            "default": "long"
+          }
+        ]
+      },
+      {
+        "id": "proficiencies",
+        "label": "Other proficiencies and languages",
+        "maxItems": 40,
+        "columns": [
+          {
+            "id": "name",
+            "label": "Name",
+            "type": "text",
+            "maxLength": 80,
+            "required": true
+          }
+        ]
+      }
+    ],
+    "live": {
+      "$comment": "Fast-changing state. Starts from the build when a game copies the sheet, and lives with the game-state snapshot so a swipe rewinds it.",
+      "pools": [
+        {
+          "id": "hp",
+          "label": "Hit points",
+          "max": {
+            "field": "hp_max"
+          },
+          "allowTemp": true
+        },
+        {
+          "id": "hit_dice",
+          "label": "Hit dice",
+          "max": {
+            "field": "level"
+          }
+        },
+        {
+          "id": "slots_1",
+          "label": "1st-level slots",
+          "max": {
+            "field": "slots_max_1"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_2",
+          "label": "2nd-level slots",
+          "max": {
+            "field": "slots_max_2"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_3",
+          "label": "3rd-level slots",
+          "max": {
+            "field": "slots_max_3"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_4",
+          "label": "4th-level slots",
+          "max": {
+            "field": "slots_max_4"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_5",
+          "label": "5th-level slots",
+          "max": {
+            "field": "slots_max_5"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_6",
+          "label": "6th-level slots",
+          "max": {
+            "field": "slots_max_6"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_7",
+          "label": "7th-level slots",
+          "max": {
+            "field": "slots_max_7"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_8",
+          "label": "8th-level slots",
+          "max": {
+            "field": "slots_max_8"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_9",
+          "label": "9th-level slots",
+          "max": {
+            "field": "slots_max_9"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "pact_slots",
+          "label": "Pact Magic slots",
+          "max": {
+            "field": "pact_slots_max"
+          },
+          "group": "pact",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        }
+      ],
+      "tracks": [
+        {
+          "id": "death_save_successes",
+          "label": "Death save successes",
+          "min": 0,
+          "max": 3
+        },
+        {
+          "id": "death_save_failures",
+          "label": "Death save failures",
+          "min": 0,
+          "max": 3
+        },
+        {
+          "id": "exhaustion",
+          "label": "Exhaustion",
+          "min": 0,
+          "max": 6
+        }
+      ],
+      "text": [
+        {
+          "id": "concentration",
+          "label": "Concentrating on",
+          "maxLength": 80
+        }
+      ],
+      "conditions": [
+        {
+          "id": "blinded",
+          "label": "Blinded"
+        },
+        {
+          "id": "charmed",
+          "label": "Charmed"
+        },
+        {
+          "id": "deafened",
+          "label": "Deafened"
+        },
+        {
+          "id": "frightened",
+          "label": "Frightened"
+        },
+        {
+          "id": "grappled",
+          "label": "Grappled"
+        },
+        {
+          "id": "incapacitated",
+          "label": "Incapacitated"
+        },
+        {
+          "id": "invisible",
+          "label": "Invisible"
+        },
+        {
+          "id": "paralyzed",
+          "label": "Paralyzed"
+        },
+        {
+          "id": "petrified",
+          "label": "Petrified"
+        },
+        {
+          "id": "poisoned",
+          "label": "Poisoned"
+        },
+        {
+          "id": "prone",
+          "label": "Prone"
+        },
+        {
+          "id": "restrained",
+          "label": "Restrained"
+        },
+        {
+          "id": "stunned",
+          "label": "Stunned"
+        },
+        {
+          "id": "unconscious",
+          "label": "Unconscious"
+        }
+      ]
+    }
+  },
+  "rests": [
+    {
+      "$comment": "Spending hit dice is a player choice made on the sheet; the rest itself does not spend them.",
+      "id": "short",
+      "label": "Short rest",
+      "restore": [
+        {
+          "pool": "pact_slots",
+          "to": "max"
+        },
+        {
+          "listPools": "counters",
+          "recharge": ["short"],
+          "to": "max"
+        }
+      ]
+    },
+    {
+      "id": "long",
+      "label": "Long rest",
+      "restore": [
+        {
+          "pool": "hp",
+          "to": "max"
+        },
+        {
+          "poolGroup": "slots",
+          "to": "max"
+        },
+        {
+          "pool": "pact_slots",
+          "to": "max"
+        },
+        {
+          "pool": "hit_dice",
+          "by": {
+            "fractionOfMax": 0.5,
+            "round": "down",
+            "min": 1
+          }
+        },
+        {
+          "listPools": "counters",
+          "recharge": ["short", "long"],
+          "to": "max"
+        },
+        {
+          "track": "exhaustion",
+          "by": {
+            "const": -1
+          }
+        },
+        {
+          "track": "death_save_successes",
+          "to": 0
+        },
+        {
+          "track": "death_save_failures",
+          "to": 0
+        }
+      ],
+      "clear": {
+        "text": ["concentration"]
+      }
+    }
+  ],
+  "gm": {
+    "checkGuidance": "This game uses 5e rules from SRD 5.1. Call for an ability check, skill check or saving throw only when the outcome is uncertain and failure is interesting. Name the skill or the save and set a DC from the ladder below. Never add modifiers, never state a total and never decide the result: the Engine applies the character sheet and reports the outcome. A natural 20 or natural 1 has no special effect on checks or saves.",
+    "sheetGuidance": "The character sheets below are authoritative. A character can only cast a spell that is on their sheet and only with a slot they still have. When a character spends or regains a resource, takes damage, heals, gains or loses a condition, or rests, record it with the sheet command. If a command is refused, the fiction did not happen: narrate around it.",
+    "sheetSummary": {
+      "fields": ["level", "class", "ac", "speed"],
+      "derived": ["proficiency_bonus", "passive_perception", "spell_save_dc", "spell_attack"],
+      "lists": [
+        {
+          "list": "spells",
+          "nameColumn": "name",
+          "groupBy": "level",
+          "onlyWhen": "prepared"
+        },
+        {
+          "list": "attacks",
+          "nameColumn": "name"
+        }
+      ]
+    }
+  },
+  "catalogs": [
+    {
+      "$comment": "A bestiary: a catalog that holds creatures instead of rows, so it feeds no sheet list and the picker never offers it. These four are written for this example and are nobody else's creatures: the package that ships the real SRD monsters carries its own catalog, in this same shape. Every number sits inside the threat tier the entry names.",
+      "id": "creatures",
+      "label": "Creatures",
+      "holds": "creatures",
+      "filters": [
+        {
+          "id": "challenge",
+          "label": "Challenge",
+          "type": "text"
+        },
+        {
+          "id": "kind",
+          "label": "Kind",
+          "type": "text"
+        },
+        {
+          "id": "places",
+          "label": "Found in",
+          "type": "tags"
+        }
+      ],
+      "entries": [
+        {
+          "$comment": "A sequence: one action that resolves two of the block's own actions, each pointed wherever the lurker likes. The vine's save-ends carries its own difficulty, because the action has no save of its own to take one from.",
+          "id": "thorn-lurker",
+          "label": "Thorn Lurker",
+          "summary": "A briar that waits at the edge of a path and closes when something walks past it.",
+          "filters": {
+            "challenge": "CR 1/2",
+            "kind": "Plant",
+            "places": ["Forest", "Swamp"]
+          },
+          "creature": {
+            "health": {
+              "dice": "3d8",
+              "flat": 3
+            },
+            "defense": 13,
+            "initiativeModifier": 2,
+            "speed": 20,
+            "abilities": {
+              "str": 12,
+              "dex": 15,
+              "con": 12,
+              "int": 4,
+              "wis": 11,
+              "cha": 5
+            },
+            "saves": {
+              "dex_save": 4
+            },
+            "conditionImmunities": ["blinded", "deafened"],
+            "tier": "cr_1_2",
+            "traits": [
+              {
+                "name": "Thicket-born",
+                "text": "It moves through briars as easily as anything else walks a road."
+              }
+            ],
+            "actions": [
+              {
+                "id": "barbed_claw",
+                "name": "Barbed claw",
+                "budget": "action",
+                "toHit": 4,
+                "damage": {
+                  "dice": "1d4",
+                  "flat": 1,
+                  "type": "piercing"
+                },
+                "reach": 5
+              },
+              {
+                "id": "snare_vine",
+                "name": "Snare vine",
+                "budget": "action",
+                "toHit": 4,
+                "damage": {
+                  "dice": "1d4",
+                  "flat": 1,
+                  "type": "slashing"
+                },
+                "applies": [
+                  {
+                    "condition": "restrained",
+                    "duration": "until-save",
+                    "saveEnds": {
+                      "save": "str_save",
+                      "at": "turn-end"
+                    }
+                  }
+                ],
+                "saveDifficulty": 12,
+                "reach": 10
+              },
+              {
+                "id": "claw_and_snare",
+                "name": "Claw and snare",
+                "budget": "action",
+                "sequence": [
+                  {
+                    "action": "barbed_claw",
+                    "times": 1
+                  },
+                  {
+                    "action": "snare_vine",
+                    "times": 1
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "$comment": "A recharge, and a shape: the hound's breath is spent when it is used and rolled for at the start of its own turn, and comes back on a 5 or a 6. On a board it lands as a cone of fifteen feet that never catches another hound; without one it simply catches two. Its bite also carries a second clause: the tooth and the heat are rolled and resisted on their own, so something that shrugs off fire still feels the tooth.",
+          "id": "cinder-hound",
+          "label": "Cinder Hound",
+          "summary": "A lean hunting dog that runs hot enough to scorch the ground it sleeps on.",
+          "filters": {
+            "challenge": "CR 1",
+            "kind": "Beast",
+            "places": ["Hills", "Ruins"]
+          },
+          "creature": {
+            "health": {
+              "dice": "5d8"
+            },
+            "defense": 12,
+            "initiativeModifier": 1,
+            "speed": 40,
+            "abilities": {
+              "str": 14,
+              "dex": 13,
+              "con": 14,
+              "int": 3,
+              "wis": 12,
+              "cha": 6
+            },
+            "saves": {
+              "con_save": 4
+            },
+            "resist": ["fire"],
+            "immune": ["poison"],
+            "conditionImmunities": ["poisoned"],
+            "tier": "cr_1",
+            "actions": [
+              {
+                "id": "sear_bite",
+                "name": "Searing bite",
+                "budget": "action",
+                "toHit": 4,
+                "damage": {
+                  "dice": "1d6",
+                  "flat": 1,
+                  "type": "piercing",
+                  "plus": [
+                    {
+                      "dice": "1d4",
+                      "type": "fire"
+                    }
+                  ]
+                },
+                "reach": 5
+              },
+              {
+                "id": "ember_breath",
+                "name": "Ember breath",
+                "budget": "action",
+                "damage": {
+                  "dice": "2d6",
+                  "type": "fire"
+                },
+                "save": {
+                  "save": "dex_save",
+                  "difficulty": 12,
+                  "onSuccess": "half"
+                },
+                "targetCount": 2,
+                "area": {
+                  "shape": "cone",
+                  "size": 15,
+                  "friendlyFire": false
+                },
+                "recharge": {
+                  "dice": {
+                    "count": 1,
+                    "sides": 6
+                  },
+                  "from": 5
+                }
+              }
+            ]
+          }
+        },
+        {
+          "$comment": "A save rider with a condition: the note is saved against once to take it at all, and again at the end of each turn to shake it off. Its difficulty is the action's own, so nothing else has to supply one. It can also only be played three times a day. The rap carries a clause with a save of its own, which the target rolls whatever the attack already did.",
+          "id": "grave-piper",
+          "label": "Grave Piper",
+          "summary": "A thin figure that plays one note over and over in a place people are buried.",
+          "filters": {
+            "challenge": "CR 2",
+            "kind": "Undead",
+            "places": ["Barrows", "Ruins"]
+          },
+          "creature": {
+            "health": {
+              "dice": "6d8",
+              "flat": 6
+            },
+            "defense": 13,
+            "initiativeModifier": 2,
+            "speed": 30,
+            "abilities": {
+              "str": 10,
+              "dex": 14,
+              "con": 12,
+              "int": 11,
+              "wis": 13,
+              "cha": 15
+            },
+            "saves": {
+              "wis_save": 3,
+              "cha_save": 4
+            },
+            "resist": ["necrotic"],
+            "immune": ["poison"],
+            "conditionImmunities": ["charmed", "frightened", "poisoned"],
+            "tier": "cr_2",
+            "traits": [
+              {
+                "name": "One note",
+                "text": "It plays the same note whatever else is happening to it."
+              }
+            ],
+            "actions": [
+              {
+                "id": "bone_rap",
+                "name": "Bone rap",
+                "budget": "action",
+                "toHit": 4,
+                "damage": {
+                  "dice": "1d8",
+                  "flat": 2,
+                  "type": "bludgeoning",
+                  "plus": [
+                    {
+                      "dice": "1d4",
+                      "type": "necrotic",
+                      "save": {
+                        "save": "con_save",
+                        "difficulty": 12,
+                        "onSuccess": "half"
+                      }
+                    }
+                  ]
+                },
+                "reach": 5
+              },
+              {
+                "id": "wailing_note",
+                "name": "Wailing note",
+                "budget": "action",
+                "damage": {
+                  "dice": "2d4",
+                  "type": "psychic"
+                },
+                "save": {
+                  "save": "wis_save",
+                  "difficulty": 12,
+                  "onSuccess": "negates"
+                },
+                "applies": [
+                  {
+                    "condition": "frightened",
+                    "duration": {
+                      "rounds": 3
+                    },
+                    "saveEnds": {
+                      "save": "wis_save",
+                      "at": "turn-end"
+                    }
+                  }
+                ],
+                "targetCount": 3,
+                "range": 30,
+                "uses": {
+                  "per": "day",
+                  "count": 3
+                }
+              }
+            ]
+          }
+        },
+        {
+          "$comment": "Resistances and immunities, a sequence of one action done twice, and points of its own: the sentinel can strike while somebody else is acting, which costs a point rather than its action. The fight offers it in the window between one turn and the next.",
+          "id": "hollow-sentinel",
+          "label": "Hollow Sentinel",
+          "summary": "An empty suit of plate that stands at a door for as long as the door is there.",
+          "filters": {
+            "challenge": "CR 3",
+            "kind": "Construct",
+            "places": ["Ruins", "Vaults"]
+          },
+          "creature": {
+            "health": {
+              "dice": "9d10",
+              "flat": 9
+            },
+            "defense": 15,
+            "initiativeModifier": -1,
+            "speed": 20,
+            "abilities": {
+              "str": 18,
+              "dex": 9,
+              "con": 16,
+              "int": 1,
+              "wis": 10,
+              "cha": 1
+            },
+            "saves": {
+              "str_save": 6,
+              "con_save": 5
+            },
+            "resist": ["bludgeoning", "piercing", "slashing"],
+            "immune": ["poison", "psychic"],
+            "conditionImmunities": ["charmed", "frightened", "paralyzed", "petrified", "poisoned"],
+            "tier": "cr_3",
+            "signaturePoints": 2,
+            "traits": [
+              {
+                "name": "Standing orders",
+                "text": "It does not leave the doorway it was left in, whatever walks away."
+              }
+            ],
+            "actions": [
+              {
+                "id": "slam",
+                "name": "Slam",
+                "budget": "action",
+                "toHit": 5,
+                "damage": {
+                  "dice": "1d8",
+                  "flat": 2,
+                  "type": "bludgeoning"
+                },
+                "reach": 5
+              },
+              {
+                "id": "crushing_step",
+                "name": "Crushing step",
+                "budget": "action",
+                "toHit": 5,
+                "damage": {
+                  "dice": "1d10",
+                  "flat": 2,
+                  "type": "bludgeoning"
+                },
+                "applies": [
+                  {
+                    "condition": "prone",
+                    "duration": "instant"
+                  }
+                ],
+                "reach": 5
+              },
+              {
+                "id": "double_slam",
+                "name": "Double slam",
+                "budget": "action",
+                "sequence": [
+                  {
+                    "action": "slam",
+                    "times": 2
+                  }
+                ]
+              },
+              {
+                "id": "watchful_strike",
+                "name": "Watchful strike",
+                "budget": "action",
+                "toHit": 5,
+                "damage": {
+                  "dice": "1d8",
+                  "flat": 2,
+                  "type": "bludgeoning"
+                },
+                "reach": 5,
+                "signature": {
+                  "cost": 1
+                }
+              }
+            ]
+          }
+        },
+        {
+          "$comment": "Written in this ruleset's own terms rather than in plain numbers: a sheet, as partial as it likes, built exactly the way a character's is. Its Armor Class, hit points, saves, initiative, speed and both attacks are what the ruleset's own formulas make of it, so each number has one place it comes from and none is also written beside the sheet. Two swings an action, because that is what its attacks-per-action field says, and one crossbow bolt, because Loading caps that row the way it caps a character's.",
+          "id": "toll-sergeant",
+          "label": "Toll Sergeant",
+          "summary": "A tired soldier who holds a bridge for whoever paid last.",
+          "filters": {
+            "challenge": "CR 5",
+            "kind": "Humanoid",
+            "places": ["Roads", "Bridges"]
+          },
+          "creature": {
+            "tier": "cr_5",
+            "traits": [
+              {
+                "name": "Paid in advance",
+                "text": "It lets anyone pass who can show a stamped token, and it asks twice."
+              }
+            ],
+            "sheet": {
+              "abilities": {
+                "str": 16,
+                "dex": 12,
+                "con": 14,
+                "int": 10,
+                "wis": 11,
+                "cha": 10
+              },
+              "saves": {
+                "str_save": "proficient",
+                "con_save": "proficient"
+              },
+              "skills": {
+                "athletics": "proficient",
+                "intimidation": "proficient"
+              },
+              "fields": {
+                "level": 5,
+                "ac": 17,
+                "speed": 30,
+                "hp_max": 80,
+                "attacks_per_action": 2
+              },
+              "lists": {
+                "attacks": [
+                  {
+                    "name": "Halberd",
+                    "ability": "str",
+                    "proficient": true,
+                    "bonus": 0,
+                    "damage": "1d10",
+                    "damage_type": "slashing",
+                    "reach": 10
+                  },
+                  {
+                    "name": "Heavy crossbow",
+                    "ability": "dex",
+                    "proficient": true,
+                    "bonus": 0,
+                    "loading": true,
+                    "damage": "1d10",
+                    "damage_type": "piercing",
+                    "range": 100,
+                    "long_range": 400
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "$comment": "Three features, each one a thing the turn's own economy can be told about: a second action once a rest, a short list of standard actions bought with the bonus budget, and extra damage that adds itself to the first qualifying hit of a turn. None of them is a name the Engine knows.",
+      "id": "feats",
+      "label": "Features",
+      "feeds": ["features", "counters"],
+      "filters": [
+        {
+          "id": "level",
+          "label": "Level",
+          "type": "number"
+        }
+      ],
+      "entries": [
+        {
+          "$comment": "One entry, two rows: the feature itself and the counter that tracks it. The counter is a row pool, so using the feature spends one without the entry naming a cost at all.",
+          "id": "second-effort",
+          "label": "Second Effort",
+          "summary": "Once between rests, push yourself and take a second action.",
+          "filters": {
+            "level": 2
+          },
+          "rows": [
+            {
+              "list": "features",
+              "values": {
+                "name": "Second Effort",
+                "text": "Once between short rests, take one more action on your turn. Taking it costs nothing of the turn itself."
+              }
+            },
+            {
+              "list": "counters",
+              "values": {
+                "name": "Second Effort",
+                "max": 1,
+                "recharge": "short"
+              }
+            }
+          ],
+          "mechanics": {
+            "kind": "utility",
+            "free": true,
+            "gives": [
+              {
+                "budget": "action",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "$comment": "A permission rather than an action: it is never on the menu itself, and what it allows is offered as standard:dash@bonus and the two beside it.",
+          "id": "quick-hands",
+          "label": "Quick Hands",
+          "summary": "Dash, disengage or hide for a bonus action.",
+          "filters": {
+            "level": 2
+          },
+          "rows": [
+            {
+              "list": "features",
+              "values": {
+                "name": "Quick Hands",
+                "text": "Dash, Disengage or Hide with your bonus action instead of your action."
+              }
+            }
+          ],
+          "mechanics": {
+            "kind": "utility",
+            "standard": {
+              "actions": ["dash", "disengage", "hide"],
+              "budget": "bonus"
+            }
+          }
+        },
+        {
+          "$comment": "A rider: passive, never on the menu, and it adds itself to the first hit of a turn that qualifies. It only comes off weapons whose finesse column is set, and only when the roll leaned the right way or a friend is beside the target.",
+          "id": "sly-strike",
+          "label": "Sly Strike",
+          "summary": "Once a turn, a telling blow with a finesse or ranged weapon hurts more.",
+          "filters": {
+            "level": 1
+          },
+          "rows": [
+            {
+              "list": "features",
+              "values": {
+                "name": "Sly Strike",
+                "text": "Once a turn, when you hit with a finesse or ranged weapon and you had the advantage or a friend is beside the target, the blow deals extra damage."
+              }
+            }
+          ],
+          "mechanics": {
+            "kind": "rider",
+            "rider": {
+              "on": "hit",
+              "sources": ["attacks"],
+              "requires": {
+                "column": "finesse"
+              },
+              "when": ["advantage", "ally-adjacent"],
+              "oncePer": "turn",
+              "amount": {
+                "dice": "1d6"
+              }
+            },
+            "scales": {
+              "from": {
+                "field": "level"
+              },
+              "table": [
+                [1, 0],
+                [3, 1],
+                [5, 2],
+                [7, 3]
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "battle": {
+    "$comment": "What a battle may read from this sheet. It is not a 5e combat adapter: there are no attack rolls, no saving throws and no concentration in a fight, and the damage arithmetic stays Marinara's. Hit points, slots and the spells and attacks a player picked from a catalog are simply lent to Marinara's own combat. Pact Magic slots are left out, because their level follows the character's own level and a fixed list of levels cannot say that.",
+    "health": {
+      "pool": "hp"
+    },
+    "slots": [
+      {
+        "pool": "slots_1",
+        "level": 1
+      },
+      {
+        "pool": "slots_2",
+        "level": 2
+      },
+      {
+        "pool": "slots_3",
+        "level": 3
+      },
+      {
+        "pool": "slots_4",
+        "level": 4
+      },
+      {
+        "pool": "slots_5",
+        "level": 5
+      },
+      {
+        "pool": "slots_6",
+        "level": 6
+      },
+      {
+        "pool": "slots_7",
+        "level": 7
+      },
+      {
+        "pool": "slots_8",
+        "level": 8
+      },
+      {
+        "pool": "slots_9",
+        "level": 9
+      }
+    ],
+    "skills": [
+      {
+        "$comment": "Prepared spells, plus cantrips, which are cast without being prepared and are level 0 on this sheet.",
+        "list": "spells",
+        "onlyWhen": "prepared",
+        "alwaysWhen": {
+          "column": "level",
+          "equals": 0
+        }
+      },
+      {
+        "list": "attacks"
+      }
+    ]
+  },
+  "combat": {
+    "$comment": "How a fight is RESOLVED by these rules, rather than what a fight may borrow from the sheet. Everything here is named by this file: the Engine never looks for 'hp', 'ac' or 'unconscious'. The battle block above is kept for an Engine that cannot read this one; a fight never uses both.",
+    "kind": "attack-vs-defense",
+    "health": {
+      "pool": "hp"
+    },
+    "defense": {
+      "field": "ac"
+    },
+    "initiative": {
+      "dice": {
+        "count": 1,
+        "sides": 20
+      },
+      "modifier": {
+        "derived": "initiative"
+      }
+    },
+    "attackRoll": {
+      "$comment": "2014 rules: a natural 20 on an attack roll always hits and is a critical, and a natural 1 always misses. A critical rolls the damage dice twice.",
+      "dice": {
+        "count": 1,
+        "sides": 20
+      },
+      "advantage": true,
+      "naturals": {
+        "max": "critical",
+        "min": "miss"
+      },
+      "critical": "double-dice"
+    },
+    "economy": {
+      "budgets": [
+        {
+          "id": "action",
+          "label": "Action",
+          "per": "turn",
+          "count": 1
+        },
+        {
+          "id": "bonus",
+          "label": "Bonus action",
+          "per": "turn",
+          "count": 1
+        },
+        {
+          "id": "reaction",
+          "label": "Reaction",
+          "per": "turn",
+          "count": 1
+        }
+      ],
+      "movement": {
+        "field": "speed"
+      }
+    },
+    "distance": {
+      "$comment": "What a fight on a grid measures. A square is five feet, so everything above and below that carries a distance is read in feet: a Speed of 30 is six squares, a reach of 5 is one, and a spell's own range comes out of its catalog.",
+      "label": "ft",
+      "perCell": 5
+    },
+    "ranged": {
+      "$comment": "A shot past its ordinary range, or taken with a foe in the next square, is rolled with disadvantage.",
+      "long": "disadvantage",
+      "adjacentFoe": "disadvantage"
+    },
+    "cover": {
+      "$comment": "Half cover. Three-quarters and total cover need terrain the Engine's own grid does not tell apart yet.",
+      "bonus": 2
+    },
+    "opportunity": {
+      "budget": "reaction"
+    },
+    "attacks": [
+      {
+        "$comment": "SRD 5.1 Loading: \"you can fire only one piece of ammunition when you use an action ... regardless of the number of attacks you can normally make.\" `strikes` is the list's count; `strikesCappedBy` names a column that holds its own row to one, so a crossbow stays one shot while a sword swings as often as the sheet says.",
+        "list": "attacks",
+        "budget": "action",
+        "name": "name",
+        "toHit": {
+          "ability": {
+            "column": "ability"
+          },
+          "proficiency": {
+            "column": "proficient"
+          },
+          "bonus": {
+            "column": "bonus"
+          }
+        },
+        "damage": {
+          "dice": {
+            "column": "damage"
+          },
+          "ability": {
+            "column": "ability"
+          },
+          "type": {
+            "column": "damage_type"
+          }
+        },
+        "reach": {
+          "column": "reach"
+        },
+        "range": {
+          "normal": {
+            "column": "range"
+          },
+          "long": {
+            "column": "long_range"
+          }
+        },
+        "strikes": {
+          "field": "attacks_per_action"
+        },
+        "strikesCappedBy": {
+          "column": "loading"
+        }
+      }
+    ],
+    "abilities": [
+      {
+        "$comment": "Prepared spells, plus cantrips, which are cast without being prepared and are level 0 on this sheet. What each one does is the catalog entry's own mechanics.",
+        "list": "spells",
+        "onlyWhen": "prepared",
+        "alwaysWhen": {
+          "column": "level",
+          "equals": 0
+        },
+        "budget": "action",
+        "toHit": {
+          "derived": "spell_attack"
+        },
+        "saveDifficulty": {
+          "derived": "spell_save_dc"
+        }
+      },
+      {
+        "$comment": "Features and traits. Most rows here are text a table reads; the ones a catalog marked say in numbers what they do to a turn, and those are what a fight offers.",
+        "list": "features",
+        "budget": "action"
+      }
+    ],
+    "standard": ["dash", "disengage", "dodge", "help", "hide", "ready"],
+    "standardEffects": {
+      "dodge": {
+        "$comment": "SRD 5.1, Dodge: \"you have advantage on Dexterity saving throws\" until the start of your next turn. Being harder to hit is already carried by the action's own flag; this is the other half of it.",
+        "saves": ["dex_save"]
+      }
+    },
+    "conditions": [
+      {
+        "$comment": "Only the parts of each condition the closed effect list can say today. Charmed and deafened have no effect it can express, so they are left out and stay plain records on the sheet.",
+        "condition": "blinded",
+        "effects": ["own-attacks-disadvantage", "attacks-against-advantage"]
+      },
+      {
+        "$comment": "A charmed character cannot turn on whoever charmed them. This example also reads a charm as ending when the charmer goes down, which endsWhenSourceDown says in one key.",
+        "condition": "charmed",
+        "effects": ["cannot-target-source"],
+        "endsWhenSourceDown": true
+      },
+      {
+        "condition": "frightened",
+        "effects": ["own-attacks-disadvantage", "cannot-approach-source"],
+        "whileSourceInSight": ["own-attacks-disadvantage"],
+        "$comment": "SRD 5.1, Frightened: disadvantage on attacks \"while the source of its fear is within line of sight\", and it \"can't willingly move closer to the source\" at all. So only the first is gated on sight, which is why whileSourceInSight names it rather than saying true."
+      },
+      {
+        "condition": "grappled",
+        "effects": ["speed-zero"]
+      },
+      {
+        "condition": "incapacitated",
+        "effects": ["cannot-act", "cannot-react"]
+      },
+      {
+        "condition": "invisible",
+        "effects": ["own-attacks-advantage", "attacks-against-disadvantage"]
+      },
+      {
+        "condition": "paralyzed",
+        "effects": ["cannot-act", "cannot-react", "attacks-against-advantage", "attacks-from-adjacent-critical"],
+        "failsSaves": ["str_save", "dex_save"]
+      },
+      {
+        "condition": "petrified",
+        "effects": ["cannot-act", "cannot-react", "speed-zero", "attacks-against-advantage"],
+        "failsSaves": ["str_save", "dex_save"]
+      },
+      {
+        "condition": "poisoned",
+        "effects": ["own-attacks-disadvantage"]
+      },
+      {
+        "condition": "prone",
+        "effects": [
+          "own-attacks-disadvantage",
+          "attacks-against-adjacent-advantage",
+          "attacks-against-far-disadvantage",
+          "half-move-to-stand"
+        ]
+      },
+      {
+        "condition": "restrained",
+        "effects": ["own-attacks-disadvantage", "attacks-against-advantage", "speed-zero", "own-saves-disadvantage"],
+        "saves": ["dex_save"],
+        "$comment": "Disadvantage on Dexterity saves only, which is what saves narrows it to."
+      },
+      {
+        "condition": "stunned",
+        "effects": ["cannot-act", "cannot-react", "speed-zero", "attacks-against-advantage"],
+        "failsSaves": ["str_save", "dex_save"]
+      },
+      {
+        "condition": "unconscious",
+        "effects": [
+          "cannot-act",
+          "cannot-react",
+          "speed-zero",
+          "attacks-against-advantage",
+          "attacks-from-adjacent-critical"
+        ],
+        "failsSaves": ["str_save", "dex_save"]
+      }
+    ],
+    "concentration": {
+      "text": "concentration",
+      "save": "con_save",
+      "floor": 10,
+      "fromDamage": 0.5
+    },
+    "dying": {
+      "kind": "saves",
+      "successes": "death_save_successes",
+      "failures": "death_save_failures",
+      "dice": {
+        "count": 1,
+        "sides": 20
+      },
+      "succeedAt": 10,
+      "naturals": {
+        "max": "revive-1",
+        "min": "two-failures"
+      },
+      "damageWhileDown": "one-failure",
+      "criticalWhileDown": "two-failures",
+      "condition": "unconscious"
+    },
+    "damageTypes": [
+      "acid",
+      "bludgeoning",
+      "cold",
+      "fire",
+      "force",
+      "lightning",
+      "necrotic",
+      "piercing",
+      "poison",
+      "psychic",
+      "radiant",
+      "slashing",
+      "thunder"
+    ],
+    "threat": {
+      "$comment": "The scale an opponent is picked from, so nothing a Game Master proposes lands off it. The numbers are MEASURED from the SRD 5.1 creatures of each challenge rating (Open5e srd-2014 data, CC-BY-4.0): health is the 10th to the 90th percentile, defense and toHit are the median Armor Class and the median best attack bonus, damagePerRound is the usual range of one creature's best single attack (a creature with several attacks deals more), and saveDifficulty is the median difficulty its actions name. Defense and the low end of damage are kept from going down as the rating goes up.",
+      "tiers": [
+        {
+          "id": "cr_0",
+          "label": "CR 0",
+          "health": [1, 13],
+          "defense": 12,
+          "toHit": 2,
+          "damagePerRound": [1, 4],
+          "saveDifficulty": 10
+        },
+        {
+          "id": "cr_1_8",
+          "label": "CR 1/8",
+          "health": [2, 13],
+          "defense": 12,
+          "toHit": 4,
+          "damagePerRound": [1, 5],
+          "saveDifficulty": 11
+        },
+        {
+          "id": "cr_1_4",
+          "label": "CR 1/4",
+          "health": [7, 22],
+          "defense": 12,
+          "toHit": 4,
+          "damagePerRound": [1, 5],
+          "saveDifficulty": 11
+        },
+        {
+          "id": "cr_1_2",
+          "label": "CR 1/2",
+          "health": [15, 27],
+          "defense": 12,
+          "toHit": 4,
+          "damagePerRound": [2, 7],
+          "saveDifficulty": 11
+        },
+        {
+          "id": "cr_1",
+          "label": "CR 1",
+          "health": [16, 39],
+          "defense": 12,
+          "toHit": 4,
+          "damagePerRound": [4, 7],
+          "saveDifficulty": 11
+        },
+        {
+          "id": "cr_2",
+          "label": "CR 2",
+          "health": [27, 67],
+          "defense": 13,
+          "toHit": 5,
+          "damagePerRound": [5, 9],
+          "saveDifficulty": 12
+        },
+        {
+          "id": "cr_3",
+          "label": "CR 3",
+          "health": [45, 82],
+          "defense": 14,
+          "toHit": 5,
+          "damagePerRound": [5, 13],
+          "saveDifficulty": 12
+        },
+        {
+          "id": "cr_4",
+          "label": "CR 4",
+          "health": [66, 97],
+          "defense": 14,
+          "toHit": 5,
+          "damagePerRound": [5, 14],
+          "saveDifficulty": 13
+        },
+        {
+          "id": "cr_5",
+          "label": "CR 5",
+          "health": [67, 126],
+          "defense": 15,
+          "toHit": 7,
+          "damagePerRound": [9, 18],
+          "saveDifficulty": 14
+        }
+      ]
+    }
+  },
+  "layers": [
+    {
+      "$comment": "Layers are variants of THESE rules that the player turns on when the game is created. They only narrow and append: a value can be taken out of an enum field, never added, so a sheet stays readable whichever layers a game chose.",
+      "id": "low_magic",
+      "label": "Low magic",
+      "summary": "Arcane training is gone. Only the devoted still channel anything.",
+      "conflicts": ["high_magic"],
+      "gm": {
+        "guidance": "Low magic is on. Spellcasting is rare, feared and slow, so treat every casting as remarkable, let bystanders react to it, and prefer mundane solutions when the party reaches for one.",
+        "worldGuidance": "Low magic is on. Build a world where arcane learning has been lost or driven out: no wizard schools, no shops of wands, and healing that mostly comes from hands and herbs."
+      },
+      "fields": [
+        {
+          "id": "spellcasting_ability",
+          "removeValues": ["int", "cha"]
+        }
+      ]
+    },
+    {
+      "$comment": "Declared after Low magic, so when a pin somehow turns both on it is this one that is dropped and the same two choices always give the same rules.",
+      "id": "high_magic",
+      "label": "High magic",
+      "summary": "Magic is everywhere, cheap and ordinary.",
+      "gm": {
+        "guidance": "High magic is on. Casting is ordinary and public, so let NPCs use it freely, price magical help like any other service, and do not treat a spell as a surprise.",
+        "worldGuidance": "High magic is on. Build a world running on spellwork: lit streets, sent messages, working guilds of casters, and problems that already assume magic exists."
+      }
+    }
+  ]
+}

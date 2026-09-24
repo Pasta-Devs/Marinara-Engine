@@ -12,6 +12,7 @@ Das Local Model ist bewusst klein gehalten. Gedacht ist es für Hilfsaufgaben im
 - Szeneneffekte im Game Mode, etwa Hintergründe, Musik und Wetter.
 - Lorebook-Embeddings für die semantische Suche.
 - Mikrofon-Transkription in Conversation-Anrufen, über ein separates Sprachmodell.
+- Aktivierungsfragen und Decision-Bedingungen beantworten, wenn du es als Decision-Modell auswählst. Siehe [Decision-Modelle](decision-models.md).
 
 Im Einrichtungsfenster heißt es **Local AI Model**. In den Verbindungs-Dropdowns heißt es **Local Model (sidecar)**. Gemeint ist beide Male dasselbe.
 
@@ -201,6 +202,8 @@ Oder gib einmalig dein Admin-Access-Geheimnis unter **Settings -> Advanced -> Ad
 Weitere Hilfe findest du unter [Fehlerbehebung für Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Verwandte Anleitungen
+
+- [Decision-Modelle](decision-models.md)
 
 - [Verbindung zu einem KI-Anbieter herstellen](connecting-to-a-provider.md)
 - [Ein lokales oder selbst gehostetes Modell verbinden](local-self-hosted.md)

@@ -12,6 +12,7 @@ Local Model jest celowo mały. Ma wykonywać pomocnicze zadania w tle, a nie pro
 - Efekty scen w Game Mode, na przykład tła, muzyka i pogoda.
 - Embeddingi lorebooków na potrzeby wyszukiwania semantycznego.
 - Transkrypcja z mikrofonu w rozmowach w trybie Conversation, przez osobny model mowy.
+- Odpowiadanie na pytania aktywacyjne i stwierdzenia decyzyjne, jeśli wybierzesz go jako model decyzyjny. Zobacz [Modele decyzyjne](decision-models.md).
 
 W oknie konfiguracji funkcja nazywa się **Local AI Model**. Na listach rozwijanych z połączeniami widnieje jako **Local Model (sidecar)**. To jedno i to samo.
 
@@ -203,6 +204,7 @@ Więcej pomocy znajdziesz w [Rozwiązywanie problemów w aplikacji Marinara Engi
 ## Powiązane przewodniki
 
 - [Łączenie z dostawcą AI](connecting-to-a-provider.md)
+- [Modele decyzyjne](decision-models.md)
 - [Podłączanie modelu lokalnego lub samodzielnie hostowanego](local-self-hosted.md)
 - [Memory Recall i podsumowania czatu](../agents/memory.md)
 - [Rozmowy audio i wideo w trybie Conversation](../conversation/calls.md)

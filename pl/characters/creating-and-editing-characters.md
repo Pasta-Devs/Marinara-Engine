@@ -76,6 +76,8 @@ Sekcja **Dialogue & Greetings** ustala, jak zaczyna się czat i jak brzmi posta�
 - **Alternate Greetings**. Dodatkowe wiadomości otwierające. Przy rozpoczynaniu czatu wybierasz, której użyć. Kolejność zmieniają strzałki w górę i w dół, a X usuwa wybraną pozycję.
 - **Example Dialogue**. Przykładowe wymiany zdań, które uczą AI głosu postaci. Do rozdzielania wymian służy `<START>`. Jako symbole zastępcze wpisuj `{{user}}` i `{{char}}`.
 
+Powitania i przykładowe wiadomości mogą też pokazywać obrazy z galerii postaci; zobacz [Galerie postaci → Ponowne używanie obrazu z galerii w wiadomościach i powitaniach](galleries.md#reuse-a-gallery-image-in-messages-and-greetings).
+
 Krótki wpis w polu **Example Dialogue** wygląda tak:
 
 ```

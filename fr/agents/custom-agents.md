@@ -1,6 +1,6 @@
 # Créer des agents personnalisés
 
-Ce guide explique comment construire ton propre agent dans Marinara Engine. Un agent est un petit assistant IA qui tourne automatiquement en parallèle du chat (ta conversation enregistrée). Au programme : régler sa phase, ses pouvoirs, son type de résultat, ses mots-clés d'activation, ses outils et son prompt (le texte que Marinara envoie à l'IA), avec un exemple complet déroulé de bout en bout.
+Ce guide explique comment construire ton propre agent dans Marinara Engine. Un agent est un petit assistant IA qui tourne automatiquement en parallèle du chat (ta conversation enregistrée). Au programme : régler sa phase, ses pouvoirs, son type de résultat, ses mots-clés et questions d'activation, ses outils et son prompt (le texte que Marinara envoie à l'IA), avec un exemple complet déroulé de bout en bout.
 
 Tu débutes avec les agents ? Commence par [Agents : des aides IA pour tes chats](agents-overview.md) pour les bases, puis reviens ici.
 
@@ -130,7 +130,61 @@ moonlit ritual
 2. Règle **Scan Depth** (profondeur d'analyse) sur le nombre de messages récents à parcourir. La valeur par défaut est 5. Le maximum est 200.
 3. L'agent ne tourne alors que si au moins un mot-clé apparaît dans ce nombre de messages récents.
 
-Laisse le champ des mots-clés vide pour que l'agent tourne à chaque fois, à sa cadence normale.
+Laisse le champ des mots-clés vide pour désactiver le filtre de mots-clés. La cadence et toute question d'activation continuent de s'appliquer.
+
+<a id="activation-questions"></a>
+
+## Questions d'activation
+
+Une **Activation question** (question d'activation) demande si la scène récente nécessite ton agent personnalisé, par exemple `In the latest message, the characters move to a different location.` Elle reconnaît des reformulations que les mots-clés peuvent manquer. Laisse-la vide pour conserver le comportement existant.
+
+Un **Decision model** (modèle de décision) y répond. Choisis-en un sous **Decision model** dans le panneau Connections : ton modèle local actuel, une connexion Decision hébergée ou un modèle de décision installé par Marinara. [Modèles de décision](../connections/decision-models.md) explique chaque option, le choix et la configuration. Avec **Decision model** sur **None** (aucun), le choix par défaut, les champs des questions restent désactivés dans l'éditeur et un agent ayant une question s'exécute comme s'il n'en avait pas.
+
+### Configurer ton agent
+
+Importer un agent avec une question d'activation ou des énoncés de décision dans son prompt affiche un avis lié au guide des modèles de décision. Sans Decision model sélectionné, il explique que les questions d'activation laissent l'agent s'exécuter dès que ses mots-clés et **Trigger Cadence** le permettent, tandis que les énoncés du prompt valent non et utilisent leur branche `{{else}}`. Définis aussi une cadence si l'agent ne doit pas s'exécuter à chaque tour sans Decision model. Le même avis apparaît à l'installation d'un package depuis le catalogue d'Agents.
+
+Après avoir sélectionné un Decision model, ouvre un agent personnalisé et saisis une **Question** (question) de 500 caractères au maximum. Les macros standard des agents, dont `{{user}}` et `{{char}}`, y fonctionnent. **Scan Depth** contrôle les messages récents utilisés pour les mots-clés comme pour la question.
+
+Malgré le nom du champ, écris une affirmation factuelle sur le dernier message, pas une question. Lors de nos tests, un petit modèle de décision répondait moins fiablement à `Did the scene change?` qu'à `The latest message moves the scene to a new place.` Le conseil est le même que pour les énoncés de décision dans les prompts ; consulte [Rédiger les énoncés](../prompts/conditional-prompts.md#writing-statements).
+
+- **Run when probability is at least** (exécuter si la probabilité atteint au moins) définit le seuil de cet agent. L'agent s'exécute si la probabilité de "oui" atteint ou dépasse ce seuil ; une valeur plus élevée évite davantage d'exécutions. L'éditeur recommande 0,5 pour les modèles de chat locaux et les connexions Decision, ou la valeur du manifeste du processus auxiliaire géré (0,1 pour les modèles Open-Jev intégrés). Un point d'accès personnalisé n'est pas automatiquement calibré pour son modèle. Vérifie le seuil sur tes chats, surtout après un changement de modèle. Le modifier affecte cette question d'activation, pas les énoncés du prompt de l'agent. Consulte [Seuils](../connections/decision-models.md#thresholds).
+- **Bypass the question after this many messages without a successful run** (ignorer la question après ce nombre de messages sans exécution réussie) est facultatif. Une fois ce nombre de messages utilisateur/assistant écoulé depuis la dernière réussite, la question est ignorée. Un nouvel agent, ou un agent dont le message précédent a été supprimé, l'ignore aussi si ce réglage est activé. Les mots-clés et la cadence doivent toujours permettre l'exécution. Pense à le régler pour un agent important : tout modèle se trompe parfois, et cela empêche une suite de "non" de le réduire définitivement au silence.
+- Les agents de pré-génération et parallèles utilisent la conversation avant la réponse. Les agents de post-traitement voient aussi la réponse terminée.
+
+Les mots-clés et la cadence sont vérifiés d'abord : un agent déjà écarté ne fait donc pas de requête de décision payante. Les questions ayant la même profondeur d'analyse sont regroupées par phase. Un délai dépassé, un modèle indisponible ou une réponse invalide laisse l'agent concerné s'exécuter normalement. Le budget est le **Time limit** (délai) de la connexion Decision (1,5 seconde par défaut) et 4 secondes pour un modèle local, ou 20 s'il doit d'abord raisonner. Les requêtes de décision suivent l'annulation de génération. Les journaux ordinaires omettent le contenu du chat ; la journalisation des prompts de débogage inclut les messages et questions évalués.
+
+Ce réglage concerne les agents personnalisés. L'activation des agents intégrés et l'évaluation de l'activité des personnages conservent leur comportement.
+
+<a id="decision-statements-in-the-agents-prompt"></a>
+
+### Énoncés de décision dans le prompt de l'agent
+
+Une question d'activation décide si l'agent s'exécute. Un énoncé de décision dans **Prompt Template** (modèle de prompt) décide des instructions reçues pendant son exécution. Les deux utilisent le même Decision model et la syntaxe des [Prompts conditionnels](../prompts/conditional-prompts.md#asking-the-decision-model) :
+
+```
+{{#if decision:"In the latest message, the characters move to a different location"}}
+Update the location field.
+{{else}}
+Leave the location as it is.
+{{/if}}
+```
+
+Ensemble, ils permettent d'éviter entièrement les tours calmes et d'envoyer un prompt plus court aux tours où l'agent s'exécute. Quelques idées :
+
+- Un tracker inclut ses instructions de mise à jour du lieu uniquement quand le lieu change, au lieu de le déduire à chaque tour.
+- Un agent d'images décrit une nouvelle image seulement si l'aspect de la scène change.
+- Un agent musical reçoit l'instruction de changer de morceau seulement si l'ambiance change.
+- Un choix sélectionne un jeu d'instructions parmi plusieurs : `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`, `{{else if decision_choice:"The kind of scene in the latest message" == "dialogue"}}`, etc.
+
+Déroulement :
+
+- Les agents de pré-génération et parallèles lisent le chat avant la réponse, le même tour que le prompt principal, et partagent ses réponses. Les agents de post-traitement lisent la réponse terminée comme dernier message et leurs énoncés sont réévalués avec elle.
+- Relancer un agent, par exemple avec le bouton d'actualisation d'un tracker, en réessayant un agent en échec ou avec **Re-run** (relancer) sur une injection, réutilise les réponses réussies encore en cache pour le même tour, modèle et énoncés. Les échecs peuvent être réessayés ; un redémarrage du serveur, une éviction du cache ou des entrées modifiées peuvent aussi provoquer de nouvelles requêtes. Consulte [Réutilisation des réponses](../prompts/conditional-prompts.md#answer-reuse).
+- Dans le prompt d'un agent, `{{char}}` nomme tous les personnages du chat à la fois : dans un groupe, `{{char}} is angry` devient "Kaelen, Alyssa is angry". Nomme le personnage ou écris "a character".
+- Sans réponse, un énoncé vaut non. L'agent doit tout de même faire quelque chose de cohérent avec sa branche `{{else}}`, car beaucoup d'utilisateurs n'auront pas de Decision model.
+
+Les agents installés depuis Marinara-Agents traitent leurs modèles de prompt de la même façon et peuvent donc aussi utiliser des énoncés de décision.
 
 ## Attacher des outils (Function Calling)
 
@@ -211,6 +265,7 @@ Par sécurité, Marinara ignore les fonctions embarquées, efface les sélection
 ## Guides associés
 
 - [Agents : des aides IA pour tes chats](agents-overview.md)
+- [Modèles de décision](../connections/decision-models.md)
 - [Référence des agents téléchargeables](built-in-agents.md)
 - [Outils personnalisés](../extending/custom-tools.md)
 - [Macros](../prompts/macros.md)

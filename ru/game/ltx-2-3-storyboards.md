@@ -10,7 +10,7 @@
 GM narration
   -> Animation Planner
      -> imagePrompt -> image connection -> first-frame illustration
-     -> narrationBeat -> LTX Director Video -> %prompt%
+     -> narrationBeat -> Narration Passthrough -> %prompt%
   -> first frame + prompt -> ComfyUI LTX 2.3 workflow -> MP4 clip
 ```
 
@@ -166,7 +166,7 @@ ltx-2.3-22b-distilled-1.1_transformer_only_int8_convrot.safetensors
 | Настройка | Рекомендуемое значение |
 | --- | --- |
 | **Video Connection** | Созданное выше подключение к ComfyUI для LTX 2.3 |
-| **Game Video Prompt** | **LTX Director Video** |
+| **Game Video Prompt** | **Narration Passthrough** |
 
 Общая настройка **Game Video Prompt** отвечает за анимации, которые запускаются вручную из раздела **Gallery** и из раздела **Game Assets**. У клипов раскадровки может быть свой промпт – остальные действия с анимацией от этого не меняются.
 
@@ -180,13 +180,13 @@ ltx-2.3-22b-distilled-1.1_transformer_only_int8_convrot.safetensors
 | **Automatic Storyboard Animations** | On |
 | **Use NovelAI Character Prompts** | Off |
 | **Keyframes per Turn** | обычно 3; для первой проверки на 8 ГБ VRAM начните с 1 |
-| **Animation Clip Duration** | 6 секунд |
+| **Animation Clip Duration** | 5 секунд |
 | **Viewer Display** | Floating на время тестов |
 | **Illustration Planner** | **Still Keyframes**; остается запасным вариантом для режима без анимации |
 | **Animation Planner** | **LTX Simple Image-to-Video** |
 | **Use Storyboard Template** | On |
 | **Storyboard Illustration Prompt** | **Storyboard First Frame** |
-| **Storyboard Video Prompt** | **LTX Director Video** |
+| **Storyboard Video Prompt** | **Narration Passthrough** |
 
 **LTX Simple Image-to-Video** – рекомендуемый вариант по умолчанию. Он планирует один первый кадр, готовый к анимации, и один прямой промпт движения на 4-8 предложений. Ставка делается на одно главное действие, одно поведение камеры, сдержанное движение окружения и уместный звук или короткую реплику.
 
@@ -196,7 +196,7 @@ ltx-2.3-22b-distilled-1.1_transformer_only_int8_convrot.safetensors
 
 **Storyboard First Frame** передает Krea готовую сцену T=0 от **Animation Planner** на естественном языке как есть – без заголовка ключевого кадра, подписей промпта, повторного описания внешности и художественных указаний кампании. Оставьте **Use Storyboard Template** включенным, иначе это форматирование не применится.
 
-**LTX Director Video** намеренно сделан коротким. Он проводит готовый `narrationBeat` от **Animation Planner** через универсальный договор промпта для видео и не обкладывает его еще одним пересказом сцены.
+**Narration Passthrough** намеренно сделан коротким. Он проводит готовый `narrationBeat` от **Animation Planner** через универсальный договор промпта для видео и не обкладывает его еще одним пересказом сцены.
 
 Каждый ключевой кадр создает одну задачу изображения в Krea и одну локальную задачу видео в LTX. Значит, три ключевых кадра запускают три отрисовки первого кадра и три отрисовки видео. На видеокарте с 8 ГБ VRAM начните с одного ключевого кадра в 480p. Когда он получится, переходите к трем ключевым кадрам и более высоким разрешениям.
 
@@ -204,7 +204,7 @@ ltx-2.3-22b-distilled-1.1_transformer_only_int8_convrot.safetensors
 
 Возьмите завершенный ход GM (ведущего игры) с одним очевидным зримым действием: открыть дверь, посмотреть в сторону звука, сделать несколько шагов или произнести одну короткую фразу.
 
-1. Для самой быстрой проверки при малом объеме VRAM временно поставьте **Keyframes per Turn** в 1, а **Animation Clip Duration** оставьте на 6 секундах. В обычной проверенной конфигурации используется 3 ключевых кадра.
+1. Для самой быстрой проверки при малом объеме VRAM временно поставьте **Keyframes per Turn** в 1, а **Animation Clip Duration** оставьте на 5 секундах. В обычной проверенной конфигурации используется 3 ключевых кадра.
 2. Включите обе автоматические настройки раскадровки после того, как текущий ход GM уже завершен.
 3. Откройте раздел **Gallery** и выберите **Create storyboard** для этого завершенного хода GM. Так весь путь от иллюстрации до анимации запускается вручную, без ожидания следующего хода.
 4. Если показ промптов включен, просмотрите промпт первого кадра перед отправкой.
@@ -221,7 +221,7 @@ ltx-2.3-22b-distilled-1.1_transformer_only_int8_convrot.safetensors
 - `imagePrompt` – только то, что видно на первом кадре в момент T=0;
 - `narrationBeat` – полный промпт LTX для перехода из изображения в видео: что происходит дальше.
 
-Оба поля заполняет выбранный **Animation Planner**. **Storyboard First Frame** форматирует `imagePrompt` и отправляет эту сцену T=0 на естественном языке в Krea 2. Когда изображение готово, **LTX Director Video** разворачивается в `narrationBeat`. Marinara подставляет его в поле `prompt` обычного запроса на видео, заменяет `%prompt%` в рабочем процессе ComfyUI, загружает первый кадр и заменяет `%reference_image_name%` его именем файла в ComfyUI.
+Оба поля заполняет выбранный **Animation Planner**. **Storyboard First Frame** форматирует `imagePrompt` и отправляет эту сцену T=0 на естественном языке в Krea 2. Когда изображение готово, **Narration Passthrough** разворачивается в `narrationBeat`. Marinara подставляет его в поле `prompt` обычного запроса на видео, заменяет `%prompt%` в рабочем процессе ComfyUI, загружает первый кадр и заменяет `%reference_image_name%` его именем файла в ComfyUI.
 
 Создавать два локальных сегмента промпта не нужно. Для этих пресетов раскадровки обычный путь – один глобальный промпт.
 

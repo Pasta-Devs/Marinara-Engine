@@ -125,7 +125,11 @@ Erfasst für jeden Charakter die aktuelle Kleidung nach Körperbereich, gehalten
 - **Phase**: Post-Processing.
 - **Wo er funktioniert**: nur Roleplay.
 - **Wichtige Einstellungen**: Füge ihn unter **Chat Settings → Agents → Tracker Agents** hinzu oder entferne ihn dort. Öffne an dieser Stelle **Configure Beholder**, um Verbindung, Modell, Prompt, Kontext und Ausgabelimits auszuwählen. **Add as Prompt Section** ist standardmäßig an.
-- **Modell-Empfehlung**: Verwende für eine zuverlässige vollständige Zustandserfassung ein SOTA-Modell wie OpenAI GPT-5.5+, Claude Opus 4.8+ oder Kimi K3+.
+- **Modell-Empfehlung**: Wähle die Prompt-Vorlage passend zum Modell hinter Beholders Verbindung. Die beiden mitgelieferten Vorlagen sind nicht austauschbar; jede richtet sich an eine andere Modellart.
+  - **SOTA model — one prompt** (SOTA-Modell, ein Prompt; Standard): Ein Aufruf erfasst alle Felder. Verwende ein starkes allgemeines Modell wie OpenAI GPT-5.5+, Claude Opus 4.8+ oder Kimi K3+.
+  - **Beholder local model — five passes** (lokales Beholder-Modell, fünf Durchläufe): Fünf eng gefasste Aufrufe, je einer pro Erfassungsbereich, für den gezielt trainierten lokalen [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF)-Extraktor, etwa `Beholder-Q8_0.gguf` hinter koboldcpp oder llama.cpp. Das Modell wurde auf jeweils einen Bereich trainiert; die Einzel-Prompt-Vorlage liegt außerhalb dieser Trainingsaufgabe und liefert nur einen Teilzustand. Die Engine führt die fünf Bereichsergebnisse zu einem Update zusammen. Das läuft vollständig offline und kostenlos.
+
+  Beholder erkennt das Modell hinter einer Verbindung nicht; die Auswahl bleibt manuell. Eine falsche Zuordnung ist nicht fatal, verschlechtert aber die Extraktion: Ein SOTA-Modell bewältigt beide Vorlagen, das lokale Modell braucht die fünf Durchläufe.
 - **Ursprung**: Für die native Agent-Laufzeit der Engine aus [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME) übernommen, lizenziert ausschließlich unter AGPL-3.0. Das offizielle Paket lädt weder DOM noch Polling- oder Local-Storage-Laufzeit der alten Erweiterung.
 
 ### Persona Stats
@@ -187,12 +191,12 @@ Simuliert ein Live-Publikum, das auf die Szene reagiert – sichtbar als schwebe
 
 ### Noodle
 
-Fügt eine optionale lokale soziale Welt mit der öffentlichen Noodle-Timeline und dem Rollenspiel-Feed NoodleR für Creator und Fans hinzu. Sie öffnet sich in einem eigenen Home-Tab und läuft nicht in der normalen Chat-Agenten-Pipeline.
+Ergänzt die optionale lokale öffentliche Noodle-Timeline. Sie öffnet sich in einem eigenen Home-Tab, statt in der normalen Chat-Agenten-Pipeline zu laufen.
 
 - **Integration**: Feature-Paket; es stellt den Home-Tab, lokale Routen, Generierungs- und Medienabläufe sowie Hintergrund-Zeitpläne bereit.
 - **Verfügbar in**: Home, mit optionalem Kontext aus Conversation-, Roleplay- und Game-Chats.
-- **Wichtige Einstellungen**: Installiere es über **Agents → Download Agents** und starte Marinara Engine neu, wenn du dazu aufgefordert wirst. In Noodle kannst du eingeladene Konten, Text- und Bildverbindungen, Timeline-Aktualisierungen, NoodleR-Creator-Profile, den Zugriff auf simulierte Beiträge und die Publikumsaktivität konfigurieren.
-- **Datenlebenszyklus**: Bei der Deinstallation verschwindet der Home-Tab, und Paket-Routen sowie Zeitpläne werden nach dem Neustart beendet. Vorhandene Noodle- und NoodleR-Daten bleiben für eine spätere Neuinstallation erhalten.
+- **Wichtige Einstellungen**: Installiere es über **Agents → Download Agents** und starte Marinara Engine neu, wenn du dazu aufgefordert wirst. In Noodle kannst du eingeladene Konten, Text- und Bildverbindungen, Timeline-Aktualisierungen, zufällige Nutzer und Chat-Carryover konfigurieren.
+- **Datenlebenszyklus**: Bei der Deinstallation verschwindet der Home-Tab, und Paket-Routen sowie Zeitpläne werden nach dem Neustart beendet. Vorhandene Noodle-Daten bleiben für eine spätere Neuinstallation erhalten.
 - **Vollständige Anleitung**: [Noodle: Die soziale Timeline in der App](../noodle/overview.md).
 
 ### Long-Term Memory

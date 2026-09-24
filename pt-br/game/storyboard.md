@@ -42,7 +42,7 @@ Abra o painel **Agents**, selecione **Storyboard** e abra a configuração dele.
 | **Video connection** | Use the Game video connection | Gera os clipes quando as animações estão ativadas |
 | **Automatic generation** | Still images | Define o comportamento automático inicial dos chats recém-ativados |
 | **Keyframes per turn** | 3, de 1 a 6 | Define o número desejado de quadros em ordem |
-| **Clip seconds** | 6, de 1 a 15 | Define a duração pedida para cada clipe |
+| **Clip seconds** | 5, de 1 a 15 | Define a duração pedida para cada clipe |
 | **Viewer display** | Floating viewer | Define o padrão do visualizador no Game Mode; no Roleplay, os storyboards sempre aparecem dentro do chat |
 | **Default Roleplay episode interval** | 1, de 1 a 100 | Define quanto material novo do Roleplay se acumula entre os episódios automáticos |
 | **Attach Card Appearance** | On | Acrescenta aos prompts de imagem os detalhes de aparência dos personagens identificados |
@@ -72,7 +72,7 @@ No Roleplay, Marinara junta quatro prompts selecionados em um único pedido ao p
 | **Animation addon** | Simple Storyboard Motion | Só nos clipes, acrescenta movimento, câmera, diálogo e som vindos do texto, o clima do ambiente e uma pausa no fim |
 | **Output contract** | Roleplay Keyframe JSON | Define os campos estruturados de quadro-chave que o planejador devolve |
 
-Abaixo de cada seletor fica a coleção editável de opções. Clique em **Add option** (adicionar opção) para criar um prompt personalizado, renomeie a opção, escreva uma descrição curta e edite o corpo do prompt. As opções nativas podem voltar ao padrão do pacote.
+Abra **Prompt library** (Biblioteca de prompts), recolhida dentro de Stage 1, para editar essas coleções completas. Clique em **Add option** (adicionar opção) para criar um prompt personalizado, renomeie a opção, escreva uma descrição curta e edite o corpo do prompt. As opções nativas podem voltar ao padrão do pacote.
 
 ### Formatadores compartilhados do provedor
 
@@ -83,7 +83,7 @@ Depois que o modo escolhido planeja os quadros, os formatadores compartilhados m
 | **Default image prompt** | Game Scene Illustration | Formata cada quadro-chave planejado para o provedor de imagem |
 | **Default video prompt** | Cinematic Scene Video | Formata a imagem do primeiro quadro e o plano de movimento para o provedor de vídeo |
 
-As opções nativas de imagem incluem também **Storyboard Illustration** e **Storyboard First Frame**. Entre as de vídeo estão **Anime Game Video**, **Comic Page Video** e **LTX Director Video**. Os chats de Game e de Roleplay podem usar formatadores diferentes sem mexer na coleção de prompts compartilhada.
+Cada etapa numerada tem sua própria **Prompt library** recolhida: Stage 2 contém os formatadores de imagem, Stage 3 os planejadores de movimento que consideram a imagem, e Stage 4 os formatadores que repassam o prompt de vídeo sem alterações. As opções nativas de imagem incluem também **Storyboard Illustration** e **Storyboard First Frame**. Entre as de vídeo estão **Anime Game Video**, **Comic Page Video** e **Narration Passthrough**. Os chats de Game e de Roleplay podem usar formatadores diferentes sem mexer na coleção de prompts compartilhada.
 
 ### Padrões globais e ajustes de cada chat
 
@@ -174,7 +174,7 @@ Abra a seção **Chat Settings > Agents > Storyboards**.
 | **Automatic Storyboard Illustrations** | Vem de Automatic generation | Quadros-chave estáticos depois de cada turno concluído do GM |
 | **Automatic Storyboard Animations** | Vem de Automatic generation | Clipes MP4 para cada quadro-chave |
 | **Keyframes per Turn** | 3, de 1 a 6 | Número desejado de quadros; um turno curto pode render menos |
-| **Animation Clip Duration** | 6 segundos, de 1 a 15 | Duração pedida para cada clipe; o provedor pode reduzi-la |
+| **Animation Clip Duration** | 5 segundos, de 1 a 15 | Duração pedida para cada clipe; o provedor pode reduzi-la |
 | **Viewer Display** | Floating | Visualizador arrastável ou plano de fundo do jogo em tela cheia |
 | **Still Planner** | Still Keyframes | Planeja ilustrações estáticas finalizadas |
 | **Animation Planner** | Comic Page Animation | Planeja primeiros quadros prontos para animar e as direções de movimento |
@@ -260,7 +260,7 @@ Cadeia aplicada pelo pacote:
 - **Illustration Planner**: Still Keyframes, como alternativa só para imagem estática
 - **Animation Planner**: LTX Simple Image-to-Video
 - **Storyboard Illustration Prompt**: Storyboard First Frame
-- **Storyboard Video Prompt**: LTX Director Video
+- **Storyboard Video Prompt**: Narration Passthrough
 - **Use Storyboard Template**: On
 
 Em uma GPU com 8 GB de VRAM, comece com um quadro-chave em 480p. Depois que essa geração terminar com sucesso, avance para três quadros-chave e resoluções maiores. Veja [Storyboards com LTX 2.3 no Game Mode](ltx-2-3-storyboards.md) para a conexão do ComfyUI, os marcadores e o procedimento completo de teste.

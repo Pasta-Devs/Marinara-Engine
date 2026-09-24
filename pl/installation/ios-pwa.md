@@ -78,6 +78,8 @@ Czaty, postacie i ustawienia są zapisane na serwerze, a nie na iPhone lub iPad.
 
 **Safari wciąż pokazuje starą wersję.** Najpierw odśwież stronę. Jeśli nadal wygląda staro, wykonaj kroki z sekcji Czyszczenie i ponowna instalacja aplikacji PWA powyżej.
 
+**Aplikacja z ekranu głównego zamyka się lub bieleje podczas generowania.** Otwórz ją ponownie i wróć do czatu. Nie musisz restartować zdrowego serwera. Automatyczne odpowiedzi czatu i ręczne lub ponawiane żądania obrazów wyłącznie Illustrator działają dalej na serwerze po utracie połączenia przeglądarki. Ponownie otwarty czat sprawdza niedokończoną pracę i po jej zakończeniu odświeża zapisane wiadomości oraz obrazy galerii. **Stop** nadal anuluje generowanie wybranego czatu. Jeśli pusty ekran wraca, zgłoś Support Diagnostics i to, czy ponowne otwarcie przywraca czat; to odzyskiwanie nie diagnozuje ani nie zapobiega każdej awarii przeglądarki iOS.
+
 **Czerwony pasek ostrzega, że zapisy będą po cichu przepadać.** To ostrzeżenie serwera o zaufaniu sieciowym, a nie problem z iPhone lub iPad. Właściciel serwera musi dodać twój adres do zaufanych. Zobacz [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md) i [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
 
 **Działania uprzywilejowane są blokowane.** Część czynności serwisowych wymaga sekretu administratora od właściciela serwera. Na iPhone lub iPad zapisujesz tę wartość w sekcji **Settings**, potem **Advanced**, potem **Admin Access**. [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md) wyjaśnia, czym jest sekret administratora i jak go zdobyć.

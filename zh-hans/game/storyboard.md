@@ -42,7 +42,7 @@
 | **Video connection** | Use the Game video connection | 开启动画时生成片段 |
 | **Automatic generation** | Still images | 决定新启用的聊天一开始的自动行为 |
 | **Keyframes per turn** | 3(范围 1 到 6) | 设定有序帧的目标数量 |
-| **Clip seconds** | 6(范围 1 到 15) | 设定每个片段请求的时长 |
+| **Clip seconds** | 5(范围 1 到 15) | 设定每个片段请求的时长 |
 | **Viewer display** | Floating viewer | 设定 Game Mode 查看器的默认值；Roleplay 的分镜一律内嵌显示 |
 | **Default Roleplay episode interval** | 1(范围 1 到 100) | 设定两段自动剧集之间要积累多少新的 Roleplay 内容 |
 | **Attach Card Appearance** | On | 把匹配到的角色外观细节加进图像提示词 |
@@ -72,7 +72,7 @@ Roleplay 会把选中的四段提示词拼成一个规划请求。
 | **Animation addon** | Simple Storyboard Motion | 只在出片段时加入运动、镜头、原文对白与音效、环境音和结尾定格 |
 | **Output contract** | Roleplay Keyframe JSON | 定义规划器返回的结构化关键帧字段 |
 
-每个选择器下面都有一组可编辑的选项。要写自定义提示词，用 **Add option** 新建一项，然后改名、加一段简短说明、编辑提示词正文。内置选项随时可以恢复成包里的默认值。
+打开 Stage 1 内折叠的 **Prompt library**(提示词库) 编辑这些完整集合。用 **Add option**(添加选项) 添加自定义提示词、重命名、填写简短说明并编辑正文。内置选项可以恢复为包默认值。
 
 ### 共用的服务商格式化器
 
@@ -83,7 +83,7 @@ Roleplay 会把选中的四段提示词拼成一个规划请求。
 | **Default image prompt** | Game Scene Illustration | 把每个规划好的关键帧整理成图像服务商能用的形式 |
 | **Default video prompt** | Cinematic Scene Video | 把首帧图像和运动方案整理成视频服务商能用的形式 |
 
-内置的图像选项还有 **Storyboard Illustration** 和 **Storyboard First Frame**。视频选项包括 **Anime Game Video**、**Comic Page Video** 和 **LTX Director Video**。Game 聊天和 Roleplay 聊天可以各选各的格式化器，底层那份共用的提示词集合不受影响。
+每个编号阶段都有自己的折叠式 **Prompt library**：Stage 2 管理图像格式化器，Stage 3 管理参考图像的运动规划器，Stage 4 管理视频直传格式化器。内置图像选项还包括 **Storyboard Illustration** 和 **Storyboard First Frame**。视频选项包括 **Anime Game Video**、**Comic Page Video** 和 **Narration Passthrough**。Game 和 Roleplay 聊天可以选择不同格式化器，无须改动底层共享提示词集合。
 
 ### 全局默认值与聊天覆盖设置
 
@@ -174,7 +174,7 @@ Storyboard 卡片上有两个自动化开关：
 | **Automatic Storyboard Illustrations** | 由 Automatic generation 推导 | 每个 GM 回合结束后生成静态关键帧 |
 | **Automatic Storyboard Animations** | 由 Automatic generation 推导 | 为每个关键帧生成 MP4 片段 |
 | **Keyframes per Turn** | 3(范围 1 到 6) | 目标帧数；回合太短时可能少于这个数 |
-| **Animation Clip Duration** | 6 秒（范围 1 到 15） | 每个片段请求的时长；服务商可能会压到更低 |
+| **Animation Clip Duration** | 5 秒（范围 1 到 15） | 每个片段请求的时长；服务商可能会压到更低 |
 | **Viewer Display** | Floating | 可拖动的查看器，或者铺满整屏的 Game 背景 |
 | **Still Planner** | Still Keyframes | 规划成品静态插图 |
 | **Animation Planner** | Comic Page Animation | 规划可直接用于动画的首帧和运动指示 |
@@ -260,7 +260,7 @@ Game 侧的检查清单：
 - **Illustration Planner**: Still Keyframes，只出静态图时的回退选项
 - **Animation Planner**: LTX Simple Image-to-Video
 - **Storyboard Illustration Prompt**: Storyboard First Frame
-- **Storyboard Video Prompt**: LTX Director Video
+- **Storyboard Video Prompt**: Narration Passthrough
 - **Use Storyboard Template**: On
 
 显存 8 GB 的显卡先从 480p、单个关键帧起步。这一步顺利跑通之后，再往 3 个关键帧和更高分辨率上加。ComfyUI 连接、占位符和完整的测试流程见 [Game Mode 中的 LTX 2.3 分镜](ltx-2-3-storyboards.md)。

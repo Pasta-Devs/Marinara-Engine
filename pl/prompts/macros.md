@@ -38,7 +38,7 @@ Te makra wstawiają imiona oraz pola kart osoby mówiącej i odpowiadającej pos
 | `{{user}}` / `{{userName}}` | Twoja bieżąca nazwa wyświetlana (albo nazwa persony). Bez ustawionej persony domyślnie `User`. |
 | `{{userNamePhonetic}}` | Pole Phonetic name twojej persony, a przy pustym polu `{{user}}`. |
 | `{{char}}` / `{{charName}}` | Nazwa bieżącej postaci. Domyślnie `Character`. |
-| `{{<21-character-card-ID>}}` | Zapis zastępczy dla nazwy innej karty postaci. Tekst w nawiasach kątowych zastąp dokładnym 21-znakowym ID tej karty. |
+| `{{21-character-card-ID}}` | Nazwa innej postaci. Zastąp tekst zastępczy dokładnym 21-znakowym ID karty, aby dodać ją do kontekstu. |
 | `{{persona-21-character-card-ID}}` | Zapis zastępczy dla nazwy innej persony. Tekst po `persona-` zastąp dokładnym 21-znakowym ID jej karty, aby pobrać kontekst z tej karty. |
 | `{{charNamePhonetic}}` | Pole Phonetic name postaci, a przy pustym polu `{{char}}`. |
 | `{{characters}}` | Wszystkie postacie w czacie, oddzielone przecinkami. |
@@ -69,7 +69,7 @@ Makro `{{group}}` podąża za postacią, która właśnie odpowiada – równie�
 
 Pole Phonetic name pełni dwie funkcje. Decyduje o tym, jak imię wymawia syntezator mowy. Zasila też makra `{{charNamePhonetic}}` i `{{userNamePhonetic}}`. Znajdziesz je zarówno w panelu **Character Editor**, jak i w panelu **Persona Editor**.
 
-Aby odwołać się do postaci, której nie ma w bieżącym czacie, skopiuj ID jej karty i wstaw je bezpośrednio w podwójne nawiasy klamrowe, na przykład `{{V1StGXR8_Z5jdHi6B-myT}}`. Marinara zamienia to makro na nazwę karty i dodaje do promptu systemowego kontekst postaci z przywołanej karty. Powitania i przykładowe dialogi tej karty zostają pominięte. Włączone lorebooki podpięte do tej karty nadal podlegają swoim zwykłym regułom słów kluczowych, wpisów **Constant**, filtrów, prawdopodobieństwa i limitu tokenów.
+Aby wskazać postać spoza czatu, skopiuj ID jej karty i umieść bezpośrednio w podwójnych nawiasach, na przykład `{{V1StGXR8_Z5jdHi6B-myT}}`. Nie dodawaj dosłownych znaków `<` ani `>`. Marinara zastępuje makro imieniem i dodaje pola Description, Personality, Appearance, Backstory, Scenario i Example Dialogue karty do promptu systemowego. Działa to w wiadomościach, polach promptu i aktywowanych wpisach lorebooka. Początkowe powitania są pomijane. Włączone lorebooki karty nadal podlegają zwykłym regułom słów kluczowych, Constant, filtrów, prawdopodobieństwa i limitu tokenów.
 
 Aby odwołać się do nieaktywnej persony, dodaj `persona-` przed skopiowanym ID, na przykład `{{persona-P1StGXR8_Z5jdHi6B-myT}}`. Marinara zamienia makro na nazwę persony i dodaje jej pola Description, Personality, Appearance, Backstory i Scenario do ID Macro Cards. Podpięte lorebooki nadal podlegają swoim zwykłym regułom aktywacji.
 
@@ -129,6 +129,14 @@ Wpisy outletu nadal aktywują się na zwykłych zasadach lorebooka. O tym, czy w
 
 Makr outletów używa się w sekcjach promptu w trybie Conversation, Roleplay i Game Mode. Makro działa nawet wtedy, gdy stoi przed znacznikiem lorebooka w ustawieniach presetu, a preset korzystający wyłącznie z wpisów outletu wcale nie potrzebuje takiego znacznika. Nieznany lub nieaktywny outlet daje pusty tekst. Wpis outletu nie rozwija kolejnego makra outletu, więc zagnieżdżone outlety nie działają rekurencyjnie.
 
+## Makro rozmiaru lorebooka
+
+`{{lorebooksize::ID}}` daje łączną liczbę wpisów lorebooka o podanym identyfikatorze. Zastąp `ID` rzeczywistym ID skopiowanym z panelu Lorebooks. Na przykład lorebook z ID `V1StGXR8_Z5jdHi6B-myT` i 151 wpisami daje `151` dla `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}`.
+
+Nieznane ID lorebooków dają `0`. Liczba obejmuje wszystkie wpisy: włączone, wyłączone i w folderach.
+
+Używaj makra w sekcjach promptu, polach kart postaci, treści wpisów lorebooka i wszędzie, gdzie rozwijane są makra.
+
 ## Makra czasu
 
 Wszystkie makra czasu czytają jeden wspólny moment na każde rozwinięcie, więc zawsze się ze sobą zgadzają. Strefa czasowa pochodzi z przeglądarki.
@@ -161,7 +169,7 @@ Oto prosty przykład losowego wyboru do skopiowania:
 
 ### Losowanie z wagami
 
-Dopisz na końcu opcji `@liczba`, żeby ustalić jej szansę. Ta liczba to waga względna. Im większa, tym większa szansa.
+Dopisz na końcu opcji `@number`, żeby ustalić jej szansę. Ta liczba to waga względna. Im większa, tym większa szansa.
 
 ```text
 {{random::Common event@1::Rare event@0.25}}
@@ -180,7 +188,7 @@ Zasady ważenia:
 - Wagi ułamkowe są dozwolone, na przykład 0.5 albo 0.01.
 - Waga 0 zostawia opcję na liście, ale losowanie nigdy jej nie wybierze.
 - Jeśli każda opcja ma wagę 0, makro daje pusty tekst.
-- Wagą jest wyłącznie końcowy zapis `@liczba`. Znak `@` w innym miejscu, choćby w adresie e-mail, zostaje nietknięty.
+- Wagą jest wyłącznie końcowy zapis `@number`. Znak `@` w innym miejscu, choćby w adresie e-mail, zostaje nietknięty.
 
 ## Zmienne dynamiczne
 
@@ -229,6 +237,9 @@ Każde pole obsługujące makra ma w rogu dwa małe przyciski:
 Można też wpisać `/macros` w polu czatu (krótsza forma `/macro` również działa). Pełna lista makr wypisuje się wtedy wprost na czacie, jako szybka ściągawka.
 
 Bloki warunkowe łączą porównania operatorami `||` (LUB) i `&&` (ORAZ) oraz nawiasami. Listy równości można zapisać zwięźle: `{{#if character == "Maukie" || "Pantalone"}}`. Kolejność działań, przykłady dla czatu grupowego i pełną listę operatorów opisuje przewodnik [Prompty warunkowe](conditional-prompts.md).
+
+
+Warunek może zapytać model decyzyjny o scenę: `{{#if decision:"The latest message moves the scene to a new place"}}` dla tak/nie lub `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}` dla wyboru opcji. Bez modelu lub odpowiedzi oznaczają nie. Zobacz [Pytanie modelu decyzyjnego](conditional-prompts.md#asking-the-decision-model). Dodaj `sticky:3 cooldown:5` po stwierdzeniu, by zachować tak przez trzy tury, a potem odpocząć przez pięć; zobacz [Sticky i cooldown](conditional-prompts.md#sticky-and-cooldown). `every:3` pyta tylko co trzy tury, a `priority:high` lub `priority:low` wybiera stwierdzenia mieszczące się w planie; zobacz [Sprawdzanie co kilka tur](conditional-prompts.md#checking-every-few-turns), [Priorytet](conditional-prompts.md#priority) i [Limity i koszty](conditional-prompts.md#limits-and-cost).
 
 ## Częste błędy
 

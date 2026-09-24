@@ -654,3 +654,12 @@ independent native-reader panel review. Existing pack-wide rules still apply.
 
 The startup troubleshooting addition retains **скрипт запуска** for launcher,
 matching the existing pack; do not introduce **лаунчер** as a synonym.
+
+## Decision-model catchup (2026-09-24)
+
+- Decision model: **модель решений**; decision statement: **условие решения** or **утверждение** when describing the proposition being scored; activation question: **вопрос активации**; threshold: **порог**. Keep UI labels such as **Decision model**, **Activation questions**, and **Decision sidecar** in English with a native gloss at first mention.
+- Keep example statements, choice values, macro syntax, code fences, URLs and link fragments byte-identical to English. Translate explanations and link text. The no-answer defaults differ between prompt conditions, lorebook activation and agent activation; do not collapse them into one rule.
+- Wound track: **шкала ран**; ruleset remains **набор правил**. Capability identifiers and catalog keys remain unchanged.
+- **Narration Passthrough** replaces the previous formatter label **LTX Director Video**. PocketTTS now defaults to the official server while retaining wrapper support.
+
+These are documented choices for this catchup, not independent native-reader review.

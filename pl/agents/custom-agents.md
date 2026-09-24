@@ -1,6 +1,6 @@
 # Tworzenie własnych agentów
 
-Z tego przewodnika dowiesz się, jak zbudować własnego agenta w aplikacji Marinara Engine. Agent to mały pomocnik AI, który działa automatycznie obok czatu. Zobaczysz, jak ustawić jego fazę, uprawnienia, typ wyniku, słowa wyzwalające, narzędzia i prompt (tekst, który Marinara wysyła do AI), a na koniec czeka pełny przykład krok po kroku.
+Z tego przewodnika dowiesz się, jak zbudować własnego agenta w aplikacji Marinara Engine. Agent to mały pomocnik AI, który działa automatycznie obok czatu. Zobaczysz, jak ustawić jego fazę, uprawnienia, typ wyniku, słowa i pytania aktywacyjne, narzędzia i prompt (tekst, który Marinara wysyła do AI), a na koniec czeka pełny przykład krok po kroku.
 
 Agenci to nowość? Zacznij od przewodnika [Agenci: pomocnicy AI w czatach](agents-overview.md), a potem wróć tutaj.
 
@@ -130,7 +130,61 @@ moonlit ritual
 2. W polu **Scan Depth** ustaw głębokość skanowania, czyli liczbę ostatnich wiadomości do przeszukania. Domyślnie jest to 5, maksymalnie 200.
 3. Agent uruchamia się od tej chwili tylko wtedy, gdy w tylu ostatnich wiadomościach pojawi się co najmniej jedno słowo kluczowe.
 
-Zostaw pole ze słowami kluczowymi puste, żeby agent działał za każdym razem w swoim zwykłym rytmie.
+Puste pole słów kluczowych wyłącza filtr słów. Nadal obowiązują częstotliwość i ewentualne pytanie aktywacyjne.
+
+<a id="activation-questions"></a>
+
+## Pytania aktywacyjne
+
+**Activation question** (pytanie aktywacyjne) pyta, czy ostatnia scena potrzebuje twojego agenta, na przykład `In the latest message, the characters move to a different location.` Rozpoznaje parafrazy pomijane przez słowa kluczowe. Puste pole zachowuje dotychczasowe zachowanie.
+
+Odpowiada **Decision model** (model decyzyjny). Wybierz go w **Decision model** panelu Connections: już uruchomiony model lokalny, zdalne połączenie Decision lub model instalowany przez aplikację Marinara. [Modele decyzyjne](../connections/decision-models.md) opisują każdą opcję, wybór i konfigurację. Przy domyślnym **None** (brak) pola pytań w edytorze są wyłączone, a agent z pytaniem działa jak bez niego.
+
+### Konfiguracja agenta
+
+Import agenta z pytaniem aktywacyjnym lub stwierdzeniami decyzyjnymi w prompcie pokazuje informację z linkiem do przewodnika modeli decyzyjnych. Bez wybranego modelu wyjaśnia ona, że pytania przepuszczają agenta, kiedy pozwalają słowa kluczowe i **Trigger Cadence** (częstotliwość uruchamiania), a stwierdzenia promptu oznaczają nie i wybierają `{{else}}`. Ustaw też częstotliwość, jeśli agent bez modelu decyzyjnego nie powinien działać w każdej turze. Ta sama informacja pojawia się przy instalacji z katalogu agentów.
+
+Po wybraniu modelu otwórz własnego agenta i wpisz **Question** (pytanie) do 500 znaków. Działają standardowe makra agentów, w tym `{{user}}` i `{{char}}`. **Scan Depth** steruje ostatnimi wiadomościami używanymi przez słowa kluczowe i pytanie.
+
+Mimo nazwy pola napisz stwierdzenie faktu o ostatniej wiadomości, nie pytanie. W testach mały model gorzej oceniał `Did the scene change?` niż `The latest message moves the scene to a new place.` Obowiązują te same rady co dla stwierdzeń promptu; zobacz [Pisanie stwierdzeń](../prompts/conditional-prompts.md#writing-statements).
+
+- **Run when probability is at least** (uruchom przy prawdopodobieństwie co najmniej) określa próg agenta. Uruchamia się, gdy prawdopodobieństwo tak osiąga lub przekracza próg; wyższe wartości pomijają więcej uruchomień. Edytor zaleca 0,5 dla lokalnych modeli czatu i połączeń Decision albo wartość manifestu zarządzanego sidecar (0,1 dla wbudowanych Open-Jev). Własny punkt końcowy nie otrzymuje automatycznej kalibracji modelu. Sprawdź próg na swoich czatach, szczególnie po zmianie modelu. Zmiana wpływa na pytanie aktywacyjne, nie stwierdzenia w prompcie agenta. Zobacz [Progi](../connections/decision-models.md#thresholds).
+- **Bypass the question after this many messages without a successful run** (pomiń pytanie po tylu wiadomościach bez udanego uruchomienia) jest opcjonalne. Po tylu wiadomościach użytkownika/asystenta od ostatniego udanego uruchomienia pytanie jest pomijane. Przy włączonym ustawieniu pomija je też nowy agent lub agent, którego wcześniejsza wiadomość została usunięta. Słowa kluczowe i częstotliwość nadal muszą pozwalać na uruchomienie. Warto ustawić to dla ważnego agenta: każdy model się myli, a to chroni przed trwałym wyciszeniem przez ciągłe odpowiedzi "nie".
+- Agenci wcześniejsi i równolegli używają rozmowy sprzed odpowiedzi. Agenci przetwarzania końcowego widzą też ukończoną odpowiedź.
+
+Słowa kluczowe i częstotliwość są sprawdzane pierwsze, więc już pominięty agent nie wysyła płatnego żądania. Pytania o tej samej głębokości skanowania są grupowane dla każdej fazy. Przekroczenie czasu, niedostępny model lub nieprawidłowa odpowiedź pozwalają agentowi działać normalnie. Obowiązuje **Time limit** (limit czasu) połączenia Decision (domyślnie 1,5 sekundy), 4 sekundy dla modelu lokalnego albo 20 sekund, gdy musi najpierw rozumować. Żądania podlegają anulowaniu generowania. Zwykłe logi pomijają treść czatu; logowanie promptów debug zawiera oceniane wiadomości i pytania.
+
+Ustawienie dotyczy własnych agentów. Aktywacja wbudowanych agentów i ocena aktywności postaci zachowują dotychczasowe zachowanie.
+
+<a id="decision-statements-in-the-agents-prompt"></a>
+
+### Stwierdzenia decyzyjne w prompcie agenta
+
+Pytanie aktywacyjne decyduje o uruchomieniu agenta. Stwierdzenie decyzyjne w **Prompt Template** określa instrukcje uruchomionego agenta. Oba używają tego samego modelu i składni z [Promptów warunkowych](../prompts/conditional-prompts.md#asking-the-decision-model):
+
+```
+{{#if decision:"In the latest message, the characters move to a different location"}}
+Update the location field.
+{{else}}
+Leave the location as it is.
+{{/if}}
+```
+
+Razem pozwalają pominąć spokojne tury i wysłać mniejszy prompt w pozostałych. Przykłady:
+
+- Tracker dołącza instrukcje aktualizacji miejsca tylko po jego zmianie zamiast wyznaczać je w każdej turze.
+- Agent obrazowy opisuje nowy obraz tylko wtedy, gdy scena wygląda inaczej.
+- Agent muzyczny dostaje zmianę utworu tylko po zmianie nastroju.
+- Wybór wskazuje jeden z zestawów instrukcji: `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`, `{{else if decision_choice:"The kind of scene in the latest message" == "dialogue"}}` i tak dalej.
+
+Przebieg działania:
+
+- Agenci wcześniejsi i równolegli czytają czat sprzed odpowiedzi, tę samą turę co główny prompt, i współdzielą odpowiedzi. Agenci końcowi czytają gotową odpowiedź jako najnowszą wiadomość i pytają o stwierdzenia ponownie z jej udziałem.
+- Ponowienie agenta, na przykład przyciskiem odświeżenia trackera, po błędzie lub przez **Re-run** (uruchom ponownie) przy wstawce, używa udanych odpowiedzi nadal w pamięci podręcznej dla tej samej tury, modelu i stwierdzeń. Nieudane można ponowić; restart serwera, usunięcie z pamięci lub zmiana danych też może wywołać nowe żądania. Zobacz [Ponowne używanie odpowiedzi](../prompts/conditional-prompts.md#answer-reuse).
+- W prompcie agenta `{{char}}` oznacza wszystkie postacie naraz, więc w grupie `{{char}} is angry` staje się "Kaelen, Alyssa is angry". Podaj imię albo napisz "a character".
+- Bez odpowiedzi stwierdzenie oznacza nie. Gałąź `{{else}}` agenta nadal musi mieć sens, ponieważ wielu użytkowników nie będzie miało modelu decyzyjnego.
+
+Agenci z Marinara-Agents renderują szablony promptów tak samo, więc także mogą korzystać ze stwierdzeń decyzyjnych.
 
 ## Podłączanie narzędzi (Function Calling)
 
@@ -210,6 +264,7 @@ Dla bezpieczeństwa Marinara pomija dołączone funkcje, czyści zaznaczenia nar
 
 ## Powiązane przewodniki
 
+- [Modele decyzyjne](../connections/decision-models.md)
 - [Agenci: pomocnicy AI w czatach](agents-overview.md)
 - [Agenci do pobrania: przegląd pakietów](built-in-agents.md)
 - [Własne narzędzia](../extending/custom-tools.md)

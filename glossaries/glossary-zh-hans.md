@@ -567,3 +567,13 @@ independent native-reader panel review. Existing pack-wide rules still apply.
 Use **服务商** for provider, **人物卡** for combat sheets, and **角色卡**
 for character cards. A combat behavior profile is **行为档案**; this qualified
 term is distinct from a Game save (**存档**) and an account archive (**档案**).
+
+## Decision and ruleset catchup (2026-09-24)
+
+| English concept | Translation |
+| --- | --- |
+| decision statement | Decision 语句 |
+| activation question | 激活问题 |
+| wound track | 伤势轨道 |
+
+Keep **Decision model**, **Jev**, backend names, and executable statement examples unchanged. Translate their surrounding explanations. Activation questions decide whether an agent runs; statements inside its prompt select the instructions for an agent that is already running. These are translation choices, not a new native-reader review.

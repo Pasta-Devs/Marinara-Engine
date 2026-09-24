@@ -98,6 +98,22 @@ Professor Mari 编辑已有内容时，会先把改动立刻保存下来，然�
 
 批准一个库，等于同意在 Marinara 之后导入或运行它时信任它的代码。禁用生命周期脚本挡住的是安装阶段的执行，没法让一个库在运行时也变得无害。
 
+## 使用 Decision 创建内容
+
+Mari 可以编写智能体 **Activation questions**(激活问题)、世界书条目的 **Decision** 陈述，以及预设、角色卡、世界书和智能体提示词里的条件提示词。引入这些功能前，她会检查所选 Decision 模型。已选模型只是配置信息，不证明服务商可连接或本地模型能成功加载。
+
+没有选择 Decision 模型时，她不会在普通创建和编辑中加入新的 Decision 依赖。无关编辑会保留既有 Decision 内容。如果明确要求 Decision 内容，她会解释相关备用行为，并在该 Mari 聊天里询问一次是否继续。记录在重新打开聊天或对话超出最近消息窗口后仍然保留。未回答和拒绝都不算许可。
+
+可以告诉她：**“别再提醒我设置 Decision 模型。”** 她会停止当前聊天里的提醒，也可以把偏好存为 Memory。用 **Keep & Enable**(保留并启用) 让它也适用于以后聊天。关闭或删除该 Memory 会移除长期偏好。抑制设置提醒不代表允许她在普通请求中加入 Decision。
+
+选择模型后，她会遵循相关且已启用的 Memories 和 Skills。如果其中没有编写偏好，她会询问是否使用 Decision，以及是否记住答案。可以允许、拒绝，或只批准当前任务。只解释 Decision 语法的 Skill 不算许可。“给这个条目加上 Decision 激活”这样的直接请求已经提供了该任务的许可。
+
+默认做法是少量使用并配合合适的时机控制：世界书条目使用 **Sticky** 或 **Cooldown**，智能体激活使用 **Trigger Cadence**，提示词条件使用 `sticky`、`cooldown` 或 `every`。Sticky 和 Cooldown 减少肯定激活后的重复检查，但不能阻止陈述持续回答否时的重复检查。`every` 跳过计划回合之间的检查，并在这些回合按否处理，因此不一定适合稍纵即逝的事件。
+
+Mari 也会尽量保持组装后提示词的前段稳定。除非指示或已启用偏好已允许该位置，否则她会先询问，再把变化内容放到提示词前面或把上下文插入聊天历史。没有通用的“1,000 个 Token 之后就安全”规则：缓存复用取决于服务商、模型和匹配的渲染后前缀。批准使用 Decision 不会自动批准这些位置。
+
+通常的 Permissions Mode 和审查控件仍然适用于她的编辑。她保存的 Memories 初始禁用，直到你启用。各 Decision 功能能看到什么、备用行为和示例，见 [Decision 模型](../connections/decision-models.md)、[条件提示词](../prompts/conditional-prompts.md)、[自定义智能体](../agents/custom-agents.md#activation-questions)和[世界书条目](../lorebooks/entries.md#decision-activation)。
+
 ## 自定义 Skill
 
 Skill 是你自己写的一份简短说明文档，用来改变 Professor Mari 处理某一类请求的方式。

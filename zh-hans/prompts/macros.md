@@ -38,7 +38,7 @@
 | `{{user}}` / `{{userName}}` | 你当前的显示名称（或者用户角色名）。没有设置用户角色时默认是 `User`。 |
 | `{{userNamePhonetic}}` | 用户角色的 Phonetic 名称；留空时等同 `{{user}}`。 |
 | `{{char}}` / `{{charName}}` | 当前角色的名字。默认是 `Character`。 |
-| `{{<21-character-card-ID>}}` | 引用另一张角色卡名字的占位写法。把尖括号里的内容换成那张卡精确的 21 位 ID。 |
+| `{{21-character-card-ID}}` | 其他角色的姓名。将占位文字替换为该卡准确的 21 字符 ID，即可把卡片加入上下文。 |
 | `{{persona-21-character-card-ID}}` | 引用另一个用户角色名字的占位写法。把 `persona-` 后面的内容换成那张卡精确的 21 位 ID，即可带入卡片上下文。 |
 | `{{charNamePhonetic}}` | 角色的 Phonetic 名称；留空时等同 `{{char}}`。 |
 | `{{characters}}` | 聊天里的所有角色，用逗号连接。 |
@@ -69,7 +69,7 @@
 
 Phonetic 名称字段有两个作用。一是决定语音合成怎么念这个名字，二是给 `{{charNamePhonetic}}` 和 `{{userNamePhonetic}}` 提供内容。**Character Editor** 和 **Persona Editor** 里都有这个字段。
 
-想引用不在当前聊天里的角色，把那张卡的 ID 复制出来，直接放进双大括号，比如 `{{V1StGXR8_Z5jdHi6B-myT}}`。Marinara 会把这个宏换成卡片名字，并把被引用卡片的角色上下文加进系统提示词。被引用卡片的开场白和示例对话不会带进来。挂在那张卡上、并且处于启用状态的世界书，照常受关键词、常驻、筛选、概率和 Token(模型切分文本的最小单位) 预算规则约束。
+要引用不在当前聊天里的角色，复制卡片 ID，直接放进双大括号，例如 `{{V1StGXR8_Z5jdHi6B-myT}}`。不要包含字面的 `<` 或 `>` 字符。Marinara 将宏替换为角色姓名，并把卡片的 Description、Personality、Appearance、Backstory、Scenario 和 Example Dialogue 加入系统提示词。它适用于聊天消息、提示词字段和已激活的世界书条目。卡片的初始开场白会排除。关联的已启用世界书仍遵守通常的关键词、constant、筛选、概率和 Token 预算规则。
 
 想引用当前未启用的用户角色，请在复制的 ID 前加上 `persona-`，例如 `{{persona-P1StGXR8_Z5jdHi6B-myT}}`。Marinara 会把宏换成用户角色名，并把其 Description、Personality、Appearance、Backstory 和 Scenario 字段加入 ID Macro Cards。所附世界书仍按通常的激活规则运行。
 
@@ -128,6 +128,14 @@ Conversation 模式会自动往提示词里插入好几个内容块。这些宏�
 Outlet 条目照常走世界书的激活逻辑。关键词、Constant 模式、概率、筛选、时机、条目数量上限和 Token 预算共同决定一个条目在这次生成里是否激活。Outlet 名称相同的激活条目按各自的 **Order**(排序) 依次拼接，中间用换行分隔。它们只在宏所在的位置插入，不会再额外插到世界书的常规位置。
 
 Outlet 宏可以用在 Conversation、Roleplay 或 Game Mode 的提示词小节里。就算宏出现在预设的世界书标记之前也照样有效；如果只用 Outlet 条目，预设里甚至不需要世界书标记。未知的或者没激活的 Outlet 展开为空。Outlet 条目内部不能再展开另一个 Outlet 宏，所以 Outlet 不会递归嵌套。
+
+## 世界书大小宏
+
+`{{lorebooksize::ID}}` 展开为指定 ID 的世界书条目总数。将 `ID` 替换为世界书实际 ID，可从 Lorebooks 面板复制。例如 ID 为 `V1StGXR8_Z5jdHi6B-myT` 且有 151 个条目时，`{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}` 展开为 `151`。
+
+未知 ID 展开为 `0`。计数包含所有条目，无论是否启用或位于文件夹中。
+
+可在提示词小节、角色卡字段、世界书条目内容或其他解析宏的位置使用。
 
 ## 时间宏
 
@@ -229,6 +237,8 @@ Outlet 宏可以用在 Conversation、Roleplay 或 Game Mode 的提示词小节�
 也可以在聊天输入框里输入 `/macros`(简写 `/macro` 同样有效)。完整的宏列表会直接打印在聊天里，方便随时对照。
 
 条件块里可以用 `||`(或)、`&&`(与) 和小括号组合多个比较。判断相等时还能用紧凑写法 `{{#if character == "Maukie" || "Pantalone"}}`。优先级、群聊示例和完整的运算符清单见[条件提示词](conditional-prompts.md)。
+
+条件也能向 Decision 模型询问场景：是/否使用 `{{#if decision:"The latest message moves the scene to a new place"}}`，多选一使用 `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`。没有模型或没有答案时都按否处理。见[询问 Decision 模型](conditional-prompts.md#asking-the-decision-model)。陈述后加 `sticky:3 cooldown:5` 可保持是 3 回合，再休息 5 回合；见 [Sticky 与 Cooldown](conditional-prompts.md#sticky-and-cooldown)。`every:3` 只每 3 回合询问一次，`priority:high` 或 `priority:low` 决定哪些陈述进入提示词计划；见[每隔几回合检查](conditional-prompts.md#checking-every-few-turns)、[优先级](conditional-prompts.md#priority)和[限制与成本](conditional-prompts.md#limits-and-cost)。
 
 ## 常见错误
 

@@ -16,7 +16,7 @@ Marinara 最早的 LTX Director Storyboard 集成方案，会把每个规划好�
 
 - **LTX Director Storyboard** 为每个镜头规划首帧，并给出一条完整的 LTX 2.3 图生视频提示词。
 - **Storyboard First Frame** 负责格式化用作参考图的那张精确的 T=0 插图。
-- **LTX Director Video** 的内容只有 `${narrationSummary}`，因此规划器写好的提示词会走通用视频模板路径，和其他所有工作流完全一致。
+- **Narration Passthrough** 的内容只有 `${narrationSummary}`，因此规划器写好的提示词会走通用视频模板路径，和其他所有工作流完全一致。
 
 分镜路由不得检查这些模板 ID，不得自行制造局部片段，也不得附加 LTX 专用的提示词载荷。选中的视频模板依然可以完全自定义。
 
@@ -52,7 +52,7 @@ She opens the door and walks outside as the camera follows behind her. A light b
 
 1. 规划器为每个镜头返回一条 T=0 的 `imagePrompt` 和一条完整的 `narrationBeat`。
 2. 分镜图像生成负责产出首帧参考插图。
-3. LTX Director Video 模板把 `${narrationSummary}` 解析为该镜头的 `narrationBeat`。
+3. Narration Passthrough 模板把 `${narrationSummary}` 解析为该镜头的 `narrationBeat`。
 4. 常规的视频生成请求用它现有的 `prompt` 字段携带这个结果。
 5. ComfyUI 适配器替换已保存工作流里的 `%prompt%`，并提供现成的参考图、尺寸、时长、帧数、种子和模型值。
 
@@ -89,7 +89,7 @@ She opens the door and walks outside as the camera follows behind her. A light b
 ## 验收标准
 
 - LTX 分镜规划器请求的是一条完整的、考虑了时长的图生视频提示词，其中有清晰可读的动作阶段、相对主体的运镜方向，以及可选的音效或对白。
-- LTX Director Video 模板的内容正好是 `${narrationSummary}`。
+- Narration Passthrough 模板的内容正好是 `${narrationSummary}`。
 - 分镜路由里没有精确模板 ID 的绕行逻辑、局部提示词清洗器，也没有 LTX 专用的交接。
 - 带 `global_prompt: "%prompt%"` 的工作流能收到规划器写出的完整提示词；`local_prompts` 和 `segment_lengths` 保持为空。
 - 现有的 `%global_prompt%` 工作流仍能收到普通请求提示词，作为兼容兜底。

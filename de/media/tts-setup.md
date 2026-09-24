@@ -10,8 +10,6 @@ Die App schickt TTS-Anfragen über den eigenen Server. Marinara speichert den AP
 
 TTS einzuschalten bringt noch nichts zum Sprechen. Es blendet lediglich die Schaltfläche **Speak** (Vorlesen) an jeder Nachricht und die Optionen unter **Auto-play** (automatische Wiedergabe) ein. Was wann vorgelesen wird, entscheidest weiterhin du.
 
-In denselben Wiedergabeeinstellungen kannst du auch **Skip text inside HTML and custom tags** (Text in HTML- und eigenen Tags überspringen), **Skip fenced code blocks** (abgegrenzte Codeblöcke überspringen) oder **Skip text inside square brackets** (Text in eckigen Klammern überspringen) aktivieren. Codeblöcke werden standardmäßig übersprungen; die anderen beiden Filter sind zunächst ausgeschaltet. Der Tag-Filter entfernt den eingeschlossenen Text, etwa einen verborgenen Block `<simulation>...</simulation>`, behält aber Sprecher-Tags für die Stimmenauswahl bei. Die Filter gelten für manuelle und automatische Wiedergabe, einschließlich Game-Erzählung und Sprechererkennung in Roleplay.
-
 ## Schritt 1: TTS aktivieren und eine Source wählen
 
 1. Öffne das Panel **Connections** und klapp die Karte **Text to Speech** auf.
@@ -41,16 +39,16 @@ Diese Standardwerte setzt die App je Source:
 | ----------------- | ------------------------- | ---------------------- | ----------------------------- |
 | OpenAI-compatible | https://api.openai.com/v1 | tts-1                  | alloy                         |
 | ElevenLabs        | https://api.elevenlabs.io | eleven_multilingual_v2 | keine (du musst eine wählen)  |
-| PocketTTS         | http://localhost:49112    | pocket-tts             | alba                          |
+| PocketTTS         | http://localhost:8000    | pocket-tts             | alba                          |
 | xAI Voice         | https://api.x.ai/v1       | grok-tts               | eve                           |
 
 Bei **ElevenLabs** lädt das Feld **Model** alle sprachfähigen Modelle, die über die Verbindung erreichbar sind, und zeigt beim Öffnen stets die vollständige Liste. Wähle ein normales Sprachmodell. Modell-IDs mit `ttv` sind Voice-Design-Modelle und können keinen Text vorlesen. Greifst du versehentlich zu einem davon, scheitert die Wiedergabe mit einer Fehlermeldung, die auf ein Sprachmodell verweist.
 
 ### PocketTTS ist ein eigenes Programm
 
-PocketTTS steckt nicht in Marinara Engine. Der Adapter von Marinara nutzt den [OpenAI-kompatiblen PocketTTS-Server](https://github.com/teddybear082/pocket-tts-openai_streaming_server), der beide von Marinara benötigten Endpunkte bereitstellt: Sprachausgabe und Stimmenliste. Installiere und starte diesen Server nach dessen Anleitung – Marinara lädt ihn weder herunter noch verwaltet sie ihn.
+PocketTTS ist nicht in Marinara Engine eingebaut. Installiere den [offiziellen PocketTTS-Server](https://github.com/kyutai-labs/pocket-tts) separat und starte ihn mit `uvx pocket-tts serve`. Marinara Engine lädt ihn weder herunter noch verwaltet den Server.
 
-Der kompatible Server läuft standardmäßig auf `http://localhost:49112`. Lass **Base URL** auf diesem Wert, sofern du den Server-Port nicht geändert hast. Bereits vorhandene eigene PocketTTS-Adressen bleiben unverändert.
+Der offizielle Server verwendet standardmäßig `http://localhost:8000`. Lass **Base URL** auf diesem Wert, sofern du Host oder Port nicht geändert hast. Marinara erkennt die offizielle Multipart-API `/tts` automatisch. Bestehende eigene URLs für den [OpenAI-kompatiblen PocketTTS-Wrapper](https://github.com/teddybear082/pocket-tts-openai_streaming_server) werden weiterhin unterstützt.
 
 ## Schritt 3: Eine Stimme wählen (Voice Option)
 
@@ -61,7 +59,7 @@ Die Einstellung **Voice Option** legt fest, wie Stimmen zugewiesen werden:
 
 ### One voice for all characters
 
-Wähle die Stimme im Feld **All Characters Voice**. Bei PocketTTS erscheinen die vom Server gelieferten Stimmen in einem Dropdown-Menü; daneben bleibt ein Textfeld für eine eigene Voice-ID, URL oder Pfadangabe.
+Wähle die Stimme im Feld **All Characters Voice**. Der offizielle PocketTTS-Server bietet keinen Endpunkt für eine Stimmenliste. Marinara zeigt deshalb seine eingebauten Stimmen und daneben ein Textfeld für einen anderen eingebauten Namen oder eine unterstützte Stimmen-URL. Kompatible Wrapper-Server können weiterhin eigene Stimmenlisten liefern und eigene IDs oder Pfade akzeptieren.
 
 Für die echte Stimmenliste des Anbieters trägst du die Verbindungsdaten ein und klickst auf die Schaltfläche **Refresh voices** (Stimmen neu laden, Symbol mit Kreispfeil). Das geht schon, bevor die Wiedergabe aktiv ist. Der Vorgang speichert zuerst die Karte, damit ein frisch eingetragener API-Key sofort greift. Vor dem Verbinden zeigt die App eine kurze eingebaute Ersatzliste, damit das Feld nicht leer bleibt. Ein Fehler des Anbieters erscheint als Fehlermeldung – die Ersatzliste wird nie stillschweigend als geglücktes Neuladen ausgegeben.
 
@@ -105,7 +103,8 @@ Die Einstellung **Audio Format** wählt zwischen **MP3** (Standard) und **WAV**.
 
 Der Schieberegler **Speed** bestimmt das Sprechtempo. Der zulässige Bereich hängt von der Source ab:
 
-- OpenAI-compatible und PocketTTS: 0,25- bis 4,0-fache Normalgeschwindigkeit.
+- OpenAI-compatible: 0,25- bis 4,0-fache Normalgeschwindigkeit.
+- PocketTTS: Kompatible Wrapper können die Einstellung von 0,25 bis 4,0 verwenden; der offizielle Server steuert die Synthesegeschwindigkeit derzeit selbst.
 - ElevenLabs: 0,7- bis 1,2-fach.
 - xAI Voice: 0,7- bis 1,5-fach.
 
@@ -124,6 +123,8 @@ Unter der Überschrift **Auto-play** sorgt jeder Schalter dafür, dass eine best
 - **Only read dialogues**: liest nur zitierte oder markierte Sprechzeilen und überspringt reine Erzählung.
 
 Die automatische Wiedergabe greift genau einmal, bei der neuesten Antwort, im Moment ihrer Fertigstellung. Alte Nachrichten liest sie nicht erneut vor, wenn du einen Chat wieder öffnest oder scrollst.
+
+Dieselben Wiedergabeeinstellungen bieten außerdem **Skip text inside HTML and custom tags** (Text in HTML- und eigenen Tags überspringen), **Skip fenced code blocks** (abgegrenzte Codeblöcke überspringen) und **Skip text inside square brackets** (Text in eckigen Klammern überspringen). Codeblöcke werden standardmäßig übersprungen; die anderen beiden Filter sind zunächst aus. Der Tag-Filter entfernt eingeschlossenen Text, etwa einen verborgenen Block `<simulation>...</simulation>`, behält aber Sprecher-Tags für die Stimmenwahl. Die Filter gelten für manuelle und automatische Wiedergabe, einschließlich Game-Erzählung und Sprechererkennung in Roleplay.
 
 ## Eine einzelne Nachricht vorlesen
 
@@ -160,7 +161,7 @@ Diese Vorgabe greift ausschließlich bei Audio- und Videoanrufen in Conversation
 ## Fehlerbehebung
 
 - Nichts wird gesprochen: Prüf, ob der Schalter **Enable TTS** an ist. Kontrollier dann den passenden **Auto-play**-Schalter für den Modus oder nutze die Schaltfläche **Speak** an der Nachricht. **Speak** und die Auto-play-Optionen erscheinen erst, nachdem TTS aktiviert ist.
-- Keine Stimmen im Dropdown-Menü: Speicher die Karte mit aktiviertem TTS und gültigem API-Key und klick dann auf **Refresh voices**. Bei PocketTTS prüf zusätzlich, ob `<Base URL>/v1/voices` vom kompatiblen Server antwortet.
+- Keine Stimmen im Dropdown-Menü: Speicher die Karte mit aktiviertem TTS und, falls der Anbieter einen verlangt, gültigem API-Key und klick dann auf **Refresh voices**. Der offizielle PocketTTS-Server verwendet Marinaras eingebaute Stimmenliste, weil er keinen Endpunkt für eine Stimmenliste hat. Bei einem kompatiblen PocketTTS-Wrapper prüf, ob `<Base URL>/v1/voices` antwortet.
 - ElevenLabs spricht nicht: Achte darauf, dass eine echte Stimme gewählt ist und nicht der Platzhalter „Select an ElevenLabs voice“. Prüf außerdem, ob unter **Model** ein Sprachmodell steht und kein Voice-Design-Modell, dessen ID `ttv` enthält.
 - Ein selbst gehosteter TTS-Server auf einer lokalen Adresse wird blockiert: Aktiviere die Server-Einstellung `TTS_LOCAL_URLS_ENABLED`. Damit erreicht die App lokale oder private Adressen für OpenAI-kompatible oder ElevenLabs-artige Server. PocketTTS braucht diese Einstellung nicht. Siehe [Referenz der Server-Konfiguration](../CONFIGURATION.md).
 - Einrichtung schnell testen: Klick auf die Schaltfläche **Preview** in der Karte, um mit den aktuellen Einstellungen eine kurze Beispielzeile abzuspielen.

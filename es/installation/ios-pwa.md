@@ -78,6 +78,8 @@ Tus chats, personajes y ajustes se guardan en el servidor, no en tu iPhone o iPa
 
 **Safari sigue mostrando una compilación antigua.** Primero recarga la página. Si aún se ve antigua, sigue los pasos de Borrar y reinstalar la PWA de arriba.
 
+**La app de la pantalla de inicio se cierra o queda en blanco durante una generación.** Ábrela otra vez y vuelve al chat. No necesitas reiniciar un servidor que funciona correctamente. Las respuestas automáticas y las solicitudes de imagen manuales o reintentadas exclusivas de Illustrator siguen ejecutándose en el servidor si se pierde la conexión del navegador. El chat reabierto comprueba el trabajo pendiente y actualiza los mensajes guardados y las imágenes de galería al terminar. **Stop** sigue cancelando la generación del chat seleccionado. Si vuelve la pantalla en blanco, informa tus Support Diagnostics y si reabrir restaura el chat; esta recuperación no diagnostica ni evita todos los fallos del navegador de iOS.
+
 **Un banner rojo dice que los guardados fallarán en silencio.** Esto es una advertencia de confianza de red del servidor, no un problema del iPhone o iPad. El dueño del servidor necesita confiar en tu dirección. Consulta la [guía de acceso remoto](../REMOTE_ACCESS.md) y [Solución de problemas de Marinara Engine](../TROUBLESHOOTING.md).
 
 **Las acciones privilegiadas están bloqueadas.** Algunas acciones de mantenimiento necesitan un secreto de administrador del dueño del servidor. En tu iPhone o iPad, guardas ese valor en **Settings**, luego **Advanced**, luego **Admin Access** (Acceso de administrador). La [guía de acceso remoto](../REMOTE_ACCESS.md) explica qué es el secreto de administrador y cómo conseguir uno.

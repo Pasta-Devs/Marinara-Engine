@@ -12,6 +12,7 @@ Local Model जान-बूझकर छोटा रखा गया है।
 - Game Mode के सीन इफ़ेक्ट, जैसे बैकग्राउंड, म्यूज़िक और मौसम।
 - सिमैंटिक सर्च के लिए लोरबुक एम्बेडिंग।
 - Conversation की कॉल में माइक्रोफ़ोन ट्रांसक्रिप्शन, एक अलग स्पीच मॉडल के ज़रिए।
+- सक्रिय करने वाले सवाल और निर्णय कथनों के जवाब, अगर इसे निर्णय मॉडल चुनें। [निर्णय मॉडल](decision-models.md) देखें।
 
 सेटअप विंडो इसे **Local AI Model** कहती है। कनेक्शन वाले ड्रॉपडाउन में यह **Local Model (sidecar)** दिखता है। दोनों एक ही चीज़ हैं।
 
@@ -203,6 +204,7 @@ SIDECAR_RUNTIME_INSTALL_ENABLED=true
 ## मिलती-जुलती गाइड
 
 - [AI प्रोवाइडर से कनेक्ट करना](connecting-to-a-provider.md)
+- [निर्णय मॉडल](decision-models.md)
 - [लोकल या सेल्फ़ होस्टेड मॉडल से कनेक्ट करना](local-self-hosted.md)
 - [Memory Recall और चैट सारांश](../agents/memory.md)
 - [Conversation में ऑडियो और वीडियो कॉल](../conversation/calls.md)

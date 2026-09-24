@@ -162,6 +162,16 @@ Haz clic en **Edit Prompt** (Editar prompt) para escribir un prompt solo para es
 
 Los chats de Game también tienen un cuadro **Extra instructions** (Instrucciones adicionales). El texto ahí se agrega al prompt de Game. Tiene un límite de 2000 caracteres. Una instrucción de ejemplo es "Write in the style of Terry Pratchett."
 
+<a id="decision-blocks-and-prompt-caching"></a>
+
+## Bloques de decisión y caché de prompts
+
+Una sección puede contener un bloque `{{#if decision:"..."}}` para enviar esa parte del preset solo cuando una declaración sobre el chat sea verdadera. Consulta [Consultar al Decision model](conditional-prompts.md#asking-the-decision-model).
+
+**Coloca los bloques de decisión cambiantes al final del prompt**, como en instrucciones posteriores al historial. Cambiar una rama puede impedir que el proveedor reutilice el prompt desde ese punto, así que un cambio temprano puede perder la mayor parte del ahorro. Un prefijo anterior sin cambios puede seguir siendo válido; no se factura necesariamente todo como nuevo. Mantén una decisión al inicio solo si cambia poco y sus instrucciones deben ir allí. Consulta los detalles por proveedor en [Caché de prompts](conditional-prompts.md#prompt-caching).
+
+Las declaraciones en secciones y grupos desactivados nunca se preguntan ni cuentan para **Decision statements per turn** (declaraciones de decisión por turno).
+
 ## Comprobar qué recibió la IA
 
 Para confirmar qué preset y qué secciones llegaron realmente a la IA, usa **Peek Prompt**. Muestra el prompt completamente ensamblado de un mensaje. Esta es la manera más rápida de depurar una respuesta rara. Consulta [Peek Prompt: ver qué recibió la IA](../chats/peek-prompt.md).

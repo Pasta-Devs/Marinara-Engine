@@ -42,7 +42,7 @@ Taucht Storyboard in den Chat Settings nicht auf, prüf zwei Dinge: Ist das Pake
 | **Video connection** | Use the Game video connection | Erzeugt Clips, sobald Animationen aktiv sind |
 | **Automatic generation** | Still images | Legt fest, wie sich frisch aktivierte Chats automatisch verhalten |
 | **Keyframes per turn** | 3, Bereich 1 bis 6 | Legt die Zielzahl der geordneten Bilder fest |
-| **Clip seconds** | 6, Bereich 1 bis 15 | Legt die gewünschte Länge jedes Clips fest |
+| **Clip seconds** | 5, Bereich 1 bis 15 | Legt die gewünschte Länge jedes Clips fest |
 | **Viewer display** | Floating viewer | Standard für den Viewer im Game Mode; im Roleplay erscheinen Storyboards immer direkt im Chat |
 | **Default Roleplay episode interval** | 1, Bereich 1 bis 100 | Legt fest, wie viel neuer Roleplay-Stoff sich zwischen zwei automatischen Episoden ansammelt |
 | **Attach Card Appearance** | On | Ergänzt die Bild-Prompts um das Aussehen der erkannten Charaktere |
@@ -72,7 +72,7 @@ Im Roleplay setzt Marinara vier ausgewählte Prompts zu einer einzigen Planungsa
 | **Animation addon** | Simple Storyboard Motion | Ergänzt nur für Clips Bewegung, Kameraführung, vom Text gedeckten Dialog und Geräusche, Atmosphäre und einen ruhigen Schluss |
 | **Output contract** | Roleplay Keyframe JSON | Legt fest, welche strukturierten Keyframe-Felder der Planner zurückliefert |
 
-Unter jedem Auswahlfeld liegt eine bearbeitbare Sammlung. Über **Add option** (Option hinzufügen) legst du einen eigenen Prompt an, benennst ihn um, ergänzt eine kurze Beschreibung und schreibst den Prompt-Text. Die mitgelieferten Optionen lassen sich jederzeit auf den Paket-Standard zurücksetzen.
+Öffne die eingeklappte **Prompt library** (Prompt-Bibliothek) in Stage 1, um diese vollständigen Sammlungen zu bearbeiten. Über **Add option** (Option hinzufügen) legst du einen eigenen Prompt an, benennst ihn um, ergänzt eine kurze Beschreibung und schreibst den Prompt-Text. Die mitgelieferten Optionen lassen sich jederzeit auf den Paket-Standard zurücksetzen.
 
 ### Gemeinsame Formatierer für die Anbieter
 
@@ -83,7 +83,7 @@ Sobald ein Modus seine Bilder geplant hat, bauen gemeinsame Formatierer daraus d
 | **Default image prompt** | Game Scene Illustration | Formatiert jedes geplante Keyframe für den Bild-Anbieter |
 | **Default video prompt** | Cinematic Scene Video | Formatiert das Ausgangsbild und den Bewegungsplan für den Video-Anbieter |
 
-Bei den Bildern stehen außerdem **Storyboard Illustration** und **Storyboard First Frame** zur Wahl. Bei den Videos gibt es **Anime Game Video**, **Comic Page Video** und **LTX Director Video**. Game- und Roleplay-Chats dürfen unterschiedliche Formatierer nutzen, ohne die gemeinsame Prompt-Sammlung dahinter zu verändern.
+Jede nummerierte Stufe besitzt ihre eigene eingeklappte **Prompt library**: Stage 2 enthält die Bildformatierer, Stage 3 die bildgestützten Bewegungsplaner und Stage 4 die Videoformatierer zur direkten Weitergabe. Bei den Bildern stehen außerdem **Storyboard Illustration** und **Storyboard First Frame** zur Wahl. Bei den Videos gibt es **Anime Game Video**, **Comic Page Video** und **Narration Passthrough**. Game- und Roleplay-Chats dürfen unterschiedliche Formatierer nutzen, ohne die gemeinsame Prompt-Sammlung dahinter zu verändern.
 
 ### Globale Standardwerte und Überschreibungen pro Chat
 
@@ -174,7 +174,7 @@ Ist **Expose image prompts before sending** (Bild-Prompts vor dem Senden anzeige
 | **Automatic Storyboard Illustrations** | Ergibt sich aus Automatic generation | Standbild-Keyframes nach jedem fertigen GM-Zug |
 | **Automatic Storyboard Animations** | Ergibt sich aus Automatic generation | MP4-Clips zu jedem Keyframe |
 | **Keyframes per Turn** | 3, Bereich 1 bis 6 | Zielzahl der Bilder; bei kurzen Zügen werden es womöglich weniger |
-| **Animation Clip Duration** | 6 Sekunden, Bereich 1 bis 15 | Gewünschte Länge jedes Clips; manche Anbieter kappen sie |
+| **Animation Clip Duration** | 5 Sekunden, Bereich 1 bis 15 | Gewünschte Länge jedes Clips; manche Anbieter kappen sie |
 | **Viewer Display** | Floating | Verschiebbarer Viewer oder vollflächiger Game-Hintergrund |
 | **Still Planner** | Still Keyframes | Plant fertige Standbild-Illustrationen |
 | **Animation Planner** | Comic Page Animation | Plant animationsfertige Ausgangsbilder und Bewegungsanweisungen |
@@ -260,7 +260,7 @@ Vom Paket gesetzte Kette:
 - **Illustration Planner**: Still Keyframes als Rückfalloption für reine Standbilder
 - **Animation Planner**: LTX Simple Image-to-Video
 - **Storyboard Illustration Prompt**: Storyboard First Frame
-- **Storyboard Video Prompt**: LTX Director Video
+- **Storyboard Video Prompt**: Narration Passthrough
 - **Use Storyboard Template**: On
 
 Bei einer GPU mit 8 GB VRAM startest du mit einem einzigen Keyframe in 480p. Läuft das sauber durch, steigerst du auf drei Keyframes und höhere Auflösungen. ComfyUI-Verbindung, Platzhalter und das komplette Prüfverfahren stehen unter [LTX-2.3-Storyboards im Game Mode](ltx-2-3-storyboards.md).

@@ -30,7 +30,7 @@ El **Inventory Tracker** dedicado es independiente del inventario de Persona Sta
 
 Cada entrada es una pastilla pequeña. Las pastillas fluyen a lo ancho del panel y saltan a la línea siguiente, así una lista larga de objetos se sigue leyendo bien en vez de estirarse en una columna muy alta. La cantidad solo aparece cuando es mayor que uno, escrita como `×4` después del nombre; si hay un solo objeto se ve nada más el nombre. En un panel estrecho las pastillas se apilan una por línea.
 
-Para cambiar una cantidad que ahora mismo es uno, activa el modo de añadir o el modo de bloqueo: ambos muestran el control de cantidad en todas las entradas.
+Para cambiar una cantidad que ahora mismo es uno, activa **add mode** (modo de añadir) o **lock mode** (modo de bloqueo): ambos muestran el control de cantidad en todas las entradas.
 
 El widget **Present Characters** muestra hasta tres emoji de personaje más un conteo "+N" para los adicionales. Los widgets **Inventory** y **Custom Tracker** van rotando sus entradas de una en una.
 

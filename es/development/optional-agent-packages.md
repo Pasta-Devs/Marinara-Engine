@@ -95,6 +95,117 @@ Es una SOLICITUD, no una preferencia. Nunca se escribe el ajuste de contracción
 
 Las reglas de seguridad de Engine tienen prioridad. El cuadro se expande a la fuerza siempre que se muestre el campo de texto del jugador, incluso al principio de una escena antes de que exista un segmento, y cuando estén activos los controles para avanzar el segmento, porque son la única forma de terminar un turno. Un paquete capaz de ocultarlos podría dejar al jugador atrapado para siempre. El tirador también sigue mostrando su indicador de atención cuando hay pendiente un reintento de análisis de escena, generación o generación de combate. Si el jugador expande el cuadro a mano durante una solicitud, permanece abierto hasta que termine la solicitud. Como las interfaces 1.11 y 1.12, esta es flexible: el campo se respeta con independencia del `capabilityApi` declarado, y la etiqueta 1.13 indica cuándo apareció, por lo que un paquete que lo necesite declara 1.13.
 
+### Capability API 1.14: superficies de seguimiento y ciclo de vida de agentes
+
+Capability API 1.14 añade dos valores de `contributions.slots` para paquetes de agentes Roleplay activos y habilitados con punto de entrada del cliente:
+
+- `roleplay-tracker` monta la vista `toolbar` del paquete en el HUD de Roleplay. Sus propiedades incluyen `chatId`, `chatMode`, `mobileCompact`, `toolbarButtonClass` del host, `onRerunTracker`, `trackerRetryBusy`, `lockMode` y `onToggleLockMode`. Las funciones de retorno son opcionales: comprueba que existan antes de usarlas.
+- `tracker-panel` monta la vista `tracker` dentro del Tracker Panel existente, con `chatId`, `chatMode` y `detached`. Reutiliza esa superficie en vez de abrir otro panel. Ambos espacios reciben también las propiedades habituales de identidad y localización de capacidades.
+
+Las contribuciones de contexto del prompt siguen registrándose con `api.registerPromptContext` y requieren `prompt-context`. La solicitud ahora expone `targetCharacterIds`, `personaId` y `placedAgentTypes`, opcional por compatibilidad. Este último indica qué secciones de datos de agentes ya colocó el preset para evitar duplicaciones. El host conserva la identidad del paquete de cada contribución en `packageBlocks` para colocar su texto en la sección de agente correspondiente. El texto específico para una audiencia debe respetar los IDs de personajes destinatarios recibidos.
+
+Un punto de entrada del servidor también puede registrar su servicio de ciclo de vida de posprocesamiento mediante `api.registerService("agent-runtime:<package-id>", service)`. Requiere `agent-runtime`; se rechaza registrar otro ID de paquete. Los hooks opcionales son:
+
+```ts
+const cleanup = api.registerService(`agent-runtime:${packageId}`, {
+  prepareContext({ agent, context }) {
+    // Return small, JSON-serializable context for this agent, or nothing.
+    return { chatId: context.chatId };
+  },
+  finalizeResult({ agent, context, preparedContext, result }) {
+    // Validate or enrich the result before the host publishes/applies it.
+    return result;
+  },
+});
+// Return cleanup from activate(), or include it in the activation cleanup.
+```
+
+`prepareContext` se ejecuta antes del posprocesamiento; su resultado no nulo pertenece al agente y se incluye en su prompt como contexto de ejecución serializado. `finalizeResult` recibe ese valor y el resultado generado, y devuelve un `AgentResult`. La generación y los reintentos manuales esperan a la finalización para publicar el resultado. Cada hook asíncrono tiene dos segundos: una preparación fallida se registra y se omite; una finalización fallida convierte el resultado en fallo, sin aplicar salida no validada. Son hooks breves del host, no un lugar para otra llamada lenta al modelo.
+
+Estas adiciones no tienen un control de versión 1.14 por campo. El paquete puede detectar propiedades opcionales y funcionar con prestaciones reducidas en motores antiguos; si necesita estas superficies, colocación o ciclo de vida, debe declarar `capabilityApi: { major: 1, minor: 14 }` en su manifiesto v2 para que un motor anterior rechace limpiamente la instalación.
+
+### Capability API 1.15: configuración actual de embeddings
+
+`api.runtime.resolveEmbeddings()` devuelve un `Promise<CapabilityEmbeddingHost>` nuevo con la configuración actual de conexión del agente del paquete. Llámalo al iniciar cada operación de embeddings, en vez de guardar `api.runtime.embeddings`, que es la instantánea de activación y no sigue cambios posteriores de conexión sin reactivarse.
+
+```ts
+const embeddings = await api.runtime.resolveEmbeddings();
+const vectors = await embeddings.embed(texts, signal);
+// Store/compare embeddings.spaceId with persisted vectors; do not mix embedding spaces.
+```
+
+El host devuelto tiene `spaceId`, `label` y `embed(texts, signal?)`. Usa la fuente de embeddings configurada y recurre al generador local MiniLM integrado si no hay ninguna disponible o falla la resolución de la configuración. `embed` puede devolver `null`; se rechazan lotes vacíos, más de 128 textos o más de 200.000 caracteres combinados. Un host nuevo no recalcula vectores existentes: el paquete debe gestionar los cambios de `spaceId` antes de comparar vectores nuevos y guardados.
+
+El método está disponible en los motores actuales independientemente de la versión API declarada. Declara API 1.15 si necesitas seguir los cambios de conexión. Para admitir motores anteriores, puedes comprobar `typeof api.runtime.resolveEmbeddings === "function"` y recurrir a `api.runtime.embeddings`, aceptando su limitación a la activación.
+
+### Capability API 1.16: verbos del Game Master declarados por paquetes
+
+Capability API 1.16 permite a un paquete Experience declarar una lista breve y cerrada de acciones con nombre del Game Master, llamadas verbos. El motor las representa en el recordatorio de formato del GM, las extrae de la narración terminada y las ejecuta en nombre del paquete. No se ejecuta código de servidor del paquete: una Experience `game-surface` con solo puntos de entrada `agents` y `client` puede hacer que el GM cambie su mundo mediante la prosa.
+
+La integración está completa: esquema, nombres reservados y propiedad de claves, lectura de tabla, representación del prompt y ejecutor. Si el paquete aporta una tabla y tiene `chat-write`, sus verbos aparecen en el recordatorio de cada turno Game del chat vinculado y se ejecutan cuando el GM los usa. Sin paquete vinculado, o si no declara tabla, se resuelven cero verbos y el turno es idéntico byte por byte al anterior a esta integración.
+
+Declara la tabla como `gm-verbs.json`, incluida en `contributions.assets.paths` y fijada por hash en `files[]`, como cualquier recurso. Se descubre por ese nombre reservado, una convención nueva: los demás archivos se leen por una ruta declarada (`entrypoints`, iconos, recursos), y nada más se descubre por su forma. Un archivo incluido en `files[]` pero omitido de `contributions.assets.paths` no genera diagnósticos al instalar ni construir el catálogo: sencillamente no hay verbos. El recurso declarado se sirve sin protección en `/api/capability-packages/<id>/assets/gm-verbs.json`, pues esa ruta no comprueba acceso privilegiado; la tabla nunca debe contener información sensible. Como 1.11–1.13, es una integración opcional: los motores anteriores ven un recurso JSON ordinario y lo ignoran. Puedes incluirlo sin restringir versiones; declara `capabilityApi` 1.16 solo si el paquete necesita los verbos, pues excluye todos los motores anteriores.
+
+El documento es `{ "schemaVersion": 1, "verbs": [ … ] }`, con 1–16 verbos. Cada verbo es estricto: una clave desconocida se rechaza. Los campos desconocidos junto a `schemaVersion` y `verbs` reciben deliberadamente otro tratamiento: el motor los elimina y conserva los verbos que entiende de una tabla más reciente, mientras el esquema compartido de autoría es estricto y los rechaza. La validación durante la autoría es, por tanto, más estricta que la lectura en ejecución:
+
+```json
+{
+  "schemaVersion": 1,
+  "verbs": [
+    {
+      "name": "weather",
+      "description": "Set the sky when the weather visibly changes.",
+      "effect": "state",
+      "metadataKey": "pixelforgeWeather",
+      "args": [
+        { "name": "word", "type": "string", "enum": ["fair", "overcast", "rain", "storm", "snow"] },
+        { "name": "intensity", "type": "string", "enum": ["light", "heavy"], "optional": true }
+      ]
+    }
+  ]
+}
+```
+
+Un nombre de verbo sigue `[a-z][a-z0-9_]*`, tiene como máximo 32 caracteres y no puede coincidir con etiquetas entre corchetes del GM del motor. La comprobación ignora mayúsculas: el recordatorio escribe `[Note:` y `[Book:`, pero la expresión de análisis no distingue el caso; `note` ocultaría la etiqueta del diario. El conjunto reservado procede de todas las etiquetas que pueden representar los recordatorios de GM y grupo en cualquiera de sus ramas y de los cinco analizadores de narración: el analizador de etiquetas y formateador del cliente, el editor de segmentos del servidor, el analizador de escenas del sidecar y el reescritor de diálogo de la ruta de generación. Su vocabulario incluye además `main`, `side`, `extra`, `action`, `thought`, `whisper` y el par `qte_bonus` / `qte_result`, que solo reconoce el formateador. Un verbo `whisper` haría desaparecer `[whisper:Tam]` de una línea de diálogo antes de guardarla y esta dejaría de ser diálogo permanentemente.
+
+Las pruebas de regresión fijan también los extractores: cada analizador que aporta nombres exclusivos, como `party-chat` / `party-turn` o el par QTE, debe seguir aportándolos. Si una fuente deja de analizarse, falla la compilación en vez de reducir silenciosamente el conjunto. Los otros tres también se recorren para detectar etiquetas nuevas. Esto no garantiza exhaustividad: una etiqueta en un archivo no examinado o escrita de una forma que el extractor no entienda puede escapar; amplía el conjunto cuando aparezca un analizador nuevo. También se reservan palabras comunes como `action`, `state`, `status` y `note`; su rechazo suele deberse a esta regla, no a un error tipográfico.
+
+`description` ocupa una línea de 1–200 caracteres sin corchetes ni saltos, porque se inserta literalmente en `COMMANDS:`. Además de CR y LF, se prohíben `U+0085`, `U+2028`, `U+2029`, los controles C0 y DEL, incluida la tabulación, que deforman el bloque. Sin embargo, después se expanden las macros de todo el recordatorio: `{{…}}` dentro de la descripción se expande, incluso `{{setvar::…}}`, que escribe variables de chat. No concede más acceso que `chat-write`, pero evita esas llaves salvo que sea intencionado. Un verbo admite hasta seis argumentos `{ name, type, enum?, maxLength?, optional? }`, con nombres `[a-z][a-zA-Z0-9_]*` de hasta 32 caracteres. A diferencia del verbo, admiten mayúsculas porque son claves JSON, no etiquetas. Solo las cadenas admiten `enum` con 1–16 valores distintos; los duplicados se rechazan. Una cadena sin enumeración debe declarar `maxLength` de 1–500, pues el análisis acotado del ejecutor no hereda otro límite y podría admitir toda la narración. Declarar `enum` y `maxLength` juntos se rechaza: la enumeración ya limita el valor. La carga es JSON plano de una línea; un `}` anidado cierra la coincidencia antes de tiempo. Solo se analiza una instancia de cada nombre por mensaje, por lo que un verbo repetido se aplica una vez.
+
+No necesitas explicar los argumentos en la descripción. La tabla analizada genera un esquema de carga, la descripción y un ejemplo que se puede copiar:
+
+```
+- [weather:{"word":"fair|overcast|rain|storm|snow","intensity"?:"light|heavy"}] — Set the sky when the weather visibly changes. Example: [weather:{"word":"fair"}]
+```
+
+El esquema enseña el vocabulario: argumentos en orden, opcionales marcados con `"name"?:` fuera de la cadena JSON, enumeraciones completas, el límite de cadenas libres y números o booleanos sin comillas. El validador rechaza `"3"` como número en vez de convertirlo. El ejemplo solo puede mostrar un valor de la enumeración; si el GM solo ve `{"word":"fair"}`, puede escribir "sunny", que se rechaza sin aviso visible. La etiqueta se elimina al coincidir el nombre, no al validarse: la narración queda limpia, pero el mundo no cambia. Derivar esquema y ejemplo de la misma tabla evita divergencias; los valores ya no se definen en una descripción que podría prometer algo inválido. Usa sus 200 caracteres para explicar cuándo actuar, no para repetir argumentos.
+
+La degradación es por verbo. Un `effect` más reciente, una forma no representable, un nombre reservado o una clave ajena se omiten con una línea de registro; los demás siguen funcionando, como en `parseCapabilityCatalogWithCompat`. Si un verbo no aparece, consulta el registro. Un documento inutilizable, con `schemaVersion` desconocido, `verbs` vacío o raíz que no sea objeto, produce una tabla vacía y una línea de registro. Se rechaza también antes de leerlo si el tamaño declarado `files[].bytes` supera 64 KB; `files[]` permite hasta 100 MB y nada más limita un recurso antes de leerlo. Ante cualquier fallo, el turno sobrevive sin cambios.
+
+Un verbo con `metadataKey` es un **verbo de estado**: escribe todos sus argumentos bajo esa clave en los metadatos del chat; el paquete ve el cambio mediante sus propiedades habituales. Sin `metadataKey`, es un **verbo de evento**, entregado en vivo como evento de cliente de capacidad, sin escritura duradera, cola, reproducción ni confirmación. Un evento rechaza `metadataKey`, para no apropiarse de una clave que no escribe; el estado la exige.
+
+El estado es duradero y nunca revierte: cambiar de variante, editar o borrar el turno conserva el valor. Gana la última variante generada, no la última mostrada; prosa y mundo pueden discrepar sin conciliación. Un evento no recuerda nada: un fotograma, un envío síncrono. Se pierde silenciosamente si se aborta el turno, se cierra o recarga la pestaña durante la transmisión, llega antes del primer montaje del paquete, el jugador cambia de chat o está activa la pantalla de carga del paquete. No se reenvía. A cambio, su efecto puede revertir con la historia si el paquete lo guarda donde la reconstrucción al retroceder lo restaura; los metadatos de chat no retroceden. Un evento aplicado al estado vivo y perdido en una recarga forzada antes del siguiente guardado no deja rastro en ninguno de los casos.
+
+Se prohíbe por diseño la semántica relativa en ambos tipos. El estado sobrescribe valores absolutos y no puede expresar "añadir cinco monedas". Un evento relativo también está prohibido: regenerar crea un índice de variante nuevo sin conservar las marcas de la anterior, por lo que acumularía una vez por variante generada. La deduplicación por `chatId:messageId:swipeIndex` evita reenvíos, que este canal no hace, pero no regeneraciones, que sí hace. Los valores absolutos, no un registro de transacciones, permiten aplicar un verbo dos veces sin problemas. Convierte cualquier vocabulario relativo en valores absolutos por mensaje.
+
+Si un turno contiene ambos tipos, el evento síncrono llega antes de que termine la recarga asíncrona del estado. Su manejador no debe leer el efecto de un verbo de estado del mismo turno esperando el valor nuevo.
+
+El motor solo valida forma: nombres y tipos de argumentos, pertenencia a enumeraciones y límites de cadenas. La semántica pertenece al paquete: no se pueden enumerar personajes al declarar un mundo compilado por chat. El rechazo del paquete a un verbo de estado es solo orientativo, pues los metadatos ya están guardados al recibirlo. Para un evento es vinculante: el motor no guardó nada y el paquete puede rechazar realmente un nombre desconocido.
+
+`metadataKey` debe pertenecer al paquete según tres reglas: comienza con su ID normalizado a camelCase (`hierarchical-maps` → `hierarchicalMaps`), continúa con un sufijo no vacío que empieza en mayúscula, y el ID normalizado no puede ser un espacio de nombres del motor ni extenderlo a partir de una mayúscula. Así un paquete no se apropia del prefijo de otro. La lista del motor deriva de todas las claves superiores de `ChatMetadata`, sus constantes de claves y claves presentes solo en la firma de índice, como `encounterActive`, `internalAssistant` e `imageGenConnectionId`, invisibles para las dos primeras fuentes.
+
+Ese tercer grupo requiere siete fuentes: los objetos de `patchMetadata`/`updateMetadata`; los objetos devueltos por callbacks de actualización, de frecuencia similar; la mutación `useUpdateChatMetadata()` y la propiedad `onMetadataChange` del cliente; las llamadas directas `PATCH /chats/:id/metadata`, usadas para claves de combate, escena y narración sin pasar por el hook; las lecturas `chatMetadata.key` y `chat.metadata.key`; las lecturas del resultado de `parseChatMetadata(…)`, la forma más común y la única que detecta `scenario`; y la lista manual de claves por chat para perfiles de ajustes, que cubre claves leídas y escritas a través de límites entre funciones.
+
+Las regresiones fijan todas las fuentes y extractores. Hay dos límites deliberados. Las escrituras con una variable o resultado de función, como `patchMetadata(id, hydratedMeta)` o su equivalente en la ruta de metadatos, contienen claves que un barrido estático no puede leer: hay veinte y la prueba fija esa cifra; una vigesimoprimera exige revisión manual. Las lecturas dentro de una función auxiliar desde un parámetro también quedan fuera: ocurre con `spatialContext`, escrito por el cliente de `hierarchical-maps` distribuido desde Agents y leído aquí mediante un auxiliar y análisis local al archivo. La lista manual cubre ese segundo hueco; por eso una de las siete fuentes es seleccionada a mano. Se reconocen los límites en vez de afirmar que no existen. `persona` es además un mínimo añadido a mano que hoy no produce ninguna fuente.
+
+La tercera regla rechaza paquetes enteros deliberadamente: `conversation-calls` se convierte en `conversationCalls`, y `conversationCalls` + `Enabled` ya es una clave del motor. Ese paquete no puede poseer claves bajo su ID; tampoco `noodle` ni `background`, que ya es una clave de metadatos por sí misma. Sí pueden declarar eventos, que no poseen claves. Las claves son planas y superiores porque esa es la forma que ya lee el reconciliador del paquete.
+
+Los comandos del modelo declarados por un paquete solo se ejecutan si el paquete declara `chat-write`, está instalado y está listo. Este permiso también controla las escrituras mediante la API de persistencia del paquete, incluidos mensajes, metadatos del chat, eventos de roleplay e instantáneas espaciales. `chat-read` controla las lecturas de chats, mensajes, estado del juego e instantáneas espaciales. Las mismas comprobaciones se aplican dentro de las transacciones de persistencia y los bloqueos del chat; el permiso de escritura no concede implícitamente permiso de lectura. Las llamadas de persistencia del propio motor siguen siendo de confianza.
+
+La vista de detalles de **Download Agents** (descargar agentes) muestra los permisos declarados por la versión instalada después de la instalación. Si la versión del catálogo solicita permisos diferentes, los muestra por separado. Instalar o actualizar código sigue requiriendo la aprobación existente vinculada a esa versión y suma de comprobación exactas; los comandos del modelo no solicitan una aprobación independiente en cada turno.
+
+Son comprobaciones de la API, no un entorno aislado de JavaScript. Los permisos de red, almacenamiento e interfaz son declaraciones de acceso. El código del paquete en el navegador y el servidor sigue siendo código de confianza y puede acceder al entorno del host; instala solo paquetes en los que confíes. Se comprueba que el paquete esté listo, no solo que pueda servirse, por lo que una actualización que lo deje en `restart-required` impide resolver sus comandos hasta que se reinicie el motor.
+
 ### Capability API 1.17: preparar una Experience antes de su primer turno
 
 Un paquete `game-surface` puede declarar `contributions.gameSurface.prepareBeforeStart: true` con la versión 2 del esquema y Capability API 1.17. Engine monta esa superficie cuando el juego está listo, antes de habilitar **Start Game** (Iniciar juego). Los juegos clásicos y los paquetes sin esta marca conservan su flujo de inicio actual.
@@ -155,6 +266,22 @@ Estos plazos solo limitan la espera asíncrona. Los paquetes se ejecutan como c�
 
 `api.registerTool` solo existe a partir de esta versión de Engine. Un paquete que lo necesite debe declarar `capabilityApi` 1.19 y no se instalará en versiones anteriores.
 
+## Declaraciones de decisión y el modelo de decisión
+
+El **Decision model** (Modelo de decisión) del usuario responde declaraciones de sí/no y de opciones sobre el chat reciente. Consulta [Modelos de decisión](../connections/decision-models.md) para saber qué es y cómo configurarlo.
+
+Una plantilla de prompt de agente incluida en un paquete puede usar `{{#if decision:"..."}}` y `{{#if decision_choice:"..." == "..."}}` igual que un agente personalizado. El motor las detecta y pregunta antes de ejecutar el agente (después de la respuesta, si es de posprocesamiento), y resuelve la plantilla con las respuestas. No interviene ninguna versión de la API de capacidades. Consulta la sintaxis y redacción en [Prompts condicionales](../prompts/conditional-prompts.md#asking-the-decision-model) y las fases en [Crear agentes personalizados](../agents/custom-agents.md#decision-statements-in-the-agents-prompt).
+
+El código de ejecución del paquete todavía no puede consultar directamente el modelo de decisión. Hace falta un método de la API de capacidades con su propio aumento de versión.
+
+Diseña cada uso para quien no tenga modelo de decisión. Una declaración sin respuesta se interpreta como no: la rama `{{else}}`, o nada, debe ser un valor predeterminado sensato. Escribe para un modelo de decisión en general, sin exigir Jev: los modelos de chat locales y otros backends compatibles usan la misma sintaxis, pero pueden responder distinto. Consulta [Umbrales](../connections/decision-models.md#thresholds) y [Límites y coste](../prompts/conditional-prompts.md#limits-and-cost) antes de depender de una puntuación, cantidad de solicitudes o respuesta en caché concreta.
+
+### Nota para desarrolladores de Experiences de Game Mode
+
+El combate del motor decide por sí solo qué hacen los enemigos ordinarios. Cada enemigo no jefe del GM recibe un rol por sus habilidades y clase (bruiser, bulwark, skirmisher, marksman, spellcaster, supporter o controller), competencia por su nivel salvo que la declare (novice, trained, veteran o master) y temperamento, como reckless, cautious, opportunistic o protective. Las bestias y monstruosidades siempre son mindless. El código los elige a partir de una semilla sin llamar al modelo; la dificultad cambia la constancia con que actúan según su tipo. Solo los jefes creados expresamente reciben órdenes del GM mediante una llamada al modelo. Consulta [IA de combate de Game Mode](game-combat-ai-design.md).
+
+Se preparan más mejoras de combate. Antes de introducir decisiones, comprueba si el combate normal del motor ya cubre lo necesario. Para una personalidad concreta, asigna primero competencia y temperamento adecuados. Una decisión por turno enemigo añadiría trabajo del modelo y un plazo; un backend alojado añadiría solicitudes de red y cargos. La lucha dependería de un modelo que el usuario quizá no haya configurado y necesitaría un comportamiento sensato sin respuesta.
+
 ## Paquetes iniciales
 
 - todos los agentes integrados actuales;
@@ -172,12 +299,6 @@ La base conserva el gestor de paquetes, el cliente del catálogo, los contratos 
 ## Confianza e instalación
 
 El catálogo oficial es un documento JSON con versión y validado por esquema, obtenido por HTTPS. Cada entrada de versión incluye URLs de artefactos inmutables, resúmenes SHA-256, tamaños en bytes, compatibilidad con el motor, permisos y si su tiempo de ejecución requiere reinicio.
-
-Los comandos del modelo declarados por un paquete solo se ejecutan si el paquete declara `chat-write`, está instalado y está listo. Este permiso también controla las escrituras mediante la API de persistencia del paquete, incluidos mensajes, metadatos del chat, eventos de roleplay e instantáneas espaciales. `chat-read` controla las lecturas de chats, mensajes, estado del juego e instantáneas espaciales. Las mismas comprobaciones se aplican dentro de las transacciones de persistencia y los bloqueos del chat; el permiso de escritura no concede implícitamente permiso de lectura. Las llamadas de persistencia del propio motor siguen siendo de confianza.
-
-La vista de detalles de **Download Agents** (descargar agentes) muestra los permisos declarados por la versión instalada después de la instalación. Si la versión del catálogo solicita permisos diferentes, los muestra por separado. Instalar o actualizar código sigue requiriendo la aprobación existente vinculada a esa versión y suma de comprobación exactas; los comandos del modelo no solicitan una aprobación independiente en cada turno.
-
-Son comprobaciones de la API, no un entorno aislado de JavaScript. Los permisos de red, almacenamiento e interfaz son declaraciones de acceso. El código del paquete en el navegador y el servidor sigue siendo código de confianza y puede acceder al entorno del host; instala solo paquetes en los que confíes. Se comprueba que el paquete esté listo, no solo que pueda servirse, por lo que una actualización que lo deje en `restart-required` impide resolver sus comandos hasta que se reinicie el motor.
 
 Al iniciar el servidor, el host obtiene el catálogo una vez cuando hay al menos un paquete oficial instalado, selecciona solo las versiones más nuevas compatibles con el Engine y la API de capacidades en ejecución, las verifica mediante el pipeline de instalación normal y las instala antes de que se activen los tiempos de ejecución de los paquetes. Los fallos se aíslan por paquete. Los archivos existentes y el estado del registro siguen siendo utilizables cuando el catálogo está fuera de línea o la verificación falla, y los fallos de disponibilidad del tiempo de ejecución del servidor usan la ruta de reversión a la versión anterior.
 
@@ -321,7 +442,7 @@ Se conserva la ficha: el modificador de suma pasa a indicar cantidad de dados. N
 
 ### Capability API 1.25: capas y orientación del mundo
 
-`layers` ofrece variantes con nombre, elegidas al crear la partida y fijadas en su vínculo. `gm.worldGuidance` se lee una sola vez al generar el mundo para adaptarlo a las reglas del grupo.
+`layers` ofrece variantes con nombre, elegidas al crear la partida y fijadas en su vínculo. El bloque base `gm` admite la cadena opcional `worldGuidance`; `gm.worldGuidance` se lee una sola vez al generar el mundo para adaptarlo a las reglas del grupo.
 
 ```json
 {
@@ -333,7 +454,66 @@ Se conserva la ficha: el modificador de suma pasa a indicar cantidad de dados. N
 
 Los efectos permitidos añaden orientación después de la del conjunto, eliminan valores enumerados, reemplazan dificultades por una escala del mismo tipo de resolución y ocultan entradas de catálogo. No añaden elementos a la ficha; las existentes siguen legibles con cualquier capa. Sin código del paquete ni llamadas adicionales al modelo. Las capas de terceros quedan para más adelante. Ambos campos requieren API 1.25 tras verificar el contenido. Sin permisos ni cambios para conjuntos que no los usan.
 
-### Capability API 1.26–1.27: formato de combate y criaturas
+### Capability API 1.30: heridas, gasto en pruebas y combate sobre un contador
+
+Una entrada `live.tracks` puede declarar `levels` y `kinds` para pasar de entero acotado a CONTADOR DE HERIDAS: casillas con etiqueta y penalización propias sobre las que se colocan marcas. `levels` tiene 1–16 niveles, del mejor al peor, cada uno con `label` y `penalty` entero. `kinds` tiene 1–6 tipos de daño, cada uno con `id`, `label` breve y `severity` distinta. Van juntos: se rechaza `kinds` sin `levels`, pues no habría dónde marcar. `resolution.penaltyFrom` nombra el contador cuya penalización afecta a todas las tiradas: en `dice-pool` resta dados sin bajar de `pool.min`; en `dice-sum` es un modificador fijo.
+
+El resto de 1.30 incluye estas adiciones; un paquete que use cualquiera debe declarar 1.30:
+
+- `combat.health` puede nombrar un contador de heridas en vez de una reserva. `combat.damageKinds` indica qué marca cada tipo: `default`, un mapa `byType` opcional y `marks`, con `per-blow` para marcar una casilla por golpe acertado o `per-point` para contar niveles de salud según el daño tirado. `damageKinds` es obligatorio con heridas y se rechaza con reservas.
+- `resolution.spend`, solo para `dice-pool`, define la reserva que se puede gastar en una prueba, el coste de cada pago, si compra `successes` o `dice` y `perCheck`, el máximo por tirada.
+- `mechanics.check` en una entrada de catálogo define lo que hace en la prueba algo ELEGIDO por el personaje: `reroll` (`upTo` y `once` o `until`), `dice`, `successes` o `threshold`. También es exclusivo de reservas.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 30 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+La longitud del contador son sus niveles: `min` debe ser 0 y `max`, `levels.length`. Un archivo que declare otra cosa se rechaza, no se corrige silenciosamente. `resolution.penaltyFrom` debe nombrar un contador de heridas; uno ordinario no aporta penalización.
+
+No es una integración opcional, por el mismo motivo que 1.20–1.28: un motor que no entiende `levels`, `kinds`, `penaltyFrom`, `damageKinds`, `resolution.spend` o `mechanics.check` rechaza todo el archivo. La instalación lee los bytes verificados de `ruleset.json` y rechaza el paquete con una versión declarada menor. No cambia un conjunto con contadores numéricos, salud en reserva y sin gasto en pruebas.
+
+### Capability API 1.29: qué permite un turno de combate del conjunto
+
+Hay cinco adiciones opcionales al bloque `combat` y las entradas de catálogo usadas por el combate:
+
+- Un golpe puede llevar hasta tres cantidades MÁS además de la primera. `mechanics.plus` de una entrada y `damage.plus` de una acción de criatura usan `{ dice?, flat?, type?, save?: { save,
+difficulty?, onSuccess: "none" | "half" } }`: cada parte se tira y tipifica por separado, se duplica por crítico por separado y admite su propia salvación del objetivo. Todo el golpe conserva una sola prueba de concentración y una sola prueba para caer.
+- `combat.attacks[].strikes` referencia un valor que indica cuántos ataques compra un gasto del presupuesto de esa lista. Los restantes quedan disponibles hasta terminar el turno; mientras quede alguno, todas las filas de la lista no cuestan presupuesto.
+- `mechanics.free` no consume presupuesto; `mechanics.gives` lo devuelve solo para este turno, respetando el máximo de destino; `mechanics.standard` permite comprar acciones estándar con otro presupuesto. Una entrada `utility` con `gives` o `standard` se ofrece en vez de omitirse.
+- El nuevo tipo `rider`, y los `riders` propios de una criatura, añaden una cláusula de daño al primer impacto válido de un turno o ronda, pasivamente y sin aparecer en el menú.
+- La lista cerrada de efectos de estado añade `own-saves-advantage`, `own-saves-disadvantage`, `resist-all`, `cannot-target-source` y `cannot-approach-source`. Un estado puede restringir las salvaciones afectadas (`saves`), contar solo mientras su origen esté a la vista (`whileSourceInSight`) o terminar cuando caiga (`endsWhenSourceDown`).
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 29 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+No es una integración opcional, por el mismo motivo que 1.20–1.28: un motor que no entienda estas claves rechaza todo el conjunto o el catálogo que las contiene. La instalación lee los bytes verificados de `ruleset.json` y de cada `catalogs/<id>.json` declarado, y rechaza cualquiera con una versión declarada menor. Sin permisos nuevos ni cambios para conjuntos que no las declaran.
+
+### Capability API 1.28: combate del conjunto sobre un tablero
+
+El bloque `combat` puede definir cuánto vale una casilla en su propia distancia (`distance: { label, perCell }`); esto permite que el combate tenga posiciones. `ranged` define la penalización por disparar más allá del alcance normal o con un enemigo en la casilla contigua; `cover`, cuánto añade la cobertura a la defensa; `opportunity`, el presupuesto que paga un ataque a quien se aleja. Una lista de ataques puede dar a sus filas `reach` y `range`, leídos de una columna o definidos una vez para todas; el `range` de una acción de criatura puede ser `{ "normal": 30, "long": 120 }` en vez de un número.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 28 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+Se rechaza al importar un conjunto que declare `ranged`, `cover`, `opportunity` o alcance de armas SIN `distance`: no significan nada sin una casilla en la que medir. El tablero usa el generador, terreno y despliegue del estilo táctico existente, sin añadir otro modelo de campo ni permisos.
+
+No es una integración opcional, por el mismo motivo que 1.20–1.27: un motor que no entienda estas claves rechaza todo el conjunto o el catálogo con una criatura cuyo alcance es un par. La instalación lee los bytes verificados de `ruleset.json` y cada `catalogs/<id>.json` declarado y rechaza cualquiera con una versión declarada menor. No cambia los conjuntos que no definen distancia.
+
+### Capability API 1.26: formato de combate
 
 API 1.26 añade `combat` para tiradas, objetivos, economía de acciones, ataques, capacidades, estados, concentración, salud cero, tipos de daño y escala de enemigos. `mechanics` puede describir objetivos, impactos seguros, estados, puntos temporales, escalado según la ficha y consumo de presupuesto.
 
@@ -344,6 +524,8 @@ API 1.26 añade `combat` para tiradas, objetivos, economía de acciones, ataques
   "contributions": { "assets": { "paths": ["ruleset.json"] } }
 }
 ```
+
+### Capability API 1.27: bestiarios del conjunto
 
 API 1.27 permite `"holds": "creatures"`. Sus bloques usan `combat`: salud fija o tirada al empezar, defensa, iniciativa, atributos y salvaciones con IDs de ficha, resistencias, debilidades, inmunidades, nivel de amenaza y rasgos para el GM. Las acciones pueden atacar, exigir salvaciones, aplicar estados, limitar usos, recargarse con dados, encadenar acciones con un presupuesto o gastar puntos especiales propios.
 
@@ -380,3 +562,59 @@ El paso **Lorebooks** (Libros de trasfondo) permite seleccionar hasta 100 entrad
 Importar un archivo de configuración restaura una Experience instalada y compatible y su semilla numérica válida, pero descarta cualquier configuración arbitraria del paquete. El manifiesto actual vuelve a proporcionar las constantes. Los juegos existentes omiten la importación de Experiences con una explicación. Las instantáneas de creación conservan el nombre de la Experience y la semilla para el resumen de configuración.
 
 Usa de forma independiente la declaración existente de disponibilidad de inicio cuando el mundo deba prepararse antes del primer turno. Declara API 1.18 como mínimo del paquete; los hosts anteriores no pueden interpretar esta declaración de configuración.
+
+### Capability API 1.34: una criatura escrita en los términos del conjunto
+
+Una criatura de bestiario puede incluir `sheet`: una ficha expresada en los términos del conjunto, tan parcial como se desee. El combate la construye igual que la de un miembro del grupo: salud, defensa, salvaciones, iniciativa, velocidad y capacidades de sus listas proceden de las declaraciones del conjunto y se pagan con sus propias reservas. No declara además `health`, `defense`, `initiativeModifier`, `speed`, `abilities` ni `saves`, y puede no tener acciones de bloque propias:
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 34 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/creatures.json"] } }
+}
+```
+
+La comprobación lee los bytes del conjunto y cada catálogo que tiene la instalación, igual que 1.27. Una fila de la ficha de la criatura puede llevar `_catalog: "<catalog>/<entry>"` para una entrada de un catálogo que alimenta esa lista; el motor carga esos catálogos junto al bestiario para el combate. No es una integración opcional, por el mismo motivo que 1.20–1.33: un motor que no entienda la clave rechaza el catálogo estricto completo. El paquete que la incluya declara 1.34. Sin permisos nuevos.
+
+### Capability API 1.33: el momento que espera una reacción
+
+`mechanics.reaction` de una entrada puede ser un objeto en vez de `true`. `on` nombra el momento que detecta el motor, `at` indica a quién se dirige la acción elegida y `cancels` impide que ocurra lo que la ventana dejó en espera:
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 33 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/spells.json"] } }
+}
+```
+
+`on` es `aimed`, antes de que algo alcance al portador, o `harmed`, después de recibir daño; declarar uno coloca la entrada en el menú de esa ventana. `at` es `source`, que rellena quién causó el momento, o `chosen`, que conserva los objetivos de la entrada. Solo una entrada `aimed` puede `cancel`: no se cancela algo ya ocurrido. El coste de una acción cancelada sigue gastado, pues se pagó antes de preguntar.
+
+Una entrada que mantiene `"reaction": true` solo indica que no se usa en un turno, insuficiente para ofrecerla en una ventana; no aparece en ningún menú y no necesita una versión nueva. No es una integración opcional, por el mismo motivo que 1.20–1.32: un motor que no entienda el objeto rechaza todo el catálogo estricto. El paquete que lo incluya declara 1.33. Sin permisos nuevos.
+
+### Capability API 1.32: un arma que limita sus propios ataques
+
+Una fuente de ataques puede declarar `strikesCappedBy`, una columna booleana de su lista. Si está activa en una fila, esa fila compra un único ataque, independientemente de cuántos compre `strikes` para la lista. Así, un arma que dispara una vez por turno conserva ese límite mientras el resto ataca tantas veces como indique la ficha. Responde a la propiedad Loading de SRD 5.1: "you can fire only one piece of ammunition when you use an action, bonus action, or reaction to fire it, regardless of the number of attacks you can normally make."
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 32 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+Requiere `strikes` y se rechaza sin él: una lista que compra un ataque por gasto ya limita cada fila a uno. No es una integración opcional, por el mismo motivo que 1.20–1.31: un motor que no entienda la clave rechaza todo el archivo de reglas. El paquete que la incluya declara 1.32. Sin permisos nuevos.
+
+### Capability API 1.31: integraciones de generación del host
+
+Los paquetes del servidor pueden usar `api.runtime.integrations` para acceder a los servicios actuales del motor de LLM, imágenes y video. Declara API de capacidades 1.31 en el manifiesto y comprueba que el host de integración esté disponible durante la activación. Los motores anteriores rechazan el requisito API antes de activar. Las operaciones con proveedores requieren `network`; guardar, preparar y eliminar medios requiere `storage`.
+
+- `llm.createProvider(...)` acepta los mismos ajustes de conexión que la fábrica del motor, incluidos parámetros de solicitud y cabeceras personalizados. El proveedor admite `chat`, `chatComplete`, `embed`, `maxContextValue` y `maxTokensOverrideValue`. No expone propiedades de credenciales.
+- `llm.localSidecar()` devuelve el proveedor sidecar local del host mediante la misma fachada.
+- `llm.withFallback(...)` envuelve un proveedor creado por el mismo host del paquete. Conserva la admisión del motor, las notificaciones de alternativas y la selección del proveedor.
+- `images.generate(...)` y `videos.generate(...)` usan las implementaciones activas del motor, incluidas cancelación, registro de solicitudes, comprobaciones de red y colas de medios. Reenvía `signal` y el `debugMode` de la interfaz del llamador cuando existan.
+- `images.save`, `images.remove`, `images.stage` e `images.sweepStaged` reutilizan las escrituras seguras y el ciclo de archivos preparados de la galería. `videos.save` y `videos.remove` reutilizan la ruta de almacenamiento de video. `images.resolveNovelAiRequestSize` reutiliza la normalización de tamaño NovelAI del host. La duración de video y la normalización de carga pública de referencias están disponibles en `videos.resolveDuration` y `videos.resolveReferenceUpload`.
+
+`@marinara-engine/shared` exporta los tipos compartidos de solicitud y resultado. Conserva en el paquete la construcción de prompts y la orquestación propias; usa estos puntos del host para E/S de proveedores en vez de copiar servicios del motor. Los tipos y auxiliares puros pueden seguir empaquetándose.

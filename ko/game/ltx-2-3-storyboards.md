@@ -10,7 +10,7 @@
 GM narration
   -> Animation Planner
      -> imagePrompt -> image connection -> first-frame illustration
-     -> narrationBeat -> LTX Director Video -> %prompt%
+     -> narrationBeat -> Narration Passthrough -> %prompt%
   -> first frame + prompt -> ComfyUI LTX 2.3 workflow -> MP4 clip
 ```
 
@@ -166,7 +166,7 @@ Animation Planner는 이미 해당 스토리보드 턴의 캐릭터 외형 컨�
 | 설정 | 권장값 |
 | --- | --- |
 | **Video Connection**(비디오 연결) | 위에서 만든 LTX 2.3 ComfyUI 연결 |
-| **Game Video Prompt**(게임 동영상 프롬프트) | **LTX Director Video** |
+| **Game Video Prompt**(게임 동영상 프롬프트) | **Narration Passthrough** |
 
 일반 **Game Video Prompt**는 수동으로 실행하는 Gallery와 Game Assets 애니메이션을 제어합니다. 스토리보드 클립은 그 애니메이션 동작을 건드리지 않고 자기 프롬프트를 따로 고를 수 있습니다.
 
@@ -180,13 +180,13 @@ Animation Planner는 이미 해당 스토리보드 턴의 캐릭터 외형 컨�
 | **Automatic Storyboard Animations**(자동 스토리보드 애니메이션) | On |
 | **Use NovelAI Character Prompts**(NovelAI 캐릭터 프롬프트 사용) | Off |
 | **Keyframes per Turn**(턴당 키프레임 수) | 보통은 3. 첫 8 GB VRAM 테스트는 1로 시작하세요 |
-| **Animation Clip Duration**(애니메이션 클립 길이) | 6초 |
+| **Animation Clip Duration**(애니메이션 클립 길이) | 5초 |
 | **Viewer Display**(시청자 화면) | 테스트 중에는 **Floating** |
 | **Illustration Planner**(일러스트 플래너) | **Still Keyframes**. 정지 이미지 전용 대비책으로 남겨 둡니다 |
 | **Animation Planner**(애니메이션 플래너) | **LTX Simple Image-to-Video** |
 | **Use Storyboard Template**(스토리보드 템플릿 사용) | On |
 | **Storyboard Illustration Prompt**(스토리보드 일러스트 프롬프트) | **Storyboard First Frame** |
-| **Storyboard Video Prompt**(스토리보드 동영상 프롬프트) | **LTX Director Video** |
+| **Storyboard Video Prompt**(스토리보드 동영상 프롬프트) | **Narration Passthrough** |
 
 기본값으로는 **LTX Simple Image-to-Video**를 권장합니다. 이 플래너는 애니메이션에 바로 쓸 수 있는 첫 프레임 1개와 4에서 8문장 분량의 직접적인 모션 프롬프트 1개를 계획합니다. 주된 동작 하나, 카메라 움직임 하나, 절제된 환경 움직임, 그리고 상황에 맞는 오디오나 짧은 대사를 선호합니다.
 
@@ -196,7 +196,7 @@ Animation Planner는 이미 해당 스토리보드 턴의 캐릭터 외형 컨�
 
 **Storyboard First Frame**은 Animation Planner가 만든 완성된 자연어 T=0 장면을 Krea에 그대로 넘깁니다. 키프레임 제목, 프롬프트 라벨, 중복된 외형 설명, 캠페인 아트 디렉션을 덧붙이지 않습니다. 이 포맷터가 실제로 적용되도록 **Use Storyboard Template**은 켜 두세요.
 
-**LTX Director Video**는 의도적으로 아주 단순합니다. Animation Planner가 완성한 `narrationBeat`를 범용 동영상 프롬프트 규약으로 넘길 뿐, 장면 요약을 다시 감싸지 않습니다.
+**Narration Passthrough**는 의도적으로 아주 단순합니다. Animation Planner가 완성한 `narrationBeat`를 범용 동영상 프롬프트 규약으로 넘길 뿐, 장면 요약을 다시 감싸지 않습니다.
 
 키프레임 1개마다 Krea 이미지 작업 1개와 로컬 LTX 동영상 작업 1개가 생깁니다. 즉, 키프레임이 3개면 첫 프레임 렌더링 3회와 동영상 렌더링 3회가 시작됩니다. VRAM이 8 GB인 GPU라면 480p에서 키프레임 1개로 시작하세요. 이 설정이 성공한 다음에 키프레임 3개와 더 높은 해상도로 옮겨 가세요.
 
@@ -204,7 +204,7 @@ Animation Planner는 이미 해당 스토리보드 턴의 캐릭터 외형 컨�
 
 문 열기, 소리 나는 쪽 바라보기, 몇 걸음 걷기, 짧은 대사 한 마디처럼 눈에 잘 띄는 동작이 하나 들어 있는 완료된 GM 턴을 고르세요.
 
-1. 저VRAM에서 가장 빨리 확인하려면 **Animation Clip Duration**은 6초로 두고 **Keyframes per Turn**만 잠시 1로 낮추세요. 평소 테스트 구성은 키프레임 3개입니다.
+1. 저VRAM에서 가장 빨리 확인하려면 **Animation Clip Duration**은 5초로 두고 **Keyframes per Turn**만 잠시 1로 낮추세요. 평소 테스트 구성은 키프레임 3개입니다.
 2. 현재 GM 턴이 이미 끝난 뒤에 두 자동 스토리보드 설정을 켜세요.
 3. **Gallery**를 열고 방금 그 완료된 GM 턴에서 **Create storyboard**(스토리보드 만들기)를 선택하세요. 다음 턴을 기다리지 않고 삽화와 애니메이션 전체 경로를 바로 실행할 수 있습니다.
 4. 프롬프트 노출 기능이 켜져 있다면 제출하기 전에 첫 프레임 프롬프트를 확인하세요.
@@ -221,7 +221,7 @@ Animation Planner는 키프레임마다 다음 두 가지를 돌려줍니다.
 - `imagePrompt`: 시간 T=0에 보이는 첫 프레임만 담습니다.
 - `narrationBeat`: 다음에 무슨 일이 일어나는지 서술하는 완성된 LTX 이미지-투-비디오 프롬프트입니다.
 
-선택한 Animation Planner가 두 필드를 모두 씁니다. **Storyboard First Frame**은 `imagePrompt`의 형식을 잡아 그 자연어 T=0 장면을 Krea 2에 보냅니다. 이미지가 만들어지면 **LTX Director Video**가 `narrationBeat`로 풀립니다. Marinara는 그 값을 일반 동영상 요청의 `prompt` 필드에 넣고, ComfyUI 워크플로의 `%prompt%`를 교체하고, 첫 프레임을 업로드한 뒤 `%reference_image_name%`을 ComfyUI 쪽 파일 이름으로 바꿉니다.
+선택한 Animation Planner가 두 필드를 모두 씁니다. **Storyboard First Frame**은 `imagePrompt`의 형식을 잡아 그 자연어 T=0 장면을 Krea 2에 보냅니다. 이미지가 만들어지면 **Narration Passthrough**가 `narrationBeat`로 풀립니다. Marinara는 그 값을 일반 동영상 요청의 `prompt` 필드에 넣고, ComfyUI 워크플로의 `%prompt%`를 교체하고, 첫 프레임을 업로드한 뒤 `%reference_image_name%`을 ComfyUI 쪽 파일 이름으로 바꿉니다.
 
 로컬 프롬프트 세그먼트를 2개 만들 필요는 없습니다. 이 스토리보드 프리셋에서는 전역 프롬프트 하나만 쓰는 것이 정상 경로입니다.
 

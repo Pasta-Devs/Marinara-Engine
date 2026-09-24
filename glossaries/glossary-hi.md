@@ -720,3 +720,12 @@ independent native-reader panel review. Existing pack-wide rules still apply.
 Use **सहयोगी** for an ally, **नैरेशन** for narration and **प्रोवाइडर** for
 provider. Keep one spelling of each; literal code and English UI labels remain
 unchanged.
+
+## Decision-model catchup (2026-09-24)
+
+- Decision model: **निर्णय मॉडल**; decision statement: **निर्णय कथन**; activation question: **सक्रियण सवाल**; threshold: **सीमा**. Keep visible UI labels such as **Decision model**, **Activation questions**, and **Decision sidecar** in English with a native gloss at first mention.
+- Keep example statements, choice values, macro syntax, code fences, URLs and link fragments byte-identical to English. Translate prose and link text. Preserve the different no-answer defaults for prompt conditions, lorebook activation and agent activation.
+- Wound track: **घाव ट्रैक**; ruleset: **नियमसेट**. Capability identifiers and catalog keys stay unchanged.
+- **Narration Passthrough** replaces the old **LTX Director Video** formatter label. PocketTTS defaults to the official server; the existing wrapper is still supported.
+
+These are documented catchup choices, not a claim of independent native-reader review.

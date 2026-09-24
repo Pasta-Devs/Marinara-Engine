@@ -124,7 +124,7 @@ To, które akcje się pokazują, wybierasz w ustawieniach.
 
 Te trzy akcje to:
 
-- **Post only**: dodanie wpisanej wiadomości na czat bez wywoływania odpowiedzi AI.
+- **Post only**: dodanie wpisanej wiadomości na czat bez wywoływania odpowiedzi AI. Możesz też użyć komendy slash `/send <message>`.
 - **Guide reply**: wysłanie wpisanego tekstu jako wskazówki `/guided` zamiast zwykłej wiadomości.
 - **Impersonate**: wygenerowanie odpowiedzi jako twoja persona, z wpisanym tekstem w roli wskazówki. Ta akcja jest ukryta na czatach Conversation, bo Impersonate tam nie działa.
 

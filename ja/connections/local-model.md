@@ -12,6 +12,8 @@ Local Modelは意図的に小さく作られています。用途は裏方の補
 - Game Modeのシーン効果(背景、音楽、天候など)。
 - セマンティック検索のためのロアブックの埋め込み生成。
 - Conversationの通話でのマイク入力の文字起こし(別の音声モデルを使用)。
+- Decisionモデルに選ぶと、起動質問と判定文に回答します。[Decisionモデル](decision-models.md)を参照してください。
+
 
 設定ウィンドウではこの機能を**Local AI Model**と呼び、接続のドロップダウンでは**Local Model (sidecar)**と表示します。どちらも同じ機能です。
 
@@ -203,6 +205,7 @@ SIDECAR_RUNTIME_INSTALL_ENABLED=true
 ## 関連ガイド
 
 - [AIプロバイダーへの接続](connecting-to-a-provider.md)
+- [Decisionモデル](decision-models.md)
 - [ローカルモデルやセルフホストモデルへの接続](local-self-hosted.md)
 - [Memory Recallとチャットの要約](../agents/memory.md)
 - [Conversationの音声通話とビデオ通話](../conversation/calls.md)

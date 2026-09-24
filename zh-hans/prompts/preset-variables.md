@@ -59,6 +59,12 @@ Marinara 会解析许多内置宏，比如 `{{user}}` 和 `{{char}}`。这些处
 
 如果存在同名的变量，占位符就换成选中的值。如果没有变量能对上，`{{NAME}}` 会原样保留。所以未知的占位符会照原样出现在输出里，而不是报错。完整的宏列表见[提示词宏](macros.md)。
 
+## 选项里的判定块
+
+选项值和其他提示词文本一样，可以包含 `{{#if decision:"..."}}` 判定块。只会询问聊天已选择的选项，并计入 **Decision statements per turn**(每回合判定陈述数)。对于 **Random Pick**(随机抽取) 变量，所选候选池里的每个选项都会询问，因为其中任意一个都有可能被抽中。见[询问 Decision 模型](conditional-prompts.md#asking-the-decision-model)。
+
+变量值会出现在 `{{name}}` 所在的位置。如果判定在预设靠前的位置改变了该值，可能损失服务商的大部分提示词缓存复用，不过更早且未变化的前缀仍可能符合条件。尽量把频繁变化的内容放到后面。见[判定块与提示词缓存](presets.md#decision-blocks-and-prompt-caching)。
+
 ## 相关指南
 
 - [预设编辑器与提示词管理器](presets.md)

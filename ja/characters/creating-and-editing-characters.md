@@ -76,6 +76,8 @@ Character Editorは、チャット領域を全画面の作業スペースに置�
 - **Alternate Greetings**(別の挨拶メッセージ)。予備の書き出しです。チャットを始めるときに、どれを使うか選べます。上下のボタンで並べ替え、Xで削除します。
 - **Example Dialogue**(会話例)。キャラクターの語り口を教えるやり取りの見本です。やり取りの区切りには`<START>`を使います。`{{user}}`と`{{char}}`はプレースホルダーとして使えます。
 
+挨拶と会話例には、キャラクターのGalleryの画像も表示できます。[キャラクターギャラリー → メッセージや挨拶でギャラリー画像を再利用](galleries.md#reuse-a-gallery-image-in-messages-and-greetings)を参照してください。
+
 短い**Example Dialogue**は、たとえば次のように書きます。
 
 ```

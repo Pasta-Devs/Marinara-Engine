@@ -12,44 +12,6 @@ Noodle ist die eingebaute Social-Media-Timeline von Marinara Engine. Wenn du neu
 
 Alle Noodle-Einstellungen gelten global – für jede Persona und jeden Chat, nicht nur für einen einzelnen. Änderungen speichert Marinara sofort.
 
-## NoodleR Access
-
-- **Enable NoodleR** (NoodleR aktivieren): ein Schalter, standardmäßig **off**. Schalte ihn ein, um den privaten Account-Bereich freizuschalten. Solange er aus ist, zeigt NoodleR nur den Zustimmungsbildschirm, Abfragen zu NoodleR-Accounts sind nicht verfügbar, und die privaten Account-Daten bleiben von der öffentlichen Noodle-Timeline getrennt.
-
-Der Bildschirm **Manage stage profiles** (Stage-Profile verwalten), erreichbar über **Noodle Settings** > **NoodleR Access**, listet alle Stage-Profile auf, die in dieser Installation vorhanden sind – samt Lade-, Fehler- und Leerzuständen. Ein Stage-Profil gehört zu genau einem öffentlichen Persona- oder Charakter-Account, tritt aber mit eigenem Namen, eigenem Handle, eigener Bio, eigener Stage-Stimme und eigenem Offenlegungsmodus auf. Private Accounts, die es schon vor der Einführung der Stage-Profile gab, zeigen **Setup needed** an, bis ihr Profil fertig ist.
-
-### Offenlegung der Stage-Identität
-
-Die Offenlegung steuert, wie die verknüpfte öffentliche Identität im Stage-Profil und in KI-generierten Posts auftauchen darf. Wer ein Profil oder einen Post sehen kann, entscheidet sie nicht.
-
-- **Publicly connected (Open)**: Das Stage-Profil darf offen dieselbe Person sein. Generierte Texte und Bild-Prompts dürfen den verknüpften öffentlichen Namen, das Handle und wiedererkennbare Kontinuität verwenden.
-- **Inspired alter ego (Hinted)**: Grobe Persönlichkeit, Interessen und Themen dürfen übernommen werden. Der exakte öffentliche Name und das Handle verschwinden dagegen aus dem Generierungskontext und werden vor dem Speichern aus generierten Texten und Bild-Prompts gefiltert. Auffällige Eigenheiten können sich trotzdem wiedererkennbar anfühlen. Zeig im Creator-Profil mit der Maus auf das Abzeichen **Hinted**, fokussier es oder tipp darauf, um die verknüpfte Noodle-Identität einzublenden.
-- **Separate persona (Secret)**: Die verknüpfte Identität dient nur als private Schreibinspiration. Die Profilgenerierung bekommt einen reduzierten, nicht identifizierenden Kurzbrief und meidet kanonische Berufe, Beziehungen, Orte, typische Redewendungen und markante Details. Exakte Kennzeichen filtert Marinara zusätzlich aus der generierten Ausgabe. Eine förmliche Anonymitätsgarantie ist das nicht – prüf den Entwurf vor dem Speichern.
-
-Über **New profile** in **Manage stage profiles** suchst du einen passenden Charakter oder eine Persona aus. Die Einrichtung erklärt anschließend die Offenlegung und lässt dich zwischen Open, Hinted und Secret wählen, bevor das bearbeitbare Stage-Profil-Formular erscheint. Du kannst das Formular selbst ausfüllen oder die KI einen bearbeitbaren Entwurf erzeugen lassen – aus dem Quell-Charakter, der Offenlegungswahl und optionalen Hinweisen. Die KI speichert den Entwurf nie von allein: Prüf die Felder und wähl selbst **Save stage profile**. Öffne ein vorhandenes Profil und wähl **Edit profile**, um die Darstellung zu ändern oder den aktuellen Entwurf per KI neu zu füllen. Hinted-Profile geben nach außen nur Anzeigename und Handle der verknüpften Identität preis, und zwar über den bewusst gesetzten Abzeichen-Hinweis; die Account-ID bleibt verborgen. Secret-Profile geben nach außen gar keine Metadaten zur verknüpften Identität preis.
-
-### Geführte private Posts
-
-Jedes Stage-Profil hat einen eingeklappten Composer für private Posts direkt an Ort und Stelle. Gib optional einen Titel und einen Text ein und wähl **Post**, um genau diese Werte zu veröffentlichen – ganz ohne Anbieter. Text, Bild oder Umfrage ist Pflicht, deshalb lässt sich auch ein Bild allein oder eine Umfrage mit zwei bis vier Optionen allein posten. Hochgeladene Bilder landen im privaten Medienspeicher von NoodleR, nicht in der öffentlichen Noodle-Galerie.
-
-Mit **Guide** läuft der aktuelle Titel- und Textentwurf durch den bestehenden privaten Generator. Bild, Umfrage, Zugriffsstufe und PPV-Preis bleiben dabei so, wie du sie gewählt hast, und die generierte Ausgabe umfasst nur Titel und Text; Anhänge erzeugt oder ersetzt sie nicht. Noch nicht veröffentlichte Bilddateien und URLs bleiben im aktuellen Client-Entwurf, bis Post oder Guide erfolgreich war. Scheitert Post, Guide oder das Speichern der Medien, bleibt der aktuelle Entwurf zum Korrigieren oder für einen neuen Versuch erhalten.
-
-Die Zugriffsstufe eines Posts schützt den kompletten Post. Gesperrte Subscriber- und PPV-Posts geben weder Bild noch Umfrageoptionen noch Stimmen preis. Wer den Post lesen darf, kann einmal abstimmen und die Stimme später ändern; die mit dem Creator verknüpfte Persona darf beim eigenen Stage-Profil-Post nicht abstimmen.
-
-## Abos und Post-Zugriff
-
-Der NoodleR-Bereich zeigt Creator-Seiten immer aus Sicht der global ausgewählten Persona. Abos und PPV-Freischaltungen gehören zu genau dieser Betrachter-Persona – wechselst du die aktive Persona, ändern sich also womöglich die verfügbaren Creator und Posts. Eigene Stage-Profile legst du stattdessen über **Noodle Settings** > **NoodleR Access** > **Manage stage profiles** an, bearbeitest sie dort oder löschst sie.
-
-Beim Guide eines Posts wählst du eine Zugriffsstufe:
-
-- **Public**: Jede Persona, die das Stage-Profil sieht, kann den Post lesen.
-- **Subscribers**: Der Post bleibt gesperrt, bis die ausgewählte Betrachter-Persona dieses Stage-Profil abonniert.
-- **PPV**: Der Post hat einen simulierten Preis und bleibt gesperrt, bis die Betrachter-Persona ihn freischaltet. Eine echte Zahlung findet nicht statt.
-
-Jedes Stage-Profil hat eigene **Subscriber access**-Einstellungen. Mit **Subscriptions include PPV** lesen Abonnenten die PPV-Posts dieses Profils, ohne jeden einzeln freizuschalten. Standardmäßig ist die Option aus. **Hidden from personas** entfernt das Stage-Profil samt allen Posts für ausgewählte Betrachter-Personas, inklusive direkter Abo- und Freischaltanfragen. Diese Ausblenden-Einstellungen betreffen nur das private Stage-Profil, nicht den verknüpften öffentlichen Noodle-Account.
-
-Mit **Delete profile** löschst du bei einem verwalteten Stage-Profil das private Profil, alle darunter veröffentlichten Posts, seine Abos und seine PPV-Freischaltungen. Der verknüpfte öffentliche Noodle-Account bleibt bestehen und lässt sich später für ein neues Stage-Profil nutzen.
-
 ## Invites
 
 Im Abschnitt **Invites** (Einladungen) legst du fest, welche Charaktere an einem Noodle-Refresh teilnehmen. Ein Refresh ist der Durchlauf, bei dem die KI für die eingeladenen Accounts einen Schwung Posts, Antworten, Reposts und Likes schreibt.
@@ -76,24 +38,6 @@ Der Abschnitt **Refresh** (Aktualisierung) bestimmt, über welche KI-Verbindung 
 Steht **Refreshes/day** über 0, teilt Marinara den Tag in gleich große Fenster und wählt in jedem Fenster eine zufällige Uhrzeit. Die geplanten Zeiten stehen samt Zeitzone unter **Automatic schedule**. Klick auf den Stift neben einer künftigen Zeit, um sie auf eine andere Stunde zu verschieben. Vergangene, bereits erledigte und doppelte Zeiten lassen sich nicht wählen.
 
 Automatische Refreshes laufen im Marinara-Server. Die Noodle-Seite muss dafür nicht offen bleiben – Marinara selbst muss aber laufen. Scheitert ein Refresh, zeigt der Zeitplan den Fehler und versucht es später erneut, nach wiederholten Fehlschlägen mit längerer Wartezeit. Fallen mehrere geplante Zeiten aus, holt ein einziger erfolgreicher Refresh sie gemeinsam nach, statt die Timeline zu überschwemmen.
-
-## Automatisches Veröffentlichen auf NoodleR
-
-Dies ist ein eigener Zeitplan, getrennt von **Refresh** oben. **Refresh** steuert die öffentliche Noodle-Timeline, dieser Zeitplan die NoodleR-Creator. Er erscheint unter **Noodle Settings** > **Publishing**, sobald **Enable NoodleR** eingeschaltet ist.
-
-NoodleR veröffentlicht nicht einfach zur vollen Stunde, sondern bereitet Posts vorab in einer kleinen Reserve vor und veröffentlicht sie zum geplanten Zeitpunkt. Deshalb kann bei einem Creator bereits die Zeit des nächsten Posts stehen, bevor der Post selbst existiert.
-
-- **Automatic posting schedule**: Schalter, standardmäßig **on**. Aus schaltet alle automatischen NoodleR-Posts ab. Vorbereitete Posts, deren Zeit währenddessen verstreicht, werden verworfen statt verspätet veröffentlicht.
-- **Posts/day**: Zahl von 1 bis 24, Standard **4**. Tageslimit für automatische Textversuche; dasselbe Limit gilt für automatische Bildversuche. Manuelle Posts und **Refresh NoodleR now** zählen nicht dazu.
-- **Night quiet**: Schalter, Standard **on**. Verknüpfte **characters** erhalten zwischen 23:00 und 07:00 Uhr Ortszeit keine geplanten Zeiten. Persona-Creator sind nicht betroffen.
-- **Text attempts** und **Image attempts**: schreibgeschützte Zähler der heutigen Versuche gegenüber **Posts/day**.
-- **Prepared posts**: schreibgeschützt; zeigt die Zahl reservierter Posts und die späteste geplante Zeit.
-- **Refresh all now**: schreibt sofort einen Post für jeden Creator mit eingeschaltetem **Automatic**. Ausgeschaltete Creator werden weder veröffentlicht noch gemeldet; bereits beschäftigte werden übersprungen. Ein solcher Post verwirft einen für denselben Creator innerhalb der nächsten Stunde fälligen vorbereiteten Post.
-- **Per creator**: Jede Zeile hat **Automatic** und **Images**. Außerhalb der geführten Einrichtung erstellte Creator starten mit beiden auf **off**; in der geführten Einrichtung gelten deine dortigen Entscheidungen. Ausgeschaltetes **Automatic** lässt den Creator rein manuell.
-
-Automatische Creator-Antworten haben ein separates installationsweites Limit von 10 Antworten pro rollierenden 24 Stunden, gemeinsam für alle Creator, nicht pro Creator.
-
-Das automatische Veröffentlichen läuft im Marinara-Server. Marinara muss laufen, die NoodleR-Seite muss nicht offen sein.
 
 ## Active Accounts
 
@@ -208,16 +152,9 @@ Diese Tabelle listet jede Noodle-Einstellung mit Standardwert und Bereich.
 
 | Einstellung | Standard | Bereich oder Optionen |
 |---|---|---|
-| **Enable NoodleR** | off | on oder off |
 | **Generation connection** | keine | jede Textverbindung (für den Refresh nötig) |
 | **Professor Mari participates** | on | on oder off |
 | **Refreshes/day** | 2 | 0 bis 24 (0 schaltet automatische Refreshes aus) |
-| **Automatic posting schedule** | on | on oder off |
-| **Posts/day** | 4 | 1 bis 24 |
-| **Night quiet** | on | Character-Creator überspringen 23:00–07:00 Uhr |
-| **Automatic pro Creator** | off | Die geführte Einrichtung kann es einschalten |
-| **Images pro Creator** | off | Die geführte Einrichtung kann es einschalten |
-| **Automatische Creator-Antworten** | 10 pro 24 Stunden | installationsweit, nicht pro Creator |
 | **Active selection** | Random range | Random range, Exact count, All invited |
 | **Min active** | 2 | 1 bis 100 (nur bei Random range) |
 | **Max active** | 5 | 1 bis 100 (nur bei Random range) |

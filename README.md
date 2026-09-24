@@ -27,6 +27,12 @@ single tag, so translations add zero checkout size.
 See `CONTRIBUTING.md § Translated documentation` on `staging` for the full
 rules, including the per-file English fallback that makes partial packs safe.
 
+## Catchup audits
+
+[2026-09-24 catchup](audits/2026-09-24-catchup.md) records the English/translated
+last-edit comparison, resolved drift, source snapshots and validation. Audits are
+contributor records outside the downloadable packs.
+
 ## UI language packs
 
 `ui/<BCP-47>.json` contains community interface translations, separate from documentation folders.

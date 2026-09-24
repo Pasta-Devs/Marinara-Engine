@@ -10,6 +10,9 @@ Wszystkie gałęzie tego samego czatu są zgrupowane razem. Na liście czatów c
 
 Każda gałąź może mieć własną nazwę wyświetlaną, więc da się je opisać na przykład jako "przyjazne zakończenie" i "mroczne zakończenie". Ta nazwa wyświetlana jest niezależna od nazwy samego czatu.
 
+
+Pochodzenie gałęzi zapisuje bezpośredni czat źródłowy i wiadomość rozwidlenia. Zachowuje ID źródłowej wiadomości i jej kopii, dzięki czemu integracje rozpoznają granicę mimo nowych ID kopii. Gałąź utworzona z gałęzi wskazuje ją jako bezpośredniego rodzica, nie pierwotny czat główny. Starsze gałęzie i zaimportowane gałęzie równoległe zachowują nazwę, ale nie mają znanego pochodzenia.
+
 ## Przycisk **Branch from here**
 
 Gałąź tworzy się z dowolnej wiadomości w czacie.
@@ -24,6 +27,8 @@ Marinara kopiuje czat do tej wiadomości włącznie i zapisuje go jako nową ga�
 - Kopiuje zapisane stany trackerów i stan gry powiązane ze skopiowanymi wiadomościami, więc czaty w trybie Roleplay i Game Mode zachowują swój stan.
 - Startuje z nazwą wyświetlaną **New Branch**. Nazwę można zmienić (opis poniżej).
 - Zostaje w tym samym folderze czatów co czat źródłowy.
+
+Pusty czat ma kotwice wiadomości null. Usunięcie czatu nadrzędnego nie zmienia historycznego pochodzenia dzieci. Usunięcie całej grupy gałęzi nadal usuwa każdy jej czat.
 
 Podsumowania dzienne i tygodniowe nie są przenoszone. Podsumowania bieżące z zapisanymi zakresami wiadomości w całości zawartymi w kopiowanej gałęzi są przenoszone i przypisywane do nowych identyfikatorów wiadomości tej gałęzi. Podsumowania, których zakres źródłowy przekracza punkt utworzenia gałęzi, oraz starsze podsumowania bez metadanych wiadomości są pomijane. Nowa gałąź tworzy te podsumowania od nowa.
 

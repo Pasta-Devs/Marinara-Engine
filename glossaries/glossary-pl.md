@@ -860,3 +860,12 @@ Cycle precedent for the new `development/game-combat-ai-design.md`,
 
 These are documented translation choices from this cycle, not a claim of a new
 independent native-reader panel review. Existing pack-wide rules still apply.
+
+## Decision-model catchup (2026-09-24)
+
+- Decision model: **model decyzyjny**; decision statement: **stwierdzenie decyzyjne**; activation question: **pytanie aktywacyjne**; threshold: **próg**. Keep UI labels such as **Decision model**, **Activation questions**, and **Decision sidecar** in English, with a native gloss at first mention.
+- Keep all example statements, choice values, macro syntax, code fences, URLs and link fragments in English exactly as in the source. Translate explanations and link text. Preserve the distinct no-answer behavior for prompt conditions, lorebook activation and agent activation.
+- Wound track: **tor ran**; maintain existing **zestaw zasad** for ruleset. Capability identifiers and catalog keys stay unchanged.
+- **Narration Passthrough** replaces the old formatter label **LTX Director Video**; preserve this exact current UI name. PocketTTS now uses the official server by default, with the existing wrapper still supported.
+
+These are documented choices for this catchup, not a claim of independent native-reader review.

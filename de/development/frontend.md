@@ -360,7 +360,6 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.delete(path)`             | `DELETE /api{path}` | Ressource löschen                     |
 | `api.upload(path, FormData)`   | `POST /api{path}`   | Datei-Upload als Multipart            |
 | `api.download(path, filename)` | `GET /api{path}`    | Download mit Speichern-unter-Dialog   |
-| `api.stream(path, body)`       | `POST /api{path}`   | Asynchroner SSE-Generator (nur Tokens) |
 | `api.streamEvents(path, body)` | `POST /api{path}`   | Asynchroner SSE-Generator (alle Ereignistypen) |
 
 Fehler werfen `ApiError` – dieses Objekt trägt die Eigenschaften `status` und `message`.
@@ -594,12 +593,15 @@ Die schlanke Engine startet mit einer leeren Agenten-Registry zur Laufzeit. Erst
 | `combat`                 | parallel        | Verfolgt Kampfrunden, HP, Initiative und Ausgang                  |
 | `html`                   | post_processing | Schreibt fertige Roleplay-Antworten um und ergänzt diegetische HTML-Grafiken |
 | `spotify`                | post_processing | Steuert die Wiedergabe im Music DJ (Spotify, YouTube oder lokale Musik) |
+| `long-term-memory` | feature | Speichert dauerhafte Erinnerungen und ruft passenden Kontext ab |
 | `knowledge-retrieval`    | pre_generation  | Holt Kontext aus den Wissensquellen                               |
 | `knowledge-router`       | pre_generation  | Leitet passende Lorebook- und Wissenseinträge weiter              |
 | `haptic`                 | post_processing | Schickt Befehle an Haptik-Geräte                                  |
 | `cyoa`                   | post_processing | Erzeugt Auswahlmöglichkeiten                                      |
+| `storyboard` | post_processing | Plant unbewegte oder animierte Storyboards in Game und Roleplay |
 | `conversation-calls`     | feature         | Ergänzt Audio- und Videoanrufe in Conversation samt Einstellungen |
 | `hierarchical-maps`      | feature         | Ergänzt Karten, räumlichen Kontext und Bewegung in Roleplay/Game   |
+| `noodle` | feature | Ergänzt die lokalen sozialen Feeds Noodle und Slurp auf Home |
 | `uno`                    | feature         | Ergänzt den UNO-Tisch in Conversation                             |
 | `chess`                  | feature         | Ergänzt das Schachbrett in Conversation                           |
 | `poker`                  | feature         | Ergänzt den Texas-Hold'em-Tisch in Conversation                   |

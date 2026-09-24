@@ -57,6 +57,8 @@ In einem [Spiel mit Regelsatz](dice-and-skill-checks.md#games-that-use-a-ruleset
 
 - **Resources** zeigt aktuellen Wert und Maximum, etwa Gesundheit, Zauberplätze oder Klassenressourcen. Nutze Plus, Minus oder die direkte Eingabe. **Temp** bezeichnet einen temporären Puffer.
 - **Tracks** sind begrenzte Zähler, etwa für Erschöpfung.
+- **Wound tracks** (Wundleisten) sind Reihen von Kästchen für Systeme, die Schaden markieren statt zählen. Jedes nennt seine Verletzungsstufe und den Abzug auf Würfe. Wähle bei mehreren Schadensarten zuerst die Art und dann **Mark** (markieren) oder **Clear one** (eine Markierung entfernen). Auch das nächste freie Kästchen fügt eine Markierung hinzu, das letzte markierte entfernt eine; andere Kästchen reagieren nicht. Schwerere Verletzungen belegen das höhere Kästchen und schieben leichtere nach unten. Darunter stehen der wirksame Abzug und Schaden, der nicht mehr auf die Leiste passte. Wenn der Regelsatz es vorsieht, gilt der Abzug für Proben: Er entfernt Würfel aus einem Pool oder wird auf eine Würfelsumme angewendet. Die Würfelkarte nennt den angewendeten Wert.
+
 - **Notes** sind kurze Notizen, etwa zur Konzentration.
 - **Conditions** schaltet Zustände ein und aus.
 - Rastschaltflächen stellen die im Regelsatz genannten Werte wieder her. Eine lange Rast in 5e (SRD 5.1) stellt Gesundheit, Zauberplätze und die Hälfte der Trefferwürfel wieder her, mindestens einen.

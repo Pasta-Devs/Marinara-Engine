@@ -16,7 +16,7 @@ Les identifiants de modèles à activer soi-même et les réglages associés res
 
 - **LTX Director Storyboard** (storyboard réalisé par LTX) planifie la première image et un prompt image-to-video LTX 2.3 complet par plan.
 - **Storyboard First Frame** (première image du storyboard) met en forme l'illustration exacte à T=0 qui sert d'image de référence.
-- **LTX Director Video** (vidéo réalisée par LTX) se limite à `${narrationSummary}` et fait donc passer le prompt complété par le planificateur par le même modèle vidéo universel que tous les autres workflows.
+- **Narration Passthrough** (vidéo réalisée par LTX) se limite à `${narrationSummary}` et fait donc passer le prompt complété par le planificateur par le même modèle vidéo universel que tous les autres workflows.
 
 La route Storyboard ne doit ni inspecter ces identifiants de modèles, ni fabriquer des segments locaux, ni joindre une charge utile de prompt propre à LTX. Le modèle vidéo choisi reste entièrement personnalisable.
 
@@ -52,7 +52,7 @@ She opens the door and walks outside as the camera follows behind her. A light b
 
 1. Le planificateur renvoie un `imagePrompt` à T=0 et un `narrationBeat` complet pour chaque plan.
 2. La génération d'images du Storyboard crée l'illustration de référence qui sert de première image.
-3. Le modèle **LTX Director Video** résout `${narrationSummary}` avec le `narrationBeat` du plan concerné.
+3. Le modèle **Narration Passthrough** résout `${narrationSummary}` avec le `narrationBeat` du plan concerné.
 4. La requête de génération de vidéos habituelle transporte le résultat dans son champ `prompt` existant.
 5. L'adaptateur ComfyUI remplace `%prompt%` dans le workflow enregistré et fournit l'image de référence, les dimensions, la durée, le nombre d'images, la graine et le modèle déjà en place.
 
@@ -89,7 +89,7 @@ Aucun travail n'est nécessaire côté interface client, localisation, schéma d
 ## Critères d'acceptation
 
 - Le planificateur LTX Storyboard demande un prompt image-to-video complet, adapté à la durée, avec des phases d'action lisibles, une direction de caméra relative et, en option, du son ou du dialogue.
-- Le modèle **LTX Director Video** vaut exactement `${narrationSummary}`.
+- Le modèle **Narration Passthrough** vaut exactement `${narrationSummary}`.
 - La route Storyboard n'a plus ni contournement par identifiant de modèle exact, ni nettoyeur de prompts locaux, ni passage de relais propre à LTX.
 - Un workflow avec `global_prompt: "%prompt%"` reçoit le prompt complet du planificateur ; `local_prompts` et `segment_lengths` restent vides.
 - Les workflows `%global_prompt%` existants reçoivent toujours le prompt de requête normal, par compatibilité.

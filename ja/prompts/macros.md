@@ -38,7 +38,7 @@
 | `{{user}}` / `{{userName}}` | 現在の表示名(またはペルソナ名)。ペルソナが未設定のときは`User`になります。 |
 | `{{userNamePhonetic}}` | ペルソナのPhonetic name。空のときは`{{user}}`と同じです。 |
 | `{{char}}` / `{{charName}}` | 現在のキャラクターの名前。デフォルトは`Character`です。 |
-| `{{<21-character-card-ID>}}` | 別のキャラクターカードの名前を入れるためのプレースホルダーの書き方。山括弧の部分は、そのカードの正確な21文字のIDに置き換えます。 |
+| `{{21-character-card-ID}}` | 別のキャラクターの名前。プレースホルダーのテキストを、そのカードの正確な21文字のIDに置き換えると、カードをコンテキストに取り込みます。 |
 | `{{persona-21-character-card-ID}}` | 別のペルソナ名を参照するためのプレースホルダーです。カードのコンテキストを取得するには、`persona-`の後をそのカードの正確な21文字のIDに置き換えます。 |
 | `{{charNamePhonetic}}` | キャラクターのPhonetic name。空のときは`{{char}}`と同じです。 |
 | `{{characters}}` | チャットにいるすべてのキャラクターをカンマ区切りで並べます。 |
@@ -69,7 +69,7 @@
 
 Phonetic name欄には2つの役割があります。1つは音声合成での名前の読み方を決めることです。もう1つは`{{charNamePhonetic}}`と`{{userNamePhonetic}}`に値を渡すことです。この欄は**Character Editor**と**Persona Editor**の両方にあります。
 
-今のチャットにいないキャラクターを参照したいときは、そのカードのIDをコピーして、二重の波括弧の中にそのまま入れてください。たとえば`{{V1StGXR8_Z5jdHi6B-myT}}`のように書きます。Marinaraはこのマクロをカードの名前に置き換え、参照したカードのキャラクターコンテキストをシステムプロンプトに追加します。参照したカードの挨拶メッセージと会話例は含まれません。そのカードに紐づく有効なロアブックは、これまでどおりキーワード、**Constant**、フィルター、確率、トークン予算のルールに従います。
+現在のチャットにいないキャラクターを参照するには、カードのIDをコピーし、`{{V1StGXR8_Z5jdHi6B-myT}}`のように二重の波括弧内へ直接入れます。`<`や`>`の文字を含めないでください。Marinaraはマクロをキャラクター名に置き換え、参照カードのDescription、Personality、Appearance、Backstory、Scenario、Example Dialogueをシステムプロンプトへ追加します。チャットメッセージ、プロンプト欄、起動したロアブックエントリーで使えます。カードの最初の挨拶メッセージは除外します。紐づく有効なロアブックには、通常のキーワード、constant、フィルター、確率、トークン予算の規則が適用されます。
 
 現在選択されていないペルソナを参照するには、コピーしたIDの先頭に`persona-`を付けます。例: `{{persona-P1StGXR8_Z5jdHi6B-myT}}`。Marinaraはマクロをペルソナ名に置き換え、Description、Personality、Appearance、Backstory、Scenarioの各フィールドをID Macro Cardsに追加します。紐づくロアブックは通常の有効化ルールに従います。
 
@@ -129,6 +129,14 @@ Outletのエントリーも、通常どおりロアブックの発動判定を�
 
 Outletマクロは、Conversation、Roleplay、Game Modeのプロンプトのセクションで使えます。プリセットのロアブックのマーカーより前に置いても動きますし、Outletのエントリーしか使わないプリセットならマーカー自体が不要です。存在しないOutletや有効でないOutletは空になります。Outletのエントリーの中から別のOutletマクロを展開することはできないので、入れ子の再帰は起きません。
 
+## ロアブックのサイズマクロ
+
+`{{lorebooksize::ID}}`は指定IDのロアブック内のエントリー総数に展開されます。`ID`をLorebooksパネルからコピーした実際のIDに置き換えてください。たとえばIDが`V1StGXR8_Z5jdHi6B-myT`で151件を含む場合、`{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}`は`151`になります。
+
+不明なIDは`0`になります。有効、無効、フォルダー内を問わず、すべてのエントリーを数えます。
+
+プロンプトセクション、キャラクターカードの欄、ロアブックエントリー本文など、マクロを展開するどこでも使えます。
+
 ## 時刻のマクロ
 
 時刻のマクロは、1回の展開で共通の同じ時点を読み取るため、値が互いにずれることはありません。タイムゾーンはブラウザーから取得します。
@@ -161,7 +169,7 @@ Outletマクロは、Conversation、Roleplay、Game Modeのプロンプトのセ
 
 ### 重み付きの選択
 
-選択肢の末尾に`@数値`を付けると、選ばれやすさを設定できます。この数値は相対的な重みで、大きいほど選ばれやすくなります。
+選択肢の末尾に`@number`を付けると、選ばれやすさを設定できます。この数値は相対的な重みで、大きいほど選ばれやすくなります。
 
 ```text
 {{random::Common event@1::Rare event@0.25}}
@@ -180,7 +188,7 @@ Outletマクロは、Conversation、Roleplay、Game Modeのプロンプトのセ
 - 0.5や0.01のような小数も使えます。
 - 重みが0の選択肢は残りますが、選ばれることはありません。
 - すべての選択肢の重みが0の場合、マクロは空になります。
-- 重みとして扱われるのは末尾の`@数値`だけです。メールアドレスのように途中に出てくる`@`はそのまま残ります。
+- 重みとして扱われるのは末尾の`@number`だけです。メールアドレスのように途中に出てくる`@`はそのまま残ります。
 
 ## 動的な変数
 
@@ -229,6 +237,8 @@ Outletマクロは、Conversation、Roleplay、Game Modeのプロンプトのセ
 チャットの入力欄に`/macros`と打つこともできます(短い形の`/macro`でも動きます)。マクロの全一覧がそのままチャットに表示されるので、確認用に便利です。
 
 条件ブロックでは、`||`(OR)、`&&`(AND)、丸括弧を使って複数の比較を組み合わせられます。等値の並びは`{{#if character == "Maukie" || "Pantalone"}}`のように短く書けます。優先順位、グループチャットでの例、演算子の全一覧は[条件付きプロンプト](conditional-prompts.md)を参照してください。
+
+条件は場面をDecisionモデルに尋ねることもできます。はい・いいえには`{{#if decision:"The latest message moves the scene to a new place"}}`、選択肢には`{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`を使います。モデルや回答がなければいいえになります。[Decisionモデルへの問い合わせ](conditional-prompts.md#asking-the-decision-model)を参照してください。文の後ろに`sticky:3 cooldown:5`を加えると、はいを3ターン保ち、その後5ターン休ませます。[StickyとCooldown](conditional-prompts.md#sticky-and-cooldown)を参照してください。`every:3`は3ターンごとだけ尋ね、`priority:high`や`priority:low`は計画に入れる文を選びます。[数ターンごとの確認](conditional-prompts.md#checking-every-few-turns)、[優先順位](conditional-prompts.md#priority)、[制限と費用](conditional-prompts.md#limits-and-cost)を参照してください。
 
 ## よくある失敗
 

@@ -16,7 +16,7 @@ Zachowaj dotychczasowe identyfikatory szablonów włączanych ręcznie oraz kont
 
 - Szablon **LTX Director Storyboard** (planowanie ujęć) planuje pierwszą klatkę i jeden kompletny prompt LTX 2.3 do wygenerowania wideo z obrazu dla każdego ujęcia.
 - Szablon **Storyboard First Frame** (pierwsza klatka storyboardu) opisuje dokładną ilustrację w chwili T=0, która służy jako obraz referencyjny.
-- Szablon **LTX Director Video** (prompt wideo) zawiera wyłącznie `${narrationSummary}`, więc przekazuje gotowy prompt planera tą samą uniwersalną ścieżką szablonu wideo, z której korzysta każdy inny workflow.
+- Szablon **Narration Passthrough** (prompt wideo) zawiera wyłącznie `${narrationSummary}`, więc przekazuje gotowy prompt planera tą samą uniwersalną ścieżką szablonu wideo, z której korzysta każdy inny workflow.
 
 Ścieżka Storyboard nie może sprawdzać tych identyfikatorów szablonów, tworzyć lokalnych segmentów ani doklejać ładunku promptu specyficznego dla LTX. Wybrany szablon wideo pozostaje w pełni edytowalny.
 
@@ -52,7 +52,7 @@ She opens the door and walks outside as the camera follows behind her. A light b
 
 1. Planer zwraca dla każdego ujęcia jedno pole `imagePrompt` dla chwili T=0 i jedno kompletne pole `narrationBeat`.
 2. Generowanie obrazów w Storyboard tworzy ilustrację referencyjną pierwszej klatki.
-3. Szablon LTX Director Video podstawia pod `${narrationSummary}` pole `narrationBeat` tego ujęcia.
+3. Szablon Narration Passthrough podstawia pod `${narrationSummary}` pole `narrationBeat` tego ujęcia.
 4. Zwykłe żądanie generowania wideo niesie wynik w dotychczasowym polu `prompt`.
 5. Adapter ComfyUI podmienia `%prompt%` w zapisanym workflow i przekazuje dotychczasowy obraz referencyjny, wymiary, czas trwania, liczbę klatek, ziarno losowe oraz wartości modelu.
 
@@ -89,7 +89,7 @@ Nie trzeba nic zmieniać w interfejsie klienta, tłumaczeniach, schemacie danych
 ## Kryteria akceptacji
 
 - Planer LTX Storyboard prosi o jeden kompletny prompt wideo z obrazu, dopasowany do czasu trwania, z czytelnymi fazami akcji, opisem kamery względem obiektu oraz opcjonalnym dźwiękiem lub dialogiem.
-- Szablon LTX Director Video zawiera dokładnie `${narrationSummary}`.
+- Szablon Narration Passthrough zawiera dokładnie `${narrationSummary}`.
 - Ścieżka Storyboard nie ma obejścia opartego na dokładnym identyfikatorze szablonu, funkcji czyszczącej prompty lokalne ani przekazania danych specyficznego dla LTX.
 - Workflow z `global_prompt: "%prompt%"` dostaje kompletny prompt planera, a pola `local_prompts` i `segment_lengths` zostają puste.
 - Istniejące workflow z `%global_prompt%` nadal dostają zwykły prompt z żądania jako rozwiązanie zgodnościowe.

@@ -81,12 +81,18 @@ El ajuste **Mode** es un interruptor de dos botones.
 
 Cuando **Mode** es **Merged (Narrator)**, puedes activar **Color Dialogues**. Está desactivado de forma predeterminada. Cuando está activado, las líneas de cada personaje se muestran en los colores propios de ese personaje. Esos colores vienen de la pestaña **Colors** del Character Editor. Esa pestaña define el color del nombre, el color del diálogo y el color de la caja. Consulta la guía de edición de personajes para saber cómo definirlos.
 
+<a id="response-order-individual-only"></a>
+
 ### Response Order (solo en Individual)
 
 Cuando **Mode** es **Individual**, aparece un ajuste **Response Order**. Es un interruptor de tres botones.
 
 - **Sequential** es el predeterminado. Cada personaje responde por turno, en el orden en que aparece en la lista **Characters**. Reordena los miembros para cambiar el orden de los turnos.
 - **Smart** usa una breve llamada oculta a la IA para decidir qué personaje o personajes deben responder a continuación. Lee los mensajes recientes y los detalles de cada personaje, y normalmente elige un hablante. Si escribes una mención con arroba como `@Alice` en tu mensaje, eso anula su elección.
+
+  Si elegiste un **Decision model** (modelo de decisión; consulta [Modelos de decisión](../connections/decision-models.md)), puedes activar **Also use it to pick who speaks in Smart response order** (usarlo también para elegir quién habla en el orden Smart) debajo. Smart pide entonces una puntuación de sí/no separada por candidato. Las preguntas comparten los últimos cinco mensajes y una lista con los nombres, estado, actividad, locuacidad y un fragmento corto de personalidad o descripción de los candidatos. Un proveedor alojado también recibe esa lista; consulta [Qué ve el modelo](../connections/decision-models.md#what-the-model-sees).
+
+  Obtener estas puntuaciones puede ser más rápido que una respuesta completa de IA, pero la velocidad y el costo dependen del modelo y del número de candidatos. En Roleplay, Marinara elige a quien tenga mayor probabilidad de hablar. En Conversation responden todos los que tengan un motivo, primero quienes tengan mayor probabilidad. Quien acaba de hablar espera si otra persona tiene un motivo para responder. Si el Decision model no responde, Smart hace su llamada habitual a la IA.
 - **Manual** detiene cualquier respuesta automática. Eliges exactamente quién responde usando el selector **Trigger Response** en la barra de mensajes.
 
 Con el orden **Smart**, la IA puede poner en cola a más de un personaje. Solo el primero responde de inmediato. Para elegir quién habla a continuación, usa el selector **Trigger Response** en la barra de mensajes. También puedes enviar un mensaje vacío para generar el siguiente personaje en cola.

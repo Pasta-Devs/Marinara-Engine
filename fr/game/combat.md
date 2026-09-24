@@ -41,6 +41,22 @@ Tu ne déclenches pas le combat toi-même. Le GM lance un combat quand l'histoir
 
 L'écran de combat affiche ton équipe d'un côté et les ennemis de l'autre. Chaque combattant a une barre de vie (HP, points de vie) et, s'il utilise des compétences, une barre de magie (MP, points de magie). L'ordre des tours apparaît en haut sous la forme **Next:** suivi du nom de celui qui agit ensuite. Un compteur affiche **Round** et le numéro du round en cours.
 
+<a id="games-whose-ruleset-resolves-its-own-fights"></a>
+
+### Parties dont l'ensemble de règles résout ses propres combats
+
+Un ensemble de règles peut résoudre tout un combat selon ses propres règles, au lieu de prêter quelques nombres au combat de Marinara. L'écran de bataille lui appartient alors : les attaques et capacités du personnage dans le menu, sa propre économie d'actions, ses états et un journal avec les vrais calculs. Tout est enregistré dans la fiche dès que cela se produit.
+
+L'ensemble de règles décide aussi de ce qu'un tour peut contenir. Un coup peut infliger plusieurs types de dégâts : chaque partie est lancée, résistée et soumise à un jet de sauvegarde séparément, mais l'ensemble reste un seul coup. Dépenser une action peut acheter plusieurs attaques ; tant qu'il en reste, le menu les propose gratuitement et indique leur nombre, pour te permettre de changer d'arme ou de marcher entre elles. Une capacité peut ne rien coûter, te rendre une seconde action pour ce tour seulement, ou permettre de sprinter, de te désengager ou de te cacher en dépensant une plus petite part de ton tour. Ce que ton personnage fait toujours, comme des dégâts supplémentaires au premier coup admissible d'un tour, s'ajoute automatiquement et apparaît dans le journal. Un état peut rendre tes propres sauvegardes plus difficiles ou plus faciles, réduire de moitié tous les dégâts, t'empêcher d'attaquer celui qui l'a appliqué ou de t'en approcher, ou disparaître dès qu'il tombe.
+
+L'ensemble de règles peut aussi définir la distance que représente une case, en pieds, en pas ou dans sa propre unité. S'il le fait et que **Combat Preference** (Préférence de combat) est sur **Tactical** (Tactique), le combat utilise un champ généré avec les mêmes plateaux, terrains et déploiements que les batailles Tactical ci-dessus. La préférence a de nouveau un effet. Un ensemble de règles sans distance, ou une partie **Classic** (Classique), combat comme avant : chacun peut cibler n'importe qui.
+
+Sur ce champ, les nombres de l'ensemble de règles déterminent tout. Le déplacement par tour vient de sa règle de mouvement ou de la vitesse de la créature ; la portée d'une arme, de ses propres lignes ; la zone d'une capacité devient une véritable explosion, un cône ou une ligne ; les murs bloquent les tirs ; le couvert ajoute ce que prévoient les règles ; sortir de la portée de quelqu'un lui permet de te frapper quand les règles définissent le coût d'une telle attaque. Le mouvement suit huit directions à une case chacune, comme les grilles de jeu de rôle sur table visées par ces règles, au lieu des quatre directions des batailles Tactical propres à Marinara décrites plus haut.
+
+Le champ est affiché à l'écran. Chaque case est un bouton : tu peux parcourir le plateau au pointeur ou aux flèches, et chaque case annonce sa nature, son occupant et le coût pour y aller. **Move** (Déplacer) éclaire les cases accessibles avec leur coût dans l'unité des règles, dessine le chemin au survol ou au focus et marque en ambre celles dont le chemin provoque une attaque, en nommant les attaquants sous le plateau. Une action nécessitant une cible éclaire les choix valides et permet de les sélectionner sur le plateau ou dans la liste. Si personne n'est à portée, **Nobody is in reach. Move closer.** (Personne n'est à portée. Rapproche-toi.) remplace une attaque dans le vide. Une zone vise une case : les origines valides sont éclairées et la case sous le pointeur indique qui serait touché, alliés compris. Le déplacement peut être dépensé avant et après une action ; le menu revient avec ce qu'il reste et le panneau inférieur l'affiche sous **Movement** (Déplacement) dans l'unité des règles. Échap abandonne un choix inachevé et ramène le focus du clavier au menu.
+
+Le couvert aux trois quarts, l'altitude, le vol au-dessus des obstacles, la dissimulation, le déplacement forcé et le choix d'attaquer quelqu'un qui s'éloigne sont des travaux futurs distincts.
+
 <a id="games-that-use-a-ruleset"></a>
 
 ### Parties utilisant un ensemble de règles

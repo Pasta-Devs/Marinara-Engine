@@ -96,6 +96,109 @@ To ŻĄDANIE, a nie preferencja. Ustawienie zwinięcia wybrane przez gracza nigd
 
 Zasady bezpieczeństwa Engine mają pierwszeństwo. Pole jest przymusowo rozwijane zawsze, gdy widać pole tekstowe gracza, także na samym początku sceny przed powstaniem segmentu, oraz gdy działają kontrolki przejścia do kolejnego segmentu. Są one jedynym sposobem zakończenia tury; pakiet, który mógłby je ukryć, mógłby trwale zablokować gracza. Uchwyt nadal pokazuje wskaźnik uwagi przy oczekującej analizie sceny, generowaniu lub ponownej próbie generowania walki. Jeśli gracz rozwinie pole ręcznie podczas żądania, pozostaje ono otwarte do zakończenia żądania. Podobnie jak interfejsy 1.11 i 1.12 jest to miękki interfejs: pole działa niezależnie od zadeklarowanego `capabilityApi`. Etykieta 1.13 oznacza czas wprowadzenia, więc pakiet, który go wymaga, deklaruje 1.13.
 
+### Capability API 1.14: powierzchnie trackerów i cykl życia agenta
+
+Capability API 1.14 dodaje dwie wartości `contributions.slots` dla aktywnych, włączonych pakietów agentów Roleplay z punktem wejścia klienta:
+
+- `roleplay-tracker` montuje widok `toolbar` pakietu w HUD Roleplay. Jego właściwości obejmują `chatId`, `chatMode`, `mobileCompact`, klasę hosta `toolbarButtonClass`, `onRerunTracker`, `trackerRetryBusy`, `lockMode` i `onToggleLockMode`. Funkcje zwrotne są opcjonalne: sprawdź ich istnienie przed użyciem.
+- `tracker-panel` montuje widok `tracker` pakietu wewnątrz istniejącego Tracker Panel, z `chatId`, `chatMode` i `detached`. Używaj tej powierzchni hosta zamiast otwierać drugi panel. Oba sloty otrzymują też zwykłe właściwości tożsamości capability i lokalizacji.
+
+Wkłady kontekstu promptu nadal rejestruje się przez `api.registerPromptContext` i wymagają uprawnienia `prompt-context`. Żądanie udostępnia teraz `targetCharacterIds`, `personaId` i `placedAgentTypes` (opcjonalne dla zgodności). `placedAgentTypes` mówi autorowi wkładu, które sekcje danych agentów preset już umieścił, aby uniknąć powtarzania kontekstu. Host zachowuje tożsamość pakietu każdego wkładu w `packageBlocks`, umieszczając tekst pakietu w odpowiedniej sekcji agenta. Autor zwracający tekst dla określonej grupy odbiorców powinien respektować podane identyfikatory postaci docelowych.
+
+Punkt wejścia serwera może też rejestrować własną usługę cyklu przetwarzania końcowego przez `api.registerService("agent-runtime:<package-id>", service)`. Wymaga uprawnienia `agent-runtime`; rejestracja pod identyfikatorem innego pakietu jest odrzucana. Opcjonalne haki to:
+
+```ts
+const cleanup = api.registerService(`agent-runtime:${packageId}`, {
+  prepareContext({ agent, context }) {
+    // Return small, JSON-serializable context for this agent, or nothing.
+    return { chatId: context.chatId };
+  },
+  finalizeResult({ agent, context, preparedContext, result }) {
+    // Validate or enrich the result before the host publishes/applies it.
+    return result;
+  },
+});
+// Return cleanup from activate(), or include it in the activation cleanup.
+```
+
+`prepareContext` działa przed przetwarzaniem końcowym; wynik różny od null należy do danego agenta i trafia do jego promptu jako serializowany kontekst środowiska. `finalizeResult` otrzymuje tę wartość oraz wygenerowany wynik i zwraca `AgentResult`. Generowanie i ręczne ponawianie odkładają publikację wyniku do finalizacji. Każdy asynchroniczny hak ma dwusekundowy termin: błąd przygotowania jest logowany i pomijany, a błąd finalizacji zamienia wynik w niepowodzenie zamiast stosować niesprawdzone dane. To krótkie haki cyklu hosta, nie miejsce na dodatkowe powolne wywołanie modelu.
+
+Te dodatki nie mają bramki wersji 1.14 dla poszczególnych pól. Pakiet może wykrywać opcjonalne właściwości i ograniczać działanie w starszym Engine, ale jeśli wymaga slotów, rozmieszczenia lub cyklu życia, musi deklarować `capabilityApi: { major: 1, minor: 14 }` w manifeście v2, aby starszy Engine poprawnie odmówił instalacji.
+
+### Capability API 1.15: bieżąca konfiguracja embeddingów
+
+`api.runtime.resolveEmbeddings()` zwraca nowe `Promise<CapabilityEmbeddingHost>` według bieżącej konfiguracji połączenia agenta pakietu. Wywołuj je na początku operacji embeddingów zamiast buforować `api.runtime.embeddings`: to migawka z aktywacji, która bez ponownej aktywacji nie śledzi zmian połączenia.
+
+```ts
+const embeddings = await api.runtime.resolveEmbeddings();
+const vectors = await embeddings.embed(texts, signal);
+// Store/compare embeddings.spaceId with persisted vectors; do not mix embedding spaces.
+```
+
+Zwrócony host ma `spaceId`, `label` i `embed(texts, signal?)`. Rozwiązywanie korzysta ze skonfigurowanego źródła embeddingów, a gdy żadne nie jest dostępne lub konfiguracja zawodzi, wraca do wbudowanego lokalnego MiniLM. `embed` może zwrócić `null`; puste partie, ponad 128 tekstów lub ponad 200 000 znaków łącznie są odrzucane. Nowy host nie przelicza istniejących wektorów, więc pakiet musi obsłużyć zmianę `spaceId`, zanim porówna nowe wektory z zapisanymi.
+
+W bieżącym Engine metoda jest dostępna niezależnie od wersji API deklarowanej przez pakiet. Zadeklaruj API 1.15, jeśli wymagane jest śledzenie zmian połączenia. Pakiet celowo wspierający starsze Engine może sprawdzić `typeof api.runtime.resolveEmbeddings === "function"` i wrócić do `api.runtime.embeddings`, akceptując ograniczenie migawki z aktywacji.
+
+### Capability API 1.16: czasowniki Game Master deklarowane przez pakiet
+
+Capability API 1.16 pozwala pakietowi Experience deklarować krótką, zamkniętą listę nazwanych działań Game Master – czasowników – które Engine umieszcza w przypomnieniu formatu GM, odczytuje z gotowej narracji i wykonuje w imieniu pakietu. Nie uruchamia to żadnego kodu serwerowego pakietu, więc Experience `game-surface` z samymi punktami wejścia `agents` i `client` także może zmieniać świat słowami GM.
+
+Działa cały interfejs: schemat, reguły nazw zastrzeżonych i własności kluczy, czytnik tabeli, renderowanie promptu i wykonawca. Pakiet z tabelą i `chat-write` ma swoje czasowniki w przypomnieniu GM w każdej turze Game powiązanego czatu, a Engine wykonuje użyte przez GM czasowniki. Czat bez pakietu albo z pakietem bez tabeli nie rozwiązuje żadnych czasowników; jego tura jest identyczna bajtowo z turą sprzed wprowadzenia interfejsu.
+
+Pakiet deklaruje tabelę jako `gm-verbs.json`, wymienia ją w `contributions.assets.paths` i przypina haszem w `files[]`, jak każdy zasób. Wykrywanie opiera się na tej zastrzeżonej nazwie pliku, co jest nową konwencją: wszystkie inne pliki w potoku pakietu są zadeklarowanymi ścieżkami czytanymi po nazwie (`entrypoints`, ścieżki ikon, ścieżki zasobów), niczego innego nie wyszukuje się po kształcie. Ta droga ma dwie istotne konsekwencje. Plik obecny w `files[]`, lecz pominięty w `contributions.assets.paths`, nie powoduje błędu ani podczas instalacji, ani budowania katalogu: pakiet po prostu nie ma czasowników i nigdzie nie ma diagnostyki. Zadeklarowany zasób jest też udostępniany bez ochrony pod `/api/capability-packages/<id>/assets/gm-verbs.json`, bo trasa zasobów nie sprawdza dostępu uprzywilejowanego; tabela nigdy nie może zawierać danych poufnych. Jak 1.11–1.13, to miękki interfejs: starszy Engine widzi zwykły zasób JSON i go ignoruje, więc tabela nie musi zawężać zgodności instalacji. Zadeklaruj `capabilityApi` 1.16 tylko wtedy, gdy pakiet _wymaga_ działania czasowników: deklaracja odrzuca instalację w każdym starszym Engine.
+
+Dokument ma postać `{ "schemaVersion": 1, "verbs": [ … ] }` i od jednego do szesnastu czasowników. Każdy czasownik jest ścisły: nieznany klucz w nim powoduje odmowę, nie ciche pominięcie dodatku. Nieznane pola obok `schemaVersion` i `verbs` są celowo obsługiwane inaczej przez dwie powierzchnie: czytnik Engine je usuwa, aby tabela dla nowszego Engine nadal dostarczała rozumiane czasowniki; wspólny schemat dokumentu dla narzędzi autorskich jest ścisły i je odrzuca. Walidacja według schematu jest więc surowsza niż zachowanie Engine w czasie działania, co pomaga podczas tworzenia tabeli:
+
+```json
+{
+  "schemaVersion": 1,
+  "verbs": [
+    {
+      "name": "weather",
+      "description": "Set the sky when the weather visibly changes.",
+      "effect": "state",
+      "metadataKey": "pixelforgeWeather",
+      "args": [
+        { "name": "word", "type": "string", "enum": ["fair", "overcast", "rain", "storm", "snow"] },
+        { "name": "intensity", "type": "string", "enum": ["light", "heavy"], "optional": true }
+      ]
+    }
+  ]
+}
+```
+
+Nazwa czasownika pasuje do `[a-z][a-z0-9_]*`, ma do 32 znaków i nie może być własnym tagiem GM w nawiasach Engine. Kontrola ignoruje wielkość liter: przypomnienie renderuje `[Note:` i `[Book:` wielką literą, a dostarczone wyrażenie regularne parsera nie rozróżnia wielkości, więc czasownik `note` przesłoniłby tag dziennika. Zbiór nazw zastrzeżonych pochodzi ze wszystkich tagów renderowanych przez przypomnienia GM i drużyny we wszystkich wariantach oraz ze wszystkich tagów, które pięć parserów narracji Engine odczytuje z gotowej tury: parser tagów klienta i formater narracji klienta, edytor segmentów serwera, analizator scen sidecar i przepisujący dialogi kod trasy generowania. Ich słownik jest szerszy niż przypomnienia: obejmuje tokeny dialogowe `main`, `side`, `extra`, `action`, `thought` i `whisper` oraz parę QTE `qte_bonus` / `qte_result`, którą rozpoznaje tylko formater narracji. Ta ostatnia grupa pokazuje sens zabezpieczenia: czasownik `whisper` spowodowałby wycięcie `[whisper:Tam]` z dialogu przed zapisem tury i wiersz trwale przestałby być dialogiem. Chroni to regresja, łącznie z ekstraktorami: parser dostarczający wyłączną nazwę – `party-chat` / `party-turn` z parsera tagów czy parę QTE formatera – musi nadal ją dostarczać; ciche wypadnięcie źródła przerywa kompilację zamiast zwężać ochronę. Trzy źródła bez wyłącznych nazw też są skanowane, aby wychwycić tag, który pojawi się najpierw w jednym z nich. Nie gwarantuje to kompletności: tag w nowym, nieskanowanym pliku lub w nierozpoznawanej postaci nadal umknie, więc przy nowym parserze trzeba rozszerzyć zbiór. Zwykłe słowa też są zastrzeżone: `action`, `state`, `status` i `note` to tagi wbudowane, więc odmowa dla zwykłego czasownika zwykle wynika z tej reguły, nie literówki. `description` ma jedną linię, 1–200 znaków, bez nawiasów kwadratowych i znaków końca linii, bo trafia dosłownie do wiersza czasownika w bloku `COMMANDS:`. Koniec linii obejmuje poza CR i LF także `U+0085`, `U+2028` i `U+2029`, które kończą linię dla czytników bloku. Odrzucane są też kontrolne C0 i DEL – najczęściej tabulator – zmieniające kształt bloku bez kończenia linii. Dosłowność dotyczy bloku, lecz nie późniejszego rozwijania makr: całe przypomnienie przechodzi ten etap przed wysłaniem, więc `{{…}}` w opisie rozwija się zamiast drukować, także makra _zapisujące_ zmienne czatu, np. `{{setvar::…}}`. Uprawnienie `chat-write` już daje pakietowi taki zakres, ale łatwo użyć go przypadkiem; pomijaj klamry makr, jeśli nie są zamierzone. Czasownik przyjmuje do sześciu argumentów, każdy `{ name, type, enum?, maxLength?, optional? }`, nazwanych według `[a-z][a-zA-Z0-9_]*` do 32 znaków. To celowo szersze niż nazwa czasownika bez wielkich liter, bo argument jest kluczem JSON, nie tagiem. Tylko argument tekstowy może mieć `enum` (1–16 różnych wartości: powtórzenia nic nie dodają i są odrzucane jak inne duplikaty tabeli). Tekst _bez_ enum musi określać `maxLength` (1–500), bo lokalne parsowanie wykonawcy nie ma własnego limitu i dowolny tekst mógłby wciągnąć cały fragment narracji do pakietu. Połączenie `enum` i `maxLength` jest odrzucane, bo enum już ogranicza wartość. Dane są płaskim, jednoliniowym JSON – zagnieżdżone `}` przedwcześnie kończy dopasowanie tagu. Parsuje się jedno wystąpienie nazwy czasownika na wiadomość, więc powtórzony czasownik stosuje się raz.
+
+Nie musisz opisywać tych zasad w opisie. Wiersz przypomnienia powstaje z odczytanej tabeli: schemat danych, potem opis, potem jeden przykład do skopiowania:
+
+```
+- [weather:{"word":"fair|overcast|rain|storm|snow","intensity"?:"light|heavy"}] — Set the sky when the weather visibly changes. Example: [weather:{"word":"fair"}]
+```
+
+Schemat uczy słownika: pokazuje każdy argument w kolejności deklaracji, opcjonalne oznacza `"name"?:` poza tekstem JSON, enum przedstawia jako wszystkie alternatywy, tekst bez enum jako limit, a liczbę lub wartość logiczną bez cudzysłowów, bo walidator odrzuca `"3"` jako liczbę zamiast ją konwertować. Przykład jest jednym konkretnym przypadkiem i pokazuje tylko jedną wartość enum, dlatego sam nie wystarcza do nauki: GM widzący tylko `{"word":"fair"}` pisze "sunny", walidator odrzuca niepokazane słowo, a odmowa jest niewidoczna. Tag usuwa się po dopasowaniu nazwy, nie po pomyślnej walidacji, więc narracja wygląda poprawnie, lecz świat się nie zmienia. Wyprowadzanie obu części z jednej odczytanej tabeli zapobiega rozbieżności: opis nie obiecuje wartości odrzucanej przez walidator, bo nie przechowuje już wartości. Przeznacz 200 znaków na _kiedy_ użyć czasownika, nie powtarzanie argumentów.
+
+Degradacja jest osobna dla czasowników. Nieużywalny czasownik – nowszy `effect`, niereprezentowalna postać lub odrzucana deklaracja, np. zastrzeżona nazwa albo cudzy klucz – jest pomijany z wpisem w logu, a wszystkie rozumiane nadal działają. Tak samo `parseCapabilityCatalogWithCompat` traktuje wpisy katalogu. Odmowa jest więc cicha, nie głośna: czytaj log, gdy zadeklarowany czasownik się nie pojawia. Cały nieużywalny dokument (nieznany `schemaVersion`, puste `verbs`, wartość niebędąca obiektem) daje pustą tabelę i jeden wpis logu. Tabela jest też odrzucana jeszcze przed odczytem według _zadeklarowanego_ `files[].bytes` przy 64 KB, bo `files[]` dopuszcza do 100 MB i nic innego nie ogranicza zasobu przed odczytem. W każdym przypadku tura pozostaje nietknięta.
+
+Czasownik deklarujący `metadataKey` jest **czasownikiem stanu**: wszystkie argumenty zapisują się pod tym kluczem w wierszu metadanych czatu, a pakiet widzi zmianę przez istniejące właściwości. Bez `metadataKey` jest **czasownikiem zdarzenia**: trafia na żywo jako zdarzenie klienta capability, bez trwałego zapisu, kolejki, odtwarzania i potwierdzenia. `metadataKey` jest odrzucane dla zdarzenia, aby nie zajmowało klucza, którego nigdy nie zapisze, i wymagane dla stanu.
+
+Przed wyborem poznaj różnice. Zapis stanu jest trwały i nigdy się nie cofa: przełączenie wariantu, edycja lub usunięcie tury zostawiają wartość, więc wygrywa ostatni wariant _wygenerowany_, nie ostatni _wyświetlony_. Narracja i świat mogą się rozchodzić w sesji bez mechanizmu uzgodnienia. Zdarzenie nie ma żadnej pamięci: jedna klatka, jedna synchroniczna emisja. Ginie po cichu przy przerwaniu tury, zamknięciu lub przeładowaniu karty w trakcie strumienia, emisji przed pierwszym montowaniem pakietu, przełączeniu gracza na inny czat i blokadzie ładowania samego pakietu. Nie ma ponownego dostarczenia. W zamian efekt zdarzenia cofa się z historią, jeśli pakiet przechowuje go tam, gdzie cofnięcie odbudowuje stan; zapis metadanych czatu tego nie potrafi. Utrata bez żadnego śladu zachodzi, gdy zdarzenie zastosowano do stanu na żywo, a twarde przeładowanie nastąpiło przed kolejnym zapisem pakietu.
+
+Dlatego obie odmiany celowo odrzucają semantykę względną. Czasownik stanu nie może wyrazić "dodaj pięć sztuk złota", bo zapis jest bezwzględnym nadpisaniem. Względne _zdarzenie_ jest zabronione regułą, bo regeneracja nadaje nowy indeks wariantu bez znaczników poprzedniego, więc efekt narasta raz na każdy wygenerowany wariant. Deduplikacja po `chatId:messageId:swipeIndex` chroni ponowne dostarczenie, którego ten kanał i tak nie wykonuje, ale nie regenerację, którą wykonuje. Bezpieczne dwukrotne zastosowanie zapewnia bezwzględność, nie księga zapisów. Względny słownik można tu stosować dopiero po przekształceniu go w bezwzględny dla każdej wiadomości.
+
+W turze zawierającej oba rodzaje synchroniczna emisja zdarzenia dociera do pakietu _przed_ asynchronicznym ponownym pobraniem zapisu stanu. Obsługa zdarzenia nie może oczekiwać nowej wartości czasownika stanu z tej samej tury.
+
+Asymetria odmów jest zamierzona. Engine sprawdza tylko postać – nazwy argumentów, typy, przynależność do enum i limity tekstu – bo znaczenie należy do pakietu: nie da się wyliczyć nazw NPC w deklaracji, gdy świat kompiluje się osobno dla czatu. Odmowa pakietu dla stanu jest więc _doradcza_, bo metadane są już zapisane, zanim pakiet je zobaczy. Dla zdarzenia jest _wiążąca_: Engine niczego nie zapisał, więc odrzucenie nieznanej nazwy rzeczywiście blokuje efekt.
+
+`metadataKey` stanu musi należeć do deklarującego pakietu według trzech reguł. Klucz zaczyna się identyfikatorem pakietu przekształconym na camel case (`hierarchical-maps` → `hierarchicalMaps`), ma niepusty dalszy człon zaczynający się wielką literą, co zapobiega podszywaniu się prefiksem pod inny pakiet, a znormalizowany identyfikator nie może być przestrzenią metadanych Engine ani rozszerzać jej na granicy wielkiej litery. Lista tych przestrzeni pochodzi ze wszystkich kluczy najwyższego poziomu `ChatMetadata`, stałych kluczy Engine i kluczy należących do sygnatury indeksowej interfejsu zamiast jego deklaracji: `encounterActive`, `internalAssistant`, `imageGenConnectionId` i reszty niezadeklarowanych metadanych, których dwa pierwsze źródła nie widzą. Trzecia grupa wymaga siedmiu źródeł, bo Engine zapisuje i czyta metadane na różne sposoby: obiekt przekazany do `patchMetadata`/`updateMetadata`; obiekt _zwracany_ przez funkcję aktualizującą (równie częsty); mutacja klienta `useUpdateChatMetadata()` i właściwość `onMetadataChange` (w ogóle nie używają `patchMetadata`); bezpośrednie wywołania klienta `PATCH /chats/:id/metadata` (pomijają też ten hak; Game zapisuje tak klucze walki, sceny i narracji); odczyty właściwości `chatMetadata.key` i `chat.metadata.key`; odczyty wyniku `parseChatMetadata(…)` – najczęstszy idiom Engine i jedyny widzący np. `scenario`; wreszcie ręczna lista kluczy metadanych poszczególnych czatów dla profili ustawień, która wyłapuje klucze zapisywane i czytane wyłącznie przez granice funkcji.
+
+Wszystko to chroni regresja, łącznie z ekstraktorami. Dwa przypadki celowo pozostają poza skanowaniem. Zapis otrzymujący zmienną albo wynik funkcji pomocniczej (`patchMetadata(id, hydratedMeta)` lub ten sam kształt na trasie metadanych) zapisuje klucze niewidoczne dla analizy statycznej; dziś takich wywołań jest dwadzieścia i regresja przypina tę liczbę, więc dwudzieste pierwsze przerywa kompilację do ręcznego sprawdzenia. Odczyt _wewnątrz_ funkcji pomocniczej z parametru jest międzyproceduralny i poza zasięgiem skanowania odczytów: tak działa `spatialContext`, zapisywany przez klienta pakietu `hierarchical-maps` z repozytorium Agents, a odczytywany tutaj przez funkcję pomocniczą i parser lokalny dla pliku. Drugą lukę zamyka ręczna lista, dlatego jedno z siedmiu źródeł jest utrzymywane ręcznie. Mechanizm jawnie nazywa ograniczenia. `persona` jest ręcznie dodanym minimum, którego dziś nie dostarcza żadne źródło. Trzecia reguła celowo odrzuca całe pakiety: `conversation-calls` normalizuje się do `conversationCalls`, a `conversationCalls` + `Enabled` to istniejący klucz Engine, więc pakiet nie może posiadać metadanych pod własnym identyfikatorem. `noodle` i `background` mają ten sam problem; `background` samo jest kluczem metadanych Engine. Nadal mogą deklarować zdarzenia, które nie posiadają klucza. Klucze są płaskie i najwyższego poziomu, bo właśnie tak czyta je istniejący mechanizm uzgadniania pakietu.
+
+Czasowniki działają tylko dla zainstalowanego, gotowego pakietu z `chat-write`. Uprawnienie to obejmuje też zapis przez API trwałości pakietu: wiadomości, metadane czatu, zdarzenia roleplay i migawki przestrzenne. `chat-read` ogranicza odczyty czatu, wiadomości, stanu gry i migawek przestrzennych. Te same kontrole działają w transakcjach i blokadach czatu; zapis nie daje automatycznie odczytu. Własne wywołania trwałości Engine pozostają zaufane.
+
+Widok szczegółów **Download Agents** (pobierz agentów) po instalacji pokazuje uprawnienia zadeklarowane przez zainstalowaną wersję. Jeśli wersja katalogowa żąda innych, pokazuje je osobno. Instalacja i aktualizacja kodu nadal wymagają istniejącej zgody związanej z dokładną wersją i sumą kontrolną; polecenia modelu nie proszą o osobną zgodę w każdej turze.
+
+To kontrole API, nie piaskownica JavaScript. Uprawnienia sieci, przechowywania i UI są deklaracjami dostępu. Kod pakietu w przeglądarce i serwerze pozostaje zaufany i ma dostęp do środowiska hosta; instaluj tylko zaufane pakiety. Sprawdzana jest gotowość, nie możliwość udostępnienia zasobów: aktualizacja pozostawiająca `restart-required` zatrzymuje rozwiązywanie czasowników do restartu Engine.
+
 ### Capability API 1.17: przygotowanie Experience przed pierwszą turą
 
 Pakiet `game-surface` może zadeklarować `contributions.gameSurface.prepareBeforeStart: true` przy schemacie w wersji 2 i Capability API 1.17. Engine montuje tę powierzchnię, gdy gra jest gotowa, zanim włączy **Start Game** (Rozpocznij grę). Klasyczne gry i pakiety bez tej flagi zachowują dotychczasowy przebieg uruchamiania.
@@ -156,6 +259,22 @@ Te limity dotyczą wyłącznie oczekiwania asynchronicznego. Pakiety działają 
 
 `api.registerTool` istnieje dopiero od tej wersji Engine. Pakiet, który go potrzebuje, musi zadeklarować `capabilityApi` 1.19 i nie zainstaluje się w starszej wersji.
 
+## Instrukcje decyzyjne i model decyzyjny
+
+**Decision model** (model decyzyjny) użytkownika odpowiada tak/nie i wybiera odpowiedzi na stwierdzenia o niedawnym czacie. [Modele decyzyjne](../connections/decision-models.md) wyjaśniają, czym jest i jak go skonfigurować.
+
+Szablon promptu agenta dostarczony przez pakiet może używać instrukcji decyzyjnych tak samo jak własny agent użytkownika: `{{#if decision:"..."}}` i `{{#if decision_choice:"..." == "..."}}`. Engine znajduje je w szablonie, pyta o nie przed uruchomieniem agenta (po odpowiedzi dla agenta przetwarzania końcowego) i rozwiązuje szablon według odpowiedzi. Nie zależy to od wersji API możliwości. [Prompty warunkowe](../prompts/conditional-prompts.md#asking-the-decision-model) opisują składnię i formułowanie pytań, a [Tworzenie własnych agentów](../agents/custom-agents.md#decision-statements-in-the-agents-prompt) wyjaśnia, jak czytają je fazy agentów.
+
+Kod środowiska pakietu nie ma jeszcze sposobu na bezpośrednie pytanie modelu decyzyjnego. Wymaga to własnej metody API możliwości i podniesienia wersji.
+
+Projektuj każde użycie także dla użytkownika bez modelu decyzyjnego. Stwierdzenie bez odpowiedzi oznacza nie, więc gałąź `{{else}}` albo brak tekstu musi być rozsądną wartością domyślną. Pisz dla dowolnego modelu decyzyjnego zamiast wymagać Jev: lokalne modele czatu i inne obsługiwane zaplecza używają tej samej składni, lecz mogą odpowiadać inaczej. Zanim oprzesz działanie na określonym wyniku, liczbie żądań lub odpowiedzi z pamięci podręcznej, przeczytaj [Progi](../connections/decision-models.md#thresholds) oraz [Limity i koszt](../prompts/conditional-prompts.md#limits-and-cost).
+
+### Uwaga dla twórców Experience w Game Mode
+
+Walka Engine samodzielnie decyduje o działaniach zwykłych wrogów. Każdy przeciwnik niebędący bossem po stronie GM dostaje rolę wynikającą z umiejętności i klasy (bruiser, bulwark, skirmisher, marksman, spellcaster, supporter lub controller), biegłość z poziomu, jeśli nie określił własnej (novice, trained, veteran lub master), oraz temperament, np. reckless, cautious, opportunistic lub protective. Beasts i monstrosities są zawsze mindless. Kod Engine wybiera je według ziarna bez wywołania modelu, a trudność gry zmienia konsekwencję działań zgodnych z typem. Tylko autorskimi bossami kieruje GM przez model. Zobacz [AI walki Game Mode](game-combat-ai-design.md).
+
+Kolejne ulepszenia walki są w drodze. Zanim dodasz model decyzyjny do potoku walki, sprawdź, czy zwykła walka Engine już spełnia potrzeby. Jeśli wróg potrzebuje osobowości, najpierw nadaj mu właściwą biegłość i temperament. Decyzja w każdej turze wroga dodałaby pracę modelu i limit czasu, a przy hostowanym zapleczu także żądania sieciowe i opłaty. Walka zależałaby od odpowiedzi modelu, którego użytkownik mógł nie skonfigurować, więc potrzebowałaby rozsądnego zachowania bez odpowiedzi.
+
 ## Pakiety początkowe
 
 - wszyscy dotychczas wbudowani agenci;
@@ -173,12 +292,6 @@ W podstawie zostaje menedżer pakietów, klient katalogu, ogólne kontrakty poto
 ## Zaufanie i instalacja
 
 Oficjalny katalog to wersjonowany dokument JSON o sprawdzanym schemacie, pobierany przez HTTPS. Każdy wpis wydania zawiera niezmienne adresy URL artefaktów, skróty SHA-256, rozmiary w bajtach, informacje o zgodności z silnikiem, uprawnienia oraz to, czy dane środowisko uruchomieniowe wymaga restartu.
-
-Polecenia modelu zadeklarowane przez pakiet działają tylko wtedy, gdy deklaruje on `chat-write`, jest zainstalowany i gotowy. To uprawnienie kontroluje też zapisy przez API trwałego magazynu pakietu, w tym wiadomości, metadane czatu, zdarzenia roleplay i migawki przestrzenne. `chat-read` kontroluje odczyty czatów, wiadomości, stanu gry i migawek przestrzennych. Te same kontrole obowiązują wewnątrz transakcji magazynu i blokad czatu; uprawnienie do zapisu nie daje automatycznie uprawnienia do odczytu. Wywołania magazynu należące do Engine pozostają zaufane.
-
-Widok szczegółów **Download Agents** (pobieranie agentów) pokazuje po instalacji uprawnienia zadeklarowane przez zainstalowaną wersję. Gdy wersja katalogowa żąda innych uprawnień, pokazuje je osobno. Instalowanie lub aktualizowanie kodu nadal wymaga istniejącej zgody przypisanej do dokładnej wersji i sumy kontrolnej; polecenia modelu nie pytają o osobną zgodę w każdej turze.
-
-To kontrole API, a nie izolowane środowisko JavaScript. Uprawnienia do sieci, magazynu i interfejsu są deklaracjami dostępu. Kod pakietu w przeglądarce i na serwerze pozostaje zaufanym kodem i ma dostęp do środowiska hosta; instaluj tylko pakiety, którym ufasz. Sprawdzana jest gotowość, a nie możliwość udostępniania plików, więc aktualizacja pozostawiająca pakiet w stanie `restart-required` wstrzymuje rozpoznawanie jego poleceń do restartu Engine.
 
 Przy starcie serwera host pobiera katalog jeden raz, o ile zainstalowany jest przynajmniej jeden oficjalny pakiet. Wybiera tylko nowsze wersje zgodne z działającym silnikiem i z API możliwości, weryfikuje je zwykłym potokiem instalacyjnym i instaluje jeszcze przed aktywacją środowisk uruchomieniowych pakietów. Awarie są izolowane osobno dla każdego pakietu. Gdy katalog jest niedostępny albo weryfikacja się nie powiedzie, dotychczasowe pliki i stan rejestru nadal działają, a niepowodzenie gotowości środowiska serwerowego korzysta ze ścieżki wycofania do poprzedniej wersji.
 
@@ -322,7 +435,7 @@ Arkusz pozostaje ten sam: wartość dodawana do rzutu w `dice-sum` oznacza tutaj
 
 ### Capability API 1.25: warstwy i wskazówki świata
 
-Opcjonalne `layers` to nazwane warianty wybierane przy tworzeniu gry i utrwalane w jej przypisaniu na cały czas gry. Opcjonalny tekst `gm.worldGuidance` jest czytany raz podczas tworzenia świata, aby pasował on do zasad drużyny.
+Opcjonalne `layers` to nazwane warianty wybierane przy tworzeniu gry i utrwalane w jej przypisaniu na cały czas gry. Blok `gm` może zawierać opcjonalny tekst `worldGuidance`. `gm.worldGuidance` jest czytany raz podczas tworzenia świata, aby pasował on do zasad drużyny.
 
 ```json
 {
@@ -334,7 +447,7 @@ Opcjonalne `layers` to nazwane warianty wybierane przy tworzeniu gry i utrwalane
 
 Zamknięty zbiór efektów warstw pozwala dopisywać wskazówki po wskazówkach zestawu, usuwać wartości pól wyliczeniowych, zastępować skalę trudności skalą tego samego rodzaju rozstrzygania i ukrywać wpisy katalogu w selektorze arkusza. Nie dodaje nowych elementów arkusza, więc arkusze pozostają czytelne niezależnie od warstw. Brak kodu pakietu i dodatkowego wywołania modelu. Warstwy innych autorów są planowane później. Instalacja odrzuca `layers` i `gm.worldGuidance` poniżej API 1.25 po sprawdzeniu zweryfikowanej treści. Bez uprawnień i bez zmian dla zestawów bez obu pól.
 
-### Capability API 1.26–1.27: format walki i bestiariusze
+### Capability API 1.26: rodzimy format walki zestawu
 
 API 1.26 dodaje opcjonalny `combat`: rzuty, cele, ekonomię akcji, listy ataków i zdolności, stany, koncentrację, zasady przy zerowym zdrowiu, typy obrażeń i skalę przeciwników. `mechanics` wpisów katalogu może opisywać liczbę celów, pewne trafienie, stany, punkty tymczasowe, skalowanie z arkuszem i zużywany budżet.
 
@@ -345,6 +458,8 @@ API 1.26 dodaje opcjonalny `combat`: rzuty, cele, ekonomię akcji, listy ataków
   "contributions": { "assets": { "paths": ["ruleset.json"] } }
 }
 ```
+
+### Capability API 1.27: bestiariusze zestawu
 
 API 1.27 pozwala katalogowi deklarować `"holds": "creatures"`. Bloki stworzeń używają liczb z `combat`: zdrowia jako liczby lub rzutu na początku walki, obrony, inicjatywy, cech i obron według identyfikatorów arkusza, odporności, podatności i niewrażliwości na obrażenia, niewrażliwości na stany, poziomu zagrożenia oraz cech pokazywanych GM. Akcje mogą trafiać, wymuszać obronę, nakładać stan, mieć limit użyć, odnawiać się rzutem, wykonywać sekwencję innych akcji za jeden budżet albo kosztować własne punkty specjalne stworzenia.
 
@@ -381,3 +496,118 @@ Krok **Lorebooks** (Lorebooki) pozwala wybrać do 100 pojedynczych włączonych 
 Import pliku konfiguracji odtwarza zainstalowane, zgodne Experience i jego poprawne liczbowe ziarno, ale odrzuca dowolną konfigurację pakietu. Stałe są ponownie dostarczane przez bieżący manifest. Istniejące gry pomijają import Experience z wyjaśnieniem. Migawki utworzenia zachowują nazwę Experience i ziarno do podsumowania konfiguracji.
 
 Gdy świat musi być przygotowany przed pierwszą turą, niezależnie użyj istniejącej deklaracji gotowości startowej. Zadeklaruj API 1.18 jako minimum pakietu; starsze hosty nie potrafią zinterpretować tej deklaracji konfiguracji.
+
+### Capability API 1.30: tory ran, zasoby na test i walka na torze
+
+Wpis `live.tracks` zestawu może deklarować `levels` i `kinds`, zmieniając ograniczoną liczbę całkowitą w TOR RAN: kolumnę pól z własnymi etykietami i karami, na których umieszcza się znaczniki. `levels` to 1-16 poziomów od najlepszego do najgorszego, każdy z `label` i całkowitym `penalty`. `kinds` to 1-6 rodzajów obrażeń, każdy z `id`, krótkim `label` i odrębnym `severity`. `kinds` bez `levels` jest odrzucane, bo nie byłoby czego oznaczać. `resolution.penaltyFrom` wskazuje tor, którego kara dotyczy każdego rzutu: przy `dice-pool` odejmuje kości, nie poniżej `pool.min`, a przy `dice-sum` daje stały modyfikator.
+
+Pozostałe dodatki tej części także należą do 1.30; pakiet dostarczający choć JEDEN deklaruje 1.30:
+
+- `combat.health` może wskazać tor ran zamiast puli. Wtedy `combat.damageKinds` określa znaczniki typów obrażeń: `default`, opcjonalne mapowanie `byType` i `marks`, gdzie `per-blow` zaznacza pole za trafienie, a `per-point` liczy poziomy zdrowia z obrażeń. `damageKinds` jest wymagane przy torze ran i odrzucane przy puli.
+- `resolution.spend` (tylko `dice-pool`): pula wydawana na test, koszt jednej płatności, czy kupuje `successes`, czy `dice`, oraz `perCheck`, limit na rzut.
+- `mechanics.check` wpisu katalogu: wpływ WYBRANEJ przez postać rzeczy na test jako `reroll` (`upTo` i `once` lub `until`), `dice`, `successes` albo `threshold`. Też tylko pule.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 30 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+Długość toru ran wynika z poziomów, więc `min` wynosi 0, a `max` to `levels.length`. Inna deklaracja jest odrzucana, nie poprawiana po cichu. `resolution.penaltyFrom` musi wskazywać tor ran: zwykły licznik nie ma kary.
+
+To nie jest miękki interfejs, z tego samego powodu co 1.20-1.28: Engine nieznający `levels`, `kinds`, `penaltyFrom`, `damageKinds`, `resolution.spend` lub `mechanics.check` odrzuca cały plik zasad. Instalacja czyta zweryfikowane bajty `ruleset.json` i odrzuca pakiet ze starszą deklaracją. Bez zmian dla zestawu ze zwykłymi licznikami, zdrowiem jako pulą i bez wydatków na test.
+
+### Capability API 1.29: możliwości jednej tury walki zestawu
+
+Pięć opcjonalnych dodatków do `combat` i wpisów katalogu używanych w walce:
+
+- Trafienie może mieć do trzech DODATKOWYCH wartości. `mechanics.plus` wpisu katalogu i `damage.plus` akcji stworzenia mają postać `{ dice?, flat?, type?, save?: { save,
+difficulty?, onSuccess: "none" | "half" } }`: osobne rzuty i typy, osobne podwojenie przy krytyku oraz rzuty obronne celu, ale nadal jedna kontrola koncentracji i upadku dla całego trafienia.
+- `combat.attacks[].strikes` to odwołanie do wartości określające liczbę uderzeń za jedno wydanie budżetu listy. Pozostałe są dostępne do końca tury; gdy jakiekolwiek pozostają, wszystkie wiersze tej listy nie zużywają budżetu.
+- `mechanics.free` nie zużywa budżetu, `mechanics.gives` oddaje go tylko na tę turę z ograniczeniem do maksimum, a `mechanics.standard` kupuje nazwane standardowe akcje innym budżetem. Wpis `utility` z `gives` lub `standard` jest oferowany zamiast pomijany.
+- Nowy rodzaj wpisu `rider` i własne `riders` stworzenia biernie dodają składnik obrażeń do pierwszego pasującego trafienia w turze lub rundzie, nigdy nie trafiając do menu.
+- Zamknięta lista efektów stanów zyskuje `own-saves-advantage`, `own-saves-disadvantage`, `resist-all`, `cannot-target-source` i `cannot-approach-source`. Stan może ograniczać rzuty obronne przez `saves`, działać tylko przy widocznym źródle (`whileSourceInSight`) albo kończyć się po jego upadku (`endsWhenSourceDown`).
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 29 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+To nie jest miękki interfejs, jak w 1.20-1.28: Engine nieznający tych kluczy odrzuca cały plik zasad lub katalogu. Instalacja czyta zweryfikowane bajty `ruleset.json` i każdego zadeklarowanego `catalogs/<id>.json`, odrzucając starszą deklarację dla obu. Bez nowych uprawnień i bez zmian, gdy zestaw nie deklaruje tych pól.
+
+### Capability API 1.28: walka zestawu na planszy
+
+Blok `combat` może określać wartość pola planszy we własnej jednostce odległości (`distance: { label, perCell }`), co umożliwia pozycjonowanie walki. `ranged` określa koszt strzału poza zwykły zasięg lub z wrogiem na sąsiednim polu; `cover` dodatek osłony do obrony; `opportunity` budżet ataku na odchodzącego przeciwnika. Lista ataków może mieć `reach` i `range` czytane z kolumny lub wspólne dla wierszy. `range` akcji stworzenia może być `{ "normal": 30, "long": 120 }` zamiast liczby.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 28 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+Deklarowanie `ranged`, `cover`, `opportunity` albo zasięgu broni BEZ `distance` jest odrzucane przy imporcie: nic nie znaczy bez pola do pomiaru. Plansza używa generatora, terenu i rozmieszczenia taktycznego stylu walki, więc nie dodaje drugiego modelu pola bitwy ani uprawnień.
+
+To nie jest miękki interfejs, jak w 1.20-1.27: Engine nieznający kluczy odrzuca cały plik zasad albo katalog ze stworzeniem o podwójnym zasięgu. Instalacja czyta zweryfikowane bajty `ruleset.json` i wszystkich zadeklarowanych `catalogs/<id>.json`, odrzucając starszą deklarację. Bez zmian dla zestawu bez odległości.
+
+### Capability API 1.34: stworzenie opisane zasadami zestawu
+
+Stworzenie bestiariusza może mieć `sheet`: dowolnie częściowy arkusz w kategoriach zestawu. Walka buduje go jak członka drużyny, więc zdrowie, obrona, rzuty obronne, inicjatywa, szybkość i zdolności list pochodzą z deklaracji zestawu, a koszty z własnych pul. Obok arkusza nie podaje wtedy `health`, `defense`, `initiativeModifier`, `speed`, `abilities` ani `saves` i nie może mieć własnych akcji bloku:
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 34 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/creatures.json"] } }
+}
+```
+
+Kontrola czyta bajty zasad i wszystkie pliki katalogu instalacji, jak w 1.27. Wiersz arkusza stworzenia może mieć `_catalog: "<catalog>/<entry>"` wskazujący wpis katalogu zasilającego listę; Engine ładuje te katalogi wraz z bestiariuszem. To nie jest miękki interfejs, jak w 1.20-1.33: nieznany klucz odrzuca cały ścisły plik katalogu, więc pakiet deklaruje 1.34. Bez uprawnień.
+
+### Capability API 1.33: moment oczekiwany przez reakcję
+
+`mechanics.reaction` wpisu katalogu może być obiektem zamiast `true`. `on` nazywa moment wykrywany przez Engine, `at` wskazuje cel wybranego działania, a `cancels` zatrzymuje akcję oczekującą w oknie:
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 33 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/spells.json"] } }
+}
+```
+
+`on` to `aimed` (przed trafieniem posiadacza wpisu) lub `harmed` (po doznaniu obrażeń); wskazanie umieszcza wpis w menu tego okna. `at` to `source`, automatycznie wybierające sprawcę, lub `chosen`, zachowujące własne cele wpisu. Tylko wpis `aimed` może używać `cancel`: minionego zdarzenia nie można odwołać. Koszt anulowanej akcji pozostaje wydany, bo opłacono ją przed pytaniem.
+
+`"reaction": true` oznacza jedynie działanie poza turą, co nie wystarcza do zaoferowania w oknie: nie pojawia się w menu i nie wymaga nowszej wersji. To nie jest miękki interfejs, jak w 1.20-1.32: Engine nieczytający obiektu odrzuca cały ścisły katalog, więc pakiet deklaruje 1.33. Bez uprawnień.
+
+### Capability API 1.32: broń ograniczająca własne uderzenia
+
+Źródło ataku może deklarować `strikesCappedBy`, logiczną kolumnę własnej listy. Zaznaczony wiersz kupuje jedno uderzenie niezależnie od `strikes` listy, więc broń strzelająca raz pozostaje przy jednym strzale, gdy reszta listy uderza tyle razy, ile mówi arkusz. Służy to zasadzie Loading z SRD 5.1: "you can fire only one piece of ammunition when you use an action, bonus action, or reaction to fire it, regardless of the number of attacks you can normally make."
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 32 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+Wymaga towarzyszącego `strikes`; bez niego jest odrzucane, bo lista kupująca jedno uderzenie już ogranicza każdy wiersz. To nie jest miękki interfejs, jak w 1.20-1.31: nieznany klucz odrzuca cały plik zasad, więc pakiet deklaruje 1.32. Bez uprawnień.
+
+### Capability API 1.31: integracje generowania hosta
+
+Pakiety serwerowe mogą używać `api.runtime.integrations` do bieżących usług LLM, obrazów i wideo Engine. Zadeklaruj API 1.31 w manifeście i sprawdź dostępność hosta integracji podczas aktywacji. Starszy Engine odrzuca wymaganie przed aktywacją. Operacje dostawcy wymagają `network`; zapis, przygotowanie i usuwanie multimediów wymagają `storage`.
+
+- `llm.createProvider(...)` przyjmuje ustawienia połączeń fabryki Engine, w tym własne parametry żądań i nagłówki. Zwrócony dostawca obsługuje `chat`, `chatComplete`, `embed`, `maxContextValue` i `maxTokensOverrideValue`, bez właściwości danych uwierzytelniających.
+- `llm.localSidecar()` zwraca lokalnego dostawcę sidecar hosta przez tę samą fasadę.
+- `llm.withFallback(...)` opakowuje dostawcę utworzonego przez ten sam host pakietu, zachowując dopuszczanie, powiadomienia zastępcze i wybór dostawcy Engine.
+- `images.generate(...)` i `videos.generate(...)` korzystają z bieżących implementacji Engine, anulowania, logowania żądań, kontroli sieci i kolejek mediów. Przekazuj `signal` wywołującego i UI `debugMode`, jeśli są dostępne.
+- `images.save`, `images.remove`, `images.stage` i `images.sweepStaged` używają bezpiecznych zapisów galerii i cyklu plików tymczasowych. `videos.save` i `videos.remove` korzystają ze ścieżki przechowywania wideo. `images.resolveNovelAiRequestSize` używa normalizacji rozmiaru NovelAI hosta. Normalizacja czasu wideo i publicznego wysyłania referencji jest dostępna jako `videos.resolveDuration` i `videos.resolveReferenceUpload`.
+
+Typy żądań/wyników eksportuje `@marinara-engine/shared`. Budowanie promptów i orkiestrację pakietu zachowaj w nim; dla operacji dostawcy używaj tych punktów hosta zamiast kopiować usługi Engine. Czyste funkcje pomocnicze i typy nadal można dołączać do pakietu.

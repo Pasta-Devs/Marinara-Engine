@@ -41,6 +41,22 @@ Tú no inicias el combate por tu cuenta. El GM inicia una pelea cuando la histor
 
 La pantalla de batalla muestra tu grupo en un lado y los enemigos en el otro. Cada luchador tiene una barra de salud (HP, puntos de vida) y, si usa habilidades, una barra de magia (MP, puntos de magia). El orden de turnos se muestra arriba como **Next:** seguido del nombre de quien actúa a continuación. Un contador de rondas muestra **Round** y el número de ronda actual.
 
+<a id="games-whose-ruleset-resolves-its-own-fights"></a>
+
+### Partidas cuyo conjunto de reglas resuelve sus propios combates
+
+Un conjunto puede resolver una pelea completa con sus propias reglas, en vez de prestar unas cifras al combate de Marinara. En ese caso, la pantalla de batalla le pertenece: el menú ofrece los ataques y habilidades del personaje, su propia economía de acciones, sus estados y un registro con los cálculos reales. Todo se guarda en la ficha en el momento en que ocurre.
+
+El conjunto también define qué cabe en un turno. Un golpe puede causar varios tipos de daño: cada parte se tira, se resiste y se somete a salvación por separado, pero el conjunto sigue siendo un solo golpe. Gastar una acción puede comprar varios ataques; mientras queden, el menú los ofrece gratis e indica cuántos tienes, para que puedas cambiar de arma o caminar entre ellos. Una habilidad puede ser gratuita, devolver una segunda acción solo para este turno o permitir correr, retirarte u ocultarte gastando una parte menor de tu turno. Algo que tu personaje hace siempre, como daño adicional en el primer golpe que cumple las condiciones de un turno, se añade automáticamente y aparece en el registro. Un estado puede dificultar o facilitar tus propias salvaciones, reducir a la mitad todo tipo de daño, impedirte atacar a quien te lo aplicó o acercarte a él, o terminar cuando caiga.
+
+El conjunto también puede definir cuánto representa una casilla en su propia distancia, en pies, pasos o la unidad que use. Si lo hace y **Combat Preference** (Preferencia de combate) está en **Tactical** (Táctico), la pelea usa un campo generado con los mismos tableros, terreno y despliegue de las batallas Tactical anteriores. La preferencia vuelve a tener efecto en estas partidas. Un conjunto sin distancia, o una partida **Classic** (Clásica), combate como antes: cualquiera puede apuntar a cualquiera.
+
+En ese campo, las cifras del conjunto lo determinan todo. La distancia que recorres por turno procede de su regla de movimiento o de la velocidad de la criatura; el alcance de un arma, de sus filas; el área de una habilidad se convierte en una explosión, un cono o una línea reales; los muros bloquean disparos; la cobertura añade lo que indique el conjunto; y salir del alcance de alguien le permite golpearte cuando las reglas definen el coste de ese ataque. El movimiento usa ocho direcciones a una casilla cada una, como las cuadrículas de mesa para las que se escribieron estas reglas, en vez de las cuatro direcciones del combate Tactical propio de Marinara descrito arriba.
+
+El campo aparece en pantalla. Cada casilla es un botón: puedes recorrerlo con el puntero o las flechas, y cada uno anuncia qué es, quién lo ocupa y cuánto cuesta llegar. **Move** (Mover) ilumina las casillas alcanzables con su coste en la unidad del conjunto, dibuja el camino al pasar el puntero o enfocarlas y marca en ámbar las casillas cuyo camino provoca ataques, indicando quién los haría debajo del tablero. Una acción que requiere objetivo ilumina los válidos y permite seleccionarlos en el tablero o la lista. Si no alcanza a nadie, aparece **Nobody is in reach. Move closer.** (Nadie está al alcance. Acércate.) en vez de ofrecer un golpe al vacío. Un área se apunta a una casilla: se iluminan los orígenes válidos y la casilla bajo el puntero indica a quién alcanzaría, incluidos los aliados. Puedes gastar movimiento antes y después de una acción; el menú vuelve con lo que queda y el panel inferior lo muestra como **Movement** (Movimiento) en la unidad del conjunto. Escape abandona una selección incompleta y devuelve el foco del teclado al menú.
+
+La cobertura de tres cuartos, la elevación, volar sobre obstáculos, ocultarse, el movimiento forzado y elegir si atacar a alguien que se aleja son trabajos futuros separados.
+
 <a id="games-that-use-a-ruleset"></a>
 
 ### Partidas con un conjunto de reglas

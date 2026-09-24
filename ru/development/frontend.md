@@ -360,7 +360,6 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.delete(path)`             | `DELETE /api{path}` | Удалить ресурс                       |
 | `api.upload(path, FormData)`   | `POST /api{path}`   | Загрузка файла в формате multipart                 |
 | `api.download(path, filename)` | `GET /api{path}`    | Скачивание с окном выбора места          |
-| `api.stream(path, body)`       | `POST /api{path}`   | Асинхронный генератор SSE (только токены)     |
 | `api.streamEvents(path, body)` | `POST /api{path}`   | Асинхронный генератор SSE (все типы событий) |
 
 Ошибки выбрасываются как `ApiError` со свойствами `status` и `message`.
@@ -596,10 +595,13 @@ Personal Extensions – это изолированный код, который
 | `spotify`                | post_processing | Управляет воспроизведением Music DJ (Spotify, YouTube или локальная музыка)         |
 | `knowledge-retrieval`    | pre_generation  | Достает контекст из источников знаний                  |
 | `knowledge-router`       | pre_generation  | Подбирает подходящие записи лорбуков и знаний                  |
+| `long-term-memory` | feature | Хранит долговременную память и вспоминает подходящий контекст |
 | `haptic`                 | post_processing | Отправляет команды тактильным устройствам                              |
 | `cyoa`                   | post_processing | Создает варианты выбора                                          |
+| `storyboard` | post_processing | Планирует статичные и анимированные раскадровки Game и Roleplay |
 | `conversation-calls`     | feature         | Добавляет аудио- и видеозвонки в режиме Conversation и связанные настройки          |
 | `hierarchical-maps`      | feature         | Добавляет карты, пространственный контекст и перемещение в Roleplay и Game Mode             |
+| `noodle` | feature | Добавляет локальные социальные ленты Noodle и Slurp на Home |
 | `uno`                    | feature         | Добавляет стол UNO в режиме Conversation                              |
 | `chess`                  | feature         | Добавляет шахматную доску в режиме Conversation                             |
 | `poker`                  | feature         | Добавляет стол Texas Hold'em в режиме Conversation                         |

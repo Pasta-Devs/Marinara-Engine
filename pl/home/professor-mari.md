@@ -98,6 +98,22 @@ Dwie zmiany o większym ryzyku czekają na decyzję, zamiast zostać zastosowane
 
 Zatwierdzenie biblioteki oznacza zaufanie jej kodowi, kiedy aplikacja Marinara Engine później go zaimportuje albo uruchomi. Wyłączone skrypty cyklu życia blokują wykonanie kodu przy instalacji, ale nie sprawią, że biblioteka stanie się nieszkodliwa w trakcie działania.
 
+## Tworzenie treści z decyzjami
+
+Mari może pisać **Activation questions** (pytania aktywacyjne) agentów, stwierdzenia **Decision** (decyzja) wpisów lorebooka i prompty warunkowe w presetach, kartach, lorebookach oraz promptach agentów. Przed wprowadzeniem tych funkcji sprawdza wybrany model decyzyjny. Wybrany model jest informacją o konfiguracji, nie dowodem dostępności dostawcy ani udanego uruchomienia modelu lokalnego.
+
+Bez wybranego modelu nie dodaje nowych zależności od decyzji przy zwykłym tworzeniu i edycji. Istniejącą treść decyzyjną zachowuje przy niezwiązanych zmianach. Jeśli wyraźnie poprosisz o decyzje, wyjaśnia właściwe zachowanie zastępcze i raz w danym czacie Mari pyta, czy kontynuować. Zapis odpowiedzi przetrwa ponowne otwarcie czatu i rozmowy dłuższe niż jej okno ostatnich wiadomości. Brak odpowiedzi lub odmowa nie oznacza zgody.
+
+Możesz powiedzieć **"Stop reminding me to set up a Decision model."** Przestaje przypominać w bieżącym czacie i może zapisać preferencję jako wspomnienie. Użyj **Keep & Enable** (zachowaj i włącz), żeby stosować ją też w przyszłych czatach. Wyłączenie lub usunięcie wspomnienia usuwa stałą preferencję. Wyłączenie przypomnień nie upoważnia jej do dodawania decyzji do zwykłych próśb.
+
+Z wybranym modelem stosuje odpowiednie włączone wspomnienia i umiejętności. Jeśli nie określają preferencji tworzenia, pyta, czy używać decyzji i czy zapamiętać odpowiedź. Możesz je dopuścić, odrzucić lub zezwolić tylko dla bieżącego zadania. Umiejętność opisująca samą składnię nie oznacza zgody. Bezpośrednia prośba, taka jak "add Decision activation to this entry", już daje zgodę dla zadania.
+
+Domyślnie używa decyzji oszczędnie z odpowiednim sterowaniem czasem: **Sticky** (utrzymanie aktywności) lub **Cooldown** (przerwa) wpisów lorebooka, **Trigger Cadence** (częstotliwość uruchamiania) agentów oraz `sticky`, `cooldown` lub `every` warunków promptu. Sticky i Cooldown ograniczają ponowne sprawdzanie po pozytywnej aktywacji; nie zatrzymują sprawdzania przy ciągłym nie. `every` pomija sprawdzanie między zaplanowanymi turami i oznacza wtedy nie, więc nie zawsze pasuje do ulotnych zdarzeń.
+
+Mari stara się też utrzymać stabilny początek złożonego promptu. Pyta przed dodaniem zmiennej treści wcześnie w prompcie lub kontekstu wewnątrz historii czatu, chyba że instrukcja lub włączona preferencja już pozwala na takie umiejscowienie. Nie istnieje uniwersalna zasada "bezpiecznie po 1 000 tokenów": pamięć podręczna zależy od dostawcy, modelu i zgodnego wyrenderowanego początku. Zgoda na decyzje nie oznacza automatycznej zgody na te pozycje.
+
+Zwykły Permissions Mode i mechanizmy przeglądu nadal obowiązują przy edycji. Zapisywane wspomnienia są początkowo wyłączone, dopóki ich nie włączysz. Zakres danych, zachowania zastępcze i przykłady opisują [Modele decyzyjne](../connections/decision-models.md), [Prompty warunkowe](../prompts/conditional-prompts.md), [Własni agenci](../agents/custom-agents.md#activation-questions) i [Wpisy lorebooka](../lorebooks/entries.md#decision-activation).
+
 ## Własne dokumenty Skill
 
 Skill to krótki dokument z instrukcjami, który zmienia sposób obsługi pewnego rodzaju próśb przez Professor Mari.

@@ -38,7 +38,7 @@ Estas macros trazem os nomes e os campos do card de quem fala e do personagem qu
 | `{{user}}` / `{{userName}}` | O nome de exibição atual (ou o nome da persona). Sem persona definida, o padrão é `User`. |
 | `{{userNamePhonetic}}` | O nome Phonetic da persona, ou `{{user}}` quando esse campo está vazio. |
 | `{{char}}` / `{{charName}}` | O nome do personagem atual. O padrão é `Character`. |
-| `{{<21-character-card-ID>}}` | Sintaxe de marcador para o nome de outro card de personagem. Troque o texto entre colchetes angulares pelo ID exato de 21 caracteres desse card. |
+| `{{21-character-card-ID}}` | Nome de outro personagem. Troque o marcador pelo ID exato de 21 caracteres do card para incluí-lo no contexto. |
 | `{{persona-21-character-card-ID}}` | Sintaxe de marcador para o nome de outra persona. Troque o texto depois de `persona-` pelo ID exato de 21 caracteres do card para incluir o contexto dele. |
 | `{{charNamePhonetic}}` | O nome Phonetic do personagem, ou `{{char}}` quando esse campo está vazio. |
 | `{{characters}}` | Todos os personagens do chat, separados por vírgulas. |
@@ -69,7 +69,7 @@ A macro `{{group}}` acompanha o personagem que está respondendo no momento, inc
 
 O campo Phonetic tem duas funções. Ele define como o nome é pronunciado na conversão de texto em voz. E também alimenta as macros `{{charNamePhonetic}}` e `{{userNamePhonetic}}`. O campo aparece tanto no **Character Editor** quanto no **Persona Editor**.
 
-Para citar um personagem que não está no chat atual, copie o ID do card dele e coloque esse ID direto entre chaves duplas, como `{{V1StGXR8_Z5jdHi6B-myT}}`. Marinara troca a macro pelo nome do card e adiciona ao prompt de sistema o contexto de personagem do card citado. As saudações iniciais e os diálogos de exemplo desse card ficam de fora. Os lorebooks ativados que estão ligados a esse card continuam sujeitos às regras normais de palavras-chave, entradas **Constant**, filtros, probabilidade e orçamento de tokens.
+Para citar um personagem fora do chat atual, copie o ID do card diretamente entre chaves duplas, como `{{V1StGXR8_Z5jdHi6B-myT}}`. Não inclua os caracteres literais `<` ou `>`. Marinara troca a macro pelo nome do personagem e adiciona Description, Personality, Appearance, Backstory, Scenario e Example Dialogue do card ao prompt de sistema. Funciona em mensagens do chat, campos de prompt e entradas de lorebook ativadas. As saudações iniciais ficam de fora. Lorebooks ativados vinculados ao card mantêm suas regras normais de palavras-chave, constant, filtros, probabilidade e orçamento de tokens.
 
 Para citar uma persona inativa, acrescente `persona-` antes do ID copiado, como em `{{persona-P1StGXR8_Z5jdHi6B-myT}}`. Marinara troca a macro pelo nome da persona e adiciona os campos Description, Personality, Appearance, Backstory e Scenario dela aos ID Macro Cards. Os lorebooks vinculados continuam seguindo as regras normais de ativação.
 
@@ -129,6 +129,14 @@ As entradas de outlet continuam usando a ativação normal do lorebook. Palavras
 
 Use as macros de outlet em seções de prompt nos modos Conversation, Roleplay ou Game. A macro funciona mesmo quando aparece antes do marcador de lorebook do preset, e o preset não precisa de um marcador de lorebook quando usa apenas entradas de outlet. Um outlet desconhecido ou inativo resulta em nada. Uma entrada de outlet não expande outra macro de outlet, então não há recursão entre outlets.
 
+## Macro de tamanho do lorebook
+
+`{{lorebooksize::ID}}` resulta no total de entradas do lorebook com esse ID. Troque `ID` pelo ID real, copiado do painel Lorebooks. Por exemplo, se o ID for `V1StGXR8_Z5jdHi6B-myT` e houver 151 entradas, `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}` resulta em `151`.
+
+IDs desconhecidos resultam em `0`. A contagem inclui todas as entradas, ativadas, desativadas ou em pastas.
+
+Use esta macro em seções de prompt, campos de cards de personagem, conteúdo de entradas de lorebook ou qualquer lugar onde macros são resolvidas.
+
 ## Macros de tempo
 
 Todas as macros de tempo leem um mesmo instante compartilhado a cada resolução, então elas sempre concordam entre si. O fuso horário vem do navegador.
@@ -161,7 +169,7 @@ Um sorteio simples que você pode copiar:
 
 ### Escolhas com peso
 
-Coloque um `@número` no fim de uma opção para definir a chance dela. O número é um peso relativo. Quanto maior, mais provável.
+Coloque um `@number` no fim de uma opção para definir a chance dela. O número é um peso relativo. Quanto maior, mais provável.
 
 ```text
 {{random::Common event@1::Rare event@0.25}}
@@ -180,7 +188,7 @@ Regras de peso:
 - Pesos decimais são aceitos, como 0.5 ou 0.01.
 - O peso 0 mantém a opção na lista, mas ela nunca é sorteada.
 - Se todas as opções tiverem peso 0, a macro resulta em nada.
-- Só um `@número` no fim conta como peso. Um `@` em outro lugar, como em um endereço de e-mail, fica intacto.
+- Só um `@number` no fim conta como peso. Um `@` em outro lugar, como em um endereço de e-mail, fica intacto.
 
 ## Variáveis dinâmicas
 
@@ -229,6 +237,8 @@ Todo campo compatível com macros tem dois botõezinhos no canto:
 Você também pode digitar `/macros` na caixa do chat (a forma curta `/macro` também funciona). O comando imprime a lista completa de macros no próprio chat, como lembrete rápido.
 
 Os blocos condicionais combinam comparações com `||` (OU), `&&` (E) e parênteses. As listas de igualdade aceitam a forma compacta `{{#if character == "Maukie" || "Pantalone"}}`. Veja em [Prompts condicionais](conditional-prompts.md) a precedência, exemplos de chat em grupo e a lista completa de operadores.
+
+Uma condição também pode consultar o Decision model sobre a cena: `{{#if decision:"The latest message moves the scene to a new place"}}` para sim/não e `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}` para escolher uma opção. Sem modelo ou resposta, valem não. Veja [Consultar o Decision model](conditional-prompts.md#asking-the-decision-model). Adicione `sticky:3 cooldown:5` depois da declaração para manter um sim por três turnos e depois esperar cinco; veja [Sticky e cooldown](conditional-prompts.md#sticky-and-cooldown). `every:3` pergunta apenas a cada três turnos, e `priority:high` ou `priority:low` escolhe quais cabem no plano; veja [Verificar a cada poucos turnos](conditional-prompts.md#checking-every-few-turns), [Prioridade](conditional-prompts.md#priority) e [Limites e custo](conditional-prompts.md#limits-and-cost).
 
 ## Erros comuns
 

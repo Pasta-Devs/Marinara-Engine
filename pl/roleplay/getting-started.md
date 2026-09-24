@@ -91,6 +91,14 @@ Zapisany fragment można obejrzeć, edytować i uruchomić ponownie. Edycja zmie
 
 Nad polem czatu Narrative Director ma przycisk **Push Story**. Uzbraja on tego agenta wyłącznie na następną odpowiedź. Narrative Director może też prowadzić ukryty, długofalowy wątek o nazwie **Secret Plot**. Oba opisuje przewodnik [Narrative Director i Secret Plot](narrative-director.md).
 
+## Szepty i sekrety
+
+W **Chat Settings → Agents → Roleplay Commands** (ustawienia czatu → agenci → komendy Roleplay) włącz **Whisper** (szept), aby pozwolić na prywatne uwagi, sekrety lub wizje w odpowiedzi. Domyślnie jest wyłączone. Wybierz, czy mogą używać go **All** (wszystkie) postacie, czy tylko wyznaczony **Narrator** (narrator). Jak Personal Notes wymaga czatu solo lub generowania grupowego **Individual**.
+
+Komenda to `[whisper: character="name" text="the secret"]`. Wskaż dokładnie jedną postać czatu lub wybraną personę. Tylko odbiorca i wyznaczony narrator otrzymują tekst w promptach. Nieznane lub niejednoznaczne imię jest ignorowane bez ujawniania sekretu. Współdzieleni agenci nie dostają szeptów.
+
+Szept pozostaje w swoim miejscu wiadomości. Szepty do twojej persony widać od razu; inne odczytasz przez **Reveal a secret** (ujawnij sekret). Ujawnienie zmienia tylko ekran, nie wiedzę postaci. Sekrety podążają za wiadomością i aktywnym swipe'em oraz znikają z promptu po ukryciu wiadomości lub wyjściu poza wybraną historię.
+
 ## Przerywanie wypowiedzi i działań
 
 W sekcji **Chat Settings → Agents → Roleplay Commands** włącz **Interruptions** (przerywanie), aby postacie mogły przerwać ostatnią wiadomość, gdy słowna lub fizyczna interwencja jest wiarygodna. Opcja jest domyślnie wyłączona i nie wymaga pobieranego agenta.

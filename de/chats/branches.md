@@ -10,6 +10,8 @@ Alle Verzweigungen eines Chats gehören zusammen. In der Chatliste erscheint ein
 
 Jede Verzweigung bekommt einen eigenen Anzeigenamen. Nenn sie zum Beispiel „freundliches Ende“ und „düsteres Ende“. Dieser Anzeigename ist unabhängig vom Namen des dahinterliegenden Chats.
 
+Die Herkunft einer Verzweigung hält den unmittelbaren Quellchat und die Nachricht fest, an der sie entstand. Sowohl die ursprüngliche Nachrichten-ID als auch die ID ihrer Kopie bleiben erhalten. Integrationen können dadurch die Grenze erkennen, obwohl kopierte Nachrichten neue IDs bekommen. Die Verzweigung einer Verzweigung nennt diese als unmittelbaren Elternchat, nicht den ursprünglichen Stammchat. Ältere Verzweigungen und importierte Geschwister behalten ihren Anzeigenamen, haben aber keine bekannte Herkunft.
+
 ## Die Schaltfläche „Branch from here“
 
 Eine Verzweigung entsteht ausgehend von einer beliebigen Nachricht im Chat.
@@ -24,6 +26,8 @@ Marinara kopiert den Chat bis einschließlich dieser Nachricht in eine neue Verz
 - Kopiert die Tracker- und Spielzustands-Schnappschüsse der kopierten Nachrichten, damit Roleplay- und Game-Chats ihren Zustand behalten.
 - Startet mit dem Anzeigenamen **New Branch**. Umbenennen geht jederzeit (siehe unten).
 - Bleibt im selben Chat-Ordner wie der Ursprungschat.
+
+Bei einem leeren Chat sind die Nachrichtenanker null. Das Löschen eines Elternchats ändert die historische Herkunft seiner Kinder nicht. Das Löschen der gesamten Verzweigungsgruppe entfernt weiterhin jeden Chat dieser Gruppe.
 
 Tages- und Wochenzusammenfassungen wandern nicht mit. Laufende Zusammenfassungen mit gespeicherten Nachrichtenbereichen, die vollständig innerhalb der kopierten Verzweigung liegen, werden übernommen und auf die neuen Nachrichten-IDs der Verzweigung abgebildet. Zusammenfassungen, deren Quellbereich den Verzweigungspunkt überschreitet, sowie ältere Zusammenfassungen ohne Nachrichtenmetadaten werden ausgelassen. In der neuen Verzweigung werden diese Zusammenfassungen neu erstellt.
 

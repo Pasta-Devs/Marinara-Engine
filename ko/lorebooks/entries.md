@@ -120,6 +120,35 @@
 
 예를 들어 **Sticky**를 3으로 설정하면, 한 번 나온 사실이 이후 몇 턴 동안 프롬프트에 남습니다. 덕분에 AI가 장면 도중에 그 사실을 잊지 않습니다.
 
+<a id="decision-activation"></a>
+
+## Decision 활성화
+
+드로어의 **Decision** 필드는 **Decision model**(판정 모델)이 항목의 적용 여부를 판단하게 합니다. `In the latest message, a dragon is physically present`처럼 최근 채팅에 관한 문장을 쓰고 동작을 고르세요.
+
+- **Off**(꺼짐)가 기본값이며 평소대로 활성화합니다.
+- **Require**(필수): 키워드, **Constant**, 의미 일치 등 원래 방식으로 활성화 대상이 되면서 문장도 참일 때만 활성화합니다. 스쳐 가는 언급을 걸러 냅니다. `dragon`이 키인 항목은 드래곤 이야기만 할 때 제외됩니다. **Constant** 항목도 상황별로 바꿀 수 있습니다. 예를 들어 전투 규칙에 `A fight is happening in the latest message`를 사용합니다.
+- **Trigger**(트리거): 키워드가 없어도 활성화할 수 있는 경로를 추가합니다. `The latest message takes place in the Blackwood Forest`처럼 다른 표현과 상황을 포착합니다. 키워드, **Constant**, 의미 일치, 연결된 지도 장소 등의 일반 경로도 유지됩니다.
+
+문장에서 `{{user}}`, `{{char}}` 같은 매크로를 사용할 수 있습니다. 명확한 표현과 자신의 채팅에서 시험하는 방법은 [판정문 작성하기](../prompts/conditional-prompts.md#writing-statements)를 참고하세요.
+
+실행 방식은 다음과 같습니다.
+
+- **Require**는 필터, 타이밍, 확률 굴림을 적용한 뒤 키워드, 의미 일치, **Constant** 또는 연결된 지도 장소로 원래 자격을 갖춘 항목을 확인합니다. 로어북이 활성 상태라는 이유만으로 쓰지 않는 모든 항목을 스캔하지 않습니다.
+- **Trigger**는 일반 키워드 활성화가 적격 항목을 통과시키지 못할 때 확인할 수 있습니다. 매 턴 묻는 것은 아닙니다. Constant 항목, 키워드 일치 또는 기존 Sticky 유지가 있으면 Trigger 답 없이 통과할 수 있습니다. 그래도 호스팅 요청이 늘 수 있으므로 Trigger 항목은 명확한 목적에 맞게 사용하세요.
+- 문장은 가능하면 일괄 처리합니다. 활성화, 항목 본문의 판정문, 재귀 일치로 여러 묶음이 필요할 수 있으므로 한 턴에 여러 호스팅 요청이 생길 수 있습니다. **Decision statements per turn**(턴당 판정문 수)의 로어북 몫을 사용합니다. [제한과 비용](../prompts/conditional-prompts.md#limits-and-cost)을 참고하세요.
+- 성공한 답은 캐시가 유지되는 동안 같은 턴과 모델에서 보통 재사용합니다. 실패한 답은 재시도할 수 있으며 재시작, 캐시 제거, 입력 변경으로 새 요청이 생길 수 있습니다. 재생성이 같은 항목 활성화를 보장하지는 않습니다. [답 재사용](../prompts/conditional-prompts.md#answer-reuse)을 참고하세요. **Sticky** 항목은 유지 기간에 다시 묻지 않습니다.
+- 활성 로어북 목록은 Trigger 문장이 활성화한 항목에 **decision**을 표시합니다.
+- **Peek Prompt**는 질문하지 않습니다. 턴에 이미 있는 답을 사용하며 답이 없는 문장을 나열합니다.
+
+**답이 없으면 새로운 Decision 활성화도 없습니다.** Decision 모델이 없거나 답하지 않으면 **Require**는 새 항목을 통과시키지 못하지만 기존 Sticky 유지로 계속 활성 상태를 유지할 수 있습니다. **Trigger**는 활성화 경로를 추가하지 않습니다. 항목은 원래 규칙에 따라 키워드, Constant, 의미 일치 또는 지도 장소로 활성화할 수 있습니다. 모델이 설정되지 않으면 편집기가 경고합니다. 중요한 Trigger 항목에는 일반 활성화 경로도 주세요. Require는 선택적인 설정을 거르는 데 사용하고 이야기의 필수 내용을 제한하지 마세요. [Decision 모델](../connections/decision-models.md)을 참고하세요.
+
+Decision 활성화는 채팅 턴에 적용됩니다. Game 설정, 경험 생성, 에이전트가 자신을 위해 실행하는 로어북 스캔에서는 Decision 항목을 아니요로 읽습니다.
+
+항목 자체의 **Sticky**와 **Cooldown**은 Decision 필드와 함께 작동합니다. Sticky 유지 중에는 다시 묻지 않고 항목을 유지하며, Cooldown 중에는 문장을 묻지 않습니다. 따라서 Sticky 3과 Cooldown 5인 Trigger 문장은 몇 턴 동안 항목을 유지한 뒤 쉬게 하며 그동안 판정문 허용량을 쓰지 않습니다.
+
+항목 본문의 `{{#if decision:"..."}}` 조건은 다릅니다. 이미 활성화된 항목의 텍스트를 줄이며 항목은 여전히 토큰 예산을 쓰고 타이머를 시작합니다. 항목이 활성화된 턴에만 물으므로 나머지 로어북은 **Decision statements per turn**을 소비하지 않습니다. 항목 자체의 활성화 여부에는 **Decision** 필드를 사용하세요.
+
 ## 그 밖의 항목 설정
 
 펼친 편집 패널에는 몇 가지 필드가 더 있습니다.
@@ -405,6 +434,7 @@ AI에 절대 전달되지 않는 메모를 남기려면 **주석 매크로**를 
 ## 관련 가이드
 
 - [로어북 개요](overview.md)
+- [Decision 모델](../connections/decision-models.md)
 - [로어북 토큰 예산과 재귀](token-budgets.md)
 - [로어북 시맨틱 검색](semantic-search.md)
 - [지식 소스: Retrieval 에이전트와 Router 에이전트](../agents/knowledge-sources.md)

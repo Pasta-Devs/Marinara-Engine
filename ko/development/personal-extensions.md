@@ -88,15 +88,17 @@ Browser Extension API 버전 5에는 `marinara.context.get()`과 `marinara.conte
 
 `marinara.ui.showWindow({ title, elements, onEvent, onClose })`는 `update({ title?, elements? })`와 `close()`를 가진 핸들을 반환합니다. 워커는 디스크립터만 보내고, 실제 요소는 신뢰된 iframe 부트스트랩이 DOM API와 `textContent`로 만듭니다(`innerHTML`은 쓰지 않습니다). 평소 숨겨 두는 샌드박스 iframe은 창이 열려 있는 동안에만 보이고, 창을 닫으면 다시 숨깁니다.
 
-`marinara.ui.registerContribution({ id, kind, label, description?, icon?, elements?, onActivate?, onEvent? })`는 `update(patch)`와 `remove()`를 가진 동결된 핸들을 반환합니다. 위치는 다음 세 곳으로 고정되어 있습니다:
+`marinara.ui.registerContribution({ id, kind, label, description?, icon?, surface?, position?, elements?, onActivate?, onEvent? })`는 `update(patch)`와 `remove()`를 가진 동결된 핸들을 반환합니다. 다음과 같은 신뢰된 호스트 위치를 지원합니다.
 
-- `button`: 화면이 큰 환경에서는 상단 막대의 작은 동작 버튼, 모든 환경에서는 **Extensions**(확장) 메뉴의 동작 항목;
+- `button`: 기본적으로 상단 막대의 작은 동작 버튼이며, 또는 `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents`, `settings` 화면에 호스트가 렌더링하는 동작입니다.
 - `menu-item`: **Extensions** 메뉴의 동작 항목;
 - `panel`: Marinara의 신뢰된 **Extensions** 사이드 패널을 여는 항목.
 
+사이드 패널 버튼은 `position: "header"`, `"before-content"`, `"after-content"`를 받습니다. 상단 막대 버튼은 `position`을 생략합니다. 아이콘은 Marinara의 Lucide 아이콘 카탈로그에 있는 제한된 kebab-case 이름을 사용하며, 지원하지 않는 이름은 퍼즐 아이콘으로 대체됩니다.
+
 패널 요소는 제한된 창과 똑같은 선언형 어휘를 씁니다. `heading`, `text`, `pre`, `button`, `input`, `select`, `toggle`, `slider`, `color`, `spacer`입니다. 조작할 수 있는 컨트롤에는 고유한 ID가 필요합니다. 패널 버튼을 누르면 `{ contributionId, elementId, values }`가 `onEvent`로 전달되고, `values`에는 모든 컨트롤의 현재 문자열 값이 들어 있습니다. `onActivate`는 기여물을 열거나 실행할 때 확장 Worker 안에서 실행됩니다. 상태가 바뀐 뒤 라벨, 설명, 아이콘, 패널 요소를 바꾸려면 `handle.update(...)`를 호출하면 됩니다.
 
-클라이언트는 디스크립터를 런타임 저장소에 넣기 전에 하나하나 따로 검증합니다. 기여물 종류, 아이콘, 컨트롤, ID, 선택지 목록, 텍스트 길이, 패널 전체 텍스트 양, 요소 개수, 확장당 기여물 개수는 모두 허용 목록과 상한으로 제한합니다. React는 확장이 준 텍스트를 텍스트로만 렌더링합니다. 확장이 지정한 HTML, CSS, URL, React 컴포넌트, 호스트 콜백은 하나도 받아들이지 않습니다. 워커가 중지되거나, 해시가 바뀌거나, 승인된 런타임 응답에서 사라지면 호스트가 그 확장의 기여물을 모두 제거합니다. 이벤트는 확장 ID와 콘텐츠 해시가 모두 같은 워커에만 전달합니다.
+클라이언트는 각 디스크립터를 런타임 저장소에 넣기 전에 독립적으로 검증합니다. 기여물 종류, 화면, 위치, 컨트롤, ID, 선택지 목록, 아이콘 이름 구문, 텍스트 길이, 패널 전체 텍스트 양, 요소 개수, 확장당 기여물 개수를 검증하고 제한합니다. React는 확장 텍스트를 텍스트로 렌더링합니다. 확장이 제어하는 HTML, CSS, URL, React 컴포넌트, 호스트 콜백은 받지 않습니다. 워커가 중지되거나, 해시가 바뀌거나, 승인된 런타임 응답에서 사라지면 호스트가 모든 기여물을 제거합니다. 이벤트는 확장 ID와 콘텐츠 해시가 같은 워커에만 전달합니다.
 
 DOM 조작 수단, Marinara API 호출, 부모 이벤트 접근, 임의의 네트워크 기능은 제공하지 않습니다. iframe은 메시지를 검증하고 전송 빈도를 제한합니다. 하트비트 감시기는 응답이 없거나 무한 루프에 빠진 워커를 종료합니다.
 
