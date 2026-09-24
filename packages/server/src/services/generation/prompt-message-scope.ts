@@ -320,11 +320,11 @@ export function scopeIndividualGroupMessagesForTarget(
   messages: GenerationPromptMessage[],
   targetCharacterId: string | null,
   characters: CharacterPromptScopeInfo[],
+  transformHistory?: (messages: GenerationPromptMessage[]) => void,
 ): GenerationPromptMessage[] {
-  if (!targetCharacterId) return messages;
   const targetCharacter = characters.find((character) => character.id === targetCharacterId);
-  if (!targetCharacter) return messages;
-  const otherCharacters = characters.filter((character) => character.id !== targetCharacterId);
+  if (!targetCharacter && !transformHistory) return messages;
+  const otherCharacters = targetCharacter ? characters.filter((character) => character.id !== targetCharacterId) : [];
 
   const scoped = messages
     .map((message) => {
@@ -338,7 +338,7 @@ export function scopeIndividualGroupMessagesForTarget(
         next = { ...next, content };
       }
 
-      if (isHistoryMessage) {
+      if (isHistoryMessage && targetCharacterId) {
         if (next.characterId) {
           const role = next.characterId === targetCharacterId ? "assistant" : "user";
           next = { ...next, role };
@@ -355,11 +355,22 @@ export function scopeIndividualGroupMessagesForTarget(
 
       return next;
     })
-    .filter((message) => message.content.trim());
+    .filter((message) => message.content.trim() || message.images?.length || message.files?.length);
 
-  reassignHistoryLastMessageWrapper(scoped);
-  pruneEmptyPromptWrappers(scoped);
-  return scoped;
+  if (transformHistory) {
+    const history = scoped.filter((message) => message.contextKind === "history");
+    // Regex anchors address the message body, not the assembler's history wrappers.
+    for (const message of history) {
+      message.content = stripChatHistoryMarkdownWrappers(stripChatHistoryXmlWrappers(message.content));
+    }
+    transformHistory(history);
+  }
+  const nonEmpty = scoped.filter(
+    (message) => message.content.trim() || message.images?.length || message.files?.length,
+  );
+  reassignHistoryLastMessageWrapper(nonEmpty, messages);
+  pruneEmptyPromptWrappers(nonEmpty);
+  return nonEmpty;
 }
 
 function escapeRegExp(value: string): string {
