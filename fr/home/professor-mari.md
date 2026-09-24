@@ -98,6 +98,22 @@ Deux types de modifications, plus risquées, attendent au lieu d'être appliqué
 
 Approuver une bibliothèque, c'est faire confiance à son code quand Marinara l'importera ou l'exécutera. Désactiver les scripts de cycle de vie empêche l'exécution au moment de l'installation, mais ne rend pas la bibliothèque inoffensive une fois lancée.
 
+## Créer du contenu avec Decisions
+
+Mari peut écrire des **Activation questions** (questions d'activation) pour les agents, des énoncés **Decision** dans les entrées de lorebook et des prompts conditionnels dans les presets, fiches, lorebooks et prompts d'agents. Elle vérifie le Decision model sélectionné avant d'introduire ces fonctions. Un modèle sélectionné est une information de configuration, pas la preuve que le fournisseur est joignable ou qu'un modèle local chargera correctement.
+
+Si aucun Decision model n'est sélectionné, elle n'ajoute pas de dépendances Decision aux créations et modifications ordinaires. Le contenu Decision existant reste intact lors de modifications sans rapport. Si tu demandes explicitement ce contenu, elle explique le repli pertinent et demande une fois dans ce chat Mari s'il faut continuer. Son registre persiste à la réouverture du chat et dans les conversations dépassant sa fenêtre récente. Une question sans réponse ou un refus ne vaut pas autorisation.
+
+Tu peux lui dire : **"Stop reminding me to set up a Decision model."** Elle arrête dans le chat actuel et peut enregistrer cette préférence comme Memory. Utilise **Keep & Enable** (conserver et activer) pour l'appliquer aussi aux futurs chats. Désactiver ou supprimer cette Memory retire la préférence permanente. Supprimer les rappels de configuration ne l'invite pas à ajouter Decisions aux demandes ordinaires.
+
+Avec un modèle sélectionné, elle suit tes Memories et Skills pertinentes activées. Sans préférence de création dans celles-ci, elle demande si tu veux utiliser Decisions et mémoriser ta réponse. Tu peux accepter, refuser ou autoriser uniquement la tâche actuelle. Une Skill expliquant simplement la syntaxe ne vaut pas autorisation. Une demande directe comme "add Decision activation to this entry" autorise déjà cette tâche.
+
+Par défaut, elle en fait un usage limité avec un contrôle temporel adapté : **Sticky** ou **Cooldown** pour les entrées de lorebook, **Trigger Cadence** pour l'activation d'agents et `sticky`, `cooldown` ou `every` dans les conditions de prompt. Sticky et Cooldown réduisent les vérifications répétées après une activation positive ; ils ne les empêchent pas tant qu'un énoncé répond non. `every` saute les vérifications entre les tours prévus et y vaut non ; il ne convient donc pas toujours aux événements fugaces.
+
+Mari cherche aussi à stabiliser le début du prompt assemblé. Elle demande avant d'ajouter du contenu changeant tôt dans un prompt ou du contexte dans l'historique, sauf autorisation déjà donnée par tes instructions ou préférences activées. Il n'existe pas de règle universelle "sans risque après 1 000 tokens" : la réutilisation dépend du fournisseur, du modèle et du préfixe rendu identique. Autoriser Decisions n'autorise pas automatiquement ces placements.
+
+Les contrôles habituels Permissions Mode et de révision s'appliquent toujours. Les Memories enregistrées restent désactivées jusqu'à ton activation. Pour le contexte visible par chaque fonction Decision, ses replis et des exemples, consulte [Modèles de décision](../connections/decision-models.md), [Prompts conditionnels](../prompts/conditional-prompts.md), [Agents personnalisés](../agents/custom-agents.md#activation-questions) et [Entrées de lorebook](../lorebooks/entries.md#decision-activation).
+
 ## Les Skills personnalisées
 
 Une Skill est un court document d'instructions que tu rédiges pour changer la façon dont Professor Mari traite un certain type de demande.

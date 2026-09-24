@@ -120,6 +120,35 @@ Les champs **Timing** du panneau latéral règlent le comportement d'une entrée
 
 Par exemple, règle **Sticky** sur 3 pour garder un fait dans le prompt pendant quelques tours après son apparition. Ainsi, l'IA ne l'oublie pas en pleine scène.
 
+<a id="decision-activation"></a>
+
+## Activation par Decision
+
+Le champ **Decision** (décision) du tiroir laisse ton **Decision model** (modèle de décision) déterminer si une entrée s'applique. Écris un énoncé sur le chat récent, comme `In the latest message, a dragon is physically present`, et choisis son rôle :
+
+- **Off** (désactivé), par défaut : l'entrée s'active normalement.
+- **Require** (exiger) : l'entrée s'active par ses voies normales (mots-clés, **Constant**, correspondance sémantique), seulement si l'énoncé est aussi vrai. Cela filtre les mentions passagères : une entrée associée à `dragon` reste exclue si l'on parle seulement des dragons. Sur une entrée **Constant**, cela la rend contextuelle, par exemple des règles de combat avec `A fight is happening in the latest message`.
+- **Trigger** (déclencher) : l'énoncé ajoute une voie d'activation même sans mot-clé. Cela détecte reformulations et situations, par exemple `The latest message takes place in the Blackwood Forest`. Les voies ordinaires, dont mots-clés, **Constant**, correspondances sémantiques et lieux de carte rattachés, restent disponibles.
+
+Les macros comme `{{user}}` et `{{char}}` fonctionnent dans l'énoncé. Pour une formulation claire et une méthode de test sur tes chats, consulte [Rédiger les énoncés](../prompts/conditional-prompts.md#writing-statements).
+
+Déroulement :
+
+- **Require** vérifie une entrée autrement admissible par mots-clés, correspondance sémantique, **Constant** ou lieu de carte rattaché, sous réserve de ses filtres, délais et tirage de probabilité. Il n'analyse pas chaque entrée inutilisée simplement parce que le lorebook est actif.
+- **Trigger** peut être vérifié si l'activation ordinaire par mots-clés n'admet pas une entrée admissible. Il n'est pas forcément interrogé à chaque tour : une entrée Constant, une correspondance de mot-clé ou un maintien Sticky existant peut l'admettre sans réponse Trigger. Réserve Trigger à des besoins précis ; ces entrées peuvent encore ajouter des requêtes hébergées.
+- Les énoncés sont regroupés si possible. Activation, énoncés du contenu et correspondances récursives peuvent demander plusieurs lots : un tour peut donc produire plusieurs requêtes hébergées. Ils utilisent la part du lorebook dans **Decision statements per turn** (énoncés de décision par tour) ; consulte [Limites et coût](../prompts/conditional-prompts.md#limits-and-cost).
+- Les réponses réussies sont normalement réutilisées pour le même tour et modèle tant qu'elles restent en cache. Les échecs peuvent être réessayés ; redémarrage, éviction ou entrées modifiées peuvent provoquer de nouvelles requêtes. Une régénération ne garantit pas les mêmes entrées actives. Consulte [Réutilisation des réponses](../prompts/conditional-prompts.md#answer-reuse). Une entrée **Sticky** n'est pas interrogée à nouveau pendant son maintien.
+- La liste des lorebooks actifs affiche **decision** pour une entrée activée par un énoncé Trigger.
+- **Peek Prompt** n'interroge jamais. Il utilise les réponses déjà disponibles pour le tour et liste les énoncés sans réponse.
+
+**Aucune réponse signifie aucune nouvelle activation par décision.** Sans Decision model, ou s'il ne répond pas, **Require** ne peut pas admettre de nouvelle entrée, même si un maintien Sticky existant peut la conserver active. **Trigger** n'ajoute aucune voie ; l'entrée peut toujours s'activer par ses mots-clés, Constant, correspondances sémantiques ou lieux de carte, selon leurs règles habituelles. L'éditeur avertit si aucun Decision model n'est défini. Donne aussi une voie ordinaire aux entrées Trigger importantes. Utilise Require pour filtrer du contexte facultatif, jamais pour conditionner un élément indispensable à l'histoire. Consulte [Modèles de décision](../connections/decision-models.md).
+
+L'activation par décision s'applique aux tours du chat. La configuration Game, la génération d'expériences et les analyses de lorebooks faites par les agents pour eux-mêmes interprètent les entrées de décision comme non.
+
+Les propres **Sticky** et **Cooldown** de l'entrée fonctionnent avec son champ Decision. Pendant sticky, elle reste présente sans nouvelle interrogation ; pendant cooldown, son énoncé n'est pas interrogé. Ainsi, Trigger avec Sticky 3 et Cooldown 5 l'active quelques tours puis la laisse reposer sans consommer d'énoncés entre-temps.
+
+Une condition `{{#if decision:"..."}}` dans le contenu est différente : elle raccourcit une entrée déjà activée, qui utilise toujours son budget de tokens et démarre ses minuteurs. Elle n'est interrogée que lorsque l'entrée s'active : le reste du lorebook ne consomme donc jamais **Decision statements per turn**. Utilise le champ **Decision** pour décider si l'entrée doit s'activer.
+
 ## Autres options d'entrée
 
 Le panneau latéral déplié contient encore quelques champs.
@@ -405,6 +434,7 @@ Les dossiers ne s'affichent comme des groupes que si tu tries par **Order** sans
 ## Guides associés
 
 - [Vue d'ensemble des lorebooks](overview.md)
+- [Modèles de décision](../connections/decision-models.md)
 - [Budgets de tokens et récursivité des lorebooks](token-budgets.md)
 - [La recherche sémantique pour les lorebooks](semantic-search.md)
 - [Sources de connaissances : agents de récupération et de routage](../agents/knowledge-sources.md)

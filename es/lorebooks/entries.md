@@ -120,6 +120,35 @@ Los campos de **Timing** (Tiempos) del panel lateral controlan el comportamiento
 
 Por ejemplo, configura **Sticky** en 3 para mantener un dato en el prompt durante algunos turnos después de que surge. Así la IA no lo olvida a mitad de la escena.
 
+<a id="decision-activation"></a>
+
+## Activación por Decision
+
+El campo **Decision** (decisión) del panel permite que tu **Decision model** (modelo de decisión) decida si una entrada corresponde. Escribe una declaración sobre el chat reciente, como `In the latest message, a dragon is physically present`, y elige cómo actúa:
+
+- **Off** (desactivado), el predeterminado: la entrada se activa como siempre.
+- **Require** (requerir): la entrada se activa de la manera normal (palabras clave, **Constant**, coincidencia semántica) y solo si la declaración también es verdadera. Esto filtra menciones pasajeras: una entrada con la clave `dragon` queda fuera si solo hablan de dragones. En una entrada **Constant**, la vuelve situacional, por ejemplo reglas de combate con `A fight is happening in the latest message`.
+- **Trigger** (activar): la declaración añade una vía de activación incluso si no aparece ninguna palabra clave. Detecta paráfrasis y situaciones, por ejemplo `The latest message takes place in the Blackwood Forest`. Las vías ordinarias, incluidas palabras clave, **Constant**, coincidencias semánticas y ubicaciones de mapa adjuntas, siguen disponibles.
+
+Macros como `{{user}}` y `{{char}}` funcionan en la declaración. Para redactar con claridad y probarla con tus chats, consulta [Redactar declaraciones](../prompts/conditional-prompts.md#writing-statements).
+
+Cómo se ejecuta:
+
+- **Require** comprueba una entrada que ya cumpliría los requisitos mediante palabras clave, coincidencia semántica, **Constant** o una ubicación de mapa adjunta, sujeta a sus filtros, tiempos y tirada de probabilidad. No analiza cada entrada sin usar solo porque el lorebook esté activo.
+- **Trigger** puede comprobarse cuando la activación ordinaria por palabras clave no admite una entrada apta. No se pregunta necesariamente cada turno: una entrada Constant, una coincidencia de palabra clave o una retención Sticky existente puede admitirla sin respuesta de Trigger. Usa entradas Trigger con un propósito claro; aún pueden añadir solicitudes alojadas.
+- Las declaraciones se agrupan cuando es posible. Activación, declaraciones en el contenido y coincidencias recursivas pueden necesitar varios lotes, así que un turno puede producir múltiples solicitudes alojadas. Usan la parte del lorebook de **Decision statements per turn** (declaraciones de decisión por turno); consulta [Límites y costo](../prompts/conditional-prompts.md#limits-and-cost).
+- Las respuestas correctas normalmente se reutilizan para el mismo turno y modelo mientras estén en caché. Las fallidas se pueden reintentar, y reiniciar, descartar caché o cambiar entradas puede causar solicitudes nuevas. Una regeneración no garantiza activar entradas idénticas. Consulta [Reutilización de respuestas](../prompts/conditional-prompts.md#answer-reuse). Una entrada **Sticky** no se pregunta de nuevo mientras dure su retención.
+- La lista de lorebooks activos muestra **decision** para una entrada activada por una declaración Trigger.
+- **Peek Prompt** nunca pregunta. Usa las respuestas que ya tiene el turno y enumera las declaraciones sin respuesta.
+
+**Sin respuesta no hay nueva activación por decisión.** Sin Decision model, o si no responde, **Require** no puede admitir una entrada nueva, aunque una retención Sticky existente puede mantenerla activa. **Trigger** no añade una vía; la entrada aún puede activarse por su comportamiento ordinario de palabras clave, Constant, semántica o ubicación de mapa, sujeto a sus reglas habituales. El editor advierte cuando no hay Decision model. Da también una vía ordinaria a las entradas Trigger importantes. Usa Require para filtrar trasfondo opcional, nunca para condicionar algo indispensable para la historia. Consulta [Modelos de decisión](../connections/decision-models.md).
+
+La activación por decisión se aplica a turnos de chat. La configuración de Game, la generación de experiencias y los análisis de lorebooks que ejecutan los agentes para sí mismos interpretan las entradas de decisión como no.
+
+Los propios **Sticky** y **Cooldown** de la entrada funcionan con su campo Decision. Mientras es sticky, permanece sin volver a preguntar; mientras está en cooldown, no se pregunta su declaración. Así, una declaración Trigger con Sticky 3 y Cooldown 5 introduce la entrada unos turnos y después la deja descansar, sin gastar declaraciones mientras tanto.
+
+Una condición `{{#if decision:"..."}}` dentro del contenido de la entrada es distinta: recorta el texto de una entrada que ya se activó y que todavía usa su presupuesto de tokens e inicia sus temporizadores. Solo se pregunta en turnos donde se activa, así que el resto del lorebook nunca consume **Decision statements per turn**. Usa el campo **Decision** para decidir si la entrada se activa en absoluto.
+
 ## Más opciones de entrada
 
 El panel lateral expandido contiene algunos campos más.
@@ -405,6 +434,7 @@ Las carpetas solo se muestran como grupos cuando ordenas por **Order** sin una b
 ## Guías relacionadas
 
 - [Visión general de los lorebooks](overview.md)
+- [Modelos de decisión](../connections/decision-models.md)
 - [Presupuestos de tokens y recursión de los lorebooks](token-budgets.md)
 - [Búsqueda semántica para lorebooks](semantic-search.md)
 - [Fuentes de conocimiento: agentes de recuperación y de enrutamiento](../agents/knowledge-sources.md)

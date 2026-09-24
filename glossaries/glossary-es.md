@@ -400,3 +400,12 @@ Cycle precedent for the new `development/game-combat-ai-design.md`,
 
 These are documented translation choices from this cycle, not a claim of a new
 independent native-reader panel review. Existing pack-wide rules still apply.
+
+## September 2026 Decision-model and API catch-up
+
+- Use **modelo de decisión** for the concept and preserve the UI label **Decision model** with that gloss on first use.
+- Use **declaración de decisión** for a statement sent to the model. An agent activation question and a statement inside its prompt are distinct: the former gates execution, the latter selects prompt text.
+- Use **contador de heridas** for a ruleset wound track. Keep `levels`, `kinds`, damage kinds and ordinary numeric tracks distinct.
+- Preserve the different no-answer fallbacks for agents, prompts, lorebooks and Smart response order. Preserve phase budgets, cache lifetimes, thresholds, request limits and hardware qualification without generalizing them.
+- Preserve API identifiers, code examples, model names, URLs and English link fragments. Prompt examples and selectable example strings remain English, as in the source.
+- API 1.16 state writes do not rewind; transient events can be lost. The translated contract retains these limitations and the historical combat proposal status; it does not claim a new validation run.

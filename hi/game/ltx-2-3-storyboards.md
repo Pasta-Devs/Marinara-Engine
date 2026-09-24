@@ -10,7 +10,7 @@
 GM narration
   -> Animation Planner
      -> imagePrompt -> image connection -> first-frame illustration
-     -> narrationBeat -> LTX Director Video -> %prompt%
+     -> narrationBeat -> Narration Passthrough -> %prompt%
   -> first frame + prompt -> ComfyUI LTX 2.3 workflow -> MP4 clip
 ```
 
@@ -166,7 +166,7 @@ Game Mode चैट खोलें, फिर **Chat Settings** (चैट स�
 | सेटिंग | सुझाई गई वैल्यू |
 | --- | --- |
 | **Video Connection** | ऊपर बनाया गया LTX 2.3 ComfyUI कनेक्शन |
-| **Game Video Prompt** | **LTX Director Video** |
+| **Game Video Prompt** | **Narration Passthrough** |
 
 सामान्य **Game Video Prompt** से **Gallery** और **Game Assets** में हाथ से बनने वाले एनिमेशन तय होते हैं। Storyboard क्लिप अपना अलग प्रॉम्प्ट चुन सकती हैं, और इससे बाकी एनिमेशन पर कोई फ़र्क नहीं पड़ता।
 
@@ -180,13 +180,13 @@ Game Mode चैट खोलें, फिर **Chat Settings** (चैट स�
 | **Automatic Storyboard Animations** | On |
 | **Use NovelAI Character Prompts** | Off |
 | **Keyframes per Turn** | आम तौर पर 3; 8 GB VRAM वाले पहले टेस्ट में 1 से शुरू करें |
-| **Animation Clip Duration** | 6 सेकंड |
+| **Animation Clip Duration** | 5 सेकंड |
 | **Viewer Display** | टेस्ट के दौरान Floating |
 | **Illustration Planner** | **Still Keyframes**; सिर्फ़-स्टिल वाले फ़ॉलबैक के तौर पर बना रहता है |
 | **Animation Planner** | **LTX Simple Image-to-Video** |
 | **Use Storyboard Template** | On |
 | **Storyboard Illustration Prompt** | **Storyboard First Frame** |
-| **Storyboard Video Prompt** | **LTX Director Video** |
+| **Storyboard Video Prompt** | **Narration Passthrough** |
 
 **LTX Simple Image-to-Video** ही सुझाया गया डिफ़ॉल्ट है। यह एनिमेशन के लिए तैयार एक पहली फ़्रेम और 4 से 8 वाक्यों वाला एक सीधा मोशन प्रॉम्प्ट बनाता है। इसका झुकाव एक मुख्य हरकत, एक कैमरा मूवमेंट, माहौल की सीमित हलचल और मौके के मुताबिक ऑडियो या छोटे डायलॉग की तरफ़ रहता है।
 
@@ -196,7 +196,7 @@ Game Mode चैट खोलें, फिर **Chat Settings** (चैट स�
 
 **Storyboard First Frame**, **Animation Planner** के पूरे नैचुरल-लैंग्वेज T=0 सीन को सीधे Krea तक पहुँचाता है, और उसमें कीफ़्रेम का शीर्षक, प्रॉम्प्ट लेबल, शक्ल-सूरत के दोहराए गए नोट या कैंपेन की आर्ट डायरेक्शन नहीं जोड़ता। **Use Storyboard Template** चालू रखें, तभी यह फ़ॉर्मैटर सचमुच लागू होता है।
 
-**LTX Director Video** जान-बूझकर छोटा रखा गया है। यह **Animation Planner** के तैयार `narrationBeat` को सार्वभौमिक वीडियो प्रॉम्प्ट कॉन्ट्रैक्ट से गुज़ार देता है, और उसके इर्द-गिर्द सीन का दूसरा सारांश नहीं लपेटता।
+**Narration Passthrough** जान-बूझकर छोटा रखा गया है। यह **Animation Planner** के तैयार `narrationBeat` को सार्वभौमिक वीडियो प्रॉम्प्ट कॉन्ट्रैक्ट से गुज़ार देता है, और उसके इर्द-गिर्द सीन का दूसरा सारांश नहीं लपेटता।
 
 हर कीफ़्रेम एक Krea इमेज जॉब और एक लोकल LTX वीडियो जॉब बनाता है। यानी तीन कीफ़्रेम से तीन पहली-फ़्रेम रेंडर और तीन वीडियो रेंडर शुरू होते हैं। 8 GB VRAM वाले GPU पर 480p पर एक कीफ़्रेम से शुरू करें। वह कामयाब हो जाए, तब तीन कीफ़्रेम और ऊँचे रेज़ोल्यूशन की तरफ़ बढ़ें।
 
@@ -204,7 +204,7 @@ Game Mode चैट खोलें, फिर **Chat Settings** (चैट स�
 
 ऐसा पूरा हो चुका GM (कहानी चलाने वाला AI) टर्न चुनें जिसमें एक साफ़ दिखने वाली हरकत हो, जैसे दरवाज़ा खोलना, आवाज़ की तरफ़ देखना, कुछ कदम चलना या एक छोटी लाइन बोलना।
 
-1. सबसे तेज़ कम-VRAM जाँच के लिए **Keyframes per Turn** कुछ देर के लिए 1 कर दें और **Animation Clip Duration** 6 सेकंड ही रहने दें। सामान्य टेस्ट की गई प्रोफ़ाइल में 3 कीफ़्रेम रहते हैं।
+1. सबसे तेज़ कम-VRAM जाँच के लिए **Keyframes per Turn** कुछ देर के लिए 1 कर दें और **Animation Clip Duration** 5 सेकंड ही रहने दें। सामान्य टेस्ट की गई प्रोफ़ाइल में 3 कीफ़्रेम रहते हैं।
 2. मौजूदा GM टर्न पूरा हो जाने के बाद दोनों ऑटोमैटिक Storyboard सेटिंग्स चालू करें।
 3. **Gallery** खोलें और उसी पूरे हो चुके GM टर्न के लिए **Create storyboard** चुनें। इससे इलस्ट्रेशन और एनिमेशन का पूरा रास्ता हाथ से शुरू हो जाता है, अगले टर्न का इंतज़ार नहीं करना पड़ता।
 4. अगर प्रॉम्प्ट दिखाने की सेटिंग चालू है, तो भेजने से पहले पहली फ़्रेम का प्रॉम्प्ट पढ़ लें।
@@ -221,7 +221,7 @@ Game Mode चैट खोलें, फिर **Chat Settings** (चैट स�
 - `imagePrompt`: सिर्फ़ T=0 समय पर दिखने वाली पहली फ़्रेम;
 - `narrationBeat`: पूरा LTX image-to-video प्रॉम्प्ट, जो बताता है कि आगे क्या होता है।
 
-चुना हुआ **Animation Planner** दोनों फ़ील्ड लिखता है। **Storyboard First Frame** `imagePrompt` को फ़ॉर्मैट करता है और उस नैचुरल-लैंग्वेज T=0 सीन को Krea 2 तक भेजता है। इमेज बन जाने के बाद **LTX Director Video** का हल `narrationBeat` निकलता है। Marinara उसे सामान्य वीडियो रिक्वेस्ट के `prompt` फ़ील्ड में रखता है, ComfyUI वर्कफ़्लो में `%prompt%` की जगह डालता है, पहली फ़्रेम अपलोड करता है, और `%reference_image_name%` की जगह उसका ComfyUI फ़ाइल नाम रख देता है।
+चुना हुआ **Animation Planner** दोनों फ़ील्ड लिखता है। **Storyboard First Frame** `imagePrompt` को फ़ॉर्मैट करता है और उस नैचुरल-लैंग्वेज T=0 सीन को Krea 2 तक भेजता है। इमेज बन जाने के बाद **Narration Passthrough** का हल `narrationBeat` निकलता है। Marinara उसे सामान्य वीडियो रिक्वेस्ट के `prompt` फ़ील्ड में रखता है, ComfyUI वर्कफ़्लो में `%prompt%` की जगह डालता है, पहली फ़्रेम अपलोड करता है, और `%reference_image_name%` की जगह उसका ComfyUI फ़ाइल नाम रख देता है।
 
 दो लोकल प्रॉम्प्ट सेगमेंट बनाने की कोई ज़रूरत नहीं। इन Storyboard प्रीसेट के लिए एक ही ग्लोबल प्रॉम्प्ट सामान्य रास्ता है।
 

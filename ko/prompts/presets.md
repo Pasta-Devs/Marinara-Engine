@@ -162,6 +162,16 @@
 
 Game 채팅에는 **Extra instructions**(추가 지침) 상자도 있습니다. 여기에 쓴 글은 Game 프롬프트에 덧붙습니다. 길이는 2000자까지입니다. 지시 예시로는 "Write in the style of Terry Pratchett."이 있습니다.
 
+<a id="decision-blocks-and-prompt-caching"></a>
+
+## 판정 블록과 프롬프트 캐시
+
+섹션에 `{{#if decision:"..."}}` 판정 블록을 넣으면 채팅에 관한 문장이 참인 턴에만 프리셋의 해당 부분을 보냅니다. [Decision 모델에 묻기](conditional-prompts.md#asking-the-decision-model)를 참고하세요.
+
+**변하는 판정 블록은 프롬프트 뒤에 놓으세요.** 예를 들어 기록 뒤 지침에 배치합니다. 분기가 바뀌면 제공자가 그 지점 이후의 프롬프트를 재사용하지 못할 수 있으므로 앞부분의 변경은 캐시 절감 효과 대부분을 없앨 수 있습니다. 더 앞의 변하지 않은 접두부는 여전히 해당할 수 있으며 전체 프롬프트가 반드시 새 입력으로 과금되는 것은 아닙니다. 답이 거의 바뀌지 않고 지침이 앞에 있어야 할 때만 앞부분에 두세요. 제공자별 상세 정보는 [프롬프트 캐시](conditional-prompts.md#prompt-caching)를 참고하세요.
+
+비활성 섹션과 그룹의 문장은 묻지 않으며 **Decision statements per turn**(턴당 판정문 수)에 포함하지 않습니다.
+
 ## AI가 받은 내용 확인하기
 
 어떤 프리셋과 섹션이 실제로 AI에 전달되었는지 확인하려면 **Peek Prompt**(프롬프트 미리보기)를 쓰세요. 해당 메시지에 대해 조립이 끝난 프롬프트 전체를 보여 줍니다. 이상한 응답의 원인을 찾는 가장 빠른 방법입니다. [Peek Prompt: AI가 받은 내용 확인하기](../chats/peek-prompt.md)를 참고하세요.

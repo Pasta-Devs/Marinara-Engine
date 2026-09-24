@@ -41,6 +41,22 @@ O combate nunca começa por sua iniciativa. É o GM que inicia a luta quando a h
 
 A tela de batalha mostra a equipe de um lado e os inimigos do outro. Cada combatente tem uma barra de vida (HP, pontos de vida) e, se usar habilidades, uma barra de magia (MP, pontos de magia). A ordem dos turnos aparece no topo, como **Next:** seguido do nome de quem age em seguida. Um contador mostra **Round** e o número da rodada atual.
 
+<a id="games-whose-ruleset-resolves-its-own-fights"></a>
+
+### Partidas cujo conjunto de regras resolve suas próprias lutas
+
+Um conjunto pode resolver uma luta inteira com suas próprias regras, em vez de emprestar alguns números ao combate do Marinara. Nesse caso, a tela de batalha pertence a ele: o menu contém os ataques e as habilidades do personagem, sua própria economia de ações, suas condições e um registro com os cálculos reais. Tudo é salvo na ficha assim que acontece.
+
+O conjunto também define o que cabe em um turno. Um golpe pode causar vários tipos de dano: cada parte é rolada, resistida e submetida a uma salvaguarda separadamente, mas o conjunto continua sendo um único golpe. Gastar uma ação pode comprar vários ataques; enquanto restarem, o menu os oferece de graça e informa quantos você tem, para que possa trocar de arma ou andar entre eles. Uma habilidade pode não custar nada, devolver uma segunda ação só neste turno ou permitir correr, desengajar ou se esconder gastando uma parte menor do turno. Algo que o personagem sempre faz, como dano extra no primeiro golpe que atende às condições do turno, é adicionado automaticamente e aparece no registro. Uma condição pode dificultar ou facilitar suas próprias salvaguardas, reduzir pela metade todo tipo de dano, impedir você de atacar quem a aplicou ou de se aproximar dessa pessoa, ou terminar quando ela cair.
+
+O conjunto também pode definir quanto vale uma casa em sua própria distância, em pés, passos ou outra unidade. Se fizer isso e **Combat Preference** (Preferência de combate) estiver em **Tactical** (Tático), a luta usa um campo gerado com os mesmos tabuleiros, terreno e posicionamento inicial das batalhas Tactical acima. A preferência volta a ter efeito nessas partidas. Um conjunto sem distância, ou uma partida **Classic** (Clássica), luta como antes: qualquer um pode mirar em qualquer um.
+
+Nesse campo, os números do conjunto decidem tudo. A distância por turno vem da regra de movimento ou da velocidade da criatura; o alcance de uma arma, de suas próprias linhas; a área de uma habilidade vira uma explosão, cone ou linha reais; paredes bloqueiam disparos; cobertura acrescenta o que o conjunto determina; e sair do alcance de alguém permite que essa pessoa ataque quando as regras definem o custo desse ataque. O movimento usa oito direções a uma casa cada, como as grades de RPG de mesa para as quais essas regras foram escritas, em vez das quatro direções das batalhas Tactical próprias do Marinara descritas acima.
+
+O campo aparece na tela. Cada casa é um botão: você pode percorrer o tabuleiro com o ponteiro ou as setas, e cada casa anuncia o que é, quem a ocupa e quanto custa chegar. **Move** (Mover) ilumina as casas alcançáveis com o custo na unidade do conjunto, desenha o caminho ao passar o ponteiro ou focá-las e marca em âmbar as casas cujo caminho provoca ataques, nomeando os atacantes abaixo do tabuleiro. Uma ação que precisa de alvo ilumina os válidos e permite selecioná-los no tabuleiro ou na lista. Se ninguém estiver ao alcance, aparece **Nobody is in reach. Move closer.** (Ninguém está ao alcance. Aproxime-se.) em vez de oferecer um ataque no vazio. Uma área mira em uma casa: as origens válidas ficam iluminadas e a casa sob o ponteiro informa quem seria atingido, inclusive aliados. Você pode gastar movimento antes e depois de uma ação; o menu volta com o que resta e o painel inferior mostra isso como **Movement** (Movimento), na unidade do conjunto. Escape abandona uma escolha incompleta e devolve o foco do teclado ao menu.
+
+Cobertura de três quartos, elevação, voo sobre obstáculos, esconder-se, movimento forçado e escolher se ataca alguém que se afasta são trabalhos futuros separados.
+
 <a id="games-that-use-a-ruleset"></a>
 
 ### Partidas com um conjunto de regras

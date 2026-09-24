@@ -41,16 +41,16 @@ Source별 기본값은 다음과 같습니다.
 | ----------------- | ------------------------- | ---------------------- | ------------------------------- |
 | OpenAI-compatible | https://api.openai.com/v1 | tts-1                  | alloy                           |
 | ElevenLabs        | https://api.elevenlabs.io | eleven_multilingual_v2 | 없음(직접 골라야 합니다)        |
-| PocketTTS         | http://localhost:49112    | pocket-tts             | alba                            |
+| PocketTTS         | http://localhost:8000    | pocket-tts             | alba                            |
 | xAI Voice         | https://api.x.ai/v1       | grok-tts               | eve                             |
 
 **ElevenLabs**를 쓰면 **Model** 입력란이 해당 연결로 쓸 수 있는 음성 합성용 모델을 불러오고, 목록을 열 때마다 전체 목록을 보여 줍니다. 일반 음성 합성 모델을 고르세요. 모델 ID에 `ttv`가 들어간 것은 목소리 디자인용 모델이라 글을 소리 내어 읽지 못합니다. 실수로 이런 모델을 고르면 재생이 실패하면서 음성 합성 모델을 쓰라는 오류가 표시됩니다.
 
 ### PocketTTS는 별도 프로그램입니다
 
-PocketTTS는 Marinara Engine에 내장된 기능이 아닙니다. Marinara의 어댑터는 [PocketTTS OpenAI-compatible server](https://github.com/teddybear082/pocket-tts-openai_streaming_server)를 사용하며, 이 서버가 Marinara에 필요한 음성 합성 엔드포인트와 목소리 목록 엔드포인트를 모두 제공합니다. 해당 서버의 안내를 따라 직접 설치하고 실행하세요. Marinara가 대신 다운로드하거나 관리해 주지는 않습니다.
+PocketTTS는 Marinara Engine에 내장되지 않았습니다. [공식 PocketTTS 서버](https://github.com/kyutai-labs/pocket-tts)를 별도로 설치한 뒤 `uvx pocket-tts serve`로 시작하세요. Marinara가 대신 다운로드하거나 관리하지 않습니다.
 
-이 호환 서버는 기본적으로 `http://localhost:49112`를 사용합니다. 서버 포트를 바꾸지 않았다면 **Base URL**을 그 값 그대로 두세요. 이미 사용자 지정 PocketTTS 주소를 넣어 두었다면 그대로 유지됩니다.
+공식 서버는 기본적으로 `http://localhost:8000`을 사용합니다. 호스트나 포트를 바꾸지 않았다면 **Base URL**을 그대로 두세요. Marinara가 공식 multipart `/tts` API를 자동 감지합니다. [OpenAI 호환 PocketTTS 래퍼](https://github.com/teddybear082/pocket-tts-openai_streaming_server)에 쓰던 사용자 지정 URL도 계속 지원합니다.
 
 ## 3단계: 목소리 고르기(Voice Option)
 
@@ -61,7 +61,7 @@ PocketTTS는 Marinara Engine에 내장된 기능이 아닙니다. Marinara의 �
 
 ### 모든 캐릭터에 한 목소리
 
-**All Characters Voice**(모든 캐릭터 음성) 입력란에서 목소리를 고르세요. PocketTTS는 서버가 돌려준 목소리를 드롭다운에 표시하고, 그 옆에 사용자 지정 목소리 ID, URL, 경로를 적을 수 있는 입력란을 함께 둡니다.
+**All Characters Voice**(모든 캐릭터 음성)에서 목소리를 고르세요. 공식 PocketTTS 서버는 목소리 목록 엔드포인트가 없으므로 Marinara가 내장 목소리를 보여 주고 드롭다운 옆에 다른 내장 이름이나 지원되는 음성 URL용 입력란을 둡니다. 호환 래퍼 서버는 자체 목소리 목록과 사용자 지정 ID 또는 경로를 계속 사용할 수 있습니다.
 
 제공자에서 실제 목소리 목록을 불러오려면 연결 정보를 입력한 뒤 **Refresh voices**(음성 새로고침) 버튼(원형 화살표 아이콘)을 클릭하세요. 재생을 켜기 전에도 할 수 있습니다. 새로고침을 하면 현재 카드를 먼저 저장하므로 방금 입력한 API 키가 곧바로 적용됩니다. 연결하기 전에는 입력란이 비어 보이지 않도록 앱이 짧은 내장 대체 목록을 보여 줍니다. 제공자 쪽에서 오류가 나면 그 대체 목록을 성공한 것처럼 조용히 내보내지 않고 오류를 표시합니다.
 

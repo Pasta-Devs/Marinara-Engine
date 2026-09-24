@@ -10,6 +10,8 @@ Todas las ramas del mismo chat se agrupan juntas. En la lista de chats, un chat 
 
 Cada rama puede tener su propio nombre para mostrar, así puedes etiquetarlas como "final amistoso" y "final oscuro". Este nombre para mostrar es distinto del nombre del chat subyacente.
 
+El linaje de una rama registra el chat de origen inmediato y el mensaje donde se creó la rama. Se conservan tanto el ID del mensaje de origen como el de su copia; así las integraciones pueden identificar el límite de la rama aunque los mensajes copiados reciban IDs nuevos. Si ramificas una rama, se registra esa rama como padre inmediato, no la raíz original. Las ramas antiguas y las hermanas importadas conservan su nombre para mostrar, pero no tienen un linaje conocido.
+
 ## Ramificar desde aquí
 
 Creas una rama a partir de cualquier mensaje del chat.
@@ -24,6 +26,8 @@ Marinara copia el chat hasta ese mensaje inclusive en una rama nueva. La rama nu
 - Copia las instantáneas de estado del tracker y del estado del juego ligadas a los mensajes copiados, así los chats de Roleplay y de Game mantienen su estado.
 - Empieza con el nombre para mostrar **New Branch** (Rama nueva). Puedes renombrarla (ver más abajo).
 - Se queda en la misma carpeta de chats que el chat de origen.
+
+Un chat vacío tiene anclajes de mensaje nulos. Eliminar un chat padre no cambia el linaje histórico de sus hijos. Eliminar todo el grupo de ramas sigue eliminando todos sus chats.
 
 Los resúmenes diarios y semanales no se traspasan. Los resúmenes continuos con rangos de mensajes guardados completamente contenidos en la rama copiada se traspasan y se reasignan a los nuevos IDs de mensaje de la rama. Los resúmenes cuyo rango de origen cruza el punto de ramificación, o los resúmenes antiguos sin metadatos de mensajes, se omiten. La rama nueva empieza esos resúmenes desde cero.
 

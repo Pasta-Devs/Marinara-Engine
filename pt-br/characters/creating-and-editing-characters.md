@@ -76,6 +76,8 @@ A seção **Dialogue & Greetings** define como o chat começa e como o personage
 - **Alternate Greetings**. Mensagens de abertura extras. Ao começar um chat, você escolhe qual delas usar. Use os controles de subir e descer para reordená-las e o X para remover uma.
 - **Example Dialogue**. Trocas de exemplo que ensinam a voz do personagem. Use `<START>` para separar as trocas. Use `{{user}}` e `{{char}}` como marcadores.
 
+As saudações e mensagens de exemplo também podem mostrar imagens da Gallery do personagem; veja [Galerias de personagens → Reutilizar uma imagem da galeria em mensagens e saudações](galleries.md#reuse-a-gallery-image-in-messages-and-greetings).
+
 Uma entrada curta de Example Dialogue fica assim:
 
 ```

@@ -12,46 +12,6 @@ Noodle é a linha do tempo de rede social simulada dentro do Marinara Engine. Se
 
 Todas as configurações do Noodle são globais. Elas valem para todas as personas e todos os chats, não para um chat de cada vez. As mudanças são salvas assim que você as faz.
 
-## NoodleR Access
-
-- **Enable NoodleR**: um botão liga/desliga, padrão **off**. Ative para liberar a central de contas do NoodleR. Enquanto estiver desativado, abrir NoodleR mostra a tela de adesão, as consultas de conta do NoodleR ficam indisponíveis e os dados das contas do NoodleR continuam separados da linha do tempo do Noodle.
-
-NoodleR e Noodle são dois aplicativos simulados diferentes, e cada conta pertence a apenas um deles. Essa separação mantém o conteúdo do NoodleR fora da linha do tempo do Noodle; ela **não** é um recurso de privacidade nem de segurança. Nos dois casos, tudo fica nesta máquina, e qualquer pessoa com acesso ao aplicativo ou à pasta de dados consegue ler. Quem pode ler um post específico do NoodleR é uma configuração à parte, definida post a post – veja **Assinaturas e acesso aos posts** mais adiante.
-
-A tela **Manage stage profiles** (gerenciar perfis de palco), aberta em **Noodle Settings** > **NoodleR Access**, lista os perfis de palco disponíveis na instalação, incluindo os estados de carregamento, de falha e de lista vazia. Um perfil de palco pertence a uma persona pública ou a uma conta de personagem, mas apresenta nome, @, biografia, voz de palco e modo de revelação próprios. As contas do NoodleR criadas antes dos perfis de palco mostram **Setup needed** até que o perfil seja concluído.
-
-### Revelação da identidade de palco
-
-A revelação controla como a identidade pública vinculada pode aparecer no perfil de palco e nos posts gerados pela IA. Ela não decide quem pode ver um perfil ou um post.
-
-- **Publicly connected (Open)**: o perfil de palco pode assumir abertamente que é a mesma pessoa. O texto gerado e os prompts de imagem podem usar o nome público vinculado, o @ e uma continuidade reconhecível.
-- **Inspired alter ego (Hinted)**: a personalidade geral, os interesses e os temas podem ser aproveitados, mas o nome público exato e o @ são removidos do contexto de geração e filtrados do texto gerado e dos prompts de imagem antes de o post ser salvo. Traços marcantes ainda podem soar reconhecíveis. No perfil do criador, passe o mouse, dê foco ou toque no selo **Hinted** para revelar a identidade vinculada no Noodle.
-- **Separate persona (Secret)**: a identidade vinculada é tratada apenas como inspiração confidencial para a escrita. A geração do perfil recebe um resumo reduzido e sem identificação, e evita ocupações, relações, lugares, bordões e detalhes marcantes do original. Os identificadores exatos também são filtrados do resultado gerado. Isso não é uma garantia formal de anonimato; revise o rascunho antes de salvar.
-
-Use **New profile** (novo perfil) em **Manage stage profiles** para buscar e escolher um personagem ou uma persona elegível. A configuração então explica a revelação e pede que você escolha Open, Hinted ou Secret antes de mostrar o formulário editável do perfil de palco. Preencha o formulário você mesmo ou peça à IA para gerar um rascunho editável a partir do personagem de origem, da opção de revelação e de uma orientação opcional. A IA nunca salva o rascunho sozinha; revise os campos e selecione **Save stage profile** você mesmo. Abra um perfil existente e selecione **Edit profile** para mudar a apresentação ou usar a IA para preencher o rascunho atual de novo. Para quem vê, os perfis Hinted expõem apenas o nome de exibição e o @ da identidade vinculada, pelo selo que dá a dica de propósito; o ID da conta não é exposto. Para quem vê, os perfis Secret não expõem nenhum dado da identidade vinculada.
-
-### Posts guiados no NoodleR
-
-Cada perfil de palco tem um compositor recolhido, na própria tela, para os posts do NoodleR. Digite um título opcional e um corpo, depois selecione **Post** para publicar exatamente esses valores, sem acionar o provedor. É obrigatório ter corpo, imagem ou enquete, então uma imagem sozinha ou uma enquete de duas a quatro opções também podem ser publicadas. As imagens enviadas ficam no armazenamento de mídia do próprio NoodleR, e não na galeria do Noodle.
-
-Selecione **Guide** para transformar o rascunho atual de título e corpo pelo gerador que o NoodleR já usa. Ele preserva a imagem, a enquete, o nível de acesso e o preço PPV que você escolheu, e o resultado gerado continua sendo só título e corpo; ele não gera nem substitui anexos. Os arquivos de imagem e as URLs ainda não publicados ficam no rascunho atual do cliente até **Post** ou **Guide** dar certo. Se **Post**, **Guide** ou a gravação da mídia falhar, o rascunho atual continua disponível para correção ou nova tentativa.
-
-O nível de acesso do post protege o post inteiro. Os posts bloqueados para assinantes e os posts PPV não expõem a imagem, as opções da enquete nem os votos. Quem pode ler o post vota uma vez e depois pode mudar o voto; a persona vinculada ao criador não vota no post do próprio perfil de palco.
-
-## Assinaturas e acesso aos posts
-
-A central do NoodleR sempre mostra as páginas dos criadores pela persona selecionada globalmente no momento. As assinaturas e os desbloqueios de PPV pertencem a essa persona, então trocar a persona ativa pode mudar quais criadores e posts ficam disponíveis. Para criar, editar ou excluir os seus próprios perfis de palco, use **Noodle Settings** > **NoodleR Access** > **Manage stage profiles**.
-
-Ao guiar um post, escolha um nível de acesso:
-
-- **Public**: todas as personas que enxergam o perfil de palco podem ler o post.
-- **Subscribers**: o post fica bloqueado até a persona que está vendo assinar aquele perfil de palco.
-- **PPV**: o post tem um preço simulado e fica bloqueado até essa persona desbloqueá-lo. Nenhum pagamento real é processado.
-
-Cada perfil de palco tem as próprias configurações em **Subscriber access** (acesso dos assinantes). Com **Subscriptions include PPV**, os assinantes leem os posts PPV daquele perfil sem desbloquear um por um. Essa opção vem desativada. Já **Hidden from personas** remove o perfil de palco e todos os posts dele das personas selecionadas, inclusive os pedidos diretos de assinatura e de desbloqueio. As configurações de ocultação valem só para o perfil de palco do NoodleR e não escondem a conta pública do Noodle vinculada a ele.
-
-Use **Delete profile** em um perfil de palco gerenciado para remover aquele perfil, todos os posts publicados por ele, as assinaturas e os registros de desbloqueio de PPV. A conta pública do Noodle vinculada não é excluída e pode servir para criar um novo perfil de palco depois.
-
 ## Invites
 
 A seção **Invites** escolhe quais personagens podem participar de uma atualização do Noodle. A atualização é o momento em que a IA escreve um lote de posts, respostas, reposts e curtidas para as contas convidadas.
@@ -79,23 +39,6 @@ Quando **Refreshes/day** está acima de 0, Marinara divide o dia em janelas igua
 
 As atualizações automáticas rodam dentro do servidor Marinara. A página do Noodle não precisa ficar aberta, mas Marinara precisa estar em execução. Se uma atualização falhar, a programação mostra o erro e tenta de novo mais tarde, esperando mais a cada nova falha. Se vários horários previstos forem perdidos, uma única atualização de recuperação cobre todos eles, em vez de inundar a linha do tempo.
 
-## Publicação automática do NoodleR
-
-Este é um agendador separado de **Refresh**. **Refresh** controla a linha do tempo pública do Noodle; este controla os criadores do NoodleR. Ele aparece em **Noodle Settings** > **Publishing** quando **Enable NoodleR** está ativado.
-
-Em vez de publicar na hora cheia, o NoodleR prepara posts com antecedência em uma pequena reserva e publica cada um no horário previsto. Por isso, um criador pode mostrar o horário do próximo post antes de o post existir.
-
-- **Automatic posting schedule**: botão, padrão **on**. Desligar interrompe toda publicação automática do NoodleR. Posts preparados cujo horário passe enquanto estiver desligado são retirados, em vez de publicados com atraso.
-- **Posts/day**: número de 1 a 24, padrão **4**. É o limite diário de tentativas automáticas de texto; o mesmo limite vale para tentativas de imagem. Posts manuais e **Refresh NoodleR now** não contam.
-- **Night quiet**: botão, padrão **on**. Criadores vinculados a um **personagem** não recebem horários entre 23:00 e 07:00 no fuso local. Criadores vinculados a uma persona não são afetados.
-- **Text attempts** e **Image attempts**: contadores somente leitura das tentativas usadas hoje diante do limite de **Posts/day**.
-- **Prepared posts**: somente leitura; mostra quantos posts estão na reserva e o último horário previsto.
-- **Refresh all now**: escreve imediatamente um post para cada criador com **Automatic** ligado. Os que estão desligados não são incluídos nem informados; criadores ocupados são ignorados. Esse post retira qualquer post preparado para o mesmo criador na próxima hora.
-- **Per creator**: cada linha tem os botões **Automatic** e **Images**. Ambos começam em **off** para criadores feitos fora da configuração guiada; os criados nela usam suas escolhas. Desligar **Automatic** deixa o criador apenas manual.
-
-As respostas automáticas de criadores têm um limite separado de 10 por período móvel de 24 horas para toda a instalação, compartilhado entre todos os criadores, não 10 por criador.
-
-A publicação automática roda no servidor Marinara. O Marinara precisa estar em execução, mas a página do NoodleR não precisa ficar aberta.
 
 ## Active Accounts
 
@@ -214,12 +157,6 @@ Esta tabela lista todas as configurações do Noodle com o valor padrão e a fai
 | **Generation connection** | nenhuma | qualquer conexão de texto (obrigatória para a atualização) |
 | **Professor Mari participates** | on | on ou off |
 | **Refreshes/day** | 2 | 0 a 24 (0 desliga as atualizações automáticas) |
-| **Automatic posting schedule** | on | on ou off |
-| **Posts/day** | 4 | 1 a 24 |
-| **Night quiet** | on | criadores-personagens ignoram 23:00–07:00 |
-| **Automatic** por criador | off | a configuração guiada pode ativar |
-| **Images** por criador | off | a configuração guiada pode ativar |
-| Respostas automáticas de criadores | 10 por 24 horas | para toda a instalação, não por criador |
 | **Active selection** | Random range | Random range, Exact count, All invited |
 | **Min active** | 2 | 1 a 100 (só em Random range) |
 | **Max active** | 5 | 1 a 100 (só em Random range) |

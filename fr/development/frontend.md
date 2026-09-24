@@ -360,7 +360,6 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.delete(path)`             | `DELETE /api{path}` | Supprimer une ressource |
 | `api.upload(path, FormData)`   | `POST /api{path}`   | Téléversement de fichier en multipart |
 | `api.download(path, filename)` | `GET /api{path}`    | Téléchargement avec boîte de dialogue d'enregistrement |
-| `api.stream(path, body)`       | `POST /api{path}`   | Générateur asynchrone SSE (tokens seulement) |
 | `api.streamEvents(path, body)` | `POST /api{path}`   | Générateur asynchrone SSE (tous les types d'événement) |
 
 En cas d'erreur, une exception `ApiError` est levée ; elle porte les propriétés `status` et `message`.
@@ -596,10 +595,13 @@ Le moteur, volontairement léger, est livré avec un registre d'agents vide à l
 | `spotify`                | post_processing | Pilote la lecture du Music DJ (Spotify, YouTube ou musique locale) |
 | `knowledge-retrieval`    | pre_generation  | Récupère du contexte depuis les sources de connaissances |
 | `knowledge-router`       | pre_generation  | Aiguille les entrées de lorebook et de connaissances pertinentes |
+| `long-term-memory` | feature | Stocke des souvenirs durables et rappelle le contexte pertinent |
 | `haptic`                 | post_processing | Envoie des commandes aux appareils haptiques |
 | `cyoa`                   | post_processing | Génère les prompts de choix |
+| `storyboard` | post_processing | Planifie des storyboards fixes ou animés de Game et Roleplay |
 | `conversation-calls`     | feature         | Ajoute les appels audio/vidéo en Conversation et leurs réglages |
 | `hierarchical-maps`      | feature         | Ajoute les cartes Roleplay/Game, le contexte spatial et le déplacement |
+| `noodle` | feature | Ajoute les fils sociaux locaux Noodle et Slurp à Home |
 | `uno`                    | feature         | Ajoute la table d'UNO en Conversation |
 | `chess`                  | feature         | Ajoute l'échiquier en Conversation |
 | `poker`                  | feature         | Ajoute la table de Texas Hold'em en Conversation |

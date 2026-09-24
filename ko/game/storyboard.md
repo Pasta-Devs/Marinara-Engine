@@ -42,7 +42,7 @@
 | **Video connection**(동영상 연결) | Use the Game video connection | 애니메이션을 켜 두면 클립을 생성합니다 |
 | **Automatic generation**(자동 생성) | Still images | 새로 활성화한 채팅의 초기 자동 동작을 정합니다 |
 | **Keyframes per turn**(턴당 키프레임 수) | 3(1에서 6까지) | 순서가 있는 프레임의 목표 개수를 정합니다 |
-| **Clip seconds**(클립 길이, 초 단위) | 6(1에서 15까지) | 클립 하나에 요청할 길이를 정합니다 |
+| **Clip seconds**(클립 길이, 초 단위) | 5(1에서 15까지) | 클립 하나에 요청할 길이를 정합니다 |
 | **Viewer display**(뷰어 표시) | Floating viewer | Game Mode 뷰어의 기본값을 정합니다. Roleplay는 스토리보드를 항상 인라인으로 표시합니다 |
 | **Default Roleplay episode interval**(기본 롤플레이 에피소드 간격) | 1(1에서 100까지) | 자동 에피소드 사이에 새 Roleplay 내용이 얼마나 쌓이게 할지 정합니다 |
 | **Attach Card Appearance**(카드 외형 첨부) | On | 이미지 프롬프트에 해당 캐릭터의 외형 설명을 더합니다 |
@@ -72,7 +72,7 @@ Roleplay는 선택한 프롬프트 4개를 묶어 플래너 요청 하나를 만
 | **Animation addon**(애니메이션 애드온) | Simple Storyboard Motion | 클립을 만들 때만 움직임, 카메라, 원문 대사와 소리, 분위기, 마무리 정지 구간을 더합니다 |
 | **Output contract**(출력 규격) | Roleplay Keyframe JSON | 플래너가 돌려주는 키프레임 필드의 구조를 정합니다 |
 
-선택 항목마다 아래에 편집할 수 있는 목록이 붙어 있습니다. 프롬프트를 직접 만들려면 **Add option**(옵션 추가)을 눌러 이름을 바꾸고 짧은 설명을 적은 다음 프롬프트 본문을 고치세요. 기본 제공 선택지는 패키지 기본값으로 되돌릴 수 있습니다.
+Stage 1 안의 접힌 **Prompt library**(프롬프트 라이브러리)를 열어 전체 모음을 편집하세요. **Add option**(옵션 추가)으로 사용자 지정 프롬프트를 추가하고 이름, 짧은 설명과 본문을 수정하세요. 내장 옵션은 패키지 기본값으로 복원할 수 있습니다.
 
 ### 공유 제공자 포맷터
 
@@ -83,7 +83,7 @@ Roleplay는 선택한 프롬프트 4개를 묶어 플래너 요청 하나를 만
 | **Default image prompt**(기본 이미지 프롬프트) | Game Scene Illustration | 계획한 키프레임을 이미지 제공자에 맞게 다듬습니다 |
 | **Default video prompt**(기본 동영상 프롬프트) | Cinematic Scene Video | 첫 프레임 이미지와 움직임 계획을 동영상 제공자에 맞게 다듬습니다 |
 
-기본 제공 이미지 선택지에는 **Storyboard Illustration**과 **Storyboard First Frame**도 있습니다. 동영상 선택지에는 **Anime Game Video**, **Comic Page Video**, **LTX Director Video**가 있습니다. Game 채팅과 Roleplay 채팅은 바탕이 되는 공유 프롬프트 목록을 건드리지 않고도 서로 다른 포맷터를 고를 수 있습니다.
+번호가 붙은 각 단계에는 접힌 **Prompt library**가 있습니다. Stage 2는 이미지 포맷터, Stage 3는 이미지를 참고하는 움직임 플래너, Stage 4는 동영상 전달 포맷터를 담당합니다. 내장 이미지 옵션에는 **Storyboard Illustration**과 **Storyboard First Frame**도 있습니다. 동영상 옵션에는 **Anime Game Video**, **Comic Page Video**, **Narration Passthrough**가 있습니다. Game과 Roleplay 채팅은 공유 프롬프트 모음을 바꾸지 않고 서로 다른 포맷터를 선택할 수 있습니다.
 
 ### 전역 기본값과 채팅별 재정의
 
@@ -174,7 +174,7 @@ Generation 설정에서 **Expose image prompts before sending**을 켜 두었다
 | **Automatic Storyboard Illustrations** | Automatic generation 값을 따름 | GM 턴이 끝날 때마다 정지 키프레임을 만듭니다 |
 | **Automatic Storyboard Animations** | Automatic generation 값을 따름 | 키프레임마다 MP4 클립을 만듭니다 |
 | **Keyframes per Turn** | 3(1에서 6까지) | 계획할 프레임 목표 개수입니다. 턴이 짧으면 더 적게 나올 수 있습니다 |
-| **Animation Clip Duration**(애니메이션 클립 길이) | 6초(1에서 15까지) | 클립 하나에 요청하는 길이입니다. 제공자가 더 짧게 깎을 수 있습니다 |
+| **Animation Clip Duration**(애니메이션 클립 길이) | 5초(1에서 15까지) | 클립 하나에 요청하는 길이입니다. 제공자가 더 짧게 깎을 수 있습니다 |
 | **Viewer Display** | Floating | 끌어서 옮기는 뷰어 또는 게임 배경 전체 |
 | **Still Planner** | Still Keyframes | 완성형 정지 일러스트를 계획합니다 |
 | **Animation Planner** | Comic Page Animation | 애니메이션에 바로 쓸 첫 프레임과 움직임 지시를 계획합니다 |
@@ -260,7 +260,7 @@ Game 쪽 확인 목록은 다음과 같습니다.
 - **Illustration Planner**: Still Keyframes(정지 이미지만 만들 때 쓰는 대체 선택지)
 - **Animation Planner**: LTX Simple Image-to-Video
 - **Storyboard Illustration Prompt**: Storyboard First Frame
-- **Storyboard Video Prompt**: LTX Director Video
+- **Storyboard Video Prompt**: Narration Passthrough
 - **Use Storyboard Template**: On
 
 VRAM이 8 GB인 GPU라면 480p에서 키프레임 1개로 시작하세요. 이 설정이 성공한 다음에 키프레임 3개와 더 높은 해상도로 옮겨 가세요. ComfyUI 연결과 플레이스홀더, 전체 확인 절차는 [Game Mode의 LTX 2.3 스토리보드](ltx-2-3-storyboards.md) 문서를 참고하세요.

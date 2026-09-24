@@ -10,7 +10,7 @@ Der fertige Ablauf sieht so aus:
 GM narration
   -> Animation Planner
      -> imagePrompt -> image connection -> first-frame illustration
-     -> narrationBeat -> LTX Director Video -> %prompt%
+     -> narrationBeat -> Narration Passthrough -> %prompt%
   -> first frame + prompt -> ComfyUI LTX 2.3 workflow -> MP4 clip
 ```
 
@@ -166,7 +166,7 @@ Das erste Bild beeinflusst die Animationsqualität stark. Es sollte genau den Mo
 | Einstellung | Empfohlener Wert |
 | --- | --- |
 | **Video Connection** | Die oben angelegte LTX-2.3-Verbindung zu ComfyUI |
-| **Game Video Prompt** | **LTX Director Video** |
+| **Game Video Prompt** | **Narration Passthrough** |
 
 Das allgemeine **Game Video Prompt** steuert manuelle Animationen in der Galerie und bei den Game Assets. Storyboard-Clips wählen einen eigenen Prompt, ohne diese anderen Animationsaktionen zu verändern.
 
@@ -180,13 +180,13 @@ Nutze dieses Startprofil:
 | **Automatic Storyboard Animations** | On |
 | **Use NovelAI Character Prompts** | Off |
 | **Keyframes per Turn** | normalerweise 3; beim ersten Test mit 8 GB VRAM zunächst 1 |
-| **Animation Clip Duration** | 6 Sekunden |
+| **Animation Clip Duration** | 5 Sekunden |
 | **Viewer Display** | Zum Testen **Floating** |
 | **Illustration Planner** | **Still Keyframes**; bleibt als Rückfalloption für reine Standbilder |
 | **Animation Planner** | **LTX Simple Image-to-Video** |
 | **Use Storyboard Template** | On |
 | **Storyboard Illustration Prompt** | **Storyboard First Frame** |
-| **Storyboard Video Prompt** | **LTX Director Video** |
+| **Storyboard Video Prompt** | **Narration Passthrough** |
 
 **LTX Simple Image-to-Video** ist der empfohlene Standard. Es plant ein animationsfertiges erstes Bild und einen direkten Bewegungs-Prompt aus 4–8 Sätzen. Bevorzugt werden eine Hauptaktion, ein Kameraverhalten, zurückhaltende Bewegung in der Umgebung sowie passender Ton oder ein kurzer Dialog.
 
@@ -196,7 +196,7 @@ Nutze dieses Startprofil:
 
 **Storyboard First Frame** reicht die vollständige natürlichsprachige T=0-Szene des Animation Planners direkt an Krea weiter – ohne Keyframe-Titel, Prompt-Beschriftungen, wiederholte Notizen zum Aussehen oder Kunststil der Kampagne. Lass **Use Storyboard Template** an, damit diese Formatierung überhaupt greift.
 
-**LTX Director Video** ist bewusst schlank. Es reicht den fertigen `narrationBeat` des Animation Planners durch den universellen Video-Prompt-Vertrag, ohne ihn mit einer weiteren Szenen-Zusammenfassung zu umgeben.
+**Narration Passthrough** ist bewusst schlank. Es reicht den fertigen `narrationBeat` des Animation Planners durch den universellen Video-Prompt-Vertrag, ohne ihn mit einer weiteren Szenen-Zusammenfassung zu umgeben.
 
 Jedes Keyframe erzeugt einen Bildauftrag bei Krea und einen lokalen Videoauftrag bei LTX. Drei Keyframes starten also drei Erstbild-Renderings und drei Video-Renderings. Bei einer GPU mit 8 GB VRAM beginnst du mit einem Keyframe in 480p. Klappt das, gehst du schrittweise auf drei Keyframes und höhere Auflösungen.
 
@@ -204,7 +204,7 @@ Jedes Keyframe erzeugt einen Bildauftrag bei Krea und einen lokalen Videoauftrag
 
 Nimm einen abgeschlossenen Zug des Game Master (GM – die KI, die das Spiel leitet) mit einer eindeutigen sichtbaren Aktion: eine Tür öffnen, zu einem Geräusch blicken, ein paar Schritte gehen oder einen kurzen Satz sagen.
 
-1. Für den schnellsten Test mit wenig VRAM setzt du **Keyframes per Turn** vorübergehend auf 1 und lässt **Animation Clip Duration** bei 6 Sekunden. Das normale getestete Profil nutzt 3 Keyframes.
+1. Für den schnellsten Test mit wenig VRAM setzt du **Keyframes per Turn** vorübergehend auf 1 und lässt **Animation Clip Duration** bei 5 Sekunden. Das normale getestete Profil nutzt 3 Keyframes.
 2. Schalte beide automatischen Storyboard-Einstellungen erst ein, wenn der aktuelle GM-Zug bereits abgeschlossen ist.
 3. Öffne die Galerie und wähle **Create storyboard** (Storyboard erstellen) für diesen abgeschlossenen GM-Zug. Damit startest du den kompletten Pfad aus Illustration und Animation von Hand, ohne auf einen weiteren Zug zu warten.
 4. Falls die Prompt-Anzeige aktiv ist, prüf den Prompt für das erste Bild vor dem Absenden.
@@ -221,7 +221,7 @@ Für jedes Keyframe liefert der Animation Planner:
 - `imagePrompt`: nur das sichtbare erste Bild zum Zeitpunkt T=0;
 - `narrationBeat`: den vollständigen LTX-Prompt für Bild-zu-Video, der beschreibt, was als Nächstes passiert.
 
-Der gewählte Animation Planner schreibt beide Felder. **Storyboard First Frame** formatiert `imagePrompt` und schickt diese natürlichsprachige T=0-Szene an Krea 2. Sobald das Bild vorliegt, löst **LTX Director Video** zu `narrationBeat` auf. Marinara setzt den Text in das Feld `prompt` der normalen Videoanfrage, ersetzt damit `%prompt%` im ComfyUI-Workflow, lädt das erste Bild hoch und ersetzt `%reference_image_name%` durch dessen ComfyUI-Dateinamen.
+Der gewählte Animation Planner schreibt beide Felder. **Storyboard First Frame** formatiert `imagePrompt` und schickt diese natürlichsprachige T=0-Szene an Krea 2. Sobald das Bild vorliegt, löst **Narration Passthrough** zu `narrationBeat` auf. Marinara setzt den Text in das Feld `prompt` der normalen Videoanfrage, ersetzt damit `%prompt%` im ComfyUI-Workflow, lädt das erste Bild hoch und ersetzt `%reference_image_name%` durch dessen ComfyUI-Dateinamen.
 
 Zwei lokale Prompt-Segmente sind nicht nötig. Ein einziger globaler Prompt ist bei diesen Storyboard-Presets der Normalfall.
 

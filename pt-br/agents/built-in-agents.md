@@ -125,7 +125,11 @@ Acompanha a roupa atual de cada personagem por parte do corpo, os itens que ele 
 - **Fase**: Post-Processing.
 - **Onde funciona**: somente em Roleplay.
 - **Configurações principais**: adicione ou remova em **Chat Settings → Agents → Tracker Agents**; abra **Configure Beholder** no mesmo lugar para escolher conexão, modelo, prompt, contexto e limites de saída. **Add as Prompt Section** fica ativado por padrão.
-- **Modelo recomendado**: use um modelo SOTA, como OpenAI GPT-5.5+, Claude Opus 4.8+ ou Kimi K3+, para acompanhar o estado completo com confiança.
+- **Modelo recomendado**: escolha o modelo de prompt que corresponde ao modelo por trás da conexão do Beholder. Os dois modelos de prompt incluídos não são intercambiáveis – cada um foi escrito para um tipo de modelo diferente.
+  - **SOTA model — one prompt** (modelo SOTA – um prompt, padrão): uma chamada que abrange todos os campos acompanhados. Use um modelo geral forte, como OpenAI GPT-5.5+, Claude Opus 4.8+ ou Kimi K3+.
+  - **Beholder local model — five passes** (modelo local Beholder – cinco passagens): cinco chamadas específicas, uma por categoria acompanhada, para o extrator [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF) treinado para essa tarefa e servido localmente (por exemplo, `Beholder-Q8_0.gguf` por koboldcpp ou llama.cpp). Esse modelo foi treinado para responder uma categoria de cada vez; por isso, o modelo de prompt único foge do treinamento e retorna um estado parcial. Engine reúne os cinco resultados em uma atualização. Funciona totalmente offline e sem custo.
+
+  Beholder não consegue detectar qual modelo está por trás de uma conexão, então a escolha continua manual. Uma incompatibilidade não é fatal, mas piora a extração: um modelo SOTA aceita qualquer um dos modelos de prompt, enquanto o modelo local precisa do de cinco passagens.
 - **Origem**: adaptado para o ambiente Agent nativo do Engine com base em [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME), sob a licença AGPL-3.0-only. O pacote oficial não carrega o DOM, a sondagem nem o ambiente de armazenamento local da extensão legada.
 
 ### Persona Stats
@@ -187,12 +191,12 @@ Simula uma plateia ao vivo reagindo à sua cena, mostrada como um widget flutuan
 
 ### Noodle
 
-Acrescenta um mundo social local opcional com a linha do tempo pública do Noodle e o feed de roleplay entre criadores e fãs do NoodleR. Ele abre em uma aba própria da Home, em vez de rodar no fluxo normal de agentes do chat.
+Adiciona a linha do tempo pública local opcional do Noodle. Ela abre em uma aba própria da Home, em vez de rodar no fluxo normal de agentes do chat.
 
 - **Integração**: pacote de recursos; oferece a aba Home, rotas locais, fluxos de geração e mídia e agendadores em segundo plano.
 - **Onde funciona**: Home, com contexto opcional trazido de chats de Conversation, Roleplay e Game.
-- **Configurações principais**: instale em **Agents → Download Agents** e reinicie o Marinara Engine quando solicitado. Dentro do Noodle, você pode configurar contas convidadas, conexões de texto e imagem, atualizações da linha do tempo, perfis NoodleR Creator, acesso a posts simulados e atividade do público.
-- **Ciclo de vida dos dados**: desinstalar remove a aba Home e interrompe as rotas e os agendadores do pacote depois da reinicialização, preservando os dados existentes do Noodle e NoodleR para uma reinstalação futura.
+- **Configurações principais**: instale em **Agents → Download Agents** e reinicie o Marinara Engine quando solicitado. Dentro do Noodle, você pode configurar contas convidadas, conexões de texto e imagem, atualizações da linha do tempo, usuários aleatórios e transferência de contexto para os chats.
+- **Ciclo de vida dos dados**: desinstalar remove a aba Home e interrompe as rotas e os agendadores do pacote após reiniciar, preservando os dados existentes do Noodle para uma reinstalação futura.
 - **Guia completo**: [Noodle: a linha do tempo social do aplicativo](../noodle/overview.md).
 
 ### Long-Term Memory

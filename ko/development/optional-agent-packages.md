@@ -102,6 +102,109 @@ Capability API 1.13에서는 `game-surface` 패키지가 `setExperienceChrome`�
 
 Engine 안전 규칙이 요청보다 우선합니다. 플레이어의 텍스트 입력이 화면에 보이면, 세그먼트가 생기기 전 장면 시작 시점까지 포함해 상자가 강제로 펼쳐집니다. 세그먼트 진행 컨트롤이 활성화된 동안에도 마찬가지입니다. 이 컨트롤은 턴을 끝내는 유일한 방법이므로 패키지가 숨길 수 있다면 플레이어를 영구적으로 막을 수 있습니다. 대기 중인 장면 분석, 생성 또는 전투 생성 재시도가 있으면 핸들도 주의 표시를 계속 올립니다. 요청 중 플레이어가 상자를 직접 펼치면 요청이 사라질 때까지 열린 상태를 유지합니다. 1.11/1.12와 마찬가지로 소프트 인터페이스이며 선언한 `capabilityApi`와 관계없이 필드가 적용됩니다. 1.13이라는 이름은 도입 시점을 나타내므로 필요한 패키지는 1.13을 선언합니다.
 
+### Capability API 1.14: 트래커 화면과 에이전트 수명 주기
+
+Capability API 1.14는 클라이언트 진입점이 있으며 활성 상태이고 사용 설정된 Roleplay 에이전트 패키지에 `contributions.slots` 값 두 개를 추가합니다.
+
+- `roleplay-tracker`는 Roleplay HUD에 패키지의 `toolbar` 뷰를 마운트합니다. 속성에는 `chatId`, `chatMode`, `mobileCompact`, 호스트의 `toolbarButtonClass`, `onRerunTracker`, `trackerRetryBusy`, `lockMode`, `onToggleLockMode`가 있습니다. 콜백은 선택 사항이므로 존재하는지 확인한 뒤 사용하세요.
+- `tracker-panel`은 기존 Tracker Panel 안에 패키지의 `tracker` 뷰를 마운트하고 `chatId`, `chatMode`, `detached`를 받습니다. 두 번째 패널을 열지 말고 호스트 화면을 재사용하세요. 두 슬롯 모두 일반 기능 식별 정보와 현지화 속성을 받습니다.
+
+프롬프트 컨텍스트 기여는 여전히 `api.registerPromptContext`로 등록하고 `prompt-context` 권한이 필요합니다. 요청에는 이제 `targetCharacterIds`, `personaId`, `placedAgentTypes`(호환성을 위해 선택 사항)가 있습니다. `placedAgentTypes`는 프리셋이 이미 배치한 에이전트 데이터 섹션을 알려 컨텍스트 중복을 피하게 합니다. 호스트는 각 기여의 패키지 식별 정보를 `packageBlocks`에 보관해 해당 에이전트 섹션에 패키지 텍스트를 배치합니다. 대상별 텍스트를 반환하는 기여자는 주어진 대상 캐릭터 ID를 존중해야 합니다.
+
+서버 진입점은 `api.registerService("agent-runtime:<package-id>", service)`로 자체 후처리 수명 주기 서비스를 등록할 수도 있습니다. `agent-runtime` 권한이 필요하며 다른 패키지 ID로 등록하면 거부됩니다. 선택적 훅은 다음과 같습니다.
+
+```ts
+const cleanup = api.registerService(`agent-runtime:${packageId}`, {
+  prepareContext({ agent, context }) {
+    // Return small, JSON-serializable context for this agent, or nothing.
+    return { chatId: context.chatId };
+  },
+  finalizeResult({ agent, context, preparedContext, result }) {
+    // Validate or enrich the result before the host publishes/applies it.
+    return result;
+  },
+});
+// Return cleanup from activate(), or include it in the activation cleanup.
+```
+
+`prepareContext`는 후처리 전에 실행됩니다. null이 아닌 결과는 해당 에이전트에 한정되고 직렬화된 런타임 컨텍스트로 프롬프트에 포함됩니다. `finalizeResult`는 그 값과 생성 결과를 받아 `AgentResult`를 반환합니다. 생성 및 수동 재시도 경로는 최종 처리가 끝날 때까지 결과 게시를 미룹니다. 비동기 훅의 기한은 각각 2초입니다. 준비 실패는 기록하고 건너뛰지만, 최종 처리 실패는 검증되지 않은 출력을 적용하지 않고 결과를 실패로 바꿉니다. 짧은 호스트 수명 주기 훅이므로 느린 모델 호출을 추가할 곳이 아닙니다.
+
+이 추가 기능에는 필드별 1.14 버전 검사가 없습니다. 패키지는 선택적 속성을 감지하고 오래된 Engine에서 기능을 축소할 수 있지만, 슬롯, 배치 또는 수명 주기 동작이 필수라면 v2 매니페스트에 `capabilityApi: { major: 1, minor: 14 }`를 선언하여 오래된 Engine이 설치를 명확하게 거부하게 해야 합니다.
+
+### Capability API 1.15: 현재 임베딩 설정
+
+`api.runtime.resolveEmbeddings()`는 패키지의 현재 에이전트 연결 설정을 사용하는 새 `Promise<CapabilityEmbeddingHost>`를 반환합니다. 임베딩 작업을 시작할 때 호출하세요. `api.runtime.embeddings`는 활성화 시점의 스냅샷이므로 캐시하면 재활성화 전에는 이후 연결 변경을 따르지 않습니다.
+
+```ts
+const embeddings = await api.runtime.resolveEmbeddings();
+const vectors = await embeddings.embed(texts, signal);
+// Store/compare embeddings.spaceId with persisted vectors; do not mix embedding spaces.
+```
+
+반환한 호스트에는 `spaceId`, `label`, `embed(texts, signal?)`가 있습니다. 설정된 임베딩 소스를 사용하며, 소스가 없거나 설정 해석이 실패하면 내장 로컬 MiniLM 임베더로 대체합니다. `embed`는 `null`을 반환할 수 있습니다. 빈 배치, 128개 초과 텍스트, 합계 200,000자 초과는 거부됩니다. 새 호스트가 기존 벡터를 다시 임베딩하지는 않으므로 패키지는 저장된 벡터와 비교하기 전에 `spaceId` 변경을 처리해야 합니다.
+
+현재 Engine은 패키지가 선언한 API 버전과 관계없이 이 메서드를 공개합니다. 연결 변경 추적이 필수면 API 1.15를 선언하세요. 오래된 Engine을 의도적으로 지원하는 패키지는 `typeof api.runtime.resolveEmbeddings === "function"`을 확인하고, 활성화 시점에 고정된다는 한계를 받아들여 `api.runtime.embeddings`로 대체할 수 있습니다.
+
+### Capability API 1.16: 패키지가 선언하는 Game Master 동사
+
+Capability API 1.16은 Experience 패키지가 이름 붙은 Game Master 행동, 즉 동사의 짧고 닫힌 목록을 선언하게 합니다. Engine이 GM 형식 안내에 표시하고 완성된 서술에서 다시 읽어 패키지 대신 실행합니다. 이 과정에는 패키지 서버 코드가 전혀 실행되지 않으므로 `agents`와 `client` 진입점만 있는 `game-surface` Experience도 GM이 문장으로 세계를 바꾸게 할 수 있습니다.
+
+스키마, 예약 이름과 키 소유권 규칙, 테이블 읽기, 프롬프트 표시, 실행기까지 모두 작동합니다. 테이블을 제공하고 `chat-write`를 가진 패키지는 연결된 채팅의 매 Game 턴 안내에 동사를 표시하며 GM이 쓰면 실행합니다. 패키지에 연결되지 않은 채팅이나 테이블을 선언하지 않은 패키지는 동사를 하나도 해결하지 않으며 턴은 이 기능 이전과 바이트 단위로 같습니다.
+
+테이블은 `gm-verbs.json`으로 선언하고 다른 자산처럼 `contributions.assets.paths`에 넣어 `files[]`로 해시를 고정합니다. 예약 파일명으로 찾는 것은 새 규약입니다. 이전 파이프라인의 `entrypoints`, 아이콘 경로, 자산 경로는 모두 선언한 이름으로 읽으며 형태로 발견하는 파일은 없습니다. 이 자산 경로에는 두 결과가 있습니다. `files[]`에만 넣고 `contributions.assets.paths`에서 빠뜨리면 설치와 카탈로그 빌드 모두 조용히 통과하고 진단 없이 동사가 없는 패키지가 됩니다. 또한 자산 경로에는 특권 접근 검사가 없어 선언한 자산은 `/api/capability-packages/<id>/assets/gm-verbs.json`에서 보호 없이 제공되므로 민감한 내용을 담아서는 안 됩니다. 1.11~1.13처럼 유연한 인터페이스입니다. 오래된 Engine은 일반 JSON 자산으로 보고 무시하므로 설치 범위를 좁히지 않고 테이블을 넣을 수 있습니다. 동사 실행이 필수일 때만 `capabilityApi` 1.16을 선언하세요. 선언하면 그보다 오래된 모든 Engine이 설치를 거부합니다.
+
+문서는 `{ "schemaVersion": 1, "verbs": [ … ] }`이며 동사 1~16개를 담습니다. 각 동사는 엄격하여 알 수 없는 내부 키를 조용히 무시하지 않고 거부합니다. 다만 `schemaVersion`, `verbs` 옆의 알 수 없는 필드는 의도적으로 다르게 처리합니다. Engine의 읽기는 이를 제거하여 더 새 Engine용 테이블에서도 이해하는 동사는 얻습니다. 작성 도구가 검증할 공유 문서 스키마는 엄격하게 거부합니다. 따라서 작성 중 스키마 검증이 Engine 런타임보다 엄격하며, 이는 바람직한 차이입니다.
+
+```json
+{
+  "schemaVersion": 1,
+  "verbs": [
+    {
+      "name": "weather",
+      "description": "Set the sky when the weather visibly changes.",
+      "effect": "state",
+      "metadataKey": "pixelforgeWeather",
+      "args": [
+        { "name": "word", "type": "string", "enum": ["fair", "overcast", "rain", "storm", "snow"] },
+        { "name": "intensity", "type": "string", "enum": ["light", "heavy"], "optional": true }
+      ]
+    }
+  ]
+}
+```
+
+동사 이름은 최대 32자의 `[a-z][a-z0-9_]*`이며 Engine 자체 GM 대괄호 태그를 쓸 수 없습니다. 안내는 `[Note:`, `[Book:`처럼 대문자로 쓰지만 파싱 정규식은 대소문자를 구별하지 않아 소문자 `note`도 일지 태그를 가립니다. 따라서 이 검사는 대소문자를 통합합니다. 예약 집합은 GM과 파티 안내의 모든 분기가 표시할 수 있는 태그와 완성된 턴에서 읽는 Engine의 다섯 서술 파서에서 도출합니다. 클라이언트 태그 파서와 서술 포매터, 서버 세그먼트 편집기, 사이드카 장면 분석기, 생성 경로의 대사 재작성기입니다. 이 어휘는 안내보다 넓으며 대사 토큰 `main`, `side`, `extra`, `action`, `thought`, `whisper`와 서술 포매터만 읽는 QTE 쌍 `qte_bonus` / `qte_result`도 포함합니다. 마지막 부류가 고정 검사의 필요성을 보여 줍니다. `whisper` 동사가 있으면 저장 전에 대사의 `[whisper:Tam]`이 잘려 나가 그 줄이 영구히 대사로 인식되지 않습니다. 추출기를 포함해 회귀 검사로 고정합니다. 고유한 이름을 제공하는 파서, 즉 태그 파서의 `party-chat` / `party-turn`과 포매터의 QTE 쌍은 계속 제공해야 합니다. 소스가 조용히 스캔에서 빠지면 예약 집합을 줄이지 않고 빌드가 실패합니다. 고유 이름이 없는 나머지 셋도 새 태그를 먼저 도입할 때 잡도록 스캔합니다. 그러나 완전성을 보장하지는 않습니다. 대상 밖 파일이나 추출기가 읽지 못하는 형태의 태그는 놓칠 수 있어 새 파서가 생기면 집합을 확장합니다. `action`, `state`, `status`, `note`도 내장 태그이므로 평범한 동사 이름이 거부되면 대개 오타가 아니라 이 규칙 때문입니다. `description`은 대괄호와 줄바꿈 없는 1~200자의 한 줄이며 안내의 `COMMANDS:` 블록에 그대로 들어갑니다. 줄바꿈에는 CR, LF 외에도 블록을 읽는 입장에서 줄을 끝내는 `U+0085`, `U+2028`, `U+2029`가 포함됩니다. C0 제어 문자와 DEL도 거부합니다. 특히 탭은 줄을 끝내지 않고도 블록 형태를 바꾸기 때문입니다. 단, 매크로 처리를 건너뛰지는 않습니다. 안내 전체를 보내기 전에 확장하므로 설명 속 `{{…}}`는 문자로 출력하지 않고 확장하며, `{{setvar::…}}`처럼 채팅 변수를 쓰는 매크로도 포함됩니다. `chat-write`가 이미 준 권한을 넘지는 않지만 실수하기 쉬우므로 의도하지 않았다면 설명에 매크로 중괄호를 쓰지 마세요. 동사는 최대 여섯 개의 `{ name, type, enum?, maxLength?, optional? }` 인수를 가지며 이름은 최대 32자의 `[a-z][a-zA-Z0-9_]*`입니다. 대괄호 태그가 아닌 JSON 키이므로 대문자를 금지하는 동사 이름보다 의도적으로 넓습니다. 문자열 인수만 `enum`을 가질 수 있으며 서로 다른 1~16개 값이어야 합니다. 반복 값은 집합에 의미를 더하지 않으므로 다른 중복과 마찬가지로 거부합니다. enum 없는 문자열은 `maxLength`(1~500)가 필수입니다. 실행기의 한정 파싱 자체에는 상한이 없어 자유 텍스트가 무제한이면 서술 덩어리가 통째로 패키지에 들어갈 수 있기 때문입니다. enum이 이미 값을 제한하므로 `enum`과 `maxLength`를 동시에 쓰면 거부합니다. 페이로드는 평평한 한 줄 JSON이며 중첩된 `}`는 태그 일치를 일찍 끝냅니다. 메시지당 동사 이름별 한 번만 파싱하므로 반복 동사는 한 번 적용됩니다.
+
+이를 설명문에 모두 쓸 필요는 없습니다. 파싱한 테이블에서 개략 페이로드, 설명, 복사 가능한 예시 하나 순서로 안내 행을 만듭니다.
+
+```
+- [weather:{"word":"fair|overcast|rain|storm|snow","intensity"?:"light|heavy"}] — Set the sky when the weather visibly changes. Example: [weather:{"word":"fair"}]
+```
+
+어휘를 가르치는 것은 개략 표시입니다. 모든 인수를 선언 순서로, 선택 항목은 JSON 문자열 밖에 `"name"?:`로, enum은 전체 선택지로, enum 없는 문자열은 상한으로 표시합니다. 숫자와 불리언은 따옴표 없이 표시합니다. 검증기는 숫자의 `"3"`을 변환하지 않고 거부하기 때문입니다. 예시는 구체적 한 사례로 enum 값 하나밖에 보여 줄 수 없어 어휘 설명을 대신할 수 없습니다. `{"word":"fair"}`만 받은 GM은 "sunny"를 쓰고, 검증기는 알려 주지 않은 값을 거부합니다. 이 거부는 보이지 않습니다. 태그는 검증 성공이 아니라 이름 일치 시 제거되어 문장은 깔끔하지만 세계는 바뀌지 않기 때문입니다. 같은 파싱 테이블에서 둘을 만들면 불일치도 방지합니다. 값이 더 이상 설명문에 있지 않으므로 설명이 검증기가 거부하는 값을 약속하지 않습니다. 200자는 인수를 되풀이하지 말고 언제 쓸지에 사용하세요.
+
+기능 축소는 동사별입니다. 새 `effect`, 표현하지 못하는 형태, 예약 이름이나 남의 키처럼 거부되는 선언은 해당 동사만 로그와 함께 버리고 이해하는 동사는 실행합니다. `parseCapabilityCatalogWithCompat`의 카탈로그 항목 규칙과 같습니다. 거부된 동사는 조용히 실패하므로 선언한 동사가 나오지 않으면 로그를 읽으세요. 알 수 없는 `schemaVersion`, 빈 `verbs` 배열, 객체가 아닌 값처럼 문서 전체를 쓸 수 없으면 빈 테이블과 로그 한 줄이 나옵니다. 읽기 전 선언된 `files[].bytes`가 64 KB를 넘을 때도 거부합니다. `files[]`는 100 MB까지 허용하며 다른 사전 읽기 상한이 없기 때문입니다. 어떤 실패에서도 턴은 그대로 유지됩니다.
+
+`metadataKey`를 선언한 동사는 **상태 동사**입니다. 인수 전체를 채팅 메타데이터 행의 해당 키에 쓰고, 패키지는 기존 속성으로 변경을 받습니다. `metadataKey`가 없으면 **이벤트 동사**로, 영구 쓰기, 큐, 재생, 수신 확인 없이 실시간 기능 클라이언트 이벤트로 전달됩니다. 이벤트 동사에는 쓰지도 않는 키를 차지하지 못하도록 `metadataKey`를 금지하고, 상태 동사에는 필수로 요구합니다.
+
+선택 전에 차이를 알아야 합니다. 상태 쓰기는 영구적이며 되돌리지 않습니다. 턴의 스와이프 전환, 편집, 삭제에도 값은 남고 마지막으로 표시된 스와이프가 아니라 마지막으로 생성한 것이 이깁니다. 따라서 세션 중 문장과 세계가 어긋나도 이를 맞추는 것이 없습니다. 이벤트는 기억이 전혀 없는 한 프레임의 동기 전송입니다. 턴 중단, 스트리밍 중 탭 닫기나 새로고침, 패키지 첫 마운트 전 전송, 다른 채팅으로 이동한 경우, 패키지 로딩 게이트 대기 중에는 조용히 사라집니다. 재전송은 없습니다. 대신 패키지가 되감기로 복원되는 곳에 효과를 보관하면 이야기와 함께 되돌릴 수 있습니다. 채팅 메타데이터 행은 되감기지 않아 상태 동사는 불가능합니다. 어느 쪽에도 흔적이 안 남는 손실은 라이브 상태에 적용된 이벤트가 패키지의 다음 저장 플러시 전에 강제 새로고침으로 사라지는 경우입니다.
+
+따라서 양쪽 모두 상대적 의미를 의도적으로 거부합니다. 상태 동사는 절대값 덮어쓰기라 "금 5 추가"를 구조적으로 표현할 수 없습니다. 상대 이벤트 동사도 규칙상 거부합니다. 턴을 재생성하면 새 스와이프 인덱스를 만들고 이전 표시를 계승하지 않아 생성한 스와이프마다 누적되기 때문입니다. `chatId:messageId:swipeIndex` 중복 제거는 이 채널이 애초에 하지 못하는 재전송만 막고 실제 가능한 재생성을 막지 못합니다. 두 번 적용해도 안전하게 하는 것은 원장이 아니라 절대값입니다. 상대 어휘는 메시지별 절대값으로 바꾼 경우에만 여기 속합니다.
+
+두 종류가 함께 있는 턴에서는 상태 동사의 비동기 재조회가 도착하기 전에 이벤트의 동기 전송이 패키지에 도착합니다. 이벤트 핸들러가 같은 턴 상태 동사의 효과를 읽고 새 값이라고 기대해서는 안 됩니다.
+
+거부의 비대칭성은 의도된 기능입니다. Engine은 인수 이름, 타입, enum 포함 여부, 문자열 상한이라는 형태만 검증하고 의미는 패키지가 책임집니다. 채팅별로 세계를 생성하면 NPC 이름은 선언 시점에 열거할 수 없습니다. 상태 동사는 패키지가 볼 때 이미 메타데이터가 커밋되어 패키지의 거부는 권고에 불과합니다. 이벤트 동사는 Engine 쪽에 커밋된 것이 없어 같은 거부가 구속력을 가집니다. 알 수 없는 이름을 거부하면 실제로 거부한 것입니다.
+
+상태 동사의 `metadataKey`는 세 규칙에 따라 선언 패키지 소유여야 합니다. 패키지 ID를 camel case로 정규화한 접두사(`hierarchical-maps` → `hierarchicalMaps`)로 시작하고, 대문자 경계로 시작하는 비어 있지 않은 접미사가 이어져 다른 패키지 이름 공간에 침범하지 못하게 합니다. 또한 정규화 ID는 Engine 소유 메타데이터 이름 공간과 같거나 그 대문자 경계 확장이면 안 됩니다. 이 목록은 모든 최상위 `ChatMetadata` 키, Engine의 메타데이터 키 상수, 인터페이스 선언 대신 인덱스 시그니처에 존재하는 키에서 도출합니다. 마지막에는 앞의 둘로는 못 보는 `encounterActive`, `internalAssistant`, `imageGenConnectionId` 등 미선언 메타데이터가 포함됩니다. 세 번째 부류는 일곱 소스가 필요합니다. `patchMetadata`/`updateMetadata`에 넘기는 객체, 그만큼 흔한 업데이터 콜백 반환 객체, `patchMetadata`를 전혀 거치지 않는 클라이언트 `useUpdateChatMetadata()`와 `onMetadataChange`, 그 훅도 건너뛰는 직접 `PATCH /chats/:id/metadata` 호출(Game 화면이 전투·장면·서술 키를 쓰는 방식), `chatMetadata.key`와 `chat.metadata.key` 속성 읽기, Engine에서 가장 흔하고 `scenario` 같은 키를 유일하게 보는 `parseChatMetadata(…)` 결과 읽기, 함수 경계를 통해서만 쓰고 읽는 키를 담는 수동 채팅 설정 프로필 메타데이터 목록입니다.
+
+추출기를 포함한 모든 내용을 회귀 검사로 고정합니다. 의도적으로 스캔 밖인 것은 둘입니다. 변수나 헬퍼 반환값을 넘기는 쓰기(`patchMetadata(id, hydratedMeta)` 또는 메타데이터 경로의 같은 형태)는 정적 스캔이 키를 읽지 못합니다. 현재 20곳이며 그 수를 고정해 21번째는 사람이 읽을 때까지 빌드가 실패합니다. 헬퍼 내부에서 매개변수로 읽는 것도 함수 간 분석이라 읽기 스캔 범위 밖입니다. `spatialContext`는 이 저장소가 아니라 Agents 저장소에서 배포되는 `hierarchical-maps` 클라이언트가 메타데이터에 쓰고 여기서는 헬퍼와 파일 내부 파싱으로 읽습니다. 두 번째 틈은 수동 목록으로 메우므로 일곱 소스 중 하나가 도출물이 아닌 관리 목록입니다. 사각지대가 없다고 주장하지 않고 이를 명시합니다. 목록의 `persona`는 현재 어떤 소스도 만들지 않는 수동 최소 예약 항목입니다. 세 번째 규칙은 의도적으로 패키지 전체를 거부합니다. `conversation-calls`는 `conversationCalls`로 정규화되고 `conversationCalls` + `Enabled`가 기존 Engine 키라 자체 ID 밑에서도 메타데이터 키를 소유할 수 없습니다. `noodle`과 `background`도 같으며, 후자는 `background` 자체가 Engine 키이기 때문입니다. 이런 패키지도 키를 소유하지 않는 이벤트 동사는 선언할 수 있습니다. 키가 평평한 최상위인 이유는 기존 패키지 조정기가 읽는 형태이기 때문입니다.
+
+패키지가 선언한 모델 명령은 패키지가 `chat-write`를 선언하고 설치되어 준비된 경우에만 실행됩니다. 이 권한은 메시지, 채팅 메타데이터, roleplay 이벤트, 공간 스냅샷을 비롯해 패키지 영속성 API를 통한 쓰기도 제어합니다. `chat-read`는 채팅, 메시지, 게임 상태, 공간 스냅샷 읽기를 제어합니다. 영속성 트랜잭션과 채팅 잠금 안에서도 같은 검사가 적용되며 쓰기 권한이 읽기 권한을 암묵적으로 부여하지 않습니다. 엔진 자체의 영속성 호출은 계속 신뢰됩니다.
+
+설치 후 **Download Agents** (에이전트 다운로드) 상세 화면은 설치된 버전이 선언한 권한을 보여 줍니다. 카탈로그 버전이 다른 권한을 요청하면 별도로 표시합니다. 코드 설치나 업데이트에는 정확한 버전과 체크섬에 연결된 기존 승인이 계속 필요하며 모델 명령은 턴마다 별도 승인을 요청하지 않습니다.
+
+이는 API 검사이며 JavaScript 샌드박스가 아닙니다. 네트워크, 저장소, UI 권한은 접근 선언입니다. 패키지의 브라우저 및 서버 코드는 신뢰된 코드로 남아 호스트 환경에 접근할 수 있으므로 신뢰하는 패키지만 설치하세요. 파일 제공 가능 여부가 아니라 준비 상태를 검사하므로 업데이트 후 패키지가 `restart-required` 상태가 되면 엔진을 다시 시작할 때까지 해당 명령을 해석하지 않습니다.
+
 ### Capability API 1.17: 첫 턴 전에 Experience 준비
 
 `game-surface` 패키지는 스키마 버전 2와 Capability API 1.17에서 `contributions.gameSurface.prepareBeforeStart: true`를 선언할 수 있습니다. Engine은 게임이 준비 상태가 되면 **Start Game**(게임 시작)을 활성화하기 전에 해당 화면을 마운트합니다. 클래식 게임과 이 플래그가 없는 패키지는 기존 시작 흐름을 유지합니다.
@@ -162,6 +265,22 @@ export async function activate({ api }) {
 
 `api.registerTool`은 이 Engine 버전부터 존재합니다. 필요한 패키지는 `capabilityApi` 1.19를 선언해야 하며 이전 버전에는 설치할 수 없습니다.
 
+## Decision 문과 Decision 모델
+
+사용자의 **Decision model**(Decision 모델)은 최근 채팅에 관한 예/아니요 문과 선택 문에 답합니다. 개념과 설정 방법은 [Decision 모델](../connections/decision-models.md)을 참고하세요.
+
+패키지의 에이전트 프롬프트 템플릿은 사용자 지정 에이전트처럼 `{{#if decision:"..."}}`와 `{{#if decision_choice:"..." == "..."}}`를 쓸 수 있습니다. Engine은 템플릿에서 문을 찾고 에이전트 실행 전에, 후처리 에이전트라면 답변 후에 질문하여 답으로 템플릿을 해석합니다. Capability API 버전은 관여하지 않습니다. 구문과 문장 작성 요령은 [조건부 프롬프트](../prompts/conditional-prompts.md#asking-the-decision-model), 에이전트 단계별 처리 방식은 [사용자 지정 에이전트 만들기](../agents/custom-agents.md#decision-statements-in-the-agents-prompt)를 참고하세요.
+
+패키지 런타임 코드가 Decision 모델에 직접 질문할 방법은 아직 없습니다. 별도의 Capability API 메서드와 버전 증가가 필요합니다.
+
+모든 사용처는 Decision 모델이 없는 사용자를 고려해 설계하세요. 답이 없는 문은 아니요로 읽으므로 `{{else}}` 분기나 아무것도 없는 상태가 합리적인 기본값이어야 합니다. Jev를 필수로 요구하지 말고 일반적인 Decision 모델을 대상으로 작성하세요. 로컬 채팅 모델과 다른 지원 백엔드도 같은 구문을 쓰지만 답은 다를 수 있습니다. 특정 점수, 요청 횟수 또는 캐시된 답에 의존하기 전에 [임계값](../connections/decision-models.md#thresholds)과 [제한과 비용](../prompts/conditional-prompts.md#limits-and-cost)을 확인하세요.
+
+### Game Mode Experience 개발자를 위한 참고
+
+Engine 전투는 일반 적의 행동을 자체 결정합니다. GM 쪽의 보스가 아닌 모든 적은 기술과 클래스에 따른 역할(bruiser, bulwark, skirmisher, marksman, spellcaster, supporter, controller), 직접 지정하지 않으면 레벨에 따른 숙련도(novice, trained, veteran, master), reckless, cautious, opportunistic, protective 같은 기질을 받습니다. beasts와 monstrosities는 항상 mindless입니다. Engine 코드는 모델 호출 없이 시드로 이를 선택하고 게임 난이도는 성향대로 행동하는 일관성을 바꿉니다. 작성된 보스만 GM이 모델 호출로 지휘합니다. [Game Mode 전투 AI](game-combat-ai-design.md)를 참고하세요.
+
+전투 개선은 계속될 예정입니다. 전투 처리에 Decision 모델을 넣기 전에 기본 Engine 전투가 이미 필요한 동작을 하는지 확인하세요. 특정 성격이 필요한 적은 우선 맞는 숙련도와 기질을 주세요. 적의 매 턴마다 Decision을 수행하면 모델 작업과 시간 제한이 추가되고, 호스팅 백엔드는 네트워크 요청과 비용도 추가합니다. 사용자가 설정하지 않았을 수 있는 모델의 답에 전투가 의존하므로, 답이 없을 때의 합리적인 대체 동작도 필요합니다.
+
 ## 최초 제공 패키지
 
 - 현재 기본 내장된 모든 에이전트;
@@ -179,12 +298,6 @@ export async function activate({ api }) {
 ## 신뢰와 설치
 
 공식 카탈로그는 스키마로 검증하고 버전을 매긴 JSON 문서이며 HTTPS로 다운로드합니다. 릴리스 항목마다 변하지 않는 아티팩트 URL, SHA-256 다이제스트, 바이트 크기, 엔진 호환 정보, 권한, 실행에 다시 시작이 필요한지 여부가 들어 있습니다.
-
-패키지가 선언한 모델 명령은 패키지가 `chat-write`를 선언하고 설치되어 준비된 경우에만 실행됩니다. 이 권한은 메시지, 채팅 메타데이터, roleplay 이벤트, 공간 스냅샷을 비롯해 패키지 영속성 API를 통한 쓰기도 제어합니다. `chat-read`는 채팅, 메시지, 게임 상태, 공간 스냅샷 읽기를 제어합니다. 영속성 트랜잭션과 채팅 잠금 안에서도 같은 검사가 적용되며 쓰기 권한이 읽기 권한을 암묵적으로 부여하지 않습니다. 엔진 자체의 영속성 호출은 계속 신뢰됩니다.
-
-설치 후 **Download Agents** (에이전트 다운로드) 상세 화면은 설치된 버전이 선언한 권한을 보여 줍니다. 카탈로그 버전이 다른 권한을 요청하면 별도로 표시합니다. 코드 설치나 업데이트에는 정확한 버전과 체크섬에 연결된 기존 승인이 계속 필요하며 모델 명령은 턴마다 별도 승인을 요청하지 않습니다.
-
-이는 API 검사이며 JavaScript 샌드박스가 아닙니다. 네트워크, 저장소, UI 권한은 접근 선언입니다. 패키지의 브라우저 및 서버 코드는 신뢰된 코드로 남아 호스트 환경에 접근할 수 있으므로 신뢰하는 패키지만 설치하세요. 파일 제공 가능 여부가 아니라 준비 상태를 검사하므로 업데이트 후 패키지가 `restart-required` 상태가 되면 엔진을 다시 시작할 때까지 해당 명령을 해석하지 않습니다.
 
 서버를 시작할 때 공식 패키지가 하나라도 설치되어 있으면 호스트가 카탈로그를 한 번 가져옵니다. 그리고 실행 중인 엔진과 Capability API에 맞는 더 새로운 버전만 골라 일반 설치 파이프라인으로 검증한 뒤, 패키지 런타임이 활성화되기 전에 설치합니다. 실패는 패키지 단위로 격리합니다. 카탈로그에 연결하지 못하거나 검증에 실패해도 이미 있는 파일과 레지스트리 상태는 그대로 쓸 수 있고, 서버 런타임 준비에 실패하면 이전 버전으로 되돌리는 경로를 탑니다.
 
@@ -239,28 +352,158 @@ export async function activate({ api }) {
 
 분리는 다음 조건을 모두 만족해야 끝난 것으로 봅니다. 기본 배포용 클라이언트와 서버 번들에 패키지 구현이 더 이상 들어 있지 않고, 새로 설치한 환경에서는 패키지를 다운로드하지 않으면 해당 기능을 활성화할 수 없으며, 업그레이드한 환경에서는 기능이 그대로 유지되고, 패키지 설치/업데이트/제거가 데스크톱, 모바일, Termux 호환 파일 시스템에서 모두 통과해야 합니다.
 
-### Capability API 1.20: Game Mode 규칙 집합
+### Capability API 1.30: 부상 트랙, 판정 자원 소비, 트랙으로 싸우는 전투
 
-규칙 집합은 검증된 데이터입니다. Engine이 지원하는 판정 방식, 정해진 요소로 만든 시트, 휴식, GM 지침을 제공합니다. 예약 리소스 `ruleset.json`은 `gm-verbs.json`처럼 `contributions.assets.paths`에 등록하고 `files[]`에 해시를 둡니다.
+규칙 집합의 `live.tracks` 항목이 `levels`와 `kinds`를 선언하면 범위가 있는 정수 대신 부상 트랙이 됩니다. 이름과 페널티가 있는 칸의 열에 표시를 둡니다. `levels`는 좋은 상태부터 나쁜 상태 순서의 1~16단계이며 각각 `label`과 정수 `penalty`를 가집니다. `kinds`는 트랙에 표시할 피해 1~6종류이며 각각 `id`, 짧은 `label`, 서로 다른 `severity`를 가집니다. 둘은 함께 사용합니다. 표시할 곳이 없으므로 `levels` 없는 `kinds`는 거부합니다. `resolution.penaltyFrom`은 모든 굴림에 적용할 페널티의 트랙을 지정합니다. `dice-pool`에서는 그만큼 주사위를 빼되 `pool.min` 아래로 내리지 않고, `dice-sum`에서는 고정 수정치로 적용합니다.
+
+이 단계에서 추가한 나머지도 1.30에 포함되며, 하나라도 제공하는 패키지는 1.30을 선언합니다.
+
+- `combat.health`는 풀 대신 부상 트랙을 지정할 수 있으며 이때 `combat.damageKinds`가 피해 타입별 표시를 정합니다. `default`, 선택적 `byType` 맵, `marks`로 구성됩니다. `marks`는 명중한 타격당 한 칸인 `per-blow` 또는 피해 굴림을 체력 단계로 세는 `per-point`입니다. 부상 트랙에는 `damageKinds`가 필수이며 풀에는 금지됩니다.
+- `resolution.spend`(`dice-pool` 전용)는 판정에 소비할 풀, 한 번의 지불 비용, 얻는 것이 `successes`인지 `dice`인지, 한 굴림의 상한 `perCheck`를 정합니다.
+- 카탈로그 항목의 `mechanics.check`는 캐릭터가 실제 선택한 항목이 판정에 주는 효과입니다. `reroll`(`upTo`와 `once` 또는 `until`), `dice`, `successes`, `threshold`가 있으며 이것도 풀 전용입니다.
 
 ```json
 {
-  "schemaVersion": 2,
-  "capabilityApi": { "major": 1, "minor": 20 },
-  "id": "ruleset-5e-2014",
+  "capabilityApi": { "major": 1, "minor": 30 },
   "kind": ["ruleset"],
-  "permissions": [],
-  "entrypoints": {},
-  "contributions": { "assets": { "paths": ["ruleset.json"] } },
-  "files": [{ "path": "ruleset.json", "sha256": "<sha256 of the file>", "bytes": 25767 }]
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
 }
 ```
 
-예시는 관련 필드만 보여 줍니다. `name`, `version`, `description`, `engine`, `builtAgainst`는 여전히 필수입니다. 권한, 에이전트, 클라이언트나 서버 진입점은 필요하지 않습니다. `ruleset` 종류와 `ruleset.json`은 서로를 요구합니다. 코드나 문자열 표현식을 실행하지 않으므로 새 판정 방식에는 Engine 변경이 필요합니다. 형식과 5e 예시는 [`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md)에 있습니다.
+부상 트랙의 길이는 단계 수이므로 `min`은 0이고 `max`는 `levels.length`입니다. 다르게 선언한 파일은 조용히 고치지 않고 거부합니다. `resolution.penaltyFrom`이 가리키는 것은 부상 트랙이어야 합니다. 일반 트랙에는 적용할 페널티가 없습니다.
 
-매니페스트는 API 1.20을 선언해야 하며 이전 Engine은 설치를 거부합니다. 선언 크기 256 KB 초과는 읽기 전에 거부하고 설치 해시를 다시 확인한 뒤 엄격한 `packages/shared/src/schemas/ruleset.schema.ts`로 검증합니다. 잘못된 파일은 건너뛰고 패키지와 첫 `path: message` 오류를 로그 한 건에 기록합니다. ID가 겹치면 패키지 ID 순서상 첫 패키지가 우선하며 다른 패키지는 로그와 함께 제외합니다. `engine-legacy`와 `traditional`은 예약 ID입니다.
+1.20~1.28과 같은 이유로 유연한 인터페이스가 아닙니다. `levels`, `kinds`, `penaltyFrom`, `damageKinds`, `resolution.spend`, `mechanics.check`를 읽지 못하는 Engine은 규칙 집합 파일 전체를 거부하므로, 설치는 검증된 `ruleset.json` 바이트를 읽어 오래된 버전을 선언한 패키지를 거부합니다. 트랙이 일반 숫자이고 체력이 풀이며 판정 소비를 선언하지 않은 규칙 집합은 변하지 않습니다.
 
-선택은 `chat.metadata.gameRuleset`에 한 번 저장합니다. 고정 정보가 없으면 기존 규칙입니다. 패키지가 없거나 정의가 오래되면 사용할 수 없는 상태로 두며 다른 규칙을 대신 쓰지 않습니다. 집합 ID와 제공 패키지를 함께 검사해 같은 ID의 다른 패키지가 게임을 가져가지 못하게 합니다.
+### Capability API 1.29: 규칙 집합 전투의 한 턴이 할 수 있는 일
+
+`combat` 블록과 전투가 읽는 카탈로그 항목에 선택적 기능 다섯 가지를 추가합니다.
+
+- 한 타격은 첫 피해 외에 최대 세 개의 추가 피해를 실을 수 있습니다. 카탈로그 항목의 `mechanics.plus`와 생물 행동의 `damage.plus`는 각각 `{ dice?, flat?, type?, save?: { save,
+difficulty?, onSuccess: "none" | "half" } }`입니다. 각각 따로 굴리고 타입을 적용하며 치명타로 각각 두 배가 되고 대상이 각각 내성을 굴립니다. 그래도 타격 전체에 대한 집중 판정과 쓰러짐 판정은 각각 한 번입니다.
+- `combat.attacks[].strikes`는 목록 예산 한 번을 소비해 얻는 공격 수를 지정하는 값 참조입니다. 남은 횟수는 턴 끝까지 보관하며 남아 있는 동안 해당 목록의 모든 행은 예산을 쓰지 않습니다.
+- `mechanics.free`는 예산을 쓰지 않고, `mechanics.gives`는 이번 턴에만 예산을 돌려주며 받는 쪽 상한을 적용합니다. `mechanics.standard`는 소유자가 다른 예산으로 지정한 표준 행동을 사게 합니다. `gives` 또는 `standard`를 선언하는 `utility` 항목은 제외하지 않고 메뉴에 제공합니다.
+- 새 항목 종류 `rider`와 생물 자체의 `riders`는 턴이나 라운드의 첫 유효 명중에 피해 절을 더합니다. 자동으로 적용되는 효과이며 메뉴에는 나오지 않습니다.
+- 닫힌 상태 효과 목록에 `own-saves-advantage`, `own-saves-disadvantage`, `resist-all`, `cannot-target-source`, `cannot-approach-source`를 추가합니다. 상태는 `saves`로 대상 내성을 좁히고, `whileSourceInSight`로 원인이 시야에 있을 때만 적용하거나, `endsWhenSourceDown`으로 원인이 쓰러지면 끝낼 수 있습니다.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 29 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+1.20~1.28과 같은 이유로 유연한 인터페이스가 아닙니다. 이 키를 읽지 못하는 Engine은 규칙 집합 전체나 해당 키를 담은 카탈로그 파일 전체를 거부하므로, 설치는 `ruleset.json`과 선언된 모든 `catalogs/<id>.json`의 검증된 바이트를 읽어 오래된 버전 선언이면 둘 다 거부합니다. 권한이 필요 없으며 아무것도 선언하지 않은 규칙 집합은 변하지 않습니다.
+
+### Capability API 1.28: 보드 위의 규칙 집합 전투
+
+규칙 집합의 `combat` 블록은 `distance: { label, perCell }`로 전장 한 칸의 자체 거리를 정할 수 있으며, 이것이 전투에 위치를 부여합니다. 함께 `ranged`는 보통 사거리 밖이나 적이 옆 칸에 있을 때 사격의 비용을, `cover`는 공격을 맞서는 방어에 엄폐가 더하는 값을, `opportunity`는 멀어지는 상대를 공격할 예산을 정합니다. 공격 목록은 `reach`와 `range`를 목록의 열에서 읽거나 모든 행에 공통값으로 쓸 수 있습니다. 생물 행동의 `range`는 단순 숫자 대신 `{ "normal": 30, "long": 120 }`일 수도 있습니다.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 28 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+`distance` 없이 `ranged`, `cover`, `opportunity` 또는 무기 근접 거리나 사거리를 선언하면 가져오기에서 거부합니다. 측정할 칸 없이는 의미가 없기 때문입니다. 보드는 전술 전투 자체의 생성기, 지형, 배치를 사용하므로 이 버전은 두 번째 전장 모델이나 권한을 추가하지 않습니다.
+
+1.20~1.27과 같은 이유로 유연한 인터페이스가 아닙니다. 이 키를 읽지 못하는 Engine은 규칙 집합 전체 또는 사거리가 쌍인 생물을 담은 카탈로그 전체를 거부합니다. 따라서 설치는 `ruleset.json`과 선언된 모든 `catalogs/<id>.json`의 검증된 바이트를 읽고 오래된 선언이면 둘 다 거부합니다. 거리를 선언하지 않은 규칙 집합은 변하지 않습니다.
+
+### Capability API 1.27: 규칙 집합 생물 도감
+
+규칙 집합 카탈로그는 `"holds": "creatures"`를 선언해 시트 행 대신 생물 능력치 블록을 담을 수 있습니다. 생물은 `combat` 블록이 선언하는 숫자로 작성합니다. 체력은 숫자 또는 전투 시작 시 굴리는 주사위이며, 방어, 우선권 수정치, 시트 자체 ID로 된 능력치와 내성 수정치, 저항·취약·무효인 피해 타입, 절대 걸리지 않는 상태, 위협 단계, GM이 보는 특성을 포함합니다. 행동은 명중, 내성 요구, 상태 적용, 사용 횟수 제한, 재충전 굴림, 한 예산으로 블록의 다른 행동을 순서대로 해결하거나 자체 특수 점수로 구매하는 형태일 수 있습니다.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 27 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/beasts.json"] } }
+}
+```
+
+생물 카탈로그는 `feeds`를 선언하지 않으며 시트 편집기 선택기에 나오지 않습니다. 시트가 아니라 전투가 읽습니다. 전투 디렉터의 `ruleset` 스타일이 설치된 규칙 집합의 `combat` 블록과 도감을 그대로 쓰므로 자체 Capability API 수준은 필요 없습니다.
+
+1.20~1.26과 같은 이유로 유연한 인터페이스가 아닙니다. `holds`나 항목의 `creature`를 읽지 못하는 Engine은 규칙 집합 전체 또는 해당 카탈로그 전체를 거부하므로, 설치는 `ruleset.json`과 선언된 모든 `catalogs/<id>.json`의 검증된 바이트를 읽어 오래된 선언이면 둘 다 거부합니다. 권한이 필요 없으며 도감 없는 규칙 집합은 변하지 않습니다.
+
+### Capability API 1.26: 규칙 집합 전투
+
+API 1.26은 굴림, 대상, 행동 예산, 공격과 능력 목록, 상태, 집중, 체력 0 규칙, 피해 유형, 적의 위협 단계를 정하는 `combat`을 추가합니다. 카탈로그 `mechanics`는 대상, 확정 명중, 상태, 임시 점수, 시트 연동, 예산 소모를 설명할 수 있습니다.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 26 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+`combat`을 선언한 규칙 집합 게임은 전투 디렉터가 켜져 있으면 전투 화면에서 이 블록으로 싸웁니다. 없는 규칙 집합은 이전처럼 `battle` 블록이나 플레이어의 Classic 또는 Tactical 설정을 사용합니다.
+
+1.20~1.25와 같은 이유로 유연한 인터페이스가 아닙니다. `combat`이나 새 `mechanics` 키를 읽지 못하는 Engine은 규칙 집합 전체 또는 해당 키를 담은 카탈로그 전체를 거부하므로, 설치는 `ruleset.json`과 선언된 모든 `catalogs/<id>.json`의 검증된 바이트를 읽어 오래된 선언이면 둘 다 거부합니다. 권한은 필요 없으며 둘 다 없는 규칙 집합은 변하지 않습니다.
+
+### Capability API 1.25: 레이어와 세계 지침
+
+규칙 집합은 선택적 최상위 `layers` 배열로 Low magic, Hard winter 같은 이름 붙은 변형을 선언할 수 있습니다. 플레이어가 게임 생성 시 켜며 게임 전체 수명 동안 고정 정보에 보존합니다. 같은 릴리스는 기본 `gm` 블록에 선택적 `worldGuidance` 문자열을 추가합니다. 세계 생성이 설정 때 한 번 읽어 파티가 사용할 규칙에 세계관을 맞춥니다.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 25 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+레이어 효과는 닫힌 집합이며 모두 범위를 좁히거나 덧붙입니다. 규칙 집합 지침 뒤에 안내를 추가하고, enum 필드에서 값을 제거하고, 같은 판정 종류의 난이도 단계로 교체하며, 시트 편집기 선택기에서 카탈로그 항목을 숨깁니다. 새 항목을 추가하지 않아 어떤 레이어를 골라도 시트를 읽을 수 있으며, 패키지 코드나 추가 모델 호출이 없습니다. 규칙 집합 작성자 이외의 사람이 제공하는 레이어는 후속 추가 사항입니다.
+
+1.20~1.24와 같은 이유로 유연한 인터페이스가 아닙니다. `layers`나 `gm.worldGuidance`를 모르는 Engine은 규칙 집합 파일 전체를 거부하므로, 설치는 `ruleset.json`의 검증된 바이트를 읽어 오래된 선언이면 둘 다 거부합니다. 권한이 필요 없으며 둘 다 없는 규칙 집합은 변하지 않습니다.
+
+### Capability API 1.24: 주사위 풀
+
+`resolution`은 `"dice-sum"` 대신 `"kind": "dice-pool"`을 선언할 수 있습니다. 시트 값이 주사위 수가 되며 기준 이상인 결과를 셉니다. 집합은 두 배 성공, 폭발, 취소, 대실패, 뛰어난 성공과 GM의 상황별 조정 범위를 지정할 수 있습니다.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 24 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+시트는 그대로이며 합계 수정치가 주사위 수가 됩니다. 새 시트 요소, 편집기 슬롯, 패키지 코드는 없습니다. 검증된 `ruleset.json`의 `dice-pool`은 API 1.24가 필요합니다. `dice-sum`만 지원하는 이전 Engine은 전체를 거부하기 때문입니다. 새 권한이나 합계 방식 집합의 변경은 없습니다.
+
+### Capability API 1.23: 연동되는 카탈로그 값
+
+`scaled`는 행 자체의 숫자 열을 최대 4개까지 집합이 관리하게 합니다. 기존 값 참조와 선택적인 단계 표를 사용해 레벨별 자원이나 능력치별 횟수를 표현하며 새 산술 연산은 추가하지 않습니다.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 23 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/spells.json"] } }
+}
+```
+
+값은 시트를 편집할 때 계산하며 읽을 때는 계산하지 않습니다. 따라서 라이브 상태, Game Master 프롬프트 블록과 전투 연결은 계속 저장된 숫자를 읽습니다.
+
+연동 행은 `ruleset.json` 안이나 `catalogs/<id>.json` 자산에 놓을 수 있습니다. 매니페스트는 둘을 자산으로 선언하지만 내부 키를 보여 주지 못하므로 설치가 양쪽 검증된 바이트를 읽어 1.23보다 오래된 선언의 `scaled` 키를 거부합니다. 1.21의 `catalogs`, 1.22의 `battle`과 같은 방식입니다. 오래된 Engine의 엄격한 스키마도 파일 전체를 거부합니다. 권한은 필요 없으며 연동 항목 없는 카탈로그를 가진 규칙 집합은 변하지 않습니다.
+
+`[sheet: op="use" name="..."]`는 `mechanics.cost`와 항목이 만든 각 행 풀의 사용 횟수 1회를 지불합니다. 이미 지원하는 카탈로그를 읽으므로 새 선언이 필요하지 않습니다.
+
+### Capability API 1.22: battle 블록
+
+선택적인 `battle`은 체력, 선택적인 MP, 주문 슬롯 풀, 카탈로그 행을 `CombatSkill`로 바꿀 목록을 지정합니다. 전투가 끝나면 플레이어 버튼과 같은 시트 작업으로 값을 돌려줍니다.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 22 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+Engine 전투와 데이터를 연결하는 기능이며 완전한 테이블톱 어댑터는 아닙니다. 내장 계산은 `attackRoll`, `save`, `concentration`, `perCostStep`을 읽지 않습니다. 정확한 시스템 규칙은 별도 어댑터 연결에서 다룹니다. `coverage.combat`는 독립된 의미를 유지하며 이 연결에서는 읽지 않습니다. 검증된 `ruleset.json`의 `battle`은 API 1.22가 필요하며 `catalogs`의 1.21 제한과 같습니다. 새 권한이나 블록이 없는 집합의 변경은 없습니다.
 
 ### Capability API 1.21: 카탈로그
 
@@ -282,87 +525,28 @@ export async function activate({ api }) {
 
 클라이언트는 선택기를 열 때 `GET /api/capability-packages/rulesets/catalog?rulesetId=&catalogId=&version=`로 내용을 불러옵니다. 설치 목록에는 개수만 포함됩니다. 카탈로그 글은 프롬프트에 자동으로 들어가지 않으며 GM은 `gm.sheetSummary`가 고른 정보만 봅니다. 리소스와 검증된 파일의 `catalogs` 필드는 API 1.21이 필요합니다. 이전 엄격한 스키마는 전체 파일을 거부하기 때문입니다. 권한은 필요하지 않습니다.
 
-### Capability API 1.22: battle 블록
+### Capability API 1.20: Game Mode 규칙 집합
 
-선택적인 `battle`은 체력, 선택적인 MP, 주문 슬롯 풀, 카탈로그 행을 `CombatSkill`로 바꿀 목록을 지정합니다. 전투가 끝나면 플레이어 버튼과 같은 시트 작업으로 값을 돌려줍니다.
-
-```json
-{
-  "capabilityApi": { "major": 1, "minor": 22 },
-  "kind": ["ruleset"],
-  "contributions": { "assets": { "paths": ["ruleset.json"] } }
-}
-```
-
-Engine 전투와 데이터를 연결하는 기능이며 완전한 테이블톱 어댑터는 아닙니다. 내장 계산은 `attackRoll`, `save`, `concentration`, `perCostStep`을 읽지 않습니다. 정확한 시스템 규칙은 별도 어댑터 연결에서 다룹니다. `coverage.combat`는 독립된 의미를 유지하며 이 연결에서는 읽지 않습니다. 검증된 `ruleset.json`의 `battle`은 API 1.22가 필요하며 `catalogs`의 1.21 제한과 같습니다. 새 권한이나 블록이 없는 집합의 변경은 없습니다.
-
-### Capability API 1.23: 연동되는 카탈로그 값
-
-`scaled`는 행 자체의 숫자 열을 최대 4개까지 집합이 관리하게 합니다. 기존 값 참조와 선택적인 단계 표를 사용해 레벨별 자원이나 능력치별 횟수를 표현하며 새 산술 연산은 추가하지 않습니다.
+규칙 집합은 검증된 데이터입니다. Engine이 지원하는 판정 방식, 정해진 요소로 만든 시트, 휴식, GM 지침을 제공합니다. 예약 리소스 `ruleset.json`은 `gm-verbs.json`처럼 `contributions.assets.paths`에 등록하고 `files[]`에 해시를 둡니다.
 
 ```json
 {
-  "capabilityApi": { "major": 1, "minor": 23 },
+  "schemaVersion": 2,
+  "capabilityApi": { "major": 1, "minor": 20 },
+  "id": "ruleset-5e-2014",
   "kind": ["ruleset"],
-  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/spells.json"] } }
+  "permissions": [],
+  "entrypoints": {},
+  "contributions": { "assets": { "paths": ["ruleset.json"] } },
+  "files": [{ "path": "ruleset.json", "sha256": "<sha256 of the file>", "bytes": 25767 }]
 }
 ```
 
-읽을 때가 아니라 편집할 때 계산합니다. 게임 상태, GM 프롬프트, 전투는 저장된 숫자를 읽습니다. 행은 `ruleset.json`이나 `catalogs/<id>.json`에 둘 수 있으며, 검증된 내용의 `scaled`는 API 1.23을 요구합니다. 새 권한이나 연동하지 않는 카탈로그의 변경은 없습니다.
+예시는 관련 필드만 보여 줍니다. `name`, `version`, `description`, `engine`, `builtAgainst`는 여전히 필수입니다. 권한, 에이전트, 클라이언트나 서버 진입점은 필요하지 않습니다. `ruleset` 종류와 `ruleset.json`은 서로를 요구합니다. 코드나 문자열 표현식을 실행하지 않으므로 새 판정 방식에는 Engine 변경이 필요합니다. 형식과 5e 예시는 [`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md)에 있습니다.
 
-`[sheet: op="use" name="..."]`는 `mechanics.cost`와 항목이 만든 각 행 풀의 사용 횟수 1회를 지불합니다. 이미 지원하는 카탈로그를 읽으므로 새 선언이 필요하지 않습니다.
+매니페스트는 API 1.20을 선언해야 하며 이전 Engine은 설치를 거부합니다. 선언 크기 256 KB 초과는 읽기 전에 거부하고 설치 해시를 다시 확인한 뒤 엄격한 `packages/shared/src/schemas/ruleset.schema.ts`로 검증합니다. 잘못된 파일은 건너뛰고 패키지와 처음 몇 개의 `path: message` 오류를 로그 한 건에 기록합니다. ID가 겹치면 패키지 ID 순서상 첫 패키지가 우선하며 다른 패키지는 로그와 함께 제외합니다. `engine-legacy`와 `traditional`은 예약 ID입니다.
 
-### Capability API 1.24: 주사위 풀
-
-`resolution`은 `"dice-sum"` 대신 `"kind": "dice-pool"`을 선언할 수 있습니다. 시트 값이 주사위 수가 되며 기준 이상인 결과를 셉니다. 집합은 두 배 성공, 폭발, 취소, 대실패, 뛰어난 성공과 GM의 상황별 조정 범위를 지정할 수 있습니다.
-
-```json
-{
-  "capabilityApi": { "major": 1, "minor": 24 },
-  "kind": ["ruleset"],
-  "contributions": { "assets": { "paths": ["ruleset.json"] } }
-}
-```
-
-시트는 그대로이며 합계 수정치가 주사위 수가 됩니다. 새 시트 요소, 편집기 슬롯, 패키지 코드는 없습니다. 검증된 `ruleset.json`의 `dice-pool`은 API 1.24가 필요합니다. `dice-sum`만 지원하는 이전 Engine은 전체를 거부하기 때문입니다. 새 권한이나 합계 방식 집합의 변경은 없습니다.
-
-### Capability API 1.25: 레이어와 세계 지침
-
-`layers`는 생성 시 선택하고 게임 고정 정보에 저장하는 이름 붙은 변형입니다. `gm.worldGuidance`는 세계 생성 시 한 번 읽어 세계를 파티 규칙에 맞춥니다.
-
-```json
-{
-  "capabilityApi": { "major": 1, "minor": 25 },
-  "kind": ["ruleset"],
-  "contributions": { "assets": { "paths": ["ruleset.json"] } }
-}
-```
-
-효과는 정해진 종류만 허용합니다. 집합 지침 뒤에 지침 추가, 열거형 값 제거, 같은 판정 방식의 난이도 표로 교체, 시트 선택기에서 카탈로그 항목 숨기기입니다. 시트 요소를 추가하지 않으므로 어떤 레이어에서도 기존 시트를 읽을 수 있습니다. 패키지 코드나 추가 모델 호출은 없습니다. 다른 제작자의 레이어는 추후 지원 대상입니다. 내용 검증 후 두 필드 모두 API 1.25를 요구합니다. 새 권한이나 필드를 쓰지 않는 집합의 변경은 없습니다.
-
-### Capability API 1.26–1.27: 전투 형식과 생물 카탈로그
-
-API 1.26은 굴림, 대상, 행동 예산, 공격과 능력 목록, 상태, 집중, 체력 0 규칙, 피해 유형, 적의 위협 단계를 정하는 `combat`을 추가합니다. 카탈로그 `mechanics`는 대상, 확정 명중, 상태, 임시 점수, 시트 연동, 예산 소모를 설명할 수 있습니다.
-
-```json
-{
-  "capabilityApi": { "major": 1, "minor": 26 },
-  "kind": ["ruleset"],
-  "contributions": { "assets": { "paths": ["ruleset.json"] } }
-}
-```
-
-API 1.27은 `"holds": "creatures"`를 허용합니다. 생물 데이터는 `combat` 값을 사용합니다. 고정 체력 또는 전투 시작 시 굴리는 체력, 방어, 우선권, 시트 ID에 따른 능력치와 내성 굴림, 저항, 취약성, 면역, 위협 단계와 GM용 특성을 담습니다. 행동은 공격, 내성 요구, 상태 적용, 사용 횟수 제한, 굴림으로 재충전, 한 예산으로 행동 연쇄 실행, 자체 특수 점수 소모를 표현할 수 있습니다.
-
-```json
-{
-  "capabilityApi": { "major": 1, "minor": 27 },
-  "kind": ["ruleset"],
-  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/beasts.json"] } }
-}
-```
-
-생물 카탈로그는 `feeds`를 선언하지 않으며 시트 선택기에 나타나지 않습니다. 전투 디렉터가 켜져 있고 `combat`이 있는 게임은 전투 화면에서 해당 규칙과 생물 도감을 사용하며 행동마다 시트를 저장합니다. 이는 추가 Capability API 단계가 필요 없는 `ruleset` 스타일입니다. `combat`이 없으면 기존 `battle` 블록이나 Classic/Tactical 설정을 사용합니다. 설치 시 검증된 `ruleset.json`과 `catalogs/<id>.json`을 확인합니다. `combat`과 새 `mechanics` 키는 1.26, `holds`와 `creature`는 1.27이 필요합니다. 이전의 엄격한 스키마는 파일을 거부합니다. 새 권한은 없으며 해당 필드가 없는 규칙집은 바뀌지 않습니다.
+선택은 `chat.metadata.gameRuleset`에 한 번 저장합니다. 고정 정보가 없으면 기존 규칙입니다. 패키지가 없거나 정의가 오래되면 사용할 수 없는 상태로 두며 다른 규칙을 대신 쓰지 않습니다. 집합 ID와 제공 패키지를 함께 검사해 같은 ID의 다른 패키지가 게임을 가져가지 못하게 합니다.
 
 ### Capability API 1.18: Game 마법사 안에서 Experience 설정
 
@@ -387,3 +571,59 @@ API 1.27은 `"holds": "creatures"`를 허용합니다. 생물 데이터는 `comb
 설정 파일을 가져오면 설치된 호환 Experience와 유효한 숫자 시드를 복원하지만 임의의 패키지 설정은 버립니다. 현재 매니페스트가 상수를 다시 제공합니다. 기존 게임은 이유를 설명하고 Experience 가져오기를 건너뜁니다. 생성 스냅샷은 설정 요약을 위해 Experience 이름과 시드를 보관합니다.
 
 첫 턴 전에 월드를 준비해야 한다면 기존 시작 준비 선언을 별도로 사용하세요. 패키지의 최소 버전으로 API 1.18을 선언하세요. 이전 호스트는 이 설정 선언을 해석하지 못합니다.
+
+### Capability API 1.34: 규칙 집합 자체 형식으로 작성한 생물
+
+도감 생물은 규칙 집합 자체 형식의 캐릭터 시트인 `sheet`를 가질 수 있으며 필요한 부분만 채워도 됩니다. 전투는 동료와 똑같이 구성하므로 체력, 방어, 내성, 우선권, 속도, 목록의 능력은 규칙 집합 선언에서 가져오고 자체 풀로 지불합니다. 이 경우 시트 옆에 `health`, `defense`, `initiativeModifier`, `speed`, `abilities`, `saves`를 주지 않으며 자체 블록 행동도 가질 수 없습니다.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 34 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/creatures.json"] } }
+}
+```
+
+검사는 1.27처럼 규칙 집합 자체 바이트와 설치에 있는 모든 카탈로그 파일을 읽습니다. 생물 시트의 행은 그 목록에 공급하는 카탈로그 항목을 `_catalog: "<catalog>/<entry>"`로 표시할 수 있고 Engine은 도감과 함께 해당 카탈로그도 전투에 불러옵니다. 1.20~1.33과 같은 이유로 유연한 인터페이스가 아닙니다. 키를 읽지 못하는 Engine은 엄격한 카탈로그 파일 전체를 거부하므로 제공 패키지는 1.34를 선언합니다. 권한은 필요 없습니다.
+
+### Capability API 1.33: 반응이 기다리는 순간
+
+카탈로그 항목의 `mechanics.reaction`은 `true` 대신 객체일 수 있습니다. `on`은 Engine이 감지하는 순간, `at`은 선택한 행동을 겨누는 대상, `cancels`는 창이 보류한 효과 자체를 취소할지를 지정합니다.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 33 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/spells.json"] } }
+}
+```
+
+`on`은 항목 소유자에게 효과가 닿기 전인 `aimed` 또는 피해를 받은 뒤인 `harmed`입니다. 이를 지정해야 해당 창 메뉴에 항목이 나타납니다. `at`은 순간을 일으킨 대상을 채우는 `source` 또는 항목 자체 대상을 유지하는 `chosen`입니다. 이미 일어난 일은 취소할 수 없으므로 `aimed`만 `cancel`할 수 있습니다. 취소한 행동의 비용은 누구에게 묻기 전에 이미 지불했으므로 소비된 채로 남습니다.
+
+`"reaction": true`만 있는 항목은 자기 턴에 쓰지 않는다는 뜻일 뿐 메뉴에 제공하기에는 부족하여 어디에도 나오지 않고 새 버전도 필요 없습니다. 1.20~1.32와 같은 이유로 유연한 인터페이스가 아닙니다. 객체를 읽지 못하는 Engine은 엄격한 카탈로그 파일 전체를 거부하므로 제공 패키지는 1.33을 선언합니다. 권한은 필요 없습니다.
+
+### Capability API 1.32: 공격 횟수를 자체 제한하는 무기
+
+공격 소스는 자체 목록의 불리언 열인 `strikesCappedBy`를 선언할 수 있습니다. 그 열이 켜진 행은 목록의 `strikes`가 몇 회든 한 번의 공격만 얻습니다. 따라서 턴에 한 번 발사하는 무기는 한 발을 유지하고 다른 무기는 시트가 허용한 횟수만큼 공격합니다. SRD 5.1의 Loading 속성, 즉 "보통 가능한 공격 횟수와 무관하게 행동, 보너스 행동 또는 반응으로 발사할 때 탄약 한 발만 쓸 수 있다"는 규칙을 위해 존재합니다.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 32 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+함께 `strikes`가 필요하며 없으면 거부합니다. 한 번 소비해 한 번 공격하는 목록은 이미 모든 행을 한 번으로 제한하기 때문입니다. 1.20~1.31과 같은 이유로 유연한 인터페이스가 아닙니다. 키를 읽지 못하는 Engine은 규칙 집합 전체를 거부하므로 제공 패키지는 1.32를 선언합니다. 권한은 필요 없습니다.
+
+### Capability API 1.31: 호스트 생성 서비스 통합
+
+서버 패키지는 `api.runtime.integrations`로 현재 Engine의 LLM, 이미지, 영상 서비스를 사용할 수 있습니다. 매니페스트에 Capability API 1.31을 선언하고 활성화 중 통합 호스트가 있는지 확인하세요. 오래된 Engine은 패키지 활성화 전에 새 API 요구를 거부합니다. 제공자 작업에는 `network`, 미디어 저장·임시 배치·제거에는 `storage` 권한이 필요합니다.
+
+- `llm.createProvider(...)`는 사용자 지정 요청 매개변수와 헤더를 포함해 Engine 제공자 팩터리와 같은 연결 설정을 받습니다. 반환 제공자는 `chat`, `chatComplete`, `embed`, `maxContextValue`, `maxTokensOverrideValue`를 지원하며 인증 정보 속성은 공개하지 않습니다.
+- `llm.localSidecar()`는 같은 파사드로 호스트의 로컬 사이드카 제공자를 반환합니다.
+- `llm.withFallback(...)`는 같은 패키지 호스트가 만든 제공자를 감싸며 Engine의 요청 수용, 대체 알림, 제공자 선택 동작을 유지합니다.
+- `images.generate(...)`와 `videos.generate(...)`는 취소, 요청 로그, 네트워크 검사, 미디어 큐를 포함한 현재 Engine 구현을 사용합니다. 호출자의 `signal`과 UI `debugMode`가 있으면 전달하세요.
+- `images.save`, `images.remove`, `images.stage`, `images.sweepStaged`는 갤러리의 안전한 쓰기와 임시 파일 수명 주기를 재사용합니다. `videos.save`와 `videos.remove`는 영상 저장 경로를 재사용합니다. `images.resolveNovelAiRequestSize`는 호스트의 NovelAI 크기 정규화를 재사용합니다. 영상 길이와 공개 참조 업로드 정규화도 `videos.resolveDuration`, `videos.resolveReferenceUpload`로 사용할 수 있습니다.
+
+공유 요청·결과 타입은 `@marinara-engine/shared`에서 내보냅니다. 패키지별 프롬프트 구성과 작업 조정은 패키지에 두고, 제공자 입출력은 Engine 서비스 구현을 복사하지 말고 이 호스트 진입점을 호출하세요. 순수 헬퍼와 타입은 여전히 번들에 포함할 수 있습니다.

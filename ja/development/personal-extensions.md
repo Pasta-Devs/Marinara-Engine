@@ -88,15 +88,17 @@ Browser Extension APIのバージョン5では、`marinara.context.get()`と`mar
 
 `marinara.ui.showWindow({ title, elements, onEvent, onClose })`は、`update({ title?, elements? })`と`close()`を持つハンドルを返します。ワーカーが送るのはディスクリプターだけで、要素はすべて信頼されたiframeのブートストラップがDOM APIと`textContent`で組み立てます(`innerHTML`は使いません)。ホストは、ウィンドウが開いているあいだだけ通常は非表示のサンドボックスiframeを表示し、閉じるときにまた隠します。
 
-`marinara.ui.registerContribution({ id, kind, label, description?, icon?, elements?, onActivate?, onEvent? })`は、`update(patch)`と`remove()`を持つ凍結されたハンドルを返します。配置先は次の3か所に固定されています。
+`marinara.ui.registerContribution({ id, kind, label, description?, icon?, surface?, position?, elements?, onActivate?, onEvent? })`は、`update(patch)`と`remove()`を持つ凍結されたハンドルを返します。次の信頼済みホストの配置場所をサポートします。
 
-- `button`: 画面が大きいときは上部バーのコンパクトな操作、どの環境でもExtensionsメニュー内の操作として表示します
+- `button`: 既定では上部バーのコンパクトな操作ボタン、または`chats`、`bots`、`characters`、`personas`、`lorebooks`、`presets`、`connections`、`agents`、`settings`の各画面にホストが描画する操作ボタンです。
 - `menu-item`: Extensionsメニュー内の操作として表示します
 - `panel`: Marinaraの信頼されたExtensionsサイドパネルを開く項目です
 
+サイドパネルのボタンは`position: "header"`、`"before-content"`、`"after-content"`を受け付けます。上部バーのボタンでは`position`を省略します。アイコンはMarinaraのLucideアイコンカタログの、長さなどを制限したケバブケース名です。未対応の名前はパズルアイコンにフォールバックします。
+
 パネルの要素には、制約つきウィンドウと同じ宣言的な語彙を使います。`heading`、`text`、`pre`、`button`、`input`、`select`、`toggle`、`slider`、`color`、`spacer`です。操作できるコントロールには一意のIDが必要です。パネルのボタンは`onEvent`へ`{ contributionId, elementId, values }`を送ります。`values`には各コントロールの現在の文字列値が入ります。`onActivate`は、コントリビューションを開いたり呼び出したりしたときに、拡張機能のWorker内で実行されます。状態が変わったあとにラベル、説明、アイコン、パネルの要素を差し替えたい場合は、`handle.update(...)`を呼び出します。
 
-クライアントは、ディスクリプターをランタイムのストアに追加する前に、独自にすべて検証します。コントリビューションの種類、アイコン、コントロール、ID、選択肢の一覧、テキストの長さ、パネル全体のテキスト量、要素数、拡張機能ごとのコントリビューション数は、許可リスト方式で上限つきです。Reactは拡張機能のテキストをテキストとして描画します。拡張機能側が制御するHTML、CSS、URL、Reactコンポーネント、ホスト側のコールバックは一切受け付けません。ホストは、ワーカーが停止したとき、ハッシュが変わったとき、承認済みランタイムの応答から消えたときに、コントリビューションをすべて取り除きます。イベントの配送先は、同じ拡張機能IDとコンテンツハッシュで登録されたワーカーだけです。
+クライアントは各記述子をランタイムストアに追加する前に独立して検証します。コントリビューションの種類、画面、位置、コントロール、ID、選択肢リスト、アイコン名の構文、テキスト長、パネルの総テキスト量、要素数、拡張ごとのコントリビューション数を検証し、上限を設けます。Reactは拡張のテキストをテキストとして描画します。拡張が制御するHTML、CSS、URL、Reactコンポーネント、ホストコールバックは受け付けません。ワーカーが停止した場合、ハッシュが変わった場合、承認済みランタイム応答から消えた場合には、ホストがすべてのコントリビューションを削除します。イベントは、同じ拡張IDとコンテンツハッシュで登録されたワーカーだけに送られます。
 
 DOMを操作する補助機能、MarinaraのAPIの呼び出し、親側のイベントへのアクセス、任意のネットワーク通信はいずれもありません。iframeはメッセージを検証し、流量を制限します。ハートビートの監視機構が、応答しないワーカーや無限ループに陥ったワーカーを終了させます。
 

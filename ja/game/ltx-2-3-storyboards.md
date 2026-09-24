@@ -10,7 +10,7 @@
 GM narration
   -> Animation Planner
      -> imagePrompt -> image connection -> first-frame illustration
-     -> narrationBeat -> LTX Director Video -> %prompt%
+     -> narrationBeat -> Narration Passthrough -> %prompt%
   -> first frame + prompt -> ComfyUI LTX 2.3 workflow -> MP4 clip
 ```
 
@@ -166,7 +166,7 @@ Animation Plannerは絵コンテのターンのキャラクターの外見情報
 | 設定 | 推奨値 |
 | --- | --- |
 | **Video Connection** | 上で作成したLTX 2.3のComfyUI接続 |
-| **Game Video Prompt** | **LTX Director Video** |
+| **Game Video Prompt** | **Narration Passthrough** |
 
 全体設定の**Game Video Prompt**は、Galleryからの手動生成とGame Assetsのアニメーションを制御します。絵コンテのクリップは、それらの動作を変えずに独自のプロンプトを選べます。
 
@@ -180,13 +180,13 @@ Animation Plannerは絵コンテのターンのキャラクターの外見情報
 | **Automatic Storyboard Animations** | On |
 | **Use NovelAI Character Prompts** | Off |
 | **Keyframes per Turn** | 通常は3。最初の8 GB VRAMのテストでは1から始めます |
-| **Animation Clip Duration** | 6秒 |
+| **Animation Clip Duration** | 5秒 |
 | **Viewer Display** | テスト中はFloating |
 | **Illustration Planner** | **Still Keyframes**。静止画だけのときの受け皿として残します |
 | **Animation Planner** | **LTX Simple Image-to-Video** |
 | **Use Storyboard Template** | On |
 | **Storyboard Illustration Prompt** | **Storyboard First Frame** |
-| **Storyboard Video Prompt** | **LTX Director Video** |
+| **Storyboard Video Prompt** | **Narration Passthrough** |
 
 デフォルトとしておすすめなのは**LTX Simple Image-to-Video**です。動かしやすい最初のフレームを1枚と、4から8文の率直な動きのプロンプトを1つ組み立てます。主となる動作を1つ、カメラの動きを1つに絞り、環境の動きは控えめにして、必要な音や短いせりふを添える作りです。
 
@@ -196,7 +196,7 @@ Animation Plannerは絵コンテのターンのキャラクターの外見情報
 
 **Storyboard First Frame**は、Animation Plannerが作った自然言語のT=0のシーンをそのままKreaへ渡します。キーフレームの見出し、プロンプトのラベル、外見の説明の繰り返し、キャンペーンのアートディレクションは足しません。この整形が実際に働くように、**Use Storyboard Template**はオンのままにしてください。
 
-**LTX Director Video**は意図的に小さく作られています。Animation Plannerが仕上げた`narrationBeat`を、共通の動画プロンプトの受け渡し方に沿って渡すだけで、シーンの説明を重ねて付けることはありません。
+**Narration Passthrough**は意図的に小さく作られています。Animation Plannerが仕上げた`narrationBeat`を、共通の動画プロンプトの受け渡し方に沿って渡すだけで、シーンの説明を重ねて付けることはありません。
 
 キーフレーム1枚につき、Kreaの画像ジョブが1件と、ローカルのLTX動画ジョブが1件走ります。キーフレームが3枚なら、最初のフレームのレンダリングが3回、動画のレンダリングも3回始まります。VRAMが8 GBのGPUでは、480pでキーフレーム1枚から始めてください。それが成功したら、キーフレーム3枚とより高い解像度へ進みます。
 
@@ -204,7 +204,7 @@ Animation Plannerは絵コンテのターンのキャラクターの外見情報
 
 扉を開ける、音のするほうを見る、数歩進む、短いせりふを1つ言うといった、目に見える動作が1つ含まれる完了済みのGMのターンを使います。
 
-1. 省VRAMでいちばん手早く確認するには、**Animation Clip Duration**を6秒のままにして、**Keyframes per Turn**を一時的に1にします。通常の検証済み構成はキーフレーム3枚です。
+1. 省VRAMでいちばん手早く確認するには、**Animation Clip Duration**を5秒のままにして、**Keyframes per Turn**を一時的に1にします。通常の検証済み構成はキーフレーム3枚です。
 2. 現在のGMのターンがすでに完了してから、絵コンテの自動設定を2つともオンにします。
 3. Galleryを開き、その完了済みのGMのターンに対して**Create storyboard**を選びます。こうすると、次のターンを待たずに挿絵からアニメーションまでの流れ全体を手動で開始できます。
 4. プロンプトの表示を有効にしている場合は、送信する前に最初のフレームのプロンプトを確認します。
@@ -221,7 +221,7 @@ Animation Plannerは絵コンテのターンのキャラクターの外見情報
 - `imagePrompt`: 時刻T=0で見えている最初のフレームだけを書いたもの。
 - `narrationBeat`: 次に何が起きるかを書いた、完全なLTXのimage-to-videoプロンプト。
 
-選択したAnimation Plannerが、この両方の項目を書きます。**Storyboard First Frame**が`imagePrompt`を整形し、自然言語のT=0のシーンをKrea 2に送ります。画像ができると、**LTX Director Video**が`narrationBeat`を解決します。Marinaraはそれを通常の動画リクエストの`prompt`項目に入れ、ComfyUIワークフローの`%prompt%`を置き換え、最初のフレームをアップロードし、`%reference_image_name%`をComfyUI上のファイル名に置き換えます。
+選択したAnimation Plannerが、この両方の項目を書きます。**Storyboard First Frame**が`imagePrompt`を整形し、自然言語のT=0のシーンをKrea 2に送ります。画像ができると、**Narration Passthrough**が`narrationBeat`を解決します。Marinaraはそれを通常の動画リクエストの`prompt`項目に入れ、ComfyUIワークフローの`%prompt%`を置き換え、最初のフレームをアップロードし、`%reference_image_name%`をComfyUI上のファイル名に置き換えます。
 
 ローカルのプロンプトセグメントを2つ作る必要はありません。これらの絵コンテのプリセットでは、グローバルプロンプトを1つ使うのが通常の形です。
 

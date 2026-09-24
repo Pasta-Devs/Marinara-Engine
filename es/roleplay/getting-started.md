@@ -91,6 +91,14 @@ Puedes ver, editar y volver a ejecutar un fragmento guardado. Una edición cambi
 
 El Narrative Director tiene un botón **Push Story** encima del cuadro de chat. Prepara al Director solo para la siguiente respuesta. El Narrative Director también puede mantener un arco oculto a largo plazo llamado **Secret Plot**. Consulta [Narrative Director y Secret Plot](narrative-director.md) para conocer ambos.
 
+## Susurros y secretos
+
+En **Chat Settings → Agents → Roleplay Commands**, activa **Whisper** (susurro) para permitir apartes privados, secretos o visiones dentro de una respuesta. Empieza desactivado. Elige si pueden usarlo **All** (todos) los personajes o solo el **Narrator** (narrador) designado. Como Personal Notes, requiere un chat individual o generación grupal **Individual**.
+
+El comando es `[whisper: character="name" text="the secret"]`. Nombra exactamente un personaje del chat o tu persona seleccionada. Solo ese destinatario y el narrador designado reciben el texto en sus prompts. Un nombre desconocido o ambiguo se ignora sin exponer el secreto. Los agentes compartidos no reciben susurros.
+
+El susurro permanece en su lugar del mensaje. Los dirigidos a tu persona son visibles inmediatamente; en otro caso, elige **Reveal a secret** (revelar un secreto) para leerlo. Revelarlo solo cambia tu pantalla, no lo que sabe ningún personaje. Los secretos siguen a su mensaje y swipe activo y salen del prompt cuando el mensaje se oculta o queda fuera del historial seleccionado.
+
 ## Interrupciones de personajes
 
 En **Chat Settings → Agents → Roleplay Commands**, activa **Interruptions** (interrupciones) para permitir que los personajes corten el último mensaje cuando sea plausible una intervención verbal o física. Está desactivado inicialmente y no necesita ningún agente descargable.

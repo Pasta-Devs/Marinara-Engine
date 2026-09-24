@@ -10,7 +10,7 @@ O caminho completo é este:
 GM narration
   -> Animation Planner
      -> imagePrompt -> image connection -> first-frame illustration
-     -> narrationBeat -> LTX Director Video -> %prompt%
+     -> narrationBeat -> Narration Passthrough -> %prompt%
   -> first frame + prompt -> ComfyUI LTX 2.3 workflow -> MP4 clip
 ```
 
@@ -166,7 +166,7 @@ A imagem do primeiro quadro pesa muito na qualidade da animação. Ela deve most
 | Configuração | Valor recomendado |
 | --- | --- |
 | **Video Connection** | A conexão do LTX 2.3 no ComfyUI criada acima |
-| **Game Video Prompt** | **LTX Director Video** |
+| **Game Video Prompt** | **Narration Passthrough** |
 
 A configuração geral **Game Video Prompt** controla as animações manuais da galeria e do Game Assets. Os clipes do Storyboard podem escolher o próprio prompt sem mexer nessas outras ações de animação.
 
@@ -180,13 +180,13 @@ Use este perfil de partida:
 | **Automatic Storyboard Animations** | On |
 | **Use NovelAI Character Prompts** | Off |
 | **Keyframes per Turn** | 3 normalmente; comece com 1 no primeiro teste de 8 GB de VRAM |
-| **Animation Clip Duration** | 6 segundos |
+| **Animation Clip Duration** | 5 segundos |
 | **Viewer Display** | Floating durante os testes |
 | **Illustration Planner** | **Still Keyframes**; fica como alternativa apenas para imagens estáticas |
 | **Animation Planner** | **LTX Simple Image-to-Video** |
 | **Use Storyboard Template** | On |
 | **Storyboard Illustration Prompt** | **Storyboard First Frame** |
-| **Storyboard Video Prompt** | **LTX Director Video** |
+| **Storyboard Video Prompt** | **Narration Passthrough** |
 
 **LTX Simple Image-to-Video** é o padrão recomendado. Ele planeja um primeiro quadro pronto para animar e um prompt de movimento direto, de 4 a 8 frases. A preferência é por uma ação principal, um comportamento de câmera, movimento contido do ambiente e áudio relevante ou uma fala curta.
 
@@ -196,7 +196,7 @@ Use este perfil de partida:
 
 **Storyboard First Frame** entrega ao Krea a cena T=0 completa, em linguagem natural, escrita pelo Animation Planner, sem acrescentar título de quadro-chave, rótulos de prompt, notas de aparência repetidas ou direção de arte da campanha. Mantenha **Use Storyboard Template** ativado para que esse formatador realmente seja aplicado.
 
-**LTX Director Video** é propositalmente enxuto. Ele passa o `narrationBeat` já pronto do Animation Planner pelo contrato universal de prompt de vídeo, sem cercá-lo de mais um resumo da cena.
+**Narration Passthrough** é propositalmente enxuto. Ele passa o `narrationBeat` já pronto do Animation Planner pelo contrato universal de prompt de vídeo, sem cercá-lo de mais um resumo da cena.
 
 Cada quadro-chave cria um trabalho de imagem no Krea e um trabalho de vídeo local no LTX. Três quadros-chave, portanto, disparam três renderizações de primeiro quadro e três renderizações de vídeo. Em uma GPU com 8 GB de VRAM, comece com um quadro-chave em 480p. Quando isso funcionar, avance para três quadros-chave e resoluções maiores.
 
@@ -204,7 +204,7 @@ Cada quadro-chave cria um trabalho de imagem no Krea e um trabalho de vídeo loc
 
 Use um turno de GM já concluído com uma ação visual bem evidente, como abrir uma porta, olhar na direção de um som, dar alguns passos ou dizer uma frase curta.
 
-1. Para a checagem mais rápida com pouca VRAM, coloque **Keyframes per Turn** temporariamente em 1 e mantenha **Animation Clip Duration** em 6 segundos. O perfil testado normal usa 3 quadros-chave.
+1. Para a checagem mais rápida com pouca VRAM, coloque **Keyframes per Turn** temporariamente em 1 e mantenha **Animation Clip Duration** em 5 segundos. O perfil testado normal usa 3 quadros-chave.
 2. Ative as duas configurações automáticas de Storyboard depois que o turno de GM atual já estiver concluído.
 3. Abra a galeria e escolha **Create storyboard** para aquele turno de GM concluído. Isso inicia manualmente todo o caminho de ilustração e animação, sem esperar por outro turno.
 4. Se a exibição do prompt estiver ativada, revise o prompt do primeiro quadro antes de enviá-lo.
@@ -221,7 +221,7 @@ Para cada quadro-chave, o Animation Planner devolve:
 - `imagePrompt`: só o primeiro quadro visível, no tempo T=0;
 - `narrationBeat`: o prompt completo de imagem para vídeo do LTX, descrevendo o que acontece em seguida.
 
-O Animation Planner selecionado escreve os dois campos. **Storyboard First Frame** formata o `imagePrompt` e envia essa cena T=0 em linguagem natural para o Krea 2. Depois que a imagem existe, **LTX Director Video** resolve para `narrationBeat`. Marinara coloca esse texto no campo `prompt` da requisição de vídeo normal, substitui `%prompt%` no workflow do ComfyUI, envia o primeiro quadro e substitui `%reference_image_name%` pelo nome de arquivo dele no ComfyUI.
+O Animation Planner selecionado escreve os dois campos. **Storyboard First Frame** formata o `imagePrompt` e envia essa cena T=0 em linguagem natural para o Krea 2. Depois que a imagem existe, **Narration Passthrough** resolve para `narrationBeat`. Marinara coloca esse texto no campo `prompt` da requisição de vídeo normal, substitui `%prompt%` no workflow do ComfyUI, envia o primeiro quadro e substitui `%reference_image_name%` pelo nome de arquivo dele no ComfyUI.
 
 Não é necessário criar dois segmentos de prompt locais. Um único prompt global é o caminho normal para esses presets de Storyboard.
 

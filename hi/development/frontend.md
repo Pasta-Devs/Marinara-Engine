@@ -360,7 +360,6 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.delete(path)`             | `DELETE /api{path}` | रिसोर्स मिटाना                        |
 | `api.upload(path, FormData)`   | `POST /api{path}`   | मल्टीपार्ट फ़ाइल अपलोड                 |
 | `api.download(path, filename)` | `GET /api{path}`    | डाउनलोड और सेव-ऐज़ विंडो               |
-| `api.stream(path, body)`       | `POST /api{path}`   | SSE async जेनरेटर (सिर्फ़ टोकन)        |
 | `api.streamEvents(path, body)` | `POST /api{path}`   | SSE async जेनरेटर (सारे इवेंट टाइप)   |
 
 गड़बड़ी होने पर `ApiError` थ्रो होता है, जिसमें `status` और `message` प्रॉपर्टी रहती हैं।
@@ -596,10 +595,13 @@ Personal Extensions सर्वर पर सेव, हैश से हूब
 | `spotify`                | post_processing | Music DJ का प्लेबैक चलाता है (Spotify, YouTube, या लोकल संगीत)      |
 | `knowledge-retrieval`    | pre_generation  | नॉलेज सोर्स से कॉन्टेक्स्ट लाता है                                  |
 | `knowledge-router`       | pre_generation  | काम की लोरबुक और नॉलेज एंट्री आगे भेजता है                          |
+| `long-term-memory` | feature | टिकाऊ यादें रखता है और संबंधित कॉन्टेक्स्ट याद करता है |
 | `haptic`                 | post_processing | Haptic डिवाइस को कमांड भेजता है                                     |
 | `cyoa`                   | post_processing | विकल्पों वाले प्रॉम्प्ट बनाता है                                    |
+| `storyboard` | post_processing | Game और Roleplay के स्थिर या एनिमेटेड स्टोरीबोर्ड की योजना बनाता है |
 | `conversation-calls`     | feature         | Conversation में ऑडियो/वीडियो कॉल और उनकी सेटिंग्स जोड़ता है         |
 | `hierarchical-maps`      | feature         | Roleplay/Game के मैप, जगह का कॉन्टेक्स्ट और आवाजाही जोड़ता है         |
+| `noodle` | feature | Home में स्थानीय Noodle और Slurp सोशल फ़ीड जोड़ता है |
 | `uno`                    | feature         | Conversation में UNO की टेबल जोड़ता है                              |
 | `chess`                  | feature         | Conversation में शतरंज का बोर्ड जोड़ता है                            |
 | `poker`                  | feature         | Conversation में Texas Hold'em की टेबल जोड़ता है                     |

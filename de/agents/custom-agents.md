@@ -1,6 +1,6 @@
 # Eigene Agenten erstellen
 
-In dieser Anleitung erfährst du, wie du in Marinara Engine einen eigenen Agenten baust. Ein Agent ist ein kleiner KI-Helfer, der automatisch neben dem Chat mitläuft. Du lernst, wie du Phase, Fähigkeiten, Ergebnistyp, Aktivierungs-Schlüsselwörter, Tools und den Prompt festlegst – der Prompt ist der Text, den Marinara an die KI schickt. Ein vollständig durchgespieltes Beispiel gibt es dazu.
+In dieser Anleitung erfährst du, wie du in Marinara Engine einen eigenen Agenten baust. Ein Agent ist ein kleiner KI-Helfer, der automatisch neben dem Chat mitläuft. Du lernst, wie du Phase, Fähigkeiten, Ergebnistyp, Aktivierungs-Schlüsselwörter und -fragen, Tools und den Prompt festlegst – der Prompt ist der Text, den Marinara an die KI schickt. Ein vollständig durchgespieltes Beispiel gibt es dazu.
 
 Neu bei Agenten? Lies zuerst [Agenten: KI-Helfer für deine Chats](agents-overview.md) für die Grundlagen und komm dann hierher zurück.
 
@@ -130,7 +130,61 @@ moonlit ritual
 2. Stell **Scan Depth** auf die Anzahl der letzten Nachrichten, die durchsucht werden sollen. Der Standard ist 5, das Maximum 200.
 3. Der Agent läuft nun nur noch, wenn in diesen letzten Nachrichten mindestens ein Schlüsselwort vorkommt.
 
-Lass das Feld für die Schlüsselwörter leer, dann läuft der Agent jedes Mal in seinem normalen Takt.
+Ein leeres Schlüsselwortfeld schaltet nur den Schlüsselwortfilter aus. Der Ausführungstakt und eine mögliche Aktivierungsfrage gelten weiterhin.
+
+<a id="activation-questions"></a>
+
+## Aktivierungsfragen
+
+Eine **Activation question** (Aktivierungsfrage) prüft, ob die jüngste Szene deinen eigenen Agenten braucht, etwa `In the latest message, the characters move to a different location.` Sie kann Umschreibungen erkennen, die Schlüsselwörter übersehen. Lass das Feld leer, um das bisherige Verhalten beizubehalten.
+
+Die Antwort liefert ein **Decision model** (Entscheidungsmodell). Wähle es unter **Decision model** im Panel **Connections** (Verbindungen): ein bereits laufendes lokales Modell, eine gehostete Decision-Verbindung oder ein von Marinara installiertes Entscheidungsmodell. [Decision-Modelle](../connections/decision-models.md) erklärt die Möglichkeiten, die Auswahl und Einrichtung. Beim Standard **None** bleiben die Fragefelder im Agenten-Editor deaktiviert; ein Agent mit einer Frage läuft so, als hätte er keine.
+
+### Deinen Agenten einrichten
+
+Wer einen Agenten mit Aktivierungsfrage oder Decision-Anweisungen im Prompt importiert, erhält einen Hinweis mit Link zur Anleitung für Decision-Modelle. Ist keines ausgewählt, erklärt er das Ersatzverhalten: Aktivierungsfragen lassen den Agenten laufen, sobald Schlüsselwörter und **Trigger Cadence** (Ausführungstakt) es erlauben; Prompt-Bedingungen gelten als nein und verwenden ihren `{{else}}`-Zweig. Lege deshalb auch einen Takt fest, wenn dein Agent ohne Decision-Modell nicht jeden Zug laufen soll. Derselbe Hinweis erscheint bei der Installation eines Pakets aus dem Agentenkatalog.
+
+Wähle ein Decision-Modell, öffne einen eigenen Agenten und trag unter **Question** (Frage) bis zu 500 Zeichen ein. Die üblichen Agenten-Makros einschließlich `{{user}}` und `{{char}}` funktionieren auch hier. **Scan Depth** legt für Schlüsselwörter und Frage gemeinsam fest, welche letzten Nachrichten gelesen werden.
+
+Schreib trotz des Feldnamens eine Tatsachenbehauptung über die neueste Nachricht, keine Frage. In unseren Tests beantwortete ein kleines Entscheidungsmodell `Did the scene change?` weniger zuverlässig als `The latest message moves the scene to a new place.` Hier gelten dieselben Hinweise wie für Decision-Bedingungen in Prompts; siehe [Aussagen formulieren](../prompts/conditional-prompts.md#writing-statements).
+
+- **Run when probability is at least** (ab dieser Wahrscheinlichkeit ausführen) legt die Schwelle dieses Agenten fest. Er läuft, wenn die Wahrscheinlichkeit für „ja“ die Schwelle erreicht oder überschreitet; höhere Werte überspringen mehr Ausführungen. Der Editor empfiehlt 0,5 für lokale Chat-Modelle und Decision-Verbindungen oder den Manifestwert des verwalteten Sidecars (0,1 bei den eingebauten Open-Jev-Modellen). Ein eigener Server erhält nicht automatisch eine Kalibrierung für sein Modell. Prüfe die Schwelle an deinen Chats, besonders nach einem Modellwechsel. Sie gilt für diese Aktivierungsfrage, nicht für Bedingungen im Agenten-Prompt. Siehe [Schwellenwerte](../connections/decision-models.md#thresholds).
+- **Bypass the question after this many messages without a successful run** (Frage nach dieser Anzahl Nachrichten ohne erfolgreiche Ausführung umgehen) ist optional. Sind seit dem letzten erfolgreichen Lauf so viele Benutzer- oder Assistentennachrichten vergangen, wird die Frage umgangen. Auch ein neuer Agent oder ein Agent, dessen vorherige Nachricht gelöscht wurde, umgeht sie bei aktivierter Einstellung. Schlüsselwörter und Takt müssen den Lauf weiterhin zulassen. Für wichtige Agenten kann das sinnvoll sein: Jedes Modell antwortet gelegentlich falsch; ein anhaltendes „nein“ legt den Agenten so nicht dauerhaft still.
+- Agenten vor oder parallel zur Generierung lesen den Chat vor der Antwort. Agenten in der Nachverarbeitung sehen auch die fertige Antwort.
+
+Schlüsselwörter und Takt werden zuerst geprüft; ein ohnehin übersprungener Agent löst daher keine kostenpflichtige Decision-Anfrage aus. Fragen mit derselben Scan-Tiefe werden je Phase gebündelt. Bei Zeitüberschreitung, nicht verfügbarem Modell oder ungültiger Antwort läuft der betroffene Agent normal weiter. Es gilt das **Time limit** (Zeitlimit) der Decision-Verbindung, standardmäßig 1,5 Sekunden; bei einem lokalen Modell sind es 4 Sekunden oder 20 Sekunden, wenn es zuerst nachdenken muss. Der Abbruch der Generierung bricht auch Decision-Anfragen ab. Gewöhnliche Logs enthalten keine Chat-Inhalte; Debug-Prompt-Logs enthalten die ausgewerteten Nachrichten und Fragen.
+
+Diese Einstellung gilt für eigene Agenten. Die Aktivierung eingebauter Agenten und die Auswertung von Charakteraktivitäten behalten ihr bisheriges Verhalten.
+
+<a id="decision-statements-in-the-agents-prompt"></a>
+
+### Decision-Bedingungen im Agenten-Prompt
+
+Eine Aktivierungsfrage entscheidet, ob der Agent läuft. Eine Decision-Bedingung in seiner **Prompt Template** (Prompt-Vorlage) entscheidet, welche Anweisungen ein laufender Agent erhält. Beide nutzen dasselbe Decision-Modell und die Syntax aus [Bedingte Prompts](../prompts/conditional-prompts.md#asking-the-decision-model):
+
+```
+{{#if decision:"In the latest message, the characters move to a different location"}}
+Update the location field.
+{{else}}
+Leave the location as it is.
+{{/if}}
+```
+
+Zusammen kann der Agent ruhige Züge ganz überspringen und bei seinen übrigen Läufen einen kleineren Prompt erhalten. Einige Ideen:
+
+- Ein Tracker erhält seine Anweisung zur Ortsaktualisierung nur bei einem Ortswechsel, statt den Ort jeden Zug neu herzuleiten.
+- Ein Bildagent beschreibt ein neues Bild nur, wenn sich das Aussehen der Szene ändert.
+- Ein Musikagent erhält den Auftrag zum Titelwechsel nur bei einem Stimmungswechsel.
+- Eine Auswahl bestimmt einen von mehreren Anweisungssätzen: `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`, `{{else if decision_choice:"The kind of scene in the latest message" == "dialogue"}}` und so weiter.
+
+So läuft es ab:
+
+- Agenten vor und parallel zur Generierung lesen den Chat vor der Antwort, also denselben Zug wie der Haupt-Prompt, und teilen dessen Antworten. Nachverarbeitende Agenten lesen die fertige Antwort als neueste Nachricht; ihre Aussagen werden mit ihr erneut geprüft.
+- Ein erneuter Agentenlauf, etwa über die Aktualisierung eines Trackers, die Wiederholung eines fehlgeschlagenen Agenten oder **Re-run** (erneut ausführen) an einer Einfügung, verwendet erfolgreiche Antworten aus dem Cache für denselben Zug, dasselbe Modell und dieselben Aussagen erneut. Fehlgeschlagene Antworten können erneut angefragt werden; auch ein Serverneustart, das Entfernen aus dem Cache oder geänderte Eingaben können neue Anfragen auslösen. Siehe [Antworten wiederverwenden](../prompts/conditional-prompts.md#answer-reuse).
+- In einem Agenten-Prompt benennt `{{char}}` alle Charaktere im Chat auf einmal. In einer Gruppe wird aus `{{char}} is angry` daher „Kaelen, Alyssa is angry“. Nenne den Charakter ausdrücklich oder schreib „a character“.
+- Ohne Antwort gilt eine Aussage als nein. Der Agent muss deshalb auch mit seinem `{{else}}`-Zweig sinnvoll arbeiten, denn viele Nutzer haben kein Decision-Modell.
+
+Agenten aus Marinara-Agents verarbeiten ihre Prompt-Vorlagen auf dieselbe Weise und können daher ebenfalls Decision-Bedingungen verwenden.
 
 ## Tools anhängen (Function Calling)
 
@@ -211,6 +265,8 @@ Zur Sicherheit ignoriert Marinara mitgelieferte Funktionen, entfernt Tool-Auswah
 ## Verwandte Anleitungen
 
 - [Agenten: KI-Helfer für deine Chats](agents-overview.md)
+- [Decision-Modelle](../connections/decision-models.md)
+
 - [Referenz der herunterladbaren Agenten](built-in-agents.md)
 - [Eigene Tools](../extending/custom-tools.md)
 - [Makros](../prompts/macros.md)

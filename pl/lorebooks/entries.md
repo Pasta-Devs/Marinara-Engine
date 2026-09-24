@@ -120,6 +120,36 @@ Pola **Timing** (czas działania) w panelu bocznym sterują zachowaniem wpisu na
 
 Na przykład ustaw **Sticky** na 3, żeby zatrzymać fakt w treści promptu na kilka tur po tym, jak się pojawi. Dzięki temu AI nie zapomina o nim w środku sceny.
 
+
+<a id="decision-activation"></a>
+
+## Aktywacja przez decyzję
+
+Pole **Decision** (decyzja) w panelu pozwala **Decision model** (modelowi decyzyjnemu) ustalić, czy wpis pasuje. Napisz stwierdzenie o ostatnim czacie, na przykład `In the latest message, a dragon is physically present`, i wybierz działanie:
+
+- **Off** (wyłączone), domyślnie: wpis aktywuje się normalnie.
+- **Require** (wymagaj): wpis aktywuje się zwykłą drogą (słowa kluczowe, **Constant**, dopasowanie semantyczne), ale tylko jeśli stwierdzenie także jest prawdziwe. To filtruje luźne wzmianki: wpis ze słowem `dragon` pozostaje poza promptem, gdy ktoś jedynie mówi o smokach. Wpis **Constant** staje się sytuacyjny, na przykład zasady walki z `A fight is happening in the latest message`.
+- **Trigger** (wyzwól): stwierdzenie dodaje drogę aktywacji bez wystąpienia słów kluczowych. Wykrywa parafrazy i sytuacje, na przykład `The latest message takes place in the Blackwood Forest`. Zwykłe drogi, w tym słowa kluczowe, **Constant**, dopasowania semantyczne i przypisane miejsca mapy, pozostają dostępne.
+
+W stwierdzeniu działają makra takie jak `{{user}}` i `{{char}}`. Rady i sposób testowania na własnych czatach opisuje [Pisanie stwierdzeń](../prompts/conditional-prompts.md#writing-statements).
+
+Przebieg działania:
+
+- **Require** sprawdza wpis, który kwalifikowałby się przez słowa kluczowe, semantykę, **Constant** lub przypisane miejsce mapy, z uwzględnieniem filtrów, liczników i losowania prawdopodobieństwa. Nie skanuje każdego nieużywanego wpisu tylko dlatego, że lorebook jest aktywny.
+- **Trigger** może być sprawdzany, gdy zwykła aktywacja słowami nie dopuszcza kwalifikującego się wpisu. Nie musi pytać w każdej turze: Constant, dopasowanie słowa lub istniejące utrzymanie Sticky może dopuścić wpis bez odpowiedzi Trigger. Używaj takich wpisów celowo; nadal mogą dodawać płatne żądania.
+- Stwierdzenia są grupowane, gdy to możliwe. Aktywacja, stwierdzenia w treści i dopasowania rekurencyjne mogą wymagać kilku grup, więc tura może wysłać wiele zdalnych żądań. Korzystają z części **Decision statements per turn** (stwierdzenia decyzyjne na turę) przydzielonej lorebookowi; zobacz [Limity i koszty](../prompts/conditional-prompts.md#limits-and-cost).
+- Udane odpowiedzi są zwykle używane ponownie dla tej samej tury i modelu, dopóki są w pamięci. Nieudane można ponowić, a restart, usunięcie z pamięci lub zmiana danych mogą wysłać nowe żądania. Regeneracja nie gwarantuje identycznych aktywnych wpisów. Zobacz [Ponowne używanie odpowiedzi](../prompts/conditional-prompts.md#answer-reuse). Wpis **Sticky** nie jest pytany ponownie podczas utrzymania.
+- Lista aktywnych lorebooków pokazuje **decision** (decyzja) dla wpisu aktywowanego stwierdzeniem Trigger.
+- **Peek Prompt** nigdy nie pyta. Używa odpowiedzi już dostępnych w turze i wymienia stwierdzenia bez odpowiedzi.
+
+**Brak odpowiedzi oznacza brak nowej aktywacji przez decyzję.** Bez modelu lub jego odpowiedzi **Require** nie dopuszcza nowego wpisu, choć istniejące Sticky może utrzymać aktywny. **Trigger** nie dodaje drogi aktywacji; wpis nadal może wejść przez zwykłe słowa kluczowe, Constant, semantykę lub miejsce mapy, zgodnie ze zwykłymi zasadami. Edytor ostrzega o niewybranym modelu. Ważnym wpisom Trigger daj także zwykłą drogę aktywacji. Require stosuj do opcjonalnej wiedzy, nigdy do czegoś niezbędnego dla historii. Zobacz [Modele decyzyjne](../connections/decision-models.md).
+
+Aktywacja decyzyjna dotyczy tur czatu. Konfiguracja gry, generowanie Experience i skanowanie lorebooków przez agentów na własne potrzeby odczytują wpisy decyzyjne jako nie.
+
+Własne **Sticky** i **Cooldown** wpisu współpracują z Decision. Sticky zachowuje wpis bez ponownego pytania, a cooldown nie pozwala pytać. Trigger ze Sticky 3 i Cooldown 5 wprowadza więc wpis na kilka tur, potem robi przerwę, nie wydając w tym czasie stwierdzeń.
+
+Warunek `{{#if decision:"..."}}` wewnątrz treści jest czymś innym: przycina tekst już aktywowanego wpisu, który nadal zużywa limit tokenów i uruchamia liczniki. Pyta tylko w turach aktywacji wpisu, więc reszta lorebooka nie zużywa **Decision statements per turn**. Pole **Decision** decyduje o aktywacji całego wpisu.
+
 ## Więcej opcji wpisu
 
 W rozwiniętym panelu bocznym czeka jeszcze kilka pól.
@@ -404,6 +434,7 @@ Foldery wyświetlają się jako grupy tylko przy sortowaniu **Order** i pustym w
 
 ## Powiązane przewodniki
 
+- [Modele decyzyjne](../connections/decision-models.md)
 - [Lorebooki – przegląd](overview.md)
 - [Limity tokenów i rekurencja w lorebookach](token-budgets.md)
 - [Wyszukiwanie semantyczne w lorebookach](semantic-search.md)

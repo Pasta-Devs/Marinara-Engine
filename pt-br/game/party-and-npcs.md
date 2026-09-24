@@ -57,6 +57,8 @@ Em uma [partida com conjunto de regras](dice-and-skill-checks.md#games-that-use-
 
 - **Resources** mostra valor atual e máximo de saúde, espaços de magia ou recursos de classe. Use mais, menos ou digite um valor. **Temp** é uma reserva temporária.
 - **Tracks** são contadores limitados, como exaustão.
+
+- **Wound tracks** (Trilhas de ferimentos) mostram uma fileira de casas em vez de um número, para sistemas que marcam dano em vez de contá-lo. Cada casa informa o nome daquele nível de ferimento e quanto ele tira das rolagens. Escolha primeiro o tipo de dano se o conjunto oferecer mais de um e use **Mark** (Marcar) ou **Clear one** (Limpar uma). Você também pode clicar na próxima casa vazia para adicionar uma marca ou na última marcada para removê-la; as demais não respondem a cliques. Uma marca mais grave ocupa a casa superior e empurra as leves para baixo; a linha inferior indica a penalidade ativa e o que não coube na trilha. Se o conjunto definir isso, a penalidade afeta as rolagens: retira dados de uma reserva ou é adicionada a uma rolagem somada, e o cartão de dados mostra quanto foi aplicado.
 - **Notes** guarda notas curtas, como concentração.
 - **Conditions** ativa e desativa condições.
 - Os descansos recuperam o que o conjunto determina. Em 5e (SRD 5.1), o descanso longo recupera saúde, espaços de magia e metade dos dados de vida, no mínimo um.

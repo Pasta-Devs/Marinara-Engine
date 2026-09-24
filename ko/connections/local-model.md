@@ -12,6 +12,8 @@ Local Model은 의도적으로 작게 만들어졌습니다. 주 채팅이나 �
 - Game Mode의 장면 효과(배경, 음악, 날씨 등).
 - 시맨틱 검색을 위한 로어북 임베딩.
 - 별도의 음성 모델을 통한 Conversation 통화의 마이크 받아쓰기.
+- Decision 모델로 선택하면 활성화 질문과 판정문에 답합니다. [Decision 모델](decision-models.md)을 참고하세요.
+
 
 설정 창에서는 이 기능을 **Local AI Model**이라고 부릅니다. 연결 드롭다운에서는 **Local Model (sidecar)**로 표시됩니다. 모두 같은 기능입니다.
 
@@ -203,6 +205,7 @@ SIDECAR_RUNTIME_INSTALL_ENABLED=true
 ## 관련 가이드
 
 - [AI 제공자에 연결하기](connecting-to-a-provider.md)
+- [Decision 모델](decision-models.md)
 - [로컬 모델 또는 자체 호스팅 모델 연결하기](local-self-hosted.md)
 - [Memory Recall과 채팅 요약](../agents/memory.md)
 - [Conversation 음성 통화와 영상 통화](../conversation/calls.md)

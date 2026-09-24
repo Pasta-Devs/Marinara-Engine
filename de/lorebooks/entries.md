@@ -120,6 +120,35 @@ Die **Timing**-Felder im Panel steuern, wie sich ein Eintrag über mehrere Nachr
 
 Setz **Sticky** zum Beispiel auf 3, damit eine Tatsache nach ihrem Auftauchen noch ein paar Züge im Prompt bleibt. So vergisst die KI sie nicht mitten in der Szene.
 
+<a id="decision-activation"></a>
+
+## Aktivierung mit Decisions
+
+Über das Feld **Decision** im Panel kann dein **Decision model** (Entscheidungsmodell) entscheiden, ob ein Eintrag passt. Schreib eine Aussage über den jüngsten Chat, etwa `In the latest message, a dragon is physically present`, und wähle ihr Verhalten:
+
+- **Off** (aus), der Standard: Der Eintrag wird wie gewohnt aktiviert.
+- **Require** (voraussetzen): Der Eintrag muss wie gewohnt passen, etwa über Schlüsselwörter, **Constant** oder semantische Treffer, und zusätzlich muss die Aussage wahr sein. Das filtert beiläufige Erwähnungen: Ein Eintrag mit dem Schlüsselwort `dragon` bleibt draußen, wenn nur über Drachen gesprochen wird. Bei einem **Constant**-Eintrag macht es die Aktivierung situationsabhängig, etwa Kampfregeln mit `A fight is happening in the latest message`.
+- **Trigger** (auslösen): Die Aussage ergänzt einen Aktivierungsweg, auch wenn keines der Schlüsselwörter vorkommt. So erfasst sie Umschreibungen und Situationen, etwa `The latest message takes place in the Blackwood Forest`. Gewöhnliche Aktivierungswege einschließlich Schlüsselwörtern, **Constant**, semantischen Treffern und angehängten Kartenorten bleiben verfügbar.
+
+Makros wie `{{user}}` und `{{char}}` funktionieren in der Aussage. Wie du sie klar formulierst und in eigenen Chats prüfst, steht unter [Aussagen formulieren](../prompts/conditional-prompts.md#writing-statements).
+
+So läuft es ab:
+
+- **Require** prüft einen Eintrag, der sonst über Schlüsselwörter, semantische Treffer, **Constant** oder einen angehängten Kartenort zugelassen würde; Filter, Zeitsteuerung und Wahrscheinlichkeitswurf gelten weiterhin. Es durchsucht nicht jeden ungenutzten Eintrag, nur weil das Lorebook aktiv ist.
+- **Trigger** kann geprüft werden, wenn gewöhnliche Schlüsselwortaktivierung einen geeigneten Eintrag nicht zulässt. Die Prüfung erfolgt nicht zwingend jeden Zug: Constant, ein Schlüsselworttreffer oder eine bestehende Sticky-Haltezeit können den Eintrag auch ohne Trigger-Antwort zulassen. Setze Trigger-Einträge gezielt ein; sie können zusätzliche gehostete Anfragen auslösen.
+- Aussagen werden möglichst gebündelt. Aktivierung, Aussagen im Eintragstext und rekursive Treffer können mehrere Bündel benötigen; ein Zug kann daher mehrere gehostete Anfragen verursachen. Sie verwenden den Lorebook-Anteil von **Decision statements per turn** (Decision-Aussagen pro Zug); siehe [Grenzen und Kosten](../prompts/conditional-prompts.md#limits-and-cost).
+- Erfolgreiche Antworten werden normalerweise für denselben Zug und dasselbe Modell wiederverwendet, solange sie im Cache liegen. Fehlgeschlagene Antworten können erneut angefragt werden; Neustart, Cache-Entfernung oder geänderte Eingaben können neue Anfragen auslösen. Eine Neugenerierung aktiviert daher nicht garantiert dieselben Einträge. Siehe [Antworten wiederverwenden](../prompts/conditional-prompts.md#answer-reuse). Ein **Sticky**-Eintrag wird während seiner Haltezeit nicht erneut geprüft.
+- Die Liste aktiver Lorebooks zeigt **decision** bei einem durch eine Trigger-Aussage aktivierten Eintrag.
+- **Peek Prompt** fragt nie selbst an. Es verwendet vorhandene Antworten des Zuges und listet Aussagen ohne Antwort auf.
+
+**Keine Antwort bedeutet keine neue Decision-Aktivierung.** Ohne Decision-Modell oder ohne dessen Antwort kann **Require** keinen neuen Eintrag zulassen; eine bestehende Sticky-Haltezeit kann ihn jedoch aktiv halten. **Trigger** ergänzt keinen Aktivierungsweg. Der Eintrag kann weiterhin über seine gewöhnlichen Schlüsselwörter, Constant, semantische Treffer oder Kartenorte nach deren üblichen Regeln aktiviert werden. Ohne ausgewähltes Decision-Modell warnt der Editor. Gib wichtigen Trigger-Einträgen auch einen gewöhnlichen Aktivierungsweg. Verwende Require zum Filtern optionaler Lore, nie als Bedingung für unverzichtbare Geschichte. Siehe [Decision-Modelle](../connections/decision-models.md).
+
+Decision-Aktivierung gilt für Chat-Züge. Spieleinrichtung, Erlebnisgenerierung und die eigenen Lorebook-Scans von Agenten behandeln Decision-Einträge als nein.
+
+Die eigenen Einstellungen **Sticky** und **Cooldown** eines Eintrags wirken mit seinem Decision-Feld zusammen. Während Sticky bleibt der Eintrag ohne erneute Prüfung enthalten; während Cooldown wird seine Aussage nicht geprüft. Eine Trigger-Aussage mit Sticky 3 und Cooldown 5 nimmt den Eintrag so einige Züge auf und lässt ihn anschließend ruhen, ohne währenddessen Aussagen dafür zu verbrauchen.
+
+Eine Bedingung `{{#if decision:"..."}}` im Eintragstext ist etwas anderes: Sie kürzt den Text eines bereits aktivierten Eintrags; dieser verbraucht weiterhin sein Token-Budget und startet seine Zeitsteuerung. Die Bedingung wird nur bei Aktivierung dieses Eintrags geprüft; der Rest des Lorebooks verbraucht dadurch keine **Decision statements per turn**. Ob ein Eintrag überhaupt aktiviert wird, steuerst du über sein Feld **Decision**.
+
 ## Weitere Eintragsoptionen
 
 Im aufgeklappten Panel warten noch ein paar Felder.
@@ -403,6 +432,8 @@ Ordner gruppieren Einträge innerhalb eines einzelnen Lorebooks. Mit den Bibliot
 Als Gruppen erscheinen Ordner nur, wenn du nach **Order** sortierst und keine Suche aktiv ist. Jede andere Sortierung und jede Suche schaltet auf eine flache Liste um und zeigt den Hinweis **Folder view paused (clear search and sort by Order)**.
 
 ## Verwandte Anleitungen
+
+- [Decision-Modelle](../connections/decision-models.md)
 
 - [Lorebooks im Überblick](overview.md)
 - [Lorebook-Token-Budgets und Rekursion](token-budgets.md)

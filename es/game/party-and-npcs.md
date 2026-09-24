@@ -57,6 +57,8 @@ En una [partida con conjunto de reglas](dice-and-skill-checks.md#games-that-use-
 
 - **Resources** muestra valor actual y máximo de salud, espacios de conjuro o recursos de clase. Usa los botones de más y menos o escribe un número. **Temp** es un margen temporal.
 - **Tracks** son contadores limitados, como agotamiento.
+
+- **Wound tracks** (Contadores de heridas) muestran una fila de casillas en vez de un número, para sistemas que marcan el daño en vez de sumarlo. Cada casilla indica el nombre de ese grado de herida y cuánto resta a tus tiradas. Elige primero el tipo de daño si el conjunto ofrece varios y usa **Mark** (Marcar) o **Clear one** (Borrar una). También puedes hacer clic en la siguiente casilla vacía para añadir una marca o en la última marcada para quitarla; las demás no responden. Una marca más grave ocupa la casilla superior y desplaza hacia abajo las más leves; la línea inferior indica la penalización activa y lo que no haya cabido en el contador. Si lo define el conjunto, esa penalización se aplica a tus tiradas: resta dados de una reserva o se añade a una tirada sumada, y la tarjeta de dados indica cuánto se aplicó.
 - **Notes** guarda notas cortas, como concentración.
 - **Conditions** activa y desactiva estados.
 - Los descansos recuperan lo que indica el conjunto. En 5e (SRD 5.1), un descanso largo recupera salud, espacios y la mitad de los dados de golpe, con un mínimo de uno.

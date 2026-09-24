@@ -38,7 +38,7 @@ Diese Makros ziehen Namen und Kartenfelder der sprechenden Person und des antwor
 | `{{user}}` / `{{userName}}` | Deinen aktuellen Anzeigenamen (oder Persona-Namen). Ohne gesetzte Persona steht dort `User`. |
 | `{{userNamePhonetic}}` | Das Feld Phonetic deiner Persona, oder `{{user}}`, wenn es leer ist. |
 | `{{char}}` / `{{charName}}` | Den Namen des aktuellen Charakters. Standard ist `Character`. |
-| `{{<21-character-card-ID>}}` | Platzhalter-Syntax für den Namen einer anderen Charakterkarte. Ersetze den Text in den spitzen Klammern durch die exakte 21-stellige ID dieser Karte. |
+| `{{21-character-card-ID}}` | Name eines anderen Charakters. Ersetze den Platzhaltertext durch die genaue 21-stellige ID dieser Karte, um ihren Kartenkontext abzurufen. |
 | `{{persona-21-character-card-ID}}` | Platzhalter-Syntax für den Namen einer anderen Persona. Ersetze den Text nach `persona-` durch die exakte 21-stellige ID dieser Karte, um ihren Kartenkontext abzurufen. |
 | `{{charNamePhonetic}}` | Das Feld Phonetic des Charakters, oder `{{char}}`, wenn es leer ist. |
 | `{{characters}}` | Alle Charaktere im Chat, durch Kommas getrennt. |
@@ -69,7 +69,7 @@ In einem Chat mit einem einzelnen Charakter beziehen sie sich auf genau diesen. 
 
 Das Feld Phonetic hat zwei Aufgaben. Es legt fest, wie die Sprachausgabe den Namen ausspricht. Und es speist `{{charNamePhonetic}}` und `{{userNamePhonetic}}`. Du findest es sowohl im **Character Editor** als auch im **Persona Editor**.
 
-Willst du einen Charakter ansprechen, der nicht Teil des aktuellen Chats ist, kopiere die ID seiner Karte und setz sie direkt in doppelte geschweifte Klammern, zum Beispiel `{{V1StGXR8_Z5jdHi6B-myT}}`. Marinara ersetzt das Makro durch den Namen der Karte und ergänzt den System-Prompt um den Charakterkontext der referenzierten Karte. Begrüßungen und Beispieldialoge dieser Karte bleiben außen vor. Aktivierte Lorebooks, die an dieser Karte hängen, unterliegen weiterhin ihren normalen Regeln für Schlüsselwörter, **Constant**-Einträge, Filter, Wahrscheinlichkeit und Token-Budget.
+Willst du einen Charakter ansprechen, der nicht Teil des aktuellen Chats ist, kopiere die ID seiner Karte und setz sie direkt in doppelte geschweifte Klammern, zum Beispiel `{{V1StGXR8_Z5jdHi6B-myT}}`. Füge keine wörtlichen Zeichen `<` oder `>` ein. Marinara ersetzt das Makro durch den Namen des Charakters und ergänzt den System-Prompt um Description, Personality, Appearance, Backstory, Scenario und Example Dialogue der referenzierten Karte. Das funktioniert in Chatnachrichten, Prompt-Feldern und aktivierten Lorebook-Einträgen. Die ersten Begrüßungen der Karte bleiben außen vor. Aktivierte Lorebooks, die an dieser Karte hängen, unterliegen weiterhin ihren normalen Regeln für Schlüsselwörter, Constant-Einträge, Filter, Wahrscheinlichkeit und Token-Budget.
 
 Um auf eine inaktive Persona zu verweisen, stell ihrer kopierten ID `persona-` voran, zum Beispiel `{{persona-P1StGXR8_Z5jdHi6B-myT}}`. Marinara ersetzt das Makro durch den Namen der Persona und fügt ihre Felder Description, Personality, Appearance, Backstory und Scenario zu den ID Macro Cards hinzu. Angehängte Lorebooks folgen weiterhin ihren normalen Aktivierungsregeln.
 
@@ -128,6 +128,14 @@ Das Makro `{{agent::TYPE}}` fügt die gespeicherte Ausgabe eines Agenten ein –
 Auch Outlet-Einträge werden ganz normal aktiviert. Schlüsselwörter, der Constant-Modus, Wahrscheinlichkeit, Filter, Timing, Eintragslimits und Token-Budgets entscheiden, ob ein Eintrag für die aktuelle Generierung aktiv ist. Aktive Einträge mit demselben Outlet-Namen werden in ihrer **Order** aneinandergehängt und durch Zeilenumbrüche getrennt. Eingefügt werden sie nur am Makro – nicht zusätzlich an einer normalen Lorebook-Position.
 
 Outlet-Makros kannst du in Prompt-Abschnitten im Conversation Mode, im Roleplay Mode oder im Game Mode einsetzen. Das Makro funktioniert selbst dann, wenn es vor dem Lorebook-Marker des Presets steht, und ein Preset braucht gar keinen Lorebook-Marker, solange es nur Outlet-Einträge nutzt. Ein unbekanntes oder inaktives Outlet ergibt nichts. Ein Outlet-Eintrag kann kein weiteres Outlet-Makro auflösen, verschachtelte Outlets laufen also nicht rekursiv.
+
+## Makro für die Lorebook-Größe
+
+`{{lorebooksize::ID}}` ergibt die Gesamtzahl der Einträge im Lorebook mit dieser ID. Ersetze `ID` durch die tatsächliche Lorebook-ID; du kannst sie aus dem Lorebooks-Panel kopieren. Hat etwa ein Lorebook die ID `V1StGXR8_Z5jdHi6B-myT` und enthält 151 Einträge, ergibt `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}` den Wert `151`.
+
+Unbekannte Lorebook-IDs ergeben `0`. Gezählt werden alle Einträge, unabhängig davon, ob sie aktiviert, deaktiviert oder in Ordnern liegen.
+
+Verwende dieses Makro in Prompt-Abschnitten, Charakterkartenfeldern, Lorebook-Eintragstexten oder überall sonst, wo Makros aufgelöst werden.
 
 ## Zeit-Makros
 
@@ -229,6 +237,8 @@ Jedes Feld mit Makro-Unterstützung hat zwei kleine Schaltflächen in der Ecke:
 Alternativ tippst du `/macros` ins Chatfeld (die Kurzform `/macro` geht ebenfalls). Der Befehl gibt die vollständige Makro-Liste direkt im Chat aus, als schnelles Nachschlagewerk.
 
 In bedingten Blöcken lassen sich Vergleiche mit `||` (ODER), `&&` (UND) und Klammern verknüpfen. Für Gleichheitslisten gibt es die kompakte Form `{{#if character == "Maukie" || "Pantalone"}}`. Vorrangregeln, Beispiele für Gruppenchats und die vollständige Operatorenliste findest du unter [Bedingte Prompts](conditional-prompts.md).
+
+Eine Bedingung kann auch dein Decision-Modell zur Szene befragen: `{{#if decision:"The latest message moves the scene to a new place"}}` für ja oder nein und `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}` für eine Auswahl. Ohne Decision-Modell oder Antwort gelten sie als nein. Siehe [Das Decision-Modell fragen](conditional-prompts.md#asking-the-decision-model). Ergänze `sticky:3 cooldown:5` hinter einer Aussage, um ein ja drei Züge zu halten und dann fünf Züge zu pausieren; siehe [Sticky und Cooldown](conditional-prompts.md#sticky-and-cooldown). `every:3` prüft eine Aussage nur alle drei Züge. `priority:high` oder `priority:low` bestimmt, welche Aussagen in einen Prompt-Plan passen; siehe [Alle paar Züge prüfen](conditional-prompts.md#checking-every-few-turns), [Priorität](conditional-prompts.md#priority) und [Grenzen und Kosten](conditional-prompts.md#limits-and-cost).
 
 ## Typische Fehler
 

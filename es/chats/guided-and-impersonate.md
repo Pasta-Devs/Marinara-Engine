@@ -124,7 +124,7 @@ Eliges qué acciones se muestran desde los ajustes.
 
 Las tres acciones son:
 
-- **Post only**: añade tu mensaje escrito al chat sin activar una respuesta de la IA.
+- **Post only**: añade el mensaje que escribiste al chat sin iniciar una respuesta de IA. También puedes hacerlo con el comando de barra `/send <message>`.
 - **Guide reply**: envía el texto que escribiste como una dirección `/guided` en lugar de un mensaje normal.
 - **Impersonate**: genera una respuesta como tu persona, usando el texto que escribiste como dirección. Esta acción se oculta en los chats de Conversation, porque Impersonate no funciona ahí.
 

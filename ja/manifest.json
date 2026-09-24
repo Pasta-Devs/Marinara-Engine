@@ -1,5 +1,6 @@
 {
   "language": "ja",
+  "sourceCommit": "28e4b5dcc4523e554593dfe042468e55784f355b",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -43,13 +44,13 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "3287decbc8446c118a7e0ed024f22ed8c5ab9d20d9750992bee55bd61d024a58",
-      "bytes": 32359
+      "sha256": "141f96be04fcf3e0a7588c882b19afbf0f083dcb6b1a8557cbb71fa99e923d59",
+      "bytes": 33432
     },
     {
       "path": "agents/custom-agents.md",
-      "sha256": "51ae3fd5e8f1c79c282f192bfaa03047ed65129fba5e8b705261a21f252cc2a5",
-      "bytes": 21894
+      "sha256": "a057b3eb7606d9547aab5cc38b6532be187ddf69954a647c4fc20ace6d1bec22",
+      "bytes": 29909
     },
     {
       "path": "agents/hierarchical-maps.md",
@@ -63,8 +64,8 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "4182ab5c2f78e604effc4bee1fb5f5899e88e4386afc65f66b31351169a70ebb",
-      "bytes": 34243
+      "sha256": "6cecc8cb1c9e9b60903f9a3ccc0247f08763e9c78eae712b31c565918a973644",
+      "bytes": 35322
     },
     {
       "path": "appearance/appearance-settings.md",
@@ -108,8 +109,8 @@
     },
     {
       "path": "characters/creating-and-editing-characters.md",
-      "sha256": "91ea272525dd17768ac1dba35a8add8f4ba8072290e269c91ef0cd1c69867b8b",
-      "bytes": 16665
+      "sha256": "853dff52421267be59318b3385de254f8cbade8a55068728c22c7233e703924b",
+      "bytes": 16947
     },
     {
       "path": "characters/galleries.md",
@@ -158,13 +159,13 @@
     },
     {
       "path": "chats/group-chats.md",
-      "sha256": "c25507741d8c5e49bbd4095d55896da18b877139a5cd3fc3ce5f09050ce59770",
-      "bytes": 15014
+      "sha256": "1cc7cc3ae35947c95499b9ce43b8158dcac1c80fe9d7b9b23eabb9495db027dd",
+      "bytes": 16288
     },
     {
       "path": "chats/guided-and-impersonate.md",
-      "sha256": "e749b736c3a71c437fe4d56db88214e8058827e86289630ecddc85a676cbbe7b",
-      "bytes": 10284
+      "sha256": "badcaf8468575aabb30085fe8abf7edd28312651a8ee7a7edb4d12dc806d47cb",
+      "bytes": 10355
     },
     {
       "path": "chats/managing-chats.md",
@@ -202,9 +203,14 @@
       "bytes": 7963
     },
     {
+      "path": "connections/decision-models.md",
+      "sha256": "c005094cba2e64e0ecf405cbc9992e1a2082f0d5994640cd8cee3702ba385319",
+      "bytes": 25144
+    },
+    {
       "path": "connections/local-model.md",
-      "sha256": "36b1efdac80b4d96db2e10a8f7ff3943f4c6eedad5755d7b2765a2a01dc1ce36",
-      "bytes": 21217
+      "sha256": "059b1845cdd68b8f72e8947d1d9cac9d2e615423c351880627faf64971896281",
+      "bytes": 21409
     },
     {
       "path": "connections/local-self-hosted.md",
@@ -298,13 +304,13 @@
     },
     {
       "path": "development/file-storage.md",
-      "sha256": "72cbc336cd35fa3f45d3be1983de3a31f2ec024a6099791e7752b56813c66903",
-      "bytes": 8504
+      "sha256": "c37607bc45e7a1991a1704650c53b1e6fb167e47d9870e355e3e53c5f11d8ac9",
+      "bytes": 8582
     },
     {
       "path": "development/frontend.md",
-      "sha256": "ad8282d225ad77368aeae6c80477fb33b43465a31f61df705abf38b5b66ab628",
-      "bytes": 56495
+      "sha256": "d558356a48ba9ecd7ce775a03862ca5a73f7c275a482bf6d376abf2450fd79a4",
+      "bytes": 56777
     },
     {
       "path": "development/game-combat-ai-design.md",
@@ -323,8 +329,8 @@
     },
     {
       "path": "development/game-combat-rulesets-implementation.md",
-      "sha256": "5f2cf5a05b98efcd871980cf9ade9fc824db74e3cd63a93c560d78cc846664e9",
-      "bytes": 18054
+      "sha256": "1de5885b64684f6b9859300a104b2dcc0734842a5613a5b17a4230fae126af5a",
+      "bytes": 21803
     },
     {
       "path": "development/hierarchical-locations-prd-v3.md",
@@ -343,8 +349,8 @@
     },
     {
       "path": "development/ltx-director-storyboard.md",
-      "sha256": "18388d4e669a63d663ce75395d5dcfe2ef8b06653961e8514160797ce00168fd",
-      "bytes": 9705
+      "sha256": "ff5d482d013966ad464112bd2cb59b296d6d95ff792f5b48c0acb7f9a4fe159c",
+      "bytes": 9714
     },
     {
       "path": "development/noodle-internals.md",
@@ -353,13 +359,13 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "a9af0b37a399c2c9c29f2a4b8d54b6ed8d64fca77e68bc4463859a018b9249ad",
-      "bytes": 51444
+      "sha256": "9a263131d39596a5ab36fd9e72cd25558e26d8c523a38d9e3436810239a41db9",
+      "bytes": 92633
     },
     {
       "path": "development/personal-extensions.md",
-      "sha256": "c09a97c1ed0d668ee9351fa6dde4a1e9fdec450a73e12440dfc70e4609d95d4a",
-      "bytes": 20959
+      "sha256": "07fbb2f49802bcbf10f221e4f9974e98465d9e55f4e1cb8ca2f7465594876f60",
+      "bytes": 21412
     },
     {
       "path": "extending/custom-tools.md",
@@ -383,13 +389,13 @@
     },
     {
       "path": "game/combat.md",
-      "sha256": "af2757619218ea8ee8e0782030f86ca1cd30f16f9124cc5791dd147910930b1e",
-      "bytes": 15107
+      "sha256": "53f28c40e0b186495e0edbfbc06b88af0189a7218e8f7db3eb49e3701c994b1f",
+      "bytes": 19856
     },
     {
       "path": "game/dice-and-skill-checks.md",
-      "sha256": "dbd75579f4453482ba88cd2e83876689474a4c69e6d80eb373d2ca52f64696ad",
-      "bytes": 14748
+      "sha256": "58a9d9d5ed75579d71b906cc88ff85337d2f4afb9757595ceeb1f6f14d5a0849",
+      "bytes": 26904
     },
     {
       "path": "game/game-assets.md",
@@ -398,8 +404,8 @@
     },
     {
       "path": "game/getting-started.md",
-      "sha256": "dc1a1e229b49898d7debd8bae74ad90c933cbe4d3205e540370b905d84b7486e",
-      "bytes": 25480
+      "sha256": "60b7997c2d433b4c8c56363a39594d4de5ea0158839464b8ee74adbd13ef47a3",
+      "bytes": 27283
     },
     {
       "path": "game/hud-widgets.md",
@@ -408,8 +414,8 @@
     },
     {
       "path": "game/ltx-2-3-storyboards.md",
-      "sha256": "cf07a03cb6aaae5d68f9436e846f86ffd374c3396cd312789cc853b05e5f3453",
-      "bytes": 26779
+      "sha256": "465ba4127236f207d3eb8edb32c993cbb604590c2a6e533da6a354670d796439",
+      "bytes": 26794
     },
     {
       "path": "game/map-time-weather.md",
@@ -418,8 +424,8 @@
     },
     {
       "path": "game/party-and-npcs.md",
-      "sha256": "e17f6e16a53eccfee235931d337ef9d3cf6dfcbe18a88c120909d159d0685495",
-      "bytes": 11972
+      "sha256": "041ecfcbf3f608654b75464274ef16fe8646e74ba653472e56f0ed021a4dabae",
+      "bytes": 13043
     },
     {
       "path": "game/sessions-and-saves.md",
@@ -428,8 +434,8 @@
     },
     {
       "path": "game/storyboard.md",
-      "sha256": "e74bfed254916ddb090fda411a8e49b1a8fd70c9b793794fedf426596fded722",
-      "bytes": 30876
+      "sha256": "ae38788d89807ab2e827bbb3dc5d7b2647762731c3bcccfefd25599efbb92c18",
+      "bytes": 31103
     },
     {
       "path": "home/achievements.md",
@@ -438,8 +444,8 @@
     },
     {
       "path": "home/professor-mari.md",
-      "sha256": "47063521110a3c6efe821a3640c6a7fec5e73066edf1d8b3197477d7f5166104",
-      "bytes": 21698
+      "sha256": "c45887638080df7529108eed3adb101ab1137c8389feb68b701adb9e26efef7a",
+      "bytes": 25485
     },
     {
       "path": "home/tutorial.md",
@@ -463,8 +469,8 @@
     },
     {
       "path": "installation/ios-pwa.md",
-      "sha256": "8d3748898eaa97b1f8af6ae08f0aef7b3ac6b32aba17c4eaf2eb7b909478ec98",
-      "bytes": 8890
+      "sha256": "0e63f8fc391e8528ec48f35c43044d7915d95049bb39130b731bd9a62645c1e1",
+      "bytes": 9777
     },
     {
       "path": "installation/macos-linux.md",
@@ -498,8 +504,8 @@
     },
     {
       "path": "lorebooks/entries.md",
-      "sha256": "1d61d07e46b53f3e6ee9bb52293aecd50f1379efe697e9341c08324f444222c7",
-      "bytes": 47571
+      "sha256": "d4323820ae724ed690e919640805db5b3c8b903e94d337531091fa1b34c7e065",
+      "bytes": 53135
     },
     {
       "path": "lorebooks/import-export.md",
@@ -568,8 +574,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "e13b81d6f5cd4e18060893459fabce514d789e8e80dd0d0272a02a23e02f60e1",
-      "bytes": 19588
+      "sha256": "eb3213b5f1fcce5f3966537a69a77bf2f9f1d252e1992dd0323b51d29d88cbef",
+      "bytes": 19678
     },
     {
       "path": "noodle/overview.md",
@@ -578,13 +584,13 @@
     },
     {
       "path": "noodle/settings.md",
-      "sha256": "252eaa58b5ceb6994fbfb4c8af426766ca647d4fe6cb302fce6488a7e0148aa1",
-      "bytes": 35534
+      "sha256": "af64332b2e68d0325a5129a41fc4795c9a1cf9b9a85b5b910d63d1a8e6e43fb4",
+      "bytes": 23592
     },
     {
       "path": "prompts/conditional-prompts.md",
-      "sha256": "17506401720b637065d12289cbc327ed883a6d1fa427c9fbe8096b32337d5194",
-      "bytes": 11436
+      "sha256": "c08ec46149b85a19ebdb578d7faeb063f12082d6ed4e76275d728ebf7dc2307b",
+      "bytes": 34889
     },
     {
       "path": "prompts/generation-parameters.md",
@@ -593,18 +599,18 @@
     },
     {
       "path": "prompts/macros.md",
-      "sha256": "a7a91669ddf6c46324074f8a31298e3f65ba0209f1f476d9de13c54a4f306e31",
-      "bytes": 22736
+      "sha256": "ddc7183a4c10d6961ce8aff42f70059411274389773a675db7ede28b56e59e4f",
+      "bytes": 24515
     },
     {
       "path": "prompts/preset-variables.md",
-      "sha256": "30a86e76e213c7df151133e16c871afa30a185d62ccef0f70c585f02cb95dc60",
-      "bytes": 8547
+      "sha256": "bb0f61c947714ae422319c5f28f37af89cf14e89c0a6a248c34bcf32354a79f0",
+      "bytes": 9711
     },
     {
       "path": "prompts/presets.md",
-      "sha256": "de7008c527fb57b449bd73d5d1bdfa79ebcf427cd09a8ef25f4a2433b7b498b1",
-      "bytes": 16076
+      "sha256": "c01d94401cd1a9813c2b3bfa9deca95673998048c9e4989dff015c4e13b93f74",
+      "bytes": 17441
     },
     {
       "path": "prompts/prompt-overrides.md",
@@ -623,13 +629,13 @@
     },
     {
       "path": "roleplay/getting-started.md",
-      "sha256": "540462e9939bfa97aba30af6ac9683c0c7885c0c661abc6619bda6c6267692f6",
-      "bytes": 18033
+      "sha256": "ba127c3db5138b4568b92911a81d32b72f723e5246e4246415622749d82cd5c9",
+      "bytes": 19476
     },
     {
       "path": "roleplay/hud-and-trackers.md",
-      "sha256": "fe2210eee6c9a5fbeeb5f8272ba8404410454b29b8703fc69cf553c04f8f6166",
-      "bytes": 14309
+      "sha256": "61717c431ce3f1a26aa859d0ed23319942edd26f5cef5ac26ab46ed2f9af95a5",
+      "bytes": 14332
     },
     {
       "path": "roleplay/narrative-director.md",

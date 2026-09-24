@@ -41,16 +41,16 @@ TTSをオンにしただけでは、何も読み上げは始まりません。�
 | ----------------- | ------------------------- | ---------------------- | ------------------------------- |
 | OpenAI-compatible | https://api.openai.com/v1 | tts-1                  | alloy                           |
 | ElevenLabs        | https://api.elevenlabs.io | eleven_multilingual_v2 | なし(自分で選ぶ必要があります) |
-| PocketTTS         | http://localhost:49112    | pocket-tts             | alba                            |
+| PocketTTS         | http://localhost:8000    | pocket-tts             | alba                            |
 | xAI Voice         | https://api.x.ai/v1       | grok-tts               | eve                             |
 
 **ElevenLabs**の場合、**Model**欄には接続経由で使える読み上げ対応モデルが読み込まれ、開いたときは常に全一覧が見えたままになります。通常の読み上げモデルを選んでください。IDに`ttv`を含むモデルは音声デザイン用で、読み上げには使えません。誤って選ぶと、読み上げモデルを使うように促すエラーが出て再生に失敗します。
 
 ### PocketTTSは別のプログラムです
 
-PocketTTSはMarinara Engineに内蔵されていません。Marinaraのアダプターが利用するのは[PocketTTS OpenAI-compatible server](https://github.com/teddybear082/pocket-tts-openai_streaming_server)で、Marinaraに必要な読み上げと声一覧の両方のエンドポイントを備えています。このサーバーの手順に従ってインストールし、起動してください。Marinaraがダウンロードや管理を代行することはありません。
+PocketTTSはMarinara Engineに内蔵されていません。[公式PocketTTSサーバー](https://github.com/kyutai-labs/pocket-tts)を別途インストールし、`uvx pocket-tts serve`で起動してください。Marinaraがダウンロードや管理を代行することはありません。
 
-対応サーバーはデフォルトで`http://localhost:49112`を使います。サーバーのポートを変更していないかぎり、**Base URL**はこの値のままにします。すでに独自のPocketTTS用URLを設定している場合、その値は変わりません。
+公式サーバーのデフォルトは`http://localhost:8000`です。ホストやポートを変えていなければ、**Base URL**はこの値のままにします。Marinaraは公式のmultipart `/tts` APIを自動検出します。[OpenAI互換PocketTTSラッパー](https://github.com/teddybear082/pocket-tts-openai_streaming_server)用の既存の独自URLも引き続き使えます。
 
 ## ステップ3: 声を選ぶ(Voice Option)
 
@@ -61,7 +61,7 @@ PocketTTSはMarinara Engineに内蔵されていません。Marinaraのアダプ
 
 ### すべてのキャラクターで1つの声を使う
 
-声は**All Characters Voice**欄で選びます。PocketTTSでは、サーバーが返した声をドロップダウンに表示し、その横に独自の声のID、URL、パスを入力できるテキスト欄も用意します。
+**All Characters Voice**欄で音声を選びます。公式PocketTTSサーバーには音声一覧エンドポイントがないため、Marinaraは組み込み音声を表示し、別の組み込み名や対応する音声URLを入力できる欄をドロップダウンの隣に残します。互換ラッパーサーバーは独自の音声一覧とカスタムIDやパスを引き続き使えます。
 
 プロバイダーから実際の声一覧を読み込むには、接続情報を入力して**Refresh voices**(声の再読み込み)ボタン(円形の矢印アイコン)をクリックします。これは再生を有効にする前でも実行できます。再読み込みの前にカードを保存するので、入力したばかりのAPIキーもすぐに使われます。接続前は、欄が空にならないよう、アプリが短い内蔵の代替一覧を表示します。プロバイダー側でエラーが起きたときは、その代替一覧を成功したかのように見せず、エラーを表示します。
 

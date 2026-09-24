@@ -10,6 +10,8 @@ Todas as ramificações de um mesmo chat ficam agrupadas. Na lista de chats, um 
 
 Cada ramificação pode ter o próprio nome de exibição, então você consegue rotulá-las como "final feliz" e "final sombrio". Esse nome de exibição é independente do nome do chat que está por trás.
 
+A linhagem de uma ramificação registra o chat de origem imediato e a mensagem em que ela foi criada. O ID da mensagem de origem e o da cópia são mantidos; assim, integrações podem identificar o ponto da ramificação mesmo que as mensagens copiadas recebam novos IDs. Ramificar uma ramificação registra essa ramificação como origem imediata, não a raiz original. Ramificações antigas e irmãs importadas mantêm o nome de exibição, mas não têm linhagem conhecida.
+
 ## Ramificar a partir daqui
 
 A ramificação é criada a partir de qualquer mensagem do chat.
@@ -24,6 +26,8 @@ Marinara copia o chat até aquela mensagem, incluindo ela, para uma nova ramific
 - Copia os instantâneos de tracker e de estado do jogo ligados às mensagens copiadas, então os chats de Roleplay e de Game Mode preservam o estado.
 - Começa com o nome de exibição **New Branch**. Você pode renomeá-la (veja abaixo).
 - Fica na mesma pasta de chats do chat de origem.
+
+Um chat vazio tem âncoras de mensagem nulas. Excluir um chat de origem não muda a linhagem histórica de seus filhos. Excluir todo o grupo de ramificações continua excluindo todos os chats do grupo.
 
 Os resumos diários e semanais não são levados junto. Os resumos contínuos com intervalos de mensagens persistidos totalmente contidos na ramificação copiada são levados junto e remapeados para os novos IDs de mensagem da ramificação. Os resumos cujo intervalo de origem cruza o ponto de ramificação, ou os resumos antigos sem metadados de mensagens, são deixados de fora. A nova ramificação começa esses resumos do zero.
 

@@ -13,6 +13,7 @@ Le Local Model est volontairement petit. Il sert au travail d'assistance en arri
 - Les embeddings (représentations numériques du texte) des lorebooks, ces recueils de faits sur ton univers, pour la recherche sémantique.
 - La transcription du micro dans les appels Conversation, via un modèle vocal distinct.
 
+- Répondre aux questions d'activation et aux énoncés de décision, si tu le choisis comme Decision model. Consulte [Modèles de décision](decision-models.md).
 La fenêtre de configuration l'appelle **Local AI Model**. Les menus déroulants de connexion l'appellent **Local Model (sidecar)**. C'est la même fonctionnalité.
 
 Évite le Local Model pour le chat principal, le roleplay, la narration du Game Master (le maître du jeu) et les retouches de Professor Mari. Il est trop petit pour donner de bons résultats là. Utilise plutôt une connexion plus puissante. Voir [Se connecter à un fournisseur d'IA](connecting-to-a-provider.md).
@@ -203,6 +204,7 @@ Pour plus d'aide, voir [Résoudre les problèmes de Marinara Engine](../TROUBLES
 ## Guides associés
 
 - [Se connecter à un fournisseur d'IA](connecting-to-a-provider.md)
+- [Modèles de décision](decision-models.md)
 - [Connecter un modèle local ou auto-hébergé](local-self-hosted.md)
 - [Rappel de mémoire et résumés de chat](../agents/memory.md)
 - [Appels audio et vidéo en Conversation](../conversation/calls.md)

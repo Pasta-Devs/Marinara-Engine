@@ -42,7 +42,7 @@ Ouvre le panneau **Agents**, choisis **Storyboard**, puis ouvre sa configuration
 | **Video connection** | Use the Game video connection | Génère les clips quand les animations sont activées |
 | **Automatic generation** | Still images | Définit le comportement automatique de départ des chats qui viennent d'être activés |
 | **Keyframes per turn** | 3, de 1 à 6 | Règle le nombre d'images ordonnées visé |
-| **Clip seconds** | 6, de 1 à 15 | Règle la durée demandée pour chaque clip |
+| **Clip seconds** | 5, de 1 à 15 | Règle la durée demandée pour chaque clip |
 | **Viewer display** | Floating viewer | Définit la visionneuse par défaut du Game Mode ; en Roleplay, les storyboards s'affichent toujours au fil du chat |
 | **Default Roleplay episode interval** | 1, de 1 à 100 | Détermine la quantité de nouveau contenu Roleplay accumulée entre deux épisodes automatiques |
 | **Attach Card Appearance** | On | Ajoute aux prompts d'image les détails d'apparence des personnages reconnus |
@@ -72,7 +72,7 @@ Le Roleplay assemble quatre prompts sélectionnés en une seule requête de plan
 | **Animation addon** | Simple Storyboard Motion | Ajoute le mouvement, la caméra, les dialogues et sons appuyés par le texte source, l'ambiance et une pause finale, uniquement pour les clips |
 | **Output contract** | Roleplay Keyframe JSON | Définit les champs structurés d'image-clé que renvoie le planificateur |
 
-Sous chaque sélecteur se trouve une collection modifiable. Clique sur **Add option** (ajouter une option) pour créer un prompt personnalisé, renomme-le, ajoute une courte description et modifie le corps du prompt. Tu peux à tout moment rétablir les valeurs par défaut du package pour les options intégrées.
+Ouvre **Prompt library** (Bibliothèque de prompts), repliée dans Stage 1, pour modifier ces collections complètes. Clique sur **Add option** (ajouter une option) pour créer un prompt personnalisé, renomme-le, ajoute une courte description et modifie le corps du prompt. Tu peux à tout moment rétablir les valeurs par défaut du package pour les options intégrées.
 
 ### Formateurs partagés pour les fournisseurs
 
@@ -83,7 +83,7 @@ Une fois les images planifiées, quel que soit le mode, des formateurs partagés
 | **Default image prompt** | Game Scene Illustration | Met en forme chaque image-clé planifiée pour le fournisseur d'images |
 | **Default video prompt** | Cinematic Scene Video | Met en forme la première image et le plan de mouvement pour le fournisseur de vidéos |
 
-Les choix d'image intégrés comprennent aussi **Storyboard Illustration** et **Storyboard First Frame**. Côté vidéo : **Anime Game Video**, **Comic Page Video** et **LTX Director Video**. Les chats Game et Roleplay peuvent choisir des formateurs différents sans modifier la collection de prompts partagée.
+Chaque étape numérotée a sa propre **Prompt library** repliée : Stage 2 contient les formateurs d'image, Stage 3 les planificateurs de mouvement qui tiennent compte de l'image, et Stage 4 les formateurs qui transmettent le prompt vidéo sans modification. Les choix d'image intégrés comprennent aussi **Storyboard Illustration** et **Storyboard First Frame**. Côté vidéo : **Anime Game Video**, **Comic Page Video** et **Narration Passthrough**. Les chats Game et Roleplay peuvent choisir des formateurs différents sans modifier la collection de prompts partagée.
 
 ### Valeurs par défaut globales et remplacements par chat
 
@@ -174,7 +174,7 @@ Ouvre **Chat Settings > Agents > Storyboards**.
 | **Automatic Storyboard Illustrations** | Dérivé du réglage **Automatic generation** | Images-clés fixes après chaque tour GM terminé |
 | **Automatic Storyboard Animations** | Dérivé du réglage **Automatic generation** | Clips MP4 pour chaque image-clé |
 | **Keyframes per Turn** | 3, de 1 à 6 | Nombre d'images visé ; un tour court en donne parfois moins |
-| **Animation Clip Duration** | 6 secondes, de 1 à 15 | Durée demandée pour chaque clip ; un fournisseur peut la réduire |
+| **Animation Clip Duration** | 5 secondes, de 1 à 15 | Durée demandée pour chaque clip ; un fournisseur peut la réduire |
 | **Viewer Display** | Floating | Visionneuse déplaçable ou arrière-plan de jeu plein écran |
 | **Still Planner** | Still Keyframes | Planifie des illustrations fixes abouties |
 | **Animation Planner** | Comic Page Animation | Planifie des premières images prêtes pour l'animation et des indications de mouvement |
@@ -260,7 +260,7 @@ Chaîne appliquée par le package :
 - **Illustration Planner** : Still Keyframes, en repli pour les images fixes seules
 - **Animation Planner** : LTX Simple Image-to-Video
 - **Storyboard Illustration Prompt** : Storyboard First Frame
-- **Storyboard Video Prompt** : LTX Director Video
+- **Storyboard Video Prompt** : Narration Passthrough
 - **Use Storyboard Template** : On
 
 Avec un GPU doté de 8 Go de VRAM, commence par une seule image-clé en 480p. Une fois ce premier essai réussi, passe à trois images-clés et à des résolutions supérieures. Voir [Storyboards LTX 2.3 dans Game Mode](ltx-2-3-storyboards.md) pour la connexion ComfyUI, les placeholders et la procédure de test complète.

@@ -162,6 +162,16 @@ Kliknij przycisk **Edit Prompt** (edycja promptu), żeby wpisać prompt wyłącz
 
 Czaty Game mają dodatkowo pole **Extra instructions** (dodatkowe instrukcje). Wpisany tam tekst dochodzi do promptu trybu Game. Limit wynosi 2000 znaków. Przykładowa instrukcja to "Write in the style of Terry Pratchett."
 
+<a id="decision-blocks-and-prompt-caching"></a>
+
+## Bloki decyzyjne i pamięć podręczna promptu
+
+Sekcja może zawierać blok `{{#if decision:"..."}}`, żeby część presetu była wysyłana tylko w turach, w których stwierdzenie o czacie jest prawdziwe. Zobacz [Pytanie modelu decyzyjnego](conditional-prompts.md#asking-the-decision-model).
+
+**Umieszczaj zmienne bloki decyzyjne pod koniec promptu**, na przykład w instrukcjach po historii. Zmieniona gałąź może uniemożliwić dostawcy ponowne użycie promptu od tego miejsca, więc wczesna zmiana traci większość oszczędności. Wcześniejszy niezmieniony początek nadal może się kwalifikować; niekoniecznie cały prompt jest rozliczany jako nowy. Decyzję blisko początku zachowuj tylko przy rzadkiej zmianie odpowiedzi i pasujących tam instrukcjach. Szczegóły dostawców opisuje [Pamięć podręczna promptu](conditional-prompts.md#prompt-caching).
+
+Stwierdzenia w wyłączonych sekcjach i grupach nigdy nie są zadawane i nie liczą się do **Decision statements per turn** (stwierdzenia decyzyjne na turę).
+
 ## Sprawdzanie, co dostało AI
 
 Żeby potwierdzić, który preset i które sekcje naprawdę dotarły do AI, użyj funkcji **Peek Prompt**. Pokazuje ona kompletnie złożony prompt dla danej wiadomości. To najszybszy sposób na zdiagnozowanie dziwnej odpowiedzi. Zobacz [Peek Prompt: zobacz, co dostał model AI](../chats/peek-prompt.md).

@@ -16,7 +16,7 @@ Marinara의 첫 LTX Director Storyboard 연동은 계획된 샷 하나를 고정
 
 - **LTX Director Storyboard**는 샷마다 첫 프레임 하나와 완성된 LTX 2.3 이미지-투-비디오 프롬프트 하나를 계획합니다.
 - **Storyboard First Frame**은 참조 이미지로 쓸 T=0 시점의 삽화를 정확히 서술하도록 형식을 잡습니다.
-- **LTX Director Video**는 `${narrationSummary}` 하나뿐이며, 따라서 플래너가 완성한 프롬프트를 다른 모든 워크플로와 똑같은 범용 동영상 템플릿 경로로 그대로 흘려보냅니다.
+- **Narration Passthrough**는 `${narrationSummary}` 하나뿐이며, 따라서 플래너가 완성한 프롬프트를 다른 모든 워크플로와 똑같은 범용 동영상 템플릿 경로로 그대로 흘려보냅니다.
 
 스토리보드 경로는 이 템플릿 ID를 들여다보거나, 지역 세그먼트를 만들어 내거나, LTX 전용 프롬프트 페이로드를 붙이면 안 됩니다. 선택한 동영상 템플릿은 계속 자유롭게 수정할 수 있습니다.
 
@@ -52,7 +52,7 @@ She opens the door and walks outside as the camera follows behind her. A light b
 
 1. 플래너가 샷마다 T=0 시점의 `imagePrompt` 하나와 완성된 `narrationBeat` 하나를 돌려줍니다.
 2. 스토리보드 이미지 생성이 첫 프레임 참조 삽화를 만듭니다.
-3. LTX Director Video 템플릿이 `${narrationSummary}`를 그 샷의 `narrationBeat`로 치환합니다.
+3. Narration Passthrough 템플릿이 `${narrationSummary}`를 그 샷의 `narrationBeat`로 치환합니다.
 4. 일반적인 동영상 생성 요청이 그 결과를 기존 `prompt` 필드에 담아 보냅니다.
 5. ComfyUI 어댑터가 저장된 워크플로의 `%prompt%`를 치환하고, 기존 참조 이미지와 함께 크기, 길이, 프레임 수, 시드, 모델 값을 넘깁니다.
 
@@ -89,7 +89,7 @@ She opens the door and walks outside as the camera follows behind her. A light b
 ## 수락 기준
 
 - LTX 스토리보드 플래너가 길이를 고려한 완성된 이미지-투-비디오 프롬프트 하나를 요청하며, 그 안에는 읽히는 동작 국면, 피사체 기준의 카메라 지시, 선택적인 소리나 대사가 담깁니다.
-- LTX Director Video 템플릿이 정확히 `${narrationSummary}`입니다.
+- Narration Passthrough 템플릿이 정확히 `${narrationSummary}`입니다.
 - 스토리보드 경로에 템플릿 ID 완전 일치 우회, 지역 프롬프트 정제기, LTX 전용 전달 경로가 없습니다.
 - `global_prompt: "%prompt%"`인 워크플로가 플래너의 완성된 프롬프트를 받고, `local_prompts`와 `segment_lengths`는 비어 있습니다.
 - 기존 `%global_prompt%` 워크플로도 호환성 대체 경로로 일반 요청 프롬프트를 계속 받습니다.

@@ -360,7 +360,6 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.delete(path)`             | `DELETE /api{path}` | Exclui um recurso                       |
 | `api.upload(path, FormData)`   | `POST /api{path}`   | Upload de arquivo multipart                 |
 | `api.download(path, filename)` | `GET /api{path}`    | Download com janela de salvar como          |
-| `api.stream(path, body)`       | `POST /api{path}`   | Gerador assíncrono de SSE (só tokens)     |
 | `api.streamEvents(path, body)` | `POST /api{path}`   | Gerador assíncrono de SSE (todos os tipos de evento) |
 
 Os erros lançam `ApiError`, que carrega as propriedades `status` e `message`.
@@ -596,10 +595,13 @@ A Engine, na versão leve, vem com o registro de agentes em tempo de execução 
 | `spotify`                | post_processing | Controla a reprodução do Music DJ (Spotify, YouTube ou música local)         |
 | `knowledge-retrieval`    | pre_generation  | Recupera contexto das fontes de conhecimento                                  |
 | `knowledge-router`       | pre_generation  | Encaminha as entradas de lorebook e de conhecimento relevantes                       |
+| `long-term-memory` | feature | Armazena memórias duradouras e recupera contexto relevante |
 | `haptic`                 | post_processing | Envia comandos para dispositivos hápticos                                 |
 | `cyoa`                   | post_processing | Gera prompts de escolha                                          |
+| `storyboard` | post_processing | Planeja storyboards estáticos ou animados de Game e Roleplay |
 | `conversation-calls`     | feature         | Acrescenta chamadas de áudio e vídeo ao Conversation, além das configurações relacionadas          |
 | `hierarchical-maps`      | feature         | Acrescenta mapas, contexto espacial e movimentação ao Roleplay e ao Game Mode             |
+| `noodle` | feature | Adiciona os feeds sociais locais Noodle e Slurp à Home |
 | `uno`                    | feature         | Acrescenta a mesa de UNO ao Conversation                                |
 | `chess`                  | feature         | Acrescenta o tabuleiro de Chess ao Conversation                             |
 | `poker`                  | feature         | Acrescenta a mesa de Texas Hold'em ao Conversation                         |

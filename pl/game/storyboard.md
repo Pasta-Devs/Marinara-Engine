@@ -42,7 +42,7 @@ Otwórz panel **Agents**, wybierz pakiet **Storyboard** i przejdź do jego konfi
 | **Video connection** | Use the Game video connection | Generuje klipy, gdy animacje są włączone |
 | **Automatic generation** | Still images | Ustala początkowe zachowanie automatyczne dla nowo aktywowanych czatów |
 | **Keyframes per turn** | 3, zakres 1-6 | Określa docelową liczbę uporządkowanych klatek |
-| **Clip seconds** | 6, zakres 1-15 | Określa żądaną długość każdego klipu |
+| **Clip seconds** | 5, zakres 1-15 | Określa żądaną długość każdego klipu |
 | **Viewer display** | Floating viewer | Ustala domyślny podgląd w trybie Game Mode; w trybie Roleplay storyboardy zawsze wyświetlają się w czacie |
 | **Default Roleplay episode interval** | 1, zakres 1-100 | Określa, ile nowego materiału z trybu Roleplay zbiera się między odcinkami automatycznymi |
 | **Attach Card Appearance** | On | Dodaje do promptów obrazu szczegóły wyglądu dopasowanych postaci |
@@ -72,7 +72,7 @@ Tryb Roleplay składa cztery wybrane prompty w jedno żądanie do planera.
 | **Animation addon** | Simple Storyboard Motion | Dokłada ruch, pracę kamery, dialog i dźwięk ze źródła, tło dźwiękowe oraz zatrzymanie kadru na końcu, ale tylko w klipach |
 | **Output contract** | Roleplay Keyframe JSON | Określa ustrukturyzowane pola klatki kluczowej, które zwraca planer |
 
-Pod każdą listą rozwijaną znajduje się edytowalny zbiór opcji. Kliknij przycisk **Add option**, żeby dodać własny prompt, zmień jego nazwę, dopisz krótki opis i popraw treść. Wbudowane opcje da się przywrócić do wartości domyślnych z pakietu.
+Otwórz zwiniętą **Prompt library** (bibliotekę promptów) w Stage 1, aby edytować całe te zbiory. Kliknij przycisk **Add option**, żeby dodać własny prompt, zmień jego nazwę, dopisz krótki opis i popraw treść. Wbudowane opcje da się przywrócić do wartości domyślnych z pakietu.
 
 ### Sekcja Shared provider formatters
 
@@ -83,7 +83,7 @@ Kiedy któryś z trybów zaplanuje już klatki, wspólne formatery budują końc
 | **Default image prompt** | Game Scene Illustration | Formatuje każdą zaplanowaną klatkę kluczową pod dostawcę obrazów |
 | **Default video prompt** | Cinematic Scene Video | Formatuje obraz pierwszej klatki i plan ruchu pod dostawcę wideo |
 
-Wśród wbudowanych opcji obrazu są też **Storyboard Illustration** i **Storyboard First Frame**. Wśród opcji wideo są **Anime Game Video**, **Comic Page Video** i **LTX Director Video**. Czaty w trybie Game Mode i Roleplay mogą wybrać różne formatery, nie ruszając przy tym wspólnego zbioru promptów.
+Każdy numerowany etap ma własną zwiniętą **Prompt library**: Stage 2 zawiera formatery obrazu, Stage 3 planery ruchu uwzględniające obraz, a Stage 4 formatery przekazujące prompt wideo. Wśród wbudowanych opcji obrazu są też **Storyboard Illustration** i **Storyboard First Frame**. Wśród opcji wideo są **Anime Game Video**, **Comic Page Video** i **Narration Passthrough**. Czaty w trybie Game Mode i Roleplay mogą wybrać różne formatery, nie ruszając przy tym wspólnego zbioru promptów.
 
 ### Globalne wartości domyślne i własne ustawienia czatu
 
@@ -174,7 +174,7 @@ Otwórz **Chat Settings > Agents > Storyboards**.
 | **Automatic Storyboard Illustrations** | Wynika z ustawienia Automatic generation | Nieruchome klatki kluczowe po każdej zakończonej turze GM |
 | **Automatic Storyboard Animations** | Wynika z ustawienia Automatic generation | Klipy MP4 do każdej klatki kluczowej |
 | **Keyframes per Turn** | 3, zakres 1-6 | Docelowa liczba klatek; krótka tura może dać ich mniej |
-| **Animation Clip Duration** | 6 sekund, zakres 1-15 | Żądana długość każdego klipu; dostawca może ją przyciąć |
+| **Animation Clip Duration** | 5 sekund, zakres 1-15 | Żądana długość każdego klipu; dostawca może ją przyciąć |
 | **Viewer Display** | Floating | Przeciągany podgląd albo pełne tło gry |
 | **Still Planner** | Still Keyframes | Planuje gotowe ilustracje nieruchome |
 | **Animation Planner** | Comic Page Animation | Planuje pierwsze klatki gotowe do animacji oraz wskazówki ruchu |
@@ -260,7 +260,7 @@ Własny szablon przepuszczający wysyła zwięzłe tagi NovelAI z planera i nie 
 - **Illustration Planner**: Still Keyframes jako rozwiązanie zapasowe dla samych obrazów nieruchomych
 - **Animation Planner**: LTX Simple Image-to-Video
 - **Storyboard Illustration Prompt**: Storyboard First Frame
-- **Storyboard Video Prompt**: LTX Director Video
+- **Storyboard Video Prompt**: Narration Passthrough
 - **Use Storyboard Template**: On
 
 Przy karcie GPU z 8 GB pamięci VRAM zacznij od jednej klatki kluczowej w 480p. Kiedy taka próba się powiedzie, przejdź do trzech klatek kluczowych i wyższych rozdzielczości. Połączenie z aplikacją ComfyUI, symbole zastępcze i pełną procedurę testową opisuje przewodnik [Storyboardy LTX 2.3 w Game Mode](ltx-2-3-storyboards.md).

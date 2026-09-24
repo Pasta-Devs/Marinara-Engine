@@ -12,46 +12,6 @@ Noodle to wbudowana w aplikację Marinara Engine oś czasu w stylu mediów społ
 
 Wszystkie ustawienia Noodle są globalne. Obejmują każdą personę i każdy czat, a nie pojedynczy czat. Zmiany zapisują się od razu.
 
-## NoodleR Access
-
-- **Enable NoodleR** (włączenie NoodleR): przełącznik, domyślnie **off**. Włącz go, żeby odsłonić centrum kont NoodleR. Dopóki jest wyłączony, otwarcie NoodleR pokazuje ekran zgody, zapytania o konta NoodleR są niedostępne, a dane kont NoodleR pozostają oddzielone od osi czasu Noodle.
-
-NoodleR i Noodle to dwie osobne symulowane aplikacje, a każde konto należy dokładnie do jednej z nich. Ten podział trzyma treści NoodleR z dala od osi czasu Noodle, ale **nie** jest funkcją prywatności ani zabezpieczeniem. Tak czy inaczej wszystko zostaje na tym urządzeniu i każdy, kto ma dostęp do aplikacji lub jej folderu z danymi, może to przeczytać. To, kto może przeczytać konkretny wpis w NoodleR, ustawia się osobno dla każdego wpisu – zobacz sekcję **Subscriptions and post access** poniżej.
-
-Ekran **Manage stage profiles** (zarządzanie profilami scenicznymi), dostępny przez **Noodle Settings** > **NoodleR Access**, wypisuje profile sceniczne dostępne w tej instalacji, razem ze stanami wczytywania, błędu i pustej listy. Profil sceniczny należy do jednej publicznej persony albo do konta postaci, ale ma własną nazwę, własny identyfikator, opis, głos sceniczny i tryb ujawniania. Konta NoodleR utworzone przed wprowadzeniem profili scenicznych pokazują **Setup needed**, dopóki ich profil nie zostanie uzupełniony.
-
-### Ujawnianie tożsamości scenicznej
-
-Ujawnianie decyduje o tym, jak powiązana publiczna tożsamość może pojawić się w profilu scenicznym i we wpisie wygenerowanym przez AI. Nie decyduje o tym, kto może zobaczyć profil albo wpis.
-
-- **Publicly connected (Open)**: profil sceniczny może otwarcie być tą samą osobą. Generowany tekst i prompty obrazów mogą używać powiązanej publicznej nazwy, identyfikatora i rozpoznawalnej ciągłości.
-- **Inspired alter ego (Hinted)**: ogólna osobowość, zainteresowania i motywy mogą się przenieść, ale dokładna publiczna nazwa i identyfikator znikają z kontekstu generowania, a przed zapisem wpisu są odfiltrowywane z wygenerowanego tekstu i promptów obrazów. Charakterystyczne cechy nadal mogą wydawać się rozpoznawalne. Na profilu twórcy najedź kursorem na plakietkę **Hinted**, zaznacz ją klawiaturą albo dotknij, żeby odsłonić powiązaną tożsamość Noodle.
-- **Separate persona (Secret)**: powiązana tożsamość służy wyłącznie jako poufna inspiracja przy pisaniu. Generowanie profilu dostaje skrócony, nieidentyfikujący opis i omija kanoniczne zawody, relacje, miejsca, charakterystyczne powiedzonka i wyróżniające szczegóły. Dokładne identyfikatory są dodatkowo odfiltrowywane z wygenerowanego wyniku. To nie jest formalna gwarancja anonimowości, więc przejrzyj wersję roboczą przed zapisaniem.
-
-Użyj przycisku **New profile** na ekranie **Manage stage profiles**, żeby wyszukać i wybrać pasującą postać albo personę. Konfiguracja wyjaśnia następnie zasady ujawniania i prosi o wybór Open, Hinted albo Secret, zanim pokaże edytowalny formularz profilu scenicznego. Formularz można wypełnić samodzielnie albo poprosić AI o wersję roboczą przygotowaną na podstawie postaci źródłowej, wybranego trybu ujawniania i opcjonalnych wskazówek. AI nigdy nie zapisuje wersji roboczej automatycznie – przejrzyj pola i samodzielnie wybierz **Save stage profile**. Otwórz istniejący profil i wybierz **Edit profile**, żeby zmienić jego prezentację albo ponownie wypełnić bieżącą wersję roboczą przy pomocy AI. Profile z trybem Hinted pokazują odwiedzającym tylko wyświetlaną nazwę i identyfikator powiązanej tożsamości, i to wyłącznie przez celową podpowiedź na plakietce; nie ujawniają identyfikatora konta. Profile z trybem Secret nie ujawniają odwiedzającym żadnych danych powiązanej tożsamości.
-
-### Wpisy NoodleR z pomocą AI
-
-Każdy profil sceniczny ma wbudowane, zwinięte pole tworzenia wpisów NoodleR. Wpisz opcjonalny tytuł i treść, a potem wybierz **Post**, żeby opublikować dokładnie te wartości bez udziału dostawcy. Wymagana jest treść, obraz albo ankieta, więc sam obraz lub sama ankieta z dwiema do czterech opcji też wystarczy do publikacji. Wgrane obrazy trafiają do własnego magazynu multimediów NoodleR, a nie do galerii Noodle.
-
-Wybierz **Guide**, żeby przekształcić bieżący szkic tytułu i treści przez istniejący generator NoodleR. Zachowuje on wybrany obraz, ankietę, poziom dostępu i cenę PPV, a wygenerowany wynik obejmuje wyłącznie tytuł i treść – załączników nie generuje ani nie podmienia. Nieopublikowane pliki obrazów i adresy URL zostają w bieżącej wersji roboczej po stronie aplikacji, dopóki Post albo Guide się nie powiedzie. Jeśli Post, Guide lub zapis multimediów zawiedzie, bieżąca wersja robocza pozostaje dostępna do poprawienia albo ponownej próby.
-
-Poziom dostępu wpisu chroni cały wpis. Zablokowane wpisy dla subskrybentów i wpisy PPV nie ujawniają swojego obrazu, opcji ankiety ani głosów. Odwiedzający, który może przeczytać wpis, może zagłosować raz i później zmienić ten głos; persona powiązana z twórcą nie może głosować na wpisie własnego profilu scenicznego.
-
-## Subskrypcje i dostęp do wpisów
-
-Centrum NoodleR zawsze pokazuje strony twórców z perspektywy persony wybranej globalnie. Subskrypcje i odblokowania PPV należą do tej persony, więc zmiana aktywnej persony może zmienić to, którzy twórcy i które wpisy są dostępne. Do tworzenia, edytowania i usuwania własnych profili scenicznych służy natomiast **Noodle Settings** > **NoodleR Access** > **Manage stage profiles**.
-
-Przy przygotowywaniu wpisu przez Guide wybierz jeden poziom dostępu:
-
-- **Public**: wpis może przeczytać każda persona, która widzi dany profil sceniczny.
-- **Subscribers**: wpis pozostaje zablokowany, dopóki wybrana persona odwiedzającego nie zasubskrybuje tego profilu scenicznego.
-- **PPV**: wpis ma symulowaną cenę i pozostaje zablokowany, dopóki ta persona go nie odblokuje. Żadna prawdziwa płatność nie jest realizowana.
-
-Każdy profil sceniczny ma własne ustawienia **Subscriber access**. Opcja **Subscriptions include PPV** pozwala subskrybentom czytać wpisy PPV tego profilu bez odblokowywania każdego z osobna. Domyślnie jest wyłączona. Opcja **Hidden from personas** usuwa profil sceniczny i wszystkie jego wpisy z widoku wybranych person, razem z możliwością bezpośredniej subskrypcji i odblokowania. Ustawienia ukrycia dotyczą wyłącznie profilu scenicznego NoodleR i nie ukrywają powiązanego publicznego konta Noodle.
-
-Użyj przycisku **Delete profile** przy zarządzanym profilu scenicznym, żeby usunąć ten profil, wszystkie opublikowane pod nim wpisy, jego subskrypcje oraz zapisy odblokowań PPV. Powiązane publiczne konto Noodle nie zostaje usunięte i może później posłużyć do utworzenia nowego profilu scenicznego.
-
 ## Invites
 
 Sekcja **Invites** (zaproszenia) decyduje o tym, które postacie mogą wziąć udział w odświeżeniu Noodle. Odświeżenie to moment, w którym AI pisze paczkę wpisów, odpowiedzi, udostępnień i polubień dla zaproszonych kont.
@@ -78,24 +38,6 @@ Sekcja **Refresh** (odświeżanie) steruje połączeniem AI, którym Noodle pisz
 Kiedy **Refreshes/day** ma wartość powyżej 0, Marinara dzieli dobę na równe okna i losuje jedną godzinę w każdym z nich. Zaplanowane godziny razem ze strefą czasową widać w sekcji **Automatic schedule**. Kliknij ikonę ołówka obok przyszłej godziny, żeby przenieść ją na inną. Godzin minionych, zrealizowanych i powtórzonych nie da się wybrać.
 
 Automatyczne odświeżenia działają wewnątrz serwera Marinara. Strona Noodle nie musi być otwarta, ale sama aplikacja Marinara Engine musi działać. Jeśli odświeżenie się nie uda, harmonogram pokazuje błąd i ponawia próbę później, a po kolejnych niepowodzeniach czeka coraz dłużej. Jeśli kilka zaplanowanych godzin przepadnie, jedno udane odświeżenie nadrabiające pokrywa je wszystkie, zamiast zalewać oś czasu.
-
-## Automatyczne publikowanie w NoodleR
-
-To harmonogram oddzielny od sekcji **Refresh** powyżej. **Refresh** obsługuje publiczną oś czasu Noodle, a ten harmonogram — twórców NoodleR. Pojawia się w **Noodle Settings** > **Publishing** po włączeniu **Enable NoodleR**.
-
-Zamiast publikować o pełnej godzinie, NoodleR przygotowuje posty z wyprzedzeniem w małej rezerwie i publikuje każdy w zaplanowanym czasie. Dlatego twórca może pokazywać czas następnego posta, zanim sam post powstanie.
-
-- **Automatic posting schedule**: przełącznik, domyślnie **on**. Wyłączenie zatrzymuje całe automatyczne publikowanie w NoodleR. Przygotowane posty, których termin minie w tym czasie, zostaną wycofane zamiast opublikowane z opóźnieniem.
-- **Posts/day**: liczba od 1 do 24, domyślnie **4**. Dzienny limit automatycznych prób tekstowych; ten sam limit dotyczy prób obrazowych. Ręczne publikowanie i **Refresh NoodleR now** nie są wliczane.
-- **Night quiet**: przełącznik, domyślnie **on**. Twórcy powiązani z **postacią** nie dostają terminów między 23:00 a 07:00 czasu lokalnego. Twórcy powiązani z personą nie podlegają temu ograniczeniu.
-- **Text attempts** oraz **Image attempts**: pola tylko do odczytu pokazujące dzisiejsze użycie limitu **Posts/day**.
-- **Prepared posts**: pole tylko do odczytu pokazujące liczbę postów w rezerwie i najpóźniejszy zaplanowany termin.
-- **Refresh all now**: od razu pisze po jednym poście dla każdego twórcy z włączonym **Automatic**. Twórcy z wyłączoną opcją nie są uwzględniani ani zgłaszani; zajęci są pomijani. Taki post wycofuje przygotowany post tego twórcy przypadający w ciągu następnej godziny.
-- **Per creator**: każdy wiersz ma przełączniki **Automatic** i **Images**. Twórcy utworzeni poza konfiguracją prowadzoną zaczynają z oboma na **off**; konfiguracja prowadzona stosuje wybrane tam wartości. Wyłączenie **Automatic** pozostawia tylko publikowanie ręczne.
-
-Automatyczne odpowiedzi twórców mają osobny limit 10 odpowiedzi w ruchomych 24 godzinach dla całej instalacji, wspólny dla wszystkich twórców, a nie po 10 na twórcę.
-
-Automatyczne publikowanie działa na serwerze Marinara Engine. Aplikacja musi działać, ale strona NoodleR nie musi pozostawać otwarta.
 
 ## Active Accounts
 
@@ -210,16 +152,9 @@ Ta tabela wypisuje każde ustawienie Noodle razem z wartością domyślną i zak
 
 | Ustawienie | Domyślnie | Zakres lub opcje |
 |---|---|---|
-| **Enable NoodleR** | off | on lub off |
 | **Generation connection** | brak | dowolne połączenie tekstowe (wymagane do odświeżenia) |
 | **Professor Mari participates** | on | on lub off |
 | **Refreshes/day** | 2 | 0 do 24 (0 wyłącza automatyczne odświeżenia) |
-| **Automatic posting schedule** | on | on lub off |
-| **Posts/day** | 4 | 1 do 24 |
-| **Night quiet** | on | twórcy-postacie pomijają 23:00–07:00 |
-| **Automatic** dla twórcy | off | konfiguracja prowadzona może je włączyć |
-| **Images** dla twórcy | off | konfiguracja prowadzona może je włączyć |
-| Automatyczne odpowiedzi twórców | 10 na 24 godziny | dla całej instalacji, nie na twórcę |
 | **Active selection** | Random range | Random range, Exact count, All invited |
 | **Min active** | 2 | 1 do 100 (tylko przy Random range) |
 | **Max active** | 5 | 1 do 100 (tylko przy Random range) |

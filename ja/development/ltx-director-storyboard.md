@@ -16,7 +16,7 @@ Marinaraが最初にLTX Director Storyboardを組み込んだとき、計画し�
 
 - **LTX Director Storyboard**(絵コンテを計画するテンプレート)は、ショットごとに最初のフレームと、LTX 2.3向けの完結したimage-to-videoプロンプトを1つずつ計画します。
 - **Storyboard First Frame**(最初のフレーム用テンプレート)は、参照画像として使うT=0の挿絵そのものを整形します。
-- **LTX Director Video**(動画プロンプト用テンプレート)は`${narrationSummary}`だけで構成し、プランナーが仕上げたプロンプトを、ほかのすべてのワークフローと共通の汎用動画テンプレート経路にそのまま通します。
+- **Narration Passthrough**(動画プロンプト用テンプレート)は`${narrationSummary}`だけで構成し、プランナーが仕上げたプロンプトを、ほかのすべてのワークフローと共通の汎用動画テンプレート経路にそのまま通します。
 
 絵コンテのルートは、これらのテンプレートIDを調べることも、ローカルセグメントを作り出すことも、LTX専用のプロンプトペイロードを付けることもしません。選択した動画テンプレートは、引き続き自由にカスタマイズできます。
 
@@ -52,7 +52,7 @@ She opens the door and walks outside as the camera follows behind her. A light b
 
 1. プランナーは、ショットごとにT=0の`imagePrompt`を1つと、完結した`narrationBeat`を1つ返します。
 2. 絵コンテの画像生成が、最初のフレームとなる参照用の挿絵を作ります。
-3. LTX Director Videoテンプレートが、`${narrationSummary}`をそのショットの`narrationBeat`に解決します。
+3. Narration Passthroughテンプレートが、`${narrationSummary}`をそのショットの`narrationBeat`に解決します。
 4. 通常の動画生成リクエストが、その結果を既存の`prompt`項目に載せて運びます。
 5. ComfyUIのアダプターが、保存済みワークフロー内の`%prompt%`を置き換え、既存の参照画像、寸法、長さ、フレーム数、シード、モデルの各値を渡します。
 
@@ -89,7 +89,7 @@ She opens the door and walks outside as the camera follows behind her. A light b
 ## 受け入れ基準
 
 - LTXの絵コンテのプランナーは、読み取りやすい動作の局面、被写体を基準にしたカメラの指示、任意の音やせりふを含んだ、尺を踏まえた完結したimage-to-videoプロンプトを1つ要求します。
-- LTX Director Videoテンプレートの中身は`${narrationSummary}`だけです。
+- Narration Passthroughテンプレートの中身は`${narrationSummary}`だけです。
 - 絵コンテのルートには、テンプレートIDの完全一致による迂回も、ローカルプロンプトのサニタイザーも、LTX専用の受け渡しもありません。
 - `global_prompt: "%prompt%"`を持つワークフローは、プランナーが仕上げた完結したプロンプトを受け取り、`local_prompts`と`segment_lengths`は空のままです。
 - 既存の`%global_prompt%`ワークフローも、互換性のためのフォールバックとして通常のリクエストのプロンプトを受け取ります。

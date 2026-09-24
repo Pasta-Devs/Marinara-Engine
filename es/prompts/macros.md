@@ -38,7 +38,7 @@ Estas macros traen los nombres y los campos de la tarjeta de la persona que habl
 | `{{user}}` / `{{userName}}` | Tu nombre visible actual (o el nombre de la persona). El valor predeterminado es `User` cuando no hay ninguna persona definida. |
 | `{{userNamePhonetic}}` | El nombre Phonetic de tu persona, o `{{user}}` cuando está vacío. |
 | `{{char}}` / `{{charName}}` | El nombre del personaje actual. El valor predeterminado es `Character`. |
-| `{{<21-character-card-ID>}}` | Sintaxis de marcador de posición para el nombre de otra tarjeta de personaje. Reemplaza el texto entre corchetes angulares por el ID exacto de 21 caracteres de esa tarjeta. |
+| `{{21-character-card-ID}}` | Nombre de otro personaje. Reemplaza el texto del marcador por el ID exacto de 21 caracteres de su tarjeta para incluirla en el contexto. |
 | `{{persona-21-character-card-ID}}` | Sintaxis de marcador de posición para el nombre de otra persona. Reemplaza el texto después de `persona-` por el ID exacto de 21 caracteres de esa tarjeta para incluir el contexto de su tarjeta. |
 | `{{charNamePhonetic}}` | El nombre Phonetic del personaje, o `{{char}}` cuando está vacío. |
 | `{{characters}}` | Todos los personajes del chat, unidos por comas. |
@@ -69,7 +69,7 @@ En un chat con un solo personaje, estas se resuelven contra ese personaje. En un
 
 El campo del nombre Phonetic tiene dos funciones. Define cómo pronuncia el nombre el text-to-speech. También alimenta a `{{charNamePhonetic}}` y `{{userNamePhonetic}}`. Lo encontrarás tanto en el **Character Editor** como en el **Persona Editor**.
 
-Para referirte a un personaje que no está en el chat actual, copia el ID de esa tarjeta y ponlo directamente dentro de llaves dobles, como `{{V1StGXR8_Z5jdHi6B-myT}}`. Marinara reemplaza la macro por el nombre de la tarjeta y agrega al prompt de sistema el contexto de personaje de la tarjeta referida. Los saludos iniciales y el diálogo de ejemplo de esa tarjeta quedan fuera. Los lorebooks activados que estén vinculados a esa tarjeta siguen sujetos a sus reglas normales de palabras clave, entradas **Constant**, filtros, probabilidad y presupuesto de tokens.
+Para referirte a un personaje que no está en el chat actual, copia el ID de su tarjeta y colócalo directamente entre llaves dobles, como `{{V1StGXR8_Z5jdHi6B-myT}}`. No incluyas los caracteres literales `<` o `>`. Marinara reemplaza la macro por el nombre del personaje y añade Description, Personality, Appearance, Backstory, Scenario y Example Dialogue de la tarjeta al prompt de sistema. Funciona en mensajes del chat, campos de prompt y entradas activadas de lorebook. Se excluyen los saludos iniciales de la tarjeta. Los lorebooks activados vinculados a ella conservan sus reglas normales de palabras clave, constant, filtros, probabilidad y presupuesto de tokens.
 
 Para referirte a una persona inactiva, antepón `persona-` al ID copiado, por ejemplo `{{persona-P1StGXR8_Z5jdHi6B-myT}}`. Marinara reemplaza la macro por el nombre de la persona y añade sus campos Description, Personality, Appearance, Backstory y Scenario a ID Macro Cards. Los lorebooks adjuntos siguen sus reglas normales de activación.
 
@@ -128,6 +128,14 @@ La macro `{{agent::TYPE}}` inserta la salida guardada de un agente (un ayudante 
 Las entradas Outlet siguen usando la activación normal de los lorebooks. Las palabras clave, el modo Constant, la probabilidad, los filtros, los tiempos, los límites de entradas y los presupuestos de tokens deciden si una entrada está activa para la generación actual. Las entradas activas con el mismo nombre de Outlet se unen según su **Order**, separadas por saltos de línea. Solo se insertan en la macro; no se añaden también en una posición normal del lorebook.
 
 Usa las macros Outlet en secciones de prompt de los modos Conversation, Roleplay o Game. La macro funciona aunque aparezca antes del marcador de lorebook del preset, y un preset no necesita un marcador de lorebook si solo utiliza entradas Outlet. Un Outlet desconocido o inactivo se resuelve como texto vacío. Una entrada Outlet no puede expandir otra macro Outlet, por lo que los Outlets anidados no son recursivos.
+
+## Macro de tamaño de lorebook
+
+`{{lorebooksize::ID}}` se resuelve como el número total de entradas del lorebook con ese ID. Reemplaza `ID` por el ID real del lorebook; cópialo desde el panel Lorebooks. Por ejemplo, si su ID es `V1StGXR8_Z5jdHi6B-myT` y contiene 151 entradas, `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}` se resuelve como `151`.
+
+Los IDs desconocidos se resuelven como `0`. El recuento incluye todas las entradas, estén activadas, desactivadas o en carpetas.
+
+Usa esta macro en secciones de prompt, campos de tarjetas de personaje, contenido de entradas de lorebook o cualquier lugar donde se resuelvan macros.
 
 ## Macros de tiempo
 
@@ -229,6 +237,8 @@ Cada campo con macros habilitadas tiene dos botones pequeños en su esquina:
 También puedes escribir `/macros` en el cuadro de chat (la forma corta `/macro` también funciona). Imprime la lista completa de macros directamente en el chat como recordatorio rápido.
 
 Los bloques condicionales pueden combinar comparaciones con `||` (OR), `&&` (AND) y paréntesis. Las listas de igualdad pueden usar la forma compacta `{{#if character == "Maukie" || "Pantalone"}}`. Consulta [Prompts condicionales](conditional-prompts.md) para la precedencia, ejemplos de chat grupal y la lista completa de operadores.
+
+Una condición también puede consultar a tu Decision model sobre la escena: `{{#if decision:"The latest message moves the scene to a new place"}}` para sí o no y `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}` para elegir una opción. Sin Decision model o sin respuesta, se interpretan como no. Consulta [Consultar al Decision model](conditional-prompts.md#asking-the-decision-model). Añade `sticky:3 cooldown:5` después de una declaración para conservar un sí tres turnos y dejarla descansar cinco; consulta [Sticky y cooldown](conditional-prompts.md#sticky-and-cooldown). `every:3` pregunta solo cada tres turnos, y `priority:high` o `priority:low` decide cuáles caben en un plan de prompt; consulta [Comprobar cada varios turnos](conditional-prompts.md#checking-every-few-turns), [Prioridad](conditional-prompts.md#priority) y [Límites y costo](conditional-prompts.md#limits-and-cost).
 
 ## Errores comunes
 

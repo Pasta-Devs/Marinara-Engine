@@ -360,7 +360,6 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.delete(path)`             | `DELETE /api{path}` | リソースを削除                       |
 | `api.upload(path, FormData)`   | `POST /api{path}`   | multipartでのファイルアップロード                 |
 | `api.download(path, filename)` | `GET /api{path}`    | ダウンロードと保存先ウィンドウの表示          |
-| `api.stream(path, body)`       | `POST /api{path}`   | SSEの非同期ジェネレーター(トークンのみ)     |
 | `api.streamEvents(path, body)` | `POST /api{path}`   | SSEの非同期ジェネレーター(すべてのイベント種別) |
 
 エラーは`ApiError`としてthrowされます。`status`と`message`のプロパティーを持ちます。
@@ -596,10 +595,13 @@ Personal Extensionsは、サーバーに保存され、ハッシュの完全一�
 | `spotify`                | post_processing | Music DJの再生を制御する(Spotify、YouTube、ローカルの音楽)     |
 | `knowledge-retrieval`    | pre_generation  | 知識ソースからコンテキストを取得する                       |
 | `knowledge-router`       | pre_generation  | 関連するロアブックと知識のエントリーを振り分ける                    |
+| `long-term-memory` | feature | 永続的なメモリーを保存し、関連するコンテキストを呼び出します |
 | `haptic`                 | post_processing | ハプティックデバイスへコマンドを送る                                |
 | `cyoa`                   | post_processing | 選択肢のプロンプトを生成する                                    |
+| `storyboard` | post_processing | 静止画またはアニメーションのGame・Roleplayストーリーボードを計画します |
 | `conversation-calls`     | feature         | Conversationに音声/動画通話と関連設定を追加する          |
 | `hierarchical-maps`      | feature         | RoleplayとGame Modeにマップ、空間的なコンテキスト、移動を追加する             |
+| `noodle` | feature | ローカルのNoodleとSlurpのソーシャルフィードをHomeに追加します |
 | `uno`                    | feature         | ConversationにUNOのテーブルを追加する                               |
 | `chess`                  | feature         | ConversationにChessの盤面を追加する                              |
 | `poker`                  | feature         | ConversationにTexas Hold'emのテーブルを追加する                         |
@@ -611,7 +613,7 @@ Personal Extensionsは、サーバーに保存され、ハッシュの完全一�
 
 エージェントは型付きの結果を返し、フロントエンドがそれを処理します。`packages/shared/src/types/agent.ts`の`AgentResultType`ユニオンには次の値が含まれます。
 
-`game_state_update`、`text_rewrite`、`sprite_change`、`echo_message`、`quest_update`、`image_prompt`、`context_injection`、`continuity_check`、`director_event`、`lorebook_update`、`character_card_update`、`background_change`、`character_tracker_update`、`persona_stats_update`、`custom_tracker_update`、`spotify_control`、`youtube_control`、`local_music_control`、`haptic_command`、`cyoa_choices`、`secret_plot`、`game_master_narration`、`party_action`、`game_map_update`、`game_state_transition`、`prompt_patch`、`frontend_theme_update`、`about_me_update`。
+`game_state_update`、`text_rewrite`、`sprite_change`、`echo_message`、`quest_update`、`image_prompt`、`context_injection`、`continuity_check`、`director_event`、`lorebook_update`、`character_card_update`、`background_change`、`character_tracker_update`、`persona_stats_update`、`custom_tracker_update`、`inventory_tracker_update`、`spotify_control`、`youtube_control`、`local_music_control`、`haptic_command`、`cyoa_choices`、`secret_plot`、`game_master_narration`、`party_action`、`game_map_update`、`game_state_transition`、`prompt_patch`、`frontend_theme_update`、`about_me_update`。
 
 ## チャットのモード
 

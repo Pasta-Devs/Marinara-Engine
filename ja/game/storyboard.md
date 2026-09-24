@@ -42,7 +42,7 @@ Chat SettingsにStoryboardが出てこないときは、パッケージがイン
 | **Video connection** | Use the Game video connection | アニメーションが有効なときにクリップを生成します |
 | **Automatic generation** | Still images | 新しく有効にしたチャットで最初に使う自動生成の動作を決めます |
 | **Keyframes per turn** | 3(範囲は1から6) | 目標とするフレームの枚数を決めます |
-| **Clip seconds** | 6(範囲は1から15) | クリップ1本ごとに要求する長さを決めます |
+| **Clip seconds** | 5(範囲は1から15) | クリップ1本ごとに要求する長さを決めます |
 | **Viewer display** | Floating viewer | Game Modeのビューアーのデフォルトを決めます。Roleplayの絵コンテは常にチャット内にそのまま表示します |
 | **Default Roleplay episode interval** | 1(範囲は1から100) | 自動エピソードの間にRoleplayの新しい本文をどれだけためるかを決めます |
 | **Attach Card Appearance** | On | 該当するキャラクターの外見の情報を画像プロンプトに加えます |
@@ -72,7 +72,7 @@ Roleplayでは、選んだ4つのプロンプトを組み合わせて1回分の�
 | **Animation addon** | Simple Storyboard Motion | クリップのときだけ、動き、カメラ、元になるセリフと効果音、環境音、終わりの静止を加えます |
 | **Output contract** | Roleplay Keyframe JSON | プランナーが返すキーフレームの項目構成を定義します |
 
-各選択欄の下には、編集できる一覧があります。自作のプロンプトを足すときは**Add option**を使い、名前の変更、短い説明の追加、プロンプト本文の編集ができます。組み込みの選択肢は、パッケージのデフォルトに戻せます。
+これらの全コレクションは、Stage 1内の折りたたまれた**Prompt library**(プロンプトライブラリー)で編集します。**Add option**(候補を追加)で独自プロンプトを追加し、名前、短い説明、本文を編集してください。組み込みの候補はパッケージのデフォルトに戻せます。
 
 ### Shared provider formatters(共通のプロバイダー向け整形プロンプト)
 
@@ -83,7 +83,7 @@ Roleplayでは、選んだ4つのプロンプトを組み合わせて1回分の�
 | **Default image prompt** | Game Scene Illustration | 計画された各キーフレームを画像プロバイダー向けに整形します |
 | **Default video prompt** | Cinematic Scene Video | 最初のフレームの画像と動きの計画を動画プロバイダー向けに整形します |
 
-組み込みの画像側の選択肢には、ほかに**Storyboard Illustration**と**Storyboard First Frame**があります。動画側には**Anime Game Video**、**Comic Page Video**、**LTX Director Video**があります。GameとRoleplayのチャットは、土台となる共通のプロンプト一覧を変えずに、それぞれ別の整形プロンプトを選べます。
+番号付きの各ステージには独立した折りたたみ式**Prompt library**があります。Stage 2は画像整形、Stage 3は画像を考慮した動作計画、Stage 4は動画の受け渡し用整形を管理します。組み込み画像候補には**Storyboard Illustration**と**Storyboard First Frame**もあります。動画候補は**Anime Game Video**、**Comic Page Video**、**Narration Passthrough**です。GameとRoleplayのチャットは、共通のプロンプトコレクションを変更せずに異なる整形を選べます。
 
 ### 全体のデフォルトとチャットごとの上書き
 
@@ -174,7 +174,7 @@ Generationの設定で**Expose image prompts before sending**を有効にして�
 | **Automatic Storyboard Illustrations** | Automatic generationから決まります | GMのターンが終わるたびに静止画のキーフレームを作ります |
 | **Automatic Storyboard Animations** | Automatic generationから決まります | キーフレームごとにMP4のクリップを作ります |
 | **Keyframes per Turn** | 3(範囲は1から6) | 目標とするフレームの枚数。ターンが短いと枚数が減ることがあります |
-| **Animation Clip Duration** | 6秒(範囲は1から15) | クリップ1本ごとに要求する長さ。プロバイダー側で短く丸められることがあります |
+| **Animation Clip Duration** | 5秒(範囲は1から15) | クリップ1本ごとに要求する長さ。プロバイダー側で短く丸められることがあります |
 | **Viewer Display** | Floating | ドラッグできるビューアーか、Game全体の背景か |
 | **Still Planner** | Still Keyframes | 完成した静止画のイラストを計画します |
 | **Animation Planner** | Comic Page Animation | アニメーション向きの最初のフレームと動きの指示を計画します |
@@ -260,7 +260,7 @@ Gameのチェックリストは次のとおりです。
 - **Illustration Planner**: Still Keyframes(静止画だけの場合の受け皿)
 - **Animation Planner**: LTX Simple Image-to-Video
 - **Storyboard Illustration Prompt**: Storyboard First Frame
-- **Storyboard Video Prompt**: LTX Director Video
+- **Storyboard Video Prompt**: Narration Passthrough
 - **Use Storyboard Template**: On
 
 VRAMが8 GBのGPUでは、480pのキーフレーム1枚から始めます。それが問題なく完了したら、キーフレーム3枚やより高い解像度へ進めます。ComfyUIの接続、プレースホルダー、確認手順の全体は[Game ModeのLTX 2.3絵コンテ](ltx-2-3-storyboards.md)を参照してください。

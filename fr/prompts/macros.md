@@ -38,7 +38,7 @@ Ces macros récupèrent les noms et les champs de fiche de celui qui parle et du
 | `{{user}}` / `{{userName}}` | Le nom affiché du moment (ou le nom du persona). Par défaut `User` si aucun persona n'est défini. |
 | `{{userNamePhonetic}}` | Le champ Phonetic name du persona, ou `{{user}}` s'il est vide. |
 | `{{char}}` / `{{charName}}` | Le nom du personnage en cours. Par défaut `Character`. |
-| `{{<21-character-card-ID>}}` | Syntaxe indicative pour le nom d'une autre fiche de personnage. Remplace le texte entre chevrons par l'ID exact de 21 caractères de cette fiche. |
+| `{{21-character-card-ID}}` | Nom d'un autre personnage. Remplace le texte indicatif par l'identifiant exact de 21 caractères de sa fiche pour l'inclure dans le contexte. |
 | `{{persona-21-character-card-ID}}` | Syntaxe indicative pour le nom d'un autre persona. Remplace le texte après `persona-` par l'ID exact de 21 caractères de cette fiche afin d'en récupérer le contexte. |
 | `{{charNamePhonetic}}` | Le champ Phonetic name du personnage, ou `{{char}}` s'il est vide. |
 | `{{characters}}` | Tous les personnages du chat, séparés par des virgules. |
@@ -69,7 +69,7 @@ Dans un chat avec un seul personnage, elles se résolvent d'après ce personnage
 
 Le champ Phonetic name a deux rôles. Il fixe la prononciation du nom par la synthèse vocale (Text to Speech). Il alimente aussi `{{charNamePhonetic}}` et `{{userNamePhonetic}}`. Tu le trouves à la fois dans l'éditeur **Character Editor** et dans l'éditeur **Persona Editor**.
 
-Pour faire référence à un personnage absent du chat en cours, copie l'ID de sa fiche et place-le directement entre doubles accolades, par exemple `{{V1StGXR8_Z5jdHi6B-myT}}`. Marinara remplace la macro par le nom de la fiche et ajoute au prompt système le contexte de personnage de la fiche référencée. Les messages d'accueil et les exemples de dialogue de cette fiche sont exclus. Les lorebooks activés rattachés à cette fiche restent soumis à leurs règles habituelles de mots-clés, d'entrées **Constant**, de filtres, de probabilité et de budget de tokens.
+Pour référencer un personnage absent du chat actuel, copie l'identifiant de sa fiche directement entre doubles accolades, comme `{{V1StGXR8_Z5jdHi6B-myT}}`. N'inclus pas les caractères littéraux `<` ou `>`. Marinara remplace la macro par le nom du personnage et ajoute les champs Description, Personality, Appearance, Backstory, Scenario et Example Dialogue de la fiche au prompt système. Cela fonctionne dans les messages, les champs de prompt et les entrées de lorebook activées. Les salutations initiales sont exclues. Les lorebooks activés rattachés à la fiche conservent leurs règles ordinaires de mots-clés, constant, filtres, probabilité et budget de tokens.
 
 Pour faire référence à un persona inactif, ajoute `persona-` devant l'ID copié, par exemple `{{persona-P1StGXR8_Z5jdHi6B-myT}}`. Marinara remplace la macro par le nom du persona et ajoute ses champs Description, Personality, Appearance, Backstory et Scenario aux ID Macro Cards. Les lorebooks joints suivent toujours leurs règles d'activation habituelles.
 
@@ -128,6 +128,14 @@ La macro `{{agent::TYPE}}` insère le résultat enregistré d'un agent, c'est-à
 Les entrées d'outlet suivent l'activation normale des lorebooks. Les mots-clés, le mode Constant, la probabilité, les filtres, le timing, les limites d'entrées et les budgets de tokens décident si une entrée est active pour la génération en cours. Les entrées actives portant le même nom d'outlet sont assemblées selon leur champ **Order**, séparées par des retours à la ligne. Elles sont insérées uniquement à l'emplacement de la macro, et pas en plus à une position de lorebook classique.
 
 Les macros d'outlet s'utilisent dans les sections de prompt des modes Conversation, Roleplay et Game. La macro fonctionne même si elle apparaît avant le marqueur de lorebook du preset, et un preset n'a pas besoin de marqueur de lorebook s'il n'utilise que des entrées d'outlet. Un outlet inconnu ou inactif donne un résultat vide. Une entrée d'outlet ne peut pas développer une autre macro d'outlet : les outlets imbriqués ne sont donc pas récursifs.
+
+## Macro de taille du lorebook
+
+`{{lorebooksize::ID}}` donne le nombre total d'entrées du lorebook portant cet identifiant. Remplace `ID` par son identifiant réel, à copier depuis le panneau Lorebooks. Par exemple, avec l'identifiant `V1StGXR8_Z5jdHi6B-myT` et 151 entrées, `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}` donne `151`.
+
+Les identifiants inconnus donnent `0`. Le compte inclut toutes les entrées, activées, désactivées ou dans des dossiers.
+
+Utilise cette macro dans les sections de prompt, les champs de fiches de personnage, le contenu des entrées de lorebook ou tout endroit où les macros sont résolues.
 
 ## Macros de temps
 
@@ -229,6 +237,8 @@ Chaque champ compatible avec les macros porte deux petits boutons dans son coin 
 Autre option : saisir `/macros` dans le champ de saisie du chat (la forme courte `/macro` marche aussi). La liste complète des macros s'affiche directement dans le chat, en guise de pense-bête.
 
 Les blocs conditionnels peuvent combiner des comparaisons avec `||` (OU), `&&` (ET) et des parenthèses. Les listes d'égalité acceptent la forme compacte `{{#if character == "Maukie" || "Pantalone"}}`. Voir [Prompts conditionnels](conditional-prompts.md) pour la priorité des opérateurs, des exemples en chat de groupe et la liste complète.
+
+Une condition peut aussi interroger ton Decision model sur la scène : `{{#if decision:"The latest message moves the scene to a new place"}}` pour oui/non, et `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}` pour choisir une option. Sans modèle ou sans réponse, elles valent non. Consulte [Interroger le Decision model](conditional-prompts.md#asking-the-decision-model). Ajoute `sticky:3 cooldown:5` après un énoncé pour maintenir un oui trois tours puis attendre cinq tours ; voir [Sticky et cooldown](conditional-prompts.md#sticky-and-cooldown). `every:3` interroge tous les trois tours, et `priority:high` ou `priority:low` choisit les énoncés qui tiennent dans le plan ; voir [Vérifier tous les quelques tours](conditional-prompts.md#checking-every-few-turns), [Priorité](conditional-prompts.md#priority) et [Limites et coût](conditional-prompts.md#limits-and-cost).
 
 ## Erreurs fréquentes
 

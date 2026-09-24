@@ -30,7 +30,7 @@ L'**Inventory Tracker** dédié est indépendant de l'inventaire de Persona Stat
 
 Chaque entrée est une petite pastille. Les pastilles se suivent sur la largeur du panneau et passent à la ligne suivante, si bien qu'une longue liste d'objets reste lisible au lieu de s'étirer en une colonne très haute. La quantité ne s'affiche que si elle dépasse un, sous la forme `×4` après le nom ; un objet seul n'affiche que son nom. Dans un panneau étroit, les pastilles se placent une par ligne.
 
-Pour changer une quantité qui vaut un, active le mode ajout ou le mode verrouillage : les deux font apparaître le contrôle de quantité sur chaque entrée.
+Pour changer une quantité qui vaut un, active **add mode** (mode ajout) ou **lock mode** (mode verrouillage) : les deux font apparaître le contrôle de quantité sur chaque entrée.
 
 Le widget **Present Characters** affiche jusqu'à trois emoji de personnage, suivis d'un compteur "+N" pour les suivants. Les widgets **Inventory** et **Custom Tracker** font défiler leurs entrées une par une.
 

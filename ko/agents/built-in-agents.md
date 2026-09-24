@@ -125,7 +125,11 @@ Tracker 에이전트는 장면, 캐릭터, 스탯의 현재 상태를 계속 기
 - **단계**: Post-Processing.
 - **사용 가능한 곳**: Roleplay 전용.
 - **주요 설정**: **Chat Settings → Agents → Tracker Agents**에서 추가하거나 제거하세요. 같은 위치에서 **Configure Beholder**를 열어 연결, 모델, 프롬프트, 컨텍스트, 출력 제한을 선택할 수 있습니다. **Add as Prompt Section**은 기본으로 켜져 있습니다.
-- **권장 모델**: 전체 상태를 안정적으로 추적하려면 OpenAI GPT-5.5+, Claude Opus 4.8+, Kimi K3+ 같은 SOTA 모델을 사용하세요.
+- **모델 권장사항**: Beholder 연결 뒤의 모델에 맞는 프롬프트 템플릿을 고르세요. 제공되는 두 템플릿은 서로 다른 종류의 모델용이므로 서로 대체할 수 없습니다.
+  - **SOTA model — one prompt**(고성능 모델용 단일 프롬프트, 기본값): 추적하는 모든 필드를 한 번에 처리합니다. OpenAI GPT-5.5+, Claude Opus 4.8+, Kimi K3+ 같은 강력한 범용 모델을 사용하세요.
+  - **Beholder local model — five passes**(Beholder 로컬 모델용 5회 처리): 목적별로 훈련된 [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF) 추출기를 로컬에서 실행할 때 추적 영역마다 하나씩 좁은 호출 5개를 사용합니다. 예를 들어 koboldcpp나 llama.cpp 뒤의 `Beholder-Q8_0.gguf`입니다. 이 모델은 한 영역씩 답하도록 훈련돼 단일 프롬프트 템플릿은 훈련 분포와 맞지 않아 일부 상태만 반환합니다. Engine은 5개 영역 결과를 하나의 갱신으로 합칩니다. 완전히 오프라인으로 무료 실행됩니다.
+
+  Beholder는 연결 뒤의 모델을 감지하지 못하므로 수동으로 선택해야 합니다. 잘못 골라도 치명적이지는 않지만 추출 품질이 낮아집니다. 고성능 모델은 둘 다 처리할 수 있으나 로컬 모델에는 5회 처리 템플릿이 필요합니다.
 - **출처**: AGPL-3.0-only 라이선스의 [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME)를 Engine의 네이티브 Agent 런타임에 맞게 적용했습니다. 공식 패키지는 기존 확장 기능의 DOM, 폴링 또는 로컬 저장소 런타임을 불러오지 않습니다.
 
 ### Persona Stats
@@ -187,12 +191,12 @@ Misc 에이전트는 이미지, 음악, 관객 반응, 카드 업데이트 같�
 
 ### Noodle
 
-Noodle 공개 타임라인과 크리에이터 및 팬 역할극 피드인 NoodleR로 이루어진 선택형 로컬 소셜 세상을 추가합니다. 일반 채팅 에이전트 파이프라인에서 실행되지 않고 전용 Home 탭에서 열립니다.
+선택적인 로컬 Noodle 공개 타임라인을 추가합니다. 일반 채팅 에이전트 파이프라인 대신 전용 Home 탭에서 열립니다.
 
 - **통합 방식**: 기능 패키지로, Home 탭과 로컬 경로, 생성 및 미디어 흐름, 백그라운드 스케줄러를 제공합니다.
 - **작동 위치**: Home. 필요하면 Conversation, Roleplay, Game 채팅의 맥락을 가져올 수 있습니다.
-- **주요 설정**: **Agents → Download Agents**에서 설치하고 안내가 나오면 Marinara Engine을 다시 시작하세요. Noodle 안에서 초대 계정, 텍스트 및 이미지 연결, 타임라인 새로 고침, NoodleR Creator 프로필, 시뮬레이션 게시물 접근, 독자 활동을 설정할 수 있습니다.
-- **데이터 수명 주기**: 제거하면 Home 탭이 사라지고 다시 시작한 뒤 패키지 경로와 스케줄러가 멈추지만, 기존 Noodle 및 NoodleR 데이터는 나중에 다시 설치할 수 있도록 보존됩니다.
+- **주요 설정**: **Agents → Download Agents**에서 설치하고 안내가 나오면 Marinara Engine을 다시 시작하세요. Noodle에서 초대 계정, 텍스트와 이미지 연결, 타임라인 새로고침, 무작위 사용자, 채팅 내용 이어받기를 설정할 수 있습니다.
+- **데이터 수명 주기**: 제거하면 Home 탭이 사라지고 재시작 후 패키지 경로와 스케줄러가 멈추며, 기존 Noodle 데이터는 재설치를 위해 보존합니다.
 - **전체 안내서**: [Noodle: 앱 안의 소셜 타임라인](../noodle/overview.md).
 
 ### Long-Term Memory

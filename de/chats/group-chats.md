@@ -81,12 +81,18 @@ Die Einstellung **Mode** ist ein Schalter mit zwei Positionen.
 
 Steht **Mode** auf **Merged (Narrator)**, kannst du **Color Dialogues** einschalten. Standardmäßig ist die Option aus. Ist sie an, erscheinen die Zeilen jedes Charakters in dessen eigenen Farben. Diese Farben stammen aus dem Tab **Colors** im Charakter-Editor. Dort stellst du Namensfarbe, Dialogfarbe und Boxfarbe ein. Wie das geht, steht in der Anleitung zum Bearbeiten von Charakteren.
 
+<a id="response-order-individual-only"></a>
+
 ### Response Order (nur bei Individual)
 
 Steht **Mode** auf **Individual**, erscheint die Einstellung **Response Order** (Antwortreihenfolge) – ein Schalter mit drei Positionen.
 
 - **Sequential** ist der Standard. Alle Charaktere antworten nacheinander, in der Reihenfolge der Liste **Characters**. Sortier die Mitglieder um, und die Zugfolge ändert sich mit.
 - **Smart** entscheidet über einen kurzen, verborgenen KI-Aufruf, welcher Charakter als Nächstes antwortet. Dabei fließen die letzten Nachrichten und die Details aller Charaktere ein; meist fällt die Wahl auf einen einzigen Sprecher. Schreibst du eine At-Erwähnung wie `@Alice` in die Nachricht, hat sie Vorrang vor dieser Wahl.
+  Hast du ein **Decision model** (Entscheidungsmodell) ausgewählt (siehe [Decision-Modelle](../connections/decision-models.md)), kannst du darunter **Also use it to pick who speaks in Smart response order** (auch die Sprecherwahl bei Smart-Reihenfolge übernehmen) aktivieren. Smart lässt dann jeden Kandidaten einzeln mit ja oder nein bewerten. Die Fragen teilen sich die letzten fünf Nachrichten und eine Liste mit Namen, Status, Aktivität, Gesprächigkeit sowie einem kurzen Auszug aus Persönlichkeit oder Beschreibung. Ein gehosteter Anbieter erhält auch diese Liste; siehe [Was das Modell sieht](../connections/decision-models.md#what-the-model-sees).
+
+  Diese Bewertungen können schneller vorliegen als eine vollständige KI-Antwort; Geschwindigkeit und Kosten hängen aber vom Modell und der Kandidatenzahl ab. In Roleplay wählt Marinara den wahrscheinlichsten Sprecher. In Conversation antworten alle mit einem Anlass, die wahrscheinlichsten zuerst. Wer gerade gesprochen hat, wartet, wenn jemand anderes einen Grund zum Antworten hat. Antwortet das Decision-Modell nicht, verwendet Smart seinen gewöhnlichen KI-Aufruf.
+
 - **Manual** unterbindet jede automatische Antwort. Wer antwortet, bestimmst du über die Auswahl **Trigger Response** in der Nachrichtenleiste.
 
 Bei **Smart** kann die KI mehrere Charaktere in eine Warteschlange stellen. Sofort antwortet nur der erste. Wer als Nächstes spricht, wählst du über die Auswahl **Trigger Response** in der Nachrichtenleiste. Alternativ schickst du eine leere Nachricht ab, dann kommt der nächste Charakter aus der Warteschlange dran.

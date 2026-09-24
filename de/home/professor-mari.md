@@ -98,6 +98,22 @@ Zwei riskantere Änderungen warten, statt zuerst angewendet zu werden:
 
 Wer eine Bibliothek freigibt, vertraut ihrem Code – Marinara importiert und führt ihn später aus. Abgeschaltete Lifecycle-Skripte verhindern zwar die Ausführung während der Installation, machen eine Bibliothek zur Laufzeit aber nicht harmlos.
 
+## Inhalte mit Decisions erstellen
+
+Mari kann **Activation questions** (Aktivierungsfragen) für Agenten, **Decision**-Aussagen für Lorebook-Einträge und bedingte Prompts in Presets, Karten, Lorebooks und Agenten-Prompts schreiben. Bevor sie solche Funktionen einführt, prüft sie das ausgewählte Decision-Modell. Eine Auswahl beschreibt die Konfiguration; sie beweist weder die Erreichbarkeit eines Anbieters noch, dass sich ein lokales Modell erfolgreich laden lässt.
+
+Ohne ausgewähltes Decision-Modell führt sie bei gewöhnlichen Erstellungen und Bearbeitungen keine neuen Decision-Abhängigkeiten ein. Vorhandene Decision-Inhalte bleiben bei anderen Änderungen erhalten. Bittest du ausdrücklich um Decision-Inhalte, erklärt sie das jeweilige Ersatzverhalten und fragt einmal in diesem Mari-Chat, ob sie fortfahren soll. Das merkt sie sich auch nach erneutem Öffnen und in Gesprächen, die länger sind als ihr Fenster der jüngsten Nachrichten. Eine unbeantwortete Frage oder Ablehnung ist keine Erlaubnis.
+
+Du kannst ihr sagen: **„Erinnere mich nicht mehr daran, ein Decision-Modell einzurichten.“** Sie hört im aktuellen Chat damit auf und kann diese Präferenz als Memory speichern. Mit **Keep & Enable** (behalten und aktivieren) gilt sie auch für künftige Chats. Deaktivieren oder Löschen dieses Memory hebt die dauerhafte Präferenz auf. Unterdrückte Einrichtungshinweise sind keine Einladung, gewöhnliche Aufträge um Decisions zu ergänzen.
+
+Ist ein Modell ausgewählt, folgt sie deinen passenden aktivierten Memories und Skills. Enthalten diese keine Präferenz zur Erstellung solcher Inhalte, fragt sie, ob du Decisions verwenden und dir diese Antwort merken lassen möchtest. Du kannst zustimmen, ablehnen oder nur den aktuellen Auftrag erlauben. Ein Skill, der lediglich die Decision-Syntax erklärt, gilt nicht als Erlaubnis. Ein direkter Auftrag wie „ergänze diesen Eintrag um Decision-Aktivierung“ erlaubt dies bereits für diese Aufgabe.
+
+Standardmäßig setzt sie Decisions sparsam mit geeigneter Zeitsteuerung ein: **Sticky** oder **Cooldown** bei Lorebook-Einträgen, **Trigger Cadence** (Ausführungstakt) für Agentenaktivierung sowie `sticky`, `cooldown` oder `every` in Prompt-Bedingungen. Sticky und Cooldown verringern wiederholte Prüfungen nach einer positiven Aktivierung; sie verhindern keine wiederholten Prüfungen bei anhaltendem nein. `every` lässt Prüfungen zwischen den vorgesehenen Zügen aus und gilt dann als nein. Für flüchtige Ereignisse ist das daher nicht immer geeignet.
+
+Mari versucht außerdem, den frühen Teil des zusammengesetzten Prompts stabil zu halten. Bevor sie wechselnde Inhalte früh im Prompt oder Kontext mitten im Chatverlauf einfügt, fragt sie nach, sofern dein Auftrag oder eine aktivierte Präferenz diese Platzierung nicht bereits erlaubt. Eine allgemeine Regel „nach 1.000 Tokens sicher“ gibt es nicht: Die Cache-Wiederverwendung hängt von Anbieter, Modell und übereinstimmendem fertig zusammengesetztem Präfix ab. Die Zustimmung zu Decisions erlaubt solche Platzierungen nicht automatisch.
+
+Die üblichen Berechtigungs- und Prüfregeln gelten weiterhin. Von Mari gespeicherte Memories bleiben aus, bis du sie aktivierst. Welche Inhalte die einzelnen Decision-Funktionen sehen, ihr Ersatzverhalten und Beispiele findest du unter [Decision-Modelle](../connections/decision-models.md), [Bedingte Prompts](../prompts/conditional-prompts.md), [Eigene Agenten](../agents/custom-agents.md#activation-questions) und [Lorebook-Einträge](../lorebooks/entries.md#decision-activation).
+
 ## Eigene Skills
 
 Ein Skill ist ein kurzes Anweisungsdokument, das du schreibst, um zu ändern, wie Professor Mari eine bestimmte Art von Anfrage behandelt.

@@ -41,16 +41,16 @@ O aplicativo preenche estes valores padrão em cada Source:
 | ----------------- | ------------------------- | ---------------------- | ------------------------------- |
 | OpenAI-compatible | https://api.openai.com/v1 | tts-1                  | alloy                           |
 | ElevenLabs        | https://api.elevenlabs.io | eleven_multilingual_v2 | nenhuma (você precisa escolher) |
-| PocketTTS         | http://localhost:49112    | pocket-tts             | alba                            |
+| PocketTTS         | http://localhost:8000    | pocket-tts             | alba                            |
 | xAI Voice         | https://api.x.ai/v1       | grok-tts               | eve                             |
 
 No caso do **ElevenLabs**, o campo **Model** carrega os modelos de fala disponíveis na sua conexão e mantém a lista inteira visível sempre que você abre o campo. Escolha um modelo de fala comum. Os modelos cujo ID contém `ttv` servem para desenhar vozes, não para falar, e não conseguem ler texto em voz alta. Se você escolher um deles por engano, a reprodução falha com um erro pedindo que você use um modelo de fala.
 
 ### PocketTTS é um programa separado
 
-PocketTTS não faz parte do Marinara Engine. O adaptador do Marinara usa o [servidor PocketTTS compatível com a OpenAI](https://github.com/teddybear082/pocket-tts-openai_streaming_server), que expõe tanto o endpoint de fala quanto o de lista de vozes que Marinara precisa. Instale e execute esse servidor seguindo as instruções dele; Marinara não baixa nem gerencia esse programa para você.
+PocketTTS não faz parte do Marinara Engine. Instale [o servidor oficial do PocketTTS](https://github.com/kyutai-labs/pocket-tts) separadamente e inicie-o com `uvx pocket-tts serve`. Marinara não baixa nem gerencia esse programa para você.
 
-Esse servidor compatível usa `http://localhost:49112` por padrão. Deixe o campo **Base URL** com esse valor, a não ser que você tenha mudado a porta do servidor. Endereços personalizados de PocketTTS que já existiam continuam como estão.
+O servidor oficial usa `http://localhost:8000` por padrão. Mantenha esse valor em **Base URL**, a menos que você tenha mudado o host ou a porta. Marinara detecta automaticamente a API multipart oficial `/tts`. As URLs personalizadas existentes do [adaptador PocketTTS compatível com a OpenAI](https://github.com/teddybear082/pocket-tts-openai_streaming_server) continuam tendo suporte.
 
 ## Etapa 3: escolha uma voz (Voice Option)
 

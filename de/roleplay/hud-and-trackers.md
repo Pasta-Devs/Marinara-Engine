@@ -30,7 +30,7 @@ Der eigenständige **Inventory Tracker** ist unabhängig vom Inventar der Person
 
 Jeder Eintrag ist eine kleine Pille. Die Pillen laufen über die Breite des Panels und brechen in die nächste Zeile um, sodass eine lange Inventarliste lesbar bleibt, statt sich zu einer hohen Spalte zu strecken. Eine Stückzahl steht nur dabei, wenn sie größer als eins ist, und zwar als `×4` hinter dem Namen; bei einem einzelnen Gegenstand steht nur der Name. In einem schmalen Panel stehen die Pillen einzeln untereinander.
 
-Um eine Stückzahl zu ändern, die gerade eins ist, schalte den Hinzufügen-Modus oder den Sperrmodus ein – beide blenden bei jedem Eintrag das Feld für die Stückzahl ein.
+Um eine Stückzahl zu ändern, die gerade eins ist, schalte **add mode** (Hinzufügen-Modus) oder **lock mode** (Sperrmodus) ein – beide blenden bei jedem Eintrag das Feld für die Stückzahl ein.
 
 Das Widget **Present Characters** zeigt bis zu drei Charakter-Emoji und dahinter ein „+N“ für alle weiteren. Die Widgets **Inventory** und **Custom Tracker** blättern ihre Einträge nacheinander durch.
 

@@ -162,6 +162,16 @@ Unter dem Dropdown-Menü sitzt eine Statuszeile. Sie zeigt einen von drei Zustä
 
 Game-Chats haben zusätzlich das Feld **Extra instructions** (zusätzliche Anweisungen). Was dort steht, kommt zum Game-Prompt hinzu. Das Limit liegt bei 2000 Zeichen. Ein Beispiel für so eine Anweisung: „Write in the style of Terry Pratchett.“
 
+<a id="decision-blocks-and-prompt-caching"></a>
+
+## Decision-Blöcke und Prompt-Caching
+
+Ein Abschnitt kann einen Decision-Block `{{#if decision:"..."}}` enthalten. Dieser Teil des Presets wird dann nur in Zügen gesendet, in denen eine Aussage über den Chat wahr ist. Siehe [Das Decision-Modell fragen](conditional-prompts.md#asking-the-decision-model).
+
+**Setze wechselnde Decision-Blöcke spät im Prompt ein**, etwa in Anweisungen nach dem Verlauf. Ein veränderter Zweig kann verhindern, dass der Anbieter den Prompt ab dieser Stelle wiederverwendet; frühe Änderungen können daher den Großteil der Cache-Ersparnis kosten. Ein früheres unverändertes Präfix kann weiter passen; nicht zwangsläufig wird der gesamte Prompt neu berechnet. Lass eine Decision nur dann weit oben, wenn ihre Antwort selten wechselt und ihre Anweisungen dorthin gehören. Einzelheiten je Anbieter stehen unter [Prompt-Caching](conditional-prompts.md#prompt-caching).
+
+Aussagen in deaktivierten Abschnitten und Gruppen werden nie geprüft und zählen nicht zu **Decision statements per turn** (Decision-Aussagen pro Zug).
+
 ## Prüfen, was bei der KI angekommen ist
 
 Welches Preset und welche Abschnitte tatsächlich bei der KI gelandet sind, zeigt **Peek Prompt**. Du siehst dort den vollständig zusammengesetzten Prompt einer Nachricht – der schnellste Weg, eine merkwürdige Antwort aufzuklären. Siehe [Peek Prompt: sehen, was die KI bekommen hat](../chats/peek-prompt.md).

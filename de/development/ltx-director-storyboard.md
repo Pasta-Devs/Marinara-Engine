@@ -16,7 +16,7 @@ Die bestehenden Vorlagen-IDs und die zugehörigen Bedienelemente in den Einstell
 
 - **LTX Director Storyboard** plant pro Aufnahme das erste Bild und genau einen vollständigen LTX-2.3-Prompt für Image-to-Video.
 - **Storyboard First Frame** (Storyboard-Startbild) formatiert genau die Illustration bei T=0, die als Referenzbild dient.
-- **LTX Director Video** (Storyboard-Videovorlage) besteht nur aus `${narrationSummary}` und reicht den fertigen Prompt des Planers deshalb über denselben universellen Video-Vorlagen-Pfad weiter, den auch jeder andere Workflow nutzt.
+- **Narration Passthrough** (Storyboard-Videovorlage) besteht nur aus `${narrationSummary}` und reicht den fertigen Prompt des Planers deshalb über denselben universellen Video-Vorlagen-Pfad weiter, den auch jeder andere Workflow nutzt.
 
 Die Storyboard-Route darf diese Vorlagen-IDs nicht auswerten, keine lokalen Segmente erzeugen und kein LTX-spezifisches Prompt-Payload anhängen. Die gewählte Video-Vorlage bleibt vollständig anpassbar.
 
@@ -52,7 +52,7 @@ She opens the door and walks outside as the camera follows behind her. A light b
 
 1. Der Planer liefert pro Aufnahme einen `imagePrompt` für T=0 und einen vollständigen `narrationBeat`.
 2. Die Storyboard-Bildgenerierung erzeugt die Referenz-Illustration für das erste Bild.
-3. Die Vorlage **LTX Director Video** löst `${narrationSummary}` zum `narrationBeat` dieser Aufnahme auf.
+3. Die Vorlage **Narration Passthrough** löst `${narrationSummary}` zum `narrationBeat` dieser Aufnahme auf.
 4. Die normale Anfrage zur Videogenerierung trägt das Ergebnis in ihrem bestehenden Feld `prompt`.
 5. Der ComfyUI-Adapter ersetzt `%prompt%` im gespeicherten Workflow und liefert das vorhandene Referenzbild sowie Maße, Dauer, Bildanzahl, Seed und Modellwerte.
 
@@ -89,7 +89,7 @@ Arbeiten an der Client-Oberfläche, der Lokalisierung, dem Speicherschema, an Mi
 ## Abnahmekriterien
 
 - Der LTX-Storyboard-Planer fordert genau einen vollständigen, auf die Dauer abgestimmten Image-to-Video-Prompt an – mit nachvollziehbaren Aktionsphasen, relativer Kameraführung und optionalem Ton oder Dialog.
-- Die Vorlage **LTX Director Video** besteht exakt aus `${narrationSummary}`.
+- Die Vorlage **Narration Passthrough** besteht exakt aus `${narrationSummary}`.
 - Die Storyboard-Route enthält keine Umgehung über exakte Vorlagen-IDs, keinen Bereiniger für lokale Prompts und keine LTX-spezifische Übergabe.
 - Ein Workflow mit `global_prompt: "%prompt%"` erhält den vollständigen Prompt des Planers; `local_prompts` und `segment_lengths` bleiben leer.
 - Bestehende `%global_prompt%`-Workflows erhalten als Kompatibilitäts-Fallback weiterhin den normalen Prompt der Anfrage.

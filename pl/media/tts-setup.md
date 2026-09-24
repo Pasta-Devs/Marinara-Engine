@@ -10,8 +10,6 @@ Aplikacja wysyła żądania TTS przez własny serwer. Marinara szyfruje klucz AP
 
 Samo włączenie TTS niczego jeszcze nie odczyta. Odsłania tylko przycisk **Speak** (Mów) przy każdej wiadomości oraz opcje **Auto-play** (automatyczne odtwarzanie). O tym, co i kiedy zostanie przeczytane, nadal decydujesz sam.
 
-Te same ustawienia odtwarzania pozwalają też włączyć **Skip text inside HTML and custom tags** (pomijaj tekst wewnątrz znaczników HTML i własnych znaczników), **Skip fenced code blocks** (pomijaj ogrodzone bloki kodu) lub **Skip text inside square brackets** (pomijaj tekst w nawiasach kwadratowych). Bloki kodu są domyślnie pomijane; pozostałe dwa filtry są początkowo wyłączone. Filtrowanie znaczników usuwa ich zawartość, na przykład ukryty blok `<simulation>...</simulation>`, ale zachowuje znaczniki mówców używane do wyboru głosów. Filtry działają przy ręcznym i automatycznym odtwarzaniu, także dla narracji Game i rozpoznawania mówców w Roleplay.
-
 ## Krok 1: włącz TTS i wybierz Source
 
 1. Otwórz panel **Connections** i rozwiń sekcję **Text to Speech**.
@@ -41,16 +39,16 @@ Aplikacja wstawia takie wartości domyślne dla poszczególnych źródeł:
 | ----------------- | ------------------------- | ---------------------- | ------------------------------- |
 | OpenAI-compatible | https://api.openai.com/v1 | tts-1                  | alloy                           |
 | ElevenLabs        | https://api.elevenlabs.io | eleven_multilingual_v2 | brak (trzeba wybrać samodzielnie) |
-| PocketTTS         | http://localhost:49112    | pocket-tts             | alba                            |
+| PocketTTS         | http://localhost:8000    | pocket-tts             | alba                            |
 | xAI Voice         | https://api.x.ai/v1       | grok-tts               | eve                             |
 
 W przypadku źródła **ElevenLabs** pole **Model** wczytuje modele mowy dostępne przez twoje połączenie i po otwarciu zawsze pokazuje pełną listę. Wybierz zwykły model mowy. Identyfikatory modeli zawierające `ttv` należą do modeli projektowania głosu, a nie do modeli mowy, i nie potrafią czytać tekstu na głos. Po pomyłkowym wyborze takiego modelu odtwarzanie kończy się błędem z informacją, że trzeba użyć modelu mowy.
 
 ### PocketTTS to osobny program
 
-PocketTTS nie jest częścią aplikacji Marinara Engine. Adapter aplikacji Marinara Engine korzysta z serwera [PocketTTS zgodnego z OpenAI](https://github.com/teddybear082/pocket-tts-openai_streaming_server), który udostępnia zarówno punkt końcowy mowy, jak i listę głosów. Zainstaluj i uruchom ten serwer zgodnie z jego instrukcją; Marinara go nie pobiera ani nim nie zarządza.
+PocketTTS nie jest wbudowany w Marinara Engine. Zainstaluj osobno [oficjalny serwer PocketTTS](https://github.com/kyutai-labs/pocket-tts), a następnie uruchom go poleceniem `uvx pocket-tts serve`. Marinara nie pobiera go ani nim nie zarządza.
 
-Zgodny serwer domyślnie działa pod adresem `http://localhost:49112`. Zostaw tę wartość w polu **Base URL**, chyba że port serwera został zmieniony. Wcześniej wpisane własne adresy PocketTTS pozostają bez zmian.
+Oficjalny serwer domyślnie używa `http://localhost:8000`. Zostaw tę wartość **Base URL**, chyba że zmienisz host lub port. Marinara automatycznie wykrywa oficjalne wieloczęściowe API `/tts`. Istniejące własne adresy [adaptera PocketTTS zgodnego z OpenAI](https://github.com/teddybear082/pocket-tts-openai_streaming_server) pozostają obsługiwane.
 
 ## Krok 3: wybierz głos (Voice Option)
 
@@ -61,7 +59,7 @@ Ustawienie **Voice Option** (opcja głosu) decyduje o tym, jak przydzielane są 
 
 ### Jeden głos dla wszystkich postaci
 
-Wskaż głos w polu **All Characters Voice**. Źródło PocketTTS pokazuje na liście rozwijanej głosy zwrócone przez twój serwer, a obok zostawia pole tekstowe na własny identyfikator głosu, adres URL lub ścieżkę.
+Wybierz głos w **All Characters Voice**. Oficjalny serwer PocketTTS nie udostępnia punktu listy głosów, więc Marinara pokazuje wbudowane głosy i zachowuje obok listy pole tekstowe dla innej wbudowanej nazwy lub obsługiwanego URL głosu. Zgodne serwery adapterów nadal mogą zwracać własną listę głosów i przyjmować własne ID lub ścieżki.
 
 Żeby wczytać prawdziwą listę głosów od dostawcy, uzupełnij dane połączenia i kliknij przycisk **Refresh voices** (ikona okrągłej strzałki). Da się to zrobić jeszcze przed włączeniem odtwarzania. Odświeżenie najpierw zapisuje sekcję, więc świeżo wpisany klucz API działa od razu. Przed nawiązaniem połączenia aplikacja pokazuje krótką wbudowaną listę zastępczą, żeby pole nie było puste. Błąd dostawcy pojawia się wprost, zamiast po cichu udawać, że lista zastępcza to udane odświeżenie.
 
@@ -124,6 +122,8 @@ Pod nagłówkiem **Auto-play** każdy przełącznik każe aplikacji czytać jede
 - **Only read dialogues**: czyta wyłącznie kwestie ujęte w cudzysłów lub oznaczone jako mówione i pomija zwykłą narrację.
 
 Automatyczne odtwarzanie uruchamia się tylko raz, przy najnowszej odpowiedzi, w chwili jej zakończenia. Nie czyta ponownie starych wiadomości po ponownym otwarciu czatu ani przy przewijaniu.
+
+Te same ustawienia odtwarzania pozwalają też włączyć **Skip text inside HTML and custom tags** (pomijaj tekst wewnątrz znaczników HTML i własnych znaczników), **Skip fenced code blocks** (pomijaj ogrodzone bloki kodu) lub **Skip text inside square brackets** (pomijaj tekst w nawiasach kwadratowych). Bloki kodu są domyślnie pomijane; pozostałe dwa filtry są początkowo wyłączone. Filtrowanie znaczników usuwa ich zawartość, na przykład ukryty blok `<simulation>...</simulation>`, ale zachowuje znaczniki mówców używane do wyboru głosów. Filtry działają przy ręcznym i automatycznym odtwarzaniu, także dla narracji Game i rozpoznawania mówców w Roleplay.
 
 ## Odczytanie pojedynczej wiadomości
 

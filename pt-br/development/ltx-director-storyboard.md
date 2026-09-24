@@ -16,7 +16,7 @@ Os IDs de template e os controles de configuração que você precisa ativar con
 
 - **LTX Director Storyboard** planeja o primeiro quadro e um prompt completo de imagem para vídeo do LTX 2.3 por plano.
 - **Storyboard First Frame** formata a ilustração exata de T=0 usada como imagem de referência.
-- **LTX Director Video** contém apenas `${narrationSummary}` e, por isso, entrega o prompt já pronto do planejador pelo mesmo caminho universal de template de vídeo que todos os outros workflows usam.
+- **Narration Passthrough** contém apenas `${narrationSummary}` e, por isso, entrega o prompt já pronto do planejador pelo mesmo caminho universal de template de vídeo que todos os outros workflows usam.
 
 A rota do Storyboard não pode inspecionar esses IDs de template, fabricar segmentos locais nem anexar um payload de prompt específico do LTX. O template de vídeo escolhido continua totalmente personalizável.
 
@@ -52,7 +52,7 @@ She opens the door and walks outside as the camera follows behind her. A light b
 
 1. O planejador devolve um `imagePrompt` de T=0 e um `narrationBeat` completo para cada plano.
 2. A geração de imagens do Storyboard cria a ilustração de referência do primeiro quadro.
-3. O template LTX Director Video resolve `${narrationSummary}` para o `narrationBeat` daquele plano.
+3. O template Narration Passthrough resolve `${narrationSummary}` para o `narrationBeat` daquele plano.
 4. A requisição normal de geração de vídeos leva o resultado no campo `prompt` que já existe.
 5. O adaptador do ComfyUI substitui `%prompt%` no workflow salvo e fornece a imagem de referência, as dimensões, a duração, a quantidade de quadros, a seed e os valores de modelo que já existiam.
 
@@ -89,7 +89,7 @@ Não é preciso mexer na interface do cliente, na localização, no esquema de a
 ## Critérios de aceitação
 
 - O planejador do LTX Storyboard pede um único prompt completo de imagem para vídeo, com consciência da duração, fases de ação legíveis, direção de câmera relativa e áudio ou fala opcionais.
-- O template LTX Director Video é exatamente `${narrationSummary}`.
+- O template Narration Passthrough é exatamente `${narrationSummary}`.
 - A rota do Storyboard não tem desvio por ID exato de template, nem sanitizador de prompt local, nem passagem específica do LTX.
 - Um workflow com `global_prompt: "%prompt%"` recebe o prompt completo do planejador; `local_prompts` e `segment_lengths` ficam vazios.
 - Workflows `%global_prompt%` já existentes continuam recebendo o prompt normal da requisição como reserva de compatibilidade.

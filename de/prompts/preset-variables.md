@@ -59,6 +59,12 @@ Marinara löst zahlreiche eingebaute Makros auf, etwa `{{user}}` und `{{char}}`.
 
 Gibt es eine Variable mit genau diesem Namen, wird der Platzhalter zum gewählten Wert. Passt keine Variable, bleibt `{{NAME}}` unverändert stehen. Deshalb taucht ein unbekannter Platzhalter unverändert in der Ausgabe auf, statt einen Fehler auszulösen. Die vollständige Liste der Makros steht unter [Prompt-Makros](macros.md).
 
+## Decision-Blöcke in Optionen
+
+Der Wert einer Option kann wie anderer Prompt-Text einen Decision-Block `{{#if decision:"..."}}` enthalten. Nur die im Chat ausgewählten Optionen werden geprüft und zählen zu **Decision statements per turn** (Decision-Aussagen pro Zug). Bei einer Variablen vom Typ **Random Pick** wird jede Option des ausgewählten Pools geprüft, weil jede gezogen werden könnte. Siehe [Das Decision-Modell fragen](conditional-prompts.md#asking-the-decision-model).
+
+Der Variablenwert landet dort, wo sein `{{name}}` steht. Ändert eine Decision diesen Wert weit oben im Preset, kann ein großer Teil der Prompt-Cache-Wiederverwendung beim Anbieter verloren gehen; ein früheres unverändertes Präfix kann weiterhin verwendbar bleiben. Setze häufig wechselnde Inhalte möglichst später ein. Siehe [Decision-Blöcke und Prompt-Caching](presets.md#decision-blocks-and-prompt-caching).
+
 ## Verwandte Anleitungen
 
 - [Preset-Editor und Prompt Manager](presets.md)

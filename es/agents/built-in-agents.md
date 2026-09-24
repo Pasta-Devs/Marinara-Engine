@@ -125,7 +125,11 @@ Registra la ropa actual de cada personaje por zona del cuerpo, los objetos que l
 - **Fase**: Post-Processing.
 - **Dónde funciona**: solo Roleplay.
 - **Ajustes clave**: añádelo o quítalo en **Chat Settings → Agents → Tracker Agents**; abre **Configure Beholder** allí para elegir su conexión, modelo, prompt, contexto y límites de salida. **Add as Prompt Section** está activado de forma predeterminada.
-- **Modelo recomendado**: usa un modelo SOTA como OpenAI GPT-5.5+, Claude Opus 4.8+ o Kimi K3+ para registrar el estado completo de forma fiable.
+- **Modelo recomendado**: elige la plantilla de prompt que corresponda al modelo de la conexión de Beholder. Las dos plantillas incluidas no son intercambiables: cada una está escrita para un tipo de modelo distinto.
+  - **SOTA model — one prompt** (modelo SOTA — un prompt, predeterminado): una llamada que cubre todos los campos registrados. Usa un modelo general potente, como OpenAI GPT-5.5+, Claude Opus 4.8+ o Kimi K3+.
+  - **Beholder local model — five passes** (modelo local Beholder — cinco pasadas): cinco llamadas acotadas, una por categoría registrada, para el extractor [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF) entrenado específicamente para esta tarea y servido localmente (por ejemplo, `Beholder-Q8_0.gguf` mediante koboldcpp o llama.cpp). Ese modelo está entrenado para responder una categoría a la vez, por lo que la plantilla de un solo prompt se aparta de su entrenamiento y devuelve un estado parcial. Engine une los cinco resultados en una actualización. Funciona completamente sin conexión y sin costo.
+
+  Beholder no puede detectar qué modelo hay detrás de una conexión, así que la elección sigue siendo manual. Una discrepancia no es fatal, pero empeora la extracción: un modelo SOTA puede usar ambas plantillas, mientras que el modelo local necesita la de cinco pasadas.
 - **Origen**: adaptado al entorno nativo de agentes de Engine a partir de [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME), con licencia AGPL-3.0-only. El paquete oficial no carga el DOM, el sondeo ni el entorno de almacenamiento local de la extensión heredada.
 
 ### Persona Stats
@@ -187,12 +191,12 @@ Simula un público en vivo que reacciona a tu escena, mostrado como un widget fl
 
 ### Noodle
 
-Añade un mundo social local opcional con la cronología pública de Noodle y el feed de rol entre creadores y fans de NoodleR. Se abre en una pestaña dedicada de Home en lugar de ejecutarse en el flujo normal de agentes del chat.
+Añade la cronología pública local opcional de Noodle. Se abre en una pestaña dedicada de Home en vez de ejecutarse en el flujo normal de agentes del chat.
 
 - **Integración**: paquete de funciones; aporta la pestaña de Home, rutas locales, flujos de generación y multimedia y planificadores en segundo plano.
 - **Dónde funciona**: Home, con contexto opcional traído de chats de Conversation, Roleplay y Game.
-- **Ajustes principales**: instálalo desde **Agents → Download Agents** y reinicia Marinara Engine cuando se te pida. Dentro de Noodle puedes configurar cuentas invitadas, conexiones de texto e imagen, actualizaciones de la cronología, perfiles de Creator en NoodleR, acceso a publicaciones simuladas y actividad de la audiencia.
-- **Ciclo de vida de los datos**: al desinstalarlo se quita la pestaña de Home y se detienen las rutas y los planificadores del paquete después de reiniciar, pero se conservan los datos existentes de Noodle y NoodleR por si vuelves a instalarlo.
+- **Ajustes principales**: instálalo desde **Agents → Download Agents** y reinicia Marinara Engine cuando se te pida. Dentro de Noodle puedes configurar cuentas invitadas, conexiones de texto e imagen, actualizaciones de la cronología, usuarios aleatorios y transferencia de contexto al chat.
+- **Ciclo de vida de los datos**: desinstalarlo quita la pestaña de Home y detiene las rutas y los planificadores del paquete después de reiniciar, conservando los datos existentes de Noodle para una reinstalación futura.
 - **Guía completa**: [Noodle: la cronología social integrada](../noodle/overview.md).
 
 ### Long-Term Memory

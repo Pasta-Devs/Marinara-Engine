@@ -41,6 +41,22 @@ Walki nie zaczynasz samodzielnie. Robi to GM, kiedy wymaga tego fabuła – na p
 
 Ekran bitwy pokazuje drużynę po jednej stronie, a przeciwników po drugiej. Każdy walczący ma pasek zdrowia (HP, punkty życia), a jeśli korzysta z umiejętności – także pasek many (MP, punkty magii). Kolejność tur widać na górze jako **Next:** i imię tego, kto działa jako następny. Licznik rund pokazuje **Round** oraz numer bieżącej rundy.
 
+<a id="games-whose-ruleset-resolves-its-own-fights"></a>
+
+### Gry, w których zestaw zasad sam rozstrzyga walkę
+
+Zestaw zasad może rozstrzygać całą walkę, zamiast tylko przekazywać kilka liczb systemowi walki aplikacji Marinara Engine. Wtedy ekran bitwy należy do zestawu: menu zawiera ataki i zdolności twojej postaci, obowiązują jego budżety akcji i stany, a dziennik pokazuje rzeczywiste obliczenia. Wszystko zapisuje się w arkuszu postaci od razu po rozstrzygnięciu.
+
+Zestaw określa także, co mieści się w jednej turze. Cios może zadawać kilka rodzajów obrażeń jednocześnie; każda część ma własny rzut, odporność i rzut obronny, ale razem nadal stanowią jeden cios. Jeden wydatek akcji może dać kilka uderzeń. Dopóki zostają, menu oferuje je bez dodatkowego kosztu i podaje ich liczbę, więc możesz zmienić broń albo przejść między uderzeniami. Zdolność może nic nie kosztować, dać drugą akcję tylko na tę turę albo pozwolić na sprint, wycofanie lub ukrycie mniejszym kosztem. Stały efekt postaci, np. dodatkowe obrażenia przy pierwszym trafieniu spełniającym warunki w turze, dodaje się sam i pojawia w dzienniku. Stan może utrudniać lub ułatwiać własne rzuty obronne, zmniejszać o połowę wszystkie obrażenia, zabraniać atakowania albo zbliżania się do tego, kto go nałożył, lub znikać, gdy tamten padnie.
+
+Zestaw może też określać długość pola planszy we własnych jednostkach: stopach, krokach lub innych. Jeżeli tak jest, a **Combat Preference** twojej gry to **Tactical**, walka odbywa się na wygenerowanym polu bitwy: z tymi samymi planszami, terenem i rozstawieniem co opisane wyżej walki Tactical. Preferencja znów ma znaczenie. Zestaw bez odległości lub gra z **Classic** działa jak wcześniej, bez ograniczeń wyboru celu wynikających z pozycji.
+
+Na tym polu wszystko zależy od liczb zestawu. Zasięg ruchu wynika z jego reguły ruchu lub szybkości stworzenia, zasięg broni z jej wpisów, a obszar zdolności staje się rzeczywistą eksplozją, stożkiem lub linią. Ściana zatrzymuje strzał, osłona daje premię określoną w zasadach, a opuszczenie czyjegoś zasięgu pozwala mu uderzyć, gdy zestaw przypisuje takiemu atakowi koszt. Ruch odbywa się w ośmiu kierunkach po jednym polu, tak jak na planszach stołowych, dla których napisano te zasady; nie używa czterech kierunków własnych walk Tactical aplikacji.
+
+Plansza jest widoczna na ekranie. Każde pole to przycisk: poruszasz się wskaźnikiem lub klawiszami strzałek, a pole opisuje teren, stojącą tam postać i koszt dojścia. **Move** (ruch) podświetla dostępne pola i koszt w jednostkach zestawu, pokazuje drogę po najechaniu lub ustawieniu fokusu oraz oznacza bursztynowo pola, których droga sprowokuje atak; pod planszą podaje napastników. Akcja wymagająca celu podświetla dozwolone postacie i pozwala wybrać je na planszy lub liście. Atak bez celu w zasięgu pokazuje **Nobody is in reach. Move closer.** (nikt nie jest w zasięgu; podejdź bliżej). Obszar celuje w pole: dozwolone pola są podświetlone, a pole pod wskaźnikiem wskazuje wszystkich trafionych, także sojuszników. Ruch można dzielić przed akcją i po niej; menu wraca z pozostałymi możliwościami, a panel **Movement** pokazuje resztę ruchu w jednostce zestawu. Escape porzuca niedokończony wybór i przenosi obsługę klawiatury do menu.
+
+Osłona w trzech czwartych, wysokość, przelatywanie nad przeszkodami, ukrywanie, wymuszony ruch i wybór, czy uderzyć oddalającą się postać, pozostają osobnymi przyszłymi pracami.
+
 <a id="games-that-use-a-ruleset"></a>
 
 ### Gry z zestawem zasad

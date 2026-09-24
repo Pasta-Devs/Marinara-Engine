@@ -461,3 +461,13 @@ Cycle precedent for the new `development/game-combat-ai-design.md`,
 
 These are documented translation choices from this cycle, not a claim of a new
 independent native-reader panel review. Existing pack-wide rules still apply.
+
+## Decision and ruleset catchup (2026-09-24)
+
+| English concept | Translation |
+| --- | --- |
+| decision statement | 判定文 |
+| activation question | 起動質問 |
+| wound track | 負傷トラック |
+
+Keep **Decision model**, **Jev**, backend names, and executable statement examples unchanged. Translate their surrounding explanations. Activation questions decide whether an agent runs; statements inside its prompt select the instructions for an agent that is already running. These are translation choices, not a new native-reader review.

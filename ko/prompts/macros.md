@@ -38,7 +38,7 @@
 | `{{user}}` / `{{userName}}` | 현재 표시 이름(또는 페르소나 이름). 페르소나를 설정하지 않았으면 기본값은 `User`입니다. |
 | `{{userNamePhonetic}}` | 페르소나의 Phonetic 이름. 비어 있으면 `{{user}}`입니다. |
 | `{{char}}` / `{{charName}}` | 현재 캐릭터의 이름. 기본값은 `Character`입니다. |
-| `{{<21-character-card-ID>}}` | 다른 캐릭터 카드의 이름을 넣는 자리 표시 구문. 꺾쇠괄호 부분을 그 카드의 21자 ID로 바꾸세요. |
+| `{{21-character-card-ID}}` | 다른 캐릭터의 이름입니다. 자리 표시자 텍스트를 해당 카드의 정확한 21자 ID로 바꾸면 카드를 컨텍스트에 포함합니다. |
 | `{{persona-21-character-card-ID}}` | 다른 페르소나 이름을 참조하는 자리 표시 구문입니다. 카드 컨텍스트를 가져오려면 `persona-` 뒤를 해당 카드의 정확한 21자 ID로 바꾸세요. |
 | `{{charNamePhonetic}}` | 캐릭터의 Phonetic 이름. 비어 있으면 `{{char}}`입니다. |
 | `{{characters}}` | 채팅에 있는 모든 캐릭터를 쉼표로 이어 붙입니다. |
@@ -69,7 +69,7 @@
 
 Phonetic 이름 필드는 2가지 역할을 합니다. 음성 합성이 이름을 어떻게 발음할지 정하고, `{{charNamePhonetic}}`과 `{{userNamePhonetic}}`에도 값을 공급합니다. 이 필드는 **Character Editor**와 **Persona Editor** 양쪽에 있습니다.
 
-현재 채팅에 없는 캐릭터를 참조하려면 그 카드의 ID를 복사해 중괄호 두 개 안에 그대로 넣으세요. 예를 들면 `{{V1StGXR8_Z5jdHi6B-myT}}`입니다. Marinara는 이 매크로를 카드 이름으로 바꾸고, 참조한 카드의 캐릭터 컨텍스트를 시스템 프롬프트에 추가합니다. 참조한 카드의 첫 인사말과 예시 대화는 제외됩니다. 그 카드에 연결된 활성 로어북은 평소와 같이 키워드, **Constant**, 필터, 확률, 토큰 예산 규칙을 그대로 따릅니다.
+현재 채팅에 없는 캐릭터를 참조하려면 카드 ID를 복사해 `{{V1StGXR8_Z5jdHi6B-myT}}`처럼 중괄호 두 개 안에 직접 넣으세요. `<`나 `>` 문자는 넣지 마세요. Marinara는 매크로를 캐릭터 이름으로 바꾸고 카드의 Description, Personality, Appearance, Backstory, Scenario, Example Dialogue를 시스템 프롬프트에 추가합니다. 채팅 메시지, 프롬프트 필드, 활성화된 로어북 항목에서 동작합니다. 카드의 첫 인사말은 제외합니다. 연결된 활성 로어북에는 원래 키워드, constant, 필터, 확률, 토큰 예산 규칙이 적용됩니다.
 
 현재 선택되지 않은 페르소나를 참조하려면 복사한 ID 앞에 `persona-`를 붙이세요. 예: `{{persona-P1StGXR8_Z5jdHi6B-myT}}`. Marinara는 매크로를 페르소나 이름으로 바꾸고 Description, Personality, Appearance, Backstory, Scenario 필드를 ID Macro Cards에 추가합니다. 연결된 로어북은 평소의 활성화 규칙을 따릅니다.
 
@@ -129,6 +129,14 @@ Outlet 항목도 평소와 같은 로어북 활성화 방식을 따릅니다. �
 
 Outlet 매크로는 Conversation, Roleplay, Game 모드의 프롬프트 섹션에서 쓸 수 있습니다. 프리셋의 로어북 표시자보다 앞에 두어도 동작하고, Outlet 항목만 쓴다면 프리셋에 로어북 표시자가 없어도 됩니다. 알 수 없거나 활성화되지 않은 Outlet은 빈 값으로 치환됩니다. Outlet 항목은 다른 Outlet 매크로를 펼치지 못하므로 중첩된 Outlet은 재귀하지 않습니다.
 
+## 로어북 크기 매크로
+
+`{{lorebooksize::ID}}`는 지정한 ID의 로어북에 있는 전체 항목 수로 치환됩니다. `ID`를 Lorebooks 패널에서 복사한 실제 ID로 바꾸세요. 예를 들어 ID가 `V1StGXR8_Z5jdHi6B-myT`이고 항목이 151개면 `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}`는 `151`이 됩니다.
+
+알 수 없는 ID는 `0`이 됩니다. 활성 여부나 폴더 소속과 관계없이 모든 항목을 셉니다.
+
+프롬프트 섹션, 캐릭터 카드 필드, 로어북 항목 내용 등 매크로를 치환하는 모든 곳에서 사용하세요.
+
 ## 시간 매크로
 
 모든 시간 매크로는 한 번의 치환에서 같은 시각 하나를 읽으므로 서로 값이 어긋나지 않습니다. 시간대는 브라우저에서 가져옵니다.
@@ -161,7 +169,7 @@ Outlet 매크로는 Conversation, Roleplay, Game 모드의 프롬프트 섹션�
 
 ### 가중치를 준 선택
 
-선택지 끝에 `@숫자`를 붙이면 뽑힐 가능성을 정할 수 있습니다. 이 숫자는 상대적인 가중치이고, 클수록 잘 뽑힙니다.
+선택지 끝에 `@number`를 붙이면 뽑힐 가능성을 정할 수 있습니다. 이 숫자는 상대적인 가중치이고, 클수록 잘 뽑힙니다.
 
 ```text
 {{random::Common event@1::Rare event@0.25}}
@@ -180,7 +188,7 @@ Outlet 매크로는 Conversation, Roleplay, Game 모드의 프롬프트 섹션�
 - 0.5, 0.01처럼 소수 가중치도 쓸 수 있습니다.
 - 가중치가 0이면 선택지는 남아 있지만 절대 뽑히지 않습니다.
 - 모든 선택지의 가중치가 0이면 매크로는 빈 값으로 치환됩니다.
-- 맨 끝의 `@숫자`만 가중치로 인식합니다. 이메일 주소처럼 다른 자리에 있는 `@`는 그대로 둡니다.
+- 맨 끝의 `@number`만 가중치로 인식합니다. 이메일 주소처럼 다른 자리에 있는 `@`는 그대로 둡니다.
 
 ## 동적 변수
 
@@ -229,6 +237,8 @@ Outlet 매크로는 Conversation, Roleplay, Game 모드의 프롬프트 섹션�
 채팅 입력란에 `/macros`를 입력할 수도 있습니다(짧은 형태인 `/macro`도 동작합니다). 전체 매크로 목록을 채팅에 바로 출력해 간단히 확인할 수 있습니다.
 
 조건부 블록에서는 `||`(OR), `&&`(AND), 괄호로 비교식을 조합할 수 있습니다. 같음 비교를 나열할 때는 `{{#if character == "Maukie" || "Pantalone"}}` 같은 축약 형태도 쓸 수 있습니다. 연산 우선순위, 그룹 채팅 예시, 전체 연산자 목록은 [조건부 프롬프트](conditional-prompts.md)를 참고하세요.
+
+조건은 Decision 모델에 장면을 물을 수도 있습니다. 예/아니요에는 `{{#if decision:"The latest message moves the scene to a new place"}}`, 옵션 선택에는 `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`를 사용합니다. 모델이나 답이 없으면 아니요입니다. [Decision 모델에 묻기](conditional-prompts.md#asking-the-decision-model)를 참고하세요. 문장 뒤에 `sticky:3 cooldown:5`를 추가하면 예를 3턴 유지하고 5턴 쉽니다. [Sticky와 Cooldown](conditional-prompts.md#sticky-and-cooldown)을 참고하세요. `every:3`은 3턴마다 묻고 `priority:high`나 `priority:low`는 계획에 들어갈 문장을 정합니다. [몇 턴마다 확인하기](conditional-prompts.md#checking-every-few-turns), [우선순위](conditional-prompts.md#priority), [제한과 비용](conditional-prompts.md#limits-and-cost)을 참고하세요.
 
 ## 자주 하는 실수
 

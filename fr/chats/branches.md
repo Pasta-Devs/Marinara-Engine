@@ -10,6 +10,8 @@ Toutes les branches d'un même chat sont regroupées. Dans la liste des chats, u
 
 Chaque branche peut avoir son propre nom d'affichage : tu peux ainsi les étiqueter "fin amicale" et "fin sombre". Ce nom d'affichage est indépendant du nom du chat sous-jacent.
 
+La filiation d'une branche enregistre le chat source immédiat et le message où la branche a été créée. L'identifiant du message source et celui de sa copie sont conservés ; les intégrations peuvent ainsi identifier la limite de la branche, même si les messages copiés reçoivent de nouveaux identifiants. Créer une branche d'une branche enregistre cette dernière comme parent immédiat, et non la racine d'origine. Les anciennes branches et les branches sœurs importées conservent leur nom d'affichage, mais leur filiation est inconnue.
+
 ## Créer une branche avec **Branch from here**
 
 Une branche se crée depuis n'importe quel message du chat.
@@ -24,6 +26,8 @@ Marinara copie le chat jusqu'à ce message inclus dans une nouvelle branche. Cet
 - Copie les instantanés des trackers (agents de suivi) et de l'état du jeu liés aux messages copiés : les chats en mode Roleplay et Game Mode gardent ainsi leur état.
 - Porte au départ le nom d'affichage **New Branch**. Tu peux la renommer, voir plus bas.
 - Reste dans le même dossier de chats que le chat d'origine.
+
+Un chat vide a des points d'ancrage de message nuls. Supprimer un chat parent ne change pas la filiation historique de ses enfants. Supprimer tout le groupe de branches supprime toujours tous les chats du groupe.
 
 Les résumés du jour et de la semaine ne sont pas repris. Les résumés glissants dont les plages de messages enregistrées sont entièrement comprises dans la branche copiée sont repris et réattribués aux nouveaux identifiants de messages de la branche. Les résumés dont la plage source traverse le point de branchement, ainsi que les anciens résumés sans métadonnées de messages, sont ignorés. La nouvelle branche recommence ces résumés à zéro.
 

@@ -57,6 +57,7 @@ W [grze z zestawem zasad](dice-and-skill-checks.md#games-that-use-a-ruleset) ark
 
 - **Resources** (zasoby) pokazują stan i maksimum, np. zdrowia, komórek zaklęć lub zasobu klasy. Użyj plusa, minusa lub wpisz liczbę. **Temp** oznacza bufor tymczasowy.
 - **Tracks** (liczniki) zmieniają się w swoim zakresie, np. wyczerpanie.
+- **Wound tracks** (tory ran) to rząd pól zamiast liczby, dla systemów zaznaczających obrażenia. Każde pole podaje nazwę stopnia zranienia i karę do rzutów. Jeżeli zestaw ma kilka rodzajów obrażeń, najpierw wybierz rodzaj, a potem użyj **Mark** (zaznacz) lub **Clear one** (usuń jedno). Możesz też kliknąć następne puste pole, aby dodać znacznik, albo ostatnie zaznaczone, aby go usunąć; inne pola nie reagują. Cięższy znacznik zajmuje wyższe pole i przesuwa lżejsze niżej. Wiersz pod torem podaje bieżącą karę oraz obrażenia, które się na nim nie zmieściły. Jeżeli zestaw tak określa, kara zmniejsza pulę kości albo sumowany wynik rzutu; karta kości pokazuje zastosowaną wartość.
 - **Notes** (notatki) to krótkie pola, np. na koncentrację.
 - **Conditions** (stany) włącza się i wyłącza przyciskami.
 - Przyciski odpoczynku przywracają to, co określa zestaw. Długi odpoczynek w 5e (SRD 5.1) odnawia zdrowie, komórki zaklęć i połowę kości wytrzymałości, co najmniej jedną.

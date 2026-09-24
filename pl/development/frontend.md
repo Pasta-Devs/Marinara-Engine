@@ -360,7 +360,6 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.delete(path)`             | `DELETE /api{path}` | Usunięcie zasobu                      |
 | `api.upload(path, FormData)`   | `POST /api{path}`   | Wgranie pliku (multipart)             |
 | `api.download(path, filename)` | `GET /api{path}`    | Pobranie wraz z oknem zapisu pliku    |
-| `api.stream(path, body)`       | `POST /api{path}`   | Generator asynchroniczny SSE (same tokeny) |
 | `api.streamEvents(path, body)` | `POST /api{path}`   | Generator asynchroniczny SSE (wszystkie typy zdarzeń) |
 
 Błędy zgłaszane są jako `ApiError`, który niesie właściwości `status` i `message`.
@@ -596,10 +595,13 @@ Lekka wersja Engine startuje z pustym rejestrem agentów. Pakiety zainstalowane 
 | `spotify`                | post_processing | Steruje odtwarzaniem w Music DJ (Spotify, YouTube albo muzyka lokalna) |
 | `knowledge-retrieval`    | pre_generation  | Pobiera kontekst ze źródeł wiedzy                                 |
 | `knowledge-router`       | pre_generation  | Kieruje trafnymi wpisami lorebooków i wiedzy                      |
+| `long-term-memory` | feature | Przechowuje trwałe wspomnienia i przywołuje istotny kontekst |
 | `haptic`                 | post_processing | Wysyła komendy do urządzenia haptycznego                          |
 | `cyoa`                   | post_processing | Generuje prompty z wyborami                                       |
+| `storyboard` | post_processing | Planuje nieruchome i animowane storyboardy Game i Roleplay |
 | `conversation-calls`     | feature         | Dodaje rozmowy audio/wideo w trybie Conversation i powiązane ustawienia |
 | `hierarchical-maps`      | feature         | Dodaje mapy, kontekst przestrzenny i ruch w trybach Roleplay i Game Mode |
+| `noodle` | feature | Dodaje lokalne kanały społecznościowe Noodle i Slurp do Home |
 | `uno`                    | feature         | Dodaje stolik UNO w trybie Conversation                           |
 | `chess`                  | feature         | Dodaje szachownicę w trybie Conversation                          |
 | `poker`                  | feature         | Dodaje stolik Texas Hold'em w trybie Conversation                 |

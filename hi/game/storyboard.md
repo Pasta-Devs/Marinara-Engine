@@ -42,7 +42,7 @@ Chat Settings में Storyboard न दिखे तो जाँच ले�
 | **Video connection** | Use the Game video connection | एनिमेशन चालू हों तो क्लिप बनाता है |
 | **Automatic generation** | Still images | नई चालू हुई चैट के लिए ऑटोमैटिक व्यवहार की शुरुआती सेटिंग तय करता है |
 | **Keyframes per turn** | 3, सीमा 1-6 | क्रम से लगे फ़्रेम की लक्ष्य संख्या तय करता है |
-| **Clip seconds** | 6, सीमा 1-15 | हर क्लिप के लिए माँगी जाने वाली लंबाई तय करता है |
+| **Clip seconds** | 5, सीमा 1-15 | हर क्लिप के लिए माँगी जाने वाली लंबाई तय करता है |
 | **Viewer display** | Floating viewer | Game Mode के व्यूअर का डिफ़ॉल्ट तय करता है; Roleplay में स्टोरीबोर्ड हमेशा इनलाइन दिखते हैं |
 | **Default Roleplay episode interval** | 1, सीमा 1-100 | तय करता है कि दो ऑटोमैटिक एपिसोड के बीच Roleplay में कितनी नई सामग्री जमा हो |
 | **Attach Card Appearance** | On | इमेज प्रॉम्प्ट में मेल खाते कैरेक्टर की शक्ल-सूरत के ब्योरे जोड़ता है |
@@ -72,7 +72,7 @@ Roleplay चुने हुए चार प्रॉम्प्ट मिल�
 | **Animation addon** | Simple Storyboard Motion | सिर्फ़ क्लिप के लिए मोशन, कैमरा, स्रोत का संवाद और साउंड, माहौल और अंत का ठहराव जोड़ता है |
 | **Output contract** | Roleplay Keyframe JSON | प्लानर जो कीफ़्रेम फ़ील्ड लौटाता है, उनका ढाँचा तय करता है |
 
-हर सिलेक्टर के नीचे एक ऐसी लिस्ट है जिसे बदला जा सकता है। अपना प्रॉम्प्ट जोड़ने के लिए **Add option** इस्तेमाल करें, उसका नाम बदलें, छोटा विवरण लिखें और प्रॉम्प्ट का टेक्स्ट बदलें। बिल्ट-इन विकल्पों को पैकेज वाले डिफ़ॉल्ट पर लौटाया जा सकता है।
+इन पूरे संग्रहों को संपादित करने के लिए Stage 1 की बंद **Prompt library** (प्रॉम्प्ट लाइब्रेरी) खोलें। अपना प्रॉम्प्ट जोड़ने के लिए **Add option** इस्तेमाल करें, उसका नाम बदलें, छोटा विवरण लिखें और प्रॉम्प्ट का टेक्स्ट बदलें। बिल्ट-इन विकल्पों को पैकेज वाले डिफ़ॉल्ट पर लौटाया जा सकता है।
 
 ### साझा प्रोवाइडर फ़ॉर्मैटर
 
@@ -83,7 +83,7 @@ Roleplay चुने हुए चार प्रॉम्प्ट मिल�
 | **Default image prompt** | Game Scene Illustration | प्लान किए हुए हर कीफ़्रेम को इमेज प्रोवाइडर के लिए फ़ॉर्मैट करता है |
 | **Default video prompt** | Cinematic Scene Video | पहले फ़्रेम की इमेज और मोशन प्लान को वीडियो प्रोवाइडर के लिए फ़ॉर्मैट करता है |
 
-बिल्ट-इन इमेज विकल्पों में **Storyboard Illustration** और **Storyboard First Frame** भी हैं। वीडियो विकल्पों में **Anime Game Video**, **Comic Page Video** और **LTX Director Video** शामिल हैं। Game और Roleplay चैट अलग-अलग फ़ॉर्मैटर चुन सकती हैं, इससे उनके पीछे की साझा प्रॉम्प्ट लिस्ट नहीं बदलती।
+हर नंबर वाले चरण की अपनी बंद **Prompt library** है: Stage 2 में इमेज फ़ॉर्मैटर, Stage 3 में इमेज देखकर गति की योजना बनाने वाले प्लानर और Stage 4 में वीडियो पासथ्रू फ़ॉर्मैटर हैं। बिल्ट-इन इमेज विकल्पों में **Storyboard Illustration** और **Storyboard First Frame** भी हैं। वीडियो विकल्पों में **Anime Game Video**, **Comic Page Video** और **Narration Passthrough** शामिल हैं। Game और Roleplay चैट अलग-अलग फ़ॉर्मैटर चुन सकती हैं, इससे उनके पीछे की साझा प्रॉम्प्ट लिस्ट नहीं बदलती।
 
 ### ग्लोबल डिफ़ॉल्ट और चैट के ओवरराइड
 
@@ -174,7 +174,7 @@ Generation की सेटिंग्स में **Expose image prompts befo
 | **Automatic Storyboard Illustrations** | Automatic generation से तय | हर पूरे हुए GM टर्न के बाद स्टिल कीफ़्रेम |
 | **Automatic Storyboard Animations** | Automatic generation से तय | हर कीफ़्रेम के लिए MP4 क्लिप |
 | **Keyframes per Turn** | 3, सीमा 1-6 | फ़्रेम की लक्ष्य संख्या; छोटे टर्न में इससे कम भी बन सकते हैं |
-| **Animation Clip Duration** | 6 सेकंड, सीमा 1-15 | हर क्लिप के लिए माँगी गई लंबाई; प्रोवाइडर इसे घटा सकता है |
+| **Animation Clip Duration** | 5 सेकंड, सीमा 1-15 | हर क्लिप के लिए माँगी गई लंबाई; प्रोवाइडर इसे घटा सकता है |
 | **Viewer Display** | Floating | खींचकर हिलाया जा सकने वाला व्यूअर, या पूरा Game बैकग्राउंड |
 | **Still Planner** | Still Keyframes | पूरी स्टिल इलस्ट्रेशन की योजना बनाता है |
 | **Animation Planner** | Comic Page Animation | एनिमेशन के लिए तैयार पहले फ़्रेम और मोशन निर्देश की योजना बनाता है |
@@ -260,7 +260,7 @@ Game की चेकलिस्ट:
 - **Illustration Planner**: Still Keyframes, सिर्फ़ स्टिल वाले फ़ॉलबैक के तौर पर
 - **Animation Planner**: LTX Simple Image-to-Video
 - **Storyboard Illustration Prompt**: Storyboard First Frame
-- **Storyboard Video Prompt**: LTX Director Video
+- **Storyboard Video Prompt**: Narration Passthrough
 - **Use Storyboard Template**: On
 
 8 GB VRAM वाले GPU पर शुरुआत 480p के एक कीफ़्रेम से करें। वह ठीक से बन जाए, तब तीन कीफ़्रेम और ऊँचे रेज़ोल्यूशन की तरफ़ बढ़ें। ComfyUI कनेक्शन, प्लेसहोल्डर और जाँच की पूरी प्रक्रिया के लिए [Game Mode में LTX 2.3 स्टोरीबोर्ड](ltx-2-3-storyboards.md) देखें।

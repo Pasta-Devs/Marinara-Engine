@@ -124,7 +124,7 @@ Le choix des actions affichées se fait dans les réglages.
 
 Voici les trois actions :
 
-- **Post only** : ajoute le message saisi au chat sans déclencher de réponse de l'IA.
+- **Post only** : ajoute ton message au chat sans déclencher de réponse de l'IA. Tu peux aussi utiliser la commande de barre `/send <message>`.
 - **Guide reply** : envoie le texte saisi comme indication `/guided` plutôt que comme message normal.
 - **Impersonate** : génère une réponse dans la peau de ton persona, en prenant le texte saisi comme indication. Cette action est masquée dans les chats Conversation, où Impersonate ne fonctionne pas.
 

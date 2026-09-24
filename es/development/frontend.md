@@ -360,7 +360,6 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.delete(path)`             | `DELETE /api{path}` | Eliminar recurso                      |
 | `api.upload(path, FormData)`   | `POST /api{path}`   | Subida de archivo multiparte          |
 | `api.download(path, filename)` | `GET /api{path}`    | Descarga más ventana de guardar como  |
-| `api.stream(path, body)`       | `POST /api{path}`   | Generador asíncrono SSE (solo tokens) |
 | `api.streamEvents(path, body)` | `POST /api{path}`   | Generador asíncrono SSE (todos los tipos de evento) |
 
 Los errores lanzan `ApiError`, que lleva las propiedades `status` y `message`.
@@ -596,10 +595,13 @@ El Engine ligero se envía con un registro de agentes en tiempo de ejecución va
 | `spotify`                | post_processing | Controla la reproducción del Music DJ (Spotify, YouTube o música local) |
 | `knowledge-retrieval`    | pre_generation  | Recupera contexto de las fuentes de conocimiento                  |
 | `knowledge-router`       | pre_generation  | Enruta las entradas relevantes de lorebook y de conocimiento      |
+| `long-term-memory` | feature | Guarda recuerdos duraderos y recupera contexto relevante |
 | `haptic`                 | post_processing | Envía comandos a dispositivos hápticos                            |
 | `cyoa`                   | post_processing | Genera prompts de elección                                        |
+| `storyboard` | post_processing | Planifica storyboards fijos o animados de Game y Roleplay |
 | `conversation-calls`     | feature         | Añade llamadas de audio/video de Conversation y ajustes relacionados |
 | `hierarchical-maps`      | feature         | Añade mapas de Roleplay/Game, contexto espacial y movimiento      |
+| `noodle` | feature | Añade los feeds sociales locales Noodle y Slurp a Home |
 | `uno`                    | feature         | Añade la mesa de UNO de Conversation                              |
 | `chess`                  | feature         | Añade el tablero de Chess de Conversation                         |
 | `poker`                  | feature         | Añade la mesa de Texas Hold'em de Conversation                    |

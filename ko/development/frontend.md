@@ -360,7 +360,6 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.delete(path)` | `DELETE /api{path}` | 리소스 삭제 |
 | `api.upload(path, FormData)` | `POST /api{path}` | 멀티파트 파일 업로드 |
 | `api.download(path, filename)` | `GET /api{path}` | 다운로드와 다른 이름으로 저장 창 |
-| `api.stream(path, body)` | `POST /api{path}` | SSE 비동기 제너레이터(토큰만) |
 | `api.streamEvents(path, body)` | `POST /api{path}` | SSE 비동기 제너레이터(모든 이벤트 종류) |
 
 오류는 `ApiError`로 던지며, 여기에는 `status`와 `message` 속성이 담깁니다.
@@ -596,10 +595,13 @@ Narrative Director의 Secret Plot 패널처럼 에이전트의 기억을 다루�
 | `spotify` | post_processing | Music DJ 재생을 제어합니다(Spotify, YouTube, 로컬 음악) |
 | `knowledge-retrieval` | pre_generation | 지식 소스에서 컨텍스트를 가져옵니다 |
 | `knowledge-router` | pre_generation | 관련 있는 로어북 항목과 지식 항목을 골라 보냅니다 |
+| `long-term-memory` | feature | 장기 메모리를 저장하고 관련 컨텍스트를 불러옵니다 |
 | `haptic` | post_processing | 햅틱 기기 명령을 보냅니다 |
 | `cyoa` | post_processing | 선택지 프롬프트를 만듭니다 |
+| `storyboard` | post_processing | Game과 Roleplay의 정지 또는 애니메이션 스토리보드를 계획합니다 |
 | `conversation-calls` | feature | Conversation에 음성/영상 통화와 관련 설정을 추가합니다 |
 | `hierarchical-maps` | feature | Roleplay와 Game에 지도, 공간 컨텍스트, 이동을 추가합니다 |
+| `noodle` | feature | Home에 로컬 Noodle과 Slurp 소셜 피드를 추가합니다 |
 | `uno` | feature | Conversation에 UNO 테이블을 추가합니다 |
 | `chess` | feature | Conversation에 Chess 판을 추가합니다 |
 | `poker` | feature | Conversation에 Texas Hold'em 테이블을 추가합니다 |

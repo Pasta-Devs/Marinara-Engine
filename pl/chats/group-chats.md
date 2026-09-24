@@ -81,12 +81,18 @@ Ustawienie **Mode** to przełącznik z dwoma przyciskami.
 
 Kiedy ustawienie **Mode** stoi na **Merged (Narrator)**, można włączyć **Color Dialogues** (kolorowe dialogi). Domyślnie jest wyłączone. Po włączeniu kwestie każdej postaci wyświetlają się w jej własnych kolorach. Kolory pochodzą z zakładki **Colors** w edytorze postaci. Ta zakładka ustawia kolor imienia, kolor dialogu i kolor ramki. Sposób ich ustawienia opisuje przewodnik o edycji postaci.
 
+<a id="response-order-individual-only"></a>
+
 ### **Response Order** (tylko przy **Individual**)
 
 Kiedy ustawienie **Mode** stoi na **Individual**, pojawia się ustawienie **Response Order** (kolejność odpowiedzi). To przełącznik z trzema przyciskami.
 
 - **Sequential** jest domyślne. Każda postać odpowiada po kolei, zgodnie z listą **Characters**. Zmień kolejność uczestników, a zmienisz kolejność tur.
 - **Smart** wykonuje krótkie, ukryte zapytanie do AI i na tej podstawie decyduje, która postać albo które postacie mają się odezwać jako następne. Czyta ostatnie wiadomości i opisy postaci, a zwykle wskazuje jedną osobę. Wzmianka w stylu `@Alice` w twojej wiadomości unieważnia ten wybór.
+
+  Jeśli wybierzesz **Decision model** (model decyzyjny; zobacz [Modele decyzyjne](../connections/decision-models.md)), możesz włączyć pod nim **Also use it to pick who speaks in Smart response order** (wybieraj nim także mówiącego w kolejności Smart). Kolejność Smart prosi wtedy o osobny wynik tak/nie dla każdego kandydata. Pytania współdzielą pięć ostatnich wiadomości i listę kandydatów z imionami, statusem, aktywnością, rozmownością oraz krótkim fragmentem osobowości lub opisu. Zdalny dostawca też otrzymuje tę listę; zobacz [Co widzi model](../connections/decision-models.md#what-the-model-sees).
+
+  Te wyniki mogą przyjść szybciej niż pełna odpowiedź AI, ale szybkość i koszt zależą od modelu i liczby kandydatów. W trybie Roleplay Marinara wybiera najbardziej prawdopodobnego mówiącego. W Conversation odpowiada każdy, kto ma powód, w kolejności prawdopodobieństwa. Postać, która właśnie mówiła, czeka, jeśli ktoś inny ma powód odpowiedzieć. Gdy model decyzyjny nie odpowie, Smart wykonuje zwykłe wywołanie AI.
 - **Manual** wyłącza wszystkie automatyczne odpowiedzi. Wtedy sam wskazujesz mówiącego listą **Trigger Response** na pasku wiadomości.
 
 Przy kolejności **Smart** AI potrafi ustawić w kolejce więcej niż jedną postać. Od razu odpowiada tylko pierwsza. Kolejnego mówiącego wskaże lista **Trigger Response** na pasku wiadomości. Inna opcja: wyślij pustą wiadomość, a odezwie się następna postać z kolejki.

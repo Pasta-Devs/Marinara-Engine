@@ -16,7 +16,7 @@ Conserva los ID de plantilla opcionales existentes y los controles de configurac
 
 - **LTX Director Storyboard** planifica el primer fotograma y un prompt completo de imagen a video de LTX 2.3 por toma.
 - **Storyboard First Frame** da formato a la ilustración exacta de T=0 que se usa como imagen de referencia.
-- **LTX Director Video** es solo `${narrationSummary}` y por eso pasa el prompt completo del planificador por la misma ruta universal de plantilla de video que usa cualquier otro flujo de trabajo.
+- **Narration Passthrough** es solo `${narrationSummary}` y por eso pasa el prompt completo del planificador por la misma ruta universal de plantilla de video que usa cualquier otro flujo de trabajo.
 
 La ruta de Storyboard no debe inspeccionar esos ID de plantilla, fabricar segmentos locales ni adjuntar una carga útil de prompt específica de LTX. La plantilla de video seleccionada sigue siendo totalmente personalizable.
 
@@ -52,7 +52,7 @@ She opens the door and walks outside as the camera follows behind her. A light b
 
 1. El planificador devuelve un `imagePrompt` en T=0 y un `narrationBeat` completo por cada toma.
 2. La generación de imágenes de Storyboard crea la ilustración de referencia del primer fotograma.
-3. La plantilla LTX Director Video resuelve `${narrationSummary}` al `narrationBeat` de esa toma.
+3. La plantilla Narration Passthrough resuelve `${narrationSummary}` al `narrationBeat` de esa toma.
 4. La solicitud normal de generación de video lleva el resultado en su campo `prompt` existente.
 5. El adaptador de ComfyUI reemplaza `%prompt%` en el flujo de trabajo guardado y suministra la imagen de referencia, las dimensiones, la duración, el número de fotogramas, la semilla y los valores de modelo existentes.
 
@@ -89,7 +89,7 @@ No se requiere ningún trabajo de UI del cliente, localización, esquema de alma
 ## Criterios de aceptación
 
 - El planificador de LTX Storyboard solicita un prompt completo de imagen a video que tenga en cuenta la duración, con fases de acción legibles, dirección de cámara relativa y audio o diálogo opcionales.
-- La plantilla LTX Director Video es exactamente `${narrationSummary}`.
+- La plantilla Narration Passthrough es exactamente `${narrationSummary}`.
 - La ruta de Storyboard no tiene ningún salto por ID de plantilla exacto, saneador de prompts locales ni traspaso específico de LTX.
 - Un flujo de trabajo con `global_prompt: "%prompt%"` recibe el prompt completo del planificador; `local_prompts` y `segment_lengths` quedan vacíos.
 - Los flujos de trabajo con `%global_prompt%` existentes aún reciben el prompt de solicitud normal como reserva de compatibilidad.

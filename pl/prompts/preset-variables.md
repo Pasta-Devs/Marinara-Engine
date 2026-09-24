@@ -59,6 +59,12 @@ Marinara rozwiązuje wiele wbudowanych makr, na przykład `{{user}}` i `{{char}}
 
 Jeśli zmienna o dokładnie takiej nazwie istnieje, symbol zastępczy zmienia się w wybraną wartość. Jeśli żadna zmienna nie pasuje, tekst `{{NAME}}` zostaje dokładnie taki, jak został wpisany. Dlatego nieznany symbol zastępczy trafia do wyniku bez zmian, zamiast wywołać błąd. Pełną listę makr zawiera przewodnik [Makra promptów](macros.md).
 
+## Bloki decyzyjne w opcjach
+
+Wartość opcji może zawierać `{{#if decision:"..."}}` jak każdy tekst promptu. Pytane są tylko opcje wybrane na czacie i liczą się do **Decision statements per turn** (stwierdzenia decyzyjne na turę). Dla zmiennej **Random Pick** pytane są wszystkie opcje wybranej puli, bo każda może zostać wylosowana. Zobacz [Pytanie modelu decyzyjnego](conditional-prompts.md#asking-the-decision-model).
+
+Wartość zmiennej trafia tam, gdzie jest jej `{{name}}`. Jeśli decyzja zmienia ją blisko początku presetu, może stracić dużą część ponownego użycia pamięci podręcznej dostawcy, choć wcześniejszy niezmieniony początek nadal może się kwalifikować. Często zmienianą treść umieszczaj później, gdy to możliwe. Zobacz [Bloki decyzyjne i pamięć podręczna promptu](presets.md#decision-blocks-and-prompt-caching).
+
 ## Powiązane przewodniki
 
 - [Edytor presetów i menedżer promptów](presets.md)

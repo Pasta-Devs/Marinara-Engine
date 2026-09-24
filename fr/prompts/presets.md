@@ -162,6 +162,16 @@ Clique sur **Edit Prompt** pour rédiger un prompt réservé à ce chat. L'édit
 
 Les chats Game disposent en plus d'un champ **Extra instructions**. Le texte saisi là s'ajoute au prompt Game. La limite est de 2000 caractères. Exemple d'instruction : "Write in the style of Terry Pratchett."
 
+<a id="decision-blocks-and-prompt-caching"></a>
+
+## Blocs de décision et cache de prompts
+
+Une section peut contenir un bloc `{{#if decision:"..."}}` pour envoyer cette partie du preset seulement aux tours où un énoncé sur le chat est vrai. Consulte [Interroger le Decision model](conditional-prompts.md#asking-the-decision-model).
+
+**Place les blocs de décision changeants vers la fin du prompt**, comme dans les instructions après l'historique. Changer une branche peut empêcher la réutilisation du prompt à partir de ce point ; un changement tôt peut donc perdre l'essentiel des économies. Un préfixe antérieur inchangé peut rester admissible ; tout le prompt n'est pas nécessairement facturé comme nouveau. Garde une décision en haut seulement si elle change rarement et si ses instructions y ont leur place. Voir les détails par fournisseur dans [Cache de prompts](conditional-prompts.md#prompt-caching).
+
+Les énoncés dans les sections et groupes désactivés ne sont jamais interrogés et ne comptent pas dans **Decision statements per turn** (énoncés de décision par tour).
+
 ## Vérifier ce que l'IA a reçu
 
 Pour savoir quel preset et quelles sections sont réellement parvenus à l'IA, utilise **Peek Prompt**. Cette fonction montre le prompt entièrement assemblé pour un message. C'est le moyen le plus rapide de comprendre une réponse étrange. Voir [Peek Prompt : voir ce que l'IA a reçu](../chats/peek-prompt.md).

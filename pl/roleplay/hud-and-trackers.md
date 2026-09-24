@@ -30,7 +30,7 @@ Osobny **Inventory Tracker** działa niezależnie od ekwipunku z Persona Stats. 
 
 Każdy wpis to mała pigułka. Pigułki układają się wzdłuż szerokości panelu i zawijają do kolejnego wiersza, więc długa lista przedmiotów pozostaje czytelna, zamiast rozciągać się w wysoką kolumnę. Liczba sztuk pojawia się tylko wtedy, gdy przekracza jeden, w postaci `×4` po nazwie; pojedynczy przedmiot pokazuje samą nazwę. W wąskim panelu pigułki układają się po jednej w wierszu.
 
-Aby zmienić liczbę sztuk, która wynosi teraz jeden, włącz tryb dodawania albo tryb blokady – oba pokazują pole liczby przy każdym wpisie.
+Aby zmienić liczbę sztuk, która wynosi teraz jeden, włącz **add mode** (tryb dodawania) albo **lock mode** (tryb blokady) – oba pokazują pole liczby przy każdym wpisie.
 
 Widget **Present Characters** pokazuje maksymalnie trzy emoji postaci, a resztę zlicza jako "+N". Widgety **Inventory** i **Custom Tracker** przewijają swoje wpisy pojedynczo.
 

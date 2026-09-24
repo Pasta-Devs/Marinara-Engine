@@ -81,12 +81,18 @@ A configuração **Mode** é um botão liga/desliga com duas opções.
 
 Com **Mode** em **Merged (Narrator)**, você pode ativar a opção **Color Dialogues**. Ela vem desativada por padrão. Quando está ativa, as falas de cada personagem aparecem nas cores dele. Essas cores vêm da aba **Colors** do editor de personagem. Essa aba define a cor do nome, a cor do diálogo e a cor da caixa. Veja no guia de edição de personagens como configurar cada uma.
 
+<a id="response-order-individual-only"></a>
+
 ### Response Order (só no modo Individual)
 
 Com **Mode** em **Individual**, aparece a configuração **Response Order**. É um botão liga/desliga com três opções.
 
 - **Sequential** é o padrão. Cada personagem responde na sua vez, na ordem em que aparece na lista **Characters**. Reordene os membros para mudar a ordem dos turnos.
 - **Smart** usa uma chamada curta e invisível à IA para decidir qual personagem, ou quais personagens, respondem em seguida. Ela lê as mensagens recentes e os detalhes de cada personagem, e em geral escolhe um só. Se você escrever uma menção como `@Alice` na sua mensagem, essa menção prevalece sobre a escolha.
+
+  Se você escolheu um **Decision model** (modelo de decisão; veja [Modelos de decisão](../connections/decision-models.md)), pode ativar **Also use it to pick who speaks in Smart response order** (usar também para escolher quem fala na ordem Smart) abaixo. Smart passa a pedir uma pontuação separada de sim/não por candidato. As perguntas compartilham as últimas cinco mensagens e uma lista com nome, status, atividade, sociabilidade e um trecho curto de personalidade ou descrição dos candidatos. Um provedor hospedado também recebe essa lista; veja [O que o modelo vê](../connections/decision-models.md#what-the-model-sees).
+
+  Essas pontuações podem ser mais rápidas que uma resposta completa de IA, mas velocidade e custo dependem do modelo e do número de candidatos. Em Roleplay, Marinara escolhe quem tem maior probabilidade de falar. Em Conversation, todos com motivo respondem, começando pelos mais prováveis. Quem acabou de falar espera se outra pessoa tem motivo para responder. Se o Decision model não responder, Smart faz sua chamada normal à IA.
 - **Manual** interrompe qualquer resposta automática. Você escolhe exatamente quem responde pelo seletor **Trigger Response**, na barra de mensagem.
 
 Na ordem **Smart**, a IA pode enfileirar mais de um personagem. Só o primeiro responde na hora. Para escolher quem fala em seguida, use o seletor **Trigger Response**, na barra de mensagem. Outra opção: envie uma mensagem vazia para gerar a fala do próximo personagem da fila.
