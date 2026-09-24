@@ -59,15 +59,20 @@ const SESSION = `${AGENT}:${process.pid}:${randomUUID()}`;
 const lockBody = (purpose) =>
   JSON.stringify({ agent: AGENT, session: SESSION, at: new Date().toISOString(), purpose, pid: process.pid });
 
+/** The operation that holds the lock in this process. MCP clients can run tools concurrently in one session. */
+let activeOperation = null;
+
 /**
  * Take the engine lock. The file is created with the exclusive flag, so of two sessions racing for a free (or stale)
- * lock exactly one wins. A lock this session already holds is refreshed instead.
+ * lock exactly one wins. A second operation in this same session is refused while the first holds it.
  */
 export function acquireLock(purpose) {
+  if (activeOperation) throw new Error(`this server is already running "${activeOperation}"; wait for it to finish`);
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const held = readLock();
     if (held?.session === SESSION) {
       writeFileSync(LOCK_FILE, lockBody(purpose));
+      activeOperation = purpose;
       return;
     }
     if (held && !held.stale) {
@@ -77,6 +82,7 @@ export function acquireLock(purpose) {
     if (held?.stale && readLock()?.session === held.session) rmSync(LOCK_FILE, { force: true });
     try {
       writeFileSync(LOCK_FILE, lockBody(purpose), { flag: "wx" });
+      activeOperation = purpose;
       return;
     } catch (error) {
       if (error.code !== "EEXIST") throw error;
@@ -92,10 +98,8 @@ export function refreshLock() {
   if (held?.session === SESSION) writeFileSync(LOCK_FILE, lockBody(held.purpose));
 }
 
-/** True while this session holds the lock (for example during a restart), so nested steps do not release it. */
-export const holdsLock = () => readLock()?.session === SESSION;
-
 export function releaseLock() {
+  activeOperation = null;
   if (readLock()?.session === SESSION) rmSync(LOCK_FILE, { force: true });
 }
 
@@ -358,13 +362,12 @@ export async function typecheck(pkg) {
   const results = [];
   // shared's emitted types feed the other packages. Rebuilding its dist is a write that a concurrent build or
   // restart also makes, so it takes the engine lock for the build only (not for tsc).
-  const nested = holdsLock();
-  if (!nested) acquireLock("typecheck: rebuild shared");
+  acquireLock("typecheck: rebuild shared");
   let shared;
   try {
     shared = await pnpm(["--filter", "@marinara-engine/shared", "build"]);
   } finally {
-    if (!nested) releaseLock();
+    releaseLock();
   }
   if (!shared.ok) return [{ pkg: "shared(build)", ok: false, errors: shared.output.split("\n").slice(-30) }];
   for (const target of targets) {

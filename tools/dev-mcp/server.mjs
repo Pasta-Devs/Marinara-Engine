@@ -40,7 +40,7 @@ import {
   resolveCharacter,
   resolveChat,
 } from "./lib/api.mjs";
-import { acquireLock, build, deploy, holdsLock, regressions, releaseLock, status, stopEngine, typecheck } from "./lib/engine.mjs";
+import { acquireLock, build, deploy, regressions, releaseLock, status, stopEngine, typecheck } from "./lib/engine.mjs";
 import { groupedProblems, lookupReference } from "./lib/logs.mjs";
 import { cacheReport, diffPrompts, latestSavedPrompts, outline, peekPrompt } from "./lib/prompts.mjs";
 import { fail, fileSafe, out, pathInside, readActivity, record, safe, sleep, stamp, trimText } from "./lib/util.mjs";
@@ -627,13 +627,12 @@ tool(
   RISKY,
   async ({ packages, reason }) => {
     // Hold the lock for the whole build, so nobody restarts or rebuilds from a half-written dist.
-    const nested = holdsLock();
-    if (!nested) acquireLock(`build: ${reason}`);
+    acquireLock(`build: ${reason}`);
     let result;
     try {
       result = await build(packages);
     } finally {
-      if (!nested) releaseLock();
+      releaseLock();
     }
     record("build", { packages, reason, ok: result.ok, backup: result.backup });
     return out(result, 30_000, "build");
