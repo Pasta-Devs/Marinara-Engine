@@ -358,7 +358,7 @@ interface RulesetBestRound {
 
 /** The rider that says most. A rider fires once in its period, so one of them rides the best round
  *  and the rest do not: counting them all would measure a creature nobody could play. */
-function heaviestRider(riders: readonly RulesetCombatRider[] | undefined): RulesetCombatRider | null {
+export function heaviestRider(riders: readonly RulesetCombatRider[] | undefined): RulesetCombatRider | null {
   let best: RulesetCombatRider | null = null;
   for (const rider of riders ?? []) {
     if (!best || rulesetAverageAmount(rider.amount) > rulesetAverageAmount(best.amount)) best = rider;
@@ -413,7 +413,8 @@ function dropOneStrike(sequence: NonNullable<RulesetStatBlockAction["sequence"]>
  *  number and wrong about the game, so the size steps along real dice and only falls back to one
  *  face less for a die that is not among them. */
 const RULESET_CLAMP_DICE = [100, 20, 12, 10, 8, 6, 4, 3, 2] as const;
-function smallerDie(sides: number): number {
+/** The next die down the ladder above, or one face less for a die that is not on it. */
+export function smallerDie(sides: number): number {
   return RULESET_CLAMP_DICE.find((size) => size < sides) ?? sides - 1;
 }
 

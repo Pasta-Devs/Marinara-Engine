@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
+  assignCombatTactics,
   TERRAIN_DATA,
   combatBossSchema,
   combatInterruptFields,
@@ -200,15 +201,37 @@ type RulesetSession = { definition: RulesetDefinition; packageId: string | null 
 
 /** The creatures a fight may meet, and the catalogs their sheets read their lists out of. A creature
  *  described by a sheet takes its spells or tricks from the ruleset's other catalogs, the way a
- *  character does, so those are loaded too; a bestiary with no sheets in it loads nothing more. */
+ *  character does, so those are loaded too; a bestiary with no sheets in it loads nothing more. A
+ *  Game Master's invented sheet names its rows rather than marking them, so every catalog feeding a
+ *  list one of those fills is loaded for it as well. */
 async function loadBestiary(
   packageId: string | null,
   definition: RulesetDefinition,
+  proposedLists: ReadonlySet<string>,
 ): Promise<RulesetCatalogEntriesById> {
   const creatures = await loadFightCatalogs(packageId, definition, (c) => c.holds === "creatures");
-  const lists = new Set(rulesetBestiarySheetCatalogIds(definition, creatures));
-  if (lists.size === 0) return creatures;
-  return { ...creatures, ...(await loadFightCatalogs(packageId, definition, (c) => lists.has(c.id))) };
+  const marked = new Set(rulesetBestiarySheetCatalogIds(definition, creatures));
+  const wanted = (c: NonNullable<RulesetDefinition["catalogs"]>[number]) =>
+    marked.has(c.id) || (c.feeds ?? []).some((list) => proposedLists.has(list));
+  if (marked.size === 0 && proposedLists.size === 0) return creatures;
+  return { ...creatures, ...(await loadFightCatalogs(packageId, definition, wanted)) };
+}
+
+/** The lists the Game Master's invented sheets fill, read off the raw proposals: which catalogs a
+ *  fight needs is decided before any proposal is parsed. Every list a creature CHOOSES from is among
+ *  them too, whether a proposal wrote it or not, because its open choices are filled from there. */
+function proposedSheetLists(
+  definition: RulesetDefinition,
+  enemies: ReadonlyArray<{ proposed?: unknown }>,
+): Set<string> {
+  const lists = new Set<string>();
+  for (const enemy of enemies) {
+    const sheet = (enemy.proposed as { sheet?: { lists?: unknown } } | undefined)?.sheet;
+    if (!sheet || typeof sheet !== "object") continue;
+    if (sheet.lists && typeof sheet.lists === "object") for (const id of Object.keys(sheet.lists)) lists.add(id);
+    for (const source of definition.combat?.abilities ?? []) if (source.onlyWhen) lists.add(source.list);
+  }
+  return lists;
 }
 
 /** The catalogs this fight needs: the ones the party's own rows came from, and every bestiary the
@@ -630,6 +653,13 @@ export async function combatDirectorRoutes(
         const weatherSource = checkpointRestore
           ? (committedWeather ?? meta.gameWeather)
           : (meta.gameWeather ?? committedWeather);
+        // An invented sheet's open choices are filled by how it fights, so it is given its tactics now,
+        // from the same unit and seed the fight would later give them from, and both read the same.
+        for (const enemy of input.enemies) {
+          if ((enemy.proposed as { sheet?: unknown } | undefined)?.sheet) {
+            enemy.tactics ??= assignCombatTactics(enemy as Combatant, battlefield.seed);
+          }
+        }
         const state = createCombatDirector({
           ...input,
           inventory: Array.isArray(meta.gameInventory) ? meta.gameInventory : [],
@@ -676,13 +706,14 @@ export async function combatDirectorRoutes(
               ...(enemy.creature !== undefined ? { creature: enemy.creature } : {}),
               ...(enemy.tier !== undefined ? { tier: enemy.tier } : {}),
               ...(enemy.proposed !== undefined ? { proposed: enemy.proposed } : {}),
+              ...(enemy.tactics ? { tactics: enemy.tactics } : {}),
               boss: !!enemy.boss,
             })),
             cards,
             playerName: persona?.name ?? null,
             live: parseStoredRulesetLive((await visibleLiveRow(input.chatId)).row?.rulesetLive),
             partyCatalogs: await loadFightCatalogs(resolved.packageId, definition, (c) => partyLists.has(c.id)),
-            bestiary: await loadBestiary(resolved.packageId, definition),
+            bestiary: await loadBestiary(resolved.packageId, definition, proposedSheetLists(definition, input.enemies)),
           });
           if (!built.ok) return reply.code(400).send({ error: built.error });
           state.rulesetFight = built.fight;

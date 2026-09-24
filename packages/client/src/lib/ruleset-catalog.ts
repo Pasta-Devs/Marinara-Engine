@@ -17,13 +17,16 @@ import {
   type RulesetCatalogHeader,
   type RulesetCatalogMechanics,
   type RulesetDefinition,
-  type RulesetField,
   type RulesetLayerOptions,
   type RulesetList,
   type RulesetListColumn,
   type RulesetSheetBuild,
+  sheetFieldMatchTexts,
 } from "@marinara-engine/shared";
 import type { TFunction } from "i18next";
+
+/** Moved to shared so a fight holds an invented creature to the same match the picker opens on. */
+export { sheetFieldMatchTexts } from "@marinara-engine/shared";
 
 type Scalar = number | string | boolean;
 export type CatalogListRow = Record<string, Scalar>;
@@ -59,19 +62,6 @@ export function catalogFilterOptions(filter: RulesetCatalogFilter, entries: read
   const options = [...seen];
   // Numbers sort as numbers: a cost of 10 belongs after 9, not between 1 and 2.
   return filter.type === "number" ? options.sort((left, right) => Number(left) - Number(right)) : options.sort(compare);
-}
-
-/** The texts that could name the sheet's own value of a field. A catalog names a value the way a
- *  player reads it, so an enum's display label has to be tried beside the stored value. */
-export function sheetFieldMatchTexts(field: RulesetField | undefined, stored: Scalar | undefined): string[] {
-  const value = stored === undefined ? field?.default : stored;
-  if (value === undefined || value === "") return [];
-  const texts = [String(value)];
-  if (field?.type === "enum" && typeof value === "string") {
-    const shown = field.valueLabels?.[value];
-    if (shown) texts.push(shown);
-  }
-  return texts;
 }
 
 /** The option a filter opens on: the sheet's own value when some entry carries it, "Any" otherwise.

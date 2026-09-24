@@ -13,7 +13,12 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { RULESET_RESOLUTION_KINDS, parseRulesetDefinition } from "../../packages/shared/src/index.js";
+import {
+  RULESET_CREATURE_PLAIN_NEEDS,
+  RULESET_CREATURE_SHEET_REPLACES,
+  RULESET_RESOLUTION_KINDS,
+  parseRulesetDefinition,
+} from "../../packages/shared/src/index.js";
 
 const script = fileURLToPath(new URL("../generate-ruleset-schema.mjs", import.meta.url));
 const result = spawnSync(process.execPath, [script, "--check"], { encoding: "utf8" });
@@ -146,15 +151,12 @@ console.info("game ruleset JSON Schema regression passed.");
     (member) => JSON.stringify(member.if) === JSON.stringify({ required: ["sheet"] }),
   );
   assert.ok(rule, "the published schema no longer says where a creature's numbers come from");
+  // Read off the shared lists the Engine's own refinement uses, so the three never drift apart.
   assert.deepEqual(rule.then, {
-    not: {
-      anyOf: ["health", "defense", "initiativeModifier", "speed", "abilities", "saves"].map((key) => ({
-        required: [key],
-      })),
-    },
+    not: { anyOf: RULESET_CREATURE_SHEET_REPLACES.map((key) => ({ required: [key] })) },
   });
   assert.deepEqual(rule.else, {
-    required: ["health", "defense", "initiativeModifier", "actions"],
+    required: [...RULESET_CREATURE_PLAIN_NEEDS, "actions"],
     properties: { actions: { minItems: 1 } },
   });
   // And the three numbers are not required outright, or a creature with a sheet could never be valid.

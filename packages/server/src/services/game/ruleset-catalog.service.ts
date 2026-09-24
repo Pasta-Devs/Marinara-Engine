@@ -53,7 +53,8 @@ export async function openRulesetCatalog(
       } catch {
         return { ok: false, issues: ["(root): the catalog file is not valid JSON"] };
       }
-      const parsed = parseRulesetCatalogFile(definition, catalog.id, document);
+      // A game's definition may have its layers on, which can narrow a field a creature was written with.
+      const parsed = parseRulesetCatalogFile(definition, catalog.id, document, true);
       if (!parsed.ok) {
         logger.warn(
           "[capability/rulesets] Catalog %s of %s is unusable: %s",

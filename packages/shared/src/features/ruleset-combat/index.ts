@@ -53,6 +53,13 @@ export {
   rulesetCombatRoller,
 } from "./dice.js";
 export {
+  fillRulesetSheetChoices,
+  holdRulesetCombatant,
+  holdRulesetSheetHealth,
+  readProposedRulesetSheet,
+  restrictRulesetSheetEntries,
+} from "./hold.js";
+export {
   clampRulesetStatBlock,
   findRulesetCreature,
   findRulesetCreatureEntry,
