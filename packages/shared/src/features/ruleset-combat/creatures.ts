@@ -15,13 +15,16 @@ import type {
   RulesetCreature,
   RulesetCreatureAction,
   RulesetDefinition,
+  RulesetProposedCreature,
 } from "../../schemas/ruleset.schema.js";
+import { rulesetCatalogIdsForBuild } from "../rulesets/scaled-rows.js";
 import { parseRulesetCombatDice, rulesetAverageAmount, rulesetAverageDamage } from "./dice.js";
 import type {
   RulesetCombatAmount,
   RulesetCombatDamage,
   RulesetCombatDamageClause,
   RulesetCombatRider,
+  RulesetPlainStatBlock,
   RulesetStatBlock,
   RulesetStatBlockAction,
 } from "./types.js";
@@ -163,6 +166,47 @@ export function rulesetCreatureBlock(
   return rulesetStatBlockFromCreature(definition, creature);
 }
 
+/**
+ * The catalogs the creatures of a bestiary read their sheets' lists out of. A creature described by
+ * a sheet takes the abilities on its lists from the ruleset's other catalogs, exactly as a
+ * character's sheet does, so a fight needs those to hand as well as the bestiary itself. Bounded by
+ * catalogs rather than creatures: a bestiary with no sheets in it needs nothing more.
+ */
+export function rulesetBestiarySheetCatalogIds(
+  definition: RulesetDefinition,
+  bestiary: RulesetCatalogEntriesById,
+): string[] {
+  const ids = new Set<string>();
+  for (const entries of Object.values(bestiary)) {
+    for (const entry of entries) {
+      const sheet = entry.creature?.sheet;
+      if (!sheet) continue;
+      for (const id of rulesetCatalogIdsForBuild(definition, sheet)) {
+        if (!(id in bestiary)) ids.add(id);
+      }
+    }
+  }
+  return [...ids];
+}
+
+/** A creature the Game Master invented for one fight, read as the plain block it always is, ready to
+ *  be clamped onto the threat scale. Null when the ruleset cannot resolve a fight at all. */
+export function rulesetProposedStatBlock(
+  definition: RulesetDefinition,
+  creature: RulesetProposedCreature,
+): RulesetPlainStatBlock | null {
+  const block = rulesetStatBlockFromCreature(definition, creature);
+  return block && isRulesetPlainStatBlock(block) ? block : null;
+}
+
+/** A block that carries its own numbers and no sheet, which is the only kind the clamp can hold to a
+ *  tier. A proposal's schema makes every one of them so; this is what lets the types say it too. */
+export function isRulesetPlainStatBlock(block: RulesetStatBlock): block is RulesetPlainStatBlock {
+  return (
+    !block.sheet && block.health !== undefined && block.defense !== undefined && block.initiativeModifier !== undefined
+  );
+}
+
 /** The same reading, for a creature that came from somewhere other than a catalog: an opponent the
  *  Game Master proposed for this one fight, in the shared creature form and clamped afterwards. */
 export function rulesetStatBlockFromCreature(
@@ -226,12 +270,17 @@ function blockFromCreature(creature: RulesetCreature, budgets: ReadonlySet<strin
     if (steps.length === 0) return null;
     return { ...built, sequence: steps };
   });
-  const health = typeof creature.health === "number" ? null : amountOf(creature.health);
+  // A creature with a sheet has none of these: the sheet says them in the ruleset's own terms.
+  const dice = creature.health === undefined || typeof creature.health === "number" ? null : amountOf(creature.health);
   return {
-    health: health ? Math.floor(rulesetAverageAmount(health)) : (creature.health as number),
-    ...(health ? { healthDice: health } : {}),
-    defense: creature.defense,
-    initiativeModifier: creature.initiativeModifier,
+    ...(dice
+      ? { health: Math.floor(rulesetAverageAmount(dice)), healthDice: dice }
+      : typeof creature.health === "number"
+        ? { health: creature.health }
+        : {}),
+    ...(creature.defense !== undefined ? { defense: creature.defense } : {}),
+    ...(creature.initiativeModifier !== undefined ? { initiativeModifier: creature.initiativeModifier } : {}),
+    ...(creature.sheet ? { sheet: structuredClone(creature.sheet) } : {}),
     actions: actions.filter((action): action is RulesetStatBlockAction => action !== null),
     ...(creature.speed !== undefined ? { speed: creature.speed } : {}),
     ...(creature.abilities ? { abilities: { ...creature.abilities } } : {}),
@@ -272,7 +321,7 @@ function riderOf(rider: NonNullable<RulesetCreature["riders"]>[number], ids: Rea
 
 /** What a proposed block became, and every change in words a log can print. */
 export interface RulesetClampedStatBlock {
-  block: RulesetStatBlock;
+  block: RulesetPlainStatBlock;
   adjusted: string[];
 }
 
@@ -391,7 +440,7 @@ function onlyKnown(values: readonly string[] | undefined, known: ReadonlySet<str
  */
 export function clampRulesetStatBlock(
   definition: RulesetDefinition,
-  proposed: RulesetStatBlock,
+  proposed: RulesetPlainStatBlock,
   tierId: string,
 ): RulesetClampedStatBlock {
   const combat = definition.combat;

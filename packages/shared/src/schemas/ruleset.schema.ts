@@ -1303,63 +1303,133 @@ const creatureRiderSchema = z
   .strict()
   .superRefine(riderAmountIssue);
 
-/** Exported because an opponent may also arrive from outside a catalog: a Game Master's proposal
- *  for one fight is checked against exactly this shape before it is clamped onto the scale. */
+/** A creature described in the ruleset's OWN terms: the same keys a character sheet has, keyed by
+ *  the ids the ruleset declares, and every part optional because a creature need only say what it
+ *  has. Strict, unlike the sheet a character card carries, because a bestiary is authored data and
+ *  a key nobody reads is a mistake to say so about. Checked against the ruleset's own names with
+ *  the rest of the catalog. */
+const creatureSheetSchema = z
+  .object({
+    abilities: z.record(z.number().finite()).default({}),
+    skills: z.record(z.string().max(40)).default({}),
+    saves: z.record(z.string().max(40)).default({}),
+    bonuses: z.record(z.number().finite()).default({}),
+    fields: z.record(sheetScalar).default({}),
+    lists: z.record(z.array(z.record(sheetScalar)).max(500)).default({}),
+  })
+  .strict();
+
+/** The keys a creature's sheet says for it, and so the ones it does not also give as numbers. */
+const CREATURE_SHEET_REPLACES = ["health", "defense", "initiativeModifier", "speed", "abilities", "saves"] as const;
+/** The keys a creature WITHOUT a sheet cannot go without. */
+const CREATURE_PLAIN_NEEDS = ["health", "defense", "initiativeModifier"] as const;
+
+const creatureFields = {
+  health: creatureHealthSchema,
+  defense: z.number().int().min(0).max(1000),
+  /** In the ruleset's own distance unit, read by the slice that gives a fight positions. */
+  speed: z.number().finite().min(0).max(10000).optional(),
+  initiativeModifier: z.number().int().min(-50).max(100),
+  /** Scores, keyed by the sheet's own ability ids. Shown to the Game Master; a later slice asks a
+   *  creature for a check with them. */
+  abilities: z.record(z.number().int().min(-1000).max(1000)).optional(),
+  /** What it adds when it saves, keyed by the sheet's own save ids. One it does not name is zero. */
+  saves: z.record(z.number().int().min(-50).max(50)).optional(),
+  /** Damage types, matched without case: half, double, none at all. */
+  resist: z.array(promptSafeText(40)).max(30).optional(),
+  vulnerable: z.array(promptSafeText(40)).max(30).optional(),
+  immune: z.array(promptSafeText(40)).max(30).optional(),
+  /** The sheet's own condition ids this creature is never in. */
+  conditionImmunities: z.array(sheetId).max(40).optional(),
+  /** The rung of `combat.threat` it was filed under. */
+  tier: sheetId,
+  /** Short lines the Game Master is shown and the Engine never resolves: a trait is fiction here,
+   *  not a rule, so anything with numbers in it belongs in an action. */
+  traits: z
+    .array(z.object({ name: promptSafeText(60), text: promptSafeText(400) }).strict())
+    .max(8)
+    .optional(),
+  /** Points given back at the start of its own turn, spent on `signature` actions. */
+  signaturePoints: z.number().int().min(1).max(20).optional(),
+  actions: z.array(creatureActionSchema).min(1).max(RULESET_CREATURE_MAX_ACTIONS),
+  /** What this creature adds to the first qualifying hit of a period, all by itself. */
+  riders: z.array(creatureRiderSchema).min(1).max(RULESET_CREATURE_MAX_RIDERS).optional(),
+};
+
+function creatureSignatureIssues(
+  creature: { signaturePoints?: number; actions: Array<{ signature?: { cost: number } }> },
+  ctx: z.RefinementCtx,
+): void {
+  if (creature.signaturePoints === undefined && creature.actions.some((action) => action.signature)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["signaturePoints"],
+      message: "An action bought with points needs signaturePoints for it to be bought from",
+    });
+  }
+  // The points only ever come back to their maximum, so a price above it is never affordable.
+  creature.actions.forEach((action, index) => {
+    if (
+      action.signature &&
+      creature.signaturePoints !== undefined &&
+      action.signature.cost > creature.signaturePoints
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["actions", index, "signature", "cost"],
+        message: `This costs ${action.signature.cost} and the creature only ever has ${creature.signaturePoints}`,
+      });
+    }
+  });
+}
+
+/** A creature the Game Master invents for one fight, checked against exactly this before it is
+ *  clamped onto the threat scale. Always the plain block: the clamp holds an invention to its tier
+ *  by its numbers, and it cannot vouch for a sheet, so a proposal has no `sheet` to carry. */
+export const rulesetProposedCreatureSchema = z.object(creatureFields).strict().superRefine(creatureSignatureIssues);
+
+/** A creature a bestiary ships: the plain block, or a `sheet` in the ruleset's own terms. With a
+ *  sheet it is built the way a party member is, so the numbers the sheet gives are not also given
+ *  here, and there is one place each of them comes from. */
 export const rulesetCreatureSchema = z
   .object({
-    health: creatureHealthSchema,
-    defense: z.number().int().min(0).max(1000),
-    /** In the ruleset's own distance unit, read by the slice that gives a fight positions. */
-    speed: z.number().finite().min(0).max(10000).optional(),
-    initiativeModifier: z.number().int().min(-50).max(100),
-    /** Scores, keyed by the sheet's own ability ids. Shown to the Game Master; a later slice asks a
-     *  creature for a check with them. */
-    abilities: z.record(z.number().int().min(-1000).max(1000)).optional(),
-    /** What it adds when it saves, keyed by the sheet's own save ids. One it does not name is zero. */
-    saves: z.record(z.number().int().min(-50).max(50)).optional(),
-    /** Damage types, matched without case: half, double, none at all. */
-    resist: z.array(promptSafeText(40)).max(30).optional(),
-    vulnerable: z.array(promptSafeText(40)).max(30).optional(),
-    immune: z.array(promptSafeText(40)).max(30).optional(),
-    /** The sheet's own condition ids this creature is never in. */
-    conditionImmunities: z.array(sheetId).max(40).optional(),
-    /** The rung of `combat.threat` it was filed under. */
-    tier: sheetId,
-    /** Short lines the Game Master is shown and the Engine never resolves: a trait is fiction here,
-     *  not a rule, so anything with numbers in it belongs in an action. */
-    traits: z
-      .array(z.object({ name: promptSafeText(60), text: promptSafeText(400) }).strict())
-      .max(8)
-      .optional(),
-    /** Points given back at the start of its own turn, spent on `signature` actions. */
-    signaturePoints: z.number().int().min(1).max(20).optional(),
-    actions: z.array(creatureActionSchema).min(1).max(RULESET_CREATURE_MAX_ACTIONS),
-    /** What this creature adds to the first qualifying hit of a period, all by itself. */
-    riders: z.array(creatureRiderSchema).min(1).max(RULESET_CREATURE_MAX_RIDERS).optional(),
+    ...creatureFields,
+    health: creatureFields.health.optional(),
+    defense: creatureFields.defense.optional(),
+    initiativeModifier: creatureFields.initiativeModifier.optional(),
+    // A creature whose sheet gives it abilities may have no block actions of its own at all.
+    actions: z.array(creatureActionSchema).max(RULESET_CREATURE_MAX_ACTIONS).default([]),
+    sheet: creatureSheetSchema.optional(),
   })
   .strict()
   .superRefine((creature, ctx) => {
-    if (creature.signaturePoints === undefined && creature.actions.some((action) => action.signature)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["signaturePoints"],
-        message: "An action bought with points needs signaturePoints for it to be bought from",
-      });
-    }
-    // The points only ever come back to their maximum, so a price above it is never affordable.
-    creature.actions.forEach((action, index) => {
-      if (
-        action.signature &&
-        creature.signaturePoints !== undefined &&
-        action.signature.cost > creature.signaturePoints
-      ) {
+    creatureSignatureIssues(creature, ctx);
+    if (creature.sheet) {
+      for (const key of CREATURE_SHEET_REPLACES) {
+        if (creature[key] === undefined) continue;
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["actions", index, "signature", "cost"],
-          message: `This costs ${action.signature.cost} and the creature only ever has ${creature.signaturePoints}`,
+          path: [key],
+          message: `A creature with a sheet takes its ${key} from the sheet, so it does not also give it here`,
         });
       }
-    });
+      return;
+    }
+    for (const key of CREATURE_PLAIN_NEEDS) {
+      if (creature[key] !== undefined) continue;
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: `A creature without a sheet needs its ${key}`,
+      });
+    }
+    if (creature.actions.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["actions"],
+        message: "A creature without a sheet needs at least one action, or it has nothing to do",
+      });
+    }
   });
 
 const catalogEntrySchema = z
@@ -3047,6 +3117,8 @@ export type RulesetCatalogMechanics = z.infer<typeof catalogMechanicsSchema>;
 export type RulesetCatalogHolds = RulesetCatalogHeader["holds"];
 /** One opponent, exactly as a bestiary entry writes it. */
 export type RulesetCreature = z.infer<typeof rulesetCreatureSchema>;
+/** A creature the Game Master invents for one fight: always the plain block, never a sheet. */
+export type RulesetProposedCreature = z.infer<typeof rulesetProposedCreatureSchema>;
 export type RulesetCreatureAction = RulesetCreature["actions"][number];
 export type RulesetCreatureDamage = NonNullable<RulesetCreatureAction["damage"]>;
 export type RulesetCreatureTrait = NonNullable<RulesetCreature["traits"]>[number];
@@ -3060,38 +3132,46 @@ export type RulesetCatalogEntriesById = Record<string, readonly RulesetCatalogEn
 
 /** Whether a row of values could be stored in a list, column by column. Shared on purpose: the
  *  schema runs it over every catalog entry, and the client runs it again over the rows a player
- *  picked, so the picker can never splice in something the editor would then refuse. */
-export function rulesetListRowIssues(list: RulesetList, values: Record<string, unknown>): string[] {
+ *  picked, so the picker can never splice in something the editor would then refuse. A sheet's
+ *  fields have the same shapes as a list's columns, so a creature's fields are read by it too, and
+ *  `noun` says which of the two a message is about. */
+export function rulesetListRowIssues(
+  list: { columns: ReadonlyArray<RulesetListColumn | RulesetField> },
+  values: Record<string, unknown>,
+  noun: "Column" | "Field" = "Column",
+): string[] {
   const issues: string[] = [];
   const columns = new Map(list.columns.map((column) => [column.id, column]));
   for (const [key, value] of Object.entries(values)) {
     const column = columns.get(key);
     if (!column) {
-      issues.push(`Unknown column "${key}"`);
+      issues.push(`Unknown ${noun.toLowerCase()} "${key}"`);
       continue;
     }
     if (column.type === "number") {
-      if (typeof value !== "number") issues.push(`Column "${key}" takes a number`);
-      else if (column.integer && !Number.isInteger(value)) issues.push(`Column "${key}" takes a whole number`);
+      if (typeof value !== "number") issues.push(`${noun} "${key}" takes a number`);
+      else if (column.integer && !Number.isInteger(value)) issues.push(`${noun} "${key}" takes a whole number`);
       else if (value < column.min || value > column.max) {
-        issues.push(`Column "${key}" is outside ${column.min} to ${column.max}`);
+        issues.push(`${noun} "${key}" is outside ${column.min} to ${column.max}`);
       }
     } else if (column.type === "boolean") {
-      if (typeof value !== "boolean") issues.push(`Column "${key}" takes true or false`);
+      if (typeof value !== "boolean") issues.push(`${noun} "${key}" takes true or false`);
     } else if (column.type === "enum") {
       if (typeof value !== "string" || !column.values.includes(value)) {
-        issues.push(`Column "${key}" takes one of its declared values`);
+        issues.push(`${noun} "${key}" takes one of its declared values`);
       }
     } else if (column.type === "dice") {
-      if (typeof value !== "string" || value.length > 40) issues.push(`Column "${key}" takes dice text`);
+      if (typeof value !== "string" || value.length > 40) issues.push(`${noun} "${key}" takes dice text`);
     } else if (typeof value !== "string") {
-      issues.push(`Column "${key}" takes text`);
+      issues.push(`${noun} "${key}" takes text`);
     } else if (value.length > column.maxLength) {
-      issues.push(`Column "${key}" is longer than ${column.maxLength} characters`);
+      issues.push(`${noun} "${key}" is longer than ${column.maxLength} characters`);
     }
   }
   for (const column of list.columns) {
-    if (column.required && values[column.id] === undefined) issues.push(`Column "${column.id}" is required`);
+    if ("required" in column && column.required && values[column.id] === undefined) {
+      issues.push(`${noun} "${column.id}" is required`);
+    }
   }
   return issues;
 }
@@ -3099,6 +3179,101 @@ export function rulesetListRowIssues(list: RulesetList, values: Record<string, u
 /** Where an issue sits inside the entries array, so the same check can be reported as a zod path
  *  inside `ruleset.json` and as a `path: message` line for a catalog asset. */
 export type RulesetCatalogEntryIssue = { path: (string | number)[]; message: string };
+
+/** A creature's sheet, against the ruleset's own names: every id on it is one the ruleset's sheet
+ *  declares, and every value is one that field or column can hold. What the sheet adds up to, its health
+ *  above all, is read when a fight is built rather than here, because reading it needs the sheet's
+ *  own arithmetic and this file is the one everything else imports. */
+function creatureSheetIssues(
+  definition: RulesetDefinition,
+  sheet: NonNullable<RulesetCreature["sheet"]>,
+  at: (string | number)[],
+  add: (path: (string | number)[], message: string) => void,
+): void {
+  const known = (kind: string, ids: readonly { id: string }[], values: Record<string, unknown>, key: string) => {
+    const names = new Set(ids.map((entry) => entry.id));
+    for (const id of Object.keys(values)) {
+      if (!names.has(id)) add([...at, key, id], `Unknown ${kind} "${id}"`);
+    }
+  };
+  known("ability", definition.sheet.abilities, sheet.abilities, "abilities");
+  // A score is a whole number inside the range the ruleset gives it, exactly as the sheet editor keeps
+  // a character's.
+  for (const ability of definition.sheet.abilities) {
+    const score = sheet.abilities[ability.id];
+    if (score !== undefined && (!Number.isInteger(score) || score < ability.min || score > ability.max)) {
+      add(
+        [...at, "abilities", ability.id],
+        `Ability "${ability.id}" takes a whole number from ${ability.min} to ${ability.max}`,
+      );
+    }
+  }
+  known("skill", definition.sheet.skills, sheet.skills, "skills");
+  known("save", definition.sheet.saves, sheet.saves, "saves");
+  // What a skill or a save is set to is one of the ruleset's own proficiency tiers, and one of the
+  // tiers it offers for that kind when it narrows them.
+  const tierIds = definition.resolution.proficiencyTiers.map((tier) => tier.id);
+  const tiers = new Set(tierIds);
+  const offered = {
+    skills: new Set(definition.sheet.skillTiers ?? tierIds),
+    saves: new Set(definition.sheet.saveTiers ?? tierIds),
+  };
+  for (const key of ["skills", "saves"] as const) {
+    for (const [id, tier] of Object.entries(sheet[key])) {
+      if (!tiers.has(tier)) add([...at, key, id], `Unknown proficiency tier "${tier}"`);
+      else if (!offered[key].has(tier)) add([...at, key, id], `This ruleset does not offer "${tier}" for ${key}`);
+    }
+  }
+  // A field holds what that field holds: a number in its range, one of its values, and so on.
+  for (const message of rulesetListRowIssues({ columns: definition.sheet.fields }, sheet.fields, "Field")) {
+    add([...at, "fields"], message);
+  }
+  // A bonus is on a skill or a save, and a whole number inside the range the ruleset gives bonuses,
+  // exactly as a character's is.
+  known("skill or save", [...definition.sheet.skills, ...definition.sheet.saves], sheet.bonuses, "bonuses");
+  const { min: bonusMin, max: bonusMax } = definition.sheet.bonusRange;
+  for (const [id, bonus] of Object.entries(sheet.bonuses)) {
+    if (!Number.isInteger(bonus) || bonus < bonusMin || bonus > bonusMax) {
+      add([...at, "bonuses", id], `Bonus "${id}" takes a whole number from ${bonusMin} to ${bonusMax}`);
+    }
+  }
+  const lists = new Map(definition.sheet.lists.map((list) => [list.id, list]));
+  for (const [listId, rows] of Object.entries(sheet.lists)) {
+    const list = lists.get(listId);
+    if (!list) {
+      add([...at, "lists", listId], `Unknown list "${listId}"`);
+      continue;
+    }
+    if (rows.length > list.maxItems) add([...at, "lists", listId], `"${listId}" holds at most ${list.maxItems} rows`);
+    rows.forEach((row, index) => {
+      // Held to exactly what a catalog's row is held to, less the mark that says which entry it is.
+      const { [RULESET_CATALOG_ROW_KEY]: _mark, ...values } = row;
+      for (const message of rulesetListRowIssues(list, values)) add([...at, "lists", listId, index], message);
+      // A row picked out of a catalog says which entry it is, which is what a fight reads its price
+      // and its mechanics from. The catalog has to be one that holds rows and feeds this list; when
+      // it is written inline, the entry has to be in it too.
+      const ref = row[RULESET_CATALOG_ROW_KEY];
+      if (ref === undefined) return;
+      const where = [...at, "lists", listId, index, RULESET_CATALOG_ROW_KEY];
+      const slash = typeof ref === "string" ? ref.indexOf("/") : -1;
+      if (typeof ref !== "string" || slash <= 0 || slash === ref.length - 1) {
+        add(where, `"${String(ref)}" is not a <catalog>/<entry> reference`);
+        return;
+      }
+      const catalogId = ref.slice(0, slash);
+      const catalog = definition.catalogs?.find((candidate) => candidate.id === catalogId);
+      // A bestiary declares no feeds, so it is never one of these.
+      if (!catalog?.feeds?.includes(listId)) {
+        add(where, `No catalog "${catalogId}" feeds the list "${listId}"`);
+        return;
+      }
+      const entryId = ref.slice(slash + 1);
+      if (catalog.entries && !catalog.entries.some((entry) => entry.id === entryId)) {
+        add(where, `Catalog "${catalogId}" has no entry "${entryId}"`);
+      }
+    });
+  }
+}
 
 /** Everything a creature must satisfy against the ruleset that declares it: every name it carries
  *  is one the `combat` block or the sheet already has. Shared by the inline catalogs in
@@ -3143,6 +3318,8 @@ function creatureIssues(
   creature.conditionImmunities?.forEach((condition, index) => {
     if (!conditions.has(condition)) add([...at, "conditionImmunities", index], `Unknown condition "${condition}"`);
   });
+
+  if (creature.sheet) creatureSheetIssues(definition, creature.sheet, [...at, "sheet"], add);
 
   const byId = new Map<string, RulesetCreatureAction>();
   creature.actions.forEach((action, index) => {

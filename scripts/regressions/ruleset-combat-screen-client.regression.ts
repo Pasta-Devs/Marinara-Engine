@@ -13,6 +13,8 @@
 //     things it reads, and the battle bridge standing aside for exactly that fight.
 //   - The recap a finished fight hands the Game Master, from a real summary.
 //   - Every localization key the changed client code asks for exists.
+//   - Every reason the resolver can refuse with has a sentence, both on screen and in the server's
+//     own reply, so a new reason cannot reach a player as a raw code or a shrug.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -49,6 +51,7 @@ import {
   rulesetCombatEventLine,
   rulesetCombatLogLines,
   rulesetCombatNames,
+  rulesetRefusalKey,
   rulesetRefusalText,
   rulesetValueLabel,
 } from "../../packages/client/src/lib/ruleset-combat-log.js";
@@ -1384,6 +1387,42 @@ function drawn(...rows: string[]): TacticalGrid {
     rulesetRefusalText("ruleset_combat_bad-cell", "The rules refused that choice.", t),
     "That is not a square this can be aimed at.",
   );
+}
+
+// ── Drift guard: every refusal the resolver can give has words on both sides ──
+{
+  // The reasons are read out of the shared union, and the server's sentences out of its own map, so a
+  // reason added to one and not the others fails here rather than printing a code at a player.
+  const typesText = readSource("packages/shared/src/features/ruleset-combat/types.ts");
+  const start = typesText.indexOf("export type RulesetCombatRefusal");
+  const end = typesText.indexOf(";", start);
+  assert.ok(start >= 0 && end > start, "the refusal union was not found where it used to be");
+  const reasons = [...typesText.slice(start, end).matchAll(/\|\s*"([^"]+)"/gu)].map((match) => match[1]!);
+  assert.ok(reasons.length >= 18, "the refusal union was not read in full");
+  assert.ok(reasons.includes("no-health"), "the refusal a creature with no health gives is in the union");
+
+  const serverText = readSource("packages/server/src/services/game/ruleset-combat-director.service.ts");
+  const mapStart = serverText.indexOf("function rulesetRefusalMessage");
+  const mapEnd = serverText.indexOf("\n}\n", mapStart);
+  assert.ok(mapStart >= 0 && mapEnd > mapStart, "the server's refusal sentences were not found");
+  const serverMap = serverText.slice(mapStart, mapEnd);
+  const said = new Set(
+    [...serverMap.matchAll(/^\s*(?:"([^"]+)"|([a-z]+)):\s*"/gmu)].map((match) => match[1] ?? match[2]!),
+  );
+
+  for (const reason of reasons) {
+    const key = rulesetRefusalKey(reason);
+    assert.ok(
+      typeof messages[key] === "string" && messages[key]!.length > 0,
+      `en.json has no sentence for "${reason}" (${key})`,
+    );
+    assert.equal(
+      rulesetRefusalText(`ruleset_combat_${reason}`, "The rules refused that choice.", t),
+      messages[key],
+      `the screen reads its own sentence for "${reason}"`,
+    );
+    assert.ok(said.has(reason), `the server has no sentence of its own for "${reason}"`);
+  }
 }
 
 // ── The log says a walk in the ruleset's own distance, on both examples ──

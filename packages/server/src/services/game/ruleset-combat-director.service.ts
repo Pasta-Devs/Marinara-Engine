@@ -39,14 +39,14 @@ import {
   planRulesetCombatCost,
   rulesetCombatRoller,
   rulesetCombatStanding,
-  rulesetCreatureSchema,
+  rulesetProposedCreatureSchema,
   rulesetEncounterOutcome,
   rulesetEncounterSummary,
   rulesetOptionTargets,
   rulesetReactionPointsAtSource,
   rulesetPositionOf,
   rulesetSheetBuildsByName,
-  rulesetStatBlockFromCreature,
+  rulesetProposedStatBlock,
   rulesetTierStatBlock,
   rulesetWindowMoment,
   rulesetWindowOptions,
@@ -226,9 +226,12 @@ export function createRulesetFight(input: RulesetFightSeed): RulesetFightSeedRes
       });
       continue;
     }
-    const proposed = opponent.proposed === undefined ? null : rulesetCreatureSchema.safeParse(opponent.proposed);
+    // A creature invented for this fight is always the plain block: the clamp holds it to its tier
+    // by its numbers and cannot vouch for a sheet, so one that arrives carrying a sheet is not read.
+    const proposed =
+      opponent.proposed === undefined ? null : rulesetProposedCreatureSchema.safeParse(opponent.proposed);
     if (proposed?.success) {
-      const block = rulesetStatBlockFromCreature(definition, proposed.data);
+      const block = rulesetProposedStatBlock(definition, proposed.data);
       if (block) {
         const clamped = clampRulesetStatBlock(definition, block, opponent.tier ?? proposed.data.tier);
         for (const line of clamped.adjusted) adjustments.push(`${opponent.name}: ${line}`);
@@ -355,7 +358,10 @@ const rollerFor = (fight: RulesetFightState) => rulesetCombatRoller(fight.encoun
 export function rulesetFightLiveStates(fight: RulesetFightState): RulesetLiveStates {
   const live: RulesetLiveStates = {};
   for (const combatant of fight.encounter.combatants) {
-    if (!combatant.sheet) continue;
+    // The PARTY, and only the party. An opponent may carry a sheet too, but it exists for the fight
+    // alone: writing it back would store it as a character's, keyed by the opponent's name, and a
+    // character who happened to share that name would have their sheet overwritten.
+    if (combatant.side !== "party" || !combatant.sheet) continue;
     live[normalizeCharacterLookupName(combatant.name)] = combatant.sheet.live as RulesetLiveState;
   }
   return live;
@@ -412,7 +418,8 @@ function conditionsOf(
 
 function deathTrackOf(definition: RulesetDefinition, combatant: RulesetCombatant) {
   const dying = definition.combat?.dying;
-  if (!dying || !combatant.sheet) return undefined;
+  // Only the party rolls against death; an opponent at zero is out, sheet or no sheet.
+  if (!dying || combatant.side !== "party" || !combatant.sheet) return undefined;
   const live = readRulesetLive(definition, combatant.sheet.build, combatant.sheet.live);
   const value = (track: string) => live.tracks.find((entry) => entry.id === track)?.value ?? 0;
   const max = (track: string) => definition.sheet.live.tracks.find((entry) => entry.id === track)?.max ?? 0;
@@ -690,9 +697,10 @@ const paying = (payWith: string | undefined) => (payWith === undefined ? {} : { 
  * never cast a spell that grows any bigger, on a turn or in a window. Each way of paying is its own
  * candidate now, so casting it bigger is weighed against casting it at all.
  *
- * Only somebody with a SHEET has pools to pay out of. An opponent is a stat block, and a block's
- * actions cost nothing off any pool (see `planRulesetCombatCost`), so an opponent, and so a Game
- * Master's boss, has no bigger way of paying to be offered.
+ * Only somebody with a SHEET has pools to pay out of. A plain stat block's actions cost nothing off
+ * any pool (see `planRulesetCombatCost`), so an opponent without a sheet, a Game Master's invented
+ * one included, has no bigger way of paying to be offered. A bestiary creature that carries a sheet
+ * does, and is offered them exactly as a party member is, whoever is deciding for it.
  *
  * The price counts the steps as well as the amount, because one pool of a higher rung is worth more
  * than one of a lower: without that the bigger version reads as free and nothing would ever cast
@@ -1262,9 +1270,8 @@ function windowOptions(
     ...(candidate.action.to ? { to: { ...candidate.action.to } } : {}),
     ...(candidate.action.choice.at ? { at: { ...candidate.action.choice.at } } : {}),
     // Which pool this way of paying spends. Two entries of the same ability differ only by this and
-    // by the label that names it, so dropping it would offer a choice and then ignore it. The Game
-    // Master only ever decides for a boss, which is a stat block with no pools, so nothing sets this
-    // today; it is carried so that a boss which ever does pay out of one is not cast at its base.
+    // by the label that names it, so dropping it would offer a choice and then ignore it. A boss
+    // whose bestiary entry carries a sheet pays out of its own pools, and is cast as big as it chose.
     ...(candidate.action.choice.payWith !== undefined ? { payWith: candidate.action.choice.payWith } : {}),
   }));
 }
@@ -1440,7 +1447,7 @@ export function commandRulesetCombatDirector(
               targetIds: [...(chosen.targetIds ?? [])],
               // Everything the picked option came with. An area is aimed at a CELL, and dropping
               // it would have the rules refuse the answer and the moment let go instead. The pool
-              // is carried for the same reason, though no boss pays out of one today.
+              // is carried for the same reason: a boss with a sheet pays out of one.
               ...(chosen.at ? { at: { ...chosen.at } } : {}),
               ...(chosen.payWith !== undefined ? { payWith: chosen.payWith } : {}),
             }
@@ -1526,6 +1533,13 @@ function rulesetRefusalMessage(reason: string): string {
     insufficient: "They cannot pay for it.",
     "bad-pool": "That is not a pool this can be paid from.",
     "unknown-creature": "That opponent is not in any bestiary this game can read.",
+    "no-health": "That opponent's sheet gives it no health, so it was left out of the fight.",
+    unreachable: "They cannot walk to that square.",
+    "out-of-reach": "That is further off than this reaches.",
+    "no-line-of-sight": "Something solid stands in the way.",
+    "bad-cell": "That is not a square this can be aimed at.",
+    "window-open": "The fight is waiting on somebody else's answer first.",
+    "stale-window": "That moment has already passed.",
   };
   return said[reason] ?? "The rules refused that choice.";
 }

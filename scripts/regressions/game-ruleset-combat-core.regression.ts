@@ -1649,6 +1649,14 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
         for (const action of entry.creature?.actions ?? []) delete action.damage?.plus;
       }
     }
+    withoutCreatureSheets(doc);
+  };
+  /** And a creature written in the ruleset's own terms, which is later again (1.34), for the same
+   *  reason: an older seam is proven on a file that trips nothing newer. */
+  const withoutCreatureSheets = (doc: Record<string, any>) => {
+    for (const catalog of doc.catalogs ?? []) {
+      catalog.entries = (catalog.entries ?? []).filter((entry: Record<string, any>) => !entry.creature?.sheet);
+    }
   };
   const combatOnly = variant(emberText, (doc) => {
     delete doc.catalogs;
@@ -2901,7 +2909,9 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
     const strikesOnly = variant(emberText, (doc) => {
       doc.catalogs = (doc.catalogs ?? []).filter((catalog: Record<string, any>) => catalog.holds === "creatures");
       for (const catalog of doc.catalogs) {
-        for (const entry of catalog.entries ?? []) {
+        // A creature written as a sheet is 1.34, a gate of its own.
+        catalog.entries = (catalog.entries ?? []).filter((entry: Record<string, any>) => !entry.creature?.sheet);
+        for (const entry of catalog.entries) {
           for (const action of entry.creature?.actions ?? []) delete action.damage?.plus;
         }
       }

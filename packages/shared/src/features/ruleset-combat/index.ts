@@ -8,7 +8,9 @@
 // writes every change back through `applyRulesetSheetOp`, so the fight and the sheet keep one
 // record: hit points, resources, conditions and what a character is concentrating on are the same
 // values during the battle and after it. An opponent is a stat block, written by hand or taken from
-// a bestiary catalog, and lives in the encounter.
+// a bestiary catalog, and lives in the encounter. A bestiary creature may carry a sheet in the
+// ruleset's own terms, and is then built from it exactly as a party member is; that sheet lives in
+// the encounter too and is written back nowhere.
 //
 // A fight is POSITIONED when the ruleset says what one cell of a board is worth (`combat.distance`)
 // and the caller hands `createRulesetEncounter` a board with a cell for everybody. Then, and only
@@ -54,6 +56,9 @@ export {
   clampRulesetStatBlock,
   findRulesetCreature,
   findRulesetCreatureEntry,
+  isRulesetPlainStatBlock,
+  rulesetBestiarySheetCatalogIds,
+  rulesetProposedStatBlock,
   rulesetCreatureBlock,
   rulesetStatBlockFromCreature,
   rulesetTierStatBlock,

@@ -1451,7 +1451,7 @@
           }
         },
         {
-          "$comment": "Resistances and immunities, a sequence of one action done twice, and points of its own: the sentinel can strike while somebody else is acting, which costs a point rather than its action. The window that offers it is a later release; the points and the price are here.",
+          "$comment": "Resistances and immunities, a sequence of one action done twice, and points of its own: the sentinel can strike while somebody else is acting, which costs a point rather than its action. The fight offers it in the window between one turn and the next.",
           "id": "hollow-sentinel",
           "label": "Hollow Sentinel",
           "summary": "An empty suit of plate that stands at a door for as long as the door is there.",
@@ -1549,6 +1549,75 @@
                 }
               }
             ]
+          }
+        },
+        {
+          "$comment": "Written in this ruleset's own terms rather than in plain numbers: a sheet, as partial as it likes, built exactly the way a character's is. Its Armor Class, hit points, saves, initiative, speed and both attacks are what the ruleset's own formulas make of it, so each number has one place it comes from and none is also written beside the sheet. Two swings an action, because that is what its attacks-per-action field says, and one crossbow bolt, because Loading caps that row the way it caps a character's.",
+          "id": "toll-sergeant",
+          "label": "Toll Sergeant",
+          "summary": "A tired soldier who holds a bridge for whoever paid last.",
+          "filters": {
+            "challenge": "CR 2",
+            "kind": "Humanoid",
+            "places": ["Roads", "Bridges"]
+          },
+          "creature": {
+            "tier": "cr_2",
+            "traits": [
+              {
+                "name": "Paid in advance",
+                "text": "It lets anyone pass who can show a stamped token, and it asks twice."
+              }
+            ],
+            "sheet": {
+              "abilities": {
+                "str": 16,
+                "dex": 12,
+                "con": 14,
+                "int": 10,
+                "wis": 11,
+                "cha": 10
+              },
+              "saves": {
+                "str_save": "proficient",
+                "con_save": "proficient"
+              },
+              "skills": {
+                "athletics": "proficient",
+                "intimidation": "proficient"
+              },
+              "fields": {
+                "level": 5,
+                "ac": 17,
+                "speed": 30,
+                "hp_max": 52,
+                "attacks_per_action": 2
+              },
+              "lists": {
+                "attacks": [
+                  {
+                    "name": "Halberd",
+                    "ability": "str",
+                    "proficient": true,
+                    "bonus": 0,
+                    "damage": "1d10",
+                    "damage_type": "slashing",
+                    "reach": 10
+                  },
+                  {
+                    "name": "Heavy crossbow",
+                    "ability": "dex",
+                    "proficient": true,
+                    "bonus": 0,
+                    "loading": true,
+                    "damage": "1d10",
+                    "damage_type": "piercing",
+                    "range": 100,
+                    "long_range": 400
+                  }
+                ]
+              }
+            }
           }
         }
       ]
@@ -1847,7 +1916,9 @@
         "strikes": {
           "field": "attacks_per_action"
         },
-        "strikesCappedBy": { "column": "loading" }
+        "strikesCappedBy": {
+          "column": "loading"
+        }
       }
     ],
     "abilities": [
