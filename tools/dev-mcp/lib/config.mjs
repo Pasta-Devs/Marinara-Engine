@@ -50,9 +50,13 @@ function readEngineEnv() {
     if (eq < 1 || line.startsWith("#")) continue;
     const key = line.slice(0, eq).trim();
     if (!/^[A-Za-z0-9_]+$/.test(key)) continue;
+    // Same rules as dotenv, which the server uses: a quoted value runs to its closing quote; an unquoted value
+    // ends at the first #, which starts a comment.
     let value = line.slice(eq + 1).trim();
     const quote = value[0];
-    if ((quote === '"' || quote === "'") && value.length > 1 && value.endsWith(quote)) value = value.slice(1, -1);
+    const close = quote === '"' || quote === "'" || quote === "`" ? value.indexOf(quote, 1) : -1;
+    if (close > 0) value = value.slice(1, close);
+    else if (value.includes("#")) value = value.slice(0, value.indexOf("#")).trim();
     env[key] = value;
   }
   return env;
