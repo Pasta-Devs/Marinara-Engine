@@ -1008,8 +1008,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     // Sticky and cooldown (#6582): the timers as they stand this turn, read and never saved.
     const previewDecisionTimers = readDecisionTimers(chatMeta[DECISION_TIMERS_METADATA_KEY]);
     const previewDecisionTurn = decisionTurnFor(previewDecisionTimers, latestTurnDecisionId(chatMessages));
-    const heldDecisions: HeldDecisions = (kind, key) =>
-      heldDecision(previewDecisionTimers, previewDecisionTurn, kind, key);
+    const heldDecisions: HeldDecisions = (kind, key, modifiers) =>
+      heldDecision(previewDecisionTimers, previewDecisionTurn, kind, key, modifiers?.every);
     const decisionLocalSetting = await decisionSettings.get(DECISION_SETTINGS_KEYS.localDefault);
     const decisionConnectionId = (await connections.getDefaultForDecision())?.id ?? null;
     // The cache key uses the setting as generation does; the report says whether it can serve.

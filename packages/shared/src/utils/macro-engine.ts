@@ -549,6 +549,17 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
     description:
       "After a yes, stays yes for 3 turns without being asked, then reads as no for 5; held turns take no statement slot",
   },
+  {
+    category: "Formatting",
+    syntax: '{{#if decision:"The weather changes in the latest message" every:3}}...{{/if}}',
+    description: "Asked only every 3 turns; reads as no between checks and takes no statement slot then",
+  },
+  {
+    category: "Formatting",
+    syntax: '{{#if decision:"In the latest message, a character is badly hurt" priority:high}}...{{/if}}',
+    description:
+      "When a turn has more statements than its limit, priority:high is asked first and priority:low dropped first; unset is medium",
+  },
   { category: "Formatting", syntax: "{{noop}}", description: "No-op placeholder removed from output" },
   { category: "Formatting", syntax: "{{// comment}}", description: "Inline author comment removed from output" },
   {
@@ -958,14 +969,20 @@ const DECISION_OPERAND_PREFIX_RE = /^decision\s*:/iu;
 const DECISION_CHOICE_OPERAND_PREFIX_RE = /^decision_choice\s*:/iu;
 
 /**
- * Turns an author can hold a statement's answer for, written after it:
- * `decision:"..." sticky:3 cooldown:5`. After a yes the statement stays yes for
- * `sticky` turns, then reads as no for `cooldown` turns, without being asked.
+ * Modifiers an author writes after a statement: `decision:"..." sticky:3 cooldown:5
+ * every:2 priority:high`. After a yes the statement stays yes for `sticky` turns, then
+ * reads as no for `cooldown` turns, without being asked. `every` asks it only every N
+ * turns, reading as no between checks. `priority` decides which statements are asked
+ * when a turn has more than its limit; medium when unset.
  */
-export interface DecisionStatementTiming {
+export interface DecisionStatementModifiers {
   sticky?: number;
   cooldown?: number;
+  every?: number;
+  priority?: DecisionStatementPriority;
 }
+
+export type DecisionStatementPriority = "high" | "low";
 
 /** The most turns a timing modifier holds for. */
 export const MAX_DECISION_TIMING_TURNS = 1000;
@@ -978,7 +995,7 @@ const DECISION_STATEMENT_WITH_MODIFIERS_RE =
 function statementAfterPrefix(
   raw: string,
   prefix: RegExp,
-): { question: string; timing: DecisionStatementTiming } | null {
+): { question: string; timing: DecisionStatementModifiers } | null {
   const token = raw.trim();
   if (!prefix.test(token)) return null;
   const rest = token.replace(prefix, "").trim();
@@ -986,12 +1003,14 @@ function statementAfterPrefix(
   if (quoted && quoteKind(quoted[1]) === quoteKind(quoted[3]) && quoted[4]!.trim()) {
     const question = stripOuterQuotes(`${quoted[1]}${quoted[2]}${quoted[3]}`) ?? quoted[2]!;
     if (!question.trim()) return null;
-    const timing: DecisionStatementTiming = {};
+    const timing: DecisionStatementModifiers = {};
     for (const modifier of quoted[4]!.trim().split(/\s+(?=[a-z_]+\s*:)/iu)) {
       const [name, value] = modifier.split(":").map((part) => part.trim().toLowerCase());
       const turns = /^\d+$/u.test(value ?? "") ? Math.min(MAX_DECISION_TIMING_TURNS, Number(value)) : NaN;
       // Unknown modifiers are ignored, so a later one does not break an older build.
-      if ((name === "sticky" || name === "cooldown") && turns > 0) timing[name] = turns;
+      if ((name === "sticky" || name === "cooldown" || name === "every") && turns > 0) timing[name] = turns;
+      // Medium is the default, so it is not stored.
+      else if (name === "priority" && (value === "high" || value === "low")) timing.priority = value;
     }
     return { question, timing };
   }
@@ -1009,8 +1028,8 @@ function decisionChoiceQuestionFromOperand(raw: string): string | null {
   return statementAfterPrefix(raw, DECISION_CHOICE_OPERAND_PREFIX_RE)?.question ?? null;
 }
 
-/** The timing modifiers written after a decision operand's statement. */
-function decisionOperandTiming(raw: string): DecisionStatementTiming {
+/** The modifiers written after a decision operand's statement. */
+function decisionOperandTiming(raw: string): DecisionStatementModifiers {
   return (
     (
       statementAfterPrefix(raw, DECISION_OPERAND_PREFIX_RE) ??
@@ -1036,7 +1055,7 @@ export function resolveDecisionQuestionText(question: string, ctx: MacroContext)
   return normalizeDecisionQuestion(resolveMacros(question, { ...ctx, decisions: undefined }, { trimResult: true }));
 }
 
-export interface CollectedDecisionQuestion extends DecisionStatementTiming {
+export interface CollectedDecisionQuestion extends DecisionStatementModifiers {
   kind: "noul" | "choice";
   /** As written, before its macros are resolved. */
   question: string;

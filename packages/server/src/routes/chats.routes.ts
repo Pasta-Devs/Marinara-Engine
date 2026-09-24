@@ -3139,8 +3139,8 @@ export async function chatsRoutes(app: FastifyInstance) {
           // Sticky and cooldown (#6582): the timers as they stand this turn, read and never saved.
           const previewDecisionTimers = readDecisionTimers(chatMeta[DECISION_TIMERS_METADATA_KEY]);
           const previewDecisionTurn = decisionTurnFor(previewDecisionTimers, latestTurnDecisionId(filteredMessages));
-          const heldDecisions: HeldDecisions = (kind, key) =>
-            heldDecision(previewDecisionTimers, previewDecisionTurn, kind, key);
+          const heldDecisions: HeldDecisions = (kind, key, modifiers) =>
+            heldDecision(previewDecisionTimers, previewDecisionTurn, kind, key, modifiers?.every);
           {
             const texts = collectTurnDecisionTexts({
               // The same sources generation plans from: preset sections only outside
