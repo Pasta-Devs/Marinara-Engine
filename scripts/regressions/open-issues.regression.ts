@@ -1130,6 +1130,22 @@ assert.deepEqual(
   "legacy expression turns retain both character and persona owners",
 );
 assert.equal(resolveLatestSpriteExpressionTurn([{ id: "pending", role: "assistant", extra: {} }]), undefined);
+assert.deepEqual(
+  resolveLatestSpriteExpressionTurn([
+    completedExpressionMessages[0]!,
+    { id: "user", role: "user", extra: { spriteExpressions: { persona: "happy" } } },
+    { id: "regenerating", role: "assistant", extra: {} },
+  ]),
+  { characterIds: ["character-a", "persona"], messageId: "completed", messageIndex: 0 },
+  "a retained persona appearance alone does not prove the pending assistant's expressions completed",
+);
+assert.deepEqual(
+  resolveLatestSpriteExpressionTurn([
+    { id: "persona-only", role: "assistant", extra: { expressionSpriteIds: ["persona"] } },
+  ]),
+  { characterIds: ["persona"], messageId: "persona-only", messageIndex: 0 },
+  "the completion marker identifies persona-only turns without relying on retained user appearances",
+);
 assert.equal(resolveLatestSpriteExpressionTurn(undefined), undefined);
 assert.deepEqual(findMissingComfyReferenceSlots(comfyReferenceWorkflow, "reference_image_name", 1), [2]);
 assert.equal(numberedComfyReferencePlaceholder("reference_image_name", 2), "%reference_image_name_03%");

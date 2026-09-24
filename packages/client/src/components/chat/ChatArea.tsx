@@ -58,7 +58,11 @@ import { parseCharacterDisplayData } from "../../lib/character-display";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { parseMessageExtraRecord } from "../../lib/chat-message-extra";
 import { trimInactiveMessagePageCaches } from "../../lib/message-page-cache";
-import { normalizeSpriteExpressionMap, resolveSpriteExpressionState } from "../../lib/sprite-expression-state";
+import {
+  normalizeSpriteExpressionMap,
+  resolveLatestSpriteExpressionTurn,
+  resolveSpriteExpressionState,
+} from "../../lib/sprite-expression-state";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useGalleryStore } from "../../stores/gallery.store";
@@ -1182,6 +1186,28 @@ export const ChatArea = memo(function ChatArea() {
     () => resolveSpriteExpressionState(messages, chatMeta.spriteExpressions),
     [messages, chatMeta.spriteExpressions],
   );
+  // Keep each scene across chat switches and temporary Roleplay surface unmounts while a chat loads.
+  const completedExpressionTurn = useMemo(() => resolveLatestSpriteExpressionTurn(messages), [messages]);
+  const [retainedExpressionSprites, setRetainedExpressionSprites] = useState<
+    Map<string, ReturnType<typeof resolveLatestSpriteExpressionTurn>>
+  >(() => new Map());
+  const retainedExpressionTurn = activeChatId ? retainedExpressionSprites.get(activeChatId) : undefined;
+  const retainedExpressionIndex =
+    messages?.findIndex((message) => message.id === retainedExpressionTurn?.messageId) ?? -1;
+  // Regeneration can replace the current swipe before its expressions finish. Don't rewind to an older scene.
+  const visibleExpressionTurn =
+    retainedExpressionTurn && (!messages || retainedExpressionIndex > (completedExpressionTurn?.messageIndex ?? -1))
+      ? retainedExpressionTurn
+      : completedExpressionTurn;
+  useEffect(() => {
+    if (!activeChatId || !messages) return;
+    setRetainedExpressionSprites((previous) => {
+      if (previous.get(activeChatId) === visibleExpressionTurn) return previous;
+      const next = new Map(previous);
+      next.set(activeChatId, visibleExpressionTurn);
+      return next;
+    });
+  }, [activeChatId, messages, visibleExpressionTurn]);
   const groupChatMode: string | undefined = chatCharIds.length > 1 ? (chatMeta.groupChatMode ?? "merged") : undefined;
 
   const updateMeta = useUpdateChatMetadata();
@@ -3301,6 +3327,9 @@ export const ChatArea = memo(function ChatArea() {
           spriteCharacterIds={spriteCharacterIds}
           spriteDisplayModes={visibleSpriteDisplayModes}
           spriteExpressions={spriteExpressions}
+          visibleExpressionSpriteIds={
+            chatMeta.expressionOnlyActiveSprites === true ? visibleExpressionTurn?.characterIds : undefined
+          }
           expressionAvatarResolver={expressionAvatarResolver}
           spritePlacements={spritePlacements}
           spriteScale={spriteScale}

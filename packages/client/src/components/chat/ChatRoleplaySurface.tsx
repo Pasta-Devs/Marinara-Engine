@@ -64,7 +64,7 @@ import { getConnectedChatDisplayName } from "../../lib/chat-display";
 import { playConfiguredNotificationPing } from "../../lib/notification-sound";
 import { rememberBoundedSetValue } from "../../lib/bounded-set";
 import { messageHasPendingPostProcessing, parseMessageExtraRecord } from "../../lib/chat-message-extra";
-import { normalizeSpriteExpressionMap, resolveLatestSpriteExpressionTurn } from "../../lib/sprite-expression-state";
+import { normalizeSpriteExpressionMap } from "../../lib/sprite-expression-state";
 import { isMessageHiddenFromUser } from "../../lib/chat-message-visibility";
 import {
   getTranscriptRenderWindow,
@@ -1250,6 +1250,7 @@ type RoleplaySurfaceProps = {
   spriteCharacterIds: string[];
   spriteDisplayModes: SpriteDisplayMode[];
   spriteExpressions: Record<string, string>;
+  visibleExpressionSpriteIds?: readonly string[];
   expressionAvatarResolver?: ExpressionAvatarResolver;
   spritePlacements: Record<string, SpritePlacement>;
   spriteScale: number;
@@ -1372,6 +1373,7 @@ export function ChatRoleplaySurface({
   spriteCharacterIds,
   spriteDisplayModes,
   spriteExpressions,
+  visibleExpressionSpriteIds,
   expressionAvatarResolver,
   spritePlacements,
   spriteScale,
@@ -1532,26 +1534,6 @@ export function ChatRoleplaySurface({
   const [vnHistoryHasDraft, setVnHistoryHasDraft] = useState(false);
   const [vnMediaTarget, setVnMediaTarget] = useState<HTMLDivElement | null>(null);
   const pendingVnHistoryScroll = useRef(false);
-  const completedExpressionTurn = useMemo(() => resolveLatestSpriteExpressionTurn(messages), [messages]);
-  const [retainedExpressionSprites, setRetainedExpressionSprites] = useState<{
-    chatId: string;
-    turn: ReturnType<typeof resolveLatestSpriteExpressionTurn>;
-  }>({ chatId: activeChatId, turn: completedExpressionTurn });
-  const retainedExpressionIndex =
-    messages?.findIndex((message) => message.id === retainedExpressionSprites.turn?.messageId) ?? -1;
-  // Regeneration can replace the current swipe before its expressions finish. Don't rewind to an older scene.
-  const visibleExpressionTurn =
-    retainedExpressionSprites.chatId === activeChatId &&
-    retainedExpressionIndex > (completedExpressionTurn?.messageIndex ?? -1)
-      ? retainedExpressionSprites.turn
-      : completedExpressionTurn;
-  useEffect(() => {
-    setRetainedExpressionSprites((previous) =>
-      previous.chatId === activeChatId && previous.turn === visibleExpressionTurn
-        ? previous
-        : { chatId: activeChatId, turn: visibleExpressionTurn },
-    );
-  }, [activeChatId, visibleExpressionTurn]);
   const activeVnSpriteIds = useMemo(
     () =>
       Object.keys(
@@ -2184,9 +2166,7 @@ export function ChatRoleplaySurface({
           <Suspense fallback={null}>
             <SpriteOverlay
               characterIds={spriteCharacterIds}
-              visibleCharacterIds={
-                chatMeta.expressionOnlyActiveSprites === true ? visibleExpressionTurn?.characterIds : undefined
-              }
+              visibleCharacterIds={visibleExpressionSpriteIds}
               messages={msgPayload}
               side={visualNovel ? "center" : spritePosition}
               spriteDisplayModes={spriteDisplayModes}

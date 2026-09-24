@@ -109,6 +109,16 @@ for (const presentation of ["classic", "visual-novel"] as const) {
         connectionId: connection.id,
         characterIds: [bob.id, alice.id, charlie.id],
       });
+      const otherChat = await create("/api/chats", {
+        name: "Other expression scene",
+        mode: "roleplay",
+        connectionId: connection.id,
+        characterIds: [],
+      });
+      await create(`/api/chats/${otherChat.id}/messages`, {
+        role: "assistant",
+        content: "Waiting in the other roleplay scene.",
+      });
       expect(
         (
           await request.patch(`/api/chats/${chat.id}/metadata`, {
@@ -158,6 +168,11 @@ for (const presentation of ["classic", "visual-novel"] as const) {
         { id: chat.id, version },
       );
       await page.goto("/");
+      const reload = async () => {
+        // Finish the generation's background cache/status requests before unloading WebKit's document.
+        await page.waitForLoadState("networkidle");
+        await page.reload();
+      };
       const sprites = page.getByRole("img", { name: /full.*sprite/i });
       const sprite = (id: string) => page.locator(`img[alt*="sprite"][src*="${id}"]`);
       await expect(sprites).toHaveCount(3);
@@ -188,7 +203,7 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       await expect(sprites).toHaveCount(2);
       await expect(sprite(alice.id)).toBeVisible();
       await expect(sprite(charlie.id)).toBeVisible();
-      await page.reload();
+      await reload();
       await expect(sprites).toHaveCount(2);
       await page.locator("textarea[data-chat-composer]").fill("Continue the scene.");
       await page.locator("button.mari-chat-send-btn").click();
@@ -210,7 +225,7 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       await expect(sprites).toHaveCount(1);
       await expect(sprite(bob.id)).toBeVisible();
       await page.screenshot({ path: info.outputPath("sprites-expression-complete.png"), animations: "disabled" });
-      await page.reload();
+      await reload();
       await expect(sprites).toHaveCount(1);
       await expect(sprite(bob.id)).toBeVisible();
 
@@ -234,6 +249,17 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       await expect.poll(() => expressionsStarted).toBe(true);
       await expect(sprites).toHaveCount(1);
       await expect(sprite(bob.id)).toBeVisible();
+      const switchChat = async (id: string) => {
+        await page.evaluate(async (id) => {
+          const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+          useChatStore.getState().setActiveChatId(id);
+        }, id);
+      };
+      await switchChat(otherChat.id);
+      await expect(page.getByText("Waiting in the other roleplay scene.", { exact: true })).toBeVisible();
+      await switchChat(chat.id);
+      await expect(sprites).toHaveCount(1);
+      await expect(sprite(bob.id)).toBeVisible();
       releaseExpressions();
       await expect
         .poll(async () => ({
@@ -249,9 +275,15 @@ for (const presentation of ["classic", "visual-novel"] as const) {
           }, chat.id),
         )
         .toBe(false);
-      if (presentation === "visual-novel") await page.getByRole("button", { name: "Return to Visual Novel" }).click();
+      const returnToVisualNovel = page.getByRole("button", { name: "Return to Visual Novel" });
+      if (await returnToVisualNovel.isVisible()) await returnToVisualNovel.click();
 
       // A retry must persist its completed set too, including a valid empty result.
+      const staleResult = await request.patch(`/api/chats/${chat.id}/messages/${(await latest()).id}/extra`, {
+        data: { expressionSpriteIds: [alice.id] },
+      });
+      expect(staleResult.ok(), await staleResult.text()).toBeTruthy();
+      expect(record((await latest()).extra).expressionSpriteIds).toEqual([alice.id]);
       const retry = await request.post("/api/generate/retry-agents", {
         data: { chatId: chat.id, agentTypes: ["expression"] },
       });
@@ -263,7 +295,7 @@ for (const presentation of ["classic", "visual-novel"] as const) {
         content: "The room is empty.",
         extra: { spriteExpressions: { [bob.id]: "neutral" }, expressionSpriteIds: [bob.id] },
       });
-      await page.reload();
+      await reload();
       await expect(sprites).toHaveCount(1);
       await expect(sprite(bob.id)).toBeVisible();
       expressionOutput = JSON.stringify({ expressions: [] });
@@ -273,7 +305,7 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       expect(empty.ok(), await empty.text()).toBeTruthy();
       expect(record((await latest()).extra).expressionSpriteIds).toEqual([]);
       expect(record((await latest()).extra).spriteExpressions).toEqual({ [bob.id]: "neutral" });
-      await page.reload();
+      await reload();
       await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
       await expect(sprites).toHaveCount(0);
       await openSettings();

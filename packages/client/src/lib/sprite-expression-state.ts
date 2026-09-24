@@ -51,6 +51,7 @@ export function resolveLatestSpriteExpressionTurn(
     }
 
     // Older turns only stored sparse expressions, with persona expressions on the preceding user message.
+    // A user map alone can outlive a regenerated assistant swipe, so it cannot prove that turn completed.
     const characterIds = Object.keys(normalizeSpriteExpressionMap(extra.spriteExpressions));
     if (characterIds.length > 0) {
       for (let previous = index - 1; previous >= 0; previous--) {
