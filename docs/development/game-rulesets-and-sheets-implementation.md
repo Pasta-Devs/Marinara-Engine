@@ -664,10 +664,12 @@ and an opponent could not pay for anything out of a pool it did not have.
   temperament, with competence raising what bends the turn. The route gives the enemy its tactics
   before the fight is built, from the same unit and seed the picker would, so the creature fills
   and fights with one temperament. A boss is exempt from both: the Game Master writes it in full.
-- **A layer that narrows an enum field never costs a creature.** Creature sheets are held to enum
-  values only against the definition as written: `refineRulesetDefinition` passes `layersApplied`,
-  and the game's catalog loader, which may hold a layered definition, passes `narrowedByLayers`, so a
-  layer is never silently dropped and a bestiary file never refused over a value a layer took out.
+- **A layer that narrows an enum field never costs a creature.** A creature's enum value may be one
+  a layer took out, read back from the definition's own `layers`, and nothing else undeclared:
+  `refineRulesetDefinition` passes `layersApplied`, and the game's catalog loader, which may hold a
+  layered definition, passes `narrowedByLayers`, so a layer is never silently dropped, a bestiary
+  file is never refused over a value a layer took out, and a typo is still refused. Package install
+  never parses catalog files, so there is no install-time path to set.
 - **`no-health`.** A sheet that adds up to no health is left out at fight time with a reason of its
   own, rather than joining unkillable. A bestiary is already refused at import for a field outside
   its range, so this is reached by a formula that adds up to zero or by a hand-built block.

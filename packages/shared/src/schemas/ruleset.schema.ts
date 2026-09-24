@@ -3294,7 +3294,14 @@ function creatureSheetIssues(
   for (const [id, field] of enums) {
     const value = sheet.fields[id];
     if (value === undefined) continue;
-    if (typeof value !== "string" || (!narrowedByLayers && !field.values.includes(value))) {
+    // The values a layer took out of this field are still the field's own; nothing else is. A layered
+    // definition keeps its `layers`, so exactly those can be read back.
+    const removed = narrowedByLayers
+      ? (definition.layers ?? []).flatMap((layer) =>
+          (layer.fields ?? []).flatMap((entry) => (entry.id === id ? entry.removeValues : [])),
+        )
+      : [];
+    if (typeof value !== "string" || !(field.values.includes(value) || removed.includes(value))) {
       add([...at, "fields"], `Field "${id}" takes one of its declared values`);
     }
   }

@@ -1360,6 +1360,14 @@ const spellbook = parsedOrThrow(
     !parseRulesetCatalogFile(layered.definition, "creatures", file).ok,
     "held to the narrowed values it would be refused, which is why the loader says the definition is layered",
   );
+  // Only a value a layer really took out is let through: a typo is still refused under a layer.
+  const typo = {
+    ...file,
+    entries: narrowed("chr").catalogs.find((catalog: Record<string, any>) => catalog.id === "creatures").entries,
+  };
+  const refusedTypo = parseRulesetCatalogFile(layered.definition, "creatures", typo, true);
+  assert.ok(!refusedTypo.ok, "a value no layer removed is not the field's own");
+  assert.match(refusedTypo.issues.join("; "), /Field "spellcasting_ability" takes one of its declared values/);
   // Without a layer, a creature is still held to the field's values.
   assert.match(
     issuesOf(narrowed("chr")),

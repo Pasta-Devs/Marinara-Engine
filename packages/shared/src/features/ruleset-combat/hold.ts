@@ -557,7 +557,6 @@ function stepsAffordable(
 interface SheetRound {
   average: number;
   action: RulesetCombatAction | null;
-  steps: number;
   /** The actions the round is made of: a sequence's steps, or a striking row and the heaviest one
    *  the rest of its strikes may go to. */
   parts: RulesetCombatAction[];
@@ -583,7 +582,7 @@ function bestSheetRound(definition: RulesetDefinition, combatant: RulesetCombata
     (best, action) => (!best || once(action) > once(best) ? action : best),
     null,
   );
-  let best: SheetRound = { average: 0, action: null, steps: 0, parts: [] };
+  let best: SheetRound = { average: 0, action: null, parts: [] };
   for (const action of combatant.actions) {
     const parts = action.sequence
       ? action.sequence.flatMap((step) => {
@@ -598,7 +597,7 @@ function bestSheetRound(definition: RulesetDefinition, combatant: RulesetCombata
       : once(action) + Math.max(0, (action.strikes ?? 1) - 1) * once(heaviestStrike ?? action);
     const round = average > 0 ? average + carried : 0;
     if (round > best.average) {
-      best = { average: round, action, steps: stepsAffordable(definition, action, pools), parts };
+      best = { average: round, action, parts };
     }
   }
   return best;
@@ -656,6 +655,8 @@ export function holdRulesetCombatant(
   // buys says least about the creature, so it gives way first, then the dice, the flat part, a
   // strike, and only then the size of the die.
   const cap = tier.damagePerRound[1];
+  // Holding changes numbers on the combatant, never what its pools hold, so they are read once.
+  const pools = poolValues(definition, combatant);
   let scaled = false;
   let growth = false;
   for (let guard = 0; guard < 500; guard++) {
@@ -663,7 +664,9 @@ export function holdRulesetCombatant(
     if (round.average <= cap || !round.action) break;
     const action = round.action;
     const parts = round.parts;
-    const grown = parts.find((part) => part.use?.perCostStep && round.steps > 0);
+    // Only a part that can really climb gives up what the climb buys: a striking row or a sequence's
+    // step is measured for itself, not by the action the round was spent on.
+    const grown = parts.find((part) => part.use?.perCostStep && stepsAffordable(definition, part, pools) > 0);
     if (grown?.use?.perCostStep) {
       if (!shave(grown.use.perCostStep)) delete grown.use.perCostStep;
       growth = true;
