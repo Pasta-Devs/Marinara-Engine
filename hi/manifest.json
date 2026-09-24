@@ -333,6 +333,11 @@
       "bytes": 51447
     },
     {
+      "path": "development/game-rulesets-and-sheets-implementation.md",
+      "sha256": "abdd46b88ac404fdca359c07b91f5b64bd8c55c3571ae6f2b7703cca54ac4f0a",
+      "bytes": 216098
+    },
+    {
       "path": "development/hierarchical-locations-prd-v3.md",
       "sha256": "5b2a78181f5dbddc7172d569e5b17b343bd2e390850bbe26ad571618fe35718f",
       "bytes": 203800

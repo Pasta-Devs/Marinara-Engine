@@ -4216,8 +4216,19 @@
           "older": false
         }
       },
-      "updated_locales": [],
-      "audit_note": "Historically untranslated internal plan; English fallback, explicitly excluded by issue #6458."
+      "updated_locales": [
+        "de",
+        "es",
+        "fr",
+        "hi",
+        "ja",
+        "ko",
+        "pl",
+        "pt-br",
+        "ru",
+        "zh-hans"
+      ],
+      "audit_note": "Previously absent implementation handoff; now translated in full in all ten packs, including historical planning sections."
     },
     {
       "path": "development/hierarchical-locations-prd-v3.md",
@@ -4981,8 +4992,19 @@
           "older": false
         }
       },
-      "updated_locales": [],
-      "audit_note": "Historically untranslated author guide; English fallback, explicitly excluded by issue #6458."
+      "updated_locales": [
+        "de",
+        "es",
+        "fr",
+        "hi",
+        "ja",
+        "ko",
+        "pl",
+        "pt-br",
+        "ru",
+        "zh-hans"
+      ],
+      "audit_note": "Previously absent author guide; now translated in full in all ten packs."
     },
     {
       "path": "game/combat.md",
