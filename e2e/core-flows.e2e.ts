@@ -22095,9 +22095,11 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
   const chatsBounds = await chatsButton.boundingBox();
   expect(homeBounds).not.toBeNull();
   expect(chatsBounds).not.toBeNull();
+  // The command palette's search button sits with Home and Chats, before the panel toggles.
   const mobileActionOrder = [
     "home",
     "chats",
+    "command-palette",
     "characters",
     "personas",
     "lorebooks",
