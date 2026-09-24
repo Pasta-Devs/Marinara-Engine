@@ -1,14 +1,15 @@
-import type { AgentContext } from "@marinara-engine/shared";
+import { DEFAULT_GENERATION_PARAMS, type AgentContext } from "@marinara-engine/shared";
 import { NOVELAI_V5_MAX_CHARACTER_PROMPTS } from "../image/character-prompts.js";
 import { logger } from "../../lib/logger.js";
 import { normalizeAgentContextSize, renderAgentPromptTemplate } from "../agents/agent-executor.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
-import type { ChatCompletionResult, ChatMessage } from "../llm/base-provider.js";
+import { measureContextBudget, type ChatCompletionResult, type ChatMessage } from "../llm/base-provider.js";
+import { normalizeMaxContext } from "./generation-parameters.js";
 
 const MANUAL_ILLUSTRATION_MAX_TOKENS = 1_800;
-const MANUAL_ILLUSTRATOR_PROMPT_MODE_MAX_LENGTH = 12_000;
 const MANUAL_ILLUSTRATION_SYSTEM_PROMPT = [
   "You are the Illustrator prompt writer for a manual Gallery illustration request.",
+  "For this manual request, ignore automatic-generation conditions, cadence, and response schemas in the selected prompt above. Preserve its visual instructions and use the manual response schema below.",
   "The user already pressed Illustration. Do not decide whether to generate an image, do not discuss that decision, and do not return shouldGenerate or generateBackground fields.",
   "Write one detailed, provider-ready prompt for an image model that depicts the most visually important current scene established by the supplied conversation.",
   "Use the supplied character cards and user persona to keep identities, clothing, physical traits, relationships, and setting details consistent.",
@@ -79,80 +80,6 @@ function normalizeAspectRatio(value: unknown): ManualIllustratorPromptPlan["aspe
     return normalized;
   }
   return "";
-}
-
-export function normalizeManualIllustratorPromptModeInstruction(promptTemplate: string): string {
-  const withoutTaggedOutputSchemas = promptTemplate.replace(
-    /<(?:output_format|output_schema|response_format|json_schema)\b[^>]*>[\s\S]*?<\/(?:output_format|output_schema|response_format|json_schema)>/giu,
-    "",
-  );
-  const withoutOutputSchemaFences = withoutTaggedOutputSchemas.replace(/```(?:json)?\s*[\s\S]*?```/giu, (block) =>
-    /\b(?:shouldGenerate|generateBackground)\b|["'](?:prompt|negativePrompt|style|characters|aspectRatio|reason)["']\s*:/iu.test(
-      block,
-    )
-      ? ""
-      : block,
-  );
-  const lines = withoutOutputSchemaFences.split("\n");
-  const outputSchemaStart = lines.findIndex((line) => {
-    const normalized = line.trim();
-    return (
-      /^(?:#{1,6}\s*)?(?:output|response)\s+(?:format|schema|structure)\s*:/iu.test(normalized) ||
-      /^(?:#{1,6}\s*)?json\s+schema\s*:/iu.test(normalized) ||
-      /^(?:return|respond|reply|output|emit|provide|produce)\b[^\n]{0,180}\b(?:json|schema|object|structure)\b/iu.test(
-        normalized,
-      )
-    );
-  });
-  const promptModeLines = outputSchemaStart >= 0 ? lines.slice(0, outputSchemaStart) : lines;
-
-  return promptModeLines
-    .filter((line) => {
-      const normalized = line.trim();
-      if (!normalized) return true;
-      if (/\b(?:shouldGenerate|generateBackground)\b/iu.test(normalized)) return false;
-      if (/^Anchor the decision\b/iu.test(normalized)) return false;
-      if (/^Generate only for\b/iu.test(normalized)) return false;
-      if (/^If not worth illustrating\b/iu.test(normalized)) return false;
-      if (/^No prose outside the JSON\b/iu.test(normalized)) return false;
-      if (
-        /\b(?:decide|determine|evaluate|assess|choose)\b[^\n]{0,160}\b(?:whether|if)\b[^\n]{0,160}\b(?:generate|generation|illustrate|illustration|image|picture)\b/iu.test(
-          normalized,
-        )
-      ) {
-        return false;
-      }
-      if (
-        /\b(?:generate|illustrate|create|draw)\b[^\n]{0,100}\bonly\b[^\n]{0,100}\b(?:if|when|for)\b/iu.test(
-          normalized,
-        ) ||
-        /\bonly\b[^\n]{0,100}\b(?:generate|illustrate|create|draw)\b[^\n]{0,100}\b(?:if|when|for)\b/iu.test(normalized)
-      ) {
-        return false;
-      }
-      if (
-        /\b(?:if|when)\b[^\n]{0,140}\b(?:not worth|do not|don't|skip|avoid)\b[^\n]{0,140}\b(?:generate|illustrate|illustration|image|picture)\b/iu.test(
-          normalized,
-        ) ||
-        /\b(?:if|when)\b[^\n]{0,140}\b(?:generate|illustrate|illustration|image|picture)\b[^\n]{0,140}\b(?:do not|don't|skip|avoid)\b/iu.test(
-          normalized,
-        )
-      ) {
-        return false;
-      }
-      if (
-        /\b(?:generation|illustration)\s+(?:decision|cadence|interval|frequency|cooldown)\b/iu.test(normalized) ||
-        /\b(?:run|trigger|generate|illustrate)\b[^\n]{0,100}\bevery\s+\d+\b[^\n]{0,60}\b(?:turn|message|response)s?\b/iu.test(
-          normalized,
-        )
-      ) {
-        return false;
-      }
-      return true;
-    })
-    .join("\n")
-    .trim()
-    .slice(0, MANUAL_ILLUSTRATOR_PROMPT_MODE_MAX_LENGTH);
 }
 
 export function parseManualIllustratorPromptPlan(value: unknown): ManualIllustratorPromptPlan | null {
@@ -240,17 +167,19 @@ export function buildManualIllustratorPromptMessages(args: {
   imagePromptInstructions?: string;
   request?: string;
 }): ChatMessage[] {
-  const promptModeInstruction = normalizeManualIllustratorPromptModeInstruction(args.selectedPromptTemplate ?? "");
+  // Custom prompts may mix visual instructions with schemas or generation conditions.
+  // Preserve them intact; the manual contract below overrides only when/how to return the prompt.
+  const promptModeInstruction = args.selectedPromptTemplate?.trim();
   const systemPrompt = [
-    MANUAL_ILLUSTRATION_SYSTEM_PROMPT,
     promptModeInstruction
       ? [
           "<selected_illustrator_prompt_mode>",
-          "Follow these content and format requirements. Generation-decision and output-schema instructions have already been resolved by the Gallery button:",
+          "Selected Illustrator instructions for the scene, perspective, style, and visual format:",
           promptModeInstruction,
           "</selected_illustrator_prompt_mode>",
         ].join("\n")
       : "No selected Illustrator prompt mode supplied; use one coherent scene illustration.",
+    MANUAL_ILLUSTRATION_SYSTEM_PROMPT,
     args.styleInstruction
       ? `Additional Image Style instruction for the image prompt you write: ${args.styleInstruction}\nCombine it with the selected Illustrator prompt mode. It may refine rendering and visual treatment, but it must not replace or weaken the selected format, layout, framing, or text requirements.`
       : "No visual style profile is selected. Infer only the visual treatment supported by the scene context.",
@@ -327,17 +256,28 @@ export async function writeManualIllustratorPromptPlan(args: {
     messages.map((message) => `${message.role}:\n${message.content}`).join("\n\n"),
   );
 
-  const callPromptWriter = (requestMessages: ChatMessage[]): Promise<ChatCompletionResult> =>
-    args.illustratorAgent.provider.chatComplete(requestMessages, {
+  const maxTokens = resolveManualIllustratorMaxTokens(args.illustratorAgent);
+  const maxContext =
+    normalizeMaxContext(args.illustratorAgent.provider.maxContextValue) ?? DEFAULT_GENERATION_PARAMS.maxContext;
+  const callPromptWriter = async (requestMessages: ChatMessage[]): Promise<ChatCompletionResult> => {
+    if (!measureContextBudget(requestMessages, { maxContext, maxTokens }).fits) {
+      throw new Error(
+        "Manual Illustrator request exceeds the connection context limit. Shorten the selected prompt or reduce Illustrator context size, or increase the connection context limit.",
+      );
+    }
+    return args.illustratorAgent.provider.chatComplete(requestMessages, {
       model: args.illustratorAgent.model,
       temperature: 0.55,
-      maxTokens: resolveManualIllustratorMaxTokens(args.illustratorAgent),
+      maxTokens,
+      maxContext,
+      preserveContext: true,
       enableCaching: args.illustratorAgent.enableCaching,
       anthropicExtendedCacheTtl: args.illustratorAgent.anthropicExtendedCacheTtl,
       cachingAtDepth: args.illustratorAgent.cachingAtDepth,
       customParameters: args.illustratorAgent.customParameters,
       signal: args.signal,
     });
+  };
 
   let response = await callPromptWriter(messages);
   let tokensUsed = response.usage?.totalTokens ?? 0;
