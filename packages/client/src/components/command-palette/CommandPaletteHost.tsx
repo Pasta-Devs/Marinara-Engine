@@ -1,14 +1,21 @@
 // ──────────────────────────────────────────────
-// Command palette host: global shortcut + built-in actions
+// Command palette host: global shortcuts + built-in actions
 // ──────────────────────────────────────────────
 // Ctrl/Cmd+K toggles the palette. No other binding in the app uses it, so it
 // also works while typing; a field that handles Ctrl+K itself and calls
-// preventDefault() keeps it. The palette is lazy-loaded on first open.
+// preventDefault() keeps it. "?" opens the shortcuts overlay unless the user
+// is typing. Both surfaces are lazy-loaded on first open.
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { Chat } from "@marinara-engine/shared";
-import { canTogglePaletteFromShortcut, isPaletteShortcut, registerCommand } from "../../lib/command-palette";
+import {
+  canTogglePaletteFromShortcut,
+  isPaletteShortcut,
+  isShortcutsHelpKey,
+  isTypingTarget,
+  registerCommand,
+} from "../../lib/command-palette";
 import { requestChatHelp } from "../../lib/chat-help-events";
 import { countModalOverlays } from "../../lib/modal-overlay-registry";
 import { chatKeys } from "../../hooks/use-chats";
@@ -19,6 +26,9 @@ import { useUIStore, type Panel } from "../../stores/ui.store";
 import { confirmLeaveDirtyEditor } from "./palette-navigation";
 
 const CommandPalette = lazy(() => import("./CommandPalette").then((module) => ({ default: module.CommandPalette })));
+const KeyboardShortcutsOverlay = lazy(() =>
+  import("./KeyboardShortcutsOverlay").then((module) => ({ default: module.KeyboardShortcutsOverlay })),
+);
 
 const PANEL_COMMANDS: ReadonlyArray<{ panel: Panel; labelKey: string; keywords: string[] }> = [
   { panel: "characters", labelKey: "palette.actions.openCharacters", keywords: ["cards", "bots"] },
@@ -33,7 +43,9 @@ export function CommandPaletteHost() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const paletteOpen = useCommandPaletteStore((s) => s.paletteOpen);
+  const shortcutsOpen = useCommandPaletteStore((s) => s.shortcutsOpen);
   const [paletteLoaded, setPaletteLoaded] = useState(false);
+  const [shortcutsLoaded, setShortcutsLoaded] = useState(false);
   const { launch } = useLaunchNewChat();
   // launch() is rebuilt every render; a ref keeps the registered actions stable.
   const launchRef = useRef(launch);
@@ -42,6 +54,9 @@ export function CommandPaletteHost() {
   useEffect(() => {
     if (paletteOpen) setPaletteLoaded(true);
   }, [paletteOpen]);
+  useEffect(() => {
+    if (shortcutsOpen) setShortcutsLoaded(true);
+  }, [shortcutsOpen]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -53,6 +68,11 @@ export function CommandPaletteHost() {
         if (!canTogglePaletteFromShortcut(countModalOverlays(), palette.paletteOpen)) return;
         event.preventDefault();
         palette.togglePalette();
+        return;
+      }
+      if (isShortcutsHelpKey(event) && !isTypingTarget(event.target) && countModalOverlays() === 0) {
+        event.preventDefault();
+        useCommandPaletteStore.getState().openShortcuts();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -131,6 +151,14 @@ export function CommandPaletteHost() {
         },
       }),
       registerCommand({
+        id: "action:shortcuts",
+        section: "actions",
+        title: t("palette.actions.shortcuts"),
+        keywords: ["keyboard", "hotkeys", "help", "keys"],
+        shortcut: "?",
+        run: () => useCommandPaletteStore.getState().openShortcuts(),
+      }),
+      registerCommand({
         id: "action:chat-guide",
         section: "actions",
         title: t("palette.actions.chatGuide"),
@@ -169,9 +197,18 @@ export function CommandPaletteHost() {
     return () => unregisters.forEach((unregister) => unregister());
   }, [queryClient, t]);
 
-  return paletteLoaded ? (
-    <Suspense fallback={null}>
-      <CommandPalette />
-    </Suspense>
-  ) : null;
+  return (
+    <>
+      {paletteLoaded && (
+        <Suspense fallback={null}>
+          <CommandPalette />
+        </Suspense>
+      )}
+      {shortcutsLoaded && (
+        <Suspense fallback={null}>
+          <KeyboardShortcutsOverlay />
+        </Suspense>
+      )}
+    </>
+  );
 }

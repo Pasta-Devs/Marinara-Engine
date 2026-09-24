@@ -8,6 +8,8 @@ const {
   fuzzyScore,
   isPaletteListedChat,
   isPaletteShortcut,
+  isShortcutsHelpKey,
+  isTypingTarget,
   listRegisteredCommands,
   PALETTE_SETTINGS_TABS,
   parseRecents,
@@ -16,6 +18,7 @@ const {
   registerCommand,
   subscribeToCommands,
 } = await import("../../packages/client/src/lib/command-palette.js");
+const { KEYBOARD_SHORTCUT_GROUPS } = await import("../../packages/client/src/lib/keyboard-shortcuts.js");
 
 const noop = () => undefined;
 const source = (path: string) => readFileSync(new URL(`../../packages/client/src/${path}`, import.meta.url), "utf8");
@@ -180,6 +183,25 @@ assert.equal(canTogglePaletteFromShortcut(1, false), false, "another dialog is o
 assert.equal(formatShortcutKey("Mod", true), "⌘");
 assert.equal(formatShortcutKey("Mod", false), "Ctrl");
 assert.equal(formatShortcutKey("K", false), "K");
+assert.equal(isShortcutsHelpKey(key("?", { shiftKey: true })), true);
+assert.equal(isShortcutsHelpKey(key("?", { ctrlKey: true })), false);
+assert.equal(isShortcutsHelpKey(key("/")), false);
+
+const element = (tagName: string, attributes: Record<string, string> = {}, extra: object = {}) => ({
+  tagName,
+  getAttribute: (name: string) => attributes[name] ?? null,
+  closest: () => null,
+  ...extra,
+});
+assert.equal(isTypingTarget(element("TEXTAREA")), true);
+assert.equal(isTypingTarget(element("INPUT")), true);
+assert.equal(isTypingTarget(element("INPUT", { type: "search" })), true);
+assert.equal(isTypingTarget(element("INPUT", { type: "checkbox" })), false);
+assert.equal(isTypingTarget(element("SELECT")), true);
+assert.equal(isTypingTarget(element("DIV", {}, { isContentEditable: true })), true);
+assert.equal(isTypingTarget(element("SPAN", {}, { closest: () => ({}) })), true, "inside a contenteditable");
+assert.equal(isTypingTarget(element("BUTTON")), false);
+assert.equal(isTypingTarget(null), false);
 
 // ── Host wiring ──
 const host = source("components/command-palette/CommandPaletteHost.tsx");
@@ -190,6 +212,9 @@ assert.match(
   /isPaletteShortcut\(event\)\) \{[\s\S]*?if \(!canTogglePaletteFromShortcut\(countModalOverlays\(\), palette\.paletteOpen\)\) return;/u,
   "the shortcut does not open the palette over another dialog",
 );
+
+// "?" never fires while typing or over an open dialog.
+assert.match(host, /isShortcutsHelpKey\(event\) && !isTypingTarget\(event\.target\) && countModalOverlays\(\) === 0/u);
 
 // The built-in actions are exactly the ones below: each opens something that exists in the app.
 {
@@ -203,6 +228,7 @@ assert.match(
     "action:new-game",
     "action:new-roleplay",
     "action:open-settings",
+    "action:shortcuts",
     "action:toggle-chats",
     "action:toggle-theme",
   ]);
@@ -225,6 +251,59 @@ for (const labelKey of palette.matchAll(/t\("(palette\.[A-Za-z.]+)"/gu)) {
 }
 for (const [name, value] of Object.entries(en)) {
   if (name.startsWith("palette.")) assert.ok(!String(value).includes("\u2014"), `${name} has no em dash`);
+}
+
+// ── Shortcut catalog: every label is localized and every listed binding exists in the code ──
+{
+  const labelKeys = new Set<string>();
+  for (const group of KEYBOARD_SHORTCUT_GROUPS) {
+    assert.equal(typeof en[group.titleKey], "string", `${group.titleKey} is in en.json`);
+    for (const shortcut of group.shortcuts) {
+      assert.equal(typeof en[shortcut.labelKey], "string", `${shortcut.labelKey} is in en.json`);
+      assert.ok(!labelKeys.has(shortcut.labelKey), `${shortcut.labelKey} is listed once`);
+      labelKeys.add(shortcut.labelKey);
+      assert.ok(shortcut.keys.length > 0 && shortcut.keys.every((combo) => combo.length > 0));
+    }
+  }
+  const catalogKeys = Object.keys(en).filter(
+    (name) => /^shortcuts\.[a-z]+\.[A-Za-z]+$/u.test(name) && !name.startsWith("shortcuts.groups."),
+  );
+  assert.deepEqual(catalogKeys.sort(), [...labelKeys].sort(), "no orphaned shortcut labels in en.json");
+  for (const name of ["shortcuts.title", "shortcuts.intro", "shortcuts.or", "palette.actions.shortcuts"]) {
+    assert.equal(typeof en[name], "string", `${name} is in en.json`);
+  }
+  for (const [name, value] of Object.entries(en)) {
+    if (name.startsWith("shortcuts.")) assert.ok(!String(value).includes("\u2014"), `${name} has no em dash`);
+  }
+
+  // One entry per listed binding: [file, pattern that implements it].
+  const bindings: Array<[string, RegExp]> = [
+    ["components/command-palette/CommandPaletteHost.tsx", /isPaletteShortcut\(event\)/u],
+    ["components/command-palette/CommandPalette.tsx", /event\.key === "ArrowDown"/u],
+    ["components/command-palette/CommandPaletteHost.tsx", /isShortcutsHelpKey\(event\)/u],
+    ["components/ui/Modal.tsx", /e\.key !== "Escape"/u],
+    ["components/chat/ChatInput.tsx", /if \(enterToSend && !e\.shiftKey\)/u],
+    ["components/chat/ConversationInput.tsx", /e\.key === "Enter" && \(e\.metaKey \|\| e\.ctrlKey\)/u],
+    ["components/game/GameInput.tsx", /e\.key === "Enter" && \(e\.metaKey \|\| e\.ctrlKey\)/u],
+    ["components/chat/ChatArea.tsx", /event\.key !== "ArrowUp"/u],
+    ["components/chat/ConversationInput.tsx", /if \(e\.key === "Tab" \|\| e\.key === "Enter"\)/u],
+    ["components/chat/ChatInput.tsx", /e\.key === "Tab" \|\| \(e\.key === "Enter" && !e\.shiftKey\)/u],
+    ["components/chat/ChatArea.tsx", /event\.key !== "ArrowLeft" && event\.key !== "ArrowRight"/u],
+    ["components/chat/ChatMessage.tsx", /e\.key === "Enter" && \(e\.metaKey \|\| e\.ctrlKey\)\) handleSave\(\)/u],
+    ["components/chat/ChatMessage.tsx", /e\.key === "Escape"\) onCancel\(\)/u],
+    ["components/chat/ChatMessageSearch.tsx", /event\.key === "Enter" && results\[0\]/u],
+    ["components/game/GameCombatUI.tsx", /e\.key === "ArrowUp" \|\| e\.key === "w"/u],
+    ["components/game/GameCombatUI.tsx", /e\.key === "Enter" \|\| e\.key === " "/u],
+    ["lib/textarea-editing.ts", /event\.key !== "Tab"/u],
+    ["components/game-assets/FileEditorModal.tsx", /e\.key === "s" && \(e\.metaKey \|\| e\.ctrlKey\)/u],
+    ["components/game-assets/GameAssetsBrowserView.tsx", /e\.key === "a" && \(e\.metaKey \|\| e\.ctrlKey\)/u],
+    ["components/game-assets/GameAssetsBrowserView.tsx", /e\.key === "Escape" && selectedPaths\.size > 0/u],
+    ["components/layout/AppShell.tsx", /else if \(event\.key === "Home"\) nextWidth = SHARED_SIDEBAR_WIDTH_MIN/u],
+  ];
+  for (const [path, pattern] of bindings) {
+    assert.match(source(path), pattern, `${path} still implements a listed shortcut`);
+  }
+  assert.match(source("components/command-palette/KeyboardShortcutsOverlay.tsx"), /KEYBOARD_SHORTCUT_GROUPS\.map/u);
 }
 
 // Touch users need a visible way in, not only the key binding.

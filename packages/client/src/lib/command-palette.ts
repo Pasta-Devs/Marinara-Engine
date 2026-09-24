@@ -249,6 +249,32 @@ export function canTogglePaletteFromShortcut(openOverlays: number, paletteOpen: 
   return openOverlays <= (paletteOpen ? 1 : 0);
 }
 
+/** "?" with no command modifiers (Shift is how most layouts type it). */
+export function isShortcutsHelpKey(event: KeyLike): boolean {
+  return event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey;
+}
+
+interface TargetLike {
+  tagName?: string;
+  isContentEditable?: boolean;
+  getAttribute?: (name: string) => string | null;
+  closest?: (selector: string) => unknown;
+}
+
+/** True when keystrokes on `target` are text entry and must not trigger single-key shortcuts. */
+export function isTypingTarget(target: unknown): boolean {
+  if (!target || typeof target !== "object") return false;
+  const element = target as TargetLike;
+  const tag = element.tagName?.toUpperCase();
+  if (tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (tag === "INPUT") {
+    const type = (element.getAttribute?.("type") ?? "text").toLowerCase();
+    return !["button", "checkbox", "radio", "range", "reset", "submit", "color", "file", "image"].includes(type);
+  }
+  if (element.isContentEditable) return true;
+  return !!element.closest?.('[contenteditable=""], [contenteditable="true"], [role="textbox"]');
+}
+
 export function isApplePlatform(): boolean {
   if (typeof navigator === "undefined") return false;
   const platform =
