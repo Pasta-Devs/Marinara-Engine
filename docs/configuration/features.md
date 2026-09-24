@@ -82,7 +82,9 @@ For developers: docs/development/generation-jobs.md.
 
 Setting key: `consoleTray`. Environment variable: `MARINARA_CONSOLE_TRAY`. Windows only.
 
-On: while the server runs in a console window, a Marinara icon sits in the Windows system tray, and minimizing the console hides it from the taskbar.
+On: while the server runs in a console window, a Marinara icon sits in the Windows system tray, and minimizing the console hides it from the taskbar. The icon's menu has **Open Marinara** (your browser at the server's address), **Show console** or **Hide console**, and **Quit Marinara**, which stops the server the same way Ctrl+C does. Double-clicking the icon shows or hides the console. In Windows Terminal the icon appears but the console is never hidden, because hiding could take other tabs with it. Turning the switch off restores a hidden console at once.
+
+The icon is run by a small hidden Windows PowerShell 5.1 script, so PowerShell must be allowed to run it. If it cannot start, the server keeps running and logs one warning.
 
 Off: no tray icon, and the console is left alone.
 

@@ -30,6 +30,11 @@ import { logCsrfTrustSummary } from "./middleware/csrf-protection.js";
 import { startEnvWatcher } from "./config/env-watcher.js";
 import { migrateTaskbarShortcuts } from "./services/setup/taskbar-shortcut-migration.js";
 import { sidecarProcessService } from "./services/sidecar/sidecar-process.service.js";
+import {
+  consoleTrayBrowserUrl,
+  startConsoleTrayService,
+  stopConsoleTrayService,
+} from "./services/console-tray/console-tray.service.js";
 import { startRuntimeMemoryMonitor } from "./utils/runtime-memory.js";
 
 function isAddressInUseError(err: unknown): err is NodeJS.ErrnoException {
@@ -111,6 +116,8 @@ async function main() {
 
     isShuttingDown = true;
     logger.info("Received %s; shutting down Marinara Engine", signal);
+    // Restore the console (if the tray hid it) and remove the tray icon, alongside the close below.
+    const trayStopped = stopConsoleTrayService();
     // #5838: bound the whole close - sever connections at 4 s, force-exit at
     // 8 s - so a supervisor's stop window (earlyoom ~10 s, Docker 10 s) never
     // expires on a connection-wait and escalates to a write-dropping SIGKILL.
@@ -132,6 +139,8 @@ async function main() {
       stopRuntimeMemoryMonitor();
       stopFreezeDetector();
       await app.close();
+      // Usually finished long before the close; bounded so a stuck helper never delays the exit.
+      await Promise.race([trayStopped, new Promise((resolve) => setTimeout(resolve, 1_000).unref())]);
       logger.info("Shutdown complete");
       process.exit(0);
     } catch (err) {
@@ -162,6 +171,13 @@ async function main() {
     stopRuntimeMemoryMonitor = startRuntimeMemoryMonitor();
     logCsrfTrustSummary();
     scheduleTaskbarShortcutMigration();
+    // Windows only, feature switch "consoleTray": tray icon, and the console hides when minimized.
+    // Quit in the tray menu runs the same graceful shutdown as Ctrl+C.
+    startConsoleTrayService({
+      url: consoleTrayBrowserUrl(protocol, host, port),
+      port,
+      onQuit: () => void shutdown("SIGINT"),
+    });
   } catch (err) {
     if (isShuttingDown) {
       logger.info("Startup interrupted by shutdown");
