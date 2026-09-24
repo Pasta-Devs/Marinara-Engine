@@ -1543,7 +1543,10 @@ export const capabilityPackageManager = {
     if (normalizedPath === "manifest.json") return null;
     const iconPaths = servable.manifest.contributions?.homeBrowserTab?.iconPaths ?? [];
     const declaredAssetPaths = servable.manifest.contributions?.assets?.paths ?? [];
-    const allowed = [...iconPaths, ...declaredAssetPaths].some(
+    const widgetIconPaths = (servable.manifest.contributions?.homeWidgets ?? []).flatMap((widget) =>
+      widget.iconPath ? [widget.iconPath] : [],
+    );
+    const allowed = [...iconPaths, ...widgetIconPaths, ...declaredAssetPaths].some(
       (path) => tryNormalizeArchivePath(path) === normalizedPath,
     );
     if (!allowed) return null;
