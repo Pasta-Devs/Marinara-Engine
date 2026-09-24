@@ -2,7 +2,7 @@
 // Routes: Admin (clear data, maintenance)
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
-import { eq, ne } from "../db/file-query.js";
+import { eq, like, ne } from "../db/file-query.js";
 import { existsSync, readdirSync, rmSync } from "fs";
 import { join } from "path";
 import { MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY, PROFESSOR_MARI_ID, TTS_SETTINGS_KEY } from "@marinara-engine/shared";
@@ -279,6 +279,9 @@ export async function adminRoutes(app: FastifyInstance) {
       await runDelete("agent_runs", () => db.delete(schema.agentRuns).run());
       await runDelete("agent_memory", () => db.delete(schema.agentMemory).run());
       await runDelete("agent_configs", () => db.delete(schema.agentConfigs).run());
+      await runDelete("app_settings:agent_home_widgets", () =>
+        db.delete(schema.appSettings).where(like(schema.appSettings.key, "agent_home_widget:%")).run(),
+      );
       await runDelete("custom_tools", () => db.delete(schema.customTools).run());
       await runDelete("regex_scripts", () => db.delete(schema.regexScripts).run());
       await runDelete("custom_themes", () => db.delete(schema.customThemes).run());
