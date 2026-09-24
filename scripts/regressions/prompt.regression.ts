@@ -5702,9 +5702,14 @@ const cases: RegressionCase[] = [
         `${"Scene guidance. ".repeat(900)}Draw a three-panel comic from {{user}} POV.`,
       ]) {
         const capture = makeCapturingProvider('{"prompt":"A three-panel comic from Mari POV."}');
+        const selectedPrompt = resolveAgentPromptTemplate({
+          promptTemplate: "Draw an ordinary scene using the global default.",
+          settings: { promptTemplates: [{ id: "user-pov", name: "User POV", promptTemplate }] },
+          selectedPromptTemplateId: "user-pov",
+        });
         await writeManualIllustratorPromptPlan({
           illustratorAgent: {
-            ...makeRegressionAgentConfig({ type: "illustrator", promptTemplate }),
+            ...makeRegressionAgentConfig({ type: "illustrator", promptTemplate: selectedPrompt }),
             provider: capture.provider,
             model: "regression-model",
           } as any,
@@ -5712,6 +5717,7 @@ const cases: RegressionCase[] = [
         });
         const system = capture.calls[0]![0]!.content;
         assert.match(system, /Draw a three-panel comic from Mari POV\./u);
+        assert.doesNotMatch(system, /ordinary scene using the global default/u);
         assert.doesNotMatch(system, /No selected Illustrator prompt mode supplied/u);
         assert.ok(
           system.indexOf("For this manual request, ignore") > system.indexOf("</selected_illustrator_prompt_mode>"),

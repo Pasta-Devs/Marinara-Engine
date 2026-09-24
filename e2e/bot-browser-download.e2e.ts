@@ -32,6 +32,7 @@ for (const action of ["Import", "Download as PNG"] as const) {
       sidebarOpen: false,
       rightPanelOpen: false,
       appAccentPulseMode: false,
+      theme: action === "Import" ? "dark" : "light",
     });
     await page.addInitScript((appVersion) => {
       localStorage.setItem("marinara:whats-new:seen-version", appVersion);
@@ -76,14 +77,14 @@ for (const action of ["Import", "Download as PNG"] as const) {
     await browser.getByRole("button", { name: new RegExp(cardName, "u") }).click();
     const button = browser.getByRole("button", { name: action, exact: true });
     await expect(button).toBeVisible();
-    await translateButton(button);
 
     for (let attempt = 0; attempt < 2; attempt++) {
+      await translateButton(button);
       if (action === "Import") {
         await button.click();
         const dialog = page.locator('[data-component="BotBrowserImportDialog"]');
         await dialog.getByRole("button", { name: /Import as Character/u }).click();
-        await expect(dialog).toBeHidden();
+        await expect(page.getByRole("dialog", { name: "Import Card", exact: true })).toBeHidden();
         expect(imports).toBe(attempt + 1);
       } else {
         const downloadPromise = page.waitForEvent("download");
@@ -96,6 +97,8 @@ for (const action of ["Import", "Download as PNG"] as const) {
       await expect(page.getByText("Marinara hit a recoverable UI error.")).toHaveCount(0);
       expect(errors).toEqual([]);
     }
-    await testInfo.attach("character-download-after", { body: await page.screenshot(), contentType: "image/png" });
+    const screenshot = testInfo.outputPath("character-download-after.png");
+    await page.screenshot({ path: screenshot });
+    await testInfo.attach("character-download-after", { path: screenshot, contentType: "image/png" });
   });
 }
