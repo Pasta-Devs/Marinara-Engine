@@ -26,7 +26,8 @@ import {
   STATE_DIR,
   VERSION,
 } from "./lib/config.mjs";
-import { refreshSandboxData, sandboxInfo, startSandboxProcess } from "./lib/sandbox.mjs";
+import { SANDBOX_LOG, refreshSandboxData, sandboxInfo, startSandboxProcess } from "./lib/sandbox.mjs";
+import { isAlive, tail } from "./lib/proc.mjs";
 import {
   api,
   getChat,
@@ -42,7 +43,7 @@ import {
 import { acquireLock, build, deploy, readLock, regressions, releaseLock, status, stopEngine, typecheck } from "./lib/engine.mjs";
 import { groupedProblems, lookupReference } from "./lib/logs.mjs";
 import { cacheReport, diffPrompts, latestSavedPrompts, outline, peekPrompt } from "./lib/prompts.mjs";
-import { fileSafe, out, pathInside, readActivity, record, safe, sleep, stamp, trimText } from "./lib/util.mjs";
+import { fail, fileSafe, out, pathInside, readActivity, record, safe, sleep, stamp, trimText } from "./lib/util.mjs";
 
 const server = new McpServer({ name: INSTANCE === "sandbox" ? "marinara-sandbox" : "marinara-dev", version: VERSION });
 
@@ -128,18 +129,26 @@ tool(
   async ({ start, dist, copyData }) => {
     assertSandboxPort();
     const steps = [];
-    const stopped = await stopEngine(SANDBOX_PORT).catch((error) => ({ stopped: false, error: error.message }));
-    if (stopped.stopped || stopped.error) steps.push({ step: "stop", ...stopped });
+    // If the old sandbox cannot be stopped, copying data under it (or starting a second one) is unsafe.
+    const stopped = await stopEngine(SANDBOX_PORT);
+    if (stopped.stopped) steps.push({ step: "stop", ...stopped });
     const started = Date.now();
     if (copyData) steps.push({ step: "copy+sanitize", ...refreshSandboxData(), seconds: Math.round((Date.now() - started) / 1000) });
     if (start) {
       const pid = await startSandboxProcess(dist);
+      // Same bound as restart_engine (a cold start of a large store can take minutes), but stop early if the
+      // process exits, and return the end of its output when it does not come up.
+      const deadline = Date.now() + 720_000;
       let online = false;
-      for (let i = 0; i < 300 && !online; i += 1) {
+      while (!online && Date.now() < deadline && isAlive(pid)) {
         online = await sandboxOnline();
         if (!online) await sleep(2000);
       }
-      steps.push({ step: "start", pid, online, dist, url: sandboxBase });
+      steps.push({ step: "start", pid, online, dist, url: sandboxBase, ...(online ? {} : { outputTail: tail(SANDBOX_LOG, 30) }) });
+      if (!online) {
+        record("sandbox_refresh", { steps, ok: false });
+        return fail(`the sandbox did not come up: ${JSON.stringify(steps, null, 2)}`);
+      }
     }
     record("sandbox_refresh", { steps });
     return out({ ok: true, steps });

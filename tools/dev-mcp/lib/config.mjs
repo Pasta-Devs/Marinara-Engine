@@ -75,6 +75,10 @@ export const SANDBOX_DIR = resolve(process.env.MARINARA_DEV_SANDBOX_DIR || join(
 export const SANDBOX_PORT = Number(process.env.MARINARA_DEV_SANDBOX_PORT || 7862);
 export const LIVE_PORT = Number(ENGINE_ENV.PORT || 7860);
 export const PORT = Number(process.env.MARINARA_DEV_PORT || (INSTANCE === "sandbox" ? SANDBOX_PORT : LIVE_PORT));
+if (INSTANCE === "sandbox" && (PORT === LIVE_PORT || SANDBOX_PORT === LIVE_PORT)) {
+  // Every sandbox tool (restart, stop, API writes) would otherwise act on the live engine.
+  throw new Error(`[dev-mcp] sandbox port ${PORT} is the live engine's port ${LIVE_PORT}; set MARINARA_DEV_SANDBOX_PORT or MARINARA_DEV_PORT to another port`);
+}
 export const ORIGIN = `http://127.0.0.1:${PORT}`;
 export const API = `${ORIGIN}/api`;
 export const LIVE_DATA_DIR = fromServer(ENGINE_ENV.DATA_DIR || "data");
