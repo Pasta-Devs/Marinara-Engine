@@ -3520,9 +3520,12 @@ function DetailView({
                 className="mari-panel-gradient-button mari-panel-gradient--browser px-4 py-2.5 text-xs"
               >
                 {importing ? <Loader2 size="0.875rem" className="animate-spin" /> : <Download size="0.875rem" />}
-                {importing
-                  ? localizeUi("ui.botBrowser.detailview.importing")
-                  : localizeUi("ui.chat.chatbranchselector.import")}
+                {/* Keep translated text inside a stable element while the loading icon changes. */}
+                <span>
+                  {importing
+                    ? localizeUi("ui.botBrowser.detailview.importing")
+                    : localizeUi("ui.chat.chatbranchselector.import")}
+                </span>
               </button>
               <button
                 onClick={handleDownloadPng}
@@ -3530,9 +3533,11 @@ function DetailView({
                 className="mari-chrome-control px-4 py-2 text-xs"
               >
                 {downloading ? <Loader2 size="0.75rem" className="animate-spin" /> : <Download size="0.75rem" />}
-                {downloading
-                  ? localizeUi("ui.botBrowser.detailview.buildingPng")
-                  : localizeUi("ui.botBrowser.detailview.downloadAsPng")}
+                <span>
+                  {downloading
+                    ? localizeUi("ui.botBrowser.detailview.buildingPng")
+                    : localizeUi("ui.botBrowser.detailview.downloadAsPng")}
+                </span>
               </button>
               <div className="mari-chrome-text-muted flex flex-col gap-1 rounded-lg bg-[var(--secondary)] p-2.5 text-xs">
                 {card.stat1 > 0 && card.stat1Label && (
