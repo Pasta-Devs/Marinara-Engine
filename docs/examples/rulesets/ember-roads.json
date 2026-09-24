@@ -854,6 +854,57 @@
               }
             ]
           }
+        },
+        {
+          "$comment": "Written in this ruleset's own words: Brawn, Wits and Heart, a Toughness, the gear it swings and a knack picked out of the same catalog a traveller picks from. Its Grit and its Guard are what the sheet adds up to, and Hold the Line costs it Luck out of its own pool, exactly as it costs a traveller. Nothing here is a number written twice.",
+          "id": "toll-warden",
+          "label": "Toll Warden",
+          "summary": "Somebody who decided a stretch of road was theirs, and brought friends to say so.",
+          "filters": {
+            "tier": "Pack trouble",
+            "road": "Toll roads"
+          },
+          "creature": {
+            "tier": "pack",
+            "traits": [
+              {
+                "name": "Knows the road",
+                "text": "It will not follow anyone past the last milestone it collects at."
+              }
+            ],
+            "sheet": {
+              "abilities": {
+                "brawn": 2,
+                "wits": 1,
+                "heart": 1
+              },
+              "skills": {
+                "sway": "trained"
+              },
+              "fields": {
+                "calling": "Hauler",
+                "toughness": 3
+              },
+              "lists": {
+                "gear": [
+                  {
+                    "name": "Toll hook",
+                    "notes": "Long, and meant for pulling people off carts",
+                    "swing": "brawn",
+                    "damage": "1d6",
+                    "harm": "cut"
+                  }
+                ],
+                "knacks": [
+                  {
+                    "name": "Hold the Line",
+                    "notes": "Spend 1 Luck to steady one ally who can hear you. In a fight they gain 2 temporary Grit.",
+                    "_catalog": "knacks/hold-the-line"
+                  }
+                ]
+              }
+            }
+          }
         }
       ]
     }

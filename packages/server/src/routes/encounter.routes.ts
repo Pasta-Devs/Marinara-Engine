@@ -5,7 +5,7 @@ import {
   combatAiHintsSchema,
   combatBossSchema,
   combatInterruptFields,
-  rulesetCreatureSchema,
+  rulesetProposedCreatureSchema,
   type RulesetDefinition,
 } from "@marinara-engine/shared";
 import { loadRulesetCatalogEntries } from "../services/game/ruleset-catalog.service.js";
@@ -327,7 +327,7 @@ export const encounterBlueprintSchema = z
           // bestiary and then to the tier.
           creature: z.string().max(200).optional().catch(undefined),
           tier: z.string().max(80).optional().catch(undefined),
-          proposed: rulesetCreatureSchema.optional().catch(undefined),
+          proposed: rulesetProposedCreatureSchema.optional().catch(undefined),
           attacks: z
             .array(
               z

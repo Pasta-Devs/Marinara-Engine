@@ -894,9 +894,8 @@ export function rulesetCombatOptions(
  * end of somebody else's turn, so the actor whose turn it is has none to offer, and the points are
  * given back at the start of its own turn.
  *
- * This slice stores the points, prices the options and spends them when one is chosen. The WINDOW
- * that asks a creature to pick one, between one turn and the next, is a later slice; until then a
- * caller with its own reason to open one already has everything it needs here.
+ * The window between one turn and the next asks everybody this offers anything to, and its menu is
+ * exactly this list (see `rulesetWindowOptions`).
  */
 export function rulesetSignatureOptions(
   definition: RulesetDefinition,

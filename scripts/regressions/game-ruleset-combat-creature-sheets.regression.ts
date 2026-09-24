@@ -1,0 +1,989 @@
+/**
+ * Creatures written in the ruleset's OWN terms (#6610): a bestiary entry may carry a `sheet`.
+ *
+ * What is pinned here:
+ *   - One place for every number. A creature with a sheet gives none of `health`, `defense`,
+ *     `initiativeModifier`, `speed`, `abilities` or `saves` beside it; one without a sheet gives the
+ *     three a fight cannot do without, and at least one action.
+ *   - Every id on the sheet is one the ruleset declares, and a picked row names a catalog that really
+ *     feeds its list.
+ *   - Built exactly as a party member is: defense, saves, initiative, speed, health and every attack
+ *     and ability on its lists, on the 5e draft AND on Ember Roads, which has three abilities, no
+ *     saving throws and health called Grit.
+ *   - It pays out of its own pools, and is offered the bigger ways of paying, by the Engine's picker
+ *     and in a Game Master's decision alike.
+ *   - On a wound track its health IS the track, and its own resistances soften a blow before it
+ *     marks one.
+ *   - It is an opponent all the same: out at zero rather than dying, no death track on screen, none
+ *     of its sheet sent to a screen, and never written back as anybody's sheet, even a party
+ *     member's who shares its name.
+ *   - A sheet that adds up to no health is left out of the fight with a reason of its own.
+ *   - A Game Master's invention is never a sheet: a proposal carrying one is not read.
+ *   - The catalogs a bestiary's sheets read are found by id, and a bestiary with no sheets asks for
+ *     nothing more.
+ *   - Capability API 1.34, inline and in a catalog file.
+ */
+import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import {
+  applyRulesetCombatChoice,
+  createRulesetEncounter,
+  normalizeCharacterLookupName,
+  parseRulesetDefinition,
+  readRulesetLive,
+  rulesetBestiarySheetCatalogIds,
+  rulesetCombatant,
+  rulesetCombatHealth,
+  rulesetCombatOptions,
+  rulesetProposedCreatureSchema,
+  rulesetSheetBuildSchema,
+  type RulesetCatalogEntriesById,
+  type RulesetCatalogEntry,
+  type RulesetCombatant,
+  type RulesetCombatEvent,
+  type RulesetCombatRoller,
+  type RulesetDefinition,
+  type RulesetEncounterState,
+  type RulesetSheetBuild,
+} from "../../packages/shared/src/index.js";
+import {
+  createCombatDirector,
+  type CombatDirectorState,
+} from "../../packages/server/src/services/game/combat-director.service.js";
+import {
+  commandRulesetCombatDirector,
+  createRulesetFight,
+  directedRulesetView,
+  rulesetDirectorStage,
+  rulesetFightLiveStates,
+  syncRulesetCombatants,
+  type RulesetFightOpponent,
+} from "../../packages/server/src/services/game/ruleset-combat-director.service.js";
+import type { Combatant } from "../../packages/shared/src/types/game.js";
+
+const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
+const fiveEText = read("../../docs/development/ruleset-5e-2014.example.json");
+const emberText = read("../../docs/examples/rulesets/ember-roads.json");
+
+/** One of the shipped examples, optionally edited first. */
+const variant = (text: string, edit: (doc: Record<string, any>) => void = () => {}): Record<string, any> => {
+  const doc = JSON.parse(text) as Record<string, any>;
+  edit(doc);
+  return doc;
+};
+const parsedOrThrow = (document: unknown, what: string): RulesetDefinition => {
+  const parsed = parseRulesetDefinition(document);
+  assert.ok(parsed.ok, `${what} must import cleanly: ${parsed.ok ? "" : parsed.issues.join("; ")}`);
+  return parsed.definition;
+};
+/** Everything a document is refused with, as one line, or "" when it imports. */
+const issuesOf = (document: unknown): string => {
+  const parsed = parseRulesetDefinition(document);
+  return parsed.ok ? "" : parsed.issues.join("; ");
+};
+const build = (input: Record<string, unknown>): RulesetSheetBuild => rulesetSheetBuildSchema.parse(input);
+
+/** Dice written down in advance. Running out is a failure, so an extra roll nobody expected is
+ *  caught where it happens rather than showing up as a wrong number later. */
+function dice(...faces: number[]): RulesetCombatRoller {
+  let index = 0;
+  return (sides) => {
+    assert.ok(index < faces.length, `the script ran out of dice (a d${sides} was asked for)`);
+    return faces[index++]!;
+  };
+}
+
+const who = (state: RulesetEncounterState, id: string): RulesetCombatant => {
+  const combatant = rulesetCombatant(state, id);
+  assert.ok(combatant, `no combatant "${id}"`);
+  return combatant;
+};
+type EventOf<T extends RulesetCombatEvent["type"]> = Extract<RulesetCombatEvent, { type: T }>;
+const eventsOf = <T extends RulesetCombatEvent["type"]>(events: readonly RulesetCombatEvent[], type: T) =>
+  events.filter((event): event is EventOf<T> => event.type === type);
+
+const fiveE = parsedOrThrow(variant(fiveEText), "the 5e example");
+const ember = parsedOrThrow(variant(emberText), "the Ember Roads example");
+
+const creatureEntry = (definition: RulesetDefinition, catalogId: string, entryId: string): RulesetCatalogEntry => {
+  const entry = definition.catalogs
+    ?.find((catalog) => catalog.id === catalogId)
+    ?.entries?.find((candidate) => candidate.id === entryId);
+  assert.ok(entry?.creature, `the ruleset must ship the creature "${entryId}"`);
+  return entry;
+};
+/** Every bestiary a ruleset ships inline. */
+const bestiariesOf = (definition: RulesetDefinition): RulesetCatalogEntriesById =>
+  Object.fromEntries(
+    (definition.catalogs ?? [])
+      .filter((catalog) => catalog.holds === "creatures")
+      .map((catalog) => [catalog.id, catalog.entries ?? []]),
+  );
+/** The bestiaries AND the catalogs their sheets read, which is what the route loads for a fight. */
+const fightCatalogs = (definition: RulesetDefinition): RulesetCatalogEntriesById => {
+  const bestiary = bestiariesOf(definition);
+  const inline = (id: string) => definition.catalogs?.find((catalog) => catalog.id === id)?.entries ?? [];
+  return {
+    ...bestiary,
+    ...Object.fromEntries(rulesetBestiarySheetCatalogIds(definition, bestiary).map((id) => [id, inline(id)])),
+  };
+};
+/** The sheet a creature carries, as the party-member path reads one. */
+const sheetOf = (entry: RulesetCatalogEntry): RulesetSheetBuild => build(entry.creature!.sheet!);
+
+const fighterBuild = () =>
+  build({
+    abilities: { str: 18, dex: 14, con: 16, int: 10, wis: 10, cha: 10 },
+    saves: { str_save: "proficient", con_save: "proficient" },
+    fields: { level: 7, ac: 18, speed: 30, hp_max: 60 },
+    lists: {
+      attacks: [
+        { name: "Longsword", ability: "str", proficient: true, bonus: 0, damage: "1d8", damage_type: "slashing" },
+      ],
+    },
+  });
+const travellerBuild = () =>
+  build({
+    abilities: { brawn: 2, wits: 1, heart: 1 },
+    skills: { scrap: "trained" },
+    fields: { calling: "Hauler", toughness: 2 },
+    lists: { gear: [{ name: "Road axe", notes: "Heavy", swing: "brawn", damage: "1d6", harm: "cut" }] },
+  });
+const card = (name: string, sheet: RulesetSheetBuild) => ({ name, rulesetSheet: { v: 1, build: sheet } });
+
+// ── Starting a fight the way the route does ──
+
+const engineUnit = (id: string, name: string, side: Combatant["side"]): Combatant => ({
+  id,
+  name,
+  side,
+  hp: 30,
+  maxHp: 30,
+  attack: 8,
+  defense: 6,
+  speed: 6,
+  level: 3,
+  skills: [],
+});
+function started(input: {
+  definition: RulesetDefinition;
+  cards: unknown;
+  party: Array<{ id: string; name: string }>;
+  enemies: RulesetFightOpponent[];
+  seed?: number;
+  gm?: boolean;
+}): CombatDirectorState {
+  const built = createRulesetFight({
+    definition: input.definition,
+    seed: input.seed ?? 7,
+    party: input.party,
+    enemies: input.enemies,
+    cards: input.cards,
+    playerName: null,
+    live: null,
+    partyCatalogs: {},
+    bestiary: fightCatalogs(input.definition),
+  });
+  assert.ok(built.ok, `the fight was supposed to start: ${built.ok ? "" : built.error}`);
+  const state = createCombatDirector({
+    id: "fight",
+    anchor: "anchor",
+    style: "ruleset",
+    party: input.party.map((member) => engineUnit(member.id, member.name, "player")),
+    enemies: input.enemies.map((enemy) => engineUnit(enemy.id, enemy.name, "enemy")),
+    gm: input.gm ?? false,
+    difficulty: "normal",
+    seed: input.seed ?? 7,
+  });
+  state.rulesetFight = built.fight;
+  syncRulesetCombatants(input.definition, state);
+  state.stage = rulesetDirectorStage(state);
+  return state;
+}
+
+// ── One place for every number: a sheet, or the numbers, never both ──
+{
+  const withSergeant = (edit: (creature: Record<string, any>) => void) =>
+    variant(fiveEText, (doc) => {
+      const bestiary = doc.catalogs.find((catalog: Record<string, any>) => catalog.id === "creatures");
+      edit(bestiary.entries.find((entry: Record<string, any>) => entry.id === "toll-sergeant").creature);
+    });
+  // The shipped creature has a sheet and no actions beside it, and that is a whole creature: its
+  // sheet's own lists are what it does.
+  assert.equal(issuesOf(withSergeant(() => {})), "");
+  assert.equal(creatureEntry(fiveE, "creatures", "toll-sergeant").creature!.actions.length, 0);
+
+  // Anything the sheet says, said a second time beside it, is refused by name.
+  const twice: Array<[string, unknown]> = [
+    ["health", 40],
+    ["defense", 15],
+    ["initiativeModifier", 2],
+    ["speed", 30],
+    ["abilities", { str: 16 }],
+    ["saves", { str_save: 5 }],
+  ];
+  for (const [key, value] of twice) {
+    assert.match(
+      issuesOf(withSergeant((creature) => (creature[key] = value))),
+      new RegExp(`creature\\.${key}: A creature with a sheet takes its ${key} from the sheet`),
+      `${key} has one place it comes from`,
+    );
+  }
+
+  // Without a sheet, the three numbers a fight cannot do without, and something to do.
+  const plain = (creature: Record<string, any>) => {
+    delete creature.sheet;
+    Object.assign(creature, {
+      health: 30,
+      defense: 14,
+      initiativeModifier: 1,
+      actions: [{ id: "jab", name: "Jab", budget: "action", toHit: 4, damage: { dice: "1d6", type: "piercing" } }],
+    });
+  };
+  assert.equal(issuesOf(withSergeant(plain)), "", "the plain block is exactly as it always was");
+  for (const key of ["health", "defense", "initiativeModifier"]) {
+    assert.match(
+      issuesOf(
+        withSergeant((creature) => {
+          plain(creature);
+          delete creature[key];
+        }),
+      ),
+      new RegExp(`creature\\.${key}: A creature without a sheet needs its ${key}`),
+    );
+  }
+  assert.match(
+    issuesOf(
+      withSergeant((creature) => {
+        plain(creature);
+        creature.actions = [];
+      }),
+    ),
+    /creature\.actions: A creature without a sheet needs at least one action/,
+  );
+
+  // ── Every id on the sheet is one the ruleset declares ──
+  const refused = (edit: (creature: Record<string, any>) => void, pattern: RegExp) =>
+    assert.match(issuesOf(withSergeant(edit)), pattern);
+  refused(
+    (creature) => (creature.sheet.abilities.luck = 3),
+    /creature\.sheet\.abilities\.luck: Unknown ability "luck"/,
+  );
+  refused(
+    (creature) => (creature.sheet.skills.piloting = "proficient"),
+    /creature\.sheet\.skills\.piloting: Unknown skill "piloting"/,
+  );
+  refused(
+    (creature) => (creature.sheet.saves.luck_save = "proficient"),
+    /creature\.sheet\.saves\.luck_save: Unknown save "luck_save"/,
+  );
+  refused(
+    (creature) => (creature.sheet.skills.athletics = "mastery"),
+    /creature\.sheet\.skills\.athletics: Unknown proficiency tier "mastery"/,
+  );
+  refused((creature) => (creature.sheet.fields.rank = 3), /creature\.sheet\.fields: Unknown field "rank"/);
+  refused(
+    (creature) => (creature.sheet.bonuses = { str: 2 }),
+    /creature\.sheet\.bonuses\.str: Unknown skill or save "str"/,
+  );
+  refused((creature) => (creature.sheet.lists.pets = []), /creature\.sheet\.lists\.pets: Unknown list "pets"/);
+  refused(
+    (creature) => (creature.sheet.lists.attacks[0].weight = 3),
+    /creature\.sheet\.lists\.attacks\.0: Unknown column "weight"/,
+  );
+  // ── And every value is one that field, score or column can hold ──
+  refused(
+    (creature) => (creature.sheet.fields.hp_max = 0),
+    /creature\.sheet\.fields: Field "hp_max" is outside 1 to 999/,
+  );
+  refused(
+    (creature) => (creature.sheet.fields.level = "five"),
+    /creature\.sheet\.fields: Field "level" takes a number/,
+  );
+  refused(
+    (creature) => (creature.sheet.abilities.str = 31),
+    /creature\.sheet\.abilities\.str: Ability "str" is outside 1 to 30/,
+  );
+  refused(
+    (creature) => (creature.sheet.lists.attacks[0].proficient = "yes"),
+    /creature\.sheet\.lists\.attacks\.0: Column "proficient" takes true or false/,
+  );
+  // Live state is the fight's to keep, not the bestiary's to write.
+  refused(
+    (creature) => (creature.sheet.live = { pools: {} }),
+    /creature\.sheet: Unrecognized key\(s\) in object: 'live'/,
+  );
+  // And a bonus is on a skill or a save, exactly as a character's is.
+  assert.equal(issuesOf(withSergeant((creature) => (creature.sheet.bonuses = { athletics: 2, str_save: 1 }))), "");
+}
+
+// ── A picked row names a catalog that really feeds its list ──
+{
+  const withWarden = (edit: (creature: Record<string, any>, doc: Record<string, any>) => void) =>
+    variant(emberText, (doc) => {
+      const bestiary = doc.catalogs.find((catalog: Record<string, any>) => catalog.id === "road_trouble");
+      edit(bestiary.entries.find((entry: Record<string, any>) => entry.id === "toll-warden").creature, doc);
+    });
+  const knack = (creature: Record<string, any>) => creature.sheet.lists.knacks[0];
+  assert.equal(issuesOf(withWarden(() => {})), "", "the shipped warden's knack is one the knacks catalog has");
+  const refused = (edit: (creature: Record<string, any>) => void, pattern: RegExp, why: string) =>
+    assert.match(issuesOf(withWarden(edit)), pattern, why);
+  refused(
+    (creature) => (knack(creature)._catalog = "knacks/no-such-knack"),
+    /knacks\.0\._catalog: Catalog "knacks" has no entry "no-such-knack"/,
+    "an entry the inline catalog does not hold",
+  );
+  refused(
+    (creature) => (knack(creature)._catalog = "road_trouble/rust-jackal"),
+    /knacks\.0\._catalog: No catalog "road_trouble" feeds the list "knacks"/,
+    "a bestiary is not a catalog of rows",
+  );
+  refused(
+    (creature) => (knack(creature)._catalog = "nowhere/anything"),
+    /No catalog "nowhere" feeds the list "knacks"/,
+    "a catalog nobody declared",
+  );
+  refused(
+    (creature) => (creature.sheet.lists.gear[0]._catalog = "knacks/hold-the-line"),
+    /gear\.0\._catalog: No catalog "knacks" feeds the list "gear"/,
+    "a catalog that feeds other lists than this one",
+  );
+  refused(
+    (creature) => (knack(creature)._catalog = "hold-the-line"),
+    /"hold-the-line" is not a <catalog>\/<entry> reference/,
+    "a reference without its catalog",
+  );
+  refused((creature) => (knack(creature)._catalog = 3), /"3" is not a <catalog>\/<entry> reference/, "a number");
+  // A catalog kept in its own file is read when the fight loads it, not here, so its entries are
+  // not something the ruleset file can be held to.
+  assert.equal(
+    issuesOf(
+      withWarden((creature, doc) => {
+        knack(creature)._catalog = "knacks/only-in-the-file";
+        doc.catalogs[0].asset = "catalogs/knacks.json";
+        delete doc.catalogs[0].entries;
+      }),
+    ),
+    "",
+  );
+}
+
+// ── Built exactly as a party member is, on both rulesets ──
+for (const setup of [
+  { what: "5e", definition: fiveE, catalogId: "creatures", entryId: "toll-sergeant" },
+  { what: "Ember Roads", definition: ember, catalogId: "road_trouble", entryId: "toll-warden" },
+]) {
+  const { definition } = setup;
+  const combat = definition.combat!;
+  const entry = creatureEntry(definition, setup.catalogId, setup.entryId);
+  const catalogs = fightCatalogs(definition);
+  const state = createRulesetEncounter({
+    definition,
+    seed: 5,
+    combatants: [
+      // The same sheet on a party member, read by the party member's own path.
+      { id: "twin", name: "Twin", side: "party", build: sheetOf(entry), catalogs },
+      { id: "foe", name: entry.label, side: "enemy", creature: { catalogId: setup.catalogId, entryId: setup.entryId } },
+    ],
+    bestiary: catalogs,
+  });
+  const twin = who(state, "twin");
+  const foe = who(state, "foe");
+  assert.ok(foe.sheet, `${setup.what}: it fights with its sheet`);
+  assert.equal(foe.defense, twin.defense, `${setup.what}: defense is the sheet's`);
+  assert.deepEqual(foe.saves, twin.saves, `${setup.what}: and so is every save`);
+  assert.equal(foe.initiativeModifier, twin.initiativeModifier, `${setup.what}: and initiative`);
+  assert.equal(foe.speed, twin.speed, `${setup.what}: and how far it walks`);
+  assert.deepEqual(
+    rulesetCombatHealth(definition, combat, foe),
+    rulesetCombatHealth(definition, combat, twin),
+    `${setup.what}: and health`,
+  );
+  assert.deepEqual(foe.actions, twin.actions, `${setup.what}: the same lists, read by the same code`);
+  assert.ok(foe.actions.length > 0, `${setup.what}: and there is something on them`);
+  // What the entry adds beside the sheet is kept.
+  assert.equal(foe.block?.tier, entry.creature!.tier);
+  assert.deepEqual(foe.block?.traits, entry.creature!.traits);
+}
+
+// The numbers themselves, so the comparison above is not two wrong answers agreeing.
+{
+  const catalogs = fightCatalogs(fiveE);
+  const state = createRulesetEncounter({
+    definition: fiveE,
+    seed: 5,
+    combatants: [
+      {
+        id: "sergeant",
+        name: "Toll Sergeant",
+        side: "enemy",
+        creature: { catalogId: "creatures", entryId: "toll-sergeant" },
+      },
+    ],
+    bestiary: catalogs,
+  });
+  const sergeant = who(state, "sergeant");
+  assert.equal(sergeant.defense, 17, "its Armor Class field");
+  assert.deepEqual(rulesetCombatHealth(fiveE, fiveE.combat!, sergeant), { value: 52, max: 52, temp: 0 });
+  assert.equal(sergeant.saves.str_save, 6, "+3 from Strength and +3 proficiency at level 5");
+  assert.equal(sergeant.saves.dex_save, 1, "a save it is not proficient in is its ability alone");
+  assert.equal(sergeant.initiativeModifier, 1, "Dexterity, by the ruleset's own initiative formula");
+  const halberd = sergeant.actions.find((action) => action.label === "Halberd");
+  assert.equal(halberd?.toHit, 6);
+
+  const warden = who(
+    createRulesetEncounter({
+      definition: ember,
+      seed: 5,
+      combatants: [
+        {
+          id: "warden",
+          name: "Toll Warden",
+          side: "enemy",
+          creature: { catalogId: "road_trouble", entryId: "toll-warden" },
+        },
+      ],
+      bestiary: fightCatalogs(ember),
+    }),
+    "warden",
+  );
+  assert.deepEqual(
+    rulesetCombatHealth(ember, ember.combat!, warden),
+    { value: 9, max: 9, temp: 0 },
+    "Grit: 4, its Toughness of 3 and its Brawn of 2",
+  );
+  assert.equal(warden.defense, 7, "Guard: 6 and its Wits of 1");
+  assert.deepEqual(
+    warden.actions.map((action) => action.label).sort(),
+    ["Hold the Line", "Toll hook"],
+    "the gear it swings and the knack it picked, nothing else",
+  );
+}
+
+// ── What the entry adds beside the sheet is kept: its own actions, its points, its hide ──
+{
+  const armed = parsedOrThrow(
+    variant(fiveEText, (doc) => {
+      const bestiary = doc.catalogs.find((catalog: Record<string, any>) => catalog.id === "creatures");
+      Object.assign(bestiary.entries.find((entry: Record<string, any>) => entry.id === "toll-sergeant").creature, {
+        signaturePoints: 1,
+        resist: ["fire"],
+        actions: [
+          {
+            id: "hook_the_runner",
+            name: "Hook the runner",
+            budget: "action",
+            toHit: 6,
+            damage: { dice: "1d6", flat: 3, type: "piercing" },
+            reach: 10,
+            signature: { cost: 1 },
+          },
+        ],
+      });
+    }),
+    "the sergeant with a signature action of its own",
+  );
+  const sergeant = who(
+    createRulesetEncounter({
+      definition: armed,
+      seed: 5,
+      combatants: [
+        {
+          id: "sergeant",
+          name: "Toll Sergeant",
+          side: "enemy",
+          creature: { catalogId: "creatures", entryId: "toll-sergeant" },
+        },
+      ],
+      bestiary: fightCatalogs(armed),
+    }),
+    "sergeant",
+  );
+  assert.deepEqual(
+    sergeant.actions.map((action) => action.label).sort(),
+    ["Halberd", "Heavy crossbow", "Hook the runner"],
+    "the sheet's attacks, and the block's own action beside them",
+  );
+  assert.deepEqual(sergeant.signature, { points: 1, max: 1 }, "with the points to buy it");
+  assert.deepEqual(sergeant.block?.resist, ["fire"], "and the hide a blow is read against");
+}
+
+// ── It pays out of its own pools ──
+{
+  const catalogs = fightCatalogs(ember);
+  const warden = (id: string) => ({
+    id,
+    name: `Warden ${id}`,
+    side: "enemy" as const,
+    creature: { catalogId: "road_trouble", entryId: "toll-warden" },
+  });
+  let state = createRulesetEncounter({
+    definition: ember,
+    seed: 5,
+    combatants: [{ id: "juno", name: "Juno", side: "party", build: travellerBuild() }, warden("w1"), warden("w2")],
+    bestiary: catalogs,
+    roller: dice(1, 1, 6, 6, 5, 5),
+  });
+  assert.equal(state.order[0], "w1", "the first warden won initiative");
+  const hold = rulesetCombatOptions(ember, state, "w1").find((option) => option.label === "Hold the Line");
+  assert.ok(hold, "its knack is on its menu");
+  assert.deepEqual(
+    hold.cost?.map((entry) => [entry.pool, entry.amount]),
+    [["luck", 1]],
+    "priced in the ruleset's own pool",
+  );
+  const result = applyRulesetCombatChoice(
+    ember,
+    state,
+    { actorId: "w1", optionId: hold.id, targetIds: ["w2"] },
+    dice(),
+  );
+  assert.ok(!result.refused, `the rules took it: ${result.refused?.reason ?? ""}`);
+  state = result.state;
+  assert.deepEqual(
+    eventsOf(result.events, "spend").map((event) => [event.actorId, event.pool, event.amount]),
+    [["w1", "luck", 1]],
+  );
+  const sheet = who(state, "w1").sheet!;
+  const luck = readRulesetLive(ember, sheet.build, sheet.live).pools.find((pool) => pool.key === "luck");
+  assert.equal(luck?.value, 2, "out of its OWN Luck, which started full");
+}
+
+// ── And is offered the bigger ways of paying, whoever decides for it ──
+{
+  const spellbook = parsedOrThrow(
+    variant(fiveEText, (doc) => {
+      doc.id = "5e-spellbook";
+      doc.catalogs.push({
+        id: "spells",
+        label: "Spells",
+        feeds: ["spells"],
+        entries: [
+          {
+            // Written at its own rung and bigger out of a higher one, which is what `perCostStep` says.
+            id: "ember-lance",
+            label: "Ember Lance",
+            rows: [{ list: "spells", values: { name: "Ember Lance", level: 2, prepared: true } }],
+            mechanics: {
+              kind: "attack",
+              attackRoll: true,
+              amount: { dice: "2d6" },
+              damageType: "fire",
+              cost: [{ pool: "slots_2", amount: 1 }],
+              perCostStep: { dice: "2d6" },
+            },
+          },
+        ],
+      });
+      doc.catalogs
+        .find((catalog: Record<string, any>) => catalog.id === "creatures")
+        .entries.push({
+          id: "cinder-adept",
+          label: "Cinder Adept",
+          summary: "A hedge-caster who learned one spell very well.",
+          creature: {
+            tier: "cr_2",
+            sheet: {
+              abilities: { str: 8, dex: 14, con: 12, int: 17, wis: 12, cha: 10 },
+              saves: { int_save: "proficient", wis_save: "proficient" },
+              fields: {
+                level: 5,
+                ac: 12,
+                speed: 30,
+                hp_max: 40,
+                spellcasting_ability: "int",
+                slots_max_2: 2,
+                slots_max_3: 1,
+              },
+              lists: { spells: [{ name: "Ember Lance", level: 2, prepared: true, _catalog: "spells/ember-lance" }] },
+            },
+          },
+        });
+    }),
+    "a 5e variant with a spell catalog and a caster in its bestiary",
+  );
+  assert.deepEqual(rulesetBestiarySheetCatalogIds(spellbook, bestiariesOf(spellbook)), ["spells"]);
+
+  // On the resolver itself: the bigger slot is offered, spent from its own sheet, and buys the dice.
+  let state = createRulesetEncounter({
+    definition: spellbook,
+    seed: 5,
+    combatants: [
+      { id: "brenna", name: "Brenna", side: "party", build: fighterBuild() },
+      {
+        id: "adept",
+        name: "Cinder Adept",
+        side: "enemy",
+        creature: { catalogId: "creatures", entryId: "cinder-adept" },
+      },
+    ],
+    bestiary: fightCatalogs(spellbook),
+    roller: dice(1, 20),
+  });
+  assert.equal(state.order[0], "adept");
+  const lance = rulesetCombatOptions(spellbook, state, "adept").find((option) => option.label === "Ember Lance");
+  assert.ok(lance, "its spell is on its menu");
+  assert.ok(lance.payWith?.includes("slots_3"), `a bigger slot is one way to pay: ${lance.payWith?.join(", ")}`);
+  const cast = applyRulesetCombatChoice(
+    spellbook,
+    state,
+    { actorId: "adept", optionId: lance.id, targetIds: ["brenna"], payWith: "slots_3" },
+    dice(19, 3, 3, 3, 3),
+  );
+  assert.ok(!cast.refused, `the rules took it: ${cast.refused?.reason ?? ""}`);
+  state = cast.state;
+  assert.deepEqual(
+    eventsOf(cast.events, "spend").map((event) => [event.actorId, event.pool]),
+    [["adept", "slots_3"]],
+  );
+  assert.equal(eventsOf(cast.events, "damage")[0]?.rolls.length, 4, "one rung up buys two more dice");
+  const pools = (() => {
+    const sheet = who(state, "adept").sheet!;
+    return new Map(readRulesetLive(spellbook, sheet.build, sheet.live).pools.map((pool) => [pool.key, pool.value]));
+  })();
+  assert.equal(pools.get("slots_3"), 0, "the slot came off its own sheet");
+  assert.equal(pools.get("slots_2"), 2, "and only that one");
+
+  // The Engine's own picker weighs the bigger way as a candidate of its own.
+  const spent = new Set<string>();
+  for (let seed = 1; seed <= 30 && !spent.has("slots_3"); seed++) {
+    const fight = started({
+      definition: spellbook,
+      cards: [card("Brenna", fighterBuild())],
+      party: [{ id: "brenna", name: "Brenna" }],
+      enemies: [{ id: "adept", name: "Cinder Adept", creature: "creatures/cinder-adept" }],
+      seed,
+    });
+    commandRulesetCombatDirector(spellbook, fight, { type: "control", unitId: "brenna", controller: "ai" });
+    for (let turn = 0; turn < 8 && !fight.outcome; turn++) {
+      assert.ok(commandRulesetCombatDirector(spellbook, fight, { type: "continue" }).ok);
+    }
+    for (const { event } of fight.rulesetFight!.events) {
+      if (event.type === "spend" && event.actorId === "adept") spent.add(event.pool);
+    }
+  }
+  assert.ok(spent.has("slots_3"), `the Engine never paid for it out of a bigger slot: ${[...spent].join(", ")}`);
+
+  // And a Game Master deciding for it is offered the same choice, and has it honoured.
+  const boss = started({
+    definition: spellbook,
+    cards: [card("Brenna", fighterBuild())],
+    party: [{ id: "brenna", name: "Brenna" }],
+    enemies: [{ id: "adept", name: "Cinder Adept", creature: "creatures/cinder-adept", boss: true }],
+    gm: true,
+    seed: 11,
+  });
+  commandRulesetCombatDirector(spellbook, boss, { type: "control", unitId: "brenna", controller: "ai" });
+  for (let guard = 0; guard < 6 && !boss.window; guard++) {
+    assert.ok(commandRulesetCombatDirector(spellbook, boss, { type: "continue" }).ok);
+  }
+  assert.equal(boss.window?.actorId, "adept", "the boss's turn is a decision");
+  const bigger = boss.window!.options.find((option) => option.payWith === "slots_3");
+  assert.ok(bigger, "casting it bigger is one of the answers");
+  const before = boss.rulesetFight!.events.length;
+  assert.ok(commandRulesetCombatDirector(spellbook, boss, { type: "choose", candidateId: bigger.id }).ok);
+  const after = boss.rulesetFight!.events.slice(before).map((entry) => entry.event);
+  assert.ok(
+    after.some((event) => event.type === "spend" && event.actorId === "adept" && event.pool === "slots_3"),
+    "and it is cast that big, not at its base",
+  );
+}
+
+// ── On a wound track, its health is the track, and its hide is read before a mark ──
+{
+  /** Ember Roads with its health moved off the Grit pool and onto a wound track, as the wound-track
+   *  lane builds it. */
+  const wounded = (edit: (doc: Record<string, any>) => void = () => {}) =>
+    parsedOrThrow(
+      variant(emberText, (doc) => {
+        delete doc.layers;
+        doc.id = "ember-roads-wounds";
+        doc.sheet.live.tracks = [
+          ...(doc.sheet.live.tracks ?? []),
+          {
+            id: "harm",
+            label: "Harm",
+            min: 0,
+            max: 3,
+            levels: [
+              { label: "Winded", penalty: 0 },
+              { label: "Bloodied", penalty: -1 },
+              { label: "Broken", penalty: -4 },
+            ],
+            kinds: [
+              { id: "bruise", label: "B", severity: 0 },
+              { id: "cut", label: "C", severity: 1 },
+            ],
+          },
+        ];
+        doc.combat.health = { track: "harm" };
+        doc.combat.damageTypes = ["cut", "burn", "crush", "coldfire", "rust"];
+        doc.combat.damageKinds = { default: "bruise", byType: { cut: "cut" }, marks: "per-blow" };
+        for (const catalog of doc.catalogs ?? []) {
+          for (const entry of catalog.entries ?? []) {
+            if (entry.mechanics?.temporary) delete entry.mechanics.temporary;
+          }
+        }
+        edit(doc);
+      }),
+      "Ember Roads on a wound track",
+    );
+  const swingAt = (definition: RulesetDefinition) => {
+    const state = createRulesetEncounter({
+      definition,
+      seed: 5,
+      combatants: [
+        { id: "juno", name: "Juno", side: "party", build: travellerBuild() },
+        {
+          id: "warden",
+          name: "Toll Warden",
+          side: "enemy",
+          creature: { catalogId: "road_trouble", entryId: "toll-warden" },
+        },
+      ],
+      bestiary: fightCatalogs(definition),
+      roller: dice(6, 6, 1, 1),
+    });
+    assert.equal(state.order[0], "juno");
+    assert.deepEqual(
+      rulesetCombatHealth(definition, definition.combat!, who(state, "warden")),
+      { value: 3, max: 3, temp: 0 },
+      "an unmarked track of three is three levels left",
+    );
+    const axe = rulesetCombatOptions(definition, state, "juno").find((option) => option.label === "Road axe");
+    assert.ok(axe, "Juno can swing");
+    return applyRulesetCombatChoice(
+      definition,
+      state,
+      { actorId: "juno", optionId: axe.id, targetIds: ["warden"] },
+      dice(6, 6, 4),
+    );
+  };
+  const marks = (definition: RulesetDefinition, state: RulesetEncounterState) => {
+    const sheet = who(state, "warden").sheet!;
+    return readRulesetLive(definition, sheet.build, sheet.live).tracks.find((track) => track.id === "harm")!.wound!
+      .marks;
+  };
+
+  const tracked = wounded();
+  const hit = swingAt(tracked);
+  assert.deepEqual(
+    marks(tracked, hit.state),
+    ["cut"],
+    "the blow marked the opponent's own track, by the ruleset's rule",
+  );
+  assert.equal(rulesetCombatHealth(tracked, tracked.combat!, who(hit.state, "warden")).value, 2);
+
+  const hardened = wounded((doc) => {
+    const bestiary = doc.catalogs.find((catalog: Record<string, any>) => catalog.id === "road_trouble");
+    bestiary.entries.find((entry: Record<string, any>) => entry.id === "toll-warden").creature.immune = ["cut"];
+  });
+  const shrugged = swingAt(hardened);
+  assert.equal(eventsOf(shrugged.events, "damage")[0]?.adjust, "immune");
+  assert.deepEqual(marks(hardened, shrugged.state), [], "an immune opponent takes no mark");
+}
+
+// ── Out at zero, as an opponent is, and never rolled against death ──
+{
+  const frail = build({
+    ...sheetOf(creatureEntry(fiveE, "creatures", "toll-sergeant")),
+    fields: { level: 5, ac: 10, hp_max: 1 },
+  });
+  let state = createRulesetEncounter({
+    definition: fiveE,
+    seed: 1,
+    combatants: [
+      { id: "brenna", name: "Brenna", side: "party", build: fighterBuild() },
+      { id: "frail", name: "Frail", side: "enemy", block: { sheet: frail, actions: [] } },
+    ],
+    roller: dice(20, 1),
+  });
+  const sword = rulesetCombatOptions(fiveE, state, "brenna").find((option) => option.label === "Longsword");
+  assert.ok(sword);
+  state = applyRulesetCombatChoice(
+    fiveE,
+    state,
+    { actorId: "brenna", optionId: sword.id, targetIds: ["frail"] },
+    dice(15, 5),
+  ).state;
+  const out = who(state, "frail");
+  assert.equal(out.defeated, true, "at zero it is out");
+  assert.equal(out.dying, false, "and not dying, whatever the ruleset says about the party");
+}
+
+// ── A screen sees what an opponent always showed, and none of its sheet ──
+{
+  const state = started({
+    definition: fiveE,
+    cards: [card("Brenna", fighterBuild())],
+    party: [{ id: "brenna", name: "Brenna" }],
+    enemies: [{ id: "sergeant", name: "Toll Sergeant" }],
+  });
+  const projected = directedRulesetView(fiveE, state);
+  assert.ok(projected);
+  const sergeant = projected.combatants.find((combatant) => combatant.id === "sergeant")!;
+  assert.equal(sergeant.health.max, 52);
+  assert.equal(sergeant.defense, 17);
+  assert.equal(sergeant.tier, "cr_2");
+  assert.equal(sergeant.deathTrack, undefined, "an opponent never rolls against death, sheet or no sheet");
+  const text = JSON.stringify(projected);
+  for (const leak of ["hp_max", "attacks_per_action", '"build"', '"live"']) {
+    assert.ok(!text.includes(leak), `the view carries ${leak}`);
+  }
+}
+
+// ── Never written back, not even over a party member of the same name ──
+{
+  const state = started({
+    definition: fiveE,
+    cards: [card("Toll Sergeant", fighterBuild()), card("Brenna", fighterBuild())],
+    party: [
+      { id: "namesake", name: "Toll Sergeant" },
+      { id: "brenna", name: "Brenna" },
+    ],
+    enemies: [{ id: "sergeant", name: "Toll Sergeant", creature: "creatures/toll-sergeant" }],
+  });
+  const fight = state.rulesetFight!;
+  assert.ok(rulesetCombatant(fight.encounter, "sergeant")?.sheet, "the opponent fights with a sheet");
+  const live = rulesetFightLiveStates(fight);
+  assert.deepEqual(
+    Object.keys(live).sort(),
+    ["Brenna", "Toll Sergeant"].map(normalizeCharacterLookupName).sort(),
+    "the party, and only the party",
+  );
+  assert.equal(
+    live[normalizeCharacterLookupName("Toll Sergeant")],
+    rulesetCombatant(fight.encounter, "namesake")!.sheet!.live,
+    "and the party member's own sheet, not the opponent who shares the name",
+  );
+}
+
+// ── A sheet that adds up to no health is left out, and says why ──
+{
+  const state = createRulesetEncounter({
+    definition: fiveE,
+    seed: 2,
+    combatants: [
+      { id: "brenna", name: "Brenna", side: "party", build: fighterBuild() },
+      // Below what the ruleset lets a field hold, which a bestiary is refused for at import (above);
+      // this is the hand-built block that never went through one.
+      {
+        id: "hollow",
+        name: "Hollow",
+        side: "enemy",
+        block: { sheet: build({ fields: { level: 1, ac: 10, hp_max: 0 } }), actions: [] },
+      },
+      // And a hand-built block that has neither a sheet nor the numbers a fight needs.
+      { id: "blank", name: "Blank", side: "enemy", block: { actions: [] } },
+    ],
+  });
+  assert.equal(rulesetCombatant(state, "hollow"), undefined);
+  assert.equal(rulesetCombatant(state, "blank"), undefined);
+  const refusals = eventsOf(state.opening, "refused").map((event) => [event.actorId, event.reason]);
+  assert.deepEqual(refusals, [
+    ["hollow", "no-health"],
+    ["blank", "unknown-creature"],
+  ]);
+}
+
+// ── A Game Master's invention is never a sheet ──
+{
+  const proposal = {
+    tier: "cr_1",
+    health: 20,
+    defense: 12,
+    initiativeModifier: 1,
+    actions: [{ id: "jab", name: "Jab", budget: "action", toHit: 4, damage: { dice: "1d6", type: "piercing" } }],
+  };
+  const carrying = { ...proposal, sheet: { abilities: { str: 30 }, fields: { hp_max: 500 } } };
+  assert.ok(rulesetProposedCreatureSchema.safeParse(proposal).success);
+  assert.ok(!rulesetProposedCreatureSchema.safeParse(carrying).success, "a proposal has no sheet to carry");
+
+  const fightWith = (proposed: unknown) =>
+    started({
+      definition: fiveE,
+      cards: [card("Brenna", fighterBuild())],
+      party: [{ id: "brenna", name: "Brenna" }],
+      enemies: [{ id: "new", name: "Something New", tier: "cr_1", proposed }],
+    }).rulesetFight!;
+  const refusedOne = fightWith(carrying);
+  assert.equal(rulesetCombatant(refusedOne.encounter, "new")?.sheet, undefined);
+  assert.ok(
+    refusedOne.adjustments.some((line) => /could not be read, so its tier was used/.test(line)),
+    "and the log says the tier was used instead",
+  );
+  const readOne = fightWith(proposal);
+  assert.ok(!readOne.adjustments.some((line) => /could not be read/.test(line)), "the plain proposal is read as ever");
+}
+
+// ── The catalogs a bestiary's sheets read, and nothing more ──
+{
+  assert.deepEqual(rulesetBestiarySheetCatalogIds(ember, bestiariesOf(ember)), ["knacks"]);
+  assert.deepEqual(
+    rulesetBestiarySheetCatalogIds(fiveE, bestiariesOf(fiveE)),
+    [],
+    "a sheet whose rows name no catalog needs nothing more",
+  );
+  assert.deepEqual(
+    rulesetBestiarySheetCatalogIds(ember, { ...bestiariesOf(ember), knacks: [] }),
+    [],
+    "one already in hand is not asked for twice",
+  );
+  const withoutSheets = Object.fromEntries(
+    Object.entries(bestiariesOf(ember)).map(([id, entries]) => [id, entries.filter((entry) => !entry.creature?.sheet)]),
+  );
+  assert.deepEqual(rulesetBestiarySheetCatalogIds(ember, withoutSheets), []);
+}
+
+// ── Capability API 1.34 ──
+const dataDir = mkdtempSync(join(tmpdir(), "marinara-creature-sheets-"));
+const previousDataDir = process.env.DATA_DIR;
+process.env.DATA_DIR = dataDir;
+try {
+  const { getCapabilityPackageInstallIssue } =
+    await import("../../packages/server/src/services/capability-packages/package-manager.service.js");
+  const manifest = (minor: number) =>
+    ({
+      schemaVersion: 2,
+      capabilityApi: { major: 1, minor },
+      id: "ruleset-ember-roads",
+      kind: ["ruleset"],
+      permissions: [],
+      restartRequired: false,
+      contributions: { assets: { paths: ["ruleset.json", "catalogs/road_trouble.json"] } },
+    }) as any;
+  const sheetIssue = /creatures carry a sheet of their own requires schemaVersion 2 and capabilityApi 1\.34 or newer/;
+  // An Engine before 1.34 refuses the whole strict catalog over the one key, so the file says so.
+  assert.match(getCapabilityPackageInstallIssue(manifest(33), variant(emberText)) ?? "", sheetIssue);
+  assert.equal(getCapabilityPackageInstallIssue(manifest(34), variant(emberText)), null);
+  // Without its sheet-written creature it installs on what it needed before.
+  const plain = variant(emberText, (doc) => {
+    for (const catalog of doc.catalogs) {
+      catalog.entries = catalog.entries?.filter((entry: Record<string, any>) => !entry.creature?.sheet);
+    }
+  });
+  assert.equal(getCapabilityPackageInstallIssue(manifest(33), plain), null);
+  // And the entries may sit in the catalog file instead, which the gate reads too.
+  const asAsset = variant(emberText, (doc) => {
+    const bestiary = doc.catalogs.find((catalog: Record<string, any>) => catalog.id === "road_trouble");
+    bestiary.asset = "catalogs/road_trouble.json";
+    delete bestiary.entries;
+  });
+  const entries = variant(emberText).catalogs.find((catalog: Record<string, any>) => catalog.id === "road_trouble")
+    .entries as unknown[];
+  const assets = new Map<string, unknown>([
+    ["catalogs/road_trouble.json", { schemaVersion: 1, catalog: "road_trouble", entries }],
+  ]);
+  assert.match(getCapabilityPackageInstallIssue(manifest(33), asAsset, assets) ?? "", sheetIssue);
+  assert.equal(getCapabilityPackageInstallIssue(manifest(34), asAsset, assets), null);
+} finally {
+  rmSync(dataDir, { recursive: true, force: true });
+  if (previousDataDir === undefined) delete process.env.DATA_DIR;
+  else process.env.DATA_DIR = previousDataDir;
+}
+
+console.info("game ruleset creature sheet regressions passed.");

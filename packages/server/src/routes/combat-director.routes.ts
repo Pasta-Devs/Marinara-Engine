@@ -11,6 +11,7 @@ import {
   combatTacticsSchema,
   combatAiHintsSchema,
   normalizeCharacterLookupName,
+  rulesetBestiarySheetCatalogIds,
   rulesetCatalogIdsForBuild,
   rulesetCellBlocked,
   rulesetSheetBuildsByName,
@@ -196,6 +197,19 @@ async function serialized<T>(key: string, fn: () => Promise<T>): Promise<T> {
 }
 /** What a ruleset fight is resolved by, or the plain sentence saying why it cannot be. */
 type RulesetSession = { definition: RulesetDefinition; packageId: string | null } | { unavailable: string };
+
+/** The creatures a fight may meet, and the catalogs their sheets read their lists out of. A creature
+ *  described by a sheet takes its spells or tricks from the ruleset's other catalogs, the way a
+ *  character does, so those are loaded too; a bestiary with no sheets in it loads nothing more. */
+async function loadBestiary(
+  packageId: string | null,
+  definition: RulesetDefinition,
+): Promise<RulesetCatalogEntriesById> {
+  const creatures = await loadFightCatalogs(packageId, definition, (c) => c.holds === "creatures");
+  const lists = new Set(rulesetBestiarySheetCatalogIds(definition, creatures));
+  if (lists.size === 0) return creatures;
+  return { ...creatures, ...(await loadFightCatalogs(packageId, definition, (c) => lists.has(c.id))) };
+}
 
 /** The catalogs this fight needs: the ones the party's own rows came from, and every bestiary the
  *  ruleset ships. A catalog that cannot be read is logged and left out, which costs an ability its
@@ -668,7 +682,7 @@ export async function combatDirectorRoutes(
             playerName: persona?.name ?? null,
             live: parseStoredRulesetLive((await visibleLiveRow(input.chatId)).row?.rulesetLive),
             partyCatalogs: await loadFightCatalogs(resolved.packageId, definition, (c) => partyLists.has(c.id)),
-            bestiary: await loadFightCatalogs(resolved.packageId, definition, (c) => c.holds === "creatures"),
+            bestiary: await loadBestiary(resolved.packageId, definition),
           });
           if (!built.ok) return reply.code(400).send({ error: built.error });
           state.rulesetFight = built.fight;

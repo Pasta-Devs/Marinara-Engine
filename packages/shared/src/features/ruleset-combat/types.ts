@@ -141,11 +141,18 @@ export interface RulesetStatBlockAction {
  *  accepted, which is why everything a block can do without is optional. */
 export interface RulesetStatBlock {
   /** What it can take. With `healthDice` beside it this is the AVERAGE, which is what a forecast
-   *  reads while the dice decide the fight. */
-  health: number;
-  defense: number;
-  initiativeModifier: number;
+   *  reads while the dice decide the fight. Absent from a block that carries a `sheet`, which says
+   *  it in the ruleset's own terms instead. */
+  health?: number;
+  defense?: number;
+  initiativeModifier?: number;
   actions: RulesetStatBlockAction[];
+  /** The creature described in the ruleset's OWN terms: a character sheet, as partial as it likes,
+   *  keyed by the ids the ruleset declares. An opponent built from one is built the way a party
+   *  member is, so its health, defense, saves, speed, initiative and the abilities on its lists all
+   *  come from what the ruleset declares rather than from the numbers above, which it then does
+   *  not carry. Its own `actions` still add to what the sheet gives it. */
+  sheet?: RulesetSheetBuild;
   /** Thrown once when the encounter is created, in place of the flat number. */
   healthDice?: RulesetCombatAmount;
   speed?: number;
@@ -167,6 +174,15 @@ export interface RulesetStatBlock {
   /** What this creature adds to the first qualifying hit of a period, all by itself. */
   riders?: RulesetCombatRider[];
 }
+
+/** A block with its own numbers and no sheet. What a Game Master invents is always one, and it is
+ *  all the clamp can hold to a tier, because it holds a creature there by exactly those numbers. */
+export type RulesetPlainStatBlock = RulesetStatBlock & {
+  health: number;
+  defense: number;
+  initiativeModifier: number;
+  sheet?: undefined;
+};
 
 /** Who is in the fight. A party member is sheet-backed and reads and writes its numbers through the
  *  sheet's own rules; an opponent carries a stat block and lives inside the encounter only. */
@@ -450,6 +466,8 @@ export type RulesetCombatRefusal =
   | "bad-pool"
   /** A bestiary reference the handed-in catalogs do not hold. */
   | "unknown-creature"
+  /** A creature whose sheet gives it no health at all, so it would walk in already out. */
+  | "no-health"
   /** A cell this move cannot end on, or cannot pay for. */
   | "unreachable"
   /** The fight is held open for somebody else, and nothing but their answer moves it. */

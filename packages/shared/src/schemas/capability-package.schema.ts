@@ -318,7 +318,16 @@ const capabilityPackageManifestBaseSchema = z
 //        ships one needs nothing newer. Not a soft seam, for the same reason as 1.20 through 1.32:
 //        an Engine that cannot read the object refuses the whole catalog asset, so a package that
 //        ships one declares 1.33. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 33 } as const);
+// 1.34: a bestiary creature described in the ruleset's own terms. A creature may carry a `sheet`:
+//        a character sheet, as partial as it likes, keyed by the ids the ruleset declares. An
+//        opponent built from one is built the way a party member is, so its health (a pool or a
+//        track), defense, saves, speed, initiative and the abilities on its lists come from the
+//        ruleset's own declarations, and it may pay for them out of its own pools. The fixed
+//        `health`, `defense` and `initiativeModifier` a creature needed before are then not given,
+//        and a creature with a sheet may have no block actions of its own. Not a soft seam, for the
+//        same reason as 1.20 through 1.33: an Engine that cannot read the key refuses the whole
+//        strict catalog file, so a package that ships one declares 1.34. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 34 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

@@ -130,3 +130,33 @@ console.info("game ruleset JSON Schema regression passed.");
   assert.deepEqual(named.if, { required: ["cancels"] });
   assert.deepEqual(named.then, { properties: { on: { const: "aimed" } }, required: ["on"] });
 }
+
+// ── One source for each of a creature's numbers, in the published schema too ──
+{
+  // A creature with a sheet takes its health, defense and the rest from it; one without a sheet has
+  // to give them. The editor has to say both halves, or an author finds out from the Engine.
+  const schema = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../../docs/extending/ruleset.schema.json", import.meta.url)), "utf8"),
+  ) as Record<string, never>;
+  const path = ["catalogs", "items", "properties", "entries", "items", "properties", "creature"];
+  let node: Record<string, never> = (schema.properties as Record<string, never>).catalogs;
+  for (const step of path.slice(1)) node = node[step];
+  assert.ok((node.properties as Record<string, unknown>).sheet, "the published schema has lost a creature's sheet");
+  const rule = (node.allOf as Array<Record<string, never>> | undefined)?.find(
+    (member) => JSON.stringify(member.if) === JSON.stringify({ required: ["sheet"] }),
+  );
+  assert.ok(rule, "the published schema no longer says where a creature's numbers come from");
+  assert.deepEqual(rule.then, {
+    not: {
+      anyOf: ["health", "defense", "initiativeModifier", "speed", "abilities", "saves"].map((key) => ({
+        required: [key],
+      })),
+    },
+  });
+  assert.deepEqual(rule.else, {
+    required: ["health", "defense", "initiativeModifier", "actions"],
+    properties: { actions: { minItems: 1 } },
+  });
+  // And the three numbers are not required outright, or a creature with a sheet could never be valid.
+  assert.deepEqual(node.required, ["tier"]);
+}

@@ -593,10 +593,60 @@ window it belongs in.
   free one. **Opponents are untouched, because they have nothing to climb:** a stat block's actions
   cost nothing off any pool, so neither an opponent the Engine plays nor a Game Master's boss has a
   bigger way of paying. Giving blocks pools of their own would be a format change, not this one.
+  (That change came next: a creature written as a sheet has pools, and is offered the bigger ways
+  of paying like anybody else. See What creature sheets settled.)
 - **Left for later**: a reaction that changes a NUMBER on what it answers rather than stopping it.
   The condition vocabulary is a closed list of names, not modifiers, so "harder to hit until your
   next turn" is not something a ruleset can say yet, whether a reaction says it or anything else
   does. That is a condition question rather than a reaction one.
+
+### What creature sheets settled
+
+[Issue #6610](https://github.com/Pasta-Devs/Marinara-Engine/issues/6610): a bestiary creature
+written in the ruleset's own terms. Not every ruleset's opponents fit one fixed set of plain numbers,
+and an opponent could not pay for anything out of a pool it did not have.
+
+- **A creature may carry a `sheet`**, the character sheet's own shape with every part optional and
+  no `live` part, strict because a bestiary is authored. Capability API 1.34, read off the ruleset's
+  and the catalog files' own bytes exactly as 1.27 is.
+- **One place for each number.** With a sheet, `health`, `defense`, `initiativeModifier`, `speed`,
+  `abilities` and `saves` are refused beside it, and it may have no block actions; without one, the
+  first three and an action are required as before. The published JSON Schema says both halves
+  (`oneSourceForCreature` in the generator).
+- **One builder.** `sheetCombatant` in `encounter.ts` builds a party member and a sheet-backed
+  opponent alike, so the two cannot drift apart. What the block adds (its own actions, signature
+  points, riders and the damage it shrugs off) is laid on top.
+- **Checked as authored data**: every id against the sheet's declarations, skills and saves against
+  the proficiency tiers, scores against their range, fields and row cells through the shared
+  `rulesetListRowIssues` (now also run over fields), and `_catalog` against a catalog that feeds the
+  list and, when it is inline, holds the entry.
+- **The route loads what the sheets read.** `rulesetBestiarySheetCatalogIds` names the catalogs a
+  bestiary's sheets pick rows from, and they are loaded after the bestiaries, only when a sheet
+  names one.
+- **Pools and bigger payments come for free.** The candidate builder was never gated by side, only
+  by an action having a pool to climb, so an opponent with a sheet is offered the bigger ways of
+  paying by the Engine's picker and in the Game Master's decision, which already carried `payWith`.
+- **An opponent can be marked on a wound track now.** Its hide is read first and the track marked
+  after, so the old limit that resistances could not describe a track is gone for a creature with
+  a sheet; one in plain numbers still loses points.
+- **Still an opponent.** Defeat at zero is by side, and so is the death track. The live write-back is
+  keyed by side as well as by having a sheet: without that, a sheet-backed opponent that shared a
+  party member's name would have overwritten that member's stored sheet.
+- **A Game Master's invention stays a plain block.** `rulesetProposedCreatureSchema` has no `sheet`,
+  because the clamp holds an invention to its tier by its numbers and cannot vouch for a sheet; a
+  proposal that carries one is not read, and the tier is used.
+- **`no-health`.** A sheet that adds up to no health is left out at fight time with a reason of its
+  own, rather than joining unkillable. A bestiary is already refused at import for a field outside
+  its range, so this is reached by a formula that adds up to zero or by a hand-built block.
+- **Every refusal has words on both sides.** C5b's `window-open` and `stale-window` had no sentence
+  in the English catalog or on the server, and C4a's four positioned reasons none on the server. All
+  of them do now, and the screen-client lane fails whenever a reason is added without both.
+- **Proven** by `scripts/regressions/game-ruleset-combat-creature-sheets.regression.ts` (one source,
+  the ids and references, the same numbers as a party member on the 5e draft and on Ember Roads,
+  the block kept beside the sheet, its own Luck, a bigger slot from the resolver, the Engine's picker
+  and the Game Master, a wound track and an immunity, defeat, the projection, the write-back, the
+  refusals, a proposal and the 1.34 gate), by the route lane's caster whose spell lives in another
+  catalog, and by the JSON Schema lane.
 
 ### What C4a settled
 
