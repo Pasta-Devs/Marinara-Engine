@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -33,6 +34,7 @@ import {
   filterVisibleCommands,
   isPaletteListedChat,
   listRegisteredCommands,
+  paletteFocusReturnTarget,
   PALETTE_SETTINGS_TABS,
   parseRecents,
   PALETTE_RECENTS_STORAGE_KEY,
@@ -81,8 +83,16 @@ export function CommandPalette() {
   const open = useCommandPaletteStore((s) => s.paletteOpen);
   const closePalette = useCommandPaletteStore((s) => s.closePalette);
   const inputRef = useRef<HTMLInputElement>(null);
+  // The search field autofocuses as soon as it mounts, before the dialog's focus scope records
+  // what was focused, so the scope would hand focus back to the removed field (the page body).
+  // Remember the opener here, in the commit where `open` turns on and nothing has moved yet.
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (open)
+      restoreFocusRef.current = paletteFocusReturnTarget(document.activeElement as HTMLElement | null, document.body);
+  }, [open]);
   return (
-    <PaletteDialog open={open} onClose={closePalette} inputRef={inputRef}>
+    <PaletteDialog open={open} onClose={closePalette} inputRef={inputRef} restoreFocusRef={restoreFocusRef}>
       {open ? <PaletteContent onClose={closePalette} inputRef={inputRef} /> : null}
     </PaletteDialog>
   );
@@ -92,11 +102,13 @@ function PaletteDialog({
   open,
   onClose,
   inputRef,
+  restoreFocusRef,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   inputRef: RefObject<HTMLInputElement | null>;
+  restoreFocusRef: RefObject<HTMLElement | null>;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -105,6 +117,7 @@ function PaletteDialog({
       open={open}
       onClose={onClose}
       initialFocusRef={inputRef}
+      restoreFocusRef={restoreFocusRef}
       title={t("palette.title")}
       width="max-w-xl"
       contentClassName="!p-0"
