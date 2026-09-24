@@ -177,8 +177,12 @@ export async function waitForQuiet(quietSeconds, maxWaitSeconds) {
 export async function stopEngine(port = PORT) {
   const proc = await engineProcess(port);
   if (!proc) return { stopped: false, reason: "not running" };
-  if (!looksLikeEngine(proc)) {
-    throw new Error(`port ${port} is held by a process that does not look like the engine: ${String(proc.chain[0].cmd).slice(0, 200)}`);
+  if (!looksLikeEngine(proc, port)) {
+    throw new Error(
+      proc.chain[0]?.cmd == null
+        ? `port ${port} is held by PID ${proc.pid}, which could not be identified as the engine; stop it yourself`
+        : `port ${port} is held by a process that does not look like the engine: ${String(proc.chain[0].cmd).slice(0, 200)}`,
+    );
   }
   const top = engineRoot(proc);
   const exited = await stopTree(top.pid, { watchPid: proc.pid });
