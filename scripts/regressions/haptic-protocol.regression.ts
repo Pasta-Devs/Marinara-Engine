@@ -165,12 +165,22 @@ try {
     [{ deviceIndex: 3, action: "rotate", intensity: 0 }, /No compatible haptic outputs/],
     [{ deviceIndex: 99, action: "vibrate", intensity: 1 }, /No connected haptic devices/],
     [{ deviceIndex: 4, action: "vibrate", intensity: 0.1, duration: 0.05 }, /not in the range/],
+    [{ deviceIndex: "all", action: "vibrate", intensity: 0.1, duration: 0.05 }, /not in the range/],
   ] as Array<[HapticDeviceCommand, RegExp]>) {
     received.length = 0;
     await assert.rejects(hapticService.executeCommand(command), error);
     await delay(25);
     assert.equal(received.length, 0, "rejected commands must not reach the device");
   }
+
+  await output({ deviceIndex: 4, action: "vibrate", intensity: 1, duration: 0.1 });
+  await assert.rejects(
+    hapticService.executeCommand({ deviceIndex: 4, action: "vibrate", intensity: 0.1 }),
+    /not in the range/,
+  );
+  const previousTimerDeadline = Date.now() + 2500;
+  while (!received.some((message) => message.StopCmd) && Date.now() < previousTimerDeadline) await delay(10);
+  assert.equal(received.at(-1)?.StopCmd?.DeviceIndex, 4, "rejected commands must retain the previous stop timer");
 
   rejectSecondOutput = true;
   received.length = 0;
