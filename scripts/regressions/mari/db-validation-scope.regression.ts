@@ -23,26 +23,22 @@ try {
     await db.insert(chats).values({ id, name: id, mode: "conversation", createdAt: stamp, updatedAt: stamp });
     await db.insert(messages).values({ id: `${id}-message`, chatId: id, role: "user", content: id, createdAt: stamp });
   }
-  await db
-    .insert(agentConfigs)
-    .values({
-      id: "agent",
-      type: "custom",
-      name: "Fixture",
-      phase: "post_processing",
-      createdAt: stamp,
-      updatedAt: stamp,
-    });
-  await db
-    .insert(agentMemory)
-    .values({
-      id: "memory",
-      agentConfigId: "agent",
-      chatId: "active",
-      key: "note",
-      value: "plain text memory",
-      updatedAt: stamp,
-    });
+  await db.insert(agentConfigs).values({
+    id: "agent",
+    type: "custom",
+    name: "Fixture",
+    phase: "post_processing",
+    createdAt: stamp,
+    updatedAt: stamp,
+  });
+  await db.insert(agentMemory).values({
+    id: "memory",
+    agentConfigId: "agent",
+    chatId: "active",
+    key: "note",
+    value: "plain text memory",
+    updatedAt: stamp,
+  });
   await db
     .insert(gameStateSnapshots)
     .values({ id: "old-snapshot", chatId: "archived", messageId: "missing-message", createdAt: stamp });
@@ -87,12 +83,96 @@ try {
   assertScoped();
   assert.equal((await db.select().from(messages).where(eq(messages.id, "active-message")))[0]?.content, "active");
 
+  // Package/import paths historically accepted arbitrary settings. Unrelated edits and undo
+  // must preserve that data, while changed activation fields still need to be valid.
+  const legacySettings = {
+    activationQuestion: "",
+    activationKeywords: [42],
+    activationThreshold: 1.2,
+    activationScanDepth: 0,
+    activationMaxSkip: 101,
+    runInterval: 0,
+    packageOption: { keep: true },
+  };
+  await db
+    .update(agentConfigs)
+    .set({ settings: JSON.stringify(legacySettings) })
+    .where(eq(agentConfigs.id, "agent"));
+  const readAgent = async () => (await db.select().from(agentConfigs).where(eq(agentConfigs.id, "agent")))[0]!;
+  for (const edit of [
+    () => mari.executeAction({ action: "agent.update", id: "agent", data: { name: "Renamed" }, apply: true }),
+    () =>
+      mari.executeCli({
+        argv: [
+          "db",
+          "patch",
+          "agent_configs",
+          "agent",
+          "--apply",
+          "--json",
+          JSON.stringify({ promptTemplate: "Edited" }),
+        ],
+      }),
+    () =>
+      mari.executeAction({ action: "agent.update", id: "agent", data: { settings: { unrelated: true } }, apply: true }),
+  ]) {
+    const edited = await edit();
+    assert.equal(edited.ok, true, `legacy settings must not block unrelated edits: ${JSON.stringify(edited)}`);
+    assert.equal(JSON.parse((await readAgent()).settings).activationThreshold, 1.2);
+    await mari.restoreAppliedReview(edited.approval!.id);
+    assert.deepEqual(JSON.parse((await readAgent()).settings), legacySettings, "undo preserves legacy settings");
+    assertScoped();
+  }
+  for (const [key, value] of Object.entries({
+    activationQuestion: " ",
+    activationKeywords: [false],
+    activationThreshold: 1.3,
+    activationScanDepth: -1,
+    activationMaxSkip: 102,
+    runInterval: -1,
+  })) {
+    const invalid = await mari.executeCli({
+      argv: [
+        "db",
+        "patch",
+        "agent_configs",
+        "agent",
+        "--apply",
+        "--json",
+        JSON.stringify({ settings: { [key]: value } }),
+      ],
+    });
+    assert.equal(invalid.ok, false, `a newly invalid ${key} must be rejected`);
+    assert.deepEqual(JSON.parse((await readAgent()).settings), legacySettings, "invalid edits must not persist");
+  }
+  const repaired = await mari.executeAction({
+    action: "agent.update",
+    id: "agent",
+    data: { settings: { activationThreshold: 0.7, activationQuestion: null } },
+    apply: true,
+  });
+  assert.equal(repaired.ok, true, "one setting can be repaired without migrating every legacy setting");
+  assert.deepEqual(JSON.parse((await readAgent()).settings), {
+    ...Object.fromEntries(Object.entries(legacySettings).filter(([key]) => key !== "activationQuestion")),
+    activationThreshold: 0.7,
+  });
+  await mari.restoreAppliedReview(repaired.approval!.id);
+  assert.deepEqual(JSON.parse((await readAgent()).settings), legacySettings, "undo can restore original legacy values");
+  assertScoped();
+  const agentValidation = await mari.validate("agent_configs");
+  for (const key of Object.keys(legacySettings).filter((key) => key !== "packageOption")) {
+    assert.ok(
+      agentValidation.errors.some((issue) => issue.id === "agent" && issue.message.includes(`settings.${key}`)),
+      `explicit validation still reports legacy ${key}`,
+    );
+  }
   const memoryValidation = await mari.validate("agent_memory");
   assert.equal(
     memoryValidation.errors.some((issue) => issue.message.includes("not valid JSON")),
     false,
     "plain text is supported by the agent memory storage contract",
   );
+
   const fullValidation = await mari.validate();
   assert.ok(
     fullValidation.errors.some(
