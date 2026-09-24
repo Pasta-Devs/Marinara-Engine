@@ -83,6 +83,39 @@ assert.throws(
   /positive whole number/,
 );
 
+// ── A target needs a count, and a count needs a target ──
+assert.throws(
+  () => registerCapabilityAchievements(source, [{ id: "no_count", title: "X", description: "X", target: 10 }]),
+  /target and readProgress together/,
+);
+assert.throws(
+  () =>
+    registerCapabilityAchievements(source, [{ id: "no_target", title: "X", description: "X", readProgress: () => 1 }]),
+  /target and readProgress together/,
+);
+
+// ── Progress can be read for one package, and a callback that reads again does not recurse ──
+let nestedCalls = 0;
+const releaseOther = registerCapabilityAchievements({ ...source, packageId: "other", packageName: "Other" }, [
+  {
+    id: "loop",
+    title: "Loop",
+    description: "Reads progress from inside its own callback.",
+    target: 5,
+    readProgress: async () => {
+      nestedCalls += 1;
+      const inner = await readCapabilityAchievementProgress("other");
+      assert.equal(inner.has("other.loop"), false, "a package already reading must be skipped");
+      return 2;
+    },
+  },
+]);
+const onlyOther = await readCapabilityAchievementProgress("other");
+assert.deepEqual([...onlyOther.keys()], ["other.loop"]);
+assert.equal(onlyOther.get("other.loop"), 2);
+assert.equal(nestedCalls, 1);
+releaseOther();
+
 // ── The host only touches badges the calling package owns, and only with the permission ──
 assert.ok(isCapabilityAchievementOwnedBy("noodle", "noodle.first_run"));
 assert.ok(!isCapabilityAchievementOwnedBy("other", "noodle.first_run"));

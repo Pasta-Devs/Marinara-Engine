@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AchievementEvent, AchievementStatusResponse, AchievementTrackResponse } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
@@ -9,6 +9,10 @@ export const achievementKeys = {
   all: ["achievements"] as const,
   status: () => [...achievementKeys.all, "status"] as const,
 };
+
+// Page-lifetime, like the announced ids it seeds. A per-hook flag would let a remounted Home treat
+// an unlock that happened while it was away as the silent baseline and never announce it.
+let packageUnlocksSeeded = false;
 
 export function useAchievements(enabled = true) {
   const query = useQuery({
@@ -22,13 +26,12 @@ export function useAchievements(enabled = true) {
   // notice them. Engine badges are left alone: they announce themselves from `/achievements/track`,
   // and their catch-up unlocks are documented as silent.
   const data = query.data;
-  const seeded = useRef(false);
   useEffect(() => {
     if (!data) return;
     const packageIds = new Set(data.definitions.flatMap((definition) => (definition.source ? [definition.id] : [])));
     const unlocked = data.progress.filter((item) => item.unlocked && packageIds.has(item.id));
-    if (!seeded.current) {
-      seeded.current = true;
+    if (!packageUnlocksSeeded) {
+      packageUnlocksSeeded = true;
       markAchievementUnlocksSeen(unlocked);
       return;
     }

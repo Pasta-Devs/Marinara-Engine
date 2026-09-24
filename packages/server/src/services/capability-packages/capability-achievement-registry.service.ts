@@ -11,6 +11,7 @@
 // the table it already uses, keyed by the namespaced id.
 // ──────────────────────────────────────────────
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import type { AchievementDefinition, AchievementSource, PackagedAchievementDefinition } from "@marinara-engine/shared";
 import { ACHIEVEMENT_DEFINITION_BY_ID } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
@@ -94,6 +95,11 @@ export function registerCapabilityAchievements(
     if (packaged.target !== undefined && (!Number.isInteger(packaged.target) || packaged.target <= 0)) {
       throw new Error(`Capability achievement ${localId} has a target that is not a positive whole number`);
     }
+    // A target is only meaningful against a count. Without one the bar could never move, and a
+    // badge the package then unlocks by hand would read "1 / 10" forever.
+    if ((packaged.target === undefined) !== (packaged.readProgress === undefined)) {
+      throw new Error(`Capability achievement ${localId} must declare target and readProgress together`);
+    }
     const id = qualifyAchievementId(source.packageId, localId);
     if (ACHIEVEMENT_DEFINITION_BY_ID.has(id)) {
       throw new Error(`Capability achievement ${id} collides with a built-in achievement`);
@@ -143,17 +149,26 @@ export function isCapabilityAchievementOwnedBy(packageId: string, id: string): b
   return byId.get(id)?.packageId === packageId;
 }
 
+// Packages whose `readProgress` is running in the current async chain. A callback may itself call
+// `api.runtime.achievements.list()`, which reads progress again; without this it would recurse
+// until the deadline, and two packages listing each other would cycle.
+const activeProgressReads = new AsyncLocalStorage<ReadonlySet<string>>();
+
 /**
- * Current counts for every ranked package badge. Never throws: a package whose callback fails or
- * hangs reports zero, because one broken package must not fail the whole Achievements panel.
+ * Current counts for ranked package badges, optionally for one package only. Never throws: a
+ * package whose callback fails or hangs reports zero, because one broken package must not fail the
+ * whole Achievements panel. A package already reading its progress up the call chain is skipped.
  */
-export async function readCapabilityAchievementProgress(): Promise<Map<string, number>> {
-  const entries = [...byId.values()].filter((entry) => entry.readProgress);
+export async function readCapabilityAchievementProgress(packageId?: string): Promise<Map<string, number>> {
+  const active = activeProgressReads.getStore() ?? new Set<string>();
+  const entries = [...byId.values()].filter(
+    (entry) => entry.readProgress && (!packageId || entry.packageId === packageId) && !active.has(entry.packageId),
+  );
   const results = await Promise.all(
     entries.map(async (entry) => {
       try {
         const value = await withDeadline(
-          Promise.resolve(entry.readProgress?.()),
+          activeProgressReads.run(new Set([...active, entry.packageId]), () => Promise.resolve(entry.readProgress?.())),
           `Capability achievement progress for ${entry.definition.id}`,
           PROGRESS_TIMEOUT_MS,
         );

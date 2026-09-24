@@ -1115,7 +1115,8 @@ Rules worth knowing:
   host accepts the local or the namespaced id, and refuses any id the package did not register itself.
 - `unlock(id)` resolves `true` only for the call that unlocked the badge. `isUnlocked(id)` and `list()`
   read state; `list()` returns the package's own badges with progress.
-- Counting stays with the package. A ranked badge sets `target` and a `readProgress` callback; the
+- Counting stays with the package. A ranked badge sets `target` and a `readProgress` callback, both
+  or neither; the
   Engine unlocks it on the same pass as its own ranked badges once the count reaches the target. Keep
   the counter in the persistence host. A callback that throws, or does not settle within **2 seconds**,
   reports zero and is logged.

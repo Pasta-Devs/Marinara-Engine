@@ -165,8 +165,8 @@ export function createAchievementsService(db: DB) {
   /** Unlocks one badge by id, for a package marking its own achievement fulfilled. Resolves true
    *  only for the call that unlocked it, so a package can react exactly once. */
   async function unlock(id: string): Promise<boolean> {
-    const [counts, packageProgress] = await Promise.all([readCounts(), readCapabilityAchievementProgress()]);
-    const unlocked = await unlockIds([id], counts, packageProgress);
+    // Only whether a row was inserted matters here, so no counts or progress callbacks are read.
+    const unlocked = await unlockIds([id], ZERO_COUNTS, new Map());
     return unlocked.length > 0;
   }
 
@@ -176,10 +176,11 @@ export function createAchievementsService(db: DB) {
 
   /** Definitions and progress for one package's own badges. */
   async function listForPackage(packageId: string): Promise<AchievementProgress[]> {
-    const [counts, packageProgress] = await Promise.all([readCounts(), readCapabilityAchievementProgress()]);
+    // Package badges have no Engine metric, so Engine counts are never read for them.
+    const packageProgress = await readCapabilityAchievementProgress(packageId);
     const unlockedById = new Map((await readUnlockRows()).map((row) => [row.id, row]));
     return capabilityAchievementDefinitions(packageId).map((definition) =>
-      buildProgress(definition, unlockedById.get(definition.id) ?? null, counts, packageProgress),
+      buildProgress(definition, unlockedById.get(definition.id) ?? null, ZERO_COUNTS, packageProgress),
     );
   }
 
