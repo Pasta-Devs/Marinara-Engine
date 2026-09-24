@@ -126,10 +126,12 @@ const shape = (entry) => {
  */
 export function lookupReference(reference, files = 10) {
   const all = [...entries(logFiles(files))];
-  const hits = all.filter((entry) => {
-    if (requestIdOf(entry) === reference || entry.operationId === reference || errorIdOf(entry) === reference) return true;
-    return JSON.stringify(entry).includes(reference);
-  });
+  // Exact id matches decide the trail. Substring matches (the reference quoted inside another line) are used only
+  // when there is no exact match: otherwise "req-1" would also match req-10 to req-19.
+  const exact = all.filter(
+    (entry) => requestIdOf(entry) === reference || entry.operationId === reference || errorIdOf(entry) === reference,
+  );
+  const hits = exact.length ? exact : all.filter((entry) => JSON.stringify(entry).includes(reference));
   let requestId = null;
   let operationId = null;
   for (const entry of hits) {
