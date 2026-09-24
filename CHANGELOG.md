@@ -6,6 +6,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Imports that use decisions now warn when no Decision model is selected, explain the fallback behavior, and link to the Decision Models guide. The notice also covers custom agent imports and Agent catalog installations, including agents with activation questions (#6605).
 
+- Decision model guides now distinguish Jev from Open-Jev and clarify what each feature sends, threshold defaults, statement allowances, answer reuse, lorebook fallbacks, sidecar hardware needs, and prompt-cache costs. Author examples describe observable events and separate connection testing from testing statements in a chat.
+
 - Roleplay's optional **Whisper** command shares an inline secret only with its recipient and the appointed narrator. Recipients can be characters or your persona; revealing a hidden secret on screen does not give it to other characters' prompts (#6616).
 
 - Roleplay's Expression Engine has an optional **Only show active sprites** toggle. It keeps the current sprites visible while expressions generate, then shows only enabled characters returned by the completed result (#6611).

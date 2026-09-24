@@ -29,6 +29,7 @@ for (const selected of [null, "fixture-decision"]) {
       useUIStore.getState().openRightPanel("agents");
     });
     const upload = async (agents: unknown[]) => {
+      await expect(page.getByRole("button", { name: "Import agents", exact: true })).toBeEnabled();
       await page.locator('input[type="file"][accept="application/json,application/zip,.json,.zip"]').setInputFiles({
         name: "agents.json",
         mimeType: "application/json",
