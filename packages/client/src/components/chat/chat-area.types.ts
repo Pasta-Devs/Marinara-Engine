@@ -53,6 +53,8 @@ export type PeekPromptData = {
   chatMode?: string;
   parameters: unknown;
   source?: "cached" | "live_preview" | "raw_messages";
+  /** "next-turn": a live preview laid out the way the next real turn sends it (cache-friendly layout). */
+  layout?: "next-turn";
   exact?: boolean;
   generationInfo?: {
     model?: string;

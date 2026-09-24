@@ -79,6 +79,28 @@ function isMovableRuntimeSystemBlock(message: PromptCacheLayoutMessage): boolean
 }
 
 /**
+ * The layout a real turn would send, for a prompt preview that has no pending user message yet (Peek Prompt's
+ * live preview). Generation reorders around the current user turn, so this adds a placeholder turn, applies
+ * the same reordering and removes the placeholder: runtime blocks end up where the next real request carries
+ * them. Returns the input order unchanged when the layout is not active for the provider.
+ */
+export function layoutAsNextTurn<T extends PromptCacheLayoutMessage>(
+  messages: readonly T[],
+  options: { provider: string | null | undefined },
+): T[] {
+  if (!isCacheFriendlyPromptLayoutActive(options.provider)) return messages.slice();
+  const placeholder = {
+    role: "user",
+    content: "",
+    contextKind: "history",
+    providerMetadata: { marinaraNextTurnPlaceholder: true },
+  } as unknown as T;
+  return normalizePromptCacheLayout([...messages, placeholder]).filter(
+    (message) => message.providerMetadata?.marinaraNextTurnPlaceholder !== true,
+  );
+}
+
+/**
  * Keep the marked lore prefix byte for byte at the front and move the marked runtime blocks that were
  * inserted among the leading system messages to just before the current user turn (or before a trailing
  * assistant prefill when there is no current turn). User-authored prompt sections, history and unmarked

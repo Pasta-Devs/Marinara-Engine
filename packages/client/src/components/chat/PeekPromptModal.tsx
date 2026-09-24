@@ -53,6 +53,8 @@ interface PeekPromptModalProps {
     chatMode?: string;
     parameters: unknown;
     source?: "cached" | "live_preview" | "raw_messages";
+    /** "next-turn": a live preview laid out the way the next real turn sends it (cache-friendly layout). */
+    layout?: "next-turn";
     exact?: boolean;
     generationInfo?: GenerationInfo | null;
     gameToolPlanning?: GameToolPlanningInfo | null;
@@ -64,7 +66,7 @@ interface PeekPromptModalProps {
 
 function sourceLabel(data: PeekPromptModalProps["data"]): string {
   if (data.exact) return "Exact Text Model Request";
-  if (data.source === "live_preview") return "Live Preview";
+  if (data.source === "live_preview") return data.layout === "next-turn" ? "Live Preview (next turn)" : "Live Preview";
   if (data.source === "raw_messages") return "Raw Messages";
   return "Prompt Preview";
 }

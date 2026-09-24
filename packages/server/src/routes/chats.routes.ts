@@ -180,6 +180,12 @@ import {
 import { resolveLorebookTokenBudget } from "../services/generation/lorebook-generation-runtime.js";
 import { resolveGameGmPromptTemplate } from "../services/generation/game-gm-prompt-runtime.js";
 import {
+  isCacheFriendlyPromptLayoutActive,
+  layoutAsNextTurn,
+  shouldUseFullLorebookContext,
+  splitFullLorebookContext,
+} from "../services/generation/prompt-cache-layout.js";
+import {
   isBackgroundAutonomousCandidate,
   hasRoleplayDmThreadMarkers,
 } from "../services/conversation/autonomous-candidates.js";
@@ -3379,10 +3385,17 @@ export async function chatsRoutes(app: FastifyInstance) {
             : [];
           const activePromptAgentIds = filterGameInternalAgentIds(chatMode, promptActiveAgentIds);
           const activeChatSummary = resolveRoleplayChatSummary(chatMode, chatMeta);
+          // Cache-friendly prompt layout (Settings > Features): preview the lore and order a real turn sends.
+          const previewNextTurnLayout = isCacheFriendlyPromptLayoutActive(connection?.provider);
+          const previewFullLore = shouldUseFullLorebookContext(
+            connection?.provider,
+            chatMeta.fullLorebookContext === false,
+          );
 
           const assembled = await assemblePrompt({
             db: app.db,
             model: connection?.model,
+            ...(previewFullLore ? { fullLorebookContext: true } : {}),
             preset: preset as any,
             sections: sections as any,
             groups: groups as any,
@@ -3648,16 +3661,51 @@ export async function chatsRoutes(app: FastifyInstance) {
             }
           }
 
+          if (!previewNextTurnLayout) {
+            return {
+              messages: toPeekPromptMessages(injectOwnerSpatialPrompt(assembled.messages, ownerSpatialProjection)),
+              chatMode,
+              parameters: assembled.parameters,
+              source: "live_preview",
+              exact: false,
+              generationInfo: null,
+              ...decisionReport(),
+              agentNote:
+                "No saved model request was available, so this is a live best-effort preview assembled without sending.",
+            };
+          }
+          const previewMessages = injectOwnerSpatialPrompt(assembled.messages, ownerSpatialProjection);
+          const { stable: fullLore, dynamic: dynamicLore } = previewFullLore
+            ? splitFullLorebookContext(assembled.lorebookScanResult)
+            : { stable: undefined, dynamic: undefined };
+          if (fullLore) {
+            previewMessages.unshift({
+              role: "system",
+              content: `<lore>\n${fullLore}\n</lore>`,
+              contextKind: "prompt",
+              providerMetadata: { marinaraFullLoreContext: true, marinaraCacheScope: req.params.id },
+            });
+          }
+          if (dynamicLore) {
+            previewMessages.push({
+              role: "system",
+              content: `<lore_dynamic>\n${dynamicLore}\n</lore_dynamic>`,
+              contextKind: "injection",
+              providerMetadata: { marinaraDynamicLoreContext: true, marinaraRuntimeContext: true },
+            });
+          }
           return {
-            messages: toPeekPromptMessages(injectOwnerSpatialPrompt(assembled.messages, ownerSpatialProjection)),
+            messages: toPeekPromptMessages(layoutAsNextTurn(previewMessages, { provider: connection?.provider })),
             chatMode,
             parameters: assembled.parameters,
             source: "live_preview",
+            layout: "next-turn",
             exact: false,
             generationInfo: null,
             ...decisionReport(),
             agentNote:
-              "No saved model request was available, so this is a live best-effort preview assembled without sending.",
+              "No saved model request was available, so this is a live best-effort preview assembled without sending. " +
+              "It uses the cache-friendly layout of a real turn (full lore first, blocks that change every turn next to the current turn); your next message would follow the last line.",
           };
         }
       } catch (e) {

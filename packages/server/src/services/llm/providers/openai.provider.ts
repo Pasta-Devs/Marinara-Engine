@@ -37,6 +37,7 @@ import {
   isGlm53MandatoryReasoningModel,
 } from "./glm-request-compat.js";
 import { resolveOpenAIChatGPTCacheIdentity } from "./openai-chatgpt-cache.js";
+import { beginResponsesRequestAttempt, logResponsesProviderEvent } from "./openai-cache-diagnostics.js";
 
 /**
  * Models routed through the Responses API (`/responses`).
@@ -2257,6 +2258,8 @@ export class OpenAIProvider extends BaseLLMProvider {
       body.max_output_tokens ?? "n/a",
       Array.isArray(body.tools) ? body.tools.length : 0,
     );
+    // Prompt-cache diagnostics: hashes and counts only, debug unless MARINARA_CACHE_DIAGNOSTICS=1.
+    const cacheDiagnostic = beginResponsesRequestAttempt(body, "chatResponses");
 
     let response = await llmFetch(url, {
       method: "POST",
@@ -2304,6 +2307,7 @@ export class OpenAIProvider extends BaseLLMProvider {
         response,
         "OpenAI chatResponses() non-stream response",
       );
+      logResponsesProviderEvent(cacheDiagnostic, "nonstream", json, json.usage as never);
       OpenAIProvider.assertResponsesSucceeded(json, "OpenAI chatResponses() non-stream response");
       this.emitMissingResponsesReasoningSummary(json, options, "");
       // Emit encrypted reasoning items for multi-turn context
@@ -2433,6 +2437,12 @@ export class OpenAIProvider extends BaseLLMProvider {
               // Extract usage and encrypted reasoning from the completed response
               const resp = parsed.response as Record<string, unknown> | undefined;
               if (resp) {
+                logResponsesProviderEvent(
+                  cacheDiagnostic,
+                  resp.status === "incomplete" ? "incomplete" : "completed",
+                  resp,
+                  resp.usage as never,
+                );
                 streamUsage = this.extractResponsesUsage(resp);
                 if (resp.status === "incomplete" && streamUsage) {
                   streamUsage = {
@@ -2462,6 +2472,7 @@ export class OpenAIProvider extends BaseLLMProvider {
             }
             case "response.failed": {
               const resp = parsed.response as Record<string, unknown> | undefined;
+              logResponsesProviderEvent(cacheDiagnostic, "failed", resp ?? {});
               const error = resp?.error as Record<string, unknown> | undefined;
               const msg = (error?.message as string) ?? "unknown error";
               // Thrown, not logged: the caller writes the one line for this failure.
@@ -2472,6 +2483,7 @@ export class OpenAIProvider extends BaseLLMProvider {
               const reason = (resp?.incomplete_details as Record<string, unknown>)?.reason ?? "unknown";
               logger.warn("[OpenAI Responses] Stream ended with response.incomplete (reason=%s)", reason);
               if (resp) {
+                logResponsesProviderEvent(cacheDiagnostic, "incomplete", resp, resp.usage as never);
                 streamUsage = this.extractResponsesUsage(resp);
                 this.emitEncryptedReasoning(resp, options);
                 emittedReasoningSummary = this.emitMissingResponsesReasoningSummary(
@@ -2521,6 +2533,8 @@ export class OpenAIProvider extends BaseLLMProvider {
       JSON.stringify(body.reasoning ?? null),
       !!options.onThinking,
     );
+    // Prompt-cache diagnostics: hashes and counts only, debug unless MARINARA_CACHE_DIAGNOSTICS=1.
+    const cacheDiagnostic = beginResponsesRequestAttempt(body, "chatCompleteResponses");
 
     let response = await llmFetch(url, {
       method: "POST",
@@ -2568,6 +2582,7 @@ export class OpenAIProvider extends BaseLLMProvider {
         response,
         "OpenAI chatCompleteResponses() non-stream response",
       );
+      logResponsesProviderEvent(cacheDiagnostic, "nonstream", json, json.usage as never);
       OpenAIProvider.assertResponsesSucceeded(json, "OpenAI chatCompleteResponses() non-stream response");
       this.emitMissingResponsesReasoningSummary(json, options, "");
       // Emit encrypted reasoning items for multi-turn context
@@ -2748,6 +2763,12 @@ export class OpenAIProvider extends BaseLLMProvider {
             case "response.completed": {
               const resp = parsed.response as Record<string, unknown> | undefined;
               if (resp) {
+                logResponsesProviderEvent(
+                  cacheDiagnostic,
+                  resp.status === "incomplete" ? "incomplete" : "completed",
+                  resp,
+                  resp.usage as never,
+                );
                 streamUsage = this.extractResponsesUsage(resp);
                 const completedReasoning = this.extractEncryptedReasoningItems(resp);
                 if (completedReasoning.length) encryptedReasoning = completedReasoning;
@@ -2777,6 +2798,7 @@ export class OpenAIProvider extends BaseLLMProvider {
             }
             case "response.failed": {
               const resp = parsed.response as Record<string, unknown> | undefined;
+              logResponsesProviderEvent(cacheDiagnostic, "failed", resp ?? {});
               const error = resp?.error as Record<string, unknown> | undefined;
               const msg = (error?.message as string) ?? "unknown error";
               // Thrown, not logged: the caller writes the one line for this failure.
@@ -2788,6 +2810,7 @@ export class OpenAIProvider extends BaseLLMProvider {
               logger.warn("[OpenAI Responses] chatCompleteResponses stream incomplete (reason=%s)", reason);
               finishReason = OpenAIProvider.normalizeResponsesIncompleteFinishReason(reason);
               if (resp) {
+                logResponsesProviderEvent(cacheDiagnostic, "incomplete", resp, resp.usage as never);
                 const completedReasoning = this.extractEncryptedReasoningItems(resp);
                 if (completedReasoning.length) encryptedReasoning = completedReasoning;
                 this.emitEncryptedReasoning(resp, options);

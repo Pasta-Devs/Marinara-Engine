@@ -40,6 +40,12 @@ import {
   type SdkUserMessageForPrompt,
 } from "./claude-subscription/jsonl-entries.js";
 import { ResumeSessionStore, resumeScratchCwd } from "./claude-subscription/session-store.js";
+import {
+  beginClaudeCacheDiagnostic,
+  logClaudeCacheFailure,
+  logClaudeCacheInit,
+  logClaudeCacheResult,
+} from "./claude-cache-diagnostics.js";
 
 /**
  * Standard API cost equivalents, not subscription billing. Claude chooses its
@@ -581,6 +587,13 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
       sdkOptionRecord["cwd"] = resumeCwd;
       sdkOptionRecord["sessionStore"] = sessionStore;
     }
+    // Prompt-cache diagnostics: hashes and counts only, debug unless MARINARA_CACHE_DIAGNOSTICS=1.
+    const cacheDiagnostic = beginClaudeCacheDiagnostic(providerMessages, sdkOptionRecord, {
+      requestedModel: options.model,
+      path: resumeSessionId ? "resume" : typeof promptArg === "string" ? "fold" : "direct",
+      sessionHash: resumeSessionId,
+      systemPrompt,
+    });
 
     let inputTokens = 0;
     let outputTokens = 0;
@@ -616,6 +629,7 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
             }
           }
         } else if (message.type === "system" && message.subtype === "init") {
+          logClaudeCacheInit(cacheDiagnostic, message as unknown as Record<string, unknown>);
           // Isolation guard — the SDK's `init` message enumerates every tool,
           // MCP server, and skill it is exposing to the model. This provider is
           // a zero-tool, text-only surface, so any non-empty set here means
@@ -658,6 +672,7 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
             }
           }
         } else if (message.type === "result") {
+          logClaudeCacheResult(cacheDiagnostic, message as unknown as Record<string, unknown>);
           if (message.subtype === "success") {
             sawSuccessResult = true;
             const usage = message.usage ?? null;
@@ -746,6 +761,7 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
         }
       }
     } catch (err) {
+      logClaudeCacheFailure(cacheDiagnostic, err);
       // The caller logs the failure once; this debug line keeps the raw SDK error with the model and session.
       // No `cause`: `friendly` already holds err.message, and the SSE and agent error formatters append a
       // cause's message, which would show the same text twice.

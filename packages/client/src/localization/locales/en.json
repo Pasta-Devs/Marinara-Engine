@@ -4197,6 +4197,7 @@
   "ui.chat.chatinput.value1IsTooLargeMax20Mb": "{{value1}} is too large (max 20 MB)",
   "ui.chat.chatinput.value1ThePartialMessageMayNeedToBeRemoved": "{{value1}}; the partial message may need to be removed before retrying.",
   "ui.chat.chatmessage.branchFromHere": "Branch from here",
+  "ui.chat.chatmessage.cacheHitRatio": "{{percent}}% cached",
   "ui.chat.chatmessage.clearCachedVoice": "Clear cached voice",
   "ui.chat.chatmessage.clearCachedVoiceFailed": "Could not clear cached voice. Please try again.",
   "ui.chat.chatmessage.cloneFromHere": "Clone from here",

@@ -207,6 +207,14 @@ LOG_DISABLE_REQUEST_LOGGING=true
 
 Browser logging is separate and is not controlled by `LOG_LEVEL`.
 
+To find out why a Claude (Subscription), ChatGPT or OpenAI Responses API turn missed the provider's prompt cache, set:
+
+```
+MARINARA_CACHE_DIAGNOSTICS=1
+```
+
+Each Claude (Subscription) and OpenAI Responses request then writes a few `info` lines: hashes of the system prompt on each side of the cache boundary, a running hash per message (two requests share it up to the first message that changed), and the cache reads and writes the provider reported. Only hashes, lengths and counts are written, never prompt text. Without the variable the same lines are written only at `debug`. It is read on every request, so no restart is needed.
+
 ## Timeouts
 
 Open **Settings → Advanced → Request timeouts** to adjust text, agent, Game image-prompt, image, video, ComfyUI and embedding limits in seconds. Higher limits help slow local backends finish; they cannot override a limit enforced by the provider itself. Server administration access is required to save.

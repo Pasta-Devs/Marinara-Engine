@@ -112,6 +112,7 @@ import { toast } from "sonner";
 import { MessageThinkingModal } from "./MessageThinkingModal";
 import { MESSAGE_ACTION_ICON_SIZE, MessageActionButton } from "./MessageActionButton";
 import { RoleplayStoryboardMessageMedia } from "./RoleplayStoryboardMessageMedia";
+import { normalizeGenerationTokenUsage } from "../../lib/generation-token-usage";
 
 const MESSAGE_DOUBLE_TAP_MS = 320;
 const MESSAGE_DOUBLE_TAP_DISTANCE_PX = 26;
@@ -2441,6 +2442,15 @@ export const ChatMessage = memo(function ChatMessage({
       }
       if ((genInfo.tokensCacheWritePrompt ?? 0) > 0) {
         parts.push(`cache write ${genInfo.tokensCacheWritePrompt!.toLocaleString()}`);
+      }
+      // The share of this turn's input the provider served from its prompt cache, when it reported enough.
+      const cacheHitRatio = normalizeGenerationTokenUsage(genInfo)?.cacheHitRatio;
+      if (cacheHitRatio != null && (genInfo.tokensCachedPrompt ?? 0) > 0) {
+        parts.push(
+          localizeUi("ui.chat.chatmessage.cacheHitRatio", {
+            percent: Math.floor(Math.min(1, cacheHitRatio) * 100),
+          }),
+        );
       }
       if (genInfo.durationMs != null) parts.push(`${(genInfo.durationMs / 1000).toFixed(1)}s`);
     }
