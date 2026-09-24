@@ -8162,6 +8162,16 @@ export function ChatSettingsDrawer({
                             chatId={chat.id}
                             displayModes={spriteDisplayModes}
                             onToggleDisplayMode={toggleSpriteDisplayMode}
+                            onlyActiveSprites={metadata.expressionOnlyActiveSprites === true}
+                            onToggleOnlyActiveSprites={
+                              isRoleplayMode
+                                ? () =>
+                                    updateMeta.mutate({
+                                      id: chat.id,
+                                      expressionOnlyActiveSprites: metadata.expressionOnlyActiveSprites !== true,
+                                    })
+                                : undefined
+                            }
                             expressionAvatarsEnabled={expressionAvatarsEnabled}
                             onToggleExpressionAvatars={() => {
                               const nextEnabled = !expressionAvatarsEnabled;
