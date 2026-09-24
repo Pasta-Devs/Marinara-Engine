@@ -258,6 +258,40 @@ Keep combat pacing rules in effect.
 
 Together, they suit anything that should come in once and then rest: a scene transition, a one-time reminder, or a mood that should last a few turns. For a lorebook entry activated by its **Decision** field, use the entry's own **Sticky** and **Cooldown** instead: a sticky entry stays in without its statement being asked, and an entry on cooldown is not asked about.
 
+### Checking every few turns
+
+Some statements do not need asking every turn. Write `every:` after the statement to ask it only every N turns:
+
+```
+{{#if decision:"The weather changes in the latest message" every:3}}
+Describe the new weather in a sentence.
+{{/if}}
+```
+
+- It is asked the first turn it is reached, then again 3 turns later, and so on.
+- Changing the number takes effect at once: the next check counts from the turn it was last asked.
+- Between checks it reads as no, is not asked, and does not count toward **Decision statements per turn**.
+- Turns count the same way as sticky and cooldown, so a regeneration or a swipe reads the same answer.
+- Sticky and cooldown still hold a statement's answer; `every:` only decides when a statement they do not hold is asked.
+- A statement written in several places uses the smallest `every:` given anywhere.
+
+### Priority
+
+When a turn has more statements than **Decision statements per turn** allows, `priority:` decides which are asked:
+
+```
+{{#if decision:"In the latest message, a character is badly hurt" priority:high}}...{{/if}}
+{{#if decision:"The latest message mentions food" priority:low}}...{{/if}}
+```
+
+- `priority:high` statements are asked first, and `priority:low` statements last. A statement with no priority is medium.
+- Within the same priority, the order the statements appear in the prompt still decides.
+- Past the limit, the lowest-priority statements are dropped first: they read as no, and Peek Prompt lists them.
+- A statement written in several places uses the highest priority given anywhere.
+- The prompt's own statements (preset, cards, persona, author's notes) are planned first. Statements in lorebook entries' text are planned once the scan knows which entries activate, with the slots that are left, so a lorebook statement never takes a slot from the prompt's, whatever its priority.
+
+Every modifier can be combined, in any order: `decision:"..." priority:high sticky:3 cooldown:5 every:2`.
+
 ### No answer means no
 
 A decision condition is **false** whenever there is no answer: no Decision model is set, the model did not answer in time, or it failed. For `decision_choice:`, every comparison is false. So the `{{else}}` branch, or nothing, is what a user without a Decision model gets.
@@ -306,7 +340,7 @@ The recommended wordings scored 31 of 32 on Open-Jev 2B, 31 of 32 on Open-Jev 9B
   - statements in lorebook entries that activate this turn, not the rest of the lorebook;
   - statements in blocks that something fixed for the turn has not already ruled out. In `{{#if char == "Dottore" && decision:"..."}}`, the statement is not asked while the character is Mira. A variable can change while the prompt is built, so a condition on a variable never rules a statement out.
 
-  A statement that [sticky or cooldown](#sticky-and-cooldown) holds does not count at all. Past the limit, the rest read as no, a warning is logged, and Peek Prompt lists them. On a hosted Decision connection each statement adds to a billed request; on a local model it only adds time.
+  A statement that [sticky, cooldown](#sticky-and-cooldown) or [`every:`](#checking-every-few-turns) holds does not count at all. Past the limit, the [lowest-priority](#priority) statements read as no, a warning is logged, and Peek Prompt lists them. On a hosted Decision connection each statement adds to a billed request; on a local model it only adds time.
 - **Time.** The same budgets as activation questions apply: the Decision connection's **Time limit** (1.5 seconds by default), and 4 seconds for a local model. A model that has to reason first holds off in front of the reply unless you turned on **Also gate agents that run before the reply**.
 - **Once per turn.** Answers are kept for the turn, so a regeneration or a swipe sends the same branches. The Decision model is only asked again when a new message arrives, or when you edit the newest message and regenerate. The one exception is post-processing agents, below: they read the finished reply, so their statements are asked once per reply.
 - **Prompt caching.** A provider's cache reuses the prompt only up to the first thing that changed since the last request; everything from there on is billed again at full price. A branch that changes from turn to turn is such a change, so where it sits decides how much stays cached. Put decision blocks late in the prompt, such as post-history instructions or author's notes, rather than at the top.

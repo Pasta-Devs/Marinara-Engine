@@ -2,6 +2,7 @@ import { DECISION_SETTINGS_KEYS, resolveDecisionBackend } from "../services/deci
 import {
   DECISION_TIMERS_METADATA_KEY,
   decisionTurnFor,
+  hasDecisionTimers,
   heldDecision,
   readDecisionTimers,
   type DecisionTimerState,
@@ -2663,7 +2664,7 @@ export async function generateRoutes(app: FastifyInstance) {
           const next = JSON.stringify(decisionTiming.state);
           if (next === savedDecisionTimers) return;
           // The turn count only matters while a timer runs, so a chat without one is not written.
-          if (Object.keys(decisionTiming.state.statements).length === 0 && !chatMeta[DECISION_TIMERS_METADATA_KEY]) {
+          if (!hasDecisionTimers(decisionTiming.state) && !chatMeta[DECISION_TIMERS_METADATA_KEY]) {
             savedDecisionTimers = next;
             return;
           }
@@ -2775,7 +2776,8 @@ export async function generateRoutes(app: FastifyInstance) {
           turn: decisionTurnFor(decisionTimerState, preReplyDecisionTurnId),
         };
         const decisionTurn = decisionTiming.turn;
-        const heldDecisions: HeldDecisions = (kind, key) => heldDecision(decisionTimerState, decisionTurn, kind, key);
+        const heldDecisions: HeldDecisions = (kind, key, modifiers) =>
+          heldDecision(decisionTimerState, decisionTurn, kind, key, modifiers?.every);
         await saveDecisionTimers();
         // Worked out once: the agents' plan below includes the prompt's statements too.
         const promptDecisionReachable = reachableDecisionStatements(promptDecisionTexts, promptMacroContext);

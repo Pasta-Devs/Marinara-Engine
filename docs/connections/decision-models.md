@@ -125,7 +125,7 @@ Decision requests stop when you cancel a generation.
 ## Other settings under Decision model
 
 - **Also use it to pick who speaks in Smart response order.** Off by default. See [Group Chats](../chats/group-chats.md#response-order-individual-only).
-- **Decision statements per turn.** How many decision statements in presets, cards, lorebooks and agent prompts may be asked each turn, 32 by default and up to 255. Only statements the turn can use count: see [Limits and cost](../prompts/conditional-prompts.md#limits-and-cost). Past this, the rest read as no, and Peek Prompt lists them. On a hosted connection each statement adds to a billed request; on a local model it only adds time.
+- **Decision statements per turn.** How many decision statements in presets, cards, lorebooks and agent prompts may be asked each turn, 32 by default and up to 255. Only statements the turn can use count: see [Limits and cost](../prompts/conditional-prompts.md#limits-and-cost). Past this, the lowest-[priority](../prompts/conditional-prompts.md#priority) statements read as no, and Peek Prompt lists them. On a hosted connection each statement adds to a billed request; on a local model it only adds time.
 - **Also gate agents that run before the reply** and **Thinking** appear for a local model. See [Use a model you already run](#use-a-model-you-already-run).
 
 ## Accuracy: plan for wrong answers
