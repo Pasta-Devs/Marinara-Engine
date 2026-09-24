@@ -391,6 +391,7 @@ export async function typecheck(pkg) {
 export async function regressions(filter, timeoutMs = 20 * 60_000) {
   const args = ["scripts/run-regressions.mjs", ...(filter ? ["--filter", filter] : [])];
   let output;
+  let runError = null;
   try {
     const { stdout, stderr } = await run(process.execPath, args, {
       cwd: REPO,
@@ -401,6 +402,12 @@ export async function regressions(filter, timeoutMs = 20 * 60_000) {
     output = `${stdout}\n${stderr}`;
   } catch (error) {
     output = `${error.stdout ?? ""}\n${error.stderr ?? ""}`;
+    // Why the runner did not finish cleanly: a failing script (non-zero exit), a timeout kill or a spawn error.
+    runError = error.killed
+      ? `the run was stopped after ${Math.round(timeoutMs / 1000)} s (timeout)`
+      : typeof error.code === "number"
+        ? `exit code ${error.code}`
+        : String(error.message).split("\n")[0];
   }
   const lines = output.split("\n");
   const passed = lines.filter((l) => /\] PASSED/.test(l));
@@ -410,7 +417,9 @@ export async function regressions(filter, timeoutMs = 20 * 60_000) {
     .slice(0, 60)
     .map((l) => l.slice(0, 400));
   const summary = lines.find((l) => l.startsWith("Regression summary")) ?? null;
-  return { summary, passed: passed.length, failed, failureDetail: assertions };
+  // ok only when the runner finished, printed its summary and reported no failures.
+  const ok = !runError && summary !== null && failed.length === 0;
+  return { ok, ...(runError ? { runError } : {}), summary, passed: passed.length, failed, failureDetail: assertions };
 }
 
 // ------------------------------------------------------------------ deploy
