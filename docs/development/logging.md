@@ -83,11 +83,14 @@ The first occurrence of a key is written. Later ones inside the window (60 s by 
 
 ## Prompt and model text
 
-Prompts, model output, provider response bodies and poll bodies go at **debug**, never in warn or error lines. They can hold the user's story text, and provider bodies can echo credentials or the prompt. At warn, log the size (`rawLength`, `bodyLength`) and the reason. Put the text itself on a separate debug line:
+Prompts, model output, provider response bodies and poll bodies go at **debug**, never in warn or error lines. They can hold the user's story text, and provider bodies can echo credentials or the prompt. At warn, log the size (`rawLength`, `bodyLength`) and the reason. A JSON parse error message can quote the text it failed on, so for a parse failure log only the error type at warn. Put the error and the text itself on a separate debug line:
 
 ```ts
-logger.warn({ err, rawLength: raw.length }, "[game/scene-wrap] Failed to parse LLM response as JSON");
-logger.debug("[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0, 200));
+logger.warn(
+  { errorType: err instanceof Error ? err.name : typeof err, rawLength: raw.length },
+  "[game/scene-wrap] Failed to parse LLM response as JSON",
+);
+logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0, 200));
 ```
 
 The UI debug toggle keeps working through `logDebugOverride`. That is the intended way to see prompts when `LOG_LEVEL` hides debug.
