@@ -101,6 +101,8 @@ Pole **Apply To** (zakres stosowania) decyduje, którą stronę czatu obserwuje 
 
 Opcja **AI Output** służy do porządkowania tego, co pisze model. Opcja **User Input** poprawia i przekształca twój własny tekst.
 
+W czacie **Roleplay** z grupowym trybem **Individual** (osobne odpowiedzi), przy ustawieniu **Only Prompt** lub **Both**, miejsce działania zależy od postaci otrzymującej prompt: twoje wiadomości i wiadomości innych postaci podlegają regułom **User Input**, a własne odpowiedzi postaci, która właśnie odpowiada, podlegają regułom **AI Output**. Dotyczy to także odpowiedzi napisanych wcześniej w tej samej turze grupowej. Ograniczenia do wybranych postaci nadal określają, kto otrzymuje przepisany prompt, więc narrator wykluczony ze skryptu ukrywającego myśli zachowuje ich oryginalną treść. Wybierz **Only Prompt**, aby nie zmieniać zapisanego tekstu czatu.
+
 ## Tryb **Apply Mode**: **Only Display**, **Only Prompt** albo **Both**
 
 Selektor **Apply Mode** (moment zastosowania) znajduje się w sekcji **Advanced Options**. Decyduje o tym, kiedy przepisanie tekstu wchodzi w życie. To coś innego niż miejsce działania. Nowy skrypt startuje w trybie **Only Display**.
