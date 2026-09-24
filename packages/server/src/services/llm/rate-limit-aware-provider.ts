@@ -19,7 +19,7 @@
 import type { ChatCompletionResult, ChatMessage, ChatOptions, LLMUsage } from "./base-provider.js";
 import { BaseLLMProvider, LLMHttpError, isRateLimitError } from "./base-provider.js";
 import { getConnectionRateLimit } from "./connection-rate-limit-registry.js";
-import { isProviderTransientRetryEnabled } from "../../config/runtime-config.js";
+import { isFeatureEnabled } from "../features/feature-settings.js";
 import { logger } from "../../lib/logger.js";
 
 export const MAX_RATE_LIMIT_RETRIES = 6;
@@ -233,7 +233,7 @@ export class RateLimitAwareProvider extends BaseLLMProvider {
 
   /** Transient retry applies to this request: the setting is on and this wrapper allows it. Read per request. */
   private transientRetryActive(): boolean {
-    return this.transientRetryAllowed && isProviderTransientRetryEnabled();
+    return this.transientRetryAllowed && isFeatureEnabled("providerRetry");
   }
 
   /**

@@ -277,6 +277,10 @@ Turn on only the switch you need for a self-hosted service on another private-ne
 
 To connect a local or self-hosted model, see [Connecting a Local or Self-Hosted Model](connections/local-self-hosted.md).
 
+## Feature switches
+
+Optional server behaviours, such as retrying failed provider calls or keeping lorebook group picks stable, are switched on in **Settings > Advanced > Features**. All of them are off by default. A few have an environment variable that, when set, wins over the switch. See [Feature Switches](configuration/features.md) for every switch, its default and its variable.
+
 ## Full environment variable reference
 
 This section lists the remaining settings, grouped by purpose. The tables above already cover access control, storage, logging, timeouts, privileged actions, and local address opt-ins.
@@ -329,7 +333,7 @@ Scene video providers are set up as connections inside the app, not as environme
 
 ### Lorebooks
 
-Both settings are off by default and apply on the next generation after a `.env` change.
+Both settings are off by default and apply on the next generation after a `.env` change. `LOREBOOK_STABLE_GROUP_WINNERS` pins the **Stable lorebook picks** switch in Settings > Advanced > Features: when it is set, it wins over the switch; when it is unset, the switch decides (see [Feature Switches](configuration/features.md)).
 
 | Variable                        | Default | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -340,7 +344,7 @@ Both settings are off by default and apply on the next generation after a `.env`
 
 ### Robustness
 
-Every setting here is off by default, which keeps the behaviour exactly as it was, and each one works on its own. `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS` and `SHUTDOWN_FORCE_EXIT_ON_REPEAT` are read at startup and need a restart; the others apply on the next request, save or stop after a `.env` change.
+Every setting here is off by default, which keeps the behaviour exactly as it was, and each one works on its own. `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS` and `SHUTDOWN_FORCE_EXIT_ON_REPEAT` are read at startup and need a restart; the others apply on the next request, save or stop after a `.env` change. `PROVIDER_RETRY_TRANSIENT_ERRORS` pins the **Retry failed provider calls** switch in Settings > Advanced > Features: when it is set, it wins over the switch; when it is unset, the switch decides (see [Feature Switches](configuration/features.md)).
 
 | Variable                           | Default | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ---------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -372,6 +376,7 @@ For a Giphy key, note that GIF search stays unavailable until you set `GIPHY_API
 
 ## Related guides
 
+- [Feature Switches](configuration/features.md)
 - [Remote Access: Basic Auth and IP Allowlist](REMOTE_ACCESS.md)
 - [Where Your Data Is Stored](data/where-data-is-stored.md)
 - [Connecting to an AI Provider](connections/connecting-to-a-provider.md)

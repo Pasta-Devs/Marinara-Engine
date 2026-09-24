@@ -270,6 +270,15 @@ function isEnabledFlag(value: string | undefined | null) {
   return ["1", "true", "yes", "on"].includes((value ?? "").trim().toLowerCase());
 }
 
+/**
+ * An on/off environment variable that pins a feature switch: null when unset or blank (the saved
+ * setting applies), otherwise true for 1/true/yes/on and false for anything else. Read per call.
+ */
+export function readEnvFlagOverride(envVar: string): boolean | null {
+  const raw = normalizeEnvValue(process.env[envVar]);
+  return raw === null ? null : isEnabledFlag(raw);
+}
+
 function parsePositiveIntEnv(value: string | undefined | null, fallback: number, max: number) {
   const raw = normalizeEnvValue(value);
   if (!raw || !/^\d+$/.test(raw)) return fallback;
@@ -500,15 +509,6 @@ export function isProviderLocalUrlsEnabled() {
 }
 
 /**
- * Opt-in: pick lorebook inclusion-group winners with a per-chat seed instead of re-rolling every generation.
- * The same chat and the same activated candidates then keep the same winner, so the prompt prefix stays stable
- * for provider prompt caching. Read per call, so a `.env` change applies on the next generation.
- */
-export function isLorebookStableGroupWinnersEnabled() {
-  return isEnabledFlag(process.env.LOREBOOK_STABLE_GROUP_WINNERS);
-}
-
-/**
  * Opt-in: keep the full text of activated lorebook entries only on the newest generated message of a chat (its row
  * and its swipes) and store older messages' scans without it. Off by default, which keeps today's storage shape.
  * Read per call, so a `.env` change applies on the next generation.
@@ -520,13 +520,9 @@ export function isLorebookScanCompactionEnabled() {
 // Robustness settings. Every one is off by default, which keeps today's behaviour exactly, and each can be turned on
 // by itself. Read per call unless noted, so a `.env` change applies without a restart where the code path allows it.
 
-/**
- * Opt-in: retry a refused / unreachable connection or a gateway 502 / 503 at most twice, only before any output
- * reached the user. Never applied to the primary leg of a connection with a usable fallback: the fallback is faster.
- */
-export function isProviderTransientRetryEnabled() {
-  return isEnabledFlag(process.env.PROVIDER_RETRY_TRANSIENT_ERRORS);
-}
+// LOREBOOK_STABLE_GROUP_WINNERS and PROVIDER_RETRY_TRANSIENT_ERRORS are feature switches now
+// (stableLorebookGroupPicks, providerRetry): services/features/feature-settings.ts reads them with
+// readEnvFlagOverride, where a set variable wins over Settings > Advanced > Features.
 
 /** Opt-in: a storage flush skips a shard or manifest write whose content matches this process's last durable write. */
 export function isStorageSkipUnchangedWritesEnabled() {

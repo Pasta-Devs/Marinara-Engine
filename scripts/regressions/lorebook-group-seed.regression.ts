@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { createLorebookEntrySchema } from "../../packages/shared/src/schemas/lorebook.schema.js";
 import type { LorebookEntry } from "../../packages/shared/src/types/lorebook.js";
 import { scanForActivatedEntries } from "../../packages/server/src/services/lorebook/keyword-scanner.js";
-import { isLorebookStableGroupWinnersEnabled } from "../../packages/server/src/config/runtime-config.js";
+import {
+  isFeatureEnabled,
+  resetFeatureSettingsForTests,
+} from "../../packages/server/src/services/features/feature-settings.js";
 
 // An inclusion group activates one of its matching entries per generation. By default the winner is re-rolled on
-// every turn. With a group seed (the chat id, opt-in via LOREBOOK_STABLE_GROUP_WINNERS), the same candidates must give
+// every turn. With a group seed (the chat id, opt-in via the stableLorebookGroupPicks switch), the same candidates must give
 // the same winner on every turn, so the prompt prefix stays cacheable, while other chats and other candidate sets can
 // still pick differently.
 const ids = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"];
@@ -49,12 +52,17 @@ assert.deepEqual(winner({ groupSeed: "chat-a", random: () => 0.999 }), ["foxtrot
 // Without a seed the scan keeps the existing per-generation random pick.
 assert.deepEqual(winner({ random: () => 0 }), ["alpha"]);
 
-// The seed is opt-in: off unless LOREBOOK_STABLE_GROUP_WINNERS is set.
+// The seed is opt-in: off unless the stableLorebookGroupPicks switch is on (Settings > Advanced > Features) or
+// LOREBOOK_STABLE_GROUP_WINNERS pins it.
 const previous = process.env.LOREBOOK_STABLE_GROUP_WINNERS;
 delete process.env.LOREBOOK_STABLE_GROUP_WINNERS;
-assert.equal(isLorebookStableGroupWinnersEnabled(), false);
+resetFeatureSettingsForTests();
+assert.equal(isFeatureEnabled("stableLorebookGroupPicks"), false);
+resetFeatureSettingsForTests({ stableLorebookGroupPicks: true });
+assert.equal(isFeatureEnabled("stableLorebookGroupPicks"), true);
+resetFeatureSettingsForTests();
 process.env.LOREBOOK_STABLE_GROUP_WINNERS = "true";
-assert.equal(isLorebookStableGroupWinnersEnabled(), true);
+assert.equal(isFeatureEnabled("stableLorebookGroupPicks"), true);
 if (previous === undefined) delete process.env.LOREBOOK_STABLE_GROUP_WINNERS;
 else process.env.LOREBOOK_STABLE_GROUP_WINNERS = previous;
 

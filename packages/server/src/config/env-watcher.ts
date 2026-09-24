@@ -32,6 +32,7 @@ import { basename, dirname } from "node:path";
 import { logger } from "../lib/logger.js";
 import { getEnvFilePath, getLogLevel, reloadRuntimeEnv, type EnvReloadResult } from "./runtime-config.js";
 import { personalServerExtensionRuntime } from "../services/extensions/personal-server-extension-runtime.js";
+import { notifyFeatureSettingsChange } from "../services/features/feature-settings.js";
 
 // Keys whose values are bound at process / app startup and won't take effect
 // without a full restart, even though we propagate them to process.env.
@@ -184,6 +185,8 @@ export function startEnvWatcher(): EnvWatcherHandle {
       logDiff(diff);
       applyLogLevel(diff);
       applyExternalExtensionsGate(diff);
+      // Env-pinned feature switches (LOREBOOK_STABLE_GROUP_WINNERS and friends) may have flipped.
+      if (diff.updated.length > 0 || diff.added.length > 0 || diff.removed.length > 0) notifyFeatureSettingsChange();
       return diff;
     } catch (err) {
       logger.error(err, "[env-watcher] Failed to reload .env");
