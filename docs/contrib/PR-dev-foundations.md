@@ -21,7 +21,7 @@ The shared Pino logger in `lib/logger.ts`, the Logging section of `CONTRIBUTING.
 
 ## What this adds
 
-Details for every piece are in `docs/contrib/dev-foundations-overview.md`. Logging rules are in `docs/development/logging.md`, linked from the Logging section of `CONTRIBUTING.md`.
+Details for every piece are in `docs/contrib/engine-foundations-overview.md`. Logging rules are in `docs/development/logging.md`, linked from the Logging section of `CONTRIBUTING.md`.
 
 ## What stays exactly the same
 
