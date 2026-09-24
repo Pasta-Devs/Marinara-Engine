@@ -3116,6 +3116,13 @@ body {
   container-type: inline-size;
 }
 
+.mari-home-widget[data-home-widget-kind="package"] {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--home-widget-accent, var(--border)) 34%, var(--border));
+  border-radius: 1rem;
+  background: var(--home-widget-surface, var(--card));
+}
+
 .mari-home-professor-widget .mari-professor-pixel-scene [data-part="sprite"] {
   width: 68%;
 }

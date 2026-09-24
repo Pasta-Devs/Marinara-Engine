@@ -29,6 +29,28 @@ export const homeAgentWidgetSchema = z
     title: z.string().trim().min(1).max(80),
     description: z.string().trim().max(240),
     size: z.enum(["compact", "large"]),
+    icon: z
+      .enum([
+        "activity",
+        "bell",
+        "calendar",
+        "chart",
+        "circle",
+        "clock",
+        "file",
+        "flame",
+        "heart",
+        "image",
+        "list",
+        "message",
+        "sparkles",
+        "star",
+        "zap",
+      ])
+      .optional(),
+    accent: z.enum(["cyan", "green", "amber", "orange", "rose", "violet"]).optional(),
+    surface: z.enum(["soft", "solid", "quiet"]).optional(),
+    header: z.enum(["standard", "compact", "banner"]).optional(),
   })
   .strict();
 export const homeAgentWidgetsSchema = z

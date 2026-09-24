@@ -157,6 +157,11 @@ type AgentHomeWidget = {
   label: string;
   description: string;
   size: "compact" | "large";
+  icon?: string;
+  iconPath?: string;
+  accent?: "cyan" | "green" | "amber" | "orange" | "rose" | "violet";
+  surface?: "soft" | "solid" | "quiet";
+  header?: "standard" | "compact" | "banner";
 };
 
 function packageHomeWidgetId(packageId: string, widgetId: string): HomeWidgetId {
@@ -671,6 +676,7 @@ function HomeWidgetFrame({
       )}
       style={{ order }}
       data-home-widget-size={size}
+      data-home-widget-kind={id.startsWith("agent:package:") ? "package" : undefined}
     >
       <span
         role="button"
@@ -1769,6 +1775,11 @@ export function HomeBrowserHub({
           label: widget.label,
           description: widget.description,
           size: widget.size,
+          icon: widget.icon,
+          iconPath: widget.iconPath,
+          accent: widget.accent,
+          surface: widget.surface,
+          header: widget.header,
         })),
       };
     });
@@ -1796,6 +1807,10 @@ export function HomeBrowserHub({
             label: widget.title,
             description: widget.description,
             size: widget.size,
+            icon: widget.icon,
+            accent: widget.accent,
+            surface: widget.surface,
+            header: widget.header,
           })),
         },
       ];
@@ -3386,43 +3401,39 @@ export function HomeBrowserHub({
                     })}
                     {agentWidgets.map((widget) => (
                       <HomeWidgetFrame key={widget.id} {...widgetFrameProps(widget.id)}>
-                        <FeedModule
-                          eyebrow={widget.ownerName}
-                          title={widget.label}
-                          accent={HOME_MODULE_ACCENTS.cyan}
-                          className="h-full min-h-0"
-                        >
-                          {widget.kind === "package" && widget.packageId ? (
-                            <CapabilityElement
-                              packageId={widget.packageId}
-                              view="widget"
-                              className="block h-full min-h-0 w-full"
-                              capabilityProps={{
-                                widgetId: widget.widgetId,
-                                active: pageActive && activeTab === "home" && visibleWidgets.includes(widget.id),
-                                onOpenPost: (postId: unknown) => {
-                                  if (
-                                    widget.packageId !== "noodle" ||
-                                    typeof postId !== "string" ||
-                                    postId.length > 128
-                                  )
-                                    return;
-                                  setFocusedPackagePostId(postId);
-                                  selectTab("noodle");
-                                },
-                                onOpenNoodle: () => selectTab(widget.packageId!),
-                              }}
-                            />
-                          ) : widget.agentId ? (
-                            <CustomAgentHomeWidget
-                              agentId={widget.agentId}
-                              widgetId={widget.widgetId}
-                              description={widget.description}
-                              active={pageActive && activeTab === "home" && visibleWidgets.includes(widget.id)}
-                              onOpenAgent={() => useUIStore.getState().openAgentDetail(widget.agentId!)}
-                            />
-                          ) : null}
-                        </FeedModule>
+                        {widget.kind === "package" && widget.packageId ? (
+                          <CapabilityElement
+                            packageId={widget.packageId}
+                            view="widget"
+                            className="block h-full min-h-0 w-full"
+                            capabilityProps={{
+                              widgetId: widget.widgetId,
+                              widgetLabel: widget.label,
+                              widgetDescription: widget.description,
+                              widgetIcon: widget.icon,
+                              widgetIconPath: widget.iconPath,
+                              widgetAccent: widget.accent,
+                              widgetSurface: widget.surface,
+                              widgetHeader: widget.header,
+                              active: pageActive && activeTab === "home" && visibleWidgets.includes(widget.id),
+                              onOpenPost: (postId: unknown) => {
+                                if (widget.packageId !== "noodle" || typeof postId !== "string" || postId.length > 128)
+                                  return;
+                                setFocusedPackagePostId(postId);
+                                selectTab("noodle");
+                              },
+                              onOpenNoodle: () => selectTab(widget.packageId!),
+                            }}
+                          />
+                        ) : widget.agentId ? (
+                          <CustomAgentHomeWidget
+                            agentId={widget.agentId}
+                            widgetId={widget.widgetId}
+                            description={widget.description}
+                            active={pageActive && activeTab === "home" && visibleWidgets.includes(widget.id)}
+                            onOpenAgent={() => useUIStore.getState().openAgentDetail(widget.agentId!)}
+                          />
+                        ) : null}
                       </HomeWidgetFrame>
                     ))}
                     {activeWidgetSlots.map((slot, index) =>

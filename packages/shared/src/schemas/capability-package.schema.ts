@@ -160,6 +160,34 @@ const capabilityPackageManifestBaseSchema = z
                 label: z.string().min(1).max(80),
                 description: z.string().max(200),
                 size: z.enum(["compact", "large"]),
+                icon: z
+                  .enum([
+                    "activity",
+                    "bell",
+                    "calendar",
+                    "chart",
+                    "circle",
+                    "clock",
+                    "file",
+                    "flame",
+                    "heart",
+                    "image",
+                    "list",
+                    "message",
+                    "sparkles",
+                    "star",
+                    "zap",
+                  ])
+                  .optional(),
+                iconPath: z
+                  .string()
+                  .min(1)
+                  .max(240)
+                  .regex(/\.(?:gif|jpe?g|png|webp)$/iu)
+                  .optional(),
+                accent: z.enum(["cyan", "green", "amber", "orange", "rose", "violet"]).optional(),
+                surface: z.enum(["soft", "solid", "quiet"]).optional(),
+                header: z.enum(["standard", "compact", "banner"]).optional(),
               })
               .strict(),
           )
