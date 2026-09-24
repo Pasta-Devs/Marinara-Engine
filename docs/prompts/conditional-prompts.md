@@ -269,6 +269,7 @@ Describe the new weather in a sentence.
 ```
 
 - It is asked the first turn it is reached, then again 3 turns later, and so on.
+- Changing the number takes effect at once: the next check counts from the turn it was last asked.
 - Between checks it reads as no, is not asked, and does not count toward **Decision statements per turn**.
 - Turns count the same way as sticky and cooldown, so a regeneration or a swipe reads the same answer.
 - Sticky and cooldown still hold a statement's answer; `every:` only decides when a statement they do not hold is asked.

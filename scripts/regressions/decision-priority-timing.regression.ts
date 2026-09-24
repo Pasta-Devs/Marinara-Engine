@@ -17,8 +17,12 @@ process.env.NODE_ENV = "test";
 process.env.MARINARA_LITE = "true";
 process.env.LOG_LEVEL = "silent";
 
-const { collectDecisionQuestions, characterDataSchema, DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY } =
-  await import("../../packages/shared/dist/index.js");
+const {
+  collectDecisionQuestions,
+  characterDataSchema,
+  DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
+  MAX_DECISION_TIMING_TURNS,
+} = await import("../../packages/shared/dist/index.js");
 const { planPromptDecisions } = await import("../../packages/server/src/services/decision/prompt-decisions.js");
 const { readDecisionTimers, decisionTurnFor, heldDecision, recordDecisionCheck } =
   await import("../../packages/server/src/services/decision/decision-timers.js");
@@ -77,9 +81,25 @@ assert.equal(merged[1].priority, "low", "low only when every occurrence says so"
   for (const id of ["m1", "m2", "m3", "m4"])
     held.push(heldDecision(timers, decisionTurnFor(timers, id), "noul", "Weather", 3)?.yes);
   assert.deepEqual(held, [undefined, false, false, undefined], "asked, no for two turns, then asked again");
-  assert.deepEqual(timers.checks, {}, "a check that has come due is dropped");
-  recordDecisionCheck(timers, timers.turn, { kind: "noul", key: "Every turn", every: 1 });
-  assert.deepEqual(timers.checks, {}, "every:1 is every turn, so nothing is kept");
+  recordDecisionCheck(timers, timers.turn, { kind: "noul", key: "Weather", every: 1 });
+  assert.deepEqual(timers.checks, {}, "asked at every:1, the last check is out of date, so it is dropped");
+
+  // Editing the number takes effect at once: the next check counts from the last one.
+  const edited = readDecisionTimers(undefined);
+  const first = decisionTurnFor(edited, "e1");
+  recordDecisionCheck(edited, first, { kind: "noul", key: "Shortened", every: 5 });
+  recordDecisionCheck(edited, first, { kind: "noul", key: "Lengthened", every: 2 });
+  for (const id of ["e2", "e3"]) decisionTurnFor(edited, id);
+  assert.equal(heldDecision(edited, 3, "noul", "Shortened", 2), undefined, "every:5 cut to every:2 is due on turn 3");
+  assert.deepEqual(
+    heldDecision(edited, 3, "noul", "Lengthened", 5),
+    { yes: false },
+    "every:2 raised to every:5 is not",
+  );
+  for (let turn = 4; turn <= MAX_DECISION_TIMING_TURNS; turn++) decisionTurnFor(edited, `e${turn}`);
+  assert.ok(edited.checks["noul\u0000Shortened"], "kept while some every: could still hold it");
+  decisionTurnFor(edited, "last");
+  assert.deepEqual(edited.checks, {}, "then dropped");
   const timedPlan = planPromptDecisions([{ texts: [block("Weather", "every:3"), block("Live")], ctx }], 1, {
     held: (_kind: string, key: string, modifiers?: { every?: number }) =>
       key === "Weather" && modifiers?.every === 3 ? { yes: false } : undefined,
