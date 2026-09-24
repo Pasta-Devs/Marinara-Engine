@@ -83,6 +83,9 @@ export function refreshLock() {
   if (held?.session === SESSION) writeFileSync(LOCK_FILE, lockBody(held.purpose));
 }
 
+/** True while this session holds the lock (for example during a restart), so nested steps do not release it. */
+export const holdsLock = () => readLock()?.session === SESSION;
+
 export function releaseLock() {
   if (readLock()?.session === SESSION) rmSync(LOCK_FILE, { force: true });
 }
@@ -340,8 +343,16 @@ function tscPath(pkgDir) {
 export async function typecheck(pkg) {
   const targets = pkg === "all" ? ["server", "client"] : [pkg];
   const results = [];
-  // shared's emitted types feed the other packages.
-  const shared = await pnpm(["--filter", "@marinara-engine/shared", "build"]);
+  // shared's emitted types feed the other packages. Rebuilding its dist is a write that a concurrent build or
+  // restart also makes, so it takes the engine lock for the build only (not for tsc).
+  const nested = holdsLock();
+  if (!nested) acquireLock("typecheck: rebuild shared");
+  let shared;
+  try {
+    shared = await pnpm(["--filter", "@marinara-engine/shared", "build"]);
+  } finally {
+    if (!nested) releaseLock();
+  }
   if (!shared.ok) return [{ pkg: "shared(build)", ok: false, errors: shared.output.split("\n").slice(-30) }];
   for (const target of targets) {
     const cwd = join(REPO, "packages", target);
