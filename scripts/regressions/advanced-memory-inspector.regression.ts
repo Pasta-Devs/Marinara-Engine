@@ -245,8 +245,8 @@ try {
   const hidden = (await app.inject({ method: "GET", url })).json();
   assert.equal(
     hidden.records.find((record: { id: string }) => record.id === "scene-50-saved").embeddingStatus,
-    "stale",
-    "changed source access still excludes an unsafe saved memory",
+    "pending",
+    "global hiding preserves the saved memory's index state",
   );
   console.info(
     "Advanced Memory inspector regression passed (large archive, compact status, toggle/delete and source revisions).",
