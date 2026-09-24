@@ -10,6 +10,7 @@ import {
   type FeatureSwitchName,
 } from "@marinara-engine/shared";
 import { getPrivilegedActionErrorMessage } from "../../../lib/api-client";
+import { useUIStore } from "../../../stores/ui.store";
 import { useFeatureSettings, useSaveFeatureSettings } from "../../../hooks/use-feature-settings";
 import { DraftNumberInput } from "../../ui/DraftNumberInput";
 import { ToggleSetting } from "./SettingControls";
@@ -88,6 +89,15 @@ export function FeatureSwitchesSettings({ anchorId }: { anchorId?: string }) {
             />
             {locked ? (
               <p className="px-1.5 pb-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">{locked}</p>
+            ) : null}
+            {name === "generationJobTracking" && enabled ? (
+              <button
+                type="button"
+                onClick={() => useUIStore.getState().openModal("generation-jobs")}
+                className="mx-1.5 mb-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
+              >
+                {t("settings.features.generationJobTracking.open")}
+              </button>
             ) : null}
             {number && enabled && !envNote(number) ? (
               <label className="flex items-center justify-between gap-3 px-1.5 pb-1.5 text-xs text-[var(--muted-foreground)]">

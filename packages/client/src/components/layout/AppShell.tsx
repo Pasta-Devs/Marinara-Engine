@@ -38,6 +38,7 @@ import { isIosWebKitBrowser } from "../../lib/generation-stream-policy";
 import { cn } from "../../lib/utils";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { requestChatSummaryOpen } from "../../lib/chat-floating-ui-events";
+import { GenerationJobsRecoveryHost } from "../generation-jobs/GenerationJobsRecoveryHost";
 import { resolveTrackerPanelContentScale, resolveTrackerPanelDesktopWidth } from "../../lib/tracker-panel-layout";
 import {
   closeTrackerPanelWindow,
@@ -1549,6 +1550,7 @@ export function AppShell() {
         </Suspense>
       )}
       <ProfessorMariFloatingAssistantHost active={professorMariFloatingActive} />
+      <GenerationJobsRecoveryHost />
       <div data-component="MobileMusicWidgetLayer" className="contents">
         {isMobile && musicDjInstalled ? (
           <>

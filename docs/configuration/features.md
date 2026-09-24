@@ -72,9 +72,11 @@ Off: no cap.
 
 Setting key: `generationJobTracking`.
 
-On: image, sprite and video jobs keep running after the tab closes. Their status and a short log are saved, and finished results can be picked up later.
+On: gallery images, selfies and scene videos, scene backgrounds, character art drafts, sprite sheets and animated expressions keep running after the tab closes. Their status, a short log and the result are saved. When you come back, Marinara tells you which jobs finished while you were away. **Open generation jobs**, under the switch, lists recent jobs with their status, a preview of the result and a **Stop** button for running ones. A server restart marks jobs that were still running as interrupted; they are not started again. Finished job records are kept for 7 days (at most 300).
 
-Off: jobs are tied to the open tab, as before.
+Off: the gallery image, selfie and scene video generations stop when the tab closes, as before, and nothing is saved.
+
+For developers: docs/development/generation-jobs.md.
 
 ### Minimize the console to the system tray
 

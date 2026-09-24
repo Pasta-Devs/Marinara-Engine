@@ -152,6 +152,47 @@ try {
   assert.ok(!echoed.message.includes("PLANTED") && !String(echoed.stack).includes("PLANTED"));
   assert.match(echoed.message, /\[quoted text removed\]/);
 
+  // ── Client: reattach rules and wiring ──
+  const clientLib = await import("../../packages/client/src/lib/generation-job-tracking.js");
+  const job = (id: string, status: string, finishedAt: string | null, seenAt: string | null = null) =>
+    ({ id, status, finishedAt, updatedAt: finishedAt ?? at(0), seenAt }) as never;
+  const split = clientLib.partitionFinishedJobs(
+    [
+      job("before-load", "completed", at(60_000)),
+      job("while-hidden", "failed", at(20_000)),
+      job("while-present", "completed", at(5_000)),
+      job("already-seen", "completed", at(60_000), at(1)),
+      job("running", "running", null),
+    ],
+    { pageLoadedAt: nowMs - 30_000, away: [{ from: nowMs - 25_000, to: nowMs - 10_000 }] },
+  );
+  assert.deepEqual(
+    split.announce.map((item: { id: string }) => item.id),
+    ["before-load", "while-hidden"],
+  );
+  assert.deepEqual(
+    split.quiet.map((item: { id: string }) => item.id),
+    ["while-present"],
+  );
+  assert.equal(clientLib.formatJobAge(3_725_000), "1h 2m");
+  assert.equal(clientLib.safeResultHref("/api/gallery/file/a.png"), "/api/gallery/file/a.png");
+  assert.equal(clientLib.safeResultHref(`/api/generation-jobs/${someId}/result`), null);
+  assert.equal(clientLib.safeResultHref("javascript:alert(1)"), null);
+  const hooks = read("../../packages/client/src/hooks/use-generation-jobs.ts");
+  assert.match(hooks, /useFeatureEnabled\("generationJobTracking"\)/, "the client follows the feature switch");
+  const modal = read("../../packages/client/src/components/modals/GenerationJobsModal.tsx");
+  assert.match(modal, /useGenerationJobs\(trackingEnabled && open\)/, "off: the viewer requests nothing");
+  const host = read("../../packages/client/src/components/generation-jobs/GenerationJobsRecoveryHost.tsx");
+  assert.match(host, /useTrackedGenerationJobs\(enabled\)/);
+  assert.match(host, /if \(!enabled\) return;/, "off: no listeners");
+  assert.match(read("../../packages/client/src/components/layout/AppShell.tsx"), /<GenerationJobsRecoveryHost \/>/);
+  assert.match(read("../../packages/client/src/components/layout/ModalRenderer.tsx"), /case "generation-jobs":/);
+  assert.match(
+    read("../../packages/client/src/components/panels/settings/FeatureSwitchesSettings.tsx"),
+    /name === "generationJobTracking" && enabled \?[\s\S]{0,200}openModal\("generation-jobs"\)/,
+    "the Open generation jobs button sits under the switch row, only while it is on",
+  );
+
   // ── Store on its own: persistence, cancel, timeout, restart recovery ──
   const storeRoot = mkdtempSync(join(tmpdir(), "marinara-generation-store-"));
   try {

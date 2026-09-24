@@ -64,6 +64,9 @@ const ScenePromptPreferencesModal = lazy(() =>
 const ChoiceSelectionModal = lazy(() =>
   import("../presets/ChoiceSelectionModal").then((module) => ({ default: module.ChoiceSelectionModal })),
 );
+const GenerationJobsModal = lazy(() =>
+  import("../modals/GenerationJobsModal").then((module) => ({ default: module.GenerationJobsModal })),
+);
 const StartCharacterChatModal = lazy(() =>
   import("../modals/StartCharacterChatModal").then((module) => ({
     default: module.StartCharacterChatModal,
@@ -187,6 +190,9 @@ export function ModalRenderer() {
           presetId={modal?.props?.presetId as string}
         />
       );
+      break;
+    case "generation-jobs":
+      content = <GenerationJobsModal open onClose={closeModal} />;
       break;
     case "start-character-chat":
       content = (
