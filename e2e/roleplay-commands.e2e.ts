@@ -420,12 +420,18 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       expect(response.ok(), await response.text()).toBeTruthy();
       return contentOf((await response.json()).prompt);
     };
+    const reload = async () => {
+      // Let startup requests finish before tearing down WebKit's page context.
+      await page.waitForLoadState("networkidle");
+      await page.reload();
+    };
+
     const generate = async () => {
       const response = await request.post("/api/generate", { data: { chatId: chat.id, forCharacterId: narrator.id } });
       expect(response.ok(), await response.text()).toBeTruthy();
       expect(await response.text()).not.toContain('"type":"error"');
       const rows = await (await request.get(`/api/chats/${chat.id}/messages`)).json();
-      await page.reload();
+      await reload();
       return rows.at(-1);
     };
     try {
@@ -516,7 +522,7 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       await secret.getByRole("button", { name: "Hide the secret", exact: true }).click();
       await expect(secret).not.toContainText("The hidden key is beneath the blue vase.");
       await secret.getByRole("button", { name: "Reveal a secret", exact: true }).click();
-      await page.reload();
+      await reload();
       await expect(secret).not.toContainText("The hidden key is beneath the blue vase.");
       await expect(personal).toContainText("A silver door appears in your vision.");
       output = '[whisper: character="Bob" text="A secret without public narration."]';
@@ -542,7 +548,7 @@ for (const presentation of ["classic", "visual-novel"] as const) {
             contentAnchor: between.content.slice(0, offset),
           })),
         });
-        await page.reload();
+        await reload();
         const paragraph = page.getByRole("region", { name: "Current paragraph", exact: true });
         const previous = page.getByRole("button", { name: "Previous paragraph", exact: true });
         if (await previous.isEnabled()) await previous.click();
