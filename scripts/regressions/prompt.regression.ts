@@ -5719,6 +5719,7 @@ const cases: RegressionCase[] = [
         assert.match(system, /Draw a three-panel comic from Mari POV\./u);
         assert.doesNotMatch(system, /ordinary scene using the global default/u);
         assert.doesNotMatch(system, /No selected Illustrator prompt mode supplied/u);
+        assert.match(system, /<\/selected_illustrator_prompt_mode>/u);
         assert.ok(
           system.indexOf("For this manual request, ignore") > system.indexOf("</selected_illustrator_prompt_mode>"),
         );
