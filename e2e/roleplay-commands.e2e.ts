@@ -409,7 +409,6 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       expect(response.ok(), await response.text()).toBeTruthy();
       expect(await response.text()).not.toContain('"type":"error"');
       const rows = await (await request.get(`/api/chats/${chat.id}/messages`)).json();
-      await page.reload();
       return rows.at(-1);
     };
     try {
@@ -456,6 +455,7 @@ for (const presentation of ["classic", "visual-novel"] as const) {
         });
       await page.getByRole("button", { name: /^Close chat settings$/iu }).click();
       const saved = await generate();
+      await page.reload();
       const bubble =
         presentation === "visual-novel"
           ? page.getByRole("region", { name: "Current paragraph", exact: true })
@@ -505,6 +505,7 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       await expect(personal).toContainText("A silver door appears in your vision.");
       output = '[whisper: character="Bob" text="A secret without public narration."]';
       const only = await generate();
+      await page.reload();
       const onlySecret =
         presentation === "visual-novel"
           ? page.getByRole("region", { name: "Current paragraph", exact: true }).locator("[data-roleplay-whisper]")
@@ -526,6 +527,7 @@ for (const presentation of ["classic", "visual-novel"] as const) {
             contentAnchor: between.content.slice(0, offset),
           })),
         });
+        // Finish the fixture before reloading; back-to-back reloads abort WebKit's startup fetches.
         await page.reload();
         const paragraph = page.getByRole("region", { name: "Current paragraph", exact: true });
         const previous = page.getByRole("button", { name: "Previous paragraph", exact: true });
