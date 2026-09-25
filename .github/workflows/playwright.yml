@@ -6,42 +6,55 @@ on:
   push:
     branches: [staging]
   schedule:
-    # GitHub schedules from the default branch; the revision job checks staging.
+    # The default-branch scheduler dispatches testing in staging's own cache scope.
     - cron: "17 2 * * *"
   workflow_dispatch:
     inputs:
-      ref:
-        description: "Branch, tag, or commit to run the full matrix against (blank uses the selected workflow branch)"
+      expected_sha:
+        description: "Optional full commit SHA: fail if the selected workflow branch/tag has moved"
         required: false
         type: string
 
 concurrency:
-  group: playwright-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.ref || github.ref }}
+  group: playwright-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  revision:
-    name: regression-revision
+  nightly:
+    name: dispatch-nightly-staging
+    if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: read
-    outputs:
-      sha: ${{ steps.resolve.outputs.sha }}
-      full: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.base_ref == 'main' }}
+      actions: write
     steps:
-      - name: Checkout candidate
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          ref: ${{ github.event_name == 'schedule' && 'staging' || inputs.ref || github.sha }}
-      - name: Pin the revision for every job
-        id: resolve
+      # No checkout or repository code with this token. Dispatching on staging
+      # keeps test execution and cache writes in staging's own branch scope.
+      - name: Dispatch full matrix on staging
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh api --method POST "repos/$GH_REPO/actions/workflows/playwright.yml/dispatches" -f ref=staging
+
+  revision:
+    name: regression-revision
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    outputs:
+      full: ${{ github.event_name == 'workflow_dispatch' || github.base_ref == 'main' }}
+    steps:
+      - name: Record and verify the triggering revision
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
         run: |
-          sha=$(git rev-parse HEAD)
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "Testing commit: $sha" >> "$GITHUB_STEP_SUMMARY"
+          echo "Testing commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "$EXPECTED_SHA" && "$EXPECTED_SHA" != "$GITHUB_SHA" ]]; then
+            echo "Selected branch/tag moved: expected $EXPECTED_SHA, got $GITHUB_SHA"
+            exit 1
+          fi
 
   node:
     name: complete-node-regressions
@@ -57,7 +70,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.revision.outputs.sha }}
+          ref: ${{ github.sha }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -89,7 +102,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.revision.outputs.sha }}
+          ref: ${{ github.sha }}
       - name: Run focused Chromium smoke suite
         uses: ./.github/actions/playwright-shard
         with:
@@ -135,7 +148,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.revision.outputs.sha }}
+          ref: ${{ github.sha }}
 
       - name: Run shard
         uses: ./.github/actions/playwright-shard
@@ -175,7 +188,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.revision.outputs.sha }}
+          ref: ${{ github.sha }}
 
       - name: Run shard
         uses: ./.github/actions/playwright-shard
@@ -216,7 +229,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.revision.outputs.sha }}
+          ref: ${{ github.sha }}
 
       - name: Run shard
         uses: ./.github/actions/playwright-shard
