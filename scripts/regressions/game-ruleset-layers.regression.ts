@@ -40,7 +40,14 @@ import {
 } from "../../packages/shared/src/index.js";
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
-const emberText = read("../../docs/examples/rulesets/ember-roads.json");
+/** The example less the sheet keys 1.37 added (a track always shown, a summary list's columns):
+ *  every gate this lane proves is older, so it is proven on a file that trips nothing newer. */
+const emberText = (() => {
+  const doc = JSON.parse(read("../../docs/examples/rulesets/ember-roads.json"));
+  for (const track of doc.sheet.live.tracks) delete track.alwaysShow;
+  for (const list of doc.gm.sheetSummary?.lists ?? []) delete list.columns;
+  return JSON.stringify(doc);
+})();
 const gravewatchText = read("../../docs/examples/rulesets/gravewatch.json");
 const fiveEText = read("../../docs/development/ruleset-5e-2014.example.json");
 
@@ -286,7 +293,12 @@ const on = (...ids: string[]) => Object.fromEntries(ids.map((id) => [rulesetLaye
   // The picker is what hides an entry, per game, out of the catalog the ruleset shipped.
   const entries = ember.catalogs![0]!.entries!;
   const hidden = (id: string, options: Record<string, boolean>) =>
-    catalogEntryHiddenByLayers(ember, options, "knacks", entries.find((entry) => entry.id === id)!);
+    catalogEntryHiddenByLayers(
+      ember,
+      options,
+      "knacks",
+      entries.find((entry) => entry.id === id)!,
+    );
   assert.equal(hidden("last-ember", on("hard_winter")), true, "1 Grit is more than a hard winter can spare");
   assert.equal(hidden("hold-the-line", on("hard_winter")), false, "a free knack stays");
   assert.equal(hidden("last-ember", {}), false, "and with the layer off nothing is hidden at all");

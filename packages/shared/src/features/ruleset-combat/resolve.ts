@@ -432,8 +432,12 @@ function trackValue(ctx: RulesetCombatContext, combatant: RulesetCombatant, trac
   return live.tracks.find((entry) => entry.id === track)?.value ?? 0;
 }
 
-function trackMax(ctx: RulesetCombatContext, track: string): number {
-  return ctx.definition.sheet.live.tracks.find((entry) => entry.id === track)?.max ?? 0;
+/** The top of a track as this combatant's own sheet has it, since a plain track's maximum may be a
+ *  value the sheet works out. A combatant with no sheet has no track to fill. */
+function trackMax(ctx: RulesetCombatContext, combatant: RulesetCombatant, track: string): number {
+  if (!combatant.sheet) return 0;
+  const live = readRulesetLive(ctx.definition, combatant.sheet.build, combatant.sheet.live);
+  return live.tracks.find((entry) => entry.id === track)?.max ?? 0;
 }
 
 /** Back on their feet: the fight's own bookkeeping is cleared, and so are the tracks the rules
@@ -467,7 +471,7 @@ function addDeathFailures(ctx: RulesetCombatContext, target: RulesetCombatant, a
   writeRulesetSheet(ctx.definition, target, { op: "track", track: dying.failures, by: amount });
   const failures = trackValue(ctx, target, dying.failures);
   const successes = trackValue(ctx, target, dying.successes);
-  if (failures < trackMax(ctx, dying.failures)) return;
+  if (failures < trackMax(ctx, target, dying.failures)) return;
   target.defeated = true;
   target.dying = false;
   ctx.events.push({
@@ -524,7 +528,7 @@ function deathSave(ctx: RulesetCombatContext, actor: RulesetCombatant): void {
     return;
   }
   writeRulesetSheet(ctx.definition, actor, { op: "track", track: dying.successes, by: successes });
-  if (trackValue(ctx, actor, dying.successes) >= trackMax(ctx, dying.successes)) {
+  if (trackValue(ctx, actor, dying.successes) >= trackMax(ctx, actor, dying.successes)) {
     actor.stable = true;
     say("stable");
     clearDyingTracks(ctx, actor);

@@ -131,7 +131,7 @@ import {
   resolveGameRuleset,
 } from "../services/game/ruleset-registry.service.js";
 import { getCustomAgentImportPolicy } from "../services/agents/custom-agent-import-policy.service.js";
-import { resolveChatSkillCheck } from "../services/game/skill-check-resolution.service.js";
+import { resolveChatSkillCheck, SkillCheckDifficultyError } from "../services/game/skill-check-resolution.service.js";
 import { applyAllSegmentEdits, stripGmCommandTags } from "../services/game/segment-edits.js";
 import { processLorebooks, type LorebookScanResult } from "../services/lorebook/index.js";
 import {
@@ -4849,9 +4849,14 @@ function reconcileJournal(
  */
 function replaceFirstUnresolvedSkillCheckTag(
   content: string,
-  request: { skill: string; dc: number },
+  request: { skill: string; dc?: number; difficulty?: string },
   result: SkillCheckResult,
 ): string {
+  const sameDifficulty = (tag: { dc?: number; difficulty?: string }) =>
+    request.dc !== undefined
+      ? tag.dc === request.dc
+      : tag.dc === undefined &&
+        (tag.difficulty ?? "").trim().toLowerCase() === (request.difficulty ?? "").trim().toLowerCase();
   let replaced = false;
   return content.replace(createSkillCheckTagRegex(), (fullTag, body: string) => {
     if (replaced) return fullTag;
@@ -4860,7 +4865,8 @@ function replaceFirstUnresolvedSkillCheckTag(
     if (!tag || tag.resolvedResult) return fullTag;
     if (!isEngineRollableSkillCheckTag(tag)) return fullTag;
     if (tag.skill.trim().toLowerCase() !== request.skill.trim().toLowerCase()) return fullTag;
-    if (tag.dc !== request.dc) return fullTag;
+    // The same ask: the same number, or, for a check that named only its ladder step, the same step.
+    if (!sameDifficulty(tag)) return fullTag;
     // Set by a ruleset game only: the tag must then be that character's own.
     if (result.who && (tag.who ?? "").trim().toLowerCase() !== result.who.trim().toLowerCase()) return fullTag;
 
@@ -9288,41 +9294,62 @@ export async function gameRoutes(app: FastifyInstance) {
 
   // ── POST /game/skill-check ──
   // Resolve a d20 skill check using player stats.
-  const skillCheckSchema = z.object({
-    chatId: z.string().min(1),
-    skill: z.string().min(1).max(100),
-    dc: z.number().int().min(1).max(40),
-    advantage: z.boolean().optional(),
-    disadvantage: z.boolean().optional(),
-    preRolledD20: z.number().int().min(1).max(20).optional(),
-    /** The party member to roll for in a game with a pinned ruleset; ignored without one. */
-    who: z.string().trim().min(1).max(100).optional(),
-    /** `with=`, `threshold=` and `bonus=` off the tag, so this fallback asks the ruleset the same
-     *  question generation would have. Each is ignored where the ruleset does not take it. */
-    withAbility: z.string().trim().min(1).max(100).optional(),
-    threshold: z.number().int().min(1).max(1000).optional(),
-    bonusDice: z.number().int().min(-20).max(20).optional(),
-    messageId: z.string().min(1).optional(),
-  });
+  const skillCheckSchema = z
+    .object({
+      chatId: z.string().min(1),
+      skill: z.string().min(1).max(100),
+      /** Optional only beside `difficulty`, which a ruleset game reads off its own ladder instead. */
+      dc: z.number().int().min(1).max(40).optional(),
+      advantage: z.boolean().optional(),
+      disadvantage: z.boolean().optional(),
+      preRolledD20: z.number().int().min(1).max(20).optional(),
+      /** The party member to roll for in a game with a pinned ruleset; ignored without one. */
+      who: z.string().trim().min(1).max(100).optional(),
+      /** `with=`, `threshold=`, `bonus=`, `difficulty=`, `explode=` and `double=` off the tag, so this
+       *  fallback asks the ruleset the same question generation would have. Each is ignored where the
+       *  ruleset does not take it. */
+      withAbility: z.string().trim().min(1).max(100).optional(),
+      threshold: z.number().int().min(1).max(1000).optional(),
+      bonusDice: z.number().int().min(-20).max(20).optional(),
+      difficulty: z.string().trim().min(1).max(80).optional(),
+      explode: z.number().int().min(2).max(1000).optional(),
+      double: z.number().int().min(2).max(1000).optional(),
+      messageId: z.string().min(1).optional(),
+    })
+    .refine((input) => input.dc !== undefined || input.difficulty !== undefined, {
+      message: "A check needs a dc or a difficulty",
+    });
 
   // ponytail: dc stays capped at 40 here even when a ruleset's ladder reaches further. Generation
   // post-processing already honours the ladder; widen this when a ruleset needs the fallback too.
-  app.post("/skill-check", async (req) => {
+  app.post("/skill-check", async (req, reply) => {
     const input = skillCheckSchema.parse(req.body);
 
     // The modifier lookup this endpoint used to inline lives in the shared
     // service now, so generation post-processing rolls checks the same way.
-    const result = await resolveChatSkillCheck(app.db, input.chatId, {
-      skill: input.skill,
-      dc: input.dc,
-      advantage: input.advantage,
-      disadvantage: input.disadvantage,
-      preRolledD20: input.preRolledD20,
-      who: input.who,
-      withAbility: input.withAbility,
-      threshold: input.threshold,
-      bonusDice: input.bonusDice,
-    });
+    let result: SkillCheckResult;
+    try {
+      result = await resolveChatSkillCheck(app.db, input.chatId, {
+        skill: input.skill,
+        dc: input.dc,
+        advantage: input.advantage,
+        disadvantage: input.disadvantage,
+        preRolledD20: input.preRolledD20,
+        who: input.who,
+        withAbility: input.withAbility,
+        threshold: input.threshold,
+        bonusDice: input.bonusDice,
+        difficulty: input.difficulty,
+        explode: input.explode,
+        double: input.double,
+      });
+    } catch (err) {
+      // A step no ladder in this game has, or a game with no ladder at all: nothing to roll against.
+      if (err instanceof SkillCheckDifficultyError) {
+        return reply.status(400).send({ error: err.message, code: "skill_check_difficulty_unknown" });
+      }
+      throw err;
+    }
 
     let updatedContent: string | undefined;
     if (input.messageId) {
@@ -9331,7 +9358,7 @@ export async function gameRoutes(app: FastifyInstance) {
       if (message?.chatId === input.chatId && (message.role === "assistant" || message.role === "narrator")) {
         const nextContent = replaceFirstUnresolvedSkillCheckTag(
           message.content,
-          { skill: input.skill, dc: input.dc },
+          { skill: input.skill, dc: input.dc, difficulty: input.difficulty },
           result,
         );
         if (nextContent !== message.content) {

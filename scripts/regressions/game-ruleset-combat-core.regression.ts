@@ -58,7 +58,14 @@ import {
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
 const fiveEText = read("../../docs/development/ruleset-5e-2014.example.json");
-const emberText = read("../../docs/examples/rulesets/ember-roads.json");
+/** The example less the sheet keys 1.37 added (a track always shown, a summary list's columns):
+ *  every gate this lane proves is older, so it is proven on a file that trips nothing newer. */
+const emberText = (() => {
+  const doc = JSON.parse(read("../../docs/examples/rulesets/ember-roads.json"));
+  for (const track of doc.sheet.live.tracks) delete track.alwaysShow;
+  for (const list of doc.gm.sheetSummary?.lists ?? []) delete list.columns;
+  return JSON.stringify(doc);
+})();
 
 /** One of the shipped examples, optionally edited first. */
 const variant = (text: string, edit: (doc: Record<string, any>) => void = () => {}): Record<string, any> => {
@@ -1217,6 +1224,24 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
   assert.equal(firstOf(healed.events, "spend").pool, "slots_1");
 }
 
+// ── A death track whose top the sheet sets is read off her own sheet ──
+{
+  // Two successes, because this variant's successes track stops at a value the sheet works out.
+  const shorter = parsedOrThrow(
+    variant(fiveEText, (doc) => {
+      doc.sheet.live.tracks.find((entry: Record<string, any>) => entry.id === "death_save_successes").max = {
+        const: 2,
+      };
+    }),
+    "5e with a death track the sheet sets",
+  );
+  let state = fight(shorter, [fighter({ pools: { hp: { value: 0 } } }), wizard(), rot()], 10, 9, 18);
+  let last = endTurn(shorter, state, "rot", 12);
+  state = endTurn(shorter, endTurn(shorter, last.state, "brenna").state, "corwin").state;
+  last = endTurn(shorter, state, "rot", 14);
+  assert.equal(eventsOf(last.events, "dying").at(-1)!.result, "stable", "two of the sheet's two are enough");
+}
+
 // ── Three successes make her stable, and a blow while stable starts the count again ──
 {
   let state = fight(fiveE, [fighter({ pools: { hp: { value: 0 } } }), wizard(), rot()], 10, 9, 18);
@@ -2241,7 +2266,10 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
   const feats = fiveE.catalogs!.find((catalog) => catalog.id === "feats")!.entries!;
   const featRows = (ids: string[], list: string) =>
     ids.flatMap((id) =>
-      rowsFromCatalogEntry("feats", feats.find((entry) => entry.id === id)!)
+      rowsFromCatalogEntry(
+        "feats",
+        feats.find((entry) => entry.id === id)!,
+      )
         .filter((row) => row.list === list)
         .map((row) => row.row),
     );
@@ -3043,12 +3071,20 @@ console.info("game ruleset combat core regressions passed.");
   assert.equal(who(stopped.state, "corwin").budgets.reaction, 0, "and answering cost the reaction");
 
   // Letting it go by instead: the swing lands, and being hurt is its own moment.
-  const through = act(fiveE, aimed.state, {
-    actorId: "corwin",
-    optionId: RULESET_PASS_OPTION,
-    targetIds: [],
-    window: window.id,
-  }, 18, 5, 4, 6);
+  const through = act(
+    fiveE,
+    aimed.state,
+    {
+      actorId: "corwin",
+      optionId: RULESET_PASS_OPTION,
+      targetIds: [],
+      window: window.id,
+    },
+    18,
+    5,
+    4,
+    6,
+  );
   assert.equal(firstOf(through.events, "attack").outcome, "hit", "the held swing resolves after the asking");
   const hurt = through.state.window;
   assert.ok(hurt, "and being hurt opens a moment of its own");
@@ -3060,12 +3096,26 @@ console.info("game ruleset combat core regressions passed.");
   );
 
   // It is aimed back at whoever did it, without anybody picking.
-  const back = act(fiveE, through.state, {
-    actorId: "corwin",
-    optionId: idFor(through.state, "corwin", "Sear"),
-    targetIds: [],
-    window: hurt.id,
-  }, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5);
+  const back = act(
+    fiveE,
+    through.state,
+    {
+      actorId: "corwin",
+      optionId: idFor(through.state, "corwin", "Sear"),
+      targetIds: [],
+      window: hurt.id,
+    },
+    3,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+  );
   assert.equal(firstOf(back.events, "damage").targetId, "snag", "the answer lands on whoever hurt them");
   assert.equal(back.state.window, undefined);
   // One window at a time: what the answer itself deals opens no further moment.
@@ -3180,7 +3230,12 @@ console.info("game ruleset combat core regressions passed.");
 
     // Both let the blow through, so being hurt opens a moment for both of them.
     const pass = (from: typeof lash.state, who: string, ...faces: number[]) =>
-      act(fiveE, from, { actorId: who, optionId: RULESET_PASS_OPTION, targetIds: [], window: from.window!.id }, ...faces);
+      act(
+        fiveE,
+        from,
+        { actorId: who, optionId: RULESET_PASS_OPTION, targetIds: [], window: from.window!.id },
+        ...faces,
+      );
     const landed = pass(pass(lash.state, "wren").state, "corwin", 18, 3, 18, 3);
     assert.equal(landed.state.window?.trigger.kind, "harmed");
     assert.deepEqual(landed.state.window?.waiting, ["wren", "corwin"], "both were hurt, and both are asked");
@@ -3190,7 +3245,12 @@ console.info("game ruleset combat core regressions passed.");
     const felled = act(
       fiveE,
       landed.state,
-      { actorId: "wren", optionId: idFor(landed.state, "wren", "Sear"), targetIds: [], window: landed.state.window!.id },
+      {
+        actorId: "wren",
+        optionId: idFor(landed.state, "wren", "Sear"),
+        targetIds: [],
+        window: landed.state.window!.id,
+      },
       1,
       10,
       10,

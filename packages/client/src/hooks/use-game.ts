@@ -606,7 +606,8 @@ export function useSkillCheck() {
     mutationFn: (data: {
       chatId: string;
       skill: string;
-      dc: number;
+      /** Absent only beside `difficulty`, which a ruleset game reads off its own ladder. */
+      dc?: number;
       advantage?: boolean;
       disadvantage?: boolean;
       preRolledD20?: number;
@@ -614,6 +615,9 @@ export function useSkillCheck() {
       withAbility?: string;
       threshold?: number;
       bonusDice?: number;
+      difficulty?: string;
+      explode?: number;
+      double?: number;
       messageId?: string;
     }) =>
       api.post<{ result: import("@marinara-engine/shared").SkillCheckResult; updatedContent?: string }>(

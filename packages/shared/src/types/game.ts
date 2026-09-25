@@ -475,6 +475,18 @@ export interface SkillCheckResult {
   used?: string;
   /** How many dice a bought re-throw replaced. Absent when none were. */
   rerolled?: number;
+  /**
+   * The faces a pool check exploded and doubled from, set only when the check moved them off the
+   * ruleset's own default (a Game Master's `explode=` or `double=`, or an entry that grants it).
+   */
+  explodeFrom?: number;
+  doubleFrom?: number;
+  /**
+   * The roll did not botch outright, but something went wrong on the side of it: a pool ruleset whose
+   * `botch.rule` is `halfOrMore` saw low faces on half its dice or more while a die still succeeded.
+   * `success` is still the outcome; this is what happens beside it. Absent everywhere else.
+   */
+  complication?: boolean;
 }
 
 // ── The sighted dice pool (opt-in, last) ──

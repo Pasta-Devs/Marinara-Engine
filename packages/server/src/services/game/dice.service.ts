@@ -193,6 +193,7 @@ export function resolveGameDiceRequests(
     if (
       !notation ||
       (resolution !== "sum" && resolution !== "successes") ||
+      tag.dc === undefined ||
       !Number.isSafeInteger(tag.dc) ||
       tag.dc < 1
     )

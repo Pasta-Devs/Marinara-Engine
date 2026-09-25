@@ -504,7 +504,8 @@ function deathTrackOf(definition: RulesetDefinition, combatant: RulesetCombatant
   if (!dying || combatant.side !== "party" || !combatant.sheet) return undefined;
   const live = readRulesetLive(definition, combatant.sheet.build, combatant.sheet.live);
   const value = (track: string) => live.tracks.find((entry) => entry.id === track)?.value ?? 0;
-  const max = (track: string) => definition.sheet.live.tracks.find((entry) => entry.id === track)?.max ?? 0;
+  // The member's own top, since a plain track's maximum may be a value their sheet works out.
+  const max = (track: string) => live.tracks.find((entry) => entry.id === track)?.max ?? 0;
   return {
     successes: value(dying.successes),
     failures: value(dying.failures),

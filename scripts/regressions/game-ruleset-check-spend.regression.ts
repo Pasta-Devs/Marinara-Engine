@@ -81,6 +81,11 @@ try {
     delete copy.layers;
     copy.id = "gravewatch-plain";
     for (const key of ["explode", "cancel", "botch", "double"]) delete copy.resolution[key];
+    // The example's Grave Sight charm moves the exploding face, which a ruleset may only let a
+    // check do while its explode rule has a min; a copy that takes the rule away takes the charm too.
+    for (const catalog of copy.catalogs ?? []) {
+      catalog.entries = (catalog.entries ?? []).filter((entry: any) => entry.mechanics?.check?.explode === undefined);
+    }
     // A fixed Resolve maximum, so what a purchase costs can be compared against a known number
     // rather than against whatever the blank warden's Nerve happens to make it.
     copy.sheet.live.pools[0].max = { const: 8 };
