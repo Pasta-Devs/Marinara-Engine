@@ -153,6 +153,18 @@ try {
   assert.equal(extraOf(secondRow).other, 1);
   assert.match(firstEntryText((await chats.getSwipes(second.id))[0]) ?? "", /^second /u);
 
+  // A scan saved later on an older generated message (any message id reaches updateMessageExtra) does not take over:
+  // the newest message by order keeps its text and the older one is compacted again.
+  await chats.updateMessageExtra(first.id, { lorebookScan: scan("late", entry.id) });
+  await settleLorebookScanCompactions();
+  assert.match(firstEntryText(await chats.getMessage(second.id)) ?? "", /^second /u, "the newest message keeps text");
+  assert.match(firstEntryText((await chats.getSwipes(second.id))[0]) ?? "", /^second /u);
+  assert.equal(
+    lorebookScanHasContent(extraOf(await chats.getMessage(first.id)).lorebookScan),
+    false,
+    "a late scan on an older message is compacted",
+  );
+
   // An impersonated turn saves its scan on a user message. Active Context and agent retries still read the newest
   // assistant message, so that one keeps its text and the user message's scan is compacted instead.
   const impersonated = await chats.createMessage({

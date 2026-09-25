@@ -110,12 +110,19 @@ const messageExtraPatchQueues = new Map<string, Promise<void>>();
  */
 type LorebookScanCompactionState = {
   keep: string | null;
+  /** Message order (createdAt, then id) of `keep`, so an older message saved later cannot take its place. */
+  keepOrder: { createdAt: string; id: string } | null;
   pending: Set<string>;
   swept: boolean;
   running: Promise<void> | null;
 };
 const lorebookScanCompactionStates = new WeakMap<object, Map<string, LorebookScanCompactionState>>();
 const runningLorebookScanCompactions = new Set<Promise<void>>();
+
+/** True when `a` sorts at or after `b` in the store's message order (createdAt, ties by id). */
+function isAtOrAfterInMessageOrder(a: { createdAt: string; id: string }, b: { createdAt: string; id: string }) {
+  return a.createdAt > b.createdAt || (a.createdAt === b.createdAt && a.id >= b.id);
+}
 
 /** Assistant and narrator messages are the ones whose scan Active Context and agent retries read. */
 function isGeneratedMessageRole(role: unknown): boolean {
@@ -752,19 +759,28 @@ export function createChatsStorage(db: DB) {
    * its row and all its swipes keep their text, so swiping back on the newest message still shows the text that
    * built each swipe, and the previous newest message is queued for compaction. A scan saved on any other message
    * (an impersonated user turn) is compacted and never replaces the kept message. The compaction runs in the
-   * background, one message queue at a time, never on the caller's save path.
+   * background, one message queue at a time, never on the caller's save path. A generated message older than the
+   * kept one (a scan saved later on an earlier turn) is compacted too: only the newest message by order keeps text.
    */
-  function noteLorebookScanSaved(chatId: string, messageId: string, role: string, scan: unknown) {
+  function noteLorebookScanSaved(
+    chatId: string,
+    messageId: string,
+    role: string,
+    createdAt: string,
+    scan: unknown,
+  ) {
     if (!isLorebookScanCompactionEnabled() || !lorebookScanHasContent(scan)) return;
     let state = scanCompactionStates.get(chatId);
     if (!state) {
-      state = { keep: null, pending: new Set(), swept: false, running: null };
+      state = { keep: null, keepOrder: null, pending: new Set(), swept: false, running: null };
       scanCompactionStates.set(chatId, state);
     }
-    if (isGeneratedMessageRole(role)) {
+    const order = { createdAt, id: messageId };
+    if (isGeneratedMessageRole(role) && (!state.keepOrder || isAtOrAfterInMessageOrder(order, state.keepOrder))) {
       if (state.keep && state.keep !== messageId) state.pending.add(state.keep);
       state.pending.delete(messageId);
       state.keep = messageId;
+      state.keepOrder = order;
     } else if (state.keep !== messageId) {
       state.pending.add(messageId);
     }
@@ -785,20 +801,17 @@ export function createChatsStorage(db: DB) {
           .select({ id: messages.id, role: messages.role, createdAt: messages.createdAt, extra: messages.extra })
           .from(messages)
           .where(eq(messages.chatId, chatId));
-        // Before the first generated save in this process, keep the newest assistant/narrator message (ties by id,
-        // like the store's message order), so a scan saved on an impersonated turn cannot compact it.
-        if (!state.keep) {
-          let newest: (typeof rows)[number] | null = null;
-          for (const row of rows) {
-            if (!isGeneratedMessageRole(row.role)) continue;
-            if (
-              !newest ||
-              row.createdAt > newest.createdAt ||
-              (row.createdAt === newest.createdAt && row.id > newest.id)
-            )
-              newest = row;
-          }
-          state.keep = newest?.id ?? null;
+        // Keep the newest assistant/narrator message (ties by id, like the store's message order), so a scan saved
+        // on an impersonated turn or on an older generated message before this sweep cannot compact it.
+        let newest: (typeof rows)[number] | null = null;
+        for (const row of rows) {
+          if (!isGeneratedMessageRole(row.role)) continue;
+          if (!newest || isAtOrAfterInMessageOrder(row, newest)) newest = row;
+        }
+        if (newest && (!state.keepOrder || isAtOrAfterInMessageOrder(newest, state.keepOrder))) {
+          if (state.keep && state.keep !== newest.id) state.pending.add(state.keep);
+          state.keep = newest.id;
+          state.keepOrder = { createdAt: newest.createdAt, id: newest.id };
         }
         const ids = rows.map((row) => row.id);
         const swipeRows =
@@ -925,7 +938,7 @@ export function createChatsStorage(db: DB) {
         .update(messages)
         .set({ extra: JSON.stringify({ ...parseExtraRecord(owner.extra), ...extra }) })
         .where(eq(messages.id, owner.id));
-    noteLorebookScanSaved(owner.chatId, owner.id, owner.role, extra.lorebookScan);
+    noteLorebookScanSaved(owner.chatId, owner.id, owner.role, owner.createdAt, extra.lorebookScan);
   }
 
   async function changeInterruptionTarget(
@@ -2607,7 +2620,7 @@ export function createChatsStorage(db: DB) {
             .set({ extra: JSON.stringify({ ...swipeExtra, ...partial }) })
             .where(and(eq(messageSwipes.messageId, id), eq(messageSwipes.id, activeSwipe.id)));
         }
-        noteLorebookScanSaved(msg.chatId, id, msg.role, partial.lorebookScan);
+        noteLorebookScanSaved(msg.chatId, id, msg.role, msg.createdAt, partial.lorebookScan);
 
         return this.getMessage(id);
       });
@@ -2638,7 +2651,7 @@ export function createChatsStorage(db: DB) {
           .update(messageSwipes)
           .set({ extra: JSON.stringify({ ...swipeExtra, ...partial }) })
           .where(and(eq(messageSwipes.messageId, id), eq(messageSwipes.id, targetSwipe.id)));
-        noteLorebookScanSaved(msg.chatId, id, msg.role, partial.lorebookScan);
+        noteLorebookScanSaved(msg.chatId, id, msg.role, msg.createdAt, partial.lorebookScan);
 
         if (msg.activeSwipeIndex === swipeIndex) {
           const msgExtra = parseExtraRecord(msg.extra);
