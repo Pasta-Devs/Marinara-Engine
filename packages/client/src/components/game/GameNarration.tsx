@@ -6572,7 +6572,7 @@ export function parseNarrationSegments(
       const inner = source.slice(idx + tag.length, end).trim();
       const placeholderIdx = readableContents.length;
       readableContents.push({ type: rType, content: inner });
-      const placeholder = `__READABLE_${placeholderIdx}__`;
+      const placeholder = `\n__READABLE_${placeholderIdx}__\n`;
       source = source.slice(0, idx) + placeholder + source.slice(end + 1);
       searchFrom = idx + placeholder.length;
     }
