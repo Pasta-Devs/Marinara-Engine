@@ -74,6 +74,8 @@ assert.equal(
   // whose `read` goes only beside `liveTrack`.
   const hideWhenNodes: Array<{ oneOf?: unknown }> = [];
   const liveTrackNodes: Array<{ dependencies?: Record<string, string[]> }> = [];
+  // And a wound track: an indexed one refuses a mark when full, so the editor asks for that too.
+  const woundTrackNodes: Array<{ allOf?: Array<Record<string, any>> }> = [];
   const walk = (node: unknown): void => {
     if (Array.isArray(node)) return node.forEach(walk);
     if (!node || typeof node !== "object") return;
@@ -90,6 +92,7 @@ assert.equal(
     if (keys.includes("pool") && keys.includes("perCheck")) spendNodes.push(object);
     if (["field", "equals", "notEquals", "in"].every((key) => keys.includes(key))) hideWhenNodes.push(object);
     if (keys.includes("liveTrack")) liveTrackNodes.push(object);
+    if (["levels", "boxes", "kinds", "fill", "onFull"].every((key) => keys.includes(key))) woundTrackNodes.push(object);
     Object.values(node).forEach(walk);
   };
   // The same for what a combat block measures in cells: the Engine refuses any of it in a block
@@ -154,6 +157,15 @@ assert.equal(
       node.oneOf,
       [{ required: ["equals"] }, { required: ["notEquals"] }, { required: ["in"] }],
       "and asks for exactly one comparison",
+    );
+  }
+  assert.ok(woundTrackNodes.length > 0, "the schema describes a wound track");
+  for (const node of woundTrackNodes) {
+    assert.ok(
+      node.allOf?.some(
+        (rule) => rule.if?.properties?.fill?.const === "indexed" && rule.then?.properties?.onFull?.const === "refuse",
+      ),
+      "and says an indexed one refuses when full",
     );
   }
   assert.ok(liveTrackNodes.length > 0, "the schema describes a value that reads a live track");

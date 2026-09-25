@@ -95,9 +95,15 @@ export function parseSheetCommandTagBody(body: string): ParsedSheetCommandTag {
     // the harm; the pool form is untouched, so a ruleset whose health is a pool reads as it always did.
     const track = values.get("track")?.trim();
     if (name === "damage" && track) {
-      const kind = values.get("kind")?.trim();
-      if (!kind || amount === null) return parsed;
-      return { ...parsed, op: { op: "damage", track, kind, amount } };
+      // A mark has to say what it is; a heal may leave the kind out, and then clears the lightest.
+      const kind = values.get("kind")?.trim() ?? "";
+      if (amount === null || (amount >= 0 && !kind)) return parsed;
+      // Where the mark aims on an indexed track. A box that does not read as a number is a tag that
+      // does not say what it means, so it is refused rather than dropped to box 1.
+      const rawBox = values.get("box");
+      const box = rawBox === undefined ? null : readInteger(rawBox);
+      if (rawBox !== undefined && box === null) return parsed;
+      return { ...parsed, op: { op: "damage", track, kind, amount, ...(box !== null ? { box } : {}) } };
     }
     const pool = values.get("pool")?.trim();
     if (!pool || amount === null) return parsed;
@@ -180,8 +186,9 @@ export function serializeSheetCommandTag(
     attribute("op", op.op);
     if (op.op === "damage" && "track" in op) {
       attribute("track", op.track);
-      attribute("kind", op.kind);
+      if (op.kind) attribute("kind", op.kind);
       attribute("amount", op.amount);
+      if (op.box !== undefined) attribute("box", op.box);
     } else if (op.op === "spend" || op.op === "restore" || op.op === "damage" || op.op === "temp") {
       attribute("pool", op.pool);
       attribute("amount", op.amount);

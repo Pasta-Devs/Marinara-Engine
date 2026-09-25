@@ -173,21 +173,25 @@ export type RulesetValueRef = z.infer<typeof rulesetValueRefSchema>;
 
 /** `[[threshold, value], …]`, ascending: the value of the highest threshold at or below the input.
  *  An input below the first threshold reads as the first value. */
+/** A step table is read at the highest threshold at or below its input, so its thresholds must run
+ *  strictly up: a repeated or falling one would never be the one read. */
+function ascendingThresholds(table: ReadonlyArray<readonly [number, number]>, ctx: z.RefinementCtx): void {
+  for (let i = 1; i < table.length; i++) {
+    if (table[i]![0] <= table[i - 1]![0]) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [i, 0],
+        message: "Step table thresholds must be strictly ascending",
+      });
+    }
+  }
+}
+
 const stepTableSchema = z
   .array(z.tuple([z.number().finite(), z.number().finite()]))
   .min(1)
   .max(100)
-  .superRefine((table, ctx) => {
-    for (let i = 1; i < table.length; i++) {
-      if (table[i]![0] <= table[i - 1]![0]) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: [i, 0],
-          message: "Step table thresholds must be strictly ascending",
-        });
-      }
-    }
-  });
+  .superRefine(ascendingThresholds);
 
 const roundingSchema = z.enum(["down", "up", "nearest"]);
 
@@ -603,6 +607,12 @@ export const RULESET_TRACK_LEVELS_MAX = 16;
 /** How many kinds of harm one wound track may take. Three (bashing, lethal, aggravated) is the
  *  usual number; six leaves room without turning a track into a table. */
 export const RULESET_TRACK_KINDS_MAX = 6;
+/** The most boxes one wound track may come to on one character's sheet, counting box tracks whose
+ *  length the sheet works out and levels a list adds. Well past any system's longest track; it
+ *  bounds what the sheet screen draws and what one live blob holds. */
+export const RULESET_WOUND_LEVELS_MAX = 64;
+/** The most levels one row of an `extra` list adds. */
+export const RULESET_WOUND_EXTRA_PER_ROW = 16;
 
 /** One rung of a wound track, best first and worst last. `penalty` is what being marked down to
  *  this level does to a roll: 0 for a scratch, and a large negative is how these systems say "you
@@ -634,6 +644,34 @@ const liveTrackSchema = z
     default: z.number().int().optional(),
     levels: z.array(liveTrackLevelSchema).min(1).max(RULESET_TRACK_LEVELS_MAX).optional(),
     kinds: z.array(liveTrackKindSchema).min(1).max(RULESET_TRACK_KINDS_MAX).optional(),
+    /** A wound track of numbered BOXES instead of named `levels`: as many as the track's own `max`
+     *  (a number, or a value the sheet works out for each character), with the penalty in force
+     *  read off `table` at the number of boxes filled or remaining. */
+    boxes: z
+      .object({
+        penalty: z
+          .object({
+            by: z.enum(["filled", "remaining"]),
+            table: z
+              .array(z.tuple([z.number().finite(), z.number().int().min(-1000).max(0)]))
+              .min(1)
+              .max(40)
+              .superRefine(ascendingThresholds),
+          })
+          .strict(),
+      })
+      .strict()
+      .optional(),
+    /** How a wound track fills. `sequential` marks the best free level and keeps the marks sorted by
+     *  severity; `indexed` puts a mark on the box a command names (or the next free one above it)
+     *  and leaves the others where they are. */
+    fill: z.enum(["sequential", "indexed"]).optional(),
+    /** What a mark does to a full track: `upgrade` its lightest mark a step (and count what cannot
+     *  land as overflow), or `refuse` the command. An indexed track always refuses. */
+    onFull: z.enum(["upgrade", "refuse"]).optional(),
+    /** Levels a list on the sheet adds, per character: every row inserts `countColumn` levels at the
+     *  penalty in `penaltyColumn`, after the last level whose penalty is as good. */
+    extra: z.object({ list: sheetId, countColumn: sheetId, penaltyColumn: sheetId }).strict().optional(),
     /** Printed in the sheet block even at its default, for a rating that matters every turn. */
     alwaysShow: z.boolean().optional(),
     /** Off the sheet while a field says so, as a pool can be. Never on a wound track, which rolls
@@ -711,11 +749,16 @@ const restRestoreSchema = z
     listPools: sheetId.optional(),
     recharge: z.array(z.string().min(1).max(80)).min(1).max(12).optional(),
     track: sheetId.optional(),
+    /** On a wound track: clear only marks of this kind, leaving the others where they are. */
+    kind: sheetId.optional(),
     ...restAmountShape,
   })
   .strict()
   .superRefine((op, ctx) => {
     const targets = (["pool", "poolGroup", "listPools", "track"] as const).filter((key) => op[key] !== undefined);
+    if (op.kind !== undefined && op.track === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["kind"], message: '"kind" only narrows a track' });
+    }
     if (targets.length !== 1) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -2358,7 +2401,7 @@ function rulesetValueRefIssues(
     const track = names.tracks.get(ref.liveTrack);
     if (!track) add("liveTrack", `Unknown track "${ref.liveTrack}"`);
     else if (!live) add("liveTrack", noLive);
-    else if (ref.read === "penalty" && !track.levels) {
+    else if (ref.read === "penalty" && !track.levels && !track.boxes) {
       add("read", `"${ref.liveTrack}" is not a wound track, so it has no penalty to read`);
     }
   }
@@ -2438,23 +2481,53 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     if (tracks.has(pool.id)) issue(["sheet", "live", "pools", index, "id"], `"${pool.id}" is already a track id`);
   }
 
-  // Wound tracks. `kinds` says what a mark may be, so it needs `levels` for a mark to sit on, and
-  // the severities have to be distinct or "the lowest-severity mark" would name two boxes at once.
+  // Wound tracks. `kinds` says what a mark may be, so it needs `levels` or `boxes` for a mark to sit
+  // on, and the severities have to be distinct or "the lowest-severity mark" would name two boxes.
   const woundTracks = new Set<string>();
   sheet.live.tracks.forEach((track, index) => {
     const path = ["sheet", "live", "tracks", index];
-    if (!track.levels) {
-      if (track.kinds) issue([...path, "kinds"], "kinds needs levels beside it: there is nothing to mark");
+    const woundOnly = (["fill", "onFull", "extra"] as const).filter((key) => track[key] !== undefined);
+    if (!track.levels && !track.boxes) {
+      if (track.kinds) issue([...path, "kinds"], "kinds needs levels or boxes beside it: there is nothing to mark");
+      woundOnly.forEach((key) => issue([...path, key], `${key} is for a wound track, which has levels or boxes`));
       return;
     }
     woundTracks.add(track.id);
+    if (track.levels && track.boxes) issue([...path, "boxes"], "A wound track has levels or boxes, not both");
     if (!track.kinds) {
-      issue([...path, "levels"], "A track with levels needs kinds beside it: a mark has to be of something");
+      issue(
+        [...path, track.levels ? "levels" : "boxes"],
+        `A track with ${track.levels ? "levels" : "boxes"} needs kinds beside it: a mark has to be of something`,
+      );
     }
-    // A wound track's length is its levels, so the two numbers beside them cannot say anything else.
+    // An indexed track puts a mark where it is told and never moves the others, so there is no
+    // lightest mark at the bottom of the track to upgrade: a full one can only refuse.
+    if (track.fill === "indexed" && track.onFull !== "refuse") {
+      issue([...path, "onFull"], 'An indexed track refuses a mark it has no box for, so its onFull is "refuse"');
+    }
     if (track.min !== 0) issue([...path, "min"], "A wound track starts unmarked, so its min is 0");
-    if (track.max !== track.levels.length) {
-      issue([...path, "max"], `A wound track holds one mark per level, so its max is ${track.levels.length}`);
+    if (track.boxes) {
+      // A box track is as long as its own max, which may be a value the sheet works out.
+      if (track.extra) issue([...path, "extra"], "A box track's length is its max; extra levels are for named levels");
+      if (typeof track.max === "number" && (track.max < 0 || track.max > RULESET_WOUND_LEVELS_MAX)) {
+        issue([...path, "max"], `A box track has from 0 to ${RULESET_WOUND_LEVELS_MAX} boxes`);
+      }
+    } else if (track.max !== track.levels!.length) {
+      // A wound track's length is its levels, so the number beside them cannot say anything else.
+      issue([...path, "max"], `A wound track holds one mark per level, so its max is ${track.levels!.length}`);
+    }
+    if (track.extra) {
+      const list = sheet.lists.find((entry) => entry.id === track.extra!.list);
+      const numberColumn = (id: string, key: "countColumn" | "penaltyColumn") => {
+        const column = list?.columns.find((entry) => entry.id === id);
+        if (!column) issue([...path, "extra", key], `"${track.extra!.list}" has no column "${id}"`);
+        else if (column.type !== "number") issue([...path, "extra", key], `Column "${id}" is not a number`);
+      };
+      if (!list) issue([...path, "extra", "list"], `Unknown list "${track.extra.list}"`);
+      else {
+        numberColumn(track.extra.countColumn, "countColumn");
+        numberColumn(track.extra.penaltyColumn, "penaltyColumn");
+      }
     }
     // Rolls read its penalty and fights read it as health whatever the sheet shows, so a wound track
     // cannot be taken off the sheet by a field.
@@ -2511,7 +2584,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     const path = ["resolution", "penaltyFrom"];
     if (!tracks.has(resolution.penaltyFrom)) issue(path, `Unknown track "${resolution.penaltyFrom}"`);
     else if (!woundTracks.has(resolution.penaltyFrom)) {
-      issue(path, `"${resolution.penaltyFrom}" has no levels, so it carries no penalty to apply`);
+      issue(path, `"${resolution.penaltyFrom}" has no levels or boxes, so it carries no penalty to apply`);
     }
   }
 
@@ -2853,6 +2926,14 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         issue([...path, "poolGroup"], `No pool declares the group "${op.poolGroup}"`);
       }
       if (op.track !== undefined && !tracks.has(op.track)) issue([...path, "track"], `Unknown track "${op.track}"`);
+      if (op.kind !== undefined && op.track !== undefined && tracks.has(op.track)) {
+        const target = sheet.live.tracks.find((entry) => entry.id === op.track)!;
+        if (!woundTracks.has(op.track))
+          issue([...path, "kind"], `"${op.track}" is not a wound track, so it has no kinds`);
+        else if (!target.kinds?.some((entry) => entry.id === op.kind)) {
+          issue([...path, "kind"], `"${op.track}" declares no kind "${op.kind}"`);
+        }
+      }
       if (op.listPools !== undefined) {
         const list = listById.get(op.listPools);
         if (!list?.pools) issue([...path, "listPools"], `"${op.listPools}" is not a list with pools`);
@@ -4051,7 +4132,7 @@ export function rulesetCatalogEntryIssues(
     const woundTrack = (health: { pool: string } | { track: string } | undefined) => {
       if (!health || !("track" in health)) return null;
       const declared = definition.sheet.live.tracks.find((track) => track.id === health.track);
-      return declared?.levels?.length ? health.track : null;
+      return declared?.levels?.length || declared?.boxes ? health.track : null;
     };
     const trackHealth = woundTrack(definition.combat?.health) ?? woundTrack(definition.battle?.health);
     if (mechanics?.temporary && trackHealth) {

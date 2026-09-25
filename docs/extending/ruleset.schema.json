@@ -4355,6 +4355,95 @@
                     "minItems": 1,
                     "maxItems": 6
                   },
+                  "boxes": {
+                    "type": "object",
+                    "properties": {
+                      "penalty": {
+                        "type": "object",
+                        "properties": {
+                          "by": {
+                            "type": "string",
+                            "enum": [
+                              "filled",
+                              "remaining"
+                            ]
+                          },
+                          "table": {
+                            "type": "array",
+                            "items": {
+                              "type": "array",
+                              "minItems": 2,
+                              "maxItems": 2,
+                              "items": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "integer",
+                                  "minimum": -1000,
+                                  "maximum": 0
+                                }
+                              ]
+                            },
+                            "minItems": 1,
+                            "maxItems": 40
+                          },
+                          "$comment": {}
+                        },
+                        "required": [
+                          "by",
+                          "table"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "penalty"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "fill": {
+                    "type": "string",
+                    "enum": [
+                      "sequential",
+                      "indexed"
+                    ]
+                  },
+                  "onFull": {
+                    "type": "string",
+                    "enum": [
+                      "upgrade",
+                      "refuse"
+                    ]
+                  },
+                  "extra": {
+                    "type": "object",
+                    "properties": {
+                      "list": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "countColumn": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "penaltyColumn": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "list",
+                      "countColumn",
+                      "penaltyColumn"
+                    ],
+                    "additionalProperties": false
+                  },
                   "alwaysShow": {
                     "type": "boolean"
                   },
@@ -4447,13 +4536,75 @@
                 ],
                 "additionalProperties": false,
                 "dependencies": {
-                  "kinds": [
-                    "levels"
-                  ],
                   "levels": [
                     "kinds"
+                  ],
+                  "boxes": [
+                    "kinds"
+                  ],
+                  "extra": [
+                    "levels"
+                  ],
+                  "fill": [
+                    "kinds"
+                  ],
+                  "onFull": [
+                    "kinds"
                   ]
-                }
+                },
+                "allOf": [
+                  {
+                    "not": {
+                      "required": [
+                        "levels",
+                        "boxes"
+                      ]
+                    }
+                  },
+                  {
+                    "if": {
+                      "required": [
+                        "kinds"
+                      ]
+                    },
+                    "then": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "levels"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "boxes"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "fill": {
+                          "const": "indexed"
+                        }
+                      },
+                      "required": [
+                        "fill"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "onFull": {
+                          "const": "refuse"
+                        }
+                      },
+                      "required": [
+                        "onFull"
+                      ]
+                    }
+                  }
+                ]
               },
               "maxItems": 30,
               "default": []
@@ -4574,6 +4725,11 @@
                   "maxItems": 12
                 },
                 "track": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "kind": {
                   "type": "string",
                   "maxLength": 40,
                   "pattern": "^[a-z][a-z0-9_]*$"

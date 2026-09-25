@@ -493,7 +493,8 @@ for (const marks of ["per-blow", "per-point"] as const) {
 
   // And healing past where it started comes back as marks cleared.
   const healed = sheetOpsFromCombatResult(bridged, hurt, { hp: 60 });
-  assert.deepEqual(healed, [{ op: "damage", track: "harm", kind: "bruise", amount: -1 }]);
+  // A heal names no kind, so it clears the lightest mark there is rather than only bruises.
+  assert.deepEqual(healed, [{ op: "damage", track: "harm", kind: "", amount: -1 }]);
 
   // A battle that did not move the bar writes nothing at all, exactly as on a pool.
   assert.deepEqual(sheetOpsFromCombatResult(bridged, fresh, { hp: 60 }), []);

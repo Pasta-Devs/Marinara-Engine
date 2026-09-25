@@ -105,7 +105,7 @@ export function rulesetCombatHealth(
   if ("track" in health) {
     const track = live.tracks.find((entry) => entry.id === health.track);
     if (!track?.wound) return { value: 0, max: 0, temp: 0 };
-    return { value: track.wound.levels.length - track.wound.marks.length, max: track.wound.levels.length, temp: 0 };
+    return { value: track.wound.levels.length - track.wound.filled, max: track.wound.levels.length, temp: 0 };
   }
   const pool = live.pools.find((entry) => !entry.listId && entry.key === health.pool);
   return pool ? { value: pool.value, max: pool.max, temp: pool.temp } : { value: 0, max: 0, temp: 0 };
