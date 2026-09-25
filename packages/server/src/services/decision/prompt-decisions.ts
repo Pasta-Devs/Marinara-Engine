@@ -28,8 +28,10 @@ import {
   type DecisionStatementPriority,
   type MacroContext,
   type MacroDecisionAnswers,
+  type DecisionDebugReport,
+  type DecisionDebugResult,
 } from "@marinara-engine/shared";
-import { logger } from "../../lib/logger.js";
+import { logger, logDebugOverride } from "../../lib/logger.js";
 import { buildDecisionState, type DecisionMessage } from "../generation/agent-activation-questions.js";
 import type { DecisionBackend } from "./decision-default.js";
 import { describeDecisionSlot } from "./decision-slots.js";
@@ -312,7 +314,11 @@ export function planPromptDecisions(
  * Deciding at answer time means a reader (Peek Prompt) never needs the model's
  * threshold, and so never has to resolve a backend, which could start a local model.
  */
-type CachedTurn = { noul: Map<string, { p: number; yes: boolean }>; choice: Map<string, string>; at: number };
+type CachedTurn = {
+  noul: Map<string, { p?: number; yes: boolean; threshold?: number; binary?: boolean; held?: boolean }>;
+  choice: Map<string, string>;
+  at: number;
+};
 
 /**
  * Answers per turn: chat, the newest message the decision reads, and which Decision
@@ -346,8 +352,12 @@ function choiceCacheKey(decision: PlannedDecision): string {
 }
 
 /** What is already known for this turn, without asking anything. For Peek Prompt. */
-export function cachedPromptDecisionAnswers(plan: PromptDecisionPlan, cacheKey: string): MacroDecisionAnswers {
-  const turn = promptDecisionTurnCache.peek(cacheKey);
+export function cachedPromptDecisionAnswers(
+  plan: PromptDecisionPlan,
+  cacheKey: string,
+  cache = promptDecisionTurnCache,
+): MacroDecisionAnswers {
+  const turn = cache.peek(cacheKey);
   const answers = new Map<string, boolean>();
   const choices = new Map<string, string>();
   for (const decision of plan.decisions) {
@@ -372,9 +382,12 @@ export function cachedPromptDecisionAnswers(plan: PromptDecisionPlan, cacheKey: 
  */
 export async function answerPromptDecisions(args: {
   plan: PromptDecisionPlan;
-  backend: DecisionBackend;
+  backend: DecisionBackend | null;
   messages: DecisionMessage[];
   cacheKey: string;
+  /** Tests use a request-local cache, never the live chat's answers. */
+  cache?: PromptDecisionTurnCache;
+  inspection?: DecisionDebugReport;
   chatId?: string;
   /**
    * True when nothing waits on the answer: post-processing agents and retried agents.
@@ -386,11 +399,14 @@ export async function answerPromptDecisions(args: {
   timers?: { state: DecisionTimerState; turn: number };
 }): Promise<MacroDecisionAnswers> {
   const { plan, backend } = args;
-  const turn = promptDecisionTurnCache.get(args.cacheKey);
+  const cache = args.cache ?? promptDecisionTurnCache;
+  const inspection = args.inspection ?? backend?.inspection;
+  const traceStart = inspection?.requests.length ?? 0;
+  const turn = cache.get(args.cacheKey);
   // A held statement is answered by its timer and never asked.
   for (const decision of plan.decisions) {
     if (!decision.held) continue;
-    if (decision.kind === "noul") turn.noul.set(decision.key, { p: decision.held.yes ? 1 : 0, yes: decision.held.yes });
+    if (decision.kind === "noul") turn.noul.set(decision.key, { yes: decision.held.yes, held: true });
     else
       turn.choice.set(
         choiceCacheKey(decision),
@@ -407,7 +423,8 @@ export async function answerPromptDecisions(args: {
       plan.dropped.length,
       plan.dropped.join(" | "),
     );
-  if (pending.length > 0 && (args.afterReply || !backend.deferPreGeneration)) {
+  let requestError: string | undefined;
+  if (backend && pending.length > 0 && (args.afterReply || !backend.deferPreGeneration)) {
     const questions: NoulQuestion[] = pending.map((decision, index) => ({
       id: `d${index}`,
       instructions: decision.key,
@@ -420,12 +437,18 @@ export async function answerPromptDecisions(args: {
         backend.maxStateTokens,
       );
       const result = await backend.askMixed(state, questions);
+      requestError = result.error;
       pending.forEach((decision, index) => {
         if (decision.kind === "noul") {
           const p = result.answers.get(`d${index}`);
           if (p === undefined) return;
           const yes = p >= backend.calibration.defaultThreshold;
-          turn.noul.set(decision.key, { p, yes });
+          turn.noul.set(decision.key, {
+            p,
+            yes,
+            threshold: backend.calibration.defaultThreshold,
+            binary: result.binaryAnswers?.has(`d${index}`),
+          });
           if (args.timers) {
             recordDecisionTimer(args.timers.state, args.timers.turn, decision, { yes });
             recordDecisionCheck(args.timers.state, args.timers.turn, decision);
@@ -442,23 +465,74 @@ export async function answerPromptDecisions(args: {
         }
       });
     } catch (error) {
+      requestError = "request_failed";
       logger.warn(error, "[decision] Prompt decision request failed; those branches read as no");
     }
   }
-  const answers = cachedPromptDecisionAnswers(plan, args.cacheKey);
-  for (const decision of plan.decisions)
-    logger.debug(
-      "[decision] Prompt %s %s -> %s",
-      decision.kind === "noul" ? "statement" : "choice",
-      JSON.stringify(decision.key),
-      decision.kind === "noul"
-        ? (() => {
-            const cached = turn.noul.get(decision.key);
-            return cached === undefined
-              ? "no answer (reads as no)"
-              : `${cached.p.toFixed(3)} (${cached.yes ? "yes" : "no"})`;
-          })()
-        : (answers.choices!.get(decision.key) ?? `no answer (every option reads as no)`),
+  const answers = cachedPromptDecisionAnswers(plan, args.cacheKey, cache);
+  const report: DecisionDebugResult[] = plan.decisions.map((decision) => {
+    const cached = turn.noul.get(decision.key);
+    const choice = answers.choices?.get(decision.key);
+    const answered = decision.kind === "noul" ? cached !== undefined : choice !== undefined;
+    const index = pending.indexOf(decision);
+    const status = decision.held
+      ? "held"
+      : answered
+        ? index >= 0
+          ? "evaluated"
+          : "cached"
+        : !backend
+          ? "unavailable"
+          : backend.deferPreGeneration && !args.afterReply
+            ? "deferred"
+            : inspection?.mode === "inspect"
+              ? "ready"
+              : "unanswered";
+    const error =
+      status === "unanswered"
+        ? (requestError ??
+          inspection?.requests
+            .slice(traceStart)
+            .find((request) => request.results?.some((result) => result.id === `d${index}`))?.error)
+        : undefined;
+    return {
+      statement: decision.key,
+      kind: decision.kind,
+      status,
+      ...(decision.kind === "choice"
+        ? { options: decision.options, ...(choice !== undefined ? { choice } : {}) }
+        : {
+            ...(cached ? { yes: cached.yes } : {}),
+            ...(!decision.held && cached?.p !== undefined && !cached.binary && !cached.held
+              ? { probability: cached.p }
+              : {}),
+            ...(cached?.binary ? { binary: true } : {}),
+            ...(!decision.held && backend
+              ? { threshold: cached?.threshold ?? backend.calibration.defaultThreshold }
+              : {}),
+          }),
+      ...(error ? { error } : {}),
+    };
+  });
+  report.push(
+    ...plan.dropped.map((statement): DecisionDebugResult => ({ statement, kind: "noul", status: "dropped" })),
+  );
+  if (inspection) {
+    for (const result of report) {
+      const existing = inspection.results.findIndex(
+        (row) => row.statement === result.statement && row.kind === result.kind,
+      );
+      // A later lorebook pass reusing this test's answer does not erase its fresh result.
+      if (existing < 0) inspection.results.push(result);
+      else if (result.status !== "cached") inspection.results[existing] = result;
+    }
+  }
+  for (const result of report)
+    logDebugOverride(
+      backend?.debugMode === true || process.env.DEBUG_AGENTS === "true",
+      "[decision] Turn %s: %s",
+      args.cacheKey,
+      JSON.stringify(result),
     );
   return answers;
 }

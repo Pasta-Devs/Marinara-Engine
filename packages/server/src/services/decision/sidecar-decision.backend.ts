@@ -12,8 +12,14 @@
  * Nothing here leaves the machine, and nothing throws: a slot that cannot answer
  * returns no answer for that agent, and the gate runs it.
  */
-import { DECISION_THINKING_MAX_TOKENS, DECISION_TIMEOUT_MS, type DecisionThinkingMode } from "@marinara-engine/shared";
-import { logger } from "../../lib/logger.js";
+import {
+  DECISION_THINKING_MAX_TOKENS,
+  DECISION_TIMEOUT_MS,
+  type DecisionThinkingMode,
+  type DecisionDebugReport,
+  type DecisionDebugRequest,
+} from "@marinara-engine/shared";
+import { logger, logDebugOverride } from "../../lib/logger.js";
 import {
   getAnswerStyle,
   recordDirectAnswer,
@@ -43,6 +49,12 @@ export interface SidecarAnswer {
   uncalibrated: boolean;
 }
 
+interface SidecarDiagnostics {
+  inspection?: DecisionDebugReport;
+  debugMode?: boolean;
+  onAnswer?: (id: string, answer: SidecarAnswer) => void;
+}
+
 function buildMessages(state: unknown, question: string) {
   const rendered = typeof state === "string" ? state : JSON.stringify(state);
   return [
@@ -61,15 +73,17 @@ function buildMessages(state: unknown, question: string) {
 async function askOnce(
   slot: ResolvedDecisionSlot,
   state: unknown,
-  question: string,
+  question: NoulQuestion,
   allowThinking: boolean,
   signal: AbortSignal | undefined,
+  diagnostics: SidecarDiagnostics = {},
 ): Promise<SidecarAnswer | null> {
+  const start = Date.now();
   const timeout = AbortSignal.timeout(allowThinking ? DECISION_TIMEOUT_MS.thinking : DECISION_TIMEOUT_MS.sidecar);
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
   const body: Record<string, unknown> = {
     model: slot.model,
-    messages: buildMessages(state, question),
+    messages: buildMessages(state, question.instructions),
     max_tokens: allowThinking ? DECISION_THINKING_MAX_TOKENS : 1,
     temperature: 0,
     // openai.provider.ts drops both of these unless they are set explicitly, and the
@@ -84,6 +98,27 @@ async function askOnce(
     body.reasoning_format = "none";
     body.chat_template_kwargs = { enable_thinking: false };
   }
+  let trace: DecisionDebugRequest | undefined;
+  if (diagnostics.inspection) {
+    trace = { protocol: "chat_logprobs", body };
+    diagnostics.inspection.requests.push(trace);
+    if (diagnostics.inspection.mode === "inspect") return null;
+  }
+  const debug = diagnostics.debugMode === true || process.env.DEBUG_AGENTS === "true";
+  logDebugOverride(debug, "[decision] Local request: %s", JSON.stringify(body));
+  const finish = (answer: SidecarAnswer | null, error?: string) => {
+    const result = {
+      id: question.id,
+      ...(answer?.probability != null
+        ? answer.uncalibrated
+          ? { yes: answer.probability === 1, binary: true }
+          : { probability: answer.probability }
+        : {}),
+    };
+    if (trace) Object.assign(trace, { results: [result], latencyMs: Date.now() - start, ...(error ? { error } : {}) });
+    logDebugOverride(debug, "[decision] Local result: %s%s", JSON.stringify(result), error ? ` (${error})` : "");
+    return answer;
+  };
   let response: Response;
   try {
     response = await fetch(`${slot.baseUrl}/v1/chat/completions`, {
@@ -93,14 +128,14 @@ async function askOnce(
       signal: combined,
     });
   } catch {
-    return null;
+    return finish(null, signal?.aborted ? "cancelled" : timeout.aborted ? "timeout" : "network");
   }
-  if (!response.ok) return null;
+  if (!response.ok) return finish(null, `http_${response.status}`);
   let payload: ChatCompletionResponse;
   try {
     payload = (await response.json()) as ChatCompletionResponse;
   } catch {
-    return null;
+    return finish(null, "invalid_response");
   }
   const choice = payload.choices?.[0];
   const positions = choice?.logprobs?.content ?? [];
@@ -108,14 +143,14 @@ async function askOnce(
 
   if (!allowThinking) {
     const reading = readLogprobAnswer(positions[0]?.top_logprobs);
-    if (isDirectAnswer(reading)) return { probability: reading.probability, direct: true, uncalibrated: false };
+    if (isDirectAnswer(reading)) return finish({ probability: reading.probability, direct: true, uncalibrated: false });
     // No log-probabilities at all is a runtime limitation rather than a model that
     // wants to think, so the single generated word still counts — uncalibrated.
     if (positions.length === 0) {
       const word = readWordAnswer(content);
-      if (word !== null) return { probability: word, direct: true, uncalibrated: true };
+      if (word !== null) return finish({ probability: word, direct: true, uncalibrated: true });
     }
-    return { probability: null, direct: false, uncalibrated: false };
+    return finish({ probability: null, direct: false, uncalibrated: false }, "no_answer");
   }
 
   // In Allowed mode the answer is whatever the model said once its reasoning ended.
@@ -123,12 +158,12 @@ async function askOnce(
   // reasoning; otherwise the final word, which is 1 or 0 and says so.
   for (const position of positions) {
     const reading = readLogprobAnswer(position.top_logprobs);
-    if (isDirectAnswer(reading)) return { probability: reading.probability, direct: true, uncalibrated: false };
+    if (isDirectAnswer(reading)) return finish({ probability: reading.probability, direct: true, uncalibrated: false });
   }
   const word = readWordAnswer(content);
   return word === null
-    ? { probability: null, direct: false, uncalibrated: true }
-    : { probability: word, direct: true, uncalibrated: true };
+    ? finish({ probability: null, direct: false, uncalibrated: true }, "no_answer")
+    : finish({ probability: word, direct: true, uncalibrated: true });
 }
 
 /**
@@ -143,13 +178,17 @@ async function askQuestion(
   state: unknown,
   question: NoulQuestion,
   signal: AbortSignal | undefined,
+  diagnostics: SidecarDiagnostics = {},
 ): Promise<number | null> {
   const thinking: DecisionThinkingMode = slot.thinking;
   const known = getAnswerStyle(slot.modelIdentity);
   const allowThinking = thinking === "allowed" || (thinking === "auto" && known === "thinks");
 
-  const answer = await askOnce(slot, state, question.instructions, allowThinking, signal);
+  const answer = await askOnce(slot, state, question, allowThinking, signal, diagnostics);
   if (!answer) return null;
+  diagnostics.onAnswer?.(question.id, answer);
+  // An inspection must not teach Auto a different strategy for the next live turn.
+  if (diagnostics.inspection) return answer.probability;
 
   if (allowThinking) {
     if (answer.probability === null) return null;
@@ -180,16 +219,18 @@ async function askQuestion(
  * concurrently and llama-server's own slots serve them. Every question shares the same
  * state prefix, which is what makes that cheap.
  */
-export async function askSidecarNoulQuestions(args: {
-  slot: ResolvedDecisionSlot;
-  state: unknown;
-  questions: NoulQuestion[];
-  signal?: AbortSignal;
-}): Promise<Map<string, number>> {
+export async function askSidecarNoulQuestions(
+  args: {
+    slot: ResolvedDecisionSlot;
+    state: unknown;
+    questions: NoulQuestion[];
+    signal?: AbortSignal;
+  } & SidecarDiagnostics,
+): Promise<Map<string, number>> {
   const answers = new Map<string, number>();
   await Promise.all(
     args.questions.map(async (question) => {
-      const probability = await askQuestion(args.slot, args.state, question, args.signal);
+      const probability = await askQuestion(args.slot, args.state, question, args.signal, args);
       if (probability !== null) answers.set(question.id, probability);
     }),
   );
@@ -208,7 +249,8 @@ export async function probeDecisionSlot(
 }> {
   const start = Date.now();
   const state = { recent_messages: [{ role: "user", name: "User", content: "The door is open." }] };
-  const oneToken = await askOnce(slot, state, "The door is open.", false, signal);
+  const question = { id: "probe", instructions: "The door is open." };
+  const oneToken = await askOnce(slot, state, question, false, signal);
   if (oneToken?.direct && oneToken.probability !== null) {
     recordDirectAnswer(slot.modelIdentity, oneToken.uncalibrated);
     return {
@@ -218,7 +260,7 @@ export async function probeDecisionSlot(
       latencyMs: Date.now() - start,
     };
   }
-  const thinking = await askOnce(slot, state, "The door is open.", true, signal);
+  const thinking = await askOnce(slot, state, question, true, signal);
   if (thinking?.probability !== null && thinking !== null) {
     recordThinkingAnswer(slot.modelIdentity, thinking.uncalibrated);
     return {
