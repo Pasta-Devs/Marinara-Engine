@@ -86,8 +86,13 @@ const { createFileNativeDB } = await import("../../packages/server/src/db/file-b
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
-const { characterDataSchema, createChatSummaryEntry, scopeCharacterSummary, resolveMacros } =
-  await import("../../packages/shared/dist/index.js");
+const {
+  characterDataSchema,
+  createChatSummaryEntry,
+  normalizeChatSummaryEntries,
+  scopeCharacterSummary,
+  resolveMacros,
+} = await import("../../packages/shared/dist/index.js");
 const { createAdvancedMemoryService } = await import("../../packages/server/src/services/advanced-memory.js");
 const { createConnectionSchema } = await import("../../packages/shared/src/schemas/connection.schema.ts");
 const { DEFAULT_ADVANCED_MEMORY_SETTINGS } = await import("../../packages/shared/src/types/advanced-memory.ts");
@@ -437,9 +442,13 @@ try {
   const partialSource = await chats.listMessages(partialChat.id);
   await chats.updateMessageContent(
     partialSource[1]!.id,
-    "Date: PRIVATE_LEDGER_DATE\nOutside the room, Pantalone discusses PRIVATE_LEDGER.",
+    "Date: June 12\nOutside the room, Pantalone discusses PRIVATE_LEDGER.",
   );
-  await chats.updateMessageExtra(partialSource[1]!.id, { hiddenFromAICharacterIds: [borrower.id] });
+  await chats.updateMessageExtra(partialSource[0]!.id, { hiddenFromAI: true });
+  await chats.updateMessageExtra(partialSource[1]!.id, {
+    hiddenFromAI: true,
+    hiddenFromAICharacterIds: [borrower.id],
+  });
   await chats.createMessage({
     chatId: partialChat.id,
     role: "user",
@@ -457,6 +466,8 @@ try {
   assert.match(partialRequest.instructions!, /Write shared events as plain prose/u);
   assert.match(partialRequest.instructions!, /Message visibility annotations are authoritative/u);
   const partialInput = JSON.stringify(partialRequest.input);
+  assert(partialInput.includes("brass compass"), "globally hidden shared messages reach the summarizer");
+  assert(partialInput.includes("PRIVATE_LEDGER"), "globally hidden private messages reach the summarizer");
   assert(
     partialInput.includes(
       JSON.stringify('[Message visibility: only ["Pantalone","Narrator"] can know this message.]').slice(1, -1),
@@ -485,6 +496,15 @@ try {
     beforePartialToggle,
     "constants reuse prepared partial scene knowledge without another summary call",
   );
+  const partialConstants = normalizeChatSummaryEntries(
+    JSON.parse((await chats.getById(partialChat.id))!.metadata).summaryEntries,
+  );
+  const constantCoverage = new Set(partialConstants.flatMap((entry) => entry.messageIds ?? []));
+  assert(
+    partialSource.every((message) => constantCoverage.has(message.id)),
+    "constant summaries cover every scene message, including globally hidden messages",
+  );
+  assert(partialConstants.some((entry) => entry.content.includes("PRIVATE_LEDGER")));
   for (const id of [borrower.id, otherPov.id, narratorActor.id]) {
     const prepared = await memory.prepare({
       chatId: partialChat.id,
@@ -495,10 +515,10 @@ try {
     });
     assert.match(prepared.recalledScenes!, /brass compass promise/u);
     assert.equal(prepared.recalledScenes!.includes("PRIVATE_LEDGER"), id !== borrower.id);
-    assert.equal(prepared.recalledScenes!.includes("PRIVATE_LEDGER_DATE"), id !== borrower.id);
+    assert.match(prepared.recalledScenes!, /timeframe(?: \(summary corrections take precedence\))?: June 12/u, "scene dates are shared by every participant");
     assert.match(prepared.chatSummary!, /brass compass promise/u);
     assert.equal(prepared.chatSummary!.includes("PRIVATE_LEDGER"), id !== borrower.id);
-    assert.equal(prepared.chatSummary!.includes("PRIVATE_LEDGER_DATE"), id !== borrower.id);
+    assert.match(prepared.chatSummary!, /June 12/u);
     if (id === borrower.id) assert(!prepared.receipt.recalledMessageIds.includes(partialSource[1]!.id));
   }
   assert.equal(requests.length, beforePartialToggle, "recalling partial scenes adds no helper calls");
@@ -511,7 +531,8 @@ try {
     readOnly: true,
   });
   assert(partialExcerpt.receipt.recalledMessageIds.length > 0);
-  assert(!partialExcerpt.recalledScenes!.includes("PRIVATE_LEDGER_DATE"), "excerpt labels cannot reuse a hidden date");
+  assert.match(partialExcerpt.recalledScenes!, /Excerpt:\nMessages #[^\n]+story timeframe: June 12/u);
+  assert(!partialExcerpt.recalledScenes!.includes("PRIVATE_LEDGER"), "shared dates do not expose private text");
 
   const changedVisibilityChat = await createChat("Source visibility changed after a plain recap was saved");
   await chats.update(changedVisibilityChat.id, { characterIds: [borrower.id, otherPov.id, narratorActor.id] });

@@ -225,7 +225,7 @@ function policyFingerprint(ctx: Context): string {
 
 function preparationPolicyRevision(ctx: Context): string {
   return hash([
-    "partial-scene-visibility-v18", // Invalidate reusable contexts without rebuilding valid source archives.
+    "partial-scene-visibility-v19", // Invalidate reusable contexts without rebuilding valid source archives.
     policyFingerprint(ctx),
     ctx.settings,
     ctx.metadata.summaryEntries,
@@ -511,10 +511,12 @@ function withSourceTimelines(records: StoredRecord[], source: readonly AdvancedM
   const byId = new Map(source.map((message) => [message.id, message]));
   return records.map((record) => ({
     ...record,
-    // Stored timeframes can quote hidden messages, so only full readers may reuse them.
-    timeline: record.messageIds.every((id) => byId.has(id))
-      ? (record.timeline ?? sourceTimeline(record.messageIds.map((id) => byId.get(id)!)))
-      : null,
+    // Scene timeframes are shared metadata for all assigned participants, including partial readers.
+    timeline:
+      record.timeline ??
+      sourceTimeline(
+        record.messageIds.map((id) => byId.get(id)).filter((message): message is AdvancedMemoryMessage => !!message),
+      ),
   }));
 }
 
@@ -2703,11 +2705,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     if (ctx.individual && !audience.length && input.audienceMode !== "owner")
       throw new Error("Individual Advanced Memory requires a responding character");
     const eligible = allowed(ctx, sources, audience);
-    const eligibleIds = new Set(eligible.map((message) => message.id));
     const visible = eligible.filter((message) => object(message.extra).hiddenFromAI !== true);
     const available = withSourceTimelines(
       sceneRecords(await operationRecords(ctx)).filter((record) => recordValid(ctx, record)),
-      eligible,
+      sources,
     );
     const indexes = new Map(sources.map((message, index) => [message.id, index]));
     const budget = Math.floor(input.budgetTokens) - 192; // Reserve component introductions and source labels; the caller rechecks the complete preset.
@@ -2752,7 +2753,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
               indexes,
               covered.map((message) => message.id),
               text,
-              sourceTimeline(covered.filter((message) => eligibleIds.has(message.id))),
+              sourceTimeline(covered),
               true,
             )
           : text;
@@ -2831,6 +2832,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         tokenSize(currentSceneSummary ?? ""),
     );
     const liveIds = new Set(live.map((message) => message.id));
+    const eligibleIds = new Set(eligible.map((message) => message.id));
     const disabledSceneIds = new Set(
       available
         .filter((record) => record.kind === "scene" && !record.enabled && recallAudienceMatches(ctx, record, audience))
