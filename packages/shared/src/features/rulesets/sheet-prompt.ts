@@ -52,9 +52,17 @@ function cellText(value: unknown): string {
   return "";
 }
 
-/** One cell as the sheet shows it: an enum column's value by the label the ruleset gives it. */
-function columnText(list: { columns: ReadonlyArray<RulesetListColumn> }, id: string, value: unknown): string {
+/** One cell as the sheet shows it: a cell the row leaves out reads as its column's default, the way
+ *  the editor shows it, and an enum column's value reads by the label the ruleset gives it. */
+function columnText(
+  list: { columns: ReadonlyArray<RulesetListColumn> },
+  id: string,
+  row: Record<string, unknown>,
+): string {
   const column = list.columns.find((candidate) => candidate.id === id);
+  const stored = own(row, id);
+  const value = stored === undefined ? column?.default : stored;
+  if (column?.type === "boolean") return value === true ? safeValue(column.label) : "";
   if (column?.type === "enum" && typeof value === "string") return safeValue(column.valueLabels?.[value] ?? value);
   return cellText(value);
 }
@@ -177,17 +185,12 @@ export function renderRulesetSheetBlock(
         const on = typeof flag === "boolean" ? flag : column?.type === "boolean" && (column.default ?? false);
         if (!on) continue;
       }
-      const name = columnText(list, entry.nameColumn, own(row as Record<string, unknown>, entry.nameColumn));
+      const name = columnText(list, entry.nameColumn, row as Record<string, unknown>);
       if (!name) continue;
       // The columns the ruleset asked to see beside the name, as the sheet would show them: a rating
       // is its number, an enum its label, and a flag its column's label when it is set.
       const beside = (entry.columns ?? [])
-        .map((id) => {
-          const value = own(row as Record<string, unknown>, id);
-          const column = list.columns.find((candidate) => candidate.id === id);
-          if (column?.type === "boolean") return value === true ? safeValue(column.label) : "";
-          return columnText(list, id, value);
-        })
+        .map((id) => columnText(list, id, row as Record<string, unknown>))
         .filter(Boolean)
         .join(" ");
       const ref = own(row as Record<string, unknown>, RULESET_CATALOG_ROW_KEY);

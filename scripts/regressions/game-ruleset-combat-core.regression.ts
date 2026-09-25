@@ -208,6 +208,24 @@ function firstOf<T extends RulesetCombatEvent["type"]>(events: RulesetCombatEven
     /two different tracks/,
   );
   assert.match(refusal(withCombat((combat) => (combat.dying.condition = "dead"))), /Unknown condition "dead"/);
+  // A death-save track counts to the rules' own number, with room to count, on every sheet: a top
+  // the sheet works out, a top with no room, or a hidden track would each let one roll settle it.
+  const withSuccessesTrack = (edit: (track: Record<string, any>) => void) =>
+    variant(fiveEText, (doc) =>
+      edit(doc.sheet.live.tracks.find((entry: Record<string, any>) => entry.id === "death_save_successes")),
+    );
+  assert.match(
+    refusal(withSuccessesTrack((track) => (track.max = { const: 2 }))),
+    /"death_save_successes" counts death saves, so its max is a number rather than the sheet's/,
+  );
+  assert.match(
+    refusal(withSuccessesTrack((track) => (track.max = track.min))),
+    /"death_save_successes" counts death saves, so its max is above its min/,
+  );
+  assert.match(
+    refusal(withSuccessesTrack((track) => (track.hideWhen = { field: "level", equals: 1 }))),
+    /"death_save_successes" counts death saves, so it cannot be hidden/,
+  );
   assert.match(
     refusal(withCombat((combat) => (combat.threat.tiers[0].health = [12, 3]))),
     /lowest is above the highest/,
@@ -1224,22 +1242,20 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
   assert.equal(firstOf(healed.events, "spend").pool, "slots_1");
 }
 
-// ── A death track whose top the sheet sets is read off her own sheet ──
+// ── A death track's top is read off the track, not assumed ──
 {
-  // Two successes, because this variant's successes track stops at a value the sheet works out.
+  // Two successes, because this variant's successes track stops at two.
   const shorter = parsedOrThrow(
     variant(fiveEText, (doc) => {
-      doc.sheet.live.tracks.find((entry: Record<string, any>) => entry.id === "death_save_successes").max = {
-        const: 2,
-      };
+      doc.sheet.live.tracks.find((entry: Record<string, any>) => entry.id === "death_save_successes").max = 2;
     }),
-    "5e with a death track the sheet sets",
+    "5e with a shorter death track",
   );
   let state = fight(shorter, [fighter({ pools: { hp: { value: 0 } } }), wizard(), rot()], 10, 9, 18);
   let last = endTurn(shorter, state, "rot", 12);
   state = endTurn(shorter, endTurn(shorter, last.state, "brenna").state, "corwin").state;
   last = endTurn(shorter, state, "rot", 14);
-  assert.equal(eventsOf(last.events, "dying").at(-1)!.result, "stable", "two of the sheet's two are enough");
+  assert.equal(eventsOf(last.events, "dying").at(-1)!.result, "stable", "two of the track's two are enough");
 }
 
 // ── Three successes make her stable, and a blow while stable starts the count again ──

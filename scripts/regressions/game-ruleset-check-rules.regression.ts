@@ -459,9 +459,10 @@ try {
     // Fewer than half is nothing; exactly half is enough.
     assert.equal(throwIt([6, 1, 2, 3]).complication, false);
     assert.equal(throwIt([6, 1, 1, 3]).complication, true);
-    // A roll that failed without going wrong entirely keeps its failure, and the complication alongside it.
-    const missed = throwIt([2, 1, 1, 4], { modifier: 4, required: 1 });
-    assert.deepEqual([missed.success, missed.criticalFailure, missed.complication], [false, true, false]);
+    // A roll a die DID succeed on, that still missed the successes it needed, keeps its failure and
+    // the complication alongside it: it failed without going wrong entirely.
+    const missed = throwIt([6, 1, 1, 4], { modifier: 4, required: 2 });
+    assert.deepEqual([missed.success, missed.criticalFailure, missed.complication], [false, false, true]);
     // Counted over the dice first thrown: an explosion adds dice that do not change what half was.
     const exploding = pool((doc) => {
       delete doc.layers;

@@ -2916,6 +2916,22 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         // kinds instead, so it could never hold a count of successful death saves.
         else if (woundTracks.has(dying[key]))
           issue(at("dying", key), `"${dying[key]}" is a wound track, not a counter`);
+        else {
+          // Every fight counts to this track's top, so the top is the rules' own number with room to
+          // count in, and the track is always on the sheet. A top the sheet works out could come to
+          // nothing for one character, and a hidden track reads as nothing at all: either way one
+          // roll would settle a death save that the rules say takes several.
+          const track = sheet.live.tracks.find((entry) => entry.id === dying[key])!;
+          if (typeof track.max !== "number") {
+            issue(
+              at("dying", key),
+              `"${dying[key]}" counts death saves, so its max is a number rather than the sheet's`,
+            );
+          } else if (track.max <= track.min) {
+            issue(at("dying", key), `"${dying[key]}" counts death saves, so its max is above its min`);
+          }
+          if (track.hideWhen) issue(at("dying", key), `"${dying[key]}" counts death saves, so it cannot be hidden`);
+        }
       }
       if (dying.successes === dying.failures) {
         issue(at("dying", "failures"), "Successes and failures are counted on two different tracks");

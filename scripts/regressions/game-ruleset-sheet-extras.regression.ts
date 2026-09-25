@@ -203,6 +203,25 @@ try {
     );
     assert.match(block, new RegExp(`Limited tricks: On ${firstValue} 2 ready`));
 
+    // A cell the row leaves out reads as its column's default, for a flag and for an enum name alike.
+    const defaulted = accepted(emberText, (doc) => {
+      const list = doc.sheet.lists.find((entry: any) => entry.id === "tricks");
+      list.columns.push({ id: "ready", label: "ready", type: "boolean", default: true });
+      doc.gm.sheetSummary.lists.push({ list: "tricks", nameColumn: "recharge", columns: ["ready"] });
+    });
+    assert.match(
+      renderRulesetSheetBlock(
+        defaulted,
+        {
+          name: "Wren",
+          build: withBuild(defaulted, (build) => (build.lists = { ...build.lists, tricks: [{ name: "Smoke" }] })),
+        },
+        {},
+      ),
+      /Limited tricks: At camp ready/,
+      "the default name and the default flag",
+    );
+
     refused(
       emberText,
       (doc) => (doc.gm.sheetSummary.lists[0].columns = ["nope"]),
