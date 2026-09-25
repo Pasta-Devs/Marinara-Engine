@@ -278,8 +278,9 @@ export function GameRulesetSheet({
   const layerNames = layers?.map((layer) => layer.label).join(", ") || null;
 
   const build = useMemo(() => envelope?.build ?? defaultRulesetSheetBuild(definition), [definition, envelope]);
-  const evaluated = useMemo(() => evaluateRulesetSheet(definition, build), [definition, build]);
   const resolved = useMemo(() => readRulesetLive(definition, build, live), [definition, build, live]);
+  // Against the live state as it stands, so a value that reads a track or a pool shows what it is now.
+  const evaluated = useMemo(() => evaluateRulesetSheet(definition, build, resolved), [definition, build, resolved]);
 
   /** Every change a player makes takes the same route a Game Master command does. */
   const apply = (op: RulesetSheetOp) => {
@@ -381,6 +382,7 @@ export function GameRulesetSheet({
             layerOptions={layerOptions}
             envelope={draft}
             onChange={setDraft}
+            live={live}
           />
           <div className="flex flex-wrap gap-2">
             <button
