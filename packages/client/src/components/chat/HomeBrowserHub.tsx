@@ -2943,7 +2943,8 @@ export function HomeBrowserHub({
                 onClose: () => selectTab("home"),
                 reviewImagePromptsBeforeSend,
                 focusPostId: focusedPackagePost?.packageId === activeTab ? focusedPackagePost.postId : null,
-                onFocusPostHandled: () => setFocusedPackagePost(null),
+                onFocusPostHandled: () =>
+                  setFocusedPackagePost((current) => (current === focusedPackagePost ? null : current)),
               }}
             />
           ) : activeTab === "professor" ? (
