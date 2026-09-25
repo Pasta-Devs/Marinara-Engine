@@ -1,19 +1,51 @@
-name: Release Regression Matrix
+name: Regression Checks
 
 on:
   pull_request:
-    branches: [staging]
+    branches: [staging, main]
   push:
     branches: [staging]
+  schedule:
+    # GitHub schedules from the default branch; the revision job checks staging.
+    - cron: "17 2 * * *"
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or commit to run the full matrix against (blank uses the selected workflow branch)"
+        required: false
+        type: string
 
 concurrency:
-  group: playwright-${{ github.event.pull_request.number || github.ref }}
+  group: playwright-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  revision:
+    name: regression-revision
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      full: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.base_ref == 'main' }}
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event_name == 'schedule' && 'staging' || inputs.ref || github.sha }}
+      - name: Pin the revision for every job
+        id: resolve
+        shell: bash
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Testing commit: $sha" >> "$GITHUB_STEP_SUMMARY"
+
   node:
     name: complete-node-regressions
+    needs: revision
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -25,6 +57,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ needs.revision.outputs.sha }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -43,62 +76,37 @@ jobs:
       - name: Run complete Node regression suite
         run: pnpm regression
 
-  # The browser suite boots the real server and client, so almost any code
-  # change can affect it — the skip list is deliberately narrow (#5622): only
-  # files the running app can never load. This is an in-workflow gate, not a
-  # workflow-level paths filter, so the fan-in jobs below still report green
-  # for branch protection instead of hanging as "Expected".
-  changes:
-    name: browser-lane-gate
+  smoke:
+    name: browser-smoke
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
+    needs: revision
+    if: needs.revision.outputs.full != 'true'
     permissions:
       contents: read
-
-    outputs:
-      browser: ${{ steps.decide.outputs.browser }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          fetch-depth: 2
-
-      - name: Decide whether the browser lanes can be skipped
-        id: decide
-        shell: bash
-        run: |
-          if [[ "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
-            echo "Not a pull request — browser lanes always run."
-            echo "browser=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # pull_request checks out the merge commit; its first parent is the
-          # base branch head, so this diff is exactly the PR's change set.
-          if ! git rev-parse HEAD^2 >/dev/null 2>&1; then
-            echo "Cannot determine the change set — running the browser lanes."
-            echo "browser=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          mapfile -t files < <(git diff --name-only HEAD^1 HEAD)
-          needed=false
-          for file in "${files[@]}"; do
-            case "$file" in
-              docs/*|*.md|.gitattributes|win/*|android/*|scripts/regressions/*) ;;
-              *)
-                needed=true
-                echo "Browser-affecting change: $file"
-                break
-                ;;
-            esac
-          done
-          if [[ "$needed" == "false" ]]; then
-            echo "Only files the running app never loads changed:"
-            printf '  %s\n' "${files[@]}"
-          fi
-          echo "browser=$needed" >> "$GITHUB_OUTPUT"
+          ref: ${{ needs.revision.outputs.sha }}
+      - name: Run focused Chromium smoke suite
+        uses: ./.github/actions/playwright-shard
+        with:
+          project: desktop-chromium
+          browser: chromium
+          shard: 1
+          total-shards: 1
+          server-project: desktop
+          smoke: "true"
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-browser-smoke-failure
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
 
   # Shard counts per lane (#6573): 10 desktop Chromium, 8 mobile Chromium, 10
   # mobile WebKit. Matrix wall time is the slowest single shard, and at four
@@ -111,8 +119,8 @@ jobs:
     name: desktop-chromium ${{ matrix.shard }}/10
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: changes
-    if: needs.changes.outputs.browser == 'true'
+    needs: revision
+    if: needs.revision.outputs.full == 'true'
 
     permissions:
       contents: read
@@ -127,6 +135,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ needs.revision.outputs.sha }}
 
       - name: Run shard
         uses: ./.github/actions/playwright-shard
@@ -150,8 +159,8 @@ jobs:
     name: mobile-chromium ${{ matrix.shard }}/8
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: changes
-    if: needs.changes.outputs.browser == 'true'
+    needs: revision
+    if: needs.revision.outputs.full == 'true'
 
     permissions:
       contents: read
@@ -166,6 +175,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ needs.revision.outputs.sha }}
 
       - name: Run shard
         uses: ./.github/actions/playwright-shard
@@ -190,8 +200,8 @@ jobs:
     name: mobile-webkit ${{ matrix.shard }}/10
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: changes
-    if: needs.changes.outputs.browser == 'true'
+    needs: revision
+    if: needs.revision.outputs.full == 'true'
 
     permissions:
       contents: read
@@ -206,6 +216,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ needs.revision.outputs.sha }}
 
       - name: Run shard
         uses: ./.github/actions/playwright-shard
@@ -225,17 +236,14 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # Fan-in jobs carrying the pre-#5622 check names, so any branch-protection
-  # rule pointing at "desktop-chromium" / "mobile-chromium" / "mobile-webkit"
-  # keeps working across the sharded layout. They pass when every shard
-  # passed, pass with a note when the gate proved the lanes unaffected, and
-  # fail otherwise — including when the gate itself broke.
+  # Full-matrix verdicts run only for nightly/manual/release-candidate checks.
+  # Development PRs report the real browser-smoke result instead.
   desktop-chromium:
     name: desktop-chromium
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [changes, desktop-chromium-shards]
-    if: always()
+    needs: [revision, desktop-chromium-shards]
+    if: always() && needs.revision.outputs.full == 'true'
 
     permissions:
       contents: read
@@ -244,17 +252,12 @@ jobs:
       - name: Verdict
         shell: bash
         env:
-          GATE_RESULT: ${{ needs.changes.result }}
-          GATE_BROWSER: ${{ needs.changes.outputs.browser }}
+          REVISION_RESULT: ${{ needs.revision.result }}
           SHARDS_RESULT: ${{ needs.desktop-chromium-shards.result }}
         run: |
-          if [[ "$GATE_RESULT" != "success" ]]; then
-            echo "Gate job did not succeed: $GATE_RESULT"
+          if [[ "$REVISION_RESULT" != "success" ]]; then
+            echo "Revision job did not succeed: $REVISION_RESULT"
             exit 1
-          fi
-          if [[ "$GATE_BROWSER" != "true" ]]; then
-            echo "Skipped: this change cannot affect the browser lanes."
-            exit 0
           fi
           if [[ "$SHARDS_RESULT" == "success" ]]; then
             exit 0
@@ -266,8 +269,8 @@ jobs:
     name: mobile-chromium
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [changes, mobile-chromium-shards]
-    if: always()
+    needs: [revision, mobile-chromium-shards]
+    if: always() && needs.revision.outputs.full == 'true'
 
     permissions:
       contents: read
@@ -276,17 +279,12 @@ jobs:
       - name: Verdict
         shell: bash
         env:
-          GATE_RESULT: ${{ needs.changes.result }}
-          GATE_BROWSER: ${{ needs.changes.outputs.browser }}
+          REVISION_RESULT: ${{ needs.revision.result }}
           SHARDS_RESULT: ${{ needs.mobile-chromium-shards.result }}
         run: |
-          if [[ "$GATE_RESULT" != "success" ]]; then
-            echo "Gate job did not succeed: $GATE_RESULT"
+          if [[ "$REVISION_RESULT" != "success" ]]; then
+            echo "Revision job did not succeed: $REVISION_RESULT"
             exit 1
-          fi
-          if [[ "$GATE_BROWSER" != "true" ]]; then
-            echo "Skipped: this change cannot affect the browser lanes."
-            exit 0
           fi
           if [[ "$SHARDS_RESULT" == "success" ]]; then
             exit 0
@@ -298,8 +296,8 @@ jobs:
     name: mobile-webkit
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [changes, mobile-webkit-shards]
-    if: always()
+    needs: [revision, mobile-webkit-shards]
+    if: always() && needs.revision.outputs.full == 'true'
 
     permissions:
       contents: read
@@ -308,17 +306,12 @@ jobs:
       - name: Verdict
         shell: bash
         env:
-          GATE_RESULT: ${{ needs.changes.result }}
-          GATE_BROWSER: ${{ needs.changes.outputs.browser }}
+          REVISION_RESULT: ${{ needs.revision.result }}
           SHARDS_RESULT: ${{ needs.mobile-webkit-shards.result }}
         run: |
-          if [[ "$GATE_RESULT" != "success" ]]; then
-            echo "Gate job did not succeed: $GATE_RESULT"
+          if [[ "$REVISION_RESULT" != "success" ]]; then
+            echo "Revision job did not succeed: $REVISION_RESULT"
             exit 1
-          fi
-          if [[ "$GATE_BROWSER" != "true" ]]; then
-            echo "Skipped: this change cannot affect the browser lanes."
-            exit 0
           fi
           if [[ "$SHARDS_RESULT" == "success" ]]; then
             exit 0
