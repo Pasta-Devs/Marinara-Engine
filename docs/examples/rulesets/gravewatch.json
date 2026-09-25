@@ -132,6 +132,18 @@
           { "id": "name", "label": "Charm", "type": "text", "maxLength": 60, "required": true },
           { "id": "notes", "label": "What it does", "type": "text", "maxLength": 200 }
         ]
+      },
+      {
+        "$comment": "A warden who has come back from worse can take more before going down: each scar adds its levels to Harm (see the track's extra).",
+        "id": "scars",
+        "label": "Scars",
+        "section": "kit",
+        "maxItems": 4,
+        "columns": [
+          { "id": "name", "label": "Scar", "type": "text", "maxLength": 60, "required": true },
+          { "id": "levels", "label": "Levels", "type": "number", "min": 1, "max": 2, "default": 1 },
+          { "id": "penalty", "label": "Penalty", "type": "number", "min": -3, "max": 0, "default": -1 }
+        ]
       }
     ],
     "live": {
@@ -157,7 +169,8 @@
               "severity": 0
             },
             { "id": "tear", "label": "T", "severity": 1 }
-          ]
+          ],
+          "extra": { "list": "scars", "countColumn": "levels", "penaltyColumn": "penalty" }
         }
       ],
       "conditions": [
@@ -179,6 +192,13 @@
         }
       ],
       "clear": { "conditions": ["rattled"] }
+    },
+    {
+      "$comment": "A breather mends the knocks and leaves the tears: a restore step that names a kind clears only marks of that kind.",
+      "id": "breather",
+      "label": "Catch your breath",
+      "restore": [{ "track": "harm", "kind": "knock", "to": "min" }],
+      "clear": { "conditions": [] }
     }
   ],
   "catalogs": [

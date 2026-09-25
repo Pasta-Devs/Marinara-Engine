@@ -97,7 +97,12 @@ export function parseSheetCommandTagBody(body: string): ParsedSheetCommandTag {
     if (name === "damage" && track) {
       const kind = values.get("kind")?.trim();
       if (!kind || amount === null) return parsed;
-      return { ...parsed, op: { op: "damage", track, kind, amount } };
+      // Where the mark aims on an indexed track. A box that does not read as a number is a tag that
+      // does not say what it means, so it is refused rather than dropped to box 1.
+      const rawBox = values.get("box");
+      const box = rawBox === undefined ? null : readInteger(rawBox);
+      if (rawBox !== undefined && box === null) return parsed;
+      return { ...parsed, op: { op: "damage", track, kind, amount, ...(box !== null ? { box } : {}) } };
     }
     const pool = values.get("pool")?.trim();
     if (!pool || amount === null) return parsed;
@@ -182,6 +187,7 @@ export function serializeSheetCommandTag(
       attribute("track", op.track);
       attribute("kind", op.kind);
       attribute("amount", op.amount);
+      if (op.box !== undefined) attribute("box", op.box);
     } else if (op.op === "spend" || op.op === "restore" || op.op === "damage" || op.op === "temp") {
       attribute("pool", op.pool);
       attribute("amount", op.amount);

@@ -128,7 +128,7 @@ try {
     assert.equal(gravewatch.sheet.saves.length, 1);
     assert.equal(gravewatch.resolution.difficultyLadder.length, 4);
     assert.equal(gravewatch.sheet.live.pools.length, 1);
-    assert.equal(gravewatch.rests.length, 1);
+    assert.equal(gravewatch.rests.length, 2);
     assert.equal(gravewatch.resolution.abilityModifier.op, "identity");
   }
 
@@ -744,6 +744,9 @@ try {
     for (const skill of document.sheet.skills) delete skill.cap;
     document.sheet.derived = document.sheet.derived.filter((entry: { id: string }) => entry.id !== "harm_left");
     for (const field of document.sheet.fields) delete field.hideWhen;
+    // And 1.40's: the levels a list adds to Harm, and the rest that clears one kind of harm.
+    for (const track of document.sheet.live.tracks) delete track.extra;
+    document.rests = document.rests.filter((rest: { id: string }) => rest.id !== "breather");
     assert.match(
       getCapabilityPackageInstallIssue(manifest(23) as any, document) ?? "",
       /dice-pool resolution requires schemaVersion 2 and capabilityApi 1\.24 or newer/,

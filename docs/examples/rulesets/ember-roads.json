@@ -200,6 +200,13 @@
           [9, -3]
         ],
         "section": "gear"
+      },
+      {
+        "id": "strain_boxes",
+        "label": "Strain boxes",
+        "op": "sum",
+        "of": [{ "const": 2 }, { "abilityMod": "heart" }],
+        "section": "about"
       }
     ],
     "lists": [
@@ -345,6 +352,25 @@
           "max": 5,
           "default": 0,
           "alwaysShow": true
+        },
+        {
+          "$comment": "Numbered boxes rather than named levels, as many as Strain boxes works out. A hit marks the box its strength names, or the next free one above; with none free the hit does not land on the track, and in a fight that takes the traveller out. The table reads the boxes still clear: none left is -1 on every roll.",
+          "id": "strain",
+          "label": "Strain",
+          "min": 0,
+          "max": { "derived": "strain_boxes" },
+          "boxes": {
+            "penalty": {
+              "by": "remaining",
+              "table": [
+                [0, -1],
+                [1, 0]
+              ]
+            }
+          },
+          "kinds": [{ "id": "strain", "label": "S", "severity": 0 }],
+          "fill": "indexed",
+          "onFull": "refuse"
         }
       ],
       "conditions": [

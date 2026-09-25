@@ -111,8 +111,10 @@ try {
     const hideable = accepted(emberText, (doc) => (heatOf(doc).hideWhen = { field: "calling", equals: "Hermit" }));
     const hermit = withBuild(hideable, (build) => (build.fields = { ...build.fields, calling: "Hermit" }));
     const trader = withBuild(hideable, (build) => (build.fields = { ...build.fields, calling: "Trader" }));
-    assert.equal(readRulesetLive(hideable, hermit, {}).tracks.length, 0, "hidden, like a hidden pool");
-    assert.equal(readRulesetLive(hideable, trader, {}).tracks.length, 1);
+    const heatShown = (build: typeof hermit) =>
+      readRulesetLive(hideable, build, {}).tracks.some((t) => t.id === "heat");
+    assert.equal(heatShown(hermit), false, "hidden, like a hidden pool");
+    assert.equal(heatShown(trader), true);
     assert.equal(applyRulesetSheetOp(hideable, hermit, {}, { op: "track", track: "heat", by: 1 }).ok, false);
     assert.doesNotMatch(
       renderRulesetSheetBlock(
@@ -265,12 +267,18 @@ try {
     const wounded = sheets(gravewatch);
     assert.match(
       wounded,
-      /- \[sheet: who="Name" op="damage" track="Track" kind="Kind" amount="N"\] - marks harm of that kind on a wound track; a negative amount heals it\./,
+      /- \[sheet: who="Name" op="damage" track="Track" kind="Kind" amount="N"\] - marks harm of that kind on a wound track; a negative amount heals marks of that kind\./,
     );
     assert.match(wounded, /Wound tracks: Harm \(Scuffed to Down; knock, tear\)\./);
     assert.doesNotMatch(wounded, /^Tracks:/m, 'Gravewatch has no plain track for op="track" to move');
 
-    const plain = sheets(ember);
+    // Ember Roads without its Strain boxes has no wound track at all.
+    const plain = sheets(
+      accepted(
+        emberText,
+        (doc) => (doc.sheet.live.tracks = doc.sheet.live.tracks.filter((t: any) => t.id !== "strain")),
+      ),
+    );
     assert.match(plain, /Tracks: Heat \(0 to 5\)\./);
     assert.doesNotMatch(plain, /op="damage" track=/);
     assert.doesNotMatch(plain, /Wound tracks:/);

@@ -830,9 +830,9 @@ function renderRulesetSheetSection(
   // A wound track is marked with a kind of harm rather than counted, so it has a command of its own
   // and is listed apart from the tracks `op="track"` moves.
   const woundTracks = ruleset.sheet.live.tracks.flatMap((track) =>
-    track.levels && track.kinds ? [{ ...track, levels: track.levels, kinds: track.kinds }] : [],
+    (track.levels || track.boxes) && track.kinds ? [{ ...track, kinds: track.kinds }] : [],
   );
-  const plainTracks = ruleset.sheet.live.tracks.filter((track) => !track.levels);
+  const plainTracks = ruleset.sheet.live.tracks.filter((track) => !track.levels && !track.boxes);
   const lines = [
     ``,
     `CHARACTER SHEETS:`,
@@ -844,7 +844,13 @@ function renderRulesetSheetSection(
     `- [sheet: who="Name" op="track" track="Track" by="+1"] - or to="N" to set it.`,
     ...(woundTracks.length > 0
       ? [
-          `- [sheet: who="Name" op="damage" track="Track" kind="Kind" amount="N"] - marks harm of that kind on a wound track; a negative amount heals it.`,
+          `- [sheet: who="Name" op="damage" track="Track" kind="Kind" amount="N"] - marks harm of that kind on a wound track; a negative amount heals marks of that kind.`,
+          // Taught only where a track fills by box, since everywhere else a box number means nothing.
+          ...(woundTracks.some((track) => track.fill === "indexed")
+            ? [
+                `  On a track that fills by box, add box="N" for the box the hit lands on; it takes the next free box above when that one is marked, and is refused when none is free.`,
+              ]
+            : []),
         ]
       : []),
     `- [sheet: who="Name" op="condition" condition="Condition" state="on|off"]`,
@@ -879,7 +885,7 @@ function renderRulesetSheetSection(
           `Wound tracks: ${woundTracks
             .map(
               (track) =>
-                `${track.label} (${track.levels[0]!.label} to ${track.levels[track.levels.length - 1]!.label}; ${track.kinds.map((kind) => kind.id).join(", ")})`,
+                `${track.label} (${track.levels ? `${track.levels[0]!.label} to ${track.levels[track.levels.length - 1]!.label}` : "numbered boxes"}${track.fill === "indexed" ? ", fills by box" : ""}${track.onFull === "refuse" || track.fill === "indexed" ? ", refuses a mark when full" : ""}; ${track.kinds.map((kind) => kind.id).join(", ")})`,
             )
             .join(", ")}.`,
         ]
