@@ -108,6 +108,36 @@ const en = JSON.parse(source("localization/locales/en.json")) as Record<string, 
   assert.equal(ran, 3, "a clean editor lets it run at once");
   unregister();
 
+  // Like useEditorLeaveSave: the continuation runs while the save is still pending, and any leave request made then
+  // is held. Closing the editor inside the continuation must still apply, and the navigation must follow.
+  {
+    const { deferEditorLeave } = await import("../../packages/client/src/lib/editor-leave.js");
+    let pending = false;
+    let finishSave: (() => void) | null = null;
+    const unregisterSaving = registerEditorLeaveHandler({
+      key: "characterDetailId:c1",
+      request: (proceed) => {
+        if (pending) return true;
+        pending = true;
+        finishSave = () => {
+          proceed();
+          pending = false;
+        };
+        return true;
+      },
+    });
+    const steps: string[] = [];
+    afterEditorLeave(editorOpen, () => {
+      const close = () => steps.push("closed");
+      if (!deferEditorLeave(editorOpen, { characterDetailId: null }, close)) close();
+      steps.push("navigated");
+    });
+    assert.deepEqual(steps, [], "nothing happens while the save runs");
+    (finishSave as (() => void) | null)?.();
+    assert.deepEqual(steps, ["closed", "navigated"], "a successful save closes the editor, then navigates");
+    unregisterSaving();
+  }
+
   const navigation = source("components/command-palette/palette-navigation.ts");
   const host = source("components/command-palette/CommandPaletteHost.tsx");
   assert.match(navigation, /closeDetailsThen\(\(\) => \{\s*useChatStore\.getState\(\)\.setActiveChatId\(chatId\)/);
