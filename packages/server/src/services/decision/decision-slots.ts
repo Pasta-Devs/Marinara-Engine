@@ -151,7 +151,7 @@ function isSidecarStartupCancelled(error: unknown): boolean {
  * The one log line for a slot that cannot serve.
  *
  * A gate asks on every turn, so a slot that stays down would otherwise write the same
- * warning each time; it is rate-limited per slot. A user stop is an expected outcome
+ * warning each time; it is rate-limited per slot and reason, so a changed diagnosis still logs. A user stop is an expected outcome
  * and goes to info. Returns the failure so each branch can report and return at once.
  */
 function slotFailure(
@@ -167,7 +167,7 @@ function slotFailure(
   } else {
     logRateLimited(
       "warn",
-      `decision.slot:${failure.slot}`,
+      `decision.slot:${failure.slot}:${failure.reason}`,
       fields,
       "[decision] The %s local model cannot serve decisions (%s); gates fail open",
       failure.slot,
