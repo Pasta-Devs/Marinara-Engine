@@ -487,6 +487,14 @@ export interface SkillCheckResult {
    * `success` is still the outcome; this is what happens beside it. Absent everywhere else.
    */
   complication?: boolean;
+  /**
+   * What the sheet itself added to or took off the check through `resolution.adjust`, beside any
+   * wound penalty: dice on a pool, a flat number on a sum (where it is inside `modifier` too). Absent
+   * when nothing applied.
+   */
+  adjust?: number;
+  /** The standing re-throw the Game Master named with `reroll=` and the check applied, by its id. */
+  reroll?: string;
 }
 
 // ── The sighted dice pool (opt-in, last) ──

@@ -396,7 +396,14 @@ const capabilityPackageManifestBaseSchema = z
 //        reason as 1.20 through 1.34: an Engine that cannot read these keys refuses the whole
 //        ruleset file, or the catalog file that holds them, so a package that ships any of them
 //        declares 1.37. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 37 } as const);
+// 1.38: what a check may buy and what rides along on it. `resolution.reroll` lists standing re-throws
+//        a check may name with `reroll=`, a `resolution.spend` entry may buy a `reroll` and read its
+//        `perCheck` limit off the sheet (a value reference, or `"pool"` for the check's own dice), a
+//        ruleset may declare up to four spends, and `resolution.adjust` adds numbers off the sheet to
+//        every check they apply to. Not a soft seam, for the same reason as 1.20 through 1.37: an
+//        Engine that cannot read these keys refuses the whole ruleset file, so a package that ships
+//        any of them declares 1.38. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 38 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

@@ -205,6 +205,21 @@ const proficiencyTierSchema = z
  *  than an author's choice: past this the roll stops being a roll. */
 const SPEND_EFFECT_MAX = 10;
 
+/** Throw the dice at or below `upTo` again. `once` replaces each of them one time and lets the new
+ *  face stand; `until` keeps going, under the Engine's own hard ceiling. One shape wherever a re-throw
+ *  can come from: a charm, a purchase, or a standing rule the Game Master names. */
+const checkRerollSchema = z
+  .object({ upTo: z.number().int().min(1).max(999), mode: z.enum(["once", "until"]) })
+  .strict();
+
+/** How many purchases one check may make: a number, a value the character's sheet works out, or
+ *  `"pool"`, the check's own dice before anything was added or taken. */
+const spendPerCheckSchema = z.union([
+  z.number().int().min(1).max(SPEND_EFFECT_MAX),
+  rulesetValueRefSchema,
+  z.literal("pool"),
+]);
+
 /** One thing a check may buy by spending a pool. `amount` is what ONE purchase costs; `perCheck` is
  *  how many purchases a single check may make, so the ceiling is `amount * perCheck` points. */
 const resolutionSpendSchema = z
@@ -215,14 +230,27 @@ const resolutionSpendSchema = z
     successes: z.number().int().min(1).max(SPEND_EFFECT_MAX).optional(),
     /** Dice added to the pool before it is thrown. */
     dice: z.number().int().min(1).max(SPEND_EFFECT_MAX).optional(),
-    perCheck: z.number().int().min(1).max(SPEND_EFFECT_MAX),
+    /** A re-throw of the low faces. Bought once however many purchases the check makes, because a
+     *  die thrown again twice is still one re-throw. */
+    reroll: checkRerollSchema.optional(),
+    perCheck: spendPerCheckSchema,
   })
   .strict()
   .superRefine((spend, ctx) => {
-    if (spend.successes === undefined && spend.dice === undefined) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A spend buys successes, dice, or both" });
+    if (spend.successes === undefined && spend.dice === undefined && spend.reroll === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A spend buys successes, dice, a re-throw, or several" });
     }
   });
+
+/** Something on the sheet that rides along on every check it applies to, the way a wound penalty
+ *  does: armour that weighs on one ability, a curse on all of them. `abilities` limits it to checks
+ *  rolled with one of those; without it, every check. */
+const resolutionAdjustSchema = z
+  .object({
+    value: rulesetValueRefSchema,
+    abilities: z.array(sheetId).min(1).max(12).optional(),
+  })
+  .strict();
 
 /** The sheet math every resolution kind shares: how a score becomes a modifier, and what training
  *  is worth. Declared once and spread into each kind, so two kinds can never grow different rules
@@ -243,8 +271,11 @@ const sheetMathShape = {
   /** What a player may BUY on a check, as a standing rule of the system rather than as something
    *  a character went and acquired: "spend a point of will for an automatic success". It has no
    *  catalog entry to hang on, so it lives beside the rest of the sheet math. `perCheck` is what
-   *  stops a full pool buying an unlosable roll. */
-  spend: z.array(resolutionSpendSchema).max(2).optional(),
+   *  stops a full pool buying an unlosable roll. Up to four, one per pool. */
+  spend: z.array(resolutionSpendSchema).max(4).optional(),
+  /** What the sheet itself adds to or takes off a check, with no word from the Game Master. Applied
+   *  where the wound penalty is: dice on a pool, a flat number on a sum. */
+  adjust: z.array(resolutionAdjustSchema).max(8).optional(),
 };
 
 /** One rung of a summed ladder. Hoisted out of the kind because a layer may swap the whole ladder
@@ -363,6 +394,13 @@ const dicePoolResolutionSchema = z
     exceptional: z
       .object({ successes: z.number().int().min(1).max(RULESET_POOL_MAX_DICE) })
       .strict()
+      .optional(),
+    /** Optional: re-throws of the low faces the system grants without anybody paying for them, each
+     *  named so the Game Master can ask for one on a check with `reroll=`. */
+    reroll: z
+      .array(checkRerollSchema.extend({ id: sheetId }))
+      .min(1)
+      .max(6)
       .optional(),
     /** Optional: lets the GM add or take dice for one check (a stunt, a wound, bad light). */
     situationalDice: z
@@ -946,10 +984,7 @@ const catalogMechanicsSchema = z
       .object({
         /** Throw the dice at or below `upTo` again. `once` replaces each of them one time and
          *  lets the new face stand; `until` keeps going, under the Engine's own hard ceiling. */
-        reroll: z
-          .object({ upTo: z.number().int().min(1).max(999), mode: z.enum(["once", "until"]) })
-          .strict()
-          .optional(),
+        reroll: checkRerollSchema.optional(),
         /** Dice added to the pool before it is thrown. */
         dice: z.number().int().min(1).max(SPEND_EFFECT_MAX).optional(),
         /** Successes added after the dice are counted. */
@@ -2543,6 +2578,35 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     const path = ["sheet", "live", "pools", index];
     checkRef(pool.max, [...path, "max"], derivedIds);
     checkHideWhen(pool.hideWhen, path);
+  });
+
+  // A spend's limit read off the sheet names something the sheet has, and a re-throw it buys is held
+  // to the same die the ruleset throws as every other re-throw.
+  const abilityIds = new Set(sheet.abilities.map((ability) => ability.id));
+  const rerollIssue = (upTo: number, path: (string | number)[]) => {
+    if (resolution.kind !== "dice-pool") return;
+    if (upTo < 1 || upTo >= resolution.die.sides) {
+      issue(
+        [...path, "upTo"],
+        `This ruleset throws d${resolution.die.sides}, so a re-throw is on a face from 1 to ${resolution.die.sides - 1}`,
+      );
+    }
+  };
+  resolution.spend?.forEach((spend, index) => {
+    const path = ["resolution", "spend", index];
+    if (typeof spend.perCheck === "object") checkRef(spend.perCheck, [...path, "perCheck"], derivedIds);
+    if (spend.reroll) rerollIssue(spend.reroll.upTo, [...path, "reroll"]);
+  });
+  if (resolution.kind === "dice-pool") {
+    unique(resolution.reroll ?? [], ["resolution", "reroll"], "re-throw");
+    resolution.reroll?.forEach((reroll, index) => rerollIssue(reroll.upTo, ["resolution", "reroll", index]));
+  }
+  resolution.adjust?.forEach((adjust, index) => {
+    const path = ["resolution", "adjust", index];
+    checkRef(adjust.value, [...path, "value"], derivedIds);
+    adjust.abilities?.forEach((id, abilityIndex) => {
+      if (!abilityIds.has(id)) issue([...path, "abilities", abilityIndex], `Unknown ability "${id}"`);
+    });
   });
   sheet.live.tracks.forEach((track, index) => {
     const path = ["sheet", "live", "tracks", index];

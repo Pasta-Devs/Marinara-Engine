@@ -5162,6 +5162,7 @@ function GameSurfaceComponent({
                       Number.isInteger(sc.explode) && sc.explode! >= 2 && sc.explode! <= 1000 ? sc.explode : undefined,
                     double:
                       Number.isInteger(sc.double) && sc.double! >= 2 && sc.double! <= 1000 ? sc.double : undefined,
+                    reroll: sc.reroll,
                     messageId: msg.id,
                   })
                 ).result

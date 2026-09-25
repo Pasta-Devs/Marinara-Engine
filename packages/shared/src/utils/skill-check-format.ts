@@ -106,6 +106,10 @@ export interface SkillCheckTagExtras {
   double?: number;
   /** `complication="true"` — the roll went wrong on the side without botching outright. */
   complication?: boolean;
+  /** `adjust="-2"` — what the sheet itself added to or took off the check. */
+  adjust?: number;
+  /** `reroll="rote"` — the standing re-throw the check applied, or the ask for one. */
+  reroll?: string;
 }
 
 function serializeSkillCheckExtras(extras: SkillCheckTagExtras | undefined): string {
@@ -132,6 +136,10 @@ function serializeSkillCheckExtras(extras: SkillCheckTagExtras | undefined): str
   if (extras.explode != null && Number.isFinite(extras.explode)) parts.push(`explode="${extras.explode}"`);
   if (extras.double != null && Number.isFinite(extras.double)) parts.push(`double="${extras.double}"`);
   if (extras.complication) parts.push(`complication="true"`);
+  if (extras.adjust != null && Number.isFinite(extras.adjust) && extras.adjust !== 0) {
+    parts.push(`adjust="${extras.adjust > 0 ? "+" : ""}${extras.adjust}"`);
+  }
+  if (extras.reroll) parts.push(`reroll="${serializeSkillCheckAttribute(extras.reroll)}"`);
   return parts.length > 0 ? ` ${parts.join(" ")}` : "";
 }
 
@@ -176,6 +184,8 @@ export function serializeResolvedSkillCheckTag(result: SkillCheckResult, extras?
     ...(result.explodeFrom != null ? { explode: result.explodeFrom } : {}),
     ...(result.doubleFrom != null ? { double: result.doubleFrom } : {}),
     ...(result.complication ? { complication: true } : {}),
+    ...(result.adjust ? { adjust: result.adjust } : {}),
+    ...(result.reroll ? { reroll: result.reroll } : {}),
     // An extra a caller left undefined is absent, not an instruction to erase what the result says.
     ...Object.fromEntries(Object.entries(extras ?? {}).filter(([, value]) => value !== undefined)),
   };

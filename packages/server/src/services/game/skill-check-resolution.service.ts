@@ -29,6 +29,9 @@ import {
   parseDiceNotation,
   readRulesetWoundPenalty,
   rollDicePoolCheck,
+  resolveRulesetValueRef,
+  RULESET_POOL_MAX_DICE,
+  rulesetCheckAdjust,
   rulesetDifficultyStep,
   rulesetDifficultyStepDc,
   rulesetLadderTargetFor,
@@ -43,6 +46,7 @@ import {
   type RulesetLiveState,
   type RulesetLiveStates,
   type RulesetSheetBuild,
+  type RulesetValueRef,
   type SkillCheckResult,
   type SkillCheckTag,
 } from "@marinara-engine/shared";
@@ -140,6 +144,8 @@ export interface SkillCheckRequest {
   /** `explode=` and `double=`: the face a pool rule the ruleset lets a check move fires on. */
   explode?: number;
   double?: number;
+  /** `reroll=`: one of the ruleset's standing re-throws, by its id. */
+  reroll?: string;
   advantage?: boolean;
   disadvantage?: boolean;
   preRolledD20?: number;
@@ -513,6 +519,8 @@ export function planRulesetCheckPurchase(
   ruleset: SkillCheckRulesetContext,
   asked: { pool: string; amount: number } | undefined,
   who?: string,
+  /** The check's own dice, before anything was added or taken: what a `"pool"` limit reads. */
+  base = 0,
 ): RulesetCheckPurchase | null {
   const offers = ruleset.definition.resolution.spend;
   if (!asked || !offers || offers.length === 0) return null;
@@ -525,13 +533,15 @@ export function planRulesetCheckPurchase(
   if (!offer) return null;
   // Whole purchases only. Half a point of will buys half a success in no system.
   if (!Number.isInteger(asked.amount) || asked.amount < offer.amount || asked.amount % offer.amount !== 0) return null;
-  const times = Math.min(offer.perCheck, asked.amount / offer.amount);
-  const cost = times * offer.amount;
 
   const key = who ? normalizeCharacterLookupName(who) : ruleset.playerKey;
   const build = key ? ruleset.builds.get(key) : undefined;
   // A stranger has no sheet to spend from, so there is nothing to pay with and nothing is bought.
   if (!key || !build) return null;
+  const times = Math.min(rulesetSpendCap(ruleset, offer.perCheck, key, build, base), asked.amount / offer.amount);
+  // A limit the sheet sets can be nothing for this character, and then nothing is bought.
+  if (times < 1) return null;
+  const cost = times * offer.amount;
   const paid = applyRulesetSheetOp(ruleset.definition, build, ruleset.live[key], {
     op: "spend",
     pool: offer.pool,
@@ -545,10 +555,35 @@ export function planRulesetCheckPurchase(
     bought: {
       ...(offer.dice ? { dice: offer.dice * times } : {}),
       ...(offer.successes ? { successes: offer.successes * times } : {}),
+      // Bought once however many purchases were made: a die thrown again twice is one re-throw.
+      ...(offer.reroll ? { reroll: offer.reroll } : {}),
     },
     key,
     live: paid.live,
   };
+}
+
+/** How many purchases of a spend one check may make, for this character on this check: the number
+ *  the ruleset wrote, the value its sheet works out, or the check's own dice. Whole, never below
+ *  none, and never past the most dice one pool may hold. */
+function rulesetSpendCap(
+  ruleset: SkillCheckRulesetContext,
+  perCheck: number | "pool" | RulesetValueRef,
+  key: string,
+  build: RulesetSheetBuild,
+  base: number,
+): number {
+  if (typeof perCheck === "number") return perCheck;
+  const raw =
+    perCheck === "pool"
+      ? base
+      : resolveRulesetValueRef(
+          ruleset.definition,
+          build,
+          perCheck,
+          ruleset.sheets.get(key) ?? evaluateRulesetSheet(ruleset.definition, build),
+        );
+  return Math.max(0, Math.min(RULESET_POOL_MAX_DICE, Math.floor(raw)));
 }
 
 /** The request with the number its named ladder step stands for, where it wrote no `dc=` of its own
@@ -583,6 +618,49 @@ export function rulesetCheckModifierFor(
   }
   const player = ruleset.playerKey ? ruleset.sheets.get(ruleset.playerKey) : undefined;
   return rulesetCheckModifier(player ?? ruleset.blank, target);
+}
+
+/** What the sheet's own `resolution.adjust` adds to or takes off `who`'s check (or the player's), on
+ *  the same terms as the modifier beside it: a stranger has no sheet, so nothing. */
+export function rulesetCheckAdjustFor(
+  ruleset: SkillCheckRulesetContext,
+  skill: string,
+  who?: string,
+  withAbility?: string,
+): number {
+  const { definition } = ruleset;
+  if (!definition.resolution.adjust?.length) return 0;
+  const target = matchRulesetCheckTarget(definition, skill, withAbility);
+  if (who) {
+    const key = normalizeCharacterLookupName(who);
+    const evaluated = ruleset.sheets.get(key);
+    const build = ruleset.builds.get(key);
+    return evaluated && build ? rulesetCheckAdjust(definition, build, evaluated, target) : 0;
+  }
+  const key = ruleset.playerKey;
+  const evaluated = (key ? ruleset.sheets.get(key) : undefined) ?? ruleset.blank;
+  const build = (key ? ruleset.builds.get(key) : undefined) ?? defaultRulesetSheetBuild(definition);
+  return rulesetCheckAdjust(definition, build, evaluated, target);
+}
+
+/** One of the ruleset's standing re-throws, by the id the Game Master named with `reroll=`, matched
+ *  without case. Null for a name nothing answers to, and on a summed ruleset, which has none. */
+export function rulesetStandingReroll(
+  definition: RulesetDefinition,
+  name: string | undefined,
+): { id: string; upTo: number; mode: "once" | "until" } | null {
+  const wanted = name?.trim().toLowerCase();
+  if (!wanted || definition.resolution.kind !== "dice-pool") return null;
+  return definition.resolution.reroll?.find((entry) => entry.id.toLowerCase() === wanted) ?? null;
+}
+
+/** One re-throw per roll: of two that would apply, the one that reaches more faces, and `until`
+ *  over `once` where they reach the same. Two re-throws of the same dice are not a rule anywhere. */
+function widerReroll<T extends { upTo: number; mode: "once" | "until" }>(first?: T | null, second?: T | null) {
+  if (!first) return second ?? undefined;
+  if (!second) return first;
+  if (first.upTo !== second.upTo) return first.upTo > second.upTo ? first : second;
+  return second.mode === "until" && first.mode !== "until" ? second : first;
 }
 
 function resolveRulesetSkillCheck(
@@ -628,6 +706,9 @@ function resolveRulesetSkillCheck(
   // own clamp holds it at `pool.min`. Both go through the same `modifier` input, so there is one
   // place a wound can be forgotten rather than two.
   const penalty = rulesetCheckPenaltyFor(ruleset, request.who);
+  // And what the sheet itself adds or takes on this check, applied in the same place for the same
+  // reason, and said beside the wound penalty on the record.
+  const adjust = rulesetCheckAdjustFor(ruleset, request.skill, request.who, request.withAbility);
   // What the check buys, worked out and PAID before the dice are thrown, so a roll can never be
   // changed by something that turned out to be unaffordable. A caller that cannot persist the cost
   // buys nothing: the roll is then the one it would have been without the tag's `spend=`.
@@ -642,8 +723,16 @@ function resolveRulesetSkillCheck(
     ? null
     : request.useEntry?.trim()
       ? planRulesetEntryCheck(ruleset, request.useEntry, request.spend, request.who)
-      : planRulesetCheckPurchase(ruleset, request.spend, request.who);
+      : planRulesetCheckPurchase(ruleset, request.spend, request.who, modifier);
   if (purchase) onSpend!(purchase.key, purchase.live);
+  // A standing re-throw the Game Master named. It costs nothing, so it needs no persisting caller;
+  // beside one that was bought, the wider of the two is the one thrown.
+  const standing = rulesetStandingReroll(definition, request.reroll);
+  if (request.reroll && !standing) {
+    logger.debug("[game/skill-check] No re-throw named %s in ruleset %s; ignoring it", request.reroll, definition.id);
+  }
+  const reroll = widerReroll(purchase?.bought.reroll, standing);
+  const bought = purchase || reroll ? { ...(purchase?.bought ?? {}), ...(reroll ? { reroll } : {}) } : undefined;
   // What the record may say about `with=`: the ability's own label, and only when the swap
   // happened. An ability check has no other ability to swap in, and an unknown name was ignored.
   // On an ability check it is the second ability added, which is only ever set where the ruleset adds two.
@@ -655,6 +744,7 @@ function resolveRulesetSkillCheck(
     // Said even on a summed check, where it is also inside `modifier`: "-2 because you are Wounded"
     // is not something a player can read out of one number.
     ...(penalty !== 0 ? { penalty } : {}),
+    ...(adjust !== 0 ? { adjust } : {}),
     ...(purchase?.spent ? { spent: purchase.spent } : {}),
     ...(purchase?.used ? { used: purchase.used } : {}),
   };
@@ -682,14 +772,14 @@ function resolveRulesetSkillCheck(
       {
         // Dice off the pool. The roller clamps into `pool`, so a large penalty stops at `pool.min`
         // rather than at no dice at all, which is the ruleset's own floor for an empty pool.
-        modifier: modifier + penalty,
+        modifier: modifier + penalty + adjust,
         required: dc,
         isSave,
         threshold: request.threshold ?? ladderTarget,
         bonusDice: request.bonusDice,
         explode: request.explode,
         double: request.double,
-        ...(purchase ? { bought: purchase.bought } : {}),
+        ...(bought ? { bought } : {}),
       },
       rollDie,
     );
@@ -709,6 +799,8 @@ function resolveRulesetSkillCheck(
       explodeFrom: rolled.explodeFrom !== resolution.explode?.from ? rolled.explodeFrom : undefined,
       doubleFrom: rolled.doubleFrom !== resolution.double?.from ? rolled.doubleFrom : undefined,
       complication: rolled.complication || undefined,
+      // Named only when it was the standing one that was thrown, and it actually threw something.
+      reroll: standing && reroll === standing && rolled.rerolled > 0 ? standing.id : undefined,
       ...applied,
       ...(request.who ? { who: request.who } : {}),
     };
@@ -717,7 +809,7 @@ function resolveRulesetSkillCheck(
   const { sides, count } = resolution.dice;
   // A flat modifier on the roll, which is what a penalty IS in a summed system, so it belongs in
   // the number the record adds up rather than beside it.
-  const summed = modifier + penalty;
+  const summed = modifier + penalty + adjust;
   const rolled = rollDiceSumCheck(
     definition,
     {
@@ -789,7 +881,9 @@ function rulesetVouchesFor(ruleset: SkillCheckRulesetContext, tag: SkillCheckTag
   // number a summed check adds to the dice. A GM that wrote the unwounded modifier has not rolled
   // this character's check.
   const expected =
-    rulesetCheckModifierFor(ruleset, tag.skill, tag.who, tag.withAbility) + rulesetCheckPenaltyFor(ruleset, tag.who);
+    rulesetCheckModifierFor(ruleset, tag.skill, tag.who, tag.withAbility) +
+    rulesetCheckPenaltyFor(ruleset, tag.who) +
+    rulesetCheckAdjustFor(ruleset, tag.skill, tag.who, tag.withAbility);
   if (result.modifier !== expected) return false;
   if (result.usedRoll + result.modifier !== result.total) return false;
   const target = matchRulesetCheckTarget(ruleset.definition, tag.skill);
@@ -1021,6 +1115,7 @@ export async function resolveSkillCheckTagsInContent(
       ...(tag.difficulty ? { difficulty: tag.difficulty } : {}),
       ...(tag.explode != null ? { explode: tag.explode } : {}),
       ...(tag.double != null ? { double: tag.double } : {}),
+      ...(tag.reroll ? { reroll: tag.reroll } : {}),
     };
     return Object.keys(extras).length > 0 ? extras : undefined;
   };
@@ -1035,6 +1130,7 @@ export async function resolveSkillCheckTagsInContent(
         ...(tag.difficulty ? { difficulty: tag.difficulty } : {}),
         ...(tag.explode != null ? { explode: tag.explode } : {}),
         ...(tag.double != null ? { double: tag.double } : {}),
+        ...(tag.reroll ? { reroll: tag.reroll } : {}),
         advantage: tag.advantage,
         disadvantage: tag.disadvantage,
         preRolledD20: tag.preRolledD20,
@@ -1367,6 +1463,7 @@ const POOL_CLAIM_KEPT_ATTRIBUTES = new Set([
   "threshold",
   "explode",
   "double",
+  "reroll",
 ]);
 
 /**
@@ -1423,6 +1520,7 @@ export function boundPoolCheckRequest(tag: SkillCheckTag): SkillCheckRequest | n
     ...(tag.difficulty ? { difficulty: tag.difficulty } : {}),
     ...(tag.explode != null ? { explode: tag.explode } : {}),
     ...(tag.double != null ? { double: tag.double } : {}),
+    ...(tag.reroll ? { reroll: tag.reroll } : {}),
     // Deliberately no `preRolledD20`: under the pool a number in `rolls=` is the model's
     // claim about a slot, not a die the player threw, and adopting it would be obeying
     // the one field the authority rule says is never obeyed.

@@ -432,6 +432,7 @@ try {
     const half = pool((doc) => {
       delete doc.layers;
       doc.resolution.die = { sides: 6 };
+      delete doc.resolution.reroll;
       doc.resolution.target = { default: 5, min: 5, max: 5 };
       doc.resolution.difficultyLadder = [{ label: "Standard", successes: 1 }];
       delete doc.resolution.explode;
@@ -467,6 +468,7 @@ try {
     const exploding = pool((doc) => {
       delete doc.layers;
       doc.resolution.die = { sides: 6 };
+      delete doc.resolution.reroll;
       doc.resolution.target = { default: 5, min: 5, max: 5 };
       doc.resolution.difficultyLadder = [{ label: "Standard", successes: 1 }];
       doc.resolution.explode = { from: 6 };
