@@ -663,10 +663,10 @@ function describeSheetValue(
   if (ref.livePool !== undefined) return `the ${labelOf(sheet.live.pools, ref.livePool)} left`;
   if (ref.liveTrack !== undefined) {
     const track = labelOf(sheet.live.tracks, ref.liveTrack);
-    if (ref.read === "penalty") return `the penalty ${track} is at`;
-    if (ref.read === "remaining") return `how far ${track} has left to go`;
-    if (ref.read === "filled") return `how far ${track} has come`;
-    return `where ${track} stands`;
+    if (ref.read === "penalty") return `the penalty from ${track}`;
+    if (ref.read === "remaining") return `the room left on ${track}`;
+    if (ref.read === "filled") return `the ${track} above its floor`;
+    return `the current ${track}`;
   }
   if (ref.listSum !== undefined) {
     const list = sheet.lists.find((entry) => entry.id === ref.listSum!.list);

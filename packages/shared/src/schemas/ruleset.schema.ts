@@ -2267,6 +2267,35 @@ function rulesetLiveReaders(sheet: RulesetSheetSchema): RulesetLiveReaders {
   };
 }
 
+/** Whether a value adds up one list's column, directly or through what it reads: a derived value, a
+ *  skill or save's cap, or the proficiency bonus inside a skill's number. Every one of those chains
+ *  only reads upward (refused otherwise), so the walk ends; the depth bound is for a file that the
+ *  rest of the checks already refuse. */
+function refReadsListColumn(
+  def: Pick<RulesetDefinitionBase, "sheet" | "resolution">,
+  ref: RulesetValueRef,
+  list: string,
+  column: string,
+  depth = 0,
+): boolean {
+  if (depth > 64) return false;
+  if (ref.listSum) return ref.listSum.list === list && ref.listSum.column === column;
+  const next = (inner: RulesetValueRef) => refReadsListColumn(def, inner, list, column, depth + 1);
+  if (ref.derived !== undefined) {
+    const derived = def.sheet.derived.find((entry) => entry.id === ref.derived);
+    return !!derived && derivedRefs(derived).some(next);
+  }
+  const trained =
+    ref.skillMod !== undefined
+      ? def.sheet.skills.find((entry) => entry.id === ref.skillMod)
+      : ref.saveMod !== undefined
+        ? def.sheet.saves.find((entry) => entry.id === ref.saveMod)
+        : undefined;
+  if (!trained) return false;
+  const bonus = def.resolution.proficiency?.bonus;
+  return (!!trained.cap && next(trained.cap)) || (!!bonus && next(bonus));
+}
+
 function rulesetSheetNames(sheet: RulesetSheetSchema): RulesetSheetNames {
   return {
     fields: new Map(sheet.fields.map((field) => [field.id, field])),
@@ -3880,6 +3909,14 @@ export function rulesetCatalogEntryIssues(
         // recompute, and a reader without the catalog would never see a number at all.
         else if (!Object.prototype.hasOwnProperty.call(row.values, columnId)) {
           add([...path, "values"], `Scaled column "${columnId}" needs a starting value in values`);
+        }
+        // A column that added itself up would read its own stored number on the next recompute and
+        // drift every time the sheet was saved, so it may not, however many steps away the sum sits.
+        if (refReadsListColumn(definition, scaled.from, row.list, columnId)) {
+          add(
+            [...path, "scaled", columnId, "from"],
+            `A scaled column cannot add up "${columnId}" of its own list: its number would feed its next recompute`,
+          );
         }
         // A scaled column reads the sheet exactly as a live pool's maximum does, so any declared
         // derived value is fair game: there is no top-to-bottom order to sit inside out here.
