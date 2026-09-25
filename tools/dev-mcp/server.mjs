@@ -645,7 +645,8 @@ tool(
     "holds it); by default waits until nobody has generated for `quietSeconds`, so a turn in progress is never cut " +
     "off; backs up dist and relaunches the previous build if a build fails; records the result in the activity log. " +
     "Launches `node ../../scripts/run-server.mjs dist/index.js` in packages/server (the launchers' final step), never " +
-    "start.bat / start.sh, with browser auto-open off.",
+    "start.bat / start.sh, with browser auto-open off. In sandbox mode `rebuild` is refused (it would replace the " +
+    "live engine's dist); build into a dist-* folder and use sandbox_refresh dist=<folder>.",
   {
     reason: z.string().min(5),
     rebuild: z.array(z.enum(["shared", "server", "client", "all"])).default([]),

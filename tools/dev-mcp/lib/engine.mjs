@@ -434,8 +434,20 @@ export async function regressions(filter, timeoutMs = 20 * 60_000) {
 
 /** Full restart: lock, optional quiet wait, stop, optional build, start, activity log. Relaunches the old build if a build fails. */
 export async function deploy({ packages, waitQuiet, quietSeconds, maxWaitSeconds, reason }) {
-  // Rebuilding changes the shared dist, so it always takes the lock; a sandbox-only restart does not.
-  const needsLock = INSTANCE === "live" || packages.length > 0;
+  // A rebuild writes packages/*/dist, which the live engine runs from, while the sandbox may run a recorded dist-*
+  // folder: rebuilding here would change the live engine and maybe not the sandbox. Build into a separate folder and
+  // restart the sandbox on it with sandbox_refresh instead.
+  if (INSTANCE === "sandbox" && packages.length > 0) {
+    return {
+      ok: false,
+      error:
+        "restart_engine does not rebuild in sandbox mode: the build would replace the live engine's dist. Build " +
+        "into a separate dist-* folder and restart the sandbox with sandbox_refresh dist=<folder>.",
+      steps: [],
+    };
+  }
+  // Only the live engine takes the lock; a sandbox restart never touches the shared dist.
+  const needsLock = INSTANCE === "live";
   if (needsLock) acquireLock(`restart (${INSTANCE}): ${reason}`);
   if (INSTANCE === "sandbox") waitQuiet = false;
   const steps = [];
