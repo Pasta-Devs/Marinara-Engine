@@ -164,7 +164,7 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
     failureBackoffByChat.delete(chatId);
   };
 
-  const recordFailureBackoff = (chatId: string, error: string, statusCode?: number) => {
+  const recordFailureBackoff = (chatId: string, error: string, statusCode?: number, cause?: unknown) => {
     const previous = failureBackoffByChat.get(chatId);
     const attempts = (previous?.attempts ?? 0) + 1;
     const hardFailure = isHardGenerationFailure(error, statusCode);
@@ -181,6 +181,7 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
       hardFailure,
     });
     logger.warn(
+      cause === undefined ? {} : { err: cause },
       "[autonomous-scheduler] Pausing retries for chat %s for %d seconds after %s failure: %s",
       chatId,
       Math.ceil(delayMs / 1000),
@@ -372,14 +373,8 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
       }
     } catch (err) {
       clearGenerationInProgress(chat.id, generationStartedAt);
-      recordFailureBackoff(chat.id, err instanceof Error ? err.message : String(err));
-      logRateLimited(
-        "warn",
-        `autonomous-scheduler:${chat.id}`,
-        err,
-        "[autonomous-scheduler] Failed while evaluating chat %s",
-        chat.id,
-      );
+      // One warning per failure: the backoff line carries the error, and the backoff itself spaces them out.
+      recordFailureBackoff(chat.id, err instanceof Error ? err.message : String(err), undefined, err);
     } finally {
       if (!handedOffToTimer) runningChats.delete(chat.id);
     }
