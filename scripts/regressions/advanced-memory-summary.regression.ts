@@ -435,7 +435,10 @@ try {
     },
   });
   const partialSource = await chats.listMessages(partialChat.id);
-  await chats.updateMessageContent(partialSource[1]!.id, "Outside the room, Pantalone discusses PRIVATE_LEDGER.");
+  await chats.updateMessageContent(
+    partialSource[1]!.id,
+    "Date: PRIVATE_LEDGER_DATE\nOutside the room, Pantalone discusses PRIVATE_LEDGER.",
+  );
   await chats.updateMessageExtra(partialSource[1]!.id, { hiddenFromAICharacterIds: [borrower.id] });
   await chats.createMessage({
     chatId: partialChat.id,
@@ -492,11 +495,23 @@ try {
     });
     assert.match(prepared.recalledScenes!, /brass compass promise/u);
     assert.equal(prepared.recalledScenes!.includes("PRIVATE_LEDGER"), id !== borrower.id);
+    assert.equal(prepared.recalledScenes!.includes("PRIVATE_LEDGER_DATE"), id !== borrower.id);
     assert.match(prepared.chatSummary!, /brass compass promise/u);
     assert.equal(prepared.chatSummary!.includes("PRIVATE_LEDGER"), id !== borrower.id);
+    assert.equal(prepared.chatSummary!.includes("PRIVATE_LEDGER_DATE"), id !== borrower.id);
     if (id === borrower.id) assert(!prepared.receipt.recalledMessageIds.includes(partialSource[1]!.id));
   }
   assert.equal(requests.length, beforePartialToggle, "recalling partial scenes adds no helper calls");
+  await memory.updateRecord(partialChat.id, partialRecord.id, { content: "Everyone shared the brass compass promise." });
+  const partialExcerpt = await memory.prepare({
+    chatId: partialChat.id,
+    messages: await chats.listMessages(partialChat.id),
+    audienceCharacterIds: [borrower.id],
+    budgetTokens: 12000,
+    readOnly: true,
+  });
+  assert(partialExcerpt.receipt.recalledMessageIds.length > 0);
+  assert(!partialExcerpt.recalledScenes!.includes("PRIVATE_LEDGER_DATE"), "excerpt labels cannot reuse a hidden date");
 
   const changedVisibilityChat = await createChat("Source visibility changed after a plain recap was saved");
   await chats.update(changedVisibilityChat.id, { characterIds: [borrower.id, otherPov.id, narratorActor.id] });
