@@ -15,7 +15,9 @@ export function DecisionDebugPanel({
   const [open, setOpen] = useState(false);
   const test = useDecisionDebug(chatId);
   const report = test.data?.prompt.decisionDebug;
-  const canRun = report?.results.some((row) => ["ready", "evaluated", "cached", "unanswered"].includes(row.status));
+  const canRun = report?.results.some((row) =>
+    ["ready", "evaluated", "cached", "deferred", "unanswered"].includes(row.status),
+  );
   const run = (mode: "inspect" | "run") => {
     onPreview(null);
     test.mutate(mode, {

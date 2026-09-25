@@ -86,7 +86,7 @@ for (const theme of ["dark", "light"] as const)
       // Transport and isolation have a real-provider route regression. Here the browser
       // receives deterministic results without changing a shared server's model default.
       const modes: string[] = [];
-      let fixture: "normal" | "empty" | "unavailable" | "failed" = "normal";
+      let fixture: "normal" | "empty" | "unavailable" | "deferred" | "failed" = "normal";
       await page.route("**/api/generate/dryRun", async (route) => {
         const body = route.request().postDataJSON();
         expect(body.chatId).toBe(ids.chat);
@@ -112,7 +112,7 @@ for (const theme of ["dark", "light"] as const)
                           {
                             statement: "The door is open.",
                             kind: "noul",
-                            status: run ? "evaluated" : "ready",
+                            status: run ? "evaluated" : fixture === "deferred" ? "deferred" : "ready",
                             threshold: 0.5,
                             ...(run ? { probability: 0.82, yes: true } : {}),
                           },
@@ -160,11 +160,17 @@ for (const theme of ["dark", "light"] as const)
       await expect(held).toContainText("Held by sticky");
       await expect(held).not.toContainText("Score:");
       await expect(page.getByText("Decision test preview", { exact: true })).toBeVisible();
+      await page.getByRole("button", { name: /^System ~/i }).click();
+      await expect(page.getByText("TEST_DECISION_BRANCH", { exact: true })).toBeVisible();
       expect(modes).toEqual(["inspect", "run"]);
       await page.getByRole("button", { name: "Show original prompt" }).click();
       await expect(dropped).toContainText("Mira is soaked by rain in the latest message");
+      await expect(page.getByText("TEST_DECISION_BRANCH", { exact: true })).toHaveCount(0);
       await page.getByRole("button", { name: "Show tested prompt" }).click();
       await expect(page.getByText("Decision test preview", { exact: true })).toBeVisible();
+      if (!(await page.getByText("TEST_DECISION_BRANCH", { exact: true }).isVisible()))
+        await page.getByRole("button", { name: /^System ~/i }).click();
+      await expect(page.getByText("TEST_DECISION_BRANCH", { exact: true })).toBeVisible();
       const testedPath = testInfo.outputPath(`decision-test-${theme}.png`);
       await page.screenshot({ path: testedPath, animations: "disabled" });
       await testInfo.attach("decision-test", { path: testedPath, contentType: "image/png" });
@@ -178,6 +184,12 @@ for (const theme of ["dark", "light"] as const)
       await diagnostics.getByRole("button", { name: "Preview inputs" }).click();
       await expect(diagnostics.getByText("Decision model unavailable or not selected")).toBeVisible();
       await expect(diagnostics.getByRole("button", { name: "Test decisions", exact: true })).toBeDisabled();
+      fixture = "deferred";
+      await diagnostics.getByRole("button", { name: "Preview inputs" }).click();
+      await expect(diagnostics.getByRole("button", { name: "Test decisions", exact: true })).toBeEnabled();
+      await diagnostics.getByRole("button", { name: "Test decisions", exact: true }).click();
+      await expect(diagnostics.getByText("Evaluated in this test")).toBeVisible();
+      await expect(diagnostics).toContainText("0.82");
       fixture = "failed";
       await diagnostics.getByRole("button", { name: "Preview inputs" }).click();
       await expect(diagnostics.getByRole("alert")).toContainText("Could not prepare the decision test");

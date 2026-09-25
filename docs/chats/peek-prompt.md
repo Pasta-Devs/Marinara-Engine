@@ -78,6 +78,8 @@ Open **Decision diagnostics** inside Peek Prompt to inspect the current chat's p
 
 Choose **Test decisions** to run the eligible questions against your selected Decision model. This makes real decision requests, so a hosted model may charge for them. It does not generate a chat reply, run agents, change game state, or save the test's answers or timers to the chat.
 
+An explicit test can wait for a local reasoning model even when ordinary pre-reply decisions are deferred. This does not change your preference for live replies; previewing inputs still sends no model requests.
+
 Each result shows its score when available, the threshold used for a yes/no statement, and the resulting answer. A model that returns only a yes/no word is labeled accordingly; its answer is not presented as a probability. Choice results show the selected option. Held, deferred, over-limit, unavailable, and failed decisions have separate explanations, so a missing answer is not mistaken for a low score.
 
 After a test, the prompt below uses the test's answers. Use **Show original prompt** to return to the content you originally opened, or **Show tested prompt** to switch back. **Requests sent and results** shows the actual decision request bodies and returned results, without authentication headers.

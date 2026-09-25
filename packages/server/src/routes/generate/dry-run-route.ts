@@ -1095,6 +1095,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         cache: testCache,
         cacheKey: decisionCacheKey,
         chatId,
+        // An explicit test can wait for reasoning without changing the live pre-reply policy.
+        afterReply: decisionDebugMode === "run",
         messages: chatMessages.map((message: any) => ({
           role: message.role,
           name:

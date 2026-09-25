@@ -323,7 +323,7 @@ const provider = createServer(async (request, response) => {
     response.end(JSON.stringify({ answers: out }));
     return;
   }
-  if (body.model === "local-decision-fixture") {
+  if (body.model === "local-decision-fixture" || body.model === "utility-sidecar") {
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ choices: [{ message: { content: "yes" } }] }));
     return;
@@ -637,8 +637,65 @@ try {
   assert.deepEqual((localReport.requests[0] as any).results, [{ id: "door", yes: true, binary: true }]);
   assert.equal(getAnswerStyle("debug-isolation-fixture"), "unknown", "tests never teach the live Auto thinking cache");
 
-  // A local model that cannot serve is no Decision model, as generation treats it.
   const previewSettings = createAppSettingsStorage(db);
+  // A deliberate test can wait for reasoning even when live pre-reply decisions
+  // are deferred. Inspecting stays passive and never changes that preference.
+  const { utilitySidecarService } =
+    await import("../../packages/server/src/services/utility-sidecar/utility-sidecar.service.js");
+  const originalUtilityStatus = utilitySidecarService.getStatus;
+  const originalUtilityConfig = utilitySidecarService.getConfig;
+  const utilityStatus = utilitySidecarService.getStatus();
+  const utilityConfig = utilitySidecarService.getConfig();
+  const priorLocalDefault = await previewSettings.get(DECISION_SETTINGS_KEYS.localDefault);
+  const priorThinking = await previewSettings.get(DECISION_SETTINGS_KEYS.thinkingPreGeneration);
+  try {
+    utilitySidecarService.getStatus = () => ({
+      ...utilityStatus,
+      configured: true,
+      ready: true,
+      activeModelId: "reasoning-fixture",
+      baseUrl: baseUrl.slice(0, -3),
+    });
+    utilitySidecarService.getConfig = () => ({ ...utilityConfig, decisionThinking: "allowed" });
+    await previewSettings.set(DECISION_SETTINGS_KEYS.localDefault, DECISION_LOCAL_SLOT_IDS.utility);
+    await previewSettings.set(DECISION_SETTINGS_KEYS.thinkingPreGeneration, "false");
+    const deferredPeek = await app.inject({
+      method: "POST",
+      url: "/api/generate/dryRun",
+      payload: { ...debugPayload, decisionDebug: "inspect" },
+    });
+    assert.equal(deferredPeek.statusCode, 200, deferredPeek.body);
+    assert(deferredPeek.json().prompt.decisionDebug.results.every((row: any) => row.status === "deferred"));
+    assert.equal(
+      deferredPeek.json().prompt.decisionDebug.requests.length,
+      0,
+      "inspection does not ask a deferred model",
+    );
+    const reasoningTest = await testDecisions();
+    const reasoningRow = reasoningTest.prompt.decisionDebug.results.find((row: any) => row.statement === statement);
+    assert.equal(reasoningRow.status, "evaluated", "explicit tests can wait for normally deferred reasoning");
+    assert.equal(reasoningRow.yes, true);
+    assert.equal(reasoningRow.binary, true);
+    assert.equal(reasoningRow.probability, undefined);
+    assert(reasoningTest.prompt.decisionDebug.requests.every((request: any) => request.body.max_tokens > 1));
+    assert(JSON.stringify(reasoningTest.prompt.messages).includes("SCENE_MOVED"));
+    assert.equal(await previewSettings.get(DECISION_SETTINGS_KEYS.thinkingPreGeneration), "false");
+    assert.equal(
+      promptDecisionTurnCache.peek(promptDecisionCacheKey(preview.id, null, DECISION_LOCAL_SLOT_IDS.utility)),
+      undefined,
+    );
+    assert.deepEqual(await chats.listMessages(preview.id), priorMessages);
+    assert.deepEqual(await chats.getById(preview.id), priorChat);
+    assert.equal(prompts.length, priorReplies);
+  } finally {
+    utilitySidecarService.getStatus = originalUtilityStatus;
+    utilitySidecarService.getConfig = originalUtilityConfig;
+    if (priorLocalDefault === null) await previewSettings.remove(DECISION_SETTINGS_KEYS.localDefault);
+    else await previewSettings.set(DECISION_SETTINGS_KEYS.localDefault, priorLocalDefault);
+    if (priorThinking === null) await previewSettings.remove(DECISION_SETTINGS_KEYS.thinkingPreGeneration);
+    else await previewSettings.set(DECISION_SETTINGS_KEYS.thinkingPreGeneration, priorThinking);
+  }
+  // A local model that cannot serve is no Decision model, as generation treats it.
   await previewSettings.set(DECISION_SETTINGS_KEYS.localDefault, DECISION_LOCAL_SLOT_IDS.primary);
   const peekUnusable = await app.inject({ method: "POST", url: `/api/chats/${preview.id}/peek-prompt`, payload: {} });
   assert.equal(peekUnusable.json().decisions?.decisionModelSet, false, "an unusable local model reads as none");
