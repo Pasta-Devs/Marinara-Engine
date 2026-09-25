@@ -85,10 +85,12 @@ function characterOwnerKeys(
   presentCharacters: PresentCharacter[],
 ): CharacterOwnerKeys {
   const slotOwner = `character-slot:${characterIndex}`;
-  const characterId = character.characterId?.trim() ?? "";
+  const characterId = typeof character.characterId === "string" ? character.characterId.trim() : "";
   const hasUniqueCharacterId =
     !!characterId &&
-    presentCharacters.filter((candidate) => candidate.characterId?.trim() === characterId).length === 1;
+    presentCharacters.filter(
+      (candidate) => typeof candidate.characterId === "string" && candidate.characterId.trim() === characterId,
+    ).length === 1;
 
   // Unique ids remain reorder-safe. Duplicate and id-less rows use isolated
   // positional buckets because the tracker state has no stable instance id.

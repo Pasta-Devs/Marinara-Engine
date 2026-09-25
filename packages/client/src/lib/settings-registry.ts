@@ -50,6 +50,7 @@ export type SettingsSectionId =
   | "admin-access"
   | "updates"
   | "support-diagnostics"
+  | "request-timeouts"
   | "parameters"
   | "message-tools"
   | "backup-export"
@@ -208,7 +209,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   },
   {
     id: "game-assets",
-    tab: "generations",
+    tab: "import",
     label: "Game Assets",
     description: "Asset folders for music, ambience, sprites, and backgrounds.",
     aliases: ["assets", "music", "ambient", "sfx", "sprites", "backgrounds", "folder"],
@@ -254,8 +255,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   {
     id: "roleplay-messages",
     tab: "appearance",
-    label: "Roleplay Messages",
-    description: "Roleplay bubbles, avatars, sprite scale, and message opacity.",
+    label: "Roleplay Presentation",
+    description: "Classic and Visual Novel display, avatars, sprites, and message opacity.",
     aliases: ["roleplay", "avatar", "sprite", "message", "bubble", "opacity", "portrait"],
   },
   {
@@ -341,6 +342,13 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
     label: "Support Diagnostics",
     description: "Copy technical details for support tickets.",
     aliases: ["support", "diagnostics", "system info", "gpu", "model", "ticket", "bug report"],
+  },
+  {
+    id: "request-timeouts",
+    tab: "advanced",
+    label: "Request timeouts",
+    description: "Adjust how long text, agents and media wait for a slow backend.",
+    aliases: ["timeout", "slow", "koboldcpp", "images", "video", "seconds", "backend"],
   },
   {
     id: "parameters",
@@ -485,6 +493,22 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     description: "Show Professor Mari's deterministic navigator on Home.",
     aliases: ["home", "helper", "navigation", "navigator", "where is", "find"],
     kind: "Toggle",
+  },
+  {
+    id: "mari-permissions-mode",
+    sectionId: "application",
+    label: "Professor Mari Permissions Mode",
+    description: "When Mari may stage or apply workspace changes: Auto, Manual, Accept edits, Plan, or Bypass.",
+    aliases: ["mari", "permissions", "mode", "plan", "bypass", "accept", "manual", "approve"],
+    kind: "Select",
+  },
+  {
+    id: "notification-position",
+    sectionId: "notifications",
+    label: "Notification position",
+    description: "Choose where error messages and other notifications appear.",
+    aliases: ["error", "toast", "top", "bottom", "position"],
+    kind: "Select",
   },
   {
     id: "notification-conversation-sound",
@@ -723,14 +747,6 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Input",
   },
   {
-    id: "image-noodle-size",
-    sectionId: "image-generation",
-    label: "Noodle image size",
-    description: "Set default Noodle timeline image dimensions.",
-    aliases: ["image", "resolution", "canvas", "noodle", "timeline"],
-    kind: "Input",
-  },
-  {
     id: "image-game-size",
     sectionId: "image-generation",
     label: "Game scene image size",
@@ -744,6 +760,14 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     label: "Portrait image size",
     description: "Set default generated portrait dimensions.",
     aliases: ["image", "resolution", "canvas", "character"],
+    kind: "Input",
+  },
+  {
+    id: "image-character-sheet-size",
+    sectionId: "image-generation",
+    label: "Character sheets",
+    description: "Set character reference sheet dimensions independently of backgrounds.",
+    aliases: ["image", "resolution", "canvas", "character", "reference", "sheet"],
     kind: "Input",
   },
   {
@@ -793,6 +817,15 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     description: "Switch between dark and light mode.",
     aliases: ["theme", "dark", "light", "mode"],
     kind: "Select",
+  },
+  {
+    id: "desktop-sidebar-width",
+    sectionId: "app-style",
+    label: "Desktop sidebar width",
+    description:
+      "Adjust both desktop sidebars. Their contents adapt to the available space; mobile panels keep their existing layout.",
+    aliases: ["sidebar", "width", "resize", "left panel", "right panel"],
+    kind: "Slider",
   },
   {
     id: "custom-cursor",
@@ -899,12 +932,38 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Button group",
   },
   {
+    id: "conversation-always-display-swipe-menu",
+    sectionId: "chat-display",
+    label: "Always display swipe menu",
+    description:
+      "Show swipe arrows and the counter from the first response. Turn off to show them only after regeneration.",
+    aliases: ["conversation", "swipe", "regenerate", "arrows"],
+    kind: "Toggle",
+  },
+  {
+    id: "roleplay-always-display-swipe-menu",
+    sectionId: "roleplay-messages",
+    label: "Always display swipe menu",
+    description:
+      "Show swipe arrows and the counter from the first response. Turn off to show them only after regeneration.",
+    aliases: ["roleplay", "swipe", "regenerate", "arrows"],
+    kind: "Toggle",
+  },
+  {
     id: "conversation-avatar-shape",
     sectionId: "chat-display",
     label: "Avatar Shape",
     description: "Choose circular or square avatars in Conversation mode.",
     aliases: ["conversation", "avatar", "circle", "square"],
     kind: "Button group",
+  },
+  {
+    id: "show-characters-in-persona-pickers",
+    sectionId: "message-tools",
+    label: "Show Characters in Persona Pickers",
+    description: "Allow character cards to appear as user identities in chat.",
+    aliases: ["persona", "character", "play as", "identity"],
+    kind: "Toggle",
   },
   {
     id: "tracker-panel",
@@ -977,6 +1036,46 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     description: "Switch tracker temperature displays between Celsius and Fahrenheit.",
     aliases: ["tracker", "weather", "celsius", "fahrenheit"],
     kind: "Toggle",
+  },
+  {
+    id: "roleplay-vn-display",
+    sectionId: "roleplay-messages",
+    label: "Visual Novel display",
+    description: "Show one completed paragraph at a time above the composer.",
+    aliases: ["roleplay", "vn", "visual novel", "classic", "presentation", "history"],
+    kind: "Toggle",
+  },
+  {
+    id: "roleplay-vn-autoplay",
+    sectionId: "roleplay-messages",
+    label: "Auto-play VN paragraphs",
+    description: "Advance Roleplay Visual Novel paragraphs automatically, waiting for speech when it is playing.",
+    aliases: ["roleplay", "vn", "autoplay", "tts", "speech", "reading"],
+    kind: "Toggle",
+  },
+  {
+    id: "roleplay-vn-autoplay-delay",
+    sectionId: "roleplay-messages",
+    label: "Paragraph delay",
+    description: "Set the time between Roleplay Visual Novel paragraphs when auto-play is enabled.",
+    aliases: ["roleplay", "vn", "autoplay", "delay", "reading"],
+    kind: "Slider",
+  },
+  {
+    id: "roleplay-vn-portrait-scale",
+    sectionId: "roleplay-messages",
+    label: "Dialogue portrait scale",
+    description: "Adjust Roleplay Visual Novel portraits.",
+    aliases: ["roleplay", "vn", "portrait", "scale"],
+    kind: "Slider",
+  },
+  {
+    id: "roleplay-vn-sprite-scale",
+    sectionId: "roleplay-messages",
+    label: "Full-body sprite scale",
+    description: "Adjust Roleplay Visual Novel full-body sprites.",
+    aliases: ["roleplay", "vn", "sprite", "scale"],
+    kind: "Slider",
   },
   {
     id: "roleplay-message-opacity",

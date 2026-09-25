@@ -18,6 +18,11 @@ trustPolicy: off
 confirmModulesPurge: false
 blockExoticSubdeps: true
 
+patchedDependencies:
+  onnxruntime-node@1.30.0: patches/onnxruntime-node@1.30.0.patch
+  # Upstream READY-handshake fix (pinojs/thread-stream#246, #251). Drop once a release after 4.2.0 ships it.
+  thread-stream@4.2.0: patches/thread-stream@4.2.0.patch
+
 # Native/build dependencies permitted to run install scripts.
 onlyBuiltDependencies:
   - esbuild
@@ -27,9 +32,9 @@ onlyBuiltDependencies:
 
 # Dependency version pins applied across the workspace.
 overrides:
-  onnxruntime-common: "1.24.3"
-  onnxruntime-node: "1.24.3"
-  onnxruntime-web: "1.24.3"
+  # Match Transformers.js; each backend keeps its own matching common runtime.
+  onnxruntime-node: "1.30.0"
+  onnxruntime-web: "1.31.0-dev.20260914-8d85527a0"
   protobufjs: "7.5.5"
   brace-expansion: "5.0.9"
   "@anthropic-ai/sdk": "0.93.0"

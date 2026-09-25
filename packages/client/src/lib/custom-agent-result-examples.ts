@@ -110,7 +110,7 @@ export const CUSTOM_AGENT_RESULT_EXAMPLES: Record<CustomAgentResultType, CustomA
   inventory_tracker_update: jsonExample({
     currencies: [{ name: "Silver coin", qty: 6 }],
     equipped: [{ name: "Family heirloom longsword" }],
-    inventory: [{ name: "Healing potion", qty: 2 }],
+    inventory: [{ name: "Healing potion", qty: 2, description: "Restores health", location: "Backpack side pocket" }],
     reasoning: "Brief explanation of changes",
   }),
   game_state_update: jsonExample({

@@ -1,5 +1,13 @@
 import { createPortal } from "react-dom";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, ChevronDown, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -44,6 +52,9 @@ type StatusResponse = {
 };
 
 type OpenSettingsOptions = { initialSection?: "autonomous" | null };
+
+// Remounting a failed chat must not start another paid request. Retry is manual.
+const attemptedScheduleRenewals = new Set<string>();
 
 type ConversationPresenceCardProps = {
   chatId: string;
@@ -263,10 +274,14 @@ export function ConversationPresenceCard({
       }
       setOpen(false);
     };
-    const handleResize = () => setOpen(false);
-    const handleScroll = (event: Event) => {
-      if (popoverRef.current?.contains(event.target as Node)) return;
+    const handleResize = () => {
+      // Mobile keyboards resize/pan the viewport when the activity editor gains focus.
+      if (popoverRef.current?.contains(document.activeElement)) return;
       setOpen(false);
+    };
+    const handleScroll = (event: Event) => {
+      if (event.target instanceof Node && popoverRef.current?.contains(event.target)) return;
+      handleResize();
     };
     document.addEventListener("mousedown", handleMouseDown);
     document.addEventListener("keydown", handleEscape);
@@ -335,24 +350,53 @@ export function ConversationPresenceCard({
   }, [messages]);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const refreshStatuses = async () => {
-    if (isRefreshing) return;
-    setIsRefreshing(true);
-    try {
-      if (statusesQuery.data?.needsRefresh) {
-        await api.post("/conversation/schedule/generate", {
-          chatId,
-          characterIds: chatCharIds,
-          scheduleGenerationPreferences: useUIStore.getState().scheduleGenerationPreferences,
-          timeZone: useUIStore.getState().conversationTimeZone,
-        });
-        await queryClient.refetchQueries({ queryKey: ["chat", chatId] });
+  const scheduleAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => scheduleAbortRef.current?.abort(), [chatId]);
+  const needsScheduleRefresh = statusesQuery.data?.needsRefresh ?? false;
+  const refetchStatuses = statusesQuery.refetch;
+  const refreshStatuses = useCallback(
+    async (automatic = false) => {
+      if (scheduleAbortRef.current) return;
+      const controller = new AbortController();
+      scheduleAbortRef.current = controller;
+      setIsRefreshing(true);
+      try {
+        if (needsScheduleRefresh) {
+          const result = await api.post<{ results: Record<string, { status: string }> }>(
+            "/conversation/schedule/generate",
+            {
+              chatId,
+              characterIds: chatCharIds,
+              scheduleGenerationPreferences: useUIStore.getState().scheduleGenerationPreferences,
+              timeZone: useUIStore.getState().conversationTimeZone,
+              automatic,
+            },
+            { signal: controller.signal },
+          );
+          const failure = Object.values(result.results).find((entry) => entry.status.startsWith("error:"));
+          if (failure) toast.error(failure.status.slice("error:".length).trim());
+          await queryClient.refetchQueries({ queryKey: ["chat", chatId] });
+        }
+        await refetchStatuses();
+      } catch (error) {
+        if (!controller.signal.aborted && error instanceof Error) toast.error(error.message);
+      } finally {
+        if (scheduleAbortRef.current === controller) {
+          scheduleAbortRef.current = null;
+          setIsRefreshing(false);
+        }
       }
-      await statusesQuery.refetch();
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+    },
+    [chatCharIds, chatId, needsScheduleRefresh, queryClient, refetchStatuses],
+  );
+
+  // Only characters explicitly opted into automatic renewal report needsRefresh.
+  useEffect(() => {
+    if (!chatId || !needsScheduleRefresh || isRefreshing) return;
+    if (attemptedScheduleRenewals.has(chatId)) return;
+    attemptedScheduleRenewals.add(chatId);
+    void refreshStatuses(true);
+  }, [chatId, isRefreshing, needsScheduleRefresh, refreshStatuses]);
 
   if (characters.length === 0) return <div />;
 
@@ -601,6 +645,7 @@ export function ConversationPresenceCard({
         createPortal(
           <div
             ref={popoverRef}
+            data-chat-floating-panel
             className={cn(NEUTRAL_PANEL_SHELL, "fixed z-[9999] overflow-hidden")}
             style={{
               top: position.top,
@@ -647,6 +692,7 @@ export function ConversationPresenceCard({
             </div>
 
             <div
+              data-chat-floating-scroll
               className={cn(
                 NEUTRAL_PANEL_SCROLL_AREA,
                 "max-h-[min(28rem,calc(100vh-12rem))] space-y-2 overflow-y-auto p-2",

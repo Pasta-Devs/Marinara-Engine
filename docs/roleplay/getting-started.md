@@ -91,6 +91,22 @@ You can view, edit, and re-run a saved snippet. An edit changes only what is use
 
 The Narrative Director has a **Push Story** button above the chat box. It arms the Director for the next reply only. The Narrative Director can also hold a hidden long-term arc called **Secret Plot**. See [Narrative Director and Secret Plot](narrative-director.md) for both.
 
+## Whispers and secrets
+
+In **Chat Settings → Agents → Roleplay Commands**, enable **Whisper** to allow private asides, secrets, or visions inside a reply. It starts off. Choose whether **All** characters or only the appointed **Narrator** can use it. Like Personal Notes, it requires a solo chat or **Individual** group generation.
+
+The command is `[whisper: character="name" text="the secret"]`. Name exactly one character in the chat or your selected persona. Only that recipient and the appointed narrator receive the text in their prompts. An unknown or ambiguous name is ignored without exposing the secret. Shared agents do not receive whispers.
+
+A whisper stays at its place in the message. Whispers addressed to your persona are visible immediately; otherwise, choose **Reveal a secret** to read one. Revealing only changes your screen, not what any character knows. Secrets follow their message and active swipe, and leave the prompt when that message is hidden or falls outside the selected history.
+
+## Character interruptions
+
+In **Chat Settings → Agents → Roleplay Commands**, enable **Interruptions** to let characters cut off the latest message when a verbal or physical intervention is plausible. It starts off and does not need a downloadable agent.
+
+The model uses `[interrupt: part="a verbatim phrase of at least three words"]`. Marinara matches that phrase only in the message immediately before the reply, retains text through the phrase, and replaces the ending with an interruption dash. Dialogue keeps its closing quote; actions do not gain one. A missing or ambiguous match leaves the message unchanged.
+
+Open the reply's command information and choose **Restore original message** to recover the original message. Rerolling first restores the full original input, so the new reply can choose whether to interrupt. Selecting an existing swipe applies that swipe's interruption unless you explicitly restored it. Later manual edits are preserved instead of being overwritten by an old interruption.
+
 ## Echo Chamber
 
 **Echo Chamber** is an optional agent that adds a live audience reacting to your scene. It works like a streaming chat that posts a new reaction on a timer. Turn it on in **Chat Settings**, under **Agents**, on the **Echo Chamber** card. The panel floats over the scene and can collapse to a small pill.

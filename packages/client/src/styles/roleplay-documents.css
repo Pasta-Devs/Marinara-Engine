@@ -1,0 +1,279 @@
+/* In-world documents use Engine-owned paper/ink styles, never model HTML or CSS. */
+.mari-roleplay-document {
+  --mari-document-paper: oklch(0.25 0.015 75);
+  --mari-document-ink: oklch(0.9 0.025 75);
+  --mari-document-rule: color-mix(in srgb, var(--mari-document-ink) 22%, transparent);
+
+  width: 100%;
+  max-width: 68ch;
+  min-width: 0;
+  margin-inline: auto;
+  padding: 1.25em;
+  border: 1px solid var(--mari-document-rule);
+  border-radius: 0.125rem;
+  background: var(--mari-document-paper);
+  color: var(--mari-document-ink);
+  font-size: inherit;
+  line-height: 1.7;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  position: relative;
+  box-shadow: 0 0.25rem 0.75rem oklch(0.12 0.015 70 / 0.15);
+}
+
+[data-theme="light"] .mari-roleplay-document {
+  --mari-document-paper: oklch(0.97 0.018 85);
+  --mari-document-ink: oklch(0.29 0.025 65);
+}
+
+.mari-roleplay-document-heading {
+  margin-bottom: 1em;
+}
+
+.mari-roleplay-document-kind {
+  margin: 0 0 0.5em;
+  font-family: var(--font-y2k);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.mari-roleplay-document-title {
+  margin: 0;
+  font-size: 1.25em;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.mari-roleplay-document-content {
+  white-space: pre-wrap;
+}
+
+.mari-roleplay-document--letter,
+.mari-roleplay-document--journal {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.mari-roleplay-document--letter {
+  padding-block: 1.75em;
+  border-style: double;
+  border-width: 3px;
+}
+
+.mari-roleplay-document--letter .mari-roleplay-document-heading {
+  padding-bottom: 1em;
+  border-bottom: 1px solid var(--mari-document-rule);
+}
+
+.mari-roleplay-document--note {
+  max-width: 42ch;
+  border-radius: 0.125rem 0.125rem 1rem 0.125rem;
+}
+
+.mari-roleplay-document--journal .mari-roleplay-document-content {
+  line-height: 1.85em;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(1.85em - 1px),
+    var(--mari-document-rule) calc(1.85em - 1px),
+    var(--mari-document-rule) 1.85em
+  );
+}
+
+.mari-roleplay-document--report .mari-roleplay-document-heading {
+  padding-bottom: 0.75em;
+  border-bottom: 2px solid currentcolor;
+}
+
+.mari-roleplay-document--poster {
+  max-width: 48ch;
+  padding-block: 1.75em;
+  border-width: 2px;
+  text-align: center;
+}
+
+.mari-roleplay-document--poster .mari-roleplay-document-title {
+  font-size: 1.75em;
+  font-weight: 800;
+}
+
+.mari-roleplay-document--poster .mari-roleplay-document-content {
+  font-weight: 600;
+}
+
+.mari-roleplay-document--terminal,
+[data-theme="light"] .mari-roleplay-document--terminal {
+  --mari-document-paper: oklch(0.2 0.009 160);
+  --mari-document-ink: oklch(0.86 0.075 155);
+
+  border-radius: 0.375rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.mari-roleplay-document--terminal .mari-roleplay-document-heading {
+  padding-bottom: 0.75em;
+  border-bottom: 1px dashed var(--mari-document-rule);
+}
+
+/* Each occurrence saves its variant; all decoration remains Engine-owned. */
+.mari-roleplay-document--style-1 {
+  border: 3px double var(--mari-document-rule);
+  padding: 1.5em;
+  background-image: radial-gradient(ellipse at top, var(--mari-document-rule), transparent 65%);
+}
+
+.mari-roleplay-document--style-2 {
+  border-radius: 0;
+  padding: 1.5em;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 3px,
+    color-mix(in srgb, var(--mari-document-ink) 3%, transparent) 4px
+  );
+}
+
+.mari-roleplay-document--style-2 .mari-roleplay-document-heading {
+  padding-bottom: 0.85em;
+  border-bottom: 1px solid var(--mari-document-rule);
+}
+
+.mari-roleplay-document--note.mari-roleplay-document--style-1 {
+  border: 1px solid var(--mari-document-rule);
+  border-radius: 0.15rem;
+  padding-top: 2em;
+}
+
+.mari-roleplay-document--note.mari-roleplay-document--style-1::before {
+  content: "";
+  position: absolute;
+  top: -0.4em;
+  left: calc(50% - 2em);
+  width: 4em;
+  height: 1em;
+  background: color-mix(in srgb, var(--mari-document-ink) 18%, var(--mari-document-paper));
+  border: 1px solid var(--mari-document-rule);
+}
+
+.mari-roleplay-document--note.mari-roleplay-document--style-2 {
+  border: 2px dashed var(--mari-document-rule);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.mari-roleplay-document--letter.mari-roleplay-document--style-1 {
+  border-radius: 0.25rem;
+  padding-bottom: 3.5em;
+}
+
+.mari-roleplay-document--letter.mari-roleplay-document--style-1::after {
+  content: "";
+  position: absolute;
+  bottom: 0.9em;
+  right: 1.5em;
+  width: 1.75em;
+  height: 1.75em;
+  border: 4px double oklch(0.72 0.07 25);
+  border-radius: 50%;
+  background: oklch(0.4 0.12 25);
+  box-shadow: 0 2px 3px oklch(0.12 0.015 25 / 0.3);
+}
+
+.mari-roleplay-document--letter.mari-roleplay-document--style-2 {
+  border: 1px solid var(--mari-document-rule);
+  border-block: 0.4em solid var(--mari-document-rule);
+  font-style: italic;
+}
+
+.mari-roleplay-document--journal.mari-roleplay-document--style-1 {
+  border-radius: 0.4rem;
+  border: 1px solid var(--mari-document-rule);
+  box-shadow:
+    inset 0 0 0 0.4em var(--mari-document-paper),
+    inset 0 0 0 0.45em var(--mari-document-rule);
+}
+
+.mari-roleplay-document--journal.mari-roleplay-document--style-2 .mari-roleplay-document-content {
+  background: none;
+}
+
+.mari-roleplay-document--journal.mari-roleplay-document--style-2 .mari-roleplay-document-title {
+  font-weight: 400;
+  font-style: italic;
+  font-size: 1.5em;
+}
+
+.mari-roleplay-document--report.mari-roleplay-document--style-1 {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  border: 1px solid var(--mari-document-rule);
+  background-image: none;
+}
+
+.mari-roleplay-document--report.mari-roleplay-document--style-1 .mari-roleplay-document-kind {
+  display: inline-block;
+  padding: 0.35em 0.65em;
+  border: 2px solid currentcolor;
+}
+
+.mari-roleplay-document--report.mari-roleplay-document--style-2 {
+  font-family: Georgia, "Times New Roman", serif;
+  border: 3px double var(--mari-document-rule);
+}
+
+.mari-roleplay-document--poster.mari-roleplay-document--style-1 {
+  border-width: 5px;
+  padding: 2em 1.5em;
+  background-image: radial-gradient(ellipse at top, var(--mari-document-rule), transparent 75%);
+}
+
+.mari-roleplay-document--poster.mari-roleplay-document--style-1 .mari-roleplay-document-title {
+  font-family: Georgia, "Times New Roman", serif;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+}
+
+.mari-roleplay-document--poster.mari-roleplay-document--style-2 {
+  text-align: start;
+  border-block: 0.5em double var(--mari-document-ink);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.mari-roleplay-document--poster.mari-roleplay-document--style-2 .mari-roleplay-document-kind {
+  letter-spacing: 0.2em;
+}
+
+.mari-roleplay-document--terminal.mari-roleplay-document--style-1 {
+  --mari-document-paper: oklch(0.22 0.02 80);
+  --mari-document-ink: oklch(0.87 0.1 80);
+
+  border: 1px solid var(--mari-document-rule);
+  border-radius: 0.8rem;
+  background-image: repeating-linear-gradient(0deg, transparent 0, transparent 3px, var(--mari-document-rule) 4px);
+}
+
+.mari-roleplay-document--terminal.mari-roleplay-document--style-2 {
+  --mari-document-paper: oklch(0.22 0.025 245);
+  --mari-document-ink: oklch(0.9 0.06 225);
+
+  border-radius: 0.2rem;
+  border-top-width: 0.65em;
+  background-image: none;
+}
+
+.mari-roleplay-document--document.mari-roleplay-document--style-1 {
+  font-family: Georgia, "Times New Roman", serif;
+  border-radius: 1.5rem 0.2rem;
+}
+
+.mari-roleplay-document--document.mari-roleplay-document--style-2 {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  border-block: 2px dashed var(--mari-document-rule);
+}
+
+@media (max-width: 480px) {
+  .mari-roleplay-document {
+    padding-inline: 1em;
+  }
+}

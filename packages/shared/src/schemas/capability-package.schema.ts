@@ -1,8 +1,15 @@
 import { z } from "zod";
 import { agentResultTypeSchema } from "./agent.schema.js";
+import { isRulesetCatalogAssetPath, RULESET_ASSET_PATH } from "./ruleset.schema.js";
 
-export const capabilityPackageKindSchema = z.enum(["agent", "maps", "conversation-calls", "turn-game"]);
+/** Caps mirrored by the Marinara-Agents catalog build. Kept here so a hostile or
+ *  broken notes document cannot push an unbounded string into a modal. */
+export const MAX_RELEASE_NOTE_CHARACTERS = 1000;
+export const MAX_RELEASE_NOTE_VERSIONS = 20;
+
+export const capabilityPackageKindSchema = z.enum(["agent", "maps", "conversation-calls", "turn-game", "ruleset"]);
 export const capabilityPermissionSchema = z.enum([
+  "achievements",
   "agent-runtime",
   "chat-read",
   "chat-write",
@@ -11,6 +18,7 @@ export const capabilityPermissionSchema = z.enum([
   "prompt-context",
   "routes",
   "storage",
+  "tools",
   "ui",
 ]);
 
@@ -37,6 +45,14 @@ const capabilityPackageManifestBaseSchema = z
                 ariaLabel: z.string().min(1).max(100).optional(),
               })
               .strict()
+              .optional(),
+            homeWidgets: z
+              .record(
+                z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+                z
+                  .object({ label: z.string().min(1).max(80).optional(), description: z.string().max(200).optional() })
+                  .strict(),
+              )
               .optional(),
           })
           .strict(),
@@ -65,6 +81,8 @@ const capabilityPackageManifestBaseSchema = z
               "game-world-map",
               // Adds a top-level destination to Home's browser shell.
               "home-browser-tab",
+              // Agent-owned cards inside the Home widget grid.
+              "home-widget",
               // Mounts the package's own game UI over the narration.
               "game-surface",
               // Compact package-owned tracker controls in Roleplay chat chrome.
@@ -77,6 +95,30 @@ const capabilityPackageManifestBaseSchema = z
         /** Options for the `game-surface` slot. */
         gameSurface: z
           .object({
+            /** Mount before the first GM turn and wait for setStartupReady on the surface props. */
+            prepareBeforeStart: z.boolean().optional(),
+            /** Engine-owned setup: one optional seed and package-owned constant defaults. */
+            setup: z
+              .object({
+                seed: z
+                  .object({
+                    key: z
+                      .string()
+                      .regex(/^[a-zA-Z][a-zA-Z0-9_]*$/)
+                      .max(120)
+                      .refine((key) => !["__proto__", "constructor", "prototype"].includes(key)),
+                    label: z.string().min(1).max(100).optional(),
+                  })
+                  .strict()
+                  .optional(),
+                config: z
+                  .record(z.string().max(120), z.unknown())
+                  .refine((value) => JSON.stringify(value).length <= 8_000)
+                  .optional(),
+                requires: z.object({ enableCustomWidgets: z.boolean().optional() }).strict().optional(),
+              })
+              .strict()
+              .optional(),
             /** Class the host puts on the game area while this surface is mounted, so the package can
              *  restyle the shared chrome that renders outside its element. Declared rather than pushed at
              *  runtime, so the theme applies on first paint. */
@@ -107,6 +149,51 @@ const capabilityPackageManifestBaseSchema = z
               .optional(),
           })
           .strict()
+          .optional(),
+        homeWidgets: z
+          .array(
+            z
+              .object({
+                id: z
+                  .string()
+                  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+                  .max(64),
+                label: z.string().min(1).max(80),
+                description: z.string().max(200),
+                size: z.enum(["compact", "large"]),
+                icon: z
+                  .enum([
+                    "activity",
+                    "bell",
+                    "calendar",
+                    "chart",
+                    "circle",
+                    "clock",
+                    "file",
+                    "flame",
+                    "heart",
+                    "image",
+                    "list",
+                    "message",
+                    "sparkles",
+                    "star",
+                    "zap",
+                  ])
+                  .optional(),
+                iconPath: z
+                  .string()
+                  .min(1)
+                  .max(240)
+                  .regex(/\.(?:gif|jpe?g|png|webp)$/iu)
+                  .optional(),
+                accent: z.enum(["cyan", "green", "amber", "orange", "rose", "violet"]).optional(),
+                surface: z.enum(["soft", "solid", "quiet"]).optional(),
+                header: z.enum(["standard", "compact", "banner"]).optional(),
+              })
+              .strict(),
+          )
+          .min(1)
+          .max(3)
           .optional(),
         /** General package-owned static assets (art, sprite atlases, tilemap JSON) served over
          *  `/api/capability-packages/:id/assets/*` through the same verification chain as
@@ -188,7 +275,117 @@ const capabilityPackageManifestBaseSchema = z
 // 1.14: roleplay-tracker and tracker-panel UI contribution slots, package-aware
 //        prompt placement, and package-agent post-processing lifecycle hooks.
 // 1.15: packages can resolve their current embedding connection without reactivation.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 15 } as const);
+// 1.16: package-declared Game Master verbs — a hash-pinned `gm-verbs.json` asset the engine renders
+//        into the GM prompt, parses back out of the turn, and either writes into the package's own
+//        chat-metadata key or delivers live as a `gm_verb` event (soft seam: read from the asset
+//        regardless of declared capabilityApi; declare 1.16 only to REQUIRE it. Needs `chat-write`).
+// 1.17: opted-in Experience surfaces prepare before startup and supply first-turn world context.
+// 1.18: Experience seed/default declarations in the Engine setup wizard.
+// 1.19: package-contributed tools — a package holding `tools` registers a named tool through
+//        `api.registerTool`, and the engine offers it to the model alongside the built-ins on every
+//        turn, validates the call against the package's own JSON Schema, and hands the arguments to
+//        the package's handler. Not a soft seam: the API only exists on an engine this new, so a
+//        package that needs it must declare 1.19. Needs `tools`.
+// 1.20: Game Mode rulesets — a hash-pinned `ruleset.json` asset the engine validates as data and
+//        offers as a game's rules (resolution kind, character sheet, rests, GM guidance). Not a
+//        soft seam: a ruleset package is useless on an engine that cannot read it, so declaring
+//        the asset requires 1.20 and an older engine refuses the install cleanly. No permission.
+// 1.21: ruleset catalogs — a ruleset may ship collections of ready-made entries the sheet editor
+//        offers in a picker, inline in `ruleset.json` or as hash-pinned `catalogs/<id>.json`
+//        assets beside it. Not a soft seam either, for the same reason as 1.20: an engine that
+//        cannot read `catalogs` refuses the whole ruleset file, so a package that ships them
+//        declares 1.21 and an older engine refuses the install cleanly. No permission.
+// 1.22: the ruleset combat bridge — a ruleset may carry an optional `battle` block naming the live
+//        pools a fight reads as hit points, energy and slots, and the sheet lists whose
+//        catalog-marked rows become the Engine's own combat skills. Not a soft seam, for the same
+//        reason as 1.20 and 1.21: an engine that cannot read `battle` refuses the whole ruleset
+//        file, so a package that ships one declares 1.22. No permission.
+// 1.23: scaled catalog values — a catalog entry row may carry a `scaled` map naming number columns
+//        the ruleset keeps up to date from the sheet (a maximum that follows a level or an ability),
+//        each a value reference with an optional step table. Not a soft seam, for the same reason as
+//        1.20, 1.21 and 1.22: an engine that cannot read `scaled` refuses the whole ruleset file, or
+//        the catalog file that holds it, so a package that ships one declares 1.23. No permission.
+// 1.24: the `dice-pool` resolution kind — a ruleset may resolve a check by throwing the sheet's own
+//        number of dice and counting the ones that reach a target, with optional doubling,
+//        exploding, cancelling, botches, exceptional successes and situational dice. Not a soft
+//        seam, for the same reason as 1.20 through 1.23: an engine that knows only `dice-sum`
+//        refuses the whole ruleset file, so a package whose ruleset declares the kind declares
+//        1.24. No permission.
+// 1.25: ruleset layers. A ruleset may declare variants of itself (Low magic, Hard winter) that a
+//        player turns on when a game is created, each appending Game Master guidance, narrowing an
+//        enum field, swapping the difficulty ladder or hiding catalog entries. The same release
+//        gives the base `gm` block a `worldGuidance` slot, read once by world generation. Not a
+//        soft seam, for the same reason as 1.20 through 1.24: an engine that cannot read `layers`
+//        or `gm.worldGuidance` refuses the whole ruleset file, so a package that ships either one
+//        declares 1.25. No permission.
+// 1.26: ruleset combat. A ruleset may carry an optional `combat` block saying how a fight is
+//        RESOLVED by its own numbers (what is rolled against what, the action economy, conditions,
+//        concentration, dying and the threat scale), and a catalog entry's `mechanics` may say how
+//        many targets it takes, that it always lands, what conditions it applies, what temporary
+//        points it grants, how it grows with the sheet and which budget it spends. Not a soft seam,
+//        for the same reason as 1.20 through 1.25: an Engine that cannot read `combat` or the new
+//        `mechanics` keys refuses the whole ruleset file, or the catalog file that holds them, so a
+//        package that ships either declares 1.26. No permission.
+// 1.27: ruleset bestiaries. A ruleset catalog may declare `"holds": "creatures"` and carry creature
+//        stat blocks instead of sheet rows: health that may be dice, a defense, saves, resistances,
+//        condition immunities, a threat tier, traits the Game Master is shown and actions with
+//        sequences, limited uses, recharge rolls and signature points. Not a soft seam, for the
+//        same reason as 1.20 through 1.26: an Engine that cannot read `holds` or `creature` refuses
+//        the whole ruleset file, or the catalog file that holds them, so a package that ships
+//        either declares 1.27. No permission.
+// 1.28: a ruleset fight on a board. A ruleset's `combat` block may say what one cell of a grid is
+//        worth in its own distance (`distance`), what shooting past the ordinary distance or beside
+//        a foe does (`ranged`), what standing behind something adds to the defense (`cover`) and
+//        which budget a strike at somebody walking away is paid out of (`opportunity`); an attack
+//        list may give its rows a `reach` and a `range`; and a creature action's `range` may be an
+//        ordinary distance with a longer one beyond it. Not a soft seam, for the same reason as
+//        1.20 through 1.27: an Engine that cannot read these keys refuses the whole ruleset file,
+//        or the catalog file that holds them, so a package that ships any of them declares 1.28.
+//        No permission.
+// 1.29: what one turn of a ruleset fight can do. A blow may carry a second damage clause
+//        (`plus`), an attack list may say how many strikes one spend of its budget buys
+//        (`strikes`), a catalog entry may be free of the economy, hand budgets back or let its
+//        holder buy a standard action with another budget (`free`, `gives`, `standard`), a new
+//        entry kind `rider` and a creature's own `riders` add damage to a qualifying hit, and a
+//        condition may narrow the saves it is about, count only while its source is in sight or
+//        end when its source goes down. Not a soft seam, for the same reason as 1.20 through
+//        1.28: an Engine that cannot read these keys refuses the whole ruleset file, or the
+//        catalog file that holds them, so a package that ships any of them declares 1.29.
+//        No permission.
+// 1.30: wound tracks. A ruleset's `live.tracks` entry may declare `levels` (a column of boxes, each
+//        with a label and a penalty) and `kinds` (what a mark on it may be), which turns the track
+//        from a bounded integer into a wound track that is marked rather than counted; and
+//        `resolution.penaltyFrom` names the track whose penalty rides on every roll, taking dice
+//        off a pool or adding a flat modifier to a sum. Not a soft seam, for the same reason as
+//        1.20 through 1.29: an Engine that cannot read these keys refuses the whole ruleset file,
+//        so a package that ships any of them declares 1.30. No permission.
+// 1.31: live host LLM, image and video integrations for downloadable packages.
+// 1.32: a weapon that is one strike a turn whatever its wielder's count. An attack source may
+//        declare `strikesCappedBy`, a boolean column of its own list that holds ITS row to a single
+//        strike however many `strikes` the list buys. SRD 5.1's Loading is the sentence it exists
+//        for. Not a soft seam, for the same reason as 1.20 through 1.31: an Engine that cannot read
+//        the key refuses the whole ruleset file, so a package that ships it declares 1.32. No
+//        permission.
+// 1.33: a catalog entry that says WHICH moment it waits for. `mechanics.reaction` may be an object
+//        rather than `true`: `on` names the moment the Engine notices ("aimed" before something
+//        lands on its holder, "harmed" after something has hurt them), `at` says whom what is taken
+//        is pointed at, and `cancels` stops what the window was holding from happening at all. An
+//        entry that still says only `true` is on no menu, exactly as before, so a package that
+//        ships one needs nothing newer. Not a soft seam, for the same reason as 1.20 through 1.32:
+//        an Engine that cannot read the object refuses the whole catalog asset, so a package that
+//        ships one declares 1.33. No permission.
+// 1.34: a bestiary creature described in the ruleset's own terms. A creature may carry a `sheet`:
+//        a character sheet, as partial as it likes, keyed by the ids the ruleset declares. An
+//        opponent built from one is built the way a party member is, so its health (a pool or a
+//        track), defense, saves, speed, initiative and the abilities on its lists come from the
+//        ruleset's own declarations, and it may pay for them out of its own pools. The fixed
+//        `health`, `defense` and `initiativeModifier` a creature needed before are then not given,
+//        and a creature with a sheet may have no block actions of its own. Not a soft seam, for the
+//        same reason as 1.20 through 1.33: an Engine that cannot read the key refuses the whole
+//        strict catalog file, so a package that ships one declares 1.34. No permission.
+// 1.36: package achievements. `api.registerAchievements` adds badges to the Home panel and
+//        `api.runtime.achievements` reads and unlocks them. Requires the `achievements` permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 36 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -221,6 +418,65 @@ export const capabilityPackageManifestV2Schema = capabilityPackageManifestBaseSc
 export const capabilityPackageManifestSchema = z
   .discriminatedUnion("schemaVersion", [capabilityPackageManifestV1Schema, capabilityPackageManifestV2Schema])
   .superRefine((manifest, ctx) => {
+    const setup = manifest.contributions?.gameSurface?.setup;
+    if (setup) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major !== 1 || api.minor < 18 || !manifest.contributions?.slots?.includes("game-surface")) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "setup"],
+          message: "Experience setup requires the game-surface slot, schemaVersion 2 and capabilityApi 1.18 or newer",
+        });
+      }
+      if (setup.seed && Object.hasOwn(setup.config ?? {}, setup.seed.key)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "setup", "config"],
+          message: "Experience config cannot override the declared seed key",
+        });
+      }
+    }
+    // `registerTool` only exists on an Engine this new, so the declared API version is what stops a
+    // package shipping tools and then failing to activate on an older install. Enforced here rather
+    // than left to the documentation, which cannot refuse anything.
+    if (manifest.permissions.includes("tools")) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 19)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["permissions"],
+          message: 'The "tools" permission requires schemaVersion 2 and capabilityApi 1.19 or newer',
+        });
+      }
+    }
+    // Same reason as `tools`: `registerAchievements` only exists on an Engine this new.
+    if (manifest.permissions.includes("achievements")) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 36)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["permissions"],
+          message: 'The "achievements" permission requires schemaVersion 2 and capabilityApi 1.36 or newer',
+        });
+      }
+    }
+    if (manifest.contributions?.gameSurface?.prepareBeforeStart) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 17)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "prepareBeforeStart"],
+          message: "prepareBeforeStart requires schemaVersion 2 and capabilityApi 1.17 or newer",
+        });
+      }
+      if (!manifest.contributions.slots?.includes("game-surface")) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "prepareBeforeStart"],
+          message: 'prepareBeforeStart requires the "game-surface" slot',
+        });
+      }
+    }
     // A game-surface package draws the whole mode from its client bundle: without a client entrypoint the
     // module loader skips it, so it would be offered in the setup wizard and then render nothing. Caught
     // here so it fails at install with a clear reason rather than as an empty screen later.
@@ -247,6 +503,43 @@ export const capabilityPackageManifestSchema = z
         });
       }
     }
+    const homeWidgets = manifest.contributions?.homeWidgets;
+    if (manifest.contributions?.slots?.includes("home-widget") || homeWidgets) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major !== 1 || api.minor < 35) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets"],
+          message: "Home widgets require capability API 1.35",
+        });
+      }
+      if (
+        !manifest.kind.includes("agent") ||
+        !manifest.permissions.includes("ui") ||
+        !manifest.entrypoints.client?.trim()
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets"],
+          message: "Agent Home widgets require an agent package with UI permission and a client entrypoint",
+        });
+      }
+      if (!manifest.contributions?.slots?.includes("home-widget") || !homeWidgets?.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets"],
+          message: "The home-widget slot and widget definitions must be declared together",
+        });
+      }
+      const ids = homeWidgets?.map((widget) => widget.id) ?? [];
+      if (new Set(ids).size !== ids.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets"],
+          message: "Home widget IDs must be unique within the agent",
+        });
+      }
+    }
     // Icon paths feed the same serve-path allowlist as general assets, so they
     // must be hash-pinned in files[] whether or not the home-browser-tab slot is
     // declared — an unpinned (or traversal-shaped) icon path would otherwise
@@ -257,6 +550,15 @@ export const capabilityPackageManifestSchema = z
           code: z.ZodIssueCode.custom,
           path: ["contributions", "homeBrowserTab", "iconPaths", index],
           message: "A Home browser tab icon must be declared in the package file manifest",
+        });
+      }
+    }
+    for (const [index, widget] of (manifest.contributions?.homeWidgets ?? []).entries()) {
+      if (widget.iconPath && !manifest.files.some((file) => file.path === widget.iconPath)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeWidgets", index, "iconPath"],
+          message: "A Home widget icon must be declared in the package file manifest",
         });
       }
     }
@@ -283,6 +585,39 @@ export const capabilityPackageManifestSchema = z
           code: z.ZodIssueCode.custom,
           path: ["contributions", "assets"],
           message: "contributions.assets requires schemaVersion 2 and capabilityApi 1.10 or newer",
+        });
+      }
+    }
+    // A ruleset is the whole point of the package that ships one, so it is a hard 1.20 requirement
+    // rather than a soft seam: an older Engine refuses the install instead of installing a package
+    // that then does nothing.
+    if (manifest.contributions?.assets?.paths.includes(RULESET_ASSET_PATH)) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 20)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "assets", "paths"],
+          message: `${RULESET_ASSET_PATH} requires schemaVersion 2 and capabilityApi 1.20 or newer`,
+        });
+      }
+    }
+    // A catalog asset is part of a ruleset, so it follows the same hard requirement one minor
+    // later, and only ever ships beside the file that declares it: on its own it is a JSON document
+    // nothing would ever read.
+    if ((manifest.contributions?.assets?.paths ?? []).some(isRulesetCatalogAssetPath)) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 21)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "assets", "paths"],
+          message: "catalogs/<id>.json requires schemaVersion 2 and capabilityApi 1.21 or newer",
+        });
+      }
+      if (!manifest.contributions?.assets?.paths.includes(RULESET_ASSET_PATH)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "assets", "paths"],
+          message: `A catalog asset must ship beside the ${RULESET_ASSET_PATH} that declares it`,
         });
       }
     }
@@ -380,6 +715,7 @@ export const installedCapabilityPackageSchema = z.object({
   readinessError: z.string().nullable().default(null),
   legacy: z.boolean().default(false),
   previousVersion: z.string().optional(),
+  previousManifest: capabilityPackageManifestSchema.optional(),
 });
 
 export const installedCapabilityRegistrySchema = z
@@ -466,7 +802,86 @@ export interface CapabilityPackageUpdate {
   version: string;
   artifactSha256: string;
   restartRequired: boolean;
+  /** Release notes published for `version`, when the catalog ships a notes sidecar. */
+  releaseNotes?: string;
+  /** Whether the publisher marked `version` as a change the user will notice. */
+  releaseHighlight?: boolean;
 }
+
+/** Release notes live in a sidecar document next to catalog.json, never inside a
+ *  catalog entry or a package manifest.
+ *
+ *  `capabilityCatalogPackageSchema` is strict and `parseCapabilityCatalogWithCompat`
+ *  DROPS entries carrying keys it does not know. A new key on a catalog entry would
+ *  therefore empty the Agents browser on every already-shipped Engine that predates
+ *  it, not just hide the notes. A sibling document those Engines never fetch has no
+ *  such blast radius: an Engine without this feature simply never asks for it, and an
+ *  Engine with it treats a missing document as "no notes". */
+const capabilityPackageVersionNoteSchema = z
+  .object({
+    // Stricter than the manifest's version field, and deliberately so. Ordering
+    // here runs through compareCapabilityPackageVersions, which turns each
+    // component and each numeric prerelease identifier into a Number. That makes
+    // two preconditions load-bearing, and neither is checked there:
+    //   * every numeric part must stay inside the safe integer range, or two
+    //     different versions compare equal and newest-first quietly stops holding;
+    //   * numeric prerelease identifiers must be canonical, or "01" and "1"
+    //     compare as different versions while meaning the same one.
+    // Leading zeros matter for the same reason: 01.2.3 and 1.2.3 compare equal
+    // numerically but differ as strings, so the duplicate check and the lookup in
+    // attachCapabilityReleaseNotes would disagree with the ordering — two notes
+    // for one version, or a note that never attaches because the catalog spells
+    // the version differently.
+    // Nine digits is far beyond any real version, and this is canonical SemVer
+    // otherwise.
+    version: z
+      .string()
+      .max(64)
+      .regex(
+        /^(?:0|[1-9]\d{0,8})\.(?:0|[1-9]\d{0,8})\.(?:0|[1-9]\d{0,8})(?:-(?:0|[1-9]\d{0,8}|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d{0,8}|\d*[A-Za-z-][0-9A-Za-z-]*))*)?$/,
+      ),
+    // Round-tripped, not just shape-matched: a plain regex accepts 2026-02-30,
+    // which would reach the UI as a date that does not exist.
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .refine((value) => new Date(`${value}T00:00:00.000Z`).toISOString().startsWith(value), {
+        message: "must be a real calendar date",
+      }),
+    /** Plain text. Rendered verbatim and never as markdown or HTML: the catalog URL
+     *  is operator-configurable, so this is untrusted remote content. */
+    notes: z.string().min(1).max(MAX_RELEASE_NOTE_CHARACTERS),
+    /** Published by the catalog build, never recomputed here. */
+    highlight: z.boolean().default(false),
+  })
+  .strict();
+
+export const capabilityReleaseNotesSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    packages: z.record(
+      z
+        .string()
+        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+        .max(80),
+      z
+        .object({
+          versions: z
+            .array(capabilityPackageVersionNoteSchema)
+            .max(MAX_RELEASE_NOTE_VERSIONS)
+            // A repeated version would make the two readers disagree: the update
+            // prompt takes the first match, the history sheet shows every one.
+            .refine((versions) => new Set(versions.map((note) => note.version)).size === versions.length, {
+              message: "must not list the same version twice",
+            }),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
+export type CapabilityPackageVersionNote = z.infer<typeof capabilityPackageVersionNoteSchema>;
+export type CapabilityReleaseNotes = z.infer<typeof capabilityReleaseNotesSchema>;
 
 export interface CustomAgentRepository {
   id: string;
@@ -476,6 +891,8 @@ export interface CustomAgentRepository {
   lastDigest: string | null;
   lastSyncedAt: string | null;
   agentCount: number;
+  /** Game Mode rulesets the repository published under `rulesets/` at the last sync. */
+  rulesetCount: number;
 }
 
 export type CustomAgentRepositoryChangeStatus = "new" | "updated" | "unchanged" | "removed";
@@ -488,10 +905,43 @@ export interface CustomAgentRepositoryChange {
   definition?: PackagedAgentDefinition;
 }
 
+/** `new-version`: another version of this ruleset is already installed and this one joins it.
+ *  `conflict`: that exact version is installed with different contents, so it is left alone and the
+ *  author has to raise the version number. `invalid`: the file is not a usable ruleset. Both of the
+ *  last two are skipped without stopping the rest of the repository. */
+export type CustomAgentRepositoryRulesetStatus = "new" | "new-version" | "unchanged" | "conflict" | "invalid";
+
+export interface CustomAgentRepositoryRulesetChange {
+  /** The file name inside `rulesets/`, which is what identifies the row even when nothing else parsed. */
+  file: string;
+  /** The namespaced id the ruleset would be installed under, or null when the file could not be read. */
+  rulesetId: string | null;
+  name: string;
+  version: number | null;
+  status: CustomAgentRepositoryRulesetStatus;
+  /** The author's summary of what the ruleset covers, empty when the file could not be read. */
+  coverage: string;
+  /** Why an unusable file cannot be installed, first few lines only. */
+  issues: string[];
+}
+
 export interface CustomAgentRepositoryPreview {
   repository: Pick<CustomAgentRepository, "id" | "url" | "owner" | "name">;
   digest: string;
   changes: CustomAgentRepositoryChange[];
+  rulesets: CustomAgentRepositoryRulesetChange[];
+}
+
+/** What adding or syncing a repository just did with its rulesets. Stored versions are never
+ *  rewritten, so `skipped` covers both unusable files and versions already installed differently. */
+export interface CustomAgentRepositoryRulesetResult {
+  added: number;
+  unchanged: number;
+  skipped: number;
+}
+
+export interface CustomAgentRepositoryApplyResult extends CustomAgentRepository {
+  rulesets: CustomAgentRepositoryRulesetResult;
 }
 
 export interface CustomAgentRepositoryState {

@@ -31,7 +31,7 @@ When you create a Game Mode chat, a **setup wizard** opens. It has seven steps. 
 The seven steps are:
 
 1. **Connection.** Set the game name, pick the GM connection, and optionally set a scene-effects connection. Scene effects default to **Local Model (Gemma)**.
-2. **World.** Set the genre, setting, tone, difficulty, content rating, and language.
+2. **World.** Set the genre, setting, tone, difficulty, content rating, and language. Choose **Classic** or **Tactical** under **Combat Preference**. Tactical games also offer optional battlefield seed, size and terrain guidance. When a Game Mode ruleset is installed, a **Rules** choice appears below it: keep **Marinara's own rules**, or pick the ruleset. See [Choosing rules](#choosing-rules).
 3. **Party.** Pick your persona (the character you play), the **Game Master Mode**, and any party members.
 4. **Goals.** Tell the GM what you want from the adventure.
 5. **Lorebooks.** Attach any lorebooks whose facts the GM should treat as canon. A lorebook is a set of background world facts. See [Lorebooks](../lorebooks/overview.md).
@@ -40,23 +40,44 @@ The seven steps are:
 
 When you finish, click **Start Game**.
 
+For Tactical games, leaving the battlefield options blank lets the GM choose a scene-appropriate brief and the engine generate a board. A fixed seed makes generation repeatable for the same encounter inputs; terrain guidance asks the GM for features such as a ruined wall or forest clearing. See [Combat](combat.md#tactical-battles-and-terrain) for movement rules, terrain bonuses and generation failures.
+
+### Choosing rules
+
+**Rules** only appears when at least one ruleset is installed, and only for a new game. It is separate from **Combat Preference**: one decides how checks and character sheets work, the other decides how battles are shown.
+
+- **Marinara's own rules** is the default: the built-in d20 checks and the six-attribute sheet.
+- A ruleset, such as **5e (SRD 5.1)**, shows a short summary of what it covers, and one line saying what battles will do. A ruleset that resolves its own fights says so. One that only lends the sheet says that battles run on Marinara's combat with the sheet's own health, energy and abilities. One that does neither says that battles run on Marinara's combat and names the **Combat Preference** you picked.
+
+When the ruleset resolves its own fights, the battle screen is that ruleset's: the menu is your character's own attacks and abilities, each saying what it spends out of the ruleset's own action economy and pools; the panel below shows the turn order, the round, everybody's conditions by the ruleset's own names, and what is left of each budget; and the log prints the real arithmetic, such as "Juno attacks Rust jackal with Road axe: 8 (5 + 3) + 3 = 11 against Guard 6, a hit." Every action is written to the character sheet the moment it lands, so closing the tab mid-fight loses nothing and the Game Master is told afterwards that the numbers are already settled. If that ruleset also says what one square of a battlefield is worth in its own distance, your **Combat Preference** decides how the fight is shown: **Classic** plays it without positions, and **Tactical** plays it on a generated board where you walk, measure reach and range in the ruleset's own unit, and aim a shape at a square. See [Combat](combat.md#games-whose-ruleset-resolves-its-own-fights). A ruleset that says nothing about distance keeps the preference and does not use it.
+
+The ruleset is set when the game is created and stays with that game. It cannot be changed or added later.
+
+Some rulesets offer **layers**: named variants such as Low magic or Hard winter, shown as toggles under the ruleset with a line saying what each one does. A layer can make the difficulties harsher, narrow a choice on the character sheet, leave some ready-made entries out of the sheet editor's picker, and give the Game Master extra instructions, including for the world it builds at setup. Some layers rule each other out, and the wizard disables the one you cannot have. Layers are fixed once the game starts, exactly like the ruleset itself, and a sheet that already uses something a layer takes away keeps it.
+
+Rulesets come from two places. Official ones are installed from **Download Agents**, where they are marked **Rules**. Community ones are imported from a file or from an author's GitHub repository, and are filed under where they came from, such as `local/ember-roads` or `alice/v20`. Importing uses the same **Allow custom Agent imports** switch as imported agents. While that switch is off, imported rulesets are left out of new games, and games that already use one keep working. A game on an imported ruleset always plays on the exact version it was created on. To write your own, see [Writing Game Mode Rulesets](../extending/writing-rulesets.md).
+
+After you pick a ruleset, the **Party** step lists your persona and party members below the pickers and says who **Has a sheet** for it and who **Starts on a blank sheet**. A sheet is added under **Stats** in the character or persona editor (see [Ruleset sheets](../characters/colors-and-stats.md#ruleset-sheets)). The game takes a copy of each sheet when the world is generated. Nothing you change in the game goes back to the character or persona. A member without a sheet gets a blank one with every value at the ruleset's default; world generation never makes up scores.
+
+A shared setup file remembers its ruleset. If you import one and do not have that ruleset, or have an older version of it, the wizard tells you which ruleset it was and the game uses Marinara's own rules unless you install it and pick it.
+
 ### Defaults worth knowing
 
 These are the starting values in the **World**, **Party**, and **Features** steps. You can change any of them.
 
-| Setting | Default | Notes |
-|---|---|---|
-| Genre | Fantasy | Multi-select, plus your own custom entries |
-| Tone | Heroic | Multi-select |
-| Difficulty | Normal | Casual, Normal, Hard, or Brutal; higher settings make combat more punishing |
-| Content Rating | SFW | SFW or NSFW; NSFW only permits adult content, it does not force it |
-| Language | English | All in-game text is written in this language |
-| Game Master Mode | Standalone GM | Standalone GM builds a GM for you; Character GM uses one of your cards as the GM |
-| Visual Generation | Off | Turn on for images; needs an image generation connection |
-| Game Presentation | Standard | **Storyboard Optimized** uses the Storyboard Game Prompt to shape the GM's narration; it does not install or activate the Storyboard Agent |
-| Music DJ | Off | Needs Spotify or a local music folder |
-| Custom HUD Widgets | On | Uses AI-made status widgets from the new world |
-| Start Muted | Off | Begins the game with audio muted |
+| Setting            | Default       | Notes                                                                                                                                      |
+| ------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Genre              | Fantasy       | Multi-select, plus your own custom entries                                                                                                 |
+| Tone               | Heroic        | Multi-select                                                                                                                               |
+| Difficulty         | Normal        | Casual, Normal, Hard, or Brutal; higher settings make combat more punishing                                                                |
+| Content Rating     | SFW           | SFW or NSFW; NSFW only permits adult content, it does not force it                                                                         |
+| Language           | English       | All in-game text is written in this language                                                                                               |
+| Game Master Mode   | Standalone GM | Standalone GM builds a GM for you; Character GM uses one of your cards as the GM                                                           |
+| Visual Generation  | Off           | Turn on for images; needs an image generation connection                                                                                   |
+| Game Presentation  | Standard      | **Storyboard Optimized** uses the Storyboard Game Prompt to shape the GM's narration; it does not install or activate the Storyboard Agent |
+| Music DJ           | Off           | Needs Spotify or a local music folder                                                                                                      |
+| Custom HUD Widgets | On            | Uses AI-made status widgets from the new world                                                                                             |
+| Start Muted        | Off           | Begins the game with audio muted                                                                                                           |
 
 New to Game Mode? Leave **Game Master Mode** on **Standalone GM**. Marinara builds a fair, slightly snarky GM for you, and you can feel out the mode before writing a custom GM card.
 
@@ -83,6 +104,20 @@ The input bar has a small speech-bubble button next to the attach-files button. 
 - **Talk to GM** adds a `[To the GM]` marker and asks the GM out-of-character. Use it for questions like "Does my character know about the temple?" or for pacing requests.
 
 The active mode shows an **On** marker in the menu. To turn **Talk to Party** or **Talk to GM** off, click that same menu entry again. Your messages then go back into the scene.
+
+## Optional tool planning and lore searches
+
+Open **Chat Settings → Function Calling** during play. **Let the GM search lore** lets the GM look up information by meaning without enabling every other optional tool. Enable vectorization for the relevant lorebooks and vectorize their entries first. Searches respect enabled books, folders, and chat-specific entry switches. They use the configured embedding connection and can add a model follow-up request.
+
+Game chats require **Let the GM search lore** for lorebook tool lookups, even when **Enable Tool Use** is on. While it is off, `search_lorebook` is unavailable in the tool picker; an already selected entry stays visible with an explanation so you can remove it or turn lore search back on.
+
+**Game tool connection** defaults to **Same as narrator**, which keeps the normal tool loop. Choosing another connection runs one separate planning request before narration. That model chooses the tools, and the narrator receives their actual results as text. The extra request is charged to the selected connection; a cheaper model can reduce tool costs, but may choose different tools. This single planning pass cannot chain a second lookup from the first result. Use **Same as narrator** when you want the narrator to reason through several tool rounds.
+
+Claude and Grok subscription connections do not support native tool calls. The affected controls explain this and are disabled unless a supported Game tool connection is selected. Text commands and dice tags still work. If a separate connection is missing or its request fails, the turn reports the failure instead of silently narrating without the requested tool work.
+
+**Finish rolled turns in one request** changes the second kind of call above. A turn that rolls dice normally costs two requests: the draft, then a rewrite with the real numbers. With this on, the Game Master writes the outcome blind and the engine fills the numbers in afterwards, so the turn costs one request. It is off by default. Two things still add a request on top of it: the dice tool being called when **Enable Tool Use** is on, and a separate **Game tool connection**, which always makes its own planning request. See [Game Mode: Dice and Skill Checks](dice-and-skill-checks.md#finishing-a-rolled-turn-in-one-request).
+
+If your local models share limited GPU memory, open **Chat Settings → Agents** and enable **Run Game tasks one at a time**. Narration, agents, and scene media wait for one another within that Game chat. It starts off, and it does not reserve the GPU against other chats or applications. Existing cancellation controls remain available while work is running or waiting.
 
 ## Turning on agents
 

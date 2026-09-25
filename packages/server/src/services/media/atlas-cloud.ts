@@ -12,6 +12,8 @@ export interface AtlasCloudPrediction {
 
 const ATLAS_CLOUD_POLL_INTERVAL_MS = readPositiveIntervalEnv("ATLAS_CLOUD_POLL_INTERVAL_MS", 5_000);
 const ATLAS_CLOUD_RESPONSE_LIMIT_BYTES = 2 * 1024 * 1024;
+const ATLAS_CLOUD_CATALOG_LIMIT_BYTES = 8 * 1024 * 1024;
+const ATLAS_CLOUD_CATALOG_TIMEOUT_MS = 30_000;
 const COMPLETE_STATUSES = new Set(["completed", "succeeded", "success", "done"]);
 const FAILED_STATUSES = new Set(["failed", "error", "cancelled", "canceled", "expired"]);
 const ATLAS_IMAGE_ASPECT_RATIOS = [
@@ -152,6 +154,64 @@ export function buildAtlasCloudUrl(
   parsed.search = "";
   parsed.hash = "";
   return parsed.toString();
+}
+
+/** The public model catalog sits beside the generation endpoints and does not need an API key. */
+export function buildAtlasCloudCatalogUrl(baseUrl: string): string {
+  const parsed = new URL(buildAtlasCloudUrl(baseUrl, "generateVideo"));
+  parsed.pathname = parsed.pathname.replace(/\/model\/generateVideo$/, "/models");
+  return parsed.toString();
+}
+
+const ATLAS_CLOUD_CATALOG_CATEGORIES: Record<AtlasCloudGenerationKind, readonly string[]> = {
+  // Scene videos always animate an image, so image-to-video models are listed first.
+  video: ["IMAGE-TO-VIDEO", "TEXT-TO-VIDEO"],
+  image: ["TEXT-TO-IMAGE", "IMAGE-TO-IMAGE"],
+};
+
+export function parseAtlasCloudCatalog(
+  value: unknown,
+  kind: AtlasCloudGenerationKind,
+): Array<{ id: string; name: string }> {
+  const entries = isRecord(value) && Array.isArray(value.data) ? value.data : Array.isArray(value) ? value : [];
+  const wanted = ATLAS_CLOUD_CATALOG_CATEGORIES[kind];
+  const models: Array<{ id: string; name: string; rank: number }> = [];
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (!isRecord(entry) || entry.display_console === false) continue;
+    const id = readString(entry.model);
+    if (!id || seen.has(id)) continue;
+    const categories = Array.isArray(entry.categories)
+      ? entry.categories.map((item) => String(item).toUpperCase())
+      : [];
+    const rank = wanted.findIndex((category) => categories.includes(category));
+    if (rank < 0) continue;
+    seen.add(id);
+    const price =
+      isRecord(entry.price) && isRecord(entry.price.actual) ? readString(entry.price.actual.base_price) : null;
+    const label = [
+      readString(entry.displayName) ?? id,
+      wanted[rank]!.toLowerCase(),
+      kind === "video" && price ? `from $${price}/s` : null,
+    ];
+    models.push({ id, name: label.filter(Boolean).join(" · "), rank });
+  }
+  return models.sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id)).map(({ id, name }) => ({ id, name }));
+}
+
+export async function fetchAtlasCloudModels(
+  baseUrl: string,
+  kind: AtlasCloudGenerationKind,
+  signal?: AbortSignal,
+): Promise<Array<{ id: string; name: string }>> {
+  const response = await safeFetch(buildAtlasCloudCatalogUrl(baseUrl), {
+    method: "GET",
+    signal: signal ?? AbortSignal.timeout(ATLAS_CLOUD_CATALOG_TIMEOUT_MS),
+    policy: { allowLocal: false, allowLoopback: false, allowMdns: false, allowedProtocols: ["https:"] },
+    maxResponseBytes: ATLAS_CLOUD_CATALOG_LIMIT_BYTES,
+    decodeCompressedResponse: true,
+  });
+  return parseAtlasCloudCatalog(await readJsonResponse(response, "model catalog"), kind);
 }
 
 function atlasHeaders(apiKey: string) {

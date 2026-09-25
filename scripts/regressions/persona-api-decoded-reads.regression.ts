@@ -85,10 +85,22 @@ try {
   process.env.NODE_ENV = "test";
   process.env.MARINARA_LITE = "true";
 
-  const [{ buildApp }, { getDB }, { personas }] = await Promise.all([
+  const [
+    { buildApp },
+    { getDB },
+    { personas },
+    { createCharactersStorage },
+    { resolveChatUserIdentity },
+    { MariDbService },
+    { PROFESSOR_MARI_APP_DATA_ACTIONS },
+  ] = await Promise.all([
     import("../../packages/server/src/app.js"),
     import("../../packages/server/src/db/connection.js"),
     import("../../packages/server/src/db/schema/index.js"),
+    import("../../packages/server/src/services/storage/characters.storage.js"),
+    import("../../packages/server/src/services/chat-user-identity.js"),
+    import("../../packages/server/src/services/mari-db/mari-db.service.js"),
+    import("../../packages/server/src/services/professor-mari/workspace-agent.service.js"),
   ]);
 
   app = await buildApp();
@@ -110,7 +122,10 @@ try {
     assert.equal(typeof value.isActive, "boolean");
     assert.equal(Array.isArray(value.tags), true);
     assert.equal(Array.isArray(value.savedStatusOptions), true);
-    assert.equal(value.avatarCrop === null || (typeof value.avatarCrop === "object" && !Array.isArray(value.avatarCrop)), true);
+    assert.equal(
+      value.avatarCrop === null || (typeof value.avatarCrop === "object" && !Array.isArray(value.avatarCrop)),
+      true,
+    );
     assert.equal(
       value.personaStats == null || (typeof value.personaStats === "object" && !Array.isArray(value.personaStats)),
       true,
@@ -197,8 +212,75 @@ try {
   const detail = await requestJson("GET", `/api/characters/personas/${activeId}`);
   assertDecodedPersona(detail, activeId);
 
-  const activeEndpointPersona = await requestJson("GET", "/api/characters/personas/active");
-  assertDecodedPersona(activeEndpointPersona, activeId);
+  const charactersStorage = createCharactersStorage(db);
+  for (const mode of ["conversation", "roleplay", "game"]) {
+    assert.equal(
+      await resolveChatUserIdentity(charactersStorage, { mode, personaId: null }),
+      null,
+      `${mode} must remain anonymous despite a legacy active Persona`,
+    );
+    assert.equal(
+      await resolveChatUserIdentity(charactersStorage, { mode, personaId: "missing-persona" }),
+      null,
+      `${mode} must not replace a missing explicit Persona with a legacy active Persona`,
+    );
+    assert.equal((await resolveChatUserIdentity(charactersStorage, { mode, personaId: activeId }))?.id, activeId);
+    assert.equal((await resolveChatUserIdentity(charactersStorage, { mode, personaId: malformedId }))?.id, malformedId);
+  }
+
+  assert.equal(
+    await requestJson("GET", "/api/characters/personas/active"),
+    null,
+    "The compatibility endpoint must not expose a global selection",
+  );
+  const beforeActivation = await db.select().from(personas);
+  const activation = await app.inject({
+    method: "PUT",
+    url: `/api/characters/personas/${malformedId}/activate`,
+    payload: {},
+  });
+  assert.equal(activation.statusCode, 410);
+  assert.deepEqual(
+    await db.select().from(personas),
+    beforeActivation,
+    "Retired activation must not change saved flags, timestamps, or Persona content",
+  );
+  assertExactActivePersona(await requestJson("GET", `/api/characters/personas/${activeId}`));
+
+  const mari = new MariDbService(db);
+  for (const result of [
+    await mari.executeAction({ action: "persona.active" }),
+    await mari.executeCli({ argv: ["personas", "active"] }),
+  ]) {
+    assert.equal(result.ok, true);
+    assert.equal(result.output, null, "Legacy Mari active-persona reads must remain compatible and inert");
+  }
+  assert.equal((PROFESSOR_MARI_APP_DATA_ACTIONS as readonly string[]).includes("persona.active"), false);
+
+  const chat = await requestJson("POST", "/api/chats", {
+    name: "Explicit identity",
+    mode: "conversation",
+    personaId: activeId,
+  });
+  const sent = await requestJson("POST", `/api/chats/${chat.id}/messages`, { role: "user", content: "Saved identity" });
+  const sentExtra = typeof sent.extra === "string" ? JSON.parse(sent.extra) : sent.extra;
+  assert.equal(sentExtra.personaSnapshot.personaId, activeId);
+  await requestJson("PATCH", `/api/chats/${chat.id}`, { personaId: null });
+  const savedMessages = (await requestJson("GET", `/api/chats/${chat.id}/messages`)) as unknown as Array<
+    Record<string, unknown>
+  >;
+  const saved = savedMessages.find((message) => message.id === sent.id)!;
+  assert.deepEqual(
+    typeof saved.extra === "string" ? JSON.parse(saved.extra) : saved.extra,
+    sentExtra,
+    "Clearing a chat identity must preserve previously captured user identity snapshots",
+  );
+  const anonymous = await requestJson("POST", `/api/chats/${chat.id}/messages`, {
+    role: "user",
+    content: "Anonymous now",
+  });
+  const anonymousExtra = typeof anonymous.extra === "string" ? JSON.parse(anonymous.extra) : anonymous.extra;
+  assert.equal(anonymousExtra?.personaSnapshot, undefined);
 
   const created = await requestJson("POST", "/api/characters/personas", {
     name: "Serialized Writer",

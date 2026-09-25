@@ -22,7 +22,10 @@ export interface StartSceneOptions {
 
 let pendingScenePromptPreferencesSettle: ((preferences: ScenePromptPreferences | null) => void) | null = null;
 
-export function requestScenePromptPreferences(sourceLabel?: string | null): Promise<ScenePromptPreferences | null> {
+export function requestScenePromptPreferences(
+  sourceLabel?: string | null,
+  chatId?: string,
+): Promise<ScenePromptPreferences | null> {
   return new Promise((resolve) => {
     let settled = false;
     const settle = (preferences: ScenePromptPreferences | null) => {
@@ -31,6 +34,7 @@ export function requestScenePromptPreferences(sourceLabel?: string | null): Prom
       if (pendingScenePromptPreferencesSettle === settle) {
         pendingScenePromptPreferencesSettle = null;
       }
+      unsubscribe();
       resolve(preferences);
     };
 
@@ -38,25 +42,39 @@ export function requestScenePromptPreferences(sourceLabel?: string | null): Prom
     pendingScenePromptPreferencesSettle = settle;
 
     const ui = useUIStore.getState();
-    ui.openModal("scene-prompt-preferences", {
+    const modalProps = {
+      chatId,
       sourceLabel: sourceLabel ?? null,
       initialPreferences: ui.scenePromptPreferences,
       onSubmit: (preferences: ScenePromptPreferences) => {
+        if (settled) return;
         const normalized = normalizeScenePromptPreferences(preferences);
         useUIStore.getState().setScenePromptPreferences(normalized);
+        settle({
+          ...normalized,
+          ...(preferences.presetChoices ? { presetChoices: preferences.presetChoices } : {}),
+          ...(preferences.participantCharacterIds
+            ? { participantCharacterIds: preferences.participantCharacterIds }
+            : {}),
+          ...(preferences.personaId !== undefined ? { personaId: preferences.personaId } : {}),
+        });
         useUIStore.getState().closeModal();
-        settle(normalized);
       },
       onCancel: () => {
-        useUIStore.getState().closeModal();
+        if (settled) return;
         settle(null);
+        useUIStore.getState().closeModal();
       },
+    };
+    const unsubscribe = useUIStore.subscribe((state) => {
+      if (state.modal?.props !== modalProps) settle(null);
     });
+    ui.openModal("scene-prompt-preferences", modalProps);
   });
 }
 
 export async function startSceneWithPromptPreferences(options: StartSceneOptions): Promise<SceneCreateResponse | null> {
-  const preferences = await requestScenePromptPreferences(options.initiatorCharName ?? null);
+  const preferences = await requestScenePromptPreferences(options.initiatorCharName ?? null, options.chatId);
   if (!preferences) return null;
 
   const toastId = toast.loading("Planning scene...", { icon: "🎬" });
@@ -67,6 +85,7 @@ export async function startSceneWithPromptPreferences(options: StartSceneOptions
       .filter(Boolean)
       .join("\n\n");
     const planRes = await api.post<ScenePlanResponse>("/scene/plan", {
+      debugMode: useUIStore.getState().debugMode,
       chatId: options.chatId,
       prompt: planningPrompt,
       connectionId: options.connectionId ?? null,
@@ -93,6 +112,10 @@ export async function startSceneWithPromptPreferences(options: StartSceneOptions
       initiatorCharId: options.initiatorCharId ?? null,
       plan,
       connectionId: options.connectionId ?? null,
+      promptPresetId: preferences.promptPresetId ?? null,
+      presetChoices: preferences.presetChoices,
+      participantCharacterIds: preferences.participantCharacterIds,
+      personaId: preferences.personaId,
     });
 
     useChatStore.getState().setActiveChatId(response.chatId);

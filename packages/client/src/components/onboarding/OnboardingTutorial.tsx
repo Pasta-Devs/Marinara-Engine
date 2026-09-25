@@ -298,7 +298,7 @@ function computeTooltipStyle(rect: Rect, step: TourStep): React.CSSProperties {
     : Math.min(TUTORIAL_DESKTOP_WIDTH, vw - VIEWPORT_MARGIN * 2);
   const GAP = isMobile ? 8 : 16;
   const topOffset = getTutorialTopOffset();
-  const availableViewportHeight = Math.max(200, vh - topOffset - VIEWPORT_MARGIN);
+  const availableViewportHeight = Math.max(0, vh - topOffset - VIEWPORT_MARGIN);
   const side = step.side ?? "right";
   const available = {
     right: vw - (rect.left + rect.width + GAP + PAD) - VIEWPORT_MARGIN,
@@ -329,7 +329,7 @@ function computeTooltipStyle(rect: Rect, step: TourStep): React.CSSProperties {
       top,
       left,
       width: TOOLTIP_W,
-      maxHeight: `${Math.max(200, vh - top - VIEWPORT_MARGIN)}px`,
+      maxHeight: `${Math.max(0, vh - top - VIEWPORT_MARGIN)}px`,
       overflowY: "auto",
       overflowX: "hidden",
       overscrollBehavior: "contain",
@@ -359,14 +359,14 @@ function computeTooltipStyle(rect: Rect, step: TourStep): React.CSSProperties {
       top,
       left,
       width: TOOLTIP_W,
-      maxHeight: `${Math.max(200, vh - top - VIEWPORT_MARGIN)}px`,
+      maxHeight: `${Math.max(0, vh - top - VIEWPORT_MARGIN)}px`,
       overflowY: "auto",
       overflowX: "hidden",
       overscrollBehavior: "contain",
     };
   }
 
-  const minScrollableHeight = isMobile ? 220 : 340;
+  const minScrollableHeight = Math.min(340, availableViewportHeight);
   const preferredVerticalSide = available.bottom >= available.top ? "bottom" : "top";
   let placement = side;
 
@@ -388,7 +388,7 @@ function computeTooltipStyle(rect: Rect, step: TourStep): React.CSSProperties {
     placement = available.right >= available.left ? "right" : "left";
   }
 
-  let maxHeight = vh - VIEWPORT_MARGIN * 2;
+  let maxHeight: number;
 
   let top = 0;
   let left = 0;
@@ -711,7 +711,7 @@ function OnboardingTutorialInner() {
 
   const isCentered = isMobileViewport || currentStep.centerCard || !currentStep.target || !targetRect;
   const centeredTopOffset = getTutorialTopOffset();
-  const centeredCardMaxHeight = Math.max(220, getViewportHeight() - centeredTopOffset - 16);
+  const centeredCardMaxHeight = Math.max(0, getViewportHeight() - centeredTopOffset - 16);
   const dialogLabel = resolveTourStepTitle(currentStep, localizeUi, localize);
 
   const pickerSlot = currentStep.docsLanguagePicker ? (

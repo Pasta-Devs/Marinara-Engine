@@ -13,6 +13,7 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { appendLorebookActivationKeys } from "../../lib/lorebook-keys";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { estimateTextTokens } from "@marinara-engine/shared";
 
 export function FieldGroup({
   label,
@@ -177,5 +178,5 @@ export function ExpandableTextarea({
 }
 
 export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
+  return estimateTextTokens(text);
 }

@@ -7,7 +7,13 @@ English is the canonical locale and the runtime fallback. A missing community tr
 English text instead of a translation key or an empty control.
 
 Users select their interface language in **Settings > General > App Behavior > Language**. The selection changes
-Marinara's controls and guidance, not model prompts, authored content, or chat messages.
+Marinara's controls and guidance, not model prompts, authored content, or chat messages. Selecting a non-English
+language downloads its pack if needed; **Refresh language pack** fetches updated translations. Downloaded packs
+are kept in `DATA_DIR/ui-packs` and work offline. Failed downloads leave the current language and installed pack
+unchanged. Packs are never downloaded automatically on startup or update.
+
+On the first upgrade from bundled translations, a previously selected non-English language falls back to English.
+Select the language again to download it. No user content or other settings are changed.
 
 ## Supported interface languages
 
@@ -26,21 +32,23 @@ Marinara's controls and guidance, not model prompts, authored content, or chat m
 | Russian | `ru.json` | Left to right |
 | Spanish | `es.json` | Left to right |
 
-English is maintained as the source catalog. The other bundled catalogs began as machine-assisted translations and
+English is maintained as the source catalog. The community catalogs began as machine-assisted translations and
 are open to corrections from fluent speakers. UI extraction is still in progress, so text without a translated key
 continues to appear in English.
 
 ## Locale files
 
-Client locale files live in:
+The canonical English catalog remains in:
 
 ```text
-packages/client/src/localization/locales/
+packages/client/src/localization/locales/en.json
 ```
 
-Each BCP-47 locale uses one JSON file named after its canonical locale, such as `pl.json`, `ko.json`, or
-`pt-BR.json`. Vite discovers these files automatically, so adding a locale does not require editing a registry.
-English loads with the application; other locales load only when selected.
+Community packs live under [`ui/` on `docs-i18n`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui),
+separate from each documentation language folder. Each BCP-47 locale uses one JSON file, such as `ui/pl.json`,
+`ui/ko.json`, or `ui/pt-BR.json`, plus a shared generated `ui/manifest.json` with file sizes and SHA-256 hashes.
+Keep locale casing exact. Arabic UI is supported even without an Arabic documentation pack.
+English loads with the application; community packs are downloaded explicitly and read from the local server.
 
 ```json
 {
@@ -66,10 +74,11 @@ editing would then invalidate every translation.
 - Check that translated labels fit on desktop and mobile.
 
 Community locales may temporarily omit keys while a feature-area translation is being prepared. Missing keys fall
-back to English. Unknown keys, empty translations, malformed metadata, and changed interpolation tokens fail the
-localization check.
+back to English. The pack validator reports coverage and stale keys, which Engine ignores. Empty translations
+(except the existing intentional suffix exceptions), malformed metadata, and changed interpolation or rich-text
+tokens fail validation. Renamed or removed keys should be mirrored in packs, or tracked in a `[ui-i18n]` follow-up.
 
-Feature PRs must add or update the canonical English key, but they do not need to modify every community locale.
+Feature PRs must add or update the canonical English key, but they do not need to modify community packs.
 Translate a community value only when the contributor can supply a useful translation. Do not duplicate the English
 value across locale files merely to keep their key lists equal: the runtime fallback already provides that English
 text, and leaving the key absent prevents needless merge conflicts for translators.
@@ -82,12 +91,13 @@ should review terminology, tone, truncation, and mobile layout before the locale
 For a small wording correction, GitHub's web editor is enough:
 
 1. Open the locale in
-   [`packages/client/src/localization/locales/`](../../packages/client/src/localization/locales/).
+   [`ui/` on `docs-i18n`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui).
 2. Select the pencil icon to edit the file. GitHub will offer to create a fork if needed.
 3. Change only the translated value. Preserve its key, punctuation-sensitive tokens such as `{{name}}`, and JSON
    syntax.
 4. Commit the change to a focused branch in your fork.
-5. Open a pull request against the Marinara Engine **`staging`** branch, not `main`.
+5. Refresh the pack manifest and validate it with the command below, then open a pull request against
+   **`docs-i18n`**, not `staging` or `main`.
 6. In the PR description, name the language, explain the corrected meaning, and say whether you are a fluent speaker
    or used machine assistance.
 
@@ -96,36 +106,38 @@ Keep unrelated code changes separate.
 
 ## Submit a new localization
 
-For a new language, work from the latest `staging` branch:
+For a new language, keep an Engine `staging` checkout for the English source and work on `docs-i18n`:
 
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
 cd Marinara-Engine
-git checkout staging
+git checkout docs-i18n
 git pull
 git checkout -b translation/LOCALE
-pnpm install
 ```
 
 Then:
 
-1. Copy `en.json` to a canonically named BCP-47 locale file, such as `it.json` or `pt-PT.json`.
+1. Copy the Engine checkout's canonical `en.json` to `ui/<locale>.json`, such as `ui/it.json` or `ui/pt-PT.json`.
 2. Keep `_meta.locale` equal to the filename without `.json`.
 3. Set `_meta.direction` to `ltr` or `rtl`.
 4. Translate the values according to the rules above. Copying the complete English catalog is preferred for a new
    locale, although an incomplete catalog can fall back to English.
-5. Run the locale validator and repository baseline:
+5. Generate the manifest and run the pack validator (Node.js only, no dependencies). It reports coverage against
+   your Engine checkout's English catalog:
 
    ```bash
-   pnpm localization:check
-   pnpm check
+   node scripts/ui-i18n/validate-packs.mjs /path/to/Engine/packages/client/src/localization/locales/en.json --write-manifest
+   node scripts/ui-i18n/validate-packs.mjs /path/to/Engine/packages/client/src/localization/locales/en.json
    ```
 
-6. Select the language in **Settings > General** and review it on both desktop and mobile. Check long labels,
+6. New languages also need a small Engine PR adding their code to `UI_LANGUAGE_CODES` in
+   `packages/shared/src/utils/ui-locales.ts`; existing pack updates need no Engine change. Once published, select
+   the language in **Settings > General** and review it on both desktop and mobile. Check long labels,
    tooltips, loading and error states, and text direction.
 7. Push the branch to your fork and
    [open a pull request](https://github.com/Pasta-Devs/Marinara-Engine/compare), selecting
-   `Pasta-Devs/Marinara-Engine:staging` as the base.
+   `Pasta-Devs/Marinara-Engine:docs-i18n` as the base.
 
 The PR description should identify the locale, translation source, fluency or review level, validation commands, and
 any areas that still need a native-speaker review. Complete the PR template honestly and only check manual items you
@@ -169,7 +181,7 @@ translator.
 
 ## Downloadable Agent interfaces
 
-Engine-owned Agent screens use the Engine locale files. Downloadable capability clients own their translated copy in
+Engine-owned Agent screens use canonical English plus the downloaded `docs-i18n/ui` packs. Downloadable capability clients own their translated copy in
 the Marinara-Agents repository.
 
 Every capability custom element receives the selected locale through both its `lang` and `dir` attributes and:

@@ -1,13 +1,5 @@
 export type DiceShapeKind =
-  | "coin"
-  | "tetra"
-  | "cube"
-  | "diamond"
-  | "kite"
-  | "dodeca"
-  | "crystal"
-  | "icosa"
-  | "medallion";
+  "coin" | "tetra" | "cube" | "diamond" | "kite" | "dodeca" | "crystal" | "icosa" | "medallion";
 
 export interface DiceShapeDefinition {
   kind: DiceShapeKind;

@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { MemoryRecallEmbeddingSource } from "../../../packages/server/src/services/memory-recall.js";
-import { BOW_STUB_DIM as DIM, createBowStubEmbedder } from "./helpers/bow-stub-embedder.js";
+import { createBowStubEmbedder } from "./helpers/bow-stub-embedder.js";
 
 const previousFileStorageDir = process.env.FILE_STORAGE_DIR;
 let storageDir: string | undefined;

@@ -8,13 +8,13 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 type CompactCharacterFieldTone = "mood" | "appearance" | "outfit";
 
 const COMPACT_CHARACTER_FIELD_TONE_CLASSES: Record<CompactCharacterFieldTone, string> = {
-  mood: "text-[color-mix(in_srgb,var(--tracker-profile-icon)_70%,var(--tracker-profile-text)_30%)] opacity-80",
-  appearance: "text-[color-mix(in_srgb,var(--tracker-profile-icon)_58%,var(--tracker-profile-text)_42%)] opacity-80",
-  outfit: "text-[color-mix(in_srgb,var(--tracker-profile-icon)_50%,var(--tracker-profile-text)_50%)] opacity-80",
+  mood: "text-[var(--tracker-profile-label-icon)] opacity-80",
+  appearance: "text-[var(--tracker-profile-label-icon)] opacity-80",
+  outfit: "text-[var(--tracker-profile-label-icon)] opacity-80",
 };
 
 export const COMPACT_CHARACTER_MOOD_EDIT_CLASS =
-  "font-medium italic text-[color-mix(in_srgb,var(--tracker-profile-text)_82%,var(--tracker-profile-accent-solid)_18%)] [--foreground:color-mix(in_srgb,var(--tracker-profile-text)_82%,var(--tracker-profile-accent-solid)_18%)] [--muted-foreground:color-mix(in_srgb,var(--tracker-profile-muted-text)_78%,var(--tracker-profile-accent-solid)_22%)]";
+  "font-medium italic text-[var(--tracker-profile-text)] [--foreground:var(--tracker-profile-text)] [--muted-foreground:var(--tracker-profile-muted-text)]";
 
 export function CompactCharacterField({
   icon,

@@ -21,9 +21,13 @@
 //   • SDK docs: https://docs.anthropic.com/en/docs/claude-code/sdk
 //
 import { randomUUID } from "node:crypto";
-import { isClaudeAdaptiveOnlyNoSamplingModel, shouldSuppressUnknownModelParameters } from "@marinara-engine/shared";
+import {
+  isClaudeAdaptiveOnlyNoSamplingModel,
+  isClaudeOpus55Model,
+  shouldSuppressUnknownModelParameters,
+} from "@marinara-engine/shared";
 import { BaseLLMProvider, type ChatMessage, type ChatOptions, type LLMUsage } from "../base-provider.js";
-import { supportsAnthropicThinkingDisable } from "./anthropic.provider.js";
+import { resolveAnthropicAdaptiveEffort, supportsAnthropicThinkingDisable } from "./anthropic.provider.js";
 import { logger } from "../../../lib/logger.js";
 import { isClaudeSubscriptionResumeEnabled } from "../../../config/runtime-config.js";
 import {
@@ -37,14 +41,11 @@ import {
 import { ResumeSessionStore, resumeScratchCwd } from "./claude-subscription/session-store.js";
 
 /**
- * Prompt-cache cost multipliers relative to one fresh (uncached) input token.
- * The Agent SDK uses Claude's default 5-minute cache: writing a token into the
- * cache is billed at 1.25x, reading one back at 0.1x, an uncached token at 1x.
- * Used to estimate — in fresh-input-token equivalents — whether caching is a
- * net saving on a request. Break-even is ~2 uses of a cached prefix:
- * 1.25x (write) + 0.1x (one read) = 1.35x, vs 2x for two uncached sends.
+ * Standard API cost equivalents, not subscription billing. Claude chooses its
+ * default TTL by billing path, so use the reported 5m/1h write buckets.
  */
-const CACHE_WRITE_COST_MULTIPLIER = 1.25;
+const CACHE_WRITE_5M_COST_MULTIPLIER = 1.25;
+const CACHE_WRITE_1H_COST_MULTIPLIER = 2;
 const CACHE_READ_COST_MULTIPLIER = 0.1;
 
 /** Model-generation SDK options that Custom Parameters may tune. Everything
@@ -415,7 +416,10 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
       // on a persisted CLI value that would silently downgrade the model. The
       // value comes from the connection-level toggle — default `false` so
       // unconfigured connections keep the requested model.
-      settings: { fastMode: this.fastMode },
+      settings: {
+        fastMode: this.fastMode,
+        ...(options.anthropicExtendedCacheTtl ? { promptCacheTtl: "1h" as const } : {}),
+      },
     };
     if (systemPrompt !== undefined) sdkOptions.systemPrompt = systemPrompt;
 
@@ -434,8 +438,11 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
       // remains an independent request control. Preserve an explicit effort
       // even when callers only opt into displaying the summarized reasoning.
       const activeEffort = options.reasoningEffort !== "none" ? options.reasoningEffort : undefined;
-      if (activeEffort || options.enableThinking) {
-        sdkOptions.effort = (activeEffort ?? "high") as "low" | "medium" | "high" | "xhigh" | "max";
+      if (
+        this.shouldSendParameter(options, "reasoningEffort") &&
+        (activeEffort || options.enableThinking || isClaudeOpus55Model(options.model))
+      ) {
+        sdkOptions.effort = resolveAnthropicAdaptiveEffort(options) as "low" | "medium" | "high" | "xhigh" | "max";
       }
     }
 
@@ -470,6 +477,14 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
       if (Object.prototype.hasOwnProperty.call(customGenerationOptions, key)) {
         sdkOptionRecord[key] = customGenerationOptions[key];
       }
+    }
+    if (isClaudeOpus55Model(options.model)) {
+      sdkOptions.thinking = {
+        type: "adaptive",
+        ...(options.captureReasoning ? { display: "summarized" as const } : {}),
+      };
+      delete sdkOptions.maxThinkingTokens;
+      if (sdkOptionRecord.effort === "none") sdkOptions.effort = "low";
     }
 
     // Resume wiring is always provider-derived. Custom Parameters are filtered
@@ -565,20 +580,20 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
               cachedTokens = usage.cache_read_input_tokens ?? 0;
               cacheWriteTokens = usage.cache_creation_input_tokens ?? 0;
             }
-            // Prompt-cache economics — a per-request breakdown so cache
-            // behavior can be audited and confirmed to be a real saving, not
-            // just token-shuffling. Costs are in fresh-input-token equivalents
-            // (write 1.25x, read 0.1x, uncached 1x). `savingsPct` < 0 means the
-            // cache cost more than it saved this request — expected on the
-            // first turn (pure write) or after the 5-minute TTL lapses; across
-            // a live multi-turn chat it should trend positive.
+            // Never infer write TTL from our requested setting: account defaults
+            // and CLI environment overrides can differ from the connection.
+            const cacheWrite5mTokens = usage?.cache_creation?.ephemeral_5m_input_tokens ?? 0;
+            const cacheWrite1hTokens = usage?.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+            const hasCacheWriteBreakdown = cacheWrite5mTokens + cacheWrite1hTokens === cacheWriteTokens;
             const totalInputTokens = inputTokens + cachedTokens + cacheWriteTokens;
             if (totalInputTokens > 0) {
-              const effectiveInputCost =
-                inputTokens +
-                cacheWriteTokens * CACHE_WRITE_COST_MULTIPLIER +
-                cachedTokens * CACHE_READ_COST_MULTIPLIER;
-              const savedTokenEquiv = totalInputTokens - effectiveInputCost;
+              const effectiveInputCost = hasCacheWriteBreakdown
+                ? inputTokens +
+                  cacheWrite5mTokens * CACHE_WRITE_5M_COST_MULTIPLIER +
+                  cacheWrite1hTokens * CACHE_WRITE_1H_COST_MULTIPLIER +
+                  cachedTokens * CACHE_READ_COST_MULTIPLIER
+                : null;
+              const savedTokenEquiv = effectiveInputCost === null ? null : totalInputTokens - effectiveInputCost;
               logger.debug(
                 {
                   session: resumeSessionId ?? "fold-path",
@@ -586,13 +601,22 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
                   freshInputTokens: inputTokens,
                   cacheReadTokens: cachedTokens,
                   cacheWriteTokens,
+                  cacheWrite5mTokens,
+                  cacheWrite1hTokens,
+                  costBasis: "standard-api-input-token-equivalent",
                   outputTokens,
                   cacheHitRatio: Number((cachedTokens / totalInputTokens).toFixed(3)),
-                  effectiveInputCostEquiv: Math.round(effectiveInputCost),
+                  effectiveInputCostEquiv: effectiveInputCost === null ? null : Math.round(effectiveInputCost),
                   uncachedInputCostEquiv: totalInputTokens,
-                  savedTokenEquiv: Math.round(savedTokenEquiv),
-                  savingsPct: Number(((savedTokenEquiv / totalInputTokens) * 100).toFixed(1)),
-                  verdict: savedTokenEquiv > 0 ? "cache-saving" : "cache-cost",
+                  savedTokenEquiv: savedTokenEquiv === null ? null : Math.round(savedTokenEquiv),
+                  savingsPct:
+                    savedTokenEquiv === null ? null : Number(((savedTokenEquiv / totalInputTokens) * 100).toFixed(1)),
+                  verdict:
+                    savedTokenEquiv === null
+                      ? "unknown-cache-ttl"
+                      : savedTokenEquiv > 0
+                        ? "cache-saving"
+                        : "cache-cost",
                 },
                 "[claude-subscription] prompt-cache usage",
               );

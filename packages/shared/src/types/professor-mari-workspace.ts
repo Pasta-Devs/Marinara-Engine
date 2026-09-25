@@ -1,3 +1,4 @@
+import type { MariPermissionsMode } from "../constants/mari-permissions-mode.js";
 // ──────────────────────────────────────────────
 // Professor Mari Workspace Agent Contracts
 // ──────────────────────────────────────────────
@@ -74,15 +75,7 @@ export function completionKindFor(capability: ProfessorMariCapability): Professo
 }
 
 export type ProfessorMariContextResourceKind =
-  | "character"
-  | "persona"
-  | "lorebook"
-  | "preset"
-  | "connection"
-  | "agent"
-  | "setting"
-  | "chat"
-  | "game";
+  "character" | "persona" | "lorebook" | "preset" | "connection" | "agent" | "setting" | "chat" | "game";
 
 export interface ProfessorMariContextResource {
   kind: ProfessorMariContextResourceKind;
@@ -224,14 +217,7 @@ export type MariWorkspaceToolName =
   | "app_data";
 
 export type MariChipEntity =
-  | "characters"
-  | "lorebooks"
-  | "personas"
-  | "presets"
-  | "connections"
-  | "agents"
-  | "settings"
-  | "chat";
+  "characters" | "lorebooks" | "personas" | "presets" | "connections" | "agents" | "settings" | "chat";
 
 export type MariChipTone = "default" | "danger" | "caution" | "success";
 
@@ -242,6 +228,50 @@ export interface MariSuggestionChip {
   entity?: MariChipEntity;
   icon?: string;
   tone?: MariChipTone;
+}
+
+/**
+ * #5748: the Accept action for a deferred (held) mutation. Shared so the
+ * server's deferral event and the client's persisted-deferral re-derivation
+ * (from the mariDeferredMutations message extra) can never drift.
+ */
+export const MARI_AUTHORIZATION_ACCEPT_CHIP: MariSuggestionChip = {
+  id: "authorization-accept",
+  label: "Accept",
+  prompt: "I accept the proposed change.",
+  tone: "success",
+};
+
+/**
+ * #5820: the matching refusal. Held commands are never executed unless the
+ * user accepts, so declining is just a reply - but without a control for it
+ * the only way to say no was to compose a sentence, which is why users
+ * reported seeing "nowhere to apply or revert".
+ */
+export const MARI_AUTHORIZATION_DECLINE_CHIP: MariSuggestionChip = {
+  id: "authorization-decline",
+  label: "Don't apply",
+  prompt: "Do not apply those changes.",
+  tone: "caution",
+};
+
+/**
+ * The workspace agent reuses the id "authorization-accept" for an unrelated
+ * output-limit chip ("Continue the task."), so the id alone cannot tell a
+ * held-change approval from a keep-going prompt. Matching the prompt too
+ * keeps the approval wording and the decline action off rows where nothing
+ * is actually held.
+ */
+export function isMariHeldChangeApprovalChip(chip: MariSuggestionChip): boolean {
+  return chip.id === MARI_AUTHORIZATION_ACCEPT_CHIP.id && chip.prompt === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt;
+}
+
+/** Pairs a held-change Accept with its decline action, exactly once. */
+export function withHeldChangeDeclineChip(chips: MariSuggestionChip[]): MariSuggestionChip[] {
+  if (!chips.some(isMariHeldChangeApprovalChip)) return chips;
+  if (chips.some((chip) => chip.id === MARI_AUTHORIZATION_DECLINE_CHIP.id)) return chips;
+  const acceptIndex = chips.findIndex(isMariHeldChangeApprovalChip);
+  return [...chips.slice(0, acceptIndex + 1), MARI_AUTHORIZATION_DECLINE_CHIP, ...chips.slice(acceptIndex + 1)];
 }
 
 export const MARI_STARTER_CHIPS: MariSuggestionChip[] = [
@@ -568,6 +598,41 @@ export interface MariDbReadTruncation {
   unresolvedField?: string;
 }
 
+/**
+ * #5754 follow-up: deterministic post-apply verification. After an applied
+ * mutation the engine re-reads every affected row FROM THE STORE and compares
+ * the persisted values against what the plan asserted. Only "verified" - a
+ * store-observed match - may satisfy the workspace verification guard: the
+ * diff summary's preview is plan-derived (the same function serves dry-runs)
+ * and must never count as proof of persistence. "mismatch" and "unavailable"
+ * both fall back to requiring a manual confirmatory read, so a silent
+ * persistence failure can only surface louder, never quieter.
+ */
+export interface MariDbReadBackMismatch {
+  table: string;
+  id: string;
+  column: string;
+  intended: unknown;
+  persisted: unknown;
+}
+
+export interface MariDbMutationReadBack {
+  /**
+   * The guard does NOT parse this JSON: the command runtimes translate a
+   * "verified"/"mismatch" status into an engine-written sentinel at position
+   * zero of the command output, which is the only thing verification trusts
+   * (later output bytes can contain model-authored text). This object is what
+   * Mari herself reads for the detail.
+   */
+  status: "verified" | "mismatch" | "unavailable";
+  /** Applied plan changes the read-back checked (all of them, not a preview cap). */
+  checkedRows: number;
+  /** Total mismatching columns/rows found; `mismatches` echoes a capped sample. */
+  mismatchCount?: number;
+  mismatches?: MariDbReadBackMismatch[];
+  error?: string;
+}
+
 export interface MariDbCommandResult {
   ok: boolean;
   mode: "read" | "dry-run" | "apply";
@@ -575,6 +640,7 @@ export interface MariDbCommandResult {
   output?: unknown;
   truncation?: MariDbReadTruncation;
   summary?: MariDbDiffSummary;
+  readBack?: MariDbMutationReadBack;
   validation?: MariDbValidationResult;
   approval?: {
     status: "not_required" | "pending" | "approved" | "rejected" | "cancelled" | "timed_out" | "state_changed";
@@ -635,9 +701,7 @@ export interface MariSensitiveFileApproval {
 }
 
 export type MariWorkspacePendingApproval =
-  | MariDbPendingApproval
-  | MariDependencyInstallApproval
-  | MariSensitiveFileApproval;
+  MariDbPendingApproval | MariDependencyInstallApproval | MariSensitiveFileApproval;
 
 export interface MariDbHistoryEntry {
   id: string;
@@ -664,6 +728,38 @@ export interface MariDbHistoryEntry {
   completedAt?: string | null;
 }
 
+/**
+ * #5740: the request/permission phrase Professor Mari reported acting on in
+ * her most recent round that carried mutating commands. DIAGNOSTIC ONLY -
+ * never validated, never gates anything (#5721's lesson stands). Retention is
+ * deliberately the latest round only: one in-memory record, overwritten each
+ * time, lost on server restart.
+ */
+/**
+ * What actually became of the round's mutating commands. "held" = deferred
+ * behind the Accept action, or staged behind a sensitive-change approval
+ * card (#5756) - either way, awaiting the user; "applied" = every mutating
+ * command succeeded and applied; "failed" = at least one was refused (a
+ * permissions floor, validation) or errored; "interrupted" = the run ended
+ * before the outcome was observed.
+ */
+export type MariUnderstoodRequestOutcome = "held" | "applied" | "failed" | "interrupted";
+
+export interface MariUnderstoodRequest {
+  /** Mari's quoted trigger phrase (user words or memory/instruction), or null when she reported none. */
+  text: string | null;
+  chatId: string;
+  /** The persisted assistant message the round produced, once known. */
+  messageId: string | null;
+  /** Effective Permissions Mode when the round ran. */
+  permissionsMode: MariPermissionsMode;
+  /** Observed outcome - never inferred: "applied" is only set after the command batch reports success. */
+  outcome: MariUnderstoodRequestOutcome;
+  /** Short descriptions of the mutating commands (e.g. "app_data character.update"). */
+  commands: string[];
+  recordedAt: string;
+}
+
 export interface MariWorkspaceStatus {
   enabled: boolean;
   piAvailable: boolean;
@@ -680,6 +776,14 @@ export interface MariWorkspaceStatus {
   skills: MariWorkspaceSkillSummary[];
   skillDiagnostics: string[];
   active: boolean;
+  /** The EFFECTIVE Permissions Mode for the requested chat (#5725): the chat's override, else the global default. */
+  permissionsMode: MariPermissionsMode;
+  /** The global default mode (what a chat without an override runs under). */
+  permissionsModeDefault: MariPermissionsMode;
+  /** Whether permissionsMode came from a per-chat override or the global default. */
+  permissionsModeSource: "default" | "chat";
+  /** #5740: latest-round understood-request record (diagnostic only). */
+  latestUnderstoodRequest: MariUnderstoodRequest | null;
   pendingApprovals: MariWorkspacePendingApproval[];
   history: MariDbHistoryEntry[];
   error?: string | null;

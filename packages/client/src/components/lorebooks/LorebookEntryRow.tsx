@@ -41,6 +41,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useUpdateLorebookEntry, useDeleteLorebookEntry, useDuplicateLorebookEntry } from "../../hooks/use-lorebooks";
 import { useUIStore } from "../../stores/ui.store";
 import { MacroTextarea } from "../ui/MacroTextarea";
+import { DecisionStatementNote } from "../ui/DecisionStatementNote";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import type {
   LorebookEntry,
@@ -98,6 +99,8 @@ interface Props {
   previewMatch?: "matched" | "constant";
   mapBacklinks?: Array<{ chatId: string; locationId: string; locationName: string }>;
   onUpdateEntry?: LorebookEntryUpdateHandler;
+  /** Override only this row's enabled control; content edits keep their existing scope. */
+  chatEnabled?: { enabled: boolean; onChange: (enabled: boolean) => Promise<unknown> };
 }
 
 type LorebookEntryUpdateHandler = (
@@ -225,6 +228,7 @@ export function LorebookEntryRow({
   previewMatch,
   mapBacklinks = [],
   onUpdateEntry,
+  chatEnabled,
 }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const updateEntry = useUpdateLorebookEntry();
@@ -234,7 +238,7 @@ export function LorebookEntryRow({
   // ── Inline-control optimistic state ──
   // We keep a local mirror of the entry's fields so the inputs feel snappy
   // while the mutation flushes. React Query invalidation will reconcile.
-  const [localEnabled, setLocalEnabled] = useState(entry.enabled);
+  const [localEnabled, setLocalEnabled] = useState(entry.enabled && (chatEnabled?.enabled ?? true));
   const [localStatus, setLocalStatus] = useState<EntryStatus>(deriveStatus(entry));
   const [localPosition, setLocalPosition] = useState(entry.position);
   const [localDepth, setLocalDepth] = useState(entry.depth);
@@ -264,7 +268,6 @@ export function LorebookEntryRow({
     if (pendingOutletNameRef.current === previousOutletName) {
       pendingOutletNameRef.current = entry.outletName;
     }
-    setLocalEnabled(entry.enabled);
     setLocalStatus(deriveStatus(entry));
     setLocalPosition(entry.position);
     setLocalDepth(entry.depth);
@@ -273,6 +276,10 @@ export function LorebookEntryRow({
     setLocalName(entry.name);
     setLocalUseRegex(entry.useRegex ?? false);
   }, [entry]);
+
+  useEffect(() => {
+    setLocalEnabled(entry.enabled && (chatEnabled?.enabled ?? true));
+  }, [entry.enabled, chatEnabled?.enabled]);
 
   useEffect(() => {
     if (!showMobileControls) return;
@@ -383,9 +390,10 @@ export function LorebookEntryRow({
     (next: boolean) => {
       const previous = localEnabled;
       setLocalEnabled(next);
-      patch({ enabled: next }, { onError: () => setLocalEnabled(previous) });
+      if (chatEnabled) void chatEnabled.onChange(next).catch(() => setLocalEnabled(previous));
+      else patch({ enabled: next }, { onError: () => setLocalEnabled(previous) });
     },
-    [localEnabled, patch],
+    [localEnabled, patch, chatEnabled],
   );
 
   const handleUseRegexToggle = useCallback(
@@ -460,7 +468,8 @@ export function LorebookEntryRow({
         entry: {
           ...entry,
           name: localName.trim() || entry.name,
-          enabled: localEnabled,
+          // Keep pending shared edits, but do not copy this chat's override into the shared book.
+          enabled: chatEnabled ? entry.enabled : localEnabled,
           constant,
           selective,
           position: localPosition,
@@ -475,8 +484,9 @@ export function LorebookEntryRow({
     [
       lorebookId,
       entry,
-      localName,
+      chatEnabled,
       localEnabled,
+      localName,
       localStatus,
       localPosition,
       localDepth,
@@ -616,13 +626,30 @@ export function LorebookEntryRow({
           onMouseDown={(e) => e.stopPropagation()}
         >
           <SettingsSwitch
-            ariaLabel={localEnabled ? "Disable entry" : "Enable entry"}
+            ariaLabel={
+              chatEnabled
+                ? localizeUi(
+                    localEnabled
+                      ? "chat.settings.inlineLorebook.disableForChat"
+                      : "chat.settings.inlineLorebook.enableForChat",
+                  )
+                : localizeUi(
+                    localEnabled
+                      ? "ui.lorebooks.lorebookentryrow.disableEntry"
+                      : "ui.lorebooks.lorebookentryrow.enableEntry",
+                  )
+            }
             title={
-              localEnabled
-                ? localizeUi("ui.lorebooks.lorebookentryrow.entryEnabled")
-                : localizeUi("ui.lorebooks.lorebookentryrow.entryDisabled")
+              chatEnabled && !entry.enabled
+                ? localizeUi("chat.settings.inlineLorebook.globallyDisabled")
+                : chatEnabled
+                  ? localizeUi("chat.settings.inlineLorebook.chatScope")
+                  : localEnabled
+                    ? localizeUi("ui.lorebooks.lorebookentryrow.entryEnabled")
+                    : localizeUi("ui.lorebooks.lorebookentryrow.entryDisabled")
             }
             checked={localEnabled}
+            disabled={!!chatEnabled && !entry.enabled}
             onChange={handleEnabledChange}
             className="p-0 hover:bg-transparent"
           />
@@ -1263,6 +1290,8 @@ function buildEntrySavePayload(form: Partial<LorebookEntry>) {
     excludeRecursion: form.excludeRecursion,
     delayUntilRecursion: form.delayUntilRecursion,
     excludeFromVectorization: form.excludeFromVectorization,
+    decisionStatement: form.decisionStatement,
+    decisionMode: form.decisionMode,
   };
 }
 
@@ -1600,6 +1629,61 @@ function ExpandedDrawer({
               </button>
             ))}
           </div>
+        </FieldGroup>
+
+        {/* Decision activation (#6570) */}
+        <FieldGroup
+          label={localizeUi("ui.lorebooks.expandeddrawer.decision")}
+          icon={Sparkles}
+          help={localizeUi("ui.lorebooks.expandeddrawer.decisionHelp")}
+        >
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(
+              [
+                ["off", localizeUi("ui.lorebooks.expandeddrawer.decisionModeOff")],
+                ["require", localizeUi("ui.lorebooks.expandeddrawer.decisionModeRequire")],
+                ["trigger", localizeUi("ui.lorebooks.expandeddrawer.decisionModeTrigger")],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={(form.decisionMode ?? "off") === mode}
+                onClick={() => update({ decisionMode: mode })}
+                className={cn(
+                  "rounded-md px-2 py-0.5 text-[0.6875rem] font-medium transition-colors",
+                  (form.decisionMode ?? "off") === mode
+                    ? "mari-chrome-accent-surface mari-accent-animated"
+                    : "text-[var(--muted-foreground)] hover:bg-[var(--marinara-editor-control-bg-hover)]",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {(form.decisionMode ?? "off") !== "off" && (
+            <>
+              <textarea
+                value={form.decisionStatement ?? ""}
+                onChange={(event) => update({ decisionStatement: event.target.value })}
+                onBlur={flushAutosave}
+                maxLength={500}
+                rows={2}
+                aria-label={localizeUi("ui.lorebooks.expandeddrawer.decisionStatement")}
+                className="mari-editor-field mt-2 w-full resize-y px-2.5 py-2 text-xs"
+                placeholder={localizeUi("ui.lorebooks.expandeddrawer.decisionStatementPlaceholder")}
+              />
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                {form.decisionMode === "trigger"
+                  ? localizeUi("ui.lorebooks.expandeddrawer.decisionTriggerHint")
+                  : localizeUi("ui.lorebooks.expandeddrawer.decisionRequireHint")}
+              </p>
+              <DecisionStatementNote
+                active={(form.decisionStatement ?? "").trim().length > 0}
+                message={localizeUi("ui.lorebooks.expandeddrawer.decisionModelMissing")}
+              />
+            </>
+          )}
         </FieldGroup>
       </div>
 

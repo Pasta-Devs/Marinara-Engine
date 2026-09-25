@@ -8,7 +8,7 @@
 // a loadout is starting to get heavy, not to predict billing.
 //
 // Two axes:
-//   - instructionTokens: sum of agents' prompt-template tokens (chars/4).
+//   - instructionTokens: sum of agents' prompt-template token estimates.
 //     Does NOT include the chat context (recent messages, character cards,
 //     persona, lorebook, summary) that each call also carries — real per-turn
 //     usage will be substantially higher. UI copy should make that clear.
@@ -23,6 +23,7 @@
 // ──────────────────────────────────────────────
 
 import type { AgentPhase } from "../types/agent.js";
+import { estimateTextTokens } from "./token-estimator.js";
 
 /** Minimal shape needed to estimate an agent's contribution. */
 export interface AgentCostInput {
@@ -66,19 +67,12 @@ function getAgentCostLane(agent: AgentCostInput): "rewrite" | "standard" {
   return agent.resultType === "text_rewrite" || BUILT_IN_REWRITE_AGENT_TYPES.has(agent.type) ? "rewrite" : "standard";
 }
 
-// TODO: replace chars/4 with a real tokenizer when the project picks one up.
-// Matches the existing `estimateTokens` helpers scattered across the client
-// (PeekPromptModal, LorebookFormFields, etc.).
-function approximateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
-}
-
 export function estimateAgentLoadCost(enabled: AgentCostInput[], defaultConnectionId: string | null): AgentLoadCost {
   let instructionTokens = 0;
   const callKeys = new Set<string>();
 
   for (const a of enabled) {
-    instructionTokens += approximateTokens(a.promptTemplate);
+    instructionTokens += estimateTextTokens(a.promptTemplate);
     if (NO_EXTRA_CALL_AGENT_TYPES.has(a.type)) continue;
     const connection = a.connectionId ?? defaultConnectionId ?? "default";
     callKeys.add(`${a.phase}::${connection}::${getAgentCostLane(a)}`);

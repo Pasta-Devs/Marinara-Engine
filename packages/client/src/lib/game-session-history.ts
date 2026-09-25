@@ -1,4 +1,5 @@
 import { parseMessageExtraRecord } from "./chat-message-extra";
+import { estimateTextTokens } from "@marinara-engine/shared";
 
 type GameSessionHistoryMessage = {
   content: string;
@@ -11,7 +12,7 @@ function estimateTextTokenCount(text: string): number {
   const trimmed = text.trim();
   if (!trimmed) return 0;
   const wordEstimate = trimmed.split(/\s+/).filter(Boolean).length * 1.3;
-  const charEstimate = trimmed.length / 4;
+  const charEstimate = estimateTextTokens(trimmed);
   return Math.ceil(Math.max(wordEstimate, charEstimate));
 }
 

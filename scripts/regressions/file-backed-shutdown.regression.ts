@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "../../packages/server/src/db/file-query.js";
 import { fileTable, isFileUniqueConstraintError, text } from "../../packages/server/src/db/file-schema.js";
-import { createFileNativeDB, encodeShardKey } from "../../packages/server/src/db/file-backed-store.js";
+// Exercise storage shutdown without pino-pretty's unrelated worker lifetime.
+// Keep error logs, but use the same stdout transport as the production server.
+process.env.NODE_ENV = "production";
+const { createFileNativeDB, encodeShardKey } = await import("../../packages/server/src/db/file-backed-store.js");
+const beforeExitListeners = process.listenerCount("beforeExit");
 import { appSettings, customStickers, noodleInteractions } from "../../packages/server/src/db/schema/index.js";
 
 const appSettingsShardPath = (root: string, key: string) =>
@@ -42,6 +46,7 @@ try {
   await writeCaptured;
 
   await db.insert(appSettings).values({ key: "queued-during-flush", value: "two", updatedAt: "2026-07-14" });
+  const queuedFlush = db._fileStore.flush();
   let closeResolved = false;
   const close = db._fileStore.close().then(() => {
     closeResolved = true;
@@ -50,7 +55,7 @@ try {
   assert.equal(closeResolved, false, "close must wait for the active table write");
 
   releaseWrite();
-  await Promise.all([activeFlush, close]);
+  await Promise.all([activeFlush, queuedFlush, close]);
 
   const persisted = readAppSettingsRows(storageDir, ["before-active-flush", "queued-during-flush"]);
   assert.deepEqual(persisted.map((row) => row.key).sort(), ["before-active-flush", "queued-during-flush"]);
@@ -62,6 +67,49 @@ try {
 } finally {
   releaseWrite();
   rmSync(storageDir, { recursive: true, force: true });
+}
+
+const retryStorageDir = mkdtempSync(join(tmpdir(), "marinara-file-close-retry-"));
+process.env.FILE_STORAGE_DIR = retryStorageDir;
+try {
+  const expectedFailure = new Error("first admitted batch failed");
+  let release!: () => void;
+  let started!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const ready = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let first = true;
+  const db = await createFileNativeDB({
+    beforeTableWrite: async (table) => {
+      if (!table.startsWith("app_settings/") || !first) return;
+      first = false;
+      started();
+      await gate;
+      throw expectedFailure;
+    },
+  });
+  await db.insert(appSettings).values({ key: "retry-on-close", value: "saved", updatedAt: "2026-09-17" });
+  const active = db._fileStore.flush();
+  await ready;
+  const queued = db._fileStore.flush();
+  const closed = db._fileStore.close();
+  const results = Promise.allSettled([active, queued, closed]);
+  release();
+  assert.deepEqual(
+    await results,
+    [
+      { status: "rejected", reason: expectedFailure },
+      { status: "rejected", reason: expectedFailure },
+      { status: "fulfilled", value: undefined },
+    ],
+    "successful shutdown retry must not hide an admitted flush error",
+  );
+  assert.equal(readAppSettingsRows(retryStorageDir, ["retry-on-close"])[0]?.value, "saved");
+} finally {
+  rmSync(retryStorageDir, { recursive: true, force: true });
 }
 
 const malformedRowStorageDir = mkdtempSync(join(tmpdir(), "marinara-file-malformed-row-"));
@@ -313,3 +361,9 @@ try {
 } finally {
   rmSync(uniqueStorageDir, { recursive: true, force: true });
 }
+
+assert.equal(
+  process.listenerCount("beforeExit"),
+  beforeExitListeners,
+  "every closed store releases its autosave exit hook, including failed closes",
+);

@@ -3371,6 +3371,7 @@ function DetailView({
   onDetailUpdate?: (detail: CardDetail) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const [zoomed, setZoomed] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const displayDetail = detail;
@@ -3458,14 +3459,30 @@ function DetailView({
                   <Hash size="2.5rem" />
                 </div>
               ) : (
-                <img
-                  src={card.avatarUrl}
-                  alt={card.name}
-                  className="h-full w-full object-cover"
-                  onError={() => setImgError(true)}
-                />
+                <button
+                  type="button"
+                  onClick={() => setZoomed(true)}
+                  className="block h-full w-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                  title={localizeUi("ui.botBrowser.detailview.enlargeImage")}
+                  aria-label={localizeUi("ui.botBrowser.detailview.enlargeImage")}
+                >
+                  <img
+                    src={card.avatarUrl}
+                    alt={card.name}
+                    className="h-full w-full object-cover"
+                    onError={() => setImgError(true)}
+                  />
+                </button>
               )}
             </div>
+            {zoomed && card.avatarUrl ? (
+              <AvatarZoomOverlay
+                src={fullSizeAvatarUrl(card.avatarUrl)}
+                fallbackSrc={card.avatarUrl}
+                alt={card.name}
+                onClose={() => setZoomed(false)}
+              />
+            ) : null}
             <div className="flex flex-col gap-2 max-md:flex-1">
               <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/60 p-2.5">
                 <p className="mb-2 text-[0.6875rem] font-semibold text-[var(--foreground)]">
@@ -3503,9 +3520,12 @@ function DetailView({
                 className="mari-panel-gradient-button mari-panel-gradient--browser px-4 py-2.5 text-xs"
               >
                 {importing ? <Loader2 size="0.875rem" className="animate-spin" /> : <Download size="0.875rem" />}
-                {importing
-                  ? localizeUi("ui.botBrowser.detailview.importing")
-                  : localizeUi("ui.chat.chatbranchselector.import")}
+                {/* Keep translated text inside a stable element while the loading icon changes. */}
+                <span>
+                  {importing
+                    ? localizeUi("ui.botBrowser.detailview.importing")
+                    : localizeUi("ui.chat.chatbranchselector.import")}
+                </span>
               </button>
               <button
                 onClick={handleDownloadPng}
@@ -3513,9 +3533,11 @@ function DetailView({
                 className="mari-chrome-control px-4 py-2 text-xs"
               >
                 {downloading ? <Loader2 size="0.75rem" className="animate-spin" /> : <Download size="0.75rem" />}
-                {downloading
-                  ? localizeUi("ui.botBrowser.detailview.buildingPng")
-                  : localizeUi("ui.botBrowser.detailview.downloadAsPng")}
+                <span>
+                  {downloading
+                    ? localizeUi("ui.botBrowser.detailview.buildingPng")
+                    : localizeUi("ui.botBrowser.detailview.downloadAsPng")}
+                </span>
               </button>
               <div className="mari-chrome-text-muted flex flex-col gap-1 rounded-lg bg-[var(--secondary)] p-2.5 text-xs">
                 {card.stat1 > 0 && card.stat1Label && (
@@ -3639,9 +3661,7 @@ function DetailView({
               </div>
             ) : (
               <div className="py-4 text-xs italic text-[var(--muted-foreground)]">
-                {loading
-                  ? localizeUi("ui.botBrowser.detailview.loadingCharacterDetails")
-                  : localizeUi("ui.botBrowser.detailview.noDetailedDefinitionAvailableYouCanStillImportThis")}
+                {localizeUi("ui.botBrowser.detailview.noDetailedDefinitionAvailableYouCanStillImportThis")}
               </div>
             )}
           </div>
@@ -3656,6 +3676,56 @@ function DetailView({
 // ════════════════════════════════════════════════
 
 /** Build a SillyTavern-compatible PNG character card with embedded V2 JSON in a tEXt chunk. */
+/**
+ * The list thumbnail is a compressed `avatar.webp`. For the enlarged view, ask
+ * the proxy for the card PNG instead — the same asset the card download uses.
+ * Providers with no larger source keep serving their single image.
+ */
+function fullSizeAvatarUrl(avatarUrl: string): string {
+  return avatarUrl.startsWith("/api/bot-browser/chub/avatar/") ? `${avatarUrl}?full=1` : avatarUrl;
+}
+
+/** Full-screen, uncropped view of a browsed card's image. Escape or a backdrop click closes it. */
+function AvatarZoomOverlay({
+  src,
+  fallbackSrc,
+  alt,
+  onClose,
+}: {
+  src: string;
+  fallbackSrc: string;
+  alt: string;
+  onClose: () => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const [resolvedSrc, setResolvedSrc] = useState(src);
+  useEffect(() => {
+    const handle = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handle);
+    return () => document.removeEventListener("keydown", handle);
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={localizeUi("ui.botBrowser.detailview.imagePreview")}
+      className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <img
+        src={resolvedSrc}
+        alt={alt}
+        onError={() => setResolvedSrc((current) => (current === fallbackSrc ? current : fallbackSrc))}
+        className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl supports-[height:100dvh]:max-h-[90dvh]"
+      />
+    </div>,
+    document.body,
+  );
+}
+
 async function buildCharacterCardPng(avatarUrl: string, charData: Record<string, unknown>): Promise<Blob> {
   // Step 1: Fetch avatar and draw to canvas to get raw PNG bytes
   const img = new Image();

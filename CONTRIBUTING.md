@@ -1,6 +1,6 @@
 # Contributing to Marinara Engine
 
-This is the canonical contributor guide for Marinara Engine. Use it with `README.md` for the product overview, `CHANGELOG.md` for release notes, and `CLAUDE.md` only as a thin companion for maintainers using AI agent. All participants are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+This is the canonical contributor guide for Marinara Engine. Use it with `README.md` for the product overview, `CHANGELOG.md` for release notes, and `AGENTS.md` as the repository's coding-agent companion. All participants are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Tech Stack
 
@@ -39,6 +39,7 @@ Useful entry points:
 - `pnpm dev:server` builds the shared package, then starts only the API server. If shared source changes while it is running, rerun `pnpm build:shared` and restart the server; the server watcher intentionally ignores shared build output.
 - `pnpm dev:client` starts only the Vite frontend.
 - `start.bat`, `start.sh`, and `start-termux.sh` run the launcher flow, including git-based auto-update and optional browser auto-open.
+- Platform launchers and `pnpm start` supervise explicit in-app restarts in the same console; exit code 75 requests a replacement after the server exits. Development watchers should be restarted from their terminal, not Advanced Settings.
 
 Copy `.env.example` to `.env` when you need to change ports, HTTPS settings, or launcher behavior such as `AUTO_OPEN_BROWSER=false`.
 
@@ -90,6 +91,8 @@ The Engine update channel also selects the official Agent channel. Stable Engine
 **If you are about to re-add escaping here: don't.** It has been tried repeatedly (see the flip-flop history in `CHANGELOG.md` and the header comment in `packages/server/src/services/prompt/prompt-escaping.ts`), it corrupts legitimate cards, and it protects against nothing in this deployment model. If a future multi-tenant or shared-marketplace deployment ever changes the threat model, the correct response is a validation/consent step at the import boundary — not silent per-token escaping of everyone's content at prompt-assembly time. Check with a maintainer before changing this.
 
 ## Validation
+
+The POSIX terminal-shutdown regression uses Python 3 from `PATH` (standard-library `pty` only) to verify real terminal closure; no Python package installation is needed.
 
 Baseline validation:
 
@@ -245,12 +248,21 @@ The overlay is not a substitute for this guide. When instructions conflict, foll
 
 ## Localization
 
-UI translations live in one JSON file per locale and fall back to the canonical English catalog. See
+English UI text stays in `packages/client/src/localization/locales/en.json`. Community UI translations live in
+`ui/<BCP-47>.json` on `docs-i18n` and download into `DATA_DIR/ui-packs` only when selected in Settings. They are not
+part of Engine releases or checkouts. Existing downloads work offline; missing packs and keys fall back to English.
+See
 [`docs/development/localization.md`](docs/development/localization.md) for the translation boundary, file format,
 semantic-key conventions, downloadable Agent handoff, and validation command.
 
 Keep prompts, authored content, identifiers, protocol values, and persisted machine values out of UI localization.
-Run `pnpm localization:check` whenever a locale file or localization key changes.
+Run `pnpm localization:check` whenever an English localization key changes; it validates English and audits client
+UI copy without requiring community translation changes. On `docs-i18n`, run
+`node scripts/ui-i18n/validate-packs.mjs <engine-checkout>/packages/client/src/localization/locales/en.json --write-manifest`
+after editing `ui/` packs, then repeat without `--write-manifest` to validate hashes and report coverage/stale keys.
+Submit community translations against `docs-i18n`, not `staging`. When keys are renamed or deleted, mirror the change
+there or open a `[ui-i18n] <affected area or keys>` follow-up so translators can catch up in batches. Missing keys
+fall back to English; stale keys are ignored at runtime and reported by the pack validator.
 
 ## Versioning and Releases
 

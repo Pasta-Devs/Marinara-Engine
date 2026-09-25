@@ -12,45 +12,6 @@ Noodle is the in-app social media timeline in Marinara Engine. If you are new to
 
 All Noodle settings are global. They apply to every persona and every chat, not to one chat at a time. Changes save as soon as you make them.
 
-## NoodleR Access
-
-- **Enable NoodleR**: a toggle, default **off**. Turn it on to expose the NoodleR account hub. While it is off, opening NoodleR shows the opt-in screen, NoodleR account queries are unavailable, and NoodleR account data stays separate from the Noodle timeline.
-
-NoodleR and Noodle are two separate simulated apps, and an account belongs to exactly one of them. That separation keeps NoodleR content out of the Noodle timeline; it is **not** a privacy or security feature. Everything stays on this machine either way, and anyone with access to the app or its data directory can read it. Who may read an individual NoodleR post is a separate, per-post setting — see **Subscriptions and post access** below.
-
-The **Manage stage profiles** screen, reached from **Noodle Settings** > **NoodleR Access**, lists the stage profiles currently available to the installation, including loading, failure, and empty states. A stage profile belongs to one public persona or character account but presents its own name, handle, bio, stage voice, and disclosure mode. Existing NoodleR accounts created before stage profiles were introduced show **Setup needed** until their profile is completed.
-
-### Stage identity disclosure
-
-Disclosure controls how the linked public identity may appear in a stage profile and AI-generated post. It does not decide who can view a profile or post.
-
-- **Publicly connected (Open)**: the stage profile may openly be the same person. Generated text and image prompts may use the linked public name, handle, and recognizable continuity.
-- **Inspired alter ego (Hinted)**: broad personality, interests, and themes may carry over, but the exact public name and handle are removed from generation context and filtered from generated text and image prompts before the post is saved. Distinctive traits may still feel recognizable. On the creator profile, hover, focus, or tap the **Hinted** badge to reveal the linked Noodle identity.
-- **Separate persona (Secret)**: the linked identity is treated as confidential authoring inspiration only. Profile generation receives a reduced, non-identifying brief and avoids canonical occupations, relationships, locations, signature phrases, and distinctive details. Exact identifiers are also filtered from generated output. This is not a formal anonymity guarantee; review the draft before saving.
-
-Use **New profile** in **Manage stage profiles** to search and choose an eligible character or persona. The setup then explains disclosure and asks you to choose Open, Hinted, or Secret before showing the editable stage-profile form. You can fill the form yourself or ask AI to generate an editable draft from the source character, disclosure choice, and optional guidance. AI never saves the draft automatically; review the fields and select **Save stage profile** yourself. Open an existing profile and select **Edit profile** to change its presentation or use AI to refill the current draft. Viewer-facing hinted profiles expose only the linked identity's display name and handle through the deliberate badge hint; they do not expose its account ID. Viewer-facing secret profiles expose no linked identity metadata.
-
-### Guided NoodleR posts
-
-Each stage profile has an inline, collapsed composer for NoodleR posts. Enter an optional title and body, then select **Post** to publish those literal values without provider work. A body, image, or poll is required, so an image or a two-to-four-option poll may be posted on its own. Uploaded images stay in NoodleR's own media storage rather than the Noodle gallery.
-
-Select **Guide** to transform the current title and body draft through the existing NoodleR generator. It preserves the image, poll, and access level you selected, and generated output remains title/body-only; it does not generate or replace attachments. Unpublished image files and URLs stay in the current client draft until Post or Guide succeeds. If Post, Guide, or media persistence fails, the current draft remains available for correction or retry.
-
-The post's access level protects the complete post. Locked posts do not expose their image, poll choices, or votes. A viewer who can read the post may vote once and later change that vote; the persona linked to the creator cannot vote on its own stage-profile post.
-
-## Subscriptions and post access
-
-The NoodleR hub always shows creator pages as whichever persona is currently selected globally. Subscriptions and individual unlocks belong to that viewer persona, so switching your active persona may change which creators and posts are available. Use **Noodle Settings** > **NoodleR Access** > **Manage stage profiles** to create, edit, or delete your own stage profiles instead.
-
-When guiding a post, choose one access level:
-
-- **Public**: every persona that can see the stage profile can read the post.
-- **Locked**: the post stays locked until the selected viewer persona subscribes to that stage profile or unlocks that individual post.
-
-Each stage profile has **Viewer access** settings. **Hidden from personas** removes the stage profile and all its posts from selected viewer personas, including direct subscribe and unlock requests. Hidden-from settings apply to the NoodleR stage profile only and do not hide its linked public Noodle account. Subscribing also follows the creator so their posts appear in the viewer's Following feed.
-
-Use **Delete profile** on a managed stage profile to remove that stage profile, all posts published under it, its subscriptions, and its individual unlock records. The linked public Noodle account is not deleted and can be used to create a new stage profile later.
-
 ## Invites
 
 The **Invites** section chooses which characters can take part in a Noodle refresh. A refresh is when the AI writes a batch of posts, replies, reposts, and likes for the invited accounts.
@@ -77,24 +38,6 @@ The **Refresh** section controls the AI connection Noodle writes with, and how o
 When **Refreshes/day** is above 0, Marinara splits the day into equal windows and picks one random time inside each window. The planned times, with their timezone, show under **Automatic schedule**. Click the pencil next to a future time to move it to a different hour. Past times, completed times, and duplicate times cannot be picked.
 
 Automatic refreshes run inside the Marinara server. The Noodle page does not need to stay open, but Marinara itself must be running. If a refresh fails, the schedule shows the error and retries later, waiting longer after repeated failures. If several planned times are missed, one successful catch-up refresh covers them instead of flooding the timeline.
-
-## NoodleR automatic publishing
-
-This is a separate scheduler from **Refresh** above. **Refresh** drives the public Noodle timeline; this one drives NoodleR creators. It appears under **Noodle Settings** > **Publishing** once **Enable NoodleR** is on.
-
-Rather than posting on the hour, NoodleR prepares posts ahead of time into a small reserve and publishes each one when its planned time arrives. That is why a creator can show a next post time before the post exists.
-
-- **Automatic posting schedule**: a toggle, default **on**. Turn it off to stop all automatic NoodleR publishing. Prepared posts whose time passed while it was off are retired rather than published late.
-- **Posts/day**: a number, from 1 to 24, default **4**. This is the per-day ceiling on automatic text attempts, and the same ceiling applies to automatic image attempts. Manual posting and **Refresh NoodleR now** are not counted against it.
-- **Night quiet**: a toggle, default **on**. While it is on, creators linked to a **character** are not given planned times between 23:00 and 07:00 local time. Creators linked to a persona are unaffected, so a quiet-hours slot can still be filled by one of them.
-- **Text attempts** and **Image attempts**: read-only counters showing today's used attempts against the **Posts/day** ceiling.
-- **Prepared posts**: read-only, showing how many posts are in the reserve and the time the last one is planned for.
-- **Refresh all now**: writes one post immediately for every creator whose **Automatic** toggle is on. Creators with **Automatic** off are not included in the run at all, so they are neither posted nor reported. A creator already running other work is reported as skipped rather than as a failure. A post written this way retires any prepared post due for that creator within the next hour, so the creator does not post twice in quick succession.
-- **Per creator**: each creator row has an **Automatic** toggle and an **Images** toggle, both default **off** for a creator created outside the guided setup. Creators made through the guided setup start with whatever you chose there. Turning **Automatic** off leaves that creator manual-only.
-
-Automatic creator replies use a separate installation-wide limit of 10 replies per rolling 24 hours, shared across every creator, not 10 per creator.
-
-Automatic publishing runs inside the Marinara server, so Marinara must be running, but the NoodleR page does not need to be open.
 
 ## Active Accounts
 
@@ -209,16 +152,9 @@ This table lists every Noodle setting with its default and range.
 
 | Setting | Default | Range or options |
 |---|---|---|
-| **Enable NoodleR** | off | on or off |
 | **Generation connection** | none | any text connection (required for refresh) |
 | **Professor Mari participates** | on | on or off |
 | **Refreshes/day** | 2 | 0 to 24 (0 turns automatic refreshes off) |
-| **Automatic posting schedule** (NoodleR) | on | on or off |
-| **Posts/day** (NoodleR) | 4 | 1 to 24 |
-| **Night quiet** (NoodleR) | on | on or off (character creators skip 23:00-07:00) |
-| **Automatic** (per NoodleR creator) | off | on or off (guided setup may turn it on) |
-| **Images** (per NoodleR creator) | off | on or off (guided setup may turn it on) |
-| **Automatic creator replies** | 10 per 24 hours | installation-wide, not per creator |
 | **Active selection** | Random range | Random range, Exact count, All invited |
 | **Min active** | 2 | 1 to 100 (Random range only) |
 | **Max active** | 5 | 1 to 100 (Random range only) |

@@ -27,6 +27,12 @@ const { getDB, closeDB } = await import("../../packages/server/src/db/connection
 const db = await getDB();
 const chats = createChatsStorage(db);
 const connections = createConnectionsStorage(db);
+const { createLorebooksStorage } = await import("../../packages/server/src/services/storage/lorebooks.storage.js");
+const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
+const lorebooks = createLorebooksStorage(db);
+const characters = createCharactersStorage(db);
+const createdLorebookIds: string[] = [];
+const createdPersonaIds: string[] = [];
 const createdChatIds: string[] = [];
 let createdConnectionId: string | null = null;
 let previousMainFallbackId: string | null = null;
@@ -160,6 +166,85 @@ try {
     assert.ok(typeof maxTokens === "number" && maxTokens >= 2_048, `max tokens floored (got ${String(maxTokens)})`);
   }
 
+  // The reply schema spends context too, before any provider request is billed (#6146).
+  {
+    const chat = await createExperienceChat("Schema context reserve");
+    await connections.update(conn.id, { maxContext: 8_192 });
+    upstreamBodies = [];
+    const largeSchema = { type: "object", description: "Schema guidance. ".repeat(380) };
+    const crowded = await post(chat.id, {
+      instructions: "I".repeat(15_000),
+      userContent: "U".repeat(7_000),
+      schema: largeSchema,
+    });
+    assert.equal(crowded.statusCode, 422, "Schema overhead must be counted before spending a call");
+    assert.equal(crowded.json().code, "context_limit");
+    assert.equal(upstreamBodies.length, 0);
+    const small = await post(chat.id, { ...BASE_BODY, schema: largeSchema });
+    assert.equal(small.statusCode, 200, small.body);
+    assert.equal(upstreamBodies.length, 1, "A schema that fits still reaches the provider");
+    await connections.update(conn.id, { maxContext: 32_768 });
+  }
+
+  // Selected lore must arrive whole after macros, or fail visibly without a call (#6145).
+  {
+    const chat = await createExperienceChat("Expanded world lore");
+    const persona = await characters.createPersona("World traveler", "Traveler lore. ".repeat(150));
+    assert.ok(persona);
+    createdPersonaIds.push(persona.id);
+    await chats.update(chat.id, { personaId: persona.id });
+    const book = await lorebooks.create({ name: "Expanded selected lore" });
+    createdLorebookIds.push(book.id);
+    const entry = await lorebooks.createEntry({
+      lorebookId: book.id,
+      name: "Long history",
+      content: "GHEAD " + "{{personaDescription}}".repeat(100) + "x".repeat(50_000) + " GTAIL_MARKER_END",
+    });
+    assert.ok(entry);
+    await connections.update(conn.id, { maxContext: 1_000_000 });
+    upstreamBodies = [];
+    const complete = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: [entry.id] });
+    assert.equal(complete.statusCode, 200, complete.body);
+    const system = (upstreamBodies[0]?.messages as Array<{ role: string; content: string }>).find(
+      (message) => message.role === "system",
+    )!.content;
+    assert.ok(system.includes("GTAIL_MARKER_END"), "Macro expansion must not silently cut selected lore");
+    assert.equal(complete.json().lorebook.includedEntries, 1);
+    await connections.update(conn.id, { maxContext: 8_192 });
+    upstreamBodies = [];
+    const oversized = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: [entry.id] });
+    assert.equal(oversized.statusCode, 422, oversized.body);
+    assert.equal(oversized.json().code, "context_limit");
+    assert.match(oversized.json().error, /macro expansion limit/);
+    assert.equal(upstreamBodies.length, 0, "Bounded macro expansion must fail before a paid request");
+    await connections.update(conn.id, { maxContext: 32_768 });
+  }
+
+  // Legacy unnamed outlets cannot be reported as fully injected (#6152).
+  {
+    const chat = await createExperienceChat("Unnamed selected outlet");
+    const book = await lorebooks.create({ name: "Outlet selection" });
+    createdLorebookIds.push(book.id);
+    const entry = await lorebooks.createEntry({
+      lorebookId: book.id,
+      name: "Unnamed",
+      position: 7,
+      content: "UNNAMEDMARK",
+    });
+    const ordinary = await lorebooks.createEntry({ lorebookId: book.id, name: "Visible", content: "VISIBLEMARK" });
+    assert.ok(entry && ordinary);
+    upstreamBodies = [];
+    const missingName = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: [entry.id, ordinary.id] });
+    assert.equal(missingName.statusCode, 200, missingName.body);
+    assert.equal(missingName.json().lorebook.includedEntries, 1, "An unplaced outlet is not counted as injected");
+    await lorebooks.updateEntry(entry.id, { outletName: "world" });
+    upstreamBodies = [];
+    const named = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: [entry.id, ordinary.id] });
+    assert.equal(named.statusCode, 200, named.body);
+    assert.equal(named.json().lorebook.includedEntries, 2);
+    assert.ok(JSON.stringify(upstreamBodies[0]?.messages).includes("UNNAMEDMARK"));
+  }
+
   // ── 2b. A complete streamed rescue is not condemned by the discarded
   //        buffered call's finish reason ──
   {
@@ -201,7 +286,7 @@ try {
     assert.equal(res.statusCode, 422, res.body);
     const body = res.json();
     assert.equal(body.truncated, true, "truncation flagged");
-    assert.ok(String(body.error).includes("max output tokens"), "actionable truncation message");
+    assert.ok(String(body.error).includes("larger-context"), "actionable truncation message");
     assert.equal(upstreamBodies.length, 1, "no futile retry after truncation");
   }
 
@@ -284,6 +369,8 @@ const runCleanup = async (cleanup: () => Promise<unknown>) => {
 };
 
 for (const chatId of createdChatIds) await runCleanup(() => chats.remove(chatId));
+for (const bookId of createdLorebookIds) await runCleanup(() => lorebooks.remove(bookId));
+for (const personaId of createdPersonaIds) await runCleanup(() => characters.removePersona(personaId));
 if (createdConnectionId) await runCleanup(() => connections.remove(createdConnectionId));
 if (previousMainFallbackId) {
   await runCleanup(() => connections.update(previousMainFallbackId, { fallbackForMain: true }));

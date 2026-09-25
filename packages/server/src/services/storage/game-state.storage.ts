@@ -8,15 +8,18 @@ import { newId, now } from "../../utils/id-generator.js";
 import { ensureTimestampAfter } from "../import/import-timestamps.js";
 import {
   coerceGameStateTextValue,
+  applyTrackerFieldLocksToGameStatePatch,
   normalizeWorldCustomFields,
   normalizeTrackerFieldLocks,
   normalizeTrackerFieldLocksForState,
   normalizeTrackerHiddenFields,
   parseTrackerFieldLocks,
   parseTrackerHiddenFields,
+  rulesetLiveStatesSchema,
   trackerFieldLocksAreEmpty,
   trackerHiddenFieldsAreEmpty,
   type GameState,
+  type RulesetLiveStates,
   type TrackerFieldLocks,
   type TrackerHiddenFields,
 } from "@marinara-engine/shared";
@@ -39,6 +42,7 @@ type GameStateUpdateFields = Partial<
     | "personaStats"
     | "fieldLocks"
     | "hiddenTrackerFields"
+    | "rulesetLive"
   >
 >;
 
@@ -97,6 +101,18 @@ function serializeFieldLocks(fieldLocks: TrackerFieldLocks | null | undefined) {
 function serializeHiddenTrackerFields(hiddenFields: TrackerHiddenFields | null | undefined) {
   const normalized = normalizeTrackerHiddenFields(hiddenFields);
   return trackerHiddenFieldsAreEmpty(normalized) ? null : JSON.stringify(normalized);
+}
+
+/** Live ruleset sheet state is bounded at every read and write: an unreadable or oversized value
+ *  reads as none, which the sheet math treats as every pool at its default. */
+export function parseStoredRulesetLive(value: unknown): RulesetLiveStates | null {
+  const parsed = rulesetLiveStatesSchema.safeParse(parseSnapshotJson<unknown>(value, null));
+  return parsed.success && Object.keys(parsed.data).length > 0 ? parsed.data : null;
+}
+
+function serializeRulesetLive(value: unknown): string | null {
+  const live = parseStoredRulesetLive(value);
+  return live ? JSON.stringify(live) : null;
 }
 
 function parseSnapshotJson<T>(value: unknown, fallback: T): T {
@@ -337,6 +353,13 @@ export function createGameStateStorage(db: DB) {
 
     async create(state: Omit<GameState, "id" | "createdAt">, manualOverrides?: Record<string, string> | null) {
       const latestBeforeInsert = await this.getLatest(state.chatId);
+      // Most callers rebuild a snapshot from the fields they know and have never heard of ruleset
+      // live state. When such a caller replaces the row of a message + swipe, the live state that
+      // row already carried (written right after the message was saved) stays with it.
+      const replaced =
+        state.messageId && state.rulesetLive === undefined
+          ? await this.getByChatAndMessage(state.chatId, state.messageId, state.swipeIndex)
+          : null;
       // Remove any prior snapshot for the same message + swipe so duplicates don't accumulate
       if (state.messageId) {
         await db
@@ -364,10 +387,45 @@ export function createGameStateStorage(db: DB) {
         manualOverrides: serializeManualOverrides(manualOverrides),
         fieldLocks: serializeFieldLocks(state.fieldLocks),
         hiddenTrackerFields: serializeHiddenTrackerFields(state.hiddenTrackerFields),
+        rulesetLive: serializeRulesetLive(state.rulesetLive !== undefined ? state.rulesetLive : replaced?.rulesetLive),
         committed: state.committed ? 1 : 0,
         createdAt: ensureTimestampAfter(now(), latestBeforeInsert?.createdAt),
       });
       return id;
+    },
+
+    /** Apply one model-requested field with its lock check and write in the same transaction. */
+    async updateFromTool(
+      chatId: string,
+      field: "location" | "time",
+      value: string,
+      locationIsAuthoritative: boolean,
+      target: {
+        messageId: string;
+        swipeIndex: number;
+        baseSnapshot: typeof gameStateSnapshots.$inferSelect | null;
+        compatibilityLocation?: string | null;
+      },
+    ) {
+      if (field === "location" && locationIsAuthoritative) {
+        throw new Error("Location is controlled by Spatial Context. Use the game's movement controls.");
+      }
+      return db.transaction(async (tx) => {
+        const store = createGameStateStorage(tx);
+        const base = target.baseSnapshot ? await store.getById(target.baseSnapshot.id, chatId) : null;
+        const snapshot = (await store.getByChatAndMessage(chatId, target.messageId, target.swipeIndex)) ?? base;
+        if (!snapshot) throw new Error("No game-state snapshot is available to update.");
+        const patch = applyTrackerFieldLocksToGameStatePatch({ [field]: value }, buildLockMigrationState(snapshot));
+        if (patch[field] !== value) throw new Error(`The ${field} field is locked; no change was applied.`);
+        const stored = await store.updateByMessage(target.messageId, target.swipeIndex, chatId, patch, undefined, {
+          baseSnapshot: base,
+          ...(target.compatibilityLocation !== undefined
+            ? { compatibilityLocation: target.compatibilityLocation }
+            : {}),
+        });
+        if (stored?.[field] !== value) throw new Error("The game-state update could not be stored.");
+        return { [field]: stored[field] };
+      });
     },
 
     async updateLatest(
@@ -454,6 +512,7 @@ export function createGameStateStorage(db: DB) {
           : null,
         fieldLocks: parseTrackerFieldLocks(latest?.fieldLocks),
         hiddenTrackerFields: parseTrackerHiddenFields(latest?.hiddenTrackerFields),
+        rulesetLive: parseStoredRulesetLive(latest?.rulesetLive),
       };
       baseState.fieldLocks = normalizeTrackerFieldLocksForState(
         baseState.fieldLocks,
@@ -480,6 +539,7 @@ export function createGameStateStorage(db: DB) {
       if (fields.hiddenTrackerFields !== undefined) {
         baseState.hiddenTrackerFields = normalizeTrackerHiddenFields(fields.hiddenTrackerFields);
       }
+      if (fields.rulesetLive !== undefined) baseState.rulesetLive = parseStoredRulesetLive(fields.rulesetLive);
 
       const manualOverrides = manual
         ? MANUAL_OVERRIDE_FIELDS.reduce<Record<string, string>>((acc, key) => {
@@ -512,6 +572,7 @@ export function createGameStateStorage(db: DB) {
         updates.personaStats = fields.personaStats ? JSON.stringify(fields.personaStats) : null;
       if (fields.hiddenTrackerFields !== undefined)
         updates.hiddenTrackerFields = serializeHiddenTrackerFields(fields.hiddenTrackerFields);
+      if (fields.rulesetLive !== undefined) updates.rulesetLive = serializeRulesetLive(fields.rulesetLive);
 
       if (manual) {
         const storedOverrides = parseStoredManualOverrides(row.manualOverrides) ?? {};

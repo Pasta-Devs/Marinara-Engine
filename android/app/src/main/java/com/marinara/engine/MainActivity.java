@@ -41,6 +41,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -76,6 +77,7 @@ public class MainActivity extends Activity {
     private static final int NOTIFICATION_PERMISSION_REQUEST = 1005;
     private static final int FILE_SAVE_REQUEST = 1006;
     private static final String DISPLAY_PREFS = "marinara_display";
+    private static final String OPEN_IN_BROWSER = "open_in_browser";
     private static final String STATUS_BAR_VISIBLE = "status_bar_visible";
     private static final String NOTIFICATION_PERMISSION_PREFS = "marinara_notification_permission";
     private static final String NOTIFICATION_PERMISSION_REQUESTED = "requested";
@@ -101,6 +103,8 @@ public class MainActivity extends Activity {
     private static final String ANDROID_SECRET_PREF = "android_local_secret";
     private static final String INSTALL_SESSION_PREF = "termux_install_session";
     private static final String INSTALL_NONCE_PREF = "termux_install_nonce";
+    private static final String SETUP_IN_PROGRESS_PREF = "termux_setup_in_progress";
+    private static final String START_REQUESTED_PREF = "termux_start_requested";
     private static final String TERMUX_HOME = "/data/data/com.termux/files/home";
     private static final String TERMUX_BASH = "/data/data/com.termux/files/usr/bin/bash";
     private static final String TERMUX_EXTERNAL_APPS_COMMAND =
@@ -191,6 +195,15 @@ public class MainActivity extends Activity {
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.VERTICAL);
         actions.setPadding(0, 28, 0, 0);
+
+        CheckBox browserChoice = new CheckBox(this);
+        browserChoice.setText("Open in browser");
+        browserChoice.setTextColor(0xFFCCCCCC);
+        browserChoice.setChecked(shouldOpenInBrowser());
+        browserChoice.setOnCheckedChangeListener((button, checked) ->
+                getSharedPreferences(DISPLAY_PREFS, MODE_PRIVATE).edit()
+                        .putBoolean(OPEN_IN_BROWSER, checked).apply());
+        actions.addView(browserChoice, buildActionButtonLayoutParams());
 
         Button setupButton = buildActionButton("Install / Start Marinara");
         setupButton.setOnClickListener(v -> startTermuxSetup());
@@ -348,12 +361,30 @@ public class MainActivity extends Activity {
         showBootstrap("Connecting to Marinara Engine…\nIf this is your first launch, tap Install / Start Marinara.", true);
 
         isCheckingServer = true;
+        final boolean openInBrowser = shouldOpenInBrowser();
         new Thread(() -> {
             AndroidSessionAttempt attempt = prepareAndroidSession();
+            String browserTicket = attempt.session != null && openInBrowser
+                    ? prepareBrowserTicket(attempt.session) : null;
             runOnUiThread(() -> {
                 isCheckingServer = false;
-                if (connectionRetryPaused) return;
+                if (isDestroyed() || connectionRetryPaused) return;
+                if (openInBrowser != shouldOpenInBrowser()) {
+                    tryConnect();
+                    return;
+                }
                 if (attempt.session != null) {
+                    setStartRequested(false);
+                    setTermuxSetupInProgress(false);
+                    if (openInBrowser) {
+                        pauseConnectionRetryLoop();
+                        if (browserTicket != null) {
+                            openBrowser(SERVER_URL + "/android-login#ticket=" + browserTicket);
+                        } else {
+                            showBootstrap("Could not sign in to the browser. Update the Engine and APK, then tap Retry connection. You can also uncheck Open in browser to use the app.", false);
+                        }
+                        return;
+                    }
                     mainFrameLoadFailed = false;
                     statusText.setText("Opening Marinara Engine…");
                     webView.postUrl(
@@ -361,7 +392,11 @@ public class MainActivity extends Activity {
                             attempt.session.formBody().getBytes(StandardCharsets.UTF_8)
                     );
                 } else if (attempt.manualServerDetected) {
+                    setStartRequested(false);
                     showManualServerOption();
+                } else if (isStartRequested()) {
+                    setStartRequested(false);
+                    beginTermuxSetup();
                 } else {
                     retryConnection();
                 }
@@ -412,7 +447,12 @@ public class MainActivity extends Activity {
                     resumeConnectionRetryLoop();
                     mainFrameLoadFailed = false;
                     showBootstrap("Opening the confirmed manual server…", true);
-                    webView.loadUrl(SERVER_URL);
+                    if (shouldOpenInBrowser()) {
+                        pauseConnectionRetryLoop();
+                        openBrowser(SERVER_URL);
+                    } else {
+                        webView.loadUrl(SERVER_URL);
+                    }
                 })
                 .show();
     }
@@ -435,6 +475,7 @@ public class MainActivity extends Activity {
     }
 
     private void pauseConnectionRetryLoop() {
+        setStartRequested(false);
         connectionRetryPaused = true;
         cancelPendingConnectionRetry();
     }
@@ -487,6 +528,45 @@ public class MainActivity extends Activity {
         }
     }
 
+    private boolean shouldOpenInBrowser() {
+        return getSharedPreferences(DISPLAY_PREFS, MODE_PRIVATE).getBoolean(OPEN_IN_BROWSER, false);
+    }
+
+    private String prepareBrowserTicket(AndroidSessionBootstrap session) {
+        HttpURLConnection connection = null;
+        try {
+            byte[] body = (session.formBody() + "&browser=true").getBytes(StandardCharsets.UTF_8);
+            connection = (HttpURLConnection) new URL(SERVER_URL + "/api/android-auth/session").openConnection();
+            connection.setConnectTimeout(1_000);
+            connection.setReadTimeout(1_500);
+            connection.setInstanceFollowRedirects(false);
+            connection.setUseCaches(false);
+            connection.setRequestMethod("POST");
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+            connection.setFixedLengthStreamingMode(body.length);
+            try (OutputStream output = connection.getOutputStream()) {
+                output.write(body);
+            }
+            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) return null;
+            String ticket = new JSONObject(readSmallResponse(connection)).getString("browserTicket");
+            return isHex256(ticket) ? ticket : null;
+        } catch (Exception error) {
+            return null;
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private void openBrowser(String url) {
+        showBootstrap("Marinara is open in your browser.\nTo use the app instead, uncheck Open in browser and tap Retry connection.", false);
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (ActivityNotFoundException error) {
+            showBootstrap("No browser is available. Install a browser, or uncheck Open in browser and tap Retry connection.", false);
+        }
+    }
+
     private boolean isServerUrl(String url) {
         if (url == null) return false;
         try {
@@ -533,6 +613,7 @@ public class MainActivity extends Activity {
                 + "requestNotificationPermission: () => nativeBridge.requestNotificationPermission('" + token + "'),"
                 + "showNotification: (...values) => nativeBridge.showNotification('" + token + "', ...withoutToken(values)),"
                 + "saveFile: (...values) => nativeBridge.saveFile('" + token + "', ...withoutToken(values)),"
+                + "openLauncher: () => nativeBridge.openLauncher('" + token + "'),"
                 + "openConsole: () => nativeBridge.openConsole('" + token + "')"
                 + "});"
                 + "Object.defineProperty(window, 'MarinaraAndroid', {"
@@ -687,6 +768,25 @@ public class MainActivity extends Activity {
     }
 
     private void startTermuxSetup() {
+        if (getSharedPreferences(SECURITY_PREFS, MODE_PRIVATE).getBoolean(SETUP_IN_PROGRESS_PREF, false)) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Marinara setup is already starting")
+                    .setMessage("Wait for Termux to finish. Retry setup only if that session has stopped or failed.")
+                    .setNegativeButton("View Termux", (dialog, which) -> openTermux())
+                    .setPositiveButton("Retry setup", (dialog, which) -> {
+                        setTermuxSetupInProgress(false);
+                        startTermuxSetup();
+                    })
+                    .show();
+            return;
+        }
+        // Authenticate a running server before asking Termux to start another session.
+        setStartRequested(true);
+        resumeConnectionRetryLoop();
+        tryConnect();
+    }
+
+    private void beginTermuxSetup() {
         pauseConnectionRetryLoop();
         if (!isTermuxInstalled()) {
             startTermuxInstallFlow();
@@ -991,16 +1091,35 @@ public class MainActivity extends Activity {
 
         try {
             intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", new String[]{"-lc", buildTermuxSetupCommand(true)});
+            setTermuxSetupInProgress(true);
             startService(intent);
             resumeConnectionRetryLoop();
             showBootstrap("Termux setup launched.\nWatch Termux finish installing, then this shell will connect automatically.", true);
             handler.postDelayed(this::openTermux, 500);
             scheduleConnectionRetry();
         } catch (SecurityException e) {
+            setTermuxSetupInProgress(false);
             showTermuxExternalAppsInstructions();
         } catch (IllegalStateException | ActivityNotFoundException e) {
+            setTermuxSetupInProgress(false);
             showManualTermuxSetupInstructions("Android blocked the Termux setup launch.");
         }
+    }
+
+    private boolean isStartRequested() {
+        return getSharedPreferences(SECURITY_PREFS, MODE_PRIVATE).getBoolean(START_REQUESTED_PREF, false);
+    }
+
+    private void setStartRequested(boolean requested) {
+        // A pending authenticated probe must survive Activity recreation too.
+        getSharedPreferences(SECURITY_PREFS, MODE_PRIVATE).edit()
+                .putBoolean(START_REQUESTED_PREF, requested).apply();
+    }
+
+    private void setTermuxSetupInProgress(boolean inProgress) {
+        // Termux keeps running when Android recreates this Activity.
+        getSharedPreferences(SECURITY_PREFS, MODE_PRIVATE).edit()
+                .putBoolean(SETUP_IN_PROGRESS_PREF, inProgress).apply();
     }
 
     private String buildTermuxSetupCommand(boolean provisionAndroidSecret) {
@@ -1189,6 +1308,16 @@ public class MainActivity extends Activity {
                     ).show());
                 }
             }).start();
+        }
+
+        @JavascriptInterface
+        public void openLauncher(String token) {
+            if (!isTrustedBridgeCaller(token)) return;
+            runOnUiThread(() -> {
+                pauseConnectionRetryLoop();
+                webView.stopLoading();
+                showBootstrap("Choose how Marinara opens, then tap Retry connection.", false);
+            });
         }
 
         @JavascriptInterface
@@ -1512,6 +1641,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (isFinishing()) setStartRequested(false);
         bridgeEnabled = false;
         bridgeToken = null;
         cancelPendingConnectionRetry();

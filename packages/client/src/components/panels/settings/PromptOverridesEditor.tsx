@@ -4,6 +4,8 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Check, ChevronDown, Code2, FileText, Loader2, RotateCcw, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { estimateTextTokens } from "@marinara-engine/shared";
+import { formatEstimatedTokens } from "../../../lib/character-token-count";
 import {
   usePromptOverride,
   usePromptOverrideDefault,
@@ -381,7 +383,7 @@ function PromptOverridesEditorBody({ keys, preferredKey }: { keys?: readonly str
             {localizeUi("ui.panels.promptoverrideseditorbody.template")}
           </span>
           <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
-            {draft.length} {localizeUi("ui.panels.promptoverrideseditorbody.chars")}
+            {formatEstimatedTokens(loadingPrompt ? 0 : estimateTextTokens(draft), localizeUi)}
           </span>
         </div>
         <textarea

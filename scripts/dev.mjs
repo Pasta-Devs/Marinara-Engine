@@ -16,6 +16,13 @@ const HEALTH_TIMEOUT_MS = parseIntegerEnv("DEV_SERVER_READY_TIMEOUT_MS", 120_000
 const SHARED_BUILD_SCRIPT = resolveDevSharedBuildScript();
 
 const pnpmRunner = resolvePnpmRunner();
+
+// This server boots from the developer's working repo. Hard-refuse server-side
+// update application (#5646): without this, a loopback browser tab's channel
+// switch could stash local changes, move HEAD, and force-rebuild the checkout
+// underneath the running dev/e2e session. Children inherit this environment.
+process.env.UPDATES_APPLY_DISABLED = "true";
+
 const children = new Set();
 let shuttingDown = false;
 

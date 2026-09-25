@@ -192,8 +192,8 @@ try {
   // must update this reviewed index -> linux/arm64 manifest relationship.
   const arm64ManifestByIndex = new Map([
     [
-      "sha256:0711b541c1c33a8a530ac4f0d391baa9a15b3d804695b1b24a47daa5fb60e74d",
-      "sha256:8525258f39fa3365fcf9a9d01e85458c7280ad00bd30c5e67655311262257e9e",
+      "sha256:6950b66b4c0cb0151ce89fa75074673850763d096b044f422c6729b588dd4956",
+      "sha256:f6cc20bdfbdb98de10c1bbbb54710bb2228545372ee4e8db25cf5a3db5b08f49",
     ],
   ]);
   for (const stage of dockerBaseStages) {

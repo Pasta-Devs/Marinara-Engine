@@ -112,6 +112,22 @@ Two higher-risk changes wait instead of being applied first:
 
 Approving a library means trusting its code when Marinara later imports or runs it. Disabling lifecycle scripts prevents installation-time execution, but it cannot make a library harmless at runtime.
 
+## Creating content with Decisions
+
+Mari can write agent **Activation questions**, lorebook-entry **Decision** statements, and conditional prompts in presets, cards, lorebooks, and agent prompts. She checks which Decision model is selected before introducing those features. A selected model is configuration information, not proof that a provider is reachable or a local model will load successfully.
+
+If you have no Decision model selected, she keeps ordinary creations and edits free of new Decision dependencies. Existing Decision content stays intact during unrelated edits. If you explicitly ask for Decision content, she explains the relevant fallback and asks whether to proceed once in that Mari chat. Her record survives reopening the chat and conversations longer than her recent-message window. An unanswered question or a refusal is not permission.
+
+You can tell her, **“Stop reminding me to set up a Decision model.”** She stops in the current chat and can save that preference as a Memory. Use **Keep & Enable** to apply it in future chats too. Turning that Memory off or deleting it removes the standing preference. Suppressing setup reminders does not invite her to add Decisions to ordinary requests.
+
+With a model selected, she follows your relevant enabled Memories and Skills. If they contain no authoring preference, she asks whether you want Decisions used and whether to remember your answer. You can allow or decline them, or approve only the current task. A Skill that merely explains Decision syntax does not count as permission. A direct request such as “add Decision activation to this entry” already supplies permission for that task.
+
+Her default is sparse use with a suitable timing control: **Sticky** or **Cooldown** for lorebook entries, **Trigger Cadence** for agent activation, and `sticky`, `cooldown`, or `every` in prompt conditions. Sticky and Cooldown reduce repeated checks after a positive activation; they do not prevent repeated checks while a statement keeps answering no. `every` skips checks between scheduled turns and reads as no then, so it is not always suitable for fleeting events.
+
+Mari also aims to keep the early assembled prompt stable. She asks before adding changing content early in a prompt or inserting context inside chat history unless your instruction or enabled preference already permits that placement. There is no universal “safe after 1,000 tokens” rule: cache reuse depends on the provider, model, and matching rendered prefix. Approving Decision use does not automatically approve these placements.
+
+The usual Permissions Mode and review controls still apply to her edits. Memories she saves start disabled until you enable them. For what each Decision feature sees, its fallbacks, and examples, see [Decision Models](../connections/decision-models.md), [Conditional Prompts](../prompts/conditional-prompts.md), [Custom Agents](../agents/custom-agents.md#activation-questions), and [Lorebook Entries](../lorebooks/entries.md#decision-activation).
+
 ## Custom Skills
 
 A Skill is a short instruction document you write to change how Professor Mari handles a certain kind of request.

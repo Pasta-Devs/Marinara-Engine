@@ -11,7 +11,7 @@ import { sweepDanglingConnectionReferences } from "./connection-reference-cleanu
 import { clearConnectionRateLimit, setConnectionRateLimit } from "../llm/connection-rate-limit-registry.js";
 import { logger } from "../../lib/logger.js";
 
-type ConnectionDefaultCategory = "image_generation" | "video_generation" | "audio" | "language";
+type ConnectionDefaultCategory = "image_generation" | "video_generation" | "audio" | "decision" | "language";
 
 /**
  * Decrypt a stored connection for internal use and keep the per-connection outbound throttle
@@ -29,6 +29,7 @@ function defaultCategoryForProvider(provider: string): ConnectionDefaultCategory
   if (provider === "image_generation") return "image_generation";
   if (provider === "video_generation") return "video_generation";
   if (provider === "audio") return "audio";
+  if (provider === "decision") return "decision";
   return "language";
 }
 
@@ -199,6 +200,21 @@ export function createConnectionsStorage(db: DB) {
       return withDecryptedKey(row);
     },
 
+    /** Decision defaults are independent of chat, agent, and media defaults. */
+    async getDefaultForDecision() {
+      const rows = await db
+        .select()
+        .from(apiConnections)
+        .where(
+          and(
+            eq(apiConnections.defaultForAgents, "true"),
+            eq(apiConnections.provider, "decision"),
+            ne(apiConnections.profileImportReviewRequired, "true"),
+          ),
+        );
+      return rows[0] ? withDecryptedKey(rows[0]) : null;
+    },
+
     async create(input: CreateConnectionInput) {
       const id = newId();
       const timestamp = now();
@@ -208,16 +224,18 @@ export function createConnectionsStorage(db: DB) {
         name: input.name,
         provider: input.provider,
         baseUrl: input.baseUrl ?? "",
-        apiKeyEncrypted: encryptApiKey(input.apiKey ?? ""),
+        apiKeyEncrypted: encryptApiKey(
+          input.provider === "decision" && input.credentialsFromConnectionId ? "" : (input.apiKey ?? ""),
+        ),
         profileImportReviewRequired: "false",
         model: input.model ?? "",
         imagePath: input.imagePath ?? null,
         maxContext: input.maxContext ?? 128000,
-        isDefault: String(input.isDefault ?? false),
+        isDefault: String(input.provider !== "decision" && (input.isDefault ?? false)),
         fallbackForMain: String(providerCategory === "language" && (input.fallbackForMain ?? false)),
-        useForRandom: String(input.useForRandom ?? false),
+        useForRandom: String(input.provider !== "decision" && (input.useForRandom ?? false)),
         defaultForAgents: String(input.defaultForAgents ?? false),
-        fallbackForAgents: String(input.fallbackForAgents ?? false),
+        fallbackForAgents: String(input.provider !== "decision" && (input.fallbackForAgents ?? false)),
         enableCaching: String(input.enableCaching ?? false),
         anthropicExtendedCacheTtl: String(input.anthropicExtendedCacheTtl ?? false),
         cachingAtDepth: input.cachingAtDepth ?? 5,
@@ -236,6 +254,10 @@ export function createConnectionsStorage(db: DB) {
         videoGenerationSource: input.videoGenerationSource ?? null,
         videoService: input.videoService ?? null,
         audioSource: input.audioSource ?? null,
+        decisionSource: input.decisionSource ?? null,
+        credentialsFromConnectionId: input.provider === "decision" ? (input.credentialsFromConnectionId ?? null) : null,
+        maxStateTokens: input.maxStateTokens ?? null,
+        decisionTimeoutMs: input.decisionTimeoutMs ?? null,
         audioVoice: input.audioVoice ?? null,
         audioSoundEffects: String(input.audioSoundEffects ?? false),
         audioMusic: String(input.audioMusic ?? false),
@@ -248,7 +270,7 @@ export function createConnectionsStorage(db: DB) {
       };
       await db.transaction(async (tx) => {
         // If this is set as default, unset others.
-        if (input.isDefault) {
+        if (input.isDefault && input.provider !== "decision") {
           await tx.update(apiConnections).set({ isDefault: "false" });
           values.fallbackForMain = "false";
         }
@@ -260,7 +282,12 @@ export function createConnectionsStorage(db: DB) {
         if (input.defaultForAgents) {
           values.fallbackForAgents = "false";
           const category = defaultCategoryForProvider(input.provider);
-          if (category === "image_generation" || category === "video_generation" || category === "audio") {
+          if (
+            category === "image_generation" ||
+            category === "video_generation" ||
+            category === "audio" ||
+            category === "decision"
+          ) {
             await tx
               .update(apiConnections)
               .set({ defaultForAgents: "false" })
@@ -277,10 +304,15 @@ export function createConnectionsStorage(db: DB) {
             }
           }
         }
-        if (input.fallbackForAgents) {
+        if (input.fallbackForAgents && input.provider !== "decision") {
           values.defaultForAgents = "false";
           const category = defaultCategoryForProvider(input.provider);
-          if (category === "image_generation" || category === "video_generation" || category === "audio") {
+          if (
+            category === "image_generation" ||
+            category === "video_generation" ||
+            category === "audio" ||
+            category === "decision"
+          ) {
             await tx
               .update(apiConnections)
               .set({ fallbackForAgents: "false" })
@@ -304,6 +336,21 @@ export function createConnectionsStorage(db: DB) {
       });
       setConnectionRateLimit(id, input.maxRequestsPerMinute ?? null);
       return this.getById(id);
+    },
+
+    /** Commit background metadata only while the captured connection is still current. */
+    async updateContextIfUnchanged(expected: typeof apiConnections.$inferSelect, maxContext: number): Promise<boolean> {
+      return db.transaction(async (tx) => {
+        const [current] = await tx.select().from(apiConnections).where(eq(apiConnections.id, expected.id));
+        // Compare stored scalar fields too: two settings saves can share the same millisecond timestamp.
+        if (
+          !current ||
+          Object.entries(current).some(([key, value]) => value !== expected[key as keyof typeof expected])
+        )
+          return false;
+        await tx.update(apiConnections).set({ maxContext, updatedAt: now() }).where(eq(apiConnections.id, expected.id));
+        return true;
+      });
     },
 
     async update(id: string, data: Partial<CreateConnectionInput>) {
@@ -333,10 +380,24 @@ export function createConnectionsStorage(db: DB) {
       const shouldClearAgentFallbacks =
         data.fallbackForAgents === true ||
         (data.fallbackForAgents === undefined && data.provider !== undefined && existing.fallbackForAgents === "true");
+      if (data.decisionSource !== undefined) updateFields.decisionSource = data.decisionSource;
+      if (data.credentialsFromConnectionId !== undefined)
+        updateFields.credentialsFromConnectionId = data.credentialsFromConnectionId;
+      if (data.maxStateTokens !== undefined) updateFields.maxStateTokens = data.maxStateTokens;
+      if (data.decisionTimeoutMs !== undefined) updateFields.decisionTimeoutMs = data.decisionTimeoutMs;
       if (data.name !== undefined) updateFields.name = data.name;
       if (data.provider !== undefined) updateFields.provider = data.provider;
       if (data.baseUrl !== undefined) updateFields.baseUrl = data.baseUrl;
       if (data.apiKey !== undefined) updateFields.apiKeyEncrypted = encryptApiKey(data.apiKey);
+      if (
+        effectiveProvider === "decision" &&
+        (data.credentialsFromConnectionId === undefined
+          ? existing.credentialsFromConnectionId
+          : data.credentialsFromConnectionId)
+      ) {
+        updateFields.apiKeyEncrypted = encryptApiKey("");
+      }
+      if (effectiveProvider !== "decision") updateFields.credentialsFromConnectionId = null;
       if (data.model !== undefined) updateFields.model = data.model;
       if (data.imagePath !== undefined) updateFields.imagePath = data.imagePath;
       if (data.maxContext !== undefined) updateFields.maxContext = data.maxContext;
@@ -433,8 +494,13 @@ export function createConnectionsStorage(db: DB) {
       if (data.treatAsLocalEndpoint !== undefined) {
         updateFields.treatAsLocalEndpoint = String(data.treatAsLocalEndpoint);
       }
+      if (effectiveProvider === "decision") {
+        updateFields.isDefault = "false";
+        updateFields.useForRandom = "false";
+        updateFields.fallbackForAgents = "false";
+      }
       await db.transaction(async (tx) => {
-        if (shouldClearDefault) {
+        if (shouldClearDefault && effectiveProvider !== "decision") {
           await tx.update(apiConnections).set({ isDefault: "false" });
           updateFields.fallbackForMain = "false";
         }
@@ -445,7 +511,12 @@ export function createConnectionsStorage(db: DB) {
         if (shouldClearAgentDefaults) {
           updateFields.fallbackForAgents = "false";
           const category = defaultCategoryForProvider(effectiveProvider);
-          if (category === "image_generation" || category === "video_generation" || category === "audio") {
+          if (
+            category === "image_generation" ||
+            category === "video_generation" ||
+            category === "audio" ||
+            category === "decision"
+          ) {
             await tx
               .update(apiConnections)
               .set({ defaultForAgents: "false" })
@@ -473,10 +544,15 @@ export function createConnectionsStorage(db: DB) {
             }
           }
         }
-        if (shouldClearAgentFallbacks) {
+        if (shouldClearAgentFallbacks && effectiveProvider !== "decision") {
           updateFields.defaultForAgents = "false";
           const category = defaultCategoryForProvider(effectiveProvider);
-          if (category === "image_generation" || category === "video_generation" || category === "audio") {
+          if (
+            category === "image_generation" ||
+            category === "video_generation" ||
+            category === "audio" ||
+            category === "decision"
+          ) {
             await tx
               .update(apiConnections)
               .set({ fallbackForAgents: "false" })
@@ -555,6 +631,10 @@ export function createConnectionsStorage(db: DB) {
         videoGenerationSource: source.videoGenerationSource,
         videoService: source.videoService,
         audioSource: source.audioSource,
+        decisionSource: source.decisionSource,
+        credentialsFromConnectionId: source.credentialsFromConnectionId,
+        maxStateTokens: source.maxStateTokens,
+        decisionTimeoutMs: source.decisionTimeoutMs,
         audioVoice: source.audioVoice,
         audioSoundEffects: source.audioSoundEffects,
         audioMusic: source.audioMusic,
@@ -582,7 +662,11 @@ export function createConnectionsStorage(db: DB) {
       // before its provider changed.
       return rows
         .filter(
-          (r: any) => r.provider !== "audio" && r.provider !== "image_generation" && r.provider !== "video_generation",
+          (r: any) =>
+            r.provider !== "decision" &&
+            r.provider !== "audio" &&
+            r.provider !== "image_generation" &&
+            r.provider !== "video_generation",
         )
         .map((r: any) => withDecryptedKey(r));
     },

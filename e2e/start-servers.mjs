@@ -73,6 +73,9 @@ function startProject(name, clientPort, serverPort) {
       ...process.env,
       DATA_DIR: dataDir,
       DEV_SKIP_SHARED_BUILD: "true",
+      // The e2e servers run from the working repo; a test-driven or stray
+      // loopback channel switch must never rewrite the checkout (#5646).
+      UPDATES_APPLY_DISABLED: "true",
       MARINARA_ENV_FILE: resolve(dataDir, ".env"),
       PORT: String(serverPort),
       VITE_PORT: String(clientPort),

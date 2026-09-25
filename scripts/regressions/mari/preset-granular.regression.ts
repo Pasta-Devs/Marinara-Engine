@@ -41,15 +41,32 @@ try {
       },
       apply: true,
     });
-    assert.equal(created.ok, true, "preset.create succeeds");
+    assert.equal(created.ok, true, `preset.create succeeds: ${JSON.stringify(created.validation ?? created.error)}`);
     await drainKeep(mari);
     const presetList = (await mari.executeAction({ action: "preset.list" })).output as Array<{ id: string; name: string }>;
     const presetId = presetList.find((preset) => preset.name === "Granular Preset")?.id;
     assert.ok(presetId, "the created preset is listed");
     const createdPreset = (await mari.executeAction({ action: "preset.get", presetId })).output as {
       systemKey?: string;
+      scopedRegexMode?: string;
     };
     assert.equal(createdPreset.systemKey, "", "preset.create cannot claim an Engine-owned system key");
+    assert.equal(createdPreset.scopedRegexMode, "disabled", "Mari creates presets with the same scoped-regex default as the UI");
+    const setRegexMode = await mari.executeAction({ action: "preset.update", presetId, scopedRegexMode: "chat", apply: true });
+    assert.equal(setRegexMode.ok, true, "the top-level preset update accepts an explicit scoped-regex mode");
+    await drainKeep(mari);
+    const unrelatedUpdate = await mari.executeAction({ action: "preset.update", presetId, data: { description: "Regex mode must survive." }, apply: true });
+    assert.equal(unrelatedUpdate.ok, true);
+    await drainKeep(mari);
+    for (const scopedRegexMode of ["invalid", null]) {
+      const invalidMode = await mari.executeAction({ action: "preset.update", presetId, data: { scopedRegexMode }, apply: true });
+      assert.equal(invalidMode.ok, false, "invalid preset modes are rejected before writing");
+    }
+    assert.equal(
+      ((await mari.executeAction({ action: "preset.get", presetId })).output as { scopedRegexMode?: string }).scopedRegexMode,
+      "chat",
+      "unrelated and rejected updates preserve the existing default",
+    );
 
     // Raw DB writes must obey the same Engine-owned systemKey boundary.
     const rawPreset = (await mari.executeCli({ argv: ["db", "get", "prompt_presets", presetId] })).output as Record<
@@ -278,12 +295,17 @@ try {
     assert.equal(childAfterParentDelete.parentGroupId, null, "the child group is un-nested (parentGroupId -> null), not deleted");
 
     // A section can only join a group in its OWN preset.
-    await mari.executeAction({ action: "preset.create", data: { name: "Other Preset", groups: [{ name: "Foreign" }] }, apply: true });
+    await mari.executeAction({ action: "preset.create", scoped_regex_mode: "exclusive", data: { name: "Other Preset", groups: [{ name: "Foreign" }] }, apply: true });
     await drainKeep(mari);
     const otherPresetId = ((await mari.executeAction({ action: "preset.list" })).output as Array<{ id: string; name: string }>).find(
       (preset) => preset.name === "Other Preset",
     )?.id;
     assert.ok(otherPresetId);
+    assert.equal(
+      ((await mari.executeAction({ action: "preset.get", presetId: otherPresetId })).output as { scopedRegexMode?: string }).scopedRegexMode,
+      "exclusive",
+      "preset.create normalizes the top-level snake-case alias",
+    );
     const foreignGroup = ((await mari.executeAction({ action: "preset.groups", presetId: otherPresetId })).output as Array<{ id: string }>)[0];
     assert.ok(foreignGroup);
     const crossPreset = await mari.executeAction({ action: "preset.updateSection", sectionId: style.id, data: { groupId: foreignGroup.id }, apply: true });

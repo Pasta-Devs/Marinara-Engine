@@ -1,3 +1,4 @@
+import { normalizeGameDifficulty } from "@marinara-engine/shared";
 // ──────────────────────────────────────────────
 // Game: Random Encounter Service
 //
@@ -144,7 +145,7 @@ export function inferLocationDanger(location: string): string {
  */
 export function rollEncounter(action: string, difficulty: string, location: string): EncounterRoll {
   const baseChance = ENCOUNTER_CHANCES[action] ?? ENCOUNTER_CHANCES.default!;
-  const diffMult = DIFFICULTY_MULT[difficulty] ?? 1.0;
+  const diffMult = DIFFICULTY_MULT[normalizeGameDifficulty(difficulty)] ?? 1.0;
   const danger = inferLocationDanger(location);
   const dangerMod = LOCATION_DANGER[danger] ?? 0;
 
@@ -170,7 +171,7 @@ export function rollEncounter(action: string, difficulty: string, location: stri
 export function rollEnemyCount(partySize: number, difficulty: string): number {
   const base = Math.max(1, Math.floor(partySize * 0.75));
   const diffBonus: Record<string, number> = { casual: -1, normal: 0, hard: 1, brutal: 2 };
-  const bonus = diffBonus[difficulty] ?? 0;
+  const bonus = diffBonus[normalizeGameDifficulty(difficulty)] ?? 0;
   const variance = rollDice("1d4").total - 2; // -1 to +2
   return Math.max(1, base + bonus + variance);
 }

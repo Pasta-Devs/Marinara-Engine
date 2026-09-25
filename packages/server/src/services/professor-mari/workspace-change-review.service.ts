@@ -16,7 +16,7 @@ import { logger } from "../../lib/logger.js";
 const APPROVAL_TIMEOUT_MS = 10 * 60_000;
 const INSTALL_TIMEOUT_MS = 10 * 60_000;
 const MAX_REGISTRY_RESPONSE_BYTES = 1_000_000;
-const MAX_REVIEW_FILE_BYTES = 512_000;
+export const MAX_REVIEW_FILE_BYTES = 512_000;
 const MAX_REVIEW_DIFF_BYTES = 64_000;
 const MAX_PROCESS_OUTPUT = 32_000;
 const PUBLIC_NPM_REGISTRY = "https://registry.npmjs.org/";
@@ -177,6 +177,61 @@ export function workspacePathAccessPolicy(
     return "sensitive";
   }
   return "normal";
+}
+
+const escapeSensitiveName = (name: string) => name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+const PACKAGE_CONTROL_NAME_PATTERN = [...PACKAGE_CONTROL_FILES].map(escapeSensitiveName).join("|");
+const ROOT_LAUNCHER_NAME_PATTERN = [...ROOT_LAUNCHER_FILES].map(escapeSensitiveName).join("|");
+// Mirrors workspacePathAccessPolicy's scoping: package-control names are
+// sensitive at ANY depth (they may take a path prefix), while launcher names
+// and the workflow/installer/gradle paths are sensitive only at the workspace
+// root (no path prefix beyond an optional "./"). The left lookbehinds keep
+// ordinary names that merely END with a sensitive name (mypackage.json,
+// new-start.sh) from matching, and the root-scoped lookbehind also excludes
+// "/" so a nested docs/start.sh never matches.
+const SENSITIVE_ROOT_SCOPED_PATTERN =
+  `(?:${ROOT_LAUNCHER_NAME_PATTERN})(?![\\w.-])` +
+  `|\\.github/workflows/|win/installer/|android/gradle/wrapper/` +
+  `|android/(?:app/)?build\\.gradle(?![\\w.-])|android/settings\\.gradle(?![\\w.-])`;
+const SENSITIVE_PATH_TARGET_PATTERN =
+  `(?<![\\w.-])(?:[\\w./~-]*/)?(?:${PACKAGE_CONTROL_NAME_PATTERN})(?![\\w.-])` +
+  `|(?<![\\w./-])(?:\\./)?(?:${SENSITIVE_ROOT_SCOPED_PATTERN})`;
+
+const SENSITIVE_PATH_WRITER_PATTERNS = [
+  // cp/mv/rm/touch/truncate/tee with a sensitive path in the same segment
+  new RegExp(
+    `(?:^|[;&|]\\s*|\\s)(?:cp|mv|rm|touch|truncate|tee)\\b[^;&|\\n]*(?:${SENSITIVE_PATH_TARGET_PATTERN})`,
+    "u",
+  ),
+  // in-place sed/perl on a sensitive path
+  new RegExp(`(?:^|[;&|]\\s*|\\s)(?:sed|perl)\\b[^;&|\\n]*\\s-i\\b[^;&|\\n]*(?:${SENSITIVE_PATH_TARGET_PATTERN})`, "u"),
+  // shell redirection into a sensitive path - quoted targets included, since
+  // LLM-written redirects quote paths more often than not
+  new RegExp(`>>?\\s*["']?(?:${SENSITIVE_PATH_TARGET_PATTERN})`, "u"),
+  // interpreter one-liners writing a sensitive path (node -e writeFileSync,
+  // python open(...,'w')) and dd's of= target
+  new RegExp(
+    `(?:^|[;&|]\\s*|\\s)(?:node|python(?:3)?)\\b[^;&|\\n]*(?:writefile|appendfile|\\bopen\\()[^;&|\\n]*(?:${SENSITIVE_PATH_TARGET_PATTERN})`,
+    "u",
+  ),
+  new RegExp(`(?:^|[;&|]\\s*|\\s)dd\\b[^;&|\\n]*of=["']?(?:${SENSITIVE_PATH_TARGET_PATTERN})`, "u"),
+  // git checkout/restore of a sensitive file rewrites it in place
+  new RegExp(`\\bgit\\s+(?:checkout|restore)\\b[^;&|\\n]*(?:${SENSITIVE_PATH_TARGET_PATTERN})`, "u"),
+];
+
+/**
+ * #5777: the shell sandbox denies writes to EXISTING supply-chain-sensitive
+ * paths, but the denial is silent - an error-tolerant compound command
+ * (`x; echo done`) exits 0 and the verification guard would count a write
+ * that never happened. For sensitive files that do not exist yet (a new
+ * package.json in a fresh directory) the sandbox has no deny rule at all, so
+ * this check is the primary guard there, not just a nicety. It is still a
+ * best-effort heuristic (like bashLooksMutating): it catches the common
+ * shapes so the failure is loud and redirects to the write/edit staging flow.
+ */
+export function bashCommandTargetsSensitivePath(command: string): boolean {
+  const normalized = command.replace(/\\/gu, "/").toLowerCase();
+  return SENSITIVE_PATH_WRITER_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
 export function isPackageManagerMutationCommand(command: string) {
@@ -413,6 +468,28 @@ export class WorkspaceChangeReviewService {
     }
     const beforeContent = await readOptionalText(absolutePath);
     const path = normalizeRelativePath(relative(this.workspaceRoot, absolutePath));
+    const beforeHash = beforeContent === null ? null : sha256(beforeContent);
+    const afterHash = sha256(input.afterContent);
+    // #5756: re-staging the identical change is idempotent - hand back the
+    // live approval instead of stacking duplicate cards for one decision.
+    // A record mid-approval still matches: minting a sibling would capture
+    // stale beforeContent and die as state_changed once the first applies.
+    // Windows resolves paths case-insensitively, so the comparison folds
+    // case there (elsewhere a fold could match a genuinely different file).
+    const samePath =
+      process.platform === "win32"
+        ? (candidate: string) => candidate.toLowerCase() === absolutePath.toLowerCase()
+        : (candidate: string) => candidate === absolutePath;
+    for (const existing of this.pending.values()) {
+      if (
+        existing.kind === "sensitive_file" &&
+        samePath(existing.absolutePath) &&
+        existing.beforeHash === beforeHash &&
+        existing.afterHash === afterHash
+      ) {
+        return publicApproval(existing) as MariSensitiveFileApproval;
+      }
+    }
     const id = `mari-file-${nanoid()}`;
     const requestedAt = new Date().toISOString();
     const expiresAt = new Date(Date.now() + APPROVAL_TIMEOUT_MS).toISOString();
@@ -425,8 +502,8 @@ export class WorkspaceChangeReviewService {
       sessionId: input.sessionId,
       path,
       changeType: beforeContent === null ? "create" : "update",
-      beforeHash: beforeContent === null ? null : sha256(beforeContent),
-      afterHash: sha256(input.afterContent),
+      beforeHash,
+      afterHash,
       ...preview,
       reason: input.reason?.trim() || null,
       requestedAt,

@@ -111,8 +111,7 @@ try {
     "the other chat still resolves the schedule",
   );
 
-  // ── 4. An unset flag means off, so a character gaining a schedule does not
-  //       silently switch schedules on in a chat that never used them ──
+  // ── 4. Adding a scheduled character reuses its routine unless explicitly disabled. ──
   const optOutChat = await chats.create({
     name: "Never used schedules",
     mode: "conversation",
@@ -121,8 +120,8 @@ try {
   await chats.update(optOutChat!.id, { characterIds: [characterId] } as never);
   assert.deepEqual(
     (await chats.resolveConversationPresenceState(optOutChat!.id)).schedules,
-    {},
-    "a chat that never opted in stays off",
+    { [characterId]: shared },
+    "adding a scheduled character inherits the existing character routine",
   );
 
   // ── 5. Presence in a chat with schedules off is always-online and never
@@ -190,6 +189,27 @@ try {
     (JSON.parse(afterContentEdit!.data as string) as { character_version: string }).character_version,
     beforeVersion,
     "ordinary card edits bump the card version",
+  );
+
+  // ── 8. Last week's schedule survives. Dropping it on read blanked the panel
+  //       and hid the staleness from `needsRefresh`, so it never regenerated ──
+  const staleSchedule = makeSchedule("Last week's rounds");
+  const lastMonday = new Date(currentWeekStart());
+  lastMonday.setDate(lastMonday.getDate() - 7);
+  staleSchedule.weekStart = lastMonday.toISOString();
+  const staleCard = JSON.parse((await chars.getById(characterId))!.data as string) as {
+    extensions: Record<string, unknown>;
+  };
+  await chars.update(
+    characterId,
+    { extensions: { ...staleCard.extensions, conversationSchedule: staleSchedule } } as never,
+    undefined,
+    { skipVersionSnapshot: true },
+  );
+  assert.deepEqual(
+    (await chats.resolveConversationPresenceState(legacyChat!.id)).schedules[characterId],
+    staleSchedule,
+    "a schedule from last week still resolves instead of being cleared",
   );
 
   console.log("character-schedule-ownership regression passed");

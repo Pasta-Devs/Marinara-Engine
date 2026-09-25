@@ -18,6 +18,7 @@ import { dirname, join, resolve, sep } from "node:path";
 import {
   UTILITY_SIDECAR_DEFAULT_CONFIG,
   UTILITY_SIDECAR_LIMITS,
+  type DecisionThinkingMode,
   type UtilitySidecarConfig,
   type UtilitySidecarHardwareSettings,
   type UtilitySidecarModelSource,
@@ -167,6 +168,11 @@ export class UtilitySidecarService {
     return { ...this.config, models: { ...this.config.models } };
   }
 
+  /** This slot's llama-server process id, for measured rather than estimated memory. */
+  getProcessId(): number | null {
+    return this.child?.pid ?? null;
+  }
+
   getStatus(): UtilitySidecarStatus {
     return {
       configured: Object.keys(this.config.models).length > 0,
@@ -182,6 +188,7 @@ export class UtilitySidecarService {
         gpuLayers: this.config.gpuLayers,
         maxParallelJobs: this.config.maxParallelJobs,
       },
+      decisionThinking: this.config.decisionThinking,
     };
   }
 
@@ -340,6 +347,19 @@ export class UtilitySidecarService {
       await this.ensureRunning();
     }
     return this.getStatus();
+  }
+
+  /**
+   * Record how this slot's model may answer an activation question.
+   *
+   * The operator's own choice, and only theirs: when Auto finds that the loaded model
+   * cannot answer in one token, that verdict goes in the decision backend's per-model
+   * cache rather than being written back over this setting.
+   */
+  setDecisionThinking(decisionThinking: DecisionThinkingMode): void {
+    if (this.config.decisionThinking === decisionThinking) return;
+    this.config = { ...this.config, decisionThinking };
+    this.writeConfig();
   }
 
   /**

@@ -184,7 +184,7 @@
   --card-foreground: #d4d4d4;
   --popover: #141414d9;
   --popover-foreground: #d4d4d4;
-  --primary: #d4acfb;
+  --primary: #ec4b97;
   --primary-foreground: #0a0a0a;
   --secondary: #1a1a2e;
   --secondary-foreground: #e8d4ff;
@@ -196,22 +196,22 @@
   --accent-foreground: #f0e8ff;
   --destructive: #ff6b9d;
   --destructive-foreground: #0a0a0a;
-  --border: #d4adfc33;
-  --input: #d4adfc33;
-  --ring: #d4acfb;
+  --border: color-mix(in srgb, var(--primary) 20%, transparent);
+  --input: var(--border);
+  --ring: var(--primary);
   --radius: 0.75rem;
   --sidebar: #08061a;
   --sidebar-foreground: #e8d4ff;
-  --sidebar-border: #d4adfc22;
-  --sidebar-accent: #d4acfb1a;
-  --sidebar-accent-foreground: #d4acfb;
+  --sidebar-border: color-mix(in srgb, var(--primary) 13%, transparent);
+  --sidebar-accent: color-mix(in srgb, var(--primary) 10%, transparent);
+  --sidebar-accent-foreground: var(--primary);
   --glow-primary: color-mix(in srgb, var(--primary) 15%, transparent);
   --glow-accent: color-mix(in srgb, var(--primary) 12%, transparent);
 
   /* Theme hooks for shared chat, roleplay, and game chrome. */
   --marinara-topbar-surface: color-mix(in srgb, var(--card) 80%, transparent);
   --marinara-topbar-border: color-mix(in srgb, var(--border) 30%, transparent);
-  --marinara-shell-edge-border: color-mix(in srgb, var(--foreground) 14%, var(--background) 86%);
+  --marinara-shell-edge-border: color-mix(in srgb, var(--primary) 14%, var(--background) 86%);
   --marinara-music-player-shell-bg: var(--marinara-topbar-surface);
   --marinara-music-player-shell-border: var(--marinara-topbar-border);
   --marinara-music-player-text: #f7f3ef;
@@ -238,20 +238,8 @@
   --mari-logo-title-pink: #ec4899;
   --marinara-app-accent-solid: var(--primary);
   --marinara-app-accent-static: var(--primary);
-  --marinara-app-accent-gradient: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--marinara-app-accent-solid) 72%, var(--background) 28%),
-    var(--marinara-app-accent-solid),
-    color-mix(in srgb, var(--marinara-app-accent-solid) 76%, var(--foreground) 24%),
-    var(--marinara-app-accent-solid)
-  );
-  --marinara-app-accent-static-gradient: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--marinara-app-accent-static) 72%, var(--background) 28%),
-    var(--marinara-app-accent-static),
-    color-mix(in srgb, var(--marinara-app-accent-static) 76%, var(--foreground) 24%),
-    var(--marinara-app-accent-static)
-  );
+  --marinara-app-accent-gradient: linear-gradient(90deg, #ec4b97, #f29744, #36cdde);
+  --marinara-app-accent-static-gradient: linear-gradient(90deg, #ec4b97, #f29744, #36cdde);
   --marinara-chat-chrome-accent: var(--marinara-app-accent-solid);
   --marinara-chat-chrome-accent-gradient: var(--marinara-app-accent-gradient);
   --marinara-chat-chrome-text: var(--card-foreground);
@@ -408,10 +396,10 @@
   --scrollbar-track: #1a1a2e40;
   --scrollbar-border: #0a0a0a66;
 
-  --marinara-custom-cursor-fill: #d4acfb;
+  --marinara-custom-cursor-fill: var(--primary);
   --marinara-custom-cursor-stroke: #050312;
-  --cursor-pink: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 3L10 20L12 12L20 10L3 3Z' fill='%23D4ACFB' stroke='%23050312' stroke-width='1'/%3E%3C/svg%3E")
-    3 3;
+  /* Legacy theme hook; App supplies a cursor painted with the current accent. */
+  --cursor-pink: none;
   --marinara-custom-cursor: var(--cursor-pink), auto;
 
   --y2k-pink: var(--primary);
@@ -422,7 +410,7 @@
   --y2k-lavender: #e8d4ff;
   --y2k-yellow: #fff5a8;
 
-  --pastel-rose: #ffd1e3;
+  --pastel-rose: var(--marinara-app-accent-solid);
   --pastel-lilac: #e0b8ff;
   --pastel-sky: #c5e7ff;
   --pastel-mint: #c7f5e8;
@@ -458,7 +446,7 @@
   --card-foreground: #1a1025;
   --popover: #ffffffee;
   --popover-foreground: #1a1025;
-  --primary: #e0709a;
+  --primary: #ec4b97;
   --primary-foreground: #0a0a0a;
   --secondary: #f0eaf7;
   --secondary-foreground: #3a2960;
@@ -470,14 +458,14 @@
   --accent-foreground: #1a1025;
   --destructive: #c44040;
   --destructive-foreground: #ffffff;
-  --border: #d4adfc44;
-  --input: #d4adfc44;
-  --ring: #d4acfb;
+  --border: color-mix(in srgb, var(--primary) 27%, transparent);
+  --input: var(--border);
+  --ring: var(--primary);
   --sidebar: #f5f0fc;
   --sidebar-foreground: #3a2960;
-  --sidebar-border: #d4adfc33;
-  --sidebar-accent: #d4acfb18;
-  --sidebar-accent-foreground: #d4acfb;
+  --sidebar-border: color-mix(in srgb, var(--primary) 20%, transparent);
+  --sidebar-accent: color-mix(in srgb, var(--primary) 9%, transparent);
+  --sidebar-accent-foreground: var(--primary);
   --glow-primary: color-mix(in srgb, var(--primary) 12%, transparent);
   --glow-accent: color-mix(in srgb, var(--primary) 8%, transparent);
   --marinara-music-player-shell-bg: color-mix(in srgb, var(--card) 94%, var(--secondary) 6%);
@@ -2294,9 +2282,9 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
 }
 
 .mari-chat-logo-mode--game {
-  --mari-chat-logo-mode-color: var(--mari-logo-pink);
-  --mari-chat-logo-mode-color-deep: var(--mari-logo-pink-deep);
-  --mari-chat-logo-mode-text: #fff7fb;
+  --mari-chat-logo-mode-color: var(--marinara-app-accent-solid);
+  --mari-chat-logo-mode-color-deep: color-mix(in srgb, var(--marinara-app-accent-solid) 85%, var(--background));
+  --mari-chat-logo-mode-text: var(--primary-foreground);
 }
 
 .mari-chat-mode-action {
@@ -2374,6 +2362,7 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   filter: none;
 }
 
+/* Resource sections keep their identifying palettes when the app accent changes. */
 .mari-panel-gradient--characters {
   --mari-panel-gradient-start: #f472b6;
   --mari-panel-gradient-end: #f43f5e;
@@ -2422,13 +2411,67 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   --mari-panel-gradient-text: #eef2ff;
 }
 
+/*
+ * The chip row wraps on desktop, but below 768px it flips to a single nowrap line with the
+ * scrollbar hidden (see the max-width: 767px block further down) so it does not eat vertical
+ * space next to the on-screen keyboard. Touch users swipe that line; a mouse user used to get
+ * a chip sliced in half with no hint that more existed. MariSuggestionChips now translates a
+ * mouse drag into scrollLeft and sets data-fade-left / data-fade-right from the live scroll
+ * position, and the fade is applied as a mask rather than a solid gradient overlay: the row
+ * renders over the chat background image, the floating Mari panel, and the conversation input
+ * alike, so there is no single base color an overlay could blend into. Both stops stay 0 and
+ * the mask rule below does not match at all while nothing is clipped, which leaves the
+ * wrapping desktop layout untouched.
+ */
 .mari-suggestion-chips {
+  --mari-suggestion-chips-fade: 1.5rem;
+  --mari-suggestion-chips-fade-left: 0px;
+  --mari-suggestion-chips-fade-right: 0px;
+
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
   gap: 0.375rem;
   align-items: center;
   margin-bottom: 0.375rem;
+  /* Keeps a chip reached by Tab from landing underneath its own edge fade. */
+  scroll-padding-inline: var(--mari-suggestion-chips-fade);
+}
+
+.mari-suggestion-chips[data-fade-left="true"],
+.mari-suggestion-chips[data-fade-right="true"] {
+  cursor: grab;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black var(--mari-suggestion-chips-fade-left),
+    black calc(100% - var(--mari-suggestion-chips-fade-right)),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black var(--mari-suggestion-chips-fade-left),
+    black calc(100% - var(--mari-suggestion-chips-fade-right)),
+    transparent 100%
+  );
+}
+
+.mari-suggestion-chips[data-fade-left="true"] {
+  --mari-suggestion-chips-fade-left: var(--mari-suggestion-chips-fade);
+}
+
+.mari-suggestion-chips[data-fade-right="true"] {
+  --mari-suggestion-chips-fade-right: var(--mari-suggestion-chips-fade);
+}
+
+.mari-suggestion-chips[data-dragging="true"] {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.mari-suggestion-chips[data-dragging="true"] .mari-suggestion-chip {
+  cursor: grabbing;
 }
 
 /*
@@ -2450,7 +2493,8 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   min-height: 2rem;
   padding: 0.375rem 0.6875rem;
   border-radius: 0.75rem;
-  border: 1px solid color-mix(in srgb, var(--chip-tint) 24%, var(--border) 76%);
+  /* Neutral tints are derived colors; mixing them with the derived --border can abort WebKit. */
+  border: 1px solid color-mix(in srgb, var(--chip-tint) 24%, transparent);
   background: color-mix(in srgb, var(--chip-tint) 7%, var(--card) 93%);
   color: color-mix(in srgb, var(--chip-tint) 42%, var(--foreground) 58%);
   font-weight: 600;
@@ -2467,7 +2511,7 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
 
 .mari-suggestion-chip:hover:not(:disabled) {
   background: color-mix(in srgb, var(--chip-tint) 12%, var(--card) 88%);
-  border-color: color-mix(in srgb, var(--chip-tint) 38%, var(--border) 62%);
+  border-color: color-mix(in srgb, var(--chip-tint) 38%, transparent);
   box-shadow:
     inset 0 1px color-mix(in srgb, var(--foreground) 9%, transparent),
     0 0.25rem 0.65rem color-mix(in srgb, var(--chip-tint) 12%, transparent);
@@ -2484,6 +2528,7 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
 }
 
 .mari-suggestion-chips--compact {
+  --mari-suggestion-chips-fade: 1.125rem;
   gap: 0.25rem;
 }
 
@@ -2547,7 +2592,7 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
  */
 .mari-suggestion-chip--selected {
   background: color-mix(in srgb, var(--chip-tint) 16%, var(--card) 84%);
-  border-color: color-mix(in srgb, var(--chip-tint) 48%, var(--border) 52%);
+  border-color: color-mix(in srgb, var(--chip-tint) 48%, transparent);
   box-shadow:
     inset 0 1px color-mix(in srgb, var(--foreground) 10%, transparent),
     inset 0 0 0 1px color-mix(in srgb, var(--chip-tint) 18%, transparent);
@@ -2568,9 +2613,9 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
 }
 
 .mari-avatar-placeholder--character {
-  --mari-avatar-placeholder-start: #f472b6;
-  --mari-avatar-placeholder-end: #f43f5e;
-  --mari-avatar-placeholder-text: #fff7fb;
+  --mari-avatar-placeholder-start: var(--marinara-app-accent-solid);
+  --mari-avatar-placeholder-end: color-mix(in srgb, var(--marinara-app-accent-solid) 76%, var(--foreground) 24%);
+  --mari-avatar-placeholder-text: var(--primary-foreground);
 }
 
 .mari-avatar-placeholder--persona {
@@ -3118,6 +3163,18 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
     transform 180ms linear;
 }
 
+/* Touch accents should repaint at their tick cadence, not start color, border
+   and shadow transitions across every mounted control between ticks.
+   ponytail: root colors still update at 2 Hz; isolated accent layers are the
+   upgrade path if device profiles need a smaller rendering budget. */
+@media (pointer: coarse) {
+  html[data-marinara-accent-animation] *,
+  html[data-marinara-accent-animation] *::before,
+  html[data-marinara-accent-animation] *::after {
+    transition-property: opacity, transform, translate, scale, rotate !important;
+  }
+}
+
 /* ─────────────────────────────────────────────
    4c. SHARED EDITOR CHROME
    Used by character, persona, preset, lorebook, connection, and agent editors.
@@ -3158,7 +3215,8 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
 }
 
 .mari-editor-header--with-nav .mari-editor-navigation {
-  flex: 0 1 auto;
+  /* Density queries size the tabs; flex shrinking would truncate their labels. */
+  flex: 0 0 auto;
 }
 
 .mari-editor-header--with-nav .mari-editor-actions {
@@ -3526,10 +3584,43 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   max-width: 48rem;
 }
 
+[data-editor-section] + [data-editor-section] {
+  margin-block-start: 2rem;
+  border-top: 1px solid var(--marinara-editor-border);
+  padding-block-start: 2rem;
+}
+
+/* iOS library/sidebar overlays do not need a second live copy of the scene behind them. */
+html[data-mari-ios-webkit] :is(.mari-modal, .mari-right-panel-content) [class*="backdrop-blur"] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Resolve the app background before the panel remaps its neutral-surface tokens.
+   An opaque backing keeps covered settings from showing through without blur. */
+html[data-mari-ios-webkit] .mari-modal {
+  --mari-modal-opaque-bg: var(--background);
+}
+
+html[data-mari-ios-webkit] .mari-modal-panel {
+  background-color: var(--mari-modal-opaque-bg);
+  background-image: linear-gradient(var(--marinara-chat-chrome-panel-bg), var(--marinara-chat-chrome-panel-bg));
+}
+
+/* Full-screen mobile navigation needs no translucent copy of the covered chat. */
+html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-component="ChatSidebarPanel"]) {
+  background-color: var(--background) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
 .mari-editor-tab {
   height: 2.25rem;
   min-height: 2.25rem;
+  gap: clamp(0.125rem, 0.4cqi, 0.375rem);
+  padding-inline: clamp(0.25rem, 0.6cqi, 0.625rem);
   color: var(--marinara-editor-muted);
+  font-size: clamp(0.6875rem, 1cqi, 0.75rem);
 }
 
 .mari-editor-tab:hover,
@@ -3948,11 +4039,12 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   }
 }
 
-@container (min-width: 96.001rem) and (max-width: 108rem) {
+/* Keep every section listed on desktop. Tight layouts shed decorative icons
+   before falling back to the existing mobile menu. */
+@container (min-width: 56rem) and (max-width: 96rem) {
   .mari-editor-tab {
     gap: 0.125rem;
     padding-inline: 0.25rem;
-    font-size: 0.625rem;
   }
 
   .mari-editor-tab > svg {
@@ -3978,17 +4070,37 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   }
 }
 
-@container (min-width: 90rem) {
-  .mari-editor-header--with-nav .mari-editor-header-main--identity {
-    flex-shrink: 0;
+@container (min-width: 56rem) and (max-width: 80rem) {
+  .mari-editor-header--with-nav {
+    gap: 0.5rem;
+    padding-inline: 0.75rem;
   }
 
-  .mari-editor-header-main--identity .mari-editor-byline {
-    flex-shrink: 0;
+  .mari-editor-header--with-nav .mari-editor-header-main {
+    min-width: 10rem;
+    gap: 0.5rem;
+  }
+
+  .mari-editor-header--with-nav .mari-editor-byline,
+  .mari-editor-header--with-nav .mari-editor-save-label {
+    display: none;
+  }
+
+  .mari-editor-header--with-nav .mari-editor-action {
+    height: 2rem;
+    min-height: 2rem;
+    min-width: 2rem;
+    padding: 0.375rem;
+  }
+
+  .mari-editor-header--with-nav .mari-editor-tab {
+    padding-inline: 0.125rem;
   }
 }
 
-@container (max-width: 96rem) {
+/* Only the narrow layout moves controls below the identity. Desktop sections
+   stay beside the name and avatar in the same single-row topbar. */
+@container not (min-width: 56rem) {
   .mari-editor-navigation-tabs {
     display: none;
   }
@@ -4451,8 +4563,20 @@ body {
   container-type: inline-size;
 }
 
+.mari-home-widget[data-home-widget-kind="package"] {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--card);
+}
+
 .mari-home-professor-widget .mari-professor-pixel-scene [data-part="sprite"] {
   width: 68%;
+}
+
+.mari-home-widget--achievements header > div > p:last-child {
+  font-size: 0.6875rem;
+  line-height: 1.375;
 }
 
 .mari-home-professor-widget .mari-professor-pixel-scene [data-part="laptop"] {
@@ -4539,6 +4663,12 @@ body {
     );
 }
 
+/* Image grids use their cards' hover feedback without resampling or filtering the artwork. */
+.mari-home-widget:is(.mari-home-widget--recent, .mari-home-widget--character-library) {
+  --mari-home-widget-hover-transform: none;
+  --mari-home-widget-hover-filter: none;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .mari-home-widget > :not(.mari-home-widget__drag-handle) {
     transform-origin: center;
@@ -4559,12 +4689,23 @@ body {
   }
 }
 
-.mari-home-feed-grid[data-home-grid-columns="1"] .mari-home-widget--recent {
+.mari-home-feed-grid[data-home-grid-columns="1"] :is(.mari-home-widget--recent, .mari-home-widget--character-library) {
   grid-column: span 1;
   grid-row: span 2;
 }
 
-.mari-home-feed-grid:not([data-home-grid-columns="1"]) .mari-home-widget--recent {
+.mari-home-feed-grid .mari-home-widget[data-home-widget-size="large"] {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+.mari-home-feed-grid[data-home-grid-columns="1"] .mari-home-widget[data-home-widget-size="large"] {
+  grid-column: span 1;
+  grid-row: span 2;
+}
+
+.mari-home-feed-grid:not([data-home-grid-columns="1"])
+  :is(.mari-home-widget--recent, .mari-home-widget--character-library) {
   grid-column: span 2;
   grid-row: span 2;
 }
@@ -5192,6 +5333,12 @@ strong {
   unicode-bidi: isolate;
 }
 
+.docs-reader-content .mari-md-inline-code {
+  color: var(--foreground);
+  background: var(--secondary);
+  border-color: var(--border);
+}
+
 /* Mixed-direction defence, docs viewer only: links and bold runs frequently
    hold LTR text (English UI labels, URLs) inside RTL prose; isolating them
    keeps the bidi algorithm from dragging sentence punctuation around.
@@ -5226,6 +5373,17 @@ strong {
   color: var(--muted-foreground);
   font-size: 0.8125em;
   line-height: 1.35;
+}
+
+/* One-request dice: a number the engine rolled after the Game Master committed the
+   sentence. The saved content carries a bare number, so this marker is reattached at
+   render time and its breakdown rides on the title attribute. Kept deliberately quiet:
+   it sits inside prose, and a loud badge on every damage number would read as noise. */
+.game-dice-marker {
+  color: var(--primary);
+  text-decoration: underline dotted currentColor;
+  text-underline-offset: 0.18em;
+  cursor: help;
 }
 
 /* Fenced code blocks */
@@ -5292,11 +5450,11 @@ strong {
 
 /* Blockquotes */
 .mari-message-content .mari-md-blockquote {
-  border: 1px solid var(--border);
+  border: 1px solid var(--marinara-app-accent-solid);
   border-radius: 0.5rem;
   padding: 0.5em 0.75em;
   margin: 0.35em 0;
-  background: color-mix(in srgb, var(--card) 94%, var(--accent));
+  background: color-mix(in srgb, var(--card) 94%, var(--marinara-app-accent-solid));
   color: inherit;
   font-style: italic;
 }
@@ -6461,7 +6619,6 @@ strong {
 
 .animate-message-in {
   animation: message-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, opacity;
 }
 
 @keyframes slide-in-left {
@@ -7450,6 +7607,10 @@ strong {
   font-size: 0.6875rem;
 }
 
+.mari-message {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ─────────────────────────────────────────────
    18. RESPONSIVE / MOBILE
    ───────────────────────────────────────────── */
@@ -7461,6 +7622,53 @@ strong {
 }
 
 @media (max-width: 767px) {
+  .mari-message-actions {
+    flex-wrap: nowrap;
+    column-gap: 0;
+    padding-inline: 0;
+  }
+
+  .mari-message-actions > button,
+  .mari-message-actions > div {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .mari-message-actions > div > button {
+    width: 100%;
+  }
+
+  [data-chat-mode="roleplay"] .mari-chat-input-textarea {
+    overscroll-behavior-y: contain;
+  }
+
+  .mari-gallery-generation-actions > button,
+  .mari-gallery-generation-actions > div > button {
+    @apply relative min-h-11 flex-col gap-1 px-1 py-2 text-[0.625rem];
+  }
+
+  .mari-gallery-generation-actions > button > svg,
+  .mari-gallery-generation-actions > div > button > svg {
+    @apply size-3;
+  }
+
+  .mari-gallery-generation-actions > button > span,
+  .mari-gallery-generation-actions > div > button > span {
+    @apply max-w-full whitespace-normal break-words;
+  }
+
+  .mari-gallery-image-actions {
+    @apply grid grid-cols-[repeat(auto-fit,minmax(24px,1fr))] gap-0.5 p-1;
+  }
+
+  .mari-gallery-image-actions button {
+    @apply flex min-h-8 min-w-0 items-center justify-center px-0;
+  }
+
+  .mari-gallery-image-actions .mari-chrome-accent-surface {
+    @apply border-transparent bg-white/20 text-white hover:bg-white/30;
+  }
+
   /*
    * WKWebView native backing color is set by the literal background-color in
    * index.html <style> (inline critical CSS — not cached by SW, always fresh).
@@ -7468,14 +7676,36 @@ strong {
    * the literal and WKWebView cannot resolve variables → shows black instead.
    */
   html {
-    min-height: 100dvh;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
     overflow: hidden;
+    overscroll-behavior: none;
   }
 
   body {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
     /* Safe-area insets handled by AppShell — only apply sides here */
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+  }
+
+  /* A fixed ancestor lets iOS WebKit pan the whole app when any descendant
+     input opens the keyboard. Keep iOS surfaces in document coordinates so
+     they can follow the visual viewport directly. */
+  html[data-mari-ios-webkit] body {
+    position: static;
+  }
+
+  #root {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
   }
 
   /* Scoped to conversation/roleplay/game (each sets data-chat-mode on its
@@ -7486,8 +7716,58 @@ strong {
     bottom: auto;
     height: var(--mari-visual-viewport-height, 100dvh);
     min-height: 0;
-    /* Counters the iOS scroll-drag bug described in AppShell.tsx. */
-    transform: translateY(var(--mari-app-scroll-compensate, 0px)) translateZ(0);
+  }
+
+  /* Cover both the app and body-portal dialogs. Character/persona fields use
+     the same viewport contract as chat instead of falling back to fixed UI. */
+  html[data-mari-ios-webkit] .mari-app,
+  html[data-mari-ios-webkit] .mari-modal {
+    position: absolute;
+    top: var(--mari-visual-viewport-offset-top, 0px);
+    bottom: auto;
+    height: var(--mari-visual-viewport-height, 100dvh);
+    min-height: 0;
+  }
+
+  /* Body-portalled chat menus otherwise stay in layout-viewport coordinates
+     while iPhone pans the visual viewport for its keyboard. Keep the focused
+     menu and its scroll shell inside the screen the user can actually see. */
+  html[data-mari-software-keyboard-open]
+    body
+    > [data-chat-floating-panel]:not(.mari-modal):not([data-component="ExpandedTextarea"]):focus-within {
+    position: absolute !important;
+    top: calc(var(--mari-visual-viewport-offset-top, 0px) + 0.5rem) !important;
+    bottom: auto !important;
+    max-height: calc(var(--mari-visual-viewport-height, 100dvh) - 1rem) !important;
+  }
+
+  html[data-mari-software-keyboard-open]
+    body
+    > [data-chat-floating-panel]:not(.mari-modal):not([data-component="ExpandedTextarea"]):focus-within
+    > :only-child {
+    max-height: inherit !important;
+  }
+
+  html[data-mari-software-keyboard-open]
+    body
+    > [data-chat-floating-panel]:focus-within:has(> [data-chat-floating-scroll]) {
+    display: flex !important;
+    min-height: 0 !important;
+    flex-direction: column !important;
+  }
+
+  html[data-mari-software-keyboard-open] body > [data-chat-floating-panel]:focus-within > [data-chat-floating-scroll] {
+    min-height: 0 !important;
+    max-height: none !important;
+    flex: 1 1 auto !important;
+  }
+
+  html[data-mari-ios-webkit] body > [data-component="ExpandedTextarea"] {
+    position: absolute;
+    top: var(--mari-visual-viewport-offset-top, 0px);
+    bottom: auto;
+    height: var(--mari-visual-viewport-height, 100dvh);
+    min-height: 0;
   }
 
   .app-sidebar-mobile {
@@ -7635,6 +7915,10 @@ strong {
   .rpg-chat-messages-mobile {
     padding-left: max(0.5rem, env(safe-area-inset-left)) !important;
     padding-right: max(0.5rem, env(safe-area-inset-right)) !important;
+  }
+
+  [data-chat-mode]:has([data-roleplay-agent-window="echo"]) .mari-chat-load-more {
+    padding-top: 2.25rem;
   }
 
   [data-chat-mode="roleplay"] .rpg-narrator-msg {
@@ -7805,14 +8089,6 @@ strong {
   ),
 .mari-generation-render-paused .rpg-streaming::after {
   animation-play-state: paused !important;
-}
-
-.rpg-sprite-container img,
-.rpg-avatar-glow img,
-.rpg-avatar-panel img,
-.rpg-avatar-panel-media img,
-.rpg-avatar-panel-tail-image {
-  will-change: opacity, filter;
 }
 
 .game-stats-bar-fill {
@@ -8749,12 +9025,18 @@ strong {
 }
 
 :root[data-professor-mari-floating="true"] .mari-conversation-call-mini {
-  bottom: calc(max(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)), 0.75rem) + min(32rem, calc(100vh - 5rem)) + 0.75rem);
+  bottom: calc(
+    max(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)), 0.75rem) + min(32rem, calc(100vh - 5rem)) +
+      0.75rem
+  );
 }
 
 @supports (height: 100dvh) {
   :root[data-professor-mari-floating="true"] .mari-conversation-call-mini {
-    bottom: calc(max(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)), 0.75rem) + min(32rem, calc(100dvh - 5rem)) + 0.75rem);
+    bottom: calc(
+      max(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)), 0.75rem) + min(32rem, calc(100dvh - 5rem)) +
+        0.75rem
+    );
   }
 }
 

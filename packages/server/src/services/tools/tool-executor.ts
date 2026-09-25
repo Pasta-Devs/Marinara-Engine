@@ -4,14 +4,22 @@
 import type { LLMToolCall } from "../llm/base-provider.js";
 import { createHash } from "node:crypto";
 import { Worker } from "node:worker_threads";
-import Ajv from "ajv";
-import addFormats from "ajv-formats";
 import {
   getCustomToolTimeoutMs,
   isCustomToolScriptEnabled,
   isWebhookLocalUrlsEnabled,
 } from "../../config/runtime-config.js";
 import { safeFetch } from "../../utils/security.js";
+import {
+  createToolArgumentsAjv,
+  createToolArgumentsValidator,
+  type ToolArgumentsValidator,
+} from "./tool-arguments-validator.js";
+import {
+  executeCapabilityTool,
+  isCapabilityTool,
+  validateCapabilityToolArguments,
+} from "../capability-packages/capability-tool-registry.service.js";
 import { logger } from "../../lib/logger.js";
 import { normalizeSpotifySearchQuery } from "../spotify/spotify.service.js";
 import { buildSpotifyCandidateTokens, normalizeSpotifyText } from "../spotify/spotify-query-tokens.js";
@@ -19,35 +27,17 @@ import {
   appendChatSummaryEntryToMetadata,
   BUILT_IN_TOOLS,
   isJsonRecord,
+  isWithinDiceLimits,
+  MAX_DICE_COUNT,
+  MAX_DICE_SIDES,
+  parseDiceNotation,
+  rollParsedDice,
   SPOTIFY_RECENT_TRACK_HISTORY_LIMIT,
 } from "@marinara-engine/shared";
 
 type ToolExecutionOutcome =
-  | { result: unknown; success: true; httpStatus?: never }
-  | { result: unknown; success: false; httpStatus?: number };
-export type ToolArgumentsValidator = (args: Record<string, unknown>) => string | null;
-
-function createToolArgumentsAjv(): Ajv {
-  const ajv = new Ajv({ strict: false });
-  addFormats(ajv);
-  return ajv;
-}
-
-function createToolArgumentsValidator(
-  parametersSchema: Record<string, unknown>,
-  ajv = createToolArgumentsAjv(),
-): ToolArgumentsValidator {
-  const validate = ajv.compile(parametersSchema);
-  if ("$async" in validate && validate.$async === true) {
-    throw new Error("Async tool parameter schemas are not supported");
-  }
-  return (args) =>
-    validate(args)
-      ? null
-      : ajv.errorsText(validate.errors, {
-          dataVar: "arguments",
-        });
-}
+  { result: unknown; success: true; httpStatus?: never } | { result: unknown; success: false; httpStatus?: number };
+export type { ToolArgumentsValidator };
 
 export interface ToolExecutionResult {
   toolCallId: string;
@@ -204,7 +194,13 @@ type SpotifyPlayRequestBody = {
 const spotifyTrackIndexCache = new Map<string, SpotifyTrackIndexCacheEntry>();
 
 export interface ToolExecutionContext {
+  /** The chat this call belongs to, so a package tool knows which world it is answering about. */
+  chatId?: string;
+  /** Apply the active chat's character attributes before the shared dice service rolls. */
+  prepareDiceRoll?: (args: Record<string, unknown>) => Record<string, unknown>;
   gameState?: Record<string, unknown>;
+  /** Returns a stored patch, or an explicit pending patch until the turn is saved. */
+  applyGameStateUpdate?: (update: { type: string; value: string }) => Promise<Record<string, unknown>>;
   chatMeta?: Record<string, unknown>;
   hiddenContext?: CustomToolHiddenContext;
   /** The character whose turn invoked the tool (Conversation mode; used by update_about_me). */
@@ -250,6 +246,10 @@ export async function executeToolCalls(
         }
         outcome = classifyToolExecution(await executeBuiltInTool(call.function.name, parsedArguments, context));
       } else {
+        // Built-in, then custom, then package — the same order tool resolution uses when it decides
+        // which definition the model is shown. A package must lose a name a custom tool already
+        // owns, or the model would be offered the custom tool's schema while the package's handler
+        // quietly ran the call.
         const customTool = context?.customTools?.find((tool) => tool.name === call.function.name);
         if (customTool) {
           const validationError = customTool.validateArguments(parsedArguments);
@@ -257,6 +257,16 @@ export async function executeToolCalls(
             throw new Error(`Invalid arguments for ${call.function.name}: ${validationError}`);
           }
           outcome = await executeCustomTool(customTool, parsedArguments, context);
+        } else if (isCapabilityTool(call.function.name)) {
+          // Validated with the same Ajv the built-ins use, so a model that invents an enum member
+          // is told which ones exist and can correct itself next round.
+          const validationError = validateCapabilityToolArguments(call.function.name, parsedArguments);
+          if (validationError) {
+            throw new Error(`Invalid arguments for ${call.function.name}: ${validationError}`);
+          }
+          outcome = classifyToolExecution(
+            await executeCapabilityTool(call.function.name, parsedArguments, context?.chatId ?? ""),
+          );
         } else {
           outcome = {
             result: {
@@ -305,9 +315,9 @@ async function executeBuiltInTool(
 ): Promise<unknown> {
   switch (name) {
     case "roll_dice":
-      return rollDice(args);
+      return rollDice(context?.prepareDiceRoll ? context.prepareDiceRoll(args) : args);
     case "update_game_state":
-      return updateGameState(args, context?.gameState);
+      return updateGameState(args, context?.applyGameStateUpdate);
     case "set_expression":
       return setExpression(args);
     case "trigger_event":
@@ -491,50 +501,83 @@ function rollDice(args: Record<string, unknown>): Record<string, unknown> {
   const notation = String(args.notation ?? "1d6");
   const reason = String(args.reason ?? "");
 
-  // Parse notation: NdS+M or NdS-M
-  const match = notation.match(/^(\d+)d(\d+)([+-]\d+)?$/i);
-  if (!match) {
-    return { error: `Invalid dice notation: ${notation}`, hint: "Use format like 2d6, 1d20+5, 3d8-2" };
+  let parsed = parseDiceNotation(notation);
+  if (!parsed) {
+    return { error: `Invalid dice notation: ${notation}`, hint: "Use format like 2d6, d20+5, 3d8-2" };
   }
 
-  const count = parseInt(match[1]!, 10);
-  const sides = parseInt(match[2]!, 10);
-  const modifier = match[3] ? parseInt(match[3], 10) : 0;
-
-  if (count < 1 || count > 100 || sides < 2 || sides > 1000) {
-    return { error: "Dice values out of range (1-100 dice, 2-1000 sides)" };
+  // Arguments were schema-validated before Roleplay added the assigned attribute bonus.
+  const situationalModifier = args.modifier as number | undefined;
+  const dc = args.dc as number | undefined;
+  if (situationalModifier) {
+    const combined = parsed.modifier + situationalModifier;
+    parsed = parseDiceNotation(`${parsed.dice}${combined > 0 ? "+" : ""}${combined || ""}`);
+    if (!parsed) return { error: "The adjusted roll exceeds the supported numeric range." };
   }
 
-  const rolls: number[] = [];
-  for (let i = 0; i < count; i++) {
-    rolls.push(Math.floor(Math.random() * sides) + 1);
+  // Refuse rather than clamp. A result that quietly rolled 100 dice for a model
+  // that asked for 500 is a lie the model has no way to notice.
+  if (!isWithinDiceLimits(parsed) || parsed.sides < 2) {
+    return { error: `Dice values out of range (1-${MAX_DICE_COUNT} dice, 2-${MAX_DICE_SIDES} sides)` };
   }
+
+  const { rolls, modifier, total } = rollParsedDice(parsed);
+  // Sum the dice directly rather than re-deriving it as total - modifier. The
+  // two agree now that the grammar refuses any notation whose range of totals
+  // could leave the exact integers, so this is not a workaround for drift — it
+  // is what the field means, and it keeps meaning it without leaning on that
+  // guarantee holding forever.
   const sum = rolls.reduce((a, b) => a + b, 0);
-  const total = sum + modifier;
 
   return {
-    notation,
+    notation: parsed.notation,
     rolls,
     sum,
     modifier,
     total,
     reason,
-    display: `🎲 ${notation}${reason ? ` (${reason})` : ""}: [${rolls.join(", ")}]${modifier ? ` ${modifier > 0 ? "+" : ""}${modifier}` : ""} = **${total}**`,
+    ...(dc !== undefined ? { dc, success: total >= dc } : {}),
+    display: `🎲 ${parsed.notation}${reason ? ` (${reason})` : ""}: [${rolls.join(", ")}]${modifier ? ` ${modifier > 0 ? "+" : ""}${modifier}` : ""} = **${total}**${dc !== undefined ? ` (DC ${dc})` : ""}`,
   };
 }
 
-function updateGameState(args: Record<string, unknown>, _gameState?: Record<string, unknown>): Record<string, unknown> {
-  // Returns the update instruction — the client/agent pipeline applies it
+// The only two update types the generation route writes back to the game state.
+// Everything else this tool used to accept was answered with `applied: true` and
+// then silently dropped. The manifest enum is what the model is actually held to —
+// argument validation rejects a dead type before the executor runs — so the guard
+// below is defence in depth for any caller that reaches it without that schema.
+export const PERSISTED_GAME_STATE_UPDATE_TYPES = ["location_change", "time_advance"] as const;
+
+async function updateGameState(
+  args: Record<string, unknown>,
+  applyUpdate?: ToolExecutionContext["applyGameStateUpdate"],
+): Promise<Record<string, unknown>> {
+  const type = String(args.type ?? "");
+  if (!(PERSISTED_GAME_STATE_UPDATE_TYPES as readonly string[]).includes(type)) {
+    return {
+      error: `update_game_state cannot apply "${type}".`,
+      hint: "Only location_change and time_advance are stored. Describe stat, inventory and quest changes in the narration instead.",
+      supportedTypes: [...PERSISTED_GAME_STATE_UPDATE_TYPES],
+    };
+  }
+
+  const value = typeof args.value === "string" ? args.value.trim() : "";
+  if (!value) throw new Error("A non-empty location or time value is required.");
+  if (!applyUpdate) throw new Error("Game-state writes are not available in this context.");
+  const stored = await applyUpdate({ type, value });
+  const field = type === "location_change" ? "location" : "time";
+  if (stored[field] !== value) throw new Error("The requested game-state value was not stored.");
   return {
-    applied: true,
+    applied: stored.pending !== true,
+    ...(stored.pending === true
+      ? { pending: true, note: "Queued for this turn. The change is not applied until this response is saved." }
+      : {}),
     update: {
       type: args.type,
-      target: args.target,
-      key: args.key,
-      value: args.value,
+      value,
       description: args.description ?? "",
     },
-    display: `📊 ${args.type}: ${args.target} — ${args.key} → ${args.value}`,
+    display: `📊 ${type} → ${value}`,
   };
 }
 

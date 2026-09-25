@@ -52,6 +52,9 @@ export interface CharacterExtensions {
   nameAliases?: string[];
   /** Marinara Engine: RPG stats toggle + custom attributes */
   rpgStats?: RPGStatsConfig;
+  /** Marinara Engine: starting builds for Game Mode rulesets, keyed by ruleset id. A game copies
+   *  the one it needs; a sheet for a ruleset that is not installed is kept dormant. */
+  rulesetSheets?: Record<string, unknown>;
   /** Marinara Engine: per-character Tracker fields copied into each new Roleplay chat. */
   trackerCustomFieldDefaults?: CharacterTrackerCustomFieldDefault[];
   /** Marinara Engine: Conversation-mode availability status */
@@ -66,6 +69,8 @@ export interface CharacterExtensions {
    *  `chats.metadata.characterSchedules`. Per-chat opt-out lives on the chat as
    *  `conversationSchedulesEnabled`. */
   conversationSchedule?: import("../utils/conversation-presence.js").WeekSchedule;
+  /** Renew the weekly Conversation schedule when its week ends. Defaults on when a schedule exists. */
+  conversationScheduleAutoRenew?: boolean;
   /** Marinara Engine: pronunciation override used when sending this character's name to TTS. */
   phoneticName?: string;
   /** Marinara Engine (Conversation mode ONLY): display name shown as the sender label
@@ -155,18 +160,7 @@ export interface CharacterBook {
 }
 
 export type CharacterBookEntryPosition =
-  | "before_char"
-  | "after_char"
-  | "at_depth"
-  | "depth"
-  | 0
-  | 1
-  | 2
-  | 3
-  | 4
-  | 5
-  | 6
-  | 7;
+  "before_char" | "after_char" | "at_depth" | "depth" | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type CharacterBookEntryRole = "system" | "user" | "assistant" | 0 | 1 | 2;
 
 /** A single entry in a character book. */

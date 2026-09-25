@@ -94,7 +94,7 @@ export function ExpandedTextarea({
           >
             <h2 className={isChatSurface ? NEUTRAL_PANEL_TITLE : "text-sm font-semibold"}>{title}</h2>
             <div className="flex items-center gap-2">
-              <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+              <span className="text-[0.625rem] text-[var(--marinara-chat-chrome-panel-muted)]">
                 {value.length} {localizeUi("ui.noodle.noodlehome.characters")}
               </span>
               <button
@@ -105,7 +105,7 @@ export function ExpandedTextarea({
                   "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition-colors",
                   isChatSurface
                     ? "border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                    : "text-[var(--marinara-chat-chrome-button-text)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
                 )}
               >
                 <Minimize2 size="0.875rem" />

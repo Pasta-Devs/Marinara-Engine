@@ -1,6 +1,8 @@
 import dotenv from "dotenv";
+import { randomUUID } from "node:crypto";
+import { REQUEST_TIMEOUTS, requestTimeoutSettingsSchema, type RequestTimeoutSettings } from "@marinara-engine/shared";
 import { logger as sharedLogger } from "../lib/logger.js";
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -154,14 +156,15 @@ export function loadRuntimeEnv() {
   const envPath = getEnvFilePath();
   ensureEnvFileExists(envPath);
   if (existsSync(envPath)) {
-    const result = dotenv.config({ path: envPath });
+    const result = dotenv.config({ path: envPath, quiet: true });
     if (result.parsed) {
       envFileKeys = new Set(Object.keys(result.parsed));
     }
   } else {
-    dotenv.config();
+    dotenv.config({ quiet: true });
   }
 
+  applySavedRequestTimeouts();
   normalizeRuntimeTimezoneEnv();
 
   envLoaded = true;
@@ -194,6 +197,7 @@ export function reloadRuntimeEnv(): EnvReloadResult {
       delete process.env[key];
     }
     envFileKeys = new Set();
+    applySavedRequestTimeouts();
     return { added: [], updated: [], removed, unchanged: [] };
   }
 
@@ -226,6 +230,7 @@ export function reloadRuntimeEnv(): EnvReloadResult {
     }
   }
 
+  applySavedRequestTimeouts();
   normalizeRuntimeTimezoneEnv();
   envFileKeys = newKeys;
   return { added, updated, removed, unchanged };
@@ -467,6 +472,22 @@ export function isUpdatesApplyEnabled() {
   return isEnabledFlag(process.env.UPDATES_APPLY_ENABLED);
 }
 
+/**
+ * Hard refusal for server-side update application (#5646). The dev and e2e
+ * launchers set UPDATES_APPLY_DISABLED so a loopback browser tab pointed at a
+ * server booted from a working repo can never stash/checkout/rebuild that
+ * checkout via the channel selector. Wins over UPDATES_APPLY_ENABLED and the
+ * loopback channel-switch bypass.
+ */
+const BOOT_UPDATES_APPLY_HARD_DISABLED = isEnabledFlag(process.env.UPDATES_APPLY_DISABLED);
+
+export function isUpdatesApplyHardDisabled() {
+  // Latched at boot: the launchers set this in the environment, and a later
+  // .env hot-reload writing UPDATES_APPLY_DISABLED=false must not lift a
+  // guard whose whole point is protecting the checkout this process runs from.
+  return BOOT_UPDATES_APPLY_HARD_DISABLED || isEnabledFlag(process.env.UPDATES_APPLY_DISABLED);
+}
+
 export function isUpdatesRemoteApplyAllowed() {
   return isEnabledFlag(process.env.UPDATES_ALLOW_REMOTE_APPLY);
 }
@@ -503,30 +524,82 @@ export function getGameDynamicImagePromptTimeoutMs() {
 }
 
 /**
+ * SteamOS ships games that claim most of the Deck's 16 GiB of shared RAM, so
+ * unbounded load-and-keep gets the server OOM-killed mid session (#5838). The
+ * cap matches the one the Termux launcher exports, but lives engine-side so it
+ * covers every launch method (start.sh, systemd units, direct node) and so an
+ * explicit MARINARA_MAX_RESIDENT_CHATS - including 0 to disable - always wins
+ * at boot AND on .env hot reload. A launcher export could not offer that: the
+ * initial .env load never overrides inherited shell variables, while hot
+ * reloads do, so the same .env line would flap between boots and reloads.
+ */
+const CONSTRAINED_PLATFORM_DEFAULT_MAX_RESIDENT_CHATS = 8;
+
+let cachedSteamOsDetection: boolean | null = null;
+
+/** Exported for the regression lane; production goes through the cached path. */
+export function detectSteamOs(
+  osReleasePath = "/etc/os-release",
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  if (platform !== "linux") return false;
+  try {
+    return /^ID=["']?steamos["']?\s*$/mu.test(readFileSync(osReleasePath, "utf8"));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Android means Termux - the only way this server runs there. Its launcher
+ * already exports 8 when the variable is unset, so this engine-side default
+ * matters for launcher-less launches and for invalid values, which bash's
+ * ${VAR:-8} substitution passes through verbatim.
+ */
+function constrainedPlatformDetected(): boolean {
+  if (process.platform === "android") return true;
+  if (cachedSteamOsDetection === null) cachedSteamOsDetection = detectSteamOs();
+  return cachedSteamOsDetection;
+}
+
+/** The parameter is a test seam; production callers use the detected value. */
+export function platformDefaultMaxResidentChatUnits(constrained = constrainedPlatformDetected()): number {
+  return constrained ? CONSTRAINED_PLATFORM_DEFAULT_MAX_RESIDENT_CHATS : 0;
+}
+
+/**
  * Resident chat-unit cap for the lazy file store (#5592 Phase 2 PR-B).
- * 0 (the default when unset or invalid) disables eviction entirely,
- * preserving load-and-keep behavior. Read per sweep so .env hot reloads
- * apply without a restart. The floor of 2 keeps multi-chat operations
- * (branching, cross-chat notes) from thrashing their own working set.
+ * When unset or invalid, the platform default applies: 8 on SteamOS (#5838),
+ * otherwise 0, which disables eviction entirely and preserves load-and-keep
+ * behavior. Read per sweep so .env hot reloads apply without a restart. The
+ * floor of 2 keeps multi-chat operations (branching, cross-chat notes) from
+ * thrashing their own working set.
  */
 let lastInvalidMaxResidentChats: string | null = null;
 
 export function getMaxResidentChatUnits() {
   const raw = normalizeEnvValue(process.env.MARINARA_MAX_RESIDENT_CHATS);
-  if (!raw) return 0;
+  if (!raw) {
+    lastInvalidMaxResidentChats = null;
+    return platformDefaultMaxResidentChatUnits();
+  }
   const parsed = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
   if (!Number.isSafeInteger(parsed) || parsed < 0) {
-    // Warn once per distinct value: a typo silently disabling eviction would
-    // remove the memory bound on exactly the constrained targets (the Termux
-    // launcher defaults this to 8).
+    // Warn once per distinct value. An invalid value falls back to the
+    // platform default rather than to 0, because a typo silently disabling
+    // eviction would remove the memory bound on exactly the constrained
+    // targets - Android/Termux and SteamOS, both covered by the platform
+    // default above (the Termux launcher's ${VAR:-8} only covers unset, not
+    // invalid text, which it exports verbatim).
     if (lastInvalidMaxResidentChats !== raw) {
       lastInvalidMaxResidentChats = raw;
       sharedLogger.warn(
-        "[runtime-config] Ignoring invalid MARINARA_MAX_RESIDENT_CHATS=%s; expected 0 (disabled) or a positive integer — eviction stays disabled",
+        "[runtime-config] Ignoring invalid MARINARA_MAX_RESIDENT_CHATS=%s; expected 0 (disabled) or a positive integer — using the platform default (%d)",
         raw,
+        platformDefaultMaxResidentChatUnits(),
       );
     }
-    return 0;
+    return platformDefaultMaxResidentChatUnits();
   }
   lastInvalidMaxResidentChats = null;
   if (parsed === 0) return 0;
@@ -716,4 +789,49 @@ export function isAutoCreateDefaultConnectionDisabled(value = process.env.AUTO_C
 export function logStorageDiagnostics(logger: { info(...args: any[]): void } = sharedLogger) {
   logger.info("[storage] DATA_DIR=%s", getDataDir());
   logger.info("[storage] FILE_STORAGE_DIR=%s", getFileStorageDir());
+}
+
+/** Kept beside the active .env, so server-wide preferences survive profile changes. */
+function requestTimeoutSettingsPath() {
+  return `${getEnvFilePath()}.timeouts.json`;
+}
+
+function applySavedRequestTimeouts() {
+  const path = requestTimeoutSettingsPath();
+  if (!existsSync(path)) return;
+  try {
+    const settings = requestTimeoutSettingsSchema.parse(JSON.parse(readFileSync(path, "utf8")));
+    for (const [key, spec] of Object.entries(REQUEST_TIMEOUTS)) {
+      process.env[spec.env] = String(settings[key as keyof RequestTimeoutSettings] * spec.unit);
+    }
+  } catch (error) {
+    setImmediate(() => sharedLogger.warn(error, "Ignoring invalid saved request timeout settings"));
+  }
+}
+
+export function getRequestTimeoutSettings(): RequestTimeoutSettings {
+  return Object.fromEntries(
+    Object.entries(REQUEST_TIMEOUTS).map(([key, spec]) => {
+      const seconds = Number(process.env[spec.env]) / spec.unit;
+      return [
+        key,
+        Number.isInteger(seconds) && seconds >= 10 && seconds <= spec.maxSeconds ? seconds : spec.defaultSeconds,
+      ];
+    }),
+  ) as RequestTimeoutSettings;
+}
+
+export function saveRequestTimeoutSettings(input: unknown): RequestTimeoutSettings {
+  const settings = requestTimeoutSettingsSchema.parse(input);
+  const path = requestTimeoutSettingsPath();
+  const temporaryPath = `${path}.${randomUUID()}.tmp`;
+  mkdirSync(dirname(path), { recursive: true });
+  try {
+    writeFileSync(temporaryPath, JSON.stringify(settings, null, 2) + "\n", { mode: 0o600, flag: "wx" });
+    renameSync(temporaryPath, path);
+  } finally {
+    rmSync(temporaryPath, { force: true });
+  }
+  applySavedRequestTimeouts();
+  return settings;
 }

@@ -3,10 +3,7 @@
 // ──────────────────────────────────────────────
 
 export type MarinaraFolderKind =
-  | "marinara.agent-folder"
-  | "marinara.function-folder"
-  | "marinara.theme-folder"
-  | "marinara.preset-folder";
+  "marinara.agent-folder" | "marinara.function-folder" | "marinara.theme-folder" | "marinara.preset-folder";
 
 export interface MarinaraItemManifest<T = unknown> {
   kind: string;

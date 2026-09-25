@@ -18,6 +18,11 @@ type RoleplaySummaryQueryMessage = {
   content?: unknown;
 };
 
+/** The agent context toggle does not change main generation or dedicated summary requests. */
+export function shouldAttachSummariesToAgents(chatMode: string, chatMetadata: Record<string, unknown>): boolean {
+  return chatMode !== "roleplay" || chatMetadata.attachSummariesToAgents === true;
+}
+
 function filterExcludedSummaryEntries(entries: ChatSummaryEntry[], excludeMessageIds: readonly string[]) {
   const excludedMessageIds = new Set(excludeMessageIds.filter(Boolean));
   if (excludedMessageIds.size === 0) return entries;

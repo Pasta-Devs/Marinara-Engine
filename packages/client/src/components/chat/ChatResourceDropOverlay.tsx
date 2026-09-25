@@ -17,6 +17,7 @@ import {
   requestChatAgentSetup,
   clearActiveChatResourceDrag,
   getActiveChatResourceDrag,
+  getActiveChatResourceMouseDrag,
   readChatResourceDragPayload,
   takePendingChatResourcePanelRestore,
   type ChatResourceDragPayload,
@@ -231,11 +232,12 @@ export function ChatResourceDropOverlay({ chat }: { chat: Chat }) {
   chatRef.current = chat;
 
   const resolveOverlay = useCallback(
-    (target: EventTarget | null, dataTransfer: DataTransfer) => {
-      if (!dataTransfer.types.includes(CHAT_RESOURCE_DRAG_MIME) && !getActiveChatResourceDrag()) return null;
+    (target: EventTarget | null, dataTransfer?: DataTransfer) => {
+      if (dataTransfer && !dataTransfer.types.includes(CHAT_RESOURCE_DRAG_MIME) && !getActiveChatResourceDrag())
+        return null;
       const surface = findDropSurface(target);
       if (!surface) return null;
-      const payload = readChatResourceDragPayload(dataTransfer);
+      const payload = dataTransfer ? readChatResourceDragPayload(dataTransfer) : getActiveChatResourceMouseDrag();
       if (!payload) return null;
       const currentChat = chatRef.current;
       const action = resolveChatResourceDropAction(payload, currentChat, undefined, lorebooks);
@@ -623,13 +625,38 @@ export function ChatResourceDropOverlay({ chat }: { chat: Chat }) {
       updateOverlay(null);
       clearActiveChatResourceDrag();
     };
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!getActiveChatResourceMouseDrag()) return;
+      if (!(event.buttons & 1)) clear();
+      else updateOverlay(resolveOverlay(event.target));
+    };
+    const handleMouseUp = (event: MouseEvent) => {
+      if (event.button !== 0 || !getActiveChatResourceMouseDrag()) return;
+      const next = resolveOverlay(event.target);
+      updateOverlay(null);
+      if (next) runAssignment(next.payload);
+      // The drag hook still needs this event to remove its preview and restore the row.
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") clear();
+    };
     window.addEventListener("dragover", handleDragOver, true);
     window.addEventListener("drop", handleDrop, true);
     window.addEventListener("dragend", clear, true);
+    window.addEventListener("mousemove", handleMouseMove, true);
+    window.addEventListener("mouseup", handleMouseUp, true);
+    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("blur", clear);
+    window.addEventListener("pagehide", clear);
     return () => {
       window.removeEventListener("dragover", handleDragOver, true);
       window.removeEventListener("drop", handleDrop, true);
       window.removeEventListener("dragend", clear, true);
+      window.removeEventListener("mousemove", handleMouseMove, true);
+      window.removeEventListener("mouseup", handleMouseUp, true);
+      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("blur", clear);
+      window.removeEventListener("pagehide", clear);
     };
   }, [resolveOverlay, runAssignment, t, updateOverlay]);
 

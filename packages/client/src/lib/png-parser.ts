@@ -5,6 +5,7 @@
 // ──────────────────────────────────────────────
 
 const CHARA_KEYWORDS = new Set(["ccv3", "chara"]);
+const MAX_INFLATED_TEXT_BYTES = 4 * 1024 * 1024;
 
 /** Find the first null byte in a Uint8Array starting from `from`. */
 function findNull(data: Uint8Array, from: number): number {
@@ -39,6 +40,10 @@ async function inflateZlib(data: Uint8Array): Promise<Uint8Array> {
       if (done) break;
 
       totalLength += value.byteLength;
+      if (totalLength > MAX_INFLATED_TEXT_BYTES) {
+        await reader.cancel("PNG text metadata is too large");
+        throw new Error("PNG character metadata is too large");
+      }
       chunks.push(value);
     }
   } finally {

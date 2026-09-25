@@ -54,7 +54,11 @@ try {
   assert.equal(parseCapabilityConversationCommands(bracketed)[0]?.payload, '{"action":"send_message","body":"a]b"}');
   assert.equal(stripCapabilityConversationCommands(`hi ${bracketed} bye`).trim(), "hi  bye".trim());
 
-  // Dispatch is idempotent per source message + swipe, so regeneration cannot double-send.
+  // The dispatch key is an in-flight LOCK, not a ledger: it is released in a `finally`, so a second
+  // dispatch of the same action after the first completes runs the handler AGAIN — `handled` is 2
+  // below, not 1. What the second call returns false for is the CLAIM, which is the only durable
+  // record, and it fails after the handler has already run. Hence the registration contract: handlers
+  // must be idempotent. Nothing here makes regeneration safe.
   const action = {
     type: "capability" as const,
     commandType: "phone",

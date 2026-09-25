@@ -1,3 +1,4 @@
+import { allowsDefaultChatModel } from "./local-context-limit.js";
 import type { ChatCompletionResult, ChatMessage, ChatOptions, LLMUsage } from "./base-provider.js";
 import { BaseLLMProvider } from "./base-provider.js";
 import { createLLMProvider } from "./provider-registry.js";
@@ -9,41 +10,16 @@ import {
   isConnectionAdmissionFailure,
   splitConnectionAttemptAcrossFallback,
   withConnectionAdmissionProvider,
-  type ConnectionAdmissionMode,
 } from "../generation/connection-admission.js";
 
-export type FallbackConnection = {
-  id: string;
-  name?: string | null;
-  provider: string;
-  baseUrl: string | null;
-  apiKey: string;
-  model: string;
-  maxContext?: number | null;
-  openrouterProvider?: string | null;
-  maxTokensOverride?: number | null;
-  defaultParameters?: unknown;
-  maxParallelJobs?: number | null;
-  enableCaching?: string | boolean | null;
-  anthropicExtendedCacheTtl?: string | boolean | null;
-  cachingAtDepth?: number | null;
-  claudeFastMode?: string | boolean | null;
-  treatAsLocalEndpoint?: string | boolean | null;
-};
+import type { FallbackConnection, GenerationProviderOrigin } from "@marinara-engine/shared";
+export type { FallbackConnection, GenerationProviderOrigin } from "@marinara-engine/shared";
 
-export type GenerationProviderOrigin = { kind: "primary" } | { kind: "fallback"; provider: string; model: string };
-
-type ConnectionFallbackProviderArgs = {
+type ConnectionFallbackProviderArgs = Omit<
+  import("@marinara-engine/shared").CapabilityConnectionFallbackOptions,
+  "primary"
+> & {
   primary: BaseLLMProvider;
-  primaryConnectionId: string;
-  fallbackConnection: FallbackConnection | null | undefined;
-  fallbackBaseUrl: string;
-  category: "main" | "agents";
-  onFallback?: GenerationFallbackNotifier;
-  onProviderUsed?: (origin: GenerationProviderOrigin) => void;
-  admissionMode?: ConnectionAdmissionMode;
-  primarySupportsAssistantReasoningPrefill?: boolean;
-  fallbackSupportsAssistantReasoningPrefill?: boolean;
 };
 
 function isEnabled(value: unknown): boolean {
@@ -88,7 +64,7 @@ export function isFallbackConnectionUsable(
   return (
     !!fallbackConnection &&
     fallbackConnection.id !== primaryConnectionId &&
-    !!fallbackConnection.model?.trim() &&
+    (!!fallbackConnection.model?.trim() || allowsDefaultChatModel(fallbackConnection)) &&
     !!fallbackBaseUrl.trim()
   );
 }

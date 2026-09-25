@@ -12,6 +12,7 @@ import {
 } from "../../services/conversation/schedule.service.js";
 import type { GenerationPromptMessage } from "../../services/generation/prompt-message-scope.js";
 import { getActiveTurnGame } from "../../services/turn-games/turn-game-runner.service.js";
+import { resolveSceneBusyCharacterIds } from "../../services/generation/scene-context-runtime.js";
 import { isMessageHiddenFromAI, parseExtra } from "./generate-route-utils.js";
 
 export type ConversationPromptCharacterInfo = {
@@ -47,6 +48,7 @@ export function remainingConversationPresenceDelay(delayMs: number, startedAt: n
 }
 
 type ConversationPresenceChatsStore = {
+  getById(id: string): Promise<{ characterIds: unknown; metadata: unknown } | null | undefined>;
   patchMetadata(
     chatId: string,
     updater: (current: Record<string, unknown>) => Record<string, unknown>,
@@ -86,7 +88,7 @@ export async function resolveConversationPresenceRuntime(args: {
   abortSignal: AbortSignal;
   writeSse: (payload: unknown) => void;
   endSse: () => void;
-  mapChatHistoryMessageForPrompt: (message: any) => Promise<GenerationPromptMessage>;
+  mapChatHistoryMessageForPrompt: (message: any, latestUserMessageId?: string) => Promise<GenerationPromptMessage>;
   resolveHistoryMessageMacros: (messages: GenerationPromptMessage[]) => GenerationPromptMessage[];
 }): Promise<{
   ended: boolean;
@@ -97,6 +99,7 @@ export async function resolveConversationPresenceRuntime(args: {
   isGroup: boolean;
   respondingCharacterIds: string[];
   responderDelays: Record<string, ConversationResponderDelay>;
+  mentionResponderDelays?: Record<string, ConversationResponderDelay>;
   presenceDelayStartedAt: number;
   chatMessages: any[];
   finalMessages: GenerationPromptMessage[];
@@ -138,13 +141,14 @@ export async function resolveConversationPresenceRuntime(args: {
       : convoCharInfo;
   let respondingConvoCharInfo = scopedConvoCharInfo.length > 0 ? scopedConvoCharInfo : convoCharInfo;
 
+  const budget = getAutonomousDailyBudget(args.chatMeta);
+  const withinAutonomousBudget = (character: { charId: string }) =>
+    !args.shouldAccountAutonomousGeneration ||
+    args.regenerateMessageId ||
+    args.impersonate ||
+    (budget.counts[character.charId] ?? 0) < dailyCapForCharacter(schedules[character.charId], args.chatMeta);
   if (args.shouldAccountAutonomousGeneration && !args.regenerateMessageId && !args.impersonate) {
-    const budget = getAutonomousDailyBudget(args.chatMeta);
-    respondingConvoCharInfo = respondingConvoCharInfo.filter((character) => {
-      const count = budget.counts[character.charId] ?? 0;
-      const cap = dailyCapForCharacter(schedules[character.charId], args.chatMeta);
-      return count < cap;
-    });
+    respondingConvoCharInfo = respondingConvoCharInfo.filter(withinAutonomousBudget);
 
     if (respondingConvoCharInfo.length === 0) {
       args.writeSse({ type: "done" });
@@ -161,9 +165,14 @@ export async function resolveConversationPresenceRuntime(args: {
   }
 
   const requestedResponderNames = respondingConvoCharInfo.map((character) => character.displayName);
+  const sceneBusyCharIds = new Set(await resolveSceneBusyCharacterIds(args.chats, args.chatId, args.chatMeta));
   const seatedGameCharIds = await resolveSeatedTurnGameCharacterIds(args.db, args.chatId);
   const effectiveStatus = (character: { charId: string; status: string }): string =>
-    seatedGameCharIds.has(character.charId) ? "online" : character.status;
+    sceneBusyCharIds.has(character.charId)
+      ? "offline"
+      : seatedGameCharIds.has(character.charId)
+        ? "online"
+        : character.status;
 
   if (!args.regenerateMessageId && !args.impersonate) {
     respondingConvoCharInfo = respondingConvoCharInfo.filter((character) => effectiveStatus(character) !== "offline");
@@ -181,8 +190,8 @@ export async function resolveConversationPresenceRuntime(args: {
       args,
     });
   }
-  const respondingConvoCharNames = respondingConvoCharInfo.map((character) => character.displayName);
-  const respondingCharacterIds = respondingConvoCharInfo.map((character) => character.charId);
+  let respondingConvoCharNames = respondingConvoCharInfo.map((character) => character.displayName);
+  let respondingCharacterIds = respondingConvoCharInfo.map((character) => character.charId);
   const presenceDelayStartedAt = Date.now();
   let responderDelays: Record<string, ConversationResponderDelay> = {};
 
@@ -244,6 +253,26 @@ export async function resolveConversationPresenceRuntime(args: {
         });
       }
 
+      const currentSceneParticipants = new Set(await resolveSceneBusyCharacterIds(args.chats, args.chatId));
+      respondingConvoCharInfo = respondingConvoCharInfo.filter(
+        (character) => !currentSceneParticipants.has(character.charId),
+      );
+      respondingCharacterIds = respondingConvoCharInfo.map((character) => character.charId);
+      respondingConvoCharNames = respondingConvoCharInfo.map((character) => character.displayName);
+      if (respondingCharacterIds.length === 0) {
+        args.writeSse({ type: "offline", characters: requestedResponderNames });
+        args.writeSse({ type: "done" });
+        args.endSse();
+        return buildPresenceResult({
+          ended: true,
+          convoCharInfo,
+          convoCharNames,
+          charNameList,
+          respondingCharacterIds,
+          args,
+        });
+      }
+
       const refreshed = await args.chats.listMessages(args.chatId);
       const rStartIdx = findLatestConversationStartIndex(refreshed);
       const rScoped = rStartIdx > 0 ? refreshed.slice(rStartIdx) : refreshed;
@@ -252,8 +281,9 @@ export async function resolveConversationPresenceRuntime(args: {
         chatMessages = chatMessages.slice(-args.contextMessageLimit);
       }
       finalMessages = [];
+      const latestUserMessageId = [...chatMessages].reverse().find((message) => message.role === "user")?.id;
       for (const message of chatMessages) {
-        finalMessages.push(await args.mapChatHistoryMessageForPrompt(message));
+        finalMessages.push(await args.mapChatHistoryMessageForPrompt(message, latestUserMessageId));
       }
       finalMessages = args.resolveHistoryMessageMacros(finalMessages);
     }
@@ -266,18 +296,29 @@ export async function resolveConversationPresenceRuntime(args: {
     args.writeSse({ type: "typing", characters: convoCharNames });
   }
 
-  return buildPresenceResult({
-    ended: false,
-    convoCharInfo,
-    convoCharNames,
-    charNameList,
-    respondingCharacterIds,
-    responderDelays,
-    presenceDelayStartedAt,
-    args,
-    chatMessages,
-    finalMessages,
-  });
+  return {
+    ...buildPresenceResult({
+      ended: false,
+      convoCharInfo,
+      convoCharNames,
+      charNameList,
+      respondingCharacterIds,
+      responderDelays,
+      presenceDelayStartedAt,
+      args,
+      chatMessages,
+      finalMessages,
+    }),
+    // A targeted first reply may invite another eligible group member afterwards.
+    mentionResponderDelays: Object.fromEntries(
+      convoCharInfo
+        .filter((character) => withinAutonomousBudget(character) && effectiveStatus(character) !== "offline")
+        .map((character) => {
+          const status = effectiveStatus(character) as "online" | "idle" | "dnd";
+          return [character.charId, { status, delayMs: args.skipPresenceDelay ? 0 : getMentionDelay(status) }];
+        }),
+    ),
+  };
 }
 
 async function resolveConversationPromptCharacters(args: {

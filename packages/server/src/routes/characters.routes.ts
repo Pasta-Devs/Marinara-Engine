@@ -19,10 +19,12 @@ import {
   PROFESSOR_MARI_ID,
   CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
   findImageStyleProfile,
+  type ImageStyleProfile,
   MAX_FILE_SIZES,
 } from "@marinara-engine/shared";
 import type { CharacterData, ConversationCallCharacterVideoClipKind, ExportEnvelope } from "@marinara-engine/shared";
 import { createCharactersStorage, type PersonaStorageRow } from "../services/storage/characters.storage.js";
+import { createCharacterCatalog } from "../services/storage/character-catalog.js";
 import { encodePersonaCreate, encodePersonaUpdate, projectPersona } from "../services/personas/persona-projector.js";
 import { createCharacterGalleryStorage } from "../services/storage/character-gallery.storage.js";
 import { createPersonaGalleryStorage } from "../services/storage/persona-gallery.storage.js";
@@ -42,6 +44,7 @@ import { loadImageGenerationUserSettings } from "../services/image/image-generat
 import { compileImagePrompt } from "../services/image/image-prompt-compiler.js";
 import { resolveImagePromptReviewSize } from "../services/image/image-prompt-review.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
+import { buildAvatarPortraitLeadPrompt } from "../services/image/avatar-generation-prompt.js";
 import {
   ConversationCallVideoClipAvatarMismatchError,
   ConversationCallVideoClipNotFoundError,
@@ -502,15 +505,18 @@ const CHARACTER_SHEET_HARD_NEGATIVE_PROMPT =
 async function buildAvatarGenerationPrompt(
   promptOverridesStorage: ReturnType<typeof createPromptOverridesStorage>,
   body: AvatarGenerationBody,
-  profileSubjectTags: string,
+  profile: Pick<ImageStyleProfile, "promptMode" | "subjectTags">,
 ): Promise<string> {
   const name = body.name?.trim() || "Character";
   const appearance = body.appearance?.trim() || name;
   if (body.purpose === "character-sheet") {
     return loadPrompt(promptOverridesStorage, CHARACTERS_REFERENCE_SHEET, { name, appearance });
   }
-  if (profileSubjectTags.trim()) return `Create a polished character avatar portrait for ${name}.`;
-  return `Create a polished character avatar portrait for ${name}. Composition: centered face-and-shoulders portrait, readable expression, clear silhouette, suitable as a chat avatar.`;
+  return buildAvatarPortraitLeadPrompt({
+    name,
+    profileSubjectTags: profile.subjectTags.avatar ?? "",
+    promptMode: profile.promptMode,
+  });
 }
 
 async function resolveAvatarGenerationConnection(app: FastifyInstance, body: AvatarGenerationBody) {
@@ -711,6 +717,18 @@ async function buildNativeCharacterEnvelope(
 
 export function buildCompatibleCharacterExport(data: any, sprites: Array<{ filename: string; data: string }> = []) {
   const extensions = { ...parseCharacterDataRecord(data?.extensions) };
+  const description = [typeof data?.description === "string" ? data.description : ""];
+  for (const [key, label] of [
+    ["backstory", "Backstory"],
+    ["appearance", "Appearance"],
+  ] as const) {
+    const value = extensions[key];
+    if (typeof value !== "string" || !value.trim()) continue;
+    description.push(`${label}:\n${value}`);
+    // V2 readers use description; omit the moved extension to avoid duplicate
+    // prompt fields when this compatible card is imported back into Marinara.
+    delete extensions[key];
+  }
   delete extensions.characterSheetImageId;
   extensions.useCharacterSheetAsReference = false;
   if (sprites.length > 0) {
@@ -722,7 +740,7 @@ export function buildCompatibleCharacterExport(data: any, sprites: Array<{ filen
   return {
     spec: "chara_card_v2",
     spec_version: "2.0",
-    data: { ...data, extensions },
+    data: { ...data, description: description.filter(Boolean).join("\n\n"), extensions },
   };
 }
 
@@ -867,6 +885,7 @@ export async function validateCharacterGalleryReferences<T extends Record<string
 
 export async function charactersRoutes(app: FastifyInstance) {
   const storage = createCharactersStorage(app.db);
+  const catalog = createCharacterCatalog(app.db);
   const characterGallery = createCharacterGalleryStorage(app.db);
   const personaGallery = createPersonaGalleryStorage(app.db);
   const lorebooksStorage = createLorebooksStorage(app.db);
@@ -914,6 +933,27 @@ export async function charactersRoutes(app: FastifyInstance) {
     const characters = await storage.list();
     if (includeBuiltIn) return characters;
     return characters.filter((character) => character.id !== PROFESSOR_MARI_ID);
+  });
+
+  app.get<{
+    Querystring: {
+      includeBuiltIn?: string;
+      limit?: string;
+      offset?: string;
+      search?: string;
+      sort?: string;
+      favoriteFilter?: string;
+    };
+  }>("/catalog", async (req) => {
+    const page = parseLibraryPageQuery(req.query);
+    return catalog.list({
+      includeBuiltIn: req.query.includeBuiltIn === "true",
+      limit: page.limit,
+      offset: page.offset,
+      search: page.search,
+      sort: page.sort,
+      favoriteFilter: page.favoriteFilter,
+    });
   });
 
   app.post<{ Body: { ids?: unknown } }>("/summaries", async (req) => {
@@ -1101,20 +1141,19 @@ export async function charactersRoutes(app: FastifyInstance) {
     const imageSettings = await loadImageGenerationUserSettings(app.db);
     const isCharacterSheet = body.purpose === "character-sheet";
     const dimensions = validateAvatarGenerationDimensions(
-      body.width ?? (isCharacterSheet ? imageSettings.background.width : imageSettings.portrait.width),
-      body.height ?? (isCharacterSheet ? imageSettings.background.height : imageSettings.portrait.height),
+      body.width ?? (isCharacterSheet ? imageSettings.characterSheet.width : imageSettings.portrait.width),
+      body.height ?? (isCharacterSheet ? imageSettings.characterSheet.height : imageSettings.portrait.height),
     );
     if ("error" in dimensions) return reply.status(400).send({ error: dimensions.error });
     const { width, height } = dimensions;
     const imageDefaults = resolveConnectionImageDefaults(resolved.conn);
-    const profileSubjectTags =
-      findImageStyleProfile(
-        imageSettings.styleProfiles,
-        body.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
-      ).subjectTags[isCharacterSheet ? "illustration" : "avatar"] ?? "";
+    const avatarStyleProfile = findImageStyleProfile(
+      imageSettings.styleProfiles,
+      body.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
+    );
     const compiled = compileImagePrompt({
       kind: isCharacterSheet ? "illustration" : "avatar",
-      prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, profileSubjectTags),
+      prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, avatarStyleProfile),
       userPositive: isCharacterSheet ? undefined : body.appearance,
       styleProfiles: imageSettings.styleProfiles,
       styleProfileId: body.styleProfileId,
@@ -1153,8 +1192,8 @@ export async function charactersRoutes(app: FastifyInstance) {
     const imageSettings = await loadImageGenerationUserSettings(app.db);
     const isCharacterSheet = body.purpose === "character-sheet";
     const dimensions = validateAvatarGenerationDimensions(
-      body.width ?? (isCharacterSheet ? imageSettings.background.width : imageSettings.portrait.width),
-      body.height ?? (isCharacterSheet ? imageSettings.background.height : imageSettings.portrait.height),
+      body.width ?? (isCharacterSheet ? imageSettings.characterSheet.width : imageSettings.portrait.width),
+      body.height ?? (isCharacterSheet ? imageSettings.characterSheet.height : imageSettings.portrait.height),
     );
     if ("error" in dimensions) return reply.status(400).send({ error: dimensions.error });
     const { width, height } = dimensions;
@@ -1188,11 +1227,10 @@ export async function charactersRoutes(app: FastifyInstance) {
     const imgSource = conn.imageGenerationSource || imgModel;
     const imgServiceHint = conn.imageService || imgSource;
     const imageDefaults = resolveConnectionImageDefaults(conn);
-    const profileSubjectTags =
-      findImageStyleProfile(
-        imageSettings.styleProfiles,
-        body.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
-      ).subjectTags[isCharacterSheet ? "illustration" : "avatar"] ?? "";
+    const avatarStyleProfile = findImageStyleProfile(
+      imageSettings.styleProfiles,
+      body.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
+    );
     const imageFallback = await resolveImageConnectionFallback(connections, conn.id);
     const compiled = promptOverride
       ? {
@@ -1201,7 +1239,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         }
       : compileImagePrompt({
           kind: isCharacterSheet ? "illustration" : "avatar",
-          prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, profileSubjectTags),
+          prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, avatarStyleProfile),
           userPositive: isCharacterSheet ? undefined : body.appearance,
           styleProfiles: imageSettings.styleProfiles,
           styleProfileId: body.styleProfileId,
@@ -2280,11 +2318,8 @@ export async function charactersRoutes(app: FastifyInstance) {
     },
   );
 
-  app.get("/personas/active", async () => {
-    const personas = await storage.listPersonas();
-    const active = personas.find((persona) => persona.isActive === "true");
-    return active ? projectPersona(active) : null;
-  });
+  // Compatibility for older clients; there is no global Persona selection.
+  app.get("/personas/active", async () => null);
 
   app.get<{ Params: { id: string } }>("/personas/:id", async (req, reply) => {
     const persona = await storage.getPersona(req.params.id);
@@ -2497,15 +2532,11 @@ export async function charactersRoutes(app: FastifyInstance) {
     }
   });
 
-  app.put<{ Params: { id: string } }>("/personas/:id/activate", async (req, reply) => {
-    const { id } = req.params;
-    if (isUnsafePathSegment(id)) {
-      return reply.status(400).send({ error: "Invalid persona id" });
-    }
-    const activated = await storage.setActivePersona(id);
-    if (!activated) return reply.status(404).send({ error: "Persona not found" });
-    return { success: true };
-  });
+  app.put("/personas/:id/activate", async (_req, reply) =>
+    reply
+      .status(410)
+      .send({ error: "Global active personas have been retired. Select a persona in the chat instead." }),
+  );
 
   app.delete<{ Params: { id: string } }>("/personas/:id", async (req, reply) => {
     const { id } = req.params;

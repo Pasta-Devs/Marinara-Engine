@@ -244,7 +244,7 @@ export function RecentChats() {
             data-has-sprite={sprite ? "true" : "false"}
             data-sprite-layout={sprite?.layout}
             className={cn(
-              "group relative min-h-0 overflow-hidden rounded-xl border border-[color-mix(in_srgb,var(--recent-chat-accent)_45%,var(--border))] bg-[color-mix(in_srgb,var(--recent-chat-accent)_10%,var(--card))] p-2 text-left shadow-[0_16px_34px_-28px_color-mix(in_srgb,var(--recent-chat-accent)_60%,transparent)] transition-[border-color,background-color,transform,box-shadow] hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--recent-chat-accent)_76%,var(--border))] hover:bg-[color-mix(in_srgb,var(--recent-chat-accent)_15%,var(--card))] hover:shadow-[0_19px_36px_-25px_color-mix(in_srgb,var(--recent-chat-accent)_72%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--recent-chat-accent)] motion-reduce:transform-none md:min-h-36 md:rounded-2xl md:p-3.5",
+              "group relative min-h-0 overflow-hidden rounded-xl border border-[color-mix(in_srgb,var(--recent-chat-accent)_45%,var(--border))] bg-[color-mix(in_srgb,var(--recent-chat-accent)_10%,var(--card))] p-2 text-left shadow-[0_16px_34px_-28px_color-mix(in_srgb,var(--recent-chat-accent)_60%,transparent)] transition-[border-color,background-color,box-shadow] hover:border-[color-mix(in_srgb,var(--recent-chat-accent)_76%,var(--border))] hover:bg-[color-mix(in_srgb,var(--recent-chat-accent)_15%,var(--card))] hover:shadow-[0_19px_36px_-25px_color-mix(in_srgb,var(--recent-chat-accent)_72%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--recent-chat-accent)] motion-reduce:transform-none md:min-h-36 md:rounded-2xl md:p-3.5",
               index === 3 && "hidden md:block",
               index >= 4 && "hidden",
             )}
@@ -272,7 +272,7 @@ export function RecentChats() {
                 loading="lazy"
                 decoding="async"
                 className={cn(
-                  "absolute bottom-0 right-0 origin-bottom object-contain object-bottom object-center opacity-95 drop-shadow-[0_10px_18px_rgba(0,0,0,0.48)] transition-transform duration-300 ease-out group-hover:scale-[1.025] motion-reduce:transition-none",
+                  "absolute bottom-0 right-0 origin-bottom object-contain object-bottom object-center opacity-95 drop-shadow-[0_10px_18px_rgba(0,0,0,0.48)]",
                   sprite.layout === "full-body" ? "h-[96%] w-[46%] px-1 pt-1" : "h-[90%] w-[44%] pb-1 pr-1",
                 )}
               />

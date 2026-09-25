@@ -15,6 +15,7 @@ import { BaseLLMProvider, type ChatMessage, type ChatOptions, type LLMUsage } fr
 import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../../lib/logger.js";
 import { DATA_DIR } from "../../../utils/data-dir.js";
+import { estimateTextTokens } from "@marinara-engine/shared";
 
 // The scratch cwd must live OUTSIDE any git checkout: the grok CLI walks up
 // from its working directory to the nearest repo root and indexes the whole
@@ -29,7 +30,6 @@ const GROK_PROMPT_DIR = join(DATA_DIR, "grok-cli-prompts");
 const GROK_ERROR_PREVIEW_CHARS = 2000;
 const GROK_MODELS_TIMEOUT_MS = 30 * 1000;
 const GROK_REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
-const GROK_TOKENS_PER_CHAR = 4;
 // 32k stays the DEFAULT window: very large roleplay prompts can make the
 // local CLI hit its own turn limit, so the conservative floor is kept for
 // connections that never touched the setting. It is no longer a hard cap —
@@ -69,10 +69,6 @@ class GrokCliCommandError extends Error {
   ) {
     super(message);
   }
-}
-
-function estimateTokens(text: string): number {
-  return Math.ceil(Array.from(text).length / GROK_TOKENS_PER_CHAR);
 }
 
 function stripAnsi(value: string): string {
@@ -423,8 +419,8 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
       }
 
       yield text;
-      const completionTokens = estimateTokens(text);
-      const promptTokens = estimateTokens(prompt);
+      const completionTokens = estimateTextTokens(text);
+      const promptTokens = estimateTextTokens(prompt);
       return {
         promptTokens,
         completionTokens,

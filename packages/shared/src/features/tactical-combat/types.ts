@@ -1,3 +1,5 @@
+import type { CombatWeather, CombatAttackTraits, GameDifficulty } from "../combat-conditions.js";
+import type { CombatController, CombatTactics } from "../combat-ai.js";
 // ──────────────────────────────────────────────
 // Tactical Combat — shared types
 // ──────────────────────────────────────────────
@@ -14,6 +16,44 @@ export type { GameCombatStyle } from "../../types/game.js";
 // ── Terrain ──
 
 export type TacticalTerrain = "plains" | "forest" | "mountain" | "ruin" | "water" | "wall";
+
+/** Fixed board sizes for procedural tactical encounters. */
+export type TacticalBattlefieldSize = "small" | "medium" | "large";
+
+/** Setup-owned preferences for newly-created tactical encounters. */
+export interface TacticalBattlefieldSetup {
+  seed?: number;
+  size?: TacticalBattlefieldSize;
+  instructions?: string;
+}
+
+/** How a unit traverses the battlefield. Missing values retain walk-only rules. */
+export type TacticalMovementMode = "walk" | "fly" | "teleport";
+
+/** A bounded, directional landmark request for procedural terrain generation. */
+export interface TacticalBattlefieldFeature {
+  terrain: TacticalTerrain;
+  placement: "center" | "north" | "south" | "east" | "west";
+  shape: "patch" | "barrier";
+}
+
+/**
+ * Structured terrain input for a generated battlefield. It cannot express
+ * arbitrary coordinates; exact authored maps remain a later contract.
+ */
+export interface TacticalBattlefieldBrief {
+  exposure?: CombatWeather["exposure"];
+  size?: TacticalBattlefieldSize;
+  features?: TacticalBattlefieldFeature[];
+}
+
+/** Saved provenance for a generated grid. `grid` remains the resolved authority. */
+export interface TacticalBattlefieldProvenance {
+  kind: "generated";
+  generatorVersion: 1;
+  size: TacticalBattlefieldSize;
+  brief?: TacticalBattlefieldBrief;
+}
 
 export interface TerrainInfo {
   /** Movement points required to ENTER this tile. */
@@ -98,7 +138,11 @@ export interface TacticalAttackRange {
  * A combatant placed on the tactical grid. Carries the source `Combatant`
  * fields verbatim (so summaries + hydration stay lossless) plus grid state.
  */
-export interface TacticalUnit {
+export interface TacticalUnit extends CombatAttackTraits {
+  boss?: import("../combat-director.js").CombatBoss;
+  spellSlots?: Record<string, number>;
+  tactics?: CombatTactics;
+  controller?: CombatController;
   // ── carried from Combatant ──
   id: string;
   name: string;
@@ -134,6 +178,8 @@ export interface TacticalUnit {
   movement: number;
   /** Basic-attack reach in Manhattan distance (from the unit's class profile). */
   attackRange: TacticalAttackRange;
+  /** Flight and teleport rules. Absent legacy snapshots walk. */
+  movementMode?: TacticalMovementMode;
   hasMoved: boolean;
   hasActed: boolean;
   /** Set when the unit chose Defend last turn — halves incoming damage until its next turn. */
@@ -145,6 +191,7 @@ export interface TacticalUnit {
 // ── Actions ──
 
 export type TacticalAction =
+  | { type: "control"; unitId: string; controller: CombatController }
   | { type: "move"; unitId: string; to: TacticalCoord }
   | { type: "attack"; unitId: string; targetId: string; to?: TacticalCoord }
   | { type: "skill"; unitId: string; skillName: string; targetId?: string; tile?: TacticalCoord; to?: TacticalCoord }
@@ -175,6 +222,7 @@ export type TacticalEventKind =
   | "flee";
 
 export interface TacticalEvent {
+  message?: import("../combat-director.js").CombatLogMessage;
   kind: TacticalEventKind;
   /** Human-readable line — drives the combat log, damage popups, and the GM's post-battle report. */
   text: string;
@@ -195,9 +243,10 @@ export interface TacticalEvent {
 
 export type TacticalPhase = "player" | "enemy";
 export type TacticalOutcome = "victory" | "defeat" | "fled";
-export type TacticalDifficulty = "casual" | "normal" | "hard" | "brutal";
+export type TacticalDifficulty = GameDifficulty;
 
 export interface TacticalCombatState {
+  weather?: CombatWeather;
   schemaVersion: 1;
   grid: TacticalGrid;
   units: TacticalUnit[];
@@ -213,6 +262,8 @@ export interface TacticalCombatState {
   environment?: TacticalEnvironment;
   /** Scene-derived spawn arrangement (Round 2). Optional — defaults to "line" behavior when absent. */
   formation?: TacticalFormation;
+  /** Provenance for a generated grid. Optional so legacy snapshots remain valid. */
+  battlefield?: TacticalBattlefieldProvenance;
 }
 
 // ── Forecast (shown FE-style before confirming an attack) ──
@@ -237,7 +288,6 @@ export interface TacticalForecast {
 // ── Results ──
 
 export type ApplyActionResult =
-  | { ok: true; state: TacticalCombatState; events: TacticalEvent[] }
-  | { ok: false; error: string };
+  { ok: true; state: TacticalCombatState; events: TacticalEvent[] } | { ok: false; error: string };
 
 export type { Combatant } from "../../types/game.js";

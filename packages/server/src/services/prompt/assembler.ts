@@ -1,3 +1,5 @@
+import { parseChoiceOptions, resolveChoiceVariableValue } from "@marinara-engine/shared";
+export { resolveChoiceVariableValue, type ChoiceOptionValue } from "@marinara-engine/shared";
 // ──────────────────────────────────────────────
 // Prompt Assembler — Orchestrator
 // Builds the final ChatML message array from a
@@ -13,6 +15,7 @@ import type {
   GenerationParameters,
   LorebookEntryTimingState,
   MacroContext,
+  MacroDecisionAnswers,
   ResolveMacroOptions,
 } from "@marinara-engine/shared";
 import { DEFAULT_GENERATION_PARAMS, generationParametersSchema, resolveMacros } from "@marinara-engine/shared";
@@ -21,7 +24,16 @@ import { sanitizePromptLeaf } from "./prompt-escaping.js";
 import { ensureLorebookScan, expandMarker, type MarkerContext } from "./marker-expander.js";
 import { hasSamePromptAudience, mergeAdjacentMessages, squashLeadingSystemMessages } from "./merger.js";
 import { injectAtDepth } from "../lorebook/prompt-injector.js";
-import type { LorebookScanResult } from "../lorebook/index.js";
+import {
+  ADVANCED_MEMORY_MARKER_TYPES,
+  createAdvancedMemoryPlacement,
+  guardAdvancedMemoryGroup,
+  isAdvancedMemoryMarker,
+  resolveAdvancedMemoryPrompt,
+  type AdvancedMemoryPlacement,
+  type AdvancedMemoryPromptParts,
+} from "./advanced-memory-prompt.js";
+import type { LorebookDecisionResolver, LorebookScanResult } from "../lorebook/index.js";
 import {
   buildReferencedCharacterContext,
   buildReferencedPersonaContext,
@@ -40,88 +52,16 @@ interface RuntimeAgentData {
   endToken?: string;
 }
 
-export interface ChoiceOptionValue {
-  value: string;
-}
-
-function parseChoiceOptions(options: string): ChoiceOptionValue[] {
-  try {
-    const parsed = JSON.parse(options) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.flatMap((option) =>
-      option && typeof option === "object" && typeof (option as { value?: unknown }).value === "string"
-        ? [{ value: (option as { value: string }).value }]
-        : [],
-    );
-  } catch {
-    return [];
-  }
-}
-
-function sanitizeChoiceSelection(
-  selected: string | string[] | undefined,
-  options: ChoiceOptionValue[],
-  isMulti: boolean,
-): string | string[] | undefined {
-  if (selected === undefined) return undefined;
-  const validValues = new Set(options.map((option) => option.value));
-  const candidates = Array.isArray(selected) ? selected : [selected];
-
-  if (isMulti) {
-    return candidates.filter((value, index) => validValues.has(value) && candidates.indexOf(value) === index);
-  }
-
-  return candidates.find((value) => validValues.has(value));
-}
-
-function readChoiceFlag(value: unknown): boolean {
-  return value === true || value === "true" || value === 1 || value === "1";
-}
-
-export function resolveChoiceVariableValue(input: {
-  selected: string | string[] | undefined;
-  options: ChoiceOptionValue[];
-  multiSelect: unknown;
-  randomPick: unknown;
-  separator?: string | null;
-  random?: () => number;
-}): string {
-  const isRandom = readChoiceFlag(input.randomPick);
-  // Imported or legacy presets can carry Boolean/number flags, and a Random
-  // Pick selection is necessarily multi-valued even if its companion flag was
-  // normalized incorrectly during an older migration.
-  const isMulti = readChoiceFlag(input.multiSelect) || (isRandom && Array.isArray(input.selected));
-
-  // An explicit empty selection is the user's OFF value. Only a missing value
-  // should fall back to the first option for legacy presets.
-  if (input.selected === "" || (Array.isArray(input.selected) && input.selected.length === 0)) return "";
-
-  const selected = sanitizeChoiceSelection(input.selected, input.options, isMulti);
-
-  if (isMulti && Array.isArray(selected)) {
-    if (selected.length === 0) return "";
-    if (isRandom) {
-      const random = input.random ?? Math.random;
-      const roll = random();
-      const unit = Number.isFinite(roll) ? Math.min(1, Math.max(0, roll)) : 0;
-      const index = Math.min(selected.length - 1, Math.floor(unit * selected.length));
-      return selected[index] ?? "";
-    }
-    return selected.join(input.separator || ", ");
-  }
-
-  if (selected !== undefined) {
-    return Array.isArray(selected) ? (selected[0] ?? "") : selected;
-  }
-  return input.options[0]?.value ?? "";
-}
-
 // ═══════════════════════════════════════════════
 //  Public Interface
 // ═══════════════════════════════════════════════
 
 /** Everything the assembler needs to produce a prompt. */
 export interface AssemblerInput {
+  /** Resolved model for this request, including connection overrides. */
+  model?: string;
+  /** Generation routes format messages after audience filtering and context fitting. */
+  deferMessagePostProcessing?: boolean;
   db: DB;
   /** The prompt preset to use */
   preset: {
@@ -180,6 +120,8 @@ export interface AssemblerInput {
   /** Chat context */
   chatId: string;
   characterIds: string[];
+  /** Character IDs used only for lorebook matching, including a character-backed user identity. */
+  lorebookCharacterIds?: string[];
   /** Full active roster when characterIds is narrowed to one generation target. */
   groupCharacterIds?: string[];
   personaId?: string | null;
@@ -197,10 +139,16 @@ export interface AssemblerInput {
   personaStats?: any;
   /** Chat messages from the DB (user + assistant + narrator etc.) */
   chatMessages: ChatMLMessage[];
+  /** Regeneration must not use the output of the message being replaced or later messages. */
+  agentHistoryMessageId?: string;
   /** Optional scan-only messages for lorebook matching. Keeps synthetic guidance out of chat history. */
   lorebookScanMessages?: ChatMLMessage[];
   /** Current chat summary text (if any) */
   chatSummary?: string | null;
+  /** Presence enables advanced memory placement; values must already be audience-scoped. */
+  advancedMemory?: AdvancedMemoryPromptParts;
+  /** Leave opaque slots for per-responder finalization without repeating lorebook/macro side effects. */
+  deferAdvancedMemory?: boolean;
   /** Whether agents are enabled for this chat */
   enableAgents?: boolean;
   /** Per-chat list of active agent type IDs (empty = use global enabled state) */
@@ -251,6 +199,10 @@ export interface AssemblerInput {
   preserveImpersonatePresetSections?: boolean;
   /** Preserve character-scoped macros for a later known-speaker finalization pass. */
   deferCharacterMacros?: boolean;
+  /** This turn's answers for `decision:` and `decision_choice:` conditions (#6569). */
+  decisions?: MacroDecisionAnswers;
+  /** Answers lorebook entries' decision statements for activation (#6570). */
+  lorebookDecisions?: LorebookDecisionResolver;
 }
 
 /** Output of the assembler. */
@@ -277,9 +229,10 @@ export interface AssemblerOutput {
   lorebookScanResult?: LorebookScanResult;
   /** Agent types whose runtime data was consumed by enabled agent_data sections. */
   runtimeAgentTypesUsed?: string[];
+  advancedMemoryPlacements?: AdvancedMemoryPlacement[];
 }
 
-function parsePresetParameters(raw: string): GenerationParameters {
+export function parsePresetParameters(raw: string): GenerationParameters {
   let parsed: unknown = null;
   try {
     parsed = JSON.parse(raw) as unknown;
@@ -311,6 +264,8 @@ function parsePresetParameters(raw: string): GenerationParameters {
 
 export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOutput> {
   const wrapFormat = (input.preset.wrapFormat || "xml") as WrapFormat;
+  const chatSummary = input.advancedMemory ? null : (input.chatSummary ?? null);
+  const advancedMemoryPlacements: AdvancedMemoryPlacement[] = [];
   const parameters = parsePresetParameters(input.preset.parameters);
   const sectionOrder = JSON.parse(input.preset.sectionOrder) as string[];
   const variableValues = JSON.parse(input.preset.variableValues) as Record<string, string>;
@@ -364,6 +319,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   // Build macro context (character names and primary card fields resolved from IDs)
   const macroCtx = await buildPromptMacroContext({
     db: input.db,
+    model: input.model,
     characterIds: input.characterIds,
     groupCharacterIds: input.groupCharacterIds,
     personaName: input.personaName,
@@ -380,10 +336,13 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     timeZone: input.timeZone,
     macroSources: [
       ...enabledSectionContents,
-      input.chatSummary ?? "",
+      chatSummary ?? "",
       ...input.chatMessages.map((message) => message.content),
     ],
   });
+  // Answered before assembly by the route; every context derived from this one,
+  // including each character's in a group block, carries them.
+  if (input.decisions) macroCtx.decisions = input.decisions;
   const personaReferenceSources = Object.values(input.personaFields ?? {}).filter(
     (value): value is string => typeof value === "string",
   );
@@ -393,7 +352,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   const cardReferenceSources = [
     ...enabledSectionContents,
     ...Object.values(variableValues),
-    input.chatSummary ?? "",
+    chatSummary ?? "",
     input.personaDescription,
     ...personaReferenceSources,
     ...activeCharacterReferenceSources,
@@ -518,7 +477,9 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   const markerCtx: MarkerContext = {
     db: input.db,
     chatId: input.chatId,
+    agentHistoryMessageId: input.agentHistoryMessageId,
     characterIds: input.characterIds,
+    lorebookCharacterIds: input.lorebookCharacterIds,
     personaId: input.personaId ?? null,
     personaName: input.personaName,
     personaDescription: input.personaDescription,
@@ -526,7 +487,8 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     personaStats: input.personaStats,
     chatMessages: input.chatMessages,
     lorebookScanMessages: input.lorebookScanMessages,
-    chatSummary: input.chatSummary ?? null,
+    chatSummary,
+    advancedMemory: input.advancedMemory,
     wrapFormat,
     enableAgents: input.enableAgents ?? true,
     activeAgentIds: input.activeAgentIds ?? [],
@@ -549,6 +511,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       setLorebookEntryCounts(macroCtx, lorebookEntryCounts);
       return resolveMacrosWithVariableSnapshot(value, macroCtx, deferNameMacroOptions);
     },
+    resolveLorebookDecisions: input.lorebookDecisions,
     onLorebookScan: addActivatedLorebookCardReferences,
     groupScenarioOverrideText: input.groupScenarioOverrideText ?? null,
     includeExampleDialogueInCharacterMarker: !hasDialogueExamplesMarker,
@@ -577,6 +540,31 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     if (section.groupId) {
       const group = groupMap.get(section.groupId);
       if (group && group.enabled !== "true") continue;
+    }
+
+    if (input.advancedMemory && section.isMarker === "true" && section.markerConfig) {
+      let markerType: MarkerConfig["type"] | undefined;
+      try {
+        markerType = (JSON.parse(section.markerConfig) as MarkerConfig).type;
+      } catch {
+        // Invalid sections follow the ordinary expansion error path below.
+      }
+      if (markerType && isAdvancedMemoryMarker(markerType)) {
+        if (advancedMemoryPlacements.some((placement) => placement.markerType === markerType)) continue;
+        const placement = createAdvancedMemoryPlacement(markerType, wrapFormat, section);
+        advancedMemoryPlacements.push(placement);
+        const resolved: ResolvedSection = {
+          id: section.id,
+          groupId: section.groupId,
+          role: placement.role,
+          depth: section.injectionDepth,
+          messages: [{ role: placement.role, content: placement.token, contextKind: "prompt" }],
+        };
+        (section.injectionPosition === "depth" && section.injectionDepth >= 0 ? depthSections : orderedSections).push(
+          resolved,
+        );
+        continue;
+      }
     }
 
     // Outlet macros can appear before a lorebook marker, or without one. Scan
@@ -663,7 +651,9 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       const group = groupMap.get(section.groupId);
       if (group) {
         const groupMessages = buildGroupMessages(groupSections, group, wrapFormat);
-        messages.push(...groupMessages);
+        messages.push(
+          ...(input.advancedMemory ? guardAdvancedMemoryGroup(groupMessages, advancedMemoryPlacements) : groupMessages),
+        );
       } else {
         // Group not found — just add sections directly
         for (const gs of groupSections) {
@@ -687,11 +677,25 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     });
   }
 
+  if (input.advancedMemory) {
+    const fallbackMessages = ADVANCED_MEMORY_MARKER_TYPES.filter(
+      (type) => !advancedMemoryPlacements.some((placement) => placement.markerType === type),
+    ).map((type) => {
+      const placement = createAdvancedMemoryPlacement(type, wrapFormat);
+      advancedMemoryPlacements.push(placement);
+      return { role: placement.role, content: placement.token, contextKind: "prompt" as const };
+    });
+    // Place fallbacks while history is still distinct: strict roles can merge it with an authored user section.
+    const historyIndex = messages.findIndex((message) => message.contextKind === "history");
+    messages.splice(historyIndex >= 0 ? historyIndex : messages.length, 0, ...fallbackMessages);
+  }
+
   // ── Phase 3: Adjacent same-role merging ──
-  let finalMessages = mergeAdjacentMessages(messages);
+  let finalMessages =
+    input.deferMessagePostProcessing || !parameters.strictRoleFormatting ? messages : mergeAdjacentMessages(messages);
 
   // ── Phase 4: Squash leading system messages if enabled ──
-  if (parameters.squashSystemMessages) {
+  if (parameters.squashSystemMessages && !input.deferMessagePostProcessing) {
     finalMessages = squashLeadingSystemMessages(finalMessages);
   }
 
@@ -741,14 +745,18 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   // ── Phase 6: Strict role formatting ──
   // Keeps explicit section roles while folding system blocks to the front and
   // merging adjacent same-role messages.
-  if (parameters.strictRoleFormatting) {
+  if (parameters.strictRoleFormatting && !input.deferMessagePostProcessing) {
     finalMessages = enforceStrictRoles(finalMessages);
   }
 
   // ── Phase 7: Fallback chat summary injection ──
   // A chat_summary marker owns placement when present. Without one, enabled
   // summaries belong at the end of the system prompt block, before history.
-  if (!hasChatSummaryMarker) {
+  if (input.advancedMemory) {
+    if (!input.deferAdvancedMemory) {
+      finalMessages = resolveAdvancedMemoryPrompt(finalMessages, advancedMemoryPlacements, input.advancedMemory);
+    }
+  } else if (!hasChatSummaryMarker) {
     finalMessages = appendFallbackChatSummaryToSystemPrompt(
       finalMessages,
       markerCtx.chatSummary,
@@ -760,7 +768,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
 
   // ── Phase 8: Single user message mode ──
   // Collapses entire prompt into one user message.
-  if (parameters.singleUserMessage) {
+  if (parameters.singleUserMessage && !input.deferMessagePostProcessing) {
     const combined = finalMessages
       .map((m) => {
         if (m.role !== "user") return `[${m.role.toUpperCase()}]\n${m.content}`;
@@ -793,6 +801,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
         }
       : {}),
     ...(runtimeAgentTypesUsed.size > 0 ? { runtimeAgentTypesUsed: Array.from(runtimeAgentTypesUsed) } : {}),
+    ...(input.advancedMemory ? { advancedMemoryPlacements } : {}),
   };
 }
 
@@ -1097,7 +1106,13 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
 
     const prev = result[result.length - 1];
     const sameCharacter = (prev?.characterId ?? null) === (msg.characterId ?? null);
-    if (prev && prev.role === msg.role && sameCharacter && hasSamePromptAudience(prev, msg)) {
+    if (
+      prev &&
+      prev.role === msg.role &&
+      sameCharacter &&
+      hasSamePromptAudience(prev, msg) &&
+      !(msg.role === "assistant" && (prev.providerMetadata || msg.providerMetadata))
+    ) {
       mergeInto(prev, msg);
     } else {
       result.push({ ...msg });

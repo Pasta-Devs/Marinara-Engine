@@ -11,6 +11,7 @@ interface ImageUploadDropzoneProps {
   pendingLabel?: string;
   dragLabel?: string;
   className?: string;
+  labelClassName?: string;
   accept?: string;
   multiple?: boolean;
   disabled?: boolean;
@@ -41,6 +42,7 @@ export function ImageUploadDropzone({
   pendingLabel = "Uploading...",
   dragLabel = "Drop images to upload",
   className,
+  labelClassName,
   accept = "image/*",
   multiple = true,
   disabled = false,
@@ -144,7 +146,7 @@ export function ImageUploadDropzone({
         )}
       >
         {icon}
-        {isDragging ? dragLabel : pending ? pendingLabel : label}
+        <span className={labelClassName}>{isDragging ? dragLabel : pending ? pendingLabel : label}</span>
       </button>
       <input
         ref={inputRef}

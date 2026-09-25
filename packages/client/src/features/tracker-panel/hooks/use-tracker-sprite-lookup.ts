@@ -11,7 +11,7 @@ import {
 } from "../../../lib/tracker-card-colors";
 import type { TrackerSpriteLookup } from "../tracker-panel.types";
 import { isSpriteLookupCharacterId } from "../lib/sprite-expressions";
-import { buildCharacterLookupMap, normalizeLookupText } from "../lib/tracker-metadata";
+import { buildCharacterLookupMap, normalizeLookupText, normalizeStringArray } from "../lib/tracker-metadata";
 import { getCharacterProfileColors } from "../lib/tracker-profile-style";
 
 interface UseTrackerSpriteLookupOptions {
@@ -27,11 +27,11 @@ interface TrackerLookupCharacterRow {
   avatarPath?: string | null;
 }
 
-function normalizeLookupCharacterIds(characterIds: string[]) {
+function normalizeLookupCharacterIds(characterIds: unknown[]) {
   const seen = new Set<string>();
   const normalized: string[] = [];
 
-  for (const id of characterIds) {
+  for (const id of normalizeStringArray(characterIds)) {
     const trimmed = id.trim();
     if (!isSpriteLookupCharacterId(trimmed) || seen.has(trimmed)) continue;
     seen.add(trimmed);
@@ -105,7 +105,7 @@ export function useTrackerSpriteLookup({
 
   const resolveSpriteCharacterId = useCallback(
     (character: PresentCharacter) => {
-      const rawId = character.characterId?.trim() ?? "";
+      const rawId = typeof character.characterId === "string" ? character.characterId.trim() : "";
       if (rawId && characterSpriteLookup.knownIds.has(rawId)) return rawId;
       const idNameMatch = characterSpriteLookup.idByName.get(normalizeLookupText(rawId));
       if (idNameMatch) return idNameMatch;

@@ -67,6 +67,7 @@ export function WorldForecastTile({
     <div className={cn("relative z-[1] min-h-16 min-w-0 overflow-hidden rounded-sm py-1", style.shell)}>
       <div className="relative z-[1] grid min-h-14 min-w-0 grid-cols-1 grid-rows-[auto_auto] content-center">
         <WorldRenderedEdit
+          controlsSide="left"
           label={localizeUi("ui.trackerPanel.worldforecasttile.temperature")}
           value={temperatureValue}
           onSave={onSaveTemperature}
@@ -89,6 +90,7 @@ export function WorldForecastTile({
           </span>
         </WorldRenderedEdit>
         <WorldRenderedEdit
+          controlsSide="left"
           label={localizeUi("ui.trackerPanel.worldforecasttile.weather")}
           value={weatherText}
           onSave={onSaveWeather}

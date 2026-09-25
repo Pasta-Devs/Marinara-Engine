@@ -21,6 +21,8 @@ export interface CapabilityPromptContextRequest {
   personaId?: string | null;
   /** Agent-data sections already placed by the active preset. */
   placedAgentTypes?: string[];
+  /** The preset's section wrap format, so a contributor's block matches the prompt around it. */
+  wrapFormat?: "xml" | "markdown" | "none";
 }
 
 /** Built-in game systems an experience can declare it replaces. Open set — undeclared stays built-in. */
@@ -53,6 +55,10 @@ export interface CapabilityPromptContextResult {
 }
 
 const contributorsByPackage = new Map<string, CapabilityPromptContextContributor>();
+
+export function getCapabilityPromptContextPackageIds(): string[] {
+  return [...contributorsByPackage.keys()];
+}
 
 /** Register (or replace) the contributor for a package. Returns a releaser for deactivation. */
 export function registerCapabilityPromptContext(

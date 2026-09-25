@@ -39,6 +39,7 @@ export const DEFAULT_COMFYUI_DEFAULTS: ComfyUiDefaults = {
   denoisingStrength: 1,
   clipSkip: null,
   uploadPlaceholderOnMissingReference: false,
+  saveToBackend: false,
   loras: [],
 };
 
@@ -312,6 +313,7 @@ function normalizeComfyUiDefaults(rawDefaults: unknown): ComfyUiDefaults {
       DEFAULT_COMFYUI_DEFAULTS.uploadPlaceholderOnMissingReference,
     ),
     loras: normalizeComfyUiLoraSettings(raw.loras),
+    saveToBackend: readBoolean(raw.saveToBackend, false),
   };
 }
 

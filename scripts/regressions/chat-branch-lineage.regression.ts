@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -106,6 +107,224 @@ try {
   const chatStorage = (await import("../../packages/server/src/services/storage/chats.storage.js")).createChatsStorage(
     db,
   );
+  const { advancedMemoryRecords } = await import("../../packages/server/src/db/schema/advanced-memory.js");
+  const { eq } = await import("../../packages/server/src/db/file-query.js");
+  const { createAdvancedMemoryService } = await import("../../packages/server/src/services/advanced-memory.js");
+  const { remapAdvancedMemoryMetadata } =
+    await import("../../packages/server/src/services/advanced-memory-transfer.js");
+  const { importSTChat } = await import("../../packages/server/src/services/import/st-chat.importer.js");
+  const sourceMessages = await chatStorage.listMessages(root.id);
+  const remappedKnowledge = remapAdvancedMemoryMetadata(
+    {
+      advancedMemory: {
+        enabled: true,
+        knowledgeConfirmed: true,
+        knowledgeStarts: { existing: middle.id, beginning: null, future: "omitted-message" },
+      },
+      advancedMemoryState: { activeSceneId: "old-scene" },
+    },
+    new Map([[middle.id, "copied-middle"]]),
+    ["existing", "beginning", "future", "new-character"],
+  );
+  assert.deepEqual((remappedKnowledge.advancedMemory as any).knowledgeStarts, {
+    existing: "copied-middle",
+    beginning: null,
+  });
+  assert.equal((remappedKnowledge.advancedMemory as any).knowledgeConfirmed, false);
+  assert.equal(
+    remappedKnowledge.advancedMemoryState,
+    undefined,
+    "a missing or future knowledge anchor must never become permission from the beginning",
+  );
+  const future = sourceMessages.at(-1)!;
+  await chatStorage.patchMetadata(root.id, { advancedMemory: { enabled: true } });
+  const memoryService = createAdvancedMemoryService(db);
+  const memoryFixture = (
+    id: string,
+    sceneId: string,
+    ids: string[],
+    content: string,
+    enabled = 1,
+    manualOverride = 0,
+  ) => ({
+    id,
+    chatId: root.id,
+    sceneId,
+    kind: "scene",
+    status: "closed",
+    startMessageId: ids[0]!,
+    endMessageId: ids.at(-1)!,
+    messageIds: JSON.stringify(ids),
+    audienceCharacterIds: "[]",
+    content,
+    title: "Retained scene",
+    timeline: null,
+    enabled,
+    manualOverride,
+    sourceFingerprint: "",
+    dependencies: "[]",
+    embedding: null,
+    embeddingSpaceId: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  await db
+    .insert(advancedMemoryRecords)
+    .values([
+      memoryFixture(`scene-${first.id}`, `scene-${first.id}`, [first.id], ""),
+      memoryFixture("edited-disabled-scene", `scene-${first.id}`, [first.id], "USER_CORRECTED_MEMORY", 0, 1),
+      memoryFixture(`scene-${middle.id}`, `scene-${middle.id}`, [middle.id, future.id], ""),
+      memoryFixture("future-scene-variant", `scene-${middle.id}`, [middle.id, future.id], "FUTURE_SECRET"),
+    ]);
+  await memoryService.refreshTransferredRecords(root.id);
+  const memoryBranchResponse = await app.inject({
+    method: "POST",
+    url: `/api/chats/${root.id}/branch`,
+    payload: { upToMessageId: middle.id },
+  });
+  assert.equal(memoryBranchResponse.statusCode, 200);
+  const memoryBranch = memoryBranchResponse.json();
+  const memoryBranchMessages = await chatStorage.listMessages(memoryBranch.id);
+  const branchedMemories = await db
+    .select()
+    .from(advancedMemoryRecords)
+    .where(eq(advancedMemoryRecords.chatId, memoryBranch.id));
+  assert.equal(
+    branchedMemories.some((record) => record.content.includes("FUTURE_SECRET")),
+    false,
+  );
+  const retainedCorrection = branchedMemories.find((record) => record.content === "USER_CORRECTED_MEMORY");
+  assert.equal(retainedCorrection?.enabled, 0, "disabled corrections stay disabled on a branch");
+  assert.equal(retainedCorrection?.manualOverride, 1);
+  assert.deepEqual(JSON.parse(retainedCorrection!.messageIds), [memoryBranchMessages[0]!.id]);
+  const reopened = branchedMemories.find((record) => record.id === `scene-${memoryBranchMessages[1]!.id}`);
+  assert.equal(reopened?.status, "open", "a branch inside a scene must not inherit the future ending");
+  assert.equal(reopened?.content, "");
+  assert.equal(reopened?.endMessageId, memoryBranchMessages[1]!.id);
+
+  const { chats: chatsTable, messages: messagesTable } = await import("../../packages/server/src/db/schema/chats.js");
+  const rowIds = async (table: typeof chatsTable | typeof messagesTable | typeof advancedMemoryRecords) =>
+    (await db.select().from(table)).map((row) => row.id).sort();
+  const beforeFailedBranch = await Promise.all([
+    rowIds(chatsTable),
+    rowIds(messagesTable),
+    rowIds(advancedMemoryRecords),
+  ]);
+  const originalInsert = db.insert;
+  let failedMemoryCopy = false;
+  db.insert = (table) => {
+    if (table === advancedMemoryRecords && !failedMemoryCopy) {
+      failedMemoryCopy = true;
+      throw new Error("Injected Advanced Memory branch copy failure");
+    }
+    return originalInsert(table);
+  };
+  try {
+    const failedBranch = await app.inject({
+      method: "POST",
+      url: `/api/chats/${root.id}/branch`,
+      payload: { upToMessageId: middle.id },
+    });
+    assert.equal(failedBranch.statusCode, 500);
+    assert.equal(failedMemoryCopy, true, "the injected failure must occur inside memory transfer");
+  } finally {
+    db.insert = originalInsert;
+  }
+  assert.deepEqual(
+    await Promise.all([rowIds(chatsTable), rowIds(messagesTable), rowIds(advancedMemoryRecords)]),
+    beforeFailedBranch,
+    "a failed memory copy must roll back the new branch and keep all original rows",
+  );
+  assert.deepEqual(await chatStorage.listMessages(root.id), sourceMessages);
+
+  const transcript = await app.inject({ method: "GET", url: `/api/chats/${root.id}/export` });
+  assert.equal(transcript.statusCode, 200);
+  const importedMemory = await importSTChat(transcript.body, db, { mode: "roleplay" });
+  assert.equal(importedMemory.success, true);
+  const importedRows = await db
+    .select()
+    .from(advancedMemoryRecords)
+    .where(eq(advancedMemoryRecords.chatId, importedMemory.chatId!));
+  const importedMessages = await chatStorage.listMessages(importedMemory.chatId!);
+  const importedIds = new Set(importedMessages.map((message) => message.id));
+  assert.equal(importedRows.length, 4, "native transcript export/import keeps the supported scene archive");
+  for (const record of importedRows) {
+    assert.ok(
+      JSON.parse(record.messageIds).every((id: string) => importedIds.has(id)),
+      "import remaps every source ID",
+    );
+    assert.equal(record.embedding, null, "imported vectors must be rebuilt for the current embedding space");
+  }
+  assert.equal(importedRows.find((record) => record.content === "USER_CORRECTED_MEMORY")?.enabled, 0);
+  const changedTranscript = transcript.body
+    .split("\n")
+    .map((line: string, index: number) => {
+      const value = JSON.parse(line);
+      if (index === 2) value.mes = "The imported source was edited.";
+      return JSON.stringify(value);
+    })
+    .join("\n");
+  const changedImport = await importSTChat(changedTranscript, db, { mode: "roleplay" });
+  assert.equal(changedImport.success, true);
+  const changedRows = await db
+    .select()
+    .from(advancedMemoryRecords)
+    .where(eq(advancedMemoryRecords.chatId, changedImport.chatId!));
+  assert.equal(
+    changedRows.some((record) => record.content === "FUTURE_SECRET"),
+    false,
+    "changed imported source text must not bless an old derived scene as current",
+  );
+
+  const macroChat = await create("Macro memory export");
+  await chatStorage.patchMetadata(macroChat.id, { advancedMemory: { enabled: true } });
+  const macroMessage = await addMessage(macroChat.id, "A promise made to {{user}}.");
+  await db.insert(advancedMemoryRecords).values([
+    {
+      ...memoryFixture(`scene-${macroMessage.id}`, `scene-${macroMessage.id}`, [macroMessage.id], ""),
+      chatId: macroChat.id,
+    },
+    {
+      ...memoryFixture("macro-memory", `scene-${macroMessage.id}`, [macroMessage.id], "THE_PROMISE"),
+      chatId: macroChat.id,
+    },
+  ]);
+  await memoryService.refreshTransferredRecords(macroChat.id);
+  const macroTranscript = await app.inject({ method: "GET", url: `/api/chats/${macroChat.id}/export` });
+  assert.equal(macroTranscript.statusCode, 200);
+  const exportedMacroMessage = JSON.parse(macroTranscript.body.split("\n")[1]);
+  assert.equal(exportedMacroMessage.mes, "A promise made to User.");
+  const macroImport = await importSTChat(macroTranscript.body, db, { mode: "roleplay" });
+  assert.equal(macroImport.success, true);
+  const macroRows = await db
+    .select()
+    .from(advancedMemoryRecords)
+    .where(eq(advancedMemoryRecords.chatId, macroImport.chatId!));
+  assert.equal(
+    macroRows.find((record) => record.content === "THE_PROMISE")?.enabled,
+    1,
+    "valid enabled memory survives JSONL macro resolution with the exact exported source digest",
+  );
+  const tamperedMacro = macroTranscript.body
+    .split("\n")
+    .map((line: string, index: number) => {
+      const value = JSON.parse(line);
+      if (index === 1) value.mes = "A different promise.";
+      return JSON.stringify(value);
+    })
+    .join("\n");
+  const tamperedMacroImport = await importSTChat(tamperedMacro, db, { mode: "roleplay" });
+  assert.equal(tamperedMacroImport.success, true);
+  const tamperedMacroRows = await db
+    .select()
+    .from(advancedMemoryRecords)
+    .where(eq(advancedMemoryRecords.chatId, tamperedMacroImport.chatId!));
+  assert.equal(
+    tamperedMacroRows.some((record) => record.content === "THE_PROMISE"),
+    false,
+    "resolved-content digests must still reject changed imported source text",
+  );
+
   const game = await create("Branch-scoped GM state", "game");
   const keptGameMessage = await addMessage(game.id, '[widget: clues, add: "First clue"]', "assistant");
   const omittedGameMessage = await addMessage(game.id, '[widget: clues, add: "Future clue"]', "assistant");
@@ -293,31 +512,194 @@ try {
   const groupedConversation = (await app.inject({ method: "GET", url: `/api/chats/${conversation.id}` })).json();
   assert.equal(typeof groupedConversation.groupId, "string");
 
+  const presetResponse = await app.inject({ method: "POST", url: "/api/prompts", payload: { name: "Scene preset" } });
+  assert.equal(presetResponse.statusCode, 200);
+  const scenePresetId = presetResponse.json().id;
+  const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
+  const prompts = createPromptsStorage(db);
+  await prompts.createSection({
+    presetId: scenePresetId,
+    identifier: "scene_style",
+    name: "Scene style",
+    content: "Opening style: {{length}} Model: {{model}}",
+    role: "system",
+  });
+  await prompts.createChoiceBlock({
+    presetId: scenePresetId,
+    variableName: "length",
+    question: "Detail?",
+    options: [
+      { id: "brief", label: "Brief", value: "Write briefly." },
+      { id: "detail", label: "Detailed", value: "Write in detail." },
+    ],
+  });
+  await prompts.update(scenePresetId, { defaultChoices: { length: "Write in detail." } });
+  for (const [variableName, multiSelect, randomPick] of [
+    ["mood", true, false],
+    ["surprise", false, true],
+  ] as const) {
+    await prompts.createChoiceBlock({
+      presetId: scenePresetId,
+      variableName,
+      question: "Mood?",
+      multiSelect,
+      randomPick,
+      options: [
+        { id: "calm", label: "Calm", value: "calm" },
+        { id: "bright", label: "Bright", value: "bright" },
+      ],
+    });
+  }
+  const sceneCreatePayload = {
+    originChatId: conversation.id,
+    promptPresetId: scenePresetId,
+    presetChoices: { length: "Write briefly.", mood: [], surprise: ["calm", "bright"] },
+    initiatorCharId: null,
+    plan: {
+      name: "Converted roleplay scene",
+      description: "A quiet laboratory after midnight.",
+      scenario: "Verify cross-mode lineage remains separate.",
+      firstMessage: "The instruments hum softly.",
+      background: null,
+      characterIds: [],
+      systemPrompt: "Keep the scene concise.",
+      rating: "sfw",
+      relationshipHistory: "A regression fixture.",
+      participationGuide: "Continue the scene.",
+    },
+  };
+  for (const promptPresetId of [42, "missing-preset"]) {
+    const rejected = await app.inject({
+      method: "POST",
+      url: "/api/scene/create",
+      payload: { ...sceneCreatePayload, promptPresetId },
+    });
+    assert.equal(rejected.statusCode, 400, "Unavailable scene presets must not silently fall back");
+  }
   const sceneCreateResponse = await app.inject({
     method: "POST",
     url: "/api/scene/create",
-    payload: {
-      originChatId: conversation.id,
-      initiatorCharId: null,
-      plan: {
-        name: "Converted roleplay scene",
-        description: "A quiet laboratory after midnight.",
-        scenario: "Verify cross-mode lineage remains separate.",
-        firstMessage: "The instruments hum softly.",
-        background: null,
-        characterIds: [],
-        systemPrompt: "Keep the scene concise.",
-        rating: "sfw",
-        relationshipHistory: "A regression fixture.",
-        participationGuide: "Continue the scene.",
-      },
-    },
+    payload: sceneCreatePayload,
   });
   assert.equal(sceneCreateResponse.statusCode, 200);
   const sceneChatId = sceneCreateResponse.json().chatId;
   const sceneChat = (await app.inject({ method: "GET", url: `/api/chats/${sceneChatId}` })).json();
   assert.equal(sceneChat.mode, "roleplay");
+  assert.equal(sceneChat.promptPresetId, scenePresetId);
+  const sceneMetadata = typeof sceneChat.metadata === "string" ? JSON.parse(sceneChat.metadata) : sceneChat.metadata;
+  assert.deepEqual(sceneMetadata.presetChoices, sceneCreatePayload.presetChoices);
+  assert.match(sceneMetadata.sceneSystemPrompt, /^Keep the scene concise\./);
   assert.equal(sceneChat.groupId, null, "A converted scene must not join the conversation branch group");
+
+  // Exercise the actual scene planner/provider boundary, not just metadata persistence.
+  const requests: Array<{ messages: Array<{ content: string }> }> = [];
+  const provider = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(Buffer.from(chunk));
+    requests.push(JSON.parse(Buffer.concat(chunks).toString()));
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        choices: [{ message: { content: JSON.stringify(sceneCreatePayload.plan) }, finish_reason: "stop" }],
+      }),
+    );
+  });
+  try {
+    await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+    const address = provider.address();
+    assert.ok(address && typeof address !== "string");
+    const connection = await app.inject({
+      method: "POST",
+      url: "/api/connections",
+      payload: {
+        name: "Scene planner fixture",
+        provider: "custom",
+        model: "fixture",
+        baseUrl: `http://127.0.0.1:${address.port}/v1`,
+      },
+    });
+    assert.equal(connection.statusCode, 200, connection.body);
+    for (const [selection, expected] of [
+      [{ length: "Write briefly." }, "Write briefly."],
+      [undefined, "Write in detail."],
+      [{}, "Write in detail."],
+      [{ length: "" }, ""],
+      [{ length: [], mood: [] }, ""],
+      [{ mood: ["calm", "bright"], surprise: ["calm", "bright"] }, "Write in detail."],
+    ] as const) {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/scene/plan",
+        payload: {
+          chatId: conversation.id,
+          prompt: "A quiet experiment",
+          connectionId: connection.json().id,
+          promptPreferences: {
+            pov: "first_person",
+            tense: "past",
+            promptPresetId: scenePresetId,
+            presetChoices: selection,
+          },
+        },
+      });
+      assert.equal(response.statusCode, 200, response.body);
+      assert.equal(response.json().plan.firstMessage, sceneCreatePayload.plan.firstMessage);
+      const sent = requests
+        .at(-1)!
+        .messages.map((message) => message.content)
+        .join("\n");
+      assert.ok(
+        sent.includes(`Opening style: ${expected}`),
+        "The initial provider request must contain the resolved scene choice",
+      );
+      assert.ok(!sent.includes("{{length}}"), "Choice placeholders must be resolved before planning");
+      assert.ok(sent.includes("Model: fixture"), "Preset model macros must use the scene connection's model");
+      assert.ok(sent.includes("Return ONLY a JSON object"), "Scene output format remains authoritative");
+    }
+    const count = requests.length;
+    const chatsBeforeInvalidChoices = (await app.inject({ method: "GET", url: "/api/chats" })).json();
+    for (const preferences of [
+      { promptPresetId: "missing-preset" },
+      { promptPresetId: scenePresetId, presetChoices: { length: 42 } },
+      { promptPresetId: scenePresetId, presetChoices: { unknown: "calm" } },
+      { promptPresetId: scenePresetId, presetChoices: { length: "outside the preset" } },
+      { promptPresetId: scenePresetId, presetChoices: { length: ["Write briefly."] } },
+      { promptPresetId: scenePresetId, presetChoices: { length: ["Write briefly.", "Write in detail."] } },
+      { promptPresetId: scenePresetId, presetChoices: { mood: "calm" } },
+      { promptPresetId: scenePresetId, presetChoices: { mood: ["calm", "calm"] } },
+      { promptPresetId: scenePresetId, presetChoices: { mood: ["unknown"] } },
+      { promptPresetId: null, presetChoices: { length: "Write briefly." } },
+    ]) {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/scene/plan",
+        payload: {
+          chatId: conversation.id,
+          connectionId: connection.json().id,
+          prompt: "A quiet experiment",
+          promptPreferences: { pov: "first_person", tense: "past", ...preferences },
+        },
+      });
+      assert.equal(response.statusCode, 400, `Invalid planning choices: ${JSON.stringify(preferences)}`);
+      assert.equal(requests.length, count, "Invalid selections must not call the provider");
+      const created = await app.inject({
+        method: "POST",
+        url: "/api/scene/create",
+        payload: {
+          ...sceneCreatePayload,
+          ...preferences,
+        },
+      });
+      assert.equal(created.statusCode, 400, `Invalid creation choices: ${JSON.stringify(preferences)}`);
+      assert.deepEqual(
+        (await app.inject({ method: "GET", url: "/api/chats" })).json(),
+        chatsBeforeInvalidChoices,
+        "Invalid choices must not create a scene or change the origin chat metadata",
+      );
+    }
+  } finally {
+    await new Promise<void>((resolve) => provider.close(() => resolve()));
+  }
 
   const distinctSceneGroupId = "scene-owned-branch-group";
   const distinctScenePatch = await app.inject({
@@ -447,6 +829,25 @@ try {
   const survivingChild = await app.inject({ method: "GET", url: `/api/chats/${branch.id}` });
   assert.equal(survivingChild.statusCode, 200);
   assert.equal(survivingChild.json().metadata.branchParentChatId, root.id);
+
+  const profileExport = await app.inject({ method: "GET", url: "/api/backup/export-profile" });
+  assert.equal(profileExport.statusCode, 200, profileExport.body);
+  const profile = profileExport.json();
+  const backedUpRecords = profile.data.fileStorage.tables.advanced_memory_records;
+  assert.ok(Array.isArray(backedUpRecords), "native backups must discover the managed memory table");
+  const backedUpCorrection = backedUpRecords.find((record: { id: string }) => record.id === retainedCorrection!.id);
+  assert.ok(backedUpCorrection);
+  await db.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, retainedCorrection!.id));
+  const profileImport = await app.inject({ method: "POST", url: "/api/backup/import-profile", payload: profile });
+  assert.equal(profileImport.statusCode, 200, profileImport.body);
+  const restoredCorrection = (
+    await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, retainedCorrection!.id))
+  )[0];
+  assert.deepEqual(
+    restoredCorrection,
+    backedUpCorrection,
+    "profile restore retains source anchors and manual/disabled provenance",
+  );
 } finally {
   await app?.close();
   rmSync(dataDir, { recursive: true, force: true });

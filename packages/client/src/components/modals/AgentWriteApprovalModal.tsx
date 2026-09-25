@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Modal: Confirm agent-proposed lorebook and summary writes
 // ──────────────────────────────────────────────
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, FilePenLine, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -33,11 +33,14 @@ export function AgentWriteApprovalModal({ open, onClose }: Props) {
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
+  const reviewFocusRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setDraft(entry?.text ?? "");
     setError(null);
     setBusyAction(null);
+    // A queued proposal also needs safe focus after Accept or Discard advances it.
+    reviewFocusRef.current?.focus({ preventScroll: true });
   }, [entry?.id, entry?.text]);
 
   const queueNote =
@@ -149,6 +152,7 @@ export function AgentWriteApprovalModal({ open, onClose }: Props) {
   return (
     <Modal
       open={open}
+      initialFocusRef={reviewFocusRef}
       onClose={closeAndAdvance}
       title={
         entry.kind === "character_card_create"
@@ -158,7 +162,7 @@ export function AgentWriteApprovalModal({ open, onClose }: Props) {
       width="max-w-2xl"
     >
       <div className="flex flex-col gap-3">
-        <div className="flex items-start gap-3">
+        <div ref={reviewFocusRef} tabIndex={-1} className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)]/12 text-[var(--primary)] ring-1 ring-[var(--primary)]/25">
             <FilePenLine size="1.25rem" />
           </div>

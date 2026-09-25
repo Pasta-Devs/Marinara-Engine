@@ -15,7 +15,7 @@
 
 # ── Stage 1: Build ──
 # Uses wolfi-base + nodejs-24 + npm so Node ABI matches across all stages.
-FROM cgr.dev/chainguard/wolfi-base:latest@sha256:07e60ff6586b56f03c625e27b604f9f7d29498fef32f099f6560f0d207b4a056 AS builder
+FROM cgr.dev/chainguard/wolfi-base:latest@sha256:3754b6da0e1ccdab0fe46abfdd7bbbba994b593c28149f6659fa6597f2261aeb AS builder
 ARG BUILD_COMMIT
 ARG BUILD_BRANCH
 WORKDIR /app
@@ -28,6 +28,7 @@ ENV VITE_MARINARA_LITE=true
 
 # Copy workspace config first (layer cache for deps)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY patches/ patches/
 COPY packages/shared/package.json packages/shared/
 COPY packages/server/package.json packages/server/
 COPY packages/client/package.json packages/client/
@@ -57,13 +58,14 @@ RUN BUILD_COMMIT="$BUILD_COMMIT" BUILD_BRANCH="$BUILD_BRANCH" node -e 'const fs 
 
 # ── Stage 2: Production dependencies ──
 # Separate stage keeps builder cache warm while allowing aggressive dep stripping.
-FROM cgr.dev/chainguard/wolfi-base:latest@sha256:07e60ff6586b56f03c625e27b604f9f7d29498fef32f099f6560f0d207b4a056 AS deps
+FROM cgr.dev/chainguard/wolfi-base:latest@sha256:3754b6da0e1ccdab0fe46abfdd7bbbba994b593c28149f6659fa6597f2261aeb AS deps
 WORKDIR /app
 
 RUN apk add --no-cache nodejs-24 npm && \
     npm install -g pnpm@10.34.5
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY patches/ patches/
 COPY packages/shared/package.json packages/shared/
 COPY packages/server/package.json packages/server/
 COPY packages/client/package.json packages/client/
@@ -94,7 +96,7 @@ RUN tar cf /tmp/node_modules.tar \
 
 # ── Stage 3: Minimal Wolfi runtime ──
 # Only the Node.js 24 binary — no npm, no build tools, no shell bloat.
-FROM cgr.dev/chainguard/wolfi-base:latest@sha256:07e60ff6586b56f03c625e27b604f9f7d29498fef32f099f6560f0d207b4a056 AS production
+FROM cgr.dev/chainguard/wolfi-base:latest@sha256:3754b6da0e1ccdab0fe46abfdd7bbbba994b593c28149f6659fa6597f2261aeb AS production
 WORKDIR /app
 
 RUN apk add --no-cache nodejs-24-minimal && \

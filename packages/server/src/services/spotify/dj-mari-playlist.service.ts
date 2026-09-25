@@ -88,7 +88,7 @@ function parseJsonObject(value: unknown): Record<string, unknown> {
       return {};
     }
   }
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  return typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
 function parseCharacter(row: CharacterRow): { id: string; name: string; description: string; personality: string } {
@@ -478,7 +478,7 @@ async function resolveMostRecentPersona(
   }
 
   const personas = await charactersStorage.listPersonas();
-  return personas.find((persona) => persona.isActive === "true") ?? personas[0] ?? null;
+  return personas[0] ?? null;
 }
 
 async function buildRecentChatContext(args: {

@@ -264,8 +264,10 @@ export function useLorebookEntries(lorebookId: string | null) {
 export function useEntriesAcrossLorebooks(lorebookIds: string[]): {
   entries: LorebookEntry[] | undefined;
   isLoading: boolean;
+  isFetching: boolean;
   isError: boolean;
   error: unknown;
+  refetch: () => Promise<unknown>;
 } {
   const uniqueIds = Array.from(new Set(lorebookIds));
   const queries = useQueries({
@@ -281,7 +283,14 @@ export function useEntriesAcrossLorebooks(lorebookIds: string[]): {
   // "no selection" as a valid known state instead of an unresolved one.
   const allSucceeded = queries.length === 0 || queries.every((q) => q.isSuccess);
   const entries = allSucceeded ? queries.flatMap((q) => q.data ?? []) : undefined;
-  return { entries, isLoading, isError, error };
+  return {
+    entries,
+    isLoading,
+    isFetching: queries.some((query) => query.isFetching),
+    isError,
+    error,
+    refetch: () => Promise.all(queries.map((query) => query.refetch())),
+  };
 }
 
 export function useCreateLorebookEntry() {
@@ -510,12 +519,14 @@ export interface ActiveLorebookEntry {
   keys: string[];
   lorebookId: string;
   lorebookName: string;
-  activationSources: Array<"current_location" | "keyword" | "semantic" | "constant" | "sticky" | "recursive">;
+  activationSources: Array<
+    "current_location" | "keyword" | "semantic" | "constant" | "sticky" | "recursive" | "decision"
+  >;
   order: number;
   constant: boolean;
   selective: boolean;
   matchedKeys?: string[];
-  matchType?: "keyword" | "semantic" | "constant" | "sticky";
+  matchType?: "keyword" | "semantic" | "constant" | "sticky" | "decision";
   semanticScore?: number;
 }
 
@@ -525,8 +536,10 @@ export interface BudgetSkippedLorebookEntry {
   lorebookId: string;
   lorebookName: string;
   matchedKeys: string[];
-  activationSources: Array<"current_location" | "keyword" | "semantic" | "constant" | "sticky" | "recursive">;
-  matchType?: "keyword" | "semantic" | "constant" | "sticky";
+  activationSources: Array<
+    "current_location" | "keyword" | "semantic" | "constant" | "sticky" | "recursive" | "decision"
+  >;
+  matchType?: "keyword" | "semantic" | "constant" | "sticky" | "decision";
   semanticScore?: number;
   estimatedTokens: number;
   lorebookBudget: number;

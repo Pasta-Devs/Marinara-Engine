@@ -124,6 +124,16 @@ async function start(message) {
   const marinara = Object.freeze({
     runtime: "server",
     version: 2,
+    // The host supplies its shared estimator; compile it in an isolated realm,
+    // never expose a host function or module loader to extension code.
+    ...(typeof message.tokenEstimatorSource === "string"
+      ? {
+          estimateTextTokens: new vm.Script(message.tokenEstimatorSource).runInNewContext(Object.create(null), {
+            timeout: 1_000,
+            contextCodeGeneration: { strings: false, wasm: false },
+          }),
+        }
+      : {}),
     extensionId: message.id,
     extensionName: message.name,
     log: Object.freeze({

@@ -121,6 +121,8 @@ export interface TrackerCardStylePalette {
   displayGradientLayer: string | null;
   displaySolid: string;
   box: string;
+  /** Unadjusted surface paint; material gradients apply brightness after mixing. */
+  rawBox?: string;
   boxLayer: string;
   boxGradientLayer: string | null;
   finish: TrackerCardFinish;
@@ -260,30 +262,6 @@ export const TRACKER_CARD_PAINT_ENABLED_DEFAULTS: TrackerCardPaintEnabled = {
 };
 
 export const DEFAULT_TRACKER_CARD_ACCENT = "var(--primary)";
-const TRACKER_CARD_NEUTRAL_SURFACE_TOP =
-  "var(--tracker-card-neutral-surface-top, color-mix(in srgb, color-mix(in srgb, var(--secondary) 66%, var(--accent) 34%) 91%, var(--primary) 9%))";
-const TRACKER_CARD_NEUTRAL_SURFACE_BOTTOM =
-  "var(--tracker-card-neutral-surface-bottom, color-mix(in srgb, color-mix(in srgb, var(--secondary) 78%, var(--accent) 22%) 94%, var(--muted-foreground) 6%))";
-const TRACKER_CARD_NEUTRAL_MATERIAL =
-  "var(--tracker-card-neutral-material, color-mix(in srgb, color-mix(in srgb, var(--secondary) 68%, var(--accent) 32%) 89%, var(--primary) 11%))";
-const TRACKER_CARD_NEUTRAL_LIFT =
-  "var(--tracker-card-neutral-lift, color-mix(in srgb, var(--muted-foreground) 72%, var(--primary) 28%))";
-const TRACKER_CARD_ACTIVE_SURFACE_TOP =
-  "var(--tracker-card-active-surface-top, color-mix(in srgb, var(--card) 72%, var(--background) 28%))";
-const TRACKER_CARD_ACTIVE_SURFACE_BOTTOM =
-  "var(--tracker-card-active-surface-bottom, color-mix(in srgb, var(--background) 74%, var(--card) 26%))";
-const TRACKER_CARD_ACTIVE_SURFACE_MATERIAL =
-  "var(--tracker-card-active-surface-material, color-mix(in srgb, var(--card) 52%, var(--background) 48%))";
-const TRACKER_CARD_ACTIVE_SURFACE_LIFT =
-  "var(--tracker-card-active-surface-lift, color-mix(in srgb, var(--card) 90%, var(--card-foreground) 10%))";
-const TRACKER_CARD_NAMEPLATE_BASE_TOP =
-  "var(--tracker-card-nameplate-base-top, color-mix(in srgb, var(--card) 72%, var(--background) 28%))";
-const TRACKER_CARD_NAMEPLATE_BASE_MID =
-  "var(--tracker-card-nameplate-base-mid, color-mix(in srgb, var(--card) 56%, var(--background) 44%))";
-const TRACKER_CARD_NAMEPLATE_BASE_BOTTOM =
-  "var(--tracker-card-nameplate-base-bottom, color-mix(in srgb, var(--background) 82%, var(--card) 18%))";
-const TRACKER_CARD_NAMEPLATE_TEXT_BASE =
-  "var(--tracker-card-nameplate-text-base, color-mix(in srgb, var(--card-foreground) 92%, var(--primary) 8%))";
 const TRACKER_CARD_MATERIAL_BRIGHT_TARGET = "var(--tracker-card-material-bright-target, oklch(0.975 0.012 315))";
 const TRACKER_CARD_MATERIAL_DARK_TARGET = "var(--tracker-card-material-dark-target, oklch(0.055 0.014 300))";
 const TRACKER_CARD_READABLE_LIGHT_INK = "var(--tracker-card-readable-light-ink, oklch(0.94 0.012 315))";
@@ -648,8 +626,9 @@ function getFallbackAwarePaintOpacity(
 }
 
 function getStrengthAdjustedColor(color: string, opacity: number, neutral: string) {
+  // Omit no-op mixes: nested color-mix() operands can crash WebKit gradient resolution.
   const clampedOpacity = Math.max(0, Math.min(100, Math.round(opacity)));
-  if (clampedOpacity >= 100) return color;
+  if (clampedOpacity >= 100 || color === neutral) return color;
   if (clampedOpacity <= 0) return neutral;
   return `color-mix(in srgb, ${neutral} ${100 - clampedOpacity}%, ${color} ${clampedOpacity}%)`;
 }
@@ -727,6 +706,7 @@ export function getTrackerCardStylePalette({
     displayGradientLayer: getTrackerCardGradientPaintLayer(displayPaint, effectiveOpacity.nameColorOpacity),
     displaySolid,
     box: materialBox,
+    rawBox: box,
     boxLayer: getTrackerCardBackgroundPaintLayer(materialSurfacePaint ?? materialBox, effectiveOpacity.boxColorOpacity),
     boxGradientLayer: getTrackerCardGradientPaintLayer(materialSurfacePaint, effectiveOpacity.boxColorOpacity),
     finish,
@@ -748,24 +728,12 @@ export function getTrackerCardStyleVars({
   const accentOpacity = palette.opacity.dialogueColorOpacity;
   const boxOpacity = palette.opacity.boxColorOpacity;
   const surfaceOpacity = palette.hasSurfacePaint ? boxOpacity : 0;
-  const hasSurfacePaint = palette.hasSurfacePaint;
   const materialBrightness = palette.finish.materialBrightness;
-  const surfaceNeutralTop = applyTrackerCardMaterialBrightness(
-    hasSurfacePaint ? TRACKER_CARD_ACTIVE_SURFACE_TOP : TRACKER_CARD_NEUTRAL_SURFACE_TOP,
-    materialBrightness,
-  );
-  const surfaceNeutralBottom = applyTrackerCardMaterialBrightness(
-    hasSurfacePaint ? TRACKER_CARD_ACTIVE_SURFACE_BOTTOM : TRACKER_CARD_NEUTRAL_SURFACE_BOTTOM,
-    materialBrightness,
-  );
-  const surfaceNeutralMaterial = applyTrackerCardMaterialBrightness(
-    hasSurfacePaint ? TRACKER_CARD_ACTIVE_SURFACE_MATERIAL : TRACKER_CARD_NEUTRAL_MATERIAL,
-    materialBrightness,
-  );
-  const surfaceNeutralLift = applyTrackerCardMaterialBrightness(
-    hasSurfacePaint ? TRACKER_CARD_ACTIVE_SURFACE_LIFT : TRACKER_CARD_NEUTRAL_LIFT,
-    materialBrightness,
-  );
+  // ponytail: avoid blending two derived colors, which can crash WebKit. Decorative cross-tints
+  // can return when affected WebKit versions support these generated paints reliably.
+  const surfaceNeutralTop = "var(--card)";
+  const surfaceNeutralBottom = "var(--background)";
+  const surfaceNeutralMaterial = "var(--card)";
   const bodyDisplayOpacity = Math.min(displayOpacity, surfaceOpacity) * 0.22;
   const bodyAccentOpacity = Math.min(accentOpacity, surfaceOpacity);
   const borderOpacity = scalePercent(finish.borderOpacity, Math.max(accentOpacity, surfaceOpacity));
@@ -774,22 +742,19 @@ export function getTrackerCardStyleVars({
   const rowRuleOpacity = scalePercent(finish.rowRuleOpacity, Math.max(accentOpacity, surfaceOpacity));
   const rowChromeOpacity = Math.max(18, Math.round(rowRuleOpacity * 0.9));
   const effectiveAccent = getStrengthAdjustedColor(palette.accent, accentOpacity, "var(--border)");
-  const effectiveBox = getStrengthAdjustedColor(palette.box, surfaceOpacity, surfaceNeutralMaterial);
+  const effectiveBox = getStrengthAdjustedColor(palette.rawBox ?? palette.box, surfaceOpacity, surfaceNeutralMaterial);
   const effectiveDisplaySolid = getStrengthAdjustedColor(palette.displaySolid, displayOpacity, "var(--foreground)");
-  const identityChromePaint = `color-mix(in srgb, ${effectiveDisplaySolid} 72%, ${effectiveAccent} 28%)`;
-  const nameplateChromePaint = `color-mix(in srgb, ${effectiveDisplaySolid} 72%, ${effectiveAccent} 28%)`;
-  const broadChromePaint = `color-mix(in srgb, ${effectiveBox} 42%, ${effectiveAccent} 58%)`;
-  const dialogueChromePaint = `color-mix(in srgb, ${effectiveDisplaySolid} 28%, ${effectiveAccent} 72%)`;
-  const hasActiveSurface = surfaceOpacity > 0;
-  const surfaceMaterialPaint = hasActiveSurface
-    ? `color-mix(in srgb, ${effectiveBox} 88%, ${surfaceNeutralLift} 12%)`
-    : effectiveBox;
+  const identityChromePaint = effectiveDisplaySolid;
+  const nameplateChromePaint = identityChromePaint;
+  const broadChromePaint = effectiveAccent;
+  const dialogueChromePaint = effectiveAccent;
+  const surfaceMaterialPaint = effectiveBox;
   const materialTopBase = surfaceNeutralTop;
   const materialDepthBase = surfaceNeutralBottom;
   const panelTopBase = surfaceNeutralTop;
   const panelBottomBase = surfaceNeutralBottom;
-  const fieldTopBase = `color-mix(in srgb, ${surfaceNeutralTop} 76%, var(--background) 24%)`;
-  const fieldBottomBase = `color-mix(in srgb, ${surfaceNeutralBottom} 70%, var(--background) 30%)`;
+  const fieldTopBase = surfaceNeutralTop;
+  const fieldBottomBase = surfaceNeutralBottom;
   const surfaceBoxMix = scalePercent(finish.surfaceBoxMix, surfaceOpacity);
   const panelBoxMix = scalePercent(finish.panelBoxMix, surfaceOpacity);
   const surfaceBackMix = Math.round(surfaceBoxMix * 0.65);
@@ -798,9 +763,9 @@ export function getTrackerCardStyleVars({
   const nameplateAccentMix = scalePercent(Math.min(4, 1 + Math.round(finish.accentPanelMix * 0.1)), accentOpacity);
   const nameplateBoxMix = scalePercent(Math.min(5, 2 + Math.round(finish.panelBoxMix * 0.08)), surfaceOpacity);
   const nameplateHighlightMix = Math.max(1, Math.round((nameplateDisplayMix + nameplateAccentMix) * 0.16));
-  const nameplateBaseTop = TRACKER_CARD_NAMEPLATE_BASE_TOP;
-  const nameplateBaseMid = TRACKER_CARD_NAMEPLATE_BASE_MID;
-  const nameplateBaseBottom = TRACKER_CARD_NAMEPLATE_BASE_BOTTOM;
+  const nameplateBaseTop = "var(--card)";
+  const nameplateBaseMid = "var(--card)";
+  const nameplateBaseBottom = "var(--background)";
   const statTrackAccentMix = scalePercent(finish.statTrackAccentMix, accentOpacity);
   const statTrackBoxMix = scalePercent(finish.statTrackBoxMix, surfaceOpacity);
   const framePaintLayers = [palette.boxGradientLayer];
@@ -810,56 +775,80 @@ export function getTrackerCardStyleVars({
   const slotPaintLayers = [palette.displayGradientLayer];
   const slotTopBoxMix = scalePercent(finish.slotBoxTopMix, surfaceOpacity);
   const slotBottomBoxMix = scalePercent(finish.slotBoxBottomMix, surfaceOpacity);
-  const slotTopDisplayMix = scalePercent(26, displayOpacity);
-  const slotBottomDisplayMix = scalePercent(31, displayOpacity);
   const fieldInsetTopDepthMix = Math.min(56, Math.round(18 + finish.strongContrastTop * 0.45));
   const fieldInsetBottomDepthMix = Math.min(68, Math.round(22 + finish.strongContrastBottom * 0.52));
   const fieldInsetOpacity = Math.min(99, Math.round(90 + finish.strongContrastMid * 0.12));
-  const slotTopSurfaceBase = `color-mix(in srgb, ${fieldTopBase} ${100 - Math.round(slotTopBoxMix * 0.22)}%, ${surfaceMaterialPaint} ${Math.round(slotTopBoxMix * 0.22)}%)`;
-  const slotBottomSurfaceBase = `color-mix(in srgb, ${fieldBottomBase} ${100 - Math.round(slotBottomBoxMix * 0.18)}%, ${surfaceMaterialPaint} ${Math.round(slotBottomBoxMix * 0.18)}%)`;
-  const slotTopBase = `color-mix(in srgb, ${slotTopSurfaceBase} ${100 - slotTopDisplayMix}%, ${effectiveDisplaySolid} ${slotTopDisplayMix}%)`;
-  const slotBottomBase = `color-mix(in srgb, ${slotBottomSurfaceBase} ${100 - slotBottomDisplayMix}%, ${effectiveDisplaySolid} ${slotBottomDisplayMix}%)`;
+  const slotTopSurfaceBase = getStrengthAdjustedColor(
+    surfaceMaterialPaint,
+    Math.round(slotTopBoxMix * 0.22),
+    fieldTopBase,
+  );
+  const slotBottomSurfaceBase = getStrengthAdjustedColor(
+    surfaceMaterialPaint,
+    Math.round(slotBottomBoxMix * 0.18),
+    fieldBottomBase,
+  );
+  const slotTopBase = slotTopSurfaceBase;
+  const slotBottomBase = slotBottomSurfaceBase;
   const portraitStage = getTrackerCardPortraitStageVars({
     background: palette.portraitStageBackground,
     displaySolid: effectiveDisplaySolid,
     accent: effectiveAccent,
-    box: effectiveBox,
+    box: applyTrackerCardMaterialBrightness(effectiveBox, materialBrightness),
     opacity: palette.opacity,
   });
   const ambienceBoxMix = scalePercent(Math.min(34, Math.round(finish.surfaceBoxMix * 0.95)), surfaceOpacity);
   const ambienceBackMix = Math.round(ambienceBoxMix * 0.68);
   const backgroundBase =
     background ??
-    `linear-gradient(135deg, color-mix(in srgb, ${materialTopBase} ${100 - ambienceBoxMix}%, ${surfaceMaterialPaint} ${ambienceBoxMix}%), ` +
-      `color-mix(in srgb, ${materialDepthBase} ${100 - ambienceBackMix}%, ${surfaceMaterialPaint} ${ambienceBackMix}%))`;
+    `linear-gradient(135deg, ${getStrengthAdjustedColor(surfaceMaterialPaint, ambienceBoxMix, materialTopBase)}, ` +
+      `${getStrengthAdjustedColor(surfaceMaterialPaint, ambienceBackMix, materialDepthBase)})`;
   const frameBackground = getTrackerCardPaintedBackground(
-    `linear-gradient(135deg, ` +
-      `color-mix(in srgb, ${materialTopBase} ${100 - surfaceBoxMix}%, ${surfaceMaterialPaint} ${surfaceBoxMix}%), ` +
-      `color-mix(in srgb, ${materialDepthBase} ${100 - surfaceBackMix}%, ${surfaceMaterialPaint} ${surfaceBackMix}%))`,
+    applyTrackerCardMaterialBrightness(
+      `linear-gradient(135deg, ` +
+        `${getStrengthAdjustedColor(surfaceMaterialPaint, surfaceBoxMix, materialTopBase)}, ` +
+        `${getStrengthAdjustedColor(surfaceMaterialPaint, surfaceBackMix, materialDepthBase)})`,
+      materialBrightness,
+    ),
     framePaintLayers,
   );
   const panelBackground = getTrackerCardPaintedBackground(
-    `linear-gradient(135deg, ` +
-      `color-mix(in srgb, ${panelTopBase} ${100 - panelBoxMix}%, ${surfaceMaterialPaint} ${panelBoxMix}%), ` +
-      `color-mix(in srgb, ${panelBottomBase} ${100 - panelBackMix}%, ${surfaceMaterialPaint} ${panelBackMix}%))`,
+    applyTrackerCardMaterialBrightness(
+      `linear-gradient(135deg, ` +
+        `${getStrengthAdjustedColor(surfaceMaterialPaint, panelBoxMix, panelTopBase)}, ` +
+        `${getStrengthAdjustedColor(surfaceMaterialPaint, panelBackMix, panelBottomBase)})`,
+      materialBrightness,
+    ),
     panelPaintLayers,
   );
   const surfaceBackground = getTrackerCardPaintedBackground(
-    `linear-gradient(135deg, ` +
-      `color-mix(in srgb, ${materialTopBase} ${100 - surfaceBackMix}%, ${surfaceMaterialPaint} ${surfaceBackMix}%), ` +
-      `color-mix(in srgb, ${materialDepthBase} ${100 - surfaceBoxMix}%, ${surfaceMaterialPaint} ${surfaceBoxMix}%))`,
+    applyTrackerCardMaterialBrightness(
+      `linear-gradient(135deg, ` +
+        `${getStrengthAdjustedColor(surfaceMaterialPaint, surfaceBackMix, materialTopBase)}, ` +
+        `${getStrengthAdjustedColor(surfaceMaterialPaint, surfaceBoxMix, materialDepthBase)})`,
+      materialBrightness,
+    ),
     surfacePaintLayers,
   );
   const fieldInsetBackground = getTrackerCardPaintedBackground(
-    `linear-gradient(180deg, ` +
-      `color-mix(in srgb, color-mix(in srgb, ${slotTopBase} ${100 - fieldInsetTopDepthMix}%, var(--background) ${fieldInsetTopDepthMix}%) ${fieldInsetOpacity}%, transparent), ` +
-      `color-mix(in srgb, color-mix(in srgb, ${slotBottomBase} ${100 - fieldInsetBottomDepthMix}%, var(--background) ${fieldInsetBottomDepthMix}%) ${fieldInsetOpacity}%, transparent))`,
+    applyTrackerCardPaintOpacity(
+      applyTrackerCardMaterialBrightness(
+        `linear-gradient(180deg, ` +
+          `color-mix(in srgb, ${slotTopBase} ${100 - fieldInsetTopDepthMix}%, var(--background) ${fieldInsetTopDepthMix}%), ` +
+          `color-mix(in srgb, ${slotBottomBase} ${100 - fieldInsetBottomDepthMix}%, var(--background) ${fieldInsetBottomDepthMix}%))`,
+        materialBrightness,
+      ),
+      fieldInsetOpacity,
+    ),
     slotPaintLayers,
   );
   const statTrackBackground = getTrackerCardPaintedBackground(
-    `linear-gradient(90deg, ` +
-      `color-mix(in srgb, color-mix(in srgb, var(--background) ${finish.statTrackBackgroundMix}%, ${effectiveBox} ${100 - finish.statTrackBackgroundMix}%) ${100 - statTrackBoxMix}%, ${effectiveBox} ${statTrackBoxMix}%), ` +
-      `color-mix(in srgb, color-mix(in srgb, var(--secondary) ${finish.statTrackBackgroundMix}%, ${effectiveAccent} ${100 - finish.statTrackBackgroundMix}%) ${100 - statTrackAccentMix}%, ${palette.accent} ${statTrackAccentMix}%))`,
+    applyTrackerCardMaterialBrightness(
+      `linear-gradient(90deg, ` +
+        `${getStrengthAdjustedColor(effectiveBox, 100 - (finish.statTrackBackgroundMix * (100 - statTrackBoxMix)) / 100, "var(--background)")}, ` +
+        `${getStrengthAdjustedColor(effectiveAccent, 100 - (finish.statTrackBackgroundMix * (100 - statTrackAccentMix)) / 100, "var(--secondary)")})`,
+      materialBrightness,
+    ),
     statTrackPaintLayers,
   );
   const glowStrength = Math.min(1, Math.max(0, finish.glowMix / 56));
@@ -880,18 +869,6 @@ export function getTrackerCardStyleVars({
     lightInk: TRACKER_CARD_MUTED_LIGHT_INK,
     darkInk: TRACKER_CARD_MUTED_DARK_INK,
   });
-  const readableText = `color-mix(in srgb, var(--foreground) ${finish.textMix}%, var(--muted-foreground) ${100 - finish.textMix}%)`;
-  const readableNumberText = `color-mix(in srgb, var(--foreground) ${finish.numberTextMix}%, var(--muted-foreground) ${100 - finish.numberTextMix}%)`;
-  const mutedReadableText = `color-mix(in srgb, var(--foreground) ${finish.mutedTextMix}%, var(--muted-foreground) ${100 - finish.mutedTextMix}%)`;
-  const materialReadableText = `color-mix(in srgb, ${materialReadableForeground} ${finish.textMix}%, ${materialReadableMutedForeground} ${100 - finish.textMix}%)`;
-  const materialMutedReadableText = `color-mix(in srgb, ${materialReadableForeground} ${finish.mutedTextMix}%, ${materialReadableMutedForeground} ${100 - finish.mutedTextMix}%)`;
-  const iconInkMix = Math.min(
-    46,
-    Math.round(getMaterialPolarityMix(materialBrightness, palette.finish.contrastIntensity) * 0.48),
-  );
-  const readableLabelText = `color-mix(in srgb, ${materialReadableText} 94%, ${effectiveDisplaySolid} 6%)`;
-  const readableLabelMutedText = `color-mix(in srgb, ${materialMutedReadableText} 92%, ${effectiveDisplaySolid} 8%)`;
-  const readableLabelIcon = `color-mix(in srgb, ${effectiveAccent} ${100 - iconInkMix}%, ${readableLabelText} ${iconInkMix}%)`;
 
   return {
     accent: effectiveAccent,
@@ -907,20 +884,20 @@ export function getTrackerCardStyleVars({
     fieldMaterial: fieldInsetBackground,
     fieldMaterialBlend: getTrackerCardBackgroundBlendMode(slotPaintLayers, "soft-light"),
     icon: effectiveAccent,
-    labelIcon: readableLabelIcon,
-    labelMutedText: readableLabelMutedText,
-    labelText: readableLabelText,
+    labelIcon: effectiveAccent,
+    labelMutedText: materialReadableMutedForeground,
+    labelText: materialReadableForeground,
     material: frameBackground,
     materialBlend: getTrackerCardBackgroundBlendMode(framePaintLayers),
     nameplate:
       `radial-gradient(ellipse at 50% 0%, color-mix(in srgb, ${effectiveDisplaySolid} ${nameplateHighlightMix}%, transparent) 0%, transparent 46%), ` +
       `linear-gradient(180deg, ` +
-      `color-mix(in srgb, ${nameplateBaseTop} ${100 - nameplateDisplayMix}%, ${effectiveDisplaySolid} ${nameplateDisplayMix}%) 0%, ` +
-      `color-mix(in srgb, ${nameplateBaseMid} ${100 - nameplateAccentMix}%, ${nameplateChromePaint} ${nameplateAccentMix}%) 50%, ` +
-      `color-mix(in srgb, ${nameplateBaseBottom} ${100 - nameplateBoxMix}%, ${effectiveBox} ${nameplateBoxMix}%) 100%)`,
+      `${getStrengthAdjustedColor(effectiveDisplaySolid, nameplateDisplayMix, nameplateBaseTop)} 0%, ` +
+      `${getStrengthAdjustedColor(nameplateChromePaint, nameplateAccentMix, nameplateBaseMid)} 50%, ` +
+      `${getStrengthAdjustedColor(effectiveBox, nameplateBoxMix, nameplateBaseBottom)} 100%)`,
     nameplateGlow: `color-mix(in srgb, ${effectiveAccent} ${scalePercent(Math.min(12, Math.round(finish.glowMix * 0.22)), accentOpacity)}%, transparent)`,
     nameplateRule: `color-mix(in srgb, ${nameplateChromePaint} ${Math.max(20, Math.round(borderOpacity * 0.48))}%, transparent)`,
-    nameplateText: `color-mix(in srgb, ${TRACKER_CARD_NAMEPLATE_TEXT_BASE} 78%, ${effectiveDisplaySolid} 22%)`,
+    nameplateText: "var(--foreground)",
     panelMaterial: panelBackground,
     panelMaterialBlend: getTrackerCardBackgroundBlendMode(panelPaintLayers, "overlay"),
     portraitBase: portraitStage.base,
@@ -939,7 +916,7 @@ export function getTrackerCardStyleVars({
     surface: surfaceBackground,
     surfaceBlend: getTrackerCardBackgroundBlendMode(surfacePaintLayers),
     surfaceLayer: palette.boxLayer,
-    surfaceSolid: effectiveBox,
+    surfaceSolid: applyTrackerCardMaterialBrightness(effectiveBox, materialBrightness),
     slotRule: `color-mix(in srgb, color-mix(in srgb, ${effectiveBox} 50%, var(--foreground) 50%) ${finish.slotRuleOpacity}%, transparent)`,
     slotShadow: `rgba(0, 0, 0, ${finish.slotShadowOpacity})`,
     slotSurface: fieldInsetBackground,
@@ -951,8 +928,8 @@ export function getTrackerCardStyleVars({
     contrastStrongTop: `${finish.strongContrastTop}%`,
     contrastStrongMid: `${finish.strongContrastMid}%`,
     contrastStrongBottom: `${finish.strongContrastBottom}%`,
-    mutedText: `color-mix(in srgb, ${mutedReadableText} 92%, ${effectiveDisplaySolid} 8%)`,
-    numberText: `color-mix(in srgb, ${readableNumberText} 94%, ${effectiveDisplaySolid} 6%)`,
+    mutedText: materialReadableMutedForeground,
+    numberText: materialReadableForeground,
     rowRule: `color-mix(in srgb, ${dialogueChromePaint} ${rowChromeOpacity}%, transparent)`,
     statFillGlow: `color-mix(in srgb, color-mix(in srgb, ${palette.accent} 42%, var(--foreground) 58%) ${scalePercent(finish.statFillGlowMix, accentOpacity)}%, transparent)`,
     statFillHighlight: `color-mix(in srgb, var(--foreground) ${finish.statFillHighlightMix}%, transparent)`,
@@ -960,8 +937,11 @@ export function getTrackerCardStyleVars({
     statTrackBlend: getTrackerCardBackgroundBlendMode(statTrackPaintLayers, "overlay"),
     statTrackRing: `color-mix(in srgb, color-mix(in srgb, ${palette.accent} 52%, var(--foreground) 48%) ${scalePercent(finish.statTrackRingOpacity, accentOpacity)}%, transparent)`,
     statTrackShadow: `rgba(0, 0, 0, ${finish.statTrackShadowOpacity})`,
-    text: `color-mix(in srgb, ${readableText} 94%, ${effectiveDisplaySolid} 6%)`,
-    background: getTrackerCardPaintedBackground(backgroundBase, framePaintLayers),
+    text: materialReadableForeground,
+    background: getTrackerCardPaintedBackground(
+      applyTrackerCardMaterialBrightness(backgroundBase, materialBrightness),
+      framePaintLayers,
+    ),
     backgroundBlendMode: getTrackerCardBackgroundBlendMode(framePaintLayers),
   };
 }
@@ -1008,7 +988,7 @@ export function getTrackerCardPortraitStageVars({
         lightOpacity: "0.88",
         rim:
           `linear-gradient(180deg, color-mix(in srgb, ${displaySolid} 26%, transparent) 0%, transparent 28%), ` +
-          `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${displaySolid} 18%, ${accent} 82%) 48%, transparent 100%)`,
+          `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${accent} 82%, transparent) 48%, transparent 100%)`,
         rimOpacity: "0.64",
         mediaOpacity: "0.16",
         mediaBlur: "1.8rem",
@@ -1080,7 +1060,7 @@ export function getTrackerCardPortraitStageVars({
           `radial-gradient(ellipse at 76% 70%, color-mix(in srgb, ${accent} ${accentKeyMix}%, transparent) 0%, transparent 46%)`,
         lightOpacity: "0.7",
         rim:
-          `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${displaySolid} 16%, ${accent} 84%) 50%, transparent 100%), ` +
+          `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${accent} 84%, transparent) 50%, transparent 100%), ` +
           `linear-gradient(180deg, color-mix(in srgb, ${displaySolid} 14%, var(--foreground) 86%) 0%, transparent 28%)`,
         rimOpacity: "0.52",
         mediaOpacity: "0.22",

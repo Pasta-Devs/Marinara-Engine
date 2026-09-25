@@ -8,7 +8,7 @@ import { FittedText, InlineEdit } from "./InlineControls";
 const NAMEPLATE_CLASS = cn(
   "relative isolate z-[3] col-span-full h-5 min-h-5 overflow-hidden",
   "rounded-t-[0.5625rem] border-b border-[color-mix(in_srgb,var(--tracker-profile-nameplate-rule)_18%,transparent)]",
-  "bg-[image:var(--tracker-profile-nameplate)]",
+  "bg-[image:var(--tracker-profile-nameplate)] [--tracker-inline-foreground:var(--tracker-profile-nameplate-text)]",
   "py-0",
   "shadow-[0_0_4px_color-mix(in_srgb,var(--tracker-profile-nameplate-glow)_38%,transparent),inset_0_-1px_0_color-mix(in_srgb,var(--foreground)_2%,transparent)]",
 );

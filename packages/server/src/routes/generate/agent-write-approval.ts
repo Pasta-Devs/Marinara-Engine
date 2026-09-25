@@ -1,5 +1,9 @@
-import type { AgentWriteApprovalEnvelope, AgentWriteApprovalProposal } from "@marinara-engine/shared";
-import { mergeLorebookKeeperUpdateContent, readLorebookKeeperUpdateOrder } from "./lorebook-keeper-utils.js";
+import type { AgentWriteApprovalEnvelope, AgentWriteApprovalProposal, SourceMessageRef } from "@marinara-engine/shared";
+import {
+  mergeLorebookKeeperUpdateContent,
+  readKeeperUpdateName as readUpdateName,
+  readLorebookKeeperUpdateOrder,
+} from "./lorebook-keeper-utils.js";
 
 const LOREBOOK_APPROVAL_ENTRY_DELIMITER = "<!-- marinara:lorebook-entry:v1 -->";
 
@@ -57,19 +61,6 @@ function readNestedEntry(update: Record<string, unknown>): Record<string, unknow
   return isRecord(update.entry) ? update.entry : {};
 }
 
-function readUpdateName(update: Record<string, unknown>): string {
-  const nested = readNestedEntry(update);
-  const raw =
-    typeof update.entryName === "string"
-      ? update.entryName
-      : typeof update.name === "string"
-        ? update.name
-        : typeof nested.name === "string"
-          ? nested.name
-          : "";
-  return raw.trim();
-}
-
 function readUpdateReplacementContent(update: Record<string, unknown>): string {
   const nested = readNestedEntry(update);
   if (typeof update.content === "string" && update.content.trim()) return update.content.trim();
@@ -101,6 +92,19 @@ export function agentWriteApprovalRequired(chatMeta: Record<string, unknown>): b
 
 export function isAgentWriteApprovalEnvelope(value: unknown): value is AgentWriteApprovalEnvelope {
   return isRecord(value) && value.requiresApproval === true && isRecord(value.approval);
+}
+
+/** Refresh tool proposals after the assistant has been saved, before final delivery. */
+export function stampLorebookWriteApprovalSource(
+  envelope: AgentWriteApprovalEnvelope,
+  sourceAgentId: string,
+  sourceMessageRefs: SourceMessageRef[],
+): AgentWriteApprovalEnvelope {
+  if (envelope.approval.kind !== "lorebook_update") return envelope;
+  return {
+    ...envelope,
+    approval: { ...envelope.approval, payload: { ...envelope.approval.payload, sourceAgentId, sourceMessageRefs } },
+  };
 }
 
 function normalizeEntryName(value: string): string {
@@ -244,10 +248,14 @@ export function buildLorebookWriteApprovalProposal(args: {
   updates: Array<Record<string, unknown>>;
   preferredTargetLorebookId: string | null;
   writableLorebookIds: string[] | null;
+  allowTargetRouting?: boolean;
   writableLorebooks?: Array<{ id: string; name: string }>;
   lorebookNamingScheme?: Record<string, string>;
   worldName?: string | null;
   existingEntries?: Array<{ name?: string | null; content?: string | null }>;
+  /** Round-trips through the approval payload so the later apply can stamp provenance. */
+  sourceAgentId?: string;
+  sourceMessageRefs?: SourceMessageRef[];
 }): AgentWriteApprovalProposal {
   return {
     kind: "lorebook_update",
@@ -259,10 +267,13 @@ export function buildLorebookWriteApprovalProposal(args: {
     payload: {
       preferredTargetLorebookId: args.preferredTargetLorebookId,
       writableLorebookIds: args.writableLorebookIds,
+      allowTargetRouting: args.allowTargetRouting,
       writableLorebooks: args.writableLorebooks,
       lorebookNamingScheme: args.lorebookNamingScheme,
       worldName: args.worldName,
       updates: args.updates,
+      sourceAgentId: args.sourceAgentId,
+      sourceMessageRefs: args.sourceMessageRefs,
     },
     canRegenerate: !!args.agentType,
     createdAt: new Date().toISOString(),

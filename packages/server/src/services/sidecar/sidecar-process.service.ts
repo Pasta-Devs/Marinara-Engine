@@ -98,6 +98,14 @@ class SidecarProcessService {
     return this.ready && this.baseUrl !== null;
   }
 
+  /**
+   * The running llama-server's process id, so its device memory can be measured
+   * rather than estimated from the model file. Null when nothing is running.
+   */
+  getProcessId(): number | null {
+    return this.child?.pid ?? null;
+  }
+
   getBaseUrl(): string | null {
     return this.baseUrl;
   }

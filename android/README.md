@@ -6,15 +6,15 @@ The Android app is a Termux bootstrap + WebView shell for Marinara Engine. It is
 
 ## How It Works
 
-- If Marinara Engine is already running in Termux, the APK opens `http://127.0.0.1:<PORT>` inside a fullscreen WebView. The default build-time port is `7860`.
+- If Marinara Engine is already running in Termux, the APK opens `http://127.0.0.1:<PORT>` in the app or your browser, following the saved **Open in browser** choice. The default build-time port is `7860`.
 - If the server is not running, the APK shows bootstrap actions: **Install / Start Marinara**, **Get Termux manually**, and **Retry connection**. A legacy manual server can be opened only after the APK detects the missing authentication route and you confirm that you started it.
-- **Install / Start Marinara** downloads the pinned Termux APK from F-Droid when Termux is missing, verifies its exact size, SHA-256, package identity, version, and F-Droid signer, then hands it to Android's package installer.
+- **Install / Start Marinara** first checks for an authenticated running server and reuses it. Repeated taps during setup offer a retry only after a warning. It downloads the pinned Termux APK from F-Droid when Termux is missing, verifies its exact size, SHA-256, package identity, version, and F-Droid signer, then hands it to Android's package installer.
 - After Termux is installed, **Install / Start Marinara** uses Termux's `RUN_COMMAND` integration to run the Marinara Termux installer command. This requires the Android **Run commands in Termux environment** permission to be granted to Marinara Engine, and `allow-external-apps=true` to be enabled in Termux.
 - Before sending its private setup command, the APK accepts Termux builds signed by F-Droid, Google Play, or the Termux developers. Other signing certificates require an explicit, one-session confirmation.
 - If Termux blocks external commands, the APK copies the required `allow-external-apps` command to the clipboard and opens Termux so the user can paste it once.
 - The first APK bootstrap starts the exact embedded source commit with update checks skipped and leaves browser auto-open disabled so the authenticated Android app can connect. Later manual launches and updates are still owned by the Termux launcher.
 - APK-managed installs generate and provision a private per-install secret automatically to authenticate the WebView to the Termux server. Users do not create, copy, or enter it during the normal APK flow. This prevents another Android app from impersonating Marinara on the localhost port or inheriting loopback API access. Manual Termux-only installs retain their existing behavior.
-- The Termux launcher sizes the Node.js heap from the structured profile size (roughly twice the on-disk profile plus headroom) bounded by one quarter of known device RAM (or 1536 MiB when device memory cannot be read), starting at a 1 GiB baseline. Advanced users can keep an explicit override, for example `NODE_OPTIONS="--max-old-space-size=1536" ./start-termux.sh`.
+- The Termux launcher sizes the server's Node.js heap from the structured profile size (roughly twice the on-disk profile plus headroom) bounded by one quarter of known device RAM (or 1536 MiB when device memory cannot be read), starting at a 1 GiB baseline. The client build temporarily raises a smaller automatic heap toward 1536 MiB, capped at half of known device RAM with a 1024 MiB floor; the server retains its original limit. The RAM cap is rounded down in 128 MiB steps. If half of device RAM is below 1024 MiB, the 1024 MiB floor takes precedence. Advanced users can keep an explicit override, for example `NODE_OPTIONS="--max-old-space-size=1536" ./start-termux.sh`, which applies to both build and server.
 - The bootstrap fetches and checks out the exact source commit embedded in the APK. It does not fall back to a mutable branch when that commit cannot be fetched.
 - Release and versioning policy follows the main repo docs in [../CONTRIBUTING.md](../CONTRIBUTING.md): root `package.json` is canonical, Android `versionName` should match the app version, and `versionCode` must increase for every shipped APK.
 - If you build the APK with a non-default port, Termux must use the same `PORT` value in `.env`.
@@ -30,7 +30,8 @@ The Android app is a Termux bootstrap + WebView shell for Marinara Engine. It is
 - Optional Android status bar for the time, battery level, and notification icons, controlled from **Settings > General > App Behavior**
 - First-run bootstrap actions for Termux install/start handoff
 - Automatic retry while the local server is still starting
-- File upload support for character cards, images, and similar assets
+- File upload support through Android's system picker, plus native file exports to Downloads (or a save picker on older Android)
+- Remembered app/browser launch choice with automatic local authentication
 - Native Android notifications for background Conversation replies, enabled from **Settings > General > Notifications**
 - Back button navigation inside the WebView
 - External links open in your default browser
@@ -42,7 +43,7 @@ The Android app is a Termux bootstrap + WebView shell for Marinara Engine. It is
 
 - **Java 17+** — `brew install openjdk@17` (macOS) or `pkg install openjdk-17` (Termux)
 - **Android SDK** — Set the `ANDROID_HOME` environment variable
-- **Gradle 9.5+** — `brew install gradle` (macOS) or `pkg install gradle` (Termux)
+- **Gradle 9.6+** — required by Android Gradle Plugin 9.4; CI uses the pinned Gradle 9.7.1 distribution. Install with `brew install gradle` (macOS) or `pkg install gradle` (Termux).
 
 ### Build
 
@@ -104,7 +105,7 @@ cd android
 5. If Android asks for **Run commands in Termux environment**, grant it.
 6. If Termux blocks external commands, paste the copied `allow-external-apps` command in Termux once, then tap **Install / Start Marinara** again.
 7. Wait for Termux to finish installing dependencies, building Marinara Engine, and starting the local server.
-8. Return to **Marinara Engine**. The WebView shell connects automatically once the server is ready.
+8. Return to **Marinara Engine**. It opens automatically once the server is ready. Select **Open in browser** on the launcher for browser access without entering a secret; the app remembers this choice. To change it from the app, use **Settings > General > App Behavior > Open Android launcher (app or browser)**.
 
 ### Manual Path
 
@@ -121,11 +122,9 @@ cd "$HOME/Marinara-Engine"
 ./start-termux.sh
 ```
 
-APK-managed setup returns to the Android app, which authenticates automatically. Only if you intentionally open the same server in a separate browser on the phone, visit `/android-login` and paste the secret displayed by this Termux command:
+APK-managed setup authenticates automatically in either the app or a browser. Select **Open in browser** on the launcher and tap **Retry connection**. If the server is stopped, use **Install / Start Marinara**. The app signs the browser in with a single-use link that expires after one minute; the permanent local secret never goes into the URL. Reopen through the app after a server restart or an expired browser session. Both the Engine and APK need this update.
 
-```bash
-cat ~/.marinara-engine/android-secret
-```
+Older APKs retain the manual `/android-login` fallback, using `cat ~/.marinara-engine/android-secret` in Termux. It is not needed with the launcher's browser action.
 
 The `mari` CLI continues to work automatically because the Termux launcher passes the same secret to it; direct local CLI runs also fall back to this private secret file. LAN access and manual installations remain governed by the normal Marinara authentication settings.
 

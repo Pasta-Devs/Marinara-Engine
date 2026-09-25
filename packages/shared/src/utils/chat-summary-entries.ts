@@ -4,6 +4,7 @@ import type {
   ChatSummaryEntryOrigin,
   ChatSummaryEntrySource,
 } from "../types/chat.js";
+import { estimateTextTokens } from "./token-estimator.js";
 
 const VALID_KINDS = new Set<ChatSummaryEntryKind>(["rolling"]);
 const VALID_ORIGINS = new Set<ChatSummaryEntryOrigin>(["manual", "automated", "legacy"]);
@@ -61,7 +62,7 @@ function sourceFromOrigin(origin: ChatSummaryEntryOrigin): ChatSummaryEntrySourc
 export function estimateChatSummaryTokens(content: string): number {
   const normalized = content.trim();
   if (!normalized) return 0;
-  return Math.max(1, Math.ceil(normalized.length / 4));
+  return estimateTextTokens(normalized);
 }
 
 /** Generate a concise default title from an entry's origin and source metadata. */

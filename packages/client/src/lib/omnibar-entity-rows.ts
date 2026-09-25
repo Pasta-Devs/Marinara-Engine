@@ -189,8 +189,6 @@ export type OmnibarPersonaRowsInput = {
   lorebookNamesByPersona: ReadonlyMap<string, string[]>;
   categoryLabels: CommandCenterCategoryLabels;
   t: OmnibarTranslate;
-  /** Called when the row's toggle activates a persona. */
-  onActivatePersona: (id: string) => void;
 };
 
 export function buildOmnibarPersonaRows({
@@ -198,7 +196,6 @@ export function buildOmnibarPersonaRows({
   lorebookNamesByPersona,
   categoryLabels,
   t,
-  onActivatePersona,
 }: OmnibarPersonaRowsInput) {
   return personas.map((item) => ({
     kind: "persona" as const,
@@ -237,18 +234,9 @@ export function buildOmnibarPersonaRows({
         ...(item.tags?.length
           ? [t("commandCenter.preview.tagsValue", "Tags: {{tags}}", { tags: item.tags.join(", ") })]
           : []),
-        ...(item.isActive ? [t("commandCenter.values.active", "Active")] : []),
       ],
       accent: item.nameColor,
     }),
-    control: {
-      type: "toggle" as const,
-      label: item.isActive
-        ? t("commandCenter.actions.activePersona", "Active persona")
-        : t("commandCenter.actions.activatePersona", "Activate persona"),
-      value: item.isActive,
-      onChange: (value: string | boolean) => value === true && !item.isActive && onActivatePersona(item.id),
-    },
   }));
 }
 

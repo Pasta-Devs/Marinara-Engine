@@ -38,7 +38,7 @@ import {
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useAgentConfigs } from "../../hooks/use-agents";
-import { useActivatePersona, useCharacter, useCharacters, usePersonas } from "../../hooks/use-characters";
+import { useCharacter, useCharacters, usePersonas } from "../../hooks/use-characters";
 import {
   useChats,
   useChatMessageCount,
@@ -500,7 +500,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     [connections.data],
   );
   const agents = useAgentConfigs();
-  const activatePersona = useActivatePersona();
   const updateLorebook = useUpdateLorebook();
   const setDefaultPreset = useSetDefaultPreset();
   const updateChat = useUpdateChat();
@@ -746,7 +745,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         lorebookNamesByPersona: lorebookLinks.byPersona,
         categoryLabels,
         t,
-        onActivatePersona: (id) => activatePersona.mutate(id),
       }),
       ...buildOmnibarLorebookRows({
         lorebooks: lorebooks.data ?? [],
@@ -787,7 +785,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     lorebookLinks,
     personaById,
     personas.data,
-    activatePersona,
     presets.data,
     setDefaultPreset,
     t,
@@ -1468,14 +1465,18 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const reconciledQueryRef = useRef(deferredQuery);
   const activeIndex = results.findIndex((result) => result.id === activeResultId);
   const activeResult = activeIndex >= 0 ? results[activeIndex] : undefined;
-  const loading =
-    [chats, characters, personas, lorebooks, presets, connections, agents]
-      .concat(globalMessageScoped ? [globalMessageSearch] : [])
-      .some((item) => item.isLoading) || docs.isSearching;
-  const failed =
-    [chats, characters, personas, lorebooks, presets, connections, agents]
-      .concat(globalMessageScoped ? [globalMessageSearch] : [])
-      .some((item) => item.isError) || docs.isError;
+  const sourceQueries: Array<{ isLoading: boolean; isError: boolean }> = [
+    chats,
+    characters,
+    personas,
+    lorebooks,
+    presets,
+    connections,
+    agents,
+    ...(globalMessageScoped ? [globalMessageSearch] : []),
+  ];
+  const loading = sourceQueries.some((item) => item.isLoading) || docs.isSearching;
+  const failed = sourceQueries.some((item) => item.isError) || docs.isError;
 
   // Persist the session, but debounced: writing JSON to localStorage on every
   // keystroke is pure jank. A ref holds the latest session so the unmount-only
@@ -2191,7 +2192,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // put a spinner on every persona row while one persona was activating.
   const resultControlPending = (result: RankedOmnibarResult) => {
     const resourceId = getOmnibarResourceId(result);
-    if (result.category === "persona") return activatePersona.isPending && activatePersona.variables === resourceId;
     if (result.category === "lorebook") return updateLorebook.isPending && updateLorebook.variables?.id === resourceId;
     if (result.category === "preset") return setDefaultPreset.isPending && setDefaultPreset.variables === resourceId;
     return result.id.startsWith("control:chat-") && (updateChat.isPending || updateChatMetadata.isPending);
@@ -2301,11 +2301,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
           const globalAction =
             previewResult.control?.type === "toggle"
               ? {
-                  label:
-                    previewResult.category === "persona"
-                      ? t("commandCenter.actions.activatePersona", "Activate persona")
-                      : t("commandCenter.actions.setDefaultPreset", "Set default preset"),
-                  icon: previewResult.category === "persona" ? Play : ArrowRight,
+                  label: t("commandCenter.actions.setDefaultPreset", "Set default preset"),
+                  icon: ArrowRight,
                   onSelect: () => previewResult.control?.onChange(true),
                   disabled: resultControlPending(previewResult),
                 }
@@ -2831,14 +2828,10 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                                   onValueChange={(value) => result.control?.onChange(value)}
                                   variant="compact"
                                 />
-                              ) : result.category === "persona" || result.category === "preset" ? (
+                              ) : result.category === "preset" ? (
                                 <CommandCenterActionValue
-                                  label={
-                                    result.category === "persona"
-                                      ? t("commandCenter.actions.activatePersona", "Activate persona")
-                                      : t("commandCenter.actions.setDefaultPreset", "Set default preset")
-                                  }
-                                  icon={result.category === "persona" ? Play : ArrowRight}
+                                  label={t("commandCenter.actions.setDefaultPreset", "Set default preset")}
+                                  icon={ArrowRight}
                                   value={
                                     result.control?.value === true
                                       ? t("commandCenter.values.active", "Active")

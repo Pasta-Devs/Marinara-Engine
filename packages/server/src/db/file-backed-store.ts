@@ -13,10 +13,12 @@ import {
   closeSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
   readSync,
   renameSync,
   rmSync,
+  statfsSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -100,6 +102,7 @@ type StorageWriterLeaseRecord = {
   hostId: string | null;
   scopeId?: string;
   bootId?: string;
+  pidNamespace?: string;
   hostname: string;
   token: string;
   acquiredAt: string;
@@ -212,6 +215,33 @@ export type FileNativeStoreController = {
    * safe, a missed one is not. 0 = never written in this process.
    */
   getTableWriteGeneration: (table: string) => number;
+  /**
+   * Adds capability-package-owned file tables to the live store: host
+   * integration for downloaded packages that declare their own storage.
+   * Packages activate after initialize(), so this integrates
+   * a table into an already-running store rather than at boot. Names that fail
+   * validation, or that a table already claims, are skipped and logged — one bad
+   * package table must never abort host startup.
+   *
+   * Registered tables persist exactly like the Engine's own — they flush, they
+   * appear in the snapshot manifest, and a full data-directory backup captures
+   * them. They are deliberately NOT part of profile export/import; see the note
+   * beside profileTableObjects in backup.routes.ts for why.
+   *
+   * KNOWN CONSTRAINT — the registries are PROCESS-GLOBAL, not per store. A name
+   * registered here stays in tableMetasByName/FILE_BACKED_TABLES for the life of
+   * the process, so a store constructed later against a DIFFERENT storage
+   * directory already knows the name and boot-loads it from its own directory,
+   * where it finds nothing. That degrades to an empty table, never to corruption
+   * or a cross-directory read. It is accepted because production runs one store
+   * per process, and because the alternative — instance registries — means
+   * threading them through getMeta() and the whole module-level lookup surface.
+   * Per-instance registration is the correct fix if the Engine ever runs more
+   * than one store at a time. Until then: a test that constructs several stores
+   * MUST give each scenario a distinct table name, or its second store will
+   * silently exercise the boot loader instead of this method.
+   */
+  registerTables: (tables: readonly unknown[]) => void;
 };
 
 export type FileNativeDB = {
@@ -231,6 +261,10 @@ export type FileNativeStoreTestHooks = {
   beforeTableWrite?: (table: string, serializedRows: string) => Promise<void> | void;
   writerLeaseScopeId?: string;
   writerLeaseBootId?: string;
+  /** Overrides the filesystem check behind writerLeaseStorageIsMachineLocal (#5744). */
+  writerLeaseStorageIsMachineLocal?: boolean;
+  /** Overrides the PID namespace recorded in and compared against the lease (#5744). */
+  writerLeasePidNamespace?: string;
   /**
    * Regression seam (#5631): runs after a plain (non-transaction) write has
    * cleared the write gate, before its mutation applies. Lets a regression
@@ -285,14 +319,14 @@ type InsertValuesBuilder = Executable<void> & {
 // Exported so regressions can pin behavior against the CURRENT version
 // without chasing literals on every bump. Must equal root storage-format.json
 // (the launcher-format-guard regression pins the pairing).
-export const STORAGE_VERSION = 6;
+export const STORAGE_VERSION = 7;
 export const STORAGE_WRITER_LEASE_FILENAME = ".writer-lease";
 export const STORAGE_WRITER_OWNER_FILENAME = "owner.json";
 export const STORAGE_WRITER_LIVENESS_FILENAME = "live.sock";
 const SAVE_DEBOUNCE_MS = 750;
 const SAFETY_SAVE_MS = 10_000;
 
-export const FILE_BACKED_TABLES = [
+const BUILT_IN_FILE_BACKED_TABLES = [
   "chats",
   "messages",
   "message_swipes",
@@ -352,6 +386,8 @@ export const FILE_BACKED_TABLES = [
   "game_scene_videos",
   "game_turn_storyboards",
   "game_turn_storyboard_keyframes",
+  "game_dice_pools",
+  "game_rulesets",
   "regex_scripts",
   "chat_images",
   "character_images",
@@ -363,6 +399,7 @@ export const FILE_BACKED_TABLES = [
   "ooc_influences",
   "conversation_notes",
   "memory_chunks",
+  "advanced_memory_records",
   "chat_folders",
   "api_connection_folders",
   "custom_themes",
@@ -376,12 +413,28 @@ export const FILE_BACKED_TABLES = [
   "mari_workspace_context",
 ] as const;
 
-type FileBackedTable = (typeof FILE_BACKED_TABLES)[number];
+/**
+ * The Engine's own tables keep their literal-union type so CASCADES and other
+ * table-name constants stay compile-checked. The runtime list is a widened copy
+ * because capability packages register their own tables into a live store
+ * (registerTables): every consumer that walks "all file-backed tables" — the
+ * flush loop, the manifest, the Mari db tooling — must see them, and an
+ * `as const` tuple could never grow.
+ */
+type FileBackedTable = (typeof BUILT_IN_FILE_BACKED_TABLES)[number];
+/**
+ * The registry itself. Module-private because the ONLY sanctioned way to grow
+ * it is registerTables, which validates the name and updates every companion
+ * registry in the same breath; an outside push would land a name in the flush
+ * loop with no metadata and no shard classification.
+ */
+const fileBackedTables: string[] = [...BUILT_IN_FILE_BACKED_TABLES];
+export const FILE_BACKED_TABLES: readonly string[] = fileBackedTables;
 
 // #5302: every file-backed table uses the existing crash-safe shard pipeline.
 // Order remains significant for messages/swipes because swipe ownership is
 // resolved through the parent-message index.
-export const SHARDED_TABLES = FILE_BACKED_TABLES;
+export const SHARDED_TABLES: readonly string[] = FILE_BACKED_TABLES;
 
 /**
  * Child tables group by their stable owner. Every unlisted table uses its
@@ -421,15 +474,22 @@ const SHARD_KEY_COLUMNS: Record<string, string> = {
   game_scene_videos: "chatId",
   game_turn_storyboards: "chatId",
   game_turn_storyboard_keyframes: "storyboardId",
+  game_dice_pools: "chatId",
   chat_images: "chatId",
   character_images: "characterId",
   persona_images: "personaId",
   ooc_influences: "targetChatId",
   conversation_notes: "targetChatId",
   memory_chunks: "chatId",
+  advanced_memory_records: "chatId",
   mari_workspace_context: "chatId",
 };
-const SHARDED_TABLE_SET: ReadonlySet<string> = new Set(SHARDED_TABLES);
+// Deliberately mutable, unlike the arrays it mirrors: SHARDED_TABLES aliases
+// FILE_BACKED_TABLES, so a registered table becomes "sharded" by array identity
+// the instant it is pushed. If this set were the module-load snapshot it once
+// was, the load, flush and delete paths would each classify that same table
+// differently. Registration writes both, together, or neither.
+const SHARDED_TABLE_SET = new Set<string>(SHARDED_TABLES);
 
 /**
  * Chat-unit lazy tier (#5592 Phase 2). These tables no longer load at boot:
@@ -456,6 +516,7 @@ const LAZY_UNIT_TABLES: ReadonlySet<string> =
         "messages",
         "message_swipes",
         "memory_chunks",
+        "advanced_memory_records",
         "agent_runs",
         "agent_memory",
         "chat_images",
@@ -465,6 +526,7 @@ const LAZY_UNIT_TABLES: ReadonlySet<string> =
         "game_checkpoints",
         "game_scene_videos",
         "game_turn_storyboards",
+        "game_dice_pools",
         "mari_workspace_context",
         "ooc_influences",
         "conversation_notes",
@@ -566,7 +628,7 @@ export function encodeShardKey(rawKey: string): string {
 export function decodeShardKey(encoded: string): string | null {
   if (!encoded || encoded.startsWith("%h")) return null;
   const bytes: number[] = [];
-  for (let i = 0; i < encoded.length; ) {
+  for (let i = 0; i < encoded.length;) {
     const char = encoded[i]!;
     if (char === "%") {
       const hex = encoded.slice(i + 1, i + 3);
@@ -729,6 +791,7 @@ export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; 
     { parent: "chats", child: "agent_memory", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "chat_images", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "memory_chunks", parentKey: "id", childKey: "chatId" },
+    { parent: "chats", child: "advanced_memory_records", parentKey: "id", childKey: "chatId" },
     // #5073: a Mari workspace chat's attached context is scoped to it and must
     // not outlive it (a leaked shard + stale injection into a reused chat id).
     { parent: "chats", child: "mari_workspace_context", parentKey: "id", childKey: "chatId" },
@@ -746,6 +809,7 @@ export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; 
     { parent: "chats", child: "game_checkpoints", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "game_scene_videos", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "game_turn_storyboards", parentKey: "id", childKey: "chatId" },
+    { parent: "chats", child: "game_dice_pools", parentKey: "id", childKey: "chatId" },
     {
       parent: "game_turn_storyboards",
       child: "game_turn_storyboard_keyframes",
@@ -760,6 +824,11 @@ export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; 
     { parent: "messages", child: "game_state_snapshots", parentKey: "id", childKey: "messageId" },
     { parent: "messages", child: "spatial_context_snapshots", parentKey: "id", childKey: "messageId" },
     { parent: "messages", child: "game_checkpoints", parentKey: "id", childKey: "messageId" },
+    // A pool row is the record of what ONE turn was dealt. A rewind that removes the
+    // message removes the turn, so the row must go with it: left behind, it would be the
+    // "latest" row the next turn refills from, and the chat would resume from a queue
+    // belonging to a turn that no longer exists.
+    { parent: "messages", child: "game_dice_pools", parentKey: "id", childKey: "messageId" },
     // Matched on messageId ALONE — never scoped by chatId. See
     // IMPORTED_GAME_ENGINE_ANCHOR_PREFIX above for why the experience-state import must not
     // store a foreign chat's message ids verbatim, and for its validate() exemption.
@@ -806,8 +875,63 @@ const tableMetasByObject = new WeakMap<object, TableMeta>();
 const columnMetasByObject = new WeakMap<object, ColumnMeta>();
 const tableMetasByName = new Map<string, TableMeta>();
 
+/** Live lookup, so consumers that snapshot the schema at load still see package tables registered later. */
+export function getRegisteredFileTable(name: string): Table | undefined {
+  return tableMetasByName.get(name)?.table;
+}
+
 function tableNameOf(table: Table): string {
   return getFileTableConfig(table).name;
+}
+
+/**
+ * Table names become filesystem paths (`tables/<name>.json`, `tables/<name>/`)
+ * with no further escaping anywhere in this file, so this is the ONLY thing
+ * standing between a package-declared name and an arbitrary write outside the
+ * data directory. Allow exactly what the Engine's own names already look like:
+ * lowercase snake_case, no dots, no separators, no traversal, and short enough
+ * that `<name>.json` plus a shard filename stays inside path limits. Windows
+ * reserved basenames are excluded because Windows blocks them with any
+ * extension. Returns null when the name is acceptable.
+ */
+function fileBackedTableNameRejection(name: string): string | null {
+  if (typeof name !== "string" || name.length === 0) return "table name is empty";
+  if (name.length > 64) return "table name is longer than 64 characters";
+  if (!/^[a-z][a-z0-9_]*$/.test(name)) return "table name must match /^[a-z][a-z0-9_]*$/";
+  if (WINDOWS_RESERVED_BASENAMES.has(name.toUpperCase())) return "table name is reserved by Windows";
+  return null;
+}
+
+/** Shared shape work for schema-declared and package-registered tables alike;
+ *  the unique-constraint validation is the part neither may skip. */
+function buildFileTableMetadata(table: AnyFileTable, name: string): TableMeta {
+  const tableConfig = getFileTableConfig(table);
+  const columns: ColumnMeta[] = tableConfig.columns.map((column) => ({
+    key: column.key,
+    dbName: column.name,
+    column,
+    primary: column.primary,
+    hasDefault: column.hasDefault,
+    defaultValue: column.defaultValue,
+  }));
+  const meta: TableMeta = {
+    name,
+    table,
+    columns,
+    byKey: new Map(columns.map((column) => [column.key, column])),
+    byDbName: new Map(columns.map((column) => [column.dbName, column])),
+    primaryKey: columns.find((column) => column.primary)?.key ?? null,
+    uniqueConstraints: tableConfig.uniqueConstraints.map((constraint) => ({
+      keys: [...constraint.keys],
+      when: constraint.when,
+    })),
+  };
+  for (const constraint of meta.uniqueConstraints) {
+    if (constraint.keys.length === 0 || constraint.keys.some((key) => !meta.byKey.has(key))) {
+      throw new Error(`[file-storage] Invalid unique key metadata for ${name}: ${constraint.keys.join(", ")}`);
+    }
+  }
+  return meta;
 }
 
 function buildTableMetadata() {
@@ -816,35 +940,10 @@ function buildTableMetadata() {
     const table = candidate;
     const name = tableNameOf(table);
     if (!FILE_BACKED_TABLE_SET.has(name)) continue;
-    const tableConfig = getFileTableConfig(table);
-    const columns: ColumnMeta[] = tableConfig.columns.map((column) => ({
-      key: column.key,
-      dbName: column.name,
-      column,
-      primary: column.primary,
-      hasDefault: column.hasDefault,
-      defaultValue: column.defaultValue,
-    }));
-    const meta: TableMeta = {
-      name,
-      table,
-      columns,
-      byKey: new Map(columns.map((column) => [column.key, column])),
-      byDbName: new Map(columns.map((column) => [column.dbName, column])),
-      primaryKey: columns.find((column) => column.primary)?.key ?? null,
-      uniqueConstraints: tableConfig.uniqueConstraints.map((constraint) => ({
-        keys: [...constraint.keys],
-        when: constraint.when,
-      })),
-    };
-    for (const constraint of meta.uniqueConstraints) {
-      if (constraint.keys.length === 0 || constraint.keys.some((key) => !meta.byKey.has(key))) {
-        throw new Error(`[file-storage] Invalid unique key metadata for ${name}: ${constraint.keys.join(", ")}`);
-      }
-    }
+    const meta = buildFileTableMetadata(table, name);
     tableMetasByObject.set(table, meta);
     tableMetasByName.set(name, meta);
-    for (const column of columns) {
+    for (const column of meta.columns) {
       columnMetasByObject.set(column.column, column);
     }
   }
@@ -1413,6 +1512,21 @@ const CURRENT_HOST_ID = (() => {
     .digest("hex");
 })();
 const CURRENT_BOOT_ID = readBootId();
+// PID liveness and start-time checks only mean something inside one PID
+// namespace: sibling containers on the same host cannot see each other's
+// processes. The lease records the writer's namespace so a later reader can
+// tell whether those checks apply to it (#5744). The kernel can hand a freed
+// namespace inode number to a new namespace, but only after the old one and
+// every process in it are gone, so a matching value never describes a writer
+// that is still alive somewhere else.
+const CURRENT_PID_NAMESPACE = (() => {
+  if (process.platform !== "linux" && process.platform !== "android") return null;
+  try {
+    return readlinkSync("/proc/self/ns/pid") || null;
+  } catch {
+    return null;
+  }
+})();
 const CURRENT_CLOCK_TICKS_PER_SECOND = (() => {
   if (process.platform !== "linux" && process.platform !== "android") return null;
   try {
@@ -1421,19 +1535,6 @@ const CURRENT_CLOCK_TICKS_PER_SECOND = (() => {
   } catch {
     return null;
   }
-})();
-
-const CURRENT_CONTAINER_WRITER_SCOPE_ID = (() => {
-  if (process.platform !== "linux" || process.env.MARINARA_DOCKER !== "true") return null;
-  try {
-    const bootId = readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim();
-    if (bootId) {
-      return createHash("sha256").update(`marinara-writer-lease-boot\n${bootId}`).digest("hex");
-    }
-  } catch {
-    return null;
-  }
-  return null;
 })();
 
 function writerLeaseBelongsToCurrentHost(record: StorageWriterLeaseRecord) {
@@ -1457,9 +1558,11 @@ async function startWriterLeaseLiveness(
   if (process.platform === "win32" || !scopeId) return null;
 
   const socketPath = writerLeaseLivenessPath(path);
-  // sockaddr_un is shortest on macOS (103 usable bytes). Stay below every
-  // supported POSIX limit instead of letting a platform silently truncate it.
-  if (Buffer.byteLength(socketPath) > 100) return null;
+  // Unix socket paths allow 107 bytes on Linux/Android, 103 on macOS.
+  // The default Termux install needs 101; reject oversized paths before
+  // Node can silently truncate them.
+  const maxPathBytes = process.platform === "linux" || process.platform === "android" ? 107 : 103;
+  if (Buffer.byteLength(socketPath) > maxPathBytes) return null;
 
   // Container PID namespaces can reuse the same internal PID after a recreation.
   // A socket on the shared data mount remains reachable while its writer lives,
@@ -1483,7 +1586,7 @@ async function startWriterLeaseLiveness(
     rmSync(socketPath, { force: true });
     logger.debug(
       { err: error, path: socketPath },
-      "[file-storage] Writer lease socket is unavailable; a stale container lease may require manual recovery.",
+      "[file-storage] Writer lease socket is unavailable; a stale writer lease may require manual recovery.",
     );
     return null;
   }
@@ -1567,6 +1670,7 @@ function parseWriterLease(path: string): { raw: string; record: StorageWriterLea
       (record.hostId !== null && typeof record.hostId !== "string") ||
       (record.version === 3 && (typeof record.scopeId !== "string" || record.scopeId.length === 0)) ||
       (record.version === 4 && (typeof record.bootId !== "string" || record.bootId.length === 0)) ||
+      (record.pidNamespace !== undefined && typeof record.pidNamespace !== "string") ||
       typeof record.hostname !== "string" ||
       typeof record.token !== "string" ||
       typeof record.acquiredAt !== "string"
@@ -1653,6 +1757,55 @@ function isTermuxPrivateHomeStorage(rootDir: string) {
   }
 }
 
+// Filesystem magic numbers (linux/magic.h) of single-host filesystems: ones
+// that are only ever mounted by the one kernel holding their block device or
+// memory. A lease directory on one of these cannot be reached by a second
+// machine at the same time, so a writer that left a lease there necessarily
+// ran on this host. Network and cluster filesystems, FUSE mounts, and anything
+// unrecognised are deliberately absent: an unknown type keeps the
+// manual-recovery behavior. The one shape this cannot see is a non-cluster
+// filesystem on a multi-attached block device (shared SAN LUN, multi-attach
+// cloud volume) mounted read-write by two hosts at once; that setup corrupts
+// the filesystem itself and is outside what any of these proofs cover.
+const MACHINE_LOCAL_FILESYSTEM_MAGICS = new Set<number>([
+  0xef53, // ext2 / ext3 / ext4
+  0x58465342, // xfs
+  0x9123683e, // btrfs
+  0xf2f52010, // f2fs
+  0x2fc12fc1, // zfs
+  0xca451a4e, // bcachefs
+  0x794c7630, // overlayfs
+  0x01021994, // tmpfs
+  0x858458f6, // ramfs
+  0xe0f5e1e2, // erofs
+  0x73717368, // squashfs
+  0x5346544e, // ntfs / ntfs3
+  0x2011bab0, // exfat
+  0x4d44, // msdos / vfat
+  0x3153464a, // jfs
+]);
+
+/**
+ * Whether the storage directory sits on a filesystem that no other machine can
+ * mount concurrently. A writer lease whose record carries `hostId: null` was
+ * written by a process that could not read a stable machine ID — every Docker
+ * and Podman container, and Linux hosts without /etc/machine-id — so the host
+ * comparison can never match it. When the storage is machine-local, that
+ * writer provably ran here and the same staleness proofs as a same-host lease
+ * apply (#5744). Only Linux and Android expose the statfs magic reliably; other
+ * platforms always have a stable machine ID and keep the strict path.
+ */
+export function writerLeaseStorageIsMachineLocal(rootDir: string) {
+  if (process.platform !== "linux" && process.platform !== "android") return false;
+  try {
+    // `>>> 0` recovers the unsigned magic from a possibly sign-extended statfs
+    // `type`; magics at or above 0x80000000 (btrfs, f2fs, erofs, ...) need it.
+    return MACHINE_LOCAL_FILESYSTEM_MAGICS.has(Number(statfsSync(rootDir).type) >>> 0);
+  } catch {
+    return false;
+  }
+}
+
 function fileStoreManifestExists(rootDir: string) {
   return existsSync(manifestPath(rootDir));
 }
@@ -1678,6 +1831,7 @@ function defaultForColumn(column: ColumnMeta) {
  */
 const VECTOR_TEXT_COLUMNS: Record<string, ReadonlySet<string>> = {
   memory_chunks: new Set(["embedding"]),
+  advanced_memory_records: new Set(["embedding"]),
   lorebook_entries: new Set(["embedding"]),
 };
 
@@ -1938,6 +2092,63 @@ function membershipSet(condition: { values: unknown[] }): Set<unknown> | null {
   return set;
 }
 
+/**
+ * The equality between a column of the table being joined and a column of a
+ * table already in the context, if the join condition carries one.
+ */
+function equiJoinKey(
+  condition: Condition,
+  joinTable: string,
+  boundTables: ReadonlySet<string>,
+): { probe: Column; buildKey: string } | null {
+  // Rejoining a table replaces its row in the context; it is not a bound probe.
+  if (boundTables.has(joinTable)) return null;
+  if (!condition || !isFileCondition(condition)) return null;
+  if (condition.kind === "file-logical") {
+    if (condition.operator !== "and") return null;
+    for (const entry of condition.conditions) {
+      const key = equiJoinKey(entry, joinTable, boundTables);
+      if (key) return key;
+    }
+    return null;
+  }
+  if (condition.kind !== "file-comparison" || condition.operator !== "eq") return null;
+  const sides = [condition.left, condition.right];
+  for (const [side, other] of [sides, [sides[1], sides[0]]]) {
+    if (!isColumn(side) || !isColumn(other) || !side.table || !other.table) continue;
+    if (tableNameOf(side.table) !== joinTable || !boundTables.has(tableNameOf(other.table))) continue;
+    const meta = getColumnMeta(side);
+    if (meta) return { probe: other, buildKey: meta.key };
+  }
+  return null;
+}
+
+/**
+ * Rows of the joined table worth testing against each context. With an
+ * equality key the rows are bucketed by that column once, so a join costs
+ * one lookup per context instead of one pass over the whole table; the full
+ * join condition is still evaluated on every candidate. Without a key every
+ * row is a candidate.
+ */
+function joinCandidates(
+  join: JoinSpec,
+  joinRows: readonly Row[],
+  boundTables: ReadonlySet<string>,
+): (ctx: RowContext) => readonly Row[] {
+  const key = equiJoinKey(join.condition, join.table.name, boundTables);
+  if (!key) return () => joinRows;
+  const buckets = new Map<unknown, Row[]>();
+  for (const row of joinRows) {
+    const value = row[key.buildKey];
+    if (typeof value === "number" && Number.isNaN(value)) continue;
+    const bucket = buckets.get(value);
+    if (bucket) bucket.push(row);
+    else buckets.set(value, [row]);
+  }
+  const none: Row[] = [];
+  return (ctx) => buckets.get(valueForColumn(ctx, key.probe)) ?? none;
+}
+
 function evaluateCondition(condition: Condition, ctx: RowContext): boolean {
   if (!condition) return true;
   if (!isFileCondition(condition)) return false;
@@ -2164,6 +2375,16 @@ class FileTableStore {
   private readonly txContext = new AsyncLocalStorage<FileTransactionContext>();
   private transactionQueue: Promise<void> = Promise.resolve();
   private activeTransactionCount = 0;
+  /**
+   * The running transaction's context (#5651). The queue admits at most one
+   * transaction, so a single reference suffices. Lazy loads triggered by
+   * CONCURRENT requests run outside the transaction's AsyncLocalStorage
+   * context but still splice rows into live tables the transaction may have
+   * snapshotted - the snapshot mirror and load-heal marks must reach this
+   * context regardless of who performed the load, or a rollback erases the
+   * loaded rows while loadedUnits still says they are resident.
+   */
+  private activeTransactionContext: FileTransactionContext | null = null;
   // Transactions that have taken their queue slot but not yet incremented
   // activeTransactionCount (they are awaiting the previous transaction or an
   // in-flight flush). The plain-write gate honors this too (#5631): a write
@@ -2188,8 +2409,19 @@ class FileTableStore {
 
   private async acquireWriterLease() {
     const path = writerLeasePath(this.rootDir);
-    const writerScopeId = this.testHooks?.writerLeaseScopeId ?? CURRENT_CONTAINER_WRITER_SCOPE_ID;
     const writerBootId = this.testHooks?.writerLeaseBootId ?? CURRENT_BOOT_ID;
+    // Container PID reuse and Android's restricted process visibility can
+    // make PID ownership uncertain. Reuse the kernel-owned socket proof,
+    // scoped to this boot; Termux enables it only for its app-private HOME.
+    const useLiveness =
+      (process.platform === "linux" && process.env.MARINARA_DOCKER === "true") ||
+      isTermuxPrivateHomeStorage(this.rootDir);
+    const writerScopeId =
+      this.testHooks?.writerLeaseScopeId ??
+      (useLiveness && writerBootId
+        ? createHash("sha256").update(`marinara-writer-lease-boot\n${writerBootId}`).digest("hex")
+        : null);
+    const writerPidNamespace = this.testHooks?.writerLeasePidNamespace ?? CURRENT_PID_NAMESPACE;
     for (let attempt = 0; attempt < 10; attempt++) {
       const token = randomUUID();
       let created = false;
@@ -2213,6 +2445,7 @@ class FileTableStore {
             hostId: CURRENT_HOST_ID,
             ...(liveness ? { scopeId: liveness.scopeId } : {}),
             ...(writerBootId ? { bootId: writerBootId } : {}),
+            ...(writerPidNamespace ? { pidNamespace: writerPidNamespace } : {}),
             hostname: CURRENT_HOSTNAME,
             token,
             acquiredAt: new Date().toISOString(),
@@ -2251,7 +2484,30 @@ class FileTableStore {
       }
 
       let staleReason: "boot" | "liveness" | "pid" | "pid-reused" | null = null;
-      const sameHost = writerLeaseBelongsToCurrentHost(existing.record) || isTermuxPrivateHomeStorage(this.rootDir);
+      // Same-host proof, in order of strength: the recorded machine ID matches
+      // ours; the storage is Termux's app-private HOME; or the writer could not
+      // identify its machine at all (hostId null) but left the lease on storage
+      // only this machine can mount (#5744). A lease that names a different
+      // machine never qualifies for the storage-based proof.
+      let hostProof: "host-id" | "termux-home" | "local-storage" | null = null;
+      if (writerLeaseBelongsToCurrentHost(existing.record)) hostProof = "host-id";
+      else if (isTermuxPrivateHomeStorage(this.rootDir)) hostProof = "termux-home";
+      else if (
+        existing.record.hostId === null &&
+        (this.testHooks?.writerLeaseStorageIsMachineLocal ?? writerLeaseStorageIsMachineLocal(this.rootDir))
+      ) {
+        hostProof = "local-storage";
+      }
+      const sameHost = hostProof !== null;
+      // A machine-ID or Termux proof comes from a native process, so it shares
+      // our PID namespace. The storage-based proof also covers sibling
+      // containers on this host, whose PIDs are invisible to each other, so
+      // the PID checks below additionally require the lease to record our own
+      // namespace; older or foreign-namespace records rely on the boot and
+      // liveness proofs alone (#5744).
+      const pidProofUsable =
+        hostProof !== "local-storage" ||
+        (writerPidNamespace !== null && existing.record.pidNamespace === writerPidNamespace);
       if (existing.record.version === 4 && sameHost && writerBootId && existing.record.bootId !== writerBootId) {
         staleReason = "boot";
       } else if (existing.record.version === 3 || (existing.record.version === 4 && existing.record.scopeId)) {
@@ -2264,11 +2520,9 @@ class FileTableStore {
         ) {
           staleReason = "liveness";
         }
-      } else {
-        if (sameHost) {
-          if (pidDefinitelyExited(existing.record.pid)) staleReason = "pid";
-          else if (pidWasReused(existing.record)) staleReason = "pid-reused";
-        }
+      } else if (sameHost && pidProofUsable) {
+        if (pidDefinitelyExited(existing.record.pid)) staleReason = "pid";
+        else if (pidWasReused(existing.record)) staleReason = "pid-reused";
       }
       if (!staleReason) {
         throw new StorageWriterLeaseError(
@@ -2299,7 +2553,7 @@ class FileTableStore {
       }
       rmSync(stalePath, { recursive: true });
       logger.warn(
-        { previousPid: existing.record.pid, path, staleReason },
+        { previousPid: existing.record.pid, path, staleReason, hostProof },
         staleReason === "boot"
           ? "[file-storage] Reclaimed the writer lease after detecting that the previous owner belonged to an earlier boot."
           : staleReason === "liveness"
@@ -2738,7 +2992,16 @@ class FileTableStore {
     let dirtyShardsSnapshot!: Map<string, Set<string>>;
     try {
       await previousTransaction;
-      if (this.activeFlush) await this.activeFlush;
+      // Loop, not check-once (#5652): two flushes can be parked on the same
+      // activeFlush with the second subscribed first. When it resolves, that
+      // flush's recursion re-enters before this continuation resumes, sees no
+      // active transaction, captures the dirty set, and installs a NEW
+      // activeFlush - a single consumed check would sail past it and run the
+      // callback concurrently with its I/O, letting saveFileSnapshots persist
+      // uncommitted rows that a rollback then leaves on disk with no dirty
+      // mark. The recursing flush assigns activeFlush synchronously before
+      // its first await, so a re-check after every wake always observes it.
+      while (this.activeFlush) await this.activeFlush;
       ctx = {
         snapshots: new Map<string, Row[]>(),
         dirtyTables: new Set<string>(),
@@ -2756,6 +3019,7 @@ class FileTableStore {
       // between reservation and activation. Nothing after the increment can
       // throw inside this try, so the reservation can never leak.
       this.activeTransactionCount++;
+      this.activeTransactionContext = ctx;
       this.pendingTransactionCount--;
     } catch (err) {
       this.pendingTransactionCount--;
@@ -2832,6 +3096,7 @@ class FileTableStore {
       throw err;
     } finally {
       this.activeTransactionCount--;
+      if (this.activeTransactionContext === ctx) this.activeTransactionContext = null;
       if (this.activeTransactionCount === 0) {
         for (const resolve of this.transactionIdleWaiters) resolve();
         this.transactionIdleWaiters.clear();
@@ -2884,8 +3149,17 @@ class FileTableStore {
    * Mirrors a LOAD-created healing mark into the active transaction so a
    * rollback can re-merge it (#5606) — see FileTransactionContext.
    */
+  /**
+   * The transaction context a LOAD-side effect must mirror into: the caller's
+   * own (in-context loads) or the active transaction's (loads performed by a
+   * concurrent request while a transaction is open, #5651).
+   */
+  private loadEffectTransactionContext(): FileTransactionContext | null {
+    return this.txContext.getStore() ?? (this.activeTransactionCount > 0 ? this.activeTransactionContext : null);
+  }
+
   private recordLoadHealMarks(table: string, keys?: Iterable<string>) {
-    const ctx = this.txContext.getStore();
+    const ctx = this.loadEffectTransactionContext();
     if (!ctx) return;
     ctx.loadHealDirtyTables.add(table);
     if (keys) {
@@ -3118,7 +3392,18 @@ class FileTableStore {
   async flush(force = false, throwOnError = false, allowClosed = false) {
     const transactionContext = this.txContext.getStore();
     if (this.writesClosed && !transactionContext && !allowClosed) this.assertWritable();
-    if (this.activeTransactionCount > 0 && !(force && transactionContext)) {
+    // Loop, not check-once — the mirror image of transaction()'s activeFlush
+    // wait (#5652). A transaction queued behind the one this flush is waiting
+    // out resumes on a one-hop microtask chain, while this flush's wake from
+    // waitForTransactions is two-hop: the queued transaction can activate
+    // BEFORE this continuation runs. The pendingTransactionFlush handoff
+    // rescues that ordering while the store is open (the finally starts a
+    // flush that installs activeFlush synchronously), but the handoff is
+    // deliberately skipped once writesClosed — a check-once wait here then
+    // ran saveFileSnapshots concurrently with the freshly activated
+    // transaction's callback during shutdown, persisting uncommitted rows
+    // whose dirty marks the rollback erased.
+    while (this.activeTransactionCount > 0 && !(force && transactionContext)) {
       this.pendingTransactionFlush = true;
       if (transactionContext) return;
       await this.waitForTransactions();
@@ -3126,6 +3411,13 @@ class FileTableStore {
     if (transactionContext && force) transactionContext.flushed = true;
     if (this.activeFlush) {
       await this.activeFlush;
+      // An admitted flush joins shutdown's drain instead of starting a new flush after close.
+      if (this.closePromise && !allowClosed && !transactionContext) {
+        const activeFlushError = this.lastFlushError;
+        await this.closePromise;
+        if (throwOnError && activeFlushError) throw activeFlushError;
+        return;
+      }
       if (this.dirty || this.dirtyTables.size > 0) await this.flush(force, throwOnError, allowClosed);
       else if (throwOnError && this.lastFlushError) throw this.lastFlushError;
       return;
@@ -3244,6 +3536,216 @@ class FileTableStore {
 
   getTableWriteGeneration(table: string): number {
     return this.tableWriteGenerations.get(table) ?? 0;
+  }
+
+  /**
+   * Registers capability-package tables against the running store. Everything a
+   * boot-loaded table gets, a registered one must get too — metadata, a row
+   * container, its rows read off disk, membership in the flush loop and in the
+   * manifest — because the alternative is a table that accepts writes and
+   * silently loses them.
+   *
+   * Registered tables are SHARDED, like every Engine table (SHARDED_TABLES
+   * aliases FILE_BACKED_TABLES, so pushing a name makes it sharded whether we
+   * want it or not). Making them flat would mean opting a new table into the
+   * store's least-exercised path and would still leave the alias lying about
+   * them. One file per primary key, the default strategy for a table with no
+   * SHARD_KEY_COLUMNS entry.
+   *
+   * Failures are per-table and non-fatal: a package with one malformed table
+   * definition must not take the host down with it.
+   *
+   * Known constraint: the registries this writes (tableMetasByName,
+   * FILE_BACKED_TABLE_SET, SHARDED_TABLE_SET) are process-global, as the
+   * Engine's own table metadata already is. A registered name therefore
+   * outlives the store that registered it, so a later store built in the same
+   * process — a different storage directory, say — sees the name at boot and
+   * loads it from its own directory, finding nothing. That degrades to an
+   * empty table rather than to corruption or a cross-directory read, and
+   * production runs one store per process, so it is accepted here rather than
+   * threading instance-scoped registries through getMeta and every lookup that
+   * calls it. Tests that construct more than one store must use distinct table
+   * names, or a name registered by an earlier case makes a later one pass
+   * without exercising this method at all. Per-instance registries are the
+   * correct fix if the Engine ever runs several stores at once.
+   */
+  registerTables(tables: readonly unknown[]) {
+    for (const candidate of tables) {
+      if (!isFileTable(candidate)) {
+        logger.warn("[file-storage] Ignored a package table registration that is not a file table definition.");
+        continue;
+      }
+      // isFileTable only proves the metadata symbol is present, not that it
+      // holds a usable object. A package-supplied value carrying a null or
+      // malformed metadata makes tableNameOf throw, so read the name inside the
+      // guard too: one bad definition must be skipped, not abort the loop and
+      // strand every later table in the same package.
+      let name: string;
+      try {
+        name = tableNameOf(candidate);
+      } catch (err) {
+        logger.error(err, "[file-storage] Ignored a package table registration with unreadable metadata.");
+        continue;
+      }
+      // The one non-negotiable check. tableFilePath/shardDirPath join this name
+      // straight into the storage tree with no sanitisation; that was safe only
+      // while every name came from the Engine's own hardcoded allowlist. A
+      // package-supplied "../../.ssh/authorized_keys" would otherwise be a write
+      // primitive outside the data directory.
+      const rejection = fileBackedTableNameRejection(name);
+      if (rejection) {
+        logger.error({ table: name }, "[file-storage] Rejected package table registration: %s", rejection);
+        continue;
+      }
+      if (tableMetasByName.has(name)) {
+        // Idempotent by design (re-registration on package reload) and a hard
+        // shadowing guard: the first definition of a name — always the Engine's
+        // own, since those are built at module load — keeps the name. Silently
+        // redefining it would repoint live queries at foreign column metadata.
+        const existing = tableMetasByName.get(name)!;
+        if (existing.table !== candidate) {
+          logger.warn(
+            { table: name },
+            "[file-storage] A table named %s is already registered; keeping the existing definition.",
+            name,
+          );
+        }
+        continue;
+      }
+      let meta: TableMeta;
+      try {
+        meta = buildFileTableMetadata(candidate, name);
+      } catch (err) {
+        logger.error(err, "[file-storage] Package table %s has invalid metadata and was not registered.", name);
+        continue;
+      }
+      if (!meta.primaryKey) {
+        // Registered tables shard by primary key (no SHARD_KEY_COLUMNS entry),
+        // so a keyless table would register cleanly and then throw "no stable
+        // shard key" on its first insert — long after the package author could
+        // connect the failure to the definition. Refuse it here, before the name
+        // enters any registry.
+        logger.error(
+          { table: name },
+          "[file-storage] Rejected package table registration: table has no primary key column",
+        );
+        continue;
+      }
+
+      tableMetasByObject.set(candidate, meta);
+      tableMetasByName.set(name, meta);
+      for (const column of meta.columns) columnMetasByObject.set(column.column, column);
+      fileBackedTables.push(name);
+      FILE_BACKED_TABLE_SET.add(name);
+      SHARDED_TABLE_SET.add(name);
+      // Never lazy: the lazy tier is keyed on chat units, which a package table
+      // has no part in. Fully resident is also what saveShardedTable's
+      // shard-deletion gate requires before it will unlink an emptied shard.
+      this.fullyResidentTables.add(name);
+      this.tables.set(name, this.loadRegisteredTableRows(meta));
+      logger.info(
+        { table: name, rows: this.tables.get(name)?.length ?? 0 },
+        "[file-storage] Registered package table.",
+      );
+    }
+  }
+
+  /**
+   * Reads a newly registered table's existing shards. Deliberately thinner than
+   * the boot loader: the self-heal machinery there (re-home detection, duplicate
+   * arbitration, malformed-row quarantine) exists to repair histories of format
+   * migrations and interrupted flushes that a table the Engine has never written
+   * cannot have. Corrupt-file recovery still applies, because that comes from
+   * parseJsonFile and applies to any file on disk.
+   */
+  private loadRegisteredTableRows(meta: TableMeta): Row[] {
+    const dir = shardDirPath(this.rootDir, meta.name);
+    let entries: string[] = [];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return []; // no shard dir yet — first run with this package installed
+    }
+    const known = new Set<string>();
+    const rows: Row[] = [];
+    const recoveredKeys = new Set<string>();
+    const staleFiles = new Set<string>();
+    for (const fileName of discoverShardPrimaries(entries)) {
+      const encoded = fileName.slice(0, -".json".length);
+      const path = join(dir, fileName);
+      const { value, recoveredFromBackup, recoveredFromFallback, unreadablePaths } = parseJsonFile<Row[]>(
+        path,
+        [],
+        Array.isArray,
+      );
+      const usable = (Array.isArray(value) ? value : []).filter(isRowRecord);
+      const skipped = (Array.isArray(value) ? value.length : 0) - usable.length;
+      const normalized = usable.map((row) => normalizeRow(meta, row));
+      // Neither primary nor backup could be read. The rows are gone either way,
+      // so the only remaining question is whether the bytes survive for someone
+      // to inspect — quarantine MOVES them aside, which also stops the next
+      // flush from overwriting the evidence. Must happen before the repair
+      // marks below: a file that has been moved away needs neither.
+      let quarantinedAway = false;
+      if (recoveredFromFallback && unreadablePaths.length > 0) {
+        const files = quarantineUnrecoverableFilesSync(unreadablePaths, `table ${meta.name} shard ${encoded}`);
+        if (files.length > 0) {
+          this.quarantinedTables.push({ table: meta.name, files });
+          quarantinedAway = files.some((file) => file.from === path);
+          logger.error(
+            { table: meta.name, shard: encoded, files },
+            "[file-storage] Shard was unrecoverable from primary and backup; quarantined corrupt files. Preserved files require manual recovery.",
+          );
+        }
+      }
+      if (recoveredFromBackup || recoveredFromFallback || skipped > 0) {
+        // Same self-heal contract the boot loader honours: the in-memory rows
+        // are now the good copy, so rewrite this shard from memory on the next
+        // flush, with .bak refresh suppressed for that write so a corrupt
+        // primary is never copied over the recovery source.
+        this.backupRecoveredPaths.add(path);
+        this.dirty = true;
+        this.dirtyTables.add(meta.name);
+        for (const row of normalized) recoveredKeys.add(this.shardKeyForRow(meta.name, row));
+        // A shard that recovered to NO usable rows yields no key to dirty, and a
+        // flush only visits shards by key — so the corrupt pair would survive
+        // every boot, be re-recovered, and re-log forever. Mark the physical
+        // FILE stale instead, exactly as the boot loader does for a primary
+        // recovered from a valid-but-empty backup: the flush then deletes it
+        // (zero-row shards are deleted by design) or rewrites it canonically.
+        if (normalized.length === 0 && !quarantinedAway) staleFiles.add(encoded);
+      }
+      if (skipped > 0) {
+        // The next flush rewrites this shard from the normalized rows, so the
+        // malformed entries are about to be overwritten. Copy the source aside
+        // first, exactly as the boot loader does: without a readable .bak there
+        // is otherwise no copy of the dropped package data left anywhere.
+        const sourcePath = recoveredFromBackup && existsSync(`${path}.bak`) ? `${path}.bak` : path;
+        const files = preserveMalformedRowSourceSync(sourcePath, meta.name);
+        if (files.length > 0) this.quarantinedTables.push({ table: meta.name, files });
+        logger.warn(
+          { table: meta.name, shard: fileName, skipped, preservedFiles: files.map((file) => file.to) },
+          "[file-storage] Skipped malformed rows in a package table shard and preserved the source file.",
+        );
+      }
+      rows.push(...normalized);
+      // Known only when the primary actually sits on disk, same rule as the
+      // boot loader: counting a quarantined shard would report a phantom file.
+      if (!quarantinedAway && existsSync(path)) known.add(encoded);
+    }
+    this.knownShardFiles.set(meta.name, known);
+    if (entries.length > 0) this.shardDirsCreated.add(meta.name);
+    if (recoveredKeys.size > 0) {
+      const dirty = this.dirtyShards.get(meta.name) ?? new Set<string>();
+      for (const key of recoveredKeys) dirty.add(key);
+      this.dirtyShards.set(meta.name, dirty);
+    }
+    if (staleFiles.size > 0) {
+      const stale = this.staleShardFiles.get(meta.name) ?? new Set<string>();
+      for (const encoded of staleFiles) stale.add(encoded);
+      this.staleShardFiles.set(meta.name, stale);
+    }
+    return rows;
   }
 
   contextForRow(meta: TableMeta, row: Row): RowContext {
@@ -3840,14 +4342,18 @@ class FileTableStore {
     };
     const merged = resident.map(swapReplaced).concat(added).sort(compareRows);
     this.tables.set(table, merged);
-    const ctx = this.txContext.getStore();
+    const ctx = this.loadEffectTransactionContext();
     const snapshot = ctx?.snapshots.get(table);
     if (snapshot) {
-      const mirrored = snapshot.map(swapReplaced).concat(added);
+      // References, not clones: rows are immutable once installed. Build the
+      // merged array fully BEFORE touching the snapshot, and refill with a
+      // loop rather than push(...mirrored): a spread passes every row as a
+      // call argument, which overflows the call stack past ~100k rows — and
+      // that throw landed AFTER the length = 0 truncation, leaving an empty
+      // rollback snapshot that a later rollback installed as the live table.
+      const mirrored = snapshot.map(swapReplaced).concat(added).sort(compareRows);
       snapshot.length = 0;
-      // References, not clones: rows are immutable once installed.
-      snapshot.push(...mirrored);
-      snapshot.sort(compareRows);
+      for (const row of mirrored) snapshot.push(row);
     }
     if (table === "messages") this.reindexMovedMessages(added.concat([...replacements.values()]));
     return keys;
@@ -4859,11 +5365,13 @@ class SelectQuery implements SelectQueryBuilder<any> {
     for (const join of this.joins) this.store.ensureQueryScopeLoaded(join.table, combined);
     let contexts = this.store.rows(this.fromMeta.name).map((row) => this.store.contextForRow(this.fromMeta, row));
 
+    const boundTables = new Set([this.fromMeta.name]);
     for (const join of this.joins) {
       const joinedContexts: RowContext[] = [];
       const joinRows = this.store.rows(join.table.name);
+      const candidatesFor = joinCandidates(join, joinRows, boundTables);
       for (const ctx of contexts) {
-        joinRows.forEach((row) => {
+        for (const row of candidatesFor(ctx)) {
           const candidate: RowContext = {
             rows: { ...ctx.rows, [join.table.name]: row },
             baseTable: ctx.baseTable,
@@ -4872,9 +5380,10 @@ class SelectQuery implements SelectQueryBuilder<any> {
           if (evaluateCondition(join.condition, candidate)) {
             joinedContexts.push(candidate);
           }
-        });
+        }
       }
       contexts = joinedContexts;
+      boundTables.add(join.table.name);
     }
 
     contexts = contexts.filter((ctx) => evaluateCondition(this.condition, ctx));
@@ -4919,6 +5428,7 @@ export async function createFileNativeDB(testHooks?: FileNativeStoreTestHooks): 
     close: () => store.close(),
     getQuarantinedTables: () => store.getQuarantinedTables(),
     getTableWriteGeneration: (table) => store.getTableWriteGeneration(table),
+    registerTables: (tables) => store.registerTables(tables),
     getResidentChatUnits: () => store.getResidentChatUnits(),
     getFullyResidentLazyTables: () => store.getFullyResidentLazyTables(),
     getResidentLazyRows: (table) => store.getResidentLazyRows(table),

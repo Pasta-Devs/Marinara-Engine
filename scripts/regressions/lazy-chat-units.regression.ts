@@ -21,7 +21,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq, inArray } from "../../packages/server/src/db/file-query.js";
 import { createFileNativeDB, encodeShardKey } from "../../packages/server/src/db/file-backed-store.js";
-import { chats, gameStateSnapshots, memoryChunks, messages, messageSwipes } from "../../packages/server/src/db/schema/index.js";
+import {
+  chats,
+  gameStateSnapshots,
+  memoryChunks,
+  messages,
+  messageSwipes,
+} from "../../packages/server/src/db/schema/index.js";
 
 if (process.env.MARINARA_EAGER_STORAGE === "1" || process.env.MARINARA_EAGER_STORAGE === "true") {
   // The kill switch restores eager boot loading; these regressions assert
@@ -968,9 +974,7 @@ const loadedUnitsOf = (db: Awaited<ReturnType<typeof createFileNativeDB>>) => db
   writeShard(dir, "game_state_snapshots", "chat-a", [gameStateRow("gs-a1", "chat-a", "m-a1", 0, 1)]);
   writeShard(dir, "game_state_snapshots", "chat-b", [gameStateRow("gs-b1", "chat-b", "m-b1", 0, 1)]);
   const db = await createFileNativeDB();
-  const { createGameStateStorage } = await import(
-    "../../packages/server/src/services/storage/game-state.storage.js"
-  );
+  const { createGameStateStorage } = await import("../../packages/server/src/services/storage/game-state.storage.js");
   const gameStateStore = createGameStateStorage(db as never);
   const leasedTables = () => db._fileStore.getFullyResidentLazyTables();
   try {
@@ -1001,6 +1005,97 @@ const loadedUnitsOf = (db: Awaited<ReturnType<typeof createFileNativeDB>>) => db
     await db._fileStore.close();
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+// ── #5838: SteamOS platform default ──────────────────────────────────────────
+// A Steam Deck shares 16 GiB with the GPU and the running game, so unbounded
+// load-and-keep gets the server OOM-killed mid session. On SteamOS the cap
+// defaults to 8 engine-side (matching the Termux launcher's export); an
+// explicit value - including 0 to disable - always wins.
+{
+  const { detectSteamOs, getMaxResidentChatUnits, platformDefaultMaxResidentChatUnits } =
+    await import("../../packages/server/src/config/runtime-config.js");
+  const dir = mkdtempSync(join(tmpdir(), "steamos-detect-"));
+  try {
+    const osRelease = (content: string) => {
+      const path = join(dir, `os-release-${Math.random().toString(36).slice(2)}`);
+      writeFileSync(path, content);
+      return path;
+    };
+    assert.equal(detectSteamOs(osRelease('NAME="SteamOS"\nID=steamos\nID_LIKE=arch\n'), "linux"), true);
+    assert.equal(detectSteamOs(osRelease('ID="steamos"\n'), "linux"), true, "quoted ID form is accepted");
+    assert.equal(detectSteamOs(osRelease("ID=steamos\r\n"), "linux"), true, "CRLF os-release still matches");
+    assert.equal(detectSteamOs(osRelease("ID=ubuntu\nID_LIKE=debian\n"), "linux"), false);
+    assert.equal(
+      detectSteamOs(osRelease('ID=arch\nPRETTY_NAME="steamos"\n'), "linux"),
+      false,
+      "only the ID field decides - a mention elsewhere is not SteamOS",
+    );
+    assert.equal(detectSteamOs(osRelease("ID=steamosfoo\n"), "linux"), false, "the ID must be exact");
+    assert.equal(detectSteamOs(osRelease("HOME_ID=steamos\n"), "linux"), false, "the key must be exactly ID");
+    assert.equal(detectSteamOs(join(dir, "missing"), "linux"), false, "an unreadable file fails closed");
+    assert.equal(detectSteamOs(osRelease("ID=steamos\n"), "win32"), false, "non-Linux short-circuits");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+
+  // The wiring that turns detection into the 8 is observed functionally
+  // through the exported test seam - not just source-pinned.
+  assert.equal(platformDefaultMaxResidentChatUnits(true), 8);
+  assert.equal(platformDefaultMaxResidentChatUnits(false), 0);
+
+  // getMaxResidentChatUnits, platform-aware so this block is honest wherever
+  // it runs: on an ordinary dev box or CI the platform default is 0; on a
+  // real Steam Deck (or Termux) it is 8, and the assertions then observe the
+  // constrained default through the full production path. The floor of 2 and
+  // the explicit-0 opt-out are platform-independent.
+  const platformDefault = platformDefaultMaxResidentChatUnits();
+  const savedCap = process.env.MARINARA_MAX_RESIDENT_CHATS;
+  try {
+    delete process.env.MARINARA_MAX_RESIDENT_CHATS;
+    assert.equal(getMaxResidentChatUnits(), platformDefault, "unset means the platform default");
+    process.env.MARINARA_MAX_RESIDENT_CHATS = "banana";
+    assert.equal(getMaxResidentChatUnits(), platformDefault, "an invalid value falls back to the platform default");
+    process.env.MARINARA_MAX_RESIDENT_CHATS = "1";
+    assert.equal(getMaxResidentChatUnits(), 2);
+    process.env.MARINARA_MAX_RESIDENT_CHATS = "0";
+    assert.equal(getMaxResidentChatUnits(), 0, "an explicit 0 disables eviction on every platform");
+  } finally {
+    if (savedCap === undefined) delete process.env.MARINARA_MAX_RESIDENT_CHATS;
+    else process.env.MARINARA_MAX_RESIDENT_CHATS = savedCap;
+  }
+
+  // Source pins: unset AND invalid values both route through the platform
+  // default (an invalid value must not strip the memory bound from exactly
+  // the constrained devices), the SteamOS default is 8, and detection is
+  // cached so the per-sweep read never re-reads /etc/os-release.
+  const runtimeConfig = readFileSync(
+    join(import.meta.dirname, "../../packages/server/src/config/runtime-config.ts"),
+    "utf8",
+  );
+  assert.match(runtimeConfig, /const CONSTRAINED_PLATFORM_DEFAULT_MAX_RESIDENT_CHATS = 8;/u);
+  assert.match(runtimeConfig, /if \(process\.platform === "android"\) return true;/u);
+  assert.match(
+    runtimeConfig,
+    /if \(!raw\) \{\s*lastInvalidMaxResidentChats = null;\s*return platformDefaultMaxResidentChatUnits\(\);\s*\}/u,
+    "the unset branch clears the warn-once latch so a re-added typo warns again",
+  );
+  assert.match(runtimeConfig, /using the platform default \(%d\)/u);
+  assert.match(runtimeConfig, /if \(cachedSteamOsDetection === null\) cachedSteamOsDetection = detectSteamOs\(\);/u);
+  assert.match(runtimeConfig, /if \(parsed === 0\) return 0;/u);
+  // The unset branch clears the same latch earlier in the file, so the end
+  // marker must be searched from the start marker onward.
+  const invalidStart = runtimeConfig.indexOf("lastInvalidMaxResidentChats = raw;");
+  assert.ok(invalidStart >= 0);
+  const invalidBranch = runtimeConfig.slice(
+    invalidStart,
+    runtimeConfig.indexOf("lastInvalidMaxResidentChats = null;", invalidStart),
+  );
+  assert.match(
+    invalidBranch,
+    /return platformDefaultMaxResidentChatUnits\(\);/u,
+    "an invalid value falls back to the platform default, never to a bare 0",
+  );
 }
 
 console.log("Lazy chat-unit regressions passed.");

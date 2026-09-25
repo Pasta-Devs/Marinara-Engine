@@ -183,7 +183,7 @@ if defined AUTO_OPEN_BROWSER_ENABLED (
 )
 
 cd packages\server
-node dist/index.js
+node ../../scripts/run-server.mjs dist/index.js
 if errorlevel 1 (
     echo.
     echo  [ERROR] Server exited unexpectedly. See the error above.

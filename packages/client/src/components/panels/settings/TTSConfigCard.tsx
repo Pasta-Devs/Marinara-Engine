@@ -185,7 +185,8 @@ function isTTSLanguageConnectionOption(value: unknown): value is TTSLanguageConn
     typeof connection.model === "string" &&
     connection.provider !== "image_generation" &&
     connection.provider !== "video_generation" &&
-    connection.provider !== "audio"
+    connection.provider !== "audio" &&
+    connection.provider !== "decision"
   );
 }
 
@@ -956,6 +957,9 @@ export function TTSConfigCard() {
   const [autoplayGame, setAutoplayGame] = useState(false);
   const [progressivePlayback, setProgressivePlayback] = useState(false);
   const [dialogueOnly, setDialogueOnly] = useState(false);
+  const [skipTagContent, setSkipTagContent] = useState(false);
+  const [skipCodeBlocks, setSkipCodeBlocks] = useState(true);
+  const [skipBracketedText, setSkipBracketedText] = useState(false);
   const [roleplaySpeakerExtractorEnabled, setRoleplaySpeakerExtractorEnabled] = useState(false);
   const [roleplaySpeakerExtractorConnectionId, setRoleplaySpeakerExtractorConnectionId] = useState("");
   const [roleplaySpeakerExtractorEmotionsEnabled, setRoleplaySpeakerExtractorEmotionsEnabled] = useState(false);
@@ -1027,6 +1031,9 @@ export function TTSConfigCard() {
     setAutoplayGame(savedConfig.autoplayGame);
     setProgressivePlayback(savedConfig.progressivePlayback ?? false);
     setDialogueOnly(savedConfig.dialogueOnly ?? false);
+    setSkipTagContent(savedConfig.skipTagContent ?? false);
+    setSkipCodeBlocks(savedConfig.skipCodeBlocks ?? true);
+    setSkipBracketedText(savedConfig.skipBracketedText ?? false);
     setRoleplaySpeakerExtractorEnabled(savedConfig.roleplaySpeakerExtractorEnabled ?? false);
     setRoleplaySpeakerExtractorConnectionId(savedConfig.roleplaySpeakerExtractorConnectionId ?? "");
     setRoleplaySpeakerExtractorEmotionsEnabled(savedConfig.roleplaySpeakerExtractorEmotionsEnabled ?? false);
@@ -1102,6 +1109,9 @@ export function TTSConfigCard() {
     autoplayGame,
     progressivePlayback,
     dialogueOnly,
+    skipTagContent,
+    skipCodeBlocks,
+    skipBracketedText,
     roleplaySpeakerExtractorEnabled,
     roleplaySpeakerExtractorConnectionId,
     roleplaySpeakerExtractorEmotionsEnabled,
@@ -1187,7 +1197,7 @@ export function TTSConfigCard() {
   };
 
   const handlePreview = () => {
-    if (ttsState === "playing" || ttsState === "loading") {
+    if (ttsState === "playing" || ttsState === "loading" || ttsState === "blocked") {
       ttsService.stop();
       return;
     }
@@ -1203,6 +1213,7 @@ export function TTSConfigCard() {
         return;
       }
 
+      ttsService.preparePlayback();
       try {
         try {
           await saveNow(payload);
@@ -1416,7 +1427,7 @@ export function TTSConfigCard() {
       ? "Select an ElevenLabs voice first"
       : !enabled
         ? "Enable TTS first"
-        : ttsState === "playing"
+        : ttsState === "playing" || ttsState === "blocked"
           ? "Stop preview"
           : "Preview voice";
   const updateVoiceAssignments = (nextAssignments: TTSVoiceAssignment[]) => {
@@ -2296,6 +2307,30 @@ export function TTSConfigCard() {
                 </div>
               </FieldRow>
             )}
+            <ToggleRow
+              label={localizeUi("tts.filters.tags")}
+              checked={skipTagContent}
+              onChange={(value) => {
+                setSkipTagContent(value);
+                mark({ skipTagContent: value });
+              }}
+            />
+            <ToggleRow
+              label={localizeUi("tts.filters.code")}
+              checked={skipCodeBlocks}
+              onChange={(value) => {
+                setSkipCodeBlocks(value);
+                mark({ skipCodeBlocks: value });
+              }}
+            />
+            <ToggleRow
+              label={localizeUi("tts.filters.brackets")}
+              checked={skipBracketedText}
+              onChange={(value) => {
+                setSkipBracketedText(value);
+                mark({ skipBracketedText: value });
+              }}
+            />
           </div>
 
           <div className="flex items-center gap-2 rounded-xl border border-sky-400/15 bg-sky-400/5 px-2.5 py-2">
@@ -2326,7 +2361,7 @@ export function TTSConfigCard() {
               disabled={previewDisabled}
               className={cn(
                 "flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs ring-1 transition-all",
-                ttsState === "playing"
+                ttsState === "playing" || ttsState === "blocked"
                   ? "bg-sky-500/10 text-sky-400 ring-sky-400/30 hover:bg-sky-500/20"
                   : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)] hover:text-[var(--foreground)] hover:ring-sky-400/60",
                 previewDisabled && "cursor-not-allowed opacity-50",
@@ -2335,14 +2370,14 @@ export function TTSConfigCard() {
             >
               {ttsState === "loading" ? (
                 <Loader2 size="0.75rem" className="animate-spin" />
-              ) : ttsState === "playing" ? (
+              ) : ttsState === "playing" || ttsState === "blocked" ? (
                 <Square size="0.75rem" />
               ) : (
                 <Play size="0.75rem" />
               )}
               {ttsState === "loading"
                 ? localizeUi("ui.panels.ttsconfigcard.loading")
-                : ttsState === "playing"
+                : ttsState === "playing" || ttsState === "blocked"
                   ? localizeUi("ui.chat.summarypopover.stop")
                   : localizeUi("settings.notifications.customSound.actions.preview")}
             </button>

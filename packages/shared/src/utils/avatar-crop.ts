@@ -16,7 +16,9 @@ import type { AvatarCrop } from "../types/avatar-crop.js";
  *  with positive zoom. */
 export function normalizeAvatarCrop(value: unknown): AvatarCrop | null {
   let parsed: unknown = value;
-  if (typeof parsed === "string") {
+  // Older persona snapshots encoded the already-serialized database crop again.
+  // Decode at most twice, then apply the same geometry validation below.
+  for (let depth = 0; depth < 2 && typeof parsed === "string"; depth += 1) {
     if (!parsed.trim()) return null;
     try {
       parsed = JSON.parse(parsed);

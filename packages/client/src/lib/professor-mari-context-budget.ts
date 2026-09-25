@@ -27,13 +27,24 @@ export function resolveProfessorMariContextBudget(
     if (message?.role !== "assistant") continue;
     const generationInfo = record(parseMessageExtraRecord(message.extra).generationInfo);
     if (!generationInfo) continue;
+    if (
+      Object.prototype.hasOwnProperty.call(generationInfo, "tokensContext") ||
+      (tokenCount(generationInfo.requestCount) ?? 0) > 1
+    ) {
+      const usedTokens = tokenCount(generationInfo.tokensContext);
+      // A missing latest request report cannot be reconstructed from turn-wide billing totals.
+      if (usedTokens === null) return null;
+      return { usedTokens, maxTokens, percentage: Math.min(100, (usedTokens / maxTokens) * 100) };
+    }
     const legacyUsage = record(generationInfo.usage);
     const promptTokens = tokenCount(generationInfo.tokensPrompt) ?? tokenCount(legacyUsage?.promptTokens);
-    const completionTokens =
-      tokenCount(generationInfo.tokensCompletion) ?? tokenCount(legacyUsage?.completionTokens) ?? 0;
     if (promptTokens === null) continue;
 
-    const usedTokens = promptTokens + completionTokens;
+    const cachedPromptTokens = tokenCount(generationInfo.tokensCachedPrompt) ?? 0;
+    const cacheWritePromptTokens = tokenCount(generationInfo.tokensCacheWritePrompt) ?? 0;
+    const completionTokens =
+      tokenCount(generationInfo.tokensCompletion) ?? tokenCount(legacyUsage?.completionTokens) ?? 0;
+    const usedTokens = promptTokens + cachedPromptTokens + cacheWritePromptTokens + completionTokens;
     return {
       usedTokens,
       maxTokens,

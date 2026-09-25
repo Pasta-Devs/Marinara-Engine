@@ -19,7 +19,8 @@ import {
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Chat, GameState } from "@marinara-engine/shared";
+import { AgentOutputSpoiler } from "../agents/AgentOutputSpoiler";
+import { estimateTextTokens, type Chat, type GameState } from "@marinara-engine/shared";
 import {
   useAgentMemory,
   useAgentSuiteRewrite,
@@ -644,6 +645,10 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
     () => selectedContextSources.reduce((total, source) => total + source.content.length, 0),
     [selectedContextSources],
   );
+  const contextTotalTokens = useMemo(
+    () => estimateTextTokens(selectedContextSources.map((source) => source.content).join("")),
+    [selectedContextSources],
+  );
   const contextOverLimit =
     selectedContextSources.length > MAX_CONTEXT_SECTIONS || contextTotalChars > MAX_CONTEXT_TOTAL_CHARS;
 
@@ -816,7 +821,7 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
                     />
                     <span className="min-w-0 flex-1 truncate">{source.display}</span>
                     <span className="shrink-0 text-[0.5rem] text-[var(--muted-foreground)]">
-                      ~{Math.ceil(source.content.length / 4).toLocaleString()}{" "}
+                      ~{estimateTextTokens(source.content).toLocaleString()}{" "}
                       {localizeUi("ui.agents.agenteditor.tokens")}
                     </span>
                   </label>
@@ -836,7 +841,7 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
           {selectedContextSources.length} {localizeUi("ui.chat.agentsuitemodal.source")}
           {selectedContextSources.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}{" "}
           {localizeUi("ui.chat.agentsuitemodal.attached")}
-          {Math.ceil(contextTotalChars / 4).toLocaleString()} {localizeUi("ui.agents.agenteditor.tokens")}
+          {contextTotalTokens.toLocaleString()} {localizeUi("ui.agents.agenteditor.tokens")}
           {contextOverLimit &&
             ` — too large (max ${MAX_CONTEXT_SECTIONS} sources / ${MAX_CONTEXT_TOTAL_CHARS.toLocaleString()} characters), deselect some sources`}
         </p>
@@ -1069,28 +1074,30 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
                     {customRuns.map((run) => {
                       const mode: "text" | "json" = typeof run.resultData === "string" ? "text" : "json";
                       return (
-                        <DataBlock
-                          key={run.id}
-                          blockId={run.id}
-                          label={run.resultType.replace(/_/g, " ")}
-                          description={formatRunTimestamp(run.createdAt)}
-                          mode={mode}
-                          value={serializeValue(run.resultData, mode)}
-                          onSave={async (draftText) => {
-                            const parsed: unknown = mode === "json" ? JSON.parse(draftText) : draftText;
-                            await updateRunData.mutateAsync({ id: run.id, chatId: run.chatId, resultData: parsed });
-                          }}
-                          onDirtyChange={handleBlockDirtyChange}
-                          disabled={isAgentProcessing}
-                          agentName={selectedAgent.name}
-                          connectionOptions={connectionOptions}
-                          rewriteConnectionId={effectiveRewriteConnectionId}
-                          onRewriteConnectionChange={setRewriteConnectionId}
-                          contextPicker={contextPicker}
-                          contextCount={selectedContextSources.length}
-                          contextOverLimit={contextOverLimit}
-                          buildContextSections={buildContextSections}
-                        />
+                        <AgentOutputSpoiler key={run.id} hidden={run.hideOutput}>
+                          <DataBlock
+                            key={run.id}
+                            blockId={run.id}
+                            label={run.resultType.replace(/_/g, " ")}
+                            description={formatRunTimestamp(run.createdAt)}
+                            mode={mode}
+                            value={serializeValue(run.resultData, mode)}
+                            onSave={async (draftText) => {
+                              const parsed: unknown = mode === "json" ? JSON.parse(draftText) : draftText;
+                              await updateRunData.mutateAsync({ id: run.id, chatId: run.chatId, resultData: parsed });
+                            }}
+                            onDirtyChange={handleBlockDirtyChange}
+                            disabled={isAgentProcessing}
+                            agentName={selectedAgent.name}
+                            connectionOptions={connectionOptions}
+                            rewriteConnectionId={effectiveRewriteConnectionId}
+                            onRewriteConnectionChange={setRewriteConnectionId}
+                            contextPicker={contextPicker}
+                            contextCount={selectedContextSources.length}
+                            contextOverLimit={contextOverLimit}
+                            buildContextSections={buildContextSections}
+                          />
+                        </AgentOutputSpoiler>
                       );
                     })}
                   </section>

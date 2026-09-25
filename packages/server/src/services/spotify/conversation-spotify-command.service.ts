@@ -17,10 +17,7 @@ export type ConversationSpotifyTrack = {
 };
 
 export type ConversationSpotifyCommandErrorCode =
-  | "spotify_unavailable"
-  | "missing_playback_scope"
-  | "track_not_found"
-  | "playback_failed";
+  "spotify_unavailable" | "missing_playback_scope" | "track_not_found" | "playback_failed";
 
 export class ConversationSpotifyCommandError extends Error {
   status: number;

@@ -33,7 +33,8 @@ import {
   type ChatAssetBrowserItem,
   type ChatImage,
 } from "../../hooks/use-gallery";
-import type { GeneratedSceneVideo } from "@marinara-engine/shared";
+import { BACKGROUND_THUMBNAIL_WIDTH, type GeneratedSceneVideo } from "@marinara-engine/shared";
+import { ChatImagePreview } from "./ChatImagePreview";
 import { useGalleryStore } from "../../stores/gallery.store";
 import { toast } from "sonner";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
@@ -590,13 +591,13 @@ export function ChatGallery({
 
   return (
     <>
-      <div className="flex flex-col gap-3 p-4">
+      <div className="flex flex-col gap-3 p-4 max-md:p-3">
         {(canIllustrate ||
           onGenerateSelfie ||
           onGenerateStoryboard ||
           (sceneVideosEnabled && onGenerateVideo) ||
           onGenerateBackground) && (
-          <div className={actionGridClass}>
+          <div className={cn("mari-gallery-generation-actions", actionGridClass)}>
             {canIllustrate && (
               <div ref={illustrateMenuRef} className="relative min-w-0">
                 <button
@@ -622,7 +623,7 @@ export function ChatGallery({
                       : localizeUi("ui.chat.chatgallery.illustrate")}
                   </span>
                   {illustrateAgents.length > 0 && !isIllustrating ? (
-                    <ChevronDown size="0.875rem" className="shrink-0" />
+                    <ChevronDown size="0.875rem" className="shrink-0 max-md:absolute max-md:right-1 max-md:top-1" />
                   ) : null}
                 </button>
                 {illustrateMenuOpen && (
@@ -940,8 +941,9 @@ export function ChatGallery({
                           <Check size="0.9rem" />
                         </span>
                       ) : null}
-                      <img
+                      <ChatImagePreview
                         src={asset.url}
+                        mobileWidth={BACKGROUND_THUMBNAIL_WIDTH}
                         alt={asset.prompt || asset.name}
                         loading="lazy"
                         decoding="async"
@@ -1083,8 +1085,9 @@ export function ChatGallery({
                           : localizeUi("ui.chat.chatgallery.openGalleryImage")
                       }
                     >
-                      <img
+                      <ChatImagePreview
                         src={img.url}
+                        mobileWidth={BACKGROUND_THUMBNAIL_WIDTH}
                         alt={img.prompt || "Gallery image"}
                         loading="lazy"
                         decoding="async"
@@ -1094,8 +1097,8 @@ export function ChatGallery({
                     {/* Overlay */}
                     {!selectingImages && (
                       <div className="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100">
-                        <div className="flex w-full items-center justify-between p-2">
-                          <div className="flex gap-1">
+                        <div className="mari-gallery-image-actions flex w-full items-center justify-between p-2">
+                          <div className="flex gap-1 max-md:contents">
                             <button
                               type="button"
                               onClick={() => handlePinImage(img)}

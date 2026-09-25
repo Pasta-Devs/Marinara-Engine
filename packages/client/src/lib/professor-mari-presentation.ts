@@ -1,13 +1,7 @@
 import type { ProfessorMariAskContext } from "@marinara-engine/shared";
 
 export type ProfessorMariPresentationState =
-  | "empty"
-  | "working"
-  | "composing"
-  | "history"
-  | "completed"
-  | "waiting-approval"
-  | "broken";
+  "empty" | "working" | "composing" | "history" | "completed" | "waiting-approval" | "broken";
 
 export function resolveProfessorMariPresentationState({
   hasRecovery,

@@ -189,6 +189,52 @@ export const MLX_RUNTIME_MANIFEST = {
   },
 } as const;
 
+/**
+ * The managed decision sidecar's runtime.
+ *
+ * Its own uv build, its own dependency lock and its own source archive: the MLX
+ * runtime's entries are macOS-arm64 and cannot be reused. Every digest here was taken
+ * from the artifact this engine actually installed and ran, not copied from a release
+ * page.
+ */
+export const DECISION_RUNTIME_MANIFEST = {
+  openJev: {
+    revision: "ed45657bf726c3b77408942830e5578f99df904e",
+    requirementsLockSha256: "cbdbded78788684fd220b8a95e260faed3154ed047f13a1849aeed2235403024",
+    archive: {
+      name: "open-jev-ed45657bf726c3b77408942830e5578f99df904e.tar.gz",
+      browser_download_url:
+        "https://github.com/Zefan-Cai/Open-Jev/archive/ed45657bf726c3b77408942830e5578f99df904e.tar.gz",
+      size: 50_400_445,
+      sha256: "4f358213d0b730014ebd617b9d379331dd10bed401de01148ae3390e86214a1c",
+    },
+  },
+  uv: {
+    version: "0.12.0",
+    archive: {
+      name: "uv-x86_64-unknown-linux-gnu.tar.gz",
+      browser_download_url:
+        "https://github.com/astral-sh/uv/releases/download/0.12.0/uv-x86_64-unknown-linux-gnu.tar.gz",
+      size: 21_373_358,
+      sha256: "eaf842262aa1c418d8ecc5605f02ee1ebfd369124fa48548e85f9481a47831a9",
+    },
+  },
+} as const;
+
+export function serializeDecisionRuntimeManifestStamp(): string {
+  return JSON.stringify({
+    openJev: {
+      revision: DECISION_RUNTIME_MANIFEST.openJev.revision,
+      sha256: DECISION_RUNTIME_MANIFEST.openJev.archive.sha256,
+      requirementsLockSha256: DECISION_RUNTIME_MANIFEST.openJev.requirementsLockSha256,
+    },
+    uv: {
+      version: DECISION_RUNTIME_MANIFEST.uv.version,
+      sha256: DECISION_RUNTIME_MANIFEST.uv.archive.sha256,
+    },
+  });
+}
+
 export function getLlamaRuntimeManifestEntry(variant: string): LlamaRuntimeManifestEntry | null {
   return LLAMA_CPP_RUNTIME_MANIFEST.entries.find((entry) => entry.variant === variant) ?? null;
 }

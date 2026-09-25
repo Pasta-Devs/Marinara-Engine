@@ -29,6 +29,7 @@ import {
   normalizeTrackerTemperatureUnit,
   normalizeTrackerThoughtBubbleDisplay,
   normalizeScenePromptPreferences,
+  normalizeConversationBackgroundImageOpacity,
   pickSyncedSettings,
   useUIStore,
 } from "../stores/ui.store";
@@ -44,6 +45,7 @@ type ServerSettingsPayload = SyncedSettingsObject & { __updatedAt?: number };
 type ParsedSettings = Partial<SyncedSettingsObject> & Record<string, unknown>;
 
 const LOCAL_ONLY_SETTING_KEYS = [
+  "appAccentPulseMode",
   "fontSize",
   "chatFontSize",
   "trackerPanelOpen",
@@ -55,6 +57,11 @@ export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings 
   const sanitized = { ...settings };
   for (const key of LOCAL_ONLY_SETTING_KEYS) {
     delete sanitized[key];
+  }
+  if ("conversationBackgroundImageOpacity" in sanitized) {
+    sanitized.conversationBackgroundImageOpacity = normalizeConversationBackgroundImageOpacity(
+      sanitized.conversationBackgroundImageOpacity,
+    );
   }
   return sanitized;
 }
@@ -106,6 +113,8 @@ function parseServerSettingsValue(value: string): {
   const updatedAt =
     typeof payload.__updatedAt === "number" && Number.isFinite(payload.__updatedAt) ? payload.__updatedAt : null;
   delete payload.__updatedAt;
+  payload.imageCharacterSheetWidth ??= payload.imageBackgroundWidth ?? 1280;
+  payload.imageCharacterSheetHeight ??= payload.imageBackgroundHeight ?? 720;
   return { settings: payload, updatedAt };
 }
 
@@ -346,7 +355,10 @@ export function useSettingsSync() {
         // Server unreachable at startup — run with local state only.
         lastPushed = serialize();
       } finally {
-        if (!disposed) ready = true;
+        if (!disposed) {
+          ready = true;
+          useUIStore.setState({ settingsSyncReady: true });
+        }
       }
     })();
 

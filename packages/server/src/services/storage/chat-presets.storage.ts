@@ -10,12 +10,17 @@ import { newId, now } from "../../utils/id-generator.js";
 import { withChatMetadataPatchQueue } from "./chats.storage.js";
 import {
   CHAT_PRESET_EXCLUDED_METADATA_KEYS,
+  TRANSLATOR_DEFAULTS_SETTINGS_KEY,
+  TRANSLATOR_SETTINGS_KEYS,
+  normalizeTranslatorSettings,
   isRetiredBuiltInAgentId,
   type ChatMode,
   type ChatPresetSettings,
   type CreateChatPresetInput,
   type UpdateChatPresetInput,
 } from "@marinara-engine/shared";
+
+import { createAppSettingsStorage } from "./app-settings.storage.js";
 
 const CHAT_MODES: ChatMode[] = ["conversation", "roleplay"];
 const EXCLUDED_METADATA_SET = new Set(CHAT_PRESET_EXCLUDED_METADATA_KEYS);
@@ -291,6 +296,9 @@ export function createChatPresetsStorage(db: DB) {
         })();
 
         const presetMetadata = (sanitizePresetSettings(preset.settings).metadata ?? {}) as Record<string, unknown>;
+        const translatorSettings = normalizeTranslatorSettings(presetMetadata);
+        // Filter this application copy; keep the saved profile intact.
+        for (const key of TRANSLATOR_SETTINGS_KEYS) delete presetMetadata[key];
 
         // Preserve only chat-specific (non-profile) metadata keys.
         const preserved: Record<string, unknown> = {};
@@ -311,6 +319,7 @@ export function createChatPresetsStorage(db: DB) {
         }
 
         const baseDefaults: Record<string, unknown> = {
+          ...normalizeTranslatorSettings(await createAppSettingsStorage(db).get(TRANSLATOR_DEFAULTS_SETTINGS_KEY)),
           summary: null,
           tags: [],
           enableAgents: true,
@@ -320,6 +329,7 @@ export function createChatPresetsStorage(db: DB) {
         const newMetadata: Record<string, unknown> = {
           ...baseDefaults,
           ...presetMetadata,
+          ...translatorSettings,
           ...preserved,
           appliedChatPresetId: preset.id,
         };

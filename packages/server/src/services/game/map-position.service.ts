@@ -273,7 +273,7 @@ export function applyMapUpdateCommand(map: GameMap | null, command: MapUpdateCom
 
   let nodes = originalNodes;
   let edges = originalEdges;
-  let targetId = targetNode?.id ?? "";
+  let targetId: string;
   let changed = false;
 
   if (targetNode) {

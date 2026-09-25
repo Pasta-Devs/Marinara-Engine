@@ -13,6 +13,7 @@ import {
 import { cn } from "../../lib/utils";
 import { translate } from "../../localization/i18n";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
+import { ColorPicker } from "../ui/ColorPicker";
 import { AgentSettingsActionButton } from "../chat/AgentSettingsControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -34,12 +35,12 @@ const WIDGET_TYPES: readonly HudWidgetType[] = [
 const DEFAULT_ACCENTS: Record<HudWidgetType, string> = {
   progress_bar: "#a78bfa",
   gauge: "#22c55e",
-  relationship_meter: "#f472b6",
+  relationship_meter: "var(--marinara-chat-chrome-accent)",
   counter: "#38bdf8",
   stat_block: "#f59e0b",
   list: "#14b8a6",
   inventory_grid: "#94a3b8",
-  timer: "#fb7185",
+  timer: "var(--marinara-chat-chrome-accent)",
 };
 
 const DEFAULT_ICONS: Record<HudWidgetType, string> = {
@@ -624,18 +625,16 @@ export function GameWidgetSetupEditor({ widgets, onChange, disabled, className }
                     <option value="hud_right">{localizeUi("ui.game.gamewidgetsetupeditor.rightHud")}</option>
                   </select>
                 </label>
-                <label className="space-y-1">
-                  <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                    {localizeUi("ui.game.gamewidgetsetupeditor.accent")}
-                  </span>
-                  <input
-                    type="color"
-                    value={/^#[0-9a-f]{6}$/i.test(widget.accent ?? "") ? widget.accent : DEFAULT_ACCENTS[widget.type]}
-                    disabled={disabled}
-                    onChange={(event) => replaceWidget(widget.id, { accent: event.target.value })}
-                    className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1"
-                  />
-                </label>
+                <ColorPicker
+                  compact
+                  label={localizeUi("ui.game.gamewidgetsetupeditor.accent")}
+                  value={widget.accent === DEFAULT_ACCENTS[widget.type] ? "" : (widget.accent ?? "")}
+                  emptyText={localizeUi("ui.game.gamewidgetsetupeditor.defaultAccent")}
+                  emptyPreviewValue={DEFAULT_ACCENTS[widget.type]}
+                  clearLabel={localizeUi("ui.game.gamewidgetsetupeditor.resetAccent")}
+                  disabled={disabled}
+                  onChange={(accent) => replaceWidget(widget.id, { accent: accent || DEFAULT_ACCENTS[widget.type] })}
+                />
               </div>
 
               <WidgetConfigFields

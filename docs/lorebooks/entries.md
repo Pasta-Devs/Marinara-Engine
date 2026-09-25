@@ -120,6 +120,33 @@ The **Timing** fields in the drawer control an entry's behavior across several m
 
 For example, set **Sticky** to 3 to keep a fact in the prompt for a few turns after it comes up. That way the AI does not forget it mid-scene.
 
+## Decision activation
+
+The drawer's **Decision** field lets your **Decision model** decide whether an entry applies. You write a statement about the recent chat, such as `In the latest message, a dragon is physically present`, and choose how it acts:
+
+- **Off**, the default: the entry activates as usual.
+- **Require**: the entry activates the way it normally would (keywords, **Constant**, semantic matching), and only when the statement is also true. This filters passing mentions: an entry keyed on `dragon` stays out when someone only talks about dragons. On a **Constant** entry it makes the entry situational, for example combat rules with `A fight is happening in the latest message`.
+- **Trigger**: the statement adds a way to activate the entry, even when none of its keywords appear. This catches paraphrases and situations, for example `The latest message takes place in the Blackwood Forest`. Ordinary activation routes, including keywords, **Constant**, semantic matches and attached map locations, remain available.
+
+Macros such as `{{user}}` and `{{char}}` work in the statement. For clear wording and a way to test it on your own chats, see [Writing statements](../prompts/conditional-prompts.md#writing-statements).
+
+How it runs:
+
+- **Require** checks an entry that would otherwise qualify through keywords, semantic matching, **Constant**, or an attached map location, subject to its filters, timing and probability roll. It does not scan every unused entry merely because the lorebook is active.
+- **Trigger** can be checked when ordinary keyword activation does not admit an eligible entry. It is not necessarily asked on every turn: a Constant entry, a keyword match or an existing Sticky hold can admit the entry without a Trigger answer. Keep Trigger entries purposeful; they can still add hosted requests.
+- Statements are batched where possible. Activation, entry-content statements and recursive matches can need several batches, so a turn can incur multiple hosted requests. They use the lorebook's share of **Decision statements per turn**; see [Limits and cost](../prompts/conditional-prompts.md#limits-and-cost).
+- Successful answers are normally reused for the same turn and model while cached. Failed answers can be retried, and restart, eviction or changed inputs can cause new requests. A regeneration is not guaranteed to activate identical entries. See [Answer reuse](../prompts/conditional-prompts.md#answer-reuse). A **Sticky** entry is not asked again while its hold applies.
+- The active-lorebook list shows **decision** for an entry a Trigger statement activated.
+- **Peek Prompt** never asks. It uses the answers the turn already has and lists the statements that have none.
+
+**No answer means no new decision activation.** With no Decision model, or when it does not answer, **Require** cannot admit a new entry, though an existing Sticky hold can keep one active. **Trigger** adds no activation route; the entry can still activate through its ordinary keywords, Constant, semantic or map-location behavior, subject to their usual rules. The editor warns when no Decision model is set. Give important Trigger entries an ordinary activation route too. Use Require to filter optional lore, never to gate something the story depends on. See [Decision Models](../connections/decision-models.md).
+
+Decision activation applies to chat turns. Game setup, experience generation, and the lorebook scans agents run for themselves read decision entries as no.
+
+The entry's own **Sticky** and **Cooldown** work with its Decision field. While an entry is sticky it stays in without its statement being asked again, and while it is on cooldown its statement is not asked. So a Trigger statement with Sticky 3 and Cooldown 5 brings the entry in for a few turns, then rests it, without spending statements on it meanwhile.
+
+A `{{#if decision:"..."}}` condition inside the entry's content is different: it trims the text of an entry that has already activated, and the entry still uses its token budget and starts its timers. It is asked only on turns the entry activates, so the rest of a lorebook never uses up **Decision statements per turn**. Use the **Decision** field to decide whether the entry activates at all.
+
 ## More entry options
 
 The expanded drawer holds a few more fields.
@@ -405,6 +432,7 @@ Folders only display as groups when you sort by **Order** with no active search.
 ## Related guides
 
 - [Lorebooks Overview](overview.md)
+- [Decision Models](../connections/decision-models.md)
 - [Lorebook Token Budgets and Recursion](token-budgets.md)
 - [Semantic Search for Lorebooks](semantic-search.md)
 - [Knowledge Sources: Retrieval and Router Agents](../agents/knowledge-sources.md)

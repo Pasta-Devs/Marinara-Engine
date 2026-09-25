@@ -26,7 +26,6 @@ import { migrateTtsSettingsToAudioConnection } from "./services/connections/tts-
 import { migrateLegacyDefaultAgentPrompts } from "./services/agents/default-prompt-migration.js";
 import { APP_VERSION, resetTurnGameRegistry } from "@marinara-engine/shared";
 import { existsSync } from "fs";
-import { readFile } from "fs/promises";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { getBuildCommit, getBuildLabel } from "./config/build-info.js";
@@ -48,13 +47,17 @@ import { initializeCapabilityAgentRegistry } from "./services/capability-package
 import { capabilityPackageManager } from "./services/capability-packages/package-manager.service.js";
 import { capabilityModuleRuntime } from "./services/capability-packages/capability-module-runtime.service.js";
 import { migrateLegacyCapabilities } from "./services/capability-packages/legacy-capability-migration.js";
-import { createClientStaticOptions } from "./config/client-static-config.js";
+import { createClientNotFoundHandler, createClientStaticOptions } from "./config/client-static-config.js";
 import { hostValidationHook } from "./middleware/host-validation.js";
 import { androidLocalAuthHook, androidLocalLoginRoute } from "./middleware/android-local-auth.js";
 import { arch, platform, release } from "node:os";
 import { execFileSync } from "node:child_process";
 import { getRuntimeMemorySnapshot } from "./utils/runtime-memory.js";
 import { getLastFreeze } from "./lib/freeze-detector.js";
+import { buildSidecarHealthSection } from "./services/sidecar/sidecar-slot-report.js";
+import { getPreviousSessionStatus, getUncleanExitHistory } from "./lib/session-postmortem.js";
+import { protectTerminalLogger } from "./lib/logger.js";
+import { openCodeSessionHook } from "./utils/opencode-session.js";
 
 const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
 const MAX_UPLOAD_BYTES = 256 * 1024 * 1024;
@@ -98,6 +101,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     bodyLimit: MAX_UPLOAD_BYTES, // General-route default; transfer routes opt into streamed or unbounded imports.
     ...(https && { https }),
   });
+  protectTerminalLogger(app.log, getNodeEnv() !== "production");
 
   // Reject attacker-controlled DNS names before CORS or loopback trust can
   // treat a rebound browser request as same-origin local traffic.
@@ -202,6 +206,9 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     );
   }
 
+  // Share the originating chat session with nested provider calls and retries.
+  app.addHook("preHandler", openCodeSessionHook);
+
   // Keep fallback reporting attached to the originating request even when
   // generation passes through nested services. Streamed routes emit an SSE
   // event; ordinary requests expose a response header consumed by the client.
@@ -287,17 +294,8 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   if (existsSync(clientIndex)) {
     await app.register(fastifyStatic, createClientStaticOptions(clientDist));
 
-    // SPA fallback — serve index.html for non-API routes
-    app.setNotFoundHandler(async (req, reply) => {
-      if (req.raw.url?.startsWith("/api/")) {
-        return reply.status(404).send({ error: "Not Found" });
-      }
-
-      reply.header("Cache-Control", "no-cache, must-revalidate");
-      reply.header("Pragma", "no-cache");
-      reply.header("Expires", "0");
-      return reply.type("text/html; charset=utf-8").send(await readFile(clientIndex));
-    });
+    // Only navigation falls back to HTML; missing modules must remain a 404.
+    app.setNotFoundHandler(createClientNotFoundHandler(clientIndex));
   } else {
     app.log.warn(
       "Client build entry not found at %s; serving API only. Run `pnpm build` to build the frontend.",
@@ -314,6 +312,14 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     } catch (error) {
       app.log.warn(error, "Capability package diagnostics are unavailable");
     }
+    // A slot service that throws must not take the health endpoint down with it: this
+    // response is also the freeze detector's signal and an uptime check's target.
+    let sidecars: ReturnType<typeof buildSidecarHealthSection> | null = null;
+    try {
+      sidecars = buildSidecarHealthSection();
+    } catch (error) {
+      app.log.warn(error, "Sidecar health diagnostics are unavailable");
+    }
     return {
       status: "ok",
       version: APP_VERSION,
@@ -326,6 +332,13 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
       // most recent host-suspension it observed. Null on non-Termux hosts.
       wakeLock: process.env.MARINARA_WAKE_LOCK_STATUS || null,
       lastFreeze: getLastFreeze(),
+      // #5506 diagnostics: how the PREVIOUS session ended. An external kill
+      // (phantom process killer, battery manager, reboot) leaves no in-process
+      // trace, so the next startup's heartbeat postmortem is the witness.
+      // Tri-state by design: "unknown" is reported honestly rather than being
+      // collapsed into a clean shutdown nobody observed.
+      previousSession: getPreviousSessionStatus(),
+      uncleanExitCount: getUncleanExitHistory().length,
       timestamp: new Date().toISOString(),
       capabilityPackages: {
         status: capabilityPackages
@@ -335,6 +348,12 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
           : "error",
         packages: capabilityPackages ?? [],
       },
+      // What the local model slots cost on the server's own GPU. The report's existing
+      // GPU line is the *browser's* card, which says nothing about the machine running
+      // the sidecars when the client is a phone or another PC. Served from a cached
+      // probe: this endpoint is also the freeze detector's signal and must never wait
+      // on nvidia-smi, so a probe that has not finished yet reports itself as pending.
+      sidecars,
     };
   });
 

@@ -1,7 +1,15 @@
 // ──────────────────────────────────────────────
 // Layout: Right Panel (polished with panel transitions)
 // ──────────────────────────────────────────────
-import { lazy, Suspense, type ComponentType, type LazyExoticComponent, type ReactNode } from "react";
+import {
+  Activity,
+  lazy,
+  Suspense,
+  useState,
+  type ComponentType,
+  type LazyExoticComponent,
+  type ReactNode,
+} from "react";
 import { X, Users, BookOpen, FileText, Link, Sparkles, Settings, VenetianMask, Bot, Puzzle } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
@@ -86,9 +94,6 @@ const PANEL_CONTRIBUTION_SURFACES: Partial<Record<string, Exclude<PersonalExtens
   settings: "settings",
 };
 
-// Module-level set survives component remounts (e.g. mobile AnimatePresence unmount/remount)
-const mountedPanels = new Set<string>();
-
 function PanelFallback() {
   const { t: localizeUi } = useUiTranslation();
   return (
@@ -101,11 +106,12 @@ function PanelFallback() {
 export function RightPanel() {
   const { t: localizeUi } = useUiTranslation();
   const panel = useUIStore((s) => s.rightPanel);
+  const panelOpen = useUIStore((s) => s.rightPanelOpen);
+  const [mountedPanels] = useState(() => new Set<string>());
   const close = useUIStore((s) => s.closeRightPanel);
   const { contributions, activePanelKey } = usePersonalExtensionContributions();
 
-  // Add synchronously so the current panel is in the set for this render.
-  // Module-level Set is not React state, so mutating it during render is safe.
+  // Remember visits only for this mounted panel, not every mobile reopen.
   mountedPanels.add(panel);
 
   const activeExtensionPanel = contributions.find(
@@ -160,45 +166,46 @@ export function RightPanel() {
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {Object.entries(PANELS).map(([key, PanelComp]) => {
           if (!mountedPanels.has(key)) return null;
-          const active = key === panel;
+          const active = key === panel && panelOpen;
           const panelContent = (
             <Suspense fallback={active ? <PanelFallback /> : null}>
               <PanelComp />
             </Suspense>
           );
           return (
-            <div
-              key={key}
-              data-panel-key={key}
-              className={cn(
-                "absolute inset-0",
-                key === "characters"
-                  ? "flex min-h-0 flex-col overflow-hidden"
-                  : "overflow-y-auto [scrollbar-gutter:stable]",
-                !active && "hidden",
-              )}
-              aria-hidden={!active}
-            >
-              {active && contributionSurface && (
-                <PersonalExtensionContributionSlot
-                  surface={contributionSurface}
-                  position="before-content"
-                  className="shrink-0 border-b border-[var(--border)]/40"
-                />
-              )}
-              {key === "characters" ? (
-                <div className="min-h-0 flex-1 overflow-hidden">{panelContent}</div>
-              ) : (
-                panelContent
-              )}
-              {active && contributionSurface && (
-                <PersonalExtensionContributionSlot
-                  surface={contributionSurface}
-                  position="after-content"
-                  className="shrink-0 border-t border-[var(--border)]/40"
-                />
-              )}
-            </div>
+            <Activity key={key} mode={active ? "visible" : "hidden"}>
+              <div
+                data-panel-key={key}
+                className={cn(
+                  "absolute inset-0",
+                  key === "characters"
+                    ? "flex min-h-0 flex-col overflow-hidden"
+                    : "overflow-y-auto [scrollbar-gutter:stable]",
+                  !active && "hidden",
+                )}
+                aria-hidden={!active}
+              >
+                {active && contributionSurface && (
+                  <PersonalExtensionContributionSlot
+                    surface={contributionSurface}
+                    position="before-content"
+                    className="shrink-0 border-b border-[var(--border)]/40"
+                  />
+                )}
+                {key === "characters" ? (
+                  <div className="min-h-0 flex-1 overflow-hidden">{panelContent}</div>
+                ) : (
+                  panelContent
+                )}
+                {active && contributionSurface && (
+                  <PersonalExtensionContributionSlot
+                    surface={contributionSurface}
+                    position="after-content"
+                    className="shrink-0 border-t border-[var(--border)]/40"
+                  />
+                )}
+              </div>
+            </Activity>
           );
         })}
       </div>

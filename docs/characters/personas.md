@@ -6,13 +6,13 @@ This guide explains what a persona is, how to create and edit one, and how to im
 
 A persona is who you are in a chat. It has a name, a description, and other optional details. Marinara sends these details into every prompt so the AI knows who it is talking to.
 
-You can make many personas. You keep them in the **Personas** panel. You pick one persona as your global default, called the **active persona**. You can also override the persona for a single chat. This guide covers making and editing personas. To learn how to choose which persona a chat uses, see [Choosing Your Persona in a Chat](choosing-your-persona.md).
+You can make many personas and keep them in the **Personas** panel. Choose which persona to use in each chat, or choose **None** to use no persona. This guide covers making and editing personas. To learn how to choose which persona a chat uses, see [Choosing Your Persona in a Chat](choosing-your-persona.md).
 
 ### The {{user}} macro
 
-A macro is a placeholder in your text that the app replaces with a real value before it sends the prompt. The **{{user}}** macro is replaced with the name of the persona the chat is using. That is the chat's own persona if you set one, otherwise your active persona. For example, if that persona is named Alex, then **{{user}}** becomes Alex in the prompt.
+A macro is a placeholder in your text that the app replaces with a real value before it sends the prompt. The **{{user}}** macro is replaced with the name of the persona the chat is using. That is the persona selected for the chat. For example, if that persona is named Alex, then **{{user}}** becomes Alex in the prompt.
 
-Sometimes a chat has no persona of its own and no persona is active. Only then does the AI call you by the generic name "User", and no persona details are sent. To learn how a chat picks its persona, see [Choosing Your Persona in a Chat](choosing-your-persona.md). To learn more about macros, see [Macros](../prompts/macros.md).
+If a chat has no selected persona, the AI calls you by the generic name "User", and no persona details are sent. To learn how a chat picks its persona, see [Choosing Your Persona in a Chat](choosing-your-persona.md). To learn more about macros, see [Macros](../prompts/macros.md).
 
 ## The Personas panel
 
@@ -20,24 +20,18 @@ The **Personas** panel is your persona library. Open it from the person icon in 
 
 The panel gives you these controls:
 
-- **Open Full Library** opens the responsive full-page Persona Library. It uses the same grid-and-preview layout as the Character Library, with persona descriptions, card sections, tags, token estimates, and active-persona badges.
+- **Open Full Library** opens the responsive full-page Persona Library. It uses the same grid-and-preview layout as the Character Library, with persona descriptions, card sections, tags, and token estimates.
 - **New** creates a persona.
 - **Import** opens the **Import Persona** window.
 - **Select** turns on bulk-selection mode so you can act on many personas at once.
 - The search box, with placeholder **Search personas**, matches name, description, comment, and tags.
 - The sort dropdown offers **A-Z**, **Z-A**, **Newest**, **Oldest**, and **Tokens** (estimated prompt size).
 - **New Folder** creates a folder to organize personas.
-- Filter chips **All**, **Active**, and **Inactive** filter by whether a persona is the current active persona. A **Tags** chip expands the tag list.
+- A **Tags** chip expands the tag list for filtering.
 
-Each row shows the persona's avatar, name, and a short description preview. The active persona shows a small check badge on its avatar. When you hover a row, you see row actions: **Set as active**, **Duplicate**, and **Delete**. Click a row to open that persona in the full-page **Persona Editor**.
+Each row shows the persona's avatar, name, and a short description preview. When you hover a row, you see **Duplicate** and **Delete** actions. Click a row to open that persona in the full-page **Persona Editor**.
 
 If you have more personas than fit on one page, a **Load more** button appears at the bottom. When you have no personas yet, the panel shows a short "No personas yet" message.
-
-### The active persona
-
-At most one persona at a time can be the global default. This is the **active persona**. To set one, hover a persona row and click **Set as active**.
-
-Setting a persona active turns off the active flag on every other persona first. So no more than one persona is ever active. New personas, duplicated personas, and imported personas are never active on their own. You must set the active persona yourself. It is also fine to have no active persona at all.
 
 ## Creating a persona
 
@@ -48,7 +42,7 @@ Setting a persona active turns off the active flag on every other persona first.
 
 The persona is created with an empty description. It opens right away in the full **Persona Editor** so you can fill in the rest. You cannot set other fields in the creation window. Everything else is edited afterward in the **Persona Editor**.
 
-A brand-new persona is never made active on its own. Set it active yourself when you want to use it.
+After creating a persona, select it in the chat where you want to use it.
 
 ## The Persona Editor
 
@@ -126,6 +120,8 @@ The **Stats** tab has two separate blocks. Both feed the on-screen stat display 
 - **Enable Persona Stats** turns on status bars for needs like hunger, energy, and mood. When you enable it fresh, you get starter bars for Satiety, Energy, Hygiene, and Mood, each at 100 of 100. The **Persona Stats** agent adjusts these values as the story goes.
 - **Enable RPG Attributes** turns on RPG-style Pools and Attributes. When you enable it fresh, you get starter HP and MP Pools at 100 out of 100 and starter Attributes STR, DEX, CON, INT, WIS, and CHA at 10. These values are sent with the persona card for Combat and Game Mode, and for optional rolls in Roleplay or Game Mode. Tracker agents do not update them.
 
+When a Game Mode ruleset is installed, or the persona still holds a sheet for a ruleset you no longer have, a **Ruleset sheets** block appears below these two. It holds your persona's starting build for each ruleset, which a new game on that ruleset copies. See [Ruleset sheets](colors-and-stats.md#ruleset-sheets).
+
 The values you set here are the starting defaults for new chats. Persona Status Bars can update automatically when the Persona Stats agent is enabled; persona RPG Pools and Attributes are not agent-managed. For the full explanation, see [Character Colors and RPG Stats](colors-and-stats.md).
 
 ## Version history
@@ -145,7 +141,7 @@ Use **Reset** in the panel header to delete every saved persona snapshot and set
 
 ## Duplicating a persona
 
-Click **Duplicate** on a persona row, or the **Duplicate persona** icon in the **Persona Editor** header. This makes a full copy of the persona, named "{original name} (Copy)". It copies all card fields, colors, stats, and convo fields. The copy is never made active on its own, even if the original was active.
+Click **Duplicate** on a persona row, or the **Duplicate persona** icon in the **Persona Editor** header. This makes a full copy of the persona, named "{original name} (Copy)". It copies all card fields, colors, stats, and convo fields. Duplicating a persona does not change any chat's selected persona.
 
 ## Deleting personas
 

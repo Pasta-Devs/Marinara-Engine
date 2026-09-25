@@ -93,6 +93,7 @@ const DOC_ORDER: Record<string, string[]> = {
     "subscription-clis.md",
     "local-self-hosted.md",
     "local-model.md",
+    "decision-models.md",
     "organizing-connections.md",
   ],
   conversation: [
@@ -193,7 +194,13 @@ const DOC_ORDER: Record<string, string[]> = {
     "card-css-theming.md",
   ],
   data: ["importing-from-sillytavern.md", "backup-and-restore.md", "where-data-is-stored.md", "clearing-data.md"],
-  extending: ["personal-extensions.md", "writing-personal-extensions.md", "regex-scripts.md", "custom-tools.md"],
+  extending: [
+    "personal-extensions.md",
+    "writing-personal-extensions.md",
+    "regex-scripts.md",
+    "custom-tools.md",
+    "writing-rulesets.md",
+  ],
   integrations: ["home-assistant.md", "discord-mirror.md", "message-translation.md", "haptic-feedback.md"],
   development: ["architecture-map.md", "frontend.md", "file-storage.md", "noodle-internals.md", "ios-pwa-safe-area.md"],
 };

@@ -1,3 +1,5 @@
+import { estimateTextTokens as estimateTokens, sliceTextToTokenBudget } from "@marinara-engine/shared";
+
 const DEFAULT_MEMORY_RECALL_BUDGET_TOKENS = 1024;
 const MIN_MEMORY_RECALL_BUDGET_TOKENS = 384;
 const MAX_MEMORY_RECALL_BUDGET_TOKENS = 1536;
@@ -9,43 +11,15 @@ const RECALL_TRUNCATION_MARKER = "\n...[recalled memory truncated]...\n";
 function estimateTextTokens(content: string): number {
   const trimmed = content.trim();
   if (!trimmed) return 0;
-  return Math.max(1, Math.ceil(trimmed.length / 4));
-}
-
-function sliceAtCodePointBoundaries(content: string, start: number, end: number): string {
-  let safeStart = Math.max(0, start);
-  let safeEnd = Math.min(content.length, end);
-
-  const startsWithLowSurrogate =
-    safeStart > 0 &&
-    safeStart < content.length &&
-    content.charCodeAt(safeStart) >= 0xdc00 &&
-    content.charCodeAt(safeStart) <= 0xdfff;
-  if (startsWithLowSurrogate) safeStart += 1;
-
-  const endsWithHighSurrogate =
-    safeEnd > 0 &&
-    safeEnd < content.length &&
-    content.charCodeAt(safeEnd - 1) >= 0xd800 &&
-    content.charCodeAt(safeEnd - 1) <= 0xdbff;
-  if (endsWithHighSurrogate) safeEnd -= 1;
-
-  return content.slice(safeStart, safeEnd);
+  return estimateTokens(trimmed);
 }
 
 export function truncateRecalledMemory(content: string, tokenBudget: number): string {
-  const maxChars = Math.max(32, tokenBudget * 4);
-  if (content.length <= maxChars) return content;
-
-  const availableChars = maxChars - RECALL_TRUNCATION_MARKER.length;
-  if (availableChars <= 0) {
-    return sliceAtCodePointBoundaries(content, 0, maxChars);
-  }
-
-  const headChars = Math.max(16, Math.ceil(availableChars * 0.7));
-  const tailChars = Math.max(16, availableChars - headChars);
-  const head = sliceAtCodePointBoundaries(content, 0, headChars).trimEnd();
-  const tail = sliceAtCodePointBoundaries(content, content.length - tailChars, content.length).trimStart();
+  if (estimateTokens(content) <= tokenBudget) return content;
+  const availableTokens = Math.floor(tokenBudget) - estimateTokens(RECALL_TRUNCATION_MARKER);
+  if (availableTokens <= 0) return sliceTextToTokenBudget(content, tokenBudget);
+  const head = sliceTextToTokenBudget(content, Math.ceil(availableTokens * 0.7)).trimEnd();
+  const tail = sliceTextToTokenBudget(content, availableTokens - estimateTokens(head), true).trimStart();
   return `${head}${RECALL_TRUNCATION_MARKER}${tail}`;
 }
 

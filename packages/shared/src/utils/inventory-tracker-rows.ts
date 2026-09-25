@@ -59,15 +59,22 @@ export function normalizeInventoryTrackerRows(value: unknown, options?: { merge?
     const key = name.toLocaleLowerCase("en-US");
     const numericQty = Number(candidate.qty);
     const qty = Number.isFinite(numericQty) ? clampInventoryTrackerQty(numericQty) : 1;
+    const row: InventoryTrackerRow = {
+      name,
+      ...(qty > 1 ? { qty } : {}),
+      ...(typeof candidate.description === "string" ? { description: candidate.description } : {}),
+      ...(typeof candidate.location === "string" ? { location: candidate.location } : {}),
+    };
     const existingIndex = merge ? indexByName.get(key) : undefined;
     if (existingIndex !== undefined) {
       const existing = rows[existingIndex]!;
       const combinedQty = clampInventoryTrackerQty((existing.qty ?? 1) + qty);
-      rows[existingIndex] = combinedQty > 1 ? { ...existing, qty: combinedQty } : existing;
+      // Keep the first supplied detail; later duplicate rows can fill missing fields.
+      rows[existingIndex] = { ...row, ...existing, qty: combinedQty };
       continue;
     }
     indexByName.set(key, rows.length);
-    rows.push(qty > 1 ? { name, qty } : { name });
+    rows.push(row);
   }
   return rows.slice(0, INVENTORY_TRACKER_MAX_ROWS);
 }
@@ -159,6 +166,11 @@ export function findInvalidInventoryTrackerRow(value: unknown): string | null {
     if (!isPlainRecord(candidate)) return `row ${index} must be an object`;
     if (typeof candidate.name !== "string") return `row ${index} is missing a string "name"`;
     if (!normalizeInventoryTrackerName(candidate.name)) return `row ${index} has an empty "name"`;
+    for (const field of ["description", "location"] as const) {
+      if (candidate[field] !== undefined && typeof candidate[field] !== "string") {
+        return `row ${index} has a non-string "${field}"`;
+      }
+    }
     if (candidate.qty === undefined || candidate.qty === null) continue;
     const numericQty = Number(candidate.qty);
     if (!Number.isFinite(numericQty)) return `row ${index} has a non-numeric "qty"`;

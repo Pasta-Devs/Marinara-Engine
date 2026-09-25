@@ -1,10 +1,23 @@
+import type { CombatAttackTraits } from "../features/combat-conditions.js";
+import type { CombatAiHints, CombatController, CombatTactics } from "../features/combat-ai.js";
 // ──────────────────────────────────────────────
 // Game Mode Types
 // ──────────────────────────────────────────────
 import type { GenerationParameters } from "./prompt.js";
-import type { CombatItemEffect, CombatMechanic, CombatDialogueCue } from "./combat-encounter.js";
+import type {
+  CombatItemEffect,
+  CombatMechanic,
+  CombatDialogueCue,
+  CombatStyleNotes,
+  RulesetEncounterBlueprint,
+} from "./combat-encounter.js";
 import type { SpotifySourceType } from "./spotify.js";
 import type { SpatialMapDraftSize, SpatialMapGroundingMode } from "./spatial-context.js";
+import type {
+  TacticalBattlefieldBrief,
+  TacticalBattlefieldSetup,
+  TacticalMovementMode,
+} from "../features/tactical-combat/types.js";
 
 /** The four main states a game can be in during a session. */
 export type GameActiveState = "exploration" | "dialogue" | "combat" | "travel_rest";
@@ -137,6 +150,9 @@ export interface GameCharacterCard {
     hp: { value: number; max: number };
     pools?: import("./character.js").RPGStatPool[];
   };
+  /** This game's copy of the character's sheet for the pinned ruleset (`chat.metadata.gameRuleset`).
+   *  Edited in the game, never written back to the library card or persona. */
+  rulesetSheet?: import("../schemas/ruleset.schema.js").RulesetSheetEnvelope;
 }
 
 // ── NPCs ──
@@ -204,6 +220,11 @@ export interface GameSetupConfig {
   rating: "sfw" | "nsfw";
   /** Combat presentation preference (classic menu battles vs tactical grid battles). Defaults to "classic". */
   combatStyle?: GameCombatStyle;
+  /** Versioned server-owned combat with interruption windows; absent preserves legacy battles. */
+  combatDirector?: boolean;
+  gmBossControl?: boolean;
+  /** Optional tactical battlefield preferences used for newly-created encounters. */
+  tacticalBattlefield?: TacticalBattlefieldSetup;
   /** Optional user prompt used to create the initial hierarchical world map draft. */
   spatialMapInstructions?: string;
   /** Campaign-scale map authority selected during New Game. Older saves default to "standard". */
@@ -227,6 +248,9 @@ export interface GameSetupConfig {
    *  own surface over the shared narration. Chosen at creation and fixed for the game's lifetime, since an
    *  experience owns the whole run. Omitted = the built-in Game mode, unchanged. */
   gameExperienceId?: string;
+  /** The Game Mode ruleset chosen for a NEW game. The server pins it as `chat.metadata.gameRuleset`
+   *  from its own registry, so only `id` is trusted. Absent means Marinara's own rules. */
+  ruleset?: import("../schemas/ruleset.schema.js").RulesetRef;
   /** Whatever the experience's own setup collected, stored verbatim and never interpreted by the host, so
    *  it can always recover the options the game was created with. */
   experienceConfig?: Record<string, unknown>;
@@ -274,6 +298,8 @@ export interface GameSetupConfig {
   imageStyleProfileId?: string | null;
   /** Lorebook IDs to activate for this game */
   activeLorebookIds?: string[];
+  /** Entries explicitly selected for world generation, additive to ordinary lore. */
+  activeLorebookEntryIds?: string[];
   /** Enable custom HUD widgets (model designs them at game start and updates during play) */
   enableCustomWidgets?: boolean;
   /** User-defined starting HUD widgets. When present, these replace model-designed setup widgets. */
@@ -292,6 +318,9 @@ export interface GameSetupConfig {
   enableLorebookKeeper?: boolean;
   /** Language for all narration and dialogue (e.g. "English", "Japanese", "Spanish") */
   language?: string;
+  /** Translate displayed narration from the first completed game turn. */
+  autoTranslate?: boolean;
+  translationOutputTargetLang?: string;
   /** Optional generation parameter overrides applied from the moment the game is created. */
   generationParameters?: Partial<GenerationParameters>;
   /** Prompt preset whose Game prompt should drive the GM instruction block. */
@@ -331,6 +360,10 @@ export interface GameInitialSetupConnectionSnapshot {
 
 /** Creation-time display names for local resources referenced by the setup. */
 export interface GameInitialSetupLabels {
+  experienceName?: string;
+  /** Display name of the chosen ruleset, so a shared setup can name one the recipient lacks. */
+  rulesetName?: string;
+  experienceSeedKey?: string;
   characterNames?: Record<string, string>;
   lorebookNames?: Record<string, string>;
   promptPresetNames?: Record<string, string>;
@@ -368,6 +401,8 @@ export interface DiceRollResult {
   modifier: number;
   /** Final total */
   total: number;
+  /** Optional difficulty class declared before the roll. */
+  dc?: number;
 }
 
 /** Result of a skill check resolution. */
@@ -392,12 +427,142 @@ export interface SkillCheckResult {
    * non-d20 systems (pool systems like V20) reach the dice card intact.
    */
   dice?: string;
+  /**
+   * The party member the check was rolled for, in a game with a pinned ruleset. Absent means the
+   * player, and always absent under the Engine's own rules, which only ever check the player.
+   */
+  who?: string;
+  /**
+   * Per-die target a success pool counted with, so a card can mark the dice that counted. Set by
+   * both pool paths: the legacy `resolution="successes"` tag, which knows the threshold it was
+   * given, and a `dice-pool` ruleset, which knows the one its rules chose. Absent on every summed
+   * check, where there is no such thing.
+   */
+  threshold?: number;
+  /**
+   * What a ruleset check actually applied of the tag's `with=` and `bonus=`: the ability's label
+   * when the skill was rolled with another ability than its own, and the situational dice after the
+   * ruleset's clamp. Absent when nothing was applied, so a record never claims an ask that the roll
+   * ignored. Only a ruleset game sets them.
+   */
+  withAbility?: string;
+  bonusDice?: number;
+  /**
+   * What the roller's wound track took off this check, when the ruleset names one with
+   * `resolution.penaltyFrom` and the character is marked. Always negative, and absent when there
+   * was no penalty, so a record never claims a wound nobody has. A summed check has it folded into
+   * `modifier` as well, because it IS a modifier there; a pool check spent it on dice instead, so
+   * this is the only place the pool's missing dice are said.
+   */
+  penalty?: number;
+  /**
+   * What this check actually paid out of a pool, when the Game Master wrote `spend=` and the
+   * ruleset offers such a purchase. Absent when nothing was bought, and never what the tag asked
+   * for: a spend the pool could not cover buys nothing and costs nothing, so a record only ever
+   * says what really left the sheet.
+   */
+  spent?: { pool: string; amount: number };
+  /**
+   * Successes a purchase added that nobody rolled. They are inside `total` already; this is what
+   * lets a card show which part of the result came out of the dice. Only a ruleset game sets it.
+   */
+  autoSuccesses?: number;
+  /**
+   * The catalog entry this check actually applied, by the label the ruleset gives it. Absent when
+   * the Game Master named none, when the character does not have it, or when the pool could not
+   * cover it, so a record never claims a charm that did nothing.
+   */
+  used?: string;
+  /** How many dice a bought re-throw replaced. Absent when none were. */
+  rerolled?: number;
+}
+
+// ── The sighted dice pool (opt-in, last) ──
+
+/** The seven sizes the engine pre-throws. Anything else is an overflow, not a pool miss. */
+export type GameDicePoolSize = "d4" | "d6" | "d8" | "d10" | "d12" | "d20" | "d100";
+
+/**
+ * One chat's dice pool as it stood for one turn.
+ *
+ * Stored per (chat, message, swipe) in `game_dice_pools` rather than in the game-state
+ * snapshot or in chat metadata, for reasons that are load-bearing: the snapshot is only
+ * written when a tracker agent runs, so with agents off no row exists at all; its writer
+ * is a delete-then-insert from an explicit field list, so any column a caller does not
+ * name is silently lost; and metadata is client-writable and not per-swipe, so a swipe
+ * would spend dice and never give them back.
+ */
+export interface GameDicePool {
+  /** On-disk revision. A row of another revision is refused, never half-read. */
+  v: 1;
+  /** Accepted turns this pool has lived through. Advisory; the aging clock is per size. */
+  turn: number;
+  /** Each size's queue, head first. Consumption is from the head, refill at the tail. */
+  values: Record<GameDicePoolSize, number[]>;
+  /** Accepted turns each size has gone unspent, which is what bounds the frozen head. */
+  idle: Record<GameDicePoolSize, number>;
+}
+
+/** One value the engine actually spent, in the order it spent it. */
+export interface GameDicePoolConsumption {
+  size: GameDicePoolSize;
+  /** Zero-based index into the size's queue. The slot NAME in a tag is one-based. */
+  slot: number;
+  /** The value spent. The engine's record, not the model's claim. */
+  value: number;
+  /** Which tag of the turn spent it, in reading order, so the ledger reads as a sequence. */
+  tagIndex: number;
+}
+
+/**
+ * What the model wrote in `pool=` or `rolls=` disagreeing with what the engine spent.
+ *
+ * Recorded and never obeyed. The slot name is a checksum, not an instruction: the engine
+ * spends the next unconsumed value of that size in reading order whatever the tag says,
+ * so a mismatch changes the log and the notice and changes no number at all.
+ */
+export interface GameDicePoolMismatch {
+  /**
+   * `slot`: a slot other than the one spent, which covers a skipped slot and a reordered
+   * one alike. `value`: a number other than the one spent. `reuse`: a slot this turn had
+   * already spent.
+   *
+   * There is deliberately no attribute-order kind. The design re-grades "declaration
+   * before value" as a weak signal with no defensive worth — for a thinking model the DC
+   * is chosen in reasoning tokens long before any attribute is emitted — and the engine's
+   * own record writes `pool=` last, so a positional rule would flag the engine's own
+   * shape on every turn. A signal that fires on the correct answer is noise.
+   */
+  kind: "slot" | "value" | "reuse";
+  size: GameDicePoolSize;
+  /** What the engine spent, zero-based. */
+  slot: number;
+  /** What the model claimed, verbatim and truncated, for the log line. */
+  wrote?: string;
+}
+
+/** The head values the prompt shows, at the configured window. One entry per size. */
+export type GameDicePoolView = Array<{ size: GameDicePoolSize; values: number[] }>;
+
+/** A parsed `pool="d6:1|2|3"` value: the size, and its slots as zero-based indices. */
+export interface GameDicePoolSlotName {
+  size: GameDicePoolSize;
+  slots: number[];
 }
 
 // ── Combat ──
 
 /** A combatant (player or enemy) in the battle system. */
-export interface Combatant {
+/** The ruleset terms (`creature`, `tier`, `proposed`) ride along for a fight the game's ruleset
+ *  resolves; the numbers below stay the Engine's. */
+export interface Combatant extends CombatAttackTraits, RulesetEncounterBlueprint {
+  boss?: import("../features/combat-director.js").CombatBoss;
+  spellSlots?: Record<string, number>;
+  combatRound?: number;
+  tactics?: CombatTactics;
+  aiHints?: CombatAiHints;
+  controller?: CombatController;
+  skillCooldowns?: Record<string, number>;
   id: string;
   name: string;
   hp: number;
@@ -421,6 +586,8 @@ export interface Combatant {
   elementAura?: { element: string; gauge: number; sourceId: string } | null;
   /** Tactical-combat class hint (fighter/knight/rogue/archer/mage/healer). Classic combat ignores this. */
   combatClass?: string;
+  /** Tactical traversal rule. Classic combat ignores this; missing means walk. */
+  movementMode?: TacticalMovementMode;
 }
 
 export interface CombatStatusEffect {
@@ -430,7 +597,15 @@ export interface CombatStatusEffect {
   turnsLeft: number;
 }
 
-export interface CombatSkill {
+export interface CombatSkill extends CombatAttackTraits {
+  areaRadius?: number;
+  friendlyFire?: boolean;
+  targetScope?: "single" | "all-enemies";
+  spell?: boolean;
+  reaction?: "counterspell" | "guard";
+  range?: number;
+  slotLevel?: number;
+  legendaryCost?: number;
   id: string;
   name: string;
   /** "attack" | "heal" | "buff" | "debuff" */
@@ -507,9 +682,9 @@ export type CombatPlayerAction =
 /**
  * Snapshot of an in-progress combat encounter, persisted to chat metadata so a
  * page refresh during a fight restores the live party/enemy state instead of
- * dropping back into prose narration. Internal GameCombatUI state (round
- * number, action queue, animation phase) is intentionally NOT persisted —
- * those resume from the start of the round on restore.
+ * dropping back into prose narration. Combatants carry the next Classic round,
+ * profiles, controllers and cooldowns. Pending manual orders and cosmetic
+ * animation are not persisted; restore presents the last accepted result.
  */
 export interface GameCombatStateSnapshot {
   party: Combatant[];
@@ -522,6 +697,15 @@ export interface GameCombatStateSnapshot {
   /** Encounter tier for context-bound combat music (#5161). Optional so
    *  snapshots from older clients stay valid. */
   musicTier?: string | null;
+  /** Combat UI style pinned for the active encounter so settings changes cannot remount a different engine. */
+  combatStyle?: GameCombatStyle | null;
+  /** Tactical scene data needed to resume exact generated/fallback battlefield setup after refresh. */
+  sceneEnvironment?: string | null;
+  sceneEnvironmentType?: string | null;
+  formation?: string | null;
+  battlefield?: TacticalBattlefieldBrief | null;
+  battlefieldError?: string | null;
+  styleNotes?: CombatStyleNotes | null;
 }
 
 /** Post-combat summary handed to the GM for narration. */
@@ -533,6 +717,9 @@ export interface CombatSummary {
     hp: number;
     maxHp: number;
     ko: boolean;
+    mp?: number;
+    maxMp?: number;
+    spellSlots?: Record<string, number>;
     statusEffects: string[];
   }>;
   enemies: Array<{
@@ -541,7 +728,12 @@ export interface CombatSummary {
     hp: number;
     maxHp: number;
   }>;
+  /** Resolved tactical terrain retained after the live combat snapshot is cleared. */
+  battlefieldSummary?: string;
   loot?: Array<{ name: string; quantity?: number }>;
+  /** What a ruleset fight really ended on, in the ruleset's own numbers. Present only for a fight
+   *  the ruleset resolved, and the recap is written from it instead of the shares above. */
+  ruleset?: import("../features/ruleset-combat/types.js").RulesetEncounterSummary;
 }
 
 // ── Cinematic Direction ──
@@ -584,14 +776,7 @@ export interface DirectionCommand {
 
 /** Available widget types the model can use for custom HUD elements. */
 export type HudWidgetType =
-  | "progress_bar"
-  | "gauge"
-  | "relationship_meter"
-  | "counter"
-  | "stat_block"
-  | "list"
-  | "inventory_grid"
-  | "timer";
+  "progress_bar" | "gauge" | "relationship_meter" | "counter" | "stat_block" | "list" | "inventory_grid" | "timer";
 
 /** Milestone marker on a progress/relationship bar. */
 export interface WidgetMilestone {
@@ -717,13 +902,7 @@ export interface PartyDialogueLine {
 // ── Checkpoints ──
 
 export type CheckpointTrigger =
-  | "manual"
-  | "session_start"
-  | "session_end"
-  | "combat_start"
-  | "combat_end"
-  | "location_change"
-  | "auto_interval";
+  "manual" | "session_start" | "session_end" | "combat_start" | "combat_end" | "location_change" | "auto_interval";
 
 export interface GameCheckpoint {
   id: string;
@@ -758,20 +937,10 @@ export interface GeneratedSceneVideo {
 }
 
 export type GameStoryboardStatus =
-  | "planning"
-  | "rendering_images"
-  | "rendering_videos"
-  | "complete"
-  | "partial"
-  | "failed";
+  "planning" | "rendering_images" | "rendering_videos" | "complete" | "partial" | "failed";
 
 export type GameStoryboardKeyframeStatus =
-  | "planned"
-  | "rendering_image"
-  | "image_complete"
-  | "rendering_video"
-  | "complete"
-  | "failed";
+  "planned" | "rendering_image" | "image_complete" | "rendering_video" | "complete" | "failed";
 
 export type StoryboardAnimationSuitability = "suitable" | "simplify" | "subtle" | "regenerate";
 

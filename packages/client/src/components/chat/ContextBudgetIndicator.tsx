@@ -17,7 +17,7 @@ export function ContextBudgetGauge({ percentage }: { percentage: number }) {
         cy="12"
         r="10"
         fill="none"
-        stroke="var(--marinara-chat-chrome-text)"
+        stroke="var(--marinara-chat-chrome-accent)"
         strokeWidth="2"
         strokeLinecap="round"
         strokeDasharray={`${(percentage / 100) * CONTEXT_GAUGE_CIRCUMFERENCE} ${CONTEXT_GAUGE_CIRCUMFERENCE}`}
@@ -26,7 +26,13 @@ export function ContextBudgetGauge({ percentage }: { percentage: number }) {
   );
 }
 
-export function ContextBudgetIndicator({ budget }: { budget: ProfessorMariContextBudget }) {
+export function ContextBudgetIndicator({
+  budget,
+  useAccentColor = false,
+}: {
+  budget: ProfessorMariContextBudget;
+  useAccentColor?: boolean;
+}) {
   const { t: localizeUi } = useUiTranslation();
   const used = formatCompactTokenCount(budget.usedTokens);
   const maximum = formatCompactTokenCount(budget.maxTokens);
@@ -53,7 +59,9 @@ export function ContextBudgetIndicator({ budget }: { budget: ProfessorMariContex
         className="h-1 overflow-hidden rounded-full bg-[var(--muted)]/55"
       >
         <div
-          className="h-full w-[var(--context-budget)] rounded-full bg-[var(--marinara-chat-chrome-text)] transition-[width] duration-200 motion-reduce:transition-none"
+          className={`h-full w-[var(--context-budget)] rounded-full transition-[width] duration-200 motion-reduce:transition-none ${
+            useAccentColor ? "bg-[var(--marinara-chat-chrome-accent)]" : "bg-[var(--marinara-chat-chrome-text)]"
+          }`}
           style={progressStyle}
         />
       </div>

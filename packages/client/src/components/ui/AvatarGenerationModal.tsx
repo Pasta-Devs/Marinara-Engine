@@ -68,8 +68,8 @@ export function AvatarGenerationModal({
   const reviewImagePromptsBeforeSend = useUIStore((s) => s.reviewImagePromptsBeforeSend);
   const imagePortraitWidth = useUIStore((s) => s.imagePortraitWidth);
   const imagePortraitHeight = useUIStore((s) => s.imagePortraitHeight);
-  const imageBackgroundWidth = useUIStore((s) => s.imageBackgroundWidth);
-  const imageBackgroundHeight = useUIStore((s) => s.imageBackgroundHeight);
+  const imageCharacterSheetWidth = useUIStore((s) => s.imageCharacterSheetWidth);
+  const imageCharacterSheetHeight = useUIStore((s) => s.imageCharacterSheetHeight);
   const debugMode = useUIStore((s) => s.debugMode);
   const [appearance, setAppearance] = useState(defaultAppearance ?? "");
   const [connectionId, setConnectionId] = useState<string | null>(null);
@@ -91,8 +91,8 @@ export function AvatarGenerationModal({
   const defaultImageConnectionId = imageConnections.find(isDefaultImageConnection)?.id ?? null;
   const effectiveConnectionId = connectionId ?? defaultImageConnectionId ?? imageConnections[0]?.id ?? null;
   const isCharacterSheet = mode === "character-sheet";
-  const canvasWidth = isCharacterSheet ? imageBackgroundWidth : imagePortraitWidth;
-  const canvasHeight = isCharacterSheet ? imageBackgroundHeight : imagePortraitHeight;
+  const canvasWidth = isCharacterSheet ? imageCharacterSheetWidth : imagePortraitWidth;
+  const canvasHeight = isCharacterSheet ? imageCharacterSheetHeight : imagePortraitHeight;
 
   useEffect(() => {
     if (!open) return;

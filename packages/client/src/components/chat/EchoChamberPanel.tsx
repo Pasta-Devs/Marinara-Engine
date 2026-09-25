@@ -19,6 +19,7 @@ import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
 import type { EchoChamberSide, EchoChamberSize } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
+import { hasActiveTextSelection } from "../../lib/text-selection";
 import { useChat } from "../../hooks/use-chats";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useGenerate } from "../../hooks/use-generate";
@@ -312,6 +313,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
 
   // Auto-scroll when a new message becomes visible
   useEffect(() => {
+    if (hasActiveTextSelection()) return;
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
         top: scrollRef.current.scrollHeight,
@@ -336,7 +338,8 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
 
   // ── Compute position style relative to the chat area container ──
   const [posStyle, setPosStyle] = useState<CSSProperties>({});
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  const mobileCollapsed = isMobile && !echoChamberOpen;
   const resizeFromLeft = !isMobile && echoChamberSide.endsWith("right");
   const resizeFromTop = !isMobile && echoChamberSide.startsWith("bottom");
 
@@ -453,7 +456,10 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   );
 
   useEffect(() => {
-    const clampCurrentSize = () => setPanelSize((size) => (size ? clampPanelSize(size.width, size.height) : null));
+    const clampCurrentSize = () => {
+      setIsMobile(window.innerWidth < 768);
+      setPanelSize((size) => (size ? clampPanelSize(size.width, size.height) : null));
+    };
     window.addEventListener("resize", clampCurrentSize);
     return () => window.removeEventListener("resize", clampCurrentSize);
   }, [clampPanelSize]);
@@ -461,7 +467,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   useEffect(() => {
     if (!echoEnabled) return;
     // On mobile, position below the HUD bar.
-    if (typeof window !== "undefined" && window.innerWidth < 768) {
+    if (isMobile) {
       const update = () => {
         const hudEl = findVisibleHud();
         // Position relative to container, so measure HUD bottom relative to rpg-chat-area
@@ -542,21 +548,21 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
       discoveryObserver?.disconnect();
       window.removeEventListener("resize", scheduleUpdate);
     };
-  }, [echoEnabled, echoChamberSide, trackerPanelEnabled, trackerPanelOpen, trackerPanelSide]);
+  }, [echoEnabled, echoChamberSide, isMobile, trackerPanelEnabled, trackerPanelOpen, trackerPanelSide]);
 
   useEffect(() => {
-    if (!echoEnabled || (isMobile && hiddenOnMobile)) return;
+    if (!echoEnabled || (isMobile && hiddenOnMobile) || mobileCollapsed) return;
 
     let frame = window.requestAnimationFrame(() => {
       frame = window.requestAnimationFrame(() => {
         const scrollEl = scrollRef.current;
-        if (!scrollEl) return;
+        if (!scrollEl || hasActiveTextSelection()) return;
         scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: "auto" });
       });
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [echoEnabled, hiddenOnMobile, isMobile]);
+  }, [echoEnabled, hiddenOnMobile, isMobile, mobileCollapsed]);
 
   if (!echoEnabled || (isMobile && hiddenOnMobile)) return null;
   const visibleMessages = echoMessages.slice(0, visibleCount);

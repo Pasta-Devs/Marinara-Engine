@@ -152,7 +152,7 @@ export function EndSceneBar({
           className="flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition-all hover:opacity-80"
           style={{
             background: "var(--card)",
-            color: "var(--card-foreground)",
+            color: "var(--marinara-chat-chrome-text)",
             border: "1px solid var(--border)",
           }}
           title={localizeUi("ui.chat.scenebanner.returnToConversation")}
@@ -170,7 +170,7 @@ export function EndSceneBar({
           className="flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition-all hover:opacity-80"
           style={{
             background: "var(--card)",
-            color: "var(--card-foreground)",
+            color: "var(--marinara-chat-chrome-text)",
             border: "1px solid var(--border)",
           }}
           title={localizeUi("ui.chat.endscenebar.endTheSceneAndGenerateASummary")}
@@ -217,7 +217,9 @@ export function EndSceneBar({
           disabled={isEnding}
           className="flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition-all hover:opacity-80"
           style={{
-            color: "var(--muted-foreground)",
+            background: "var(--card)",
+            color: "var(--marinara-chat-chrome-text)",
+            border: "1px solid var(--border)",
           }}
           title={localizeUi("ui.chat.endscenebar.discardTheSceneWithoutSaving")}
         >
@@ -231,7 +233,9 @@ export function EndSceneBar({
           disabled={isForking}
           className="flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition-all hover:opacity-80"
           style={{
-            color: "var(--muted-foreground)",
+            background: "var(--card)",
+            color: "var(--marinara-chat-chrome-text)",
+            border: "1px solid var(--border)",
           }}
           title={localizeUi("ui.chat.endscenebar.detachThisSceneIntoAStandaloneRoleplay")}
         >

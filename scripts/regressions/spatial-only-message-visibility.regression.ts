@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   hasVisibleUserMessagePayload,
   isMessageHiddenFromUser,
+  isVisibleGameMessage,
 } from "../../packages/client/src/lib/chat-message-visibility";
 
 assert.equal(hasVisibleUserMessagePayload("", []), false, "a spatial-only owner turn has no visible payload");
@@ -42,5 +43,13 @@ assert.equal(
   true,
   "an explicit hidden marker still takes precedence",
 );
+
+for (const role of ["assistant", "narrator", "user", "system"]) {
+  assert.equal(isVisibleGameMessage({ role, content: "Visible", extra: "{}" }), true);
+  assert.equal(isVisibleGameMessage({ role, content: "Visible", extra: { hiddenFromUser: true } }), false);
+  assert.equal(isVisibleGameMessage({ role, content: "Visible", extra: JSON.stringify({ commandOnly: true }) }), false);
+  assert.equal(isVisibleGameMessage({ role, content: "   ", extra: {} }), false);
+  assert.equal(isVisibleGameMessage({ role, content: "Visible", extra: "malformed" }), true);
+}
 
 console.log("Spatial-only message visibility regression checks passed.");

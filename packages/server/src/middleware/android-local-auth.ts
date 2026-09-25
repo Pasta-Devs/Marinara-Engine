@@ -22,6 +22,7 @@ interface AndroidSession {
 
 const pendingChallenges = new Map<string, PendingChallenge>();
 const sessions = new Map<string, AndroidSession>();
+const browserTickets = new Map<string, number>();
 let localAddresses = new Set<string>();
 let localAddressesExpiresAt = 0;
 
@@ -88,6 +89,9 @@ function isStateBoundOAuthCallback(request: FastifyRequest): boolean {
 function pruneExpired(now = Date.now()) {
   for (const [nonce, challenge] of pendingChallenges) {
     if (challenge.expiresAt <= now) pendingChallenges.delete(nonce);
+  }
+  for (const [ticket, expiresAt] of browserTickets) {
+    if (expiresAt <= now) browserTickets.delete(ticket);
   }
   for (const [token, session] of sessions) {
     if (session.expiresAt <= now) sessions.delete(token);
@@ -247,7 +251,7 @@ export async function androidLocalAuthRoutes(app: FastifyInstance) {
   });
 
   app.post<{
-    Body: { clientNonce?: unknown; serverNonce?: unknown; proof?: unknown };
+    Body: { clientNonce?: unknown; serverNonce?: unknown; proof?: unknown; browser?: unknown };
   }>("/session", async (request, reply) => {
     noStore(reply);
     const secret = androidSecret();
@@ -268,22 +272,34 @@ export async function androidLocalAuthRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: "Invalid or expired Android authentication challenge" });
     }
 
+    if (request.body.browser === "true" || request.body.browser === true) {
+      pruneExpired();
+      trimOldest(browserTickets, MAX_PENDING_CHALLENGES);
+      const browserTicket = randomBytes(32).toString("hex");
+      browserTickets.set(browserTicket, Date.now() + CHALLENGE_TTL_MS);
+      return { browserTicket };
+    }
+
     issueSession(reply);
     return reply.redirect("/", 303);
   });
 
-  app.post<{ Body: { secret?: unknown } }>("/browser-session", async (request, reply) => {
+  app.post<{ Body: { secret?: unknown; ticket?: unknown } }>("/browser-session", async (request, reply) => {
     noStore(reply);
     const expected = androidSecret();
     const provided = typeof request.body?.secret === "string" ? request.body.secret.trim().toLowerCase() : "";
-    if (!expected || !isDeviceLocalIp(request.ip) || !safeEqualHex(provided, expected)) {
+    const ticket = typeof request.body?.ticket === "string" ? request.body.ticket : "";
+    const expiresAt = browserTickets.get(ticket) ?? 0;
+    const validTicket = HEX_256.test(ticket) && expiresAt > Date.now();
+    if (!expected || !isDeviceLocalIp(request.ip) || (!validTicket && !safeEqualHex(provided, expected))) {
       return reply
         .status(401)
         .type("text/html")
         .send(
-          '<!doctype html><title>Marinara authentication failed</title><p>That local access secret was not accepted.</p><p><a href="/android-login">Try again</a></p>',
+          '<!doctype html><title>Marinara authentication failed</title><p>The browser link expired or the local access secret was not accepted. Open the Android app and choose Open in browser again.</p><p><a href="/android-login">Try again</a></p>',
         );
     }
+    browserTickets.delete(ticket);
     issueSession(reply);
     return reply.redirect("/", 303);
   });
@@ -298,7 +314,13 @@ export async function androidLocalLoginRoute(app: FastifyInstance) {
   app.get(ANDROID_LOGIN_PATH, async (request, reply) => {
     noStore(reply);
     if (!androidSecret() || !isDeviceLocalIp(request.ip)) return reply.status(404).send({ error: "Not found" });
-    if (hasValidSession(request)) return reply.redirect("/", 303);
+    // The fragment carries a one-use ticket, never the persistent install secret.
+    // Handle it before redirecting an already authenticated browser.
+    const nonce = randomBytes(16).toString("base64");
+    reply.header(
+      "Content-Security-Policy",
+      `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`,
+    );
 
     const action = escapeHtml(`${ANDROID_AUTH_PREFIX}/browser-session`);
     return reply.type("text/html; charset=utf-8").send(`<!doctype html>
@@ -308,8 +330,31 @@ export async function androidLocalLoginRoute(app: FastifyInstance) {
 <title>Marinara local authentication</title>
 <style>body{max-width:38rem;margin:12vh auto;padding:1.5rem;background:#0a0a0f;color:#eee;font:16px system-ui}input,button{box-sizing:border-box;width:100%;margin:.5rem 0;padding:.8rem;border-radius:.5rem}button{cursor:pointer}</style>
 <h1>Authenticate this local browser</h1>
-<p>This APK-managed Termux server rejects other Android apps by default. Paste the local secret shown by <code>cat ~/.marinara-engine/android-secret</code> in Termux.</p>
-<form method="post" action="${action}"><label>Local access secret<input name="secret" type="password" required minlength="64" maxlength="64" autocomplete="off" spellcheck="false"></label><button type="submit">Open Marinara</button></form>
+<p>In the Marinara Android app, select <strong>Open in browser</strong> and tap <strong>Retry connection</strong> to sign in automatically. The app remembers your choice for next time.</p>
+<details><summary>Manual sign-in for older APKs</summary><p>Paste the local secret shown by <code>cat ~/.marinara-engine/android-secret</code> in Termux.</p>
+<form method="post" action="${action}"><label>Local access secret<input name="secret" type="password" required minlength="64" maxlength="64" autocomplete="off" spellcheck="false"></label><button type="submit">Open Marinara</button></form></details>
+<script nonce="${nonce}">
+function signIn() {
+const ticket = new URLSearchParams(location.hash.slice(1)).get("ticket");
+history.replaceState(null, "", location.pathname);
+if (ticket && /^[a-f0-9]{64}$/.test(ticket)) {
+  const form = document.createElement("form");
+  form.method = "post";
+  form.action = "${action}";
+  const input = document.createElement("input");
+  input.type = "hidden";
+  input.name = "ticket";
+  input.value = ticket;
+  form.append(input);
+  document.body.append(form);
+  form.submit();
+} else if (${hasValidSession(request)}) {
+  location.replace("/");
+}
+}
+window.addEventListener("hashchange", signIn);
+signIn();
+</script>
 </html>`);
   });
 }
@@ -318,6 +363,7 @@ export const androidLocalAuthTesting = {
   clear() {
     pendingChallenges.clear();
     sessions.clear();
+    browserTickets.clear();
     localAddresses = new Set<string>();
     localAddressesExpiresAt = 0;
   },

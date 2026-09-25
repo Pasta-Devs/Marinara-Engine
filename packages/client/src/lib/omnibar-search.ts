@@ -135,15 +135,7 @@ export type OmnibarIntent = {
 
 export type OmnibarSurface = "home" | "chat" | "editor" | "settings" | "library" | "game";
 export type OmnibarContextReason =
-  | "surface"
-  | "open-resource"
-  | "active-chat"
-  | "settings-target"
-  | "dirty"
-  | "setup"
-  | "error"
-  | "pinned"
-  | "recent";
+  "surface" | "open-resource" | "active-chat" | "settings-target" | "dirty" | "setup" | "error" | "pinned" | "recent";
 
 export type OmnibarContext = {
   surface: OmnibarSurface;

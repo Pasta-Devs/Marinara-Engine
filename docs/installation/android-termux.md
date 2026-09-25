@@ -21,7 +21,7 @@ The easiest path uses the Marinara Engine Android app. An APK is an Android app 
 5. When Android asks, grant the **Run commands in Termux environment** permission.
 6. If Termux blocks the setup, the app copies an `allow-external-apps` command for you. Paste that command into Termux once, then tap **Install / Start Marinara** again.
 7. Wait while Termux installs the dependencies and builds Marinara. The first build takes a few minutes.
-8. Return to the Marinara Engine app when Termux finishes. The app connects and signs in automatically once the local server is ready.
+8. Return to the Marinara Engine app when Termux finishes. It connects and signs in automatically once the local server is ready. Select **Open in browser** on its launcher if you prefer your browser; the choice is remembered and sign-in is automatic there too.
 
 If you prefer a home-screen icon that opens Marinara like a normal app, this same Android app provides it. It is a wrapper around the Termux server, so the server must be set up first. It cannot skip Android's install and permission prompts, but it does not ask you to configure any Marinara installation secret.
 
@@ -55,7 +55,9 @@ Tip: to get an app-like icon, open your browser menu and choose the option that 
 
 ## Start Marinara again
 
-After the first setup, you do not repeat the install. Open Termux and run:
+With the APK, open Marinara and tap **Install / Start Marinara** if the server is stopped. It reuses an authenticated running server. To change between app and browser, use **Open in browser** on the launcher, then **Retry connection**. From inside the app, return there through **Settings > General > App Behavior > Open Android launcher (app or browser)**. This automatic browser sign-in needs an updated APK and Engine; do not reuse an expired one-time browser link from history.
+
+For a manual Termux install, after the first setup, you do not repeat the install. Open Termux and run:
 
 ```
 cd Marinara-Engine

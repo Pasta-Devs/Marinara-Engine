@@ -1,0 +1,208 @@
+{
+  "$comment": "A small original example ruleset for the authoring guide. It throws a handful of ten-sided dice and counts the ones that reach a target number, to show what the dice-pool resolution kind looks like written out. Nothing in it is taken from a published game. Copy it, change the id, and make it yours.",
+  "schemaVersion": 1,
+  "id": "gravewatch",
+  "version": 1,
+  "name": "Gravewatch",
+  "edition": "Example ruleset, first draft",
+  "license": {
+    "spdx": "CC0-1.0",
+    "attribution": "Written for the Marinara Engine docs. Do what you like with it."
+  },
+  "coverage": {
+    "checks": true,
+    "saves": true,
+    "sheet": true,
+    "resources": true,
+    "rests": true,
+    "combat": false,
+    "summary": "A pool of ten-sided dice against a target number, three ratings, six trades and one vigil."
+  },
+  "resolution": {
+    "$comment": "The sheet's number for a check is the SIZE of the pool, not a bonus on top of it. A rating of 3 and a trade worth 2 throw five dice. penaltyFrom names the wound track whose penalty rides on every roll; under this kind that is dice OFF the pool, floored at pool.min, so even a bleeding warden throws one die. spend is a standing rule of the system rather than anything a warden went and bought: one point of Resolve buys one automatic success, twice per check at most, and the Engine pays for it on the same check that uses it.",
+    "kind": "dice-pool",
+    "die": { "sides": 10 },
+    "abilityModifier": { "op": "identity" },
+    "proficiencyTiers": [
+      { "id": "rating_0", "label": "Untried" },
+      { "id": "rating_1", "label": "Shown once", "flat": 1 },
+      { "id": "rating_2", "label": "Steady", "flat": 2 },
+      { "id": "rating_3", "label": "Trusted", "flat": 3 },
+      { "id": "rating_4", "label": "Sworn", "flat": 4 },
+      { "id": "rating_5", "label": "Gravewise", "flat": 5 }
+    ],
+    "penaltyFrom": "harm",
+    "spend": [
+      {
+        "pool": "resolve",
+        "amount": 1,
+        "successes": 1,
+        "perCheck": 2
+      }
+    ],
+    "pool": { "min": 1, "max": 15 },
+    "target": { "default": 7, "min": 5, "max": 9 },
+    "explode": { "from": 10 },
+    "cancel": { "upTo": 1 },
+    "botch": { "upTo": 1 },
+    "exceptional": { "successes": 5 },
+    "situationalDice": { "min": -3, "max": 3 },
+    "difficultyLadder": [
+      { "label": "Plain work", "successes": 1, "target": 6 },
+      { "label": "Awkward", "successes": 2 },
+      { "label": "Grim", "successes": 3, "target": 8 },
+      { "label": "Hopeless", "successes": 5, "target": 9 }
+    ]
+  },
+  "sheet": {
+    "version": 1,
+    "sections": [
+      { "id": "about", "label": "About" },
+      { "id": "kit", "label": "Kit" }
+    ],
+    "abilities": [
+      { "id": "sinew", "label": "Sinew", "short": "SIN", "min": 1, "max": 5, "default": 2 },
+      { "id": "nerve", "label": "Nerve", "short": "NRV", "min": 1, "max": 5, "default": 2 },
+      { "id": "warmth", "label": "Warmth", "short": "WRM", "min": 1, "max": 5, "default": 2 }
+    ],
+    "skills": [
+      { "id": "dig", "label": "Dig", "ability": "sinew" },
+      { "id": "wrestle", "label": "Wrestle", "ability": "sinew" },
+      { "id": "listen", "label": "Listen", "ability": "nerve" },
+      { "id": "ward", "label": "Ward", "ability": "nerve" },
+      { "id": "soothe", "label": "Soothe", "ability": "warmth" },
+      { "id": "barter", "label": "Barter", "ability": "warmth" }
+    ],
+    "saves": [{ "id": "steel", "label": "Steel", "ability": "nerve" }],
+    "$comment": "The free per-entry bonus is dice here too, so it is kept to a range a warden could actually earn.",
+    "bonusRange": { "min": 0, "max": 3 },
+    "fields": [
+      { "id": "post", "label": "Post", "type": "text", "maxLength": 60, "section": "about" },
+      { "id": "lantern", "label": "Lantern oil", "type": "number", "min": 0, "max": 6, "default": 3, "section": "kit" }
+    ],
+    "derived": [
+      {
+        "id": "resolve_max",
+        "label": "Resolve maximum",
+        "op": "sum",
+        "of": [{ "const": 2 }, { "abilityMod": "nerve" }],
+        "section": "about"
+      }
+    ],
+    "lists": [
+      {
+        "id": "charms",
+        "label": "Charms",
+        "section": "about",
+        "maxItems": 6,
+        "columns": [
+          { "id": "name", "label": "Charm", "type": "text", "maxLength": 60, "required": true },
+          { "id": "notes", "label": "What it does", "type": "text", "maxLength": 200 }
+        ]
+      }
+    ],
+    "live": {
+      "pools": [{ "id": "resolve", "label": "Resolve", "max": { "derived": "resolve_max" } }],
+      "tracks": [
+        {
+          "$comment": "A WOUND TRACK, because it declares levels: four rungs, marked rather than counted. The penalty on the LOWEST marked rung is the one in force, never the sum of the marked ones.",
+          "id": "harm",
+          "label": "Harm",
+          "min": 0,
+          "max": 4,
+          "levels": [
+            { "label": "Scuffed", "penalty": 0 },
+            { "label": "Winded", "penalty": -1 },
+            { "label": "Bleeding", "penalty": -3 },
+            { "label": "Down", "penalty": -99 }
+          ],
+          "kinds": [
+            {
+              "$comment": "The lighter kind. Marking a full track upgrades its lowest-severity mark one step, so a knock becomes a tear before anything spills over.",
+              "id": "knock",
+              "label": "K",
+              "severity": 0
+            },
+            { "id": "tear", "label": "T", "severity": 1 }
+          ]
+        }
+      ],
+      "conditions": [
+        { "id": "rattled", "label": "Rattled" },
+        { "id": "marked", "label": "Marked" }
+      ]
+    }
+  },
+  "rests": [
+    {
+      "id": "vigil",
+      "label": "Stand down from the vigil",
+      "restore": [
+        { "pool": "resolve", "to": "max" },
+        {
+          "$comment": "A rest can only heal a wound track, and \"to\" clears it down to that many marks, overflow and all.",
+          "track": "harm",
+          "to": "min"
+        }
+      ],
+      "clear": { "conditions": ["rattled"] }
+    }
+  ],
+  "catalogs": [
+    {
+      "$comment": "One charm, to show what mechanics.check is for: an entry a warden picked that changes a CHECK rather than a fight. The Game Master names it on the check itself and the Engine pays for it and applies it there.",
+      "id": "charms",
+      "label": "Charms",
+      "feeds": ["charms"],
+      "entries": [
+        {
+          "id": "steady-hand",
+          "label": "Steady Hand",
+          "rows": [
+            {
+              "list": "charms",
+              "values": {
+                "name": "Steady Hand",
+                "notes": "Throw the dice that fell wrong again, and steady your hand for one success you did not roll."
+              }
+            }
+          ],
+          "mechanics": {
+            "$comment": "cost is what ONE use is worth, perCostStep is what says it scales, and check is what it does to the roll. A point of Resolve throws the ones again and hands over a success; a second point hands over a second success, and the throw again is the same one either way, because a reroll does not scale.",
+            "kind": "utility",
+            "cost": [{ "pool": "resolve", "amount": 1 }],
+            "perCostStep": { "flat": 1 },
+            "check": { "reroll": { "upTo": 1, "mode": "once" }, "successes": 1 }
+          }
+        }
+      ]
+    }
+  ],
+  "gm": {
+    "checkGuidance": "This game uses the Gravewatch rules. When a warden tries something the barrow roads could punish, call for a check with one of the trades on the sheet and pick a difficulty from the ladder. The Engine throws the warden's own pool of ten-sided dice, counts the successes and reports what happened. Never write dice or results yourself.",
+    "sheetGuidance": "The character sheets below are authoritative. Resolve is what a warden spends to steady themselves when the dark answers back, and it only comes back when the vigil ends. A warden may spend it to steady one roll: say so on the check itself with a spend of resolve and a number of points, up to two, and never write a separate command for it or change the dice yourself. Harm is a track of four rungs rather than a number: mark it with a sheet command whose op is damage, naming the track and a kind of knock or tear, and heal it with a negative amount. The rung a warden is marked down to comes off every pool they throw, and the Engine applies it, so never take dice off yourself.",
+    "sheetSummary": {
+      "fields": ["post"],
+      "derived": ["resolve_max"],
+      "lists": [{ "list": "charms", "nameColumn": "name" }]
+    }
+  },
+  "layers": [
+    {
+      "$comment": "A layer replaces the ladder in the shape of its OWN resolution kind, so a pool ruleset swaps counts of successes and per-step targets, never a DC.",
+      "id": "long_night",
+      "label": "The long night",
+      "summary": "The sun does not come back. Every difficulty asks for more.",
+      "gm": {
+        "guidance": "The long night is on. The dark presses on everything a warden tries, so use the harsher ladder and let failure leave a mark that lasts past the scene.",
+        "worldGuidance": "The long night is on. Build a world without daylight: lantern oil is currency, the barrow roads are open all hours, and every settlement is a ring of light with something outside it."
+      },
+      "difficultyLadder": [
+        { "label": "Plain work", "successes": 1, "target": 7 },
+        { "label": "Awkward", "successes": 2, "target": 8 },
+        { "label": "Grim", "successes": 4, "target": 9 },
+        { "label": "Hopeless", "successes": 6, "target": 9 }
+      ]
+    }
+  ]
+}

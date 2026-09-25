@@ -176,20 +176,25 @@ export async function botBrowserRoutes(app: FastifyInstance, options: BotBrowser
   });
 
   // ── Proxy character avatar images (avoids CORS for thumbnails) ──
-  app.get<{ Params: { "*": string } }>("/chub/avatar/*", async (req, reply) => {
+  // `full=1` prefers the card PNG over the compressed `avatar.webp` thumbnail,
+  // for the enlarged view. Both sources are tried either way, so a card that
+  // only publishes one of them still resolves.
+  app.get<{ Params: { "*": string }; Querystring: { full?: string } }>("/chub/avatar/*", async (req, reply) => {
     const fullPath = (req.params as Record<string, string>)["*"];
     if (!fullPath) throw new Error("Missing avatar path");
+    const preferCardPng = req.query.full === "1";
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
     try {
+      const sources = preferCardPng ? ["chara_card_v2.png", "avatar.webp"] : ["avatar.webp", "chara_card_v2.png"];
       const primary = await fetchAvatarImage(
-        `${CHUB_AVATARS}/avatars/${encodeURI(fullPath)}/avatar.webp`,
+        `${CHUB_AVATARS}/avatars/${encodeURI(fullPath)}/${sources[0]}`,
         controller.signal,
       );
       const image =
         primary ??
-        (await fetchAvatarImage(`${CHUB_AVATARS}/avatars/${encodeURI(fullPath)}/chara_card_v2.png`, controller.signal));
+        (await fetchAvatarImage(`${CHUB_AVATARS}/avatars/${encodeURI(fullPath)}/${sources[1]}`, controller.signal));
       if (!image) return reply.status(404).send({ error: "Avatar not found" });
       return reply
         .header("Content-Type", image.mimeType)

@@ -21,10 +21,12 @@ export const apiConnections = fileTable("api_connections", {
       "nanogpt",
       "xai",
       "arli",
+      "zai",
       "custom",
       "image_generation",
       "video_generation",
       "audio",
+      "decision",
     ],
   }).notNull(),
   baseUrl: text("base_url").notNull().default(""),
@@ -76,6 +78,11 @@ export const apiConnections = fileTable("api_connections", {
   videoService: text("video_service"),
   /** Audio backend for audio connections (openai | elevenlabs | pockettts | xai). */
   audioSource: text("audio_source"),
+  decisionSource: text("decision_source"),
+  credentialsFromConnectionId: text("credentials_from_connection_id"),
+  maxStateTokens: integer("max_state_tokens"),
+  /** A Decision connection's time limit in milliseconds; null uses the default. */
+  decisionTimeoutMs: integer("decision_timeout_ms"),
   /** Default voice id/name for speech synthesis on this audio connection. */
   audioVoice: text("audio_voice"),
   /** Whether this audio connection may generate game sound effects ("true"/"false"). */

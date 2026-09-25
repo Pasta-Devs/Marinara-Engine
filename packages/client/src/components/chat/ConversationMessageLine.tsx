@@ -15,8 +15,8 @@ import {
   ConversationMessageEditForm,
   ConversationMessageAttachments,
   ConversationMessageTranslation,
-  ConversationMessageSwipes,
   ConversationMessageName,
+  diceRollReplacesMessageContent,
   formatTimestamp,
   type MessageRenderContext,
 } from "./ConversationMessageShared";
@@ -52,17 +52,11 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
     isHiddenCollapsed,
     hiddenFromAIHeader,
     onExpandHidden,
-    hideActions,
     hideTimestamp,
     showActions,
     forceShowActions,
     showMessageNumbers,
     messageIndex,
-    hasSwipes,
-    swipeCount,
-    onSetActiveSwipe,
-    canRegenerate,
-    onRegenerate,
     onImageOpen,
     onRemoveAttachment,
     translatedText,
@@ -205,34 +199,41 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
               <PendingTypingDots dotClassName="bg-[var(--muted-foreground)]/60" />
             ) : (
               <>
-                {renderedContentParts ? (
-                  <div className="space-y-1.5">
-                    {renderedContentParts.map((part, i) => (
-                      <div key={i} className="animate-[fadeSlideIn_0.4s_ease-out]">
-                        <MessageContent
-                          content={part}
-                          mentionNames={mentionNames}
-                          emojiMap={emojiMap}
-                          stickerMap={stickerMap}
-                          onImageOpen={(url) => onImageOpen(url)}
-                          selfCharacterId={selfCharacterId}
-                          galleryIndex={galleryIndex}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : extra.diceRollResult ? (
+                {diceRollReplacesMessageContent(message.role, extra.diceRollResult) ? (
                   <DiceMessageContent diceRollResult={extra.diceRollResult} createdAt={message.createdAt} />
                 ) : (
-                  <MessageContent
-                    content={renderedContent}
-                    mentionNames={mentionNames}
-                    emojiMap={emojiMap}
-                    stickerMap={stickerMap}
-                    onImageOpen={(url) => onImageOpen(url)}
-                    selfCharacterId={selfCharacterId}
-                    galleryIndex={galleryIndex}
-                  />
+                  <>
+                    {extra.diceRollResult ? (
+                      <DiceMessageContent diceRollResult={extra.diceRollResult} createdAt={message.createdAt} />
+                    ) : null}
+                    {renderedContentParts ? (
+                      <div className="space-y-1.5">
+                        {renderedContentParts.map((part, i) => (
+                          <div key={i} className="animate-[fadeSlideIn_0.4s_ease-out]">
+                            <MessageContent
+                              content={part}
+                              mentionNames={mentionNames}
+                              emojiMap={emojiMap}
+                              stickerMap={stickerMap}
+                              onImageOpen={(url) => onImageOpen(url)}
+                              selfCharacterId={selfCharacterId}
+                              galleryIndex={galleryIndex}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <MessageContent
+                        content={renderedContent}
+                        mentionNames={mentionNames}
+                        emojiMap={emojiMap}
+                        stickerMap={stickerMap}
+                        onImageOpen={(url) => onImageOpen(url)}
+                        selfCharacterId={selfCharacterId}
+                        galleryIndex={galleryIndex}
+                      />
+                    )}
+                  </>
                 )}
                 {isStreaming && (
                   <span className="ml-0.5 inline-block h-4 w-[0.125rem] animate-pulse rounded-full bg-[var(--foreground)]/50" />
@@ -254,18 +255,6 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
               onImageOpen={onImageOpen}
               onRemove={onRemoveAttachment}
             />
-
-            {!hideActions && (hasSwipes || (canRegenerate && onRegenerate)) && (
-              <div className="mt-1.5">
-                <ConversationMessageSwipes
-                  messageId={message.id}
-                  activeSwipeIndex={message.activeSwipeIndex}
-                  swipeCount={swipeCount}
-                  onSetActiveSwipe={(idx) => onSetActiveSwipe?.(message.id, idx)}
-                  onCreateNextSwipe={canRegenerate && onRegenerate ? () => onRegenerate(message.id) : undefined}
-                />
-              </div>
-            )}
           </>
         )}
       </div>

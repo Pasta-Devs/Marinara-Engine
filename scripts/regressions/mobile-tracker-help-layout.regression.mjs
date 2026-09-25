@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 
 function readSource(relativePath) {
   return readFileSync(new URL(`../../${relativePath}`, import.meta.url), "utf8");
@@ -10,7 +12,7 @@ const roleplayPanels = readSource("packages/client/src/components/chat/RoleplayH
 const chatHelp = readSource("packages/client/src/components/chat/ChatHelpOverlay.tsx");
 const chatSidebar = readSource("packages/client/src/components/layout/ChatSidebar.tsx");
 const branchSelector = readSource("packages/client/src/components/chat/ChatBranchSelector.tsx");
-const cardLibrary = readSource("packages/client/src/components/characters/CharacterLibraryView.tsx");
+const cardLibrary = readSource("packages/client/src/components/characters/CardLibraryPreview.tsx");
 const agentCatalog = readSource("packages/client/src/components/agents/AgentCatalogView.tsx");
 const agentSettingsControls = readSource("packages/client/src/components/chat/AgentSettingsControls.tsx");
 const inventoryPanel = readSource(
@@ -73,8 +75,13 @@ assert.match(
 );
 assert.match(
   roleplayHud,
-  /left: pos\.left, transform: pos\.centered \? "translateX\(-50%\)"/u,
-  "the mobile Agents menu must center from its rendered width",
+  /dropdownRef\.current\?\.offsetWidth[\s\S]*Math\.max\(8, Math\.round\(\(window\.innerWidth - dropdownWidth\) \/ 2\)\)/u,
+  "the mobile Agents menu must center from its rendered width with an eight-pixel viewport inset",
+);
+assert.match(
+  roleplayHud,
+  /style=\{\{ top: pos\.top, left: pos\.left \}\}/u,
+  "the Agents menu must leave transform to its entrance animation instead of overriding pixel centering",
 );
 assert.match(
   roleplayHud,
@@ -167,4 +174,50 @@ assert.match(
   "shared agent segmented controls, including Music DJ, must center their contents",
 );
 
-process.stdout.write("Mobile tracker and help layout regression passed\n");
+// Execute the tutorial's real positioning helpers with a below-fold Home anchor.
+const tutorial = readSource("packages/client/src/components/onboarding/OnboardingTutorial.tsx");
+const constantsStart = tutorial.indexOf("const PAD =");
+const constantsEnd = tutorial.indexOf("const TUTORIAL_CARD_CLASS", constantsStart);
+const helpersStart = tutorial.indexOf("function getViewportWidth");
+const helpersEnd = tutorial.indexOf("// ─── Card content", helpersStart);
+assert.ok(constantsStart >= 0 && constantsEnd > constantsStart && helpersStart >= 0 && helpersEnd > helpersStart);
+const centeredSizing = tutorial.match(/const centeredTopOffset =[^;]+;\s*const centeredCardMaxHeight =[^;]+;/u)?.[0];
+assert.ok(centeredSizing, "centered tutorial sizing must be exercised too");
+const tooltipSource = `${tutorial.slice(constantsStart, constantsEnd)}\n${tutorial.slice(helpersStart, helpersEnd)}\n({ computeTooltipStyle, centeredHeight: () => { ${centeredSizing} return centeredCardMaxHeight; } });`;
+const viewport = { innerWidth: 800, innerHeight: 320 };
+const { computeTooltipStyle, centeredHeight } = runInNewContext(
+  ts.transpileModule(tooltipSource, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText,
+  {
+    window: viewport,
+    document: { querySelector: () => ({ getBoundingClientRect: () => ({ bottom: 48 }) }) },
+  },
+);
+for (const height of [320, 220]) {
+  viewport.innerHeight = height;
+  for (const width of [800, 390]) {
+    viewport.innerWidth = width;
+    for (const target of ["home-documentation", "panel-settings", "sidebar-toggle", "chat-mode-roleplay"]) {
+      for (const side of ["top", "bottom", "left", "right"]) {
+        const top = target === "home-documentation" ? 500 : target === "chat-mode-roleplay" ? 80 : 8;
+        const style = computeTooltipStyle({ left: 100, top, width: 500, height: 44 }, { target, side });
+        const margin = width < 640 ? 12 : 16;
+        assert.ok(style.top >= 60, `${target}/${side}: tutorial must remain below the topbar`);
+        assert.ok(
+          style.top + Number.parseFloat(style.maxHeight) <= height - margin,
+          `${width}x${height} ${target}/${side}: tutorial must fit the short viewport`,
+        );
+        assert.equal(style.overflowY, "auto", "long tutorial content must remain scrollable");
+      }
+    }
+    assert.equal(centeredHeight(), height - 60 - 16, "centered cards must also use the actual available height");
+  }
+}
+viewport.innerWidth = 800;
+viewport.innerHeight = 600;
+const normalStyle = computeTooltipStyle(
+  { left: 100, top: 200, width: 500, height: 20 },
+  { target: "home-documentation", side: "right" },
+);
+assert.equal(normalStyle.maxHeight, "340px", "retain the preferred height when the viewport has space");
+
+process.stdout.write("Mobile tracker, help, and tutorial layout regression passed\n");

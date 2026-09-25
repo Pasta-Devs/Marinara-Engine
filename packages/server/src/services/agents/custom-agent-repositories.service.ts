@@ -6,22 +6,36 @@ import AdmZip from "adm-zip";
 import { z } from "zod";
 import {
   APP_VERSION,
+  communityRulesetId,
   CUSTOM_AGENT_IMPORT_SOURCE_SETTING,
   CUSTOM_AGENT_PERMISSIONS_EXPLICIT_SETTING,
   normalizeCustomAgentCapabilities,
   packagedAgentDefinitionsSchema,
   parseAgentSettingsRecord,
+  parseRulesetDefinition,
+  RULESET_LOCAL_NAMESPACE,
+  RULESET_MAX_BYTES,
   type CreateAgentConfigInput,
   type CustomAgentRepository,
+  type CustomAgentRepositoryApplyResult,
   type CustomAgentRepositoryChange,
   type CustomAgentRepositoryPreview,
+  type CustomAgentRepositoryRulesetChange,
+  type CustomAgentRepositoryRulesetResult,
   type PackagedAgentDefinition,
+  type RulesetDefinition,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { safeFetch } from "../../utils/security.js";
 import { createAgentsStorage } from "../storage/agents.storage.js";
+import {
+  createGameRulesetsStorage,
+  RulesetRefusedError,
+  RulesetVersionConflictError,
+  type GameRulesetRow,
+} from "../storage/game-rulesets.storage.js";
 import { normalizeArchivePath, validatePackageArchiveEntries } from "../capability-packages/package-manager.service.js";
 
 const REGISTRY_FILE = join(DATA_DIR, "agents", "custom-repositories.json");
@@ -29,8 +43,13 @@ const MAX_ARCHIVE_BYTES = 10 * 1024 * 1024;
 const MAX_EXPANDED_BYTES = 20 * 1024 * 1024;
 const MAX_DEFINITIONS_BYTES = 1024 * 1024;
 const MAX_AGENT_DEFINITIONS = 100;
+const MAX_REPOSITORY_RULESETS = 32;
+const RULESETS_FOLDER = "rulesets";
 const SOURCE_SETTINGS_KEY = "customAgentRepositorySource";
 const ALLOWED_ARCHIVE_HOSTS = ["github.com", "codeload.github.com"];
+/** Rejects a file that is not valid UTF-8 instead of quietly substituting replacement characters,
+ *  which would change the bytes a stored ruleset is hashed and pinned by. */
+const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 
 let registryMutationQueue = Promise.resolve();
 
@@ -60,6 +79,9 @@ const repositorySchema = z
       .nullable(),
     lastSyncedAt: z.string().datetime().nullable(),
     agentCount: z.number().int().min(0).max(MAX_AGENT_DEFINITIONS),
+    // Defaulted, not required: registries written before repositories could carry rulesets must
+    // still load, or every configured source would disappear at once.
+    rulesetCount: z.number().int().min(0).max(MAX_REPOSITORY_RULESETS).default(0),
   })
   .strict();
 
@@ -81,10 +103,34 @@ const sourceSchema = z
 type RepositoryIdentity = Pick<CustomAgentRepository, "id" | "url" | "owner" | "name">;
 type StoredAgent = Awaited<ReturnType<ReturnType<typeof createAgentsStorage>["list"]>>[number];
 
+/** One `<top>/rulesets/*.json` entry as it came out of the archive. `text` is null when the file is
+ *  too large or not valid UTF-8, which makes that one file unusable (`issue` says why) rather than
+ *  refusing the whole repository. */
+export interface RepositoryRulesetFile {
+  file: string;
+  text: string | null;
+  issue?: string;
+}
+
+export interface CustomAgentRepositoryContents {
+  definitions: PackagedAgentDefinition[];
+  rulesets: RepositoryRulesetFile[];
+}
+
+/** One ruleset file after validation: either a ruleset ready to store, or the reasons it is not one.
+ *  An unusable file is a single row the user sees and the confirm skips, never a failed repository:
+ *  one author's typo must not take the agents and the other rulesets down with it. */
+export interface RepositoryRulesetCandidate {
+  file: string;
+  ruleset: { rulesetId: string; definition: RulesetDefinition; text: string } | null;
+  issues: string[];
+}
+
 interface RepositorySnapshot {
   repository: RepositoryIdentity;
   digest: string;
   definitions: PackagedAgentDefinition[];
+  rulesets: RepositoryRulesetCandidate[];
 }
 
 function stableJson(value: unknown): string {
@@ -131,18 +177,19 @@ export function normalizeCustomAgentRepositoryUrl(value: string): RepositoryIden
   };
 }
 
-export function parseCustomAgentRepositoryArchive(archive: Buffer): PackagedAgentDefinition[] {
-  const zip = new AdmZip(archive);
-  const entries = validatePackageArchiveEntries(zip, MAX_EXPANDED_BYTES);
+/** Returns null when the archive has no `agents.json` at all, which a rulesets-only repository is
+ *  allowed to be. An `agents.json` that lists nothing stays an empty list, exactly as before. */
+function readAgentDefinitions(entries: AdmZip.IZipEntry[]): PackagedAgentDefinition[] | null {
   const definitionEntries = entries.filter((entry) => {
     const parts = normalizeArchivePath(entry.entryName).split("/");
     return parts.length === 2 && parts[1] === "agents.json";
   });
-  if (definitionEntries.length !== 1) {
-    throw new Error("Repository archive must contain exactly one top-level agents.json file");
+  if (definitionEntries.length > 1) {
+    throw new Error("Repository archive must contain at most one top-level agents.json file");
   }
+  const definitionEntry = definitionEntries[0];
+  if (!definitionEntry) return null;
 
-  const definitionEntry = definitionEntries[0]!;
   if (definitionEntry.header.size > MAX_DEFINITIONS_BYTES) throw new Error("agents.json is too large");
   const data = definitionEntry.getData();
   if (data.byteLength > MAX_DEFINITIONS_BYTES) throw new Error("agents.json is too large");
@@ -160,6 +207,95 @@ export function parseCustomAgentRepositoryArchive(archive: Buffer): PackagedAgen
     ids.add(definition.id);
   }
   return definitions;
+}
+
+function readRepositoryRulesets(entries: AdmZip.IZipEntry[]): RepositoryRulesetFile[] {
+  const rulesetEntries = entries.filter((entry) => {
+    const parts = normalizeArchivePath(entry.entryName).split("/");
+    // Direct children of `<top>/rulesets/` only: a deeper path is the author's own working material,
+    // not something this lane publishes, and reading it would make the folder's contract unclear.
+    return parts.length === 3 && parts[1] === RULESETS_FOLDER && parts[2]!.endsWith(".json");
+  });
+  if (rulesetEntries.length > MAX_REPOSITORY_RULESETS) {
+    throw new Error(`A custom repository may contain at most ${MAX_REPOSITORY_RULESETS} rulesets`);
+  }
+  return (
+    rulesetEntries
+      .map((entry) => {
+        const file = normalizeArchivePath(entry.entryName).split("/")[2]!;
+        // Both the header's claim and the real decompressed length, because a header is only what the
+        // archive says about itself. The archive as a whole is already bounded, so one oversized file
+        // is that file's problem and not the repository's.
+        const tooLarge = { file, text: null, issue: `The file is over the ${RULESET_MAX_BYTES}-byte limit` };
+        if (entry.header.size > RULESET_MAX_BYTES) return tooLarge;
+        const data = entry.getData();
+        if (data.byteLength > RULESET_MAX_BYTES) return tooLarge;
+        try {
+          return { file, text: utf8Decoder.decode(data) };
+        } catch {
+          return { file, text: null };
+        }
+      })
+      // By name, so which of two files claiming one ruleset id counts as the duplicate does not depend
+      // on the order the archive happens to list them in.
+      .sort((left, right) => (left.file < right.file ? -1 : left.file > right.file ? 1 : 0))
+  );
+}
+
+/** Everything a repository publishes, from one pass over one safety-checked archive. A repository
+ *  may carry agents, rulesets, or both; an archive with neither has nothing to import and is
+ *  refused so the user is told rather than shown an empty preview. Pure, so the regression covers it
+ *  without reaching the network. */
+export function parseCustomAgentRepositoryContents(archive: Buffer): CustomAgentRepositoryContents {
+  const zip = new AdmZip(archive);
+  const entries = validatePackageArchiveEntries(zip, MAX_EXPANDED_BYTES);
+  const definitions = readAgentDefinitions(entries);
+  const rulesets = readRepositoryRulesets(entries);
+  if (!definitions && rulesets.length === 0) {
+    throw new Error("Repository archive must contain a top-level agents.json file, rulesets/*.json files, or both");
+  }
+  return { definitions: definitions ?? [], rulesets };
+}
+
+export function parseCustomAgentRepositoryArchive(archive: Buffer): PackagedAgentDefinition[] {
+  return parseCustomAgentRepositoryContents(archive).definitions;
+}
+
+/** Validate each ruleset file and give it the namespaced id it would be installed under. The
+ *  document itself always carries the bare id; the repository owner is the namespace, so two authors
+ *  can both publish a `v20` and neither can take an official ruleset's id. Pure. */
+export function classifyRepositoryRulesets(
+  owner: string,
+  files: readonly RepositoryRulesetFile[],
+): RepositoryRulesetCandidate[] {
+  const claimedBy = new Map<string, string>();
+  return files.map(({ file, text, issue }): RepositoryRulesetCandidate => {
+    const unusable = (...issues: string[]): RepositoryRulesetCandidate => ({ file, ruleset: null, issues });
+    // `local/` is where rulesets imported from a file live. A GitHub account that happens to be
+    // called "local" must not be able to file its rulesets among the user's own.
+    if (owner === RULESET_LOCAL_NAMESPACE) {
+      return unusable(`Rulesets cannot be installed from an account named "${RULESET_LOCAL_NAMESPACE}"`);
+    }
+    if (text === null) return unusable(issue ?? "The file is not valid UTF-8 text");
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      return unusable("The file is not valid JSON");
+    }
+    // Reserved ids fail here: `parseRulesetDefinition` already refuses the Engine's own ruleset ids.
+    const parsed = parseRulesetDefinition(json);
+    if (!parsed.ok) return unusable(...parsed.issues.slice(0, 5));
+    const claimed = claimedBy.get(parsed.definition.id);
+    if (claimed) return unusable(`${claimed} already publishes the ruleset id "${parsed.definition.id}"`);
+    try {
+      const rulesetId = communityRulesetId(owner, parsed.definition.id);
+      claimedBy.set(parsed.definition.id, file);
+      return { file, ruleset: { rulesetId, definition: parsed.definition, text }, issues: [] };
+    } catch (error) {
+      return unusable(error instanceof Error ? error.message : "The ruleset id cannot be namespaced");
+    }
+  });
 }
 
 async function fetchRepositorySnapshot(value: string): Promise<RepositorySnapshot> {
@@ -184,12 +320,19 @@ async function fetchRepositorySnapshot(value: string): Promise<RepositorySnapsho
     });
     if (!response.ok) throw new Error(`Repository download failed with HTTP ${response.status}`);
     const archive = Buffer.from(await response.arrayBuffer());
-    const definitions = parseCustomAgentRepositoryArchive(archive);
-    logger.info("Fetched %d custom agent definitions from repository %s", definitions.length, repository.url);
+    const contents = parseCustomAgentRepositoryContents(archive);
+    const rulesets = classifyRepositoryRulesets(repository.owner, contents.rulesets);
+    logger.info(
+      "Fetched %d custom agent definitions and %d rulesets from repository %s",
+      contents.definitions.length,
+      rulesets.length,
+      repository.url,
+    );
     return {
       repository,
       digest: createHash("sha256").update(archive).digest("hex"),
-      definitions,
+      definitions: contents.definitions,
+      rulesets,
     };
   } catch (error) {
     logger.error(error, "Failed to fetch custom agent repository %s", repository.url);
@@ -285,7 +428,54 @@ function managedAgentsForRepository(agents: StoredAgent[], repositoryId: string)
   return managed;
 }
 
-function buildPreview(snapshot: RepositorySnapshot, agents: StoredAgent[]): CustomAgentRepositoryPreview {
+/** The same digest the storage files a version under, so a preview row and the storage agree on
+ *  whether the repository is offering the bytes that are already installed. */
+function rulesetDigest(text: string): string {
+  return createHash("sha256").update(text, "utf8").digest("hex");
+}
+
+function buildRulesetChanges(
+  candidates: readonly RepositoryRulesetCandidate[],
+  stored: readonly GameRulesetRow[],
+): CustomAgentRepositoryRulesetChange[] {
+  const installed = new Map<string, Map<number, string>>();
+  for (const row of stored) {
+    const versions = installed.get(row.rulesetId) ?? new Map<number, string>();
+    versions.set(row.version, row.sha256);
+    installed.set(row.rulesetId, versions);
+  }
+  return candidates.map((candidate) => {
+    if (!candidate.ruleset) {
+      return {
+        file: candidate.file,
+        rulesetId: null,
+        name: candidate.file,
+        version: null,
+        status: "invalid",
+        coverage: "",
+        issues: candidate.issues,
+      };
+    }
+    const { rulesetId, definition, text } = candidate.ruleset;
+    const versions = installed.get(rulesetId);
+    const current = versions?.get(definition.version);
+    return {
+      file: candidate.file,
+      rulesetId,
+      name: definition.name,
+      version: definition.version,
+      status: current ? (current === rulesetDigest(text) ? "unchanged" : "conflict") : versions ? "new-version" : "new",
+      coverage: definition.coverage.summary,
+      issues: [],
+    };
+  });
+}
+
+function buildPreview(
+  snapshot: RepositorySnapshot,
+  agents: StoredAgent[],
+  storedRulesets: GameRulesetRow[],
+): CustomAgentRepositoryPreview {
   const managed = managedAgentsForRepository(agents, snapshot.repository.id);
   const changes: CustomAgentRepositoryChange[] = snapshot.definitions.map((definition) => {
     const current = managed.get(definition.id);
@@ -307,19 +497,72 @@ function buildPreview(snapshot: RepositorySnapshot, agents: StoredAgent[]): Cust
       changedFields: ["repository source"],
     });
   }
-  return { repository: snapshot.repository, digest: snapshot.digest, changes };
+  return {
+    repository: snapshot.repository,
+    digest: snapshot.digest,
+    changes,
+    rulesets: buildRulesetChanges(snapshot.rulesets, storedRulesets),
+  };
 }
 
 function hasContentChanges(preview: CustomAgentRepositoryPreview) {
-  return preview.changes.some((change) => change.status !== "unchanged");
+  // An unusable or conflicting ruleset changes nothing on confirm, so it does not ask for one.
+  return (
+    preview.changes.some((change) => change.status !== "unchanged") ||
+    preview.rulesets.some((ruleset) => ruleset.status === "new" || ruleset.status === "new-version")
+  );
 }
 
 export function createCustomAgentRepositoriesService(db: DB) {
   const storage = createAgentsStorage(db);
+  const rulesetStorage = createGameRulesetsStorage(db);
 
   async function previewSnapshot(url: string) {
     const snapshot = await fetchRepositorySnapshot(url);
-    return { snapshot, preview: buildPreview(snapshot, await storage.list()) };
+    const [agents, storedRulesets] = await Promise.all([storage.list(), rulesetStorage.list()]);
+    return { snapshot, preview: buildPreview(snapshot, agents, storedRulesets) };
+  }
+
+  /** Store every usable ruleset the repository publishes. A version that is already installed with
+   *  different contents is left exactly as it is: a game pinned to it would otherwise wake up on
+   *  other arithmetic, which is the one outcome the pin exists to prevent. */
+  async function applyRulesets(snapshot: RepositorySnapshot): Promise<CustomAgentRepositoryRulesetResult> {
+    const result: CustomAgentRepositoryRulesetResult = { added: 0, unchanged: 0, skipped: 0 };
+    for (const candidate of snapshot.rulesets) {
+      if (!candidate.ruleset) {
+        result.skipped += 1;
+        continue;
+      }
+      const { rulesetId, definition, text } = candidate.ruleset;
+      try {
+        const stored = await rulesetStorage.put({
+          rulesetId,
+          version: definition.version,
+          sourceKind: "repository",
+          sourceUrl: snapshot.repository.url,
+          repositoryId: snapshot.repository.id,
+          definition: text,
+        });
+        result[stored.status] += 1;
+      } catch (error) {
+        // Either refusal is about this one file. Anything else is the store failing, which has to
+        // stop the confirm rather than be counted as a skipped ruleset.
+        if (error instanceof RulesetVersionConflictError) {
+          logger.warn(
+            "Kept installed ruleset %s version %d rather than the differing one in %s",
+            rulesetId,
+            definition.version,
+            snapshot.repository.url,
+          );
+        } else if (error instanceof RulesetRefusedError) {
+          logger.warn("Skipped ruleset %s from %s: %s", rulesetId, snapshot.repository.url, error.message);
+        } else {
+          throw error;
+        }
+        result.skipped += 1;
+      }
+    }
+    return result;
   }
 
   async function applySnapshot(snapshot: RepositorySnapshot) {
@@ -347,6 +590,23 @@ export function createCustomAgentRepositoriesService(db: DB) {
     for (const agent of managed.values()) {
       await storage.update(agent.id, { settings: withoutSource(agent.settings) });
     }
+    // Rulesets have no counterpart to the loop above on purpose: a version withdrawn upstream stays
+    // installed, because a game may be pinned to it and the author cannot be allowed to end it.
+    return applyRulesets(snapshot);
+  }
+
+  /** The stored form plus what the confirm just did, which the two callers report identically. */
+  function applyResult(
+    repository: CustomAgentRepository,
+    rulesets: CustomAgentRepositoryRulesetResult,
+  ): CustomAgentRepositoryApplyResult {
+    return { ...repository, rulesets };
+  }
+
+  /** Rulesets the repository publishes that the Engine can actually read. Unusable files are shown
+   *  in the preview but are not something the source offers. */
+  function usableRulesetCount(snapshot: RepositorySnapshot): number {
+    return snapshot.rulesets.filter((candidate) => candidate.ruleset).length;
   }
 
   return {
@@ -373,16 +633,22 @@ export function createCustomAgentRepositoriesService(db: DB) {
           logger.warn("Rejected changed custom agent repository %s after preview", snapshot.repository.url);
           throw new Error("Repository changed after preview; preview it again");
         }
-        await applySnapshot(snapshot);
+        const rulesets = await applySnapshot(snapshot);
         const repository: CustomAgentRepository = {
           ...snapshot.repository,
           lastDigest: snapshot.digest,
           lastSyncedAt: new Date().toISOString(),
           agentCount: snapshot.definitions.length,
+          rulesetCount: usableRulesetCount(snapshot),
         };
         await writeRegistry([...registry.repositories, repository]);
-        logger.info("Added custom agent repository %s with %d agents", repository.url, repository.agentCount);
-        return repository;
+        logger.info(
+          "Added custom agent repository %s with %d agents and %d rulesets",
+          repository.url,
+          repository.agentCount,
+          repository.rulesetCount,
+        );
+        return applyResult(repository, rulesets);
       });
     },
 
@@ -400,16 +666,22 @@ export function createCustomAgentRepositoriesService(db: DB) {
           logger.warn("Rejected custom agent repository sync without trust confirmation for %s", current.url);
           throw new Error("Explicit trust confirmation is required before applying repository changes");
         }
-        await applySnapshot(snapshot);
+        const rulesets = await applySnapshot(snapshot);
         const repository: CustomAgentRepository = {
           ...current,
           lastDigest: snapshot.digest,
           lastSyncedAt: new Date().toISOString(),
           agentCount: snapshot.definitions.length,
+          rulesetCount: usableRulesetCount(snapshot),
         };
         await writeRegistry(registry.repositories.map((entry) => (entry.id === repositoryId ? repository : entry)));
-        logger.info("Synced custom agent repository %s with %d agents", repository.url, repository.agentCount);
-        return repository;
+        logger.info(
+          "Synced custom agent repository %s with %d agents and %d rulesets",
+          repository.url,
+          repository.agentCount,
+          repository.rulesetCount,
+        );
+        return applyResult(repository, rulesets);
       });
     },
 
@@ -422,6 +694,9 @@ export function createCustomAgentRepositoriesService(db: DB) {
         for (const agent of agents.values()) {
           await storage.update(agent.id, { settings: withoutSource(agent.settings) });
         }
+        // Forget which source managed these rulesets, never delete them: a game pinned to one has to
+        // keep playing after its source is removed, exactly like an imported agent keeps its runs.
+        await rulesetStorage.detachRepository(repositoryId);
         await writeRegistry(registry.repositories.filter((entry) => entry.id !== repositoryId));
         logger.info("Removed custom agent repository %s", repository.url);
         return true;

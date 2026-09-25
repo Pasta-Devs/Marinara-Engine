@@ -545,11 +545,18 @@ if (!status.available) {
       tables: [{ name: "items", jsonColumns: [], rows: [{ id: "one" }] }],
     };
     if (status.backend === "linux-bubblewrap") {
-      const secretRead = await runMariTransformSandbox(secretReadInput);
-      assert.equal(
-        (secretRead[0]?.results[0]?.value as { update?: { label?: string } })?.update?.label,
-        "",
-        "Linux exposes a harmless empty /dev/null in place of forbidden workspace secrets",
+      await runMariTransformSandbox(secretReadInput).then(
+        (secretRead) => {
+          assert.equal(
+            (secretRead[0]?.results[0]?.value as { update?: { label?: string } })?.update?.label,
+            "",
+            "Linux exposes a harmless empty /dev/null in place of forbidden workspace secrets",
+          );
+        },
+        (error: unknown) => {
+          // Some Linux hosts deny access to the masked file instead of exposing an empty device.
+          assert.match(String(error), /EACCES: permission denied, open [^\n]*\.env/u);
+        },
       );
     } else {
       await assert.rejects(runMariTransformSandbox(secretReadInput), /Transform sandbox exited/u);

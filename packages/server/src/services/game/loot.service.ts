@@ -1,3 +1,4 @@
+import { normalizeGameDifficulty } from "@marinara-engine/shared";
 // ──────────────────────────────────────────────
 // Game: Loot Table System
 //
@@ -184,7 +185,7 @@ function assignRarity(index: number, tableSize: number): ItemRarity {
 
 /** Pick a weighted random rarity based on difficulty. */
 function pickRarity(difficulty: string): ItemRarity {
-  const weights = RARITY_WEIGHTS[difficulty] ?? RARITY_WEIGHTS.normal!;
+  const weights = RARITY_WEIGHTS[normalizeGameDifficulty(difficulty)] ?? RARITY_WEIGHTS.normal!;
   const total = Object.values(weights).reduce((s, w) => s + w, 0);
   let roll = Math.random() * total;
 
@@ -235,7 +236,7 @@ export function generateLootTable(count: number, difficulty: string = "normal"):
 export function generateCombatLoot(enemyCount: number, difficulty: string = "normal"): LootDrop[] {
   // Base drops: 1-2 per enemy, plus bonus for harder difficulties
   const difficultyBonus: Record<string, number> = { casual: 0, normal: 0, hard: 1, brutal: 2 };
-  const bonus = difficultyBonus[difficulty] ?? 0;
+  const bonus = difficultyBonus[normalizeGameDifficulty(difficulty)] ?? 0;
   const count = Math.min(10, enemyCount + Math.floor(Math.random() * (enemyCount + 1)) + bonus);
   return generateLootTable(count, difficulty);
 }

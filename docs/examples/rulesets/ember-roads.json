@@ -1,0 +1,1085 @@
+{
+  "$comment": "A small example ruleset for the authoring guide. It rolls 2d6 plus a stat, to show that nothing in the format assumes a d20 or six abilities. Copy it, change the id, and make it yours.",
+  "schemaVersion": 1,
+  "id": "ember-roads",
+  "version": 1,
+  "name": "Ember Roads",
+  "edition": "Example ruleset, first draft",
+  "license": {
+    "spdx": "CC0-1.0",
+    "attribution": "Written for the Marinara Engine docs. Do what you like with it."
+  },
+  "coverage": {
+    "checks": true,
+    "saves": false,
+    "sheet": true,
+    "resources": true,
+    "rests": true,
+    "combat": true,
+    "summary": "2d6 plus a stat against a difficulty, a short sheet with Grit and Luck, one rest, and fights resolved by these rules."
+  },
+  "resolution": {
+    "kind": "dice-sum",
+    "dice": {
+      "count": 2,
+      "sides": 6
+    },
+    "abilityModifier": {
+      "op": "identity"
+    },
+    "proficiencyTiers": [
+      {
+        "id": "untrained",
+        "label": "Untrained"
+      },
+      {
+        "id": "trained",
+        "label": "Trained",
+        "flat": 1
+      },
+      {
+        "id": "expert",
+        "label": "Expert",
+        "flat": 2
+      }
+    ],
+    "advantage": false,
+    "difficultyLadder": [
+      {
+        "label": "Easy",
+        "dc": 6
+      },
+      {
+        "label": "Risky",
+        "dc": 8
+      },
+      {
+        "label": "Hard",
+        "dc": 10
+      },
+      {
+        "label": "Desperate",
+        "dc": 12
+      }
+    ]
+  },
+  "sheet": {
+    "version": 1,
+    "sections": [
+      {
+        "id": "about",
+        "label": "About"
+      },
+      {
+        "id": "gear",
+        "label": "Gear"
+      },
+      {
+        "id": "knacks",
+        "label": "Knacks"
+      }
+    ],
+    "abilities": [
+      {
+        "id": "brawn",
+        "label": "Brawn",
+        "short": "BRN",
+        "min": -1,
+        "max": 3,
+        "default": 0
+      },
+      {
+        "id": "wits",
+        "label": "Wits",
+        "short": "WIT",
+        "min": -1,
+        "max": 3,
+        "default": 0
+      },
+      {
+        "id": "heart",
+        "label": "Heart",
+        "short": "HRT",
+        "min": -1,
+        "max": 3,
+        "default": 0
+      }
+    ],
+    "skills": [
+      {
+        "id": "scrap",
+        "label": "Scrap",
+        "ability": "brawn"
+      },
+      {
+        "id": "sneak",
+        "label": "Sneak",
+        "ability": "wits"
+      },
+      {
+        "id": "tinker",
+        "label": "Tinker",
+        "ability": "wits"
+      },
+      {
+        "id": "sway",
+        "label": "Sway",
+        "ability": "heart"
+      }
+    ],
+    "fields": [
+      {
+        "id": "calling",
+        "label": "Calling",
+        "type": "text",
+        "maxLength": 60,
+        "section": "about"
+      },
+      {
+        "id": "toughness",
+        "label": "Toughness",
+        "type": "number",
+        "min": 0,
+        "max": 6,
+        "default": 2,
+        "section": "about"
+      }
+    ],
+    "derived": [
+      {
+        "id": "grit_max",
+        "label": "Grit maximum",
+        "op": "sum",
+        "of": [
+          {
+            "const": 4
+          },
+          {
+            "field": "toughness"
+          },
+          {
+            "abilityMod": "brawn"
+          }
+        ],
+        "section": "about"
+      },
+      {
+        "$comment": "What a blow has to beat. Two six-sided dice average seven, so a Guard of six or seven is an even fight.",
+        "id": "guard",
+        "label": "Guard",
+        "op": "sum",
+        "of": [
+          {
+            "const": 6
+          },
+          {
+            "abilityMod": "wits"
+          }
+        ],
+        "section": "about"
+      }
+    ],
+    "lists": [
+      {
+        "id": "gear",
+        "label": "Gear",
+        "section": "gear",
+        "maxItems": 20,
+        "columns": [
+          {
+            "id": "name",
+            "label": "Name",
+            "type": "text",
+            "maxLength": 60,
+            "required": true
+          },
+          {
+            "id": "notes",
+            "label": "Notes",
+            "type": "text",
+            "maxLength": 200
+          },
+          {
+            "$comment": "A piece of gear with damage dice is something you can swing. The rest of the list is rope and lamp oil, and a fight simply never offers it.",
+            "id": "swing",
+            "label": "Rolls with",
+            "type": "enum",
+            "values": ["brawn", "wits", "heart"],
+            "default": "brawn"
+          },
+          {
+            "id": "damage",
+            "label": "Damage dice",
+            "type": "dice",
+            "example": "1d6"
+          },
+          {
+            "id": "harm",
+            "label": "Kind of harm",
+            "type": "text",
+            "maxLength": 20
+          }
+        ]
+      },
+      {
+        "id": "knacks",
+        "label": "Knacks",
+        "section": "knacks",
+        "maxItems": 20,
+        "columns": [
+          {
+            "id": "name",
+            "label": "Name",
+            "type": "text",
+            "maxLength": 60,
+            "required": true
+          },
+          {
+            "id": "notes",
+            "label": "What it does",
+            "type": "text",
+            "maxLength": 200
+          }
+        ]
+      },
+      {
+        "$comment": "A list with pools: every row is a resource with its own maximum, and the camp rest gives back the ones that recharge there.",
+        "id": "tricks",
+        "label": "Limited tricks",
+        "section": "knacks",
+        "maxItems": 12,
+        "columns": [
+          {
+            "id": "name",
+            "label": "Name",
+            "type": "text",
+            "maxLength": 60,
+            "required": true
+          },
+          {
+            "id": "uses",
+            "label": "Uses",
+            "type": "number",
+            "min": 0,
+            "max": 9,
+            "default": 1
+          },
+          {
+            "id": "recharge",
+            "label": "Comes back",
+            "type": "enum",
+            "values": ["camp", "scene"],
+            "valueLabels": {
+              "camp": "At camp",
+              "scene": "Each scene"
+            },
+            "default": "camp"
+          }
+        ],
+        "pools": {
+          "nameColumn": "name",
+          "maxColumn": "uses",
+          "rechargeColumn": "recharge"
+        }
+      }
+    ],
+    "live": {
+      "pools": [
+        {
+          "id": "grit",
+          "label": "Grit",
+          "max": {
+            "derived": "grit_max"
+          }
+        },
+        {
+          "id": "luck",
+          "label": "Luck",
+          "max": {
+            "const": 3
+          }
+        }
+      ],
+      "tracks": [
+        {
+          "id": "heat",
+          "label": "Heat",
+          "min": 0,
+          "max": 5,
+          "default": 0
+        }
+      ],
+      "conditions": [
+        {
+          "id": "shaken",
+          "label": "Shaken"
+        },
+        {
+          "id": "wounded",
+          "label": "Wounded"
+        },
+        {
+          "id": "pinned",
+          "label": "Pinned"
+        }
+      ]
+    }
+  },
+  "rests": [
+    {
+      "id": "camp",
+      "label": "Make camp",
+      "restore": [
+        {
+          "pool": "grit",
+          "to": "max"
+        },
+        {
+          "pool": "luck",
+          "by": {
+            "const": 1
+          }
+        },
+        {
+          "track": "heat",
+          "by": {
+            "const": -1
+          }
+        },
+        {
+          "listPools": "tricks",
+          "recharge": ["camp"],
+          "to": "max"
+        }
+      ],
+      "clear": {
+        "conditions": ["shaken"]
+      }
+    }
+  ],
+  "gm": {
+    "checkGuidance": "This game uses the Ember Roads rules. When the outcome of a risky action is in doubt, call for a check with one of the skills on the sheet and pick a difficulty from the ladder. The Engine rolls 2d6 and adds the numbers from the sheet. Never write the result yourself.",
+    "sheetGuidance": "The character sheets below are authoritative. Spend Grit when a character is hurt and Luck when they push a roll, and raise Heat when the party draws attention.",
+    "sheetSummary": {
+      "fields": ["calling"],
+      "derived": ["grit_max"],
+      "lists": [
+        {
+          "list": "gear",
+          "nameColumn": "name"
+        }
+      ]
+    }
+  },
+  "catalogs": [
+    {
+      "$comment": "Ready-made knacks the sheet editor offers in a picker. Picked rows are copies the player can edit, and none of this text is ever sent to the model.",
+      "id": "knacks",
+      "label": "Knacks",
+      "feeds": ["knacks", "tricks"],
+      "filters": [
+        {
+          "id": "grit",
+          "label": "Grit cost",
+          "type": "number"
+        },
+        {
+          "id": "road",
+          "label": "Road",
+          "type": "text"
+        },
+        {
+          "id": "callings",
+          "label": "Calling",
+          "type": "tags",
+          "startFrom": {
+            "field": "calling"
+          }
+        }
+      ],
+      "units": {
+        "distance": {
+          "label": "paces",
+          "perCell": 2
+        }
+      },
+      "entries": [
+        {
+          "id": "road-sense",
+          "label": "Road Sense",
+          "summary": "You read a road the way other people read a face.",
+          "filters": {
+            "grit": 0,
+            "road": "Ash Flats",
+            "callings": ["Scout", "Courier"]
+          },
+          "rows": [
+            {
+              "list": "knacks",
+              "values": {
+                "name": "Road Sense",
+                "notes": "Sneak to notice where a road turns bad before you are standing on it."
+              }
+            }
+          ]
+        },
+        {
+          "id": "scrap-whisper",
+          "label": "Scrap Whisper",
+          "summary": "Dead machines tell you what killed them.",
+          "filters": {
+            "grit": 0,
+            "road": "Rustways",
+            "callings": ["Tinker"]
+          },
+          "rows": [
+            {
+              "list": "knacks",
+              "values": {
+                "name": "Scrap Whisper",
+                "notes": "Tinker to learn what a broken thing was last used for."
+              }
+            }
+          ]
+        },
+        {
+          "id": "iron-stomach",
+          "label": "Iron Stomach",
+          "summary": "You can eat what the road offers and keep walking.",
+          "filters": {
+            "grit": 0,
+            "road": "Every road",
+            "callings": ["Hauler"]
+          },
+          "rows": [
+            {
+              "list": "knacks",
+              "values": {
+                "name": "Iron Stomach",
+                "notes": "Ignore the first Shaken you take from bad food or foul water."
+              }
+            }
+          ]
+        },
+        {
+          "$comment": "One entry, two rows: the knack itself and the limited use that tracks it.",
+          "id": "last-ember",
+          "label": "Last Ember",
+          "summary": "Between camps you can call a friend back from the edge, once for each point of Heart.",
+          "filters": {
+            "grit": 1,
+            "road": "Every road",
+            "callings": ["Ember-tender"]
+          },
+          "rows": [
+            {
+              "list": "knacks",
+              "values": {
+                "name": "Last Ember",
+                "notes": "Spend 1 Grit to give a downed friend 3 Grit back. Once between camps for each point of Heart."
+              }
+            },
+            {
+              "$comment": "The uses follow the character's Heart, so the row stays right as the character grows without anyone editing it. The value is fitted to the column, so a Heart of 3 gives 3 uses and a Heart of 0 or less leaves the trick with none.",
+              "list": "tricks",
+              "values": {
+                "name": "Last Ember",
+                "uses": 1,
+                "recharge": "camp"
+              },
+              "scaled": {
+                "uses": {
+                  "from": {
+                    "abilityScore": "heart"
+                  }
+                }
+              }
+            }
+          ],
+          "mechanics": {
+            "kind": "heal",
+            "range": 0,
+            "targets": "ally",
+            "amount": {
+              "flat": 3
+            },
+            "cost": [
+              {
+                "pool": "grit",
+                "amount": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "coldfire-toss",
+          "label": "Coldfire Toss",
+          "summary": "A jar of blue fire that burns cold and spreads.",
+          "filters": {
+            "grit": 1,
+            "road": "Glasslands",
+            "callings": ["Ember-tender"]
+          },
+          "rows": [
+            {
+              "list": "knacks",
+              "values": {
+                "name": "Coldfire Toss",
+                "notes": "Throw a sealed jar. It burns up to three of those you pick, and a friend can be one of them."
+              }
+            }
+          ],
+          "mechanics": {
+            "kind": "attack",
+            "range": 12,
+            "area": {
+              "shape": "burst",
+              "size": 4
+            },
+            "targets": "any",
+            "targetCount": 3,
+            "friendlyFire": true,
+            "amount": {
+              "dice": "2d6"
+            },
+            "damageType": "coldfire",
+            "applies": [
+              {
+                "condition": "shaken",
+                "duration": {
+                  "rounds": 2
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "hold-the-line",
+          "label": "Hold the Line",
+          "summary": "You make the people beside you braver than they are.",
+          "filters": {
+            "grit": 0,
+            "road": "Every road",
+            "callings": ["Hauler", "Scout"]
+          },
+          "rows": [
+            {
+              "list": "knacks",
+              "values": {
+                "name": "Hold the Line",
+                "notes": "Spend 1 Luck to steady one ally who can hear you. In a fight they gain 2 temporary Grit."
+              }
+            }
+          ],
+          "mechanics": {
+            "$comment": "This one costs Luck, which the battle block names as the energy pool, so a battle offers it and spends it. Last Ember costs Grit, which is the health pool, and a battle cannot spend hit points as energy: that knack is left out of the fight instead.",
+            "kind": "buff",
+            "range": 4,
+            "targets": "ally",
+            "temporary": {
+              "flat": 2
+            },
+            "cost": [
+              {
+                "pool": "luck",
+                "amount": 1
+              }
+            ]
+          }
+        },
+        {
+          "$comment": "One entry, two rows: the knack and the trick that counts it. Using it hands back the one thing this system's turn has, and the count is the trick row's own pool, so nothing here names a cost.",
+          "id": "second-breath",
+          "label": "Second Breath",
+          "summary": "Once a scene, find one more thing to do before the moment passes.",
+          "filters": {
+            "grit": 0,
+            "road": "Every road",
+            "callings": ["Hauler", "Scout"]
+          },
+          "rows": [
+            {
+              "list": "knacks",
+              "values": {
+                "name": "Second Breath",
+                "notes": "Once a scene, take a second Action on your turn."
+              }
+            },
+            {
+              "list": "tricks",
+              "values": {
+                "name": "Second Breath",
+                "uses": 1,
+                "recharge": "scene"
+              }
+            }
+          ],
+          "mechanics": {
+            "kind": "utility",
+            "free": true,
+            "gives": [
+              {
+                "budget": "act",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "$comment": "A bestiary. It holds creatures instead of rows, so it feeds no list and the sheet editor's picker never offers it: a fight reads this, not a character sheet. Every number is written in the keys the combat block above declares.",
+      "id": "road_trouble",
+      "label": "Road trouble",
+      "holds": "creatures",
+      "filters": [
+        {
+          "id": "tier",
+          "label": "How bad",
+          "type": "text"
+        },
+        {
+          "id": "road",
+          "label": "Road",
+          "type": "text"
+        }
+      ],
+      "entries": [
+        {
+          "id": "cinder-moth",
+          "label": "Cinder Moth",
+          "summary": "A hand-sized moth that carries a lungful of hot ash in its wings.",
+          "filters": {
+            "tier": "Stray trouble",
+            "road": "Glasslands"
+          },
+          "creature": {
+            "health": 6,
+            "defense": 5,
+            "initiativeModifier": 2,
+            "speed": 12,
+            "abilities": {
+              "brawn": -1,
+              "wits": 1,
+              "heart": 0
+            },
+            "tier": "stray",
+            "traits": [
+              {
+                "name": "Drawn to light",
+                "text": "It goes for the lamp before it goes for the person holding it."
+              }
+            ],
+            "actions": [
+              {
+                "id": "dust",
+                "name": "Wing dust",
+                "budget": "act",
+                "toHit": 1,
+                "damage": {
+                  "dice": "1d4",
+                  "type": "burn"
+                },
+                "reach": 1
+              },
+              {
+                "$comment": "The breath weapon of these roads, said in the setting's own words: it shakes the heat out of its wings and has to build it up again before it can do it twice.",
+                "id": "ash_bloom",
+                "name": "Ash bloom",
+                "budget": "act",
+                "autoHit": true,
+                "damage": {
+                  "dice": "1d6",
+                  "type": "burn"
+                },
+                "targetCount": 2,
+                "applies": [
+                  {
+                    "condition": "shaken",
+                    "duration": {
+                      "rounds": 1
+                    }
+                  }
+                ],
+                "recharge": {
+                  "dice": {
+                    "count": 1,
+                    "sides": 6
+                  },
+                  "from": 5
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "rust-jackal",
+          "label": "Rust Jackal",
+          "summary": "A lean thing that lives on the metal roads and eats what stops moving on them.",
+          "filters": {
+            "tier": "Pack trouble",
+            "road": "Rustways"
+          },
+          "creature": {
+            "health": {
+              "dice": "3d6"
+            },
+            "defense": 6,
+            "initiativeModifier": 1,
+            "speed": 16,
+            "abilities": {
+              "brawn": 1,
+              "wits": 0,
+              "heart": -1
+            },
+            "tier": "pack",
+            "actions": [
+              {
+                "id": "bite",
+                "name": "Bite",
+                "budget": "act",
+                "toHit": 2,
+                "damage": {
+                  "dice": "1d6",
+                  "flat": 0,
+                  "type": "cut",
+                  "plus": [
+                    {
+                      "flat": 1,
+                      "type": "rust"
+                    }
+                  ]
+                },
+                "reach": 2
+              },
+              {
+                "id": "worry",
+                "name": "Worry",
+                "budget": "act",
+                "toHit": 2,
+                "damage": {
+                  "dice": "1d4",
+                  "type": "cut"
+                },
+                "applies": [
+                  {
+                    "condition": "shaken",
+                    "duration": {
+                      "rounds": 2
+                    }
+                  }
+                ],
+                "reach": 2
+              },
+              {
+                "$comment": "One action, two strikes, each pointed wherever the jackal likes. This is how a creature that hits twice is written: a sequence of the block's own actions, paid for with one budget.",
+                "id": "snap_and_worry",
+                "name": "Snap and worry",
+                "budget": "act",
+                "sequence": [
+                  {
+                    "action": "bite",
+                    "times": 1
+                  },
+                  {
+                    "action": "worry",
+                    "times": 1
+                  }
+                ]
+              }
+            ]
+          },
+          "$comment": "Its bite carries a second clause: the tooth and the rust it leaves behind are rolled, typed and shrugged off one at a time, and together they are still one blow."
+        },
+        {
+          "id": "glass-wader",
+          "label": "Glass Wader",
+          "summary": "It lies in the glass fields with only its back showing, and the back looks like glass.",
+          "filters": {
+            "tier": "Road terror",
+            "road": "Glasslands"
+          },
+          "creature": {
+            "health": {
+              "dice": "4d8",
+              "flat": 4
+            },
+            "defense": 7,
+            "initiativeModifier": 0,
+            "speed": 6,
+            "abilities": {
+              "brawn": 3,
+              "wits": -1,
+              "heart": -1
+            },
+            "resist": ["cut"],
+            "vulnerable": ["burn"],
+            "conditionImmunities": ["shaken"],
+            "tier": "road_terror",
+            "signaturePoints": 2,
+            "traits": [
+              {
+                "name": "Glass-bedded",
+                "text": "Lying still, it is a ridge of glass until somebody stands on it."
+              }
+            ],
+            "actions": [
+              {
+                "id": "sweep",
+                "name": "Sweep",
+                "budget": "act",
+                "toHit": 4,
+                "damage": {
+                  "dice": "2d6",
+                  "flat": 1,
+                  "type": "crush"
+                },
+                "targetCount": 2,
+                "reach": 4
+              },
+              {
+                "$comment": "Bought with the wader's own points rather than with its action, and only while somebody else is moving. This slice stores and prices it; the moment it is offered in belongs to a later one.",
+                "id": "glass_lash",
+                "name": "Glass lash",
+                "budget": "act",
+                "toHit": 3,
+                "damage": {
+                  "dice": "1d8",
+                  "type": "cut"
+                },
+                "reach": 4,
+                "signature": {
+                  "cost": 1
+                }
+              }
+            ]
+          }
+        },
+        {
+          "$comment": "Written in this ruleset's own words: Brawn, Wits and Heart, a Toughness, the gear it swings and a knack picked out of the same catalog a traveller picks from. Its Grit and its Guard are what the sheet adds up to, and Hold the Line costs it Luck out of its own pool, exactly as it costs a traveller. Nothing here is a number written twice.",
+          "id": "toll-warden",
+          "label": "Toll Warden",
+          "summary": "Somebody who decided a stretch of road was theirs, and brought friends to say so.",
+          "filters": {
+            "tier": "Pack trouble",
+            "road": "Toll roads"
+          },
+          "creature": {
+            "tier": "pack",
+            "traits": [
+              {
+                "name": "Knows the road",
+                "text": "It will not follow anyone past the last milestone it collects at."
+              }
+            ],
+            "sheet": {
+              "abilities": {
+                "brawn": 2,
+                "wits": 1,
+                "heart": 1
+              },
+              "skills": {
+                "sway": "trained"
+              },
+              "fields": {
+                "calling": "Hauler",
+                "toughness": 3
+              },
+              "lists": {
+                "gear": [
+                  {
+                    "name": "Toll hook",
+                    "notes": "Long, and meant for pulling people off carts",
+                    "swing": "brawn",
+                    "damage": "1d6",
+                    "harm": "cut"
+                  }
+                ],
+                "knacks": [
+                  {
+                    "name": "Hold the Line",
+                    "notes": "Spend 1 Luck to steady one ally who can hear you. In a fight they gain 2 temporary Grit.",
+                    "_catalog": "knacks/hold-the-line"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "battle": {
+    "$comment": "Optional. It does not make battles follow these rules: it lends Marinara's own combat the numbers on the sheet. Grit is what a fight damages, Luck is what a knack spends, there are no slots here, and the knacks a player picked from the catalog become the skills they can use.",
+    "health": {
+      "pool": "grit"
+    },
+    "energy": {
+      "pool": "luck"
+    },
+    "skills": [
+      {
+        "list": "knacks"
+      }
+    ]
+  },
+  "combat": {
+    "$comment": "How a fight is resolved by these rules. Nothing here is borrowed from another system: two six-sided dice plus the stat you swing with, against a Guard, with no advantage, no lucky faces, no criticals and one thing to do a turn. The battle block above is what an Engine that cannot read this one falls back to.",
+    "kind": "attack-vs-defense",
+    "health": {
+      "pool": "grit"
+    },
+    "defense": {
+      "derived": "guard"
+    },
+    "initiative": {
+      "dice": {
+        "count": 2,
+        "sides": 6
+      },
+      "modifier": {
+        "abilityMod": "wits"
+      }
+    },
+    "attackRoll": {
+      "dice": {
+        "count": 2,
+        "sides": 6
+      }
+    },
+    "economy": {
+      "budgets": [
+        {
+          "id": "act",
+          "label": "Action",
+          "per": "turn",
+          "count": 1
+        }
+      ],
+      "$comment": "Everybody walks the same eight paces a turn on these roads. It is written as a plain number because nothing on this short sheet is a speed, which is the point: a ruleset states its movement once, wherever the number comes from.",
+      "movement": {
+        "const": 8
+      }
+    },
+    "distance": {
+      "$comment": "One cell is two paces, and that is all this system says about a board. No long shots, no cover, no strikes at somebody walking away: none of it is required, and a small system is allowed to stay small.",
+      "label": "paces",
+      "perCell": 2
+    },
+    "attacks": [
+      {
+        "list": "gear",
+        "budget": "act",
+        "name": "name",
+        "toHit": {
+          "ability": {
+            "column": "swing"
+          }
+        },
+        "damage": {
+          "dice": {
+            "column": "damage"
+          },
+          "ability": {
+            "column": "swing"
+          },
+          "type": {
+            "column": "harm"
+          }
+        },
+        "reach": {
+          "$comment": "Everything you can swing here reaches two paces, which is one cell. The gear list has no column for it and does not need one.",
+          "const": 2
+        }
+      }
+    ],
+    "abilities": [
+      {
+        "list": "knacks",
+        "budget": "act"
+      }
+    ],
+    "standard": ["dodge", "help"],
+    "conditions": [
+      {
+        "condition": "shaken",
+        "effects": ["own-attacks-disadvantage", "ends-on-damage"]
+      },
+      {
+        "condition": "pinned",
+        "effects": ["cannot-act", "speed-zero"]
+      }
+    ],
+    "threat": {
+      "$comment": "The three rungs trouble comes in on these roads. A traveller carries six to nine Grit and swings for about five, so a stray is one bad minute, a pack is a fight, and a terror is a reason to leave the road. There are no saving throws here, so every rung says nothing is rolled against.",
+      "tiers": [
+        {
+          "id": "stray",
+          "label": "Stray trouble",
+          "health": [3, 8],
+          "defense": 5,
+          "toHit": 0,
+          "damagePerRound": [2, 5],
+          "saveDifficulty": 0
+        },
+        {
+          "id": "pack",
+          "label": "Pack trouble",
+          "health": [8, 16],
+          "defense": 6,
+          "toHit": 1,
+          "damagePerRound": [4, 7],
+          "saveDifficulty": 0
+        },
+        {
+          "id": "road_terror",
+          "label": "Road terror",
+          "health": [16, 30],
+          "defense": 7,
+          "toHit": 2,
+          "damagePerRound": [6, 10],
+          "saveDifficulty": 0
+        }
+      ]
+    }
+  },
+  "layers": [
+    {
+      "$comment": "A variant of these rules the player turns on when the game is created. It only narrows and appends: a harsher ladder, a line of guidance for play, a line for world generation, and the knacks that cost Grit left out of the picker.",
+      "id": "hard_winter",
+      "label": "Hard winter",
+      "summary": "Cold, hunger and short days. Everything is harder and nobody can spare the Grit.",
+      "gm": {
+        "guidance": "Hard winter is on. Cold, hunger and short days make everything harder, so use the harsher ladder and let a failed check cost warmth, food or daylight as well as progress.",
+        "worldGuidance": "Hard winter is on. Build a world locked in a long cold: closed roads, thin stores, and settlements rationing what they have."
+      },
+      "difficultyLadder": [
+        {
+          "label": "Easy",
+          "dc": 7
+        },
+        {
+          "label": "Risky",
+          "dc": 9
+        },
+        {
+          "label": "Hard",
+          "dc": 11
+        },
+        {
+          "label": "Desperate",
+          "dc": 13
+        }
+      ],
+      "catalogs": [
+        {
+          "id": "knacks",
+          "hide": {
+            "filter": "grit",
+            "above": 0
+          }
+        }
+      ]
+    }
+  ]
+}

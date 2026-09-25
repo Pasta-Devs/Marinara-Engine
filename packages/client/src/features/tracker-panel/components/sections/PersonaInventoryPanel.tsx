@@ -159,10 +159,7 @@ export function PersonaInventoryPanel({
     : localizeUi("ui.trackerPanel.personainventorypanel.value1Status", { value1: personaName });
   const renderStatusStrip = () => (
     <div className={PERSONA_STATUS_STRIP_CLASS}>
-      <HeartPulse
-        size="0.75rem"
-        className="relative z-[1] mt-0.5 shrink-0 text-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_72%,var(--tracker-profile-text)_28%)]"
-      />
+      <HeartPulse size="0.75rem" className="relative z-[1] mt-0.5 shrink-0 text-[var(--tracker-profile-label-icon)]" />
       <InlineEdit
         value={status}
         onSave={onSaveStatus}

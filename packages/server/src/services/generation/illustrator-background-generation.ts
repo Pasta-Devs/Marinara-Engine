@@ -13,6 +13,11 @@ import {
   generateChatBackground,
   type ChatBackgroundGenRequest,
 } from "../game/game-asset-generation.js";
+import {
+  buildIllustratorCharacterPromptInstruction,
+  resolveNovelAiCharacterPromptLimit,
+  supportsNovelAiCharacterPrompts,
+} from "../image/character-prompts.js";
 import { resolveConnectionImageDefaults, resolveConnectionImageQuality } from "../image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../image/image-generation-settings.js";
 import { resolveImagePromptReviewSize } from "../image/image-prompt-review.js";
@@ -314,6 +319,30 @@ export async function resolveIllustratorPromptStyle(args: {
     imageDefaults?.styleProfileId,
     imageSettings.styleProfiles,
   );
+}
+
+/**
+ * Resolve the native NovelAI character-caption instruction for the Illustrator's
+ * prompt writer. Empty unless the image connection this chat will render with is
+ * NovelAI's own host on a V4+ model; the limit follows the model generation.
+ */
+export async function resolveIllustratorCharacterPromptInstruction(args: {
+  connections: Pick<ConnectionsStorage, "getWithKey" | "getDefaultForImageGeneration">;
+  illustratorAgent: ResolvedAgent;
+  chatMode: unknown;
+  chatMetadata: Record<string, unknown>;
+}): Promise<{ instruction: string; limit: number }> {
+  const configuredImageConnectionId = resolveIllustratorImageConnectionId(
+    args.chatMode,
+    args.chatMetadata,
+    args.illustratorAgent.settings.imageConnectionId,
+  );
+  const imageConnection =
+    (configuredImageConnectionId ? await args.connections.getWithKey(configuredImageConnectionId) : null) ??
+    (await args.connections.getDefaultForImageGeneration());
+  if (!imageConnection || !supportsNovelAiCharacterPrompts(imageConnection)) return { instruction: "", limit: 0 };
+  const limit = resolveNovelAiCharacterPromptLimit(String(imageConnection.model ?? ""));
+  return { instruction: buildIllustratorCharacterPromptInstruction(limit), limit };
 }
 
 async function resolveIllustratorImageConnection(

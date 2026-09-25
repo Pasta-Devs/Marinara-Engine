@@ -11,6 +11,7 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { api } from "../lib/api-client";
+import { chatKeys } from "./use-chats";
 import type { ChatGalleryIndex } from "../lib/card-asset-links";
 import { useUIStore } from "../stores/ui.store";
 import {
@@ -26,6 +27,8 @@ import { personaCacheKeys, syncCachedPersona } from "../lib/persona-cache";
 import {
   PROFESSOR_MARI_ID,
   type CharacterData,
+  type CharacterCatalogEntry,
+  type CharacterCatalogPage,
   type CharacterCardVersion,
   type Persona,
   type PersonaCardVersion,
@@ -64,7 +67,6 @@ export const characterKeys = {
   personaCallVideos: (id: string) => ["conversation-calls", "persona-videos", id] as const,
   personas: personaCacheKeys.list,
   personaPages: () => [...characterKeys.personas, "page"] as const,
-  personaActive: personaCacheKeys.active,
   personaDetail: personaCacheKeys.detail,
   personaVersions: (id: string) => [...characterKeys.personaDetail(id), "versions"] as const,
   groups: ["character-groups"] as const,
@@ -123,7 +125,7 @@ export function useCharacterPages(options: {
   return useInfiniteQuery({
     queryKey: characterKeys.page(includeBuiltIn, search, sort, favoriteFilter),
     initialPageParam: 0,
-    queryFn: ({ pageParam }) => {
+    queryFn: ({ pageParam, signal }) => {
       const params = new URLSearchParams({
         limit: String(LIBRARY_PAGE_SIZE),
         offset: String(Number(pageParam) || 0),
@@ -132,9 +134,37 @@ export function useCharacterPages(options: {
       if (search) params.set("search", search);
       if (sort) params.set("sort", sort);
       if (favoriteFilter) params.set("favoriteFilter", favoriteFilter);
-      return api.get<PaginatedList<Record<string, unknown>>>(`/characters?${params.toString()}`);
+      return api.get<CharacterCatalogPage>(`/characters/catalog?${params.toString()}`, { signal });
     },
     getNextPageParam: getNextPageOffset,
+    placeholderData: (previousData) => previousData,
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Compact character rows for surfaces that need search and navigation only. */
+export function useAllCharacterCatalog(enabled = true) {
+  return useQuery({
+    queryKey: [...characterKeys.list(), "catalog", "all"] as const,
+    queryFn: async ({ signal }) => {
+      const items: CharacterCatalogEntry[] = [];
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        items.length = 0;
+        let offset = 0;
+        let generation: number | undefined;
+        while (true) {
+          const params = new URLSearchParams({ limit: String(LIBRARY_PAGE_SIZE), offset: String(offset) });
+          const page = await api.get<CharacterCatalogPage>(`/characters/catalog?${params.toString()}`, { signal });
+          generation ??= page.catalogGeneration;
+          if (page.catalogGeneration !== generation) break;
+          items.push(...page.items);
+          if (!page.hasMore) return items;
+          offset += page.limit;
+        }
+      }
+      throw new Error("Character catalog changed repeatedly while loading.");
+    },
     enabled,
     staleTime: 5 * 60_000,
   });
@@ -391,6 +421,8 @@ export function useDeleteCharacter() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: characterKeys.list() });
       qc.invalidateQueries({ queryKey: characterKeys.summariesRoot() });
+      qc.invalidateQueries({ queryKey: characterKeys.groups });
+      qc.invalidateQueries({ queryKey: chatKeys.all });
     },
   });
 }
@@ -1169,16 +1201,6 @@ export function usePersona(id: string | null) {
   });
 }
 
-export function useActivePersona(enabled = true) {
-  return useQuery({
-    queryKey: characterKeys.personaActive(),
-    queryFn: () => api.get<Persona | null>("/characters/personas/active"),
-    enabled,
-    retry: false,
-    staleTime: 5 * 60_000,
-  });
-}
-
 export function useCreatePersona() {
   const qc = useQueryClient();
   return useMutation({
@@ -1242,7 +1264,6 @@ export function useRestorePersonaVersion() {
       api.post<Persona>(`/characters/personas/${id}/versions/${versionId}/restore`, {}),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: characterKeys.personas });
-      qc.invalidateQueries({ queryKey: characterKeys.personaActive() });
       qc.invalidateQueries({ queryKey: characterKeys.personaDetail(variables.id) });
       qc.invalidateQueries({ queryKey: characterKeys.personaVersions(variables.id) });
     },
@@ -1277,7 +1298,6 @@ export function useResetPersonaVersions() {
     mutationFn: (id: string) => api.post<Persona>(`/characters/personas/${id}/versions/reset`, {}),
     onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: characterKeys.personas });
-      qc.invalidateQueries({ queryKey: characterKeys.personaActive() });
       qc.invalidateQueries({ queryKey: characterKeys.personaDetail(id) });
       qc.invalidateQueries({ queryKey: characterKeys.personaVersions(id) });
     },
@@ -1290,7 +1310,6 @@ export function useDeletePersona() {
     mutationFn: (id: string) => api.delete(`/characters/personas/${id}`),
     onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: characterKeys.personas });
-      qc.invalidateQueries({ queryKey: characterKeys.personaActive() });
       qc.removeQueries({ queryKey: characterKeys.personaDetail(id) });
     },
   });
@@ -1301,18 +1320,6 @@ export function useDuplicatePersona() {
   return useMutation({
     mutationFn: (id: string) => api.post<Persona>(`/characters/personas/${id}/duplicate`, {}),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personas }),
-  });
-}
-
-export function useActivatePersona() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api.put<{ success: true }>(`/characters/personas/${id}/activate`, {}),
-    onSuccess: (_data, id) => {
-      qc.invalidateQueries({ queryKey: characterKeys.personas });
-      qc.invalidateQueries({ queryKey: characterKeys.personaActive() });
-      qc.invalidateQueries({ queryKey: characterKeys.personaDetail(id) });
-    },
   });
 }
 

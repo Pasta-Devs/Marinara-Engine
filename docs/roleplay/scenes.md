@@ -26,10 +26,11 @@ Follow these steps:
 ```
 
 3. Press Enter. The **Scene Prompt Setup** window opens.
-4. Under **POV**, pick how the writing is framed: **First Person**, **Second Person**, or **Third Person**.
-5. Under **Tense**, pick **Past**, **Present**, or **Future**.
-6. Optionally, type notes in the **Extra instructions** box to steer the scene.
-7. Click **Plan Scene**.
+4. Choose a **Prompt preset** for the new scene, or leave it at **None**. Marinara remembers this choice for the next scene. The scene's own setup instructions still apply alongside the selected preset.
+5. Under **POV**, pick how the writing is framed: **First Person**, **Second Person**, or **Third Person**.
+6. Under **Tense**, pick **Past**, **Present**, or **Future**.
+7. Optionally, type notes in the **Extra instructions** box to steer the scene.
+8. Click **Plan Scene**.
 
 Marinara plans the scene and opens it as a new roleplay chat. You should see the new scene appear in your chat list and open automatically, with an opening message that sets the situation. If you change your mind at the setup window, click **Cancel** and no scene is created.
 
@@ -41,7 +42,7 @@ You can also start a scene without a description. Type just the command on its o
 
 If the conversation has no messages yet, Marinara asks you to add a description or chat first before it can plan a scene.
 
-A character can also ask to start a scene. When that happens, the same **Scene Prompt Setup** window opens, with a line like "[Character] wants to start a scene." Pick **POV** and **Tense** and click **Plan Scene** the same way, or click **Cancel** to decline.
+A character can also ask to start a scene. An invitation with **Set up scene** appears beside their reply, leaving the conversation readable. Click it when ready to open **Scene Prompt Setup**, then pick **Prompt preset**, **POV**, and **Tense** and click **Plan Scene**. **Cancel** closes setup without creating a scene; the invitation remains available after cancelling or reloading.
 
 ## The scene bar: End Scene, Discard, Convert, and Back to conversation
 

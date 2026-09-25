@@ -22,12 +22,14 @@ export type LorebookEntryPosition = 0 | 1 | 2 | 7;
 
 /** Why an entry was activated for the current generation. */
 export type LorebookActivationSource =
-  | "current_location"
-  | "keyword"
-  | "semantic"
-  | "constant"
-  | "sticky"
-  | "recursive";
+  "current_location" | "keyword" | "semantic" | "constant" | "sticky" | "recursive" | "decision";
+
+/**
+ * How an entry's decision statement acts on activation (#6570). `require`: the entry
+ * activates as it otherwise would and the statement must also be true. `trigger`: the
+ * statement alone can activate it. No answer reads as no in both.
+ */
+export type LorebookDecisionMode = "off" | "require" | "trigger";
 
 /** Include/exclude behavior for contextual lorebook filters. */
 export type LorebookFilterMode = "any" | "include" | "exclude";
@@ -135,6 +137,17 @@ export interface LorebookFolder {
   updatedAt: string;
 }
 
+/**
+ * One chat message an agent-authored entry was extracted from. `swipeIndex`
+ * pins the assistant swipe the write came from — a regenerate that lands on a
+ * different swipe staleness-excludes the entry at injection time (lazily, so
+ * swiping back re-arms it), while deleting the message cascades in storage.
+ */
+export interface SourceMessageRef {
+  id: string;
+  swipeIndex: number | null;
+}
+
 /** A single lorebook entry. */
 export interface LorebookEntry {
   id: string;
@@ -229,6 +242,10 @@ export interface LorebookEntry {
   activationConditions: ActivationCondition[];
   /** Schedule: only active during certain in-game times/dates */
   schedule: LorebookSchedule | null;
+  /** A statement the Decision model answers about the recent chat, used as `decisionMode` says. */
+  decisionStatement: string;
+  /** How `decisionStatement` acts on activation; `off` ignores it. */
+  decisionMode: LorebookDecisionMode;
 
   /** When true, bulk vectorization skips this entry and semantic matching ignores any stored vector */
   excludeFromVectorization: boolean;
@@ -236,6 +253,21 @@ export interface LorebookEntry {
   embedding: number[] | null;
   /** Stable provider/model/profile identity used to reject incompatible query vectors. */
   embeddingSpaceId?: string | null;
+
+  // ── Message provenance (agent-authored entries only) ──
+  /**
+   * Agent that wrote the entry's current content (e.g. "lorebook-keeper"), or
+   * null when the entry is human-authored. Set on every agent write; a human
+   * content edit clears it, which makes the entry immune to the message-delete
+   * cascade. Never client-settable: the HTTP schemas strip these fields.
+   */
+  sourceAgentId: string | null;
+  /**
+   * Messages the entry's CURRENT content was derived from (last write wins).
+   * Deleting a covered message reverts the entry to its pre-write snapshot or
+   * removes it — see chats.storage's message-delete cascade.
+   */
+  sourceMessageRefs: SourceMessageRef[];
 
   createdAt: string;
   updatedAt: string;

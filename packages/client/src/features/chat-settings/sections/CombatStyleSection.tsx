@@ -7,10 +7,23 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 interface CombatStyleSectionProps {
   style?: CSSProperties;
   combatStyle: GameCombatStyle;
+  /** Whether this game's own ruleset resolves its battles. The choice below is kept either way: a
+   *  game that changes ruleset, or turns the director off, is back on whichever presentation is
+   *  picked here. */
+  rulesetResolvesFights?: boolean;
+  /** Whether that ruleset also says what one cell of a board is worth. With it the choice below
+   *  decides whether such a fight has positions; without it, it is kept and not used. */
+  rulesetHasPositions?: boolean;
   onCombatStyleChange: (style: GameCombatStyle) => void;
 }
 
-export function CombatStyleSection({ style, combatStyle, onCombatStyleChange }: CombatStyleSectionProps) {
+export function CombatStyleSection({
+  style,
+  combatStyle,
+  rulesetResolvesFights,
+  rulesetHasPositions,
+  onCombatStyleChange,
+}: CombatStyleSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   return (
     <ChatSettingsSection
@@ -33,11 +46,16 @@ export function CombatStyleSection({ style, combatStyle, onCombatStyleChange }: 
             <option value="classic">
               {localizeUi("ui.chatSettings.combatstylesection.classicCinematicMenuBattles")}
             </option>
-            <option value="tactical">
-              {localizeUi("ui.chatSettings.combatstylesection.tacticalFireEmblemStyleGridBattles")}
-            </option>
+            <option value="tactical">{localizeUi("game.combat.preference.tacticalLabel")}</option>
           </select>
         </label>
+        {rulesetResolvesFights && (
+          <p className="text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
+            {localizeUi(
+              rulesetHasPositions ? "game.combat.ruleset.preferencePositions" : "game.combat.ruleset.preferenceIgnored",
+            )}
+          </p>
+        )}
         <p className="text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
           {localizeUi("ui.chatSettings.combatstylesection.takesEffectAtTheNextBattleBattlesAlreadyIn")}
         </p>

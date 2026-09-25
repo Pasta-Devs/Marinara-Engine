@@ -400,6 +400,25 @@ function getAllowlist() {
 // ── Reusable predicates (shared with basic-auth) ──
 
 /** True if the given IP string is a loopback address. */
+/**
+ * True when a base URL points at an inference server running on this machine
+ * or this LAN (llama.cpp, Ollama, vLLM, LM Studio). Such servers expose
+ * arbitrary model names that never match any provider catalog, so callers use
+ * this to decide when local-server-specific request shaping is safe.
+ */
+export function isLocalInferenceBaseUrl(baseUrl: string): boolean {
+  try {
+    const hostname = new URL(baseUrl).hostname.toLowerCase().replace(/^\[|\]$|\.$/g, "");
+    if (hostname === "localhost" || isLoopbackIp(hostname)) return true;
+    if (hostname.endsWith(".local") || hostname.endsWith(".localhost")) return true;
+    if (hostname === "host.docker.internal" || hostname === "host.containers.internal") return true;
+    if (!hostname.includes(".") || hostname.endsWith(".internal")) return true;
+    return isNonRoutableNetworkIp(hostname);
+  } catch {
+    return false;
+  }
+}
+
 export function isLoopbackIp(ip: string): boolean {
   const bytes = ipToBytes(ip);
   if (!bytes) return false;

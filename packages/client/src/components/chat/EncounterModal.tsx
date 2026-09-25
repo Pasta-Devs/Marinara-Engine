@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback, useMemo, Component, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import {
   Swords,
   Shield,
@@ -184,13 +185,14 @@ function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: Tar
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onCancel]);
+  const backdropDismiss = useBackdropDismiss(onCancel);
   return (
     <motion.div
       className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm max-md:pt-[env(safe-area-inset-top)]"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      onClick={onCancel}
+      {...backdropDismiss}
     >
       <motion.div
         ref={dialogRef}
@@ -198,7 +200,7 @@ function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: Tar
         aria-modal="true"
         aria-labelledby="encounter-target-title"
         data-encounter-nested-dialog
-        className="w-80 max-w-[90vw] rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-2xl"
+        className="w-80 max-w-[90vw] rounded-2xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--card)] p-5 shadow-2xl"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
@@ -282,7 +284,7 @@ function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: Tar
 
         <button
           onClick={onCancel}
-          className="mt-3 w-full rounded-xl border border-[var(--border)] py-2 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
+          className="mt-3 w-full rounded-xl border border-[var(--marinara-chat-chrome-button-border)] py-2 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
         >
           {localizeUi("chat.delete.dialog.cancel")}
         </button>
@@ -312,7 +314,7 @@ function NarrativeSelect({
         <select
           value={value.tense}
           onChange={(e) => onChange({ ...value, tense: e.target.value as any })}
-          className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
+          className="rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
         >
           <option value="present">{localizeUi("ui.chat.narrativeselect.presentTense")}</option>
           <option value="past">{localizeUi("ui.chat.narrativeselect.pastTense")}</option>
@@ -320,7 +322,7 @@ function NarrativeSelect({
         <select
           value={value.person}
           onChange={(e) => onChange({ ...value, person: e.target.value as any })}
-          className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
+          className="rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
         >
           <option value="first">{localizeUi("ui.chat.narrativeselect.firstPerson")}</option>
           <option value="second">{localizeUi("ui.chat.narrativeselect.secondPerson")}</option>
@@ -329,7 +331,7 @@ function NarrativeSelect({
         <select
           value={value.narration}
           onChange={(e) => onChange({ ...value, narration: e.target.value as any })}
-          className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
+          className="rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
         >
           <option value="omniscient">{localizeUi("ui.chat.narrativeselect.omniscient")}</option>
           <option value="limited">{localizeUi("ui.chat.narrativeselect.limited")}</option>
@@ -338,7 +340,7 @@ function NarrativeSelect({
           value={value.pov}
           onChange={(e) => onChange({ ...value, pov: e.target.value })}
           placeholder={localizeUi("ui.chat.narrativeselect.narrator")}
-          className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
+          className="rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
         />
       </div>
     </div>
@@ -368,6 +370,7 @@ function EncounterConfig() {
 
   const { data: lorebooks } = useLorebooks("spellbook");
   const spellbooks = (lorebooks ?? []) as Lorebook[];
+  const backdropDismiss = useBackdropDismiss(closeConfigModal);
 
   return (
     <motion.div
@@ -375,7 +378,7 @@ function EncounterConfig() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      onClick={closeConfigModal}
+      {...backdropDismiss}
     >
       <motion.div
         ref={dialogRef}
@@ -383,7 +386,7 @@ function EncounterConfig() {
         aria-modal="true"
         aria-labelledby="encounter-config-title"
         data-encounter-nested-dialog
-        className="w-[26.25rem] max-w-[95vw] rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6 shadow-2xl"
+        className="w-[26.25rem] max-w-[95vw] rounded-2xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--card)] p-5 sm:p-6 shadow-2xl"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
@@ -422,7 +425,7 @@ function EncounterConfig() {
             <select
               value={spellbookId ?? ""}
               onChange={(e) => setSpellbookId(e.target.value || null)}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
+              className="w-full rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
             >
               <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
               {spellbooks.map((lb) => (
@@ -437,7 +440,7 @@ function EncounterConfig() {
         <div className="mt-6 flex gap-3">
           <button
             onClick={closeConfigModal}
-            className="flex-1 rounded-xl border border-[var(--border)] py-2.5 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
+            className="flex-1 rounded-xl border border-[var(--marinara-chat-chrome-button-border)] py-2.5 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
           >
             {localizeUi("chat.delete.dialog.cancel")}
           </button>
@@ -493,7 +496,7 @@ function CombatLog() {
   return (
     <div
       ref={logRef}
-      className="scrollbar-thin max-h-40 overflow-y-auto rounded-xl border border-foreground/5 bg-black/30 p-3"
+      className="scrollbar-thin max-h-40 overflow-y-auto rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-black/30 p-3"
     >
       <AnimatePresence>
         {entries.map(
@@ -594,7 +597,7 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
 
   return (
     <>
-      <div className="space-y-3 rounded-xl border border-foreground/5 bg-foreground/5 p-4">
+      <div className="space-y-3 rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-foreground/5 p-4">
         <h3 className="flex items-center gap-2 text-xs font-bold text-foreground/70">
           <Zap size="0.875rem" className="text-yellow-400" />
           {localizeUi("ui.chat.playercontrols.yourActions")}
@@ -657,7 +660,7 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
               onKeyDown={(e) => e.key === "Enter" && !isProcessing && handleCustomSubmit()}
               placeholder={localizeUi("ui.chat.playercontrols.describeWhatYouDo")}
               disabled={isProcessing}
-              className="flex-1 rounded-lg border border-foreground/10 bg-foreground/5 px-3 py-2 text-xs text-foreground/80 placeholder:text-foreground/25 disabled:opacity-30"
+              className="flex-1 rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-foreground/5 px-3 py-2 text-xs text-foreground/80 placeholder:text-foreground/25 disabled:opacity-30"
             />
             <button
               onClick={handleCustomSubmit}
@@ -867,7 +870,7 @@ function EncounterModalInner() {
             aria-modal="true"
             aria-labelledby="encounter-title"
             className={cn(
-              "relative flex h-[85dvh] w-[37.5rem] max-w-[95vw] flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-gradient-to-b shadow-2xl",
+              "relative flex h-[85dvh] w-[37.5rem] max-w-[95vw] flex-col overflow-hidden rounded-2xl border border-[var(--marinara-chat-chrome-panel-border)] bg-gradient-to-b shadow-2xl",
               envGradient,
             )}
             initial={{ scale: 0.9, opacity: 0 }}
@@ -876,7 +879,7 @@ function EncounterModalInner() {
             transition={{ type: "spring", bounce: 0.2 }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-foreground/5 bg-black/30 px-5 py-3">
+            <div className="flex items-center justify-between border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-black/30 px-5 py-3">
               <h2 id="encounter-title" className="flex items-center gap-2 text-sm font-bold text-foreground/90">
                 <Swords size="1rem" className="text-red-400" />
                 {localizeUi("ui.chat.encountermodalinner.combatEncounter")}
@@ -896,7 +899,7 @@ function EncounterModalInner() {
                         concludeEncounter();
                       }
                     }}
-                    className="flex items-center gap-1.5 rounded-lg border border-foreground/10 px-3 py-1.5 text-[0.6875rem] text-foreground/50 transition-all hover:bg-foreground/10"
+                    className="flex items-center gap-1.5 rounded-lg border border-[var(--marinara-chat-chrome-button-border)] px-3 py-1.5 text-[0.6875rem] text-foreground/50 transition-all hover:bg-foreground/10"
                   >
                     <Flag size="0.75rem" />
                     {localizeUi("ui.chat.encountermodalinner.conclude")}
@@ -938,7 +941,7 @@ function EncounterModalInner() {
                     </button>
                     <button
                       onClick={closeEncounter}
-                      className="rounded-xl border border-foreground/10 px-4 py-2 text-xs text-foreground/50 hover:bg-foreground/5"
+                      className="rounded-xl border border-[var(--marinara-chat-chrome-button-border)] px-4 py-2 text-xs text-foreground/50 hover:bg-foreground/5"
                     >
                       {localizeUi("capabilities.actions.close")}
                     </button>

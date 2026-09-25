@@ -412,9 +412,10 @@ if [ ! -d "packages/server/dist" ]; then
     echo "  [..] Building server..."
     run_pnpm --filter @marinara-engine/server build
 fi
-if [ ! -d "packages/client/dist" ]; then
-    echo "  [..] Building client..."
+if ! node scripts/check-client-build.mjs; then
+    echo "  [..] Rebuilding incomplete client assets..."
     run_pnpm --filter @marinara-engine/client build
+    node scripts/check-client-build.mjs
 fi
 
 # Database migrations are handled automatically at server startup by runMigrations()
@@ -442,4 +443,4 @@ fi
 
 # Start server
 cd packages/server
-exec node dist/index.js
+exec node ../../scripts/run-server.mjs dist/index.js

@@ -144,6 +144,7 @@ export function GameExtraPromptSection({
 
         <div className="mari-quick-preset-editor">
           <MacroTextarea
+            showTokenCount
             value={draft}
             onChange={setDraft}
             onBlur={commitDraft}

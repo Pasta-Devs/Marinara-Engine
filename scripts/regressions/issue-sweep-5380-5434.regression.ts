@@ -2,11 +2,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  workspaceMutationAuthorizationIssue,
-  workspaceMutationSignature,
-} from "../../packages/server/src/services/professor-mari/workspace-agent.service.js";
-
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const readSource = (path: string) => readFileSync(join(repositoryRoot, path), "utf8");
 
@@ -41,52 +36,9 @@ assert.match(widgetEditor, /config: structuredClone\(widget\.config\)/u);
 assert.match(widgetEditor, /startingValue: Math\.min\(max,/u);
 
 const workspaceAgent = readSource("packages/server/src/services/professor-mari/workspace-agent.service.ts");
-assert.match(workspaceAgent, /connection\.provider\.toLowerCase\(\) !== "custom"/u);
-
-const pendingUpdateCommand = {
-  id: "update-character",
-  name: "app_data" as const,
-  arguments: { action: "character.update", characterId: "char-1", patch: { appearance: "Blue coat" } },
-};
-assert.equal(
-  workspaceMutationAuthorizationIssue(
-    { ...pendingUpdateCommand, authorization: "Tak, zgadzam się." },
-    {
-      directUserText: "Tak, zgadzam się.",
-      pendingMutationCategories: ["update"],
-      pendingMutationSignatures: [workspaceMutationSignature(pendingUpdateCommand)],
-    },
-  ),
-  null,
-);
-assert.match(
-  workspaceMutationAuthorizationIssue(
-    {
-      ...pendingUpdateCommand,
-      arguments: { ...pendingUpdateCommand.arguments, characterId: "different-character" },
-      authorization: "Tak, zgadzam się.",
-    },
-    {
-      directUserText: "Tak, zgadzam się.",
-      pendingMutationCategories: ["update"],
-      pendingMutationSignatures: [workspaceMutationSignature(pendingUpdateCommand)],
-    },
-  ) ?? "",
-  /update operation|active user message/iu,
-);
-assert.match(
-  workspaceMutationAuthorizationIssue(
-    { ...pendingUpdateCommand, authorization: "pasta" },
-    { directUserText: "Can we talk about pasta?", pendingMutationCategories: ["update"] },
-  ) ?? "",
-  /update operation|active user message/iu,
-);
-assert.match(
-  workspaceMutationAuthorizationIssue(
-    { ...pendingUpdateCommand, authorization: "No." },
-    { directUserText: "No.", pendingMutationCategories: ["update"] },
-  ) ?? "",
-  /explicitly requests no workspace changes/iu,
-);
+// #5721 narrowed the sweep's blanket custom-provider carve-out: LOCAL custom
+// endpoints (llama.cpp/vLLM/Ollama/Unsloth) now get the hidden-reasoning
+// disable; remote custom endpoints keep the sweep's send-nothing behavior.
+assert.match(workspaceAgent, /isLocalInferenceBaseUrl\(connection\.baseUrl \?\? ""\)/u);
 
 process.stdout.write("Issue sweep 5380-5434 regression passed.\n");

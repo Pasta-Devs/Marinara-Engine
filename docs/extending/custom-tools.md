@@ -14,6 +14,10 @@ You might want a custom tool to do things like these:
 
 A custom tool is not attached to a character card. Instead, you turn it on for a chat, or you attach it to an agent. An agent is a helper that runs alongside your chat. Both paths are covered below.
 
+Native function calling requires a tool-capable connection. Claude and Grok subscription transports ignore native tool definitions, so Chat Settings shows an availability notice and disables the tool controls for those connections. Their text commands and dice tags remain available. Game chats can select a separate tool-planning connection; see [Optional tool planning and lore searches](../game/getting-started.md#optional-tool-planning-and-lore-searches) for its cost and behavior.
+
+Lorebook searches use semantic ranking when enabled lore entries have compatible vectors. Conversation and Roleplay retain text matching when semantic search is unavailable. Game lore search has its own opt-in and reports missing or incompatible vectors; it never vectorizes a book automatically.
+
 ## The Functions section
 
 You create and manage custom tools in the **Presets** panel.
@@ -140,7 +144,7 @@ Creating a tool does not make the AI use it. You must also turn tool use on for 
 2. Open the **Function Calling** section (its icon is a wrench).
 3. Turn on **Enable Tool Use**. Its description reads **Allow AI to call functions (dice rolls, game state, etc.)**. It is off by default for a new chat.
 
-With **Enable Tool Use** on and no tools added below, the chat can use all globally enabled tools. That means the built-in tools, like dice rolls and lorebook search, plus every custom tool you have switched on in the **Functions** section. To limit a chat to a chosen set, add specific tools:
+With **Enable Tool Use** on and no tools added below, the chat can use all globally enabled tools supported in that chat. That includes built-in tools plus every custom tool you have switched on in the **Functions** section. Game chats also require **Let the GM search lore** for `search_lorebook`; enabling Tool Use alone does not enable lorebook lookups. To limit a chat to a chosen set, add specific tools:
 
 1. Click **Add Functions**. A picker opens with a search box.
 2. Check the tools you want. The list mixes built-in tools and your own custom tools.

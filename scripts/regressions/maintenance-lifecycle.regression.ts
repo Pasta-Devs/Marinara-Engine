@@ -21,14 +21,15 @@ const generateRouteSource = readFileSync(
 );
 assert.doesNotMatch(generateRouteSource, /encryptedReasoningCache/u);
 
-const reasoningRecoveryIndex = generateRouteSource.indexOf(
-  "// OpenAI Responses API uses encrypted reasoning items for multi-turn continuity.",
-);
-const toolBranchIndex = generateRouteSource.indexOf("if (enableChatTools && provider.chatComplete)");
+const reasoningRecoveryIndex = generateRouteSource.indexOf("const pastReasoning = collectPastReasoningMetadata(");
+// The branch is keyed on the responder's attached tools, not enableChatTools: Game Mode attaches the dice tool
+// without the chat's tool toggle being on.
+const toolBranchIndex =
+  /if \(responderToolsAttached &&[^{}]*provider\.chatComplete/u.exec(generateRouteSource)?.index ?? -1;
 assert.ok(reasoningRecoveryIndex >= 0 && reasoningRecoveryIndex < toolBranchIndex);
 assert.match(
   generateRouteSource.slice(reasoningRecoveryIndex, toolBranchIndex),
-  /reasoningMessages[\s\S]*scopedMessages/u,
+  /collectPastReasoningMetadata\(\s*chatMessages,[\s\S]*scopedMessages[\s\S]*extra\.commandOnly === true/u,
 );
 
 const hiddenAnchorStart = generateRouteSource.indexOf("const anchoredMsg = savedMsg?.id");

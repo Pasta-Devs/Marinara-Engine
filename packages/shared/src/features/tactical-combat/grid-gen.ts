@@ -13,7 +13,12 @@
 // from every party unit (corridors are carved to a central hub when needed).
 
 import { clamp, isImpassable, manhattan } from "./math.js";
+import { TERRAIN_DATA } from "./types.js";
 import type {
+  TacticalBattlefieldBrief,
+  TacticalBattlefieldFeature,
+  TacticalBattlefieldProvenance,
+  TacticalBattlefieldSize,
   TacticalCoord,
   TacticalEnvironment,
   TacticalFormation,
@@ -21,6 +26,102 @@ import type {
   TacticalTerrain,
   TacticalUnit,
 } from "./types.js";
+
+/** Increment when a generated brief's resolved-grid semantics intentionally change. */
+export const TACTICAL_BATTLEFIELD_GENERATOR_VERSION = 1 as const;
+
+/**
+ * The only thing placement reads off a unit: which side it is on, whether it anchors the group, and
+ * the tile it ends up on. A `TacticalUnit` is one of these; so is a stand-in for a combatant of a
+ * fight some ruleset resolves by its own numbers, which never becomes a tactical unit at all.
+ */
+export interface TacticalPlaceable {
+  side: TacticalUnit["side"];
+  isBoss?: boolean;
+  x: number;
+  y: number;
+}
+
+const BATTLEFIELD_SIZES: Record<TacticalBattlefieldSize, { width: number; height: number }> = {
+  small: { width: 12, height: 8 },
+  medium: { width: 13, height: 9 },
+  large: { width: 14, height: 10 },
+};
+
+const FEATURE_PLACEMENTS = ["center", "north", "south", "east", "west"] as const;
+const FEATURE_SHAPES = ["patch", "barrier"] as const;
+
+function hasOwnKey(object: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+export type TacticalBattlefieldBriefValidation =
+  { ok: true; brief?: TacticalBattlefieldBrief } | { ok: false; error: string };
+
+/**
+ * Validates only the bounded structured brief. Board-specific checks happen
+ * after placement because they depend on the resolved dimensions.
+ */
+export function validateTacticalBattlefieldBrief(value: unknown): TacticalBattlefieldBriefValidation {
+  if (value === undefined) return { ok: true };
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return { ok: false, error: "Invalid battlefield brief." };
+  const source = value as { size?: unknown; features?: unknown; exposure?: unknown };
+  if (
+    source.exposure !== undefined &&
+    (typeof source.exposure !== "string" || !["exposed", "sheltered", "unknown"].includes(source.exposure))
+  )
+    return { ok: false, error: "Unknown battlefield exposure." };
+  if (source.size !== undefined && (typeof source.size !== "string" || !hasOwnKey(BATTLEFIELD_SIZES, source.size))) {
+    return { ok: false, error: "Unknown battlefield size." };
+  }
+  if (source.features !== undefined && !Array.isArray(source.features)) {
+    return { ok: false, error: "Battlefield features must be a list." };
+  }
+  if ((source.features?.length ?? 0) > 4) return { ok: false, error: "A battlefield can have at most four features." };
+
+  const seen = new Set<string>();
+  const features: TacticalBattlefieldFeature[] = [];
+  for (const rawFeature of source.features ?? []) {
+    if (!rawFeature || typeof rawFeature !== "object" || Array.isArray(rawFeature))
+      return { ok: false, error: "Invalid battlefield feature." };
+    const feature = rawFeature as { terrain?: unknown; placement?: unknown; shape?: unknown };
+    if (!(typeof feature.terrain === "string" && hasOwnKey(TERRAIN_DATA, feature.terrain))) {
+      return { ok: false, error: "Unknown battlefield terrain." };
+    }
+    if (!(
+      typeof feature.placement === "string" &&
+      FEATURE_PLACEMENTS.includes(feature.placement as (typeof FEATURE_PLACEMENTS)[number])
+    )) {
+      return { ok: false, error: "Unknown battlefield feature placement." };
+    }
+    if (!(
+      typeof feature.shape === "string" && FEATURE_SHAPES.includes(feature.shape as (typeof FEATURE_SHAPES)[number])
+    )) {
+      return { ok: false, error: "Unknown battlefield feature shape." };
+    }
+    if (feature.shape === "barrier" && !TERRAIN_DATA[feature.terrain as TacticalTerrain].impassable) {
+      return { ok: false, error: "Barrier features must use wall, water, or mountain terrain." };
+    }
+    const key = `${feature.terrain}:${feature.placement}:${feature.shape}`;
+    if (seen.has(key)) return { ok: false, error: "Duplicate battlefield feature." };
+    seen.add(key);
+    features.push({
+      terrain: feature.terrain as TacticalTerrain,
+      placement: feature.placement as TacticalBattlefieldFeature["placement"],
+      shape: feature.shape as TacticalBattlefieldFeature["shape"],
+    });
+  }
+
+  return {
+    ok: true,
+    brief: {
+      ...(source.exposure ? { exposure: source.exposure as TacticalBattlefieldBrief["exposure"] } : {}),
+      ...(source.size ? { size: source.size as TacticalBattlefieldSize } : {}),
+      ...(features.length ? { features } : {}),
+    },
+  };
+}
 
 // ── Environment theming ──
 // Blob weights over the five non-plains terrains, plus a density factor that
@@ -75,11 +176,13 @@ function pickTerrain(weights: EnvProfile["weights"], rng: () => number): Tactica
   return "forest";
 }
 
+function defaultBattlefieldSize(unitCount: number): TacticalBattlefieldSize {
+  return unitCount > 8 ? "large" : unitCount > 5 ? "medium" : "small";
+}
+
 /** Grid dimensions scale with the number of combatants. Default 12x8, cap 14x10. */
-export function gridDimensions(unitCount: number): { width: number; height: number } {
-  if (unitCount > 8) return { width: 14, height: 10 };
-  if (unitCount > 5) return { width: 13, height: 9 };
-  return { width: 12, height: 8 };
+export function gridDimensions(unitCount: number, size?: TacticalBattlefieldSize): { width: number; height: number } {
+  return { ...BATTLEFIELD_SIZES[size ?? defaultBattlefieldSize(unitCount)] };
 }
 
 const SPAWN_COLS = 2;
@@ -161,8 +264,13 @@ function reachable(grid: TacticalGrid, from: TacticalCoord, to: TacticalCoord): 
 }
 
 /** Build a seeded terrain grid with clear spawn strips and guaranteed left↔right connectivity. */
-export function generateGrid(unitCount: number, rng: () => number, environment?: TacticalEnvironment): TacticalGrid {
-  const { width, height } = gridDimensions(unitCount);
+export function generateGrid(
+  unitCount: number,
+  rng: () => number,
+  environment?: TacticalEnvironment,
+  size?: TacticalBattlefieldSize,
+): TacticalGrid {
+  const { width, height } = gridDimensions(unitCount, size);
   const tiles: TacticalTerrain[][] = Array.from({ length: height }, () =>
     Array.from({ length: width }, () => "plains" as TacticalTerrain),
   );
@@ -196,6 +304,157 @@ export function generateGrid(unitCount: number, rng: () => number, environment?:
   return grid;
 }
 
+export type GenerateTacticalBattlefieldResult =
+  | { ok: true; grid: TacticalGrid; protectedTiles: Set<string>; battlefield: TacticalBattlefieldProvenance }
+  | { ok: false; error: string };
+
+function tileKey(x: number, y: number): string {
+  return `${x},${y}`;
+}
+
+function featureAnchor(grid: TacticalGrid, placement: TacticalBattlefieldFeature["placement"]): TacticalCoord {
+  const center = { x: Math.floor(grid.width / 2), y: Math.floor(grid.height / 2) };
+  switch (placement) {
+    case "north":
+      return { x: center.x, y: 1 };
+    case "south":
+      return { x: center.x, y: grid.height - 2 };
+    case "east":
+      return { x: grid.width - SPAWN_COLS - 1, y: center.y };
+    case "west":
+      return { x: SPAWN_COLS, y: center.y };
+    default:
+      return center;
+  }
+}
+
+function featureTiles(grid: TacticalGrid, feature: TacticalBattlefieldFeature): TacticalCoord[] {
+  const anchor = featureAnchor(grid, feature.placement);
+  const horizontal = feature.placement === "center" || feature.placement === "north" || feature.placement === "south";
+  const offsets: Array<readonly [number, number]> =
+    feature.shape === "barrier"
+      ? horizontal
+        ? [
+            [-1, 0],
+            [0, 0],
+            [1, 0],
+          ]
+        : [
+            [0, -1],
+            [0, 0],
+            [0, 1],
+          ]
+      : horizontal
+        ? [
+            [-1, 0],
+            [0, 0],
+            [1, 0],
+            [0, 1],
+          ]
+        : [
+            [0, -1],
+            [0, 0],
+            [0, 1],
+            [1, 0],
+          ];
+  return offsets
+    .map(([dx, dy]) => ({ x: anchor.x + dx, y: anchor.y + dy }))
+    .filter((tile) => inBounds(grid, tile.x, tile.y) && !inSpawnZone(grid, tile.x));
+}
+
+function carveCorridorWithoutProtectedTiles(
+  grid: TacticalGrid,
+  from: TacticalCoord,
+  to: TacticalCoord,
+  protectedTiles: ReadonlySet<string>,
+): boolean {
+  const queue: TacticalCoord[] = [from];
+  const parent = new Map<string, string | null>([[tileKey(from.x, from.y), null]]);
+  while (queue.length) {
+    const current = queue.shift()!;
+    if (current.x === to.x && current.y === to.y) break;
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const next = { x: current.x + dx, y: current.y + dy };
+      const key = tileKey(next.x, next.y);
+      if (!inBounds(grid, next.x, next.y) || parent.has(key)) continue;
+      if (protectedTiles.has(key) && isImpassable(grid, next.x, next.y)) continue;
+      parent.set(key, tileKey(current.x, current.y));
+      queue.push(next);
+    }
+  }
+
+  const targetKey = tileKey(to.x, to.y);
+  if (!parent.has(targetKey)) return false;
+  for (let key: string | null = targetKey; key; key = parent.get(key) ?? null) {
+    if (!protectedTiles.has(key)) {
+      const [x, y] = key.split(",").map(Number) as [number, number];
+      set(grid, x, y, "plains");
+    }
+  }
+  return true;
+}
+
+/**
+ * Builds a generated battlefield from the bounded terrain brief. Feature tiles
+ * are protected after painting: later connectivity repair may route around them
+ * but cannot silently turn them back into plains.
+ */
+export function generateTacticalBattlefield(
+  unitCount: number,
+  rng: () => number,
+  environment: TacticalEnvironment | undefined,
+  requestedBrief: unknown,
+): GenerateTacticalBattlefieldResult {
+  const validated = validateTacticalBattlefieldBrief(requestedBrief);
+  if (!validated.ok) return validated;
+  const brief = validated.brief;
+  const size = brief?.size ?? defaultBattlefieldSize(unitCount);
+  const grid = generateGrid(unitCount, rng, environment, size);
+  const protectedTiles = new Set<string>();
+
+  for (const feature of brief?.features ?? []) {
+    for (const tile of featureTiles(grid, feature)) {
+      const key = tileKey(tile.x, tile.y);
+      const existing = grid.tiles[tile.y]![tile.x]!;
+      // A brief declares constraints, not ordered paint layers. Silently
+      // overwriting one landmark would violate it; the UI offers explicit
+      // generated-terrain fallback when constraints conflict.
+      if (protectedTiles.has(key) && existing !== feature.terrain) {
+        return { ok: false, error: "Battlefield features overlap with different terrain." };
+      }
+      set(grid, tile.x, tile.y, feature.terrain);
+      protectedTiles.add(key);
+    }
+  }
+
+  const midY = Math.floor(grid.height / 2);
+  const partyAnchor = { x: SPAWN_COLS - 1, y: midY };
+  const enemyAnchor = { x: grid.width - SPAWN_COLS, y: midY };
+  if (
+    !reachable(grid, partyAnchor, enemyAnchor) &&
+    !carveCorridorWithoutProtectedTiles(grid, partyAnchor, enemyAnchor, protectedTiles)
+  ) {
+    return { ok: false, error: "Battlefield features block every route between deployment zones." };
+  }
+
+  return {
+    ok: true,
+    grid,
+    protectedTiles,
+    battlefield: {
+      kind: "generated",
+      generatorVersion: TACTICAL_BATTLEFIELD_GENERATOR_VERSION,
+      size,
+      ...(brief && (brief.size || brief.features?.length) ? { brief } : {}),
+    },
+  };
+}
+
 // ── Spawn placement (formation-aware) ──
 
 /**
@@ -204,7 +463,12 @@ export function generateGrid(unitCount: number, rng: () => number, environment?:
  * placed unit is guaranteed to stand on passable footing. Records the tile in
  * `occupied` so no two units ever share it.
  */
-function claimNear(grid: TacticalGrid, occupied: Set<string>, target: TacticalCoord): TacticalCoord {
+function claimNear(
+  grid: TacticalGrid,
+  occupied: Set<string>,
+  target: TacticalCoord,
+  protectedTiles: ReadonlySet<string>,
+): TacticalCoord {
   const sx = clamp(Math.round(target.x), 0, grid.width - 1);
   const sy = clamp(Math.round(target.y), 0, grid.height - 1);
   const seen = new Set<string>([`${sx},${sy}`]);
@@ -212,7 +476,7 @@ function claimNear(grid: TacticalGrid, occupied: Set<string>, target: TacticalCo
   while (queue.length) {
     const cur = queue.shift()!;
     const key = `${cur.x},${cur.y}`;
-    if (!occupied.has(key)) {
+    if (!occupied.has(key) && (!isImpassable(grid, cur.x, cur.y) || !protectedTiles.has(key))) {
       occupied.add(key);
       if (isImpassable(grid, cur.x, cur.y)) set(grid, cur.x, cur.y, "plains");
       return cur;
@@ -410,14 +674,57 @@ function formationTargets(
  * route doesn't already exist. Connectivity to a common hub over an undirected
  * passable graph makes all units mutually reachable.
  */
-function ensureConnectivity(grid: TacticalGrid, units: TacticalUnit[]): void {
-  if (!units.length) return;
-  const hub = { x: Math.floor(grid.width / 2), y: Math.floor(grid.height / 2) };
+function nearestUnprotectedHub(grid: TacticalGrid, protectedTiles: ReadonlySet<string>): TacticalCoord | null {
+  const center = { x: Math.floor(grid.width / 2), y: Math.floor(grid.height / 2) };
+  const queue: TacticalCoord[] = [center];
+  const seen = new Set<string>([tileKey(center.x, center.y)]);
+  let firstUnprotected: TacticalCoord | null = null;
+  while (queue.length) {
+    const current = queue.shift()!;
+    if (!protectedTiles.has(tileKey(current.x, current.y))) {
+      firstUnprotected ??= current;
+      if (!isImpassable(grid, current.x, current.y)) return current;
+    }
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const next = { x: current.x + dx, y: current.y + dy };
+      const key = tileKey(next.x, next.y);
+      if (!inBounds(grid, next.x, next.y) || seen.has(key)) continue;
+      seen.add(key);
+      queue.push(next);
+    }
+  }
+  return firstUnprotected;
+}
+
+function ensureConnectivity(
+  grid: TacticalGrid,
+  units: TacticalPlaceable[],
+  protectedTiles: ReadonlySet<string>,
+): boolean {
+  if (!units.length) return true;
+  // Preserve legacy output exactly: its hub is the board center. Briefed maps
+  // choose the closest unprotected tile so a center landmark stays intact.
+  const hub =
+    protectedTiles.size === 0
+      ? { x: Math.floor(grid.width / 2), y: Math.floor(grid.height / 2) }
+      : nearestUnprotectedHub(grid, protectedTiles);
+  if (!hub) return false;
   set(grid, hub.x, hub.y, "plains");
   for (const u of units) {
     const from = { x: u.x, y: u.y };
-    if (!reachable(grid, from, hub)) carveCorridor(grid, from, hub);
+    if (reachable(grid, from, hub)) continue;
+    if (protectedTiles.size === 0) {
+      carveCorridor(grid, from, hub);
+    } else if (!carveCorridorWithoutProtectedTiles(grid, from, hub, protectedTiles)) {
+      return false;
+    }
   }
+  return true;
 }
 
 /**
@@ -431,10 +738,11 @@ function ensureConnectivity(grid: TacticalGrid, units: TacticalUnit[]): void {
  */
 export function placeSpawns(
   grid: TacticalGrid,
-  units: TacticalUnit[],
+  units: TacticalPlaceable[],
   formation: TacticalFormation = "line",
   rng: () => number = () => 0,
-): void {
+  protectedTiles: ReadonlySet<string> = new Set(),
+): boolean {
   const occupied = new Set<string>();
   const party = units.filter((u) => u.side === "party");
   const enemies = units.filter((u) => u.side === "enemy");
@@ -445,7 +753,7 @@ export function placeSpawns(
 
   const lastPartyTarget = targets.party[targets.party.length - 1] ?? { x: 0, y: Math.floor(grid.height / 2) };
   party.forEach((u, i) => {
-    const tile = claimNear(grid, occupied, targets.party[i] ?? lastPartyTarget);
+    const tile = claimNear(grid, occupied, targets.party[i] ?? lastPartyTarget, protectedTiles);
     u.x = tile.x;
     u.y = tile.y;
   });
@@ -455,10 +763,10 @@ export function placeSpawns(
     y: Math.floor(grid.height / 2),
   };
   bossFirst.forEach((u, i) => {
-    const tile = claimNear(grid, occupied, targets.enemies[i] ?? lastEnemyTarget);
+    const tile = claimNear(grid, occupied, targets.enemies[i] ?? lastEnemyTarget, protectedTiles);
     u.x = tile.x;
     u.y = tile.y;
   });
 
-  ensureConnectivity(grid, units);
+  return ensureConnectivity(grid, units, protectedTiles);
 }

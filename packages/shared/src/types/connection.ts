@@ -17,16 +17,31 @@ export type APIProvider =
   | "nanogpt"
   | "xai"
   | "arli"
+  | "zai"
   | "custom"
   | "image_generation"
   | "video_generation"
-  | "audio";
+  | "audio"
+  | "decision";
+
+export const DECISION_SOURCES = ["typesafe", "openrouter", "custom"] as const;
+export type DecisionSource = (typeof DECISION_SOURCES)[number];
+
+export const DECISION_SOURCE_BASE_URLS = {
+  typesafe: "https://api.typesafe.ai",
+  openrouter: "https://openrouter.ai/api",
+  custom: "",
+} as const;
+
+export function defaultDecisionStateTokens(source: string | null | undefined): number {
+  return source === "custom" ? 3500 : 30000;
+}
 
 /** Audio backends an audio connection can target (the former TTS sources). */
 export const AUDIO_GENERATION_SOURCES = ["openai", "elevenlabs", "pockettts", "xai"] as const;
 export type AudioGenerationSource = (typeof AUDIO_GENERATION_SOURCES)[number];
 
-export const IMAGE_GENERATION_QUALITIES = ["auto", "low", "medium", "high"] as const;
+export const IMAGE_GENERATION_QUALITIES = ["auto", "low", "medium", "high", "xhigh", "max"] as const;
 export type ImageGenerationQuality = (typeof IMAGE_GENERATION_QUALITIES)[number];
 
 /** An API connection configuration. */
@@ -54,7 +69,7 @@ export interface APIConnection {
   fallbackForAgents: boolean;
   /** Whether provider-native prompt caching is enabled */
   enableCaching: boolean;
-  /** Anthropic only: use the 1-hour prompt-cache TTL instead of the default 5-minute TTL */
+  /** Anthropic and Claude Subscription: request a 1-hour prompt-cache TTL. */
   anthropicExtendedCacheTtl: boolean;
   /** Conversation message depth for Anthropic cache breakpoints */
   cachingAtDepth: number;
@@ -84,6 +99,12 @@ export interface APIConnection {
   videoService: string | null;
   /** Audio backend for audio connections (e.g. "elevenlabs"). Null for non-audio providers. */
   audioSource: AudioGenerationSource | null;
+  /** System One backend; absent on older connections. */
+  decisionSource?: DecisionSource | null;
+  credentialsFromConnectionId?: string | null;
+  maxStateTokens?: number | null;
+  /** How long a Decision connection may take to answer, in milliseconds; null is the default. */
+  decisionTimeoutMs?: number | null;
   /** Default voice id/name for speech synthesis on this audio connection. */
   audioVoice: string | null;
   /** Whether this audio connection may generate game sound effects (ElevenLabs only today). */
@@ -144,4 +165,10 @@ export interface ConnectionTestResult {
   message: string;
   latencyMs: number;
   modelName: string | null;
+  decisionProbability?: number;
+  errorCode?: string;
+  /** A Decision connection's limit during chats, to compare `latencyMs` with. */
+  timeLimitMs?: number;
+  /** How long this Decision test waited before giving up. */
+  testTimeoutMs?: number;
 }

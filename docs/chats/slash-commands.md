@@ -6,7 +6,9 @@ This guide lists the slash commands you can type in a Marinara Engine chat. A sl
 
 You run a slash command by typing it in the message box at the bottom of a chat, then pressing **Send**. Pressing Enter also sends it if **Send on Enter** is turned on for your chat mode in **Settings**. By default, Enter sends in Conversation chats but starts a new line in Roleplay chats. The message box hints at slash commands. In a Roleplay chat the placeholder reads **Write your response, / for commands**. In a Conversation chat the placeholder shows the character's name, like "Message @Alice, / for commands". A conversation with more than one character shows the chat name instead.
 
-As soon as you type a slash, a small menu of matching commands appears above the box. Each row shows the command name and a short description. Click or tap a row to fill that command into the box, then add any extra text and send it.
+As soon as you type a slash, a small menu of matching commands appears above the box. Each row shows the command format, including arguments, and a short description. Click or tap a row to fill that command into the box, then add any extra text and send it.
+
+Replace bracketed labels such as `[name]` or `[range]` with your own values; do not type the brackets. Inputs marked `(optional)` can be left out. A `|` separates alternatives, either values such as `prompt|reset` or complete command formats.
 
 Many commands have shorter aliases. For example, you can type `/continue` or its alias `/cont`, and both do the same thing. To see the full list inside the app at any time, run this command:
 
@@ -27,13 +29,14 @@ These commands help you manage the chat and its messages. They work in **Convers
 | Command | Also works as | What it does |
 |---|---|---|
 | `/help` | | Lists every slash command. |
+| `/send [message]` | | Posts a message as your persona without triggering generation. |
 | `/continue` | `/cont` | Adds more text to the last AI reply, without sending a new message. The **Add a new line before /continue text** option in **Settings → General → Responses** controls whether that text starts after a blank line or directly at the cutoff. |
-| `/goto` | `/jump`, `/scroll` | Scrolls the chat to a message by its number. |
-| `/hide` | | Hides one or more messages from the AI on future turns. |
-| `/unhide` | | Puts hidden messages back into the AI's view. |
-| `/sys` | `/system` | Adds a system message. This note appears in the chat and steers the AI, but no character speaks it. |
+| `/goto [number]` | `/jump`, `/scroll` | Scrolls the chat to a message by its number. |
+| `/hide [range] [name (optional)]` | | Hides one or more messages from the AI on future turns. |
+| `/unhide [range]` | | Puts hidden messages back into the AI's view. |
+| `/sys [message]` | `/system` | Adds a system message. This note appears in the chat and steers the AI, but no character speaks it. |
 | `/macros` | `/macro` | Lists supported prompt macros, like `{{user}}` and `{{char}}`. |
-| `/remind` | `/reminder`, `/timer` | Sets a timer, then posts a reminder message in the chat. |
+| `/remind [time] [message]` | `/reminder`, `/timer` | Sets a timer, then posts a reminder message in the chat. |
 
 To jump to message 27, type this:
 
@@ -47,7 +50,16 @@ To jump to message 27, type this:
 /hide 3-8
 ```
 
-You can also write `/hide 5` for one message, or `/hide 2-5,9,12` for several. Hidden messages stay in your chat, but the AI does not read them on the next turn. Use `/unhide` with the same kind of number list to bring them back.
+You can also write `/hide 5` for one message, or `/hide 2-5,9,12` for several. Without a character name, the messages are hidden from everyone. Hidden messages stay in your chat, but the AI does not read them on the next turn. Use `/unhide` with the same kind of number list to restore globally hidden messages.
+
+In **Roleplay**, add a character name after the range to hide those messages only from that character:
+
+```
+/hide 3-8 Maukie
+/hide 2-5,9 "Powers That Be"
+```
+
+Other characters keep their existing access. Quote names with spaces when putting the name first: the older `/hide Maukie 3-8` and `/hide "Powers That Be" 2-5,9` forms still work. If a name matches multiple characters, use the full name. Quote numeric character names to distinguish them from message numbers, for example `/hide 1 "123"`. In a group Roleplay chat, use the message's **Hide from AI** avatar chooser to review or undo character-specific hiding. In a one-character Roleplay chat, use the message's **Unhide from AI** action instead. `/unhide` restores global hiding only.
 
 The `/remind` command takes a time, then a message. The time uses `h` for hours, `m` for minutes, and `s` for seconds. This example reminds you in 30 minutes:
 
@@ -63,20 +75,33 @@ These commands help you steer a story, play a character, and add art. Most of th
 
 | Command | Also works as | What it does |
 |---|---|---|
-| `/guided` | `/narrator`, `/narrate`, `/nar` | Steers the next AI reply in a direction you describe. |
-| `/as` | `/respond` | Posts a message as a character, or asks a character to reply. |
-| `/emote` | `/emotion`, `/sprite` | Lists or switches a character's sprite expression. |
-| `/roll` | `/r`, `/dice` | Rolls dice and posts the result. |
+| `/guided [direction]` \| `/guided respond for [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Steers the next AI reply in a direction you describe. |
+| `/as [name] [message (optional)]` | `/respond` | Posts a message as a character, or asks a character to reply. |
+| `/emote [expression (optional)]` \| `/emote "[name]" [expression (optional)]` | `/emotion`, `/sprite` | Lists or switches a character's sprite expression. |
+| `/roll [dice (optional)]` | `/r`, `/dice` | Rolls dice and posts the result. |
 | `/random` | `/rand`, `/event` | Asks the AI to add a surprise event to the story. |
-| `/scene` | `/rp` | Run from a Conversation chat. Starts a new Roleplay scene that branches off that conversation. |
-| `/illustrate` | `/ill` | Generates a gallery image for the current chat. |
-| `/impersonate` | `/imp` | Writes a reply as your persona. |
-| `/impersonate_prompt` | `/imp_prompt` | Sets the instruction that `/impersonate` uses in this chat. |
+| `/scene [description (optional)]` | `/rp` | Run from a Conversation chat. Starts a new Roleplay scene that branches off that conversation. |
+| `/illustrate [prompt (optional)]` | `/ill` | Generates a gallery image for the current chat. |
+| `/impersonate [direction (optional)]` | `/imp` | Writes a reply as your persona. |
+| `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Sets the instruction that `/impersonate` uses in this chat. |
 
 To steer the next reply, add your direction after `/guided`:
 
 ```
 /guided make him confess he is lying
+```
+
+In a group Roleplay chat, use `/guided respond for [name] [direction (optional)]` to choose the responding character. For example:
+
+```
+/guided respond for "Powers That Be" describe the approaching storm
+```
+
+Use `/as [name] [message (optional)]` to post text as a character. Leaving out the message asks the model to generate that character's next response instead:
+
+```
+/as Dottore "The experiment begins."
+/as Dottore
 ```
 
 The `/roll` command reads dice notation. This rolls two six-sided dice:
@@ -92,6 +117,8 @@ A sprite is a piece of character art that shows an expression. The `/emote` comm
 ```
 /emote joy
 ```
+
+To target one character, use `/emote "[name]" [expression (optional)]`, for example `/emote "Powers That Be" joy`. Leave out the expression to list that character's available expressions.
 
 Sprite switching needs a Roleplay chat that has sprites uploaded. See [Character Sprites](../characters/sprites.md) for how to add them.
 
@@ -109,11 +136,13 @@ These commands only work in a **Conversation** chat.
 
 | Command | What it does |
 |---|---|
+| `/games` | Opens the installed conversation game picker. `/game` and `/play` do the same. |
+| `/selfie [name (optional)]` | Generates a selfie with the installed Illustrator agent. Add a name to choose a character. |
 | `/uno` | Starts a game of UNO with the characters in the chat. |
 | `/chess` | Starts a one-on-one chess game with a character. |
 | `/poker` | Starts a game of Texas Hold'em poker with the characters. |
 | `/8ball` | Starts a one-on-one game of 8-ball pool with a character. `/pool` does the same. |
-| `/status` | Sets or clears a character's presence status. |
+| `/status [online\|idle\|dnd\|offline\|clear] [name (optional)]` | Sets or clears a character's presence status. |
 
 The `/uno`, `/chess`, `/poker`, and `/8ball` commands open the setup screen for that game. You can play one game at a time in a chat. For the rules and options, see [Table Games](../conversation/table-games.md).
 

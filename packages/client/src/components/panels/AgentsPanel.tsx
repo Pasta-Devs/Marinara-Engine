@@ -17,10 +17,10 @@ import {
   Download,
   Check,
   FolderPlus,
-  Loader2,
   ArrowUpDown,
   ShieldCheck,
   TriangleAlert,
+  Dices,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
@@ -30,33 +30,39 @@ import {
   useDeleteAgent,
   useAgentImportPolicy,
   useImportAgent,
-  useUpdateAgent,
-  useUpdateAgentByType,
   useUploadAgentImage,
   type AgentConfigRow,
 } from "../../hooks/use-agents";
-import { useConnections } from "../../hooks/use-connections";
-import { appendLocalSidecarConnectionOption, type ConnectionProviderLike } from "../../lib/connection-filters";
-import { useSidecarStore } from "../../stores/sidecar.store";
 import {
   useCapabilityAgentRegistry,
   useCapabilityCatalog,
+  useImportRuleset,
+  useInstalledRulesets,
+  useRemoveRuleset,
   useUninstallCapabilityPackage,
 } from "../../hooks/use-capability-packages";
 import {
   BUILT_IN_AGENTS,
   DEFAULT_AGENT_TOOLS,
+  communityRulesetId,
+  containsDecisionStatements,
   getDefaultBuiltInAgentSettings,
   getFolderImportEntries,
   isAgentConfigDeleted,
   isRetiredBuiltInAgentId,
   normalizeAgentPhaseForType,
+  parseRulesetDefinition,
+  RULESET_LOCAL_NAMESPACE,
+  RULESET_MAX_BYTES,
   type CustomAgentCapability,
   type AgentCategory,
+  type RulesetDefinition,
 } from "@marinara-engine/shared";
 import { confirmNonEmptyFolderDelete, showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
-import { sortBasicPanelItems } from "../../lib/panel-sort";
+import { notifyDecisionImport } from "../../lib/decision-import-notice";
+import { rulesetRepositoryLabel } from "../../lib/ruleset-source";
+import { sortBasicPanelItems, sortPanelFolders } from "../../lib/panel-sort";
 import { downloadZipFile } from "../../lib/download-zip";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { TouchDragHandle } from "../ui/TouchDragHandle";
@@ -91,8 +97,10 @@ import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Modal } from "../ui/Modal";
+import { RulesetImportReviewModal } from "../agents/RulesetImportReviewModal";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
+import { ApiError } from "../../lib/api-client";
 
 type JsonRecord = Record<string, unknown>;
 type NormalizedAgentImport = NonNullable<ReturnType<typeof normalizeAgentImportEntry>>;
@@ -101,6 +109,9 @@ type PendingAgentImport = {
   source: "file" | "folder";
   skippedFunctionCount: number;
 };
+/** A ruleset file waiting for the user to confirm it. The text is kept verbatim, because the server
+ *  stores the bytes the user actually chose, not a re-serialization of the parsed document. */
+type PendingRulesetImport = { definition: RulesetDefinition; rulesetId: string; text: string };
 const AGENT_GRADIENT_SURFACE =
   "mari-panel-gradient-surface mari-panel-gradient--agents text-[var(--mari-panel-gradient-text)]";
 const AGENT_GRADIENT_BUTTON = "mari-panel-gradient-button mari-panel-gradient--agents";
@@ -226,15 +237,11 @@ export function AgentsPanel() {
   const { data: agentConfigs, isLoading } = useAgentConfigs();
   const { data: capabilityAgents, isLoading: capabilityAgentsLoading } = useCapabilityAgentRegistry();
   const { data: capabilityCatalog } = useCapabilityCatalog();
+  const { data: installedRulesets = [], isLoading: rulesetsLoading } = useInstalledRulesets();
   const createAgent = useCreateAgent();
   const importAgent = useImportAgent();
-  const updateAgent = useUpdateAgent();
-  const updateAgentByType = useUpdateAgentByType();
-  const { data: connectionsList } = useConnections();
-  const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
-  const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
-  const [bulkConnectionId, setBulkConnectionId] = useState("");
-  const [bulkAssigning, setBulkAssigning] = useState(false);
+  const importRuleset = useImportRuleset();
+  const removeRuleset = useRemoveRuleset();
   const { data: agentImportPolicy, isLoading: agentImportPolicyLoading } = useAgentImportPolicy();
   const deleteAgent = useDeleteAgent();
   const uninstallCapabilityPackage = useUninstallCapabilityPackage();
@@ -253,10 +260,13 @@ export function AgentsPanel() {
   const agentImageInputRef = useRef<HTMLInputElement>(null);
   const agentImportInputRef = useRef<HTMLInputElement>(null);
   const agentFolderImportInputRef = useRef<HTMLInputElement>(null);
+  const rulesetImportInputRef = useRef<HTMLInputElement>(null);
   const imageTargetAgentIdRef = useRef<string | null>(null);
   const [agentImportError, setAgentImportError] = useState<string | null>(null);
   const [agentImportSuccess, setAgentImportSuccess] = useState<string | null>(null);
   const [pendingAgentImport, setPendingAgentImport] = useState<PendingAgentImport | null>(null);
+  const [pendingRulesetImport, setPendingRulesetImport] = useState<PendingRulesetImport | null>(null);
+  const [rulesetImportFailure, setRulesetImportFailure] = useState<string | null>(null);
   const [approvedImportCapabilities, setApprovedImportCapabilities] = useState<Record<string, CustomAgentCapability[]>>(
     {},
   );
@@ -275,13 +285,14 @@ export function AgentsPanel() {
   const agentImportsDisabledHelp = localizeUi("settings.agentImports.enableFirst");
 
   const openAgentImportPicker = useCallback(
-    (kind: "file" | "folder") => {
+    (kind: "file" | "folder" | "ruleset") => {
       if (!agentImportsEnabled) {
         toast.info(agentImportsDisabledHelp);
         return;
       }
       if (kind === "file") agentImportInputRef.current?.click();
-      else agentFolderImportInputRef.current?.click();
+      else if (kind === "folder") agentFolderImportInputRef.current?.click();
+      else rulesetImportInputRef.current?.click();
     },
     [agentImportsDisabledHelp, agentImportsEnabled],
   );
@@ -298,9 +309,10 @@ export function AgentsPanel() {
       choices: [
         { key: "file", label: localizeUi("ui.panels.gameassetssettings.chooseFiles"), tone: "accent" },
         { key: "folder", label: localizeUi("ui.chat.musicdjsetupfields.chooseFolder"), tone: "accent" },
+        { key: "ruleset", label: localizeUi("game.ruleset.import.choice"), tone: "accent" },
       ],
     });
-    if (source === "file" || source === "folder") openAgentImportPicker(source);
+    if (source === "file" || source === "folder" || source === "ruleset") openAgentImportPicker(source);
   }, [agentImportsEnabled, localizeUi, openAgentImportPicker]);
 
   const agentConfigRows = useMemo(() => (agentConfigs ?? []) as AgentConfigRow[], [agentConfigs]);
@@ -347,64 +359,6 @@ export function AgentsPanel() {
     () => availableBuiltInAgents.filter((agent) => !deletedBuiltInTypes.has(agent.id)),
     [availableBuiltInAgents, deletedBuiltInTypes],
   );
-  // Bulk connection assignment (#5539): connection options plus the sidecar
-  // pseudo-connection, mirroring the per-agent picker in the Agent editor.
-  // The connections endpoint is untyped at the hook; the loose structural
-  // ConnectionProviderLike shape is what the filter helpers are built for.
-  const bulkConnectionOptions = useMemo(
-    () =>
-      appendLocalSidecarConnectionOption(
-        (connectionsList ?? []) as ConnectionProviderLike[],
-        import.meta.env.VITE_MARINARA_LITE !== "true" && sidecarModelDownloaded,
-        sidecarModelDisplayName,
-      ),
-    [connectionsList, sidecarModelDownloaded, sidecarModelDisplayName],
-  );
-  const customAgentConfigs = useMemo(
-    () => visibleAgentConfigs.filter((config) => !builtInAgentIds.has(config.type)),
-    [visibleAgentConfigs, builtInAgentIds],
-  );
-  const bulkAssignTargetCount = visibleBuiltInAgents.length + customAgentConfigs.length;
-
-  const handleBulkAssignConnection = async () => {
-    if (bulkAssigning || bulkAssignTargetCount === 0) return;
-    const nextConnectionId = bulkConnectionId || null;
-    const optionName = bulkConnectionId
-      ? (bulkConnectionOptions.find((option) => option.id === bulkConnectionId)?.name ?? bulkConnectionId)
-      : localizeUi("ui.panels.agentspanel.bulkConnectionAgentDefault");
-    const confirmed = await showConfirmDialog({
-      title: localizeUi("ui.panels.agentspanel.bulkConnectionApply"),
-      message: localizeUi("ui.panels.agentspanel.bulkConnectionConfirm", {
-        value1: String(bulkAssignTargetCount),
-        value2: optionName,
-      }),
-    });
-    if (!confirmed) return;
-    setBulkAssigning(true);
-    try {
-      // By type for installed package agents (creates missing config rows);
-      // by id for custom agents, which exist only as config rows. PATCH only
-      // the connection so agent settings are never clobbered.
-      await Promise.all([
-        ...visibleBuiltInAgents.map((agent) =>
-          updateAgentByType.mutateAsync({ agentType: agent.id, connectionId: nextConnectionId }),
-        ),
-        ...customAgentConfigs.map((config) =>
-          updateAgent.mutateAsync({ id: config.id, connectionId: nextConnectionId }),
-        ),
-      ]);
-      toast.success(
-        localizeUi("ui.panels.agentspanel.bulkConnectionDone", {
-          value1: String(bulkAssignTargetCount),
-          value2: optionName,
-        }),
-      );
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : localizeUi("ui.panels.agentspanel.bulkConnectionFailed"));
-    } finally {
-      setBulkAssigning(false);
-    }
-  };
   // Custom agents = DB entries whose type doesn't match any built-in
   const customAgents = useMemo(
     () =>
@@ -535,6 +489,37 @@ export function AgentsPanel() {
     () => selectableAgents.filter((agent) => selectedAgentIds.has(agent.id)),
     [selectableAgents, selectedAgentIds],
   );
+
+  // A rules package adds no agent, so it is listed in its own section or it would be installed and
+  // invisible here. Rulesets are Game Mode only, which is what the mode filter tests. The search and
+  // mode controls only render while agents are installed, so without agents nothing is filtered:
+  // a filter the user can no longer see or clear must not hide the rulesets.
+  const visibleRulesets = installedRulesets.filter(
+    ({ definition }) =>
+      !hasInstalledAgents ||
+      ((agentModeFilter === "all" || agentModeFilter === "game") &&
+        (!agentSearchQuery ||
+          definition.name.toLowerCase().includes(agentSearchQuery) ||
+          definition.coverage.summary.toLowerCase().includes(agentSearchQuery))),
+  );
+
+  const confirmAndUninstallRuleset = async (packageId: string, name: string) => {
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("ui.agents.agentcatalogview.uninstallValue1", { value1: name }),
+      message: localizeUi("ui.panels.agentspanel.uninstallRulesetMessage"),
+      confirmLabel: localizeUi("ui.agents.agentcatalogview.uninstall"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+    try {
+      await uninstallCapabilityPackage.mutateAsync(packageId);
+      toast.success(localizeUi("ui.agents.agentcatalogview.value1Uninstalled", { value1: name }));
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : localizeUi("ui.agents.agentcatalogview.agentUninstallFailed"),
+      );
+    }
+  };
 
   const removeAgentResource = useCallback(
     (agent: AgentConfigRow) => {
@@ -803,6 +788,7 @@ export function AgentsPanel() {
   const handleApproveAgentImport = useCallback(async () => {
     if (!pendingAgentImport) return;
     let imported = 0;
+    let usesDecisions = false;
     const failed: string[] = [];
     const failedAgents: NormalizedAgentImport[] = [];
     for (const candidate of pendingAgentImport.agents) {
@@ -815,12 +801,14 @@ export function AgentsPanel() {
           acknowledgePermissions: true,
         });
         imported++;
+        usesDecisions ||= containsDecisionStatements(agent);
       } catch (error) {
         failed.push(error instanceof Error ? error.message : `Failed to import ${candidate.name}`);
         failedAgents.push(candidate);
       }
     }
 
+    void notifyDecisionImport(usesDecisions, localizeUi);
     if (imported > 0) {
       setAgentImportSuccess(
         `${localizeUi("settings.agentImports.import.success", { count: imported })}${
@@ -896,14 +884,12 @@ export function AgentsPanel() {
           : await (async () => {
               const parsed = JSON.parse(await file.text());
               return {
-                agents: getAgentImportEntries(parsed).map(
-                  (raw): FolderPackageImportEntry => ({
-                    raw,
-                    path: file.name,
-                    basePath: "",
-                    resolveTextFile: () => null,
-                  }),
-                ),
+                agents: getAgentImportEntries(parsed).map((raw): FolderPackageImportEntry => ({
+                  raw,
+                  path: file.name,
+                  basePath: "",
+                  resolveTextFile: () => null,
+                })),
                 skippedFunctionCount: getFolderImportEntries(parsed, ["functions", "customTools", "tools"]).length,
               };
             })();
@@ -944,6 +930,125 @@ export function AgentsPanel() {
       event.target.value = "";
     },
     [agentImportsDisabledHelp, agentImportsEnabled, prepareAgentEntries],
+  );
+
+  // A ruleset is parsed with the SAME shared parser the server stores it through, so a file that
+  // cannot work is refused here, with the author's own issues, before anything is sent.
+  const handleRulesetFileSelected = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      setAgentImportError(null);
+      setAgentImportSuccess(null);
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file) return;
+      if (!agentImportsEnabled) {
+        setAgentImportError(agentImportsDisabledHelp);
+        return;
+      }
+      if (file.size > RULESET_MAX_BYTES) {
+        setAgentImportError(
+          localizeUi("game.ruleset.import.tooLarge", { limit: Math.round(RULESET_MAX_BYTES / 1024) }),
+        );
+        return;
+      }
+      let text: string;
+      try {
+        text = await file.text();
+      } catch {
+        setAgentImportError(localizeUi("game.ruleset.import.unreadable"));
+        return;
+      }
+      let parsed: ReturnType<typeof parseRulesetDefinition>;
+      try {
+        parsed = parseRulesetDefinition(JSON.parse(text));
+      } catch {
+        setAgentImportError(localizeUi("game.ruleset.import.notJson"));
+        return;
+      }
+      if (!parsed.ok) {
+        setAgentImportError(
+          localizeUi("game.ruleset.import.invalid", { issues: parsed.issues.slice(0, 3).join("; ") }),
+        );
+        return;
+      }
+      try {
+        setRulesetImportFailure(null);
+        setPendingRulesetImport({
+          definition: parsed.definition,
+          rulesetId: communityRulesetId(RULESET_LOCAL_NAMESPACE, parsed.definition.id),
+          text,
+        });
+      } catch {
+        setAgentImportError(localizeUi("game.ruleset.import.unusableId", { id: parsed.definition.id }));
+      }
+    },
+    [agentImportsDisabledHelp, agentImportsEnabled, localizeUi],
+  );
+
+  const handleConfirmRulesetImport = useCallback(async () => {
+    const pending = pendingRulesetImport;
+    if (!pending) return;
+    setAgentImportError(null);
+    setAgentImportSuccess(null);
+    setRulesetImportFailure(null);
+    try {
+      const result = await importRuleset.mutateAsync(pending.text);
+      setPendingRulesetImport(null);
+      setAgentImportSuccess(
+        localizeUi(result.status === "added" ? "game.ruleset.import.added" : "game.ruleset.import.unchanged", {
+          name: pending.definition.name,
+          version: result.version,
+        }),
+      );
+    } catch (error) {
+      // The server's refusals are already sentences the author can act on, version conflicts
+      // included. The review stays open with the reason in it, so a network hiccup can be retried
+      // without picking the file again.
+      setRulesetImportFailure(error instanceof Error ? error.message : localizeUi("game.ruleset.import.failed"));
+    }
+  }, [importRuleset, localizeUi, pendingRulesetImport]);
+
+  const confirmAndRemoveRuleset = useCallback(
+    async (rulesetId: string, name: string) => {
+      const confirmed = await showConfirmDialog({
+        title: localizeUi("game.ruleset.remove.title", { name }),
+        message: localizeUi("game.ruleset.remove.message"),
+        confirmLabel: localizeUi("game.ruleset.remove.confirm"),
+        tone: "destructive",
+      });
+      if (!confirmed) return;
+      const remove = async (force: boolean) => {
+        await removeRuleset.mutateAsync({ rulesetId, force });
+        toast.success(localizeUi("game.ruleset.remove.done", { name }));
+      };
+      try {
+        await remove(false);
+      } catch (error) {
+        // Games already playing on it are the one refusal with a way forward, so it asks again
+        // naming how many rather than failing.
+        const inUse =
+          error instanceof ApiError && isJsonRecord(error.payload) && error.payload.code === "ruleset_in_use"
+            ? Number(error.payload.games) || 0
+            : null;
+        if (inUse === null) {
+          toast.error(error instanceof Error ? error.message : localizeUi("game.ruleset.remove.failed"));
+          return;
+        }
+        const forced = await showConfirmDialog({
+          title: localizeUi("game.ruleset.remove.title", { name }),
+          message: localizeUi("game.ruleset.remove.inUseMessage", { count: inUse }),
+          confirmLabel: localizeUi("game.ruleset.remove.confirm"),
+          tone: "destructive",
+        });
+        if (!forced) return;
+        try {
+          await remove(true);
+        } catch (retryError) {
+          toast.error(retryError instanceof Error ? retryError.message : localizeUi("game.ruleset.remove.failed"));
+        }
+      }
+    },
+    [localizeUi, removeRuleset],
   );
 
   const handlePickAgentImage = useCallback((agentIdOrType: string) => {
@@ -1104,6 +1209,14 @@ export function AgentsPanel() {
         // @ts-expect-error — webkitdirectory is a non-standard but widely-supported attribute
         webkitdirectory=""
       />
+      <input
+        ref={rulesetImportInputRef}
+        type="file"
+        // By extension only: the Agent import input beside this one is the panel's JSON-typed input.
+        accept=".json"
+        className="hidden"
+        onChange={(event) => void handleRulesetFileSelected(event)}
+      />
 
       <button
         type="button"
@@ -1150,36 +1263,6 @@ export function AgentsPanel() {
         </button>
       </div>
 
-      <div className="flex items-center gap-2">
-        <select
-          value={bulkConnectionId}
-          onChange={(event) => setBulkConnectionId(event.target.value)}
-          disabled={bulkAssigning || bulkAssignTargetCount === 0}
-          className="mari-chrome-field h-8 min-w-0 flex-1 px-2 py-0 text-[0.6875rem]"
-          aria-label={localizeUi("ui.panels.agentspanel.bulkConnectionLabel")}
-        >
-          <option value="">{localizeUi("ui.panels.agentspanel.bulkConnectionAgentDefault")}</option>
-          {bulkConnectionOptions.map((connection) => (
-            <option key={connection.id ?? ""} value={connection.id ?? ""}>
-              {connection.name}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          onClick={() => void handleBulkAssignConnection()}
-          disabled={bulkAssigning || bulkAssignTargetCount === 0}
-          className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 shrink-0 px-2 text-[0.6875rem]"
-          title={localizeUi("ui.panels.agentspanel.bulkConnectionLabel")}
-        >
-          {bulkAssigning ? (
-            <Loader2 size="0.75rem" className="animate-spin" />
-          ) : (
-            localizeUi("ui.panels.agentspanel.bulkConnectionApply")
-          )}
-        </button>
-      </div>
-
       {agentImportError && (
         <div role="alert" className="rounded-lg bg-red-500/10 px-2 py-1.5 text-xs text-red-500">
           {agentImportError}
@@ -1191,7 +1274,7 @@ export function AgentsPanel() {
         </div>
       )}
 
-      {!isLoading && !hasInstalledAgents && (
+      {!isLoading && !rulesetsLoading && !hasInstalledAgents && installedRulesets.length === 0 && (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-10 text-center">
           <span className="mari-panel-gradient-surface mari-panel-gradient--agents flex h-12 w-12 items-center justify-center rounded-2xl">
             <Sparkles size="1.25rem" />
@@ -1283,7 +1366,7 @@ export function AgentsPanel() {
               {localizeUi("ui.panels.agentspanel.dropHereToMoveOutOfFolder")}
             </div>
           )}
-          {agentFolders.map((folder) => {
+          {sortPanelFolders(agentFolders, sort).map((folder) => {
             const isEditing = editingFolderId === folder.id;
             const folderAgents = sortBasicPanelItems(
               folder.itemIds
@@ -1592,6 +1675,61 @@ export function AgentsPanel() {
         </PanelSection>
       )}
 
+      {visibleRulesets.length > 0 && (
+        <PanelSection title={localizeUi("ui.panels.agentspanel.rules")} icon={<Dices size="0.8125rem" />}>
+          {visibleRulesets.map(({ definition, packageId, source, versions }) => {
+            // An imported ruleset says where it came from and which versions are stored, because
+            // removing it takes every one of them and a game plays on the exact version it pinned.
+            const repository = source ? rulesetRepositoryLabel(source) : null;
+            return (
+              <div
+                key={definition.id}
+                className="group relative flex items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)]"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--secondary)] text-[var(--muted-foreground)]">
+                  <Dices size="1rem" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{definition.name}</div>
+                  <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)] line-clamp-2">
+                    {definition.coverage.summary}
+                  </div>
+                  <div className="mt-1 text-[0.5625rem] uppercase text-[var(--muted-foreground)]/80">
+                    {source
+                      ? localizeUi("game.ruleset.panel.importedVersions", {
+                          source: repository ?? localizeUi("game.ruleset.panel.importedFile"),
+                          versions: (versions ?? [definition.version]).join(", "),
+                        })
+                      : localizeUi("ui.panels.agentspanel.rulesetVersion", { version: definition.version })}
+                  </div>
+                </div>
+                {source ? (
+                  <button
+                    className="mari-chrome-control mari-chrome-control--small shrink-0 p-1.5"
+                    title={localizeUi("game.ruleset.remove.confirm")}
+                    aria-label={localizeUi("game.ruleset.remove.label", { name: definition.name })}
+                    onClick={() => void confirmAndRemoveRuleset(definition.id, definition.name)}
+                  >
+                    <Trash2 size="0.75rem" />
+                  </button>
+                ) : (
+                  packageId && (
+                    <button
+                      className="mari-chrome-control mari-chrome-control--small shrink-0 p-1.5"
+                      title={localizeUi("ui.agents.agentcatalogview.uninstall")}
+                      aria-label={localizeUi("ui.panels.agentspanel.uninstallRuleset", { name: definition.name })}
+                      onClick={() => void confirmAndUninstallRuleset(packageId, definition.name)}
+                    >
+                      <Trash2 size="0.75rem" />
+                    </button>
+                  )
+                )}
+              </div>
+            );
+          })}
+        </PanelSection>
+      )}
+
       {selectionMode && (
         <SelectionActionBar
           placement="panel"
@@ -1723,6 +1861,18 @@ export function AgentsPanel() {
           </div>
         )}
       </Modal>
+
+      <RulesetImportReviewModal
+        definition={pendingRulesetImport?.definition ?? null}
+        rulesetId={pendingRulesetImport?.rulesetId ?? ""}
+        installedVersions={
+          installedRulesets.find((entry) => entry.definition.id === pendingRulesetImport?.rulesetId)?.versions ?? []
+        }
+        importing={importRuleset.isPending}
+        failure={rulesetImportFailure}
+        onCancel={() => setPendingRulesetImport(null)}
+        onConfirm={() => void handleConfirmRulesetImport()}
+      />
     </div>
   );
 }

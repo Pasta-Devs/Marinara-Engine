@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -265,6 +266,13 @@ function assertPosixReminderRouting(launcherName) {
 assertPosixReminderRouting("start.sh");
 assertPosixReminderRouting("start-termux.sh");
 
+const termuxLauncherSource = readFileSync(join(repositoryRoot, "start-termux.sh"), "utf8");
+assert.match(
+  termuxLauncherSource,
+  /cd "\$\(dirname "\$0"\)"[\s\S]*?export GIT_TERMINAL_PROMPT=0/u,
+  "The Termux launcher must disable interactive Git credential prompts before update checks",
+);
+
 const windowsLauncherSource = readFileSync(join(repositoryRoot, "start.bat"), "utf8");
 assert.match(windowsLauncherSource, /check-launcher-update\.mjs/u);
 assert.match(
@@ -332,7 +340,9 @@ assert.match(devSource, /detached: process\.platform !== "win32"/u);
 assert.match(devSource, /process\.kill\(-child\.pid, signal\)/u);
 assert.match(devSource, /Reusing it and starting the client\./u);
 
-const fixtureRoot = mkdtempSync(join(tmpdir(), "marinara-launcher-data-"));
+// macOS's long per-user TMPDIR exceeds AF_UNIX's 103-byte path limit here.
+// Keep this fixture short so it still exercises copying a real live socket.
+const fixtureRoot = mkdtempSync(join(process.platform === "darwin" ? "/tmp" : tmpdir(), "marinara-launcher-data-"));
 const fixtureBackupRoot = resolve(fixtureRoot, "..", `${basename(fixtureRoot)}-backups`);
 try {
   const installFixtureRoot = join(fixtureRoot, "install-check");
@@ -362,6 +372,13 @@ try {
   mkdirSync(capabilityRuntimeDependencies, { recursive: true });
   writeFileSync(join(capabilityPackagesDir, "installed.json"), '{"preserved":true}\n');
   writeFileSync(join(capabilityRuntimeDependencies, "runtime.js"), "export {};\n");
+  const runtimeSnapshots = join(defaultDataDir, "capability-runtime-snapshots");
+  mkdirSync(runtimeSnapshots, { recursive: true });
+  symlinkSync(
+    capabilityRuntimeDependencies,
+    join(runtimeSnapshots, "node_modules"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
   for (const downloadableDir of ["models", "sidecar-runtime"]) {
     const path = join(defaultDataDir, downloadableDir);
     mkdirSync(path, { recursive: true });
@@ -370,6 +387,23 @@ try {
   const galleryDir = join(defaultDataDir, "gallery");
   mkdirSync(galleryDir, { recursive: true });
   writeFileSync(join(galleryDir, "selfie.png"), "irreplaceable user data\n");
+  // #6046: a server that is still running (or died without releasing its lease)
+  // leaves the writer lease behind, including the live.sock liveness socket.
+  // fs.cp cannot copy a socket, so the snapshot used to abort and the launcher
+  // skipped the update. Unix sockets need a real listener; Windows has no
+  // filesystem socket entry, so only the directory exclusion is exercised there.
+  const storageDir = join(defaultDataDir, "storage");
+  const writerLeaseDir = join(storageDir, ".writer-lease");
+  mkdirSync(writerLeaseDir, { recursive: true });
+  writeFileSync(join(storageDir, "characters.json"), '{"sharded":true}\n');
+  writeFileSync(join(writerLeaseDir, "owner.json"), '{"pid":12,"hostId":null}\n');
+  const livenessSocket = process.platform === "win32" ? null : createServer();
+  if (livenessSocket) {
+    await new Promise((resolvePromise, rejectPromise) => {
+      livenessSocket.once("error", rejectPromise);
+      livenessSocket.listen(join(writerLeaseDir, "live.sock"), resolvePromise);
+    });
+  }
   symlinkSync(
     capabilityRuntimeDependencies,
     join(capabilityPackagesDir, "node_modules"),
@@ -394,6 +428,11 @@ try {
     false,
     "Launcher snapshots must omit the generated capability runtime junction",
   );
+  assert.equal(
+    existsSync(join(snapshot.backupDir, "data", "capability-runtime-snapshots")),
+    false,
+    "Launcher snapshots must omit verified runtime copies and native dependency links",
+  );
   for (const downloadableDir of ["models", "sidecar-runtime"]) {
     assert.equal(
       existsSync(join(snapshot.backupDir, "data", downloadableDir)),
@@ -406,6 +445,19 @@ try {
     "irreplaceable user data\n",
     "Launcher snapshots must keep user-created media",
   );
+  assert.equal(
+    readFileSync(join(snapshot.backupDir, "data", "storage", "characters.json"), "utf8"),
+    '{"sharded":true}\n',
+    "Launcher snapshots must keep sharded storage tables",
+  );
+  assert.equal(
+    existsSync(join(snapshot.backupDir, "data", "storage", ".writer-lease")),
+    false,
+    "Launcher snapshots must omit the per-process storage writer lease (#6046)",
+  );
+  if (livenessSocket) {
+    await new Promise((resolvePromise) => livenessSocket.close(resolvePromise));
+  }
 
   rmSync(defaultDataDir, { recursive: true, force: true });
   const restore = await restoreLauncherDataIfMissing({ root: fixtureRoot, backupRoot: fixtureBackupRoot, env: {} });

@@ -1,18 +1,11 @@
 /**
- * Resolve the Persona visible to a chat. Explicit chat selection always wins.
- * Conversation may use the globally active Persona for its account-style UX;
- * Roleplay and Game remain Persona-less unless selected.
+ * Resolve only the Persona explicitly selected for a chat.
+ * Legacy global active flags never supply a chat identity.
  */
-export function resolveChatPersonaCandidate<T extends { id: string; isActive?: unknown }>(
+export function resolveChatPersonaCandidate<T extends { id: string }>(
   personas: readonly T[],
   chatPersonaId: string | null | undefined,
-  chatMode: string | null | undefined,
+  _legacyChatMode?: string | null,
 ): T | null {
-  return (
-    (chatPersonaId ? personas.find((persona) => persona.id === chatPersonaId) : null) ??
-    (chatMode === "conversation"
-      ? personas.find((persona) => persona.isActive === "true" || persona.isActive === true)
-      : null) ??
-    null
-  );
+  return (chatPersonaId ? personas.find((persona) => persona.id === chatPersonaId) : null) ?? null;
 }

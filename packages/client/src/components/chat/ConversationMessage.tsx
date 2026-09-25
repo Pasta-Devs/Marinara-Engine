@@ -1,3 +1,5 @@
+import { ConversationSceneInvitation } from "./ConversationSceneInvitation";
+import { useMessagePresetVariables } from "../../hooks/use-message-preset-variables";
 // ──────────────────────────────────────────────
 // Chat: Conversation message shell
 // Resolves character/persona identity, builds render context,
@@ -30,9 +32,11 @@ import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "./Gene
 import {
   HiddenFromAIConversationButton,
   ConversationMessageLightbox,
+  ConversationMessageSwipes,
   type MessageData,
   type MessageRenderContext,
 } from "./ConversationMessageShared";
+import { MessageReplyPreview } from "./MessageReplyPreview";
 import { ConversationMessageActions } from "./ConversationMessageActions";
 import { ConversationMessageGrouped } from "./ConversationMessageGrouped";
 import { ConversationMessageBubble } from "./ConversationMessageBubble";
@@ -40,6 +44,7 @@ import { ConversationMessageLine } from "./ConversationMessageLine";
 import { MessageReactions } from "./MessageReactions";
 import { MessageThinkingModal } from "./MessageThinkingModal";
 import { useChatStore } from "../../stores/chat.store";
+import { hasActiveTextSelection } from "../../lib/text-selection";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { resolveMessageReasoningDisplay } from "../../lib/message-reasoning";
 import {
@@ -181,6 +186,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   const quoteFormat = useUIStore((s) => s.quoteFormat);
   const conversationAvatarShape = useUIStore((s) => s.conversationAvatarShape);
   const activeChatMetadata = useChatStore((s) => s.activeChat?.metadata);
+  const presetVariables = useMessagePresetVariables(`${message.id}:${message.activeSwipeIndex ?? 0}`);
   const scopedRegexMode = useMemo(() => parseChatMetadata(activeChatMetadata).scopedRegexMode, [activeChatMetadata]);
   const { applyToAIOutput } = useApplyRegex();
 
@@ -276,16 +282,20 @@ export const ConversationMessage = memo(function ConversationMessage({
   // back to whichever chat character owns the file when the speaker doesn't.
   const galleryIndex = useChatGalleryFilenameIndex(chatCharacterIds);
 
-  const msgPersona = isUser && !plainUserMessages && extra.personaSnapshot ? extra.personaSnapshot : null;
+  const msgPersona = isUser && extra.personaSnapshot ? extra.personaSnapshot : null;
   const avatarUrl = isUser
     ? plainUserMessages
       ? null
-      : (msgPersona?.avatarUrl ?? personaInfo?.avatarUrl ?? null)
+      : msgPersona
+        ? (msgPersona.avatarUrl ?? null)
+        : (personaInfo?.avatarUrl ?? null)
     : (resolvedCharacterInfo?.avatarUrl ?? null);
   const personaAvatarCrop = isUser
     ? plainUserMessages
       ? null
-      : (normalizeAvatarCrop(msgPersona?.avatarCrop) ?? personaInfo?.avatarCrop ?? null)
+      : msgPersona
+        ? (normalizeAvatarCrop(msgPersona.avatarCrop) ?? null)
+        : (personaInfo?.avatarCrop ?? null)
     : null;
   const avatarCropStyle = isUser
     ? getAvatarCropStyle(personaAvatarCrop)
@@ -293,17 +303,21 @@ export const ConversationMessage = memo(function ConversationMessage({
   const displayName = isUser
     ? plainUserMessages
       ? "You"
-      : (msgPersona?.name ?? personaInfo?.name ?? "You")
+      : msgPersona
+        ? (msgPersona.name ?? "You")
+        : (personaInfo?.name ?? "You")
     : (primaryCharInfo?.name ?? "Assistant");
   const nameColor = isUser
     ? plainUserMessages
       ? undefined
-      : (msgPersona?.nameColor ?? personaInfo?.nameColor)
+      : msgPersona
+        ? msgPersona.nameColor
+        : personaInfo?.nameColor
     : resolvedCharacterInfo?.nameColor;
 
   // Conversation-only cosmetic display name (convoDisplayName). This component only
   // ever mounts in Conversation mode, so reading it here can't leak into RP/Game.
-  // It's read live (character map / active persona), so renaming reflects on
+  // It's read live (character map / chat persona), so renaming reflects on
   // existing messages. Identity and macros keep the base `name`; only the visible
   // label swaps. For personas we only have the *current* persona's live name, so we
   // never stamp it onto a different persona's historical messages.
@@ -315,17 +329,23 @@ export const ConversationMessage = memo(function ConversationMessage({
         : undefined
     : primaryCharInfo?.convoDisplayName;
   const headerDisplayName = convoDisplayName && convoDisplayName.trim() ? convoDisplayName : displayName;
+  const macroUserName = plainUserMessages
+    ? "User"
+    : msgPersona
+      ? (msgPersona.name ?? "User")
+      : (personaInfo?.name ?? "User");
 
   const macroContext = useMemo(
     () => ({
-      userName: displayName,
+      variables: presetVariables,
+      userName: macroUserName,
       persona: {
-        name: displayName,
-        description: plainUserMessages ? undefined : (msgPersona?.description ?? personaInfo?.description),
-        personality: plainUserMessages ? undefined : (msgPersona?.personality ?? personaInfo?.personality),
-        backstory: plainUserMessages ? undefined : (msgPersona?.backstory ?? personaInfo?.backstory),
-        appearance: plainUserMessages ? undefined : (msgPersona?.appearance ?? personaInfo?.appearance),
-        scenario: plainUserMessages ? undefined : (msgPersona?.scenario ?? personaInfo?.scenario),
+        name: macroUserName,
+        description: plainUserMessages ? undefined : msgPersona ? msgPersona.description : personaInfo?.description,
+        personality: plainUserMessages ? undefined : msgPersona ? msgPersona.personality : personaInfo?.personality,
+        backstory: plainUserMessages ? undefined : msgPersona ? msgPersona.backstory : personaInfo?.backstory,
+        appearance: plainUserMessages ? undefined : msgPersona ? msgPersona.appearance : personaInfo?.appearance,
+        scenario: plainUserMessages ? undefined : msgPersona ? msgPersona.scenario : personaInfo?.scenario,
       },
       primaryCharacter: primaryCharInfo ?? { name: displayName },
       characters: scopedCharacterMap
@@ -336,11 +356,9 @@ export const ConversationMessage = memo(function ConversationMessage({
     }),
     [
       displayName,
-      msgPersona?.appearance,
-      msgPersona?.backstory,
-      msgPersona?.description,
-      msgPersona?.personality,
-      msgPersona?.scenario,
+      macroUserName,
+      presetVariables,
+      msgPersona,
       personaInfo?.appearance,
       personaInfo?.backstory,
       personaInfo?.description,
@@ -733,6 +751,7 @@ export const ConversationMessage = memo(function ConversationMessage({
     (e: React.MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest("button, a, textarea")) return;
+      if (matchMedia("(pointer: coarse)").matches && hasActiveTextSelection()) return;
       if (multiSelectMode) {
         onToggleSelect?.({
           messageId: message.id,
@@ -761,6 +780,11 @@ export const ConversationMessage = memo(function ConversationMessage({
   useEffect(() => {
     if (!showActions) return;
     const handleTouch = (e: TouchEvent) => {
+      if (
+        e.target instanceof Element &&
+        e.target.closest('[role="dialog"], [role="alertdialog"], [role="menu"], [data-chat-floating-panel]')
+      )
+        return;
       if (msgRef.current && !msgRef.current.contains(e.target as Node)) setShowActions(false);
     };
     document.addEventListener("touchstart", handleTouch);
@@ -790,9 +814,24 @@ export const ConversationMessage = memo(function ConversationMessage({
   // ── Build shared render context ──
   // Convo-only: clicking an avatar opens the about-me viewer for that identity.
   // The component only mounts in conversation mode, so this never applies elsewhere.
+  const aboutMeIdentity = msgPersona?.personaId
+    ? { id: msgPersona.personaId, source: msgPersona.source ?? ("persona" as const) }
+    : personaInfo;
+  const aboutMeCharacterInfo = isUser
+    ? aboutMeIdentity?.source === "character"
+      ? personaInfo?.source === "character" && personaInfo.id === aboutMeIdentity.id
+        ? personaInfo
+        : (characterMap?.get(aboutMeIdentity.id) ?? null)
+      : null
+    : message.characterId && charInfo
+      ? charInfo
+      : null;
   const aboutMeTarget: { kind: "character" | "persona"; id: string } | null = isUser
-    ? (msgPersona?.personaId ?? personaInfo?.id)
-      ? { kind: "persona", id: (msgPersona?.personaId ?? personaInfo?.id)! }
+    ? aboutMeIdentity
+      ? {
+          kind: aboutMeIdentity.source === "character" ? "character" : "persona",
+          id: aboutMeIdentity.id,
+        }
       : null
     : message.characterId
       ? { kind: "character", id: message.characterId }
@@ -813,8 +852,8 @@ export const ConversationMessage = memo(function ConversationMessage({
           avatarCrop: isUser ? personaAvatarCrop : (resolvedCharacterInfo?.avatarCrop ?? null),
           displayName: headerDisplayName,
           nameColor: nameColor ?? null,
-          status: aboutMeTarget.kind === "character" ? (resolvedCharacterInfo?.conversationStatus ?? null) : null,
-          activity: aboutMeTarget.kind === "character" ? (resolvedCharacterInfo?.conversationActivity ?? null) : null,
+          status: aboutMeTarget.kind === "character" ? (aboutMeCharacterInfo?.conversationStatus ?? null) : null,
+          activity: aboutMeTarget.kind === "character" ? (aboutMeCharacterInfo?.conversationActivity ?? null) : null,
         })
     : undefined;
 
@@ -917,17 +956,13 @@ export const ConversationMessage = memo(function ConversationMessage({
   // ── Reaction chip row ──
   // Rendered by the shell as a sibling of the message row, OUTSIDE the
   // [data-card-css] container, so a character's bubble theme can't restyle it.
-  // Indented to sit under the message body; right-aligned for user bubbles.
+  // Sits before the revealable action row, indented under the message body
+  // and right-aligned for user bubbles.
   // Holds the whole-message reactions; segment-targeted ones render inline under
   // their segment inside the grouped layout instead.
   const reactionRow =
     messageReactions.length > 0 && !isHiddenCollapsed ? (
-      <div
-        className={cn(
-          "mari-message-reactions-row pb-1",
-          isBubbleStyle && isUser ? "flex justify-end px-4" : "pl-[4.5rem] pr-4",
-        )}
-      >
+      <div className={cn("mari-message-reactions-row pb-1", isBubbleStyle && isUser ? "flex justify-end" : "pl-14")}>
         <MessageReactions
           reactions={messageReactions}
           resolveReactorName={resolveReactorName}
@@ -1068,12 +1103,17 @@ export const ConversationMessage = memo(function ConversationMessage({
     );
   }
 
+  const sceneInvitation =
+    !isUser && !isStreaming && !editing && !isHiddenCollapsed && extra.sceneRequest ? (
+      <ConversationSceneInvitation chatId={message.chatId} request={extra.sceneRequest} />
+    ) : null;
+
   // ── Grouped multi-speaker layout ──
   if (groupedLayoutActive) {
     return (
       <>
-        <ConversationMessageGrouped ctx={ctx} msgRef={msgRef} />
-        {reactionRow}
+        <ConversationMessageGrouped ctx={ctx} msgRef={msgRef} reactionRow={reactionRow} />
+        {sceneInvitation}
         {modals}
       </>
     );
@@ -1084,69 +1124,80 @@ export const ConversationMessage = memo(function ConversationMessage({
     <>
       <div
         ref={msgRef}
-        className={cn(
-          "mari-message relative w-full min-w-0 max-w-full px-4 transition-colors",
-          !noHoverGroup && "group",
-          isBubbleStyle
-            ? cn("py-1", isUser ? "mari-message-user" : "mari-message-assistant", !isGrouped && "mt-0.5")
-            : cn(
-                "py-0.5 hover:bg-[var(--secondary)]/30",
-                isUser ? "mari-message-user" : "mari-message-assistant",
-                isGrouped ? "mt-0" : "mt-0.5",
-                isStreaming && "bg-[var(--secondary)]/20",
-              ),
-          isConversationStart && cn("rounded-lg ring-1", CONVERSATION_MESSAGE_CHROME_RING_CLASS),
-          isHiddenFromAI && cn("rounded-lg ring-1 saturate-75", CONVERSATION_MESSAGE_CHROME_RING_CLASS),
-          multiSelectMode && isSelected && MESSAGE_SELECTION_SURFACE_CLASS,
-        )}
+        className={cn("min-w-0", !noHoverGroup && "group")}
+        tabIndex={0}
         data-message-id={message.id}
         data-message-role={message.role}
-        data-card-css={message.characterId ?? undefined}
-        data-grouped={isGrouped || undefined}
         onClick={handleMobileTap}
       >
         <div
-          className={cn("min-w-0 max-w-full", !isBubbleStyle && "flex gap-4")}
-          data-component="ConversationMessage.Content"
+          className={cn(
+            "mari-message relative w-full min-w-0 max-w-full px-4 transition-colors",
+            isBubbleStyle
+              ? cn("py-1", isUser ? "mari-message-user" : "mari-message-assistant", !isGrouped && "mt-0.5")
+              : cn(
+                  "py-0.5 hover:bg-[var(--secondary)]/30",
+                  isUser ? "mari-message-user" : "mari-message-assistant",
+                  isGrouped ? "mt-0" : "mt-0.5",
+                  isStreaming && "bg-[var(--secondary)]/20",
+                ),
+            isConversationStart && cn("rounded-lg ring-1", CONVERSATION_MESSAGE_CHROME_RING_CLASS),
+            isHiddenFromAI && cn("rounded-lg ring-1 saturate-75", CONVERSATION_MESSAGE_CHROME_RING_CLASS),
+            multiSelectMode && isSelected && MESSAGE_SELECTION_SURFACE_CLASS,
+          )}
+          data-card-css={message.characterId ?? undefined}
+          data-grouped={isGrouped || undefined}
         >
-          {isBubbleStyle ? <ConversationMessageBubble ctx={ctx} /> : <ConversationMessageLine ctx={ctx} />}
-        </div>
+          {isUser && !isHiddenCollapsed && <MessageReplyPreview reply={extra.replyTo} />}
+          <div
+            className={cn("min-w-0 max-w-full", !isBubbleStyle && "flex gap-4")}
+            data-component="ConversationMessage.Content"
+          >
+            {isBubbleStyle ? <ConversationMessageBubble ctx={ctx} /> : <ConversationMessageLine ctx={ctx} />}
+          </div>
 
-        {(!hideActions || (hasReasoning && !isUser)) && (
-          <ConversationMessageActions
-            isUser={isUser}
-            showActions={showActions}
-            forceShowActions={hideActions && hasReasoning ? true : forceShowActions}
-            thinkingOnly={hideActions && hasReasoning}
-            copied={copied}
-            translatedText={translatedText}
-            isHiddenFromAI={isHiddenFromAI}
-            canRegenerate={canRegenerate}
-            isLastAssistantMessage={isLastAssistantMessage}
-            hasReasoning={hasReasoning}
-            reasoningSummaryUnavailable={reasoningSummaryUnavailable}
-            thinkingButtonRef={thinkingButtonRef}
-            generationReplay={generationReplay}
-            isGuided={isGuided}
-            regenerateButtonTitle={regenerateButtonTitle}
-            regenerateGuidedClass={regenerateGuidedClass}
-            onCopy={handleCopy}
-            onTranslate={handleTranslate}
-            onEdit={handleStartEdit}
-            onRegenerate={onRegenerate ? () => onRegenerate(message.id) : undefined}
-            onBranch={onBranch ? () => onBranch(message.id) : undefined}
-            onToggleHiddenFromAI={
-              onToggleHiddenFromAI ? () => onToggleHiddenFromAI(message.id, isHiddenFromAI) : undefined
-            }
-            onPeekPrompt={onPeekPrompt}
-            onDelete={onDelete ? () => onDelete(message.id) : undefined}
-            onShowGenerationReplay={() => setShowGenerationReplay(true)}
-            onShowThinking={() => setShowThinking(true)}
-            onPickReaction={handleToggleReaction}
-          />
-        )}
+          {sceneInvitation}
+          <ConversationMessageSwipes ctx={ctx} />
+        </div>
+        <div className="px-4">
+          {reactionRow}
+          {(!hideActions || (hasReasoning && !isUser)) && (
+            <ConversationMessageActions
+              message={message}
+              name={displayName}
+              isUser={isUser}
+              showActions={showActions}
+              forceShowActions={hideActions && hasReasoning ? true : forceShowActions}
+              thinkingOnly={hideActions && hasReasoning}
+              copied={copied}
+              translatedText={translatedText}
+              isHiddenFromAI={isHiddenFromAI}
+              canRegenerate={canRegenerate}
+              isLastAssistantMessage={isLastAssistantMessage}
+              hasReasoning={hasReasoning}
+              reasoningSummaryUnavailable={reasoningSummaryUnavailable}
+              thinkingButtonRef={thinkingButtonRef}
+              generationReplay={generationReplay}
+              isGuided={isGuided}
+              regenerateButtonTitle={regenerateButtonTitle}
+              regenerateGuidedClass={regenerateGuidedClass}
+              onCopy={handleCopy}
+              onTranslate={handleTranslate}
+              onEdit={handleStartEdit}
+              onRegenerate={onRegenerate ? () => onRegenerate(message.id) : undefined}
+              onBranch={onBranch ? () => onBranch(message.id) : undefined}
+              onToggleHiddenFromAI={
+                onToggleHiddenFromAI ? () => onToggleHiddenFromAI(message.id, isHiddenFromAI) : undefined
+              }
+              onPeekPrompt={onPeekPrompt}
+              onDelete={onDelete ? () => onDelete(message.id) : undefined}
+              onShowGenerationReplay={() => setShowGenerationReplay(true)}
+              onShowThinking={() => setShowThinking(true)}
+              onPickReaction={handleToggleReaction}
+            />
+          )}
+        </div>
       </div>
-      {reactionRow}
       {modals}
     </>
   );

@@ -2,7 +2,10 @@
 // Agent Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
-import { MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH } from "../constants/agent-activation.js";
+import {
+  MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
+  MAX_CUSTOM_AGENT_ACTIVATION_QUESTION_LENGTH,
+} from "../constants/agent-activation.js";
 import { AGENT_RESULT_TYPE_VALUES, CUSTOM_AGENT_CAPABILITY_IDS } from "../types/agent.js";
 
 export const agentPhaseSchema = z.enum(["pre_generation", "parallel", "post_processing"]);
@@ -12,6 +15,57 @@ export const agentResultTypeSchema = z.enum(AGENT_RESULT_TYPE_VALUES);
 export const customAgentActivationSettingsSchema = z.object({
   activationKeywords: z.array(z.string().trim().min(1)).max(100).optional(),
   activationScanDepth: z.number().int().min(1).max(MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH).optional(),
+  activationQuestion: z.string().trim().min(1).max(MAX_CUSTOM_AGENT_ACTIVATION_QUESTION_LENGTH).optional(),
+  activationThreshold: z.number().min(0.05).max(0.95).optional(),
+  activationMaxSkip: z.number().int().min(1).max(100).optional(),
+});
+
+export const homeAgentWidgetSchema = z
+  .object({
+    id: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+      .max(64),
+    title: z.string().trim().min(1).max(80),
+    description: z.string().trim().max(240),
+    size: z.enum(["compact", "large"]),
+    icon: z
+      .enum([
+        "activity",
+        "bell",
+        "calendar",
+        "chart",
+        "circle",
+        "clock",
+        "file",
+        "flame",
+        "heart",
+        "image",
+        "list",
+        "message",
+        "sparkles",
+        "star",
+        "zap",
+      ])
+      .optional(),
+    accent: z.enum(["cyan", "green", "amber", "orange", "rose", "violet"]).optional(),
+    surface: z.enum(["soft", "solid", "quiet"]).optional(),
+    header: z.enum(["standard", "compact", "banner"]).optional(),
+  })
+  .strict();
+export const homeAgentWidgetsSchema = z
+  .array(homeAgentWidgetSchema)
+  .max(3)
+  .refine(
+    (widgets) => new Set(widgets.map((widget) => widget.id)).size === widgets.length,
+    "Widget IDs must be unique",
+  );
+export type HomeAgentWidgetDefinition = z.infer<typeof homeAgentWidgetSchema>;
+
+const agentSettingsSchema = z.record(z.unknown()).superRefine((settings, ctx) => {
+  if (settings.homeWidgets === undefined) return;
+  const result = homeAgentWidgetsSchema.safeParse(settings.homeWidgets);
+  if (!result.success) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid agent Home widgets" });
 });
 
 export const createAgentConfigSchema = z.object({
@@ -25,7 +79,7 @@ export const createAgentConfigSchema = z.object({
   imagePath: z.string().nullable().default(null),
   resultType: agentResultTypeSchema.optional(),
   promptTemplate: z.string().default(""),
-  settings: z.record(z.unknown()).default({}),
+  settings: agentSettingsSchema.default({}),
 });
 
 export const updateAgentConfigSchema = createAgentConfigSchema.partial();

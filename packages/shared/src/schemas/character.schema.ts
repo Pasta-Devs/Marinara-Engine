@@ -2,6 +2,7 @@
 // Character Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { storedRulesetSheetsSchema } from "./ruleset.schema.js";
 
 export const depthPromptSchema = z.object({
   prompt: z.string().default(""),
@@ -58,6 +59,8 @@ export const characterExtensionsSchema = z
     convoDisplayNameInCard: z.boolean().optional(),
     aboutMe: z.string().optional(),
     convoBehavior: convoBehaviorConfigSchema.optional(),
+    /** Starting builds for Game Mode rulesets, keyed by ruleset id. Bounded, never shape-checked. */
+    rulesetSheets: storedRulesetSheetsSchema.optional(),
   })
   .passthrough();
 

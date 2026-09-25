@@ -1,17 +1,27 @@
 import { isDeepStrictEqual } from "node:util";
+import type { ChatMessage } from "../../services/llm/base-provider.js";
 import {
   GENERATION_PARAMETER_SEND_KEYS,
   SUMMARY_TAIL_MESSAGES,
   applyTrackerFieldLocksToGameStatePatch,
+  characterTrackerLockPrefix,
+  customTrackerFieldLockPrefix,
   generationParametersSchema,
   normalizeInventoryTrackerRows,
+  normalizeTrackerFieldLocksForState,
+  extractCharacterCardCastMembers,
   normalizeTextForMatch,
+  type CharacterCardCastSource,
   normalizeSummaryTailMessages,
   normalizeWorldCustomFields,
+  isTrackerRowsUpdate,
+  isNamedTrackerRow,
   normalizeThinkingTagPairs,
   parseTrackerFieldLocks,
   parseTrackerHiddenFields,
   resolveMacros,
+  resolveTrackerRowsUpdate,
+  roleplayInventoryTrackerRowLockPrefix,
   resolveChatPersonaCandidate,
   unwrapConversationInstructions,
   wrapConversationInstructions,
@@ -20,11 +30,13 @@ import {
   type GenerationParameterSendMap,
   type GenerationParameters,
   type InventoryTrackerRow,
+  type InventoryTrackerGroup,
   type MacroContext,
   type PlayerStats,
   type WrapFormat,
 } from "@marinara-engine/shared";
 import { wrapContent } from "../../services/prompt/format-engine.js";
+import { parseStoredRulesetLive } from "../../services/storage/game-state.storage.js";
 import {
   appendReadableAttachmentsToContent,
   extractFileAttachmentInputs,
@@ -89,9 +101,9 @@ export function hasProviderMessagePayload(message: {
 
 /**
  * Preserve the route-layer export while sharing the same Persona policy with
- * the client: only Conversation falls back to the globally active Persona.
+ * the client: every mode requires an explicit chat Persona selection.
  */
-export function resolveActivePersonaCandidate<T extends { id: string; isActive?: unknown }>(
+export function resolveActivePersonaCandidate<T extends { id: string }>(
   personas: readonly T[],
   chatPersonaId: string | null | undefined,
   chatMode: string | null | undefined,
@@ -165,6 +177,48 @@ type PlayerStatsArrayField = {
   [K in keyof PlayerStats]-?: NonNullable<PlayerStats[K]> extends unknown[] ? K : never;
 }[keyof PlayerStats];
 
+/** Resolve explicit item updates before the existing lock/persistence path. */
+export function resolveTrackerGroupUpdate(
+  value: unknown,
+  previous: readonly unknown[],
+  lockState: GameState | null | undefined,
+  group: InventoryTrackerGroup | "customTrackerFields" | "presentCharacters",
+) {
+  const locks = normalizeTrackerFieldLocksForState(lockState?.fieldLocks, lockState);
+  return resolveTrackerRowsUpdate(
+    value,
+    previous,
+    group === "presentCharacters" ? "characterId" : "name",
+    (row, index) => {
+      if (group === "customTrackerFields" && row.locked === true) return false;
+      const identity = {
+        name: typeof row.name === "string" ? row.name : "",
+        characterId: typeof row.characterId === "string" ? row.characterId : "",
+      };
+      const prefix =
+        group === "presentCharacters"
+          ? characterTrackerLockPrefix(identity, index)
+          : group === "customTrackerFields"
+            ? customTrackerFieldLockPrefix(identity, index)
+            : roleplayInventoryTrackerRowLockPrefix(group, identity, index);
+      return !Object.entries(locks).some(([key, locked]) => locked && key.startsWith(`${prefix}.`));
+    },
+  );
+}
+
+/** Keep explicit world removals through the client lock merge, without re-sending rejected removals. */
+export function buildWorldCustomFieldsStreamValue(source: unknown, previous: unknown, next: unknown) {
+  const fields = normalizeWorldCustomFields(next);
+  if (!isTrackerRowsUpdate(source)) return fields;
+  const names = new Set(fields.map((field) => field.name));
+  return {
+    updates: fields,
+    removed: normalizeWorldCustomFields(previous)
+      .filter((field) => !names.has(field.name))
+      .map((field) => field.name),
+  };
+}
+
 export function buildLockedPlayerStatsArrayPatch<T>({
   field,
   values,
@@ -179,8 +233,12 @@ export function buildLockedPlayerStatsArrayPatch<T>({
   basePlayerStats?: PlayerStats;
 }) {
   const existingPlayerStats = parseSnapshotPlayerStats(snapshot);
-  const lockedPatch = applyTrackerFieldLocksToGameStatePatch({ playerStats: { [field]: values } }, lockState);
-  const lockedValues = extractPlayerStatsPatchArray<T>(lockedPatch, field, values);
+  // Keep row positions until locks are merged, then discard nameless Custom Tracker rows.
+  const rawValues =
+    field === "customTrackerFields" ? values.map((row) => (isNamedTrackerRow(row) ? row : ({} as T))) : values;
+  const lockedPatch = applyTrackerFieldLocksToGameStatePatch({ playerStats: { [field]: rawValues } }, lockState);
+  const mergedValues = extractPlayerStatsPatchArray<T>(lockedPatch, field, rawValues);
+  const lockedValues = field === "customTrackerFields" ? mergedValues.filter(isNamedTrackerRow) : mergedValues;
   const playerStats = { ...(basePlayerStats ?? existingPlayerStats), [field]: lockedValues };
   const existingValues = existingPlayerStats[field];
   const changed = !isDeepStrictEqual(lockedValues, Array.isArray(existingValues) ? existingValues : []);
@@ -255,18 +313,36 @@ export function buildLockedInventoryTrackerPatch({
   // Only a group the agent actually emitted may rewrite that group. Treating an
   // absent key as an empty array wipes state the model simply did not mention
   // this turn — the destructive absent-vs-empty failure mode from #2370/#2724.
-  const emittedCurrencies = Array.isArray(data.currencies);
-  const emittedEquipped = Array.isArray(data.equipped);
-  const emittedInventory = Array.isArray(data.inventory);
+  const currencyUpdate = resolveTrackerGroupUpdate(
+    data.currencies,
+    existingRows("inventoryTrackerCurrencies"),
+    lockState,
+    "currencies",
+  );
+  const equippedUpdate = resolveTrackerGroupUpdate(
+    data.equipped,
+    existingRows("inventoryTrackerEquipped"),
+    lockState,
+    "equipped",
+  );
+  const inventoryUpdate = resolveTrackerGroupUpdate(
+    data.inventory,
+    existingRows("inventoryTrackerInventory"),
+    lockState,
+    "inventory",
+  );
+  const emittedCurrencies = currencyUpdate !== undefined;
+  const emittedEquipped = equippedUpdate !== undefined;
+  const emittedInventory = inventoryUpdate !== undefined;
 
   const currencies = emittedCurrencies
-    ? normalizeInventoryTrackerRows(data.currencies)
+    ? normalizeInventoryTrackerRows(currencyUpdate)
     : existingRows("inventoryTrackerCurrencies");
   const equipped = emittedEquipped
-    ? normalizeInventoryTrackerRows(data.equipped)
+    ? normalizeInventoryTrackerRows(equippedUpdate)
     : existingRows("inventoryTrackerEquipped");
   const carried = emittedInventory
-    ? normalizeInventoryTrackerRows(data.inventory)
+    ? normalizeInventoryTrackerRows(inventoryUpdate)
     : existingRows("inventoryTrackerInventory");
 
   const excludedNames = new Set([...currencies, ...equipped].map((row) => normalizeTextForMatch(row.name)));
@@ -572,14 +648,8 @@ export function findTrackerContextInsertIndex(
   return messages.length;
 }
 
-type PromptRoleMessage = {
-  role: "system" | "user" | "assistant" | "tool";
-  content: string;
-  contextKind?: "prompt" | "history" | "injection";
+type PromptRoleMessage = ChatMessage & {
   characterId?: string | null;
-  images?: string[];
-  files?: Array<{ type: string; data: string; filename?: string }>;
-  providerMetadata?: Record<string, unknown>;
 };
 
 function clonePromptRoleMessage<T extends PromptRoleMessage>(message: T): T {
@@ -587,6 +657,7 @@ function clonePromptRoleMessage<T extends PromptRoleMessage>(message: T): T {
     ...message,
     ...(message.images ? { images: [...message.images] } : {}),
     ...(message.files ? { files: message.files.map((file) => ({ ...file })) } : {}),
+    ...(message.media ? { media: message.media.map((media) => ({ ...media })) } : {}),
     ...(message.providerMetadata ? { providerMetadata: { ...message.providerMetadata } } : {}),
   };
 }
@@ -602,6 +673,7 @@ function appendPromptMessageContent(target: PromptRoleMessage, source: PromptRol
   if (source.files?.length) {
     target.files = [...(target.files ?? []), ...source.files.map((file) => ({ ...file }))];
   }
+  if (source.media?.length) target.media = [...(target.media ?? []), ...source.media];
   if (source.providerMetadata) {
     target.providerMetadata = {
       ...(target.providerMetadata ?? {}),
@@ -656,6 +728,43 @@ export function appendNonLeadingSystemMessagesToLastUser<T extends PromptRoleMes
     if (cloned.role === "user") lastUserIndex = result.length - 1;
   }
 
+  return result;
+}
+
+/** Format only audience-filtered, context-fitted messages, preserving live tool exchanges. */
+export function postProcessMessages(
+  messages: ChatMessage[],
+  parameters: Pick<StoredGenerationParameters, "strictRoleFormatting" | "singleUserMessage"> = {},
+): ChatMessage[] {
+  const single = parameters.singleUserMessage === true;
+  const apply = parameters.strictRoleFormatting !== false && !single;
+  const source = apply ? appendNonLeadingSystemMessagesToLastUser(messages) : messages;
+  const result: ChatMessage[] = [];
+  let leadingSystem = true;
+  for (const original of source) {
+    if (!hasProviderMessagePayload(original) && !original.media?.length) continue;
+    const message = clonePromptRoleMessage(original);
+    if (message.role !== "system") leadingSystem = false;
+    const protocolMessage = message.role === "tool" || !!message.tool_calls?.length;
+    if (single && !leadingSystem && !protocolMessage) {
+      message.content = `[${message.role.toUpperCase()}]\n${message.content}`;
+      message.role = "user";
+      // Provider reasoning signatures belong to assistant turns, not a user transcript.
+      delete message.providerMetadata;
+    }
+    const previous = result.at(-1);
+    const canMerge =
+      previous &&
+      previous.role === message.role &&
+      !protocolMessage &&
+      !previous.tool_calls?.length &&
+      !(message.role === "assistant" && (previous.providerMetadata || message.providerMetadata));
+    if (canMerge && (leadingSystem || apply || single)) {
+      appendPromptMessageContent(previous, message);
+    } else {
+      result.push(message);
+    }
+  }
   return result;
 }
 
@@ -815,30 +924,53 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function readCharacterName(data: unknown): string | null {
+export interface CharacterIdentity {
+  name: string;
+  nameAliases: string[];
+}
+
+function readCharacterIdentity(data: unknown): CharacterIdentity | null {
   try {
     const parsed = typeof data === "string" ? JSON.parse(data) : data;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     const name = (parsed as { name?: unknown }).name;
-    return typeof name === "string" && name.trim() ? name.trim() : null;
+    if (typeof name !== "string" || !name.trim()) return null;
+    const aliases = (parsed as { extensions?: { nameAliases?: unknown } | null }).extensions?.nameAliases;
+    return {
+      name: name.trim(),
+      nameAliases: Array.isArray(aliases)
+        ? aliases
+            .filter((alias): alias is string => typeof alias === "string" && !!alias.trim())
+            .map((alias) => alias.trim())
+        : [],
+    };
   } catch {
     return null;
   }
+}
+
+/** Supply the chat's full character list to include disabled members without reading unrelated cards. */
+export async function resolveCharacterIdentityMap(
+  characterIds: string[],
+  getCharacterById: (id: string) => Promise<{ data?: unknown } | null | undefined>,
+): Promise<Map<string, CharacterIdentity>> {
+  const entries = await Promise.all(
+    characterIds.map(async (id) => {
+      const row = await getCharacterById(id);
+      const identity = readCharacterIdentity(row?.data);
+      return identity ? ([id, identity] as const) : null;
+    }),
+  );
+
+  return new Map(entries.filter((entry): entry is readonly [string, CharacterIdentity] => !!entry));
 }
 
 export async function resolveCharacterNameMap(
   characterIds: string[],
   getCharacterById: (id: string) => Promise<{ data?: unknown } | null | undefined>,
 ): Promise<Map<string, string>> {
-  const entries = await Promise.all(
-    characterIds.map(async (id) => {
-      const row = await getCharacterById(id);
-      const name = readCharacterName(row?.data);
-      return name ? ([id, name] as const) : null;
-    }),
-  );
-
-  return new Map(entries.filter((entry): entry is readonly [string, string] => !!entry));
+  const identities = await resolveCharacterIdentityMap(characterIds, getCharacterById);
+  return new Map([...identities].map(([id, identity]) => [id, identity.name]));
 }
 
 function prefixSpeakerName(content: string, speakerName: string): string {
@@ -862,13 +994,19 @@ export function prefixGroupIndividualHistorySpeakers<T extends SpeakerPrefixMess
   options: {
     personaName: string;
     characterNamesById: ReadonlyMap<string, string>;
+    /** Individual group roles are relative to the recipient; characterId still identifies the speaker. */
+    recipientScoped?: boolean;
   },
 ): T[] {
   const personaName = options.personaName.trim() || "User";
 
   return messages.map((message) => {
     let speakerName: string | null = null;
-    if (message.role === "user") {
+    if (options.recipientScoped && message.characterId) {
+      speakerName =
+        options.characterNamesById.get(message.characterId) ??
+        (typeof message.name === "string" && message.name.trim() ? message.name.trim() : null);
+    } else if (message.role === "user") {
       speakerName = message.personaSnapshotName?.trim() || personaName;
     } else if (message.role === "assistant") {
       speakerName =
@@ -1491,7 +1629,7 @@ export function collectLatestTrackerCharacterHistory(
   return history;
 }
 
-type TrackerCharacterCardIdentity = {
+type TrackerCharacterCardIdentity = CharacterCardCastSource & {
   id: string;
   name: string;
   avatarPath?: string | null;
@@ -1556,9 +1694,50 @@ export function canonicalizeGamePartySpeakerLabels(content: string, canonicalNam
   );
 }
 
+const TRACKER_CAST_ID_SEPARATOR = ":cast:";
+
+/**
+ * Character id for one member of a multi-character card: `<cardId>:cast:<normalized name>`.
+ * Cast ids stay stable across turns so locks, manual edits, NPC avatars, and
+ * continuity keep pointing at the same person even when the card itself is one row.
+ */
+export function buildTrackerCastCharacterId(cardId: string, name: unknown): string {
+  return `${cardId}${TRACKER_CAST_ID_SEPARATOR}${normalizeTextForMatch(name)}`;
+}
+
+export function parseTrackerCastCharacterId(value: unknown): { cardId: string; nameKey: string } | null {
+  if (typeof value !== "string") return null;
+  const index = value.indexOf(TRACKER_CAST_ID_SEPARATOR);
+  if (index <= 0) return null;
+  const cardId = value.slice(0, index).trim();
+  const nameKey = normalizeTextForMatch(value.slice(index + TRACKER_CAST_ID_SEPARATOR.length));
+  return cardId && nameKey ? { cardId, nameKey } : null;
+}
+
+/**
+ * Canonicalize tracked characters against the chat's character cards.
+ *
+ * A tracked entry that matches a card by id, exact name, or an explicit alias
+ * takes the card's id, name, and avatar, and duplicates collapse into one row.
+ * That keeps single-character cards stable when a model drifts between
+ * "Mari" and 'Marisol "Mari"'.
+ *
+ * Some cards describe several people (a scenario card with a cast). The
+ * tracker reports each of them with the card's id and their own name. Merging
+ * those would erase everyone but the last one, so a card is treated as a
+ * multi-character card when its own text lists a cast (see
+ * `extractCharacterCardCastMembers`), when the batch carries two or more
+ * distinctly named members for it, or when `previousCharacters` already holds
+ * a cast id for it. An entry that merely repeats the title of a card with a
+ * known cast is dropped once this result supplies an individual member.
+ * Cast members keep their own name under a `<cardId>:cast:<name>` id, do not
+ * inherit the card avatar, and are not reported in the returned card-id set,
+ * so the NPC avatar path (library, stored, or generated portraits) applies.
+ */
 export function applyTrackerCharacterCardIdentity(
   characters: Array<Record<string, unknown>>,
   cards: TrackerCharacterCardIdentity[],
+  options: { previousCharacters?: ReadonlyArray<Record<string, unknown>> } = {},
 ): Set<string> {
   const cardsById = new Map(cards.map((card) => [card.id.trim().toLowerCase(), card]));
   const cardsByName = new Map<string, TrackerCharacterCardIdentity>();
@@ -1572,37 +1751,130 @@ export function applyTrackerCharacterCardIdentity(
   for (const name of duplicateNames) cardsByName.delete(name);
   const canonicalCardNamesByKey = new Map([...cardsByName].map(([key, card]) => [key, card.name]));
 
-  const matchedIds = new Set<string>();
-  const canonicalCharacters: Array<Record<string, unknown>> = [];
-  const canonicalIndexByCardId = new Map<string, number>();
-  for (const character of characters) {
+  // Cards whose text lists a cast are multi-character from the first turn on,
+  // and a bare member name (no id) links to its card through this map.
+  const declaredCastCardIds = new Set<string>();
+  const cardsByCastMember = new Map<string, TrackerCharacterCardIdentity>();
+  const ambiguousCastMembers = new Set<string>();
+  for (const card of cards) {
+    const members = extractCharacterCardCastMembers(card);
+    if (members.length === 0) continue;
+    declaredCastCardIds.add(card.id);
+    for (const member of members) {
+      const key = normalizeTextForMatch(member);
+      if (!key || cardsByName.has(key)) continue;
+      if (cardsByCastMember.has(key) && cardsByCastMember.get(key) !== card) ambiguousCastMembers.add(key);
+      else cardsByCastMember.set(key, card);
+    }
+  }
+  for (const key of ambiguousCastMembers) cardsByCastMember.delete(key);
+
+  type ResolvedTrackerCharacter = {
+    character: Record<string, unknown>;
+    card: TrackerCharacterCardIdentity | undefined;
+    /** The entry names the card itself (exact name, explicit alias, or no name at all). */
+    isCardName: boolean;
+    /** Normalized member name when the entry names someone other than the card. */
+    castNameKey: string;
+    viaCastId: boolean;
+  };
+
+  const resolved: ResolvedTrackerCharacter[] = characters.map((character) => {
+    const nameKey = trackerCharacterNameKey(character);
+    const castId = parseTrackerCastCharacterId(character.characterId);
+    const castCard = castId ? cardsById.get(castId.cardId.toLowerCase()) : undefined;
+    if (castId && castCard) {
+      return { character, card: castCard, isCardName: false, castNameKey: nameKey || castId.nameKey, viaCastId: true };
+    }
+
     const explicitCanonicalName = resolveExplicitCanonicalName(character.name, canonicalCardNamesByKey);
     const card =
       cardsById.get(trackerCharacterIdKey(character)) ??
-      cardsByName.get(trackerCharacterNameKey(character)) ??
+      cardsByName.get(nameKey) ??
       (explicitCanonicalName ? cardsByName.get(normalizeTextForMatch(explicitCanonicalName)) : undefined);
+    if (!card) {
+      const castCard =
+        nameKey && !isManualTrackerCharacterId(character.characterId) ? cardsByCastMember.get(nameKey) : undefined;
+      if (castCard) return { character, card: castCard, isCardName: false, castNameKey: nameKey, viaCastId: false };
+      return { character, card: undefined, isCardName: false, castNameKey: "", viaCastId: false };
+    }
+
+    const cardNameKey = normalizeTextForMatch(card.name);
+    const isCardName =
+      !nameKey ||
+      nameKey === cardNameKey ||
+      (!!explicitCanonicalName && normalizeTextForMatch(explicitCanonicalName) === cardNameKey);
+    return { character, card, isCardName, castNameKey: isCardName ? "" : nameKey, viaCastId: false };
+  });
+
+  // Multi-character cards: remembered from earlier snapshots, or evidenced by
+  // this batch naming two or more distinct members of the same card.
+  const castCardIds = new Set<string>(declaredCastCardIds);
+  for (const previous of options.previousCharacters ?? []) {
+    const parsed = parseTrackerCastCharacterId(previous.characterId);
+    const card = parsed ? cardsById.get(parsed.cardId.toLowerCase()) : undefined;
+    if (card) castCardIds.add(card.id);
+  }
+  const memberNamesByCard = new Map<string, Set<string>>();
+  for (const entry of resolved) {
+    if (!entry.card) continue;
+    if (entry.viaCastId) castCardIds.add(entry.card.id);
+    if (!entry.castNameKey) continue;
+    const members = memberNamesByCard.get(entry.card.id) ?? new Set<string>();
+    members.add(entry.castNameKey);
+    memberNamesByCard.set(entry.card.id, members);
+  }
+  for (const [cardId, members] of memberNamesByCard) {
+    if (members.size >= 2) castCardIds.add(cardId);
+  }
+
+  const matchedIds = new Set<string>();
+  const canonicalCharacters: Array<Record<string, unknown>> = [];
+  const canonicalIndexByKey = new Map<string, number>();
+  const pushOrMerge = (key: string, next: Record<string, unknown>) => {
+    const existingIndex = canonicalIndexByKey.get(key);
+    if (existingIndex === undefined) {
+      canonicalIndexByKey.set(key, canonicalCharacters.length);
+      canonicalCharacters.push(next);
+    } else {
+      canonicalCharacters[existingIndex] = { ...canonicalCharacters[existingIndex], ...next };
+    }
+  };
+
+  for (const { character, card, isCardName, castNameKey } of resolved) {
     if (!card) {
       canonicalCharacters.push(character);
       continue;
     }
 
-    const canonicalCharacter = {
+    if (castCardIds.has(card.id) && isCardName && (memberNamesByCard.get(card.id)?.size ?? 0) > 0) {
+      // Replace the old merged title only when this result includes a member, preserving legacy state otherwise.
+      continue;
+    }
+
+    if (castCardIds.has(card.id) && !isCardName && castNameKey) {
+      const castId = buildTrackerCastCharacterId(card.id, castNameKey);
+      const castCharacter: Record<string, unknown> = {
+        ...character,
+        characterId: castId,
+        name: typeof character.name === "string" ? character.name.trim() : castNameKey,
+      };
+      // A member never wears the card's portrait; NPC avatar enrichment finds their own.
+      if (card.avatarPath && castCharacter.avatarPath === card.avatarPath) {
+        castCharacter.avatarPath = null;
+        castCharacter.avatarCrop = null;
+      }
+      pushOrMerge(castId, castCharacter);
+      continue;
+    }
+
+    pushOrMerge(`card:${card.id}`, {
       ...character,
       characterId: card.id,
       name: card.name,
       avatarPath: card.avatarPath ?? null,
       avatarCrop: card.avatarCrop ?? null,
-    };
-    const existingIndex = canonicalIndexByCardId.get(card.id);
-    if (existingIndex === undefined) {
-      canonicalIndexByCardId.set(card.id, canonicalCharacters.length);
-      canonicalCharacters.push(canonicalCharacter);
-    } else {
-      canonicalCharacters[existingIndex] = {
-        ...canonicalCharacters[existingIndex],
-        ...canonicalCharacter,
-      };
-    }
+    });
     matchedIds.add(card.id);
   }
   characters.splice(0, characters.length, ...canonicalCharacters);
@@ -1709,6 +1981,7 @@ export function parseGameStateRow(row: Record<string, unknown>): GameState {
     manualOverrides,
     fieldLocks,
     hiddenTrackerFields,
+    rulesetLive: parseStoredRulesetLive(row.rulesetLive),
     createdAt: row.createdAt as string,
   };
 }

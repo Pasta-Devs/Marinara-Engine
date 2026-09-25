@@ -13,18 +13,20 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Preselect a provider, for callers that open this to set up one kind of connection. */
+  initialProvider?: APIProvider;
 }
 
-export function CreateConnectionModal({ open, onClose }: Props) {
+export function CreateConnectionModal({ open, onClose, initialProvider }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const createConnection = useCreateConnection();
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
   const [name, setName] = useState("");
-  const [provider, setProvider] = useState<APIProvider>("openai");
+  const [provider, setProvider] = useState<APIProvider>(initialProvider ?? "openai");
 
   const reset = () => {
     setName("");
-    setProvider("openai");
+    setProvider(initialProvider ?? "openai");
   };
 
   const handleCreate = async () => {
@@ -37,7 +39,7 @@ export function CreateConnectionModal({ open, onClose }: Props) {
         provider,
         baseUrl: providerDef?.defaultBaseUrl ?? "",
         apiKey: "",
-        model: defaultModel?.id ?? "",
+        model: provider === "decision" ? "jev-latest" : (defaultModel?.id ?? ""),
         maxContext: defaultModel?.context || 128000,
       });
       const connId = (result as { id: string })?.id;
@@ -104,7 +106,7 @@ export function CreateConnectionModal({ open, onClose }: Props) {
                     : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                 )}
               >
-                {info.name}
+                {key === "decision" ? localizeUi("connections.decision.label") : info.name}
               </button>
             ))}
           </div>

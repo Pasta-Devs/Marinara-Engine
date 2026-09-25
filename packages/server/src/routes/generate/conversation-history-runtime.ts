@@ -505,7 +505,7 @@ function bucketConversationHistory(args: {
     }
 
     const ts = new Date(raw.createdAt as string);
-    let author = "Character";
+    let author: string;
     if (membershipEvent !== null) author = "System";
     else if (raw.role === "narrator") author = "Narrator";
     else if (msg.role === "user") author = args.personaName;

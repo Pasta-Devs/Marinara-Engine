@@ -4,7 +4,7 @@
 import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
 import { Pipette, Sparkles, X, Plus, Trash2 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { isCssGradient, RAINBOW_GRADIENT_PRESET } from "../../lib/css-colors";
+import { isCssGradient, MARINARA_GRADIENT_PRESET, RAINBOW_GRADIENT_PRESET } from "../../lib/css-colors";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface ColorPickerProps {
@@ -58,6 +58,7 @@ const PRESETS = [
 
 /** Preset gradients */
 const GRADIENT_PRESETS = [
+  MARINARA_GRADIENT_PRESET,
   RAINBOW_GRADIENT_PRESET,
   "linear-gradient(90deg, #ff6b6b, #ffd93d)",
   "linear-gradient(90deg, #a29bfe, #fd79a8)",
@@ -338,10 +339,11 @@ export function ColorPicker({
   disabled = false,
 }: ColorPickerProps) {
   const { t: localizeUi } = useUiTranslation();
-  const isGradient = isEditableLinearGradient(value);
+  const previewValue = value || emptyPreviewValue;
+  const isGradient = isEditableLinearGradient(previewValue);
   const [mode, setMode] = useState<"solid" | "gradient">(isGradient ? "gradient" : "solid");
   const [gradientStops, setGradientStops] = useState<string[]>(
-    isGradient ? parseGradientStops(value) : ["#ff6b6b", "#ffd93d"],
+    isGradient ? parseGradientStops(previewValue) : ["#ff6b6b", "#ffd93d"],
   );
   const [gradientAngle, setGradientAngle] = useState(90);
   const [expanded, setExpanded] = useState(false);
@@ -352,15 +354,15 @@ export function ColorPicker({
 
   // Sync value → local state when value changes externally
   useEffect(() => {
-    if (isEditableLinearGradient(value)) {
+    if (isEditableLinearGradient(previewValue)) {
       setMode("gradient");
-      setGradientStops(parseGradientStops(value));
-      const angleMatch = value.match(/linear-gradient\((\d+)deg/);
+      setGradientStops(parseGradientStops(previewValue));
+      const angleMatch = previewValue.match(/linear-gradient\((\d+)deg/);
       if (angleMatch) setGradientAngle(parseInt(angleMatch[1]));
-    } else if (value) {
+    } else if (previewValue) {
       setMode("solid");
     }
-  }, [value]);
+  }, [previewValue]);
 
   useEffect(() => {
     setActiveStop((current) => Math.min(current, Math.max(0, gradientStops.length - 1)));
@@ -483,7 +485,6 @@ export function ColorPicker({
     setExpanded(false);
   }, [clearValue, commitChange]);
 
-  const previewValue = value || emptyPreviewValue;
   const solidSliderColor = !isCssGradient(previewValue)
     ? previewValue
       ? resolveCssColorToHex(previewValue)
@@ -755,10 +756,16 @@ export function ColorPicker({
                       }}
                       className={cn(
                         "h-6 w-6 rounded-md ring-1 ring-[var(--border)] transition-all hover:scale-110 hover:ring-2 hover:ring-[var(--primary)]/50",
-                        value === g && "ring-2 ring-[var(--primary)] scale-110",
+                        previewValue === g && "ring-2 ring-[var(--primary)] scale-110",
                       )}
                       style={{ background: g }}
-                      title={g === RAINBOW_GRADIENT_PRESET ? localizeUi("ui.ui.colorpicker.gayRgbRainbow") : g}
+                      title={
+                        g === MARINARA_GRADIENT_PRESET
+                          ? localizeUi("ui.ui.colorpicker.marinaraGradient")
+                          : g === RAINBOW_GRADIENT_PRESET
+                            ? localizeUi("ui.ui.colorpicker.gayRgbRainbow")
+                            : g
+                      }
                     />
                   ))}
                 </div>

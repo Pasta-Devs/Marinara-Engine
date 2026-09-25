@@ -22,6 +22,16 @@ type GameStateSnapshotLike = {
   playerStats?: unknown;
 };
 
+export const COMMITTED_TRACKER_AGENT_TYPES = new Set([
+  "world-state",
+  "character-tracker",
+  "persona-stats",
+  "quest",
+  "custom-tracker",
+  "inventory-tracker",
+  "beholder",
+]);
+
 export const MAX_WORLD_CUSTOM_FIELDS_IN_COMMITTED_CONTEXT = 64;
 
 const WORLD_RESERVED_CUSTOM_FIELD_NAMES = new Set(["date", "time", "location", "weather", "temperature"]);
@@ -138,7 +148,11 @@ function formatInventoryTrackerLine(item: any): string | null {
   const name = asText(item?.name);
   if (!name) return null;
   const quantity = finiteNumberText(item?.qty);
-  return `- ${name}${quantity && Number(quantity) > 1 ? ` x${quantity}` : ""}`;
+  const details = [
+    formatNamedValueLine({ name: "description", value: item?.description }),
+    formatNamedValueLine({ name: "location", value: item?.location }),
+  ].filter(isNonEmptyLine);
+  return `- ${name}${quantity && Number(quantity) > 1 ? ` x${quantity}` : ""}${details.length ? ` (${details.join("; ")})` : ""}`;
 }
 
 export function buildCommittedTrackerContextBlock(args: {
@@ -148,10 +162,13 @@ export function buildCommittedTrackerContextBlock(args: {
   beholderState?: unknown;
   chatMetadata: Record<string, unknown>;
   wrapFormat: WrapFormat;
+  excludeAgentIds?: ReadonlySet<string>;
 }): string | null {
   if (!args.chatEnableAgents || args.activeAgentIds.length === 0) return null;
 
   const active = new Set(args.activeAgentIds);
+  if (!args.activeAgentIds.some((id) => COMMITTED_TRACKER_AGENT_TYPES.has(id))) return null;
+  for (const id of args.excludeAgentIds ?? []) active.delete(id);
   const hasWorldState = active.has("world-state");
   const hasCharTracker = active.has("character-tracker");
   const hasPersonaStats = active.has("persona-stats");
@@ -159,16 +176,6 @@ export function buildCommittedTrackerContextBlock(args: {
   const hasCustomTracker = active.has("custom-tracker");
   const hasInventoryTracker = active.has("inventory-tracker");
   const hasBeholder = active.has("beholder");
-  if (
-    !hasWorldState &&
-    !hasCharTracker &&
-    !hasPersonaStats &&
-    !hasQuest &&
-    !hasCustomTracker &&
-    !hasInventoryTracker &&
-    !hasBeholder
-  )
-    return null;
 
   const snap = args.latestGameState ?? {};
 
@@ -277,7 +284,7 @@ export function buildCommittedTrackerContextBlock(args: {
   if (trackerParts.length === 0) return null;
 
   return args.wrapFormat === "none"
-    ? trackerParts.join("\n\n")
+    ? `Context:\n${trackerParts.join("\n\n")}`
     : args.wrapFormat === "xml"
       ? `<context>\n${trackerParts.map((part) => "    " + part.replace(/\n/g, "\n    ")).join("\n")}\n</context>`
       : `# Context\n*(Established state as of the last message. Do not re-describe — advance from here.)*\n${trackerParts.join("\n")}`;
@@ -291,9 +298,23 @@ export function injectCommittedTrackerContext(args: {
   beholderState?: unknown;
   chatMetadata: Record<string, unknown>;
   wrapFormat: WrapFormat;
+  /** Return true only when an enabled preset section consumed this saved state. */
+  placeSection?(agentType: string, content: string): boolean;
   dedupeLastMessageWrappers(messages: PromptMessage[]): void;
   findTrackerContextInsertIndex(messages: PromptMessage[]): number;
 }): void {
+  const placedAgentIds = new Set<string>();
+  if (args.placeSection && args.chatEnableAgents) {
+    for (const agentType of new Set(args.activeAgentIds)) {
+      const sectionContent = buildCommittedTrackerContextBlock({
+        ...args,
+        activeAgentIds: [agentType],
+        // Player notes belong to the shared context, never to an individual tracker.
+        chatMetadata: {},
+      });
+      if (sectionContent && args.placeSection(agentType, sectionContent)) placedAgentIds.add(agentType);
+    }
+  }
   const contextBlock = buildCommittedTrackerContextBlock({
     chatEnableAgents: args.chatEnableAgents,
     activeAgentIds: args.activeAgentIds,
@@ -301,6 +322,7 @@ export function injectCommittedTrackerContext(args: {
     beholderState: args.beholderState,
     chatMetadata: args.chatMetadata,
     wrapFormat: args.wrapFormat,
+    excludeAgentIds: placedAgentIds,
   });
 
   if (!contextBlock) return;

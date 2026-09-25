@@ -1,5 +1,10 @@
 import {
+  DECISION_SOURCES,
+  defaultDecisionStateTokens,
+  resolveDecisionConnectionTimeoutMs,
+  type DecisionSource,
   normalizeImagePromptInstructions,
+  resolveOpenAIImageQuality,
   PROVIDERS,
   type APIProvider,
   type ImageGenerationQuality,
@@ -34,6 +39,9 @@ export type ConnectionTransferRow = {
   videoGenerationSource?: unknown;
   videoService?: unknown;
   audioSource?: unknown;
+  decisionSource?: unknown;
+  maxStateTokens?: unknown;
+  decisionTimeoutMs?: unknown;
   audioVoice?: unknown;
   audioSoundEffects?: unknown;
   audioMusic?: unknown;
@@ -74,6 +82,9 @@ export type SafeConnectionExport = {
   videoGenerationSource: string | null;
   videoService: string | null;
   audioSource: string | null;
+  decisionSource: DecisionSource | null;
+  maxStateTokens: number | null;
+  decisionTimeoutMs: number | null;
   audioVoice: string | null;
   audioSoundEffects: boolean;
   audioMusic: boolean;
@@ -122,6 +133,10 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
   const name = asString(value.name).trim();
   if (!provider || !name) return null;
 
+  const decisionSource =
+    provider === "decision" && DECISION_SOURCES.includes(value.decisionSource as DecisionSource)
+      ? (value.decisionSource as DecisionSource)
+      : null;
   const defaultParameters = parseDefaultParameters(value.defaultParameters);
   const imageService = asNullableString(value.imageService ?? value.service);
   const videoService = provider === "video_generation" ? asNullableString(value.videoService ?? value.service) : null;
@@ -151,9 +166,16 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
       imageService,
       imageEndpointId: asNullableString(value.imageEndpointId),
       imagePromptInstructions: normalizeImagePromptInstructions(value.imagePromptInstructions),
-      imageGenerationQuality: asImageGenerationQuality(value.imageGenerationQuality),
+      imageGenerationQuality: resolveOpenAIImageQuality(value.imageGenerationQuality, asString(value.model)),
       videoGenerationSource: provider === "video_generation" ? asNullableString(value.videoGenerationSource) : null,
       videoService,
+      decisionSource,
+      maxStateTokens:
+        provider === "decision"
+          ? asBoundedPositiveInteger(value.maxStateTokens, defaultDecisionStateTokens(decisionSource), 30000)
+          : null,
+      decisionTimeoutMs: provider === "decision" ? asDecisionTimeoutMs(value.decisionTimeoutMs) : null,
+      credentialsFromConnectionId: null,
       audioSource: provider === "audio" ? asAudioGenerationSource(value.audioSource ?? value.service) : null,
       audioVoice: provider === "audio" ? asNullableString(value.audioVoice) : null,
       audioSoundEffects: provider === "audio" && asBoolean(value.audioSoundEffects),
@@ -172,6 +194,10 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
 
 function serializeConnectionForExport(connection: ConnectionTransferRow): SafeConnectionExport {
   const provider = asProvider(connection.provider) ?? "custom";
+  const decisionSource =
+    provider === "decision" && DECISION_SOURCES.includes(connection.decisionSource as DecisionSource)
+      ? (connection.decisionSource as DecisionSource)
+      : null;
   const isVideoProvider = provider === "video_generation";
   const isAudioProvider = provider === "audio";
   return {
@@ -201,21 +227,23 @@ function serializeConnectionForExport(connection: ConnectionTransferRow): SafeCo
     imageService: asNullableString(connection.imageService ?? connection.service),
     videoGenerationSource: isVideoProvider ? asNullableString(connection.videoGenerationSource) : null,
     videoService: isVideoProvider ? asNullableString(connection.videoService ?? connection.service) : null,
+    decisionSource,
+    maxStateTokens:
+      provider === "decision"
+        ? asBoundedPositiveInteger(connection.maxStateTokens, defaultDecisionStateTokens(decisionSource), 30000)
+        : null,
+    decisionTimeoutMs: provider === "decision" ? asDecisionTimeoutMs(connection.decisionTimeoutMs) : null,
     audioSource: isAudioProvider ? asNullableString(connection.audioSource ?? connection.service) : null,
     audioVoice: isAudioProvider ? asNullableString(connection.audioVoice) : null,
     audioSoundEffects: isAudioProvider && asBoolean(connection.audioSoundEffects),
     audioMusic: isAudioProvider && asBoolean(connection.audioMusic),
     imageEndpointId: asNullableString(connection.imageEndpointId),
     imagePromptInstructions: normalizeImagePromptInstructions(connection.imagePromptInstructions),
-    imageGenerationQuality: asImageGenerationQuality(connection.imageGenerationQuality),
+    imageGenerationQuality: resolveOpenAIImageQuality(connection.imageGenerationQuality, asString(connection.model)),
     comfyuiWorkflow: asNullableString(connection.comfyuiWorkflow),
     treatAsLocalEndpoint: asBoolean(connection.treatAsLocalEndpoint),
     claudeFastMode: asBoolean(connection.claudeFastMode),
   };
-}
-
-function asImageGenerationQuality(value: unknown): ImageGenerationQuality {
-  return value === "low" || value === "medium" || value === "high" ? value : "auto";
 }
 
 /** Unknown sources degrade to null (resolved as ElevenLabs) instead of failing the whole connection import. */
@@ -297,6 +325,14 @@ function asPositiveInteger(value: unknown, fallback: number) {
 
 function asBoundedPositiveInteger(value: unknown, fallback: number, max: number) {
   return Math.min(max, asPositiveInteger(value, fallback));
+}
+
+/** A Decision connection's own time limit, or null to keep the default. */
+function asDecisionTimeoutMs(value: unknown) {
+  // A blank string is unset, not zero: Number(" ") is 0, which would clamp to the minimum.
+  const text = typeof value === "string" ? value.trim() : null;
+  const numberValue = typeof value === "number" ? value : text ? Number(text) : NaN;
+  return Number.isFinite(numberValue) ? resolveDecisionConnectionTimeoutMs(numberValue) : null;
 }
 
 function asNonNegativeInteger(value: unknown, fallback: number) {

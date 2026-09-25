@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Check, ChevronDown, Code2, Pencil, RefreshCw, Sparkles, Square, Trash2, X } from "lucide-react";
-import { BUILT_IN_AGENTS, type Message } from "@marinara-engine/shared";
+import { BUILT_IN_AGENTS, publicAgentOutput, type Message, type AdvancedMemoryStatus } from "@marinara-engine/shared";
+import { useAdvancedMemoryAction } from "../../hooks/use-advanced-memory";
+import { AdvancedMemoryProgress } from "./AdvancedMemoryProgress";
 import { toast } from "sonner";
 import { useUpdateAgentRunData, type AgentConfigRow, type AgentRunRow } from "../../hooks/use-agents";
 import {
@@ -10,8 +12,12 @@ import {
   type AgentFailure,
 } from "../../lib/agent-failures";
 import { ContextInjectionPanel } from "../agents/ContextInjectionPanel";
+import { AgentTaskStatus } from "../agents/AgentTaskStatus";
+import { AgentOutputSpoiler } from "../agents/AgentOutputSpoiler";
+import { useAgentStore } from "../../stores/agent.store";
 import { ContinuityIssueChecklist } from "../agents/ContinuityIssueChecklist";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 
 interface ThoughtBubble {
   agentId: string;
@@ -24,6 +30,7 @@ type AgentsMenuTab = "activity" | "injections";
 
 interface RoleplayHUDActionsMenuProps {
   chatId: string;
+  advancedMemoryStatus?: AdvancedMemoryStatus;
   injectionSourceMessages?: Message[];
   isAgentProcessing: boolean;
   isGenerationBusy?: boolean;
@@ -46,6 +53,7 @@ interface RoleplayHUDActionsMenuProps {
 
 export function RoleplayHUDActionsMenu({
   chatId,
+  advancedMemoryStatus,
   injectionSourceMessages,
   isAgentProcessing,
   isGenerationBusy = isAgentProcessing,
@@ -66,6 +74,18 @@ export function RoleplayHUDActionsMenu({
   showInjectionsTab,
 }: RoleplayHUDActionsMenuProps) {
   const { t: localizeUi } = useUiTranslation();
+  const memoryAction = useAdvancedMemoryAction(chatId);
+  const taskProgress = useAgentStore((state) => state.taskProgress);
+  const reportedAgentTypes = useMemo(
+    () =>
+      new Set(
+        taskProgress
+          .filter((entry) => entry.chatId === chatId)
+          .flatMap((entry) => entry.agents.map((agent) => agent.type)),
+      ),
+    [chatId, taskProgress],
+  );
+  const hasTaskProgress = reportedAgentTypes.size > 0;
   const [tab, setTab] = useState<AgentsMenuTab>("activity");
   const [stoppingAgents, setStoppingAgents] = useState(false);
   const uniqueAgentCount = new Set(thoughtBubbles.map((bubble) => bubble.agentId)).size;
@@ -83,6 +103,7 @@ export function RoleplayHUDActionsMenu({
         ? latestHistoricalCustomRuns
         : [];
   const hasCustomRuns = customActivityRuns.length > 0;
+  const unreportedCustomRuns = customActivityRuns.filter((run) => !reportedAgentTypes.has(run.agentType));
   const injectableCustomRuns = useMemo(
     () => getLatestInjectableCustomRuns(customAgentRuns, agentConfigs ?? [], enabledAgentTypes),
     [customAgentRuns, agentConfigs, enabledAgentTypes],
@@ -95,7 +116,13 @@ export function RoleplayHUDActionsMenu({
     () => hasActiveCustomAgentType(agentConfigs ?? [], enabledAgentTypes),
     [agentConfigs, enabledAgentTypes],
   );
-  const hasAnyActivity = isAgentProcessing || thoughtBubbles.length > 0 || hasCustomRuns || customAgentRunsLoading;
+  const hasAnyActivity =
+    advancedMemoryStatus ||
+    isAgentProcessing ||
+    hasTaskProgress ||
+    thoughtBubbles.length > 0 ||
+    hasCustomRuns ||
+    customAgentRunsLoading;
   const tabs = [
     { id: "activity" as const, label: "Activity" },
     ...(showInjectionsTab ? [{ id: "injections" as const, label: "Injections" }] : []),
@@ -128,6 +155,32 @@ export function RoleplayHUDActionsMenu({
     if (!isAgentProcessing) setStoppingAgents(false);
   }, [isAgentProcessing]);
 
+  const renderThoughtBubble = (bubble: ThoughtBubble, index: number) => (
+    <div
+      key={`${bubble.agentId}-${bubble.timestamp}`}
+      data-agent-output
+      className="relative rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-2 text-[0.625rem]"
+    >
+      <button
+        onClick={() => dismissThoughtBubble(index)}
+        aria-label={localizeUi("agents.activity.dismissOutput", { agent: bubble.agentName })}
+        className="absolute right-1.5 top-1.5 text-[var(--muted-foreground)]/50 transition-colors hover:text-[var(--foreground)]"
+      >
+        <X size="0.625rem" />
+      </button>
+      <div className="pr-4">
+        <span className="font-semibold text-foreground/75">{bubble.agentName}</span>
+        {bubble.agentId === "continuity" ? (
+          <ContinuityIssueChecklist content={bubble.content} compact />
+        ) : (
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-[var(--muted-foreground)] leading-relaxed">
+            {bubble.content}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <>
       {tabs.length > 1 && (
@@ -157,6 +210,52 @@ export function RoleplayHUDActionsMenu({
 
       {activeTab === "activity" && (
         <>
+          {advancedMemoryStatus && (
+            <div className="space-y-1 border-b border-[var(--border)] p-2" data-component="AdvancedRecallActivity">
+              <h4 className="px-1 text-xs font-semibold">{localizeUi("chat.advancedMemory.activity")}</h4>
+              <AdvancedMemoryProgress
+                chatId={chatId}
+                status={advancedMemoryStatus}
+                onResume={() => memoryAction.mutate({ action: "initialize" })}
+                pending={memoryAction.isPending}
+              />
+            </div>
+          )}
+          {thoughtBubbles.length > 0 && (
+            <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-1.5">
+              <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                {uniqueAgentCount} {localizeUi("ui.agents.agentcatalogview.agent")}
+                {uniqueAgentCount !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}{" "}
+                {localizeUi("ui.chat.roleplayhudactionsmenu.triggered")}
+              </span>
+              <button
+                onClick={clearThoughtBubbles}
+                className="text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+              >
+                {localizeUi("ui.chat.roleplayhudactionsmenu.clearAll")}
+              </button>
+            </div>
+          )}
+          <AgentTaskStatus
+            chatId={chatId}
+            renderOutput={(agentType) => (
+              <>
+                {thoughtBubbles.map((bubble, index) =>
+                  bubble.agentId === agentType ? renderThoughtBubble(bubble, index) : null,
+                )}
+                {customActivityRuns
+                  .filter((run) => run.agentType === agentType)
+                  .map((run) => (
+                    <div key={run.id} className="space-y-1">
+                      <p className="text-[var(--muted-foreground)]">
+                        {localizeUi("agents.activity.latestSavedOutput")}
+                      </p>
+                      <CustomAgentRunItem run={run} />
+                    </div>
+                  ))}
+              </>
+            )}
+          />
           {isAgentProcessing && (
             <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
               <Sparkles size="0.75rem" className="animate-pulse text-[var(--muted-foreground)]" />
@@ -170,52 +269,17 @@ export function RoleplayHUDActionsMenu({
               {localizeUi("ui.chat.roleplayhudactionsmenu.noAgentActivityYet")}
             </div>
           )}
-          {thoughtBubbles.length > 0 && (
-            <>
-              <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-1.5">
-                <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                  {uniqueAgentCount} {localizeUi("ui.agents.agentcatalogview.agent")}
-                  {uniqueAgentCount !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}{" "}
-                  {localizeUi("ui.chat.roleplayhudactionsmenu.triggered")}
-                </span>
-                <button
-                  onClick={clearThoughtBubbles}
-                  className="text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
-                >
-                  {localizeUi("ui.chat.roleplayhudactionsmenu.clearAll")}
-                </button>
-              </div>
-              <div className="flex flex-col gap-1 p-2">
-                {thoughtBubbles.map((bubble, index) => (
-                  <div
-                    key={`${bubble.agentId}-${bubble.timestamp}`}
-                    className="relative rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-2 text-[0.625rem]"
-                  >
-                    <button
-                      onClick={() => dismissThoughtBubble(index)}
-                      className="absolute right-1.5 top-1.5 text-[var(--muted-foreground)]/50 transition-colors hover:text-[var(--foreground)]"
-                    >
-                      <X size="0.625rem" />
-                    </button>
-                    <div className="pr-4">
-                      <span className="font-semibold text-foreground/75">{bubble.agentName}</span>
-                      {bubble.agentId === "continuity" ? (
-                        <ContinuityIssueChecklist content={bubble.content} compact />
-                      ) : (
-                        <p className="mt-0.5 whitespace-pre-wrap text-[var(--muted-foreground)] leading-relaxed">
-                          {bubble.content}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
+          {thoughtBubbles.some((bubble) => !reportedAgentTypes.has(bubble.agentId)) && (
+            <div className="flex flex-col gap-1 p-2">
+              {thoughtBubbles.map((bubble, index) =>
+                !reportedAgentTypes.has(bubble.agentId) ? renderThoughtBubble(bubble, index) : null,
+              )}
+            </div>
           )}
 
-          {(hasCustomRuns || customAgentRunsLoading) && (
+          {(unreportedCustomRuns.length > 0 || customAgentRunsLoading) && (
             <CustomAgentRunsSection
-              runs={customActivityRuns}
+              runs={unreportedCustomRuns}
               loading={customAgentRunsLoading}
               title={localizeUi("ui.chat.roleplayhudactionsmenu.customOutputs")}
               countMode="latest"
@@ -300,7 +364,15 @@ export function RoleplayHUDActionsMenu({
           )}
           {showTrackerActions && (
             <button
-              onClick={() => {
+              onClick={async () => {
+                const confirmed = await showConfirmDialog({
+                  title: localizeUi("ui.chat.roleplayhudactionsmenu.clearTrackers"),
+                  message: localizeUi("chat.trackers.clearConfirmation"),
+                  confirmLabel: localizeUi("ui.chat.roleplayhudactionsmenu.clearTrackers"),
+                  cancelLabel: localizeUi("chat.delete.dialog.cancel"),
+                  tone: "destructive",
+                });
+                if (!confirmed) return;
                 clearGameState();
                 onClose();
               }}
@@ -539,7 +611,7 @@ function getRunPreview(data: unknown): string {
   if (typeof data === "string") return data.trim();
   if (data && typeof data === "object") {
     const text = (data as Record<string, unknown>).text;
-    if (typeof text === "string" && text.trim()) return text.trim();
+    if (typeof text === "string") return text.trim();
     return JSON.stringify(data, null, 2);
   }
   return data == null ? "" : String(data);
@@ -552,10 +624,82 @@ function formatRunTime(value: string): string {
 }
 
 function CustomAgentRunItem({ run }: { run: AgentRunRow }) {
+  return (
+    <AgentOutputSpoiler hidden={run.hideOutput}>
+      <CustomAgentRunContent run={run} />
+    </AgentOutputSpoiler>
+  );
+}
+
+function CustomAgentRunContent({ run }: { run: AgentRunRow }) {
   const { t: localizeUi } = useUiTranslation();
   const updateRun = useUpdateAgentRunData();
-  const mode = getEditableMode(run.resultData);
-  const initialDraft = useMemo(() => getEditorValue(run.resultData, mode), [run.resultData, mode]);
+  const data = run.resultData;
+  const record = data && typeof data === "object" && !Array.isArray(data) ? (data as Record<string, unknown>) : null;
+  const contextKey = record && Object.hasOwn(record, "agent-context") ? "agent-context" : "agentContext";
+  const hasContext = !!record && Object.hasOwn(record, contextKey);
+  const timestamp = formatRunTime(run.createdAt);
+  const save = async (resultData: unknown) => {
+    await updateRun.mutateAsync({ id: run.id, chatId: run.chatId, resultData });
+  };
+  return (
+    <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-2 text-[0.625rem] text-[var(--foreground)]">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+        <span className="font-semibold text-foreground/75">{run.agentName}</span>
+        <span className="rounded bg-[var(--secondary)]/55 px-1 py-0.5 text-[0.5rem] uppercase tracking-wide text-[var(--muted-foreground)]">
+          {run.resultType.replace(/_/g, " ")}
+        </span>
+        {timestamp && <span className="text-[0.5rem] text-[var(--muted-foreground)]/70">{timestamp}</span>}
+      </div>
+      <AgentRunField
+        data={publicAgentOutput(data)}
+        label={localizeUi("agents.output.public")}
+        pending={updateRun.isPending}
+        onSave={(value) =>
+          save(
+            hasContext
+              ? {
+                  ...(value && typeof value === "object" && !Array.isArray(value)
+                    ? (publicAgentOutput(value) as Record<string, unknown>)
+                    : { text: value }),
+                  [contextKey]: record![contextKey],
+                }
+              : publicAgentOutput(value),
+          )
+        }
+      />
+      {hasContext && (
+        <AgentRunField
+          data={record![contextKey]}
+          label={localizeUi("agents.output.privateContext")}
+          privateContext
+          pending={updateRun.isPending}
+          onSave={(value) => save({ ...record, [contextKey]: value })}
+        />
+      )}
+    </div>
+  );
+}
+
+function AgentRunField({
+  data,
+  label,
+  privateContext = false,
+  pending,
+  onSave,
+}: {
+  data: unknown;
+  label: string;
+  privateContext?: boolean;
+  pending: boolean;
+  onSave: (value: unknown) => Promise<void>;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const mode = privateContext && typeof data !== "string" ? "json" : getEditableMode(data);
+  const initialDraft = useMemo(
+    () => (privateContext && mode === "json" ? JSON.stringify(data, null, 2) : getEditorValue(data, mode)),
+    [data, mode, privateContext],
+  );
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(initialDraft);
   const [error, setError] = useState<string | null>(null);
@@ -564,38 +708,31 @@ function CustomAgentRunItem({ run }: { run: AgentRunRow }) {
     if (!editing) setDraft(initialDraft);
   }, [editing, initialDraft]);
 
-  const preview = getRunPreview(run.resultData);
-  const timestamp = formatRunTime(run.createdAt);
+  const preview = privateContext && typeof data !== "string" ? JSON.stringify(data, null, 2) : getRunPreview(data);
 
   const save = async () => {
-    const parsed = parseDraft(run.resultData, mode, draft);
+    const parsed = parseDraft(data, mode, draft);
     if (!parsed.ok) {
       setError(parsed.error);
       return;
     }
     setError(null);
     try {
-      await updateRun.mutateAsync({ id: run.id, chatId: run.chatId, resultData: parsed.value });
+      await onSave(parsed.value);
       setEditing(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save output");
+      setError(err instanceof Error ? err.message : localizeUi("agents.output.saveFailed"));
     }
   };
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-2 text-[0.625rem] text-[var(--foreground)]">
+    <div role="group" aria-label={label}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-            <span className="font-semibold text-foreground/75">{run.agentName}</span>
-            <span className="rounded bg-[var(--secondary)]/55 px-1 py-0.5 text-[0.5rem] uppercase tracking-wide text-[var(--muted-foreground)]">
-              {run.resultType.replace(/_/g, " ")}
-            </span>
-            {timestamp && <span className="text-[0.5rem] text-[var(--muted-foreground)]/70">{timestamp}</span>}
-          </div>
+          <span className="font-medium text-[var(--muted-foreground)]">{label}</span>
           {!editing && (
             <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-[var(--secondary)]/35 p-1.5 font-sans text-[var(--muted-foreground)] leading-relaxed">
-              {preview || "Empty output"}
+              {preview || localizeUi("agents.output.empty")}
             </pre>
           )}
         </div>
@@ -609,7 +746,9 @@ function CustomAgentRunItem({ run }: { run: AgentRunRow }) {
           title={
             editing
               ? localizeUi("ui.chat.customagentrunitem.closeEditor")
-              : localizeUi("ui.chat.customagentrunitem.editOutput")
+              : privateContext
+                ? localizeUi("agents.output.editPrivateContext")
+                : localizeUi("ui.chat.customagentrunitem.editOutput")
           }
         >
           {editing ? <X size="0.6875rem" /> : <Pencil size="0.6875rem" />}
@@ -619,6 +758,7 @@ function CustomAgentRunItem({ run }: { run: AgentRunRow }) {
       {editing && (
         <div className="mt-2 space-y-1.5">
           <textarea
+            aria-label={label}
             value={draft}
             onChange={(event) => {
               setDraft(event.target.value);
@@ -627,7 +767,11 @@ function CustomAgentRunItem({ run }: { run: AgentRunRow }) {
             spellCheck={false}
             className="min-h-24 w-full resize-y rounded-md border border-[var(--input)] bg-[var(--secondary)]/45 px-2 py-1.5 font-mono text-[0.625rem] leading-relaxed text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:border-[var(--ring)] focus:ring-1 focus:ring-[var(--ring)]"
           />
-          {error && <div className="text-[0.5625rem] text-[var(--destructive)]">{error}</div>}
+          {error && (
+            <div role="alert" className="text-[0.5625rem] text-[var(--destructive)]">
+              {error}
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="text-[0.5625rem] uppercase tracking-wide text-[var(--muted-foreground)]/70">
               {mode === "json"
@@ -637,13 +781,11 @@ function CustomAgentRunItem({ run }: { run: AgentRunRow }) {
             <button
               type="button"
               onClick={save}
-              disabled={updateRun.isPending}
+              disabled={pending}
               className="inline-flex min-h-7 items-center gap-1 rounded-md border border-foreground/15 bg-foreground/10 px-2 py-1 text-[0.5625rem] font-medium text-foreground/70 transition-colors hover:bg-foreground/15 hover:text-foreground/85 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)] disabled:opacity-50"
             >
               <Check size="0.625rem" />
-              {updateRun.isPending
-                ? localizeUi("ui.noodle.stageprofileform.saving")
-                : localizeUi("ui.noodle.noodlehome.save")}
+              {pending ? localizeUi("ui.noodle.stageprofileform.saving") : localizeUi("ui.noodle.noodlehome.save")}
             </button>
           </div>
         </div>

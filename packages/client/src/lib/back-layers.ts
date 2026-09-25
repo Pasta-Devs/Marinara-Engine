@@ -5,11 +5,12 @@
 // this file exists. Ordered outermost → innermost — `back-navigation.ts` closes
 // the last entry.
 // ──────────────────────────────────────────────
-import { MOBILE_SHELL_MEDIA_QUERY, useUIStore } from "../stores/ui.store";
+import { isMobileShellViewport, useUIStore } from "../stores/ui.store";
 import { useDialogStore } from "../stores/dialog.store";
 import { dismissActiveDialog, showConfirmDialog } from "./app-dialogs";
 import { translate } from "../localization/i18n";
 import type { BackLayer } from "./back-navigation";
+import { hasEditorLeaveHandler } from "./editor-leave";
 
 /**
  * The shell docks the sidebar / right panel / tracker panel on a desktop-sized
@@ -18,14 +19,9 @@ import type { BackLayer } from "./back-navigation";
  * a docked panel is layout, not an overlay, and treating it as one would leave
  * a desktop browser permanently unable to navigate away.
  */
-let shellQuery: MediaQueryList | null = null;
-
 function isShellOverlayMode() {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  // Held once: this is re-read on every store update, and re-parsing the query
-  // string each time would be needless work on a hot path.
-  shellQuery ??= window.matchMedia(MOBILE_SHELL_MEDIA_QUERY);
-  return shellQuery.matches;
+  return isMobileShellViewport();
 }
 
 let detailCloseInFlight = false;
@@ -39,7 +35,7 @@ async function requestCloseDetails() {
   const ui = useUIStore.getState();
   if (!ui.hasAnyDetailOpen()) return;
 
-  if (ui.editorDirty) {
+  if (ui.editorDirty && !hasEditorLeaveHandler(ui)) {
     detailCloseInFlight = true;
     try {
       const discard = await showConfirmDialog({

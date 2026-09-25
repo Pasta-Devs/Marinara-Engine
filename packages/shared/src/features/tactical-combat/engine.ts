@@ -1,3 +1,10 @@
+import {
+  normalizeGameDifficulty,
+  combatWeatherEffects,
+  type CombatWeather,
+  type CombatAttackTraits,
+} from "../combat-conditions.js";
+import { assignCombatTactics } from "../combat-ai.js";
 // ──────────────────────────────────────────────
 // Tactical Combat — pure engine
 // ──────────────────────────────────────────────
@@ -9,8 +16,9 @@
 // refresh-safe). The LLM only narrates the aftermath via `buildTacticalSummary`.
 
 import type { Combatant, CombatSkill, CombatStatusEffect, CombatSummary } from "../../types/game.js";
+import { summarizeTacticalBattlefield } from "./battlefield-summary.js";
 import { CLASS_PROFILES, deriveClass } from "./classes.js";
-import { generateGrid, placeSpawns } from "./grid-gen.js";
+import { generateTacticalBattlefield, placeSpawns } from "./grid-gen.js";
 import {
   clamp,
   computeDamage,
@@ -28,21 +36,15 @@ import { deterministicRng } from "./rng.js";
 import type {
   ApplyActionResult,
   TacticalAction,
+  TacticalBattlefieldBrief,
   TacticalCombatState,
   TacticalCoord,
-  TacticalDifficulty,
   TacticalEnvironment,
   TacticalEvent,
   TacticalForecast,
   TacticalFormation,
   TacticalUnit,
 } from "./types.js";
-
-const DIFFICULTIES: TacticalDifficulty[] = ["casual", "normal", "hard", "brutal"];
-
-function normalizeDifficulty(value: string): TacticalDifficulty {
-  return DIFFICULTIES.includes(value as TacticalDifficulty) ? (value as TacticalDifficulty) : "normal";
-}
 
 const ENVIRONMENTS: TacticalEnvironment[] = [
   "forest",
@@ -66,12 +68,12 @@ const ENVIRONMENTS: TacticalEnvironment[] = [
 const FORMATIONS: TacticalFormation[] = ["line", "ambush", "surrounded", "skirmish", "defense"];
 
 /** Unknown/absent environment strings normalize to undefined (default theming). */
-function normalizeEnvironment(value?: string): TacticalEnvironment | undefined {
+export function normalizeEnvironment(value?: string): TacticalEnvironment | undefined {
   return value && ENVIRONMENTS.includes(value as TacticalEnvironment) ? (value as TacticalEnvironment) : undefined;
 }
 
 /** Unknown/absent formation strings normalize to "line" (legacy behavior). */
-function normalizeFormation(value?: string): TacticalFormation {
+export function normalizeFormation(value?: string): TacticalFormation {
   return value && FORMATIONS.includes(value as TacticalFormation) ? (value as TacticalFormation) : "line";
 }
 
@@ -84,6 +86,8 @@ function combatantToUnit(c: Combatant, side: "party" | "enemy", isBoss: boolean)
   const unitClass = deriveClass(c);
   const profile = CLASS_PROFILES[unitClass];
   return {
+    projectile: c.projectile,
+    requiresSight: c.requiresSight,
     id: c.id,
     name: c.name,
     side,
@@ -99,7 +103,12 @@ function combatantToUnit(c: Combatant, side: "party" | "enemy", isBoss: boolean)
     statusEffects: (c.statusEffects ?? []).map((e) => ({ ...e })),
     element: c.element,
     sprite: c.sprite,
-    isBoss,
+    movementMode: c.movementMode,
+    isBoss: side === "enemy" && (c.boss !== undefined || isBoss),
+    boss: side === "enemy" ? c.boss : undefined,
+    spellSlots: c.spellSlots ? { ...c.spellSlots } : undefined,
+    tactics: c.tactics,
+    controller: c.controller,
     x: 0,
     y: 0,
     unitClass,
@@ -120,9 +129,16 @@ function combatantToUnit(c: Combatant, side: "party" | "enemy", isBoss: boolean)
 export function createTacticalCombat(
   party: Combatant[],
   enemies: Combatant[],
-  opts: { seed: number; difficulty: string; environment?: string; formation?: string },
+  opts: {
+    seed: number;
+    difficulty: string;
+    weather?: CombatWeather;
+    environment?: string;
+    formation?: string;
+    battlefield?: TacticalBattlefieldBrief;
+  },
 ): TacticalCombatState {
-  const difficulty = normalizeDifficulty(opts.difficulty);
+  const difficulty = normalizeGameDifficulty(opts.difficulty);
   const environment = normalizeEnvironment(opts.environment);
   const formation = normalizeFormation(opts.formation);
   const seed = opts.seed >>> 0;
@@ -141,13 +157,17 @@ export function createTacticalCombat(
   }
 
   const units: TacticalUnit[] = [
-    ...party.map((c) => combatantToUnit(c, "party", false)),
-    ...enemies.map((c) => combatantToUnit(c, "enemy", c.id === bossId)),
+    ...party.map((c) => ({ ...combatantToUnit(c, "party", false), tactics: assignCombatTactics(c, seed) })),
+    ...enemies.map((c) => ({ ...combatantToUnit(c, "enemy", c.id === bossId), tactics: assignCombatTactics(c, seed) })),
   ];
 
   const setupRng = deterministicRng(seed, 0);
-  const grid = generateGrid(units.length, setupRng, environment);
-  placeSpawns(grid, units, formation, setupRng);
+  const generated = generateTacticalBattlefield(units.length, setupRng, environment, opts.battlefield);
+  if (!generated.ok) throw new Error(generated.error);
+  const { grid } = generated;
+  if (!placeSpawns(grid, units, formation, setupRng, generated.protectedTiles)) {
+    throw new Error("Battlefield features prevent a connected unit deployment.");
+  }
 
   const state: TacticalCombatState = {
     schemaVersion: 1,
@@ -159,7 +179,9 @@ export function createTacticalCombat(
     actionCounter: 1,
     log: [{ kind: "phase", text: "Player Phase — Round 1", phase: "player" }],
     difficulty,
+    weather: opts.weather,
     formation,
+    battlefield: generated.battlefield,
     ...(environment ? { environment } : {}),
   };
   return state;
@@ -179,6 +201,14 @@ function occupantAt(state: TacticalCombatState, x: number, y: number, exceptId?:
   return state.units.find((u) => u.hp > 0 && u.x === x && u.y === y && u.id !== exceptId);
 }
 
+export function canTraverseTile(state: TacticalCombatState, unit: TacticalUnit, tile: TacticalCoord): boolean {
+  if (!inBounds(state.grid, tile.x, tile.y)) return false;
+  if (unit.movementMode === "fly") return true;
+  if (isImpassable(state.grid, tile.x, tile.y)) return false;
+  const blocker = occupantAt(state, tile.x, tile.y, unit.id);
+  return !blocker || (unit.movementMode !== "teleport" && blocker.side === unit.side);
+}
+
 // ── Movement ──
 
 /**
@@ -190,6 +220,22 @@ export function getMovementRange(state: TacticalCombatState, unitId: string): Ta
   const unit = getUnit(state, unitId);
   if (!unit || unit.hp <= 0) return [];
   const { grid } = state;
+
+  const movementMode = unit.movementMode ?? "walk";
+  if (movementMode === "fly" || movementMode === "teleport") {
+    const out: TacticalCoord[] = [];
+    for (let y = 0; y < grid.height; y++) {
+      for (let x = 0; x < grid.width; x++) {
+        if (manhattan(unit, { x, y }) > unit.movement) continue;
+        // Flight may hover over every terrain type. Teleport crosses all
+        // intervening terrain and units but still needs walkable footing.
+        if (movementMode === "teleport" && isImpassable(grid, x, y)) continue;
+        if (occupantAt(state, x, y, unit.id)) continue;
+        out.push({ x, y });
+      }
+    }
+    return out;
+  }
 
   const cost = new Map<string, number>();
   const start = `${unit.x},${unit.y}`;
@@ -218,11 +264,8 @@ export function getMovementRange(state: TacticalCombatState, unitId: string): Ta
     ] as const) {
       const nx = cx + dx;
       const ny = cy + dy;
-      if (!inBounds(grid, nx, ny) || isImpassable(grid, nx, ny)) continue;
-      const blocker = occupantAt(state, nx, ny, unit.id);
-      // Enemy units block traversal entirely.
-      if (blocker && blocker.side !== unit.side) continue;
-      const enterCost = terrainInfoAt(grid, nx, ny).moveCost;
+      if (!canTraverseTile(state, unit, { x: nx, y: ny })) continue;
+      const enterCost = terrainInfoAt(grid, nx, ny).moveCost + combatWeatherEffects(state.weather).walkingCost;
       const newCost = bestCost + enterCost;
       if (newCost > unit.movement) continue;
       const key = `${nx},${ny}`;
@@ -272,12 +315,15 @@ function forecastFrom(
   attacker: TacticalUnit,
   defender: TacticalUnit,
   from: TacticalCoord,
-  opts: { power?: number; element?: string; hitPenalty?: number } = {},
+  opts: { power?: number; element?: string; hitPenalty?: number; traits?: CombatAttackTraits } = {},
 ): { damage: number; hitChance: number; critChance: number } {
   // Temporarily view the attacker as standing on `from` for terrain-independent math
   // (attacker terrain doesn't affect its own outgoing hit/damage, so position only
   // matters for range — computeDamage reads defender terrain from real coords).
-  const hc = Math.max(0, hitChance(state.grid, attacker, defender) - (opts.hitPenalty ?? 0));
+  const hc = Math.max(
+    0,
+    hitChance(state.grid, attacker, defender, state.weather, opts.traits ?? attacker) - (opts.hitPenalty ?? 0),
+  );
   const cc = critChance(attacker, defender);
   const dmg = computeDamage({
     grid: state.grid,
@@ -286,6 +332,7 @@ function forecastFrom(
     roll: 1,
     crit: false,
     difficulty: state.difficulty,
+    weather: state.weather,
     power: opts.power,
     element: opts.element,
   });
@@ -317,6 +364,7 @@ export function forecastAttack(state: TacticalCombatState, attackerId: string, d
 // ── Resolution (consumes rng) ──
 
 interface HitOptions {
+  traits?: CombatAttackTraits;
   power?: number;
   element?: string;
   hitPenalty?: number;
@@ -356,11 +404,22 @@ function resolveHit(
   const label = opts.skillName ? `${attacker.name}'s ${opts.skillName}` : `${attacker.name}`;
   const verb = opts.isCounter ? "counters" : opts.skillName ? "strikes" : "attacks";
 
-  const hc = Math.max(0, hitChance(state.grid, attacker, defender) - (opts.hitPenalty ?? 0));
+  const hc = Math.max(
+    0,
+    hitChance(state.grid, attacker, defender, state.weather, opts.traits ?? attacker) - (opts.hitPenalty ?? 0),
+  );
   if (rng() * 100 >= hc) {
     events.push({
       kind: "miss",
       text: `${label} ${verb} ${defender.name} — but misses!`,
+      message: {
+        key: opts.isCounter
+          ? "game.combat.event.missCounter"
+          : opts.skillName
+            ? "game.combat.event.missSkill"
+            : "game.combat.event.miss",
+        params: { actor: attacker.name, target: defender.name, skill: opts.skillName ?? "" },
+      },
       actorId: attacker.id,
       targetId: defender.id,
       isMiss: true,
@@ -380,6 +439,7 @@ function resolveHit(
     roll,
     crit,
     difficulty: state.difficulty,
+    weather: state.weather,
     power: opts.power,
     element,
   });
@@ -392,6 +452,15 @@ function resolveHit(
     events.push({
       kind: "crit",
       text: `Critical hit! ${label} ${verb} ${defender.name} for ${damage}${elementNote}`,
+      message: {
+        key: opts.isCounter
+          ? "game.combat.event.criticalCounter"
+          : opts.skillName
+            ? "game.combat.event.criticalSkill"
+            : "game.combat.event.critical",
+        params: { actor: attacker.name, target: defender.name, amount: damage, skill: opts.skillName ?? "" },
+        suffixKey: mult > 1 ? "game.combat.event.effective" : mult < 1 ? "game.combat.event.resisted" : undefined,
+      },
       actorId: attacker.id,
       targetId: defender.id,
       amount: damage,
@@ -403,6 +472,15 @@ function resolveHit(
     events.push({
       kind: opts.isCounter ? "counter" : "damage",
       text: `${label} ${verb} ${defender.name} for ${damage} damage${elementNote}`,
+      message: {
+        key: opts.isCounter
+          ? "game.combat.event.damageCounter"
+          : opts.skillName
+            ? "game.combat.event.damageSkill"
+            : "game.combat.event.damage",
+        params: { actor: attacker.name, target: defender.name, amount: damage, skill: opts.skillName ?? "" },
+        suffixKey: mult > 1 ? "game.combat.event.effective" : mult < 1 ? "game.combat.event.resisted" : undefined,
+      },
       actorId: attacker.id,
       targetId: defender.id,
       amount: damage,
@@ -422,6 +500,7 @@ function resolveHit(
     events.push({
       kind: "status",
       text: `${defender.name} is afflicted with ${opts.statusEffect}!`,
+      message: { key: "game.combat.event.afflicted", params: { target: defender.name, effect: opts.statusEffect } },
       targetId: defender.id,
       statusName: opts.statusEffect,
     });
@@ -432,6 +511,7 @@ function resolveHit(
     events.push({
       kind: "defeat",
       text: `${defender.name} is defeated!`,
+      message: { key: "game.combat.event.defeated", params: { target: defender.name } },
       targetId: defender.id,
     });
   }
@@ -447,7 +527,7 @@ function canCounter(attacker: TacticalUnit, defender: TacticalUnit): boolean {
 
 function skillReady(unit: TacticalUnit, skill: CombatSkill): boolean {
   const cd = unit.skillCooldowns[skill.name] ?? 0;
-  return cd <= 0 && unit.mp >= skill.mpCost;
+  return cd <= 0 && (skill.slotLevel ? (unit.spellSlots?.[String(skill.slotLevel)] ?? 0) > 0 : unit.mp >= skill.mpCost);
 }
 
 function findSkill(unit: TacticalUnit, skillName: string): CombatSkill | undefined {
@@ -467,6 +547,7 @@ function performUnitAction(
   unit: TacticalUnit,
   action: Extract<TacticalAction, { unitId: string }>,
   events: TacticalEvent[],
+  prepaid = false,
 ): void {
   // Optional move-then-act.
   const to = "to" in action ? action.to : undefined;
@@ -480,6 +561,7 @@ function performUnitAction(
       events.push({
         kind: "move",
         text: `${unit.name} moves to (${dest.x}, ${dest.y}).`,
+        message: { key: "game.combat.event.move", params: { actor: unit.name, x: dest.x, y: dest.y } },
         actorId: unit.id,
         from,
         to: dest,
@@ -494,13 +576,23 @@ function performUnitAction(
 
     case "wait":
       unit.hasActed = true;
-      events.push({ kind: "status", text: `${unit.name} waits.`, actorId: unit.id });
+      events.push({
+        kind: "status",
+        text: `${unit.name} waits.`,
+        message: { key: "game.combat.event.wait", params: { actor: unit.name } },
+        actorId: unit.id,
+      });
       return;
 
     case "defend":
       unit.defending = true;
       unit.hasActed = true;
-      events.push({ kind: "status", text: `${unit.name} braces for impact (defending).`, actorId: unit.id });
+      events.push({
+        kind: "status",
+        text: `${unit.name} braces for impact (defending).`,
+        message: { key: "game.combat.event.defend", params: { actor: unit.name } },
+        actorId: unit.id,
+      });
       return;
 
     case "attack": {
@@ -525,6 +617,10 @@ function performUnitAction(
       events.push({
         kind: "heal",
         text: `${unit.name} uses ${action.itemName} on ${target.name}, restoring ${target.hp - before} HP.`,
+        message: {
+          key: "game.combat.event.itemHeal",
+          params: { actor: unit.name, item: action.itemName, target: target.name, amount: target.hp - before },
+        },
         actorId: unit.id,
         targetId: target.id,
         amount: target.hp - before,
@@ -535,13 +631,16 @@ function performUnitAction(
     case "skill": {
       unit.hasActed = true;
       const skill = findSkill(unit, action.skillName);
-      if (!skill) return;
-      if (!skillReady(unit, skill)) {
+      if (!skill || skill.reaction) return;
+      if (!prepaid && !skillReady(unit, skill)) {
         // Illegal at the AI layer shouldn't happen; fall back to a basic strike is avoided here.
         return;
       }
-      unit.mp = Math.max(0, unit.mp - skill.mpCost);
-      unit.skillCooldowns[skill.name] = Math.max(1, skill.cooldown ?? 1);
+      if (!prepaid) {
+        if (skill.slotLevel) unit.spellSlots![String(skill.slotLevel)]!--;
+        else unit.mp = Math.max(0, unit.mp - skill.mpCost);
+        unit.skillCooldowns[skill.name] = Math.max(1, skill.cooldown ?? 1);
+      }
 
       if (skill.type === "heal") {
         const target = getUnit(state, action.targetId ?? unit.id) ?? unit;
@@ -551,6 +650,10 @@ function performUnitAction(
         events.push({
           kind: "heal",
           text: `${unit.name} casts ${skill.name}, healing ${target.name} for ${target.hp - before} HP.`,
+          message: {
+            key: "game.combat.event.heal",
+            params: { actor: unit.name, skill: skill.name, target: target.name, amount: target.hp - before },
+          },
           actorId: unit.id,
           targetId: target.id,
           amount: target.hp - before,
@@ -572,6 +675,10 @@ function performUnitAction(
         events.push({
           kind: "status",
           text: `${unit.name} casts ${skill.name} on ${target.name} (${isBuff ? "buff" : "debuff"}: ${status.name}).`,
+          message: {
+            key: "game.combat.event.statusCast",
+            params: { actor: unit.name, skill: skill.name, target: target.name, effect: status.name },
+          },
           actorId: unit.id,
           targetId: target.id,
           skillName: skill.name,
@@ -583,12 +690,35 @@ function performUnitAction(
       // Attack skill.
       const target = getUnit(state, action.targetId ?? "");
       if (!target || target.hp <= 0) return;
+      if ((skill.areaRadius ?? 0) > 0) {
+        const targets = aliveUnits(state).filter(
+          (other) =>
+            manhattan(target, other) <= skill.areaRadius! && (skill.friendlyFire === true || other.side !== unit.side),
+        );
+        for (const other of targets)
+          resolveHit(
+            state,
+            unit,
+            other,
+            {
+              power: Math.max(1, skill.power),
+              traits: skill,
+              element: skill.element,
+              skillName: skill.name,
+              statusEffect: skill.statusEffect,
+              cooldownForStatus: skill.cooldown,
+            },
+            events,
+          );
+        return;
+      }
       const outcome = resolveHit(
         state,
         unit,
         target,
         {
           power: Math.max(1, skill.power),
+          traits: skill,
           element: skill.element,
           skillName: skill.name,
           statusEffect: skill.statusEffect,
@@ -625,6 +755,16 @@ function tickRound(state: TacticalCombatState, events: TacticalEvent[]): void {
           events.push({
             kind: e.modifier < 0 ? "damage" : "heal",
             text: `${u.name} ${e.modifier < 0 ? "takes" : "recovers"} ${Math.abs(u.hp - before)} from ${e.name}.`,
+            message:
+              e.modifier < 0
+                ? {
+                    key: "game.combat.event.statusDamage",
+                    params: { target: u.name, amount: Math.abs(u.hp - before), effect: e.name },
+                  }
+                : {
+                    key: "game.combat.event.statusHeal",
+                    params: { target: u.name, amount: Math.abs(u.hp - before), effect: e.name },
+                  },
             targetId: u.id,
             amount: Math.abs(u.hp - before),
             statusName: e.name,
@@ -697,37 +837,11 @@ function clone(state: TacticalCombatState): TacticalCombatState {
  * acted, the phase auto-advances to "enemy" (the caller then runs
  * `runEnemyPhase`).
  */
-export function applyAction(state: TacticalCombatState, action: TacticalAction): ApplyActionResult {
-  if (isTerminal(state)) return { ok: false, error: "The battle is already over." };
-
-  const next = clone(state);
-  const events: TacticalEvent[] = [];
-
-  // Phase-level actions.
-  if (action.type === "flee") {
-    next.outcome = "fled";
-    events.push({ kind: "flee", text: "The party retreats from battle." });
-    appendLog(next, events);
-    return { ok: true, state: next, events };
-  }
-
-  if (action.type === "endTurn") {
-    if (next.phase !== "player") return { ok: false, error: "Not the player phase." };
-    for (const u of aliveUnits(next, "party")) u.hasActed = true;
-    next.phase = "enemy";
-    events.push({ kind: "phase", text: "Enemy Phase", phase: "enemy" });
-    appendLog(next, events);
-    return { ok: true, state: next, events };
-  }
-
-  // Unit actions.
-  if (next.phase !== "player") return { ok: false, error: "Not the player phase." };
-  const unit = getUnit(next, action.unitId);
-  if (!unit) return { ok: false, error: `Unknown unit: ${action.unitId}` };
-  if (unit.hp <= 0) return { ok: false, error: `${unit.name} is defeated.` };
-  if (unit.side !== "party") return { ok: false, error: "You can only command party units." };
-  if (unit.hasActed) return { ok: false, error: `${unit.name} has already acted this turn.` };
-
+export function validateTacticalUnitAction(
+  next: TacticalCombatState,
+  unit: TacticalUnit,
+  action: Extract<TacticalAction, { unitId: string }>,
+): { ok: false; error: string } | undefined {
   // Validate optional move (move-then-act) or dedicated move.
   const dest = action.type === "move" ? action.to : "to" in action ? action.to : undefined;
   if (dest && (dest.x !== unit.x || dest.y !== unit.y)) {
@@ -760,14 +874,17 @@ export function applyAction(state: TacticalCombatState, action: TacticalAction):
       const skill = findSkill(unit, action.skillName);
       if (!skill) return { ok: false, error: `Unknown skill: ${action.skillName}` };
       if ((unit.skillCooldowns[skill.name] ?? 0) > 0) return { ok: false, error: `${skill.name} is on cooldown.` };
-      if (unit.mp < skill.mpCost) return { ok: false, error: `Not enough MP for ${skill.name}.` };
+      if (skill.reaction) return { ok: false, error: "This ability requires a reaction window." };
+      if (skill.slotLevel && (unit.spellSlots?.[String(skill.slotLevel)] ?? 0) <= 0)
+        return { ok: false, error: "No spell slot available." };
+      if (!skill.slotLevel && unit.mp < skill.mpCost) return { ok: false, error: `Not enough MP for ${skill.name}.` };
       if (skill.type === "attack") {
         const target = getUnit(next, action.targetId ?? "");
         if (!target || target.hp <= 0 || target.side === unit.side) {
           return { ok: false, error: "Invalid skill target." };
         }
         const d = manhattan(fromTile, target);
-        const max = Math.max(unit.attackRange.max, 2);
+        const max = skill.range ?? Math.max(unit.attackRange.max, 2);
         if (d < 1 || d > max) return { ok: false, error: `${target.name} is out of skill range.` };
       } else {
         // heal/buff/debuff — must target a valid unit (ally for heal/buff, enemy for debuff) within support range.
@@ -777,7 +894,7 @@ export function applyAction(state: TacticalCombatState, action: TacticalAction):
         if (wantAlly && target.side !== unit.side) return { ok: false, error: "That skill targets allies." };
         if (!wantAlly && target.side === unit.side) return { ok: false, error: "That skill targets enemies." };
         const d = manhattan(fromTile, target);
-        if (d > 2) return { ok: false, error: `${target.name} is out of support range.` };
+        if (d > (skill.range ?? 2)) return { ok: false, error: `${target.name} is out of support range.` };
       }
       break;
     }
@@ -794,6 +911,50 @@ export function applyAction(state: TacticalCombatState, action: TacticalAction):
     case "wait":
       break;
   }
+}
+
+export function applyAction(state: TacticalCombatState, action: TacticalAction): ApplyActionResult {
+  if (isTerminal(state)) return { ok: false, error: "The battle is already over." };
+
+  const next = clone(state);
+  const events: TacticalEvent[] = [];
+
+  // Phase-level actions.
+  if (action.type === "flee") {
+    next.outcome = "fled";
+    events.push({ kind: "flee", text: "The party retreats from battle." });
+    appendLog(next, events);
+    return { ok: true, state: next, events };
+  }
+
+  if (action.type === "endTurn") {
+    if (next.phase !== "player") return { ok: false, error: "Not the player phase." };
+    for (const u of aliveUnits(next, "party")) u.hasActed = true;
+    next.phase = "enemy";
+    events.push({ kind: "phase", text: "Enemy Phase", phase: "enemy" });
+    appendLog(next, events);
+    return { ok: true, state: next, events };
+  }
+
+  // Unit actions.
+  if (next.phase !== "player") return { ok: false, error: "Not the player phase." };
+  const unit = getUnit(next, action.unitId);
+  if (!unit) return { ok: false, error: `Unknown unit: ${action.unitId}` };
+  if (unit.hp <= 0) return { ok: false, error: `${unit.name} is defeated.` };
+  if (unit.side !== "party") return { ok: false, error: "You can only command party units." };
+  if (unit.hasActed) return { ok: false, error: `${unit.name} has already acted this turn.` };
+
+  if (action.type === "control") {
+    if (action.controller !== "manual" && action.controller !== "ai")
+      return { ok: false, error: "Invalid controller." };
+    if (aliveUnits(next, "party")[0]?.id === unit.id && action.controller === "ai")
+      return { ok: false, error: "The active leader stays under player control." };
+    unit.controller = action.controller;
+    return { ok: true, state: next, events };
+  }
+
+  const invalid = validateTacticalUnitAction(next, unit, action);
+  if (invalid) return invalid;
 
   performUnitAction(next, unit, action, events);
 
@@ -817,6 +978,7 @@ export function applyAction(state: TacticalCombatState, action: TacticalAction):
 export function buildTacticalSummary(state: TacticalCombatState): CombatSummary {
   const outcome: CombatSummary["outcome"] =
     state.outcome === "fled" ? "flee" : state.outcome === "defeat" ? "defeat" : "victory";
+  const battlefieldSummary = summarizeTacticalBattlefield(state);
   return {
     outcome,
     rounds: state.round,
@@ -827,6 +989,11 @@ export function buildTacticalSummary(state: TacticalCombatState): CombatSummary 
         hp: u.hp,
         maxHp: u.maxHp,
         ko: u.hp <= 0,
+        // Carried like the director's summary does: what a battle spent is what the ruleset sheet
+        // has to be told about afterwards.
+        mp: u.mp,
+        maxMp: u.maxMp,
+        spellSlots: u.spellSlots,
         statusEffects: (u.statusEffects ?? []).map((e) => e.name),
       })),
     enemies: state.units
@@ -837,6 +1004,7 @@ export function buildTacticalSummary(state: TacticalCombatState): CombatSummary 
         hp: u.hp,
         maxHp: u.maxHp,
       })),
+    ...(battlefieldSummary ? { battlefieldSummary } : {}),
   };
 }
 
@@ -844,6 +1012,7 @@ export function buildTacticalSummary(state: TacticalCombatState): CombatSummary 
 // NOT via the feature's public index.ts — keeps the shared public surface clean).
 export {
   aliveUnits,
+  occupantAt,
   appendLog,
   canCounter,
   checkTerminal,

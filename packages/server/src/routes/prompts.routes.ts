@@ -15,6 +15,7 @@ import {
   updateChoiceBlockSchema,
   createFolderEntry,
   isStockMarinaraUniversalPreset,
+  normalizeAdvancedMemorySettings,
   type LorebookEntryTimingState,
 } from "@marinara-engine/shared";
 import type { ExportEnvelope } from "@marinara-engine/shared";
@@ -23,13 +24,15 @@ import { assemblePrompt, type AssemblerInput } from "../services/prompt/index.js
 import { cardPromptText } from "../services/prompt/card-text.js";
 import { resolveLorebookScopeExclusions } from "../services/lorebook/game-lorebook-scope.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
+import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
+import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
 import AdmZip from "adm-zip";
-import { resolveActivePersonaCandidate } from "./generate/generate-route-utils.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
+import { forwardPromptPreview } from "./generate/prompt-preview.js";
 
 const PROMPT_IMAGES_DIR = join(DATA_DIR, "prompts", "images");
 const PROMPT_IMAGE_URL_PREFIX = "/api/prompts/images/file/";
@@ -468,6 +471,7 @@ export async function promptsRoutes(app: FastifyInstance) {
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
     const characterIds: string[] = JSON.parse(chat.characterIds as string);
+    let lorebookCharacterIds = characterIds;
     const chatMessages = await chats.listMessages(chatId);
     let chatMeta: Record<string, unknown> = {};
     try {
@@ -477,6 +481,17 @@ export async function promptsRoutes(app: FastifyInstance) {
           : ((chat.metadata as Record<string, unknown>) ?? {});
     } catch {
       chatMeta = {};
+    }
+    if (chat.mode === "roleplay" && normalizeAdvancedMemorySettings(chatMeta.advancedMemory).enabled) {
+      const preview = await forwardPromptPreview(app, req, { chatId, presetId: preset.id, presetChoices: choices });
+      if (preview.statusCode >= 400) return reply.status(preview.statusCode).send(preview.body);
+      const messages = preview.body.prompt?.messages ?? [];
+      return {
+        messages,
+        parameters: preview.body.parameters ?? {},
+        messageCount: messages.length,
+        advancedMemory: preview.body.prompt?.advancedMemory,
+      };
     }
     const lorebookScopeExclusions = resolveLorebookScopeExclusions(chat.mode, chatMeta);
     const mappedMessages = chatMessages.map((m: any) => ({
@@ -491,10 +506,17 @@ export async function promptsRoutes(app: FastifyInstance) {
     let personaDescription = "";
     let personaFields: { personality?: string; scenario?: string; backstory?: string; appearance?: string } = {};
     // Get active persona
-    const allPersonas = await charStorage.listPersonas();
-    const activePersona = resolveActivePersonaCandidate(allPersonas, chat.personaId, chat.mode);
+    const activePersona = await resolveChatUserIdentity(charStorage, chat);
     if (activePersona) {
-      personaId = activePersona.id as string;
+      // A character-backed identity must stay in character scope so lorebook
+      // and macro processing does not treat it as a persona record. [PR #5583]
+      if (activePersona.source === "character") {
+        if (!lorebookCharacterIds.includes(activePersona.id)) {
+          lorebookCharacterIds = [...lorebookCharacterIds, activePersona.id];
+        }
+      } else {
+        personaId = activePersona.id;
+      }
       personaName = activePersona.name;
       personaDescription = cardPromptText(activePersona.description);
       personaFields = {
@@ -511,8 +533,13 @@ export async function promptsRoutes(app: FastifyInstance) {
       storage.listChoiceBlocksForPreset(req.params.id),
     ]);
 
+    const connections = createConnectionsStorage(app.db);
+    const connection = chat.connectionId
+      ? await connections.getById(chat.connectionId)
+      : await connections.getDefault();
     const assemblerInput: AssemblerInput = {
       db: app.db,
+      model: connection?.model,
       preset: preset as any,
       sections: sections as any,
       groups: groups as any,
@@ -520,6 +547,7 @@ export async function promptsRoutes(app: FastifyInstance) {
       chatChoices: choices ?? {},
       chatId,
       characterIds,
+      lorebookCharacterIds,
       personaId,
       personaName,
       personaDescription,

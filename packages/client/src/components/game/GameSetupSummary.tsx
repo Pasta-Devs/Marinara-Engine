@@ -88,6 +88,8 @@ export function GameSetupSummary({
   }
 
   const labels: GameSetupShareLabels = {
+    experienceName: snapshot?.labels?.experienceName,
+    experienceSeedKey: snapshot?.labels?.experienceSeedKey,
     characterNames: { ...currentCharacterNames, ...snapshot?.labels?.characterNames },
     connectionNames: currentConnectionNames,
     lorebookNames: snapshot?.labels?.lorebookNames,
@@ -188,7 +190,7 @@ export function GameSetupSummary({
               {section.rows.map((row) => (
                 <div key={row.label} className="grid gap-1 py-2.5 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-4">
                   <dt className="text-[0.6875rem] font-medium text-[var(--marinara-chat-chrome-panel-muted)]">
-                    {row.label}
+                    {row.label === "Experience" ? localizeUi("game.experienceSetup.summary") : row.label}
                   </dt>
                   <dd className="min-w-0 whitespace-pre-wrap break-words text-xs leading-relaxed text-[var(--marinara-chat-chrome-panel-text)]">
                     {row.value}

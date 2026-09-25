@@ -1,6 +1,6 @@
 # Generation Parameters
 
-This guide explains the generation parameters in Marinara Engine. These are the settings that control how the AI writes each reply, such as **Temperature** and **Max Output Tokens**. You change them per chat in the **Advanced Parameters** panel.
+This guide explains the generation parameters in Marinara Engine. These are the settings that control how the AI writes each reply, such as **Temperature** and **Max Output Tokens**. Presets and connections provide defaults; the **Advanced Parameters** panel provides overrides for each chat.
 
 ## What generation parameters do
 
@@ -12,7 +12,7 @@ Change these settings only when you want to fix a specific problem. This guide l
 
 ## Where to find them
 
-Generation parameters live in each chat, not in a global menu.
+Edit base values under **Presets > Parameters**, connection values under **Connections > Default Parameters**, and chat overrides under **Chat Settings > Advanced Parameters**.
 
 1. Open the chat you want to change.
 2. Open **Chat Settings** (the gear icon for the active chat).
@@ -60,12 +60,12 @@ In a chat's **Advanced Parameters**, only **Max Output Tokens** and **Reasoning 
 
 ## Default values
 
-New chats start from a built-in baseline. The table below shows those starting values and whether each one is sent by default.
+The table shows fallback values displayed by the parameter editor and the default Send switches. These are not necessarily the values sent to the model: without a preset, generation starts at `4096` output tokens before connection and chat overrides. An active scene can use `8192`. Game uses saved connection and chat parameters, with task defaults only for unconfigured values. The **Effective** line shows the resolved value.
 
 | Parameter | Starting value | Sent by default |
 |---|---|---|
 | Temperature | 1 | No |
-| Max Output Tokens | 4096 in Conversation, 8192 in Roleplay and Game | Yes |
+| Max Output Tokens | 4096 in Conversation, 8192 in Roleplay; no Game override | Yes |
 | Top P | 1 | No |
 | Top K | 0 (off) | No |
 | Frequency | 0 | No |
@@ -115,6 +115,8 @@ When you enable it, the count starts at 50. You can set any number from 1 to 999
 
 **Exclude Past Reasoning** is on by default. It keeps saved thinking and reasoning from earlier turns out of new prompts. That reasoning is not sent to the model again.
 
+Turning it off reveals **Past reasoning blocks**. The default is `1`, keeping the most recent available assistant reasoning block; `0` includes all available blocks. The choice is saved for this chat and stays saved when you turn exclusion back on. This does not delete stored thoughts. Only reasoning supported by the current connection can be replayed.
+
 Leave it on unless you have a clear reason to feed old reasoning back into the model.
 
 ## Image Captioning
@@ -129,19 +131,21 @@ At the bottom of **Advanced Parameters**, the **Save as Connection Default** but
 
 The button only appears for a normal, saved connection. It is hidden for the random connection pool and for the built-in local model.
 
-The **Reset to Defaults** button below it clears every per-chat parameter change and returns this chat to the mode's baseline.
+The **Reset to Defaults** button below it clears every per-chat parameter change and returns this chat to its inherited settings.
 
 ## How defaults layer and override
 
-Your effective parameters come from three layers. Each layer wins over the one before it, one setting at a time.
+Parameters are resolved one field at a time, in this order:
 
-1. The mode baseline. This is the built-in starting point for the chat's mode.
-2. The connection's saved defaults. These are the values you stored with **Save as Connection Default**.
-3. This chat's **Advanced Parameters**. These are the values you set right here, and they win.
+1. The selected preset's **Parameters**, or built-in generation defaults when no preset is used (temperature `1`, maximum output `4096`). In Roleplay, a connection's preset override takes precedence over the chat's selected preset.
+2. The connection's **Default Parameters**.
+3. This chat's **Advanced Parameters**.
+4. Mode rules: an active scene chat sets output to `8192`, reasoning to **Maximum**, and verbosity to **High**. Game uses the saved connection and chat parameters without forcing sampling, reasoning, or a minimum output size. Its helper calls also honor saved parameters; task defaults apply only when a value is not configured.
+5. Output limits: Game applies the model's known output limit, and the connection's **Max Output Tokens override** caps requests in every mode. Available context can reduce the output budget further.
 
-So a value you set in **Advanced Parameters** always beats the connection default and the mode baseline.
+The **Effective** line beside a parameter shows the saved value and its winning layer, including mode rules and output caps. In the connection editor it uses the currently open chat with that connection, or a Roleplay baseline when no chat is open. Save edits to refresh it. A disabled Send switch is shown as **not sent**; providers can still impose required parameters or normalize unsupported values. Custom Parameters and context fitting may further change the final request.
 
-Game Mode is a special case. Game Mode sets some parameters on its own to keep its structured turns working. In Game Mode, a few of your **Advanced Parameters** changes may not fully apply. This is expected.
+For example, a preset at `8192` and this chat at `16384` show **Effective: 16384 · this chat**. A connection output cap of `4096` changes that to **Effective: 4096 · output token cap**. Resetting chat parameters exposes the next applicable layer; it does not remove preset or mode rules.
 
 ## Some models ignore some parameters
 

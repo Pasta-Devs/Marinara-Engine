@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { logger } from "../../packages/server/src/lib/logger.js";
 import {
   findKnownModel,
   isClaudeAdaptiveOnlyNoSamplingModel,
@@ -8,9 +9,16 @@ import {
 } from "../../packages/shared/src/constants/model-lists.js";
 import {
   applyGlmThinkingParameters,
-  isGlm53FlashMandatoryReasoningModel,
+  glm53CustomGatewayReasoningEffort,
+  glm53ReasoningEffort,
+  isGlm53MandatoryReasoningModel,
   isNativeGlmEndpoint,
 } from "../../packages/server/src/services/llm/providers/glm-request-compat.js";
+import {
+  describeEmptyModelResponse,
+  sentOutputBudget,
+  GENERIC_EMPTY_RESPONSE_MESSAGE,
+} from "../../packages/server/src/services/generation/empty-response-reason.js";
 import {
   applyAnthropicToolChoice,
   AnthropicProvider,
@@ -22,6 +30,7 @@ import {
 } from "../../packages/server/src/services/llm/providers/claude-subscription.provider.js";
 import {
   applyGoogleFunctionCallingMode,
+  GoogleProvider,
   resolveGeminiThinkingConfig,
   resolveGoogleFunctionCallingMode,
 } from "../../packages/server/src/services/llm/providers/google.provider.js";
@@ -142,12 +151,153 @@ async function collectProviderOutputForMessages(
   return output;
 }
 
+async function collectProviderUsage(provider: BaseLLMProvider, options: ChatOptions): Promise<LLMUsage | void> {
+  const stream = provider.chat([{ role: "user", content: "test" }], options);
+  while (true) {
+    const result = await stream.next();
+    if (result.done) return result.value;
+    // Consume the provider stream before reading its returned usage.
+  }
+}
+
 const gatewaySseBody = [
   ": x-omniroute-cache-hit=false",
   'data: {"choices":[{"delta":{},"finish_reason":null}]}',
   'data: {"choices":[{"message":{"content":"recovered final message"},"finish_reason":"stop"}]}',
   "data: [DONE]",
 ].join("\n");
+
+const embeddingRequests: Array<{ headers: Record<string, string>; body: Record<string, unknown> }> = [];
+const embeddingServer = createServer(async (request, response) => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  embeddingRequests.push({
+    headers: request.headers as Record<string, string>,
+    body: JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>,
+  });
+  response.writeHead(200, { "content-type": "application/json" });
+  response.end(JSON.stringify({ data: [{ embedding: [0.1, 0.2], index: 0 }] }));
+});
+await new Promise<void>((resolve) => embeddingServer.listen(0, "127.0.0.1", resolve));
+try {
+  const address = embeddingServer.address();
+  assert.ok(address && typeof address === "object");
+  const nanoGpt = new OpenAIProvider(
+    `http://localhost:${address.port}/v1`,
+    "nano-key",
+    undefined,
+    undefined,
+    undefined,
+    "nanogpt",
+  );
+  await nanoGpt.embed(["test"], "text-embedding-model");
+  assert.equal(embeddingRequests[0]?.headers.authorization, "Bearer nano-key");
+  assert.equal(embeddingRequests[0]?.headers["x-api-key"], "nano-key");
+
+  const openAi = new OpenAIProvider(`http://localhost:${address.port}/v1`, "openai-key");
+  await openAi.embed(["test"], "text-embedding-model");
+  assert.equal(embeddingRequests[1]?.headers.authorization, "Bearer openai-key");
+  assert.equal(embeddingRequests[1]?.headers["x-api-key"], undefined);
+} finally {
+  await new Promise<void>((resolve, reject) => embeddingServer.close((error) => (error ? reject(error) : resolve())));
+}
+
+let nanoGptRequestBody: Record<string, unknown> | null = null;
+const nanoGptServer = createServer(async (request, response) => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  nanoGptRequestBody = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+  response.writeHead(200, { "content-type": "application/json" });
+  response.end(JSON.stringify({ choices: [{ message: { content: "nano response" }, finish_reason: "stop" }] }));
+});
+await new Promise<void>((resolve) => nanoGptServer.listen(0, "127.0.0.1", resolve));
+try {
+  const address = nanoGptServer.address();
+  assert.ok(address && typeof address === "object");
+  const provider = new OpenAIProvider(
+    `http://127.0.0.1:${address.port}/v1`,
+    "nano-key",
+    undefined,
+    undefined,
+    undefined,
+    "nanogpt",
+  );
+  await collectProviderOutput(provider, {
+    model: "some-model",
+    stream: false,
+    reasoningEffort: "none",
+    enabledParameters: { reasoningEffort: true },
+  });
+  assert.equal(nanoGptRequestBody?.reasoning_effort, "none");
+
+  nanoGptRequestBody = null;
+  await collectProviderOutput(provider, {
+    model: "glm-5.3-flash",
+    stream: false,
+    reasoningEffort: "none",
+    enabledParameters: { reasoningEffort: true },
+  });
+  assert.equal(nanoGptRequestBody?.reasoning_effort, "low");
+  assert.equal(nanoGptRequestBody?.enable_thinking, true);
+
+  nanoGptRequestBody = null;
+  await collectProviderOutput(provider, {
+    model: "z-ai/glm-5.3",
+    stream: false,
+    reasoningEffort: "none",
+    enabledParameters: { reasoningEffort: true },
+  });
+  assert.equal(
+    nanoGptRequestBody?.reasoning_effort,
+    "low",
+    "NanoGPT GLM 5.3 agents get low effort, never a disable (#5765)",
+  );
+  assert.equal(nanoGptRequestBody?.enable_thinking, true);
+
+  // A generic custom connection on a LOCAL inference host keeps the
+  // pre-existing "none" for GLM 5.3 (its chat template can really disable
+  // thinking); the remote-gateway substitution is pinned on the pure helper
+  // below (#5765). Other models keep "none" everywhere.
+  const customGateway = new OpenAIProvider(
+    `http://127.0.0.1:${address.port}/v1`,
+    "custom-key",
+    undefined,
+    undefined,
+    undefined,
+    "custom",
+  );
+  nanoGptRequestBody = null;
+  await collectProviderOutput(customGateway, {
+    model: "z-ai/glm-5.3",
+    stream: false,
+    reasoningEffort: "none",
+    enabledParameters: { reasoningEffort: true },
+  });
+  assert.equal(nanoGptRequestBody?.reasoning_effort, "none");
+  assert.deepEqual(nanoGptRequestBody?.chat_template_kwargs, { enable_thinking: false });
+  nanoGptRequestBody = null;
+  await collectProviderOutput(customGateway, {
+    model: "z-ai/glm-5.3",
+    stream: false,
+    reasoningEffort: "medium",
+    enabledParameters: { reasoningEffort: true },
+  });
+  assert.equal(
+    "reasoning_effort" in (nanoGptRequestBody ?? {}),
+    false,
+    "local custom GLM 5.3 keeps the generic no-effort body for an active effort",
+  );
+  nanoGptRequestBody = null;
+  await collectProviderOutput(customGateway, {
+    model: "some-model",
+    stream: false,
+    reasoningEffort: "none",
+    enabledParameters: { reasoningEffort: true },
+  });
+  assert.equal(nanoGptRequestBody?.reasoning_effort, "none");
+} finally {
+  await new Promise<void>((resolve, reject) => nanoGptServer.close((error) => (error ? reject(error) : resolve())));
+}
 
 assert.equal(resolveNovelAiStyleReferenceSecondaryStrength(1), 0);
 assert.equal(resolveNovelAiStyleReferenceSecondaryStrength(0.75), 0.25);
@@ -776,9 +926,39 @@ assert.equal(
     toolChoice: "required",
     tools: [testToolDefinition],
   }),
-  "mythos",
+  "automatic-only",
 );
 assert.deepEqual(anthropicMythosBody.tool_choice, { type: "auto" });
+const anthropicMythos51Body: Record<string, unknown> = { thinking: { type: "adaptive" } };
+assert.equal(
+  applyAnthropicToolChoice(anthropicMythos51Body, {
+    model: "claude-mythos-5-1",
+    toolChoice: "required",
+    tools: [testToolDefinition],
+  }),
+  "automatic-only",
+);
+assert.deepEqual(anthropicMythos51Body.tool_choice, { type: "auto" });
+const anthropicFableBody: Record<string, unknown> = { thinking: { type: "adaptive" } };
+assert.equal(
+  applyAnthropicToolChoice(anthropicFableBody, {
+    model: "claude-fable-5",
+    toolChoice: "required",
+    tools: [testToolDefinition],
+  }),
+  "applied",
+);
+assert.deepEqual(anthropicFableBody.tool_choice, { type: "any" });
+const anthropicFable51Body: Record<string, unknown> = { thinking: { type: "adaptive" } };
+assert.equal(
+  applyAnthropicToolChoice(anthropicFable51Body, {
+    model: "claude-fable-5-1",
+    toolChoice: "required",
+    tools: [testToolDefinition],
+  }),
+  "automatic-only",
+);
+assert.deepEqual(anthropicFable51Body.tool_choice, { type: "auto" });
 const anthropicAutomaticBody: Record<string, unknown> = {
   tool_choice: { type: "any", disable_parallel_tool_use: true },
 };
@@ -795,6 +975,18 @@ assert.equal(supportsAnthropicThinkingDisable("claude-sonnet-5"), true);
 assert.equal(supportsAnthropicThinkingDisable("claude-opus-5"), true);
 assert.equal(supportsAnthropicThinkingDisable("claude-fable-5"), false);
 assert.equal(isClaudeAdaptiveOnlyNoSamplingModel("claude-opus-5"), true);
+assert.equal(isClaudeAdaptiveOnlyNoSamplingModel("claude-fable-5-1"), true);
+assert.equal(supportsAnthropicThinkingDisable("claude-fable-5-1"), false);
+assert.equal(shouldSuppressUnknownModelParameters("anthropic", "claude-fable-5-1"), false);
+const fable51 = findKnownModel("anthropic", "claude-fable-5-1");
+assert.equal(fable51?.context, 1_000_000);
+assert.equal(fable51?.maxOutput, 128_000);
+assert.equal(isClaudeAdaptiveOnlyNoSamplingModel("claude-mythos-5-1"), true);
+assert.equal(supportsAnthropicThinkingDisable("claude-mythos-5-1"), false);
+assert.equal(shouldSuppressUnknownModelParameters("anthropic", "claude-mythos-5-1"), false);
+const mythos51 = findKnownModel("anthropic", "claude-mythos-5-1");
+assert.equal(mythos51?.context, 1_000_000);
+assert.equal(mythos51?.maxOutput, 128_000);
 const opus5 = findKnownModel("anthropic", "claude-opus-5");
 assert.equal(opus5?.context, 1_000_000);
 assert.equal(opus5?.maxOutput, 128_000);
@@ -898,7 +1090,7 @@ assert.equal(
           { type: "text", text: "Claude reply" },
         ],
         stop_reason: "end_turn",
-        usage: { input_tokens: 10, output_tokens: 6 },
+        usage: { input_tokens: 10, output_tokens: 6, cache_read_input_tokens: 500, cache_creation_input_tokens: 100 },
       }),
     );
   });
@@ -923,6 +1115,56 @@ assert.equal(
       "Claude reply",
     );
     assert.equal(thinking, "Summarized Claude reasoning.");
+    assert.deepEqual(
+      await collectProviderUsage(provider, { model: "claude-opus-5", stream: false }),
+      {
+        promptTokens: 10,
+        completionTokens: 6,
+        totalTokens: 16,
+        cachedPromptTokens: 500,
+        cacheWritePromptTokens: 100,
+        finishReason: "end_turn",
+      },
+      "Anthropic non-stream usage must preserve prompt-cache counters",
+    );
+
+    const streamingAnthropicServer = createServer((_request, response) => {
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      response.end(
+        [
+          'data: {"type":"message_start","message":{"usage":{"input_tokens":0,"output_tokens":0,"cache_read_input_tokens":700,"cache_creation_input_tokens":50}}}',
+          'data: {"type":"content_block_start","content_block":{"type":"text"}}',
+          'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Cached stream"}}',
+          'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":0}}',
+          'data: {"type":"message_stop"}',
+          "",
+        ].join("\n"),
+      );
+    });
+    await new Promise<void>((resolve) => streamingAnthropicServer.listen(0, "127.0.0.1", resolve));
+    try {
+      const streamingAddress = streamingAnthropicServer.address();
+      assert.ok(streamingAddress && typeof streamingAddress === "object");
+      assert.deepEqual(
+        await collectProviderUsage(new AnthropicProvider(`http://127.0.0.1:${streamingAddress.port}`, "test"), {
+          model: "claude-opus-5",
+          stream: true,
+        }),
+        {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          cachedPromptTokens: 700,
+          cacheWritePromptTokens: 50,
+          finishReason: "end_turn",
+        },
+        "Anthropic streamed usage must preserve cache-only prompt counters",
+      );
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        streamingAnthropicServer.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
     const maxEffortBody = anthropicRequestBodies[0];
     assert.ok(maxEffortBody);
     assert.deepEqual(maxEffortBody.thinking, { type: "adaptive", display: "summarized" });
@@ -939,13 +1181,27 @@ assert.equal(
       temperature: 0.7,
       topK: 32,
     });
-    const disabledBody = anthropicRequestBodies[1];
+    const disabledBody = anthropicRequestBodies[2];
     assert.ok(disabledBody);
     assert.deepEqual(disabledBody.thinking, { type: "disabled" });
     assert.equal("output_config" in disabledBody, false);
     assert.equal("temperature" in disabledBody, false);
     assert.equal("top_k" in disabledBody, false);
     assert.equal("top_p" in disabledBody, false);
+
+    await collectProviderOutput(provider, {
+      model: "claude-fable-5-1",
+      stream: false,
+      maxTokens: 128_000,
+      captureReasoning: true,
+      reasoningEffort: "max",
+    });
+    // .at(-1), not a hardcoded index: two branches each appended a request
+    // block here with fixed indices and collided on merge - this request is
+    // whatever the block above just sent, i.e. always the newest body.
+    const fableMaxOutputBody = anthropicRequestBodies.at(-1);
+    assert.ok(fableMaxOutputBody);
+    assert.equal(fableMaxOutputBody.max_tokens, 128_000);
   } finally {
     await new Promise<void>((resolve, reject) => anthropicServer.close((error) => (error ? reject(error) : resolve())));
   }
@@ -1131,6 +1387,21 @@ try {
     false,
     "GLM 5.3 Flash must keep OpenRouter's mandatory reasoning default",
   );
+
+  openRouterRequestBody = null;
+  await collectProviderOutput(provider, {
+    model: "z-ai/glm-5.3",
+    stream: false,
+    reasoningEffort: "none",
+    enabledParameters: { reasoningEffort: true },
+  });
+  const mandatoryGlm53OpenRouterBody = openRouterRequestBody as Record<string, unknown>;
+  assert.ok(mandatoryGlm53OpenRouterBody);
+  assert.equal(
+    "reasoning" in mandatoryGlm53OpenRouterBody,
+    false,
+    "GLM 5.3 (non-Flash) must keep OpenRouter's mandatory reasoning default (#5765)",
+  );
 } finally {
   await new Promise<void>((resolve, reject) => openRouterServer.close((error) => (error ? reject(error) : resolve())));
 }
@@ -1217,9 +1488,150 @@ applyGlmThinkingParameters(glm52DisabledBody, {
 });
 assert.deepEqual(glm52DisabledBody, { thinking: { type: "disabled" } });
 
-assert.equal(isGlm53FlashMandatoryReasoningModel("z-ai/glm-5.3-flash"), true);
-assert.equal(isGlm53FlashMandatoryReasoningModel("z-ai/glm-5.3-flash:free"), true);
-assert.equal(isGlm53FlashMandatoryReasoningModel("z-ai/glm-5.2"), false);
+assert.equal(isGlm53MandatoryReasoningModel("z-ai/glm-5.3-flash"), true);
+assert.equal(isGlm53MandatoryReasoningModel("z-ai/glm-5.3-flash:free"), true);
+assert.equal(isGlm53MandatoryReasoningModel("z-ai/glm-5.3"), true);
+assert.equal(isGlm53MandatoryReasoningModel("glm-5.3:free"), true);
+assert.equal(isGlm53MandatoryReasoningModel("GLM-5.3"), true);
+assert.equal(isGlm53MandatoryReasoningModel("z-ai/glm-5.2"), false);
+assert.equal(isGlm53MandatoryReasoningModel("glm-5.30"), false);
+assert.equal(glm53ReasoningEffort(undefined), null);
+assert.equal(glm53ReasoningEffort("none"), "low");
+assert.equal(glm53ReasoningEffort("minimal"), "low");
+assert.equal(glm53ReasoningEffort("low"), "low");
+assert.equal(glm53ReasoningEffort("medium"), "high");
+assert.equal(glm53ReasoningEffort("high"), "high");
+assert.equal(glm53ReasoningEffort("xhigh"), "max");
+assert.equal(glm53ReasoningEffort("max"), "max");
+assert.equal(glm53CustomGatewayReasoningEffort("z-ai/glm-5.3", "https://gateway.example.com/v1", "none"), "low");
+assert.equal(glm53CustomGatewayReasoningEffort("glm-5.3", "https://gateway.example.com/v1", "low"), "low");
+assert.equal(glm53CustomGatewayReasoningEffort("glm-5.3", "https://gateway.example.com/v1", "medium"), "high");
+assert.equal(glm53CustomGatewayReasoningEffort("glm-5.3", "https://gateway.example.com/v1", "high"), "high");
+assert.equal(glm53CustomGatewayReasoningEffort("glm-5.3", "https://gateway.example.com/v1", "max"), "max");
+assert.equal(
+  glm53CustomGatewayReasoningEffort("glm-5.3", "https://gateway.example.com/v1", undefined),
+  null,
+  "no configured effort stays omitted on remote custom gateways",
+);
+assert.equal(
+  glm53CustomGatewayReasoningEffort("z-ai/glm-5.3", "http://127.0.0.1:8080/v1", "none"),
+  null,
+  "local inference hosts keep the explicit disable for GLM 5.3",
+);
+assert.equal(glm53CustomGatewayReasoningEffort("z-ai/glm-5.3", "http://192.168.1.20:11434/v1", "none"), null);
+assert.equal(glm53CustomGatewayReasoningEffort("some-model", "https://gateway.example.com/v1", "none"), null);
+assert.equal(glm53CustomGatewayReasoningEffort("z-ai/glm-5.2", "https://gateway.example.com/v1", "none"), null);
+
+// Native Z.AI provider (#5963): the shared resolver promotes a Maximum preset
+// to "max" for GLM 5.2 / 5.3 instead of lowering it to "high" on the way to
+// glm53ReasoningEffort. Only the named provider is promoted -- the resolver has
+// no base URL, so a Custom connection to api.z.ai keeps its previous behavior.
+assert.equal(resolveProviderReasoningEffort({ provider: "zai", model: "glm-5.3", reasoningEffort: "maximum" }), "max");
+assert.equal(
+  resolveProviderReasoningEffort({ provider: "zai", model: "glm-5.3-flash", reasoningEffort: "maximum" }),
+  "max",
+);
+assert.equal(resolveProviderReasoningEffort({ provider: "zai", model: "glm-5.2", reasoningEffort: "maximum" }), "max");
+assert.equal(resolveProviderReasoningEffort({ provider: "zai", model: "glm-5.1", reasoningEffort: "maximum" }), "high");
+assert.equal(resolveProviderReasoningEffort({ provider: "zai", model: "glm-5.3", reasoningEffort: "high" }), "high");
+assert.equal(resolveProviderReasoningEffort({ provider: "zai", model: "glm-5.3", reasoningEffort: "low" }), "low");
+assert.equal(resolveProviderReasoningEffort({ provider: "zai", model: "glm-5.3", reasoningEffort: undefined }), null);
+assert.equal(
+  resolveProviderReasoningEffort({ provider: "custom", model: "glm-5.3", reasoningEffort: "maximum" }),
+  "high",
+  "a Custom connection is not promoted by the resolver",
+);
+assert.equal(findKnownModel("zai", "glm-5.3")?.context, 1000000);
+assert.equal(findKnownModel("zai", "glm-5.3-flash")?.maxOutput, 128000);
+
+const zaiGlm53MaxBody: Record<string, unknown> = {};
+applyGlmThinkingParameters(zaiGlm53MaxBody, {
+  model: "glm-5.3",
+  baseUrl: "https://api.z.ai/api/paas/v4",
+  providerKind: "zai",
+  reasoningEffort: "max",
+});
+assert.deepEqual(zaiGlm53MaxBody, { thinking: { type: "enabled" }, reasoning_effort: "max" });
+
+const zaiGlm53DefaultBody: Record<string, unknown> = {};
+applyGlmThinkingParameters(zaiGlm53DefaultBody, {
+  model: "glm-5.3-flash",
+  baseUrl: "https://api.z.ai/api/paas/v4",
+  providerKind: "zai",
+  reasoningEffort: undefined,
+});
+assert.deepEqual(
+  zaiGlm53DefaultBody,
+  { thinking: { type: "enabled" } },
+  "no configured effort leaves Z.AI's own default (max) in place",
+);
+
+// An empty reply says what the provider reported (#5963).
+assert.equal(
+  describeEmptyModelResponse({
+    finishReason: "length",
+    usage: { completionTokens: 8192, completionReasoningTokens: 8190 },
+    maxTokens: 8192,
+    hadThinking: true,
+  }),
+  "The model used its whole output budget (8192 of 8192 output tokens, 8190 of them reasoning) before writing any visible text. Raise Max Tokens or lower Reasoning Effort, then try again.",
+);
+assert.equal(
+  describeEmptyModelResponse({ finishReason: "length", hadThinking: false }),
+  "The model used its whole output budget before writing any visible text. Raise Max Tokens or lower Reasoning Effort, then try again.",
+  "finish_reason alone is enough to name the cap",
+);
+assert.equal(
+  describeEmptyModelResponse({
+    finishReason: "stop",
+    usage: { completionTokens: 4096, completionReasoningTokens: 4000 },
+    maxTokens: 4096,
+    hadThinking: true,
+  }),
+  "The model used its whole output budget (4096 of 4096 output tokens, 4000 of them reasoning) before writing any visible text. Raise Max Tokens or lower Reasoning Effort, then try again.",
+  "completion at the cap with hidden thinking is the cap even when finish says stop",
+);
+assert.equal(
+  describeEmptyModelResponse({ finishReason: "sensitive", hadThinking: true }),
+  'The provider stopped the reply for content policy (finish reason "sensitive") and returned no text.',
+);
+assert.equal(
+  describeEmptyModelResponse({
+    finishReason: "stop",
+    usage: { completionTokens: 700, completionReasoningTokens: 700 },
+    maxTokens: 8192,
+    hadThinking: true,
+  }),
+  'The model finished reasoning (700 reasoning tokens, finish reason "stop") but returned no visible text. No output-limit exhaustion was reported. Retry, and inspect the debug response if this repeats; changing the thinking display does not change the model request.',
+);
+assert.equal(
+  describeEmptyModelResponse({ finishReason: "stop", hadThinking: false }),
+  'The AI returned an empty response (finish reason "stop"). Try sending your message again.',
+);
+assert.equal(describeEmptyModelResponse({ hadThinking: false }), GENERIC_EMPTY_RESPONSE_MESSAGE);
+for (const finishReason of ["sensitive", "model_context_window_exceeded"]) {
+  assert.equal(
+    describeEmptyModelResponse({ finishReason, hadThinking: true, usage: { completionTokens: 16 }, maxTokens: 16 }),
+    describeEmptyModelResponse({ finishReason, hadThinking: false }),
+    "explicit provider stop reasons take priority over token-budget inference",
+  );
+}
+// The quoted budget is the one the provider sent: the route's number capped by the
+// connection override, as BaseLLMProvider.applyMaxTokensCap does on the way out.
+// Seen live 2026-09-11: override 16, route 4096, wire max_tokens=16, message said "16 of 4096".
+assert.equal(sentOutputBudget(4096, 16), 16);
+assert.equal(sentOutputBudget(4096, null), 4096);
+assert.equal(sentOutputBudget(4096, 0), 4096, "a zero override is no override");
+assert.equal(sentOutputBudget(undefined, 16), undefined, "no route budget stays unknown");
+assert.equal(
+  describeEmptyModelResponse({
+    finishReason: "length",
+    usage: { completionTokens: 16, completionReasoningTokens: 16 },
+    maxTokens: sentOutputBudget(4096, 16),
+    hadThinking: true,
+  }),
+  "The model used its whole output budget (16 of 16 output tokens, 16 of them reasoning) before writing any visible text. Raise Max Tokens or lower Reasoning Effort, then try again.",
+);
 
 const nanogptMandatoryGlmBody: Record<string, unknown> = {};
 applyGlmThinkingParameters(nanogptMandatoryGlmBody, {
@@ -1230,7 +1642,7 @@ applyGlmThinkingParameters(nanogptMandatoryGlmBody, {
 });
 assert.deepEqual(
   nanogptMandatoryGlmBody,
-  { enable_thinking: true },
+  { enable_thinking: true, reasoning_effort: "low" },
   "NanoGPT mandatory-reasoning GLM models must not receive a disable request",
 );
 
@@ -1243,8 +1655,46 @@ applyGlmThinkingParameters(nativeGlm53DisabledBody, {
 });
 assert.deepEqual(
   nativeGlm53DisabledBody,
-  { enable_thinking: false },
-  "Native GLM endpoints must preserve their explicit reasoning setting",
+  { thinking: { type: "enabled" }, reasoning_effort: "low" },
+  "Native Z.AI GLM 5.3 cannot disable thinking; reasoning off becomes the lightest accepted level (#5765)",
+);
+
+const nativeGlm53DefaultBody: Record<string, unknown> = {};
+applyGlmThinkingParameters(nativeGlm53DefaultBody, {
+  model: "glm-5.3",
+  baseUrl: "https://api.z.ai/api/paas/v4/",
+  providerKind: "custom",
+});
+assert.deepEqual(
+  nativeGlm53DefaultBody,
+  { thinking: { type: "enabled" } },
+  "Native Z.AI GLM 5.3 with no effort configured leaves the provider default in place",
+);
+
+const nativeGlm53MediumBody: Record<string, unknown> = {};
+applyGlmThinkingParameters(nativeGlm53MediumBody, {
+  model: "glm-5.3",
+  baseUrl: "https://api.z.ai/api/paas/v4/",
+  providerKind: "custom",
+  reasoningEffort: "medium",
+});
+assert.deepEqual(
+  nativeGlm53MediumBody,
+  { thinking: { type: "enabled" }, reasoning_effort: "high" },
+  "Native Z.AI GLM 5.3 only accepts low/high/max",
+);
+
+const nanogptGlm53Body: Record<string, unknown> = {};
+applyGlmThinkingParameters(nanogptGlm53Body, {
+  model: "z-ai/glm-5.3",
+  baseUrl: "https://nano-gpt.com/api/v1",
+  providerKind: "nanogpt",
+  reasoningEffort: "none",
+});
+assert.deepEqual(
+  nanogptGlm53Body,
+  { enable_thinking: true, reasoning_effort: "low" },
+  "NanoGPT GLM 5.3 (non-Flash) must not receive a disable request either (#5765)",
 );
 
 const legacyGlmBody: Record<string, unknown> = {};
@@ -1285,10 +1735,29 @@ assert.equal(isOpenRouterApiUrl("https://openrouter.ai/api/v1"), true);
 assert.equal(isOpenRouterApiUrl("https://api.openrouter.ai/v1"), true);
 assert.equal(isOpenRouterApiUrl("https://openrouter.ai.example.com/v1"), false);
 assert.equal(isOpenRouterApiUrl("not a URL"), false);
-assert.equal(resolveMainGenerationToolChoice({ forceToolCall: true }, 0), "required");
-assert.equal(resolveMainGenerationToolChoice({ forceToolCall: "true" }, 0), "required");
-assert.equal(resolveMainGenerationToolChoice({ forceToolCall: true }, 1), "auto");
-assert.equal(resolveMainGenerationToolChoice({ forceToolCall: false }, 0), "auto");
+assert.equal(
+  resolveMainGenerationToolChoice({ chatMetadata: { forceToolCall: true }, enableChatTools: true, round: 0 }),
+  "required",
+);
+assert.equal(
+  resolveMainGenerationToolChoice({ chatMetadata: { forceToolCall: "true" }, enableChatTools: true, round: 0 }),
+  "required",
+);
+assert.equal(
+  resolveMainGenerationToolChoice({ chatMetadata: { forceToolCall: true }, enableChatTools: true, round: 1 }),
+  "auto",
+);
+assert.equal(
+  resolveMainGenerationToolChoice({ chatMetadata: { forceToolCall: false }, enableChatTools: true, round: 0 }),
+  "auto",
+);
+// Force To Call is a Function Calling panel setting and the panel hides it while tool use is
+// off, so a chat can hold one the user cannot see or clear. It must not reach a tool the
+// engine attached on its own.
+assert.equal(
+  resolveMainGenerationToolChoice({ chatMetadata: { forceToolCall: true }, enableChatTools: false, round: 0 }),
+  "auto",
+);
 assert.equal(normalizeCohereOpenAIBaseUrl("https://api.cohere.com"), "https://api.cohere.ai/compatibility/v1");
 assert.equal(normalizeCohereOpenAIBaseUrl("https://api.cohere.ai/"), "https://api.cohere.ai/compatibility/v1");
 assert.equal(normalizeCohereOpenAIBaseUrl("https://api.cohere.com/v1"), "https://api.cohere.ai/compatibility/v1");
@@ -1778,6 +2247,72 @@ try {
   assert.deepEqual(arliRequest?.body.init_images, [onePixelPng]);
 } finally {
   await new Promise<void>((resolve, reject) => arliImageServer.close((error) => (error ? reject(error) : resolve())));
+}
+
+// OpenRouter routes a /chat/completions request only to endpoints that emit every
+// modality in `modalities`. Most of its image models return image only, so the
+// request must ask for image alone; the handful that also return text opt in.
+const openRouterModalityRequests: Array<{ url: string | undefined; model: unknown; modalities: unknown }> = [];
+const openRouterModalityServer = createServer(async (request, response) => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+  openRouterModalityRequests.push({ url: request.url, model: body.model, modalities: body.modalities });
+  response.writeHead(200, { "content-type": "application/json" });
+  response.end(
+    JSON.stringify({
+      choices: [{ message: { images: [{ image_url: { url: `data:image/png;base64,${onePixelPng}` } }] } }],
+    }),
+  );
+});
+await new Promise<void>((resolve) => openRouterModalityServer.listen(0, "127.0.0.1", resolve));
+try {
+  const address = openRouterModalityServer.address();
+  assert.ok(address && typeof address === "object");
+  const baseUrl = `http://127.0.0.1:${address.port}/api/v1`;
+  const runModel = async (model?: string) => {
+    openRouterModalityRequests.length = 0;
+    const result = await generateImage("openrouter", baseUrl, "openrouter-secret", "openrouter", {
+      prompt: "a red ceramic mug",
+      model,
+      allowLocalUrls: true,
+    });
+    assert.equal(result.base64, onePixelPng);
+    assert.equal(openRouterModalityRequests.length, 1);
+    assert.equal(openRouterModalityRequests[0]?.url, "/api/v1/chat/completions");
+    assert.equal(openRouterModalityRequests[0]?.model, model?.trim() || "google/gemini-2.5-flash-image");
+    return openRouterModalityRequests[0]?.modalities;
+  };
+
+  // Image-only models. "flux" is in the legacy prefix list; the others are the
+  // regression this guards — models the old list did not know about that would
+  // otherwise 404 with "No endpoints found that support ... image, text".
+  for (const model of [
+    "black-forest-labs/flux.2-klein-4b",
+    "microsoft/mai-image-2.5",
+    "x-ai/grok-imagine-image-2.0",
+    "future-provider/image-only",
+  ]) {
+    assert.deepEqual(await runModel(model), ["image"], `${model} must request image-only modalities`);
+  }
+
+  // Models that also return text must keep asking for it.
+  for (const model of [
+    "google/gemini-2.5-flash-image",
+    "google/gemini-3-pro-image-preview",
+    " GOOGLE/GEMINI-3.1-FLASH-IMAGE ",
+    "openai/gpt-5-image",
+    "openai/gpt-5.4-image-2",
+    "openrouter/auto",
+    "openrouter/auto-beta",
+  ]) {
+    assert.deepEqual(await runModel(model), ["image", "text"], `${model} must still request text output`);
+  }
+  assert.deepEqual(await runModel(), ["image", "text"], "the default Gemini model must still request text output");
+} finally {
+  await new Promise<void>((resolve, reject) =>
+    openRouterModalityServer.close((error) => (error ? reject(error) : resolve())),
+  );
 }
 
 assert.equal(resolveConnectionImageQuality({ imageGenerationQuality: "high" }), "high");
@@ -2579,6 +3114,856 @@ try {
   await new Promise<void>((resolve, reject) =>
     contentBlockToolServer.close((error) => (error ? reject(error) : resolve())),
   );
+}
+
+// ── Gemini and Anthropic stream while tools are attached ──
+// Both adapters used to buffer the whole generation the moment a tool was attached: Gemini
+// hardwired the `:generateContent` endpoint, Anthropic hardcoded `stream: false`. The tool
+// loop never asked for that — it passes onToken and no `stream` key — so a tools turn showed
+// nothing until the round finished. These cases pin the streamed shape of both adapters.
+{
+  const rollDiceTool = {
+    type: "function" as const,
+    function: {
+      name: "roll_dice",
+      description: "Roll dice",
+      parameters: { type: "object", properties: { notation: { type: "string" } } },
+    },
+  };
+  const sseFrames = (frames: Array<Record<string, unknown>>) =>
+    frames.map((frame) => `data: ${JSON.stringify(frame)}\n`).join("\n");
+
+  // #5904: the official endpoint streams reasoning in both generation paths.
+  // Keep the tail withheld until the token sink runs, so buffering cannot pass.
+  const originalGoogleFetch = globalThis.fetch;
+  try {
+    for (const withTools of [false, true]) {
+      let streamController: ReadableStreamDefaultController<Uint8Array>;
+      const encoder = new TextEncoder();
+      const thoughts: string[] = [];
+      const tokens: string[] = [];
+      let savedParts: unknown[] | undefined;
+      globalThis.fetch = async (input) => {
+        assert.match(
+          String(input),
+          /^https:\/\/generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-2\.5-flash:streamGenerateContent\?alt=sse$/u,
+        );
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              streamController = controller;
+              controller.enqueue(
+                encoder.encode(
+                  sseFrames([
+                    { candidates: [{ content: { parts: [{ text: "Thinking", thought: true }] } }] },
+                    { candidates: [{ content: { parts: [{ text: "Answer" }] } }] },
+                  ]),
+                ),
+              );
+            },
+          }),
+          { headers: { "content-type": "text/event-stream" } },
+        );
+      };
+      const google = new GoogleProvider("https://generativelanguage.googleapis.com", "test");
+      const result = await google.chatComplete([{ role: "user", content: "reason" }], {
+        model: "gemini-2.5-flash",
+        stream: true,
+        reasoningEffort: "high",
+        signal: AbortSignal.timeout(3000),
+        onResponseParts: (parts) => {
+          savedParts = parts;
+        },
+        ...(withTools ? { tools: [rollDiceTool] } : {}),
+        onThinking: (chunk) => {
+          thoughts.push(chunk);
+        },
+        onToken: (chunk) => {
+          tokens.push(chunk);
+          streamController.enqueue(
+            encoder.encode(
+              sseFrames([
+                {
+                  candidates: [
+                    {
+                      content: {
+                        parts: [
+                          { thoughtSignature: "thought-signature" },
+                          ...(withTools
+                            ? [
+                                {
+                                  functionCall: { name: "roll_dice", args: { notation: "1d20" } },
+                                  thoughtSignature: "call-signature",
+                                },
+                              ]
+                            : []),
+                        ],
+                      },
+                      finishReason: "STOP",
+                    },
+                  ],
+                },
+              ]),
+            ),
+          );
+          streamController.close();
+        },
+      });
+      assert.deepEqual(thoughts, ["Thinking"]);
+      assert.deepEqual(tokens, ["Answer"]);
+      assert.equal(result.content, "Answer");
+      assert.match(JSON.stringify(result.providerMetadata?.geminiParts ?? savedParts), /thought-signature/u);
+      if (withTools) {
+        assert.equal(result.toolCalls[0]?.function.name, "roll_dice");
+        assert.match(JSON.stringify(result.providerMetadata?.geminiParts), /call-signature/u);
+      }
+    }
+    let cancelled = false;
+    globalThis.fetch = async () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              new TextEncoder().encode(
+                sseFrames([{ candidates: [{ content: { parts: [{ text: "First chunk" }] } }] }]),
+              ),
+            );
+          },
+          cancel() {
+            cancelled = true;
+          },
+        }),
+        { headers: { "content-type": "text/event-stream" } },
+      );
+    const iterator = new GoogleProvider("https://generativelanguage.googleapis.com", "test").chat(
+      [{ role: "user", content: "reason" }],
+      { model: "gemini-2.5-flash", reasoningEffort: "high", stream: true, signal: AbortSignal.timeout(3000) },
+    );
+    assert.equal((await iterator.next()).value, "First chunk");
+    await iterator.return(undefined);
+    assert.equal(cancelled, true, "Stopping a thinking stream must release its still-open response body");
+  } finally {
+    globalThis.fetch = originalGoogleFetch;
+  }
+
+  // Explicit debug logs the final serialized provider body, but not auth headers.
+  const priorWarn = logger.warn;
+  const priorLevel = logger.level;
+  const priorDebugAgents = process.env.DEBUG_AGENTS;
+  const promptLogs: unknown[][] = [];
+  let sentBody: unknown;
+  const loggingServer = createServer(async (request, response) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(Buffer.from(chunk));
+    sentBody = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    response.writeHead(200, { "content-type": "text/event-stream" });
+    const frames =
+      request.url === "/messages"
+        ? [
+            { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Done" } },
+            { type: "message_stop" },
+          ]
+        : [{ candidates: [{ content: { parts: [{ text: "Done" }] }, finishReason: "STOP" }] }];
+    response.end(sseFrames(frames));
+  });
+  await new Promise<void>((resolve) => loggingServer.listen(0, "127.0.0.1", resolve));
+  try {
+    logger.level = "warn";
+    logger.warn = ((...args: unknown[]) => {
+      promptLogs.push(args);
+    }) as typeof logger.warn;
+    const address = loggingServer.address();
+    if (!address || typeof address === "string") throw new Error("Prompt logging fixture did not bind");
+    for (const Provider of [AnthropicProvider, GoogleProvider]) {
+      const provider = new Provider(`http://127.0.0.1:${address.port}`, "synthetic-auth-marker");
+      for (const debug of ["off", "ui", "agents"]) {
+        process.env.DEBUG_AGENTS = debug === "agents" ? "true" : "false";
+        promptLogs.length = 0;
+        await provider.chatComplete([{ role: "user", content: "Synthetic tool prompt" }], {
+          model: Provider === AnthropicProvider ? "claude-sonnet-4-20250514" : "gemini-2.0-flash",
+          tools: [rollDiceTool],
+          debugMode: debug === "ui",
+          customParameters: { temperature: 0.42 },
+          onToken: () => {},
+        });
+        assert.equal(promptLogs.length, debug === "off" ? 0 : 1);
+        if (debug !== "off") {
+          assert.deepEqual(promptLogs[0]![1], sentBody, "debug logs include final parameter/tool shaping");
+          assert.ok(!JSON.stringify(promptLogs).includes("synthetic-auth-marker"), "auth headers are not prompt data");
+        }
+      }
+    }
+  } finally {
+    logger.warn = priorWarn;
+    logger.level = priorLevel;
+    if (priorDebugAgents === undefined) delete process.env.DEBUG_AGENTS;
+    else process.env.DEBUG_AGENTS = priorDebugAgents;
+    await new Promise<void>((resolve) => loggingServer.close(() => resolve()));
+  }
+
+  // Keep the upstream body open: errors and cancellation must release it without
+  // waiting for the provider/proxy to finish sending the turn.
+  for (const providerName of ["Gemini", "Anthropic"] as const) {
+    for (const outcome of ["provider-error", "sink-error", "abort"] as const) {
+      let upstreamClosed = false;
+      let closed!: () => void;
+      const closeReceived = new Promise<void>((resolve) => {
+        closed = resolve;
+      });
+      const server = createServer(async (request, response) => {
+        for await (const _chunk of request) {
+          /* Drain the request before replying. */
+        }
+        response.on("close", () => {
+          upstreamClosed = true;
+          closed();
+        });
+        response.writeHead(200, { "content-type": "text/event-stream" });
+        const frames =
+          outcome === "provider-error"
+            ? [{ type: "error", error: { type: "api_error", message: "upstream failed" } }]
+            : providerName === "Gemini"
+              ? [
+                  {
+                    candidates: [
+                      {
+                        content: {
+                          parts: [
+                            { functionCall: { name: "roll_dice", args: { notation: "1d20" } } },
+                            { text: "Partial turn." },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                ]
+              : [
+                  {
+                    type: "content_block_start",
+                    index: 0,
+                    content_block: { type: "tool_use", id: "toolu_abort", name: "roll_dice" },
+                  },
+                  {
+                    type: "content_block_delta",
+                    index: 0,
+                    delta: { type: "input_json_delta", partial_json: '{"notation":"1d20"}' },
+                  },
+                  { type: "content_block_start", index: 1, content_block: { type: "text" } },
+                  { type: "content_block_delta", index: 1, delta: { type: "text_delta", text: "Partial turn." } },
+                ];
+        response.write(sseFrames(frames));
+      });
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const controller = new AbortController();
+      let closeTimeout: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const address = server.address();
+        assert.ok(address && typeof address === "object");
+        const baseUrl = `http://127.0.0.1:${address.port}`;
+        const provider =
+          providerName === "Gemini" ? new GoogleProvider(baseUrl, "test") : new AnthropicProvider(baseUrl, "test");
+        const completion = provider.chatComplete([{ role: "user", content: "roll" }], {
+          model: providerName === "Gemini" ? "gemini-2.0-flash" : "claude-opus-5",
+          tools: [rollDiceTool],
+          signal: controller.signal,
+          onToken: async () => {
+            if (outcome === "sink-error") throw new Error("sink failed");
+            controller.abort();
+          },
+        });
+        if (outcome === "abort") {
+          const result = await completion;
+          assert.equal(
+            result.finishReason,
+            "abort",
+            `${providerName}: stopping a partial tool turn must not report success`,
+          );
+          assert.equal(result.content, "Partial turn.");
+        } else {
+          await assert.rejects(completion, outcome === "sink-error" ? /sink failed/ : /upstream failed/);
+        }
+        await Promise.race([
+          closeReceived,
+          new Promise<void>((resolve) => {
+            closeTimeout = setTimeout(resolve, 1000);
+          }),
+        ]);
+        assert.ok(upstreamClosed, `${providerName}: ${outcome} must cancel the still-open upstream stream`);
+      } finally {
+        clearTimeout(closeTimeout);
+        controller.abort();
+        server.closeAllConnections();
+        await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+      }
+    }
+  }
+
+  // ── Gemini ──
+  let geminiStreamFrames: Array<Record<string, unknown>> = [];
+  const geminiBufferedBody = {
+    candidates: [
+      {
+        content: {
+          parts: [{ text: "Buffered narration." }, { functionCall: { name: "roll_dice", args: { notation: "1d20" } } }],
+        },
+        finishReason: "STOP",
+      },
+    ],
+    usageMetadata: { promptTokenCount: 7, candidatesTokenCount: 3, totalTokenCount: 10 },
+  };
+  const geminiRequestUrls: string[] = [];
+  const geminiRequestBodies: Array<Record<string, unknown>> = [];
+  const geminiServer = createServer(async (request, response) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    geminiRequestBodies.push(JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>);
+    const url = request.url ?? "";
+    geminiRequestUrls.push(url);
+    if (url.includes("streamGenerateContent")) {
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      response.end(sseFrames(geminiStreamFrames));
+      return;
+    }
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify(geminiBufferedBody));
+  });
+  await new Promise<void>((resolve) => geminiServer.listen(0, "127.0.0.1", resolve));
+  try {
+    const geminiAddress = geminiServer.address();
+    assert.ok(geminiAddress && typeof geminiAddress === "object");
+    const gemini = new GoogleProvider(`http://127.0.0.1:${geminiAddress.port}`, "test");
+
+    // Prose streams live, then a functionCall arriving in a later frame is collected.
+    geminiStreamFrames = [
+      { candidates: [{ content: { parts: [{ text: "The die " }] } }] },
+      { candidates: [{ content: { parts: [{ text: "leaves your hand." }] } }] },
+      {
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  functionCall: { name: "roll_dice", args: { notation: "1d20" } },
+                  thoughtSignature: "sig-1",
+                },
+              ],
+            },
+            finishReason: "STOP",
+          },
+        ],
+        usageMetadata: { promptTokenCount: 11, candidatesTokenCount: 4, totalTokenCount: 15 },
+      },
+    ];
+    let geminiTokens: string[] = [];
+    let geminiResult = await gemini.chatComplete([{ role: "user", content: "roll" }], {
+      model: "gemini-2.0-flash",
+      tools: [rollDiceTool],
+      onToken: (chunk) => {
+        geminiTokens.push(chunk);
+      },
+    });
+    assert.match(
+      geminiRequestUrls.at(-1) ?? "",
+      /:streamGenerateContent\?alt=sse$/,
+      "a Gemini tools round with a token sink must use the SSE streaming endpoint",
+    );
+    assert.deepEqual(
+      geminiTokens,
+      ["The die ", "leaves your hand."],
+      "Gemini prose must reach onToken per frame, not once after the whole generation",
+    );
+    assert.equal(geminiResult.content, "The die leaves your hand.");
+    assert.equal(geminiResult.finishReason, "tool_calls");
+    assert.deepEqual(
+      geminiResult.toolCalls.map((call) => [call.function.name, call.function.arguments]),
+      [["roll_dice", '{"notation":"1d20"}']],
+      "a functionCall part arriving in its own SSE frame must survive",
+    );
+    assert.deepEqual(
+      geminiResult.providerMetadata?.geminiParts,
+      [
+        { text: "The die leaves your hand." },
+        { functionCall: { name: "roll_dice", args: { notation: "1d20" } }, thoughtSignature: "sig-1" },
+      ],
+      "the streamed tools round must return replayable parts, signature attached to the call",
+    );
+    assert.equal(geminiResult.usage?.totalTokens, 15);
+
+    // Round two, assembled exactly as the tool loop assembles it (generate.routes.ts:6549-6554
+    // then :6677-6683). The assistant message carries both the stored parts and the tool calls,
+    // and formatGoogleContents returns early on the stored parts — so the call id → name map
+    // has to be filled before that branch. Gemini pairs a functionResponse to its functionCall
+    // by name; a result labelled "tool_result" reads as a reply from a function nobody called.
+    geminiStreamFrames = [
+      { candidates: [{ content: { parts: [{ text: "You rolled a 17." }] }, finishReason: "STOP" }] },
+    ];
+    geminiTokens = [];
+    await gemini.chatComplete(
+      [
+        { role: "user", content: "roll" },
+        {
+          role: "assistant",
+          content: geminiResult.content ?? "",
+          tool_calls: geminiResult.toolCalls,
+          ...(geminiResult.providerMetadata ? { providerMetadata: geminiResult.providerMetadata } : {}),
+        },
+        { role: "tool", content: '{"total":17}', tool_call_id: geminiResult.toolCalls[0]!.id },
+      ],
+      {
+        model: "gemini-2.0-flash",
+        tools: [rollDiceTool],
+        onToken: (chunk) => {
+          geminiTokens.push(chunk);
+        },
+      },
+    );
+    const replayedContents = (geminiRequestBodies.at(-1)?.contents ?? []) as Array<{
+      role: string;
+      parts: Array<Record<string, unknown>>;
+    }>;
+    assert.deepEqual(
+      replayedContents.at(-2)?.parts,
+      geminiResult.providerMetadata?.geminiParts,
+      "the assistant turn must replay its stored parts verbatim, thought signatures included",
+    );
+    assert.deepEqual(
+      replayedContents.at(-1)?.parts,
+      [{ functionResponse: { name: "roll_dice", response: { total: 17 } } }],
+      "a tool result must be named for the function that produced it, never `tool_result`",
+    );
+    assert.deepEqual(geminiTokens, ["You rolled a 17."], "the round after a tool result streams too");
+
+    // Provider-issued ids must pair each result with its call, even when two calls
+    // use the same function. Cover both raw-part replay and the fallback serializer.
+    const identifiedParts = ["roll-first", "roll-second"].map((id) => ({
+      functionCall: { id, name: "roll_dice", args: { notation: "1d20" } },
+      thoughtSignature: `signature-${id}`,
+    }));
+    geminiStreamFrames = [{ candidates: [{ content: { parts: identifiedParts }, finishReason: "STOP" }] }];
+    const identifiedResult = await gemini.chatComplete([{ role: "user", content: "roll twice" }], {
+      model: "gemini-2.0-flash",
+      tools: [rollDiceTool],
+      onToken: () => {},
+    });
+    geminiStreamFrames = [
+      { candidates: [{ content: { parts: [{ text: "Both rolls landed." }] }, finishReason: "STOP" }] },
+    ];
+    for (const replayMetadata of [true, false]) {
+      await gemini.chatComplete(
+        [
+          { role: "user", content: "roll twice" },
+          {
+            role: "assistant",
+            content: "",
+            tool_calls: identifiedResult.toolCalls,
+            ...(replayMetadata ? { providerMetadata: identifiedResult.providerMetadata } : {}),
+          },
+          ...identifiedResult.toolCalls.map(
+            (call, index): ChatMessage => ({
+              role: "tool",
+              tool_call_id: call.id,
+              content: JSON.stringify({ total: 17 + index }),
+            }),
+          ),
+        ],
+        { model: "gemini-2.0-flash", tools: [rollDiceTool], onToken: () => {} },
+      );
+      const contents = geminiRequestBodies.at(-1)!.contents as Array<{ parts: unknown[] }>;
+      assert.deepEqual(
+        contents[1]!.parts,
+        replayMetadata ? identifiedParts : identifiedParts.map(({ functionCall }) => ({ functionCall })),
+        "both serialization paths must retain the provider's function-call ids",
+      );
+      assert.deepEqual(
+        contents.slice(2).map(({ parts }) => parts),
+        ["roll-first", "roll-second"].map((id, index) => [
+          { functionResponse: { id, name: "roll_dice", response: { total: 17 + index } } },
+        ]),
+        "each functionResponse must include the matching provider-issued id",
+      );
+    }
+
+    // Two calls in one response with no ids of their own: the synthesized fallback ids are
+    // built from a running index, so they must not collide.
+    geminiStreamFrames = [
+      {
+        candidates: [
+          {
+            content: {
+              parts: [
+                { functionCall: { name: "roll_dice", args: { notation: "1d20" } } },
+                { functionCall: { name: "roll_dice", args: { notation: "2d6" } } },
+              ],
+            },
+            finishReason: "STOP",
+          },
+        ],
+      },
+    ];
+    geminiResult = await gemini.chatComplete([{ role: "user", content: "roll twice" }], {
+      model: "gemini-2.0-flash",
+      tools: [rollDiceTool],
+      onToken: () => {},
+    });
+    // Asserted on the index suffix rather than plain inequality: the fallback id also carries
+    // Date.now(), which would usually differ on its own and let a fixed index pass by luck.
+    assert.deepEqual(
+      geminiResult.toolCalls.map((call) => call.id.replace(/^gemini_tool_\d+/, "")),
+      ["_0", "_1"],
+      "id-less parallel functionCall parts must get distinct synthesized ids from the running index",
+    );
+    assert.deepEqual(
+      geminiResult.toolCalls.map((call) => call.function.arguments),
+      ['{"notation":"1d20"}', '{"notation":"2d6"}'],
+    );
+
+    // A tool-only round carries no prose at all. chat()'s `!responseText` guard, ported as-is,
+    // would have ended it: this path clears the guard on tool calls instead.
+    geminiStreamFrames = [
+      {
+        candidates: [
+          {
+            content: { parts: [{ functionCall: { name: "roll_dice", args: { notation: "2d6" } } }] },
+            finishReason: "STOP",
+          },
+        ],
+      },
+    ];
+    geminiTokens = [];
+    geminiResult = await gemini.chatComplete([{ role: "user", content: "roll" }], {
+      model: "gemini-2.0-flash",
+      tools: [rollDiceTool],
+      onToken: (chunk) => {
+        geminiTokens.push(chunk);
+      },
+    });
+    assert.equal(geminiResult.content, null, "a text-free Gemini tools round must not be an error");
+    assert.deepEqual(geminiTokens, []);
+    assert.deepEqual(
+      geminiResult.toolCalls.map((call) => call.function.name),
+      ["roll_dice"],
+    );
+    assert.equal(geminiResult.finishReason, "tool_calls");
+
+    // Tools attached, none called: the turn still streams.
+    geminiStreamFrames = [
+      { candidates: [{ content: { parts: [{ text: "No roll " }] } }] },
+      { candidates: [{ content: { parts: [{ text: "needed." }] }, finishReason: "STOP" }] },
+    ];
+    geminiTokens = [];
+    geminiResult = await gemini.chatComplete([{ role: "user", content: "talk" }], {
+      model: "gemini-2.0-flash",
+      tools: [rollDiceTool],
+      onToken: (chunk) => {
+        geminiTokens.push(chunk);
+      },
+    });
+    assert.deepEqual(geminiTokens, ["No roll ", "needed."], "an unused tool must not re-buffer the turn");
+    assert.equal(geminiResult.content, "No roll needed.");
+    assert.deepEqual(geminiResult.toolCalls, []);
+    assert.equal(geminiResult.finishReason, "stop");
+
+    // Thinking stays buffered: proxies strip thought parts from SSE but return them whole.
+    geminiTokens = [];
+    geminiResult = await gemini.chatComplete([{ role: "user", content: "roll" }], {
+      model: "gemini-2.5-flash",
+      reasoningEffort: "high",
+      tools: [rollDiceTool],
+      onToken: (chunk) => {
+        geminiTokens.push(chunk);
+      },
+    });
+    assert.match(
+      geminiRequestUrls.at(-1) ?? "",
+      /:generateContent$/,
+      "Gemini thinking turns must keep the buffered endpoint even with tools attached",
+    );
+    assert.deepEqual(
+      geminiTokens,
+      ["Buffered narration."],
+      "the buffered path still delivers its text in one onToken call",
+    );
+    assert.deepEqual(
+      geminiResult.providerMetadata?.geminiParts,
+      geminiBufferedBody.candidates[0]!.content.parts,
+      "the buffered tools round returns its raw parts for replay too",
+    );
+
+    // stream:true without a token sink (the agent tool loop) keeps the buffered path.
+    await gemini.chatComplete([{ role: "user", content: "roll" }], {
+      model: "gemini-2.0-flash",
+      stream: true,
+      tools: [rollDiceTool],
+    });
+    assert.match(
+      geminiRequestUrls.at(-1) ?? "",
+      /:generateContent$/,
+      "a tools call with no onToken must not be switched to streaming",
+    );
+  } finally {
+    await new Promise<void>((resolve, reject) => geminiServer.close((error) => (error ? reject(error) : resolve())));
+  }
+
+  // ── Anthropic ──
+  let anthropicStreamFrames: Array<Record<string, unknown>> = [];
+  // When set, the stub writes only the leading frames, waits, then writes the rest — so a
+  // case can prove the provider saw the head before the body finished.
+  let anthropicTailGate: { headFrames: number; wait: () => Promise<void> } | null = null;
+  const anthropicToolRequestBodies: Array<Record<string, unknown>> = [];
+  const anthropicToolServer = createServer(async (request, response) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+    anthropicToolRequestBodies.push(body);
+    if (body.stream !== true) {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          content: [
+            { type: "text", text: "Buffered narration." },
+            { type: "tool_use", id: "toolu_buffered", name: "roll_dice", input: { notation: "1d20" } },
+          ],
+          stop_reason: "tool_use",
+          usage: { input_tokens: 7, output_tokens: 3 },
+        }),
+      );
+      return;
+    }
+    response.writeHead(200, { "content-type": "text/event-stream" });
+    if (anthropicTailGate) {
+      const gate = anthropicTailGate;
+      response.write(sseFrames(anthropicStreamFrames.slice(0, gate.headFrames)));
+      await gate.wait();
+      response.end(sseFrames(anthropicStreamFrames.slice(gate.headFrames)));
+      return;
+    }
+    // Split the payload mid-line so the reader has to re-join a partial SSE frame.
+    const payload = sseFrames(anthropicStreamFrames);
+    const split = Math.floor(payload.length / 2);
+    response.write(payload.slice(0, split));
+    setTimeout(() => response.end(payload.slice(split)), 10);
+  });
+  await new Promise<void>((resolve) => anthropicToolServer.listen(0, "127.0.0.1", resolve));
+  try {
+    const anthropicAddress = anthropicToolServer.address();
+    assert.ok(anthropicAddress && typeof anthropicAddress === "object");
+    const anthropic = new AnthropicProvider(`http://127.0.0.1:${anthropicAddress.port}`, "test");
+
+    // Prose streams live, then tool_use input arrives as input_json_delta fragments that
+    // split a JSON key across two frames.
+    anthropicStreamFrames = [
+      { type: "message_start", message: { usage: { input_tokens: 12, output_tokens: 0 } } },
+      { type: "content_block_start", index: 0, content_block: { type: "text" } },
+      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Rolling" } },
+      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: " for you." } },
+      { type: "content_block_stop", index: 0 },
+      {
+        type: "content_block_start",
+        index: 1,
+        content_block: { type: "tool_use", id: "toolu_1", name: "roll_dice" },
+      },
+      { type: "content_block_delta", index: 1, delta: { type: "input_json_delta", partial_json: '{"notat' } },
+      { type: "content_block_delta", index: 1, delta: { type: "input_json_delta", partial_json: 'ion":"1d20"}' } },
+      { type: "content_block_stop", index: 1 },
+      { type: "message_delta", delta: { stop_reason: "tool_use" }, usage: { output_tokens: 9 } },
+      { type: "message_stop" },
+    ];
+    let anthropicTokens: string[] = [];
+    let anthropicResult = await anthropic.chatComplete([{ role: "user", content: "roll" }], {
+      model: "claude-opus-5",
+      tools: [rollDiceTool],
+      onToken: (chunk) => {
+        anthropicTokens.push(chunk);
+      },
+    });
+    assert.equal(
+      anthropicToolRequestBodies.at(-1)?.stream,
+      true,
+      "an Anthropic tools round with a token sink must request a stream",
+    );
+    assert.deepEqual(
+      anthropicTokens,
+      ["Rolling", " for you."],
+      "Anthropic prose must reach onToken per delta, not once after the whole generation",
+    );
+    assert.equal(anthropicResult.content, "Rolling for you.");
+    assert.equal(anthropicResult.finishReason, "tool_calls");
+    assert.deepEqual(
+      anthropicResult.toolCalls.map((call) => [call.id, call.function.name, call.function.arguments]),
+      [["toolu_1", "roll_dice", '{"notation":"1d20"}']],
+      "input_json_delta fragments split across frames must reassemble into one argument object",
+    );
+    assert.deepEqual(anthropicResult.usage, { promptTokens: 12, completionTokens: 9, totalTokens: 21 });
+
+    // Two tool_use blocks open at once, deltas interleaved: accumulation must be index-keyed.
+    anthropicStreamFrames = [
+      { type: "message_start", message: { usage: { input_tokens: 4, output_tokens: 0 } } },
+      {
+        type: "content_block_start",
+        index: 0,
+        content_block: { type: "tool_use", id: "toolu_a", name: "roll_dice" },
+      },
+      {
+        type: "content_block_start",
+        index: 1,
+        content_block: { type: "tool_use", id: "toolu_b", name: "roll_dice" },
+      },
+      {
+        type: "content_block_delta",
+        index: 1,
+        delta: { type: "input_json_delta", partial_json: '{"notation":"2d6"}' },
+      },
+      {
+        type: "content_block_delta",
+        index: 0,
+        delta: { type: "input_json_delta", partial_json: '{"notation":"1d20"}' },
+      },
+      { type: "content_block_stop", index: 0 },
+      { type: "content_block_stop", index: 1 },
+      { type: "message_delta", delta: { stop_reason: "tool_use" }, usage: { output_tokens: 5 } },
+      { type: "message_stop" },
+    ];
+    anthropicTokens = [];
+    anthropicResult = await anthropic.chatComplete([{ role: "user", content: "roll twice" }], {
+      model: "claude-opus-5",
+      tools: [rollDiceTool],
+      onToken: (chunk) => {
+        anthropicTokens.push(chunk);
+      },
+    });
+    assert.equal(anthropicResult.content, null, "a text-free Anthropic tools round must not be an error");
+    assert.deepEqual(anthropicTokens, []);
+    assert.deepEqual(
+      anthropicResult.toolCalls.map((call) => [call.id, call.function.arguments]),
+      [
+        ["toolu_a", '{"notation":"1d20"}'],
+        ["toolu_b", '{"notation":"2d6"}'],
+      ],
+      "interleaved parallel tool_use deltas must stay bound to their own content-block index",
+    );
+
+    // A tool-only round that never sends a message_delta: the empty-text guard has to clear
+    // on the collected tool calls, not lean on a stop_reason arriving to clear it first.
+    anthropicStreamFrames = [
+      { type: "message_start", message: { usage: { input_tokens: 6, output_tokens: 0 } } },
+      {
+        type: "content_block_start",
+        index: 0,
+        content_block: { type: "tool_use", id: "toolu_c", name: "roll_dice" },
+      },
+      {
+        type: "content_block_delta",
+        index: 0,
+        delta: { type: "input_json_delta", partial_json: '{"notation":"1d4"}' },
+      },
+      { type: "content_block_stop", index: 0 },
+      { type: "message_stop" },
+    ];
+    anthropicResult = await anthropic.chatComplete([{ role: "user", content: "roll" }], {
+      model: "claude-opus-5",
+      tools: [rollDiceTool],
+      onToken: () => {},
+    });
+    assert.equal(anthropicResult.content, null);
+    assert.deepEqual(
+      anthropicResult.toolCalls.map((call) => [call.id, call.function.arguments]),
+      [["toolu_c", '{"notation":"1d4"}']],
+      "a tool call with no stop_reason behind it must be returned, not thrown away as empty",
+    );
+    assert.equal(anthropicResult.finishReason, "tool_calls");
+
+    // Delivery has to be progressive, not just parsed progressively: safeFetch's buffered
+    // mode drains the entire body before the provider reads a byte, so `bufferResponse` must
+    // follow `useStream` or the turn arrives in one lump with the SSE parser none the wiser.
+    // The stub holds the tail of the stream until the first token lands.
+    anthropicStreamFrames = [
+      { type: "message_start", message: { usage: { input_tokens: 5, output_tokens: 0 } } },
+      { type: "content_block_start", index: 0, content_block: { type: "text" } },
+      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "First." } },
+      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: " Second." } },
+      { type: "content_block_stop", index: 0 },
+      { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 4 } },
+      { type: "message_stop" },
+    ];
+    let firstTokenArrived = false;
+    let tailFollowedFirstToken = false;
+    let releaseTail = () => {};
+    const tailRelease = new Promise<void>((resolve) => {
+      releaseTail = resolve;
+    });
+    anthropicTailGate = {
+      headFrames: 3,
+      wait: async () => {
+        // Bounded, so a buffered read fails this assertion instead of hanging the lane.
+        await Promise.race([tailRelease, new Promise<void>((resolve) => setTimeout(resolve, 2000))]);
+        tailFollowedFirstToken = firstTokenArrived;
+      },
+    };
+    anthropicTokens = [];
+    try {
+      anthropicResult = await anthropic.chatComplete([{ role: "user", content: "talk" }], {
+        model: "claude-opus-5",
+        tools: [rollDiceTool],
+        onToken: (chunk) => {
+          anthropicTokens.push(chunk);
+          firstTokenArrived = true;
+          releaseTail();
+        },
+      });
+    } finally {
+      anthropicTailGate = null;
+    }
+    assert.ok(
+      tailFollowedFirstToken,
+      "a streamed tools round must reach onToken before the response body ends — bufferResponse must follow useStream",
+    );
+    assert.deepEqual(anthropicTokens, ["First.", " Second."]);
+    assert.equal(anthropicResult.content, "First. Second.");
+
+    // Tools attached, none called: the turn still streams.
+    anthropicStreamFrames = [
+      { type: "message_start", message: { usage: { input_tokens: 3, output_tokens: 0 } } },
+      { type: "content_block_start", index: 0, content_block: { type: "text" } },
+      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "No roll " } },
+      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "needed." } },
+      { type: "content_block_stop", index: 0 },
+      { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 4 } },
+      { type: "message_stop" },
+    ];
+    anthropicTokens = [];
+    anthropicResult = await anthropic.chatComplete([{ role: "user", content: "talk" }], {
+      model: "claude-opus-5",
+      tools: [rollDiceTool],
+      onToken: (chunk) => {
+        anthropicTokens.push(chunk);
+      },
+    });
+    assert.deepEqual(anthropicTokens, ["No roll ", "needed."], "an unused tool must not re-buffer the turn");
+    assert.equal(anthropicResult.content, "No roll needed.");
+    assert.deepEqual(anthropicResult.toolCalls, []);
+    assert.equal(anthropicResult.finishReason, "end_turn");
+
+    // stream:true without a token sink (the agent tool loop) keeps the buffered path.
+    anthropicResult = await anthropic.chatComplete([{ role: "user", content: "roll" }], {
+      model: "claude-opus-5",
+      stream: true,
+      tools: [rollDiceTool],
+    });
+    assert.equal(
+      anthropicToolRequestBodies.at(-1)?.stream,
+      false,
+      "a tools call with no onToken must not be switched to streaming",
+    );
+    assert.equal(anthropicResult.content, "Buffered narration.");
+    assert.deepEqual(
+      anthropicResult.toolCalls.map((call) => call.id),
+      ["toolu_buffered"],
+    );
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      anthropicToolServer.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
 }
 
 process.stdout.write("Provider compatibility regression passed.\n");

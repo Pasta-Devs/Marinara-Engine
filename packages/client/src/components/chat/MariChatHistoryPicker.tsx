@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, Search, X } from "lucide-react";
-import type { Chat, Character, Message } from "@marinara-engine/shared";
+import { estimateTextTokens, type Chat, type Character, type Message } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { useChats } from "../../hooks/use-chats";
@@ -18,9 +18,9 @@ import { useModalFocusTrap } from "../../hooks/use-modal-focus-trap";
 // Server cap (MAX_CONTEXT_ITEM_CONTENT_LENGTH). Warn + block before the request when a selection
 // exceeds it, instead of surfacing a 400.
 const MAX_CONTENT_CHARS = 200_000;
-// Rough token estimate for the cost hint (~4 chars/token). Not exact — just steers the user toward
+// Rough token estimate for the cost hint. Not exact — just steers the user toward
 // Last-N / a range before they blow the context window.
-const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
+const estimateTokens = estimateTextTokens;
 
 type SelectionMode = "all" | "last" | "range";
 

@@ -124,7 +124,7 @@ You choose which actions show from settings.
 
 The three actions are:
 
-- **Post only**: add your typed message to the chat without triggering an AI reply.
+- **Post only**: add your typed message to the chat without triggering an AI reply. You can also run this with the `/send <message>` slash command.
 - **Guide reply**: send your typed text as a `/guided` direction instead of a normal message.
 - **Impersonate**: generate a reply as your persona, using your typed text as the direction. This action is hidden in Conversation chats, because Impersonate does not work there.
 

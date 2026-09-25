@@ -1,5 +1,8 @@
+import { withLatestMessageReply } from "../../services/generation/message-reply.js";
 import type { FastifyInstance } from "fastify";
 import {
+  DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
+  parseDecisionPromptQuestionLimit,
   LOCAL_SIDECAR_CONNECTION_ID,
   isClaudeAdaptiveOnlyNoSamplingModel,
   resolveProviderReasoningEffort,
@@ -9,10 +12,48 @@ import {
   normalizeGameStoryboardKeyframeCount,
   type GenerationParameterSendMap,
   type LorebookEntryTimingState,
+  BUILT_IN_AGENTS,
+  isAgentConfigDeleted,
+  isBuiltInAgentRuntimeDisabled,
+  normalizeAdvancedMemorySettings,
 } from "@marinara-engine/shared";
+import {
+  appendRoleplayPromptTail,
+  appendRoleplayWhispers,
+  buildRoleplayCommandsReminder,
+  buildRoleplayPersonalContext,
+} from "../../services/generation/roleplay-commands.js";
 import { randomUUID } from "crypto";
 import { createChatsStorage } from "../../services/storage/chats.storage.js";
+import { createAdvancedMemoryService, selectAdvancedMemoryMessages } from "../../services/advanced-memory.js";
+import { prepareAdvancedMemoryContext } from "../../services/generation/advanced-memory-context.js";
+import {
+  ADVANCED_MEMORY_MARKER_TYPES,
+  createAdvancedMemoryPlacement,
+  resolveAdvancedMemoryPrompt,
+  type AdvancedMemoryPlacement,
+} from "../../services/prompt/advanced-memory-prompt.js";
 import { createConnectionsStorage } from "../../services/storage/connections.storage.js";
+import { createAppSettingsStorage } from "../../services/storage/app-settings.storage.js";
+import {
+  cachedPromptDecisionAnswers,
+  collectTurnDecisionTexts,
+  reachableDecisionStatements,
+  type HeldDecisions,
+  createLorebookDecisionResolver,
+  decisionModelUsable,
+  latestTurnDecisionId,
+  planPromptDecisions,
+  promptDecisionCacheKey,
+} from "../../services/decision/prompt-decisions.js";
+import {
+  DECISION_TIMERS_METADATA_KEY,
+  decisionTurnFor,
+  heldDecision,
+  readDecisionTimers,
+} from "../../services/decision/decision-timers.js";
+import { gameGmPromptDecisionTexts } from "../../services/generation/game-gm-prompt-runtime.js";
+import { DECISION_SETTINGS_KEYS } from "../../services/decision/decision-default.js";
 import { createPromptsStorage } from "../../services/storage/prompts.storage.js";
 import { createCharactersStorage } from "../../services/storage/characters.storage.js";
 import { createAgentsStorage } from "../../services/storage/agents.storage.js";
@@ -48,7 +89,7 @@ import {
   type AssemblerInput,
 } from "../../services/prompt/index.js";
 import { cardPromptText } from "../../services/prompt/card-text.js";
-import { mergeAdjacentMessages } from "../../services/prompt/merger.js";
+import { resolveChatUserIdentity } from "../../services/chat-user-identity.js";
 import { wrapContent } from "../../services/prompt/format-engine.js";
 import {
   yieldToEventLoop,
@@ -62,14 +103,21 @@ import {
   resolveModelAccessPolicy,
   resolveStoredModelContextLimit,
 } from "../../services/generation/model-access-policy.js";
-import { normalizeChatTopP } from "../../services/generation/generation-parameters.js";
-import { filterPromptMessagesForCharacterAudience } from "../../services/generation/prompt-message-scope.js";
+import {
+  collectPastReasoningMetadata,
+  limitPastReasoningMetadata,
+  normalizeChatTopP,
+} from "../../services/generation/generation-parameters.js";
+import {
+  filterPromptMessagesForCharacterAudience,
+  scopeIndividualGroupMessagesForTarget,
+} from "../../services/generation/prompt-message-scope.js";
 import { applyAllSegmentEdits } from "../../services/game/segment-edits.js";
 import { applyRegexScriptsToPromptMessages } from "../../services/regex/regex-application.js";
 import { sendSseEvent, startSseReply } from "./sse.js";
 import {
   appendReadableAttachmentsToContent,
-  appendNonLeadingSystemMessagesToLastUser,
+  postProcessMessages,
   buildGenerationGuideInstruction,
   createLocalSidecarGenerationConnection,
   dedupeLastMessageWrappers,
@@ -87,7 +135,6 @@ import {
   prefixGroupIndividualHistorySpeakers,
   readPersonaSnapshotName,
   resolveActiveCharacterIds,
-  resolveActivePersonaCandidate,
   resolvePromptCharacterIdsForTarget,
   resolveCharacterNameMap,
   resolveGroupGenerationMode,
@@ -101,15 +148,33 @@ import {
   type PromptAttachment,
 } from "../generate/generate-route-utils.js";
 import { buildGenerationPromptPresetCandidates, type PromptPresetCandidateSource } from "./prompt-preset-selection.js";
-import { CONVERSATION_NO_REPEAT_INSTRUCTION } from "./conversation-prompt-formatting.js";
+import {
+  CONVERSATION_NO_REPEAT_INSTRUCTION,
+  conversationPromptHistoryContent,
+} from "./conversation-prompt-formatting.js";
 import { createGameStateStorage, type GameStateVisibleAnchor } from "../../services/storage/game-state.storage.js";
-import { buildCommittedTrackerContextBlock } from "../../services/generation/committed-tracker-context.js";
+import {
+  buildCommittedTrackerContextBlock,
+  injectCommittedTrackerContext,
+  COMMITTED_TRACKER_AGENT_TYPES,
+} from "../../services/generation/committed-tracker-context.js";
+import {
+  buildRuntimeAgentSectionEligibleTypes,
+  makeRuntimeAgentSectionTokens,
+  replaceRuntimeAgentSection,
+  clearUnusedRuntimeAgentSections,
+  type RuntimeAgentSectionTokens,
+} from "../../services/generation/runtime-agent-sections.js";
 import { loadPriorBeholderState } from "../../services/agents/beholder-state.js";
 import { logger } from "../../lib/logger.js";
 import { resolveGameGmPromptTemplate } from "../../services/generation/game-gm-prompt-runtime.js";
 
+import { injectCapabilityContexts } from "../../services/generation/capability-prompt-runtime.js";
+import { getCapabilityPromptContextPackageIds } from "../../services/capability-packages/capability-prompt-context.service.js";
+
 type WrapFormat = "xml" | "markdown" | "none";
 type DryRunPromptMessage = {
+  id?: string | null;
   role: "system" | "user" | "assistant";
   content: string;
   images?: string[];
@@ -187,23 +252,6 @@ function formatTrackersContextBlock(args: {
     chatMetadata: args.chatMeta,
     wrapFormat: args.wrapFormat,
   });
-}
-
-function injectTrackerContext(
-  finalMessages: DryRunPromptMessage[],
-  contextBlock: string,
-  placement: "append" | "beforeLastHistoryMessage",
-): DryRunPromptMessage[] {
-  const trackerMessage = { role: "user" as const, content: contextBlock, contextKind: "injection" as const };
-
-  if (placement === "append") {
-    finalMessages.push(trackerMessage);
-    return finalMessages;
-  }
-
-  dedupeLastMessageWrappers(finalMessages);
-  finalMessages.splice(findTrackerContextInsertIndex(finalMessages), 0, trackerMessage);
-  return finalMessages;
 }
 
 function wrapConversationHistoryAndLastMessageInPlace(
@@ -429,6 +477,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
   const chats = createChatsStorage(app.db);
   const connections = createConnectionsStorage(app.db);
   const presets = createPromptsStorage(app.db);
+  const decisionSettings = createAppSettingsStorage(app.db);
   const chars = createCharactersStorage(app.db);
   const regexScriptsStore = createRegexScriptsStorage(app.db);
 
@@ -591,6 +640,12 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     // Pull existing messages, apply the same conversation-start + context limit filtering
     const allChatMessages = await chats.listMessages(chatId);
     const chatMode = (chat.mode as string) ?? "roleplay";
+    const advancedMemorySettings = normalizeAdvancedMemorySettings(chatMeta.advancedMemory);
+    const advancedMemoryEnabled = chatMode === "roleplay" && advancedMemorySettings.enabled;
+    // Prompt inspection previews the main reply; auxiliary dry-run generations
+    // (including extension/agent calls) never perform or receive Advanced Recall.
+    const advancedMemoryService = advancedMemoryEnabled && returnPrompt ? createAdvancedMemoryService(app.db) : null;
+    let advancedMemoryPlacements: AdvancedMemoryPlacement[] = [];
     const dryRunActiveAgentIds = Array.isArray(chatMeta.activeAgentIds) ? (chatMeta.activeAgentIds as string[]) : [];
     const dryRunChatEnableAgents = shouldEnableAgentsForGeneration({
       chatEnableAgents: chatMeta.enableAgents === true,
@@ -606,7 +661,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         break;
       }
     }
-    const scopedMessages = startIdx > 0 ? allChatMessages.slice(startIdx) : allChatMessages;
+    const scopedMessages = !advancedMemoryEnabled && startIdx > 0 ? allChatMessages.slice(startIdx) : allChatMessages;
     let chatMessages = supportsHiddenFromAI
       ? scopedMessages.filter((message: any) => !isMessageHiddenFromAI(message))
       : scopedMessages;
@@ -614,6 +669,22 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       typeof body.regenerateMessageId === "string" && body.regenerateMessageId.trim()
         ? body.regenerateMessageId.trim()
         : null;
+    const advancedRegenerationIndex = regenerateMessageId
+      ? allChatMessages.findIndex((message) => message.id === regenerateMessageId)
+      : -1;
+    if (advancedMemoryEnabled && regenerateMessageId && advancedRegenerationIndex < 0) {
+      return reply.status(404).send({ error: "Regenerated message not found" });
+    }
+    const advancedMemorySourceMessages =
+      advancedRegenerationIndex >= 0 ? allChatMessages.slice(0, advancedRegenerationIndex) : allChatMessages;
+    if (advancedMemoryEnabled) chatMessages = advancedMemorySourceMessages;
+    if (chatMode === "roleplay" && regenerateMessageId) {
+      const index = scopedMessages.findIndex((message) => message.id === regenerateMessageId);
+      if (index >= 0) {
+        const timelineIds = new Set(scopedMessages.slice(0, index).map((message) => message.id));
+        chatMessages = chatMessages.filter((message) => timelineIds.has(message.id));
+      }
+    }
     const dryRunBeholderState = await loadPriorBeholderState({
       agentsStore: createAgentsStorage(app.db),
       chatId,
@@ -637,7 +708,12 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       ? resolveRegenerationGameStateAnchor(scopedMessages, regenerateMessageId)
       : resolveVisibleGameStateAnchor(allChatMessages);
     const contextMessageLimit = chatMeta.contextMessageLimit as number | null;
-    if (contextMessageLimit && contextMessageLimit > 0 && chatMessages.length > contextMessageLimit) {
+    if (
+      !advancedMemoryEnabled &&
+      contextMessageLimit &&
+      contextMessageLimit > 0 &&
+      chatMessages.length > contextMessageLimit
+    ) {
       chatMessages = chatMessages.slice(-contextMessageLimit);
     }
 
@@ -673,7 +749,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           role: "user",
           characterId: null,
           content: userMessage,
-          extra: null,
+          extra: body.replyTo ? JSON.stringify({ replyTo: body.replyTo }) : null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           activeSwipeIndex: 0,
@@ -682,8 +758,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     }
     const promptIdleDuration = resolvePromptIdleDuration(chatMessages, { excludeMessageId: "__dryrun_user__" });
 
-    const isGoogleProvider = conn.provider === "google" || conn.provider === "google_vertex";
     const excludePastReasoning = chatMeta.excludePastReasoning !== false;
+    const pastReasoning = collectPastReasoningMetadata(
+      regenerateMessageId ? chatMessages.filter((message: any) => message.id !== regenerateMessageId) : chatMessages,
+      { ...chatMeta, pastReasoningLimit: 0 },
+      conn.provider,
+      conn.model,
+    );
+    const latestReplyUserMessageId = [...chatMessages].reverse().find((message) => message.role === "user")?.id;
     let mappedMessages: DryRunPromptMessage[] = chatMessages.map((m: any) => {
       const extra = parseExtra(m.extra);
       const personaSnapshotName = m.role === "user" ? readPersonaSnapshotName(extra) : null;
@@ -692,14 +774,18 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       const files = extractFileAttachmentInputs(attachments);
       const hiddenFromAICharacterIds = getMessageHiddenFromAICharacterIds(m);
       const conversationStartForCharacterIds = getMessageConversationStartCharacterIds(m);
-      const geminiParts =
-        !excludePastReasoning && isGoogleProvider && m.role === "assistant" && extra.geminiParts
-          ? { providerMetadata: { geminiParts: extra.geminiParts } }
-          : {};
+      const providerMetadata = pastReasoning.get(m.id);
       return {
         id: typeof m.id === "string" ? m.id : null,
         role: m.role === "narrator" ? ("system" as const) : (m.role as "user" | "assistant" | "system"),
-        content: appendReadableAttachmentsToContent((m.content as string) ?? "", attachments),
+        content: withLatestMessageReply(
+          appendReadableAttachmentsToContent(
+            chatMode === "roleplay" ? conversationPromptHistoryContent(m, chatMode) : ((m.content as string) ?? ""),
+            attachments,
+          ),
+          extra.replyTo,
+          m.role === "user" && m.id === latestReplyUserMessageId,
+        ),
         contextKind: "history" as const,
         characterId: typeof m.characterId === "string" && m.characterId ? m.characterId : null,
         ...(personaSnapshotName ? { personaSnapshotName } : {}),
@@ -707,7 +793,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         ...(conversationStartForCharacterIds.length ? { conversationStartForCharacterIds } : {}),
         ...(images?.length ? { images } : {}),
         ...(files.length ? { files } : {}),
-        ...geminiParts,
+        ...(providerMetadata ? { providerMetadata } : {}),
       };
     });
 
@@ -720,6 +806,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
     // Build prompt messages
     let finalMessages: DryRunPromptMessage[] = [];
+    const trackerSectionTokens = new Map<string, RuntimeAgentSectionTokens>();
+    const runtimeAgentSectionTypes = new Set<string>();
     let wrapFormat: WrapFormat = "xml";
 
     // Optional: fine-grained prompt assembly (server-side) for extensions.
@@ -737,26 +825,47 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       mode: chatMode,
       allowEmpty: true,
     });
+    const dryRunGroupChatMode = resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode);
     const promptTargetCharacterId =
       typeof body.forCharacterId === "string" && characterIds.includes(body.forCharacterId)
         ? body.forCharacterId
-        : null;
+        : advancedMemoryEnabled && dryRunGroupChatMode === "individual" && !impersonate
+          ? (characterIds[0] ?? null)
+          : null;
     const promptCharacterIds = resolvePromptCharacterIdsForTarget(characterIds, promptTargetCharacterId);
+    const deferGroupPromptRegex =
+      chatMode === "roleplay" &&
+      allCharacterIds.length > 1 &&
+      dryRunGroupChatMode === "individual" &&
+      Boolean(promptTargetCharacterId) &&
+      !impersonate;
     const promptGroupResponseOrder = (chatMeta.groupResponseOrder as string) ?? "sequential";
-    const dryRunGroupChatMode = resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode);
     const deferCharacterMacros =
       characterIds.length > 1 &&
       dryRunGroupChatMode === "individual" &&
       (promptGroupResponseOrder !== "manual" || chatMode === "conversation") &&
       !impersonate;
     const audienceCharacterIds = impersonate ? [] : promptTargetCharacterId ? [promptTargetCharacterId] : characterIds;
+    if (advancedMemoryEnabled) {
+      const allowedIds = new Set(
+        selectAdvancedMemoryMessages(
+          advancedMemorySourceMessages,
+          advancedMemorySettings,
+          audienceCharacterIds.length ? audienceCharacterIds : characterIds,
+          dryRunGroupChatMode === "individual",
+        ).map((message) => message.id),
+      );
+      mappedMessages = mappedMessages.filter(
+        (message) => message.id === "__dryrun_user__" || (message.id && allowedIds.has(message.id)),
+      );
+    }
     if (audienceCharacterIds.length > 0) {
       mappedMessages = filterPromptMessagesForCharacterAudience(mappedMessages, audienceCharacterIds);
     }
 
     let summaryEmbeddingSource: Awaited<ReturnType<typeof resolveMemoryRecallEmbeddingSource>> | null = null;
     let summaryVectorizerAvailable = false;
-    if (chatMode === "roleplay" && chatMeta.semanticSummaryRetrievalEnabled === true) {
+    if (!advancedMemoryEnabled && chatMode === "roleplay" && chatMeta.semanticSummaryRetrievalEnabled === true) {
       try {
         summaryEmbeddingSource = await resolveMemoryRecallEmbeddingSource(app.db, {
           chatMetadata: chatMeta,
@@ -776,14 +885,16 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         logger.warn(error, "[dryRun] Roleplay summary embedding setup failed; keeping all summaries in context");
       }
     }
-    const activeChatSummary = await resolveRoleplayChatSummaryForPrompt({
-      chatMode,
-      chatMetadata: chatMeta,
-      messages: mappedMessages,
-      excludeMessageIds: regenerateMessageId ? [regenerateMessageId] : undefined,
-      vectorizerAvailable: summaryVectorizerAvailable,
-      embeddingOptions: { embeddingSource: summaryEmbeddingSource },
-    });
+    const activeChatSummary = advancedMemoryEnabled
+      ? null
+      : await resolveRoleplayChatSummaryForPrompt({
+          chatMode,
+          chatMetadata: chatMeta,
+          messages: mappedMessages,
+          excludeMessageIds: regenerateMessageId ? [regenerateMessageId] : undefined,
+          vectorizerAvailable: summaryVectorizerAvailable,
+          embeddingOptions: { embeddingSource: summaryEmbeddingSource },
+        });
 
     // Persona resolution (same strategy as generation; read-only)
     let personaId: string | null = null;
@@ -791,23 +902,33 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     let personaDescription = "";
     let personaFields: Record<string, string> = {};
     let persona: any = null;
+    let lorebookIdentityCharacterId: string | null = null;
     try {
-      const allPersonas = await chars.listPersonas();
-      persona = resolveActivePersonaCandidate(allPersonas, (chat as any).personaId, chatMode);
-      if (persona) {
-        personaId = persona.id as string;
-        personaName = persona.name;
-        personaDescription = cardPromptText(persona.description);
+      const identity = await resolveChatUserIdentity(chars, {
+        personaId: chat.personaId,
+        personaCharacterId: chat.personaCharacterId,
+        mode: chatMode,
+      });
+      if (identity) {
+        persona = identity;
+        personaId = identity.source === "persona" ? identity.id : null;
+        lorebookIdentityCharacterId = identity.source === "character" ? identity.id : null;
+        personaName = identity.name;
+        personaDescription = cardPromptText(identity.description);
         personaFields = {
-          personality: cardPromptText(persona.personality),
-          scenario: cardPromptText(persona.scenario),
-          backstory: cardPromptText(persona.backstory),
-          appearance: cardPromptText(persona.appearance),
+          personality: cardPromptText(identity.personality),
+          scenario: cardPromptText(identity.scenario),
+          backstory: cardPromptText(identity.backstory),
+          appearance: cardPromptText(identity.appearance),
         };
       }
     } catch {
       /* non-critical */
     }
+    const withIdentityLorebookScope = (ids: string[]) =>
+      lorebookIdentityCharacterId && !ids.includes(lorebookIdentityCharacterId)
+        ? [...ids, lorebookIdentityCharacterId]
+        : ids;
 
     const promptPresetCandidates = skipPreset
       ? []
@@ -888,6 +1009,110 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       ],
     });
     const historyMacroProfilesById = (await resolveCharacterMacroData(app.db, allCharacterIds)).profilesById;
+
+    // Decision statements (#6569). Peek Prompt shows the branches this turn has already
+    // answered and never asks the model itself; what is not answered yet reads as no,
+    // and the preview says so rather than implying the prompt is final.
+    const decisionUnanswered = new Set<string>();
+    // Statements past the per-turn limit, which generation would not ask either.
+    const decisionDropped = new Set<string>();
+    const decisionLimit = parseDecisionPromptQuestionLimit(
+      await decisionSettings.get(DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY),
+    );
+    let decisionPlanKeys: string[] = [];
+    let decisionSlotsUsed = 0;
+    // Sticky and cooldown (#6582): the timers as they stand this turn, read and never saved.
+    const previewDecisionTimers = readDecisionTimers(chatMeta[DECISION_TIMERS_METADATA_KEY]);
+    const previewDecisionTurn = decisionTurnFor(previewDecisionTimers, latestTurnDecisionId(chatMessages));
+    const heldDecisions: HeldDecisions = (kind, key, modifiers) =>
+      heldDecision(previewDecisionTimers, previewDecisionTurn, kind, key, modifiers?.every);
+    const decisionLocalSetting = await decisionSettings.get(DECISION_SETTINGS_KEYS.localDefault);
+    const decisionConnectionId = (await connections.getDefaultForDecision())?.id ?? null;
+    // The cache key uses the setting as generation does; the report says whether it can serve.
+    const decisionModelId = decisionLocalSetting ?? decisionConnectionId;
+    const decisionModelSet = decisionModelUsable(decisionLocalSetting, decisionConnectionId);
+    {
+      const texts = collectTurnDecisionTexts({
+        // The same sources generation plans from: preset sections only outside
+        // Conversation and Game, where the conversation prompt takes their place.
+        preset:
+          // Custom prompt parts replace the preset's sections with their own text (below).
+          !promptParts && effectivePresetId && effectivePreset && chatMode !== "conversation" && chatMode !== "game"
+            ? await Promise.all([
+                presets.listSections(effectivePresetId),
+                presets.listGroups(effectivePresetId),
+                presets.listChoiceBlocksForPreset(effectivePresetId),
+              ]).then(([sections, groups, choiceBlocks]) => ({ sections, groups, choiceBlocks, choices: chatChoices }))
+            : undefined,
+        ctx: promptMacroContext,
+        extra: [
+          // Prompt parts assemble this text and their extension blocks in place of the
+          // preset's sections, so those are what they plan from.
+          ...(promptParts && typeof promptParts.presetText === "string" ? [promptParts.presetText] : []),
+          ...(promptParts
+            ? (
+                parseJsonArray(promptParts.extensionBlocks) ??
+                (Array.isArray(promptParts.extensionBlocks) ? promptParts.extensionBlocks : [])
+              ).flatMap((block) =>
+                // Only system blocks are assembled (below), so only they are planned.
+                isRecord(block) && block.role === "system" && typeof block.content === "string" ? [block.content] : [],
+              )
+            : []),
+          personaDescription,
+          activeChatSummary,
+          chatMeta.groupScenarioText,
+          ...(chatMode === "conversation"
+            ? [
+                typeof chatMeta.customSystemPrompt === "string" && chatMeta.customSystemPrompt.trim()
+                  ? chatMeta.customSystemPrompt
+                  : presetStringField(effectivePreset as Record<string, unknown> | null, "conversationPrompt"),
+              ]
+            : []),
+          // Resolved in the same macro pass as the prompt.
+          chatMeta.authorNotes,
+          ...(chatMode === "game"
+            ? gameGmPromptDecisionTexts(
+                chatMeta,
+                presetStringField(effectivePreset as Record<string, unknown> | null, "gamePrompt"),
+              )
+            : []),
+        ],
+      });
+      const plan = planPromptDecisions(
+        [{ texts, ctx: promptMacroContext, reachable: reachableDecisionStatements(texts, promptMacroContext) }],
+        decisionLimit,
+        { held: heldDecisions },
+      );
+      for (const statement of plan.dropped) decisionDropped.add(statement);
+      decisionPlanKeys = plan.decisions.map((decision) => decision.key);
+      decisionSlotsUsed = plan.decisions.filter((decision) => !decision.held).length;
+      // Always an object, so answers for activating lorebook entries merge into it.
+      promptMacroContext.decisions = {
+        ...(plan.decisions.length > 0
+          ? cachedPromptDecisionAnswers(
+              plan,
+              promptDecisionCacheKey(chatId, latestTurnDecisionId(chatMessages), decisionModelId),
+            )
+          : {}),
+        unanswered: decisionUnanswered,
+      };
+    }
+    // Lorebook entries activated by a decision (#6570) read the answers this turn
+    // already has. The preview never asks, and reports the statements it had none for.
+    const lorebookDecisions = createLorebookDecisionResolver({
+      macroContext: promptMacroContext,
+      // Spent as generation spends it, so the preview drops what generation would.
+      limit: Math.max(0, decisionLimit - decisionSlotsUsed),
+      freeKeys: new Set(decisionPlanKeys),
+      answer: async (plan) =>
+        cachedPromptDecisionAnswers(
+          plan,
+          promptDecisionCacheKey(chatId, latestTurnDecisionId(chatMessages), decisionModelId),
+        ),
+      onUnanswered: (statement) => decisionUnanswered.add(statement),
+      onDropped: (statement) => decisionDropped.add(statement),
+      held: heldDecisions,
+    });
     const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(
       messages: T[],
     ): T[] => resolvePromptMessageMacros(messages, promptMacroContext, historyMacroProfilesById);
@@ -898,11 +1123,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     };
 
     // Apply regex scripts to prompt messages (mirrors main /generate, but stays read-only).
-    applyRegexScriptsToPromptMessages(mappedMessages, await regexScriptsStore.list(), {
-      resolveMacros: (value, randomSeed) => resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
-      targetCharacterId: promptTargetCharacterId,
-      targetPromptPresetId: effectivePresetId,
-    });
+    if (!deferGroupPromptRegex) {
+      applyRegexScriptsToPromptMessages(mappedMessages, await regexScriptsStore.list(), {
+        resolveMacros: (value, randomSeed) =>
+          resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
+        targetCharacterId: promptTargetCharacterId,
+        targetPromptPresetId: effectivePresetId,
+      });
+    }
 
     for (const msg of mappedMessages) {
       msg.content = msg.content.replace(/\n([ \t]*\n){2,}/g, "\n\n");
@@ -913,7 +1141,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       chatMode !== "game" &&
       dryRunGroupChatMode === "individual" &&
       (chatMode === "conversation" || chatMeta.groupSpeakerNamesInHistory === true);
-    if (shouldPrefixGroupHistorySpeakers) {
+    if (shouldPrefixGroupHistorySpeakers && !deferGroupPromptRegex) {
       const characterNamesById = await resolveCharacterNameMap(allCharacterIds, (id) => chars.getById(id));
       mappedMessages = prefixGroupIndividualHistorySpeakers(mappedMessages, {
         personaName,
@@ -944,6 +1172,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         | "persona"
         | "characters"
         | "chatSummary"
+        | "currentSceneSummary"
+        | "recalledScenes"
+        | "recalledMessages"
         | "lorebook"
         | "trackers"
         | "history"
@@ -962,6 +1193,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         "persona",
         "characters",
         "chatSummary",
+        "currentSceneSummary",
+        "recalledScenes",
+        "recalledMessages",
         "lorebook",
         "trackers",
         "history",
@@ -1105,7 +1339,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             }));
             const lorebookResult = await processLorebooks(app.db, scanMessages, null, {
               chatId,
-              characterIds: promptCharacterIds,
+              characterIds: withIdentityLorebookScope(promptCharacterIds),
               personaId,
               activeLorebookIds,
               forcedEntryIds: ownerSpatialLorebookEntryIds,
@@ -1132,6 +1366,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
               generationTriggers: lorebookGenerationTriggers,
               previewOnly: true,
               resolveContent: resolvePromptMacrosForLorebook,
+              resolveDecisions: lorebookDecisions,
             });
             const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
               .filter((content): content is string => typeof content === "string" && content.length > 0)
@@ -1143,6 +1378,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
       const historyMessages = includeHistory
         ? (mappedMessages.map((m: any) => ({
+            id: m.id,
             role: m.role,
             content: m.content,
             contextKind: "history" as const,
@@ -1179,6 +1415,18 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
       // Assemble finalMessages in the requested order.
       for (const key of order) {
+        const memoryType = {
+          chatSummary: "chat_summary",
+          currentSceneSummary: "current_scene_summary",
+          recalledScenes: "recalled_scenes",
+          recalledMessages: "recalled_messages",
+        } as const;
+        if (advancedMemoryEnabled && key in memoryType) {
+          const placement = createAdvancedMemoryPlacement(memoryType[key as keyof typeof memoryType], wrapFormat);
+          advancedMemoryPlacements.push(placement);
+          finalMessages.push({ role: placement.role, content: placement.token, contextKind: "prompt" });
+          continue;
+        }
         if (key === "extensionBlocks") {
           finalMessages.push(...extensionBlocks);
           continue;
@@ -1283,7 +1531,38 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         presets.listChoiceBlocksForPreset(effectivePresetId),
       ]);
 
+      const eligibleTypes = buildRuntimeAgentSectionEligibleTypes({
+        enableAgents: dryRunChatEnableAgents,
+        activeAgentIds: dryRunActiveAgentIds,
+        chatMode: chatMode as "roleplay" | "conversation" | "game",
+        configuredAgents: (await createAgentsStorage(app.db).list()).filter(
+          (agent) => !isAgentConfigDeleted(agent.settings),
+        ),
+      });
+      const packageIds = new Set(getCapabilityPromptContextPackageIds());
+      for (const section of sections) {
+        if (section.enabled !== "true" || section.isMarker !== "true" || !section.markerConfig) continue;
+        try {
+          const marker = JSON.parse(section.markerConfig) as { type?: string; agentType?: string };
+          const id = marker.agentType;
+          if (marker.type !== "agent_data" || !id || !eligibleTypes.has(id)) continue;
+          runtimeAgentSectionTypes.add(id);
+          if (!packageIds.has(id) && !(resolvedInjectTrackers && COMMITTED_TRACKER_AGENT_TYPES.has(id))) continue;
+          trackerSectionTokens.set(id, makeRuntimeAgentSectionTokens(id, `preview_${crypto.randomUUID()}`));
+        } catch {
+          /* Ignore malformed marker config, as generation does. */
+        }
+      }
+      const runtimeAgentData = Object.fromEntries(
+        [...trackerSectionTokens].map(([id, tokens]) => [
+          id,
+          { text: tokens.placeholder, startToken: tokens.start, endToken: tokens.end },
+        ]),
+      );
+
       const assemblerInput: AssemblerInput = {
+        model: conn.model,
+        deferMessagePostProcessing: true,
         db: app.db,
         preset: preset as any,
         sections: sections as any,
@@ -1293,6 +1572,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         localVariables: chatMacroVariables,
         chatId,
         characterIds: promptCharacterIds,
+        lorebookCharacterIds: withIdentityLorebookScope(promptCharacterIds),
         groupCharacterIds: characterIds,
         personaId,
         personaName,
@@ -1309,6 +1589,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         })(),
         chatMessages: mappedMessages,
         chatSummary: resolvedInjectChatSummary ? activeChatSummary : null,
+        ...(advancedMemoryEnabled ? { advancedMemory: {}, deferAdvancedMemory: true } : {}),
+        runtimeAgentData,
         enableAgents: false,
         activeAgentIds: [],
         activeLorebookIds: resolvedInjectLorebook
@@ -1348,6 +1630,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         impersonate,
         preserveImpersonatePresetSections: impersonate && effectivePresetSource === "impersonate",
         deferCharacterMacros,
+        decisions: promptMacroContext.decisions,
+        lorebookDecisions,
       };
 
       const assembled = await assemblePrompt(assemblerInput);
@@ -1357,6 +1641,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         ...assembled.macroAgentData,
       };
       finalMessages = assembled.messages;
+      advancedMemoryPlacements = assembled.advancedMemoryPlacements ?? [];
       temperature = assembled.parameters.temperature;
       maxTokens = assembled.parameters.maxTokens;
       topP = assembled.parameters.topP ?? 1;
@@ -1392,8 +1677,12 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     if (!finalMessages.length) {
       // No (or skipped) preset: fall back to raw mapped messages without any agent/tool behavior.
       finalMessages = mappedMessages.map((m: any) => ({
+        id: m.id,
         role: m.role,
         content: m.content,
+        characterId: m.characterId,
+        ...(m.contextKind ? { contextKind: m.contextKind } : {}),
+        ...(m.providerMetadata ? { providerMetadata: m.providerMetadata } : {}),
         ...(m.images ? { images: m.images } : {}),
         ...(m.files ? { files: m.files } : {}),
       }));
@@ -1455,7 +1744,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     }
 
     // Optional injection: chat summary (when not handled by preset assembler)
-    if (!usePromptParts && !effectivePresetId && resolvedInjectChatSummary) {
+    if (!advancedMemoryEnabled && !usePromptParts && !effectivePresetId && resolvedInjectChatSummary) {
       const summary = activeChatSummary ?? "";
       if (summary) {
         const block = wrapContent(summary, "Chat Summary", wrapFormat);
@@ -1463,6 +1752,22 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
         finalMessages.splice(insertAt, 0, { role: "system", content: block });
       }
+    }
+
+    if (advancedMemoryEnabled && advancedMemoryPlacements.length === 0) {
+      advancedMemoryPlacements = ADVANCED_MEMORY_MARKER_TYPES.map((type) =>
+        createAdvancedMemoryPlacement(type, wrapFormat),
+      );
+      const firstHistoryIndex = finalMessages.findIndex((message) => message.contextKind === "history");
+      finalMessages.splice(
+        firstHistoryIndex >= 0 ? firstHistoryIndex : finalMessages.length,
+        0,
+        ...advancedMemoryPlacements.map((placement) => ({
+          role: placement.role,
+          content: placement.token,
+          contextKind: "prompt" as const,
+        })),
+      );
     }
 
     // Optional injection: lorebooks (only for preset-less flows; presets handle lorebooks in the assembler)
@@ -1476,7 +1781,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       }));
       const lorebookResult = await processLorebooks(app.db, scanMessages, null, {
         chatId,
-        characterIds: promptCharacterIds,
+        characterIds: withIdentityLorebookScope(promptCharacterIds),
         personaId,
         forcedEntryIds: ownerSpatialLorebookEntryIds,
         activeLorebookIds,
@@ -1503,6 +1808,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         generationTriggers: lorebookGenerationTriggers,
         previewOnly: true,
         resolveContent: resolvePromptMacrosForLorebook,
+        resolveDecisions: lorebookDecisions,
       });
       const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
         .filter((content): content is string => typeof content === "string" && content.length > 0)
@@ -1556,17 +1862,67 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         await loadLatestGameSnapshot(app, chatId, visibleGameStateAnchor, regenerateMessageId),
         ownerSpatialProjection,
       );
-      const contextBlock = formatTrackersContextBlock({
+      injectCommittedTrackerContext({
+        messages: finalMessages,
         wrapFormat,
-        snap,
+        latestGameState: snap,
         beholderState: dryRunBeholderState,
-        chatMeta,
+        chatMetadata: chatMeta,
         chatEnableAgents: dryRunChatEnableAgents,
         activeAgentIds: dryRunActiveAgentIds,
+        placeSection: (agentType, content) => {
+          const tokens = trackerSectionTokens.get(agentType);
+          return !!tokens && replaceRuntimeAgentSection(finalMessages, tokens, content);
+        },
+        dedupeLastMessageWrappers,
+        findTrackerContextInsertIndex,
       });
-      if (contextBlock) {
-        finalMessages = injectTrackerContext(finalMessages, contextBlock, "beforeLastHistoryMessage");
-      }
+    }
+
+    await injectCapabilityContexts(
+      finalMessages,
+      {
+        chatId,
+        chatMeta,
+        mode: chatMode,
+        targetCharacterIds: promptTargetCharacterId ? [promptTargetCharacterId] : characterIds,
+        personaId,
+        placedAgentTypes: [...runtimeAgentSectionTypes],
+        wrapFormat,
+      },
+      app.db,
+      trackerSectionTokens,
+    );
+    clearUnusedRuntimeAgentSections(finalMessages, trackerSectionTokens);
+
+    if (deferGroupPromptRegex) {
+      const regexScripts = await regexScriptsStore.list();
+      const regexSpeakerNames = shouldPrefixGroupHistorySpeakers
+        ? await resolveCharacterNameMap(allCharacterIds, (id) => chars.getById(id))
+        : null;
+      finalMessages = scopeIndividualGroupMessagesForTarget(
+        finalMessages,
+        promptTargetCharacterId,
+        [...historyMacroProfilesById].map(([id, profile]) => ({ ...profile, id, mesExample: profile.example })),
+        (history) => {
+          applyRegexScriptsToPromptMessages(history, regexScripts, {
+            resolveMacros: (value, randomSeed) =>
+              resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
+            targetCharacterId: promptTargetCharacterId,
+            targetPromptPresetId: effectivePresetId,
+          });
+          if (regexSpeakerNames) {
+            const prefixed = prefixGroupIndividualHistorySpeakers(history, {
+              personaName,
+              characterNamesById: regexSpeakerNames,
+              recipientScoped: true,
+            });
+            history.forEach((message, index) => {
+              message.content = prefixed[index]!.content;
+            });
+          }
+        },
+      );
     }
 
     // ── Impersonate: same instruction block as POST /api/generate (no DB writes) ──
@@ -1607,6 +1963,61 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     // Mirror the live route's provider-boundary macro guard so Peek Prompt is
     // both accurate and incapable of exposing late raw identity macros (#3704).
     finalMessages = resolveHistoryMessageMacros(finalMessages);
+
+    if (chatMode === "roleplay") {
+      const target = promptTargetCharacterId ?? (allCharacterIds.length === 1 ? allCharacterIds[0]! : null);
+      appendRoleplayWhispers(
+        finalMessages,
+        chatMessages,
+        impersonate
+          ? { id: persona?.id ?? "user", kind: "persona" }
+          : target && (allCharacterIds.length === 1 || dryRunGroupChatMode === "individual")
+            ? { id: target, kind: "character" }
+            : null,
+        characterIds.includes(chatMeta.roleplayCommandNarratorId as string)
+          ? (chatMeta.roleplayCommandNarratorId as string)
+          : null,
+      );
+    }
+
+    if (chatMode === "roleplay" && !impersonate) {
+      const personalCharacters = [...(await resolveCharacterNameMap(allCharacterIds, (id) => chars.getById(id)))].map(
+        ([id, name]) => ({ id, name }),
+      );
+      const target = promptTargetCharacterId ?? (allCharacterIds.length === 1 ? allCharacterIds[0]! : null);
+      const individual = dryRunGroupChatMode === "individual";
+      const endIndex = regenerateMessageId
+        ? scopedMessages.findIndex((message) => message.id === regenerateMessageId)
+        : -1;
+      const agentConfigs = await createAgentsStorage(app.db).list();
+      const availableAgentIds = new Set(
+        BUILT_IN_AGENTS.filter(
+          (agent) =>
+            !isBuiltInAgentRuntimeDisabled(agent.id) &&
+            !agentConfigs.some((config) => config.type === agent.id && isAgentConfigDeleted(config.settings)),
+        ).map((agent) => agent.id),
+      );
+      appendRoleplayPromptTail(
+        finalMessages,
+        buildRoleplayPersonalContext({
+          messages: endIndex >= 0 ? scopedMessages.slice(0, endIndex) : scopedMessages,
+          metadata: chatMeta,
+          characters: personalCharacters,
+          characterId: target,
+          individual,
+          format: wrapFormat,
+        }),
+        buildRoleplayCommandsReminder({
+          metadata: chatMeta,
+          characterId: allCharacterIds.length === 1 || individual ? target : null,
+          privateAvailable: Boolean(target) && (allCharacterIds.length === 1 || individual),
+          availableAgentIds,
+          format: wrapFormat,
+          characterNames: personalCharacters.map((character) => character.name),
+        }),
+        wrapFormat,
+      );
+    }
 
     // ── Parameter normalization (mirror /api/generate) ──
     const modelLower = (conn.model ?? "").toLowerCase();
@@ -1700,18 +2111,58 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       }));
 
     const prepareProviderMessages = (messages: ChatMessage[]): ChatMessage[] => {
-      // Append mid-prompt system messages to the last user turn after context fitting.
-      // This mirrors /api/generate while keeping prompt/injection blocks protected
-      // during history trimming.
-      return mergeAdjacentMessages(appendNonLeadingSystemMessagesToLastUser(messages) as any) as ChatMessage[];
+      return postProcessMessages(messages, {
+        ...parseStoredGenerationParameters(effectivePreset?.parameters),
+        ...connectionParams,
+        ...chatParams,
+      });
     };
 
-    const fit = fitMessagesForModelAccess({
-      messages: toProviderMessages(finalMessages as any),
-      policy: { ...modelAccessPolicy, effectiveMaxContext },
-      maxTokens,
-    });
-    const providerMessages = prepareProviderMessages(fit.messages);
+    let advancedContext: Awaited<ReturnType<typeof prepareAdvancedMemoryContext>> | null = null;
+    if (!advancedMemoryService)
+      finalMessages = resolveAdvancedMemoryPrompt(finalMessages, advancedMemoryPlacements, {});
+    try {
+      if (advancedMemoryService) {
+        advancedContext = await prepareAdvancedMemoryContext({
+          service: advancedMemoryService,
+          chatId,
+          settings: advancedMemorySettings,
+          sourceMessages: advancedMemorySourceMessages,
+          messages: finalMessages,
+          placements: advancedMemoryPlacements,
+          audienceCharacterIds,
+          audienceMode: impersonate ? "owner" : undefined,
+          maxContext: Math.min(effectiveMaxContext ?? Infinity, connectionMaxContext ?? Infinity),
+          maxTokens,
+          query:
+            userMessage ||
+            [...advancedMemorySourceMessages].reverse().find((message) => message.role === "user")?.content,
+          readOnly: true,
+          toProviderMessages: (messages) =>
+            prepareProviderMessages(limitPastReasoningMetadata(toProviderMessages(messages), chatMeta)),
+        });
+      }
+    } catch (err) {
+      logger.error(err, "[dryRun] Advanced Memory preparation failed");
+      const message = err instanceof Error ? err.message : "Dry run memory preparation failed";
+      if (streaming && !returnPrompt) {
+        startSseReply(reply, { "X-Accel-Buffering": "no" });
+        sendSseEvent(reply, { type: "error", data: message });
+        sendSseEvent(reply, { type: "done", data: "" });
+        reply.raw.end();
+        return;
+      }
+      return reply.status(500).send({ error: message });
+    }
+    const fit = advancedContext
+      ? { messages: advancedContext.providerMessages, maxTokensForSend: advancedContext.maxTokens }
+      : fitMessagesForModelAccess({
+          messages: limitPastReasoningMetadata(toProviderMessages(finalMessages as any), chatMeta),
+          policy: { ...modelAccessPolicy, effectiveMaxContext },
+          maxTokens,
+        });
+    if (advancedContext) effectiveMaxContext = advancedContext.maxContext;
+    const providerMessages = advancedContext ? fit.messages : prepareProviderMessages(fit.messages);
     const maxTokensForSend = fit.maxTokensForSend;
 
     // Prompt preview mode: return the exact prompt shape that would be sent.
@@ -1726,6 +2177,23 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             ...(message.providerMetadata ? { providerMetadata: message.providerMetadata } : {}),
           })),
           wrapFormat,
+          ...(decisionUnanswered.size > 0 || decisionDropped.size > 0
+            ? {
+                decisions: {
+                  unanswered: [...decisionUnanswered].filter((statement) => !decisionDropped.has(statement)),
+                  ...(decisionDropped.size > 0 ? { dropped: [...decisionDropped] } : {}),
+                  decisionModelSet,
+                },
+              }
+            : {}),
+          ...(advancedContext
+            ? {
+                advancedMemory: {
+                  ...advancedContext.receipt,
+                  placements: advancedContext.placements,
+                },
+              }
+            : {}),
         },
         parameters: {
           provider: conn.provider,
@@ -1792,7 +2260,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       };
 
       try {
+        if (advancedContext)
+          await advancedMemoryService!.validatePrepared(chatId, advancedMemorySourceMessages, advancedContext.receipt);
         const result = await provider.chatComplete(providerMessages as any, {
+          preserveContext: Boolean(advancedContext),
           model: conn.model,
           temperature,
           maxTokens: maxTokensForSend,
@@ -1857,7 +2328,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     reply.header("x-dryrun-runid", runId);
 
     try {
+      if (advancedContext)
+        await advancedMemoryService!.validatePrepared(chatId, advancedMemorySourceMessages, advancedContext.receipt);
       const result = await provider.chatComplete(providerMessages as any, {
+        preserveContext: Boolean(advancedContext),
         model: conn.model,
         temperature,
         maxTokens: maxTokensForSend,

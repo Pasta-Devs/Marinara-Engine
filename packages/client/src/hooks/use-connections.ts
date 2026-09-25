@@ -1,8 +1,11 @@
+import { useTranslation } from "react-i18next";
+import { showConfirmDialog } from "../lib/app-dialogs";
 // ──────────────────────────────────────────────
 // React Query: Connection hooks
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api-client";
+import { useEffect, useRef } from "react";
+import { api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 import { useChatStore } from "../stores/chat.store";
 import { captureChatMetadataVersion, chatKeys, guardServerChatSnapshot } from "./use-chats";
@@ -14,11 +17,32 @@ export const connectionKeys = {
   detail: (id: string) => [...connectionKeys.all, "detail", id] as const,
 };
 
+/** Refresh once per page load, keeping startup and the saved connection usable if a backend is offline. */
+export function useRefreshLocalContext() {
+  const qc = useQueryClient();
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    void api
+      .post<{ updated: string[] }>("/connections/refresh-local-context", {})
+      .then(({ updated }) => {
+        if (!updated.length) return;
+        void qc.invalidateQueries({ queryKey: connectionKeys.list() });
+        for (const id of updated) void qc.invalidateQueries({ queryKey: connectionKeys.detail(id) });
+      })
+      .catch((error) => console.warn("Local context refresh failed", error));
+  }, [qc]);
+}
+
 export function useConnections() {
   return useQuery({
     queryKey: connectionKeys.list(),
-    queryFn: () => api.get<unknown[]>("/connections"),
+    // Deadline so a frozen host cannot leave isLoading true forever — this
+    // query gates the Support Diagnostics copy button alongside health (#5657).
+    queryFn: ({ signal }) => api.get<unknown[]>("/connections", { signal: requestTimeoutSignal(10_000, signal) }),
     staleTime: 5 * 60_000,
+    retry: (failureCount, error) => !isRequestTimeoutError(error) && failureCount < 1,
   });
 }
 
@@ -59,6 +83,10 @@ export type CreateConnectionPayload = {
   videoGenerationSource?: string | null;
   videoService?: string | null;
   audioSource?: string | null;
+  decisionSource?: "typesafe" | "openrouter" | "custom" | null;
+  credentialsFromConnectionId?: string | null;
+  maxStateTokens?: number | null;
+  decisionTimeoutMs?: number | null;
   audioVoice?: string | null;
   audioSoundEffects?: boolean;
   audioMusic?: boolean;
@@ -82,10 +110,13 @@ export function useUpdateConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) => api.patch(`/connections/${id}`, data),
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: connectionKeys.list() });
-      qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) });
-    },
+    // Auto-save before testing must finish refreshing the editor before a fast
+    // test response arrives, otherwise hydration clears the new result.
+    onSuccess: (_data, variables) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+        qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) }),
+      ]),
   });
 }
 
@@ -111,8 +142,23 @@ export function useDuplicateConnection() {
 
 export function useDeleteConnection() {
   const qc = useQueryClient();
+  const { t } = useTranslation();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/connections/${id}`),
+    mutationFn: async (id: string) => {
+      const rows = await api.get<Array<{ name: string; credentialsFromConnectionId?: string | null }>>("/connections");
+      const dependants = rows.filter((row) => row.credentialsFromConnectionId === id);
+      if (
+        dependants.length &&
+        !(await showConfirmDialog({
+          title: t("connections.decision.deleteTitle"),
+          message: t("connections.decision.deleteWarning", { names: dependants.map((row) => row.name).join(", ") }),
+          confirmLabel: t("connections.decision.deleteConfirm"),
+          tone: "destructive",
+        }))
+      )
+        throw new Error(t("connections.decision.deleteCancelled"));
+      return api.delete(`/connections/${id}`);
+    },
     onSuccess: async (_data, id) => {
       qc.invalidateQueries({ queryKey: connectionKeys.list() });
       const activeChatId = useChatStore.getState().activeChatId;

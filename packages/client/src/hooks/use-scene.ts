@@ -53,6 +53,7 @@ export function useScene() {
       plan: SceneFullPlan;
       initiatorCharId?: string | null;
       connectionId?: string | null;
+      promptPresetId?: string | null;
     }): Promise<SceneCreateResponse | null> => {
       if (!activeChatId) return null;
       try {
@@ -61,6 +62,7 @@ export function useScene() {
           initiatorCharId: opts.initiatorCharId ?? null,
           plan: opts.plan,
           connectionId: opts.connectionId ?? null,
+          promptPresetId: opts.promptPresetId ?? null,
         } satisfies SceneCreateRequest);
 
         // Invalidate chats so the new scene appears in the sidebar

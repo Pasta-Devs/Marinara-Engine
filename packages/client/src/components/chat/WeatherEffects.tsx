@@ -155,7 +155,15 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
     let accumulatedFrameTime = 0;
 
     let canvasScale = 1;
+    let resizePending = false;
     const resize = () => {
+      // Resizing clears the bitmap, but a paused animation cannot repaint it.
+      // Keep its frozen frame until rendering resumes (community fix #5814).
+      if (document.hidden || pausedRef.current) {
+        resizePending = true;
+        return;
+      }
+      resizePending = false;
       const rect = canvas.parentElement?.getBoundingClientRect();
       if (!rect || rect.width <= 0 || rect.height <= 0) return;
       const pixelBudgetScale = Math.sqrt(MAX_CANVAS_PIXELS / (rect.width * rect.height));
@@ -292,6 +300,12 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
 
     const ensureFallbackRunning = () => {
       if (!running || document.hidden || pausedRef.current || frameRef.current !== 0) return;
+      if (resizePending) {
+        resize();
+        particlesRef.current = particlesRef.current.map((particle) =>
+          createWeatherParticle(particle.type, canvas.width / canvasScale, canvas.height / canvasScale),
+        );
+      }
       frameRef.current = requestAnimationFrame(tick);
     };
     resumeFallbackRef.current = ensureFallbackRunning;
@@ -315,7 +329,7 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
     <canvas
       key={`${weather ?? ""}:${timeOfDay ?? ""}:${showCelestial ? "celestial" : "particles"}:${workerFailed ? "fallback" : "worker"}`}
       ref={canvasRef}
-      className="pointer-events-none absolute inset-0 z-0 h-full w-full transform-gpu [contain:strict] [will-change:transform]"
+      className="pointer-events-none absolute inset-0 z-0 h-full w-full [contain:strict]"
     />
   );
 }

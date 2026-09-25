@@ -135,10 +135,11 @@ export default defineConfig({
     !PWA_DISABLED
       ? VitePWA({
           injectRegister: false,
-          registerType: "autoUpdate",
+          registerType: "prompt",
           devOptions: { enabled: false },
           manifest: false, // We use the static manifest.json in public/
           workbox: {
+            importScripts: ["notification-events.js"],
             // Intentionally exclude html so index.html is not precached and does not interfere with the PWA stale-version/update flow.
             globPatterns: ["**/*.{js,css,json,png,svg,ico,woff2}"],
             navigateFallback: null,
@@ -173,6 +174,7 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
+    manifest: true,
     target: "es2020",
     cssTarget: "safari14",
     // Vite reports decimal kB; 512 kB matches the bundle plugin's enforced 500 KiB ceiling.

@@ -1,3 +1,4 @@
+import { allowsDefaultChatModel } from "../../services/llm/local-context-limit.js";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "crypto";
 import { z } from "zod";
@@ -137,7 +138,8 @@ export async function registerRawRoute(app: FastifyInstance) {
         ? createLocalSidecarGenerationConnection()
         : await connections.getWithKey(body.connectionId);
     if (!conn) return reply.status(404).send({ error: "Connection not found" });
-    if (!conn.model) return reply.status(400).send({ error: "Connection does not have a chat model configured" });
+    if (!conn.model && !allowsDefaultChatModel(conn))
+      return reply.status(400).send({ error: "Connection does not have a chat model configured" });
 
     const baseUrl = resolveBaseUrl(conn);
     if (!baseUrl) return reply.status(400).send({ error: "No base URL configured for this connection" });

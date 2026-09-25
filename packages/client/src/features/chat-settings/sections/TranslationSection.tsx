@@ -1,19 +1,35 @@
-import { Languages, RotateCcw } from "lucide-react";
-import { DEFAULT_TRANSLATION_SYSTEM_PROMPT } from "@marinara-engine/shared";
+import { Languages, RotateCcw, Save } from "lucide-react";
+import { DEFAULT_TRANSLATION_SYSTEM_PROMPT, estimateTextTokens } from "@marinara-engine/shared";
+import { formatEstimatedTokens } from "../../../lib/character-token-count";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import type { ChatConnectionOption } from "./ConnectionSection";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
+import { toast } from "sonner";
+import { useSaveTranslatorDefaults, useTranslatorDefaults } from "../../../hooks/use-translator-defaults";
+
 interface TranslationSectionProps {
+  chatId: string;
   metadata: Record<string, unknown>;
   textConnections: ChatConnectionOption[];
   onMetadataChange: (patch: Record<string, unknown>) => void;
 }
 
-export function TranslationSection({ metadata, textConnections, onMetadataChange }: TranslationSectionProps) {
+export function TranslationSection({ chatId, metadata, textConnections, onMetadataChange }: TranslationSectionProps) {
   const { t: localizeUi } = useUiTranslation();
+  const { data: hasSavedDefaults } = useTranslatorDefaults();
+  const saveDefaults = useSaveTranslatorDefaults();
+  const saveTranslatorDefaults = (sourceChatId: string | null) => {
+    saveDefaults.mutate(sourceChatId, {
+      onSuccess: () =>
+        toast.success(
+          localizeUi(sourceChatId ? "chat.translation.defaults.saved" : "chat.translation.defaults.forgotten"),
+        ),
+      onError: () => toast.error(localizeUi("chat.translation.defaults.failed")),
+    });
+  };
   const provider = (metadata.translationProvider as string | undefined) ?? "google";
   const legacyTargetLanguage = (metadata.translationTargetLang as string | undefined) ?? "en";
   const inputTargetLanguage = (metadata.translationInputTargetLang as string | undefined) ?? legacyTargetLanguage;
@@ -179,6 +195,35 @@ export function TranslationSection({ metadata, textConnections, onMetadataChange
           description={localizeUi("ui.chatSettings.translationsection.onceAMessageIsTranslatedShowJustTheTranslation")}
           onToggle={() => onMetadataChange({ translationDisplayOnly: !metadata.translationDisplayOnly })}
         />
+        <div className="space-y-2 pt-1">
+          <p className="text-xs text-[var(--muted-foreground)]">
+            {localizeUi("chat.translation.defaults.description")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={saveDefaults.isPending}
+              onClick={() => saveTranslatorDefaults(chatId)}
+              className="flex items-center gap-1.5 rounded-md bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--marinara-chat-chrome-button-border)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
+            >
+              <Save size="0.875rem" aria-hidden="true" />
+              {saveDefaults.isPending && saveDefaults.variables
+                ? localizeUi("editor.save.saving")
+                : localizeUi("chat.translation.defaults.save")}
+            </button>
+            {hasSavedDefaults && (
+              <button
+                type="button"
+                disabled={saveDefaults.isPending}
+                onClick={() => saveTranslatorDefaults(null)}
+                className="flex items-center gap-1.5 rounded-md bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--muted-foreground)] ring-1 ring-[var(--marinara-chat-chrome-button-border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
+              >
+                <RotateCcw size="0.875rem" aria-hidden="true" />
+                {localizeUi("chat.translation.defaults.forget")}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </ChatSettingsSection>
   );
@@ -272,6 +317,9 @@ function TranslationPromptField({
         rows={5}
         className="min-h-28 w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 font-mono text-xs leading-relaxed outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
       />
+      <p className="mt-0.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
+        {formatEstimatedTokens(estimateTextTokens(customPrompt || DEFAULT_TRANSLATION_SYSTEM_PROMPT), localizeUi)}
+      </p>
     </div>
   );
 }

@@ -231,7 +231,7 @@ export function AnimatedText({ html, className, style }: AnimatedTextProps) {
     // Re-sanitize after our additions
     return DOMPurify.sanitize(result, {
       ALLOWED_TAGS: ["strong", "em", "u", "small", "br", "span"],
-      ALLOWED_ATTR: ["class", "style"],
+      ALLOWED_ATTR: ["class", "style", "title"],
     });
   }, [html, textEffectsEnabled]);
 
@@ -244,6 +244,6 @@ export function animateTextHtml(html: string, enabled = true): string {
   result = wrapCharactersForWave(result);
   return DOMPurify.sanitize(result, {
     ALLOWED_TAGS: ["strong", "em", "u", "small", "br", "span"],
-    ALLOWED_ATTR: ["class", "style"],
+    ALLOWED_ATTR: ["class", "style", "title"],
   });
 }

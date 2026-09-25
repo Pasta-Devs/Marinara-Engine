@@ -84,6 +84,18 @@ export function withConnectionDefaultParameters(
   provider: BaseLLMProvider,
   defaultParameters: unknown,
 ): BaseLLMProvider {
+  let parsed = defaultParameters;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      parsed = null;
+    }
+  }
+  const headers = generationParametersSchema.shape.customHeaders.safeParse(
+    isPlainRecord(parsed) ? parsed.customHeaders : undefined,
+  );
+  provider.setCustomRequestHeaders(headers.success ? (headers.data ?? {}) : {});
   const customParameters = parseConnectionCustomParameters(defaultParameters);
   return Object.keys(customParameters).length > 0
     ? new ConnectionDefaultProvider(provider, customParameters)

@@ -1,6 +1,6 @@
 {
   "name": "@marinara-engine/server",
-  "version": "2.4.5",
+  "version": "2.4.6",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -10,25 +10,25 @@
   "scripts": {
     "dev": "tsx watch --ignore ./data --ignore ../shared/dist --ignore ./node_modules --ignore ../../node_modules src/index.ts --marinara-dev-watch",
     "build": "node ./scripts/build.mjs",
-    "start": "node dist/index.js",
+    "start": "node ../../scripts/run-server.mjs dist/index.js",
     "clean": "node -e \"const fs=require('fs');['dist','tsconfig.tsbuildinfo'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true})}catch{}})\"",
     "lint": "tsc -b ../shared && tsc --noEmit && tsc -p ../../scripts/regressions/tsconfig.character-activity.json"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.235",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.273",
     "@anthropic-ai/sdk": "^0.93.0",
     "@fastify/cors": "^11.3.0",
-    "@fastify/multipart": "^9.4.0",
-    "@fastify/static": "^10.1.2",
-    "@huggingface/transformers": "^3.8.1",
+    "@fastify/multipart": "^10.1.1",
+    "@fastify/static": "^10.1.4",
+    "@huggingface/transformers": "^4.3.0",
     "@marinara-engine/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "1.30.0",
-    "adm-zip": "^0.6.0",
+    "adm-zip": "^0.6.1",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
-    "buttplug": "4.0.1",
-    "dotenv": "^16.6.1",
-    "fastify": "^5.12.1",
+    "buttplug": "5.0.2",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.12.5",
     "jsonrepair": "^3.15.0",
     "nanoid": "^5.1.16",
     "pdf-parse": "^2.4.5",
@@ -39,16 +39,16 @@
     "zod": "^3.25.76"
   },
   "optionalDependencies": {
-    "@img/sharp-wasm32": "0.35.3",
-    "onnxruntime-node": "^1.24.3",
-    "onnxruntime-web": "^1.27.0",
-    "sharp": "^0.35.3"
+    "@img/sharp-wasm32": "0.35.4",
+    "onnxruntime-node": "1.30.0",
+    "onnxruntime-web": "1.31.0-dev.20260914-8d85527a0",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
-    "@types/node": "^24.12.2",
+    "@types/node": "^24.13.5",
     "@types/pdf-parse": "^1.1.5",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   }
 }

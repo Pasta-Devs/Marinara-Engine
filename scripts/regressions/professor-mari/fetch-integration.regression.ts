@@ -7,7 +7,6 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PROFESSOR_MARI_ID } from "../../../packages/shared/src/constants/defaults.js";
 import { createBowStubEmbedder } from "./helpers/bow-stub-embedder.js";
 
 const previousFileStorageDir = process.env.FILE_STORAGE_DIR;

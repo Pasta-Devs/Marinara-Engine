@@ -61,6 +61,7 @@ export function fitMessagesToModelAccessContext(args: {
   policy: ModelAccessPolicy;
   maxTokens?: number;
   tools?: ChatOptions["tools"];
+  responseFormat?: ChatOptions["responseFormat"];
 }): ContextFitResult {
   return fitMessagesToContext(
     args.messages,
@@ -68,6 +69,7 @@ export function fitMessagesToModelAccessContext(args: {
       maxContext: args.policy.effectiveMaxContext,
       maxTokens: args.maxTokens,
       tools: args.tools,
+      responseFormat: args.responseFormat,
       suppressModelParameters: false,
     },
     args.policy.connectionMaxContext,
@@ -79,6 +81,7 @@ export function fitMessagesForModelAccess(args: {
   policy: ModelAccessPolicy;
   maxTokens?: number;
   tools?: ChatOptions["tools"];
+  responseFormat?: ChatOptions["responseFormat"];
 }): { messages: ChatMessage[]; maxTokensForSend?: number } {
   const fit = fitMessagesToModelAccessContext(args);
   return {

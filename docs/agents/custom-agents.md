@@ -1,6 +1,6 @@
 # Creating Custom Agents
 
-This guide shows you how to build your own agent in Marinara Engine. An agent is a small AI helper that runs automatically alongside your chat. You will learn how to set its phase, powers, output type, activation keywords, tools, and prompt, with one full worked example.
+This guide shows you how to build your own agent in Marinara Engine. An agent is a small AI helper that runs automatically alongside your chat. You will learn how to set its phase, powers, output type, activation keywords and questions, tools, and prompt, with one full worked example.
 
 New to agents? Read [Agents: AI Helpers for Your Chats](agents-overview.md) first for the basics, then come back here.
 
@@ -130,7 +130,57 @@ moonlit ritual
 2. Set **Scan Depth** to the number of recent messages to search. The default is 5. The maximum is 200.
 3. The agent now runs only when at least one keyword appears in that many recent messages.
 
-Leave the keyword box empty to run the agent every time on its normal cadence.
+Leave the keyword box empty to disable the keyword filter. Cadence and any activation question still apply.
+
+## Activation questions
+
+An **Activation question** asks whether the recent scene needs your custom agent, for example `In the latest message, the characters move to a different location.` It can recognize paraphrases that keywords miss. Leave it empty to keep the existing behavior.
+
+A **Decision model** answers it. Pick one under **Decision model** in the Connections panel: the local model you already run, a hosted Decision connection, or a decision model Marinara installs for you. [Decision Models](../connections/decision-models.md) explains each one, which to pick, and how to set it up. With **Decision model** set to **None**, the default, the question fields in the agent editor stay disabled, and an agent with a question runs as if it had none.
+
+### Set up your agent
+
+People who import an agent with an activation question or decision statements in its prompt see a notice linking to the Decision Models guide. Without a selected Decision model, it explains that activation questions let the agent run whenever its keywords and **Trigger Cadence** allow, while prompt statements read as no and use their `{{else}}` branch. Set a cadence too if your agent should not run every turn without a Decision model. The same notice appears when installing a package from the Agent catalog.
+
+With a Decision model selected, open a custom agent and enter a **Question** of up to 500 characters. Standard agent macros, including `{{user}}` and `{{char}}`, work in the question. **Scan Depth** controls the recent messages used by both keywords and the question.
+
+Despite the field's name, write it as a statement of fact about the latest message, not as a question. In our tests a small decision model answered `Did the scene change?` less reliably than `The latest message moves the scene to a new place.` The same advice applies here as to decision statements in prompts; see [Writing statements](../prompts/conditional-prompts.md#writing-statements).
+
+- **Run when probability is at least** sets this agent's threshold. The agent runs when the probability of “yes” meets or exceeds it; higher values skip more runs. The editor recommends 0.5 for local chat models and Decision connections, or the managed sidecar's manifest value (0.1 for the built-in Open-Jev models). A custom endpoint does not get model-specific calibration automatically. Check the threshold against your own chats, especially after switching models. Changing it affects this activation question, not statements inside the agent's prompt. See [Thresholds](../connections/decision-models.md#thresholds).
+- **Bypass the question after this many messages without a successful run** is optional. Once this many user/assistant messages have passed since the agent last ran successfully, the question is bypassed. A new agent, or one whose previous message was deleted, also bypasses the question when this setting is enabled. Keywords and cadence must still allow the run. Consider setting it for an agent that matters: any model sometimes answers wrongly, and this stops one that keeps answering "no" from silencing the agent for good.
+- Pre-generation and parallel agents use the conversation before the reply. Post-processing agents also see the completed reply.
+
+Keywords and cadence are checked first, so an already-skipped agent does not make a paid decision request. Questions sharing a scan depth are batched for each phase. A timeout, unavailable model, or invalid answer lets the affected agent run normally. The budget is the Decision connection's **Time limit** (1.5 seconds by default) and 4 seconds for a local model, or 20 seconds when that model has to think first. Decision requests follow generation cancellation. Ordinary logs omit chat content; debug prompt logging includes the evaluated messages and questions.
+
+This setting applies to custom agents. Built-in agent activation and character-activity evaluation keep their existing behavior.
+
+### Decision statements in the agent's prompt
+
+An activation question decides whether the agent runs. A decision statement in the agent's **Prompt Template** decides what a running agent is told. Both use the same Decision model, and the syntax is the one in [Conditional Prompts](../prompts/conditional-prompts.md#asking-the-decision-model):
+
+```
+{{#if decision:"In the latest message, the characters move to a different location"}}
+Update the location field.
+{{else}}
+Leave the location as it is.
+{{/if}}
+```
+
+Together, an agent can skip quiet turns entirely and send a smaller prompt on the turns it does run. Some ideas:
+
+- A tracker includes its "update the location" instructions only when the location changed, instead of re-deriving it every turn.
+- An image agent describes a new picture only when the scene looks different.
+- A music agent is told to change tracks only when the mood shifted.
+- A choice picks one of several instruction sets: `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`, `{{else if decision_choice:"The kind of scene in the latest message" == "dialogue"}}`, and so on.
+
+How it runs:
+
+- Pre-generation and parallel agents read the chat before the reply, the same turn the main prompt reads, and share its answers. Post-processing agents read the finished reply as the latest message, and their statements are asked again with it.
+- Re-running an agent, for example with a tracker's refresh button, by retrying a failed agent, or with **Re-run** on an injection, reuses successful answers still cached for the same turn, model and statements. Failed answers can be retried; a server restart, cache eviction or changed inputs can also cause new requests. See [Answer reuse](../prompts/conditional-prompts.md#answer-reuse).
+- In an agent prompt, `{{char}}` names every character in the chat at once, so in a group `{{char}} is angry` becomes "Kaelen, Alyssa is angry". Name the character, or write "a character".
+- With no answer, a statement reads as no. The agent must still do something sensible with its `{{else}}` branch, because many users will not have a Decision model.
+
+Agents installed from Marinara-Agents render their prompt templates the same way, so they can use decision statements too.
 
 ## Attaching tools (Function Calling)
 
@@ -211,6 +261,7 @@ For safety, Marinara ignores bundled functions, clears tool selections from impo
 ## Related guides
 
 - [Agents: AI Helpers for Your Chats](agents-overview.md)
+- [Decision Models](../connections/decision-models.md)
 - [Downloadable Agents Reference](built-in-agents.md)
 - [Custom Tools](../extending/custom-tools.md)
 - [Macros](../prompts/macros.md)

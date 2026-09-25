@@ -69,4 +69,37 @@ assert.equal(
   "Uninstalled games must not contribute slash commands",
 );
 
+const sendCommand = matchSlashCommand('/send "A persona beat"', { mode: "roleplay" });
+assert.ok(sendCommand, "/send must match slash command parsing");
+assert.equal(sendCommand?.command.name, "send");
+let createdRole: string | null = null;
+let createdContent: string | null = null;
+let createdCharacterId: string | null | undefined = "sentinel";
+let generateCalls = 0;
+const result = await sendCommand?.command.execute(sendCommand.args, {
+  chatId: "test-chat",
+  mode: "roleplay",
+  createMessage: async (data: { role: string; content: string; characterId?: string | null }) => {
+    createdRole = data.role;
+    createdContent = data.content;
+    createdCharacterId = data.characterId;
+  },
+  generate: async () => {
+    generateCalls += 1;
+  },
+} as never);
+assert.deepEqual(result, { handled: true });
+assert.equal(createdRole, "user");
+assert.equal(createdContent, "A persona beat");
+assert.equal(createdCharacterId, null);
+assert.equal(generateCalls, 0);
+
+const emptySendResult = await sendCommand?.command.execute("   ", {
+  chatId: "test-chat",
+  mode: "roleplay",
+  createMessage: async () => {},
+  generate: async () => {},
+} as never);
+assert.deepEqual(emptySendResult, { handled: true, feedback: "Usage: /send <message>" });
+
 console.info("Dynamic conversation game slash regressions passed.");

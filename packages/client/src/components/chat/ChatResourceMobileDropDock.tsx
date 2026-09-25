@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
+  getActiveChatResourceTouch,
   getActiveChatResourceTouchDrag,
   requestChatResourceAssignment,
   setPendingChatResourcePanelRestore,
@@ -58,14 +59,15 @@ export function ChatResourceMobileDropDock() {
       );
     };
     const handleTouchMove = (event: TouchEvent) => {
-      const touch = event.touches[0];
+      const touch = getActiveChatResourceTouch(event.touches);
       if (touch) setOver(isOverDock(touch));
     };
     // Capture phase: the touch drag hook clears the payload on its own bubble-phase `touchend`.
     const handleTouchEnd = (event: TouchEvent) => {
-      const touch = event.changedTouches[0];
+      const touch = getActiveChatResourceTouch(event.changedTouches);
+      if (!touch) return;
       setOver(false);
-      if (!touch || !isOverDock(touch)) return;
+      if (!isOverDock(touch)) return;
       // Land the user back on the chat so the result, the toast and its undo are actually visible,
       // then return to the library once the drop's follow-up is done.
       setPendingChatResourcePanelRestore(useUIStore.getState().rightPanel);

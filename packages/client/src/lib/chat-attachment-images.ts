@@ -27,9 +27,58 @@ function uint24Le(bytes: Uint8Array, offset: number): number {
   return bytes[offset]! | (bytes[offset + 1]! << 8) | (bytes[offset + 2]! << 16);
 }
 
+/** EXIF orientations 5-8 rotate the displayed image by 90 degrees, swapping its width and height. */
+const TRANSPOSING_EXIF_ORIENTATIONS = new Set([5, 6, 7, 8]);
+
+/**
+ * Read the `Orientation` tag from an APP1 Exif segment. `segmentOffset` points at the segment
+ * length field; returns null when the segment is not Exif or the tag is absent or malformed.
+ */
+function readExifOrientation(bytes: Uint8Array, segmentOffset: number, segmentLength: number): number | null {
+  const segmentEnd = segmentOffset + segmentLength;
+  const exifHeader = segmentOffset + 2;
+  if (
+    exifHeader + 6 > segmentEnd ||
+    bytes[exifHeader] !== 0x45 ||
+    bytes[exifHeader + 1] !== 0x78 ||
+    bytes[exifHeader + 2] !== 0x69 ||
+    bytes[exifHeader + 3] !== 0x66 ||
+    bytes[exifHeader + 4] !== 0x00 ||
+    bytes[exifHeader + 5] !== 0x00
+  ) {
+    return null;
+  }
+  const tiff = exifHeader + 6;
+  if (tiff + 8 > segmentEnd) return null;
+  const littleEndian = bytes[tiff] === 0x49 && bytes[tiff + 1] === 0x49;
+  if (!littleEndian && !(bytes[tiff] === 0x4d && bytes[tiff + 1] === 0x4d)) return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (view.getUint16(tiff + 2, littleEndian) !== 0x002a) return null;
+  const ifdOffset = view.getUint32(tiff + 4, littleEndian);
+  const ifd = tiff + ifdOffset;
+  if (ifdOffset < 8 || ifd + 2 > segmentEnd) return null;
+  const entryCount = view.getUint16(ifd, littleEndian);
+  for (let index = 0; index < entryCount; index += 1) {
+    const entry = ifd + 2 + index * 12;
+    if (entry + 12 > segmentEnd) return null;
+    if (view.getUint16(entry, littleEndian) !== 0x0112) continue;
+    if (view.getUint16(entry + 2, littleEndian) !== 3 || view.getUint32(entry + 4, littleEndian) !== 1) return null;
+    const orientation = view.getUint16(entry + 8, littleEndian);
+    return orientation >= 1 && orientation <= 8 ? orientation : null;
+  }
+  return null;
+}
+
+/**
+ * Read the encoded JPEG frame size as the browser will decode it: `createImageBitmap` applies the
+ * EXIF orientation, so a transposing orientation swaps the width and height stored in the frame
+ * header. Feeding the raw header size into `resizeWidth`/`resizeHeight` would otherwise squash a
+ * rotated phone photo into the opposite aspect ratio.
+ */
 function readJpegDimensions(bytes: Uint8Array): ImageDimensions | null {
   if (bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
   const startOfFrameMarkers = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
+  let orientation: number | null = null;
   let offset = 2;
   while (offset + 8 < bytes.length) {
     if (bytes[offset] !== 0xff) {
@@ -42,15 +91,22 @@ function readJpegDimensions(bytes: Uint8Array): ImageDimensions | null {
     if (marker === 0xd9 || marker === 0xda || offset + 2 > bytes.length) break;
     const segmentLength = uint16Be(bytes, offset);
     if (segmentLength < 2 || offset + segmentLength > bytes.length) break;
+    if (marker === 0xe1 && orientation === null) {
+      orientation = readExifOrientation(bytes, offset, segmentLength);
+    }
     if (startOfFrameMarkers.has(marker) && segmentLength >= 7) {
-      return { height: uint16Be(bytes, offset + 3), width: uint16Be(bytes, offset + 5) };
+      const height = uint16Be(bytes, offset + 3);
+      const width = uint16Be(bytes, offset + 5);
+      return orientation !== null && TRANSPOSING_EXIF_ORIENTATIONS.has(orientation)
+        ? { width: height, height: width }
+        : { width, height };
     }
     offset += segmentLength;
   }
   return null;
 }
 
-function readEncodedImageDimensions(bytes: Uint8Array): ImageDimensions | null {
+export function readEncodedImageDimensions(bytes: Uint8Array): ImageDimensions | null {
   if (bytes.length >= 24 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     return { width: view.getUint32(16), height: view.getUint32(20) };
@@ -181,12 +237,13 @@ export async function prepareImageAttachment(blob: Blob, displayName = "image"):
       (decodeSize.width !== encodedDimensions.width || decodeSize.height !== encodedDimensions.height);
     if (shouldResizeWhileDecoding && decodeSize) {
       bitmap = await createImageBitmap(blob, {
+        imageOrientation: "from-image",
         resizeWidth: decodeSize.width,
         resizeHeight: decodeSize.height,
         resizeQuality: "high",
       });
     } else {
-      bitmap = await createImageBitmap(blob);
+      bitmap = await createImageBitmap(blob, { imageOrientation: "from-image" });
     }
     assertSafeImageDimensions(bitmap);
     const shouldCompress =

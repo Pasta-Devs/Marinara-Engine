@@ -202,7 +202,62 @@ export function ImpersonatePromptTemplateField() {
       </div>
       <div className="mari-quick-preset-editor">
         <MacroTextarea
+          showTokenCount
           value={displayedPromptTemplate}
+          tokenCountAlign="start"
+          tokenCountFooter={
+            <div className="flex flex-wrap items-center gap-1">
+              {usingBuiltInDefault && (
+                <AgentSettingsActionButton onClick={handleStartStandalonePrompt} disabled={saveAsPending}>
+                  <Copy size="0.625rem" />
+                  {localizeUi("ui.chatSettings.impersonatesection.copyBuiltInDefaultToEdit")}
+                </AgentSettingsActionButton>
+              )}
+              {displayedPromptTemplate.trim() && (
+                <AgentSettingsActionButton onClick={handleStartSaveAs} disabled={promptTemplateCatalogBusy}>
+                  <Copy size="0.625rem" />
+                  {localizeUi("ui.chatSettings.impersonatesection.saveAs")}
+                </AgentSettingsActionButton>
+              )}
+              {activePromptTemplate && (
+                <AgentSettingsActionButton
+                  onClick={() => {
+                    void handleSavePromptTemplate();
+                  }}
+                  disabled={!hasPromptTemplate || !promptIsDirty || promptTemplateCatalogBusy}
+                  variant="primary"
+                >
+                  <Save size="0.625rem" />
+                  {localizeUi("ui.chatSettings.impersonatesection.save")}
+                </AgentSettingsActionButton>
+              )}
+              {promptIsDirty && (
+                <AgentSettingsActionButton
+                  onClick={handleResetPromptDraft}
+                  disabled={promptTemplateCatalogMutationPending}
+                  iconOnly
+                  title={localizeUi("ui.chatSettings.impersonatesection.resetUnsavedChanges")}
+                  aria-label={localizeUi("ui.chatSettings.impersonatesection.resetUnsavedChanges")}
+                >
+                  <RotateCcw size="0.6875rem" />
+                </AgentSettingsActionButton>
+              )}
+              {activePromptTemplate && (
+                <AgentSettingsActionButton
+                  onClick={() => {
+                    void handleDeletePromptTemplate();
+                  }}
+                  disabled={promptTemplateCatalogBusy}
+                  iconOnly
+                  variant="danger"
+                  title={localizeUi("ui.chatSettings.impersonatesection.deleteTemplate")}
+                  aria-label={localizeUi("ui.chatSettings.impersonatesection.deleteTemplate")}
+                >
+                  <Trash2 size="0.6875rem" />
+                </AgentSettingsActionButton>
+              )}
+            </div>
+          }
           onChange={setPromptTemplate}
           readOnly={usingBuiltInDefault || saveAsPending}
           placeholder={localizeUi("ui.chatSettings.impersonatesection.emptyUseChatBuiltInDefault")}
@@ -213,57 +268,7 @@ export function ImpersonatePromptTemplateField() {
           spellCheck={false}
         />
       </div>
-      <div className="flex flex-wrap items-center justify-end gap-1">
-        {usingBuiltInDefault && (
-          <AgentSettingsActionButton onClick={handleStartStandalonePrompt} disabled={saveAsPending}>
-            <Copy size="0.625rem" />
-            {localizeUi("ui.chatSettings.impersonatesection.copyBuiltInDefaultToEdit")}
-          </AgentSettingsActionButton>
-        )}
-        {displayedPromptTemplate.trim() && (
-          <AgentSettingsActionButton onClick={handleStartSaveAs} disabled={promptTemplateCatalogBusy}>
-            <Copy size="0.625rem" />
-            {localizeUi("ui.chatSettings.impersonatesection.saveAs")}
-          </AgentSettingsActionButton>
-        )}
-        {activePromptTemplate && (
-          <AgentSettingsActionButton
-            onClick={() => {
-              void handleSavePromptTemplate();
-            }}
-            disabled={!hasPromptTemplate || !promptIsDirty || promptTemplateCatalogBusy}
-            variant="primary"
-          >
-            <Save size="0.625rem" />
-            {localizeUi("ui.chatSettings.impersonatesection.save")}
-          </AgentSettingsActionButton>
-        )}
-        {promptIsDirty && (
-          <AgentSettingsActionButton
-            onClick={handleResetPromptDraft}
-            disabled={promptTemplateCatalogMutationPending}
-            iconOnly
-            title={localizeUi("ui.chatSettings.impersonatesection.resetUnsavedChanges")}
-            aria-label={localizeUi("ui.chatSettings.impersonatesection.resetUnsavedChanges")}
-          >
-            <RotateCcw size="0.6875rem" />
-          </AgentSettingsActionButton>
-        )}
-        {activePromptTemplate && (
-          <AgentSettingsActionButton
-            onClick={() => {
-              void handleDeletePromptTemplate();
-            }}
-            disabled={promptTemplateCatalogBusy}
-            iconOnly
-            variant="danger"
-            title={localizeUi("ui.chatSettings.impersonatesection.deleteTemplate")}
-            aria-label={localizeUi("ui.chatSettings.impersonatesection.deleteTemplate")}
-          >
-            <Trash2 size="0.6875rem" />
-          </AgentSettingsActionButton>
-        )}
-      </div>
+
       {templateNameDraft !== null && (
         <div className="flex flex-wrap items-center gap-1.5 rounded-lg bg-[var(--secondary)]/40 p-1.5 ring-1 ring-[var(--border)]">
           <input

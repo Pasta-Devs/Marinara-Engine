@@ -18,7 +18,9 @@ interface ChoiceSelectionModalProps {
   open: boolean;
   onClose: () => void;
   presetId: string | null;
-  chatId: string;
+  chatId?: string;
+  /** Draft setup has no chat yet; return choices without writing chat metadata. */
+  onConfirm?: (choices: Record<string, string | string[]>) => void;
   /** Existing selections to pre-populate (variableName → value or values) */
   existingChoices?: Record<string, string | string[]>;
   chatFloatingPanel?: boolean;
@@ -82,14 +84,22 @@ function sanitizeChoiceSelection(
 
 function fallbackChoiceSelection(variable: VariableData): string | string[] | undefined {
   if (variable.multiSelect) return [];
+  if (variable.randomPick && variable.options.length > 0) {
+    return variable.options[Math.floor(Math.random() * variable.options.length)].value;
+  }
   return variable.options[0]?.value;
 }
 
-export function ChoiceSelectionModal({
+export function ChoiceSelectionModal(props: ChoiceSelectionModalProps) {
+  return <ChatChoiceSelectionModal key={`${props.chatId}:${props.presetId}`} {...props} />;
+}
+
+function ChatChoiceSelectionModal({
   open,
   onClose,
   presetId,
   chatId,
+  onConfirm,
   existingChoices = {},
   chatFloatingPanel = false,
 }: ChoiceSelectionModalProps) {
@@ -135,6 +145,12 @@ export function ChoiceSelectionModal({
     }
   }, [data?.preset]);
 
+  const fallbackSelections = useMemo(
+    () =>
+      Object.fromEntries(variables.map((variable) => [variable.variableName, fallbackChoiceSelection(variable) ?? ""])),
+    [variables],
+  );
+
   // Base selections derived from existing choices / defaults / first option.
   // Pure derivation — no setState, no flicker on open.
   const baseSelections = useMemo<Record<string, string | string[]>>(() => {
@@ -144,17 +160,17 @@ export function ChoiceSelectionModal({
       const existing = existingChoices[v.variableName];
       const saved = defaultChoices[v.variableName];
       if (existing !== undefined) {
-        initial[v.variableName] = sanitizeChoiceSelection(v, existing) ?? fallbackChoiceSelection(v) ?? "";
-      } else if (saved !== undefined) {
-        initial[v.variableName] = sanitizeChoiceSelection(v, saved) ?? fallbackChoiceSelection(v) ?? "";
+        initial[v.variableName] = sanitizeChoiceSelection(v, existing) ?? fallbackSelections[v.variableName] ?? "";
+      } else if (saved !== undefined && !(v.randomPick && !v.multiSelect)) {
+        initial[v.variableName] = sanitizeChoiceSelection(v, saved) ?? fallbackSelections[v.variableName] ?? "";
       } else if (v.multiSelect) {
         initial[v.variableName] = [];
-      } else if (v.options.length > 0) {
-        initial[v.variableName] = v.options[0].value;
+      } else {
+        initial[v.variableName] = fallbackSelections[v.variableName] ?? "";
       }
     }
     return initial;
-  }, [variables, existingChoices, defaultChoices]);
+  }, [variables, existingChoices, defaultChoices, fallbackSelections]);
 
   // User overrides (only written when user clicks an option).
   // Reset when modal re-opens so stale overrides don't persist.
@@ -167,12 +183,20 @@ export function ChoiceSelectionModal({
     prevOpenRef.current = open;
   }, [open]);
 
+  const autoClosedRef = useRef(false);
   useEffect(() => {
-    if (!open || isLoading || !presetId) return;
-    if (variables.length === 0) {
-      onClose();
+    if (!open) {
+      autoClosedRef.current = false;
+      return;
     }
-  }, [open, isLoading, onClose, presetId, variables.length]);
+    if (isLoading || autoClosedRef.current) return;
+    if (!presetId || variables.length === 0) {
+      // Closing can advance the setup wizard; do it only once, including StrictMode effects.
+      autoClosedRef.current = true;
+      if (onConfirm) onConfirm({});
+      else onClose();
+    }
+  }, [open, isLoading, onClose, onConfirm, presetId, variables.length]);
 
   // Merged view: base + user overrides
   const selections = useMemo(() => ({ ...baseSelections, ...overrides }), [baseSelections, overrides]);
@@ -181,12 +205,13 @@ export function ChoiceSelectionModal({
 
   const handleConfirm = useCallback(() => {
     // Save selections to chat metadata
-    updateMetadata.mutate({ id: chatId, presetChoices: selections }, { onSuccess: () => onClose() });
+    if (onConfirm) onConfirm(selections);
+    else if (chatId) updateMetadata.mutate({ id: chatId, presetChoices: selections }, { onSuccess: () => onClose() });
     // Optionally save as default for this preset
     if (saveAsDefault && presetId) {
       updatePreset.mutate({ id: presetId, defaultChoices: selections });
     }
-  }, [chatId, presetId, selections, saveAsDefault, updateMetadata, updatePreset, onClose]);
+  }, [chatId, presetId, selections, saveAsDefault, updateMetadata, updatePreset, onClose, onConfirm]);
 
   // Toggle a single option in a multi-select variable
   const toggleMulti = useCallback(
@@ -211,6 +236,7 @@ export function ChoiceSelectionModal({
       title={localizeUi("ui.presets.choiceselectionmodal.configurePresetVariables")}
       width="max-w-lg"
       chatFloatingPanel={chatFloatingPanel}
+      closeDisabled={updateMetadata.isPending}
     >
       {variables.length === 0 ? (
         isLoading ? (
@@ -219,7 +245,7 @@ export function ChoiceSelectionModal({
           </div>
         ) : null
       ) : (
-        <div className="space-y-4 p-4">
+        <fieldset disabled={updateMetadata.isPending} className="min-w-0 space-y-4 p-4">
           <p className="text-xs text-[var(--muted-foreground)]">
             {localizeUi("ui.presets.choiceselectionmodal.thisPresetHasConfigurableVariablesSelectOptionSFor")}
           </p>
@@ -240,7 +266,7 @@ export function ChoiceSelectionModal({
                       {localizeUi("ui.presets.choiceselectionmodal.booleanToggle")}
                     </span>
                   )}
-                  {v.multiSelect && (
+                  {(v.multiSelect || v.randomPick) && (
                     <span className="flex items-center gap-0.5 rounded bg-[var(--accent)] px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--foreground)]">
                       {v.randomPick ? (
                         <>
@@ -296,6 +322,7 @@ export function ChoiceSelectionModal({
                       return (
                         <button
                           key={opt.id}
+                          aria-pressed={isSelected}
                           onClick={() => toggleMulti(v.variableName, opt.value)}
                           className={cn(
                             "flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left transition-all",
@@ -369,6 +396,7 @@ export function ChoiceSelectionModal({
                       return (
                         <button
                           key={opt.id}
+                          aria-pressed={isSelected}
                           onClick={() => setOverrides((prev) => ({ ...prev, [v.variableName]: opt.value }))}
                           className={cn(
                             "flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left transition-all",
@@ -415,7 +443,8 @@ export function ChoiceSelectionModal({
             </div>
             <div className="flex gap-2">
               <button
-                onClick={onClose}
+                onClick={() => (onConfirm ? onConfirm(baseSelections) : onClose())}
+                disabled={updateMetadata.isPending}
                 className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
               >
                 {localizeUi("onboarding.actions.skip")}
@@ -431,7 +460,7 @@ export function ChoiceSelectionModal({
               </button>
             </div>
           </div>
-        </div>
+        </fieldset>
       )}
     </Modal>
   );

@@ -491,6 +491,7 @@ export function StickerPicker({ open, onClose, onSelect, anchorRef, containerRef
   return createPortal(
     <div
       ref={panelRef}
+      data-chat-floating-panel
       className="fixed z-[9999] flex h-[22rem] w-[21rem] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-xl"
       style={{
         top: pos.top,

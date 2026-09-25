@@ -8,6 +8,11 @@ const DB_VERSION = 2;
 const STORE_NAME = "voiceLines";
 const META_STORE_NAME = "voiceLineMeta";
 const MAX_MEMORY_ENTRIES = 150;
+// #5889: iOS WebKit deliberately has no persistent tier, so the memory tier
+// is the ONLY tier there - and 150 entries with no byte bound can hold
+// hundreds of MB of live blobs in the web-content process. The count cap
+// stays; the byte cap is what actually protects Safari.
+const MAX_MEMORY_BYTES = 64 * 1024 * 1024;
 const MAX_PERSISTENT_ENTRIES = 750;
 const MAX_PERSISTENT_BYTES = 100 * 1024 * 1024;
 const PERSISTENT_PRUNE_THROTTLE_MS = 30_000;
@@ -27,7 +32,11 @@ export type CachedTTSAudioExportEntry = CachedVoiceLineMeta & {
 };
 
 const memoryCache = new Map<string, Blob>();
+let memoryCacheBytes = 0;
 const inFlight = new Map<string, Promise<Blob>>();
+// A cleared clip cannot be restored by its in-flight generation. Keep versions
+// per key so clearing one message does not discard unrelated synthesis work.
+const cachePurgeEpochs = new Map<string, number>();
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 let lastPersistentPruneAt = 0;
 
@@ -35,14 +44,58 @@ export function shouldUsePersistentTTSAudioCache(userAgent: string, platform: st
   return !isIosWebKitBrowser(userAgent, platform, maxTouchPoints);
 }
 
-function rememberInMemory(key: string, blob: Blob) {
+// One voice line is stored under its primary key AND alias keys, all sharing
+// the same physical Blob - the byte budget must count each Blob once, or
+// aliases would book a 10MB line as 30MB and evict real audio early. The
+// reference scans are bounded by MAX_MEMORY_ENTRIES.
+function blobReferencedByAnotherKey(key: string, blob: Blob): boolean {
+  for (const [otherKey, otherBlob] of memoryCache) {
+    if (otherKey !== key && otherBlob === blob) return true;
+  }
+  return false;
+}
+
+function dropFromMemory(key: string) {
+  const existing = memoryCache.get(key);
   memoryCache.delete(key);
+  if (existing && !blobReferencedByAnotherKey(key, existing)) memoryCacheBytes -= existing.size;
+}
+
+function rememberInMemory(key: string, blob: Blob) {
+  dropFromMemory(key);
+  // A single blob over the whole-tier budget must never enter the cache -
+  // it would evict everything else and still bust the cap.
+  if (blob.size > MAX_MEMORY_BYTES) return;
+  if (!blobReferencedByAnotherKey(key, blob)) memoryCacheBytes += blob.size;
   memoryCache.set(key, blob);
-  while (memoryCache.size > MAX_MEMORY_ENTRIES) {
+  while (memoryCache.size > MAX_MEMORY_ENTRIES || memoryCacheBytes > MAX_MEMORY_BYTES) {
     const oldest = memoryCache.keys().next().value;
     if (!oldest) break;
-    memoryCache.delete(oldest);
+    dropFromMemory(oldest);
   }
+}
+
+/** The production memory read: a hit refreshes Map recency, making the tier LRU. */
+function readFromMemory(key: string): Blob | null {
+  const hit = memoryCache.get(key);
+  if (!hit) return null;
+  rememberInMemory(key, hit);
+  return hit;
+}
+
+/** Test seams for the regression lane; production code never calls these. */
+export function __rememberTTSAudioInMemoryForTests(key: string, blob: Blob) {
+  rememberInMemory(key, blob);
+}
+export function __readTTSAudioFromMemoryForTests(key: string): Blob | null {
+  return readFromMemory(key);
+}
+export function __ttsMemoryCacheStatsForTests(): { entries: number; bytes: number } {
+  return { entries: memoryCache.size, bytes: memoryCacheBytes };
+}
+export function __resetTTSMemoryCacheForTests() {
+  memoryCache.clear();
+  memoryCacheBytes = 0;
 }
 
 function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
@@ -158,7 +211,7 @@ async function prunePersistentCache(db: IDBDatabase): Promise<void> {
   for (const key of keysToDelete) {
     blobStore.delete(key);
     metaStore.delete(key);
-    memoryCache.delete(key);
+    dropFromMemory(key);
   }
   await transactionDone(deleteTx);
 }
@@ -182,9 +235,9 @@ async function getPersistentBlob(key: string): Promise<Blob | null> {
   }
 }
 
-async function putPersistentBlob(key: string, blob: Blob): Promise<void> {
+async function putPersistentBlob(key: string, blob: Blob, epoch: number): Promise<void> {
   const db = await openDb();
-  if (!db) return;
+  if (!db || epoch !== (cachePurgeEpochs.get(key) ?? 0)) return;
 
   try {
     const now = Date.now();
@@ -213,15 +266,15 @@ async function putPersistentBlob(key: string, blob: Blob): Promise<void> {
 }
 
 export async function getCachedTTSAudioBlob(key: string): Promise<Blob | null> {
-  const memoryHit = memoryCache.get(key);
-  if (memoryHit) {
-    rememberInMemory(key, memoryHit);
-    return memoryHit;
-  }
+  const memoryHit = readFromMemory(key);
+  if (memoryHit) return memoryHit;
 
+  const epoch = cachePurgeEpochs.get(key) ?? 0;
   const persisted = await getPersistentBlob(key);
-  if (persisted) rememberInMemory(key, persisted);
-  return persisted;
+  if (persisted && epoch === (cachePurgeEpochs.get(key) ?? 0)) {
+    rememberInMemory(key, persisted);
+  }
+  return epoch === (cachePurgeEpochs.get(key) ?? 0) ? persisted : null;
 }
 
 export async function listCachedTTSAudioMeta(): Promise<CachedTTSAudioMeta[]> {
@@ -261,17 +314,51 @@ export async function listCachedTTSAudioEntries(): Promise<CachedTTSAudioExportE
   }
 }
 
+/**
+ * Remove the given clips from the memory and persistent tiers. Callers must
+ * pass the alias keys too: a text-hash alias can still serve a clip whose
+ * primary message key was already dropped, so deleting only the primary key
+ * would leave the stale audio reachable.
+ */
+export async function deleteCachedTTSAudioKeys(keys: string[]): Promise<void> {
+  const uniqueKeys = [...new Set(keys.filter((key) => key.length > 0))];
+  if (uniqueKeys.length === 0) return;
+
+  for (const key of uniqueKeys) {
+    cachePurgeEpochs.set(key, (cachePurgeEpochs.get(key) ?? 0) + 1);
+    dropFromMemory(key);
+    // Drop any generation still in flight for these keys, so the clip we are
+    // deleting cannot be handed to a late joiner either.
+    inFlight.delete(key);
+  }
+
+  const db = await openDb();
+  if (!db) return;
+
+  const hasMeta = hasMetadataStore(db);
+  const tx = db.transaction(hasMeta ? [STORE_NAME, META_STORE_NAME] : STORE_NAME, "readwrite");
+  const blobStore = tx.objectStore(STORE_NAME);
+  const metaStore = hasMeta ? tx.objectStore(META_STORE_NAME) : null;
+  for (const key of uniqueKeys) {
+    blobStore.delete(key);
+    metaStore?.delete(key);
+  }
+  await transactionDone(tx);
+}
+
 export async function getOrCreateCachedTTSAudioBlob(
   key: string,
   create: () => Promise<Blob>,
   aliases: string[] = [],
 ): Promise<Blob> {
   const keys = [...new Set([key, ...aliases].filter(Boolean))];
+  const epochs = new Map(keys.map((cacheKey) => [cacheKey, cachePurgeEpochs.get(cacheKey) ?? 0]));
+  const isCurrent = (cacheKey: string) => epochs.get(cacheKey) === (cachePurgeEpochs.get(cacheKey) ?? 0);
 
   for (const cacheKey of keys) {
     const cached = await getCachedTTSAudioBlob(cacheKey);
     if (cached) {
-      if (cacheKey !== key) {
+      if (cacheKey !== key && isCurrent(key)) {
         rememberInMemory(key, cached);
       }
       return cached;
@@ -282,7 +369,7 @@ export async function getOrCreateCachedTTSAudioBlob(
     const pending = inFlight.get(cacheKey);
     if (pending) {
       const blob = await pending;
-      rememberInMemory(key, blob);
+      if (isCurrent(key)) rememberInMemory(key, blob);
       return blob;
     }
   }
@@ -291,7 +378,7 @@ export async function getOrCreateCachedTTSAudioBlob(
     for (const cacheKey of keys) {
       const secondLook = await getCachedTTSAudioBlob(cacheKey);
       if (secondLook) {
-        if (cacheKey !== key) {
+        if (cacheKey !== key && isCurrent(key)) {
           rememberInMemory(key, secondLook);
         }
         return secondLook;
@@ -299,19 +386,24 @@ export async function getOrCreateCachedTTSAudioBlob(
     }
 
     const blob = await create();
+    // A purge that landed while this clip was synthesizing wins: re-writing the
+    // blob now would put the deleted audio straight back into both tiers.
     for (const cacheKey of keys) {
-      rememberInMemory(cacheKey, blob);
-      await putPersistentBlob(cacheKey, blob);
+      if (isCurrent(cacheKey)) {
+        rememberInMemory(cacheKey, blob);
+        await putPersistentBlob(cacheKey, blob, epochs.get(cacheKey)!);
+      }
     }
     return blob;
   })().finally(() => {
     for (const cacheKey of keys) {
-      inFlight.delete(cacheKey);
+      if (inFlight.get(cacheKey) === promise) inFlight.delete(cacheKey);
     }
   });
 
   for (const cacheKey of keys) {
-    inFlight.set(cacheKey, promise);
+    // A purge may have happened while the first cache lookup was awaiting.
+    if (isCurrent(cacheKey)) inFlight.set(cacheKey, promise);
   }
   return promise;
 }

@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "typeRoots": ["../../node_modules/@types", "../../packages/server/node_modules/@types"],
+    "paths": {
+      "@marinara-engine/shared": ["../../packages/shared/src/index.ts"]
+    }
+  },
+  "include": [
+    "tts-safari-play-guard.regression.ts",
+    "client-runtime-diagnostics.regression.ts",
+    "ruleset-catalog-picker.regression.ts",
+    "ruleset-catalog-refresh.regression.ts",
+    "ruleset-combat-bridge-client.regression.ts",
+    "ruleset-combat-screen-client.regression.ts",
+    "ruleset-dice-pool-client.regression.ts",
+    "ruleset-layers-client.regression.ts"
+  ]
+}

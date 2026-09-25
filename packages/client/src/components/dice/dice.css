@@ -286,10 +286,13 @@
   min-height: 7.2rem;
 }
 
+/* A pool can be a dozen dice or thirty. They wrap at the size they already have, never smaller, and
+   the tray scrolls once it runs out of rows rather than clipping dice away: under a ruleset that
+   counts successes a hidden die may be one of the dice that counted. */
 .dice-tray--pool .dice-stage {
-  max-height: 12rem;
+  max-height: 14.5rem;
   justify-content: flex-start;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .dice-glyph {
@@ -542,13 +545,21 @@
   opacity: 1;
 }
 
+/* The face list of a large pool is longer than one line. It wraps and the total drops below it,
+   rather than the card cutting either of them off at its own edge. */
+.dice-roll-footer {
+  flex-wrap: wrap;
+}
+
 .dice-roll-breakdown {
-  color: var(--muted-foreground);
+  min-width: 0;
+  color: var(--dice-accent);
   font-size: 0.72rem;
+  overflow-wrap: anywhere;
 }
 
 .dice-roll-total {
-  color: var(--foreground);
+  color: var(--dice-accent);
   font-size: 1.05rem;
   font-weight: 800;
   opacity: 0;

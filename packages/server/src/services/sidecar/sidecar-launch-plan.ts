@@ -38,7 +38,16 @@ export function buildLlamaArgs(options: {
     args.push("--jinja");
   }
 
-  args.push("--embeddings", "--pooling", options.embeddingPooling, "--ubatch-size", String(options.embeddingBatchSize));
+  // llama.cpp caps the physical batch at the logical batch (2048 by default).
+  args.push(
+    "--embeddings",
+    "--pooling",
+    options.embeddingPooling,
+    "--batch-size",
+    String(Math.max(2048, options.embeddingBatchSize)),
+    "--ubatch-size",
+    String(options.embeddingBatchSize),
+  );
 
   // Gemma 4 needs split mode disabled on CUDA multi-GPU launches,
   // but non-CUDA builds may reject the flag entirely.

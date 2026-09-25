@@ -1,4 +1,41 @@
+import { extractLeadingThinkingBlocks } from "@marinara-engine/shared";
+import { parseGameJsonish } from "./jsonish.js";
+import { canRefreshLocalContext } from "../llm/local-context-limit.js";
+
 export const STORYBOARD_FALLBACK_BEAT_MAX_CHARS = 2000;
+
+export function shouldRetryStoryboardWithoutReasoning(
+  connection: { provider: string; baseUrl: string; treatAsLocalEndpoint?: unknown },
+  reasoningEffort?: string,
+): boolean {
+  return reasoningEffort !== "none" && connection.provider === "custom" && canRefreshLocalContext(connection);
+}
+
+/** Retry unusable local structured output once without spending the budget on hidden reasoning. */
+export async function completeStoryboardPlan(args: {
+  generate: (withoutReasoning: boolean) => Promise<{ content: string | null; finishReason?: string }>;
+  retryWithoutReasoning: boolean;
+  customThinkingTags?: unknown;
+}): Promise<unknown> {
+  let failureDetail = "";
+  for (let attempt = 0; attempt < (args.retryWithoutReasoning ? 2 : 1); attempt++) {
+    const result = await args.generate(attempt > 0);
+    const content = extractLeadingThinkingBlocks(result.content || "", args.customThinkingTags).content;
+    failureDetail = [
+      !content.trim() ? "empty final answer" : "",
+      result.finishReason === "length" ? "output token limit reached" : "",
+    ]
+      .filter(Boolean)
+      .join("; ");
+    try {
+      const plan = parseGameJsonish(content);
+      if (storyboardPlanHasRenderableKeyframe(plan)) return plan;
+    } catch {
+      // Malformed/empty model output is retryable; transport failures and cancellation are not.
+    }
+  }
+  throw new Error(`Storyboard Illustrator returned no usable keyframes${failureDetail ? ` (${failureDetail})` : ""}`);
+}
 
 const STORYBOARD_REVIEW_PLAN_KIND = "marinara-storyboard-review-plan-v1";
 const STORYBOARD_PLANNER_ERROR_MAX_CHARS = 1200;

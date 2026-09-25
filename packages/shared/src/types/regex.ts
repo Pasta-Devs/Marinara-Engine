@@ -8,6 +8,9 @@ export type RegexPlacement = "ai_output" | "user_input";
 /** Which runtime contexts a regex script applies to. */
 export type RegexApplyMode = "prompt" | "display" | "both";
 
+/** How character-scoped scripts affect displayed messages. */
+export type ScopedRegexMode = "disabled" | "exclusive" | "chat";
+
 /** A find/replace regex script. */
 export interface RegexScript {
   id: string;

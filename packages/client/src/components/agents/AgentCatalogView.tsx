@@ -27,8 +27,10 @@ import {
 import { useCustomAgentRepositories } from "../../hooks/use-custom-agent-repositories";
 import { ApiError, getPrivilegedActionErrorMessage } from "../../lib/api-client";
 import { isAgentCatalogKindBadgeVisible } from "../../lib/agent-catalog-kind-badges";
+import { AgentVersionHistory } from "./AgentVersionHistory";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
+import { notifyDecisionImport } from "../../lib/decision-import-notice";
 import { useUIStore } from "../../stores/ui.store";
 import { AgentArtwork } from "./AgentArtwork";
 import { AgentModeFilter, type AgentModeFilterValue } from "./AgentModeFilter";
@@ -79,6 +81,7 @@ const OFFICIAL_PACKAGE_MODES: Readonly<Record<string, readonly CatalogMode[]>> =
   spotify: ["conversation", "roleplay", "game"],
   poker: ["conversation"],
   "rock-paper-scissors": ["conversation"],
+  "ruleset-5e-2014": ["game"],
   "tic-tac-toe": ["conversation"],
   uno: ["conversation"],
 });
@@ -97,7 +100,7 @@ const MODE_BADGES: Record<CatalogMode, { labelKey: string; className: string }> 
   game: {
     labelKey: "ui.agents.agentcatalogview.gameMode",
     className:
-      "border-[color-mix(in_srgb,var(--mari-logo-pink)_55%,var(--border))] bg-[color-mix(in_srgb,var(--mari-logo-pink)_18%,transparent)]",
+      "border-[color-mix(in_srgb,var(--marinara-chat-chrome-accent)_55%,var(--border))] bg-[color-mix(in_srgb,var(--marinara-chat-chrome-accent)_18%,transparent)]",
   },
 };
 
@@ -127,6 +130,7 @@ function kindLabel(kind: CapabilityCatalogPackage["manifest"]["kind"][number]) {
   if (kind === "conversation-calls") return "Calls";
   if (kind === "turn-game") return "Conversation Game";
   if (kind === "maps") return "Maps";
+  if (kind === "ruleset") return "Rules";
   return "Agent";
 }
 
@@ -201,6 +205,25 @@ export function AgentCatalogView() {
   const selected =
     (catalog.data?.packages ?? []).find((item) => item.manifest.id === selectedId) ?? packages[0] ?? null;
   const selectedInstalled = selected ? installedById.get(selected.manifest.id) : undefined;
+  const installedPermissions = selectedInstalled?.manifest.permissions;
+  const permissionGroups = selected
+    ? [
+        ...(selectedInstalled
+          ? [
+              {
+                kind: "installed",
+                version: selectedInstalled.version,
+                permissions: selectedInstalled.manifest.permissions,
+              },
+            ]
+          : []),
+        ...(!installedPermissions ||
+        installedPermissions.length !== selected.manifest.permissions.length ||
+        selected.manifest.permissions.some((permission) => !installedPermissions.includes(permission))
+          ? [{ kind: "available", version: selected.manifest.version, permissions: selected.manifest.permissions }]
+          : []),
+      ]
+    : [];
   const selectedVersionComparison = selectedInstalled
     ? compareCapabilityPackageVersions(selected.manifest.version, selectedInstalled.version)
     : 0;
@@ -222,6 +245,7 @@ export function AgentCatalogView() {
         expectedVersion: entry.manifest.version,
         expectedArtifactSha256: entry.artifact.sha256,
       });
+      void notifyDecisionImport(result.usesDecisions ?? false, localizeUi);
       toast.success(
         result.status === "restart-required"
           ? localizeUi(
@@ -275,6 +299,7 @@ export function AgentCatalogView() {
         packages: (catalog.data?.packages ?? []).filter((entry) => installablePackageIds.includes(entry.manifest.id)),
         onProgress: (completed) => setBulkProgress({ action: "install", completed, total }),
       });
+      void notifyDecisionImport(result.usesDecisions, localizeUi);
       if (result.failures.length === 0) {
         toast.success(
           result.restartRequired
@@ -733,15 +758,41 @@ export function AgentCatalogView() {
                     {localizeUi("ui.agents.agentcatalogview.trustedCodeAccessNotice")}
                   </p>
                 )}
-                <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {selected.manifest.permissions.map((permission) => (
-                    <li key={permission} className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
-                      <Check size="0.85rem" className="text-[var(--marinara-chat-chrome-highlight-text)]" />
-                      {permission.replaceAll("-", " ")}
-                    </li>
-                  ))}
-                </ul>
+                <p className="mt-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
+                  {localizeUi("ui.agents.agentcatalogview.permissionScopeNotice")}
+                </p>
+                {permissionGroups.map((group) => (
+                  <div key={group.kind} className="mt-3">
+                    <h4 className="text-xs font-medium">
+                      {localizeUi(
+                        group.kind === "installed"
+                          ? "ui.agents.agentcatalogview.installedPermissions"
+                          : "ui.agents.agentcatalogview.availablePermissions",
+                        { version: group.version },
+                      )}
+                    </h4>
+                    {group.permissions.length > 0 ? (
+                      <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {group.permissions.map((permission) => (
+                          <li
+                            key={permission}
+                            className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]"
+                          >
+                            <Check size="0.85rem" className="text-[var(--marinara-chat-chrome-highlight-text)]" />
+                            {permission.replaceAll("-", " ")}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                        {localizeUi("ui.agents.agentcatalogview.noPermissions")}
+                      </p>
+                    )}
+                  </div>
+                ))}
               </section>
+
+              <AgentVersionHistory packageId={selected.manifest.id} />
 
               <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-[var(--border)] pt-5">
                 {selected.documentationUrl && (

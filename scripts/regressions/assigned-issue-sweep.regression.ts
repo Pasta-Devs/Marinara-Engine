@@ -336,6 +336,16 @@ assert.match(
 );
 assert.equal(applyInlineMarkdownHTML("-#"), '<small class="mari-md-subtext"></small>');
 assert.equal(applyInlineMarkdownHTML("-# "), '<small class="mari-md-subtext"></small>');
+assert.equal(
+  applyInlineMarkdownHTML("&gt;<br>Following prose"),
+  '<blockquote class="mari-md-blockquote"></blockquote>Following prose',
+  "an empty mixed-HTML quote does not consume the following prose",
+);
+assert.equal(
+  applyInlineMarkdownHTML("&gt;<br>---<br>&gt;"),
+  '<blockquote class="mari-md-blockquote"></blockquote><hr class="mari-md-rule"><blockquote class="mari-md-blockquote"></blockquote>',
+  "empty quotes remain distinct from adjacent horizontal rules and work at the end of input",
+);
 
 const markdownSource = readFileSync(join(repositoryRoot, "packages/client/src/lib/markdown.tsx"), "utf8");
 assert.match(

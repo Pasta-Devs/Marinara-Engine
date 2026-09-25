@@ -1,0 +1,173 @@
+name: Platform Artifact Checks
+
+# Branch/PR proof only. Release signing, tags, registries and uploads to releases
+# remain owned by the existing release workflows.
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - ".github/workflows/platform-artifacts.yml"
+      - ".github/workflows/build-*.yml"
+      - "Dockerfile*"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - ".npmrc"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "patches/**"
+      - "packages/**"
+      - "scripts/**"
+      - "start*"
+      - "android/**"
+      - "win/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-artifacts-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-install-build:
+    name: Native install/build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15, macos-15-intel, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Exercise launcher dependency handoff and data preservation
+        run: pnpm regression:launcher-update
+      - name: Exercise restart ownership
+        run: node scripts/run-regressions.mjs --filter scripts/regressions/restart-supervisor.regression.ts
+      - name: Exercise native console shutdown and saved-data flush
+        # This file runs several separately bounded console/PTY scenarios; the
+        # general regression runner's 30s whole-file cap cuts those short.
+        timeout-minutes: 5
+        run: pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/server-signal-shutdown.regression.ts
+      - name: Exercise update apply policy
+        run: node scripts/run-regressions.mjs --filter scripts/regressions/update-apply-hardening.regression.ts
+
+  container-runtime:
+    name: Container runtime (${{ matrix.variant }}, ${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [full, lite]
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+          - variant: full
+            dockerfile: Dockerfile
+          - variant: lite
+            dockerfile: Dockerfile.lite
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build local image on native architecture
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/${{ matrix.arch }}
+          tags: marinara-platform-proof:${{ matrix.variant }}
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_BRANCH=${{ github.head_ref || github.ref_name }}
+          push: false
+          load: true
+          cache-from: type=gha,scope=platform-${{ matrix.variant }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=platform-${{ matrix.variant }}-${{ matrix.arch }}
+      - name: Verify startup, native dependencies and data after replacement
+        run: node scripts/smoke-container.mjs marinara-platform-proof:${{ matrix.variant }} ${{ matrix.variant }} ${{ matrix.arch }}
+
+  windows-installer:
+    name: Windows installer compile (x64 prerequisites)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install NSIS
+        run: sudo apt-get update && sudo apt-get install -y nsis
+      - name: Compile installer pinned to this checkout
+        working-directory: win/installer
+        run: makensis -DRELEASE_COMMIT="$(git rev-parse HEAD)" installer.nsi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-installer-compile-only
+          path: win/installer/Marinara-Engine-Installer-*.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  android-debug:
+    name: Android debug APK and release signing guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: "platform-tools platforms;android-34 build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          gradle-version: "9.7.1"
+          cache-read-only: true
+      - name: Bootstrap pinned Gradle wrapper
+        working-directory: android
+        run: |
+          if [ ! -f ./gradlew ]; then
+            gradle wrapper --gradle-version 9.7.1 --gradle-distribution-sha256-sum acd53f1edaf02f1a8ff99879f8a34b302661a057d9b063ae9e35b552f804d20a
+          fi
+          chmod +x ./gradlew
+      - name: Assemble debug APK through the documented build script
+        working-directory: android
+        run: ./build-apk.sh debug
+      - name: Refuse an unsigned release instead of falling back to debug signing
+        working-directory: android
+        run: |
+          if ./gradlew assembleRelease --no-daemon --stacktrace > release-guard.log 2>&1; then
+            cat release-guard.log
+            echo "Unsigned release unexpectedly succeeded" >&2
+            exit 1
+          fi
+          grep -F 'Release APK/AAB builds require all ANDROID_SIGNING_* credentials' release-guard.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: android-debug-branch-proof
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7

@@ -3,21 +3,34 @@ import { existsSync } from "node:fs";
 import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve, sep } from "node:path";
 import AdmZip from "adm-zip";
+import { z } from "zod";
 import {
   APP_VERSION,
+  containsDecisionStatements,
   parseCapabilityCatalogWithCompat,
   capabilityPackageManifestSchema,
   compareCapabilityPackageVersions,
   getCapabilityApiCompatibilityIssue,
+  GM_VERB_TABLE_ASSET_PATH,
+  GM_VERB_TABLE_MAX_BYTES,
+  RULESET_ASSET_PATH,
+  RULESET_CATALOG_MAX_BYTES,
+  RULESET_MAX_BYTES,
+  rulesetCatalogAssetPath,
+  isRulesetCatalogAssetPath,
   isInstalledCapabilityReady,
   installedCapabilityRegistrySchema,
+  installedCapabilityPackageSchema,
   packagedAgentDefinitionsSchema,
+  capabilityReleaseNotesSchema,
   type CapabilityCatalog,
   type CapabilityCatalogPackage,
   type StampedCapabilityCatalog,
   type StampedCapabilityCatalogPackage,
   type PackagedAgentDefinition,
   type CapabilityPackageUpdate,
+  type CapabilityPackageVersionNote,
+  type CapabilityReleaseNotes,
   type InstalledCapabilityPackage,
 } from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
@@ -175,6 +188,26 @@ export function resolvePreviewCatalogUrl(
   return match ? `${previewRoot}/v${Number(match[1])}/catalog.json` : `${previewRoot}/catalog.json`;
 }
 
+/** URL of the release-notes sidecar for a catalog, or null when none can be derived.
+ *
+ *  Release notes are published as `notes.json` beside the `catalog.json` they
+ *  describe, in every lane and in the preview overlay. Deriving the sibling keeps
+ *  this working for the official lanes, a fork, and a local file server without a
+ *  second environment variable.
+ *
+ *  A configured catalog URL that does not end in `/catalog.json` yields null rather
+ *  than a guess. Appending `notes.json` to an arbitrary operator-supplied path would
+ *  fetch a URL nobody pointed us at. */
+export function resolveCapabilityReleaseNotesUrl(catalogUrl: string | null): string | null {
+  if (!catalogUrl) return null;
+  const trimmed = catalogUrl.trim();
+  if (!trimmed.endsWith("/catalog.json")) return null;
+  return `${trimmed.slice(0, -"catalog.json".length)}notes.json`;
+}
+
+const RELEASE_NOTES_URL = resolveCapabilityReleaseNotesUrl(CATALOG_URL);
+const RELEASE_NOTES_TTL_MS = 5 * 60 * 1000;
+
 const PREVIEW_CATALOG_URL = resolvePreviewCatalogUrl();
 const MAX_ARTIFACT_BYTES = 100 * 1024 * 1024;
 const MAX_EXPANDED_BYTES = 250 * 1024 * 1024;
@@ -211,6 +244,16 @@ export function normalizeArchivePath(value: string): string {
     throw new Error("Package contains an unsafe path");
   }
   return parts.join("/");
+}
+
+/** `normalizeArchivePath` for a caller that treats an unusable path as "not this one" instead of as
+ *  an error: matching a declared asset path against a reserved name. */
+function tryNormalizeArchivePath(path: string): string | null {
+  try {
+    return normalizeArchivePath(path);
+  } catch {
+    return null;
+  }
 }
 
 function isSymlink(entry: AdmZip.IZipEntry): boolean {
@@ -253,7 +296,10 @@ function runtimeBlockReason(installed: InstalledCapabilityPackage): string | nul
   );
 }
 
-function assertNotDowngrade(current: InstalledCapabilityPackage | undefined, nextVersion: string) {
+function assertNotDowngrade(
+  current: Pick<InstalledCapabilityPackage, "id" | "version"> | undefined,
+  nextVersion: string,
+) {
   if (current && compareCapabilityPackageVersions(nextVersion, current.version) < 0) {
     throw new Error(
       `Installed ${current.id} ${current.version} is newer than catalog version ${nextVersion}; refusing to downgrade`,
@@ -261,19 +307,52 @@ function assertNotDowngrade(current: InstalledCapabilityPackage | undefined, nex
   }
 }
 
-async function readRegistry() {
+const rawRegistrySchema = installedCapabilityRegistrySchema.extend({ packages: z.array(z.unknown()) });
+const installedVersionSchema = installedCapabilityPackageSchema.pick({ id: true, version: true });
+
+async function readRawRegistry() {
   try {
-    return installedCapabilityRegistrySchema.parse(JSON.parse(await readFile(REGISTRY, "utf8")));
+    return rawRegistrySchema.parse(JSON.parse(await readFile(REGISTRY, "utf8")));
   } catch (error) {
     if (!existsSync(REGISTRY)) return { schemaVersion: 1 as const, packages: [] };
     throw error;
   }
 }
 
+async function readRegistry() {
+  const raw = await readRawRegistry();
+  return {
+    ...raw,
+    packages: raw.packages.flatMap((entry) => {
+      const parsed = installedCapabilityPackageSchema.strict().safeParse(entry);
+      if (parsed.success) return [parsed.data];
+      logger.warn("[capability] Skipping an unsupported installed package record: %s", parsed.error.message);
+      return [];
+    }),
+  };
+}
+
+async function readInstalledVersion(packageId: string) {
+  for (const entry of (await readRawRegistry()).packages) {
+    const parsed = installedVersionSchema.safeParse(entry);
+    if (parsed.success && parsed.data.id === packageId) return parsed.data;
+  }
+}
+
 async function writeRegistry(packages: InstalledCapabilityPackage[]) {
   await mkdir(ROOT, { recursive: true });
+  // Operational reads omit unsupported manifests, but writes must retain their raw records.
+  // Re-read here so an unrelated readiness/update write cannot erase an unseen sibling.
+  const ids = new Set(packages.map((item) => item.id));
+  const unsupported = (await readRawRegistry()).packages.filter(
+    (entry) =>
+      !installedCapabilityPackageSchema.strict().safeParse(entry).success &&
+      !(entry && typeof entry === "object" && "id" in entry && typeof entry.id === "string" && ids.has(entry.id)),
+  );
   const temporary = `${REGISTRY}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporary, JSON.stringify({ schemaVersion: 1, packages }, null, 2), { mode: 0o600 });
+  await writeFile(temporary, JSON.stringify({ schemaVersion: 1, packages: [...packages, ...unsupported] }, null, 2), {
+    mode: 0o600,
+  });
   await rename(temporary, REGISTRY);
 }
 
@@ -417,12 +496,382 @@ function supportsEngineVersion(entry: CapabilityCatalogPackage, engineVersion: s
   );
 }
 
-export function getCapabilityPackageInstallIssue(manifest: CapabilityCatalogPackage["manifest"]): string | null {
+/** Whether any row of these entries names a column the ruleset keeps up to date. Read structurally
+ *  rather than parsed: the install gate looks at documents nothing has validated yet, and a shape it
+ *  does not recognise is not its problem to report. */
+function entriesCarryScaledRows(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) => {
+    const rows = entry && typeof entry === "object" ? (entry as { rows?: unknown }).rows : undefined;
+    return (
+      Array.isArray(rows) &&
+      rows.some((row) => !!row && typeof row === "object" && (row as { scaled?: unknown }).scaled !== undefined)
+    );
+  });
+}
+
+/** The `mechanics` keys a fight reads, which are new keys in the same strict file: an Engine that
+ *  does not know them refuses whichever file holds them. Read structurally, for the same reason
+ *  `entriesCarryScaledRows` is. */
+const COMBAT_MECHANICS_KEYS = ["targetCount", "autoHit", "applies", "temporary", "scales", "budget"] as const;
+
+function entriesCarryCombatMechanics(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) => {
+    const mechanics = entry && typeof entry === "object" ? (entry as { mechanics?: unknown }).mechanics : undefined;
+    if (!mechanics || typeof mechanics !== "object") return false;
+    return COMBAT_MECHANICS_KEYS.some((key) => (mechanics as Record<string, unknown>)[key] !== undefined);
+  });
+}
+
+/** What a picked entry does to a CHECK rather than to a fight, which is `mechanics.check` and is
+ *  new in 1.30. Read the same structural way, for the same reason: an Engine that does not know the
+ *  key refuses the whole file that holds it, inline or in a catalog asset. */
+function entriesCarryCheckEffects(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) => {
+    const mechanics = entry && typeof entry === "object" ? (entry as { mechanics?: unknown }).mechanics : undefined;
+    return !!mechanics && typeof mechanics === "object" && (mechanics as Record<string, unknown>).check !== undefined;
+  });
+}
+
+/** An opponent in place of rows: another new key in the same strict file, read structurally for the
+ *  same reason the two above are. */
+function entriesCarryCreatures(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some(
+    (entry) => !!entry && typeof entry === "object" && (entry as { creature?: unknown }).creature !== undefined,
+  );
+}
+
+/** The `mechanics` keys that say what one turn can do, which are new keys in the same strict file.
+ *  Read structurally, for the same reason the ones above are. */
+const TURN_ECONOMY_MECHANICS_KEYS = ["plus", "free", "gives", "standard", "rider"] as const;
+
+/** The condition effects an Engine before 1.29 knew. Written out rather than read off the shared
+ *  enum, because the question this asks is what an OLDER Engine would refuse, which is a fixed list
+ *  and not whatever this build happens to implement. */
+const OLD_CONDITION_EFFECTS: ReadonlySet<string> = new Set([
+  "own-attacks-advantage",
+  "own-attacks-disadvantage",
+  "attacks-against-advantage",
+  "attacks-against-disadvantage",
+  "attacks-against-adjacent-advantage",
+  "attacks-against-far-disadvantage",
+  "attacks-from-adjacent-critical",
+  "cannot-act",
+  "cannot-react",
+  "speed-zero",
+  "half-move-to-stand",
+  "ends-on-damage",
+]);
+
+/** A creature described by a sheet in the ruleset's own terms. The key is new in 1.34, and an Engine
+ *  before it refuses the whole strict catalog file, both for the key and for the fixed numbers such
+ *  a creature no longer carries. */
+function entriesCarryCreatureSheets(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) => {
+    const creature = entry && typeof entry === "object" ? (entry as { creature?: unknown }).creature : undefined;
+    return !!creature && typeof creature === "object" && (creature as { sheet?: unknown }).sheet !== undefined;
+  });
+}
+
+/** An entry that says WHICH moment it waits for. `reaction: true` has been legal since the key
+ *  existed and says only that much; an OBJECT there is 1.33, and an Engine that knows only the
+ *  boolean refuses the whole strict catalog file. */
+function entriesCarryReactionMoments(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) => {
+    const mechanics = entry && typeof entry === "object" ? (entry as { mechanics?: unknown }).mechanics : undefined;
+    if (!mechanics || typeof mechanics !== "object") return false;
+    const reaction = (mechanics as Record<string, unknown>).reaction;
+    return !!reaction && typeof reaction === "object";
+  });
+}
+
+function entriesCarryTurnEconomy(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) => {
+    const mechanics = entry && typeof entry === "object" ? (entry as { mechanics?: unknown }).mechanics : undefined;
+    if (!mechanics || typeof mechanics !== "object") return false;
+    const record = mechanics as Record<string, unknown>;
+    // The kind counts too: `rider` is a new value for an old key, and an Engine that knows only the
+    // five it had refuses the file whichever way round it is written.
+    if (record.kind === "rider") return true;
+    return TURN_ECONOMY_MECHANICS_KEYS.some((key) => record[key] !== undefined);
+  });
+}
+
+/** A creature whose blow carries a second clause, or that carries riders of its own: new keys in
+ *  the same strict file again, read the same way. */
+function entriesCarryCreatureEconomy(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) => {
+    const creature = entry && typeof entry === "object" ? (entry as { creature?: unknown }).creature : undefined;
+    if (!creature || typeof creature !== "object") return false;
+    const record = creature as { actions?: unknown; riders?: unknown };
+    if (record.riders !== undefined) return true;
+    if (!Array.isArray(record.actions)) return false;
+    return record.actions.some((action) => {
+      const damage = action && typeof action === "object" ? (action as { damage?: unknown }).damage : undefined;
+      return !!damage && typeof damage === "object" && (damage as { plus?: unknown }).plus !== undefined;
+    });
+  });
+}
+
+/** A creature action whose `range` is an ordinary distance with a longer one beyond it, which is a
+ *  new SHAPE for an old key, or one that carries the `area` it lands in, which is a new key: either
+ *  way an Engine that knows neither refuses the file they sit in. Read structurally, for the same
+ *  reason the three above are. */
+function entriesCarryCreatureRanges(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) => {
+    const creature = entry && typeof entry === "object" ? (entry as { creature?: unknown }).creature : undefined;
+    const actions = creature && typeof creature === "object" ? (creature as { actions?: unknown }).actions : undefined;
+    if (!Array.isArray(actions)) return false;
+    return actions.some((action) => {
+      if (!action || typeof action !== "object") return false;
+      const { range, area } = action as { range?: unknown; area?: unknown };
+      return (!!range && typeof range === "object") || area !== undefined;
+    });
+  });
+}
+
+/** `rulesetDocument` is the package's own `ruleset.json`, parsed, when the install already has its
+ *  verified bytes. Catalogs live INSIDE that file, so the manifest alone cannot show them, and the
+ *  gate that keeps a package off an Engine too old to serve them has to read it. `catalogDocuments`
+ *  are the package's own `catalogs/<id>.json` files, by their normalized path, which install also
+ *  holds by then: a scaled row can sit in one of those instead. A document that is absent or
+ *  unparseable simply skips the catalog check: install has never validated a ruleset's contents, and
+ *  an unusable one is the registry's story to tell, with a log line. */
+export function getCapabilityPackageInstallIssue(
+  manifest: CapabilityCatalogPackage["manifest"],
+  rulesetDocument?: unknown,
+  catalogDocuments?: ReadonlyMap<string, unknown>,
+): string | null {
   if (manifest.kind.includes("turn-game") && !manifest.entrypoints.server) {
     return "Turn-game packages require a server entrypoint";
   }
   if (manifest.permissions.includes("routes") && !manifest.restartRequired) {
     return "Packages with privileged routes must require a restart";
+  }
+  // The ruleset IS the package, so one that declares the kind without the asset would install and
+  // then do nothing at all.
+  const declaresRuleset = (manifest.contributions?.assets?.paths ?? []).some((path) => {
+    try {
+      return normalizeArchivePath(path) === RULESET_ASSET_PATH;
+    } catch {
+      return false;
+    }
+  });
+  if (manifest.kind.includes("ruleset") && !declaresRuleset) {
+    return `Ruleset packages must list ${RULESET_ASSET_PATH} in contributions.assets.paths`;
+  }
+  // And the other way round: the kind is what makes the contribution explicit, in the catalog and
+  // to the registry, so a package cannot slip a ruleset in under another kind. Whether the asset is
+  // hash-pinned in files[] is already the manifest schema's rule for every declared asset.
+  if (declaresRuleset && !manifest.kind.includes("ruleset")) {
+    return `Packages that list ${RULESET_ASSET_PATH} must declare the "ruleset" kind`;
+  }
+  const ruleset =
+    rulesetDocument && typeof rulesetDocument === "object"
+      ? (rulesetDocument as {
+          catalogs?: unknown;
+          battle?: unknown;
+          combat?: unknown;
+          resolution?: unknown;
+          layers?: unknown;
+          gm?: unknown;
+          sheet?: unknown;
+        })
+      : undefined;
+  const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+  const declaresApi = (minor: number) => !!api && (api.major > 1 || (api.major === 1 && api.minor >= minor));
+  const catalogs = ruleset?.catalogs;
+  if (Array.isArray(catalogs) && catalogs.length > 0) {
+    if (!declaresApi(21)) {
+      return "A ruleset with catalogs requires schemaVersion 2 and capabilityApi 1.21 or newer";
+    }
+    // A catalog file the ruleset names but the package never declared would install fine and then
+    // leave the picker with nothing to open. Said at install, where the author can still fix it.
+    const declaredPaths = new Set(
+      (manifest.contributions?.assets?.paths ?? []).map(tryNormalizeArchivePath).filter((path) => path !== null),
+    );
+    // A row whose number the ruleset keeps up to date is a new key in a strict file, inline or in a
+    // catalog asset, so an Engine that does not know it refuses the file that holds it.
+    const scaledIssue = "A ruleset with scaled catalog rows requires schemaVersion 2 and capabilityApi 1.23 or newer";
+    const mechanicsIssue =
+      "A ruleset whose catalog mechanics reach a fight requires schemaVersion 2 and capabilityApi 1.26 or newer";
+    // A bestiary is the catalog's own `holds` plus the `creature` on every entry of it, and the
+    // entries may sit in the ruleset file or in the catalog file, so both are read.
+    const creatureIssue =
+      "A ruleset with a catalog of creatures requires schemaVersion 2 and capabilityApi 1.27 or newer";
+    // A distance a fight measures in cells is a new key, or a new shape for an old one, in the same
+    // strict file. Same reading, same reason.
+    const positionIssue =
+      "A ruleset whose fights are measured in cells requires schemaVersion 2 and capabilityApi 1.28 or newer";
+    // And what one turn of that fight can do: a second damage clause, several strikes for one
+    // budget, an ability that changes the economy, and a rider. New keys, same file, same reason.
+    const economyIssue =
+      "A ruleset that says what one turn can do requires schemaVersion 2 and capabilityApi 1.29 or newer";
+    // And what a picked entry does to a check, which is new in 1.30 and needs no wound track at all.
+    const checkIssue =
+      "A ruleset whose catalog entries change a check requires schemaVersion 2 and capabilityApi 1.30 or newer";
+    // And the moment a reaction waits for, which is new in 1.33.
+    const momentIssue =
+      "A ruleset whose reactions name the moment they wait for requires schemaVersion 2 and capabilityApi 1.33 or newer";
+    // And a creature written in the ruleset's own terms, which is new in 1.34.
+    const sheetIssue =
+      "A ruleset whose creatures carry a sheet of their own requires schemaVersion 2 and capabilityApi 1.34 or newer";
+    for (const catalog of catalogs) {
+      const header =
+        catalog && typeof catalog === "object"
+          ? (catalog as { asset?: unknown; entries?: unknown; holds?: unknown })
+          : {};
+      if (header.holds === "creatures" && !declaresApi(27)) return creatureIssue;
+      if (entriesCarryScaledRows(header.entries) && !declaresApi(23)) return scaledIssue;
+      if (entriesCarryCombatMechanics(header.entries) && !declaresApi(26)) return mechanicsIssue;
+      if (entriesCarryCreatures(header.entries) && !declaresApi(27)) return creatureIssue;
+      if (entriesCarryCreatureRanges(header.entries) && !declaresApi(28)) return positionIssue;
+      if (entriesCarryTurnEconomy(header.entries) && !declaresApi(29)) return economyIssue;
+      if (entriesCarryCreatureEconomy(header.entries) && !declaresApi(29)) return economyIssue;
+      if (entriesCarryCheckEffects(header.entries) && !declaresApi(30)) return checkIssue;
+      if (entriesCarryReactionMoments(header.entries) && !declaresApi(33)) return momentIssue;
+      if (entriesCarryCreatureSheets(header.entries) && !declaresApi(34)) return sheetIssue;
+      const asset = header.asset;
+      if (typeof asset !== "string") continue;
+      // A path that does not normalize is never a declared one, whatever else failed to normalize.
+      const normalized = tryNormalizeArchivePath(asset);
+      if (!normalized || !declaredPaths.has(normalized)) {
+        return `The ruleset names the catalog file ${asset}, which is not listed in contributions.assets.paths`;
+      }
+      const document = catalogDocuments?.get(normalized);
+      const fileEntries = document && typeof document === "object" ? (document as { entries?: unknown }).entries : null;
+      if (entriesCarryScaledRows(fileEntries) && !declaresApi(23)) return scaledIssue;
+      if (entriesCarryCombatMechanics(fileEntries) && !declaresApi(26)) return mechanicsIssue;
+      if (entriesCarryCreatures(fileEntries) && !declaresApi(27)) return creatureIssue;
+      if (entriesCarryCreatureRanges(fileEntries) && !declaresApi(28)) return positionIssue;
+      if (entriesCarryTurnEconomy(fileEntries) && !declaresApi(29)) return economyIssue;
+      if (entriesCarryCreatureEconomy(fileEntries) && !declaresApi(29)) return economyIssue;
+      if (entriesCarryCheckEffects(fileEntries) && !declaresApi(30)) return checkIssue;
+      if (entriesCarryReactionMoments(fileEntries) && !declaresApi(33)) return momentIssue;
+      if (entriesCarryCreatureSheets(fileEntries) && !declaresApi(34)) return sheetIssue;
+    }
+  }
+  // The battle block lives inside the ruleset file too, so it is read the same way and for the same
+  // reason: an Engine that does not know the key refuses the whole file, and the package would be
+  // installed with no rules at all.
+  if (ruleset?.battle && typeof ruleset.battle === "object" && !declaresApi(22)) {
+    return "A ruleset with a battle block requires schemaVersion 2 and capabilityApi 1.22 or newer";
+  }
+  // The resolution kind is read the same way and for the same reason. An Engine that knows only
+  // `dice-sum` refuses the whole file, so the package would be installed with no rules at all.
+  const resolution =
+    ruleset?.resolution && typeof ruleset.resolution === "object"
+      ? (ruleset.resolution as { kind?: unknown; penaltyFrom?: unknown; spend?: unknown })
+      : undefined;
+  if (resolution?.kind === "dice-pool" && !declaresApi(24)) {
+    return "A ruleset with a dice-pool resolution requires schemaVersion 2 and capabilityApi 1.24 or newer";
+  }
+  // Layers and the base world-generation slot are new keys in the same strict file, so they are
+  // read the same way and for the same reason as everything above: an Engine that does not know
+  // the key refuses the whole file, and the package would install with no rules at all.
+  if (Array.isArray(ruleset?.layers) && ruleset.layers.length > 0 && !declaresApi(25)) {
+    return "A ruleset with layers requires schemaVersion 2 and capabilityApi 1.25 or newer";
+  }
+  const gm = ruleset?.gm && typeof ruleset.gm === "object" ? (ruleset.gm as { worldGuidance?: unknown }) : undefined;
+  if (gm?.worldGuidance !== undefined && !declaresApi(25)) {
+    return "A ruleset with gm.worldGuidance requires schemaVersion 2 and capabilityApi 1.25 or newer";
+  }
+  // The combat block is one more key in the same strict file, read the same way and for the same
+  // reason. An inline catalog whose mechanics reach a fight is checked with the catalogs above.
+  if (ruleset?.combat && typeof ruleset.combat === "object" && !declaresApi(26)) {
+    return "A ruleset with a combat block requires schemaVersion 2 and capabilityApi 1.26 or newer";
+  }
+  // And the keys inside it that give a fight a board. Same file, same reading, same reason.
+  const combat =
+    ruleset?.combat && typeof ruleset.combat === "object" ? (ruleset.combat as Record<string, unknown>) : undefined;
+  if (combat && !declaresApi(28)) {
+    const positioned = ["distance", "ranged", "cover", "opportunity"].some((key) => combat[key] !== undefined);
+    const attacks = Array.isArray(combat.attacks)
+      ? combat.attacks.some(
+          (source) =>
+            !!source &&
+            typeof source === "object" &&
+            (["reach", "range"] as const).some((key) => (source as Record<string, unknown>)[key] !== undefined),
+        )
+      : false;
+    if (positioned || attacks) {
+      return "A ruleset whose fights are measured in cells requires schemaVersion 2 and capabilityApi 1.28 or newer";
+    }
+  }
+  // And the keys inside the block that say what one turn can do. Same file, same reading, same
+  // reason: an attack list that buys several strikes with one spend, and a condition that narrows
+  // the saves it is about, is in sight of its source or ends when its source goes down.
+  if (combat && !declaresApi(29)) {
+    const strikes = Array.isArray(combat.attacks)
+      ? combat.attacks.some(
+          (source) =>
+            !!source && typeof source === "object" && (source as Record<string, unknown>).strikes !== undefined,
+        )
+      : false;
+    const conditions = Array.isArray(combat.conditions)
+      ? combat.conditions.some((entry) => {
+          if (!entry || typeof entry !== "object") return false;
+          const record = entry as Record<string, unknown>;
+          if ((["saves", "whileSourceInSight", "endsWhenSourceDown"] as const).some((key) => record[key] !== undefined))
+            return true;
+          // A value the old effect list did not hold is refused by an Engine that only knows that
+          // list, so it is read here as well as the keys beside it.
+          return (
+            Array.isArray(record.effects) &&
+            record.effects.some((effect) => typeof effect === "string" && !OLD_CONDITION_EFFECTS.has(effect))
+          );
+        })
+      : false;
+    // The part of a dodge its flag does not carry. Same reason as the two above: an Engine that does
+    // not know the key refuses the whole strict file rather than ignoring it.
+    const dodgeSaves = combat.standardEffects !== undefined;
+    if (strikes || conditions || dodgeSaves) {
+      return "A ruleset that says what one turn can do requires schemaVersion 2 and capabilityApi 1.29 or newer";
+    }
+  }
+  // A weapon held to one strike by a column of its own row. Same file, same reading, same reason as
+  // everything above: an Engine that does not know the key refuses the whole ruleset.
+  if (combat && !declaresApi(32)) {
+    const capped = Array.isArray(combat.attacks)
+      ? combat.attacks.some(
+          (source) =>
+            !!source && typeof source === "object" && (source as Record<string, unknown>).strikesCappedBy !== undefined,
+        )
+      : false;
+    if (capped) {
+      return "A ruleset whose weapons cap their own strikes requires schemaVersion 2 and capabilityApi 1.32 or newer";
+    }
+  }
+  // Wound tracks. `levels` and `kinds` on a live track, and the track `resolution.penaltyFrom`
+  // names, are new keys in the same strict file, so the reading and the reason are the same as
+  // everything above: an Engine that does not know them refuses the whole ruleset.
+  if (!declaresApi(30)) {
+    const woundIssue = "A ruleset with wound tracks requires schemaVersion 2 and capabilityApi 1.30 or newer";
+    const sheet =
+      ruleset?.sheet && typeof ruleset.sheet === "object" ? (ruleset.sheet as { live?: unknown }) : undefined;
+    const live = sheet?.live && typeof sheet.live === "object" ? (sheet.live as { tracks?: unknown }) : undefined;
+    const marked = Array.isArray(live?.tracks)
+      ? live.tracks.some(
+          (track) =>
+            !!track &&
+            typeof track === "object" &&
+            (["levels", "kinds"] as const).some((key) => (track as Record<string, unknown>)[key] !== undefined),
+        )
+      : false;
+    if (marked || resolution?.penaltyFrom !== undefined) return woundIssue;
+    // A player spending a resource on a roll is the other half of 1.30 and depends on no track at
+    // all, so it is its own reason rather than being folded into the wound-track one.
+    if (resolution?.spend !== undefined) {
+      return "A ruleset that lets a check spend a resource requires schemaVersion 2 and capabilityApi 1.30 or newer";
+    }
   }
   return null;
 }
@@ -478,6 +927,28 @@ async function readInstalledAgentDefinitions(installed: InstalledCapabilityPacka
   if (!entrypoint) return [];
   const file = await verifyInstalledPackageFile(installed, entrypoint);
   return packagedAgentDefinitionsSchema.parse(JSON.parse(await readFile(file, "utf8")));
+}
+
+async function hydratePreviousManifest(installed: InstalledCapabilityPackage): Promise<InstalledCapabilityPackage> {
+  if (installed.previousManifest || !installed.previousVersion) return installed;
+  const manifestFile = inside(VERSIONS, join(VERSIONS, installed.id, installed.previousVersion, "manifest.json"));
+  if (!existsSync(manifestFile)) return installed;
+  const previousManifest = capabilityPackageManifestSchema.parse(JSON.parse(await readFile(manifestFile, "utf8")));
+  if (previousManifest.id !== installed.id || previousManifest.version !== installed.previousVersion) return installed;
+  return { ...installed, previousManifest };
+}
+
+async function resolveServableInstalledPackage(
+  installed: InstalledCapabilityPackage,
+): Promise<InstalledCapabilityPackage | null> {
+  if (isInstalledCapabilityReady(installed)) return installed;
+  const hydrated = await hydratePreviousManifest(installed);
+  if (hydrated.status !== "restart-required" || !hydrated.previousVersion || !hydrated.previousManifest) return null;
+  return {
+    ...hydrated,
+    version: hydrated.previousVersion,
+    manifest: hydrated.previousManifest,
+  };
 }
 
 type VerifiedInstalledPackageFile = { file: string; data: Buffer };
@@ -562,6 +1033,22 @@ export function findCompatibleCapabilityPackageUpdates(
   });
 }
 
+/** Decorate pending updates with the notes published for their target version.
+ *
+ *  Pure and separate from the fetch so the mapping is testable without a network,
+ *  and so a notes document that is absent, unreadable, or missing this package
+ *  provably returns the update list unchanged. */
+export function attachCapabilityReleaseNotes(
+  updates: CapabilityPackageUpdate[],
+  notes: CapabilityReleaseNotes | null,
+): CapabilityPackageUpdate[] {
+  if (!notes) return updates;
+  return updates.map((update) => {
+    const note = notes.packages[update.id]?.versions.find((entry) => entry.version === update.version);
+    return note ? { ...update, releaseNotes: note.notes, releaseHighlight: note.highlight } : update;
+  });
+}
+
 export function findPendingCapabilityPackageUpdates(
   installedPackages: InstalledCapabilityPackage[],
   catalog: CapabilityCatalog,
@@ -584,7 +1071,7 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
   const { manifest, artifact } = entry;
   const installIssue = getCapabilityPackageInstallIssue(manifest);
   if (installIssue) throw new Error(installIssue);
-  const initiallyInstalled = (await readRegistry()).packages.find((item) => item.id === manifest.id);
+  const initiallyInstalled = await readInstalledVersion(manifest.id);
   assertNotDowngrade(initiallyInstalled, manifest.version);
   const capabilityApiIssue = getCapabilityApiCompatibilityIssue(manifest);
   if (capabilityApiIssue) throw new Error(capabilityApiIssue);
@@ -641,15 +1128,41 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
   if (agentDetailIds.length > 0 && !installedManifest.entrypoints.agents) {
     throw new Error("Agent detail contributions require agent definitions");
   }
+  let usesDecisions = false;
   if (installedManifest.entrypoints.agents) {
     const agentsPath = normalizeArchivePath(installedManifest.entrypoints.agents);
     const agentsFile = verifiedFiles.get(agentsPath);
     if (!agentsFile) throw new Error("Package agent definitions are missing");
     const agentDefinitions = packagedAgentDefinitionsSchema.parse(JSON.parse(agentsFile.toString("utf8")));
+    usesDecisions = containsDecisionStatements(agentDefinitions);
     for (const agentId of agentDetailIds) {
       const detailIssue = getCapabilityAgentDetailDefinitionIssue(agentId, agentDefinitions);
       if (detailIssue) throw new Error(detailIssue);
     }
+  }
+  // Run again now that the ruleset's verified bytes are here: what the manifest could be judged on
+  // was already checked before the download, and this adds the one gate that needs the file itself.
+  const rulesetBytes = verifiedFiles.get(RULESET_ASSET_PATH);
+  if (rulesetBytes) {
+    let rulesetDocument: unknown;
+    try {
+      rulesetDocument = JSON.parse(rulesetBytes.toString("utf8"));
+    } catch {
+      rulesetDocument = undefined;
+    }
+    // The catalog files are here too, and a scaled row can sit in one of them rather than inline.
+    const catalogDocuments = new Map<string, unknown>();
+    for (const [name, data] of verifiedFiles) {
+      if (!isRulesetCatalogAssetPath(name)) continue;
+      try {
+        catalogDocuments.set(name, JSON.parse(data.toString("utf8")));
+      } catch {
+        // An unreadable catalog file is the catalog route's story to tell, with the author's own
+        // issue lines; it has never been a reason to refuse the install.
+      }
+    }
+    const rulesetIssue = getCapabilityPackageInstallIssue(installedManifest, rulesetDocument, catalogDocuments);
+    if (rulesetIssue) throw new Error(rulesetIssue);
   }
 
   const temporary = join(ROOT, `.install-${manifest.id}-${Date.now()}`);
@@ -667,8 +1180,15 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
     await rm(destination, { recursive: true, force: true });
     await rename(temporary, destination);
     const registry = await readRegistry();
-    const previous = registry.packages.find((item) => item.id === manifest.id);
-    assertNotDowngrade(previous, manifest.version);
+    const registryPrevious = registry.packages.find((item) => item.id === manifest.id);
+    const previous = registryPrevious ? await hydratePreviousManifest(registryPrevious) : undefined;
+    assertNotDowngrade(await readInstalledVersion(manifest.id), manifest.version);
+    const activePrevious =
+      previous?.status === "restart-required" && previous.previousVersion && previous.previousManifest
+        ? { version: previous.previousVersion, manifest: previous.previousManifest }
+        : previous
+          ? { version: previous.version, manifest: previous.manifest }
+          : null;
     const installed: InstalledCapabilityPackage = {
       id: manifest.id,
       version: manifest.version,
@@ -679,7 +1199,9 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
       readiness: manifest.entrypoints.server ? "pending" : "ready",
       readinessError: null,
       legacy: false,
-      ...(previous && previous.version !== manifest.version ? { previousVersion: previous.version } : {}),
+      ...(activePrevious && activePrevious.version !== manifest.version
+        ? { previousVersion: activePrevious.version, previousManifest: activePrevious.manifest }
+        : {}),
     };
     await writeRegistry([...registry.packages.filter((item) => item.id !== manifest.id), installed]);
     try {
@@ -687,7 +1209,7 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
     } catch (error) {
       logger.warn(error, "Could not clear the deferred update marker for capability package %s", manifest.id);
     }
-    return installed;
+    return { ...installed, usesDecisions };
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
@@ -759,6 +1281,70 @@ async function fetchPreviewCatalogPackages(
     logger.warn(error, "Could not read the Agent preview overlay; continuing with the published catalog");
     return [];
   }
+}
+
+/** Cached merged notes document, or null when nothing could be read.
+ *
+ *  One cache serves both the update prompt and the catalog detail sheet, so opening
+ *  Download Agents right after dismissing a prompt costs no second request. */
+let releaseNotesCache: { at: number; notes: CapabilityReleaseNotes | null } | null = null;
+
+/** Read one notes document. Never throws and never rejects: notes are decoration.
+ *
+ *  Absent (404), unreachable, malformed, or over a cap all mean the same thing to
+ *  every caller — no notes — and must leave installing and updating exactly as they
+ *  behave on a catalog that publishes none. */
+async function fetchReleaseNotesDocument(
+  url: string,
+  fetchNotes: typeof safeFetch,
+): Promise<CapabilityReleaseNotes | null> {
+  try {
+    const response = await fetchCatalogDocument(url, fetchNotes);
+    if (response.status === 404) {
+      logger.debug("No Agent release notes are published at %s", url);
+      return null;
+    }
+    if (!response.ok) {
+      logger.warn("Agent release notes request failed with HTTP %d", response.status);
+      return null;
+    }
+    const parsed = capabilityReleaseNotesSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      logger.warn("Ignoring an Agent release notes document this Engine cannot parse: %s", parsed.error.message);
+      return null;
+    }
+    return parsed.data;
+  } catch (error) {
+    logger.warn(error, "Could not read Agent release notes; continuing without them");
+    return null;
+  }
+}
+
+async function readReleaseNotes(
+  fetchNotes: typeof safeFetch = safeFetch,
+  notesUrl: string | null = RELEASE_NOTES_URL,
+  previewNotesUrl: string | null = resolveCapabilityReleaseNotesUrl(PREVIEW_CATALOG_URL),
+): Promise<CapabilityReleaseNotes | null> {
+  if (releaseNotesCache && Date.now() - releaseNotesCache.at < RELEASE_NOTES_TTL_MS) return releaseNotesCache.notes;
+  if (!notesUrl) {
+    releaseNotesCache = { at: Date.now(), notes: null };
+    return null;
+  }
+  const published = await fetchReleaseNotesDocument(notesUrl, fetchNotes);
+  // Preview-overlay packages publish their notes in the overlay's own sidecar. A
+  // published id always wins, mirroring how catalog() resolves the same collision.
+  const preview = previewNotesUrl ? await fetchReleaseNotesDocument(previewNotesUrl, fetchNotes) : null;
+  const notes =
+    published || preview
+      ? { schemaVersion: 1 as const, packages: { ...(preview?.packages ?? {}), ...(published?.packages ?? {}) } }
+      : null;
+  releaseNotesCache = { at: Date.now(), notes };
+  return notes;
+}
+
+/** Test seam: drops the cached notes document so a regression can serve a new one. */
+export function resetCapabilityReleaseNotesCache() {
+  releaseNotesCache = null;
 }
 
 export const capabilityPackageManager = {
@@ -843,7 +1429,7 @@ export const capabilityPackageManager = {
   },
 
   async installed() {
-    return (await readRegistry()).packages;
+    return Promise.all((await readRegistry()).packages.map(hydratePreviousManifest));
   },
 
   async diagnostics() {
@@ -868,8 +1454,11 @@ export const capabilityPackageManager = {
     const definitions = [];
     const ids = new Set<string>();
     for (const installed of registry.packages) {
-      if (!isInstalledCapabilityReady(installed)) continue;
-      const parsed = await readInstalledAgentDefinitions(installed);
+      // A restart-required update still has its previous package runtime active. Keep
+      // its agent definitions visible until restart, just like the active client module.
+      const servable = await resolveServableInstalledPackage(installed);
+      if (!servable) continue;
+      const parsed = await readInstalledAgentDefinitions(servable);
       for (const definition of parsed) {
         if (ids.has(definition.id)) throw new Error(`Agent ${definition.id} is provided by more than one package`);
         ids.add(definition.id);
@@ -911,21 +1500,23 @@ export const capabilityPackageManager = {
 
   async clientEntrypoint(packageId: string) {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
-    if (!installed || !isInstalledCapabilityReady(installed)) return null;
-    const entrypoint = installed.manifest.entrypoints.client;
+    if (!installed) return null;
+    const servable = await resolveServableInstalledPackage(installed);
+    if (!servable) return null;
+    const entrypoint = servable.manifest.entrypoints.client;
     if (!entrypoint) return null;
     // The manifest-recorded hash doubles as a strong HTTP validator (ETag): it
     // is the same value the read below re-verifies the bytes against.
-    const declaration = installed.manifest.files.find(
+    const declaration = servable.manifest.files.find(
       (item) => normalizeArchivePath(item.path) === normalizeArchivePath(entrypoint),
     );
     if (!declaration) return null;
     // The client path verifies by reading on EVERY request — return the
     // verified bytes so the route serves exactly what was hashed instead of
     // re-reading the file a second time.
-    const verified = await readVerifiedInstalledPackageFile(installed, entrypoint);
+    const verified = await readVerifiedInstalledPackageFile(servable, entrypoint);
     return {
-      installed,
+      installed: servable,
       sha256: declaration.sha256,
       file: verified.file,
       data: verified.data,
@@ -939,27 +1530,27 @@ export const capabilityPackageManager = {
    *  TOCTOU re-verification below it are identical for both sources. */
   async packageAsset(packageId: string, assetPath: string) {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
-    if (!installed || !isInstalledCapabilityReady(installed)) return null;
+    if (!installed) return null;
+    const servable = await resolveServableInstalledPackage(installed);
+    if (!servable) return null;
     // Every normalization below treats an unsafe path — requested OR declared —
     // as simply "not servable" (404). Declared paths are manifest-controlled,
     // and a single throwing declaration must not 500 the whole asset surface.
-    const tryNormalize = (path: string): string | null => {
-      try {
-        return normalizeArchivePath(path);
-      } catch {
-        return null;
-      }
-    };
-    const normalizedPath = tryNormalize(assetPath);
+    const normalizedPath = tryNormalizeArchivePath(assetPath);
     if (!normalizedPath) return null;
     // The in-package manifest is metadata about the artifact, never an asset —
     // it cannot be hash-pinned by itself, so refuse it outright.
     if (normalizedPath === "manifest.json") return null;
-    const iconPaths = installed.manifest.contributions?.homeBrowserTab?.iconPaths ?? [];
-    const declaredAssetPaths = installed.manifest.contributions?.assets?.paths ?? [];
-    const allowed = [...iconPaths, ...declaredAssetPaths].some((path) => tryNormalize(path) === normalizedPath);
+    const iconPaths = servable.manifest.contributions?.homeBrowserTab?.iconPaths ?? [];
+    const declaredAssetPaths = servable.manifest.contributions?.assets?.paths ?? [];
+    const widgetIconPaths = (servable.manifest.contributions?.homeWidgets ?? []).flatMap((widget) =>
+      widget.iconPath ? [widget.iconPath] : [],
+    );
+    const allowed = [...iconPaths, ...widgetIconPaths, ...declaredAssetPaths].some(
+      (path) => tryNormalizeArchivePath(path) === normalizedPath,
+    );
     if (!allowed) return null;
-    const declaration = installed.manifest.files.find((item) => tryNormalize(item.path) === normalizedPath);
+    const declaration = servable.manifest.files.find((item) => tryNormalizeArchivePath(item.path) === normalizedPath);
     if (!declaration) return null;
     const contentType = PACKAGE_ASSET_CONTENT_TYPES.get(extname(normalizedPath).toLowerCase());
     if (!contentType) return null;
@@ -971,14 +1562,219 @@ export const capabilityPackageManager = {
     // NOTE: an on-disk integrity failure below still THROWS (lifecycle
     // regression pins it) — tampering must be loud, not a quiet 404. Only
     // manifest-shape problems above degrade to "not servable".
-    const verified = await readVerifiedInstalledPackageFile(installed, normalizedPath);
+    const verified = await readVerifiedInstalledPackageFile(servable, normalizedPath);
     return {
-      installed,
+      installed: servable,
       contentType,
       sha256: declaration.sha256,
       file: verified.file,
       /** The exact bytes that were hash-verified; always present. */
       data: verified.data,
+    };
+  },
+
+  /** The verified bytes of a package's declared GM verb table (#5798), or null when this package has
+   *  no verbs the Engine may act on. The whole gate chain lives here because
+   *  `readVerifiedInstalledPackageFile` is module-private and this is the one narrow export the verb
+   *  runtime gets — it never receives an `InstalledCapabilityPackage`, so nothing else about a
+   *  package leaks through the seam.
+   *
+   *  Readiness rather than servability: `packageAsset` falls back to the PREVIOUS version's manifest
+   *  for a `restart-required` package, which would keep serving an old vocabulary the running Engine
+   *  no longer matches. `isInstalledCapabilityReady` is the same gate the agent definitions use, so
+   *  after an update that needs a restart the verbs stop resolving until one — a log line, and the
+   *  turn is otherwise untouched.
+   *
+   *  The failure tiers ARE the contract, and the turn survives all of them:
+   *    - not installed / not ready / no table declared → null, quietly. The overwhelmingly common
+   *      case is a package that simply has no verbs.
+   *    - a table declared without `chat-write`, declared but unlisted in `files[]`, or larger than
+   *      the ceiling → null + `logger.warn`. Each is a packaging mistake whose only symptom would
+   *      otherwise be verbs that silently never appear.
+   *    - hash/TOCTOU failure → null + `logger.error` naming tampering. Loud on purpose: the bytes on
+   *      disk are not the bytes that were installed.
+   *
+   *  The `chat-write` gate sits ahead of the read rather than in the caller so an unpermitted
+   *  package's bytes are never loaded at all — and it is checked AFTER the declaration test so a
+   *  package with no table stays silent while a package that ships one and forgot the permission is
+   *  told. This is the first place a declared capability permission is enforced anywhere in the
+   *  Engine; it widens what `chat-write` means for packages that already hold it (#5798). */
+  async gmVerbTableSource(packageId: string): Promise<Buffer | null> {
+    const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
+    if (!installed) return null;
+    if (!isInstalledCapabilityReady(installed)) {
+      logger.info(
+        "[capability/gm-verbs] Package %s is not ready (status=%s); its verbs stay unavailable until restart",
+        packageId,
+        installed.status,
+      );
+      return null;
+    }
+    const declaredAssetPaths = installed.manifest.contributions?.assets?.paths ?? [];
+    if (!declaredAssetPaths.some((path) => tryNormalizeArchivePath(path) === GM_VERB_TABLE_ASSET_PATH)) return null;
+    if (!installed.manifest.permissions.includes("chat-write")) {
+      logger.warn(
+        "[capability/gm-verbs] Package %s declares %s without the chat-write permission; its verbs are refused",
+        packageId,
+        GM_VERB_TABLE_ASSET_PATH,
+      );
+      return null;
+    }
+    const declaration = installed.manifest.files.find(
+      (item) => tryNormalizeArchivePath(item.path) === GM_VERB_TABLE_ASSET_PATH,
+    );
+    if (!declaration) {
+      // Declared as an asset but never hash-pinned. The manifest schema only checks the other
+      // direction, so this is silent everywhere else in the pipeline.
+      logger.warn(
+        "[capability/gm-verbs] Package %s declares %s as an asset but does not list it in files[]",
+        packageId,
+        GM_VERB_TABLE_ASSET_PATH,
+      );
+      return null;
+    }
+    // Checked against the DECLARED size, before the read: `files[].bytes` permits up to 100 MB and
+    // nothing else caps an asset ahead of loading it into memory.
+    if (declaration.bytes > GM_VERB_TABLE_MAX_BYTES) {
+      logger.warn(
+        "[capability/gm-verbs] Package %s declares a %d-byte verb table over the %d-byte ceiling; refused unread",
+        packageId,
+        declaration.bytes,
+        GM_VERB_TABLE_MAX_BYTES,
+      );
+      return null;
+    }
+    try {
+      return (await readVerifiedInstalledPackageFile(installed, GM_VERB_TABLE_ASSET_PATH)).data;
+    } catch (error) {
+      logger.error(
+        error,
+        "[capability/gm-verbs] Verb table for %s failed integrity verification — the file on disk is not the file that was installed",
+        packageId,
+      );
+      return null;
+    }
+  },
+
+  /** Every ready package's `ruleset.json`, verified, for the ruleset registry. Same discipline as
+   *  `gmVerbTableSource`: declared as an asset, hash-pinned in `files[]`, refused on its DECLARED
+   *  size before the read, and re-verified against the install-time hash. A ruleset is inert data
+   *  that needs no permission, so there is no permission gate here. Never throws. */
+  async rulesetSources(): Promise<Array<{ packageId: string; data: Buffer }>> {
+    const sources: Array<{ packageId: string; data: Buffer }> = [];
+    for (const installed of (await readRegistry()).packages) {
+      const declared = installed.manifest.contributions?.assets?.paths ?? [];
+      if (!declared.some((path) => tryNormalizeArchivePath(path) === RULESET_ASSET_PATH)) continue;
+      if (!installed.manifest.kind.includes("ruleset")) {
+        logger.warn(
+          "[capability/rulesets] Package %s lists %s without the ruleset kind; its ruleset is refused",
+          installed.id,
+          RULESET_ASSET_PATH,
+        );
+        continue;
+      }
+      if (!isInstalledCapabilityReady(installed)) {
+        logger.info(
+          "[capability/rulesets] Package %s is not ready (status=%s); its ruleset stays unavailable until restart",
+          installed.id,
+          installed.status,
+        );
+        continue;
+      }
+      const declaration = installed.manifest.files.find(
+        (item) => tryNormalizeArchivePath(item.path) === RULESET_ASSET_PATH,
+      );
+      if (!declaration) {
+        logger.warn(
+          "[capability/rulesets] Package %s declares %s as an asset but does not list it in files[]",
+          installed.id,
+          RULESET_ASSET_PATH,
+        );
+        continue;
+      }
+      if (declaration.bytes > RULESET_MAX_BYTES) {
+        logger.warn(
+          "[capability/rulesets] Package %s declares a %d-byte ruleset over the %d-byte ceiling; refused unread",
+          installed.id,
+          declaration.bytes,
+          RULESET_MAX_BYTES,
+        );
+        continue;
+      }
+      try {
+        sources.push({
+          packageId: installed.id,
+          data: (await readVerifiedInstalledPackageFile(installed, RULESET_ASSET_PATH)).data,
+        });
+      } catch (error) {
+        logger.error(error, "[capability/rulesets] Ruleset for %s failed integrity verification", installed.id);
+      }
+    }
+    return sources;
+  },
+
+  /** One package's `catalogs/<id>.json`, verified, for the catalog route. Same discipline as
+   *  `rulesetSources`, and the same reasons: declared as an asset, hash-pinned in `files[]`, refused
+   *  on its DECLARED size before the read, and re-verified against the install-time hash.
+   *
+   *  Three answers, because the route owes the user different words for each: `null` when this
+   *  package serves no such catalog file at all (not installed, not ready, not declared), `{ issue }`
+   *  when it declares one the Engine will not read, and `{ data }` for the verified bytes. Never
+   *  throws. */
+  async rulesetCatalogAsset(
+    packageId: string,
+    catalogId: string,
+  ): Promise<{ sha256: string; read: () => Promise<{ data: Buffer } | { issue: string }> } | { issue: string } | null> {
+    const assetPath = rulesetCatalogAssetPath(catalogId);
+    const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
+    if (!installed) return null;
+    if (!isInstalledCapabilityReady(installed)) {
+      logger.info(
+        "[capability/rulesets] Package %s is not ready (status=%s); its catalogs stay unavailable until restart",
+        packageId,
+        installed.status,
+      );
+      return null;
+    }
+    const declared = installed.manifest.contributions?.assets?.paths ?? [];
+    if (!declared.some((path) => tryNormalizeArchivePath(path) === assetPath)) return null;
+    const declaration = installed.manifest.files.find((item) => tryNormalizeArchivePath(item.path) === assetPath);
+    if (!declaration) {
+      logger.warn(
+        "[capability/rulesets] Package %s declares %s as an asset but does not list it in files[]",
+        packageId,
+        assetPath,
+      );
+      return { issue: `${assetPath} is not listed in the package file manifest` };
+    }
+    if (declaration.bytes > RULESET_CATALOG_MAX_BYTES) {
+      logger.warn(
+        "[capability/rulesets] Package %s declares a %d-byte catalog over the %d-byte ceiling; refused unread",
+        packageId,
+        declaration.bytes,
+        RULESET_CATALOG_MAX_BYTES,
+      );
+      return {
+        issue: `${assetPath} is ${declaration.bytes} bytes, over the ${RULESET_CATALOG_MAX_BYTES}-byte limit`,
+      };
+    }
+    // The pinned hash comes back before the bytes are read, so a caller that already holds this
+    // exact file (a conditional request) never makes the Engine read and validate it again.
+    return {
+      sha256: declaration.sha256,
+      read: async () => {
+        try {
+          return { data: (await readVerifiedInstalledPackageFile(installed, assetPath)).data };
+        } catch (error) {
+          logger.error(
+            error,
+            "[capability/rulesets] Catalog %s for %s failed integrity verification",
+            assetPath,
+            packageId,
+          );
+          return { issue: `${assetPath} is not the file that was installed` };
+        }
+      },
     };
   },
 
@@ -1023,6 +1819,7 @@ export const capabilityPackageManager = {
       readiness: "pending",
       readinessError: null,
       previousVersion: undefined,
+      previousManifest: undefined,
     };
     if (runtimeBlockReason(restored)) return null;
     registry.packages[index] = restored;
@@ -1117,7 +1914,26 @@ export const capabilityPackageManager = {
     const declinedVersions = Object.fromEntries(
       Object.entries(decisions.declined).map(([id, decision]) => [id, decision.version]),
     );
-    return findPendingCapabilityPackageUpdates(installedPackages, catalog, declinedVersions);
+    const updates = findPendingCapabilityPackageUpdates(installedPackages, catalog, declinedVersions);
+    if (updates.length === 0) return updates;
+    // Decoration only: a notes document that is absent or unreadable must leave
+    // this list exactly as an Engine without the feature would return it.
+    return attachCapabilityReleaseNotes(updates, await readReleaseNotes());
+  },
+
+  /** Published notes for one package, newest first, or [] when none exist.
+   *
+   *  Sorted here rather than trusted: the official build emits newest-first, but a
+   *  custom catalog is under no such obligation and the history sheet renders this
+   *  order as-is. */
+  async releaseNotes(
+    packageId: string,
+    fetchNotes: typeof safeFetch = safeFetch,
+  ): Promise<CapabilityPackageVersionNote[]> {
+    const notes = await readReleaseNotes(fetchNotes);
+    return [...(notes?.packages[packageId]?.versions ?? [])].sort((left, right) =>
+      compareCapabilityPackageVersions(right.version, left.version),
+    );
   },
 
   async declineUpdate(packageId: string, version: string) {

@@ -4,14 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import type { CommandCenterMediaKind } from "./CommandCenterMedia";
 
 export type CommandCenterPreviewKind =
-  | "chat"
-  | "character"
-  | "persona"
-  | "lorebook"
-  | "preset"
-  | "connection"
-  | "agent"
-  | "docs";
+  "chat" | "character" | "persona" | "lorebook" | "preset" | "connection" | "agent" | "docs";
 
 export interface CommandCenterPreviewFact {
   label: string;

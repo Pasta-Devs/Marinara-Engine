@@ -1,9 +1,9 @@
 // ──────────────────────────────────────────────
 // Storage: Agent Configs, Runs & Memory
 // ──────────────────────────────────────────────
-import { eq, ne, and, desc, notInArray } from "../../db/file-query.js";
+import { eq, ne, and, desc, lte, notInArray } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
-import { agentConfigs, agentRuns, agentMemory } from "../../db/schema/index.js";
+import { agentConfigs, agentRuns, agentMemory, messages, appSettings } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import {
   BUILT_IN_AGENTS,
@@ -13,6 +13,7 @@ import {
   parseAgentSettingsRecord,
   type CreateAgentConfigInput,
   type AgentResult,
+  homeAgentWidgetsSchema,
 } from "@marinara-engine/shared";
 
 const BUILTIN_AGENT_ID_PREFIX = "builtin:";
@@ -92,6 +93,7 @@ function serializeRunWithConfig(row: { agent_runs: AgentRunRow; agent_configs: A
     agentConfigId: row.agent_runs.agentConfigId,
     agentType: row.agent_configs.type,
     agentName: row.agent_configs.name,
+    hideOutput: parseAgentSettingsRecord(row.agent_configs.settings).hideOutput === true,
     chatId: row.agent_runs.chatId,
     messageId: row.agent_runs.messageId,
     resultType: row.agent_runs.resultType,
@@ -105,6 +107,15 @@ function serializeRunWithConfig(row: { agent_runs: AgentRunRow; agent_configs: A
 }
 
 export function createAgentsStorage(db: DB) {
+  const widgetStateKey = (agentId: string, widgetId: string) => `agent_home_widget:${agentId}:${widgetId}`;
+  async function declaredWidget(agentId: string, widgetId: string, sourceDb: DB = db) {
+    const rows = await sourceDb.select().from(agentConfigs).where(eq(agentConfigs.id, agentId));
+    const agent = normalizeAgentConfigRow(rows[0] ?? null);
+    if (!agent || isBuiltInAgentType(agent.type)) return false;
+    const settings = parseAgentSettingsRecord(agent.settings);
+    const parsed = homeAgentWidgetsSchema.safeParse(settings.homeWidgets ?? []);
+    return parsed.success && parsed.data.some((widget) => widget.id === widgetId);
+  }
   async function getById(id: string) {
     const rows = await db.select().from(agentConfigs).where(eq(agentConfigs.id, id));
     return normalizeAgentConfigRow(rows[0] ?? null);
@@ -201,6 +212,36 @@ export function createAgentsStorage(db: DB) {
 
     getByType,
 
+    async readHomeWidgetState(agentId: string, widgetId: string) {
+      if (!(await declaredWidget(agentId, widgetId))) return null;
+      const rows = await db
+        .select()
+        .from(appSettings)
+        .where(eq(appSettings.key, widgetStateKey(agentId, widgetId)));
+      if (!rows[0]) return { text: "", updatedAt: null };
+      try {
+        const value = JSON.parse(rows[0].value) as { text: unknown; updatedAt: unknown };
+        return {
+          text: typeof value.text === "string" ? value.text.slice(0, 500) : "",
+          updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : null,
+        };
+      } catch {
+        return { text: "", updatedAt: null };
+      }
+    },
+
+    async publishHomeWidgetState(agentId: string, widgetId: string, text: string) {
+      if (text.length > 500) throw new Error("Widget publication rejected");
+      return db.transaction(async (tx) => {
+        if (!(await declaredWidget(agentId, widgetId, tx))) throw new Error("Widget publication rejected");
+        const key = widgetStateKey(agentId, widgetId);
+        const updatedAt = now();
+        const row = { key, value: JSON.stringify({ text, updatedAt }), updatedAt };
+        await tx.insert(appSettings).values(row).onConflictDoUpdate({ target: appSettings.key, set: row });
+        return { updatedAt };
+      });
+    },
+
     ensureBuiltinConfig,
 
     async create(input: CreateAgentConfigInput) {
@@ -237,6 +278,7 @@ export function createAgentsStorage(db: DB) {
 
     async update(id: string, data: Partial<CreateAgentConfigInput>) {
       const updateFields: Record<string, unknown> = { updatedAt: now() };
+      const previous = data.settings !== undefined ? await getById(id) : null;
       if (data.name !== undefined) updateFields.name = data.name;
       if (data.description !== undefined) updateFields.description = data.description;
       if (data.phase !== undefined) {
@@ -258,10 +300,31 @@ export function createAgentsStorage(db: DB) {
         }
       }
       await db.update(agentConfigs).set(updateFields).where(eq(agentConfigs.id, id));
+      if (previous && data.settings) {
+        const oldWidgets = homeAgentWidgetsSchema.safeParse(
+          parseAgentSettingsRecord(previous.settings).homeWidgets ?? [],
+        );
+        const newWidgets = homeAgentWidgetsSchema.safeParse(data.settings.homeWidgets ?? []);
+        if (oldWidgets.success && newWidgets.success) {
+          const retained = new Set(newWidgets.data.map((widget) => widget.id));
+          for (const widget of oldWidgets.data) {
+            if (!retained.has(widget.id)) {
+              await db.delete(appSettings).where(eq(appSettings.key, widgetStateKey(id, widget.id)));
+            }
+          }
+        }
+      }
       return this.getById(id);
     },
 
     async remove(id: string) {
+      const agent = await getById(id);
+      const widgets = homeAgentWidgetsSchema.safeParse(parseAgentSettingsRecord(agent?.settings).homeWidgets ?? []);
+      if (widgets.success) {
+        for (const widget of widgets.data) {
+          await db.delete(appSettings).where(eq(appSettings.key, widgetStateKey(id, widget.id)));
+        }
+      }
       await removeRuntimeData(id);
       await db.delete(agentConfigs).where(eq(agentConfigs.id, id));
     },
@@ -301,13 +364,37 @@ export function createAgentsStorage(db: DB) {
     }) {
       const agentConfigId = await resolveAgentConfigId(input.agentConfigId);
       const id = input.runId ?? newId();
+      const [message] = await db
+        .select({ activeSwipeIndex: messages.activeSwipeIndex })
+        .from(messages)
+        .where(and(eq(messages.id, input.messageId), eq(messages.chatId, input.chatId)))
+        .limit(1);
+      // Omission retains the last visible turn's private context; an explicit value (including null) replaces it.
+      let resultData = input.result.data;
+      if (
+        input.result.success &&
+        resultData &&
+        typeof resultData === "object" &&
+        !Array.isArray(resultData) &&
+        !Object.hasOwn(resultData, "agent-context") &&
+        !Object.hasOwn(resultData, "agentContext")
+      ) {
+        const previous = await this.getPreviousOutput(agentConfigId, input.chatId, input.messageId, input.messageId);
+        if (previous && typeof previous === "object" && !Array.isArray(previous)) {
+          const contextKey = Object.hasOwn(previous, "agent-context") ? "agent-context" : "agentContext";
+          if (Object.hasOwn(previous, contextKey)) {
+            resultData = { ...resultData, "agent-context": (previous as Record<string, unknown>)[contextKey] };
+          }
+        }
+      }
       const values = {
         id,
         agentConfigId,
         chatId: input.chatId,
         messageId: input.messageId,
+        swipeIndex: message?.activeSwipeIndex ?? null,
         resultType: input.result.type,
-        resultData: JSON.stringify(input.result.data),
+        resultData: JSON.stringify(resultData),
         tokensUsed: input.result.tokensUsed,
         durationMs: input.result.durationMs,
         success: String(input.result.success),
@@ -324,6 +411,41 @@ export function createAgentsStorage(db: DB) {
         await insert;
       }
       return id;
+    },
+
+    /** Follow visible message chronology, not the wall-clock order of manual retries. */
+    async getPreviousOutput(
+      agentConfigId: string,
+      chatId: string,
+      throughMessageId?: string,
+      excludeMessageId?: string,
+    ) {
+      let through: { createdAt: string } | undefined;
+      if (throughMessageId) {
+        [through] = await db
+          .select({ createdAt: messages.createdAt })
+          .from(messages)
+          .where(and(eq(messages.id, throughMessageId), eq(messages.chatId, chatId)))
+          .limit(1);
+        if (!through) return null;
+      }
+      const rows = await db
+        .select()
+        .from(agentRuns)
+        .innerJoin(messages, eq(agentRuns.messageId, messages.id))
+        .where(
+          and(
+            eq(agentRuns.agentConfigId, agentConfigId),
+            eq(agentRuns.chatId, chatId),
+            eq(messages.chatId, chatId),
+            eq(agentRuns.success, "true"),
+            through ? lte(messages.createdAt, through.createdAt) : undefined,
+            excludeMessageId ? ne(messages.id, excludeMessageId) : undefined,
+          ),
+        )
+        .orderBy(desc(messages.createdAt), desc(agentRuns.createdAt));
+      const run = rows.find((row) => (row.agent_runs.swipeIndex ?? 0) === row.messages.activeSwipeIndex)?.agent_runs;
+      return run ? parseRunData(run.resultData) : null;
     },
 
     /** Get the most recent successful run of an agent type in a given chat. */
@@ -392,10 +514,15 @@ export function createAgentsStorage(db: DB) {
       for (const row of rows) {
         try {
           const data = JSON.parse(row.resultData);
-          const reactions = data?.reactions ?? [];
+          const reactions = Array.isArray(data?.reactions) ? data.reactions : [];
           const ts = new Date(row.createdAt).getTime();
           for (const r of reactions) {
-            if (r.characterName && r.reaction) {
+            if (
+              typeof r?.characterName === "string" &&
+              r.characterName.trim() &&
+              typeof r.reaction === "string" &&
+              r.reaction.trim()
+            ) {
               messages.push({ characterName: r.characterName, reaction: r.reaction, timestamp: ts });
             }
           }
@@ -424,6 +551,32 @@ export function createAgentsStorage(db: DB) {
             ),
           ),
         )
+        .orderBy(desc(agentRuns.createdAt))
+        .limit(normalizedLimit);
+
+      return rows.map((row) => serializeRunWithConfig(row));
+    },
+
+    /**
+     * The recent runs of one agent type in a chat, newest first.
+     *
+     * getLastSuccessfulRunByType answers "what is the state now"; this answers "what has
+     * this agent been doing", which is what a diagnostic panel needs. Failures are kept:
+     * a run that errored is the most interesting row on the list, and dropping it would
+     * make a broken agent look idle instead of broken.
+     */
+    async listRunsByTypeForChat(agentType: string, chatId: string, limit = 5) {
+      const finiteLimit = Number.isFinite(limit) ? limit : 5;
+      // 51, not 50. Callers that diff consecutive runs ask for one more than they intend
+      // to show, so the oldest row still has a predecessor to be compared against; a cap
+      // of exactly 50 silently removed that row and left the oldest run reporting no
+      // comparison at all.
+      const normalizedLimit = Math.max(1, Math.min(finiteLimit, 51));
+      const rows = await db
+        .select()
+        .from(agentRuns)
+        .innerJoin(agentConfigs, eq(agentRuns.agentConfigId, agentConfigs.id))
+        .where(and(eq(agentRuns.chatId, chatId), eq(agentConfigs.type, agentType)))
         .orderBy(desc(agentRuns.createdAt))
         .limit(normalizedLimit);
 

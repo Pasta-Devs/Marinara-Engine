@@ -23,6 +23,7 @@ export const chats = fileTable("chats", {
   /** Groups related chats together (like ST "chat files" per character) */
   groupId: text("group_id"),
   personaId: text("persona_id"),
+  personaCharacterId: text("persona_character_id"),
   promptPresetId: text("prompt_preset_id"),
   connectionId: text("connection_id"),
   /** JSON object for metadata */

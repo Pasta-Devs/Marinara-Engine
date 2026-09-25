@@ -16,6 +16,7 @@ import {
   type RegexScriptRow,
 } from "../../hooks/use-regex-scripts";
 import { useUIStore } from "../../stores/ui.store";
+import { hasEditorLeaveHandler } from "../../lib/editor-leave";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { downloadJsonFile } from "../../lib/download-json";
 import { getFolderImportEntries, isPatternSafe } from "@marinara-engine/shared";
@@ -208,7 +209,7 @@ export function CharacterRegexSection({
   // Warn first if the character has unsaved changes so they aren't lost silently.
   const openEditorGuarded = useCallback(
     async (id: string, options?: { defaultCharacterIds?: string[] }) => {
-      if (editorDirty) {
+      if (editorDirty && !hasEditorLeaveHandler(useUIStore.getState())) {
         const proceed = await showConfirmDialog({
           title: localizeUi("ui.characters.characterregexsection.unsavedChanges"),
           message: localizeUi(

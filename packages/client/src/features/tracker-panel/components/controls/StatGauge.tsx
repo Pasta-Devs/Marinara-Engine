@@ -20,8 +20,7 @@ const GAUGE_INNER_RIM_RADIUS = 40;
 const LOW_STATE_THRESHOLD = 45;
 const CRITICAL_STATE_THRESHOLD = 15;
 const MAX_LOW_STATE_TINT = 24;
-const GAUGE_RIM_COLOR =
-  "color-mix(in srgb, color-mix(in srgb, var(--tracker-profile-dialogue-border) 76%, var(--tracker-profile-number-text) 24%) 55%, transparent)";
+const GAUGE_RIM_COLOR = "color-mix(in srgb, var(--tracker-profile-number-text) 55%, transparent)";
 
 const GAUGE_SEGMENT_CLASS =
   "flex min-w-[4.25rem] flex-1 snap-start flex-col items-center justify-center px-1 py-1 @min-[380px]:min-w-[4.75rem] @min-[380px]:py-1.5";
@@ -162,7 +161,7 @@ export function StatGauge({
             allowInherit
             iconSize="1em"
             triggerClassName={cn(
-              "h-auto w-auto -translate-y-1 rounded-full border-transparent bg-transparent p-0 text-[color:color-mix(in_srgb,var(--tracker-profile-rule)_35%,var(--tracker-profile-text)_65%)] hover:border-[color-mix(in_srgb,var(--tracker-profile-rule)_34%,transparent)] hover:bg-[color-mix(in_srgb,var(--tracker-profile-text)_5%,transparent)] hover:text-[var(--tracker-profile-text)] focus-visible:ring-1",
+              "h-auto w-auto -translate-y-1 rounded-full border-transparent bg-transparent p-0 text-[color:var(--tracker-profile-text)] hover:border-[color-mix(in_srgb,var(--tracker-profile-rule)_34%,transparent)] hover:bg-[color-mix(in_srgb,var(--tracker-profile-text)_5%,transparent)] hover:text-[var(--tracker-profile-text)] focus-visible:ring-1",
               size === "large" ? "min-h-5 min-w-5" : "min-h-4 min-w-4",
               GAUGE_ICON_CLASS[size],
             )}

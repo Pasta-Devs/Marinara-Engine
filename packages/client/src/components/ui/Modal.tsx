@@ -15,6 +15,7 @@ import {
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
+import { registerModalOverlay, type ModalOverlayRegistration } from "../../lib/modal-overlay-registry";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -104,11 +105,29 @@ export function Modal({
     };
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Close on Escape
+  // Register as an open overlay, in opening order. Two readers: screens that
+  // draw their own full-page shell learn that a dialog is stacked above them,
+  // and the Escape listener below asks whether THIS dialog is the topmost one,
+  // since every open Modal hears the same keypress and none stops propagation.
+  const overlayRegistrationRef = useRef<ModalOverlayRegistration | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const registration = registerModalOverlay();
+    overlayRegistrationRef.current = registration;
+    return () => {
+      registration.release();
+      overlayRegistrationRef.current = null;
+    };
+  }, [open]);
+
+  // Close on Escape, but only the topmost open dialog: a confirm opened over a
+  // settings dialog must not take the settings dialog down with it.
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !closeDisabled) onClose();
+      if (e.key !== "Escape" || closeDisabled) return;
+      if (!overlayRegistrationRef.current?.isTopmost()) return;
+      onClose();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
@@ -181,7 +200,8 @@ export function Modal({
         style={{
           ...panelStyle,
           opacity: isEntering ? 1 : 0,
-          transform: isEntering ? "scale(1) translateY(0)" : "scale(0.97) translateY(6px)",
+          // Settle at `none`: an identity transform keeps the entire image library in a composited layer.
+          transform: isEntering ? undefined : "scale(0.97) translateY(6px)",
           transition: "opacity 150ms ease-out, transform 150ms ease-out",
         }}
       >

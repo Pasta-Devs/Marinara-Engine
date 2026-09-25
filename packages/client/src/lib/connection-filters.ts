@@ -31,7 +31,8 @@ export function isLanguageGenerationConnection(connection: ConnectionProviderLik
   return (
     connection.provider !== "image_generation" &&
     connection.provider !== "video_generation" &&
-    connection.provider !== "audio"
+    connection.provider !== "audio" &&
+    connection.provider !== "decision"
   );
 }
 

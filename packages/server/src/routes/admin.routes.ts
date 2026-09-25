@@ -2,17 +2,22 @@
 // Routes: Admin (clear data, maintenance)
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
-import { eq, ne } from "../db/file-query.js";
-import { spawn } from "node:child_process";
+import { eq, like, ne } from "../db/file-query.js";
 import { existsSync, readdirSync, rmSync } from "fs";
 import { join } from "path";
 import { MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY, PROFESSOR_MARI_ID, TTS_SETTINGS_KEY } from "@marinara-engine/shared";
 import { DATA_DIR } from "../utils/data-dir.js";
 import * as schema from "../db/schema/index.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
-import { ADMIN_RESTART_RATE_LIMIT, AVATAR_STORAGE_RATE_LIMIT } from "../middleware/rate-limit.js";
+import {
+  ADMIN_RESTART_RATE_LIMIT,
+  AVATAR_STORAGE_RATE_LIMIT,
+  REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT,
+} from "../middleware/rate-limit.js";
 import { logger } from "../lib/logger.js";
-import { isDockerRuntime } from "../config/runtime-config.js";
+import { getRequestTimeoutSettings, saveRequestTimeoutSettings, isDockerRuntime } from "../config/runtime-config.js";
+import { noteSessionExitKind } from "../lib/session-postmortem.js";
+import { armShutdownDeadline } from "../lib/shutdown-deadline.js";
 import {
   ABANDONED_AVATAR_MIN_AGE_MS,
   collectCharacterAvatarPaths,
@@ -23,16 +28,7 @@ import {
 } from "../services/image/avatar-file-lifecycle.js";
 
 type ExpungeScope =
-  | "chats"
-  | "characters"
-  | "personas"
-  | "lorebooks"
-  | "presets"
-  | "connections"
-  | "automation"
-  | "media";
-
-const GRACEFUL_RESTART_TIMEOUT_MS = 30_000;
+  "chats" | "characters" | "personas" | "lorebooks" | "presets" | "connections" | "automation" | "media";
 
 const ALL_EXPUNGE_SCOPES: ExpungeScope[] = [
   "chats",
@@ -68,6 +64,12 @@ function isValidScope(scope: unknown): scope is ExpungeScope {
 export async function adminRoutes(app: FastifyInstance) {
   let restartScheduled = false;
 
+  app.get("/request-timeouts", () => getRequestTimeoutSettings());
+  app.put("/request-timeouts", { config: { rateLimit: REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT } }, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Request timeout settings" })) return;
+    return saveRequestTimeoutSettings(req.body);
+  });
+
   app.post<{ Body: { confirm?: boolean } }>(
     "/restart",
     { config: { rateLimit: ADMIN_RESTART_RATE_LIMIT } },
@@ -79,34 +81,29 @@ export async function adminRoutes(app: FastifyInstance) {
       if (restartScheduled) {
         return reply.status(409).send({ error: "Server restart is already scheduled" });
       }
+      const docker = isDockerRuntime();
+      if (!docker && process.env.MARINARA_RESTART_SUPERVISOR !== String(process.ppid)) {
+        return reply.status(409).send({
+          error:
+            "Restart is unavailable for an unmanaged server. Start Marinara with its platform launcher or pnpm start; restart a development watcher from its terminal.",
+        });
+      }
+      const exitCode = docker ? 0 : 75;
 
       restartScheduled = true;
       setTimeout(() => {
         void (async () => {
-          const forceCloseTimer = setTimeout(() => {
-            logger.warn("Forcing server restart after %dms", GRACEFUL_RESTART_TIMEOUT_MS);
-            app.server.closeAllConnections();
-          }, GRACEFUL_RESTART_TIMEOUT_MS);
-          forceCloseTimer.unref();
+          armShutdownDeadline(app, "restart", { exitCode });
           try {
+            // #5506 diagnostics: name this ending so the next startup reports
+            // an operator restart instead of an external kill.
+            noteSessionExitKind("restart");
             await app.close();
-            if (!isDockerRuntime()) {
-              const child = spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {
-                cwd: process.cwd(),
-                detached: true,
-                env: process.env,
-                stdio: "inherit",
-                windowsHide: true,
-              });
-              child.unref();
-            }
             logger.info("Server restart requested from Advanced Settings");
-            process.exit(0);
+            process.exit(exitCode);
           } catch (error) {
             logger.error(error, "Graceful server restart failed");
             process.exit(1);
-          } finally {
-            clearTimeout(forceCloseTimer);
           }
         })();
       }, 750);
@@ -282,6 +279,9 @@ export async function adminRoutes(app: FastifyInstance) {
       await runDelete("agent_runs", () => db.delete(schema.agentRuns).run());
       await runDelete("agent_memory", () => db.delete(schema.agentMemory).run());
       await runDelete("agent_configs", () => db.delete(schema.agentConfigs).run());
+      await runDelete("app_settings:agent_home_widgets", () =>
+        db.delete(schema.appSettings).where(like(schema.appSettings.key, "agent_home_widget:%")).run(),
+      );
       await runDelete("custom_tools", () => db.delete(schema.customTools).run());
       await runDelete("regex_scripts", () => db.delete(schema.regexScripts).run());
       await runDelete("custom_themes", () => db.delete(schema.customThemes).run());

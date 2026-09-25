@@ -174,7 +174,7 @@ export function diffLines(before: string, after: string, contextLines = DEFAULT_
   const lines = lcsLines(toLines(before), toLines(after));
 
   // Word-refine each contiguous run of changed lines.
-  for (let i = 0; i < lines.length; ) {
+  for (let i = 0; i < lines.length;) {
     if (lines[i].type === "equal") {
       i++;
       continue;

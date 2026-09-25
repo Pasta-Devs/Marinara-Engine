@@ -37,6 +37,9 @@ echo ""
 # Navigate to script directory
 cd "$(dirname "$0")"
 
+# Public update checks must never pause for GitHub credentials.
+export GIT_TERMINAL_PROMPT=0
+
 # APK-managed installs provision a per-install secret in Termux-private
 # storage. The server uses it to keep unrelated Android apps from inheriting
 # loopback trust; manual Termux installs simply continue without this setting.
@@ -227,6 +230,22 @@ resolve_default_node_heap_mb() {
     fi
     printf '%s' "$heap_mb"
 }
+
+build_termux_client() (
+    # Vite needs more headroom than the running server. Keep this temporary
+    # grant inside the build subprocess; an explicit NODE_OPTIONS still wins.
+    if [ -n "${MARINARA_TERMUX_HEAP_MB:-}" ] && [ "$MARINARA_TERMUX_HEAP_MB" -lt 1536 ]; then
+        local build_heap_mb=1536
+        if [ "${MARINARA_TERMUX_DEVICE_MEMORY_KIB:-0}" -gt 0 ]; then
+            local device_cap_mb=$(( MARINARA_TERMUX_DEVICE_MEMORY_KIB / 1024 / 2 / 128 * 128 ))
+            [ "$device_cap_mb" -lt 1024 ] && device_cap_mb=1024
+            [ "$build_heap_mb" -gt "$device_cap_mb" ] && build_heap_mb="$device_cap_mb"
+        fi
+        export NODE_OPTIONS="${NODE_OPTIONS:+${NODE_OPTIONS} }--max-old-space-size=${build_heap_mb}"
+        echo "  [..] Client build heap limit: ${build_heap_mb} MiB (server limit unchanged)"
+    fi
+    SKIP_PWA=1 run_pnpm --filter @marinara-engine/client exec vite build
+)
 
 load_launcher_setting() {
     local setting_name="$1"
@@ -586,17 +605,17 @@ if [ ! -f "packages/server/dist/index.js" ]; then
     echo "  [..] Building server..."
     run_pnpm --filter @marinara-engine/server build
 fi
-if [ ! -f "packages/client/dist/index.html" ]; then
-    echo "  [..] Building client..."
+if ! node scripts/check-client-build.mjs; then
+    echo "  [..] Rebuilding incomplete client assets..."
     # Skip tsc type-check on Termux — it OOMs on low-memory devices.
     # Skip PWA service worker — terser minifier OOMs on low-memory devices.
     # Vite doesn't need tsc output (tsconfig has noEmit: true).
-    if ! SKIP_PWA=1 run_pnpm --filter @marinara-engine/client exec vite build 2>&1; then
-        echo "  [WARN] Vite build failed — native binaries may not match Node.js $(node -v)."
-        echo "  [..] Ensuring WASM fallback for rollup is installed and retrying..."
+    if ! build_termux_client 2>&1; then
+        echo "  [WARN] Vite build failed. Checking build dependencies before one retry..."
         run_pnpm install --frozen-lockfile --prefer-offline --filter @marinara-engine/client 2>/dev/null || true
-        SKIP_PWA=1 run_pnpm --filter @marinara-engine/client exec vite build
+        build_termux_client
     fi
+    node scripts/check-client-build.mjs
 fi
 
 export NODE_ENV=production
@@ -705,7 +724,7 @@ cd packages/server
 # Preserve Node's real exit status. The launcher's session-wide tee has already
 # made update, build, and server output durable for the next support report.
 set +e
-node dist/index.js
+node ../../scripts/run-server.mjs dist/index.js
 MARINARA_SERVER_STATUS=$?
 set -e
 if [ "$MARINARA_SERVER_STATUS" -ne 0 ]; then

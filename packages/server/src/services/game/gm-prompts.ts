@@ -13,6 +13,26 @@ import type {
 import { DEFAULT_GAME_SYSTEM_PROMPT, wrapGameInstructions } from "@marinara-engine/shared";
 import type { CharacterSpriteInfo } from "./sprite.service.js";
 
+/**
+ * The sheet names a one-request dice placeholder can actually resolve this turn (#6215).
+ *
+ * The prompt advertises `[[roll: 1d8+STR]]` only when this carries names, because a name the
+ * chat cannot resolve is refused rather than defaulted to zero: a placeholder's name is only a
+ * modifier source, and defaulting it would add a number nobody asked for to a sentence the
+ * player reads as fact. Advertising a form that fails in the default
+ * configuration, where no game-state snapshot exists and `skills` is therefore null, is
+ * worse than not offering it.
+ *
+ * Names are carried exactly as the sheet spells them, never re-cased, so every name the block
+ * prints is a name the resolver finds.
+ */
+export interface GameSkillModifierView {
+  /** Skill names, as the snapshot's `playerStats.skills` keys spell them. */
+  skills: string[];
+  /** Attribute names in the short sheet spelling: STR, DEX, CON, INT, WIS, CHA. */
+  attributes: string[];
+}
+
 export interface GmPromptContext {
   gameActiveState: GameActiveState;
   storyArc: string | null;
@@ -32,6 +52,8 @@ export interface GmPromptContext {
   difficulty: string;
   /** "classic" (menu combat) or "tactical" (grid battle). Absent = classic. */
   combatStyle?: string;
+  /** Bounded summary of the accepted generated battlefield for later narration. */
+  tacticalBattlefieldContext?: string;
   genre: string;
   setting: string;
   tone: string;
@@ -448,6 +470,16 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
   gameBlockLines.push(`</game>`);
   sections.push(...gameBlockLines);
 
+  if (ctx.tacticalBattlefieldContext) {
+    sections.push(
+      `<tactical_battlefield>`,
+      `This is the accepted generated board for the active tactical encounter:`,
+      ctx.tacticalBattlefieldContext,
+      `Keep later combat narration consistent with this resolved board and its terrain.`,
+      `</tactical_battlefield>`,
+    );
+  }
+
   sections.push(wrapGameInstructions(normalizePromptText(ctx.gameSystemPrompt) || DEFAULT_GAME_SYSTEM_PROMPT));
 
   // ── Rating Guidelines ──
@@ -604,6 +636,156 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
  * Build the GM format reminder — injected as the last user message so the
  * output format and available commands sit closest to generation in context.
  */
+/** The ruleset's own check line, in place of the built-in one. Everything in it is the ruleset's
+ *  validated, prompt-safe text; the Engine adds only the tag shape and the ladder. */
+function renderRulesetSkillCheckLine(
+  ruleset: import("@marinara-engine/shared").RulesetDefinition,
+  playerDiceRollSubmitted: boolean,
+  oneRequestDice: boolean,
+): string {
+  const resolution = ruleset.resolution;
+  // `with=` needs somewhere to go: a sheet with one ability has no other ability to roll with.
+  const withClause =
+    ruleset.sheet.abilities.length >= 2
+      ? [`Add with="Ability" to roll a skill or save with another ability than its own.`]
+      : [];
+  const branchClause = oneRequestDice
+    ? [
+        `When the outcome splits two ways, add branch="label" to this tag and write the branch block described under DICE.`,
+      ]
+    : [];
+  const whoClause = `Add who="Character Name" to roll for a party member; without it the player is checked.`;
+
+  if (resolution.kind === "dice-pool") {
+    const { target, situationalDice, difficultyLadder } = resolution;
+    const ladder = difficultyLadder
+      .map(
+        (step) =>
+          `${step.label} ${step.successes} ${step.successes === 1 ? "success" : "successes"}${
+            step.target === undefined ? "" : ` (target ${step.target})`
+          }`,
+      )
+      .join(", ");
+    return [
+      `- [skill_check: skill="Name" dc="N"] - ${ruleset.gm.checkGuidance}`,
+      `dc is how many successes the check needs.`,
+      `Difficulty: ${ladder}.`,
+      whoClause,
+      // Both are offered only where this ruleset declares them, so the prompt never teaches an
+      // attribute the resolver would then ignore.
+      ...(target.min < target.max
+        ? [
+            `Add threshold="N" to move the per-die target, from ${target.min} to ${target.max}; without it the target is ${target.default}.`,
+          ]
+        : []),
+      ...(situationalDice
+        ? [
+            `Add bonus="+N" or bonus="-N" to add or take dice for this check, from ${situationalDice.min} to ${situationalDice.max}.`,
+          ]
+        : []),
+      ...(resolution.spend ?? []).map((spend) => {
+        const pool = ruleset.sheet.live.pools.find((entry) => entry.id === spend.pool);
+        const buys = [
+          spend.successes ? `${spend.successes} automatic ${spend.successes === 1 ? "success" : "successes"}` : "",
+          spend.dice ? `${spend.dice} extra ${spend.dice === 1 ? "die" : "dice"}` : "",
+        ]
+          .filter(Boolean)
+          .join(" and ");
+        // Taught only where this ruleset declares it, so the prompt never offers a purchase the
+        // resolver would then ignore. What it costs and what it buys are said in the ruleset's own
+        // words; the engine works out both, and a pool that cannot cover it buys nothing.
+        return `When the player spends to change a roll, add spend="${spend.pool}:N" to that same check: every ${spend.amount} ${pool?.label ?? spend.pool} buys ${buys}, up to ${spend.perCheck} ${spend.perCheck === 1 ? "time" : "times"} per check. Do not also write a sheet command for it, and do not change the dice yourself.`;
+      }),
+      // Taught whenever this ruleset has any entry that changes a check. What each one DOES is the
+      // entry's own business and the Engine reads it; the Game Master only names it.
+      ...((ruleset.catalogs ?? []).some(
+        (catalog) =>
+          catalog.holds === "rows" &&
+          (catalog.asset || (catalog.entries ?? []).some((entry) => entry.mechanics?.check)),
+      )
+        ? [
+            `When a character uses something from their sheet to change a roll, add use="Its name" to that same check. Do not write a separate sheet command for it: the engine pays for it and applies it on the same roll.`,
+          ]
+        : []),
+      ...withClause,
+      `Do NOT write rolls, modifier, total or result: the engine rolls the pool from the character sheet and counts the successes.`,
+      ...branchClause,
+    ].join(" ");
+  }
+
+  const { dice, advantage, difficultyLadder } = resolution;
+  const ladder = difficultyLadder.map((step) => `${step.label} ${step.dc}`).join(", ");
+  const playerDie = playerDiceRollSubmitted && dice.count === 1 && dice.sides === 20;
+  return [
+    `- [skill_check: skill="Name" dc="N"${playerDie ? ` rolls="the player's d20 result"` : ""}] - ${ruleset.gm.checkGuidance}`,
+    `Difficulty: ${ladder}.`,
+    whoClause,
+    ...(advantage ? [`Add mode="advantage" or mode="disadvantage" when the rules grant one.`] : []),
+    ...withClause,
+    playerDie
+      ? `Use the player's exact die. Do NOT write modifier, total or result: the engine applies the character sheet.`
+      : `Do NOT write rolls, modifier, total or result: the engine rolls ${dice.count}d${dice.sides} and applies the character sheet.`,
+    ...branchClause,
+  ].join(" ");
+}
+
+/** The sheet command, the ruleset's own guidance for it, and the party's sheets as they stand.
+ *  The command grammar is the Engine's and is the same for every ruleset; every NAME in it (pools,
+ *  tracks, conditions, rests) comes from the ruleset and is shown on the sheets themselves. */
+function renderRulesetSheetSection(
+  ruleset: import("@marinara-engine/shared").RulesetDefinition,
+  sheetBlocks: string[],
+): string[] {
+  const blocks = sheetBlocks.map((block) => block.trim()).filter(Boolean);
+  if (blocks.length === 0) return [];
+  const names = (entries: ReadonlyArray<{ label: string }>) => entries.map((entry) => entry.label).join(", ");
+  const lines = [
+    ``,
+    `CHARACTER SHEETS:`,
+    `The Engine keeps every character sheet. Record each change with one command per change, written where it happens:`,
+    `- [sheet: who="Name" op="spend" pool="Pool" amount="N"] - uses up a resource. Refused when not enough is left.`,
+    `- [sheet: who="Name" op="restore" pool="Pool" amount="N"] - gives it back, up to the maximum (healing included).`,
+    `- [sheet: who="Name" op="damage" pool="Pool" amount="N"] - takes it away, temporary points first.`,
+    `- [sheet: who="Name" op="temp" pool="Pool" amount="N"] - sets temporary points on a pool that has them.`,
+    `- [sheet: who="Name" op="track" track="Track" by="+1"] - or to="N" to set it.`,
+    `- [sheet: who="Name" op="condition" condition="Condition" state="on|off"]`,
+    `- [sheet: who="Name" op="note" field="Field" value="text"] - an empty value clears it.`,
+    ...(ruleset.rests.length > 0
+      ? [`- [sheet: who="Name" op="rest" rest="Rest"] - rests: ${names(ruleset.rests)}.`]
+      : []),
+    // Only a ruleset with catalogs of ROWS has entries to use: a bestiary writes nothing onto a
+    // sheet, so without one of those nothing on a sheet carries a price the Engine could pay, and
+    // the line would describe a command that always refuses.
+    ...(ruleset.catalogs?.some((catalog) => catalog.holds !== "creatures")
+      ? [
+          `- [sheet: who="Name" op="use" name="Name on the sheet"] - pays what that ability costs. Add pool="Pool" to pay from a higher pool of the same group.`,
+        ]
+      : []),
+    `Leave out who for the player; who="party" applies to every member. Use the pool, track, field and condition names shown on the sheets. Never write result, reason or now yourself: the Engine adds them. A refused command did not happen, so do not narrate it as if it had.`,
+    // A sheet block leaves out a track or a note that still has its default, so the names a command
+    // can use are listed once here.
+    ...(ruleset.sheet.live.tracks.length > 0
+      ? [
+          `Tracks: ${ruleset.sheet.live.tracks.map((track) => `${track.label} (${track.min} to ${track.max})`).join(", ")}.`,
+        ]
+      : []),
+    ...(ruleset.sheet.live.text.length > 0 ? [`Note fields: ${names(ruleset.sheet.live.text)}.`] : []),
+    ...(ruleset.sheet.live.conditions.length > 0 ? [`Conditions: ${names(ruleset.sheet.live.conditions)}.`] : []),
+    ...(ruleset.gm.sheetGuidance ? [ruleset.gm.sheetGuidance] : []),
+    ``,
+    // The sheets are data, and part of that data is free text (names, notes the model wrote with
+    // the note command on an earlier turn). The tag marks where data starts and stops; the values
+    // inside have had angle brackets removed, so nothing in them can close it. The ruleset's own
+    // guidance above is not wrapped: it is a trusted package's one-line text, held to the same
+    // `promptSafeText` rule as its check guidance.
+    `<character_sheets>`,
+  ];
+  for (const block of blocks) lines.push(block, ``);
+  lines.pop();
+  lines.push(`</character_sheets>`);
+  return lines;
+}
+
 export function buildGmFormatReminder(
   ctx: Pick<
     GmPromptContext,
@@ -629,12 +811,49 @@ export function buildGmFormatReminder(
     addressMode?: "party" | "gm";
     /** Whether the current player turn already includes a resolved [dice: ...] roll. */
     playerDiceRollSubmitted?: boolean;
+    /** The ruleset this game pinned, when the install can honour it. Its check guidance and
+     *  difficulty ladder replace the built-in skill-check lines. Absent is the Engine's own rules
+     *  and renders today's reminder byte for byte. */
+    ruleset?: import("@marinara-engine/shared").RulesetDefinition;
+    /** One rendered sheet block per party member (`renderRulesetSheetBlock`), current as of this
+     *  turn. They live in this late reminder and never in the system prompt, because live state
+     *  changes every turn and the system prompt is what a provider caches. Only read with `ruleset`. */
+    rulesetSheetBlocks?: string[];
     /** Built-in systems an installed experience replaces with its own. Undeclared systems stay built-in. */
     experienceProvidedSystems?: { inventory?: boolean };
+    /** Rendered COMMANDS lines for the verbs an installed experience declares (#5798). They belong
+     *  in this reminder rather than in the system message because the reminder is what the engine
+     *  parses back out of the turn, and because the game system message is rebuilt wholesale by
+     *  `injectGameGmPromptRuntime` — anything spliced into it there would be overwritten. Empty or
+     *  absent (the normal case, and every case today) renders nothing at all. */
+    experienceGmVerbs?: string[];
+    /** One-request dice (#6215): the chat's "Finish rolled turns in one request"
+     *  switch. Off, absent, or anything but `true` renders today's block byte for byte. */
+    oneRequestDice?: boolean;
+    /** The sheet names the placeholder's `+NAME` form can resolve this turn. Without names the
+     *  sheet-modifier sentence is dropped and only flat modifiers are taught. */
+    skillModifiers?: GameSkillModifierView;
+    /** The sighted pool sub-option. Only read while `oneRequestDice` is on. */
+    dicePoolMode?: boolean;
+    /** The rendered pool block, appended after the DICE block while the sub-option is on. The
+     *  block's contents belong to the pool itself, so this builder only places it. */
+    dicePoolBlock?: string;
+    /** Whether `roll_dice` is in the resolved tool set for this turn. The prompt line and the
+     *  attachment are gated on the same fact, so the tool is never attached without being
+     *  described and never described without being attached. */
+    rollDiceToolAttached?: boolean;
   },
 ): string {
   const lines: string[] = [];
   const normalizedLanguage = normalizePromptLanguage(ctx.language);
+  // One-request dice (#6215). Everything this gates is additive: with the switch
+  // off every line below renders exactly the bytes it renders today.
+  const oneRequestDice = ctx.oneRequestDice === true;
+  // A die the player threw is one d20, so it stands in only for a ruleset that rolls exactly that.
+  // A pool ruleset has no `dice` at all, which is why the kind is read before the count.
+  const rulesetResolution = ctx.ruleset?.resolution;
+  const rulesetRollsOneD20 =
+    rulesetResolution?.kind === "dice-sum" && rulesetResolution.dice.count === 1 && rulesetResolution.dice.sides === 20;
 
   const partyNames = normalizePromptTextList(ctx.partyNames);
   const hasParty = partyNames.length > 0;
@@ -757,15 +976,42 @@ export function buildGmFormatReminder(
     `- [choices: "Option A"|"Option B"|"Option C"] - only for explicit player-facing options that require a selection.`,
   );
 
-  if (ctx.playerDiceRollSubmitted) {
+  // The engine supplies numbers before the GM writes outcome narration.
+  if (ctx.ruleset) {
+    lines.push(renderRulesetSkillCheckLine(ctx.ruleset, ctx.playerDiceRollSubmitted === true, oneRequestDice));
+  } else if (ctx.playerDiceRollSubmitted) {
     lines.push(
-      `- [skill_check: skill="Skill Name" dc="1-20" rolls="player's d20 result" modifier="situational or player-card modifier" total="roll + modifier" result="critical_success|success|failure|critical_failure" mode="normal" resolution="sum" dice="1d20"] - if the player presented you with a [dice: ...] roll, start the turn with the check tag, use the player's roll as the base, choose the DC fairly (5 trivial, 10 routine under pressure, 15 hard, 20 desperate), and narrate the consequences in the same turn. If using another die or a dice pool, include its exact notation in dice (for example dice="6d10"), set resolution="successes" when counting qualifying dice, and report the count as the total without pretending the pool was added.`,
+      `- [skill_check: skill="Skill Name" dc="1-20" rolls="the player's d20 result"] - use the player's exact die and choose a fair DC (5 trivial, 10 routine under pressure, 15 hard, 20 desperate). Do NOT write modifier, total or result: the engine applies their character-sheet modifiers.`,
     );
   } else {
     lines.push(
-      `- [skill_check: skill="Skill Name" dc="1-20" rolls="1-20" modifier="situational or player-card modifier" total="roll + modifier" result="critical_success|success|failure|critical_failure" mode="normal" resolution="sum" dice="1d20"] - only when uncertainty or the player's actions should be resolved mechanically. Abandon positivity bias: choose the DC fairly (5 trivial, 10 routine under pressure, 15 hard, 20 desperate), roll honestly, and narrate the consequence in the same turn. If using another die or a dice pool, include its exact notation in dice (for example dice="6d10"), set resolution="successes" when counting qualifying dice, and report the count as the total without pretending the pool was added.`,
+      `- [skill_check: skill="Skill Name" dc="1-20"] - request a d20 check only when uncertainty matters. Choose a fair DC (5 trivial, 10 routine under pressure, 15 hard, 20 desperate). Do NOT invent rolls, modifier, total or result: the engine supplies the die and character-sheet modifiers.${
+        oneRequestDice
+          ? ` When the outcome splits two ways, add branch="label" to this tag and write the branch block described under DICE.`
+          : ""
+      }`,
     );
   }
+  lines.push(
+    `- [dice: 3d8+2] - request any NdM roll with an optional flat modifier, even without a tools API. The engine rolls it, capped at 100 dice and 1000 sides per die. Never write the numbers yourself.${
+      oneRequestDice
+        ? ` When the number does not fork the prose, write a [[roll: 3d8+2]] placeholder in the sentence instead of this tag and keep writing.`
+        : ""
+    }`,
+    // A ruleset game has one rules system, so the line teaching other notations is dropped.
+    ...(ctx.ruleset
+      ? []
+      : [
+          `- For other checks, declare the actual notation: [skill_check: skill="Endurance" dc="12" dice="3d6+2"]. These use the notation's modifier, not d20 character-sheet modifiers. For a pool, declare the per-die threshold and required successes: [skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]. Each die at or above threshold counts once; dc is the number of successes needed. Exploding dice, botches, or other special pool rules are not implemented. Never invent pool results or omit its threshold.`,
+        ]),
+    // The stop-at-the-attempt line is exactly the instruction the second request exists to
+    // serve, so it is dropped while the turn has to finish itself.
+    ...(oneRequestDice
+      ? []
+      : [
+          `- Place unresolved roll requests before any outcome that depends on them. Describe the attempt, then stop. The engine will send the real results back for you to finish this same turn; do not guess success or failure before receiving them.`,
+        ]),
+  );
 
   lines.push(
     ...(ctx.enableQuickTimeEvents === false
@@ -789,6 +1035,86 @@ export function buildGmFormatReminder(
     `- [party_change: character="Exact Character Name" change="add|remove"] - only when someone truly joins or leaves the party. Use remove when a party member dies, permanently departs, or is no longer traveling with the player.`,
     `- [session_end: reason="goal achieved|good place to pause"] - only when the current session truly ends.`,
   );
+
+  // Game turns carry the roll_dice tool whether or not the chat has tool use switched on,
+  // so this block is unconditional. It is what stops the GM inventing numbers: without it
+  // the tool is attached and never called.
+  //
+  // With one-request dice on there is usually no tool to call, and the turn has to finish
+  // itself, so the whole block is replaced by the case-by-case rule: which form to write is
+  // a fact about the sentence the GM is about to write, which only the GM knows, so the
+  // choice is made here rather than by the engine.
+  if (oneRequestDice) {
+    const modifierNames = [...(ctx.skillModifiers?.skills ?? []), ...(ctx.skillModifiers?.attributes ?? [])]
+      .map((name) => normalizePromptText(name))
+      .filter((name) => name.length > 0);
+    const dicePoolBlock = normalizePromptText(ctx.dicePoolBlock);
+    const sightedPool = ctx.dicePoolMode === true;
+    lines.push(
+      ``,
+      `DICE:`,
+      `- When an outcome turns on chance, you have three ways to write it. Pick by what the outcome is, not by preference.`,
+      ``,
+      `- IF THE OUTCOME SPLITS TWO WAYS, WRITE A BRANCH BLOCK. Write the check without numbers, then write both halves. The engine rolls, keeps the half the roll selects, and deletes the other before anyone reads the turn. Neither half may contain a command.`,
+      `  [skill_check: skill="Stealth" dc="15" branch="crates"]`,
+      `  [branch: crates]`,
+      `  [on success] The guard's gaze slides over the crates and away. You are past him.`,
+      `  [on failure] A boot scuffs stone. He turns, and his hand is already moving.`,
+      `  [/branch]`,
+      ``,
+      `- IF THE OUTCOME IS ONLY A NUMBER, WRITE A PLACEHOLDER AND KEEP WRITING. Damage, healing, gold, a duration, a count, a distance. The engine rolls it and puts the number in its place, so the sentence reads the same either way.`,
+      `  The axe bites deep for [[roll: 2d6+3]] damage, and the wound burns for [[roll: 1d4]] rounds.`,
+      // Advertised only when the chat can resolve a name. With no game-state snapshot and no
+      // player card sheet there is nothing to resolve, and a form that fails by default is
+      // worse than one that is never offered.
+      ...(modifierNames.length > 0
+        ? [
+            `  To add a character-sheet modifier, write its name and let the engine add it: [[roll: 1d8+STR]]. Never write the modifier's value yourself and never write the die's result yourself. These are the only names that resolve: ${modifierNames.join(", ")}.`,
+          ]
+        : []),
+      `  One placeholder holds one NdM notation, at most one flat number, and at most one sheet name. For two different dice, write two placeholders. Never put a placeholder inside a code block or inside another tag's brackets.`,
+      ``,
+      sightedPool
+        ? `- ONLY IF THE NUMBER ITSELF HAS TO DECIDE BETWEEN THREE OR MORE DIFFERENT OUTCOMES, spend a pool value instead: write the value shown below into the check's rolls= and name its slot with pool=, then narrate what it meant in this same turn.`
+        : `- ONLY IF THE NUMBER ITSELF HAS TO DECIDE BETWEEN THREE OR MORE DIFFERENT OUTCOMES, ask for the value instead: write [skill_check: skill="Skill Name" dc="${ctx.ruleset ? "N" : "1-20"}"] or [dice: 3d8+2] and stop at the attempt. The engine rolls it and records it. Narrate what it meant at the start of your next turn.`,
+      ``,
+      `- A check you write in none of these forms is rolled by the engine and recorded, and this turn ends without its outcome; narrate what the number meant at the start of your next turn.`,
+      ``,
+      `- Never invent a die result, a modifier, a total, or an outcome. Never write both a branch block and a placeholder for the same check.`,
+      // Gated on the resolved tool set rather than on the chat's tool list, which is the fact
+      // that actually decides whether the tool is offered.
+      ...(ctx.rollDiceToolAttached
+        ? [
+            `- You also have roll_dice on this connection. Prefer the forms above: a tool call costs an extra round. Use the tool only for a roll none of them can serve.`,
+          ]
+        : []),
+      ...(sightedPool && dicePoolBlock ? [``, dicePoolBlock] : []),
+    );
+  } else {
+    lines.push(
+      ``,
+      `DICE:`,
+      `- roll_dice is a real die you can throw. Call it the moment you need an actual number before you can keep writing - an attack, a save, damage, a random outcome the scene then reacts to - passing the notation (for example "1d20+3") and a short reason.`,
+      `- Never invent a die result. Wait for the number the tool gives you, then narrate what it means, once, in this same turn.`,
+      // A ruleset game's checks come from the character sheet, so a tool-made modifier is never
+      // the record: the engine would roll such a tag again and contradict the narration.
+      ctx.ruleset
+        ? `- Do not use roll_dice for an ability check, skill check or saving throw. Write the [skill_check: ...] tag above without numbers and the engine rolls it from the character sheet.`
+        : `- If roll_dice has already returned a skill check's roll, override the sparse-check instructions above: write a complete [skill_check: skill="Skill Name" dc="chosen DC" rolls="actual tool rolls joined with |" modifier="tool modifier" total="tool total" result="critical_success|success|failure|critical_failure" resolution="sum" dice="tool notation"] record using that result. Do not request another engine roll or stop at the attempt; narrate its consequence in this same turn. Use the sparse form only when no roll result is available.`,
+      // A player's d20 only stands in for a check where a single d20 is what the rules roll.
+      ctx.playerDiceRollSubmitted && (!rulesetResolution || rulesetRollsOneD20)
+        ? `- The player already threw for this turn. Use their roll rather than calling the tool again for the same action.`
+        : `- A skill check is still written down with the [skill_check: ...] tag above. roll_dice is how you get a number your narration needs in hand; it does not replace that record.`,
+      `- If the tool is not available to you on this connection, work from the tag alone and say nothing about tools.`,
+    );
+  }
+
+  if (ctx.ruleset) lines.push(...renderRulesetSheetSection(ctx.ruleset, ctx.rulesetSheetBlocks ?? []));
+
+  // The installed experience's own verbs, last in the block so the built-ins keep their order. Each
+  // line already arrives fully rendered from the verb runtime; nothing here inspects or reformats it.
+  const experienceGmVerbs = normalizePromptTextList(ctx.experienceGmVerbs);
+  if (experienceGmVerbs.length > 0) lines.push(...experienceGmVerbs);
 
   if (ctx.gameActiveState === "combat") {
     lines.push(
@@ -865,6 +1191,10 @@ export interface SetupPromptContext {
   customHudWidgets?: HudWidget[];
   /** Selected constant lorebook canon to bake into world generation */
   lorebookContext?: string | null;
+  /** `gm.worldGuidance` from the game's pinned ruleset, with its active layers appended. The only
+   *  ruleset text world generation reads: everything else a ruleset says reaches the per-turn
+   *  reminder instead, because the world is designed once and the sheets change every turn. */
+  rulesetWorldGuidance?: string | null;
   /** Language for natural-language JSON values */
   language?: string;
   /** User-overridable GM instruction body that will be used after setup. */
@@ -934,6 +1264,15 @@ export function buildSetupPrompt(ctx: SetupPromptContext = {}): string {
       `Selected constant lorebook canon that MUST be treated as true for this world:`,
       ctx.lorebookContext.trim(),
       `</lorebook_context>`,
+    );
+  }
+  const rulesetWorldGuidance = normalizePromptText(ctx.rulesetWorldGuidance);
+  if (rulesetWorldGuidance) {
+    contextSections.push(
+      `<ruleset_world>`,
+      `This game runs on a rules system its author wrote. Design the world so it fits these rules:`,
+      rulesetWorldGuidance,
+      `</ruleset_world>`,
     );
   }
   if (ctx.customHudWidgets?.length) {

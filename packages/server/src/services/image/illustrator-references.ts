@@ -55,6 +55,7 @@ export type IllustratorReferenceResolution = {
   referenceNames: string[];
   referenceLine: string | null;
   appearanceNames: string[];
+  appearanceSources: Array<{ name: string; appearance: string }>;
   appearanceBlock: string | null;
 };
 
@@ -489,22 +490,40 @@ export async function resolveIllustratorCharacterReferences(args: {
   }
 
   const sources = [...sourcesById.values()];
+  const chatIds = new Set(args.chatCharacters.map((character) => character.id));
+  const chatSources = sources.filter((source) => chatIds.has(source.id));
+  const globalSources = sources.filter((source) => !chatIds.has(source.id));
   const normalizedPromptText = normalizeReferenceName(args.promptText);
   const requestedNames = args.requestedNames.map((name) => normalizeReferenceName(name)).filter(Boolean);
   const selected = new Map<string, CharacterReferenceSource>();
 
   for (const requestedName of requestedNames) {
-    const match = sources.find(
-      (source) =>
-        source.aliases.some((alias) => alias === requestedName || textContainsAlias(requestedName, alias)) ||
-        source.aliases.some((alias) => textContainsAlias(alias, requestedName)),
-    );
-    if (match) selected.set(match.id, match);
+    const exactChatMatches = chatSources.filter((source) => normalizeReferenceName(source.name) === requestedName);
+    const chatMatches =
+      exactChatMatches.length > 0
+        ? exactChatMatches
+        : chatSources.filter(
+            (source) =>
+              source.aliases.some((alias) => alias === requestedName || textContainsAlias(requestedName, alias)) ||
+              source.aliases.some((alias) => textContainsAlias(alias, requestedName)),
+          );
+    // Chat aliases are useful for nicknames; outside the chat, require a unique full name.
+    const matches =
+      chatMatches.length > 0
+        ? chatMatches
+        : globalSources.filter((source) => normalizeReferenceName(source.name) === requestedName);
+    if (matches.length === 1) selected.set(matches[0]!.id, matches[0]!);
   }
 
-  for (const source of sources) {
+  for (const source of chatSources) {
     if (selected.has(source.id)) continue;
-    if (source.promptAliases.some((alias) => textContainsAlias(normalizedPromptText, alias))) {
+    if (
+      source.promptAliases.some(
+        (alias) =>
+          textContainsAlias(normalizedPromptText, alias) &&
+          chatSources.filter((candidate) => candidate.promptAliases.includes(alias)).length === 1,
+      )
+    ) {
       selected.set(source.id, source);
     }
   }
@@ -532,14 +551,14 @@ export async function resolveIllustratorCharacterReferences(args: {
   const orderedSources = orderedSelectedSources.slice(0, maxReferences);
   const referenceImages: string[] = [];
   const referenceNames: string[] = [];
-  const appearanceLines: string[] = [];
+  const appearanceSources: IllustratorReferenceResolution["appearanceSources"] = [];
   const appearanceNames: string[] = [];
 
   const pushAppearanceLine = (name: string, appearance: string | null | undefined) => {
     const trimmed = normalizeIllustratorAppearance(appearance);
     if (!trimmed || appearanceNames.includes(name)) return;
     appearanceNames.push(name);
-    appearanceLines.push(`${name}'s Appearance: ${trimmed}`);
+    appearanceSources.push({ name, appearance: trimmed });
   };
 
   for (const source of orderedSources) {
@@ -592,8 +611,12 @@ export async function resolveIllustratorCharacterReferences(args: {
         ? `Attached are reference images of ${referenceNames.join(", ")}. Use them only to preserve character likeness and visual identity; the written scene prompt is authoritative for composition, setting, action, mood, framing, and whether any text appears.`
         : null,
     appearanceNames,
+    appearanceSources,
     // No "Character appearance notes:" header: every consumer appends this straight to an image
     // prompt, so the label is only ever read by a diffusion model as something to draw.
-    appearanceBlock: appearanceLines.length > 0 ? appearanceLines.join("\n") : null,
+    appearanceBlock:
+      appearanceSources.length > 0
+        ? appearanceSources.map(({ name, appearance }) => `${name}'s Appearance: ${appearance}`).join("\n")
+        : null,
   };
 }

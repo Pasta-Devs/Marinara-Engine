@@ -62,7 +62,9 @@ function extractCharaFromPng(buf: Buffer): Record<string, unknown> | null {
         const keyword = payload.subarray(0, nullIdx).toString("ascii");
         if (CHARA_KEYWORDS.has(keyword) && !found.has(keyword) && payload[nullIdx + 1] === 0) {
           try {
-            const text = inflateSync(payload.subarray(nullIdx + 2)).toString("utf-8");
+            const text = inflateSync(payload.subarray(nullIdx + 2), { maxOutputLength: 4 * 1024 * 1024 }).toString(
+              "utf-8",
+            );
             try {
               found.set(keyword, JSON.parse(text));
             } catch {

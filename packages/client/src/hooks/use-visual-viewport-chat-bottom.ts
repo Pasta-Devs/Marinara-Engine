@@ -1,4 +1,5 @@
 import { useEffect, useState, type RefObject } from "react";
+import { hasActiveTextSelection } from "../lib/text-selection";
 
 export const CHAT_VISUAL_VIEWPORT_CHANGE_EVENT = "marinara:chat-visual-viewport-change";
 
@@ -135,7 +136,7 @@ export function useKeepLatestChatMessageVisible(
       pendingAnchor = null;
 
       const restore = () => {
-        if (!keyboardOpen) return;
+        if (!keyboardOpen || hasActiveTextSelection()) return;
         const scrollElement = scrollRef.current;
         if (!scrollElement) return;
         if (anchor.pinnedToBottom) {

@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import {
   approvePersonalExtensionSchema,
+  getSerializedTextTokenEstimator,
   createPersonalExtensionSchema,
   externalExtensionsPolicyUpdateSchema,
   personalExtensionStoragePatchSchema,
@@ -26,6 +27,7 @@ import { createPersonalExtensionsStorage } from "../services/extensions/personal
 import { createPersonalExtensionSettingsStorage } from "../services/extensions/personal-extension-settings.service.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
+import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { personalServerExtensionRuntime } from "../services/extensions/personal-server-extension-runtime.js";
 import {
@@ -47,6 +49,7 @@ type ContextTextBudget = { remaining: number };
 type ContextCharacterSource = { id: string; data: CharacterData };
 type ContextPersonaSource = {
   id: string;
+  source?: "persona" | "character";
   name: unknown;
   description: unknown;
   personality: unknown;
@@ -108,6 +111,7 @@ function personaContextSnapshot(
 ): PersonalExtensionPersonaSnapshot {
   return {
     id: persona.id,
+    ...(persona.source ? { source: persona.source } : {}),
     name: boundedContextText(persona.name, budget),
     description: boundedContextText(persona.description, budget),
     personality: boundedContextText(persona.personality, budget),
@@ -166,17 +170,6 @@ function parseContextCharacter(row: { id: string; data: string } | null): Contex
     return data && typeof data === "object" ? { id: row.id, data } : null;
   } catch {
     return null;
-  }
-}
-
-function parseContextPersonaTags(value: unknown) {
-  if (Array.isArray(value)) return value;
-  if (typeof value !== "string") return [];
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
   }
 }
 
@@ -289,6 +282,7 @@ export function browserWorkerSource(extension: PersonalExtension) {
     if (!id || !allowedIds.has(id)) return null;
     return Object.freeze({
       id,
+      ...(value?.source === "character" || value?.source === "persona" ? { source: value.source } : {}),
       name: boundedContextText(value.name, budget),
       description: boundedContextText(value.description, budget),
       personality: boundedContextText(value.personality, budget),
@@ -309,6 +303,7 @@ export function browserWorkerSource(extension: PersonalExtension) {
     if (!id || id !== expectedId) return null;
     return Object.freeze({
       id,
+      ...(value?.source === "character" || value?.source === "persona" ? { source: value.source } : {}),
       name: boundedContextText(value.name, budget),
       description: boundedContextText(value.description, budget),
       personality: boundedContextText(value.personality, budget),
@@ -664,6 +659,7 @@ export function browserWorkerSource(extension: PersonalExtension) {
   const marinara = Object.freeze({
     runtime: "client",
     version: 5,
+    estimateTextTokens: ${getSerializedTextTokenEstimator()},
     extensionId: extension.id,
     extensionName: extension.name,
     capabilities: Object.freeze([...capabilities]),
@@ -1370,11 +1366,24 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
           .map((row) => parseContextCharacter(row))
           .filter((character): character is ContextCharacterSource => Boolean(character))
       : [];
-    const personaRow =
-      capabilities.has("read_active_persona") && chat.personaId && ID_PATTERN.test(chat.personaId)
-        ? await charactersStorage.getPersona(chat.personaId)
-        : null;
-    const persona = personaRow ? { ...personaRow, tags: parseContextPersonaTags(personaRow.tags) } : null;
+    const identity = capabilities.has("read_active_persona")
+      ? await resolveChatUserIdentity(charactersStorage, chat)
+      : null;
+    const persona = identity
+      ? {
+          id: identity.id,
+          name: identity.name,
+          description: identity.description,
+          personality: identity.personality,
+          scenario: identity.scenario,
+          backstory: identity.backstory,
+          appearance: identity.appearance,
+          tags: identity.tags,
+          aboutMe: identity.aboutMe,
+          convoDisplayName: identity.convoDisplayName,
+          source: identity.source,
+        }
+      : null;
     return createPersonalExtensionRecordContext({
       capabilities: extension.capabilities,
       characters,

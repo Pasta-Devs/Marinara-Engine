@@ -139,6 +139,9 @@ const ttsConfigBaseSchema = z.object({
   autoplayGame: z.boolean().default(false),
   progressivePlayback: z.boolean().default(false),
   dialogueOnly: z.boolean().default(false),
+  skipTagContent: z.boolean().default(false),
+  skipCodeBlocks: z.boolean().default(true),
+  skipBracketedText: z.boolean().default(false),
   /** Use a short auxiliary LLM call to separate Roleplay dialogue by speaker before autoplay. */
   roleplaySpeakerExtractorEnabled: z.boolean().default(false),
   /** Empty uses the connection marked as the default for agents. */

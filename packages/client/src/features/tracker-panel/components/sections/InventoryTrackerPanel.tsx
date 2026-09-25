@@ -130,52 +130,85 @@ function InventoryGroup({ group, label, rows, onUpdate, deleteMode, addMode }: I
           const showQuantity = quantity > 1 || addMode || lockMode;
           const nameLocked = isTrackerFieldLocked(fieldLocks, nameKey);
           const qtyLocked = isTrackerFieldLocked(fieldLocks, qtyKey);
+          const showDetails = !!row.description || !!row.location || addMode || lockMode;
           return (
             <div
               key={`${row.name}-${index}`}
-              className="mari-chrome-tag flex min-h-6 min-w-0 max-w-full items-center gap-1 border border-[var(--tracker-profile-slot-rule)] bg-[image:var(--tracker-profile-slot-surface)] px-1.5 text-[color:var(--tracker-profile-text)] shadow-[inset_0_1px_2px_var(--tracker-profile-slot-shadow)] [@media(pointer:coarse)]:min-h-7"
-            >
-              {nameLocked && LOCK_GLYPH}
-              <InlineEdit
-                value={row.name}
-                onSave={(name) =>
-                  updateRow(index, { ...row, name: name || localizeUi("ui.trackerPanel.inventoryTracker.item") })
-                }
-                placeholder={localizeUi("ui.trackerPanel.inventoryTracker.item")}
-                className={cn("min-w-0 px-0.5 text-[0.625rem] font-medium", LOCK_SURFACE_RESET)}
-                title={row.name}
-                showEditHint={false}
-                scrollOnHover
-                locked={nameLocked}
-                lockMode={lockMode}
-                onToggleLock={() => onToggleFieldLock?.(nameKey)}
-              />
-              {showQuantity && (
-                <span className="flex shrink-0 items-center gap-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                  {qtyLocked && LOCK_GLYPH}
-                  <span aria-hidden="true">×</span>
-                  <InlineNumber
-                    value={quantity}
-                    min={1}
-                    onChange={(qty) => updateRow(index, qty > 1 ? { ...row, qty } : { name: row.name })}
-                    className={cn("px-0 text-right text-[0.625rem] tabular-nums", LOCK_SURFACE_RESET)}
-                    title={localizeUi("ui.trackerPanel.inventoryTracker.quantityFor", { item: row.name })}
-                    locked={qtyLocked}
-                    lockMode={lockMode}
-                    onToggleLock={() => onToggleFieldLock?.(qtyKey)}
-                  />
-                </span>
+              className={cn(
+                "mari-chrome-tag flex min-h-6 min-w-0 max-w-full flex-col justify-center gap-1 border border-[var(--tracker-profile-slot-rule)] bg-[image:var(--tracker-profile-slot-surface)] px-1.5 text-[color:var(--tracker-profile-text)] shadow-[inset_0_1px_2px_var(--tracker-profile-slot-shadow)] [@media(pointer:coarse)]:min-h-7",
+                showDetails && "w-full py-1",
               )}
-              {deleteMode && (
-                <button
-                  type="button"
-                  onClick={() => removeRow(index)}
-                  className="mari-chrome-tag grid h-4 w-4 shrink-0 place-items-center p-0 leading-none text-current ring-1 ring-[color-mix(in_srgb,var(--tracker-profile-text)_28%,transparent)] transition-colors hover:bg-[color-mix(in_srgb,var(--tracker-profile-text)_8%,transparent)] focus-visible:outline-none focus-visible:ring-[color-mix(in_srgb,var(--tracker-profile-text)_48%,transparent)]"
-                  title={localizeUi("ui.trackerPanel.inventoryTracker.removeItem", { item: row.name })}
-                  aria-label={localizeUi("ui.trackerPanel.inventoryTracker.removeItem", { item: row.name })}
-                >
-                  <X size="0.5625rem" className="mari-rgb-static-icon block text-current" />
-                </button>
+            >
+              <div className="flex min-w-0 items-center gap-1">
+                {nameLocked && LOCK_GLYPH}
+                <InlineEdit
+                  value={row.name}
+                  onSave={(name) =>
+                    updateRow(index, { ...row, name: name || localizeUi("ui.trackerPanel.inventoryTracker.item") })
+                  }
+                  placeholder={localizeUi("ui.trackerPanel.inventoryTracker.item")}
+                  className={cn("min-w-0 px-0.5 text-[0.625rem] font-medium", LOCK_SURFACE_RESET)}
+                  title={row.name}
+                  showEditHint={false}
+                  scrollOnHover
+                  locked={nameLocked}
+                  lockMode={lockMode}
+                  onToggleLock={() => onToggleFieldLock?.(nameKey)}
+                />
+                {showQuantity && (
+                  <span className="flex shrink-0 items-center gap-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {qtyLocked && LOCK_GLYPH}
+                    <span aria-hidden="true">×</span>
+                    <InlineNumber
+                      value={quantity}
+                      min={1}
+                      onChange={(qty) => updateRow(index, { ...row, qty: qty > 1 ? qty : undefined })}
+                      className={cn("px-0 text-right text-[0.625rem] tabular-nums", LOCK_SURFACE_RESET)}
+                      title={localizeUi("ui.trackerPanel.inventoryTracker.quantityFor", { item: row.name })}
+                      locked={qtyLocked}
+                      lockMode={lockMode}
+                      onToggleLock={() => onToggleFieldLock?.(qtyKey)}
+                    />
+                  </span>
+                )}
+                {deleteMode && (
+                  <button
+                    type="button"
+                    onClick={() => removeRow(index)}
+                    className="mari-chrome-tag grid h-4 w-4 shrink-0 place-items-center p-0 leading-none text-current ring-1 ring-[color-mix(in_srgb,var(--tracker-profile-text)_28%,transparent)] transition-colors hover:bg-[color-mix(in_srgb,var(--tracker-profile-text)_8%,transparent)] focus-visible:outline-none focus-visible:ring-[color-mix(in_srgb,var(--tracker-profile-text)_48%,transparent)]"
+                    title={localizeUi("ui.trackerPanel.inventoryTracker.removeItem", { item: row.name })}
+                    aria-label={localizeUi("ui.trackerPanel.inventoryTracker.removeItem", { item: row.name })}
+                  >
+                    <X size="0.5625rem" className="mari-rgb-static-icon block text-current" />
+                  </button>
+                )}
+              </div>
+              {showDetails && (
+                <div className="space-y-1 border-t border-[var(--tracker-profile-slot-rule)]/40 pt-1">
+                  {(["description", "location"] as const).map((field) => {
+                    const key = roleplayInventoryTrackerLockKey(group, row, field, index);
+                    const locked = isTrackerFieldLocked(fieldLocks, key);
+                    const label = localizeUi(`ui.trackerPanel.inventoryTracker.${field}`);
+                    return (
+                      <div key={field} className="flex min-w-0 items-start gap-1 text-[0.625rem]">
+                        <span className="shrink-0 py-0.5 text-[var(--muted-foreground)]">{label}:</span>
+                        {locked && LOCK_GLYPH}
+                        <InlineEdit
+                          value={row[field] ?? ""}
+                          onSave={(value) => updateRow(index, { ...row, [field]: value })}
+                          placeholder={label}
+                          ariaLabel={localizeUi(`ui.trackerPanel.inventoryTracker.${field}For`, { item: row.name })}
+                          className={cn("min-w-0 flex-1 px-0.5", LOCK_SURFACE_RESET)}
+                          previewLineCount={2}
+                          showEditHint={false}
+                          locked={locked}
+                          lockMode={lockMode}
+                          onToggleLock={() => onToggleFieldLock?.(key)}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           );

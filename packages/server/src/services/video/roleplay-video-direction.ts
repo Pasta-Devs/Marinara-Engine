@@ -56,7 +56,7 @@ function unwrapJsonFence(value: string): string {
 export function resolveRoleplayVideoDirection(value: unknown, maxLength: number | null): string {
   if (typeof value !== "string") return "";
   const unwrapped = unwrapJsonFence(value);
-  let narrationBeat = unwrapped;
+  let narrationBeat: string;
   try {
     const parsed = JSON.parse(unwrapped) as unknown;
     if (typeof parsed === "string") {

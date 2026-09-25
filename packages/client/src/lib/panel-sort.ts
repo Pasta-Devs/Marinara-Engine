@@ -43,3 +43,16 @@ export function sortBasicPanelItems<T>(
       return list.sort((a, b) => compareNames(getName(a), getName(b)));
   }
 }
+
+export function sortPanelFolders<T extends { name: string; createdAt?: string; sortOrder?: number }>(
+  folders: readonly T[],
+  sort: BasicPanelSort | "custom",
+) {
+  if (sort === "custom") return [...folders].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  return sortBasicPanelItems(
+    folders,
+    sort,
+    (folder) => folder.name,
+    (folder) => folder.createdAt,
+  );
+}

@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, InjectOptions, LightMyRequestResponse as InjectResponse } from "fastify";
 import {
   registerTurnGameEngine,
   type AnyTurnGameEngine,
@@ -12,6 +12,7 @@ import {
   type CapabilityRuntimeLogArgument,
   type InstalledCapabilityPackage,
   parseAgentSettingsRecord,
+  type PackagedAchievementDefinition,
 } from "@marinara-engine/shared";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
@@ -25,18 +26,27 @@ import {
 } from "./capability-command-registry.service.js";
 import { registerCapabilityService } from "./capability-service-registry.service.js";
 import { assertCapabilityAgentRuntimeServiceRegistration } from "./capability-agent-runtime.service.js";
+import { createCapabilityIntegrationHost } from "./capability-integrations.service.js";
 import { createCapabilityLanguageModelHost } from "./capability-language-model.service.js";
+import { linkCapabilityNativeDependencies } from "./capability-native-dependencies.service.js";
 import {
   createCapabilityEmbeddingHost,
   createConfiguredCapabilityEmbeddingHost,
 } from "./capability-embedding.service.js";
+import { createCapabilityAchievementHost } from "./capability-achievement-host.service.js";
+import { registerCapabilityAchievements } from "./capability-achievement-registry.service.js";
 import { createCapabilityPersistenceHost } from "./capability-persistence.service.js";
 import { createCapabilityResourceHost } from "./capability-resources.service.js";
-import { registerCapabilityPrivilegedRoutes } from "./capability-route-registration.service.js";
+import {
+  registerCapabilityPrivilegedRoutes,
+  runCapabilityInternalRoute,
+} from "./capability-route-registration.service.js";
 import {
   registerCapabilityPromptContext,
+  withDeadline,
   type CapabilityPromptContextContributor,
 } from "./capability-prompt-context.service.js";
+import { registerCapabilityTool, type CapabilityToolRegistration } from "./capability-tool-registry.service.js";
 
 type Cleanup = () => void | Promise<void>;
 type CapabilityActivationContext = {
@@ -50,14 +60,25 @@ type CapabilityActivationContext = {
     registerService<T>(key: string, service: T): Cleanup;
     /** Contribute text to each turn's system prompt. Requires the `prompt-context` permission. */
     registerPromptContext(contributor: CapabilityPromptContextContributor): Cleanup;
+    /** Offer the model a tool this package handles. Requires the `tools` permission. */
+    registerTool(registration: CapabilityToolRegistration): Cleanup;
+    /** Contribute badges to the Home achievements panel, shown under this package's own section.
+     *  Requires the `achievements` permission. */
+    registerAchievements(achievements: readonly PackagedAchievementDefinition[]): Cleanup;
     registerPrivilegedRoutes(
       routes: import("fastify").FastifyPluginAsync,
       options: { prefix: string },
     ): Promise<Cleanup>;
+    /** Run an active route owned by this package as trusted server work. */
+    runInternalRoute?: (options: InjectOptions | string) => Promise<InjectResponse>;
   };
 };
 
-async function createCapabilityRuntimeHost(app: FastifyInstance, packageId: string): Promise<CapabilityRuntimeHost> {
+async function createCapabilityRuntimeHost(
+  app: FastifyInstance,
+  packageId: string,
+  permissions: readonly string[],
+): Promise<CapabilityRuntimeHost> {
   const agents = app.db ? createAgentsStorage(app.db) : null;
   const config = await agents?.getByType(packageId);
   const embeddings = app.db
@@ -78,6 +99,7 @@ async function createCapabilityRuntimeHost(app: FastifyInstance, packageId: stri
     isDebugAgentsEnabled,
     json: Object.freeze({ parseJsonish: parseGameJsonish }),
     languageModels: createCapabilityLanguageModelHost(app.db),
+    integrations: createCapabilityIntegrationHost(permissions),
     logger: Object.freeze({
       debug: (message: string, ...args: CapabilityRuntimeLogArgument[]) =>
         Reflect.apply(logger.debug, logger, [message, ...args]),
@@ -90,7 +112,8 @@ async function createCapabilityRuntimeHost(app: FastifyInstance, packageId: stri
       debugOverride: (overrideEnabled: boolean, message: string, ...args: CapabilityRuntimeLogArgument[]) =>
         logDebugOverride(overrideEnabled, message, ...args),
     }),
-    persistence: createCapabilityPersistenceHost(app.db),
+    achievements: createCapabilityAchievementHost(app.db, packageId, permissions),
+    persistence: createCapabilityPersistenceHost(app.db, permissions),
     resources: createCapabilityResourceHost(app.db),
   });
 }
@@ -110,7 +133,7 @@ async function runCleanups(cleanups: Cleanup[]): Promise<void> {
   let firstError: unknown;
   for (const cleanup of cleanups.splice(0).reverse()) {
     try {
-      await cleanup();
+      await withDeadline(cleanup(), "Capability cleanup", 8000);
     } catch (error) {
       firstError ??= error;
     }
@@ -134,6 +157,11 @@ class CapabilityModuleRuntime {
   }
 
   private async ensureModuleResolution(): Promise<void> {
+    try {
+      await linkCapabilityNativeDependencies(join(DATA_DIR, "capability-runtime-snapshots"));
+    } catch (error) {
+      logger.warn(error, "Could not link native package runtime dependencies");
+    }
     const packageRoot = join(DATA_DIR, "capability-packages");
     const link = join(packageRoot, "node_modules");
     if (existsSync(link)) return;
@@ -184,7 +212,14 @@ class CapabilityModuleRuntime {
   ): Promise<void> {
     const { installed } = runtimePackage;
     const registeredCleanups: Cleanup[] = [];
+    const toolCleanups: Array<() => void> = [];
+    const achievementCleanups: Array<() => void> = [];
     let moduleCleanup: Cleanup | undefined;
+    // A package can keep hold of the activation context and call back into it later. Once this
+    // activation has been torn down, those calls must not reach the host: a tool registered after
+    // cleanup belongs to a package that is no longer running, and a re-activated package would have
+    // its live tool replaced by the dead runtime's.
+    let activationLive = true;
     try {
       await capabilityPackageManager.markRuntimeReadiness(installed.id, "pending");
       const blockReason = capabilityPackageManager.runtimeBlockReason(installed);
@@ -209,7 +244,7 @@ class CapabilityModuleRuntime {
         dataDir: DATA_DIR,
         package: installed,
         api: {
-          runtime: await createCapabilityRuntimeHost(app, installed.id),
+          runtime: await createCapabilityRuntimeHost(app, installed.id, installed.manifest.permissions ?? []),
           registerTurnGameEngine: (engine) => trackCleanup(registerTurnGameEngine(engine)),
           registerConversationCommand: (registration) => {
             if (registration.handler && !installed.manifest.permissions?.includes("conversation-actions")) {
@@ -233,8 +268,44 @@ class CapabilityModuleRuntime {
             }
             return trackCleanup(registerCapabilityPromptContext(installed.id, contributor));
           },
+          registerTool: (registration) => {
+            if (!installed.manifest.permissions?.includes("tools")) {
+              throw new Error(
+                `Capability package ${installed.id} must declare the "tools" permission to register a tool`,
+              );
+            }
+            if (!activationLive) {
+              throw new Error(`Capability package ${installed.id} cannot register a tool after its activation ended`);
+            }
+            const release = registerCapabilityTool(installed.id, registration);
+            toolCleanups.push(release);
+            return trackCleanup(release);
+          },
+          registerAchievements: (achievements) => {
+            if (!installed.manifest.permissions?.includes("achievements")) {
+              throw new Error(
+                `Capability package ${installed.id} must declare the "achievements" permission to register achievements`,
+              );
+            }
+            if (!activationLive) {
+              throw new Error(
+                `Capability package ${installed.id} cannot register achievements after its activation ended`,
+              );
+            }
+            const release = registerCapabilityAchievements(
+              {
+                packageId: installed.id,
+                packageName: installed.manifest.name,
+                packageVersion: installed.version,
+              },
+              achievements,
+            );
+            achievementCleanups.push(release);
+            return trackCleanup(release);
+          },
           registerPrivilegedRoutes: async (routes, options) =>
             trackCleanup(await registerCapabilityPrivilegedRoutes(app, installed, routes, options)),
+          runInternalRoute: (options) => runCapabilityInternalRoute(app, installed.id, options),
         },
       };
       const cleanup = await module.activate(context);
@@ -244,15 +315,32 @@ class CapabilityModuleRuntime {
       await capabilityPackageManager.markRuntimeStatus(installed.id, "active");
       await capabilityPackageManager.markRuntimeReadiness(installed.id, "ready");
       this.cleanups.set(installed.id, async () => {
-        if (moduleCleanup) await moduleCleanup();
-        await runCleanups(registeredCleanups);
+        // A module cleanup that throws must not strand the host-side registrations. A tool left in
+        // the registry would be offered to a model whose package is no longer there to answer it,
+        // so tracked cleanups and the tool release run either way and the first error is rethrown.
+        activationLive = false;
+        // Release only this activation's tools before awaiting package cleanup. An old
+        // teardown cannot delete replacements registered by a concurrent activation.
+        for (const release of toolCleanups.splice(0)) release();
+        for (const release of achievementCleanups.splice(0)) release();
+        try {
+          if (moduleCleanup) await withDeadline(moduleCleanup(), "Capability module cleanup", 8000);
+        } finally {
+          await runCleanups(registeredCleanups);
+        }
       });
       logger.info("Activated and verified capability package %s@%s", installed.id, installed.version);
     } catch (error) {
       logger.error(error, "Failed to activate capability package %s@%s", installed.id, installed.version);
+      activationLive = false;
+      for (const release of toolCleanups.splice(0)) release();
+      for (const release of achievementCleanups.splice(0)) release();
       try {
-        if (moduleCleanup) await moduleCleanup();
-        await runCleanups(registeredCleanups);
+        try {
+          if (moduleCleanup) await withDeadline(moduleCleanup(), "Capability module cleanup", 8000);
+        } finally {
+          await runCleanups(registeredCleanups);
+        }
       } catch (cleanupError) {
         logger.warn(cleanupError, "Capability package %s cleanup failed after activation error", installed.id);
       }

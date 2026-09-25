@@ -35,6 +35,7 @@ import {
 import { resolveGameVideoRuntime } from "../services/video/game-video-runtime.js";
 import { generateImage, removeSavedImageFromDisk, saveImageToDisk } from "../services/image/image-generation.js";
 import { resolveGalleryImagePath } from "../services/image/gallery-image-path.js";
+import { parseThumbnailWidth, resolveThumbPath } from "../services/image/image-thumbnail.js";
 import {
   resolveConnectionImageDefaults,
   resolveConnectionImageQuality,
@@ -648,8 +649,14 @@ export async function galleryRoutes(app: FastifyInstance) {
     return { ...compiled, ...reviewed, ...size };
   }
 
-  async function collectChatAssetParticipants(chat: { id: string; characterIds?: unknown; personaId?: string | null }) {
+  async function collectChatAssetParticipants(chat: {
+    id: string;
+    characterIds?: unknown;
+    personaId?: string | null;
+    personaCharacterId?: string | null;
+  }) {
     const characterIds = new Set(parseStringArray(chat.characterIds));
+    if (chat.personaCharacterId) characterIds.add(chat.personaCharacterId);
     const personaIds = new Set<string>();
     if (chat.personaId) personaIds.add(chat.personaId);
 
@@ -661,7 +668,8 @@ export async function galleryRoutes(app: FastifyInstance) {
       const extra = parseJsonRecord(message.extra);
       const personaSnapshot = isRecord(extra.personaSnapshot) ? extra.personaSnapshot : null;
       if (typeof personaSnapshot?.personaId === "string" && personaSnapshot.personaId.trim()) {
-        personaIds.add(personaSnapshot.personaId);
+        if (personaSnapshot.source === "character") characterIds.add(personaSnapshot.personaId);
+        else personaIds.add(personaSnapshot.personaId);
       }
     }
 
@@ -1111,6 +1119,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       comfyWorkflow,
       comfyLoras,
       comfyFps,
+      atlasModelOptions,
     } = videoRuntime;
 
     const galleryImagePath = resolveGalleryImagePath(galleryImage);
@@ -1152,6 +1161,7 @@ export async function galleryRoutes(app: FastifyInstance) {
         comfyWorkflow,
         comfyLoras,
         fps: comfyFps,
+        atlasModelOptions,
         referenceImage,
         publicReferenceUpload,
         queue: input.queueMediaGenerationRequests,
@@ -1780,6 +1790,14 @@ export async function galleryRoutes(app: FastifyInstance) {
 
     const validatedImage = await validateImageAssetFile(storedFile.absolutePath, storedFile.filename);
     if (!validatedImage) return reply.status(404).send({ error: "Not found" });
+
+    const width = parseThumbnailWidth((req.query as { w?: string }).w);
+    const thumbPath = width ? await resolveThumbPath(storedFile.absolutePath, width) : null;
+    const preview = thumbPath ? await validateImageAssetFile(thumbPath, basename(thumbPath)) : null;
+    if (preview) {
+      await validatedImage.handle.close().catch(() => undefined);
+      return sendValidatedMediaFile(reply, preview, { method: req.method, rangeHeader: req.headers.range });
+    }
 
     return sendValidatedMediaFile(reply, validatedImage, { method: req.method, rangeHeader: req.headers.range });
   });

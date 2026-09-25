@@ -202,9 +202,10 @@ async function main() {
     process.stdout.write(`[${file}] ${result.status.toUpperCase()} (${result.durationMs}ms)${detail}\n`);
   }
 
-  const failed = results.filter((result) => result.status !== 'passed').length;
-  process.stdout.write(`Regression summary: ${results.length - failed}/${results.length} passed; ${failed} failed.\n`);
-  if (failed > 0) process.exitCode = 1;
+  const failed = results.filter((result) => result.status !== 'passed');
+  for (const result of failed) process.stdout.write(`Regression not passed (${result.status}): ${result.file}\n`);
+  process.stdout.write(`Regression summary: ${results.length - failed.length}/${results.length} passed; ${failed.length} failed.\n`);
+  if (failed.length > 0) process.exitCode = 1;
 }
 
 main().catch((error) => {

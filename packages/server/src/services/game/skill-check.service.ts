@@ -26,6 +26,12 @@ export interface SkillCheckInput {
    * through the same modifier-application code path. Ignored if out of range.
    */
   preRolledD20?: number;
+  /**
+   * Die source, for tests and for callers that own their own RNG. Defaults to
+   * the shipped unseeded `Math.random()` roller — consolidating call sites onto
+   * this service deliberately did not change how the engine rolls.
+   */
+  rollD20?: () => number;
 }
 
 export interface SkillCheckResult {
@@ -151,6 +157,48 @@ const ATTRIBUTE_NAME_MAP: Record<string, keyof RPGAttributes> = {
   charisma: "cha",
 };
 
+/**
+ * Read one free-form attribute name as a strict `RPGAttributes` key, or `null` when it
+ * names no attribute. Exported so a caller that resolves a single name — the dice
+ * placeholder's `+STR` term — folds the same way the sheet mapper does rather than
+ * carrying a second spelling of the same table.
+ */
+export function mapSheetAttributeName(name: string): keyof RPGAttributes | null {
+  if (typeof name !== "string") return null;
+  return ATTRIBUTE_NAME_MAP[name.trim().toLowerCase()] ?? null;
+}
+
+/** The short sheet spellings, in the order a character sheet lists them. */
+export const SHEET_ATTRIBUTE_LABELS: ReadonlyArray<[keyof RPGAttributes, string]> = [
+  ["str", "STR"],
+  ["dex", "DEX"],
+  ["con", "CON"],
+  ["int", "INT"],
+  ["wis", "WIS"],
+  ["cha", "CHA"],
+];
+
+/**
+ * The score a check reads for one attribute: the snapshot's engine-shape attributes
+ * first, then the player card's sheet, or null when neither carries it.
+ *
+ * ONE reader for the check resolver, the dice placeholder and the sighted pool, so the
+ * three cannot disagree about what a sheet value means. It keeps the coercion the check
+ * resolver has always used (`Number(...)` guarded by `Number.isFinite`), so a placeholder's
+ * `+STR` adds exactly what a check's STR adds; tightening that is a change to every
+ * shipped check and belongs to its own change.
+ */
+export function readContextAttributeScore(
+  context: { attributes: Record<string, unknown> | null; sheetAttributes: Partial<RPGAttributes> },
+  attribute: keyof RPGAttributes,
+): number | null {
+  if (context.attributes && Number.isFinite(Number(context.attributes[attribute]))) {
+    return Number(context.attributes[attribute]);
+  }
+  const sheet = context.sheetAttributes[attribute];
+  return sheet == null ? null : sheet;
+}
+
 export function mapSheetAttributesToRPG(
   attrs: ReadonlyArray<{ name: string; value: number }> | null | undefined,
 ): Partial<RPGAttributes> {
@@ -158,7 +206,7 @@ export function mapSheetAttributesToRPG(
   const out: Partial<RPGAttributes> = {};
   for (const attr of attrs) {
     if (!attr || typeof attr.name !== "string") continue;
-    const key = ATTRIBUTE_NAME_MAP[attr.name.trim().toLowerCase()];
+    const key = mapSheetAttributeName(attr.name);
     if (!key) continue;
     const value = Number(attr.value);
     if (!Number.isFinite(value)) continue;
@@ -172,6 +220,7 @@ export function mapSheetAttributesToRPG(
  */
 export function resolveSkillCheck(input: SkillCheckInput): SkillCheckResult {
   const modifier = input.skillModifier + input.attributeModifier;
+  const rollOne = input.rollD20 ?? d20;
 
   // Player-submitted [dice:1d20] short-circuits internal rolling so the
   // sheet's attribute modifier still applies on top of the player's number.
@@ -185,7 +234,7 @@ export function resolveSkillCheck(input: SkillCheckInput): SkillCheckResult {
   const useDisadvantage = !preRoll && input.disadvantage && !input.advantage;
   const rollTwice = useAdvantage || useDisadvantage;
 
-  const rolls = preRoll != null ? [preRoll] : rollTwice ? [d20(), d20()] : [d20()];
+  const rolls = preRoll != null ? [preRoll] : rollTwice ? [rollOne(), rollOne()] : [rollOne()];
   const usedRoll =
     preRoll != null
       ? preRoll

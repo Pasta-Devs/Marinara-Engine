@@ -1,6 +1,14 @@
 // ──────────────────────────────────────────────
 // Routes: Lorebooks
 // ──────────────────────────────────────────────
+import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
+import { DECISION_SETTINGS_KEYS } from "../services/decision/decision-default.js";
+import {
+  cachedPromptDecisionAnswers,
+  createLorebookDecisionResolver,
+  latestTurnDecisionId,
+  promptDecisionCacheKey,
+} from "../services/decision/prompt-decisions.js";
 import type { FastifyInstance } from "fastify";
 import { existsSync } from "fs";
 import { mkdir, readFile, writeFile } from "fs/promises";
@@ -16,6 +24,8 @@ import {
   updateLorebookFolderSchema,
   LOCAL_SIDECAR_CONNECTION_ID,
   canReparentFolder,
+  estimateTextTokens,
+  parseLorebookDecisionActivation,
   type CreateLorebookEntryInput,
   type LorebookEntryTimingState,
   type Lorebook,
@@ -26,6 +36,7 @@ import type { ExportEnvelope } from "@marinara-engine/shared";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
+import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { createGameStateStorage } from "../services/storage/game-state.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { filterRelevantLorebooks, processLorebooks } from "../services/lorebook/index.js";
@@ -177,7 +188,7 @@ function parseRecord(raw: unknown): Record<string, unknown> {
       return {};
     }
   }
-  return raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  return typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
 }
 
 function normalizeCachedLorebookScan(raw: unknown): CachedLorebookScan | null {
@@ -227,7 +238,7 @@ function normalizeCachedLorebookScan(raw: unknown): CachedLorebookScan | null {
   const totalTokensEstimate =
     typeof value.totalTokensEstimate === "number" && Number.isFinite(value.totalTokensEstimate)
       ? value.totalTokensEstimate
-      : Math.ceil(activatedEntries.reduce((total, entry) => total + entry.content.length, 0) / 4);
+      : estimateTextTokens(activatedEntries.map((entry) => entry.content).join(""));
   const totalEntries =
     typeof value.totalEntries === "number" && Number.isFinite(value.totalEntries)
       ? value.totalEntries
@@ -329,6 +340,8 @@ function buildCompatibleLorebookExport(lb: Record<string, unknown>, entries: Arr
         excludeRecursion: entry.excludeRecursion === true,
         delayUntilRecursion: entry.delayUntilRecursion === true,
         vectorized: entry.excludeFromVectorization !== true,
+        // Marinara extension, ignored by SillyTavern and read back on import (#6570).
+        ...parseLorebookDecisionActivation(entry),
       },
     ]),
   );
@@ -395,6 +408,8 @@ function buildTransferredEntryInput(
     dynamicState: entry.dynamicState,
     activationConditions: entry.activationConditions,
     schedule: entry.schedule,
+    decisionStatement: entry.decisionStatement,
+    decisionMode: entry.decisionMode,
   };
 }
 
@@ -502,8 +517,6 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     // into a non-first-linked character is cleared from the right card.
     const linkedCharacterId = await resolveEmbeddedCharacterId(app.db, req.params.id);
 
-    const chatsStorage = createChatsStorage(app.db);
-    await chatsStorage.removeLorebookFromChatMetadata(req.params.id);
     await storage.remove(req.params.id);
 
     if (linkedCharacterId) {
@@ -591,9 +604,22 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
   // ── Entries CRUD ──
 
-  app.get<{ Params: { id: string } }>("/:id/entries", async (req) => {
-    return storage.listEntries(req.params.id);
-  });
+  app.get<{ Params: { id: string }; Querystring: { sourceMessageId?: string | string[] } }>(
+    "/:id/entries",
+    async (req) => {
+      const entries = await storage.listEntries(req.params.id);
+      // Entry→source linkage exposure (the UI's "purge lore from deleted
+      // message" flow): filter to agent-authored entries whose current
+      // content was extracted from the given message.
+      const source = req.query.sourceMessageId;
+      const sourceMessageId = (Array.isArray(source) ? source[0] : source)?.trim();
+      if (!sourceMessageId) return entries;
+      return entries.filter(
+        (entry) =>
+          Array.isArray(entry.sourceMessageRefs) && entry.sourceMessageRefs.some((ref) => ref.id === sourceMessageId),
+      );
+    },
+  );
 
   app.get<{ Params: { id: string; entryId: string } }>("/:id/entries/:entryId", async (req, reply) => {
     const entry = await storage.getEntry(req.params.entryId);
@@ -867,24 +893,23 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     const chat = await chatsStorage.getById(chatId);
     let characterIds: string[] = [];
     let personaId: string | null = null;
+    let identityForScan: Awaited<ReturnType<typeof resolveChatUserIdentity>> = null;
     let activeLorebookIds: string[] = [];
     let chatMeta: Record<string, unknown> = {};
     if (chat) {
-      personaId = typeof chat.personaId === "string" ? chat.personaId : null;
-      if (!personaId && chat.mode !== "game") {
-        try {
-          const charactersStorage = createCharactersStorage(app.db);
-          const activePersona = (await charactersStorage.listPersonas()).find((p: any) => p.isActive === "true");
-          personaId = (activePersona?.id as string | undefined) ?? null;
-        } catch {
-          /* ignore */
-        }
+      try {
+        identityForScan = await resolveChatUserIdentity(createCharactersStorage(app.db), chat);
+        personaId = identityForScan?.source === "persona" ? identityForScan.id : null;
+        if (identityForScan?.source === "character") characterIds.push(identityForScan.id);
+      } catch {
+        /* ignore */
       }
       try {
-        characterIds =
+        const chatCharacterIds =
           typeof chat.characterIds === "string"
             ? JSON.parse(chat.characterIds)
             : ((chat.characterIds as string[]) ?? []);
+        characterIds = [...characterIds, ...chatCharacterIds];
       } catch {
         /* ignore */
       }
@@ -988,22 +1013,18 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
     const lorebookMacroResolvers = await (async () => {
       try {
-        const charactersStorage = createCharactersStorage(app.db);
         let personaName = "User";
         let personaDescription = "";
         let personaFields: { personality?: string; scenario?: string; backstory?: string; appearance?: string } = {};
-        if (personaId) {
-          const persona = await charactersStorage.getPersona(personaId);
-          if (persona) {
-            personaName = persona.name || personaName;
-            personaDescription = cardPromptText(persona.description);
-            personaFields = {
-              personality: cardPromptText(persona.personality),
-              scenario: cardPromptText(persona.scenario),
-              backstory: cardPromptText(persona.backstory),
-              appearance: cardPromptText(persona.appearance),
-            };
-          }
+        if (identityForScan) {
+          personaName = identityForScan.name || personaName;
+          personaDescription = cardPromptText(identityForScan.description);
+          personaFields = {
+            personality: cardPromptText(identityForScan.personality),
+            scenario: cardPromptText(identityForScan.scenario),
+            backstory: cardPromptText(identityForScan.backstory),
+            appearance: cardPromptText(identityForScan.appearance),
+          };
         }
         const macroContext = await buildPromptMacroContext({
           db: app.db,
@@ -1017,11 +1038,26 @@ export async function lorebooksRoutes(app: FastifyInstance) {
           lastGenerationType: "lorebook_scan",
           idleDuration: resolvePromptIdleDuration(scanSourceMessages),
         });
+        // Decision-activated entries (#6570) read the answers the scanned turn already
+        // has; this preview never asks the Decision model.
+        const decisionModelId =
+          (await createAppSettingsStorage(app.db).get(DECISION_SETTINGS_KEYS.localDefault)) ??
+          (await createConnectionsStorage(app.db).getDefaultForDecision())?.id ??
+          null;
         return {
           resolveContent: (value: string, lorebookEntryCounts?: Readonly<Record<string, number>>) => {
             setLorebookEntryCounts(macroContext, lorebookEntryCounts);
             return resolveMacrosWithVariableSnapshot(value, macroContext);
           },
+          resolveDecisions: createLorebookDecisionResolver({
+            macroContext,
+            limit: Number.POSITIVE_INFINITY,
+            answer: async (plan) =>
+              cachedPromptDecisionAnswers(
+                plan,
+                promptDecisionCacheKey(chatId, latestTurnDecisionId(scanSourceMessages), decisionModelId),
+              ),
+          }),
         };
       } catch {
         return undefined;
@@ -1113,6 +1149,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       previewOnly: true,
       generationTriggers: scanGenerationTriggers,
       resolveContent: lorebookMacroResolvers?.resolveContent,
+      resolveDecisions: lorebookMacroResolvers?.resolveDecisions,
       random: previewRandom,
     });
 

@@ -4,15 +4,7 @@
 
 /** Capability of a connected haptic device. */
 export type HapticCapability =
-  | "vibrate"
-  | "rotate"
-  | "oscillate"
-  | "constrict"
-  | "inflate"
-  | "position"
-  | "temperature"
-  | "spray"
-  | "led";
+  "vibrate" | "rotate" | "oscillate" | "constrict" | "inflate" | "position" | "temperature" | "spray" | "led";
 
 export type HapticDeviceAction = HapticCapability | "stop";
 

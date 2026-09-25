@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { DEFAULT_COMFYUI_DEFAULTS } from "../../packages/shared/src/constants/image-generation-defaults.js";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import type { Socket } from "node:net";
@@ -6,7 +7,7 @@ import type { Socket } from "node:net";
 const previousImageTimeout = process.env.IMAGE_GEN_TIMEOUT_MS;
 const previousComfyTimeout = process.env.COMFYUI_GEN_TIMEOUT;
 process.env.IMAGE_GEN_TIMEOUT_MS = "80";
-process.env.COMFYUI_GEN_TIMEOUT = "1";
+process.env.COMFYUI_GEN_TIMEOUT = "5";
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
@@ -59,7 +60,9 @@ function readClientFrame(buffer: Buffer): { payload: string | null; consumed: nu
 const server = createServer((request, response) => {
   if (request.url === "/API/GetNewSession") {
     response.setHeader("Content-Type", "application/json");
-    response.end(JSON.stringify({ session_id: "regression-session" }));
+    // Local backend requests must use the selected ComfyUI/SwarmUI transport timeout too.
+    const timer = setTimeout(() => response.end(JSON.stringify({ session_id: "regression-session" })), 2000);
+    response.once("close", () => clearTimeout(timer));
     return;
   }
   if (request.url === "/API/GenerateText2Image") {
@@ -127,6 +130,17 @@ try {
   );
   const result = await generateImage("swarmui", `http://127.0.0.1:${address.port}`, "regression-token", "swarmui", {
     prompt: "timeout regression",
+    referenceImage: png.toString("base64"),
+    imageDefaults: {
+      version: 1,
+      service: "comfyui",
+      seed: 7,
+      comfyui: {
+        ...DEFAULT_COMFYUI_DEFAULTS,
+        saveToBackend: true,
+        loras: [{ model: "character.safetensors", strength: 0.7 }],
+      },
+    },
   });
   assert.equal(result.mimeType, "image/png");
   assert.equal(result.base64, png.toString("base64"));
@@ -135,6 +149,10 @@ try {
   assert.match(webSocketCookie, /(?:^|;\s*)swarm_token=regression-token(?:;|$)/u);
   assert.equal(generationBody?.session_id, "regression-session");
   assert.equal(generationBody?.prompt, "timeout regression");
+  assert.equal(generationBody?.donotsave, false);
+  assert.equal(generationBody?.loras, "character.safetensors");
+  assert.equal(generationBody?.loraweights, "0.7");
+  assert.equal(generationBody?.promptimages, `data:image/png;base64,${png.toString("base64")}`);
 } finally {
   for (const socket of upgradedSockets) socket.destroy();
   await new Promise<void>((resolve, reject) => {

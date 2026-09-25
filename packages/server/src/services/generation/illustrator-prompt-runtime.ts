@@ -1,3 +1,4 @@
+import { allowsDefaultChatModel } from "../llm/local-context-limit.js";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import type { BaseLLMProvider } from "../llm/base-provider.js";
 import { withConnectionFallbackProvider, type FallbackConnection } from "../llm/connection-fallback-provider.js";
@@ -97,7 +98,8 @@ export async function resolveIllustratorPromptRuntime(args: {
   }
 
   const model = connection.model.trim();
-  if (!model) throw new Error("The selected selfie Prompt Model has no model configured.");
+  if (!model && !allowsDefaultChatModel(connection))
+    throw new Error("The selected selfie Prompt Model has no model configured.");
   const baseUrl = args.resolveBaseUrl(connection);
   if (!baseUrl) throw new Error("The selected selfie Prompt Model has no usable Base URL.");
 

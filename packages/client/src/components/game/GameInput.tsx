@@ -2,7 +2,18 @@
 // Game: Input Bar (send message, roll dice, attach files, emoji)
 // ──────────────────────────────────────────────
 import { useState, useRef, useEffect, useCallback, useMemo, type KeyboardEvent } from "react";
-import { Send, Dices, Paperclip, Smile, Users, MessageCircle, MessageSquare, Languages, Loader2 } from "lucide-react";
+import {
+  Send,
+  Dices,
+  Paperclip,
+  Smile,
+  Users,
+  MessageCircle,
+  MessageSquare,
+  Languages,
+  Loader2,
+  Play,
+} from "lucide-react";
 import { cn } from "../../lib/utils";
 import { EmojiPicker } from "../ui/EmojiPicker";
 import { SpeechToTextButton } from "../ui/SpeechToTextButton";
@@ -56,6 +67,14 @@ interface GameInputProps {
    * `force` keeps the normal styling — the GM won't be told this is an interrupt.
    */
   interruptMode?: "risky" | "force" | null;
+  /**
+   * The chat's session has been concluded, so drafting is locked until a new session
+   * starts. Swaps the placeholder for an explanation and, with `onStartNewSession`,
+   * renders the New Session action right in the composer (#6045).
+   */
+  sessionConcluded?: boolean;
+  onStartNewSession?: () => void;
+  startNewSessionPending?: boolean;
 }
 
 const QUICK_DICE = ["d20", "d6", "2d6", "d10", "d100", "d4", "d8", "d12"];
@@ -124,6 +143,9 @@ export function GameInput({
   onIllustrate,
   spatialCapabilityEnabled = false,
   interruptMode,
+  sessionConcluded = false,
+  onStartNewSession,
+  startNewSessionPending = false,
 }: GameInputProps) {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
@@ -632,21 +654,37 @@ export function GameInput({
           }}
           onKeyDown={handleKeyDown}
           placeholder={
-            isStreaming
-              ? t("game.input.prepareNextMove")
-              : addressMode === "party"
-                ? t("game.input.sayToParty")
-                : addressMode === "gm"
-                  ? t("game.input.sayToGm")
-                  : pendingMoveLabel
-                    ? t("game.input.onArrival")
-                    : t("game.input.default")
+            sessionConcluded
+              ? t("game.input.sessionConcluded")
+              : isStreaming
+                ? t("game.input.prepareNextMove")
+                : addressMode === "party"
+                  ? t("game.input.sayToParty")
+                  : addressMode === "gm"
+                    ? t("game.input.sayToGm")
+                    : pendingMoveLabel
+                      ? t("game.input.onArrival")
+                      : t("game.input.default")
           }
           disabled={draftDisabled}
           rows={1}
           className="min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-normal text-foreground outline-none placeholder:text-foreground/30 disabled:opacity-50"
           style={{ minHeight: 36, maxHeight: 120 }}
         />
+
+        {sessionConcluded && onStartNewSession && (
+          <button
+            type="button"
+            onClick={onStartNewSession}
+            disabled={startNewSessionPending}
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-xl bg-foreground/10 px-2 text-xs font-medium text-foreground/75 ring-1 ring-foreground/20 transition-colors hover:bg-foreground/15 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
+            title={t("game.input.startNewSession")}
+            aria-label={t("game.input.startNewSession")}
+          >
+            {startNewSessionPending ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+            <span className="hidden sm:inline">{t("game.input.startNewSession")}</span>
+          </button>
+        )}
 
         {queuedDice && (
           <div className="flex items-center self-stretch rounded-lg border border-foreground/10 bg-foreground/10 px-2 text-xs text-foreground/70">

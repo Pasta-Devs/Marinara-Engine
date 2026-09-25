@@ -1,6 +1,56 @@
 import type { LLMUsage } from "../llm/base-provider.js";
 import { stripGmCommandTags } from "../game/segment-edits.js";
 
+/** Preserve turn-wide billing counters across every completed request. */
+export function addGenerationUsage(total: LLMUsage | undefined, next: LLMUsage | undefined): LLMUsage | undefined {
+  if (!next) return total;
+  if (!total) return { ...next };
+  const merged = { ...total, ...next };
+  for (const key of [
+    "promptTokens",
+    "completionTokens",
+    "totalTokens",
+    "cachedPromptTokens",
+    "cacheWritePromptTokens",
+    "completionReasoningTokens",
+    "completionAudioTokens",
+    "acceptedPredictionTokens",
+    "rejectedPredictionTokens",
+  ] as const) {
+    if (total[key] != null || next[key] != null) merged[key] = (total[key] ?? 0) + (next[key] ?? 0);
+  }
+  return merged;
+}
+
+/** One request's occupied context, separate from the sum billed over a turn. */
+export function getRequestContextTokens(usage: LLMUsage | undefined, provider: string): number | null {
+  if (!usage) return null;
+  const count = (value: number | undefined) =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
+  const total = Math.max(count(usage.totalTokens), count(usage.promptTokens) + count(usage.completionTokens));
+  // Claude's native APIs report uncached input separately; OpenAI-compatible and
+  // Gemini prompt counts already include cached input. Gemini total also includes thinking.
+  return (
+    total +
+    (provider === "anthropic" || provider === "claude_subscription"
+      ? count(usage.cachedPromptTokens) + count(usage.cacheWritePromptTokens)
+      : 0)
+  );
+}
+
+/** Input size of one request; never substitute turn-wide billing totals for this value. */
+export function getRequestInputTokens(usage: LLMUsage | undefined, provider: string): number | null {
+  if (!usage || !Number.isFinite(usage.promptTokens) || usage.promptTokens < 0) return null;
+  const count = (value: number | undefined) =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
+  return (
+    usage.promptTokens +
+    (provider === "anthropic" || provider === "claude_subscription"
+      ? count(usage.cachedPromptTokens) + count(usage.cacheWritePromptTokens)
+      : 0)
+  );
+}
+
 export function bumpCharacterVersion(value: unknown): string {
   const raw = typeof value === "string" ? value.trim() : "";
   if (!raw) return "1.1";

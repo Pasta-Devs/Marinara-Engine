@@ -1,3 +1,4 @@
+import { notifyRoleplayTTSParagraph, withRoleplayTTSParagraphs } from "../../lib/roleplay-vn-tts";
 // ──────────────────────────────────────────────
 // Chat: Main chat area — mode-aware rendering
 // ──────────────────────────────────────────────
@@ -33,12 +34,12 @@ import {
 } from "../../hooks/use-chats";
 
 import { getCurrentInputSnapshot, useChatStore } from "../../stores/chat.store";
+import { hasActiveTextSelection } from "../../lib/text-selection";
 import { useGenerate } from "../../hooks/use-generate";
 import { useGenerateGallerySelfie } from "../../hooks/use-gallery";
 import {
   characterKeys,
   spriteKeys,
-  useActivePersona,
   useCharacters,
   usePersona,
   useUpdateCharacter,
@@ -48,7 +49,8 @@ import { usePageActivity } from "../../hooks/use-page-activity";
 import { useRenderTimer, useWhyRender } from "../../lib/perf-diagnostics";
 import { usePresenceClock } from "../../hooks/use-presence-clock";
 import { useKeepLatestChatMessageVisible } from "../../hooks/use-visual-viewport-chat-bottom";
-import { api, ApiError } from "../../lib/api-client";
+import { useChatOpeningScroll } from "../../hooks/use-chat-opening-scroll";
+import { api, ApiError, isRequestTimeoutError } from "../../lib/api-client";
 import { getChatDisplayName, getConnectedChatDisplayName, parseChatMetadata } from "../../lib/chat-display";
 import { getChatCharacterIds } from "../../lib/chat-macros";
 import { resolveSpriteExpression } from "../../lib/sprite-expression-match";
@@ -56,7 +58,11 @@ import { parseCharacterDisplayData } from "../../lib/character-display";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { parseMessageExtraRecord } from "../../lib/chat-message-extra";
 import { trimInactiveMessagePageCaches } from "../../lib/message-page-cache";
-import { normalizeSpriteExpressionMap, resolveSpriteExpressionState } from "../../lib/sprite-expression-state";
+import {
+  normalizeSpriteExpressionMap,
+  resolveLatestSpriteExpressionTurn,
+  resolveSpriteExpressionState,
+} from "../../lib/sprite-expression-state";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useGalleryStore } from "../../stores/gallery.store";
@@ -82,10 +88,12 @@ import { useEncounter } from "../../hooks/use-encounter";
 import { useScene } from "../../hooks/use-scene";
 import { useEncounterStore } from "../../stores/encounter.store";
 import { useTranslationStore } from "../../stores/translation.store";
+import { getChatTranslationConfig } from "@marinara-engine/shared";
 import { ttsService } from "../../lib/tts-service";
 import { useTTSConfig } from "../../hooks/use-tts";
 import {
   buildTTSVoiceRequests,
+  filterTTSText,
   findTTSCharacterIdBySpeakerName,
   withTTSVoiceRequestCacheKeys,
 } from "../../lib/tts-dialogue";
@@ -134,6 +142,7 @@ import { HomeCreditsModal } from "./HomeCreditsModal";
 import { HomeBrowserHub } from "./HomeBrowserHub";
 import { NewChatConnectionGate } from "./NewChatConnectionGate";
 import { ChatCommonOverlays, preloadChatSettingsDrawer, type ChatSettingsInitialSection } from "./ChatCommonOverlays";
+import { ADVANCED_MEMORY_SETTINGS_EVENT } from "../../hooks/use-advanced-memory";
 import { CreatorNotesCssInjector, type CardCssMode, type PersonaCssRow } from "./CreatorNotesCssInjector";
 import type { ChatModeFilter } from "../../lib/card-css";
 import {
@@ -284,6 +293,7 @@ const shouldIgnoreIntuitiveSwipeTarget = (
   target: EventTarget | null,
   { allowEmptyMainComposer = false }: { allowEmptyMainComposer?: boolean } = {},
 ): boolean => {
+  if (hasActiveTextSelection()) return true;
   if (!(target instanceof Element)) return false;
   if (
     allowEmptyMainComposer &&
@@ -329,6 +339,7 @@ type AgentInjectionReviewRequest = {
 
 type IllustratorPromptReviewRequest = {
   chatId: string;
+  subjectOnly?: boolean;
   item: ImagePromptReviewItem;
   resultData: Record<string, unknown>;
 };
@@ -344,19 +355,6 @@ function isCharacterRow(value: unknown): value is CharacterRow {
     typeof (value as { id?: unknown }).id === "string" &&
     typeof (value as { data?: unknown }).data !== "undefined"
   );
-}
-
-function resolveChatPersonaId(chat: unknown): string | null {
-  const rawPersonaId = (chat as { personaId?: unknown } | null | undefined)?.personaId;
-  if (typeof rawPersonaId === "string" && rawPersonaId.trim()) return rawPersonaId.trim();
-
-  const metadata = parseChatMetadata((chat as { metadata?: unknown } | null | undefined)?.metadata);
-  const setupConfig = metadata.gameSetupConfig;
-  const rawSetupPersonaId =
-    setupConfig && typeof setupConfig === "object" && !Array.isArray(setupConfig)
-      ? (setupConfig as { personaId?: unknown }).personaId
-      : null;
-  return typeof rawSetupPersonaId === "string" && rawSetupPersonaId.trim() ? rawSetupPersonaId.trim() : null;
 }
 
 function toCharacterMapValue(char: CharacterRow): CharacterMapValue {
@@ -513,13 +511,34 @@ export const ChatArea = memo(function ChatArea() {
   const [illustratorPromptReviewSubmitting, setIllustratorPromptReviewSubmitting] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const queryClient = useQueryClient();
+  // #5889: when Safari's autoplay policy blocks playback, the service parks in
+  // "blocked" and waits for a user gesture instead of retrying - tell the user
+  // the one tap that resumes it. Deduped by toast id across repeat blocks.
+  useEffect(() => {
+    let lastTtsState: ReturnType<typeof ttsService.getState> | null = null;
+    return ttsService.subscribe((state) => {
+      if (state === "blocked" && lastTtsState !== "blocked") {
+        toast.info(localizeUi("ui.chat.chatarea.audioBlockedTapToPlay"), { id: "tts-playback-blocked" });
+      } else if (state !== "blocked" && lastTtsState === "blocked") {
+        // The tap that resumed playback also fulfilled the toast - a lingering
+        // "tap to play" over audio that is already playing reads as broken.
+        toast.dismiss("tts-playback-blocked");
+      }
+      lastTtsState = state;
+    });
+  }, [localizeUi]);
   // Delete dialog & multi-select state
   const [deleteDialogMessageId, setDeleteDialogMessageId] = useState<string | null>(null);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
   const [selectionAnchorIndex, setSelectionAnchorIndex] = useState<number | null>(null);
 
-  const { data: chatDetail, error: chatError, isFetched: chatDetailFetched } = useChat(activeChatId);
+  const {
+    data: chatDetail,
+    error: chatError,
+    isFetched: chatDetailFetched,
+    refetch: refetchChatDetail,
+  } = useChat(activeChatId);
   const { data: allChats } = useChats();
   const listedActiveChat = useMemo(
     () => (activeChatId ? (allChats?.find((candidate) => candidate.id === activeChatId) ?? null) : null),
@@ -594,6 +613,16 @@ export const ChatArea = memo(function ChatArea() {
   }, [handleOpenSettingsPanel]);
 
   useEffect(() => {
+    const openMemorySettings = (event: Event) => {
+      const chatId = (event as CustomEvent<{ chatId?: string }>).detail?.chatId;
+      if (chatId !== useChatStore.getState().activeChatId) return;
+      handleOpenSettingsPanel(undefined, { initialSection: "memory-recall" });
+    };
+    window.addEventListener(ADVANCED_MEMORY_SETTINGS_EVENT, openMemorySettings);
+    return () => window.removeEventListener(ADVANCED_MEMORY_SETTINGS_EVENT, openMemorySettings);
+  }, [handleOpenSettingsPanel]);
+
+  useEffect(() => {
     window.addEventListener(CHAT_TOOLBAR_ACTION_EVENT, closeFloatingChatDrawers);
     window.addEventListener(CHAT_FLOATING_UI_DISMISS_EVENT, closeFloatingChatDrawers);
     return () => {
@@ -653,6 +682,19 @@ export const ChatArea = memo(function ChatArea() {
     enabled: !!chat?.id && chat.id === activeChatId && isGameChat,
     includeBuiltIn: true,
   });
+  // Only the selected identity card is needed here, so fetch that one row
+  // instead of the whole character library. [PR #5583]
+  const identityCharacterId = isGameChat ? null : (chat?.personaCharacterId ?? null);
+  const identityCharacterQueries = useQueries({
+    queries: (identityCharacterId ? [identityCharacterId] : []).map((id) => ({
+      queryKey: characterKeys.detail(id),
+      queryFn: () => api.get<CharacterRow>(`/characters/${id}`),
+      enabled: !!chat?.id && chat.id === activeChatId,
+      retry: false,
+      staleTime: 5 * 60_000,
+    })),
+  });
+  const identityCharacterRow = identityCharacterQueries[0]?.data ?? null;
   const deleteMessage = useDeleteMessage(activeChatId);
   const deleteMessages = useDeleteMessages(activeChatId);
   const deleteSwipe = useDeleteSwipe(activeChatId);
@@ -742,6 +784,7 @@ export const ChatArea = memo(function ChatArea() {
       const success = await retryAgents(illustratorPromptReview.chatId, ["illustrator"], {
         illustratorPromptReviewOverride: {
           resultData: illustratorPromptReview.resultData,
+          ...(illustratorPromptReview.subjectOnly ? { subjectOnly: true } : {}),
           prompt: override.prompt,
           ...(override.negativePrompt ? { negativePrompt: override.negativePrompt } : {}),
         },
@@ -758,14 +801,49 @@ export const ChatArea = memo(function ChatArea() {
     setIllustratorPromptReview(null);
   }, [illustratorPromptReviewSubmitting]);
 
+  const handleIllustrate = useCallback(
+    (prompt?: string) => {
+      if (!activeChatId) return;
+      const resultData = { prompt, characters: [] };
+      if (prompt && useUIStore.getState().reviewImagePromptsBeforeSend) {
+        setIllustratorPromptReview({
+          chatId: activeChatId,
+          subjectOnly: true,
+          resultData,
+          item: {
+            id: "roleplay-scene-illustration",
+            kind: "illustration",
+            title: localizeUi("ui.chat.chatgallery.illustrate"),
+            prompt,
+          },
+        });
+        return;
+      }
+      return retryAgents(activeChatId, ["illustrator"], {
+        illustratorRetryTargets: ["illustration"],
+        ...(prompt ? { illustratorPromptReviewOverride: { prompt, subjectOnly: true, resultData } } : {}),
+      }).then(() => undefined);
+    },
+    [activeChatId, localizeUi, retryAgents],
+  );
+
+  const illustratorPromptReviewModal = (
+    <ImagePromptReviewModal
+      open={!!illustratorPromptReview}
+      items={illustratorPromptReview ? [illustratorPromptReview.item] : []}
+      isSubmitting={illustratorPromptReviewSubmitting}
+      onCancel={handleCloseIllustratorPromptReview}
+      onConfirm={(overrides) => void handleContinueIllustratorPromptReview(overrides)}
+    />
+  );
+
   // Character IDs in the active chat. Keyed on the raw characterIds field
   // (all getChatCharacterIds reads) so chat-detail refetches that only bump
   // other fields don't renew the array identity. [#3164]
   const chatCharacterIdsRaw = chat?.characterIds;
   const chatCharIds = useMemo(() => getChatCharacterIds({ characterIds: chatCharacterIdsRaw }), [chatCharacterIdsRaw]);
-  const chatPersonaId = useMemo(() => resolveChatPersonaId(chat), [chat]);
+  const chatPersonaId = chat?.personaId ?? null;
   const { data: chatPersona } = usePersona(chatPersonaId);
-  const { data: activePersonaFallback } = useActivePersona(!!chat?.id && !chatPersonaId && chatMode === "conversation");
 
   const activeCharacterQueries = useQueries({
     queries: chatCharIds.map((id) => ({
@@ -832,8 +910,7 @@ export const ChatArea = memo(function ChatArea() {
     // generate. Prefer the live override/schedule-derived status (matching the presence pill, via
     // the shared resolver) over the generation-time snapshot, which only refreshes on generation.
     const chatStatuses = convoMeta.conversationCharacterStatuses as
-      | Record<string, { status?: string; activity?: string }>
-      | undefined;
+      Record<string, { status?: string; activity?: string }> | undefined;
     const presenceIds = new Set<string>([
       ...Object.keys(chatStatuses ?? {}),
       ...Object.keys((convoMeta.conversationStatusOverrides as Record<string, unknown> | undefined) ?? {}),
@@ -931,14 +1008,53 @@ export const ChatArea = memo(function ChatArea() {
     });
   }, [gameLibraryCharacters, isGameChat]);
 
-  // Active persona info (for user message styling: name, avatar, colors)
+  // Chat persona info (for user message styling: name, avatar, colors)
   const personaInfo = useMemo(() => {
-    // Roleplay and Game may intentionally have no Persona; only Conversation
-    // falls back to the globally active account Persona.
-    const persona = chatPersona ?? (chatMode === "conversation" ? activePersonaFallback : null);
+    if (chat?.personaCharacterId) {
+      const row = identityCharacterRow;
+      if (row && row.id === chat.personaCharacterId) {
+        try {
+          const rawData = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
+          const data = rawData && typeof rawData === "object" && !Array.isArray(rawData) ? rawData : {};
+          const extensions = data?.extensions ?? {};
+          const conversationStatus =
+            extensions.conversationStatus === "online" ||
+            extensions.conversationStatus === "idle" ||
+            extensions.conversationStatus === "dnd" ||
+            extensions.conversationStatus === "offline"
+              ? extensions.conversationStatus
+              : undefined;
+          return {
+            id: row.id,
+            source: "character" as const,
+            name: typeof data?.name === "string" && data.name.trim() ? data.name : "Unknown",
+            convoDisplayName: typeof extensions.convoDisplayName === "string" ? extensions.convoDisplayName : undefined,
+            phoneticName: typeof extensions.phoneticName === "string" ? extensions.phoneticName : undefined,
+            description: typeof data?.description === "string" ? data.description : undefined,
+            personality: typeof data?.personality === "string" ? data.personality : undefined,
+            scenario: typeof data?.scenario === "string" ? data.scenario : undefined,
+            backstory: typeof extensions.backstory === "string" ? extensions.backstory : undefined,
+            appearance: typeof extensions.appearance === "string" ? extensions.appearance : undefined,
+            avatarUrl: row.avatarPath || undefined,
+            avatarCrop: normalizeAvatarCrop(extensions.avatarCrop),
+            nameColor: typeof extensions.nameColor === "string" ? extensions.nameColor : undefined,
+            dialogueColor: typeof extensions.dialogueColor === "string" ? extensions.dialogueColor : undefined,
+            boxColor: typeof extensions.boxColor === "string" ? extensions.boxColor : undefined,
+            conversationStatus,
+            conversationActivity:
+              typeof extensions.conversationActivity === "string" ? extensions.conversationActivity : undefined,
+          };
+        } catch {
+          return undefined;
+        }
+      }
+      return undefined;
+    }
+    const persona = chatPersona;
     if (!persona) return undefined;
     return {
       id: persona.id,
+      source: "persona" as const,
       name: persona.name,
       convoDisplayName: persona.convoDisplayName || undefined,
       phoneticName: persona.phoneticName || undefined,
@@ -953,7 +1069,7 @@ export const ChatArea = memo(function ChatArea() {
       dialogueColor: persona.dialogueColor || undefined,
       boxColor: persona.boxColor || undefined,
     };
-  }, [activePersonaFallback, chatMode, chatPersona]);
+  }, [chat, chatPersona, identityCharacterRow]);
 
   const { startEncounter } = useEncounter();
   const { concludeScene, abandonScene, forkScene, isForking } = useScene();
@@ -1053,6 +1169,28 @@ export const ChatArea = memo(function ChatArea() {
     () => resolveSpriteExpressionState(messages, chatMeta.spriteExpressions),
     [messages, chatMeta.spriteExpressions],
   );
+  // Keep each scene across chat switches and temporary Roleplay surface unmounts while a chat loads.
+  const completedExpressionTurn = useMemo(() => resolveLatestSpriteExpressionTurn(messages), [messages]);
+  const [retainedExpressionSprites, setRetainedExpressionSprites] = useState<
+    Map<string, ReturnType<typeof resolveLatestSpriteExpressionTurn>>
+  >(() => new Map());
+  const retainedExpressionTurn = activeChatId ? retainedExpressionSprites.get(activeChatId) : undefined;
+  const retainedExpressionIndex =
+    messages?.findIndex((message) => message.id === retainedExpressionTurn?.messageId) ?? -1;
+  // Regeneration can replace the current swipe before its expressions finish. Don't rewind to an older scene.
+  const visibleExpressionTurn =
+    retainedExpressionTurn && (!messages || retainedExpressionIndex > (completedExpressionTurn?.messageIndex ?? -1))
+      ? retainedExpressionTurn
+      : completedExpressionTurn;
+  useEffect(() => {
+    if (!activeChatId || !messages) return;
+    setRetainedExpressionSprites((previous) => {
+      if (previous.get(activeChatId) === visibleExpressionTurn) return previous;
+      const next = new Map(previous);
+      next.set(activeChatId, visibleExpressionTurn);
+      return next;
+    });
+  }, [activeChatId, messages, visibleExpressionTurn]);
   const groupChatMode: string | undefined = chatCharIds.length > 1 ? (chatMeta.groupChatMode ?? "merged") : undefined;
 
   const updateMeta = useUpdateChatMetadata();
@@ -1338,9 +1476,9 @@ export const ChatArea = memo(function ChatArea() {
   // (personas have no other data-card-css hook), so only feed it in Convo mode.
   const cardCssPersonas = useMemo<PersonaCssRow[] | undefined>(() => {
     if (chatMode !== "conversation") return undefined;
-    const persona = chatPersona ?? activePersonaFallback;
+    const persona = chatPersona;
     return persona?.id ? [{ id: persona.id, creatorNotes: persona.creatorNotes }] : undefined;
-  }, [chatMode, chatPersona, activePersonaFallback]);
+  }, [chatMode, chatPersona]);
   const cardCssInjector = (
     <CreatorNotesCssInjector
       characterIds={chatCharIds}
@@ -1354,50 +1492,11 @@ export const ChatArea = memo(function ChatArea() {
   // Sync translation config from chat metadata to the translation store
   useEffect(() => {
     if (!chat?.id) return;
-    const legacyTargetLanguage = chatMeta.translationTargetLang?.trim() || "en";
-    const legacySystemPrompt = typeof chatMeta.translationPrompt === "string" ? chatMeta.translationPrompt : undefined;
-    const inputSystemPrompt =
-      chatMeta.translationInputPrompt === undefined
-        ? legacySystemPrompt
-        : typeof chatMeta.translationInputPrompt === "string"
-          ? chatMeta.translationInputPrompt
-          : undefined;
-    const outputSystemPrompt =
-      chatMeta.translationOutputPrompt === undefined
-        ? legacySystemPrompt
-        : typeof chatMeta.translationOutputPrompt === "string"
-          ? chatMeta.translationOutputPrompt
-          : undefined;
-    useTranslationStore.getState().setConfig({
-      provider: chatMeta.translationProvider ?? "google",
-      // A cleared settings field stores "" — fall back to the legacy/default
-      // language so translation never runs with an empty target.
-      inputTargetLanguage: chatMeta.translationInputTargetLang?.trim() || legacyTargetLanguage,
-      outputTargetLanguage: chatMeta.translationOutputTargetLang?.trim() || legacyTargetLanguage,
-      connectionId: chatMeta.translationConnectionId,
-      inputSystemPrompt,
-      outputSystemPrompt,
-      deeplApiKey: chatMeta.translationDeeplApiKey,
-      deeplxUrl: chatMeta.translationDeeplxUrl,
-    });
-  }, [
-    chat?.id,
-    chatMeta.translationProvider,
-    chatMeta.translationTargetLang,
-    chatMeta.translationInputTargetLang,
-    chatMeta.translationOutputTargetLang,
-    chatMeta.translationConnectionId,
-    chatMeta.translationPrompt,
-    chatMeta.translationInputPrompt,
-    chatMeta.translationOutputPrompt,
-    chatMeta.translationDeeplApiKey,
-    chatMeta.translationDeeplxUrl,
-  ]);
+    useTranslationStore.getState().setConfig(getChatTranslationConfig(chat.id, chatMeta));
+  }, [chat?.id, chatMeta]);
 
   // On chat switch, clear in-memory translations and seed from persisted extras.
-  // Also re-seed when new pages are fetched (pagination) so older persisted
-  // translations become visible.
-  const msgPageCount = msgData?.pages.length ?? 0;
+  // Also re-seed when message extras arrive after a chat switch or pagination.
   const prevChatIdRef = useRef(chat?.id);
   useEffect(() => {
     if (!messages) return;
@@ -1413,8 +1512,7 @@ export const ChatArea = memo(function ChatArea() {
         extra?: string | Record<string, unknown> | null;
       }>,
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chat?.id, msgPageCount]);
+  }, [chat?.id, messages]);
 
   // Sync chat background from metadata when switching chats. Set the UI store
   // to whatever the chat's metadata says — including null. The previous version
@@ -1442,7 +1540,6 @@ export const ChatArea = memo(function ChatArea() {
   // stale saved background. We only write null when metadata already had a
   // background — that way a global UI background carried over from a previous
   // chat doesn't pollute a fresh chat's metadata on switch.
-  const bgPersistTimer = useRef<ReturnType<typeof setTimeout>>(null);
   useEffect(() => {
     if (!chat?.id) return;
     const savedBackground = chatBackgroundUrlToMetadata(chatBackgroundMetadataToUrl(chatMeta.background));
@@ -1458,28 +1555,13 @@ export const ChatArea = memo(function ChatArea() {
       restoredBackground.isSyncing = false;
     }
 
-    if (!chatBackground) {
-      if (savedBackground === null) return;
-      if (bgPersistTimer.current) clearTimeout(bgPersistTimer.current);
-      bgPersistTimer.current = setTimeout(() => {
-        updateMeta.mutate({ id: chat!.id, background: null });
-      }, 500);
-      return;
-    }
-
     const nextBackground = chatBackgroundUrlToMetadata(chatBackground);
     if (nextBackground === savedBackground) return;
-    if (bgPersistTimer.current) clearTimeout(bgPersistTimer.current);
-    bgPersistTimer.current = setTimeout(() => {
-      updateMeta.mutate({ id: chat!.id, background: nextBackground });
-    }, 500);
+    // A selection is a discrete action, not typing: save immediately so leaving
+    // the chat cannot cancel a pending background change.
+    updateMeta.mutate({ id: chat.id, background: nextBackground });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatBackground, chat?.id]);
-  useEffect(() => {
-    return () => {
-      if (bgPersistTimer.current) clearTimeout(bgPersistTimer.current);
-    };
-  }, []);
 
   const expressionSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const pendingExpressions = useRef<Record<string, string>>(spriteExpressions);
@@ -2392,8 +2474,10 @@ export const ChatArea = memo(function ChatArea() {
   const userScrolledAtRef = useRef(0);
   const forcedBottomScrollRef = useRef<{ requestedAt: number; behavior: ScrollBehavior } | null>(null);
   const openedAtBottomChatIdRef = useRef<string | null>(null);
+  const gotoRequest = useChatStore((s) => s.gotoRequest);
   const streamScrollFrameRef = useRef(0);
   const scrollToMessagesBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    if (hasActiveTextSelection()) return;
     const el = scrollRef.current;
     if (el) {
       el.scrollTo({ top: el.scrollHeight, behavior });
@@ -2429,6 +2513,14 @@ export const ChatArea = memo(function ChatArea() {
     [scrollToMessagesBottom],
   );
   useKeepLatestChatMessageVisible(scrollRef, scrollToMessagesBottom);
+  const followOpeningScroll = useChatOpeningScroll(
+    isRoleplay && gotoRequest?.chatId !== activeChatId ? activeChatId : null,
+    scrollRef,
+    scrollToMessagesBottom,
+  );
+  useEffect(() => {
+    openedAtBottomChatIdRef.current = null;
+  }, [activeChatId]);
   useEffect(() => {
     const handleScrollRequest = (event: Event) => {
       const detail = (event as CustomEvent<ChatScrollToBottomDetail>).detail;
@@ -2446,26 +2538,42 @@ export const ChatArea = memo(function ChatArea() {
   }, [activeChatId, scheduleScrollToMessagesBottom]);
 
   useEffect(() => {
-    if (!activeChatId || isFetchingNextPage || isLoadingMoreRef.current) return;
+    if (!activeChatId || !isRoleplay || isFetchingNextPage || isLoadingMoreRef.current) return;
     if (openedAtBottomChatIdRef.current === activeChatId) return;
-    if (isLoading && loadedMessageCount === 0) return;
+    if (!messages || (isLoading && loadedMessageCount === 0) || gotoRequest?.chatId === activeChatId) return;
 
     let frame = 0;
     const scrollWhenSurfaceIsReady = () => {
+      if (frame) cancelAnimationFrame(frame);
+      if (hasActiveTextSelection()) return;
       if (!scrollRef.current && !messagesEndRef.current) {
         frame = requestAnimationFrame(scrollWhenSurfaceIsReady);
         return;
       }
 
+      document.removeEventListener("selectionchange", scrollWhenSurfaceIsReady);
       openedAtBottomChatIdRef.current = activeChatId;
       userScrolledAwayRef.current = false;
       isNearBottomRef.current = true;
-      scheduleScrollToMessagesBottom("auto");
+      followOpeningScroll();
     };
 
+    document.addEventListener("selectionchange", scrollWhenSurfaceIsReady);
     scrollWhenSurfaceIsReady();
-    return () => cancelAnimationFrame(frame);
-  }, [activeChatId, isFetchingNextPage, isLoading, loadedMessageCount, scheduleScrollToMessagesBottom]);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("selectionchange", scrollWhenSurfaceIsReady);
+    };
+  }, [
+    activeChatId,
+    isRoleplay,
+    isFetchingNextPage,
+    isLoading,
+    loadedMessageCount,
+    messages,
+    gotoRequest,
+    followOpeningScroll,
+  ]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -2570,7 +2678,7 @@ export const ChatArea = memo(function ChatArea() {
       if (mode === "roleplay" && cfg.roleplaySpeakerExtractorEnabled) {
         try {
           const extracted = await extractRoleplayTTSSpeakers({
-            message: lastMsg.content,
+            message: filterTTSText(lastMsg.content, cfg),
             group: getChatDisplayName(chat) || characterNames.join(", "),
             user: personaInfo?.name || "User",
             characters: characterNames,
@@ -2614,12 +2722,28 @@ export const ChatArea = memo(function ChatArea() {
         return;
       if (ttsRequests.length === 0) return;
 
+      if (
+        mode === "roleplay" &&
+        (chatMeta.roleplayDisplayStyle ?? useUIStore.getState().roleplayDisplayStyle) === "visual-novel"
+      ) {
+        ttsRequests = withRoleplayTTSParagraphs(ttsRequests, lastMsg.content, cfg);
+      }
+
       await ttsService.speakSequence(withTTSVoiceRequestCacheKeys(ttsRequests, cfg, lastMsg.id), lastMsg.id, {
         progressive: cfg.progressivePlayback,
         volume: ttsLineVolume / 100,
+        onChunkStart: (_request, index) => notifyRoleplayTTSParagraph(targetChatId, lastMsg.id, ttsRequests, index),
       });
     },
-    [characterMap, characterNames, chat, personaInfo?.name, resolveTTSCharacterId, ttsLineVolume],
+    [
+      characterMap,
+      characterNames,
+      chat,
+      chatMeta.roleplayDisplayStyle,
+      personaInfo?.name,
+      resolveTTSCharacterId,
+      ttsLineVolume,
+    ],
   );
   useEffect(() => {
     const handleMessageReady = (event: Event) => {
@@ -2727,14 +2851,15 @@ export const ChatArea = memo(function ChatArea() {
   }, [pageCount, isFetchingNextPage]);
 
   const handleLoadMore = useCallback(() => {
-    if (!scrollRef.current || !hasNextPage || isFetchingNextPage) return;
-    prevScrollHeightRef.current = scrollRef.current.scrollHeight;
-    isLoadingMoreRef.current = true;
+    if (!hasNextPage || isFetchingNextPage) return;
+    if (scrollRef.current) {
+      prevScrollHeightRef.current = scrollRef.current.scrollHeight;
+      isLoadingMoreRef.current = true;
+    }
     fetchNextPage();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   // ── /goto command: paginate older pages until target message is loaded, then scroll to it
-  const gotoRequest = useChatStore((s) => s.gotoRequest);
   useEffect(() => {
     if (!gotoRequest || gotoRequest.chatId !== activeChatId) return;
     if (!messages) return;
@@ -2762,6 +2887,7 @@ export const ChatArea = memo(function ChatArea() {
       const raf = requestAnimationFrame(() => {
         const el = document.querySelector(`[data-message-id="${CSS.escape(targetId)}"]`);
         if (el instanceof HTMLElement) {
+          openedAtBottomChatIdRef.current = activeChatId;
           el.scrollIntoView({ behavior: "smooth", block: "center" });
           userScrolledAwayRef.current = true; // suppress auto-scroll-to-bottom hijacking the jump
         }
@@ -2800,8 +2926,10 @@ export const ChatArea = memo(function ChatArea() {
   // Restoring persisted active chat
   // ═══════════════════════════════════════════════
   if (activeChatId && !chat) {
-    const errorMessage =
-      chatError instanceof ApiError
+    const chatOpenTimedOut = isRequestTimeoutError(chatError);
+    const errorMessage = chatOpenTimedOut
+      ? localizeUi("ui.chat.chatarea.serverUnreachableHint")
+      : chatError instanceof ApiError
         ? chatError.message
         : chatError instanceof Error
           ? chatError.message
@@ -2820,7 +2948,9 @@ export const ChatArea = memo(function ChatArea() {
           <div className="space-y-1">
             <p className="text-sm font-medium text-[var(--foreground)]">
               {hasOpenError
-                ? localizeUi("ui.chat.chatarea.couldNotOpenThisChat")
+                ? chatOpenTimedOut
+                  ? localizeUi("ui.chat.chatarea.serverUnreachable")
+                  : localizeUi("ui.chat.chatarea.couldNotOpenThisChat")
                 : localizeUi("ui.chat.chatarea.openingChat")}
             </p>
             {hasOpenError && (
@@ -2828,13 +2958,27 @@ export const ChatArea = memo(function ChatArea() {
             )}
           </div>
           {hasOpenError && (
-            <button
-              type="button"
-              onClick={() => setActiveChatId(null)}
-              className="mari-chrome-control mari-chrome-control--small text-xs"
-            >
-              {localizeUi("ui.chat.chatarea.backToChats")}
-            </button>
+            <div className="flex items-center gap-2">
+              {/* The unreachable hint tells the user to try again after
+                  foregrounding Termux; with focus-refetch globally off and
+                  timeout retries disabled, this button is the recovery path. */}
+              {chatOpenTimedOut && (
+                <button
+                  type="button"
+                  onClick={() => void refetchChatDetail()}
+                  className="mari-chrome-control mari-chrome-control--small text-xs"
+                >
+                  {localizeUi("ui.chat.chatarea.tryAgain")}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setActiveChatId(null)}
+                className="mari-chrome-control mari-chrome-control--small text-xs"
+              >
+                {localizeUi("ui.chat.chatarea.backToChats")}
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -3085,11 +3229,7 @@ export const ChatArea = memo(function ChatArea() {
             onOpenScheduleEditor={handleOpenScheduleEditor}
             onCloseSettings={handleCloseSettingsPanel}
             onCloseGallery={handleCloseGalleryPanel}
-            onIllustrate={() =>
-              retryAgents(activeChatId, ["illustrator"], {
-                illustratorRetryTargets: ["illustration"],
-              })
-            }
+            onIllustrate={handleIllustrate}
             onIllustrateWithAgent={async (agentType) => {
               await retryAgents(activeChatId, [agentType], { forceImageGeneration: true });
             }}
@@ -3115,6 +3255,7 @@ export const ChatArea = memo(function ChatArea() {
             lastAssistantMessageId={lastAssistantMessageId}
           />
         </Suspense>
+        {illustratorPromptReviewModal}
         <ImagePromptReviewModal
           open={conversationSelfieReviewItems.length > 0}
           items={conversationSelfieReviewItems}
@@ -3162,6 +3303,9 @@ export const ChatArea = memo(function ChatArea() {
           spriteCharacterIds={spriteCharacterIds}
           spriteDisplayModes={visibleSpriteDisplayModes}
           spriteExpressions={spriteExpressions}
+          visibleExpressionSpriteIds={
+            chatMeta.expressionOnlyActiveSprites === true ? visibleExpressionTurn?.characterIds : undefined
+          }
           expressionAvatarResolver={expressionAvatarResolver}
           spritePlacements={spritePlacements}
           spriteScale={spriteScale}
@@ -3232,11 +3376,7 @@ export const ChatArea = memo(function ChatArea() {
           onCloseSettings={handleCloseSettingsPanel}
           onCloseGallery={handleCloseGalleryPanel}
           onOpenScheduleEditor={handleOpenScheduleEditor}
-          onIllustrate={() =>
-            retryAgents(activeChatId, ["illustrator"], {
-              illustratorRetryTargets: ["illustration"],
-            })
-          }
+          onIllustrate={handleIllustrate}
           onIllustrateWithAgent={async (agentType) => {
             await retryAgents(activeChatId, [agentType], { forceImageGeneration: true });
           }}
@@ -3279,13 +3419,7 @@ export const ChatArea = memo(function ChatArea() {
           onClose={handleCloseAgentInjectionReview}
         />
       )}
-      <ImagePromptReviewModal
-        open={!!illustratorPromptReview}
-        items={illustratorPromptReview ? [illustratorPromptReview.item] : []}
-        isSubmitting={illustratorPromptReviewSubmitting}
-        onCancel={handleCloseIllustratorPromptReview}
-        onConfirm={(overrides) => void handleContinueIllustratorPromptReview(overrides)}
-      />
+      {illustratorPromptReviewModal}
       <ImagePromptReviewModal
         open={roleplayVideoReviewItems.length > 0}
         items={roleplayVideoReviewItems}

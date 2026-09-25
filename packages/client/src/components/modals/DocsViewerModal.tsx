@@ -1,3 +1,4 @@
+import { useCodeBlockCopy } from "../../hooks/use-code-block-copy";
 // ──────────────────────────────────────────────
 // DocsViewerModal: Browse the guides shipped in docs/
 // ──────────────────────────────────────────────
@@ -580,48 +581,7 @@ export function DocsViewerModal({
     setPendingScrollTerm(null);
   }, [scrollEl, rendered, selected, pendingScrollTerm]);
 
-  // Give every rendered code block a Copy button (docs-viewer only — the
-  // markdown renderer is shared with chat, so we augment the committed DOM
-  // here instead of changing it globally). The rendered tree is memoized and
-  // the container remounts per doc, so these nodes are stable until cleanup.
-  useEffect(() => {
-    if (!scrollEl || !rendered) return;
-    const cleanups: (() => void)[] = [];
-    scrollEl.querySelectorAll<HTMLPreElement>("pre.mari-md-codeblock").forEach((block) => {
-      if (block.querySelector(".docs-copy-button")) return;
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = localizeUi("ui.modals.docsviewermodal.copy");
-      button.className =
-        "docs-copy-button absolute bottom-1.5 right-1.5 rounded-md border border-[var(--border)] bg-[var(--card)]/90 px-1.5 py-0.5 font-sans text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]";
-      let resetTimer: ReturnType<typeof setTimeout> | undefined;
-      const onClick = () => {
-        const code = block.querySelector("code")?.textContent ?? "";
-        navigator.clipboard
-          .writeText(code)
-          .then(() => {
-            button.textContent = localizeUi("ui.modals.docsviewermodal.copied");
-          })
-          .catch(() => {
-            button.textContent = localizeUi("ui.modals.docsviewermodal.copyFailed");
-          })
-          .finally(() => {
-            clearTimeout(resetTimer);
-            resetTimer = setTimeout(() => {
-              button.textContent = localizeUi("ui.modals.docsviewermodal.copy");
-            }, 1500);
-          });
-      };
-      button.addEventListener("click", onClick);
-      block.appendChild(button);
-      cleanups.push(() => {
-        clearTimeout(resetTimer);
-        button.removeEventListener("click", onClick);
-        button.remove();
-      });
-    });
-    return () => cleanups.forEach((cleanup) => cleanup());
-  }, [scrollEl, rendered, localizeUi]);
+  useCodeBlockCopy(scrollEl, rendered);
 
   /** Follow rewritten cross-doc links inside the modal instead of opening a new tab. */
   const handleContentClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -891,7 +851,7 @@ export function DocsViewerModal({
                     // .mari-md-codeblock rule is unlayered CSS (beats the utilities
                     // layer, hence the !), and the corner-anchored lang tag + Copy
                     // button would float over the text of a scrolled block.
-                    className="mari-message-content docs-reader-content whitespace-pre-wrap break-words text-sm text-[var(--foreground)] [&_.mari-md-codeblock]:whitespace-pre-wrap! [&_.mari-md-codeblock]:[overflow-wrap:anywhere]! [&_.mari-md-codeblock]:pb-9!"
+                    className="mari-message-content docs-reader-content whitespace-pre-wrap break-words text-sm text-[var(--foreground)] [&_.mari-md-codeblock]:whitespace-pre-wrap! [&_.mari-md-codeblock]:[overflow-wrap:anywhere]! [&_.mari-md-codeblock]:pb-12!"
                     onClick={handleContentClick}
                   >
                     {rendered}

@@ -1227,6 +1227,18 @@ for (const invalidExpectedCount of ["1", 1.5]) {
       { id: "row-game_scene_videos", chatId: "chat-x", filePath: "v.mp4", createdAt: "2026-08-08T10:00:05.000Z" },
     ],
     [
+      "game_dice_pools",
+      {
+        id: "row-game_dice_pools",
+        chatId: "chat-x",
+        messageId: "m-1",
+        swipeIndex: 0,
+        pool: "{}",
+        consumed: "[]",
+        createdAt: "2026-08-08T10:00:05.100Z",
+      },
+    ],
+    [
       "spatial_context_snapshots",
       {
         id: "row-spatial_context_snapshots",

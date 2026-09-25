@@ -52,6 +52,7 @@ export function resolveChatSummaryTemperatureOptions(connection: {
     enabledParameters: {
       ...connection.enabledParameters,
       temperature: hasTemperature,
+      maxTokens: true,
     },
   };
 }
@@ -95,7 +96,7 @@ export async function resolveChatSummaryConnection(args: {
     withConnectionFallbackProvider({
       primary: provider,
       primaryConnectionId,
-      fallbackConnection: fallbackAgentConnection,
+      fallbackConnection: fallbackAgentConnection ? { ...fallbackAgentConnection, maxTokensOverride: null } : null,
       fallbackBaseUrl: fallbackAgentConnection ? args.resolveBaseUrl(fallbackAgentConnection) : "",
       category: "agents",
     });
@@ -155,7 +156,7 @@ export async function resolveChatSummaryConnection(args: {
           conn.apiKey,
           conn.maxContext,
           conn.openrouterProvider,
-          conn.maxTokensOverride,
+          null, // Chat Summary → Maximum output size is authoritative for these calls.
           conn.claudeFastMode === "true",
           conn.treatAsLocalEndpoint === "true",
           conn.defaultParameters,

@@ -11,7 +11,11 @@
 // parseNarrationSegments segment-indexing logic just enough to do that.
 // ──────────────────────────────────────────────
 
-import { formatSkillCheckResultSummary, type SkillCheckResult } from "@marinara-engine/shared";
+import {
+  formatSkillCheckResultSummary,
+  stripGameBranchDelimiters,
+  type SkillCheckResult,
+} from "@marinara-engine/shared";
 
 /**
  * Strip GM command tags from message content.
@@ -20,7 +24,16 @@ import { formatSkillCheckResultSummary, type SkillCheckResult } from "@marinara-
  * are preserved as plain text because the roll result is canonical history.
  */
 export function stripGmCommandTags(content: string): string {
-  let text = stripSimpleGmTags(preserveResolvedSkillCheckResults(content));
+  // The one-request dice branch delimiters, which NOTHING below reaches. `readGmTagHead`
+  // requires the character after the name to be `:` or `]`, and `[on success]` has a
+  // space there, so the head read returns null and `REMOVABLE_GM_TAGS` is skipped before
+  // it is ever consulted; `[/branch]` is not a `[name:` or `[name]` head at all, and the
+  // dangling-closer sweep only clears lines that are ENTIRELY closers. Adding a name to
+  // the set below does not strip either one — only this literal pass does. The prose
+  // between the delimiters is kept: a block only reaches a stripper when the chance pass
+  // never ran for it, so what this is looking at is narration the player already read.
+  let text = stripGameBranchDelimiters(content);
+  text = stripSimpleGmTags(preserveResolvedSkillCheckResults(text));
   // Catch-all for unknown [tag: value] (but NOT [Name] or [Note:/Book:])
   text = stripUnknownGmTags(text);
   text = stripDanglingTagClosers(text);
@@ -50,6 +63,9 @@ const REMOVABLE_GM_TAGS = new Set([
   "dice",
   "choices",
   "map_update",
+  // `[branch: id]` is the one branch delimiter that IS an ordinary `[name:` head, so it is
+  // the one the walk below can reach. The other three are stripped above.
+  "branch",
 ]);
 const VALUELESS_GM_TAGS = new Set(["party-turn", "party-chat"]);
 const BALANCED_GM_TAGS = new Set(["choices", "map_update"]);

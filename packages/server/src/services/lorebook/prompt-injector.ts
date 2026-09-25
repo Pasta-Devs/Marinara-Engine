@@ -4,7 +4,7 @@
 // them into the prompt at the correct positions
 // (WORLD_INFO_BEFORE / WORLD_INFO_AFTER / depth).
 // ──────────────────────────────────────────────
-import type { LorebookRole } from "@marinara-engine/shared";
+import { estimateTextTokens, type LorebookRole } from "@marinara-engine/shared";
 import type { ActivatedEntry } from "./keyword-scanner.js";
 
 /** A prompt message ready for injection. */
@@ -129,12 +129,11 @@ export function injectAtDepth(
 /**
  * Apply token budget to activated entries.
  * Trims entries (by priority/order) until total tokens are within budget.
- * Uses a rough estimate of 4 characters per token.
+ * Uses the shared lightweight token estimator.
  */
 export function applyTokenBudget(activatedEntries: ActivatedEntry[], tokenBudget: number): ActivatedEntry[] {
   if (tokenBudget <= 0) return activatedEntries;
 
-  const CHARS_PER_TOKEN = 4;
   let totalTokens = 0;
   const result: ActivatedEntry[] = [];
 
@@ -146,7 +145,7 @@ export function applyTokenBudget(activatedEntries: ActivatedEntry[], tokenBudget
   });
 
   for (const entry of sorted) {
-    const entryTokens = Math.ceil(entry.entry.content.length / CHARS_PER_TOKEN);
+    const entryTokens = estimateTextTokens(entry.entry.content);
     if (totalTokens + entryTokens > tokenBudget) {
       // Budget exhausted — skip remaining entries
       break;
@@ -173,7 +172,11 @@ export function processActivatedEntries(
   totalTokensEstimate: number;
 } {
   // Apply budget
-  const budgeted = applyTokenBudget(activatedEntries, tokenBudget);
+  // Legacy unnamed outlets have no injection target and must not count as included.
+  const budgeted = applyTokenBudget(
+    activatedEntries.filter(({ entry }) => entry.position !== 7 || Boolean(entry.outletName?.trim())),
+    tokenBudget,
+  );
 
   // Build blocks
   const { before, after } = buildWorldInfoBlocks(budgeted);
@@ -194,7 +197,7 @@ export function processActivatedEntries(
   const outlets = Object.fromEntries(Array.from(outletParts, ([name, parts]) => [name, parts.join("\n")]));
 
   // Estimate tokens
-  const totalChars = budgeted.reduce((sum, a) => sum + a.entry.content.length, 0);
+  const totalTokensEstimate = estimateTextTokens(budgeted.map((a) => a.entry.content).join(""));
 
   return {
     worldInfoBefore: before,
@@ -202,6 +205,6 @@ export function processActivatedEntries(
     depthEntries,
     outlets,
     totalEntries: budgeted.length,
-    totalTokensEstimate: Math.ceil(totalChars / 4),
+    totalTokensEstimate,
   };
 }

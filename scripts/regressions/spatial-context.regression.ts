@@ -94,8 +94,7 @@ assert.equal(
 assert.equal(
   shouldSaveHiddenGenerationAnchor({
     impersonate: true,
-    parsedCommandCount: 0,
-    parsedRawCommandCount: 0,
+    hasActionableOutput: false,
     spatialDirectiveDetected: true,
   }),
   true,
@@ -104,8 +103,7 @@ assert.equal(
 assert.equal(
   shouldSaveHiddenGenerationAnchor({
     impersonate: false,
-    parsedCommandCount: 0,
-    parsedRawCommandCount: 0,
+    hasActionableOutput: false,
     spatialDirectiveDetected: true,
   }),
   true,
@@ -114,8 +112,7 @@ assert.equal(
 assert.equal(
   shouldSaveHiddenGenerationAnchor({
     impersonate: true,
-    parsedCommandCount: 1,
-    parsedRawCommandCount: 1,
+    hasActionableOutput: true,
     spatialDirectiveDetected: false,
   }),
   false,

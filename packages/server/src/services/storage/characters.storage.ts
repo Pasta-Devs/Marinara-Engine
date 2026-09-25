@@ -5,6 +5,7 @@ import { and, asc, desc, eq, inArray, like, ne, or } from "../../db/file-query.j
 import type { DB } from "../../db/connection.js";
 import {
   characters,
+  chats,
   characterCardVersions,
   personas,
   personaCardVersions,
@@ -779,6 +780,48 @@ export function createCharactersStorage(db: DB) {
             .where(eq(lorebooks.id, lorebookId));
         }
         await tx.delete(characters).where(eq(characters.id, id));
+        // Every chat, not only Game: otherwise a deleted card's id stays in a Roleplay or
+        // Conversation chat's member list and Chat Settings counts it (#6084). The Game
+        // party/setup branches below are no-ops for the other modes.
+        const memberChats = await tx.select().from(chats);
+        for (const chat of memberChats) {
+          let memberIds: unknown;
+          let metadata: Record<string, unknown>;
+          try {
+            memberIds = JSON.parse(chat.characterIds);
+            metadata = JSON.parse(chat.metadata);
+          } catch {
+            continue;
+          }
+          if (!Array.isArray(memberIds) || !metadata || typeof metadata !== "object" || Array.isArray(metadata))
+            continue;
+          const config = metadata.gameSetupConfig;
+          const setup =
+            config && typeof config === "object" && !Array.isArray(config)
+              ? (config as Record<string, unknown>)
+              : undefined;
+          const partyIds = Array.isArray(metadata.gamePartyCharacterIds) ? metadata.gamePartyCharacterIds : [];
+          const setupPartyIds = Array.isArray(setup?.partyCharacterIds) ? setup.partyCharacterIds : [];
+          if (
+            !memberIds.includes(id) &&
+            !partyIds.includes(id) &&
+            !setupPartyIds.includes(id) &&
+            setup?.gmCharacterId !== id
+          )
+            continue;
+          if (partyIds.includes(id)) metadata.gamePartyCharacterIds = partyIds.filter((memberId) => memberId !== id);
+          if (setup && setupPartyIds.includes(id))
+            setup.partyCharacterIds = setupPartyIds.filter((memberId) => memberId !== id);
+          if (setup?.gmCharacterId === id) setup.gmCharacterId = null;
+          await tx
+            .update(chats)
+            .set({
+              characterIds: JSON.stringify(memberIds.filter((memberId) => memberId !== id)),
+              metadata: JSON.stringify(metadata),
+              updatedAt: now(),
+            })
+            .where(eq(chats.id, chat.id));
+        }
         const groups = await tx.select().from(characterGroups);
         for (const group of groups) {
           let memberIds: string[];
@@ -979,16 +1022,6 @@ export function createCharactersStorage(db: DB) {
         updatedAt: timestamp.updatedAt,
       });
       return this.getPersona(id);
-    },
-
-    async setActivePersona(id: string) {
-      return db.transaction(async (tx) => {
-        const existing = await tx.select({ id: personas.id }).from(personas).where(eq(personas.id, id));
-        if (!existing[0]) return false;
-        await tx.update(personas).set({ isActive: "false" });
-        await tx.update(personas).set({ isActive: "true", updatedAt: now() }).where(eq(personas.id, id));
-        return true;
-      });
     },
 
     async removePersona(id: string) {

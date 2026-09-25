@@ -396,9 +396,19 @@ try {
 
   // Terminal rows are read on every poll, so they are pruned once they are far past any
   // recovery use. Recent ones stay.
-  const longAfter = new Date("2026-10-15T10:00:00.000Z");
-  const beforePrune = (await noodle.listNoodlerPreparedPosts()).length;
-  assert.ok(beforePrune > 0);
+  const terminalRows = (await noodle.listNoodlerPreparedPosts()).filter((item) => item.state !== "prepared");
+  assert.ok(terminalRows.length > 0);
+  // Manual invalidation and schedule changes stamp the real clock, so age their actual rows.
+  const newestTerminal = terminalRows.reduce((latest, item) =>
+    Date.parse(item.updatedAt) > Date.parse(latest.updatedAt) ? item : latest,
+  );
+  const retentionBoundary = Date.parse(newestTerminal.updatedAt) + 30 * 24 * 60 * 60 * 1000;
+  await noodle.reconcileNoodlerPreparedPosts(new Date(retentionBoundary - 1));
+  assert.ok(
+    (await noodle.listNoodlerPreparedPosts()).some((item) => item.id === newestTerminal.id),
+    "a terminal prepared row must survive until its retention boundary",
+  );
+  const longAfter = new Date(retentionBoundary + 1);
   await noodle.reconcileNoodlerPreparedPosts(longAfter);
   assert.equal(
     (await noodle.listNoodlerPreparedPosts()).filter((item) => item.state !== "prepared").length,

@@ -8,10 +8,26 @@
 // Returns clean content + extracted commands.
 // ──────────────────────────────────────────────
 
-import type { DirectionCommand, DirectionEffect, SkillCheckResult, WidgetUpdate } from "@marinara-engine/shared";
+import {
+  parseSkillCheckTagBody,
+  stripUnknownBracketTags,
+  stripBalancedTag,
+  stripMapUpdateTag,
+  stripDanglingTagClosers,
+  readGmTagAttributes,
+  stripGameBranchDelimiters,
+  stripSheetCommandTags,
+  type DirectionCommand,
+  type DirectionEffect,
+  type SkillCheckTag,
+  type WidgetUpdate,
+} from "@marinara-engine/shared";
 
-const MAX_DICE_COUNT = 100;
-const MAX_DICE_SIDES = 1000;
+// The check-tag reader lives in shared so the server reads a GM tag exactly the
+// way this parser does — including the d20 audit that decides whether the GM's
+// own numbers are trustworthy.
+export type { SkillCheckTag };
+export { stripGmTagsKeepReadables } from "@marinara-engine/shared";
 
 export interface CombatEncounterTag {
   enemies: Array<{
@@ -30,20 +46,6 @@ export interface CombatEncounterTag {
    * `null` means the GM explicitly requested no extra allies.
    */
   allies?: string[] | null;
-}
-
-export interface SkillCheckTag {
-  skill: string;
-  dc: number;
-  advantage?: boolean;
-  disadvantage?: boolean;
-  resolvedResult?: SkillCheckResult;
-  /**
-   * Player-submitted d20 echoed by the GM when a `[dice:1d20]` was rolled
-   * before the check. Forwarded to the server resolver so the sheet's
-   * attribute modifier is applied on top of the player's number.
-   */
-  preRolledD20?: number;
 }
 
 export interface ElementAttackTag {
@@ -132,10 +134,9 @@ function parseQteMatch(match: RegExpMatchArray): { actions: string[]; timer: num
 
 function parseTagAttributes(body: string): Map<string, string> {
   const values = new Map<string, string>();
-  const attributes = Array.from(body.matchAll(/(\w+)\s*=\s*("[^"]*"|'[^']*'|[^\s\]]+)/g));
-  for (const match of attributes) {
-    const key = match[1]?.trim().toLowerCase();
-    const rawValue = match[2]?.trim();
+  for (const attribute of readGmTagAttributes(body)) {
+    const key = attribute.key.trim().toLowerCase();
+    const rawValue = attribute.rawValue.trim();
     if (!key || !rawValue) continue;
     values.set(key, rawValue.replace(/^['"]|['"]$/g, ""));
   }
@@ -194,278 +195,6 @@ function parseCombatEncounter(body: string): CombatEncounterTag | null {
 
   const allies = parseCombatAllies(attributes.get("allies"));
   return allies === undefined ? { enemies } : { enemies, allies };
-}
-
-/**
- * Strip any unknown `[word: ...]` tag the model invents. Walks the text
- * tracking quote state and bracket depth so JSON content like
- * `[some_tag: {"x":[1,2]}]` is removed entirely. The naive
- * `/\[\w+:[^\]]*\]/g` stops at the FIRST `]` and leaves `}]` trailing.
- *
- * `keep` is an optional predicate — return true to skip stripping for
- * tag names that should remain in place (e.g. Note, Book).
- */
-function stripUnknownBracketTags(text: string, keep?: (tagName: string) => boolean): string {
-  let out = "";
-  let i = 0;
-  while (i < text.length) {
-    if (text[i] === "[") {
-      // Look ahead for `\w+:` — minimum signature of a model-invented tag
-      let j = i + 1;
-      while (j < text.length && /[A-Za-z0-9_]/.test(text[j]!)) j++;
-      const tagName = text.slice(i + 1, j);
-      if (j > i + 1 && text[j] === ":" && (!keep || !keep(tagName))) {
-        // Walk to balanced `]`, respecting `"`/`'` strings (and `\` escapes)
-        let depth = 1;
-        let inString: '"' | "'" | null = null;
-        let escaped = false;
-        let k = j + 1;
-        for (; k < text.length; k++) {
-          const c = text[k]!;
-          if (escaped) {
-            escaped = false;
-            continue;
-          }
-          if (c === "\\") {
-            escaped = true;
-            continue;
-          }
-          if (inString) {
-            if (c === inString) inString = null;
-            continue;
-          }
-          if (c === '"' || c === "'") {
-            inString = c;
-            continue;
-          }
-          if (c === "[") depth++;
-          else if (c === "]") {
-            depth--;
-            if (depth === 0) break;
-          }
-        }
-        if (k < text.length) {
-          // Found the balanced closing `]` — drop the whole tag
-          i = k + 1;
-          continue;
-        }
-        // Unbalanced (truncated/streaming) — leave the `[` in place and move on
-      }
-    }
-    out += text[i];
-    i++;
-  }
-  return out;
-}
-
-/**
- * Remove all instances of a bracket-enclosed tag whose content may contain
- * nested brackets (e.g. JSON arrays/objects).  Counts `[` / `]` so the match
- * extends to the *balanced* closing bracket rather than the first `]`.
- */
-function stripBalancedTag(text: string, tagPrefix: string): string {
-  const lower = tagPrefix.toLowerCase();
-  let result = text;
-  let searchFrom = 0;
-  while (true) {
-    const idx = result.toLowerCase().indexOf(lower, searchFrom);
-    if (idx === -1) break;
-    let depth = 0;
-    let end = -1;
-    for (let i = idx; i < result.length; i++) {
-      if (result[i] === "[") depth++;
-      else if (result[i] === "]") {
-        depth--;
-        if (depth === 0) {
-          end = i;
-          break;
-        }
-      }
-    }
-    if (end === -1) {
-      searchFrom = idx + 1;
-      continue;
-    }
-    result = result.slice(0, idx) + result.slice(end + 1);
-  }
-  return result;
-}
-
-function stripMapUpdateTag(text: string): string {
-  return stripBalancedTag(text, "[map_update:").replace(/\[map_update:[^\r\n]*(?:\r?\n|$)/gi, "");
-}
-
-/** Remove dangling closers left behind by malformed or partially stripped tags. */
-function stripDanglingTagClosers(text: string): string {
-  return text.replace(/^\s*[\]}]+\s*$/gm, "");
-}
-
-function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
-  const attributes = Array.from(body.matchAll(/(\w+)=("[^"]*"|'[^']*'|[^\s\]]+)/g));
-  if (attributes.length === 0) return null;
-
-  const values = new Map<string, string>();
-  for (const match of attributes) {
-    const key = match[1]?.trim().toLowerCase();
-    const rawValue = match[2]?.trim();
-    if (!key || !rawValue) continue;
-    values.set(key, rawValue.replace(/^['"]|['"]$/g, ""));
-  }
-
-  const skill = values.get("skill")?.trim() ?? "";
-  const dc = Number.parseInt(values.get("dc") ?? "", 10);
-  if (!skill || Number.isNaN(dc)) return null;
-
-  const tag: SkillCheckTag = { skill, dc };
-  const raw = body.toLowerCase();
-  if (values.get("mode") === "advantage" || raw.includes(" advantage")) tag.advantage = true;
-  if (values.get("mode") === "disadvantage" || raw.includes(" disadvantage")) tag.disadvantage = true;
-
-  const rollsValue = values.get("rolls");
-  const modifier = Number.parseInt(values.get("modifier") ?? "", 10);
-  const total = Number.parseInt(values.get("total") ?? "", 10);
-  const resultValue = values.get("result")?.trim().toLowerCase();
-  const modeValue = values.get("mode")?.trim().toLowerCase();
-  const resolution: SkillCheckResult["resolution"] =
-    values.get("resolution")?.trim().toLowerCase() === "successes" ? "successes" : "sum";
-
-  if (!rollsValue || Number.isNaN(modifier) || Number.isNaN(total) || !resultValue) {
-    // Sparse tag — server resolver will roll + apply modifier. If the GM echoed
-    // a single integer in rolls="...", treat it as a player-submitted d20.
-    if (rollsValue) {
-      const trimmed = rollsValue.trim();
-      if (/^-?\d+$/.test(trimmed)) {
-        const n = Number.parseInt(trimmed, 10);
-        if (Number.isInteger(n) && n >= 1 && n <= 20) tag.preRolledD20 = n;
-      }
-    }
-    return tag;
-  }
-
-  const normalizedMode: SkillCheckResult["rollMode"] =
-    modeValue === "advantage" || tag.advantage
-      ? "advantage"
-      : modeValue === "disadvantage" || tag.disadvantage
-        ? "disadvantage"
-        : "normal";
-
-  const explicitUsedRoll = Number.parseInt(values.get("used") ?? "", 10);
-  const inferredRollFromTotal = total - modifier;
-  const parsedRolls = parseSkillCheckRolls(rollsValue, inferredRollFromTotal);
-  const rolls = parsedRolls.rolls;
-  if (rolls.length === 0) return tag;
-
-  const usedRoll = Number.isFinite(explicitUsedRoll)
-    ? explicitUsedRoll
-    : rolls.includes(inferredRollFromTotal)
-      ? inferredRollFromTotal
-      : normalizedMode === "advantage"
-        ? Math.max(...rolls)
-        : normalizedMode === "disadvantage"
-          ? Math.min(...rolls)
-          : rolls[0]!;
-
-  const normalizedResult = resultValue.replace(/\s+/g, "_");
-  const criticalSuccess = normalizedResult === "critical_success";
-  const criticalFailure = normalizedResult === "critical_failure";
-  const success = criticalSuccess ? true : criticalFailure ? false : normalizedResult === "success";
-
-  // Dice notation the GM declared. Only trusted as a label; a non-d20 value is
-  // how a pool system (V20 and friends) tells the card what to draw.
-  const hasDeclaredDice = values.has("dice");
-  const declaredDice = values.get("dice")?.trim().toLowerCase();
-  const diceMatch = declaredDice?.match(/^(\d*)d(\d+)$/);
-  const declaredCount = Number.parseInt(diceMatch?.[1] || "1", 10);
-  const declaredSides = Number.parseInt(diceMatch?.[2] ?? "", 10);
-  const declaredDiceValue =
-    diceMatch &&
-    Number.isSafeInteger(declaredCount) &&
-    Number.isSafeInteger(declaredSides) &&
-    declaredCount >= 1 &&
-    declaredCount <= MAX_DICE_COUNT &&
-    declaredSides >= 1 &&
-    declaredSides <= MAX_DICE_SIDES &&
-    declaredCount === rolls.length &&
-    rolls.every((roll) => roll >= 1 && roll <= declaredSides)
-      ? declaredDice
-      : undefined;
-
-  // A plain single-die d20 check is the one shape whose rules we know, so it is
-  // the one shape we can audit. If the GM's own arithmetic disagrees, drop the
-  // resolved result and let the server resolver roll it properly. Pool systems
-  // are left alone — we cannot second-guess rules the engine does not implement.
-  const declaredD20 = !!diceMatch && declaredCount === 1 && declaredSides === 20;
-  const isImplicitD20Notation = parsedRolls.notation
-    ? parsedRolls.notation.count === 1 && parsedRolls.notation.sides === 20
-    : rolls.length === 1;
-  const implicitD20 = !hasDeclaredDice && isImplicitD20Notation;
-  if (hasDeclaredDice && !declaredDiceValue) return tag;
-  if (!hasDeclaredDice && !isImplicitD20Notation) return tag;
-  if (
-    hasDeclaredDice &&
-    parsedRolls.notation &&
-    (declaredCount !== parsedRolls.notation.count || declaredSides !== parsedRolls.notation.sides)
-  ) {
-    return tag;
-  }
-
-  const dice = declaredDiceValue ?? parsedRolls.notation?.dice;
-
-  const isPlainD20Check =
-    resolution === "sum" && rolls.length === 1 && normalizedMode === "normal" && (implicitD20 || declaredD20);
-  if (isPlainD20Check) {
-    const actualRoll = rolls[0]!;
-    const rollIsD20 = actualRoll >= 1 && actualRoll <= 20;
-    const usedRollHolds = usedRoll === actualRoll;
-    const arithmeticHolds = actualRoll + modifier === total;
-    const outcomeHolds = criticalSuccess || criticalFailure || success === total >= dc;
-    if (!rollIsD20 || !usedRollHolds || !arithmeticHolds || !outcomeHolds) return tag;
-  }
-
-  tag.resolvedResult = {
-    skill,
-    dc,
-    rolls,
-    usedRoll,
-    modifier,
-    total,
-    success,
-    criticalSuccess,
-    criticalFailure,
-    rollMode: normalizedMode,
-    resolution,
-    dice,
-  };
-
-  return tag;
-}
-
-function parseSkillCheckRolls(
-  rollsValue: string,
-  inferredRollFromTotal: number,
-): { rolls: number[]; notation?: { dice: string; count: number; sides: number } } {
-  const trimmed = rollsValue.trim();
-  const diceNotationMatch = trimmed.match(/^((\d+)?d(\d+))(?:[+-]\d+)?$/i);
-  if (diceNotationMatch) {
-    const count = Number.parseInt(diceNotationMatch[2] ?? "1", 10);
-    const sides = Number.parseInt(diceNotationMatch[3] ?? "", 10);
-    if (count === 1 && inferredRollFromTotal >= 1 && inferredRollFromTotal <= sides) {
-      return {
-        rolls: [inferredRollFromTotal],
-        notation: { dice: diceNotationMatch[1]!.toLowerCase(), count, sides },
-      };
-    }
-    return { rolls: [] };
-  }
-
-  return {
-    rolls: rollsValue
-      .split(/[|,]/)
-      .map((entry) => entry.trim())
-      .filter((entry) => /^-?\d+$/.test(entry))
-      .map((entry) => Number.parseInt(entry, 10))
-      .filter((entry) => Number.isFinite(entry)),
-  };
 }
 
 function splitQuotedParams(text: string): string[] {
@@ -670,6 +399,7 @@ export function parseSegmentInventoryUpdates(content: string): SegmentInventoryU
     .replace(/\[party-chat\]/gi, "")
     .replace(/\[dice:\s*[^\]]+\]/gi, "");
 
+  source = stripSheetCommandTags(source);
   source = stripMapUpdateTag(source);
   source = stripBalancedTag(source, "[choices:");
 
@@ -911,6 +641,10 @@ export function parseGmTags(content: string): ParsedGmTags {
   }
   text = text.replace(/\[reputation:\s*npc="[^"]+"\s*action="[^"]+"\]/gi, "");
 
+  // The Engine resolves every sheet command and rewrites it with the outcome it actually
+  // applied, so the bookkeeping is never narration.
+  text = stripSheetCommandTags(text);
+
   // [combat: enemies="Goblin:5:40:8:5:6, Skeleton:3:25:6:3:4" allies="Dottore, Nasira"]
   // Format: Name:Level:HP:ATK:DEF:SPD — comma separated for multiple enemies
   // Simplified format: [combat: enemies="Goblin, Skeleton"] (auto-generates stats from level)
@@ -1133,6 +867,16 @@ export function stripGmTags(content: string): string {
     .replace(/\[party-turn\]/gi, "")
     .replace(/\[party-chat\]/gi, "")
     .replace(/\[dice:\s*[^\]]+\]/gi, "");
+  // The one-request dice branch delimiters. Three of the four are unreachable by
+  // everything below: `stripUnknownBracketTags` and the `[\w+:` catch-all both require a
+  // `:` after the name, and `[on success]` has a space before its `]` while `[/branch]`
+  // is not a `[name:` head at all. The prose between them is kept — a block only reaches
+  // this stripper when the engine's chance pass never ran for it, and deleting narration
+  // the player already read would be the worse failure.
+  // The Engine resolves every sheet command and rewrites it with the outcome it actually
+  // applied, so the bookkeeping is never narration.
+  text = stripSheetCommandTags(text);
+  text = stripGameBranchDelimiters(text);
   // Quote-aware catch-all for any remaining [tag: ...] the model may invent
   text = stripUnknownBracketTags(text);
   // Balanced bracket stripping for tags whose content may contain nested []
@@ -1166,48 +910,9 @@ export function hasVisibleGameNarrationText(content: string): boolean {
   return content.replace(GAME_NARRATION_EFFECT_TAG_RE, "$2").trim().length > 0;
 }
 
-/**
- * Strip all GM tags EXCEPT [Note:] and [Book:] — these are kept inline
- * so the narration parser can create readable segments at the correct
- * story position.
- */
-export function stripGmTagsKeepReadables(content: string): string {
-  let text = content
-    // Strip the tactical-combat recap block sent after a battle (multiline, no colon).
-    .replace(/\[combat_result\][\s\S]*?\[\/combat_result\]/gi, "")
-    .replace(/\[music:\s*[^\]]+\]/gi, "")
-    .replace(/\[sfx:\s*[^\]]+\]/gi, "")
-    .replace(/\[bg:\s*[^\]]+\]/gi, "")
-    .replace(/\[ambient:\s*[^\]]+\]/gi, "")
-    .replace(/\[qte:\s*[^\]]+\]/gi, "")
-    .replace(/\[state:\s*[^\]]+\]/gi, "")
-    .replace(/\[reputation:\s*[^\]]+\]/gi, "")
-    .replace(/\[combat:\s*[^\]]+\]/gi, "")
-    .replace(/\[direction:\s*[^\]]+\]/gi, "")
-    .replace(/\[widget:\s*[^\]]+\]/gi, "")
-    .replace(/\[dialogue:\s*npc="[^"]*"\]/gi, "")
-    .replace(/\[session_end:\s*[^\]]*\]/gi, "")
-    .replace(/\[skill_check:\s*[^\]]+\]/gi, "")
-    .replace(/\[element_attack:\s*[^\]]+\]/gi, "")
-    .replace(/\[inventory:\s*[^\]]+\]/gi, "")
-    .replace(/\[party_change:\s*[^\]]+\]/gi, "")
-    .replace(/\[party_add:\s*[^\]]+\]/gi, "")
-    .replace(/\[party-turn\]/gi, "")
-    .replace(/\[party-chat\]/gi, "")
-    .replace(/\[dice:\s*[^\]]+\]/gi, "");
-  // Quote-aware catch-all for unknown tags, keeping Note/Book inline.
-  // Case-insensitive to match extractBalancedTags (which lowercases the prefix);
-  // otherwise `[note:]` / `[book:]` would slip past extraction and get stripped.
-  text = stripUnknownBracketTags(text, (name) => {
-    const lower = name.toLowerCase();
-    return lower === "note" || lower === "book";
-  });
-  // Balanced bracket stripping for non-readable tags
-  text = stripMapUpdateTag(text);
-  text = stripBalancedTag(text, "[choices:");
-  // Catch-all: strip unknown [tag: ...] except [Note:] and [Book:]
-  text = text.replace(/\[(?!Note:|Book:)\w+:[^\]]*\]/g, "");
-  // NOTE: [Note:] and [Book:] are intentionally kept!
-  text = stripDanglingTagClosers(text);
-  return text.trim();
+/** A combat-start message arrives before the rendered game state catches up. */
+export function resolveMessageWeatherAction(state: string, content: string): "travel" | "explore" | "turn" | null {
+  const tags = parseGmTags(content);
+  if (state === "combat" || tags.stateChange === "combat" || tags.combatEncounter) return null;
+  return state === "travel_rest" ? "travel" : state === "exploration" ? "explore" : "turn";
 }

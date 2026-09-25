@@ -18,7 +18,7 @@ A variable's behavior depends on its options and two toggles. By default a varia
 
 **Multi-Select.** Turn on the **Multi-Select** toggle to let users pick more than one option. By default the selected values are joined together with a separator. The separator is a short text field, and the default is a comma and a space. For example, options Romance, Fantasy, and Action joined with `, ` become the text "Romance, Fantasy, Action".
 
-**Random Pick.** When **Multi-Select** is on, a **Random Pick** toggle appears. With **Random Pick** on, the app picks one of the user's selected options at random each time it generates. This is useful for variety: the user chooses a pool of options, and each reply draws one from that pool.
+**Random Pick.** For a single-select variable, Marinara preselects a random option for each new chat. You can change it before confirming, and the saved choice stays fixed until you edit it. With **Multi-Select** on, the app picks one of the user's selected options at random each time it generates. This is useful for variety: the user chooses a pool of options, and each reply draws one from that pool.
 
 ## Adding a preset variable
 
@@ -59,7 +59,15 @@ Marinara resolves many built-in macros, such as `{{user}}` and `{{char}}`. After
 
 If a variable with that exact name exists, the placeholder becomes the chosen value. If no variable matches, the `{{NAME}}` text is left exactly as typed. This is why an unknown placeholder shows up unchanged in the output instead of raising an error. For the full macro list, see [Prompt Macros](macros.md).
 
+## Decision blocks in options
+
+An option's value can hold a decision block, `{{#if decision:"..."}}`, like any other prompt text. Only the options the chat has selected are asked about, and they count toward **Decision statements per turn**. For a **Random Pick** variable, every option in the selected pool is asked about, since any of them could be drawn. See [Asking the Decision model](conditional-prompts.md#asking-the-decision-model).
+
+A variable's value lands wherever its `{{name}}` sits. If a decision changes that value near the top of a preset, it can lose much of the provider's prompt-cache reuse, though an earlier unchanged prefix may still qualify. Put frequently changing content later where possible. See [Decision blocks and prompt caching](presets.md#decision-blocks-and-prompt-caching).
+
 ## Related guides
 
 - [Preset Editor and Prompt Manager](presets.md)
 - [Prompt Macros](macros.md)
+
+Preset variables also resolve in character greetings, including choices confirmed after a greeting was created. The original greeting stays editable with its macros intact.

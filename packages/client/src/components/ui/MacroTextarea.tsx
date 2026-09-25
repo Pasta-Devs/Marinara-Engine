@@ -10,12 +10,14 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { BookOpen, Eye, Maximize2, Pencil, X } from "lucide-react";
-import { SUPPORTED_MACROS } from "@marinara-engine/shared";
+import { estimateTextTokens, SUPPORTED_MACROS } from "@marinara-engine/shared";
 
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { resolveSelfCardAssets } from "../../lib/card-asset-links";
 import { cn } from "../../lib/utils";
+import { formatEstimatedTokens } from "../../lib/character-token-count";
 import { handleTextareaTab } from "../../lib/textarea-editing";
+import { DecisionStatementNote } from "./DecisionStatementNote";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
 
 type MacroDefinition = (typeof SUPPORTED_MACROS)[number];
@@ -68,6 +70,7 @@ interface ExpandedMacroEditorProps {
   placeholder?: string;
   readOnly?: boolean;
   maxLength?: number;
+  showTokenCount?: boolean;
   formatOnChange?: (textarea: HTMLTextAreaElement, inputEvent: InputEvent) => string;
 }
 
@@ -80,6 +83,7 @@ function ExpandedMacroEditor({
   placeholder,
   readOnly = false,
   maxLength,
+  showTokenCount = false,
   formatOnChange,
 }: ExpandedMacroEditorProps) {
   const { t: localizeUi } = useUiTranslation();
@@ -148,6 +152,11 @@ function ExpandedMacroEditor({
                 {localizeUi("ui.ui.expandedmacroeditor.expandedEditor")}
               </p>
             </div>
+            {showTokenCount && (
+              <span className="mr-3 shrink-0 text-[0.625rem] text-[var(--muted-foreground)]">
+                {formatEstimatedTokens(estimateTextTokens(localValue), localizeUi)}
+              </span>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -317,6 +326,12 @@ export interface MacroTextareaProps {
   showMacroReference?: boolean;
   showExpand?: boolean;
   showMarkdownPreview?: boolean;
+  /** Opt in only for model prompt/context fields; ordinary text inputs remain unchanged. */
+  showTokenCount?: boolean;
+  /** Optional controls to place beside the inline token count. */
+  tokenCountFooter?: ReactNode;
+  /** Align only the token label, leaving adjacent controls unchanged. */
+  tokenCountAlign?: "center" | "start";
   /** Character the edited field belongs to — resolves card://self refs in the preview only. */
   selfCharacterId?: string | null;
   spellCheck?: boolean;
@@ -348,6 +363,9 @@ export function MacroTextarea({
   showMacroReference = true,
   showExpand = true,
   showMarkdownPreview = false,
+  showTokenCount = false,
+  tokenCountFooter,
+  tokenCountAlign = "center",
   selfCharacterId,
   spellCheck = true,
   readOnly = false,
@@ -477,6 +495,25 @@ export function MacroTextarea({
             {toolbarExtra}
           </div>
         )}
+        {showTokenCount &&
+          (tokenCountFooter ? (
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+              {tokenCountFooter}
+              <p
+                className={cn(
+                  "ml-auto shrink-0 text-right text-[0.625rem] text-[var(--muted-foreground)]",
+                  tokenCountAlign === "start" && "self-start",
+                )}
+              >
+                {formatEstimatedTokens(estimateTextTokens(value), localizeUi)}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-0.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
+              {formatEstimatedTokens(estimateTextTokens(value), localizeUi)}
+            </p>
+          ))}
+        <DecisionStatementNote text={value} />
       </div>
       <ExpandedMacroEditor
         open={expanded}
@@ -487,6 +524,7 @@ export function MacroTextarea({
         placeholder={placeholder}
         readOnly={readOnly}
         maxLength={maxLength}
+        showTokenCount={showTokenCount}
         formatOnChange={formatOnChange}
       />
       <MacrosReferenceModal open={showMacroRef} onClose={() => setShowMacroRef(false)} />

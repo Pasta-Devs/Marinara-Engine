@@ -73,28 +73,6 @@ export function useAutonomousMessaging(
     [chatId],
   );
 
-  // Generate a schedule on first use (if none exists yet)
-  const ensureSchedules = useCallback(
-    async (characterIds?: string[]) => {
-      if (!chatId) return;
-      try {
-        const scheduleGenerationPreferences = useUIStore.getState().scheduleGenerationPreferences;
-        const conversationTimeZone = useUIStore.getState().conversationTimeZone;
-        await api.post("/conversation/schedule/generate", {
-          chatId,
-          characterIds,
-          scheduleGenerationPreferences,
-          timeZone: conversationTimeZone,
-        });
-        await qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
-        await qc.invalidateQueries({ queryKey: ["conversation-status", chatId] });
-      } catch {
-        // non-critical — schedule generation may fail if no connection
-      }
-    },
-    [chatId, qc],
-  );
-
   const recordClientPresence = useCallback(
     async (userStatus: UserStatus) => {
       if (!chatId) return;
@@ -321,6 +299,5 @@ export function useAutonomousMessaging(
   return {
     recordUserActivity,
     recordAssistantActivity,
-    ensureSchedules,
   };
 }

@@ -1,17 +1,8 @@
+import { normalizeGameDifficulty } from "@marinara-engine/shared";
 // ──────────────────────────────────────────────
 // Game: Setup Wizard (initial game setup modal)
 // ──────────────────────────────────────────────
-import {
-  lazy,
-  Suspense,
-  useState,
-  useMemo,
-  useCallback,
-  useEffect,
-  useRef,
-  type ChangeEvent,
-  type ReactNode,
-} from "react";
+import { lazy, Suspense, useState, useMemo, useCallback, useEffect, useRef, type ChangeEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
@@ -58,6 +49,7 @@ import {
   type SpatialMapGroundingMode,
   type SpatialMapDraftSize,
   type GameCombatStyle,
+  type TacticalBattlefieldSize,
   type Persona,
   type AvatarCrop,
 } from "@marinara-engine/shared";
@@ -87,9 +79,17 @@ import {
 import { useConnections } from "../../hooks/use-connections";
 import { useDefaultPreset, usePresets } from "../../hooks/use-presets";
 import { useCharacterGroups, usePersonas } from "../../hooks/use-characters";
+import { GameSetupRulesChooser, GameSetupRulesetSheetStatus } from "./GameSetupRulesChooser";
+import { SettingsSwitchTrack } from "../panels/settings/SettingControls";
 import { useSidecarStore } from "../../stores/sidecar.store";
-import { useLorebooks } from "../../hooks/use-lorebooks";
-import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
+import { useEntriesAcrossLorebooks, useLorebooks } from "../../hooks/use-lorebooks";
+import {
+  selectGameExperiencePackages,
+  useInstalledCapabilityPackages,
+  useInstalledRulesets,
+  useCapabilityAgentRegistry,
+} from "../../hooks/use-capability-packages";
+import { useAgentImportPolicy } from "../../hooks/use-agents";
 import { useGameAssetStore } from "../../stores/game-asset.store";
 import { useUIStore } from "../../stores/ui.store";
 import {
@@ -105,6 +105,11 @@ import {
 } from "../../lib/connection-filters";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
+
+import { NewGameExperienceChooser } from "./NewGameExperienceChooser";
+import { LegacyExperienceSetupDialog } from "./LegacyExperienceSetupDialog";
+import { MAX_EXPERIENCE_SEED, buildExperienceSetup, parseExperienceSeed } from "../../lib/game-experience-setup";
+import { restoredRulesetLayers, rulesetLayerOptions, toggleRulesetLayer } from "../../lib/ruleset-layers";
 
 const GameAssetsBrowserView = lazy(() =>
   import("../game-assets/GameAssetsBrowserView").then((module) => ({ default: module.GameAssetsBrowserView })),
@@ -126,8 +131,10 @@ function normalizeCapabilitySetupSelectionKind(
 }
 
 interface GameSetupWizardProps {
-  /** Optional block rendered with the other pre-start choices, used to offer installed game experiences. */
-  experiencesSlot?: ReactNode;
+  activeChatId: string;
+  isNewGame: boolean;
+  chatMetadata?: Record<string, unknown>;
+  onSetupError: (error: unknown) => boolean;
   onComplete: (
     config: GameSetupConfig,
     preferences: string,
@@ -251,6 +258,15 @@ const SPATIAL_MAP_DRAFT_SIZE_OPTIONS: Array<{
   { value: "large", targetLocationCount: 28, label: "Large", detail: "About 28 places" },
 ];
 const SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT = 40;
+const TACTICAL_BATTLEFIELD_SIZE_OPTIONS: Array<{
+  value: "auto" | TacticalBattlefieldSize;
+  labelKey: string;
+}> = [
+  { value: "auto", labelKey: "ui.game.gamesetupwizard.auto" },
+  { value: "small", labelKey: "ui.game.gamesetupwizard.small" },
+  { value: "medium", labelKey: "ui.game.gamesetupwizard.medium" },
+  { value: "large", labelKey: "ui.game.gamesetupwizard.large" },
+];
 
 function normalizeSpatialMapTargetLocationCount(value: string): number | null {
   const parsed = Number(value);
@@ -471,7 +487,10 @@ function normalizeGameLanguage(language: string): string {
 }
 
 export function GameSetupWizard({
-  experiencesSlot,
+  activeChatId,
+  isNewGame,
+  chatMetadata,
+  onSetupError,
   onComplete,
   onCancel,
   isLoading,
@@ -483,6 +502,38 @@ export function GameSetupWizard({
   const { t: localizeUi } = useUiTranslation();
   const prefersReducedMotion = useReducedMotion();
   const [step, setStep] = useState(0);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const { data: installedPackages, isLoading: experiencesLoading } = useInstalledCapabilityPackages(true);
+  const experiences = useMemo(() => selectGameExperiencePackages(installedPackages), [installedPackages]);
+  const [experienceId, setExperienceId] = useState<string | null>(null);
+  const activeExperience = (isNewGame ? experiences.find((item) => item.id === experienceId) : null) ?? null;
+  const experienceSetup = activeExperience?.manifest.contributions?.gameSurface?.setup;
+  const [experienceSeed, setExperienceSeed] = useState(() => String(crypto.getRandomValues(new Uint32Array(1))[0]));
+  // Rules are chosen once, for a new game only, and stay independent of combat presentation.
+  const { data: installedRulesets, isLoading: rulesetsLoading } = useInstalledRulesets(isNewGame);
+  const { data: agentImportPolicy, isLoading: agentImportPolicyLoading } = useAgentImportPolicy();
+  // With custom imports off the server refuses a new game on an imported ruleset, so it is not
+  // offered here either, and it is only offered once the policy is KNOWN to be on. Games that
+  // already pinned one keep playing: nothing else consults this.
+  const rulesets = useMemo(() => {
+    if (!isNewGame) return [];
+    const installed = installedRulesets ?? [];
+    return agentImportPolicy?.enabled === true ? installed : installed.filter((entry) => !entry.source);
+  }, [agentImportPolicy, installedRulesets, isNewGame]);
+  const [rulesetId, setRulesetId] = useState<string | null>(null);
+  // The layers checked on the chosen ruleset, by id. They belong to THAT ruleset, so choosing a
+  // different one clears them rather than carrying a name the new rules do not have.
+  const [rulesetLayerIds, setRulesetLayerIds] = useState<string[]>([]);
+  const activeRuleset = rulesets.find((entry) => entry.definition.id === rulesetId) ?? null;
+  // The checked ids the CURRENT definition still declares, read through the same resolution the pin
+  // gets. An installed package that updates under an open wizard can drop a layer, and a choice the
+  // chooser can no longer show must not be sent to a create call that would refuse it.
+  const activeLayerIds = activeRuleset
+    ? restoredRulesetLayers(activeRuleset.definition, rulesetLayerOptions(rulesetLayerIds))
+    : [];
+  const [rulesetImportNotice, setRulesetImportNotice] = useState<string | null>(null);
+  const experienceSeedInvalid = Boolean(experienceSetup?.seed && parseExperienceSeed(experienceSeed) === null);
+  const [experienceImportNotice, setExperienceImportNotice] = useState<string | null>(null);
   const [generationElapsedSeconds, setGenerationElapsedSeconds] = useState(0);
   const [gameName, setGameName] = useState("");
   const [genres, setGenres] = useState<string[]>(["Fantasy"]);
@@ -492,6 +543,8 @@ export function GameSetupWizard({
   const [customTone, setCustomTone] = useState("");
   const [difficulty, setDifficulty] = useState("Normal");
   const [combatStyle, setCombatStyle] = useState<GameCombatStyle>("classic");
+  const [gmBossControl, setGmBossControl] = useState(true);
+  const [tacticalBattlefieldSize, setTacticalBattlefieldSize] = useState<"auto" | TacticalBattlefieldSize>("auto");
   const [gmMode, setGmMode] = useState<GameGmMode>("standalone");
   const [gmCharacterId, setGmCharacterId] = useState<string | null>(null);
   const [partyCharacterIds, setPartyCharacterIds] = useState<string[]>(() =>
@@ -532,7 +585,15 @@ export function GameSetupWizard({
   const [sceneConnectionId, setSceneConnectionId] = useState<string | null>(null);
   const [activeLorebookIds, setActiveLorebookIds] = useState<string[]>([]);
   const [lbSearch, setLbSearch] = useState("");
-  const [enableCustomWidgets, setEnableCustomWidgets] = useState(true);
+  const [activeLorebookEntryIds, setActiveLorebookEntryIds] = useState<string[]>([]);
+  const [importedLorebookEntryIds, setImportedLorebookEntryIds] = useState<string[] | null>(null);
+  const [entryPickerOpened, setEntryPickerOpened] = useState(false);
+  const [customWidgetsChoice, setEnableCustomWidgets] = useState(true);
+  // A declaring Experience owns this control while it is active. The player's own choice stays
+  // untouched underneath and comes back on its own once the Experience is turned off.
+  const requiredCustomWidgets = experienceSetup?.requires?.enableCustomWidgets;
+  const customWidgetsLocked = requiredCustomWidgets !== undefined;
+  const enableCustomWidgets = requiredCustomWidgets ?? customWidgetsChoice;
   const [manualWidgetSetupEnabled, setManualWidgetSetupEnabled] = useState(false);
   const [customHudWidgets, setCustomHudWidgets] = useState(() =>
     normalizeGameHudWidgets([createDefaultGameHudWidget("progress_bar", [])]),
@@ -545,6 +606,14 @@ export function GameSetupWizard({
   const [gameSystemPromptDraft, setGameSystemPromptDraft] = useState(DEFAULT_GAME_SYSTEM_PROMPT);
   const [gameSystemPromptEdited, setGameSystemPromptEdited] = useState(false);
   const [language, setLanguage] = useState("English");
+  const [autoTranslate, setAutoTranslate] = useState(chatMetadata?.autoTranslate === true);
+  const [translationLanguage, setTranslationLanguage] = useState(() =>
+    typeof chatMetadata?.translationOutputTargetLang === "string"
+      ? chatMetadata.translationOutputTargetLang
+      : typeof chatMetadata?.translationTargetLang === "string"
+        ? chatMetadata.translationTargetLang
+        : "en",
+  );
   const [startMuted, setStartMuted] = useState(false);
   const [adjustGameAssetsOpen, setAdjustGameAssetsOpen] = useState(false);
   const [draftSpatialMap, setDraftSpatialMap] = useState(false);
@@ -620,8 +689,33 @@ export function GameSetupWizard({
     () => new Set(installedAgentManifests.map((agent) => agent.id)),
     [installedAgentManifests],
   );
+  const eligibleBooks = (lorebooksList ?? []).filter(
+    (book) =>
+      book.enabled &&
+      !(Array.isArray(chatMetadata?.excludedLorebookIds) && chatMetadata.excludedLorebookIds.includes(book.id)) &&
+      !(
+        chatMetadata?.gameLorebookKeeperEnabled !== true &&
+        (book.sourceAgentId === "game-lorebook-keeper" || book.id === chatMetadata?.gameLorebookKeeperLorebookId)
+      ),
+  );
+  const entryQuery = useEntriesAcrossLorebooks(
+    entryPickerOpened || activeLorebookEntryIds.length > 0 ? eligibleBooks.map((book) => book.id) : [],
+  );
+  const entryOverrides = (chatMetadata?.entryStateOverrides ?? chatMetadata?.lorebookEntryStateOverrides) as
+    Record<string, { enabled?: boolean }> | undefined;
+  const eligibleEntries = entryQuery.entries?.filter(
+    (entry) => entry.enabled && entryOverrides?.[entry.id]?.enabled !== false,
+  );
+  const selectedEntryIds = [...new Set(activeLorebookEntryIds)]
+    .filter((id) => eligibleEntries?.some((entry) => entry.id === id))
+    .slice(0, 100);
+  // Imported picks are dropped silently when the entry no longer exists on this machine. The count is
+  // taken only once every book has loaded, so a pending or failed fetch never reports entries as gone.
+  const missingImportedEntryCount = eligibleEntries
+    ? new Set(importedLorebookEntryIds?.filter((id) => !eligibleEntries.some((entry) => entry.id === id))).size
+    : 0;
   const hasInstalledAgents = installedAgentIds.size > 0;
-  const hierarchicalMapsInstalled = installedAgentIds.has("hierarchical-maps");
+  const hierarchicalMapsInstalled = installedAgentIds.has("hierarchical-maps") && !experienceSetup;
   const musicDjInstalled = installedAgentIds.has("spotify");
   const lorebookKeeperInstalled = installedAgentIds.has("lorebook-keeper");
   const illustratorInstalled = installedAgentIds.has("illustrator");
@@ -725,8 +819,17 @@ export function GameSetupWizard({
     () => (lorebooksList as Array<{ id: string; name: string; enabled?: boolean }>) ?? [],
     [lorebooksList],
   );
+  // An import resolves its ruleset against what is installed, so a list that is still loading must
+  // not read as "nothing installed" and drop a ruleset this install does have.
   const setupImportResourcesReady =
-    !connectionsLoading && !promptPresetsLoading && !personasLoading && !lorebooksLoading;
+    !connectionsLoading &&
+    !promptPresetsLoading &&
+    !personasLoading &&
+    !lorebooksLoading &&
+    !experiencesLoading &&
+    !rulesetsLoading &&
+    // The policy decides whether an imported ruleset is on the list the import resolves against.
+    !agentImportPolicyLoading;
 
   const availableLorebooks = useMemo(
     () =>
@@ -948,15 +1051,21 @@ export function GameSetupWizard({
   const spatialMapTargetLocationCountValid =
     normalizeSpatialMapTargetLocationCount(spatialMapTargetLocationCountInput) !== null;
   const canStart =
+    !experienceSeedInvalid &&
+    (!activeLorebookEntryIds.length || Boolean(eligibleEntries)) &&
     !!gmConnectionId &&
     (!enableAgents || !hierarchicalMapsInstalled || !draftSpatialMap || spatialMapTargetLocationCountValid);
-  const canStartMessage = !gmConnectionId
-    ? localizeUi("ui.game.gamesetupwizard.selectAConnectionOnTheFirstStepBeforeStarting")
-    : !spatialMapTargetLocationCountValid && enableAgents && hierarchicalMapsInstalled && draftSpatialMap
-      ? localizeUi("ui.game.gamesetupwizard.chooseAnyWholeNumberFrom1ToValue1Places", {
-          value1: SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT,
-        })
-      : null;
+  const canStartMessage = experienceSeedInvalid
+    ? localizeUi("game.experienceSetup.invalidSeed", { max: MAX_EXPERIENCE_SEED })
+    : activeLorebookEntryIds.length && !eligibleEntries
+      ? localizeUi(entryQuery.isError && !entryQuery.isFetching ? "game.setupLore.error" : "game.setupLore.loading")
+      : !gmConnectionId
+        ? localizeUi("ui.game.gamesetupwizard.selectAConnectionOnTheFirstStepBeforeStarting")
+        : !spatialMapTargetLocationCountValid && enableAgents && hierarchicalMapsInstalled && draftSpatialMap
+          ? localizeUi("ui.game.gamesetupwizard.chooseAnyWholeNumberFrom1ToValue1Places", {
+              value1: SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT,
+            })
+          : null;
   const normalizedLanguage = normalizeGameLanguage(language);
   const illustratorEnabled = enableAgents && illustratorInstalled && enableSpriteGeneration;
   const musicDjEnabled = enableAgents && musicDjInstalled && enableSpotifyDj;
@@ -997,8 +1106,55 @@ export function GameSetupWizard({
         lorebooks,
         personas,
         promptPresets,
+        experiencePackages: experiences,
+        installedRulesets: rulesets,
+        isNewGame,
       });
       const config = imported.config;
+      setRulesetId(config.ruleset?.id ?? null);
+      // The layers the file chose, against the definition installed HERE: an id this version of the
+      // ruleset no longer has is dropped rather than sent to a create call that would refuse it.
+      const importedRuleset = rulesets.find((entry) => entry.definition.id === config.ruleset?.id);
+      setRulesetLayerIds(
+        importedRuleset ? restoredRulesetLayers(importedRuleset.definition, config.ruleset?.options) : [],
+      );
+      const sharedRuleset = shareFile.setup.config.ruleset;
+      // Installed but left off the list means the import switch hid it, which needs a different
+      // fix from the user than installing something. Only an answer that says "off" counts as off:
+      // a policy that could not be read gets its own notice, not a wrong diagnosis.
+      const hiddenFromList =
+        sharedRuleset &&
+        !rulesets.some((entry) => entry.definition.id === sharedRuleset.id) &&
+        (installedRulesets ?? []).some((entry) => entry.definition.id === sharedRuleset.id);
+      const droppedRulesetNotice = !hiddenFromList
+        ? "game.ruleset.setup.unavailableImport"
+        : agentImportPolicy?.enabled === false
+          ? "game.ruleset.setup.importsOffImport"
+          : "game.ruleset.setup.importPolicyUnknownImport";
+      setRulesetImportNotice(
+        sharedRuleset && !config.ruleset
+          ? !isNewGame
+            ? localizeUi("game.ruleset.setup.existingImport")
+            : localizeUi(droppedRulesetNotice, { name: shareFile.setup.labels?.rulesetName ?? sharedRuleset.id })
+          : null,
+      );
+      const importedExperience = experiences.find((item) => item.id === config.gameExperienceId);
+      const importedSetup = importedExperience?.manifest.contributions?.gameSurface?.setup;
+      const importedSeed = importedSetup?.seed
+        ? parseExperienceSeed(config.experienceConfig?.[importedSetup.seed.key])
+        : null;
+      setExperienceId(isNewGame && importedExperience ? importedExperience.id : null);
+      // A setup file without a usable Experience seed leaves the prefilled seed alone instead of blanking it.
+      if (importedSeed !== null) setExperienceSeed(String(importedSeed));
+      setExperienceImportNotice(
+        shareFile.setup.config.gameExperienceId
+          ? !isNewGame
+            ? localizeUi("game.experienceSetup.existingImport")
+            : !importedExperience
+              ? localizeUi("game.experienceSetup.unavailableImport")
+              : null
+          : null,
+      );
       const importedGenres = config.genre
         .split(",")
         .map((value) => value.trim())
@@ -1032,10 +1188,16 @@ export function GameSetupWizard({
       setSetting(config.setting);
       setTones(importedTones.length > 0 ? importedTones : ["Heroic"]);
       setCustomTone("");
-      setDifficulty(config.difficulty);
+      setDifficulty(
+        DIFFICULTIES.find((d) => normalizeGameDifficulty(d) === normalizeGameDifficulty(config.difficulty)) ?? "Normal",
+      );
       setCombatStyle(config.combatStyle === "tactical" ? "tactical" : "classic");
+      setGmBossControl(config.gmBossControl ?? true);
+      setTacticalBattlefieldSize(config.tacticalBattlefield?.size ?? "auto");
       setRating(config.rating);
       setLanguage(config.language?.trim() || "English");
+      setAutoTranslate(config.autoTranslate === true);
+      setTranslationLanguage(config.translationOutputTargetLang?.trim() || "en");
       setGmMode(config.gmMode);
       setGmCharacterId(config.gmCharacterId ?? null);
       setPartyCharacterIds(config.partyCharacterIds);
@@ -1086,6 +1248,8 @@ export function GameSetupWizard({
       setEnableGameSoundEffects(config.enableGameSoundEffects !== false);
       setEnableGameMusic(config.enableGameMusic !== false);
       setActiveLorebookIds(config.activeLorebookIds ?? []);
+      setActiveLorebookEntryIds(config.activeLorebookEntryIds ?? []);
+      setImportedLorebookEntryIds(config.activeLorebookEntryIds?.length ? config.activeLorebookEntryIds : null);
       setLbSearch("");
       setEnableCustomWidgets(config.enableCustomWidgets !== false);
       setManualWidgetSetupEnabled(importedWidgets.length > 0);
@@ -1155,13 +1319,34 @@ export function GameSetupWizard({
         ? trimmedGameSystemPrompt
         : null;
     const trimmedGameSpecialInstructions = gameSpecialInstructions.trim();
+    const tacticalBattlefield =
+      combatStyle === "tactical"
+        ? {
+            ...(tacticalBattlefieldSize !== "auto" ? { size: tacticalBattlefieldSize } : {}),
+          }
+        : {};
 
     return {
+      ...buildExperienceSetup(activeExperience, experienceSeed, isNewGame),
       genre: genres.join(", ") || "Fantasy",
       setting: setting || `A ${(genres[0] ?? "fantasy").toLowerCase()} world`,
       tone: tones.join(", ") || "Heroic",
-      difficulty,
+      difficulty: normalizeGameDifficulty(difficulty),
       combatStyle,
+      ...(activeRuleset
+        ? {
+            ruleset: {
+              id: activeRuleset.definition.id,
+              version: activeRuleset.definition.version,
+              packageId: activeRuleset.packageId,
+              // Only the checked layers, so a ruleset with none sends the empty record it always did.
+              options: rulesetLayerOptions(activeLayerIds),
+            },
+          }
+        : {}),
+      combatDirector: true,
+      gmBossControl,
+      ...(Object.keys(tacticalBattlefield).length > 0 ? { tacticalBattlefield } : {}),
       spatialMapInstructions:
         enableAgents && hierarchicalMapsInstalled && draftSpatialMap
           ? spatialMapInstructions.trim() || undefined
@@ -1200,6 +1385,7 @@ export function GameSetupWizard({
       enableGameMusic: enableGameMusic && audioConnectionSupportsMusic ? undefined : false,
       ...(importedArtStyleSettingsRef.current ?? {}),
       activeLorebookIds: activeLorebookIds.length > 0 ? activeLorebookIds : undefined,
+      ...(selectedEntryIds.length ? { activeLorebookEntryIds: selectedEntryIds } : {}),
       enableCustomWidgets,
       customHudWidgets:
         enableCustomWidgets && manualWidgetSetupEnabled ? normalizeGameHudWidgets(customHudWidgets) : undefined,
@@ -1215,6 +1401,8 @@ export function GameSetupWizard({
         musicDjEnabled && gameSpotifySourceType === "artist" ? gameSpotifyArtist.trim() || undefined : undefined,
       enableLorebookKeeper: lorebookKeeperEnabled || undefined,
       language: normalizedLanguage || undefined,
+      autoTranslate,
+      translationOutputTargetLang: translationLanguage.trim() || "en",
       generationParameters: customizeParameters
         ? { ...(importedGenerationParametersRef.current ?? {}), ...generationParameters }
         : undefined,
@@ -1226,6 +1414,9 @@ export function GameSetupWizard({
   };
 
   const buildSetupShareLabels = (): GameInitialSetupLabels => ({
+    experienceName: activeExperience?.manifest.name,
+    rulesetName: activeRuleset?.definition.name,
+    experienceSeedKey: experienceSetup?.seed?.key,
     characterNames: Object.fromEntries(
       characters
         .filter((character) => [...partyCharacterIds, ...(gmCharacterId ? [gmCharacterId] : [])].includes(character.id))
@@ -1337,6 +1528,19 @@ export function GameSetupWizard({
     );
   };
 
+  if (activeExperience && !experienceSetup) {
+    return (
+      <LegacyExperienceSetupDialog
+        activeChatId={activeChatId}
+        experience={activeExperience}
+        onCancelSetup={onCancel}
+        onSetupError={onSetupError}
+        onBack={() => setExperienceId(null)}
+        restoreFocusRef={panelRef}
+      />
+    );
+  }
+
   return (
     <>
       <div
@@ -1347,6 +1551,8 @@ export function GameSetupWizard({
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep.key}
+            ref={panelRef}
+            tabIndex={-1}
             data-component="GameSetupWizard"
             role="dialog"
             aria-modal="true"
@@ -1426,7 +1632,28 @@ export function GameSetupWizard({
                     </div>
 
                     {/* Absent when nothing provides an experience, leaving this step exactly as it was. */}
-                    {experiencesSlot}
+                    {isNewGame && (
+                      <NewGameExperienceChooser
+                        experiences={experiences}
+                        activeId={activeExperience?.id ?? null}
+                        onSelect={setExperienceId}
+                        seed={experienceSeed}
+                        onSeedChange={setExperienceSeed}
+                        onRandomize={() => setExperienceSeed(String(crypto.getRandomValues(new Uint32Array(1))[0]))}
+                        seedInvalid={experienceSeedInvalid}
+                        launching={isLoading}
+                      />
+                    )}
+                    {experienceImportNotice && (
+                      <p role="status" className="text-xs text-[var(--muted-foreground)]">
+                        {experienceImportNotice}
+                      </p>
+                    )}
+                    {missingImportedEntryCount > 0 && (
+                      <p role="status" className="text-xs text-[var(--muted-foreground)]">
+                        {localizeUi("game.setupLore.missingImport", { count: missingImportedEntryCount })}
+                      </p>
+                    )}
 
                     <div>
                       <label className={GAME_SETUP_FIELD_LABEL}>{localizeUi("ui.game.gamesetupwizard.gameName")}</label>
@@ -1491,7 +1718,10 @@ export function GameSetupWizard({
                           <div className="mt-3 border-t border-[var(--border)] pt-3">
                             <GenerationParametersFields
                               value={generationParameters}
-                              showOpenRouterServiceTier={selectedGmConnection?.provider === "openrouter"}
+                              showServiceTier={
+                                selectedGmConnection?.provider === "openrouter" ||
+                                selectedGmConnection?.provider === "nanogpt"
+                              }
                               onChange={setGenerationParameters}
                             />
                           </div>
@@ -1752,7 +1982,7 @@ export function GameSetupWizard({
                             {localizeUi("ui.game.gamesetupwizard.classic")}
                           </div>
                           <div className="mt-1 text-[var(--muted-foreground)]">
-                            {localizeUi("ui.game.gamesetupwizard.cinematicMenuBattlesCurrentStyle")}
+                            {localizeUi("game.combat.preference.classicDescription")}
                           </div>
                         </button>
                         <button
@@ -1769,11 +1999,74 @@ export function GameSetupWizard({
                             {localizeUi("ui.game.gamesetupwizard.tactical")}
                           </div>
                           <div className="mt-1 text-[var(--muted-foreground)]">
-                            {localizeUi("ui.game.gamesetupwizard.fireEmblemStyleGridBattlesMovementTerrainForecasts")}
+                            {localizeUi("game.combat.preference.tacticalDescription")}
                           </div>
                         </button>
                       </div>
+                      <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
+                        <input
+                          type="checkbox"
+                          checked={gmBossControl}
+                          onChange={(e) => setGmBossControl(e.target.checked)}
+                          className="mt-1 size-4 accent-[var(--primary)]"
+                        />
+                        <span>
+                          {localizeUi("game.combat.director.setupLabel")}
+                          <span className="mt-1 block text-xs text-[var(--muted-foreground)]">
+                            {localizeUi("game.combat.director.setupHelp")}
+                          </span>
+                        </span>
+                      </label>
+                      {combatStyle === "tactical" && (
+                        <div className="mt-3 space-y-3 rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 p-3">
+                          <div>
+                            <div>
+                              <label htmlFor="game-setup-battlefield-size" className={GAME_SETUP_FIELD_LABEL}>
+                                {localizeUi("ui.game.gamesetupwizard.battlefieldSize")}
+                              </label>
+                              <select
+                                id="game-setup-battlefield-size"
+                                value={tacticalBattlefieldSize}
+                                onChange={(event) =>
+                                  setTacticalBattlefieldSize(event.target.value as "auto" | TacticalBattlefieldSize)
+                                }
+                                className={GAME_SETUP_INPUT_CLASS}
+                              >
+                                {TACTICAL_BATTLEFIELD_SIZE_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {localizeUi(option.labelKey)}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
+
+                    {rulesets.length > 0 && (
+                      <GameSetupRulesChooser
+                        rulesets={rulesets}
+                        activeId={activeRuleset?.definition.id ?? null}
+                        combatStyle={combatStyle}
+                        layerIds={activeLayerIds}
+                        onSelect={(id) => {
+                          setRulesetId(id);
+                          setRulesetLayerIds([]);
+                          setRulesetImportNotice(null);
+                        }}
+                        onToggleLayer={(layerId) =>
+                          setRulesetLayerIds((current) =>
+                            activeRuleset ? toggleRulesetLayer(activeRuleset.definition, current, layerId) : current,
+                          )
+                        }
+                      />
+                    )}
+                    {rulesetImportNotice && (
+                      <p role="status" className="text-xs text-[var(--muted-foreground)]">
+                        {rulesetImportNotice}
+                      </p>
+                    )}
 
                     {/* Content Rating */}
                     <div>
@@ -1817,6 +2110,28 @@ export function GameSetupWizard({
 
                     {/* Language */}
                     <div>
+                      <label className="mb-2 flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={autoTranslate}
+                          onChange={(event) => setAutoTranslate(event.target.checked)}
+                        />
+                        {localizeUi("ui.chatSettings.translationsection.autoTranslateResponses")}
+                      </label>
+                      {autoTranslate && (
+                        <label className="mb-3 flex flex-col gap-1.5 text-xs">
+                          {localizeUi("ui.chatSettings.translationsection.myLanguage")}
+                          <input
+                            value={translationLanguage}
+                            onChange={(event) => setTranslationLanguage(event.target.value)}
+                            maxLength={100}
+                            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 ring-1 ring-[var(--border)]"
+                          />
+                          <span className="text-[var(--muted-foreground)]">
+                            {localizeUi("game.setup.translation.help")}
+                          </span>
+                        </label>
+                      )}
                       <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
                         {localizeUi("settings.application.language.label")}
                       </label>
@@ -2192,6 +2507,16 @@ export function GameSetupWizard({
                         </div>
                       </div>
                     </div>
+
+                    {/* Shown here, after the persona and the party are picked, not beside the
+                        Rules choice on the earlier step where neither is known yet. */}
+                    {activeRuleset && (
+                      <GameSetupRulesetSheetStatus
+                        ruleset={activeRuleset}
+                        partyCharacterIds={partyCharacterIds}
+                        personaId={personaId}
+                      />
+                    )}
                   </>
                 )}
 
@@ -2230,20 +2555,7 @@ export function GameSetupWizard({
                               </span>
                             </span>
                           </span>
-                          <span
-                            aria-hidden="true"
-                            className={cn(
-                              "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                              enableQuickTimeEvents ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                "block h-4 w-4 rounded-full bg-white transition-transform",
-                                enableQuickTimeEvents && "translate-x-3.5",
-                              )}
-                            />
-                          </span>
+                          <SettingsSwitchTrack checked={enableQuickTimeEvents} />
                         </button>
 
                         {installedAgentsLoading ? (
@@ -2277,6 +2589,7 @@ export function GameSetupWizard({
                         {!installedAgentsLoading && hasInstalledAgents && (
                           <button
                             type="button"
+                            aria-pressed={enableAgents}
                             onClick={() => setEnableAgents((enabled) => !enabled)}
                             className={cn(
                               "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
@@ -2299,20 +2612,7 @@ export function GameSetupWizard({
                                 </span>
                               </span>
                             </span>
-                            <span
-                              aria-hidden="true"
-                              className={cn(
-                                "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                                enableAgents ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                              )}
-                            >
-                              <span
-                                className={cn(
-                                  "block h-4 w-4 rounded-full bg-white transition-transform",
-                                  enableAgents && "translate-x-3.5",
-                                )}
-                              />
-                            </span>
+                            <SettingsSwitchTrack checked={enableAgents} />
                           </button>
                         )}
 
@@ -2320,6 +2620,7 @@ export function GameSetupWizard({
                           <div>
                             <button
                               type="button"
+                              aria-pressed={enableSpotifyDj}
                               onClick={() => setEnableSpotifyDj((prev) => !prev)}
                               className={cn(
                                 "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
@@ -2344,19 +2645,7 @@ export function GameSetupWizard({
                                   </span>
                                 </div>
                               </div>
-                              <div
-                                className={cn(
-                                  "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                                  enableSpotifyDj ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                                )}
-                              >
-                                <div
-                                  className={cn(
-                                    "h-4 w-4 rounded-full bg-white transition-transform",
-                                    enableSpotifyDj && "translate-x-3.5",
-                                  )}
-                                />
-                              </div>
+                              <SettingsSwitchTrack checked={enableSpotifyDj} />
                             </button>
 
                             {enableSpotifyDj && (
@@ -2469,6 +2758,7 @@ export function GameSetupWizard({
                         {enableAgents && lorebookKeeperInstalled && (
                           <button
                             type="button"
+                            aria-pressed={enableLorebookKeeper}
                             onClick={() => setEnableLorebookKeeper((prev) => !prev)}
                             className={cn(
                               "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
@@ -2493,19 +2783,7 @@ export function GameSetupWizard({
                                 </span>
                               </div>
                             </div>
-                            <div
-                              className={cn(
-                                "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                                enableLorebookKeeper ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                              )}
-                            >
-                              <div
-                                className={cn(
-                                  "h-4 w-4 rounded-full bg-white transition-transform",
-                                  enableLorebookKeeper && "translate-x-3.5",
-                                )}
-                              />
-                            </div>
+                            <SettingsSwitchTrack checked={enableLorebookKeeper} />
                           </button>
                         )}
 
@@ -2513,6 +2791,7 @@ export function GameSetupWizard({
                           <div>
                             <button
                               type="button"
+                              aria-pressed={enableSpriteGeneration}
                               onClick={toggleVisualGeneration}
                               className={cn(
                                 "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition-all",
@@ -2537,19 +2816,7 @@ export function GameSetupWizard({
                                   )}
                                 </span>
                               </div>
-                              <div
-                                className={cn(
-                                  "h-5 w-9 rounded-full p-0.5 transition-colors",
-                                  enableSpriteGeneration ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                                )}
-                              >
-                                <div
-                                  className={cn(
-                                    "h-4 w-4 rounded-full bg-white transition-transform",
-                                    enableSpriteGeneration && "translate-x-3.5",
-                                  )}
-                                />
-                              </div>
+                              <SettingsSwitchTrack checked={enableSpriteGeneration} />
                             </button>
 
                             {/* Image Connection Picker — shown when sprite gen is enabled */}
@@ -2605,21 +2872,7 @@ export function GameSetupWizard({
                                       )}
                                     </span>
                                   </span>
-                                  <span
-                                    className={cn(
-                                      "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                                      gameImageDynamicPromptEnabled
-                                        ? "bg-[var(--primary)]"
-                                        : "bg-[var(--muted-foreground)]/50",
-                                    )}
-                                  >
-                                    <span
-                                      className={cn(
-                                        "block h-4 w-4 rounded-full bg-white transition-transform",
-                                        gameImageDynamicPromptEnabled && "translate-x-3.5",
-                                      )}
-                                    />
-                                  </span>
+                                  <SettingsSwitchTrack checked={gameImageDynamicPromptEnabled} />
                                 </button>
                                 <div className="mt-3 border-t border-[var(--border)] pt-3">
                                   <label className="mb-1 flex items-center gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
@@ -2715,21 +2968,7 @@ export function GameSetupWizard({
                             {localizeUi("ui.game.gamesetupwizard.generateShortSceneSoundEffectsAfterGmTurns")}
                           </span>
                         </span>
-                        <span
-                          className={cn(
-                            "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                            enableGameSoundEffects && audioConnectionSupportsSfx
-                              ? "bg-[var(--primary)]"
-                              : "bg-[var(--muted-foreground)]/50",
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "block h-4 w-4 rounded-full bg-white transition-transform",
-                              enableGameSoundEffects && audioConnectionSupportsSfx && "translate-x-3.5",
-                            )}
-                          />
-                        </span>
+                        <SettingsSwitchTrack checked={enableGameSoundEffects && audioConnectionSupportsSfx} />
                       </button>
                       <button
                         type="button"
@@ -2749,21 +2988,7 @@ export function GameSetupWizard({
                             {localizeUi("ui.game.gamesetupwizard.generateBackgroundMusicForScenes")}
                           </span>
                         </span>
-                        <span
-                          className={cn(
-                            "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                            enableGameMusic && audioConnectionSupportsMusic
-                              ? "bg-[var(--primary)]"
-                              : "bg-[var(--muted-foreground)]/50",
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "block h-4 w-4 rounded-full bg-white transition-transform",
-                              enableGameMusic && audioConnectionSupportsMusic && "translate-x-3.5",
-                            )}
-                          />
-                        </span>
+                        <SettingsSwitchTrack checked={enableGameMusic && audioConnectionSupportsMusic} />
                       </button>
                       {resolvedAudioConnection != null &&
                         (!audioConnectionSupportsSfx || !audioConnectionSupportsMusic) && (
@@ -2778,12 +3003,18 @@ export function GameSetupWizard({
                     {/* Custom Widgets Toggle */}
                     <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
                       <button
+                        type="button"
+                        aria-pressed={enableCustomWidgets}
+                        disabled={customWidgetsLocked}
                         onClick={() => {
                           const nextEnabled = !enableCustomWidgets;
                           setEnableCustomWidgets(nextEnabled);
                           if (!nextEnabled) setManualWidgetSetupEnabled(false);
                         }}
-                        className="flex w-full items-center justify-between gap-2 text-left"
+                        className={cn(
+                          "flex w-full items-center justify-between gap-2 text-left",
+                          customWidgetsLocked && "cursor-not-allowed opacity-50",
+                        )}
                       >
                         <div className="flex items-center gap-2">
                           <Sparkles
@@ -2801,20 +3032,18 @@ export function GameSetupWizard({
                             </p>
                           </div>
                         </div>
-                        <div
-                          className={cn(
-                            "flex h-5 w-8 items-center rounded-full px-0.5 transition-colors",
-                            enableCustomWidgets ? "bg-[var(--primary)]" : "bg-[var(--secondary)]",
-                          )}
-                        >
-                          <div
-                            className={cn(
-                              "h-4 w-4 rounded-full bg-white transition-transform",
-                              enableCustomWidgets && "translate-x-3.5",
-                            )}
-                          />
-                        </div>
+                        <SettingsSwitchTrack checked={enableCustomWidgets} />
                       </button>
+                      {customWidgetsLocked && (
+                        <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                          {localizeUi(
+                            requiredCustomWidgets
+                              ? "game.experienceSetup.widgetRequirementOn"
+                              : "game.experienceSetup.widgetRequirementOff",
+                            { name: activeExperience?.manifest.name },
+                          )}
+                        </p>
+                      )}
                       {enableCustomWidgets && (
                         <div className="mt-3 space-y-3 border-t border-[var(--border)] pt-3">
                           <GameWidgetFileControls
@@ -2830,6 +3059,7 @@ export function GameSetupWizard({
                           />
                           <button
                             type="button"
+                            aria-pressed={manualWidgetSetupEnabled}
                             onClick={() => setManualWidgetSetupEnabled((enabled) => !enabled)}
                             className={cn(
                               "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-all",
@@ -2846,19 +3076,7 @@ export function GameSetupWizard({
                                 {localizeUi("ui.game.gamesetupwizard.chooseTheStartingHudWidgetsYourself")}
                               </p>
                             </div>
-                            <div
-                              className={cn(
-                                "flex h-5 w-8 items-center rounded-full px-0.5 transition-colors",
-                                manualWidgetSetupEnabled ? "bg-[var(--primary)]" : "bg-[var(--secondary)]",
-                              )}
-                            >
-                              <div
-                                className={cn(
-                                  "h-4 w-4 rounded-full bg-white transition-transform",
-                                  manualWidgetSetupEnabled && "translate-x-3.5",
-                                )}
-                              />
-                            </div>
+                            <SettingsSwitchTrack checked={manualWidgetSetupEnabled} />
                           </button>
 
                           {manualWidgetSetupEnabled && (
@@ -3013,6 +3231,83 @@ export function GameSetupWizard({
                   </>
                 )}
 
+                {step === 4 && (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setEntryPickerOpened((open) => !open)}
+                      aria-expanded={entryPickerOpened}
+                      className="flex min-h-11 w-full items-center justify-between gap-2 text-left text-xs font-medium text-[var(--foreground)]"
+                    >
+                      {localizeUi("game.setupLore.entries")}
+                      <ChevronDown size={14} />
+                    </button>
+                    {entryPickerOpened && (
+                      <>
+                        <p className="text-xs text-[var(--muted-foreground)]">
+                          {localizeUi("game.setupLore.description")}
+                        </p>
+                        {entryQuery.isFetching && (
+                          <p role="status" className="text-xs">
+                            {localizeUi("game.setupLore.loading")}
+                          </p>
+                        )}
+                        {entryQuery.isError && (
+                          <div className="space-y-2">
+                            <p role="alert" className="text-xs text-[var(--destructive)]">
+                              {localizeUi("game.setupLore.error")}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => void entryQuery.refetch()}
+                              disabled={entryQuery.isFetching}
+                              className="flex min-h-11 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40 disabled:cursor-wait disabled:opacity-50"
+                            >
+                              {localizeUi("ui.game.gamesurfacecomponent.retry")}
+                            </button>
+                          </div>
+                        )}
+                        {eligibleBooks.map((book) => (
+                          <details key={book.id} className="border-b border-[var(--border)] py-1">
+                            <summary className="cursor-pointer py-2 text-xs font-medium">{book.name}</summary>
+                            <div className="max-h-48 overflow-y-auto">
+                              {eligibleEntries
+                                ?.filter((entry) => entry.lorebookId === book.id)
+                                .sort((a, b) => Number(b.constant) - Number(a.constant) || a.order - b.order)
+                                .map((entry) => (
+                                  <label key={entry.id} className="flex min-h-11 items-start gap-2 py-2 text-xs">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedEntryIds.includes(entry.id)}
+                                      disabled={
+                                        isLoading ||
+                                        (!selectedEntryIds.includes(entry.id) && selectedEntryIds.length >= 100)
+                                      }
+                                      className="mt-0.5 accent-[var(--primary)]"
+                                      onChange={(event) =>
+                                        setActiveLorebookEntryIds(
+                                          event.target.checked
+                                            ? [...selectedEntryIds, entry.id]
+                                            : selectedEntryIds.filter((id) => id !== entry.id),
+                                        )
+                                      }
+                                    />
+                                    <span className="min-w-0 break-words">
+                                      {entry.name || localizeUi("game.setupLore.unnamed")}
+                                    </span>
+                                  </label>
+                                ))}
+                            </div>
+                          </details>
+                        ))}
+                        {!entryQuery.isLoading && eligibleEntries?.length === 0 && (
+                          <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("game.setupLore.empty")}</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
                 {step === 5 && enableAgents && hierarchicalMapsInstalled && (
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
@@ -3049,20 +3344,7 @@ export function GameSetupWizard({
                           </span>
                         </span>
                       </span>
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                          draftSpatialMap ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "block h-4 w-4 rounded-full bg-white transition-transform",
-                            draftSpatialMap && "translate-x-3.5",
-                          )}
-                        />
-                      </span>
+                      <SettingsSwitchTrack checked={draftSpatialMap} />
                     </button>
 
                     <button
@@ -3097,20 +3379,7 @@ export function GameSetupWizard({
                           </span>
                         </span>
                       </span>
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                          manualSpatialMap ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "block h-4 w-4 rounded-full bg-white transition-transform",
-                            manualSpatialMap && "translate-x-3.5",
-                          )}
-                        />
-                      </span>
+                      <SettingsSwitchTrack checked={manualSpatialMap} />
                     </button>
 
                     <button
@@ -3147,20 +3416,7 @@ export function GameSetupWizard({
                           </span>
                         </span>
                       </span>
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                          templateSpatialMap ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "block h-4 w-4 rounded-full bg-white transition-transform",
-                            templateSpatialMap && "translate-x-3.5",
-                          )}
-                        />
-                      </span>
+                      <SettingsSwitchTrack checked={templateSpatialMap} />
                     </button>
 
                     {draftSpatialMap && (
@@ -3335,6 +3591,8 @@ export function GameSetupWizard({
                     {/* Start Muted */}
                     <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
                       <button
+                        type="button"
+                        aria-pressed={startMuted}
                         onClick={() => setStartMuted(!startMuted)}
                         className="flex w-full items-center justify-between gap-2 text-left"
                       >
@@ -3353,19 +3611,7 @@ export function GameSetupWizard({
                             </p>
                           </div>
                         </div>
-                        <div
-                          className={cn(
-                            "flex h-5 w-8 items-center rounded-full px-0.5 transition-colors",
-                            startMuted ? "bg-[var(--primary)]" : "bg-[var(--secondary)]",
-                          )}
-                        >
-                          <div
-                            className={cn(
-                              "h-4 w-4 rounded-full bg-white transition-transform",
-                              startMuted && "translate-x-3.5",
-                            )}
-                          />
-                        </div>
+                        <SettingsSwitchTrack checked={startMuted} />
                       </button>
                     </div>
 
