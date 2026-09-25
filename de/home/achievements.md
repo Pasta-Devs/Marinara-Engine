@@ -54,6 +54,16 @@ Ein paar Anmerkungen zur Liste:
 - Die **Collection**-Errungenschaften zählen alles dieser Art in der Bibliothek. Importiertes und Heruntergeladenes zählt genauso mit, nicht nur Selbstgebautes. Bei **Hoarder** gibt es eine Ausnahme: Der mitgelieferte Charakter Professor Mari zählt nie mit.
 - Bei den Community-Errungenschaften reicht der Besuch des Links. Du musst dich auf der anderen Seite weder anmelden noch irgendetwas abschließen.
 
+## Errungenschaften von Agenten
+
+Installierte Agenten können eigene Errungenschaften hinzufügen. Sie erscheinen im selben Fenster **Achievements**, nach den mitgelieferten Errungenschaften, unter einer Überschrift wie **From Noodle** (Von Noodle). Der Abschnitt erscheint nur für Agenten, die Errungenschaften hinzugefügt haben.
+
+Für die Errungenschaften eines Agenten gelten dieselben Regeln wie für die mitgelieferten. Sie sind anfangs gesperrt, manche haben einen Fortschrittsbalken, und beim Freischalten erscheint derselbe Hinweis als Einblendung. Auf freigeschalteten Karten kann ein Agent eigene Abzeichenbilder anzeigen.
+
+Entfernst du einen Agenten, verschwindet sein Abschnitt. Deine Freischaltungen bleiben erhalten. Installierst du den Agenten erneut, erscheinen seine bereits freigeschalteten Errungenschaften wieder als freigeschaltet.
+
+Der Zähler oben im Fenster schließt die Errungenschaften deiner installierten Agenten ein.
+
 ## Die Einstellung Achievements
 
 Die gesamte Funktion lässt sich mit einem einzigen Schalter ein- und ausschalten. Öffne **Settings** (Einstellungen), geh auf den Tab **General** (Allgemein) und such den Bereich **App Behavior** (App-Verhalten). Der Schalter heißt **Achievements** und ist standardmäßig aktiviert.

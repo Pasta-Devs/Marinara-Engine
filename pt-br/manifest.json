@@ -1,6 +1,6 @@
 {
   "language": "pt-br",
-  "sourceCommit": "28e4b5dcc4523e554593dfe042468e55784f355b",
+  "sourceCommit": "6c900594d06e6de14e1d4c4577bc78b1ce86232b",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -364,8 +364,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "271aaff5ee51bdabe664f8865ce5d891347d0b0e28e7f0fd544ed41b6b647690",
-      "bytes": 74269
+      "sha256": "dd7088a79f97bb1e8d94426cf379f6cc44bc504adff7f067e727dcac2b3770a1",
+      "bytes": 77046
     },
     {
       "path": "development/personal-extensions.md",
@@ -449,8 +449,8 @@
     },
     {
       "path": "home/achievements.md",
-      "sha256": "95dfe330e16237fc2138b0b1be41746270ddb1fe3590cd00e898efc0ee9cb750",
-      "bytes": 6773
+      "sha256": "f95de6213d8ae01d6c4472d40aef73b737e0242c0fb88a7dfdd3b21881163873",
+      "bytes": 7652
     },
     {
       "path": "home/professor-mari.md",

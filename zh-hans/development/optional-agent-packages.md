@@ -550,9 +550,42 @@ API 1.26 添加可选 `combat`，定义掷骰、目标、行动预算、攻击�
 
 如果世界必须在首个回合前准备完毕，请独立使用现有的启动就绪声明。将 API 1.18 声明为包的最低要求；旧宿主无法理解此设置声明。
 
+### Capability API 1.36：包成就
+
+拥有新增 `achievements` 权限的包可以向主页的 **Achievements**(成就) 面板添加徽章、读取解锁状态，以及解锁徽章。面板会在 Engine 自身的徽章之后，用以包名称为标题的区块显示它们。
+
+```ts
+export async function activate({ api }) {
+  api.registerAchievements([
+    { id: "first_run", title: "First Run", description: "Ran the package once.", iconPath: "art/first-run.png" },
+    {
+      id: "ten_runs",
+      title: "Regular",
+      description: "Ran the package ten times.",
+      target: 10,
+      readProgress: () => runs,
+    },
+  ]);
+  // Later, when the package decides a badge is earned:
+  if (await api.runtime.achievements.unlock("first_run")) celebrate();
+}
+```
+
+需要了解的规则：
+
+- ID 使用 `<packageId>.<id>` 命名空间。内置 ID 没有点号，因此两者不会冲突。宿主接受本地 ID 或带命名空间的 ID，并拒绝该包未亲自注册的任何 ID。
+- `unlock(id)` 只有在本次调用实际解锁了徽章时才返回 `true`。`isUnlocked(id)` 和 `list()` 读取状态；`list()` 返回该包自身的徽章及进度。
+- 计数由包负责。分级徽章必须同时设置 `target` 和 `readProgress` 回调，或两者都不设置；当计数达到目标时，Engine 会在检查自身分级徽章的同一轮处理中将其解锁。请将计数器保存在持久化宿主中。回调若抛出异常，或未在 **2 秒**内完成，则报告为零并记入日志。与工具一样，这只限制异步等待：阻塞事件循环的同步工作无法被中断。
+- `iconPath` 是包的资源根目录内的路径，通过包资源路由提供。锁定的卡片仍显示锁图标。图片加载失败时，卡片回退到 `icon`（默认值为 `trophy`）。
+- `title` 和 `description` 是显示文本。语言包可以通过 `capabilityAchievements.<packageId>.<id>.title` 和 `.description` 覆盖它们。
+- **每个包最多 32 枚徽章**。一批注册中只要有一个无效条目，整批就都不注册。
+- 停用或移除包会隐藏其徽章。与 Engine 自身的徽章一样，解锁记录会保留，并在包恢复后再次显示。
+
+`api.registerAchievements` 和 `api.runtime.achievements` 只存在于支持这一新版 API 的 Engine 中，因此使用它们的包需声明 `capabilityApi` 1.36。
+
 ### Capability API 1.34：按规则集自身术语编写生物
 
-图鉴生物可以携带 `sheet`，即按规则集自身术语编写的人物卡，可按需要只填写部分内容。战斗以与队员完全相同的方式构建它，因此生命、防御、豁免、先攻、速度和列表能力都来自规则集自身声明，并从其自身资源池支付。此时不得在人物卡旁再提供 `health`、`defense`、`initiativeModifier`、`speed`、`abilities` 或 `saves`，也不能有自己的区块动作。
+图鉴生物可以携带 `sheet`，即按规则集自身术语编写的人物卡，可按需要只填写部分内容。战斗以与队员完全相同的方式构建它，因此生命、防御、豁免、先攻、速度和列表能力都来自规则集自身声明，并从其自身资源池支付。此时不得在人物卡旁再提供 `health`、`defense`、`initiativeModifier`、`speed`、`abilities` 或 `saves`，也可以省略自己的区块动作。
 
 ```json
 {

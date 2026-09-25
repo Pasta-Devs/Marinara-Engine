@@ -572,9 +572,42 @@ API 1.26は、ロール、対象、行動枠、攻撃・能力一覧、状態、
 
 最初のターンより前にワールドを準備する必要がある場合は、既存の起動準備完了の宣言を独立して使用してください。パッケージの最低要件としてAPI 1.18を宣言します。古いホストはこの設定宣言を解釈できません。
 
+### Capability API 1.36: パッケージの実績
+
+新しい`achievements`権限を持つパッケージは、ホームの**Achievements**(実績)パネルにバッジを追加し、解除済みかどうかを読み取り、解除できます。パネルではEngine自身のバッジの後に、パッケージ名を見出しにしたセクションで表示されます。
+
+```ts
+export async function activate({ api }) {
+  api.registerAchievements([
+    { id: "first_run", title: "First Run", description: "Ran the package once.", iconPath: "art/first-run.png" },
+    {
+      id: "ten_runs",
+      title: "Regular",
+      description: "Ran the package ten times.",
+      target: 10,
+      readProgress: () => runs,
+    },
+  ]);
+  // Later, when the package decides a badge is earned:
+  if (await api.runtime.achievements.unlock("first_run")) celebrate();
+}
+```
+
+知っておくべきルールは次のとおりです。
+
+- IDには`<packageId>.<id>`という名前空間が付きます。組み込みのIDにはドットがないため、両者は衝突しません。ホストはローカルIDと名前空間付きIDのどちらも受け付けますが、パッケージ自身が登録していないIDは拒否します。
+- `unlock(id)`が`true`を返すのは、そのバッジを実際に解除した呼び出しだけです。`isUnlocked(id)`と`list()`は状態を読み取ります。`list()`はパッケージ自身のバッジを進捗付きで返します。
+- 計数はパッケージが担当します。段階のあるバッジには`target`と`readProgress`コールバックを両方設定するか、両方とも省略します。数が目標に達すると、Engine自身の段階のあるバッジと同じ確認処理で解除します。カウンターは永続化ホストに保持してください。コールバックが例外を投げるか、**2秒**以内に完了しない場合は、0として報告され、ログに記録されます。ツールと同様、この制限が対象とするのは非同期の待機だけです。イベントループをブロックする同期処理は中断できません。
+- `iconPath`はパッケージのアセットルート内のパスで、パッケージのアセット配信ルートから提供されます。未解除のカードには引き続き鍵のアイコンが表示されます。画像を読み込めない場合は、`icon`(デフォルトは`trophy`)にフォールバックします。
+- `title`と`description`は表示テキストです。言語パックは`capabilityAchievements.<packageId>.<id>.title`と`.description`で上書きできます。
+- 上限は**パッケージごとに32個のバッジ**です。バッチ内に無効な項目が1つでもあれば、何も登録しません。
+- パッケージを非アクティブにするか削除すると、そのバッジは表示されなくなります。Engine自身のバッジと同様に解除の記録は残り、パッケージが戻ると再び表示されます。
+
+`api.registerAchievements`と`api.runtime.achievements`が存在するのは、このAPIに対応した新しいEngineだけです。そのため、これらを使用するパッケージは`capabilityApi` 1.36を宣言します。
+
 ### Capability API 1.34: ルールセット自身の形式で記述するクリーチャー
 
-図鑑のクリーチャーは、ルールセット自身の形式のキャラクターシート`sheet`を持てます。必要な部分だけのシートでも構いません。戦闘は仲間とまったく同じ方法で構築するため、体力、防御、セーヴ、イニシアチブ、速度、リストの能力はルールセット自身の宣言から決まり、自身のプールから支払います。この場合シートと並んで`health`、`defense`、`initiativeModifier`、`speed`、`abilities`、`saves`を指定せず、独自のブロック行動も持てません。
+図鑑のクリーチャーは、ルールセット自身の形式のキャラクターシート`sheet`を持てます。必要な部分だけのシートでも構いません。戦闘は仲間とまったく同じ方法で構築するため、体力、防御、セーヴ、イニシアチブ、速度、リストの能力はルールセット自身の宣言から決まり、自身のプールから支払います。この場合シートと並んで`health`、`defense`、`initiativeModifier`、`speed`、`abilities`、`saves`を指定せず、独自のブロック行動は省略できます。
 
 ```json
 {

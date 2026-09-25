@@ -54,6 +54,16 @@ Algumas observações sobre a lista:
 - As conquistas de **Collection** contam tudo o que existe na sua biblioteca daquele tipo. Itens importados e baixados também contam, não só os que você mesmo cria. Em **Hoarder**, há uma única exceção: a personagem Professor Mari, que já vem no aplicativo, nunca entra na conta.
 - Nas conquistas de comunidade, basta visitar o link. Não é preciso se cadastrar nem concluir nada no outro site.
 
+## Conquistas dos agentes
+
+Os agentes instalados podem adicionar suas próprias conquistas. Elas aparecem na mesma janela **Achievements**, depois das conquistas integradas, sob um título como **From Noodle** (Do Noodle). A seção só aparece para agentes que adicionaram conquistas.
+
+As conquistas de um agente seguem as mesmas regras das conquistas integradas. Elas começam bloqueadas, algumas têm uma barra de progresso e você recebe o mesmo aviso em pop-up quando uma delas é desbloqueada. Um agente pode mostrar suas próprias imagens de medalhas nos cards desbloqueados.
+
+Se você remover um agente, a seção dele desaparece. Seus desbloqueios são mantidos. Se instalar o agente de novo, as conquistas dele que já estavam desbloqueadas voltam a aparecer como desbloqueadas.
+
+A contagem no topo da janela inclui as conquistas dos agentes que você tem instalados.
+
 ## A configuração **Achievements**
 
 Um único botão liga/desliga controla o recurso inteiro. Abra **Settings** (Configurações), vá para a aba **General** e encontre a seção **App Behavior**. O botão se chama **Achievements** e vem ativado por padrão.
