@@ -64,10 +64,13 @@ const en = JSON.parse(source("localization/locales/en.json")) as Record<string, 
     ["chat:2", "action:new"],
     "empty query shows recents, then actions, never every chat",
   );
+  // "Tavern day" already scores above "Tavern night" on its own, so the recent one here is the lower-scoring match:
+  // only the recency boost puts it first.
+  assert.ok(fuzzyScore("tavern", "Tavern day")! > fuzzyScore("tavern", "Tavern night")!);
   assert.deepEqual(
-    rankCommands(commands, "tavern", ["chat:2"]).map((command) => command.id),
-    ["chat:2", "chat:1"],
-    "a recent item wins a tie",
+    rankCommands(commands, "tavern", ["chat:1"]).map((command) => command.id),
+    ["chat:1", "chat:2"],
+    "a recent item wins a near-tie",
   );
   assert.deepEqual(
     rankCommands(commands, "starlight", []).map((command) => command.id),
