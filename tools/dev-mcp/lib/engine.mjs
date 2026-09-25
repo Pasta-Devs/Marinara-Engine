@@ -189,7 +189,15 @@ export async function waitForQuiet(quietSeconds, maxWaitSeconds) {
 /** Stop the engine on `port`: the whole tree from the run-server supervisor (or launcher) down to the server. */
 export async function stopEngine(port = PORT) {
   const proc = await engineProcess(port);
-  if (!proc) return { stopped: false, reason: "not running" };
+  const portHealth = () =>
+    health({ base: `http://127.0.0.1:${port}/api`, origin: `http://127.0.0.1:${port}`, timeoutMs: 3000 });
+  if (!proc) {
+    // The process lookup (lsof / ss / netstat / PID file) can miss a running engine; never call that "not running".
+    if (await portHealth()) {
+      throw new Error(`the engine answers /api/health on port ${port} but its process could not be found; stop it yourself`);
+    }
+    return { stopped: false, reason: "not running" };
+  }
   if (!looksLikeEngine(proc, port)) {
     throw new Error(
       proc.chain[0]?.cmd == null
@@ -199,7 +207,7 @@ export async function stopEngine(port = PORT) {
   }
   const top = engineRoot(proc);
   const exited = await stopTree(top.pid, { watchPid: proc.pid });
-  if (!exited || (await health({ base: `http://127.0.0.1:${port}/api`, origin: `http://127.0.0.1:${port}`, timeoutMs: 3000 }))) {
+  if (!exited || (await portHealth())) {
     throw new Error(`engine PID ${proc.pid} did not exit within 60 s`);
   }
   clearPidFile(port);
@@ -439,13 +447,19 @@ export async function deploy({ packages, waitQuiet, quietSeconds, maxWaitSeconds
       if (!quiet.waited) throw new Error(`no ${quietSeconds} s quiet window within ${maxWaitSeconds} s; someone is playing`);
     }
     steps.push({ step: "stop", ...(await stopEngine()) });
+    // A start that found an engine already answering did not relaunch anything, so the restart did not happen.
+    const start = async () => {
+      const started = await startEngine();
+      steps.push({ step: "start", ...started });
+      if (!started.started) throw new Error(`the engine was not relaunched (${started.reason ?? "unknown reason"})`);
+    };
     if (packages.length) {
       const built = await build(packages);
       steps.push({ step: "build", ...built });
-      steps.push({ step: "start", ...(await startEngine()) });
+      await start();
       if (!built.ok) throw new Error("build failed; the previous build was restored and relaunched");
     } else {
-      steps.push({ step: "start", ...(await startEngine()) });
+      await start();
     }
     record(action, { instance: INSTANCE, reason, packages, ok: true });
     return { ok: true, steps };
