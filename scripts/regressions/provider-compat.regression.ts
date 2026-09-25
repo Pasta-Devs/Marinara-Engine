@@ -230,6 +230,31 @@ try {
   });
   assert.equal(nanoGptRequestBody?.reasoning_effort, "none");
 
+  for (const { model, reasoningEffort, enabled = true, expected } of [
+    { model: "moonshotai/kimi-k3", reasoningEffort: "none", expected: "low" },
+    { model: "kimi-k3", reasoningEffort: "none", expected: "low" },
+    { model: "moonshotai/kimi-k3", reasoningEffort: undefined, expected: undefined },
+    { model: "moonshotai/kimi-k3", reasoningEffort: "none", enabled: false, expected: undefined },
+    { model: "moonshotai/kimi-k2.6", reasoningEffort: "none", expected: "none" },
+  ] as const) {
+    nanoGptRequestBody = null;
+    await provider.chatComplete([{ role: "user", content: "test" }], {
+      model,
+      reasoningEffort,
+      enabledParameters: { reasoningEffort: enabled },
+    });
+    assert.equal(nanoGptRequestBody?.reasoning_effort, expected, `${model}: ${reasoningEffort}, enabled=${enabled}`);
+  }
+
+  nanoGptRequestBody = null;
+  await collectProviderOutput(provider, {
+    model: "moonshotai/kimi-k3",
+    stream: false,
+    reasoningEffort: "none",
+    enabledParameters: { reasoningEffort: true },
+  });
+  assert.equal(nanoGptRequestBody?.reasoning_effort, "low", "chat() also avoids Kimi K3's rejected disable");
+
   nanoGptRequestBody = null;
   await collectProviderOutput(provider, {
     model: "glm-5.3-flash",
