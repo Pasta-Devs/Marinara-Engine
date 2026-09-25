@@ -21,6 +21,10 @@ inputs:
   server-project:
     description: Which app-server pair the tests talk to (desktop or mobile) — the other pair is not booted (#5637)
     required: true
+  smoke:
+    description: Run the small desktop smoke suite instead of a full regression shard
+    required: false
+    default: "false"
 runs:
   using: composite
   steps:
@@ -56,7 +60,15 @@ runs:
       shell: bash
       run: pnpm exec playwright install --with-deps ${{ inputs.browser }}
 
+    - name: Run Chromium smoke suite
+      if: inputs.smoke == 'true'
+      shell: bash
+      env:
+        PLAYWRIGHT_ONLY_PROJECT: desktop
+      run: pnpm smoke:ui
+
     - name: Run ${{ inputs.project }} shard ${{ inputs.shard }}/${{ inputs.total-shards }}
+      if: inputs.smoke != 'true'
       # --fully-parallel changes only the SHARDING granularity: with the
       # config's fullyParallel:false the whole single-file suite is one
       # indivisible group and every test lands in shard 1. Pairing it with

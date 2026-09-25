@@ -1,12 +1,16 @@
 import { DEFAULT_GENERATION_PARAMS, type AgentContext } from "@marinara-engine/shared";
 import { NOVELAI_V5_MAX_CHARACTER_PROMPTS } from "../image/character-prompts.js";
 import { logger } from "../../lib/logger.js";
-import { normalizeAgentContextSize, renderAgentPromptTemplate } from "../agents/agent-executor.js";
+import {
+  applyAgentMaxTokensCaps,
+  normalizeAgentContextSize,
+  renderAgentPromptTemplate,
+} from "../agents/agent-executor.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
 import { measureContextBudget, type ChatCompletionResult, type ChatMessage } from "../llm/base-provider.js";
-import { normalizeMaxContext } from "./generation-parameters.js";
+import { normalizeAgentMaxTokens, normalizeMaxContext } from "./generation-parameters.js";
 
-const MANUAL_ILLUSTRATION_MAX_TOKENS = 1_800;
+const DEFAULT_MANUAL_ILLUSTRATION_MAX_TOKENS = 1_800;
 const MANUAL_ILLUSTRATION_SYSTEM_PROMPT = [
   "You are the Illustrator prompt writer for a manual Gallery illustration request.",
   "For this manual request, ignore automatic-generation conditions, cadence, and response schemas in the selected prompt above. Preserve its visual instructions and use the manual response schema below.",
@@ -216,14 +220,11 @@ export function buildManualIllustratorPromptMessages(args: {
 }
 
 function resolveManualIllustratorMaxTokens(agent: ResolvedAgent): number {
-  const configured = Number(agent.settings.maxTokens);
-  const configuredLimit =
-    Number.isFinite(configured) && configured > 0 ? Math.trunc(configured) : MANUAL_ILLUSTRATION_MAX_TOKENS;
-  const modelLimit =
-    typeof agent.maxOutputTokens === "number" && agent.maxOutputTokens > 0
-      ? Math.trunc(agent.maxOutputTokens)
-      : MANUAL_ILLUSTRATION_MAX_TOKENS;
-  return Math.max(256, Math.min(MANUAL_ILLUSTRATION_MAX_TOKENS, configuredLimit, modelLimit));
+  return applyAgentMaxTokensCaps(
+    agent.provider,
+    normalizeAgentMaxTokens(agent.settings.maxTokens, DEFAULT_MANUAL_ILLUSTRATION_MAX_TOKENS),
+    agent.maxOutputTokens,
+  );
 }
 
 export async function writeManualIllustratorPromptPlan(args: {
