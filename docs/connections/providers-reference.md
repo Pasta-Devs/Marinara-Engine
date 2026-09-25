@@ -84,7 +84,7 @@ The **API Key** field accepts any one of these three credential types, and Marin
 
 Marinara reads NanoGPT's detailed model catalog, so the dropdown marks which models your subscription covers and which cost more of it:
 
-- A model included in your subscription shows an **input-token multiplier** pill (for example `2x`) when it consumes more than one input token per token sent. A model that is *not* included shows a **Paid** pill, because its usage bills to your paid balance instead.
+- A model included in your subscription shows an **input-token multiplier** pill: `1x` in green when it consumes quota at the normal rate, or a higher value such as `2x` when each token sent costs that many input tokens from your quota. A model that is *not* included shows a **Paid** pill, because its usage bills to your paid balance instead. A model with no pill had no subscription data to report.
 
 ### Subscription usage
 
@@ -100,7 +100,7 @@ The widget reads NanoGPT's usage endpoint and shows your weekly and daily input-
 
 A quota NanoGPT cannot report right now shows as **unknown** rather than as unused, and an inactive subscription is called out instead of being drawn as full quota. The widget refreshes on demand with its refresh button.
 
-The same meter appears in the chat's **Connection** settings under the context indicator, so you can watch your quota without leaving a chat. It follows the active connection: it shows only when that connection is a NanoGPT one with **Show subscription usage** turned on, and it does not appear for **Random**, which has no single connection to read.
+The same meter appears under the context indicator in a chat's connection picker and in the chat's **Connection** settings, so you can watch your quota without leaving a chat. It follows the active connection: it shows only when that connection is a NanoGPT one with **Show subscription usage** turned on, and it does not appear for **Random**, which has no single connection to read.
 
 ## xAI / Grok
 

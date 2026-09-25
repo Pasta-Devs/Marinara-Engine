@@ -98,7 +98,9 @@ export function NanoGptUsageWidget({
   const frame =
     variant === "editor"
       ? "space-y-2.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)]"
-      : "space-y-2.5 rounded-lg bg-foreground/5 px-3 py-2.5 ring-1 ring-foreground/10";
+      : // Hosts that use this variant already provide their own padding and
+        // surface, so avoid drawing a second card inside it.
+        "space-y-2";
 
   if (isLoading) {
     return (

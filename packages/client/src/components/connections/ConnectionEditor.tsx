@@ -2621,15 +2621,26 @@ export function ConnectionEditor() {
                                 {modelFetchSourceLabel}
                               </span>
                             )}
-                            {m.subscriptionIncluded && (m.inputTokenMultiplier ?? 1) > 1 && (
+                            {/* Subscription cost. Included models always show a
+                                multiplier (green at 1x), so "covered at normal
+                                cost" stays distinct from "no data at all". */}
+                            {m.subscriptionIncluded === true && (
                               <span
-                                className="rounded-md bg-[var(--marinara-editor-accent)]/15 px-1.5 py-0.5 text-[0.5625rem] font-semibold text-[var(--marinara-editor-accent)]"
-                                title={localizeUi("ui.connections.connectioneditor.inputTokenMultiplierHint", {
-                                  multiplier: String(m.inputTokenMultiplier),
-                                })}
+                                className={cn(
+                                  "rounded-md px-1.5 py-0.5 text-[0.5625rem] font-semibold",
+                                  (m.inputTokenMultiplier ?? 1) > 1
+                                    ? "bg-[var(--marinara-editor-accent)]/15 text-[var(--marinara-editor-accent)]"
+                                    : "bg-emerald-400/15 text-emerald-400",
+                                )}
+                                title={localizeUi(
+                                  (m.inputTokenMultiplier ?? 1) > 1
+                                    ? "ui.connections.connectioneditor.inputTokenMultiplierHint_boosted"
+                                    : "ui.connections.connectioneditor.inputTokenMultiplierHint",
+                                  { multiplier: String(m.inputTokenMultiplier ?? 1) },
+                                )}
                               >
                                 {localizeUi("ui.connections.connectioneditor.multiplierBadge", {
-                                  multiplier: String(m.inputTokenMultiplier),
+                                  multiplier: String(m.inputTokenMultiplier ?? 1),
                                 })}
                               </span>
                             )}

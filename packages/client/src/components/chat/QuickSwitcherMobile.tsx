@@ -22,7 +22,11 @@ import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
-import { appendLocalSidecarConnectionOption, isLocalSidecarConnectionOption } from "../../lib/connection-filters";
+import {
+  appendLocalSidecarConnectionOption,
+  isLocalSidecarConnectionOption,
+  resolveNanoGptUsageConnection,
+} from "../../lib/connection-filters";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { parseCharacterDisplayData } from "../../lib/character-display";
 import { buildCharacterIdentityGroups, type CharacterIdentityChoice } from "../../lib/character-identity-groups";
@@ -30,6 +34,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import type { CharacterGroup, Persona } from "@marinara-engine/shared";
 import type { ProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
 import { ContextBudgetGauge, ContextBudgetIndicator } from "./ContextBudgetIndicator";
+import { NanoGptUsageWidget } from "../connections/NanoGptUsageWidget";
 
 interface PersonaGroupRow {
   id: string;
@@ -86,12 +91,22 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   const chatMode = (chat as unknown as { mode?: string } | null | undefined)?.mode;
   const isRandom = activeConnectionId === "random";
   const sortedConnections = appendLocalSidecarConnectionOption(
-    (connections ?? []) as Array<{ id: string; name: string; provider?: string; useForRandom?: string }>,
+    (connections ?? []) as Array<{
+      id: string;
+      name: string;
+      provider?: string;
+      useForRandom?: string;
+      showUsageWidget?: unknown;
+    }>,
     chatMode !== "game" && sidecarModelDownloaded,
     sidecarModelDisplayName,
   )
     .filter((connection) => !isRandom || !isLocalSidecarConnectionOption(connection))
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+  // Mirrors the desktop switcher: the NanoGPT quota follows the selected
+  // connection, and Random has no single connection to read a quota from.
+  const usageConnection = resolveNanoGptUsageConnection(sortedConnections, activeConnectionId);
 
   const sortedPersonas = (rawPersonas ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
   const normalizedSearch = search.trim().toLocaleLowerCase();
@@ -418,6 +433,11 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                   {contextBudget && (
                     <div className="px-2 pt-1">
                       <ContextBudgetIndicator budget={contextBudget} useAccentColor />
+                    </div>
+                  )}
+                  {usageConnection && (
+                    <div className="px-2 py-2">
+                      <NanoGptUsageWidget connectionId={usageConnection.id} variant="inline" />
                     </div>
                   )}
                   <button

@@ -19,7 +19,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - **Copy Support Diagnostics** now wraps the report in a ``` code block, so it reads cleanly when pasted into Discord or GitHub (#6668).
 
-- A NanoGPT connection can show its subscription usage. An optional **Management Token** field accepts a NanoGPT token with the *Usage only* scope, so quota readings never need your inference key, and a **Show subscription usage** toggle displays the weekly and daily input-token quotas beside the connection and in the chat's **Connection** settings while you play. A look up that NanoGPT cannot answer reads as unknown instead of as unused quota, and the model list marks subscription-included models and the ones charged at a higher input-token multiplier.
+- A NanoGPT connection can show its subscription usage. An optional **Management Token** field accepts a NanoGPT token with the *Usage only* scope, so quota readings never need your inference key, and a **Show subscription usage** toggle displays the weekly and daily input-token quotas beside the connection, in the chat connection picker, and in the chat's **Connection** settings while you play. A look up that NanoGPT cannot answer reads as unknown instead of as unused quota, and the model list marks subscription-included models — including a green `1x` at the normal rate — and the ones charged at a higher input-token multiplier.
 
 - Generation now reports when a prompt that does not fit spends the reply budget instead of dropping messages. A reply budget cut to its 128-token floor is logged as a warning, so a configured Max Tokens that never reaches the provider is visible instead of silent (#6614).
 

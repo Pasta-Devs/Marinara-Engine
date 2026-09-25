@@ -78,7 +78,11 @@ export function ConnectionSection({
             </select>
           </div>
           {contextBudget && <ContextBudgetIndicator budget={contextBudget} />}
-          {usageConnection && <NanoGptUsageWidget connectionId={usageConnection.id} variant="inline" />}
+          {usageConnection && (
+            <div className="mt-2 rounded-lg bg-foreground/5 px-3 py-2.5 ring-1 ring-foreground/10">
+              <NanoGptUsageWidget connectionId={usageConnection.id} variant="inline" />
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -109,7 +113,7 @@ export function ConnectionSection({
             </div>
           )}
           {usageConnection && (
-            <div className="mt-2">
+            <div className="mt-2 rounded-lg bg-foreground/5 px-3 py-2.5 ring-1 ring-foreground/10">
               <NanoGptUsageWidget connectionId={usageConnection.id} variant="inline" />
             </div>
           )}
