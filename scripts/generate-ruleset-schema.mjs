@@ -267,6 +267,11 @@ function requireLevelsWithKinds(node) {
     ...(node.allOf ?? []),
     { not: { required: ["levels", "boxes"] } },
     { if: { required: ["kinds"] }, then: { anyOf: [{ required: ["levels"] }, { required: ["boxes"] }] } },
+    // An indexed track never moves a mark, so it has no lightest one to upgrade: it refuses when full.
+    {
+      if: { properties: { fill: { const: "indexed" } }, required: ["fill"] },
+      then: { properties: { onFull: { const: "refuse" } }, required: ["onFull"] },
+    },
   ];
 }
 

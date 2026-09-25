@@ -267,7 +267,7 @@ try {
     const wounded = sheets(gravewatch);
     assert.match(
       wounded,
-      /- \[sheet: who="Name" op="damage" track="Track" kind="Kind" amount="N"\] - marks harm of that kind on a wound track; a negative amount heals marks of that kind\./,
+      /- \[sheet: who="Name" op="damage" track="Track" kind="Kind" amount="N"\] - marks harm of that kind on a wound track; a negative amount heals marks of that kind, or the lightest when kind is left out\./,
     );
     assert.match(wounded, /Wound tracks: Harm \(Scuffed to Down; knock, tear\)\./);
     assert.doesNotMatch(wounded, /^Tracks:/m, 'Gravewatch has no plain track for op="track" to move');

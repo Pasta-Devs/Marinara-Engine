@@ -4581,6 +4581,28 @@
                         }
                       ]
                     }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "fill": {
+                          "const": "indexed"
+                        }
+                      },
+                      "required": [
+                        "fill"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "onFull": {
+                          "const": "refuse"
+                        }
+                      },
+                      "required": [
+                        "onFull"
+                      ]
+                    }
                   }
                 ]
               },

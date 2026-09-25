@@ -424,6 +424,11 @@ try {
     assert.deepEqual(parsed.op, { op: "damage", track: "Strain", kind: "strain", amount: 1, box: 3 });
     assert.match(serializeSheetCommandTag({ op: parsed.op, raw: "" }, { ok: true, now: "Strain 1/4" }), / box="3"/);
     assert.equal(parseSheetCommandTagBody(' op="damage" track="Strain" kind="strain" amount="1" box="high"').op, null);
+    // A heal may leave the kind out, and then clears the lightest; a mark may not.
+    const anyHeal = parseSheetCommandTagBody(' op="damage" track="Harm" amount="-1"');
+    assert.deepEqual(anyHeal.op, { op: "damage", track: "Harm", kind: "", amount: -1 });
+    assert.doesNotMatch(serializeSheetCommandTag({ op: anyHeal.op, raw: "" }, { ok: true, now: "Harm 0/4" }), /kind=/);
+    assert.equal(parseSheetCommandTagBody(' op="damage" track="Harm" amount="1"').op, null);
   }
 
   // ── A fight: a box per point of damage, and a hit no box can take ──

@@ -844,7 +844,7 @@ function renderRulesetSheetSection(
     `- [sheet: who="Name" op="track" track="Track" by="+1"] - or to="N" to set it.`,
     ...(woundTracks.length > 0
       ? [
-          `- [sheet: who="Name" op="damage" track="Track" kind="Kind" amount="N"] - marks harm of that kind on a wound track; a negative amount heals marks of that kind.`,
+          `- [sheet: who="Name" op="damage" track="Track" kind="Kind" amount="N"] - marks harm of that kind on a wound track; a negative amount heals marks of that kind, or the lightest when kind is left out.`,
           // Taught only where a track fills by box, since everywhere else a box number means nothing.
           ...(woundTracks.some((track) => track.fill === "indexed")
             ? [
