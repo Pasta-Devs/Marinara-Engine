@@ -1860,7 +1860,7 @@ export function HomeBrowserHub({
   const [widgetManagerOpen, setWidgetManagerOpen] = useState(false);
   const [editingCustomWidget, setEditingCustomWidget] = useState<HomeCustomWidget | null>(null);
   const [widgetManagerAgentId, setWidgetManagerAgentId] = useState<string | null>(null);
-  const [focusedPackagePostId, setFocusedPackagePostId] = useState<string | null>(null);
+  const [focusedPackagePost, setFocusedPackagePost] = useState<{ packageId: string; postId: string } | null>(null);
   const [mobileBookmarksOpen, setMobileBookmarksOpen] = useState(false);
   const [visibleWidgets, setVisibleWidgets] = useState<HomeWidgetId[]>(readHomeWidgetVisibility);
   const [widgetLayouts, setWidgetLayouts] = useState<HomeWidgetLayouts>(() =>
@@ -2124,7 +2124,7 @@ export function HomeBrowserHub({
   const address = `marinara/${activeTab}`;
   const selectTab = (tab: string) => {
     setMobileBookmarksOpen(false);
-    if (tab !== "noodle") setFocusedPackagePostId(null);
+    setFocusedPackagePost((current) => (current?.packageId === tab ? current : null));
     const professorSelected = tab === "professor";
     if (professorSelected) {
       pendingProfessorExitTabRef.current = null;
@@ -2942,8 +2942,8 @@ export function HomeBrowserHub({
                 debugMode,
                 onClose: () => selectTab("home"),
                 reviewImagePromptsBeforeSend,
-                focusPostId: activeTab === "noodle" ? focusedPackagePostId : null,
-                onFocusPostHandled: () => setFocusedPackagePostId(null),
+                focusPostId: focusedPackagePost?.packageId === activeTab ? focusedPackagePost.postId : null,
+                onFocusPostHandled: () => setFocusedPackagePost(null),
               }}
             />
           ) : activeTab === "professor" ? (
@@ -3455,10 +3455,9 @@ export function HomeBrowserHub({
                               widgetHeader: widget.header,
                               active: pageActive && activeTab === "home" && visibleWidgets.includes(widget.id),
                               onOpenPost: (postId: unknown) => {
-                                if (widget.packageId !== "noodle" || typeof postId !== "string" || postId.length > 128)
-                                  return;
-                                setFocusedPackagePostId(postId);
-                                selectTab("noodle");
+                                if (typeof postId !== "string" || postId.length > 128) return;
+                                setFocusedPackagePost({ packageId: widget.packageId!, postId });
+                                selectTab(widget.packageId!);
                               },
                               onOpenNoodle: () => selectTab(widget.packageId!),
                             }}

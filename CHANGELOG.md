@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Any agent package's Home widget can open one item in its own Home tab through `onOpenPost`. Before, only Noodle could jump to an item; other agents could only open their tab.
+
 - Generation now reports when a prompt that does not fit spends the reply budget instead of dropping messages. A reply budget cut to its 128-token floor is logged as a warning, so a configured Max Tokens that never reaches the provider is visible instead of silent (#6614).
 
 - Game Mode rulesets can pick a difficulty by name (`difficulty="Hard"`) instead of a number, and a pool ruleset's ladder step now sets the per-die target it prints. A pool ruleset can let a check lower the face dice roll again or count twice on, let an ability check add a second ability, and count a fumble as low faces on half the dice or more, which on a successful check shows as a complication alongside the result. Capability API 1.37 (#6651).
