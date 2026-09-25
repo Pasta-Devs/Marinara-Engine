@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Advanced Memory finds old scenes from distinctive details even with excerpts disabled, without extra recall model calls. Characters can share access to a scene when only some messages are hidden from them; scene recaps keep shared events plain and use character conditions for private sections. Constant Chat Summaries retain their character conditions (#6679).
+
 - Automatic agent runs with NanoGPT Kimi K3 no longer send an unsupported request to disable reasoning (#6658).
 - Manual Illustrator requests honor the configured output-token limit instead of silently capping it at 1,800 tokens (#6659).
 - Development pull requests use a small Chromium smoke suite instead of the full browser matrix. Full desktop Chromium, mobile Chromium, and mobile WebKit coverage runs nightly, on demand, and before promotion to `main`; contributors run focused regressions locally before pushing (#6661).
