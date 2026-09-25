@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 // Best-effort helpers: a deliberately swallowed failure is logged (rate limited per event, chat and stage) and the
 // caller keeps going with a fallback instead of a thrown error or a silent empty catch.
 process.env.LOG_LEVEL = "silent";
-const { bestEffort, logSuppressed, orFallback } = await import("../../packages/server/src/lib/best-effort.js");
+const { bestEffort, logSuppressed, orFallback, suppressedLogLine } = await import("../../packages/server/src/lib/best-effort.js");
 const { takeRateLimitedSlot, resetRateLimitedLogs } = await import("../../packages/server/src/lib/log-rate-limit.js");
 
 resetRateLimitedLogs();
@@ -14,6 +14,21 @@ assert.doesNotThrow(() =>
 assert.equal(takeRateLimitedSlot("regression.cleanup:chat-1:"), null, "one line a minute per event, chat and stage");
 assert.equal(takeRateLimitedSlot("regression.cleanup:chat-2:"), 0, "another chat has its own key");
 assert.doesNotThrow(() => logSuppressed("not an Error", { event: "regression.cleanup", level: "debug" }));
+
+// Caller fields cannot overwrite the diagnostic fields of the line.
+const failure = new Error("real failure");
+const line = suppressedLogLine(failure, {
+  event: "regression.fields",
+  outcome: "ok",
+  suppressed: false,
+  err: "caller value",
+  level: "debug",
+});
+assert.equal(line.err, failure, "err is the swallowed error");
+assert.equal(line.outcome, "failed");
+assert.equal(line.suppressed, true);
+assert.equal(line.event, "regression.fields");
+assert.equal("level" in line, false, "level only picks the log method");
 
 assert.equal(
   await orFallback(Promise.reject(new Error("read failed")), "fallback", { event: "regression.read" }),

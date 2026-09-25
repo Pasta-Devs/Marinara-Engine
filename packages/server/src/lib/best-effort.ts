@@ -19,10 +19,20 @@ export type SuppressedFields = {
   level?: "warn" | "debug";
 } & Record<string, unknown>;
 
+/**
+ * The structured line for a swallowed failure. Caller fields come first so `err`, `outcome` and `suppressed`
+ * always describe the failure, even when a caller passes fields with the same names.
+ */
+export function suppressedLogLine(error: unknown, fields: SuppressedFields): Record<string, unknown> {
+  const rest: Record<string, unknown> = { ...fields };
+  delete rest.level;
+  return { ...rest, err: error, outcome: "failed", suppressed: true };
+}
+
 /** Logs a failure the caller deliberately swallows (outcome "failed", suppressed true). */
 export function logSuppressed(error: unknown, fields: SuppressedFields): void {
-  const { level, ...rest } = fields;
-  const line = { err: error, outcome: "failed", suppressed: true, ...rest };
+  const line = suppressedLogLine(error, fields);
+  const level = fields.level;
   if (level === "debug") {
     logger.debug(line, "Suppressed failure");
     return;
