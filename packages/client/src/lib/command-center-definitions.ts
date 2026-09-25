@@ -17,6 +17,7 @@ export type CommandCenterModal =
   | "import-lorebook"
   | "import-persona"
   | "import-preset"
+  | "keyboard-shortcuts"
   | "st-bulk-import";
 
 export type CommandCenterAction =
@@ -37,6 +38,7 @@ export type CommandCenterTitleKey =
   | "createPreset"
   | "documentation"
   | "help"
+  | "keyboardShortcuts"
   | "gameAssets"
   | "cardBrowser"
   | "characterLibrary"
@@ -67,6 +69,7 @@ export const DEFAULT_COMMAND_CENTER_LABELS: CommandCenterLabels = {
   createPreset: "Create preset",
   documentation: "Documentation",
   help: "Help",
+  keyboardShortcuts: "Keyboard shortcuts",
   gameAssets: "Game assets",
   cardBrowser: "Card browser",
   characterLibrary: "Character library",

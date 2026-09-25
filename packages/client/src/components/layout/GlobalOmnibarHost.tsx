@@ -7,6 +7,7 @@ import {
   readCommandCenterSessionState,
   writeCommandCenterSessionState,
 } from "../../lib/command-center";
+import { isShortcutsHelpKey, isTypingTarget } from "../../lib/keyboard-shortcuts";
 import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
 import {
   consumeProfessorMariOpenRequest,
@@ -91,15 +92,14 @@ export function GlobalOmnibar() {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       // A `Modal` (a confirm dialog, say) does not set `ui.modal`, so check the
       // overlay registry too; the omnibar itself is not a `Modal`.
-      if (
-        !event.defaultPrevented &&
-        !event.isComposing &&
-        !useUIStore.getState().modal &&
-        !isModalOverlayOpen() &&
-        isOmnibarShortcut(event)
-      ) {
+      const ui = useUIStore.getState();
+      if (event.defaultPrevented || event.isComposing || ui.modal || isModalOverlayOpen()) return;
+      if (isOmnibarShortcut(event)) {
         event.preventDefault();
-        setOpen(!useUIStore.getState().omnibarOpen);
+        setOpen(!ui.omnibarOpen);
+      } else if (isShortcutsHelpKey(event) && !ui.omnibarOpen && !isTypingTarget(event.target)) {
+        event.preventDefault();
+        ui.openModal("keyboard-shortcuts");
       }
     };
     window.addEventListener("keydown", onKeyDown);

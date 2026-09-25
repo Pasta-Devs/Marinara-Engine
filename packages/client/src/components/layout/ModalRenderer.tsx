@@ -67,6 +67,9 @@ const ScenePromptPreferencesModal = lazy(() =>
 const ChoiceSelectionModal = lazy(() =>
   import("../presets/ChoiceSelectionModal").then((module) => ({ default: module.ChoiceSelectionModal })),
 );
+const KeyboardShortcutsModal = lazy(() =>
+  import("../modals/KeyboardShortcutsModal").then((module) => ({ default: module.KeyboardShortcutsModal })),
+);
 const StartCharacterChatModal = lazy(() =>
   import("../modals/StartCharacterChatModal").then((module) => ({
     default: module.StartCharacterChatModal,
@@ -154,6 +157,9 @@ export function ModalRenderer() {
       break;
     case "agent-write-approval":
       content = <AgentWriteApprovalModal open onClose={closeModal} />;
+      break;
+    case "keyboard-shortcuts":
+      content = <KeyboardShortcutsModal open onClose={closeModal} />;
       break;
     case "docs-viewer":
       content = (

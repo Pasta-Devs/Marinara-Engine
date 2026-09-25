@@ -84,6 +84,15 @@ export function createResourceCommandDefinitions(source: CommandCenterTitleSourc
       action: { kind: "modal", modal: "docs-viewer", props: { initialDoc: "FAQ.md" } },
     }),
     defineCommand({
+      id: "keyboard-shortcuts",
+      title: title.keyboardShortcuts,
+      kind: "navigation",
+      icon: "documentation",
+      aliases: ["shortcuts", "hotkeys", "keybindings", "keys"],
+      availability: AVAILABLE,
+      action: { kind: "modal", modal: "keyboard-shortcuts" },
+    }),
+    defineCommand({
       id: "game-assets",
       title: title.gameAssets,
       kind: "resource",

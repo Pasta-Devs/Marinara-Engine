@@ -15,6 +15,11 @@ import {
 } from "../../packages/client/src/lib/command-center.js";
 import { createSystemCommandDefinitions } from "../../packages/client/src/lib/command-center-system-commands.js";
 import {
+  formatShortcutKey,
+  isShortcutsHelpKey,
+  isTypingTarget,
+} from "../../packages/client/src/lib/keyboard-shortcuts.js";
+import {
   createOmnibarContext,
   filterOmnibarFuzzyFallback,
   getOmnibarActiveChatContextResultIds,
@@ -628,3 +633,27 @@ assert.ok(!("mariDetailId" in mariSession));
 }
 
 console.info("Command Center regression checks passed.");
+
+{
+  const key = (overrides: Partial<Parameters<typeof isShortcutsHelpKey>[0]>) => ({
+    key: "?",
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    ...overrides,
+  });
+  assert.equal(isShortcutsHelpKey(key({})), true);
+  assert.equal(isShortcutsHelpKey(key({ ctrlKey: true })), false);
+  assert.equal(isShortcutsHelpKey(key({ repeat: true })), false);
+  assert.equal(isShortcutsHelpKey(key({ key: "/" })), false);
+  // "?" must reach text fields; buttons and checkboxes do not type it.
+  const input = (type: string | null) => ({ tagName: "INPUT", getAttribute: () => type });
+  assert.equal(isTypingTarget(input(null)), true);
+  assert.equal(isTypingTarget(input("search")), true);
+  assert.equal(isTypingTarget(input("checkbox")), false);
+  assert.equal(isTypingTarget({ tagName: "TEXTAREA" }), true);
+  assert.equal(isTypingTarget({ tagName: "DIV", closest: () => ({}) }), true);
+  assert.equal(isTypingTarget({ tagName: "BUTTON", closest: () => null }), false);
+  assert.equal(formatShortcutKey("Mod", true), "⌘");
+  assert.equal(formatShortcutKey("Mod", false), "Ctrl");
+}

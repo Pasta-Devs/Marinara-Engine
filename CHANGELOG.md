@@ -9,6 +9,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Professor Mari's work steps now use distinct app-data labels such as Reading chat and Reading character. The Details inspector stays out of the way when a full Chats, Skills, Memories, or Context workspace is open.
 - The omnibar now prioritizes named resources, improves previews and empty-state guidance, and keeps settings, keyboard navigation, accessibility announcements, and mobile layout aligned.
 - The omnibar shortcut now uses Cmd+K on Mac and Ctrl+K elsewhere, works on non-Latin keyboard layouts, and no longer opens over another dialog. Enter while typing with a Chinese or Japanese input method no longer runs a result, screen readers announce the selected result, and editors that save on leave no longer show an extra unsaved-changes prompt. Thanks to @SirAdoni, whose command palette proposal in #6649 informed these fixes.
+- Press **?** while not typing, or search **Keyboard shortcuts** in the omnibar, to see every keyboard shortcut the app has, grouped by where it works. Thanks to @SirAdoni, who designed this list in #6649.
 - Professor Mari's omnibar tabs now switch without window motion, and the Details inspector button is available on the right on wide screens.
 - Professor Mari now shows proposed changes as one approval card in the chat on smaller screens and in the Details sidebar on desktop.
 - Completed Professor Mari changes now use compact cards and a lower completed-work history in the desktop Details sidebar.
