@@ -171,6 +171,8 @@ export interface ContextFitResult {
   messages: ChatMessage[];
   maxContext?: number;
   maxTokens?: number;
+  /** What the caller asked for, when fitting had to spend the reply budget on the prompt. */
+  requestedMaxTokens?: number;
   inputBudget?: number;
   reservedTokens?: number;
   estimatedTokensBefore: number;

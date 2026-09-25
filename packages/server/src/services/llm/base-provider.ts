@@ -418,6 +418,7 @@ export function fitMessagesToContext(
       messages,
       maxContext,
       maxTokens,
+      requestedMaxTokens,
       inputBudget,
       reservedTokens,
       estimatedTokensBefore,
@@ -536,6 +537,7 @@ export function fitMessagesToContext(
     messages: fittedMessages,
     maxContext,
     maxTokens,
+    requestedMaxTokens,
     inputBudget,
     reservedTokens,
     estimatedTokensBefore,
@@ -614,15 +616,26 @@ export abstract class BaseLLMProvider {
   }
 
   protected logContextTrim(result: ContextFitResult, model: string): void {
-    if (!result.trimmed || !result.inputBudget) return;
-    logger.warn(
-      "[LLM context] Trimmed prompt for %s from ~%d to ~%d tokens (budget ~%d, maxContext=%d)",
-      model,
-      result.estimatedTokensBefore,
-      result.estimatedTokensAfter,
-      result.inputBudget!,
-      result.maxContext!,
-    );
+    if (result.trimmed && result.inputBudget) {
+      logger.warn(
+        "[LLM context] Trimmed prompt for %s from ~%d to ~%d tokens (budget ~%d, maxContext=%d)",
+        model,
+        result.estimatedTokensBefore,
+        result.estimatedTokensAfter,
+        result.inputBudget!,
+        result.maxContext!,
+      );
+    }
+    // Dropping messages was reported; spending the reply budget on the prompt was not, so a user
+    // whose configured Max Tokens never reached the provider had nothing to go on (#6614).
+    // Single-shot prompts give that budget back by design, so only the floor — where the model can
+    // no longer write a reply — is worth a warning.
+    const { requestedMaxTokens, maxTokens } = result;
+    if (requestedMaxTokens === undefined || maxTokens === undefined || maxTokens >= requestedMaxTokens) return;
+    const message =
+      "[LLM context] Reply budget for %s reduced from %d to %d tokens to fit the prompt (~%d tokens, maxContext=%d)";
+    const report = maxTokens <= MIN_OUTPUT_BUDGET_TOKENS ? logger.warn : logger.debug;
+    report.call(logger, message, model, requestedMaxTokens, maxTokens, result.estimatedTokensAfter, result.maxContext!);
   }
 
   protected resolveOpenrouterProvider(openrouterProvider?: string | null): string | null | undefined {

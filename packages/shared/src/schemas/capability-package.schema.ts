@@ -385,7 +385,25 @@ const capabilityPackageManifestBaseSchema = z
 //        strict catalog file, so a package that ships one declares 1.34. No permission.
 // 1.36: package achievements. `api.registerAchievements` adds badges to the Home panel and
 //        `api.runtime.achievements` reads and unlocks them. Requires the `achievements` permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 36 } as const);
+// 1.37: a check's rules moved for one roll, and a sheet the Game Master reads more of.
+//        `resolution.explode` and `resolution.double` may carry a `min` (and then may leave `from`
+//        out) so a check can move the face they fire on, a catalog entry's `mechanics.check` may do
+//        the same with `explode` and `double`, `resolution.pool.abilityPlusAbility` lets an ability
+//        check add a second ability, and `resolution.botch.rule` reads a botch as low faces on half
+//        the dice or more. On the sheet, a plain `live.tracks` entry may take its `max` from a value
+//        the sheet works out and may carry `hideWhen` and `alwaysShow`, and a `gm.sheetSummary.lists`
+//        entry may show `columns` and be named by an enum column. Not a soft seam, for the same
+//        reason as 1.20 through 1.34: an Engine that cannot read these keys refuses the whole
+//        ruleset file, or the catalog file that holds them, so a package that ships any of them
+//        declares 1.37. No permission.
+// 1.38: what a check may buy and what rides along on it. `resolution.reroll` lists standing re-throws
+//        a check may name with `reroll=`, a `resolution.spend` entry may buy a `reroll` and read its
+//        `perCheck` limit off the sheet (a value reference, or `"pool"` for the check's own dice), a
+//        ruleset may declare up to four spends, and `resolution.adjust` adds numbers off the sheet to
+//        every check they apply to. Not a soft seam, for the same reason as 1.20 through 1.37: an
+//        Engine that cannot read these keys refuses the whole ruleset file, so a package that ships
+//        any of them declares 1.38. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 38 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

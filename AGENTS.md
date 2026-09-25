@@ -49,6 +49,7 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 
 - Start with `pnpm install`.
 - Run `pnpm check` as the baseline validation command.
+- Before pushing, follow the local validation and reporting requirements in `CONTRIBUTING.md § Validation`.
 - Run `pnpm version:check` when you touch release metadata, version-bearing files, or README release references.
 - For every bug fix, behavior change, or new feature, add a concise user-focused entry under the appropriate `CHANGELOG.md` `[Unreleased]` heading. Purely mechanical changes with no product or contributor-workflow impact do not need an entry.
 

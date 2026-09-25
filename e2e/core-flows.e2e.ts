@@ -408,7 +408,7 @@ test("available app updates wait for confirmation before refreshing", async ({ p
   expect(mainFrameNavigations).toBe(navigationsAtPrompt + 1);
 });
 
-test("turning off the custom mouse pointer persists immediately and after reload", async ({ page }, testInfo) => {
+test("turning off the custom mouse pointer persists immediately and after reload", { tag: "@smoke" }, async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Appearance preference persistence is covered on desktop.");
 
   await page.goto("/");
@@ -5699,7 +5699,7 @@ test("individual group awareness includes only the replying character's sibling 
   }
 });
 
-test("stopped and refused generations keep sent text cleared and accept the first edit", async ({
+test("stopped and refused generations keep sent text cleared and accept the first edit", { tag: "@smoke" }, async ({
   page,
   request,
 }, testInfo) => {
@@ -6999,7 +6999,7 @@ test("generation fallbacks identify the replacement connection in a toast", asyn
 });
 
 for (const mode of ["roleplay", "conversation"] as const) {
-  test(`${mode} exposes reasoning and explains unavailable saved summaries`, async ({ page }, testInfo) => {
+  test(`${mode} exposes reasoning and explains unavailable saved summaries`, { tag: "@smoke" }, async ({ page }, testInfo) => {
     const characters: Array<{ id: string; name: string }> = [];
     if (mode === "conversation") {
       for (const name of ["Reasoning One", "Reasoning Two"]) {
@@ -11648,7 +11648,7 @@ test("Game history above the dialogue box opens a historical Peek Prompt", async
   }
 });
 
-test("home shell and primary topbar panels open without client errors", async ({ page }, testInfo) => {
+test("home shell and primary topbar panels open without client errors", { tag: "@smoke" }, async ({ page }, testInfo) => {
   const errors = collectUnexpectedErrors(page);
   await page.goto("/");
 
@@ -18450,7 +18450,11 @@ test("Lorebook context filter chips expose installed package triggers and keep c
   const openFilters = async () => {
     await page.goto("/");
     await page.locator('[data-tour="panel-lorebooks"]').click();
-    await page.getByText(lorebookName, { exact: true }).click();
+    // Reload restores the open editor; its library row is then hidden and shares the title.
+    const editorHeading = page.getByRole("heading", { name: lorebookName, exact: true });
+    const libraryEntry = page.getByLabel("Lorebooks", { exact: true }).getByText(lorebookName, { exact: true });
+    await expect(editorHeading.or(libraryEntry).filter({ visible: true }).first()).toBeVisible();
+    if (!(await editorHeading.isVisible())) await libraryEntry.click();
     await openEditorSection(page.locator(".mari-editor-shell"), "Entries");
     await page.getByRole("button", { name: "Expand entry" }).click();
     await page.getByText("Context filters & matching sources", { exact: true }).click();
@@ -20291,7 +20295,7 @@ test("Home widget order can be dragged and persists across reloads", async ({ pa
   expect(errors).toEqual([]);
 });
 
-test("chat mode tabs and new-chat actions stay reachable", async ({ page }) => {
+test("chat mode tabs and new-chat actions stay reachable", { tag: "@smoke" }, async ({ page }) => {
   const errors = collectUnexpectedErrors(page);
   const modes = [
     {

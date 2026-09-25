@@ -319,8 +319,8 @@ To test your wording:
 
 1. Select a model under **Decision model** and click **Test**. This checks the connection with a fixed sample; it does not test your statement or read your current chat.
 2. Add the statement to your prompt and send representative chat messages: some where it should be true, and some where it should be false.
-3. Use **Peek Prompt** to inspect the branch that was sent. If you need the statement's probability and yes/no result, enable [debug logging](../CONFIGURATION.md#logging-levels).
-4. Adjust the wording and test again. Use new messages or change the statement when testing a new case: successful answers can be [reused](#answer-reuse). Opening a fresh Peek Prompt preview does not ask the model.
+3. Use **Peek Prompt** to inspect the branch that was sent. Open **Decision diagnostics** to preview the current decision inputs, then choose **Test decisions** to obtain fresh scores and inspect the resulting prompt without generating a reply. Hosted tests may incur charges. See [Testing decision statements](../chats/peek-prompt.md#testing-decision-statements).
+4. Adjust the wording and test again. Normal generations can [reuse answers](#answer-reuse); an explicit decision test keeps its answers separate from the live chat. Opening Peek Prompt or previewing inputs does not ask the model. To inspect results from live generations, enable Debug Mode or [debug logging](../CONFIGURATION.md#logging-levels).
 
 What the tests showed. Each wording was tried on four labelled roleplay turns (two meant as yes, two as no) on Open-Jev 2B, Open-Jev 9B and a Gemma 4 E4B local model. It is a small sample from one scene, not a general accuracy benchmark or a test of hosted Jev. The table records observations from that sample; it does not promise the same result for another model or chat.
 

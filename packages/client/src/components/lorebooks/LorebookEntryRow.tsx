@@ -40,7 +40,7 @@ import {
 import { cn, copyToClipboard } from "../../lib/utils";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useUpdateLorebookEntry, useDeleteLorebookEntry, useDuplicateLorebookEntry } from "../../hooks/use-lorebooks";
-import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
+import { isCapabilityPackageAvailable, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { useUIStore } from "../../stores/ui.store";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { DecisionStatementNote } from "../ui/DecisionStatementNote";
@@ -201,11 +201,12 @@ const GENERATION_TRIGGER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "lorebook_assistant", label: "Lorebook Assistant" },
 ];
 
-// Triggers sent by downloadable packages. They only show while their package is installed and
-// active; a saved value stays on the entry when its package is removed.
-const PACKAGE_GENERATION_TRIGGER_OPTIONS: Array<{ value: string; label: string; packageId: string }> = [
-  { value: "noodle", label: "Noodle", packageId: "noodle" },
-  { value: "slurp", label: "Slurp", packageId: "slurp2" },
+// Triggers sent by downloadable packages. They only show while a package that sends them is
+// installed and usable; a saved value stays on the entry when its package is removed.
+// Slurp Legacy (`slurp`) sends the "noodle" trigger, like the Noodle it was forked from.
+const PACKAGE_GENERATION_TRIGGER_OPTIONS: Array<{ value: string; label: string; packageIds: string[] }> = [
+  { value: "noodle", label: "Noodle", packageIds: ["noodle", "slurp"] },
+  { value: "slurp", label: "Slurp", packageIds: ["slurp2"] },
 ];
 
 /** A compact lorebook-entry list row with inline-editable status / position / depth / order /
@@ -1396,9 +1397,7 @@ function ExpandedDrawer({
     () => [
       ...GENERATION_TRIGGER_OPTIONS,
       ...PACKAGE_GENERATION_TRIGGER_OPTIONS.filter((option) =>
-        installedCapabilities.some(
-          (capability) => capability.id === option.packageId && capability.status === "active",
-        ),
+        option.packageIds.some((packageId) => isCapabilityPackageAvailable(installedCapabilities, packageId)),
       ),
     ],
     [installedCapabilities],

@@ -29,6 +29,12 @@ import {
   parseDiceNotation,
   readRulesetWoundPenalty,
   rollDicePoolCheck,
+  resolveRulesetValueRef,
+  RULESET_POOL_MAX_DICE,
+  rulesetCheckAdjust,
+  rulesetDifficultyStep,
+  rulesetDifficultyStepDc,
+  rulesetLadderTargetFor,
   rulesetPoolMaxSuccesses,
   rollDiceSumCheck,
   rulesetCheckModifier,
@@ -40,6 +46,7 @@ import {
   type RulesetLiveState,
   type RulesetLiveStates,
   type RulesetSheetBuild,
+  type RulesetValueRef,
   type SkillCheckResult,
   type SkillCheckTag,
 } from "@marinara-engine/shared";
@@ -62,6 +69,15 @@ import {
   readContextAttributeScore,
   resolveSkillCheck,
 } from "./skill-check.service.js";
+
+/** A check that names its difficulty only by a ladder step no ladder here has, so there is no number
+ *  to roll it against. Its own class so the endpoint can answer it as the caller's mistake. */
+export class SkillCheckDifficultyError extends Error {
+  constructor(skill: string) {
+    super(`The check ${skill} names no difficulty this game's rules can read`);
+    this.name = "SkillCheckDifficultyError";
+  }
+}
 
 /** Longest skill name a check may name — matches the POST /game/skill-check schema. */
 export const SKILL_CHECK_MAX_SKILL_LENGTH = 100;
@@ -119,7 +135,17 @@ export interface SkillCheckRulesetContext {
 
 export interface SkillCheckRequest {
   skill: string;
-  dc: number;
+  /** The difficulty to roll against. Absent only while a `difficulty=` ask has not been read against
+   *  the ruleset's ladder yet; nothing rolls a request that still has none. */
+  dc?: number;
+  /** `difficulty=`: a ladder step picked by name. It supplies `dc` when none was written, and on a
+   *  pool its per-die target. Ruleset games only. */
+  difficulty?: string;
+  /** `explode=` and `double=`: the face a pool rule the ruleset lets a check move fires on. */
+  explode?: number;
+  double?: number;
+  /** `reroll=`: one of the ruleset's standing re-throws, by its id. */
+  reroll?: string;
   advantage?: boolean;
   disadvantage?: boolean;
   preRolledD20?: number;
@@ -378,6 +404,8 @@ export interface RulesetCheckPurchase {
     successes?: number;
     threshold?: number;
     reroll?: { upTo: number; mode: "once" | "until" };
+    explode?: number;
+    double?: number;
   };
   /** The entry it came out of, when it came out of one, by the label the ruleset gives it. */
   used?: string;
@@ -466,6 +494,8 @@ function planRulesetEntryCheck(
       ...(effect.successes ? { successes: effect.successes * steps } : {}),
       ...(effect.threshold !== undefined ? { threshold: effect.threshold } : {}),
       ...(effect.reroll ? { reroll: effect.reroll } : {}),
+      ...(effect.explode !== undefined ? { explode: effect.explode } : {}),
+      ...(effect.double !== undefined ? { double: effect.double } : {}),
     },
     used: entry.label,
     key,
@@ -489,6 +519,8 @@ export function planRulesetCheckPurchase(
   ruleset: SkillCheckRulesetContext,
   asked: { pool: string; amount: number } | undefined,
   who?: string,
+  /** The check's own dice, before anything was added or taken: what a `"pool"` limit reads. */
+  base = 0,
 ): RulesetCheckPurchase | null {
   const offers = ruleset.definition.resolution.spend;
   if (!asked || !offers || offers.length === 0) return null;
@@ -501,13 +533,15 @@ export function planRulesetCheckPurchase(
   if (!offer) return null;
   // Whole purchases only. Half a point of will buys half a success in no system.
   if (!Number.isInteger(asked.amount) || asked.amount < offer.amount || asked.amount % offer.amount !== 0) return null;
-  const times = Math.min(offer.perCheck, asked.amount / offer.amount);
-  const cost = times * offer.amount;
 
   const key = who ? normalizeCharacterLookupName(who) : ruleset.playerKey;
   const build = key ? ruleset.builds.get(key) : undefined;
   // A stranger has no sheet to spend from, so there is nothing to pay with and nothing is bought.
   if (!key || !build) return null;
+  const times = Math.min(rulesetSpendCap(ruleset, offer.perCheck, key, build, base), asked.amount / offer.amount);
+  // A limit the sheet sets can be nothing for this character, and then nothing is bought.
+  if (times < 1) return null;
+  const cost = times * offer.amount;
   const paid = applyRulesetSheetOp(ruleset.definition, build, ruleset.live[key], {
     op: "spend",
     pool: offer.pool,
@@ -521,10 +555,44 @@ export function planRulesetCheckPurchase(
     bought: {
       ...(offer.dice ? { dice: offer.dice * times } : {}),
       ...(offer.successes ? { successes: offer.successes * times } : {}),
+      // Bought once however many purchases were made: a die thrown again twice is one re-throw.
+      ...(offer.reroll ? { reroll: offer.reroll } : {}),
     },
     key,
     live: paid.live,
   };
+}
+
+/** How many purchases of a spend one check may make, for this character on this check: the number
+ *  the ruleset wrote, the value its sheet works out, or the check's own dice. Whole, never below
+ *  none, and never past the most dice one pool may hold. */
+function rulesetSpendCap(
+  ruleset: SkillCheckRulesetContext,
+  perCheck: number | "pool" | RulesetValueRef,
+  key: string,
+  build: RulesetSheetBuild,
+  base: number,
+): number {
+  if (typeof perCheck === "number") return perCheck;
+  const raw =
+    perCheck === "pool"
+      ? base
+      : resolveRulesetValueRef(
+          ruleset.definition,
+          build,
+          perCheck,
+          ruleset.sheets.get(key) ?? evaluateRulesetSheet(ruleset.definition, build),
+        );
+  return Math.max(0, Math.min(RULESET_POOL_MAX_DICE, Math.floor(raw)));
+}
+
+/** The request with the number its named ladder step stands for, where it wrote no `dc=` of its own
+ *  and the ruleset's ladder has that step. Anything else comes back exactly as it was, so a caller
+ *  can read every request through this once the ruleset is in hand. */
+export function readRulesetDifficulty(request: SkillCheckRequest, definition?: RulesetDefinition): SkillCheckRequest {
+  if (request.dc !== undefined || !definition) return request;
+  const step = rulesetDifficultyStep(definition, request.difficulty);
+  return step ? { ...request, dc: rulesetDifficultyStepDc(step) } : request;
 }
 
 /** What the roller's wound track costs this check. Always negative or 0, and 0 for a stranger, a
@@ -552,6 +620,49 @@ export function rulesetCheckModifierFor(
   return rulesetCheckModifier(player ?? ruleset.blank, target);
 }
 
+/** What the sheet's own `resolution.adjust` adds to or takes off `who`'s check (or the player's), on
+ *  the same terms as the modifier beside it: a stranger has no sheet, so nothing. */
+export function rulesetCheckAdjustFor(
+  ruleset: SkillCheckRulesetContext,
+  skill: string,
+  who?: string,
+  withAbility?: string,
+): number {
+  const { definition } = ruleset;
+  if (!definition.resolution.adjust?.length) return 0;
+  const target = matchRulesetCheckTarget(definition, skill, withAbility);
+  if (who) {
+    const key = normalizeCharacterLookupName(who);
+    const evaluated = ruleset.sheets.get(key);
+    const build = ruleset.builds.get(key);
+    return evaluated && build ? rulesetCheckAdjust(definition, build, evaluated, target) : 0;
+  }
+  const key = ruleset.playerKey;
+  const evaluated = (key ? ruleset.sheets.get(key) : undefined) ?? ruleset.blank;
+  const build = (key ? ruleset.builds.get(key) : undefined) ?? defaultRulesetSheetBuild(definition);
+  return rulesetCheckAdjust(definition, build, evaluated, target);
+}
+
+/** One of the ruleset's standing re-throws, by the id the Game Master named with `reroll=`, matched
+ *  without case. Null for a name nothing answers to, and on a summed ruleset, which has none. */
+export function rulesetStandingReroll(
+  definition: RulesetDefinition,
+  name: string | undefined,
+): { id: string; upTo: number; mode: "once" | "until" } | null {
+  const wanted = name?.trim().toLowerCase();
+  if (!wanted || definition.resolution.kind !== "dice-pool") return null;
+  return definition.resolution.reroll?.find((entry) => entry.id.toLowerCase() === wanted) ?? null;
+}
+
+/** One re-throw per roll: of two that would apply, the one that reaches more faces, and `until`
+ *  over `once` where they reach the same. Two re-throws of the same dice are not a rule anywhere. */
+function widerReroll<T extends { upTo: number; mode: "once" | "until" }>(first?: T | null, second?: T | null) {
+  if (!first) return second ?? undefined;
+  if (!second) return first;
+  if (first.upTo !== second.upTo) return first.upTo > second.upTo ? first : second;
+  return second.mode === "until" && first.mode !== "until" ? second : first;
+}
+
 function resolveRulesetSkillCheck(
   ruleset: SkillCheckRulesetContext,
   request: SkillCheckRequest,
@@ -565,20 +676,39 @@ function resolveRulesetSkillCheck(
   const target = matchRulesetCheckTarget(definition, request.skill, request.withAbility);
   // An ability nobody on this sheet answers to is ignored rather than refused, so the check still
   // happens with the skill's own ability. Said once, here, where the ruleset is actually in hand.
-  if (request.withAbility && target && target.type !== "ability" && !target.withAbility) {
+  // On an ability check it is also ignored wherever the ruleset does not add two abilities together.
+  if (request.withAbility && target && !target.withAbility) {
     logger.debug(
-      "[game/skill-check] No ability named %s in ruleset %s; rolling %s with its own",
+      "[game/skill-check] %s does nothing on %s in ruleset %s; rolling it as named",
       request.withAbility,
-      definition.id,
       request.skill,
+      definition.id,
     );
   }
+  // The ladder step a name picks, when the Game Master named one. `dc=` still wins where both were
+  // written; the step's own target applies either way. A name no step answers to is ignored, the way
+  // an unknown `with=` is.
+  const step = rulesetDifficultyStep(definition, request.difficulty);
+  if (request.difficulty && !step) {
+    logger.debug(
+      "[game/skill-check] No difficulty named %s in ruleset %s; ignoring it",
+      request.difficulty,
+      definition.id,
+    );
+  }
+  const askedDc = request.dc ?? (step ? rulesetDifficultyStepDc(step) : undefined);
+  // Every caller reads the ask against the ladder before it gets here, so this is a check nobody
+  // could have rolled: thrown, so the turn saves it as the ask it still is.
+  if (askedDc === undefined) throw new SkillCheckDifficultyError(request.skill);
   const modifier = rulesetCheckModifierFor(ruleset, request.skill, request.who, request.withAbility);
   // What the roller's wounds cost this check. It is applied the way the kind understands a number:
   // `dice-sum` adds it to the roll, `dice-pool` takes that many dice off the pool and the roller's
   // own clamp holds it at `pool.min`. Both go through the same `modifier` input, so there is one
   // place a wound can be forgotten rather than two.
   const penalty = rulesetCheckPenaltyFor(ruleset, request.who);
+  // And what the sheet itself adds or takes on this check, applied in the same place for the same
+  // reason, and said beside the wound penalty on the record.
+  const adjust = rulesetCheckAdjustFor(ruleset, request.skill, request.who, request.withAbility);
   // What the check buys, worked out and PAID before the dice are thrown, so a roll can never be
   // changed by something that turned out to be unaffordable. A caller that cannot persist the cost
   // buys nothing: the roll is then the one it would have been without the tag's `spend=`.
@@ -593,19 +723,28 @@ function resolveRulesetSkillCheck(
     ? null
     : request.useEntry?.trim()
       ? planRulesetEntryCheck(ruleset, request.useEntry, request.spend, request.who)
-      : planRulesetCheckPurchase(ruleset, request.spend, request.who);
+      : planRulesetCheckPurchase(ruleset, request.spend, request.who, modifier);
   if (purchase) onSpend!(purchase.key, purchase.live);
+  // A standing re-throw the Game Master named. It costs nothing, so it needs no persisting caller;
+  // beside one that was bought, the wider of the two is the one thrown.
+  const standing = rulesetStandingReroll(definition, request.reroll);
+  if (request.reroll && !standing) {
+    logger.debug("[game/skill-check] No re-throw named %s in ruleset %s; ignoring it", request.reroll, definition.id);
+  }
+  const reroll = widerReroll(purchase?.bought.reroll, standing);
+  const bought = purchase || reroll ? { ...(purchase?.bought ?? {}), ...(reroll ? { reroll } : {}) } : undefined;
   // What the record may say about `with=`: the ability's own label, and only when the swap
   // happened. An ability check has no other ability to swap in, and an unknown name was ignored.
-  const swapped =
-    target && target.type !== "ability" && target.withAbility
-      ? definition.sheet.abilities.find((ability) => ability.id === target.withAbility)?.label
-      : undefined;
+  // On an ability check it is the second ability added, which is only ever set where the ruleset adds two.
+  const swapped = target?.withAbility
+    ? definition.sheet.abilities.find((ability) => ability.id === target.withAbility)?.label
+    : undefined;
   const applied = {
     ...(swapped ? { withAbility: swapped } : {}),
     // Said even on a summed check, where it is also inside `modifier`: "-2 because you are Wounded"
     // is not something a player can read out of one number.
     ...(penalty !== 0 ? { penalty } : {}),
+    ...(adjust !== 0 ? { adjust } : {}),
     ...(purchase?.spent ? { spent: purchase.spent } : {}),
     ...(purchase?.used ? { used: purchase.used } : {}),
   };
@@ -618,18 +757,29 @@ function resolveRulesetSkillCheck(
     // rather than refused:
     // the sighted pool's own bound is applied before any ruleset is loaded, so this is the only
     // place that knows what this ruleset's ceiling is.
-    const dc = Math.min(rulesetPoolMaxSuccesses(resolution), Math.max(1, Math.round(request.dc)));
+    const dc = Math.min(rulesetPoolMaxSuccesses(resolution), Math.max(1, Math.round(askedDc)));
+    // The per-die target the ladder means, where the Game Master did not set one: the named step's,
+    // or else the one step that needs exactly this many successes. A ladder step that names no
+    // target leaves the ruleset's default.
+    const ladderTarget =
+      request.threshold === undefined
+        ? step && "successes" in step
+          ? step.target
+          : rulesetLadderTargetFor(definition, dc)
+        : undefined;
     const rolled = rollDicePoolCheck(
       definition,
       {
         // Dice off the pool. The roller clamps into `pool`, so a large penalty stops at `pool.min`
         // rather than at no dice at all, which is the ruleset's own floor for an empty pool.
-        modifier: modifier + penalty,
+        modifier: modifier + penalty + adjust,
         required: dc,
         isSave,
-        threshold: request.threshold,
+        threshold: request.threshold ?? ladderTarget,
         bonusDice: request.bonusDice,
-        ...(purchase ? { bought: purchase.bought } : {}),
+        explode: request.explode,
+        double: request.double,
+        ...(bought ? { bought } : {}),
       },
       rollDie,
     );
@@ -644,6 +794,13 @@ function resolveRulesetSkillCheck(
       bonusDice: rolled.bonusDice || undefined,
       autoSuccesses: rolled.autoSuccesses || undefined,
       rerolled: rolled.rerolled || undefined,
+      // A face is said only where the check moved it off the ruleset's own, so a record of an ordinary
+      // roll reads exactly as it always has.
+      explodeFrom: rolled.explodeFrom !== resolution.explode?.from ? rolled.explodeFrom : undefined,
+      doubleFrom: rolled.doubleFrom !== resolution.double?.from ? rolled.doubleFrom : undefined,
+      complication: rolled.complication || undefined,
+      // Named only when it was the standing one that was thrown, and it actually threw something.
+      reroll: standing && reroll === standing && rolled.rerolled > 0 ? standing.id : undefined,
       ...applied,
       ...(request.who ? { who: request.who } : {}),
     };
@@ -652,12 +809,12 @@ function resolveRulesetSkillCheck(
   const { sides, count } = resolution.dice;
   // A flat modifier on the roll, which is what a penalty IS in a summed system, so it belongs in
   // the number the record adds up rather than beside it.
-  const summed = modifier + penalty;
+  const summed = modifier + penalty + adjust;
   const rolled = rollDiceSumCheck(
     definition,
     {
       modifier: summed,
-      dc: request.dc,
+      dc: askedDc,
       isSave,
       advantage: request.advantage,
       disadvantage: request.disadvantage,
@@ -667,7 +824,7 @@ function resolveRulesetSkillCheck(
   );
   return {
     skill: request.skill,
-    dc: request.dc,
+    dc: askedDc,
     modifier: summed,
     resolution: "sum",
     ...rolled,
@@ -724,7 +881,9 @@ function rulesetVouchesFor(ruleset: SkillCheckRulesetContext, tag: SkillCheckTag
   // number a summed check adds to the dice. A GM that wrote the unwounded modifier has not rolled
   // this character's check.
   const expected =
-    rulesetCheckModifierFor(ruleset, tag.skill, tag.who, tag.withAbility) + rulesetCheckPenaltyFor(ruleset, tag.who);
+    rulesetCheckModifierFor(ruleset, tag.skill, tag.who, tag.withAbility) +
+    rulesetCheckPenaltyFor(ruleset, tag.who) +
+    rulesetCheckAdjustFor(ruleset, tag.skill, tag.who, tag.withAbility);
   if (result.modifier !== expected) return false;
   if (result.usedRoll + result.modifier !== result.total) return false;
   const target = matchRulesetCheckTarget(ruleset.definition, tag.skill);
@@ -748,6 +907,9 @@ export function resolveSkillCheckWithContext(
   const rawSkillMod = skills ? (skills[request.skill] ?? skills[request.skill.toLowerCase()]) : undefined;
   const skillMod = Number.isFinite(Number(rawSkillMod)) ? Number(rawSkillMod) : 0;
 
+  // The Engine's own rules have no ladder to read a named difficulty off, so an ask with no number is
+  // one nothing here can roll. Callers leave such a tag as written; this only guards the door.
+  if (request.dc === undefined) throw new SkillCheckDifficultyError(request.skill);
   const attr = getGoverningAttribute(request.skill);
   const attrScore = readContextAttributeScore(context, attr);
 
@@ -787,17 +949,20 @@ export async function resolveChatSkillCheck(
  */
 export function isResolvableSkillCheckRequest(request: SkillCheckRequest, definition?: RulesetDefinition): boolean {
   if (!request.skill || request.skill.length > SKILL_CHECK_MAX_SKILL_LENGTH) return false;
+  // A difficulty still only named, never read against a ladder, is not a number anything can roll.
+  const dc = request.dc;
+  if (dc === undefined) return false;
   const resolution = definition?.resolution;
   // A pool check's difficulty is a count of successes, not a target number, so the d20 bounds say
   // nothing about it: it can never need more successes than the largest roll could count.
   if (resolution?.kind === "dice-pool") {
-    return Number.isInteger(request.dc) && request.dc >= 1 && request.dc <= rulesetPoolMaxSuccesses(resolution);
+    return Number.isInteger(dc) && dc >= 1 && dc <= rulesetPoolMaxSuccesses(resolution);
   }
   // A ruleset's own difficulty ladder may reach past the Engine's d20 bounds in either direction.
   const ladder = resolution?.difficultyLadder.map((step) => step.dc) ?? [];
   const min = Math.min(SKILL_CHECK_MIN_DC, ...ladder);
   const max = Math.max(SKILL_CHECK_MAX_DC, ...ladder);
-  return Number.isInteger(request.dc) && request.dc >= min && request.dc <= max;
+  return Number.isInteger(dc) && dc >= min && dc <= max;
 }
 
 export interface SkillCheckTagResolutionOptions {
@@ -947,22 +1112,37 @@ export async function resolveSkillCheckTagsInContent(
       ...(tag.who ? { who: tag.who } : {}),
       ...(tag.withAbility ? { with: tag.withAbility } : {}),
       ...(tag.bonusDice != null ? { bonus: tag.bonusDice } : {}),
+      ...(tag.difficulty ? { difficulty: tag.difficulty } : {}),
+      ...(tag.explode != null ? { explode: tag.explode } : {}),
+      ...(tag.double != null ? { double: tag.double } : {}),
+      ...(tag.reroll ? { reroll: tag.reroll } : {}),
     };
     return Object.keys(extras).length > 0 ? extras : undefined;
   };
-  const toRequest = (tag: SkillCheckTag): SkillCheckRequest => ({
-    skill: tag.skill,
-    dc: tag.dc,
-    advantage: tag.advantage,
-    disadvantage: tag.disadvantage,
-    preRolledD20: tag.preRolledD20,
-    who: tag.who,
-    withAbility: tag.withAbility,
-    threshold: tag.threshold,
-    bonusDice: tag.bonusDice,
-    ...(tag.spend ? { spend: tag.spend } : {}),
-    ...(tag.useEntry ? { useEntry: tag.useEntry } : {}),
-  });
+  // A difficulty named by its ladder step is read here, once the ruleset is in hand, so everything
+  // after this sees a number. Without the ruleset the ask keeps whatever `dc=` it wrote, which for a
+  // tag that named only a step is none, and nothing rolls it.
+  const toRequest = (tag: SkillCheckTag, definition?: RulesetDefinition): SkillCheckRequest =>
+    readRulesetDifficulty(
+      {
+        skill: tag.skill,
+        ...(tag.dc !== undefined ? { dc: tag.dc } : {}),
+        ...(tag.difficulty ? { difficulty: tag.difficulty } : {}),
+        ...(tag.explode != null ? { explode: tag.explode } : {}),
+        ...(tag.double != null ? { double: tag.double } : {}),
+        ...(tag.reroll ? { reroll: tag.reroll } : {}),
+        advantage: tag.advantage,
+        disadvantage: tag.disadvantage,
+        preRolledD20: tag.preRolledD20,
+        who: tag.who,
+        withAbility: tag.withAbility,
+        threshold: tag.threshold,
+        bonusDice: tag.bonusDice,
+        ...(tag.spend ? { spend: tag.spend } : {}),
+        ...(tag.useEntry ? { useEntry: tag.useEntry } : {}),
+      },
+      definition,
+    );
   /** Pool checks the resolver could not roll, written back without the numbers they claimed. */
   const stripped: Array<{ start: number; end: number; replacement: string }> = [];
   let trusted = 0;
@@ -1048,6 +1228,16 @@ export async function resolveSkillCheckTagsInContent(
         left += 1;
         continue;
       }
+      // A difficulty named by its ladder step, with no number beside it, needs a ruleset's ladder to
+      // mean anything, and this game has none. Left exactly as written.
+      if (tag.dc === undefined) {
+        logger.debug(
+          "[game/skill-check] Leaving a check that names only a difficulty unresolved for chat %s",
+          options.chatId ?? "unknown",
+        );
+        left += 1;
+        continue;
+      }
       const request: SkillCheckRequest = {
         skill: tag.skill,
         dc: tag.dc,
@@ -1059,7 +1249,7 @@ export async function resolveSkillCheckTagsInContent(
         logger.debug(
           "[game/skill-check] Leaving out-of-bounds check tag unresolved for chat %s (dc=%d)",
           options.chatId ?? "unknown",
-          request.dc,
+          tag.dc,
         );
         left += 1;
         continue;
@@ -1095,7 +1285,7 @@ export async function resolveSkillCheckTagsInContent(
       keepWho = !!ruleset;
       for (const entry of deferred) {
         const { tag } = entry;
-        const request = toRequest(tag);
+        const request = toRequest(tag, ruleset?.definition);
         const owesRoll = ruleset
           ? !rulesetVouchesFor(ruleset, tag) && isRulesetRollableSkillCheckTag(tag, ruleset.definition)
           : !tag.resolvedResult && isEngineRollableSkillCheckTag(tag);
@@ -1152,14 +1342,32 @@ export async function resolveSkillCheckTagsInContent(
     // sparse tags rather than the resolved ones: a caller reading `resolved` as "rolled"
     // would otherwise count a check that has no number yet.
     let overflowed = 0;
+    // Pool checks that named only a ladder step nobody here has. Saved sparse, like an overflow.
+    let unread = 0;
     const rolled = rewrite((entry) => {
+      // A pool check bound before the ruleset was loaded may have named its difficulty by a ladder
+      // step; it is read now, with the ruleset in hand, so the pool serves it like any other check.
+      const request =
+        entry.poolBody != null ? readRulesetDifficulty(entry.request, context.ruleset?.definition) : entry.request;
+      if (request.dc === undefined) {
+        unread += 1;
+        return serializeSparseSkillCheckTag(
+          {
+            skill: request.skill,
+            advantage: request.advantage,
+            disadvantage: request.disadvantage,
+            declaredDice: entry.tag.declaredDice,
+          },
+          askExtras(entry.tag),
+        );
+      }
       if (entry.poolBody != null && options.pool && poolServesChecks) {
         // A ruleset that has no advantage rolls one die whatever the tag asked for, so only one
         // pool value may be reserved and recorded for it.
         const poolRequest =
           rulesetResolution && rulesetResolution.kind === "dice-sum" && !rulesetResolution.advantage
-            ? { ...entry.request, advantage: false, disadvantage: false }
-            : entry.request;
+            ? { ...request, advantage: false, disadvantage: false }
+            : request;
         const spent = resolvePoolCheckTag(options.pool, context, poolRequest, entry.tag, entry.poolBody, poolTagIndex);
         poolTagIndex += 1;
         if (spent) {
@@ -1171,16 +1379,16 @@ export async function resolveSkillCheckTagsInContent(
         overflowed += 1;
         return serializeSparseSkillCheckTag(
           {
-            skill: entry.request.skill,
+            skill: request.skill,
             dc: entry.request.dc,
-            advantage: entry.request.advantage,
-            disadvantage: entry.request.disadvantage,
+            advantage: request.advantage,
+            disadvantage: request.disadvantage,
             declaredDice: entry.tag.declaredDice,
           },
           askExtras(entry.tag),
         );
       }
-      const result = resolveSkillCheckWithContext(context, entry.request, options.rollD20, onSpend);
+      const result = resolveSkillCheckWithContext(context, request, options.rollD20, onSpend);
       results.push(result);
       // The result carries what the roll applied (who, the other ability, the dice added), so a
       // saved turn says exactly that. None of it is set outside a ruleset game, byte for byte.
@@ -1189,10 +1397,10 @@ export async function resolveSkillCheckTagsInContent(
     return {
       content: rolled,
       results,
-      resolved: pending.length - overflowed,
+      resolved: pending.length - overflowed - unread,
       trusted,
-      left: left + overflowed,
-      sparse: overflowed + stripped.length,
+      left: left + overflowed + unread,
+      sparse: overflowed + unread + stripped.length,
       ...(spentLive ? { live: spentLive } : {}),
     };
   } catch (err) {
@@ -1245,7 +1453,18 @@ export async function resolveSkillCheckTagsInContent(
 }
 
 /** The attributes a check tag keeps when its numbers are dropped: the ask, never the answer. */
-const POOL_CLAIM_KEPT_ATTRIBUTES = new Set(["skill", "dc", "mode", "dice", "resolution", "threshold"]);
+const POOL_CLAIM_KEPT_ATTRIBUTES = new Set([
+  "skill",
+  "dc",
+  "difficulty",
+  "mode",
+  "dice",
+  "resolution",
+  "threshold",
+  "explode",
+  "double",
+  "reroll",
+]);
 
 /**
  * Write an unrollable pool check back without the numbers the model claimed for it.
@@ -1276,14 +1495,17 @@ export function stripPoolClaims(body: string): string {
  */
 export function boundPoolCheckRequest(tag: SkillCheckTag): SkillCheckRequest | null {
   if (!tag.skill || tag.skill.length > SKILL_CHECK_MAX_SKILL_LENGTH) return null;
-  if (!Number.isFinite(tag.dc)) return null;
+  // A difficulty named only by its ladder step has no number yet. It is read off the ladder when the
+  // pool is spent, which is after the ruleset is loaded; a tag with neither has nothing to roll against.
+  if (tag.dc === undefined && !tag.difficulty) return null;
   // ponytail: the pool clamps to the Engine's own DC bounds even in a ruleset game whose ladder
   // reaches further, because the pool is bound before the ruleset is loaded. Widen it if a ruleset
   // with a wider ladder is ever played with the sighted pool on.
-  const dc = Math.min(SKILL_CHECK_MAX_DC, Math.max(SKILL_CHECK_MIN_DC, Math.round(tag.dc)));
+  const dc =
+    tag.dc === undefined ? undefined : Math.min(SKILL_CHECK_MAX_DC, Math.max(SKILL_CHECK_MIN_DC, Math.round(tag.dc)));
   return {
     skill: tag.skill,
-    dc,
+    ...(dc !== undefined ? { dc } : {}),
     advantage: tag.advantage,
     disadvantage: tag.disadvantage,
     // Read only by a ruleset game; the Engine's own rules ignore them and write the same bytes.
@@ -1293,6 +1515,12 @@ export function boundPoolCheckRequest(tag: SkillCheckTag): SkillCheckRequest | n
     withAbility: tag.withAbility,
     threshold: tag.threshold,
     bonusDice: tag.bonusDice,
+    // The step a difficulty was named by still sets a pool's target, and the faces a check moved
+    // are the same ask, so whichever path rolls it rolls what the tag asked for.
+    ...(tag.difficulty ? { difficulty: tag.difficulty } : {}),
+    ...(tag.explode != null ? { explode: tag.explode } : {}),
+    ...(tag.double != null ? { double: tag.double } : {}),
+    ...(tag.reroll ? { reroll: tag.reroll } : {}),
     // Deliberately no `preRolledD20`: under the pool a number in `rolls=` is the model's
     // claim about a slot, not a die the player threw, and adopting it would be obeying
     // the one field the authority rule says is never obeyed.
@@ -1339,7 +1567,7 @@ export function resolvePoolCheckTag(
     // engine's, so comparing those against themselves would never find an invented number.
     values: readClaimedRolls(body),
   });
-  logPoolDcFit(pool, request.dc, result.usedRoll, result.modifier);
+  logPoolDcFit(pool, result.dc, result.usedRoll, result.modifier);
   return {
     result,
     record: serializeResolvedSkillCheckTag(result, {

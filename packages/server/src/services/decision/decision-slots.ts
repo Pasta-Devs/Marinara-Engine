@@ -150,6 +150,7 @@ export function decisionSidecarSettings(): DecisionSidecarSettings {
 export async function resolveDecisionSlot(
   slot: DecisionLocalSlot,
   signal?: AbortSignal,
+  inspectOnly = false,
 ): Promise<{ resolved: ResolvedDecisionSlot; failure?: never } | { resolved: null; failure: DecisionSlotFailure }> {
   const description = describeDecisionSlot(slot);
   if (!description.available) return { resolved: null, failure: { slot, ...description } };
@@ -161,7 +162,7 @@ export async function resolveDecisionSlot(
       // decision model is an explicit request for it to serve. Without it a user who
       // runs a local model but has trackers and game-scene analysis both off would
       // have their chosen decision model never start, and every gate fail open.
-      baseUrl = await sidecarProcessService.ensureReady({ forceStart: true });
+      baseUrl = inspectOnly ? "" : await sidecarProcessService.ensureReady({ forceStart: true });
     } catch (error) {
       logger.warn(error, "[decision] The primary local model could not start; gates fail open");
       return { resolved: null, failure: { slot, reason: "stopped" } };
@@ -187,19 +188,21 @@ export async function resolveDecisionSlot(
     // Raced against the caller's abort. A cold load takes up to three minutes, and a
     // generation the user already cancelled must not sit behind it; the process keeps
     // starting in the background so the next turn finds it ready.
-    const baseUrl = await Promise.race([
-      decisionProcessService.ensureRunning(model),
-      new Promise<null>((resolve) => {
-        if (!signal) return;
-        if (signal.aborted) resolve(null);
-        else signal.addEventListener("abort", () => resolve(null), { once: true });
-      }),
-    ]);
-    if (!baseUrl) return { resolved: null, failure: { slot, reason: "stopped" } };
+    const baseUrl = inspectOnly
+      ? ""
+      : await Promise.race([
+          decisionProcessService.ensureRunning(model),
+          new Promise<null>((resolve) => {
+            if (!signal) return;
+            if (signal.aborted) resolve(null);
+            else signal.addEventListener("abort", () => resolve(null), { once: true });
+          }),
+        ]);
+    if (!inspectOnly && !baseUrl) return { resolved: null, failure: { slot, reason: "stopped" } };
     return {
       resolved: {
         slot,
-        baseUrl,
+        baseUrl: baseUrl ?? "",
         model: "jev-latest",
         modelIdentity: `decision:${model.id}`,
         label: model.label,
@@ -217,7 +220,7 @@ export async function resolveDecisionSlot(
   // The utility slot already tracks which model the running child actually loaded, so
   // its blob id is the identity rather than a guess from the configured name.
   let status = utilitySidecarService.getStatus();
-  if (!status.ready) {
+  if (!inspectOnly && !status.ready) {
     try {
       status = await utilitySidecarService.ensureRunning();
     } catch (error) {
@@ -225,12 +228,13 @@ export async function resolveDecisionSlot(
       return { resolved: null, failure: { slot, reason: "stopped" } };
     }
   }
-  if (!status.ready || !status.baseUrl) return { resolved: null, failure: { slot, reason: "stopped" } };
+  if (!inspectOnly && (!status.ready || !status.baseUrl))
+    return { resolved: null, failure: { slot, reason: "stopped" } };
   const activeModelId = status.activeModelId ?? "";
   return {
     resolved: {
       slot,
-      baseUrl: status.baseUrl,
+      baseUrl: status.baseUrl ?? "",
       model: "utility-sidecar",
       modelIdentity: `utility:${activeModelId}:${status.models[activeModelId]?.oid ?? ""}`,
       label: description.label,

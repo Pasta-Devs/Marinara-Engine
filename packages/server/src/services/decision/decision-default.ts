@@ -15,6 +15,7 @@ import {
   DECISION_TIMEOUT_MS,
   decisionLocalSlotForId,
   type DecisionLocalSlot,
+  type DecisionDebugReport,
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { getAnswerStyle } from "./decision-thinking-cache.js";
@@ -30,6 +31,8 @@ import { askNoulQuestions, DECISION_CHOICE_NONE, type NoulQuestion } from "./sys
 const SIDECAR_STATE_HEADROOM_TOKENS = 512;
 
 export interface DecisionBackend {
+  debugMode?: boolean;
+  inspection?: DecisionDebugReport;
   /** The budget a state is capped to before it is sent. */
   maxStateTokens: number;
   /**
@@ -57,6 +60,8 @@ export interface DecisionBackend {
 export interface MixedDecisionAnswers {
   answers: Map<string, number>;
   choices: Map<string, string>;
+  binaryAnswers?: Set<string>;
+  error?: string;
 }
 
 /**
@@ -103,6 +108,7 @@ export interface DecisionDefaultDeps {
   getDefaultConnection: () => Promise<DecisionConnectionRow | null>;
   getConnectionWithKey: (id: string) => Promise<DecisionConnectionRow | null>;
   debugMode?: boolean;
+  inspection?: DecisionDebugReport;
 }
 
 /** Read the local entry the user picked, if any, ignoring one this build cannot serve. */
@@ -128,12 +134,13 @@ export async function resolveDecisionBackend(
 ): Promise<DecisionBackend | null> {
   const slot = await readDecisionLocalSlot(deps.getLocalDefault);
   if (slot) {
-    const resolution = await resolveDecisionSlot(slot, signal);
+    const resolution = await resolveDecisionSlot(slot, signal, deps.inspection?.mode === "inspect");
     if (!resolution.resolved) {
       logger.warn("[decision] The selected local model cannot serve decisions: %s", resolution.failure.reason);
       return null;
     }
     const resolved = resolution.resolved;
+    if (deps.inspection) deps.inspection.model = resolved.label;
 
     // The managed decision sidecar is a System One server, not a chat model. Asking it
     // over /v1/chat/completions gets a 404, so the protocol is carried on the resolved
@@ -145,6 +152,8 @@ export async function resolveDecisionBackend(
       const limit = resolved.maxLengthTokens ?? decisionSlotContextSize(slot);
       const maxStateTokens = Math.max(256, limit - SIDECAR_STATE_HEADROOM_TOKENS);
       return {
+        debugMode: deps.debugMode,
+        inspection: deps.inspection,
         maxStateTokens,
         calibration,
         // It scores candidates in one pass and never reasons, so nothing is deferred.
@@ -170,6 +179,7 @@ export async function resolveDecisionBackend(
               signal,
               questionShape: calibration.questionShape,
               debugMode: deps.debugMode,
+              inspection: deps.inspection,
             })
           ).answers,
         askMixed: async (state, questions) => {
@@ -193,8 +203,9 @@ export async function resolveDecisionBackend(
             signal,
             questionShape: calibration.questionShape,
             debugMode: deps.debugMode,
+            inspection: deps.inspection,
           });
-          return { answers: result.answers, choices: result.choices };
+          return result;
         },
       };
     }
@@ -207,20 +218,43 @@ export async function resolveDecisionBackend(
       resolved.thinking === "allowed" ||
       (resolved.thinking === "auto" && getAnswerStyle(resolved.modelIdentity) === "thinks");
     return {
+      debugMode: deps.debugMode,
+      inspection: deps.inspection,
       maxStateTokens: Math.max(256, decisionSlotContextSize(slot) - SIDECAR_STATE_HEADROOM_TOKENS),
       // A local chat model is prompted, not queried, so it reads the question as
       // written and answers on the ordinary scale.
       calibration: DEFAULT_DECISION_CALIBRATION,
       deferPreGeneration: thinks && !(await deps.getThinkingPreGeneration()),
-      ask: async (state, questions) => askSidecarNoulQuestions({ slot: resolved, state, questions, signal }),
-      askMixed: (state, questions) =>
-        askChoicesAsStatements(
+      ask: async (state, questions) =>
+        askSidecarNoulQuestions({
+          slot: resolved,
+          state,
+          questions,
+          signal,
+          debugMode: deps.debugMode,
+          inspection: deps.inspection,
+        }),
+      askMixed: async (state, questions) => {
+        const binaryAnswers = new Set<string>();
+        const result = await askChoicesAsStatements(
           (innerState, inner) =>
-            askSidecarNoulQuestions({ slot: resolved, state: innerState, questions: inner, signal }),
+            askSidecarNoulQuestions({
+              slot: resolved,
+              state: innerState,
+              questions: inner,
+              signal,
+              debugMode: deps.debugMode,
+              inspection: deps.inspection,
+              onAnswer: (id, answer) => {
+                if (answer.uncalibrated) binaryAnswers.add(id);
+              },
+            }),
           state,
           questions,
           DEFAULT_DECISION_CALIBRATION.defaultThreshold,
-        ),
+        );
+        return { ...result, binaryAnswers };
+      },
     };
   }
 
@@ -232,6 +266,7 @@ export async function resolveDecisionBackend(
     return null;
   }
   const connection = resolved.connection;
+  if (deps.inspection) deps.inspection.model = connection.model;
   // Every Decision connection keeps the documented operating point and wire shape.
   //
   // Deliberate, including for the `custom` source. A custom endpoint is any System
@@ -244,6 +279,8 @@ export async function resolveDecisionBackend(
   // known.
   const calibration = DEFAULT_DECISION_CALIBRATION;
   return {
+    debugMode: deps.debugMode,
+    inspection: deps.inspection,
     maxStateTokens: connection.maxStateTokens,
     calibration,
     deferPreGeneration: false,
@@ -257,6 +294,7 @@ export async function resolveDecisionBackend(
           signal,
           questionShape: calibration.questionShape,
           debugMode: deps.debugMode,
+          inspection: deps.inspection,
         })
       ).answers,
     askMixed: async (state, questions) => {
@@ -268,8 +306,9 @@ export async function resolveDecisionBackend(
         signal,
         questionShape: calibration.questionShape,
         debugMode: deps.debugMode,
+        inspection: deps.inspection,
       });
-      return { answers: result.answers, choices: result.choices };
+      return result;
     },
   };
 }
