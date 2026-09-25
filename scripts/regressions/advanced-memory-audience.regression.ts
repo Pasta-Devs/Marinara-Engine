@@ -314,7 +314,23 @@ try {
     budgetTokens: 12000,
     readOnly: true,
   });
-  assert.equal(hidden.receipt.recalledSceneIds.length, 0, "named access cannot bypass source hiding");
+  assert.equal(hidden.receipt.recalledSceneIds.length, 1, "one hidden message does not remove the whole scene");
+  assert(!hidden.receipt.recalledMessageIds.includes(source[4]!.id), "hidden source messages stay out of excerpts");
+  for (const messageId of (await scenes()).find((record) => record.id === editId)!.messageIds)
+    await chats.updateMessageExtra(messageId, { hiddenFromAICharacterIds: ["pantalone"] });
+  assert.equal(
+    (
+      await memory.prepare({
+        chatId: chat.id,
+        messages: await chats.listMessages(chat.id),
+        audienceCharacterIds: ["pantalone"],
+        budgetTokens: 12000,
+        readOnly: true,
+      })
+    ).receipt.recalledSceneIds.length,
+    0,
+    "an entirely hidden scene remains inaccessible",
+  );
   await memory.deleteRecord(chat.id, editId);
   await memory.initialize(chat.id, { detectScenes: false });
   assert.equal(

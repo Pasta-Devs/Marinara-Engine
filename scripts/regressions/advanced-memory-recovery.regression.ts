@@ -339,6 +339,9 @@ try {
       await memory.initialize(chat.id, { sceneId });
       assert.equal(summaryRequests.length, paid, "an acknowledged correction needs no new summary");
       await chats.updateMessageExtra(messages[1]!.id, { hiddenFromAICharacterIds: ["maukie"] });
+      await memory.updateRecord(chat.id, correctionId, { content: before.content });
+      for (const message of messages)
+        await chats.updateMessageExtra(message.id, { hiddenFromAICharacterIds: ["maukie"] });
       await assert.rejects(
         memory.updateRecord(chat.id, correctionId, { content: before.content }),
         /no longer available/,

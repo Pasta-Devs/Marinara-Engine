@@ -283,7 +283,8 @@ try {
     const unrestrictedRequest = requests
       .slice(unrestrictedStart)
       .find((request) => !request.instructions?.startsWith("Identify scene transitions"))!;
-    assert(unrestrictedRequest.instructions?.startsWith("Summarize the supplied Roleplay events"));
+    assert(unrestrictedRequest.instructions?.includes("Summarize the supplied Roleplay events"));
+    assert(unrestrictedRequest.instructions?.includes("Write shared events as plain prose"));
     assert(!unrestrictedRequest.instructions?.includes("Keep character knowledge separate when POVs switch."));
   }
   const correctionChat = await createChat("Archive preserves corrections across separate POVs");
@@ -421,6 +422,81 @@ try {
     [],
     "matching the narrator's recap text does not grant a character access to raw private source messages",
   );
+
+  const partialChat = await createChat("One private conversation inside a shared scene");
+  await chats.update(partialChat.id, { characterIds: [borrower.id, otherPov.id, narratorActor.id] });
+  await chats.patchMetadata(partialChat.id, {
+    groupChatMode: "individual",
+    advancedMemory: {
+      ...settings,
+      summaryBudgetTokens: 4096,
+      narratorCharacterId: narratorActor.id,
+      knowledgeStarts: { [borrower.id]: null, [otherPov.id]: null },
+    },
+  });
+  const partialSource = await chats.listMessages(partialChat.id);
+  await chats.updateMessageContent(partialSource[1]!.id, "Outside the room, Pantalone discusses PRIVATE_LEDGER.");
+  await chats.updateMessageExtra(partialSource[1]!.id, { hiddenFromAICharacterIds: [borrower.id] });
+  await chats.createMessage({
+    chatId: partialChat.id,
+    role: "user",
+    content: "The following morning, what happened to the brass compass?",
+    extra: { isConversationStart: true },
+  });
+  summaryResponse =
+    'Everyone shared the brass compass promise. {{#if character == "Pantalone" || "Narrator"}}Outside the room, Pantalone discussed PRIVATE_LEDGER.{{/if}}';
+  const partialStart = requests.length;
+  await memory.initialize(partialChat.id);
+  summaryResponse = summary;
+  const partialRequest = requests
+    .slice(partialStart)
+    .find((item) => !item.instructions?.startsWith("Identify scene transitions"))!;
+  assert.match(partialRequest.instructions!, /Write shared events as plain prose/u);
+  assert.match(partialRequest.instructions!, /Message visibility annotations are authoritative/u);
+  const partialInput = JSON.stringify(partialRequest.input);
+  assert(
+    partialInput.includes(
+      JSON.stringify('[Message visibility: only ["Pantalone","Narrator"] can know this message.]').slice(1, -1),
+    ),
+  );
+  const partialRecord = (await memory.status(partialChat.id)).records.find(
+    (record) => record.kind === "scene" && record.content,
+  )!;
+  assert.deepEqual(
+    partialRecord.audienceCharacterIds,
+    [borrower.id, otherPov.id].sort(),
+    "partial participants keep scene access",
+  );
+  await memory.updateRecord(partialChat.id, partialRecord.id, { audienceCharacterIds: [otherPov.id] });
+  const beforePartialToggle = requests.length;
+  const toggle = await app.inject({
+    method: "PATCH",
+    url: `/chats/${partialChat.id}/advanced-memory/records/${partialRecord.id}`,
+    payload: { audienceCharacterIds: [borrower.id, otherPov.id] },
+  });
+  assert.equal(toggle.statusCode, 200, toggle.body);
+  assert.equal(requests.length, beforePartialToggle, "changing partial access does not call a model");
+  await memory.checkScenesAfterGeneration(partialChat.id);
+  assert.equal(
+    requests.length,
+    beforePartialToggle,
+    "constants reuse prepared partial scene knowledge without another summary call",
+  );
+  for (const id of [borrower.id, otherPov.id, narratorActor.id]) {
+    const prepared = await memory.prepare({
+      chatId: partialChat.id,
+      messages: await chats.listMessages(partialChat.id),
+      audienceCharacterIds: [id],
+      budgetTokens: 12000,
+      readOnly: true,
+    });
+    assert.match(prepared.recalledScenes!, /brass compass promise/u);
+    assert.equal(prepared.recalledScenes!.includes("PRIVATE_LEDGER"), id !== borrower.id);
+    assert.match(prepared.chatSummary!, /brass compass promise/u);
+    assert.equal(prepared.chatSummary!.includes("PRIVATE_LEDGER"), id !== borrower.id);
+    if (id === borrower.id) assert(!prepared.receipt.recalledMessageIds.includes(partialSource[1]!.id));
+  }
+  assert.equal(requests.length, beforePartialToggle, "recalling partial scenes adds no helper calls");
   const narratorChat = await createChat("Narrator shares the whole scene archive");
   await chats.update(narratorChat.id, { characterIds: [borrower.id, narratorActor.id] });
   await chats.createMessagesBatch(
