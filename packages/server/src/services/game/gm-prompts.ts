@@ -660,6 +660,19 @@ function describeSheetValue(
   }
   if (ref.skillMod !== undefined) return `the sheet's ${labelOf(sheet.skills, ref.skillMod)}`;
   if (ref.saveMod !== undefined) return `the sheet's ${labelOf(sheet.saves, ref.saveMod)}`;
+  if (ref.livePool !== undefined) return `the ${labelOf(sheet.live.pools, ref.livePool)} left`;
+  if (ref.liveTrack !== undefined) {
+    const track = labelOf(sheet.live.tracks, ref.liveTrack);
+    if (ref.read === "penalty") return `the penalty ${track} is at`;
+    if (ref.read === "remaining") return `how far ${track} has left to go`;
+    if (ref.read === "filled") return `how far ${track} has come`;
+    return `where ${track} stands`;
+  }
+  if (ref.listSum !== undefined) {
+    const list = sheet.lists.find((entry) => entry.id === ref.listSum!.list);
+    const column = list?.columns.find((entry) => entry.id === ref.listSum!.column)?.label ?? ref.listSum.column;
+    return `the ${column} of the sheet's ${list?.label ?? ref.listSum.list} added up`;
+  }
   return "a number on the sheet";
 }
 

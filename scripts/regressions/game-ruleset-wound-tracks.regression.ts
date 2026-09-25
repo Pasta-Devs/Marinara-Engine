@@ -557,6 +557,11 @@ try {
     delete document.resolution.pool.abilityPlusAbility;
     // And 1.38's standing re-throw.
     delete document.resolution.reroll;
+    // And 1.39's: a cap off the live Resolve, a value off the live Harm track, and a hide rule
+    // that compares with notEquals.
+    for (const skill of document.sheet.skills) delete skill.cap;
+    document.sheet.derived = document.sheet.derived.filter((entry: { id: string }) => entry.id !== "harm_left");
+    for (const field of document.sheet.fields) delete field.hideWhen;
     for (const catalog of document.catalogs ?? []) {
       catalog.entries = (catalog.entries ?? []).filter((entry: any) => entry.mechanics?.check?.explode === undefined);
     }
