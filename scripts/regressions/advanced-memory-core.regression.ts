@@ -1111,10 +1111,13 @@ try {
     "later preparation also preserves the corrected scene",
   );
   await chats.updateMessageExtra(accessSource[0]!.id, { hiddenFromAICharacterIds: ["pantalone"] });
+  await memory.updateRecord(accessCorrectionChat.id, accessScene.id, { content: accessScene.content });
+  for (const messageId of accessScene.messageIds)
+    await chats.updateMessageExtra(messageId, { hiddenFromAICharacterIds: ["pantalone"] });
   await assert.rejects(
     memory.updateRecord(accessCorrectionChat.id, accessScene.id, { content: accessScene.content }),
     /no longer available to its selected characters/,
-    "saving an unchanged correction cannot grant access to hidden messages",
+    "saving a correction cannot grant access to an entirely hidden scene",
   );
 
   const dependencyTarget = await chats.create({

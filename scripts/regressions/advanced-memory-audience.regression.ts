@@ -182,8 +182,8 @@ try {
     "The compass promise was recorded. The travelers remembered the compass.",
     "thinking, JSON fences and Gemma delimiters preserve both summary prose and scene access",
   );
-  const recall = (audienceCharacterIds: string[]) =>
-    memory.prepare({ chatId: chat.id, messages: source, audienceCharacterIds, budgetTokens: 12000, readOnly: true });
+  const recall = (audienceCharacterIds: string[], messages = source) =>
+    memory.prepare({ chatId: chat.id, messages, audienceCharacterIds, budgetTokens: 12000, readOnly: true });
   const narratorScene = at(2);
   const narratorRow = (
     await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, narratorScene.id))
@@ -314,7 +314,35 @@ try {
     budgetTokens: 12000,
     readOnly: true,
   });
-  assert.equal(hidden.receipt.recalledSceneIds.length, 0, "named access cannot bypass source hiding");
+  assert.equal(
+    hidden.receipt.recalledSceneIds.length,
+    0,
+    "changed source visibility cannot expose an old unreviewed recap",
+  );
+  assert(!hidden.receipt.recalledMessageIds.includes(source[4]!.id), "hidden source messages stay out of excerpts");
+  await memory.updateRecord(chat.id, editId, {
+    content: (await scenes()).find((record) => record.id === editId)!.content,
+  });
+  assert.equal(
+    (await recall(["pantalone"], await chats.listMessages(chat.id))).receipt.recalledSceneIds.length,
+    1,
+    "reviewing the recap restores partial scene access",
+  );
+  for (const messageId of (await scenes()).find((record) => record.id === editId)!.messageIds)
+    await chats.updateMessageExtra(messageId, { hiddenFromAICharacterIds: ["pantalone"] });
+  assert.equal(
+    (
+      await memory.prepare({
+        chatId: chat.id,
+        messages: await chats.listMessages(chat.id),
+        audienceCharacterIds: ["pantalone"],
+        budgetTokens: 12000,
+        readOnly: true,
+      })
+    ).receipt.recalledSceneIds.length,
+    0,
+    "an entirely hidden scene remains inaccessible",
+  );
   await memory.deleteRecord(chat.id, editId);
   await memory.initialize(chat.id, { detectScenes: false });
   assert.equal(
