@@ -429,6 +429,8 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   const complication = values.get("complication")?.trim().toLowerCase() === "true" ? { complication: true } : {};
   const adjustValue = Number(values.get("adjust"));
   const adjust = Number.isInteger(adjustValue) && adjustValue !== 0 ? { adjust: adjustValue } : {};
+  // The standing re-throw the record says was thrown, read back with the rest of what it applied.
+  const thrownAgain = tag.reroll ? { reroll: tag.reroll } : {};
   const rollsValue = values.get("rolls");
   const modifier = Number.parseInt(values.get("modifier") ?? "", 10);
   const total = Number.parseInt(values.get("total") ?? "", 10);
@@ -468,6 +470,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
       ...penalty,
       ...complication,
       ...adjust,
+      ...thrownAgain,
     };
     return tag;
   }
@@ -581,6 +584,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     ...penalty,
     ...complication,
     ...adjust,
+    ...thrownAgain,
   };
 
   return tag;

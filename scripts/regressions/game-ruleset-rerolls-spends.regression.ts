@@ -278,7 +278,8 @@ try {
     const record = serializeResolvedSkillCheckTag(sure);
     const named = serializeResolvedSkillCheckTag({ ...sure, rerolled: 3, reroll: "sure" });
     assert.match(named, / reroll="sure"/);
-    assert.equal(parseSkillCheckTagBody(/\[skill_check:([^\]]+)\]/.exec(named)![1]!)?.reroll, "sure");
+    const namedBack = parseSkillCheckTagBody(/\[skill_check:([^\]]+)\]/.exec(named)![1]!);
+    assert.deepEqual([namedBack?.reroll, namedBack?.resolvedResult?.reroll], ["sure", "sure"], "and reads it back");
     assert.doesNotMatch(serializeResolvedSkillCheckTag({ ...sure, reroll: undefined }), /reroll=/);
 
     const careful = roll(context, { skill: "Ward", dc: 1, reroll: "careful" }).result;
