@@ -37,6 +37,7 @@ const ICONS: Record<AchievementDefinition["icon"], LucideIcon> = {
   character: UserRound,
   lorebook: BookOpen,
   persona: Library,
+  trophy: Trophy,
 };
 
 const CATEGORY_LABELS: Record<AchievementDefinition["category"], string> = {
@@ -58,6 +59,10 @@ function achievementTone(achievement: AchievementDefinition) {
 
 function AchievementBadge({ achievement, locked }: { achievement: AchievementDefinition; locked: boolean }) {
   const Icon = locked ? Lock : (ICONS[achievement.icon] ?? Trophy);
+  // Package art is unlocked-only, like the icon it replaces: a locked card still shows the padlock
+  // so a package cannot give away what its badge is before it is earned.
+  const [artFailed, setArtFailed] = useState(false);
+  const art = !locked && achievement.iconUrl && !artFailed ? achievement.iconUrl : null;
 
   return (
     <div
@@ -71,7 +76,16 @@ function AchievementBadge({ achievement, locked }: { achievement: AchievementDef
       aria-hidden="true"
     >
       <div className="absolute inset-0 opacity-25 [background:radial-gradient(circle_at_30%_20%,currentColor,transparent_34%)]" />
-      <Icon className="relative z-10 h-5 w-5 sm:h-[1.65rem] sm:w-[1.65rem]" />
+      {art ? (
+        <img
+          src={art}
+          alt=""
+          onError={() => setArtFailed(true)}
+          className="relative z-10 h-7 w-7 object-contain sm:h-9 sm:w-9"
+        />
+      ) : (
+        <Icon className="relative z-10 h-5 w-5 sm:h-[1.65rem] sm:w-[1.65rem]" />
+      )}
       {!locked && achievement.rankLabel && (
         <span className="absolute bottom-1.5 right-1.5 rounded bg-black/35 px-1 text-[0.55rem] font-bold text-white">
           {achievement.rankLabel}
@@ -79,6 +93,29 @@ function AchievementBadge({ achievement, locked }: { achievement: AchievementDef
       )}
     </div>
   );
+}
+
+/** Engine badges first, then one section per package that contributed any. A profile with no
+ *  package achievements gets a single unlabelled group, which renders exactly as it always has. */
+function groupBySource(definitions: AchievementDefinition[]) {
+  const engine = definitions.filter((definition) => !definition.source);
+  const groups: Array<{ key: string; label: string | null; items: AchievementDefinition[] }> = [];
+  const byPackage = new Map<string, { key: string; label: string; items: AchievementDefinition[] }>();
+
+  for (const definition of definitions) {
+    const source = definition.source;
+    if (!source) continue;
+    let group = byPackage.get(source.packageId);
+    if (!group) {
+      group = { key: source.packageId, label: source.packageName, items: [] };
+      byPackage.set(source.packageId, group);
+    }
+    group.items.push(definition);
+  }
+  if (byPackage.size === 0) return [{ key: "engine", label: null, items: engine }];
+  groups.push({ key: "engine", label: null, items: engine });
+  groups.push(...[...byPackage.values()].sort((left, right) => left.label.localeCompare(right.label)));
+  return groups;
 }
 
 function progressPercent(progress: AchievementProgress) {
@@ -244,6 +281,7 @@ export function HomeAchievements({
     candidates.sort((left, right) => unlockTimestamp(right.progress) - unlockTimestamp(left.progress));
     return candidates[0] ?? null;
   }, [achievements.data?.definitions, progressById]);
+  const groups = useMemo(() => groupBySource(achievements.data?.definitions ?? []), [achievements.data?.definitions]);
   const closestLocked = useMemo(() => {
     const candidates = (achievements.data?.definitions ?? []).flatMap((definition) => {
       const progress = progressById.get(definition.id);
@@ -373,15 +411,24 @@ export function HomeAchievements({
                 {t("home.achievements.loadError")}
               </p>
             ) : (
-              <div className="grid gap-3 md:grid-cols-2">
-                {(achievements.data?.definitions ?? []).map((achievement) => (
-                  <AchievementCard
-                    key={achievement.id}
-                    achievement={achievement}
-                    progress={progressById.get(achievement.id) ?? null}
-                  />
-                ))}
-              </div>
+              groups.map((group) => (
+                <section key={group.key} className="space-y-2">
+                  {group.label ? (
+                    <p className="px-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                      {t("home.achievements.packageSection", { name: group.label })}
+                    </p>
+                  ) : null}
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {group.items.map((achievement) => (
+                      <AchievementCard
+                        key={achievement.id}
+                        achievement={achievement}
+                        progress={progressById.get(achievement.id) ?? null}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))
             )}
           </div>
         </Modal>

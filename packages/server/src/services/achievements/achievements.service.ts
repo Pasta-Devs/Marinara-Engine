@@ -1,4 +1,5 @@
 import type {
+  AchievementDefinition,
   AchievementEvent,
   AchievementMetric,
   AchievementProgress,
@@ -12,6 +13,11 @@ import {
   PROFESSOR_MARI_ID,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
+import {
+  capabilityAchievementDefinitions,
+  readCapabilityAchievementProgress,
+  type CapabilityAchievementCount,
+} from "../capability-packages/capability-achievement-registry.service.js";
 import { isFileUniqueConstraintError } from "../../db/file-schema.js";
 import { achievementUnlocks, characters, chats, lorebooks, personas } from "../../db/schema/index.js";
 import { now } from "../../utils/id-generator.js";
@@ -33,19 +39,30 @@ function isRoleplayMode(mode: string) {
   return mode === "roleplay";
 }
 
+/** The Engine's catalog plus whatever the active packages contribute, in that order. */
+function allDefinitions(): AchievementDefinition[] {
+  return [...ACHIEVEMENT_DEFINITIONS, ...capabilityAchievementDefinitions()];
+}
+
+function definitionById(id: string): AchievementDefinition | null {
+  return (
+    ACHIEVEMENT_DEFINITION_BY_ID.get(id) ?? capabilityAchievementDefinitions().find((item) => item.id === id) ?? null
+  );
+}
+
 function buildProgress(
-  id: string,
+  definition: AchievementDefinition,
   unlockedRow: AchievementUnlockRow | null,
   counts: AchievementCounts,
-): AchievementProgress | null {
-  const definition = ACHIEVEMENT_DEFINITION_BY_ID.get(id);
-  if (!definition) return null;
-
+  packageProgress: Map<string, CapabilityAchievementCount>,
+): AchievementProgress {
   const target = definition.target ?? null;
-  const progress = definition.metric ? (counts[definition.metric] ?? 0) : unlockedRow ? 1 : 0;
+  const progress = definition.metric
+    ? (counts[definition.metric] ?? 0)
+    : (packageProgress.get(definition.id)?.count ?? (unlockedRow ? 1 : 0));
 
   return {
-    id,
+    id: definition.id,
     unlocked: !!unlockedRow,
     unlockedAt: unlockedRow?.unlockedAt ?? null,
     progress,
@@ -53,10 +70,16 @@ function buildProgress(
   };
 }
 
-function collectMetricUnlockIds(counts: AchievementCounts) {
-  return ACHIEVEMENT_DEFINITIONS.flatMap((definition) => {
-    if (!definition.metric || !definition.target) return [];
-    return counts[definition.metric] >= definition.target ? [definition.id] : [];
+/** Every ranked badge whose count has reached its target — Engine metrics and package counters
+ *  alike, so a package's badge unlocks on the same pass the Engine's do. */
+function collectMetricUnlockIds(counts: AchievementCounts, packageProgress: Map<string, CapabilityAchievementCount>) {
+  return allDefinitions().flatMap((definition) => {
+    if (!definition.target) return [];
+    if (definition.metric) return counts[definition.metric] >= definition.target ? [definition.id] : [];
+    // Only a count read from this exact registration may unlock it. A badge replaced after its
+    // count was read is a different definition object, so the old count is skipped either way.
+    const read = packageProgress.get(definition.id);
+    return read?.definition === definition && read.count >= definition.target ? [definition.id] : [];
   });
 }
 
@@ -84,8 +107,12 @@ export function createAchievementsService(db: DB) {
     };
   }
 
-  async function unlockIds(ids: Iterable<string>, counts: AchievementCounts): Promise<AchievementProgress[]> {
-    const uniqueIds = [...new Set(ids)].filter((id) => ACHIEVEMENT_DEFINITION_BY_ID.has(id));
+  async function unlockIds(
+    ids: Iterable<string>,
+    counts: AchievementCounts,
+    packageProgress: Map<string, CapabilityAchievementCount>,
+  ): Promise<AchievementProgress[]> {
+    const uniqueIds = [...new Set(ids)].filter((id) => !!definitionById(id));
     if (uniqueIds.length === 0) return [];
 
     const existing = await readUnlockRows();
@@ -104,38 +131,62 @@ export function createAchievementsService(db: DB) {
       }
     }
 
-    return newlyUnlockedRows
-      .map((row) => buildProgress(row.id, row, counts))
-      .filter((progress): progress is AchievementProgress => !!progress);
+    return newlyUnlockedRows.flatMap((row) => {
+      const definition = definitionById(row.id);
+      return definition ? [buildProgress(definition, row, counts, packageProgress)] : [];
+    });
   }
 
   async function status(): Promise<AchievementStatusResponse> {
-    const counts = await readCounts();
-    await unlockIds(collectMetricUnlockIds(counts), counts);
+    const [counts, packageProgress] = await Promise.all([readCounts(), readCapabilityAchievementProgress()]);
+    await unlockIds(collectMetricUnlockIds(counts, packageProgress), counts, packageProgress);
     const unlockedRows = await readUnlockRows();
     const unlockedById = new Map(unlockedRows.map((row) => [row.id, row]));
-    const progress = ACHIEVEMENT_DEFINITIONS.map((definition) =>
-      buildProgress(definition.id, unlockedById.get(definition.id) ?? null, counts),
-    ).filter((item): item is AchievementProgress => !!item);
+    const definitions = allDefinitions();
+    const progress = definitions.map((definition) =>
+      buildProgress(definition, unlockedById.get(definition.id) ?? null, counts, packageProgress),
+    );
 
     return {
-      definitions: ACHIEVEMENT_DEFINITIONS,
+      definitions,
       progress,
       unlockedCount: progress.filter((item) => item.unlocked).length,
-      totalCount: ACHIEVEMENT_DEFINITIONS.length,
+      totalCount: definitions.length,
     };
   }
 
   async function track(event: AchievementEvent): Promise<AchievementTrackResponse> {
-    const counts = await readCounts();
-    const ids = new Set<string>(collectMetricUnlockIds(counts));
+    const [counts, packageProgress] = await Promise.all([readCounts(), readCapabilityAchievementProgress()]);
+    const ids = new Set<string>(collectMetricUnlockIds(counts, packageProgress));
     const directId = ACHIEVEMENT_DIRECT_EVENT_IDS[event];
     if (directId) ids.add(directId);
 
     return {
-      newlyUnlocked: await unlockIds(ids, counts),
+      newlyUnlocked: await unlockIds(ids, counts, packageProgress),
     };
   }
 
-  return { status, track };
+  /** Unlocks one badge by id, for a package marking its own achievement fulfilled. Resolves true
+   *  only for the call that unlocked it, so a package can react exactly once. */
+  async function unlock(id: string): Promise<boolean> {
+    // Only whether a row was inserted matters here, so no counts or progress callbacks are read.
+    const unlocked = await unlockIds([id], ZERO_COUNTS, new Map());
+    return unlocked.length > 0;
+  }
+
+  async function isUnlocked(id: string): Promise<boolean> {
+    return (await readUnlockRows()).some((row) => row.id === id);
+  }
+
+  /** Definitions and progress for one package's own badges. */
+  async function listForPackage(packageId: string): Promise<AchievementProgress[]> {
+    // Package badges have no Engine metric, so Engine counts are never read for them.
+    const packageProgress = await readCapabilityAchievementProgress(packageId);
+    const unlockedById = new Map((await readUnlockRows()).map((row) => [row.id, row]));
+    return capabilityAchievementDefinitions(packageId).map((definition) =>
+      buildProgress(definition, unlockedById.get(definition.id) ?? null, ZERO_COUNTS, packageProgress),
+    );
+  }
+
+  return { status, track, unlock, isUnlocked, listForPackage };
 }

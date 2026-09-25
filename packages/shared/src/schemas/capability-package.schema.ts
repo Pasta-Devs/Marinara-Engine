@@ -9,6 +9,7 @@ export const MAX_RELEASE_NOTE_VERSIONS = 20;
 
 export const capabilityPackageKindSchema = z.enum(["agent", "maps", "conversation-calls", "turn-game", "ruleset"]);
 export const capabilityPermissionSchema = z.enum([
+  "achievements",
   "agent-runtime",
   "chat-read",
   "chat-write",
@@ -382,7 +383,9 @@ const capabilityPackageManifestBaseSchema = z
 //        and a creature with a sheet may have no block actions of its own. Not a soft seam, for the
 //        same reason as 1.20 through 1.33: an Engine that cannot read the key refuses the whole
 //        strict catalog file, so a package that ships one declares 1.34. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 35 } as const);
+// 1.36: package achievements. `api.registerAchievements` adds badges to the Home panel and
+//        `api.runtime.achievements` reads and unlocks them. Requires the `achievements` permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 36 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -443,6 +446,17 @@ export const capabilityPackageManifestSchema = z
           code: z.ZodIssueCode.custom,
           path: ["permissions"],
           message: 'The "tools" permission requires schemaVersion 2 and capabilityApi 1.19 or newer',
+        });
+      }
+    }
+    // Same reason as `tools`: `registerAchievements` only exists on an Engine this new.
+    if (manifest.permissions.includes("achievements")) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 36)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["permissions"],
+          message: 'The "achievements" permission requires schemaVersion 2 and capabilityApi 1.36 or newer',
         });
       }
     }

@@ -12,12 +12,20 @@ export type AchievementIconKey =
   | "game"
   | "character"
   | "lorebook"
-  | "persona";
+  | "persona"
+  | "trophy";
 
 export type AchievementCategory = "community" | "collection" | "creation" | "milestone";
 
 export type AchievementMetric =
   "conversationChats" | "roleplayChats" | "gameChats" | "characters" | "lorebooks" | "personas";
+
+/** The package that contributed an achievement. Absent means the Engine's own catalog. */
+export interface AchievementSource {
+  packageId: string;
+  packageName: string;
+  packageVersion: string;
+}
 
 export interface AchievementDefinition {
   id: string;
@@ -34,6 +42,34 @@ export interface AchievementDefinition {
   groupId?: string;
   target?: number;
   metric?: AchievementMetric;
+  /** Package-served badge art. Wins over `icon` when the image loads. */
+  iconUrl?: string;
+  source?: AchievementSource;
+}
+
+/** What a capability package hands to `api.registerAchievements`. The Engine namespaces `id`
+ *  under the package id, so a package only ever names its own badges. */
+export interface PackagedAchievementDefinition {
+  /** Package-local id. The stored id becomes `<packageId>.<id>`. */
+  id: string;
+  title: string;
+  description: string;
+  category?: AchievementCategory;
+  icon?: AchievementIconKey;
+  /** Path of an asset the package ships, relative to its asset root. */
+  iconPath?: string;
+  /** Ranked badge. Unlocks on its own when `readProgress` reaches this. */
+  target?: number;
+  /** Current count for a ranked badge. The package owns the counter. */
+  readProgress?: () => number | Promise<number>;
+}
+
+export interface CapabilityAchievementHost {
+  /** This package's own achievements, with current progress. */
+  list(): Promise<AchievementProgress[]>;
+  isUnlocked(id: string): Promise<boolean>;
+  /** Marks the badge fulfilled. Resolves true only for the call that unlocked it. */
+  unlock(id: string): Promise<boolean>;
 }
 
 export interface AchievementProgress {
