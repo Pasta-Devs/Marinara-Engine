@@ -218,6 +218,39 @@ try {
   await settleLorebookScanCompactions();
   assert.match(firstEntryText(await chats.getMessage(first.id)) ?? "", /^after bulk delete /u);
 
+  // A bulk delete of more than 500 ids runs in chunks. When an early chunk deletes the kept message, a scan saved
+  // (and compacted in the background) while a later chunk is still pending is not compared against the deleted
+  // message and keeps its text.
+  const dana = await chats.createMessage({ chatId: chat.id, role: "assistant", content: "Dana", characterId: null });
+  assert(dana);
+  await chats.updateMessageExtra(dana.id, { lorebookScan: scan("dana", entry.id) });
+  await settleLorebookScanCompactions();
+  const originalTransaction = db.transaction;
+  let chunkTransactions = 0;
+  let savingBetweenChunks = false;
+  (db as any).transaction = async function (this: unknown, ...args: unknown[]) {
+    if (!savingBetweenChunks && ++chunkTransactions === 2) {
+      savingBetweenChunks = true;
+      assert.equal(await chats.getMessage(dana.id), null, "the first chunk deleted the kept message");
+      await chats.updateMessageExtra(first.id, { lorebookScan: scan("between chunks", entry.id) });
+      await settleLorebookScanCompactions();
+      savingBetweenChunks = false;
+    }
+    return (originalTransaction as any).apply(this, args);
+  };
+  try {
+    await chats.removeMessages([dana.id, ...Array.from({ length: 500 }, (_, index) => `missing-${index}`)]);
+  } finally {
+    (db as any).transaction = originalTransaction;
+  }
+  assert.equal(chunkTransactions, 2, "the bulk delete ran in two chunks");
+  await settleLorebookScanCompactions();
+  assert.match(
+    firstEntryText(await chats.getMessage(first.id)) ?? "",
+    /^between chunks /u,
+    "a scan saved between bulk-delete chunks keeps its text",
+  );
+
   // The first save in a chat since start sweeps messages stored earlier (here: with the setting off). When that save
   // is an impersonated turn, the newest assistant/narrator message found by the sweep keeps its text.
   process.env.LOREBOOK_COMPACT_STORED_SCANS = "false";

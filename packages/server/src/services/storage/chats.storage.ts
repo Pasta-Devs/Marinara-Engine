@@ -3111,6 +3111,8 @@ export function createChatsStorage(db: DB) {
               entryIds: await cascadeAgentLorebookEntriesForMessages(existingRows.map((row) => row.id)),
             };
           });
+          // Forget a deleted kept message now, so saves made while later chunks run are not compared against it.
+          forgetDeletedLorebookScanKeep(removed.rows.map((row) => row.id));
           removedEntryIds.push(...removed.entryIds);
           for (const row of removed.rows) {
             const current = earliestByChat.get(row.chatId);
