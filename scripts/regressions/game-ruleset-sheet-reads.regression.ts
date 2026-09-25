@@ -281,6 +281,59 @@ try {
       /"lantern" is a number field, so in must be a number/,
       "a listed value of the wrong type",
     );
+    // And, for the two new comparisons, one inside the field's range or length.
+    refuses(
+      gravewatchText,
+      (doc) =>
+        doc.sheet.derived.push({
+          id: "y",
+          label: "Y",
+          op: "sum",
+          of: [{ const: 1 }],
+          hideWhen: { field: "lantern", notEquals: 9 },
+        }),
+      /hideWhen\.notEquals: 9 is outside 0\.\.6, the range of "lantern"/,
+      "a notEquals no lantern can hold, which would hide it for good",
+    );
+    refuses(
+      gravewatchText,
+      (doc) =>
+        doc.sheet.derived.push({
+          id: "y",
+          label: "Y",
+          op: "sum",
+          of: [{ const: 1 }],
+          hideWhen: { field: "lantern", in: [2, -1] },
+        }),
+      /hideWhen\.in\.1: -1 is outside 0\.\.6, the range of "lantern"/,
+      "a listed number out of range",
+    );
+    refuses(
+      gravewatchText,
+      (doc) =>
+        doc.sheet.derived.push({
+          id: "y",
+          label: "Y",
+          op: "sum",
+          of: [{ const: 1 }],
+          hideWhen: { field: "post", in: ["x".repeat(61)] },
+        }),
+      /"post" holds at most 60 characters/,
+      "a listed text longer than the field",
+    );
+    // An `equals` keeps its old reading, so a file that loaded before still loads.
+    variant(
+      gravewatchText,
+      (doc) =>
+        doc.sheet.derived.push({
+          id: "y",
+          label: "Y",
+          op: "sum",
+          of: [{ const: 1 }],
+          hideWhen: { field: "lantern", equals: 9 },
+        }),
+      "an out-of-range equals, as before",
+    );
     refuses(
       gravewatchText,
       (doc) =>

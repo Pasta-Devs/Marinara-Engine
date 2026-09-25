@@ -2569,17 +2569,31 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     const field = fieldById.get(hideWhen.field);
     if (!field) return issue([...path, "hideWhen", "field"], `Unknown field "${hideWhen.field}"`);
     // Every value compared against must be one the field can actually hold, or the rule could never
-    // match (or, for notEquals, could never fail to): checked one listed value at a time.
+    // match (or, for notEquals, could never fail to): checked one listed value at a time. For the two
+    // comparisons 1.39 added that includes a number's range and a text's length. `equals` keeps its
+    // old reading, so a file that loaded before still loads: there, an impossible value only ever
+    // fails to hide.
+    const holdable = (value: string | number | boolean, key: string): string | null => {
+      const typed = equalsIssue(field, value, "field", key);
+      if (typed || key === "equals") return typed;
+      if (field.type === "number" && typeof value === "number" && (value < field.min || value > field.max)) {
+        return `${value} is outside ${field.min}..${field.max}, the range of "${field.id}"`;
+      }
+      if ((field.type === "text" || field.type === "longtext") && typeof value === "string") {
+        if (value.length > field.maxLength) return `"${field.id}" holds at most ${field.maxLength} characters`;
+      }
+      return null;
+    };
     if (hideWhen.in) {
       hideWhen.in.forEach((value, index) => {
-        const message = equalsIssue(field, value, "field", "in");
+        const message = holdable(value, "in");
         if (message) issue([...path, "hideWhen", "in", index], message);
       });
       return;
     }
     const key = hideWhen.notEquals !== undefined ? "notEquals" : "equals";
     const value = hideWhen.notEquals ?? hideWhen.equals;
-    const message = value === undefined ? null : equalsIssue(field, value, "field", key);
+    const message = value === undefined ? null : holdable(value, key);
     if (message) issue([...path, "hideWhen", key], message);
   };
   sheet.fields.forEach((field, index) => {
