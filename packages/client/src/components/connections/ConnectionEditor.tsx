@@ -367,6 +367,7 @@ export function ConnectionEditor() {
   const [clearStoredApiKeyOnSave, setClearStoredApiKeyOnSave] = useState(false);
   /** NanoGPT: usage-only management token (`usage:read`) and the widget toggle. */
   const [localManagementToken, setLocalManagementToken] = useState("");
+  const [clearStoredManagementTokenOnSave, setClearStoredManagementTokenOnSave] = useState(false);
   const [localShowUsageWidget, setLocalShowUsageWidget] = useState(false);
   const [localModel, setLocalModel] = useState("");
   const [localMaxContext, setLocalMaxContext] = useState(128000);
@@ -474,6 +475,7 @@ export function ConnectionEditor() {
     setLocalApiKey(""); // never pre-fill (it's masked)
     setClearStoredApiKeyOnSave(false);
     setLocalManagementToken(""); // never pre-fill (it's masked)
+    setClearStoredManagementTokenOnSave(false);
     setLocalShowUsageWidget(c.showUsageWidget === "true" || c.showUsageWidget === true);
     setLocalModel(normalizeGrokCliEditorModel(provider, model));
     setLocalMaxContext(normalizeConnectionMaxContext(provider, c.maxContext));
@@ -917,6 +919,8 @@ export function ConnectionEditor() {
       payload.managementToken = "";
     } else if (localManagementToken.trim()) {
       payload.managementToken = localManagementToken;
+    } else if (clearStoredManagementTokenOnSave) {
+      payload.managementToken = "";
     }
     try {
       // Persist media/default parameters first. The main connection save runs
@@ -974,6 +978,7 @@ export function ConnectionEditor() {
       // The token is only sent when retyped, so clear it after a successful
       // save; otherwise it would ride along on every later save.
       setLocalManagementToken("");
+      setClearStoredManagementTokenOnSave(false);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
     } catch (err) {
@@ -990,6 +995,7 @@ export function ConnectionEditor() {
     localApiKey,
     clearStoredApiKeyOnSave,
     localManagementToken,
+    clearStoredManagementTokenOnSave,
     localShowUsageWidget,
     localModel,
     localMaxContext,
@@ -2074,6 +2080,19 @@ export function ConnectionEditor() {
                     <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                       {localizeUi("ui.connections.connectioneditor.managementTokenEncryptedHint")}
                     </p>
+                    <label className="mt-1.5 flex w-fit cursor-pointer items-center gap-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                      <input
+                        type="checkbox"
+                        checked={clearStoredManagementTokenOnSave}
+                        onChange={(e) => {
+                          setClearStoredManagementTokenOnSave(e.target.checked);
+                          if (e.target.checked) setLocalManagementToken("");
+                          markDirty();
+                        }}
+                        className="h-3 w-3 shrink-0 accent-[var(--destructive)]"
+                      />
+                      {localizeUi("ui.connections.connectioneditor.clearStoredManagementToken")}
+                    </label>
                     <a
                       href="https://nano-gpt.com/settings#management-api-tokens"
                       target="_blank"

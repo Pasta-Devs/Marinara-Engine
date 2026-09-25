@@ -26,6 +26,9 @@ const NANOGPT_PROVIDER_ID = "nanogpt";
 /** The usage endpoint host for inference API keys. */
 const NANOGPT_INFERENCE_USAGE_URL = "https://api.nano-gpt.com/api/subscription/v1/usage";
 
+/** Usage reads are informational, so they fail fast rather than hold a handler open. */
+const NANOGPT_USAGE_TIMEOUT_MS = 10_000;
+
 /** One quota window: used / remaining / percentUsed (a fraction) / resetAt (epoch ms). */
 export interface NanoGptQuotaWindow {
   used: number | null;
@@ -186,6 +189,9 @@ export async function fetchNanoGptSubscriptionUsage(
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
     },
+    // A stalled response would otherwise hold the usage handler pending forever;
+    // safeFetch sets no timeout of its own.
+    signal: AbortSignal.timeout(NANOGPT_USAGE_TIMEOUT_MS),
   });
 
   const text = await response.text();

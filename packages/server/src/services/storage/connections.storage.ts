@@ -671,6 +671,8 @@ export function createConnectionsStorage(db: DB) {
         maxTokensOverride: source.maxTokensOverride,
         maxParallelJobs: source.maxParallelJobs,
         maxRequestsPerMinute: source.maxRequestsPerMinute,
+        managementTokenEncrypted: source.managementTokenEncrypted,
+        showUsageWidget: source.showUsageWidget,
         claudeFastMode: source.claudeFastMode,
         treatAsLocalEndpoint: source.treatAsLocalEndpoint,
         createdAt: timestamp,

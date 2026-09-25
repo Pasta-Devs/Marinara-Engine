@@ -5898,6 +5898,7 @@
   "ui.connections.connectioneditor.claudeCode": "Claude Code",
   "ui.connections.connectioneditor.claudeLogin": "claude login",
   "ui.connections.connectioneditor.claudeModel": "claude /model",
+  "ui.connections.connectioneditor.clearStoredManagementToken": "Clear the stored management token when saving",
   "ui.connections.connectioneditor.codexChatgpt": "Codex ChatGPT",
   "ui.connections.connectioneditor.codexLogin": "codex login",
   "ui.connections.connectioneditor.comfyuiWorkflowValue1": "ComfyUI Workflow ({{value1}})",
