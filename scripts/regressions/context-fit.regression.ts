@@ -53,6 +53,20 @@ assert.ok(
   "history messages should still be removable when annotated",
 );
 
+// The caller's own budget travels with the result, so a reduction can be reported rather than
+// silently changing what the user configured (#6614).
+assert.equal(squeezed.requestedMaxTokens, 32768, "the requested reply budget must survive the fit");
+assert.equal(roomy.requestedMaxTokens, 32768);
+
+// A prompt that fills the window on its own leaves the reply at the floor: the shape of the
+// reported failure, where a configured 1000 reached the provider as 128 with nothing logged.
+const floored = fitMessagesToContext([{ role: "system", content: filler(8000) }], {
+  maxContext: 8192,
+  maxTokens: 1000,
+});
+assert.equal(floored.maxTokens, 128, `reply budget should rest on the floor, got ${floored.maxTokens}`);
+assert.equal(floored.requestedMaxTokens, 1000, "the floor must still report what was asked for");
+
 // With no context window configured nothing is touched at all.
 const unbounded = fitMessagesToContext(singleShotPrompt, { maxTokens: 32768 });
 assert.equal(unbounded.trimmed, false);
