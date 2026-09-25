@@ -145,10 +145,17 @@ export function validatePullRequestTriage() {
     const job = extractJob(browserWorkflow, jobId);
     assert.match(job, /needs: revision/u);
     assert.doesNotMatch(job, /^\s+[\w-]+: write\s*$/mu);
-    if (jobId !== "node") {
-      assert.ok(job.includes(`if: needs.revision.outputs.full ${jobId === "smoke" ? "!=" : "=="} 'true'`));
-    }
+    if (jobId === "smoke") {
+      assert.ok(job.includes("if: github.event_name == 'push' && needs.revision.outputs.full != 'true'"));
+    } else if (jobId !== "node") assert.ok(job.includes("if: needs.revision.outputs.full == 'true'"));
   }
+
+  const prChecks = readFileSync(new URL("../.github/workflows/pull-request-checks.yml", import.meta.url), "utf8");
+  const requiredSmoke = extractNamedStep(extractJob(prChecks, "pnpm-validate"), "Run required Chromium smoke suite");
+  assert.match(requiredSmoke, /if: github\.base_ref == 'staging'/u);
+  assert.match(requiredSmoke, /run: pnpm smoke:ui/u);
+  assert.match(requiredSmoke, /PLAYWRIGHT_ONLY_PROJECT: desktop/u);
+  assert.doesNotMatch(extractJob(prChecks, "pnpm-validate"), /continue-on-error/u);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

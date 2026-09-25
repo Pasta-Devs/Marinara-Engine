@@ -94,7 +94,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: revision
-    if: needs.revision.outputs.full != 'true'
+    # PR smoke tests run in the required pnpm-validate job instead.
+    if: github.event_name == 'push' && needs.revision.outputs.full != 'true'
     permissions:
       contents: read
     steps:
@@ -250,7 +251,7 @@ jobs:
           retention-days: 7
 
   # Full-matrix verdicts run only for nightly/manual/release-candidate checks.
-  # Development PRs report the real browser-smoke result instead.
+  # Development PRs run smoke tests inside their required pnpm-validate check.
   desktop-chromium:
     name: desktop-chromium
     runs-on: ubuntu-latest
