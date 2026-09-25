@@ -1500,12 +1500,71 @@
 .mari-live-work__body {
   display: grid;
   min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 5.5rem;
+  grid-template-areas: "content scene";
   gap: 1rem;
 }
 
 .mari-live-work__content {
   grid-area: content;
   min-width: 0;
+}
+
+.mari-live-work__scene {
+  grid-area: scene;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  align-self: start;
+  justify-content: center;
+  padding-top: 0.1rem;
+}
+
+.mari-live-work__sprite {
+  position: relative;
+  display: block;
+  width: 4.25rem;
+  height: 6rem;
+  flex: 0 0 auto;
+  background-image: var(--mari-work-sprite);
+  background-position: 0 center;
+  background-repeat: no-repeat;
+  background-size: 400% auto;
+  filter: drop-shadow(0 0.35rem 0.45rem color-mix(in srgb, var(--background) 60%, transparent));
+  image-rendering: pixelated;
+  animation: mari-live-work-sprite 3.6s step-end infinite;
+}
+
+.mari-live-work__sprite[data-scene="train"],
+.mari-live-work__sprite[data-scene="deep-dive"],
+.mari-live-work__sprite[data-scene="boat"],
+.mari-live-work__sprite[data-scene="spelunking"] {
+  width: 4.4rem;
+  animation-duration: 5.2s;
+}
+
+.mari-live-work__sprite[data-scene="detective"],
+.mari-live-work__sprite[data-scene="pixel-bug"],
+.mari-live-work__sprite[data-scene="puzzle"],
+.mari-live-work__sprite[data-scene="typewriter"] {
+  animation-duration: 2.8s;
+}
+
+.mari-live-work__sprite[data-scene="paper-airplane"],
+.mari-live-work__sprite[data-scene="telescope"],
+.mari-live-work__sprite[data-scene="clockwork"],
+.mari-live-work__sprite[data-scene="rocket"] {
+  animation-duration: 3.2s;
+}
+
+.mari-live-work__sprite[data-scene="tea"],
+.mari-live-work__sprite[data-scene="books"],
+.mari-live-work__sprite[data-scene="yarn"],
+.mari-live-work__sprite[data-scene="origami"],
+.mari-live-work__sprite[data-scene="constellation"],
+.mari-live-work__sprite[data-scene="images"],
+.mari-live-work__sprite[data-scene="thinking-notes"] {
+  animation-duration: 4.4s;
 }
 
 .mari-live-work__heading {
@@ -1573,6 +1632,10 @@
 .mari-live-work[data-outcome="failed"] {
   border-color: color-mix(in srgb, var(--destructive) 30%, var(--border));
   background: color-mix(in srgb, var(--card) 96%, var(--destructive));
+}
+
+.mari-live-work[data-active="false"] .mari-live-work__sprite {
+  animation: none;
 }
 
 .mari-live-work__narrative {
@@ -1853,6 +1916,25 @@
   background: color-mix(in srgb, var(--background) 68%, transparent) !important;
 }
 
+@keyframes mari-live-work-sprite {
+  0%,
+  22% {
+    background-position: 0 center;
+  }
+  23%,
+  47% {
+    background-position: 33.333% center;
+  }
+  48%,
+  72% {
+    background-position: 66.666% center;
+  }
+  73%,
+  100% {
+    background-position: 100% center;
+  }
+}
+
 @keyframes mari-live-work-breathe {
   0%,
   100% {
@@ -1894,11 +1976,25 @@
   .mari-live-work__steps li[data-status="running"]::after {
     animation: none;
   }
+
+  .mari-live-work__sprite {
+    animation: none;
+  }
 }
 
 @media (max-width: 30rem) {
   .mari-live-work {
     padding: 0.7rem;
+  }
+
+  .mari-live-work__body {
+    grid-template-columns: minmax(0, 1fr) 4rem;
+    gap: 0.5rem;
+  }
+
+  .mari-live-work__sprite {
+    width: 3.25rem;
+    height: 4.6rem;
   }
 }
 
@@ -9440,6 +9536,7 @@ footer .omnibar-settings-menu__popover {
 
 .omnibar-settings-menu__trigger:focus-visible,
 .omnibar-settings-menu__row input[type="checkbox"]:focus-visible,
+.omnibar-settings-menu__pack input[type="checkbox"]:focus-visible,
 .omnibar-settings-menu__segmented button:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
@@ -9466,7 +9563,8 @@ footer .omnibar-settings-menu__popover {
   background: color-mix(in srgb, var(--border) 70%, transparent);
 }
 
-.omnibar-settings-menu__row {
+.omnibar-settings-menu__row,
+.omnibar-settings-menu__pack {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -9475,7 +9573,8 @@ footer .omnibar-settings-menu__popover {
   cursor: pointer;
 }
 
-.omnibar-settings-menu__row:hover {
+.omnibar-settings-menu__row:hover,
+.omnibar-settings-menu__pack:hover {
   background: color-mix(in srgb, var(--accent) 70%, transparent);
 }
 
@@ -9493,7 +9592,8 @@ footer .omnibar-settings-menu__popover {
   line-height: 1.35;
 }
 
-.omnibar-settings-menu__row input[type="checkbox"] {
+.omnibar-settings-menu__row input[type="checkbox"],
+.omnibar-settings-menu__pack input[type="checkbox"] {
   flex: 0 0 auto;
   width: 1.75rem;
   height: 1rem;
@@ -9504,7 +9604,8 @@ footer .omnibar-settings-menu__popover {
   transition: background-color 0.15s ease;
 }
 
-.omnibar-settings-menu__row input[type="checkbox"]::after {
+.omnibar-settings-menu__row input[type="checkbox"]::after,
+.omnibar-settings-menu__pack input[type="checkbox"]::after {
   content: "";
   display: block;
   width: 0.75rem;
@@ -9515,11 +9616,13 @@ footer .omnibar-settings-menu__popover {
   transition: transform 0.15s ease;
 }
 
-.omnibar-settings-menu__row input[type="checkbox"]:checked {
+.omnibar-settings-menu__row input[type="checkbox"]:checked,
+.omnibar-settings-menu__pack input[type="checkbox"]:checked {
   background: var(--primary);
 }
 
-.omnibar-settings-menu__row input[type="checkbox"]:checked::after {
+.omnibar-settings-menu__row input[type="checkbox"]:checked::after,
+.omnibar-settings-menu__pack input[type="checkbox"]:checked::after {
   transform: translateX(0.75rem);
 }
 
@@ -9552,4 +9655,37 @@ footer .omnibar-settings-menu__popover {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.omnibar-settings-menu__pack[data-enabled="false"] .omnibar-settings-menu__pack-sprite,
+.omnibar-settings-menu__pack[data-enabled="false"] .omnibar-settings-menu__label {
+  opacity: 0.5;
+}
+
+/* Same 4-frame sheet the work card animates, at thumbnail size. */
+.omnibar-settings-menu__pack-sprite {
+  display: block;
+  width: 1.6rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  background-image: var(--mari-work-sprite);
+  background-position: 0 center;
+  background-repeat: no-repeat;
+  background-size: 400% auto;
+  image-rendering: pixelated;
+  animation: mari-live-work-sprite 3.6s step-end infinite;
+}
+
+.omnibar-settings-menu__locked {
+  flex: 0 0 auto;
+  color: var(--muted-foreground);
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omnibar-settings-menu__pack-sprite {
+    animation: none;
+  }
 }

@@ -1,4 +1,5 @@
 import {
+  type CSSProperties,
   type ChangeEvent,
   type ReactNode,
   lazy,
@@ -80,6 +81,7 @@ import { buildCharacterPreviewModel, type CharacterPreviewModel } from "../../li
 import { resolveRunSeconds, resolveRunStartMs } from "../../lib/mari-work-card-timing";
 import { buildLorebookPreviewModel, type LorebookPreviewModel } from "../../lib/lorebook-preview";
 import { completeInline } from "../../lib/inline-completion";
+import { selectMariWorkAnimation } from "../../lib/mari-work-animations";
 import { resolveStepSeconds } from "../../lib/mari-step-duration";
 import { InlineGhostText } from "../ui/InlineGhostText";
 import { lorebookKeys, useLorebooks } from "../../hooks/use-lorebooks";
@@ -1587,11 +1589,18 @@ function WorkspaceLiveWorkCard({
   const { t } = useUiTranslation();
   const localizeUi = t;
   const reduceMotion = useReducedMotion();
+  const disabledAnimationPacks = useUIStore((state) => state.disabledMariAnimationPacks);
   const toolItems = items.filter(
     (item): item is Extract<WorkspaceTimelineItem, { type: "tool" }> => item.type === "tool",
   );
   const liveElapsedSeconds = useWorkspaceElapsedSeconds(active, resolveRunStartMs(toolItems.map((i) => i.tool)));
   const visibleSteps = [...toolItems].sort((left, right) => left.tool.updatedAt - right.tool.updatedAt).slice(-4);
+  const latestNarrative = [...items]
+    .reverse()
+    .find(
+      (item): item is Extract<WorkspaceTimelineItem, { type: "text" | "thinking" | "status" }> =>
+        item.type !== "tool" && Boolean(item.content.trim()),
+    );
   const runningTool = [...toolItems].reverse().find(({ tool }) => tool.status === "running");
   const currentTool = runningTool ?? toolItems.at(-1);
   const workTitle = currentTool ? inferToolPresentation(currentTool.tool).title : activity;
@@ -1604,6 +1613,12 @@ function WorkspaceLiveWorkCard({
     : items.length > 0
       ? localizeUi("ui.chat.homeprofessormarichat.recentWorkspaceUpdates", { count: items.length })
       : localizeUi("ui.chat.homeprofessormarichat.preparingWorkspace");
+  const workAnimation = selectMariWorkAnimation({
+    seed: items[0]?.id ?? activity,
+    activity: latestNarrative?.content ?? currentTool?.tool.name ?? activity,
+    toolNames: currentTool ? [currentTool.tool.name] : [],
+    disabledPacks: disabledAnimationPacks,
+  });
   const elapsedSeconds = active ? liveElapsedSeconds : resolveRunSeconds(toolItems.map((i) => i.tool));
   // A finished run that still holds a failed step is not a success, whatever the last step was.
   const failed = !active && toolItems.some(({ tool }) => tool.status === "error");
@@ -1620,6 +1635,20 @@ function WorkspaceLiveWorkCard({
         transition={{ duration: reduceMotion ? 0 : 0.28, ease: [0.16, 1, 0.3, 1] }}
       >
         <div className="mari-live-work__body">
+          <div className="mari-live-work__scene" aria-hidden="true">
+            <AnimatePresence initial={false} mode="wait">
+              <motion.span
+                key={workAnimation.id}
+                className="mari-live-work__sprite"
+                data-scene={workAnimation.id}
+                style={{ "--mari-work-sprite": `url(${workAnimation.src})` } as CSSProperties}
+                initial={reduceMotion ? false : { opacity: 0, scale: 0.92, y: 4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={reduceMotion ? undefined : { opacity: 0, scale: 0.96, y: -2 }}
+                transition={{ duration: reduceMotion ? 0 : 0.24 }}
+              />
+            </AnimatePresence>
+          </div>
           <div className="mari-live-work__content">
             <div className="mari-live-work__heading">
               {active ? (

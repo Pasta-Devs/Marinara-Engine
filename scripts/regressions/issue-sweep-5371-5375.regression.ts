@@ -60,10 +60,12 @@ assert.doesNotMatch(
   /OmnibarIntro/u,
   "The empty omnibar must not mount the long first-open intro",
 );
-assert.doesNotMatch(
+// The header's icon-only Stop stays, and the card adds a labelled one next to
+// the timer so Stop sits beside the work it stops (c26a00ea2).
+assert.match(
   professorMariHomeSource,
-  /mari-live-work__stop/u,
-  "The work turn must not mount a second Stop control",
+  /className="mari-live-work__stop"[\s\S]{0,160}ui\.chat\.summarypopover\.stop/u,
+  "The work card's Stop control carries a visible label",
 );
 assert.match(
   professorMariHomeSource,

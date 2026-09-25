@@ -11,7 +11,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Professor Mari's omnibar tabs now switch without window motion, and the Details inspector button is available on the right on wide screens.
 - Professor Mari now shows proposed changes as one approval card in the chat on smaller screens and in the Details sidebar on desktop.
 - Completed Professor Mari changes now use compact cards and a lower completed-work history in the desktop Details sidebar.
-- Professor Mari now uses one integrated workspace across Home, FAQ, and handoff flows, with shared resource previews, review decisions, contextual suggestions, and reduced-motion support.
+- Professor Mari now uses one integrated workspace across Home, FAQ, and handoff flows, with shared resource previews, review decisions, contextual suggestions, animated work scenes, and reduced-motion support.
 - The omnibar and Home Mari navigator can now find characters by saved summary, comment, description, creator, and tags, while character result previews prefer the saved summary.
 
 - The Roleplay whisper browser regression finishes preparing visual-novel fixtures before reloading, avoiding false WebKit access-control failures in contributor checks (#6628).
