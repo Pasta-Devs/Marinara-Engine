@@ -236,8 +236,8 @@ try {
       /Column "swing" is not a boolean/,
       "counted by a column that is not a boolean",
     );
-    // A scaled column may not add up its own column of its own list, directly or through a derived
-    // value: its stored number would feed its next recompute.
+    // A scaled column reads no list sum, directly or through a derived value: a list may hold scaled
+    // cells (its own, or another column that reads it back), and the recompute would never settle.
     const scaledTrick = (from: unknown) => (doc: Record<string, any>) =>
       doc.catalogs[0].entries.push({
         id: "sack",
@@ -250,31 +250,11 @@ try {
           },
         ],
       });
-    refuses(
-      emberText,
-      scaledTrick({ listSum: { list: "tricks", column: "uses" } }),
-      /scaled\.uses\.from: A scaled column cannot add up "uses" of its own list/,
-      "a scaled column adding itself up",
-    );
-    refuses(
-      emberText,
-      (doc) => {
-        doc.sheet.derived.push({
-          id: "all_uses",
-          label: "All uses",
-          op: "sum",
-          of: [{ listSum: { list: "tricks", column: "uses" } }],
-        });
-        scaledTrick({ derived: "all_uses" })(doc);
-      },
-      /A scaled column cannot add up "uses" of its own list/,
-      "or through a derived value",
-    );
-    variant(
-      emberText,
-      scaledTrick({ listSum: { list: "gear", column: "bulk" } }),
-      "a scaled column adding up another list",
-    );
+    const noSum = /scaled\.uses\.from: A scaled column cannot read a list sum/;
+    refuses(emberText, scaledTrick({ listSum: { list: "tricks", column: "uses" } }), noSum, "adding itself up");
+    refuses(emberText, scaledTrick({ listSum: { list: "gear", column: "bulk" } }), noSum, "adding up another list");
+    refuses(emberText, scaledTrick({ derived: "burden" }), noSum, "or through a derived value that does");
+    variant(emberText, scaledTrick({ derived: "guard" }), "a scaled column off an ordinary derived value");
 
     // hideWhen says one thing, about values the field can hold.
     refuses(

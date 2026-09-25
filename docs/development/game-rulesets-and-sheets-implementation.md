@@ -912,7 +912,9 @@ stored?)` in live-state resolves the live state first (whose maximums cannot rea
   bonus's rule), which keeps evaluation to one top-to-bottom pass.
 - **List sums.** `listSum: { list, column, onlyWhen? }`, a number column over the rows a boolean
   marks; an empty cell is its column's default and a hidden list adds nothing. Build-only, so a
-  maximum may read one.
+  maximum may read one. A catalog's scaled column may not, directly or through anything: a list
+  may hold scaled cells the same recompute rewrites, and catalog files are checked one at a time, so
+  no narrower rule could see every loop between them.
 - **Wider hideWhen.** Exactly one of `equals`, `notEquals`, `in`, each value checked against the
   field; layers cannot remove any value one of them compares with.
 - **Examples.** Ember Roads' Burden is now the bulk of the packed gear (`listSum`) and its Brawn

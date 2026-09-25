@@ -2267,20 +2267,18 @@ function rulesetLiveReaders(sheet: RulesetSheetSchema): RulesetLiveReaders {
   };
 }
 
-/** Whether a value adds up one list's column, directly or through what it reads: a derived value, a
- *  skill or save's cap, or the proficiency bonus inside a skill's number. Every one of those chains
- *  only reads upward (refused otherwise), so the walk ends; the depth bound is for a file that the
- *  rest of the checks already refuse. */
-function refReadsListColumn(
+/** Whether a value adds up a list, directly or through what it reads: a derived value, a skill or
+ *  save's cap, or the proficiency bonus inside a skill's number. Every one of those chains only
+ *  reads upward (refused otherwise), so the walk ends; the depth bound is for a file that the rest
+ *  of the checks already refuse. */
+function refReadsListSum(
   def: Pick<RulesetDefinitionBase, "sheet" | "resolution">,
   ref: RulesetValueRef,
-  list: string,
-  column: string,
   depth = 0,
 ): boolean {
   if (depth > 64) return false;
-  if (ref.listSum) return ref.listSum.list === list && ref.listSum.column === column;
-  const next = (inner: RulesetValueRef) => refReadsListColumn(def, inner, list, column, depth + 1);
+  if (ref.listSum) return true;
+  const next = (inner: RulesetValueRef) => refReadsListSum(def, inner, depth + 1);
   if (ref.derived !== undefined) {
     const derived = def.sheet.derived.find((entry) => entry.id === ref.derived);
     return !!derived && derivedRefs(derived).some(next);
@@ -3910,12 +3908,14 @@ export function rulesetCatalogEntryIssues(
         else if (!Object.prototype.hasOwnProperty.call(row.values, columnId)) {
           add([...path, "values"], `Scaled column "${columnId}" needs a starting value in values`);
         }
-        // A column that added itself up would read its own stored number on the next recompute and
-        // drift every time the sheet was saved, so it may not, however many steps away the sum sits.
-        if (refReadsListColumn(definition, scaled.from, row.list, columnId)) {
+        // A list may hold scaled cells, its own included, so a scaled column that added one up would
+        // read numbers the same recompute is rewriting: itself, or another column that reads it back,
+        // and never settle. Catalog files are checked one at a time, so no narrower rule could see
+        // every such loop; a scaled column reads no list sum at all, however many steps away.
+        if (refReadsListSum(definition, scaled.from)) {
           add(
             [...path, "scaled", columnId, "from"],
-            `A scaled column cannot add up "${columnId}" of its own list: its number would feed its next recompute`,
+            "A scaled column cannot read a list sum: the lists it adds up hold scaled cells the same recompute rewrites",
           );
         }
         // A scaled column reads the sheet exactly as a live pool's maximum does, so any declared
