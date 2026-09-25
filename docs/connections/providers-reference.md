@@ -82,6 +82,26 @@ The **API Key** field accepts any one of these three credential types, and Marin
 
 **NanoGPT** is also an aggregator. It has no built-in model list, so the **Model** dropdown starts empty. After you paste your key, click **Fetch Models from API** to load the models your account can use.
 
+Marinara reads NanoGPT's detailed model catalog, so the dropdown marks which models your subscription covers and which cost more of it:
+
+- A model included in your subscription shows an **input-token multiplier** pill (for example `2x`) when it consumes more than one input token per token sent. A model that is *not* included shows a **Paid** pill, because its usage bills to your paid balance instead.
+
+### Subscription usage
+
+If you have a NanoGPT subscription, this connection can show your live quota:
+
+1. Turn on **Show subscription usage** in the connection editor and save.
+2. Optionally paste a **Management Token** first.
+
+The widget reads NanoGPT's usage endpoint and shows your weekly and daily input-token quotas. Two credentials can read it:
+
+- **Management Token** (recommended): create one at `https://nano-gpt.com/settings#management-api-tokens` with the **Usage only** scope. It can read your quotas but cannot run models or spend your balance, so it is the safer choice for a quota display. Marinara stores it encrypted and sends it only to NanoGPT's management endpoint.
+- **Your API key**: used automatically when no management token is saved. This works, but it means quota reads use the same credential that can spend your balance.
+
+A quota NanoGPT cannot report right now shows as **unknown** rather than as unused, and an inactive subscription is called out instead of being drawn as full quota. The widget refreshes on demand with its refresh button.
+
+The same meter appears in the chat's **Connection** settings under the context indicator, so you can watch your quota without leaving a chat. It follows the active connection: it shows only when that connection is a NanoGPT one with **Show subscription usage** turned on, and it does not appear for **Random**, which has no single connection to read.
+
 ## xAI / Grok
 
 - Where to get a key: `https://console.x.ai`

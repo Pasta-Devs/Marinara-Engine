@@ -3,12 +3,17 @@ import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ContextBudgetIndicator } from "../../../components/chat/ContextBudgetIndicator";
+import { NanoGptUsageWidget } from "../../../components/connections/NanoGptUsageWidget";
 import type { ProfessorMariContextBudget } from "../../../lib/professor-mari-context-budget";
 
 export interface ChatConnectionOption {
   id: string;
   name: string;
   model?: string;
+  /** Used to decide whether a NanoGPT usage meter applies to this connection. */
+  provider?: string;
+  /** NanoGPT: whether the connection opted in to the subscription usage display. */
+  showUsageWidget?: boolean;
 }
 
 interface ConnectionSectionProps {
@@ -28,6 +33,14 @@ export function ConnectionSection({
 }: ConnectionSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   const selectedLocalSidecar = connectionId === LOCAL_SIDECAR_CONNECTION_ID;
+  // The usage meter follows the active connection: only a NanoGPT connection that
+  // opted in from its editor shows it, and a random pick has no single quota.
+  const activeConnection = connections.find((c) => c.id === connectionId) ?? null;
+  const showUsageMeter =
+    !!connectionId &&
+    connectionId !== "random" &&
+    activeConnection?.provider === "nanogpt" &&
+    activeConnection?.showUsageWidget === true;
 
   return (
     <ChatSettingsSection
@@ -64,6 +77,7 @@ export function ConnectionSection({
             </select>
           </div>
           {contextBudget && <ContextBudgetIndicator budget={contextBudget} />}
+          {showUsageMeter && <NanoGptUsageWidget connectionId={connectionId} variant="inline" />}
         </div>
       ) : (
         <>
@@ -91,6 +105,11 @@ export function ConnectionSection({
               <span>
                 {localizeUi("ui.chatSettings.connectionsection.localModelIsTinyAndIntendedForTrackersHelpers")}
               </span>
+            </div>
+          )}
+          {showUsageMeter && (
+            <div className="mt-2">
+              <NanoGptUsageWidget connectionId={connectionId} variant="inline" />
             </div>
           )}
         </>
