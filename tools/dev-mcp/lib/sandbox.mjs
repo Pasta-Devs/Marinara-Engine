@@ -97,10 +97,14 @@ function sanitize() {
         dirty = true;
       }
     }
-    // Some providers answer without a key (a public model list, for example), so also point every remote base URL at
-    // a closed local port. Subscription providers have no base URL; their logins are hidden by the home redirect.
+    // Some providers answer without a key (a public model list, keyless image services), so also point every base URL
+    // at a closed local port. An empty one counts too: the engine falls back to the provider's default remote URL.
+    // Subscription providers do not use the field; their logins are hidden by the home redirect.
     for (const key of Object.keys(row).filter((k) => /base_?url|endpoint/i.test(k))) {
-      if (typeof row[key] === "string" && /^https?:[/][/]/i.test(row[key]) && !row[key].includes("sandbox-blocked")) {
+      const value = row[key];
+      const empty = value == null || (typeof value === "string" && !value.trim());
+      const remote = typeof value === "string" && /^https?:[/][/]/i.test(value) && !value.includes("sandbox-blocked");
+      if (empty || remote) {
         row[key] = BLACKHOLE;
         dirty = true;
       }
@@ -122,10 +126,26 @@ function sanitize() {
     row.metadata = typeof raw === "string" ? JSON.stringify(meta) : meta;
     return true;
   });
+  // A custom tool with a webhook POSTs its payload to that URL (stored encrypted, which the sandbox can decrypt with the
+  // shared key), so every webhook or URL field is cleared; the tool then has nowhere to send.
+  const customTools = rewriteRows("custom_tools", (row) => {
+    let dirty = false;
+    for (const key of Object.keys(row).filter((k) => /webhook|url|endpoint/i.test(k))) {
+      if (row[key] != null && row[key] !== "") {
+        row[key] = null;
+        dirty = true;
+      }
+    }
+    return dirty;
+  });
   for (const name of readdirSync(STORAGE)) {
     if (name.startsWith(".writer-lease")) rmSync(join(STORAGE, name), { recursive: true, force: true });
   }
-  return { connectionShardsSanitized: connections, chatShardsWithWebhooksRemoved: chats };
+  return {
+    connectionShardsSanitized: connections,
+    chatShardsWithWebhooksRemoved: chats,
+    customToolShardsWithWebhooksRemoved: customTools,
+  };
 }
 
 const SKIP = (name) => name.endsWith(".bak") || name.endsWith(".prepaint") || name.startsWith(".writer-lease");
