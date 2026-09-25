@@ -35,21 +35,31 @@ function formatTokens(value: number | null): string {
   return String(Math.round(value));
 }
 
-/** Which color the bar uses once usage is high. */
-function barTone(percent: number): string {
+/**
+ * Which color the bar uses. The app's own accent token is the default so the bar
+ * follows the user's theme, including its gradient, exactly as the context bar
+ * beside it does; the warning tones only take over as the quota runs out, where
+ * a themed color would understate the problem.
+ */
+function barFill(percent: number, useAccentColor: boolean): string {
   if (percent >= 90) return "bg-[var(--marinara-editor-accent)]";
-  if (percent >= 70) return "bg-amber-400";
-  return "bg-sky-400";
+  if (percent >= 70 && !useAccentColor) return "bg-amber-400";
+  return "bg-[var(--marinara-chat-chrome-accent)]";
 }
 
 function QuotaBar({
   label,
   window,
   compact = false,
+  onRefresh,
+  isRefreshing = false,
 }: {
   label: string;
   window: NanoGptQuotaWindow;
   compact?: boolean;
+  /** Compact only: the refresh control sits at the end of this row. */
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const percent = quotaPercentForDisplay(window.percentUsed);
@@ -82,31 +92,44 @@ function QuotaBar({
 
   const used = formatTokens(window.used);
   const total = quotaTotalForDisplay(window);
+  const roundedPercent = String(Math.round(percent));
+  // The wider layouts state the percentage and the tokens together; the compact
+  // one leaves the tokens to the header row above and states only the percentage.
   const reading =
     total !== null
-      ? localizeUi("ui.connections.connectioneditor.usageUsedOfLimit", { used, limit: formatTokens(total) })
+      ? localizeUi("ui.connections.connectioneditor.usagePercentAndUsedOfLimit", {
+          percent: roundedPercent,
+          used,
+          limit: formatTokens(total),
+        })
       : localizeUi("ui.connections.connectioneditor.usagePercentOf", {
-          percent: String(Math.round(percent)),
+          percent: roundedPercent,
           used,
         });
 
   return (
     <div>
-      {/* Compact leaves the numbers to the header row, which already states them,
-          and puts the percentage where the label would sit — so this row reads as
-          a second line of the same figure rather than a repeat of it. */}
-      {compact ? (
-        <div className="text-[0.6875rem] tabular-nums text-[var(--marinara-chat-chrome-panel-text)]">
-          {localizeUi("ui.connections.connectioneditor.usagePercentUsed", {
-            percent: String(Math.round(percent)),
-          })}
-        </div>
-      ) : (
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">{label}</span>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">
+          {compact
+            ? localizeUi("ui.connections.connectioneditor.usagePercentUsed", { percent: roundedPercent })
+            : label}
+        </span>
+        {compact ? (
+          onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="-mb-0.5 rounded-md p-0.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:text-sky-400 disabled:opacity-50"
+              aria-label={localizeUi("ui.connections.connectioneditor.refreshUsage")}
+            >
+              <RefreshCw size="0.6875rem" className={isRefreshing ? "animate-spin" : ""} />
+            </button>
+          )
+        ) : (
           <span className="text-[0.6875rem] tabular-nums text-[var(--marinara-chat-chrome-panel-text)]">{reading}</span>
-        </div>
-      )}
+        )}
+      </div>
       <div
         role="progressbar"
         aria-label={localizeUi("ui.connections.connectioneditor.usageAria", {
@@ -123,9 +146,10 @@ function QuotaBar({
         }
       >
         <div
-          className={`h-full rounded-full transition-[width] duration-200 motion-reduce:transition-none ${
-            compact ? "bg-[var(--marinara-chat-chrome-accent)]" : barTone(percent)
-          }`}
+          className={`h-full rounded-full transition-[width] duration-200 motion-reduce:transition-none ${barFill(
+            percent,
+            compact,
+          )}`}
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -217,18 +241,17 @@ export function NanoGptUsageWidget({
   const weeklyPercent = weekly ? quotaPercentForDisplay(weekly.percentUsed) : null;
   const weeklyTotal = quotaTotalForDisplay(weekly);
   // The percent/used fallback covers a window that reports no remaining count.
+  // Compact splits the figure across two rows, exactly as the context bar above
+  // splits its own: the counts here, the percentage and the bar beneath. Keeping
+  // the percentage out of this row is what stops it reading twice.
   const compactReading =
     weekly && weeklyPercent !== null
       ? weeklyTotal !== null
-        ? localizeUi("ui.connections.connectioneditor.usageCompactReading", {
-            percent: String(Math.round(weeklyPercent)),
+        ? localizeUi("ui.connections.connectioneditor.usageUsedOfLimit", {
             used: formatTokens(weekly.used),
             limit: formatTokens(weeklyTotal),
           })
-        : localizeUi("ui.connections.connectioneditor.usagePercentOf", {
-            percent: String(Math.round(weeklyPercent)),
-            used: formatTokens(weekly.used),
-          })
+        : localizeUi("ui.connections.connectioneditor.usageUsedOnly", { used: formatTokens(weekly.used) })
       : null;
 
   return (
@@ -256,14 +279,16 @@ export function NanoGptUsageWidget({
               {compactReading}
             </span>
           )}
-          <button
-            onClick={() => void refetch()}
-            disabled={isFetching}
-            className="rounded-md p-1 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:text-sky-400 disabled:opacity-50"
-            aria-label={localizeUi("ui.connections.connectioneditor.refreshUsage")}
-          >
-            <RefreshCw size="0.6875rem" className={isFetching ? "animate-spin" : ""} />
-          </button>
+          {!compact && (
+            <button
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              className="rounded-md p-1 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:text-sky-400 disabled:opacity-50"
+              aria-label={localizeUi("ui.connections.connectioneditor.refreshUsage")}
+            >
+              <RefreshCw size="0.6875rem" className={isFetching ? "animate-spin" : ""} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -278,6 +303,8 @@ export function NanoGptUsageWidget({
           label={compact ? "" : localizeUi("ui.connections.connectioneditor.weeklyInputTokens")}
           window={weekly}
           compact={compact}
+          onRefresh={() => void refetch()}
+          isRefreshing={isFetching}
         />
       )}
 
