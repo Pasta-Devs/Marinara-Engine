@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Advanced Memory recalls eligible scenes from distinctive details without extra model calls, including when message excerpts are disabled. New scene recaps use their character access list; constant Chat Summaries retain character conditions (#6679).
+
 - Any agent package's Home widget can open one item in its own Home tab through `onOpenPost`. Before, only Noodle could jump to an item; other agents could only open their tab.
 
 - Decision debug output shows scores and thresholds, and Peek Prompt can test decision statements against the selected model, including local reasoning models normally deferred before a reply, without generating a reply or changing the chat's decision state (#6650).
