@@ -8122,8 +8122,9 @@ function AdvancedSettings() {
       }>("/professor-mari/workspace/status", { signal: requestTimeoutSignal(5_000) })
       .then((status) => status.latestUnderstoodRequest ?? null)
       .catch(() => undefined);
+    // Fenced so Discord and GitHub render the report as a code block (#6668).
     const copied = await copyToClipboard(
-      formatSupportDiagnostics({
+      `\`\`\`\n${formatSupportDiagnostics({
         clientRuntime: getClientRuntimeDiagnostics(),
         mariActingOn,
         // Distinguish "the server never answered" (frozen host) from ordinary
@@ -8151,7 +8152,7 @@ function AdvancedSettings() {
         connectionName: activeConnection?.name ?? null,
         connectionProvider: activeConnection?.provider ?? null,
         model: activeConnection?.model ?? null,
-      }),
+      })}\n\`\`\``,
     );
     if (copied) {
       toast.success(localizeUi("ui.panels.advancedsettings.supportDiagnosticsCopied"));

@@ -10,6 +10,7 @@ import {
   hasStandaloneRoleplayAgentSettings,
 } from "../../packages/client/src/lib/agent-settings-order.js";
 import {
+  isCapabilityPackageAvailable,
   isCapabilityPackageAvailableUntilRestart,
   selectHomeBrowserPackages,
   selectVisibleTrackerCapabilityAgents,
@@ -174,6 +175,25 @@ const pendingNoodleUpdate = {
   },
 } as unknown as InstalledCapabilityPackage;
 assert.equal(isCapabilityPackageAvailableUntilRestart(pendingNoodleUpdate), true);
+// Package filters and toggles (Lorebook generation pills, chat settings) stay while an update
+// waits for restart, and a first install that has never loaded stays hidden.
+for (const id of ["noodle", "slurp2"]) {
+  assert.equal(
+    isCapabilityPackageAvailable([{ ...pendingNoodleUpdate, id }], id),
+    true,
+    `${id} must stay available while its update waits for restart`,
+  );
+  assert.equal(
+    isCapabilityPackageAvailable(
+      [{ ...pendingNoodleUpdate, id, previousVersion: undefined, previousManifest: undefined }],
+      id,
+    ),
+    false,
+    `a first install of ${id} waiting for restart must not count as available`,
+  );
+  assert.equal(isCapabilityPackageAvailable([{ ...pendingNoodleUpdate, id, status: "active" }], id), true);
+  assert.equal(isCapabilityPackageAvailable([{ ...pendingNoodleUpdate, id, status: "error" }], id), false);
+}
 assert.deepEqual(
   selectHomeBrowserPackages([pendingNoodleUpdate]).map((item) => [
     item.id,
