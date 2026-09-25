@@ -1,4 +1,9 @@
-import { buildDecisionInstructions, type DecisionQuestionShape } from "@marinara-engine/shared";
+import {
+  buildDecisionInstructions,
+  type DecisionQuestionShape,
+  type DecisionDebugReport,
+  type DecisionDebugRequest,
+} from "@marinara-engine/shared";
 import { isProviderLocalUrlsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { safeFetch } from "../../utils/security.js";
@@ -26,6 +31,7 @@ export interface DecisionRequest {
   timeoutMs?: number;
   signal?: AbortSignal;
   debugMode?: boolean;
+  inspection?: DecisionDebugReport;
   /**
    * How this backend wants the question worded. Defaults to plain text, which is what
    * every backend shipped before a model was measured wanting otherwise.
@@ -48,6 +54,7 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
   const signal = req.signal ? AbortSignal.any([req.signal, timeout]) : timeout;
   let error: DecisionRequestError | undefined;
   let onAbort: (() => void) | undefined;
+  let trace: DecisionDebugRequest | undefined;
   try {
     signal.throwIfAborted();
     const body = {
@@ -65,6 +72,11 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
         }),
       ),
     };
+    if (req.inspection) {
+      trace = { protocol: "system_one", body };
+      req.inspection.requests.push(trace);
+      if (req.inspection.mode === "inspect") return { answers, choices, latencyMs: 0 };
+    }
     logDebugOverride(
       req.debugMode === true || process.env.DEBUG_AGENTS === "true",
       "[decision] System One request: %s",
@@ -142,6 +154,18 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
           : "network";
   }
   if (onAbort) signal.removeEventListener("abort", onAbort);
+  const results = req.questions.map((question) => ({
+    id: question.id,
+    ...(answers.has(question.id) ? { probability: answers.get(question.id) } : {}),
+    ...(choices.has(question.id) ? { choice: choices.get(question.id) } : {}),
+  }));
+  if (trace) Object.assign(trace, { results, latencyMs: Date.now() - start, ...(error ? { error } : {}) });
+  logDebugOverride(
+    req.debugMode === true || process.env.DEBUG_AGENTS === "true",
+    "[decision] System One results: %s%s",
+    JSON.stringify(results),
+    error ? ` (${error})` : "",
+  );
   if (error && error !== "cancelled") logger.warn("[decision] Activation request failed: %s", error);
   return { answers, choices, ...(error ? { error } : {}), latencyMs: Date.now() - start };
 }

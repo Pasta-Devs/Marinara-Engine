@@ -590,6 +590,18 @@ function entriesCarryReactionMoments(entries: unknown): boolean {
   });
 }
 
+/** An entry that moves a pool rule's face for the check it is used on, which is 1.37: new keys in
+ *  the same strict `mechanics.check`. Read structurally, for the same reason the ones above are. */
+function entriesCarryCheckFaces(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) => {
+    const mechanics = entry && typeof entry === "object" ? (entry as { mechanics?: unknown }).mechanics : undefined;
+    const check = mechanics && typeof mechanics === "object" ? (mechanics as Record<string, unknown>).check : undefined;
+    if (!check || typeof check !== "object") return false;
+    return (["explode", "double"] as const).some((key) => (check as Record<string, unknown>)[key] !== undefined);
+  });
+}
+
 function entriesCarryTurnEconomy(entries: unknown): boolean {
   if (!Array.isArray(entries)) return false;
   return entries.some((entry) => {
@@ -645,6 +657,46 @@ function entriesCarryCreatureRanges(entries: unknown): boolean {
  *  holds by then: a scaled row can sit in one of those instead. A document that is absent or
  *  unparseable simply skips the catalog check: install has never validated a ruleset's contents, and
  *  an unusable one is the registry's story to tell, with a log line. */
+/** One reason for every 1.37 key, wherever it sits: they arrived together and an older Engine refuses
+ *  each of them the same way. */
+const SHEET_1_37_ISSUE =
+  "A ruleset whose tracks read their maximum off the sheet, hide or always show, or whose sheet summary lists show columns or are named by an enum, requires schemaVersion 2 and capabilityApi 1.37 or newer";
+
+/** The 1.37 keys on the sheet and its summary. Read off the raw document for the same reason every
+ *  gate above is: an Engine that does not know them refuses the whole strict file. An enum column
+ *  naming a summary list is an old key with a new value, so the list's own column is looked up. */
+function rulesetCarriesSheet137Keys(ruleset: { sheet?: unknown; gm?: unknown } | undefined): boolean {
+  const record = (value: unknown) =>
+    value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+  const sheet = record(ruleset?.sheet);
+  const tracks = record(sheet?.live)?.tracks;
+  const trackKeys =
+    Array.isArray(tracks) &&
+    tracks.some((track) => {
+      const entry = record(track);
+      return (
+        !!entry && (typeof entry.max === "object" || entry.hideWhen !== undefined || entry.alwaysShow !== undefined)
+      );
+    });
+  if (trackKeys) return true;
+  const lists = Array.isArray(sheet?.lists) ? sheet.lists : [];
+  const summaryLists = record(record(record(ruleset?.gm)?.sheetSummary))?.lists;
+  return (
+    Array.isArray(summaryLists) &&
+    summaryLists.some((summary) => {
+      const entry = record(summary);
+      if (!entry) return false;
+      if (entry.columns !== undefined) return true;
+      const list = lists.map(record).find((candidate) => candidate?.id === entry.list);
+      const columns = Array.isArray(list?.columns) ? list.columns : [];
+      return columns.map(record).some((column) => column?.id === entry.nameColumn && column?.type === "enum");
+    })
+  );
+}
+
+const MOVED_POOL_RULES_ISSUE =
+  "A ruleset whose pool checks can move their rules, add two abilities or read a botch off half the dice requires schemaVersion 2 and capabilityApi 1.37 or newer";
+
 export function getCapabilityPackageInstallIssue(
   manifest: CapabilityCatalogPackage["manifest"],
   rulesetDocument?: unknown,
@@ -724,6 +776,8 @@ export function getCapabilityPackageInstallIssue(
     // And a creature written in the ruleset's own terms, which is new in 1.34.
     const sheetIssue =
       "A ruleset whose creatures carry a sheet of their own requires schemaVersion 2 and capabilityApi 1.34 or newer";
+    // And an entry that moves a pool rule for the check it is used on, which is new in 1.37.
+    const facesIssue = MOVED_POOL_RULES_ISSUE;
     for (const catalog of catalogs) {
       const header =
         catalog && typeof catalog === "object"
@@ -739,6 +793,7 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryCheckEffects(header.entries) && !declaresApi(30)) return checkIssue;
       if (entriesCarryReactionMoments(header.entries) && !declaresApi(33)) return momentIssue;
       if (entriesCarryCreatureSheets(header.entries) && !declaresApi(34)) return sheetIssue;
+      if (entriesCarryCheckFaces(header.entries) && !declaresApi(37)) return facesIssue;
       const asset = header.asset;
       if (typeof asset !== "string") continue;
       // A path that does not normalize is never a declared one, whatever else failed to normalize.
@@ -757,6 +812,7 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryCheckEffects(fileEntries) && !declaresApi(30)) return checkIssue;
       if (entriesCarryReactionMoments(fileEntries) && !declaresApi(33)) return momentIssue;
       if (entriesCarryCreatureSheets(fileEntries) && !declaresApi(34)) return sheetIssue;
+      if (entriesCarryCheckFaces(fileEntries) && !declaresApi(37)) return facesIssue;
     }
   }
   // The battle block lives inside the ruleset file too, so it is read the same way and for the same
@@ -849,6 +905,40 @@ export function getCapabilityPackageInstallIssue(
     if (capped) {
       return "A ruleset whose weapons cap their own strikes requires schemaVersion 2 and capabilityApi 1.32 or newer";
     }
+  }
+  // What a check may buy and what rides along on it, which are 1.38's: standing re-throws, a spend
+  // that throws again or reads its limit off the sheet, more than two spends, and sheet modifiers.
+  if (resolution && !declaresApi(38)) {
+    const record = resolution as Record<string, unknown>;
+    const spends = Array.isArray(record.spend) ? record.spend : [];
+    const newSpend =
+      spends.length > 2 ||
+      spends.some((entry) => {
+        const spend = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
+        return spend.reroll !== undefined || (spend.perCheck !== undefined && typeof spend.perCheck !== "number");
+      });
+    if (record.reroll !== undefined || record.adjust !== undefined || newSpend) {
+      return "A ruleset whose checks take standing re-throws or sheet modifiers, or whose spends throw again, read their limit off the sheet or number more than two, requires schemaVersion 2 and capabilityApi 1.38 or newer";
+    }
+  }
+  // The sheet's own 1.37 keys: a track's maximum off the sheet, a track hidden or always shown, and
+  // a summary list's columns or enum name. Same file, same reading, same reason.
+  if (!declaresApi(37) && rulesetCarriesSheet137Keys(ruleset)) return SHEET_1_37_ISSUE;
+  // A pool check whose rules a check may move, two abilities rolled together, and a botch read off
+  // half the dice. New keys in the same strict resolution, so the reading and the reason are the same
+  // as everything above.
+  if (resolution?.kind === "dice-pool" && !declaresApi(37)) {
+    const record = resolution as Record<string, unknown>;
+    const moved = (["explode", "double"] as const).some((key) => {
+      const rule = record[key];
+      return !!rule && typeof rule === "object" && (rule as Record<string, unknown>).min !== undefined;
+    });
+    const pool = record.pool;
+    const paired =
+      !!pool && typeof pool === "object" && (pool as Record<string, unknown>).abilityPlusAbility !== undefined;
+    const botch = record.botch;
+    const ruled = !!botch && typeof botch === "object" && (botch as Record<string, unknown>).rule !== undefined;
+    if (moved || paired || ruled) return MOVED_POOL_RULES_ISSUE;
   }
   // Wound tracks. `levels` and `kinds` on a live track, and the track `resolution.penaltyFrom`
   // names, are new keys in the same strict file, so the reading and the reason are the same as

@@ -59,6 +59,29 @@ jobs:
       - name: Check tracked installer artifacts
         run: pnpm guard:installer-artifacts
 
+      # Keep the small browser suite inside this already-required check, so
+      # a failed smoke test blocks staging merges without new ruleset names.
+      - name: Install Chromium for smoke tests
+        if: github.base_ref == 'staging'
+        timeout-minutes: 5
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run required Chromium smoke suite
+        if: github.base_ref == 'staging'
+        timeout-minutes: 10
+        env:
+          PLAYWRIGHT_ONLY_PROJECT: desktop
+        run: pnpm smoke:ui
+
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-pr-smoke-failure
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
   windows-launcher-regressions:
     runs-on: windows-latest
     timeout-minutes: 15

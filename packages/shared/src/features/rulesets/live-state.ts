@@ -439,6 +439,15 @@ function resolveLive(
   state: RulesetLiveState,
 ): ResolvedRulesetLive {
   const active = new Set(state.conditions ?? []);
+  // Worked out once, and only when a track's maximum is a value the sheet works out.
+  let evaluated: ReturnType<typeof evaluateRulesetSheet> | null = null;
+  const trackMax = (track: RulesetDefinition["sheet"]["live"]["tracks"][number]): number => {
+    if (typeof track.max === "number") return track.max;
+    evaluated ??= evaluateRulesetSheet(definition, build);
+    const worked = Math.floor(resolveRulesetValueRef(definition, build, track.max, evaluated));
+    // A maximum below the floor is a track with nowhere to go, not one that runs backwards.
+    return Math.max(track.min, Math.min(MAX_LIVE_NUMBER, worked));
+  };
   return {
     pools: listRulesetLivePools(definition, build).map((spec) => {
       const entry = own(state.pools, spec.key);
@@ -450,28 +459,35 @@ function resolveLive(
         temp: spec.allowTemp ? Math.max(0, entry?.temp ?? 0) : 0,
       };
     }),
-    tracks: definition.sheet.live.tracks.map((track) => {
+    // A track a field takes off the sheet is not on it, exactly as a hidden pool is not.
+    tracks: definition.sheet.live.tracks.flatMap((track) => {
+      if (isRulesetItemHidden(track, build, definition)) return [];
       // A wound track's number is how many marks are on it, and its length is its levels. Its own
       // `min` and `max` are held to 0 and `levels.length` at import, so they agree by construction.
       if (isRulesetWoundTrack(track)) {
         const wound = resolveWounds(track, own(state.wounds, track.id));
-        return {
+        return [
+          {
+            id: track.id,
+            label: track.label,
+            min: 0,
+            max: wound.levels.length,
+            value: wound.marks.length,
+            wound,
+          },
+        ];
+      }
+      const max = trackMax(track);
+      const fallback = clamp(track.default ?? track.min, track.min, max);
+      return [
+        {
           id: track.id,
           label: track.label,
-          min: 0,
-          max: wound.levels.length,
-          value: wound.marks.length,
-          wound,
-        };
-      }
-      const fallback = clamp(track.default ?? track.min, track.min, track.max);
-      return {
-        id: track.id,
-        label: track.label,
-        min: track.min,
-        max: track.max,
-        value: clamp(own(state.tracks, track.id) ?? fallback, track.min, track.max),
-      };
+          min: track.min,
+          max,
+          value: clamp(own(state.tracks, track.id) ?? fallback, track.min, max),
+        },
+      ];
     }),
     text: definition.sheet.live.text.map((entry) => ({
       id: entry.id,

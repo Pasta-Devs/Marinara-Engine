@@ -36,10 +36,22 @@ export function rulesetRulesSummary(definition: RulesetDefinition, t: TFunction)
       ? t("game.ruleset.rules.poolTargetRange", { sides, min: resolution.target.min, max: resolution.target.max })
       : t("game.ruleset.rules.poolTarget", { sides, target: resolution.target.default }),
   ];
-  if (resolution.double) lines.push(t("game.ruleset.rules.double", { from: resolution.double.from }));
-  if (resolution.explode) lines.push(t("game.ruleset.rules.explode", { from: resolution.explode.from }));
+  // A face rule a check may move says how far; one with only a `min` fires only when a check asks.
+  for (const key of ["double", "explode"] as const) {
+    const rule = resolution[key];
+    if (!rule) continue;
+    if (rule.from === undefined) lines.push(t(`game.ruleset.rules.${key}OnAsk`, { min: rule.min }));
+    else if (rule.min === undefined) lines.push(t(`game.ruleset.rules.${key}`, { from: rule.from }));
+    else lines.push(t(`game.ruleset.rules.${key}Movable`, { from: rule.from, min: rule.min }));
+  }
   if (resolution.cancel) lines.push(t("game.ruleset.rules.cancel", { upTo: resolution.cancel.upTo }));
-  if (resolution.botch) lines.push(t("game.ruleset.rules.botch", { upTo: resolution.botch.upTo }));
+  if (resolution.botch) {
+    lines.push(
+      t(resolution.botch.rule === "halfOrMore" ? "game.ruleset.rules.botchHalf" : "game.ruleset.rules.botch", {
+        upTo: resolution.botch.upTo,
+      }),
+    );
+  }
   if (resolution.exceptional) {
     lines.push(t("game.ruleset.rules.exceptional", { count: resolution.exceptional.successes }));
   }
@@ -51,5 +63,15 @@ export function rulesetRulesSummary(definition: RulesetDefinition, t: TFunction)
       }),
     );
   }
+  for (const reroll of resolution.reroll ?? []) {
+    lines.push(
+      t(reroll.mode === "until" ? "game.ruleset.rules.rerollUntil" : "game.ruleset.rules.reroll", {
+        id: reroll.id,
+        upTo: reroll.upTo,
+      }),
+    );
+  }
+  // About what fills the pool rather than what its dice do, so it comes after every dice rule.
+  if (resolution.pool.abilityPlusAbility) lines.push(t("game.ruleset.rules.abilityPlusAbility"));
   return lines;
 }

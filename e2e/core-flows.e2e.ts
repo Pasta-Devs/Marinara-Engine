@@ -408,7 +408,7 @@ test("available app updates wait for confirmation before refreshing", async ({ p
   expect(mainFrameNavigations).toBe(navigationsAtPrompt + 1);
 });
 
-test("turning off the custom mouse pointer persists immediately and after reload", async ({ page }, testInfo) => {
+test("turning off the custom mouse pointer persists immediately and after reload", { tag: "@smoke" }, async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Appearance preference persistence is covered on desktop.");
 
   await page.goto("/");
@@ -5699,7 +5699,7 @@ test("individual group awareness includes only the replying character's sibling 
   }
 });
 
-test("stopped and refused generations keep sent text cleared and accept the first edit", async ({
+test("stopped and refused generations keep sent text cleared and accept the first edit", { tag: "@smoke" }, async ({
   page,
   request,
 }, testInfo) => {
@@ -6999,7 +6999,7 @@ test("generation fallbacks identify the replacement connection in a toast", asyn
 });
 
 for (const mode of ["roleplay", "conversation"] as const) {
-  test(`${mode} exposes reasoning and explains unavailable saved summaries`, async ({ page }, testInfo) => {
+  test(`${mode} exposes reasoning and explains unavailable saved summaries`, { tag: "@smoke" }, async ({ page }, testInfo) => {
     const characters: Array<{ id: string; name: string }> = [];
     if (mode === "conversation") {
       for (const name of ["Reasoning One", "Reasoning Two"]) {
@@ -11648,7 +11648,7 @@ test("Game history above the dialogue box opens a historical Peek Prompt", async
   }
 });
 
-test("home shell and primary topbar panels open without client errors", async ({ page }, testInfo) => {
+test("home shell and primary topbar panels open without client errors", { tag: "@smoke" }, async ({ page }, testInfo) => {
   const errors = collectUnexpectedErrors(page);
   await page.goto("/");
 
@@ -18382,7 +18382,9 @@ test("selected Lorebook entries mirror safe edits and choose a move destination 
   }
 });
 
-test("Lorebook context filter chips expose Noodle and keep complete borders", async ({ page }, testInfo) => {
+test("Lorebook context filter chips expose installed package triggers and keep complete borders", async ({
+  page,
+}, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop Lorebook filter geometry is covered on desktop.");
 
   const suffix = Date.now();
@@ -18421,17 +18423,56 @@ test("Lorebook context filter chips expose Noodle and keep complete borders", as
   expect(entryResponse.ok()).toBeTruthy();
   const entry = (await entryResponse.json()) as { id: string };
 
-  try {
+  let installedPackages: Array<Record<string, unknown>> = [];
+  await page.route("**/api/capability-packages/installed", (route) => route.fulfill({ json: installedPackages }));
+  const packageFixture = (id: string, name: string) => ({
+    id,
+    version: "1.0.0",
+    status: "active",
+    readiness: "ready",
+    error: null,
+    legacy: false,
+    installedAt: "2026-09-25T00:00:00Z",
+    manifest: {
+      schemaVersion: 1,
+      id,
+      name,
+      version: "1.0.0",
+      engine: { min: "2.0.0", maxExclusive: "3.0.0" },
+      kind: ["feature"],
+      entrypoints: {},
+      permissions: [],
+      files: [],
+    },
+  });
+  const filterArea = page.locator("details").filter({ hasText: "Context filters & matching sources" });
+  const chips = filterArea.locator("button.mari-editor-chip");
+  const openFilters = async () => {
     await page.goto("/");
     await page.locator('[data-tour="panel-lorebooks"]').click();
-    await page.getByText(lorebookName, { exact: true }).click();
+    // Reload restores the open editor; its library row is then hidden and shares the title.
+    const editorHeading = page.getByRole("heading", { name: lorebookName, exact: true });
+    const libraryEntry = page.getByLabel("Lorebooks", { exact: true }).getByText(lorebookName, { exact: true });
+    await expect(editorHeading.or(libraryEntry).filter({ visible: true }).first()).toBeVisible();
+    if (!(await editorHeading.isVisible())) await libraryEntry.click();
     await openEditorSection(page.locator(".mari-editor-shell"), "Entries");
     await page.getByRole("button", { name: "Expand entry" }).click();
     await page.getByText("Context filters & matching sources", { exact: true }).click();
-
-    const filterArea = page.locator("details").filter({ hasText: "Context filters & matching sources" });
-    const chips = filterArea.locator("button.mari-editor-chip");
     await expect(chips.first()).toBeVisible();
+  };
+  const savedGenerationTriggers = async () => {
+    const entriesResponse = await page.request.get(`/api/lorebooks/${lorebook.id}/entries`);
+    const entries = (await entriesResponse.json()) as Array<{ id: string; generationTriggerFilters: string[] }>;
+    return entries.find((candidate) => candidate.id === entry.id)?.generationTriggerFilters ?? [];
+  };
+
+  try {
+    await openFilters();
+    await expect(filterArea.getByRole("button", { name: "Noodle", exact: true })).toHaveCount(0);
+    await expect(filterArea.getByRole("button", { name: "Slurp", exact: true })).toHaveCount(0);
+
+    installedPackages = [packageFixture("noodle", "Noodle"), packageFixture("slurp2", "Slurp Remastered")];
+    await openFilters();
     expect(await chips.count()).toBeGreaterThan(8);
     await expect(filterArea.locator("button.mari-editor-chip--accent")).toHaveCount(4);
 
@@ -18439,13 +18480,21 @@ test("Lorebook context filter chips expose Noodle and keep complete borders", as
     await expect(noodleChip).toBeVisible();
     await noodleChip.click();
     await expect(noodleChip).toHaveClass(/mari-editor-chip--accent/u);
-    await expect
-      .poll(async () => {
-        const entriesResponse = await page.request.get(`/api/lorebooks/${lorebook.id}/entries`);
-        const entries = (await entriesResponse.json()) as Array<{ id: string; generationTriggerFilters: string[] }>;
-        return entries.find((candidate) => candidate.id === entry.id)?.generationTriggerFilters ?? [];
-      })
-      .toContain("noodle");
+    await expect.poll(savedGenerationTriggers).toContain("noodle");
+
+    const slurpChip = filterArea.getByRole("button", { name: "Slurp", exact: true });
+    await expect(slurpChip).toBeVisible();
+    await slurpChip.click();
+    await expect(slurpChip).toHaveClass(/mari-editor-chip--accent/u);
+    await expect.poll(savedGenerationTriggers).toEqual(["conversation", "noodle", "slurp"]);
+
+    // Removing the packages hides their chips, and toggling another chip keeps the hidden values.
+    installedPackages = [];
+    await openFilters();
+    await expect(filterArea.getByRole("button", { name: "Noodle", exact: true })).toHaveCount(0);
+    await expect(filterArea.getByRole("button", { name: "Slurp", exact: true })).toHaveCount(0);
+    await filterArea.getByRole("button", { name: "Game", exact: true }).click();
+    await expect.poll(savedGenerationTriggers).toEqual(["conversation", "noodle", "slurp", "game"]);
 
     const invalidBorders = await chips.evaluateAll((elements) =>
       elements
@@ -20246,7 +20295,7 @@ test("Home widget order can be dragged and persists across reloads", async ({ pa
   expect(errors).toEqual([]);
 });
 
-test("chat mode tabs and new-chat actions stay reachable", async ({ page }) => {
+test("chat mode tabs and new-chat actions stay reachable", { tag: "@smoke" }, async ({ page }) => {
   const errors = collectUnexpectedErrors(page);
   const modes = [
     {

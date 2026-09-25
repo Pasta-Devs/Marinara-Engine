@@ -14,8 +14,8 @@ const chatsRoutes = read("packages/server/src/routes/chats.routes.ts");
 const english = JSON.parse(read("packages/client/src/localization/locales/en.json")) as Record<string, string>;
 
 // Chat settings: each package's toggle is gated on that package.
-assert.match(drawer, /capability\.id === "noodle" && capability\.status === "active"/u);
-assert.match(drawer, /capability\.id === "slurp2" && capability\.status === "active"/u);
+assert.match(drawer, /const noodleInstalled = isCapabilityPackageAvailable\(installedCapabilities, "noodle"\);/u);
+assert.match(drawer, /const slurp2Installed = isCapabilityPackageAvailable\(installedCapabilities, "slurp2"\);/u);
 assert.match(drawer, /\{noodleInstalled && \(\s*<SettingsSwitch[\s\S]*?noodleTimelineContextEnabled: checked/u);
 assert.match(drawer, /\{slurp2Installed && \(\s*<SettingsSwitch[\s\S]*?slurp2ActivityContextEnabled: checked/u);
 assert.doesNotMatch(drawer, /renderNoodleTimelineContextToggle/u, "no render site may bypass the install gate");

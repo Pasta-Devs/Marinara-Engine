@@ -121,7 +121,7 @@ async function wheelBackOneEntry(page: Page) {
   await page.mouse.wheel(0, -120);
 }
 
-test("a hidden verb-only anchor does not blank the GM narration panel", async ({ page, request }, testInfo) => {
+test("a hidden verb-only anchor does not blank the GM narration panel", { tag: "@smoke" }, async ({ page, request }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "One proof of the narration filter is sufficient.");
   const { chatId, anchorId, editedEmptyId } = await seedVerbOnlyTurn(request);
   try {

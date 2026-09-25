@@ -92,6 +92,11 @@ function poolRuleset(resolution: Record<string, unknown>): RulesetDefinition {
     // The shipped layer swaps the shipped ladder, and these resolutions replace it, so the layer
     // goes with the ladder it was written for.
     delete source.layers;
+    // The shipped Grave Sight charm moves the exploding face to 8, which these resolutions may not
+    // allow, and the summary never reads a catalog, so it goes.
+    for (const catalog of (source.catalogs as Array<{ entries?: Array<Record<string, any>> }>) ?? []) {
+      catalog.entries = (catalog.entries ?? []).filter((entry) => entry.mechanics?.check?.explode === undefined);
+    }
     source.resolution = {
       kind: "dice-pool",
       abilityModifier: base.abilityModifier,
@@ -132,15 +137,23 @@ assert.equal(
 
 // Gravewatch: an adjustable target is reported as the range it may move in, and every optional rule
 // it turns on is listed once, in the order the summary declares. It ships no doubling rule, so no
-// doubling phrase appears.
+// doubling phrase appears. Its exploding face may be lowered to 8 for a check, a check may name its
+// standing re-throw, and an ability check may add a second ability, which is said last because it
+// is about what fills the pool.
 assert.deepEqual(rulesetRulesSummary(gravewatch, keyed), [
   "rules.poolTargetRange(max=9,min=5,sides=10)",
-  "rules.explode(from=10)",
+  "rules.explodeMovable(from=10,min=8)",
   "rules.cancel(upTo=1)",
   "rules.botch(upTo=1)",
   "rules.exceptional(count=5)",
   "rules.situational(max=3,min=-3)",
+  "rules.reroll(id=careful,upTo=6)",
+  "rules.abilityPlusAbility",
 ]);
+assert.equal(
+  rulesetRulesSummary(gravewatch, t)[1],
+  "A face of 10 or more rolls one more die; a check can lower it to 8.",
+);
 assert.equal(rulesetRulesSummary(gravewatch, t)[0], "d10 pool, a die succeeds on 5 to 9, set per check.");
 
 // A plain pool: a fixed target says "or more", and a file that turns no optional rule on is one
@@ -167,6 +180,24 @@ assert.deepEqual(rulesetRulesSummary(doublingPool, keyed), [
   "rules.cancel(upTo=2)",
 ]);
 assert.equal(rulesetRulesSummary(doublingPool, t)[1], "A face of 11 or more counts twice.");
+
+// A face rule with only a min fires only when a check asks, and says so; a botch read off half the
+// dice says what it does on a roll that still succeeded.
+const onAskPool = poolRuleset({
+  die: { sides: 6 },
+  target: { default: 5, min: 5, max: 5 },
+  explode: { min: 6 },
+  double: { min: 5 },
+  botch: { upTo: 1, rule: "halfOrMore" },
+});
+assert.deepEqual(rulesetRulesSummary(onAskPool, keyed), [
+  "rules.poolTarget(sides=6,target=5)",
+  "rules.doubleOnAsk(min=5)",
+  "rules.explodeOnAsk(min=6)",
+  "rules.botchHalf(upTo=1)",
+]);
+assert.equal(rulesetRulesSummary(onAskPool, t)[2], "A check can make faces from 6 up roll one more die.");
+assert.match(rulesetRulesSummary(onAskPool, t)[3]!, /half the dice or more/);
 
 // A single success required still reads as one success, not "1 successes".
 const exceptionalOne = poolRuleset({

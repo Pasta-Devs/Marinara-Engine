@@ -251,6 +251,11 @@ try {
     delete plain.layers;
     plain.id = "gravewatch-plain";
     delete plain.resolution.explode;
+    // The example's Grave Sight charm moves the exploding face, which a ruleset may only let a
+    // check do while its explode rule has a min; a copy that takes the rule away takes the charm too.
+    for (const catalog of plain.catalogs ?? []) {
+      catalog.entries = (catalog.entries ?? []).filter((entry: any) => entry.mechanics?.check?.explode === undefined);
+    }
     const parsedPlain = parseRulesetDefinition(plain);
     assert.ok(parsedPlain.ok, `the variant must validate: ${JSON.stringify(parsedPlain)}`);
     const plainDefinition = parsedPlain.definition;
@@ -547,6 +552,14 @@ try {
     const document = JSON.parse(gravewatchText) as Record<string, any>;
     // The example also carries a layer and a pool resolution, which have gates of their own.
     delete document.layers;
+    // And 1.37's: the rules a check may move, two abilities together, and the charm that moves one.
+    delete document.resolution.explode.min;
+    delete document.resolution.pool.abilityPlusAbility;
+    // And 1.38's standing re-throw.
+    delete document.resolution.reroll;
+    for (const catalog of document.catalogs ?? []) {
+      catalog.entries = (catalog.entries ?? []).filter((entry: any) => entry.mechanics?.check?.explode === undefined);
+    }
     // The example trips more than one of 1.30's rules at once, so the reason it gives is whichever
     // the gate reads first; what matters here is that 29 is refused and 30 installs. Each rule's
     // own wording is pinned below, on a document that trips only that one.

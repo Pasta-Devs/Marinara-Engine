@@ -43,7 +43,9 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
   const arithmetic = skillCheckDiceSumToTotal(result)
     ? `[${result.rolls.join(", ")}]${modifier}${rollMode} = ${result.total}`
     : `[${result.rolls.join(", ")}]${result.resolution === "successes" ? "" : modifier}${rollMode} → ${result.total}${result.resolution === "successes" ? ` ${result.total === 1 ? "success" : "successes"}` : ""}`;
-  return `${result.skill} check (DC ${result.dc}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.`;
+  // A complication is alongside the outcome, never instead of it, so the outcome is still said first.
+  const complication = result.complication ? " Something went wrong on the side." : "";
+  return `${result.skill} check (DC ${result.dc}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}`;
 }
 
 function serializeSkillCheckAttribute(value: string): string {
@@ -96,6 +98,18 @@ export interface SkillCheckTagExtras {
   rerolled?: number;
   /** The wound penalty already applied by the Engine. */
   penalty?: number;
+  /** `difficulty="Grim"` — the ladder step a sparse ask named. Only ever the ask: a rolled record
+   *  says the numbers the step stood for instead. */
+  difficulty?: string;
+  /** `explode="9"` / `double="9"` — the face a pool check moved the rule to, or the ask for it. */
+  explode?: number;
+  double?: number;
+  /** `complication="true"` — the roll went wrong on the side without botching outright. */
+  complication?: boolean;
+  /** `adjust="-2"` — what the sheet itself added to or took off the check. */
+  adjust?: number;
+  /** `reroll="rote"` — the standing re-throw the check applied, or the ask for one. */
+  reroll?: string;
 }
 
 function serializeSkillCheckExtras(extras: SkillCheckTagExtras | undefined): string {
@@ -118,13 +132,22 @@ function serializeSkillCheckExtras(extras: SkillCheckTagExtras | undefined): str
   if (extras.penalty != null && Number.isFinite(extras.penalty) && extras.penalty < 0) {
     parts.push(`penalty="${extras.penalty}"`);
   }
+  if (extras.difficulty) parts.push(`difficulty="${serializeSkillCheckAttribute(extras.difficulty)}"`);
+  if (extras.explode != null && Number.isFinite(extras.explode)) parts.push(`explode="${extras.explode}"`);
+  if (extras.double != null && Number.isFinite(extras.double)) parts.push(`double="${extras.double}"`);
+  if (extras.complication) parts.push(`complication="true"`);
+  if (extras.adjust != null && Number.isFinite(extras.adjust) && extras.adjust !== 0) {
+    parts.push(`adjust="${extras.adjust > 0 ? "+" : ""}${extras.adjust}"`);
+  }
+  if (extras.reroll) parts.push(`reroll="${serializeSkillCheckAttribute(extras.reroll)}"`);
   return parts.length > 0 ? ` ${parts.join(" ")}` : "";
 }
 
 export function serializeSparseSkillCheckTag(
   request: {
     skill: string;
-    dc: number;
+    /** Absent on an ask that named its difficulty with `difficulty=` instead; see the extras. */
+    dc?: number;
     advantage?: boolean;
     disadvantage?: boolean;
     preRolledD20?: number;
@@ -133,7 +156,8 @@ export function serializeSparseSkillCheckTag(
   },
   extras?: SkillCheckTagExtras,
 ): string {
-  const parts = [`[skill_check: skill="${serializeSkillCheckAttribute(request.skill)}"`, `dc="${request.dc}"`];
+  const parts = [`[skill_check: skill="${serializeSkillCheckAttribute(request.skill)}"`];
+  if (request.dc != null && Number.isFinite(request.dc)) parts.push(`dc="${request.dc}"`);
   if (request.preRolledD20 != null) parts.push(`rolls="${request.preRolledD20}"`);
   if (request.advantage && !request.disadvantage) parts.push(`mode="advantage"`);
   else if (request.disadvantage && !request.advantage) parts.push(`mode="disadvantage"`);
@@ -157,6 +181,11 @@ export function serializeResolvedSkillCheckTag(result: SkillCheckResult, extras?
     ...(result.used ? { use: result.used } : {}),
     ...(result.rerolled ? { rerolled: result.rerolled } : {}),
     ...(result.penalty != null ? { penalty: result.penalty } : {}),
+    ...(result.explodeFrom != null ? { explode: result.explodeFrom } : {}),
+    ...(result.doubleFrom != null ? { double: result.doubleFrom } : {}),
+    ...(result.complication ? { complication: true } : {}),
+    ...(result.adjust ? { adjust: result.adjust } : {}),
+    ...(result.reroll ? { reroll: result.reroll } : {}),
     // An extra a caller left undefined is absent, not an instruction to erase what the result says.
     ...Object.fromEntries(Object.entries(extras ?? {}).filter(([, value]) => value !== undefined)),
   };
