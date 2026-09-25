@@ -514,6 +514,19 @@ export function readRulesetLive(
   return resolveLive(definition, build, readStoredLiveState(stored));
 }
 
+/** Every number the sheet yields, with its live tracks and pools read as they stand in `stored`:
+ *  the snapshot a check, a fight or the Game Master's sheet block works from. With nothing stored
+ *  (the sheet editor, an import review) they read at their declared defaults, a pool full or empty
+ *  as it starts and a track where it starts. The live state's own maximums never read it back
+ *  (refused at import), so resolving them first cannot loop. */
+export function evaluateRulesetSheetLive(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  stored?: unknown,
+): ReturnType<typeof evaluateRulesetSheet> {
+  return evaluateRulesetSheet(definition, build, readRulesetLive(definition, build, stored));
+}
+
 // ── Commands ──
 
 export type RulesetSheetOp =

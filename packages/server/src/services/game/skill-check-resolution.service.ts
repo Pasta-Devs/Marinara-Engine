@@ -24,7 +24,7 @@ import {
   serializeResolvedSkillCheckTag,
   serializeSparseSkillCheckTag,
   defaultRulesetSheetBuild,
-  evaluateRulesetSheet,
+  evaluateRulesetSheetLive,
   matchRulesetCheckTarget,
   parseDiceNotation,
   readRulesetWoundPenalty,
@@ -365,7 +365,9 @@ export function buildSkillCheckRulesetContext(
       logger.warn("[game/skill-check] The ruleset sheet for %s is unreadable; rolling on a blank sheet", key);
     }
     const cardBuild = envelope.success ? envelope.data.build : blankBuild;
-    sheets.set(key, evaluateRulesetSheet(definition, cardBuild));
+    // Worked out against this character's live state as it stands, so a value that reads a track
+    // or a pool rolls with the snapshot the turn began from.
+    sheets.set(key, evaluateRulesetSheetLive(definition, cardBuild, live?.[key]));
     builds.set(key, cardBuild);
     if (penaltyTrack) {
       const penalty = readRulesetWoundPenalty(definition, live?.[key], penaltyTrack);
@@ -380,7 +382,7 @@ export function buildSkillCheckRulesetContext(
     live: live ?? {},
     catalogs: catalogs ?? {},
     penalties,
-    blank: evaluateRulesetSheet(definition, blankBuild),
+    blank: evaluateRulesetSheetLive(definition, blankBuild),
   };
 }
 
@@ -581,7 +583,7 @@ function rulesetSpendCap(
           ruleset.definition,
           build,
           perCheck,
-          ruleset.sheets.get(key) ?? evaluateRulesetSheet(ruleset.definition, build),
+          ruleset.sheets.get(key) ?? evaluateRulesetSheetLive(ruleset.definition, build, ruleset.live[key]),
         );
   return Math.max(0, Math.min(RULESET_POOL_MAX_DICE, Math.floor(raw)));
 }

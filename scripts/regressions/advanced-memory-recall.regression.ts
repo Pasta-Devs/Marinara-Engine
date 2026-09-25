@@ -313,6 +313,86 @@ try {
     );
     assert.equal(allocated.receipt.recalledSceneIds.length, summaryBudgetTokens === 3000 ? 2 : 3);
   }
+  const cueChat = await chats.create({
+    name: "Distinctive details in old scenes",
+    mode: "roleplay",
+    characterIds: [],
+    connectionId: connection.id,
+  });
+  assert(cueChat);
+  await memory.updateSettings(cueChat.id, {
+    enabled: true,
+    retrieveMaxScenes: 1,
+    retrieveMinMessages: 0,
+    retrieveMaxMessages: 0,
+  });
+  const topics = ["rosemary", "harbor", "orchard", "workshop", "library", "observatory"];
+  await chats.createMessagesBatch(cueChat.id, [
+    ...topics.flatMap((topic, index) =>
+      Array.from({ length: 3 }, (_, turn) => ({
+        role: "user" as const,
+        content: `${turn === 0 ? "SCENE_CHANGE " : ""}The travelers discussed ${topic}. ${index === 0 ? "A parent treated childhood injuries with rosemary and gave the child an amber locket." : "They planned the silver compass journey through the mountain pass."}`,
+      })),
+    ),
+    ...Array.from({ length: 3 }, (_, index) => ({
+      role: "assistant" as const,
+      content: "The silver compass journey through the mountain pass continues.",
+      extra: index === 0 ? { isConversationStart: true } : {},
+    })),
+    {
+      role: "user" as const,
+      content:
+        "SCENE_CHANGE Breakfast waits on the table. The plate holds fresh bread while the window admits sunlight. I remember rosemary Dad used on my scraped knees.",
+    },
+  ]);
+  await memory.initialize(cueChat.id);
+  const cueScenes = (await memory.status(cueChat.id)).records.filter(
+    (record) => record.kind === "scene" && record.status === "closed" && record.content,
+  );
+  const targetScene = cueScenes.find((record) => record.startIndex === 1)!;
+  assert(targetScene);
+  const recap =
+    "A parent comforted childhood injuries with rosemary. " +
+    "The travelers repaired equipment, discussed checkpoint duties, apologized for an argument, washed clothes, prepared supplies, and agreed to rest before dawn. " +
+    "An old dream concerned a forgotten companion, a mysterious vial, a damaged mechanism, coded markings, lavender soap, a winter expedition, and promises about future discoveries.";
+  for (const scene of cueScenes) {
+    await memory.updateRecord(cueChat.id, scene.id, {
+      content: scene.id === targetScene.id ? recap : "The silver compass journey through the mountain pass continued.",
+    });
+  }
+  const beforeCue = calls.length;
+  const cueRecall = await memory.prepare({
+    chatId: cueChat.id,
+    messages: await chats.listMessages(cueChat.id),
+    audienceCharacterIds: [],
+    budgetTokens: 50_000,
+    readOnly: true,
+  });
+  assert.deepEqual(
+    cueRecall.receipt.recalledSceneIds,
+    [targetScene.sceneId],
+    "the latest distinctive cue beats older broad context",
+  );
+  assert.match(cueRecall.recalledScenes!, /parent comforted childhood injuries with rosemary/u);
+  assert.deepEqual(cueRecall.receipt.recalledMessageIds, []);
+  assert.equal(calls.length, beforeCue, "local cue ranking makes no model calls");
+
+  const cueMessages = await chats.listMessages(cueChat.id);
+  await chats.updateMessageContent(cueMessages.at(-1)!.id, "Where did that amber locket come from?");
+  const sourceCue = await memory.prepare({
+    chatId: cueChat.id,
+    messages: await chats.listMessages(cueChat.id),
+    audienceCharacterIds: [],
+    budgetTokens: 50_000,
+    readOnly: true,
+  });
+  assert.deepEqual(
+    sourceCue.receipt.recalledSceneIds,
+    [targetScene.sceneId],
+    "original messages can find scenes even when excerpt output is disabled",
+  );
+  assert.deepEqual(sourceCue.receipt.recalledMessageIds, []);
+
   process.stdout.write(
     "Advanced Memory scene limits, paired excerpts, current-turn context and bounded retrieval passed.\n",
   );

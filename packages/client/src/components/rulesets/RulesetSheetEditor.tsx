@@ -7,7 +7,7 @@ import { useQueries } from "@tanstack/react-query";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
   defaultRulesetSheetBuild,
-  evaluateRulesetSheet,
+  evaluateRulesetSheetLive,
   isRulesetItemHidden,
   recomputeScaledRows,
   rulesetCatalogEntriesByRef,
@@ -254,6 +254,7 @@ export function RulesetSheetEditor({
   layerOptions,
   envelope,
   onChange,
+  live,
 }: {
   definition: RulesetDefinition;
   /** The pinned game's layer choices, which the catalog picker leaves hidden entries out by. The
@@ -262,11 +263,14 @@ export function RulesetSheetEditor({
   layerOptions?: RulesetLayerOptions;
   envelope: RulesetSheetEnvelope | undefined;
   onChange: (envelope: RulesetSheetEnvelope) => void;
+  /** The game's live state for this sheet, so a value that reads a track or a pool shows where it
+   *  stands. The character and persona editors have none, and show it where play starts. */
+  live?: unknown;
 }) {
   const { t } = useUiTranslation();
   const { sheet, resolution } = definition;
   const build = useMemo(() => readBuild(definition, envelope), [definition, envelope]);
-  const evaluated = useMemo(() => evaluateRulesetSheet(definition, build), [definition, build]);
+  const evaluated = useMemo(() => evaluateRulesetSheetLive(definition, build, live), [definition, build, live]);
   // Which catalog's picker is open. A ruleset that ships none, and a listing that carries none
   // (an older Engine, a stubbed response), simply never offers the button.
   const [pickerId, setPickerId] = useState<string | null>(null);

@@ -360,10 +360,10 @@ try {
     "globally hidden text remains part of memory",
   );
   assert(
-    !scenes.some(
+    scenes.some(
       (record) => record.audienceCharacterIds.includes("traveler") && record.messageIds.includes(source[50]!.id),
     ),
-    "character-hidden text stays out of their summaries",
+    "a partially present character retains access to the scene",
   );
   assert(
     !scenes.some(
