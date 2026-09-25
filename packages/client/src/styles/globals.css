@@ -1486,53 +1486,56 @@
   }
 }
 
-.mari-live-work {
-  position: relative;
-  overflow: hidden;
-  min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--mari-workspace-gold) 24%, var(--border));
-  border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--card) 96%, var(--mari-workspace-hoodie));
-  padding: 0.9rem;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 4%, transparent);
-}
-
-.mari-live-work__body {
-  display: grid;
-  min-width: 0;
-  grid-template-columns: minmax(0, 1fr) 5.5rem;
-  grid-template-areas: "content scene";
-  gap: 1rem;
-}
-
-.mari-live-work__content {
-  grid-area: content;
-  min-width: 0;
-}
-
-.mari-live-work__scene {
-  grid-area: scene;
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  align-self: start;
-  justify-content: center;
-  padding-top: 0.1rem;
-}
-
 .mari-live-work__sprite {
   position: relative;
   display: block;
-  width: 4.25rem;
-  height: 6rem;
+  width: 1.6rem;
+  height: 2.25rem;
   flex: 0 0 auto;
+  margin-block: -0.25rem;
   background-image: var(--mari-work-sprite);
   background-position: 0 center;
   background-repeat: no-repeat;
   background-size: 400% auto;
-  filter: drop-shadow(0 0.35rem 0.45rem color-mix(in srgb, var(--background) 60%, transparent));
   image-rendering: pixelated;
   animation: mari-live-work-sprite 3.6s step-end infinite;
+}
+
+.mari-work-timeline {
+  display: grid;
+  min-width: 0;
+  gap: 0.5rem;
+}
+
+.mari-work-timeline__header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.mari-work-timeline[data-active="true"] .mari-work-timeline__status {
+  color: color-mix(in srgb, var(--primary) 72%, var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+}
+
+.mari-work-timeline[data-outcome="failed"] .mari-work-timeline__status {
+  color: var(--destructive);
+}
+
+.mari-work-timeline__subject {
+  width: fit-content;
+}
+
+.mari-work-timeline .mari-live-work__steps {
+  margin: 0;
+  padding: 0.15rem 0;
+  border: 0;
+  border-inline-start: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  padding-inline-start: 0.35rem;
 }
 
 .mari-live-work__sprite[data-scene="train"],
@@ -1565,28 +1568,6 @@
 .mari-live-work__sprite[data-scene="images"],
 .mari-live-work__sprite[data-scene="thinking-notes"] {
   animation-duration: 4.4s;
-}
-
-.mari-live-work__heading {
-  display: flex;
-  min-width: 0;
-  align-items: baseline;
-  gap: 0.55rem;
-}
-
-.mari-live-work__heading h3 {
-  min-width: 0;
-  color: var(--foreground);
-  font-size: 0.875rem;
-  font-weight: 700;
-  line-height: 1.35;
-}
-
-.mari-live-work__summary {
-  margin-top: 0.2rem;
-  color: color-mix(in srgb, var(--mari-workspace-gold) 58%, var(--muted-foreground));
-  font-size: 0.6875rem;
-  line-height: 1.35;
 }
 
 .mari-live-work__activity {
@@ -1623,39 +1604,6 @@
   color: var(--destructive);
 }
 
-.mari-live-work[data-active="false"] {
-  border-color: color-mix(in srgb, oklch(0.74 0.15 154) 22%, var(--border));
-  background: color-mix(in srgb, var(--card) 97%, oklch(0.74 0.15 154));
-}
-
-/* A run that ended with a failed step must not wear the finished-and-fine green. */
-.mari-live-work[data-outcome="failed"] {
-  border-color: color-mix(in srgb, var(--destructive) 30%, var(--border));
-  background: color-mix(in srgb, var(--card) 96%, var(--destructive));
-}
-
-.mari-live-work[data-active="false"] .mari-live-work__sprite {
-  animation: none;
-}
-
-.mari-live-work__narrative {
-  display: -webkit-box;
-  overflow: hidden;
-  margin-top: 0.35rem;
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-  line-height: 1.5;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-}
-
-.mari-live-work__controls {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  margin-top: 0.55rem;
-}
-
 .mari-live-work__stop {
   display: inline-flex;
   flex: 0 0 auto;
@@ -1675,24 +1623,6 @@
 .mari-live-work__stop:hover {
   border-color: color-mix(in srgb, var(--destructive) 45%, var(--border));
   color: var(--destructive);
-}
-
-.mari-live-work__elapsed {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 0.35rem;
-  color: color-mix(in srgb, var(--primary) 72%, var(--muted-foreground));
-  font-size: 0.65rem;
-  font-weight: 600;
-}
-
-.mari-live-work__elapsed i {
-  width: 0.35rem;
-  height: 0.35rem;
-  border-radius: 999px;
-  background: currentColor;
-  animation: mari-live-work-breathe 1.8s ease-in-out infinite;
 }
 
 .mari-live-work__steps {
@@ -1717,15 +1647,6 @@
 
 .mari-live-work__steps li[data-status="running"] {
   color: var(--foreground);
-}
-
-/* The "N earlier steps" line is a count, not a step: no icon column, quieter than the rest. */
-.mari-live-work__steps li[data-status="earlier"] {
-  min-height: 1.25rem;
-  padding-inline-start: 1.25rem;
-  font-size: 0.7rem;
-  font-style: italic;
-  opacity: 0.75;
 }
 
 .mari-live-work__steps li[data-status="running"]::after {
@@ -1823,99 +1744,6 @@
   margin-top: 0.35rem;
 }
 
-.mari-live-work__technical {
-  overflow: hidden;
-  border-top: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  margin-top: 0.65rem;
-}
-
-.mari-live-work__technical-heading {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.45rem 0.5rem;
-  color: var(--muted-foreground);
-  font-size: 0.6875rem;
-  font-weight: 650;
-}
-
-.mari-live-work__technical-details {
-  margin-top: 0.35rem;
-}
-
-.mari-live-work__technical-details > summary {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-height: 2rem;
-  padding: 0.35rem 0.5rem;
-  color: var(--muted-foreground);
-  cursor: pointer;
-  font-size: 0.625rem;
-}
-
-.mari-live-work__technical-details > summary:hover {
-  color: var(--foreground);
-}
-
-.mari-live-work__technical > summary {
-  display: flex;
-  min-height: 2.25rem;
-  cursor: pointer;
-  list-style: none;
-  align-items: center;
-  gap: 0.5rem;
-  padding-inline: 0.25rem;
-  color: var(--muted-foreground);
-  font-size: 0.7rem;
-  font-weight: 600;
-}
-
-.mari-live-work__technical > summary::-webkit-details-marker {
-  display: none;
-}
-
-.mari-live-work__technical > summary:hover {
-  color: var(--foreground);
-}
-
-.mari-live-work__technical-row {
-  display: flex;
-  min-height: 2rem;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--muted-foreground);
-  font-size: 0.6875rem;
-}
-
-.mari-live-work__technical-row[data-status="running"] {
-  color: var(--foreground);
-}
-
-.mari-live-work__technical-row[data-status="error"] {
-  color: var(--destructive);
-}
-
-.mari-live-work__technical-row code {
-  color: var(--muted-foreground);
-  font-family: var(--font-mono);
-  font-size: 0.625rem;
-}
-
-.mari-live-work__technical[open] > div {
-  transform-origin: top;
-  animation: mari-live-work-unfold 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.mari-live-work__subject {
-  width: 100%;
-  margin-top: 0.65rem;
-  padding: 0.5rem 0.25rem;
-  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent) !important;
-  border-radius: 0.45rem !important;
-  background: color-mix(in srgb, var(--background) 68%, transparent) !important;
-}
-
 @keyframes mari-live-work-sprite {
   0%,
   22% {
@@ -1935,18 +1763,6 @@
   }
 }
 
-@keyframes mari-live-work-breathe {
-  0%,
-  100% {
-    opacity: 0.45;
-    transform: scale(0.86);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
 @keyframes mari-live-work-confirm {
   0% {
     opacity: 0.4;
@@ -1958,20 +1774,8 @@
   }
 }
 
-@keyframes mari-live-work-unfold {
-  from {
-    opacity: 0;
-    transform: translateY(-0.25rem) scaleY(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scaleY(1);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .mari-live-work__activity i,
-  .mari-live-work__technical[open] > div,
   .mari-live-work__steps li .mari-live-work__step-icon,
   .mari-live-work__steps li[data-status="running"]::after {
     animation: none;
@@ -1979,22 +1783,6 @@
 
   .mari-live-work__sprite {
     animation: none;
-  }
-}
-
-@media (max-width: 30rem) {
-  .mari-live-work {
-    padding: 0.7rem;
-  }
-
-  .mari-live-work__body {
-    grid-template-columns: minmax(0, 1fr) 4rem;
-    gap: 0.5rem;
-  }
-
-  .mari-live-work__sprite {
-    width: 3.25rem;
-    height: 4.6rem;
   }
 }
 
@@ -2263,7 +2051,6 @@
 @media (prefers-reduced-motion: reduce) {
   .mari-reasoning-panel__live i,
   .mari-tool-line[data-status="running"]::after,
-  .mari-live-work__elapsed i,
   .mari-live-work__steps li[data-status="running"]::after {
     animation: none;
   }

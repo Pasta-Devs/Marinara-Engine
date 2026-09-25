@@ -65,17 +65,17 @@ assert.doesNotMatch(
 assert.match(
   professorMariHomeSource,
   /className="mari-live-work__stop"[\s\S]{0,160}ui\.chat\.summarypopover\.stop/u,
-  "The work card's Stop control carries a visible label",
+  "The work timeline's Stop control carries a visible label",
 );
 assert.match(
   professorMariHomeSource,
   /className="mari-live-work__sprite"/u,
-  "The live work card must keep its animated mini Mari scene",
+  "The running step must keep its animated mini Mari sprite",
 );
 assert.match(
   professorMariHomeSource,
-  /<WorkspaceLiveWorkCard[\s\S]*?items=\{traceItems\}[\s\S]*?active=\{false\}/u,
-  "Completed workspace traces must remain visible in the rich work card",
+  /<MariWorkTimeline[\s\S]*?items=\{traceItems\}[\s\S]*?active=\{false\}/u,
+  "Completed workspace traces must remain visible, fully open, in Mari's message",
 );
 assert.match(
   professorMariHomeSource,
@@ -267,3 +267,26 @@ try {
 }
 
 console.info("Issue sweep #5371-#5375 regression passed");
+
+// Mari's work reads in the order it happened: her words, her thinking and her steps, with
+// back-to-back steps in one list and internal status lines left out.
+{
+  const { buildWorkTimelineBlocks } = await import("../../packages/client/src/lib/mari-work-timeline.js");
+  const blocks = buildWorkTimelineBlocks<string>([
+    { id: "t1", type: "text", content: "Professor Mari: I'll read her card first." },
+    { id: "s1", type: "status", content: "Pacing requests to stay under this connection's rate limit" },
+    { id: "a", type: "tool", tool: "read" },
+    { id: "b", type: "tool", tool: "search" },
+    { id: "k1", type: "thinking", content: "The greeting contradicts her backstory." },
+    { id: "t2", type: "text", content: "   " },
+    { id: "c", type: "tool", tool: "patch" },
+    { id: "t3", type: "text", content: "Done." },
+  ]);
+  assert.deepEqual(
+    blocks.map((block) =>
+      block.kind === "steps" ? `steps:${block.steps.map((step) => step.tool).join("+")}` : block.kind,
+    ),
+    ["text", "steps:read+search", "thinking", "steps:patch", "text"],
+  );
+  assert.equal(blocks[0].kind === "text" && blocks[0].content, "I'll read her card first.");
+}
