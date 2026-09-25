@@ -81,7 +81,9 @@ export function ConnectionSection({
           {usageConnection && <NanoGptUsageWidget connectionId={usageConnection.id} variant="panel" />}
         </div>
       ) : (
-        <>
+        // space-y-2 matches the game branch above and the other settings
+        // sections; a bare fragment leaves the meter flush against the select.
+        <div className="space-y-2">
           <select
             value={connectionId ?? ""}
             onChange={(e) => onConnectionChange(e.target.value || null)}
@@ -96,12 +98,12 @@ export function ConnectionSection({
             ))}
           </select>
           {connectionId === "random" && (
-            <p className="mt-1.5 text-[0.625rem] text-foreground/50">
+            <p className="text-[0.625rem] text-foreground/50">
               {localizeUi("ui.chatSettings.connectionsection.eachGenerationWillRandomlyPickFromConnectionsMarkedFor")}
             </p>
           )}
           {selectedLocalSidecar && (
-            <div className="mt-2 flex items-start gap-2 rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
+            <div className="flex items-start gap-2 rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
               <AlertTriangle size="0.75rem" className="mt-0.5 shrink-0 text-[var(--warning)]" />
               <span>
                 {localizeUi("ui.chatSettings.connectionsection.localModelIsTinyAndIntendedForTrackersHelpers")}
@@ -109,7 +111,7 @@ export function ConnectionSection({
             </div>
           )}
           {usageConnection && <NanoGptUsageWidget connectionId={usageConnection.id} variant="panel" />}
-        </>
+        </div>
       )}
     </ChatSettingsSection>
   );
