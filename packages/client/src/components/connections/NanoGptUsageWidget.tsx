@@ -11,7 +11,19 @@
 
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import { PROVIDERS, type APIProvider } from "@marinara-engine/shared";
 import { useNanoGptSubscriptionUsage, type NanoGptQuotaWindow } from "../../hooks/use-connections";
+import { quotaPercentForDisplay, quotaTotalForDisplay } from "../../lib/nanogpt-quota";
+
+/**
+ * The provider's display name, from the shared provider catalog rather than a
+ * literal, so a second provider wiring up its own meter is labelled by its own
+ * definition instead of this widget's name for it.
+ */
+function providerDisplayName(provider: string | null | undefined): string {
+  const definition = provider ? PROVIDERS[provider as APIProvider] : undefined;
+  return definition?.name ?? provider ?? "";
+}
 
 function formatTokens(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
@@ -23,12 +35,6 @@ function formatTokens(value: number | null): string {
   return String(Math.round(value));
 }
 
-/** Convert the API's fraction to a clamped 0-100 display percentage. */
-export function quotaPercentForDisplay(percentUsed: number | null | undefined): number | null {
-  if (typeof percentUsed !== "number" || !Number.isFinite(percentUsed)) return null;
-  return Math.min(100, Math.max(0, percentUsed * 100));
-}
-
 /** Which color the bar uses once usage is high. */
 function barTone(percent: number): string {
   if (percent >= 90) return "bg-[var(--marinara-editor-accent)]";
@@ -36,7 +42,15 @@ function barTone(percent: number): string {
   return "bg-sky-400";
 }
 
-function QuotaBar({ label, window }: { label: string; window: NanoGptQuotaWindow }) {
+function QuotaBar({
+  label,
+  window,
+  compact = false,
+}: {
+  label: string;
+  window: NanoGptQuotaWindow;
+  compact?: boolean;
+}) {
   const { t: localizeUi } = useUiTranslation();
   const percent = quotaPercentForDisplay(window.percentUsed);
 
@@ -44,14 +58,20 @@ function QuotaBar({ label, window }: { label: string; window: NanoGptQuotaWindow
   if (percent === null) {
     return (
       <div>
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{label}</span>
-          <span className="text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">{label}</span>
+          <span className="text-[0.6875rem] tabular-nums text-[var(--marinara-chat-chrome-panel-text)]">
             {localizeUi("ui.connections.connectioneditor.usageUnknown")}
           </span>
         </div>
-        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[var(--border)]" />
-        {window.degraded && (
+        <div
+          className={
+            compact
+              ? "mt-1 h-1 overflow-hidden rounded-full bg-[var(--muted)]/55"
+              : "mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[var(--border)]"
+          }
+        />
+        {window.degraded && !compact && (
           <p className="mt-1 text-[0.5625rem] text-[var(--muted-foreground)]">
             {localizeUi("ui.connections.connectioneditor.usageLookupUnavailable")}
           </p>
@@ -60,21 +80,51 @@ function QuotaBar({ label, window }: { label: string; window: NanoGptQuotaWindow
     );
   }
 
+  const used = formatTokens(window.used);
+  const total = quotaTotalForDisplay(window);
+  const reading =
+    total !== null
+      ? localizeUi("ui.connections.connectioneditor.usageUsedOfLimit", { used, limit: formatTokens(total) })
+      : localizeUi("ui.connections.connectioneditor.usagePercentOf", {
+          percent: String(Math.round(percent)),
+          used,
+        });
+
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{label}</span>
-        <span className="text-[0.6875rem] font-semibold text-[var(--foreground)]">
-          {localizeUi("ui.connections.connectioneditor.usagePercentOf", {
-            percent: String(Math.round(percent)),
-            used: formatTokens(window.used),
-          })}
-        </span>
+      {/* In the compact layout the host's title row already names the window, so
+          only the reading is drawn here. */}
+      <div className="flex items-baseline justify-between gap-3">
+        {label ? (
+          <span className="text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">{label}</span>
+        ) : (
+          <span />
+        )}
+        <span className="text-[0.6875rem] tabular-nums text-[var(--marinara-chat-chrome-panel-text)]">{reading}</span>
       </div>
-      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[var(--border)]">
-        <div className={`h-full rounded-full transition-all ${barTone(percent)}`} style={{ width: `${percent}%` }} />
+      <div
+        role="progressbar"
+        aria-label={localizeUi("ui.connections.connectioneditor.usageAria", {
+          label,
+          percent: String(Math.round(percent)),
+        })}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(percent)}
+        className={
+          compact
+            ? "mt-1 h-1 overflow-hidden rounded-full bg-[var(--muted)]/55"
+            : "mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[var(--border)]"
+        }
+      >
+        <div
+          className={`h-full rounded-full transition-[width] duration-200 motion-reduce:transition-none ${
+            compact ? "bg-[var(--marinara-chat-chrome-accent)]" : barTone(percent)
+          }`}
+          style={{ width: `${percent}%` }}
+        />
       </div>
-      {window.remaining !== null && (
+      {!compact && window.remaining !== null && (
         <p className="mt-1 text-[0.5625rem] text-[var(--muted-foreground)]">
           {localizeUi("ui.connections.connectioneditor.usageRemaining", {
             remaining: formatTokens(window.remaining),
@@ -87,7 +137,11 @@ function QuotaBar({ label, window }: { label: string; window: NanoGptQuotaWindow
 
 export function NanoGptUsageWidget({
   connectionId,
-  /** "editor" draws its own card; "inline" blends into a host that already has one. */
+  /**
+   * Which surface this is drawn on. "editor" is the standalone connection card;
+   * "inline" sits under a chat picker's context bar, which it mirrors in size,
+   * spacing and color instead of competing with it.
+   */
   variant = "editor",
 }: {
   connectionId: string;
@@ -95,12 +149,11 @@ export function NanoGptUsageWidget({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const { data, isLoading, isFetching, error, refetch } = useNanoGptSubscriptionUsage(connectionId, true);
-  const frame =
-    variant === "editor"
-      ? "space-y-2.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)]"
-      : // Hosts that use this variant already provide their own padding and
-        // surface, so avoid drawing a second card inside it.
-        "space-y-2";
+  const compact = variant === "inline";
+  const frame = compact
+    ? "mb-2 space-y-1 px-0.5"
+    : "space-y-2.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)]";
+  const providerName = providerDisplayName(data?.provider);
 
   if (isLoading) {
     return (
@@ -137,23 +190,57 @@ export function NanoGptUsageWidget({
 
   const weekly = data.weeklyInputTokens;
   const daily = data.dailyInputTokens;
+  // "Weekly usage" reads shorter than "Subscription usage" where space is tight,
+  // and only the weekly window is shown there anyway.
+  const title = compact
+    ? localizeUi("ui.connections.connectioneditor.weeklyUsage", { provider: providerName })
+    : localizeUi("ui.connections.connectioneditor.subscriptionUsage", { provider: providerName });
+  const weeklyPercent = weekly ? quotaPercentForDisplay(weekly.percentUsed) : null;
+  const weeklyTotal = quotaTotalForDisplay(weekly);
+  // The percent/used fallback covers a window that reports no remaining count.
+  const compactReading =
+    weekly && weeklyPercent !== null
+      ? weeklyTotal !== null
+        ? localizeUi("ui.connections.connectioneditor.usageCompactReading", {
+            percent: String(Math.round(weeklyPercent)),
+            used: formatTokens(weekly.used),
+            limit: formatTokens(weeklyTotal),
+          })
+        : localizeUi("ui.connections.connectioneditor.usagePercentOf", {
+            percent: String(Math.round(weeklyPercent)),
+            used: formatTokens(weekly.used),
+          })
+      : null;
 
   return (
     <div className={frame}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-[var(--foreground)]">
-          {localizeUi("ui.connections.connectioneditor.subscriptionUsage")}
+      <div className={compact ? "flex items-center justify-between gap-3" : "flex items-center justify-between gap-2"}>
+        <span
+          className={
+            compact
+              ? "text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]"
+              : "text-xs font-semibold text-[var(--foreground)]"
+          }
+        >
+          {title}
         </span>
         <div className="flex items-center gap-1.5">
-          <span className="rounded-md bg-sky-400/10 px-1.5 py-0.5 text-[0.5625rem] font-medium text-sky-400">
-            {data.credential === "management_token"
-              ? localizeUi("ui.connections.connectioneditor.usageViaManagementToken")
-              : localizeUi("ui.connections.connectioneditor.usageViaApiKey")}
-          </span>
+          {!compact && (
+            <span className="rounded-md bg-sky-400/10 px-1.5 py-0.5 text-[0.5625rem] font-medium text-sky-400">
+              {data.credential === "management_token"
+                ? localizeUi("ui.connections.connectioneditor.usageViaManagementToken")
+                : localizeUi("ui.connections.connectioneditor.usageViaApiKey")}
+            </span>
+          )}
+          {compact && compactReading && (
+            <span className="text-[0.6875rem] tabular-nums text-[var(--marinara-chat-chrome-panel-text)]">
+              {compactReading}
+            </span>
+          )}
           <button
             onClick={() => void refetch()}
             disabled={isFetching}
-            className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:text-sky-400 disabled:opacity-50"
+            className="rounded-md p-1 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:text-sky-400 disabled:opacity-50"
             aria-label={localizeUi("ui.connections.connectioneditor.refreshUsage")}
           >
             <RefreshCw size="0.6875rem" className={isFetching ? "animate-spin" : ""} />
@@ -161,23 +248,31 @@ export function NanoGptUsageWidget({
         </div>
       </div>
 
-      {!data.active && (
+      {!compact && !data.active && (
         <p className="text-[0.625rem] text-[var(--marinara-editor-accent)]">
           {localizeUi("ui.connections.connectioneditor.subscriptionNotActive", { state: data.state })}
         </p>
       )}
 
-      {weekly ? (
-        <QuotaBar label={localizeUi("ui.connections.connectioneditor.weeklyInputTokens")} window={weekly} />
-      ) : (
+      {weekly && (
+        <QuotaBar
+          label={compact ? "" : localizeUi("ui.connections.connectioneditor.weeklyInputTokens")}
+          window={weekly}
+          compact={compact}
+        />
+      )}
+
+      {!compact && !weekly && (
         <p className="text-[0.625rem] text-[var(--muted-foreground)]">
           {localizeUi("ui.connections.connectioneditor.weeklyQuotaNotConfigured")}
         </p>
       )}
 
-      {daily && <QuotaBar label={localizeUi("ui.connections.connectioneditor.dailyInputTokens")} window={daily} />}
+      {daily && !compact && (
+        <QuotaBar label={localizeUi("ui.connections.connectioneditor.dailyInputTokens")} window={daily} />
+      )}
 
-      {data.credential === "api_key" && (
+      {!compact && data.credential === "api_key" && (
         <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
           {localizeUi("ui.connections.connectioneditor.usageManagementTokenRecommended")}
         </p>

@@ -100,7 +100,7 @@ The widget reads NanoGPT's usage endpoint and shows your weekly and daily input-
 
 A quota NanoGPT cannot report right now shows as **unknown** rather than as unused, and an inactive subscription is called out instead of being drawn as full quota. The widget refreshes on demand with its refresh button.
 
-The same meter appears under the context indicator in a chat's connection picker and in the chat's **Connection** settings, so you can watch your quota without leaving a chat. It follows the active connection: it shows only when that connection is a NanoGPT one with **Show subscription usage** turned on, and it does not appear for **Random**, which has no single connection to read.
+The same meter appears under the context indicator in a chat's connection picker and in the chat's **Connection** settings, so you can watch your quota without leaving a chat. It follows the active connection: it shows only when that connection is a NanoGPT one with **Show subscription usage** turned on, and it does not appear for **Random**, which has no single connection to read. In the picker it is drawn to match the context bar above it, and it reads the same way — used against the weekly allowance, for example `8.9M / 60M tokens`.
 
 ## xAI / Grok
 

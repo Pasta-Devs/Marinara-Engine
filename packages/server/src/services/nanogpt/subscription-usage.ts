@@ -20,6 +20,9 @@ import { logger } from "../../lib/logger.js";
 /** The usage endpoint host for management tokens (no `api.` prefix). */
 const NANOGPT_MANAGEMENT_USAGE_URL = "https://nano-gpt.com/api/management/v1/subscription/usage";
 
+/** The provider id for readings this module returns. */
+const NANOGPT_PROVIDER_ID = "nanogpt";
+
 /** The usage endpoint host for inference API keys. */
 const NANOGPT_INFERENCE_USAGE_URL = "https://api.nano-gpt.com/api/subscription/v1/usage";
 
@@ -50,6 +53,11 @@ export interface NanoGptSubscriptionUsage {
   currentPeriodEnd: string | null;
   /** Which credential answered, so the UI can explain a scope-related failure. */
   credential: "management_token" | "api_key";
+  /**
+   * The provider this reading belongs to, so the UI labels the meter from data
+   * rather than from its own name for NanoGPT.
+   */
+  provider: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -119,6 +127,7 @@ export function normalizeQuotaWindow(value: unknown): NanoGptQuotaWindow | null 
 export function normalizeSubscriptionUsage(
   raw: unknown,
   credential: NanoGptSubscriptionUsage["credential"],
+  provider = "nanogpt",
 ): NanoGptSubscriptionUsage | null {
   if (!isRecord(raw)) return null;
 
@@ -138,6 +147,7 @@ export function normalizeSubscriptionUsage(
     dailyImages: normalizeQuotaWindow(raw.dailyImages),
     currentPeriodEnd: typeof period.currentPeriodEnd === "string" ? period.currentPeriodEnd : null,
     credential,
+    provider,
   };
 }
 
@@ -193,7 +203,7 @@ export async function fetchNanoGptSubscriptionUsage(
     throw new Error("NanoGPT returned invalid JSON for subscription usage");
   }
 
-  return normalizeSubscriptionUsage(parsed, credential);
+  return normalizeSubscriptionUsage(parsed, credential, NANOGPT_PROVIDER_ID);
 }
 
 /** Turn a status code into an actionable, non-secret-bearing message. */

@@ -282,6 +282,8 @@ export type NanoGptSubscriptionUsage = {
   dailyImages: NanoGptQuotaWindow | null;
   currentPeriodEnd: string | null;
   credential: "management_token" | "api_key";
+  /** Provider id the reading belongs to, so the meter is labelled from data. */
+  provider: string;
 };
 
 /** Read the NanoGPT subscription quotas for the usage widget. */

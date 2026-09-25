@@ -436,7 +436,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                     </div>
                   )}
                   {usageConnection && (
-                    <div className="px-2 py-2">
+                    <div className="px-2 pt-1">
                       <NanoGptUsageWidget connectionId={usageConnection.id} variant="inline" />
                     </div>
                   )}

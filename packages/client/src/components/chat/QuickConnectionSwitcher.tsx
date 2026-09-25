@@ -179,7 +179,7 @@ export function QuickConnectionSwitcher({
               </div>
             )}
             {usageConnection && (
-              <div className="border-b border-foreground/10 px-3 py-2">
+              <div className="border-b border-foreground/10 px-3 pt-1">
                 <NanoGptUsageWidget connectionId={usageConnection.id} variant="inline" />
               </div>
             )}

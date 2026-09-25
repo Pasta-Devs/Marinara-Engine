@@ -11,6 +11,7 @@ import {
   isConnectionFlagTrue,
   resolveNanoGptUsageConnection,
 } from "../../packages/client/src/lib/connection-filters.js";
+import { quotaPercentForDisplay, quotaTotalForDisplay } from "../../packages/client/src/lib/nanogpt-quota.js";
 
 type Row = { id: string; provider?: string; showUsageWidget?: unknown };
 
@@ -69,5 +70,34 @@ assert.equal(isConnectionFlagTrue(1), false);
 // Object identity is preserved, so the caller reads the matched row's id.
 const resolved = resolveNanoGptUsageConnection(rows, "nano-on");
 assert.equal(resolved?.id, "nano-on");
+
+// The allowance is derived from used + remaining, and is only reported when both
+// halves are known: a total inferred from a partial reading would be a lie.
+const window = (used: number | null, remaining: number | null) => ({
+  used,
+  remaining,
+  percentUsed: null,
+  resetAt: null,
+  degraded: false,
+});
+assert.equal(quotaTotalForDisplay(window(8_900_000, 51_100_000)), 60_000_000);
+assert.equal(quotaTotalForDisplay(window(0, 60_000_000)), 60_000_000);
+assert.equal(quotaTotalForDisplay(window(0, 0)), 0);
+assert.equal(quotaTotalForDisplay(window(null, 51_100_000)), null, "unknown used cannot yield a total");
+assert.equal(quotaTotalForDisplay(window(8_900_000, null)), null, "unknown remaining cannot yield a total");
+assert.equal(quotaTotalForDisplay(window(null, null)), null);
+assert.equal(quotaTotalForDisplay(null), null);
+assert.equal(quotaTotalForDisplay(undefined), null);
+assert.equal(quotaTotalForDisplay(window(Number.NaN, 1)), null);
+
+// percentUsed is a fraction and may exceed 1; display clamps but never wraps.
+assert.equal(quotaPercentForDisplay(0.15), 15);
+assert.equal(quotaPercentForDisplay(1), 100);
+assert.equal(quotaPercentForDisplay(1.8), 100, "over-quota must clamp, not exceed the bar");
+assert.equal(quotaPercentForDisplay(0), 0);
+assert.equal(quotaPercentForDisplay(-0.5), 0);
+assert.equal(quotaPercentForDisplay(null), null);
+assert.equal(quotaPercentForDisplay(undefined), null);
+assert.equal(quotaPercentForDisplay(Number.NaN), null);
 
 console.info("[regression] nanogpt usage meter gate: string flags, providers, random OK");
