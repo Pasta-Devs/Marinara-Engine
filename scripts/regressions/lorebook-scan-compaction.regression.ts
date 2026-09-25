@@ -201,6 +201,23 @@ try {
   assert.equal(active.statusCode, 200, active.body);
   assert.equal(active.json().entries[0].content, "Stored harbour text");
 
+  // After the kept message is deleted, a scan saved on the message that is newest now keeps its text.
+  await chats.updateMessageExtra(first.id, { lorebookScan: scan("after delete", entry.id) });
+  await settleLorebookScanCompactions();
+  assert.match(
+    firstEntryText(await chats.getMessage(first.id)) ?? "",
+    /^after delete /u,
+    "the newest message after a delete keeps its text",
+  );
+  const third = await chats.createMessage({ chatId: chat.id, role: "assistant", content: "Three", characterId: null });
+  assert(third);
+  await chats.updateMessageExtra(third.id, { lorebookScan: scan("third", entry.id) });
+  await settleLorebookScanCompactions();
+  await chats.removeMessages([third.id]);
+  await chats.updateMessageExtra(first.id, { lorebookScan: scan("after bulk delete", entry.id) });
+  await settleLorebookScanCompactions();
+  assert.match(firstEntryText(await chats.getMessage(first.id)) ?? "", /^after bulk delete /u);
+
   // The first save in a chat since start sweeps messages stored earlier (here: with the setting off). When that save
   // is an impersonated turn, the newest assistant/narrator message found by the sweep keeps its text.
   process.env.LOREBOOK_COMPACT_STORED_SCANS = "false";

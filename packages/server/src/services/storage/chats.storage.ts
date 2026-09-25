@@ -785,6 +785,21 @@ export function createChatsStorage(db: DB) {
     void running.finally(() => runningLorebookScanCompactions.delete(running));
   }
 
+  /**
+   * A deleted kept message no longer marks the newest generated message: forget it and sweep again on the next save,
+   * so a scan on the message that is newest now is kept instead of compared against the deleted one.
+   */
+  function forgetDeletedLorebookScanKeep(messageIds: readonly string[]) {
+    const deleted = new Set(messageIds);
+    for (const state of scanCompactionStates.values()) {
+      if (!state.keep || !deleted.has(state.keep)) continue;
+      state.keep = null;
+      state.keepOrder = null;
+      state.swept = false;
+    }
+    for (const state of scanCompactionStates.values()) for (const id of deleted) state.pending.delete(id);
+  }
+
   async function runLorebookScanCompaction(chatId: string, state: LorebookScanCompactionState) {
     try {
       await new Promise<void>((resolve) => setImmediate(resolve));
@@ -3040,6 +3055,7 @@ export function createChatsStorage(db: DB) {
         }
         return [];
       });
+      forgetDeletedLorebookScanKeep([id]);
       if (removedEntries.length > 0) await this.pruneLorebookChatMetadata(async () => removedEntries);
     },
 
@@ -3048,6 +3064,7 @@ export function createChatsStorage(db: DB) {
       const earliestByChat = new Map<string, string>();
       const removedEntryIds: string[] = [];
       const finishDeletion = async () => {
+        forgetDeletedLorebookScanKeep(ids);
         if (removedEntryIds.length > 0) await this.pruneLorebookChatMetadata(async () => removedEntryIds);
         for (const [affectedChatId, createdAt] of earliestByChat) {
           await invalidateMemoryChunksFrom(db, affectedChatId, createdAt);
