@@ -120,7 +120,7 @@ function QuotaBar({
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="-mb-0.5 rounded-md p-0.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:text-sky-400 disabled:opacity-50"
+              className="-mb-0.5 rounded-md p-0.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:text-[var(--marinara-chat-chrome-accent)] disabled:opacity-50"
               aria-label={localizeUi("ui.connections.connectioneditor.refreshUsage")}
             >
               <RefreshCw size="0.6875rem" className={isRefreshing ? "animate-spin" : ""} />
@@ -201,7 +201,7 @@ export function NanoGptUsageWidget({
   if (isLoading) {
     return (
       <div className={`flex items-center gap-2 ${surface}`}>
-        <Loader2 size="0.75rem" className="animate-spin text-sky-400" />
+        <Loader2 size="0.75rem" className="animate-spin text-[var(--marinara-chat-chrome-accent)]" />
         <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
           {localizeUi("ui.connections.connectioneditor.loadingSubscriptionUsage")}
         </span>
@@ -219,7 +219,7 @@ export function NanoGptUsageWidget({
           </p>
           <button
             onClick={() => void refetch()}
-            className="shrink-0 rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:text-sky-400"
+            className="shrink-0 rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--marinara-chat-chrome-accent)]"
             aria-label={localizeUi("ui.connections.connectioneditor.retryUsageLookup")}
           >
             <RefreshCw size="0.6875rem" />
@@ -268,7 +268,7 @@ export function NanoGptUsageWidget({
         </span>
         <div className="flex items-center gap-1.5">
           {!compact && (
-            <span className="rounded-md bg-sky-400/10 px-1.5 py-0.5 text-[0.5625rem] font-medium text-sky-400">
+            <span className="rounded-md bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--marinara-chat-chrome-accent)]">
               {data.credential === "management_token"
                 ? localizeUi("ui.connections.connectioneditor.usageViaManagementToken")
                 : localizeUi("ui.connections.connectioneditor.usageViaApiKey")}
@@ -283,7 +283,7 @@ export function NanoGptUsageWidget({
             <button
               onClick={() => void refetch()}
               disabled={isFetching}
-              className="rounded-md p-1 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:text-sky-400 disabled:opacity-50"
+              className="rounded-md p-1 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:text-[var(--marinara-chat-chrome-accent)] disabled:opacity-50"
               aria-label={localizeUi("ui.connections.connectioneditor.refreshUsage")}
             >
               <RefreshCw size="0.6875rem" className={isFetching ? "animate-spin" : ""} />

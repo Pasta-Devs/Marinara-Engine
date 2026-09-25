@@ -2053,7 +2053,9 @@ export function ConnectionEditor() {
 
               {/* ── NanoGPT management token + subscription usage ── */}
               {isNanoGptProvider && (
-                <>
+                // A fragment's children are not direct children of the parent's
+                // space-y-6, so this block carries its own vertical rhythm.
+                <div className="space-y-6">
                   <FieldGroup
                     label={localizeUi("ui.connections.connectioneditor.managementToken")}
                     icon={<Key size="0.875rem" className="text-sky-400" />}
@@ -2091,7 +2093,7 @@ export function ConnectionEditor() {
                         setLocalShowUsageWidget(e.target.checked);
                         markDirty();
                       }}
-                      className="mt-0.5 h-4 w-4 shrink-0 accent-sky-400"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
                     />
                     <span className="min-w-0">
                       <span className="block text-sm font-medium">
@@ -2111,7 +2113,7 @@ export function ConnectionEditor() {
                       {localizeUi("ui.connections.connectioneditor.saveToLoadSubscriptionUsage")}
                     </p>
                   )}
-                </>
+                </div>
               )}
 
               {/* ── Base URL ── */}
