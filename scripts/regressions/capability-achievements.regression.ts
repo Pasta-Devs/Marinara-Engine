@@ -61,8 +61,8 @@ assert.deepEqual(definitions[0]!.source, source);
 
 // ── A failing progress callback reports zero instead of failing the panel ──
 const progress = await readCapabilityAchievementProgress();
-assert.deepEqual(progress.get("noodle.ten_runs"), { count: 4, target: 10 });
-assert.deepEqual(progress.get("noodle.broken"), { count: 0, target: 1 });
+assert.equal(progress.get("noodle.ten_runs")?.count, 4);
+assert.equal(progress.get("noodle.broken")?.count, 0);
 
 // ── One package cannot claim another's id, or a built-in one ──
 assert.throws(
@@ -112,7 +112,7 @@ const releaseOther = registerCapabilityAchievements({ ...source, packageId: "oth
 ]);
 const onlyOther = await readCapabilityAchievementProgress("other");
 assert.deepEqual([...onlyOther.keys()], ["other.loop"]);
-assert.deepEqual(onlyOther.get("other.loop"), { count: 2, target: 5 });
+assert.equal(onlyOther.get("other.loop")?.count, 2);
 assert.equal(nestedCalls, 1);
 releaseOther();
 
@@ -165,10 +165,13 @@ const releaseA2 = registerCapabilityAchievements(boundSource, [
   { id: "a", title: "A", description: "A", target: 2, readProgress: () => 3 },
 ]);
 finishB(1);
-assert.deepEqual(
-  (await boundRead).get("bound.a"),
-  { count: 3, target: 10 },
-  "the count must carry the old target, so it cannot meet the new, lower one",
+const boundA = (await boundRead).get("bound.a");
+assert.equal(boundA?.count, 3);
+assert.equal(boundA?.definition.target, 10, "the count stays bound to the registration it was read from");
+assert.notEqual(
+  boundA?.definition,
+  capabilityAchievementDefinitions("bound").find((item) => item.id === "bound.a"),
+  "the replacement is a different definition, so the old count cannot unlock it",
 );
 releaseA2();
 releaseB();

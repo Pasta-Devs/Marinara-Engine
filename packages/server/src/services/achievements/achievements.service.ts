@@ -76,9 +76,10 @@ function collectMetricUnlockIds(counts: AchievementCounts, packageProgress: Map<
   return allDefinitions().flatMap((definition) => {
     if (!definition.target) return [];
     if (definition.metric) return counts[definition.metric] >= definition.target ? [definition.id] : [];
-    // A package count is judged against the target it was read for, not this definition's.
+    // Only a count read from this exact registration may unlock it. A badge replaced after its
+    // count was read is a different definition object, so the old count is skipped either way.
     const read = packageProgress.get(definition.id);
-    return read && read.count >= read.target ? [definition.id] : [];
+    return read?.definition === definition && read.count >= definition.target ? [definition.id] : [];
   });
 }
 
