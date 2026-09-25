@@ -2927,8 +2927,10 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
               at("dying", key),
               `"${dying[key]}" counts death saves, so its max is a number rather than the sheet's`,
             );
-          } else if (track.max <= track.min) {
-            issue(at("dying", key), `"${dying[key]}" counts death saves, so its max is above its min`);
+          } else if (track.max <= track.min || track.max < 1) {
+            // Room to count, and at least one to count to: a top of 0 is reached by the first roll
+            // whatever the floor under it.
+            issue(at("dying", key), `"${dying[key]}" counts death saves, so its max is at least 1 and above its min`);
           }
           if (track.hideWhen) issue(at("dying", key), `"${dying[key]}" counts death saves, so it cannot be hidden`);
         }
@@ -3039,7 +3041,13 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         // Something on the sheet shows or hides on one of this field's values. With that value gone
         // the rule could never match again, the layered ruleset would not validate, and the layer
         // would be skipped in play with nobody told. Said here, while the author is looking.
-        const watched = [...sheet.fields, ...sheet.derived, ...sheet.lists, ...sheet.live.pools].flatMap((item) =>
+        const watched = [
+          ...sheet.fields,
+          ...sheet.derived,
+          ...sheet.lists,
+          ...sheet.live.pools,
+          ...sheet.live.tracks,
+        ].flatMap((item) =>
           item.hideWhen?.field === entry.id && typeof item.hideWhen.equals === "string" ? [item] : [],
         );
         entry.removeValues.forEach((value, valueIndex) => {

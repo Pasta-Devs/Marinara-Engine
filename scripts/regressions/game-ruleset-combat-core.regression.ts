@@ -220,7 +220,18 @@ function firstOf<T extends RulesetCombatEvent["type"]>(events: RulesetCombatEven
   );
   assert.match(
     refusal(withSuccessesTrack((track) => (track.max = track.min))),
-    /"death_save_successes" counts death saves, so its max is above its min/,
+    /"death_save_successes" counts death saves, so its max is at least 1 and above its min/,
+  );
+  // Room above a floor below zero is not enough: a top of 0 is reached by the very first roll.
+  assert.match(
+    refusal(
+      withSuccessesTrack((track) => {
+        track.min = -1;
+        track.max = 0;
+        track.default = -1;
+      }),
+    ),
+    /"death_save_successes" counts death saves, so its max is at least 1 and above its min/,
   );
   assert.match(
     refusal(withSuccessesTrack((track) => (track.hideWhen = { field: "level", equals: 1 }))),

@@ -132,6 +132,21 @@ try {
       /tracks\.0/,
       "a field the sheet does not have",
     );
+    // A layer may not take away the value a track hides on, or the layered ruleset would not validate
+    // and the layer would be skipped in play with nobody told, as for a hidden pool.
+    refused(
+      emberText,
+      (doc) => {
+        doc.sheet.fields.push({ id: "mood", label: "Mood", type: "enum", values: ["calm", "wild"], default: "calm" });
+        heatOf(doc).hideWhen = { field: "mood", equals: "wild" };
+        doc.layers = [
+          ...(doc.layers ?? []),
+          { id: "tame", label: "Tame", fields: [{ id: "mood", removeValues: ["wild"] }] },
+        ];
+      },
+      /"heat" is hidden when "mood" is "wild", so a layer cannot remove that value/,
+      "a layer that removes a track's hiding value",
+    );
     refused(
       gravewatchText,
       (doc) => (doc.sheet.live.tracks[0].hideWhen = { field: "post", equals: "x" }),
