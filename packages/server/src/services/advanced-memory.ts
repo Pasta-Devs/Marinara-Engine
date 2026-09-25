@@ -2892,7 +2892,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         : record.messageIds.every((id) => eligibleIds.has(id))
           ? record.content
           : record.messageIds
-              .filter((id) => eligibleIds.has(id))
+              .filter((id) => eligibleIds.has(id) && !disabledSourceIds.has(id))
               .map((id) => messageText(ctx, fullById.get(id)!, indexes.get(id)!))
               .join("\n"),
     );
