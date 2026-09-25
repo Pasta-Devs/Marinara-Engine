@@ -389,7 +389,7 @@ function sceneVisibility(ctx: Context, messageIds: string[]) {
       visibilityReaders(ctx)
         .slice()
         .sort((a, b) => a.id.localeCompare(b.id))
-        .map((reader) => [reader.id, messageIds.map((id) => reader.visibleIds.has(id))]),
+        .map((reader) => [reader.id, reader.name, messageIds.map((id) => reader.visibleIds.has(id))]),
     ),
   };
 }

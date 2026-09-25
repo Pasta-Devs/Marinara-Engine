@@ -562,6 +562,23 @@ try {
     !repairedVisibility.recalledScenes!.includes("PRIVATE_VAULT"),
     "targeted preparation restores safe partial access",
   );
+  await characters.update(borrower.id, { name: "Renamed Borrower" });
+  assert(
+    (await memory.status(changedVisibilityChat.id)).unpreparedScenes?.some(
+      (scene) => scene.sceneId === changedVisibilityRecord.sceneId,
+    ),
+    "renaming a reader marks name-based scene conditions for preparation",
+  );
+  summaryResponse =
+    '{{#if character == "Renamed Borrower"}}They shared the brass compass promise.{{/if}} {{#if character == "Pantalone" || "Narrator"}}Pantalone discussed PRIVATE_VAULT.{{/if}}';
+  await memory.initialize(changedVisibilityChat.id, { sceneId: changedVisibilityRecord.sceneId, detectScenes: false });
+  summaryResponse = summary;
+  const beforeRenamedRecall = requests.length;
+  const renamedRecall = await prepareChangedVisibility(borrower.id);
+  assert.match(renamedRecall.recalledScenes!, /brass compass promise/u);
+  assert(!renamedRecall.recalledScenes!.includes("PRIVATE_VAULT"));
+  assert.equal(requests.length, beforeRenamedRecall, "a renamed reader's recall adds no helper calls");
+  await characters.update(borrower.id, { name: "Maukie" });
   const narratorChat = await createChat("Narrator shares the whole scene archive");
   await chats.update(narratorChat.id, { characterIds: [borrower.id, narratorActor.id] });
   await chats.createMessagesBatch(
