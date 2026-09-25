@@ -142,7 +142,11 @@ import { useDefaultPreset, usePresetFull, usePresets } from "../../hooks/use-pre
 import { useConnections } from "../../hooks/use-connections";
 import { useKnowledgeSources, useUploadKnowledgeSource } from "../../hooks/use-knowledge-sources";
 import { useGenerate } from "../../hooks/use-generate";
-import { useCapabilityAgentRegistry, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
+import {
+  isCapabilityPackageAvailable,
+  useCapabilityAgentRegistry,
+  useInstalledCapabilityPackages,
+} from "../../hooks/use-capability-packages";
 import {
   useUpdateChat,
   useUpdateChatMetadata,
@@ -959,13 +963,9 @@ export function ChatSettingsDrawer({
     () => (typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {})),
     [chat.metadata],
   );
-  // Package integrations only show while their package is installed and active.
-  const noodleInstalled = installedCapabilities.some(
-    (capability) => capability.id === "noodle" && capability.status === "active",
-  );
-  const slurp2Installed = installedCapabilities.some(
-    (capability) => capability.id === "slurp2" && capability.status === "active",
-  );
+  // Package integrations only show while their package is installed and usable.
+  const noodleInstalled = isCapabilityPackageAvailable(installedCapabilities, "noodle");
+  const slurp2Installed = isCapabilityPackageAvailable(installedCapabilities, "slurp2");
   const noodleTimelineContextEnabled = metadata.noodleTimelineContextEnabled === true;
   const slurp2ActivityContextEnabled = metadata.slurp2ActivityContextEnabled === true;
   const renderPackageContextToggles = () => (

@@ -61,9 +61,15 @@ assert.equal(
   type Constrained = { allOf?: Array<{ anyOf?: unknown }> };
   const damageNodes: Constrained[] = [];
   // And a charm's `check`, which is the same rule one step along: an effect that throws no dice
-  // again, adds no dice, adds no successes and moves no target spends a resource for nothing.
+  // again, adds no dice, adds no successes, moves no target and moves no face rule spends a resource
+  // for nothing.
   const checkNodes: Constrained[] = [];
   const checkKeys = ["reroll", "dice", "successes", "threshold"];
+  const checkEffects = [...checkKeys, "explode", "double"];
+  // And a pool's `explode` or `double`, which names its face, how low a check may move it, or both.
+  const faceNodes: Constrained[] = [];
+  // And a resource spent on a check, which buys successes, dice, a throw again, or several.
+  const spendNodes: Constrained[] = [];
   const walk = (node: unknown): void => {
     if (Array.isArray(node)) return node.forEach(walk);
     if (!node || typeof node !== "object") return;
@@ -76,6 +82,8 @@ assert.equal(
       keys.every((key) => ["dice", "flat", "type", "plus", "save"].includes(key));
     if (damageShaped) damageNodes.push(object);
     if (checkKeys.every((key) => keys.includes(key))) checkNodes.push(object);
+    if (keys.length === 2 && keys.includes("from") && keys.includes("min")) faceNodes.push(object);
+    if (keys.includes("pool") && keys.includes("perCheck")) spendNodes.push(object);
     Object.values(node).forEach(walk);
   };
   // The same for what a combat block measures in cells: the Engine refuses any of it in a block
@@ -109,9 +117,29 @@ assert.equal(
   for (const node of checkNodes) {
     assert.ok(
       node.allOf?.some(
-        (rule) => JSON.stringify(rule.anyOf) === JSON.stringify(checkKeys.map((key) => ({ required: [key] }))),
+        (rule) => JSON.stringify(rule.anyOf) === JSON.stringify(checkEffects.map((key) => ({ required: [key] }))),
       ),
-      "and asks that it do one of the four things it can do",
+      "and asks that it do one of the six things it can do",
+    );
+  }
+  assert.equal(faceNodes.length, 2, "the schema describes a pool's explode and double rules");
+  for (const node of faceNodes) {
+    assert.ok(
+      node.allOf?.some(
+        (rule) => JSON.stringify(rule.anyOf) === JSON.stringify([{ required: ["from"] }, { required: ["min"] }]),
+      ),
+      "and asks for a face, a min, or both",
+    );
+  }
+  assert.ok(spendNodes.length > 0, "the schema describes what a spend buys");
+  for (const node of spendNodes) {
+    assert.ok(
+      node.allOf?.some(
+        (rule) =>
+          JSON.stringify(rule.anyOf) ===
+          JSON.stringify([{ required: ["successes"] }, { required: ["dice"] }, { required: ["reroll"] }]),
+      ),
+      "and asks that it buy successes, dice or a throw again",
     );
   }
 }

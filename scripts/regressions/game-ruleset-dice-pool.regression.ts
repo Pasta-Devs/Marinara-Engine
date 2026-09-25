@@ -71,6 +71,13 @@ try {
   const pool = (edit: (doc: Record<string, any>) => void = () => {}): RulesetDefinition => {
     const doc = JSON.parse(gravewatchText) as Record<string, any>;
     edit(doc);
+    // The example's Grave Sight charm moves the exploding face, which a ruleset may only let a check
+    // do while its explode rule has a min; a variant that takes the min away takes the charm too.
+    if (doc.resolution.explode?.min === undefined) {
+      for (const catalog of doc.catalogs ?? []) {
+        catalog.entries = (catalog.entries ?? []).filter((entry: any) => entry.mechanics?.check?.explode === undefined);
+      }
+    }
     return parsedOrThrow(doc, "the pool example");
   };
   const gravewatch = pool();
@@ -231,7 +238,7 @@ try {
     // And the chain is capped, so a low exploding face cannot roll for the rest of the turn.
     const capped = roll(
       pool((doc) => {
-        doc.resolution.explode.from = 2;
+        doc.resolution.explode = { from: 2 };
         doc.resolution.pool = { min: 1, max: 3 };
       }),
       { modifier: 3, required: 1 },
@@ -390,8 +397,11 @@ try {
     const unknown = matchRulesetCheckTarget(gravewatch, "Ward", "Luck");
     assert.equal(unknown && "withAbility" in unknown, false);
     assert.equal(rulesetCheckModifier(warden, unknown), 8);
-    // A raw ability check already names the ability it rolls.
-    assert.deepEqual(matchRulesetCheckTarget(gravewatch, "Sinew", "Nerve"), {
+    // A raw ability check already names the ability it rolls, so on a pool that does not add two
+    // abilities together `with=` means nothing there. Gravewatch does add them (proven in the
+    // check-rules regression), so the plain case runs on a copy without the switch.
+    const unpaired = pool((doc) => delete doc.resolution.pool.abilityPlusAbility);
+    assert.deepEqual(matchRulesetCheckTarget(unpaired, "Sinew", "Nerve"), {
       type: "ability",
       id: "sinew",
       label: "Sinew",
@@ -724,6 +734,11 @@ try {
     for (const catalog of document.catalogs ?? []) {
       for (const entry of catalog.entries ?? []) delete entry.mechanics?.check;
     }
+    // And the rules a check may move, two abilities together and a botch rule, which are 1.37's.
+    delete document.resolution.explode.min;
+    delete document.resolution.pool.abilityPlusAbility;
+    // And 1.38's standing re-throw.
+    delete document.resolution.reroll;
     assert.match(
       getCapabilityPackageInstallIssue(manifest(23) as any, document) ?? "",
       /dice-pool resolution requires schemaVersion 2 and capabilityApi 1\.24 or newer/,

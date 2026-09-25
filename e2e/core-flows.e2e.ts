@@ -18450,7 +18450,11 @@ test("Lorebook context filter chips expose installed package triggers and keep c
   const openFilters = async () => {
     await page.goto("/");
     await page.locator('[data-tour="panel-lorebooks"]').click();
-    await page.getByText(lorebookName, { exact: true }).click();
+    // Reload restores the open editor; its library row is then hidden and shares the title.
+    const editorHeading = page.getByRole("heading", { name: lorebookName, exact: true });
+    const libraryEntry = page.getByLabel("Lorebooks", { exact: true }).getByText(lorebookName, { exact: true });
+    await expect(editorHeading.or(libraryEntry).filter({ visible: true }).first()).toBeVisible();
+    if (!(await editorHeading.isVisible())) await libraryEntry.click();
     await openEditorSection(page.locator(".mari-editor-shell"), "Entries");
     await page.getByRole("button", { name: "Expand entry" }).click();
     await page.getByText("Context filters & matching sources", { exact: true }).click();

@@ -760,6 +760,130 @@ C4b is the board on screen. It draws what C4a resolves and decides nothing of it
   formatter and the four refusals, on both example rulesets) and in a fourth mode of
   `e2e/game-combat-director.e2e.ts` that plays a positioned Ember Roads fight in a real browser.
 
+## Gaps a ruleset author found
+
+The author of [Marinara-RPG-Extension](https://github.com/Kenhito/Marinara-RPG-Extension), who
+has shipped tabletop systems for Marinara as an extension, measured the format against two of
+those systems written as `ruleset.json` files (a Storyteller-style Vampire and an Exalted). Both
+import and run on `staging`; what they could not say became this series. Every item was re-checked
+against `staging` at e15c9e558 (Capability API 1.36) before it was filed, and only the sheet
+block's rung label was already done.
+
+**Order, as ruled by the maintainer:** the 5e package update first
+([Marinara-Agents#1082](https://github.com/Pasta-Devs/Marinara-Agents/pull/1082), merged), then
+slices 1 to 6 below, then the remaining ruleset-combat slices, and a Storyteller combat kind last.
+The report's small sheet, prompt and docs items are
+[#6657](https://github.com/Pasta-Devs/Marinara-Engine/issues/6657). They were offered to the
+report's author first; with no answer, they were folded into slice 1, and anything not built to the
+author's liking can come back as a follow-up.
+Each slice is one Engine PR and one Capability API minor where it adds file keys, with its
+examples on Gravewatch (pool) and Ember Roads (sum), and none of it names one game's words.
+
+| Slice | Issue                                                                                                                                  | What it adds                                                                                                                                                                                                                            |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | [#6651](https://github.com/Pasta-Devs/Marinara-Engine/issues/6651), [#6657](https://github.com/Pasta-Devs/Marinara-Engine/issues/6657) | A difficulty picked by name and a ladder step's target used at the table; a pool rule whose face a check may move; two abilities rolled together; a botch read off half the dice; and the small sheet, summary, reminder and docs items |
+| 2     | [#6652](https://github.com/Pasta-Devs/Marinara-Engine/issues/6652)                                                                     | A standing reroll and one bought with a spend; spend limits read off the sheet and more spend entries; a modifier that rides along from the sheet                                                                                       |
+| 3     | [#6653](https://github.com/Pasta-Devs/Marinara-Engine/issues/6653)                                                                     | Derived values that read a live track or pool, a cap on skills and saves, a list column summed, and `hideWhen` with "not equal" and "one of"                                                                                            |
+| 4     | [#6654](https://github.com/Pasta-Devs/Marinara-Engine/issues/6654)                                                                     | Wound tracks whose length is a formula with a penalty table over boxes, indexed boxes that refuse when full, healing by kind of harm, and extra levels per character                                                                    |
+| 5     | [#6655](https://github.com/Pasta-Devs/Marinara-Engine/issues/6655)                                                                     | Sections on abilities, skills and saves, and untrained rules by skill or section                                                                                                                                                        |
+| 6     | [#6656](https://github.com/Pasta-Devs/Marinara-Engine/issues/6656)                                                                     | A live state and numbers that follow it, reset by a rest (depends on 2 and 3)                                                                                                                                                           |
+
+### What slice 1 settled
+
+Capability API 1.37, for both issues the PR closes: #6651 and the small items of #6657.
+
+- **A difficulty by name, on both kinds.** `difficulty="Label"` on the tag picks a ladder step,
+  matched without case or punctuation, and only a name exactly ONE step answers to: two steps that
+  share a label pick neither. It supplies the number when the tag wrote no `dc=` (successes on a
+  pool, the difficulty on a sum) and, on a pool, the step's own target. A written `dc=` still wins
+  for the number and `threshold=` for the target. The record writes the numbers, never the name, so
+  no reader of a saved check changes.
+- **A ladder step's target is used at the table.** It used to be printed in the reminder and
+  ignored by the roll. A bare `dc=` now counts at the target of the one step needing exactly that
+  many successes; where several steps need the same number (a Storyteller difficulty table is seven
+  steps at one success), nothing says which was meant, so the default stands and the name is the
+  way to ask. This changes existing rolls on purpose: Gravewatch's `dc="1"` now counts at 6, which
+  its own ladder always said.
+- **A tag with a name and no number is an ask.** The reader keeps it (with `dc` absent, which the
+  shared type now allows), only a ruleset game can turn it into a number, a game without a ladder
+  leaves it exactly as written, and every sparse rewrite keeps the name. The skill-check endpoint
+  and the one-request branch arm read it too, once the ruleset is in hand; the endpoint answers a
+  name nothing can read with a 400 (`skill_check_difficulty_unknown`).
+- **A pool rule whose face a check may move.** `explode` and `double` may carry a `min`, the lowest
+  face a check may move them to; `from` becomes optional, and a rule with only a `min` fires only
+  when a check asks (a specialty that makes tens roll again on one skill). `explode="N"` and
+  `double="N"` on the tag, and `mechanics.check.explode` / `.double` on an entry the character
+  used, are clamped into `[min, sides]`; an entry outranks the tag the way a bought threshold does.
+  A rule with no `min` ignores the ask. An entry is refused at import where the ruleset lets no
+  check move that rule, or moves it further than a check may. The record says a face only where the
+  check moved it.
+- **Two abilities together.** `pool.abilityPlusAbility` lets `with=` on an ability check add a
+  second ability. Only the pool kind has `pool`, so a summed ruleset cannot declare it, and on a
+  skill or save `with=` still swaps the ability.
+- **A botch read off half the dice.** `botch.rule: "halfOrMore"` counts faces at or below `upTo` over
+  the dice first thrown, explosions not counted. With no die succeeding it is a critical failure;
+  otherwise the result stands and the record adds `complication="true"`, which the card and the
+  summary say alongside the outcome. The report's word for it was a game's own ("glitch"); the Engine's
+  is neutral. `"noSuccesses"` is the default and is today's rule.
+- **A track's top off the sheet (#6657).** A plain track's `max` may be a value reference, resolved
+  per character in the live state the way a pool's maximum is, and never below the track's `min`.
+  A wound track's top stays its number of levels. Every reader that took a track's top off the
+  definition now takes it off the character's resolved track, including the death-save count in a
+  fight and the director's view of it.
+- **Hidden and always shown.** A plain track may carry `hideWhen`, and a hidden track is left out of
+  the live state exactly as a hidden pool is, so the sheet command cannot reach it either. A wound
+  track may not: rolls read its penalty and fights read it as health whatever the sheet shows.
+  `alwaysShow` prints a track in the sheet block at its default.
+- **Summary lists say more.** A list's `nameColumn` may be an enum column (shown by its value label),
+  and `columns` prints up to three of the row's own columns after its name; a boolean prints its
+  column's label when set.
+- **The wound-track command is the Engine's to teach.** The reminder adds the `op="damage"` line and
+  a `Wound tracks:` line (best rung to worst, and the kinds of harm) when a ruleset has one, and the
+  `Tracks:` line now lists only the plain tracks `op="track"` moves. Gravewatch's own guidance no
+  longer repeats it.
+- **Docs.** The pool ceiling's comment now says a throw can reach twice `pool.max`, and the guide
+  says a rest heals a wound track only with a negative `by`.
+- **Proven** by `scripts/regressions/game-ruleset-check-rules.regression.ts` (thirteen deliberate
+  breaks of #6651's rules, and the sighted pool's late read, each caught) and
+  `scripts/regressions/game-ruleset-sheet-extras.regression.ts` (eleven breaks of #6657's, each
+  caught), with the death-track case in the combat-core lane.
+
+### What slice 2 settled
+
+Capability API 1.38, for #6652.
+
+- **A standing re-throw.** `resolution.reroll` lists up to six re-throws the system grants for
+  free, each `{ id, upTo, mode }`, pool kind only. The Game Master names one with `reroll="id"`
+  (matched without case, an unknown name ignored); none is thrown unasked. `upTo` is held below the
+  die's sides, because a re-throw of every face never stops, and `until` still stops at the Engine's
+  hundred re-throws on one check. The record names it (`reroll="id"`) only when it was the one
+  thrown and it threw something.
+- **One re-throw per roll.** A spend may buy a `reroll` now, beside an entry's `mechanics.check`
+  one. Where two would apply, the one that reaches more faces is thrown, and `until` over `once`
+  where they reach the same. Stacking two re-throws of the same dice is a rule in no system. A spend
+  buys its re-throw once, however many purchases the check makes.
+- **A spend's limit off the sheet.** `perCheck` may be a value reference, or `"pool"` for the check's
+  own dice: the sheet's number for it, before a wound, bonus dice or a modifier, so a hurt character
+  may still buy as many as their rating gives. It is worked out for whoever rolls, rounded down and
+  held to `[0, RULESET_POOL_MAX_DICE]`; a limit of nothing buys and pays nothing. Up to four spends,
+  still one per pool.
+- **Modifiers off the sheet.** `resolution.adjust` (up to eight, both kinds) adds a value off the
+  sheet to every check that rolls with one of its `abilities`, or to every check without them:
+  a skill or save through its own ability or `with=`, an ability check, or a pair that includes it.
+  It goes where the wound penalty goes (dice on a pool under the same floor, a flat number inside a
+  sum's modifier), the record writes it (`adjust="-2"`) and reads it back, the dice card says it,
+  and a summed record the Game Master wrote is vouched for only when its modifier includes it. A
+  stranger gets none.
+- **The reminder** offers `reroll=` with each id and its faces only where the ruleset has one, and
+  a spend's line says a re-throw it buys and how its limit is set ("up to as many times per check
+  as the check has dice", "as the sheet's Nerve").
+- **Examples.** Gravewatch's `careful` re-throw (six or less, once); Ember Roads' `burden` field,
+  turned negative by a derived value and taken off every Brawn roll.
+- **Proven** by `scripts/regressions/game-ruleset-rerolls-spends.regression.ts`: the report's own
+  numbers through the roller, every rule through the resolver, the branch arm, the sighted pool's
+  ask and the real endpoint, the reminder, every refusal and the 1.38 gate; twenty-seven deliberate
+  breaks, each caught.
+
 ## Architecture
 
 ### The pin

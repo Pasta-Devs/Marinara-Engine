@@ -234,9 +234,9 @@ function requireLevelsWithKinds(node) {
 }
 
 /**
- * A purchase on a check buys successes or dice, so an entry that names neither buys nothing. Zod
- * refuses that at import; the published schema has to say it too, or an author's editor calls a
- * useless entry valid.
+ * A purchase on a check buys successes, dice or a throw again, so an entry that names none of them
+ * buys nothing. Zod refuses that at import; the published schema has to say it too, or an author's
+ * editor calls a useless entry valid.
  */
 function requireSpendBuysSomething(node) {
   if (Array.isArray(node)) return node.forEach(requireSpendBuysSomething);
@@ -245,21 +245,42 @@ function requireSpendBuysSomething(node) {
   const properties = node.properties;
   if (node.type !== "object" || !properties?.pool || !properties.perCheck) return;
   if (!properties.successes && !properties.dice) return;
-  requireAnyOf(node, ["successes", "dice"]);
+  requireAnyOf(
+    node,
+    ["successes", "dice", "reroll"].filter((key) => properties[key]),
+  );
 }
 
 /**
- * And the other half of that: a charm's `check` throws dice again, adds dice, adds successes or
- * moves the target, so one that says none of them spends a resource for nothing. Zod refuses it at
- * import; without this the editor calls the empty object valid. Found by its shape: all four keys.
+ * And the other half of that: a charm's `check` throws dice again, adds dice, adds successes, moves
+ * the target or moves a face rule, so one that says none of them spends a resource for nothing. Zod
+ * refuses it at import; without this the editor calls the empty object valid. Found by its shape:
+ * the four keys it has always had, and every one of the six counts toward "says something".
  */
 function requireCheckEffectDoesSomething(node) {
   if (Array.isArray(node)) return node.forEach(requireCheckEffectDoesSomething);
   if (!node || typeof node !== "object") return;
   Object.values(node).forEach(requireCheckEffectDoesSomething);
-  const keys = ["reroll", "dice", "successes", "threshold"];
-  if (node.type !== "object" || !keys.every((key) => node.properties?.[key])) return;
-  requireAnyOf(node, keys);
+  const shape = ["reroll", "dice", "successes", "threshold"];
+  if (node.type !== "object" || !shape.every((key) => node.properties?.[key])) return;
+  requireAnyOf(
+    node,
+    [...shape, "explode", "double"].filter((key) => node.properties[key]),
+  );
+}
+
+/**
+ * A pool's `explode` or `double` names the face it fires on, the lowest face a check may move it
+ * to, or both; an empty one says nothing. Zod refuses that at import. Found by its shape: exactly
+ * `from` and `min`.
+ */
+function requireFaceRuleSaysSomething(node) {
+  if (Array.isArray(node)) return node.forEach(requireFaceRuleSaysSomething);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(requireFaceRuleSaysSomething);
+  const keys = Object.keys(node.properties ?? {});
+  if (node.type !== "object" || keys.length !== 2 || !node.properties.from || !node.properties.min) return;
+  requireAnyOf(node, ["from", "min"]);
 }
 
 /**
@@ -280,6 +301,7 @@ const schema = zodToJsonSchema(rulesetDefinitionSchema, { $refStrategy: "none", 
 requireLevelsWithKinds(schema);
 requireSpendBuysSomething(schema);
 requireCheckEffectDoesSomething(schema);
+requireFaceRuleSaysSomething(schema);
 spendOnlyOnAPool(schema);
 requireMechanicsPairs(schema);
 requireOneCatalogSource(schema);

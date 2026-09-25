@@ -90,7 +90,7 @@ What the resulting number means is the kind's business: `dice-sum` adds it to th
 - `dice`: how many dice and how many sides. The total is what gets compared to the difficulty.
 - `advantage`: whether the Game Master may ask for the dice to be rolled twice and one roll kept.
 - `naturals`: what the highest and lowest face of a single die do for checks and for saves: `none`, `both`, `max-only`, or `min-only`. Leave it out for pure arithmetic. It needs a single die, so a 2d6 system has to use `none`.
-- `difficultyLadder`: the difficulties the Game Master is told to pick from. `dc` is the number the total must reach.
+- `difficultyLadder`: the difficulties the Game Master is told to pick from. `dc` is the number the total must reach. The Game Master may name a step instead of writing its number, as `difficulty="Hard"`, and the Engine reads the number off the step.
 
 #### `dice-pool`: throw the dice and count them
 
@@ -105,13 +105,14 @@ The sheet's number is the **size of the pool**, not a bonus on top of it. A rati
     { "id": "rating_0", "label": "Untried" },
     { "id": "rating_1", "label": "Shown once", "flat": 1 }
   ],
-  "pool": { "min": 1, "max": 15 },
+  "pool": { "min": 1, "max": 15, "abilityPlusAbility": true },
   "target": { "default": 7, "min": 5, "max": 9 },
-  "explode": { "from": 10 },
+  "explode": { "from": 10, "min": 8 },
   "cancel": { "upTo": 1 },
   "botch": { "upTo": 1 },
   "exceptional": { "successes": 5 },
   "situationalDice": { "min": -3, "max": 3 },
+  "reroll": [{ "id": "careful", "upTo": 6, "mode": "once" }],
   "difficultyLadder": [
     { "label": "Plain work", "successes": 1, "target": 6 },
     { "label": "Grim", "successes": 3, "target": 8 }
@@ -120,32 +121,40 @@ The sheet's number is the **size of the pool**, not a bonus on top of it. A rati
 ```
 
 - `die`: how many sides one die of the pool has, from 2 to 100.
-- `pool`: the range the sheet's number is held to before anything explodes. A `min` of 0 lets an empty pool fail with no roll at all, and `max` can be 100 at most.
+- `pool`: the range the sheet's number is held to before anything explodes. A `min` of 0 lets an empty pool fail with no roll at all, and `max` can be 100 at most. `abilityPlusAbility: true` lets an ability check name a second ability with `with=` and throw both, for systems that roll two attributes together; without it `with=` means nothing on an ability check.
 - `target`: the face a die has to reach to count. Write `min` below `max` to let the Game Master move it per check with `threshold=`; write all three the same to fix it.
 - `double`: optional. A face at or above `from` counts twice.
 - `explode`: optional. A face at or above `from` rolls one more die, and a die added that way can explode in turn. The extra dice are capped at `pool.max` on top of the pool itself, so one check throws at most twice `pool.max` dice and a low `from` cannot roll forever.
+- Both may carry a `min`: the lowest face a check may move the rule down to, with `explode="N"` or `double="N"` on the tag or an entry the character used. With a `min` you may leave `from` out, and then the rule fires only on a check that asks for it: a specialty that makes tens roll again on one skill is `"explode": { "min": 10 }`. `from` may not be below `min`.
 - `cancel`: optional. A face at or below `upTo` takes one success away. The count never goes below zero.
-- `botch`: optional. When **no** die succeeded and a face at or below `upTo` showed, the check is a critical failure. A pool whose one success was cancelled away has failed, not botched.
+- `botch`: optional. When **no** die succeeded and a face at or below `upTo` showed, the check is a critical failure. A pool whose one success was cancelled away has failed, not botched. `"rule": "halfOrMore"` reads it another way: faces at or below `upTo` on at least half the dice first thrown (explosions not counted) are a critical failure when no die succeeded, and otherwise leave the result standing and mark it `complication="true"`, something going wrong alongside it. `"noSuccesses"` is the default.
 - `exceptional`: optional. This many net successes or more, on a check that succeeded, is a critical success.
 - `situationalDice`: optional. The range of dice the Game Master may add or take for one check with `bonus=`, for stunts, wounds or bad light.
-- `difficultyLadder`: `successes` is how many the check needs. A step may also name a `target`, but only where the target is adjustable and only inside its range.
+- `reroll`: optional. Re-throws the system grants without anybody paying for them, up to six, each with an `id` the Game Master names on a check with `reroll=`. Faces at or below `upTo` are thrown again: `"once"`, and the new face stands whatever it is, or `"until"` they show more. `upTo` runs from 1 to one below the die's sides, since a re-throw of every face would never stop, and an `until` stops anyway after a hundred re-throws on one check. None is thrown unless the check names it. One check throws one re-throw: where a spend or an entry the character used bought one too, the one that reaches more faces is thrown, and `until` over `once` where they reach the same.
+- `difficultyLadder`: `successes` is how many the check needs. A step may also name a `target`, but only where the target is adjustable and only inside its range. That target is what a check at that step counts with: when the Game Master names the step with `difficulty=`, or writes a `dc=` exactly one step needs. Where several steps need the same number of successes, `dc=` alone cannot say which was meant, so the target stays the default; name the step.
 
 `cancel` and `botch` faces must be below the lowest target, and every face any of these rules names has to be a face the die actually has. A rule that could never fire is refused at import rather than found in play.
 
-A pool ruleset is Capability API 1.24 for a packaged ruleset. A community ruleset you import is validated by the Engine that reads it, so it needs nothing.
+A pool ruleset is Capability API 1.24 for a packaged ruleset; a `min` on `explode` or `double`, `pool.abilityPlusAbility` and `botch.rule` are 1.37; `reroll` is 1.38. A community ruleset you import is validated by the Engine that reads it, so it needs nothing.
 
 #### What the Game Master may write on a pool check
 
 ```
 [skill_check: skill="Ward" dc="2" who="Bram the Quiet" threshold="8" bonus="-2" with="Sinew"]
+[skill_check: skill="Ward" difficulty="Grim" explode="9"]
+[skill_check: skill="Nerve" dc="1" with="Warmth"]
+[skill_check: skill="Ward" dc="2" reroll="careful"]
 ```
 
 - `dc` is the number of **successes** needed, not a target number. It may be anything from 1 up to the most one roll could ever count: the pool's maximum, doubled when dice can explode, and doubled again when faces count twice.
 - `threshold=` moves the per-die target, and is only offered while `target.min` is below `target.max`.
 - `bonus=` adds or takes dice, and is only offered while `situationalDice` is declared.
-- `with=` rolls a skill or save with another ability than its own. It works on both kinds, so a 5e ruleset gets "Strength (Intimidation)" from the same attribute.
+- `with=` rolls a skill or save with another ability than its own. It works on both kinds, so a 5e ruleset gets "Strength (Intimidation)" from the same attribute. On an ability check it adds a second ability instead, where `pool.abilityPlusAbility` is on.
+- `difficulty=` names a ladder step in place of `dc=`, on both kinds: its successes (or its difficulty on a sum) and, on a pool, its target. A `dc=` written beside it still wins for the number, and `threshold=` for the target. A name no step answers to, or two steps share, is ignored.
+- `explode=` and `double=` move those rules' faces for this check, and are only offered where the rule has a `min`.
+- `reroll=` names one of your `reroll` entries for this check, and is only offered where you declared any. A name none of them answers to is ignored.
 
-Each one is held to what your file declares: a value outside the range is pulled back to the nearest end, and an attribute your ruleset does not offer is ignored rather than refusing the check. The saved record then shows what the roll really used: the threshold and the bonus dice after your limits, and `with=` only when that ability was swapped in. The Engine always throws the dice itself. A pool result the model wrote is replaced, `mode="advantage"` is ignored because the kind has no advantage, and a die the player rolled before the turn does not apply.
+Each one is held to what your file declares: a value outside the range is pulled back to the nearest end, and an attribute your ruleset does not offer is ignored rather than refusing the check. The saved record then shows what the roll really used: the difficulty and the threshold as numbers, the bonus dice after your limits, `with=` only when that ability was swapped in or added, a face only when the check moved it, `reroll=` only when the re-throw it names was the one thrown and threw something, and `complication="true"` when a `halfOrMore` botch went wrong alongside a result. The Engine always throws the dice itself. A pool result the model wrote is replaced, `mode="advantage"` is ignored because the kind has no advantage, and a die the player rolled before the turn does not apply.
 
 #### What is out of scope, and why
 
@@ -158,7 +167,7 @@ Each of these needs its own resolution kind, because none of them can be express
 - **Roll-under and open-ended percentile** compare in the other direction.
 - **Sum pools with a wild die** (as in OpenD6) add the dice up and treat one of them specially.
 
-Both of the things this kind used to leave out are modelled now, and Spending to change a roll below says how. A rule of the system itself, "spend a point for a success", is `resolution.spend`, which buys successes or dice and never a re-roll. A re-roll belongs to something a character picked, so it is `mechanics.check` on a catalog entry, bought with that entry's own cost.
+Both of the things this kind used to leave out are modelled now, and Spending to change a roll below says how. A rule of the system itself, "spend a point for a success" or "spend a point to throw the failures again", is `resolution.spend`. A re-throw the system grants for free when the situation calls for it is `resolution.reroll`, above. One that belongs to something a character picked is `mechanics.check` on a catalog entry, bought with that entry's own cost.
 
 ### Spending to change a roll
 
@@ -169,10 +178,11 @@ Some systems let a player pay for a roll they are about to make: a point of will
 ```
 
 - `pool` is one of your `live.pools`. It cannot be a pool that starts empty, because there would be nothing in it to spend when play begins.
-- `amount` is what ONE purchase costs. `successes` and `dice` are what it buys, and a purchase has to buy at least one of them. Successes are added after the dice are counted, and after any cancelling, because nobody rolled them. Dice are thrown with the pool, inside the pool's own range.
-- `perCheck` is how many purchases one check may make, so the most a check can buy is `amount * perCheck` points' worth. That cap is what stops a full pool buying an unlosable roll.
+- `amount` is what ONE purchase costs. `successes`, `dice` and `reroll` are what it buys, and a purchase has to buy at least one of them. Successes are added after the dice are counted, and after any cancelling, because nobody rolled them. Dice are thrown with the pool, inside the pool's own range. A `reroll` is `{ "upTo": 6, "mode": "once" }`, read the way `resolution.reroll` is, and is bought once however many purchases the check makes: a die thrown again twice is still one re-throw.
+- `perCheck` is how many purchases one check may make, so the most a check can buy is `amount * perCheck` points' worth. That cap is what stops a full pool buying an unlosable roll. It is a number from 1 to 10, a value off the sheet in the same form a derived value reads (`{ "abilityScore": "nerve" }`, `{ "derived": "focus" }`), or `"pool"`: as many as the check has dice, meaning the sheet's number for it before wounds, bonus dice or modifiers. A value off the sheet is read for whoever rolls, rounded down and held between 0 and 100, and a character whose limit comes to 0 buys nothing and pays nothing.
 - Only a `dice-pool` ruleset can have one: a summed roll has no successes to add and no pool to add dice to, so a `dice-sum` ruleset that declares `spend` is refused at import.
-- Two entries may not name the same pool, or a check could not say which of them it meant.
+- Up to four entries, and two may not name the same pool, or a check could not say which of them it meant.
+- A spend that buys a `reroll`, a `perCheck` that is not a number, and more than two entries are Capability API 1.38 for a packaged ruleset.
 
 **It goes on the check itself.** The Game Master writes `[skill_check: skill="Nerve" dc="2" spend="resolve:1"]`, not a separate `[sheet:]` command, because the dice are thrown before sheet commands are applied and there would be nothing left to change. One resolution rolls the dice and pays for what changed them.
 
@@ -191,7 +201,8 @@ Some systems let a player pay for a roll they are about to make: a point of will
 
 - `reroll` throws the dice at or below `upTo` again. `once` replaces each of them one time and the new face stands; `until` keeps going. `upTo` has to be a face below your die's top one, or it would throw the whole pool again for ever, and the Engine caps how many dice one check may re-throw whatever the file says.
 - `dice` adds dice before the pool is thrown, `successes` adds successes after it is counted, and `threshold` sets the per-die target for that one roll, inside the range your `target` allows.
-- At least one of the four, or the entry says nothing and is refused.
+- `explode` and `double` move those rules' faces for that one roll, and only where your rule has a `min` and inside it: `"check": { "explode": 8 }` is an entry that makes eights roll again. They outrank what the Game Master wrote on the tag, as `threshold` does. Capability API 1.37.
+- At least one of these, or the entry says nothing and is refused.
 - Only a `dice-pool` ruleset can honour any of it, so a `dice-sum` ruleset with a `mechanics.check` is refused at import.
 
 **What it costs is the entry's own `cost`,** paid through exactly the machinery that pays for using anything else: the pool, and one use of every counter the same entry wrote. `perCostStep` is what says the entry SCALES; an entry that declares one is bought as many times over as the price was paid, and one that does not is bought once however much was offered.
@@ -211,7 +222,9 @@ Some systems let a player pay for a roll they are about to make: a point of will
 
 Anything that reads a number names it with a value reference, which is an object with exactly one key: `const`, `field`, `derived`, `abilityScore`, `abilityMod`, `abilityModFromField`, `skillMod`, or `saveMod`. For example, a pool whose maximum is a derived value: `"max": { "derived": "grit_max" }`.
 
-`hideWhen` hides a field, a list, or a pool when another field has a given value. The 5e file uses it to hide spell slots from a character who does not cast spells.
+`hideWhen` hides a field, a list, a pool, or a plain track when another field has a given value. The 5e file uses it to hide spell slots from a character who does not cast spells. A wound track cannot be hidden, because rolls and fights read it whatever the sheet shows.
+
+A plain track's `max` may be a value reference instead of a number, so a rating the character has sets how far it goes: `"max": { "field": "willpower_rating" }`. Its `min` and `default` stay numbers. A wound track's `max` is always its number of levels. `alwaysShow: true` prints a track in the Game Master's sheet block even at its default, for a rating that matters on every turn; without it a track at its default is left out, because three death saves at zero say nothing. These three are Capability API 1.37 for a packaged ruleset.
 
 ### Wound tracks: health that is a track, not a number
 
@@ -263,7 +276,7 @@ your dying rule reads. Healing clears one mark. Temporary points are refused, be
 reads a track as the levels it has LEFT, so everything else about a fight, going down, being
 revived, the log and the recap, is unchanged.
 
-**A rest can heal a wound track.** A restore step naming one with `"to"` clears it down to that many marks, overflow and all; one naming it with `"by"` clears that many, overflow first. A step that would ADD marks does nothing, because a rest names no kind to mark with.
+**A rest can heal a wound track.** A restore step naming one with `"to"` clears it down to that many marks, overflow and all; one naming it with a NEGATIVE `"by"` clears that many, overflow first, so `"by": { "const": -2 }` clears two. A step that would ADD marks does nothing, because a rest names no kind to mark with, and that includes a positive `"by"`: it is skipped without a word, so write the minus sign.
 
 ### The penalty on your rolls
 
@@ -276,16 +289,32 @@ What the penalty DOES is your resolution kind's business, exactly like the sheet
 
 The track it names has to be a wound track. A plain track carries no penalty to apply, and naming one is refused at import. The result says which penalty was applied, so a player can see why they rolled fewer dice, and the Game Master's own sheet block shows the rung and what it costs.
 
+### Modifiers off the sheet
+
+Some numbers on a sheet ride along on every roll they touch: a heavy pack on every climb, an armour penalty on every sneak, a blessing on everything. `resolution.adjust` says so, on either kind:
+
+```json
+"adjust": [{ "value": { "derived": "burdened" }, "abilities": ["brawn"] }]
+```
+
+- `value` is a value off the sheet, in the same form a derived value reads. A negative number takes away. Ember Roads keeps a `burden` field and a derived value that turns it negative, so a character hauling two takes two off.
+- `abilities` is optional. With it, the modifier applies only to a check that rolls with one of those abilities: the ability itself, a skill or save that uses it, a skill rolled with it through `with=`, or a pair of abilities that includes it. Without it, it applies to every check.
+- It is applied where the wound penalty is: dice on a pool, under the same `pool.min` floor, and a flat number on a sum, inside the modifier the record adds up. Up to eight entries, added together for each check.
+- A character nobody has a sheet for gets nothing from it, the same way they get no modifier.
+
+The result says what the sheet added (`adjust="-2"` on the record, and a line on the dice card), so a player can see why a roll came out as it did. It is Capability API 1.38 for a packaged ruleset.
+
 ### Rests
 
-A rest is a list of restore steps and things to clear. Each step names one target (`pool`, `poolGroup`, `listPools`, or `track`) and either sets it (`"to": "max"`, `"to": "min"`, or a number) or changes it (`"by": { "const": 1 }`, or `"by": { "fractionOfMax": 0.5 }`). A step naming a wound track can only heal it; see above.
+A rest is a list of restore steps and things to clear. Each step names one target (`pool`, `poolGroup`, `listPools`, or `track`) and either sets it (`"to": "max"`, `"to": "min"`, or a number) or changes it (`"by": { "const": 1 }`, or `"by": { "fractionOfMax": 0.5 }`). A step naming a wound track can only heal it, so its `by` is negative; see above.
 
 ### Game Master text
 
 - `checkGuidance` replaces the built-in paragraph that tells the Game Master how to ask for a check. Say which system this is and when to call for a roll. The Game Master only names the skill and the difficulty. The Engine rolls the dice and does the arithmetic from the sheet, so do not ask the model to do math.
 - `sheetGuidance` introduces the character sheets in the prompt. Use it to say which resources matter and when to spend them.
 - `worldGuidance` is optional and is read once, when the world is generated, so the setting the Game Master invents suits your rules: no gunpowder, magic is rare, the dead walk. It never reaches a turn.
-- `sheetSummary` chooses which fields, derived values, and list rows the Game Master sees for each character. The Engine always shows ability modifiers, trained skills and saves, and live values. Keep the rest short, because it is sent on every turn.
+- `sheetSummary` chooses which fields, derived values, and list rows the Game Master sees for each character. The Engine always shows ability modifiers, trained skills and saves, and live values. Keep the rest short, because it is sent on every turn. A summary list's `nameColumn` may be a text or an enum column (an enum shows its value's label), and `columns` names up to three more of the row's own columns to print after the name, so the block reads `Gear: Crowbar 1d6` rather than names alone. A boolean column prints its label when it is set. Both are Capability API 1.37 for a packaged ruleset.
+- You do not need to teach the sheet command in `sheetGuidance`. The Engine teaches every command itself, with the names your file declares, and when your ruleset has a wound track it adds the `op="damage"` command for marking it and lists its levels and kinds of harm.
 
 ## Catalogs: ready-made entries for the sheet's lists
 
