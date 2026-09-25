@@ -83,8 +83,8 @@ export function renderRulesetSheetBlock(
 ): string {
   const { sheet, gm } = definition;
   const build = card.build;
-  const evaluated = evaluateRulesetSheet(definition, build);
   const live = readRulesetLive(definition, build, stored);
+  const evaluated = evaluateRulesetSheet(definition, build, live);
   const catalogEntries = rulesetCatalogEntriesByRef(catalogs);
   const lines: string[] = [];
   const push = (line: string) => {

@@ -67,6 +67,8 @@ When a character uses something they picked from the ruleset's catalogs, such as
 
 Some numbers on the sheet belong to the ruleset rather than to you. A class resource whose maximum follows your level, or uses that follow an ability score, is set by the ruleset and kept right when you edit the sheet.
 
+Some calculated values follow play itself: a ruleset can work out a number from a resource or a track as it stands, or add up a column of a list, such as the weight of the gear you have packed. It can also cap a skill at a number like that, so a skill can shrink while a resource is low. These show their current value in the game's sheet, and the values a check or a fight uses are the ones at the moment it happens. The sheet editor on a character card, which has no game to read, shows them as they would be at the start of play.
+
 These live values belong to the message they happened in. If you swipe to another version of a turn, or regenerate it, the sheet goes back to how it was before that turn, so nothing is ever spent twice.
 
 Click **Edit sheet** to change the build itself, for example after a level-up: scores, fields, lists such as spells, and skill and save training. Calculated values update as you type. It is the same editor as the one on the character card, so rows can be added from the ruleset's catalogs here too, cells the ruleset keeps are shown but cannot be typed in, and a list whose ruleset text has changed offers a **Review** button. Click **Save sheet** when you are done. This changes only this game's copy of the sheet. The sheet stored on the character or persona is never changed by a game.

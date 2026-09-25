@@ -71,7 +71,13 @@
       { "id": "wrestle", "label": "Wrestle", "ability": "sinew" },
       { "id": "listen", "label": "Listen", "ability": "nerve" },
       { "id": "ward", "label": "Ward", "ability": "nerve" },
-      { "id": "soothe", "label": "Soothe", "ability": "warmth" },
+      {
+        "$comment": "A warden soothes nobody past the Resolve they have left: the cap reads the live pool, so a spent warden's Soothe shrinks with it.",
+        "id": "soothe",
+        "label": "Soothe",
+        "ability": "warmth",
+        "cap": { "livePool": "resolve" }
+      },
       { "id": "barter", "label": "Barter", "ability": "warmth" }
     ],
     "saves": [{ "id": "steel", "label": "Steel", "ability": "nerve" }],
@@ -79,7 +85,25 @@
     "bonusRange": { "min": 0, "max": 3 },
     "fields": [
       { "id": "post", "label": "Post", "type": "text", "maxLength": 60, "section": "about" },
-      { "id": "lantern", "label": "Lantern oil", "type": "number", "min": 0, "max": 6, "default": 3, "section": "kit" }
+      {
+        "id": "watch",
+        "label": "Watch",
+        "type": "enum",
+        "values": ["dusk", "night", "dawn"],
+        "default": "night",
+        "section": "about"
+      },
+      {
+        "$comment": "Only the night watch carries a lantern, so the oil is off every other warden's sheet.",
+        "id": "lantern",
+        "label": "Lantern oil",
+        "type": "number",
+        "min": 0,
+        "max": 6,
+        "default": 3,
+        "section": "kit",
+        "hideWhen": { "field": "watch", "notEquals": "night" }
+      }
     ],
     "derived": [
       {
@@ -87,6 +111,14 @@
         "label": "Resolve maximum",
         "op": "sum",
         "of": [{ "const": 2 }, { "abilityMod": "nerve" }],
+        "section": "about"
+      },
+      {
+        "$comment": "Read off the live Harm track, so it changes as the warden is hurt and mended. A maximum could not read it: those are worked out before there is a live state to read.",
+        "id": "harm_left",
+        "label": "Harm still to take",
+        "op": "sum",
+        "of": [{ "liveTrack": "harm", "read": "remaining" }],
         "section": "about"
       }
     ],

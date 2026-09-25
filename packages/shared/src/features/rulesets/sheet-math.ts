@@ -11,6 +11,7 @@ import {
   rulesetSheetEnvelopeSchema,
   type RulesetDefinition,
   type RulesetDifficultyLadderStep,
+  type RulesetHideWhen,
   type RulesetSheetBuild,
   type RulesetSheetEnvelope,
   type RulesetValueRef,
@@ -86,6 +87,23 @@ export interface EvaluatedRulesetSheet {
   derived: Record<string, number>;
   /** Number fields as read (default applied), which value references resolve against. */
   numbers: Record<string, number>;
+  /** The skills and saves a `cap` holds down: the cap in force and the number before it. `skillMods`
+   *  and `saveMods` already hold the capped number; a `with=` swap works from the uncapped one and
+   *  caps again, so swapping an ability can never lift a check past its cap. */
+  skillCaps: Record<string, { cap: number; uncapped: number }>;
+  saveCaps: Record<string, { cap: number; uncapped: number }>;
+  /** The live state this sheet was worked out with, so a reference resolved against it later (a
+   *  modifier off the sheet, a spend's limit, a fight's defense) reads the same values. */
+  live?: RulesetSheetLiveValues;
+}
+
+/** What a `liveTrack` or `livePool` reference reads: one character's live state as
+ *  `readRulesetLive` resolves it (a pool at its value, a track with its bounds and, on a wound
+ *  track, the penalty in force). Described here rather than imported, so the arithmetic never
+ *  depends on the live state's own module, which depends on it. */
+export interface RulesetSheetLiveValues {
+  pools: ReadonlyArray<{ key: string; value: number }>;
+  tracks: ReadonlyArray<{ id: string; min: number; max: number; value: number; wound?: { penalty: number } }>;
 }
 
 export function rulesetAbilityModifier(definition: RulesetDefinition, score: number): number {
@@ -105,6 +123,46 @@ interface RulesetValueRefTables {
   derived: Record<string, number>;
   skillMod: (id: string) => number;
   saveMod: (id: string) => number;
+  /** Absent where the sheet is worked out without a live state, and then a live read is 0. The
+   *  format refuses one in every such place (a maximum, the proficiency bonus, a catalog's scaling). */
+  live?: RulesetSheetLiveValues;
+}
+
+/** One number off a live track: where it stands, how far above its floor, how far below its top,
+ *  or the penalty in force on a wound track. A track the character does not have reads 0. */
+function readLiveTrack(live: RulesetSheetLiveValues | undefined, id: string, read: string): number {
+  const track = live?.tracks.find((entry) => entry.id === id);
+  if (!track) return 0;
+  if (read === "filled") return track.value - track.min;
+  if (read === "remaining") return track.max - track.value;
+  if (read === "penalty") return track.wound?.penalty ?? 0;
+  return track.value;
+}
+
+/** One number column of a list added up over its rows, only the rows a boolean column marks where
+ *  `onlyWhen` names one. An empty cell reads as its column's default, and a list the sheet hides
+ *  is not on it, so it adds nothing. */
+function sumListColumn(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  sum: NonNullable<RulesetValueRef["listSum"]>,
+): number {
+  const list = definition.sheet.lists.find((entry) => entry.id === sum.list);
+  const rows = build.lists?.[sum.list];
+  if (!list || !Array.isArray(rows) || isRulesetItemHidden(list, build, definition)) return 0;
+  const column = list.columns.find((entry) => entry.id === sum.column);
+  const marker = sum.onlyWhen === undefined ? undefined : list.columns.find((entry) => entry.id === sum.onlyWhen);
+  const cell = (row: unknown, id: string) =>
+    row && typeof row === "object" && Object.prototype.hasOwnProperty.call(row, id)
+      ? (row as Record<string, unknown>)[id]
+      : undefined;
+  let total = 0;
+  for (const row of rows) {
+    if (marker && (cell(row, marker.id) ?? marker.default) !== true) continue;
+    const value = cell(row, sum.column);
+    total += finite(value) ?? (column?.type === "number" ? (column.default ?? 0) : 0);
+  }
+  return total;
 }
 
 function resolveValueRef(
@@ -129,11 +187,21 @@ function resolveValueRef(
   }
   if (ref.skillMod !== undefined) return tables.skillMod(ref.skillMod);
   if (ref.saveMod !== undefined) return tables.saveMod(ref.saveMod);
+  if (ref.liveTrack !== undefined) return readLiveTrack(tables.live, ref.liveTrack, ref.read ?? "value");
+  if (ref.livePool !== undefined) return tables.live?.pools.find((pool) => pool.key === ref.livePool)?.value ?? 0;
+  if (ref.listSum !== undefined) return sumListColumn(definition, build, ref.listSum);
   return 0;
 }
 
-/** Every number the sheet yields, computed once, top to bottom. */
-export function evaluateRulesetSheet(definition: RulesetDefinition, build: RulesetSheetBuild): EvaluatedRulesetSheet {
+/** Every number the sheet yields, computed once, top to bottom. `live` is what a live track or pool
+ *  reads; without it they read 0, which is right only where the format refuses them (a maximum, the
+ *  proficiency bonus, a catalog's scaling). Anything a player or the Game Master sees, and anything a
+ *  check or a fight reads, goes through `evaluateRulesetSheetLive`, which supplies it. */
+export function evaluateRulesetSheet(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  live?: RulesetSheetLiveValues,
+): EvaluatedRulesetSheet {
   const { sheet, resolution } = definition;
   const abilityScores: Record<string, number> = {};
   const abilityMods: Record<string, number> = {};
@@ -166,13 +234,23 @@ export function evaluateRulesetSheet(definition: RulesetDefinition, build: Rules
     }
     return proficiencyBonus;
   };
+  const skillCaps: Record<string, { cap: number; uncapped: number }> = {};
+  const saveCaps: Record<string, { cap: number; uncapped: number }> = {};
+  // A cap reads no skill or save, and neither does any derived value up to the one it reads (both
+  // refused at import), so working it out here, whenever a modifier is first asked for, cannot loop.
   const trainedModifier = (
-    entry: { id: string; ability?: string },
+    entry: { id: string; ability?: string; cap?: RulesetValueRef },
     tiers: Record<string, string> | undefined,
+    caps: Record<string, { cap: number; uncapped: number }>,
   ): number => {
     const tier = tierById.get(tiers?.[entry.id] ?? "") ?? firstTier;
     const trained = roundRulesetNumber(tier.multiplier * readProficiencyBonus(), tier.round) + tier.flat;
-    return (entry.ability ? (abilityMods[entry.ability] ?? 0) : 0) + trained + (finite(build.bonuses?.[entry.id]) ?? 0);
+    const uncapped =
+      (entry.ability ? (abilityMods[entry.ability] ?? 0) : 0) + trained + (finite(build.bonuses?.[entry.id]) ?? 0);
+    if (!entry.cap) return uncapped;
+    const cap = Math.floor(resolveRef(entry.cap));
+    caps[entry.id] = { cap, uncapped };
+    return Math.min(uncapped, cap);
   };
   function resolveRef(ref: RulesetValueRef): number {
     return resolveValueRef(definition, build, ref, {
@@ -182,12 +260,13 @@ export function evaluateRulesetSheet(definition: RulesetDefinition, build: Rules
       derived,
       skillMod: (id) => {
         const skill = sheet.skills.find((entry) => entry.id === id);
-        return skill ? trainedModifier(skill, build.skills) : 0;
+        return skill ? trainedModifier(skill, build.skills, skillCaps) : 0;
       },
       saveMod: (id) => {
         const save = sheet.saves.find((entry) => entry.id === id);
-        return save ? trainedModifier(save, build.saves) : 0;
+        return save ? trainedModifier(save, build.saves, saveCaps) : 0;
       },
+      live,
     });
   }
 
@@ -204,11 +283,11 @@ export function evaluateRulesetSheet(definition: RulesetDefinition, build: Rules
   const saveTiers: Record<string, string> = {};
   for (const skill of sheet.skills) {
     skillTiers[skill.id] = tierById.has(build.skills?.[skill.id] ?? "") ? build.skills[skill.id]! : firstTier.id;
-    skillMods[skill.id] = trainedModifier(skill, build.skills);
+    skillMods[skill.id] = trainedModifier(skill, build.skills, skillCaps);
   }
   for (const save of sheet.saves) {
     saveTiers[save.id] = tierById.has(build.saves?.[save.id] ?? "") ? build.saves[save.id]! : firstTier.id;
-    saveMods[save.id] = trainedModifier(save, build.saves);
+    saveMods[save.id] = trainedModifier(save, build.saves, saveCaps);
   }
 
   return {
@@ -221,6 +300,9 @@ export function evaluateRulesetSheet(definition: RulesetDefinition, build: Rules
     saveMods,
     derived,
     numbers,
+    skillCaps,
+    saveCaps,
+    ...(live ? { live } : {}),
   };
 }
 
@@ -240,19 +322,40 @@ export function resolveRulesetValueRef(
     derived: evaluated.derived,
     skillMod: (id) => evaluated.skillMods[id] ?? 0,
     saveMod: (id) => evaluated.saveMods[id] ?? 0,
+    live: evaluated.live,
   });
 }
 
-/** Whether a field, derived value, list or pool is hidden by its `hideWhen`. */
+/** The value a field holds as the sheet editor shows it: what is stored, else the value a blank sheet
+ *  starts with; an enum value the ruleset no longer offers reads as the field's default, as it does
+ *  everywhere the sheet is worked out. A rule that hides by the field then reads what the player sees. */
+function effectiveFieldValue(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  id: string,
+): string | number | boolean | undefined {
+  const field = definition.sheet.fields.find((entry) => entry.id === id);
+  const stored = build.fields?.[id];
+  if (!field) return stored;
+  if (field.type === "enum") {
+    return typeof stored === "string" && field.values.includes(stored) ? stored : (field.default ?? field.values[0]);
+  }
+  return stored ?? defaultRulesetSheetBuild(definition).fields[id];
+}
+
+/** Whether a field, derived value, list, pool or track is hidden by its `hideWhen`: the field
+ *  holds that one value, holds anything but it, or holds one of a few. */
 export function isRulesetItemHidden(
-  item: { hideWhen?: { field: string; equals: string | number | boolean } },
+  item: { hideWhen?: RulesetHideWhen },
   build: RulesetSheetBuild,
   definition: RulesetDefinition,
 ): boolean {
-  if (!item.hideWhen) return false;
-  const field = definition.sheet.fields.find((entry) => entry.id === item.hideWhen!.field);
-  const value = build.fields?.[item.hideWhen.field] ?? field?.default;
-  return value === item.hideWhen.equals;
+  const hide = item.hideWhen;
+  if (!hide) return false;
+  const value = effectiveFieldValue(definition, build, hide.field);
+  if (hide.in) return value !== undefined && hide.in.includes(value);
+  if (hide.notEquals !== undefined) return value !== hide.notEquals;
+  return value === hide.equals;
 }
 
 // ── Checks ──
@@ -376,8 +479,11 @@ export function rulesetCheckModifier(evaluated: EvaluatedRulesetSheet, target: R
   if (!target.withAbility) return base;
   // `with=`: the entry's own ability modifier steps aside for the named one. The training tier and
   // the sheet's own free bonus are untouched, which is what makes this one number, not a new check.
+  // A capped entry swaps on the number before its cap, and the cap then holds the result.
+  const capped = (target.type === "skill" ? evaluated.skillCaps : evaluated.saveCaps)?.[target.id];
   const replaced = target.ability ? (evaluated.abilityMods[target.ability] ?? 0) : 0;
-  return base - replaced + (evaluated.abilityMods[target.withAbility] ?? 0);
+  const swapped = (capped ? capped.uncapped : base) - replaced + (evaluated.abilityMods[target.withAbility] ?? 0);
+  return capped ? Math.min(swapped, capped.cap) : swapped;
 }
 
 /** The abilities a check rolls with: a skill or save's own, or the one `with=` swapped in; an ability
