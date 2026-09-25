@@ -762,13 +762,7 @@ export function createChatsStorage(db: DB) {
    * background, one message queue at a time, never on the caller's save path. A generated message older than the
    * kept one (a scan saved later on an earlier turn) is compacted too: only the newest message by order keeps text.
    */
-  function noteLorebookScanSaved(
-    chatId: string,
-    messageId: string,
-    role: string,
-    createdAt: string,
-    scan: unknown,
-  ) {
+  function noteLorebookScanSaved(chatId: string, messageId: string, role: string, createdAt: string, scan: unknown) {
     if (!isLorebookScanCompactionEnabled() || !lorebookScanHasContent(scan)) return;
     let state = scanCompactionStates.get(chatId);
     if (!state) {

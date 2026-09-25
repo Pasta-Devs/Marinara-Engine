@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 // Best-effort helpers: a deliberately swallowed failure is logged (rate limited per event, chat and stage) and the
 // caller keeps going with a fallback instead of a thrown error or a silent empty catch.
 process.env.LOG_LEVEL = "silent";
-const { bestEffort, logSuppressed, orFallback, suppressedLogLine } = await import("../../packages/server/src/lib/best-effort.js");
+const { bestEffort, logSuppressed, orFallback, suppressedLogLine } =
+  await import("../../packages/server/src/lib/best-effort.js");
 const { takeRateLimitedSlot, resetRateLimitedLogs } = await import("../../packages/server/src/lib/log-rate-limit.js");
 
 resetRateLimitedLogs();
