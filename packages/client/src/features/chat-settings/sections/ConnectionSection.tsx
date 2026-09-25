@@ -4,16 +4,22 @@ import { ChatSettingsSection } from "../ChatSettingsSection";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ContextBudgetIndicator } from "../../../components/chat/ContextBudgetIndicator";
 import { NanoGptUsageWidget } from "../../../components/connections/NanoGptUsageWidget";
+import { resolveNanoGptUsageConnection } from "../../../lib/connection-filters";
 import type { ProfessorMariContextBudget } from "../../../lib/professor-mari-context-budget";
 
-export interface ChatConnectionOption {
+/**
+ * A connection row as the chat settings surfaces receive it. Extends the loose
+ * record shape other sections require, while naming the fields this section
+ * reads so the NanoGPT usage meter cannot silently lose them to a cast.
+ */
+export interface ChatConnectionOption extends Record<string, unknown> {
   id: string;
   name: string;
   model?: string;
   /** Used to decide whether a NanoGPT usage meter applies to this connection. */
   provider?: string;
   /** NanoGPT: whether the connection opted in to the subscription usage display. */
-  showUsageWidget?: boolean;
+  showUsageWidget?: boolean | string;
 }
 
 interface ConnectionSectionProps {
@@ -35,12 +41,7 @@ export function ConnectionSection({
   const selectedLocalSidecar = connectionId === LOCAL_SIDECAR_CONNECTION_ID;
   // The usage meter follows the active connection: only a NanoGPT connection that
   // opted in from its editor shows it, and a random pick has no single quota.
-  const activeConnection = connections.find((c) => c.id === connectionId) ?? null;
-  const showUsageMeter =
-    !!connectionId &&
-    connectionId !== "random" &&
-    activeConnection?.provider === "nanogpt" &&
-    activeConnection?.showUsageWidget === true;
+  const usageConnection = resolveNanoGptUsageConnection(connections, connectionId);
 
   return (
     <ChatSettingsSection
@@ -77,7 +78,7 @@ export function ConnectionSection({
             </select>
           </div>
           {contextBudget && <ContextBudgetIndicator budget={contextBudget} />}
-          {showUsageMeter && <NanoGptUsageWidget connectionId={connectionId} variant="inline" />}
+          {usageConnection && <NanoGptUsageWidget connectionId={usageConnection.id} variant="inline" />}
         </div>
       ) : (
         <>
@@ -107,9 +108,9 @@ export function ConnectionSection({
               </span>
             </div>
           )}
-          {showUsageMeter && (
+          {usageConnection && (
             <div className="mt-2">
-              <NanoGptUsageWidget connectionId={connectionId} variant="inline" />
+              <NanoGptUsageWidget connectionId={usageConnection.id} variant="inline" />
             </div>
           )}
         </>

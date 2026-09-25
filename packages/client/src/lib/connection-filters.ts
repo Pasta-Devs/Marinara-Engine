@@ -27,6 +27,19 @@ export function isConnectionFlagTrue(value: unknown): boolean {
   return value === true || value === "true";
 }
 
+/** The active connection with its NanoGPT usage meter, or null when it should not show. */
+export function resolveNanoGptUsageConnection<
+  T extends { id?: string | null; provider?: string | null; showUsageWidget?: unknown },
+>(connections: readonly T[] | null | undefined, connectionId: string | null | undefined): T | null {
+  // A random pick has no single quota to read.
+  if (!connectionId || connectionId === "random") return null;
+  const connection = (connections ?? []).find((candidate) => candidate.id === connectionId);
+  if (!connection || connection.provider !== "nanogpt") return null;
+  // The stored flag is a "true"/"false" string, so a strict boolean check
+  // would always be false and silently hide the meter.
+  return isConnectionFlagTrue(connection.showUsageWidget) ? connection : null;
+}
+
 export function isLanguageGenerationConnection(connection: ConnectionProviderLike): boolean {
   return (
     connection.provider !== "image_generation" &&
