@@ -18484,6 +18484,14 @@ test("Lorebook context filter chips expose installed package triggers and keep c
     await expect(slurpChip).toHaveClass(/mari-editor-chip--accent/u);
     await expect.poll(savedGenerationTriggers).toEqual(["conversation", "noodle", "slurp"]);
 
+    // Removing the packages hides their chips, and toggling another chip keeps the hidden values.
+    installedPackages = [];
+    await openFilters();
+    await expect(filterArea.getByRole("button", { name: "Noodle", exact: true })).toHaveCount(0);
+    await expect(filterArea.getByRole("button", { name: "Slurp", exact: true })).toHaveCount(0);
+    await filterArea.getByRole("button", { name: "Game", exact: true }).click();
+    await expect.poll(savedGenerationTriggers).toEqual(["conversation", "noodle", "slurp", "game"]);
+
     const invalidBorders = await chips.evaluateAll((elements) =>
       elements
         .map((element) => {
