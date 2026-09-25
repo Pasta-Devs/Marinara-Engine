@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Lorebook entry Generation filters add **Slurp**, so entries can target Slurp Remastered posts, and the Noodle and Slurp filters now show only while their package is installed. Existing filter choices stay saved when a package is removed (#6660).
+
 - The Roleplay whisper browser regression finishes preparing visual-novel fixtures before reloading, avoiding false WebKit access-control failures in contributor checks (#6628).
 
 - Lorebook and Chat Summary review windows start with focus on the review explanation, so continuing to type cannot accidentally discard a proposal with Space or Enter (#6638).

@@ -8,6 +8,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type DragEvent as ReactDragEvent,
@@ -39,6 +40,7 @@ import {
 import { cn, copyToClipboard } from "../../lib/utils";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useUpdateLorebookEntry, useDeleteLorebookEntry, useDuplicateLorebookEntry } from "../../hooks/use-lorebooks";
+import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { useUIStore } from "../../stores/ui.store";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { DecisionStatementNote } from "../ui/DecisionStatementNote";
@@ -197,7 +199,13 @@ const GENERATION_TRIGGER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "test_scan", label: "Test scan" },
   { value: "game_setup", label: "Game setup" },
   { value: "lorebook_assistant", label: "Lorebook Assistant" },
-  { value: "noodle", label: "Noodle" },
+];
+
+// Triggers sent by downloadable packages. They only show while their package is installed and
+// active; a saved value stays on the entry when its package is removed.
+const PACKAGE_GENERATION_TRIGGER_OPTIONS: Array<{ value: string; label: string; packageId: string }> = [
+  { value: "noodle", label: "Noodle", packageId: "noodle" },
+  { value: "slurp", label: "Slurp", packageId: "slurp2" },
 ];
 
 /** A compact lorebook-entry list row with inline-editable status / position / depth / order /
@@ -1383,6 +1391,18 @@ function ExpandedDrawer({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const { mutate: mutateEntry, mutateAsync: mutateEntryAsync } = useUpdateLorebookEntry();
+  const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
+  const generationTriggerOptions = useMemo(
+    () => [
+      ...GENERATION_TRIGGER_OPTIONS,
+      ...PACKAGE_GENERATION_TRIGGER_OPTIONS.filter((option) =>
+        installedCapabilities.some(
+          (capability) => capability.id === option.packageId && capability.status === "active",
+        ),
+      ),
+    ],
+    [installedCapabilities],
+  );
   const [form, setForm] = useState<Partial<LorebookEntry>>(() => ({ ...entry }));
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1738,7 +1758,7 @@ function ExpandedDrawer({
                 />
               </div>
               <FilterPills
-                values={GENERATION_TRIGGER_OPTIONS}
+                values={generationTriggerOptions}
                 selected={form.generationTriggerFilters ?? []}
                 onChange={(next) => update({ generationTriggerFilters: next })}
                 emptyLabel="No trigger filters available."
