@@ -3456,10 +3456,14 @@ export function HomeBrowserHub({
                               active: pageActive && activeTab === "home" && visibleWidgets.includes(widget.id),
                               onOpenPost: (postId: unknown) => {
                                 if (typeof postId !== "string" || postId.length > 128) return;
+                                if (!browserPackages.some((item) => item.id === widget.packageId)) return;
                                 setFocusedPackagePost({ packageId: widget.packageId!, postId });
                                 selectTab(widget.packageId!);
                               },
-                              onOpenNoodle: () => selectTab(widget.packageId!),
+                              onOpenNoodle: () => {
+                                if (browserPackages.some((item) => item.id === widget.packageId))
+                                  selectTab(widget.packageId!);
+                              },
                             }}
                           />
                         ) : widget.agentId ? (

@@ -1189,7 +1189,7 @@ The Engine mounts the package's client element with `view="widget"`. On top of t
 - `active`: `true` only while Home is showing and the card is visible. Pause polling and animation when
   it is `false`.
 - `onOpenNoodle()`: opens the package's own Home browser tab. Despite the name, it works for any package
-  that also declares the `home-browser-tab` slot; without that tab there is nothing to open.
+  that also declares the `home-browser-tab` slot. Without that tab, it and `onOpenPost` do nothing.
 - `onOpenPost(id)`: opens the package's own Home browser tab at one item. `id` is a string of up to 128
   characters; anything else is ignored. The tab's `view="browser"` element then receives
   `focusPostId: id`. It should call `onFocusPostHandled()` once it has shown the item, so the focus does
