@@ -655,9 +655,22 @@ function renderRulesetSkillCheckLine(
       ]
     : [];
   const whoClause = `Add who="Character Name" to roll for a party member; without it the player is checked.`;
+  // Every ruleset has a ladder, so every ruleset can be asked for a step by name.
+  const difficultyClause = `Or name a step with difficulty="Label" in place of dc.`;
 
   if (resolution.kind === "dice-pool") {
-    const { target, situationalDice, difficultyLadder } = resolution;
+    const { target, situationalDice, difficultyLadder, die, explode, double, botch, pool } = resolution;
+    // A face rule is taught only where the ruleset lets a check move it, and says what happens when
+    // nobody asks, which for a rule with no `from` is nothing at all.
+    const faceClause = (key: "explode" | "double", rule: typeof explode, does: string) =>
+      rule?.min === undefined
+        ? []
+        : [
+            `Add ${key}="N" to make dice showing N or more ${does} on this check, from ${rule.min} to ${die.sides}; without it ${
+              rule.from === undefined ? "none do" : `dice showing ${rule.from} or more do`
+            }.`,
+          ];
+    const [firstAbility, secondAbility] = ruleset.sheet.abilities;
     const ladder = difficultyLadder
       .map(
         (step) =>
@@ -670,6 +683,10 @@ function renderRulesetSkillCheckLine(
       `- [skill_check: skill="Name" dc="N"] - ${ruleset.gm.checkGuidance}`,
       `dc is how many successes the check needs.`,
       `Difficulty: ${ladder}.`,
+      // The step's own target only means something where a step names one.
+      difficultyLadder.some((step) => step.target !== undefined)
+        ? `${difficultyClause} A step's target is the one the check counts with unless you add threshold.`
+        : difficultyClause,
       whoClause,
       // Both are offered only where this ruleset declares them, so the prompt never teaches an
       // attribute the resolver would then ignore.
@@ -707,7 +724,20 @@ function renderRulesetSkillCheckLine(
             `When a character uses something from their sheet to change a roll, add use="Its name" to that same check. Do not write a separate sheet command for it: the engine pays for it and applies it on the same roll.`,
           ]
         : []),
+      ...faceClause("explode", explode, "roll one more die"),
+      ...faceClause("double", double, "count twice"),
       ...withClause,
+      // Named with this ruleset's own first two abilities, so the example is never another game's.
+      ...(pool.abilityPlusAbility && firstAbility && secondAbility
+        ? [
+            `On an ability check, with= adds a second ability's dice: skill="${firstAbility.label}" with="${secondAbility.label}".`,
+          ]
+        : []),
+      ...(botch?.rule === "halfOrMore"
+        ? [
+            `A check the engine marks complication="true" kept its result, but something went wrong alongside it: narrate both.`,
+          ]
+        : []),
       `Do NOT write rolls, modifier, total or result: the engine rolls the pool from the character sheet and counts the successes.`,
       ...branchClause,
     ].join(" ");
@@ -719,6 +749,7 @@ function renderRulesetSkillCheckLine(
   return [
     `- [skill_check: skill="Name" dc="N"${playerDie ? ` rolls="the player's d20 result"` : ""}] - ${ruleset.gm.checkGuidance}`,
     `Difficulty: ${ladder}.`,
+    difficultyClause,
     whoClause,
     ...(advantage ? [`Add mode="advantage" or mode="disadvantage" when the rules grant one.`] : []),
     ...withClause,
@@ -739,6 +770,12 @@ function renderRulesetSheetSection(
   const blocks = sheetBlocks.map((block) => block.trim()).filter(Boolean);
   if (blocks.length === 0) return [];
   const names = (entries: ReadonlyArray<{ label: string }>) => entries.map((entry) => entry.label).join(", ");
+  // A wound track is marked with a kind of harm rather than counted, so it has a command of its own
+  // and is listed apart from the tracks `op="track"` moves.
+  const woundTracks = ruleset.sheet.live.tracks.flatMap((track) =>
+    track.levels && track.kinds ? [{ ...track, levels: track.levels, kinds: track.kinds }] : [],
+  );
+  const plainTracks = ruleset.sheet.live.tracks.filter((track) => !track.levels);
   const lines = [
     ``,
     `CHARACTER SHEETS:`,
@@ -748,6 +785,11 @@ function renderRulesetSheetSection(
     `- [sheet: who="Name" op="damage" pool="Pool" amount="N"] - takes it away, temporary points first.`,
     `- [sheet: who="Name" op="temp" pool="Pool" amount="N"] - sets temporary points on a pool that has them.`,
     `- [sheet: who="Name" op="track" track="Track" by="+1"] - or to="N" to set it.`,
+    ...(woundTracks.length > 0
+      ? [
+          `- [sheet: who="Name" op="damage" track="Track" kind="Kind" amount="N"] - marks harm of that kind on a wound track; a negative amount heals it.`,
+        ]
+      : []),
     `- [sheet: who="Name" op="condition" condition="Condition" state="on|off"]`,
     `- [sheet: who="Name" op="note" field="Field" value="text"] - an empty value clears it.`,
     ...(ruleset.rests.length > 0
@@ -764,9 +806,25 @@ function renderRulesetSheetSection(
     `Leave out who for the player; who="party" applies to every member. Use the pool, track, field and condition names shown on the sheets. Never write result, reason or now yourself: the Engine adds them. A refused command did not happen, so do not narrate it as if it had.`,
     // A sheet block leaves out a track or a note that still has its default, so the names a command
     // can use are listed once here.
-    ...(ruleset.sheet.live.tracks.length > 0
+    ...(plainTracks.length > 0
       ? [
-          `Tracks: ${ruleset.sheet.live.tracks.map((track) => `${track.label} (${track.min} to ${track.max})`).join(", ")}.`,
+          `Tracks: ${plainTracks
+            .map(
+              (track) =>
+                `${track.label} (${track.min} to ${typeof track.max === "number" ? track.max : "the character's own maximum"})`,
+            )
+            .join(", ")}.`,
+        ]
+      : []),
+    // Best rung to worst, and the kinds a mark may be, so a damage command names real ones.
+    ...(woundTracks.length > 0
+      ? [
+          `Wound tracks: ${woundTracks
+            .map(
+              (track) =>
+                `${track.label} (${track.levels[0]!.label} to ${track.levels[track.levels.length - 1]!.label}; ${track.kinds.map((kind) => kind.id).join(", ")})`,
+            )
+            .join(", ")}.`,
         ]
       : []),
     ...(ruleset.sheet.live.text.length > 0 ? [`Note fields: ${names(ruleset.sheet.live.text)}.`] : []),

@@ -58,6 +58,9 @@ function withoutSheetCreatures(doc: Record<string, any>): void {
  *  case about catalogs is not answered by the gate that came after them. */
 function withoutLaterGates(doc: Record<string, any>): void {
   delete doc.layers;
+  // The 1.37 sheet keys: a track always shown and a summary list's columns.
+  for (const track of doc.sheet?.live?.tracks ?? []) delete track.alwaysShow;
+  for (const list of doc.gm?.sheetSummary?.lists ?? []) delete list.columns;
   // The combat block goes whole, and with it the 1.28 keys that give a fight a board.
   delete doc.combat;
   // The bestiary is a 1.27 declaration of its own, and a catalog of creatures needs the combat
@@ -465,11 +468,11 @@ const installedPackages = packages.map((fixture) => {
   ];
   const manifest = {
     schemaVersion: 2,
-    // 1.34, because the example ruleset carries the combat bridge's battle block, a scaled catalog
+    // 1.37, because the example ruleset carries the combat bridge's battle block, a scaled catalog
     // row, a layer, a combat block, catalog mechanics a fight reads, a catalog of creatures, the
-    // keys that give that fight a board, the ones that say what one turn of it can do, and a
-    // creature written in the ruleset's own terms.
-    capabilityApi: { major: 1, minor: 34 },
+    // keys that give that fight a board, the ones that say what one turn of it can do, a creature
+    // written in the ruleset's own terms, a track always shown and a summary list's columns.
+    capabilityApi: { major: 1, minor: 37 },
     builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
     id: packageId,
     name: fixture.id,

@@ -10,6 +10,7 @@ import {
   RULESET_POOL_MAX_DICE,
   rulesetSheetEnvelopeSchema,
   type RulesetDefinition,
+  type RulesetDifficultyLadderStep,
   type RulesetSheetBuild,
   type RulesetSheetEnvelope,
   type RulesetValueRef,
@@ -268,7 +269,16 @@ interface RulesetTrainedCheckTarget {
   withAbility?: string;
 }
 
-export type RulesetCheckTarget = RulesetTrainedCheckTarget | { type: "ability"; id: string; label: string };
+/** A raw ability check. `withAbility` is the second ability a pool ruleset with
+ *  `pool.abilityPlusAbility` adds to it, and is never set anywhere else. */
+interface RulesetAbilityCheckTarget {
+  type: "ability";
+  id: string;
+  label: string;
+  withAbility?: string;
+}
+
+export type RulesetCheckTarget = RulesetTrainedCheckTarget | RulesetAbilityCheckTarget;
 
 function normalizeCheckName(value: string): string {
   return value
@@ -305,8 +315,10 @@ function matchAbilityId(definition: RulesetDefinition, requested: string): strin
  *
  *  `withAbility` is the tag's `with=`: roll this skill or save with another ability than its own.
  *  A name no ability answers to is IGNORED rather than refused, so the entry keeps its own
- *  ability; the resolver notices the unset `withAbility` and says so in the log. It means nothing
- *  on a raw ability check, which already names the ability it rolls. */
+ *  ability; the resolver notices the unset `withAbility` and says so in the log. On a raw ability
+ *  check it names a SECOND ability to add, and only where a pool ruleset declares
+ *  `pool.abilityPlusAbility`; anywhere else it means nothing there, because the check already
+ *  names the ability it rolls. */
 export function matchRulesetCheckTarget(
   definition: RulesetDefinition,
   requested: string,
@@ -341,13 +353,24 @@ export function matchRulesetCheckTarget(
   const skill = sheet.skills.find((entry) => names(entry).includes(name) || names(entry).includes(base));
   if (skill) return trained("skill", skill);
   const ability = sheet.abilities.find((entry) => names(entry).includes(base));
-  if (ability) return { type: "ability", id: ability.id, label: ability.label };
-  return null;
+  if (!ability) return null;
+  const resolution = definition.resolution;
+  const pairs = resolution.kind === "dice-pool" && resolution.pool.abilityPlusAbility === true;
+  return {
+    type: "ability",
+    id: ability.id,
+    label: ability.label,
+    ...(pairs && override ? { withAbility: override } : {}),
+  };
 }
 
 export function rulesetCheckModifier(evaluated: EvaluatedRulesetSheet, target: RulesetCheckTarget | null): number {
   if (!target) return 0;
-  if (target.type === "ability") return evaluated.abilityMods[target.id] ?? 0;
+  if (target.type === "ability") {
+    // Two abilities rolled together are simply both of them.
+    const second = target.withAbility ? (evaluated.abilityMods[target.withAbility] ?? 0) : 0;
+    return (evaluated.abilityMods[target.id] ?? 0) + second;
+  }
   const own = target.type === "skill" ? evaluated.skillMods[target.id] : evaluated.saveMods[target.id];
   const base = own ?? 0;
   if (!target.withAbility) return base;
@@ -465,6 +488,14 @@ export interface RulesetPoolRoll extends RulesetCheckRoll {
   /** How many dice a bought re-throw actually replaced, so a record can say the pool was re-thrown
    *  rather than leaving a reader to wonder why the faces beat the odds. */
   rerolled: number;
+  /** The faces this roll exploded and doubled from, after the ruleset's limits, or undefined where
+   *  the rule was not in play. A reader compares them with the file's own `from` to say whether the
+   *  check moved them. */
+  explodeFrom?: number;
+  doubleFrom?: number;
+  /** Something went wrong on the side of a roll that did not botch outright: `botch.rule` is
+   *  `halfOrMore` and low faces showed on half the dice or more, but a die still succeeded. */
+  complication: boolean;
 }
 
 /** The hard ceiling on how many dice ONE check may throw again, whatever a ruleset asks for. An
@@ -497,6 +528,9 @@ export function rollDicePoolCheck(
     threshold?: number;
     /** `bonus=`, honoured only where the ruleset declares situational dice. */
     bonusDice?: number;
+    /** `explode=` and `double=`, honoured only where the ruleset gives that rule a `min`. */
+    explode?: number;
+    double?: number;
     /** What a purchase bought for this one check, already validated and paid for by the caller:
      *  dice thrown on top of the pool, successes added after the dice are counted, a per-die target
      *  for this one roll, and a re-throw of the low faces. The roller never decides whether a spend
@@ -506,13 +540,15 @@ export function rollDicePoolCheck(
       successes?: number;
       threshold?: number;
       reroll?: { upTo: number; mode: "once" | "until" };
+      explode?: number;
+      double?: number;
     };
   },
   rollDie: (sides: number) => number,
 ): RulesetPoolRoll {
   const resolution = definition.resolution;
   if (resolution.kind !== "dice-pool") {
-    return { ...noRoll(), threshold: 0, bonusDice: 0, autoSuccesses: 0, rerolled: 0 };
+    return { ...noRoll(), threshold: 0, bonusDice: 0, autoSuccesses: 0, rerolled: 0, complication: false };
   }
   const { die, pool, target, double, explode, cancel, botch, exceptional, situationalDice } = resolution;
 
@@ -526,6 +562,16 @@ export function rollDicePoolCheck(
     situationalDice && Number.isFinite(input.bonusDice)
       ? clampInteger(input.bonusDice!, situationalDice.min, situationalDice.max)
       : 0;
+  // The face each moving rule fires on for this one roll: what an entry bought, else what the Game
+  // Master asked for, pulled into the range the ruleset gives it, and the file's own `from` when
+  // nobody asked or the ruleset lets no check move it. Undefined is a rule that does not fire.
+  const faceFor = (rule: typeof explode, bought: number | undefined, asked: number | undefined) => {
+    if (!rule) return undefined;
+    const wanted = Number.isFinite(bought) ? bought : asked;
+    return rule.min !== undefined && Number.isFinite(wanted) ? clampInteger(wanted!, rule.min, die.sides) : rule.from;
+  };
+  const explodeFrom = faceFor(explode, input.bought?.explode, input.explode);
+  const doubleFrom = faceFor(double, input.bought?.double, input.double);
 
   // Bought dice go in with the sheet's own and the situational ones, so the pool's declared range
   // is the one ceiling: buying dice can never throw more than the ruleset allows a pool to be.
@@ -558,13 +604,16 @@ export function rollDicePoolCheck(
     }
   }
 
-  if (explode) {
+  // The dice first thrown, re-throws included and explosions not yet added: what "half the dice" of a
+  // botch is counted over.
+  const thrown = rolls.slice();
+  if (explodeFrom !== undefined) {
     // Chained, by walking the array as it grows: a die added at the end is itself examined. The
     // extra dice are capped so a low `from` on a big pool cannot roll for the rest of the turn.
     const cap = Math.min(pool.max, RULESET_POOL_MAX_DICE);
     let extra = 0;
     for (let i = 0; i < rolls.length && extra < cap; i++) {
-      if (rolls[i]! >= explode.from) {
+      if (rolls[i]! >= explodeFrom) {
         rolls.push(rollDie(die.sides));
         extra += 1;
       }
@@ -574,7 +623,7 @@ export function rollDicePoolCheck(
   let successes = 0;
   let cancelled = 0;
   for (const roll of rolls) {
-    if (roll >= threshold) successes += double && roll >= double.from ? 2 : 1;
+    if (roll >= threshold) successes += doubleFrom !== undefined && roll >= doubleFrom ? 2 : 1;
     if (cancel && roll <= cancel.upTo) cancelled += 1;
   }
   // Bought successes are added after the dice are counted and after cancelling, because they were
@@ -584,7 +633,20 @@ export function rollDicePoolCheck(
   // A botch is "nothing worked AND something went wrong", read BEFORE cancelling: a pool whose one
   // success was cancelled away failed, it did not botch. A bought success is not a die that worked,
   // so it does not take a botch away either; it is added to a total that is already 0.
-  const criticalFailure = !!botch && successes === 0 && rolls.some((roll) => roll <= botch.upTo);
+  //
+  // `halfOrMore` reads it the other way round: low faces on at least half the dice first thrown are
+  // the thing going wrong, and it is a critical failure only when no die succeeded as well. On a
+  // roll a die DID succeed on, the result stands as it is and the roll says it went wrong on the side.
+  const lowOnHalf =
+    botch?.rule === "halfOrMore" &&
+    thrown.length > 0 &&
+    thrown.filter((roll) => roll <= botch.upTo).length >= Math.ceil(thrown.length / 2);
+  const criticalFailure = !botch
+    ? false
+    : botch.rule === "halfOrMore"
+      ? lowOnHalf && successes === 0
+      : successes === 0 && rolls.some((roll) => roll <= botch.upTo);
+  const complication = lowOnHalf && !criticalFailure;
   const success = !criticalFailure && total >= input.required;
   return {
     rolls,
@@ -599,5 +661,37 @@ export function rollDicePoolCheck(
     bonusDice,
     autoSuccesses,
     rerolled,
+    ...(explodeFrom !== undefined ? { explodeFrom } : {}),
+    ...(doubleFrom !== undefined ? { doubleFrom } : {}),
+    complication,
   };
+}
+
+/** The difficulty ladder step a name picks, or null. Matched without case or punctuation, and only
+ *  when exactly one step answers to it, so a name two steps share picks neither of them. */
+export function rulesetDifficultyStep(
+  definition: RulesetDefinition,
+  name: string | undefined,
+): RulesetDifficultyLadderStep | null {
+  const wanted = normalizeCheckName(name ?? "");
+  if (!wanted) return null;
+  const steps: RulesetDifficultyLadderStep[] = definition.resolution.difficultyLadder;
+  const found = steps.filter((step) => normalizeCheckName(step.label) === wanted);
+  return found.length === 1 ? found[0]! : null;
+}
+
+/** What a step asks for, in its kind's own terms: successes on a pool, a difficulty on a sum. */
+export function rulesetDifficultyStepDc(step: RulesetDifficultyLadderStep): number {
+  return "successes" in step ? step.successes : step.dc;
+}
+
+/** The per-die target of the one pool ladder step that needs exactly `successes`, or undefined: when
+ *  no step or several need that many, when the one that does names no target, or on a summed ruleset.
+ *  A ladder that prints "Plain work 1 success (target 6)" then means it at the table, and one whose
+ *  steps all need one success says nothing about which of them a bare `dc="1"` meant. */
+export function rulesetLadderTargetFor(definition: RulesetDefinition, successes: number): number | undefined {
+  const resolution = definition.resolution;
+  if (resolution.kind !== "dice-pool") return undefined;
+  const found = resolution.difficultyLadder.filter((step) => step.successes === successes);
+  return found.length === 1 ? found[0]!.target : undefined;
 }

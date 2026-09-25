@@ -306,7 +306,8 @@
           "label": "Heat",
           "min": 0,
           "max": 5,
-          "default": 0
+          "default": 0,
+          "alwaysShow": true
         }
       ],
       "conditions": [
@@ -366,7 +367,8 @@
       "lists": [
         {
           "list": "gear",
-          "nameColumn": "name"
+          "nameColumn": "name",
+          "columns": ["damage"]
         }
       ]
     }

@@ -54,7 +54,8 @@ export function formatNarration(content: string, boldDialogue = true): string {
     .replace(/\[skill_check:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
       const attrs = parseCommandAttributes(rawAttrs);
       const skill = attrs.skill || "Skill";
-      const dc = attrs.dc ? `DC ${attrs.dc}` : "";
+      // A check that names its ladder step instead of a number shows the step's own name.
+      const dc = attrs.dc ? `DC ${attrs.dc}` : attrs.difficulty || "";
       const total = attrs.total ? `total ${attrs.total}` : "";
       const result = attrs.result ? attrs.result.replace(/_/g, " ") : "";
       return commandBadge(

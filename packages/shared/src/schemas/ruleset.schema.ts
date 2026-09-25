@@ -272,8 +272,10 @@ const diceSumResolutionSchema = z
   })
   .strict();
 
-/** How many dice one pool check may throw, exploded dice included, whatever a ruleset asks for.
- *  An Engine ceiling rather than an author's choice: the roll runs inside a turn. */
+/** The largest pool a ruleset may declare, whatever it asks for, and the ceiling on the dice an
+ *  explosion may add on top of one. So one throw can reach twice `pool.max`: the pool itself, then
+ *  as many again exploded. An Engine ceiling rather than an author's choice: the roll runs inside a
+ *  turn. */
 export const RULESET_POOL_MAX_DICE = 100;
 
 /** How many faces a pool die may have. A pool counts faces one by one, so a percentile die here
@@ -281,6 +283,23 @@ export const RULESET_POOL_MAX_DICE = 100;
 const POOL_DIE_MAX_SIDES = 100;
 
 const poolFace = z.number().int().min(2).max(POOL_DIE_MAX_SIDES);
+
+/** A face rule the Game Master may move for one check. `from` is the face it fires on when nobody
+ *  asks, and `min` is the lowest face a check may move it down to; with `min` and no `from` it fires
+ *  only when a check asks for it. At least one of the two, or the rule says nothing. */
+const poolFaceRuleSchema = z
+  .object({ from: poolFace.optional(), min: poolFace.optional() })
+  .strict()
+  .superRefine((rule, ctx) => {
+    if (rule.from === undefined && rule.min === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Give from, min or both" });
+    }
+  });
+
+/** How a botch is read. `noSuccesses` is no die succeeding while a low face showed; `halfOrMore` is
+ *  low faces on at least half the dice first thrown, whatever else they did, and it is a critical
+ *  failure only when no die succeeded either. */
+export const RULESET_BOTCH_RULES = Object.freeze(["noSuccesses", "halfOrMore"] as const);
 
 /** One rung of a pool ladder, hoisted for the same reason as the summed one. `successes` is how
  *  many the check needs; a step names a `target` only where the ruleset lets the target move. */
@@ -302,15 +321,20 @@ const dicePoolResolutionSchema = z
       .object({
         min: z.number().int().min(0).max(RULESET_POOL_MAX_DICE),
         max: z.number().int().min(1).max(RULESET_POOL_MAX_DICE),
+        /** A raw ability check may name a second ability with `with=`, and the two are added: two
+         *  abilities rolled together. Off, `with=` means nothing on an ability check. Only this kind
+         *  has a pool to add them into, so a summed ruleset cannot declare it. */
+        abilityPlusAbility: z.boolean().optional(),
       })
       .strict()
       .default({ min: 1, max: 40 }),
     /** The per-die success threshold. `min` below `max` lets the GM set it per check. */
     target: z.object({ default: poolFace, min: poolFace, max: poolFace }).strict(),
-    /** Optional: a face at or above this counts twice. */
-    double: z.object({ from: poolFace }).strict().optional(),
-    /** Optional: a face at or above this rolls one more die, chained, up to the Engine's ceiling. */
-    explode: z.object({ from: poolFace }).strict().optional(),
+    /** Optional: a face at or above `from` counts twice. With `min`, a check may move it down that far. */
+    double: poolFaceRuleSchema.optional(),
+    /** Optional: a face at or above `from` rolls one more die, chained, up to the Engine's ceiling.
+     *  With `min`, a check may move it down that far. */
+    explode: poolFaceRuleSchema.optional(),
     /** Optional: a face at or below this takes one success away, never below none. */
     cancel: z
       .object({
@@ -322,7 +346,8 @@ const dicePoolResolutionSchema = z
       })
       .strict()
       .optional(),
-    /** Optional: no die succeeded AND a face at or below this showed, which is worse than failing. */
+    /** Optional: a face at or below `upTo` going wrong, read by `rule` (no die succeeding, the default,
+     *  or low faces on half the dice or more). */
     botch: z
       .object({
         upTo: z
@@ -330,6 +355,7 @@ const dicePoolResolutionSchema = z
           .int()
           .min(1)
           .max(POOL_DIE_MAX_SIDES - 1),
+        rule: z.enum(RULESET_BOTCH_RULES).default("noSuccesses"),
       })
       .strict()
       .optional(),
@@ -516,10 +542,17 @@ const liveTrackSchema = z
     id: sheetId,
     label,
     min: z.number().int(),
-    max: z.number().int(),
+    /** A number, or on a plain track a value the sheet works out, the way a pool's maximum is (a
+     *  rating of the character's own). A wound track's is always its number of levels. */
+    max: z.union([z.number().int(), rulesetValueRefSchema]),
     default: z.number().int().optional(),
     levels: z.array(liveTrackLevelSchema).min(1).max(RULESET_TRACK_LEVELS_MAX).optional(),
     kinds: z.array(liveTrackKindSchema).min(1).max(RULESET_TRACK_KINDS_MAX).optional(),
+    /** Printed in the sheet block even at its default, for a rating that matters every turn. */
+    alwaysShow: z.boolean().optional(),
+    /** Off the sheet while a field says so, as a pool can be. Never on a wound track, which rolls
+     *  and fights read whatever the sheet shows. */
+    hideWhen: hideWhenSchema.optional(),
   })
   .strict();
 
@@ -649,7 +682,10 @@ const gmSchema = z
             z
               .object({
                 list: sheetId,
+                /** A text column, or an enum column whose value names the row. */
                 nameColumn: sheetId,
+                /** Up to three more of the row's own columns, printed after its name (a rating). */
+                columns: z.array(sheetId).min(1).max(3).optional(),
                 /** Group rows under this column's value (spells by level). */
                 groupBy: sheetId.optional(),
                 /** Only rows whose boolean column is true (prepared spells). */
@@ -920,6 +956,10 @@ const catalogMechanicsSchema = z
         successes: z.number().int().min(1).max(SPEND_EFFECT_MAX).optional(),
         /** The per-die target this one check counts with, inside what the ruleset allows. */
         threshold: z.number().int().min(2).max(1000).optional(),
+        /** The face this one check explodes, or counts twice, from, inside what the ruleset lets a
+         *  check move it to. */
+        explode: z.number().int().min(2).max(1000).optional(),
+        double: z.number().int().min(2).max(1000).optional(),
       })
       .strict()
       .superRefine((check, ctx) => {
@@ -927,7 +967,9 @@ const catalogMechanicsSchema = z
           !check.reroll &&
           check.dice === undefined &&
           check.successes === undefined &&
-          check.threshold === undefined
+          check.threshold === undefined &&
+          check.explode === undefined &&
+          check.double === undefined
         ) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A check effect does something, or is left out" });
         }
@@ -2218,6 +2260,10 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     if (track.max !== track.levels.length) {
       issue([...path, "max"], `A wound track holds one mark per level, so its max is ${track.levels.length}`);
     }
+    // Rolls read its penalty and fights read it as health whatever the sheet shows, so a wound track
+    // cannot be taken off the sheet by a field.
+    if (track.hideWhen)
+      issue([...path, "hideWhen"], "A wound track is read by rolls and fights, so it cannot be hidden");
     if (track.default !== undefined && track.default !== 0) {
       issue([...path, "default"], "A wound track starts unmarked, so it declares no default");
     }
@@ -2446,8 +2492,17 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     if (target.default < target.min || target.default > target.max) {
       issue(["resolution", "target", "default"], "default is outside min..max");
     }
-    if (resolution.double) faceIssue(resolution.double.from, ["resolution", "double", "from"]);
-    if (resolution.explode) faceIssue(resolution.explode.from, ["resolution", "explode", "from"]);
+    // A rule a check may move keeps its default at or above the lowest face it may move to, or the
+    // default itself would be a face no check could ask for.
+    for (const key of ["double", "explode"] as const) {
+      const rule = resolution[key];
+      if (!rule) continue;
+      if (rule.from !== undefined) faceIssue(rule.from, ["resolution", key, "from"]);
+      if (rule.min !== undefined) faceIssue(rule.min, ["resolution", key, "min"]);
+      if (rule.from !== undefined && rule.min !== undefined && rule.from < rule.min) {
+        issue(["resolution", key, "from"], "from is below min");
+      }
+    }
     // A face that both succeeds and cancels, or both succeeds and botches, would count itself
     // twice in opposite directions. The lowest target the GM can set is the line.
     for (const key of ["cancel", "botch"] as const) {
@@ -2491,6 +2546,14 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
   });
   sheet.live.tracks.forEach((track, index) => {
     const path = ["sheet", "live", "tracks", index];
+    checkHideWhen(track.hideWhen, path);
+    if (typeof track.max !== "number") {
+      // A maximum the sheet works out is only known per character, so only the floor is checked here;
+      // the live state holds a value inside whatever the character's own maximum turns out to be.
+      checkRef(track.max, [...path, "max"], derivedIds);
+      if (track.default !== undefined && track.default < track.min) issue([...path, "default"], "default is below min");
+      return;
+    }
     if (track.min > track.max) issue([...path, "min"], "min is above max");
     if (track.default !== undefined && (track.default < track.min || track.default > track.max)) {
       issue([...path, "default"], "default is outside min..max");
@@ -2546,7 +2609,11 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     const list = listById.get(entry.list);
     if (!list) return issue([...path, "list"], `Unknown list "${entry.list}"`);
     const typeOf = (id: string) => list.columns.find((column) => column.id === id)?.type;
-    if (typeOf(entry.nameColumn) !== "text") issue([...path, "nameColumn"], "Must name a text column");
+    const nameType = typeOf(entry.nameColumn);
+    if (nameType !== "text" && nameType !== "enum") issue([...path, "nameColumn"], "Must name a text or enum column");
+    (entry.columns ?? []).forEach((id, columnIndex) => {
+      if (typeOf(id) === undefined) issue([...path, "columns", columnIndex], `Unknown column "${id}"`);
+    });
     if (entry.groupBy && typeOf(entry.groupBy) === undefined)
       issue([...path, "groupBy"], `Unknown column "${entry.groupBy}"`);
     if (entry.onlyWhen && typeOf(entry.onlyWhen) !== "boolean")
@@ -2849,6 +2916,24 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         // kinds instead, so it could never hold a count of successful death saves.
         else if (woundTracks.has(dying[key]))
           issue(at("dying", key), `"${dying[key]}" is a wound track, not a counter`);
+        else {
+          // Every fight counts to this track's top, so the top is the rules' own number with room to
+          // count in, and the track is always on the sheet. A top the sheet works out could come to
+          // nothing for one character, and a hidden track reads as nothing at all: either way one
+          // roll would settle a death save that the rules say takes several.
+          const track = sheet.live.tracks.find((entry) => entry.id === dying[key])!;
+          if (typeof track.max !== "number") {
+            issue(
+              at("dying", key),
+              `"${dying[key]}" counts death saves, so its max is a number rather than the sheet's`,
+            );
+          } else if (track.max <= track.min || track.max < 1) {
+            // Room to count, and at least one to count to: a top of 0 is reached by the first roll
+            // whatever the floor under it.
+            issue(at("dying", key), `"${dying[key]}" counts death saves, so its max is at least 1 and above its min`);
+          }
+          if (track.hideWhen) issue(at("dying", key), `"${dying[key]}" counts death saves, so it cannot be hidden`);
+        }
       }
       if (dying.successes === dying.failures) {
         issue(at("dying", "failures"), "Successes and failures are counted on two different tracks");
@@ -2956,7 +3041,13 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         // Something on the sheet shows or hides on one of this field's values. With that value gone
         // the rule could never match again, the layered ruleset would not validate, and the layer
         // would be skipped in play with nobody told. Said here, while the author is looking.
-        const watched = [...sheet.fields, ...sheet.derived, ...sheet.lists, ...sheet.live.pools].flatMap((item) =>
+        const watched = [
+          ...sheet.fields,
+          ...sheet.derived,
+          ...sheet.lists,
+          ...sheet.live.pools,
+          ...sheet.live.tracks,
+        ].flatMap((item) =>
           item.hideWhen?.field === entry.id && typeof item.hideWhen.equals === "string" ? [item] : [],
         );
         entry.removeValues.forEach((value, valueIndex) => {
@@ -3640,6 +3731,18 @@ export function rulesetCatalogEntryIssues(
           (check.threshold < resolution.target.min || check.threshold > resolution.target.max)
         ) {
           add([...path, "threshold"], `This ruleset counts on ${resolution.target.min} to ${resolution.target.max}`);
+        }
+        // An entry may move a face rule only as far as a check may: the ruleset has to say how low it
+        // goes, and the entry has to stay on the die.
+        for (const key of ["explode", "double"] as const) {
+          const face = check[key];
+          if (face === undefined) continue;
+          const min = resolution[key]?.min;
+          if (min === undefined) {
+            add([...path, key], `This ruleset gives resolution.${key} no min, so no check may move it`);
+          } else if (face < min || face > resolution.die.sides) {
+            add([...path, key], `This ruleset lets a check move ${key} from ${min} to ${resolution.die.sides}`);
+          }
         }
       }
     }

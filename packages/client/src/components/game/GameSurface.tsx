@@ -5156,6 +5156,12 @@ function GameSurfaceComponent({
                         : undefined,
                     bonusDice:
                       Number.isInteger(sc.bonusDice) && Math.abs(sc.bonusDice!) <= 20 ? sc.bonusDice : undefined,
+                    // A step named in place of dc, and the faces a pool check moved, on the same terms.
+                    difficulty: sc.difficulty,
+                    explode:
+                      Number.isInteger(sc.explode) && sc.explode! >= 2 && sc.explode! <= 1000 ? sc.explode : undefined,
+                    double:
+                      Number.isInteger(sc.double) && sc.double! >= 2 && sc.double! <= 1000 ? sc.double : undefined,
                     messageId: msg.id,
                   })
                 ).result
