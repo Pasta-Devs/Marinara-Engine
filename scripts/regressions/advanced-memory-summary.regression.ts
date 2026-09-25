@@ -497,6 +497,71 @@ try {
     if (id === borrower.id) assert(!prepared.receipt.recalledMessageIds.includes(partialSource[1]!.id));
   }
   assert.equal(requests.length, beforePartialToggle, "recalling partial scenes adds no helper calls");
+
+  const changedVisibilityChat = await createChat("Source visibility changed after a plain recap was saved");
+  await chats.update(changedVisibilityChat.id, { characterIds: [borrower.id, otherPov.id, narratorActor.id] });
+  await chats.patchMetadata(changedVisibilityChat.id, {
+    groupChatMode: "individual",
+    advancedMemory: {
+      ...settings,
+      summaryBudgetTokens: 4096,
+      narratorCharacterId: narratorActor.id,
+      knowledgeStarts: { [borrower.id]: null, [otherPov.id]: null },
+    },
+  });
+  const changedVisibilitySource = await chats.listMessages(changedVisibilityChat.id);
+  await chats.updateMessageContent(changedVisibilitySource[1]!.id, "Pantalone discussed PRIVATE_VAULT by the compass.");
+  await chats.createMessage({
+    chatId: changedVisibilityChat.id,
+    role: "user",
+    content: "The following morning, recall the brass compass promise.",
+    extra: { isConversationStart: true },
+  });
+  summaryResponse = "They shared the brass compass promise and discussed PRIVATE_VAULT.";
+  await memory.initialize(changedVisibilityChat.id);
+  summaryResponse = summary;
+  const changedVisibilityRecord = (await memory.status(changedVisibilityChat.id)).records.find(
+    (record) => record.kind === "scene" && record.content,
+  )!;
+  await chats.updateMessageExtra(changedVisibilitySource[1]!.id, { hiddenFromAICharacterIds: [borrower.id] });
+  await memory.refreshTransferredRecords(changedVisibilityChat.id, [changedVisibilityRecord.id]);
+  const beforeVisibilityRecall = requests.length;
+  const prepareChangedVisibility = (id: string) =>
+    chats.listMessages(changedVisibilityChat.id).then((messages) =>
+      memory.prepare({
+        chatId: changedVisibilityChat.id,
+        messages,
+        audienceCharacterIds: [id],
+        budgetTokens: 12000,
+        readOnly: true,
+      }),
+    );
+  assert.equal(
+    (await prepareChangedVisibility(borrower.id)).recalledScenes,
+    null,
+    "an old plain recap cannot expose newly hidden facts",
+  );
+  assert.match(
+    (await prepareChangedVisibility(otherPov.id)).recalledScenes!,
+    /PRIVATE_VAULT/u,
+    "unrestricted readers retain the saved recap",
+  );
+  assert.equal(requests.length, beforeVisibilityRecall, "changed visibility never starts a helper during recall");
+  assert(
+    (await memory.status(changedVisibilityChat.id)).unpreparedScenes?.some(
+      (scene) => scene.sceneId === changedVisibilityRecord.sceneId,
+    ),
+  );
+  summaryResponse =
+    'They shared the brass compass promise. {{#if character == "Pantalone" || "Narrator"}}Pantalone discussed PRIVATE_VAULT.{{/if}}';
+  await memory.initialize(changedVisibilityChat.id, { sceneId: changedVisibilityRecord.sceneId, detectScenes: false });
+  summaryResponse = summary;
+  const repairedVisibility = await prepareChangedVisibility(borrower.id);
+  assert.match(repairedVisibility.recalledScenes!, /brass compass promise/u);
+  assert(
+    !repairedVisibility.recalledScenes!.includes("PRIVATE_VAULT"),
+    "targeted preparation restores safe partial access",
+  );
   const narratorChat = await createChat("Narrator shares the whole scene archive");
   await chats.update(narratorChat.id, { characterIds: [borrower.id, narratorActor.id] });
   await chats.createMessagesBatch(

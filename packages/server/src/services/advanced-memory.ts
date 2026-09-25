@@ -121,6 +121,7 @@ type StoredRecord = Omit<AdvancedMemoryRecord, "startIndex" | "endIndex" | "embe
   embeddingSpaceId: string | null;
 };
 type Metadata = Record<string, unknown>;
+type VisibilityReader = { id: string; name: string; visibleIds: Set<string> };
 type Context = {
   chatId: string;
   connectionId: string | null;
@@ -131,6 +132,7 @@ type Context = {
   names: Map<string, string>;
   individual: boolean;
   recordCache?: StoredRecord[];
+  visibilityReaders?: VisibilityReader[];
 };
 type Scene = { id: string; start: number; end: number; closed: boolean };
 const activeOperations = new Map<
@@ -223,7 +225,7 @@ function policyFingerprint(ctx: Context): string {
 
 function preparationPolicyRevision(ctx: Context): string {
   return hash([
-    "partial-scene-recall-v16", // Invalidate reusable contexts without rebuilding valid source archives.
+    "partial-scene-visibility-v17", // Invalidate reusable contexts without rebuilding valid source archives.
     policyFingerprint(ctx),
     ctx.settings,
     ctx.metadata.summaryEntries,
@@ -370,6 +372,44 @@ function allowed(
   );
 }
 
+function visibilityReaders(ctx: Context): VisibilityReader[] {
+  return (ctx.visibilityReaders ??= ctx.characterIds.map((id) => ({
+    id,
+    name: ctx.names.get(id) ?? id,
+    visibleIds: new Set(allowed(ctx, ctx.messages, [id]).map((message) => message.id)),
+  })));
+}
+
+const SCENE_VISIBILITY = "scene-visibility";
+function sceneVisibility(ctx: Context, messageIds: string[]) {
+  return {
+    id: SCENE_VISIBILITY,
+    // Relative visibility survives message-ID remapping during a verified transfer.
+    revision: hash(
+      visibilityReaders(ctx)
+        .slice()
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map((reader) => [reader.id, messageIds.map((id) => reader.visibleIds.has(id))]),
+    ),
+  };
+}
+
+function hasCurrentSceneVisibility(ctx: Context, record: StoredRecord): boolean {
+  const saved = record.dependencies.find((dependency) => dependency.id === SCENE_VISIBILITY);
+  return !!saved && saved.revision === sceneVisibility(ctx, record.messageIds).revision;
+}
+
+function needsSceneVisibilityReview(ctx: Context, record: StoredRecord): boolean {
+  return (
+    visibilityReaders(ctx).some(
+      (reader) =>
+        record.audienceCharacterIds.includes(reader.id) &&
+        record.messageIds.some((id) => reader.visibleIds.has(id)) &&
+        !record.messageIds.every((id) => reader.visibleIds.has(id)),
+    ) && !hasCurrentSceneVisibility(ctx, record)
+  );
+}
+
 function missingKnowledge(ctx: Context): string[] {
   if (!ctx.individual || !ctx.messages.some((message) => message.role === "user" || message.role === "assistant"))
     return [];
@@ -409,12 +449,7 @@ function messageText(ctx: Context, message: AdvancedMemoryMessage, index: number
 
 function logMessages(ctx: Context, messages: readonly AdvancedMemoryMessage[], includeVisibility = false): string {
   const indexes = new Map(ctx.messages.map((message, index) => [message.id, index]));
-  const readers = includeVisibility
-    ? ctx.characterIds.map((id) => ({
-        name: ctx.names.get(id) ?? id,
-        visibleIds: new Set(allowed(ctx, ctx.messages, [id]).map((message) => message.id)),
-      }))
-    : [];
+  const readers = includeVisibility ? visibilityReaders(ctx) : [];
   return messages
     .map((message) => {
       const visibleTo = readers.filter((reader) => reader.visibleIds.has(message.id));
@@ -784,6 +819,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             record.sceneId === scene.id &&
             (!record.enabled ||
               (record.content &&
+                !needsSceneVisibilityReview(ctx, record) &&
                 (record.manualOverride || (recordValid(ctx, record) && dependenciesValid(record, current, ctx))) &&
                 source.every((message) => record.messageIds.includes(message.id)))),
         )
@@ -1597,14 +1633,17 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             previousRecord.messageIds.every((id) => sourceIds.has(id)) &&
             recordValid(ctx, previousRecord) &&
             dependenciesValid(previousRecord, existing, ctx);
+          const visibilityChanged = previousRecord && needsSceneVisibilityReview(ctx, previousRecord);
           // Disabled records remain inspectable; maintenance must not rebuild over their corrections.
           let record =
             previousRecord &&
             (!previousRecord.enabled ||
-              (previousValid && source.every((message) => previousRecord.messageIds.includes(message.id))))
+              (previousValid &&
+                !visibilityChanged &&
+                source.every((message) => previousRecord.messageIds.includes(message.id))))
               ? previousRecord
               : undefined;
-          if (!record && previousRecord?.manualOverride && !previousValid)
+          if (!record && previousRecord?.manualOverride && (!previousValid || visibilityChanged))
             throw correctionReviewError(ctx, previousRecord);
           if (!record && previousRecord?.manualOverride && audience.length) {
             for (const id of audience) {
@@ -1651,7 +1690,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             candidate.content = result.summary;
             candidate.manualOverride = previousRecord?.manualOverride ?? false;
             candidate.audienceCharacterIds = candidate.manualOverride ? audience : result.audienceCharacterIds;
-            candidate.dependencies.push(SCENE_AUDIENCE);
+            candidate.dependencies.push(SCENE_AUDIENCE, sceneVisibility(ctx, candidate.messageIds));
             candidate.sourceFingerprint = fingerprint(ctx, source, candidate.audienceCharacterIds);
             await put(ctx, candidate, options);
             if (work !== candidate) {
@@ -2339,6 +2378,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       >();
       for (const id of audiences) {
         const eligibleIds = new Set(allowed(ctx, ctx.messages, id ? [id] : []).map((message) => message.id));
+        if (
+          !record.messageIds.every((messageId) => eligibleIds.has(messageId)) &&
+          !hasCurrentSceneVisibility(ctx, record)
+        )
+          continue;
         // Disabled entries also represent deliberate choices. Reuse each range
         // only for characters whose section actually contains that summary.
         const covered = new Set(
@@ -2655,7 +2699,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       throw new Error("Chat history changed during prompt preparation; retry");
     }
     const historical = sources.at(-1)?.id !== liveCtx.messages.at(-1)?.id;
-    const ctx = { ...liveCtx, messages: sources };
+    const ctx = { ...liveCtx, messages: sources, visibilityReaders: undefined };
     const audience = input.audienceMode !== "owner" ? [...new Set(input.audienceCharacterIds)].sort() : [];
     if (ctx.individual && !audience.length && input.audienceMode !== "owner")
       throw new Error("Individual Advanced Memory requires a responding character");
@@ -2816,6 +2860,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             recallAudienceMatches(ctx, record, audience) &&
             !disabledSceneIds.has(record.sceneId) &&
             record.messageIds.some((id) => eligibleIds.has(id)) &&
+            (record.messageIds.every((id) => eligibleIds.has(id)) || hasCurrentSceneVisibility(ctx, record)) &&
             record.messageIds.every((id) => !liveIds.has(id)),
         )
         .map((record) => [record.sceneId, record]),
@@ -3342,7 +3387,16 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
               sourceFingerprint,
             }
           : {}),
-        ...(correctedScene ? { dependencies: JSON.stringify([SCENE_AUDIENCE]) } : {}),
+        ...(correctedScene
+          ? {
+              dependencies: JSON.stringify([
+                SCENE_AUDIENCE,
+                ...(patch.content !== undefined
+                  ? [sceneVisibility(ctx, record.messageIds)]
+                  : record.dependencies.filter((dependency) => dependency.id === SCENE_VISIBILITY)),
+              ]),
+            }
+          : {}),
         ...(patch.enabled !== undefined ? { enabled: patch.enabled ? 1 : 0 } : {}),
         updatedAt: now(),
       };
