@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- The Roleplay whisper browser regression finishes preparing visual-novel fixtures before reloading, avoiding false WebKit access-control failures in contributor checks (#6628).
+
 - Lorebook and Chat Summary review windows start with focus on the review explanation, so continuing to type cannot accidentally discard a proposal with Space or Enter (#6638).
 
 - Game translations use edited narration, dialogue, and readable text, preserve segment alignment, and discard translation requests invalidated by a later edit or deletion (#6615).
