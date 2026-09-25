@@ -6141,6 +6141,7 @@
   "ui.connections.connectioneditor.usageLookupUnavailable": "NanoGPT could not report this quota right now.",
   "ui.connections.connectioneditor.usageManagementTokenRecommended": "Using your API key. A 'Usage only' management token is safer for reading quotas.",
   "ui.connections.connectioneditor.usagePercentOf": "{{percent}}% · {{used}} used",
+  "ui.connections.connectioneditor.usagePercentUsed": "{{percent}}% used",
   "ui.connections.connectioneditor.usageRemaining": "{{remaining}} remaining",
   "ui.connections.connectioneditor.usageUnknown": "unknown",
   "ui.connections.connectioneditor.usageUsedOfLimit": "{{used}} / {{limit}} tokens",

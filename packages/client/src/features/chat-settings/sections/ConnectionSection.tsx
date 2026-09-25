@@ -78,7 +78,7 @@ export function ConnectionSection({
             </select>
           </div>
           {contextBudget && <ContextBudgetIndicator budget={contextBudget} />}
-          {usageConnection && <NanoGptUsageWidget connectionId={usageConnection.id} variant="inline" />}
+          {usageConnection && <NanoGptUsageWidget connectionId={usageConnection.id} variant="panel" />}
         </div>
       ) : (
         <>
@@ -108,7 +108,7 @@ export function ConnectionSection({
               </span>
             </div>
           )}
-          {usageConnection && <NanoGptUsageWidget connectionId={usageConnection.id} variant="inline" />}
+          {usageConnection && <NanoGptUsageWidget connectionId={usageConnection.id} variant="panel" />}
         </>
       )}
     </ChatSettingsSection>

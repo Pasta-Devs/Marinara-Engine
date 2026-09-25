@@ -92,16 +92,21 @@ function QuotaBar({
 
   return (
     <div>
-      {/* In the compact layout the host's title row already names the window, so
-          only the reading is drawn here. */}
-      <div className="flex items-baseline justify-between gap-3">
-        {label ? (
+      {/* Compact leaves the numbers to the header row, which already states them,
+          and puts the percentage where the label would sit — so this row reads as
+          a second line of the same figure rather than a repeat of it. */}
+      {compact ? (
+        <div className="text-[0.6875rem] tabular-nums text-[var(--marinara-chat-chrome-panel-text)]">
+          {localizeUi("ui.connections.connectioneditor.usagePercentUsed", {
+            percent: String(Math.round(percent)),
+          })}
+        </div>
+      ) : (
+        <div className="flex items-baseline justify-between gap-3">
           <span className="text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">{label}</span>
-        ) : (
-          <span />
-        )}
-        <span className="text-[0.6875rem] tabular-nums text-[var(--marinara-chat-chrome-panel-text)]">{reading}</span>
-      </div>
+          <span className="text-[0.6875rem] tabular-nums text-[var(--marinara-chat-chrome-panel-text)]">{reading}</span>
+        </div>
+      )}
       <div
         role="progressbar"
         aria-label={localizeUi("ui.connections.connectioneditor.usageAria", {
@@ -138,26 +143,40 @@ function QuotaBar({
 export function NanoGptUsageWidget({
   connectionId,
   /**
-   * Which surface this is drawn on. "editor" is the standalone connection card;
-   * "inline" sits under a chat picker's context bar, which it mirrors in size,
-   * spacing and color instead of competing with it.
+   * Which surface this is drawn on.
+   *   "card"   — the connection editor: a bordered card carrying every detail.
+   *   "inline" — under a chat picker's context bar, which it mirrors in size,
+   *              spacing and color, with the optional hints dropped.
+   *   "panel"  — a chat settings section: sized like the context bar, but
+   *              bordered like the editor cards around it in that drawer.
    */
-  variant = "editor",
+  variant = "card",
 }: {
   connectionId: string;
-  variant?: "editor" | "inline";
+  variant?: "card" | "inline" | "panel";
 }) {
   const { t: localizeUi } = useUiTranslation();
   const { data, isLoading, isFetching, error, refetch } = useNanoGptSubscriptionUsage(connectionId, true);
   const compact = variant === "inline";
-  const frame = compact
-    ? "mb-2 space-y-1 px-0.5"
-    : "space-y-2.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)]";
+  // The same surface recipe for the settled, loading and failed states, so a
+  // failure is drawn on the host's own surface rather than a stray card.
+  const surface =
+    variant === "card"
+      ? "rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)]"
+      : variant === "panel"
+        ? "rounded-xl bg-foreground/5 px-3 py-2.5 ring-1 ring-foreground/10"
+        : "mb-2 px-0.5";
+  const frame =
+    variant === "card"
+      ? "space-y-2.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)]"
+      : variant === "panel"
+        ? "space-y-2 rounded-xl bg-foreground/5 px-3 py-2.5 ring-1 ring-foreground/10"
+        : "mb-2 space-y-1 px-0.5";
   const providerName = providerDisplayName(data?.provider);
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 rounded-xl bg-[var(--secondary)] px-3 py-2.5">
+      <div className={`flex items-center gap-2 ${surface}`}>
         <Loader2 size="0.75rem" className="animate-spin text-sky-400" />
         <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
           {localizeUi("ui.connections.connectioneditor.loadingSubscriptionUsage")}
@@ -168,7 +187,7 @@ export function NanoGptUsageWidget({
 
   if (error) {
     return (
-      <div className="rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)]">
+      <div className={surface}>
         <div className="flex items-start gap-2">
           <TriangleAlert size="0.75rem" className="mt-0.5 shrink-0 text-[var(--marinara-editor-accent)]" />
           <p className="min-w-0 flex-1 text-[0.625rem] text-[var(--muted-foreground)]">
