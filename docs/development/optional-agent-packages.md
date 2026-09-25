@@ -1133,6 +1133,71 @@ Rules worth knowing:
 `api.registerAchievements` and `api.runtime.achievements` only exist on an Engine this new, so a
 package that uses them declares `capabilityApi` 1.36.
 
+### Capability API 1.35: agent Home widgets
+
+An agent package can offer up to three cards for the Home widget grid. The Engine never places them on
+its own: the user adds, hides, restores, and reorders them in the **Widget Manager**, where they are
+grouped under the agent. The Engine owns the grid, the frame, and the layout; the package owns what is
+inside the card.
+
+Declare the `home-widget` slot and the widget definitions together:
+
+```json
+{
+  "schemaVersion": 2,
+  "capabilityApi": { "major": 1, "minor": 35 },
+  "kind": ["agent"],
+  "permissions": ["ui"],
+  "entrypoints": { "client": "client.js" },
+  "contributions": {
+    "slots": ["home-widget"],
+    "homeWidgets": [
+      {
+        "id": "latest",
+        "label": "Latest Posts",
+        "description": "The newest posts from the feed.",
+        "size": "large",
+        "iconPath": "art/widget.png",
+        "accent": "violet",
+        "surface": "solid",
+        "header": "banner"
+      }
+    ]
+  }
+}
+```
+
+- `id` is lower-case kebab case, at most 64 characters, and unique within the package.
+- `label` (1–80 characters) and `description` (up to 200) are the Widget Manager text. A locale pack can
+  override them through `localizations.<locale>.homeWidgets.<id>.label` and `.description`.
+- `size` is `compact` or `large`. A large widget takes more room in the grid.
+- `icon` is one of the Engine's icon names (`activity`, `bell`, `calendar`, `chart`, `circle`, `clock`,
+  `file`, `flame`, `heart`, `image`, `list`, `message`, `sparkles`, `star`, `zap`). `iconPath` is package
+  art (`gif`, `jpg`, `jpeg`, `png`, `webp`) and must be listed in `files[]`.
+- `accent`, `surface`, and `header` pick from the Engine's presentation presets.
+
+The install is refused when the package is not an `agent` with the `ui` permission and a client
+entrypoint, when the slot and `homeWidgets` are not declared together, when two widgets share an id, or
+when `capabilityApi` is older than 1.35.
+
+The Engine mounts the package's client element with `view="widget"`. On top of the usual
+`packageId`, `packageVersion`, and `localization`, `capabilityProps` carries:
+
+- `widgetId`, `widgetLabel`, `widgetDescription`, `widgetIcon`, `widgetIconPath`, `widgetAccent`,
+  `widgetSurface`, and `widgetHeader`: the definition of the card being drawn, so one bundle can draw
+  every widget it declares.
+- `active`: `true` only while Home is showing and the card is visible. Pause polling and animation when
+  it is `false`.
+- `onOpenNoodle()`: opens the package's own Home browser tab. Despite the name, it works for any package
+  that also declares the `home-browser-tab` slot; without that tab there is nothing to open.
+- `onOpenPost(id)`: opens the package's own Home browser tab at one item. `id` is a string of up to 128
+  characters; anything else is ignored. The tab's `view="browser"` element then receives
+  `focusPostId: id`. It should call `onFocusPostHandled()` once it has shown the item, so the focus does
+  not replay. Switching to any other tab drops a pending focus.
+
+A widget is a small view of the agent, not a second copy of it. Keep it light, and send the user to the
+browser tab for anything larger.
+
 ### Capability API 1.34: a creature written in the ruleset's own terms
 
 A bestiary creature may carry a `sheet`: a character sheet in the ruleset's own terms, as partial as
