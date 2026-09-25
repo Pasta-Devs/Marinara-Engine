@@ -234,9 +234,9 @@ function requireLevelsWithKinds(node) {
 }
 
 /**
- * A purchase on a check buys successes or dice, so an entry that names neither buys nothing. Zod
- * refuses that at import; the published schema has to say it too, or an author's editor calls a
- * useless entry valid.
+ * A purchase on a check buys successes, dice or a throw again, so an entry that names none of them
+ * buys nothing. Zod refuses that at import; the published schema has to say it too, or an author's
+ * editor calls a useless entry valid.
  */
 function requireSpendBuysSomething(node) {
   if (Array.isArray(node)) return node.forEach(requireSpendBuysSomething);
@@ -245,7 +245,10 @@ function requireSpendBuysSomething(node) {
   const properties = node.properties;
   if (node.type !== "object" || !properties?.pool || !properties.perCheck) return;
   if (!properties.successes && !properties.dice) return;
-  requireAnyOf(node, ["successes", "dice"]);
+  requireAnyOf(
+    node,
+    ["successes", "dice", "reroll"].filter((key) => properties[key]),
+  );
 }
 
 /**

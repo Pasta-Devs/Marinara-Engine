@@ -137,8 +137,9 @@ assert.equal(
 
 // Gravewatch: an adjustable target is reported as the range it may move in, and every optional rule
 // it turns on is listed once, in the order the summary declares. It ships no doubling rule, so no
-// doubling phrase appears. Its exploding face may be lowered to 8 for a check, and an ability check
-// may add a second ability, which is said last because it is about what fills the pool.
+// doubling phrase appears. Its exploding face may be lowered to 8 for a check, a check may name its
+// standing re-throw, and an ability check may add a second ability, which is said last because it
+// is about what fills the pool.
 assert.deepEqual(rulesetRulesSummary(gravewatch, keyed), [
   "rules.poolTargetRange(max=9,min=5,sides=10)",
   "rules.explodeMovable(from=10,min=8)",
@@ -146,6 +147,7 @@ assert.deepEqual(rulesetRulesSummary(gravewatch, keyed), [
   "rules.botch(upTo=1)",
   "rules.exceptional(count=5)",
   "rules.situational(max=3,min=-3)",
+  "rules.reroll(id=careful,upTo=6)",
   "rules.abilityPlusAbility",
 ]);
 assert.equal(

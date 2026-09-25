@@ -737,6 +737,8 @@ try {
     // And the rules a check may move, two abilities together and a botch rule, which are 1.37's.
     delete document.resolution.explode.min;
     delete document.resolution.pool.abilityPlusAbility;
+    // And 1.38's standing re-throw.
+    delete document.resolution.reroll;
     assert.match(
       getCapabilityPackageInstallIssue(manifest(23) as any, document) ?? "",
       /dice-pool resolution requires schemaVersion 2 and capabilityApi 1\.24 or newer/,

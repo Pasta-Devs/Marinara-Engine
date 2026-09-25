@@ -9305,7 +9305,7 @@ export async function gameRoutes(app: FastifyInstance) {
       preRolledD20: z.number().int().min(1).max(20).optional(),
       /** The party member to roll for in a game with a pinned ruleset; ignored without one. */
       who: z.string().trim().min(1).max(100).optional(),
-      /** `with=`, `threshold=`, `bonus=`, `difficulty=`, `explode=` and `double=` off the tag, so this
+      /** `with=`, `threshold=`, `bonus=`, `difficulty=`, `explode=`, `double=` and `reroll=` off the tag, so this
        *  fallback asks the ruleset the same question generation would have. Each is ignored where the
        *  ruleset does not take it. */
       withAbility: z.string().trim().min(1).max(100).optional(),
@@ -9314,6 +9314,7 @@ export async function gameRoutes(app: FastifyInstance) {
       difficulty: z.string().trim().min(1).max(80).optional(),
       explode: z.number().int().min(2).max(1000).optional(),
       double: z.number().int().min(2).max(1000).optional(),
+      reroll: z.string().trim().min(1).max(40).optional(),
       messageId: z.string().min(1).optional(),
     })
     .refine((input) => input.dc !== undefined || input.difficulty !== undefined, {
@@ -9342,6 +9343,7 @@ export async function gameRoutes(app: FastifyInstance) {
         difficulty: input.difficulty,
         explode: input.explode,
         double: input.double,
+        reroll: input.reroll,
       });
     } catch (err) {
       // A step no ladder in this game has, or a game with no ladder at all: nothing to roll against.

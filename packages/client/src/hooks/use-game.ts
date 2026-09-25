@@ -618,6 +618,7 @@ export function useSkillCheck() {
       difficulty?: string;
       explode?: number;
       double?: number;
+      reroll?: string;
       messageId?: string;
     }) =>
       api.post<{ result: import("@marinara-engine/shared").SkillCheckResult; updatedContent?: string }>(

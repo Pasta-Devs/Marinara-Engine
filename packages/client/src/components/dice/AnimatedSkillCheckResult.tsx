@@ -72,6 +72,20 @@ export function AnimatedSkillCheckResult({
           </span>
         </div>
       )}
+      {/* What the sheet itself added or took, beside any wound: a player cannot tell the two apart
+          from the dice alone. */}
+      {result.adjust !== undefined && result.adjust !== 0 && (
+        <div className="skill-check-roll-meta">
+          <span>
+            {localizeUi(
+              result.resolution === "successes"
+                ? "ui.dice.animatedskillcheckresult.adjustDice"
+                : "ui.dice.animatedskillcheckresult.adjust",
+              { value: result.adjust > 0 ? `+${result.adjust}` : `${result.adjust}` },
+            )}
+          </span>
+        </div>
+      )}
       {/* A face the check moved off the ruleset's own, so extra dice or doubled faces are explained. */}
       {result.explodeFrom !== undefined && (
         <div className="skill-check-roll-meta">

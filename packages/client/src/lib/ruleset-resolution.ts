@@ -63,6 +63,14 @@ export function rulesetRulesSummary(definition: RulesetDefinition, t: TFunction)
       }),
     );
   }
+  for (const reroll of resolution.reroll ?? []) {
+    lines.push(
+      t(reroll.mode === "until" ? "game.ruleset.rules.rerollUntil" : "game.ruleset.rules.reroll", {
+        id: reroll.id,
+        upTo: reroll.upTo,
+      }),
+    );
+  }
   // About what fills the pool rather than what its dice do, so it comes after every dice rule.
   if (resolution.pool.abilityPlusAbility) lines.push(t("game.ruleset.rules.abilityPlusAbility"));
   return lines;

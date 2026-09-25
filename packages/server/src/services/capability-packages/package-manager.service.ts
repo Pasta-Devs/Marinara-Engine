@@ -906,6 +906,21 @@ export function getCapabilityPackageInstallIssue(
       return "A ruleset whose weapons cap their own strikes requires schemaVersion 2 and capabilityApi 1.32 or newer";
     }
   }
+  // What a check may buy and what rides along on it, which are 1.38's: standing re-throws, a spend
+  // that throws again or reads its limit off the sheet, more than two spends, and sheet modifiers.
+  if (resolution && !declaresApi(38)) {
+    const record = resolution as Record<string, unknown>;
+    const spends = Array.isArray(record.spend) ? record.spend : [];
+    const newSpend =
+      spends.length > 2 ||
+      spends.some((entry) => {
+        const spend = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
+        return spend.reroll !== undefined || (spend.perCheck !== undefined && typeof spend.perCheck !== "number");
+      });
+    if (record.reroll !== undefined || record.adjust !== undefined || newSpend) {
+      return "A ruleset whose checks take standing re-throws or sheet modifiers, or whose spends throw again, read their limit off the sheet or number more than two, requires schemaVersion 2 and capabilityApi 1.38 or newer";
+    }
+  }
   // The sheet's own 1.37 keys: a track's maximum off the sheet, a track hidden or always shown, and
   // a summary list's columns or enum name. Same file, same reading, same reason.
   if (!declaresApi(37) && rulesetCarriesSheet137Keys(ruleset)) return SHEET_1_37_ISSUE;

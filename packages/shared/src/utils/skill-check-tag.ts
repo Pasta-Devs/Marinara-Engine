@@ -33,6 +33,9 @@ export interface SkillCheckTag {
    */
   explode?: number;
   double?: number;
+  /** `reroll="id"` as the GM wrote it: one of the ruleset's standing re-throws, by its id. Carried,
+   *  never judged: whether the ruleset has one by that name is the resolver's business. */
+  reroll?: string;
   advantage?: boolean;
   disadvantage?: boolean;
   resolvedResult?: SkillCheckResult;
@@ -382,6 +385,8 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     const bonus = Number(bonusValue);
     if (Number.isInteger(bonus)) tag.bonusDice = bonus;
   }
+  const rerollName = values.get("reroll")?.trim();
+  if (rerollName) tag.reroll = rerollName.slice(0, 40);
   // A face, so a whole number or nothing, on the same terms as `bonus=`.
   for (const key of ["explode", "double"] as const) {
     const written = values.get(key)?.trim();
@@ -422,6 +427,8 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   const penalty = Number.isFinite(penaltyValue) && penaltyValue < 0 ? { penalty: penaltyValue } : {};
   // Said by the Engine's own record only, and read back so a reloaded card still says it.
   const complication = values.get("complication")?.trim().toLowerCase() === "true" ? { complication: true } : {};
+  const adjustValue = Number(values.get("adjust"));
+  const adjust = Number.isInteger(adjustValue) && adjustValue !== 0 ? { adjust: adjustValue } : {};
   const rollsValue = values.get("rolls");
   const modifier = Number.parseInt(values.get("modifier") ?? "", 10);
   const total = Number.parseInt(values.get("total") ?? "", 10);
@@ -460,6 +467,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
       dice: declaredDice,
       ...penalty,
       ...complication,
+      ...adjust,
     };
     return tag;
   }
@@ -572,6 +580,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     dice,
     ...penalty,
     ...complication,
+    ...adjust,
   };
 
   return tag;

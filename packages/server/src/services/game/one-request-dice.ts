@@ -280,6 +280,7 @@ export function planGameTurnBranches(content: string, blocks: GameBranchBlock[])
               ...(tag.difficulty ? { difficulty: tag.difficulty } : {}),
               ...(tag.explode != null ? { explode: tag.explode } : {}),
               ...(tag.double != null ? { double: tag.double } : {}),
+              ...(tag.reroll ? { reroll: tag.reroll } : {}),
               advantage: tag.advantage,
               disadvantage: tag.disadvantage,
               preRolledD20: tag.preRolledD20,

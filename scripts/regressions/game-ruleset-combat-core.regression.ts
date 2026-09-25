@@ -58,12 +58,14 @@ import {
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
 const fiveEText = read("../../docs/development/ruleset-5e-2014.example.json");
-/** The example less the sheet keys 1.37 added (a track always shown, a summary list's columns):
- *  every gate this lane proves is older, so it is proven on a file that trips nothing newer. */
+/** The example less the sheet keys 1.37 added (a track always shown, a summary list's columns)
+ *  and 1.38's modifier off the sheet: every gate this lane proves is older, so it is proven on a
+ *  file that trips nothing newer. */
 const emberText = (() => {
   const doc = JSON.parse(read("../../docs/examples/rulesets/ember-roads.json"));
   for (const track of doc.sheet.live.tracks) delete track.alwaysShow;
   for (const list of doc.gm.sheetSummary?.lists ?? []) delete list.columns;
+  delete doc.resolution.adjust;
   return JSON.stringify(doc);
 })();
 

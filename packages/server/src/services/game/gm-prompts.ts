@@ -636,6 +636,33 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
  * Build the GM format reminder — injected as the last user message so the
  * output format and available commands sit closest to generation in context.
  */
+/** A re-throw in words: which faces are thrown again, and whether until they clear it. */
+function rerollWords(reroll: { upTo: number; mode: "once" | "until" }): string {
+  return `dice showing ${reroll.upTo} or less${reroll.mode === "until" ? ", until they show more" : ", once"}`;
+}
+
+/** Where a number on the sheet comes from, in the ruleset's own words, for a line that cannot say
+ *  the number itself because it differs for every character. */
+function describeSheetValue(
+  ruleset: import("@marinara-engine/shared").RulesetDefinition,
+  ref: import("@marinara-engine/shared").RulesetValueRef,
+): string {
+  const { sheet } = ruleset;
+  const labelOf = (entries: ReadonlyArray<{ id: string; label: string }>, id: string) =>
+    entries.find((entry) => entry.id === id)?.label ?? id;
+  if (ref.const !== undefined) return String(ref.const);
+  if (ref.field !== undefined) return `the sheet's ${labelOf(sheet.fields, ref.field)}`;
+  if (ref.derived !== undefined) return `the sheet's ${labelOf(sheet.derived, ref.derived)}`;
+  if (ref.abilityScore !== undefined) return `the sheet's ${labelOf(sheet.abilities, ref.abilityScore)}`;
+  if (ref.abilityMod !== undefined) return `the sheet's ${labelOf(sheet.abilities, ref.abilityMod)} modifier`;
+  if (ref.abilityModFromField !== undefined) {
+    return `the modifier of the ability the sheet's ${labelOf(sheet.fields, ref.abilityModFromField)} names`;
+  }
+  if (ref.skillMod !== undefined) return `the sheet's ${labelOf(sheet.skills, ref.skillMod)}`;
+  if (ref.saveMod !== undefined) return `the sheet's ${labelOf(sheet.saves, ref.saveMod)}`;
+  return "a number on the sheet";
+}
+
 /** The ruleset's own check line, in place of the built-in one. Everything in it is the ruleset's
  *  validated, prompt-safe text; the Engine adds only the tag shape and the ladder. */
 function renderRulesetSkillCheckLine(
@@ -700,18 +727,35 @@ function renderRulesetSkillCheckLine(
             `Add bonus="+N" or bonus="-N" to add or take dice for this check, from ${situationalDice.min} to ${situationalDice.max}.`,
           ]
         : []),
+      // The standing re-throws the Game Master may name, each with the faces it throws again.
+      ...(resolution.reroll?.length
+        ? [
+            `When the rules let a roll be thrown again, add reroll="id": ${resolution.reroll
+              .map((reroll) => `${reroll.id} (${rerollWords(reroll)})`)
+              .join(", ")}.`,
+          ]
+        : []),
       ...(resolution.spend ?? []).map((spend) => {
         const pool = ruleset.sheet.live.pools.find((entry) => entry.id === spend.pool);
         const buys = [
           spend.successes ? `${spend.successes} automatic ${spend.successes === 1 ? "success" : "successes"}` : "",
           spend.dice ? `${spend.dice} extra ${spend.dice === 1 ? "die" : "dice"}` : "",
+          spend.reroll ? `a throw again of ${rerollWords(spend.reroll)}` : "",
         ]
           .filter(Boolean)
           .join(" and ");
+        // How many purchases one check may make, said the way the ruleset set it: a number, the check's
+        // own dice, or a number on each character's sheet, which the engine reads for whoever rolls.
+        const cap =
+          typeof spend.perCheck === "number"
+            ? `up to ${spend.perCheck} ${spend.perCheck === 1 ? "time" : "times"} per check`
+            : spend.perCheck === "pool"
+              ? `up to as many times per check as the check has dice`
+              : `up to as many times per check as ${describeSheetValue(ruleset, spend.perCheck)}`;
         // Taught only where this ruleset declares it, so the prompt never offers a purchase the
         // resolver would then ignore. What it costs and what it buys are said in the ruleset's own
         // words; the engine works out both, and a pool that cannot cover it buys nothing.
-        return `When the player spends to change a roll, add spend="${spend.pool}:N" to that same check: every ${spend.amount} ${pool?.label ?? spend.pool} buys ${buys}, up to ${spend.perCheck} ${spend.perCheck === 1 ? "time" : "times"} per check. Do not also write a sheet command for it, and do not change the dice yourself.`;
+        return `When the player spends to change a roll, add spend="${spend.pool}:N" to that same check: every ${spend.amount} ${pool?.label ?? spend.pool} buys ${buys}, ${cap}. Do not also write a sheet command for it, and do not change the dice yourself.`;
       }),
       // Taught whenever this ruleset has any entry that changes a check. What each one DOES is the
       // entry's own business and the Engine reads it; the Game Master only names it.

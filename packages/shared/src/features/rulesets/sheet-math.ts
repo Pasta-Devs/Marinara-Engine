@@ -380,6 +380,36 @@ export function rulesetCheckModifier(evaluated: EvaluatedRulesetSheet, target: R
   return base - replaced + (evaluated.abilityMods[target.withAbility] ?? 0);
 }
 
+/** The abilities a check rolls with: a skill or save's own, or the one `with=` swapped in; an ability
+ *  check's own, and the second one where a pool adds two together. */
+function rollingAbilities(target: RulesetCheckTarget | null): string[] {
+  if (!target) return [];
+  if (target.type === "ability") return target.withAbility ? [target.id, target.withAbility] : [target.id];
+  const ability = target.withAbility ?? target.ability;
+  return ability ? [ability] : [];
+}
+
+/** What `resolution.adjust` adds to or takes off this check: every entry that applies to all checks,
+ *  and every one limited to abilities the check rolls with. Whole numbers, rounded toward zero, so a
+ *  half never turns into a die. A check the ruleset cannot name still takes the unlimited ones, the
+ *  way it still takes a wound penalty. */
+export function rulesetCheckAdjust(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  evaluated: EvaluatedRulesetSheet,
+  target: RulesetCheckTarget | null,
+): number {
+  const entries = definition.resolution.adjust ?? [];
+  if (entries.length === 0) return 0;
+  const rolling = rollingAbilities(target);
+  let total = 0;
+  for (const entry of entries) {
+    if (entry.abilities && !entry.abilities.some((id) => rolling.includes(id))) continue;
+    total += resolveRulesetValueRef(definition, build, entry.value, evaluated);
+  }
+  return Math.trunc(total);
+}
+
 /** One check number, spelled the way its kind means it: a modifier added to the dice, or how many
  *  dice there are. Everywhere a check value is shown to a player or written into a prompt. */
 export function formatRulesetCheckValue(definition: RulesetDefinition, value: number): string {

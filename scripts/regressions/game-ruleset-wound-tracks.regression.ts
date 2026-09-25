@@ -555,6 +555,8 @@ try {
     // And 1.37's: the rules a check may move, two abilities together, and the charm that moves one.
     delete document.resolution.explode.min;
     delete document.resolution.pool.abilityPlusAbility;
+    // And 1.38's standing re-throw.
+    delete document.resolution.reroll;
     for (const catalog of document.catalogs ?? []) {
       catalog.entries = (catalog.entries ?? []).filter((entry: any) => entry.mechanics?.check?.explode === undefined);
     }

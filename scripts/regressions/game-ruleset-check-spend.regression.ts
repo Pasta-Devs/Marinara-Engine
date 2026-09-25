@@ -364,7 +364,7 @@ try {
     // A purchase that buys nothing.
     refuse((copy) => {
       copy.resolution.spend = [{ pool: "resolve", amount: 1, perCheck: 1 }];
-    }, /buys successes, dice, or both/);
+    }, /buys successes, dice, a re-throw, or several/);
     // Past what the Engine lets one purchase be worth.
     refuse((copy) => {
       copy.resolution.spend = [{ pool: "resolve", amount: 1, successes: 99, perCheck: 1 }];

@@ -68,6 +68,8 @@ assert.equal(
   const checkEffects = [...checkKeys, "explode", "double"];
   // And a pool's `explode` or `double`, which names its face, how low a check may move it, or both.
   const faceNodes: Constrained[] = [];
+  // And a resource spent on a check, which buys successes, dice, a throw again, or several.
+  const spendNodes: Constrained[] = [];
   const walk = (node: unknown): void => {
     if (Array.isArray(node)) return node.forEach(walk);
     if (!node || typeof node !== "object") return;
@@ -81,6 +83,7 @@ assert.equal(
     if (damageShaped) damageNodes.push(object);
     if (checkKeys.every((key) => keys.includes(key))) checkNodes.push(object);
     if (keys.length === 2 && keys.includes("from") && keys.includes("min")) faceNodes.push(object);
+    if (keys.includes("pool") && keys.includes("perCheck")) spendNodes.push(object);
     Object.values(node).forEach(walk);
   };
   // The same for what a combat block measures in cells: the Engine refuses any of it in a block
@@ -126,6 +129,17 @@ assert.equal(
         (rule) => JSON.stringify(rule.anyOf) === JSON.stringify([{ required: ["from"] }, { required: ["min"] }]),
       ),
       "and asks for a face, a min, or both",
+    );
+  }
+  assert.ok(spendNodes.length > 0, "the schema describes what a spend buys");
+  for (const node of spendNodes) {
+    assert.ok(
+      node.allOf?.some(
+        (rule) =>
+          JSON.stringify(rule.anyOf) ===
+          JSON.stringify([{ required: ["successes"] }, { required: ["dice"] }, { required: ["reroll"] }]),
+      ),
+      "and asks that it buy successes, dice or a throw again",
     );
   }
 }

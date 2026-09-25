@@ -19,7 +19,7 @@
     "summary": "A pool of ten-sided dice against a target number, three ratings, six trades and one vigil."
   },
   "resolution": {
-    "$comment": "The sheet's number for a check is the SIZE of the pool, not a bonus on top of it. A rating of 3 and a trade worth 2 throw five dice. penaltyFrom names the wound track whose penalty rides on every roll; under this kind that is dice OFF the pool, floored at pool.min, so even a bleeding warden throws one die. spend is a standing rule of the system rather than anything a warden went and bought: one point of Resolve buys one automatic success, twice per check at most, and the Engine pays for it on the same check that uses it. explode.min lets the Game Master make an eight or a nine roll again for one check, and pool.abilityPlusAbility lets an ability check add a second ability, so Nerve and Warmth can be thrown together.",
+    "$comment": "The sheet's number for a check is the SIZE of the pool, not a bonus on top of it. A rating of 3 and a trade worth 2 throw five dice. penaltyFrom names the wound track whose penalty rides on every roll; under this kind that is dice OFF the pool, floored at pool.min, so even a bleeding warden throws one die. spend is a standing rule of the system rather than anything a warden went and bought: one point of Resolve buys one automatic success, twice per check at most, and the Engine pays for it on the same check that uses it. explode.min lets the Game Master make an eight or a nine roll again for one check, and pool.abilityPlusAbility lets an ability check add a second ability, so Nerve and Warmth can be thrown together. reroll lists the standing re-throws the Game Master may name on one check: a warden who takes their time throws every die showing six or less once more.",
     "kind": "dice-pool",
     "die": { "sides": 10 },
     "abilityModifier": { "op": "identity" },
@@ -32,6 +32,7 @@
       { "id": "rating_5", "label": "Gravewise", "flat": 5 }
     ],
     "penaltyFrom": "harm",
+    "reroll": [{ "id": "careful", "upTo": 6, "mode": "once" }],
     "spend": [
       {
         "pool": "resolve",

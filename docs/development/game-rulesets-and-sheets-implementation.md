@@ -848,6 +848,42 @@ Capability API 1.37, for both issues the PR closes: #6651 and the small items of
   `scripts/regressions/game-ruleset-sheet-extras.regression.ts` (eleven breaks of #6657's, each
   caught), with the death-track case in the combat-core lane.
 
+### What slice 2 settled
+
+Capability API 1.38, for #6652.
+
+- **A standing re-throw.** `resolution.reroll` lists up to six re-throws the system grants for
+  free, each `{ id, upTo, mode }`, pool kind only. The Game Master names one with `reroll="id"`
+  (matched without case, an unknown name ignored); none is thrown unasked. `upTo` is held below the
+  die's sides, because a re-throw of every face never stops, and `until` still stops at the Engine's
+  hundred re-throws on one check. The record names it (`reroll="id"`) only when it was the one
+  thrown and it threw something.
+- **One re-throw per roll.** A spend may buy a `reroll` now, beside an entry's `mechanics.check`
+  one. Where two would apply, the one that reaches more faces is thrown, and `until` over `once`
+  where they reach the same. Stacking two re-throws of the same dice is a rule in no system. A spend
+  buys its re-throw once, however many purchases the check makes.
+- **A spend's limit off the sheet.** `perCheck` may be a value reference, or `"pool"` for the check's
+  own dice: the sheet's number for it, before a wound, bonus dice or a modifier, so a hurt character
+  may still buy as many as their rating gives. It is worked out for whoever rolls, rounded down and
+  held to `[0, RULESET_POOL_MAX_DICE]`; a limit of nothing buys and pays nothing. Up to four spends,
+  still one per pool.
+- **Modifiers off the sheet.** `resolution.adjust` (up to eight, both kinds) adds a value off the
+  sheet to every check that rolls with one of its `abilities`, or to every check without them:
+  a skill or save through its own ability or `with=`, an ability check, or a pair that includes it.
+  It goes where the wound penalty goes (dice on a pool under the same floor, a flat number inside a
+  sum's modifier), the record writes it (`adjust="-2"`) and reads it back, the dice card says it,
+  and a summed record the Game Master wrote is vouched for only when its modifier includes it. A
+  stranger gets none.
+- **The reminder** offers `reroll=` with each id and its faces only where the ruleset has one, and
+  a spend's line says a re-throw it buys and how its limit is set ("up to as many times per check
+  as the check has dice", "as the sheet's Nerve").
+- **Examples.** Gravewatch's `careful` re-throw (six or less, once); Ember Roads' `burden` field,
+  turned negative by a derived value and taken off every Brawn roll.
+- **Proven** by `scripts/regressions/game-ruleset-rerolls-spends.regression.ts`: the report's own
+  numbers through the roller, every rule through the resolver, the branch arm, the sighted pool's
+  ask and the real endpoint, the reminder, every refusal and the 1.38 gate; twenty-seven deliberate
+  breaks, each caught.
+
 ## Architecture
 
 ### The pin
