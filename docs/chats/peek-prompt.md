@@ -14,6 +14,7 @@ A source badge sits at the top next to the title. It tells you which version of 
 - **Live Preview**: a fresh preview built right now.
 - **Raw Messages**: the raw list of messages.
 - **Prompt Preview**: a general preview.
+- **Decision test preview**: a prompt assembled with the answers from an explicit decision test. It has not been sent to the chat model.
 
 Below the badge is a generation info panel. It can show the provider and model name, an estimated token count, and the real prompt token count once a reply has finished. A token is a small chunk of text that models count instead of words. This panel also shows small tags for the values used, such as **Temperature**, **Max Output Tokens**, **Thinking**, **Reasoning**, **Verbosity**, **Service Tier**, and **Assistant Prefill**. Sampling values like **Top P**, **Top K**, and **Min P** can also appear here.
 
@@ -71,9 +72,22 @@ Open the **Assembled Prompt** window and check these things:
 
 Once you know what the model actually received, you can fix the cause. You might edit a character card, adjust a lorebook entry, or change a value in your generation parameters.
 
+## Testing decision statements
+
+Open **Decision diagnostics** inside Peek Prompt to inspect the current chat's prompt statements and lorebook decisions. Opening the panel or choosing **Preview inputs** prepares the request bodies without asking the Decision model or starting a local model. Expand **Prepared request bodies** to see the recent messages, resolved statements, options, and model-specific request format. Further lorebook statements may become reachable only after an earlier decision is answered.
+
+Choose **Test decisions** to run the eligible questions against your selected Decision model. This makes real decision requests, so a hosted model may charge for them. It does not generate a chat reply, run agents, change game state, or save the test's answers or timers to the chat.
+
+Each result shows its score when available, the threshold used for a yes/no statement, and the resulting answer. A model that returns only a yes/no word is labeled accordingly; its answer is not presented as a probability. Choice results show the selected option. Held, deferred, over-limit, unavailable, and failed decisions have separate explanations, so a missing answer is not mistaken for a low score.
+
+After a test, the prompt below uses the test's answers. Use **Show original prompt** to return to the content you originally opened, or **Show tested prompt** to switch back. **Requests sent and results** shows the actual decision request bodies and returned results, without authentication headers.
+
+Tests use the current chat and current settings, even when you opened Peek Prompt from a historical reply. They do not reconstruct the original decision requests. This first version covers prompt statements and lorebook decisions; it does not run agent activation or post-reply decisions. Ordinary Peek Prompt remains passive until you explicitly choose **Test decisions**.
+
 ## Related guides
 
 - [Generation Parameters](../prompts/generation-parameters.md)
 - [Preset Editor and Prompt Manager](../prompts/presets.md)
+- [Decision Models](../connections/decision-models.md)
 - [Guided Generation and Impersonate](guided-and-impersonate.md)
 - [Message Actions: Edit, Delete, Swipe, Regenerate](messages.md)

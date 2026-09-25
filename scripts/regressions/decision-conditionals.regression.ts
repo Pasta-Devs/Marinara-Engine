@@ -30,8 +30,14 @@ const {
   characterDataSchema,
 } = await import("../../packages/shared/dist/index.js");
 const { DECISION_SETTINGS_KEYS } = await import("../../packages/server/src/services/decision/decision-default.js");
-const { agentShapedDecisionContext, answerPromptDecisions, planPromptDecisions, PromptDecisionTurnCache } =
-  await import("../../packages/server/src/services/decision/prompt-decisions.js");
+const {
+  agentShapedDecisionContext,
+  answerPromptDecisions,
+  planPromptDecisions,
+  PromptDecisionTurnCache,
+  promptDecisionTurnCache,
+  promptDecisionCacheKey,
+} = await import("../../packages/server/src/services/decision/prompt-decisions.js");
 
 // ── engine: what a condition reads ─────────────────────────────────────────────
 
@@ -248,6 +254,29 @@ const failed = await answerPromptDecisions({ plan, backend: throwing as never, m
 assert.equal(failed.answers!.size, 0, "a failing backend leaves statements unanswered, not an error");
 assert.ok(new PromptDecisionTurnCache(2), "the cache is constructible with a bound");
 
+// Explicit UI debug mode must expose scores even when the normal log level hides debug.
+const { logger } = await import("../../packages/server/src/lib/logger.js");
+const originalWarn = logger.warn;
+const debugLines: unknown[][] = [];
+try {
+  logger.warn = (...args: unknown[]) => {
+    debugLines.push(args);
+  };
+  await answerPromptDecisions({
+    plan: { decisions: [{ kind: "noul", key: "Debug statement", options: [] }], dropped: [] },
+    backend: { ...fakeBackend(0.5, () => ({ answers: new Map([["d0", 0.42]]), choices: new Map() })), debugMode: true },
+    messages,
+    cacheKey: "debug-output",
+    cache: new PromptDecisionTurnCache(),
+  });
+  const output = debugLines.flat().join(" ");
+  assert.match(output, /"probability":0\.42/u);
+  assert.match(output, /"threshold":0\.5/u);
+  assert.match(output, /"yes":false/u);
+} finally {
+  logger.warn = originalWarn;
+}
+
 // ── the real route ─────────────────────────────────────────────────────────────
 
 const requireServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));
@@ -292,6 +321,11 @@ const provider = createServer(async (request, response) => {
       out[id] = question.type === "choice" ? { type: "choice", choice } : { type: "noul", noul };
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ answers: out }));
+    return;
+  }
+  if (body.model === "local-decision-fixture") {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ choices: [{ message: { content: "yes" } }] }));
     return;
   }
   prompts.push(JSON.stringify(body.messages ?? []));
@@ -474,6 +508,135 @@ try {
   assert.equal(dry.statusCode, 200, dry.body);
   assert.match(dry.body, /"unanswered":\[/u, "the dry run of the next turn reports unanswered statements");
   assert.equal(decisionBodies.length, beforePreview, "neither preview asked the Decision model");
+
+  // #6650: inspecting inputs is passive; explicit tests ask real questions and assemble
+  // with fresh answers, but preserve the live cache, messages, metadata and chat model.
+  const debugPayload = { chatId: preview.id, returnPrompt: true, injectLorebook: true, wrapLastMessage: true };
+  const inspect = await app.inject({
+    method: "POST",
+    url: "/api/generate/dryRun",
+    payload: { ...debugPayload, decisionDebug: "inspect" },
+  });
+  assert.equal(inspect.statusCode, 200, inspect.body);
+  const prepared = inspect.json().prompt.decisionDebug;
+  assert.equal(prepared.mode, "inspect");
+  assert.equal(prepared.requests.length, 1);
+  assert.equal(prepared.results.length, 2);
+  assert(prepared.results.every((row: any) => row.status === "ready" && row.probability === undefined));
+  assert.equal(decisionBodies.length, beforePreview, "input inspection sends no request");
+  const liveKey = promptDecisionCacheKey(preview.id, null, decision.id);
+  const liveTurn = promptDecisionTurnCache.get(liveKey);
+  const statement = "The latest message moves the scene to a new place";
+  liveTurn.noul.set(statement, { p: 0.11, yes: false });
+  const priorMessages = await chats.listMessages(preview.id);
+  const priorChat = await chats.getById(preview.id);
+  const priorReplies = prompts.length;
+  const testDecisions = async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/generate/dryRun",
+      payload: { ...debugPayload, decisionDebug: "run" },
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    return response.json();
+  };
+  const positive = await testDecisions();
+  assert.deepEqual(
+    positive.prompt.decisionDebug.requests[0].body,
+    prepared.requests[0].body,
+    "preview uses the actual request builder",
+  );
+  assert.deepEqual(
+    positive.prompt.decisionDebug.requests[0].body,
+    decisionBodies.at(-1),
+    "trace is exactly the sent request body",
+  );
+  const positiveRow = positive.prompt.decisionDebug.results.find((row: any) => row.statement === statement);
+  assert.equal(positiveRow.probability, 0.9);
+  assert.equal(positiveRow.threshold, 0.5);
+  assert.equal(positiveRow.yes, true);
+  assert.equal(positiveRow.status, "evaluated");
+  assert.equal(positive.prompt.decisionDebug.results.find((row: any) => row.kind === "choice").probability, undefined);
+  assert(JSON.stringify(positive.prompt.messages).includes("SCENE_MOVED"));
+  noul = 0.2;
+  const negative = await testDecisions();
+  assert(JSON.stringify(negative.prompt.messages).includes("SCENE_STAYED"), "a rerun gets a fresh low score");
+  assert.equal(negative.prompt.decisionDebug.results.find((row: any) => row.statement === statement).probability, 0.2);
+  assert.deepEqual(liveTurn.noul.get(statement), { p: 0.11, yes: false }, "test never changes the live answer");
+  assert.deepEqual(await chats.listMessages(preview.id), priorMessages);
+  assert.deepEqual(await chats.getById(preview.id), priorChat, "test never saves timers or other metadata");
+  assert.equal(prompts.length, priorReplies, "the chat model is never called");
+  decisionFails = true;
+  const errorTest = await testDecisions();
+  assert(
+    errorTest.prompt.decisionDebug.results.every(
+      (row: any) => row.status === "unanswered" && row.probability === undefined && row.error === "http_500",
+    ),
+  );
+  decisionFails = false;
+  noul = 0.9;
+  const beforeInvalid = decisionBodies.length;
+  for (const bad of [
+    { returnPrompt: false, decisionDebug: "run" },
+    { returnPrompt: true, decisionDebug: "typo" },
+    { returnPrompt: true, decisionDebug: "run", streaming: true },
+  ]) {
+    const rejected = await app.inject({
+      method: "POST",
+      url: "/api/generate/dryRun",
+      payload: { chatId: preview.id, ...bad },
+    });
+    assert.equal(rejected.statusCode, 400);
+  }
+  assert.equal(decisionBodies.length, beforeInvalid);
+
+  const diagnostic = () => ({
+    mode: "run" as const,
+    createdAt: "fixture",
+    turnId: null,
+    model: "fixture",
+    results: [],
+    requests: [],
+  });
+  const heldReport = diagnostic();
+  await answerPromptDecisions({
+    plan: {
+      decisions: [{ kind: "noul", key: "Held statement", options: [], held: { yes: true } }],
+      dropped: ["Too many statements"],
+    },
+    backend: null,
+    messages: [],
+    cacheKey: "held-test",
+    cache: new PromptDecisionTurnCache(),
+    inspection: heldReport,
+  });
+  assert.equal((heldReport.results[0] as any).status, "held");
+  assert.equal((heldReport.results[0] as any).yes, true);
+  assert.equal((heldReport.results[0] as any).probability, undefined, "a timer is never presented as 100% confidence");
+  assert.equal((heldReport.results[1] as any).status, "dropped");
+
+  const { askSidecarNoulQuestions } =
+    await import("../../packages/server/src/services/decision/sidecar-decision.backend.js");
+  const { getAnswerStyle } = await import("../../packages/server/src/services/decision/decision-thinking-cache.js");
+  const localReport = diagnostic();
+  const localAnswers = await askSidecarNoulQuestions({
+    slot: {
+      slot: "primary",
+      baseUrl: baseUrl.slice(0, -3),
+      model: "local-decision-fixture",
+      modelIdentity: "debug-isolation-fixture",
+      label: "Fixture",
+      thinking: "auto",
+      protocol: "chat_logprobs",
+    },
+    state: { recent_messages: [{ role: "user", content: "The door is open." }] },
+    questions: [{ id: "door", instructions: "The door is open." }],
+    inspection: localReport,
+  });
+  assert.equal(localAnswers.get("door"), 1);
+  assert.deepEqual((localReport.requests[0] as any).results, [{ id: "door", yes: true, binary: true }]);
+  assert.equal(getAnswerStyle("debug-isolation-fixture"), "unknown", "tests never teach the live Auto thinking cache");
+
   // A local model that cannot serve is no Decision model, as generation treats it.
   const previewSettings = createAppSettingsStorage(db);
   await previewSettings.set(DECISION_SETTINGS_KEYS.localDefault, DECISION_LOCAL_SLOT_IDS.primary);
