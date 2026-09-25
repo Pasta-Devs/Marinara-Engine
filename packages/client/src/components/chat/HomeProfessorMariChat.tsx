@@ -40,6 +40,12 @@ import {
   Terminal,
   Trash2,
   X,
+  ClipboardList,
+  FastForward,
+  Hand,
+  RotateCcw,
+  ShieldOff,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -230,6 +236,15 @@ async function waitForWorkspaceRunToSettle(connectionId: string | null, signal: 
   }
   return sawActiveRun;
 }
+// One glyph per Permissions Mode, so the bar reads like an agent's mode switch at a glance.
+const MARI_PERMISSIONS_MODE_ICONS: Record<MariPermissionsMode, LucideIcon> = {
+  auto: Sparkles,
+  manual: Hand,
+  "accept-edits": FastForward,
+  plan: ClipboardList,
+  bypass: ShieldOff,
+};
+
 const PROFESSOR_MARI_NO_CONNECTION_TOAST =
   "You haven't set up a connection yet! Click the link icon beside the paperclip to select one.";
 const MARI_WELCOME =
@@ -2418,6 +2433,7 @@ export function HomeProfessorMariChat({
 
   const permissionsButtonRef = useRef<HTMLButtonElement | null>(null);
   const permissionsMenuRef = useRef<HTMLDivElement | null>(null);
+  const omnibarModeMenuRef = useRef<HTMLDivElement | null>(null);
   const [historyPickerOpen, setHistoryPickerOpen] = useState(false);
   const [contextViewerOpen, setContextViewerOpen] = useState(false);
   const [selectedContextId, setSelectedContextId] = useState<string | null>(null);
@@ -3275,7 +3291,12 @@ export function HomeProfessorMariChat({
     if (!permissionsMenuOpen) return;
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
-      if (permissionsButtonRef.current?.contains(target) || permissionsMenuRef.current?.contains(target)) return;
+      if (
+        permissionsButtonRef.current?.contains(target) ||
+        permissionsMenuRef.current?.contains(target) ||
+        omnibarModeMenuRef.current?.contains(target)
+      )
+        return;
       setPermissionsMenuOpen(false);
     };
     document.addEventListener("mousedown", handlePointerDown);
@@ -4698,50 +4719,72 @@ export function HomeProfessorMariChat({
     setPanelMenuOpen(false);
   };
 
+  const ActivePermissionsModeIcon = MARI_PERMISSIONS_MODE_ICONS[permissionsMode];
+  const renderPermissionsModeRow = ({
+    key,
+    Icon,
+    mode,
+    label,
+    description,
+    selected,
+    onSelect,
+  }: {
+    key: string;
+    Icon: LucideIcon;
+    mode?: MariPermissionsMode;
+    label: string;
+    description: string;
+    selected: boolean;
+    onSelect: () => void;
+  }) => (
+    <button
+      key={key}
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      data-mode={mode}
+      className="mari-permissions-mode-row flex items-start gap-2.5 px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]"
+    >
+      <span className="mari-permissions-mode-row__icon mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md">
+        <Icon size="0.8rem" aria-hidden="true" />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="text-[0.6875rem] font-semibold text-[var(--foreground)]">{label}</span>
+        <span className="text-[0.625rem] text-[var(--muted-foreground)]">{description}</span>
+      </span>
+      <span className="mt-1 w-3.5 shrink-0 text-[var(--primary)]">
+        {selected ? <Check size="0.8rem" aria-hidden="true" /> : null}
+      </span>
+    </button>
+  );
   const permissionsModeOptions = (
     <>
       <div className="border-b border-[var(--border)] px-3 py-2 text-[0.6875rem] font-semibold text-[var(--foreground)]">
         {localizeUi("ui.chat.homeprofessormarichat.permissionsModeForThisChat")}
       </div>
-      <button
-        type="button"
-        onClick={() => void changePermissionsMode(null)}
-        aria-pressed={!permissionsModeOverridden}
-        className="flex items-start gap-2 border-b border-[var(--border)] px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]"
-      >
-        <span className="mt-0.5 w-3.5 shrink-0">{!permissionsModeOverridden && <Check size="0.8rem" />}</span>
-        <span className="flex flex-col">
-          <span className="text-[0.6875rem] font-semibold text-[var(--foreground)]">
-            {localizeUi("ui.chat.homeprofessormarichat.useDefaultMode", {
-              value1: localize(MARI_PERMISSIONS_MODE_LABELS[permissionsModeDefault].label),
-            })}
-          </span>
-          <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.chat.homeprofessormarichat.followsTheGlobalDefaultFromSettings")}
-          </span>
-        </span>
-      </button>
-      {MARI_PERMISSIONS_MODES.map((mode) => (
-        <button
-          key={mode}
-          type="button"
-          onClick={() => void changePermissionsMode(mode)}
-          aria-pressed={permissionsModeOverridden && mode === permissionsMode}
-          className="flex items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]"
-        >
-          <span className="mt-0.5 w-3.5 shrink-0">
-            {permissionsModeOverridden && mode === permissionsMode && <Check size="0.8rem" />}
-          </span>
-          <span className="flex flex-col">
-            <span className="text-[0.6875rem] font-semibold text-[var(--foreground)]">
-              {localize(MARI_PERMISSIONS_MODE_LABELS[mode].label)}
-            </span>
-            <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {localize(MARI_PERMISSIONS_MODE_LABELS[mode].description)}
-            </span>
-          </span>
-        </button>
-      ))}
+      <div className="border-b border-[var(--border)]">
+        {renderPermissionsModeRow({
+          key: "default",
+          Icon: RotateCcw,
+          label: localizeUi("ui.chat.homeprofessormarichat.useDefaultMode", {
+            value1: localize(MARI_PERMISSIONS_MODE_LABELS[permissionsModeDefault].label),
+          }),
+          description: localizeUi("ui.chat.homeprofessormarichat.followsTheGlobalDefaultFromSettings"),
+          selected: !permissionsModeOverridden,
+          onSelect: () => void changePermissionsMode(null),
+        })}
+      </div>
+      {MARI_PERMISSIONS_MODES.map((mode) =>
+        renderPermissionsModeRow({
+          key: mode,
+          Icon: MARI_PERMISSIONS_MODE_ICONS[mode],
+          mode,
+          label: localize(MARI_PERMISSIONS_MODE_LABELS[mode].label),
+          description: localize(MARI_PERMISSIONS_MODE_LABELS[mode].description),
+          selected: permissionsModeOverridden && mode === permissionsMode,
+          onSelect: () => void changePermissionsMode(mode),
+        }),
+      )}
     </>
   );
 
@@ -4780,6 +4823,36 @@ export function HomeProfessorMariChat({
                 <Square size="0.75rem" aria-hidden="true" />
               </button>
             ) : null}
+            <div
+              ref={omnibarModeMenuRef}
+              className="mari-omnibar-mode"
+              onKeyDown={(event) => {
+                if (event.key !== "Escape" || !permissionsMenuOpen) return;
+                event.stopPropagation();
+                setPermissionsMenuOpen(false);
+                event.currentTarget.querySelector<HTMLButtonElement>(".mari-omnibar-mode__trigger")?.focus();
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setPanelMenuOpen(false);
+                  setPermissionsMenuOpen((open) => !open);
+                }}
+                className="mari-omnibar-mode__trigger"
+                data-mode={permissionsMode}
+                aria-expanded={permissionsMenuOpen}
+                aria-label={localizeUi("ui.chat.quickreplymenu.value1Value2", {
+                  value1: localizeUi("ui.chat.homeprofessormarichat.permissionsMode"),
+                  value2: localize(MARI_PERMISSIONS_MODE_LABELS[permissionsMode].label),
+                })}
+                title={localizeUi("ui.chat.homeprofessormarichat.permissionsMode")}
+              >
+                <ActivePermissionsModeIcon size="0.8rem" aria-hidden="true" />
+                <span>{localize(MARI_PERMISSIONS_MODE_LABELS[permissionsMode].label)}</span>
+              </button>
+              {permissionsMenuOpen ? <div className="mari-omnibar-mode__menu">{permissionsModeOptions}</div> : null}
+            </div>
             <button
               type="button"
               onClick={() => void runRestart()}
@@ -4802,7 +4875,10 @@ export function HomeProfessorMariChat({
             >
               <button
                 type="button"
-                onClick={() => setPanelMenuOpen((open) => !open)}
+                onClick={() => {
+                  setPermissionsMenuOpen(false);
+                  setPanelMenuOpen((open) => !open);
+                }}
                 className="mari-omnibar-header-menu__trigger"
                 aria-expanded={panelMenuOpen}
                 aria-label={localizeUi("ui.chat.homeprofessormarichat.moreMariActions", "More Professor Mari actions")}
@@ -4827,7 +4903,6 @@ export function HomeProfessorMariChat({
                       </button>
                     ))}
                   </div>
-                  <div className="mari-omnibar-header-menu__permissions flex flex-col">{permissionsModeOptions}</div>
                 </div>
               ) : null}
             </div>
@@ -5342,7 +5417,7 @@ export function HomeProfessorMariChat({
                               title={localizeUi("ui.chat.homeprofessormarichat.permissionsMode")}
                               aria-expanded={permissionsMenuOpen}
                             >
-                              <ShieldAlert size="0.75rem" />
+                              <ActivePermissionsModeIcon size="0.75rem" />
                               <span className="max-[420px]:hidden">
                                 {localize(MARI_PERMISSIONS_MODE_LABELS[permissionsMode].label)}
                               </span>
