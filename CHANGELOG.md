@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Generation now reports when a prompt that does not fit spends the reply budget instead of dropping messages. A reply budget cut to its 128-token floor is logged as a warning, so a configured Max Tokens that never reaches the provider is visible instead of silent (#6614).
+
 - Game Mode rulesets can pick a difficulty by name (`difficulty="Hard"`) instead of a number, and a pool ruleset's ladder step now sets the per-die target it prints. A pool ruleset can let a check lower the face dice roll again or count twice on, let an ability check add a second ability, and count a fumble as low faces on half the dice or more, which on a successful check shows as a complication alongside the result. Capability API 1.37 (#6651).
 
 - Game Mode rulesets can give a track a maximum the character sheet sets, hide a track by a field or always show it to the Game Master, print chosen columns beside a summary list's names (`Gear: Crowbar 1d6`) and name its rows with an enum column. When a ruleset has a wound track, the Game Master is taught the command that marks it without the ruleset having to explain it (#6657).
