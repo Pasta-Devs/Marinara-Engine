@@ -18382,7 +18382,9 @@ test("selected Lorebook entries mirror safe edits and choose a move destination 
   }
 });
 
-test("Lorebook context filter chips expose installed package triggers and keep complete borders", async ({ page }, testInfo) => {
+test("Lorebook context filter chips expose installed package triggers and keep complete borders", async ({
+  page,
+}, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop Lorebook filter geometry is covered on desktop.");
 
   const suffix = Date.now();
