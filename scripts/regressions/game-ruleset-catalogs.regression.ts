@@ -61,8 +61,11 @@ function withoutLaterGates(doc: Record<string, any>): void {
   // The 1.37 sheet keys: a track always shown and a summary list's columns.
   for (const track of doc.sheet?.live?.tracks ?? []) delete track.alwaysShow;
   for (const list of doc.gm?.sheetSummary?.lists ?? []) delete list.columns;
-  // And 1.38's modifier off the sheet.
+  // And 1.38's modifier off the sheet, with 1.39's list sum it reads.
   delete doc.resolution?.adjust;
+  doc.sheet.derived = (doc.sheet?.derived ?? []).filter(
+    (entry: { id: string }) => !["burden", "burdened"].includes(entry.id),
+  );
   // The combat block goes whole, and with it the 1.28 keys that give a fight a board.
   delete doc.combat;
   // The bestiary is a 1.27 declaration of its own, and a catalog of creatures needs the combat
@@ -473,9 +476,9 @@ const installedPackages = packages.map((fixture) => {
     // 1.37, because the example ruleset carries the combat bridge's battle block, a scaled catalog
     // row, a layer, a combat block, catalog mechanics a fight reads, a catalog of creatures, the
     // keys that give that fight a board, the ones that say what one turn of it can do, a creature
-    // written in the ruleset's own terms, a track always shown, a summary list's columns and a
-    // modifier off the sheet.
-    capabilityApi: { major: 1, minor: 38 },
+    // written in the ruleset's own terms, a track always shown, a summary list's columns, a
+    // modifier off the sheet and a list added up.
+    capabilityApi: { major: 1, minor: 39 },
     builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
     id: packageId,
     name: fixture.id,

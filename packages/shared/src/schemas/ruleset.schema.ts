@@ -125,10 +125,21 @@ const VALUE_REF_KEYS = [
   "abilityModFromField",
   "skillMod",
   "saveMod",
+  "liveTrack",
+  "livePool",
+  "listSum",
 ] as const;
 
+/** Which number a `liveTrack` reference reads: where the track stands, how far it is from its
+ *  floor, how far from its top, or on a wound track the penalty in force. */
+export const RULESET_TRACK_READS = Object.freeze(["value", "filled", "remaining", "penalty"] as const);
+
 /** Exactly one key. `abilityModFromField` names an enum field whose VALUE is an ability id (a
- *  caster's chosen spellcasting ability); any other value, such as "none", reads as 0. */
+ *  caster's chosen spellcasting ability); any other value, such as "none", reads as 0. `liveTrack`
+ *  and `livePool` read the character's live state, so nothing worked out without one (a maximum,
+ *  the proficiency bonus, a catalog's scaling) may read them; `read` goes only beside `liveTrack`.
+ *  `listSum` adds up one number column of a list's rows, only the rows a boolean column marks where
+ *  `onlyWhen` names one. */
 export const rulesetValueRefSchema = z
   .object({
     const: z.number().finite().optional(),
@@ -139,6 +150,10 @@ export const rulesetValueRefSchema = z
     abilityModFromField: sheetId.optional(),
     skillMod: sheetId.optional(),
     saveMod: sheetId.optional(),
+    liveTrack: sheetId.optional(),
+    read: z.enum(RULESET_TRACK_READS).optional(),
+    livePool: sheetId.optional(),
+    listSum: z.object({ list: sheetId, column: sheetId, onlyWhen: sheetId.optional() }).strict().optional(),
   })
   .strict()
   .superRefine((ref, ctx) => {
@@ -148,6 +163,9 @@ export const rulesetValueRefSchema = z
         code: z.ZodIssueCode.custom,
         message: `A value reference names exactly one of: ${VALUE_REF_KEYS.join(", ")}`,
       });
+    }
+    if (ref.read !== undefined && ref.liveTrack === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["read"], message: "read goes only beside liveTrack" });
     }
   });
 
@@ -173,9 +191,35 @@ const stepTableSchema = z
 
 const roundingSchema = z.enum(["down", "up", "nearest"]);
 
+const hideWhenValue = z.union([z.string().max(80), z.number().finite(), z.boolean()]);
+const HIDE_WHEN_COMPARISONS = ["equals", "notEquals", "in"] as const;
+/** Off the sheet while a field holds one value, holds anything but one value, or holds one of a
+ *  few. Exactly one of the three, so a rule always says one thing. */
 const hideWhenSchema = z
-  .object({ field: sheetId, equals: z.union([z.string().max(80), z.number().finite(), z.boolean()]) })
-  .strict();
+  .object({
+    field: sheetId,
+    equals: hideWhenValue.optional(),
+    notEquals: hideWhenValue.optional(),
+    in: z.array(hideWhenValue).min(1).max(24).optional(),
+  })
+  .strict()
+  .superRefine((hide, ctx) => {
+    if (HIDE_WHEN_COMPARISONS.filter((key) => hide[key] !== undefined).length !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `hideWhen names exactly one of: ${HIDE_WHEN_COMPARISONS.join(", ")}`,
+      });
+    }
+  });
+
+export type RulesetHideWhen = z.infer<typeof hideWhenSchema>;
+
+/** Every value a `hideWhen` compares against, whichever comparison it makes. */
+export function rulesetHideWhenValues(hide: RulesetHideWhen): Array<string | number | boolean> {
+  if (hide.in) return hide.in;
+  const one = hide.equals ?? hide.notEquals;
+  return one === undefined ? [] : [one];
+}
 
 // ── Resolution kinds ──
 
@@ -494,8 +538,12 @@ const abilitySchema = z
   })
   .strict();
 
-/** A skill names the ability it rolls with. A system whose skills stand alone omits it. */
-const skillSchema = z.object({ id: sheetId, label, ability: sheetId.optional() }).strict();
+/** A skill names the ability it rolls with. A system whose skills stand alone omits it. `cap` is the
+ *  most its check may ever come to, from anything on the sheet or in the live state (a rating the
+ *  character has, or a track that holds it down). */
+const skillSchema = z
+  .object({ id: sheetId, label, ability: sheetId.optional(), cap: rulesetValueRefSchema.optional() })
+  .strict();
 const saveSchema = skillSchema;
 
 const derivedBase = { id: sheetId, label, section: sheetId.optional(), hideWhen: hideWhenSchema.optional() };
@@ -2150,6 +2198,7 @@ function equalsIssue(
   item: RulesetField | RulesetListColumn,
   equals: string | number | boolean,
   noun: "field" | "column",
+  key = "equals",
 ): string | null {
   if (item.type === "enum") {
     return typeof equals === "string" && item.values.includes(equals)
@@ -2157,12 +2206,12 @@ function equalsIssue(
       : `${JSON.stringify(equals)} is not one of the values of "${item.id}"`;
   }
   if (item.type === "number") {
-    return typeof equals === "number" ? null : `"${item.id}" is a number ${noun}, so equals must be a number`;
+    return typeof equals === "number" ? null : `"${item.id}" is a number ${noun}, so ${key} must be a number`;
   }
   if (item.type === "boolean") {
-    return typeof equals === "boolean" ? null : `"${item.id}" is a boolean ${noun}, so equals must be true or false`;
+    return typeof equals === "boolean" ? null : `"${item.id}" is a boolean ${noun}, so ${key} must be true or false`;
   }
-  return typeof equals === "string" ? null : `"${item.id}" is a text ${noun}, so equals must be a string`;
+  return typeof equals === "string" ? null : `"${item.id}" is a text ${noun}, so ${key} must be a string`;
 }
 
 /** The declared names a value reference may point at, gathered once per sheet. */
@@ -2173,6 +2222,76 @@ interface RulesetSheetNames {
   saves: ReadonlySet<string>;
   /** Every derived value the sheet declares, whatever a given reader may read. */
   derived: ReadonlySet<string>;
+  pools: ReadonlySet<string>;
+  tracks: ReadonlyMap<string, RulesetSheetSchema["live"]["tracks"][number]>;
+  lists: ReadonlyMap<string, RulesetSheetSchema["lists"][number]>;
+  /** What reads the live state, directly or through something else on the sheet. */
+  live: RulesetLiveReaders;
+}
+
+/** The values a derived value reads, in the one place that knows where each op keeps them. */
+function derivedRefs(derived: z.infer<typeof rulesetDerivedSchema>): RulesetValueRef[] {
+  return derived.op === "stepTable" ? [derived.from] : derived.op === "scale" ? [derived.of] : derived.of;
+}
+
+interface RulesetLiveReaders {
+  derived: ReadonlySet<string>;
+  skills: ReadonlySet<string>;
+  saves: ReadonlySet<string>;
+}
+
+/** The derived values, skills and saves whose number depends on the live state: a derived value
+ *  that reads a live track or pool, or reads one of these; a skill or save capped by one. Derived
+ *  values only read the ones above them, and a cap's own chain reads no skill or save (both refused
+ *  at import), so one pass top to bottom finds every one. */
+function rulesetLiveReaders(sheet: RulesetSheetSchema): RulesetLiveReaders {
+  const derived = new Set<string>();
+  const capReadsLive = (entries: ReadonlyArray<{ id: string; cap?: RulesetValueRef }>, id: string) => {
+    const cap = entries.find((entry) => entry.id === id)?.cap;
+    return !!cap && readsLive(cap);
+  };
+  function readsLive(ref: RulesetValueRef): boolean {
+    return (
+      ref.liveTrack !== undefined ||
+      ref.livePool !== undefined ||
+      (ref.derived !== undefined && derived.has(ref.derived)) ||
+      (ref.skillMod !== undefined && capReadsLive(sheet.skills, ref.skillMod)) ||
+      (ref.saveMod !== undefined && capReadsLive(sheet.saves, ref.saveMod))
+    );
+  }
+  for (const entry of sheet.derived) if (derivedRefs(entry).some(readsLive)) derived.add(entry.id);
+  return {
+    derived,
+    skills: new Set(sheet.skills.filter((skill) => capReadsLive(sheet.skills, skill.id)).map((skill) => skill.id)),
+    saves: new Set(sheet.saves.filter((save) => capReadsLive(sheet.saves, save.id)).map((save) => save.id)),
+  };
+}
+
+/** Whether a value adds up a list, directly or through what it reads: a derived value, a skill or
+ *  save's cap, or the proficiency bonus inside a skill's number. Every one of those chains only
+ *  reads upward (refused otherwise), so the walk ends; the depth bound is for a file that the rest
+ *  of the checks already refuse. */
+function refReadsListSum(
+  def: Pick<RulesetDefinitionBase, "sheet" | "resolution">,
+  ref: RulesetValueRef,
+  depth = 0,
+): boolean {
+  if (depth > 64) return false;
+  if (ref.listSum) return true;
+  const next = (inner: RulesetValueRef) => refReadsListSum(def, inner, depth + 1);
+  if (ref.derived !== undefined) {
+    const derived = def.sheet.derived.find((entry) => entry.id === ref.derived);
+    return !!derived && derivedRefs(derived).some(next);
+  }
+  const trained =
+    ref.skillMod !== undefined
+      ? def.sheet.skills.find((entry) => entry.id === ref.skillMod)
+      : ref.saveMod !== undefined
+        ? def.sheet.saves.find((entry) => entry.id === ref.saveMod)
+        : undefined;
+  if (!trained) return false;
+  const bonus = def.resolution.proficiency?.bonus;
+  return (!!trained.cap && next(trained.cap)) || (!!bonus && next(bonus));
 }
 
 function rulesetSheetNames(sheet: RulesetSheetSchema): RulesetSheetNames {
@@ -2182,6 +2301,10 @@ function rulesetSheetNames(sheet: RulesetSheetSchema): RulesetSheetNames {
     skills: new Set(sheet.skills.map((skill) => skill.id)),
     saves: new Set(sheet.saves.map((save) => save.id)),
     derived: new Set(sheet.derived.map((derived) => derived.id)),
+    pools: new Set(sheet.live.pools.map((pool) => pool.id)),
+    tracks: new Map(sheet.live.tracks.map((track) => [track.id, track])),
+    lists: new Map(sheet.lists.map((list) => [list.id, list])),
+    live: rulesetLiveReaders(sheet),
   };
 }
 
@@ -2190,14 +2313,18 @@ function rulesetSheetNames(sheet: RulesetSheetSchema): RulesetSheetNames {
  *  scaled column are all held to the same rule, so a reference that is good in one is good in all.
  *  `readable` is the derived values THIS reference may read: while the sheet's own derived list is
  *  checked that is the ones declared above the reader, which makes a cycle unrepresentable; every
- *  reader outside that order may name any declared one. */
+ *  reader outside that order may name any declared one. `live` is false for a value worked out
+ *  without a live state (a maximum, the proficiency bonus, a catalog's scaling), which then may not
+ *  read one, directly or through anything that does. */
 function rulesetValueRefIssues(
   ref: RulesetValueRef,
   names: RulesetSheetNames,
   readable: ReadonlySet<string>,
-): Array<{ key: (typeof VALUE_REF_KEYS)[number]; message: string }> {
-  const issues: Array<{ key: (typeof VALUE_REF_KEYS)[number]; message: string }> = [];
-  const add = (key: (typeof VALUE_REF_KEYS)[number], message: string) => issues.push({ key, message });
+  live = true,
+): Array<{ key: (typeof VALUE_REF_KEYS)[number] | "read"; message: string }> {
+  const issues: Array<{ key: (typeof VALUE_REF_KEYS)[number] | "read"; message: string }> = [];
+  const add = (key: (typeof VALUE_REF_KEYS)[number] | "read", message: string) => issues.push({ key, message });
+  const noLive = "This value is worked out without the live state, so it cannot read a live track or pool";
 
   if (ref.field !== undefined) {
     const field = names.fields.get(ref.field);
@@ -2226,6 +2353,40 @@ function rulesetValueRefIssues(
   }
   if (ref.saveMod !== undefined && !names.saves.has(ref.saveMod)) {
     add("saveMod", `Unknown save "${ref.saveMod}"`);
+  }
+  if (ref.liveTrack !== undefined) {
+    const track = names.tracks.get(ref.liveTrack);
+    if (!track) add("liveTrack", `Unknown track "${ref.liveTrack}"`);
+    else if (!live) add("liveTrack", noLive);
+    else if (ref.read === "penalty" && !track.levels) {
+      add("read", `"${ref.liveTrack}" is not a wound track, so it has no penalty to read`);
+    }
+  }
+  if (ref.livePool !== undefined) {
+    if (!names.pools.has(ref.livePool)) add("livePool", `Unknown pool "${ref.livePool}"`);
+    else if (!live) add("livePool", noLive);
+  }
+  if (ref.listSum !== undefined) {
+    const { list: listId, column: columnId, onlyWhen } = ref.listSum;
+    const list = names.lists.get(listId);
+    const column = list?.columns.find((entry) => entry.id === columnId);
+    const marker = onlyWhen === undefined ? undefined : list?.columns.find((entry) => entry.id === onlyWhen);
+    if (!list) add("listSum", `Unknown list "${listId}"`);
+    else if (!column) add("listSum", `"${listId}" has no column "${columnId}"`);
+    else if (column.type !== "number") add("listSum", `Column "${columnId}" is not a number`);
+    else if (onlyWhen !== undefined && !marker) add("listSum", `"${listId}" has no column "${onlyWhen}"`);
+    else if (marker && marker.type !== "boolean") add("listSum", `Column "${onlyWhen}" is not a boolean`);
+  }
+  if (!live) {
+    if (ref.derived !== undefined && names.live.derived.has(ref.derived)) {
+      add("derived", `Derived value "${ref.derived}" reads the live state, which this value cannot`);
+    }
+    if (ref.skillMod !== undefined && names.live.skills.has(ref.skillMod)) {
+      add("skillMod", `Skill "${ref.skillMod}" is capped by the live state, which this value cannot read`);
+    }
+    if (ref.saveMod !== undefined && names.live.saves.has(ref.saveMod)) {
+      add("saveMod", `Save "${ref.saveMod}" is capped by the live state, which this value cannot read`);
+    }
   }
   return issues;
 }
@@ -2403,13 +2564,37 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
   const checkSection = (section: string | undefined, path: (string | number)[]) => {
     if (section && !sections.has(section)) issue([...path, "section"], `Unknown section "${section}"`);
   };
-  const checkHideWhen = (hideWhen: z.infer<typeof hideWhenSchema> | undefined, path: (string | number)[]) => {
+  const checkHideWhen = (hideWhen: RulesetHideWhen | undefined, path: (string | number)[]) => {
     if (!hideWhen) return;
     const field = fieldById.get(hideWhen.field);
     if (!field) return issue([...path, "hideWhen", "field"], `Unknown field "${hideWhen.field}"`);
-    // `equals` must be a value the field can actually hold, or the item could never hide.
-    const message = equalsIssue(field, hideWhen.equals, "field");
-    if (message) issue([...path, "hideWhen", "equals"], message);
+    // Every value compared against must be one the field can actually hold, or the rule could never
+    // match (or, for notEquals, could never fail to): checked one listed value at a time. For the two
+    // comparisons 1.39 added that includes a number's range and a text's length. `equals` keeps its
+    // old reading, so a file that loaded before still loads: there, an impossible value only ever
+    // fails to hide.
+    const holdable = (value: string | number | boolean, key: string): string | null => {
+      const typed = equalsIssue(field, value, "field", key);
+      if (typed || key === "equals") return typed;
+      if (field.type === "number" && typeof value === "number" && (value < field.min || value > field.max)) {
+        return `${value} is outside ${field.min}..${field.max}, the range of "${field.id}"`;
+      }
+      if ((field.type === "text" || field.type === "longtext") && typeof value === "string") {
+        if (value.length > field.maxLength) return `"${field.id}" holds at most ${field.maxLength} characters`;
+      }
+      return null;
+    };
+    if (hideWhen.in) {
+      hideWhen.in.forEach((value, index) => {
+        const message = holdable(value, "in");
+        if (message) issue([...path, "hideWhen", "in", index], message);
+      });
+      return;
+    }
+    const key = hideWhen.notEquals !== undefined ? "notEquals" : "equals";
+    const value = hideWhen.notEquals ?? hideWhen.equals;
+    const message = value === undefined ? null : holdable(value, key);
+    if (message) issue([...path, "hideWhen", key], message);
   };
   sheet.fields.forEach((field, index) => {
     const path = ["sheet", "fields", index];
@@ -2420,14 +2605,25 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
 
   // A value reference may read a derived value only when it is declared ABOVE the reader, which
   // makes a cycle unrepresentable and lets evaluation run once, top to bottom.
-  const names: RulesetSheetNames = { fields: fieldById, abilities, skills, saves, derived: derivedIds };
-  const checkRef = (ref: RulesetValueRef, path: (string | number)[], derivedAbove: ReadonlySet<string>) => {
-    for (const entry of rulesetValueRefIssues(ref, names, derivedAbove)) {
+  const names: RulesetSheetNames = {
+    ...rulesetSheetNames(sheet),
+    fields: fieldById,
+    abilities,
+    skills,
+    saves,
+    derived: derivedIds,
+  };
+  const checkRef = (
+    ref: RulesetValueRef,
+    path: (string | number)[],
+    derivedAbove: ReadonlySet<string>,
+    live = true,
+  ) => {
+    for (const entry of rulesetValueRefIssues(ref, names, derivedAbove, live)) {
       issue([...path, entry.key], entry.message);
     }
   };
-  const refsOf = (derived: z.infer<typeof rulesetDerivedSchema>): RulesetValueRef[] =>
-    derived.op === "stepTable" ? [derived.from] : derived.op === "scale" ? [derived.of] : derived.of;
+  const refsOf = derivedRefs;
 
   const derivedAbove = new Set<string>();
   sheet.derived.forEach((derived, index) => {
@@ -2452,7 +2648,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
   // The proficiency bonus feeds every skill and save modifier, so the value it reads, and every
   // derived value above that one, cannot itself read a skill or save modifier.
   if (resolution.proficiency) {
-    checkRef(resolution.proficiency.bonus, ["resolution", "proficiency", "bonus"], derivedIds);
+    checkRef(resolution.proficiency.bonus, ["resolution", "proficiency", "bonus"], derivedIds, false);
     const bonus = resolution.proficiency.bonus;
     if (bonus.skillMod !== undefined || bonus.saveMod !== undefined) {
       issue(["resolution", "proficiency", "bonus"], "The proficiency bonus cannot read a skill or save modifier");
@@ -2574,9 +2770,33 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     void columns;
   });
 
+  // A skill or save's cap feeds that skill's own number, so like the proficiency bonus it cannot
+  // read a skill or save modifier, and neither can the derived value it reads or any declared above
+  // that one: evaluation then still runs once, top to bottom.
+  for (const key of ["skills", "saves"] as const) {
+    sheet[key].forEach((entry, index) => {
+      if (!entry.cap) return;
+      const path = ["sheet", key, index, "cap"];
+      checkRef(entry.cap, path, derivedIds);
+      if (entry.cap.skillMod !== undefined || entry.cap.saveMod !== undefined) {
+        issue(path, "A cap cannot read a skill or save modifier");
+      }
+      if (entry.cap.derived === undefined) return;
+      const end = sheet.derived.findIndex((derived) => derived.id === entry.cap!.derived);
+      sheet.derived.slice(0, end + 1).forEach((derived, derivedIndex) => {
+        if (refsOf(derived).some((ref) => ref.skillMod !== undefined || ref.saveMod !== undefined)) {
+          issue(
+            ["sheet", "derived", derivedIndex],
+            `"${derived.id}" feeds the cap on "${entry.id}" and cannot read a skill or save modifier`,
+          );
+        }
+      });
+    });
+  }
+
   sheet.live.pools.forEach((pool, index) => {
     const path = ["sheet", "live", "pools", index];
-    checkRef(pool.max, [...path, "max"], derivedIds);
+    checkRef(pool.max, [...path, "max"], derivedIds, false);
     checkHideWhen(pool.hideWhen, path);
   });
 
@@ -2614,7 +2834,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     if (typeof track.max !== "number") {
       // A maximum the sheet works out is only known per character, so only the floor is checked here;
       // the live state holds a value inside whatever the character's own maximum turns out to be.
-      checkRef(track.max, [...path, "max"], derivedIds);
+      checkRef(track.max, [...path, "max"], derivedIds, false);
       if (track.default !== undefined && track.default < track.min) issue([...path, "default"], "default is below min");
       return;
     }
@@ -3111,15 +3331,15 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           ...sheet.lists,
           ...sheet.live.pools,
           ...sheet.live.tracks,
-        ].flatMap((item) =>
-          item.hideWhen?.field === entry.id && typeof item.hideWhen.equals === "string" ? [item] : [],
-        );
+        ].flatMap((item) => (item.hideWhen?.field === entry.id ? [item] : []));
         entry.removeValues.forEach((value, valueIndex) => {
-          const user = watched.find((item) => item.hideWhen!.equals === value);
+          const user = watched.find((item) => rulesetHideWhenValues(item.hideWhen!).includes(value));
           if (user) {
             issue(
               [...at, "removeValues", valueIndex],
-              `"${user.id}" is hidden when "${entry.id}" is "${value}", so a layer cannot remove that value`,
+              user.hideWhen!.notEquals === undefined
+                ? `"${user.id}" is hidden when "${entry.id}" is "${value}", so a layer cannot remove that value`
+                : `"${user.id}" is shown only when "${entry.id}" is "${value}", so a layer cannot remove that value`,
             );
           }
         });
@@ -3702,9 +3922,19 @@ export function rulesetCatalogEntryIssues(
         else if (!Object.prototype.hasOwnProperty.call(row.values, columnId)) {
           add([...path, "values"], `Scaled column "${columnId}" needs a starting value in values`);
         }
+        // A list may hold scaled cells, its own included, so a scaled column that added one up would
+        // read numbers the same recompute is rewriting: itself, or another column that reads it back,
+        // and never settle. Catalog files are checked one at a time, so no narrower rule could see
+        // every such loop; a scaled column reads no list sum at all, however many steps away.
+        if (refReadsListSum(definition, scaled.from)) {
+          add(
+            [...path, "scaled", columnId, "from"],
+            "A scaled column cannot read a list sum: the lists it adds up hold scaled cells the same recompute rewrites",
+          );
+        }
         // A scaled column reads the sheet exactly as a live pool's maximum does, so any declared
         // derived value is fair game: there is no top-to-bottom order to sit inside out here.
-        for (const refIssue of rulesetValueRefIssues(scaled.from, names, names.derived)) {
+        for (const refIssue of rulesetValueRefIssues(scaled.from, names, names.derived, false)) {
           add([...path, "scaled", columnId, "from", refIssue.key], refIssue.message);
         }
       }
@@ -3888,7 +4118,7 @@ export function rulesetCatalogEntryIssues(
     if (mechanics?.scales) {
       // A scaling amount reads the sheet exactly as a scaled column does, so any declared derived
       // value is fair game.
-      for (const refIssue of rulesetValueRefIssues(mechanics.scales.from, names, names.derived)) {
+      for (const refIssue of rulesetValueRefIssues(mechanics.scales.from, names, names.derived, false)) {
         add([index, "mechanics", "scales", "from", refIssue.key], refIssue.message);
       }
     }

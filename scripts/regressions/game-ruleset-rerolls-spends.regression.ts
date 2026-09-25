@@ -216,7 +216,7 @@ try {
     );
     refuses(
       emberText,
-      (doc) => (doc.resolution.adjust = [{ value: { field: "burden" }, abilities: ["grace"] }]),
+      (doc) => (doc.resolution.adjust = [{ value: { derived: "burden" }, abilities: ["grace"] }]),
       /resolution\.adjust\.0\.abilities\.0: Unknown ability "grace"/,
       "a modifier on an ability the sheet does not have",
     );
@@ -442,10 +442,18 @@ try {
 
   // ── Modifiers off the sheet ──
   {
-    // Ember Roads ships one: Burden comes off every Brawn roll.
+    // Ember Roads ships one: Burden comes off every Brawn roll. Six bulk packed is two off; the tent
+    // left behind counts for nothing.
     const ember = parsedOrThrow(JSON.parse(emberText), "the 2d6 example");
     const laden = defaultRulesetSheetBuild(ember);
-    laden.fields = { ...laden.fields, burden: 2 };
+    laden.lists = {
+      ...laden.lists,
+      gear: [
+        { name: "Anvil", bulk: 3 },
+        { name: "Rope", bulk: 3, packed: true },
+        { name: "Tent", bulk: 3, packed: false },
+      ],
+    };
     const context = contextFor(ember, laden);
     const scrap = roll(context, { skill: "Scrap", dc: 6 }).result;
     assert.equal(scrap.adjust, -2, "Scrap rolls with Brawn");
