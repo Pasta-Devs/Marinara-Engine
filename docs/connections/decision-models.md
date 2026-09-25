@@ -163,7 +163,8 @@ For concrete wording examples and a way to test them on your own chats, see [Wri
 - **An agent with an activation question runs on every turn.** No Decision model is set, or it is not answering, so the agent runs as if it had no question. Check **Test**.
 - **A decision branch in a prompt never appears.** See [When a decision branch never appears](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears).
 - **Smart response order still makes its usual AI call.** The switch is off, or the Decision model did not answer on that turn.
-- **To see every statement and its answer,** set the log level to debug. See [Logging levels](../CONFIGURATION.md#logging-levels).
+- **To see decision scores and outputs during generation,** enable Debug Mode or set the log level to debug. Prompt-decision logs include thresholds, outcomes, and whether answers were reused or held by timing. See [Logging levels](../CONFIGURATION.md#logging-levels).
+- **To test your own statements without generating a reply,** open **Peek Prompt → Decision diagnostics → Test decisions**. Input previews are passive; explicit tests call the selected model and can incur hosted charges. See [Testing decision statements](../chats/peek-prompt.md#testing-decision-statements).
 
 ## Related guides
 

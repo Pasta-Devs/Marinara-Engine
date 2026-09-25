@@ -16,6 +16,7 @@ import {
   isAgentConfigDeleted,
   isBuiltInAgentRuntimeDisabled,
   normalizeAdvancedMemorySettings,
+  type DecisionDebugReport,
 } from "@marinara-engine/shared";
 import {
   appendRoleplayPromptTail,
@@ -45,6 +46,9 @@ import {
   latestTurnDecisionId,
   planPromptDecisions,
   promptDecisionCacheKey,
+  answerPromptDecisions,
+  PromptDecisionTurnCache,
+  type PromptDecisionPlan,
 } from "../../services/decision/prompt-decisions.js";
 import {
   DECISION_TIMERS_METADATA_KEY,
@@ -53,7 +57,11 @@ import {
   readDecisionTimers,
 } from "../../services/decision/decision-timers.js";
 import { gameGmPromptDecisionTexts } from "../../services/generation/game-gm-prompt-runtime.js";
-import { DECISION_SETTINGS_KEYS } from "../../services/decision/decision-default.js";
+import {
+  DECISION_SETTINGS_KEYS,
+  resolveDecisionBackend,
+  type DecisionBackend,
+} from "../../services/decision/decision-default.js";
 import { createPromptsStorage } from "../../services/storage/prompts.storage.js";
 import { createCharactersStorage } from "../../services/storage/characters.storage.js";
 import { createAgentsStorage } from "../../services/storage/agents.storage.js";
@@ -538,6 +546,15 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     const impersonate = body.impersonate === true;
     const streaming = body.streaming === true;
     const returnPrompt = body.returnPrompt === true;
+    if (
+      body.decisionDebug !== undefined &&
+      ((body.decisionDebug !== "inspect" && body.decisionDebug !== "run") || !returnPrompt || streaming)
+    ) {
+      return reply
+        .status(400)
+        .send({ error: "Decision debugging requires inspect or run with returnPrompt and without streaming." });
+    }
+    const decisionDebugMode = body.decisionDebug as "inspect" | "run" | undefined;
     const wrapLastMessage = body.wrapLastMessage === true;
     // Normalize injection flags (support extension legacy-ish aliases).
     const resolvedInjectLorebook = body.injectLorebook === true || body.injectLorebookInjection === true;
@@ -1010,9 +1027,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     });
     const historyMacroProfilesById = (await resolveCharacterMacroData(app.db, allCharacterIds)).profilesById;
 
-    // Decision statements (#6569). Peek Prompt shows the branches this turn has already
-    // answered and never asks the model itself; what is not answered yet reads as no,
-    // and the preview says so rather than implying the prompt is final.
+    // Normal previews only read live answers. An explicit diagnostic request uses its
+    // own cache; only run mode sends Decision requests, never the main generation.
     const decisionUnanswered = new Set<string>();
     // Statements past the per-turn limit, which generation would not ask either.
     const decisionDropped = new Set<string>();
@@ -1027,10 +1043,71 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     const heldDecisions: HeldDecisions = (kind, key, modifiers) =>
       heldDecision(previewDecisionTimers, previewDecisionTurn, kind, key, modifiers?.every);
     const decisionLocalSetting = await decisionSettings.get(DECISION_SETTINGS_KEYS.localDefault);
-    const decisionConnectionId = (await connections.getDefaultForDecision())?.id ?? null;
+    const decisionConnection = await connections.getDefaultForDecision();
+    const decisionConnectionId = decisionConnection?.id ?? null;
     // The cache key uses the setting as generation does; the report says whether it can serve.
     const decisionModelId = decisionLocalSetting ?? decisionConnectionId;
     const decisionModelSet = decisionModelUsable(decisionLocalSetting, decisionConnectionId);
+    const decisionCacheKey = promptDecisionCacheKey(chatId, latestTurnDecisionId(chatMessages), decisionModelId);
+    const decisionDebug: DecisionDebugReport | undefined = decisionDebugMode
+      ? {
+          mode: decisionDebugMode,
+          createdAt: new Date().toISOString(),
+          turnId: latestTurnDecisionId(chatMessages),
+          model: decisionLocalSetting ?? decisionConnection?.model ?? null,
+          results: [],
+          requests: [],
+        }
+      : undefined;
+    const testCache = decisionDebug ? new PromptDecisionTurnCache(1) : undefined;
+    let testBackend: DecisionBackend | null | undefined;
+    // Includes cold local startup, but cannot leave an abandoned test running forever.
+    const testAbort = decisionDebug ? new AbortController() : undefined;
+    if (testAbort)
+      reply.raw.once("close", () => {
+        if (!reply.raw.writableEnded) testAbort.abort();
+      });
+    const testSignal = testAbort ? AbortSignal.any([testAbort.signal, AbortSignal.timeout(180_000)]) : undefined;
+    const answerPreviewDecisions = async (plan: PromptDecisionPlan) => {
+      if (!decisionDebug) return cachedPromptDecisionAnswers(plan, decisionCacheKey);
+      if (testBackend === undefined && plan.decisions.some((decision) => !decision.held)) {
+        try {
+          testBackend = await resolveDecisionBackend(
+            {
+              getLocalDefault: async () => decisionLocalSetting,
+              getThinkingPreGeneration: async () =>
+                (await decisionSettings.get(DECISION_SETTINGS_KEYS.thinkingPreGeneration)) === "true",
+              getDefaultConnection: async () => decisionConnection,
+              getConnectionWithKey: (id) => connections.getWithKey(id),
+              inspection: decisionDebug,
+            },
+            testSignal,
+          );
+        } catch (error) {
+          logger.warn(error, "[decision] Could not prepare the selected model for inspection");
+          testBackend = null;
+        }
+      }
+      return answerPromptDecisions({
+        plan,
+        backend: testBackend ?? null,
+        inspection: decisionDebug,
+        cache: testCache,
+        cacheKey: decisionCacheKey,
+        chatId,
+        // An explicit test can wait for reasoning without changing the live pre-reply policy.
+        afterReply: decisionDebugMode === "run",
+        messages: chatMessages.map((message: any) => ({
+          role: message.role,
+          name:
+            message.role === "user"
+              ? personaName
+              : (historyMacroProfilesById.get(message.characterId)?.name ?? "Narrator"),
+          content: typeof message.content === "string" ? message.content : "",
+        })),
+        // Timers are read above, but test results never advance or save them.
+      });
+    };
     {
       const texts = collectTurnDecisionTexts({
         // The same sources generation plans from: preset sections only outside
@@ -1088,12 +1165,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       decisionSlotsUsed = plan.decisions.filter((decision) => !decision.held).length;
       // Always an object, so answers for activating lorebook entries merge into it.
       promptMacroContext.decisions = {
-        ...(plan.decisions.length > 0
-          ? cachedPromptDecisionAnswers(
-              plan,
-              promptDecisionCacheKey(chatId, latestTurnDecisionId(chatMessages), decisionModelId),
-            )
-          : {}),
+        ...(plan.decisions.length > 0 ? await answerPreviewDecisions(plan) : {}),
         unanswered: decisionUnanswered,
       };
     }
@@ -1104,11 +1176,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       // Spent as generation spends it, so the preview drops what generation would.
       limit: Math.max(0, decisionLimit - decisionSlotsUsed),
       freeKeys: new Set(decisionPlanKeys),
-      answer: async (plan) =>
-        cachedPromptDecisionAnswers(
-          plan,
-          promptDecisionCacheKey(chatId, latestTurnDecisionId(chatMessages), decisionModelId),
-        ),
+      answer: answerPreviewDecisions,
       onUnanswered: (statement) => decisionUnanswered.add(statement),
       onDropped: (statement) => decisionDropped.add(statement),
       held: heldDecisions,
@@ -2167,8 +2235,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
     // Prompt preview mode: return the exact prompt shape that would be sent.
     if (returnPrompt) {
+      if (decisionDebug)
+        for (const statement of decisionDropped) {
+          if (!decisionDebug.results.some((row) => row.statement === statement))
+            decisionDebug.results.push({ statement, kind: "noul", status: "dropped" });
+        }
       return reply.send({
         prompt: {
+          ...(decisionDebug ? { decisionDebug } : {}),
           messages: providerMessages.map((message) => ({
             role: message.role,
             content: message.content,

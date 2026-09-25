@@ -47,6 +47,7 @@ export type PersonaInfo = {
 };
 
 export type PeekPromptData = {
+  chatId?: string;
   messages: Array<{ role: string; content: string }>;
   /** Decision statements with no answer for this turn, which read as no in the preview. */
   decisions?: { unanswered: string[]; dropped?: string[]; decisionModelSet: boolean };

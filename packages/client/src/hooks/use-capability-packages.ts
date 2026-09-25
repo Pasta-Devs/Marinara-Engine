@@ -186,6 +186,14 @@ export function isCapabilityPackageAvailableUntilRestart(installed: InstalledCap
   return Boolean(resolveCapabilityPackageAvailableUntilRestart(installed));
 }
 
+/** A package the user can use right now: active, or updated and still running its previous
+ *  version until the next restart. */
+export function isCapabilityPackageAvailable(installed: InstalledCapabilityPackage[], packageId: string): boolean {
+  return installed.some(
+    (item) => item.id === packageId && (item.status === "active" || isCapabilityPackageAvailableUntilRestart(item)),
+  );
+}
+
 /** Installed destinations that Home can safely expose as browser tabs. */
 export function selectHomeBrowserPackages(
   installed: InstalledCapabilityPackage[] | undefined,
