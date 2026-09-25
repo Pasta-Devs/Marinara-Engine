@@ -3,9 +3,11 @@ import { useTranslation } from "react-i18next";
 
 import {
   DEFAULT_COMMAND_CENTER_SESSION_STATE,
+  isOmnibarShortcut,
   readCommandCenterSessionState,
   writeCommandCenterSessionState,
 } from "../../lib/command-center";
+import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
 import {
   consumeProfessorMariOpenRequest,
   PROFESSOR_MARI_OPEN_EVENT,
@@ -87,11 +89,14 @@ export function GlobalOmnibar() {
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      // A `Modal` (a confirm dialog, say) does not set `ui.modal`, so check the
+      // overlay registry too; the omnibar itself is not a `Modal`.
       if (
         !event.defaultPrevented &&
+        !event.isComposing &&
         !useUIStore.getState().modal &&
-        (event.metaKey || event.ctrlKey) &&
-        event.key.toLowerCase() === "k"
+        !isModalOverlayOpen() &&
+        isOmnibarShortcut(event)
       ) {
         event.preventDefault();
         setOpen(!useUIStore.getState().omnibarOpen);

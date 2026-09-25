@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   COMMAND_CENTER_MAX_RESULTS,
+  isOmnibarShortcut,
   normalizeCommandCenterSessionState,
   normalizeCommandRankingState,
   presentCommandCenterResults,
@@ -602,5 +603,28 @@ assert.equal(mariSession.pane, "mari");
 assert.ok(!("returnStack" in mariSession));
 assert.ok(!("mariDestination" in mariSession));
 assert.ok(!("mariDetailId" in mariSession));
+
+{
+  const key = (overrides: Partial<Parameters<typeof isOmnibarShortcut>[0]>) => ({
+    key: "k",
+    code: "KeyK",
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    shiftKey: false,
+    ...overrides,
+  });
+  assert.equal(isOmnibarShortcut(key({ ctrlKey: true }), false), true);
+  assert.equal(isOmnibarShortcut(key({ metaKey: true }), true), true);
+  // Only the platform's own modifier: macOS keeps Ctrl+K for "delete to end of line".
+  assert.equal(isOmnibarShortcut(key({ ctrlKey: true }), true), false);
+  assert.equal(isOmnibarShortcut(key({ metaKey: true }), false), false);
+  assert.equal(isOmnibarShortcut(key({ ctrlKey: true, shiftKey: true }), false), false);
+  assert.equal(isOmnibarShortcut(key({ ctrlKey: true, repeat: true }), false), false);
+  // Non-Latin layouts report the local letter; the physical K key still counts.
+  assert.equal(isOmnibarShortcut(key({ ctrlKey: true, key: "л" }), false), true);
+  // A Latin layout with a different letter on the K position does not.
+  assert.equal(isOmnibarShortcut(key({ ctrlKey: true, key: "t" }), false), false);
+}
 
 console.info("Command Center regression checks passed.");

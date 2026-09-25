@@ -148,6 +148,7 @@ import {
 } from "../../lib/professor-mari-open";
 import type { ProfessorMariNavigationTarget } from "../../lib/professor-mari-navigation";
 import { executeStateNavigation } from "../../lib/state-navigation";
+import { hasEditorLeaveHandler } from "../../lib/editor-leave";
 import { cn } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useChatStore } from "../../stores/chat.store";
@@ -1402,6 +1403,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     [filter, deferredQuery, rankedResults, ranking],
   );
   const idle = !query.trim() && presentation.groups.length === 0;
+  const listVisible = pane !== "mari" && !idle;
   // The filter bar only renders once there is a query, so availability always comes from the results.
   const tabAvailability = presentation.categoryAvailability;
   const availableFilters = COMMAND_CENTER_CATEGORY_FILTERS.filter(
@@ -1594,9 +1596,16 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     window.addEventListener(PROFESSOR_MARI_OPEN_EVENT, openRequestedProfessorMari);
     return () => window.removeEventListener(PROFESSOR_MARI_OPEN_EVENT, openRequestedProfessorMari);
   }, []);
-  /** Guards every path that leaves an open editor, so no route skips the prompt. */
+  /**
+   * Guards every path that leaves an open editor, so no route skips the prompt.
+   * An editor with a leave handler saves itself on the way out (the store routes
+   * the leave through it), so only editors without one need the prompt; the
+   * chat sidebar applies the same rule.
+   */
   const confirmLeaveEditor = () =>
-    !ui().editorDirty || window.confirm(t("commandCenter.dirtyEditor", "You have unsaved changes. Leave this editor?"));
+    !ui().editorDirty ||
+    hasEditorLeaveHandler(ui()) ||
+    window.confirm(t("commandCenter.dirtyEditor", "You have unsaved changes. Leave this editor?"));
   const navigate = (target: ProfessorMariNavigationTarget) => {
     if (!confirmLeaveEditor()) return false;
     executeStateNavigation(target);
@@ -1891,6 +1900,13 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     if (expandedPreviewId) setExpandedPreviewId(next && isRichResult(next) ? next.id : null);
   };
   const onInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    // An IME (Chinese, Japanese, ...) confirms its candidate with Enter, and
+    // arrows move its candidate list, and Escape cancels the composition; none
+    // of them belong to the result list or the dialog's own Escape handling.
+    if (event.nativeEvent.isComposing) {
+      event.stopPropagation();
+      return;
+    }
     if (event.key === "Tab" && !event.shiftKey && inlineSuffix) {
       // Accept the ghost completion instead of leaving the field.
       event.preventDefault();
@@ -2550,6 +2566,10 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                     autoCapitalize="off"
                     spellCheck={false}
                     aria-label={t("omnibar.inputLabel", "Search Marinara")}
+                    // Focus stays in the field while the arrows move the selection,
+                    // so point screen readers at the selected row.
+                    aria-controls={listVisible ? "global-omnibar-results" : undefined}
+                    aria-activedescendant={listVisible && activeResult ? `omnibar-${activeResult.id}` : undefined}
                     onKeyDown={onInputKeyDown}
                     placeholder={
                       idle
@@ -2708,7 +2728,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
             </p>
           </div>
         ) : null}
-        {pane === "mari" || idle ? null : (
+        {!listVisible ? null : (
           <div className="flex min-h-0 flex-1">
             <div
               ref={listRef}

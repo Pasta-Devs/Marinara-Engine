@@ -608,3 +608,33 @@ export function presentCommandCenterResults<T extends CommandCenterPresentableRe
     categoryAvailability,
   };
 }
+
+export interface OmnibarShortcutEvent {
+  key: string;
+  code?: string;
+  repeat?: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  altKey: boolean;
+  shiftKey: boolean;
+}
+
+export function isApplePlatform(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const platform =
+    (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.platform;
+  return /mac|iphone|ipad|ipod/i.test(platform ?? "");
+}
+
+/**
+ * Cmd+K on Apple devices, Ctrl+K elsewhere. Only the platform's own modifier
+ * counts: on macOS Ctrl+K is the text fields' "delete to end of line" binding.
+ * Non-Latin layouts report the local letter in `key`, so the physical K key is
+ * matched through `code`. Held-down repeats would toggle the bar open and shut.
+ */
+export function isOmnibarShortcut(event: OmnibarShortcutEvent, apple = isApplePlatform()): boolean {
+  const modifier = apple ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+  if (!modifier || event.altKey || event.shiftKey || event.repeat) return false;
+  const key = event.key.toLowerCase();
+  return key === "k" || (!/^[a-z]$/.test(key) && event.code === "KeyK");
+}
