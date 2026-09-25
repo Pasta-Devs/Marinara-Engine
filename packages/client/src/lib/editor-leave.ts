@@ -45,3 +45,12 @@ export function deferEditorLeave(state: EditorIds, patch: EditorIds, proceed: ()
   if (editorLeaveKey({ ...state, ...patch }) === handler.key) return false;
   return handler.request(proceed);
 }
+
+/**
+ * Runs `proceed` once the mounted editor agrees to leave: at once when no editor with a leave handler is open or it
+ * has nothing to save, after its save when it has, and never when it is busy or the save fails.
+ */
+export function afterEditorLeave(state: EditorIds, proceed: () => void) {
+  const cleared = Object.fromEntries(EDITOR_IDS.map((id) => [id, null])) as EditorIds;
+  if (!deferEditorLeave(state, cleared, proceed)) proceed();
+}

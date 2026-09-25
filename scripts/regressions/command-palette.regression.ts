@@ -77,6 +77,46 @@ const en = JSON.parse(source("localization/locales/en.json")) as Record<string, 
   assert.equal(rankCommands(commands, "t", [], { limit: 1 }).length, 1);
 }
 
+// ── Palette navigation waits for an editor's own leave save ──
+{
+  const { afterEditorLeave, registerEditorLeaveHandler } =
+    await import("../../packages/client/src/lib/editor-leave.js");
+  const editorOpen = { characterDetailId: "c1" };
+  let ran = 0;
+  afterEditorLeave({}, () => (ran += 1));
+  assert.equal(ran, 1, "no editor open: runs at once");
+
+  let pendingSave: (() => void) | null = null;
+  let dirty = true;
+  const unregister = registerEditorLeaveHandler({
+    key: "characterDetailId:c1",
+    request: (proceed) => {
+      if (!dirty) return false;
+      pendingSave = proceed;
+      return true;
+    },
+  });
+  afterEditorLeave(editorOpen, () => (ran += 1));
+  assert.equal(ran, 1, "a dirty editor with a leave handler holds the navigation until its save finishes");
+  dirty = false;
+  (pendingSave as (() => void) | null)?.();
+  assert.equal(ran, 2, "the navigation runs after the save");
+  afterEditorLeave(editorOpen, () => (ran += 1));
+  assert.equal(ran, 3, "a clean editor lets it run at once");
+  unregister();
+
+  const navigation = source("components/command-palette/palette-navigation.ts");
+  const host = source("components/command-palette/CommandPaletteHost.tsx");
+  assert.match(navigation, /closeDetailsThen\(\(\) => \{\s*useChatStore\.getState\(\)\.setActiveChatId\(chatId\)/);
+  assert.match(host, /closeDetailsThen\(\(\) => launchRef\.current\(mode\)\)/, "new chat waits for the editor");
+  assert.match(
+    host,
+    /closeDetailsThen\(\(\) => \{\s*useChatStore\.getState\(\)\.setActiveChatId\(null\)/,
+    "Home waits too",
+  );
+  assert.doesNotMatch(host, /closeAllDetails\(\);\s*launchRef/);
+}
+
 // ── Recents ──
 assert.deepEqual(pushRecent(["a", "b", "c"], "b"), ["b", "a", "c"]);
 assert.equal(
@@ -337,12 +377,12 @@ for (const [name, value] of Object.entries(en)) {
   const navigation = source("components/command-palette/palette-navigation.ts");
   assert.match(
     navigation,
-    /if \(isMobileShellViewport\(\)\) \{\s+ui\.setSidebarOpen\(false\);\s+ui\.closeRightPanel\(\);/u,
+    /if \(isMobileShellViewport\(\)\) \{\s+(?:const ui = useUIStore\.getState\(\);\s+)?ui\.setSidebarOpen\(false\);\s+ui\.closeRightPanel\(\);/u,
   );
   assert.doesNotMatch(navigation, /innerWidth/u, "no fixed breakpoint in palette navigation");
   assert.match(
     host,
-    /id: "action:home"[\s\S]*?if \(!isMobileShellViewport\(\)\) return;\s+ui\.setSidebarOpen\(false\);\s+ui\.closeRightPanel\(\);/u,
+    /id: "action:home"[\s\S]*?if \(!isMobileShellViewport\(\)\) return;\s+(?:const ui = useUIStore\.getState\(\);\s+)?ui\.setSidebarOpen\(false\);\s+ui\.closeRightPanel\(\);/u,
     "Home closes overlaying panels like the top bar's Home button",
   );
 }

@@ -23,7 +23,7 @@ import { useLaunchNewChat } from "../chat/HomeNewChatLauncher";
 import { useCommandPaletteStore } from "../../stores/command-palette.store";
 import { useChatStore } from "../../stores/chat.store";
 import { isMobileShellViewport, useUIStore, type Panel } from "../../stores/ui.store";
-import { confirmLeaveDirtyEditor } from "./palette-navigation";
+import { closeDetailsThen, confirmLeaveDirtyEditor } from "./palette-navigation";
 
 const CommandPalette = lazy(() => import("./CommandPalette").then((module) => ({ default: module.CommandPalette })));
 const KeyboardShortcutsOverlay = lazy(() =>
@@ -89,8 +89,7 @@ export function CommandPaletteHost() {
     };
     const newChat = (mode: "conversation" | "roleplay" | "game") => async () => {
       if (!(await confirmLeaveDirtyEditor())) return;
-      useUIStore.getState().closeAllDetails();
-      launchRef.current(mode);
+      closeDetailsThen(() => launchRef.current(mode));
     };
     const unregisters = [
       registerCommand({
@@ -122,13 +121,14 @@ export function CommandPaletteHost() {
         run: async () => {
           if (!(await confirmLeaveDirtyEditor())) return;
           window.dispatchEvent(new Event("marinara:home-professor-mari-close"));
-          useChatStore.getState().setActiveChatId(null);
-          const ui = useUIStore.getState();
-          ui.closeAllDetails();
-          // Like the top bar's Home button: in the overlay layout, panels covering Home close too.
-          if (!isMobileShellViewport()) return;
-          ui.setSidebarOpen(false);
-          ui.closeRightPanel();
+          closeDetailsThen(() => {
+            useChatStore.getState().setActiveChatId(null);
+            // Like the top bar's Home button: in the overlay layout, panels covering Home close too.
+            if (!isMobileShellViewport()) return;
+            const ui = useUIStore.getState();
+            ui.setSidebarOpen(false);
+            ui.closeRightPanel();
+          });
         },
       }),
       registerCommand({
