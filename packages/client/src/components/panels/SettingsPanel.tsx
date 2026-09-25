@@ -8122,37 +8122,40 @@ function AdvancedSettings() {
       }>("/professor-mari/workspace/status", { signal: requestTimeoutSignal(5_000) })
       .then((status) => status.latestUnderstoodRequest ?? null)
       .catch(() => undefined);
-    // Fenced so Discord and GitHub render the report as a code block (#6668).
+    const report = formatSupportDiagnostics({
+      clientRuntime: getClientRuntimeDiagnostics(),
+      mariActingOn,
+      // Distinguish "the server never answered" (frozen host) from ordinary
+      // missing fields so support reports carry the signal (#5657): the
+      // formatter renders every server telemetry line as unreachable.
+      serverUnreachable: isRequestTimeoutError(health.error),
+      version: health.data?.version ?? APP_VERSION,
+      build: health.data?.build ?? APP_VERSION,
+      commit: health.data?.commit ?? null,
+      serverOs: health.data?.serverOs ?? "",
+      serverMemory: health.data?.memory,
+      wakeLock: health.data?.wakeLock ?? null,
+      lastFreeze: health.data?.lastFreeze ?? null,
+      // undefined (fetch failed) stays undefined so the report says
+      // Unavailable instead of asserting a fate it never observed.
+      previousSession: health.data?.previousSession,
+      uncleanExitCount: health.data?.uncleanExitCount,
+      // The server's own GPU and local model slots. Useful on its own for
+      // "my local model won't load" reports, whether or not the user has
+      // ever touched an activation question.
+      sidecars: health.data?.sidecars,
+      clientOs: resolveClientOs(navigator.userAgent, navigator.platform, navigator.maxTouchPoints),
+      browser: navigator.userAgent,
+      gpu: detectBrowserGpu(),
+      connectionName: activeConnection?.name ?? null,
+      connectionProvider: activeConnection?.provider ?? null,
+      model: activeConnection?.model ?? null,
+    });
+    // Fenced so Discord and GitHub render the report as a code block (#6668). Discord only knows
+    // ``` fences, so a backtick run inside the report (a connection name, Mari's phrase) is split
+    // with a zero-width space instead of lengthening the fence.
     const copied = await copyToClipboard(
-      `\`\`\`\n${formatSupportDiagnostics({
-        clientRuntime: getClientRuntimeDiagnostics(),
-        mariActingOn,
-        // Distinguish "the server never answered" (frozen host) from ordinary
-        // missing fields so support reports carry the signal (#5657): the
-        // formatter renders every server telemetry line as unreachable.
-        serverUnreachable: isRequestTimeoutError(health.error),
-        version: health.data?.version ?? APP_VERSION,
-        build: health.data?.build ?? APP_VERSION,
-        commit: health.data?.commit ?? null,
-        serverOs: health.data?.serverOs ?? "",
-        serverMemory: health.data?.memory,
-        wakeLock: health.data?.wakeLock ?? null,
-        lastFreeze: health.data?.lastFreeze ?? null,
-        // undefined (fetch failed) stays undefined so the report says
-        // Unavailable instead of asserting a fate it never observed.
-        previousSession: health.data?.previousSession,
-        uncleanExitCount: health.data?.uncleanExitCount,
-        // The server's own GPU and local model slots. Useful on its own for
-        // "my local model won't load" reports, whether or not the user has
-        // ever touched an activation question.
-        sidecars: health.data?.sidecars,
-        clientOs: resolveClientOs(navigator.userAgent, navigator.platform, navigator.maxTouchPoints),
-        browser: navigator.userAgent,
-        gpu: detectBrowserGpu(),
-        connectionName: activeConnection?.name ?? null,
-        connectionProvider: activeConnection?.provider ?? null,
-        model: activeConnection?.model ?? null,
-      })}\n\`\`\``,
+      `\`\`\`\n${report.replace(/``+/gu, (run) => run.split("").join("\u200b"))}\n\`\`\``,
     );
     if (copied) {
       toast.success(localizeUi("ui.panels.advancedsettings.supportDiagnosticsCopied"));
