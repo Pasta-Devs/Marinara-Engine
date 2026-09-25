@@ -125,18 +125,33 @@ Useful follow-up checks:
 pnpm version:check
 pnpm regression
 pnpm regression:prompt
+pnpm smoke:ui
 pnpm regression:ui
 ```
 
 Regression guards:
 
-- `pnpm regression` (or `pnpm regression:node`) builds the shared package once, discovers the complete Node regression set from the filesystem, and runs it serially. Pull requests and staging pushes run this complete lane on a hosted runner.
+- `pnpm regression` (or `pnpm regression:node`) builds the shared package once, discovers the complete Node regression set from the filesystem, and runs it serially. Pull requests and staging pushes retain this complete lane on a hosted runner.
 - `pnpm regression:prompt` runs fast deterministic checks for prompt assembly, lorebook keyword matching, macros, summaries, and mode-specific generation gates.
-- `pnpm regression:ui` runs the Playwright browser suite across desktop Chromium, Android-sized Chromium, and iPhone-sized WebKit; `pnpm smoke:ui` remains a compatibility alias for the same full UI lane. Pull requests and staging pushes run the same projects independently on hosted runners.
-  Each run clears `.tmp/playwright-data` and starts separate desktop and mobile app servers so their mutable fixtures cannot overlap. Stop any process already using the configured Playwright ports before running it; existing fixture state is disposable and the suite does not reuse a running development server.
+- `pnpm smoke:ui` runs only the `@smoke` tests on desktop Chromium, with one worker. This small suite covers the Home shell, settings persistence, chat-mode navigation, generation stop/refusal, Conversation and Roleplay reasoning, and Game narration. Development PRs into `staging` run it inside the existing required `pnpm-validate` check, so a smoke failure blocks merging. Staging pushes run it as `browser-smoke`. Both replace the full browser matrix at those development boundaries. Keep the smoke selection small; feature-specific regressions belong in focused local runs and the full matrix.
+- `pnpm regression:ui` still runs the full Playwright suite across desktop Chromium, Android-sized Chromium, and iPhone-sized WebKit. GitHub runs the full matrix nightly at 02:17 UTC against `staging`, on manual dispatch, and on PRs into `main` (including promotion and hotfix candidates). Every test job uses the same immutable commit from its triggering event; the `regression-revision` job records that SHA in its summary. Full-matrix checks retain the `desktop-chromium`, `mobile-chromium`, and `mobile-webkit` verdicts; ordinary development runs skip those full lanes.
+  Browser runs clear `.tmp/playwright-data` and use disposable app-server fixtures. Local runs start separate desktop and mobile servers; hosted jobs start only the pair their selected project needs. Stop any process already using the configured Playwright ports before running tests; the suite does not reuse a running development server.
 - `pnpm test` checks the Windows installer layout, then runs the Node regression lane. It does not run the UI lane; invoke `pnpm regression:ui` explicitly for browser validation.
 
-These checks are intentionally small and do not replace manual verification. When you change behavior, include the manual verification you performed and add or update a regression guard for the bug class when practical.
+Before pushing, run `pnpm check` and the regressions covering the behavior you changed. For browser-affecting work, run `pnpm smoke:ui` plus the relevant spec files or named cases. Include mobile Chromium and WebKit when changing responsive layout, touch/keyboard behavior, media playback, or browser-specific APIs. Shared shell, styling, storage, or routing changes warrant broader coverage. Running the entire browser matrix before every push is not required.
+
+For example, select a focused desktop regression or a mobile case without running every spec:
+
+```bash
+pnpm regression:ui e2e/game-verb-only-turn.e2e.ts --project=desktop-chromium --workers=1
+pnpm regression:ui e2e/core-flows.e2e.ts --project=mobile-webkit --grep "chat mode tabs" --workers=1
+```
+
+Record the commands, results, and tested revision in the PR. Rerun affected checks after later edits; do not present results from an earlier revision as validation of changed code. Explain any unavailable browser or skipped coverage. These automated checks do not replace manual verification of the changed behavior.
+
+To run the full hosted matrix on the current staging candidate, use `gh workflow run playwright.yml --ref staging`. Select another existing branch or tag with `--ref`, and add `-f expected_sha=<full-commit-sha>` to reject the run if that branch/tag has moved off the intended candidate. Every checkout uses the triggering SHA; the input never selects code from another branch inside the run. Wait for all three browser verdicts and the Node lane before treating that candidate as validated.
+
+**Rollout:** GitHub schedules workflows from the default branch, so the nightly trigger becomes active only after this workflow reaches `main`. Its scheduler only dispatches a full run on `staging`; test code and cache writes stay in the selected branch's own context. Until then, use manual dispatch from `staging` for full coverage. Promotion PRs into `main` run the full matrix from their proposed workflow. A nightly green result on an older staging commit does not validate a later release candidate.
 
 ## Logging
 
@@ -307,7 +322,7 @@ Standard release flow:
 2. Run `pnpm version:sync -- --android-version-code <next-code>` to sync all derived version fields.
 3. Run `pnpm credits:check`; if it reports stale contributor credits, run `pnpm credits:sync` and include the Credits modal update in the release PR.
 4. Update `CHANGELOG.md`; when publishing a stable release, update README's current-stable-release link to the matching tag.
-5. Merge the release-ready `staging` change to `main`.
+5. Open the promotion PR from `staging` to `main` and wait for its full browser matrix and required checks to pass before merging. If the candidate changes, validate the updated candidate. For a release without a promotion PR, manually run the full matrix against its exact candidate commit before tagging.
 6. Create and push the tag `vX.Y.Z` from the `main` commit that contains that exact version bump.
 7. Let the release workflows publish or update the GitHub Release, named source ZIP, Windows installer, Android WebView shell APK, and GHCR container images (`X.Y.Z`, `X.Y`, `X`, `latest`, plus `X.Y.Z-lite` / `lite`) from the matching changelog entry.
 
