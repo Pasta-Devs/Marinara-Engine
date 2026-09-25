@@ -12,7 +12,8 @@ import {
   NEUTRAL_PANEL_TITLE,
 } from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { estimateTextTokens, type GameToolPlanningInfo } from "@marinara-engine/shared";
+import { estimateTextTokens, type GameToolPlanningInfo, type DecisionDebugPreview } from "@marinara-engine/shared";
+import { DecisionDebugPanel } from "./DecisionDebugPanel";
 
 const PROMPT_TAG_CLASS =
   "border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-highlight-text)]";
@@ -49,6 +50,7 @@ interface GenerationInfo {
 
 interface PeekPromptModalProps {
   data: {
+    chatId?: string;
     messages: Array<{ role: string; content: string }>;
     chatMode?: string;
     parameters: unknown;
@@ -505,8 +507,21 @@ function ChatHistoryMessage({ entry, roleColor }: { entry: ChatHistoryEntry; rol
 //  Main Modal
 // ═══════════════════════════════════════════════
 
-export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
+export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModalProps) {
   const { t: localizeUi } = useUiTranslation();
+  const [tested, setTested] = useState<DecisionDebugPreview | null>(null);
+  const [showTest, setShowTest] = useState(false);
+  const data: PeekPromptModalProps["data"] =
+    showTest && tested
+      ? {
+          messages: tested.prompt.messages,
+          parameters: tested.parameters,
+          decisions: tested.prompt.decisions,
+          chatMode: originalData.chatMode,
+          source: "live_preview",
+          exact: false,
+        }
+      : originalData;
   const backdropDismiss = useBackdropDismiss(onClose);
   const sections = useMemo(
     () => buildDisplaySections(data.messages, data.chatMode === "conversation"),
@@ -575,7 +590,7 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
                 sourceBadgeClass(data),
               )}
             >
-              {sourceLabel(data)}
+              {showTest ? localizeUi("decisionDebug.testedPrompt") : sourceLabel(data)}
             </span>
             <span className="min-w-0 text-[0.625rem] text-[var(--muted-foreground)]">
               {sections.length} {localizeUi("ui.chat.peekpromptmodal.section")}
@@ -593,6 +608,30 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
           </button>
         </div>
         <div className={cn(NEUTRAL_PANEL_SCROLL_AREA, "min-h-0 flex-1 overflow-y-auto p-4 space-y-2")}>
+          {originalData.chatId && (
+            <DecisionDebugPanel
+              key={originalData.chatId}
+              chatId={originalData.chatId}
+              onPreview={(preview) => {
+                setTested(preview);
+                setShowTest(preview !== null);
+              }}
+            />
+          )}
+          {tested && (
+            <div className="flex flex-col items-start gap-2 py-2 text-xs sm:flex-row sm:items-center">
+              <p className="flex-1 text-[var(--muted-foreground)]">
+                {localizeUi(showTest ? "decisionDebug.testedHint" : "decisionDebug.originalHint")}
+              </p>
+              <button
+                type="button"
+                className="mari-chrome-control min-h-10 px-3"
+                onClick={() => setShowTest(!showTest)}
+              >
+                {localizeUi(showTest ? "decisionDebug.showOriginal" : "decisionDebug.showTest")}
+              </button>
+            </div>
+          )}
           {/* A preview never asks the Decision model, so a decision branch it could not
               answer is shown as "no". Saying so keeps a preview from being read as final. */}
           {data.decisions && data.decisions.unanswered.length > 0 && (
