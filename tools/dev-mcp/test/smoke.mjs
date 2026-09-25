@@ -8,6 +8,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { fileURLToPath } from "node:url";
+import { pickChat } from "../lib/api.mjs";
 
 const EXPECTED_TOOLS = [
   "engine_status", "activity_log", "sandbox_refresh", "sandbox_stop", "list_chats", "read_messages", "get_prompt",
@@ -27,6 +28,31 @@ await client.connect(
 );
 
 const failures = [];
+
+// Offline: a write never picks one of several chats that match a name fragment.
+{
+  const chats = [
+    { id: "c1", name: "Session one", updatedAt: "2026-01-02" },
+    { id: "c2", name: "Session two", updatedAt: "2026-01-03" },
+    { id: "c3", name: "Session", updatedAt: "2026-01-01" },
+  ];
+  const expect = (label, ok) => {
+    console.log(`pickChat: ${label} ${ok ? "ok" : "<-- UNEXPECTED"}`);
+    if (!ok) failures.push(`pickChat: ${label}`);
+  };
+  expect("a read takes the newest partial match", pickChat(chats, "session t").id === "c2");
+  expect("a read of an ambiguous fragment takes the newest", pickChat(chats, "sess").id === "c2");
+  expect("a write takes an id", pickChat(chats, "c1", { write: true }).id === "c1");
+  expect("a write takes a unique partial match", pickChat(chats, "two", { write: true }).id === "c2");
+  expect("a write takes an exact name among partial matches", pickChat(chats, "session", { write: true }).id === "c3");
+  let refused = false;
+  try {
+    pickChat(chats, "sess", { write: true });
+  } catch (error) {
+    refused = /ambiguous/.test(error.message);
+  }
+  expect("a write refuses an ambiguous fragment", refused);
+}
 try {
   const { tools } = await client.listTools();
   console.log(`tools (${tools.length}): ${tools.map((t) => t.name).join(", ")}`);

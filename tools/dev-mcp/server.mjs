@@ -565,7 +565,7 @@ tool(
   WRITE,
   async ({ chat, reason, set, replace, dryRun }) => {
     await requireOnline();
-    const c = await getChat((await resolveChat(chat)).id);
+    const c = await getChat((await resolveChat(chat, { write: true })).id);
     const meta = c.metadata ?? {};
     const patch = { ...(set ?? {}) };
     if (replace) {

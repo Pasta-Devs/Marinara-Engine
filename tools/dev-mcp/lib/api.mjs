@@ -81,9 +81,12 @@ export async function getCharacter(id) {
   return { ...c, data: parse(c.data) };
 }
 
-/** Resolve a chat by id or by a (case-insensitive) name fragment; the most recently updated match wins. */
-export async function resolveChat(ref) {
-  const chats = await listChats();
+/**
+ * Pick a chat by id or by a (case-insensitive) name fragment; for reads the most recently updated match wins.
+ * With `write`, a fragment must name one chat (an exact name, or a single partial match), so a write never lands on
+ * whichever of several matching chats happened to be updated last.
+ */
+export function pickChat(chats, ref, { write = false } = {}) {
   const exact = chats.find((c) => c.id === ref);
   if (exact) return exact;
   const needle = String(ref).toLowerCase();
@@ -91,7 +94,17 @@ export async function resolveChat(ref) {
     .filter((c) => String(c.name ?? "").toLowerCase().includes(needle))
     .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
   if (!matches.length) throw new Error(`no chat matches "${ref}"`);
-  return matches[0];
+  if (!write || matches.length === 1) return matches[0];
+  const byName = matches.filter((c) => String(c.name ?? "").toLowerCase() === needle);
+  if (byName.length === 1) return byName[0];
+  throw new Error(
+    `"${ref}" is ambiguous for a write; pass the chat id: ${matches.map((c) => `${c.name} (${c.id})`).join(", ")}`,
+  );
+}
+
+/** Resolve a chat through the engine's chat list; see pickChat. */
+export async function resolveChat(ref, options) {
+  return pickChat(await listChats(), ref, options);
 }
 
 export async function resolveCharacter(ref) {
