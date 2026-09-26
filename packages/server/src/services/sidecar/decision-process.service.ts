@@ -15,6 +15,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { SidecarDecisionModelInfo } from "@marinara-engine/shared";
+import { runWithRootLogContext } from "../../lib/log-context.js";
 import { logger } from "../../lib/logger.js";
 import { getDataDir } from "../../utils/data-dir.js";
 import {
@@ -99,29 +100,34 @@ class DecisionProcessService {
     }
     this.startingModelId = model.id;
     const generation = this.generation;
-    this.starting = this.start(model)
-      // Every failure path ends as a null, never a rejection. Callers gate on this,
-      // and a gate that throws stops an agent rather than running it.
-      .catch((error: unknown) => {
-        this.error = error instanceof Error ? error.message : "The decision sidecar could not start.";
-        logger.warn(error, "[decision-sidecar] Start threw");
-        return null;
-      })
-      .then((baseUrl) => {
-        if (baseUrl) {
-          this.failedModelId = null;
-        } else if (generation === this.generation) {
-          // Only a start that failed on its own backs off. One the user stopped did
-          // not fail, and turning the sidecar straight back on must not wait a minute.
-          this.failedModelId = model.id;
-          this.failedAt = Date.now();
-        }
-        return baseUrl;
-      })
-      .finally(() => {
-        this.starting = null;
-        this.startingModelId = null;
-      });
+    // Root log context: the process outlives the request that started it and is shared
+    // by later gates, so its ready-timeout, child-error and start-failure lines must not
+    // carry the first requester's requestId.
+    this.starting = runWithRootLogContext({}, () =>
+      this.start(model)
+        // Every failure path ends as a null, never a rejection. Callers gate on this,
+        // and a gate that throws stops an agent rather than running it.
+        .catch((error: unknown) => {
+          this.error = error instanceof Error ? error.message : "The decision sidecar could not start.";
+          logger.warn(error, "[decision-sidecar] Start threw");
+          return null;
+        })
+        .then((baseUrl) => {
+          if (baseUrl) {
+            this.failedModelId = null;
+          } else if (generation === this.generation) {
+            // Only a start that failed on its own backs off. One the user stopped did
+            // not fail, and turning the sidecar straight back on must not wait a minute.
+            this.failedModelId = model.id;
+            this.failedAt = Date.now();
+          }
+          return baseUrl;
+        })
+        .finally(() => {
+          this.starting = null;
+          this.startingModelId = null;
+        }),
+    );
     return this.starting;
   }
 

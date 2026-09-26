@@ -137,6 +137,7 @@ import {
   HardDrive,
   LifeBuoy,
   SlidersHorizontal,
+  ToggleRight,
 } from "lucide-react";
 import {
   useChat,
@@ -169,6 +170,7 @@ import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { BackgroundPicker } from "./settings/BackgroundPicker";
 import { RequestTimeoutSettings } from "./settings/RequestTimeoutSettings";
+import { FEATURE_SWITCHES_CONTROL_ID, FeatureSwitchesSettings } from "./settings/FeatureSwitchesSettings";
 import { CustomGenerationParametersSettings } from "./settings/CustomGenerationParametersSettings";
 import { ExternalExtensionsSettings, PersonalExtensionsSettings } from "./settings/PersonalExtensionsSettings";
 import { usePersonalExtensionPolicy, useSetExternalExtensionsEnabled } from "../../hooks/use-personal-extensions";
@@ -278,6 +280,7 @@ type SettingsSectionId =
   | "profile-marinara"
   | "sillytavern-import"
   | "admin-access"
+  | "features"
   | "updates"
   | "support-diagnostics"
   | "request-timeouts"
@@ -508,6 +511,13 @@ const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
     label: "Admin Access",
     description: "Admin authorization for privileged actions.",
     aliases: ["admin", "secret", "access", "authorization"],
+  },
+  {
+    id: "features",
+    tab: "advanced",
+    label: "Features",
+    description: "Optional server behaviours, all off by default.",
+    aliases: ["features", "switches", "optional", "provider retry", "lorebook groups"],
   },
   {
     id: "updates",
@@ -8398,6 +8408,15 @@ function AdvancedSettings() {
             </p>
           </SearchableSettingTarget>
         </div>
+      </SettingsSection>
+
+      <SettingsSection
+        title={localizeUi("settings.sections.features.title")}
+        description={localizeUi("settings.sections.features.description")}
+        icon={<ToggleRight size="0.875rem" />}
+        {...getSettingsSectionAnchorProps("features")}
+      >
+        <FeatureSwitchesSettings anchorId={getSettingsControlAnchorId(FEATURE_SWITCHES_CONTROL_ID)} />
       </SettingsSection>
 
       <SettingsSection

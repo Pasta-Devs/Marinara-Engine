@@ -370,7 +370,7 @@ export function buildSkillCheckRulesetContext(
     sheets.set(key, evaluateRulesetSheetLive(definition, cardBuild, live?.[key]));
     builds.set(key, cardBuild);
     if (penaltyTrack) {
-      const penalty = readRulesetWoundPenalty(definition, live?.[key], penaltyTrack);
+      const penalty = readRulesetWoundPenalty(definition, cardBuild, live?.[key], penaltyTrack);
       if (penalty !== 0) penalties.set(key, penalty);
     }
   }

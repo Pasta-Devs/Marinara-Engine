@@ -126,7 +126,7 @@ function liveHealth(
   if (!("track" in health)) return livePool(live, health.pool);
   const track = live.tracks.find((entry) => entry.id === health.track);
   if (!track?.wound) return undefined;
-  return { value: track.wound.levels.length - track.wound.marks.length, max: track.wound.levels.length, temp: 0 };
+  return { value: track.wound.levels.length - track.wound.filled, max: track.wound.levels.length, temp: 0 };
 }
 
 /**
@@ -395,8 +395,11 @@ function healthOp(
   const declared = definition.sheet.live.tracks.find((entry) => entry.id === health.track);
   const lightest = [...(declared?.kinds ?? [])].sort((a, b) => a.severity - b.severity)[0];
   if (!lightest) return null;
-  // Fewer levels left is harm, so the sign turns over on the way to a number of marks.
-  return { op: "damage", track: health.track, kind: lightest.id, amount: delta < 0 ? amount : -amount };
+  // Fewer levels left is harm, so the sign turns over on the way to a number of marks. A heal names
+  // no kind: one that did would clear only marks of that kind, and a fight's healing is any harm.
+  return delta < 0
+    ? { op: "damage", track: health.track, kind: lightest.id, amount }
+    : { op: "damage", track: health.track, kind: "", amount: -amount };
 }
 
 /**

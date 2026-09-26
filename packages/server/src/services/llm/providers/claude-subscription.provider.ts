@@ -659,8 +659,11 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
         }
       }
     } catch (err) {
-      logger.error(
-        err,
+      // The caller logs the failure once; this debug line keeps the raw SDK error with the model and session.
+      // No `cause`: `friendly` already holds err.message, and the SSE and agent error formatters append a
+      // cause's message, which would show the same text twice.
+      logger.debug(
+        { err },
         "Claude Agent SDK query failed for model %s (session=%s)",
         options.model,
         resumeSessionId ?? "fold-path",

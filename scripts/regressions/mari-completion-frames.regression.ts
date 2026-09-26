@@ -121,7 +121,7 @@ try {
               id: `gemini-${provider}-${stream}-${scenario}`,
               name: "Gemini fixture",
               provider,
-              model: "gemini-3.8-flash",
+              model: "gemini-3.8-flash-uncatalogued-fixture",
               baseUrl:
                 provider === "google"
                   ? "https://generativelanguage.googleapis.com"
@@ -141,7 +141,7 @@ try {
               manualApprovalArmed: false,
             }),
             baseChatOptions: (_connection: unknown, signal: AbortSignal) => ({
-              model: "gemini-3.8-flash",
+              model: "gemini-3.8-flash-uncatalogued-fixture",
               maxTokens: 2048,
               maxContext: 8192,
               stream,

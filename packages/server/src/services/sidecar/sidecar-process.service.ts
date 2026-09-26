@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "child_process";
 import { logger } from "../../lib/logger.js";
+import { runWithRootLogContext } from "../../lib/log-context.js";
 import { createWriteStream, existsSync, readFileSync, writeFileSync, type WriteStream } from "fs";
 import { createServer } from "net";
 import { dirname, join } from "path";
@@ -679,12 +680,16 @@ class SidecarProcessService {
       logStream.write(`[sidecar] runtime variant: ${runtime.variant}\n`);
       logStream.write(`[sidecar] command: ${runtime.serverPath} ${this.formatCommandArgs(args)}\n`);
 
-      const child = spawn(runtime.serverPath, args, {
-        cwd: dirname(runtime.serverPath),
-        env: buildLlamaProcessEnv(runtime),
-        windowsHide: true,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
+      // Root log context: the process outlives the request that started it, so its exit lines
+      // must not carry that request's requestId.
+      const child = runWithRootLogContext({}, () =>
+        spawn(runtime.serverPath, args, {
+          cwd: dirname(runtime.serverPath),
+          env: buildLlamaProcessEnv(runtime),
+          windowsHide: true,
+          stdio: ["ignore", "pipe", "pipe"],
+        }),
+      );
 
       this.bindChild(child, logStream, `http://127.0.0.1:${port}`, signature);
 
@@ -726,16 +731,20 @@ class SidecarProcessService {
     logStream.write(`[sidecar] startup attempt 1/1 (MLX native)\n`);
     logStream.write(`[sidecar] command: ${runtime.pythonPath} ${this.formatCommandArgs(args)}\n`);
 
-    const child = spawn(runtime.pythonPath, args, {
-      cwd: runtime.directoryPath,
-      env: {
-        ...process.env,
-        HF_HOME: runtime.hfHomePath,
-        HF_HUB_CACHE: join(runtime.hfHomePath, "hub"),
-      },
-      windowsHide: true,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    // Root log context: the process outlives the request that started it, so its exit lines
+    // must not carry that request's requestId.
+    const child = runWithRootLogContext({}, () =>
+      spawn(runtime.pythonPath, args, {
+        cwd: runtime.directoryPath,
+        env: {
+          ...process.env,
+          HF_HOME: runtime.hfHomePath,
+          HF_HUB_CACHE: join(runtime.hfHomePath, "hub"),
+        },
+        windowsHide: true,
+        stdio: ["ignore", "pipe", "pipe"],
+      }),
+    );
 
     this.bindChild(child, logStream, `http://127.0.0.1:${port}`, signature);
 

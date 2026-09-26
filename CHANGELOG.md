@@ -4,7 +4,11 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Added Gemini 3.8 Flash, 3.7 Flash, 3.5 Flash-Lite and 3.1 Flash-Lite Image to the Google model list, so they arrive with their own context window and output limit instead of being treated as unknown models whose reasoning effort and output cap cannot be sent. Corrected the context and output limits of the existing Gemini image models to the ones Google documents (#6683).
+
 - Advanced Memory finds old scenes from distinctive details even with excerpts disabled, without extra recall model calls. Characters can share access to a scene when only some messages are hidden from them; scene recaps keep shared events plain and use character conditions for private sections. Constant Chat Summaries retain their character conditions (#6679).
+
+- Game Mode wound tracks can be numbered boxes as many as a character's rating, with a penalty table over boxes filled or remaining, take marks on the box a hit names, refuse a mark when full (a fight counts a hit no box can take as taking the character out), heal one kind of harm from a rest or a command, and gain levels from a list on the sheet. Capability API 1.40 (#6654).
 
 - Automatic agent runs with NanoGPT Kimi K3 no longer send an unsupported request to disable reasoning (#6658).
 - Manual Illustrator requests honor the configured output-token limit instead of silently capping it at 1,800 tokens (#6659).
@@ -52,6 +56,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Add bounded agent-owned Home widget presentation metadata and full-bleed package widget surfaces.
 
 - Agents can offer up to three Home widgets without placing them automatically. The Widget Manager groups built-in, agent, and personal widgets; users add, hide, restore, and reorder agent widgets, while custom agents can publish bounded text during their normal runs. Capability packages can supply verified interactive widgets in an Engine-owned frame. Noodle's Latest Posts widget is available through its companion agent package (#6621).
+- Contributors can use an optional **Dev MCP** (`tools/dev-mcp`), a small MCP server that lets a coding agent read a local engine's prompts, cache statistics and logs, run typechecks and regressions, and restart the engine safely. It is not part of the app build or the Docker image; see `tools/dev-mcp/README.md`.
 
 - Roleplay's optional **Whisper** command shares an inline secret only with its recipient and the appointed narrator. Recipients can be characters or your persona; revealing a hidden secret on screen does not give it to other characters' prompts (#6616).
 
@@ -65,6 +70,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Update local embeddings and Whisper to Transformers.js 4 with matching ONNX runtimes and retain the native installer's private temporary directories. Upgrade Intiface integration to Buttplug 5 while preserving existing haptic intensity values, including zero, full vibration strength, and directional outputs. Reject incompatible feature ranges before starting output, and stop the device if only some features accept a command (#6603, #6604).
 
 - Update static file serving with the latest security fix, refresh TypeScript and formatting tools, and update Android and CI build dependencies. CodeQL initialization and analysis now advance together so security checks continue to run (#6601).
+- New **Settings > Advanced > Features** section for optional server behaviours. Every switch is off by default, so nothing changes until you turn one on. **Stable lorebook picks** and **Retry failed provider calls** can now be turned on there as well as with `LOREBOOK_STABLE_GROUP_WINNERS` and `PROVIDER_RETRY_TRANSIENT_ERRORS`, which still win when set. See docs/configuration/features.md.
 
 - Decision statements take two more modifiers: `every:3` asks a statement only every 3 turns (reading as no between checks, without taking a statement slot), and `priority:high` or `priority:low` decides which statements are asked first and dropped first when a turn has more than **Decision statements per turn** allows (#6599).
 
@@ -79,6 +85,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Browser notifications use the app's service worker when available and alert again for each completed reply in the same chat (#6571).
 - Browser checks wait for the settings search to finish focusing its result and capture the visible Advanced Memory inspector without scrolling its full container (#6578, #6579).
 - In Individual group chats, characters can hand the next reply to another available character with an @mention. Conversation and Roleplay reuse the current turn queue, with one reply per character to prevent loops; swipes and continuations do not start handoffs (#6567).
+- Server robustness, all opt-in and off by default (see the Robustness table in docs/CONFIGURATION.md): `PROVIDER_RETRY_TRANSIENT_ERRORS` retries a refused connection or a gateway 502/503 up to twice before any output reached the user (never on the primary of a connection with a fallback), `STORAGE_SKIP_UNCHANGED_WRITES` skips rewriting unchanged storage files, `STORAGE_YIELDING_SERIALIZE` keeps large chat saves from pausing other requests, `STORAGE_CACHE_WINDOWS_BOOT_ID` makes Windows starts about 1.5 to 2 s faster, and `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS`, `SHUTDOWN_FORCE_EXIT_ON_REPEAT`, `SHUTDOWN_EARLY_FLUSH` and `SHUTDOWN_RUNTIME_STOP_BUDGET_MS` tune how the server stops. Always on, with no behaviour change: Windows identity probes run hidden instead of flashing a console window, shutdown logs which runtime stop failed or was slow, and a privileged `GET /api/admin/runtime-diagnostics` reports storage residency and whether each capability package runtime is live.
+- Capability packages no longer fail with "Root plugin has already booted" (which could also stop the server) when a background task calls an internal route while startup is still registering routes: such calls now wait until registration has ended. A package whose activate() or selfCheck() calls an internal route during startup gets an error at once instead of hanging startup, and a package that fails only because the server started too early is no longer rolled back or marked as errored; it is retried on the next start.
 
 - Roleplay Personal Notes and command instructions survive Advanced Memory context cutoffs, including when regenerating a reply (#6583).
 
@@ -89,6 +97,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - The Decision Models guide now says exactly what a decision model reads: only the statement and the recent chat messages. It never sees the preset, character cards, persona description, lorebook entries or anything inserted **@ Depth**, and decision statements read the last 5 messages.
 
 - The full browser regression matrix uses more shards (ten for desktop Chromium and mobile WebKit, eight for mobile Chromium, instead of four each), bringing its expected runtime from about 30 minutes to under 20 and keeping it clear of the 30-minute job limit (#6573).
+- Server logs are easier to follow: every line a request causes carries its `requestId` (also returned as the `x-request-id` header), startup steps are timed with one ready summary, a failure is logged once with its cause chain, user stops are logged at info, repeating failures are rate limited, and model or provider text stays at debug. See docs/development/logging.md.
+- The regression runner gives every file its own temporary DATA_DIR, FILE_STORAGE_DIR and empty .env, so a regression can no longer read or lock the data folder named by a developer's .env.
+- Two opt-in lorebook settings, both off by default (see the Lorebooks table in docs/CONFIGURATION.md): `LOREBOOK_STABLE_GROUP_WINNERS` keeps the same inclusion-group winner in a chat while its candidates stay the same, so the prompt prefix stays cacheable, and `LOREBOOK_COMPACT_STORED_SCANS` keeps the full text of activated lorebook entries only on the newest reply of a chat, which makes chats with large lorebooks much smaller. `scripts/compact-lorebook-scans.mjs` applies the same rule to older chats (dry run by default).
 
 - Agent history lookups no longer compare every loaded agent run with every loaded message, preventing long server stalls as more chats are opened (#6562).
 

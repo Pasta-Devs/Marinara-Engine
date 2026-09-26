@@ -25,6 +25,7 @@ import {
   type UtilitySidecarStatus,
   type UtilitySidecarUpdateCheck,
 } from "@marinara-engine/shared";
+import { runWithRootLogContext } from "../../lib/log-context.js";
 import { logger } from "../../lib/logger.js";
 import { getDataDir } from "../../utils/data-dir.js";
 import { buildLlamaArgs, buildLlamaStartupPlans } from "../sidecar/sidecar-launch-plan.js";
@@ -427,7 +428,10 @@ export class UtilitySidecarService {
         continue;
       }
 
-      this.starting = this.start().finally(() => {
+      // Root log context: the process outlives the request that started it and is
+      // shared by later callers, so its startup and exit lines must not carry the
+      // first requester's requestId.
+      this.starting = runWithRootLogContext({}, () => this.start()).finally(() => {
         this.starting = null;
       });
       await this.starting;

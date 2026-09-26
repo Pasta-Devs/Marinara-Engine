@@ -7,6 +7,7 @@ import {
 import { normalizeAgentActivationScanDepth } from "../../routes/generate/agent-activation.js";
 import type { NoulQuestion } from "../decision/system-one.client.js";
 import { countMessagesSinceAgentRun } from "./agent-cadence.js";
+import { logRateLimited } from "../../lib/log-rate-limit.js";
 
 export interface ActivationQuestionCandidate {
   agentId: string;
@@ -101,8 +102,15 @@ export async function evaluateActivationQuestions(args: {
         // Even the role/name wrappers may exceed a tiny user-selected budget.
         if (estimateTextTokens(JSON.stringify(state)) <= budget && questionTokens <= args.maxStateTokens + 250)
           answers = (await args.ask(state, questions)) ?? new Map();
-      } catch {
-        /* An injected transport must also fail open. */
+      } catch (err) {
+        // An injected transport must also fail open; every candidate below then reads "failed".
+        // Non-fatal, and it can repeat every turn, so warn at most once per rate-limit window.
+        logRateLimited(
+          "warn",
+          "agents.activation-questions.transport",
+          err,
+          "[agents] Activation question transport failed; failing open",
+        );
       }
       for (const candidate of candidates) {
         const probability = answers.get(candidate.agentId);
