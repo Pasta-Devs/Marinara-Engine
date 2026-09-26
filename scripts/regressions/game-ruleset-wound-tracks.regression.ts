@@ -582,6 +582,20 @@ try {
       delete skill.untrained;
     }
     for (const section of document.sheet.sections) delete section.untrained;
+    // And 1.42's: the live Light, the tables that follow it and the watch, the modifier that carries
+    // the light to Nerve, and the vigil step that relights it.
+    document.sheet.derived = document.sheet.derived.filter(
+      (entry: { id: string }) => !["dawn_resolve", "light_nerve"].includes(entry.id),
+    );
+    for (const entry of document.sheet.derived) {
+      if (Array.isArray(entry.of))
+        entry.of = entry.of.filter((ref: { derived?: string }) => ref.derived !== "dawn_resolve");
+    }
+    delete document.resolution.adjust;
+    delete document.sheet.live.states;
+    for (const rest of document.rests) {
+      rest.restore = rest.restore.filter((step: { state?: string }) => step.state === undefined);
+    }
     for (const catalog of document.catalogs ?? []) {
       catalog.entries = (catalog.entries ?? []).filter((entry: any) => entry.mechanics?.check?.explode === undefined);
     }

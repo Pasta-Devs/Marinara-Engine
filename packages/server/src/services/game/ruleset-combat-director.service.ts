@@ -48,6 +48,7 @@ import {
   rulesetOptionTargets,
   rulesetReactionPointsAtSource,
   rulesetPositionOf,
+  rulesetWalkingDistances,
   rulesetSheetBuildsByName,
   readProposedRulesetSheet,
   restrictRulesetSheetEntries,
@@ -1043,8 +1044,10 @@ function areaCandidates(
 /**
  * The walk a turn with nothing in reach takes: the reachable cell that ends up nearest an opponent,
  * cheapest first, and never one that would be struck at on the way when a quieter cell gets as
- * close. Null when nothing is worth walking to, which is what keeps a cornered creature from
- * shuffling on the spot for the rest of the fight.
+ * close. Nearest is measured by the walk still left to get there, not in a straight line: a wall
+ * between two fighters makes every straight-line-closer cell solid, and both would stand and look
+ * at each other for the rest of the fight. Null when nothing is worth walking to, which is what
+ * keeps a cornered creature from shuffling on the spot for the rest of the fight.
  */
 function rulesetClosingMove(
   definition: RulesetDefinition,
@@ -1059,8 +1062,8 @@ function rulesetClosingMove(
     .map((combatant) => rulesetPositionOf(combatant))
     .filter((cell): cell is { x: number; y: number } => !!cell);
   if (foes.length === 0) return null;
-  const nearest = (cell: { x: number; y: number }) =>
-    foes.reduce((closest, foe) => Math.min(closest, rulesetCellDistance(cell, foe)), Infinity);
+  const walking = rulesetWalkingDistances(encounter.board.grid, foes);
+  const nearest = (cell: { x: number; y: number }) => walking.get(`${cell.x},${cell.y}`) ?? Infinity;
   const already = nearest(from);
   let best: { cell: { x: number; y: number; cost: number; provokes: string[] }; away: number } | null = null;
   // Every cell it may walk to, not a sample of them: closing the distance is one comparison a cell.

@@ -131,6 +131,39 @@ function readOnlyWithLiveTrack(node) {
   }
 }
 
+// An enum table is keyed on exactly one of an enum field or a live state, and names one to forty
+// values. Both are refinements, so the editor is told here. Found by its shape: `from` and `table`
+// beside the op that names it.
+function enumTableShape(node) {
+  if (Array.isArray(node)) return node.forEach(enumTableShape);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(enumTableShape);
+  const properties = node.properties;
+  if (node.type !== "object" || properties?.op?.const !== "enumTable" || !properties.from || !properties.table) return;
+  properties.from.oneOf = [{ required: ["field"] }, { required: ["liveState"] }];
+  properties.table.minProperties = 1;
+  properties.table.maxProperties = 40;
+}
+
+// A rest step's `to` is a word only on a state, where it is "default" or one of the state's values;
+// on a pool or a track it is "max", "min" or a number. A state step is set, never moved by an amount.
+// Refinements again, so the editor is told here. Found by its shape: `state` beside `track` and `to`.
+function restStepTo(node) {
+  if (Array.isArray(node)) return node.forEach(restStepTo);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(restStepTo);
+  const properties = node.properties;
+  if (node.type !== "object" || !properties?.state || !properties.track || !properties.to) return;
+  node.allOf = [
+    ...(node.allOf ?? []),
+    {
+      if: { required: ["state"] },
+      then: { properties: { to: { type: "string" } }, required: ["to"], not: { required: ["by"] } },
+      else: { properties: { to: { anyOf: [{ enum: ["max", "min"] }, { type: "integer" }] } } },
+    },
+  ];
+}
+
 // A condition that lasts until a save needs the save that ends it, or nothing would ever take it
 // off. That is a refinement too, so the editor is told here. The node is found by its shape.
 function requireSaveEndsUntilSave(node) {
@@ -358,6 +391,8 @@ boundScaledColumns(schema);
 requireOneHideComparison(schema);
 requireOneHideWhenComparison(schema);
 readOnlyWithLiveTrack(schema);
+enumTableShape(schema);
+restStepTo(schema);
 allowAnnotations(schema);
 const text = `${JSON.stringify(
   {

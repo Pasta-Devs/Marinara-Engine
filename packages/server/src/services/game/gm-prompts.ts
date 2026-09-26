@@ -889,6 +889,9 @@ function renderRulesetSheetSection(
         ]
       : []),
     `- [sheet: who="Name" op="condition" condition="Condition" state="on|off"]`,
+    ...(ruleset.sheet.live.states.length > 0
+      ? [`- [sheet: who="Name" op="state" state="State" value="Value"] - sets a state to one of its values.`]
+      : []),
     `- [sheet: who="Name" op="note" field="Field" value="text"] - an empty value clears it.`,
     ...(ruleset.rests.length > 0
       ? [`- [sheet: who="Name" op="rest" rest="Rest"] - rests: ${names(ruleset.rests)}.`]
@@ -927,6 +930,17 @@ function renderRulesetSheetSection(
       : []),
     ...(ruleset.sheet.live.text.length > 0 ? [`Note fields: ${names(ruleset.sheet.live.text)}.`] : []),
     ...(ruleset.sheet.live.conditions.length > 0 ? [`Conditions: ${names(ruleset.sheet.live.conditions)}.`] : []),
+    // Every value a state may take, by the name the sheets show, so a command names a real one.
+    ...(ruleset.sheet.live.states.length > 0
+      ? [
+          `States: ${ruleset.sheet.live.states
+            .map(
+              (state) =>
+                `${state.label} (${state.values.map((value) => state.valueLabels?.[value] ?? value).join(", ")})`,
+            )
+            .join(", ")}.`,
+        ]
+      : []),
     ...(ruleset.gm.sheetGuidance ? [ruleset.gm.sheetGuidance] : []),
     ``,
     // The sheets are data, and part of that data is free text (names, notes the model wrote with

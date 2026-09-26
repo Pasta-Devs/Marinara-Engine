@@ -41,6 +41,7 @@
         "perCheck": 2
       }
     ],
+    "adjust": [{ "value": { "derived": "light_nerve" }, "abilities": ["nerve"] }],
     "pool": { "min": 1, "max": 15, "abilityPlusAbility": true },
     "target": { "default": 7, "min": 5, "max": 9 },
     "explode": { "from": 10, "min": 8 },
@@ -130,10 +131,19 @@
     ],
     "derived": [
       {
+        "$comment": "An enum table keyed on a FIELD. The watch is chosen when the warden is made, so a maximum may read this one: whoever keeps the dawn watch has seen the night through and has one more Resolve for it.",
+        "id": "dawn_resolve",
+        "label": "Seen the night through",
+        "op": "enumTable",
+        "from": { "field": "watch" },
+        "table": { "dawn": 1 },
+        "section": "about"
+      },
+      {
         "id": "resolve_max",
         "label": "Resolve maximum",
         "op": "sum",
-        "of": [{ "const": 2 }, { "abilityMod": "nerve" }],
+        "of": [{ "const": 2 }, { "abilityMod": "nerve" }, { "derived": "dawn_resolve" }],
         "section": "about"
       },
       {
@@ -142,6 +152,15 @@
         "label": "Harm still to take",
         "op": "sum",
         "of": [{ "liveTrack": "harm", "read": "remaining" }],
+        "section": "about"
+      },
+      {
+        "$comment": "An enum table keyed on the live Light, so it follows the light as it changes in play and, like the track above, no maximum may read it. The resolution's adjust takes it off every roll made with Nerve.",
+        "id": "light_nerve",
+        "label": "Light on Nerve",
+        "op": "enumTable",
+        "from": { "liveState": "light" },
+        "table": { "shuttered": -1, "out": -2 },
         "section": "about"
       }
     ],
@@ -199,6 +218,16 @@
       "conditions": [
         { "id": "rattled", "label": "Rattled" },
         { "id": "marked", "label": "Marked" }
+      ],
+      "states": [
+        {
+          "$comment": "A LIVE STATE: exactly one of its values at a time, changing in play. The Game Master sets it with op=\"state\", the sheet shows a picker, and standing down from the vigil lights it again.",
+          "id": "light",
+          "label": "Light",
+          "values": ["lit", "shuttered", "out"],
+          "valueLabels": { "lit": "Lit", "shuttered": "Shuttered", "out": "Out" },
+          "default": "lit"
+        }
       ]
     }
   },
@@ -212,7 +241,8 @@
           "$comment": "A rest can only heal a wound track, and \"to\" clears it down to that many marks, overflow and all.",
           "track": "harm",
           "to": "min"
-        }
+        },
+        { "state": "light", "to": "default" }
       ],
       "clear": { "conditions": ["rattled"] }
     },

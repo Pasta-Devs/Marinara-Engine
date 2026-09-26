@@ -76,6 +76,10 @@ assert.equal(
   const liveTrackNodes: Array<{ dependencies?: Record<string, string[]> }> = [];
   // And a wound track: an indexed one refuses a mark when full, so the editor asks for that too.
   const woundTrackNodes: Array<{ allOf?: Array<Record<string, any>> }> = [];
+  // And an enum table, keyed on exactly one thing with one to forty rows, and a rest step, whose
+  // `to` is a word only on a state.
+  const enumTableNodes: Array<{ properties: Record<string, any> }> = [];
+  const restStepNodes: Array<{ allOf?: Array<Record<string, any>> }> = [];
   const walk = (node: unknown): void => {
     if (Array.isArray(node)) return node.forEach(walk);
     if (!node || typeof node !== "object") return;
@@ -93,6 +97,10 @@ assert.equal(
     if (["field", "equals", "notEquals", "in"].every((key) => keys.includes(key))) hideWhenNodes.push(object);
     if (keys.includes("liveTrack")) liveTrackNodes.push(object);
     if (["levels", "boxes", "kinds", "fill", "onFull"].every((key) => keys.includes(key))) woundTrackNodes.push(object);
+    if ((object.properties?.op as { const?: string } | undefined)?.const === "enumTable") {
+      enumTableNodes.push(object as { properties: Record<string, any> });
+    }
+    if (["track", "state", "to", "by"].every((key) => keys.includes(key))) restStepNodes.push(object);
     Object.values(node).forEach(walk);
   };
   // The same for what a combat block measures in cells: the Engine refuses any of it in a block
@@ -159,6 +167,23 @@ assert.equal(
       "and asks for exactly one comparison",
     );
   }
+  assert.equal(enumTableNodes.length, 1, "the schema describes an enum table");
+  assert.deepEqual(enumTableNodes[0]!.properties.from.oneOf, [{ required: ["field"] }, { required: ["liveState"] }]);
+  assert.deepEqual(
+    [enumTableNodes[0]!.properties.table.minProperties, enumTableNodes[0]!.properties.table.maxProperties],
+    [1, 40],
+  );
+  assert.equal(restStepNodes.length, 1, "the schema describes a rest step");
+  assert.ok(
+    restStepNodes[0]!.allOf?.some(
+      (rule) =>
+        JSON.stringify(rule.if) === JSON.stringify({ required: ["state"] }) &&
+        rule.then?.properties?.to?.type === "string" &&
+        JSON.stringify(rule.else?.properties?.to?.anyOf) ===
+          JSON.stringify([{ enum: ["max", "min"] }, { type: "integer" }]),
+    ),
+    "and allows a word in `to` only on a state",
+  );
   assert.ok(woundTrackNodes.length > 0, "the schema describes a wound track");
   for (const node of woundTrackNodes) {
     assert.ok(

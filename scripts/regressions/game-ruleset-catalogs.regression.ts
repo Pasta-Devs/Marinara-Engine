@@ -69,6 +69,22 @@ function withoutLaterGates(doc: Record<string, any>): void {
   // And 1.40's track of numbered boxes, and 1.41's untrained rule.
   doc.sheet.live.tracks = (doc.sheet?.live?.tracks ?? []).filter((track: { id: string }) => track.id !== "strain");
   for (const skill of doc.sheet?.skills ?? []) delete skill.untrained;
+  // And 1.42's live states, the enum tables and whatever reads one, and the rest steps that put a
+  // state back.
+  const tables = new Set(
+    (doc.sheet?.derived ?? []).flatMap((entry: { id: string; op: string }) =>
+      entry.op === "enumTable" ? [entry.id] : [],
+    ),
+  );
+  doc.sheet.derived = (doc.sheet?.derived ?? []).filter((entry: { id: string }) => !tables.has(entry.id));
+  for (const entry of doc.sheet.derived) {
+    if (Array.isArray(entry.of))
+      entry.of = entry.of.filter((ref: { derived?: string }) => !tables.has(ref.derived ?? ""));
+  }
+  if (doc.sheet?.live) delete doc.sheet.live.states;
+  for (const rest of doc.rests ?? []) {
+    rest.restore = (rest.restore ?? []).filter((step: { state?: string }) => step.state === undefined);
+  }
   // The combat block goes whole, and with it the 1.28 keys that give a fight a board.
   delete doc.combat;
   // The bestiary is a 1.27 declaration of its own, and a catalog of creatures needs the combat
@@ -480,8 +496,9 @@ const installedPackages = packages.map((fixture) => {
     // row, a layer, a combat block, catalog mechanics a fight reads, a catalog of creatures, the
     // keys that give that fight a board, the ones that say what one turn of it can do, a creature
     // written in the ruleset's own terms, a track always shown, a summary list's columns, a
-    // modifier off the sheet, a list added up, a track of numbered boxes and an untrained rule.
-    capabilityApi: { major: 1, minor: 41 },
+    // modifier off the sheet, a list added up, a track of numbered boxes, an untrained rule and a
+    // live state.
+    capabilityApi: { major: 1, minor: 42 },
     builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
     id: packageId,
     name: fixture.id,

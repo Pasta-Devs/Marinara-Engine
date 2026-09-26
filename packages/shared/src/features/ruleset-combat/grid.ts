@@ -369,6 +369,56 @@ export function rulesetReachableCells(
   return [...cells.values()].sort((a, b) => a.cost - b.cost || a.y - b.y || a.x - b.x);
 }
 
+/**
+ * What it costs to walk from each cell of the board to a cell next to one of `goals`, by the steps,
+ * terrain costs and corner rule a walk pays; a cell no route reaches is absent. Reach and range are
+ * measured in a straight line, but closing that distance is walked, and the two part ways wherever
+ * a wall stands between: two fighters either side of a ridge are two cells apart and a long way
+ * round. Who stands where is left out, since they move while the walk is under way.
+ */
+export function rulesetWalkingDistances(
+  grid: TacticalGrid,
+  goals: ReadonlyArray<RulesetCombatCell>,
+): Map<string, number> {
+  const best = new Map<string, number>();
+  // Terrain costs are small whole numbers, so the cheapest open cell is kept in buckets by cost
+  // rather than found by a scan over a board that may be 64 by 64.
+  const buckets: RulesetCombatCell[][] = [];
+  const reach = (x: number, y: number, cost: number) => {
+    if (cost >= (best.get(`${x},${y}`) ?? Infinity)) return;
+    best.set(`${x},${y}`, cost);
+    (buckets[cost] ??= []).push({ x, y });
+  };
+  // Standing next to a goal is where a walk towards it ends, so those cells cost nothing more.
+  for (const goal of goals) {
+    for (const [dx, dy] of STEPS) {
+      if (!rulesetCellBlocked(grid, goal.x + dx, goal.y + dy)) reach(goal.x + dx, goal.y + dy, 0);
+    }
+  }
+  for (let cost = 0; cost < buckets.length; cost++) {
+    for (const at of buckets[cost] ?? []) {
+      if (best.get(`${at.x},${at.y}`) !== cost) continue;
+      // Walked the other way: stepping from the neighbour INTO `at` costs what entering `at` does.
+      const into = rulesetCellEnterCost(grid, at.x, at.y);
+      for (const [dx, dy] of STEPS) {
+        const x = at.x + dx;
+        const y = at.y + dy;
+        if (rulesetCellBlocked(grid, x, y)) continue;
+        if (
+          dx !== 0 &&
+          dy !== 0 &&
+          rulesetCellBlocked(grid, at.x + dx, at.y) &&
+          rulesetCellBlocked(grid, at.x, at.y + dy)
+        ) {
+          continue;
+        }
+        reach(x, y, cost + into);
+      }
+    }
+  }
+  return best;
+}
+
 function pathTo(
   cameFrom: ReadonlyMap<string, string>,
   from: RulesetCombatCell,

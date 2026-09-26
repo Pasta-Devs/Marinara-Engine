@@ -982,16 +982,61 @@ Capability API 1.41, for #6655.
   on a summed ruleset or a target that cannot move. `refuse` throws `SkillCheckUntrainedError` in
   the roll; the content resolver checks first and writes the ask back with `reason="untrained"`, the
   endpoint answers 400 `skill_check_untrained`, and the branch arm keeps neither half and writes the
-  same record. The tag reads `reason`, and `isEngineRollableSkillCheckTag` refuses a tag carrying
-  one, so the client's fallback never rolls a refused check; the narration log says it was not
-  attempted, and the sheet editor shows a dash for it. A reason the Game Master writes itself is
-  ignored in a ruleset game: the Engine decides again. A stranger (no sheet) has no rule.
+  same record. The tag reads `reason`, and the client's fallback and the endpoint's record
+  replacement skip a tag carrying one, so nothing rolls a refused check later. The shared
+  `isEngineRollableSkillCheckTag` does NOT read it: the general dice pass runs after the resolver
+  and treats a skill check that is not rollable as foreign dice, which rewrote the settled ask
+  without its reason. The refusal comes first in the resolver's loop, before the vouching audit, the
+  rollability check and the difficulty read, so no record, dice or difficulty the Game Master
+  writes gets a refused check past it, and a reason the Game Master writes itself does not stop a
+  roll: the Engine decides again. The narration log says it was not attempted, and the sheet editor
+  shows a dash for it. A stranger (no sheet) has no rule.
 - **Reminder.** One `Untrained checks:` line naming each rule by section or entry, with the reason
   sentence only where something is refused.
 - **Examples.** Gravewatch groups its skills into Labour (untrained -1 die), The watch and Company,
   refuses an untrained Dig, and makes an untrained Listen harder; Ember Roads' untrained Tinker is -2.
 - **Proven** by `scripts/regressions/game-ruleset-sections.regression.ts` (twenty-five deliberate
   breaks, each caught) and `e2e/ruleset-sheet-sections.e2e.ts` for the editor and the game's sheet.
+
+### What slice 6 settled
+
+Capability API 1.42, for #6656.
+
+- **Live states.** `sheet.live.states`: up to twelve, each two to forty `values` (held to the label
+  rule and never a double quote, because the command quotes them), optional `valueLabels`, a
+  `default` (else the first value) and `hideWhen`. Stored sparse in the live blob's new `states`
+  record, only when away from the default; a stored value the state no longer offers reads as the
+  default, and a hidden state is left out of the resolved live state altogether.
+- **The command.** `[sheet: op="state" state="State" value="Value"]`, the state by id or label and
+  the value by itself or its label, refused with `unknown-state` or `unknown-value`. The tag's
+  `state=` names the state on this op and stays on/off on a condition; the op decides. The sheet
+  block always says each state's value (a form is a fact every turn, where a track at its default
+  is none), and the reminder adds the command and a `States:` line with every value only when the
+  ruleset has one. The game's sheet screen shows a select per state.
+- **Numbers that follow.** A derived value `enumTable`: `from` names exactly one of `field` (an enum
+  field) or `liveState`, `table` a number per value (one to forty, each a value that one can hold)
+  and `default` the rest. **Named differently from the issue on purpose:** the issue's
+  `{ "state": … }` is `{ "liveState": … }`, because every read of the live state is named `live`,
+  which is how an author and the import tell what a maximum cannot use. A field's table is
+  build-only and may feed a maximum; a state's is a live reader for the transitive refusal slice 3
+  added. It reaches the dice through slice 2's `adjust`, limited to an ability. A layered definition
+  does not recheck a field table's rows, since a layer may remove a value it has a row for.
+- **Rests.** A restore step may name a `state`, with `to` `"default"` or one of its values (never a
+  `by`); `to` on any other step is still `"max"`, `"min"` or a number.
+- **Examples.** Ember Roads' Stance (Guarded, Steady, Reckless) adds -1 or +2 to Brawn rolls and
+  camp settles it; Gravewatch's Light (Lit, Shuttered, Out) costs one or two Nerve dice and the vigil
+  relights it, and a warden on the dawn watch has one more Resolve through a table on the `watch`
+  field.
+- **Folded in: #6678.** The combat picker's closing move measured "closer" in a straight line, so
+  two fighters either side of a wall of impassable ground (two cells apart, a long way round) both
+  stood still forever, which is what made the positioned Ember Roads browser case end without an
+  outcome now and then. It now measures by walking distance, `rulesetWalkingDistances` in the
+  shared grid module (the same steps, terrain costs and corner rule a walk pays), and reach and
+  range stay straight-line. Across 2000 seeds of that case every fight now ends within seven turns,
+  where about one in seventy-five used to stall.
+- **Proven** by `scripts/regressions/game-ruleset-live-states.regression.ts` (thirty-one deliberate
+  breaks, each caught), a hand-drawn ridge in `scripts/regressions/ruleset-combat-director.regression.ts`
+  that stands still for 200 rounds without the fix, and `e2e/ruleset-live-states.e2e.ts` for the picker and a rest on the game's sheet.
 
 ## Architecture
 
