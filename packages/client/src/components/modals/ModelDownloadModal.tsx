@@ -34,6 +34,7 @@ import {
 import { Modal } from "../ui/Modal.js";
 import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../stores/sidecar.store.js";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { api } from "../../lib/api-client.js";
 
 interface Props {
   open: boolean;
@@ -163,6 +164,7 @@ export function ModelDownloadModal({ open, onClose }: Props) {
     config,
     modelDownloaded,
     modelDisplayName,
+    gpuMemory,
     runtime,
     inferenceReady,
     logPath,
@@ -196,6 +198,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
   const defaultCustomRepo = isAppleSilicon ? "mlx-community/gemma-4-e2b-it-4bit" : "unsloth/gemma-4-E2B-it-GGUF";
   const [selectedQuant, setSelectedQuant] = useState<SidecarQuantization>("q8_0");
   const [repoInput, setRepoInput] = useState(config.customModelRepo ?? "");
+  const [localModelPathDraft, setLocalModelPath] = useState<string | null>(null);
+  const localModelPath = localModelPathDraft ?? config.externalModelPath ?? "";
+  const [selectingLocalModel, setSelectingLocalModel] = useState(false);
   const [selectedCustomPath, setSelectedCustomPath] = useState("");
   const [showRuntimeSettings, setShowRuntimeSettings] = useState(false);
   const [gpuLayersInput, setGpuLayersInput] = useState(config.gpuLayers > 0 ? String(config.gpuLayers) : "");
@@ -368,6 +373,21 @@ export function ModelDownloadModal({ open, onClose }: Props) {
       toast.success(
         localizeUi("ui.modals.modeldownloadmodal.localModelDownloadedCompletelyRestartMarinaraEngineBeforeUsing"),
       );
+    }
+  };
+
+  const handleLocalModel = async () => {
+    setSelectingLocalModel(true);
+    try {
+      await api.post("/sidecar/model/local", { path: localModelPath.trim() });
+      markPrompted();
+      await fetchStatus();
+      setLocalModelPath(null);
+      toast.success(localizeUi("ui.modals.modeldownloadmodal.localGgufSelected"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : localizeUi("ui.modals.modeldownloadmodal.localGgufFailed"));
+    } finally {
+      setSelectingLocalModel(false);
     }
   };
 
@@ -547,21 +567,23 @@ export function ModelDownloadModal({ open, onClose }: Props) {
               <div className="flex-1">
                 <div className="text-sm font-medium text-green-300">{activeModelName ?? "Model Installed"}</div>
                 <div className="text-xs text-[var(--muted-foreground)]/70">
-                  {config.customModelRepo
-                    ? config.backend === "mlx"
-                      ? localizeUi("ui.modals.modeldownloadmodal.customMlxRepoValue1", {
-                          value1: config.customModelRepo,
-                        })
-                      : localizeUi("ui.modals.modeldownloadmodal.customGgufFromValue1", {
-                          value1: config.customModelRepo,
-                        })
-                    : localizeUi("ui.modals.modeldownloadmodal.value1Gemma4Value2Preset", {
-                        value1: formatQuantizationLabel(config.quantization, config.backend),
-                        value2:
-                          config.backend === "mlx"
-                            ? localizeUi("ui.modals.modeldownloadmodal.mlx")
-                            : localizeUi("ui.modals.modeldownloadmodal.gguf"),
-                      })}
+                  {config.externalModelPath
+                    ? localizeUi("ui.modals.modeldownloadmodal.localGgufPath")
+                    : config.customModelRepo
+                      ? config.backend === "mlx"
+                        ? localizeUi("ui.modals.modeldownloadmodal.customMlxRepoValue1", {
+                            value1: config.customModelRepo,
+                          })
+                        : localizeUi("ui.modals.modeldownloadmodal.customGgufFromValue1", {
+                            value1: config.customModelRepo,
+                          })
+                      : localizeUi("ui.modals.modeldownloadmodal.value1Gemma4Value2Preset", {
+                          value1: formatQuantizationLabel(config.quantization, config.backend),
+                          value2:
+                            config.backend === "mlx"
+                              ? localizeUi("ui.modals.modeldownloadmodal.mlx")
+                              : localizeUi("ui.modals.modeldownloadmodal.gguf"),
+                        })}
                 </div>
               </div>
             </div>
@@ -671,8 +693,67 @@ export function ModelDownloadModal({ open, onClose }: Props) {
             </div>
           )}
 
+          {inferenceReady && activeBackend !== "mlx" && (
+            <div className="mt-4 rounded-xl border border-[var(--border)] p-3 text-xs">
+              <p className="font-medium">{localizeUi("ui.modals.modeldownloadmodal.gpuAllocations")}</p>
+              {gpuMemory ? (
+                <dl className="mt-2 grid grid-cols-2 gap-2">
+                  {(["weightsBytes", "kvCacheBytes", "buffersBytes"] as const).map((field) => (
+                    <div key={field}>
+                      <dt className="text-[var(--muted-foreground)]">
+                        {localizeUi(`ui.modals.modeldownloadmodal.${field}`)}
+                      </dt>
+                      <dd>
+                        {gpuMemory[field] === null
+                          ? localizeUi("ui.modals.modeldownloadmodal.gpuMemoryUnavailable")
+                          : formatBytes(gpuMemory[field])}
+                      </dd>
+                    </div>
+                  ))}
+                  {gpuMemory.weightsBytes !== null &&
+                    gpuMemory.kvCacheBytes !== null &&
+                    gpuMemory.buffersBytes !== null && (
+                      <div>
+                        <dt className="text-[var(--muted-foreground)]">
+                          {localizeUi("ui.modals.modeldownloadmodal.totalGpuAllocations")}
+                        </dt>
+                        <dd>{formatBytes(gpuMemory.weightsBytes + gpuMemory.kvCacheBytes + gpuMemory.buffersBytes)}</dd>
+                      </div>
+                    )}
+                </dl>
+              ) : (
+                <p className="mt-2">{localizeUi("ui.modals.modeldownloadmodal.gpuMemoryUnavailable")}</p>
+              )}
+              <p className="mt-2 text-[var(--muted-foreground)]">
+                {localizeUi("ui.modals.modeldownloadmodal.gpuAllocationsHint")}
+              </p>
+            </div>
+          )}
+
           {showRuntimeSettings && (
             <div className="mt-4 flex flex-col gap-4 rounded-xl border border-[var(--border)]/80 bg-[var(--secondary)]/40 p-4">
+              {activeBackend !== "mlx" && (
+                <label className="flex flex-col gap-2 text-xs">
+                  <span className="font-medium">{localizeUi("ui.modals.modeldownloadmodal.kvCacheType")}</span>
+                  <select
+                    value={config.kvCacheType ?? "f16"}
+                    onChange={(event) =>
+                      void updateConfig({ kvCacheType: event.target.value as "f16" | "q8_0" | "q4_0" })
+                    }
+                    disabled={isBlockingSetup}
+                    className="mari-editor-field px-3 py-2 text-sm"
+                  >
+                    {(["f16", "q8_0", "q4_0"] as const).map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-[var(--muted-foreground)]">
+                    {localizeUi("ui.modals.modeldownloadmodal.kvCacheTypeHint")}
+                  </span>
+                </label>
+              )}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
@@ -1294,6 +1375,30 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                 {hasModel
                   ? localizeUi("ui.modals.modeldownloadmodal.switchToCuratedPreset")
                   : localizeUi("ui.modals.modeldownloadmodal.useCuratedPreset")}
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3">
+              <label className="flex flex-col gap-2 text-sm">
+                <span className="font-medium">{localizeUi("ui.modals.modeldownloadmodal.localGgufPath")}</span>
+                <input
+                  value={localModelPath}
+                  onChange={(event) => setLocalModelPath(event.target.value)}
+                  placeholder={localizeUi("ui.modals.modeldownloadmodal.localGgufPathPlaceholder")}
+                  className="mari-editor-field w-full px-3 py-2 text-sm"
+                  disabled={selectingLocalModel || isBlockingSetup}
+                />
+              </label>
+              <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                {localizeUi("ui.modals.modeldownloadmodal.localGgufPathHint")}
+              </p>
+              <button
+                onClick={() => void handleLocalModel()}
+                disabled={!localModelPath.trim() || selectingLocalModel || isBlockingSetup}
+                className="mari-chrome-accent-surface mt-3 flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm disabled:opacity-50"
+              >
+                {selectingLocalModel && <Loader2 size="0.875rem" className="animate-spin" />}
+                {localizeUi("ui.modals.modeldownloadmodal.useLocalGguf")}
               </button>
             </div>
 

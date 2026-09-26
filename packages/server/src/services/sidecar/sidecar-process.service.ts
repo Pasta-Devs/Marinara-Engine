@@ -13,6 +13,7 @@ import { mlxRuntimeService, type MlxRuntimeInstall } from "./mlx-runtime.service
 import { sidecarRuntimeService, type SidecarRuntimeInstall } from "./sidecar-runtime.service.js";
 import { assertSupportedLlamaCppModelPath } from "./sidecar-model-files.js";
 import { resolveSidecarRequestModel } from "./sidecar-request-model.js";
+import { SidecarGpuMemoryReporter } from "./sidecar-gpu-memory.js";
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -94,6 +95,11 @@ class SidecarProcessService {
   private manuallyUnloaded = false;
   private syncLock: Promise<void> = Promise.resolve();
   private childErrors = new WeakMap<ChildProcess, Error>();
+  private gpuMemory = new SidecarGpuMemoryReporter();
+
+  getGpuMemory() {
+    return this.ready ? this.gpuMemory.report() : null;
+  }
 
   isReady(): boolean {
     return this.ready && this.baseUrl !== null;
@@ -464,6 +470,7 @@ class SidecarProcessService {
       embeddingPooling: config.embeddingPooling,
       embeddingBatchSize: config.embeddingBatchSize,
       maxParallelJobs: config.maxParallelJobs,
+      kvCacheType: config.kvCacheType,
     });
   }
 
@@ -565,6 +572,7 @@ class SidecarProcessService {
           contextSize: config.contextSize,
           maxParallelJobs: config.maxParallelJobs,
           gpuLayers: config.gpuLayers,
+          kvCacheType: config.kvCacheType ?? "f16",
           enableNativeToolCalls: config.enableNativeToolCalls,
           embeddingPooling: config.embeddingPooling,
           embeddingBatchSize: config.embeddingBatchSize,
@@ -765,6 +773,7 @@ class SidecarProcessService {
   }
 
   private bindChild(child: ChildProcess, logStream: WriteStream, baseUrl: string, signature: string): void {
+    this.gpuMemory = new SidecarGpuMemoryReporter();
     this.child = child;
     this.logStream = logStream;
     this.baseUrl = baseUrl;
@@ -774,9 +783,11 @@ class SidecarProcessService {
 
     child.stdout?.on("data", (chunk) => {
       logStream.write(chunk);
+      if (this.child === child) this.gpuMemory.consume(String(chunk), "stdout");
     });
     child.stderr?.on("data", (chunk) => {
       logStream.write(chunk);
+      if (this.child === child) this.gpuMemory.consume(String(chunk));
     });
     child.on("error", (error) => {
       const spawnError = error instanceof Error ? error : new Error(String(error));

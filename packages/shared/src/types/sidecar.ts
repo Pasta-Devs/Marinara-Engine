@@ -137,6 +137,13 @@ export interface SidecarRuntimeDiagnostics {
   launchBackend: SidecarBackend | null;
 }
 
+/** GPU allocations reported by llama.cpp, excluding CPU/host buffers and driver overhead. */
+export interface SidecarGpuMemory {
+  weightsBytes: number | null;
+  kvCacheBytes: number | null;
+  buffersBytes: number | null;
+}
+
 /** Server response for sidecar status endpoint. */
 export interface SidecarStatusResponse {
   status: SidecarStatus;
@@ -147,6 +154,7 @@ export interface SidecarStatusResponse {
   modelDisplayName: string | null;
   /** Model file size in bytes (if downloaded). */
   modelSize: number | null;
+  gpuMemory?: SidecarGpuMemory | null;
   /** Installed local runtime info. */
   runtime: SidecarRuntimeInfo;
   /** Absolute log path for the spawned local sidecar process. */
