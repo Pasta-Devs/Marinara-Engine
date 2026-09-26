@@ -81,7 +81,7 @@ import { ChatNameSection } from "../../features/chat-settings/sections/ChatNameS
 import { CombatStyleSection } from "../../features/chat-settings/sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { isRulesetCombatFight } from "../../lib/ruleset-combat-bridge";
-import { ConnectionSection } from "../../features/chat-settings/sections/ConnectionSection";
+import { ConnectionSection, type ChatConnectionOption } from "../../features/chat-settings/sections/ConnectionSection";
 import { ConversationPromptSection } from "../../features/chat-settings/sections/ConversationPromptSection";
 import { DiscordMirrorControls } from "../../features/chat-settings/sections/DiscordMirrorSection";
 import { FunctionCallingSection } from "../../features/chat-settings/sections/FunctionCallingSection";
@@ -1038,27 +1038,18 @@ export function ChatSettingsDrawer({
     );
   }, [effectiveModePromptPresetId, fallbackPromptPreset, promptPresetOptions]);
   const { data: connections } = useConnections();
+  // The chat Connection section reads `showUsageWidget` to gate the NanoGPT
+  // usage meter, so keep these rows typed instead of casting fields away.
+  const connectionRows = useMemo(() => (connections as ChatConnectionOption[] | undefined) ?? [], [connections]);
   const imageConnectionsList = useMemo(
-    () =>
-      ((connections as Array<{ id: string; name: string; model?: string; provider?: string }>) ?? []).filter(
-        (c) => c.provider === "image_generation",
-      ),
-    [connections],
+    () => connectionRows.filter((c) => c.provider === "image_generation"),
+    [connectionRows],
   );
   const videoConnectionsList = useMemo(
-    () =>
-      ((connections as Array<{ id: string; name: string; model?: string; provider?: string }>) ?? []).filter(
-        (c) => c.provider === "video_generation",
-      ),
-    [connections],
+    () => connectionRows.filter((c) => c.provider === "video_generation"),
+    [connectionRows],
   );
-  const textConnectionsList = useMemo(
-    () =>
-      filterLanguageGenerationConnections(
-        (connections as Array<{ id: string; name: string; model?: string; provider?: string }>) ?? [],
-      ),
-    [connections],
-  );
+  const textConnectionsList = useMemo(() => filterLanguageGenerationConnections(connectionRows), [connectionRows]);
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
   const sidecarMaxContext = useSidecarStore((state) => state.config.contextSize);

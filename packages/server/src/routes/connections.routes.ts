@@ -62,6 +62,11 @@ import {
   safeFetch,
 } from "../utils/security.js";
 import { DATA_DIR } from "../utils/data-dir.js";
+import { decryptApiKey } from "../utils/crypto.js";
+import {
+  fetchNanoGptSubscriptionUsage,
+  readNanoGptModelSubscriptionMetadata,
+} from "../services/nanogpt/subscription-usage.js";
 import {
   buildAtlasCloudModelSchemaUrl,
   buildAtlasCloudTestReferenceImage,
@@ -436,8 +441,16 @@ function knownStabilityImageModels() {
 
 export async function connectionsRoutes(app: FastifyInstance) {
   const storage = createConnectionsStorage(app.db);
-  const maskConnection = <T extends { apiKeyEncrypted?: unknown } | null>(conn: T): T =>
-    conn ? ({ ...conn, apiKeyEncrypted: conn.apiKeyEncrypted ? "••••••••" : "" } as T) : conn;
+  const maskConnection = <T extends { apiKeyEncrypted?: unknown; managementTokenEncrypted?: unknown } | null>(
+    conn: T,
+  ): T =>
+    conn
+      ? ({
+          ...conn,
+          apiKeyEncrypted: conn.apiKeyEncrypted ? "••••••••" : "",
+          managementTokenEncrypted: conn.managementTokenEncrypted ? "••••••••" : "",
+        } as T)
+      : conn;
 
   app.get("/", async () => {
     return storage.list();
@@ -877,6 +890,36 @@ export async function connectionsRoutes(app: FastifyInstance) {
   });
 
   // ── Fetch available models from the provider API ──
+  /**
+   * NanoGPT subscription usage for the connection editor widget.
+   * Prefers the connection's management token (`usage:read`, cannot spend
+   * balance) and falls back to the inference API key.
+   */
+  app.get<{ Params: { id: string } }>("/:id/subscription-usage", async (req, reply) => {
+    const conn = await storage.getById(req.params.id);
+    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+    if (conn.provider !== "nanogpt") {
+      return reply.status(400).send({ error: "Subscription usage is only available for NanoGPT connections" });
+    }
+    if (conn.profileImportReviewRequired === "true") {
+      return reply.status(409).send({ error: "Review and save this imported connection before reading its usage" });
+    }
+
+    try {
+      const managementToken = await storage.getManagementToken(req.params.id);
+      const apiKey = managementToken ? "" : decryptApiKey(conn.apiKeyEncrypted ?? "");
+      if (!managementToken && !apiKey) {
+        return reply.status(400).send({ error: "Add an API key or management token to read NanoGPT usage" });
+      }
+      const usage = await fetchNanoGptSubscriptionUsage({ managementToken, apiKey });
+      if (!usage) return reply.status(400).send({ error: "No NanoGPT credential available for usage lookup" });
+      return usage;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to read NanoGPT usage";
+      return reply.status(502).send({ error: message });
+    }
+  });
+
   app.get<{ Params: { id: string } }>("/:id/models", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
     if (!conn) return reply.status(404).send({ error: "Connection not found" });
@@ -1737,6 +1780,20 @@ interface RemoteModel {
   name: string;
   context?: number;
   maxOutput?: number;
+  /** Aggregator subscription metadata (NanoGPT `detailed=true`). */
+  subscriptionIncluded?: boolean;
+  /** How many input tokens this model consumes per token of quota. */
+  inputTokenMultiplier?: number;
+}
+
+/**
+ * Read NanoGPT's `subscription` block from a detailed model record.
+ * See `readNanoGptModelSubscriptionMetadata` for the parsing rules.
+ */
+function readSubscriptionMetadata(
+  model: Record<string, unknown>,
+): Pick<RemoteModel, "subscriptionIncluded" | "inputTokenMultiplier"> {
+  return readNanoGptModelSubscriptionMetadata(model);
 }
 
 function readProviderMetadataRecord(value: unknown): Record<string, unknown> | null {
@@ -1878,13 +1935,14 @@ function normalizeModelsResponse(provider: string, json: Record<string, unknown>
 
     default: {
       // OpenAI-compatible: { data: [{ id: "gpt-4o", ... }] }
-      // This covers openai, mistral, openrouter, custom
+      // This covers openai, mistral, openrouter, custom, nanogpt
       const data = (json.data ?? []) as Array<Record<string, unknown> & { id?: string; name?: string }>;
       return data
         .map((m) => ({
           id: m.id ?? "",
           name: m.name ?? m.id ?? "",
           ...readOpenAICompatibleModelLimits(m),
+          ...readSubscriptionMetadata(m),
         }))
         .filter((m) => m.id);
     }

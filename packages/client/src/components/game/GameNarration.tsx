@@ -620,8 +620,10 @@ function getGameTranslationSource(
       : message.content.replace(/^\[(?:To the party|To the GM)]\s*/i, "")
     ).trim();
 
-  // Keep saved translations compatible until a segment edit changes the visible source.
-  if (!hasGameSegmentOverrides(message.id, segmentEdits, segmentDeletes)) return plainSource();
+  // GM messages are always rebuilt through the segment path so the translator never sees
+  // AI-side tags like [main]/[patient]; only plain (user) messages keep the raw path.
+  const isGmMessage = message.role === "assistant" || message.role === "narrator" || message.role === "system";
+  if (!isGmMessage && !hasGameSegmentOverrides(message.id, segmentEdits, segmentDeletes)) return plainSource();
 
   const colors = speakerColors ?? new Map<string, string>();
   const parsed = parseNarrationSegments(message, colors);
@@ -639,29 +641,11 @@ function getGameTranslationSource(
       // Keep single-line dialogue: a newline inside the body would split this line into
       // an extra segment when parseNarrationSegments reads the rebuilt text back.
       const body = withEdit.content.replace(/\s*\n\s*/g, " ").trim();
-      const spriteTag = withEdit.sprite ? ` [${withEdit.sprite}]` : "";
-      // Dialogue MUST stay in the bracketed GM/party shape (`[Name] [main]: "text"`).
-      // Without the brackets the parser drops the line into its narration fallback and
-      // every following segment loses its index.
-      //
-      // The parser strips surrounding quotes only for spoken types (main/side/whisper)
-      // and for the compact `[Name]: "text"` form; `thought` keeps its text verbatim.
-      // So quote only where the parser will strip it back off, and strip any stored
-      // quotes first so re-wrapping stays idempotent on repeated rebuilds.
-      const stripsQuotes =
-        !withEdit.partyType ||
-        withEdit.partyType === "main" ||
-        withEdit.partyType === "side" ||
-        withEdit.partyType === "whisper";
-      const dialogueBody = stripsQuotes ? `"${stripSurroundingDialogueQuotes(body)}"` : body;
-      if (withEdit.partyType) {
-        const typeTag =
-          withEdit.partyType === "whisper" && withEdit.whisperTarget
-            ? `whisper:${withEdit.whisperTarget}`
-            : withEdit.partyType;
-        return `[${withEdit.speaker}] [${typeTag}]${spriteTag}: ${dialogueBody}`;
-      }
-      return `[${withEdit.speaker}]${spriteTag}: ${dialogueBody}`;
+      const dialogueBody = `"${stripSurroundingDialogueQuotes(body)}"`;
+      // Use strictly single-bracket format `[Speaker]: "text"` so external translators
+      // cannot translate internal tags (e.g. `[main] [patient]` -> `[главный] [пациент]`),
+      // which would otherwise break reverse parsing and desync segment indices.
+      return `[${withEdit.speaker}]: ${dialogueBody}`;
     }
     // A blank line inside a narration segment splits it in two on the way back through
     // the parser and shifts every later segment index, so keep single newlines only.
@@ -6588,7 +6572,7 @@ export function parseNarrationSegments(
       const inner = source.slice(idx + tag.length, end).trim();
       const placeholderIdx = readableContents.length;
       readableContents.push({ type: rType, content: inner });
-      const placeholder = `__READABLE_${placeholderIdx}__`;
+      const placeholder = `\n__READABLE_${placeholderIdx}__\n`;
       source = source.slice(0, idx) + placeholder + source.slice(end + 1);
       searchFrom = idx + placeholder.length;
     }
@@ -6602,8 +6586,10 @@ export function parseNarrationSegments(
   const narrationRegex = /^\s*Narration\s*:\s*(.+)$/i;
   // Legacy format (backward compat): Dialogue [Name] [expression]: "text"
   const legacyDialogueRegex = /^\s*Dialogue\s*\[([^\]]+)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/i;
-  // New compact format: [Name] [expression]: "text" or [Name]: "text" or [Name]: text
-  const compactDialogueRegex = /^\s*\[([^\]]+)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/;
+  // New compact format: [Name]: "text", [Name] [expression]: "text", plus any extra
+  // bracket groups a translator may add (e.g. [Name] [main] [patient]: "text").
+  // Group 1 = speaker, group 2 = sprite/expression (last bracket), group 3 = dialogue text.
+  const compactDialogueRegex = /^\s*\[([^\]]+)\](?:\s*\[[^\]]+\])*?\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/;
   // Party dialogue lines — parsed inline as VN segments
   const partyLineRegex =
     /^\s*\[([^\]]+)\]\s*\[(main|side|extra|action|thought|whisper(?::([^\]]+))?)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/i;
@@ -6779,7 +6765,7 @@ function truncateMessageContentAtSegment(rawContent: string, segmentIndexInclusi
   const readablePlaceholderRe = /^__READABLE_(\d+)__$/;
   const narrationRegex = /^\s*Narration\s*:\s*(.+)$/i;
   const legacyDialogueRegex = /^\s*Dialogue\s*\[([^\]]+)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/i;
-  const compactDialogueRegex = /^\s*\[([^\]]+)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/;
+  const compactDialogueRegex = /^\s*\[([^\]]+)\](?:\s*\[[^\]]+\])*?\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/;
   const partyLineRegex =
     /^\s*\[([^\]]+)\]\s*\[(main|side|extra|action|thought|whisper(?::([^\]]+))?)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/i;
 
