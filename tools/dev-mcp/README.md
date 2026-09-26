@@ -130,7 +130,7 @@ The tool works against any recent engine, and works best with the request-trail 
 - **Quiet wait.** By default `restart_engine` waits until nobody has generated for 150 seconds (up to 30 minutes), so it never cuts off a reply in progress. Pass `waitForQuiet: false` to skip that.
 - **Build rollback.** Every touched `dist` folder is copied before a build (the last five copies are kept). A failed build, or a server build that is missing compiled files, restores the previous `dist` and relaunches it. Stale `tsconfig.tsbuildinfo` files are deleted before each build, since they can make `tsc` emit nothing.
 - **Never through `start.bat` or `start.sh`.** Both launchers run `git clean -fd` on `packages/*/src` before starting, which deletes untracked source files you are working on. The tool starts the server the way the launchers' last step does: `node ../../scripts/run-server.mjs dist/index.js` in `packages/server`, with `NODE_ENV=production` and browser auto-open off.
-- **Stops only the engine.** Before stopping anything, the tool checks that the process on the port looks like the engine (run-server, `dist/index.js`, or a launcher). Anything else on that port is left alone.
+- **Stops only this checkout's engine.** Before stopping anything, the tool checks that the process on the port looks like the engine (run-server, `dist/index.js`, or a launcher) and that it belongs to this checkout: it is the process this tool started on that port, its working directory is inside the repository, or its command names a launcher or build path inside the repository. Anything else on that port is left alone, with an error that says so.
 - **Raw API writes need consent.** `api_request` with any method other than GET needs `confirm: true` and a reason, and is logged.
 - **No secrets in output.** `list_connections` returns only ids, providers, models, names and default flags.
 - **Bounded output.** Long results are cut, and the full text is saved under `.dev-mcp/out` with the path returned, so an agent's context is never flooded.
@@ -145,7 +145,9 @@ The tool works against any recent engine, and works best with the request-trail 
 - The sandbox process gets its own `DATA_DIR`, `FILE_STORAGE_DIR`, `LOG_DIR` and env file, binds to `127.0.0.1`, cannot apply updates (`UPDATES_APPLY_DISABLED`), and does not seed a default connection.
 - `HOME`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `XDG_*`, `CODEX_HOME` and `CLAUDE_CONFIG_DIR` point into the sandbox, so subscription logins (ChatGPT through Codex, Claude Code, CLI providers) do not exist there.
 - Environment variables whose names look like credentials (keys, tokens, secrets, passwords, sessions) are not passed on.
-- The tool refuses to run the sandbox until a sanitize pass has finished, and refuses any layout where the sandbox data folder is the live data folder or inside it.
+- The tool refuses to run the sandbox until a sanitize pass has finished, and refuses any layout where the sandbox data folder is the live data folder or inside it, also after resolving links.
+- Linked folders and files in the live store (a `storage` folder on another drive, say) are copied as independent files. The copy is checked for links before it is sanitized, so a sanitize pass can never write through to the live store.
+- In sandbox mode the server never writes the checkout's `dist`: `build` and `restart_engine rebuild` are refused, and `typecheck` does not rebuild `shared`.
 
 The result: the sandbox cannot spend model quota or post anywhere. Use it for prompt previews, cache diagnosis, UI checks, code verification and restart testing; real model replies are not possible there by design. Background agents will log connection warnings in the sandbox, which is expected.
 
@@ -177,3 +179,11 @@ node test/smoke.mjs ["chat name or id"]
 ```
 
 It starts the server over stdio, checks that every tool is listed, and calls the read tools (and `edit_character` / `set_chat_metadata` only with `dryRun`). It never writes, builds or restarts. Online checks are skipped when the engine is not running.
+
+## Isolation tests
+
+```sh
+node test/isolation.mjs
+```
+
+Offline and self-contained: each case builds a throwaway checkout in the temp folder and never touches a real engine, dist or data. They check that a sandbox refresh with a linked live storage folder or shard leaves every live file unchanged, that a stop refuses a listener it cannot tie to this checkout (and still stops this checkout's own supervisor), and that no build entry point writes the dist in sandbox mode.

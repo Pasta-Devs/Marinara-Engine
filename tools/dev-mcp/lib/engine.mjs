@@ -18,7 +18,18 @@ import {
 } from "./config.mjs";
 import { health } from "./api.mjs";
 import { lastStartupReady, secondsSinceLastGeneration } from "./logs.mjs";
-import { clearPidFile, engineRoot, isAlive, looksLikeEngine, listenerProcess, startDetached, stopTree, tail, writePidFile } from "./proc.mjs";
+import {
+  belongsToCheckout,
+  clearPidFile,
+  engineRoot,
+  isAlive,
+  looksLikeEngine,
+  listenerProcess,
+  startDetached,
+  stopTree,
+  tail,
+  writePidFile,
+} from "./proc.mjs";
 import { SANDBOX_LOG, startSandboxProcess } from "./sandbox.mjs";
 import { record, sleep, stamp } from "./util.mjs";
 
@@ -205,6 +216,13 @@ export async function stopEngine(port = PORT) {
         : `port ${port} is held by a process that does not look like the engine: ${String(proc.chain[0].cmd).slice(0, 200)}`,
     );
   }
+  // Another checkout's engine (or any other app shaped like one) on this port is not ours to stop.
+  if (!belongsToCheckout(proc, port)) {
+    throw new Error(
+      `port ${port} is held by PID ${proc.pid}, which could not be verified as this checkout's engine (${REPO}): ` +
+        `${String(proc.chain[0].cmd).slice(0, 200)}. Stop it yourself`,
+    );
+  }
   const top = engineRoot(proc);
   const exited = await stopTree(top.pid, { watchPid: proc.pid });
   if (!exited || (await portHealth())) {
@@ -316,8 +334,18 @@ function pruneDistBackups() {
   for (const name of old) rmSync(join(BACKUP_DIR, name), { recursive: true, force: true });
 }
 
+/**
+ * Every build writes this checkout's packages/<pkg>/dist, which the live engine runs from; a sandbox server must never
+ * do that. Build into a separate dist-* folder and restart the sandbox on it with sandbox_refresh instead.
+ */
+export const SANDBOX_BUILD_REFUSED =
+  "builds are refused in sandbox mode: they would replace the live engine's dist. Build into a separate dist-* " +
+  "folder and restart the sandbox with sandbox_refresh dist=<folder>.";
+
 /** Build packages in dependency order. Every touched dist is backed up first and restored if any build fails. */
 export async function build(packages) {
+  // The one gate every build path (the build tool, a restart with rebuild) passes through.
+  if (INSTANCE === "sandbox") throw new Error(SANDBOX_BUILD_REFUSED);
   const wanted = PACKAGES.filter((pkg) => packages.includes(pkg) || packages.includes("all"));
   if ((wanted.includes("server") || wanted.includes("client")) && !wanted.includes("shared")) wanted.unshift("shared");
   const backup = join(BACKUP_DIR, `dist-${stamp()}`);
@@ -369,15 +397,20 @@ export async function typecheck(pkg) {
   const targets = pkg === "all" ? ["server", "client"] : [pkg];
   const results = [];
   // shared's emitted types feed the other packages. Rebuilding its dist is a write that a concurrent build or
-  // restart also makes, so it takes the engine lock for the build only (not for tsc).
-  acquireLock("typecheck: rebuild shared");
-  let shared;
-  try {
-    shared = await pnpm(["--filter", "@marinara-engine/shared", "build"]);
-  } finally {
-    releaseLock();
+  // restart also makes, so it takes the engine lock for the build only (not for tsc). A sandbox server never writes
+  // the live dist, so there the types are checked against the shared build as it is.
+  if (INSTANCE === "sandbox") {
+    results.push({ pkg: "shared(build)", ok: true, skipped: "sandbox mode: shared was not rebuilt" });
+  } else {
+    acquireLock("typecheck: rebuild shared");
+    let shared;
+    try {
+      shared = await pnpm(["--filter", "@marinara-engine/shared", "build"]);
+    } finally {
+      releaseLock();
+    }
+    if (!shared.ok) return [{ pkg: "shared(build)", ok: false, errors: shared.output.split("\n").slice(-30) }];
   }
-  if (!shared.ok) return [{ pkg: "shared(build)", ok: false, errors: shared.output.split("\n").slice(-30) }];
   for (const target of targets) {
     const cwd = join(REPO, "packages", target);
     try {
@@ -438,13 +471,7 @@ export async function deploy({ packages, waitQuiet, quietSeconds, maxWaitSeconds
   // folder: rebuilding here would change the live engine and maybe not the sandbox. Build into a separate folder and
   // restart the sandbox on it with sandbox_refresh instead.
   if (INSTANCE === "sandbox" && packages.length > 0) {
-    return {
-      ok: false,
-      error:
-        "restart_engine does not rebuild in sandbox mode: the build would replace the live engine's dist. Build " +
-        "into a separate dist-* folder and restart the sandbox with sandbox_refresh dist=<folder>.",
-      steps: [],
-    };
+    return { ok: false, error: `restart_engine does not rebuild: ${SANDBOX_BUILD_REFUSED}`, steps: [] };
   }
   // Only the live engine takes the lock; a sandbox restart never touches the shared dist.
   const needsLock = INSTANCE === "live";

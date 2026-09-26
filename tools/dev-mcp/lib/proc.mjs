@@ -7,10 +7,10 @@
 //          top engine process (the run-server supervisor forwards it to the server) and SIGKILL for the whole tree
 //          after a grace period; spawn(detached) to start.
 import { execFile, spawn } from "node:child_process";
-import { closeSync, existsSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { closeSync, existsSync, openSync, readFileSync, readlinkSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
-import { IS_WINDOWS, RUN_DIR } from "./config.mjs";
+import { IS_WINDOWS, REPO, RUN_DIR } from "./config.mjs";
 import { sleep } from "./util.mjs";
 
 const run = promisify(execFile);
@@ -98,6 +98,17 @@ async function posixInfo(pid) {
   };
 }
 
+/** The working directory of `pid`: /proc on Linux, lsof elsewhere; null when it cannot be read. */
+async function posixCwd(pid) {
+  try {
+    return readlinkSync(`/proc/${Number(pid)}/cwd`);
+  } catch {
+    const out = await sh("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"]).catch(() => "");
+    const line = out.split("\n").find((l) => l.startsWith("n"));
+    return line ? line.slice(1) : null;
+  }
+}
+
 async function posixListener(port) {
   const pid = await posixListenerPid(port);
   if (!pid) return null;
@@ -105,7 +116,7 @@ async function posixListener(port) {
   for (let id = pid, i = 0; id > 1 && i < 6; i += 1) {
     const info = await posixInfo(id);
     if (!info) break;
-    chain.push(info);
+    chain.push({ ...info, cwd: await posixCwd(id) });
     id = info.ppid;
   }
   return chain.length ? chain : [{ pid, ppid: null, name: null, cmd: null, started: null }];
@@ -124,15 +135,61 @@ export async function listenerProcess(port) {
  */
 const ENGINE_CMD = /run-server\.mjs|dist[\w-]*[\\/]index\.js|start(-local)?\.(bat|sh)|pnpm.*start/i;
 
-export function engineRoot(proc) {
+/** The listener and its consecutive engine-looking ancestors: the tree a stop would kill. */
+function engineChain(proc) {
   // Climb only through consecutive engine processes: an unrelated ancestor whose command line happens to match (a
   // shell that once ran `pnpm start`, say) must never become the root of the tree that is killed.
-  let root = proc.chain[0];
+  const chain = [proc.chain[0]];
   for (const parent of proc.chain.slice(1)) {
     if (!ENGINE_CMD.test(String(parent.cmd ?? ""))) break;
-    root = parent;
+    chain.push(parent);
   }
-  return root;
+  return chain;
+}
+
+export function engineRoot(proc) {
+  return engineChain(proc).at(-1);
+}
+
+/** Case-insensitive on Windows, where paths are; resolved through links where the path exists. */
+function comparable(path) {
+  let full = resolve(path);
+  try {
+    full = realpathSync.native(full);
+  } catch {
+    /* a path that no longer exists is compared as written */
+  }
+  return IS_WINDOWS ? full.toLowerCase() : full;
+}
+
+const under = (root, path) => {
+  const rel = relative(comparable(root), comparable(path));
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+};
+
+/** Absolute paths named in a command line: quoted arguments, or runs of non-space characters that start like a path. */
+function commandPaths(cmd) {
+  const paths = [];
+  for (const match of String(cmd).matchAll(/"+([^"]+)"+|'+([^']+)'+|(\S+)/g)) {
+    const token = match[1] ?? match[2] ?? match[3];
+    if (isAbsolute(token) && (IS_WINDOWS ? /^[A-Za-z]:[\\/]/.test(token) : token.startsWith("/"))) paths.push(token);
+  }
+  return paths;
+}
+
+/**
+ * Evidence that the engine tree belongs to this checkout (`repo`): a process in it is the one this tool started on
+ * that port (PID file), runs with its working directory under the repo, or names a script path under the repo.
+ * A command line alone ("node dist/index.js") says nothing about which checkout it came from.
+ */
+export function belongsToCheckout(proc, port, repo = REPO) {
+  const recorded = port === undefined ? null : readPidFile(port);
+  return engineChain(proc).some(
+    (p) =>
+      (recorded !== null && p.pid === recorded) ||
+      (typeof p.cwd === "string" && p.cwd && under(repo, p.cwd)) ||
+      commandPaths(p.cmd ?? "").some((path) => ENGINE_CMD.test(path) && under(repo, path)),
+  );
 }
 
 /**

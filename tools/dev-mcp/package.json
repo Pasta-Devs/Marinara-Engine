@@ -14,7 +14,8 @@
   },
   "scripts": {
     "start": "node server.mjs",
-    "smoke": "node test/smoke.mjs"
+    "smoke": "node test/smoke.mjs",
+    "test:isolation": "node test/isolation.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

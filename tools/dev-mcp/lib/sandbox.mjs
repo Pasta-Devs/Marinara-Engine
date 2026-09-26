@@ -12,7 +12,18 @@
 // Consequence: the sandbox is for prompt previews, UI checks, code verification and restart testing, not for real
 // model replies.
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { IS_WINDOWS, LIVE_DATA_DIR, SANDBOX_DIR, SANDBOX_PORT, SERVER_DIR } from "./config.mjs";
 import { startDetached, writePidFile } from "./proc.mjs";
@@ -27,17 +38,53 @@ const BLACKHOLE = "http://127.0.0.1:9/sandbox-blocked/v1";
 const SECRET_FIELD = /api_?key|secret|token|password|credential/i;
 const SECRET_ENV = /api_?key|token|secret|password|passwd|credential|cookie|auth|session|private_?key|encryption_?key/i;
 
-/** Refuse any layout where the sandbox and the live data could be the same folder or nested in each other. */
-function assertSeparateFromLive() {
-  const live = resolve(LIVE_DATA_DIR);
-  const sandbox = resolve(DATA);
-  const inside = (parent, child) => {
-    const rel = relative(parent, child);
-    return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
-  };
-  if (inside(live, sandbox) || inside(sandbox, live)) {
-    throw new Error(`sandbox data (${sandbox}) must not be the live data folder (${live}) or inside it`);
+const inside = (parent, child) => {
+  const rel = relative(parent, child);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+};
+
+/** The path with every symlink or junction resolved; for a missing path, its nearest existing ancestor's. */
+function realPath(path) {
+  const full = resolve(path);
+  try {
+    return realpathSync.native(full);
+  } catch {
+    const parent = resolve(full, "..");
+    return parent === full ? full : join(realPath(parent), basename(full));
   }
+}
+
+/**
+ * Refuse any layout where the sandbox and the live data could be the same folder or nested in each other, both as
+ * written and after resolving links (a linked sandbox or live folder can make two different paths one folder).
+ */
+function assertSeparateFromLive() {
+  const pairs = [
+    [resolve(LIVE_DATA_DIR), resolve(DATA)],
+    [realPath(LIVE_DATA_DIR), realPath(DATA)],
+    [realPath(join(LIVE_DATA_DIR, "storage")), realPath(DATA)],
+  ];
+  for (const [live, sandbox] of pairs) {
+    if (inside(live, sandbox) || inside(sandbox, live)) {
+      throw new Error(`sandbox data (${sandbox}) must not be the live data folder (${live}) or inside it`);
+    }
+  }
+}
+
+/**
+ * Sanitizing rewrites files in the copy, so the copy must hold only its own regular files: a symlink or junction (a
+ * linked storage folder or shard copied as a link) or a hard link would carry that write into the live store.
+ */
+function assertIndependentCopy(root) {
+  const sandboxRoot = realPath(SANDBOX_DIR);
+  if (!inside(sandboxRoot, realPath(root))) throw new Error(`sandbox storage ${root} resolves outside ${sandboxRoot}`);
+  const walk = (path) => {
+    const info = lstatSync(path);
+    if (info.isSymbolicLink()) throw new Error(`sandbox copy contains a link (${path}); refusing to sanitize through it`);
+    if (info.isDirectory()) for (const name of readdirSync(path)) walk(join(path, name));
+    else if (info.nlink > 1) throw new Error(`sandbox copy contains a hard-linked file (${path}); refusing to sanitize it`);
+  };
+  walk(root);
 }
 
 function sandboxEnv() {
@@ -169,7 +216,8 @@ function mirror(source, target) {
     return;
   }
   rmSync(target, { recursive: true, force: true });
-  cpSync(source, target, { recursive: true, filter: (src) => !SKIP(basename(src)) });
+  // dereference: a linked storage folder or shard is copied as independent files, never as a link to the live data.
+  cpSync(source, target, { recursive: true, dereference: true, filter: (src) => !SKIP(basename(src)) });
 }
 
 /** Copy the live store (not images or other assets) into the sandbox and sanitize it. The live store is only read. */
@@ -181,7 +229,12 @@ export function refreshSandboxData() {
   if (!existsSync(source)) throw new Error(`live storage not found at ${source}`);
   // The marker is written only after sanitizing succeeds; startSandboxProcess refuses to run without it.
   rmSync(META_FILE, { force: true });
+  // A sandbox storage folder that is itself a link would make the mirror write (and delete) through it.
+  if (lstatSync(STORAGE, { throwIfNoEntry: false })?.isSymbolicLink()) {
+    throw new Error(`sandbox storage ${STORAGE} is a link; remove it and refresh again`);
+  }
   mirror(source, STORAGE);
+  assertIndependentCopy(STORAGE);
   writeEnvFile();
   const sanitized = sanitize();
   const meta = { refreshedAt: new Date().toISOString(), source, port: SANDBOX_PORT, ...sanitized };

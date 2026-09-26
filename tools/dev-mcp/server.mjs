@@ -40,7 +40,17 @@ import {
   resolveCharacter,
   resolveChat,
 } from "./lib/api.mjs";
-import { acquireLock, build, deploy, regressions, releaseLock, status, stopEngine, typecheck } from "./lib/engine.mjs";
+import {
+  acquireLock,
+  build,
+  deploy,
+  regressions,
+  releaseLock,
+  SANDBOX_BUILD_REFUSED,
+  status,
+  stopEngine,
+  typecheck,
+} from "./lib/engine.mjs";
 import { groupedProblems, lookupReference } from "./lib/logs.mjs";
 import { cacheReport, diffPrompts, latestSavedPrompts, outline, peekPrompt } from "./lib/prompts.mjs";
 import { fail, fileSafe, out, pathInside, readActivity, record, safe, sleep, stamp, trimText } from "./lib/util.mjs";
@@ -601,7 +611,8 @@ tool(
 
 tool(
   "typecheck",
-  "TypeScript check (tsc --noEmit) for server, client or both. Builds shared first (its types feed the others).",
+  "TypeScript check (tsc --noEmit) for server, client or both. Builds shared first (its types feed the others), " +
+    "except in sandbox mode, which never writes the live dist.",
   { package: z.enum(["server", "client", "all"]).default("all") },
   WRITE,
   async ({ package: pkg }) => out(await typecheck(pkg), 40_000, "typecheck"),
@@ -622,10 +633,12 @@ tool(
 tool(
   "build",
   "Build packages without restarting (client builds are picked up after a page reload; server builds need " +
-    "restart_engine). Each touched dist is backed up first and restored if any build fails.",
+    "restart_engine). Each touched dist is backed up first and restored if any build fails. Refused in sandbox mode " +
+    "(it would replace the live engine's dist).",
   { packages: z.array(z.enum(["shared", "server", "client", "all"])).min(1), reason: z.string().min(5) },
   RISKY,
   async ({ packages, reason }) => {
+    if (INSTANCE === "sandbox") throw new Error(SANDBOX_BUILD_REFUSED);
     // Hold the lock for the whole build, so nobody restarts or rebuilds from a half-written dist.
     acquireLock(`build: ${reason}`);
     let result;
