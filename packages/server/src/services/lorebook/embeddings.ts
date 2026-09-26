@@ -284,7 +284,7 @@ export async function buildLorebookSemanticEmbeddingsById({
   signal?: AbortSignal;
 }): Promise<{
   defaultEmbedding: number[] | null;
-  embeddingsByLorebookId?: Map<string, number[] | null>;
+  embeddingsByLorebookId?: Map<string, number[] | number[][] | null>;
   similarityBaseline: number;
   embeddingSpaceId: string | null;
 }> {
@@ -314,21 +314,45 @@ export async function buildLorebookSemanticEmbeddingsById({
     depths.map((depth) => [depth, selectLorebookVectorQueryText(scanMessages, depth)] as const),
   );
   const populatedDepths = depths.filter((depth) => queryTextsByDepth.get(depth));
-  const queryAndCalibrationEmbeddings = await embedMemoryRecallTexts(
-    [...populatedDepths.map((depth) => queryTextsByDepth.get(depth)!), ...SEMANTIC_CALIBRATION_TEXTS],
-    { embeddingSource, signal, inputType: "query" },
+  const queryTexts = populatedDepths.map((depth) => queryTextsByDepth.get(depth)!);
+  const characterQueryIndices = new Map<number, number>();
+  const characterDepths = new Set(
+    vectorLorebooks
+      .filter((lorebook) => lorebook.vectorIncludeAssistant)
+      .map((lorebook) => normalizeLorebookVectorQueryDepth(lorebook.vectorQueryDepth)),
   );
+  if (characterDepths.size > 0) {
+    const characterMessages = scanMessages.filter((message) => message.role === "assistant");
+    for (const depth of characterDepths) {
+      const text = selectLorebookVectorQueryText(characterMessages, depth);
+      if (!text) continue;
+      let index = queryTexts.indexOf(text);
+      if (index < 0) index = queryTexts.push(text) - 1;
+      characterQueryIndices.set(depth, index);
+    }
+  }
+  const queryAndCalibrationEmbeddings = await embedMemoryRecallTexts([...queryTexts, ...SEMANTIC_CALIBRATION_TEXTS], {
+    embeddingSource,
+    signal,
+    inputType: "query",
+  });
   for (const depth of depths) {
     const queryIndex = populatedDepths.indexOf(depth);
     embeddingsByDepth.set(depth, queryIndex >= 0 ? (queryAndCalibrationEmbeddings[queryIndex] ?? null) : null);
   }
-  const similarityBaseline = lorebookSimilarityBaseline(queryAndCalibrationEmbeddings.slice(populatedDepths.length));
+  const similarityBaseline = lorebookSimilarityBaseline(queryAndCalibrationEmbeddings.slice(queryTexts.length));
 
-  const embeddingsByLorebookId = new Map<string, number[] | null>();
+  const embeddingsByLorebookId = new Map<string, number[] | number[][] | null>();
   for (const lorebook of vectorLorebooks) {
+    const depth = normalizeLorebookVectorQueryDepth(lorebook.vectorQueryDepth);
+    const userEmbedding = embeddingsByDepth.get(depth) ?? null;
+    const characterIndex = lorebook.vectorIncludeAssistant ? characterQueryIndices.get(depth) : undefined;
+    const characterEmbedding = characterIndex === undefined ? null : queryAndCalibrationEmbeddings[characterIndex];
     embeddingsByLorebookId.set(
       lorebook.id,
-      embeddingsByDepth.get(normalizeLorebookVectorQueryDepth(lorebook.vectorQueryDepth)) ?? null,
+      characterEmbedding?.length
+        ? [userEmbedding, characterEmbedding].filter((embedding): embedding is number[] => Boolean(embedding?.length))
+        : userEmbedding,
     );
   }
 

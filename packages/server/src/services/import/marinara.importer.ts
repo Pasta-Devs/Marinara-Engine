@@ -720,6 +720,7 @@ async function importLorebookPayload(data: unknown, db: DB) {
       maxRecursionDepth: Number(lb.maxRecursionDepth ?? 3),
       excludeFromVectorization: Boolean(lb.excludeFromVectorization),
       vectorQueryDepth: Number(lb.vectorQueryDepth ?? 10),
+      vectorIncludeAssistant: lb.vectorIncludeAssistant === true,
       vectorScoreThreshold: Number(lb.vectorScoreThreshold ?? 0.3),
       vectorMaxResults: Number(lb.vectorMaxResults ?? 10),
       characterId: typeof lb.characterId === "string" ? lb.characterId : null,

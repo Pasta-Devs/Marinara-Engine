@@ -1087,7 +1087,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
     };
     let chatEmbedding: number[] | null = null;
-    let semanticEmbeddingsByLorebookId: Map<string, number[] | null> | undefined;
+    let semanticEmbeddingsByLorebookId: Map<string, number[] | number[][] | null> | undefined;
     let semanticSimilarityBaseline = 0;
     let semanticEmbeddingSpaceId: string | null = null;
     try {
