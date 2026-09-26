@@ -66,6 +66,8 @@ export interface SidecarConfig {
   backend: SidecarBackend;
   /** Active model file path, relative to data/models. Null if none. */
   modelPath: string | null;
+  /** Existing GGUF on the server host; Engine never deletes this file. */
+  externalModelPath?: string | null;
   /** Active remote model repo id for MLX-native models. Null if none. */
   modelRepo: string | null;
   /** Which curated quantization variant is downloaded/active. Null for BYO models. */
@@ -94,6 +96,8 @@ export interface SidecarConfig {
   maxParallelJobs: number;
   /** GPU layers to offload (-1 = try max GPU offload first, then fall back if startup fails). */
   gpuLayers: number;
+  /** llama.cpp K/V cache precision; f16 preserves the default runtime behavior. */
+  kvCacheType?: "f16" | "q8_0" | "q4_0";
   /** Start llama.cpp with Jinja chat templates so OpenAI-compatible native tool calls can work. */
   enableNativeToolCalls: boolean;
   /** llama.cpp pooling mode for the OpenAI-compatible embeddings endpoint. */
@@ -367,6 +371,7 @@ export interface SidecarCustomModelEntry {
 export const SIDECAR_DEFAULT_CONFIG: SidecarConfig = {
   backend: "llama_cpp",
   modelPath: null,
+  externalModelPath: null,
   modelRepo: null,
   quantization: null,
   customModelRepo: null,
@@ -384,6 +389,7 @@ export const SIDECAR_DEFAULT_CONFIG: SidecarConfig = {
   embeddingPooling: "none",
   embeddingBatchSize: 512,
   runtimePreference: "auto",
+  kvCacheType: "f16",
   decisionThinking: "auto",
 };
 
