@@ -245,12 +245,56 @@ export type RemoteConnectionModel = {
   name: string;
   context?: number;
   maxOutput?: number;
+  /** NanoGPT: whether the model is covered by the subscription. */
+  subscriptionIncluded?: boolean;
+  /** NanoGPT: input tokens charged per token of subscription quota (2 = 2x). */
+  inputTokenMultiplier?: number;
 };
 
 export function useFetchModels() {
   return useMutation({
     mutationFn: (id: string) =>
       api.get<{ models: RemoteConnectionModel[]; loras?: RemoteConnectionModel[] }>(`/connections/${id}/models`),
+  });
+}
+
+/** One NanoGPT quota window; counters are null when the lookup was unavailable. */
+export type NanoGptQuotaWindow = {
+  used: number | null;
+  remaining: number | null;
+  /** A fraction, not a percentage; may exceed 1. */
+  percentUsed: number | null;
+  /** UNIX epoch milliseconds. */
+  resetAt: number | null;
+  degraded: boolean;
+};
+
+export type NanoGptSubscriptionUsage = {
+  active: boolean;
+  state: string;
+  limits: {
+    dailyInputTokens: number | null;
+    weeklyInputTokens: number | null;
+    dailyImages: number | null;
+  };
+  dailyInputTokens: NanoGptQuotaWindow | null;
+  weeklyInputTokens: NanoGptQuotaWindow | null;
+  dailyImages: NanoGptQuotaWindow | null;
+  currentPeriodEnd: string | null;
+  credential: "management_token" | "api_key";
+  /** Provider id the reading belongs to, so the meter is labelled from data. */
+  provider: string;
+};
+
+/** Read the NanoGPT subscription quotas for the usage widget. */
+export function useNanoGptSubscriptionUsage(connectionId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: [...connectionKeys.detail(connectionId ?? ""), "subscription-usage"],
+    queryFn: () => api.get<NanoGptSubscriptionUsage>(`/connections/${connectionId}/subscription-usage`),
+    enabled: enabled && !!connectionId,
+    // Quotas move slowly and NanoGPT may rate limit reads; keep it calm.
+    staleTime: 60_000,
+    retry: false,
   });
 }
 

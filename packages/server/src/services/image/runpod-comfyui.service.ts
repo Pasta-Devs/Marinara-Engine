@@ -15,8 +15,10 @@
 // so placeholder substitution (%prompt%, %seed%, etc.) must happen BEFORE sending.
 
 import type { ImageGenRequest, ImageGenResult } from "./image-generation.js";
+import { randomUUID } from "node:crypto";
 import {
   COMFYUI_PLACEHOLDER_REFERENCE_BASE64,
+  buildComfyUiLoraWorkflowReplacements,
   DEFAULT_COMFYUI_DEFAULTS,
   mergeNegativePrompt,
   mergePromptPrefix,
@@ -112,24 +114,40 @@ export async function generateRunPodComfyUI(
   wfStr = wfStr.replace(/%denoise%/g, String(defaults.denoisingStrength));
   wfStr = wfStr.replace(/%denoising_strength%/g, String(defaults.denoisingStrength));
   wfStr = wfStr.replace(/%clip_skip%/g, String(defaults.clipSkip ?? 0));
+  for (const [placeholder, value] of Object.entries(buildComfyUiLoraWorkflowReplacements(defaults.loras))) {
+    wfStr = wfStr.replaceAll(placeholder, () => escapeJsonStr(String(value)));
+  }
   if (request.model) {
     wfStr = wfStr.replace(/%model%/g, escapeJsonStr(request.model));
   }
   const referenceImages = collectRunPodReferenceImages(request, defaults);
-  for (let i = 0; i < referenceImages.length; i++) {
-    const referenceImage = referenceImages[i]!;
-    const referenceImageBase64 = normalizeRunPodReferenceImageBase64(referenceImage);
+  const images: Array<{ name: string; image: string }> = [];
+  const applyReference = (i: number, referenceImageBase64: string) => {
     const numbered = numberedComfyReferencePlaceholder("reference_image", i);
     wfStr = wfStr.replaceAll(numbered, escapeJsonStr(referenceImageBase64));
     if (i === 0) {
       wfStr = wfStr.replace(/%reference_image%/g, escapeJsonStr(referenceImageBase64));
     }
+    const namePlaceholder = numberedComfyReferencePlaceholder("reference_image_name", i);
+    if (wfStr.includes(namePlaceholder) || (i === 0 && wfStr.includes("%reference_image_name%"))) {
+      const extension = imageExtensionFromMimeType(detectKnownImageMimeType(referenceImageBase64) ?? "image/png");
+      const name = `marinara-reference-${randomUUID()}.${extension}`;
+      images.push({ name, image: referenceImageBase64 });
+      wfStr = wfStr.replaceAll(namePlaceholder, name);
+      if (i === 0) wfStr = wfStr.replaceAll("%reference_image_name%", name);
+    }
+  };
+  for (let i = 0; i < referenceImages.length; i++) {
+    applyReference(i, normalizeRunPodReferenceImageBase64(referenceImages[i]!));
   }
   if (defaults.uploadPlaceholderOnMissingReference) {
-    for (const index of findMissingComfyReferenceSlots(wfStr, "reference_image", referenceImages.length)) {
-      const placeholder = numberedComfyReferencePlaceholder("reference_image", index);
-      logger.debug("Backfilled RunPod ComfyUI reference slot %s with the placeholder image", placeholder);
-      wfStr = wfStr.replaceAll(placeholder, escapeJsonStr(COMFYUI_PLACEHOLDER_REFERENCE_BASE64));
+    const missing = new Set([
+      ...findMissingComfyReferenceSlots(wfStr, "reference_image", referenceImages.length),
+      ...findMissingComfyReferenceSlots(wfStr, "reference_image_name", referenceImages.length),
+    ]);
+    for (const index of missing) {
+      logger.debug("Backfilled RunPod ComfyUI reference slot %d with the placeholder image", index + 1);
+      applyReference(index, COMFYUI_PLACEHOLDER_REFERENCE_BASE64);
     }
   }
 
@@ -141,10 +159,16 @@ export async function generateRunPodComfyUI(
   }
 
   // ── Step 1: Submit the job ──
+  const body = JSON.stringify({ input: { workflow, ...(images.length > 0 ? { images } : {}) } });
+  if (Buffer.byteLength(body, "utf8") > 10 * 1024 * 1024) {
+    throw new Error(
+      "RunPod's 10 MiB request limit was exceeded. Use smaller reference images or fewer reference slots.",
+    );
+  }
   const jobResp = await runPodFetch(buildRunPodUrl(baseUrl, endpointIdSegment, "run"), request, {
     method: "POST",
     headers,
-    body: JSON.stringify({ input: { workflow } }),
+    body,
     signal: runPodFetchSignal(request),
   });
 
