@@ -541,6 +541,13 @@ try {
     assert.equal(rulesetCombatant(grappled.state, "juno")!.strikesLeft, 1);
     const swing = rulesetCombatOptions(fiveE, grappled.state, "juno").find((option) => option.label === "Longsword");
     assert.ok(swing && swing.budget === undefined && swing.strikes === 1, "the second strike costs nothing more");
+    // And swung: it lands, takes the strike out of hand, and spends nothing more of the Action.
+    const actionLeft = rulesetCombatant(grappled.state, "juno")!.budgets.action;
+    const swung = act(fiveE, grappled.state, { actorId: "juno", optionId: swing!.id, targetIds: ["ash"] }, 18, 5);
+    assert.deepEqual(eventsOf(swung.events, "refused"), []);
+    assert.equal(eventsOf(swung.events, "attack")[0]?.outcome, "hit");
+    assert.equal(rulesetCombatant(swung.state, "juno")!.strikesLeft, undefined, "the last strike in hand is spent");
+    assert.equal(rulesetCombatant(swung.state, "juno")!.budgets.action, actionLeft, "and no more of the Action");
     // Escaping is not one of those: the 5e reference says it takes the whole action.
     assert.equal(juno5e.actions.find((action) => action.id === "contest:escape")?.strikes, undefined);
   }

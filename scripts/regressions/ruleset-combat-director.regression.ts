@@ -1384,6 +1384,7 @@ console.log(
 {
   let taken = 0;
   let won = 0;
+  let actions = 0;
   for (let seed = 1; seed <= 60; seed++) {
     const state = started({
       definition: ember,
@@ -1406,14 +1407,17 @@ console.log(
     const events = state.rulesetFight!.events.map((entry) => entry.event);
     assert.ok(!events.some((event) => event.type === "refused"), `seed ${seed}: the rules refused a pick`);
     for (const event of events) {
+      if (event.type === "attack" || event.type === "contest") actions++;
       if (event.type !== "contest") continue;
       taken++;
       if (event.winner === "actor") won++;
     }
   }
-  // A contest is a setup, and kept modest: taken now and then across sixty fights, never the whole plan.
+  // A contest is a setup, and kept modest: taken now and then across sixty fights, never the whole plan
+  // (about one action in fifteen when this was written, held under one in four).
   assert.ok(taken > 0, "nobody the Engine plays ever tried a contest");
   assert.ok(won > 0, "and none of them ever came off");
+  assert.ok(taken * 4 < actions, `contests became the plan rather than a part of it: ${taken} of ${actions} actions`);
 }
 
 // ── A party member the Engine plays answers its own windows, and may let one go ──
