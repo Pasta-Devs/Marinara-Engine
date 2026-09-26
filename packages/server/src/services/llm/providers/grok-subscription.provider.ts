@@ -428,7 +428,8 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
         finishReason: "stop",
       };
     } catch (err) {
-      logger.error(err, "Grok CLI request failed for model %s", cliModel || "(cli default)");
+      // The caller logs the failure once; this names the model for debugging.
+      logger.debug({ err }, "Grok CLI request failed for model %s", cliModel || "(cli default)");
       throw err;
     }
   }

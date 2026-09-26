@@ -111,6 +111,7 @@ A small group of low-level settings are locked in when the server starts. Changi
 - `TZ`
 - `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED`, `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING`
+- `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS`, `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
 - The image, video, sprite, and ComfyUI timeout and poll settings (`IMAGE_GEN_TIMEOUT_MS`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT`, and the four `*_VIDEO_POLL_INTERVAL_MS` settings)
 
 When one of these changes, the log warns that a restart is required. Access-control settings and secrets like `BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET`, and `CSRF_TRUSTED_ORIGINS` do not need a restart.
@@ -276,6 +277,10 @@ Turn on only the switch you need for a self-hosted service on another private-ne
 
 To connect a local or self-hosted model, see [Connecting a Local or Self-Hosted Model](connections/local-self-hosted.md).
 
+## Feature switches
+
+Optional server behaviours, such as retrying failed provider calls or keeping lorebook group picks stable, are switched on in **Settings > Advanced > Features**. All of them are off by default. A few have an environment variable that, when set, wins over the switch. See [Feature Switches](configuration/features.md) for every switch, its default and its variable.
+
 ## Full environment variable reference
 
 This section lists the remaining settings, grouped by purpose. The tables above already cover access control, storage, logging, timeouts, privileged actions, and local address opt-ins.
@@ -326,6 +331,32 @@ Scene video providers are set up as connections inside the app, not as environme
 | `SEEDANCE_VIDEO_POLL_INTERVAL_MS`   | `10000` | How often the server checks a Seedance job.                                                    |
 | `VIDEO_REFERENCE_PUBLIC_BASE_URL`   | empty   | Public HTTPS address of this server, used when a provider must fetch a reference image by URL. |
 
+### Lorebooks
+
+Both settings are off by default and apply on the next generation after a `.env` change. `LOREBOOK_STABLE_GROUP_WINNERS` pins the **Stable lorebook picks** switch in Settings > Advanced > Features: when it is set, it wins over the switch; when it is unset, the switch decides (see [Feature Switches](configuration/features.md)).
+
+| Variable                        | Default | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOREBOOK_STABLE_GROUP_WINNERS` | `false` | Keeps the same lorebook inclusion-group winner per chat while the matching candidates stay the same, instead of re-rolling every generation. Keeps the prompt prefix stable for provider prompt caching.                                                                                                                                                                                                                                                         |
+| `LOREBOOK_COMPACT_STORED_SCANS` | `false` | Stores the full text of activated lorebook entries only on the newest assistant or narrator message of a chat (its row and its swipes; an impersonated user turn does not replace it). Older messages keep entry ids, keys and scores, which makes chats with large lorebooks much smaller on disk and in memory. If the newer messages are deleted, Active Context and agent retries show the entry's current stored text for the message that is newest again. |
+
+`scripts/compact-lorebook-scans.mjs` applies the same rule to chats saved before the setting was turned on. Stop the server first; it is a dry run unless you pass `--apply`, and it backs up both message tables before writing.
+
+### Robustness
+
+Every setting here is off by default, which keeps the behaviour exactly as it was, and each one works on its own. `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS` and `SHUTDOWN_FORCE_EXIT_ON_REPEAT` are read at startup and need a restart; the others apply on the next request, save or stop after a `.env` change. `PROVIDER_RETRY_TRANSIENT_ERRORS` pins the **Retry failed provider calls** switch in Settings > Advanced > Features: when it is set, it wins over the switch; when it is unset, the switch decides (see [Feature Switches](configuration/features.md)).
+
+| Variable                           | Default | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PROVIDER_RETRY_TRANSIENT_ERRORS`  | `false` | Retries a refused or unreachable connection, or a gateway 502 or 503, up to twice with a short jittered wait (at most 5 s, even when the gateway asks for longer), and only before any text reached you. A 504 or a dropped connection is never retried. Not used when the connection has a fallback: the fallback is tried at once instead. A connect timeout counts as unreachable, so with a slow-failing host the error can take up to about 20 s longer to show. |
+| `STORAGE_SKIP_UNCHANGED_WRITES`    | `false` | A save skips rewriting a chat file or `manifest.json` when its content is identical to what this server last wrote and the file on disk is unchanged. A file just restored from its `.bak` is always rewritten.                                                                                                                                                                                                                                                       |
+| `STORAGE_YIELDING_SERIALIZE`       | `false` | Large chat files are prepared for saving in short slices, so a save of a very long chat no longer pauses other requests and streams while it runs. The bytes written are the same.                                                                                                                                                                                                                                                                                    |
+| `STORAGE_CACHE_WINDOWS_BOOT_ID`    | `false` | Windows only. Remembers the boot time check the storage lock runs at every start (about 1.5 to 2 s of PowerShell) until the next reboot, in `.writer-boot-id.json` inside `DATA_DIR`.                                                                                                                                                                                                                                                                                 |
+| `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS` | `false` | Windows only. Ctrl+Break and closing the console window also stop the server cleanly (pending saves are written) instead of ending it at once. A console close gets shorter deadlines so it finishes inside the roughly 5 s Windows allows.                                                                                                                                                                                                                           |
+| `SHUTDOWN_FORCE_EXIT_ON_REPEAT`    | `false` | Pressing Ctrl+C (or Ctrl+Break) again more than 1.5 s after the first press ends the server at once. Saves not yet written may be lost. Without it, repeats are ignored and the normal 8 s shutdown limit applies.                                                                                                                                                                                                                                                    |
+| `SHUTDOWN_EARLY_FLUSH`             | `false` | Starts writing pending saves as soon as a stop signal (Ctrl+C, SIGTERM) arrives, while open connections are still closing. The Advanced Settings restart does not use it.                                                                                                                                                                                                                                                                                             |
+| `SHUTDOWN_RUNTIME_STOP_BUDGET_MS`  | `0`     | How long a stop signal waits for background runtimes (capability packages, extensions, sidecar) before it closes storage anyway. The Advanced Settings restart still waits for all of them. `0` waits for all of them, as before. At most `2500`, so storage always closes inside the 8 s shutdown limit.                                                                                                                                                             |
+
 ### Integrations and extras
 
 | Variable                          | Default                                    | What it does                                                                                                                                                                                                    |
@@ -345,6 +376,7 @@ For a Giphy key, note that GIF search stays unavailable until you set `GIPHY_API
 
 ## Related guides
 
+- [Feature Switches](configuration/features.md)
 - [Remote Access: Basic Auth and IP Allowlist](REMOTE_ACCESS.md)
 - [Where Your Data Is Stored](data/where-data-is-stored.md)
 - [Connecting to an AI Provider](connections/connecting-to-a-provider.md)

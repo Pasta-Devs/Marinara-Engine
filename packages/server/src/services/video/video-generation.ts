@@ -886,7 +886,9 @@ async function generateGoogleVeoVideo(
     const videoUri = findVideoUri(pollJson);
     if (!videoUri) {
       const reason = summarizeGoogleVeoMissingVideoReason(pollJson);
-      logger.warn("[video-gen/google-veo] completed response without video URI: %s", pollText.slice(0, 2000));
+      // Poll bodies can echo the prompt: their size at warn, the body at debug.
+      logger.warn({ bodyLength: pollText.length }, "[video-gen/google-veo] completed response without video URI");
+      logger.debug("[video-gen/google-veo] completed response body: %s", pollText.slice(0, 2000));
       throw new Error(
         reason
           ? `Google Veo completed without a downloadable video: ${reason}`
@@ -1359,7 +1361,8 @@ async function generateSeedanceVideo(
       if (status && ["completed", "succeeded", "success", "done"].includes(status)) {
         const url = findVideoUri(pollJson);
         if (!url) {
-          logger.warn("[video-gen/seedance] completed response without video URL: %s", pollText.slice(0, 2000));
+          logger.warn({ bodyLength: pollText.length }, "[video-gen/seedance] completed response without video URL");
+          logger.debug("[video-gen/seedance] completed response body: %s", pollText.slice(0, 2000));
           throw new Error("Seedance response did not include a downloadable video");
         }
         return downloadSeedanceVideo(url, baseUrl, apiKey, request.signal);

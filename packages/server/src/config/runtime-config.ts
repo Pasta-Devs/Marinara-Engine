@@ -270,6 +270,15 @@ function isEnabledFlag(value: string | undefined | null) {
   return ["1", "true", "yes", "on"].includes((value ?? "").trim().toLowerCase());
 }
 
+/**
+ * An on/off environment variable that pins a feature switch: null when unset or blank (the saved
+ * setting applies), otherwise true for 1/true/yes/on and false for anything else. Read per call.
+ */
+export function readEnvFlagOverride(envVar: string): boolean | null {
+  const raw = normalizeEnvValue(process.env[envVar]);
+  return raw === null ? null : isEnabledFlag(raw);
+}
+
 function parsePositiveIntEnv(value: string | undefined | null, fallback: number, max: number) {
   const raw = normalizeEnvValue(value);
   if (!raw || !/^\d+$/.test(raw)) return fallback;
@@ -497,6 +506,69 @@ export function isProviderLocalUrlsEnabled() {
     return true;
   }
   return isEnabledFlag(process.env.PROVIDER_LOCAL_URLS_ENABLED);
+}
+
+/**
+ * Opt-in: keep the full text of activated lorebook entries only on the newest generated message of a chat (its row
+ * and its swipes) and store older messages' scans without it. Off by default, which keeps today's storage shape.
+ * Read per call, so a `.env` change applies on the next generation.
+ */
+export function isLorebookScanCompactionEnabled() {
+  return isEnabledFlag(process.env.LOREBOOK_COMPACT_STORED_SCANS);
+}
+
+// Robustness settings. Every one is off by default, which keeps today's behaviour exactly, and each can be turned on
+// by itself. Read per call unless noted, so a `.env` change applies without a restart where the code path allows it.
+
+// LOREBOOK_STABLE_GROUP_WINNERS and PROVIDER_RETRY_TRANSIENT_ERRORS are feature switches now
+// (stableLorebookGroupPicks, providerRetry): services/features/feature-settings.ts reads them with
+// readEnvFlagOverride, where a set variable wins over Settings > Advanced > Features.
+
+/** Opt-in: a storage flush skips a shard or manifest write whose content matches this process's last durable write. */
+export function isStorageSkipUnchangedWritesEnabled() {
+  return isEnabledFlag(process.env.STORAGE_SKIP_UNCHANGED_WRITES);
+}
+
+/** Opt-in: large shards serialize in short slices that yield the event loop instead of one blocking call. */
+export function isStorageYieldingSerializeEnabled() {
+  return isEnabledFlag(process.env.STORAGE_YIELDING_SERIALIZE);
+}
+
+/**
+ * Opt-in, Windows only: cache the writer-lease boot id probe (about 1.5 to 2 s of PowerShell on every start) for the
+ * rest of the OS boot. Read once, when the storage module loads.
+ */
+export function isWindowsBootIdCacheEnabled() {
+  return isEnabledFlag(process.env.STORAGE_CACHE_WINDOWS_BOOT_ID);
+}
+
+/** The Windows boot id cache file: inside DATA_DIR, never in a per-user application or install folder. */
+export function getWindowsBootIdCachePath() {
+  return resolve(getDataDir(), ".writer-boot-id.json");
+}
+
+/** Opt-in, Windows only: Ctrl+Break and closing the console window also start the graceful shutdown. */
+export function isShutdownWindowsConsoleSignalsEnabled() {
+  return isEnabledFlag(process.env.SHUTDOWN_WINDOWS_CONSOLE_SIGNALS);
+}
+
+/** Opt-in: a second Ctrl+C (or Ctrl+Break) more than 1.5 s after the first forces the exit. */
+export function isShutdownForceExitOnRepeatEnabled() {
+  return isEnabledFlag(process.env.SHUTDOWN_FORCE_EXIT_ON_REPEAT);
+}
+
+/** Opt-in: start writing pending saves as soon as a stop signal arrives, while connections are still closing. */
+export function isShutdownEarlyFlushEnabled() {
+  return isEnabledFlag(process.env.SHUTDOWN_EARLY_FLUSH);
+}
+
+/**
+ * Opt-in budget (ms) for the runtime stops that run before the store close. 0 or unset waits for every stop, as
+ * before; a positive value moves on to the store close once it has passed. Capped at 2.5 s so the 4 s connection
+ * cut, the budget and the store close still fit inside the 8 s shutdown force exit.
+ */
+export function getShutdownRuntimeStopBudgetMs() {
+  return parsePositiveIntEnv(process.env.SHUTDOWN_RUNTIME_STOP_BUDGET_MS, 0, 2_500);
 }
 
 export function getEmbeddingRequestTimeoutMs() {
