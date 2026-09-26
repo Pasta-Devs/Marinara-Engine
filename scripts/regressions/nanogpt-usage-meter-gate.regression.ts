@@ -89,6 +89,17 @@ assert.equal(quotaTotalForDisplay(window(null, null)), null);
 assert.equal(quotaTotalForDisplay(null), null);
 assert.equal(quotaTotalForDisplay(undefined), null);
 assert.equal(quotaTotalForDisplay(window(Number.NaN, 1)), null);
+assert.equal(
+  quotaTotalForDisplay(window(72_000_000, 0), 60_000_000),
+  60_000_000,
+  "the reported limit stays fixed after the allowance is exceeded",
+);
+assert.equal(
+  quotaTotalForDisplay({ ...window(72_000_000, 0), percentUsed: 1.2 }),
+  null,
+  "an over-quota window without a limit must not invent a larger allowance",
+);
+assert.equal(quotaTotalForDisplay(window(8_900_000, null), 60_000_000), 60_000_000);
 
 // percentUsed is a fraction and may exceed 1; display clamps but never wraps.
 assert.equal(quotaPercentForDisplay(0.15), 15);

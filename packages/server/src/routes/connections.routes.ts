@@ -905,14 +905,12 @@ export async function connectionsRoutes(app: FastifyInstance) {
       return reply.status(409).send({ error: "Review and save this imported connection before reading its usage" });
     }
 
-    const managementToken = await storage.getManagementToken(req.params.id);
-    const apiKey = decryptApiKey(conn.apiKeyEncrypted ?? "");
-
-    if (!managementToken && !apiKey) {
-      return reply.status(400).send({ error: "Add an API key or management token to read NanoGPT usage" });
-    }
-
     try {
+      const managementToken = await storage.getManagementToken(req.params.id);
+      const apiKey = managementToken ? "" : decryptApiKey(conn.apiKeyEncrypted ?? "");
+      if (!managementToken && !apiKey) {
+        return reply.status(400).send({ error: "Add an API key or management token to read NanoGPT usage" });
+      }
       const usage = await fetchNanoGptSubscriptionUsage({ managementToken, apiKey });
       if (!usage) return reply.status(400).send({ error: "No NanoGPT credential available for usage lookup" });
       return usage;

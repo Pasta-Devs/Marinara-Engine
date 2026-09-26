@@ -50,16 +50,13 @@ function barFill(percent: number, useAccentColor: boolean): string {
 function QuotaBar({
   label,
   window,
+  limit,
   compact = false,
-  onRefresh,
-  isRefreshing = false,
 }: {
   label: string;
   window: NanoGptQuotaWindow;
+  limit: number | null;
   compact?: boolean;
-  /** Compact only: the refresh control sits at the end of this row. */
-  onRefresh?: () => void;
-  isRefreshing?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const percent = quotaPercentForDisplay(window.percentUsed);
@@ -91,7 +88,7 @@ function QuotaBar({
   }
 
   const used = formatTokens(window.used);
-  const total = quotaTotalForDisplay(window);
+  const total = quotaTotalForDisplay(window, limit);
   const roundedPercent = String(Math.round(percent));
   // The wider layouts state the percentage and the tokens together; the compact
   // one leaves the tokens to the header row above and states only the percentage.
@@ -115,18 +112,7 @@ function QuotaBar({
             ? localizeUi("ui.connections.connectioneditor.usagePercentUsed", { percent: roundedPercent })
             : label}
         </span>
-        {compact ? (
-          onRefresh && (
-            <button
-              onClick={onRefresh}
-              disabled={isRefreshing}
-              className="-mb-0.5 rounded-md p-0.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:text-[var(--marinara-chat-chrome-accent)] disabled:opacity-50"
-              aria-label={localizeUi("ui.connections.connectioneditor.refreshUsage")}
-            >
-              <RefreshCw size="0.6875rem" className={isRefreshing ? "animate-spin" : ""} />
-            </button>
-          )
-        ) : (
+        {!compact && (
           <span className="text-[0.6875rem] tabular-nums text-[var(--marinara-chat-chrome-panel-text)]">{reading}</span>
         )}
       </div>
@@ -239,7 +225,7 @@ export function NanoGptUsageWidget({
     ? localizeUi("ui.connections.connectioneditor.weeklyUsage", { provider: providerName })
     : localizeUi("ui.connections.connectioneditor.subscriptionUsage", { provider: providerName });
   const weeklyPercent = weekly ? quotaPercentForDisplay(weekly.percentUsed) : null;
-  const weeklyTotal = quotaTotalForDisplay(weekly);
+  const weeklyTotal = quotaTotalForDisplay(weekly, data.limits.weeklyInputTokens);
   // The percent/used fallback covers a window that reports no remaining count.
   // Compact splits the figure across two rows, exactly as the context bar above
   // splits its own: the counts here, the percentage and the bar beneath. Keeping
@@ -279,20 +265,18 @@ export function NanoGptUsageWidget({
               {compactReading}
             </span>
           )}
-          {!compact && (
-            <button
-              onClick={() => void refetch()}
-              disabled={isFetching}
-              className="rounded-md p-1 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:text-[var(--marinara-chat-chrome-accent)] disabled:opacity-50"
-              aria-label={localizeUi("ui.connections.connectioneditor.refreshUsage")}
-            >
-              <RefreshCw size="0.6875rem" className={isFetching ? "animate-spin" : ""} />
-            </button>
-          )}
+          <button
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:text-[var(--marinara-chat-chrome-accent)] disabled:opacity-50"
+            aria-label={localizeUi("ui.connections.connectioneditor.refreshUsage")}
+          >
+            <RefreshCw size="0.6875rem" className={isFetching ? "animate-spin" : ""} />
+          </button>
         </div>
       </div>
 
-      {!compact && !data.active && (
+      {!data.active && (
         <p className="text-[0.625rem] text-[var(--marinara-editor-accent)]">
           {localizeUi("ui.connections.connectioneditor.subscriptionNotActive", { state: data.state })}
         </p>
@@ -300,22 +284,25 @@ export function NanoGptUsageWidget({
 
       {weekly && (
         <QuotaBar
-          label={compact ? "" : localizeUi("ui.connections.connectioneditor.weeklyInputTokens")}
+          label={localizeUi("ui.connections.connectioneditor.weeklyInputTokens")}
           window={weekly}
+          limit={data.limits.weeklyInputTokens}
           compact={compact}
-          onRefresh={() => void refetch()}
-          isRefreshing={isFetching}
         />
       )}
 
-      {!compact && !weekly && (
+      {!weekly && (
         <p className="text-[0.625rem] text-[var(--muted-foreground)]">
           {localizeUi("ui.connections.connectioneditor.weeklyQuotaNotConfigured")}
         </p>
       )}
 
       {daily && !compact && (
-        <QuotaBar label={localizeUi("ui.connections.connectioneditor.dailyInputTokens")} window={daily} />
+        <QuotaBar
+          label={localizeUi("ui.connections.connectioneditor.dailyInputTokens")}
+          window={daily}
+          limit={data.limits.dailyInputTokens}
+        />
       )}
 
       {!compact && data.credential === "api_key" && (

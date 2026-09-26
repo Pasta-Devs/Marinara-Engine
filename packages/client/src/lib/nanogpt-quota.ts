@@ -23,12 +23,13 @@ export function quotaPercentForDisplay(percentUsed: number | null | undefined): 
 }
 
 /**
- * The window's total allowance. NanoGPT reports `used` and `remaining` rather
- * than a limit, so the two are summed; null when either is unknown, since a
- * total guessed from a partial reading would be a lie.
+ * Prefer the reported limit: remaining can be zero when usage exceeds it.
+ * Older payloads can fall back to used + remaining until the quota is exceeded.
  */
-export function quotaTotalForDisplay(window: QuotaWindowLike | null | undefined): number | null {
+export function quotaTotalForDisplay(window: QuotaWindowLike | null | undefined, limit?: number | null): number | null {
+  if (typeof limit === "number" && Number.isFinite(limit) && limit >= 0) return limit;
   if (!window || window.used === null || window.remaining === null) return null;
+  if (window.percentUsed !== null && window.percentUsed > 1) return null;
   if (!Number.isFinite(window.used) || !Number.isFinite(window.remaining)) return null;
   const total = window.used + window.remaining;
   return Number.isFinite(total) ? total : null;
