@@ -17,6 +17,7 @@
 import type { ImageGenRequest, ImageGenResult } from "./image-generation.js";
 import {
   COMFYUI_PLACEHOLDER_REFERENCE_BASE64,
+  buildComfyUiLoraWorkflowReplacements,
   DEFAULT_COMFYUI_DEFAULTS,
   mergeNegativePrompt,
   mergePromptPrefix,
@@ -112,6 +113,9 @@ export async function generateRunPodComfyUI(
   wfStr = wfStr.replace(/%denoise%/g, String(defaults.denoisingStrength));
   wfStr = wfStr.replace(/%denoising_strength%/g, String(defaults.denoisingStrength));
   wfStr = wfStr.replace(/%clip_skip%/g, String(defaults.clipSkip ?? 0));
+  for (const [placeholder, value] of Object.entries(buildComfyUiLoraWorkflowReplacements(defaults.loras))) {
+    wfStr = wfStr.replaceAll(placeholder, value);
+  }
   if (request.model) {
     wfStr = wfStr.replace(/%model%/g, escapeJsonStr(request.model));
   }
