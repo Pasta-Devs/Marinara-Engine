@@ -83,8 +83,8 @@ export function renderRulesetSheetBlock(
 ): string {
   const { sheet, gm } = definition;
   const build = card.build;
-  const evaluated = evaluateRulesetSheet(definition, build);
   const live = readRulesetLive(definition, build, stored);
+  const evaluated = evaluateRulesetSheet(definition, build, live);
   const catalogEntries = rulesetCatalogEntriesByRef(catalogs);
   const lines: string[] = [];
   const push = (line: string) => {
@@ -148,7 +148,8 @@ export function renderRulesetSheetBlock(
         if (!resolved) return [];
         if (resolved.wound) {
           if (resolved.value === 0 && resolved.wound.overflow === 0 && !track.alwaysShow) return [];
-          const level = resolved.wound.levels[resolved.value - 1]?.label;
+          // Numbered boxes have no name to say beyond how many are marked.
+          const level = resolved.wound.numbered ? undefined : resolved.wound.levels[resolved.wound.lowest]?.label;
           const over = resolved.wound.overflow > 0 ? ` +${resolved.wound.overflow} over` : "";
           const penalty = resolved.wound.penalty !== 0 ? ` ${resolved.wound.penalty} to rolls` : "";
           return [

@@ -403,7 +403,19 @@ const capabilityPackageManifestBaseSchema = z
 //        every check they apply to. Not a soft seam, for the same reason as 1.20 through 1.37: an
 //        Engine that cannot read these keys refuses the whole ruleset file, so a package that ships
 //        any of them declares 1.38. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 38 } as const);
+// 1.39: what a sheet can read. A value reference may read a live track (`liveTrack`, with `read`)
+//        or pool (`livePool`), or add up a list's column (`listSum`); a skill or save may carry a
+//        `cap`; and `hideWhen` may compare with `notEquals` or `in` as well as `equals`. Not a soft
+//        seam, for the same reason as 1.20 through 1.38: an Engine that cannot read these keys
+//        refuses the whole ruleset file, so a package that ships any of them declares 1.39. No
+//        permission.
+// 1.40: wound tracks that are more than a fixed list. A track may be numbered `boxes` (as many as
+//        its own `max`, with a penalty table over boxes filled or remaining), `fill` by box
+//        (`indexed`), `onFull: "refuse"`, and take `extra` levels from a list; a rest's restore
+//        step may name the `kind` it heals. Not a soft seam, for the same reason as 1.20 through
+//        1.39: an Engine that cannot read these keys refuses the whole ruleset file, so a package
+//        that ships any of them declares 1.40. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 40 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

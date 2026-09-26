@@ -56,6 +56,7 @@ const SHEET_REFUSAL_KEYS: Readonly<Record<string, string>> = Object.freeze({
   "unknown-track": "game.ruleset.sheet.refusal.unknownTrack",
   "wrong-track": "game.ruleset.sheet.refusal.wrongTrack",
   "unknown-kind": "game.ruleset.sheet.refusal.unknownKind",
+  "no-box": "game.ruleset.sheet.refusal.noBox",
   "unknown-condition": "game.ruleset.sheet.refusal.unknownCondition",
   "unknown-field": "game.ruleset.sheet.refusal.unknownField",
   "unknown-rest": "game.ruleset.sheet.refusal.unknownRest",
@@ -107,7 +108,8 @@ function summaryFieldValue(
  * These systems expect a player to keep their own track, so every box is a button. Clicking an
  * unmarked box marks the track with the chosen kind; clicking a marked one clears one mark. The
  * rules themselves live in `applyRulesetSheetOp`, so a mark placed here lands exactly where the
- * Game Master's own command would put it: in severity order, pushing lighter marks down.
+ * Game Master's own command would put it: in severity order, pushing lighter marks down, or on a
+ * track that fills by box, on the box clicked.
  */
 function WoundTrack({
   track,
@@ -121,7 +123,7 @@ function WoundTrack({
   wound: NonNullable<ResolvedRulesetLive["tracks"][number]["wound"]>;
   cardName: string;
   readOnly: boolean;
-  onMark: (kind: string, amount: number) => void;
+  onMark: (kind: string, amount: number, box?: number) => void;
   localizeUi: TFunction;
 }) {
   // The kind a click marks with. The lightest is the default, because that is what most harm is.
@@ -129,6 +131,21 @@ function WoundTrack({
   const [kindId, setKindId] = useState(kinds[0]?.id ?? "");
   const chosen = kinds.find((kind) => kind.id === kindId) ?? kinds[0];
   const markLabel = (id: string | undefined) => wound.kinds.find((kind) => kind.id === id)?.label ?? "";
+  const levelName = (index: number) =>
+    wound.numbered
+      ? localizeUi("game.ruleset.sheet.wound.box", { number: index + 1 })
+      : (wound.levels[index]?.label ?? "");
+  // The box one heal clears, by the Engine's own rule: the lightest mark, the highest box among
+  // equally light ones. On a sequential track that is always the last marked box.
+  const severityOf = (id: string | undefined) => wound.kinds.find((kind) => kind.id === id)?.severity;
+  let clearing = -1;
+  wound.marks.forEach((mark, index) => {
+    const severity = severityOf(mark);
+    if (severity === undefined) return;
+    const current = severityOf(wound.marks[clearing]);
+    if (clearing === -1 || current === undefined || severity <= current) clearing = index;
+  });
+  const full = wound.filled >= wound.levels.length;
 
   return (
     <div className={`space-y-1.5 ${cardClass}`}>
@@ -166,7 +183,7 @@ function WoundTrack({
       <div className="flex flex-wrap items-center gap-1">
         <button
           type="button"
-          disabled={readOnly || !chosen}
+          disabled={readOnly || !chosen || (full && wound.refusesWhenFull)}
           onClick={() => onMark(chosen?.id ?? "", 1)}
           className={chipClass}
         >
@@ -174,8 +191,8 @@ function WoundTrack({
         </button>
         <button
           type="button"
-          disabled={readOnly || (wound.marks.length === 0 && wound.overflow === 0)}
-          onClick={() => onMark(wound.marks[wound.marks.length - 1] ?? chosen?.id ?? "", -1)}
+          disabled={readOnly || (wound.filled === 0 && wound.overflow === 0)}
+          onClick={() => onMark(wound.marks[clearing] || chosen?.id || "", -1)}
           className={chipClass}
         >
           {localizeUi("game.ruleset.sheet.wound.unmark")}
@@ -185,11 +202,14 @@ function WoundTrack({
       <div className="flex flex-wrap gap-1">
         {wound.levels.map((level, index) => {
           const mark = wound.marks[index];
-          // Marks are held sorted, so a mark always lands at the end of the run and a clear always
-          // takes the last one. Only those two boxes do anything, and only those two are offered:
-          // a box that looked pressable but moved a DIFFERENT box would be lying about itself.
-          const adds = !mark && index === wound.marks.length && !!chosen;
-          const clears = !!mark && index === wound.marks.length - 1;
+          // On a sequential track marks are held sorted, so a mark always lands at the end of the run
+          // and a clear takes the lightest. On one that fills by box, any clear box takes a mark where
+          // it is. Only the boxes a click would really change are offered: a box that looked
+          // pressable but moved a DIFFERENT box would be lying about itself.
+          const adds = !mark && !!chosen && (wound.indexed || index === wound.filled);
+          // While marks have spilled over, a heal takes an overflow first, so no box would change: only
+          // Clear one is offered then.
+          const clears = !!mark && index === clearing && wound.overflow === 0;
           return (
             <button
               key={`${track.id}-${index}`}
@@ -198,7 +218,7 @@ function WoundTrack({
               // A box says what it is, what it costs and what is on it, because a coloured square
               // says none of the three to somebody who cannot see it.
               aria-label={localizeUi("game.ruleset.sheet.wound.levelAria", {
-                level: level.label,
+                level: levelName(index),
                 penalty: level.penalty,
                 state: mark
                   ? localizeUi("game.ruleset.sheet.wound.marked", { kind: markLabel(mark) })
@@ -207,10 +227,12 @@ function WoundTrack({
                 who: cardName,
               })}
               title={localizeUi("game.ruleset.sheet.wound.levelTitle", {
-                level: level.label,
+                level: levelName(index),
                 penalty: level.penalty,
               })}
-              onClick={() => onMark(clears ? mark! : (chosen?.id ?? ""), clears ? -1 : 1)}
+              onClick={() =>
+                clears ? onMark(mark!, -1) : onMark(chosen?.id ?? "", 1, wound.indexed ? index + 1 : undefined)
+              }
               className={`flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-lg border text-[0.625rem] leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                 mark
                   ? "border-[var(--primary)] bg-[var(--accent)] font-semibold text-[var(--foreground)]"
@@ -228,13 +250,23 @@ function WoundTrack({
 
       {/* The penalty in force, said once, in words. It is the one on the lowest marked level. */}
       <p role="status" className="text-[0.6875rem] text-[var(--muted-foreground)]">
-        {wound.penalty === 0
-          ? localizeUi("game.ruleset.sheet.wound.noPenalty", { name: track.label })
-          : localizeUi("game.ruleset.sheet.wound.penalty", {
-              name: track.label,
-              level: wound.levels[wound.marks.length - 1]?.label ?? "",
-              penalty: wound.penalty,
-            })}
+        {wound.numbered
+          ? localizeUi(
+              wound.penalty === 0 ? "game.ruleset.sheet.wound.boxesNoPenalty" : "game.ruleset.sheet.wound.penaltyBoxes",
+              {
+                name: track.label,
+                filled: wound.filled,
+                count: wound.levels.length,
+                penalty: wound.penalty,
+              },
+            )
+          : wound.penalty === 0
+            ? localizeUi("game.ruleset.sheet.wound.noPenalty", { name: track.label })
+            : localizeUi("game.ruleset.sheet.wound.penalty", {
+                name: track.label,
+                level: levelName(wound.lowest),
+                penalty: wound.penalty,
+              })}
         {wound.overflow > 0 ? " " : ""}
         {wound.overflow > 0 ? localizeUi("game.ruleset.sheet.wound.overflow", { count: wound.overflow }) : ""}
       </p>
@@ -278,8 +310,9 @@ export function GameRulesetSheet({
   const layerNames = layers?.map((layer) => layer.label).join(", ") || null;
 
   const build = useMemo(() => envelope?.build ?? defaultRulesetSheetBuild(definition), [definition, envelope]);
-  const evaluated = useMemo(() => evaluateRulesetSheet(definition, build), [definition, build]);
   const resolved = useMemo(() => readRulesetLive(definition, build, live), [definition, build, live]);
+  // Against the live state as it stands, so a value that reads a track or a pool shows what it is now.
+  const evaluated = useMemo(() => evaluateRulesetSheet(definition, build, resolved), [definition, build, resolved]);
 
   /** Every change a player makes takes the same route a Game Master command does. */
   const apply = (op: RulesetSheetOp) => {
@@ -381,6 +414,7 @@ export function GameRulesetSheet({
             layerOptions={layerOptions}
             envelope={draft}
             onChange={setDraft}
+            live={live}
           />
           <div className="flex flex-wrap gap-2">
             <button
@@ -480,7 +514,9 @@ export function GameRulesetSheet({
                     wound={track.wound}
                     cardName={cardName}
                     readOnly={readOnly}
-                    onMark={(kind, amount) => apply({ op: "damage", track: track.id, kind, amount })}
+                    onMark={(kind, amount, box) =>
+                      apply({ op: "damage", track: track.id, kind, amount, ...(box !== undefined ? { box } : {}) })
+                    }
                     localizeUi={localizeUi}
                   />
                 ) : (

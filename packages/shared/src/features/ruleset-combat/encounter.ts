@@ -22,13 +22,13 @@ import {
 import type { TacticalGrid } from "../tactical-combat/types.js";
 import {
   applyRulesetSheetOp,
+  evaluateRulesetSheetLive,
   readRulesetLive,
   type RulesetLiveState,
   type RulesetSheetOp,
 } from "../rulesets/live-state.js";
 import { rulesetCatalogEntriesByRef } from "../rulesets/scaled-rows.js";
 import {
-  evaluateRulesetSheet,
   lookupStepTable,
   resolveRulesetValueRef,
   rulesetCheckModifier,
@@ -105,7 +105,7 @@ export function rulesetCombatHealth(
   if ("track" in health) {
     const track = live.tracks.find((entry) => entry.id === health.track);
     if (!track?.wound) return { value: 0, max: 0, temp: 0 };
-    return { value: track.wound.levels.length - track.wound.marks.length, max: track.wound.levels.length, temp: 0 };
+    return { value: track.wound.levels.length - track.wound.filled, max: track.wound.levels.length, temp: 0 };
   }
   const pool = live.pools.find((entry) => !entry.listId && entry.key === health.pool);
   return pool ? { value: pool.value, max: pool.max, temp: pool.temp } : { value: 0, max: 0, temp: 0 };
@@ -776,7 +776,9 @@ function sheetCombatant(
   },
 ): RulesetCombatant {
   const { build, perCell } = input;
-  const evaluated = evaluateRulesetSheet(definition, build);
+  // Against the fighter's live state as the fight found it, so a value that reads a track or a pool
+  // (a speed an injury slows) is the one this fight uses.
+  const evaluated = evaluateRulesetSheetLive(definition, build, input.live);
   const catalogs = narrowCatalogs(build, input.catalogs);
   const modifier = combat.initiative.modifier
     ? resolveRulesetValueRef(definition, build, combat.initiative.modifier, evaluated)

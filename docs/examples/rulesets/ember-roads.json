@@ -144,16 +144,6 @@
         "max": 6,
         "default": 2,
         "section": "about"
-      },
-      {
-        "$comment": "How much a character is hauling. It slows a climb or a shove, so resolution.adjust takes it off every Brawn roll through the burdened value below.",
-        "id": "burden",
-        "label": "Burden",
-        "type": "number",
-        "min": 0,
-        "max": 3,
-        "default": 0,
-        "section": "gear"
       }
     ],
     "derived": [
@@ -190,12 +180,33 @@
         "section": "about"
       },
       {
+        "$comment": "How much a character is hauling: the bulk of every piece of gear they have packed, added up off the list rather than typed in beside it, so it can never drift from what they carry.",
+        "id": "burden",
+        "label": "Burden",
+        "op": "sum",
+        "of": [{ "listSum": { "list": "gear", "column": "bulk", "onlyWhen": "packed" } }],
+        "section": "gear"
+      },
+      {
+        "$comment": "Every three bulk slows a climb or a shove, so resolution.adjust takes this off every Brawn roll.",
         "id": "burdened",
         "label": "Burden on Brawn rolls",
-        "op": "scale",
-        "of": { "field": "burden" },
-        "multiplier": -1,
+        "op": "stepTable",
+        "from": { "derived": "burden" },
+        "table": [
+          [0, 0],
+          [3, -1],
+          [6, -2],
+          [9, -3]
+        ],
         "section": "gear"
+      },
+      {
+        "id": "strain_boxes",
+        "label": "Strain boxes",
+        "op": "sum",
+        "of": [{ "const": 2 }, { "abilityMod": "heart" }],
+        "section": "about"
       }
     ],
     "lists": [
@@ -237,6 +248,20 @@
             "label": "Kind of harm",
             "type": "text",
             "maxLength": 20
+          },
+          {
+            "id": "bulk",
+            "label": "Bulk",
+            "type": "number",
+            "min": 0,
+            "max": 3,
+            "default": 0
+          },
+          {
+            "id": "packed",
+            "label": "Packed",
+            "type": "boolean",
+            "default": true
           }
         ]
       },
@@ -327,6 +352,25 @@
           "max": 5,
           "default": 0,
           "alwaysShow": true
+        },
+        {
+          "$comment": "Numbered boxes rather than named levels, as many as Strain boxes works out. A hit marks the box its strength names, or the next free one above; with none free the hit does not land on the track, and in a fight that takes the traveller out. The table reads the boxes still clear: none left is -1 on every roll.",
+          "id": "strain",
+          "label": "Strain",
+          "min": 0,
+          "max": { "derived": "strain_boxes" },
+          "boxes": {
+            "penalty": {
+              "by": "remaining",
+              "table": [
+                [0, -1],
+                [1, 0]
+              ]
+            }
+          },
+          "kinds": [{ "id": "strain", "label": "S", "severity": 0 }],
+          "fill": "indexed",
+          "onFull": "refuse"
         }
       ],
       "conditions": [

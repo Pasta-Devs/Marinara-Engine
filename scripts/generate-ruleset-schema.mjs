@@ -108,6 +108,29 @@ function requireOneHideComparison(node) {
   }
 }
 
+// A sheet item's `hideWhen` compares its field exactly one way too: equals, notEquals or in. Found
+// by its shape: `field` beside all three.
+function requireOneHideWhenComparison(node) {
+  if (Array.isArray(node)) return node.forEach(requireOneHideWhenComparison);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(requireOneHideWhenComparison);
+  const keys = ["equals", "notEquals", "in"];
+  if (node.type === "object" && node.properties?.field && keys.every((key) => node.properties[key])) {
+    node.oneOf = keys.map((key) => ({ required: [key] }));
+  }
+}
+
+// A value reference's `read` says which number of a live track it reads, so it goes only beside
+// `liveTrack`. Found by its shape: the two side by side.
+function readOnlyWithLiveTrack(node) {
+  if (Array.isArray(node)) return node.forEach(readOnlyWithLiveTrack);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(readOnlyWithLiveTrack);
+  if (node.type === "object" && node.properties?.liveTrack && node.properties.read) {
+    node.dependencies = { ...(node.dependencies ?? {}), read: ["liveTrack"] };
+  }
+}
+
 // A condition that lasts until a save needs the save that ends it, or nothing would ever take it
 // off. That is a refinement too, so the editor is told here. The node is found by its shape.
 function requireSaveEndsUntilSave(node) {
@@ -230,7 +253,26 @@ function requireLevelsWithKinds(node) {
   Object.values(node).forEach(requireLevelsWithKinds);
   const properties = node.properties;
   if (node.type !== "object" || !properties?.levels || !properties.kinds || !properties.min) return;
-  node.dependencies = { ...(node.dependencies ?? {}), kinds: ["levels"], levels: ["kinds"] };
+  // A wound track has kinds beside exactly one of levels or boxes; fill, onFull and extra are only
+  // for one, and extra only beside levels.
+  node.dependencies = {
+    ...(node.dependencies ?? {}),
+    levels: ["kinds"],
+    boxes: ["kinds"],
+    extra: ["levels"],
+    fill: ["kinds"],
+    onFull: ["kinds"],
+  };
+  node.allOf = [
+    ...(node.allOf ?? []),
+    { not: { required: ["levels", "boxes"] } },
+    { if: { required: ["kinds"] }, then: { anyOf: [{ required: ["levels"] }, { required: ["boxes"] }] } },
+    // An indexed track never moves a mark, so it has no lightest one to upgrade: it refuses when full.
+    {
+      if: { properties: { fill: { const: "indexed" } }, required: ["fill"] },
+      then: { properties: { onFull: { const: "refuse" } }, required: ["onFull"] },
+    },
+  ];
 }
 
 /**
@@ -314,6 +356,8 @@ requireDamageAmount(schema);
 requireDistanceForMeasured(schema);
 boundScaledColumns(schema);
 requireOneHideComparison(schema);
+requireOneHideWhenComparison(schema);
+readOnlyWithLiveTrack(schema);
 allowAnnotations(schema);
 const text = `${JSON.stringify(
   {

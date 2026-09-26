@@ -946,7 +946,8 @@ export class OpenAIProvider extends BaseLLMProvider {
       this.hasExplicitReasoningDisable(options.reasoningEffort) &&
       !isGlm53MandatoryReasoningModel(options.model)
     ) {
-      body.reasoning_effort = "none";
+      // NanoGPT Kimi K3 always reasons; use its lightest supported effort for JSON agents requesting "none".
+      body.reasoning_effort = /(?:^|\/)kimi-k3(?:$|[-:])/iu.test(options.model) ? "low" : "none";
       return;
     }
 

@@ -697,6 +697,60 @@ function rulesetCarriesSheet137Keys(ruleset: { sheet?: unknown; gm?: unknown } |
 const MOVED_POOL_RULES_ISSUE =
   "A ruleset whose pool checks can move their rules, add two abilities or read a botch off half the dice requires schemaVersion 2 and capabilityApi 1.37 or newer";
 
+const SHEET_READS_ISSUE =
+  "A ruleset whose values read a live track or pool or add up a list, whose skills or saves carry a cap, or that hides on anything but one value requires schemaVersion 2 and capabilityApi 1.39 or newer";
+
+/** The 1.39 keys a value reference or a `hideWhen` may carry, anywhere in a document. Their names
+ *  are camelCase, which no sheet id can be, so walking the whole document finds exactly them rather
+ *  than every place a reference may sit (and a catalog file is walked the same way). */
+function carriesSheetReads139(value: unknown, depth = 0): boolean {
+  if (!value || typeof value !== "object" || depth > 64) return false;
+  if (Array.isArray(value)) return value.some((entry) => carriesSheetReads139(entry, depth + 1));
+  const record = value as Record<string, unknown>;
+  if (record.liveTrack !== undefined || record.livePool !== undefined || record.listSum !== undefined) return true;
+  const hide = record.hideWhen;
+  if (hide && typeof hide === "object") {
+    const comparison = hide as Record<string, unknown>;
+    if (comparison.notEquals !== undefined || comparison.in !== undefined) return true;
+  }
+  return Object.values(record).some((entry) => carriesSheetReads139(entry, depth + 1));
+}
+
+/** And a `cap` on a skill or save, which is an ordinary word, so only those two lists are read. */
+function rulesetCapsChecks(ruleset: { sheet?: unknown } | undefined): boolean {
+  const sheet = ruleset?.sheet && typeof ruleset.sheet === "object" ? (ruleset.sheet as Record<string, unknown>) : {};
+  return (["skills", "saves"] as const).some(
+    (key) =>
+      Array.isArray(sheet[key]) &&
+      (sheet[key] as unknown[]).some(
+        (entry) => !!entry && typeof entry === "object" && (entry as Record<string, unknown>).cap !== undefined,
+      ),
+  );
+}
+
+const WOUND_BOXES_ISSUE =
+  "A ruleset whose wound tracks are boxes, fill by box, refuse a mark when full or take extra levels from a list, or whose rests heal one kind of harm, requires schemaVersion 2 and capabilityApi 1.40 or newer";
+
+/** The 1.40 keys: on a live track, and on a rest's restore step. Ordinary words, so only those two
+ *  places are read. */
+function rulesetCarriesWound140Keys(ruleset: { sheet?: unknown; rests?: unknown } | undefined): boolean {
+  const record = (value: unknown) =>
+    value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+  const tracks = record(record(ruleset?.sheet)?.live)?.tracks;
+  const trackKeys =
+    Array.isArray(tracks) &&
+    tracks.some((track) => {
+      const entry = record(track);
+      return !!entry && (["boxes", "fill", "onFull", "extra"] as const).some((key) => entry[key] !== undefined);
+    });
+  if (trackKeys) return true;
+  const rests = Array.isArray(ruleset?.rests) ? ruleset.rests : [];
+  return rests.some((rest) => {
+    const restore = record(rest)?.restore;
+    return Array.isArray(restore) && restore.some((step) => record(step)?.kind !== undefined);
+  });
+}
+
 export function getCapabilityPackageInstallIssue(
   manifest: CapabilityCatalogPackage["manifest"],
   rulesetDocument?: unknown,
@@ -905,6 +959,19 @@ export function getCapabilityPackageInstallIssue(
     if (capped) {
       return "A ruleset whose weapons cap their own strikes requires schemaVersion 2 and capabilityApi 1.32 or newer";
     }
+  }
+  // Wound tracks of boxes, filled by box, refusing when full or lengthened by a list, and rests that
+  // heal one kind of harm, which are 1.40's. Same file, same reason.
+  if (!declaresApi(40) && rulesetCarriesWound140Keys(ruleset)) return WOUND_BOXES_ISSUE;
+  // Values that read the live state or add up a list, caps on checks, and wider hide rules, which are
+  // 1.39's. Same file (and the same catalog files), same reason.
+  if (
+    !declaresApi(39) &&
+    (carriesSheetReads139(ruleset) ||
+      rulesetCapsChecks(ruleset) ||
+      [...(catalogDocuments?.values() ?? [])].some((document) => carriesSheetReads139(document)))
+  ) {
+    return SHEET_READS_ISSUE;
   }
   // What a check may buy and what rides along on it, which are 1.38's: standing re-throws, a spend
   // that throws again or reads its limit off the sheet, more than two spends, and sheet modifiers.

@@ -7,7 +7,7 @@
 // player or from the Game Master.
 
 import type { RulesetCombat, RulesetDefinition } from "../../schemas/ruleset.schema.js";
-import { readRulesetLive } from "../rulesets/live-state.js";
+import { readRulesetLive, type RulesetSheetOp } from "../rulesets/live-state.js";
 import { rollRulesetDice, sumOf } from "./dice.js";
 import {
   currentRulesetActor,
@@ -94,6 +94,10 @@ interface RulesetCombatContext {
   state: RulesetEncounterState;
   roll: RulesetCombatRoller;
   events: RulesetCombatEvent[];
+  /** Combatants a blow could find no box for on a wound track that refuses when full. In the
+   *  systems that keep such a track that is what being taken out IS, so the blow puts them down;
+   *  without it a fight on one could never end. Read, and cleared, when the blow is finished. */
+  overwhelmed: Set<string>;
 }
 
 /** A working copy, plus a roller that counts its dice so the state's cursor stays exact. */
@@ -114,6 +118,7 @@ function begin(
       return roller(sides);
     },
     events: [],
+    overwhelmed: new Set(),
   };
   return {
     ctx,
@@ -259,24 +264,23 @@ function applyDamage(
  * What a whole blow does once every amount on it has landed: the conditions any damage ends, ONE
  * check against concentration for the summed damage, and one check for going down.
  *
- * `before` is the health the target had before the FIRST amount of the blow, so a second clause
- * cannot be read as a second blow at somebody who is already on the ground.
+ * Whether the target was already down is read off the combatant here, before this changes it. Going
+ * down only ever happens in this function, so every clause of one blow reads the same answer and a
+ * second clause cannot be read as a second blow at somebody who is already on the ground; and
+ * somebody a blow took out with boxes still clear counts as down though their health is not zero.
  */
-function afterBlow(
-  ctx: RulesetCombatContext,
-  target: RulesetCombatant,
-  before: { value: number },
-  dealt: number,
-  critical: boolean,
-): void {
+function afterBlow(ctx: RulesetCombatContext, target: RulesetCombatant, dealt: number, critical: boolean): void {
+  const overwhelmed = ctx.overwhelmed.delete(target.id);
   if (dealt <= 0) return;
+  const wasDown = !!target.down;
   endConditionsOnDamage(ctx, target);
   const after = healthOf(ctx, target);
-  // A blow that leaves somebody standing tests their concentration. One that takes them to zero
-  // does not: going down ends it outright (`dropToZero`), so nothing is rolled for it.
-  if (after.value > 0) concentrationFromDamage(ctx, target, dealt);
-  if (after.value <= 0) {
-    if (before.value > 0) dropToZero(ctx, target);
+  const out = after.value <= 0 || overwhelmed || wasDown;
+  // A blow that leaves somebody standing tests their concentration. One that takes them out does
+  // not: going down ends it outright (`dropToZero`), so nothing is rolled for it.
+  if (!out) concentrationFromDamage(ctx, target, dealt);
+  if (out) {
+    if (!wasDown) dropToZero(ctx, target);
     else if (target.dying && !target.defeated) {
       // Already down: a blow while down costs the rule's own number of failures.
       const rule = critical ? ctx.combat.dying?.criticalWhileDown : ctx.combat.dying?.damageWhileDown;
@@ -316,16 +320,27 @@ function writeHealthLoss(
     writeRulesetSheet(ctx.definition, target, { op: "damage", pool: health.pool, amount: dealt });
     return;
   }
-  writeRulesetSheet(ctx.definition, target, {
+  // On an indexed track a blow names the box it lands on rather than how many it fills: its damage
+  // under `per-point`, the first box under `per-blow`.
+  const perPoint = ctx.combat.damageKinds?.marks === "per-point" ? Math.max(1, Math.floor(dealt)) : 1;
+  const indexed = ctx.definition.sheet.live.tracks.find((track) => track.id === health.track)?.fill === "indexed";
+  markWound(ctx, target, {
     op: "damage",
     track: health.track,
     kind: rulesetCombatDamageKind(ctx.combat, damageType),
-    amount: ctx.combat.damageKinds?.marks === "per-point" ? Math.max(1, Math.floor(dealt)) : 1,
+    ...(indexed ? { amount: 1, box: perPoint } : { amount: perPoint }),
   });
 }
 
+/** A mark a fight writes. The fight's own kinds are the track's (checked at import) and its amounts
+ *  are whole and positive, so the one refusal left is a track with no box free for it. */
+function markWound(ctx: RulesetCombatContext, target: RulesetCombatant, op: RulesetSheetOp): void {
+  if (!writeRulesetSheet(ctx.definition, target, op)) ctx.overwhelmed.add(target.id);
+}
+
 /** And the other way: a pool gets the points back, a wound track has ONE mark cleared, lightest
- *  first, by the same rule the player's own sheet clears one. */
+ *  first, by the same rule the player's own sheet clears one. It names no kind, because a heal that
+ *  named one would clear only that kind. */
 function writeHealthGain(ctx: RulesetCombatContext, target: RulesetCombatant, amount: number): void {
   const health = ctx.combat.health;
   if (!("track" in health)) {
@@ -335,7 +350,7 @@ function writeHealthGain(ctx: RulesetCombatContext, target: RulesetCombatant, am
   writeRulesetSheet(ctx.definition, target, {
     op: "damage",
     track: health.track,
-    kind: rulesetCombatDamageKind(ctx.combat, undefined),
+    kind: "",
     amount: -1,
   });
 }
@@ -362,7 +377,9 @@ function dealHeal(
     health: after.value,
     maxHealth: after.max,
   });
-  if (before.value <= 0 && after.value > 0 && target.down && !target.defeated) revive(ctx, target);
+  // Back up when the heal gave them something back: from nothing, or, for somebody taken out with
+  // boxes still clear, a mark cleared.
+  if (target.down && !target.defeated && after.value > 0 && after.value > before.value) revive(ctx, target);
 }
 
 /** Temporary points never stack: the bigger buffer is the one that stands. */
@@ -1734,9 +1751,15 @@ function resolveAction(
     let before: { value: number } | null = null;
     let dealt = 0;
     const health = ctx.combat.health;
-    const woundTrack =
-      target.sheet && "track" in health && ctx.combat.damageKinds?.marks === "per-blow"
+    // A blow marks once at its end where the track counts blows, and where it fills by box, since
+    // a hit's box is named by the whole blow rather than by each clause of it.
+    const declaredTrack =
+      target.sheet && "track" in health
         ? ctx.definition.sheet.live.tracks.find((track) => track.id === health.track)
+        : undefined;
+    const woundTrack =
+      declaredTrack && (ctx.combat.damageKinds?.marks === "per-blow" || declaredTrack.fill === "indexed")
+        ? declaredTrack
         : undefined;
     let woundKind: { id: string; severity: number } | undefined;
     const blowEventStart = ctx.events.length;
@@ -1808,14 +1831,21 @@ function resolveAction(
         ...(critical ? { critical: true } : {}),
       });
     }
-    if (woundKind && "track" in health) {
-      writeRulesetSheet(ctx.definition, target, { op: "damage", track: health.track, kind: woundKind.id, amount: 1 });
+    if (woundKind && woundTrack && "track" in health) {
+      const box = ctx.combat.damageKinds?.marks === "per-point" ? Math.max(1, Math.floor(dealt)) : 1;
+      markWound(ctx, target, {
+        op: "damage",
+        track: health.track,
+        kind: woundKind.id,
+        amount: 1,
+        ...(woundTrack.fill === "indexed" ? { box } : {}),
+      });
       const remaining = healthOf(ctx, target).value;
       for (const event of ctx.events.slice(blowEventStart)) {
         if (event.type === "damage" && event.targetId === target.id) event.health = remaining;
       }
     }
-    if (before) afterBlow(ctx, target, before, dealt, critical);
+    if (before) afterBlow(ctx, target, dealt, critical);
     if (heal) {
       const rolled = heal();
       dealHeal(ctx, target, { sourceId: actor.id, rolls: rolled.rolls, flat: rolled.flat, amount: rolled.total });

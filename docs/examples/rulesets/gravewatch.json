@@ -71,7 +71,13 @@
       { "id": "wrestle", "label": "Wrestle", "ability": "sinew" },
       { "id": "listen", "label": "Listen", "ability": "nerve" },
       { "id": "ward", "label": "Ward", "ability": "nerve" },
-      { "id": "soothe", "label": "Soothe", "ability": "warmth" },
+      {
+        "$comment": "A warden soothes nobody past the Resolve they have left: the cap reads the live pool, so a spent warden's Soothe shrinks with it.",
+        "id": "soothe",
+        "label": "Soothe",
+        "ability": "warmth",
+        "cap": { "livePool": "resolve" }
+      },
       { "id": "barter", "label": "Barter", "ability": "warmth" }
     ],
     "saves": [{ "id": "steel", "label": "Steel", "ability": "nerve" }],
@@ -79,7 +85,25 @@
     "bonusRange": { "min": 0, "max": 3 },
     "fields": [
       { "id": "post", "label": "Post", "type": "text", "maxLength": 60, "section": "about" },
-      { "id": "lantern", "label": "Lantern oil", "type": "number", "min": 0, "max": 6, "default": 3, "section": "kit" }
+      {
+        "id": "watch",
+        "label": "Watch",
+        "type": "enum",
+        "values": ["dusk", "night", "dawn"],
+        "default": "night",
+        "section": "about"
+      },
+      {
+        "$comment": "Only the night watch carries a lantern, so the oil is off every other warden's sheet.",
+        "id": "lantern",
+        "label": "Lantern oil",
+        "type": "number",
+        "min": 0,
+        "max": 6,
+        "default": 3,
+        "section": "kit",
+        "hideWhen": { "field": "watch", "notEquals": "night" }
+      }
     ],
     "derived": [
       {
@@ -87,6 +111,14 @@
         "label": "Resolve maximum",
         "op": "sum",
         "of": [{ "const": 2 }, { "abilityMod": "nerve" }],
+        "section": "about"
+      },
+      {
+        "$comment": "Read off the live Harm track, so it changes as the warden is hurt and mended. A maximum could not read it: those are worked out before there is a live state to read.",
+        "id": "harm_left",
+        "label": "Harm still to take",
+        "op": "sum",
+        "of": [{ "liveTrack": "harm", "read": "remaining" }],
         "section": "about"
       }
     ],
@@ -99,6 +131,18 @@
         "columns": [
           { "id": "name", "label": "Charm", "type": "text", "maxLength": 60, "required": true },
           { "id": "notes", "label": "What it does", "type": "text", "maxLength": 200 }
+        ]
+      },
+      {
+        "$comment": "A warden who has come back from worse can take more before going down: each scar adds its levels to Harm (see the track's extra).",
+        "id": "scars",
+        "label": "Scars",
+        "section": "kit",
+        "maxItems": 4,
+        "columns": [
+          { "id": "name", "label": "Scar", "type": "text", "maxLength": 60, "required": true },
+          { "id": "levels", "label": "Levels", "type": "number", "min": 1, "max": 2, "default": 1 },
+          { "id": "penalty", "label": "Penalty", "type": "number", "min": -3, "max": 0, "default": -1 }
         ]
       }
     ],
@@ -125,7 +169,8 @@
               "severity": 0
             },
             { "id": "tear", "label": "T", "severity": 1 }
-          ]
+          ],
+          "extra": { "list": "scars", "countColumn": "levels", "penaltyColumn": "penalty" }
         }
       ],
       "conditions": [
@@ -147,6 +192,13 @@
         }
       ],
       "clear": { "conditions": ["rattled"] }
+    },
+    {
+      "$comment": "A breather mends the knocks and leaves the tears: a restore step that names a kind clears only marks of that kind.",
+      "id": "breather",
+      "label": "Catch your breath",
+      "restore": [{ "track": "harm", "kind": "knock", "to": "min" }],
+      "clear": { "conditions": [] }
     }
   ],
   "catalogs": [

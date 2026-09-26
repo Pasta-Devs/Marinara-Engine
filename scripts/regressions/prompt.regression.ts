@@ -5727,6 +5727,31 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "Manual Illustrator honors configured output tokens and connection/model caps before context fitting",
+    async run() {
+      for (const { maxTokens, connectionCap, modelCap, maxContext = 65_536, expected } of [
+        { maxTokens: 32_800, connectionCap: 32_800, modelCap: 131_072, expected: 32_800 },
+        { maxTokens: "32800", connectionCap: null, modelCap: undefined, expected: 32_800 },
+        { maxTokens: 32_800, connectionCap: 1024, modelCap: undefined, maxContext: 4096, expected: 1024 },
+        { maxTokens: 32_800, connectionCap: 16_384, modelCap: 8192, expected: 8192 },
+        { maxTokens: undefined, connectionCap: null, modelCap: undefined, expected: 1800 },
+        { maxTokens: undefined, connectionCap: 1024, modelCap: undefined, expected: 1024 },
+      ]) {
+        const capture = makeCapturingProvider('{"prompt":"A detailed comic page."}');
+        await writeManualIllustratorPromptPlan({
+          illustratorAgent: {
+            ...makeRegressionAgentConfig({ type: "illustrator", settings: { maxTokens } }),
+            provider: { ...capture.provider, maxTokensOverrideValue: connectionCap, maxContextValue: maxContext },
+            model: "regression-model",
+            maxOutputTokens: modelCap,
+          } as any,
+          context: makeRegressionAgentContext(),
+        });
+        assert.equal(capture.callOptions[0]?.maxTokens, expected);
+      }
+    },
+  },
+  {
     name: "Manual Illustrator rejects oversized initial and retry requests without truncating prompts",
     async run() {
       for (const retry of [false, true]) {

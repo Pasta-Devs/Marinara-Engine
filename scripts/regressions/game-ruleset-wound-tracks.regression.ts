@@ -200,8 +200,12 @@ try {
     assert.equal(harm(live).overflow, 1);
     assert.equal(harm(live).penalty, -99, "still the lowest marked level's own penalty");
 
-    // One heal takes the overflow; the next takes a tear and the penalty comes back up a rung.
-    live = mark(live, "knock", -2).live;
+    // One heal takes the overflow; the next takes a tear and the penalty comes back up a rung. A heal
+    // that names a kind clears only that kind, so naming the knocks that are no longer there takes
+    // the overflow and nothing else, and naming no kind clears the lightest there is.
+    const knocksOnly = mark(live, "knock", -2).live;
+    assert.deepEqual([harm(knocksOnly).marks.length, harm(knocksOnly).overflow], [4, 0]);
+    live = mark(live, "", -2).live;
     assert.deepEqual(harm(live).marks, ["tear", "tear", "tear"]);
     assert.equal(harm(live).penalty, -3);
   }
@@ -340,6 +344,8 @@ try {
     delete summed.catalogs;
     delete summed.sheet.lists;
     delete summed.gm.sheetSummary.lists;
+    // And with the lists goes the one that adds levels to the track.
+    delete summed.sheet.live.tracks[0].extra;
     summed.id = "gravewatch-summed";
     summed.resolution = {
       kind: "dice-sum",
@@ -459,7 +465,7 @@ try {
       delete track(copy).levels;
       delete track(copy).kinds;
       track(copy).max = 4;
-      refuse(copy, /no levels, so it carries no penalty/);
+      refuse(copy, /no levels or boxes, so it carries no penalty/);
     }
     // A penalty track nobody declared.
     {
@@ -523,12 +529,15 @@ try {
 
   // ── The penalty reader the resolver uses ──
   {
-    assert.equal(readRulesetWoundPenalty(gravewatch, {}, "harm"), 0);
-    assert.equal(readRulesetWoundPenalty(gravewatch, mark({}, "knock", 3).live, "harm"), -3);
-    assert.equal(readRulesetWoundPenalty(gravewatch, mark({}, "knock", 3).live, "nowhere"), 0);
+    assert.equal(readRulesetWoundPenalty(gravewatch, build, {}, "harm"), 0);
+    assert.equal(readRulesetWoundPenalty(gravewatch, build, mark({}, "knock", 3).live, "harm"), -3);
+    assert.equal(readRulesetWoundPenalty(gravewatch, build, mark({}, "knock", 3).live, "nowhere"), 0);
     // Junk in the blob costs that one entry, never a throw.
-    assert.equal(readRulesetWoundPenalty(gravewatch, { wounds: { harm: "nonsense" } }, "harm"), 0);
-    assert.equal(readRulesetWoundPenalty(gravewatch, { wounds: { harm: { marks: ["gone", "knock"] } } }, "harm"), 0);
+    assert.equal(readRulesetWoundPenalty(gravewatch, build, { wounds: { harm: "nonsense" } }, "harm"), 0);
+    assert.equal(
+      readRulesetWoundPenalty(gravewatch, build, { wounds: { harm: { marks: ["gone", "knock"] } } }, "harm"),
+      0,
+    );
   }
 
   // ── Install gate: a packaged ruleset with wound tracks needs 1.30 ──
@@ -557,6 +566,14 @@ try {
     delete document.resolution.pool.abilityPlusAbility;
     // And 1.38's standing re-throw.
     delete document.resolution.reroll;
+    // And 1.39's: a cap off the live Resolve, a value off the live Harm track, and a hide rule
+    // that compares with notEquals.
+    for (const skill of document.sheet.skills) delete skill.cap;
+    document.sheet.derived = document.sheet.derived.filter((entry: { id: string }) => entry.id !== "harm_left");
+    for (const field of document.sheet.fields) delete field.hideWhen;
+    // And 1.40's: the levels a list adds to Harm, and the rest that clears one kind of harm.
+    for (const track of document.sheet.live.tracks) delete track.extra;
+    document.rests = document.rests.filter((rest: { id: string }) => rest.id !== "breather");
     for (const catalog of document.catalogs ?? []) {
       catalog.entries = (catalog.entries ?? []).filter((entry: any) => entry.mechanics?.check?.explode === undefined);
     }

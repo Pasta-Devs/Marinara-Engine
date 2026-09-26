@@ -70,6 +70,12 @@ assert.equal(
   const faceNodes: Constrained[] = [];
   // And a resource spent on a check, which buys successes, dice, a throw again, or several.
   const spendNodes: Constrained[] = [];
+  // And a sheet item's hideWhen, which compares its field exactly one way, and a value reference,
+  // whose `read` goes only beside `liveTrack`.
+  const hideWhenNodes: Array<{ oneOf?: unknown }> = [];
+  const liveTrackNodes: Array<{ dependencies?: Record<string, string[]> }> = [];
+  // And a wound track: an indexed one refuses a mark when full, so the editor asks for that too.
+  const woundTrackNodes: Array<{ allOf?: Array<Record<string, any>> }> = [];
   const walk = (node: unknown): void => {
     if (Array.isArray(node)) return node.forEach(walk);
     if (!node || typeof node !== "object") return;
@@ -84,6 +90,9 @@ assert.equal(
     if (checkKeys.every((key) => keys.includes(key))) checkNodes.push(object);
     if (keys.length === 2 && keys.includes("from") && keys.includes("min")) faceNodes.push(object);
     if (keys.includes("pool") && keys.includes("perCheck")) spendNodes.push(object);
+    if (["field", "equals", "notEquals", "in"].every((key) => keys.includes(key))) hideWhenNodes.push(object);
+    if (keys.includes("liveTrack")) liveTrackNodes.push(object);
+    if (["levels", "boxes", "kinds", "fill", "onFull"].every((key) => keys.includes(key))) woundTrackNodes.push(object);
     Object.values(node).forEach(walk);
   };
   // The same for what a combat block measures in cells: the Engine refuses any of it in a block
@@ -141,6 +150,27 @@ assert.equal(
       ),
       "and asks that it buy successes, dice or a throw again",
     );
+  }
+  assert.ok(hideWhenNodes.length > 0, "the schema describes hideWhen");
+  for (const node of hideWhenNodes) {
+    assert.deepEqual(
+      node.oneOf,
+      [{ required: ["equals"] }, { required: ["notEquals"] }, { required: ["in"] }],
+      "and asks for exactly one comparison",
+    );
+  }
+  assert.ok(woundTrackNodes.length > 0, "the schema describes a wound track");
+  for (const node of woundTrackNodes) {
+    assert.ok(
+      node.allOf?.some(
+        (rule) => rule.if?.properties?.fill?.const === "indexed" && rule.then?.properties?.onFull?.const === "refuse",
+      ),
+      "and says an indexed one refuses when full",
+    );
+  }
+  assert.ok(liveTrackNodes.length > 0, "the schema describes a value that reads a live track");
+  for (const node of liveTrackNodes) {
+    assert.deepEqual(node.dependencies?.read, ["liveTrack"], "and keeps read beside it");
   }
 }
 

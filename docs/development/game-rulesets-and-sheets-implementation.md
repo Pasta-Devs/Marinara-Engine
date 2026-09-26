@@ -884,6 +884,85 @@ Capability API 1.38, for #6652.
   ask and the real endpoint, the reminder, every refusal and the 1.38 gate; twenty-seven deliberate
   breaks, each caught.
 
+### What slice 3 settled
+
+Capability API 1.39, for #6653.
+
+- **Live reads.** Two new value-reference keys, `liveTrack` (with `read`: `value`, `filled`,
+  `remaining`, or `penalty` on a wound track) and `livePool` (what is left, never a list row's pool).
+  **Named differently from the issue on purpose:** the issue proposed `{ "track": … }` and
+  `{ "pool": … }`, but the combat block already uses exactly those shapes for its health and energy,
+  so neither the install gate nor a reader could tell them apart; "live" also says why a maximum may
+  not use one. A hidden pool or track reads 0.
+- **Where they may not go.** Anything worked out before a live state exists: a pool's or track's
+  maximum, the proficiency bonus, a catalog's scaled column or scaling. Refused directly, through a
+  derived value (transitively, which one pass finds because derived values only read the ones above
+  them) and through a skill or save a live value caps.
+- **Evaluation.** `evaluateRulesetSheet(definition, build, live?)` takes the RESOLVED live state as a
+  structural type, so sheet-math never imports live-state (which imports it). Without one a live read
+  is 0, right only where the format refuses them. `evaluateRulesetSheetLive(definition, build,
+stored?)` in live-state resolves the live state first (whose maximums cannot read it back) and is
+  what the check context, the Game Master's sheet block, the game's sheet screen, a fight's
+  combatants and the editor use; with nothing stored it reads the declared defaults. The evaluated
+  sheet carries the live values, so a reference resolved against it later (`adjust`, a spend's
+  `perCheck`, a fight's defense) reads the same snapshot.
+- **Caps.** `cap` on a skill or save; `skillMods`/`saveMods` hold the capped number and
+  `skillCaps`/`saveCaps` keep the uncapped one, so a `with=` swap works from it and is capped again.
+  A cap reads no skill or save, nor does any derived value up to the one it reads (the proficiency
+  bonus's rule), which keeps evaluation to one top-to-bottom pass.
+- **List sums.** `listSum: { list, column, onlyWhen? }`, a number column over the rows a boolean
+  marks; an empty cell is its column's default and a hidden list adds nothing. Build-only, so a
+  maximum may read one. A catalog's scaled column may not, directly or through anything: a list
+  may hold scaled cells the same recompute rewrites, and catalog files are checked one at a time, so
+  no narrower rule could see every loop between them.
+- **Wider hideWhen.** Exactly one of `equals`, `notEquals`, `in`, each value checked against the
+  field; layers cannot remove any value one of them compares with.
+- **Examples.** Ember Roads' Burden is now the bulk of the packed gear (`listSum`) and its Brawn
+  modifier a step table over it; Gravewatch caps Soothe at the Resolve left, shows "Harm still to
+  take" off the live track, and keeps lantern oil to the night watch with `notEquals`.
+- **Proven** by `scripts/regressions/game-ruleset-sheet-reads.regression.ts`: every refusal, every
+  read at its defaults and in play, caps with and without a swap, list sums, the three comparisons,
+  the check context, a fight, the reminder and the 1.39 gate (a catalog file included); forty
+  deliberate breaks, each caught.
+
+### What slice 4 settled
+
+Capability API 1.40, for #6654.
+
+- **Box tracks.** A wound track is `kinds` plus exactly one of `levels` or `boxes`. **Differs from
+  the issue on purpose:** the issue put the count in `boxes.count`, but a track already says how long
+  it is in `max`, which since 1.37 may be a value the sheet works out per character (and since 1.39
+  never a live one), so the count is `max` and `boxes` carries only the penalty table. Boxes are
+  numbered ("Box N" on the sheet; the Game Master's line says how many are marked), capped at 64,
+  and the penalty in force is the table read at boxes filled or remaining, always, including with
+  nothing marked.
+- **Per-character levels.** The resolved wound carries this character's levels (named ones plus any
+  `extra` adds, or the boxes), so every reader that took a length off the definition (combat health,
+  the bridge, the sheet block, the sheet screen) now reads the resolved track. The penalty reader
+  takes the build.
+- **Filling by box and refusing.** `fill: "indexed"` stores marks by position ("" for a clear box
+  between marked ones) and lands a mark on the box `box=` names or the next free one above;
+  `onFull: "refuse"` (required beside indexed) refuses the whole command when any mark cannot land,
+  with the new reason `no-box`. Resolved wounds gain `filled`, `lowest`, `numbered`, `indexed` and
+  `refusesWhenFull`, and every reader of `marks.length` moved to `filled`. The damage command
+  gained `box` rather than giving `amount` a second meaning, so the bridge and the sheet's Mark
+  button still mean "this many marks".
+- **A fight.** On an indexed track `per-point` damage is the box it lands on and `per-blow` aims at
+  the first. A blow no box can take puts a standing combatant down: that is being taken out in the
+  systems that keep such a track, and without it such a fight could never end.
+- **Healing by kind.** A negative `damage` naming a kind the track has clears only that kind,
+  overflow first; naming none (or one it does not have) keeps lightest-first. A rest step may name a
+  `kind`. Fights and the bridge heal with no kind, since their healing is any harm and every heal
+  used to carry the default kind.
+- **Extra levels.** `extra: { list, countColumn, penaltyColumn }` on a levels track; each row (at most
+  16 levels) goes after the last level at least as good, named after it when the penalty matches.
+  Marks past a track that shrank are kept as overflow rather than dropped.
+- **Examples.** Gravewatch's scars add levels to Harm, and "Catch your breath" clears only knocks;
+  Ember Roads' Strain is a box track that fills by box and refuses when full.
+- **Proven** by `scripts/regressions/game-ruleset-wound-boxes.regression.ts` (thirty-four deliberate
+  breaks, each caught) and a browser case in `e2e/ruleset-wound-sheet.e2e.ts` for the box track on
+  the sheet screen.
+
 ## Architecture
 
 ### The pin
