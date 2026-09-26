@@ -1463,9 +1463,9 @@ try {
   );
   assert(!(await memory.status(joinedChat.id)).records.some((record) => record.id === editableScene.id));
   assert.equal(
-    (await memory.status(joinedChat.id)).unpreparedScenes?.length,
-    0,
-    "deleted scene summaries are not offered for recovery",
+    (await memory.status(joinedChat.id)).unpreparedScenes?.filter((scene) => scene.deleted).length,
+    1,
+    "deleted scene summaries are offered only for explicit recovery",
   );
 
   const requireServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));

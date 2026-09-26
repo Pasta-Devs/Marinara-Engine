@@ -42,7 +42,7 @@ import {
 import { translate } from "../localization/i18n";
 import { waitForPendingChatMetadataSaves } from "../lib/chat-metadata-save-barrier";
 import { agentKeys } from "./use-agents";
-import { advancedMemoryKeys, ADVANCED_MEMORY_SETTINGS_EVENT } from "./use-advanced-memory";
+import { advancedMemoryKeys, ADVANCED_MEMORY_SETTINGS_EVENT, notifyAdvancedMemoryFailure } from "./use-advanced-memory";
 import type { AdvancedMemoryJob, AdvancedMemoryReceipt, AdvancedMemoryStatus } from "@marinara-engine/shared";
 import { discardPendingGameStatePatch } from "./use-game-state-patcher";
 import { spatialContextKeys } from "./use-spatial-context";
@@ -1871,6 +1871,7 @@ export function useGenerate() {
               const data = event.data as { chatId?: string; job?: AdvancedMemoryJob } | undefined;
               if (data?.chatId !== params.chatId || !data.job) break;
               const job = data.job;
+              if (isActiveChat()) notifyAdvancedMemoryFailure(params.chatId, job);
               qc.setQueryData<AdvancedMemoryStatus>(advancedMemoryKeys.status(params.chatId), (current) =>
                 current ? { ...current, job } : current,
               );

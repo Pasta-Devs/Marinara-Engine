@@ -1177,10 +1177,21 @@ test("Advanced Memory keeps routine normal and guided replies quiet while preser
           await expect(drawer.locator('[data-component="AdvancedMemoryProgress"]')).toContainText(
             "Synthetic memory preparation failed",
           );
+          await page.locator("[data-sonner-toast]").getByRole("button", { name: "Review memory", exact: true }).click();
         }
         await drawer.getByRole("button", { name: "Close chat settings", exact: true }).click();
       } else {
         await expect(drawer).toBeHidden();
+      }
+      if (current.job.status === "error" && current.job.blocking === false) {
+        const notice = page.locator("[data-sonner-toast]").filter({ hasText: "Synthetic memory preparation failed" });
+        await expect(notice).toHaveCount(1);
+        await notice.getByRole("button", { name: "Review memory", exact: true }).click();
+        await expect(drawer).toBeVisible();
+        await expect(drawer.locator('[data-component="AdvancedMemoryProgress"]')).toContainText(
+          "Synthetic memory preparation failed",
+        );
+        await drawer.getByRole("button", { name: "Close chat settings", exact: true }).click();
       }
       if (index === 1) {
         // Quiet progress remains available through the normal settings action.
@@ -1203,96 +1214,114 @@ test("Advanced Memory keeps routine normal and guided replies quiet while preser
   }
 });
 
-test("missing scene recovery identifies the blocked memory and prepares only its missing range", async ({
-  page,
-  request,
-}, info) => {
-  const fixture = await createFixture(request);
-  const record = {
-    id: "corrected-scene",
-    chatId: fixture.chat.id,
-    sceneId: "scene-943",
-    kind: "scene" as const,
-    status: "closed" as const,
-    startMessageId: fixture.firstMessage.id,
-    endMessageId: fixture.lastMessage.id,
-    startIndex: 943,
-    endIndex: 947,
-    messageIds: fixture.messages.map(({ id }) => id),
-    audienceCharacterIds: [fixture.character.id],
-    content: "The saved correction stays intact.",
-    title: "Saved scene",
-    timeline: null,
-    enabled: true,
-    manualOverride: true,
-    sourceFingerprint: "fixture",
-    dependencies: [],
-    embeddingStatus: "stale" as const,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  const status: AdvancedMemoryStatus = {
-    settings: {
-      ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+for (const deleted of [false, true])
+  test(`${deleted ? "deleted" : "missing"} scene recovery identifies the blocked memory and prepares only its missing range`, async ({
+    page,
+    request,
+  }, info) => {
+    const fixture = await createFixture(request);
+    const record = {
+      id: "corrected-scene",
+      chatId: fixture.chat.id,
+      sceneId: "scene-943",
+      kind: "scene" as const,
+      status: "closed" as const,
+      startMessageId: fixture.firstMessage.id,
+      endMessageId: fixture.lastMessage.id,
+      startIndex: 943,
+      endIndex: 947,
+      messageIds: fixture.messages.map(({ id }) => id),
+      audienceCharacterIds: [fixture.character.id],
+      content: "The saved correction stays intact.",
+      title: "Saved scene",
+      timeline: null,
       enabled: true,
-      knowledgeStarts: { [fixture.character.id]: null, [fixture.narrator.id]: null },
-    },
-    job: {
-      status: "error",
-      stage: "summarizing",
-      completed: 52,
-      total: 54,
-      error:
-        "The manually corrected memory for messages #943–#947 (Dottore) has changed sources or supporting summaries.",
-      reviewRecordId: record.id,
-    },
-    missingKnowledgeCharacterIds: [],
-    records: [record],
-    helperModel: "Fixture helper",
-    summaryModel: "Fixture helper",
-    warnings: [],
-    unpreparedScenes: [{ sceneId: "scene-948", startIndex: 948, endIndex: 992 }],
-  };
-  const preparations: unknown[] = [];
-  const savedCorrection = record.content;
-  await page.route(`**/api/chats/${fixture.chat.id}/advanced-memory**`, async (route) => {
-    if (route.request().method() === "POST" && new URL(route.request().url()).pathname.endsWith("/initialize")) {
-      preparations.push(route.request().postDataJSON());
-      status.unpreparedScenes = [];
-      status.records.push({
-        ...record,
-        id: "recovered-scene",
-        sceneId: "scene-948",
-        startIndex: 948,
-        endIndex: 992,
-        content: "Only the missing scene was prepared.",
-        manualOverride: false,
-        embeddingStatus: "vectorized",
-      });
+      manualOverride: true,
+      sourceFingerprint: "fixture",
+      dependencies: [],
+      embeddingStatus: "vectorized" as const,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const status: AdvancedMemoryStatus = {
+      settings: {
+        ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+        enabled: true,
+        knowledgeStarts: { [fixture.character.id]: null, [fixture.narrator.id]: null },
+      },
+      job: {
+        status: "error",
+        stage: "summarizing",
+        completed: 52,
+        total: 54,
+        error:
+          "The manually corrected memory for messages #943–#947 (Dottore) has changed sources or supporting summaries.",
+        reviewRecordId: record.id,
+      },
+      missingKnowledgeCharacterIds: [],
+      records: [record],
+      helperModel: "Fixture helper",
+      summaryModel: "Fixture helper",
+      warnings: [],
+      unpreparedScenes: [
+        { sceneId: "scene-948", startIndex: 948, endIndex: 992, ...(deleted ? { deleted: true } : {}) },
+      ],
+    };
+    const preparations: unknown[] = [];
+    const corrections: unknown[] = [];
+    const savedCorrection = record.content;
+    await page.route(`**/api/chats/${fixture.chat.id}/advanced-memory**`, async (route) => {
+      if (route.request().method() === "PATCH") {
+        corrections.push(route.request().postDataJSON());
+        status.job = { ...status.job, status: "cancelled", error: null, reviewRecordId: null };
+      }
+      if (route.request().method() === "POST" && new URL(route.request().url()).pathname.endsWith("/initialize")) {
+        preparations.push(route.request().postDataJSON());
+        status.unpreparedScenes = [];
+        status.records.push({
+          ...record,
+          id: "recovered-scene",
+          sceneId: "scene-948",
+          startIndex: 948,
+          endIndex: 992,
+          content: "Only the missing scene was prepared.",
+          manualOverride: false,
+          embeddingStatus: "vectorized",
+        });
+      }
+      return route.fulfill({ json: status });
+    });
+    try {
+      await openChat(page, fixture.chat.id);
+      const drawer = page.locator(".mari-chat-settings-drawer");
+      await drawer.locator('[data-chat-settings-section="roleplay-memory-recall"] > [role="button"]').click();
+      await drawer.getByRole("button", { name: "Access memories for this chat", exact: true }).click();
+      const inspector = drawer.locator('[data-component="AdvancedMemoryInspector"]');
+      await expect(inspector).toBeVisible();
+      await captureThemes(page, info, "memory-recovery");
+      const missingLabel = deleted
+        ? "Deleted summary: Scene #2 · Messages 948–992"
+        : "Missing scene summary: Messages 948–992";
+      await expect(inspector.getByText(missingLabel, { exact: true })).toBeVisible();
+      await expect(inspector).toContainText(
+        deleted ? "Other scenes and corrections stay unchanged" : "Reindexing alone cannot create a missing summary.",
+      );
+      await inspector.getByRole("button", { name: "Review Scene #1: Messages 943–947 · Dottore", exact: true }).click();
+      await expect(inspector.getByRole("textbox", { name: "Summary text", exact: true })).toHaveValue(savedCorrection);
+      await expect(inspector.getByRole("button", { name: "Save correction", exact: true })).toBeEnabled();
+      await inspector.getByRole("button", { name: "Save correction", exact: true }).click();
+      await expect.poll(() => corrections).toEqual([{ content: savedCorrection }]);
+      await expect(inspector.getByRole("button", { name: "Save correction", exact: true })).toBeDisabled();
+      await inspector.getByRole("button", { name: "Back to scenes", exact: true }).click();
+      await inspector
+        .getByRole("button", { name: deleted ? "Regenerate scene" : "Prepare scene", exact: true })
+        .click();
+      await expect.poll(() => preparations).toEqual([{ sceneId: "scene-948" }]);
+      await expect(inspector.getByText(missingLabel, { exact: true })).toHaveCount(0);
+      await expect(inspector.getByRole("button", { name: /Scene #2/ })).toContainText("Messages 948–992");
+      await expect(inspector.getByRole("button", { name: /^Scene #1\b/ })).toContainText(savedCorrection);
+      await captureThemes(page, info, "memory-recovered");
+    } finally {
+      await fixture.cleanup();
     }
-    return route.fulfill({ json: status });
   });
-  try {
-    await openChat(page, fixture.chat.id);
-    const drawer = page.locator(".mari-chat-settings-drawer");
-    await drawer.locator('[data-chat-settings-section="roleplay-memory-recall"] > [role="button"]').click();
-    await drawer.getByRole("button", { name: "Access memories for this chat", exact: true }).click();
-    const inspector = drawer.locator('[data-component="AdvancedMemoryInspector"]');
-    await expect(inspector).toBeVisible();
-    await captureThemes(page, info, "memory-recovery");
-    await expect(inspector.getByText("Missing scene summary: Messages 948–992", { exact: true })).toBeVisible();
-    await expect(inspector).toContainText("Reindexing alone cannot create a missing summary.");
-    await inspector.getByRole("button", { name: "Review Scene #1: Messages 943–947 · Dottore", exact: true }).click();
-    await expect(inspector.getByRole("textbox", { name: "Summary text", exact: true })).toHaveValue(savedCorrection);
-    await expect(inspector.getByRole("button", { name: "Save correction", exact: true })).toBeEnabled();
-    await inspector.getByRole("button", { name: "Back to scenes", exact: true }).click();
-    await inspector.getByRole("button", { name: "Prepare scene", exact: true }).click();
-    await expect.poll(() => preparations).toEqual([{ sceneId: "scene-948" }]);
-    await expect(inspector.getByText("Missing scene summary: Messages 948–992", { exact: true })).toHaveCount(0);
-    await expect(inspector.getByRole("button", { name: /Scene #2/ })).toContainText("Messages 948–992");
-    await expect(inspector.getByRole("button", { name: /^Scene #1\b/ })).toContainText(savedCorrection);
-    await captureThemes(page, info, "memory-recovered");
-  } finally {
-    await fixture.cleanup();
-  }
-});

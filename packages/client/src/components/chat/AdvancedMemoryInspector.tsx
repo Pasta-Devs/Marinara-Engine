@@ -50,9 +50,13 @@ export function AdvancedMemoryInspector({
       .sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex);
   }, [status.data?.records]);
   const sceneNumbers = new Map(
-    [...new Set(records.filter((record) => record.kind === "scene").map((record) => record.sceneId))].map(
-      (id, index) => [id, index + 1],
-    ),
+    [
+      ...new Set(
+        [...records.filter((record) => record.kind === "scene"), ...(status.data?.unpreparedScenes ?? [])]
+          .sort((a, b) => a.startIndex - b.startIndex)
+          .map((record) => record.sceneId),
+      ),
+    ].map((id, index) => [id, index + 1]),
   );
   const recordTitle = (record: AdvancedMemoryRecord) =>
     record.kind === "scene"
@@ -66,7 +70,9 @@ export function AdvancedMemoryInspector({
     !selected.manualOverride &&
     !selected.dependencies.some((item) => item.id === SCENE_AUDIENCE.id && item.revision === SCENE_AUDIENCE.revision);
   const reviewCorrection =
-    selected?.kind === "scene" && selected.manualOverride && selected.embeddingStatus === "stale";
+    selected?.kind === "scene" &&
+    selected.manualOverride &&
+    (selected.embeddingStatus === "stale" || selected.id === blockedRecord?.id);
   const audienceChanged =
     !!selected && [...draftAudience].sort().join("\0") !== [...selected.audienceCharacterIds].sort().join("\0");
   const receipt = status.data?.latestReceipt;
@@ -234,9 +240,15 @@ export function AdvancedMemoryInspector({
               className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-xs"
             >
               <p className="font-medium">
-                {t("chat.advancedMemory.missingScene", { start: scene.startIndex, end: scene.endIndex })}
+                {t(scene.deleted ? "chat.advancedMemory.deletedScene" : "chat.advancedMemory.missingScene", {
+                  number: sceneNumbers.get(scene.sceneId),
+                  start: scene.startIndex,
+                  end: scene.endIndex,
+                })}
               </p>
-              <p className="text-[var(--muted-foreground)]">{t("chat.advancedMemory.missingSceneHelp")}</p>
+              <p className="text-[var(--muted-foreground)]">
+                {t(scene.deleted ? "chat.advancedMemory.deletedSceneHelp" : "chat.advancedMemory.missingSceneHelp")}
+              </p>
               <button
                 type="button"
                 className={`${buttonClass} min-h-11`}
@@ -245,7 +257,7 @@ export function AdvancedMemoryInspector({
                 }
                 onClick={() => action.mutate({ action: "initialize", sceneId: scene.sceneId })}
               >
-                {t("chat.advancedMemory.prepareScene")}
+                {t(scene.deleted ? "chat.advancedMemory.regenerateScene" : "chat.advancedMemory.prepareScene")}
               </button>
             </div>
           ))}

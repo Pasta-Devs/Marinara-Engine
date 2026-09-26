@@ -90,6 +90,8 @@ export interface AdvancedMemoryStatus {
     sceneId: string;
     startIndex: number;
     endIndex: number;
+    /** Regeneration is available only through an explicit single-scene request. */
+    deleted?: boolean;
   }>;
   latestReceipt?: AdvancedMemoryReceipt;
 }

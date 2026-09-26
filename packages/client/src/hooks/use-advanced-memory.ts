@@ -2,8 +2,9 @@ import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import type { AdvancedMemorySettings, AdvancedMemoryStatus, Message } from "@marinara-engine/shared";
+import type { AdvancedMemoryJob, AdvancedMemorySettings, AdvancedMemoryStatus, Message } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
+import { translate } from "../localization/i18n";
 import { chatKeys } from "./use-chats";
 
 export const advancedMemoryKeys = {
@@ -12,6 +13,27 @@ export const advancedMemoryKeys = {
 };
 
 export const ADVANCED_MEMORY_SETTINGS_EVENT = "marinara:advanced-memory-settings";
+const notifiedFailures = new Map<string, string>();
+
+export function notifyAdvancedMemoryFailure(chatId: string, job: Pick<AdvancedMemoryJob, "id" | "status" | "error">) {
+  if (job.status !== "error") {
+    toast.dismiss(`advanced-memory-error-${chatId}`);
+    return;
+  }
+  if (!job.error) return;
+  const failure = JSON.stringify([job.id, job.error]);
+  if (notifiedFailures.get(chatId) === failure) return;
+  notifiedFailures.set(chatId, failure);
+  if (notifiedFailures.size > 100) notifiedFailures.delete(notifiedFailures.keys().next().value!);
+  toast.error(translate("chat.advancedMemory.failed", { message: job.error }), {
+    id: `advanced-memory-error-${chatId}`,
+    duration: 15_000,
+    action: {
+      label: translate("chat.advancedMemory.reviewFailure"),
+      onClick: () => window.dispatchEvent(new CustomEvent(ADVANCED_MEMORY_SETTINGS_EVENT, { detail: { chatId } })),
+    },
+  });
+}
 
 export function useAdvancedMemoryStatus(chatId: string, enabled = true) {
   const qc = useQueryClient();
@@ -24,6 +46,11 @@ export function useAdvancedMemoryStatus(chatId: string, enabled = true) {
   });
   const jobId = query.data?.job.id;
   const jobStatus = query.data?.job.status;
+  const jobError = query.data?.job.error;
+  useEffect(() => {
+    if (enabled && jobStatus)
+      notifyAdvancedMemoryFailure(chatId, { id: jobId, status: jobStatus, error: jobError ?? null });
+  }, [chatId, enabled, jobId, jobStatus, jobError]);
   useEffect(() => {
     if (jobId && jobStatus === "ready") void qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
   }, [chatId, jobId, jobStatus, qc]);

@@ -173,10 +173,17 @@ try {
       manualOverride: 1,
     });
     const laterId = `scene-${messages[2]!.id}`;
-    const preserved = { ...row, id: `${laterId}-corrected`, sceneId: laterId,
-      startMessageId: messages[2]!.id, endMessageId: messages[2]!.id,
-      messageIds: JSON.stringify([messages[2]!.id]), status: "open",
-      content: "A different corrected scene stays intact.", manualOverride: 1 };
+    const preserved = {
+      ...row,
+      id: `${laterId}-corrected`,
+      sceneId: laterId,
+      startMessageId: messages[2]!.id,
+      endMessageId: messages[2]!.id,
+      messageIds: JSON.stringify([messages[2]!.id]),
+      status: "open",
+      content: "A different corrected scene stays intact.",
+      manualOverride: 1,
+    };
     await db.insert(advancedMemoryRecords).values(preserved);
     await memory.deleteRecord(chat.id, deletedId);
     const before = summaryRequests.length;
@@ -190,7 +197,10 @@ try {
     } finally {
       helperFinishReason = "stop";
     }
-    assert.equal((await memory.status(chat.id)).unpreparedScenes?.find((scene) => scene.sceneId === sceneId)?.deleted, true);
+    assert.equal(
+      (await memory.status(chat.id)).unpreparedScenes?.find((scene) => scene.sceneId === sceneId)?.deleted,
+      true,
+    );
     const afterFailure = summaryRequests.length;
     await memory.initialize(chat.id, { sceneId });
     const recovered = await memory.status(chat.id);
@@ -198,10 +208,15 @@ try {
     const recap = recovered.records.find((record) => record.sceneId === sceneId && record.content)!;
     assert(recap.enabled);
     assert.equal(recap.manualOverride, false);
-    assert.deepEqual(recap.messageIds, messages.slice(0, 2).map((message) => message.id));
+    assert.deepEqual(
+      recap.messageIds,
+      messages.slice(0, 2).map((message) => message.id),
+    );
     assert.equal(summaryRequests.length, afterFailure + 1, "recovery summarizes only the selected scene");
     assert.doesNotMatch(summaryRequests.at(-1)!, /COMPASS_NEXT_SCENE/);
-    const untouched = (await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, preserved.id)))[0];
+    const untouched = (
+      await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, preserved.id))
+    )[0];
     assert.deepEqual(untouched, { ...preserved, embedding: null, embeddingSpaceId: null, summaryWork: null });
     await memory.initialize(chat.id, { sceneId });
     assert.equal(summaryRequests.length, afterFailure + 1, "a repeated recovery is free");
@@ -212,7 +227,11 @@ try {
     const id = `${sceneId}-partial-reader`;
     const content = '{{#if char == "Maukie"}}The public promise.{{/if}}';
     await db.insert(advancedMemoryRecords).values({
-      ...row, id, content, manualOverride: 1, audienceCharacterIds: '["maukie","pantalone"]',
+      ...row,
+      id,
+      content,
+      manualOverride: 1,
+      audienceCharacterIds: '["maukie","pantalone"]',
       dependencies: '[{"id":"scene-audience","revision":"participants-v1"}]',
     });
     await assert.rejects(memory.initialize(chat.id, { sceneId }), /manually corrected memory/);

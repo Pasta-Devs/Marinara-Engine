@@ -751,7 +751,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       `The manually corrected memory for messages #${start}–#${end} (${audience}) ${
         sceneRangeChanged
           ? "spans a changed scene boundary. Disable or delete this memory in Access memories for this chat, then prepare history again. Disabling keeps its text for reference."
-          : "has changed sources or supporting summaries. Open this memory in Access memories for this chat, review its text and character access, then choose Save correction before preparing memory again."
+          : `${needsSceneVisibilityReview(ctx, record) ? "needs a review of character access for messages hidden from some readers" : "has changed sources or supporting summaries"}. Open this memory in Access memories for this chat, review its text and character access, then choose Save correction before preparing memory again.`
       }`,
       { cause: { reviewRecordId: record.id } },
     );
@@ -807,7 +807,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       }));
   }
 
-  function unpreparedScenes(ctx: Context, current: StoredRecord[]): Scene[] {
+  function unpreparedScenes(ctx: Context, current: StoredRecord[], includeDeleted = false): Scene[] {
     const ids = new Set(sceneSource(ctx).map((message) => message.id));
     const summaries = sceneRecords(current).filter((record) => record.kind === "scene" && record.id !== record.sceneId);
     return savedScenes(ctx, current).filter((scene) => {
@@ -818,7 +818,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         !summaries.some(
           (record) =>
             record.sceneId === scene.id &&
-            (!record.enabled ||
+            ((!record.enabled && !(includeDeleted && isDeletedScene(record))) ||
               (record.content &&
                 !needsSceneVisibilityReview(ctx, record) &&
                 (record.manualOverride || (recordValid(ctx, record) && dependenciesValid(record, current, ctx))) &&
@@ -1507,7 +1507,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const existing = await operationRecords(ctx);
     const state = object(ctx.metadata.advancedMemoryState);
     const repair = options.sceneId
-      ? unpreparedScenes(ctx, existing).find((scene) => scene.id === options.sceneId)
+      ? unpreparedScenes(ctx, existing, true).find((scene) => scene.id === options.sceneId)
       : undefined;
     if (options.sceneId && !repair) return; // A completed retry must not turn a healthy archive into an error.
     const processedIndex =
@@ -1627,7 +1627,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         if (scene.closed) {
           const candidate = buildRecord(ctx, scene, "scene", audience, source, "pending");
           const previousRecord = previousScene;
-          if (previousRecord) candidate.id = previousRecord.id;
+          const restoring = !!repair && !!previousRecord && isDeletedScene(previousRecord);
+          // Explicit recovery creates a new recap. Keep the deletion marker until
+          // the replacement succeeds; ordinary maintenance still respects it.
+          if (previousRecord) candidate.id = restoring ? newId() : previousRecord.id;
           const sourceIds = new Set(source.map((message) => message.id));
           const previousValid =
             previousRecord &&
@@ -1638,15 +1641,17 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           // Disabled records remain inspectable; maintenance must not rebuild over their corrections.
           let record =
             previousRecord &&
+            !restoring &&
             (!previousRecord.enabled ||
-              (previousValid &&
+              (previousRecord.content &&
+                previousValid &&
                 !visibilityChanged &&
                 source.every((message) => previousRecord.messageIds.includes(message.id))))
               ? previousRecord
               : undefined;
-          if (!record && previousRecord?.manualOverride && (!previousValid || visibilityChanged))
+          if (!record && !restoring && previousRecord?.manualOverride && (!previousValid || visibilityChanged))
             throw correctionReviewError(ctx, previousRecord);
-          if (!record && previousRecord?.manualOverride && audience.length) {
+          if (!record && !restoring && previousRecord?.manualOverride && audience.length) {
             for (const id of audience) {
               const eligible = new Set(allowed(ctx, ctx.messages, [id]).map((message) => message.id));
               if (!source.some((message) => eligible.has(message.id))) throw correctionReviewError(ctx, previousRecord);
@@ -1689,7 +1694,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             const work = previousRecord?.content ? { ...candidate, id: `${candidate.id}-preparation` } : candidate;
             const result = await summarize(ctx, inputs, null, options, work);
             candidate.content = result.summary;
-            candidate.manualOverride = previousRecord?.manualOverride ?? false;
+            candidate.manualOverride = !restoring && (previousRecord?.manualOverride ?? false);
             candidate.audienceCharacterIds = candidate.manualOverride ? audience : result.audienceCharacterIds;
             candidate.dependencies.push(SCENE_AUDIENCE, sceneVisibility(ctx, candidate.messageIds));
             candidate.sourceFingerprint = fingerprint(ctx, source, candidate.audienceCharacterIds);
@@ -1764,7 +1769,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       // clear a separate correction error from a previous full preparation.
       const reviewRecord = existing.find((record) => record.id === state.reviewRecordId);
       const reviewRecordId =
-        reviewRecord && (!recordValid(ctx, reviewRecord) || !dependenciesValid(reviewRecord, existing, ctx))
+        reviewRecord &&
+        reviewRecord.enabled &&
+        (!recordValid(ctx, reviewRecord) ||
+          !dependenciesValid(reviewRecord, existing, ctx) ||
+          needsSceneVisibilityReview(ctx, reviewRecord))
           ? reviewRecord.id
           : null;
       await progress(
@@ -3114,6 +3123,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
   async function status(chatId: string): Promise<AdvancedMemoryStatus> {
     const ctx = await context(chatId);
     const allRecords = await records(chatId);
+    const deletedSceneIds = new Set(
+      sceneRecords(allRecords)
+        .filter(isDeletedScene)
+        .map((record) => record.sceneId),
+    );
     const indexes = new Map(ctx.messages.map((message, index) => [message.id, index + 1]));
     const rawJob = { ...IDLE_JOB, ...object(ctx.metadata.advancedMemoryState) } as AdvancedMemoryJob;
     const job =
@@ -3166,10 +3180,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       helperModel: helper.ok ? helper.model : null,
       summaryModel: helper.ok ? helper.model : null,
       warnings,
-      unpreparedScenes: unpreparedScenes(ctx, allRecords).map((scene) => ({
+      unpreparedScenes: unpreparedScenes(ctx, allRecords, true).map((scene) => ({
         sceneId: scene.id,
         startIndex: scene.start + 1,
         endIndex: scene.end + 1,
+        ...(deletedSceneIds.has(scene.id) ? { deleted: true } : {}),
       })),
       ...(hasReceipt ? { latestReceipt: latestReceipt as unknown as PreparedAdvancedMemory["receipt"] } : {}),
       records: withSourceTimelines(
@@ -3189,7 +3204,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         embedding: undefined,
         embeddingSpaceId: undefined,
         embeddingStatus:
-          !recordValid(ctx, record) || !dependenciesValid(record, allRecords, ctx)
+          !recordValid(ctx, record) ||
+          !dependenciesValid(record, allRecords, ctx) ||
+          (record.kind === "scene" && needsSceneVisibilityReview(ctx, record))
             ? "stale"
             : record.embedding?.length
               ? "vectorized"
@@ -3425,6 +3442,17 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           .set(changes)
           .where(and(eq(advancedMemoryRecords.chatId, chatId), eq(advancedMemoryRecords.id, record.id)));
       });
+      if (correctedScene && patch.content !== undefined)
+        await chats.patchMetadata(
+          chatId,
+          (fresh) => {
+            const state = object(fresh.advancedMemoryState);
+            return state.reviewRecordId === record.id
+              ? { advancedMemoryState: { ...state, status: "cancelled", error: null, reviewRecordId: null } }
+              : {};
+          },
+          { touchUpdatedAt: false },
+        );
       return status(chatId);
     });
   }
