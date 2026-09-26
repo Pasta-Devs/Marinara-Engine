@@ -26,7 +26,7 @@ export function notifyAdvancedMemoryFailure(chatId: string, job: Pick<AdvancedMe
   if (notifiedFailures.get(chatId) === failure) return;
   notifiedFailures.set(chatId, failure);
   if (notifiedFailures.size > 100) notifiedFailures.delete(notifiedFailures.keys().next().value!);
-  toast.error(translate("chat.advancedMemory.failed", { message: job.error }), {
+  toast.error(translate("chat.advancedMemory.failureNotice"), {
     id: `advanced-memory-error-${chatId}`,
     duration: 15_000,
     action: {

@@ -1193,7 +1193,7 @@ test("Advanced Memory keeps routine normal and guided replies quiet while preser
         await expect(drawer).toBeHidden();
       }
       if (current.job.status === "error" && current.job.blocking === false) {
-        const notice = page.locator("[data-sonner-toast]").filter({ hasText: "Synthetic memory preparation failed" });
+        const notice = page.locator("[data-sonner-toast]").filter({ hasText: "Advanced Memory stopped." });
         await expect(notice).toHaveCount(1);
         await notice.getByRole("button", { name: "Review memory", exact: true }).click();
         await expect(drawer).toBeVisible();

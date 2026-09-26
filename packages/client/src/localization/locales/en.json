@@ -159,6 +159,7 @@
   "chat.advancedMemory.emptyArchive": "Prepared scene summaries appear here. Constant summaries are in Chat Summaries.",
   "chat.advancedMemory.export": "Export",
   "chat.advancedMemory.failed": "Advanced Memory: {{message}}",
+  "chat.advancedMemory.failureNotice": "Advanced Memory stopped. Review the error to resume processing.",
   "chat.advancedMemory.fromBeginning": "From the beginning of eligible history",
   "chat.advancedMemory.generated": "Generated",
   "chat.advancedMemory.helperModel": "Helper model",
