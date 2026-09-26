@@ -37,8 +37,12 @@ export function createConnectionsStorage(db: DB) {
   return {
     async list() {
       const rows = await db.select().from(apiConnections).orderBy(desc(apiConnections.updatedAt));
-      // Mask API keys in list response
-      return rows.map((r: any) => ({ ...r, apiKeyEncrypted: r.apiKeyEncrypted ? "••••••••" : "" }));
+      // Mask API keys and management tokens in list response
+      return rows.map((r: any) => ({
+        ...r,
+        apiKeyEncrypted: r.apiKeyEncrypted ? "••••••••" : "",
+        managementTokenEncrypted: r.managementTokenEncrypted ? "••••••••" : "",
+      }));
     },
 
     async getById(id: string) {
@@ -51,6 +55,19 @@ export function createConnectionsStorage(db: DB) {
       const conn = await this.getById(id);
       if (!conn || conn.profileImportReviewRequired === "true") return null;
       return withDecryptedKey(conn);
+    },
+
+    /**
+     * Read only the decrypted NanoGPT management token for the usage widget.
+     * Deliberately separate from `withDecryptedKey` so the token never rides
+     * along on ordinary provider-building reads.
+     */
+    async getManagementToken(id: string) {
+      const conn = await this.getById(id);
+      if (!conn || conn.profileImportReviewRequired === "true") return null;
+      if (conn.provider !== "nanogpt") return null;
+      const token = decryptApiKey(conn.managementTokenEncrypted ?? "");
+      return token ? token : null;
     },
 
     async getDefault() {
@@ -227,6 +244,8 @@ export function createConnectionsStorage(db: DB) {
         apiKeyEncrypted: encryptApiKey(
           input.provider === "decision" && input.credentialsFromConnectionId ? "" : (input.apiKey ?? ""),
         ),
+        managementTokenEncrypted: encryptApiKey(input.provider === "nanogpt" ? (input.managementToken ?? "") : ""),
+        showUsageWidget: String(input.provider === "nanogpt" && (input.showUsageWidget ?? false)),
         profileImportReviewRequired: "false",
         model: input.model ?? "",
         imagePath: input.imagePath ?? null,
@@ -398,6 +417,16 @@ export function createConnectionsStorage(db: DB) {
         updateFields.apiKeyEncrypted = encryptApiKey("");
       }
       if (effectiveProvider !== "decision") updateFields.credentialsFromConnectionId = null;
+      if (data.managementToken !== undefined) {
+        updateFields.managementTokenEncrypted = encryptApiKey(data.managementToken);
+      }
+      if (data.showUsageWidget !== undefined) {
+        updateFields.showUsageWidget = String(data.showUsageWidget);
+      }
+      if (effectiveProvider !== "nanogpt") {
+        updateFields.managementTokenEncrypted = encryptApiKey("");
+        updateFields.showUsageWidget = "false";
+      }
       if (data.model !== undefined) updateFields.model = data.model;
       if (data.imagePath !== undefined) updateFields.imagePath = data.imagePath;
       if (data.maxContext !== undefined) updateFields.maxContext = data.maxContext;
@@ -642,6 +671,8 @@ export function createConnectionsStorage(db: DB) {
         maxTokensOverride: source.maxTokensOverride,
         maxParallelJobs: source.maxParallelJobs,
         maxRequestsPerMinute: source.maxRequestsPerMinute,
+        managementTokenEncrypted: source.managementTokenEncrypted,
+        showUsageWidget: source.showUsageWidget,
         claudeFastMode: source.claudeFastMode,
         treatAsLocalEndpoint: source.treatAsLocalEndpoint,
         createdAt: timestamp,

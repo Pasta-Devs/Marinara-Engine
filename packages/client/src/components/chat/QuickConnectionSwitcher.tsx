@@ -8,11 +8,16 @@ import { useConnections, useUpdateConnection } from "../../hooks/use-connections
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
-import { appendLocalSidecarConnectionOption, isLocalSidecarConnectionOption } from "../../lib/connection-filters";
+import {
+  appendLocalSidecarConnectionOption,
+  isLocalSidecarConnectionOption,
+  resolveNanoGptUsageConnection,
+} from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { ProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
 import { ContextBudgetGauge, ContextBudgetIndicator } from "./ContextBudgetIndicator";
+import { NanoGptUsageWidget } from "../connections/NanoGptUsageWidget";
 
 export function QuickConnectionSwitcher({
   className,
@@ -38,12 +43,22 @@ export function QuickConnectionSwitcher({
   const isRandom = activeConnectionId === "random";
 
   const sorted = appendLocalSidecarConnectionOption(
-    (connections ?? []) as Array<{ id: string; name: string; provider?: string; useForRandom?: string }>,
+    (connections ?? []) as Array<{
+      id: string;
+      name: string;
+      provider?: string;
+      useForRandom?: string;
+      showUsageWidget?: unknown;
+    }>,
     chatMode !== "game" && sidecarModelDownloaded,
     sidecarModelDisplayName,
   )
     .filter((connection) => !isRandom || !isLocalSidecarConnectionOption(connection))
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+  // The NanoGPT quota follows the selected connection, and never Random, which
+  // has no single connection to read a quota from.
+  const usageConnection = resolveNanoGptUsageConnection(sorted, activeConnectionId);
 
   const handleSwitch = useCallback(
     (connId: string | null) => {
@@ -130,7 +145,10 @@ export function QuickConnectionSwitcher({
               }
             }}
             className={cn(
-              "fixed z-[9999] flex min-w-[280px] max-w-[340px] max-h-[360px] flex-col overflow-hidden rounded-xl border border-foreground/10 shadow-2xl",
+              "fixed z-[9999] flex min-w-[280px] max-w-[340px] flex-col overflow-hidden rounded-xl border border-foreground/10 shadow-2xl",
+              // The quota meter adds height above the list, so let the menu grow
+              // rather than clip the list a second time.
+              usageConnection ? "max-h-[440px]" : "max-h-[360px]",
               chatMode === "roleplay" ? "bg-[var(--card)]" : "bg-[var(--background)]",
             )}
             style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" as const }}
@@ -158,6 +176,11 @@ export function QuickConnectionSwitcher({
             {contextBudget && (
               <div className="border-b border-foreground/10 px-3 pt-2">
                 <ContextBudgetIndicator budget={contextBudget} />
+              </div>
+            )}
+            {usageConnection && (
+              <div className="border-b border-foreground/10 px-3 pt-1">
+                <NanoGptUsageWidget connectionId={usageConnection.id} variant="inline" />
               </div>
             )}
             <div className="overflow-y-auto p-1">
