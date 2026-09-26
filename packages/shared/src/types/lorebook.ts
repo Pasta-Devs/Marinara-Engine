@@ -66,6 +66,8 @@ export interface Lorebook {
   excludeFromVectorization: boolean;
   /** Recent message count used to build semantic/vector search queries. 0 = all messages. */
   vectorQueryDepth: number;
+  /** Also score recent assistant/character context separately; disabled by default. */
+  vectorIncludeAssistant?: boolean;
   /** Minimum cosine similarity required for semantic/vector entry activation. */
   vectorScoreThreshold: number;
   /** Maximum semantic/vector entries this lorebook may contribute per generation. */

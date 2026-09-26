@@ -16,6 +16,7 @@ export const lorebooks = fileTable("lorebooks", {
   maxRecursionDepth: integer("max_recursion_depth").notNull().default(3),
   excludeFromVectorization: text("exclude_from_vectorization").notNull().default("true"),
   vectorQueryDepth: integer("vector_query_depth").notNull().default(10),
+  vectorIncludeAssistant: text("vector_include_assistant").notNull().default("false"),
   vectorScoreThreshold: real("vector_score_threshold").notNull().default(0.3),
   vectorMaxResults: integer("vector_max_results").notNull().default(10),
   characterId: text("character_id"),
