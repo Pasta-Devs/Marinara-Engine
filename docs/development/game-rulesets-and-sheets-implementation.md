@@ -232,8 +232,8 @@ menu) and C3b (the Classic shell on real numbers, `coverage.combat` true). C4 th
 positions, movement, reach and ranges, areas, cover, opportunity attacks, the picker and the view) and C4b (the board on
 screen, out of the Tactical style's own look). C5 what a turn can do and what interrupts one, split
 into C5a (the turn economy, riders and the condition vocabulary) and C5b (the window itself: a walk
-held open, and the one a signature action is bought in). C5c and later: what else opens a window,
-legendary actions, contests and the remaining conditions.
+held open, and the one a signature action is bought in). C5c what else opens a window (the moments
+an entry waits for), C5d contests, and later the remaining conditions and more moments.
 
 ### What C1 settled
 
@@ -759,6 +759,38 @@ C4b is the board on screen. It draws what C4a resolves and decides nothing of it
   walk, the path, the target, the aims, the sentences, the "nothing in reach" rule, the distance
   formatter and the four refusals, on both example rulesets) and in a fourth mode of
   `e2e/game-combat-director.e2e.ts` that plays a positioned Ember Roads fight in a real browser.
+
+### What C5d settled
+
+Capability API 1.43, for #6707.
+
+- **Contests as data.** `combat.checks` are the numbers a contest reads, each a value off the sheet,
+  read once when the fight begins like defense and saves; a plain creature gives its own `checks`,
+  one with a sheet reads them off it (`checks` joined the keys a sheet replaces). `combat.contests`
+  each name a budget, the checks each side may use (the best is rolled), who takes a tie, an optional
+  `reach` and `strike`, an optional `from: { holding }`, and `onWin`: conditions it `applies` to the
+  loser (winner as the source, optional `rounds`), conditions it `ends` on either side, and a `push`.
+  `reach` and `push` need `combat.distance`. **Differs from the issue on purpose:** the issue gave the
+  attacker a single `check`; both sides take a list, because an escape rolls the better of two.
+- **The fight.** Every combatant gets one action per contest (`contest:<id>`, kind `contest`), added
+  only when the ruleset has contests, so a ruleset without them fights byte for byte as before. A
+  contest spends its budget (or a strike in hand) and is settled on the spot, opening no window. Both
+  sides throw `attackRoll.dice` and add their best check; the `contest` event carries both sides and
+  the winner. A push walks the loser straight away (`rulesetPushPath`), stopping short of anything
+  solid, anybody standing, the edge and a squeezed corner; it spends nothing and draws no strike.
+- **The menu and the picker.** The forecast is the exact chance to win (`rulesetContestChance`),
+  shown as "to win". Breaking free is offered only while held and aimed only at the holder. The
+  Engine's picker scores a contest as a modest setup (breaking free 1, a grab 0.3, a shove 0.15,
+  times the chance), so seeded fights still end; a Game Master's opponent picks it off the same menu.
+  Invented opponents have their checks held to the tier's to-hit, in the plain clamp and on a built
+  sheet.
+- **Examples.** The 5e reference grapples, shoves prone, shoves away 5 feet and escapes, with
+  Grappled now ending when its source goes down; Ember Roads grabs (a new Held condition), breaks
+  free and shoves back 4 paces.
+- **Proven** by `scripts/regressions/game-ruleset-combat-contests.regression.ts` (thirty-six deliberate
+  breaks, each caught), a seeded sweep in `scripts/regressions/ruleset-combat-director.regression.ts`
+  (contests taken, sometimes won, never refused, and a picker that never takes one is caught), and the Contests group in
+  `e2e/game-combat-director.e2e.ts`.
 
 ## Gaps a ruleset author found
 

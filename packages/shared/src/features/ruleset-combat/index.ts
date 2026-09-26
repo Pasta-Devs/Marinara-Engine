@@ -99,6 +99,7 @@ export {
   rulesetOpportunityAttack,
   rulesetPositionOf,
   rulesetReachableCells,
+  rulesetPushPath,
   rulesetWalkingDistances,
 } from "./grid.js";
 export {
@@ -109,6 +110,9 @@ export {
   rulesetAreaTargets,
   rulesetAttackMode,
   rulesetCombatOptions,
+  rulesetContestChance,
+  rulesetContestCheck,
+  rulesetContestHolder,
   rulesetCostSteps,
   rulesetCriticalFromAdjacent,
   rulesetDefenseAgainst,

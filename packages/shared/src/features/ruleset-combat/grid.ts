@@ -370,6 +370,51 @@ export function rulesetReachableCells(
 }
 
 /**
+ * The cells somebody pushed straight away from another crosses: up to `cells` steps along the line
+ * from the pusher through them, stopping short of anything solid, anybody standing, the board's edge
+ * or a corner too tight to squeeze through, exactly as a walk would. Empty when there is nowhere to
+ * go. A push is not a walk: it spends nothing and nobody strikes at it on the way.
+ */
+export function rulesetPushPath(
+  state: RulesetEncounterState,
+  pusherId: string,
+  targetId: string,
+  cells: number,
+): RulesetCombatCell[] {
+  const grid = state.board?.grid;
+  const from = rulesetPositionOf(rulesetCombatant(state, pusherId));
+  const target = rulesetPositionOf(rulesetCombatant(state, targetId));
+  if (!grid || !from || !target) return [];
+  const dx = Math.sign(target.x - from.x);
+  const dy = Math.sign(target.y - from.y);
+  if (dx === 0 && dy === 0) return [];
+  const occupied = new Set(
+    state.combatants.flatMap((combatant) => {
+      const at = combatant.id === targetId || !rulesetCombatStanding(combatant) ? null : rulesetPositionOf(combatant);
+      return at ? [`${at.x},${at.y}`] : [];
+    }),
+  );
+  const path: RulesetCombatCell[] = [];
+  let at = target;
+  for (let step = 0; step < Math.min(cells, MOVEMENT_CEILING); step++) {
+    const x = at.x + dx;
+    const y = at.y + dy;
+    if (rulesetCellBlocked(grid, x, y) || occupied.has(`${x},${y}`)) break;
+    if (
+      dx !== 0 &&
+      dy !== 0 &&
+      rulesetCellBlocked(grid, at.x + dx, at.y) &&
+      rulesetCellBlocked(grid, at.x, at.y + dy)
+    ) {
+      break;
+    }
+    at = { x, y };
+    path.push(at);
+  }
+  return path;
+}
+
+/**
  * What it costs to walk from each cell of the board to a cell next to one of `goals`, by the steps,
  * terrain costs and corner rule a walk pays; a cell no route reaches is absent. Reach and range are
  * measured in a straight line, but closing that distance is walked, and the two part ways wherever

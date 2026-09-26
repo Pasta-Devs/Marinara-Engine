@@ -30,6 +30,7 @@ import {
   rulesetCellEnterCost,
   rulesetOpportunityAttack,
   rulesetPositionOf,
+  rulesetPushPath,
   rulesetStepLeavesReach,
   rulesetThreateningEnemies,
 } from "./grid.js";
@@ -43,6 +44,7 @@ import {
   rulesetAreaTargets,
   rulesetAttackMode,
   rulesetCombatOptions,
+  rulesetContestCheck,
   rulesetCostSteps,
   rulesetCriticalFromAdjacent,
   rulesetDefenseAgainst,
@@ -643,7 +645,7 @@ function removeCondition(
   ctx: RulesetCombatContext,
   target: RulesetCombatant,
   condition: string,
-  reason: "save" | "expired" | "damage" | "concentration" | "revived",
+  reason: "save" | "expired" | "damage" | "concentration" | "revived" | "contest",
 ): void {
   target.tracked = target.tracked.filter((entry) => entry.condition !== condition);
   if (target.sheet) writeRulesetSheet(ctx.definition, target, { op: "condition", condition, active: false });
@@ -960,6 +962,13 @@ export function applyRulesetCombatChoice(
     ctx.events.push({ type: "spend", actorId: working.id, pool: entry.pool, label: entry.label, amount: entry.amount });
   }
   spendAvailability(ctx, working, action);
+  // A contest is settled between the two of them on the spot, and opens no window: nobody else is
+  // asked about it.
+  if (action.contest) {
+    resolveContest(ctx, working, action, action.contest, workingTargets[0]!);
+    noteOutcome(ctx);
+    return finish();
+  }
   // Paid for, and then held for everybody it is aimed at who has something that answers being
   // aimed at. What it cost is spent either way: an answer that calls it off stops it from
   // happening, not from having been bought.
@@ -986,6 +995,68 @@ export function applyRulesetCombatChoice(
  * has none to spend. The window between two turns is where it is offered (`openSignatureWindow`);
  * the price, the refusals and the resolution are all here.
  */
+/**
+ * One contest: both sides throw the fight's own attack dice and add the best check they may use here;
+ * the higher total wins and a tie goes where the contest says. Winning ends, applies and
+ * pushes what the contest names, in that order, with the winner as the source of what it applies, so
+ * a hold ends when the holder goes down. Losing does nothing at all, which is what a failed grab is.
+ */
+function resolveContest(
+  ctx: RulesetCombatContext,
+  actor: RulesetCombatant,
+  action: RulesetCombatAction,
+  contest: NonNullable<RulesetCombatAction["contest"]>,
+  target: RulesetCombatant,
+): void {
+  const { count, sides } = ctx.combat.attackRoll.dice;
+  const thrown = (check: string, modifier: number) => {
+    const rolls = rollRulesetDice(ctx.roll, count, sides);
+    return { check, rolls, modifier, total: sumOf(rolls) + modifier };
+  };
+  const mine = rulesetContestCheck(actor, contest, "attacker");
+  const theirs = rulesetContestCheck(target, contest, "defender");
+  const attacker = thrown(mine.check, mine.modifier);
+  const defender = thrown(theirs.check, theirs.modifier);
+  const margin = attacker.total - defender.total;
+  const winner = margin > 0 || (margin === 0 && contest.ties === "attacker") ? "actor" : "target";
+  ctx.events.push({
+    type: "contest",
+    actorId: actor.id,
+    targetId: target.id,
+    optionId: action.id,
+    label: action.label,
+    attacker,
+    defender,
+    winner,
+  });
+  if (winner !== "actor") return;
+  for (const entry of contest.ends ?? []) {
+    const on = entry.on === "actor" ? actor : target;
+    if (rulesetCombatConditions(ctx.definition, on).includes(entry.condition)) {
+      removeCondition(ctx, on, entry.condition, "contest");
+    }
+  }
+  for (const entry of contest.applies ?? []) {
+    applyConditionId(
+      ctx,
+      target,
+      entry.condition,
+      { condition: entry.condition, duration: entry.rounds !== undefined ? { rounds: entry.rounds } : "instant" },
+      { sourceId: actor.id },
+    );
+  }
+  if (contest.push !== undefined) {
+    const path = rulesetPushPath(ctx.state, actor.id, target.id, contest.push);
+    const from = rulesetPositionOf(target);
+    const to = path[path.length - 1];
+    if (from && to) {
+      target.x = to.x;
+      target.y = to.y;
+      ctx.events.push({ type: "pushed", actorId: actor.id, targetId: target.id, from, to: { ...to }, path });
+    }
+  }
+}
+
 /** The outcome, said once. The window path ends a fight in more than one place, and a log that
  *  said so twice would read as two endings. */
 function noteOutcome(ctx: RulesetCombatContext): void {

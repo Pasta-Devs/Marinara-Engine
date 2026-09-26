@@ -498,7 +498,8 @@ try {
 
   // ── Every new key needs 1.42 to install ──
   {
-    assert.equal(supportedCapabilityApi.minor, 42);
+    // At least the version these keys arrived in; the lifecycle lane pins the exact one.
+    assert.ok(supportedCapabilityApi.minor >= 42);
     const manifest = (minor: number) => ({
       schemaVersion: 2,
       capabilityApi: { major: 1, minor },

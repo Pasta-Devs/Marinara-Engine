@@ -10,9 +10,10 @@ import type { TFunction } from "i18next";
 import { rulesetDistanceText, type RulesetBoardDistance } from "./ruleset-combat-board";
 
 /** The order a menu reads in: where you go, what you swing, what you cast, what a stat block can
- *  do, the moves the kind implements, and finally ending the turn. Walking comes first because a
- *  turn on a board usually starts with it, and it may be taken again after an action. */
-export const RULESET_MENU_KINDS = ["move", "attack", "ability", "block", "standard", "end-turn"] as const;
+ *  do, the contests it may start, the moves the kind implements, and finally ending the turn.
+ *  Walking comes first because a turn on a board usually starts with it, and it may be taken again
+ *  after an action. */
+export const RULESET_MENU_KINDS = ["move", "attack", "ability", "block", "contest", "standard", "end-turn"] as const;
 
 export type RulesetMenuKind = (typeof RULESET_MENU_KINDS)[number];
 
@@ -118,7 +119,15 @@ export function rulesetOptionForecastText(option: DirectedRulesetOption, t: TFun
   const parts: string[] = [];
   const forecast = option.forecast;
   if (typeof forecast?.hitChance === "number") {
-    parts.push(t("game.combat.ruleset.option.forecastHit", { percent: Math.round(forecast.hitChance * 100) }));
+    // A contest is not rolled against a defense: its chance is the share it would win.
+    parts.push(
+      t(
+        option.kind === "contest" ? "game.combat.ruleset.option.forecastWin" : "game.combat.ruleset.option.forecastHit",
+        {
+          percent: Math.round(forecast.hitChance * 100),
+        },
+      ),
+    );
   }
   if (typeof forecast?.averageDamage === "number") {
     parts.push(

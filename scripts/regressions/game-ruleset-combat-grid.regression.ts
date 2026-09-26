@@ -69,8 +69,17 @@ import {
 } from "../../packages/shared/src/index.js";
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
-const fiveEText = read("../../docs/development/ruleset-5e-2014.example.json");
-const emberText = read("../../docs/examples/rulesets/ember-roads.json");
+/** Both examples less 1.43's contests and the checks they read: this lane is about the board, and a
+ *  contest on it is proven in the contest lane. */
+const withoutContests = (text: string): string => {
+  const doc = JSON.parse(text);
+  delete doc.combat.checks;
+  delete doc.combat.contests;
+  for (const catalog of doc.catalogs ?? []) for (const entry of catalog.entries ?? []) delete entry.creature?.checks;
+  return JSON.stringify(doc);
+};
+const fiveEText = withoutContests(read("../../docs/development/ruleset-5e-2014.example.json"));
+const emberText = withoutContests(read("../../docs/examples/rulesets/ember-roads.json"));
 const variant = (text: string, edit: (doc: Record<string, any>) => void = () => {}): Record<string, any> => {
   const doc = JSON.parse(text) as Record<string, any>;
   edit(doc);

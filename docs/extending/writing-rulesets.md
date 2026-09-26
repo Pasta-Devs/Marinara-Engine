@@ -887,6 +887,8 @@ same keys for a d20 system:
   { "condition": "restrained", "effects": ["own-saves-disadvantage"], "saves": ["dex_save"] }
   ```
 
+- `checks` and `contests`: optional. What a contest reads, and the contests anybody in a fight may
+  start: grabbing, shoving, breaking free. See Contests, below. Capability API 1.43.
 - `concentration`: optional. The live `text` field that records what is being held, the `save` that
   damage forces, the `floor` under that difficulty, and `fromDamage`, the share of the damage taken
   that sets it when it is higher. Starting a second ability that concentrates ends the first, and
@@ -1060,8 +1062,8 @@ is filed under one of your own tiers.
 ```
 
 The numbers below are the plain way to write a creature. One written in your ruleset's own terms,
-as a `sheet`, takes `health`, `defense`, `initiativeModifier`, `speed`, `abilities` and `saves` from
-that sheet instead (see "A creature written in your ruleset's own terms", below).
+as a `sheet`, takes `health`, `defense`, `initiativeModifier`, `speed`, `abilities`, `saves` and
+`checks` from that sheet instead (see "A creature written in your ruleset's own terms", below).
 
 - `health`: a number, or `{ "dice": "3d6", "flat": 2 }` thrown once when the fight is created. A
   forecast reads the average, so a menu never promises a die nobody has thrown.
@@ -1069,6 +1071,8 @@ that sheet instead (see "A creature written in your ruleset's own terms", below)
   initiative, and how far it walks in one turn, in your own distance unit.
 - `abilities` and `saves`: keyed by the ability ids and save ids your sheet declares. A save it does
   not name reads as zero.
+- `checks`: what it adds in a contest, keyed by the ids of `combat.checks`. One it does not name reads
+  as zero. Capability API 1.43.
 - `resist`, `vulnerable`, `immune`: damage types, matched without case, and checked against
   `combat.damageTypes` when you declare any. `conditionImmunities` names your own conditions.
 - `tier`: which rung of `combat.threat` it belongs to.
@@ -1143,7 +1147,8 @@ lists as its characters says so, whatever those are. Ember Roads' Toll Warden:
   would on a blank character. The warden's Grit is 9 because your `grit_max` adds 4, its Toughness
   and its Brawn, and its Guard is 7 for the same kind of reason.
 - **Each number has one place it comes from.** A creature with a sheet does not also give `health`,
-  `defense`, `initiativeModifier`, `speed`, `abilities` or `saves`, and the Engine refuses the file
+  `defense`, `initiativeModifier`, `speed`, `abilities`, `saves` or `checks`, and the Engine refuses
+  the file
   if it does. It may have no `actions` of its own, because its lists are what it does. A creature
   without a sheet still gives the first three and at least one action.
 - **It is checked as the authored data it is.** Every id has to be one your sheet declares, a skill
@@ -1399,10 +1404,10 @@ Engine has always used:
 
 ### On screen
 
-The fight plays on the battle screen in your words. The menu is your attacks,
-your abilities and the standard actions you listed, each saying what it spends out of your budgets
-and your pools. Turn order, the round, every condition you named with its rounds left, temporary
-points, concentration, and the two counts of your dying rule are all shown. The log prints the real
+The fight plays on the battle screen in your words. The menu is your attacks, your abilities, your
+contests and the standard actions you listed, each saying what it spends out of your budgets and
+your pools. Turn order, the round, every condition you named with its rounds left, temporary points,
+concentration, and the two counts of your dying rule are all shown. The log prints the real
 arithmetic in your terms: "Juno attacks Rust jackal with Road axe: 8 (5 + 3) + 3 = 11 against Guard
 6, a hit." Every accepted action is written to the sheet as it happens, so a reload mid-fight is
 exact and the Game Master is told afterwards not to change those numbers again.
@@ -1410,6 +1415,80 @@ exact and the Game Master is told afterwards not to change those numbers again.
 A fight with positions is drawn on the board instead of on the portrait stage; see Positions for
 what the player does with it. Every distance on it, in the menu and in the log, is said in YOUR
 unit: "Juno moves to 4, 6 for 6 paces and has 2 paces left."
+
+### Contests: grabbing, shoving, breaking free
+
+Some moves are not an attack against a defense but a contest: both sides roll, and whoever does
+better gets their way. Grabbing somebody, shoving them over or away, and breaking free are all one
+shape, so a ruleset says each of them as data:
+
+```json
+"checks": [
+  { "id": "brawn", "label": "Brawn", "value": { "abilityMod": "brawn" } },
+  { "id": "wits", "label": "Wits", "value": { "abilityMod": "wits" } }
+],
+"contests": [
+  {
+    "id": "grab",
+    "label": "Grab",
+    "budget": "act",
+    "attacker": { "checks": ["brawn"] },
+    "defender": { "checks": ["brawn", "wits"] },
+    "onWin": { "applies": [{ "condition": "held" }] }
+  },
+  {
+    "id": "break_free",
+    "label": "Break free",
+    "budget": "act",
+    "attacker": { "checks": ["brawn", "wits"] },
+    "defender": { "checks": ["brawn"] },
+    "from": { "holding": "held" },
+    "onWin": { "ends": [{ "condition": "held", "on": "actor" }] }
+  },
+  {
+    "id": "shove",
+    "label": "Shove back",
+    "budget": "act",
+    "attacker": { "checks": ["brawn"] },
+    "defender": { "checks": ["brawn"] },
+    "ties": "attacker",
+    "onWin": { "push": 4 }
+  }
+]
+```
+
+- **`checks`** are the numbers a contest reads, each a value off the sheet, read once when the fight
+  begins the way a defense or a save is. A creature written in plain numbers gives its own
+  (`"checks": { "brawn": 2 }`); one with a sheet reads them off it. Up to twelve.
+- **The roll.** Both sides throw your `attackRoll.dice` and add the best of the checks they may use
+  here (`attacker.checks`, `defender.checks`). The higher total wins; a tie goes to the defender
+  unless `ties` says `"attacker"`. The log says both sides:
+  "Juno tries Grab on Ash-hound: 12 (6 + 6) + 3 = 15 with Brawn against 2 (1 + 1) + 2 = 4 with
+  Brawn, and wins."
+- **Winning** does what `onWin` says, at least one thing:
+  - `applies` puts conditions on the loser with the winner as their source, so a condition you mark
+    `endsWhenSourceDown` ends when the one holding on goes down. `rounds` gives one a clock; without
+    it, it lasts until something ends it.
+  - `ends` takes conditions off the actor or the target.
+  - `push` moves the loser straight away from the winner, that far in your distance unit, stopping
+    short of anything solid, anybody standing, the board's edge and a corner too tight to squeeze
+    through. It is forced: it spends none of their movement and nobody strikes at it. A fight with
+    no board moves nobody.
+    Losing does nothing, which is what a failed grab is.
+- **`from: { "holding": "held" }`** makes a contest aim only at whoever put that condition on the
+  actor, and puts it on the menu only while it holds: that is how breaking free is said.
+- **`reach`**, in your distance unit, is how far it reaches; the next cell when you leave it out.
+  `reach` and `push` need `combat.distance`.
+- **`strike: true`** lets it take the place of one strike when an action buys several, the way an
+  attack does: taken first, it spends the budget and leaves the rest of the strikes in hand; taken
+  with strikes in hand, it costs one of them. The 5e reference grapples and shoves this way.
+- **On the menu** a contest has its own group, and says its chance to win. An opponent the Engine
+  plays weighs one like anything else, but modestly: a grab or a shove sets something up, and
+  breaking free is worth most, only while held. A Game Master playing an opponent picks one off the
+  same menu.
+- An opponent a Game Master invents has its checks held to its tier, as its chance to hit is.
+
+Contests are Capability API 1.43 for a packaged ruleset.
 
 ### Windows: holding the fight open
 
@@ -1480,8 +1559,10 @@ A package that names a moment needs Capability API 1.33.
 Said plainly, because a ruleset should not claim what the Engine does not do:
 
 - **Beyond the modest board**: no three-quarter or total cover, no elevation, no flying over
-  obstacles, no squeezing, no mounts, no grapple or shove movement, no hiding or surprise, and
-  nothing pushes anybody anywhere.
+  obstacles, no squeezing, no mounts, no hiding or surprise, and nothing moves anybody but their own
+  walk and a contest's push. Nobody drags a creature they hold.
+- **A contest is plain.** It has no size limits, opens no window (nobody may answer one), and no
+  condition makes it easier or harder.
 - **An entry may wait for two moments only**, `aimed` and `harmed` (see Windows, above). Those are
   the moments the Engine notices on an entry's behalf; the other two windows, somebody breaking away
   and the pause between two turns, are opened by the fight itself and are not moments an entry can

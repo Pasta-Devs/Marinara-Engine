@@ -620,9 +620,9 @@ function shave(amount: RulesetCombatAmount): boolean {
 }
 
 /**
- * Defense, to-hit, save difficulties and the best round of a BUILT opponent held to its tier, on the
- * combatant itself: those numbers are resolved once when a fight begins and read from there, so
- * this is the one place they have to change. Health is not here; `holdRulesetSheetHealth` set it on
+ * Defense, to-hit, save difficulties, contest checks and the best round of a BUILT opponent held to
+ * its tier, on the combatant itself: those numbers are resolved once when a fight begins and read
+ * from there, so this is the one place they have to change. Health is not here; `holdRulesetSheetHealth` set it on
  * the sheet before the fight was built.
  */
 export function holdRulesetCombatant(
@@ -654,6 +654,13 @@ export function holdRulesetCombatant(
       lowered = true;
     }
     if (lowered) adjusted.push(`The save against "${action.label}" was lowered to ${difficultyCap}.`);
+  }
+  // A contest is won with a number added to the dice an attack throws, so it is held where a blow's
+  // chance to land is.
+  for (const [id, value] of Object.entries(combatant.checks ?? {})) {
+    if (value <= toHitCap) continue;
+    adjusted.push(`Its ${id} is now ${toHitCap} instead of ${value}.`);
+    combatant.checks![id] = toHitCap;
   }
 
   // Damage last, in the plain clamp's order, with one step in front of it: what a bigger payment

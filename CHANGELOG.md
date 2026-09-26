@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Game Mode rulesets that resolve their own fights can declare contests: grab, shove over or back, and break free, where both sides roll and add their own number and the winner holds, knocks down or pushes the loser. The menu shows the chance to win, and opponents the Engine plays use them now and then. Capability API 1.43 (#6707).
+
 - Game Mode rulesets can give a sheet live states such as a form or a stance, one value out of a list that the Game Master or the player changes in play and a rest may put back, and derive numbers from a state or an enum field, so a stance can add dice to one ability's rolls. Capability API 1.42 (#6656).
 
 - Positioned ruleset fights no longer freeze when a wall stands between two fighters: whoever the Engine plays walks the way round instead of waiting for a straight path that never opens (#6678).
