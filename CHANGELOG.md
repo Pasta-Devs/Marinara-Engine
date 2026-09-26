@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Local models can use an existing GGUF file without downloading another copy, select f16/q8_0/q4_0 KV caches, and show GPU buffer allocations reported by llama.cpp after loading (#6675).
 - Lorebook semantic search can optionally consider character replies as a separate query, preserving specific user cues and keeping user-only retrieval as the default (#6670).
 
 - RunPod Serverless exposes the shared ComfyUI generation settings, including prompt prefixes, sampling, reference placeholders, and LoRAs, and applies them to submitted workflows (#6699).

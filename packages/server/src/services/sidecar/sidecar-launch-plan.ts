@@ -17,6 +17,7 @@ export function buildLlamaArgs(options: {
   embeddingPooling: string;
   embeddingBatchSize: number;
   maxParallelJobs: number;
+  kvCacheType?: "f16" | "q8_0" | "q4_0";
 }): string[] {
   // llama-server divides --ctx-size across --parallel slots; Marinara's setting is the per-request budget.
   const totalContextSize = options.contextSize * options.maxParallelJobs;
@@ -36,6 +37,10 @@ export function buildLlamaArgs(options: {
   if (options.enableNativeToolCalls) {
     // llama.cpp exposes OpenAI-compatible tool calls when llama-server runs with Jinja chat templates.
     args.push("--jinja");
+  }
+
+  if (options.kvCacheType && options.kvCacheType !== "f16") {
+    args.push("--cache-type-k", options.kvCacheType, "--cache-type-v", options.kvCacheType, "--flash-attn", "on");
   }
 
   // llama.cpp caps the physical batch at the logical batch (2048 by default).

@@ -59,6 +59,7 @@ interface SidecarState {
   runtime: SidecarRuntimeInfo;
   inferenceReady: boolean;
   modelSize: number | null;
+  gpuMemory: SidecarStatusResponse["gpuMemory"];
   logPath: string | null;
   startupError: string | null;
   failedRuntimeVariant: string | null;
@@ -115,6 +116,7 @@ interface SidecarState {
         | "topK"
         | "maxParallelJobs"
         | "gpuLayers"
+        | "kvCacheType"
         | "enableNativeToolCalls"
         | "embeddingPooling"
         | "embeddingBatchSize"
@@ -327,6 +329,7 @@ export const useSidecarStore = create<SidecarState>((set, get) => ({
   runtime: { installed: false, build: null, variant: null, backend: null },
   inferenceReady: false,
   modelSize: null,
+  gpuMemory: null,
   logPath: null,
   startupError: null,
   failedRuntimeVariant: null,
@@ -364,6 +367,7 @@ export const useSidecarStore = create<SidecarState>((set, get) => ({
         runtime: response.runtime,
         inferenceReady: response.inferenceReady,
         modelSize: response.modelSize,
+        gpuMemory: response.gpuMemory ?? null,
         logPath: response.logPath,
         startupError: response.startupError ?? null,
         failedRuntimeVariant: response.failedRuntimeVariant ?? null,
@@ -550,6 +554,7 @@ export const useSidecarStore = create<SidecarState>((set, get) => ({
       modelDisplayName: null,
       inferenceReady: false,
       modelSize: null,
+      gpuMemory: null,
       startupError: null,
       failedRuntimeVariant: null,
       runtimeDiagnostics: null,
