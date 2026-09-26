@@ -82,6 +82,26 @@ El campo **API Key** acepta cualquiera de estos tres tipos de credencial, y Mari
 
 **NanoGPT** también es un agregador. No tiene una lista de modelos integrada, así que el menú desplegable **Model** comienza vacío. Después de pegar tu clave, haz clic en **Fetch Models from API** para cargar los modelos que tu cuenta puede usar.
 
+Marinara lee el catálogo detallado de modelos de NanoGPT, por lo que la lista desplegable indica qué modelos cubre tu suscripción y cuáles consumen más de su cuota:
+
+- Un modelo incluido en tu suscripción muestra una etiqueta de **multiplicador de tokens de entrada**: `1x` en verde si consume la cuota a la tasa normal, o un valor mayor como `2x` si cada token enviado consume esa cantidad de tokens de entrada de tu cuota. Un modelo *no* incluido muestra **Paid** (de pago), porque su uso se cobra de tu saldo de pago. Un modelo sin etiqueta no tenía datos de suscripción disponibles.
+
+### Uso de la suscripción
+
+Si tienes una suscripción a NanoGPT, esta conexión puede mostrar tu cuota actual:
+
+1. Activa **Show subscription usage** (mostrar uso de la suscripción) en el editor de conexiones y guarda.
+2. Si quieres, pega primero un **Management Token** (token de administración).
+
+El widget consulta el endpoint de uso de NanoGPT y muestra tus cuotas semanales y diarias de tokens de entrada. Puedes consultarlo con dos credenciales:
+
+- **Management Token** (recomendado): créalo en `https://nano-gpt.com/settings#management-api-tokens` con el permiso **Usage only** (solo uso). Puede leer tus cuotas, pero no ejecutar modelos ni gastar tu saldo, por lo que es la opción más segura para mostrar el consumo. Marinara lo guarda cifrado y lo envía únicamente al endpoint de administración de NanoGPT.
+- **Tu clave de API**: se usa automáticamente si no hay un token de administración guardado. Funciona, pero las consultas usan la misma credencial que permite gastar tu saldo.
+
+Una cuota que NanoGPT no puede informar en ese momento aparece como **desconocida**, no como sin usar. Una suscripción inactiva se indica expresamente, en lugar de mostrar toda la cuota como disponible. El botón de actualización del widget permite actualizarlo cuando quieras.
+
+El mismo indicador aparece debajo del indicador de contexto en el selector de conexión del chat y en sus ajustes de **Connection** (conexión), para que puedas consultar la cuota sin salir del chat. Sigue la conexión activa: solo aparece si es una conexión NanoGPT con **Show subscription usage** activado, y no aparece con **Random**, que no tiene una única conexión que consultar. En el selector tiene el mismo estilo que la barra de contexto superior y se lee igual: consumo frente al límite semanal, por ejemplo `8.9M / 60M tokens`.
+
 ## xAI / Grok
 
 - Dónde conseguir una clave: `https://console.x.ai`

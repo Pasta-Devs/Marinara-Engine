@@ -1,6 +1,6 @@
 {
   "language": "hi",
-  "sourceCommit": "6c900594d06e6de14e1d4c4577bc78b1ce86232b",
+  "sourceCommit": "d590e61ccc0ddcf76d8f11a906ed7f0e9e309860",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -64,8 +64,8 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "db20ac198d3802c9b54c56ddf3c46467c735685e43157c84c3ffc0893fc10e09",
-      "bytes": 62669
+      "sha256": "5418f307cec52838b35d977115762d4a943be35a7412caa881ef7bb65054a0f8",
+      "bytes": 66995
     },
     {
       "path": "appearance/appearance-settings.md",
@@ -224,8 +224,8 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "125b5c8cdb90433f281338592f0198ef72bd87d343097220f01f5f5ee310e532",
-      "bytes": 21646
+      "sha256": "2fbf08f02b88ca6f9082925a5c00ad9ea71299f0794d36bb4a8c98edfb86d241",
+      "bytes": 26736
     },
     {
       "path": "connections/subscription-clis.md",

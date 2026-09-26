@@ -82,6 +82,26 @@ O campo **API Key** aceita qualquer um destes três tipos de credencial, e Marin
 
 **NanoGPT** também é um agregador. Ele não traz uma lista de modelos embutida, então o menu suspenso **Model** começa vazio. Depois de colar a chave, clique em **Fetch Models from API** para carregar os modelos que a conta pode usar.
 
+O Marinara lê o catálogo detalhado de modelos do NanoGPT, então a lista indica quais modelos sua assinatura cobre e quais consomem mais da cota:
+
+- Um modelo incluído na assinatura mostra um indicador de **multiplicador de tokens de entrada**: `1x` em verde para consumo normal, ou um valor maior, como `2x`, quando cada token enviado consome essa quantidade de tokens de entrada da cota. Um modelo *não incluído* mostra **Paid** (pago), porque seu uso é cobrado do saldo pago. Um modelo sem indicador não tinha dados de assinatura disponíveis.
+
+### Uso da assinatura
+
+Se você tem uma assinatura do NanoGPT, esta conexão pode mostrar sua cota atual:
+
+1. Ative **Show subscription usage** (mostrar uso da assinatura) no editor da conexão e salve.
+2. Se quiser, cole primeiro um **Management Token** (token de gerenciamento).
+
+O widget consulta o endpoint de uso do NanoGPT e mostra suas cotas semanais e diárias de tokens de entrada. Duas credenciais permitem consultá-lo:
+
+- **Management Token** (recomendado): crie um em `https://nano-gpt.com/settings#management-api-tokens` com o escopo **Usage only** (somente uso). Ele pode ler suas cotas, mas não executar modelos nem gastar seu saldo, por isso é a opção mais segura para exibir o consumo. O Marinara o armazena criptografado e o envia apenas ao endpoint de gerenciamento do NanoGPT.
+- **Sua chave de API**: usada automaticamente quando não há token de gerenciamento salvo. Funciona, mas as consultas usam a mesma credencial que pode gastar seu saldo.
+
+Uma cota que o NanoGPT não consegue informar no momento aparece como **desconhecida**, em vez de não utilizada. Uma assinatura inativa é indicada explicitamente, em vez de mostrar toda a cota como disponível. O botão de atualização do widget permite atualizá-lo quando quiser.
+
+O mesmo indicador aparece abaixo do indicador de contexto no seletor de conexão do chat e nos ajustes de **Connection** (conexão), para você acompanhar a cota sem sair do chat. Ele acompanha a conexão ativa: só aparece para uma conexão NanoGPT com **Show subscription usage** ativado, e não aparece em **Random**, que não tem uma única conexão para consultar. No seletor, segue o estilo da barra de contexto acima e tem a mesma leitura: consumo em relação à cota semanal, por exemplo `8.9M / 60M tokens`.
+
 ## xAI / Grok
 
 - Onde conseguir a chave: `https://console.x.ai`
