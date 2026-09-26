@@ -17,6 +17,7 @@ const notifiedFailures = new Map<string, string>();
 
 export function notifyAdvancedMemoryFailure(chatId: string, job: Pick<AdvancedMemoryJob, "id" | "status" | "error">) {
   if (job.status !== "error") {
+    notifiedFailures.delete(chatId);
     toast.dismiss(`advanced-memory-error-${chatId}`);
     return;
   }

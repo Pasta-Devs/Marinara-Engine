@@ -1111,9 +1111,18 @@ test("Advanced Memory keeps routine normal and guided replies quiet while preser
   const cases: Array<{ text: string; job: Partial<AdvancedMemoryStatus["job"]>; opens: boolean }> = [
     { text: "Remember the blue notebook.", job: { status: "running", blocking: true }, opens: false },
     { text: "/guided Keep the blue notebook in the scene.", job: { status: "running" }, opens: false },
-    { text: "Check the background memory job", job: { status: "error", blocking: false }, opens: false },
+    {
+      text: "Check the background memory job",
+      job: { status: "error", blocking: false, id: "legacy-job" },
+      opens: false,
+    },
     { text: "Check the blocking memory job", job: { status: "error" }, opens: true },
     { text: "Check knowledge confirmation", job: { status: "needs_confirmation", blocking: true }, opens: true },
+    {
+      text: "The background failure returns after recovery",
+      job: { status: "error", blocking: false, id: "legacy-job" },
+      opens: false,
+    },
   ];
   let generationRequests = 0;
   await page.route(`**/api/chats/${fixture.chat.id}/advanced-memory`, (route) => route.fulfill({ json: status }));
