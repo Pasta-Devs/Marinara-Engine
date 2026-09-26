@@ -39,6 +39,7 @@ Useful entry points:
 - `pnpm dev:server` builds the shared package, then starts only the API server. If shared source changes while it is running, rerun `pnpm build:shared` and restart the server; the server watcher intentionally ignores shared build output.
 - `pnpm dev:client` starts only the Vite frontend.
 - `start.bat`, `start.sh`, and `start-termux.sh` run the launcher flow, including git-based auto-update and optional browser auto-open.
+- `tools/dev-mcp/` is an optional MCP server for coding agents working on the engine: it reads prompts, cache statistics and logs from a local engine, runs typechecks and regressions, and restarts the engine without using the launchers. It is not a workspace package. See [tools/dev-mcp/README.md](tools/dev-mcp/README.md).
 - Platform launchers and `pnpm start` supervise explicit in-app restarts in the same console; exit code 75 requests a replacement after the server exits. Development watchers should be restarted from their terminal, not Advanced Settings.
 
 Copy `.env.example` to `.env` when you need to change ports, HTTPS settings, or launcher behavior such as `AUTO_OPEN_BROWSER=false`.

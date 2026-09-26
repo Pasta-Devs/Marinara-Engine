@@ -54,6 +54,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Add bounded agent-owned Home widget presentation metadata and full-bleed package widget surfaces.
 
 - Agents can offer up to three Home widgets without placing them automatically. The Widget Manager groups built-in, agent, and personal widgets; users add, hide, restore, and reorder agent widgets, while custom agents can publish bounded text during their normal runs. Capability packages can supply verified interactive widgets in an Engine-owned frame. Noodle's Latest Posts widget is available through its companion agent package (#6621).
+- Contributors can use an optional **Dev MCP** (`tools/dev-mcp`), a small MCP server that lets a coding agent read a local engine's prompts, cache statistics and logs, run typechecks and regressions, and restart the engine safely. It is not part of the app build or the Docker image; see `tools/dev-mcp/README.md`.
 
 - Roleplay's optional **Whisper** command shares an inline secret only with its recipient and the appointed narrator. Recipients can be characters or your persona; revealing a hidden secret on screen does not give it to other characters' prompts (#6616).
 
