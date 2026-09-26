@@ -33,6 +33,73 @@ const gameMetadata = {
   translationDisplayOnly: true,
 };
 
+test("Game translation strips internal dialogue tags and preserves inline readables", async ({ page, request }) => {
+  const chat = await (
+    await request.post("/api/chats", { data: { name: "Tagged translation", mode: "game", characterIds: [] } })
+  ).json();
+  try {
+    await request.patch(`/api/chats/${chat.id}/metadata`, { data: { ...gameMetadata, gameId: chat.id } });
+    const original = [
+      "A lamp burns.",
+      '[Alice] [main] [patient]: "Stay here."',
+      '[Alice] [whisper:Bob] [calm]: "Keep quiet."',
+      "[Alice] [thought] [worried]: I should go.",
+      "Before the note. [Note: Remember the bridge.] After the note.",
+    ].join("\n\n");
+    const message = await (
+      await request.post(`/api/chats/${chat.id}/messages`, { data: { role: "assistant", content: original } })
+    ).json();
+    const requested: string[] = [];
+    await page.route("**/api/translate", async (route) => {
+      const { text } = route.request().postDataJSON();
+      requested.push(text);
+      await route.fulfill({ json: { translatedText: text.replace("burns", "glows").replace("Stay", "Wait") } });
+    });
+    await openGame(page, chat.id);
+    const panel = page.locator('[data-component="GameNarration.ActivePanel"]');
+    await panel.getByRole("button", { name: "Translate", exact: true }).click();
+    await expect.poll(() => requested.length).toBe(1);
+    expect(requested[0]).toBe(
+      [
+        "A lamp burns.",
+        '[Alice]: "Stay here."',
+        '[Alice]: "Keep quiet."',
+        '[Alice]: "I should go."',
+        "Before the note.",
+        "[Note: Remember the bridge.]",
+        "After the note.",
+      ].join("\n\n"),
+    );
+    await expect(panel).toContainText("A lamp glows.");
+    await panel.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(panel).toContainText("Wait here.");
+    await prepareViteFixtureDependencies(page);
+    const segments = await page.evaluate(async (message) => {
+      const { parseNarrationSegments } = await import("/src/components/game/GameNarration.tsx" as string);
+      return parseNarrationSegments(
+        {
+          ...message,
+          content: 'Before.\n[Alice] [главный] [спокойный]: "Привет."\nAfter. [Book: A [nested] page.] End.',
+        },
+        new Map(),
+      ).map((segment: { type: string; content: string; readableContent?: string }) => ({
+        type: segment.type,
+        content: segment.readableContent ?? segment.content,
+      }));
+    }, message);
+    expect(segments).toEqual([
+      { type: "narration", content: "Before." },
+      { type: "dialogue", content: "Привет." },
+      { type: "narration", content: "After." },
+      { type: "readable", content: "A [nested] page." },
+      { type: "narration", content: "End." },
+    ]);
+  } finally {
+    await page.close();
+    await request.delete(`/api/chats/${chat.id}?force=true`);
+  }
+});
+
 for (const automatic of [false, true]) {
   test(`Game ${automatic ? "automatic" : "manual"} translation keeps edited narration aligned`, async ({
     page,
