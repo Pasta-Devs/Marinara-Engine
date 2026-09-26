@@ -16,6 +16,7 @@ import { LIMITS, testPrimaryKeys, testSecondaryKeys } from "@marinara-engine/sha
 import { logger } from "../../lib/logger.js";
 import { calibrateLorebookSimilarity } from "./embeddings.js";
 import { vmRegexExecutor } from "./regex-timeout.js";
+import { createSeededRandom } from "./seeded-random.js";
 
 /** Compute cosine similarity between two vectors. Returns 0 for empty/mismatched vectors. */
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -382,7 +383,21 @@ function pickWeightedGroupEntry(entries: ActivatedEntry[], random: () => number)
   return entries[entries.length - 1] ?? null;
 }
 
-function applyGroupSelection(entries: ActivatedEntry[], random: () => number): ActivatedEntry[] {
+/**
+ * A repeatable random source for one inclusion group. The same seed, group and candidate entries always give the
+ * same winner, so the prompt does not change between turns when nothing about the group changed (a new random winner
+ * every turn rewrites the lore near the top of the prompt and breaks prompt caching). It still varies across chats and
+ * whenever the set of activated candidates changes.
+ */
+function seededGroupRandom(seed: string, group: string, entries: ActivatedEntry[]): () => number {
+  const key = `${seed}|${group}|${entries
+    .map((entry) => entry.entry.id)
+    .sort()
+    .join(",")}`;
+  return createSeededRandom(key);
+}
+
+function applyGroupSelection(entries: ActivatedEntry[], random: () => number, groupSeed?: string): ActivatedEntry[] {
   const grouped = new Map<string, ActivatedEntry[]>();
   const ungrouped: ActivatedEntry[] = [];
 
@@ -399,9 +414,17 @@ function applyGroupSelection(entries: ActivatedEntry[], random: () => number): A
 
   const result: ActivatedEntry[] = [...ungrouped];
 
-  for (const [, groupEntries] of grouped) {
+  for (const [group, groupEntries] of grouped) {
     const stickyEntries = groupEntries.filter((entry) => entry.sticky);
-    const selected = pickWeightedGroupEntry(stickyEntries.length > 0 ? stickyEntries : groupEntries, random);
+    const pool = stickyEntries.length > 0 ? stickyEntries : groupEntries;
+    // A seeded roll must map to the same entry whatever order the candidates activated in, so seeded picks use id order.
+    const candidates = groupSeed
+      ? [...pool].sort((a, b) => (a.entry.id < b.entry.id ? -1 : a.entry.id > b.entry.id ? 1 : 0))
+      : pool;
+    const selected = pickWeightedGroupEntry(
+      candidates,
+      groupSeed ? seededGroupRandom(groupSeed, group, candidates) : random,
+    );
     if (selected) result.push(selected);
   }
 
@@ -462,6 +485,13 @@ export interface ScanOptions {
   pendingDecisions?: Set<string>;
   /** Random source for probability gates; injectable for deterministic tests. */
   random?: () => number;
+  /**
+   * Optional seed for inclusion-group winners (normally the chat id). When set, a group with the same activated
+   * candidates picks the same entry on every turn instead of re-rolling, which keeps the prompt prefix stable for
+   * provider prompt caching. It also wins over an injected `random` (which still drives probability gates), so the
+   * Active Context preview picks the same group winner as generation. Unset keeps the per-generation re-roll.
+   */
+  groupSeed?: string;
 }
 
 /**
@@ -752,7 +782,7 @@ export function scanForActivatedEntries(
   }
 
   // Apply group selection
-  const afterGroups = applyGroupSelection(activated, random);
+  const afterGroups = applyGroupSelection(activated, random, options.groupSeed);
 
   // Sort by injection order (lower = higher priority)
   afterGroups.sort((a, b) => a.injectionOrder - b.injectionOrder);

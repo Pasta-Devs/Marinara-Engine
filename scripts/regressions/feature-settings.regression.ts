@@ -1,0 +1,173 @@
+import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+// Settings > Advanced > Features: the `features` app setting, its routes, the cached server helper
+// (absent = the registry default, which is OFF for every switch; refreshed on every storage write)
+// and env precedence for the switches that also have an environment variable.
+const dataDir = mkdtempSync(join(tmpdir(), "marinara-feature-settings-"));
+process.env.DATA_DIR = dataDir;
+process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
+process.env.NODE_ENV = "test";
+process.env.MARINARA_LITE = "true";
+process.env.LOG_LEVEL = "silent";
+process.env.DISABLE_REQUEST_LOGGING = "true";
+process.env.AUTO_CREATE_DEFAULT_CONNECTION = "false";
+delete process.env.LOREBOOK_STABLE_GROUP_WINNERS;
+delete process.env.PROVIDER_RETRY_TRANSIENT_ERRORS;
+
+type TestApp = {
+  close(): Promise<void>;
+  inject(options: Record<string, unknown>): Promise<{ statusCode: number; json(): any; body: string }>;
+  ready(): Promise<void>;
+};
+let app: TestApp | null = null;
+try {
+  const shared = await import("../../packages/shared/src/index.js");
+  const { FEATURE_SETTINGS_KEY, FEATURE_SWITCH_NAMES, FEATURE_SWITCH_DEFAULTS, normalizeFeatureSettings } = shared;
+  const features = await import("../../packages/server/src/services/features/feature-settings.js");
+  const { isFeatureEnabled, resetFeatureSettingsForTests, onFeatureSettingsChange } = features;
+
+  // ── the registry: exactly these switches, every one off by default ──
+  assert.deepEqual([...FEATURE_SWITCH_NAMES].sort(), ["providerRetry", "stableLorebookGroupPicks"]);
+  for (const name of FEATURE_SWITCH_NAMES) assert.equal(FEATURE_SWITCH_DEFAULTS[name], false, `${name} defaults off`);
+
+  // ── shared normalization: bad values fall back to the default ──
+  assert.deepEqual(normalizeFeatureSettings(null), {});
+  assert.deepEqual(normalizeFeatureSettings([]), {});
+  assert.deepEqual(
+    normalizeFeatureSettings({ stableLorebookGroupPicks: true, providerRetry: "yes", other: true }),
+    { stableLorebookGroupPicks: true },
+    "only well-formed known keys survive",
+  );
+
+  // ── absent = OFF ──
+  resetFeatureSettingsForTests();
+  for (const name of FEATURE_SWITCH_NAMES) assert.equal(isFeatureEnabled(name), false, `${name} is off by default`);
+
+  // ── env precedence: set wins both ways, unset or blank falls through ──
+  resetFeatureSettingsForTests({ stableLorebookGroupPicks: false, providerRetry: true });
+  assert.equal(isFeatureEnabled("providerRetry"), true, "a saved on applies");
+  process.env.LOREBOOK_STABLE_GROUP_WINNERS = "true";
+  assert.equal(isFeatureEnabled("stableLorebookGroupPicks"), true, "env on beats a saved off");
+  process.env.PROVIDER_RETRY_TRANSIENT_ERRORS = "false";
+  assert.equal(isFeatureEnabled("providerRetry"), false, "env off beats a saved on");
+  process.env.PROVIDER_RETRY_TRANSIENT_ERRORS = "  ";
+  assert.equal(isFeatureEnabled("providerRetry"), true, "a blank env var counts as unset");
+  assert.deepEqual(features.featureEnvOverrides(), { stableLorebookGroupPicks: "LOREBOOK_STABLE_GROUP_WINNERS" });
+  delete process.env.LOREBOOK_STABLE_GROUP_WINNERS;
+  delete process.env.PROVIDER_RETRY_TRANSIENT_ERRORS;
+  resetFeatureSettingsForTests();
+
+  // ── change listeners: run on every change, a throwing one does not break the writer ──
+  let notified = 0;
+  const stopThrowing = onFeatureSettingsChange(() => {
+    throw new Error("listener failure fixture");
+  });
+  const stop = onFeatureSettingsChange(() => {
+    notified += 1;
+  });
+  resetFeatureSettingsForTests({ providerRetry: true });
+  assert.equal(notified, 1);
+  stop();
+  stopThrowing();
+  resetFeatureSettingsForTests();
+  assert.equal(notified, 1, "an unsubscribed listener is not called");
+
+  // ── routes + storage invalidation ──
+  const requireServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));
+  const Fastify = requireServer("fastify") as typeof import("fastify").default;
+  const { appSettingsRoutes } = await import("../../packages/server/src/routes/app-settings.routes.js");
+  const { getDB } = await import("../../packages/server/src/db/connection.js");
+  const { createAppSettingsStorage } =
+    await import("../../packages/server/src/services/storage/app-settings.storage.js");
+  const db = await getDB();
+  const storage = createAppSettingsStorage(db);
+  // A value saved before startup is loaded when the routes register.
+  await storage.set(FEATURE_SETTINGS_KEY, JSON.stringify({ stableLorebookGroupPicks: true }));
+  resetFeatureSettingsForTests();
+  assert.equal(isFeatureEnabled("stableLorebookGroupPicks"), false);
+
+  const fastify = Fastify();
+  fastify.decorate("db", db);
+  await fastify.register(appSettingsRoutes, { prefix: "/api/app-settings" });
+  app = fastify as unknown as TestApp;
+  await app.ready();
+  assert.equal(isFeatureEnabled("stableLorebookGroupPicks"), true, "startup primes the cache");
+
+  const read = await app.inject({ method: "GET", url: "/api/app-settings/features" });
+  assert.equal(read.statusCode, 200);
+  assert.deepEqual(read.json(), {
+    settings: { stableLorebookGroupPicks: true },
+    envOverrides: {},
+    effective: {},
+  });
+
+  const saved = await app.inject({
+    method: "PUT",
+    url: "/api/app-settings/features",
+    payload: { providerRetry: true },
+  });
+  assert.equal(saved.statusCode, 200);
+  assert.deepEqual(saved.json().settings, { providerRetry: true });
+  assert.equal(isFeatureEnabled("providerRetry"), true, "a save takes effect at once");
+  assert.equal(isFeatureEnabled("stableLorebookGroupPicks"), false, "omitted keys return to the default (off)");
+  assert.equal(JSON.parse((await storage.get(FEATURE_SETTINGS_KEY))!).providerRetry, true, "persisted");
+
+  const bad = await app.inject({ method: "PUT", url: "/api/app-settings/features", payload: { providerRetry: "on" } });
+  // The app error handler maps the ZodError to 400; this bare Fastify answers 500. Either way it is refused.
+  assert.ok(bad.statusCode >= 400, "invalid values are rejected");
+  const unknown = await app.inject({ method: "PUT", url: "/api/app-settings/features", payload: { surprise: true } });
+  assert.ok(unknown.statusCode >= 400, "unknown keys are rejected");
+  assert.equal(isFeatureEnabled("providerRetry"), true, "a rejected save keeps the old value");
+
+  // A switch pinned by an env var reports the value in effect, so the locked toggle shows it.
+  await app.inject({ method: "PUT", url: "/api/app-settings/features", payload: { providerRetry: true } });
+  process.env.PROVIDER_RETRY_TRANSIENT_ERRORS = "false";
+  const pinned = (await app.inject({ method: "GET", url: "/api/app-settings/features" })).json();
+  assert.equal(pinned.settings.providerRetry, true, "the saved value is kept");
+  assert.equal(pinned.effective.providerRetry, false, "the env value is what is in effect");
+  assert.equal(pinned.envOverrides.providerRetry, "PROVIDER_RETRY_TRANSIENT_ERRORS");
+  delete process.env.PROVIDER_RETRY_TRANSIENT_ERRORS;
+
+  // Any writer through app-settings storage refreshes the cache; removing the key restores defaults.
+  await storage.set(FEATURE_SETTINGS_KEY, "not json");
+  assert.equal(isFeatureEnabled("providerRetry"), false, "bad JSON falls back to defaults");
+  await storage.set(FEATURE_SETTINGS_KEY, JSON.stringify({ providerRetry: true }));
+  assert.equal(isFeatureEnabled("providerRetry"), true);
+  await storage.remove(FEATURE_SETTINGS_KEY);
+  assert.equal(isFeatureEnabled("providerRetry"), false);
+  await storage.set(FEATURE_SETTINGS_KEY, "{}");
+  for (const name of FEATURE_SWITCH_NAMES) assert.equal(isFeatureEnabled(name), false, `${name}: empty object is off`);
+
+  // A raw row write that bypasses app-settings storage (Professor Mari's generic DB commands) is
+  // picked up by reloadFeatureSettingsIfTouched; unrelated rows leave the cache alone.
+  const { appSettings } = await import("../../packages/server/src/db/schema/index.js");
+  const raw = JSON.stringify({ stableLorebookGroupPicks: true });
+  await db
+    .insert(appSettings)
+    .values({ key: FEATURE_SETTINGS_KEY, value: raw, updatedAt: "x" })
+    .onConflictDoUpdate({ target: appSettings.key, set: { value: raw } });
+  assert.equal(isFeatureEnabled("stableLorebookGroupPicks"), false, "a raw write alone does not reach the cache");
+  assert.equal(await features.reloadFeatureSettingsIfTouched([{ table: "chats", id: "features" }], storage), false);
+  assert.equal(isFeatureEnabled("stableLorebookGroupPicks"), false);
+  assert.equal(
+    await features.reloadFeatureSettingsIfTouched([{ table: "app_settings", id: FEATURE_SETTINGS_KEY }], storage),
+    true,
+  );
+  assert.equal(isFeatureEnabled("stableLorebookGroupPicks"), true, "Mari-style writes refresh the cache");
+  await storage.remove(FEATURE_SETTINGS_KEY);
+
+  // The generic key route does not expose it (the typed route validates).
+  const generic = await app.inject({ method: "PUT", url: "/api/app-settings/other", payload: { value: "{}" } });
+  assert.equal(generic.statusCode, 404);
+
+  console.log("feature-settings regression passed");
+} finally {
+  await app?.close();
+  const { closeDB } = await import("../../packages/server/src/db/connection.js");
+  await closeDB().catch(() => undefined);
+  rmSync(dataDir, { recursive: true, force: true });
+}

@@ -13173,8 +13173,11 @@ export async function generateRoutes(app: FastifyInstance) {
       }
     } catch (err) {
       if (abortController.signal.aborted || isAbortLikeError(err)) {
+        logger.info({ chatId: input.chatId }, "[generate] Generation stopped before it finished");
         return;
       }
+      // The one server line for a failed generation; the client gets the message over SSE.
+      logger.error({ err, chatId: input.chatId }, "[generate] Generation failed");
       // A later error cancels remaining generation work, not an already saved reply's translation.
       translationAfterFailure = true;
       if (!abortController.signal.aborted) {

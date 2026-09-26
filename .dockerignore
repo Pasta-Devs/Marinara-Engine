@@ -8,3 +8,6 @@ packages/server/data
 .env
 .env.*
 *.log
+# Developer tools and their local state are not part of the image
+tools/
+.dev-mcp
