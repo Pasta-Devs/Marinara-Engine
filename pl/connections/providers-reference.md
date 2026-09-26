@@ -82,6 +82,26 @@ Pole **API Key** przyjmuje jeden z trzech rodzajów poświadczeń, a Marinara sa
 
 **NanoGPT** to również agregator. Nie ma wbudowanej listy modeli, więc lista rozwijana **Model** startuje pusta. Po wklejeniu klucza kliknij przycisk **Fetch Models from API**, żeby wczytać modele dostępne dla twojego konta.
 
+Marinara odczytuje szczegółowy katalog modeli NanoGPT, więc lista rozwijana pokazuje, które modele obejmuje twoja subskrypcja i które zużywają większą część jej limitu:
+
+- Model objęty subskrypcją ma etykietę z **mnożnikiem tokenów wejściowych**: zielone `1x` przy zwykłym zużyciu limitu lub wyższą wartość, np. `2x`, gdy każdy wysłany token zużywa tyle tokenów wejściowych z limitu. Model *nieobjęty* subskrypcją ma etykietę **Paid** (płatny), ponieważ jego użycie obciąża płatne saldo. Brak etykiety oznacza brak danych o subskrypcji dla tego modelu.
+
+### Zużycie subskrypcji
+
+Jeśli masz subskrypcję NanoGPT, połączenie może pokazywać jej bieżące zużycie:
+
+1. Włącz **Show subscription usage** (pokaż zużycie subskrypcji) w edytorze połączenia i zapisz.
+2. Opcjonalnie najpierw wklej **Management Token** (token zarządzania).
+
+Widżet odczytuje punkt końcowy zużycia NanoGPT i pokazuje tygodniowy oraz dzienny limit tokenów wejściowych. Dostęp można uwierzytelnić na dwa sposoby:
+
+- **Management Token** (zalecany): utwórz go pod adresem `https://nano-gpt.com/settings#management-api-tokens` z zakresem **Usage only** (tylko odczyt zużycia). Pozwala odczytywać limity, ale nie uruchamia modeli ani nie wydaje środków z salda, więc jest bezpieczniejszym wyborem do wyświetlania zużycia. Marinara zapisuje go w postaci zaszyfrowanej i wysyła tylko do punktu końcowego zarządzania NanoGPT.
+- **Twój klucz API**: używany automatycznie, gdy nie zapisano tokenu zarządzania. To działa, ale odczyt zużycia korzysta wtedy z tych samych danych uwierzytelniających, które pozwalają wydawać środki z salda.
+
+Limit, którego NanoGPT nie może obecnie podać, jest oznaczony jako **nieznany**, a nie jako niewykorzystany. Nieaktywna subskrypcja jest wyraźnie oznaczona, zamiast pokazywać pełny dostępny limit. Przycisk odświeżania aktualizuje widżet na żądanie.
+
+Ten sam wskaźnik znajduje się pod wskaźnikiem kontekstu w selektorze połączenia czatu oraz w ustawieniach **Connection** (połączenie), więc możesz śledzić zużycie bez opuszczania czatu. Dotyczy aktywnego połączenia: pojawia się tylko dla połączenia NanoGPT z włączonym **Show subscription usage** i nie pojawia się przy **Random**, które nie wskazuje jednego połączenia do odczytu. W selektorze wygląda podobnie do paska kontekstu powyżej i odczytuje się go tak samo: zużycie względem tygodniowego limitu, np. `8.9M / 60M tokens`.
+
 ## xAI / Grok
 
 - Skąd wziąć klucz: `https://console.x.ai`
