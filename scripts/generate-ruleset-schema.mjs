@@ -145,6 +145,17 @@ function enumTableShape(node) {
   properties.table.maxProperties = 40;
 }
 
+// What winning a contest does is at least one thing: it applies, ends or pushes. A refinement, so the
+// editor is told here. Found by its shape: the three side by side.
+function contestDoesSomething(node) {
+  if (Array.isArray(node)) return node.forEach(contestDoesSomething);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(contestDoesSomething);
+  const properties = node.properties;
+  if (node.type !== "object" || !properties?.applies || !properties.ends || !properties.push) return;
+  requireAnyOf(node, ["applies", "ends", "push"]);
+}
+
 // A rest step's `to` is a word only on a state, where it is "default" or one of the state's values;
 // on a pool or a track it is "max", "min" or a number. A state step is set, never moved by an amount.
 // Refinements again, so the editor is told here. Found by its shape: `state` beside `track` and `to`.
@@ -393,6 +404,7 @@ requireOneHideWhenComparison(schema);
 readOnlyWithLiveTrack(schema);
 enumTableShape(schema);
 restStepTo(schema);
+contestDoesSomething(schema);
 allowAnnotations(schema);
 const text = `${JSON.stringify(
   {

@@ -393,6 +393,13 @@ test("Combat director ruleset: the ruleset's own menu resolves the fight and wri
     // The screen plays every turn nobody holds on its own, so the menu arrives when it is Juno's.
     const axe = page.getByRole("button", { name: /Road axe/ });
     await expect(axe).toBeVisible({ timeout: 60000 });
+    // The ruleset's contests sit in a group of their own, and breaking free is not there while
+    // nothing holds on.
+    await expect(page.getByText("Contests", { exact: true })).toBeVisible();
+    // Its forecast is the chance to win it, not to hit.
+    await expect(page.getByRole("button", { name: /^Grab/ })).toContainText(/\d+% to win/);
+    await expect(page.getByRole("button", { name: /^Shove back/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Break free/ })).toHaveCount(0);
     await axe.click();
     const target = page.getByRole("button", { name: /Cinder-moth/ });
     await expect(target).toBeVisible();

@@ -792,6 +792,16 @@ function sheetCombatant(
       ...(save.ability ? { ability: save.ability } : {}),
     });
   }
+  // What a contest reads, off the same sheet as everything else. Only when the ruleset has any, so a
+  // fight on one that does not carries exactly what it always did.
+  const checks = combat.checks?.length
+    ? Object.fromEntries(
+        combat.checks.map((check) => [
+          check.id,
+          Math.round(resolveRulesetValueRef(definition, build, check.value, evaluated)),
+        ]),
+      )
+    : undefined;
   const abilities = (combat.abilities ?? []).map((source, index) =>
     abilityActions(definition, combat, source, index, build, catalogs, evaluated, perCell),
   );
@@ -823,9 +833,55 @@ function sheetCombatant(
     defeated: false,
     defense: Math.round(resolveRulesetValueRef(definition, build, combat.defense, evaluated)),
     saves,
+    ...(checks ? { checks } : {}),
     speed: combat.economy.movement ? resolveRulesetValueRef(definition, build, combat.economy.movement, evaluated) : 0,
     sheet: { build, live: input.live, catalogs },
   };
+}
+
+/**
+ * One action per contest the ruleset declares, the same for everybody: whoever is in a fight may grab
+ * or shove. A contest that takes the place of a strike buys as many as the actor's own actions on
+ * the same budget do, so it is paid for, and paid out of strikes in hand, exactly as they are.
+ */
+function contestActions(
+  combat: RulesetCombat,
+  actions: readonly RulesetCombatAction[],
+  perCell: number | undefined,
+): RulesetCombatAction[] {
+  return (combat.contests ?? []).map((contest) => {
+    const strikes = contest.strike
+      ? Math.max(
+          0,
+          ...actions.flatMap((action) =>
+            action.budget === contest.budget && action.strikes !== undefined ? [action.strikes] : [],
+          ),
+        )
+      : 0;
+    return {
+      id: `contest:${contest.id}`,
+      kind: "contest",
+      label: contest.label,
+      budget: contest.budget,
+      targets: { side: "enemy", count: 1 },
+      ...(contest.reach !== undefined && perCell !== undefined
+        ? { reach: rulesetInCells(contest.reach, perCell) }
+        : {}),
+      ...(strikes > 0 ? { strikes } : {}),
+      contest: {
+        id: contest.id,
+        attacker: [...contest.attacker.checks],
+        defender: [...contest.defender.checks],
+        ties: contest.ties,
+        ...(contest.from ? { from: contest.from.holding } : {}),
+        ...(contest.onWin.applies ? { applies: contest.onWin.applies.map((entry) => ({ ...entry })) } : {}),
+        ...(contest.onWin.ends ? { ends: contest.onWin.ends.map((entry) => ({ ...entry })) } : {}),
+        ...(contest.onWin.push !== undefined && perCell !== undefined
+          ? { push: rulesetInCells(contest.onWin.push, perCell) }
+          : {}),
+      },
+    };
+  });
 }
 
 /** What an action still has left of itself, before anything is spent on it. */
@@ -1027,6 +1083,9 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
         defeated: false,
         defense: block.defense,
         saves: { ...(block.saves ?? {}) },
+        ...(combat.checks?.length
+          ? { checks: Object.fromEntries(combat.checks.map((check) => [check.id, block.checks?.[check.id] ?? 0])) }
+          : {}),
         speed: block.speed ?? 0,
         block,
         health: { value: max, max, temp: 0 },
@@ -1054,6 +1113,14 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
       }
     }
     state.combatants.push(combatant);
+  }
+
+  // Everybody's contests, last, so one that takes the place of a strike can see what strikes the
+  // actor's own actions buy. A ruleset with none adds nothing, and its fights are what they were.
+  if (combat.contests?.length) {
+    for (const combatant of state.combatants) {
+      combatant.actions = [...combatant.actions, ...contestActions(combat, combatant.actions, perCell)];
+    }
   }
 
   placeRulesetCombatants(definition, combat, state, input.board);

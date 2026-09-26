@@ -425,7 +425,13 @@ const capabilityPackageManifestBaseSchema = z
 //        live state, and a rest's restore step may put a `state` back. Not a soft seam, for the same
 //        reason as 1.20 through 1.41: an Engine that cannot read these keys refuses the whole ruleset
 //        file, so a package that ships any of them declares 1.42. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 42 } as const);
+// 1.43: a ruleset's combat block may declare `checks` (numbers off the sheet a contest reads) and
+//        `contests` (both sides throw the attack dice and add a check; winning applies or ends
+//        conditions and pushes on a board), and a creature may give its own `checks`. Not a soft
+//        seam, for the same reason as 1.20 through 1.42: an Engine that cannot read these keys
+//        refuses the whole ruleset or catalog file, so a package that ships any of them declares
+//        1.43. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 43 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

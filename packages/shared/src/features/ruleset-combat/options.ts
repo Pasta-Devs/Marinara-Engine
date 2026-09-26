@@ -32,6 +32,7 @@ import type {
   RulesetCombatCell,
   RulesetCombatOption,
   RulesetCombatRollMode,
+  RulesetCombatContest,
   RulesetCombatant,
   RulesetEncounterState,
   RulesetReactionMoment,
@@ -433,9 +434,18 @@ export function rulesetCostSteps(definition: RulesetDefinition, action: RulesetC
 /** How much of the dice a sum leaves above a number, computed exactly for the dice a fight rolls
  *  and skipped for a handful too large to count, so a forecast never costs a turn its time. */
 function chanceAtLeast(count: number, sides: number, need: number): number | null {
-  if (count * sides > 400) return null;
+  // Certain either way whatever the dice, so no distribution is needed to say so.
   if (need <= count) return 1;
   if (need > count * sides) return 0;
+  const distribution = diceDistribution(count, sides);
+  if (!distribution) return null;
+  return distribution.slice(need).reduce((total, share) => total + share, 0);
+}
+
+/** How likely each total of these dice is, indexed by the total. Null past the size a forecast works
+ *  out exactly, which no ruleset's attack dice come near. */
+function diceDistribution(count: number, sides: number): number[] | null {
+  if (count * sides > 400) return null;
   let distribution = [1];
   for (let die = 0; die < count; die++) {
     const next = new Array<number>(distribution.length + sides).fill(0);
@@ -446,7 +456,63 @@ function chanceAtLeast(count: number, sides: number, need: number): number | nul
     }
     distribution = next;
   }
-  return distribution.slice(need).reduce((total, share) => total + share, 0);
+  return distribution;
+}
+
+/** The check one side of a contest rolls: the best of the ones the contest lets that side use, and
+ *  its id, the first of equal ones. What a combatant does not have reads as zero. */
+export function rulesetContestCheck(
+  combatant: RulesetCombatant,
+  contest: RulesetCombatContest,
+  side: "attacker" | "defender",
+): { check: string; modifier: number } {
+  const checks = contest[side];
+  let best = { check: checks[0]!, modifier: combatant.checks?.[checks[0]!] ?? 0 };
+  for (const check of checks.slice(1)) {
+    const modifier = combatant.checks?.[check] ?? 0;
+    if (modifier > best.modifier) best = { check, modifier };
+  }
+  return best;
+}
+
+/** The share of contests the actor would win against this target: both sides throw the fight's own
+ *  attack dice and add their check, the higher total wins, and a tie goes where the contest says. */
+export function rulesetContestChance(
+  combat: RulesetCombat,
+  actor: RulesetCombatant,
+  target: RulesetCombatant,
+  contest: RulesetCombatContest,
+): number | null {
+  const { count, sides } = combat.attackRoll.dice;
+  const distribution = diceDistribution(count, sides);
+  if (!distribution) return null;
+  const attacker = rulesetContestCheck(actor, contest, "attacker").modifier;
+  const defender = rulesetContestCheck(target, contest, "defender").modifier;
+  let win = 0;
+  for (let mine = 0; mine < distribution.length; mine++) {
+    const pMine = distribution[mine]!;
+    if (pMine === 0) continue;
+    for (let theirs = 0; theirs < distribution.length; theirs++) {
+      const pTheirs = distribution[theirs]!;
+      if (pTheirs === 0) continue;
+      const margin = mine + attacker - (theirs + defender);
+      if (margin > 0 || (margin === 0 && contest.ties === "attacker")) win += pMine * pTheirs;
+    }
+  }
+  return win;
+}
+
+/** Whoever holds this actor by the condition a breaking-free contest names, when they are still in
+ *  the fight to be broken free from. */
+export function rulesetContestHolder(
+  state: RulesetEncounterState,
+  actor: RulesetCombatant,
+  contest: RulesetCombatContest,
+): RulesetCombatant | undefined {
+  if (!contest.from) return undefined;
+  const source = actor.tracked.find((entry) => entry.condition === contest.from)?.source;
+  const holder = source === undefined ? undefined : rulesetCombatant(state, source);
+  return holder && !holder.defeated ? holder : undefined;
 }
 
 /** The share of attack rolls that would land. Exact, because the extreme faces of a single die can
@@ -528,10 +594,14 @@ export function rulesetOptionTargets(
   // it lands, and `rulesetAreaTargets` is the one place that answers it.
   if (positioned(state) && actionOf(actor, option.id)?.area) return [];
   const forbidden = rulesetForbiddenTargets(definition, state, actor);
+  // Breaking free is aimed at whoever is holding on, and at nobody else.
+  const contest = actionOf(actor, option.id)?.contest;
+  const holder = contest?.from ? rulesetContestHolder(state, actor, contest)?.id : undefined;
   return (
     state.combatants
       .filter((combatant) => {
         if (combatant.defeated) return false;
+        if (contest?.from && combatant.id !== holder) return false;
         // Whoever put a condition on this actor that says they may not be pointed at.
         if (forbidden.has(combatant.id)) return false;
         // Helping yourself is not help.
@@ -632,6 +702,11 @@ function forecastFor(
     return forecast.averageDamage === undefined ? undefined : forecast;
   }
   const target = firstTarget(definition, state, actor, action) ?? firstAreaTarget(state, actor, action);
+  // A contest's chance is the share it would WIN against the first one it may be taken against.
+  if (action.contest) {
+    const chance = target ? rulesetContestChance(combat, actor, target, action.contest) : null;
+    return chance === null ? undefined : { hitChance: Math.round(chance * 1000) / 1000 };
+  }
   if (action.toHit !== undefined && target) {
     // The same number the roll will be made against: the target's own defense plus whatever the
     // ground they stand on is worth, and the same roll mode the distance between them asks for.
@@ -667,6 +742,8 @@ function optionFrom(
   if (action.reaction && !atItsMoment) return null;
   // A sequence whose parts are all gone, or all spent, would spend a budget and do nothing.
   if (!rulesetSequenceCanHappen(actor, action)) return null;
+  // Breaking free is only there while something holds on.
+  if (action.contest?.from && !rulesetContestHolder(state, actor, action.contest)) return null;
   if (!actionDoesSomething(action)) return null;
   // Free of the economy, or paid for out of strikes a spend already bought. Either way no budget is
   // asked for, and the option says so by carrying none.

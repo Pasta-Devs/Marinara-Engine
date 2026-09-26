@@ -57,7 +57,15 @@ import {
 } from "../../packages/shared/src/index.js";
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
-const fiveEText = read("../../docs/development/ruleset-5e-2014.example.json");
+/** The reference less 1.43's contests and the checks they read, which every gate this lane proves
+ *  predates. */
+const fiveEText = (() => {
+  const doc = JSON.parse(read("../../docs/development/ruleset-5e-2014.example.json"));
+  delete doc.combat.checks;
+  delete doc.combat.contests;
+  for (const catalog of doc.catalogs ?? []) for (const entry of catalog.entries ?? []) delete entry.creature?.checks;
+  return JSON.stringify(doc);
+})();
 /** The example less the sheet keys 1.37 added (a track always shown, a summary list's columns),
  *  1.38's modifier off the sheet, 1.39's list sum, 1.40's box track, 1.41's untrained rule and
  *  1.42's live state: every gate this lane proves is older, so it is proven on a file that trips
@@ -75,6 +83,9 @@ const emberText = (() => {
   delete doc.sheet.live.states;
   for (const rest of doc.rests)
     rest.restore = rest.restore.filter((step: { state?: string }) => step.state === undefined);
+  // And 1.43's contests and the checks they read.
+  delete doc.combat.checks;
+  delete doc.combat.contests;
   return JSON.stringify(doc);
 })();
 

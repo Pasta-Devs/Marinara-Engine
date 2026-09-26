@@ -160,6 +160,8 @@ export interface RulesetStatBlock {
   abilities?: Record<string, number>;
   /** Save modifiers by the ruleset's own save ids. A save it does not name reads as zero. */
   saves?: Record<string, number>;
+  /** What it adds in a contest, by the ids of `combat.checks`. One it does not name reads as zero. */
+  checks?: Record<string, number>;
   /** Damage types, matched without case: half damage, double damage, none at all. */
   resist?: string[];
   vulnerable?: string[];
@@ -205,7 +207,7 @@ export type RulesetCombatantInput =
  *  Resolved once, when the fight begins: armour and bonuses do not change mid-fight in this kind. */
 export interface RulesetCombatAction {
   id: string;
-  kind: "attack" | "ability" | "block";
+  kind: "attack" | "ability" | "block" | "contest";
   label: string;
   budget: string;
   /** Who it may be pointed at, relative to the actor: "enemy" is the other side. */
@@ -249,6 +251,25 @@ export interface RulesetCombatAction {
   range?: RulesetCombatRange;
   /** The shape this one covers, in cells, aimed at a cell rather than at anybody. */
   area?: RulesetCombatArea;
+  /** What a contest rolls and what winning it does, on an action of kind `contest`. */
+  contest?: RulesetCombatContest;
+}
+
+/** A contest as the fight resolves it: the check each side adds, who takes a tie, and what winning
+ *  does. Both sides throw the fight's own attack dice. */
+export interface RulesetCombatContest {
+  /** The contest's own id in `combat.contests`. */
+  id: string;
+  /** Each side rolls the best of the checks it may use here. */
+  attacker: string[];
+  defender: string[];
+  ties: "defender" | "attacker";
+  /** Aimed only at whoever put this condition on the actor, and offered only while it holds. */
+  from?: string;
+  applies?: Array<{ condition: string; rounds?: number }>;
+  ends?: Array<{ condition: string; on: "actor" | "target" }>;
+  /** How far the loser is pushed straight away, IN CELLS. Read only by a positioned fight. */
+  push?: number;
 }
 
 /** A shape on the board, in cells. `friendlyFire` false leaves the actor's own side out of it. */
@@ -333,6 +354,8 @@ export interface RulesetCombatant {
   /** Read from the sheet or the block once, when the fight began. */
   defense: number;
   saves: Record<string, number>;
+  /** What this combatant adds in a contest, by check id. Present only when the ruleset has checks. */
+  checks?: Record<string, number>;
   speed: number;
   /** A party member's sheet, which is where their health and conditions really live. */
   sheet?: { build: RulesetSheetBuild; live: RulesetLiveState; catalogs: RulesetCatalogEntriesById };
@@ -556,7 +579,7 @@ export type RulesetCombatEvent =
       targetId: string;
       condition: string;
       active: boolean;
-      reason: "applied" | "immune" | "save" | "expired" | "damage" | "concentration" | "revived" | "down";
+      reason: "applied" | "immune" | "save" | "expired" | "damage" | "concentration" | "revived" | "down" | "contest";
     }
   | { type: "spend"; actorId: string; pool: string; label: string; amount: number }
   | { type: "budget"; actorId: string; budget: string; left: number }
@@ -623,6 +646,28 @@ export type RulesetCombatEvent =
   /** Something held open by a window was called off, and never happened. What it cost stays spent:
    *  it was paid for before anybody was asked. */
   | { type: "cancelled"; actorId: string; optionId: string; label: string; byId: string }
+  /** Both sides of a contest: what each threw, what it added and the total, and who won. What winning
+   *  did follows as its own events (a condition, a push). */
+  | {
+      type: "contest";
+      actorId: string;
+      targetId: string;
+      optionId: string;
+      label: string;
+      attacker: { check: string; rolls: number[]; modifier: number; total: number };
+      defender: { check: string; rolls: number[]; modifier: number; total: number };
+      winner: "actor" | "target";
+    }
+  /** Somebody pushed across the board by somebody else. Forced, so it spends nothing of their own
+   *  allowance and draws no strike on the way. */
+  | {
+      type: "pushed";
+      actorId: string;
+      targetId: string;
+      from: RulesetCombatCell;
+      to: RulesetCombatCell;
+      path: RulesetCombatCell[];
+    }
   /** What the ground the target stands on added to the defense the next attack is rolled against. */
   | { type: "cover"; targetId: string; bonus: number; defense: number }
   /** Where an area landed, and the cells it covered. */
@@ -657,7 +702,7 @@ export type RulesetEncounterOutcome = "ongoing" | "victory" | "defeat";
 export interface RulesetCombatOption {
   id: string;
   /** `move` is the one a positioned fight adds: walking, and getting back up. */
-  kind: "attack" | "ability" | "block" | "standard" | "end-turn" | "move";
+  kind: "attack" | "ability" | "block" | "contest" | "standard" | "end-turn" | "move";
   label: string;
   /** Absent on "end turn", which spends nothing, and on anything that costs no budget: something
    *  the entry called free, or a strike taken out of what a spend already bought. */

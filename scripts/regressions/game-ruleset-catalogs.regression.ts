@@ -496,9 +496,9 @@ const installedPackages = packages.map((fixture) => {
     // row, a layer, a combat block, catalog mechanics a fight reads, a catalog of creatures, the
     // keys that give that fight a board, the ones that say what one turn of it can do, a creature
     // written in the ruleset's own terms, a track always shown, a summary list's columns, a
-    // modifier off the sheet, a list added up, a track of numbered boxes, an untrained rule and a
-    // live state.
-    capabilityApi: { major: 1, minor: 42 },
+    // modifier off the sheet, a list added up, a track of numbered boxes, an untrained rule, a live
+    // state and contests.
+    capabilityApi: { major: 1, minor: 43 },
     builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
     id: packageId,
     name: fixture.id,

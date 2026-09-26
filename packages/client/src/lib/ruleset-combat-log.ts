@@ -26,6 +26,8 @@ export interface RulesetCombatNames {
   condition: (id: string) => string;
   budget: (id: string) => string;
   save: (id: string) => string;
+  /** One of the checks a contest reads. */
+  check: (id: string) => string;
   /** The label of one of the two tracks the ruleset's dying rule counts on. */
   track: (id: string) => string;
   tier: (id: string) => string;
@@ -74,6 +76,7 @@ export function rulesetCombatNames(
     condition: lookup(definition.sheet.live.conditions),
     budget: lookup(definition.combat?.economy.budgets),
     save: lookup(definition.sheet.saves),
+    check: lookup(definition.combat?.checks),
     track: lookup(definition.sheet.live.tracks),
     tier: lookup(definition.combat?.threat?.tiers),
     defense: rulesetValueLabel(definition, definition.combat?.defense),
@@ -222,6 +225,33 @@ export function rulesetCombatEventLine(
       return key(`condition${event.reason[0]!.toUpperCase()}${event.reason.slice(1)}`, {
         target: names.combatant(event.targetId),
         condition: names.condition(event.condition),
+      });
+    case "contest": {
+      // Both sides as a roll, with the check each one added, so the line reads the way the table
+      // would say it without adding anything up itself.
+      const side = (roll: { check: string; rolls: number[]; modifier: number; total: number }) => ({
+        check: names.check(roll.check),
+        roll: rulesetRollText({ ...roll, kept: roll.rolls.reduce((sum, face) => sum + face, 0) }, t),
+      });
+      const attacker = side(event.attacker);
+      const defender = side(event.defender);
+      return key(event.winner === "actor" ? "contestWon" : "contestLost", {
+        actor: names.combatant(event.actorId),
+        target: names.combatant(event.targetId),
+        label: event.label,
+        roll: attacker.roll,
+        check: attacker.check,
+        against: defender.roll,
+        targetCheck: defender.check,
+      });
+    }
+    case "pushed":
+      return key("pushed", {
+        actor: names.combatant(event.actorId),
+        target: names.combatant(event.targetId),
+        distance: names.distance(event.path.length),
+        x: event.to.x,
+        y: event.to.y,
       });
     case "spend":
       return key("spend", { actor: names.combatant(event.actorId), amount: event.amount, pool: event.label });

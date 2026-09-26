@@ -1594,6 +1594,7 @@ export const RULESET_CREATURE_SHEET_REPLACES = [
   "speed",
   "abilities",
   "saves",
+  "checks",
 ] as const;
 /** The keys a creature WITHOUT a sheet cannot go without. */
 export const RULESET_CREATURE_PLAIN_NEEDS = ["health", "defense", "initiativeModifier"] as const;
@@ -1611,6 +1612,8 @@ const creatureFields = {
   abilities: z.record(z.number().int().min(-1000).max(1000)).optional(),
   /** What it adds when it saves, keyed by the sheet's own save ids. One it does not name is zero. */
   saves: z.record(z.number().int().min(-50).max(50)).optional(),
+  /** What it adds in a contest, keyed by the ids of `combat.checks`. One it does not name is zero. */
+  checks: z.record(z.number().int().min(-100).max(100)).optional(),
   /** Damage types, matched without case: half, double, none at all. */
   resist: z.array(promptSafeText(40)).max(30).optional(),
   vulnerable: z.array(promptSafeText(40)).max(30).optional(),
@@ -2070,6 +2073,57 @@ const combatConditionSchema = z
     }
   });
 
+/** A number a contest reads for whoever takes part in it: a value off the sheet, read once when the
+ *  fight begins, the way a defense or a save is. A creature written in plain numbers gives its own. */
+const combatCheckSchema = z.object({ id: sheetId, label, value: rulesetValueRefSchema }).strict();
+
+/** A CONTEST: both sides throw the fight's own attack dice and add a check, the higher total wins,
+ *  and the winner changes what holds the loser or where the loser stands. How grabbing somebody,
+ *  shoving them over or away, and breaking free are said, in the ruleset's own words. */
+const combatContestSchema = z
+  .object({
+    id: sheetId,
+    label,
+    budget: sheetId,
+    /** It may take the place of one strike when an action buys several, the way an attack does. */
+    strike: z.literal(true).optional(),
+    /** How far it reaches, in the ruleset's own distance unit. One cell when left out. */
+    reach: z.number().finite().gt(0).max(10000).optional(),
+    /** Each side rolls the best of the checks it may use here. */
+    attacker: z.object({ checks: z.array(sheetId).min(1).max(4) }).strict(),
+    defender: z.object({ checks: z.array(sheetId).min(1).max(4) }).strict(),
+    /** Who takes a tie. */
+    ties: z.enum(["defender", "attacker"]).default("defender"),
+    /** Aimed only at whoever put this condition on the actor, and offered only while it holds: how
+     *  breaking free is said. */
+    from: z.object({ holding: sheetId }).strict().optional(),
+    onWin: z
+      .object({
+        /** On the loser, with the winner as its source, so a condition that ends when its source goes
+         *  down ends when the one holding on does. `rounds` gives it a clock; without one it lasts
+         *  until something ends it. */
+        applies: z
+          .array(z.object({ condition: sheetId, rounds: z.number().int().min(1).max(100).optional() }).strict())
+          .min(1)
+          .max(4)
+          .optional(),
+        /** Conditions it takes off the actor or the target. */
+        ends: z
+          .array(z.object({ condition: sheetId, on: z.enum(["actor", "target"]) }).strict())
+          .min(1)
+          .max(4)
+          .optional(),
+        /** How far the loser is pushed straight away from the winner, in the ruleset's own distance
+         *  unit. Only a fight on a board moves anybody. */
+        push: z.number().finite().gt(0).max(10000).optional(),
+      })
+      .strict()
+      .refine((onWin) => !!(onWin.applies || onWin.ends || onWin.push), {
+        message: "A contest's onWin applies, ends or pushes something",
+      }),
+  })
+  .strict();
+
 /** Holding an effect together while the fight goes on. The text field is where it is written down,
  *  so the sheet shows what a character is holding after the battle as well as during it. */
 const combatConcentrationSchema = z
@@ -2195,6 +2249,9 @@ const combatSchema = z
       .strict()
       .optional(),
     conditions: z.array(combatConditionSchema).max(80).optional(),
+    /** The numbers a contest reads, and the contests a combatant may take. */
+    checks: z.array(combatCheckSchema).max(12).optional(),
+    contests: z.array(combatContestSchema).max(12).optional(),
     concentration: combatConcentrationSchema.optional(),
     dying: combatDyingSchema.optional(),
     /** The damage types this system has. Matched without case, so "Fire" and "fire" are one type. */
@@ -3320,6 +3377,52 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     }
     if (combat.opportunity) checkBudget(combat.opportunity.budget, at("opportunity", "budget"));
 
+    // Contests: the checks they read, the budget they spend and the conditions they touch all exist,
+    // and what they measure in distance needs a cell to measure it in.
+    const contestChecks = unique(combat.checks ?? [], at("checks"), "contest check");
+    combat.checks?.forEach((check, index) => checkRef(check.value, at("checks", index, "value"), derivedIds));
+    unique(combat.contests ?? [], at("contests"), "contest");
+    combat.contests?.forEach((contest, index) => {
+      const path = at("contests", index);
+      const checkId = (id: string, where: (string | number)[]) => {
+        if (!contestChecks.has(id)) issue(where, `Unknown contest check "${id}"`);
+      };
+      const conditionId = (id: string, where: (string | number)[]) => {
+        if (!conditions.has(id)) issue(where, `Unknown condition "${id}"`);
+      };
+      checkBudget(contest.budget, [...path, "budget"]);
+      for (const side of ["attacker", "defender"] as const) {
+        contest[side].checks.forEach((id, checkIndex) => {
+          checkId(id, [...path, side, "checks", checkIndex]);
+          if (contest[side].checks.indexOf(id) !== checkIndex) {
+            issue([...path, side, "checks", checkIndex], `Duplicate check "${id}"`);
+          }
+        });
+      }
+      if (contest.from) conditionId(contest.from.holding, [...path, "from", "holding"]);
+      contest.onWin.applies?.forEach((entry, entryIndex) => {
+        conditionId(entry.condition, [...path, "onWin", "applies", entryIndex, "condition"]);
+        // Breaking free of something and putting it on in the same breath says nothing a fight can do.
+        if (contest.from && entry.condition === contest.from.holding) {
+          issue(
+            [...path, "onWin", "applies", entryIndex, "condition"],
+            `A contest that breaks free of "${entry.condition}" cannot also apply it`,
+          );
+        }
+      });
+      contest.onWin.ends?.forEach((entry, entryIndex) =>
+        conditionId(entry.condition, [...path, "onWin", "ends", entryIndex, "condition"]),
+      );
+      if (!combat.distance) {
+        if (contest.reach !== undefined) {
+          issue([...path, "reach"], '"reach" is measured in cells, so the block declares "distance" too');
+        }
+        if (contest.onWin.push !== undefined) {
+          issue([...path, "onWin", "push"], '"push" is measured in cells, so the block declares "distance" too');
+        }
+      }
+    });
+
     combat.attacks?.forEach((source, index) => {
       const path = at("attacks", index);
       checkBudget(source.budget, [...path, "budget"]);
@@ -4012,6 +4115,10 @@ function creatureIssues(
   }
   for (const save of Object.keys(creature.saves ?? {})) {
     if (!saves.has(save)) add([...at, "saves", save], `Unknown save "${save}"`);
+  }
+  const checks = new Set((combat.checks ?? []).map((check) => check.id));
+  for (const check of Object.keys(creature.checks ?? {})) {
+    if (!checks.has(check)) add([...at, "checks", check], `Unknown contest check "${check}"`);
   }
   for (const key of ["resist", "vulnerable", "immune"] as const) {
     creature[key]?.forEach((type, index) => {

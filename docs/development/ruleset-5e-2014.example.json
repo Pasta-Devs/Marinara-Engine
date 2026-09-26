@@ -1208,6 +1208,8 @@
             "saves": {
               "dex_save": 4
             },
+            "$comment": "What it adds in a contest, since a creature written in plain numbers has no sheet to read Athletics or Acrobatics off: Dex 15, so it slips a hold better than it makes one.",
+            "checks": { "might": 1, "agility": 2 },
             "conditionImmunities": ["blinded", "deafened"],
             "tier": "cr_1_2",
             "traits": [
@@ -1970,8 +1972,10 @@
         "$comment": "SRD 5.1, Frightened: disadvantage on attacks \"while the source of its fear is within line of sight\", and it \"can't willingly move closer to the source\" at all. So only the first is gated on sight, which is why whileSourceInSight names it rather than saying true."
       },
       {
+        "$comment": "SRD 5.1, Grappled: speed 0, and it ends if the grappler is incapacitated. The Engine notices only going down, which endsWhenSourceDown says.",
         "condition": "grappled",
-        "effects": ["speed-zero"]
+        "effects": ["speed-zero"],
+        "endsWhenSourceDown": true
       },
       {
         "condition": "incapacitated",
@@ -2025,6 +2029,55 @@
           "attacks-from-adjacent-critical"
         ],
         "failsSaves": ["str_save", "dex_save"]
+      }
+    ],
+    "checks": [
+      {
+        "$comment": "The numbers a contest reads, off the sheet. SRD 5.1 grapples and shoves with Athletics and resists them with Athletics or Acrobatics.",
+        "id": "might",
+        "label": "Athletics",
+        "value": { "skillMod": "athletics" }
+      },
+      { "id": "agility", "label": "Acrobatics", "value": { "skillMod": "acrobatics" } }
+    ],
+    "contests": [
+      {
+        "$comment": "SRD 5.1, Grappling: replaces one attack of the Attack action, Athletics against the target's Athletics or Acrobatics, and on a win the target is grappled by the grappler. The size limit is not something the Engine can check yet.",
+        "id": "grapple",
+        "label": "Grapple",
+        "budget": "action",
+        "strike": true,
+        "attacker": { "checks": ["might"] },
+        "defender": { "checks": ["might", "agility"] },
+        "onWin": { "applies": [{ "condition": "grappled" }] }
+      },
+      {
+        "id": "shove_prone",
+        "label": "Shove prone",
+        "budget": "action",
+        "strike": true,
+        "attacker": { "checks": ["might"] },
+        "defender": { "checks": ["might", "agility"] },
+        "onWin": { "applies": [{ "condition": "prone" }] }
+      },
+      {
+        "id": "shove_away",
+        "label": "Shove away",
+        "budget": "action",
+        "strike": true,
+        "attacker": { "checks": ["might"] },
+        "defender": { "checks": ["might", "agility"] },
+        "onWin": { "push": 5 }
+      },
+      {
+        "$comment": "SRD 5.1, Escaping a Grapple: an action, the escaper's Athletics or Acrobatics against the grappler's Athletics, aimed only at whoever holds on.",
+        "id": "escape",
+        "label": "Escape a grapple",
+        "budget": "action",
+        "attacker": { "checks": ["might", "agility"] },
+        "defender": { "checks": ["might"] },
+        "from": { "holding": "grappled" },
+        "onWin": { "ends": [{ "condition": "grappled", "on": "actor" }] }
       }
     ],
     "concentration": {

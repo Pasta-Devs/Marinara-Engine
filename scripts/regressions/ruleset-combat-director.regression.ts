@@ -380,7 +380,12 @@ const emberParty = [
   });
   const thing = rulesetCombatant(tiered.rulesetFight!.encounter, "a")!;
   assert.equal(thing.block!.tier, "cr_2");
-  assert.equal(thing.actions.length, 1, "a tier gives one attack and nothing else");
+  // The ruleset's contests are everybody's, so they are not what a tier gave it.
+  assert.equal(
+    thing.actions.filter((action) => action.kind !== "contest").length,
+    1,
+    "a tier gives one attack and nothing else",
+  );
   assert.ok(
     tiered.rulesetFight!.adjustments.some((line) => line.includes("was built from the numbers of")),
     "an opponent nobody wrote says where its numbers came from",
@@ -1065,6 +1070,8 @@ for (const setup of [
         delete source.reach;
         delete source.range;
       }
+      // A push is measured in cells too, so the contest that only pushes goes with them.
+      doc.combat.contests = doc.combat.contests.filter((contest: { onWin: { push?: number } }) => !contest.onWin.push);
     }),
     "a 5e draft that says nothing about cells",
   );
@@ -1372,6 +1379,42 @@ for (const setup of [
 console.log(
   "Ruleset combat director: sheets, bestiaries, clamps, tiers, refusals, one turn per continue, the picker, the board, summaries and a JSON round trip passed.",
 );
+
+// ── The picker weighs a contest like anything else, and the rules never refuse the one it picks ──
+{
+  let taken = 0;
+  let won = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    const state = started({
+      definition: ember,
+      cards: emberCards,
+      partyCatalogs: emberCatalogs,
+      party: emberParty,
+      enemies: [
+        { id: "moth", name: "Cinder Moth" },
+        { id: "jackal", name: "Rust Jackal" },
+      ],
+      seed,
+      positioned: true,
+    });
+    for (const member of emberParty) {
+      commandRulesetCombatDirector(ember, state, { type: "control", unitId: member.id, controller: "ai" });
+    }
+    for (let turn = 0; turn < 60 && !state.outcome; turn++) {
+      assert.ok(commandRulesetCombatDirector(ember, state, { type: "continue" }).ok);
+    }
+    const events = state.rulesetFight!.events.map((entry) => entry.event);
+    assert.ok(!events.some((event) => event.type === "refused"), `seed ${seed}: the rules refused a pick`);
+    for (const event of events) {
+      if (event.type !== "contest") continue;
+      taken++;
+      if (event.winner === "actor") won++;
+    }
+  }
+  // A contest is a setup, and kept modest: taken now and then across sixty fights, never the whole plan.
+  assert.ok(taken > 0, "nobody the Engine plays ever tried a contest");
+  assert.ok(won > 0, "and none of them ever came off");
+}
 
 // ── A party member the Engine plays answers its own windows, and may let one go ──
 {

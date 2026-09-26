@@ -577,6 +577,15 @@ function entriesCarryCreatureSheets(entries: unknown): boolean {
   });
 }
 
+/** A creature that gives its own contest checks, which is 1.43: a new key on the strict creature. */
+function entriesCarryCreatureChecks(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) => {
+    const creature = entry && typeof entry === "object" ? (entry as { creature?: unknown }).creature : undefined;
+    return !!creature && typeof creature === "object" && (creature as { checks?: unknown }).checks !== undefined;
+  });
+}
+
 /** An entry that says WHICH moment it waits for. `reaction: true` has been legal since the key
  *  existed and says only that much; an OBJECT there is 1.33, and an Engine that knows only the
  *  boolean refuses the whole strict catalog file. */
@@ -751,6 +760,16 @@ function rulesetCarriesWound140Keys(ruleset: { sheet?: unknown; rests?: unknown 
   });
 }
 
+const CONTESTS_ISSUE =
+  "A ruleset whose fights have contests, or whose creatures carry contest checks, requires schemaVersion 2 and capabilityApi 1.43 or newer";
+
+/** The 1.43 keys in the ruleset file itself: `checks` and `contests` in the combat block. */
+function rulesetCarriesContests143Keys(ruleset: { combat?: unknown } | undefined): boolean {
+  const combat =
+    ruleset?.combat && typeof ruleset.combat === "object" ? (ruleset.combat as Record<string, unknown>) : undefined;
+  return !!combat && (combat.checks !== undefined || combat.contests !== undefined);
+}
+
 const LIVE_STATES_ISSUE =
   "A ruleset whose sheet has live states, whose derived values read an enum table, or whose rests put a state back, requires schemaVersion 2 and capabilityApi 1.42 or newer";
 
@@ -890,6 +909,7 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryReactionMoments(header.entries) && !declaresApi(33)) return momentIssue;
       if (entriesCarryCreatureSheets(header.entries) && !declaresApi(34)) return sheetIssue;
       if (entriesCarryCheckFaces(header.entries) && !declaresApi(37)) return facesIssue;
+      if (entriesCarryCreatureChecks(header.entries) && !declaresApi(43)) return CONTESTS_ISSUE;
       const asset = header.asset;
       if (typeof asset !== "string") continue;
       // A path that does not normalize is never a declared one, whatever else failed to normalize.
@@ -909,6 +929,7 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryReactionMoments(fileEntries) && !declaresApi(33)) return momentIssue;
       if (entriesCarryCreatureSheets(fileEntries) && !declaresApi(34)) return sheetIssue;
       if (entriesCarryCheckFaces(fileEntries) && !declaresApi(37)) return facesIssue;
+      if (entriesCarryCreatureChecks(fileEntries) && !declaresApi(43)) return CONTESTS_ISSUE;
     }
   }
   // The battle block lives inside the ruleset file too, so it is read the same way and for the same
@@ -1002,6 +1023,8 @@ export function getCapabilityPackageInstallIssue(
       return "A ruleset whose weapons cap their own strikes requires schemaVersion 2 and capabilityApi 1.32 or newer";
     }
   }
+  // Contests and the checks they read, which are 1.43's. Same file, same reason.
+  if (!declaresApi(43) && rulesetCarriesContests143Keys(ruleset)) return CONTESTS_ISSUE;
   // Live states, the enum tables that follow them and the rests that put them back, which are
   // 1.42's. Same file, same reason.
   if (!declaresApi(42) && rulesetCarriesLiveStates142Keys(ruleset)) return LIVE_STATES_ISSUE;

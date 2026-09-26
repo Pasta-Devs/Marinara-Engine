@@ -399,6 +399,10 @@
         {
           "id": "pinned",
           "label": "Pinned"
+        },
+        {
+          "id": "held",
+          "label": "Held"
         }
       ],
       "states": [
@@ -1098,6 +1102,52 @@
       {
         "condition": "pinned",
         "effects": ["cannot-act", "speed-zero"]
+      },
+      {
+        "$comment": "Held in somebody's grip: nowhere to walk, and it ends when whoever holds on goes down. The Grab contest below puts it on, and Break free takes it off.",
+        "condition": "held",
+        "effects": ["speed-zero"],
+        "endsWhenSourceDown": true
+      }
+    ],
+    "checks": [
+      {
+        "$comment": "The numbers a contest reads. Nothing here is a skill: Ember Roads wrestles on Brawn and slips a grip on Wits.",
+        "id": "brawn",
+        "label": "Brawn",
+        "value": { "abilityMod": "brawn" }
+      },
+      { "id": "wits", "label": "Wits", "value": { "abilityMod": "wits" } }
+    ],
+    "contests": [
+      {
+        "$comment": "Both sides throw the same two dice an attack does and add a check; the higher total wins, and the defender takes a tie unless the contest says otherwise.",
+        "id": "grab",
+        "label": "Grab",
+        "budget": "act",
+        "attacker": { "checks": ["brawn"] },
+        "defender": { "checks": ["brawn", "wits"] },
+        "onWin": { "applies": [{ "condition": "held" }] }
+      },
+      {
+        "$comment": "Aimed only at whoever holds on, and only there while held.",
+        "id": "break_free",
+        "label": "Break free",
+        "budget": "act",
+        "attacker": { "checks": ["brawn", "wits"] },
+        "defender": { "checks": ["brawn"] },
+        "from": { "holding": "held" },
+        "onWin": { "ends": [{ "condition": "held", "on": "actor" }] }
+      },
+      {
+        "$comment": "Four paces is two cells on a board, straight away from whoever shoves; a fight with no board moves nobody.",
+        "id": "shove",
+        "label": "Shove back",
+        "budget": "act",
+        "attacker": { "checks": ["brawn"] },
+        "defender": { "checks": ["brawn"] },
+        "ties": "attacker",
+        "onWin": { "push": 4 }
       }
     ],
     "threat": {

@@ -285,6 +285,7 @@ function blockFromCreature(creature: RulesetCreature, budgets: ReadonlySet<strin
     ...(creature.speed !== undefined ? { speed: creature.speed } : {}),
     ...(creature.abilities ? { abilities: { ...creature.abilities } } : {}),
     ...(creature.saves ? { saves: { ...creature.saves } } : {}),
+    ...(creature.checks ? { checks: { ...creature.checks } } : {}),
     ...(creature.resist ? { resist: [...creature.resist] } : {}),
     ...(creature.vulnerable ? { vulnerable: [...creature.vulnerable] } : {}),
     ...(creature.immune ? { immune: [...creature.immune] } : {}),
@@ -491,6 +492,24 @@ export function clampRulesetStatBlock(
     }
     if (Object.keys(kept).length > 0) block.saves = kept;
     else delete block.saves;
+  }
+  // A contest is won with a number added to the same dice an attack throws, so it is held where a
+  // blow's chance to land is: a check this ruleset does not have is dropped, and one past the tier's
+  // own to-hit (with the same headroom) is brought down to it.
+  if (block.checks) {
+    const known = new Set((combat.checks ?? []).map((check) => check.id));
+    const cap = tier.toHit + RULESET_CLAMP_HEADROOM;
+    const kept: Record<string, number> = {};
+    for (const [id, value] of Object.entries(block.checks)) {
+      if (!known.has(id)) {
+        adjusted.push(`The contest check "${id}" is not one this ruleset has, so it was dropped.`);
+        continue;
+      }
+      if (value > cap) adjusted.push(`Its ${id} is now ${cap} instead of ${value}.`);
+      kept[id] = Math.min(value, cap);
+    }
+    if (Object.keys(kept).length > 0) block.checks = kept;
+    else delete block.checks;
   }
   // A rider carries a damage type of its own, and a fight reads resistance off the NAME, so a type
   // this ruleset never declared is a word nothing could act on: held to the same names an action's
