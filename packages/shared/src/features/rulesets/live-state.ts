@@ -56,6 +56,8 @@ export interface RulesetLiveState {
   wounds?: Record<string, RulesetLiveWounds>;
   text?: Record<string, string>;
   conditions?: string[];
+  /** Live states away from their default, keyed by state id: the value they are at. */
+  states?: Record<string, string>;
 }
 
 /** Live state of every card in one game, keyed by normalizeCharacterLookupName(card name). */
@@ -74,6 +76,8 @@ const MAX_LIVE_TEXTS = 12;
 const MAX_LIVE_TEXT_LENGTH = 500;
 const MAX_LIVE_CONDITIONS = 80;
 const MAX_LIVE_CONDITION_LENGTH = 80;
+const MAX_LIVE_STATES = 30;
+const MAX_LIVE_STATE_VALUE_LENGTH = 80;
 /** Every stored number is an integer in this range, so no arithmetic here can reach an unsafe one. */
 const MAX_LIVE_NUMBER = 1_000_000;
 /** What one command may move at once. A bigger number is a typo or a model inventing damage. */
@@ -116,6 +120,7 @@ export const rulesetLiveStateSchema = z
     wounds: boundedRecord(rulesetLiveWoundsSchema, MAX_LIVE_TRACKS, "wound tracks").optional(),
     text: boundedRecord(z.string().max(MAX_LIVE_TEXT_LENGTH), MAX_LIVE_TEXTS, "text fields").optional(),
     conditions: z.array(z.string().max(MAX_LIVE_CONDITION_LENGTH)).max(MAX_LIVE_CONDITIONS).optional(),
+    states: boundedRecord(z.string().max(MAX_LIVE_STATE_VALUE_LENGTH), MAX_LIVE_STATES, "states").optional(),
   })
   .strip();
 
@@ -258,6 +263,17 @@ export interface ResolvedRulesetLive {
   tracks: Array<{ id: string; label: string; min: number; max: number; value: number; wound?: ResolvedRulesetWounds }>;
   text: Array<{ id: string; label: string; maxLength: number; value: string }>;
   conditions: Array<{ id: string; label: string; active: boolean }>;
+  /** Every state the sheet shows, at its value: what is stored when the state still offers it, else
+   *  its default. A state the sheet hides is left out. */
+  states: Array<{
+    id: string;
+    label: string;
+    values: string[];
+    valueLabels?: Record<string, string>;
+    value: string;
+    /** The value's display text. */
+    valueLabel: string;
+  }>;
 }
 
 // ── Wound tracks ──
@@ -575,6 +591,8 @@ function readStoredLiveState(stored: unknown): RulesetLiveState {
     ].slice(0, MAX_LIVE_CONDITIONS);
     if (conditions.length > 0) state.conditions = conditions;
   }
+  const states = keepValid(source.states, z.string().max(MAX_LIVE_STATE_VALUE_LENGTH), MAX_LIVE_STATES);
+  if (states) state.states = states;
   return state;
 }
 
@@ -586,6 +604,7 @@ function normalizeLiveState(state: RulesetLiveState): RulesetLiveState {
   if (state.wounds && Object.keys(state.wounds).length > 0) normalized.wounds = state.wounds;
   if (state.text && Object.keys(state.text).length > 0) normalized.text = state.text;
   if (state.conditions && state.conditions.length > 0) normalized.conditions = state.conditions;
+  if (state.states && Object.keys(state.states).length > 0) normalized.states = state.states;
   return normalized;
 }
 
@@ -659,7 +678,29 @@ function resolveLive(
       label: condition.label,
       active: active.has(condition.id),
     })),
+    // A stored value the state no longer offers reads as its default, as an enum field's does; it
+    // stays stored, like a hidden pool's value, in case the value comes back.
+    states: definition.sheet.live.states.flatMap((entry) => {
+      if (isRulesetItemHidden(entry, build, definition)) return [];
+      const stored = own(state.states, entry.id);
+      const value = stored !== undefined && entry.values.includes(stored) ? stored : rulesetStateDefault(entry);
+      return [
+        {
+          id: entry.id,
+          label: entry.label,
+          values: entry.values,
+          ...(entry.valueLabels ? { valueLabels: entry.valueLabels } : {}),
+          value,
+          valueLabel: own(entry.valueLabels, value) ?? value,
+        },
+      ];
+    }),
   };
+}
+
+/** Where a live state starts, and where a rest's `to: "default"` puts it back. */
+export function rulesetStateDefault(state: { values: readonly string[]; default?: string }): string {
+  return state.default !== undefined && state.values.includes(state.default) ? state.default : state.values[0]!;
 }
 
 /** The sheet's live state as it reads right now. Never throws: junk reads as defaults. */
@@ -698,6 +739,8 @@ export type RulesetSheetOp =
   | { op: "damage"; track: string; kind: string; amount: number; box?: number }
   | { op: "track"; track: string; to?: number; by?: number }
   | { op: "condition"; condition: string; active: boolean }
+  /** Sets a live state to one of its values, named by the value or its label. */
+  | { op: "state"; state: string; value: string }
   | { op: "note"; field: string; value: string }
   | { op: "rest"; rest: string }
   /** Uses something the character picked from a catalog, paying everything it costs. Resolved by
@@ -718,6 +761,10 @@ export type RulesetSheetRefusal =
   /** A track that refuses a mark it has no box for had none free. */
   | "no-box"
   | "unknown-condition"
+  /** A live state the sheet does not have (or hides). */
+  | "unknown-state"
+  /** A value the live state does not offer. */
+  | "unknown-value"
   | "unknown-field"
   | "unknown-rest"
   | "unknown-entry"
@@ -737,6 +784,7 @@ export const RULESET_SHEET_OP_NAMES = Object.freeze([
   "temp",
   "track",
   "condition",
+  "state",
   "note",
   "rest",
   "use",
@@ -809,6 +857,14 @@ export function applyRulesetSheetOp(
     if (state.marks.length === 0 && !state.overflow) delete wounds[id];
     else wounds[id] = state;
     next.wounds = wounds;
+  };
+  const setState = (entry: ResolvedRulesetLive["states"][number], value: string): void => {
+    const states = next.states ?? {};
+    // Back at its default, the entry goes away: the stored blob only says where a state was moved.
+    const declared = definition.sheet.live.states.find((candidate) => candidate.id === entry.id);
+    if (!declared || value === rulesetStateDefault(declared)) delete states[entry.id];
+    else states[entry.id] = value;
+    next.states = states;
   };
   const setText = (id: string, value: string): void => {
     const text = next.text ?? {};
@@ -924,6 +980,17 @@ export function applyRulesetSheetOp(
     return done(`${condition.label} ${op.active ? "on" : "off"}`);
   }
 
+  if (op.op === "state") {
+    const entry = resolved.states.find((state) => sameName(state.id, op.state) || sameName(state.label, op.state));
+    if (!entry) return { ok: false, reason: "unknown-state" };
+    const value = entry.values.find(
+      (candidate) => sameName(candidate, op.value) || sameName(entry.valueLabels?.[candidate] ?? candidate, op.value),
+    );
+    if (value === undefined) return { ok: false, reason: "unknown-value" };
+    setState(entry, value);
+    return done(`${entry.label} ${own(entry.valueLabels, value) ?? value}`);
+  }
+
   if (op.op === "note") {
     const field = resolved.text.find((entry) => sameName(entry.id, op.field) || sameName(entry.label, op.field));
     if (!field) return { ok: false, reason: "unknown-field" };
@@ -946,11 +1013,24 @@ export function applyRulesetSheetOp(
 
   for (const step of rest.restore) {
     const moved = (current: number, max: number, min: number): number => {
-      if (step.to !== undefined) return step.to === "max" ? max : step.to === "min" ? min : step.to;
+      // A string other than these two is a state's value, which a state step below handles.
+      if (step.to !== undefined) return step.to === "max" ? max : step.to === "min" ? min : Number(step.to);
       const by = step.by!;
       if ("const" in by) return current + by.const;
       return current + Math.max(by.min, roundRulesetNumber(max * by.fractionOfMax, by.round));
     };
+    if (step.state !== undefined) {
+      // A state the sheet hides has nothing to put back.
+      const entry = resolved.states.find((state) => state.id === step.state);
+      const declared = definition.sheet.live.states.find((state) => state.id === step.state);
+      if (!entry || !declared || typeof step.to !== "string") continue;
+      const value = step.to === "default" ? rulesetStateDefault(declared) : step.to;
+      if (!declared.values.includes(value)) continue;
+      if (value !== entry.value) changes.push(`${entry.label} ${own(entry.valueLabels, value) ?? value}`);
+      entry.value = value;
+      setState(entry, value);
+      continue;
+    }
     if (step.track !== undefined) {
       const entry = trackValues.get(step.track);
       if (!entry) continue;

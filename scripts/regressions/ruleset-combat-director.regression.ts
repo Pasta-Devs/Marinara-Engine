@@ -1278,6 +1278,60 @@ for (const setup of [
     );
   }
 
+  // A ridge between them (#6678): two cells apart in a straight line, with every cell that is closer
+  // in a straight line solid, and a way round to the south. Walked by the straight line, both stood
+  // and looked at each other for the rest of the fight; walked by the route, it ends.
+  {
+    // Only an axe, as in the browser case that found it: nothing thrown, so walking is the only way
+    // to close the gap.
+    const axeOnly = build({
+      abilities: { brawn: 3, wits: 0, heart: 0 },
+      fields: { toughness: 6 },
+      lists: { gear: [{ name: "Road axe", swing: "brawn", damage: "1d6", harm: "cut" }] },
+    });
+    const state = started({
+      definition: ember,
+      cards: [card("Juno", axeOnly)],
+      partyCatalogs: {},
+      party: [emberParty[0]!],
+      enemies: [{ id: "moth", name: "Cinder Moth" }],
+      seed: 1,
+      positioned: true,
+    });
+    const encounter = state.rulesetFight!.encounter;
+    const grid = encounter.board!.grid;
+    const drawn = [
+      "...m........",
+      "...m........",
+      "...mww......",
+      ".....w......",
+      "...www......",
+      "............",
+      "............",
+      "............",
+    ];
+    const terrain = { ".": "plains", m: "mountain", w: "water" } as const;
+    grid.width = 12;
+    grid.height = 8;
+    grid.tiles = drawn.map((row) => [...row].map((cell) => terrain[cell as keyof typeof terrain]));
+    Object.assign(rulesetCombatant(encounter, "juno")!, { x: 2, y: 2 });
+    Object.assign(rulesetCombatant(encounter, "moth")!, { x: 4, y: 0 });
+    for (const [id, foe] of [
+      ["juno", { x: 4, y: 0 }],
+      ["moth", { x: 2, y: 2 }],
+    ] as const) {
+      const actor = rulesetCombatant(encounter, id)!;
+      actor.movementLeft = actor.movement;
+      assert.ok(
+        !rulesetReachableCells(ember, encounter, id).some(
+          (cell) => Math.max(Math.abs(cell.x - foe.x), Math.abs(cell.y - foe.y)) < 2,
+        ),
+        `${id} can reach no cell that is closer in a straight line, which is the board this case is about`,
+      );
+    }
+    runToTheEnd(ember, state, [emberParty[0]!], "a fight across a ridge");
+  }
+
   // Nobody ends a turn with movement left and an attack they could have reached: the picker walks
   // to the trouble rather than standing in the open.
   const state = started({

@@ -751,6 +751,25 @@ function rulesetCarriesWound140Keys(ruleset: { sheet?: unknown; rests?: unknown 
   });
 }
 
+const LIVE_STATES_ISSUE =
+  "A ruleset whose sheet has live states, whose derived values read an enum table, or whose rests put a state back, requires schemaVersion 2 and capabilityApi 1.42 or newer";
+
+/** The 1.42 keys: `states` in the live section, an `enumTable` derived value, and a rest step that
+ *  names a `state`. Ordinary words, so only those three places are read. */
+function rulesetCarriesLiveStates142Keys(ruleset: { sheet?: unknown; rests?: unknown } | undefined): boolean {
+  const record = (value: unknown) =>
+    value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+  const sheet = record(ruleset?.sheet);
+  if (record(sheet?.live)?.states !== undefined) return true;
+  const derived = sheet?.derived;
+  if (Array.isArray(derived) && derived.some((entry) => record(entry)?.op === "enumTable")) return true;
+  const rests = Array.isArray(ruleset?.rests) ? ruleset.rests : [];
+  return rests.some((rest) => {
+    const restore = record(rest)?.restore;
+    return Array.isArray(restore) && restore.some((step) => record(step)?.state !== undefined);
+  });
+}
+
 const SECTIONS_ISSUE =
   "A ruleset whose abilities, skills or saves sit in sections, or that says what a check does untrained, requires schemaVersion 2 and capabilityApi 1.41 or newer";
 
@@ -983,6 +1002,9 @@ export function getCapabilityPackageInstallIssue(
       return "A ruleset whose weapons cap their own strikes requires schemaVersion 2 and capabilityApi 1.32 or newer";
     }
   }
+  // Live states, the enum tables that follow them and the rests that put them back, which are
+  // 1.42's. Same file, same reason.
+  if (!declaresApi(42) && rulesetCarriesLiveStates142Keys(ruleset)) return LIVE_STATES_ISSUE;
   // Sections on abilities, skills and saves, and untrained rules, which are 1.41's. Same file, same reason.
   if (!declaresApi(41) && rulesetCarriesSections141Keys(ruleset)) return SECTIONS_ISSUE;
   // Wound tracks of boxes, filled by box, refusing when full or lengthened by a list, and rests that

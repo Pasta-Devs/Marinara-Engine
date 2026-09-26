@@ -4,6 +4,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Game Mode rulesets can give a sheet live states such as a form or a stance, one value out of a list that the Game Master or the player changes in play and a rest may put back, and derive numbers from a state or an enum field, so a stance can add dice to one ability's rolls. Capability API 1.42 (#6656).
+
+- Positioned ruleset fights no longer freeze when a wall stands between two fighters: whoever the Engine plays walks the way round instead of waiting for a straight path that never opens (#6678).
+
 - Game Mode rulesets can group abilities, skills and saves into sections, shown under their headings on the sheet and to the Game Master, and say what a check does untrained, by skill or by section: cost dice or points, roll one step harder, or not be attempted at all. A one-request branch check now rolls for the party member it names. Capability API 1.41 (#6655).
 
 - Local models can use an existing GGUF file without downloading another copy, select f16/q8_0/q4_0 KV caches, and show GPU buffer allocations reported by llama.cpp after loading (#6675).

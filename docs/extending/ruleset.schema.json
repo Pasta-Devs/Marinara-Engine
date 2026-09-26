@@ -3639,6 +3639,162 @@
                   "of"
                 ],
                 "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "section": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "hideWhen": {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "equals": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 80
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "notEquals": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 80
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "in": {
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 80
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            }
+                          ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 24
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "field"
+                    ],
+                    "additionalProperties": false,
+                    "oneOf": [
+                      {
+                        "required": [
+                          "equals"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "notEquals"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "in"
+                        ]
+                      }
+                    ]
+                  },
+                  "op": {
+                    "type": "string",
+                    "const": "enumTable"
+                  },
+                  "from": {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "liveState": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "$comment": {}
+                    },
+                    "additionalProperties": false,
+                    "oneOf": [
+                      {
+                        "required": [
+                          "field"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "liveState"
+                        ]
+                      }
+                    ]
+                  },
+                  "table": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "number"
+                    },
+                    "minProperties": 1,
+                    "maxProperties": 40,
+                    "properties": {
+                      "$comment": {}
+                    }
+                  },
+                  "default": {
+                    "type": "number",
+                    "default": 0
+                  },
+                  "$comment": {}
+                },
+                "required": [
+                  "id",
+                  "label",
+                  "op",
+                  "from",
+                  "table"
+                ],
+                "additionalProperties": false
               }
             ]
           },
@@ -4763,6 +4919,137 @@
               "maxItems": 80,
               "default": []
             },
+            "states": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "values": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "minItems": 2,
+                    "maxItems": 40
+                  },
+                  "valueLabels": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "properties": {
+                      "$comment": {}
+                    }
+                  },
+                  "default": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "hideWhen": {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "equals": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 80
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "notEquals": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 80
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "in": {
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 80
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            }
+                          ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 24
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "field"
+                    ],
+                    "additionalProperties": false,
+                    "oneOf": [
+                      {
+                        "required": [
+                          "equals"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "notEquals"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "in"
+                        ]
+                      }
+                    ]
+                  },
+                  "$comment": {}
+                },
+                "required": [
+                  "id",
+                  "label",
+                  "values"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 12,
+              "default": []
+            },
             "$comment": {}
           },
           "additionalProperties": false,
@@ -4830,6 +5117,11 @@
                   "maxLength": 40,
                   "pattern": "^[a-z][a-z0-9_]*$"
                 },
+                "state": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
                 "to": {
                   "anyOf": [
                     {
@@ -4842,6 +5134,11 @@
                     },
                     {
                       "type": "integer"
+                    },
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
                     }
                   ]
                 },
@@ -4893,7 +5190,48 @@
                 },
                 "$comment": {}
               },
-              "additionalProperties": false
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "required": [
+                      "state"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "to": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "to"
+                    ],
+                    "not": {
+                      "required": [
+                        "by"
+                      ]
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "to": {
+                        "anyOf": [
+                          {
+                            "enum": [
+                              "max",
+                              "min"
+                            ]
+                          },
+                          {
+                            "type": "integer"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
             },
             "maxItems": 40,
             "default": []

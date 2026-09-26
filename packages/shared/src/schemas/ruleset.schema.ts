@@ -585,8 +585,30 @@ export const rulesetDerivedSchema = z.discriminatedUnion("op", [
     .strict(),
   z.object({ ...derivedBase, op: z.literal("min"), of: z.array(rulesetValueRefSchema).min(2).max(12) }).strict(),
   z.object({ ...derivedBase, op: z.literal("max"), of: z.array(rulesetValueRefSchema).min(2).max(12) }).strict(),
+  /** A number for each value of an enum field or a live state. A field's value is fixed when the
+   *  character is made, so a table keyed on one may feed a maximum; a live state's changes in play,
+   *  so a table keyed on one is a live read like `liveTrack`, and nothing worked out without a live
+   *  state may read it. A value the table leaves out, and a state the sheet hides, read `default`. */
+  z
+    .object({
+      ...derivedBase,
+      op: z.literal("enumTable"),
+      from: z
+        .object({ field: sheetId.optional(), liveState: sheetId.optional() })
+        .strict()
+        .refine((from) => (from.field === undefined) !== (from.liveState === undefined), {
+          message: "An enum table reads exactly one of: field, liveState",
+        }),
+      table: z
+        .record(z.number().finite())
+        .refine((table) => Object.keys(table).length >= 1 && Object.keys(table).length <= 40, {
+          message: "An enum table names from 1 to 40 values",
+        }),
+      default: z.number().finite().default(0),
+    })
+    .strict(),
 ]);
-export const RULESET_DERIVED_OPS = Object.freeze(["sum", "stepTable", "scale", "min", "max"] as const);
+export const RULESET_DERIVED_OPS = Object.freeze(["sum", "stepTable", "scale", "min", "max", "enumTable"] as const);
 
 const listSchema = z
   .object({
@@ -698,6 +720,38 @@ const liveTrackSchema = z
   })
   .strict();
 
+/** How many live states one sheet may carry. */
+export const RULESET_LIVE_STATES_MAX = 12;
+
+/** A LIVE STATE: one value out of a closed set that changes in play, such as a form, a stance or how
+ *  lit a lantern is. An enum field is chosen when the character is made and stays chosen, and a
+ *  condition is only on or off; a state is exactly one of its values at a time. The sheet command
+ *  sets it, a rest may put it back, and a derived value may follow it with an `enumTable`. */
+const liveStateSchema = z
+  .object({
+    id: sheetId,
+    label,
+    /** Printed in the Game Master's prompt and written inside a command's quotes, so held to the
+     *  rule every label is, and never a double quote. */
+    values: z
+      .array(
+        promptSafeText(80).refine((value) => !value.includes('"'), {
+          message: "A state's value cannot contain a double quote: the sheet command quotes it",
+        }),
+      )
+      .min(2)
+      .max(40),
+    /** Display text per value; a value without one shows as itself. */
+    valueLabels: z.record(label).optional(),
+    /** Where every sheet starts, and where a rest puts it back with `to: "default"`. The first value
+     *  when left out. */
+    default: z.string().max(80).optional(),
+    /** Off the sheet while a field says so, as a pool or track can be: not shown, not set by a
+     *  command, and read by a derived value as no value at all. */
+    hideWhen: hideWhenSchema.optional(),
+  })
+  .strict();
+
 const liveSchema = z
   .object({
     pools: z.array(livePoolSchema).max(60).default([]),
@@ -710,6 +764,7 @@ const liveSchema = z
       .array(z.object({ id: sheetId, label }).strict())
       .max(80)
       .default([]),
+    states: z.array(liveStateSchema).max(RULESET_LIVE_STATES_MAX).default([]),
   })
   .strict();
 
@@ -778,18 +833,34 @@ const restRestoreSchema = z
     track: sheetId.optional(),
     /** On a wound track: clear only marks of this kind, leaving the others where they are. */
     kind: sheetId.optional(),
+    /** A live state, put back with `to`: `"default"` or one of its values. */
+    state: sheetId.optional(),
     ...restAmountShape,
+    /** The maximum, the minimum or a number; on a state step, `"default"` or one of its values. */
+    to: z.union([z.literal("max"), z.literal("min"), z.number().int(), z.string().min(1).max(80)]).optional(),
   })
   .strict()
   .superRefine((op, ctx) => {
-    const targets = (["pool", "poolGroup", "listPools", "track"] as const).filter((key) => op[key] !== undefined);
+    const targets = (["pool", "poolGroup", "listPools", "track", "state"] as const).filter(
+      (key) => op[key] !== undefined,
+    );
+    if (op.state !== undefined && typeof op.to !== "string") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["to"],
+        message: 'A state step sets it with "to": "default" or one of its values',
+      });
+    }
+    if (op.state === undefined && typeof op.to === "string" && op.to !== "max" && op.to !== "min") {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["to"], message: '"to" is "max", "min" or a number' });
+    }
     if (op.kind !== undefined && op.track === undefined) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["kind"], message: '"kind" only narrows a track' });
     }
     if (targets.length !== 1) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "A restore step names exactly one of: pool, poolGroup, listPools, track",
+        message: "A restore step names exactly one of: pool, poolGroup, listPools, track, state",
       });
     }
     if ((op.to === undefined) === (op.by === undefined)) {
@@ -2299,8 +2370,10 @@ interface RulesetSheetNames {
   live: RulesetLiveReaders;
 }
 
-/** The values a derived value reads, in the one place that knows where each op keeps them. */
+/** The values a derived value reads, in the one place that knows where each op keeps them. An enum
+ *  table reads a field's or a state's VALUE rather than a number, so it has none. */
 function derivedRefs(derived: z.infer<typeof rulesetDerivedSchema>): RulesetValueRef[] {
+  if (derived.op === "enumTable") return [];
   return derived.op === "stepTable" ? [derived.from] : derived.op === "scale" ? [derived.of] : derived.of;
 }
 
@@ -2311,7 +2384,8 @@ interface RulesetLiveReaders {
 }
 
 /** The derived values, skills and saves whose number depends on the live state: a derived value
- *  that reads a live track or pool, or reads one of these; a skill or save capped by one. Derived
+ *  that reads a live track or pool, follows a live state, or reads one of these; a skill or save
+ *  capped by one. Derived
  *  values only read the ones above them, and a cap's own chain reads no skill or save (both refused
  *  at import), so one pass top to bottom finds every one. */
 function rulesetLiveReaders(sheet: RulesetSheetSchema): RulesetLiveReaders {
@@ -2329,7 +2403,11 @@ function rulesetLiveReaders(sheet: RulesetSheetSchema): RulesetLiveReaders {
       (ref.saveMod !== undefined && capReadsLive(sheet.saves, ref.saveMod))
     );
   }
-  for (const entry of sheet.derived) if (derivedRefs(entry).some(readsLive)) derived.add(entry.id);
+  for (const entry of sheet.derived) {
+    if (derivedRefs(entry).some(readsLive) || (entry.op === "enumTable" && entry.from.liveState !== undefined)) {
+      derived.add(entry.id);
+    }
+  }
   return {
     derived,
     skills: new Set(sheet.skills.filter((skill) => capReadsLive(sheet.skills, skill.id)).map((skill) => skill.id)),
@@ -2495,6 +2573,8 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
   const tracks = unique(sheet.live.tracks, ["sheet", "live", "tracks"], "track");
   const liveText = unique(sheet.live.text, ["sheet", "live", "text"], "live text");
   const conditions = unique(sheet.live.conditions, ["sheet", "live", "conditions"], "condition");
+  unique(sheet.live.states, ["sheet", "live", "states"], "state");
+  const stateById = new Map(sheet.live.states.map((state) => [state.id, state]));
   const tiers = unique(resolution.proficiencyTiers, ["resolution", "proficiencyTiers"], "proficiency tier");
   unique(def.rests, ["rests"], "rest");
   const poolGroups = new Set(sheet.live.pools.map((pool) => pool.group).filter((group): group is string => !!group));
@@ -2760,6 +2840,28 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         derivedAbove,
       ),
     );
+    if (derived.op === "enumTable") {
+      // What it is keyed on, and a number only for values that one can hold, so no row of the table
+      // is one no sheet could ever read. A layered definition is not held to that: a layer may take a
+      // value out of the field, and the base file already had its table checked against all of them.
+      const { field: fieldId, liveState } = derived.from;
+      const field = fieldId === undefined ? undefined : fieldById.get(fieldId);
+      const state = liveState === undefined ? undefined : stateById.get(liveState);
+      let values: readonly string[] | undefined;
+      if (fieldId !== undefined) {
+        if (!field) issue([...path, "from", "field"], `Unknown field "${fieldId}"`);
+        else if (field.type !== "enum") issue([...path, "from", "field"], `Field "${fieldId}" is not an enum`);
+        else if (!layersApplied) values = field.values;
+      } else if (!state) issue([...path, "from", "liveState"], `Unknown state "${liveState}"`);
+      else values = state.values;
+      if (values) {
+        for (const key of Object.keys(derived.table)) {
+          if (!values.includes(key)) {
+            issue([...path, "table", key], `"${key}" is not one of the values of "${fieldId ?? liveState}"`);
+          }
+        }
+      }
+    }
     checkSection(derived.section, path);
     checkHideWhen(derived.hideWhen, path);
     derivedAbove.add(derived.id);
@@ -2963,6 +3065,20 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       issue([...path, "default"], "default is outside min..max");
     }
   });
+  sheet.live.states.forEach((state, index) => {
+    const path = ["sheet", "live", "states", index];
+    checkHideWhen(state.hideWhen, path);
+    state.values.forEach((value, valueIndex) => {
+      if (state.values.indexOf(value) !== valueIndex)
+        issue([...path, "values", valueIndex], `Duplicate value "${value}"`);
+    });
+    if (state.default !== undefined && !state.values.includes(state.default)) {
+      issue([...path, "default"], `default "${state.default}" is not one of the values`);
+    }
+    for (const key of Object.keys(state.valueLabels ?? {})) {
+      if (!state.values.includes(key)) issue([...path, "valueLabels", key], `"${key}" is not one of the values`);
+    }
+  });
 
   const listById = new Map(sheet.lists.map((list) => [list.id, list]));
   def.rests.forEach((rest, restIndex) => {
@@ -2973,6 +3089,13 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         issue([...path, "poolGroup"], `No pool declares the group "${op.poolGroup}"`);
       }
       if (op.track !== undefined && !tracks.has(op.track)) issue([...path, "track"], `Unknown track "${op.track}"`);
+      if (op.state !== undefined) {
+        const state = stateById.get(op.state);
+        if (!state) issue([...path, "state"], `Unknown state "${op.state}"`);
+        else if (typeof op.to === "string" && op.to !== "default" && !state.values.includes(op.to)) {
+          issue([...path, "to"], `"${op.to}" is not "default" or one of the values of "${op.state}"`);
+        }
+      }
       if (op.kind !== undefined && op.track !== undefined && tracks.has(op.track)) {
         const target = sheet.live.tracks.find((entry) => entry.id === op.track)!;
         if (!woundTracks.has(op.track))
@@ -3459,6 +3582,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           ...sheet.lists,
           ...sheet.live.pools,
           ...sheet.live.tracks,
+          ...sheet.live.states,
         ].flatMap((item) => (item.hideWhen?.field === entry.id ? [item] : []));
         entry.removeValues.forEach((value, valueIndex) => {
           const user = watched.find((item) => rulesetHideWhenValues(item.hideWhen!).includes(value));

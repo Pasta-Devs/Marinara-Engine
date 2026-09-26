@@ -59,6 +59,8 @@ const SHEET_REFUSAL_KEYS: Readonly<Record<string, string>> = Object.freeze({
   "unknown-kind": "game.ruleset.sheet.refusal.unknownKind",
   "no-box": "game.ruleset.sheet.refusal.noBox",
   "unknown-condition": "game.ruleset.sheet.refusal.unknownCondition",
+  "unknown-state": "game.ruleset.sheet.refusal.unknownState",
+  "unknown-value": "game.ruleset.sheet.refusal.unknownValue",
   "unknown-field": "game.ruleset.sheet.refusal.unknownField",
   "unknown-rest": "game.ruleset.sheet.refusal.unknownRest",
   "unknown-entry": "game.ruleset.sheet.refusal.unknownEntry",
@@ -579,6 +581,29 @@ export function GameRulesetSheet({
                     aria-label={localizeUi("game.ruleset.sheet.noteAria", { name: entry.label, who: cardName })}
                     className="w-full min-w-0 resize-y rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
                   />
+                </label>
+              ))}
+            </div>
+          )}
+
+          {resolved.states.length > 0 && (
+            <div className="space-y-1.5">
+              {resolved.states.map((state) => (
+                <label key={state.id} className="flex min-w-0 flex-col gap-0.5">
+                  <span className={labelClass}>{state.label}</span>
+                  <select
+                    value={state.value}
+                    onChange={(event) => apply({ op: "state", state: state.id, value: event.target.value })}
+                    disabled={readOnly}
+                    aria-label={localizeUi("game.ruleset.sheet.stateAria", { name: state.label, who: cardName })}
+                    className="w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
+                  >
+                    {state.values.map((value) => (
+                      <option key={value} value={value}>
+                        {state.valueLabels?.[value] ?? value}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               ))}
             </div>

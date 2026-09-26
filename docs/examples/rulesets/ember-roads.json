@@ -44,7 +44,10 @@
       }
     ],
     "advantage": false,
-    "adjust": [{ "value": { "derived": "burdened" }, "abilities": ["brawn"] }],
+    "adjust": [
+      { "value": { "derived": "burdened" }, "abilities": ["brawn"] },
+      { "value": { "derived": "stance_brawn" }, "abilities": ["brawn"] }
+    ],
     "difficultyLadder": [
       {
         "label": "Easy",
@@ -208,6 +211,15 @@
         "label": "Strain boxes",
         "op": "sum",
         "of": [{ "const": 2 }, { "abilityMod": "heart" }],
+        "section": "about"
+      },
+      {
+        "$comment": "An enum table keyed on the live Stance, so it follows the stance as it changes in play. The resolution's adjust adds it to every roll made with Brawn: two for throwing caution away, one less for holding back.",
+        "id": "stance_brawn",
+        "label": "Stance on Brawn",
+        "op": "enumTable",
+        "from": { "liveState": "stance" },
+        "table": { "guarded": -1, "reckless": 2 },
         "section": "about"
       }
     ],
@@ -388,6 +400,16 @@
           "id": "pinned",
           "label": "Pinned"
         }
+      ],
+      "states": [
+        {
+          "$comment": "A LIVE STATE: exactly one of its values at a time, changing in play. The Game Master sets it with op=\"state\", the sheet shows a picker, and making camp settles it again.",
+          "id": "stance",
+          "label": "Stance",
+          "values": ["guarded", "steady", "reckless"],
+          "valueLabels": { "guarded": "Guarded", "steady": "Steady", "reckless": "Reckless" },
+          "default": "steady"
+        }
       ]
     }
   },
@@ -416,7 +438,8 @@
           "listPools": "tricks",
           "recharge": ["camp"],
           "to": "max"
-        }
+        },
+        { "state": "stance", "to": "default" }
       ],
       "clear": {
         "conditions": ["shaken"]

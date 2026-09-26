@@ -216,9 +216,9 @@ Some systems let a player pay for a roll they are about to make: a point of will
 - `sections` group things in the editor. Fields, derived values and lists name the one they sit in with `section`, and so may abilities, skills and saves: the editor, the game's sheet and the Game Master's sheet block then show them under that heading (a sheet that names no section on them shows them exactly as before). A section may also carry an `untrained` rule (below).
 - `abilities` are the core scores. `skills` and `saves` each may name the ability they roll with, a `cap`, and an `untrained` rule (below).
 - `fields` are single values. Types: `number`, `text`, `longtext`, `boolean`, `enum` (a fixed list of choices), and `dice` (text such as `1d8`).
-- `derived` values are worked out from other values and cannot be typed over. The operations are `sum`, `min`, `max`, `scale` (multiply and round), and `stepTable` (look a value up in thresholds, the way a level gives a proficiency bonus).
+- `derived` values are worked out from other values and cannot be typed over. The operations are `sum`, `min`, `max`, `scale` (multiply and round), `stepTable` (look a value up in thresholds, the way a level gives a proficiency bonus), and `enumTable` (a number for each value of an enum field or a live state; see Live states below).
 - `lists` are tables with your own columns, such as gear, spells, or features. A list with `pools` turns every row into a resource with its own maximum, for class features with limited uses.
-- `live` is what changes during play: `pools` (hit points, spell slots, Grit), `tracks` (a number on a scale, such as exhaustion, or a wound track of boxes you tick), `text` (short notes such as what a character is concentrating on), and `conditions`.
+- `live` is what changes during play: `pools` (hit points, spell slots, Grit), `tracks` (a number on a scale, such as exhaustion, or a wound track of boxes you tick), `text` (short notes such as what a character is concentrating on), `conditions`, and `states` (one value out of a closed set, such as a form or a stance).
 
 Anything that reads a number names it with a value reference, which is an object with exactly one key: `const`, `field`, `derived`, `abilityScore`, `abilityMod`, `abilityModFromField`, `skillMod`, `saveMod`, `listSum`, `livePool`, or `liveTrack`. For example, a pool whose maximum is a derived value: `"max": { "derived": "grit_max" }`.
 
@@ -252,6 +252,51 @@ A skill or save may carry a `cap`, a value reference that is the most its check 
 `hideWhen` hides a field, a derived value, a list, a pool, or a plain track by another field's value, in exactly one of three ways: `equals` one value, `notEquals` one value (hidden whenever the field holds anything else, which is how "only for this kind of character" is said), or `in` a list of values. Every value named must be one the field can hold, or the rule could never match, and it is checked one value at a time; for `notEquals` and `in` that includes a number field's range and a text field's length. The rule reads the value the sheet editor shows: an unset field is the value a blank sheet starts with, and an enum value the ruleset no longer offers is the field's default. The 5e file uses `equals` to hide spell slots from a character who does not cast spells; Gravewatch keeps lantern oil off the sheet of every warden who is not on the night watch with `"hideWhen": { "field": "watch", "notEquals": "night" }`. A layer cannot remove a value any of these compares with. A wound track cannot be hidden, because rolls and fights read it whatever the sheet shows. `notEquals` and `in` are Capability API 1.39.
 
 A plain track's `max` may be a value reference instead of a number, so a rating the character has sets how far it goes: `"max": { "field": "willpower_rating" }`. Its `min` and `default` stay numbers. A wound track with named levels has a `max` equal to its number of levels; a track of numbered boxes is as long as its own `max` (see Numbered boxes below). `alwaysShow: true` prints a track in the Game Master's sheet block even at its default, for a rating that matters on every turn; without it a track at its default is left out, because three death saves at zero say nothing. These three are Capability API 1.37 for a packaged ruleset.
+
+### Live states: a form, a stance, a light
+
+An enum field is chosen when a character is made and stays chosen, and a condition is only on or off. A **live state** is one value out of a closed set that changes in play: a shapeshifter's form, a fighting stance, how lit a lantern is.
+
+```json
+"live": {
+  "states": [
+    {
+      "id": "stance",
+      "label": "Stance",
+      "values": ["guarded", "steady", "reckless"],
+      "valueLabels": { "guarded": "Guarded", "steady": "Steady", "reckless": "Reckless" },
+      "default": "steady"
+    }
+  ]
+}
+```
+
+- `values` are two to forty, each shown as its `valueLabels` entry or as itself. They follow the rule every label follows (one line, no square brackets, no macro braces) and never hold a double quote, because the sheet command quotes them. Up to twelve states.
+- `default` is where every sheet starts, and the first value when you leave it out. Only a state moved away from its default is stored, and a stored value the state no longer offers reads as the default.
+- `hideWhen` takes a state off a sheet by a field's value, as it does a pool: not shown, not set by a command, and read by a table (below) as no value at all.
+- The Game Master sets one with `[sheet: who="Name" op="state" state="Stance" value="Reckless"]`, naming the state by id or label and the value by itself or its label. A state or a value the sheet does not have is refused (`unknown-state`, `unknown-value`). The Engine teaches the command and lists every value only when your ruleset has a state, and every sheet block says each state's value, its default included, because "in human form" is a fact the narration needs every turn.
+- The game's sheet screen shows a picker for each state.
+- A rest puts one back with a restore step that names it: `{ "state": "stance", "to": "default" }`, or `"to"` one of its values.
+
+**Numbers that follow.** A derived value with `"op": "enumTable"` gives a number for each value of an enum field or of a live state:
+
+```json
+{
+  "id": "stance_brawn",
+  "label": "Stance on Brawn",
+  "op": "enumTable",
+  "from": { "liveState": "stance" },
+  "table": { "guarded": -1, "reckless": 2 },
+  "default": 0
+}
+```
+
+- `from` names exactly one of `field` (an enum field) or `liveState`. Every row of `table` is a value that one can hold, one to forty of them. A value the table leaves out, and a state the sheet hides, read `default` (0 when you leave it out).
+- A field is fixed when the character is made, so a table keyed on one may feed a maximum: Gravewatch gives a warden on the dawn watch one more Resolve. A live state changes in play, so a table keyed on one is a live read, like `liveTrack`: nothing worked out before there is a live state may read it, directly or through another derived value. That is why the key is `liveState` rather than `state`: every read of the live state is named `live`, which is how you and the import tell what a maximum cannot use.
+- To put the number on the dice, point `resolution.adjust` at it (see Modifiers off the sheet). Ember Roads adds its Stance to every Brawn roll; Gravewatch takes a shuttered or dark lantern off every Nerve roll.
+- A layer may take a value out of a field a table has a row for. The row is simply never read while the layer is on.
+
+Live states, `enumTable` and a rest step that names a `state` are Capability API 1.42 for a packaged ruleset.
 
 ### Wound tracks: health that is a track, not a number
 
@@ -366,7 +411,7 @@ Some numbers on a sheet ride along on every roll they touch: a heavy pack on eve
 "adjust": [{ "value": { "derived": "burdened" }, "abilities": ["brawn"] }]
 ```
 
-- `value` is a value off the sheet, in the same form a derived value reads, the live state included. A negative number takes away. Ember Roads adds up the bulk of the gear a character has packed into a Burden, and a step table turns every three of it into one off each Brawn roll.
+- `value` is a value off the sheet, in the same form a derived value reads, the live state included. A negative number takes away. Ember Roads adds up the bulk of the gear a character has packed into a Burden, and a step table turns every three of it into one off each Brawn roll. A table keyed on a live state is how a form or a stance reaches the dice (see Live states).
 - `abilities` is optional. With it, the modifier applies only to a check that rolls with one of those abilities: the ability itself, a skill or save that uses it, a skill rolled with it through `with=`, or a pair of abilities that includes it. Without it, it applies to every check.
 - It is applied where the wound penalty is: dice on a pool, under the same `pool.min` floor, and a flat number on a sum, inside the modifier the record adds up. Up to eight entries, added together for each check.
 - A character nobody has a sheet for gets nothing from it, the same way they get no modifier.
@@ -375,7 +420,7 @@ The result says what the sheet added (`adjust="-2"` on the record, and a line on
 
 ### Rests
 
-A rest is a list of restore steps and things to clear. Each step names one target (`pool`, `poolGroup`, `listPools`, or `track`) and either sets it (`"to": "max"`, `"to": "min"`, or a number) or changes it (`"by": { "const": 1 }`, or `"by": { "fractionOfMax": 0.5 }`). A step naming a wound track can only heal it, so its `by` is negative; see above.
+A rest is a list of restore steps and things to clear. Each step names one target (`pool`, `poolGroup`, `listPools`, `track`, or `state`) and either sets it (`"to": "max"`, `"to": "min"`, or a number) or changes it (`"by": { "const": 1 }`, or `"by": { "fractionOfMax": 0.5 }`). A step naming a wound track can only heal it, so its `by` is negative; see above. A step naming a live state only sets it, to `"default"` or one of its values.
 
 ### Game Master text
 
@@ -383,7 +428,7 @@ A rest is a list of restore steps and things to clear. Each step names one targe
 - `sheetGuidance` introduces the character sheets in the prompt. Use it to say which resources matter and when to spend them.
 - `worldGuidance` is optional and is read once, when the world is generated, so the setting the Game Master invents suits your rules: no gunpowder, magic is rare, the dead walk. It never reaches a turn.
 - `sheetSummary` chooses which fields, derived values, and list rows the Game Master sees for each character. The Engine always shows ability modifiers, trained skills and saves, and live values. Keep the rest short, because it is sent on every turn. A summary list's `nameColumn` may be a text or an enum column (an enum shows its value's label), and `columns` names up to three more of the row's own columns to print after the name, so the block reads `Gear: Crowbar 1d6` rather than names alone. A boolean column prints its label when it is set. Both are Capability API 1.37 for a packaged ruleset.
-- You do not need to teach the sheet command in `sheetGuidance`. The Engine teaches every command itself, with the names your file declares, and when your ruleset has a wound track it adds the `op="damage"` command for marking it and lists its levels and kinds of harm.
+- You do not need to teach the sheet command in `sheetGuidance`. The Engine teaches every command itself, with the names your file declares, and when your ruleset has a wound track it adds the `op="damage"` command for marking it and lists its levels and kinds of harm. When it has live states, it adds the `op="state"` command and lists the values each may take.
 
 ## Catalogs: ready-made entries for the sheet's lists
 

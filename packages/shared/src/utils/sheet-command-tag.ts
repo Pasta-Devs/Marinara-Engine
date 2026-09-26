@@ -123,6 +123,13 @@ export function parseSheetCommandTagBody(body: string): ParsedSheetCommandTag {
     if (!condition || active === null) return parsed;
     return { ...parsed, op: { op: "condition", condition, active } };
   }
+  if (name === "state") {
+    // `state=` names the state here; on a condition it is on or off. The op decides which.
+    const state = values.get("state")?.trim();
+    const value = values.get("value")?.trim();
+    if (!state || !value) return parsed;
+    return { ...parsed, op: { op: "state", state, value } };
+  }
   if (name === "note") {
     const field = values.get("field")?.trim();
     if (!field) return parsed;
@@ -199,6 +206,9 @@ export function serializeSheetCommandTag(
     } else if (op.op === "condition") {
       attribute("condition", op.condition);
       attribute("state", op.active ? "on" : "off");
+    } else if (op.op === "state") {
+      attribute("state", op.state);
+      attribute("value", op.value);
     } else if (op.op === "note") {
       attribute("field", op.field);
       attribute("value", op.value);
@@ -254,6 +264,9 @@ export function readResolvedSheetCommandTags(text: string): ResolvedSheetCommand
       values.get("pool") ??
       values.get("track") ??
       values.get("condition") ??
+      // Only a state command names its state here: a condition's `state` is on or off, and it
+      // has already answered above.
+      (name === "state" ? values.get("state") : undefined) ??
       values.get("field") ??
       values.get("rest");
     const head = [who, name ?? "sheet", target].filter(Boolean).join(" ");

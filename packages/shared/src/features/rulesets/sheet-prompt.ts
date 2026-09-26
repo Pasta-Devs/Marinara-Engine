@@ -185,6 +185,10 @@ export function renderRulesetSheetBlock(
     live.text.flatMap((entry) => (entry.value.trim() ? [`${entry.label}: ${safeValue(entry.value)}`] : [])).join(", "),
   );
 
+  // A state is always one of its values, so it is said even at its default: "in human form" is a
+  // fact the narration needs every turn, where a track at its default is the absence of one.
+  push(live.states.map((state) => `${state.label} ${safeValue(state.valueLabel)}`).join(", "));
+
   const conditions = live.conditions.flatMap((condition) => (condition.active ? [condition.label] : []));
   if (conditions.length > 0) push(`Conditions: ${conditions.join(", ")}`);
 

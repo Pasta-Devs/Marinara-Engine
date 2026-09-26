@@ -99,6 +99,7 @@ export {
   rulesetOpportunityAttack,
   rulesetPositionOf,
   rulesetReachableCells,
+  rulesetWalkingDistances,
 } from "./grid.js";
 export {
   planRulesetCombatCost,

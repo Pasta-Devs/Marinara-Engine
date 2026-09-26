@@ -98,13 +98,15 @@ export interface EvaluatedRulesetSheet {
   live?: RulesetSheetLiveValues;
 }
 
-/** What a `liveTrack` or `livePool` reference reads: one character's live state as
- *  `readRulesetLive` resolves it (a pool at its value, a track with its bounds and, on a wound
- *  track, the penalty in force). Described here rather than imported, so the arithmetic never
- *  depends on the live state's own module, which depends on it. */
+/** What a `liveTrack` or `livePool` reference, or an enum table keyed on a live state, reads: one
+ *  character's live state as `readRulesetLive` resolves it (a pool at its value, a track with its
+ *  bounds and, on a wound track, the penalty in force, a state at its value). Described here rather
+ *  than imported, so the arithmetic never depends on the live state's own module, which depends on
+ *  it. A state the sheet hides is not in `states`. */
 export interface RulesetSheetLiveValues {
   pools: ReadonlyArray<{ key: string; value: number }>;
   tracks: ReadonlyArray<{ id: string; min: number; max: number; value: number; wound?: { penalty: number } }>;
+  states?: ReadonlyArray<{ id: string; value: string }>;
 }
 
 export function rulesetAbilityModifier(definition: RulesetDefinition, score: number): number {
@@ -316,7 +318,18 @@ export function evaluateRulesetSheet(
     else if (entry.op === "scale") {
       derived[entry.id] = roundRulesetNumber(resolveRef(entry.of) * entry.multiplier, entry.round);
     } else if (entry.op === "min") derived[entry.id] = Math.min(...entry.of.map(resolveRef));
-    else derived[entry.id] = Math.max(...entry.of.map(resolveRef));
+    else if (entry.op === "enumTable") {
+      // The value it is keyed on: a field as the sheet shows it, or a live state as it stands. With no
+      // live state at all (only where the format refuses such a read) there is no value to key on.
+      const key =
+        entry.from.field !== undefined
+          ? effectiveFieldValue(definition, build, entry.from.field)
+          : live?.states?.find((state) => state.id === entry.from.liveState)?.value;
+      derived[entry.id] =
+        typeof key === "string" && Object.prototype.hasOwnProperty.call(entry.table, key)
+          ? entry.table[key]!
+          : entry.default;
+    } else derived[entry.id] = Math.max(...entry.of.map(resolveRef));
   }
 
   const skillTiers: Record<string, string> = {};

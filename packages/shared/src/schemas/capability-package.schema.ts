@@ -420,7 +420,12 @@ const capabilityPackageManifestBaseSchema = z
 //        number). Not a soft seam, for the same reason as 1.20 through 1.40: an Engine that cannot
 //        read these keys refuses the whole ruleset file, so a package that ships any of them
 //        declares 1.41. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 41 } as const);
+// 1.42: a sheet's live section may declare `states` (one value out of a closed set that changes in
+//        play, set by `op="state"`), a derived value may be an `enumTable` keyed on an enum field or a
+//        live state, and a rest's restore step may put a `state` back. Not a soft seam, for the same
+//        reason as 1.20 through 1.41: an Engine that cannot read these keys refuses the whole ruleset
+//        file, so a package that ships any of them declares 1.42. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 42 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
