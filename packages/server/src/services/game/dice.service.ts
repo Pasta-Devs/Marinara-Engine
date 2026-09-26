@@ -140,7 +140,9 @@ export function resolveGameDiceRequests(
   let rolled = 0;
   const unresolved: string[] = [];
   const reportUnresolved = (request: string, reason: string) => {
-    logger.warn({ request: request.slice(0, 200) }, "[game/dice] Unresolved roll request: %s", reason);
+    // The request is model text: its length at warn, the text itself at debug.
+    logger.warn({ requestLength: request.length }, "[game/dice] Unresolved roll request: %s", reason);
+    logger.debug({ request: request.slice(0, 200) }, "[game/dice] Unresolved roll request text");
     if (unresolved.length < 8) unresolved.push(`${request.slice(0, 200)}: ${reason}`);
   };
   let poolTagIndex = 0;

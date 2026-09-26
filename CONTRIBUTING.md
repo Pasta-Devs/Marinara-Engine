@@ -136,6 +136,7 @@ Regression guards:
 - `pnpm smoke:ui` runs only the `@smoke` tests on desktop Chromium, with one worker. This small suite covers the Home shell, settings persistence, chat-mode navigation, generation stop/refusal, Conversation and Roleplay reasoning, and Game narration. Development PRs into `staging` run it inside the existing required `pnpm-validate` check, so a smoke failure blocks merging. Staging pushes run it as `browser-smoke`. Both replace the full browser matrix at those development boundaries. Keep the smoke selection small; feature-specific regressions belong in focused local runs and the full matrix.
 - `pnpm regression:ui` still runs the full Playwright suite across desktop Chromium, Android-sized Chromium, and iPhone-sized WebKit. GitHub runs the full matrix nightly at 02:17 UTC against `staging`, on manual dispatch, and on PRs into `main` (including promotion and hotfix candidates). Every test job uses the same immutable commit from its triggering event; the `regression-revision` job records that SHA in its summary. Full-matrix checks retain the `desktop-chromium`, `mobile-chromium`, and `mobile-webkit` verdicts; ordinary development runs skip those full lanes.
   Browser runs clear `.tmp/playwright-data` and use disposable app-server fixtures. Local runs start separate desktop and mobile servers; hosted jobs start only the pair their selected project needs. Stop any process already using the configured Playwright ports before running tests; the suite does not reuse a running development server.
+- `node scripts/run-regressions.mjs` (what `pnpm regression` runs) gives each regression file its own throwaway `DATA_DIR`, `FILE_STORAGE_DIR` and `.env` (through `MARINARA_ENV_FILE`) and removes them when the file finishes. A regression that sets these variables itself keeps its own values. Use `--filter <text>` to run a subset.
 - `pnpm test` checks the Windows installer layout, then runs the Node regression lane. It does not run the UI lane; invoke `pnpm regression:ui` explicitly for browser validation.
 
 Before pushing, run `pnpm check` and the regressions covering the behavior you changed. For browser-affecting work, run `pnpm smoke:ui` plus the relevant spec files or named cases. Include mobile Chromium and WebKit when changing responsive layout, touch/keyboard behavior, media playback, or browser-specific APIs. Shared shell, styling, storage, or routing changes warrant broader coverage. Running the entire browser matrix before every push is not required.
@@ -202,6 +203,17 @@ All server-side logging goes through a shared [Pino](https://getpino.io/) logger
 - **Client-side code (`packages/client/`) should keep using `console.*`** — the browser has no Pino. Production builds automatically strip `console.log` via the Vite esbuild `pure` option; only `console.warn` and `console.error` survive.
 
 - **Route handlers** that already have access to `app.log` or `req.log` may use those instead of the shared logger — they are child loggers of the same Pino instance and inherit the same level.
+
+### Request ids, failures and prompt text
+
+[docs/development/logging.md](docs/development/logging.md) covers the details. `app.ts` builds Fastify on the shared logger (`loggerInstance: logger`), so `req.log` lines and shared-logger lines share one format. In short:
+
+- **Every line in a request carries `requestId`.** This includes lines from the shared `logger` inside services. The id is returned to the client as the `x-request-id` header, so you never pass it around by hand.
+- **One line per failure.** Either log an error or rethrow it, not both. Cancellations (user stops, closed clients) belong at `info`: use `logger[failureLevel(err)](err, "...")` from `lib/log-context.ts`.
+- **Keep causes.** Wrap errors with `new Error("...", { cause: err })` so the cause chain reaches the log.
+- **Rate-limit repeating failures** from pollers, health checks and per-turn hooks with `logRateLimited` from `lib/log-rate-limit.ts`.
+- **Prompt, model and provider text stays at `debug`.** At `warn` and `error`, log its length and the reason, not the text.
+- **Time new boot steps** in `buildApp` with `startup.phase("name", () => ...)` from `lib/startup-timeline.ts`.
 
 ## Before You Open a Pull Request
 

@@ -416,13 +416,15 @@ export async function answerPromptDecisions(args: {
   const pending = plan.decisions.filter((decision) =>
     decision.kind === "noul" ? !turn.noul.has(decision.key) : !turn.choice.has(choiceCacheKey(decision)),
   );
-  if (plan.dropped.length > 0)
+  if (plan.dropped.length > 0) {
+    // The count at warn; the statements themselves are chat content and go to debug.
     logger.warn(
-      "[decision] Chat %s asks more decision statements than the per-turn limit; %d read as no: %s",
+      "[decision] Chat %s asks more decision statements than the per-turn limit; %d read as no",
       args.chatId ?? "?",
       plan.dropped.length,
-      plan.dropped.join(" | "),
     );
+    logger.debug("[decision] Dropped decision statements: %s", plan.dropped.join(" | "));
+  }
   let requestError: string | undefined;
   if (backend && pending.length > 0 && (args.afterReply || !backend.deferPreGeneration)) {
     const questions: NoulQuestion[] = pending.map((decision, index) => ({

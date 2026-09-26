@@ -69,6 +69,8 @@ import { computePersonalExtensionHash } from "../extensions/personal-extension-h
 import { HomeWidgetCatalogConflictError, replaceHomeWidgetCatalog } from "../home-widget-catalog.service.js";
 import { createMariWherePredicate } from "./mari-where-expression.js";
 import { runMariTransformSandbox } from "./mari-transform-sandbox.js";
+import { reloadFeatureSettingsIfTouched } from "../features/feature-settings.js";
+import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
 import { encryptCustomToolWebhookUrl, ENCRYPTED_WEBHOOK_PREFIX } from "../../utils/custom-tool-webhook.js";
 
 type Row = Record<string, unknown>;
@@ -8390,6 +8392,8 @@ export class MariDbService {
       );
     }
     await flushDB();
+    // A Settings > Features row written here bypasses app-settings storage; refresh its cache.
+    await reloadFeatureSettingsIfTouched(plan.changes, createAppSettingsStorage(this.db));
     return journalPath;
   }
 
@@ -8493,6 +8497,7 @@ export class MariDbService {
       );
     }
     await flushDB();
+    await reloadFeatureSettingsIfTouched(changes, createAppSettingsStorage(this.db));
   }
 
   private async writeJournal(operationId: string, plan: Plan): Promise<string> {

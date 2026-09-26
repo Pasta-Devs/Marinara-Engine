@@ -6,7 +6,7 @@
 // collector. It may also declare which built-in game systems it replaces; undeclared stays built-in.
 // ──────────────────────────────────────────────
 
-import { logger } from "../../lib/logger.js";
+import { logRateLimited } from "../../lib/log-rate-limit.js";
 
 /** Read-only view of the turn handed to each contributor. */
 export interface CapabilityPromptContextRequest {
@@ -133,7 +133,14 @@ export async function collectCapabilityPromptContext(
       }
     } catch (error) {
       // Non-fatal by design: a broken contributor costs its own context, not the player's turn.
-      logger.warn(error, "[capability] prompt-context contributor failed for %s", packageId);
+      // Runs every turn, so a package that keeps failing logs once a minute, with a repeat count.
+      logRateLimited(
+        "warn",
+        `prompt-context:${packageId}`,
+        error,
+        "[capability] prompt-context contributor failed for %s",
+        packageId,
+      );
     }
   }
   return { blocks, packageBlocks, provides };

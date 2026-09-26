@@ -49,6 +49,12 @@ export const REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+/** Support snapshot of storage residency and package runtimes; a person reads it a few times, not in a loop. */
+export const RUNTIME_DIAGNOSTICS_RATE_LIMIT = {
+  max: 30,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 /**
  * Operator corrections to Beholder's physical state.
  *
@@ -118,6 +124,14 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
       key: "request-timeout-settings",
       limit: REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT.max,
       windowMs: REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT.timeWindow,
+    },
+  },
+  {
+    pattern: /^\/api\/admin\/runtime-diagnostics(?:\?|$)/,
+    rule: {
+      key: "runtime-diagnostics",
+      limit: RUNTIME_DIAGNOSTICS_RATE_LIMIT.max,
+      windowMs: RUNTIME_DIAGNOSTICS_RATE_LIMIT.timeWindow,
     },
   },
   { pattern: /^\/api\/updates\/apply(?:\?|$)/, rule: { key: "updates-apply", limit: 5, windowMs: 60_000 } },
