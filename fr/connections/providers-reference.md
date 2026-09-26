@@ -82,6 +82,26 @@ Le champ **API Key** accepte l'un de ces trois types d'identifiants, et Marinara
 
 **NanoGPT** est lui aussi un agrégateur. Il n'a pas de liste de modèles intégrée, le menu déroulant **Model** est donc vide au départ. Une fois la clé collée, clique sur **Fetch Models from API** pour charger les modèles auxquels ton compte a droit.
 
+Marinara lit le catalogue détaillé de NanoGPT. La liste déroulante indique donc quels modèles ton abonnement couvre et lesquels en consomment davantage :
+
+- Un modèle inclus affiche une pastille de **multiplicateur de tokens d'entrée** : `1x` en vert pour la consommation normale, ou une valeur supérieure comme `2x` si chaque token envoyé décompte autant de tokens d'entrée de ton quota. Un modèle *non inclus* affiche **Paid** (payant), car son utilisation est facturée sur ton solde payant. Sans pastille, le modèle n'avait aucune donnée d'abonnement à communiquer.
+
+### Consommation de l'abonnement
+
+Si tu as un abonnement NanoGPT, cette connexion peut afficher ton quota actuel :
+
+1. Active **Show subscription usage** (afficher la consommation de l'abonnement) dans l'éditeur de connexion et enregistre.
+2. Tu peux d'abord coller un **Management Token** (jeton de gestion).
+
+Le widget interroge le point d'accès de consommation de NanoGPT et affiche tes quotas hebdomadaires et quotidiens de tokens d'entrée. Deux identifiants permettent de les lire :
+
+- **Management Token** (recommandé) : crée-le sur `https://nano-gpt.com/settings#management-api-tokens` avec la portée **Usage only** (consommation uniquement). Il peut lire tes quotas, mais ne peut ni exécuter de modèles ni dépenser ton solde : c'est donc le choix le plus sûr pour afficher la consommation. Marinara le conserve chiffré et l'envoie uniquement au point d'accès de gestion de NanoGPT.
+- **Ta clé API** : utilisée automatiquement si aucun jeton de gestion n'est enregistré. Cela fonctionne, mais les lectures emploient alors le même identifiant que celui permettant de dépenser ton solde.
+
+Un quota que NanoGPT ne peut pas communiquer apparaît comme **inconnu**, et non comme inutilisé. Un abonnement inactif est signalé au lieu d'être représenté avec tout son quota disponible. Le bouton d'actualisation du widget permet de le rafraîchir à la demande.
+
+Le même indicateur apparaît sous celui du contexte dans le sélecteur de connexion du chat et dans ses réglages **Connection** (connexion). Tu peux ainsi suivre ton quota sans quitter le chat. Il suit la connexion active : il apparaît uniquement pour une connexion NanoGPT avec **Show subscription usage** activé, jamais pour **Random**, qui ne désigne pas une seule connexion à interroger. Dans le sélecteur, il reprend le style de la barre de contexte au-dessus et se lit de la même manière : consommation par rapport au quota hebdomadaire, par exemple `8.9M / 60M tokens`.
+
 ## xAI / Grok
 
 - Où obtenir une clé : `https://console.x.ai`

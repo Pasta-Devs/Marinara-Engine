@@ -82,6 +82,26 @@ Das Feld **API Key** akzeptiert drei Arten von Zugangsdaten, und Marinara erkenn
 
 **NanoGPT** ist ebenfalls ein Aggregator. Eine eingebaute Modellliste gibt es nicht, deshalb bleibt das Dropdown-Menü **Model** zunächst leer. Klick nach dem Einfügen des Keys auf **Fetch Models from API**, um die für dein Konto verfügbaren Modelle zu laden.
 
+Marinara liest den detaillierten Modellkatalog von NanoGPT. Die Auswahlliste zeigt deshalb, welche Modelle dein Abonnement abdeckt und welche mehr davon verbrauchen:
+
+- Ein enthaltenes Modell zeigt ein Kennzeichen mit einem **Eingabetoken-Multiplikator**: `1x` in Grün beim normalen Verbrauch oder einen höheren Wert wie `2x`, wenn jedes gesendete Token entsprechend viele Eingabetoken deines Kontingents verbraucht. Ein *nicht* enthaltenes Modell zeigt **Paid** (kostenpflichtig), weil seine Nutzung stattdessen dein bezahltes Guthaben belastet. Ein Modell ohne Kennzeichen hat keine Abonnementdaten geliefert.
+
+### Abonnementverbrauch
+
+Wenn du ein NanoGPT-Abonnement hast, kann diese Verbindung dein aktuelles Kontingent anzeigen:
+
+1. Aktiviere **Show subscription usage** (Abonnementverbrauch anzeigen) im Verbindungseditor und speichere.
+2. Füge optional vorher einen **Management Token** (Verwaltungstoken) ein.
+
+Das Widget liest den Nutzungsendpunkt von NanoGPT und zeigt deine wöchentlichen und täglichen Eingabetoken-Kontingente. Zwei Zugangsdaten können darauf zugreifen:
+
+- **Management Token** (empfohlen): Erstelle unter `https://nano-gpt.com/settings#management-api-tokens` einen Token mit dem Berechtigungsumfang **Usage only** (nur Nutzung). Er kann Kontingente lesen, aber keine Modelle ausführen oder dein Guthaben ausgeben und ist deshalb die sicherere Wahl für eine Verbrauchsanzeige. Marinara speichert ihn verschlüsselt und sendet ihn nur an den Verwaltungsendpunkt von NanoGPT.
+- **Dein API-Schlüssel**: Wird automatisch verwendet, wenn kein Verwaltungstoken gespeichert ist. Das funktioniert, aber die Abfrage verwendet dann dieselben Zugangsdaten, mit denen dein Guthaben ausgegeben werden kann.
+
+Ein Kontingent, das NanoGPT gerade nicht melden kann, erscheint als **unbekannt** statt als ungenutzt. Ein inaktives Abonnement wird ausdrücklich gekennzeichnet, statt ein vollständig verfügbares Kontingent anzuzeigen. Mit der Aktualisierungsschaltfläche aktualisierst du das Widget bei Bedarf.
+
+Dieselbe Anzeige erscheint unter der Kontextanzeige in der Verbindungsauswahl eines Chats und in dessen **Connection**-Einstellungen (Verbindung). So kannst du dein Kontingent verfolgen, ohne den Chat zu verlassen. Sie folgt der aktiven Verbindung: Sie erscheint nur bei einer NanoGPT-Verbindung mit aktiviertem **Show subscription usage** und nicht bei **Random**, das keine einzelne Verbindung zum Abfragen hat. In der Auswahl passt sie optisch zum Kontextbalken darüber und wird genauso gelesen: Verbrauch im Verhältnis zum Wochenkontingent, etwa `8.9M / 60M tokens`.
+
 ## xAI / Grok
 
 - Key bekommst du hier: `https://console.x.ai`
