@@ -148,7 +148,8 @@ export function renderRulesetSheetBlock(
         if (!resolved) return [];
         if (resolved.wound) {
           if (resolved.value === 0 && resolved.wound.overflow === 0 && !track.alwaysShow) return [];
-          const level = resolved.wound.levels[resolved.value - 1]?.label;
+          // Numbered boxes have no name to say beyond how many are marked.
+          const level = resolved.wound.numbered ? undefined : resolved.wound.levels[resolved.wound.lowest]?.label;
           const over = resolved.wound.overflow > 0 ? ` +${resolved.wound.overflow} over` : "";
           const penalty = resolved.wound.penalty !== 0 ? ` ${resolved.wound.penalty} to rolls` : "";
           return [

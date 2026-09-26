@@ -311,10 +311,15 @@ export const OPENAI_CHATGPT_MODELS: KnownModel[] = [
 // ── Google AI Studio (from #model_google_select) ──
 
 export const GOOGLE_MODELS: KnownModel[] = [
+  // Gemini 3.8
+  { id: "gemini-3.8-flash", name: "gemini-3.8-flash", context: 1000000, maxOutput: 65536 },
+  // Gemini 3.7
+  { id: "gemini-3.7-flash", name: "gemini-3.7-flash", context: 1000000, maxOutput: 65536 },
   // Gemini 3.6
   { id: "gemini-3.6-flash", name: "gemini-3.6-flash", context: 1000000, maxOutput: 65536 },
   // Gemini 3.5
   { id: "gemini-3.5-flash", name: "gemini-3.5-flash", context: 1000000, maxOutput: 65536 },
+  { id: "gemini-3.5-flash-lite", name: "gemini-3.5-flash-lite", context: 1000000, maxOutput: 65536 },
   // Gemini 3.1
   { id: "gemini-3.1-pro-preview", name: "gemini-3.1-pro-preview", context: 1000000, maxOutput: 65536 },
   {
@@ -326,8 +331,9 @@ export const GOOGLE_MODELS: KnownModel[] = [
   { id: "gemini-3.1-pro", name: "gemini-3.1-pro", context: 1000000, maxOutput: 65536 },
   { id: "gemini-3.1-flash-lite", name: "gemini-3.1-flash-lite", context: 1000000, maxOutput: 65536 },
   { id: "gemini-3.1-flash-lite-preview", name: "gemini-3.1-flash-lite-preview", context: 1000000, maxOutput: 65536 },
-  { id: "gemini-3.1-flash-image", name: "gemini-3.1-flash-image", context: 65535, maxOutput: 8192 },
-  { id: "gemini-3.1-flash-image-preview", name: "gemini-3.1-flash-image-preview", context: 65535, maxOutput: 8192 },
+  { id: "gemini-3.1-flash-image", name: "gemini-3.1-flash-image", context: 131072, maxOutput: 32768 },
+  { id: "gemini-3.1-flash-image-preview", name: "gemini-3.1-flash-image-preview", context: 131072, maxOutput: 32768 },
+  { id: "gemini-3.1-flash-lite-image", name: "gemini-3.1-flash-lite-image", context: 65536, maxOutput: 4096 },
   // Gemini 3.0
   { id: "gemini-3-pro-preview", name: "gemini-3-pro-preview", context: 1000000, maxOutput: 65536 },
   {
@@ -337,8 +343,8 @@ export const GOOGLE_MODELS: KnownModel[] = [
     maxOutput: 65536,
   },
   { id: "gemini-3-flash", name: "gemini-3-flash", context: 1000000, maxOutput: 65536 },
-  { id: "gemini-3-pro-image-preview", name: "gemini-3-pro-image-preview", context: 65535, maxOutput: 8192 },
-  { id: "gemini-3-pro-image", name: "gemini-3-pro-image", context: 65535, maxOutput: 8192 },
+  { id: "gemini-3-pro-image-preview", name: "gemini-3-pro-image-preview", context: 65536, maxOutput: 32768 },
+  { id: "gemini-3-pro-image", name: "gemini-3-pro-image", context: 65536, maxOutput: 32768 },
   { id: "gemini-3-flash-preview", name: "gemini-3-flash-preview", context: 1000000, maxOutput: 65536 },
   // Gemini 2.5
   { id: "gemini-2.5-pro", name: "gemini-2.5-pro", context: 1000000, maxOutput: 65536 },
@@ -366,8 +372,8 @@ export const GOOGLE_MODELS: KnownModel[] = [
     context: 1000000,
     maxOutput: 65536,
   },
-  { id: "gemini-2.5-flash-image", name: "gemini-2.5-flash-image", context: 32767, maxOutput: 8192 },
-  { id: "gemini-2.5-flash-image-preview", name: "gemini-2.5-flash-image-preview", context: 32767, maxOutput: 8192 },
+  { id: "gemini-2.5-flash-image", name: "gemini-2.5-flash-image", context: 65536, maxOutput: 32768 },
+  { id: "gemini-2.5-flash-image-preview", name: "gemini-2.5-flash-image-preview", context: 65536, maxOutput: 32768 },
   // Gemini 2.0
   {
     id: "gemini-2.0-pro-exp-02-05",

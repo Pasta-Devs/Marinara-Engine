@@ -409,7 +409,13 @@ const capabilityPackageManifestBaseSchema = z
 //        seam, for the same reason as 1.20 through 1.38: an Engine that cannot read these keys
 //        refuses the whole ruleset file, so a package that ships any of them declares 1.39. No
 //        permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 39 } as const);
+// 1.40: wound tracks that are more than a fixed list. A track may be numbered `boxes` (as many as
+//        its own `max`, with a penalty table over boxes filled or remaining), `fill` by box
+//        (`indexed`), `onFull: "refuse"`, and take `extra` levels from a list; a rest's restore
+//        step may name the `kind` it heals. Not a soft seam, for the same reason as 1.20 through
+//        1.39: an Engine that cannot read these keys refuses the whole ruleset file, so a package
+//        that ships any of them declares 1.40. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 40 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

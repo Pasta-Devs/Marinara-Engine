@@ -232,11 +232,11 @@ A skill or save may carry a `cap`, a value reference that is the most its check 
 
 `hideWhen` hides a field, a derived value, a list, a pool, or a plain track by another field's value, in exactly one of three ways: `equals` one value, `notEquals` one value (hidden whenever the field holds anything else, which is how "only for this kind of character" is said), or `in` a list of values. Every value named must be one the field can hold, or the rule could never match, and it is checked one value at a time; for `notEquals` and `in` that includes a number field's range and a text field's length. The rule reads the value the sheet editor shows: an unset field is the value a blank sheet starts with, and an enum value the ruleset no longer offers is the field's default. The 5e file uses `equals` to hide spell slots from a character who does not cast spells; Gravewatch keeps lantern oil off the sheet of every warden who is not on the night watch with `"hideWhen": { "field": "watch", "notEquals": "night" }`. A layer cannot remove a value any of these compares with. A wound track cannot be hidden, because rolls and fights read it whatever the sheet shows. `notEquals` and `in` are Capability API 1.39.
 
-A plain track's `max` may be a value reference instead of a number, so a rating the character has sets how far it goes: `"max": { "field": "willpower_rating" }`. Its `min` and `default` stay numbers. A wound track's `max` is always its number of levels. `alwaysShow: true` prints a track in the Game Master's sheet block even at its default, for a rating that matters on every turn; without it a track at its default is left out, because three death saves at zero say nothing. These three are Capability API 1.37 for a packaged ruleset.
+A plain track's `max` may be a value reference instead of a number, so a rating the character has sets how far it goes: `"max": { "field": "willpower_rating" }`. Its `min` and `default` stay numbers. A wound track with named levels has a `max` equal to its number of levels; a track of numbered boxes is as long as its own `max` (see Numbered boxes below). `alwaysShow: true` prints a track in the Game Master's sheet block even at its default, for a rating that matters on every turn; without it a track at its default is left out, because three death saves at zero say nothing. These three are Capability API 1.37 for a packaged ruleset.
 
 ### Wound tracks: health that is a track, not a number
 
-Plenty of systems do not count hit points at all. They have a column of boxes, each worse than the last, and you tick one when you get hurt. Give a `live.tracks` entry `levels` and `kinds` and it stops being a number on a scale and becomes one of those:
+Plenty of systems do not count hit points at all. They have a column of boxes, each worse than the last, and you tick one when you get hurt. Give a `live.tracks` entry `kinds` and either named `levels` or numbered `boxes` (below) and it stops being a number on a scale and becomes one of those:
 
 **Which shape does your system want?** A pool records how MUCH harm landed; a track records how much AND what kind each piece of it was. If your system says a wound is bashing, lethal or aggravated, and which one it was still matters after the blow, because aggravated heals slower or cannot be soaked or is what finally kills, then that kind has to live somewhere after the roll, and only a mark carries one. A pool of points cannot: once damage is subtracted it is just a smaller number, and nothing on the sheet remembers which points were which. That is why `combat.damageKinds` is refused on a ruleset whose health is a pool rather than being quietly ignored. A pool can still have `damageTypes`, and an opponent can still resist or be immune to them, because that is a question about how much of the blow lands rather than about what the wound is afterwards.
 
@@ -261,9 +261,9 @@ Plenty of systems do not count hit points at all. They have a column of boxes, e
 
 - `levels` is 1 to 16 rungs, best first and worst last. Each has a `label` and an integer `penalty` at or below 0. A large negative number is how these systems say "you are out of it", so `-99` is fine.
 - `kinds` is 1 to 6 sorts of harm the track can take, each with an `id`, a short `label` for the box, and a `severity`. The severities have to be distinct; the numbers themselves mean nothing beyond their order, so space them however you like.
-- The two go together. `kinds` without `levels` is refused, because there would be nothing to mark, and `levels` without `kinds` is refused, because a mark has to be of something.
+- The two go together. `kinds` without `levels` or `boxes` is refused, because there would be nothing to mark, and `levels` or `boxes` without `kinds` is refused, because a mark has to be of something. A track has `levels` or `boxes`, never both.
 - **Keep the two words apart.** `kinds` is what your ruleset says a mark may BE. A MARK is one of those kinds sitting on the track during play. The definition holds kinds; a character's sheet holds marks.
-- A wound track's length is its levels, so its `min` is 0 and its `max` is `levels.length`. A file that says anything else is refused rather than quietly corrected, so the file can never carry two disagreeing lengths.
+- A wound track starts unmarked, so its `min` is 0. A track with named levels is as long as its levels, so its `max` is `levels.length`, and a file that says anything else is refused rather than quietly corrected, so it can never carry two disagreeing lengths. A track of boxes is as long as its own `max`, which may be a value the sheet works out (see Numbered boxes below).
 
 **The rules, exactly**, because a vague reading produces the wrong track:
 
@@ -273,18 +273,60 @@ Plenty of systems do not count hit points at all. They have a column of boxes, e
 - An `amount` is a number of marks of one kind, **applied one at a time**, so a track that fills partway through is handled by the same rule as one that was already full.
 - Marking a **full** track **upgrades its lowest-severity mark by one step** instead of adding a mark. One step up your own ladder of kinds, whatever kind the new mark was.
 - A mark that would upgrade past your highest severity is kept at the highest, and the one that could not land is counted as an **overflow**. Overflow is stored, so a reload does not forget harm somebody already took.
-- **Healing is the same command with a negative amount.** It clears the lightest marks first, and it clears overflow before it clears any mark.
+- **Healing is the same command with a negative amount.** It clears overflow before it clears any mark. A heal that names one of the track's kinds clears only marks of that kind, so "the bashing heals, the lethal stays" is `kind="bashing"` with a negative amount; one that names no kind the track has clears the lightest marks first.
 
-**Marking it in play.** The Game Master writes `[sheet: op="damage" track="harm" kind="knock" amount="1"]`, and heals with a negative `amount`. The pool form of `damage`, which names `pool=` instead, is unchanged. The plain `track` command is refused on a wound track: a bare number cannot say what the new marks are. The player can also mark and clear boxes by hand on the sheet, which is what these systems expect.
+**Marking it in play.** The Game Master writes `[sheet: op="damage" track="harm" kind="knock" amount="1"]`, and heals with a negative `amount`. On a track that fills by box it adds `box="3"` for the box the hit lands on. The pool form of `damage`, which names `pool=` instead, is unchanged. The plain `track` command is refused on a wound track: a bare number cannot say what the new marks are. The player can also mark and clear boxes by hand on the sheet, which is what these systems expect.
 
 **A fight can mark one too.** Point `combat.health` at the track instead of a pool and the fight
 marks it: a blow that lands marks the boxes `combat.damageKinds.marks` says it does, of the kind
 that block maps its damage type onto, and a character whose track is full is down, which is what
-your dying rule reads. Healing clears one mark. Temporary points are refused, because a track has no buffer for them to sit in. The Engine
+your dying rule reads. On a track that fills by box, `per-point` damage names the box it lands on
+and `per-blow` aims at the first, and a blow that no box can take puts the character down, which is
+what being taken out means in the systems that keep such a track. Healing clears one mark, the
+lightest, of any kind. Temporary points are refused, because a track has no buffer for them to sit in. The Engine
 reads a track as the levels it has LEFT, so everything else about a fight, going down, being
 revived, the log and the recap, is unchanged.
 
-**A rest can heal a wound track.** A restore step naming one with `"to"` clears it down to that many marks, overflow and all; one naming it with a NEGATIVE `"by"` clears that many, overflow first, so `"by": { "const": -2 }` clears two. A step that would ADD marks does nothing, because a rest names no kind to mark with, and that includes a positive `"by"`: it is skipped without a word, so write the minus sign.
+**A rest can heal a wound track.** A restore step naming one with `"to"` clears it down to that many marks, overflow and all; one naming it with a NEGATIVE `"by"` clears that many, overflow first, so `"by": { "const": -2 }` clears two. A step that also names a `kind` clears only marks of that kind: Gravewatch's "Catch your breath" is `{ "track": "harm", "kind": "knock", "to": "min" }`, which mends the knocks and leaves the tears. A step that would ADD marks does nothing, because a rest marks no harm, and that includes a positive `"by"`: it is skipped without a word, so write the minus sign.
+
+#### Numbered boxes instead of named levels
+
+Where a track is as long as a character is tough, give it `boxes` instead of `levels`. It has as many boxes as its own `max`, which may be a value the sheet works out (never one that reads the live state), up to 64:
+
+```json
+{
+  "id": "strain",
+  "label": "Strain",
+  "min": 0,
+  "max": { "derived": "strain_boxes" },
+  "boxes": {
+    "penalty": {
+      "by": "remaining",
+      "table": [
+        [0, -1],
+        [1, 0]
+      ]
+    }
+  },
+  "kinds": [{ "id": "strain", "label": "S", "severity": 0 }],
+  "fill": "indexed",
+  "onFull": "refuse"
+}
+```
+
+- The penalty in force is read off `table` (a step table, like a derived value's, with penalties at or below 0) at the number of boxes `filled` or `remaining`, whatever that number is, so a table can cost something with nothing marked. It does not depend on which boxes are marked.
+- The boxes are numbered: the sheet shows "Box 3", and the Game Master's sheet block says how many are marked out of how many rather than naming a level.
+
+#### Filling by box, and tracks that refuse
+
+- `"fill": "indexed"` puts a mark on the box the command names with `box=` (the first box when it names none), or the next free box above it, and never moves a mark once it is down. A heal clears the highest of the lightest marks. The sheet screen lets a player click any clear box.
+- `"onFull": "refuse"` refuses a mark that has no box free, instead of upgrading the lightest mark. The whole command is refused, so three marks with two boxes free land none. An indexed track always refuses; say so with `"onFull": "refuse"` beside it.
+
+#### Levels a list adds
+
+`"extra": { "list": "scars", "countColumn": "levels", "penaltyColumn": "penalty" }` on a track with named levels lets a list on the sheet lengthen it per character. Each row, in order, adds its count of levels (at most 16) at its penalty, after the last level whose penalty is at least as good, named after that level when the penalties match and by the penalty otherwise. Gravewatch's scars work this way. A list the sheet hides adds nothing, and if a row is deleted while its levels are marked, the marks that no longer fit are kept as overflow: harm is not undone by editing the sheet.
+
+`boxes`, `fill`, `onFull`, `extra` and a rest step's `kind` are Capability API 1.40 for a packaged ruleset.
 
 ### The penalty on your rolls
 

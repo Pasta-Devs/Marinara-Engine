@@ -253,7 +253,26 @@ function requireLevelsWithKinds(node) {
   Object.values(node).forEach(requireLevelsWithKinds);
   const properties = node.properties;
   if (node.type !== "object" || !properties?.levels || !properties.kinds || !properties.min) return;
-  node.dependencies = { ...(node.dependencies ?? {}), kinds: ["levels"], levels: ["kinds"] };
+  // A wound track has kinds beside exactly one of levels or boxes; fill, onFull and extra are only
+  // for one, and extra only beside levels.
+  node.dependencies = {
+    ...(node.dependencies ?? {}),
+    levels: ["kinds"],
+    boxes: ["kinds"],
+    extra: ["levels"],
+    fill: ["kinds"],
+    onFull: ["kinds"],
+  };
+  node.allOf = [
+    ...(node.allOf ?? []),
+    { not: { required: ["levels", "boxes"] } },
+    { if: { required: ["kinds"] }, then: { anyOf: [{ required: ["levels"] }, { required: ["boxes"] }] } },
+    // An indexed track never moves a mark, so it has no lightest one to upgrade: it refuses when full.
+    {
+      if: { properties: { fill: { const: "indexed" } }, required: ["fill"] },
+      then: { properties: { onFull: { const: "refuse" } }, required: ["onFull"] },
+    },
+  ];
 }
 
 /**

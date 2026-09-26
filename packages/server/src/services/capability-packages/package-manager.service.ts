@@ -728,6 +728,29 @@ function rulesetCapsChecks(ruleset: { sheet?: unknown } | undefined): boolean {
   );
 }
 
+const WOUND_BOXES_ISSUE =
+  "A ruleset whose wound tracks are boxes, fill by box, refuse a mark when full or take extra levels from a list, or whose rests heal one kind of harm, requires schemaVersion 2 and capabilityApi 1.40 or newer";
+
+/** The 1.40 keys: on a live track, and on a rest's restore step. Ordinary words, so only those two
+ *  places are read. */
+function rulesetCarriesWound140Keys(ruleset: { sheet?: unknown; rests?: unknown } | undefined): boolean {
+  const record = (value: unknown) =>
+    value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+  const tracks = record(record(ruleset?.sheet)?.live)?.tracks;
+  const trackKeys =
+    Array.isArray(tracks) &&
+    tracks.some((track) => {
+      const entry = record(track);
+      return !!entry && (["boxes", "fill", "onFull", "extra"] as const).some((key) => entry[key] !== undefined);
+    });
+  if (trackKeys) return true;
+  const rests = Array.isArray(ruleset?.rests) ? ruleset.rests : [];
+  return rests.some((rest) => {
+    const restore = record(rest)?.restore;
+    return Array.isArray(restore) && restore.some((step) => record(step)?.kind !== undefined);
+  });
+}
+
 export function getCapabilityPackageInstallIssue(
   manifest: CapabilityCatalogPackage["manifest"],
   rulesetDocument?: unknown,
@@ -937,6 +960,9 @@ export function getCapabilityPackageInstallIssue(
       return "A ruleset whose weapons cap their own strikes requires schemaVersion 2 and capabilityApi 1.32 or newer";
     }
   }
+  // Wound tracks of boxes, filled by box, refusing when full or lengthened by a list, and rests that
+  // heal one kind of harm, which are 1.40's. Same file, same reason.
+  if (!declaresApi(40) && rulesetCarriesWound140Keys(ruleset)) return WOUND_BOXES_ISSUE;
   // Values that read the live state or add up a list, caps on checks, and wider hide rules, which are
   // 1.39's. Same file (and the same catalog files), same reason.
   if (
