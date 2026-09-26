@@ -1065,7 +1065,7 @@ export async function processLorebooks(
     /** Pre-computed embedding of the chat context for semantic matching. */
     chatEmbedding?: number[] | null;
     /** Per-lorebook pre-computed embeddings for semantic matching. */
-    semanticEmbeddingsByLorebookId?: ReadonlyMap<string, number[] | null>;
+    semanticEmbeddingsByLorebookId?: ReadonlyMap<string, number[] | number[][] | null>;
     /** Provider/model/profile identity used to create semantic query vectors. */
     semanticEmbeddingSpaceId?: string | null;
     /** Cosine similarity threshold for semantic matching (0-1, default 0.3). */

@@ -17,6 +17,7 @@ export function buildLorebookDuplicateInput(lorebook: Lorebook): CreateLorebookI
     maxRecursionDepth: lorebook.maxRecursionDepth,
     excludeFromVectorization: lorebook.excludeFromVectorization,
     vectorQueryDepth: lorebook.vectorQueryDepth,
+    vectorIncludeAssistant: lorebook.vectorIncludeAssistant ?? false,
     vectorScoreThreshold: lorebook.vectorScoreThreshold,
     vectorMaxResults: lorebook.vectorMaxResults,
     characterIds: canonicalLinkedIds(lorebook.characterIds, lorebook.characterId),

@@ -12824,6 +12824,69 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         semanticThreshold: 0.3,
       });
       assert.equal(unknownProvenance.length, 0, "legacy vectors without provenance must be re-vectorized");
+
+      const characterContent = "Alex steps into the shade because the sunlight hurts his eyes.";
+      const mixedMessages = [
+        { role: "assistant", content: "An older unrelated character reply." },
+        { role: "user", content: "An older unrelated user reply." },
+        { role: "assistant", content: characterContent },
+        { role: "user", content: "Are you okay?" },
+      ];
+      const characterEntry = { ...entry, id: "character-context", embedding: [0, 1] };
+      const defaultEntry = { ...characterEntry, id: "default-context", lorebookId: "default-book" };
+      let embeddingCalls = 0;
+      const withCharacter = await buildLorebookSemanticEmbeddingsById({
+        lorebooks: [
+          {
+            id: entry.lorebookId,
+            excludeFromVectorization: false,
+            vectorQueryDepth: 1,
+            vectorIncludeAssistant: true,
+          } as any,
+          { id: defaultEntry.lorebookId, excludeFromVectorization: false, vectorQueryDepth: 1 } as any,
+        ],
+        entries: [entry, characterEntry, defaultEntry] as any,
+        scanMessages: mixedMessages,
+        embeddingSource: {
+          ...embeddingSource,
+          async embed(texts: string[], _signal?: AbortSignal, inputType?: "document" | "query") {
+            embeddingCalls++;
+            assert.equal(inputType, "query");
+            assert.deepEqual(
+              texts.slice(0, 2),
+              ["Are you okay?", characterContent],
+              "roles stay separate at the same depth",
+            );
+            assert.ok(texts.every((text) => !text.includes("older unrelated")));
+            return texts.map((_, index) =>
+              index === 0 ? [1, 0] : index === 1 ? [0, 1] : index === 2 ? [0, -1] : [-1, 0],
+            );
+          },
+        },
+      });
+      assert.equal(embeddingCalls, 1, "user, character and calibration queries share one embedding call");
+      const matches = scanForActivatedEntries(mixedMessages, [entry, characterEntry, defaultEntry] as any, {
+        chatEmbedding: withCharacter.defaultEmbedding,
+        semanticEmbeddingsByLorebookId: withCharacter.embeddingsByLorebookId,
+        semanticEmbeddingSpaceId: withCharacter.embeddingSpaceId,
+        semanticSimilarityBaseline: withCharacter.similarityBaseline,
+        semanticThreshold: 0.9,
+      });
+      assert.deepEqual(
+        new Set(matches.map((match) => match.entry.id)),
+        new Set([entry.id, characterEntry.id]),
+        "the stronger separate score preserves user matches and adds character matches only for the opted-in book",
+      );
+      const wrongDimensions = scanForActivatedEntries(mixedMessages, [characterEntry] as any, {
+        semanticEmbeddingsByLorebookId: new Map([[entry.lorebookId, [[1], [0, 1]]]]),
+        semanticEmbeddingSpaceId: "test-space",
+        semanticThreshold: 0.9,
+      });
+      assert.equal(
+        wrongDimensions[0]?.entry.id,
+        characterEntry.id,
+        "one incompatible vector does not hide a compatible query",
+      );
     },
   },
   {

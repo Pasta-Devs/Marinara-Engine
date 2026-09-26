@@ -443,7 +443,7 @@ export interface ScanOptions {
   /** Pre-computed embedding of the chat context for semantic matching fallback. */
   chatEmbedding?: number[] | null;
   /** Per-lorebook chat context embeddings for semantic matching. */
-  semanticEmbeddingsByLorebookId?: ReadonlyMap<string, number[] | null>;
+  semanticEmbeddingsByLorebookId?: ReadonlyMap<string, number[] | number[][] | null>;
   /** Provider/model/profile identity used to produce semantic query vectors. */
   semanticEmbeddingSpaceId?: string | null;
   /** Cosine similarity threshold for semantic matching (0-1, default 0.3). */
@@ -508,7 +508,7 @@ export function scanForActivatedEntries(
     gameState = null,
     timingStates = new Map(),
     chatEmbedding = null,
-    semanticEmbeddingsByLorebookId = new Map<string, number[] | null>(),
+    semanticEmbeddingsByLorebookId = new Map<string, number[] | number[][] | null>(),
     semanticEmbeddingSpaceId = null,
     semanticThreshold = 0.3,
     semanticSimilarityBaseline = 0,
@@ -699,12 +699,14 @@ export function scanForActivatedEntries(
         );
         continue;
       }
-      if (entry.embedding.length !== queryEmbedding.length) {
+      const queryVectors = (
+        Array.isArray(queryEmbedding[0]) ? (queryEmbedding as number[][]) : [queryEmbedding as number[]]
+      ).filter((vector) => vector.length === entry.embedding!.length);
+      if (queryVectors.length === 0) {
         logger.debug(
-          "[lorebook-vectors] Rejected entry %s: stored dimension %d differs from query dimension %d",
+          "[lorebook-vectors] Rejected entry %s: no query matches stored dimension %d",
           entry.id,
           entry.embedding.length,
-          queryEmbedding.length,
         );
         continue;
       }
@@ -712,7 +714,7 @@ export function scanForActivatedEntries(
       if (!passesActivationGate(entry, timingState, filterContext, gameState, ignoreTiming)) continue;
 
       const threshold = semanticThresholdByLorebookId.get(entry.lorebookId) ?? semanticThreshold;
-      const rawSimilarity = cosineSimilarity(queryEmbedding, entry.embedding);
+      const rawSimilarity = Math.max(...queryVectors.map((vector) => cosineSimilarity(vector, entry.embedding!)));
       const similarity = calibrateLorebookSimilarity(rawSimilarity, semanticSimilarityBaseline);
       logger.debug(
         "[lorebook-vectors] Scored entry %s: raw=%d calibrated=%d baseline=%d threshold=%d accepted=%s",
