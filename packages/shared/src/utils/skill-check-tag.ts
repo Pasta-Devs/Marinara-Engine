@@ -36,6 +36,11 @@ export interface SkillCheckTag {
   /** `reroll="id"` as the GM wrote it: one of the ruleset's standing re-throws, by its id. Carried,
    *  never judged: whether the ruleset has one by that name is the resolver's business. */
   reroll?: string;
+  /** `reason="untrained"`: the Engine did not roll this check, because the ruleset does not let
+   *  the character attempt it untrained. Settled, not owed: the client's fallback and the roll
+   *  endpoint's record never roll it later. Only the Engine writes it, but the Game Master could
+   *  copy it, so a turn's own pass ignores it and decides again from the sheet. */
+  reason?: "untrained";
   advantage?: boolean;
   disadvantage?: boolean;
   resolvedResult?: SkillCheckResult;
@@ -387,6 +392,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   }
   const rerollName = values.get("reroll")?.trim();
   if (rerollName) tag.reroll = rerollName.slice(0, 40);
+  if (values.get("reason")?.trim().toLowerCase() === "untrained") tag.reason = "untrained";
   // A face, so a whole number or nothing, on the same terms as `bonus=`.
   for (const key of ["explode", "double"] as const) {
     const written = values.get(key)?.trim();

@@ -131,7 +131,11 @@ import {
   resolveGameRuleset,
 } from "../services/game/ruleset-registry.service.js";
 import { getCustomAgentImportPolicy } from "../services/agents/custom-agent-import-policy.service.js";
-import { resolveChatSkillCheck, SkillCheckDifficultyError } from "../services/game/skill-check-resolution.service.js";
+import {
+  resolveChatSkillCheck,
+  SkillCheckDifficultyError,
+  SkillCheckUntrainedError,
+} from "../services/game/skill-check-resolution.service.js";
 import { applyAllSegmentEdits, stripGmCommandTags } from "../services/game/segment-edits.js";
 import { processLorebooks, type LorebookScanResult } from "../services/lorebook/index.js";
 import {
@@ -4864,6 +4868,8 @@ function replaceFirstUnresolvedSkillCheckTag(
     const tag = parseSkillCheckTagBody(body);
     if (!tag || tag.resolvedResult) return fullTag;
     if (!isEngineRollableSkillCheckTag(tag)) return fullTag;
+    // Settled: the character could not attempt it, and a later roll of the same skill is a new check.
+    if (tag.reason) return fullTag;
     if (tag.skill.trim().toLowerCase() !== request.skill.trim().toLowerCase()) return fullTag;
     // The same ask: the same number, or, for a check that named only its ladder step, the same step.
     if (!sameDifficulty(tag)) return fullTag;
@@ -9349,6 +9355,10 @@ export async function gameRoutes(app: FastifyInstance) {
       // A step no ladder in this game has, or a game with no ladder at all: nothing to roll against.
       if (err instanceof SkillCheckDifficultyError) {
         return reply.status(400).send({ error: err.message, code: "skill_check_difficulty_unknown" });
+      }
+      // A check the character cannot attempt untrained is not there to roll.
+      if (err instanceof SkillCheckUntrainedError) {
+        return reply.status(400).send({ error: err.message, code: "skill_check_untrained" });
       }
       throw err;
     }

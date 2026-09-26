@@ -118,9 +118,11 @@
         "ability": "wits"
       },
       {
+        "$comment": "Fiddling with a mechanism nobody showed you costs two: an untrained Tinker check has two taken off its number.",
         "id": "tinker",
         "label": "Tinker",
-        "ability": "wits"
+        "ability": "wits",
+        "untrained": { "by": -2 }
       },
       {
         "id": "sway",

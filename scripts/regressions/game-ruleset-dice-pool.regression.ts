@@ -87,6 +87,7 @@ try {
    *  edits always travel together. */
   const fixTarget = (doc: Record<string, any>) => {
     doc.resolution.target = { default: 7, min: 7, max: 7 };
+    for (const skill of doc.sheet.skills) if (skill.untrained === "harder") delete skill.untrained;
     // Every ladder in the file, the layers' own included: a step names a target only where the
     // Game Master can move it, and a layer's ladder is held to the same rule as the base one.
     const ladders = [
@@ -169,6 +170,7 @@ try {
     refuses(
       (doc) => {
         doc.resolution.target = { default: 7, min: 7, max: 7 };
+        for (const skill of doc.sheet.skills) if (skill.untrained === "harder") delete skill.untrained;
         doc.resolution.cancel.upTo = 1;
       },
       /^resolution\.difficultyLadder\.0\.target: .*target\.min is below target\.max/,
@@ -363,7 +365,8 @@ try {
     const block = renderRulesetSheetBlock(gravewatch, { name: "Bram the Quiet", build: wardenBuild }, null);
     assert.match(block, /^Bram the Quiet\n/);
     assert.match(block, /SIN 3 dice, NRV 4 dice, WRM 2 dice/);
-    assert.match(block, /Trained: Ward 8 dice, Steel 6 dice/);
+    // Ward sits in The watch; Steel is in no section, so it follows the grouped ones with no heading.
+    assert.match(block, /Trained: The watch: Ward 8 dice; Steel 6 dice/);
     assert.doesNotMatch(block, /\+\d/, "nothing on a pool sheet reads as a bonus added to a roll");
 
     // The summed example still reads exactly as it always has.
@@ -747,6 +750,12 @@ try {
     // And 1.40's: the levels a list adds to Harm, and the rest that clears one kind of harm.
     for (const track of document.sheet.live.tracks) delete track.extra;
     document.rests = document.rests.filter((rest: { id: string }) => rest.id !== "breather");
+    // And 1.41's: sections on skills, and what a check does untrained.
+    for (const skill of document.sheet.skills) {
+      delete skill.section;
+      delete skill.untrained;
+    }
+    for (const section of document.sheet.sections) delete section.untrained;
     assert.match(
       getCapabilityPackageInstallIssue(manifest(23) as any, document) ?? "",
       /dice-pool resolution requires schemaVersion 2 and capabilityApi 1\.24 or newer/,

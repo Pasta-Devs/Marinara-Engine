@@ -110,6 +110,9 @@ export interface SkillCheckTagExtras {
   adjust?: number;
   /** `reroll="rote"` — the standing re-throw the check applied, or the ask for one. */
   reroll?: string;
+  /** `reason="untrained"` — the Engine did not roll the check, because the character cannot attempt
+   *  it untrained. Only ever on an ask. */
+  reason?: "untrained";
 }
 
 function serializeSkillCheckExtras(extras: SkillCheckTagExtras | undefined): string {
@@ -140,6 +143,7 @@ function serializeSkillCheckExtras(extras: SkillCheckTagExtras | undefined): str
     parts.push(`adjust="${extras.adjust > 0 ? "+" : ""}${extras.adjust}"`);
   }
   if (extras.reroll) parts.push(`reroll="${serializeSkillCheckAttribute(extras.reroll)}"`);
+  if (extras.reason) parts.push(`reason="${extras.reason}"`);
   return parts.length > 0 ? ` ${parts.join(" ")}` : "";
 }
 

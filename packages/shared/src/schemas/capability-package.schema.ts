@@ -415,7 +415,12 @@ const capabilityPackageManifestBaseSchema = z
 //        step may name the `kind` it heals. Not a soft seam, for the same reason as 1.20 through
 //        1.39: an Engine that cannot read these keys refuses the whole ruleset file, so a package
 //        that ships any of them declares 1.40. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 40 } as const);
+// 1.41: abilities, skills and saves may sit in a `section`, and a skill, save or section may say
+//        what a check does `untrained` (roll as usual, one step harder, not at all, or `by` a
+//        number). Not a soft seam, for the same reason as 1.20 through 1.40: an Engine that cannot
+//        read these keys refuses the whole ruleset file, so a package that ships any of them
+//        declares 1.41. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 41 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

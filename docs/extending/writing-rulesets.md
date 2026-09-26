@@ -213,8 +213,8 @@ Some systems let a player pay for a roll they are about to make: a point of will
 
 ### The sheet
 
-- `sections` group things in the editor.
-- `abilities` are the core scores. `skills` and `saves` each may name the ability they roll with, and a `cap` (below).
+- `sections` group things in the editor. Fields, derived values and lists name the one they sit in with `section`, and so may abilities, skills and saves: the editor, the game's sheet and the Game Master's sheet block then show them under that heading (a sheet that names no section on them shows them exactly as before). A section may also carry an `untrained` rule (below).
+- `abilities` are the core scores. `skills` and `saves` each may name the ability they roll with, a `cap`, and an `untrained` rule (below).
 - `fields` are single values. Types: `number`, `text`, `longtext`, `boolean`, `enum` (a fixed list of choices), and `dice` (text such as `1d8`).
 - `derived` values are worked out from other values and cannot be typed over. The operations are `sum`, `min`, `max`, `scale` (multiply and round), and `stepTable` (look a value up in thresholds, the way a level gives a proficiency bonus).
 - `lists` are tables with your own columns, such as gear, spells, or features. A list with `pools` turns every row into a resource with its own maximum, for class features with limited uses.
@@ -227,6 +227,25 @@ Anything that reads a number names it with a value reference, which is an object
 - A live read takes the live state as it stands when a check is rolled, a fight begins, or the Game Master's sheet block is written. Where there is none yet (the sheet editor, an import review) it reads the state play starts in: a pool full or empty as it `start`s, a track at its `default`, a wound track clear.
 - Nothing worked out before there is a live state may read one: a pool's or a track's `max`, the proficiency bonus, or a catalog's scaled column or scaling. That holds through a derived value that reads one and through a skill a live value caps, and the import names the value that does.
 - These three are Capability API 1.39 for a packaged ruleset.
+
+**What a check does untrained.** A skill or save the character has no training in (its tier is the first one) rolls as usual unless the ruleset says otherwise, with `untrained` on the skill or save or on the section it sits in (the skill's or save's own rule wins):
+
+```json
+"sections": [{ "id": "labour", "label": "Labour", "untrained": { "by": -1 } }],
+"skills": [
+  { "id": "dig", "label": "Dig", "ability": "sinew", "section": "labour", "untrained": "refuse" },
+  { "id": "listen", "label": "Listen", "ability": "nerve", "untrained": "harder" }
+]
+```
+
+- `"normal"`: as usual (the default).
+- `{ "by": -3 }`: added to the check's number, from -20 to 20: dice on a pool, a flat amount on a sum. It is part of the number the sheet shows and every check rolls, before any `cap`.
+- `"harder"`: one step harder. On a pool, the per-die target goes up one (and stays inside the target's range), so it needs a pool ruleset whose target can move; anywhere else it is refused at import, because it could never change a roll.
+- `"refuse"`: the check is not rolled at all. The Engine writes the Game Master's ask back with `reason="untrained"`, which settles it: nothing rolls it later, the Game Master is told the character could not attempt it, and the narration says so. The skill-check endpoint answers such a check with a 400 (`skill_check_untrained`), and a branch on it keeps neither half. The sheet editor shows no number for it.
+- A character nobody has a sheet for has no training to read, so no untrained rule applies to them.
+- The Game Master's reminder lists the untrained rules, by section or by skill, so it asks for checks a character can make.
+
+Sections on abilities, skills and saves, and `untrained` anywhere, are Capability API 1.41 for a packaged ruleset.
 
 A skill or save may carry a `cap`, a value reference that is the most its check may ever come to: a rating it cannot outgrow, or a track that holds it down. Gravewatch caps Soothe at the Resolve a warden has left, `"cap": { "livePool": "resolve" }`. The capped number is the one the sheet shows and every check rolls, and a `with=` swap is worked out on the number before the cap and then capped again. A cap cannot read a skill or save modifier, and neither can the derived value it reads or any derived value declared above that one, so the sheet is still worked out once, top to bottom. Capability API 1.39.
 

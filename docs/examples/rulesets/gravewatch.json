@@ -59,7 +59,15 @@
     "version": 1,
     "sections": [
       { "id": "about", "label": "About" },
-      { "id": "kit", "label": "Kit" }
+      { "id": "kit", "label": "Kit" },
+      {
+        "$comment": "Skills sit in sections too, and a section may say what its skills do untrained: hard labour nobody taught you costs a die.",
+        "id": "labour",
+        "label": "Labour",
+        "untrained": { "by": -1 }
+      },
+      { "id": "watch", "label": "The watch" },
+      { "id": "company", "label": "Company" }
     ],
     "abilities": [
       { "id": "sinew", "label": "Sinew", "short": "SIN", "min": 1, "max": 5, "default": 2 },
@@ -67,18 +75,33 @@
       { "id": "warmth", "label": "Warmth", "short": "WRM", "min": 1, "max": 5, "default": 2 }
     ],
     "skills": [
-      { "id": "dig", "label": "Dig", "ability": "sinew" },
-      { "id": "wrestle", "label": "Wrestle", "ability": "sinew" },
-      { "id": "listen", "label": "Listen", "ability": "nerve" },
-      { "id": "ward", "label": "Ward", "ability": "nerve" },
+      {
+        "$comment": "A skill's own untrained rule beats its section's: nobody untrained is let near a grave, so the Engine does not roll it at all.",
+        "id": "dig",
+        "label": "Dig",
+        "ability": "sinew",
+        "section": "labour",
+        "untrained": "refuse"
+      },
+      { "id": "wrestle", "label": "Wrestle", "ability": "sinew", "section": "labour" },
+      {
+        "$comment": "Untrained, a warden listens one step harder: every die needs one more to count.",
+        "id": "listen",
+        "label": "Listen",
+        "ability": "nerve",
+        "section": "watch",
+        "untrained": "harder"
+      },
+      { "id": "ward", "label": "Ward", "ability": "nerve", "section": "watch" },
       {
         "$comment": "A warden soothes nobody past the Resolve they have left: the cap reads the live pool, so a spent warden's Soothe shrinks with it.",
         "id": "soothe",
         "label": "Soothe",
         "ability": "warmth",
-        "cap": { "livePool": "resolve" }
+        "cap": { "livePool": "resolve" },
+        "section": "company"
       },
-      { "id": "barter", "label": "Barter", "ability": "warmth" }
+      { "id": "barter", "label": "Barter", "ability": "warmth", "section": "company" }
     ],
     "saves": [{ "id": "steel", "label": "Steel", "ability": "nerve" }],
     "$comment": "The free per-entry bonus is dice here too, so it is kept to a range a warden could actually earn.",

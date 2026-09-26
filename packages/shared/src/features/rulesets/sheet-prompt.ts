@@ -18,7 +18,12 @@ import {
 } from "../../schemas/ruleset.schema.js";
 import { readRulesetLive } from "./live-state.js";
 import { rulesetCatalogEntriesByRef } from "./scaled-rows.js";
-import { evaluateRulesetSheet, formatRulesetCheckValue, isRulesetItemHidden } from "./sheet-math.js";
+import {
+  evaluateRulesetSheet,
+  formatRulesetCheckValue,
+  isRulesetItemHidden,
+  rulesetSectionGroups,
+} from "./sheet-math.js";
 
 /** How much of one sheet value reaches the prompt. */
 const MAX_VALUE_LENGTH = 80;
@@ -97,10 +102,17 @@ export function renderRulesetSheetBlock(
   // shows its one number and a 3d6 system shows what it adds. How it is SPELLED follows the
   // resolution kind: a pool ruleset's number is dice, not a bonus, and "+5" would read as one.
   const checkValue = (value: number) => formatRulesetCheckValue(definition, value);
+  // Grouped under their section headings where the ruleset gives them some ("Physical: Strength 3;
+  // Mental: Wits 2"); a sheet with no sections reads exactly as it always has.
+  const grouped = <T extends { section?: string }>(entries: T[], text: (entry: T) => string) =>
+    rulesetSectionGroups(definition, entries)
+      .map((group) => `${group.section ? `${group.section.label}: ` : ""}${group.entries.map(text).join(", ")}`)
+      .join("; ");
   push(
-    sheet.abilities
-      .map((ability) => `${ability.short ?? ability.label} ${checkValue(evaluated.abilityMods[ability.id] ?? 0)}`)
-      .join(", "),
+    grouped(
+      sheet.abilities,
+      (ability) => `${ability.short ?? ability.label} ${checkValue(evaluated.abilityMods[ability.id] ?? 0)}`,
+    ),
   );
 
   // "Trained" is whatever the ruleset's first tier is not: the first tier is the untrained default
@@ -109,12 +121,18 @@ export function renderRulesetSheetBlock(
   const trained = [
     ...sheet.skills
       .filter((skill) => (evaluated.skillTiers[skill.id] ?? firstTier) !== firstTier)
-      .map((skill) => `${skill.label} ${checkValue(evaluated.skillMods[skill.id] ?? 0)}`),
+      .map((skill) => ({
+        section: skill.section,
+        text: `${skill.label} ${checkValue(evaluated.skillMods[skill.id] ?? 0)}`,
+      })),
     ...sheet.saves
       .filter((save) => (evaluated.saveTiers[save.id] ?? firstTier) !== firstTier)
-      .map((save) => `${save.label} ${checkValue(evaluated.saveMods[save.id] ?? 0)}`),
+      .map((save) => ({
+        section: save.section,
+        text: `${save.label} ${checkValue(evaluated.saveMods[save.id] ?? 0)}`,
+      })),
   ];
-  if (trained.length > 0) push(`Trained: ${trained.join(", ")}`);
+  if (trained.length > 0) push(`Trained: ${grouped(trained, (entry) => entry.text)}`);
 
   const summary: string[] = [];
   for (const id of gm.sheetSummary.fields) {

@@ -20,6 +20,7 @@ import {
   defaultRulesetSheetBuild,
   evaluateRulesetSheet,
   readRulesetLive,
+  rulesetSectionGroups,
   type EvaluatedRulesetSheet,
   type ResolvedRulesetLive,
   type RulesetDefinition,
@@ -351,12 +352,14 @@ export function GameRulesetSheet({
     ...definition.sheet.skills.map((skill) => ({
       id: skill.id,
       label: skill.label,
+      section: skill.section,
       tier: evaluated.skillTiers[skill.id],
       modifier: evaluated.skillMods[skill.id] ?? 0,
     })),
     ...definition.sheet.saves.map((save) => ({
       id: save.id,
       label: save.label,
+      section: save.section,
       tier: evaluated.saveTiers[save.id],
       modifier: evaluated.saveMods[save.id] ?? 0,
     })),
@@ -626,39 +629,52 @@ export function GameRulesetSheet({
             </div>
           )}
 
-          {definition.sheet.abilities.length > 0 && (
-            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
-              {definition.sheet.abilities.map((ability) => (
-                <div
-                  key={ability.id}
-                  className={`flex min-w-0 flex-col items-center ${cardClass}`}
-                  title={ability.label}
-                >
-                  <span className={`${labelClass} max-w-full truncate`}>{ability.short ?? ability.label}</span>
-                  <span className="text-xs font-semibold tabular-nums text-[var(--foreground)]">
-                    {rulesetCheckValueText(definition, evaluated.abilityMods[ability.id] ?? 0, localizeUi)}
-                  </span>
-                </div>
-              ))}
+          {/* Under their section headings where the ruleset gives them some; otherwise one grid, as always. */}
+          {rulesetSectionGroups(definition, definition.sheet.abilities).map((group) => (
+            <div
+              key={group.section ? `section:${group.section.id}` : "none"}
+              className={group.section ? "space-y-1" : undefined}
+            >
+              {group.section && <p className={labelClass}>{group.section.label}</p>}
+              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+                {group.entries.map((ability) => (
+                  <div
+                    key={ability.id}
+                    className={`flex min-w-0 flex-col items-center ${cardClass}`}
+                    title={ability.label}
+                  >
+                    <span className={`${labelClass} max-w-full truncate`}>{ability.short ?? ability.label}</span>
+                    <span className="text-xs font-semibold tabular-nums text-[var(--foreground)]">
+                      {rulesetCheckValueText(definition, evaluated.abilityMods[ability.id] ?? 0, localizeUi)}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
-          )}
+          ))}
 
           {trained.length > 0 && (
             <div className="space-y-1">
               <p className={labelClass}>{localizeUi("game.ruleset.sheet.trained")}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {trained.map((entry) => (
-                  <span
-                    key={`${entry.id}-${entry.label}`}
-                    className="rounded-lg border border-[var(--border)] px-1.5 py-0.5 text-[0.6875rem] text-[var(--foreground)]"
-                  >
-                    {entry.label}{" "}
-                    <span className="tabular-nums">
-                      {rulesetCheckValueText(definition, entry.modifier, localizeUi)}
+              {rulesetSectionGroups(definition, trained).map((group) => (
+                <div
+                  key={group.section ? `section:${group.section.id}` : "none"}
+                  className="flex flex-wrap items-center gap-1.5"
+                >
+                  {group.section && <span className={labelClass}>{group.section.label}</span>}
+                  {group.entries.map((entry) => (
+                    <span
+                      key={`${entry.id}-${entry.label}`}
+                      className="rounded-lg border border-[var(--border)] px-1.5 py-0.5 text-[0.6875rem] text-[var(--foreground)]"
+                    >
+                      {entry.label}{" "}
+                      <span className="tabular-nums">
+                        {rulesetCheckValueText(definition, entry.modifier, localizeUi)}
+                      </span>
                     </span>
-                  </span>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ))}
             </div>
           )}
 

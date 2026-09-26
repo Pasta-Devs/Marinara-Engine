@@ -482,14 +482,19 @@ assert.match(
   /if \(!tag \|\| tag\.resolvedResult\) return fullTag;\s*\n\s*if \(!isEngineRollableSkillCheckTag\(tag\)\) return fullTag;/u,
   "the endpoint rewrite must refuse a system the engine does not roll, not only a tag whose numbers held",
 );
+assert.match(
+  gameRoutes,
+  /if \(!isEngineRollableSkillCheckTag\(tag\)\) return fullTag;[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*if \(tag\.reason\) return fullTag;/u,
+  "a check the Engine settled as not attempted is never overwritten by a later roll",
+);
 
 // The client's fallback is the third door onto that same rewrite: it POSTs any
 // tag with no resolvedResult, and this endpoint only ever rolls a d20.
 const gameSurface = readFileSync(join(root, "packages/client/src/components/game/GameSurface.tsx"), "utf8");
 assert.match(
   gameSurface,
-  /isEngineRollableSkillCheckTag\(sc\)\s*&&\s*!poolModeActive\s*\?\s*\(\s*await skillCheck\.mutateAsync\(/u,
-  "the client must not ask the endpoint to roll a system the engine does not implement",
+  /isEngineRollableSkillCheckTag\(sc\)\s*&&\s*!sc\.reason\s*&&\s*!poolModeActive\s*\?\s*\(\s*await skillCheck\.mutateAsync\(/u,
+  "the client must not ask the endpoint to roll a system the engine does not implement, nor a check it settled",
 );
 // The one-request dice pool adds a second condition to that same arm, and it has to stay
 // a NARROWING one. With the sighted pool on, an overflowed check must be left sparse: a

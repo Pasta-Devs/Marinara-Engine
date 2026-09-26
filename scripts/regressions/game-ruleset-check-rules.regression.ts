@@ -434,6 +434,8 @@ try {
       doc.resolution.die = { sides: 6 };
       delete doc.resolution.reroll;
       doc.resolution.target = { default: 5, min: 5, max: 5 };
+      // One step harder needs a target that moves, which this one does not.
+      for (const skill of doc.sheet.skills) if (skill.untrained === "harder") delete skill.untrained;
       doc.resolution.difficultyLadder = [{ label: "Standard", successes: 1 }];
       delete doc.resolution.explode;
       delete doc.resolution.cancel;
@@ -470,6 +472,8 @@ try {
       doc.resolution.die = { sides: 6 };
       delete doc.resolution.reroll;
       doc.resolution.target = { default: 5, min: 5, max: 5 };
+      // One step harder needs a target that moves, which this one does not.
+      for (const skill of doc.sheet.skills) if (skill.untrained === "harder") delete skill.untrained;
       doc.resolution.difficultyLadder = [{ label: "Standard", successes: 1 }];
       doc.resolution.explode = { from: 6 };
       delete doc.resolution.cancel;
