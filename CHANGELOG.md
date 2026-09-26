@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Game translations keep dialogue aligned when translators alter internal speaker tags, and preserve notes or books embedded in narration (#6687).
+
 - Added Gemini 3.8 Flash, 3.7 Flash, 3.5 Flash-Lite and 3.1 Flash-Lite Image to the Google model list, so they arrive with their own context window and output limit instead of being treated as unknown models whose reasoning effort and output cap cannot be sent. Corrected the context and output limits of the existing Gemini image models to the ones Google documents (#6683).
 
 - Advanced Memory finds old scenes from distinctive details even with excerpts disabled, without extra recall model calls. Characters can share access to a scene when only some messages are hidden from them; scene recaps keep shared events plain and use character conditions for private sections. Constant Chat Summaries retain their character conditions (#6679).
