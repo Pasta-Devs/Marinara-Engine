@@ -188,6 +188,9 @@ if (process.argv.includes("--reload")) {
       return { path: "model.gguf", filename: "model.gguf", sizeBytes: 24, quantizationLabel: null, downloadUrl: "" };
     };
     const app = Fastify();
+    const { rateLimitHook, resetRateLimitBucketsForTests } =
+      await import("../../packages/server/src/middleware/rate-limit.js");
+    app.addHook("onRequest", rateLimitHook);
     const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
     app.decorate("db", await getDB());
     await app.register(sidecarRoutes, { prefix: "/api/sidecar" });
@@ -213,6 +216,20 @@ if (process.argv.includes("--reload")) {
       assert.equal(failed.statusCode, 400);
       assert.equal(sidecarModelService.getModelFilePath(), other);
       assert.equal(syncs, previousSyncs + 1, "selection failure restores the current runtime configuration");
+      resetRateLimitBucketsForTests();
+      for (let attempt = 0; attempt < 21; attempt++) {
+        const limited = await app.inject({
+          method: "POST",
+          url: "/api/sidecar/model/local",
+          payload: { path: "relative.gguf" },
+        });
+        assert.equal(limited.headers["ratelimit-limit"], "20");
+        assert.equal(
+          limited.statusCode,
+          attempt < 20 ? 400 : 429,
+          "local selection uses the existing privileged sidecar rate limit",
+        );
+      }
     } finally {
       release();
       await app.close();
