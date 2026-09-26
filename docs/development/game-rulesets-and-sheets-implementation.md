@@ -963,6 +963,36 @@ Capability API 1.40, for #6654.
   breaks, each caught) and a browser case in `e2e/ruleset-wound-sheet.e2e.ts` for the box track on
   the sheet screen.
 
+### What slice 5 settled
+
+Capability API 1.41, for #6655.
+
+- **Sections on abilities, skills and saves.** The same optional `section` fields already had,
+  checked against `sheet.sections`. One shared helper, `rulesetSectionGroups`, orders them by the
+  sheet's sections and puts the unsectioned last under no heading, and returns one plain group when
+  nothing names a section, so the Game Master's sheet block (ability line and `Trained:` line, now
+  "Heading: a, b; Heading: c"), the sheet editor and the game's sheet screen read exactly as before
+  for every file without them.
+- **Untrained rules.** `untrained` on a skill, a save or a section (the entry's own wins), applying
+  when the entry is at the first proficiency tier. **Named differently from the issue on purpose:**
+  the issue's `{ "dice": -3 }` is a flat amount on a summed ruleset, so the key is `by`, the word
+  rests and track commands already use. `by` goes into the sheet's own number (before a cap), so the
+  sheet shows it and every check and vouching reads it. `harder` adds one to a pool's per-die target
+  after the ladder, the tag and the default are read (the roller clamps it); it is refused at import
+  on a summed ruleset or a target that cannot move. `refuse` throws `SkillCheckUntrainedError` in
+  the roll; the content resolver checks first and writes the ask back with `reason="untrained"`, the
+  endpoint answers 400 `skill_check_untrained`, and the branch arm keeps neither half and writes the
+  same record. The tag reads `reason`, and `isEngineRollableSkillCheckTag` refuses a tag carrying
+  one, so the client's fallback never rolls a refused check; the narration log says it was not
+  attempted, and the sheet editor shows a dash for it. A reason the Game Master writes itself is
+  ignored in a ruleset game: the Engine decides again. A stranger (no sheet) has no rule.
+- **Reminder.** One `Untrained checks:` line naming each rule by section or entry, with the reason
+  sentence only where something is refused.
+- **Examples.** Gravewatch groups its skills into Labour (untrained -1 die), The watch and Company,
+  refuses an untrained Dig, and makes an untrained Listen harder; Ember Roads' untrained Tinker is -2.
+- **Proven** by `scripts/regressions/game-ruleset-sections.regression.ts` (twenty-five deliberate
+  breaks, each caught) and `e2e/ruleset-sheet-sections.e2e.ts` for the editor and the game's sheet.
+
 ## Architecture
 
 ### The pin

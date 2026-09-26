@@ -751,6 +751,29 @@ function rulesetCarriesWound140Keys(ruleset: { sheet?: unknown; rests?: unknown 
   });
 }
 
+const SECTIONS_ISSUE =
+  "A ruleset whose abilities, skills or saves sit in sections, or that says what a check does untrained, requires schemaVersion 2 and capabilityApi 1.41 or newer";
+
+/** The 1.41 keys: a `section` on an ability, skill or save, and an `untrained` rule on a skill, a save
+ *  or a section. Ordinary words, so only those four lists are read. */
+function rulesetCarriesSections141Keys(ruleset: { sheet?: unknown } | undefined): boolean {
+  const sheet = ruleset?.sheet && typeof ruleset.sheet === "object" ? (ruleset.sheet as Record<string, unknown>) : {};
+  const carries = (key: string, fields: readonly string[]) =>
+    Array.isArray(sheet[key]) &&
+    (sheet[key] as unknown[]).some(
+      (entry) =>
+        !!entry &&
+        typeof entry === "object" &&
+        fields.some((field) => (entry as Record<string, unknown>)[field] !== undefined),
+    );
+  return (
+    carries("abilities", ["section"]) ||
+    carries("skills", ["section", "untrained"]) ||
+    carries("saves", ["section", "untrained"]) ||
+    carries("sections", ["untrained"])
+  );
+}
+
 export function getCapabilityPackageInstallIssue(
   manifest: CapabilityCatalogPackage["manifest"],
   rulesetDocument?: unknown,
@@ -960,6 +983,8 @@ export function getCapabilityPackageInstallIssue(
       return "A ruleset whose weapons cap their own strikes requires schemaVersion 2 and capabilityApi 1.32 or newer";
     }
   }
+  // Sections on abilities, skills and saves, and untrained rules, which are 1.41's. Same file, same reason.
+  if (!declaresApi(41) && rulesetCarriesSections141Keys(ruleset)) return SECTIONS_ISSUE;
   // Wound tracks of boxes, filled by box, refusing when full or lengthened by a list, and rests that
   // heal one kind of harm, which are 1.40's. Same file, same reason.
   if (!declaresApi(40) && rulesetCarriesWound140Keys(ruleset)) return WOUND_BOXES_ISSUE;

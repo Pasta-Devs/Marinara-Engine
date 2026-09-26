@@ -1082,7 +1082,7 @@ function formatGameDiceTurnNoticeSegments(
 
 function formatSkillCheckLogContent(
   message: NarrationMessage,
-  localizeUi: (key: string) => string,
+  localizeUi: (key: string, options?: Record<string, unknown>) => string,
 ): NarrationSegment[] {
   const skillChecks = parseGmTags(message.content || "").skillChecks;
   const extra = parseMessageExtraRecord(message.extra);
@@ -1092,6 +1092,14 @@ function formatSkillCheckLogContent(
 
   const checkSegments: NarrationSegment[] = skillChecks.map((skillCheck, index) => {
     const result = skillCheck.resolvedResult;
+    // Not rolled because the character could not attempt it: said as that, never as a check still owed.
+    if (!result && skillCheck.reason === "untrained") {
+      return {
+        id: `${message.id}-skill-check-log-${index}`,
+        type: "system",
+        content: localizeUi("game.narration.skillCheckUntrained", { skill: skillCheck.skill }),
+      };
+    }
     if (!result) {
       return {
         id: `${message.id}-skill-check-log-${index}`,

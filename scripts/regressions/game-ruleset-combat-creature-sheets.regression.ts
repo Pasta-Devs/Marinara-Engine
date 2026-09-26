@@ -80,8 +80,8 @@ import type { Combatant } from "../../packages/shared/src/types/game.js";
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
 const fiveEText = read("../../docs/development/ruleset-5e-2014.example.json");
 /** The example less the sheet keys 1.37 added (a track always shown, a summary list's columns),
- *  1.38's modifier off the sheet, 1.39's list sum and 1.40's box track: every gate this lane
- *  proves is older, so it is proven on a file that trips nothing newer. */
+ *  1.38's modifier off the sheet, 1.39's list sum, 1.40's box track and 1.41's untrained rule: every
+ *  gate this lane proves is older, so it is proven on a file that trips nothing newer. */
 const emberText = (() => {
   const doc = JSON.parse(read("../../docs/examples/rulesets/ember-roads.json"));
   for (const track of doc.sheet.live.tracks) delete track.alwaysShow;
@@ -89,6 +89,7 @@ const emberText = (() => {
   delete doc.resolution.adjust;
   doc.sheet.derived = doc.sheet.derived.filter((entry: { id: string }) => !["burden", "burdened"].includes(entry.id));
   doc.sheet.live.tracks = doc.sheet.live.tracks.filter((track: { id: string }) => track.id !== "strain");
+  for (const skill of doc.sheet.skills) delete skill.untrained;
   return JSON.stringify(doc);
 })();
 

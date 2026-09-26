@@ -92,6 +92,11 @@ function poolRuleset(resolution: Record<string, unknown>): RulesetDefinition {
     // The shipped layer swaps the shipped ladder, and these resolutions replace it, so the layer
     // goes with the ladder it was written for.
     delete source.layers;
+    // A skill that rolls one step harder untrained needs a target that can move, which these may not
+    // have, and the summary never reads it, so it goes.
+    for (const skill of (source.sheet as { skills: Array<Record<string, unknown>> }).skills) {
+      if (skill.untrained === "harder") delete skill.untrained;
+    }
     // The shipped Grave Sight charm moves the exploding face to 8, which these resolutions may not
     // allow, and the summary never reads a catalog, so it goes.
     for (const catalog of (source.catalogs as Array<{ entries?: Array<Record<string, any>> }>) ?? []) {

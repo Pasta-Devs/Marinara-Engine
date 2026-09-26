@@ -697,6 +697,39 @@ function renderRulesetSkillCheckLine(
   const whoClause = `Add who="Character Name" to roll for a party member; without it the player is checked.`;
   // Every ruleset has a ladder, so every ruleset can be asked for a step by name.
   const difficultyClause = `Or name a step with difficulty="Label" in place of dc.`;
+  // What having no training does, named by the section that says it or the skill or save that says
+  // its own, so the Game Master asks for checks a character can actually make.
+  const untrainedWords = (rule: import("@marinara-engine/shared").RulesetUntrained): string =>
+    rule === "refuse"
+      ? "cannot be attempted"
+      : rule === "harder"
+        ? "one step harder"
+        : typeof rule === "object"
+          ? `${rule.by > 0 ? "+" : ""}${rule.by}${resolution.kind === "dice-pool" ? (Math.abs(rule.by) === 1 ? " die" : " dice") : ""}`
+          : "";
+  const untrainedItems = [
+    ...ruleset.sheet.sections.flatMap((section) =>
+      section.untrained && section.untrained !== "normal"
+        ? [`${section.label} (${untrainedWords(section.untrained)})`]
+        : [],
+    ),
+    ...[...ruleset.sheet.skills, ...ruleset.sheet.saves].flatMap((entry) =>
+      entry.untrained && entry.untrained !== "normal" ? [`${entry.label} (${untrainedWords(entry.untrained)})`] : [],
+    ),
+  ];
+  const refusesAny =
+    ruleset.sheet.sections.some((section) => section.untrained === "refuse") ||
+    [...ruleset.sheet.skills, ...ruleset.sheet.saves].some((entry) => entry.untrained === "refuse");
+  const untrainedClause =
+    untrainedItems.length > 0
+      ? [
+          `Untrained checks: ${untrainedItems.join(", ")}.${
+            refusesAny
+              ? ` A check the engine marks reason="untrained" was not rolled: the character could not attempt it.`
+              : ""
+          }`,
+        ]
+      : [];
 
   if (resolution.kind === "dice-pool") {
     const { target, situationalDice, difficultyLadder, die, explode, double, botch, pool } = resolution;
@@ -784,6 +817,7 @@ function renderRulesetSkillCheckLine(
       ...faceClause("explode", explode, "roll one more die"),
       ...faceClause("double", double, "count twice"),
       ...withClause,
+      ...untrainedClause,
       // Named with this ruleset's own first two abilities, so the example is never another game's.
       ...(pool.abilityPlusAbility && firstAbility && secondAbility
         ? [
@@ -810,6 +844,7 @@ function renderRulesetSkillCheckLine(
     whoClause,
     ...(advantage ? [`Add mode="advantage" or mode="disadvantage" when the rules grant one.`] : []),
     ...withClause,
+    ...untrainedClause,
     playerDie
       ? `Use the player's exact die. Do NOT write modifier, total or result: the engine applies the character sheet.`
       : `Do NOT write rolls, modifier, total or result: the engine rolls ${dice.count}d${dice.sides} and applies the character sheet.`,

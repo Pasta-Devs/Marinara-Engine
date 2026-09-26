@@ -1373,6 +1373,33 @@
                 "minLength": 1,
                 "maxLength": 80
               },
+              "untrained": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "normal",
+                      "harder",
+                      "refuse"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "by": {
+                        "type": "integer",
+                        "minimum": -20,
+                        "maximum": 20
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "by"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
               "$comment": {}
             },
             "required": [
@@ -1412,6 +1439,11 @@
               },
               "default": {
                 "type": "integer"
+              },
+              "section": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9_]*$"
               },
               "$comment": {}
             },
@@ -1542,6 +1574,38 @@
                   ]
                 }
               },
+              "section": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "untrained": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "normal",
+                      "harder",
+                      "refuse"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "by": {
+                        "type": "integer",
+                        "minimum": -20,
+                        "maximum": 20
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "by"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
               "$comment": {}
             },
             "required": [
@@ -1667,6 +1731,38 @@
                     "liveTrack"
                   ]
                 }
+              },
+              "section": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "untrained": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "normal",
+                      "harder",
+                      "refuse"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "by": {
+                        "type": "integer",
+                        "minimum": -20,
+                        "maximum": 20
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "by"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
               },
               "$comment": {}
             },

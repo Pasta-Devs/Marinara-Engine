@@ -344,8 +344,10 @@ try {
     delete summed.catalogs;
     delete summed.sheet.lists;
     delete summed.gm.sheetSummary.lists;
-    // And with the lists goes the one that adds levels to the track.
+    // And with the lists goes the one that adds levels to the track, and a summed roll has no per-die
+    // target for a skill to roll one step harder against.
     delete summed.sheet.live.tracks[0].extra;
+    for (const skill of summed.sheet.skills) if (skill.untrained === "harder") delete skill.untrained;
     summed.id = "gravewatch-summed";
     summed.resolution = {
       kind: "dice-sum",
@@ -574,6 +576,12 @@ try {
     // And 1.40's: the levels a list adds to Harm, and the rest that clears one kind of harm.
     for (const track of document.sheet.live.tracks) delete track.extra;
     document.rests = document.rests.filter((rest: { id: string }) => rest.id !== "breather");
+    // And 1.41's: sections on skills, and what a check does untrained.
+    for (const skill of document.sheet.skills) {
+      delete skill.section;
+      delete skill.untrained;
+    }
+    for (const section of document.sheet.sections) delete section.untrained;
     for (const catalog of document.catalogs ?? []) {
       catalog.entries = (catalog.entries ?? []).filter((entry: any) => entry.mechanics?.check?.explode === undefined);
     }

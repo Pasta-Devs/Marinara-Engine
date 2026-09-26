@@ -33,6 +33,7 @@ import {
   RULESET_POOL_MAX_DICE,
   rulesetCheckAdjust,
   rulesetDifficultyStep,
+  rulesetUntrainedRule,
   rulesetDifficultyStepDc,
   rulesetLadderTargetFor,
   rulesetPoolMaxSuccesses,
@@ -43,6 +44,7 @@ import {
   type RPGAttributes,
   type RulesetCatalogEntriesById,
   type RulesetDefinition,
+  type RulesetUntrained,
   type RulesetLiveState,
   type RulesetLiveStates,
   type RulesetSheetBuild,
@@ -76,6 +78,15 @@ export class SkillCheckDifficultyError extends Error {
   constructor(skill: string) {
     super(`The check ${skill} names no difficulty this game's rules can read`);
     this.name = "SkillCheckDifficultyError";
+  }
+}
+
+/** A check on a skill or save the ruleset does not let this character attempt untrained. Its own
+ *  class so the endpoint can answer it as a check that is not there to roll. */
+export class SkillCheckUntrainedError extends Error {
+  constructor(skill: string) {
+    super(`The check ${skill} cannot be attempted untrained under this game's rules`);
+    this.name = "SkillCheckUntrainedError";
   }
 }
 
@@ -645,6 +656,32 @@ export function rulesetCheckAdjustFor(
   return rulesetCheckAdjust(definition, build, evaluated, target);
 }
 
+/** The untrained rule a check falls under: null for an ability check, for a trained skill or save,
+ *  and for a stranger, who has no sheet to say what they were trained in. */
+export function rulesetUntrainedFor(
+  ruleset: SkillCheckRulesetContext,
+  request: SkillCheckRequest,
+): RulesetUntrained | null {
+  const { definition } = ruleset;
+  const target = matchRulesetCheckTarget(definition, request.skill, request.withAbility);
+  if (!target || target.type === "ability") return null;
+  const sheet = request.who
+    ? ruleset.sheets.get(normalizeCharacterLookupName(request.who))
+    : ((ruleset.playerKey ? ruleset.sheets.get(ruleset.playerKey) : undefined) ?? ruleset.blank);
+  if (!sheet) return null;
+  const tier = (target.type === "skill" ? sheet.skillTiers : sheet.saveTiers)[target.id];
+  if (tier !== undefined && tier !== definition.resolution.proficiencyTiers[0]!.id) return null;
+  const entry = (target.type === "skill" ? definition.sheet.skills : definition.sheet.saves).find(
+    (candidate) => candidate.id === target.id,
+  );
+  return entry ? rulesetUntrainedRule(definition, entry) : null;
+}
+
+/** Whether this check is one the character may not attempt at all, untrained. */
+export function rulesetRefusesUntrained(ruleset: SkillCheckRulesetContext, request: SkillCheckRequest): boolean {
+  return rulesetUntrainedFor(ruleset, request) === "refuse";
+}
+
 /** One of the ruleset's standing re-throws, by the id the Game Master named with `reroll=`, matched
  *  without case. Null for a name nothing answers to, and on a summed ruleset, which has none. */
 export function rulesetStandingReroll(
@@ -699,6 +736,10 @@ function resolveRulesetSkillCheck(
     );
   }
   const askedDc = request.dc ?? (step ? rulesetDifficultyStepDc(step) : undefined);
+  // What having no training does to this check, when it does anything: nothing to roll at all, or
+  // a pool's per-die target one step higher. A number the ruleset adds is already in the sheet's.
+  const untrained = rulesetUntrainedFor(ruleset, request);
+  if (untrained === "refuse") throw new SkillCheckUntrainedError(request.skill);
   // Every caller reads the ask against the ladder before it gets here, so this is a check nobody
   // could have rolled: thrown, so the turn saves it as the ask it still is.
   if (askedDc === undefined) throw new SkillCheckDifficultyError(request.skill);
@@ -777,7 +818,10 @@ function resolveRulesetSkillCheck(
         modifier: modifier + penalty + adjust,
         required: dc,
         isSave,
-        threshold: request.threshold ?? ladderTarget,
+        threshold:
+          untrained === "harder"
+            ? (request.threshold ?? ladderTarget ?? resolution.target.default) + 1
+            : (request.threshold ?? ladderTarget),
         bonusDice: request.bonusDice,
         explode: request.explode,
         double: request.double,
@@ -1026,6 +1070,12 @@ export interface SkillCheckTagResolution {
    * non-zero only on the failure path.
    */
   sparse: number;
+  /**
+   * How many of those were not rolled because the character cannot attempt them untrained. Counted
+   * inside `left` and `sparse` too, but they owe nothing: they are settled, and the narration should
+   * say the character could not attempt them rather than leave the outcome open.
+   */
+  untrained?: number;
   /**
    * The live sheet state after every purchase this pass paid for, when any did.
    *
@@ -1291,7 +1341,10 @@ export async function resolveSkillCheckTagsInContent(
         const owesRoll = ruleset
           ? !rulesetVouchesFor(ruleset, tag) && isRulesetRollableSkillCheckTag(tag, ruleset.definition)
           : !tag.resolvedResult && isEngineRollableSkillCheckTag(tag);
-        if (owesRoll && isResolvableSkillCheckRequest(request, ruleset?.definition)) {
+        // A check the character cannot attempt untrained is refused below whatever it carries: no
+        // numbers, dice or difficulty the Game Master wrote on it gets it past the sheet.
+        const refused = !!ruleset && rulesetRefusesUntrained(ruleset, request);
+        if (refused || (owesRoll && isResolvableSkillCheckRequest(request, ruleset?.definition))) {
           pending.push({ start: entry.start, end: entry.end, request, tag });
         } else if (owesRoll && tag.resolvedResult) {
           // This ruleset's own kind of check, carrying numbers the sheet does not vouch for, that
@@ -1346,11 +1399,27 @@ export async function resolveSkillCheckTagsInContent(
     let overflowed = 0;
     // Pool checks that named only a ladder step nobody here has. Saved sparse, like an overflow.
     let unread = 0;
+    // Checks the character may not attempt untrained. Saved as the ask with the reason on it, which
+    // settles them: nothing later rolls a check the Engine said could not be made.
+    let untrained = 0;
     const rolled = rewrite((entry) => {
       // A pool check bound before the ruleset was loaded may have named its difficulty by a ladder
       // step; it is read now, with the ruleset in hand, so the pool serves it like any other check.
       const request =
         entry.poolBody != null ? readRulesetDifficulty(entry.request, context.ruleset?.definition) : entry.request;
+      if (context.ruleset && rulesetRefusesUntrained(context.ruleset, request)) {
+        untrained += 1;
+        return serializeSparseSkillCheckTag(
+          {
+            skill: request.skill,
+            dc: entry.request.dc,
+            advantage: request.advantage,
+            disadvantage: request.disadvantage,
+            declaredDice: entry.tag.declaredDice,
+          },
+          { ...(askExtras(entry.tag) ?? {}), reason: "untrained" },
+        );
+      }
       if (request.dc === undefined) {
         unread += 1;
         return serializeSparseSkillCheckTag(
@@ -1399,10 +1468,11 @@ export async function resolveSkillCheckTagsInContent(
     return {
       content: rolled,
       results,
-      resolved: pending.length - overflowed - unread,
+      resolved: pending.length - overflowed - unread - untrained,
       trusted,
-      left: left + overflowed + unread,
-      sparse: overflowed + unread + stripped.length,
+      left: left + overflowed + unread + untrained,
+      sparse: overflowed + unread + untrained + stripped.length,
+      ...(untrained > 0 ? { untrained } : {}),
       ...(spentLive ? { live: spentLive } : {}),
     };
   } catch (err) {

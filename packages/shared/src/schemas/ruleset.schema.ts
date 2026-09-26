@@ -539,14 +539,32 @@ const abilitySchema = z
     min: z.number().int(),
     max: z.number().int(),
     default: z.number().int(),
+    section: sheetId.optional(),
   })
   .strict();
+
+/** What a check on a skill or save does when the character has no training in it (its tier is the
+ *  first one): roll as usual, roll one step harder (a pool's per-die target goes up one), not be
+ *  rolled at all, or add `by` to its number (dice on a pool, a flat amount on a sum). */
+const untrainedSchema = z.union([
+  z.enum(["normal", "harder", "refuse"]),
+  z.object({ by: z.number().int().min(-20).max(20) }).strict(),
+]);
+export type RulesetUntrained = z.infer<typeof untrainedSchema>;
 
 /** A skill names the ability it rolls with. A system whose skills stand alone omits it. `cap` is the
  *  most its check may ever come to, from anything on the sheet or in the live state (a rating the
  *  character has, or a track that holds it down). */
 const skillSchema = z
-  .object({ id: sheetId, label, ability: sheetId.optional(), cap: rulesetValueRefSchema.optional() })
+  .object({
+    id: sheetId,
+    label,
+    ability: sheetId.optional(),
+    cap: rulesetValueRefSchema.optional(),
+    section: sheetId.optional(),
+    /** Overrides the untrained rule of the section it sits in. */
+    untrained: untrainedSchema.optional(),
+  })
   .strict();
 const saveSchema = skillSchema;
 
@@ -700,7 +718,16 @@ export const rulesetSheetSchema = z
     /** Bumped by the author when the sheet's shape changes. Stored sheets record it as `v`. */
     version: z.number().int().min(1),
     sections: z
-      .array(z.object({ id: sheetId, label }).strict())
+      .array(
+        z
+          .object({
+            id: sheetId,
+            label,
+            /** The untrained rule for every skill and save in this section that names none of its own. */
+            untrained: untrainedSchema.optional(),
+          })
+          .strict(),
+      )
       .max(20)
       .default([]),
     abilities: z.array(abilitySchema).max(20).default([]),
@@ -2669,6 +2696,26 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     const message = value === undefined ? null : holdable(value, key);
     if (message) issue([...path, "hideWhen", key], message);
   };
+  // Abilities, skills and saves sit in sections too, and a skill, save or section may say what a check
+  // does untrained. One step harder moves a pool's per-die target, so it needs a pool whose target
+  // can move: anywhere else it could never change a roll.
+  const harderIssue =
+    resolution.kind !== "dice-pool"
+      ? `A ${resolution.kind} ruleset has no per-die target, so "harder" cannot change a roll`
+      : resolution.target.min >= resolution.target.max
+        ? 'This ruleset\'s per-die target cannot move, so "harder" cannot change a roll'
+        : null;
+  sheet.abilities.forEach((ability, index) => checkSection(ability.section, ["sheet", "abilities", index]));
+  for (const key of ["skills", "saves"] as const) {
+    sheet[key].forEach((entry, index) => {
+      checkSection(entry.section, ["sheet", key, index]);
+      if (entry.untrained === "harder" && harderIssue) issue(["sheet", key, index, "untrained"], harderIssue);
+    });
+  }
+  sheet.sections.forEach((section, index) => {
+    if (section.untrained === "harder" && harderIssue) issue(["sheet", "sections", index, "untrained"], harderIssue);
+  });
+
   sheet.fields.forEach((field, index) => {
     const path = ["sheet", "fields", index];
     checkTyped(field, path);

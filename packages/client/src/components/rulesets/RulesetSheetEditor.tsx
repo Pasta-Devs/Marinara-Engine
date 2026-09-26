@@ -12,6 +12,8 @@ import {
   recomputeScaledRows,
   rulesetCatalogEntriesByRef,
   rulesetCatalogIdsForBuild,
+  rulesetSectionGroups,
+  rulesetUntrainedRule,
   scaledRowColumns,
   RULESET_CATALOG_ROW_KEY,
   type RulesetCatalogEntriesById,
@@ -167,6 +169,31 @@ function TypedInput({
   );
 }
 
+/** Entries under the section headings the ruleset puts them in, each group drawn by `render`. A sheet
+ *  whose entries name no section is drawn exactly as it always was: one group, no heading. */
+function SectionedEntries<T extends { id: string; section?: string }>({
+  definition,
+  entries,
+  render,
+}: {
+  definition: RulesetDefinition;
+  entries: readonly T[];
+  render: (entries: T[]) => React.ReactNode;
+}) {
+  const groups = rulesetSectionGroups(definition, entries);
+  if (groups.length === 1 && !groups[0]!.section) return <>{render(groups[0]!.entries)}</>;
+  return (
+    <>
+      {groups.map((group) => (
+        <div key={group.section ? `section:${group.section.id}` : "none"} className="space-y-1">
+          {group.section && <p className={labelClass}>{group.section.label}</p>}
+          {render(group.entries)}
+        </div>
+      ))}
+    </>
+  );
+}
+
 function TrainedRows({
   title,
   entries,
@@ -192,6 +219,7 @@ function TrainedRows({
 }) {
   const { t } = useUiTranslation();
   if (entries.length === 0) return null;
+  const untrainedTier = definition.resolution.proficiencyTiers[0]!.id;
   const abilityShort = (id: string | undefined) => {
     const ability = definition.sheet.abilities.find((entry) => entry.id === id);
     return ability ? (ability.short ?? ability.label) : "";
@@ -199,52 +227,72 @@ function TrainedRows({
   return (
     <div className="space-y-2">
       <h4 className="text-xs font-semibold text-[var(--foreground)]">{title}</h4>
-      <div className="grid gap-1.5 sm:grid-cols-2">
-        {entries.map((entry) => (
-          <div
-            key={entry.id}
-            className="grid grid-cols-[minmax(0,1fr)_minmax(0,7rem)_3.25rem_2.25rem] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1"
-          >
-            <span className="min-w-0 truncate text-xs text-[var(--foreground)]" title={entry.label}>
-              {entry.label}
-              {entry.ability ? (
-                <span className="ml-1 text-[var(--muted-foreground)]">{abilityShort(entry.ability)}</span>
-              ) : null}
-            </span>
-            <select
-              value={chosen[entry.id] ?? tiers[0]!.id}
-              onChange={(event) => onTier(entry.id, event.target.value)}
-              aria-label={t("ui.rulesets.sheet.trainingFor", { name: entry.label })}
-              className={inputClass}
-            >
-              {[
-                ...tiers,
-                // A stored tier the editor no longer offers still shows as what it is.
-                ...definition.resolution.proficiencyTiers.filter(
-                  (tier) => tier.id === chosen[entry.id] && !tiers.some((offeredTier) => offeredTier.id === tier.id),
-                ),
-              ].map((tier) => (
-                <option key={tier.id} value={tier.id}>
-                  {tier.label}
-                </option>
-              ))}
-            </select>
-            <DraftNumberInput
-              value={bonuses[entry.id] ?? 0}
-              onCommit={(next) => onBonus(entry.id, clamp(next, bonusRange.min, bonusRange.max))}
-              min={bonusRange.min}
-              max={bonusRange.max}
-              integer
-              ariaLabel={t("ui.rulesets.sheet.bonusFor", { name: entry.label })}
-              title={t("ui.rulesets.sheet.bonusHint")}
-              className={`${inputClass} text-center`}
-            />
-            <span className="text-right text-xs font-semibold tabular-nums text-[var(--foreground)]">
-              {rulesetCheckValueText(definition, modifiers[entry.id] ?? 0, t)}
-            </span>
+      <SectionedEntries
+        definition={definition}
+        entries={entries}
+        render={(group) => (
+          <div className="grid gap-1.5 sm:grid-cols-2">
+            {group.map((entry) => (
+              <div
+                key={entry.id}
+                className="grid grid-cols-[minmax(0,1fr)_minmax(0,7rem)_3.25rem_2.25rem] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1"
+              >
+                <span className="min-w-0 truncate text-xs text-[var(--foreground)]" title={entry.label}>
+                  {entry.label}
+                  {entry.ability ? (
+                    <span className="ml-1 text-[var(--muted-foreground)]">{abilityShort(entry.ability)}</span>
+                  ) : null}
+                </span>
+                <select
+                  value={chosen[entry.id] ?? tiers[0]!.id}
+                  onChange={(event) => onTier(entry.id, event.target.value)}
+                  aria-label={t("ui.rulesets.sheet.trainingFor", { name: entry.label })}
+                  className={inputClass}
+                >
+                  {[
+                    ...tiers,
+                    // A stored tier the editor no longer offers still shows as what it is.
+                    ...definition.resolution.proficiencyTiers.filter(
+                      (tier) =>
+                        tier.id === chosen[entry.id] && !tiers.some((offeredTier) => offeredTier.id === tier.id),
+                    ),
+                  ].map((tier) => (
+                    <option key={tier.id} value={tier.id}>
+                      {tier.label}
+                    </option>
+                  ))}
+                </select>
+                <DraftNumberInput
+                  value={bonuses[entry.id] ?? 0}
+                  onCommit={(next) => onBonus(entry.id, clamp(next, bonusRange.min, bonusRange.max))}
+                  min={bonusRange.min}
+                  max={bonusRange.max}
+                  integer
+                  ariaLabel={t("ui.rulesets.sheet.bonusFor", { name: entry.label })}
+                  title={t("ui.rulesets.sheet.bonusHint")}
+                  className={`${inputClass} text-center`}
+                />
+                {/* A check the ruleset will not roll untrained has no number to show, and showing one
+                    would promise a roll that is refused. */}
+                {(chosen[entry.id] ?? untrainedTier) === untrainedTier &&
+                rulesetUntrainedRule(definition, entry) === "refuse" ? (
+                  <span
+                    className="text-right text-xs font-semibold text-[var(--muted-foreground)]"
+                    title={t("ui.rulesets.sheet.untrainedRefused")}
+                    aria-label={t("ui.rulesets.sheet.untrainedRefusedFor", { name: entry.label })}
+                  >
+                    —
+                  </span>
+                ) : (
+                  <span className="text-right text-xs font-semibold tabular-nums text-[var(--foreground)]">
+                    {rulesetCheckValueText(definition, modifiers[entry.id] ?? 0, t)}
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        )}
+      />
     </div>
   );
 }
@@ -400,32 +448,38 @@ export function RulesetSheetEditor({
   return (
     <div className="space-y-4">
       {sheet.abilities.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-          {sheet.abilities.map((ability) => (
-            <label
-              key={ability.id}
-              className="flex min-w-0 flex-col items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2"
-            >
-              <span className={`${labelClass} max-w-full truncate`} title={ability.label}>
-                {ability.short ?? ability.label}
-              </span>
-              <DraftNumberInput
-                value={evaluated.abilityScores[ability.id] ?? ability.default}
-                onCommit={(next) =>
-                  commit({ abilities: { ...build.abilities, [ability.id]: clamp(next, ability.min, ability.max) } })
-                }
-                min={ability.min}
-                max={ability.max}
-                integer
-                ariaLabel={ability.label}
-                className={`${inputClass} text-center`}
-              />
-              <span className="text-xs font-semibold tabular-nums text-[var(--foreground)]">
-                {rulesetCheckValueText(definition, evaluated.abilityMods[ability.id] ?? 0, t)}
-              </span>
-            </label>
-          ))}
-        </div>
+        <SectionedEntries
+          definition={definition}
+          entries={sheet.abilities}
+          render={(group) => (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {group.map((ability) => (
+                <label
+                  key={ability.id}
+                  className="flex min-w-0 flex-col items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2"
+                >
+                  <span className={`${labelClass} max-w-full truncate`} title={ability.label}>
+                    {ability.short ?? ability.label}
+                  </span>
+                  <DraftNumberInput
+                    value={evaluated.abilityScores[ability.id] ?? ability.default}
+                    onCommit={(next) =>
+                      commit({ abilities: { ...build.abilities, [ability.id]: clamp(next, ability.min, ability.max) } })
+                    }
+                    min={ability.min}
+                    max={ability.max}
+                    integer
+                    ariaLabel={ability.label}
+                    className={`${inputClass} text-center`}
+                  />
+                  <span className="text-xs font-semibold tabular-nums text-[var(--foreground)]">
+                    {rulesetCheckValueText(definition, evaluated.abilityMods[ability.id] ?? 0, t)}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+        />
       )}
 
       {sectionGroups.map(({ section, fields, derived, lists }) => (

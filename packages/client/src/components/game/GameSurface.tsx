@@ -5137,7 +5137,8 @@ function GameSurfaceComponent({
         try {
           const result =
             sc.resolvedResult ??
-            (isEngineRollableSkillCheckTag(sc) && !poolModeActive
+            // A check the Engine settled as not attempted untrained is owed nothing.
+            (isEngineRollableSkillCheckTag(sc) && !sc.reason && !poolModeActive
               ? (
                   await skillCheck.mutateAsync({
                     chatId: activeChatId,

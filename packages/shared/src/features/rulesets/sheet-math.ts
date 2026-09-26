@@ -14,6 +14,7 @@ import {
   type RulesetHideWhen,
   type RulesetSheetBuild,
   type RulesetSheetEnvelope,
+  type RulesetUntrained,
   type RulesetValueRef,
 } from "../../schemas/ruleset.schema.js";
 
@@ -193,6 +194,39 @@ function resolveValueRef(
   return 0;
 }
 
+/** What a check on this skill or save does when the character has no training in it: its own rule,
+ *  else its section's, else the ordinary one. */
+export function rulesetUntrainedRule(
+  definition: RulesetDefinition,
+  entry: { section?: string; untrained?: RulesetUntrained },
+): RulesetUntrained {
+  if (entry.untrained !== undefined) return entry.untrained;
+  const section = entry.section
+    ? definition.sheet.sections.find((candidate) => candidate.id === entry.section)
+    : undefined;
+  return section?.untrained ?? "normal";
+}
+
+/** Abilities, skills or saves under the section headings they sit in: the sheet's sections in their
+ *  own order, then the ones that name none under no heading. When nothing names a section there is
+ *  one group with no heading, so a sheet with no sections reads exactly as it always has. */
+export function rulesetSectionGroups<T extends { section?: string }>(
+  definition: RulesetDefinition,
+  entries: readonly T[],
+): Array<{ section: { id: string; label: string } | null; entries: T[] }> {
+  if (!entries.some((entry) => entry.section))
+    return entries.length > 0 ? [{ section: null, entries: [...entries] }] : [];
+  const groups = definition.sheet.sections
+    .map((section) => ({
+      section: { id: section.id, label: section.label },
+      entries: entries.filter((entry) => entry.section === section.id),
+    }))
+    .filter((group) => group.entries.length > 0);
+  const known = new Set(definition.sheet.sections.map((section) => section.id));
+  const loose = entries.filter((entry) => !entry.section || !known.has(entry.section));
+  return loose.length > 0 ? [...groups, { section: null, entries: loose }] : groups;
+}
+
 /** Every number the sheet yields, computed once, top to bottom. `live` is what a live track or pool
  *  reads; without it they read 0, which is right only where the format refuses them (a maximum, the
  *  proficiency bonus, a catalog's scaling). Anything a player or the Game Master sees, and anything a
@@ -239,14 +273,20 @@ export function evaluateRulesetSheet(
   // A cap reads no skill or save, and neither does any derived value up to the one it reads (both
   // refused at import), so working it out here, whenever a modifier is first asked for, cannot loop.
   const trainedModifier = (
-    entry: { id: string; ability?: string; cap?: RulesetValueRef },
+    entry: { id: string; ability?: string; cap?: RulesetValueRef; section?: string; untrained?: RulesetUntrained },
     tiers: Record<string, string> | undefined,
     caps: Record<string, { cap: number; uncapped: number }>,
   ): number => {
     const tier = tierById.get(tiers?.[entry.id] ?? "") ?? firstTier;
     const trained = roundRulesetNumber(tier.multiplier * readProficiencyBonus(), tier.round) + tier.flat;
+    // Untrained, the ruleset may add to or take from the number itself, before any cap holds it.
+    const rule = tier.id === firstTier.id ? rulesetUntrainedRule(definition, entry) : "normal";
+    const untrainedBy = typeof rule === "object" ? rule.by : 0;
     const uncapped =
-      (entry.ability ? (abilityMods[entry.ability] ?? 0) : 0) + trained + (finite(build.bonuses?.[entry.id]) ?? 0);
+      (entry.ability ? (abilityMods[entry.ability] ?? 0) : 0) +
+      trained +
+      (finite(build.bonuses?.[entry.id]) ?? 0) +
+      untrainedBy;
     if (!entry.cap) return uncapped;
     const cap = Math.floor(resolveRef(entry.cap));
     caps[entry.id] = { cap, uncapped };
