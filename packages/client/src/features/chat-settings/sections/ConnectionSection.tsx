@@ -3,12 +3,23 @@ import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ContextBudgetIndicator } from "../../../components/chat/ContextBudgetIndicator";
+import { NanoGptUsageWidget } from "../../../components/connections/NanoGptUsageWidget";
+import { resolveNanoGptUsageConnection } from "../../../lib/connection-filters";
 import type { ProfessorMariContextBudget } from "../../../lib/professor-mari-context-budget";
 
-export interface ChatConnectionOption {
+/**
+ * A connection row as the chat settings surfaces receive it. Extends the loose
+ * record shape other sections require, while naming the fields this section
+ * reads so the NanoGPT usage meter cannot silently lose them to a cast.
+ */
+export interface ChatConnectionOption extends Record<string, unknown> {
   id: string;
   name: string;
   model?: string;
+  /** Used to decide whether a NanoGPT usage meter applies to this connection. */
+  provider?: string;
+  /** NanoGPT: whether the connection opted in to the subscription usage display. */
+  showUsageWidget?: boolean | string;
 }
 
 interface ConnectionSectionProps {
@@ -28,6 +39,9 @@ export function ConnectionSection({
 }: ConnectionSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   const selectedLocalSidecar = connectionId === LOCAL_SIDECAR_CONNECTION_ID;
+  // The usage meter follows the active connection: only a NanoGPT connection that
+  // opted in from its editor shows it, and a random pick has no single quota.
+  const usageConnection = resolveNanoGptUsageConnection(connections, connectionId);
 
   return (
     <ChatSettingsSection
@@ -64,9 +78,12 @@ export function ConnectionSection({
             </select>
           </div>
           {contextBudget && <ContextBudgetIndicator budget={contextBudget} />}
+          {usageConnection && <NanoGptUsageWidget connectionId={usageConnection.id} variant="panel" />}
         </div>
       ) : (
-        <>
+        // space-y-2 matches the game branch above and the other settings
+        // sections; a bare fragment leaves the meter flush against the select.
+        <div className="space-y-2">
           <select
             value={connectionId ?? ""}
             onChange={(e) => onConnectionChange(e.target.value || null)}
@@ -81,19 +98,20 @@ export function ConnectionSection({
             ))}
           </select>
           {connectionId === "random" && (
-            <p className="mt-1.5 text-[0.625rem] text-foreground/50">
+            <p className="text-[0.625rem] text-foreground/50">
               {localizeUi("ui.chatSettings.connectionsection.eachGenerationWillRandomlyPickFromConnectionsMarkedFor")}
             </p>
           )}
           {selectedLocalSidecar && (
-            <div className="mt-2 flex items-start gap-2 rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
+            <div className="flex items-start gap-2 rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
               <AlertTriangle size="0.75rem" className="mt-0.5 shrink-0 text-[var(--warning)]" />
               <span>
                 {localizeUi("ui.chatSettings.connectionsection.localModelIsTinyAndIntendedForTrackersHelpers")}
               </span>
             </div>
           )}
-        </>
+          {usageConnection && <NanoGptUsageWidget connectionId={usageConnection.id} variant="panel" />}
+        </div>
       )}
     </ChatSettingsSection>
   );
