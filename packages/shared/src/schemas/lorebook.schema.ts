@@ -139,6 +139,7 @@ const lorebookBaseSchema = z.object({
   recursiveScanning: z.boolean().default(false),
   maxRecursionDepth: z.number().int().min(1).max(10).default(3),
   excludeFromVectorization: z.boolean().default(true),
+  vectorIncludeAssistant: z.boolean().default(false),
   vectorQueryDepth: z
     .number()
     .int()

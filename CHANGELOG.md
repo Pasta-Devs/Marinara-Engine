@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Lorebook semantic search can optionally consider character replies as a separate query, preserving specific user cues and keeping user-only retrieval as the default (#6670).
+
 - RunPod Serverless exposes the shared ComfyUI generation settings, including prompt prefixes, sampling, reference placeholders, and LoRAs, and applies them to submitted workflows (#6699).
 - Game translations keep dialogue aligned when translators alter internal speaker tags, and preserve notes or books embedded in narration (#6687).
 

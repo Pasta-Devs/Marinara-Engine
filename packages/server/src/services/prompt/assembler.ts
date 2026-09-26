@@ -166,7 +166,7 @@ export interface AssemblerInput {
   /** Pre-computed embedding of chat context for semantic lorebook matching. */
   chatEmbedding?: number[] | null;
   /** Per-lorebook pre-computed embeddings for semantic lorebook matching. */
-  semanticEmbeddingsByLorebookId?: ReadonlyMap<string, number[] | null>;
+  semanticEmbeddingsByLorebookId?: ReadonlyMap<string, number[] | number[][] | null>;
   /** Provider/model/profile identity used to create semantic query vectors. */
   semanticEmbeddingSpaceId?: string | null;
   /** Unrelated-text cosine floor used to calibrate clustered embedding models. */

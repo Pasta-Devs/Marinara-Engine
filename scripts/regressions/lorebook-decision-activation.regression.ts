@@ -583,6 +583,8 @@ try {
       reimportedEntries.find((e: { name: string }) => e.name === "Dragon")?.decisionStatement,
       "In the latest message, a dragon is physically present",
     );
+    assert.equal((await lorebooks.getById(book.id))!.vectorIncludeAssistant, false);
+    await lorebooks.update(book.id, { vectorIncludeAssistant: true });
     const native = await app.inject({ method: "GET", url: `/api/lorebooks/${book.id}/export` });
     assert.equal(native.statusCode, 200, native.body);
     const booksBefore = new Set(((await lorebooks.list()) as Array<{ id: string }>).map((b) => b.id));
@@ -590,12 +592,25 @@ try {
     assert.equal(nativeImport.success, true, JSON.stringify(nativeImport));
     const nativeCopy = ((await lorebooks.list()) as Array<{ id: string }>).find((b) => !booksBefore.has(b.id));
     assert(nativeCopy, "the native import created a new lorebook");
+    assert.equal(
+      (await lorebooks.getById(nativeCopy.id))!.vectorIncludeAssistant,
+      true,
+      "native export/import preserves the separate character-context query option",
+    );
     const nativeEntries = await lorebooks.listEntries(nativeCopy.id);
     assert.equal(nativeEntries.find((e: { name: string }) => e.name === "Scale")?.decisionMode, "require");
 
     // ── Professor Mari reads and writes the fields like the entry API ─────────
     const { MariDbService } = await import("../../packages/server/src/services/mari-db/mari-db.service.js");
     const mariDb = new MariDbService(db);
+    const characterContextUpdate = await mariDb.executeAction({
+      action: "lorebook.update",
+      lorebookId: nativeCopy.id,
+      patch: { vectorIncludeAssistant: false },
+      apply: true,
+    });
+    assert.equal(characterContextUpdate.ok, true, JSON.stringify(characterContextUpdate));
+    assert.equal((await lorebooks.getById(nativeCopy.id))!.vectorIncludeAssistant, false);
     const created = await mariDb.executeAction({
       action: "lorebook.createEntry",
       lorebookId: genBook.id,
