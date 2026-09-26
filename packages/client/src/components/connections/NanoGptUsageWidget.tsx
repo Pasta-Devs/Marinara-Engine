@@ -293,7 +293,11 @@ export function NanoGptUsageWidget({
 
       {!weekly && (
         <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-          {localizeUi("ui.connections.connectioneditor.weeklyQuotaNotConfigured")}
+          {localizeUi(
+            data.limits.weeklyInputTokens === null
+              ? "ui.connections.connectioneditor.weeklyQuotaNotConfigured"
+              : "ui.connections.connectioneditor.usageLookupUnavailable",
+          )}
         </p>
       )}
 

@@ -12,6 +12,7 @@ for (const theme of ["light", "dark"] as const) {
     let fail = false;
     let weekly: Record<string, unknown> | null = { used: null, remaining: null, percentUsed: null, degraded: true };
     let active = true;
+    let weeklyLimit: number | null = 60_000_000;
     await page.route("**/api/connections/nano-usage/subscription-usage", (route) => {
       calls++;
       return route.fulfill(
@@ -23,7 +24,7 @@ for (const theme of ["light", "dark"] as const) {
                 credential: "management_token",
                 active,
                 state: active ? "active" : "inactive",
-                limits: { weeklyInputTokens: 60_000_000, dailyInputTokens: null, dailyImages: null },
+                limits: { weeklyInputTokens: weeklyLimit, dailyInputTokens: null, dailyImages: null },
                 weeklyInputTokens: weekly,
                 dailyInputTokens: null,
                 dailyImages: null,
@@ -78,6 +79,11 @@ for (const theme of ["light", "dark"] as const) {
     weekly = null;
     await inline.getByRole("button", { name: "Refresh usage", exact: true }).click();
     await expect(inline).toContainText("inactive");
+    await expect(inline).toContainText("could not report this quota");
+    await expect(inline).not.toContainText("No weekly input-token quota");
+    weeklyLimit = null;
+    await inline.getByRole("button", { name: "Refresh usage", exact: true }).click();
+    await expect(inline).toContainText("No weekly input-token quota");
     await expect(inline.getByRole("progressbar")).toHaveCount(0);
     await expect(inline.getByRole("button", { name: "Refresh usage", exact: true })).toBeVisible();
     fail = true;
@@ -86,6 +92,6 @@ for (const theme of ["light", "dark"] as const) {
     fail = false;
     await inline.getByRole("button", { name: "Retry usage lookup", exact: true }).click();
     await expect(inline).toContainText("inactive");
-    expect(calls).toBe(5);
+    expect(calls).toBe(6);
   });
 }
