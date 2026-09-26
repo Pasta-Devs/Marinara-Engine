@@ -12865,6 +12865,18 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         },
       });
       assert.equal(embeddingCalls, 1, "user, character and calibration queries share one embedding call");
+      assert.equal(withCharacter.similarityBaseline, 1 / 3, "only the three calibration vectors set the baseline");
+      const withoutCharacter = await buildLorebookSemanticEmbeddingsById({
+        lorebooks: [{ id: entry.lorebookId, vectorQueryDepth: 1, vectorIncludeAssistant: true } as any],
+        entries: [entry as any],
+        scanMessages: [{ role: "user", content: "Rocks stones mountain ore" }],
+        embeddingSource,
+      });
+      assert.deepEqual(
+        withoutCharacter.embeddingsByLorebookId?.get(entry.lorebookId),
+        [1, 0],
+        "an opted-in book with no character messages keeps the single user vector",
+      );
       const matches = scanForActivatedEntries(mixedMessages, [entry, characterEntry, defaultEntry] as any, {
         chatEmbedding: withCharacter.defaultEmbedding,
         semanticEmbeddingsByLorebookId: withCharacter.embeddingsByLorebookId,
