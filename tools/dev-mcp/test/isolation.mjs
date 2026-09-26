@@ -278,6 +278,34 @@ for (const signal of ["SIGTERM", "SIGINT"]) process.on(signal, () => child.kill(
     return { ok: Object.values(checks).every(Boolean), checks };
   },
 
+  /** A working directory under the repo does not vouch for a listener whose engine script lives outside it. */
+  async "ownership-cwd-not-enough-for-outside-script"() {
+    const repo = process.env.MARINARA_DEV_REPO;
+    const proc = await lib("proc.mjs");
+    const owned = proc.belongsToCheckout ?? (() => true);
+    const accepted = (chain) => {
+      const p = { pid: chain[0].pid, chain };
+      return proc.looksLikeEngine(p, undefined) && owned(p, undefined, repo);
+    };
+    const elsewhere = join(dirname(repo), "unrelated-service");
+    const checks = {
+      "outside dist/index.js started from the repo folder is refused": !accepted([
+        { pid: 999999, cmd: `node ${join(elsewhere, "dist", "index.js")}`, cwd: repo },
+      ]),
+      "outside dist/index.js started from a repo subfolder is refused": !accepted([
+        { pid: 999999, cmd: `node "${join(elsewhere, "dist", "index.js")}"`, cwd: join(repo, "packages", "server") },
+      ]),
+      "an in-repo supervisor cwd does not vouch for an outside listener script": !accepted([
+        { pid: 999991, cmd: `node ${join(elsewhere, "dist", "index.js")}`, cwd: elsewhere },
+        { pid: 999992, cmd: "node ../../scripts/run-server.mjs dist/index.js", cwd: join(repo, "packages", "server") },
+      ]),
+      "relative dist/index.js with cwd under the repo is still accepted": accepted([
+        { pid: 999999, cmd: "node dist/index.js", cwd: join(repo, "packages", "server") },
+      ]),
+    };
+    return { ok: Object.values(checks).every(Boolean), checks };
+  },
+
   /** In sandbox mode no build entry point may write the checkout's dist (the live engine's). */
   async "sandbox-builds-never-write-live-dist"({ root }) {
     const repo = process.env.MARINARA_DEV_REPO;

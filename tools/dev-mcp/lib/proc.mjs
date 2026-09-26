@@ -179,16 +179,21 @@ function commandPaths(cmd) {
 
 /**
  * Evidence that the engine tree belongs to this checkout (`repo`): a process in it is the one this tool started on
- * that port (PID file), runs with its working directory under the repo, or names a script path under the repo.
+ * that port (PID file), names a script path under the repo, or runs with its working directory under the repo while
+ * naming no engine script outside it.
  * A command line alone ("node dist/index.js") says nothing about which checkout it came from.
  */
 export function belongsToCheckout(proc, port, repo = REPO) {
   const recorded = port === undefined ? null : readPidFile(port);
-  return engineChain(proc).some(
+  const chain = engineChain(proc);
+  const enginePaths = (p) => commandPaths(p.cmd ?? "").filter((path) => ENGINE_CMD.test(path));
+  // A working directory under the repo is no evidence when any process in the chain names an engine script elsewhere.
+  const namesOutsideScript = chain.some((p) => enginePaths(p).some((path) => !under(repo, path)));
+  return chain.some(
     (p) =>
       (recorded !== null && p.pid === recorded) ||
-      (typeof p.cwd === "string" && p.cwd && under(repo, p.cwd)) ||
-      commandPaths(p.cmd ?? "").some((path) => ENGINE_CMD.test(path) && under(repo, path)),
+      enginePaths(p).some((path) => under(repo, path)) ||
+      (!namesOutsideScript && typeof p.cwd === "string" && p.cwd !== "" && under(repo, p.cwd)),
   );
 }
 
