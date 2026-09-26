@@ -17,6 +17,7 @@ import type { FastifyReply } from "fastify";
 import { BUILT_IN_THINKING_TAG_PAIRS, extractLeadingThinkingBlocks } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logDebugOverride, logger } from "../../lib/logger.js";
+import { logSuppressed } from "../../lib/best-effort.js";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import type { BaseLLMProvider, ChatMessage, LLMToolDefinition } from "../llm/base-provider.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
@@ -578,7 +579,8 @@ async function narrateOutcome(
       ...(signal ? { signal } : {}),
     });
     return stripInlineThinking(res.content ?? "");
-  } catch {
+  } catch (error) {
+    logSuppressed(error, { event: "turn-game.narration", stage: "outcome", level: signal?.aborted ? "debug" : "warn" });
     return "";
   }
 }
@@ -618,7 +620,12 @@ async function narrateAnnouncements(
       ...(signal ? { signal } : {}),
     });
     return stripInlineThinking(res.content ?? "");
-  } catch {
+  } catch (error) {
+    logSuppressed(error, {
+      event: "turn-game.narration",
+      stage: "dealer-announcement",
+      level: signal?.aborted ? "debug" : "warn",
+    });
     return "";
   }
 }
