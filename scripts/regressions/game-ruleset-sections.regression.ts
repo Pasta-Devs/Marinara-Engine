@@ -189,13 +189,22 @@ try {
       renderRulesetSheetBlock(sectionedAbilities, { name: "Mira", build }, {}),
       /^Body: SIN 2 dice; Spirit: NRV 2 dice, WRM 2 dice$/m,
     );
-    // A file with no sections at all renders byte for byte as before: the 5e reference file.
+    // A file with no sections at all renders byte for byte as before: the 5e reference file. The
+    // expected block is what staging rendered for this build before sections existed.
     const fiveE = parsedOrThrow(JSON.parse(fiveEText), "the 5e reference");
     const fiveEBuild = defaultRulesetSheetBuild(fiveE);
     fiveEBuild.skills = { ...fiveEBuild.skills, stealth: "expertise" };
     const fiveEBlock = renderRulesetSheetBlock(fiveE, { name: "Vex", build: fiveEBuild }, {});
-    assert.doesNotMatch(fiveEBlock, /: [A-Z][a-z]+ [+-]\d+;/, "no headings");
-    assert.match(fiveEBlock, /^Trained: Stealth [+-]\d+$/m);
+    assert.equal(
+      fiveEBlock,
+      [
+        "Vex",
+        "STR +0, DEX +0, CON +0, INT +0, WIS +0, CHA +0",
+        "Trained: Stealth +4",
+        "Level 1, Armor Class 10, Speed (ft) 30, Proficiency bonus 2, Passive Perception 10",
+        "Hit points 8/8, Hit dice 1/1",
+      ].join("\n"),
+    );
   }
 
   // ── Untrained: a number added, the entry's own rule winning ──
