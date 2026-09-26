@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Advanced Memory lets you save a requested review without changing correct text, regenerate an individually deleted scene, and see background preparation failures in a toast (#6737).
+
 - A creature a ruleset fight takes from its bestiary keeps its own reaction and anything it does to itself, so a monster's Parry is asked for when a blow hits it instead of turning up as an ordinary action on its turn aimed at an enemy (#6731).
 
 - The expression sprite and Roleplay whisper browser regressions wait for the page's own requests to finish before each reload, avoiding false WebKit access-control failures in release checks (#6677).

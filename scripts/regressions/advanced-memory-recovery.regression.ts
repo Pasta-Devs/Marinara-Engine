@@ -162,6 +162,74 @@ try {
     await memory.reindex(chat.id);
     assert.equal(summaryRequests.length, before + 1, "repair retries and reindex do not repeat model work");
   });
+  await test("a deleted scene can be regenerated alone without changing other corrections", async () => {
+    const { chat, messages, row, sceneId } = await fixture();
+    const deletedId = `${sceneId}-deleted`;
+    await db.insert(advancedMemoryRecords).values({
+      ...row,
+      id: deletedId,
+      content: "The original recap.",
+      audienceCharacterIds: '["maukie"]',
+      manualOverride: 1,
+    });
+    const laterId = `scene-${messages[2]!.id}`;
+    const preserved = { ...row, id: `${laterId}-corrected`, sceneId: laterId,
+      startMessageId: messages[2]!.id, endMessageId: messages[2]!.id,
+      messageIds: JSON.stringify([messages[2]!.id]), status: "open",
+      content: "A different corrected scene stays intact.", manualOverride: 1 };
+    await db.insert(advancedMemoryRecords).values(preserved);
+    await memory.deleteRecord(chat.id, deletedId);
+    const before = summaryRequests.length;
+    await memory.maintain(chat.id);
+    assert.equal(summaryRequests.length, before, "routine maintenance respects the deletion");
+    const deleted = (await memory.status(chat.id)).unpreparedScenes?.find((scene) => scene.sceneId === sceneId);
+    assert.equal(deleted?.deleted, true, "the deleted range remains available for explicit recovery");
+    helperFinishReason = "length";
+    try {
+      await assert.rejects(memory.initialize(chat.id, { sceneId }), /truncat|limit|length/i);
+    } finally {
+      helperFinishReason = "stop";
+    }
+    assert.equal((await memory.status(chat.id)).unpreparedScenes?.find((scene) => scene.sceneId === sceneId)?.deleted, true);
+    const afterFailure = summaryRequests.length;
+    await memory.initialize(chat.id, { sceneId });
+    const recovered = await memory.status(chat.id);
+    assert.deepEqual(recovered.unpreparedScenes, []);
+    const recap = recovered.records.find((record) => record.sceneId === sceneId && record.content)!;
+    assert(recap.enabled);
+    assert.equal(recap.manualOverride, false);
+    assert.deepEqual(recap.messageIds, messages.slice(0, 2).map((message) => message.id));
+    assert.equal(summaryRequests.length, afterFailure + 1, "recovery summarizes only the selected scene");
+    assert.doesNotMatch(summaryRequests.at(-1)!, /COMPASS_NEXT_SCENE/);
+    const untouched = (await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, preserved.id)))[0];
+    assert.deepEqual(untouched, { ...preserved, embedding: null, embeddingSpaceId: null, summaryWork: null });
+    await memory.initialize(chat.id, { sceneId });
+    assert.equal(summaryRequests.length, afterFailure + 1, "a repeated recovery is free");
+  });
+  await test("partial visibility review is saveable and clears its error without rewriting the recap", async () => {
+    const { chat, messages, row, sceneId } = await fixture();
+    await chats.updateMessageExtra(messages[1]!.id, { hiddenFromAICharacterIds: ["maukie"] });
+    const id = `${sceneId}-partial-reader`;
+    const content = '{{#if char == "Maukie"}}The public promise.{{/if}}';
+    await db.insert(advancedMemoryRecords).values({
+      ...row, id, content, manualOverride: 1, audienceCharacterIds: '["maukie","pantalone"]',
+      dependencies: '[{"id":"scene-audience","revision":"participants-v1"}]',
+    });
+    await assert.rejects(memory.initialize(chat.id, { sceneId }), /manually corrected memory/);
+    const failed = await memory.status(chat.id);
+    assert.equal(failed.job.reviewRecordId, id);
+    assert.equal(failed.records.find((record) => record.id === id)?.embeddingStatus, "stale");
+    const paid = summaryRequests.length;
+    const reviewed = await memory.updateRecord(chat.id, id, { content });
+    assert.equal(reviewed.job.error, null);
+    assert.equal(reviewed.job.reviewRecordId, null);
+    assert.equal(reviewed.job.status, "cancelled", "saving allows resume without claiming unfinished work completed");
+    assert.notEqual(reviewed.records.find((record) => record.id === id)?.embeddingStatus, "stale");
+    await memory.maintain(chat.id);
+    assert.equal((await memory.status(chat.id)).job.status, "ready");
+    assert.equal(summaryRequests.length, paid, "review requires no model call");
+    assert.equal((await memory.status(chat.id)).records.find((record) => record.id === id)?.content, content);
+  });
   await test("legacy corrections stay authoritative through inspection, export, preparation and reindex", async () => {
     const { chat, messages, row, sceneId } = await fixture();
     const corrected = {
