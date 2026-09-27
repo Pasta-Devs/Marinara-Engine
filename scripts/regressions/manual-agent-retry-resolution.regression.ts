@@ -111,7 +111,7 @@ const retryToolWiringStart = retryRouteSource.indexOf("const phaseToolInputs = r
 const retryToolWiringEnd = retryRouteSource.indexOf("const retryIllustratorPromptAgent", retryToolWiringStart);
 const retryToolWiringSource = retryRouteSource.slice(retryToolWiringStart, retryToolWiringEnd);
 assert.ok(retryToolWiringStart >= 0 && retryToolWiringEnd > retryToolWiringStart);
-assert.match(retryToolWiringSource, /selectedTargetMessage:\s*lastAssistant/);
+assert.match(retryToolWiringSource, /selectedTargetMessage:\s*rangeTarget \?\? lastAssistant/);
 assert.match(retryToolWiringSource, /await resolveAgentGenerationTools\(\{/);
 assert.match(retryToolWiringSource, /if \(activeMusicPlayerSource === null\)/);
 assert.match(retryToolWiringSource, /!spotifyToolNames\.has\(toolName\)/);

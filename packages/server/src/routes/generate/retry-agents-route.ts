@@ -4810,7 +4810,7 @@ export async function registerRetryAgentsRoute(
         requestBody: request.body as unknown as Record<string, unknown>,
         agentContext,
         preGenerationAgentContext,
-        selectedTargetMessage: lastAssistant,
+        selectedTargetMessage: rangeTarget ?? lastAssistant,
       });
       const attachAgentTools = async (entries: ResolvedRetryAgent[], toolInputs: RetryAgentPhaseToolInputs) => {
         assertRetrySetupActive();
@@ -5325,7 +5325,7 @@ export async function registerRetryAgentsRoute(
           ? permittedResults.filter((result) => result.type === "lorebook_update")
           : permittedResults,
         agentContext,
-        mainResponseRaw: (lastAssistant?.content as string) ?? "",
+        mainResponseRaw: ((rangeTarget ?? lastAssistant)?.content as string) ?? "",
         lorebooksStore,
         gameStateStore,
         conns,
