@@ -73,6 +73,11 @@ test("Conversation Tools translates an unsent draft without enabling the shortcu
 
 test("regex bulk deletion confirms once and keeps failed and unselected scripts", async ({ page, request }, info) => {
   const scripts: Array<{ id: string; name: string }> = [];
+  let releaseDeletion!: () => void;
+  const deletionGate = new Promise<void>((resolve) => {
+    releaseDeletion = resolve;
+  });
+  let deletionRequested = false;
   try {
     for (const name of ["Old pack first", "Old pack second", "Keep this regex"]) {
       const response = await request.post("/api/regex-scripts", {
@@ -99,7 +104,7 @@ test("regex bulk deletion confirms once and keeps failed and unselected scripts"
     await expect(selectRegex).toBeVisible();
     await expect(page.locator(".mari-selection-action-bar")).toHaveCount(1);
     await selectRegex.click();
-    await expect(page.getByRole("checkbox", { name: "Select Old pack first", exact: true })).not.toBeChecked();
+    await expect(page.getByRole("checkbox", { name: "Select Old pack first", exact: true })).toBeChecked();
     const all = page.getByRole("checkbox", { name: "Select all regex scripts", exact: true });
     await all.check();
     await expect(page.getByRole("checkbox", { name: "Select Keep this regex", exact: true })).toBeChecked();
@@ -117,13 +122,19 @@ test("regex bulk deletion confirms once and keeps failed and unselected scripts"
         scripts.some((script) => script.id === row.id),
       ),
     ).toHaveLength(3);
-    await page.route(`**/api/regex-scripts/${scripts[1]!.id}`, (route) =>
-      route.request().method() === "DELETE"
-        ? route.fulfill({ status: 500, json: { error: "Synthetic deletion failure" } })
-        : route.continue(),
-    );
+    await page.route(`**/api/regex-scripts/${scripts[1]!.id}`, async (route) => {
+      if (route.request().method() !== "DELETE") return route.continue();
+      deletionRequested = true;
+      await deletionGate;
+      return route.fulfill({ status: 500, json: { error: "Synthetic deletion failure" } });
+    });
     await bulk.getByRole("button", { name: "Delete", exact: true }).click();
     await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect.poll(() => deletionRequested).toBe(true);
+    await selectPresets.click();
+    releaseDeletion();
+    await expect(selectRegex).toBeEnabled();
+    await selectRegex.click();
     await expect(page.getByRole("checkbox", { name: "Select Old pack first", exact: true })).toHaveCount(0);
     await expect(page.getByRole("checkbox", { name: "Select Old pack second", exact: true })).toBeChecked();
     await expect(page.getByRole("checkbox", { name: "Select Keep this regex", exact: true })).not.toBeChecked();
@@ -140,6 +151,7 @@ test("regex bulk deletion confirms once and keeps failed and unselected scripts"
         .map((row: { name: string }) => row.name),
     ).toEqual(["Keep this regex"]);
   } finally {
+    releaseDeletion();
     await Promise.all(scripts.map((script) => request.delete(`/api/regex-scripts/${script.id}`)));
   }
 });

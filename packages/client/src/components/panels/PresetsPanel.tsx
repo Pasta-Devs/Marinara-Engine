@@ -1665,7 +1665,7 @@ function RegexSection({
             type="button"
             onClick={() => {
               setSelectionMode(!selectionMode);
-              setSelectedIds(new Set());
+              if (selectionMode) setSelectedIds(new Set());
             }}
             disabled={deleting || sortedRegexScripts.length === 0}
             aria-label={localizeUi(selectionMode ? "regex.bulk.exitSelection" : "regex.bulk.select")}
