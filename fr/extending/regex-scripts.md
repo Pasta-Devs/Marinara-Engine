@@ -158,6 +158,10 @@ Marinara sait lire les scripts regex intégrés à une fiche de personnage Silly
 
 Ce choix apparaît aussi bien dans la fenêtre d'import d'un personnage seul que dans l'import groupé **Import from SillyTavern Folder** (importer depuis un dossier SillyTavern). Les scripts intégrés dont le motif est vide, ou dont le motif échoue au contrôle de sécurité, sont ignorés à l'import. Autre option : importe un simple fichier JSON de scripts avec le bouton **Import regexes from JSON** de la section **Regexes**. Pour la marche à suivre complète, voir [Importer depuis SillyTavern](../data/importing-from-sillytavern.md).
 
+## Remplacer un ensemble de scripts regex
+
+Dans **Presets → Regexes** (préréglages → regex), choisis **Select regex scripts** (sélectionner des scripts regex), puis coche les entrées de l'ancien ensemble ou utilise **Select all regex scripts** (sélectionner tous les scripts regex). La barre d'actions permet d'utiliser **Export** (exporter) ou **Delete** (supprimer) sur la sélection. La suppression demande une seule confirmation et ne peut pas être annulée. Les entrées dont la suppression échoue restent sélectionnées pour réessayer ; celles qui ne sont pas sélectionnées restent en place. Importe l'ensemble à jour après avoir supprimé l'ancien. Aucun dossier n'est nécessaire ; les affectations aux préréglages restent disponibles dans l'éditeur regex.
+
 ## Sécurité et performances
 
 Chaque motif est contrôlé avant de pouvoir être enregistré ou exécuté. Marinara bloque les motifs très susceptibles d'être lents et de figer l'application. Un motif bloqué affiche ce message : "Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns." L'enregistrement reste bloqué tant que tu ne l'as pas corrigé.

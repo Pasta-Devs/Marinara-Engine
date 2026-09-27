@@ -84,6 +84,8 @@ Sous les réglages de fournisseur se trouvent trois interrupteurs. Les trois son
 
 **Show Draft Translate Button** (afficher le bouton de traduction du brouillon) ajoute un bouton **Translate draft** (traduire le brouillon) à côté du bouton **Send** (envoyer). Tu peux ainsi traduire ton message et relire ou corriger le résultat avant de l'envoyer. C'est l'équivalent manuel de **Translate My Messages**, qui traduit à l'envoi sans laisser le temps de relire.
 
+Dans **Conversation**, tu peux toujours traduire un brouillon non envoyé depuis le bouton souriant du champ de message → **Tools → Translate draft** (outils → traduire le brouillon), sur ordinateur ou mobile. Tu n'as pas besoin d'activer **Show Draft Translate Button** ni la traduction automatique. L'action utilise les réglages de traduction des messages sortants de ce chat et remplace le brouillon pour te permettre de le relire ; elle n'envoie aucun message. Un échec de traduction laisse le brouillon intact.
+
 ## Le bouton Translate de chaque message
 
 Chaque message du chat, qu'il vienne de toi ou de l'IA, a un bouton **Translate** dans sa barre d'actions au survol. Le bouton porte une icône de langues. Il fonctionne tout seul et ne dépend d'aucun des interrupteurs ci-dessus.

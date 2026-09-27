@@ -87,6 +87,14 @@ Illustrator 卡片上有一个 **Open Setup** 按钮，点开就是这个智能�
 
 也可以不等它自己动手，随时手动出一张图。打开聊天的 **Gallery**，点 **Illustrate**(生成插图) 按钮，Illustrator 会立刻运行一次，出图期间按钮会显示 **Generating...**。想给眼下这一刻配张图、而智能体还没画的时候，这个按钮很好用。
 
+## 图库保存与提示词查看
+
+**Settings → Generations → Image Generation**（设置 → 生成 → 图像生成）中的 **Automatically save generated images to character galleries**（自动将生成的图片保存到角色图库）默认开启。关闭后，聊天插图和自拍将不再自动加入图片中角色和用户人设的图库。图片仍会显示在对话和聊天图库中，也仍可手动保存到图库。已有条目不会改变。各图库共享图片文件，因此该选项只控制图片所属的图库，不会删除聊天中的图片文件。
+
+对于新生成的 NovelAI 图片，检查器会先显示场景或风格提示词，再显示以 ` | ` 分隔的各角色正向描述。图库保存的提示词也包含这些内容。
+
+要为 Roleplay 中较早的消息或消息范围生成插图，请使用 `/illustrate range=12` 或 `/illustrate range=12-18`。编号方式与限制请参阅[斜杠命令](../chats/slash-commands.md)。
+
 ## 相关指南
 
 - [图像生成服务商与设置](image-providers.md)

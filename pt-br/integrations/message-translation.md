@@ -84,6 +84,8 @@ Abaixo das configurações de provedor ficam três botões liga/desliga. Os trê
 
 **Show Draft Translate Button** (mostrar o botão de traduzir o rascunho) acrescenta o botão **Translate draft** ao lado do botão **Send**. Com ele, você traduz a mensagem e revisa ou edita o resultado antes de enviar. É a alternativa manual ao **Translate My Messages**, que traduz no envio e não dá chance de revisão.
 
+Em **Conversation**, você sempre pode traduzir um rascunho não enviado pelo botão de carinha do campo de mensagem → **Tools → Translate draft** (ferramentas → traduzir rascunho), no computador ou celular. Não é preciso ativar **Show Draft Translate Button** nem a tradução automática. A ação usa as configurações de tradução das mensagens que você envia nesse chat e substitui o rascunho para revisão; ela não envia uma mensagem. Se a tradução falhar, o rascunho permanece intacto.
+
 ## O botão Translate de cada mensagem
 
 Toda mensagem do chat, sua ou da IA, tem um botão **Translate** (traduzir) na barra de ações que aparece ao passar o mouse. O botão usa o ícone de idiomas. Ele funciona sozinho e não depende de nenhum dos botões liga/desliga acima.

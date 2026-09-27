@@ -158,6 +158,10 @@ Marinara odczytuje skrypty regex dołączone do karty postaci z aplikacji SillyT
 
 Ten wybór pojawia się zarówno w oknie importu pojedynczej postaci, jak i w zbiorczym imporcie **Import from SillyTavern Folder**. Dołączone skrypty z pustym wzorcem albo ze wzorcem, który nie przechodzi kontroli bezpieczeństwa, zostają przy imporcie pominięte. Zwykły plik JSON ze skryptami wczytasz przyciskiem **Import regexes from JSON** w sekcji **Regexes**. Pełny opis importu znajdziesz w przewodniku [Importowanie z SillyTavern](../data/importing-from-sillytavern.md).
 
+## Zastępowanie pakietu regexów
+
+W sekcji **Presets → Regexes** (presety → regexy) wybierz **Select regex scripts** (wybierz skrypty regex), a następnie zaznacz wpisy starego pakietu lub użyj **Select all regex scripts** (zaznacz wszystkie skrypty regex). Pasek akcji pozwala użyć **Export** (eksportuj) lub **Delete** (usuń) dla zaznaczonych wpisów. Usuwanie wymaga jednego potwierdzenia i jest nieodwracalne. Wpisy, których nie udało się usunąć, pozostają zaznaczone do ponowienia próby; niezaznaczone skrypty pozostają bez zmian. Po usunięciu starego pakietu zaimportuj nowy. Foldery nie są potrzebne; przypisania do presetów nadal są dostępne w edytorze regexów.
+
 ## Bezpieczeństwo i wydajność
 
 Każdy wzorzec przechodzi kontrolę przed zapisem i przed uruchomieniem. Marinara blokuje wzorce, które z dużym prawdopodobieństwem będą działać wolno i zawieszą aplikację. Zablokowany wzorzec pokazuje komunikat "Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns." Zapis pozostaje zablokowany do czasu poprawki.

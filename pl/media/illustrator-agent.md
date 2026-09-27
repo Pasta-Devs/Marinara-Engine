@@ -87,6 +87,14 @@ Ustaw **Run Interval** (odstęp uruchamiania) na **0**, aby generować wyłączn
 
 Obraz da się też zamówić od ręki, bez czekania. Otwórz sekcję **Gallery** danego czatu i użyj przycisku **Illustrate** (zilustruj). Agent **Illustrator** uruchamia się wtedy jednorazowo od razu, a przycisk pokazuje w trakcie pracy napis **Generating...**. Przydaje się to wtedy, gdy chcesz mieć obraz bieżącej chwili, a agent jeszcze nic nie narysował.
 
+## Zapisywanie w galeriach i podgląd promptu
+
+W sekcji **Settings → Generations → Image Generation** (ustawienia → generowanie → generowanie obrazów) opcja **Automatically save generated images to character galleries** (automatycznie zapisuj wygenerowane obrazy w galeriach postaci) jest domyślnie włączona. Wyłącz ją, aby ilustracje i selfie z czatu nie trafiały do galerii przedstawionych postaci i person. Obrazy nadal są widoczne w rozmowie i galerii czatu; ręczne zapisywanie w galerii nadal działa. Istniejące wpisy pozostają bez zmian. Galerie współdzielą pliki obrazów, więc opcja zmienia przypisanie do galerii, a nie usuwa pliku obrazu z czatu.
+
+Dla nowych obrazów NovelAI inspektor pokazuje prompt sceny lub stylu, a po nim pozytywne opisy postaci oddzielone przez ` | `. Dotyczy to również promptu zapisanego w galerii.
+
+Aby zilustrować wcześniejszą wiadomość lub zakres w trybie Roleplay, użyj `/illustrate range=12` albo `/illustrate range=12-18`. Numerację i limity opisuje przewodnik [Komendy ukośnikowe](../chats/slash-commands.md).
+
 ## Powiązane przewodniki
 
 - [Dostawcy generowania obrazów i konfiguracja](image-providers.md)

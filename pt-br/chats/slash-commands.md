@@ -81,9 +81,11 @@ Estes comandos ajudam a conduzir a história, interpretar um personagem e acresc
 | `/roll [dice (optional)]` | `/r`, `/dice` | Rola os dados e publica o resultado. |
 | `/random` | `/rand`, `/event` | Pede que a IA acrescente um evento surpresa à história. |
 | `/scene [description (optional)]` | `/rp` | Executado a partir de um chat de Conversation. Começa uma cena nova de Roleplay, criando uma ramificação a partir daquela conversa. |
-| `/illustrate [prompt (optional)]` | `/ill` | Gera uma imagem de galeria para o chat atual. |
+| `/illustrate [range=N-M (optional)] [prompt (optional)]` | `/ill` | Gera uma imagem de galeria para o chat atual. |
 | `/impersonate [direction (optional)]` | `/imp` | Escreve uma resposta no papel da persona. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Define a instrução que `/impersonate` usa neste chat. |
+
+Em **Roleplay**, `/illustrate range=12` ilustra a mensagem 12, e `/illustrate range=12-18` envia as mensagens de 12 a 18 ao Illustrator. Use os mesmos números de `/goto`, em ordem crescente, com no máximo 200 mensagens. Mensagens ocultas continuam excluídas. A imagem é anexada à última mensagem visível do intervalo; a revisão do prompt mantém essa seleção mesmo se chegarem mensagens novas. Mensagens anteriores continuam disponíveis com Advanced Memory ativado. Sem `range=`, o comando mantém o comportamento normal para a cena atual. Um prompt digitado opcional é usado diretamente, como antes.
 
 Para conduzir a próxima resposta, escreva a direção depois de `/guided`:
 

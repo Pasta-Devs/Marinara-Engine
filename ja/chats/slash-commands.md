@@ -81,9 +81,11 @@
 | `/roll [dice (optional)]` | `/r`, `/dice` | ダイスを振って結果を投稿します。 |
 | `/random` | `/rand`, `/event` | 物語に予想外の出来事を加えるようAIに指示します。 |
 | `/scene [description (optional)]` | `/rp` | Conversationチャットから実行します。そのチャットから分岐する新しいRoleplayのシーンを開始します。 |
-| `/illustrate [prompt (optional)]` | `/ill` | 現在のチャット向けにギャラリーの画像を生成します。 |
+| `/illustrate [range=N-M (optional)] [prompt (optional)]` | `/ill` | 現在のチャット向けにギャラリーの画像を生成します。 |
 | `/impersonate [direction (optional)]` | `/imp` | 自分のペルソナとして返信を書きます。 |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | このチャットで`/impersonate`が使う指示を設定します。 |
+
+**Roleplay**では、`/illustrate range=12`でメッセージ12を描き、`/illustrate range=12-18`でメッセージ12から18をIllustratorに渡せます。`/goto`と同じ番号を昇順で指定し、最大200メッセージまで選択できます。非表示のメッセージは除外されます。画像は選択範囲の最後の表示対象メッセージに添付され、プロンプト確認中に新しいメッセージが届いても選択は変わりません。Advanced Memoryを有効にしていても過去のメッセージを使えます。`range=`を省くと、従来どおり現在のシーンを対象にします。任意で入力したプロンプトは、これまでどおり直接使用されます。
 
 次の返信を誘導するには、`/guided`のあとに方向性を書きます。
 

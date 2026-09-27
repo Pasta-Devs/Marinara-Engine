@@ -84,6 +84,8 @@ You are a translator. Translate the given text accurately, preserving formatting
 
 **Show Draft Translate Button**(下書きの翻訳ボタンを表示)をオンにすると、**Send**ボタンの隣に**Translate draft**ボタンが追加されます。送信する前にメッセージを翻訳して、結果を確かめたり手直ししたりできます。**Translate My Messages**は送信時に翻訳するため内容を確認できませんが、こちらはその手動版です。
 
+**Conversation**では、パソコンでもモバイルでも、入力欄のスマイルボタン→**Tools → Translate draft**(ツール → 下書きを翻訳)から未送信の下書きをいつでも翻訳できます。**Show Draft Translate Button**や自動翻訳を有効にする必要はありません。このチャットの入力翻訳設定を使い、確認できるよう下書きを置き換えます。メッセージは送信しません。翻訳に失敗した場合、下書きはそのまま残ります。
+
 ## メッセージごとのTranslateボタン
 
 自分のメッセージもAIのメッセージも、カーソルを重ねると出る操作バーに**Translate**ボタンがあります。ボタンのアイコンは言語のマークです。このボタンは単独で動くので、上のトグルはどれもオンにする必要はありません。

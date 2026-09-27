@@ -1,6 +1,6 @@
 # 可下载智能体参考
 
-本指南按分类列出通过 **Agents → Download Agents**(智能体 → 下载智能体) 可以获取的全部 36 个官方第一方包。全新安装的 Marinara Engine 并不自带智能体。这些包的源码、清单、构建产物和机器可读目录都发布在 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)。下面每个条目都会说明这个智能体做什么、什么时候运行或以什么方式集成、哪些聊天模式可以用它，以及主要设置。安装和启用的步骤请先看[智能体](agents-overview.md)。
+本指南按分类列出通过 **Agents → Download Agents**(智能体 → 下载智能体) 可以获取的官方第一方包。全新安装的 Marinara Engine 并不自带智能体。这些包的源码、清单、构建产物和机器可读目录都发布在 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)。下面每个条目都会说明这个智能体做什么、什么时候运行或以什么方式集成、哪些聊天模式可以用它，以及主要设置。安装和启用的步骤请先看[智能体](agents-overview.md)。 标记为 **staging only**(仅 staging) 的条目供 Engine staging 用户使用；包发布到稳定渠道后，稳定版用户也会看到这些条目。
 
 ## 如何阅读本参考
 
@@ -155,6 +155,26 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 - **阶段**：Post-Processing(后处理)。
 - **适用模式**：Roleplay。
 - **主要设置**：**Add as Prompt Section** 默认开启。你可以在 HUD 和 Tracker Panel 里编辑并锁定每个名称和数量。
+
+### Quartermaster
+
+管理当前人设的物品栏、装备槽位、物品数量和存放位置，以及保存的服装搭配。跟踪器会在回复后阅读剧情并更新物品。浮动面板和 Tracker Panel 都能手动编辑同一份物品栏；物品和服装图片是可选功能。
+
+- **阶段**：Post-Processing，并为后续回复提供物品栏上下文。
+- **适用模式**：Roleplay；跟踪当前人设，不跟踪队友或 NPC。
+- **可用渠道**：**Staging only**(仅 staging)，需要 Engine **2.4.6+**。计划随下一次 Engine main 版本发布到稳定渠道。
+- **安装与启用**：从 **Agents → Download Agents** 安装 **Quartermaster**，按提示重启。在每个 Roleplay 聊天中，先在 **Chat Settings → Agents**(聊天设置 → 智能体) 启用智能体，再将 Quartermaster 添加到 **Tracker Agents**(跟踪智能体)，并选择模型连接。使用 Tracker Panel 上方的启动按钮打开浮动面板。
+- **主要操作**：装备和存放物品、保存服装搭配、恢复物品栏或撤销最近的跟踪器更改，以及导出/导入聊天配置。图片生成使用单独配置的图片连接。外观宏和替换人设头像是可选功能；启用前先查看 [Quartermaster 包指南](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/quartermaster/README.md)。
+
+### Relationship Tracker
+
+维护 Roleplay 群聊中角色卡之间可编辑的关系网，以及每个角色对当前人设的看法。已定义的关系分为正面、中立、负面或复杂四类。手动锁定可防止已编辑的关系被自动更改。
+
+- **阶段**：Post-Processing，并为后续回复提供关系上下文。
+- **适用模式**：Roleplay 群聊。
+- **可用渠道**：**Staging only**，需要 Engine **2.4.4+** 和 staging 预览目录。计划随下一次 Engine main 版本发布到稳定渠道。
+- **安装与启用**：从 **Agents → Download Agents** 安装 **Relationship Tracker**，按提示重启。在每个 Roleplay 聊天中，先在 **Chat Settings → Agents** 启用智能体，再将它添加到 **Tracker Agents**，并选择模型连接。关系网显示在 Tracker Panel 中。编辑或更新关系前，先在那里选择一次 **All relationships**(所有关系) 或 **Scene-only relationships**(仅场景内关系)，完成聊天初始化。
+- **主要操作**：用 **All relationships** 或 **Scene-only relationships** 选择提示词上下文，用 **Update from History**(从历史更新) 扫描指定数量的最近消息，也可手动编辑、锁定或使用 **Resume automatic updates**(恢复自动更新)。**Context Size**(上下文大小，默认 5 条消息)、**Presence lookback**(出场回溯范围，默认 15 条) 和历史扫描的消息数量是不同的设置。将指针悬停在线上或用键盘聚焦，即可读取内容；触屏或触控笔用户可按下该连线。参阅 [Relationship Tracker 包指南](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/relationship-tracker/README.md)。
 
 ### Memory Nag
 

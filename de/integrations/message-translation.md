@@ -84,6 +84,8 @@ Unter den Anbieter-Einstellungen sitzen drei Schalter. Alle drei sind standardm�
 
 **Show Draft Translate Button** (Schaltfläche zum Übersetzen des Entwurfs anzeigen) setzt neben die Schaltfläche **Send** eine Schaltfläche **Translate draft**. So kannst du deine Nachricht übersetzen und das Ergebnis vor dem Absenden prüfen oder bearbeiten. Das ist die manuelle Alternative zu **Translate My Messages**, das beim Absenden übersetzt, ohne dass du noch einmal draufschauen kannst.
 
+In **Conversation** kannst du einen noch nicht gesendeten Entwurf jederzeit über die Smiley-Schaltfläche im Eingabefeld → **Tools → Translate draft** (Werkzeuge → Entwurf übersetzen) übersetzen, am Desktop wie auf dem Smartphone. **Show Draft Translate Button** und automatische Übersetzung müssen dafür nicht aktiv sein. Die Aktion nutzt die Eingabe-Übersetzungseinstellungen des Chats und ersetzt den Entwurf zur Prüfung; sie sendet keine Nachricht. Bei einem Fehler bleibt der Entwurf unverändert.
+
 ## Die Translate-Schaltfläche an jeder Nachricht
 
 Jede Chat-Nachricht hat in ihrer Aktionsleiste eine Schaltfläche **Translate** (Übersetzen) – egal, ob sie von dir oder von der KI stammt. Die Schaltfläche trägt ein Sprachen-Symbol. Sie arbeitet eigenständig und braucht keinen der Schalter von oben.

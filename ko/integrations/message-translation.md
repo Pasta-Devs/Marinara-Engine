@@ -84,6 +84,8 @@ You are a translator. Translate the given text accurately, preserving formatting
 
 **Show Draft Translate Button**(초안 번역 버튼 표시) 토글을 켜면 **Send**(전송) 버튼 옆에 **Translate draft**(초안 번역) 버튼이 생깁니다. 이 버튼으로 메시지를 먼저 번역해 보고, 보내기 전에 결과를 확인하거나 고칠 수 있습니다. 보낼 때 곧바로 번역해서 확인할 틈이 없는 **Translate My Messages** 대신 손으로 처리하는 방식입니다.
 
+**Conversation**에서는 데스크톱과 모바일 모두 메시지 입력창의 웃는 얼굴 버튼 → **Tools → Translate draft**(도구 → 초안 번역)에서 아직 보내지 않은 초안을 언제든 번역할 수 있습니다. **Show Draft Translate Button**이나 자동 번역을 켤 필요는 없습니다. 이 작업은 해당 채팅의 입력 번역 설정을 사용해 초안을 번역문으로 바꾸므로 보내기 전에 검토할 수 있습니다. 메시지를 전송하지 않으며, 번역에 실패하면 초안은 그대로 유지됩니다.
+
 ## 메시지마다 붙는 Translate 버튼
 
 직접 쓴 메시지든 AI가 쓴 메시지든, 모든 채팅 메시지에는 마우스를 올렸을 때 나오는 동작 막대에 **Translate** 버튼이 있습니다. 버튼 모양은 언어 아이콘입니다. 이 버튼은 단독으로 동작하며 위의 토글과는 상관이 없습니다.

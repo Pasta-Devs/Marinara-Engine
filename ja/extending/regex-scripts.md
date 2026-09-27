@@ -158,6 +158,10 @@ Marinaraは、SillyTavernのキャラクターカードに同梱された正規�
 
 この選択は、キャラクターを1人ずつ取り込むウィンドウでも、**Import from SillyTavern Folder**による一括インポートでも表示されます。パターンが空のスクリプトや、安全性チェックに通らないパターンのスクリプトは、インポート時に読み飛ばされます。スクリプトだけをまとめた単純なJSONファイルは、**Regexes**セクションの**Import regexes from JSON**ボタンから読み込めます。インポート手順の全体は[SillyTavernからのインポート](../data/importing-from-sillytavern.md)を参照してください。
 
+## Regexパックの入れ替え
+
+**Presets → Regexes**(プリセット → 正規表現)で**Select regex scripts**(Regexスクリプトを選択)を選び、古いパックの項目をチェックするか、**Select all regex scripts**(すべてのRegexスクリプトを選択)を使ってください。既存の操作バーから選択項目を**Export**(エクスポート)または**Delete**(削除)できます。削除は一度だけ確認され、取り消せません。削除に失敗した項目は再試行できるよう選択されたままになり、未選択のスクリプトは残ります。古いパックを削除してから更新版をインポートしてください。フォルダーは不要です。プリセットへの割り当ては引き続きRegexエディターで行えます。
+
 ## 安全性とパフォーマンス
 
 すべてのパターンは、保存や実行の前に検査されます。Marinaraは、処理が極端に遅くなってアプリが固まる可能性の高いパターンを拒否します。拒否されたパターンには、「Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns.」というメッセージが出ます。修正するまで保存できません。

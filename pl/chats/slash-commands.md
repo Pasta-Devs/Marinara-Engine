@@ -81,9 +81,11 @@ Te komendy pomagają prowadzić fabułę, wcielać się w postać i dodawać gra
 | `/roll [dice (optional)]` | `/r`, `/dice` | Rzuca kością i wysyła wynik. |
 | `/random` | `/rand`, `/event` | Prosi AI o dorzucenie do fabuły niespodziewanego wydarzenia. |
 | `/scene [description (optional)]` | `/rp` | Uruchamiana z czatu Conversation. Zaczyna nową scenę Roleplay, która odgałęzia się od tego czatu. |
-| `/illustrate [prompt (optional)]` | `/ill` | Generuje obraz do galerii bieżącego czatu. |
+| `/illustrate [range=N-M (optional)] [prompt (optional)]` | `/ill` | Generuje obraz do galerii bieżącego czatu. |
 | `/impersonate [direction (optional)]` | `/imp` | Pisze odpowiedź w imieniu twojej persony. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Ustawia instrukcję, z której `/impersonate` korzysta w tym czacie. |
+
+W trybie **Roleplay** komenda `/illustrate range=12` ilustruje wiadomość 12, a `/illustrate range=12-18` wysyła do Illustrator wiadomości od 12 do 18. Używaj numerów takich jak w `/goto`, w kolejności rosnącej, maksymalnie 200 wiadomości. Ukryte wiadomości pozostają pominięte. Obraz jest dołączany do ostatniej widocznej wiadomości w wybranym zakresie; przegląd promptu zachowuje wybór także po pojawieniu się nowszych wiadomości. Starsze wiadomości są dostępne również przy włączonym Advanced Memory. Bez `range=` komenda działa jak dotychczas dla bieżącej sceny. Opcjonalny wpisany prompt jest używany bezpośrednio, tak jak wcześniej.
 
 Żeby pokierować kolejną odpowiedzią, dopisz wskazówkę po `/guided`:
 

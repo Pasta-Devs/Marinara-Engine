@@ -158,6 +158,10 @@ Marinara는 SillyTavern 캐릭터 카드 안에 함께 들어 있는 정규식 �
 
 이 선택지는 캐릭터를 하나씩 가져오는 창에서도, 여러 개를 한꺼번에 처리하는 **Import from SillyTavern Folder**(SillyTavern 폴더에서 가져오기) 과정에서도 나타납니다. 패턴이 비어 있거나 안전성 검사를 통과하지 못한 번들 스크립트는 가져오기에서 제외됩니다. **Regexes** 섹션의 **Import regexes from JSON** 버튼으로 스크립트만 담긴 일반 JSON 파일을 가져올 수도 있습니다. 가져오기 전체 과정은 [SillyTavern에서 가져오기](../data/importing-from-sillytavern.md)를 참고하세요.
 
+## 정규식 팩 교체
+
+**Presets → Regexes**(프리셋 → 정규식)에서 **Select regex scripts**(정규식 스크립트 선택)를 누른 뒤 이전 팩의 항목을 체크하거나 **Select all regex scripts**(모든 정규식 스크립트 선택)를 사용하세요. 작업 표시줄에서 선택 항목에 **Export**(내보내기) 또는 **Delete**(삭제)를 적용할 수 있습니다. 삭제는 한 번의 확인을 거치며 되돌릴 수 없습니다. 삭제에 실패한 항목은 다시 시도할 수 있도록 선택된 상태로 남고, 선택하지 않은 스크립트는 유지됩니다. 이전 팩을 제거한 뒤 새 팩을 가져오세요. 폴더는 필요하지 않으며, 프리셋 연결은 정규식 편집기에서 계속 설정할 수 있습니다.
+
 ## 안전성과 성능
 
 모든 패턴은 저장하거나 실행하기 전에 검사를 거칩니다. Marinara는 실행이 매우 느려져 앱을 멈추게 할 가능성이 큰 패턴을 차단합니다. 차단된 패턴에는 다음 메시지가 표시됩니다: "Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns." 문제를 고칠 때까지 저장할 수 없습니다.

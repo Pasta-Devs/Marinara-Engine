@@ -84,6 +84,8 @@ You are a translator. Translate the given text accurately, preserving formatting
 
 **Show Draft Translate Button**(显示草稿翻译按钮) 会在 **Send**(发送) 按钮旁边加一个 **Translate draft**(翻译草稿) 按钮，让你先翻译再检查或修改，然后才发出去。它相当于 **Translate My Messages** 的手动版，后者是发送时直接翻译，没有检查的机会。
 
+在 **Conversation** 模式中，无论使用桌面端还是移动端，都可以通过消息输入框的笑脸按钮 → **Tools → Translate draft**（工具 → 翻译草稿）翻译尚未发送的草稿。无需开启 **Show Draft Translate Button** 或自动翻译。该操作使用当前聊天的输入翻译设置，将草稿替换为译文供你检查，不会发送消息。如果翻译失败，草稿会保持原样。
+
 ## 每条消息上的 Translate 按钮
 
 不管是你的消息还是 AI 的消息，鼠标悬停时出现的操作栏里都有一个 **Translate** 按钮，图标是一个语言符号。这个按钮单独就能用，和上面三个开关没有关系。

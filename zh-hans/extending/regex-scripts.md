@@ -158,6 +158,10 @@ Marinara 能读取打包在 SillyTavern 角色卡里的正则脚本。导入角�
 
 单个角色的导入窗口和批量的 **Import from SillyTavern Folder**(从 SillyTavern 文件夹导入) 流程都会出现这个选择。随卡打包的脚本如果模式为空，或者没通过安全检查，导入时会被跳过。也可以用 **Regexes** 板块里的 **Import regexes from JSON** 按钮，导入一个纯 JSON 格式的脚本文件。完整的导入步骤参见[从 SillyTavern 导入](../data/importing-from-sillytavern.md)。
 
+## 替换正则脚本包
+
+在 **Presets → Regexes**（预设 → 正则脚本）中，点击 **Select regex scripts**（选择正则脚本），勾选旧脚本包的条目，或使用 **Select all regex scripts**（选择全部正则脚本）。操作栏可对所选条目执行 **Export**（导出）或 **Delete**（删除）。删除只需确认一次，且无法撤销。删除失败的条目会保持选中，方便重试；未选中的脚本会保留。删除旧脚本包后，再导入更新后的脚本包。无需使用文件夹；仍可在正则编辑器中设置预设关联。
+
 ## 安全与性能
 
 每条模式在保存和运行之前都会先经过检查。有些模式极有可能跑得很慢，把应用整个卡住，Marinara 会直接拦下来，并显示这条提示：“Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns.”改好之前都无法保存。

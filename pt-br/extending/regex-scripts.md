@@ -158,6 +158,10 @@ Marinara consegue ler os scripts de regex que vêm dentro de um card de personag
 
 Essa escolha aparece tanto na janela de importação de um personagem quanto no fluxo em lote **Import from SillyTavern Folder**. Scripts que vêm com o padrão vazio, ou com um padrão que não passa na verificação de segurança, são ignorados na importação. Você também pode importar um arquivo JSON simples de scripts com o botão **Import regexes from JSON** na seção **Regexes**. Para o passo a passo completo da importação, veja [Importando do SillyTavern](../data/importing-from-sillytavern.md).
 
+## Substituir um pacote de regex
+
+Em **Presets → Regexes** (presets → regex), escolha **Select regex scripts** (selecionar scripts regex) e marque as entradas do pacote antigo, ou use **Select all regex scripts** (selecionar todos os scripts regex). A barra de ações permite **Export** (exportar) ou **Delete** (excluir) a seleção. A exclusão pede uma única confirmação e não pode ser desfeita. As entradas que não puderem ser excluídas continuam selecionadas para tentar novamente; scripts não selecionados permanecem intactos. Importe o pacote atualizado depois de remover o antigo. Não é preciso usar pastas; as atribuições a presets continuam disponíveis no editor de regex.
+
 ## Segurança e desempenho
 
 Todo padrão passa por uma verificação antes de ser salvo ou executado. Marinara bloqueia os padrões que têm grande chance de rodar devagar e travar o aplicativo. Um padrão bloqueado mostra esta mensagem: "Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns." O script não pode ser salvo até você corrigir isso.

@@ -84,6 +84,8 @@ Przełącznik **Translate My Messages** tłumaczy twoją wiadomość na język d
 
 Przełącznik **Show Draft Translate Button** dodaje przycisk **Translate draft** obok przycisku **Send** (wysłanie). Dzięki temu można przetłumaczyć wiadomość i przejrzeć albo poprawić wynik przed wysłaniem. To ręczna alternatywa dla przełącznika **Translate My Messages**, który tłumaczy przy wysyłaniu, bez możliwości sprawdzenia efektu.
 
+W trybie **Conversation** zawsze możesz przetłumaczyć niewysłany szkic: otwórz przycisk buźki przy polu wiadomości, a następnie **Tools → Translate draft** (narzędzia → przetłumacz szkic), na komputerze lub telefonie. Nie musisz włączać **Show Draft Translate Button** ani automatycznego tłumaczenia. Akcja używa ustawień tłumaczenia wiadomości wychodzących tego czatu i zastępuje szkic do sprawdzenia; nie wysyła wiadomości. Nieudane tłumaczenie pozostawia szkic bez zmian.
+
 ## Przycisk **Translate** przy pojedynczej wiadomości
 
 Każda wiadomość czatu, twoja i ta od AI, ma przycisk **Translate** (tłumaczenie) na pasku akcji pojawiającym się po najechaniu kursorem. Przycisk oznaczony jest ikoną języków. Działa niezależnie i nie wymaga żadnego z powyższych przełączników.

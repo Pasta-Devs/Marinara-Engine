@@ -81,9 +81,11 @@ Mit diesen Befehlen lenkst du die Geschichte, spielst einen Charakter und ergän
 | `/roll [dice (optional)]` | `/r`, `/dice` | Würfelt und postet das Ergebnis. |
 | `/random` | `/rand`, `/event` | Bittet die KI, ein überraschendes Ereignis in die Geschichte einzubauen. |
 | `/scene [description (optional)]` | `/rp` | Wird aus einem Conversation-Chat heraus ausgeführt. Startet eine neue Roleplay-Szene, die sich von diesem Chat verzweigt. |
-| `/illustrate [prompt (optional)]` | `/ill` | Generiert ein Galeriebild für den aktuellen Chat. |
+| `/illustrate [range=N-M (optional)] [prompt (optional)]` | `/ill` | Generiert ein Galeriebild für den aktuellen Chat. |
 | `/impersonate [direction (optional)]` | `/imp` | Schreibt eine Antwort im Namen deiner Persona. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Legt die Anweisung fest, die `/impersonate` in diesem Chat verwendet. |
+
+In **Roleplay** illustriert `/illustrate range=12` Nachricht 12; `/illustrate range=12-18` übergibt die Nachrichten 12 bis 18 an Illustrator. Verwende dieselben Nachrichtennummern wie bei `/goto`, aufsteigend und mit höchstens 200 Nachrichten. Ausgeblendete Nachrichten bleiben ausgeschlossen. Das Bild wird an die letzte sichtbare Nachricht im Bereich angehängt; die Prompt-Prüfung behält diese Auswahl auch bei neu eintreffenden Nachrichten. Frühere Nachrichten bleiben mit aktiviertem Advanced Memory verfügbar. Ohne `range=` bleibt das gewohnte Verhalten für die aktuelle Szene erhalten. Ein optional eingegebener Prompt wird wie bisher direkt verwendet.
 
 Um die nächste Antwort zu lenken, hängst du deine Vorgabe hinter `/guided`:
 

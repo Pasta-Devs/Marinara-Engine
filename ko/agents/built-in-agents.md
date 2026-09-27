@@ -1,6 +1,6 @@
 # 다운로드 가능한 에이전트 레퍼런스
 
-이 가이드에서는 **Agents → Download Agents**(에이전트 → 에이전트 다운로드)에서 받을 수 있는 공식 패키지 36개를 카테고리별로 소개합니다. 에이전트는 갓 설치한 Marinara Engine에 들어 있지 않습니다. 패키지 소스, 매니페스트, 아티팩트, 기계가 읽을 수 있는 카탈로그는 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)에 공개되어 있습니다. 각 에이전트가 무슨 일을 하고, 언제 실행되거나 어디에 연동되며, 어떤 채팅 모드에서 쓸 수 있고, 주요 설정이 무엇인지 정리했습니다. 설치와 활성화 방법은 [에이전트: 채팅을 도와주는 AI](agents-overview.md)를 먼저 읽어 보세요.
+이 가이드에서는 **Agents → Download Agents**(에이전트 → 에이전트 다운로드)에서 받을 수 있는 공식 패키지를 카테고리별로 소개합니다. 에이전트는 갓 설치한 Marinara Engine에 들어 있지 않습니다. 패키지 소스, 매니페스트, 아티팩트, 기계가 읽을 수 있는 카탈로그는 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)에 공개되어 있습니다. 각 에이전트가 무슨 일을 하고, 언제 실행되거나 어디에 연동되며, 어떤 채팅 모드에서 쓸 수 있고, 주요 설정이 무엇인지 정리했습니다. 설치와 활성화 방법은 [에이전트: 채팅을 도와주는 AI](agents-overview.md)를 먼저 읽어 보세요. **staging only**(staging 전용)로 표시된 항목은 Engine의 staging 버전에서 사용할 수 있으며, 안정 채널에는 패키지가 해당 채널에 공개된 뒤 표시됩니다.
 
 ## 이 문서를 읽는 법
 
@@ -155,6 +155,26 @@ Tracker 에이전트는 장면, 캐릭터, 스탯의 현재 상태를 계속 기
 - **단계**: Post-Processing(후처리).
 - **작동 모드**: Roleplay.
 - **주요 설정**: **Add as Prompt Section**은 기본으로 켜져 있습니다. HUD와 Tracker Panel에서 모든 이름과 수량을 편집하고 잠글 수 있습니다.
+
+### Quartermaster
+
+활성 페르소나의 인벤토리, 장비 슬롯, 아이템 수량과 보관 위치, 저장한 의상을 관리합니다. 트래커는 응답 후 이야기를 읽고 아이템 변경 사항을 적용합니다. 플로팅 패널과 Tracker Panel에서 같은 인벤토리를 수동으로 편집할 수 있습니다. 아이템과 의상 이미지는 선택 사항입니다.
+
+- **실행 단계**: Post-Processing이며, 이후 응답에 인벤토리 컨텍스트를 제공합니다.
+- **지원 모드**: Roleplay. 파티원이나 NPC가 아닌 활성 페르소나를 추적합니다.
+- **제공 범위**: **Staging only**(staging 전용). Engine **2.4.6+**가 필요합니다. 안정 버전 공개는 다음 Engine main 릴리스와 함께 예정되어 있습니다.
+- **설치 및 활성화**: **Agents → Download Agents**에서 **Quartermaster**를 설치하고 안내가 나오면 다시 시작하세요. 각 Roleplay 채팅에서 **Chat Settings → Agents**(채팅 설정 → 에이전트)를 켜고 **Tracker Agents**(트래커 에이전트)에 Quartermaster를 추가한 다음 모델 연결을 선택하세요. Tracker Panel 위의 실행 버튼으로 플로팅 패널을 여세요.
+- **주요 기능**: 아이템 장착과 보관, 의상 저장, 인벤토리 복원이나 최근 트래커 변경 되돌리기, 채팅 설정 내보내기와 가져오기를 지원합니다. 이미지 생성은 별도로 설정한 이미지 연결을 사용합니다. 외모 매크로와 페르소나 아바타 교체는 선택 사항입니다. 켜기 전에 [Quartermaster 패키지 가이드](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/quartermaster/README.md)를 확인하세요.
+
+### Relationship Tracker
+
+Roleplay 그룹 채팅에 지정된 캐릭터 카드 간의 관계와 각 캐릭터가 활성 페르소나를 어떻게 인식하는지를 편집 가능한 관계망으로 관리합니다. 정의한 관계는 긍정적, 중립적, 부정적, 복잡한 관계로 분류됩니다. 수동 잠금은 편집한 관계를 자동 변경으로부터 보호합니다.
+
+- **실행 단계**: Post-Processing이며, 이후 응답에 관계 컨텍스트를 제공합니다.
+- **지원 모드**: Roleplay 그룹 채팅.
+- **제공 범위**: **Staging only**. Engine **2.4.4+**와 staging 미리보기 카탈로그가 필요합니다. 안정 버전 공개는 다음 Engine main 릴리스와 함께 예정되어 있습니다.
+- **설치 및 활성화**: **Agents → Download Agents**에서 **Relationship Tracker**를 설치하고 안내가 나오면 다시 시작하세요. 각 Roleplay 채팅에서 **Chat Settings → Agents**를 켜고 **Tracker Agents**에 추가한 다음 모델 연결을 선택하세요. 관계망은 Tracker Panel에 표시됩니다. 관계를 편집하거나 업데이트하기 전에 **All relationships**(모든 관계) 또는 **Scene-only relationships**(현재 장면의 관계만)를 한 번 선택하여 채팅을 초기화하세요.
+- **주요 기능**: **All relationships** 또는 **Scene-only relationships**로 프롬프트 컨텍스트를 정하고, **Update from History**(기록에서 업데이트)로 제한된 수의 최근 메시지를 분석합니다. 수동 편집, 잠금, **Resume automatic updates**(자동 업데이트 재개)도 지원합니다. **Context Size**(컨텍스트 크기, 기본 5개 메시지), **Presence lookback**(등장 여부 확인 범위, 기본 15개), 기록 분석 메시지 수는 별도 설정입니다. 선 위에 포인터를 올리거나 키보드 포커스를 두면 내용을 읽을 수 있습니다. 터치나 펜으로는 선을 누르세요. [Relationship Tracker 패키지 가이드](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/relationship-tracker/README.md)를 참고하세요.
 
 ### Memory Nag
 

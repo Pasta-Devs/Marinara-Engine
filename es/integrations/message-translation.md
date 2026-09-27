@@ -84,6 +84,8 @@ Debajo de los ajustes de proveedor hay tres interruptores. Los tres están desac
 
 **Show Draft Translate Button** (Mostrar el botón de traducir borrador) añade un botón **Translate draft** (Traducir borrador) junto al botón **Send** (Enviar). Esto te deja traducir tu mensaje y revisar o editar el resultado antes de enviarlo. Es la alternativa manual a **Translate My Messages**, que traduce al enviar sin oportunidad de revisar.
 
+En **Conversation**, siempre puedes traducir un borrador sin enviar desde el botón de la cara sonriente del cuadro de mensaje → **Tools → Translate draft** (Herramientas → Traducir borrador), en computadora o móvil. No necesitas activar **Show Draft Translate Button** ni la traducción automática. La acción usa los ajustes de traducción de entrada del chat y reemplaza el borrador para que lo revises; no envía un mensaje. Si la traducción falla, el borrador queda intacto.
+
 ## El botón Translate por mensaje
 
 Cada mensaje del chat, ya sea tuyo o de la IA, tiene un botón **Translate** en su barra de acciones que aparece al pasar el cursor. El botón usa un icono de idiomas. Este botón funciona por sí solo y no necesita ninguno de los interruptores de arriba.

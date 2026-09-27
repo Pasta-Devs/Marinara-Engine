@@ -81,9 +81,11 @@
 | `/roll [dice (optional)]` | `/r`、`/dice` | 掷骰子并把结果发出来。 |
 | `/random` | `/rand`、`/event` | 让 AI 给故事加一个意外事件。 |
 | `/scene [description (optional)]` | `/rp` | 在 Conversation 聊天里运行。从这段对话分支出一个新的 Roleplay 场景。 |
-| `/illustrate [prompt (optional)]` | `/ill` | 为当前聊天生成一张图库图像。 |
+| `/illustrate [range=N-M (optional)] [prompt (optional)]` | `/ill` | 为当前聊天生成一张图库图像。 |
 | `/impersonate [direction (optional)]` | `/imp` | 以用户角色的身份写一条回复。 |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | 设定本聊天里 `/impersonate` 使用的指示内容。 |
+
+在 **Roleplay** 模式中，`/illustrate range=12` 会为第 12 条消息生成插图，`/illustrate range=12-18` 会将第 12 至 18 条消息交给 Illustrator。消息编号与 `/goto` 相同，必须按升序指定，最多选择 200 条消息。隐藏的消息仍会排除。图片会附加到范围内最后一条可见消息上；即使在审核提示词时收到新消息，所选范围也不会改变。开启 Advanced Memory 后仍可选择较早的消息。不带 `range=` 时，命令仍按原有方式为当前场景生成插图。可选的手动提示词也会像以前一样直接使用。
 
 想引导下一条回复，把方向写在 `/guided` 后面：
 

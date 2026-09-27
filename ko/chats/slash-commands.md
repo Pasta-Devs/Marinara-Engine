@@ -81,9 +81,11 @@
 | `/roll [dice (optional)]` | `/r`, `/dice` | 주사위를 굴리고 결과를 올립니다. |
 | `/random` | `/rand`, `/event` | 이야기에 뜻밖의 사건을 넣도록 AI에 요청합니다. |
 | `/scene [description (optional)]` | `/rp` | Conversation 채팅에서 실행합니다. 그 대화에서 갈라져 나오는 새 Roleplay 장면을 시작합니다. |
-| `/illustrate [prompt (optional)]` | `/ill` | 현재 채팅에 쓸 갤러리 이미지를 생성합니다. |
+| `/illustrate [range=N-M (optional)] [prompt (optional)]` | `/ill` | 현재 채팅에 쓸 갤러리 이미지를 생성합니다. |
 | `/impersonate [direction (optional)]` | `/imp` | 페르소나를 대신해 답변을 씁니다. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | 이 채팅에서 `/impersonate`가 사용할 지시 내용을 설정합니다. |
+
+**Roleplay**에서 `/illustrate range=12`는 12번 메시지를 그림으로 만들고, `/illustrate range=12-18`은 12~18번 메시지를 Illustrator에 전달합니다. `/goto`와 같은 메시지 번호를 오름차순으로 지정하며, 최대 200개까지 선택할 수 있습니다. 숨긴 메시지는 제외됩니다. 이미지는 범위의 마지막으로 보이는 메시지에 첨부되며, 프롬프트를 검토하는 동안 새 메시지가 도착해도 선택 범위는 유지됩니다. Advanced Memory를 켠 상태에서도 이전 메시지를 사용할 수 있습니다. `range=`가 없으면 현재 장면을 대상으로 하는 기존 동작을 유지합니다. 선택적으로 입력한 프롬프트는 이전과 같이 직접 사용됩니다.
 
 다음 답변을 이끌려면 `/guided` 뒤에 원하는 방향을 적으세요.
 

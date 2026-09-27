@@ -87,6 +87,14 @@ Defina **Run Interval** (intervalo de execução) como **0** para gerar apenas m
 
 Também é possível criar uma imagem na hora, sem esperar. Abra a seção **Gallery** do chat e use o botão **Illustrate**. O Illustrator roda uma vez imediatamente, e o botão mostra **Generating...** enquanto trabalha. Isso é útil quando você quer uma imagem do momento atual e o agente ainda não desenhou nenhuma.
 
+## Salvar nas galerias e inspecionar o prompt
+
+Em **Settings → Generations → Image Generation** (configurações → gerações → geração de imagens), **Automatically save generated images to character galleries** (salvar automaticamente imagens geradas nas galerias dos personagens) vem ativado. Desative para não adicionar ilustrações e selfies do chat às galerias dos personagens e personas retratados. As imagens continuam na conversa e na galeria do chat, e o salvamento manual nas galerias continua disponível. Entradas existentes não mudam. As galerias compartilham arquivos de imagem; a opção controla a presença nas galerias, sem apagar o arquivo do chat.
+
+Nas novas gerações do NovelAI, o inspetor mostra o prompt de cena ou estilo seguido das descrições positivas de cada personagem, separadas por ` | `. Isso também se aplica ao prompt salvo na galeria.
+
+Para ilustrar uma mensagem anterior ou um intervalo em Roleplay, use `/illustrate range=12` ou `/illustrate range=12-18`. Veja a numeração e os limites em [Comandos de barra](../chats/slash-commands.md).
+
 ## Guias relacionados
 
 - [Provedores de geração de imagens e configuração](image-providers.md)

@@ -158,6 +158,10 @@ Marinara liest auch Regex-Skripte, die in einer SillyTavern-Charakterkarte mitge
 
 Diese Auswahl erscheint sowohl im Fenster für den Import einzelner Charaktere als auch im Sammelimport über **Import from SillyTavern Folder**. Mitgelieferte Skripte ohne Muster oder mit einem Muster, das die Sicherheitsprüfung nicht besteht, überspringt der Import. Eine einfache JSON-Datei mit Skripten importierst du über die Schaltfläche **Import regexes from JSON** im Abschnitt **Regexes**. Der komplette Ablauf steht unter [Import aus SillyTavern](../data/importing-from-sillytavern.md).
 
+## Ein Regex-Paket ersetzen
+
+Wähle unter **Presets → Regexes** (Presets → Regex-Skripte) **Select regex scripts** (Regex-Skripte auswählen). Markiere die Einträge des alten Pakets oder nutze **Select all regex scripts** (Alle Regex-Skripte auswählen). Die vorhandene Aktionsleiste bietet **Export** (Exportieren) und **Delete** (Löschen) für die Auswahl. Das Löschen verlangt eine Bestätigung und lässt sich nicht rückgängig machen. Fehlgeschlagene Löschungen bleiben zum erneuten Versuch ausgewählt; nicht ausgewählte Skripte bleiben erhalten. Importiere das aktualisierte Paket nach dem Entfernen des alten. Dafür brauchst du keine Ordner; Preset-Zuordnungen bleiben im Regex-Editor verfügbar.
+
 ## Sicherheit und Geschwindigkeit
 
 Jedes Muster wird geprüft, bevor es gespeichert oder ausgeführt wird. Marinara blockiert Muster, die sehr wahrscheinlich langsam laufen und die App aufhängen. Ein blockiertes Muster meldet: "Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns." Bis zur Korrektur bleibt das Speichern gesperrt.

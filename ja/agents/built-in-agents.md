@@ -1,6 +1,6 @@
 # ダウンロードできるエージェント一覧
 
-このガイドでは、**Agents → Download Agents**(エージェント → エージェントのダウンロード)から入手できる公式パッケージ36個を、カテゴリー別にすべて紹介します。エージェントはMarinara Engineをインストールした直後の状態には含まれていません。パッケージのソース、マニフェスト、成果物、機械可読のカタログは[Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)で公開しています。それぞれについて、何をするエージェントなのか、いつ動くのか(またはどう組み込まれるのか)、どのチャットモードで使えるのか、主な設定は何かを説明します。インストールと有効化の方法は、先に[エージェント: チャットを支えるAIヘルパー](agents-overview.md)を読んでください。
+このガイドでは、**Agents → Download Agents**(エージェント → エージェントのダウンロード)から入手できる公式パッケージをカテゴリー別に紹介します。エージェントはMarinara Engineをインストールした直後の状態には含まれていません。パッケージのソース、マニフェスト、成果物、機械可読のカタログは[Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)で公開しています。それぞれについて、何をするエージェントなのか、いつ動くのか(またはどう組み込まれるのか)、どのチャットモードで使えるのか、主な設定は何かを説明します。インストールと有効化の方法は、先に[エージェント: チャットを支えるAIヘルパー](agents-overview.md)を読んでください。**staging only**(stagingのみ)と記載された項目はEngineのstaging版で利用でき、安定版ではパッケージが安定版に公開された後に表示されます。
 
 ## この一覧の読み方
 
@@ -155,6 +155,26 @@ Knowledge Retrievalより費用を抑えられる代替手段です。要約す�
 - **フェーズ**: Post-Processing(後処理)。
 - **利用できるモード**: Roleplay。
 - **主な設定**: **Add as Prompt Section**は初期状態でオンです。HUDとTracker Panelで、すべての名前と数量を編集、ロックできます。
+
+### Quartermaster
+
+有効なペルソナのインベントリ、装備スロット、アイテムの数量と保管場所、保存した衣装を管理します。トラッカーは応答後に物語を読み、アイテムの変更を反映します。フローティングパネルとTracker Panelから同じインベントリを手動で編集できます。アイテムや衣装の画像は任意です。
+
+- **実行フェーズ**: Post-Processing。インベントリのコンテキストは後続の応答に渡されます。
+- **対応モード**: Roleplay。追跡対象は有効なペルソナで、パーティーメンバーやNPCではありません。
+- **提供状況**: **Staging only**(stagingのみ)。Engine **2.4.6+**が必要です。安定版への公開は、次のEngineのmainリリースに合わせて予定されています。
+- **インストールと有効化**: **Agents → Download Agents**から**Quartermaster**をインストールし、案内が表示されたら再起動してください。各Roleplayチャットで**Chat Settings → Agents**(チャット設定 → エージェント)を有効にし、**Tracker Agents**(トラッカーエージェント)にQuartermasterを追加して、モデル接続を選択します。Tracker Panelの上にある起動ボタンからフローティングパネルを開きます。
+- **主な操作**: アイテムの装備と保管、衣装の保存、インベントリの復元や最近のトラッカー変更の取り消し、チャット設定のエクスポートとインポートができます。画像生成には別途設定した画像接続を使います。外見マクロとペルソナのアバター置換は任意です。有効にする前に[Quartermasterパッケージガイド](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/quartermaster/README.md)を確認してください。
+
+### Relationship Tracker
+
+Roleplayグループチャットに割り当てたキャラクターカード間の関係と、各キャラクターが有効なペルソナをどう捉えているかを、編集可能な関係ネットワークで管理します。定義した関係は肯定的、中立的、否定的、複雑のいずれかに分類されます。手動ロックで、編集した関係を自動変更から保護できます。
+
+- **実行フェーズ**: Post-Processing。関係のコンテキストは後続の応答に渡されます。
+- **対応モード**: Roleplayグループチャット。
+- **提供状況**: **Staging only**。Engine **2.4.4+**とstagingのプレビューカタログが必要です。安定版への公開は、次のEngineのmainリリースに合わせて予定されています。
+- **インストールと有効化**: **Agents → Download Agents**から**Relationship Tracker**をインストールし、案内が表示されたら再起動してください。各Roleplayチャットで**Chat Settings → Agents**を有効にし、**Tracker Agents**に追加して、モデル接続を選択します。ネットワークはTracker Panelに表示されます。関係を編集または更新する前に、そこで**All relationships**(すべての関係)か**Scene-only relationships**(シーン内の関係のみ)を一度選んでチャットを初期化してください。
+- **主な操作**: プロンプトのコンテキストを**All relationships**か**Scene-only relationships**で選び、**Update from History**(履歴から更新)で指定件数の最近のメッセージを解析できます。手動編集、ロック、**Resume automatic updates**(自動更新を再開)も使えます。**Context Size**(コンテキストサイズ、初期値5メッセージ)、**Presence lookback**(登場確認の遡及件数、初期値15)、履歴解析のメッセージ数は別々の設定です。線にポインターを重ねるかキーボードでフォーカスすると内容を読めます。タッチやペンでは線を押してください。[Relationship Trackerパッケージガイド](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/relationship-tracker/README.md)も参照してください。
 
 ### Memory Nag
 

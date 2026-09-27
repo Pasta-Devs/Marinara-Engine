@@ -1,6 +1,6 @@
 # Referencia de agentes descargables
 
-Esta guía enumera los 36 paquetes oficiales propios disponibles a través de **Agents → Download Agents** (Agentes → Descargar agentes), agrupados por categoría. Los agentes no vienen incluidos en una instalación nueva de Marinara Engine. Sus fuentes de paquete, manifiestos, artefactos y catálogo legible por máquina se publican en [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Para cada uno, esta guía explica qué hace el agente, cuándo se ejecuta o se integra, qué modos de chat lo permiten y los ajustes principales. Para la instalación y la activación, lee primero la [descripción general de los agentes](agents-overview.md).
+Esta guía enumera los paquetes oficiales propios disponibles a través de **Agents → Download Agents** (Agentes → Descargar agentes), agrupados por categoría. Los agentes no vienen incluidos en una instalación nueva de Marinara Engine. Sus fuentes de paquete, manifiestos, artefactos y catálogo legible por máquina se publican en [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Para cada uno, esta guía explica qué hace el agente, cuándo se ejecuta o se integra, qué modos de chat lo permiten y los ajustes principales. Para la instalación y la activación, lee primero la [descripción general de los agentes](agents-overview.md). Las entradas marcadas como **staging only** (solo staging) están disponibles para quienes usan Engine en staging; llegan al canal estable cuando se publica allí el paquete.
 
 ## Cómo leer esta referencia
 
@@ -155,6 +155,26 @@ Sigue el dinero, el equipo puesto y los objetos que llevas en tres listas estruc
 - **Fase**: Post-Processing (posprocesamiento).
 - **Dónde funciona**: Roleplay.
 - **Ajustes principales**: **Add as Prompt Section** (activado de forma predeterminada). El HUD y el Tracker Panel permiten editar y bloquear cada nombre y cantidad.
+
+### Quartermaster
+
+Gestiona el inventario de la persona activa, los espacios de equipo, las cantidades y ubicaciones de los objetos y los atuendos guardados. Su tracker lee la historia después de las respuestas y aplica los cambios de objetos. Un panel flotante y el Tracker Panel permiten editar el mismo inventario manualmente; las imágenes de objetos y atuendos son opcionales.
+
+- **Fase**: Post-Processing, con contexto del inventario para las respuestas posteriores.
+- **Dónde funciona**: Roleplay; sigue a la persona activa, no a los miembros del grupo ni a los NPC.
+- **Disponibilidad**: **Staging only** (solo staging), con Engine **2.4.6+**. La publicación estable está prevista para el próximo lanzamiento de Engine desde main.
+- **Instalación y activación**: instala **Quartermaster** desde **Agents → Download Agents** y reinicia cuando se te indique. En cada chat Roleplay, activa los agentes en **Chat Settings → Agents** (Ajustes del chat → Agentes), añade Quartermaster en **Tracker Agents** (Agentes de seguimiento) y elige su conexión al modelo. Abre el panel flotante desde el botón situado encima del Tracker Panel.
+- **Controles principales**: equipar y guardar objetos, guardar atuendos, restaurar el inventario o deshacer cambios recientes del tracker y exportar/importar la configuración del chat. La generación de imágenes usa una conexión de imágenes configurada por separado. La macro de apariencia y el reemplazo del avatar de la persona son opcionales; consulta la [guía del paquete Quartermaster](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/quartermaster/README.md) antes de activarlos.
+
+### Relationship Tracker
+
+Mantiene una red editable de relaciones entre las tarjetas de personaje asignadas a un chat Roleplay de grupo, además de la percepción que cada personaje tiene de la persona activa. Las relaciones definidas usan las categorías positiva, neutral, negativa o complicada. Los bloqueos manuales protegen las relaciones editadas frente a cambios automáticos.
+
+- **Fase**: Post-Processing, con contexto de relaciones para las respuestas posteriores.
+- **Dónde funciona**: chats Roleplay de grupo.
+- **Disponibilidad**: **Staging only**, con Engine **2.4.4+** y el catálogo de vista previa de staging. La publicación estable está prevista para el próximo lanzamiento de Engine desde main.
+- **Instalación y activación**: instala **Relationship Tracker** desde **Agents → Download Agents** y reinicia cuando se te indique. En cada chat Roleplay, activa los agentes en **Chat Settings → Agents**, añádelo en **Tracker Agents** y elige su conexión al modelo. La red aparece en el Tracker Panel. Selecciona allí **All relationships** (Todas las relaciones) o **Scene-only relationships** (Solo relaciones de la escena) una vez para inicializar el chat antes de editar o actualizar relaciones.
+- **Controles principales**: **All relationships** o **Scene-only relationships** para el contexto del prompt, **Update from History** (Actualizar desde el historial) para analizar un número limitado de mensajes recientes, edición manual, bloqueo y **Resume automatic updates** (Reanudar actualizaciones automáticas). **Context Size** (Tamaño del contexto; 5 mensajes por defecto), **Presence lookback** (Historial de presencia; 15 por defecto) y el número de mensajes del análisis del historial son controles separados. Pasa el puntero o mueve el foco del teclado sobre una línea para leerla; con pantalla táctil o lápiz, presiónala. Consulta la [guía del paquete Relationship Tracker](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/relationship-tracker/README.md).
 
 ### Memory Nag
 
