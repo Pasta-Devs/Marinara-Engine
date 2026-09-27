@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Client builds no longer depend on whether the checkout folder contains `react`. The restart regression allows cold CI servers more time for their first boot while keeping the normal restart deadline (#6732, #6743).
 
+- Claude Subscription now bundles a Claude Code runtime compatible with Opus 5.5, avoiding the older-runtime rejection even when a newer global Claude Code installation is present (#6693, #6711).
 - Roleplay Advanced Memory can optionally use a selected Decision connection, including Jev, to detect scene endings and choose recalled scenes and excerpts. Summaries still use the summary helper, and the existing recall remains the fallback. Advanced Memory no longer carries an Alpha label (#6749).
 
 - Advanced Memory lets you save a requested review without changing correct text, regenerate an individually deleted scene, and see background preparation failures in a toast (#6737).
