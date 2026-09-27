@@ -10465,6 +10465,7 @@ export async function generateRoutes(app: FastifyInstance) {
           );
           if (
             advancedMemoryEnabled &&
+            !advancedMemorySettings.decisionEnabled &&
             latestAssistantMessageId &&
             !input.impersonate &&
             !input.regenerateMessageId &&

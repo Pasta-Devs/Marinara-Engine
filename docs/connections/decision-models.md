@@ -15,6 +15,8 @@ Its answers control Marinara's behavior; they are not posted as replies in the c
 - **[Lorebook Decision fields](../lorebooks/entries.md#decision-activation)** check Require or Trigger during the chat's lorebook scan. With no answer, Require cannot admit a new entry and Trigger adds no activation route. Existing Sticky holds and ordinary Trigger-entry activation routes still apply.
 - **[Smart response order](../chats/group-chats.md#response-order-individual-only)** scores who should speak next in a group chat, if enabled. With no answer, Smart order makes its usual AI call.
 
+- **[Advanced Memory Recall](../agents/memory.md#optional-jev-decisions)** can use a separately selected Decision connection for Roleplay scene boundaries and memory selection. Enable **Use Decision model (Jev)** in that chat's Advanced Memory settings. Summaries still use the Helper model. Failed decisions fall back to ordinary recall or scene checks.
+
 An activation question controls whether an agent runs; a decision statement inside its prompt controls what that running agent is told. Use `{{#if decision:"..."}}` for yes/no prompt conditions and `{{#if decision_choice:"..." == "..."}}` for a choice among answers.
 
 ## What the model sees
@@ -29,6 +31,8 @@ For activation questions and prompt/lorebook statements, the model receives the 
 - Anything checked after the reply, such as a post-processing agent's activation question or a statement in its prompt, also sees the reply just written.
 - Macros in the statement are filled in first, so `{{char}}` arrives as the character's name.
 - When the messages do not fit the model's budget, older messages are dropped first. See [Set up a Decision connection](#set-up-a-decision-connection) for the hosted budget.
+
+**Advanced Memory uses its own per-chat connection.** Scene checks read the relevant transcript window. Recall sends recent conversation text and eligible archived recaps or original-message candidates after character access checks; it does not use the fixed last-5-message rule above. Hosted providers receive these texts, potentially in multiple bounded batches. Foreground recall falls back after a combined 10 seconds. See [Optional Jev decisions](../agents/memory.md#optional-jev-decisions).
 
 ## Choosing a Decision model
 

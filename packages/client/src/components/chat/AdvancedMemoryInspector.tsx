@@ -16,6 +16,10 @@ import type { MemoryCharacterOption } from "./AdvancedMemorySettings";
 const buttonClass =
   "mari-chrome-control inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs disabled:opacity-50";
 const reasonKeys: Record<string, string> = {
+  "decision-recall": "chat.advancedMemory.reason.decisionRecall",
+  "decision-recall-fallback": "chat.advancedMemory.reason.decisionRecallFallback",
+  "decision-recall-preview": "chat.advancedMemory.reason.decisionRecallPreview",
+  "decision-excerpt-fallback": "chat.advancedMemory.reason.decisionExcerptFallback",
   "preparation-needed": "chat.advancedMemory.reason.preparationNeeded",
   "unverified-summary-omitted": "chat.advancedMemory.reason.unverifiedSummaryOmitted",
   "scene-boundary-rollover": "chat.advancedMemory.reason.sceneBoundaryRollover",
@@ -521,7 +525,11 @@ export function AdvancedMemoryInspector({
                   ) : (
                     <span className="block text-[0.6875rem] text-[var(--muted-foreground)]">
                       {t(record.manualOverride ? "chat.advancedMemory.manual" : "chat.advancedMemory.generated")} ·{" "}
-                      {t(`chat.advancedMemory.embedding.${record.embeddingStatus}`)}
+                      {t(
+                        status.data?.settings.decisionEnabled && record.embeddingStatus === "pending"
+                          ? "chat.advancedMemory.embedding.decision"
+                          : `chat.advancedMemory.embedding.${record.embeddingStatus}`,
+                      )}
                       {!record.enabled ? <> · {t("chat.advancedMemory.disabled")}</> : null}
                     </span>
                   )}

@@ -354,6 +354,8 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
       maxContextTokens: 65_000,
       summaryBudgetTokens: 4096,
       helperConnectionId: null,
+      decisionEnabled: false,
+      decisionConnectionId: null,
       initialProcessingModel: "helper",
       sceneCheckInterval: 5,
       retrieveMaxScenes: 3,
@@ -466,9 +468,9 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect(memoryHeader).toHaveAttribute("aria-expanded", "false");
     await expect(settings).toHaveCount(0);
     await memoryHeader.click();
-    const advancedToggle = settings.getByRole("checkbox", { name: /^Advanced Memory Recall \(Alpha\)/ });
+    const advancedToggle = settings.getByRole("checkbox", { name: /^Advanced Memory Recall/ });
     await expect(advancedToggle).not.toBeChecked();
-    await settings.getByText("Advanced Memory Recall (Alpha)", { exact: true }).click();
+    await settings.getByText("Advanced Memory Recall", { exact: true }).click();
     await expect(advancedToggle).toBeChecked();
     await expect(settings.getByLabel("Maximum allowed context before compression (tokens)")).toHaveValue("65000");
     await expect(settings.getByLabel("Minimum messages per excerpt")).toHaveValue("3");
@@ -849,7 +851,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect(settings.getByRole("button", { name: "Prepare existing history", exact: true })).toBeVisible();
     await settings.getByRole("button", { name: "Review character knowledge", exact: true }).click();
     await expect(confirmation).toBeVisible();
-    await settings.getByText("Advanced Memory Recall (Alpha)", { exact: true }).click();
+    await settings.getByText("Advanced Memory Recall", { exact: true }).click();
     await expect(advancedToggle).not.toBeChecked();
     await expect(confirmation).toHaveCount(0);
     await expect(settings.getByLabel("Maximum allowed context before compression (tokens)")).toHaveCount(0);
@@ -1357,3 +1359,70 @@ for (const deleted of [false, true])
       await fixture.cleanup();
     }
   });
+
+test("Advanced Memory Decision connection is optional and persists for its chat", async ({ page, request }, info) => {
+  const fixture = await createFixture(request);
+  const connectionResponse = await request.post("/api/connections", {
+    data: {
+      name: "Jev memory proof",
+      provider: "decision",
+      decisionSource: "custom",
+      model: "jev-fixture",
+      baseUrl: "http://127.0.0.1:1",
+    },
+  });
+  expect(connectionResponse.ok()).toBeTruthy();
+  const connection = (await connectionResponse.json()) as { id: string };
+  const status = async () =>
+    (await (await request.get(`/api/chats/${fixture.chat.id}/advanced-memory`)).json()) as AdvancedMemoryStatus;
+  const openMemory = async () => {
+    await page.evaluate(async () => {
+      const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+      useChatStore.getState().setShouldOpenSettings(true);
+    });
+    const section = page.locator('[data-chat-settings-section="roleplay-memory-recall"]');
+    await expect(section).toBeVisible();
+    if (!(await section.locator('[data-component="AdvancedMemorySettings"]').isVisible()))
+      await section.locator(':scope > [role="button"]').click();
+    return section.locator('[data-component="AdvancedMemorySettings"]');
+  };
+  try {
+    expect(
+      (await request.patch(`/api/chats/${fixture.chat.id}/advanced-memory/settings`, { data: { enabled: true } })).ok(),
+    ).toBeTruthy();
+    await openChat(page, fixture.chat.id);
+    let settings = await openMemory();
+    await expect(settings.getByText("Advanced Memory Recall", { exact: true })).toBeVisible();
+    const toggle = settings.getByRole("checkbox", { name: /^Use Decision model/ });
+    await expect(toggle).not.toBeChecked();
+    await expect(settings.getByRole("combobox", { name: "Memory Decision connection", exact: true })).toHaveCount(0);
+    await captureThemes(page, info, "memory-decision-off");
+    await settings.getByText("Use Decision model (Jev)", { exact: true }).click();
+    const picker = settings.getByRole("combobox", { name: "Memory Decision connection", exact: true });
+    await expect(picker).toBeEnabled();
+    await expect(picker).toHaveValue("");
+    await expect(settings.getByText(/Choose a usable Decision connection/)).toBeVisible();
+    await picker.selectOption(connection.id);
+    await expect.poll(async () => (await status()).settings.decisionConnectionId).toBe(connection.id);
+    await expect(settings.getByText(/Choose a usable Decision connection/)).toHaveCount(0);
+    await captureThemes(page, info, "memory-decision-on");
+    await page.reload();
+    await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
+    settings = await openMemory();
+    await expect(settings.getByRole("checkbox", { name: /^Use Decision model/ })).toBeChecked();
+    await expect(settings.getByRole("combobox", { name: "Memory Decision connection", exact: true })).toHaveValue(
+      connection.id,
+    );
+    expect((await request.delete(`/api/connections/${connection.id}`)).ok()).toBeTruthy();
+    await page.reload();
+    await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
+    settings = await openMemory();
+    await expect(settings.getByText(/Choose a usable Decision connection/)).toBeVisible();
+    await settings.getByText("Use Decision model (Jev)", { exact: true }).click();
+    await expect.poll(async () => (await status()).settings.decisionEnabled).toBe(false);
+    await expect(settings.getByRole("combobox", { name: "Memory Decision connection", exact: true })).toHaveCount(0);
+  } finally {
+    await request.delete(`/api/connections/${connection.id}`);
+    await fixture.cleanup();
+  }
+});
