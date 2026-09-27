@@ -22,5 +22,5 @@
       "@/*": ["./packages/client/src/*"]
     }
   },
-  "include": ["e2e/**/*.ts", "playwright.config.ts"]
+  "include": ["e2e/**/*.ts", "playwright*.config.ts"]
 }

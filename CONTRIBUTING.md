@@ -127,8 +127,14 @@ pnpm version:check
 pnpm regression
 pnpm regression:prompt
 pnpm smoke:ui
+pnpm smoke:production
 pnpm regression:ui
 ```
+
+`pnpm smoke:production` opens the compiled frontend with the compiled server in isolated test data,
+using desktop Chromium, mobile Chromium, and mobile WebKit. Run `pnpm check` first to build it. The
+required PR check runs its Chromium case; this catches startup failures that the Vite development
+server and HTTP-only container health checks cannot detect.
 
 Regression guards:
 

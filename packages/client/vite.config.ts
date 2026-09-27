@@ -44,8 +44,9 @@ function manualChunks(id: string) {
   if (id.endsWith("/components/game/GameNarrationVisuals.tsx")) return "game-narration-visuals";
   if (id.endsWith("/lib/game-tag-parser.ts")) return "game-tag-parser";
   if (!id.includes("/node_modules/")) return undefined;
-  // Match the dependency path, not names in the checkout's parent directories.
-  id = id.slice(id.lastIndexOf("/node_modules/") + "/node_modules/".length);
+  // Ignore checkout names, but keep pnpm peer suffixes so React and its consumers stay together.
+  // Removing those suffixes splits eager React imports across chunks and creates startup cycles.
+  id = id.slice(id.search(/\/(?:\.pnpm|node_modules)\//u));
 
   // Keep dynamically selected Lucide glyphs in small alphabetical chunks
   // instead of pulling the complete icon catalog into one eager vendor file.
