@@ -218,7 +218,9 @@ try {
     await memory.initialize(chat.id, { sceneId });
     const recovered = await memory.status(chat.id);
     assert.deepEqual(recovered.unpreparedScenes, []);
-    const recap = recovered.records.find((record) => record.sceneId === sceneId && record.content)!;
+    const recap = recovered.records.find(
+      (record) => record.kind === "scene" && record.sceneId === sceneId && record.content,
+    )!;
     assert(recap.enabled);
     assert.equal(recap.manualOverride, false);
     assert.deepEqual(
@@ -238,7 +240,7 @@ try {
     assert.equal(summaryRequests.length, afterFailure + 2, "a later deletion starts a fresh recovery");
     assert(
       (await memory.status(chat.id)).records.some(
-        (record) => record.sceneId === sceneId && record.content && record.enabled,
+        (record) => record.kind === "scene" && record.sceneId === sceneId && record.content && record.enabled,
       ),
     );
   });
