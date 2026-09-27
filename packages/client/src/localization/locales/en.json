@@ -5576,7 +5576,7 @@
   "ui.chat.slash.usage.goto": "/goto [number]",
   "ui.chat.slash.usage.guided": "/guided [direction] | /guided respond for [name] [direction (optional)]",
   "ui.chat.slash.usage.hide": "/hide [range] [name (optional)]",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N or range=N-M (optional)] [prompt (optional)]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N|range=N-M (optional)] [prompt (optional)]",
   "ui.chat.slash.usage.impersonate": "/impersonate [direction (optional)]",
   "ui.chat.slash.usage.impersonate_prompt": "/impersonate_prompt [prompt|reset]",
   "ui.chat.slash.usage.remind": "/remind [time] [message]",

@@ -81,7 +81,7 @@ These commands help you steer a story, play a character, and add art. Most of th
 | `/roll [dice (optional)]` | `/r`, `/dice` | Rolls dice and posts the result. |
 | `/random` | `/rand`, `/event` | Asks the AI to add a surprise event to the story. |
 | `/scene [description (optional)]` | `/rp` | Run from a Conversation chat. Starts a new Roleplay scene that branches off that conversation. |
-| `/illustrate [range=N or range=N-M (optional)] [prompt (optional)]` | `/ill` | Generates a gallery image for the current chat. |
+| `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | Generates a gallery image for the current chat. |
 | `/impersonate [direction (optional)]` | `/imp` | Writes a reply as your persona. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Sets the instruction that `/impersonate` uses in this chat. |
 
