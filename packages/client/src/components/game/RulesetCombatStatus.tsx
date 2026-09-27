@@ -52,6 +52,8 @@ export function RulesetCombatStatus({
   });
   const budgets = definition.combat?.economy.budgets ?? [];
   const actor = view.actorId ? byId.get(view.actorId) : undefined;
+  // Where attacks move initiative, the number is something a player spends, so it is shown.
+  const initiativeMoves = !!definition.combat?.initiative.resource;
 
   // On a wide screen who is who sits beside the log instead of above it: the strip is then one row
   // tall, and the stage above keeps the height its two rows of portraits need.
@@ -148,6 +150,11 @@ export function RulesetCombatStatus({
                         value: combatant.defense,
                       })}
                     </span>
+                    {initiativeMoves && (
+                      <span className="tabular-nums text-[var(--muted-foreground)]">
+                        {t("game.combat.ruleset.status.initiative", { value: combatant.initiative })}
+                      </span>
+                    )}
                     {onTurn && <span className="text-[var(--primary)]">{t("game.combat.ruleset.status.turn")}</span>}
                   </span>
                   {(state || conditions.length > 0 || combatant.concentrating) && (

@@ -29,8 +29,10 @@ const MOVE_OPTION_WORDS: Record<string, "walk" | "stand"> = {
 };
 
 export interface RulesetMenuStep {
-  stage: "pay" | "move" | "target" | "aim";
+  stage: "style" | "pay" | "move" | "target" | "aim";
   option: DirectedRulesetOption;
+  /** The initiative style an attack is made in, where initiative is a number attacks move. */
+  style?: string;
   payWith?: string;
   targets: string[];
 }
@@ -129,12 +131,33 @@ export function rulesetOptionForecastText(option: DirectedRulesetOption, t: TFun
       ),
     );
   }
-  if (typeof forecast?.averageDamage === "number") {
+  // An attack made in a style does what its style does, which the style step says: the weapon's
+  // own damage is neither what a taking style takes nor what a spending one throws.
+  if (typeof forecast?.averageDamage === "number" && !option.styles?.length) {
     parts.push(
       t(option.heals ? "game.combat.ruleset.option.forecastHeal" : "game.combat.ruleset.option.forecastDamage", {
         amount: Math.round(forecast.averageDamage),
       }),
     );
+  }
+  return parts.join(", ");
+}
+
+/** What one initiative style of an attack is expected to do, in words: its chance to hit, and what
+ *  it would take off the target's initiative or the harm it would do. The server computed each. */
+export function rulesetStyleForecastText(
+  style: NonNullable<DirectedRulesetOption["styles"]>[number],
+  t: TFunction,
+): string {
+  const parts: string[] = [];
+  const forecast = style.forecast;
+  if (typeof forecast?.hitChance === "number") {
+    parts.push(t("game.combat.ruleset.option.forecastHit", { percent: Math.round(forecast.hitChance * 100) }));
+  }
+  if (typeof forecast?.shift === "number") {
+    parts.push(t("game.combat.ruleset.option.forecastShift", { amount: Math.round(forecast.shift) }));
+  } else if (typeof forecast?.averageDamage === "number") {
+    parts.push(t("game.combat.ruleset.option.forecastDamage", { amount: Math.round(forecast.averageDamage) }));
   }
   return parts.join(", ");
 }

@@ -40,7 +40,6 @@ import {
   rulesetSheetBuildSchema,
   rulesetWindowOptions,
   RULESET_PASS_OPTION,
-  supportedCapabilityApi,
   type RulesetCombatChoice,
   type RulesetCombatEvent,
   type RulesetCombatRoller,
@@ -842,7 +841,6 @@ try {
 
   // ── Every new key needs 1.47 to install ──
   {
-    assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 47 });
     const manifest = (minor: number) =>
       ({
         schemaVersion: 2,

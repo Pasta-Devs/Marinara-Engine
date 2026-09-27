@@ -428,6 +428,9 @@ export interface RulesetCombatant {
   checks?: Record<string, number>;
   /** What they soak in a `dice-pool` fight, read once as the fight began. Absent when nothing. */
   soak?: RulesetCombatSoak;
+  /** How many of their own turns they have begun crashed, where initiative is a number attacks move
+   *  and the ruleset lets a crash recover. Absent while they are not crashed. */
+  crashedTurns?: number;
   /** How much of each limited live pool they may still spend this turn or round, read once as the
    *  fight began and counted down as they pay. Absent for anybody nothing limits. */
   limits?: Record<string, { max: number; per: "turn" | "round"; spent: number }>;
@@ -540,6 +543,10 @@ export interface RulesetActionResume {
   optionId: string;
   targetIds: string[];
   payWith?: string;
+  /** The initiative style it was made in, so a held attack picks up in the same one. */
+  style?: string;
+  /** What a spending blow throws: its maker's number as they made it. */
+  spend?: number;
   /** An answer stopped it. What it cost is still spent: it was paid for before the asking. */
   cancelled?: true;
   /** Held after one of its attack rolls hit, rather than before anything happened. */
@@ -619,7 +626,9 @@ export type RulesetCombatRefusal =
   /** Something solid stands between the two of them. */
   | "no-line-of-sight"
   /** An area aimed at a cell it may not be aimed at. */
-  | "bad-cell";
+  | "bad-cell"
+  /** An initiative style this attack is not offered in. */
+  | "unknown-style";
 
 export type RulesetCombatAttackOutcome = "hit" | "miss" | "critical";
 export type RulesetCombatRollMode = "normal" | "advantage" | "disadvantage";
@@ -650,6 +659,8 @@ export type RulesetCombatEvent =
       /** Under `dice-pool`: the pool as it was thrown. `total` is its net successes and `defense` the
        *  successes it needed. */
       pool?: RulesetCombatPoolRoll;
+      /** The initiative style it was made in, where initiative is a number attacks move. */
+      style?: string;
     }
   | {
       type: "save";
@@ -726,7 +737,22 @@ export type RulesetCombatEvent =
         | "revived"
         | "down"
         | "contest"
-        | "spent";
+        | "spent"
+        | "recovered";
+    }
+  /** A number that attacks move: what came off it or went on it, why, and what it is now. A style
+   *  that takes carries the damage dice that decided it, as a damage event does. */
+  | {
+      type: "shift";
+      actorId: string;
+      amount: number;
+      total: number;
+      reason: "taken" | "gained" | "crash" | "spent" | "missed" | "recovered";
+      sourceId?: string;
+      label?: string;
+      rolls?: number[];
+      flat?: number;
+      pool?: { target: number; successes: number; soak?: { value: number; rolls?: number[]; taken: number } };
     }
   | { type: "spend"; actorId: string; pool: string; label: string; amount: number }
   | { type: "budget"; actorId: string; budget: string; left: number }
@@ -889,6 +915,14 @@ export interface RulesetCombatOption {
    *  forecasts the sum of its parts' damage and no single chance to hit, because its parts each
    *  roll their own. */
   forecast?: { hitChance?: number; averageDamage?: number };
+  /** The initiative styles this attack may be made in, each with what it is expected to do: a style
+   *  that takes says how much of the target's number it would take (`shift`), one that spends says
+   *  the harm its dice would do. Present only where initiative is a number attacks move. */
+  styles?: Array<{
+    id: string;
+    label: string;
+    forecast?: { hitChance?: number; averageDamage?: number; shift?: number };
+  }>;
   /** Where the `move` option may go, with what each cell costs of the allowance and who a path to
    *  it would be struck at by. */
   cells?: RulesetReachableCell[];
@@ -915,6 +949,9 @@ export interface RulesetCombatChoice {
   /** The window this answers, when it answers one. An answer carrying the id of a window that has
    *  already closed changes nothing: it was written for a question the fight has moved past. */
   window?: string;
+  /** Which of the ruleset's initiative styles an attack is made in, where initiative is a number
+   *  attacks move. The first style when left out; one the option does not offer is refused. */
+  style?: string;
 }
 
 export interface RulesetCombatStep {

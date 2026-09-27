@@ -33,6 +33,8 @@ export interface RulesetCombatNames {
   /** The label of one of the two tracks the ruleset's dying rule counts on. */
   track: (id: string) => string;
   tier: (id: string) => string;
+  /** One of the ways an attack may be made where initiative is a number attacks move. */
+  style: (id: string) => string;
   /** What this ruleset calls the number an attack is rolled against: "AC", "Guard", whatever the
    *  file named it. Empty when the ruleset points at something with no label of its own. */
   defense: string;
@@ -81,6 +83,7 @@ export function rulesetCombatNames(
     check: lookup(definition.combat?.checks),
     track: lookup(definition.sheet.live.tracks),
     tier: lookup(definition.combat?.threat?.tiers),
+    style: lookup(definition.combat?.initiative.resource?.styles),
     defense: rulesetValueLabel(definition, definition.combat?.defense),
   };
 }
@@ -266,7 +269,9 @@ export function rulesetCombatEventLine(
         {
           actor: names.combatant(event.actorId),
           target: names.combatant(event.targetId),
-          label: event.label,
+          label: event.style
+            ? t("game.combat.ruleset.event.attackStyle", { label: event.label, style: names.style(event.style) })
+            : event.label,
           roll: pool ? rulesetPoolRollText({ ...event, pool }, t, named) : rulesetRollText(event, t, named),
           defense: event.guards?.length
             ? t("game.combat.ruleset.roll.guarded", {
@@ -300,39 +305,9 @@ export function rulesetCombatEventLine(
         difficulty: event.difficulty,
       });
     case "damage": {
-      const lines: string[] = [];
       // A pool fight's damage is its own throw: what the dice counted (and the automatic successes
       // beside them), then what soak took off, thrown or off the dice, before the harm lands.
-      if (event.pool) {
-        lines.push(
-          key(event.flat > 0 ? "damagePoolAuto" : "damagePool", {
-            roll: t("game.combat.ruleset.roll.pool", {
-              count: event.pool.successes - event.flat,
-              dice: t("game.combat.ruleset.roll.dice", { count: event.rolls.length }),
-              target: event.pool.target,
-              rolls: event.rolls.join(", "),
-            }),
-            count: event.flat,
-          }),
-        );
-        const soak = event.pool.soak;
-        if (soak?.rolls) {
-          lines.push(
-            key("soakRolled", {
-              target: names.combatant(event.targetId),
-              taken: soak.taken,
-              roll: t("game.combat.ruleset.roll.pool", {
-                count: soak.rolls.filter((face) => face >= event.pool!.target).length,
-                dice: t("game.combat.ruleset.roll.dice", { count: soak.rolls.length }),
-                target: event.pool.target,
-                rolls: soak.rolls.join(", "),
-              }),
-            }),
-          );
-        } else if (soak) {
-          lines.push(key("soakDice", { target: names.combatant(event.targetId), count: soak.taken }));
-        }
-      }
+      const lines = event.pool ? poolHarmLines({ ...event, pool: event.pool }, event.targetId, names, key, t) : [];
       lines.push(
         key(event.damageType ? "damage" : "damageUntyped", {
           target: names.combatant(event.targetId),
@@ -347,6 +322,31 @@ export function rulesetCombatEventLine(
       if (event.saved) lines.push(key("damageSaved"));
       if (event.toTemp > 0) lines.push(key("damageTemporary", { amount: event.toTemp }));
       return lines.join(" ");
+    }
+    case "shift": {
+      // A number attacks move. What a taking blow took is its damage throw, spelled out as damage is,
+      // before what it did to the number.
+      const actor = names.combatant(event.actorId);
+      const source = names.combatant(event.sourceId);
+      if (event.reason === "taken") {
+        const lines = event.pool
+          ? poolHarmLines(
+              { rolls: event.rolls ?? [], flat: event.flat ?? 0, pool: event.pool },
+              event.actorId,
+              names,
+              key,
+              t,
+            )
+          : [];
+        lines.push(key("shiftTaken", { actor, amount: -event.amount, total: event.total }));
+        return lines.join(" ");
+      }
+      if (event.reason === "gained") return key("shiftGained", { actor, amount: event.amount, total: event.total });
+      if (event.reason === "crash") {
+        return key("shiftCrash", { actor, source, amount: event.amount, total: event.total });
+      }
+      if (event.reason === "missed") return key("shiftMissed", { actor, amount: -event.amount, total: event.total });
+      return key(event.reason === "spent" ? "shiftSpent" : "shiftRecovered", { actor, total: event.total });
     }
     case "heal":
       return key("heal", {
@@ -572,6 +572,50 @@ export function rulesetCombatEventLine(
     default:
       return null;
   }
+}
+
+/** A pool's harm, thrown: what its dice counted with the automatic successes beside them, and what
+ *  the target's soak took off, thrown or off the dice. */
+function poolHarmLines(
+  harm: {
+    rolls: number[];
+    flat: number;
+    pool: { target: number; successes: number; soak?: { value: number; rolls?: number[]; taken: number } };
+  },
+  targetId: string,
+  names: RulesetCombatNames,
+  key: (name: string, params?: Record<string, unknown>) => string,
+  t: TFunction,
+): string[] {
+  const lines = [
+    key(harm.flat > 0 ? "damagePoolAuto" : "damagePool", {
+      roll: t("game.combat.ruleset.roll.pool", {
+        count: harm.pool.successes - harm.flat,
+        dice: t("game.combat.ruleset.roll.dice", { count: harm.rolls.length }),
+        target: harm.pool.target,
+        rolls: harm.rolls.join(", "),
+      }),
+      count: harm.flat,
+    }),
+  ];
+  const soak = harm.pool.soak;
+  if (soak?.rolls) {
+    lines.push(
+      key("soakRolled", {
+        target: names.combatant(targetId),
+        taken: soak.taken,
+        roll: t("game.combat.ruleset.roll.pool", {
+          count: soak.rolls.filter((face) => face >= harm.pool.target).length,
+          dice: t("game.combat.ruleset.roll.dice", { count: soak.rolls.length }),
+          target: harm.pool.target,
+          rolls: soak.rolls.join(", "),
+        }),
+      }),
+    );
+  } else if (soak) {
+    lines.push(key("soakDice", { target: names.combatant(targetId), count: soak.taken }));
+  }
+  return lines;
 }
 
 /** The lines a screen prints, newest last, for every event it has not printed yet. */

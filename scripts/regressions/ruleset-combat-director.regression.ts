@@ -1657,3 +1657,189 @@ console.log(
   assert.ok(seen.rethrown > 0, "initiative was thrown again as rounds began");
   assert.equal(seen.overspent, 0, "nobody spent past the limit");
 }
+
+// ── Initiative as a number attacks move, played out by the Engine on both sides ──
+// The same fight with the number taken and spent: every fight ends, both styles are used, somebody
+// crashes, and the picker never asks for a style the rules refuse. Then a Game Master's boss is offered
+// each style as its own choice, a player's command carries one, and fleeing leaves nobody crashed.
+{
+  const moveInitiative = (doc: Record<string, any>) => {
+    doc.sheet.live.conditions.push({ id: "reeling", label: "Reeling" });
+    doc.combat.initiative = {
+      pool: { abilityMod: "nerve" },
+      plus: 3,
+      resource: {
+        base: 3,
+        styles: [
+          { id: "press", label: "Press", takes: { gain: 1 } },
+          {
+            id: "telling",
+            label: "Telling blow",
+            spends: {
+              onMiss: [
+                [0, 1],
+                [6, 2],
+                [11, 3],
+              ],
+            },
+          },
+        ],
+        crash: { at: 0, condition: "reeling", bonus: 5, recoverAfter: 3 },
+      },
+    };
+  };
+  const gravewatchText = read("../../docs/examples/rulesets/gravewatch.json");
+  const moving = parsedOrThrow(variant(gravewatchText, moveInitiative), "the moving-initiative Gravewatch");
+  const charms = moving.catalogs!.find((catalog) => catalog.id === "charms")!.entries!;
+  const warden = (sinew: number, nerve: number) =>
+    build({
+      abilities: { sinew, nerve, warmth: 2 },
+      skills: { dig: "rating_1", wrestle: "rating_2", ward: "rating_2" },
+      lists: { arms: [{ name: "Spade", rating: "sinew", trade: "dig", dice: "2d10", harm: "tearing" }] },
+    });
+  const party = [
+    { id: "ada", name: "Ada" },
+    { id: "bram", name: "Bram" },
+  ];
+  const enemies = [
+    { id: "rats", name: "Grave-rat swarm", creature: "night/grave-rats" },
+    { id: "hollow", name: "Hollow warden", creature: "night/hollow-warden" },
+  ];
+  const seen = { press: 0, telling: 0, taken: 0, spent: 0, crashes: 0, refused: 0 };
+  for (let seed = 1; seed <= 20; seed++) {
+    const state = started({
+      definition: moving,
+      cards: [card("Ada", warden(3, 2)), card("Bram", warden(2, 3))],
+      partyCatalogs: { charms },
+      party,
+      enemies,
+      seed,
+    });
+    for (const member of party) {
+      commandRulesetCombatDirector(moving, state, { type: "control", unitId: member.id, controller: "ai" });
+    }
+    let lastSeq = state.rulesetFight!.eventSeq;
+    let guard = 0;
+    while (!state.outcome && guard++ < 800) {
+      commandRulesetCombatDirector(moving, state, { type: "continue" });
+      for (const { seq, event } of state.rulesetFight!.events.filter((entry) => entry.seq > lastSeq)) {
+        lastSeq = seq;
+        if (event.type === "attack" && event.style === "press") seen.press++;
+        if (event.type === "attack" && event.style === "telling") seen.telling++;
+        if (event.type === "shift" && event.reason === "taken") seen.taken++;
+        if (event.type === "shift" && event.reason === "spent") seen.spent++;
+        if (event.type === "condition" && event.condition === "reeling" && event.active) seen.crashes++;
+        if (event.type === "refused") seen.refused++;
+      }
+    }
+    assert.ok(state.outcome === "victory" || state.outcome === "defeat", `seed ${seed}: the fight ended`);
+    // Nobody leaves a finished fight crashed.
+    for (const combatant of state.rulesetFight!.encounter.combatants) {
+      assert.equal(combatant.crashedTurns, undefined, `seed ${seed}: ${combatant.id} is not left crashed`);
+    }
+  }
+  assert.ok(seen.press > 0 && seen.taken > 0, `blows took initiative: ${JSON.stringify(seen)}`);
+  assert.ok(seen.telling > 0 && seen.spent > 0, `and spent it: ${JSON.stringify(seen)}`);
+  assert.ok(seen.crashes > 0, `somebody crashed: ${JSON.stringify(seen)}`);
+  assert.equal(seen.refused, 0, "the picker only asks for what the rules allow");
+
+  // A Game Master's boss: each style is its own choice, carried through to the rules.
+  const bossed = started({
+    definition: moving,
+    cards: [card("Ada", warden(3, 2))],
+    partyCatalogs: { charms },
+    party: [party[0]!],
+    enemies: [{ ...enemies[1]!, boss: true }],
+    gm: true,
+    seed: 5,
+  });
+  commandRulesetCombatDirector(moving, bossed, { type: "control", unitId: "ada", controller: "ai" });
+  for (let guard = 0; guard < 6 && !bossed.window; guard++) {
+    assert.ok(commandRulesetCombatDirector(moving, bossed, { type: "continue" }).ok);
+  }
+  assert.equal(bossed.window?.actorId, "hollow", "the boss's turn is a decision");
+  const grips = bossed.window!.options.filter((option) => option.optionId === "grip");
+  assert.deepEqual(
+    [...new Set(grips.map((option) => option.style))].sort(),
+    ["press", "telling"],
+    "the grip is offered once per style",
+  );
+  assert.ok(
+    grips.some((option) => option.label === "Cold grip, Telling blow"),
+    "and named for it",
+  );
+  const telling = grips.find((option) => option.style === "telling")!;
+  const before = bossed.rulesetFight!.eventSeq;
+  assert.ok(commandRulesetCombatDirector(moving, bossed, { type: "choose", candidateId: telling.id }).ok);
+  const attack = bossed.rulesetFight!.events.find((entry) => entry.seq > before && entry.event.type === "attack");
+  assert.equal(attack?.event.type === "attack" ? attack.event.style : undefined, "telling");
+
+  // A player's command carries its style, and one the attack is not offered in is refused.
+  const played = started({
+    definition: moving,
+    cards: [card("Ada", warden(3, 2))],
+    partyCatalogs: { charms },
+    party: [party[0]!],
+    enemies: [enemies[0]!],
+    seed: 2,
+  });
+  for (let guard = 0; guard < 6 && view(moving, played).actorId !== "ada"; guard++) {
+    assert.ok(commandRulesetCombatDirector(moving, played, { type: "continue" }).ok);
+  }
+  const spade = view(moving, played).options!.find((option) => option.label === "Spade")!;
+  assert.deepEqual(
+    spade.styles?.map((style) => style.id),
+    ["press", "telling"],
+    "the player's menu offers the styles",
+  );
+  const frozen = JSON.stringify(played.rulesetFight);
+  const refused = commandRulesetCombatDirector(moving, played, {
+    type: "ruleset",
+    optionId: spade.id,
+    targetIds: ["rats"],
+    style: "sneak",
+  });
+  assert.ok(!refused.ok && refused.code === "ruleset_combat_unknown-style", JSON.stringify(refused));
+  assert.equal(JSON.stringify(played.rulesetFight), frozen);
+  const seq = played.rulesetFight!.eventSeq;
+  assert.ok(
+    commandRulesetCombatDirector(moving, played, {
+      type: "ruleset",
+      optionId: spade.id,
+      targetIds: ["rats"],
+      style: "press",
+    }).ok,
+  );
+  const pressed = played.rulesetFight!.events.find((entry) => entry.seq > seq && entry.event.type === "attack");
+  assert.equal(pressed?.event.type === "attack" ? pressed.event.style : undefined, "press");
+
+  // Walking away from a fight leaves nobody crashed, on the sheet or off it. With no `plus`, a warden
+  // whose opening pool finds nothing starts crashed; the first seed where Ada does is the fight.
+  const bare = parsedOrThrow(
+    variant(gravewatchText, (doc) => {
+      moveInitiative(doc);
+      delete doc.combat.initiative.plus;
+    }),
+    "the moving Gravewatch with no plus",
+  );
+  let fled: CombatDirectorState | undefined;
+  for (let seed = 1; seed <= 40 && !fled; seed++) {
+    const state = started({
+      definition: bare,
+      cards: [card("Ada", warden(3, 2))],
+      partyCatalogs: { charms },
+      party: [party[0]!],
+      enemies: [enemies[0]!],
+      seed,
+    });
+    if (rulesetCombatant(state.rulesetFight!.encounter, "ada")!.crashedTurns !== undefined) fled = state;
+  }
+  assert.ok(fled, "some seed opens Ada crashed");
+  assert.ok(JSON.stringify(rulesetFightLiveStates(fled.rulesetFight!)).includes("reeling"), "on her sheet");
+  assert.ok(commandRulesetCombatDirector(bare, fled, { type: "flee" }).ok);
+  assert.equal(rulesetCombatant(fled.rulesetFight!.encounter, "ada")!.crashedTurns, undefined);
+  assert.ok(
+    !JSON.stringify(rulesetFightLiveStates(fled.rulesetFight!)).includes("reeling"),
+    "and off it after fleeing",
+  );
+}

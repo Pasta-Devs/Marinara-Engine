@@ -10,7 +10,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Roleplay supports `/illustrate range=N` and `/illustrate range=N-M` for earlier messages, including before an Advanced Memory boundary, without branching or deleting history (#6722).
 
 - Client builds no longer depend on whether the checkout folder contains `react`. The restart regression allows cold CI servers more time for their first boot while keeping the normal restart deadline (#6732, #6743).
+- Game Mode rulesets whose fights throw pools can keep initiative as a number that attacks move. It opens as a thrown pool plus a number, one way of attacking takes it from the target instead of hurting them, another spends it as the damage dice and resets it on a hit or loses what the ruleset sets on a miss, and whoever falls to the ruleset's crash line crashes, cannot spend until they recover, and may carry a condition of the ruleset's own. The order follows the numbers every round, the menu asks which way to attack before whom, and the log says every change. Capability API 1.48 (#6740).
 
+- Claude Subscription now bundles a Claude Code runtime compatible with Opus 5.5, avoiding the older-runtime rejection even when a newer global Claude Code installation is present (#6693, #6711).
 - Roleplay Advanced Memory can optionally use a selected Decision connection, including Jev, to detect scene endings and choose recalled scenes and excerpts. Summaries still use the summary helper, and the existing recall remains the fallback. Advanced Memory no longer carries an Alpha label (#6749).
 
 - Advanced Memory lets you save a requested review without changing correct text, regenerate an individually deleted scene, and see background preparation failures in a toast (#6737).

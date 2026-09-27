@@ -454,7 +454,13 @@ const capabilityPackageManifestBaseSchema = z
 //        pool per turn or round. Not a soft seam, for the same reason as 1.20 through 1.46: an Engine
 //        that cannot read these refuses the whole ruleset or catalog file, so a package that ships
 //        any of them declares 1.47. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 47 } as const);
+// 1.48: initiative in a `dice-pool` fight may be thrown as a pool (`initiative.pool`, whose
+//        successes and `plus` are the number), and may be a number attacks move
+//        (`initiative.resource`: styles of attack that take it or spend it, a crash line, and the
+//        order following it every round). Not a soft seam, for the same reason as 1.20 through 1.47:
+//        an Engine that cannot read these refuses the whole ruleset file, so a package that ships any
+//        of them declares 1.48. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 48 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

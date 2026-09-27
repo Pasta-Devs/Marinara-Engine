@@ -803,7 +803,10 @@ same keys for a d20 system:
   tie goes to the higher modifier, and then to the order the fight was set up in. `"each": "round"`
   throws everybody's initiative again as each new round begins, with the modifier as it stands then
   (so a modifier that reads a wound track is slower once wounded), and the round starts at whoever is
-  first in the new order. Capability API 1.47.
+  first in the new order. Capability API 1.47. A `dice-pool` fight may throw it as a pool instead:
+  `pool` (a value reference) is how many dice, and their successes plus `plus` are the number, with
+  no `dice` or `modifier` beside it. `resource`, which needs `pool`, keeps that number and lets attacks move it (see
+  "Initiative that attacks move", below). Capability API 1.48.
 - `attackRoll`: required under `attack-vs-defense`, and refused under `dice-pool`, which throws your
   resolution's own pools. The dice, whether the system rolls twice and keeps one (`advantage`), what
   the extreme faces of a single die do (`naturals.max`: `critical`, `hit` or `none`; `naturals.min`:
@@ -1004,7 +1007,8 @@ a count of successes.** So nothing is renamed:
   dice column is read for its count, `damage.ability` adds that ability's rating as dice, and
   `damage.bonus` adds automatic successes. `perCostStep` and `scales` add dice, as they always have.
   Healing and temporary points are amounts, and are added up as before.
-- Initiative stays a sum (`initiative.dice` and `modifier`), and a dying rule keeps its own dice.
+- Initiative is a sum (`initiative.dice` and `modifier`), or a pool when you ask for one
+  (`initiative.pool`, below), and a dying rule keeps its own dice.
 
 What a pool fight rolls beyond that is its `pool` block:
 
@@ -1045,6 +1049,61 @@ no tears at all, may spend one point of Resolve a turn, and throw initiative aga
 **Declaring in reverse order is not built.** Some systems have everybody declare their action before
 anybody acts, slowest first. In a fight where each combatant picks one action when their turn comes,
 declaring first changes nothing any rule reads, so there is nothing for a key to say.
+
+### Initiative that attacks move
+
+Some pool systems keep initiative as a number for the whole fight and let attacks move it: one way
+of attacking takes it from the target, another spends the attacker's own as damage, and whoever
+falls to a set line has crashed. A `dice-pool` fight can say so (Capability API 1.48):
+
+```json
+"initiative": {
+  "pool": { "abilityMod": "nerve" },
+  "plus": 3,
+  "resource": {
+    "base": 3,
+    "styles": [
+      { "id": "press", "label": "Press", "takes": { "gain": 1 } },
+      { "id": "telling", "label": "Telling blow", "spends": { "onMiss": [[0, 1], [6, 2], [11, 3]] } }
+    ],
+    "crash": { "at": 0, "condition": "reeling", "bonus": 5, "recoverAfter": 3 }
+  }
+}
+```
+
+- **The opening.** Everybody throws `pool` dice as the fight begins, and the successes plus `plus`
+  are their number, so `resource` needs `pool`: summed dice are an order, not a number of dice. A creature's `initiativeModifier` is its pool, since every number a pool fight
+  adds is dice. The number is kept: it is never thrown again (`each` is refused beside `resource`),
+  and as each round begins the order is sorted by the numbers as they stand.
+- **Styles.** Every attack (an attack row, an ability or catalog entry that rolls to hit and does
+  harm, a creature's action that does, and an action made of other actions) is offered once per
+  style, and a player picks the style before the target. Up to four, each either takes or spends,
+  and at least one takes. A choice that names no style is made in the first; one the attack is not
+  offered in is refused. An attack keeps the style it was made in until it is over, even when an
+  answer changes its maker's number before it lands.
+- **A style that takes.** On a hit, the damage is thrown as usual (the extra dice from the hit, the
+  weapon's dice, soak by kind, automatic successes), and what it counts comes off the target's
+  number instead of their health. The attacker gains all of it plus `gain`.
+- **A style that spends.** Offered only while the attacker's number is above the crash line (0 when
+  you give no `crash`), and never for an action made of other actions, since a number is spent on
+  one blow. On a hit, the damage is the attacker's number as they made the attack, in dice against
+  the damage target, and nothing else: no weapon dice, no extra dice from the hit, no automatic successes, no
+  soak. It marks health by the attack's own kind of harm. Once the attack is over, a number that
+  landed anywhere goes back to `base`, and one that landed nowhere loses what `onMiss` says at the
+  number it was made with (a step table: `[at least, lose]` pairs, ascending; nothing below the
+  first step).
+- **Crashing.** A number that falls to `crash.at` or below has crashed: the `condition` (one of your
+  own, and optional) is put on them, and whoever took them there gains `bonus`. A miss that crashes
+  its own maker gives nobody a bonus. A crashed combatant cannot spend. The crash lifts, condition
+  and all, when their number rises above the line again, after `recoverAfter` of their own turns
+  (their number goes back to `base` as that turn begins), and when the fight ends however it ends.
+  Somebody whose opening throw is at the line or below starts the fight crashed. `base` has to be
+  above `crash.at`, or going back to it would crash them again.
+
+The menu shows each style's own forecast: the chance to hit, and what a taking style would take or
+the harm a spending one would do. The status panel shows everybody's number, and the log says every
+change and why: "Ada gains 5 initiative for crashing Rats, and is on 14." The Engine's picker weighs
+a taking blow one turn ahead: taking and then spending against spending now and again from the base.
 
 ### What a fight reads from `mechanics`
 
@@ -1204,7 +1263,8 @@ as a `sheet`, takes `health`, `defense`, `initiativeModifier`, `speed`, `abiliti
 - `health`: a number, or `{ "dice": "3d6", "flat": 2 }` thrown once when the fight is created. A
   forecast reads the average, so a menu never promises a die nobody has thrown.
 - `defense`, `initiativeModifier`, `speed`: what an attack is rolled against, what it adds to
-  initiative, and how far it walks in one turn, in your own distance unit.
+  initiative (or, where initiative is thrown as a pool, how many dice it throws), and how far it
+  walks in one turn, in your own distance unit.
 - `abilities` and `saves`: keyed by the ability ids and save ids your sheet declares. A save it does
   not name reads as zero.
 - `checks`: what it adds in a contest, keyed by the ids of `combat.checks`. One it does not name reads
@@ -1793,9 +1853,11 @@ Said plainly, because a ruleset should not claim what the Engine does not do:
   its own `resist`, `vulnerable` and `immune`.
 - **A rider fires by itself.** `on` has one value, `hit`, so the first qualifying hit of the period
   takes it, and there is no moment at which you are asked whether to spend one.
-- **Initiative is an order, not a number anybody spends.** A pool fight's initiative is a sum thrown
-  once or every round. A system whose attacks take initiative from their target, or spend their own
-  as damage, and whose combatants crash at zero, is the next slice.
+- **A number attacks move is plain.** A spending blow throws the number and nothing else, so no
+  weapon changes it and there is no floor of dice; nothing makes a blow that takes smaller against a
+  sturdy target; a crash lifts after a fixed count of turns however deep it went; and an attack made
+  in a window (a strike at somebody breaking away, a reaction, a signature move) is made in the
+  first style.
 - **An invented opponent soaks nothing.** A creature the Game Master makes up for one fight is held
   to your threat scale, which says nothing about soak, so it has none.
 

@@ -896,7 +896,7 @@ Capability API 1.46, for #6728.
 ### What the pool kind settled
 
 Capability API 1.47, for #6736. The Storyteller kind the gap report names (W10, with W9), in two
-slices: this one is the kind itself; the next is initiative as a number attacks move.
+slices: this one is the kind itself; the second (below) is initiative as a number attacks move.
 
 - **A second kind, and one principle.** `combat.kind: "dice-pool"` needs a `dice-pool` resolution and
   reads the sheet the way its checks do: every number a roll ADDS is dice, and every number it MEETS
@@ -911,7 +911,8 @@ slices: this one is the kind itself; the next is initiative as a number attacks 
   successes; an attack row's dice column is read for its count, `damage.ability` adds dice and
   `damage.bonus` automatic successes. Damage is thrown per target against `pool.damageTarget` (the
   resolution's default target when absent) with nothing doubling, exploding, cancelling or botching.
-  Heal and temporary amounts stay sums; initiative stays a sum; dying keeps its own dice.
+  Heal and temporary amounts stay sums; initiative is a sum unless thrown as a pool (1.48, below);
+  dying keeps its own dice.
 - **Soak.** `pool.soak` gives value references by kind of the health track (`byKind`, winning over
   `all`), thrown against the damage target (`roll: true`, each success taking one off) or taken off
   the damage dice first (`roll: false`). Never below zero, never thrown for a blow that counted
@@ -934,6 +935,58 @@ slices: this one is the kind itself; the next is initiative as a number attacks 
   initiative every round with the modifier now, spend limits, the exact forecast, bestiary soak, the
   clamp, every refusal, the log and the 1.47 gate) and twenty seeded Gravewatch fights played by the
   Engine in `scripts/regressions/ruleset-combat-director.regression.ts`.
+
+### What the moving initiative settled
+
+Capability API 1.48, for #6740. The second Storyteller slice: initiative as a number attacks move.
+
+- **The opening.** `initiative` is `dice` (with `modifier`) or `pool` (with `plus`), exactly one.
+  A pool is thrown through the check roller, its successes plus `plus` the number; a creature's
+  `initiativeModifier` is its pool. `pool` and `resource` are a `dice-pool` fight's only, `resource`
+  needs `pool` (summed dice are an order, not dice to spend), `each` is refused beside `resource`, and
+  `each: "round"` with a pool throws the pool again.
+- **Styles, beside the option.** `resource.styles` (one to four, each `takes` or `spends`, at least
+  one taking, so a crashed combatant always has one) are chosen by `choice.style`, not folded into the
+  option id, so everything that finds an action by its id is untouched. An attack is an action that
+  rolls to hit and does harm, or a sequence (every part in its style, and only a taking one, since a
+  number is spent on one blow); contests are never styled. A choice with no style takes the first,
+  one the option does not offer is refused `unknown-style`, and whatever is made out of a turn (an
+  opportunity strike, a signature move, a reaction) is made in the first, so a window menu offers
+  none. The style is fixed when the attack is made and carried on the resume with the number a
+  spending one throws, so an answer that moves its maker's number never changes either.
+- **Takes.** The blow's damage is thrown as ever, soak included, and routed to the target's number
+  through the same `land()` every part of a blow goes through, so clauses and riders take too. The
+  maker gains the total plus `gain`, then a crash is settled with the maker as its source and the
+  bonus paid. Health is untouched, so nothing after a blow (concentration, conditions that end on
+  damage) happens.
+- **Spends.** Offered only above the crash line. The blow throws the maker's number as they made it, with
+  `throwHarm`'s soak switched off and no extra dice, clauses or rider; after the whole action the
+  number resets to `base` if anything landed, or loses `onMiss` read at the number it was made with.
+- **Crashing** is kept in step with the number by one function: crossing to the line puts the
+  condition on (from the source, when there is one) and starts `crashedTurns`; rising above it takes
+  it off. `recoverAfter` counts the crashed one's own turn starts and resets them to `base`. An
+  opening at the line crashes before the first turn, and every crash is lifted when the fight ends
+  (`liftRulesetCrashes`, from `pushOutcome`, which every outcome goes through, and from fleeing), so a
+  sheet never keeps it.
+- **Order and windows.** As each round begins the order is re-sorted by the numbers, with no dice,
+  and the pause at the end of a round names nobody next, as a round that throws again does.
+- **Menu and picker.** `option.styles` carries each style's forecast: a taking style what it would
+  take (`shift`), a spending one what the maker's number is worth. The director's picker expands
+  every way of paying into one candidate per style. It weighs a taking blow one turn ahead (take then
+  spend, against spend now and again from the base, with a crash's bonus) and a spending blow as the
+  damage it does. The Game Master's decision options and the route's `ruleset` command carry `style`.
+- **Not built.** Anything that changes what a spending blow throws (a weapon's own, a floor of
+  dice), anything that shrinks a taking blow against a sturdy target, and a crash that lasts longer
+  the deeper it went.
+- **Example.** Gravewatch keeps its rethrown sum; the author guide shows a variant, and the lanes play it.
+- **Proven** by `scripts/regressions/game-ruleset-combat-moving-initiative.regression.ts` (the opening,
+  the menu and its words, taking and crashing with the log, spending with no soak or extra dice, the
+  miss table, a miss that crashes its maker, rising above the line, recovery by count, an opening
+  crash, the fight ending, a held hit keeping its style and its number through a crash, a reaction's
+  attack in the first style, a sequence only taking, the window at a round's end, a pool thrown every
+  round, every refusal and the 1.48 gate) and twenty
+  seeded fights, a Game Master's styled choice and a player's command in
+  `scripts/regressions/ruleset-combat-director.regression.ts`.
 
 ## Gaps a ruleset author found
 

@@ -448,6 +448,194 @@ test("Combat director ruleset: the ruleset's own menu resolves the fight and wri
   }
 });
 
+test("Combat director ruleset: an attack is made in a style where initiative is a number attacks move", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.setTimeout(120000);
+  // Gravewatch, a pool ruleset, with initiative kept as a number: a Press takes it from the target, a
+  // Telling blow spends the attacker's own as damage dice. Nothing about it is one game's words.
+  const gravewatch = JSON.parse(
+    readFileSync(new URL("../docs/examples/rulesets/gravewatch.json", import.meta.url), "utf8"),
+  ) as Record<string, any>;
+  gravewatch.sheet.live.conditions.push({ id: "reeling", label: "Reeling" });
+  gravewatch.combat.initiative = {
+    pool: { abilityMod: "nerve" },
+    plus: 3,
+    resource: {
+      base: 3,
+      styles: [
+        { id: "press", label: "Press", takes: { gain: 1 } },
+        { id: "telling", label: "Telling blow", spends: { onMiss: [[0, 1]] } },
+      ],
+      crash: { at: 0, condition: "reeling" },
+    },
+  };
+  const policyBefore = await request.get("/api/agents/import-policy");
+  expect(policyBefore.ok(), await policyBefore.text()).toBeTruthy();
+  const importsWereEnabled = (await policyBefore.json()).enabled === true;
+  let createdChatId: string | undefined;
+  let importedRulesetId: string | undefined;
+  try {
+    const policy = await request.patch("/api/agents/import-policy", { data: { enabled: true } });
+    expect(policy.ok(), await policy.text()).toBeTruthy();
+    const imported = await request.post("/api/game-rulesets/import", {
+      data: { definition: JSON.stringify(gravewatch) },
+    });
+    expect(imported.ok(), await imported.text()).toBeTruthy();
+    const rulesetId = (await imported.json()).rulesetId as string;
+    importedRulesetId = rulesetId;
+    const created = await request.post("/api/game/create", {
+      data: {
+        name: "Director moving initiative",
+        setupConfig: {
+          genre: "Horror",
+          setting: "The old plots",
+          tone: "Grim",
+          difficulty: "normal",
+          playerGoals: "Hold the watch",
+          gmMode: "standalone",
+          rating: "sfw",
+          partyCharacterIds: [],
+          combatStyle: "classic",
+          combatDirector: true,
+          gmBossControl: false,
+          ruleset: { id: rulesetId, version: gravewatch.version ?? 1, packageId: null, options: {} },
+        },
+      },
+    });
+    expect(created.ok(), await created.text()).toBeTruthy();
+    const chatId = (await created.json()).sessionChat.id;
+    createdChatId = chatId;
+    const sheets = await request.patch(`/api/chats/${chatId}/metadata`, {
+      data: {
+        gameCharacterCards: [
+          {
+            name: "Ada",
+            rulesetSheet: {
+              v: 1,
+              build: {
+                abilities: { sinew: 3, nerve: 2, warmth: 2 },
+                skills: { dig: "rating_1", wrestle: "rating_2", ward: "rating_2" },
+                lists: { arms: [{ name: "Spade", rating: "sinew", trade: "dig", dice: "2d10", harm: "tearing" }] },
+              },
+            },
+          },
+        ],
+      },
+    });
+    expect(sheets.ok(), await sheets.text()).toBeTruthy();
+    const seeded = await request.patch(`/api/chats/${chatId}/game-state`, {
+      data: { manual: true, location: "The old plots", rulesetLive: {} },
+    });
+    expect(seeded.ok(), await seeded.text()).toBeTruthy();
+    const message = await request.post(`/api/chats/${chatId}/messages`, {
+      data: { role: "assistant", content: "Something stirs between the graves. [state: combat]" },
+    });
+    expect(message.ok(), await message.text()).toBeTruthy();
+    const anchor = (await message.json()).id;
+    const ada = {
+      id: "ada",
+      name: "Ada",
+      side: "player",
+      hp: 40,
+      maxHp: 40,
+      attack: 8,
+      defense: 4,
+      speed: 5,
+      level: 2,
+    };
+    const rats = {
+      id: "rats",
+      name: "Grave-rat swarm",
+      side: "enemy",
+      hp: 12,
+      maxHp: 12,
+      attack: 5,
+      defense: 4,
+      speed: 6,
+      level: 1,
+      creature: "night/grave-rats",
+    };
+    const start = await request.post("/api/game/combat/director/start", {
+      data: { chatId, anchor, style: "ruleset", party: [ada], enemies: [rats] },
+    });
+    expect(start.ok(), await start.text()).toBeTruthy();
+    expect((await start.json()).session.style).toBe("ruleset");
+    const patch = await request.patch(`/api/chats/${chatId}/metadata`, {
+      data: {
+        gameSessionStatus: "active",
+        gameIntroPresented: true,
+        gameActiveState: "combat",
+        gameImageAutoGenerationEnabled: false,
+        gameStoryboardAutoIllustrationsEnabled: false,
+        gameCombatState: {
+          party: [ada],
+          enemies: [rats],
+          itemEffects: [],
+          mechanics: [],
+          dialogueCues: [],
+          startMessageId: anchor,
+          combatStyle: "classic",
+        },
+      },
+    });
+    expect(patch.ok(), await patch.text()).toBeTruthy();
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+      chatHelpSeenModes: ["game"],
+      gameInstantTextReveal: true,
+      weatherEffects: false,
+      theme: testInfo.project.name.includes("desktop") ? "light" : "dark",
+    });
+    await page.addInitScript(
+      ({ id, version }) => {
+        localStorage.setItem("marinara-active-chat-id", id);
+        localStorage.setItem("marinara:whats-new:seen-version", version);
+      },
+      { id: chatId, version },
+    );
+    await page.goto("/");
+
+    const spade = page.getByRole("button", { name: /^Spade/ });
+    await expect(spade).toBeVisible({ timeout: 60000 });
+    // Everybody's number is on the status panel, since a player spends it.
+    const fight = page.getByRole("region", { name: "Combat decisions" });
+    await expect(fight.getByText(/^Initiative -?\d+$/).first()).toBeVisible();
+    // The option says only its chance: what it does depends on the style.
+    await expect(spade).toContainText(/\d+% to hit/);
+    await expect(spade).not.toContainText(/damage/);
+    await spade.click();
+    // The style comes first, each with what it would do.
+    await expect(page.getByText("How is Spade made?")).toBeVisible();
+    const press = page.getByRole("button", { name: /^Press/ });
+    await expect(press).toContainText(/initiative taken/);
+    await press.click();
+    const target = page.getByRole("button", { name: /Grave-rat swarm/ });
+    await expect(target).toBeVisible();
+    const response = page.waitForResponse(
+      (r) =>
+        r.url().endsWith("/api/game/combat/director/command") && r.request().postDataJSON().command.type === "ruleset",
+    );
+    await target.click();
+    const swung = await response;
+    expect(swung.ok(), await swung.text()).toBeTruthy();
+    expect(swung.request().postDataJSON().command.style).toBe("press");
+    await expect(fight.getByText(/^Ada attacks Grave-rat swarm with Spade \(Press\): /u)).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("ruleset-style.png"), fullPage: true });
+  } finally {
+    if (createdChatId) await request.delete(`/api/chats/${createdChatId}`);
+    if (importedRulesetId) {
+      await request.delete(`/api/game-rulesets?rulesetId=${encodeURIComponent(importedRulesetId)}&force=true`);
+    }
+    const restored = await request.patch("/api/agents/import-policy", { data: { enabled: importsWereEnabled } });
+    expect(restored.ok(), await restored.text()).toBeTruthy();
+  }
+});
+
 test("Combat director ruleset on a board: the walk, the log in paces, and the swing once it is adjacent", async ({
   page,
   request,
