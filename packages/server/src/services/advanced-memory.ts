@@ -3957,8 +3957,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           abortIfNeeded(operationOptions.signal);
           // Rebuild saved text only. Scene detection/preparation must never
           // overwrite a correction or spend summary tokens during reindexing.
-          record.embedding = null;
-          record.embeddingSpaceId = null;
+          // Decision mode needs only text; retain valid vectors for fallback.
+          if (!ctx.settings.decisionEnabled) {
+            record.embedding = null;
+            record.embeddingSpaceId = null;
+          }
           await put(ctx, record, operationOptions);
           await embedRecord(
             ctx,

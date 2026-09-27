@@ -261,6 +261,23 @@ try {
   );
   assert(!requests.some((request) => request.kind === "classify"), "healthy ongoing checks also use Jev");
 
+  await memory.updateSettings(chat.id, { decisionEnabled: false });
+  await memory.reindex(chat.id);
+  const vectorizedIds = () =>
+    memory.status(chat.id).then((status) =>
+      status.records
+        .filter((record) => record.embeddingStatus === "vectorized")
+        .map((record) => record.id)
+        .sort(),
+    );
+  const existingVectors = await vectorizedIds();
+  assert(existingVectors.length > 0, "ordinary reindex builds vectors");
+  await memory.updateSettings(chat.id, { decisionEnabled: true });
+  const beforeReindex = requests.length;
+  await memory.reindex(chat.id);
+  assert.equal(requests.length, beforeReindex, "Decision reindex needs no model calls");
+  assert.deepEqual(await vectorizedIds(), existingVectors, "Decision reindex preserves existing fallback vectors");
+
   await connections.remove(decision.id);
   assert((await memory.status(chat.id)).warnings.includes("decision-connection-unavailable"));
   const currentSource = await chats.listMessages(chat.id);
