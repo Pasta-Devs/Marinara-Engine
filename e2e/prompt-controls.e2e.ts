@@ -19,7 +19,9 @@ test("typed illustration prompts wait for review and send only the confirmed sub
       })
     ).json();
     resources.push(`/api/chats/${chat.id}`);
-    await request.post(`/api/chats/${chat.id}/messages`, { data: { role: "assistant", content: "A quiet room." } });
+    const historicalMessage = await (
+      await request.post(`/api/chats/${chat.id}/messages`, { data: { role: "assistant", content: "A quiet room." } })
+    ).json();
     await page.route("**/api/capability-packages/installed", (route) =>
       route.fulfill({
         json: [
@@ -102,6 +104,35 @@ test("typed illustration prompts wait for review and send only the confirmed sub
       resultData: { characters: [] },
     });
     await expect(dialog).not.toBeVisible();
+    await input.fill("/illustrate range=1 cup of tea");
+    await page.locator(".mari-chat-send-btn").click();
+    await expect(dialog).toBeVisible();
+    expect(calls).toHaveLength(1);
+    // A new message during review must not move the selected image to the newest reply.
+    await request.post(`/api/chats/${chat.id}/messages`, { data: { role: "assistant", content: "A later scene." } });
+    await dialog.getByRole("button", { name: "Generate", exact: true }).click();
+    await expect.poll(() => calls.length).toBe(2);
+    expect(calls[1]?.illustratorMessageRange).toEqual([historicalMessage.id, historicalMessage.id]);
+    await expect(dialog).not.toBeVisible();
+
+    await page.route("**/api/generate/retry-agents", (route) => {
+      const body = route.request().postDataJSON();
+      calls.push(body);
+      return route.fulfill({
+        contentType: "text/event-stream",
+        body: body.illustratorPromptReviewOverride
+          ? "event: done\ndata: {}\n\n"
+          : `data: ${JSON.stringify({ type: "image_prompt_review", data: { chatId: chat.id, resultData: { prompt: "Historical room", characters: [] }, item: { id: "roleplay-scene-illustration", kind: "illustration", title: "Scene illustration", prompt: "Historical room" } } })}\n\ndata: {"type":"done","data":{}}\n\n`,
+      });
+    });
+    await input.fill("/illustrate range=1");
+    await page.locator(".mari-chat-send-btn").click();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Generate", exact: true }).click();
+    await expect.poll(() => calls.length).toBe(4);
+    expect(calls[2]?.illustratorMessageRange).toEqual([historicalMessage.id, historicalMessage.id]);
+    expect(calls[3]?.illustratorMessageRange).toEqual([historicalMessage.id, historicalMessage.id]);
+    await expect(dialog).not.toBeVisible();
     const conversation = await (
       await request.post("/api/chats", {
         data: { name: "Conversation review", mode: "conversation", characterIds: [], connectionId: connection.id },
@@ -133,7 +164,7 @@ test("typed illustration prompts wait for review and send only the confirmed sub
     await expect(dialog.getByRole("textbox")).toHaveValue("A reviewed scene");
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(dialog).not.toBeVisible();
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(4);
   } finally {
     await Promise.all(resources.map((path) => request.delete(path)));
   }

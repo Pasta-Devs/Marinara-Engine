@@ -339,6 +339,7 @@ type AgentInjectionReviewRequest = {
 
 type IllustratorPromptReviewRequest = {
   chatId: string;
+  illustratorMessageRange?: [string, string];
   subjectOnly?: boolean;
   item: ImagePromptReviewItem;
   resultData: Record<string, unknown>;
@@ -799,6 +800,7 @@ export const ChatArea = memo(function ChatArea() {
       if (!override?.prompt.trim()) return;
       setIllustratorPromptReviewSubmitting(true);
       const success = await retryAgents(illustratorPromptReview.chatId, ["illustrator"], {
+        illustratorMessageRange: illustratorPromptReview.illustratorMessageRange,
         illustratorPromptReviewOverride: {
           resultData: illustratorPromptReview.resultData,
           ...(illustratorPromptReview.subjectOnly ? { subjectOnly: true } : {}),
@@ -819,13 +821,14 @@ export const ChatArea = memo(function ChatArea() {
   }, [illustratorPromptReviewSubmitting]);
 
   const handleIllustrate = useCallback(
-    (prompt?: string) => {
+    (prompt?: string, messageRange?: [string, string]) => {
       if (!activeChatId) return;
       const resultData = { prompt, characters: [] };
       if (prompt && useUIStore.getState().reviewImagePromptsBeforeSend) {
         setIllustratorPromptReview({
           chatId: activeChatId,
           subjectOnly: true,
+          illustratorMessageRange: messageRange,
           resultData,
           item: {
             id: "roleplay-scene-illustration",
@@ -838,6 +841,7 @@ export const ChatArea = memo(function ChatArea() {
       }
       return retryAgents(activeChatId, ["illustrator"], {
         illustratorRetryTargets: ["illustration"],
+        illustratorMessageRange: messageRange,
         ...(prompt ? { illustratorPromptReviewOverride: { prompt, subjectOnly: true, resultData } } : {}),
       }).then(() => undefined);
     },

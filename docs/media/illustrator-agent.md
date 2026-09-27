@@ -87,6 +87,14 @@ Set **Run Interval** to **0** for manual-only generation. This stops automatic I
 
 You can also make a picture on demand instead of waiting. Open the chat **Gallery** and use the **Illustrate** button. The Illustrator runs once right away and the button shows **Generating...** while it works. This is useful when you want a picture of the current moment and the agent has not drawn one yet.
 
+## Gallery saving and prompt inspection
+
+In **Settings → Generations → Image Generation**, **Automatically save generated images to character galleries** is on by default. Turn it off to stop adding chat illustrations and selfies to the depicted characters' and personas' galleries. Images still appear in the conversation and chat Gallery, and explicit gallery saves still work. Existing gallery entries are unchanged. Galleries share image files, so this controls gallery membership rather than deleting the chat's image file.
+
+For new NovelAI generations, the image inspector shows the scene/style prompt followed by the positive character captions, separated by ` | `. This also applies to the saved gallery prompt.
+
+To illustrate an earlier Roleplay message or range, use `/illustrate range=12` or `/illustrate range=12-18`. See [Slash Commands](../chats/slash-commands.md) for numbering and limits.
+
 ## Related guides
 
 - [Image Generation Providers and Setup](image-providers.md)

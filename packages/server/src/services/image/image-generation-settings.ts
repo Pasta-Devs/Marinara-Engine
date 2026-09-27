@@ -12,6 +12,7 @@ export interface ImageGenerationSize {
 }
 
 export interface ImageGenerationUserSettings {
+  autoSaveToGalleries: boolean;
   background: ImageGenerationSize;
   illustration: ImageGenerationSize;
   game: ImageGenerationSize;
@@ -25,6 +26,7 @@ const IMAGE_DIMENSION_MIN = 64;
 const IMAGE_DIMENSION_MAX = 4096;
 
 const DEFAULT_IMAGE_GENERATION_SETTINGS: ImageGenerationUserSettings = {
+  autoSaveToGalleries: true,
   background: { width: 1280, height: 720 },
   illustration: { width: 896, height: 1280 },
   game: { width: 1280, height: 720 },
@@ -76,6 +78,7 @@ export function parseImageGenerationUserSettings(raw: string | null): ImageGener
     if (!isRecord(parsed)) return DEFAULT_IMAGE_GENERATION_SETTINGS;
 
     return {
+      autoSaveToGalleries: parsed.autoSaveGeneratedImagesToGalleries !== false,
       background: readSize(
         parsed,
         "imageBackgroundWidth",

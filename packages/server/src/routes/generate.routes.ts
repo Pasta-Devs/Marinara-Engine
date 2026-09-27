@@ -12514,6 +12514,7 @@ export async function generateRoutes(app: FastifyInstance) {
                           height: imgHeight,
                         });
                         await persistGeneratedImageToEntityGalleries({
+                          enabled: imageSettings.autoSaveToGalleries,
                           sourceFilePath: filePath,
                           sourceChatImageId: galleryEntry?.id,
                           characterIds: referenceResolution.characterIds,

@@ -81,9 +81,11 @@ These commands help you steer a story, play a character, and add art. Most of th
 | `/roll [dice (optional)]` | `/r`, `/dice` | Rolls dice and posts the result. |
 | `/random` | `/rand`, `/event` | Asks the AI to add a surprise event to the story. |
 | `/scene [description (optional)]` | `/rp` | Run from a Conversation chat. Starts a new Roleplay scene that branches off that conversation. |
-| `/illustrate [prompt (optional)]` | `/ill` | Generates a gallery image for the current chat. |
+| `/illustrate [range=N-M (optional)] [prompt (optional)]` | `/ill` | Generates a gallery image for the current chat. |
 | `/impersonate [direction (optional)]` | `/imp` | Writes a reply as your persona. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Sets the instruction that `/impersonate` uses in this chat. |
+
+In **Roleplay**, `/illustrate range=12` illustrates message 12, and `/illustrate range=12-18` sends messages 12 through 18 to the Illustrator. Use the same message numbers as `/goto`, in ascending order, with at most 200 messages. Hidden messages stay excluded. The image attaches to the last visible message in the selected range; prompt review keeps that selection even if newer messages arrive. Earlier messages remain available with Advanced Memory enabled. Without `range=`, the command keeps its usual current-scene behavior. An optional typed prompt is used directly, as before.
 
 To steer the next reply, add your direction after `/guided`:
 

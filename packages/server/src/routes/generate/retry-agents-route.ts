@@ -3897,6 +3897,7 @@ async function applyRetryResultEffects(args: {
               });
               assertRetryActive();
               await persistGeneratedImageToEntityGalleries({
+                enabled: imageSettings.autoSaveToGalleries,
                 sourceFilePath: filePath,
                 sourceChatImageId: galleryEntry?.id,
                 characterIds: referenceResolution.characterIds,
@@ -4316,6 +4317,8 @@ export async function registerRetryAgentsRoute(
       illustratorPromptReviewOverride?: unknown;
       /** Limit an Illustrator retry to visual jobs that failed in the original run. */
       illustratorRetryTargets?: unknown;
+      /** Inclusive stored-message IDs selected by /illustrate range=N-M. */
+      illustratorMessageRange?: unknown;
       /** Force image generation for retried custom image agents' results (snapshot button, #4682). */
       forceImageGeneration?: boolean;
       lorebookKeeperBackfill?: boolean;
@@ -4348,6 +4351,7 @@ export async function registerRetryAgentsRoute(
       agentPromptTemplateIds,
       illustratorPromptReviewOverride: rawIllustratorPromptReviewOverride,
       illustratorRetryTargets: rawIllustratorRetryTargets,
+      illustratorMessageRange,
       forceImageGeneration = false,
       lorebookKeeperBackfill = false,
       customLorebookBackfill = false,
@@ -4387,6 +4391,21 @@ export async function registerRetryAgentsRoute(
       "background",
     );
     const isManualIllustratorImageRequest = isExclusiveIllustratorRetryTarget(illustratorRetryTargets, "illustration");
+
+    if (
+      illustratorMessageRange !== undefined &&
+      (!Array.isArray(illustratorMessageRange) ||
+        illustratorMessageRange.length !== 2 ||
+        !illustratorMessageRange.every((id) => typeof id === "string" && id.trim()) ||
+        agentTypes.length !== 1 ||
+        agentTypes[0] !== "illustrator" ||
+        !isManualIllustratorImageRequest ||
+        forMessageId ||
+        lorebookKeeperBackfill ||
+        customLorebookBackfill)
+    ) {
+      return reply.status(400).send({ error: "Invalid Illustrator message range" });
+    }
 
     startSseReply(reply, { "X-Accel-Buffering": "no" });
 
@@ -4466,6 +4485,17 @@ export async function registerRetryAgentsRoute(
         };
       }
 
+      if (Array.isArray(illustratorMessageRange)) {
+        if (chat.mode !== "roleplay") throw new Error("Illustrator message ranges require Roleplay mode");
+        const first = allMessages.findIndex((message) => message.id === illustratorMessageRange[0]);
+        const last = allMessages.findIndex((message) => message.id === illustratorMessageRange[1]);
+        if (first < 0 || last < first || last - first >= 200) {
+          throw new Error("Choose an existing message or a range of up to 200 messages in this chat");
+        }
+        // An explicit historical range may precede the current conversation/Advanced Memory boundary.
+        recentMessages = allMessages.slice(first, last + 1);
+      }
+
       const unfilteredRecentMessages = recentMessages;
 
       const supportsHiddenFromAI = chat.mode === "conversation" || chat.mode === "roleplay";
@@ -4489,8 +4519,13 @@ export async function registerRetryAgentsRoute(
           swipeIndex: preGenerationLastAssistant.activeSwipeIndex ?? 0,
         };
       }
-      let retryMessageId = lastAssistant?.id ?? "";
-      let retrySwipeIndex = lastAssistant?.activeSwipeIndex ?? 0;
+      const rangeTarget = illustratorMessageRange ? recentMessages.at(-1) : undefined;
+      if (illustratorMessageRange) {
+        if (!rangeTarget) throw new Error("The selected range has no messages visible to the AI");
+        historicalGameStateAnchor = lastAssistant ? resolveVisibleGameStateAnchor([lastAssistant]) : null;
+      }
+      let retryMessageId = rangeTarget?.id ?? lastAssistant?.id ?? "";
+      let retrySwipeIndex = (rangeTarget ?? lastAssistant)?.activeSwipeIndex ?? 0;
       activeAgentRun.messageId = retryMessageId || null;
       activeAgentRun.swipeIndex = retryMessageId ? retrySwipeIndex : null;
 
@@ -4515,6 +4550,11 @@ export async function registerRetryAgentsRoute(
           onFallback,
         }),
       );
+      if (illustratorMessageRange) {
+        for (const entry of resolvedAgents) {
+          entry.resolved.settings = { ...entry.resolved.settings, contextSize: recentMessages.length };
+        }
+      }
       let customLorebookBackfillTarget: { agentConfigId: string; messageId: string; swipeIndex: number } | null = null;
       if (customLorebookBackfill) {
         const entry = resolvedAgents[0];
@@ -4595,10 +4635,12 @@ export async function registerRetryAgentsRoute(
           cyoaAgentWillRun,
           chatId,
           beholderDirective: sanitisedDirective,
-          historicalAnchorId: forMessageId ?? null,
+          historicalAnchorId: rangeTarget?.id ?? forMessageId ?? null,
           db: app.db,
           chat,
-          chatMeta,
+          chatMeta: illustratorMessageRange
+            ? { ...chatMeta, attachSummariesToAgents: false, semanticSummaryRetrievalEnabled: false }
+            : chatMeta,
           currentBackground,
           recentMessages,
           resolvedAgents: resolvedAgents.map((entry) => entry.resolved),
@@ -4613,6 +4655,7 @@ export async function registerRetryAgentsRoute(
           forceIllustratorImageGeneration: isManualIllustratorImageRequest,
           forceCustomImageGeneration: forceImageGeneration === true,
           historicalGameStateAnchor,
+          useLatestGameStateFallback: !illustratorMessageRange,
         }),
       );
       const agentContext = agentContextResult.agentContext;

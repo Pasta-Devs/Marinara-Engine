@@ -158,6 +158,10 @@ Marinara can read regex scripts that come bundled inside a SillyTavern character
 
 This choice appears both in the single-character import dialog and in the bulk **Import from SillyTavern Folder** flow. Bundled scripts with an empty pattern, or a pattern that fails the safety check, are skipped during import. You can also import a plain JSON file of scripts with the **Import regexes from JSON** button in the **Regexes** section. For the full import walkthrough, see [Importing from SillyTavern](../data/importing-from-sillytavern.md).
 
+## Replacing a regex pack
+
+In the **Presets → Regexes** section, choose **Select regex scripts**, then check the old pack's entries or use **Select all regex scripts**. The existing action bar lets you **Export** or **Delete** the selection. Deletion asks once for confirmation; it cannot be undone. Failed deletions stay selected so you can retry, and unselected scripts stay in place. Import the updated pack after removing the old one. Folders are not needed for this workflow; preset assignments remain available in the regex editor.
+
 ## Safety and performance
 
 Every pattern is checked before it can be saved or run. Marinara blocks patterns that are very likely to run slowly and hang the app. A blocked pattern shows this message: "Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns." Saving is blocked until you fix it.

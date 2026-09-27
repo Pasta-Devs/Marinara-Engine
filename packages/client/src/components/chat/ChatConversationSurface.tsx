@@ -66,7 +66,7 @@ type ConversationSurfaceProps = {
   onOpenScheduleEditor?: ComponentProps<typeof ConversationView>["onOpenScheduleEditor"];
   onCloseSettings: () => void;
   onCloseGallery: () => void;
-  onIllustrate?: (prompt?: string) => void;
+  onIllustrate?: (prompt?: string, messageRange?: [string, string]) => void;
   onIllustrateWithAgent?: (agentType: string) => void | Promise<void>;
   onGenerateSelfie?: (characterId?: string) => void | Promise<void>;
   onWizardFinish: () => void;

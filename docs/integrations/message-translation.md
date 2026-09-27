@@ -84,6 +84,8 @@ Below the provider settings are three toggles. All three are off by default.
 
 **Show Draft Translate Button** adds a **Translate draft** button next to the **Send** button. This lets you translate your message and review or edit the result before you send it. This is the manual alternative to **Translate My Messages**, which translates on send with no chance to review.
 
+In **Conversation**, you can always translate an unsent draft from the composer's smile button → **Tools → Translate draft**, on desktop or mobile. You do not need to enable **Show Draft Translate Button** or automatic translation. The action uses this chat's input translation settings and replaces the draft for you to review; it does not send a message. A failed translation leaves the draft intact.
+
 ## The per-message Translate button
 
 Every chat message, whether from you or the AI, has a **Translate** button in its hover action bar. The button uses a languages icon. This button works on its own and does not need any of the toggles above.

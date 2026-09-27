@@ -531,28 +531,31 @@ export function PresetsPanel() {
     openToolDetail("__new__");
   }, [openToolDetail]);
 
-  const handleExportRegex = useCallback(() => {
-    if (sortedRegexScripts.length === 0) {
-      toast.error(localizeUi("ui.panels.presetspanel.noRegexesToExport"));
-      return;
-    }
+  const handleExportRegex = useCallback(
+    (scripts = sortedRegexScripts) => {
+      if (scripts.length === 0) {
+        toast.error(localizeUi("ui.panels.presetspanel.noRegexesToExport"));
+        return;
+      }
 
-    downloadJsonFile(
-      {
-        kind: "marinara.regex-scripts",
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        regexScripts: sortedRegexScripts.map(serializeRegexScript),
-      },
-      "marinara-regexes.json",
-    );
-    toast.success(
-      localizeUi("ui.panels.presetspanel.exportedValue1RegexValue2", {
-        value1: sortedRegexScripts.length,
-        value2: sortedRegexScripts.length === 1 ? "" : localizeUi("ui.lorebooks.lorebookeditor.es"),
-      }),
-    );
-  }, [sortedRegexScripts, localizeUi]);
+      downloadJsonFile(
+        {
+          kind: "marinara.regex-scripts",
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          regexScripts: scripts.map(serializeRegexScript),
+        },
+        "marinara-regexes.json",
+      );
+      toast.success(
+        localizeUi("ui.panels.presetspanel.exportedValue1RegexValue2", {
+          value1: scripts.length,
+          value2: scripts.length === 1 ? "" : localizeUi("ui.lorebooks.lorebookeditor.es"),
+        }),
+      );
+    },
+    [sortedRegexScripts, localizeUi],
+  );
 
   const handleImportRegex = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -1560,7 +1563,7 @@ function RegexSection({
 }: {
   handleCreateRegex: () => void;
   handleImportRegex: (event: ChangeEvent<HTMLInputElement>) => void;
-  handleExportRegex: () => void;
+  handleExportRegex: (scripts?: RegexScriptRow[]) => void;
   regexImportError: string | null;
   regexImportWarning: string | null;
   regexImportSuccess: string | null;
@@ -1576,6 +1579,45 @@ function RegexSection({
   deleteRegex: ReturnType<typeof useDeleteRegexScript>;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+  const selectedScripts = sortedRegexScripts.filter((script) => selectedIds.has(script.id));
+  const toggleSelection = (id: string) => {
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const deleteSelected = async () => {
+    if (deleting || selectedScripts.length === 0) return;
+    setDeleting(true);
+    try {
+      if (
+        !(await showConfirmDialog({
+          title: localizeUi("regex.bulk.deleteTitle"),
+          message: localizeUi("regex.bulk.deleteConfirm", { count: selectedScripts.length }),
+          confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+          tone: "destructive",
+        }))
+      )
+        return;
+      const results = await Promise.allSettled(selectedScripts.map((script) => deleteRegex.mutateAsync(script.id)));
+      const failedIds = selectedScripts
+        .filter((_, index) => results[index]?.status === "rejected")
+        .map((script) => script.id);
+      setSelectedIds(new Set(failedIds));
+      if (failedIds.length > 0) {
+        toast.error(localizeUi("regex.bulk.deleteFailed", { count: failedIds.length }));
+      } else {
+        setSelectionMode(false);
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
   const { startTouchDrag: startRegexTouchDrag } = useTouchFolderDrag({
     onActivate: (scriptId) => {
       setDraggedRegexId(scriptId);
@@ -1608,6 +1650,23 @@ function RegexSection({
         <div className="flex items-center gap-1">
           <button
             type="button"
+            onClick={() => {
+              setSelectionMode(!selectionMode);
+              setSelectedIds(new Set());
+            }}
+            disabled={deleting || sortedRegexScripts.length === 0}
+            aria-label={localizeUi(selectionMode ? "regex.bulk.exitSelection" : "regex.bulk.select")}
+            title={localizeUi(selectionMode ? "regex.bulk.exitSelection" : "regex.bulk.select")}
+            aria-pressed={selectionMode}
+            className={cn(
+              "mari-chrome-control mari-chrome-control--small p-1.5",
+              selectionMode && "mari-chrome-control--selected",
+            )}
+          >
+            <Check size="0.8125rem" />
+          </button>
+          <button
+            type="button"
             onClick={handleCreateRegex}
             className="mari-chrome-control mari-chrome-control--small p-1.5"
             title={localizeUi("ui.characters.characterregexsection.createRegex")}
@@ -1625,7 +1684,7 @@ function RegexSection({
           </label>
           <button
             type="button"
-            onClick={handleExportRegex}
+            onClick={() => handleExportRegex()}
             disabled={sortedRegexScripts.length === 0}
             className="mari-chrome-control mari-chrome-control--small p-1.5"
             title={localizeUi("ui.characters.characterregexsection.exportRegexesToJson")}
@@ -1646,6 +1705,20 @@ function RegexSection({
       )}
       {regexImportWarning && <div className="mb-1 px-1 text-xs text-amber-500">{regexImportWarning}</div>}
       {regexImportSuccess && <div className="mb-1 px-1 text-xs text-green-500">{regexImportSuccess}</div>}
+      {selectionMode && (
+        <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 px-2 text-xs">
+          <input
+            type="checkbox"
+            checked={selectedScripts.length === sortedRegexScripts.length && sortedRegexScripts.length > 0}
+            disabled={deleting}
+            onChange={(event) =>
+              setSelectedIds(new Set(event.target.checked ? sortedRegexScripts.map((script) => script.id) : []))
+            }
+            className="h-4 w-4 accent-[var(--primary)]"
+          />
+          {localizeUi("regex.bulk.selectAll")}
+        </label>
+      )}
       {sortedRegexScripts.length === 0 ? (
         <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">
           {localizeUi("ui.panels.regexsection.noRegexesYet")}
@@ -1670,7 +1743,7 @@ function RegexSection({
                   "group flex flex-wrap items-start gap-2 rounded-xl p-2 transition-colors hover:bg-[var(--sidebar-accent)]",
                   draggedRegexId === script.id && "opacity-40",
                 )}
-                draggable={regexDragReadyId === script.id}
+                draggable={!selectionMode && regexDragReadyId === script.id}
                 onDragStart={(event) => {
                   setDraggedRegexId(script.id);
                   event.dataTransfer.effectAllowed = "move";
@@ -1691,35 +1764,49 @@ function RegexSection({
                   setRegexDragReadyId(null);
                 }}
               >
-                <button
-                  type="button"
-                  className="mari-chrome-accent-text-muted mari-accent-animated mt-0.5 shrink-0 cursor-grab rounded p-0.5 opacity-100 transition-all hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] active:cursor-grabbing [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-focus-within:opacity-100 [@media(pointer:fine)]:group-hover:opacity-100"
-                  title={localizeUi("ui.lorebooks.lorebookentryrow.dragToReorder")}
-                  onClick={(event) => event.stopPropagation()}
-                  onMouseDown={(event) => {
-                    event.stopPropagation();
-                    setRegexDragReadyId(script.id);
-                  }}
-                  onMouseUp={(event) => {
-                    event.stopPropagation();
-                    setRegexDragReadyId(null);
-                  }}
-                  onTouchStart={(event) => {
-                    event.stopPropagation();
-                    startRegexTouchDrag(event, script.id, {
-                      allowInteractiveTarget: true,
-                      sourceElement: event.currentTarget.closest<HTMLElement>(
-                        '[data-touch-reorder-item="preset-regex"]',
-                      ),
-                    });
-                  }}
-                >
-                  <GripVertical size="0.8125rem" />
-                </button>
+                {selectionMode ? (
+                  <label className="flex min-h-11 w-6 shrink-0 cursor-pointer items-center justify-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(script.id)}
+                      disabled={deleting}
+                      onChange={() => toggleSelection(script.id)}
+                      aria-label={localizeUi("regex.bulk.selectEntry", { name: script.name })}
+                      className="h-4 w-4 accent-[var(--primary)]"
+                    />
+                  </label>
+                ) : (
+                  <button
+                    type="button"
+                    className="mari-chrome-accent-text-muted mari-accent-animated mt-0.5 shrink-0 cursor-grab rounded p-0.5 opacity-100 transition-all hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] active:cursor-grabbing [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-focus-within:opacity-100 [@media(pointer:fine)]:group-hover:opacity-100"
+                    title={localizeUi("ui.lorebooks.lorebookentryrow.dragToReorder")}
+                    onClick={(event) => event.stopPropagation()}
+                    onMouseDown={(event) => {
+                      event.stopPropagation();
+                      setRegexDragReadyId(script.id);
+                    }}
+                    onMouseUp={(event) => {
+                      event.stopPropagation();
+                      setRegexDragReadyId(null);
+                    }}
+                    onTouchStart={(event) => {
+                      event.stopPropagation();
+                      startRegexTouchDrag(event, script.id, {
+                        allowInteractiveTarget: true,
+                        sourceElement: event.currentTarget.closest<HTMLElement>(
+                          '[data-touch-reorder-item="preset-regex"]',
+                        ),
+                      });
+                    }}
+                  >
+                    <GripVertical size="0.8125rem" />
+                  </button>
+                )}
                 <Regex size="0.875rem" className="mt-0.5 shrink-0 text-[var(--marinara-chat-chrome-button-text)]" />
                 <button
                   className={cn("min-w-0 flex-1 basis-[min(100%,10rem)] text-left", !enabled && "opacity-50")}
-                  onClick={() => openRegexDetail(script.id)}
+                  disabled={deleting}
+                  onClick={() => (selectionMode ? toggleSelection(script.id) : openRegexDetail(script.id))}
                 >
                   <div className="text-xs font-medium">{script.name}</div>
                   <div className="mt-0.5 flex min-w-0 items-center gap-1">
@@ -1744,59 +1831,70 @@ function RegexSection({
                     ))}
                   </div>
                 </button>
-                <div className="ml-auto flex shrink-0 items-center gap-1">
-                  <div
-                    className="shrink-0"
-                    title={
-                      enabled
-                        ? localizeUi("ui.characters.characterregexsection.disableRegex")
-                        : localizeUi("ui.characters.characterregexsection.enableRegex")
-                    }
-                    onClick={(event) => {
-                      event.stopPropagation();
-                    }}
-                  >
-                    <SettingsSwitch
-                      ariaLabel={enabled ? "Disable regex" : "Enable regex"}
-                      checked={enabled}
-                      onChange={(checked) => updateRegex.mutate({ id: script.id, enabled: checked })}
-                      className="p-0 hover:bg-transparent"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="mari-chrome-control mari-chrome-control--small shrink-0 p-1"
-                    title={localizeUi("ui.characters.characterregexsection.editRegex")}
-                    aria-label={localizeUi("ui.characters.characterregexsection.editRegex")}
-                    onClick={() => openRegexDetail(script.id)}
-                  >
-                    <Pencil size="0.8125rem" />
-                  </button>
-                  <button
-                    type="button"
-                    className="mari-chrome-control mari-chrome-control--small shrink-0 p-1"
-                    title={localizeUi("ui.characters.characterregexsection.deleteRegex")}
-                    aria-label={localizeUi("ui.characters.characterregexsection.deleteRegex")}
-                    onClick={async () => {
-                      if (
-                        await showConfirmDialog({
-                          title: localizeUi("ui.panels.regexsection.deleteRegex"),
-                          message: localizeUi("ui.panels.agentspanel.deleteValue1", { value1: script.name }),
-                          confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-                          tone: "destructive",
-                        })
-                      ) {
-                        deleteRegex.mutate(script.id);
+                {!selectionMode && (
+                  <div className="ml-auto flex shrink-0 items-center gap-1">
+                    <div
+                      className="shrink-0"
+                      title={
+                        enabled
+                          ? localizeUi("ui.characters.characterregexsection.disableRegex")
+                          : localizeUi("ui.characters.characterregexsection.enableRegex")
                       }
-                    }}
-                  >
-                    <Trash2 size="0.8125rem" />
-                  </button>
-                </div>
+                      onClick={(event) => {
+                        event.stopPropagation();
+                      }}
+                    >
+                      <SettingsSwitch
+                        ariaLabel={enabled ? "Disable regex" : "Enable regex"}
+                        checked={enabled}
+                        onChange={(checked) => updateRegex.mutate({ id: script.id, enabled: checked })}
+                        className="p-0 hover:bg-transparent"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="mari-chrome-control mari-chrome-control--small shrink-0 p-1"
+                      title={localizeUi("ui.characters.characterregexsection.editRegex")}
+                      aria-label={localizeUi("ui.characters.characterregexsection.editRegex")}
+                      onClick={() => openRegexDetail(script.id)}
+                    >
+                      <Pencil size="0.8125rem" />
+                    </button>
+                    <button
+                      type="button"
+                      className="mari-chrome-control mari-chrome-control--small shrink-0 p-1"
+                      title={localizeUi("ui.characters.characterregexsection.deleteRegex")}
+                      aria-label={localizeUi("ui.characters.characterregexsection.deleteRegex")}
+                      onClick={async () => {
+                        if (
+                          await showConfirmDialog({
+                            title: localizeUi("ui.panels.regexsection.deleteRegex"),
+                            message: localizeUi("ui.panels.agentspanel.deleteValue1", { value1: script.name }),
+                            confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+                            tone: "destructive",
+                          })
+                        ) {
+                          deleteRegex.mutate(script.id);
+                        }
+                      }}
+                    >
+                      <Trash2 size="0.8125rem" />
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
+      )}
+      {selectionMode && (
+        <SelectionActionBar
+          selectedCount={selectedScripts.length}
+          onExport={() => handleExportRegex(selectedScripts)}
+          onDelete={() => void deleteSelected()}
+          exportDisabled={deleting}
+          deleteDisabled={deleting}
+        />
       )}
     </PanelSection>
   );

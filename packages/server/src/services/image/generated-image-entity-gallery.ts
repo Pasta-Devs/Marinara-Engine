@@ -14,6 +14,8 @@ type PersonaGalleryStore = {
 };
 
 export type GeneratedImageEntityGalleryInput = {
+  /** Automatic membership only; the chat keeps its image and explicit saves stay available. */
+  enabled?: boolean;
   sourceFilePath: string;
   sourceChatImageId?: string | null;
   characterIds?: string[];
@@ -47,6 +49,7 @@ export async function persistGeneratedImageToEntityGalleries(
   input: GeneratedImageEntityGalleryInput,
 ): Promise<{ characterCount: number; personaCount: number }> {
   input.signal?.throwIfAborted();
+  if (input.enabled === false) return { characterCount: 0, personaCount: 0 };
   const galleryRoot = input.galleryRoot ?? join(DATA_DIR, "gallery");
   return withGalleryFileLifecycleLock(
     input.sourceFilePath,

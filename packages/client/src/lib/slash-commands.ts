@@ -83,7 +83,7 @@ export interface SlashCommandContext {
   /** Apply a manual sprite expression override */
   setSpriteExpression?: (characterId: string, expression: string) => void | Promise<void>;
   /** Trigger the same image illustration action exposed in the chat Gallery. */
-  illustrate?: (prompt?: string) => void | Promise<void>;
+  illustrate?: (prompt?: string, messageRange?: [string, string]) => void | Promise<void>;
   /** Trigger the same Conversation selfie action exposed in the chat Gallery. */
   selfie?: (characterId?: string) => void | Promise<void>;
   /** Active downloadable capability packages available to this composer. */
@@ -1243,7 +1243,7 @@ const COMMANDS: SlashCommand[] = [
     name: "illustrate",
     aliases: ["ill"],
     description: "Generate a gallery illustration for the current chat",
-    usage: "/illustrate [prompt (optional)]",
+    usage: "/illustrate [range=N-M (optional)] [prompt (optional)]",
     requiredCapabilityId: "illustrator",
     modes: ["roleplay"],
     local: true,
@@ -1255,10 +1255,37 @@ const COMMANDS: SlashCommand[] = [
         return { handled: true, feedback: "Illustration generation is already running for this chat." };
       }
 
+      let prompt = args.trim();
+      let messageRange: [string, string] | undefined;
+      if (/^range=/iu.test(prompt)) {
+        const match = prompt.match(/^range=(\d+)(?:-(\d+))?(?:\s+([\s\S]*))?$/iu);
+        const start = Number(match?.[1]);
+        const end = Number(match?.[2] ?? match?.[1]);
+        if (
+          !match ||
+          !Number.isSafeInteger(start) ||
+          !Number.isSafeInteger(end) ||
+          start < 1 ||
+          end < start ||
+          end - start >= 200
+        ) {
+          return { handled: true, feedback: await translateSlash("chat.slash.illustrate.rangeUsage") };
+        }
+        const messages = await api.get<Array<{ id: string }>>(`/chats/${ctx.chatId}/messages`);
+        if (end > messages.length) {
+          return {
+            handled: true,
+            feedback: await translateSlash("ui.chat.slash.messageOutOfRange", { index: end, total: messages.length }),
+          };
+        }
+        messageRange = [messages[start - 1]!.id, messages[end - 1]!.id];
+        prompt = match[3]?.trim() ?? "";
+      }
+
       useGalleryStore.getState().setChatIllustrating(ctx.chatId, true);
       try {
         await withSlashCommandTimeout(
-          Promise.resolve(ctx.illustrate(args.trim() || undefined)),
+          Promise.resolve(ctx.illustrate(prompt || undefined, messageRange)),
           ILLUSTRATE_SLASH_TIMEOUT_MS,
           "Illustration generation timed out.",
         );

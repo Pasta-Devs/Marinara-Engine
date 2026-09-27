@@ -7,7 +7,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
-const FILE_TIMEOUT_MS = 30_000; // Each regression has a fixed 30-second budget.
+const FILE_TIMEOUT_MS = 30_000;
 const REGRESSION_SUFFIXES = ['.regression.ts', '.regression.mjs', '.regression.js'];
 const SIGNAL_EXIT_CODES = { SIGINT: 130, SIGTERM: 143, SIGBREAK: 1 };
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -145,6 +145,8 @@ function regressionEnvironment(scratchDir) {
 
 function runRegression(relativePath) {
   const { args, command, cwd } = commandFor(relativePath);
+  // Cold native runners need time for the real server's first boot and restart.
+  const timeoutMs = relativePath === 'scripts/regressions/restart-supervisor.regression.ts' ? 90_000 : FILE_TIMEOUT_MS;
   const startedAt = Date.now();
   process.stdout.write(`[${relativePath}] START\n`);
   const scratchDir = fs.mkdtempSync(path.join(os.tmpdir(), 'marinara-regression-'));
@@ -165,9 +167,9 @@ function runRegression(relativePath) {
     let timedOut = false;
     const timeoutTimer = setTimeout(() => {
       timedOut = true;
-      process.stderr.write(`[${relativePath}] TIMEOUT after ${FILE_TIMEOUT_MS / 1000}s; terminating child.\n`);
+      process.stderr.write(`[${relativePath}] TIMEOUT after ${timeoutMs / 1000}s; terminating child.\n`);
       terminateActiveChild();
-    }, FILE_TIMEOUT_MS);
+    }, timeoutMs);
 
     const finish = (result) => {
       if (settled) return;

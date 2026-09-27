@@ -43,7 +43,9 @@ function manualChunks(id: string) {
   if (id.endsWith("/components/game/game-narration-format.ts")) return "game-narration-format";
   if (id.endsWith("/components/game/GameNarrationVisuals.tsx")) return "game-narration-visuals";
   if (id.endsWith("/lib/game-tag-parser.ts")) return "game-tag-parser";
-  if (!id.includes("node_modules")) return undefined;
+  if (!id.includes("/node_modules/")) return undefined;
+  // Match the dependency path, not names in the checkout's parent directories.
+  id = id.slice(id.lastIndexOf("/node_modules/") + "/node_modules/".length);
 
   // Keep dynamically selected Lucide glyphs in small alphabetical chunks
   // instead of pulling the complete icon catalog into one eager vendor file.

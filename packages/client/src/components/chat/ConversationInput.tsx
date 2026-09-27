@@ -332,7 +332,7 @@ interface ConversationInputProps {
     conversationActivity?: string;
   }>;
   onPeekPrompt?: () => void;
-  onIllustrate?: (prompt?: string) => void | Promise<void>;
+  onIllustrate?: (prompt?: string, messageRange?: [string, string]) => void | Promise<void>;
   onGenerateSelfie?: (characterId?: string) => void | Promise<void>;
 }
 
@@ -1850,22 +1850,13 @@ export function ConversationInput({
     [activeChatId, isSendBlocked, generate, insertStickerToken],
   );
   const showDraftTranslateButton = chatMetadata.showInputTranslateButton === true;
-  const showMobileToolsTab =
-    showDraftTranslateButton || speechToTextEnabled || (showQuickRepliesMenu && quickReplyActions.length > 0);
-  const mobilePickerTabs = useMemo<ConversationMediaPickerTab[]>(() => {
-    const tabs: ConversationMediaPickerTab[] = [
-      { id: "emoji", label: "Emoji" },
-      { id: "kaomoji", label: "Kaomoji" },
-      { id: "gifs", label: "GIFs" },
-      { id: "stickers", label: "Stickers" },
-    ];
-    if (showMobileToolsTab) tabs.push({ id: "tools", label: "Tools" });
-    return tabs;
-  }, [showMobileToolsTab]);
-
-  useEffect(() => {
-    if (!showMobileToolsTab && mobilePickerTab === "tools") setMobilePickerTab("emoji");
-  }, [mobilePickerTab, showMobileToolsTab]);
+  const mobilePickerTabs: ConversationMediaPickerTab[] = [
+    { id: "emoji", label: "Emoji" },
+    { id: "kaomoji", label: "Kaomoji" },
+    { id: "gifs", label: "GIFs" },
+    { id: "stickers", label: "Stickers" },
+    { id: "tools", label: "Tools" },
+  ];
 
   const handleTranslateDraft = useCallback(async () => {
     if (!activeChatId || isTranslatingDraft) return;
@@ -1943,31 +1934,29 @@ export function ConversationInput({
     mobilePickerTab === "tools" ? (
       <div className="flex h-full flex-col gap-3 overflow-y-auto p-3">
         <div className="grid gap-2">
-          {showDraftTranslateButton && (
-            <button
-              type="button"
-              onClick={() => {
-                setMobilePickerOpen(false);
-                void handleTranslateDraft();
-              }}
-              disabled={!activeChatId || !hasInput || isTranslatingDraft}
-              className={cn(
-                "flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors",
-                activeChatId && hasInput && !isTranslatingDraft
-                  ? "text-foreground/80 hover:bg-foreground/10"
-                  : "cursor-not-allowed text-foreground/25",
-              )}
-            >
-              {isTranslatingDraft ? (
-                <Loader2 size="1rem" className="shrink-0 animate-spin" />
-              ) : (
-                <Languages size="1rem" className="shrink-0" />
-              )}
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                {localizeUi("chat.input.translateDraft")}
-              </span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              setMobilePickerOpen(false);
+              void handleTranslateDraft();
+            }}
+            disabled={!activeChatId || !hasInput || isTranslatingDraft}
+            className={cn(
+              "flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors",
+              activeChatId && hasInput && !isTranslatingDraft
+                ? "text-foreground/80 hover:bg-foreground/10"
+                : "cursor-not-allowed text-foreground/25",
+            )}
+          >
+            {isTranslatingDraft ? (
+              <Loader2 size="1rem" className="shrink-0 animate-spin" />
+            ) : (
+              <Languages size="1rem" className="shrink-0" />
+            )}
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+              {localizeUi("chat.input.translateDraft")}
+            </span>
+          </button>
 
           {speechToTextEnabled && (
             <div className="flex min-h-11 items-center justify-between gap-2 rounded-lg px-3 py-2">
@@ -2301,20 +2290,8 @@ export function ConversationInput({
                 ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
                 : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
             )}
-            title={
-              mobilePickerOpen
-                ? t("chat.input.showKeyboard")
-                : showMobileToolsTab
-                  ? t("chat.input.mediaAndTools")
-                  : t("chat.input.media")
-            }
-            aria-label={
-              mobilePickerOpen
-                ? t("chat.input.showKeyboard")
-                : showMobileToolsTab
-                  ? t("chat.input.mediaAndTools")
-                  : t("chat.input.media")
-            }
+            title={mobilePickerOpen ? t("chat.input.showKeyboard") : t("chat.input.mediaAndTools")}
+            aria-label={mobilePickerOpen ? t("chat.input.showKeyboard") : t("chat.input.mediaAndTools")}
           >
             {mobilePickerOpen ? <Keyboard size="1.25rem" /> : <Smile size="1.25rem" />}
           </button>
@@ -2331,8 +2308,8 @@ export function ConversationInput({
                   ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
                   : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
               )}
-              title={t(showMobileToolsTab ? "chat.input.mediaAndTools" : "chat.input.media")}
-              aria-label={t(showMobileToolsTab ? "chat.input.mediaAndTools" : "chat.input.media")}
+              title={t("chat.input.mediaAndTools")}
+              aria-label={t("chat.input.mediaAndTools")}
               aria-expanded={mobilePickerOpen}
             >
               <Smile size="1.25rem" />

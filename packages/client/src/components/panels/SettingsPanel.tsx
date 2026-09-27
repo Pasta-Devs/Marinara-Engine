@@ -4089,6 +4089,8 @@ function OverallGenerationSettings() {
 
 function ImageGenerationSettings() {
   const { t: localizeUi } = useUiTranslation();
+  const autoSaveToGalleries = useUIStore((s) => s.autoSaveGeneratedImagesToGalleries);
+  const setAutoSaveToGalleries = useUIStore((s) => s.setAutoSaveGeneratedImagesToGalleries);
   const imageBackgroundWidth = useUIStore((s) => s.imageBackgroundWidth);
   const imageBackgroundHeight = useUIStore((s) => s.imageBackgroundHeight);
   const setImageBackgroundDimensions = useUIStore((s) => s.setImageBackgroundDimensions);
@@ -4118,6 +4120,12 @@ function ImageGenerationSettings() {
       {...getSettingsSectionAnchorProps("image-generation")}
     >
       <div className="flex flex-col gap-2.5">
+        <ToggleSetting
+          label={localizeUi("settings.controls.autoSaveGeneratedImagesToGalleries.label")}
+          help={localizeUi("settings.controls.autoSaveGeneratedImagesToGalleries.help")}
+          checked={autoSaveToGalleries}
+          onChange={setAutoSaveToGalleries}
+        />
         <ImageDimensionRow
           controlId="image-background-size"
           label={localizeUi("settings.controls.backgroundGeneration.label")}

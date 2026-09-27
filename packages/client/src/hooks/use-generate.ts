@@ -87,6 +87,7 @@ type RetryAgentsOptions = {
     negativePrompt?: string;
   };
   illustratorRetryTargets?: IllustratorRetryTarget[];
+  illustratorMessageRange?: [string, string];
   /** Force image generation for the retried custom image agents' results (snapshot button, #4682). */
   forceImageGeneration?: boolean;
 };
@@ -3655,6 +3656,7 @@ export function useGenerate() {
               ? { illustratorPromptReviewOverride: options.illustratorPromptReviewOverride }
               : {}),
             ...(options?.illustratorRetryTargets ? { illustratorRetryTargets: options.illustratorRetryTargets } : {}),
+            ...(options?.illustratorMessageRange ? { illustratorMessageRange: options.illustratorMessageRange } : {}),
             ...(options?.forceImageGeneration ? { forceImageGeneration: true } : {}),
             musicPlayerEnabled: useUIStore.getState().musicPlayerEnabled,
             musicPlayerSource: useUIStore.getState().musicPlayerSource,
@@ -3953,7 +3955,10 @@ export function useGenerate() {
               imagePromptReviewRequested = true;
               window.dispatchEvent(
                 new CustomEvent("marinara:image-prompt-review", {
-                  detail: event.data,
+                  detail: {
+                    ...(event.data as Record<string, unknown>),
+                    illustratorMessageRange: options?.illustratorMessageRange,
+                  },
                 }),
               );
               break;

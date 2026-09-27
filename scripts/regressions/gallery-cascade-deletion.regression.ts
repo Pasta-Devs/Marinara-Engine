@@ -15,6 +15,7 @@ import { persistGeneratedImageToEntityGalleries } from "../../packages/server/sr
 import { createCharacterGalleryStorage } from "../../packages/server/src/services/storage/character-gallery.storage.js";
 import { createGalleryStorage } from "../../packages/server/src/services/storage/gallery.storage.js";
 import { createPersonaGalleryStorage } from "../../packages/server/src/services/storage/persona-gallery.storage.js";
+import { parseImageGenerationUserSettings } from "../../packages/server/src/services/image/image-generation-settings.js";
 
 const storageRoot = mkdtempSync(join(tmpdir(), "marinara-gallery-cascade-storage-"));
 const galleryRoot = mkdtempSync(join(tmpdir(), "marinara-gallery-cascade-files-"));
@@ -50,6 +51,30 @@ try {
     ...sourceMetadata,
   });
   assert.ok(source);
+
+  for (const raw of [null, "{}", "invalid", '{"autoSaveGeneratedImagesToGalleries":"false"}']) {
+    assert.equal(parseImageGenerationUserSettings(raw).autoSaveToGalleries, true);
+  }
+  const optedOut = parseImageGenerationUserSettings('{"autoSaveGeneratedImagesToGalleries":false}');
+  assert.equal(optedOut.autoSaveToGalleries, false);
+  assert.deepEqual(
+    await persistGeneratedImageToEntityGalleries({
+      enabled: optedOut.autoSaveToGalleries,
+      sourceFilePath: sourceRelativePath,
+      sourceChatImageId: source.id,
+      characterIds: ["character-1"],
+      personaIds: ["persona-1"],
+      characterGallery,
+      personaGallery,
+      galleryRoot,
+      ...sourceMetadata,
+    }),
+    { characterCount: 0, personaCount: 0 },
+  );
+  assert.equal((await characterGallery.listBySourceChatImageId(source.id)).length, 0);
+  assert.equal((await personaGallery.listBySourceChatImageId(source.id)).length, 0);
+  assert.ok(await chatGallery.getById(source.id, source.chatId));
+  assert.ok(existsSync(sourceFile), "opt-out never removes the chat image");
 
   const persisted = await persistGeneratedImageToEntityGalleries({
     sourceFilePath: sourceRelativePath,

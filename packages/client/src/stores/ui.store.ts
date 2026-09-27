@@ -768,6 +768,7 @@ interface UIState {
   queueImageGenerationRequests: boolean;
   /** When true, generated image prompts are shown for review before supported provider calls are sent. */
   reviewImagePromptsBeforeSend: boolean;
+  autoSaveGeneratedImagesToGalleries: boolean;
   imageBackgroundWidth: number;
   imageBackgroundHeight: number;
   imageIllustrationWidth: number;
@@ -1131,6 +1132,7 @@ interface UIState {
   setGameAutoPlayDelay: (v: number) => void;
   setQueueImageGenerationRequests: (v: boolean) => void;
   setReviewImagePromptsBeforeSend: (v: boolean) => void;
+  setAutoSaveGeneratedImagesToGalleries: (v: boolean) => void;
   setImageBackgroundDimensions: (width: number, height: number) => void;
   setImageIllustrationDimensions: (width: number, height: number) => void;
   setImageGameDimensions: (width: number, height: number) => void;
@@ -1362,6 +1364,7 @@ export function pickSyncedSettings(state: UIState) {
     gameAutoPlayDelay: state.gameAutoPlayDelay,
     queueImageGenerationRequests: state.queueImageGenerationRequests,
     reviewImagePromptsBeforeSend: state.reviewImagePromptsBeforeSend,
+    autoSaveGeneratedImagesToGalleries: state.autoSaveGeneratedImagesToGalleries,
     imageBackgroundWidth: state.imageBackgroundWidth,
     imageBackgroundHeight: state.imageBackgroundHeight,
     imageIllustrationWidth: state.imageIllustrationWidth,
@@ -1569,6 +1572,7 @@ export function pickPersistedUIState(state: UIState) {
     gameAutoPlayDelay: state.gameAutoPlayDelay,
     queueImageGenerationRequests: state.queueImageGenerationRequests,
     reviewImagePromptsBeforeSend: state.reviewImagePromptsBeforeSend,
+    autoSaveGeneratedImagesToGalleries: state.autoSaveGeneratedImagesToGalleries,
     imageBackgroundWidth: state.imageBackgroundWidth,
     imageBackgroundHeight: state.imageBackgroundHeight,
     imageIllustrationWidth: state.imageIllustrationWidth,
@@ -1816,6 +1820,7 @@ export const useUIStore = create<UIState>()(
         gameAutoPlayDelay: 3000,
         queueImageGenerationRequests: true,
         reviewImagePromptsBeforeSend: false,
+        autoSaveGeneratedImagesToGalleries: true,
         imageBackgroundWidth: 1280,
         imageBackgroundHeight: 720,
         imageIllustrationWidth: 896,
@@ -2590,6 +2595,7 @@ export const useUIStore = create<UIState>()(
         setGameAutoPlayDelay: (v) => set({ gameAutoPlayDelay: Math.max(200, Math.min(10000, Math.round(v))) }),
         setQueueImageGenerationRequests: (v) => set({ queueImageGenerationRequests: v }),
         setReviewImagePromptsBeforeSend: (v) => set({ reviewImagePromptsBeforeSend: v }),
+        setAutoSaveGeneratedImagesToGalleries: (v) => set({ autoSaveGeneratedImagesToGalleries: v }),
         setImageBackgroundDimensions: (width, height) =>
           set({
             imageBackgroundWidth: clampImageDimension(width),

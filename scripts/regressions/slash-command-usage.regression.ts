@@ -52,6 +52,34 @@ const context: SlashCommandContext = {
 };
 
 try {
+  const illustrate = matchSlashCommand("/illustrate", { mode: "roleplay" })!.command;
+  const illustrations: unknown[] = [];
+  const illustrationContext = {
+    ...context,
+    illustrate: async (prompt?: string, range?: [string, string]) => {
+      illustrations.push({ prompt, range });
+    },
+  };
+  await illustrate.execute("range=1-2", illustrationContext);
+  await illustrate.execute("range=2 a moonlit garden", illustrationContext);
+  await illustrate.execute("a moonlit garden", illustrationContext);
+  assert.deepEqual(illustrations, [
+    { prompt: undefined, range: ["first", "second"] },
+    { prompt: "a moonlit garden", range: ["second", "second"] },
+    { prompt: "a moonlit garden", range: undefined },
+  ]);
+  for (const args of [
+    "range=0",
+    "range=2-1",
+    "range=1-201",
+    "range=4",
+    "range=x",
+    "range=1-",
+    "range=9007199254740992",
+  ]) {
+    assert.ok((await illustrate.execute(args, illustrationContext)).feedback, args);
+  }
+  assert.equal(illustrations.length, 3, "invalid ranges never start illustration");
   const command = matchSlashCommand("/hide 1-2 Lady Maria", { mode: "roleplay" })!;
   await command.command.execute(command.args, context);
   assert.deepEqual(

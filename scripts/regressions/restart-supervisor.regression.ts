@@ -52,7 +52,7 @@ async function waitForPid(previous?: number): Promise<number> {
   const started = Date.now();
   // The first boot transpiles the full server on cold native CI runners.
   // A supervised restart reuses that cache and retains its tighter deadline.
-  const timeoutMs = previous === undefined ? 20_000 : 10_000;
+  const timeoutMs = previous === undefined ? 60_000 : 10_000;
   let lastError: unknown;
   while (Date.now() - started < timeoutMs) {
     if (child.exitCode !== null) assert.fail(`Supervisor exited: ${output}`);

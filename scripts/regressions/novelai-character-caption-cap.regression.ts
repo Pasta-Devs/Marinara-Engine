@@ -6,6 +6,7 @@ import { createServer } from "node:http";
 import {
   buildNovelAiV4CharacterPromptPayload,
   generateImage,
+  getNovelAiDisplayPrompt,
 } from "../../packages/server/src/services/image/image-generation.js";
 
 const crowd = Array.from({ length: 25 }, (_, index) => `Colonist ${index + 1}`);
@@ -31,6 +32,38 @@ assert.equal(
   buildNovelAiV4CharacterPromptPayload(crowdPrompts, "nai-diffusion-5-full").captions.length,
   22,
   "V5 retains exactly its full caption capacity",
+);
+
+assert.equal(getNovelAiDisplayPrompt({ input: "legacy scene" }), "legacy scene");
+assert.equal(
+  getNovelAiDisplayPrompt({
+    input: "forest",
+    parameters: {
+      v4_prompt: {
+        caption: {
+          base_caption: "2girls, forest, watercolor",
+          char_captions: buildNovelAiV4CharacterPromptPayload(sevenCaptions, "nai-diffusion-4-5-full").captions,
+        },
+      },
+    },
+  }),
+  ["2girls, forest, watercolor", ...sevenCaptions.slice(0, 6).map((entry) => entry.prompt)].join(" | "),
+  "inspector includes exactly the positive character captions sent to the provider",
+);
+assert.equal(
+  getNovelAiDisplayPrompt({
+    input: "fallback",
+    parameters: {
+      v4_prompt: {
+        caption: {
+          base_caption: "custom base",
+          char_captions: [null, { char_caption: "" }, { char_caption: "custom character" }],
+        },
+      },
+    },
+  }),
+  "custom base | custom character",
+  "custom request parameters remain the source of truth",
 );
 
 console.log("NovelAI character caption cap regression passed");

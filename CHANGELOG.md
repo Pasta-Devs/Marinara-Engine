@@ -4,6 +4,11 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Regex packs can be selected, exported, and deleted in bulk, with one confirmation and failed deletions retained for retry (#6755).
+- Generation Settings can disable automatic character/persona gallery entries while keeping illustrations and selfies in chat. NovelAI image inspectors now include character captions alongside the scene prompt (#6752, #6748).
+- Conversation's Tools tray always offers **Translate draft**, including on mobile with the optional composer shortcut and automatic translation turned off (#6751).
+- Roleplay supports `/illustrate range=N` and `/illustrate range=N-M` for earlier messages, including before an Advanced Memory boundary, without branching or deleting history (#6722).
+
 - Client builds no longer depend on whether the checkout folder contains `react`. The restart regression allows cold CI servers more time for their first boot while keeping the normal restart deadline (#6732, #6743).
 
 - Roleplay Advanced Memory can optionally use a selected Decision connection, including Jev, to detect scene endings and choose recalled scenes and excerpts. Summaries still use the summary helper, and the existing recall remains the fallback. Advanced Memory no longer carries an Alpha label (#6749).
