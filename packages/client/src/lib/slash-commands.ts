@@ -1282,6 +1282,10 @@ const COMMANDS: SlashCommand[] = [
         prompt = match[3]?.trim() ?? "";
       }
 
+      // Another command may have started an illustration while history was loading.
+      if (useGalleryStore.getState().illustratingChatIds.has(ctx.chatId)) {
+        return { handled: true, feedback: "Illustration generation is already running for this chat." };
+      }
       useGalleryStore.getState().setChatIllustrating(ctx.chatId, true);
       try {
         await withSlashCommandTimeout(
