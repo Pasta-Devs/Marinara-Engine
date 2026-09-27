@@ -299,6 +299,14 @@ function blockFromCreature(creature: RulesetCreature, budgets: ReadonlySet<strin
     ...(creature.vulnerable ? { vulnerable: [...creature.vulnerable] } : {}),
     ...(creature.immune ? { immune: [...creature.immune] } : {}),
     ...(creature.conditionImmunities ? { conditionImmunities: [...creature.conditionImmunities] } : {}),
+    ...(creature.soak
+      ? {
+          soak: {
+            ...(creature.soak.all !== undefined ? { all: creature.soak.all } : {}),
+            ...(creature.soak.byKind ? { byKind: { ...creature.soak.byKind } } : {}),
+          },
+        }
+      : {}),
     tier: creature.tier,
     ...(creature.traits ? { traits: creature.traits.map((trait) => ({ ...trait })) } : {}),
     ...(creature.signaturePoints !== undefined ? { signaturePoints: creature.signaturePoints } : {}),
@@ -519,6 +527,13 @@ export function clampRulesetStatBlock(
     }
     if (Object.keys(kept).length > 0) block.checks = kept;
     else delete block.checks;
+  }
+  // What an invented opponent soaks is nothing the scale can hold it to: a tier says how hard a
+  // creature is to hit and how much it can take, not what it shrugs off, so a proposed soak would be
+  // toughness no band bounds. It goes, and the fight is told so.
+  if (block.soak) {
+    delete block.soak;
+    adjusted.push("An opponent made up for one fight soaks nothing, so its soak was dropped.");
   }
   // A rider carries a damage type of its own, and a fight reads resistance off the NAME, so a type
   // this ruleset never declared is a word nothing could act on: held to the same names an action's

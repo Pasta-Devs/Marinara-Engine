@@ -76,9 +76,15 @@ const parsedOrThrow = (document: unknown, what: string): RulesetDefinition => {
 };
 /** Gravewatch, optionally edited first. Its layer swaps the ladder, so it goes wherever the ladder
  *  under test is not the shipped one. */
-const pool = (edit: (doc: Record<string, any>) => void = () => {}): RulesetDefinition => {
+const pool = (edit?: (doc: Record<string, any>) => void): RulesetDefinition => {
   const doc = JSON.parse(gravewatchText) as Record<string, any>;
-  edit(doc);
+  if (edit) {
+    // The example's fight is written for its own ten-sided pool, three ratings and six trades, so a
+    // variant of the CHECKS leaves it out, with the bestiary written in its numbers.
+    delete doc.combat;
+    doc.catalogs = (doc.catalogs ?? []).filter((catalog: { holds?: string }) => catalog.holds !== "creatures");
+    edit(doc);
+  }
   return parsedOrThrow(doc, "the pool example");
 };
 const refuses = (base: string, edit: (doc: Record<string, any>) => void, pattern: RegExp, why: string) => {

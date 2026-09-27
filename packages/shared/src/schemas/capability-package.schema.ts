@@ -447,7 +447,14 @@ const capabilityPackageManifestBaseSchema = z
 //        `reaction` object and `self: true` for one that lands on the creature itself. Not a soft
 //        seam, for the same reason as 1.20 through 1.45: an Engine that cannot read these refuses the
 //        whole catalog, so a package that ships any of them declares 1.46. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 46 } as const);
+// 1.47: a second combat kind, `dice-pool`: a fight thrown in the ruleset's own pools and counted in
+//        successes, with a `pool` block (damage target and soak by kind), a creature's own `soak`,
+//        and an attack row's `toHit.skill`. Beside it, for either kind, `initiative.each` throws
+//        initiative again every round and `combat.spendLimits` caps what one combatant spends of a
+//        pool per turn or round. Not a soft seam, for the same reason as 1.20 through 1.46: an Engine
+//        that cannot read these refuses the whole ruleset or catalog file, so a package that ships
+//        any of them declares 1.47. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 47 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

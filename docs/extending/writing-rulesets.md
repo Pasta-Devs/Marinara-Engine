@@ -716,7 +716,9 @@ follow your system's rules.
 The `battle` block above lends a fight the sheet's numbers while the arithmetic stays Marinara's.
 The optional `combat` block is the other thing: it says how a fight is RESOLVED by your rules. It
 parameterises a combat kind the Engine owns, exactly as `resolution` parameterises a check kind, and
-every name in it is yours. There is one kind today.
+every name in it is yours. There are two kinds: `attack-vs-defense`, where dice are added up and
+compared with a number, and `dice-pool`, where a fight throws your `dice-pool` ruleset's own pools
+and counts successes (see A fight thrown in pools, below).
 
 **A game whose ruleset declares `combat` fights by your block.** The party's numbers are read off
 their own sheets, the opponents come out of your bestiary or off your threat scale, every turn is
@@ -790,14 +792,20 @@ same keys for a d20 system:
 
 ### Every key
 
-- `kind`: `"attack-vs-defense"`. One side rolls dice against the other's defense; a hit does damage.
+- `kind`: `"attack-vs-defense"` (one side rolls dice against the other's defense; a hit does damage)
+  or `"dice-pool"` (see A fight thrown in pools). Every key below means the same under both, read
+  the way that kind reads numbers.
 - `health`: required. What a fight takes away. Either `{ "pool": "grit" }`, a live pool it counts
   down, whose temporary buffer if it has one is what damage drains first; or `{ "track": "harm" }`,
   a wound track it MARKS. A track needs `damageKinds` beside it, and grants no temporary points.
 - `defense`: required, a value reference. A field the player enters, or a derived value you compute.
 - `initiative`: required. The dice rolled once at the start, and an optional modifier reference. A
-  tie goes to the higher modifier, and then to the order the fight was set up in.
-- `attackRoll`: required. The dice, whether the system rolls twice and keeps one (`advantage`), what
+  tie goes to the higher modifier, and then to the order the fight was set up in. `"each": "round"`
+  throws everybody's initiative again as each new round begins, with the modifier as it stands then
+  (so a modifier that reads a wound track is slower once wounded), and the round starts at whoever is
+  first in the new order. Capability API 1.47.
+- `attackRoll`: required under `attack-vs-defense`, and refused under `dice-pool`, which throws your
+  resolution's own pools. The dice, whether the system rolls twice and keeps one (`advantage`), what
   the extreme faces of a single die do (`naturals.max`: `critical`, `hit` or `none`; `naturals.min`:
   `miss` or `none`), and what a critical hit does to the damage (`critical`: `double-dice` rolls the
   damage dice again, `max-dice` adds their highest faces once, `none` is a plain hit). Lucky faces
@@ -814,6 +822,9 @@ same keys for a d20 system:
   An `ability` column is an `enum` holding one of your ability ids; a value that is not one adds
   nothing. A `proficiency` column is a `boolean`, and where it is set your proficiency bonus is
   added. A row with no readable dice is not an attack, so rope in the same list is just rope.
+  `toHit.skill` names an `enum` column holding one of your skill ids: the row adds what a check of
+  that skill adds, with the row's own `ability` in place of the skill's when it names one, exactly as
+  a check's `with=` swaps it (Capability API 1.47).
   `strikes` is an optional value reference saying how many strikes ONE spend of this list's budget
   buys: taking a row with none in hand spends the budget and puts the rest in hand, and while any
   are in hand every row that declares `strikes` costs no budget at all, so a different weapon, a
@@ -955,11 +966,85 @@ same keys for a d20 system:
   ticks one box however hard it hit. A blow with several damage clauses still marks one box, using
   the most severe kind that landed. Say which your system is.
   `{ "default": "bashing", "byType": { "fire": "aggravated" }, "marks": "per-point" }`.
+- `pool`: required under `dice-pool`, refused under `attack-vs-defense`. See A fight thrown in pools.
+- `spendLimits`: optional. How much of a live pool one combatant may spend per `turn` or per `round`
+  in a fight, whichever kind it is: `[{ "pool": "blood", "max": { "derived": "blood_per_turn" }, "per": "turn" }]`.
+  `max` is read once as the fight begins. A cost past what is left of the limit is not affordable,
+  so it is off the menu, however much is in the pool. A limit per turn starts again at the start of
+  its holder's own turn, one per round when a round begins. An opponent written in plain numbers pays
+  for nothing off a sheet, so a limit never binds one; an opponent written as a sheet pays from its
+  own pools and is held to the limit like anybody else. Capability API 1.47.
 - `threat`: optional, and needed by a bestiary. `tiers`, the scale an opponent is picked from: an id,
   a label, a `health` band, a `defense`, a `toHit`, a `damagePerRound` band and a `saveDifficulty`.
   Every creature you ship names one of these tiers, and an opponent nobody wrote is pulled onto the
   one the Game Master asked for, so nothing lands off your scale. The `damagePerRound` band is read
   as what a creature does to ONE target in a round, its whole sequence included.
+
+### A fight thrown in pools: `dice-pool`
+
+A `dice-pool` ruleset counts successes rather than adding dice up, and its fights can too.
+`"kind": "dice-pool"` needs `resolution.kind` to be `"dice-pool"`, and it reads the sheet the way your
+pool checks already do: **every number a roll adds is a number of dice, and every number it meets is
+a count of successes.** So nothing is renamed:
+
+- A to-hit number (an attack row's, an ability list's `toHit`, a creature action's) is the pool an
+  attack throws. The die, the target a die has to reach, and what the faces double, explode, cancel
+  and botch on are your `resolution`'s. The wound track your `resolution.penaltyFrom` names takes its
+  penalty off the pool, as it does off a check.
+- `defense` is how many successes an attack needs, and never fewer than one. A condition's modifier
+  to `defense`, and `cover.bonus`, add to it.
+- Each success past the ones needed adds one damage die. A botch misses, whatever it counted. There
+  are no criticals: a strong hit is worth its extra dice.
+- A save's number is its pool and its difficulty the successes it needs. A contest throws each side's
+  check as a pool, and the side with more successes wins.
+- A condition's modifier to attacks, saves or checks is dice added or taken away, so it is a `flat`
+  number: a rolled modifier (`dice`) is refused.
+- Damage is dice of your die: an amount's `dice` (a creature's, an entry's) says how many, and has to
+  be of your die, and its `flat` part is automatic successes, never thrown. An attack row's damage
+  dice column is read for its count, `damage.ability` adds that ability's rating as dice, and
+  `damage.bonus` adds automatic successes. `perCostStep` and `scales` add dice, as they always have.
+  Healing and temporary points are amounts, and are added up as before.
+- Initiative stays a sum (`initiative.dice` and `modifier`), and a dying rule keeps its own dice.
+
+What a pool fight rolls beyond that is its `pool` block:
+
+```json
+"pool": {
+  "advantage": true,
+  "damageTarget": 6,
+  "soak": { "roll": true, "byKind": { "knock": { "abilityMod": "sinew" } } }
+}
+```
+
+- `advantage`: whether a roll that leans is thrown twice with the one with more successes kept (a
+  botch counts as fewer than any throw that did not botch). Without it, a fight throws once whatever
+  a condition says.
+- `damageTarget`: the per-die target damage and soak dice are thrown against. Your resolution's
+  default target when you leave it out. Those dice count each face at or above it once and nothing
+  else: nothing doubles, explodes, cancels or botches on them.
+- `soak`: what a target takes off the harm a hit does, by kind of harm. `all` is a value reference
+  for any kind, and `byKind` one per kind of your health track, which wins over `all` for its kind;
+  a kind neither names is not soaked. With `"roll": true` the target throws that many dice against
+  the damage target and each success takes one off. With `"roll": false` the number comes off the
+  damage dice before they are thrown, so it never touches automatic successes, which thrown soak takes
+  off like any other. Nothing goes below zero, and nothing is thrown to soak a blow that counted
+  nothing. A creature gives its own
+  numbers as `soak: { "all": 1, "byKind": { "knock": 3 } }`, which needs the block's `soak` to say how
+  soak is taken. Resistance, vulnerability, immunity and `resist-all` apply after soak, to what is
+  left.
+
+Every target's damage is thrown for that target, because what a hit earned past its needed
+successes, and what they soak, are theirs. A blow's second clause, and a rider, are each their own
+damage pool of their own kind, with no extra dice from the hit. The menu forecasts a pool exactly:
+the chance to reach the successes needed, and what the damage dice are worth after what the first
+target soaks.
+
+Gravewatch is written this way: its wardens throw a rating and a trade, soak knocks with Sinew and
+no tears at all, may spend one point of Resolve a turn, and throw initiative again every round.
+
+**Declaring in reverse order is not built.** Some systems have everybody declare their action before
+anybody acts, slowest first. In a fight where each combatant picks one action when their turn comes,
+declaring first changes nothing any rule reads, so there is nothing for a key to say.
 
 ### What a fight reads from `mechanics`
 
@@ -1113,8 +1198,8 @@ is filed under one of your own tiers.
 ```
 
 The numbers below are the plain way to write a creature. One written in your ruleset's own terms,
-as a `sheet`, takes `health`, `defense`, `initiativeModifier`, `speed`, `abilities`, `saves` and
-`checks` from that sheet instead (see "A creature written in your ruleset's own terms", below).
+as a `sheet`, takes `health`, `defense`, `initiativeModifier`, `speed`, `abilities`, `saves`,
+`checks` and `soak` from that sheet instead (see "A creature written in your ruleset's own terms", below).
 
 - `health`: a number, or `{ "dice": "3d6", "flat": 2 }` thrown once when the fight is created. A
   forecast reads the average, so a menu never promises a die nobody has thrown.
@@ -1124,6 +1209,8 @@ as a `sheet`, takes `health`, `defense`, `initiativeModifier`, `speed`, `abiliti
   not name reads as zero.
 - `checks`: what it adds in a contest, keyed by the ids of `combat.checks`. One it does not name reads
   as zero. Capability API 1.43.
+- `soak`: in a `dice-pool` fight only, what it soaks: `all` for any harm, `byKind` for a kind of your
+  health track. Capability API 1.47.
 - `resist`, `vulnerable`, `immune`: damage types, matched without case, and checked against
   `combat.damageTypes` when you declare any. `conditionImmunities` names your own conditions.
 - `tier`: which rung of `combat.threat` it belongs to.
@@ -1706,6 +1793,11 @@ Said plainly, because a ruleset should not claim what the Engine does not do:
   its own `resist`, `vulnerable` and `immune`.
 - **A rider fires by itself.** `on` has one value, `hit`, so the first qualifying hit of the period
   takes it, and there is no moment at which you are asked whether to spend one.
+- **Initiative is an order, not a number anybody spends.** A pool fight's initiative is a sum thrown
+  once or every round. A system whose attacks take initiative from their target, or spend their own
+  as damage, and whose combatants crash at zero, is the next slice.
+- **An invented opponent soaks nothing.** A creature the Game Master makes up for one fight is held
+  to your threat scale, which says nothing about soak, so it has none.
 
 ## Layers: variants of your own ruleset
 

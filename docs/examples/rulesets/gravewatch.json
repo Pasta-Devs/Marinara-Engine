@@ -15,8 +15,8 @@
     "sheet": true,
     "resources": true,
     "rests": true,
-    "combat": false,
-    "summary": "A pool of ten-sided dice against a target number, three ratings, six trades and one vigil."
+    "combat": true,
+    "summary": "A pool of ten-sided dice against a target number, three ratings, six trades, one vigil, and fights thrown in the same pools on the Harm track."
   },
   "resolution": {
     "$comment": "The sheet's number for a check is the SIZE of the pool, not a bonus on top of it. A rating of 3 and a trade worth 2 throw five dice. penaltyFrom names the wound track whose penalty rides on every roll; under this kind that is dice OFF the pool, floored at pool.min, so even a bleeding warden throws one die. spend is a standing rule of the system rather than anything a warden went and bought: one point of Resolve buys one automatic success, twice per check at most, and the Engine pays for it on the same check that uses it. explode.min lets the Game Master make an eight or a nine roll again for one check, and pool.abilityPlusAbility lets an ability check add a second ability, so Nerve and Warmth can be thrown together. reroll lists the standing re-throws the Game Master may name on one check: a warden who takes their time throws every die showing six or less once more.",
@@ -176,6 +176,38 @@
         ]
       },
       {
+        "$comment": "What a warden fights with. The combat block reads each row as an attack: the rating and the trade it throws, its damage dice, and what kind of harm it does.",
+        "id": "arms",
+        "label": "Arms",
+        "section": "kit",
+        "maxItems": 4,
+        "columns": [
+          { "id": "name", "label": "Arm", "type": "text", "maxLength": 60, "required": true },
+          {
+            "id": "rating",
+            "label": "Rating",
+            "type": "enum",
+            "values": ["sinew", "nerve", "warmth"],
+            "default": "sinew"
+          },
+          {
+            "id": "trade",
+            "label": "Trade",
+            "type": "enum",
+            "values": ["dig", "wrestle", "listen", "ward", "soothe", "barter"],
+            "default": "wrestle"
+          },
+          { "id": "dice", "label": "Damage", "type": "dice", "default": "1d10" },
+          {
+            "id": "harm",
+            "label": "Harm",
+            "type": "enum",
+            "values": ["blunt", "tearing", "burning"],
+            "default": "blunt"
+          }
+        ]
+      },
+      {
         "$comment": "A warden who has come back from worse can take more before going down: each scar adds its levels to Harm (see the track's extra).",
         "id": "scars",
         "label": "Scars",
@@ -254,9 +286,68 @@
       "clear": { "conditions": [] }
     }
   ],
+  "combat": {
+    "$comment": "A fight thrown in the same pools the checks are. Under the dice-pool kind every number a roll adds is dice and every number it meets is successes: a warden's Arm throws its rating and trade, a defense is how many successes a blow needs, and each success past those adds a damage die. Damage and soak are thrown against six, which is easier than the checks' seven. A warden soaks knocks with Sinew and soaks no tears at all. Initiative is one die plus Nerve, thrown again every round. Resolve can only be spent one point a turn in a fight, so a warden who flares the lantern cannot also speak a stern word on the same turn.",
+    "kind": "dice-pool",
+    "health": { "track": "harm" },
+    "damageTypes": ["blunt", "tearing", "burning"],
+    "damageKinds": { "default": "knock", "byType": { "tearing": "tear", "burning": "tear" }, "marks": "per-point" },
+    "defense": { "const": 1 },
+    "initiative": { "dice": { "count": 1, "sides": 10 }, "modifier": { "abilityMod": "nerve" }, "each": "round" },
+    "pool": {
+      "advantage": true,
+      "damageTarget": 6,
+      "soak": { "roll": true, "byKind": { "knock": { "abilityMod": "sinew" } } }
+    },
+    "economy": {
+      "budgets": [
+        { "id": "act", "label": "Act", "per": "turn", "count": 1 },
+        { "id": "quick", "label": "Quick", "per": "turn", "count": 1 }
+      ]
+    },
+    "attacks": [
+      {
+        "list": "arms",
+        "budget": "act",
+        "name": "name",
+        "toHit": { "ability": { "column": "rating" }, "skill": { "column": "trade" } },
+        "damage": { "dice": { "column": "dice" }, "type": { "column": "harm" } }
+      }
+    ],
+    "abilities": [
+      { "list": "charms", "budget": "act", "toHit": { "skillMod": "ward" }, "saveDifficulty": { "const": 2 } }
+    ],
+    "conditions": [
+      { "condition": "rattled", "modifiers": [{ "to": "attacks", "flat": -1 }] },
+      { "condition": "marked", "effects": ["attacks-against-advantage"] }
+    ],
+    "spendLimits": [{ "pool": "resolve", "max": { "const": 1 }, "per": "turn" }],
+    "threat": {
+      "tiers": [
+        {
+          "id": "nuisance",
+          "label": "A nuisance",
+          "health": [2, 4],
+          "defense": 1,
+          "toHit": 5,
+          "damagePerRound": [1, 2],
+          "saveDifficulty": 1
+        },
+        {
+          "id": "dread",
+          "label": "A dread",
+          "health": [5, 8],
+          "defense": 2,
+          "toHit": 6,
+          "damagePerRound": [2, 4],
+          "saveDifficulty": 2
+        }
+      ]
+    }
+  },
   "catalogs": [
     {
-      "$comment": "Two charms, to show what mechanics.check is for: an entry a warden picked that changes a CHECK rather than a fight. The Game Master names it on the check itself and the Engine pays for it and applies it there.",
+      "$comment": "Four charms. Steady Hand and Grave Sight show what mechanics.check is for: an entry a warden picked that changes a CHECK, which the Game Master names on the check itself and the Engine pays for and applies there. Lantern Flare and Stern Word are for a fight: the combat block offers them from the Charms list, each for a point of Resolve.",
       "id": "charms",
       "label": "Charms",
       "feeds": ["charms"],
@@ -298,6 +389,102 @@
             "kind": "utility",
             "cost": [{ "pool": "resolve", "amount": 1 }],
             "check": { "explode": 8 }
+          }
+        },
+        {
+          "id": "lantern-flare",
+          "label": "Lantern Flare",
+          "rows": [
+            {
+              "list": "charms",
+              "values": {
+                "name": "Lantern Flare",
+                "notes": "Throw the lantern's light at one thing in the dark: two dice of burning."
+              }
+            }
+          ],
+          "mechanics": {
+            "$comment": "Thrown with Ward, as the combat block's abilities say. In a dice-pool fight its amount is damage dice, and burning is a tear.",
+            "kind": "attack",
+            "attackRoll": true,
+            "amount": { "dice": "2d10" },
+            "damageType": "burning",
+            "cost": [{ "pool": "resolve", "amount": 1 }]
+          }
+        },
+        {
+          "id": "stern-word",
+          "label": "Stern Word",
+          "rows": [
+            {
+              "list": "charms",
+              "values": {
+                "name": "Stern Word",
+                "notes": "A quick word that rattles one thing for two rounds, unless its Steel holds."
+              }
+            }
+          ],
+          "mechanics": {
+            "$comment": "Spoken on the quick budget, so it fits beside a blow, but it costs Resolve, and a warden may spend one point of that a turn.",
+            "kind": "debuff",
+            "budget": "quick",
+            "save": { "save": "steel", "onSuccess": "negates" },
+            "applies": [{ "condition": "rattled", "duration": { "rounds": 2 } }],
+            "cost": [{ "pool": "resolve", "amount": 1 }]
+          }
+        }
+      ]
+    },
+    {
+      "$comment": "A bestiary, written in the pool fight's own numbers: a to-hit is the dice it throws, a defense is how many successes a blow needs, damage dice are ten-sided, and soak is by kind of harm.",
+      "id": "night",
+      "label": "Things in the night",
+      "holds": "creatures",
+      "entries": [
+        {
+          "id": "grave-rats",
+          "label": "Grave-rat swarm",
+          "summary": "A heaving mat of rats out of the old plots.",
+          "creature": {
+            "tier": "nuisance",
+            "health": 3,
+            "defense": 1,
+            "initiativeModifier": 3,
+            "saves": { "steel": 1 },
+            "soak": { "byKind": { "knock": 1 } },
+            "actions": [
+              {
+                "id": "gnaw",
+                "name": "Gnaw",
+                "budget": "act",
+                "toHit": 5,
+                "damage": { "dice": "1d10", "type": "tearing" }
+              }
+            ]
+          }
+        },
+        {
+          "id": "hollow-warden",
+          "label": "Hollow warden",
+          "summary": "A warden who did not come back from the dark, and still walks the watch.",
+          "creature": {
+            "tier": "dread",
+            "health": 6,
+            "defense": 2,
+            "initiativeModifier": 2,
+            "saves": { "steel": 3 },
+            "soak": { "all": 1, "byKind": { "knock": 3 } },
+            "traits": [{ "name": "Cold", "text": "Its grip is colder than the grave, and it does not tire." }],
+            "actions": [
+              {
+                "id": "grip",
+                "name": "Cold grip",
+                "budget": "act",
+                "toHit": 6,
+                "damage": { "dice": "2d10", "type": "blunt" },
+                "applies": [{ "condition": "rattled", "duration": { "rounds": 1 } }]
+              }
+            ]
           }
         }
       ]

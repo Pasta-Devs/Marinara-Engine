@@ -893,6 +893,48 @@ Capability API 1.46, for #6728.
   `scripts/regressions/ruleset-combat-director.regression.ts` (the Engine raises Shield only when it
   turns the hit aside, and lets other blows land).
 
+### What the pool kind settled
+
+Capability API 1.47, for #6736. The Storyteller kind the gap report names (W10, with W9), in two
+slices: this one is the kind itself; the next is initiative as a number attacks move.
+
+- **A second kind, and one principle.** `combat.kind: "dice-pool"` needs a `dice-pool` resolution and
+  reads the sheet the way its checks do: every number a roll ADDS is dice, and every number it MEETS
+  is successes. So no key is renamed. `toHit` is the pool, `defense` the successes a blow needs (never
+  fewer than one), a save's number its pool and its difficulty the successes it needs, a contest
+  check a pool, a condition's `flat` modifier dice (a rolled `dice` modifier is refused). Every pool
+  a combatant throws to act goes through `rollDicePoolCheck`, so the die, target, doubling,
+  exploding, cancelling and botch are the resolution's, and `resolution.penaltyFrom` takes its dice
+  off, which attack-vs-defense fights never did. A botch misses; there are no criticals.
+- **Damage.** Each success past the ones needed adds a damage die. An amount's `dice` are dice of the
+  ruleset's own die (refused otherwise, on entries and creatures) and its `flat` part automatic
+  successes; an attack row's dice column is read for its count, `damage.ability` adds dice and
+  `damage.bonus` automatic successes. Damage is thrown per target against `pool.damageTarget` (the
+  resolution's default target when absent) with nothing doubling, exploding, cancelling or botching.
+  Heal and temporary amounts stay sums; initiative stays a sum; dying keeps its own dice.
+- **Soak.** `pool.soak` gives value references by kind of the health track (`byKind`, winning over
+  `all`), thrown against the damage target (`roll: true`, each success taking one off) or taken off
+  the damage dice first (`roll: false`). Never below zero, never thrown for a blow that counted
+  nothing, and applied before resistance. A creature gives its own `soak`; a sheet creature reads it
+  off its sheet; an invented opponent's is dropped by the clamp, since no tier bounds it.
+- **For either kind.** `initiative.each: "round"` throws everybody's initiative again as a round
+  begins, with the modifier read off the sheet as it stands then, and re-sorts the order.
+  `combat.spendLimits` caps what one combatant spends of a live pool per turn or round:
+  `planRulesetCombatCost` prices a cost past what is left as unaffordable, and every payment counts
+  against it, answers in a window included. `toHit.skill` lets an attack row throw a skill, with the
+  row's ability swapped in as a check's `with=` does.
+- **Not built.** Declaring actions in reverse order changes nothing any rule reads in a fight where
+  each combatant picks one action when their turn comes, so no key says it.
+- **Examples.** Gravewatch fights: a harm track with knocks and tears, an Arms list, two fight charms
+  (one on a quick budget, so its one-Resolve-a-turn limit binds), soak by kind, initiative every round,
+  and a two-creature bestiary. Its variants in the check lanes leave the fight out.
+- **Proven** by `scripts/regressions/game-ruleset-combat-pool.regression.ts` (the pools, cancel,
+  botch and explode, extra dice, automatic successes, defense, soak thrown and off the dice, the wound
+  penalty and condition dice, leaning throws, saves, contests, a held hit rechecked in successes,
+  initiative every round with the modifier now, spend limits, the exact forecast, bestiary soak, the
+  clamp, every refusal, the log and the 1.47 gate) and twenty seeded Gravewatch fights played by the
+  Engine in `scripts/regressions/ruleset-combat-director.regression.ts`.
+
 ## Gaps a ruleset author found
 
 The author of [Marinara-RPG-Extension](https://github.com/Kenhito/Marinara-RPG-Extension), who

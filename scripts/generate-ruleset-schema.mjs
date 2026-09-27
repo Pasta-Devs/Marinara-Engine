@@ -373,6 +373,37 @@ function requireDistanceForMeasured(node) {
   ];
 }
 
+// Each combat kind rolls with its own block and never the other's: `attack-vs-defense` says what an
+// attack rolls in `attackRoll`, and `dice-pool` throws the ruleset's own pools and says how damage and
+// soak are thrown in `pool`. Refinements, so the editor is told here. Found by its shape: `kind`
+// beside `attackRoll` and `pool`.
+function oneRollBlockPerKind(node) {
+  if (Array.isArray(node)) return node.forEach(oneRollBlockPerKind);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(oneRollBlockPerKind);
+  const properties = node.properties;
+  if (node.type !== "object" || !properties?.kind || !properties.attackRoll || !properties.pool) return;
+  node.allOf = [
+    ...(node.allOf ?? []),
+    {
+      if: { required: ["kind"], properties: { kind: { const: "dice-pool" } } },
+      then: { required: ["pool"], not: { required: ["attackRoll"] } },
+      else: { required: ["attackRoll"], not: { required: ["pool"] } },
+    },
+  ];
+}
+
+// Soak soaks something: a number for every kind of harm, one per kind, or both. Found by its shape:
+// `roll` beside `all` and `byKind`.
+function soakSaysSomething(node) {
+  if (Array.isArray(node)) return node.forEach(soakSaysSomething);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(soakSaysSomething);
+  const properties = node.properties;
+  if (node.type !== "object" || !properties?.roll || !properties.all || !properties.byKind) return;
+  requireAnyOf(node, ["all", "byKind"]);
+}
+
 /**
  * Two rules a catalog entry's mechanics keep that the shape alone does not say: an entry of the
  * kind `rider` has to carry the `rider` that describes it, and something `free` spends no budget so
@@ -504,6 +535,8 @@ conditionSavesAndLevels(schema);
 oneSourceForCreature(schema);
 requireDamageAmount(schema);
 requireDistanceForMeasured(schema);
+oneRollBlockPerKind(schema);
+soakSaysSomething(schema);
 boundScaledColumns(schema);
 requireOneHideComparison(schema);
 requireOneHideWhenComparison(schema);

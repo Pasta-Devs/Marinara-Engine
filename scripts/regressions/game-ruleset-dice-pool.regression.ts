@@ -68,9 +68,15 @@ try {
     return parsed.definition;
   };
   /** The shipped example, optionally edited first. */
-  const pool = (edit: (doc: Record<string, any>) => void = () => {}): RulesetDefinition => {
+  const pool = (edit?: (doc: Record<string, any>) => void): RulesetDefinition => {
     const doc = JSON.parse(gravewatchText) as Record<string, any>;
-    edit(doc);
+    if (edit) {
+      // The example's fight is written for its own ten-sided pool, three ratings and six trades, so a
+      // variant of the CHECKS leaves it out, with the bestiary written in its numbers.
+      delete doc.combat;
+      doc.catalogs = (doc.catalogs ?? []).filter((catalog: { holds?: string }) => catalog.holds !== "creatures");
+      edit(doc);
+    }
     // The example's Grave Sight charm moves the exploding face, which a ruleset may only let a check
     // do while its explode rule has a min; a variant that takes the min away takes the charm too.
     if (doc.resolution.explode?.min === undefined) {
@@ -769,6 +775,16 @@ try {
     delete document.sheet.live.states;
     for (const rest of document.rests) {
       rest.restore = rest.restore.filter((step: { state?: string }) => step.state === undefined);
+    }
+    // And 1.47's fight, with the bestiary written in its numbers and the charms it offers.
+    delete document.combat;
+    document.catalogs = (document.catalogs ?? []).filter(
+      (catalog: { holds?: string }) => catalog.holds !== "creatures",
+    );
+    for (const catalog of document.catalogs) {
+      catalog.entries = (catalog.entries ?? []).filter(
+        (entry: { mechanics?: { check?: unknown } }) => !entry.mechanics || entry.mechanics.check !== undefined,
+      );
     }
     assert.match(
       getCapabilityPackageInstallIssue(manifest(23) as any, document) ?? "",

@@ -67,6 +67,20 @@ export interface RulesetContestSide {
   total: number;
   mode?: RulesetCombatRollMode;
   bonuses?: RulesetConditionBonus[];
+  /** Under `dice-pool`: the pool as it was thrown, and `total` is its net successes. */
+  pool?: RulesetCombatPoolRoll;
+}
+
+/** One pool a `dice-pool` fight threw to act: how many dice went in after everything that adds or
+ *  takes them away (the ruleset's own floor and ceiling included), the per-die target, the wound
+ *  penalty it took, and whether it botched. The event's `modifier` is the number it started from and
+ *  its `total` the net successes. */
+export interface RulesetCombatPoolRoll {
+  dice: number;
+  target: number;
+  /** Dice the wound penalty took off, as a negative number. Absent when it took none. */
+  penalty?: number;
+  botch?: boolean;
 }
 
 /** What one condition (or a level of a track) added to, or took from, one roll or number. `level` is
@@ -202,6 +216,8 @@ export interface RulesetStatBlock {
   vulnerable?: string[];
   immune?: string[];
   conditionImmunities?: string[];
+  /** What it soaks in a `dice-pool` fight, for any harm and by kind of the health track. */
+  soak?: RulesetCombatSoak;
   /** The threat tier a bestiary filed it under, read when creatures are clamped to the scale. */
   tier?: string;
   /** Lines the Game Master is shown and nothing resolves. */
@@ -210,6 +226,12 @@ export interface RulesetStatBlock {
   signaturePoints?: number;
   /** What this creature adds to the first qualifying hit of a period, all by itself. */
   riders?: RulesetCombatRider[];
+}
+
+/** What a combatant soaks: `all` for any harm, and `byKind` for one kind of the health track. */
+export interface RulesetCombatSoak {
+  all?: number;
+  byKind?: Record<string, number>;
 }
 
 /** A block with its own numbers and no sheet. What a Game Master invents is always one, and it is
@@ -404,6 +426,11 @@ export interface RulesetCombatant {
   saves: Record<string, number>;
   /** What this combatant adds in a contest, by check id. Present only when the ruleset has checks. */
   checks?: Record<string, number>;
+  /** What they soak in a `dice-pool` fight, read once as the fight began. Absent when nothing. */
+  soak?: RulesetCombatSoak;
+  /** How much of each limited live pool they may still spend this turn or round, read once as the
+   *  fight began and counted down as they pay. Absent for anybody nothing limits. */
+  limits?: Record<string, { max: number; per: "turn" | "round"; spent: number }>;
   speed: number;
   /** A party member's sheet, which is where their health and conditions really live. */
   sheet?: { build: RulesetSheetBuild; live: RulesetLiveState; catalogs: RulesetCatalogEntriesById };
@@ -620,6 +647,9 @@ export type RulesetCombatEvent =
       /** What the target's conditions added to its defense, already inside `defense`. */
       guards?: RulesetConditionBonus[];
       outcome: RulesetCombatAttackOutcome;
+      /** Under `dice-pool`: the pool as it was thrown. `total` is its net successes and `defense` the
+       *  successes it needed. */
+      pool?: RulesetCombatPoolRoll;
     }
   | {
       type: "save";
@@ -639,6 +669,9 @@ export type RulesetCombatEvent =
       success: boolean;
       /** A condition that fails this save automatically rolls nothing. */
       automatic?: boolean;
+      /** Under `dice-pool`: the pool as it was thrown. `total` is its net successes and `difficulty`
+       *  the successes it needed. */
+      pool?: RulesetCombatPoolRoll;
     }
   | {
       type: "damage";
@@ -658,6 +691,14 @@ export type RulesetCombatEvent =
       health: number;
       maxHealth: number;
       critical?: boolean;
+      /** Under `dice-pool`: `rolls` are the damage dice as they fell, `flat` the automatic successes,
+       *  and this is what they counted, against which target, and what soak took off before
+       *  `amount`. Soak thrown has its own dice; soak taken off the dice beforehand has none. */
+      pool?: {
+        target: number;
+        successes: number;
+        soak?: { value: number; rolls?: number[]; taken: number };
+      };
     }
   | {
       type: "heal";

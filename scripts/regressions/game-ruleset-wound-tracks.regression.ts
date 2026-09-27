@@ -339,6 +339,8 @@ try {
     // penalty MEANS is the resolution kind's business.
     const summed = JSON.parse(gravewatchText) as Record<string, any>;
     delete summed.layers;
+    // Its fight throws pools, which a summed ruleset has none of.
+    delete summed.combat;
     // The example's charm changes a POOL check, which a summed ruleset cannot honour and is
     // refused for elsewhere. This case is about the penalty, so it reads the file without one.
     delete summed.catalogs;
@@ -595,6 +597,16 @@ try {
     delete document.sheet.live.states;
     for (const rest of document.rests) {
       rest.restore = rest.restore.filter((step: { state?: string }) => step.state === undefined);
+    }
+    // And 1.47's fight, with the bestiary written in its numbers and the charms it offers.
+    delete document.combat;
+    document.catalogs = (document.catalogs ?? []).filter(
+      (catalog: { holds?: string }) => catalog.holds !== "creatures",
+    );
+    for (const catalog of document.catalogs) {
+      catalog.entries = (catalog.entries ?? []).filter(
+        (entry: { mechanics?: { check?: unknown } }) => !entry.mechanics || entry.mechanics.check !== undefined,
+      );
     }
     for (const catalog of document.catalogs ?? []) {
       catalog.entries = (catalog.entries ?? []).filter((entry: any) => entry.mechanics?.check?.explode === undefined);

@@ -49,6 +49,21 @@
 
 export * from "./types.js";
 export {
+  rulesetCombatAdvantage,
+  rulesetCombatIsPool,
+  rulesetCombatPenalty,
+  rulesetDamageAverage,
+  rulesetDamageTarget,
+  rulesetPoolAverage,
+  rulesetPoolChance,
+  rulesetPoolDie,
+  rulesetPoolDistribution,
+  rulesetSoakOf,
+  throwRulesetCombatPool,
+  throwRulesetDamageDice,
+  type RulesetCombatPoolThrow,
+} from "./pool.js";
+export {
   parseRulesetCombatDice,
   rollRulesetDice,
   rulesetAverageAmount,
@@ -90,6 +105,8 @@ export {
   rulesetCombatHealth,
   rulesetCombatStanding,
   rulesetConditionModifiers,
+  rulesetInitiativeModifierNow,
+  rulesetInitiativeOrder,
   rulesetMovementAllowance,
   rulesetSaveMode,
   type RulesetActiveCondition,
@@ -138,6 +155,7 @@ export {
   rulesetStandardBudget,
   rulesetStandardName,
   rulesetTargetRefusal,
+  rulesetWithinSpendLimits,
   rulesetReactionPointsAtSource,
   rulesetReactionsAt,
   rulesetWindowMoment,

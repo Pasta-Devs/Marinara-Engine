@@ -12,6 +12,7 @@
 import type {
   DirectedRulesetEvent,
   DirectedRulesetView,
+  RulesetCombatPoolRoll,
   RulesetCombatRollMode,
   RulesetConditionBonus,
   RulesetDefinition,
@@ -139,6 +140,44 @@ export function rulesetRollText(
   });
 }
 
+/** A pool as it was thrown, for a `dice-pool` fight: how many successes, from how many dice (and what
+ *  made up that many, when anything besides the number itself did), at which target, the faces, and
+ *  whether it was the better or worse of two throws or a botch. Every number is the event's own. */
+export function rulesetPoolRollText(
+  roll: {
+    rolls: number[];
+    modifier: number;
+    total: number;
+    mode?: RulesetCombatRollMode;
+    bonuses?: RulesetConditionBonus[];
+    pool: RulesetCombatPoolRoll;
+  },
+  t: TFunction,
+  bonusName: (bonus: RulesetConditionBonus) => string = (bonus) => bonus.condition,
+): string {
+  const parts = [
+    ...(roll.bonuses ?? []).map((bonus) =>
+      t("game.combat.ruleset.roll.bonus", { value: signed(bonus.value), name: bonusName(bonus) }),
+    ),
+    ...(roll.pool.penalty ? [t("game.combat.ruleset.roll.penalty", { value: signed(roll.pool.penalty) })] : []),
+  ];
+  const dice = t("game.combat.ruleset.roll.dice", { count: roll.pool.dice });
+  const built =
+    parts.length > 0
+      ? t("game.combat.ruleset.roll.poolFrom", { dice, parts: [String(roll.modifier), ...parts].join(" ") })
+      : dice;
+  let text = t("game.combat.ruleset.roll.pool", {
+    count: roll.total,
+    dice: built,
+    target: roll.pool.target,
+    rolls: roll.rolls.join(", "),
+  }) as string;
+  if (roll.mode === "advantage") text = t("game.combat.ruleset.roll.poolAdvantage", { roll: text });
+  else if (roll.mode === "disadvantage") text = t("game.combat.ruleset.roll.poolDisadvantage", { roll: text });
+  if (roll.pool.botch) text = t("game.combat.ruleset.roll.poolBotch", { roll: text });
+  return text;
+}
+
 /** A defense in the ruleset's own word for it, when the file gave it one. */
 function defenseText(names: RulesetCombatNames, defense: number): string {
   return names.defense ? `${names.defense} ${defense}` : String(defense);
@@ -209,15 +248,26 @@ export function rulesetCombatEventLine(
     case "attack": {
       const named = bonusNamer(names, t);
       // The ruleset's own word for what it was rolled against, when the file gave it one, and what
-      // the target's conditions added to it.
-      const defense = defenseText(names, event.defense);
+      // the target's conditions added to it. A pool says how many successes it needed instead.
+      const pool = event.pool;
+      const defense = pool
+        ? (t("game.combat.ruleset.roll.needed", { count: event.defense }) as string)
+        : defenseText(names, event.defense);
       return key(
-        event.outcome === "critical" ? "attackCritical" : event.outcome === "hit" ? "attackHit" : "attackMiss",
+        pool
+          ? event.outcome === "miss"
+            ? "attackPoolMiss"
+            : "attackPoolHit"
+          : event.outcome === "critical"
+            ? "attackCritical"
+            : event.outcome === "hit"
+              ? "attackHit"
+              : "attackMiss",
         {
           actor: names.combatant(event.actorId),
           target: names.combatant(event.targetId),
           label: event.label,
-          roll: rulesetRollText(event, t, named),
+          roll: pool ? rulesetPoolRollText({ ...event, pool }, t, named) : rulesetRollText(event, t, named),
           defense: event.guards?.length
             ? t("game.combat.ruleset.roll.guarded", {
                 defense,
@@ -235,6 +285,14 @@ export function rulesetCombatEventLine(
       if (event.automatic) {
         return key("saveAutomatic", { actor: names.combatant(event.actorId), save: names.save(event.save) });
       }
+      if (event.pool) {
+        return key(event.success ? "savePoolSuccess" : "savePoolFailure", {
+          actor: names.combatant(event.actorId),
+          save: names.save(event.save),
+          roll: rulesetPoolRollText({ ...event, pool: event.pool }, t, bonusNamer(names, t)),
+          needed: t("game.combat.ruleset.roll.needed", { count: event.difficulty }),
+        });
+      }
       return key(event.success ? "saveSuccess" : "saveFailure", {
         actor: names.combatant(event.actorId),
         save: names.save(event.save),
@@ -242,7 +300,40 @@ export function rulesetCombatEventLine(
         difficulty: event.difficulty,
       });
     case "damage": {
-      const lines = [
+      const lines: string[] = [];
+      // A pool fight's damage is its own throw: what the dice counted (and the automatic successes
+      // beside them), then what soak took off, thrown or off the dice, before the harm lands.
+      if (event.pool) {
+        lines.push(
+          key(event.flat > 0 ? "damagePoolAuto" : "damagePool", {
+            roll: t("game.combat.ruleset.roll.pool", {
+              count: event.pool.successes - event.flat,
+              dice: t("game.combat.ruleset.roll.dice", { count: event.rolls.length }),
+              target: event.pool.target,
+              rolls: event.rolls.join(", "),
+            }),
+            count: event.flat,
+          }),
+        );
+        const soak = event.pool.soak;
+        if (soak?.rolls) {
+          lines.push(
+            key("soakRolled", {
+              target: names.combatant(event.targetId),
+              taken: soak.taken,
+              roll: t("game.combat.ruleset.roll.pool", {
+                count: soak.rolls.filter((face) => face >= event.pool!.target).length,
+                dice: t("game.combat.ruleset.roll.dice", { count: soak.rolls.length }),
+                target: event.pool.target,
+                rolls: soak.rolls.join(", "),
+              }),
+            }),
+          );
+        } else if (soak) {
+          lines.push(key("soakDice", { target: names.combatant(event.targetId), count: soak.taken }));
+        }
+      }
+      lines.push(
         key(event.damageType ? "damage" : "damageUntyped", {
           target: names.combatant(event.targetId),
           amount: event.dealt,
@@ -250,7 +341,7 @@ export function rulesetCombatEventLine(
           health: event.health,
           maxHealth: event.maxHealth,
         }),
-      ];
+      );
       if (event.critical) lines.push(key("damageCritical"));
       if (event.adjust !== "none") lines.push(key(`damage${event.adjust[0]!.toUpperCase()}${event.adjust.slice(1)}`));
       if (event.saved) lines.push(key("damageSaved"));
@@ -278,14 +369,16 @@ export function rulesetCombatEventLine(
       // it: the whole handful, or the better or worse of two.
       const side = (roll: (typeof event)["attacker"]) => ({
         check: names.check(roll.check),
-        roll: rulesetRollText(
-          {
-            ...roll,
-            kept: roll.total - roll.modifier - (roll.bonuses ?? []).reduce((sum, bonus) => sum + bonus.value, 0),
-          },
-          t,
-          bonusNamer(names, t),
-        ),
+        roll: roll.pool
+          ? rulesetPoolRollText({ ...roll, pool: roll.pool }, t, bonusNamer(names, t))
+          : rulesetRollText(
+              {
+                ...roll,
+                kept: roll.total - roll.modifier - (roll.bonuses ?? []).reduce((sum, bonus) => sum + bonus.value, 0),
+              },
+              t,
+              bonusNamer(names, t),
+            ),
       });
       const attacker = side(event.attacker);
       const defender = side(event.defender);

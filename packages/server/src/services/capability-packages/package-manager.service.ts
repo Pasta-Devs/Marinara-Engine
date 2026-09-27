@@ -828,6 +828,26 @@ function entriesCarryConditionEndings(entries: unknown): boolean {
   });
 }
 
+const POOL_FIGHT_ISSUE =
+  "A ruleset whose fights throw dice pools, soak, throw initiative every round or limit spending per turn requires schemaVersion 2 and capabilityApi 1.47 or newer";
+
+/** The 1.47 keys in the ruleset file itself: the `dice-pool` kind and its `pool` block, an attack
+ *  row's `toHit.skill`, `initiative.each` and `spendLimits`. */
+function rulesetCarriesPoolFight147Keys(ruleset: { combat?: unknown } | undefined): boolean {
+  const combat = plainRecord(ruleset?.combat);
+  if (!combat) return false;
+  if (combat.kind === "dice-pool" || combat.pool !== undefined || combat.spendLimits !== undefined) return true;
+  if (plainRecord(combat.initiative)?.each !== undefined) return true;
+  const attacks = Array.isArray(combat.attacks) ? combat.attacks : [];
+  return attacks.some((source) => plainRecord(plainRecord(source)?.toHit)?.skill !== undefined);
+}
+
+/** A creature that soaks, which is 1.47: a new key on the strict creature. */
+function entriesCarryCreatureSoak(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) => plainRecord(plainRecord(entry)?.creature)?.soak !== undefined);
+}
+
 const HIT_MOMENTS_ISSUE =
   "A ruleset whose reactions answer being hit, or whose creatures react or act on themselves, requires schemaVersion 2 and capabilityApi 1.46 or newer";
 
@@ -990,6 +1010,7 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryUsedMoments(header.entries) && !declaresApi(44)) return USED_MOMENTS_ISSUE;
       if (entriesCarryConditionEndings(header.entries) && !declaresApi(45)) return CONDITION_NUMBERS_ISSUE;
       if (entriesCarryHitMoments(header.entries) && !declaresApi(46)) return HIT_MOMENTS_ISSUE;
+      if (entriesCarryCreatureSoak(header.entries) && !declaresApi(47)) return POOL_FIGHT_ISSUE;
       const asset = header.asset;
       if (typeof asset !== "string") continue;
       // A path that does not normalize is never a declared one, whatever else failed to normalize.
@@ -1013,6 +1034,7 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryUsedMoments(fileEntries) && !declaresApi(44)) return USED_MOMENTS_ISSUE;
       if (entriesCarryConditionEndings(fileEntries) && !declaresApi(45)) return CONDITION_NUMBERS_ISSUE;
       if (entriesCarryHitMoments(fileEntries) && !declaresApi(46)) return HIT_MOMENTS_ISSUE;
+      if (entriesCarryCreatureSoak(fileEntries) && !declaresApi(47)) return POOL_FIGHT_ISSUE;
     }
   }
   // The battle block lives inside the ruleset file too, so it is read the same way and for the same
@@ -1106,6 +1128,9 @@ export function getCapabilityPackageInstallIssue(
       return "A ruleset whose weapons cap their own strikes requires schemaVersion 2 and capabilityApi 1.32 or newer";
     }
   }
+  // A fight thrown in pools, and what either kind may now throw every round or cap per turn, which
+  // are 1.47's. Same file, same reason.
+  if (!declaresApi(47) && rulesetCarriesPoolFight147Keys(ruleset)) return POOL_FIGHT_ISSUE;
   // Numbers a condition changes, and levels of a track, which are 1.45's. Same file, same reason.
   if (!declaresApi(45) && rulesetCarriesConditionNumbers145Keys(ruleset)) return CONDITION_NUMBERS_ISSUE;
   // Contests and the checks they read, which are 1.43's. Same file, same reason.

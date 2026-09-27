@@ -1646,6 +1646,7 @@ export const RULESET_CREATURE_SHEET_REPLACES = [
   "abilities",
   "saves",
   "checks",
+  "soak",
 ] as const;
 /** The keys a creature WITHOUT a sheet cannot go without. */
 export const RULESET_CREATURE_PLAIN_NEEDS = ["health", "defense", "initiativeModifier"] as const;
@@ -1665,6 +1666,15 @@ const creatureFields = {
   saves: z.record(z.number().int().min(-50).max(50)).optional(),
   /** What it adds in a contest, keyed by the ids of `combat.checks`. One it does not name is zero. */
   checks: z.record(z.number().int().min(-100).max(100)).optional(),
+  /** What it soaks in a `dice-pool` fight: `all` for any harm, and `byKind` for one kind of the
+   *  health track, which wins over `all` for that kind. Nothing it does not name is soaked. */
+  soak: z
+    .object({
+      all: z.number().int().min(0).max(100).optional(),
+      byKind: z.record(z.number().int().min(0).max(100)).optional(),
+    })
+    .strict()
+    .optional(),
   /** Damage types, matched without case: half, double, none at all. */
   resist: z.array(promptSafeText(40)).max(30).optional(),
   vulnerable: z.array(promptSafeText(40)).max(30).optional(),
@@ -2028,6 +2038,10 @@ const combatAttackSourceSchema = z
         /** An enum column holding an ability id. Another value adds nothing, exactly as
          *  `abilityModFromField` reads one. */
         ability: combatColumnSchema.optional(),
+        /** An enum column holding a skill id: the row adds what a check of that skill adds, with the
+         *  row's own `ability` in place of the skill's when it names one, exactly as a check's
+         *  `with=` swaps it. Another value adds nothing. */
+        skill: combatColumnSchema.optional(),
         /** A boolean column: where it is set, the ruleset's own proficiency bonus is added. */
         proficiency: combatColumnSchema.optional(),
         /** A number column, added as it stands. */
@@ -2327,12 +2341,26 @@ const combatThreatTierSchema = z
  *  rules, so an author can keep the older block for an Engine that lacks this one. */
 const combatSchema = z
   .object({
-    /** The closed registry of combat kinds. Adding one is an Engine PR with regressions. */
-    kind: z.literal("attack-vs-defense"),
+    /** The closed registry of combat kinds. Adding one is an Engine PR with regressions.
+     *  `attack-vs-defense` adds dice up and compares them with a number; `dice-pool` throws the
+     *  ruleset's own pools and counts successes, so every number a roll adds is dice and every number
+     *  it meets is successes, exactly as the ruleset's `dice-pool` checks read the sheet. */
+    kind: z.enum(["attack-vs-defense", "dice-pool"]),
     health: combatHealthSchema,
-    /** What an attack is rolled against. */
+    /** What an attack is rolled against: a total to reach, or under `dice-pool` the successes an
+     *  attack needs, never fewer than one. */
     defense: rulesetValueRefSchema,
-    initiative: z.object({ dice: combatDiceSchema, modifier: rulesetValueRefSchema.optional() }).strict(),
+    initiative: z
+      .object({
+        dice: combatDiceSchema,
+        modifier: rulesetValueRefSchema.optional(),
+        /** `round` throws everybody's initiative again as each new round begins, and the order
+         *  follows it. Once for the whole fight when left out. */
+        each: z.enum(["fight", "round"]).optional(),
+      })
+      .strict(),
+    /** How an `attack-vs-defense` attack is rolled. Required there, and refused under `dice-pool`,
+     *  whose die, target and face rules are the ruleset's own `resolution`. */
     attackRoll: z
       .object({
         dice: combatDiceSchema,
@@ -2342,7 +2370,35 @@ const combatSchema = z
         /** What a critical hit does to the damage: roll the dice twice, or add their highest faces. */
         critical: z.enum(["double-dice", "max-dice", "none"]).default("none"),
       })
-      .strict(),
+      .strict()
+      .describe("Required when kind is attack-vs-defense, and refused when it is dice-pool.")
+      .optional(),
+    /** What a `dice-pool` fight rolls beyond the ruleset's own check rules. Required there, and
+     *  refused under `attack-vs-defense`. */
+    pool: z
+      .object({
+        /** Whether a fight may throw a pool twice and keep the one with more successes. */
+        advantage: z.boolean().default(false),
+        /** The per-die target damage and soak are thrown against. The ruleset's default target when
+         *  left out. Damage and soak count each die at or above it once, and nothing else: no face
+         *  doubles, explodes, cancels or botches on them. */
+        damageTarget: z.number().int().min(2).max(100).optional(),
+        /** What a target takes off the harm a hit does, by kind. `roll` throws that many dice
+         *  against the damage target and each success takes one off; without it the number comes
+         *  off the damage dice before they are thrown. `byKind` names kinds of the health track and
+         *  wins over `all` for its kind. A creature gives its own numbers. */
+        soak: z
+          .object({
+            roll: z.boolean(),
+            all: rulesetValueRefSchema.optional(),
+            byKind: z.record(rulesetValueRefSchema).optional(),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .describe("Required when kind is dice-pool, and refused when it is attack-vs-defense.")
+      .optional(),
     economy: z
       .object({
         budgets: z.array(combatBudgetSchema).min(1).max(8),
@@ -2413,6 +2469,14 @@ const combatSchema = z
     threat: z
       .object({ tiers: z.array(combatThreatTierSchema).min(1).max(40) })
       .strict()
+      .optional(),
+    /** How much of a live pool one combatant may spend in a fight per turn or per round. A cost past
+     *  it is not affordable. Read once as the fight begins. An opponent written in plain numbers pays
+     *  for nothing off a sheet, so it never binds one; one written as a sheet pays and is held to it. */
+    spendLimits: z
+      .array(z.object({ pool: sheetId, max: rulesetValueRefSchema, per: z.enum(["turn", "round"]) }).strict())
+      .min(1)
+      .max(12)
       .optional(),
   })
   .strict();
@@ -3495,10 +3559,79 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     const healthTrack = checkHealth(combat.health, at("health"));
     checkRef(combat.defense, at("defense"), derivedIds);
     if (combat.initiative.modifier) checkRef(combat.initiative.modifier, at("initiative", "modifier"), derivedIds);
+    // Each kind rolls with its own block and never the other's: an attack total needs attack dice,
+    // and a pool fight throws the ruleset's own pools, so it has nothing to say about a total.
+    const pooled = combat.kind === "dice-pool";
+    if (pooled) {
+      if (resolution.kind !== "dice-pool") {
+        issue(at("kind"), 'A "dice-pool" fight throws the ruleset\'s own pools, so resolution.kind is "dice-pool" too');
+      }
+      if (combat.attackRoll) issue(at("attackRoll"), 'A "dice-pool" fight throws pools, so it rolls no attack dice');
+      if (!combat.pool) issue(at("pool"), 'A "dice-pool" fight says how it rolls damage in "pool"');
+    } else {
+      if (!combat.attackRoll) issue(at("attackRoll"), 'An "attack-vs-defense" fight says what an attack rolls');
+      if (combat.pool) issue(at("pool"), '"pool" is for a "dice-pool" fight');
+    }
     // The same rule the check dice follow: an extreme face is only a face when one die was thrown.
-    const naturals = combat.attackRoll.naturals;
-    if (combat.attackRoll.dice.count !== 1 && (naturals.max !== "none" || naturals.min !== "none")) {
+    const naturals = combat.attackRoll?.naturals;
+    if (naturals && combat.attackRoll!.dice.count !== 1 && (naturals.max !== "none" || naturals.min !== "none")) {
       issue(at("attackRoll", "naturals"), "Natural results need a single die; with several dice use none");
+    }
+    if (combat.pool) {
+      const sides = resolution.kind === "dice-pool" ? resolution.die.sides : undefined;
+      if (combat.pool.damageTarget !== undefined && sides !== undefined && combat.pool.damageTarget > sides) {
+        issue(at("pool", "damageTarget"), `A ${sides}-sided die never reaches ${combat.pool.damageTarget}`);
+      }
+      const soak = combat.pool.soak;
+      if (soak?.all) checkRef(soak.all, at("pool", "soak", "all"), derivedIds);
+      if (soak?.byKind) {
+        // A kind is a kind of the health track, so soaking by kind needs a track that has kinds.
+        const health = combat.health;
+        const kinds =
+          "track" in health
+            ? new Set(
+                (sheet.live.tracks.find((track) => track.id === health.track)?.kinds ?? []).map((kind) => kind.id),
+              )
+            : null;
+        for (const [kind, ref] of Object.entries(soak.byKind)) {
+          checkRef(ref, at("pool", "soak", "byKind", kind), derivedIds);
+          if (!kinds) {
+            issue(at("pool", "soak", "byKind", kind), "Soak by kind needs health to be a wound track with kinds");
+          } else if (!kinds.has(kind)) {
+            issue(at("pool", "soak", "byKind", kind), `"${kind}" is not a kind of the health track`);
+          }
+        }
+      }
+      if (soak && !soak.all && !soak.byKind) issue(at("pool", "soak"), "Soak soaks something: all, byKind or both");
+    }
+    // What one combatant may spend of a pool per turn or round: a pool the sheet keeps, once each.
+    const limited = new Set<string>();
+    combat.spendLimits?.forEach((limit, index) => {
+      const path = at("spendLimits", index);
+      declaredPool(limit.pool, [...path, "pool"]);
+      if (limited.has(limit.pool)) issue([...path, "pool"], `"${limit.pool}" is limited twice`);
+      limited.add(limit.pool);
+      checkRef(limit.max, [...path, "max"], derivedIds);
+    });
+    // A pool fight adds dice to a pool, so a condition's rolled number would be a number of dice
+    // nobody could throw. Said per modifier, on conditions and on levels alike.
+    if (pooled) {
+      const diceModifiers = (
+        entries: ReadonlyArray<{ modifiers?: Array<{ to: string; dice?: string }> }> | undefined,
+        key: "conditions" | "levels",
+      ) =>
+        entries?.forEach((entry, index) =>
+          entry.modifiers?.forEach((modifier, modifierIndex) => {
+            if (modifier.dice !== undefined) {
+              issue(
+                at(key, index, "modifiers", modifierIndex, "dice"),
+                'A "dice-pool" fight adds dice to a pool, so a modifier gives a flat number of dice',
+              );
+            }
+          }),
+        );
+      diceModifiers(combat.conditions, "conditions");
+      diceModifiers(combat.levels, "levels");
     }
     const budgets = unique(combat.economy.budgets, at("economy", "budgets"), "budget");
     if (combat.economy.movement) checkRef(combat.economy.movement, at("economy", "movement"), derivedIds);
@@ -3603,6 +3736,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       // An ability column is an enum of ability ids; a value that is not one adds nothing, exactly
       // as `abilityModFromField` reads one.
       column(source.toHit.ability?.column, "enum", [...path, "toHit", "ability", "column"]);
+      column(source.toHit.skill?.column, "enum", [...path, "toHit", "skill", "column"]);
       column(source.strikesCappedBy?.column, "boolean", [...path, "strikesCappedBy", "column"]);
       column(source.toHit.proficiency?.column, "boolean", [...path, "toHit", "proficiency", "column"]);
       column(source.toHit.bonus?.column, "number", [...path, "toHit", "bonus", "column"]);
@@ -4253,6 +4387,11 @@ function creatureSheetIssues(
   }
 }
 
+/** The die a `dice-pool` ruleset throws, which is the die every damage roll of its fights throws. */
+function poolDieSides(definition: RulesetDefinition): number | undefined {
+  return definition.resolution.kind === "dice-pool" ? definition.resolution.die.sides : undefined;
+}
+
 /** Everything a creature must satisfy against the ruleset that declares it: every name it carries
  *  is one the `combat` block or the sheet already has. Shared by the inline catalogs in
  *  `ruleset.json` and by a `catalogs/<id>.json` asset, so both are held to one rule. */
@@ -4301,6 +4440,34 @@ function creatureIssues(
   creature.conditionImmunities?.forEach((condition, index) => {
     if (!conditions.has(condition)) add([...at, "conditionImmunities", index], `Unknown condition "${condition}"`);
   });
+  // Soak is a pool fight's, by the health track's own kinds.
+  if (creature.soak) {
+    if (combat.kind !== "dice-pool") add([...at, "soak"], 'Soak is for a "dice-pool" fight');
+    // How soak is taken, thrown or off the dice, is the ruleset's to say, never the Engine's guess.
+    else if (!combat.pool?.soak)
+      add([...at, "soak"], 'This fight\'s "pool" says nothing about soak, so there is no way to take it');
+    const health = combat.health;
+    const kinds =
+      "track" in health
+        ? new Set(
+            (definition.sheet.live.tracks.find((track) => track.id === health.track)?.kinds ?? []).map(
+              (kind) => kind.id,
+            ),
+          )
+        : null;
+    for (const kind of Object.keys(creature.soak.byKind ?? {})) {
+      if (!kinds) add([...at, "soak", "byKind", kind], "Soak by kind needs health to be a wound track with kinds");
+      else if (!kinds.has(kind)) add([...at, "soak", "byKind", kind], `"${kind}" is not a kind of the health track`);
+    }
+  }
+  // A pool fight throws damage dice of the ruleset's own die, so dice of another size would be a
+  // number nobody could count successes on.
+  const poolDie = combat.kind === "dice-pool" ? poolDieSides(definition) : undefined;
+  const wrongDie = (dice: string | undefined, where: (string | number)[]) => {
+    if (poolDie === undefined || dice === undefined) return;
+    const sides = Number(/d(\d+)/.exec(dice)?.[1]);
+    if (sides !== poolDie) add(where, `A "dice-pool" fight throws d${poolDie}s, so damage dice are d${poolDie}s`);
+  };
 
   if (creature.sheet) creatureSheetIssues(definition, creature.sheet, [...at, "sheet"], add, narrowedByLayers);
 
@@ -4316,6 +4483,10 @@ function creatureIssues(
     if (action.damage?.type && damageTypes && !damageTypes.has(action.damage.type.trim().toLowerCase())) {
       add([...path, "damage", "type"], `Unknown damage type "${action.damage.type}"`);
     }
+    wrongDie(action.damage?.dice, [...path, "damage", "dice"]);
+    action.damage?.plus?.forEach((clause, clauseIndex) =>
+      wrongDie(clause.dice, [...path, "damage", "plus", clauseIndex, "dice"]),
+    );
     // Every second amount on the blow is held to the same names the first one is, and a save of its
     // own needs a number to be rolled against: the clause's, the action's, or nothing at all.
     action.damage?.plus?.forEach((clause, clauseIndex) => {
@@ -4364,6 +4535,7 @@ function creatureIssues(
   const riderIds = new Set<string>();
   creature.riders?.forEach((rider, index) => {
     const path = [...at, "riders", index];
+    wrongDie(rider.amount.dice, [...path, "amount", "dice"]);
     if (riderIds.has(rider.id)) add([...path, "id"], `Duplicate rider id "${rider.id}"`);
     riderIds.add(rider.id);
     if (rider.type && damageTypes && !damageTypes.has(rider.type.trim().toLowerCase())) {
@@ -4509,6 +4681,21 @@ export function rulesetCatalogEntryIssues(
         add([...path, "save", "save"], `Unknown save "${clause.save.save}"`);
       }
     });
+    // A pool fight throws damage dice of the ruleset's own die. Healing is an amount, not a roll
+    // against anything, so it keeps whatever dice it names.
+    const poolDie = definition.combat?.kind === "dice-pool" ? poolDieSides(definition) : undefined;
+    if (poolDie !== undefined && mechanics && mechanics.kind !== "heal") {
+      const wrongDie = (dice: string | undefined, path: (string | number)[]) => {
+        if (dice === undefined || Number(/d(\d+)/.exec(dice)?.[1]) === poolDie) return;
+        add(path, `A "dice-pool" fight throws d${poolDie}s, so damage dice are d${poolDie}s`);
+      };
+      wrongDie(mechanics.amount?.dice, [index, "mechanics", "amount", "dice"]);
+      wrongDie(mechanics.perCostStep?.dice, [index, "mechanics", "perCostStep", "dice"]);
+      mechanics.plus?.forEach((clause, clauseIndex) =>
+        wrongDie(clause.dice, [index, "mechanics", "plus", clauseIndex, "dice"]),
+      );
+      wrongDie(mechanics.rider?.amount.dice, [index, "mechanics", "rider", "amount", "dice"]);
+    }
     mechanics?.cost?.forEach((cost, costIndex) => {
       if (!costTargets.has(cost.pool)) {
         add([index, "mechanics", "cost", costIndex, "pool"], `Unknown pool or pool group "${cost.pool}"`);

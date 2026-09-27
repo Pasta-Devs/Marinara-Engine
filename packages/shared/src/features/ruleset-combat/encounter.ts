@@ -39,6 +39,7 @@ import {
 import { findRulesetCreatureEntry, isRulesetPlainStatBlock, rulesetCreatureBlock } from "./creatures.js";
 import { parseRulesetCombatDice, rollRulesetDice, rulesetCombatRoller, sumOf } from "./dice.js";
 import { rulesetInCells, rulesetLineOfSight, rulesetPositionOf } from "./grid.js";
+import { rulesetCombatAdvantage, rulesetCombatIsPool, rulesetPoolDie } from "./pool.js";
 import type {
   RulesetCombatAction,
   RulesetCombatAmount,
@@ -49,6 +50,7 @@ import type {
   RulesetCombatEvent,
   RulesetCombatRider,
   RulesetCombatRoller,
+  RulesetCombatSoak,
   RulesetEncounterState,
   RulesetStatBlockAction,
 } from "./types.js";
@@ -309,7 +311,7 @@ export function rulesetSaveMode(
   save: string,
   state?: RulesetEncounterState,
 ): "normal" | "advantage" | "disadvantage" {
-  if (!combat.attackRoll.advantage) return "normal";
+  if (!rulesetCombatAdvantage(combat)) return "normal";
   let advantage = false;
   let disadvantage = false;
   for (const entry of rulesetActiveConditions(definition, combat, combatant, state)) {
@@ -333,7 +335,7 @@ export function rulesetCheckMode(
   combatant: RulesetCombatant,
   state?: RulesetEncounterState,
 ): "normal" | "advantage" | "disadvantage" {
-  if (!combat.attackRoll.advantage) return "normal";
+  if (!rulesetCombatAdvantage(combat)) return "normal";
   const effects = rulesetCombatEffects(definition, combat, combatant, state);
   const advantage = effects.has("own-checks-advantage");
   const disadvantage = effects.has("own-checks-disadvantage");
@@ -391,8 +393,33 @@ function distanceInCells(
   return rulesetInCells(value, perCell);
 }
 
+/** What a row adds to hit from its ability and skill columns. A skill adds what a check of that skill
+ *  adds, with the row's own ability in place of the skill's when it names one, exactly as a check's
+ *  `with=` swaps it; without a skill, the ability alone. A value that names neither adds nothing. */
+function rowAbilityAndSkill(
+  definition: RulesetDefinition,
+  source: RulesetCombatAttackSource,
+  row: Record<string, unknown>,
+  evaluated: EvaluatedRulesetSheet,
+): number {
+  const skillId = columnValue(row, source.toHit.skill?.column);
+  const skill = typeof skillId === "string" ? definition.sheet.skills.find((entry) => entry.id === skillId) : undefined;
+  if (!skill) return abilityFromColumn(evaluated, row, source.toHit.ability?.column);
+  const ability = columnValue(row, source.toHit.ability?.column);
+  const withAbility =
+    typeof ability === "string" && ability in evaluated.abilityMods && ability !== skill.ability ? ability : undefined;
+  return rulesetCheckModifier(evaluated, {
+    type: "skill",
+    id: skill.id,
+    label: skill.label,
+    ...(skill.ability ? { ability: skill.ability } : {}),
+    ...(withAbility ? { withAbility } : {}),
+  });
+}
+
 function attackActions(
   definition: RulesetDefinition,
+  combat: RulesetCombat,
   source: RulesetCombatAttackSource,
   index: number,
   build: RulesetSheetBuild,
@@ -411,7 +438,11 @@ function attackActions(
     if (!raw || typeof raw !== "object") return;
     const row = raw as Record<string, unknown>;
     const name = textFromColumn(row, source.name);
-    const dice = parseRulesetCombatDice(columnValue(row, source.damage.dice.column));
+    const parsed = parseRulesetCombatDice(columnValue(row, source.damage.dice.column));
+    // A pool fight counts a damage column's dice, of its own die, and an ability's rating on top: a
+    // row with none of its own still has what its hits add past the successes they needed.
+    const pooled = rulesetCombatIsPool(combat);
+    const dice = pooled ? (parsed ?? { count: 0, sides: rulesetPoolDie(definition), flat: 0 }) : parsed;
     if (!name || !dice) return;
     const proficient = columnValue(row, source.toHit.proficiency?.column) === true;
     const reach = distanceInCells(source.reach, row, perCell);
@@ -431,20 +462,31 @@ function attackActions(
       // the ruleset's rule, so it is read as having nothing beyond the ordinary one.
       ...(normal !== undefined ? { range: { normal, ...(long !== undefined && long > normal ? { long } : {}) } } : {}),
       toHit:
-        abilityFromColumn(evaluated, row, source.toHit.ability?.column) +
+        rowAbilityAndSkill(definition, source, row, evaluated) +
         (proficient ? evaluated.proficiencyBonus : 0) +
         numberFromColumn(row, source.toHit.bonus?.column),
-      damage: {
-        count: dice.count,
-        sides: dice.sides,
-        flat:
-          dice.flat +
-          abilityFromColumn(evaluated, row, source.damage.ability?.column) +
-          numberFromColumn(row, source.damage.bonus?.column),
-        ...(textFromColumn(row, source.damage.type?.column)
-          ? { type: textFromColumn(row, source.damage.type?.column) }
-          : {}),
-      },
+      damage: pooled
+        ? {
+            // Dice of the ruleset's own die: the column's count and the ability's rating. What is
+            // added flat is automatic successes, never thrown.
+            count: Math.max(0, dice.count + abilityFromColumn(evaluated, row, source.damage.ability?.column)),
+            sides: rulesetPoolDie(definition),
+            flat: Math.max(0, dice.flat + numberFromColumn(row, source.damage.bonus?.column)),
+            ...(textFromColumn(row, source.damage.type?.column)
+              ? { type: textFromColumn(row, source.damage.type?.column) }
+              : {}),
+          }
+        : {
+            count: dice.count,
+            sides: dice.sides,
+            flat:
+              dice.flat +
+              abilityFromColumn(evaluated, row, source.damage.ability?.column) +
+              numberFromColumn(row, source.damage.bonus?.column),
+            ...(textFromColumn(row, source.damage.type?.column)
+              ? { type: textFromColumn(row, source.damage.type?.column) }
+              : {}),
+          },
     });
   });
   return actions;
@@ -907,11 +949,28 @@ function sheetCombatant(
   );
   const actions = [
     ...(combat.attacks ?? []).flatMap((source, index) =>
-      attackActions(definition, source, index, build, evaluated, perCell),
+      attackActions(definition, combat, source, index, build, evaluated, perCell),
     ),
     ...abilities.flatMap((entry) => entry.actions),
   ];
   const riders = abilities.flatMap((entry) => entry.riders);
+  // What they soak and what they may spend, read once like their defense.
+  const read = (ref: RulesetValueRef) =>
+    Math.max(0, Math.round(resolveRulesetValueRef(definition, build, ref, evaluated)));
+  const soakRule = combat.pool?.soak;
+  const soak: RulesetCombatSoak | undefined = soakRule
+    ? {
+        ...(soakRule.all ? { all: read(soakRule.all) } : {}),
+        ...(soakRule.byKind
+          ? { byKind: Object.fromEntries(Object.entries(soakRule.byKind).map(([kind, ref]) => [kind, read(ref)])) }
+          : {}),
+      }
+    : undefined;
+  const limits = combat.spendLimits?.length
+    ? Object.fromEntries(
+        combat.spendLimits.map((limit) => [limit.pool, { max: read(limit.max), per: limit.per, spent: 0 }]),
+      )
+    : undefined;
   return {
     id: input.id,
     name: input.name,
@@ -934,6 +993,8 @@ function sheetCombatant(
     defense: Math.round(resolveRulesetValueRef(definition, build, combat.defense, evaluated)),
     saves,
     ...(checks ? { checks } : {}),
+    ...(soak ? { soak } : {}),
+    ...(limits ? { limits } : {}),
     speed: combat.economy.movement ? resolveRulesetValueRef(definition, build, combat.economy.movement, evaluated) : 0,
     sheet: { build, live: input.live, catalogs },
   };
@@ -1191,6 +1252,14 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
         ...(combat.checks?.length
           ? { checks: Object.fromEntries(combat.checks.map((check) => [check.id, block.checks?.[check.id] ?? 0])) }
           : {}),
+        ...(block.soak && rulesetCombatIsPool(combat)
+          ? {
+              soak: {
+                ...(block.soak.all !== undefined ? { all: block.soak.all } : {}),
+                ...(block.soak.byKind ? { byKind: { ...block.soak.byKind } } : {}),
+              },
+            }
+          : {}),
         speed: block.speed ?? 0,
         block,
         health: { value: max, max, temp: 0 },
@@ -1230,15 +1299,7 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
 
   placeRulesetCombatants(definition, combat, state, input.board);
 
-  const position = new Map(state.combatants.map((combatant, index) => [combatant.id, index]));
-  state.order = [...state.combatants]
-    .sort(
-      (a, b) =>
-        b.initiative - a.initiative ||
-        b.initiativeModifier - a.initiativeModifier ||
-        (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0),
-    )
-    .map((combatant) => combatant.id);
+  state.order = rulesetInitiativeOrder(state.combatants);
   state.cursor = rolls;
   state.opening = [
     ...refused,
@@ -1262,6 +1323,33 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
     ...(state.order[0] ? ([{ type: "turn", actorId: state.order[0], round: 1 }] as RulesetCombatEvent[]) : []),
   ];
   return state;
+}
+
+/** Who acts first: the highest initiative, then the higher modifier, then whoever joined the fight
+ *  first. The order a fight opens with, and the one a round that throws initiative again re-sorts to. */
+export function rulesetInitiativeOrder(combatants: readonly RulesetCombatant[]): string[] {
+  const position = new Map(combatants.map((combatant, index) => [combatant.id, index]));
+  return [...combatants]
+    .sort(
+      (a, b) =>
+        b.initiative - a.initiative ||
+        b.initiativeModifier - a.initiativeModifier ||
+        (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0),
+    )
+    .map((combatant) => combatant.id);
+}
+
+/** A combatant's initiative modifier as it stands now: off their sheet against its live state, so a
+ *  wound that slows them counts when initiative is thrown again, and a block's own number otherwise. */
+export function rulesetInitiativeModifierNow(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  combatant: RulesetCombatant,
+): number {
+  if (!combatant.sheet) return combatant.initiativeModifier;
+  if (!combat.initiative.modifier) return 0;
+  const evaluated = evaluateRulesetSheetLive(definition, combatant.sheet.build, combatant.sheet.live);
+  return resolveRulesetValueRef(definition, combatant.sheet.build, combat.initiative.modifier, evaluated);
 }
 
 /**

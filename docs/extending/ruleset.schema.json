@@ -6625,6 +6625,29 @@
                         "$comment": {}
                       }
                     },
+                    "soak": {
+                      "type": "object",
+                      "properties": {
+                        "all": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100
+                        },
+                        "byKind": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "properties": {
+                            "$comment": {}
+                          }
+                        },
+                        "$comment": {}
+                      },
+                      "additionalProperties": false
+                    },
                     "resist": {
                       "type": "array",
                       "items": {
@@ -7569,6 +7592,11 @@
                               "required": [
                                 "checks"
                               ]
+                            },
+                            {
+                              "required": [
+                                "soak"
+                              ]
                             }
                           ]
                         }
@@ -7808,7 +7836,10 @@
       "properties": {
         "kind": {
           "type": "string",
-          "const": "attack-vs-defense"
+          "enum": [
+            "attack-vs-defense",
+            "dice-pool"
+          ]
         },
         "health": {
           "anyOf": [
@@ -8058,6 +8089,13 @@
                 ]
               }
             },
+            "each": {
+              "type": "string",
+              "enum": [
+                "fight",
+                "round"
+              ]
+            },
             "$comment": {}
           },
           "required": [
@@ -8132,7 +8170,250 @@
           "required": [
             "dice"
           ],
-          "additionalProperties": false
+          "additionalProperties": false,
+          "description": "Required when kind is attack-vs-defense, and refused when it is dice-pool."
+        },
+        "pool": {
+          "type": "object",
+          "properties": {
+            "advantage": {
+              "type": "boolean",
+              "default": false
+            },
+            "damageTarget": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 100
+            },
+            "soak": {
+              "type": "object",
+              "properties": {
+                "roll": {
+                  "type": "boolean"
+                },
+                "all": {
+                  "type": "object",
+                  "properties": {
+                    "const": {
+                      "type": "number"
+                    },
+                    "field": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "derived": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "abilityScore": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "abilityMod": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "abilityModFromField": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "skillMod": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "saveMod": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "liveTrack": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "read": {
+                      "type": "string",
+                      "enum": [
+                        "value",
+                        "filled",
+                        "remaining",
+                        "penalty"
+                      ]
+                    },
+                    "livePool": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "listSum": {
+                      "type": "object",
+                      "properties": {
+                        "list": {
+                          "type": "string",
+                          "maxLength": 40,
+                          "pattern": "^[a-z][a-z0-9_]*$"
+                        },
+                        "column": {
+                          "type": "string",
+                          "maxLength": 40,
+                          "pattern": "^[a-z][a-z0-9_]*$"
+                        },
+                        "onlyWhen": {
+                          "type": "string",
+                          "maxLength": 40,
+                          "pattern": "^[a-z][a-z0-9_]*$"
+                        },
+                        "$comment": {}
+                      },
+                      "required": [
+                        "list",
+                        "column"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "$comment": {}
+                  },
+                  "additionalProperties": false,
+                  "dependencies": {
+                    "read": [
+                      "liveTrack"
+                    ]
+                  }
+                },
+                "byKind": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "const": {
+                        "type": "number"
+                      },
+                      "field": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "derived": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "abilityScore": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "abilityMod": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "abilityModFromField": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "skillMod": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "saveMod": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "liveTrack": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "read": {
+                        "type": "string",
+                        "enum": [
+                          "value",
+                          "filled",
+                          "remaining",
+                          "penalty"
+                        ]
+                      },
+                      "livePool": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "listSum": {
+                        "type": "object",
+                        "properties": {
+                          "list": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "pattern": "^[a-z][a-z0-9_]*$"
+                          },
+                          "column": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "pattern": "^[a-z][a-z0-9_]*$"
+                          },
+                          "onlyWhen": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "pattern": "^[a-z][a-z0-9_]*$"
+                          },
+                          "$comment": {}
+                        },
+                        "required": [
+                          "list",
+                          "column"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "$comment": {}
+                    },
+                    "additionalProperties": false,
+                    "dependencies": {
+                      "read": [
+                        "liveTrack"
+                      ]
+                    }
+                  },
+                  "properties": {
+                    "$comment": {}
+                  }
+                },
+                "$comment": {}
+              },
+              "required": [
+                "roll"
+              ],
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "all"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "byKind"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "$comment": {}
+          },
+          "additionalProperties": false,
+          "description": "Required when kind is dice-pool, and refused when it is attack-vs-defense."
         },
         "economy": {
           "type": "object",
@@ -8598,6 +8879,21 @@
                 "type": "object",
                 "properties": {
                   "ability": {
+                    "type": "object",
+                    "properties": {
+                      "column": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "column"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "skill": {
                     "type": "object",
                     "properties": {
                       "column": {
@@ -10126,6 +10422,130 @@
           ],
           "additionalProperties": false
         },
+        "spendLimits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pool": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "max": {
+                "type": "object",
+                "properties": {
+                  "const": {
+                    "type": "number"
+                  },
+                  "field": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "derived": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "abilityScore": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "abilityMod": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "abilityModFromField": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "skillMod": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "saveMod": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "liveTrack": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "read": {
+                    "type": "string",
+                    "enum": [
+                      "value",
+                      "filled",
+                      "remaining",
+                      "penalty"
+                    ]
+                  },
+                  "livePool": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "listSum": {
+                    "type": "object",
+                    "properties": {
+                      "list": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "column": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "onlyWhen": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "list",
+                      "column"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "$comment": {}
+                },
+                "additionalProperties": false,
+                "dependencies": {
+                  "read": [
+                    "liveTrack"
+                  ]
+                }
+              },
+              "per": {
+                "type": "string",
+                "enum": [
+                  "turn",
+                  "round"
+                ]
+              },
+              "$comment": {}
+            },
+            "required": [
+              "pool",
+              "max",
+              "per"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "maxItems": 12
+        },
         "$comment": {}
       },
       "required": [
@@ -10133,7 +10553,6 @@
         "health",
         "defense",
         "initiative",
-        "attackRoll",
         "economy"
       ],
       "additionalProperties": false,
@@ -10177,6 +10596,38 @@
             "required": [
               "distance"
             ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "dice-pool"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "pool"
+            ],
+            "not": {
+              "required": [
+                "attackRoll"
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "attackRoll"
+            ],
+            "not": {
+              "required": [
+                "pool"
+              ]
+            }
           }
         }
       ]

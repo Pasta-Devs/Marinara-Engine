@@ -6,6 +6,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Advanced Memory lets you save a requested review without changing correct text, regenerate an individually deleted scene, and see background preparation failures in a toast (#6737).
 
+- Game Mode rulesets whose checks throw a pool of dice and count successes can fight the same way: an attack throws a pool and needs a number of successes, the successes past those add damage dice, and the damage is thrown and then soaked by the kind of harm before it marks a wound track. Wound penalties and conditions add or take away dice, and saves and contests are pools too. Rulesets of either kind can also throw initiative again every round and cap how much of a resource one turn may spend. Gravewatch, the example pool ruleset, now has fights, weapons and a small bestiary (#6736).
+
 - A creature a ruleset fight takes from its bestiary keeps its own reaction and anything it does to itself, so a monster's Parry is asked for when a blow hits it instead of turning up as an ordinary action on its turn aimed at an enemy (#6731).
 
 - The expression sprite and Roleplay whisper browser regressions wait for the page's own requests to finish before each reload, avoiding false WebKit access-control failures in release checks (#6677).

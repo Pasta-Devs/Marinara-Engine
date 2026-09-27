@@ -92,6 +92,11 @@ function poolRuleset(resolution: Record<string, unknown>): RulesetDefinition {
     // The shipped layer swaps the shipped ladder, and these resolutions replace it, so the layer
     // goes with the ladder it was written for.
     delete source.layers;
+    // The example's fight is written for its own ten-sided pool, and these resolutions replace it.
+    delete source.combat;
+    source.catalogs = ((source.catalogs as Array<{ holds?: string }>) ?? []).filter(
+      (catalog) => catalog.holds !== "creatures",
+    );
     // A skill that rolls one step harder untrained needs a target that can move, which these may not
     // have, and the summary never reads it, so it goes.
     for (const skill of (source.sheet as { skills: Array<Record<string, unknown>> }).skills) {

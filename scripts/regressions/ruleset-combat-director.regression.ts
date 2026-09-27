@@ -147,7 +147,10 @@ const fiveECards = [card("Brenna", fighterBuild()), card("Corwin", wizardBuild()
 const emberKnacks = ember.catalogs!.find((catalog) => catalog.id === "knacks")!.entries!;
 const emberRowsFor = (list: string, ids: string[]) =>
   ids.flatMap((id) =>
-    rowsFromCatalogEntry("knacks", emberKnacks.find((entry) => entry.id === id)!)
+    rowsFromCatalogEntry(
+      "knacks",
+      emberKnacks.find((entry) => entry.id === id)!,
+    )
       .filter((row) => row.list === list)
       .map((row) => row.row),
   );
@@ -1585,4 +1588,72 @@ console.log(
     moments.opened,
     "every window answered exactly once, one way or the other",
   );
+}
+
+// ── A fight thrown in pools, played out by the Engine on both sides ──
+// Gravewatch's own fight, twenty seeds, everybody on the Engine's picker: every fight ends, pools are
+// thrown and soaked, and nobody the Engine plays spends past the one point of Resolve a turn allows.
+{
+  const gravewatch = parsedOrThrow(variant(read("../../docs/examples/rulesets/gravewatch.json")), "the pool example");
+  const charms = gravewatch.catalogs!.find((catalog) => catalog.id === "charms")!.entries!;
+  const charmRows = ["lantern-flare", "stern-word"].flatMap((id) =>
+    rowsFromCatalogEntry(
+      "charms",
+      charms.find((entry) => entry.id === id)!,
+    ).map((row) => row.row),
+  );
+  const warden = (sinew: number, nerve: number) =>
+    build({
+      abilities: { sinew, nerve, warmth: 2 },
+      skills: { dig: "rating_1", wrestle: "rating_2", ward: "rating_2" },
+      lists: {
+        arms: [{ name: "Spade", rating: "sinew", trade: "dig", dice: "2d10", harm: "tearing" }],
+        charms: charmRows,
+      },
+    });
+  const party = [
+    { id: "ada", name: "Ada" },
+    { id: "bram", name: "Bram" },
+  ];
+  const seen = { pools: 0, soaked: 0, rethrown: 0, overspent: 0 };
+  for (let seed = 1; seed <= 20; seed++) {
+    const state = started({
+      definition: gravewatch,
+      cards: [card("Ada", warden(3, 2)), card("Bram", warden(2, 3))],
+      partyCatalogs: { charms },
+      party,
+      enemies: [
+        { id: "rats", name: "Grave-rat swarm", creature: "night/grave-rats" },
+        { id: "hollow", name: "Hollow warden", creature: "night/hollow-warden" },
+      ],
+      seed,
+    });
+    for (const member of party) {
+      commandRulesetCombatDirector(gravewatch, state, { type: "control", unitId: member.id, controller: "ai" });
+    }
+    // What each combatant has spent of Resolve since their own turn last began.
+    const spent = new Map<string, number>();
+    let lastSeq = state.rulesetFight!.eventSeq;
+    let guard = 0;
+    while (!state.outcome && guard++ < 600) {
+      commandRulesetCombatDirector(gravewatch, state, { type: "continue" });
+      for (const { seq, event } of state.rulesetFight!.events.filter((entry) => entry.seq > lastSeq)) {
+        lastSeq = seq;
+        if (event.type === "turn") spent.set(event.actorId, 0);
+        if (event.type === "initiative") seen.rethrown++;
+        if (event.type === "attack" && event.pool) seen.pools++;
+        if (event.type === "damage" && event.pool?.soak) seen.soaked++;
+        if (event.type === "spend" && event.pool === "resolve") {
+          const total = (spent.get(event.actorId) ?? 0) + event.amount;
+          spent.set(event.actorId, total);
+          if (total > 1) seen.overspent++;
+        }
+      }
+    }
+    assert.ok(state.outcome === "victory" || state.outcome === "defeat", `seed ${seed}: the pool fight ended`);
+  }
+  assert.ok(seen.pools > 0, "attacks were thrown as pools");
+  assert.ok(seen.soaked > 0, "and soaked by kind");
+  assert.ok(seen.rethrown > 0, "initiative was thrown again as rounds began");
+  assert.equal(seen.overspent, 0, "nobody spent past the limit");
 }

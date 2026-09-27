@@ -281,7 +281,7 @@ function firstOf<T extends RulesetCombatEvent["type"]>(events: RulesetCombatEven
     /Duplicate damage type "Fire"/,
   );
   assert.match(refusal(withCombat((combat) => (combat.standard = ["dodge", "dodge"]))), /Duplicate standard action/);
-  assert.match(refusal(withCombat((combat) => (combat.kind = "grid-tactics"))), /Invalid literal value/);
+  assert.match(refusal(withCombat((combat) => (combat.kind = "grid-tactics"))), /Invalid enum value/);
   assert.match(refusal(withCombat((combat) => (combat.reach = 5))), /Unrecognized key/);
 
   // A pool that counts up cannot be what a fight takes away.
