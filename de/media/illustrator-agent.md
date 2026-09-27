@@ -91,7 +91,7 @@ Ein Bild lässt sich auch jederzeit von Hand erzeugen, statt darauf zu warten. �
 
 Unter **Settings → Generations → Image Generation** (Einstellungen → Generierung → Bilderzeugung) ist **Automatically save generated images to character galleries** (Erzeugte Bilder automatisch in Charaktergalerien speichern) standardmäßig aktiv. Schalte es aus, um Chat-Illustrationen und Selfies nicht mehr automatisch in die Galerien der dargestellten Charaktere und Personas aufzunehmen. Die Bilder bleiben im Gespräch und in der Chat-Galerie sichtbar; ausdrückliches Speichern in einer Galerie bleibt möglich. Vorhandene Einträge ändern sich nicht. Galerien teilen sich die Bilddateien: Die Einstellung steuert die Galeriezuordnung und löscht keine Bilddatei des Chats.
 
-Bei neuen NovelAI-Bildern zeigt die Bildansicht den Szenen- oder Stilprompt und anschließend die positiven Charakterbeschreibungen, getrennt durch ` | `. Das gilt auch für den gespeicherten Galerieprompt.
+Bei neuen, von Illustrator mit NovelAI erzeugten Illustrationen zeigt die Bildansicht den Szenen- oder Stilprompt und anschließend die positiven Charakterbeschreibungen, getrennt durch ` | `. Das gilt auch für den gespeicherten Galerieprompt.
 
 Für eine frühere Roleplay-Nachricht oder einen Bereich nutze `/illustrate range=12` oder `/illustrate range=12-18`. Nummerierung und Grenzen stehen unter [Slash-Befehle](../chats/slash-commands.md).
 

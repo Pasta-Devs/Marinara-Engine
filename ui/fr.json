@@ -111,6 +111,7 @@
   "chat.help.targets.volume.title": "Volume",
   "chat.help.targets.widgets.body": "Consultez les trackers et les informations de jeu générés pour cette session.",
   "chat.help.targets.widgets.title": "Widgets du jeu",
+  "chat.input.tools": "Outils",
   "chat.slash.illustrate.rangeUsage": "Utilise /illustrate range=N ou range=N-M, suivi d'un prompt facultatif. Indique les numéros de message dans l'ordre croissant, avec un maximum de 200 messages.",
   "connections.mediaSources.atlas.apiKeyLink": "Obtenir votre clé API Atlas Cloud",
   "connections.mediaSources.atlas.imageDescription": "Générez des images avec les modèles hébergés par Atlas Cloud.",
@@ -158,6 +159,6 @@
   "settings.notifications.customSound.toasts.tooLarge": "Le son de notification ne doit pas dépasser 10 Mo.",
   "settings.notifications.customSound.toasts.uploaded": "Son de notification personnalisé enregistré.",
   "settings.notifications.customSound.toasts.uploadFailed": "Impossible d’enregistrer le son de notification personnalisé.",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N-M (facultatif)] [prompt (facultatif)]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N ou range=N-M (facultatif)] [prompt (facultatif)]",
   "ui.chatSettings.translationsection.addATranslateButtonBesideSendSoYouCan": "Ajoute un raccourci Traduire à côté d'Envoyer. Dans Conversation, Traduire le brouillon est toujours disponible dans l'onglet Outils du menu souriant du champ de message, y compris sur mobile."
 }

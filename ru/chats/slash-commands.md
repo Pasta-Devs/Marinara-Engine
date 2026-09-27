@@ -81,7 +81,7 @@
 | `/roll [dice (optional)]` | `/r`, `/dice` | Бросает кубики и публикует результат. |
 | `/random` | `/rand`, `/event` | Просит ИИ добавить в историю неожиданное событие. |
 | `/scene [description (optional)]` | `/rp` | Запускается из чата **Conversation**. Начинает новую сцену **Roleplay** как ветку этого чата. |
-| `/illustrate [range=N-M (optional)] [prompt (optional)]` | `/ill` | Генерирует изображение в галерее текущего чата. |
+| `/illustrate [range=N or range=N-M (optional)] [prompt (optional)]` | `/ill` | Генерирует изображение в галерее текущего чата. |
 | `/impersonate [direction (optional)]` | `/imp` | Пишет ответ за вашу персону. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Задает инструкцию, которой команда `/impersonate` пользуется в этом чате. |
 

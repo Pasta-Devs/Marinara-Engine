@@ -91,7 +91,7 @@ Il est aussi possible de créer une image à la demande, sans attendre. Ouvre la
 
 Dans **Settings → Generations → Image Generation** (réglages → générations → génération d'images), **Automatically save generated images to character galleries** (enregistrer automatiquement les images générées dans les galeries des personnages) est activé par défaut. Désactive-le pour ne plus ajouter les illustrations et selfies du chat aux galeries des personnages et personas représentés. Les images restent visibles dans la conversation et la galerie du chat ; l'enregistrement manuel dans une galerie reste possible. Les entrées existantes ne changent pas. Les galeries partagent les fichiers d'images : ce réglage contrôle leur présence dans les galeries sans supprimer le fichier du chat.
 
-Pour les nouvelles images NovelAI, l'inspecteur affiche le prompt de scène ou de style, suivi des descriptions positives des personnages, séparées par ` | `. Cela s'applique aussi au prompt enregistré dans la galerie.
+Pour les nouvelles illustrations créées par Illustrator avec NovelAI, l'inspecteur affiche le prompt de scène ou de style, suivi des descriptions positives des personnages, séparées par ` | `. Cela s'applique aussi au prompt enregistré dans la galerie.
 
 Pour illustrer un ancien message Roleplay ou une plage, utilise `/illustrate range=12` ou `/illustrate range=12-18`. La numérotation et les limites sont décrites dans [Commandes slash](../chats/slash-commands.md).
 

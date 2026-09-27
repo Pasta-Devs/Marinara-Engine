@@ -111,6 +111,7 @@
   "chat.help.targets.volume.title": "音量",
   "chat.help.targets.widgets.body": "このセッションで生成されたトラッカーとゲーム情報を確認します。",
   "chat.help.targets.widgets.title": "ゲームウィジェット",
+  "chat.input.tools": "ツール",
   "chat.slash.illustrate.rangeUsage": "/illustrate range=Nまたはrange=N-Mの後に、任意のプロンプトを指定してください。メッセージ番号は昇順で、最大200件まで指定できます。",
   "connections.mediaSources.atlas.apiKeyLink": "Atlas Cloud の API キーを取得",
   "connections.mediaSources.atlas.imageDescription": "Atlas Cloud でホストされているモデルを使って画像を生成します。",
@@ -158,6 +159,6 @@
   "settings.notifications.customSound.toasts.tooLarge": "通知音は10 MB以下にしてください。",
   "settings.notifications.customSound.toasts.uploaded": "カスタム通知音を保存しました。",
   "settings.notifications.customSound.toasts.uploadFailed": "カスタム通知音を保存できませんでした。",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N-M（任意）] [プロンプト（任意）]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N または range=N-M（任意）] [プロンプト（任意）]",
   "ui.chatSettings.translationsection.addATranslateButtonBesideSendSoYouCan": "送信の横に翻訳ショートカットを追加します。Conversationでは、入力欄のスマイルメニューにあるツールタブから、モバイルでも常に下書きを翻訳できます。"
 }

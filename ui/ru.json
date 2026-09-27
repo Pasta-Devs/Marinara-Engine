@@ -111,6 +111,7 @@
   "chat.help.targets.volume.title": "Громкость",
   "chat.help.targets.widgets.body": "Просмотрите трекеры и игровые сведения, созданные для этого сеанса.",
   "chat.help.targets.widgets.title": "Игровые виджеты",
+  "chat.input.tools": "Инструменты",
   "chat.slash.illustrate.rangeUsage": "Используйте /illustrate range=N или range=N-M, затем необязательный промпт. Укажите номера сообщений в возрастающем порядке, не более 200 сообщений.",
   "connections.mediaSources.atlas.apiKeyLink": "Получить API-ключ Atlas Cloud",
   "connections.mediaSources.atlas.imageDescription": "Создавайте изображения с помощью моделей, размещённых в Atlas Cloud.",
@@ -158,6 +159,6 @@
   "settings.notifications.customSound.toasts.tooLarge": "Размер звука уведомлений не должен превышать 10 МБ.",
   "settings.notifications.customSound.toasts.uploaded": "Пользовательский звук уведомлений сохранён.",
   "settings.notifications.customSound.toasts.uploadFailed": "Не удалось сохранить пользовательский звук уведомлений.",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N-M (необязательно)] [промпт (необязательно)]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N или range=N-M (необязательно)] [промпт (необязательно)]",
   "ui.chatSettings.translationsection.addATranslateButtonBesideSendSoYouCan": "Добавляет кнопку перевода рядом с отправкой. В Conversation перевод черновика всегда доступен на вкладке инструментов в меню смайлика у поля сообщения, в том числе на телефоне."
 }

@@ -111,6 +111,7 @@
   "chat.help.targets.volume.title": "Volume",
   "chat.help.targets.widgets.body": "Veja os rastreadores e as informações do jogo gerados para esta sessão.",
   "chat.help.targets.widgets.title": "Widgets do jogo",
+  "chat.input.tools": "Ferramentas",
   "chat.slash.illustrate.rangeUsage": "Use /illustrate range=N ou range=N-M, seguido de um prompt opcional. Use números de mensagem em ordem crescente, com no máximo 200 mensagens.",
   "connections.mediaSources.atlas.apiKeyLink": "Obtenha sua chave de API do Atlas Cloud",
   "connections.mediaSources.atlas.imageDescription": "Gere imagens com os modelos hospedados no Atlas Cloud.",
@@ -158,6 +159,6 @@
   "settings.notifications.customSound.toasts.tooLarge": "O som de notificação deve ter no máximo 10 MB.",
   "settings.notifications.customSound.toasts.uploaded": "Som de notificação personalizado salvo.",
   "settings.notifications.customSound.toasts.uploadFailed": "Não foi possível salvar o som de notificação personalizado.",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N-M (opcional)] [prompt (opcional)]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N ou range=N-M (opcional)] [prompt (opcional)]",
   "ui.chatSettings.translationsection.addATranslateButtonBesideSendSoYouCan": "Adiciona um atalho Traduzir ao lado de Enviar. Em Conversation, Traduzir rascunho está sempre disponível na aba Ferramentas do menu de carinha do campo de mensagem, inclusive no celular."
 }

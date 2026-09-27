@@ -81,7 +81,7 @@
 | `/roll [dice (optional)]` | `/r`, `/dice` | डाइस रोल करके नतीजा चैट में डालता है। |
 | `/random` | `/rand`, `/event` | AI से कहानी में कोई अचानक घटना जुड़वाता है। |
 | `/scene [description (optional)]` | `/rp` | Conversation चैट से चलता है। उसी Conversation से अलग होकर नया Roleplay सीन शुरू करता है। |
-| `/illustrate [range=N-M (optional)] [prompt (optional)]` | `/ill` | मौजूदा चैट के लिए गैलरी इमेज जेनरेट करता है। |
+| `/illustrate [range=N or range=N-M (optional)] [prompt (optional)]` | `/ill` | मौजूदा चैट के लिए गैलरी इमेज जेनरेट करता है। |
 | `/impersonate [direction (optional)]` | `/imp` | आपके पर्सोना की तरफ़ से जवाब लिखता है। |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | तय करता है कि इस चैट में `/impersonate` किस निर्देश पर चले। |
 

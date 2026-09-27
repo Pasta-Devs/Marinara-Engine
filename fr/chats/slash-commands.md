@@ -81,7 +81,7 @@ Ces commandes servent à orienter une histoire, à jouer un personnage et à ajo
 | `/roll [dice (optional)]` | `/r`, `/dice` | Lance les dés et publie le résultat. |
 | `/random` | `/rand`, `/event` | Demande à l'IA d'ajouter un événement surprise à l'histoire. |
 | `/scene [description (optional)]` | `/rp` | À lancer depuis un chat Conversation. Démarre une nouvelle scène Roleplay qui crée une branche à partir de cette conversation. |
-| `/illustrate [range=N-M (optional)] [prompt (optional)]` | `/ill` | Génère une image de galerie pour le chat en cours. |
+| `/illustrate [range=N or range=N-M (optional)] [prompt (optional)]` | `/ill` | Génère une image de galerie pour le chat en cours. |
 | `/impersonate [direction (optional)]` | `/imp` | Écrit une réponse à la place de ton persona. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Définit l'instruction utilisée par `/impersonate` dans ce chat. |
 

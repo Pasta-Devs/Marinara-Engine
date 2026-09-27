@@ -81,7 +81,7 @@ Estos comandos te ayudan a guiar una historia, interpretar un personaje y añadi
 | `/roll [dice (optional)]` | `/r`, `/dice` | Tira los dados y publica el resultado. |
 | `/random` | `/rand`, `/event` | Pide a la IA que añada un evento sorpresa a la historia. |
 | `/scene [description (optional)]` | `/rp` | Se ejecuta desde un chat de Conversation. Inicia una nueva escena de Roleplay que se ramifica a partir de esa conversación. |
-| `/illustrate [range=N-M (optional)] [prompt (optional)]` | `/ill` | Genera una imagen de galería para el chat actual. |
+| `/illustrate [range=N or range=N-M (optional)] [prompt (optional)]` | `/ill` | Genera una imagen de galería para el chat actual. |
 | `/impersonate [direction (optional)]` | `/imp` | Escribe una respuesta como tu persona. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Establece la instrucción que `/impersonate` usa en este chat. |
 

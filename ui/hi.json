@@ -111,6 +111,7 @@
   "chat.help.targets.volume.title": "आवाज़",
   "chat.help.targets.widgets.body": "इस सत्र के लिए जनरेट किए गए ट्रैकर और गेम जानकारी देखें।",
   "chat.help.targets.widgets.title": "गेम विजेट",
+  "chat.input.tools": "टूल्स",
   "chat.slash.illustrate.rangeUsage": "/illustrate range=N या range=N-M इस्तेमाल करें, फिर चाहें तो प्रॉम्प्ट दें। संदेश क्रमांक बढ़ते क्रम में दें, अधिकतम 200 संदेश तक।",
   "connections.mediaSources.atlas.apiKeyLink": "अपनी Atlas Cloud API कुंजी प्राप्त करें",
   "connections.mediaSources.atlas.imageDescription": "Atlas Cloud पर होस्ट किए गए मॉडलों से चित्र बनाएँ।",
@@ -158,6 +159,6 @@
   "settings.notifications.customSound.toasts.tooLarge": "सूचना ध्वनि 10 MB या उससे छोटी होनी चाहिए।",
   "settings.notifications.customSound.toasts.uploaded": "कस्टम सूचना ध्वनि सहेजी गई।",
   "settings.notifications.customSound.toasts.uploadFailed": "कस्टम सूचना ध्वनि सहेजी नहीं जा सकी।",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N-M (वैकल्पिक)] [प्रॉम्प्ट (वैकल्पिक)]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N या range=N-M (वैकल्पिक)] [प्रॉम्प्ट (वैकल्पिक)]",
   "ui.chatSettings.translationsection.addATranslateButtonBesideSendSoYouCan": "भेजें के पास अनुवाद का शॉर्टकट जोड़ें। Conversation में मोबाइल पर भी संदेश लिखने की जगह के स्माइली मेनू के टूल्स टैब से ड्राफ़्ट का अनुवाद हमेशा उपलब्ध है।"
 }

@@ -111,6 +111,7 @@
   "chat.help.targets.volume.title": "مستوى الصوت",
   "chat.help.targets.widgets.body": "اعرض المتتبعات ومعلومات اللعبة المولّدة لهذه الجلسة.",
   "chat.help.targets.widgets.title": "عناصر واجهة اللعبة",
+  "chat.input.tools": "الأدوات",
   "chat.slash.illustrate.rangeUsage": "استخدم /illustrate range=N أو range=N-M، ثم وصفًا اختياريًا. أدخل أرقام الرسائل بترتيب تصاعدي، بحد أقصى 200 رسالة.",
   "connections.mediaSources.atlas.apiKeyLink": "احصل على مفتاح API لـ Atlas Cloud",
   "connections.mediaSources.atlas.imageDescription": "أنشئ صورًا باستخدام النماذج المستضافة على Atlas Cloud.",
@@ -158,6 +159,6 @@
   "settings.notifications.customSound.toasts.tooLarge": "يجب ألا يزيد حجم صوت الإشعار عن 10 م.ب.",
   "settings.notifications.customSound.toasts.uploaded": "تم حفظ صوت الإشعار المخصص.",
   "settings.notifications.customSound.toasts.uploadFailed": "تعذر حفظ صوت الإشعار المخصص.",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N-M (اختياري)] [وصف (اختياري)]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N أو range=N-M (اختياري)] [وصف (اختياري)]",
   "ui.chatSettings.translationsection.addATranslateButtonBesideSendSoYouCan": "أضف اختصار الترجمة بجانب الإرسال. في Conversation، تتوفر ترجمة المسودة دائمًا في تبويب الأدوات بقائمة الوجه المبتسم في حقل الرسالة، بما في ذلك على الهاتف."
 }

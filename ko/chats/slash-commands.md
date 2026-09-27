@@ -81,7 +81,7 @@
 | `/roll [dice (optional)]` | `/r`, `/dice` | 주사위를 굴리고 결과를 올립니다. |
 | `/random` | `/rand`, `/event` | 이야기에 뜻밖의 사건을 넣도록 AI에 요청합니다. |
 | `/scene [description (optional)]` | `/rp` | Conversation 채팅에서 실행합니다. 그 대화에서 갈라져 나오는 새 Roleplay 장면을 시작합니다. |
-| `/illustrate [range=N-M (optional)] [prompt (optional)]` | `/ill` | 현재 채팅에 쓸 갤러리 이미지를 생성합니다. |
+| `/illustrate [range=N or range=N-M (optional)] [prompt (optional)]` | `/ill` | 현재 채팅에 쓸 갤러리 이미지를 생성합니다. |
 | `/impersonate [direction (optional)]` | `/imp` | 페르소나를 대신해 답변을 씁니다. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | 이 채팅에서 `/impersonate`가 사용할 지시 내용을 설정합니다. |
 

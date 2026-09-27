@@ -1,6 +1,6 @@
 {
   "language": "zh-hans",
-  "sourceCommit": "ccc815443c225057dc96a61e1418c4947e45f931",
+  "sourceCommit": "0df67f424369bf304eaedeaf0a750544658346e4",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -194,8 +194,8 @@
     },
     {
       "path": "chats/slash-commands.md",
-      "sha256": "be6eb8fbb231f41ec4214c78cda8634e1527e68a2249494f365b411325986489",
-      "bytes": 10068
+      "sha256": "50c25e9ef2e511e36c4f9ccf35b37332f3841040332deb2488a7e44101e7db01",
+      "bytes": 10079
     },
     {
       "path": "connections/connecting-to-a-provider.md",
@@ -554,8 +554,8 @@
     },
     {
       "path": "media/illustrator-agent.md",
-      "sha256": "b2ab8dde8584b26680d1ed5566350462212b32c65f9f70f0aef5166a7ee20dfc",
-      "bytes": 10336
+      "sha256": "4f683d6a61504f1e64296ac749acfb3e34d4a652ecd0adf886418acd9263fc01",
+      "bytes": 10355
     },
     {
       "path": "media/image-providers.md",
