@@ -971,7 +971,46 @@ function optionFrom(
   }
   const forecast = forecastFor(definition, combat, state, actor, action);
   if (forecast) option.forecast = forecast;
+  // Where initiative is a number attacks move, the ways this attack may be made, each with what it
+  // would do: a style that takes would take what its damage dice are worth off the target's number,
+  // one that spends throws the actor's own number at their health.
+  // Not in a window: what is taken at its moment is made in the first style, so there is no choice.
+  const styles = atItsMoment ? [] : rulesetAttackStyles(combat, actor, action);
+  if (styles.length > 0) {
+    option.styles = styles.map((style) => {
+      const hit = forecast?.hitChance !== undefined ? { hitChance: forecast.hitChance } : {};
+      const worth = style.takes
+        ? { ...hit, ...(forecast?.averageDamage !== undefined ? { shift: forecast.averageDamage } : {}) }
+        : { ...hit, averageDamage: Math.round(rulesetDamageAverage(definition, combat, actor.initiative) * 100) / 100 };
+      return { id: style.id, label: style.label, forecast: worth };
+    });
+  }
   return option;
+}
+
+/** One of the ways an attack may be made where initiative is a number attacks move. */
+export type RulesetInitiativeStyle = NonNullable<RulesetCombat["initiative"]["resource"]>["styles"][number];
+
+/** Whether an action is an attack a style applies to: one that rolls to hit and does harm, or an
+ *  action made of other actions, whose parts are all made in its style. A reaction is taken at its
+ *  moment in the first style, like anything else made out of a turn. */
+export function rulesetActionTakesStyle(action: RulesetCombatAction): boolean {
+  if (action.contest) return false;
+  return !!action.sequence || (action.toHit !== undefined && !action.autoHit && !!action.damage);
+}
+
+/** The styles this actor may make this attack in now. A style that spends needs a number above the
+ *  crash line to spend, so a crashed actor is offered only the ones that take; and a number is spent
+ *  on one blow, so an action made of several only ever takes. */
+export function rulesetAttackStyles(
+  combat: RulesetCombat,
+  actor: RulesetCombatant,
+  action: RulesetCombatAction,
+): RulesetInitiativeStyle[] {
+  const resource = combat.initiative.resource;
+  if (!resource || !rulesetActionTakesStyle(action)) return [];
+  const line = resource.crash?.at ?? 0;
+  return resource.styles.filter((style) => !style.spends || (!action.sequence && actor.initiative > line));
 }
 
 /** How this attack is rolled: the actor's own conditions and their target's, the help an ally gave

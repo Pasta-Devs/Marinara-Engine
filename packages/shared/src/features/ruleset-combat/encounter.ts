@@ -39,7 +39,7 @@ import {
 import { findRulesetCreatureEntry, isRulesetPlainStatBlock, rulesetCreatureBlock } from "./creatures.js";
 import { parseRulesetCombatDice, rollRulesetDice, rulesetCombatRoller, sumOf } from "./dice.js";
 import { rulesetInCells, rulesetLineOfSight, rulesetPositionOf } from "./grid.js";
-import { rulesetCombatAdvantage, rulesetCombatIsPool, rulesetPoolDie } from "./pool.js";
+import { rulesetCombatAdvantage, rulesetCombatIsPool, rulesetPoolDie, throwRulesetCombatPool } from "./pool.js";
 import type {
   RulesetCombatAction,
   RulesetCombatAmount,
@@ -910,7 +910,10 @@ function sheetCombatant(
     id: string;
     name: string;
     side: RulesetCombatant["side"];
+    /** The initiative dice already thrown, for a ruleset that adds them up; one that throws a pool
+     *  throws it here, off the evaluated sheet, with `roll`. */
     initiativeRoll: number[];
+    roll: RulesetCombatRoller;
     build: RulesetSheetBuild;
     live: RulesetLiveState;
     catalogs: RulesetCatalogEntriesById;
@@ -925,6 +928,14 @@ function sheetCombatant(
   const modifier = combat.initiative.modifier
     ? resolveRulesetValueRef(definition, build, combat.initiative.modifier, evaluated)
     : 0;
+  const initiative = combat.initiative.pool
+    ? rulesetPoolInitiative(
+        definition,
+        combat,
+        input.roll,
+        resolveRulesetValueRef(definition, build, combat.initiative.pool, evaluated),
+      )
+    : { roll: input.initiativeRoll, modifier, total: sumOf(input.initiativeRoll) + modifier };
   const saves: Record<string, number> = {};
   for (const save of definition.sheet.saves) {
     saves[save.id] = rulesetCheckModifier(evaluated, {
@@ -975,9 +986,9 @@ function sheetCombatant(
     id: input.id,
     name: input.name,
     side: input.side,
-    initiativeRoll: input.initiativeRoll,
-    initiativeModifier: modifier,
-    initiative: sumOf(input.initiativeRoll) + modifier,
+    initiativeRoll: initiative.roll,
+    initiativeModifier: initiative.modifier,
+    initiative: initiative.total,
     budgets: fullBudgets(combat),
     actions,
     uses: startingUses(actions),
@@ -1177,7 +1188,7 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
         refused.push({ type: "refused", actorId: entry.id, reason: "unknown-creature" });
         continue;
       }
-      const initiativeRoll = rollRulesetDice(roll, combat.initiative.dice.count, combat.initiative.dice.sides);
+      const initiativeRoll = throwInitiativeDice(combat, roll);
       if (block.sheet) {
         // Described in the ruleset's own terms, so built exactly as a party member is: its health,
         // defense, saves, speed, initiative and the abilities on its lists all come from what the
@@ -1189,6 +1200,7 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
           name: entry.name,
           side: "enemy",
           initiativeRoll,
+          roll,
           build: block.sheet,
           live: {},
           catalogs: input.bestiary ?? {},
@@ -1219,6 +1231,14 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
         refused.push({ type: "refused", actorId: entry.id, reason: "unknown-creature" });
         continue;
       }
+      // A pool's initiative is its own number of dice, thrown before anything else about it.
+      const initiative = combat.initiative.pool
+        ? rulesetPoolInitiative(definition, combat, roll, block.initiativeModifier)
+        : {
+            roll: initiativeRoll,
+            modifier: block.initiativeModifier,
+            total: sumOf(initiativeRoll) + block.initiativeModifier,
+          };
       // Dice health is thrown once, here, so the same seed always builds the same opponent.
       const health = block.healthDice
         ? sumOf(rollRulesetDice(roll, block.healthDice.count, block.healthDice.sides)) + block.healthDice.flat
@@ -1229,9 +1249,9 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
         id: entry.id,
         name: entry.name,
         side: "enemy",
-        initiativeRoll,
-        initiativeModifier: block.initiativeModifier,
-        initiative: sumOf(initiativeRoll) + block.initiativeModifier,
+        initiativeRoll: initiative.roll,
+        initiativeModifier: initiative.modifier,
+        initiative: initiative.total,
         budgets: fullBudgets(combat),
         actions,
         uses: startingUses(actions),
@@ -1266,12 +1286,13 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
       });
       continue;
     }
-    const initiativeRoll = rollRulesetDice(roll, combat.initiative.dice.count, combat.initiative.dice.sides);
+    const initiativeRoll = throwInitiativeDice(combat, roll);
     const combatant = sheetCombatant(definition, combat, {
       id: entry.id,
       name: entry.name,
       side: "party",
       initiativeRoll,
+      roll,
       build: entry.build,
       live: readStoredLive(entry.live),
       catalogs: entry.catalogs ?? {},
@@ -1301,6 +1322,7 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
 
   state.order = rulesetInitiativeOrder(state.combatants);
   state.cursor = rolls;
+  const crashed = openCrashes(definition, combat, state);
   state.opening = [
     ...refused,
     {
@@ -1319,10 +1341,43 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
           : [];
       }),
     },
+    ...crashed,
     { type: "round", round: 1 },
     ...(state.order[0] ? ([{ type: "turn", actorId: state.order[0], round: 1 }] as RulesetCombatEvent[]) : []),
   ];
   return state;
+}
+
+/** Whether a creature shrugs this condition off, read the same way wherever one is put on. */
+export function rulesetImmuneToCondition(combatant: RulesetCombatant, condition: string): boolean {
+  const wanted = condition.trim().toLowerCase();
+  return !!combatant.block?.conditionImmunities?.some((entry) => entry.trim().toLowerCase() === wanted);
+}
+
+/** Where initiative is a number attacks move, whoever opens at the crash line or below starts the
+ *  fight crashed, exactly as if a blow had put them there, only from nobody. */
+function openCrashes(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  state: RulesetEncounterState,
+): RulesetCombatEvent[] {
+  const crash = combat.initiative.resource?.crash;
+  if (!crash) return [];
+  const events: RulesetCombatEvent[] = [];
+  for (const combatant of state.combatants) {
+    if (combatant.initiative > crash.at) continue;
+    combatant.crashedTurns = 0;
+    const condition = crash.condition;
+    if (!condition) continue;
+    if (rulesetImmuneToCondition(combatant, condition)) {
+      events.push({ type: "condition", targetId: combatant.id, condition, active: false, reason: "immune" });
+      continue;
+    }
+    combatant.tracked.push({ condition, rounds: null });
+    if (combatant.sheet) writeRulesetSheet(definition, combatant, { op: "condition", condition, active: true });
+    events.push({ type: "condition", targetId: combatant.id, condition, active: true, reason: "applied" });
+  }
+  return events;
 }
 
 /** Who acts first: the highest initiative, then the higher modifier, then whoever joined the fight
@@ -1339,17 +1394,37 @@ export function rulesetInitiativeOrder(combatants: readonly RulesetCombatant[]):
     .map((combatant) => combatant.id);
 }
 
-/** A combatant's initiative modifier as it stands now: off their sheet against its live state, so a
- *  wound that slows them counts when initiative is thrown again, and a block's own number otherwise. */
+/** A combatant's initiative modifier as it stands now, or the dice of their initiative pool when the
+ *  ruleset throws one: off their sheet against its live state, so a wound that slows them counts
+ *  when initiative is thrown again, and a block's own number otherwise. */
 export function rulesetInitiativeModifierNow(
   definition: RulesetDefinition,
   combat: RulesetCombat,
   combatant: RulesetCombatant,
 ): number {
   if (!combatant.sheet) return combatant.initiativeModifier;
-  if (!combat.initiative.modifier) return 0;
+  const ref = combat.initiative.pool ?? combat.initiative.modifier;
+  if (!ref) return 0;
   const evaluated = evaluateRulesetSheetLive(definition, combatant.sheet.build, combatant.sheet.live);
-  return resolveRulesetValueRef(definition, combatant.sheet.build, combat.initiative.modifier, evaluated);
+  return resolveRulesetValueRef(definition, combatant.sheet.build, ref, evaluated);
+}
+
+/** The initiative dice of a ruleset that adds them up, thrown; none for one that throws a pool. */
+export function throwInitiativeDice(combat: RulesetCombat, roll: RulesetCombatRoller): number[] {
+  const dice = combat.initiative.dice;
+  return dice ? rollRulesetDice(roll, dice.count, dice.sides) : [];
+}
+
+/** Initiative thrown as a pool of `dice` dice: its successes, plus the ruleset's own number. The
+ *  pool's size stands in as the modifier, which is what an order tie is broken on. */
+export function rulesetPoolInitiative(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  roll: RulesetCombatRoller,
+  dice: number,
+): { roll: number[]; modifier: number; total: number } {
+  const thrown = throwRulesetCombatPool(definition, roll, dice);
+  return { roll: thrown.rolls, modifier: dice, total: thrown.successes + (combat.initiative.plus ?? 0) };
 }
 
 /**

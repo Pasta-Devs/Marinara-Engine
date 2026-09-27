@@ -42,6 +42,8 @@ export type DirectedCommand =
       optionId: string;
       targetIds: string[];
       payWith?: string;
+      /** The initiative style an attack is made in, where initiative is a number attacks move. */
+      style?: string;
       to?: { x: number; y: number };
       at?: { x: number; y: number };
     }
@@ -66,6 +68,7 @@ export interface CombatDecisionOption {
   targetIds?: string[];
   label?: string;
   payWith?: string;
+  style?: string;
   /** Where a ruleset fight's own shape is aimed. `to` above is where the actor walks first, which
    *  a positioned candidate may carry too. */
   at?: { x: number; y: number };

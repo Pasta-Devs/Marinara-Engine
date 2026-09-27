@@ -702,6 +702,7 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
         path: [{ x: 4, y: 2 }],
       }),
     ],
+    ["shift", say({ type: "shift", actorId: "brenna", amount: 3, total: 9, reason: "gained", sourceId: "lurker" })],
   ];
   const printed = new Map(table);
   for (const [type, text] of table) {
@@ -786,6 +787,15 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     "Brenna tries Grapple on Thorn Lurker: 14 + 7 = 21 with Athletics against 9 + 2 = 11 with Acrobatics, and wins.",
   );
   assert.equal(printed.get("pushed"), "Brenna pushes Thorn Lurker back 1, to 4, 2.");
+  // Every reason a number attacks move changes; the pool fight's own lane pins a taking blow's dice.
+  assert.equal(printed.get("shift"), "Brenna gains 3 initiative, and is on 9.");
+  const shifted = (reason: Extract<RulesetCombatEvent, { type: "shift" }>["reason"], amount: number) =>
+    line(fiveE, state, { type: "shift", actorId: "brenna", amount, total: 3, reason, sourceId: "lurker" });
+  assert.equal(shifted("taken", -4), "Brenna loses 4 initiative, and is on 3.");
+  assert.equal(shifted("crash", 5), "Brenna gains 5 initiative for crashing Thorn Lurker, and is on 3.");
+  assert.equal(shifted("missed", -2), "Brenna loses 2 initiative for missing, and is on 3.");
+  assert.equal(shifted("spent", -6), "Brenna spends their initiative, and it goes back to 3.");
+  assert.equal(shifted("recovered", 5), "Brenna recovers, and their initiative is back to 3.");
   // A walk that went nowhere is getting back up, and a walk cut short says so.
   assert.equal(
     line(fiveE, state, {

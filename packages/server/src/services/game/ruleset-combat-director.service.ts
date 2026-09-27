@@ -25,6 +25,7 @@ import {
   generateTacticalBattlefield,
   holdRulesetCombatant,
   holdRulesetSheetHealth,
+  liftRulesetCrashes,
   normalizeCharacterLookupName,
   normalizeGameDifficulty,
   normalizeTacticalEnvironment,
@@ -40,6 +41,7 @@ import {
   rulesetCombatOptions,
   rulesetCostSteps,
   rulesetAverageAmount,
+  rulesetDamageAverage,
   planRulesetCombatCost,
   rulesetCombatRoller,
   rulesetCombatStanding,
@@ -775,8 +777,23 @@ function rulesetCandidatesAfterMoving(
  *  menu, and the client draws its own words over the same choice. */
 const RULESET_PASS_LABEL = "Let the moment go by";
 
-/** The pool an answer is paid from, left out entirely when it is the option's own. */
-const paying = (payWith: string | undefined) => (payWith === undefined ? {} : { payWith });
+/** The pool an answer is paid from and the initiative style it is made in, each left out entirely
+ *  when it is the option's own. */
+const paying = (way: { payWith?: string; style?: string }) => ({
+  ...(way.payWith === undefined ? {} : { payWith: way.payWith }),
+  ...(way.style === undefined ? {} : { style: way.style }),
+});
+
+/** One way of doing something off the menu: the option, the pool it is paid from and the style it
+ *  is made in when those are not the option's own, and what that way costs. A style that takes also
+ *  says what it is expected to take off a target and what its maker gains on top. */
+interface PricedOption {
+  option: RulesetCombatOption;
+  payWith?: string;
+  style?: string;
+  takes?: { shift: number; gain: number };
+  price: number;
+}
 
 /**
  * Every option on a menu, and every BIGGER way of paying for one, each with what that costs.
@@ -800,37 +817,79 @@ function priced(
   encounter: RulesetEncounterState,
   actor: RulesetCombatant,
   menu?: RulesetCombatOption[],
-): Array<{ option: RulesetCombatOption; payWith?: string; price: number }> {
-  const out: Array<{ option: RulesetCombatOption; payWith?: string; price: number }> = [];
+): PricedOption[] {
+  const out: PricedOption[] = [];
   for (const option of menu ?? rulesetCombatOptions(definition, encounter, actor.id)) {
     const base = (option.cost ?? []).reduce((total, entry) => total + entry.amount, 0) + (option.signature?.cost ?? 0);
-    out.push({ option, price: base });
-    const action = actor.actions.find((entry) => entry.id === option.id);
-    if (!action?.use?.perCostStep) continue;
-    for (const pool of option.payWith ?? []) {
-      const steps = rulesetCostSteps(definition, action, pool);
-      if (steps < 1) continue;
-      const paid = planRulesetCombatCost(definition, actor, action, pool);
-      if (!paid) continue;
-      const extra = steps * rulesetAverageAmount(action.use.perCostStep);
-      const forecast = option.forecast ? { ...option.forecast } : undefined;
-      if (forecast?.averageDamage !== undefined) {
-        forecast.averageDamage = Math.round((forecast.averageDamage + extra) * 100) / 100;
-      }
-      out.push({
-        option: {
-          ...option,
-          // Named for the pool it spends, so a Game Master reading the menu can tell the two apart.
-          label: `${option.label} (${paid.cost[0]?.label ?? pool})`,
-          cost: paid.cost.map((entry) => ({ pool: entry.pool, label: entry.label, amount: entry.amount })),
-          ...(forecast ? { forecast } : {}),
-        },
-        payWith: pool,
-        price: paid.cost.reduce((total, entry) => total + entry.amount, 0) + steps,
-      });
-    }
+    const ways: PricedOption[] = [{ option, price: base }, ...biggerWays(definition, actor, option)];
+    out.push(...ways.flatMap((way) => styledWays(definition, way)));
   }
   return out;
+}
+
+/** The bigger ways of paying for one option: once per pool it could be paid from, each with its
+ *  own label, cost and forecast. None for something that grows no bigger. */
+function biggerWays(
+  definition: RulesetDefinition,
+  actor: RulesetCombatant,
+  option: RulesetCombatOption,
+): PricedOption[] {
+  const action = actor.actions.find((entry) => entry.id === option.id);
+  if (!action?.use?.perCostStep) return [];
+  const ways: PricedOption[] = [];
+  for (const pool of option.payWith ?? []) {
+    const steps = rulesetCostSteps(definition, action, pool);
+    if (steps < 1) continue;
+    const paid = planRulesetCombatCost(definition, actor, action, pool);
+    if (!paid) continue;
+    const extra = steps * rulesetAverageAmount(action.use.perCostStep);
+    const forecast = option.forecast ? { ...option.forecast } : undefined;
+    if (forecast?.averageDamage !== undefined) {
+      forecast.averageDamage = Math.round((forecast.averageDamage + extra) * 100) / 100;
+    }
+    ways.push({
+      option: {
+        ...option,
+        // Named for the pool it spends, so a Game Master reading the menu can tell the two apart.
+        label: `${option.label} (${paid.cost[0]?.label ?? pool})`,
+        cost: paid.cost.map((entry) => ({ pool: entry.pool, label: entry.label, amount: entry.amount })),
+        ...(forecast ? { forecast } : {}),
+      },
+      payWith: pool,
+      price: paid.cost.reduce((total, entry) => total + entry.amount, 0) + steps,
+    });
+  }
+  return ways;
+}
+
+/**
+ * Every way of paying, once per initiative style the attack may be made in, where initiative is a
+ * number attacks move. A style that spends forecasts the harm its maker's number would do; one that
+ * takes forecasts no harm at all and carries what it would take instead, which the picker weighs as
+ * what those dice would be worth to spend later.
+ */
+function styledWays(definition: RulesetDefinition, way: PricedOption): PricedOption[] {
+  const styles = way.option.styles;
+  const resource = definition.combat?.initiative.resource;
+  if (!styles?.length || !resource) return [way];
+  const option = { ...way.option };
+  delete option.styles;
+  return styles.map((style) => {
+    const takes = resource.styles.find((entry) => entry.id === style.id)?.takes;
+    const hitChance = way.option.forecast?.hitChance ?? style.forecast?.hitChance;
+    const averageDamage = takes ? 0 : (style.forecast?.averageDamage ?? 0);
+    return {
+      ...way,
+      option: {
+        ...option,
+        // Named for its style as well, so a Game Master reading the menu can tell them apart.
+        label: `${option.label}, ${style.label}`,
+        forecast: { ...(hitChance !== undefined ? { hitChance } : {}), averageDamage },
+      },
+      style: style.id,
+      ...(takes ? { takes: { shift: way.option.forecast?.averageDamage ?? 0, gain: takes.gain } } : {}),
+    };
+  });
 }
 
 /** Whom a window option really lands on when the option itself asks for nobody: the one walking
@@ -877,7 +936,8 @@ function rulesetCandidatesFrom(
     };
     candidates.push({ action: { choice: { actorId, optionId: letGo.id, targetIds: [] }, option: letGo }, hold: true });
   }
-  for (const { option, payWith, price } of priced(definition, encounter, actor, menu)) {
+  for (const way of priced(definition, encounter, actor, menu)) {
+    const { option, price } = way;
     // Walking is not a candidate of its own: it is what a candidate does before it acts, and a turn
     // with nothing to act on closes the distance instead (see `rulesetClosingMove`).
     if (option.kind === "move") continue;
@@ -895,7 +955,7 @@ function rulesetCandidatesFrom(
     if (deflects === false) continue;
     if (deflects) {
       candidates.push({
-        action: { choice: { actorId, optionId: option.id, targetIds: [], ...paying(payWith) }, option },
+        action: { choice: { actorId, optionId: option.id, targetIds: [], ...paying(way) }, option },
         healing: 1,
         cost: price,
       });
@@ -919,7 +979,7 @@ function rulesetCandidatesFrom(
         if (worth <= 0) continue;
         candidates.push({
           action: {
-            choice: { actorId, optionId: option.id, targetIds: [targetId], ...paying(payWith) },
+            choice: { actorId, optionId: option.id, targetIds: [targetId], ...paying(way) },
             option,
             targetId,
           },
@@ -938,7 +998,7 @@ function rulesetCandidatesFrom(
       // Holding the thing it is already holding would end it and start it again for the same price.
       if (actor.concentrating?.actionId === option.id) continue;
       candidates.push({
-        action: { choice: { actorId, optionId: option.id, targetIds: [], ...paying(payWith) }, option },
+        action: { choice: { actorId, optionId: option.id, targetIds: [], ...paying(way) }, option },
         setup: option.kind === "standard" ? 0.05 : 0.4,
         cost: price,
       });
@@ -953,7 +1013,7 @@ function rulesetCandidatesFrom(
       // really stands, which costs a creature a cleverer walk and never costs the server a turn.
       const grid = encounter.board?.grid;
       if (standing && grid && grid.width * grid.height > RULESET_AREA_WALK_BOARD_CELLS) continue;
-      candidates.push(...areaCandidates(definition, combat, encounter, actor, option, standing, payWith, price));
+      candidates.push(...areaCandidates(definition, combat, encounter, actor, option, standing, way, price));
       continue;
     }
     const legal = lands ? [lands] : rulesetOptionTargets(definition, encounter, actorId, option);
@@ -974,13 +1034,30 @@ function rulesetCandidatesFrom(
       const average = option.forecast?.averageDamage ?? 0;
       const candidate: CombatAiCandidate<RulesetCandidate> = {
         action: {
-          choice: { actorId, optionId: option.id, targetIds: lands ? [] : [targetId], ...paying(payWith) },
+          choice: { actorId, optionId: option.id, targetIds: lands ? [] : [targetId], ...paying(way) },
           option,
           targetId,
         },
         targetId,
         cost: price,
       };
+      if (way.takes) {
+        // A blow that takes is weighed a turn ahead, against spending now and spending again from
+        // the base: taking and then spending throws the number plus what was taken and gained,
+        // which beats that only when the taking is worth more than the base. A crash it would cause
+        // adds its bonus. Never on its own side or on somebody already down, and worth a little as
+        // a setup either way, since a crashed maker has nothing else to attack with.
+        if (ally || target.down) continue;
+        const resource = combat.initiative.resource;
+        const crash = resource?.crash;
+        const crashes = !!crash && target.initiative > crash.at && target.initiative - way.takes.shift <= crash.at;
+        const gained = chance * (way.takes.shift + way.takes.gain + (crashes ? crash.bonus : 0));
+        const ahead = Math.max(0, actor.initiative + gained - (resource?.base ?? 0));
+        candidate.damage = Math.min(2, (rulesetDamageAverage(definition, combat, ahead) / pool) * chance);
+        candidate.setup = Math.min(1, gained / 6);
+        candidates.push(candidate);
+        continue;
+      }
       if (option.heals) {
         // Never on the other side, and never on somebody with nothing to gain by it.
         if (!ally || (health.value >= health.max && !target.down)) continue;
@@ -1023,8 +1100,8 @@ function areaCandidates(
   actor: RulesetCombatant,
   option: RulesetCombatOption,
   standing: { x: number; y: number } | null,
-  /** The pool this way of paying spends, and what that way costs. */
-  payWith: string | undefined,
+  /** The pool this way of paying spends and the style it is made in, and what that way costs. */
+  way: { payWith?: string; style?: string },
   price: number,
 ): Array<CombatAiCandidate<RulesetCandidate>> {
   const average = option.forecast?.averageDamage ?? 0;
@@ -1052,7 +1129,7 @@ function areaCandidates(
           optionId: option.id,
           targetIds: [],
           at: { x: aim.x, y: aim.y },
-          ...paying(payWith),
+          ...paying(way),
         },
         option,
         ...(foes[0] ? { targetId: foes[0].id } : {}),
@@ -1408,6 +1485,7 @@ function windowOptions(
     // by the label that names it, so dropping it would offer a choice and then ignore it. A boss
     // whose bestiary entry carries a sheet pays out of its own pools, and is cast as big as it chose.
     ...(candidate.action.choice.payWith !== undefined ? { payWith: candidate.action.choice.payWith } : {}),
+    ...(candidate.action.choice.style !== undefined ? { style: candidate.action.choice.style } : {}),
   }));
 }
 
@@ -1514,6 +1592,7 @@ export function commandRulesetCombatDirector(
 
   if (command.type === "flee") {
     state.outcome = "flee";
+    liftRulesetCrashes(definition, fight.encounter);
     return settled(state);
   }
 
@@ -1550,6 +1629,7 @@ export function commandRulesetCombatDirector(
       targetIds: command.targetIds,
       ...(held ? { window: held.id } : {}),
       ...(command.payWith !== undefined ? { payWith: command.payWith } : {}),
+      ...(command.style !== undefined ? { style: command.style } : {}),
       ...(command.to ? { to: command.to } : {}),
       ...(command.at ? { at: command.at } : {}),
     });
@@ -1606,6 +1686,7 @@ export function commandRulesetCombatDirector(
           optionId: chosen.optionId ?? "end-turn",
           targetIds: [...(chosen.targetIds ?? [])],
           ...(chosen.payWith !== undefined ? { payWith: chosen.payWith } : {}),
+          ...(chosen.style !== undefined ? { style: chosen.style } : {}),
           ...(chosen.at ? { at: { ...chosen.at } } : {}),
         }
       : // The local picker is the fallback, so a Game Master that answered nothing usable costs the
@@ -1667,6 +1748,7 @@ function rulesetRefusalMessage(reason: string): string {
     "no-budget": "They have nothing left to spend on it this turn.",
     insufficient: "They cannot pay for it.",
     "bad-pool": "That is not a pool this can be paid from.",
+    "unknown-style": "That attack cannot be made that way right now.",
     "unknown-creature": "That opponent is not in any bestiary this game can read.",
     "no-health": "That opponent's sheet gives it no health, so it was left out of the fight.",
     unreachable: "They cannot walk to that square.",

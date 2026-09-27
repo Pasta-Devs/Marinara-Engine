@@ -828,6 +828,19 @@ function entriesCarryConditionEndings(entries: unknown): boolean {
   });
 }
 
+const MOVING_INITIATIVE_ISSUE =
+  "A ruleset whose fights throw initiative as a pool or let attacks move it requires schemaVersion 2 and capabilityApi 1.48 or newer";
+
+/** The 1.48 keys in the ruleset file itself: initiative thrown as a pool (`initiative.pool` and its
+ *  `plus`) and initiative as a number attacks move (`initiative.resource`). */
+function rulesetCarriesMovingInitiative148Keys(ruleset: { combat?: unknown } | undefined): boolean {
+  const initiative = plainRecord(plainRecord(ruleset?.combat)?.initiative);
+  return (
+    !!initiative &&
+    (initiative.pool !== undefined || initiative.plus !== undefined || initiative.resource !== undefined)
+  );
+}
+
 const POOL_FIGHT_ISSUE =
   "A ruleset whose fights throw dice pools, soak, throw initiative every round or limit spending per turn requires schemaVersion 2 and capabilityApi 1.47 or newer";
 
@@ -1128,6 +1141,8 @@ export function getCapabilityPackageInstallIssue(
       return "A ruleset whose weapons cap their own strikes requires schemaVersion 2 and capabilityApi 1.32 or newer";
     }
   }
+  // Initiative thrown as a pool, and a number attacks move, which are 1.48's. Same file, same reason.
+  if (!declaresApi(48) && rulesetCarriesMovingInitiative148Keys(ruleset)) return MOVING_INITIATIVE_ISSUE;
   // A fight thrown in pools, and what either kind may now throw every round or cap per turn, which
   // are 1.47's. Same file, same reason.
   if (!declaresApi(47) && rulesetCarriesPoolFight147Keys(ruleset)) return POOL_FIGHT_ISSUE;

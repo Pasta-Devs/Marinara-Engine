@@ -388,9 +388,45 @@ function oneRollBlockPerKind(node) {
     {
       if: { required: ["kind"], properties: { kind: { const: "dice-pool" } } },
       then: { required: ["pool"], not: { required: ["attackRoll"] } },
-      else: { required: ["attackRoll"], not: { required: ["pool"] } },
+      // Initiative thrown as a pool, or moved by attacks, is a pool fight's too.
+      else: {
+        required: ["attackRoll"],
+        not: { required: ["pool"] },
+        properties: { initiative: { not: { anyOf: [{ required: ["pool"] }, { required: ["resource"] }] } } },
+      },
     },
   ];
+}
+
+// Initiative is dice added up with a modifier, or a pool whose successes and `plus` are the number,
+// and a number attacks move opens as a pool and is never thrown again. Found by its shape: `dice` beside `pool` and
+// `resource`.
+function initiativeOneWay(node) {
+  if (Array.isArray(node)) return node.forEach(initiativeOneWay);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(initiativeOneWay);
+  const properties = node.properties;
+  if (node.type !== "object" || !properties?.dice || !properties.pool || !properties.resource) return;
+  node.oneOf = [{ required: ["dice"] }, { required: ["pool"] }];
+  node.allOf = [
+    ...(node.allOf ?? []),
+    { if: { required: ["modifier"] }, then: { required: ["dice"] } },
+    { if: { required: ["plus"] }, then: { required: ["pool"] } },
+    { if: { required: ["resource"] }, then: { required: ["pool"], not: { required: ["each"] } } },
+  ];
+}
+
+// An attack's style either takes the number or spends it, never both, and at least one of them takes,
+// so a crashed combatant always has one to attack in. Found by its shape: `takes` beside `spends`, and
+// the `styles` list beside `base`.
+function styleTakesOrSpends(node) {
+  if (Array.isArray(node)) return node.forEach(styleTakesOrSpends);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(styleTakesOrSpends);
+  const properties = node.properties;
+  if (node.type !== "object") return;
+  if (properties?.takes && properties.spends) node.oneOf = [{ required: ["takes"] }, { required: ["spends"] }];
+  if (properties?.styles && properties.base) properties.styles.contains = { required: ["takes"] };
 }
 
 // Soak soaks something: a number for every kind of harm, one per kind, or both. Found by its shape:
@@ -536,6 +572,8 @@ oneSourceForCreature(schema);
 requireDamageAmount(schema);
 requireDistanceForMeasured(schema);
 oneRollBlockPerKind(schema);
+initiativeOneWay(schema);
+styleTakesOrSpends(schema);
 soakSaysSomething(schema);
 boundScaledColumns(schema);
 requireOneHideComparison(schema);

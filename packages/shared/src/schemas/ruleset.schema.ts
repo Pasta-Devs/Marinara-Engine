@@ -2335,6 +2335,47 @@ const combatThreatTierSchema = z
   })
   .strict();
 
+/** One way any attack may be made when initiative is a number attacks move. `takes`: on a hit the
+ *  damage successes come off the target's number instead of their health, and the attacker gains them
+ *  plus `gain`. `spends`: the damage is the attacker's own number in dice, and the number resets to the
+ *  base; a miss costs what `onMiss` says, read at the number. Exactly one of the two. */
+const combatInitiativeStyleSchema = z
+  .object({
+    id: sheetId,
+    label,
+    takes: z
+      .object({ gain: z.number().int().min(0).max(20).default(0) })
+      .strict()
+      .optional(),
+    spends: z.object({ onMiss: stepTableSchema.optional() }).strict().optional(),
+  })
+  .strict()
+  .refine((style) => (style.takes === undefined) !== (style.spends === undefined), {
+    message: "A style either takes or spends",
+  });
+
+/** Initiative as a number attacks move: what a spending attack resets it to, the ways an attack may be
+ *  made, and what happens to whoever is taken down to the line. */
+const combatInitiativeResourceSchema = z
+  .object({
+    base: z.number().int().min(0).max(100),
+    styles: z.array(combatInitiativeStyleSchema).min(1).max(4),
+    crash: z
+      .object({
+        /** At or below this, a combatant has crashed and cannot make a spending attack. */
+        at: z.number().int().min(-100).max(100).default(0),
+        /** One of the sheet's own conditions, put on whoever crashes for as long as they are crashed. */
+        condition: sheetId.optional(),
+        /** What the attacker who crashed them gains. */
+        bonus: z.number().int().min(0).max(100).default(0),
+        /** How many of their own turns a crashed combatant waits before the number goes back to base. */
+        recoverAfter: z.number().int().min(1).max(20).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
 /** Optional, and absent rather than empty, for the same reason as `catalogs`: a ruleset that says
  *  nothing about combat is read exactly as it was before this block existed. A ruleset may carry
  *  both `combat` and `battle`; the bridge simply never runs for one whose fights follow its own
@@ -2352,11 +2393,18 @@ const combatSchema = z
     defense: rulesetValueRefSchema,
     initiative: z
       .object({
-        dice: combatDiceSchema,
+        /** The dice thrown and added up, with `modifier`. Or, under `dice-pool`, `pool`: dice thrown as
+         *  a pool, whose successes plus `plus` are the number. Exactly one of the two. */
+        dice: combatDiceSchema.optional(),
         modifier: rulesetValueRefSchema.optional(),
+        pool: rulesetValueRefSchema.optional(),
+        plus: z.number().int().min(0).max(100).optional(),
         /** `round` throws everybody's initiative again as each new round begins, and the order
          *  follows it. Once for the whole fight when left out. */
         each: z.enum(["fight", "round"]).optional(),
+        /** The number is kept and moved by attacks rather than thrown again, and the order follows it
+         *  as each round begins. `dice-pool` fights only. */
+        resource: combatInitiativeResourceSchema.optional(),
       })
       .strict(),
     /** How an `attack-vs-defense` attack is rolled. Required there, and refused under `dice-pool`,
@@ -3558,7 +3606,65 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     const at = (...path: (string | number)[]) => ["combat", ...path];
     const healthTrack = checkHealth(combat.health, at("health"));
     checkRef(combat.defense, at("defense"), derivedIds);
-    if (combat.initiative.modifier) checkRef(combat.initiative.modifier, at("initiative", "modifier"), derivedIds);
+    // Initiative is dice added up with a modifier, or a pool whose successes and a number are it. The
+    // pool, and a number attacks move, are a pool fight's.
+    const initiative = combat.initiative;
+    if ((initiative.dice === undefined) === (initiative.pool === undefined)) {
+      issue(at("initiative"), "Initiative is thrown as dice or as a pool: one of the two");
+    }
+    if (initiative.modifier) {
+      checkRef(initiative.modifier, at("initiative", "modifier"), derivedIds);
+      if (!initiative.dice)
+        issue(at("initiative", "modifier"), "A modifier is added to initiative dice, and there are none");
+    }
+    if (initiative.pool) checkRef(initiative.pool, at("initiative", "pool"), derivedIds);
+    if (initiative.plus !== undefined && !initiative.pool) {
+      issue(at("initiative", "plus"), "plus is added to a pool's successes, and initiative is not a pool");
+    }
+    if (combat.kind !== "dice-pool") {
+      if (initiative.pool) issue(at("initiative", "pool"), 'Initiative thrown as a pool is for a "dice-pool" fight');
+      if (initiative.resource)
+        issue(at("initiative", "resource"), 'Initiative that attacks move is for a "dice-pool" fight');
+    }
+    if (initiative.resource) {
+      const resource = initiative.resource;
+      // The number is a pool's successes, so it is thrown as one; summed dice are an order, not a number of dice.
+      if (!initiative.pool) {
+        issue(at("initiative", "resource"), "A number attacks move opens as a thrown pool, so initiative needs pool");
+      }
+      if (initiative.each !== undefined) {
+        issue(
+          at("initiative", "each"),
+          "A number attacks move is kept, never thrown again, and orders every round by itself",
+        );
+      }
+      unique(resource.styles, at("initiative", "resource", "styles"), "style");
+      // Whoever has crashed, and every action made of several, attacks in a style that takes.
+      if (!resource.styles.some((style) => style.takes)) {
+        issue(at("initiative", "resource", "styles"), "At least one style takes: a crashed combatant attacks in one");
+      }
+      resource.styles.forEach((style, index) => {
+        style.spends?.onMiss?.forEach(([, lose], stepIndex) => {
+          if (lose < 0) {
+            issue(
+              at("initiative", "resource", "styles", index, "spends", "onMiss", stepIndex, 1),
+              "A miss costs nothing or more",
+            );
+          }
+        });
+      });
+      const crash = resource.crash;
+      if (crash?.condition !== undefined && !conditions.has(crash.condition)) {
+        issue(at("initiative", "resource", "crash", "condition"), `Unknown condition "${crash.condition}"`);
+      }
+      // A spent or recovered number goes back to the base, which would crash it again at once.
+      if (crash && resource.base <= crash.at) {
+        issue(
+          at("initiative", "resource", "base"),
+          `The base is what a number goes back to, so it is above ${crash.at}`,
+        );
+      }
+    }
     // Each kind rolls with its own block and never the other's: an attack total needs attack dice,
     // and a pool fight throws the ruleset's own pools, so it has nothing to say about a total.
     const pooled = combat.kind === "dice-pool";

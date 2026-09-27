@@ -170,6 +170,7 @@ export {
 export {
   advanceRulesetTurn,
   applyRulesetCombatChoice,
+  liftRulesetCrashes,
   rulesetEncounterOutcome,
   rulesetEncounterSummary,
 } from "./resolve.js";
