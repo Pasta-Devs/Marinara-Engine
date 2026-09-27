@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Claude Subscription now bundles a Claude Code runtime compatible with Opus 5.5, avoiding the older-runtime rejection even when a newer global Claude Code installation is present (#6693, #6711).
+
 - Advanced Memory lets you save a requested review without changing correct text, regenerate an individually deleted scene, and see background preparation failures in a toast (#6737).
 
 - Game Mode rulesets whose checks throw a pool of dice and count successes can fight the same way: an attack throws a pool and needs a number of successes, the successes past those add damage dice, and the damage is thrown and then soaked by the kind of harm before it marks a wound track. Wound penalties and conditions add or take away dice, and saves and contests are pools too. Rulesets of either kind can also throw initiative again every round and cap how much of a resource one turn may spend. Gravewatch, the example pool ruleset, now has fights, weapons and a small bestiary (#6736).
