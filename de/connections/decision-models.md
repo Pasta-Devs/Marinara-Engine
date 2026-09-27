@@ -16,6 +16,7 @@ Seine Antworten steuern Marinara; sie erscheinen nicht als Chat-Antworten. Ein e
 - **[Prompt-Aussagen](../prompts/conditional-prompts.md#asking-the-decision-model)** wählen Text beim Vorbereiten eines Chat- oder Agenten-Prompts. Ohne Antwort gilt die Decision als nein; ein einfacher Decision-Block verwendet also seinen `{{else}}`-Zweig, falls vorhanden.
 - **[Decision-Felder im Lorebook](../lorebooks/entries.md#decision-activation)** prüfen Require oder Trigger beim Lorebook-Scan des Chats. Ohne Antwort kann Require keinen neuen Eintrag zulassen und Trigger ergänzt keinen Aktivierungsweg. Bestehende Sticky-Haltezeiten und gewöhnliche Aktivierungswege von Trigger-Einträgen gelten weiter.
 - **[Smart-Antwortreihenfolge](../chats/group-chats.md#response-order-individual-only)** bewertet bei aktivierter Option, wer in einem Gruppenchat als Nächstes sprechen soll. Ohne Antwort verwendet Smart seinen gewöhnlichen KI-Aufruf.
+- **[Advanced Memory Recall](../agents/memory.md#optional-jev-decisions)** kann eine eigene Entscheidungsverbindung für Roleplay-Szenengrenzen und Erinnerungsauswahl nutzen. Aktiviere **Use Decision model (Jev)** in den Advanced-Memory-Einstellungen dieses Chats. Zusammenfassungen schreibt weiterhin das Hilfsmodell. Bei fehlgeschlagenen Entscheidungen greifen normaler Abruf oder Szenenprüfung.
 
 Eine Aktivierungsfrage steuert, ob ein Agent läuft; eine Decision-Aussage in seinem Prompt steuert, welche Anweisungen dieser laufende Agent erhält. Verwende `{{#if decision:"..."}}` für Ja/Nein-Bedingungen und `{{#if decision_choice:"..." == "..."}}` für die Auswahl zwischen mehreren Antworten.
 
@@ -33,6 +34,8 @@ Bei Aktivierungsfragen und Aussagen in Prompts oder Lorebooks erhält das Modell
 - Prüfungen nach der Antwort, etwa die Aktivierungsfrage eines nachverarbeitenden Agenten oder eine Aussage in seinem Prompt, sehen auch die gerade geschriebene Antwort.
 - Makros in der Aussage werden zuerst aufgelöst; `{{char}}` kommt also als Charaktername an.
 - Passen die Nachrichten nicht in das Budget des Modells, werden zuerst ältere entfernt. Das Budget gehosteter Verbindungen steht unter [Eine Decision-Verbindung einrichten](#set-up-a-decision-connection).
+
+**Advanced Memory verwendet eine eigene Verbindung pro Chat.** Szenenprüfungen lesen das betreffende Transkriptfenster. Der Abruf sendet aktuelle Gesprächsteile und zugängliche archivierte Zusammenfassungen oder Originalnachrichten nach Prüfung des Charakterzugriffs; die feste Regel der letzten 5 Nachrichten gilt hier nicht. Gehostete Anbieter erhalten diese Texte gegebenenfalls in mehreren begrenzten Paketen. Nach insgesamt 10 Sekunden greift vor der Antwort der normale Abruf. Siehe [Optionale Jev-Entscheidungen](../agents/memory.md#optional-jev-decisions).
 
 ## Ein Decision-Modell auswählen
 

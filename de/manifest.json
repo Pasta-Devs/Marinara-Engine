@@ -1,6 +1,5 @@
 {
   "language": "de",
-  "sourceCommit": "d590e61ccc0ddcf76d8f11a906ed7f0e9e309860",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -9,8 +8,8 @@
     },
     {
       "path": "FAQ.md",
-      "sha256": "a3c9a3b098425888412ef167e6c6429698f91dccd2919258f001794362724dd8",
-      "bytes": 24073
+      "sha256": "49fce09eab55ee0e4a3062e3b7c8547ca09307c9dc154f5366fd87546bb1e140",
+      "bytes": 24244
     },
     {
       "path": "INSTALLATION.md",
@@ -64,8 +63,8 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "c6075ba262b8b24c781a34da529ba03c2f6578b87b985441945c2c159d634249",
-      "bytes": 33472
+      "sha256": "c8ec0bc15f07050318f38f28a6203ab9586f003fb71fff912a19e106ec284087",
+      "bytes": 36136
     },
     {
       "path": "appearance/appearance-settings.md",
@@ -204,8 +203,8 @@
     },
     {
       "path": "connections/decision-models.md",
-      "sha256": "1e0baa7fff8f9caa853ab2ab741bf41bef39d508cdd2ea6ea10426d5307fa726",
-      "bytes": 21717
+      "sha256": "53d14e83384eee0b16ac53e843e4888fde5c1be5c590510da7731c6a2d7f0d37",
+      "bytes": 22686
     },
     {
       "path": "connections/local-model.md",

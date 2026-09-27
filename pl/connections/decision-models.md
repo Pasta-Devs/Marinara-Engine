@@ -16,6 +16,7 @@ Odpowiedzi sterują zachowaniem aplikacji Marinara; nie są publikowane jako odp
 - **[Stwierdzenia w promptach](../prompts/conditional-prompts.md#asking-the-decision-model)** wybierają tekst podczas przygotowywania promptu czatu lub agenta. Przy braku odpowiedzi decyzja oznacza nie, więc prosty blok decyzyjny używa gałęzi `{{else}}`, jeśli istnieje.
 - **[Pola Decision w lorebooku](../lorebooks/entries.md#decision-activation)** sprawdzają Require lub Trigger podczas skanowania lorebooka czatu. Bez odpowiedzi Require nie może dopuścić nowego wpisu, a Trigger nie dodaje drogi aktywacji. Nadal obowiązują istniejące okresy Sticky i zwykłe drogi aktywacji wpisu Trigger.
 - **[Smart response order](../chats/group-chats.md#response-order-individual-only)** ocenia, kto powinien odezwać się następny w czacie grupowym, jeśli opcja jest włączona. Bez odpowiedzi kolejność Smart korzysta ze zwykłego wywołania AI.
+- **[Advanced Memory Recall](../agents/memory.md#optional-jev-decisions)** może używać osobnego połączenia decyzyjnego do wykrywania granic scen i wybierania pamięci w Roleplay. Włącz **Use Decision model (Jev)** w ustawieniach tego czatu. Podsumowania nadal pisze model pomocniczy. Nieudane decyzje uruchamiają zwykłe przywoływanie lub kontrolę scen.
 
 Pytanie aktywacyjne steruje uruchomieniem agenta; stwierdzenie decyzyjne w jego prompcie steruje instrukcjami otrzymywanymi przez uruchomionego agenta. Używaj `{{#if decision:"..."}}` do warunków tak/nie i `{{#if decision_choice:"..." == "..."}}` do wyboru odpowiedzi.
 
@@ -33,6 +34,8 @@ Przy pytaniach aktywacyjnych i stwierdzeniach w promptach lub lorebookach model 
 - Każde sprawdzenie po odpowiedzi, na przykład pytanie aktywacyjne agenta przetwarzania końcowego lub stwierdzenie w jego prompcie, widzi także właśnie napisaną odpowiedź.
 - Makra w stwierdzeniu są rozwijane wcześniej, więc `{{char}}` dociera jako imię postaci.
 - Gdy wiadomości nie mieszczą się w limicie modelu, najpierw usuwane są starsze. Limit zdalnego połączenia opisuje [Konfiguracja połączenia Decision](#set-up-a-decision-connection).
+
+**Advanced Memory używa własnego połączenia dla każdego czatu.** Kontrola scen odczytuje odpowiednie okno transkryptu. Przywoływanie wysyła niedawną rozmowę oraz dostępne podsumowania archiwalne lub kandydatów na fragmenty po sprawdzeniu dostępu postaci; nie obowiązuje tu reguła ostatnich 5 wiadomości. Zewnętrzny dostawca otrzymuje te teksty, czasem w kilku ograniczonych partiach. Decyzje przed odpowiedzią mają łączny limit 10 sekund, po którym przywoływanie korzysta z rozwiązania awaryjnego. Zobacz [Opcjonalne decyzje Jev](../agents/memory.md#optional-jev-decisions).
 
 ## Wybór modelu decyzyjnego
 

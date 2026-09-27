@@ -16,6 +16,7 @@ Ses réponses contrôlent le comportement de Marinara ; elles ne sont pas publi�
 - Les **[énoncés dans les prompts](../prompts/conditional-prompts.md#asking-the-decision-model)** choisissent du texte lors de la préparation du prompt d'un chat ou d'un agent. Sans réponse, la décision vaut non : un bloc de décision simple utilise donc sa branche `{{else}}`, si elle existe.
 - Les **[champs Decision des lorebooks](../lorebooks/entries.md#decision-activation)** vérifient Require ou Trigger pendant l'analyse des lorebooks du chat. Sans réponse, Require ne peut pas admettre une nouvelle entrée et Trigger n'ajoute aucune voie d'activation. Les maintiens Sticky existants et les voies ordinaires d'activation des entrées Trigger s'appliquent toujours.
 - L'**[ordre de réponse Smart](../chats/group-chats.md#response-order-individual-only)** évalue qui doit parler ensuite dans un chat de groupe, si l'option est activée. Sans réponse, l'ordre Smart effectue son appel IA habituel.
+- **[Advanced Memory Recall](../agents/memory.md#optional-jev-decisions)** peut utiliser une connexion de décision distincte pour les limites de scène et la sélection de souvenirs en Roleplay. Active **Use Decision model (Jev)** dans les réglages Advanced Memory de cette discussion. Les résumés restent rédigés par le modèle auxiliaire. Les décisions échouées reviennent au rappel ou aux vérifications de scène habituels.
 
 Une question d'activation contrôle l'exécution d'un agent ; un énoncé de décision dans son prompt contrôle les instructions reçues par cet agent pendant son exécution. Utilise `{{#if decision:"..."}}` pour une condition de prompt oui/non et `{{#if decision_choice:"..." == "..."}}` pour choisir entre plusieurs réponses.
 
@@ -33,6 +34,8 @@ Pour les questions d'activation et les énoncés des prompts/lorebooks, le modè
 - Tout ce qui est vérifié après la réponse, comme la question d'activation d'un agent de post-traitement ou un énoncé dans son prompt, voit aussi la réponse qui vient d'être écrite.
 - Les macros de l'énoncé sont d'abord résolues : `{{char}}` arrive donc sous forme du nom du personnage.
 - Si les messages dépassent le budget du modèle, les plus anciens sont supprimés en premier. Consulte [Configurer une connexion Decision](#set-up-a-decision-connection) pour le budget hébergé.
+
+**Advanced Memory utilise sa propre connexion par discussion.** Les vérifications de scène lisent la fenêtre concernée de l'historique. Le rappel envoie la conversation récente et les résumés archivés ou messages originaux accessibles après vérification de l'accès des personnages ; la règle fixe des 5 derniers messages ne s'applique pas. Les services hébergés reçoivent ces textes, parfois en plusieurs lots limités. Après 10 secondes au total, le rappel avant réponse utilise sa solution de repli. Consulte [Décisions facultatives avec Jev](../agents/memory.md#optional-jev-decisions).
 
 ## Choisir un modèle de décision
 

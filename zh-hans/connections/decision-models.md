@@ -16,6 +16,7 @@ Decision 模型回答一种特定问题。它接收聊天的最近消息及一�
 - **[提示词陈述](../prompts/conditional-prompts.md#asking-the-decision-model)**在准备聊天或智能体提示词时选择文本。没有答案时，判定按否处理，因此简单判定块会使用 `{{else}}` 分支（如果有）。
 - **[世界书 Decision 字段](../lorebooks/entries.md#decision-activation)**在聊天的世界书扫描期间检查 Require 或 Trigger。没有答案时，Require 无法放行新条目，Trigger 不会增加激活路径。已有 Sticky 保持和 Trigger 条目的普通激活路径仍然适用。
 - **[Smart 回复顺序](../chats/group-chats.md#response-order-individual-only)**启用后，会为群聊的下一位发言者打分。没有答案时，Smart 顺序会执行原有的 AI 调用。
+- **[Advanced Memory Recall](../agents/memory.md#optional-jev-decisions)**可使用单独选定的决策连接处理Roleplay场景边界和记忆选择。在该聊天的Advanced Memory设置中启用**Use Decision model (Jev)**。摘要仍由辅助模型生成。决策失败时回退到普通回忆或场景检查。
 
 激活问题控制是否运行智能体；智能体提示词内的判定陈述控制运行时告诉它什么。是/否提示词条件使用 `{{#if decision:"..."}}`，多选一使用 `{{#if decision_choice:"..." == "..."}}`。
 
@@ -33,6 +34,8 @@ Decision 模型回答一种特定问题。它接收聊天的最近消息及一�
 - 在回复之后检查的内容，例如后处理智能体的激活问题或提示词陈述，也能看到刚写完的回复。
 - 陈述里的宏先展开，因此 `{{char}}` 会以角色姓名传入。
 - 消息超出模型预算时，先丢弃旧消息。托管服务的预算见[设置 Decision 连接](#set-up-a-decision-connection)。
+
+**Advanced Memory按聊天使用独立连接。**场景检查读取相关的历史窗口。回忆功能检查角色访问权限后，发送最近对话及可访问的历史摘要或原文候选内容，不使用上述固定的最近5条消息规则。托管服务可能分多个有限批次收到这些文本。回复前的回忆在总计10秒后使用回退方案。参见[可选的Jev决策](../agents/memory.md#optional-jev-decisions)。
 
 ## 选择 Decision 模型
 

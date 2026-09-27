@@ -16,6 +16,7 @@ Sus respuestas controlan el comportamiento de Marinara; no se publican como resp
 - Las **[declaraciones en prompts](../prompts/conditional-prompts.md#asking-the-decision-model)** eligen texto al preparar el prompt de un chat o agente. Sin respuesta, la decisión se interpreta como no, así que un bloque de decisión simple usa su rama `{{else}}`, si existe.
 - Los **[campos Decision de lorebooks](../lorebooks/entries.md#decision-activation)** comprueban Require o Trigger durante el análisis de lorebooks del chat. Sin respuesta, Require no puede admitir una entrada nueva y Trigger no añade una vía de activación. Siguen aplicándose las retenciones Sticky existentes y las vías ordinarias de activación de las entradas Trigger.
 - El **[orden de respuesta Smart](../chats/group-chats.md#response-order-individual-only)** puntúa quién debería hablar después en un chat grupal, si está activado. Sin respuesta, el orden Smart hace su llamada habitual a la IA.
+- **[Advanced Memory Recall](../agents/memory.md#optional-jev-decisions)** puede usar una conexión de decisión independiente para detectar límites de escena y seleccionar recuerdos en Roleplay. Activa **Use Decision model (Jev)** en los ajustes de Advanced Memory de ese chat. Los resúmenes siguen a cargo del modelo auxiliar. Las decisiones fallidas recurren a la recuperación o comprobación de escenas habitual.
 
 Una pregunta de activación controla si un agente se ejecuta; una declaración de decisión dentro de su prompt controla qué instrucciones recibe ese agente al ejecutarse. Usa `{{#if decision:"..."}}` para condiciones de prompt de sí/no y `{{#if decision_choice:"..." == "..."}}` para elegir entre respuestas.
 
@@ -33,6 +34,8 @@ Para las preguntas de activación y las declaraciones de prompts/lorebooks, el m
 - Todo lo que se comprueba después de la respuesta, como la pregunta de activación de un agente de posprocesamiento o una declaración en su prompt, también ve la respuesta recién escrita.
 - Las macros de la declaración se completan primero, así que `{{char}}` llega como el nombre del personaje.
 - Cuando los mensajes no caben en el presupuesto del modelo, se descartan primero los más antiguos. Consulta [Configurar una conexión Decision](#set-up-a-decision-connection) para el presupuesto alojado.
+
+**Advanced Memory usa su propia conexión por chat.** Las comprobaciones de escena leen la ventana pertinente del historial. La recuperación envía conversación reciente y resúmenes archivados o mensajes originales accesibles tras comprobar el acceso de los personajes; no usa la regla fija de las últimas 5 intervenciones. Los proveedores alojados reciben esos textos, a veces en varios lotes limitados. Tras un total de 10 segundos, la recuperación previa a la respuesta usa su alternativa habitual. Consulta [Decisiones opcionales con Jev](../agents/memory.md#optional-jev-decisions).
 
 ## Elegir un modelo de decisión
 
