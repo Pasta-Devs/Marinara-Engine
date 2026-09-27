@@ -159,6 +159,6 @@
   "settings.notifications.customSound.toasts.tooLarge": "يجب ألا يزيد حجم صوت الإشعار عن 10 م.ب.",
   "settings.notifications.customSound.toasts.uploaded": "تم حفظ صوت الإشعار المخصص.",
   "settings.notifications.customSound.toasts.uploadFailed": "تعذر حفظ صوت الإشعار المخصص.",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N أو range=N-M (اختياري)] [وصف (اختياري)]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N|range=N-M (اختياري)] [وصف (اختياري)]",
   "ui.chatSettings.translationsection.addATranslateButtonBesideSendSoYouCan": "أضف اختصار الترجمة بجانب الإرسال. في Conversation، تتوفر ترجمة المسودة دائمًا في تبويب الأدوات بقائمة الوجه المبتسم في حقل الرسالة، بما في ذلك على الهاتف."
 }

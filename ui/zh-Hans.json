@@ -3883,7 +3883,7 @@
   "ui.chat.slash.hideTargetUnknown": "未找到角色：{{name}}",
   "ui.chat.slash.hideUsage": "用法：/hide 消息编号，或 /hide 角色名称 消息编号。示例：/hide Maukie 34-40",
   "ui.chat.slash.messageOutOfRange": "消息 {{index}} 不存在。此聊天共有 {{total}} 条消息。",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N 或 range=N-M（可选）] [提示词（可选）]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N|range=N-M（可选）] [提示词（可选）]",
   "ui.chat.slashcommandfeedback.dismiss": "关闭",
   "ui.chat.spritedisplaymodetoggle.atLeastOneSpriteSourceMustStayEnabled": "至少需要启用一个立绘来源",
   "ui.chat.spritedisplaymodetoggle.chooseOneOrBoth": "选择一个或同时选择",

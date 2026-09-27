@@ -1,6 +1,6 @@
 {
   "language": "pt-br",
-  "sourceCommit": "0df67f424369bf304eaedeaf0a750544658346e4",
+  "sourceCommit": "f933533bbec868bfdd85f289a4eebd3b4f22dfda",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -194,8 +194,8 @@
     },
     {
       "path": "chats/slash-commands.md",
-      "sha256": "e6332663d00f58caa0e519c40c9580a4488c2c79efc64b2a99c08274331cfe60",
-      "bytes": 11306
+      "sha256": "a4efa43a1b879c72d75ac788a2f126e4a21a590cff39cc306f885feddc34fe17",
+      "bytes": 11304
     },
     {
       "path": "connections/connecting-to-a-provider.md",

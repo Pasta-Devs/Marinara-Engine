@@ -81,7 +81,7 @@ Mit diesen Befehlen lenkst du die Geschichte, spielst einen Charakter und ergän
 | `/roll [dice (optional)]` | `/r`, `/dice` | Würfelt und postet das Ergebnis. |
 | `/random` | `/rand`, `/event` | Bittet die KI, ein überraschendes Ereignis in die Geschichte einzubauen. |
 | `/scene [description (optional)]` | `/rp` | Wird aus einem Conversation-Chat heraus ausgeführt. Startet eine neue Roleplay-Szene, die sich von diesem Chat verzweigt. |
-| `/illustrate [range=N or range=N-M (optional)] [prompt (optional)]` | `/ill` | Generiert ein Galeriebild für den aktuellen Chat. |
+| `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | Generiert ein Galeriebild für den aktuellen Chat. |
 | `/impersonate [direction (optional)]` | `/imp` | Schreibt eine Antwort im Namen deiner Persona. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Legt die Anweisung fest, die `/impersonate` in diesem Chat verwendet. |
 

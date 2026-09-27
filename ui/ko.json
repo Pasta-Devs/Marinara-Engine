@@ -3932,7 +3932,7 @@
   "ui.chat.slash.hideTargetUnknown": "캐릭터를 찾을 수 없습니다: {{name}}",
   "ui.chat.slash.hideUsage": "사용법: /hide 메시지번호 또는 /hide 캐릭터이름 메시지번호. 예: /hide Maukie 34-40",
   "ui.chat.slash.messageOutOfRange": "메시지 {{index}}이(가) 존재하지 않습니다. 이 채팅에는 메시지 {{total}}개가 있습니다.",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N 또는 range=N-M (선택 사항)] [프롬프트 (선택 사항)]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N|range=N-M (선택 사항)] [프롬프트 (선택 사항)]",
   "ui.chat.slashcommandfeedback.dismiss": "닫기",
   "ui.chat.spritedisplaymodetoggle.atLeastOneSpriteSourceMustStayEnabled": "스프라이트 소스를 하나 이상 활성화해야 합니다",
   "ui.chat.spritedisplaymodetoggle.chooseOneOrBoth": "하나 또는 둘 다 선택",

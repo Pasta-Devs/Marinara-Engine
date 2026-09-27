@@ -159,6 +159,6 @@
   "settings.notifications.customSound.toasts.tooLarge": "El sonido de notificación debe ocupar 10 MB o menos.",
   "settings.notifications.customSound.toasts.uploaded": "Se guardó el sonido de notificación personalizado.",
   "settings.notifications.customSound.toasts.uploadFailed": "No se pudo guardar el sonido de notificación personalizado.",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N o range=N-M (opcional)] [prompt (opcional)]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N|range=N-M (opcional)] [prompt (opcional)]",
   "ui.chatSettings.translationsection.addATranslateButtonBesideSendSoYouCan": "Añade un acceso de traducción junto a Enviar. En Conversation, Traducir borrador siempre está disponible en la pestaña Herramientas del menú de la cara sonriente del cuadro de mensaje, también en móvil."
 }

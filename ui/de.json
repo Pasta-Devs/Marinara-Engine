@@ -531,7 +531,7 @@
   "settings.transfer.importLorebook": "Lorebook importieren (JSON)",
   "settings.transfer.importPreset": "Voreinstellung importieren (JSON)",
   "settings.units.secondsShort": "{{value}} s",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N oder range=N-M (optional)] [Prompt (optional)]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N|range=N-M (optional)] [Prompt (optional)]",
   "ui.chatSettings.translationsection.addATranslateButtonBesideSendSoYouCan": "Fügt einen Übersetzen-Kurzbefehl neben Senden hinzu. In Conversation ist Entwurf übersetzen immer im Tab Werkzeuge des Smiley-Menüs im Eingabefeld verfügbar, auch auf dem Smartphone.",
   "ui.faq.answers": "Antworten",
   "ui.faq.beforeBug": "Bevor du einen Fehler postest",

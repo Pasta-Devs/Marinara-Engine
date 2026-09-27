@@ -601,7 +601,7 @@
   "ui.chat.chatbranchselector.chatBranches": "Gałęzie czatu",
   "ui.chat.chatbranchselector.switchBranch": "Przełącz gałąź",
   "ui.chat.chattoolbarmenu.moreOptions": "Więcej opcji",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N lub range=N-M (opcjonalnie)] [prompt (opcjonalnie)]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N|range=N-M (opcjonalnie)] [prompt (opcjonalnie)]",
   "ui.chatSettings.translationsection.addATranslateButtonBesideSendSoYouCan": "Dodaj skrót Tłumacz obok przycisku Wyślij. W trybie Conversation opcja tłumaczenia szkicu jest zawsze dostępna w zakładce Narzędzia w menu buźki przy polu wiadomości, także na telefonie.",
   "ui.faq.answers": "odpowiedzi",
   "ui.faq.beforeBug": "Zanim zgłosisz błąd",

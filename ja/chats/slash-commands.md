@@ -81,7 +81,7 @@
 | `/roll [dice (optional)]` | `/r`, `/dice` | ダイスを振って結果を投稿します。 |
 | `/random` | `/rand`, `/event` | 物語に予想外の出来事を加えるようAIに指示します。 |
 | `/scene [description (optional)]` | `/rp` | Conversationチャットから実行します。そのチャットから分岐する新しいRoleplayのシーンを開始します。 |
-| `/illustrate [range=N or range=N-M (optional)] [prompt (optional)]` | `/ill` | 現在のチャット向けにギャラリーの画像を生成します。 |
+| `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | 現在のチャット向けにギャラリーの画像を生成します。 |
 | `/impersonate [direction (optional)]` | `/imp` | 自分のペルソナとして返信を書きます。 |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | このチャットで`/impersonate`が使う指示を設定します。 |
 

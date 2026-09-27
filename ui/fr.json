@@ -159,6 +159,6 @@
   "settings.notifications.customSound.toasts.tooLarge": "Le son de notification ne doit pas dépasser 10 Mo.",
   "settings.notifications.customSound.toasts.uploaded": "Son de notification personnalisé enregistré.",
   "settings.notifications.customSound.toasts.uploadFailed": "Impossible d’enregistrer le son de notification personnalisé.",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N ou range=N-M (facultatif)] [prompt (facultatif)]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N|range=N-M (facultatif)] [prompt (facultatif)]",
   "ui.chatSettings.translationsection.addATranslateButtonBesideSendSoYouCan": "Ajoute un raccourci Traduire à côté d'Envoyer. Dans Conversation, Traduire le brouillon est toujours disponible dans l'onglet Outils du menu souriant du champ de message, y compris sur mobile."
 }

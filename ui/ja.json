@@ -159,6 +159,6 @@
   "settings.notifications.customSound.toasts.tooLarge": "通知音は10 MB以下にしてください。",
   "settings.notifications.customSound.toasts.uploaded": "カスタム通知音を保存しました。",
   "settings.notifications.customSound.toasts.uploadFailed": "カスタム通知音を保存できませんでした。",
-  "ui.chat.slash.usage.illustrate": "/illustrate [range=N または range=N-M（任意）] [プロンプト（任意）]",
+  "ui.chat.slash.usage.illustrate": "/illustrate [range=N|range=N-M（任意）] [プロンプト（任意）]",
   "ui.chatSettings.translationsection.addATranslateButtonBesideSendSoYouCan": "送信の横に翻訳ショートカットを追加します。Conversationでは、入力欄のスマイルメニューにあるツールタブから、モバイルでも常に下書きを翻訳できます。"
 }
