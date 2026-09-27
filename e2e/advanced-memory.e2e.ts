@@ -1099,6 +1099,7 @@ test("Advanced Memory keeps routine normal and guided replies quiet while preser
   request,
 }, info) => {
   const fixture = await createFixture(request);
+  const otherChat = await createFixture(request);
   const status: AdvancedMemoryStatus = {
     settings: { ...DEFAULT_ADVANCED_MEMORY_SETTINGS, enabled: true },
     job: { status: "idle", stage: "idle", completed: 0, total: 0, error: null },
@@ -1116,13 +1117,14 @@ test("Advanced Memory keeps routine normal and guided replies quiet while preser
       job: { status: "error", blocking: false, id: "legacy-job" },
       opens: false,
     },
-    { text: "Check the blocking memory job", job: { status: "error" }, opens: true },
-    { text: "Check knowledge confirmation", job: { status: "needs_confirmation", blocking: true }, opens: true },
+    { text: "Background preparation recovered", job: { status: "ready", blocking: false }, opens: false },
     {
       text: "The background failure returns after recovery",
       job: { status: "error", blocking: false, id: "legacy-job" },
       opens: false,
     },
+    { text: "Check the blocking memory job", job: { status: "error" }, opens: true },
+    { text: "Check knowledge confirmation", job: { status: "needs_confirmation", blocking: true }, opens: true },
   ];
   let generationRequests = 0;
   await page.route(`**/api/chats/${fixture.chat.id}/advanced-memory`, (route) => route.fulfill({ json: status }));
@@ -1195,7 +1197,27 @@ test("Advanced Memory keeps routine normal and guided replies quiet while preser
       if (current.job.status === "error" && current.job.blocking === false) {
         const notice = page.locator("[data-sonner-toast]").filter({ hasText: "Advanced Memory stopped." });
         await expect(notice).toHaveCount(1);
+        await page.evaluate(async (chatId) => {
+          const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+          useChatStore.getState().setActiveChatId(chatId);
+        }, otherChat.chat.id);
+        await expect
+          .poll(() =>
+            page.evaluate(async () => {
+              const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+              return useChatStore.getState().activeChatId;
+            }),
+          )
+          .toBe(otherChat.chat.id);
         await notice.getByRole("button", { name: "Review memory", exact: true }).click();
+        await expect
+          .poll(() =>
+            page.evaluate(async () => {
+              const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+              return useChatStore.getState().activeChatId;
+            }),
+          )
+          .toBe(fixture.chat.id);
         await expect(drawer).toBeVisible();
         await expect(drawer.locator('[data-component="AdvancedMemoryProgress"]')).toContainText(
           "Synthetic memory preparation failed",
@@ -1219,6 +1241,7 @@ test("Advanced Memory keeps routine normal and guided replies quiet while preser
     }
   } finally {
     await page.close().catch(() => undefined);
+    await otherChat.cleanup();
     await fixture.cleanup();
   }
 });

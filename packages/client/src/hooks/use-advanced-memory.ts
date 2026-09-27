@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import type { AdvancedMemoryJob, AdvancedMemorySettings, AdvancedMemoryStatus, Message } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
 import { translate } from "../localization/i18n";
+import { useChatStore } from "../stores/chat.store";
 import { chatKeys } from "./use-chats";
 
 export const advancedMemoryKeys = {
@@ -31,7 +32,10 @@ export function notifyAdvancedMemoryFailure(chatId: string, job: Pick<AdvancedMe
     duration: 15_000,
     action: {
       label: translate("chat.advancedMemory.reviewFailure"),
-      onClick: () => window.dispatchEvent(new CustomEvent(ADVANCED_MEMORY_SETTINGS_EVENT, { detail: { chatId } })),
+      onClick: () => {
+        useChatStore.getState().setActiveChatId(chatId);
+        window.dispatchEvent(new CustomEvent(ADVANCED_MEMORY_SETTINGS_EVENT, { detail: { chatId } }));
+      },
     },
   });
 }

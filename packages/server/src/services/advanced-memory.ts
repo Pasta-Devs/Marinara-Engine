@@ -1630,7 +1630,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           const restoring = !!repair && !!previousRecord && isDeletedScene(previousRecord);
           // Explicit recovery creates a new recap. Keep the deletion marker until
           // the replacement succeeds; ordinary maintenance still respects it.
-          if (previousRecord) candidate.id = restoring ? newId() : previousRecord.id;
+          if (previousRecord)
+            candidate.id = restoring
+              ? `memory-${hash(["restore", previousRecord.id, previousRecord.updatedAt]).slice(0, 32)}`
+              : previousRecord.id;
           const sourceIds = new Set(source.map((message) => message.id));
           const previousValid =
             previousRecord &&

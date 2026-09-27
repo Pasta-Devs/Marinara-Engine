@@ -202,6 +202,19 @@ try {
       true,
     );
     const afterFailure = summaryRequests.length;
+    const controller = new AbortController();
+    await assert.rejects(
+      memory.initialize(chat.id, {
+        sceneId,
+        signal: controller.signal,
+        onProgress: (job) => {
+          if (job.stage === "summarizing" && job.completed === 1)
+            controller.abort(new Error("Recovery interrupted after saving paid work"));
+        },
+      }),
+      /Recovery interrupted/,
+    );
+    assert.equal(summaryRequests.length, afterFailure + 1);
     await memory.initialize(chat.id, { sceneId });
     const recovered = await memory.status(chat.id);
     assert.deepEqual(recovered.unpreparedScenes, []);
@@ -212,7 +225,7 @@ try {
       recap.messageIds,
       messages.slice(0, 2).map((message) => message.id),
     );
-    assert.equal(summaryRequests.length, afterFailure + 1, "recovery summarizes only the selected scene");
+    assert.equal(summaryRequests.length, afterFailure + 1, "retry reuses the selected scene's saved paid work");
     assert.doesNotMatch(summaryRequests.at(-1)!, /COMPASS_NEXT_SCENE/);
     const untouched = (
       await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, preserved.id))
@@ -220,6 +233,14 @@ try {
     assert.deepEqual(untouched, { ...preserved, embedding: null, embeddingSpaceId: null, summaryWork: null });
     await memory.initialize(chat.id, { sceneId });
     assert.equal(summaryRequests.length, afterFailure + 1, "a repeated recovery is free");
+    await memory.deleteRecord(chat.id, recap.id);
+    await memory.initialize(chat.id, { sceneId });
+    assert.equal(summaryRequests.length, afterFailure + 2, "a later deletion starts a fresh recovery");
+    assert(
+      (await memory.status(chat.id)).records.some(
+        (record) => record.sceneId === sceneId && record.content && record.enabled,
+      ),
+    );
   });
   await test("partial visibility review is saveable and clears its error without rewriting the recap", async () => {
     const { chat, messages, row, sceneId } = await fixture();
