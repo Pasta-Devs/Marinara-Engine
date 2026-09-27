@@ -1243,7 +1243,7 @@ const COMMANDS: SlashCommand[] = [
     name: "illustrate",
     aliases: ["ill"],
     description: "Generate a gallery illustration for the current chat",
-    usage: "/illustrate [range=N-M (optional)] [prompt (optional)]",
+    usage: "/illustrate [range=N or range=N-M (optional)] [prompt (optional)]",
     requiredCapabilityId: "illustrator",
     modes: ["roleplay"],
     local: true,

@@ -311,7 +311,8 @@ export function PresetsPanel() {
   const updateMetadata = useUpdateChatMetadata();
   const [search, setSearch] = useState("");
   const [choiceModalPresetId, setChoiceModalPresetId] = useState<string | null>(null);
-  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectionTarget, setSelectionTarget] = useState<"presets" | "regex" | null>(null);
+  const selectionMode = selectionTarget === "presets";
   const [selectedPresetIds, setSelectedPresetIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
   const [regexImportError, setRegexImportError] = useState<string | null>(null);
@@ -444,7 +445,7 @@ export function PresetsPanel() {
   }, []);
 
   const exitSelectionMode = () => {
-    setSelectionMode(false);
+    setSelectionTarget((target) => (target === "presets" ? null : target));
     setSelectedPresetIds(new Set());
   };
 
@@ -1197,7 +1198,7 @@ export function PresetsPanel() {
           type="button"
           onClick={() => {
             if (selectionMode) exitSelectionMode();
-            else setSelectionMode(true);
+            else setSelectionTarget("presets");
           }}
           className={cn(
             "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
@@ -1477,6 +1478,15 @@ export function PresetsPanel() {
       </PanelSection>
 
       <RegexSection
+        selectionMode={selectionTarget === "regex"}
+        setSelectionMode={(enabled) => {
+          if (enabled) {
+            setSelectedPresetIds(new Set());
+            setSelectionTarget("regex");
+          } else {
+            setSelectionTarget((target) => (target === "regex" ? null : target));
+          }
+        }}
         handleCreateRegex={handleCreateRegex}
         handleImportRegex={handleImportRegex}
         handleExportRegex={handleExportRegex}
@@ -1544,6 +1554,8 @@ export function PresetsPanel() {
 }
 
 function RegexSection({
+  selectionMode,
+  setSelectionMode,
   handleCreateRegex,
   handleImportRegex,
   handleExportRegex,
@@ -1561,6 +1573,8 @@ function RegexSection({
   updateRegex,
   deleteRegex,
 }: {
+  selectionMode: boolean;
+  setSelectionMode: (enabled: boolean) => void;
   handleCreateRegex: () => void;
   handleImportRegex: (event: ChangeEvent<HTMLInputElement>) => void;
   handleExportRegex: (scripts?: RegexScriptRow[]) => void;
@@ -1579,7 +1593,6 @@ function RegexSection({
   deleteRegex: ReturnType<typeof useDeleteRegexScript>;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const selectedScripts = sortedRegexScripts.filter((script) => selectedIds.has(script.id));

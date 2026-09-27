@@ -1855,7 +1855,7 @@ export function ConversationInput({
     { id: "kaomoji", label: "Kaomoji" },
     { id: "gifs", label: "GIFs" },
     { id: "stickers", label: "Stickers" },
-    { id: "tools", label: "Tools" },
+    { id: "tools", label: t("chat.input.tools") },
   ];
 
   const handleTranslateDraft = useCallback(async () => {
