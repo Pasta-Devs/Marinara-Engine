@@ -12,10 +12,12 @@ import {
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { AdvancedMemoryProgress } from "./AdvancedMemoryProgress";
+import { useConnections } from "../../hooks/use-connections";
 
 const fieldClass = "mari-chrome-field w-full rounded-lg px-3 py-2 text-xs disabled:opacity-50";
 const actionClass = "mari-chrome-control min-h-9 rounded-lg px-3 py-2 text-xs font-medium disabled:opacity-50";
 const warningKeys: Record<string, string> = {
+  "decision-connection-unavailable": "chat.advancedMemory.warning.decisionConnectionUnavailable",
   "unscoped-agent-memory": "chat.advancedMemory.warning.unscopedAgentMemory",
   "unscoped-summaries": "chat.advancedMemory.warning.unscopedSummaries",
 };
@@ -45,6 +47,10 @@ export function AdvancedMemorySettings({
   const { t } = useTranslation();
   const status = useAdvancedMemoryStatus(chatId);
   const action = useAdvancedMemoryAction(chatId);
+  const savedConnections = useConnections();
+  const decisionConnections = (
+    (savedConnections.data ?? []) as Array<{ id: string; name: string; provider: string; model?: string }>
+  ).filter((connection) => connection.provider === "decision");
   const settings = status.data?.settings ?? normalizeAdvancedMemorySettings(metadataSettings);
   const [confirmKnowledge, setConfirmKnowledge] = useState(false);
   const [knowledgeCharacterIds, setKnowledgeCharacterIds] = useState<string[]>([]);
@@ -195,6 +201,54 @@ export function AdvancedMemorySettings({
           <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
             {t("chat.advancedMemory.memoryAllocationHelp")}
           </p>
+          <SettingsSwitch
+            label={t("chat.advancedMemory.decisionEnabled")}
+            description={t("chat.advancedMemory.decisionDescription")}
+            checked={settings.decisionEnabled}
+            disabled={disabled}
+            onChange={(decisionEnabled) => save({ decisionEnabled })}
+            labelPosition="start"
+            className="justify-between rounded-md bg-[var(--secondary)] px-3 py-2.5 text-left"
+            labelClassName="text-xs font-medium"
+          />
+          {settings.decisionEnabled && (
+            <div className="space-y-2">
+              <label className="block space-y-1 text-xs">
+                <span>{t("chat.advancedMemory.decisionConnection")}</span>
+                <select
+                  value={settings.decisionConnectionId ?? ""}
+                  disabled={disabled || savedConnections.isLoading || savedConnections.isError}
+                  className={fieldClass}
+                  onChange={(event) => save({ decisionConnectionId: event.target.value || null })}
+                >
+                  <option value="">{t("chat.advancedMemory.chooseDecisionConnection")}</option>
+                  {settings.decisionConnectionId &&
+                    !decisionConnections.some((connection) => connection.id === settings.decisionConnectionId) && (
+                      <option value={settings.decisionConnectionId}>
+                        {t("chat.advancedMemory.missingConnection")}
+                      </option>
+                    )}
+                  {decisionConnections.map((connection) => (
+                    <option key={connection.id} value={connection.id}>
+                      {connection.name}
+                      {connection.model ? <> · {connection.model}</> : null}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {savedConnections.isError && (
+                <p role="alert" className="text-xs text-[var(--destructive)]">
+                  {t("chat.advancedMemory.failed", { message: savedConnections.error.message })}{" "}
+                  <button type="button" className="underline" onClick={() => void savedConnections.refetch()}>
+                    {t("chat.advancedMemory.retry")}
+                  </button>
+                </p>
+              )}
+              <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+                {t("chat.advancedMemory.decisionHelp")}
+              </p>
+            </div>
+          )}
           <label className="block space-y-1 text-xs">
             <span>{t("chat.advancedMemory.helperModel")}</span>
             <select

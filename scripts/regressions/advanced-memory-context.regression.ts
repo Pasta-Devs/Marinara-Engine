@@ -12,6 +12,8 @@ const settings = {
   maxContextTokens: 65_000,
   summaryBudgetTokens: 4096,
   helperConnectionId: null,
+  decisionEnabled: false,
+  decisionConnectionId: null,
   initialProcessingModel: "helper" as const,
   sceneCheckInterval: 5,
   retrieveMaxScenes: 3,

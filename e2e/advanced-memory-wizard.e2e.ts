@@ -178,11 +178,11 @@ test("Roleplay wizard reuses automatic memory settings without downloaded agents
     const agentsToggle = wizard.getByRole("switch", { name: /^Enable Agents/ });
     await expect(agentsToggle).toHaveAttribute("aria-checked", "false");
     const memory = wizard.locator('[data-component="AdvancedMemorySettings"]');
-    const toggle = memory.getByRole("checkbox", { name: /Automatic context and memory handling \(alpha\)/ });
+    const toggle = memory.getByRole("checkbox", { name: /Automatic context and memory handling/ });
     await expect(toggle).not.toBeChecked();
     await expect(memory.getByLabel("Maximum allowed context before compression (tokens)")).toHaveCount(0);
     await page.screenshot({ path: info.outputPath("memory-wizard-disabled.png"), animations: "disabled" });
-    await memory.getByText("Automatic context and memory handling (alpha)", { exact: true }).click();
+    await memory.getByText("Automatic context and memory handling", { exact: true }).click();
     await expect.poll(async () => (await status()).settings.enabled).toBe(true);
     const context = memory.getByLabel("Maximum allowed context before compression (tokens)");
     await expect(context).toBeEnabled();
