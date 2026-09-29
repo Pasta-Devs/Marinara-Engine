@@ -6,10 +6,11 @@
 // conversation fragments from specified chats.
 import { eq, desc, and, gt, inArray, isNotNull, isNull, lt } from "../db/file-query.js";
 import type { DB } from "../db/connection.js";
-import { messages, memoryChunks } from "../db/schema/index.js";
+import { chats, messages, memoryChunks } from "../db/schema/index.js";
 import { newId, now } from "../utils/id-generator.js";
 import { localEmbed } from "./local-embedder.js";
 import { logger } from "../lib/logger.js";
+import { parseRoleplayUserCommands } from "./generation/roleplay-commands.js";
 const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
 let warnedUnavailableEmbeddingSource = false;
 
@@ -396,6 +397,12 @@ async function chunkAndEmbedMessagesUnlocked(
     .from(messages)
     .where(eq(messages.chatId, chatId))
     .orderBy(messages.createdAt);
+  const [chat] = await db.select({ mode: chats.mode }).from(chats).where(eq(chats.id, chatId)).limit(1);
+  if (chat?.mode === "roleplay") {
+    for (const message of allMessages) {
+      if (message.role === "user") message.content = parseRoleplayUserCommands(message.content).content;
+    }
+  }
 
   if (!replaceExisting) await pruneStaleNativeMemoryChunks(db, chatId, allMessages);
 
@@ -608,6 +615,7 @@ export async function recallMemories(
     .select({
       id: memoryChunks.id,
       chatId: memoryChunks.chatId,
+      sourceChatId: memoryChunks.sourceChatId,
       content: memoryChunks.content,
       embedding: memoryChunks.embedding,
       embeddingSpaceId: memoryChunks.embeddingSpaceId,
@@ -624,6 +632,12 @@ export async function recallMemories(
     );
 
   if (chunks.length === 0) return [];
+  const sourceIds = [...new Set(chunks.map((chunk) => chunk.sourceChatId ?? chunk.chatId))];
+  const sourceModes = new Map(
+    (await db.select({ id: chats.id, mode: chats.mode }).from(chats).where(inArray(chats.id, sourceIds))).map(
+      (chat) => [chat.id, chat.mode],
+    ),
+  );
 
   let dimensionMismatchLogged = false;
   let sourceMismatchLogged = false;
@@ -652,7 +666,10 @@ export async function recallMemories(
       }
       return {
         chatId: chunk.chatId,
-        content: chunk.content,
+        // Imported chunks keep their source mode. Missing sources fail closed without rewriting the archive.
+        content: ["conversation", "game"].includes(sourceModes.get(chunk.sourceChatId ?? chunk.chatId) ?? "")
+          ? chunk.content
+          : parseRoleplayUserCommands(chunk.content).content,
         similarity: cosineSimilarity(queryEmbedding, embedding),
         firstMessageAt: chunk.firstMessageAt,
         lastMessageAt: chunk.lastMessageAt,

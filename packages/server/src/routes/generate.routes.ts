@@ -206,6 +206,7 @@ import {
   buildRoleplayCommandsReminder,
   buildRoleplayPersonalContext,
   parseRoleplayCommands,
+  parseRoleplayUserCommands,
   roleplayCommandKey,
   resolveRoleplayWhisperRecipient,
   RoleplayCommandStreamFilter,
@@ -1344,6 +1345,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           })
           .catch(releaseActiveGenerationAndRethrow);
       }
+      // Every later selector, macro, agent and Discord mirror must use the durable public body.
+      if (requestChatMode === "roleplay") input.userMessage = userMsg?.content ?? "";
       currentTurnUserMessageId = userMsg?.id ?? null;
       if (requestChatMode === "conversation") {
         recordUserActivity(input.chatId);
@@ -1683,8 +1686,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       }
 
       // Get chat messages
-      const allChatMessages = await chats.listMessages(input.chatId);
       const chatMode = requestChatMode;
+      const allChatMessages = (await chats.listMessages(input.chatId)).map((message) =>
+        chatMode === "roleplay" && message.role === "user"
+          ? { ...message, content: parseRoleplayUserCommands(message.content).content }
+          : message,
+      );
       const advancedMemorySettings = normalizeAdvancedMemorySettings(chatMeta.advancedMemory);
       const advancedMemoryEnabled = chatMode === "roleplay" && advancedMemorySettings.enabled;
       // Resolve historical time before user start markers: later resets must not hide an older swipe target.
@@ -2435,6 +2442,20 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         throw new Error("All characters in this chat are disabled. Enable at least one character before generating.");
       }
 
+      // The trigger menu can ask Smart for one turn without mutating the saved group order.
+      const savedGroupResponseOrder = (chatMeta.groupResponseOrder as string) ?? "sequential";
+      const smartResponseRequested =
+        input.smartResponse &&
+        chatMode === "roleplay" &&
+        allCharacterIds.length > 1 &&
+        resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode) === "individual" &&
+        (savedGroupResponseOrder === "smart" || savedGroupResponseOrder === "manual") &&
+        !input.forCharacterId &&
+        !input.regenerateMessageId &&
+        !input.continueMessageId &&
+        !input.impersonate;
+      const effectiveGroupResponseOrder = smartResponseRequested ? "smart" : savedGroupResponseOrder;
+
       let groupHistoryCharacterNamesByIdPromise: Promise<Map<string, string>> | null = null;
       const getGroupHistoryCharacterNamesById = () => {
         groupHistoryCharacterNamesByIdPromise ??= resolveCharacterNameMap(allCharacterIds, (id) => chars.getById(id));
@@ -2646,7 +2667,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               return false;
             }
           });
-        const promptGroupResponseOrder = (chatMeta.groupResponseOrder as string) ?? "sequential";
+        const promptGroupResponseOrder = effectiveGroupResponseOrder;
         const promptGroupChatMode = resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode);
         // Each responder sees other characters as user input. Keep shared history
         // untouched until those roles are scoped, including replies within this turn.
@@ -4811,7 +4832,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         // Preserve group-chat behavior when the user temporarily disables all but
         // one participant. The active list still controls who may respond.
         const isGroupChat = chatMode === "roleplay" ? allCharacterIds.length > 1 : characterIds.length > 1;
-        const groupResponseOrder = (chatMeta.groupResponseOrder as string) ?? "sequential";
+        const groupResponseOrder = effectiveGroupResponseOrder;
         const groupChatMode = resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode);
         // Auto-enable speaker colors for conversation mode groups (system prompt already requests tags)
         const groupSpeakerColors = chatMeta.groupSpeakerColors === true || (chatMode === "conversation" && isGroupChat);
@@ -7133,7 +7154,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           explicitlyMentionedConversationCharacterIds.includes(character.id),
         );
 
-        const hasExplicitGenerationDirective = input.impersonate === true || Boolean(input.generationGuide?.trim());
+        const hasExplicitGenerationDirective =
+          input.impersonate === true || (Boolean(input.generationGuide?.trim()) && !smartResponseRequested);
         const selectExplicitOrFallbackSmartGroupResponder = (): string[] => {
           const explicitMentionIds = getExplicitlyMentionedCharacterIds();
           return explicitMentionIds.length > 0 ? explicitMentionIds : selectFallbackSmartGroupResponder();

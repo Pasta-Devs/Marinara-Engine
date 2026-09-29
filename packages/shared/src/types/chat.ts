@@ -1079,6 +1079,8 @@ export interface GenerateRequest {
   attachments?: MessageAttachment[];
   /** One-shot Narrative Director mode for this generation, if the user armed Push Story. */
   narrativeDirectorMode?: "natural" | "random" | null;
+  /** One-shot Smart speaker selection for an individual Roleplay group. */
+  smartResponse?: boolean;
 }
 
 /** An SSE event from the generation stream. */

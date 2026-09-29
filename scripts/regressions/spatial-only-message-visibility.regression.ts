@@ -44,6 +44,36 @@ assert.equal(
   "an explicit hidden marker still takes precedence",
 );
 
+for (const activity of [
+  { command: { type: "whisper", character: "Bob", text: "Only Bob knows." }, raw: "[whisper]" },
+  { command: { type: "notes", content: "Private intentions." }, raw: "[notes]" },
+  {
+    command: { type: "whisper", character: "", text: "" },
+    raw: '[whisper: character="Bob" text="Unfinished',
+    error: "roleplay.commands.errors.invalidPrivate",
+  },
+]) {
+  const extra = { roleplayCommandActivity: [activity] };
+  assert.equal(
+    isMessageHiddenFromUser({ role: "user", content: "", extra: JSON.stringify(extra) }),
+    false,
+    "private command cards and recoverable errors are visible without public prose",
+  );
+  assert.equal(
+    isMessageHiddenFromUser({ role: "user", content: "", extra: { ...extra, hiddenFromUser: true } }),
+    true,
+    "command activity cannot override explicit hiding",
+  );
+  assert.equal(isVisibleGameMessage({ role: "user", content: "", extra }), false);
+}
+for (const roleplayCommandActivity of [[], [null], [{ command: { type: "unknown" }, raw: "unknown" }]]) {
+  assert.equal(
+    isMessageHiddenFromUser({ role: "user", content: "", extra: { roleplayCommandActivity } }),
+    true,
+    "empty or malformed metadata must not create a blank user bubble",
+  );
+}
+
 for (const role of ["assistant", "narrator", "user", "system"]) {
   assert.equal(isVisibleGameMessage({ role, content: "Visible", extra: "{}" }), true);
   assert.equal(isVisibleGameMessage({ role, content: "Visible", extra: { hiddenFromUser: true } }), false);

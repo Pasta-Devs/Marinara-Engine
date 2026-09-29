@@ -1712,7 +1712,9 @@ export function ChatRoleplaySurface({
     const timer = window.setTimeout(() => {
       if (
         document.hidden ||
-        document.querySelector('[data-component="Modal"], [data-macro-modal], textarea:focus, input:focus')
+        document.querySelector(
+          '[data-component="Modal"], [data-component="ExpandedTextarea"], [data-macro-modal], textarea:focus, input:focus',
+        )
       )
         return;
       setVnParagraphIndex(currentParagraphIndex + 1);

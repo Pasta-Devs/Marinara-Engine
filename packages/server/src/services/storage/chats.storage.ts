@@ -54,6 +54,7 @@ import {
   type RoleplayCommandActivity,
 } from "@marinara-engine/shared";
 import { prepareRoleplayInterruption } from "../generation/roleplay-interrupt.js";
+import { prepareUserRoleplayCommands } from "../generation/roleplay-commands.js";
 import {
   ensureTimestampAfter,
   latestTrustedTimestamp,
@@ -764,6 +765,25 @@ export function createChatsStorage(db: DB) {
   const readMessage = async (id: string) => (await db.select().from(messages).where(eq(messages.id, id)))[0] ?? null;
   const readSwipes = (id: string) =>
     db.select().from(messageSwipes).where(eq(messageSwipes.messageId, id)).orderBy(messageSwipes.index);
+
+  async function userRoleplayPreparer(chatId: string) {
+    const [chat] = await db.select().from(chats).where(eq(chats.id, chatId)).limit(1);
+    if (chat?.mode !== "roleplay") return null;
+    const ids = parseCharacterIds(chat.characterIds);
+    const rows = ids.length
+      ? await db
+          .select({ id: characters.id, data: characters.data })
+          .from(characters)
+          .where(inArray(characters.id, ids))
+      : [];
+    const roster = rows.flatMap((row) => {
+      const name = parseExtraRecord(row.data).name;
+      return typeof name === "string" ? [{ id: row.id, name }] : [];
+    });
+    const metadata = parseExtraRecord(chat.metadata);
+    return (content: string, extra: unknown) =>
+      prepareUserRoleplayCommands({ content, extra: parseExtraRecord(extra), metadata, characters: roster });
+  }
 
   let scanCompactionByChat = lorebookScanCompactionStates.get(db);
   if (!scanCompactionByChat) {
@@ -2183,6 +2203,10 @@ export function createChatsStorage(db: DB) {
     },
 
     async createMessage(input: CreateMessageInput, timestampOverrides?: TimestampOverrides | null) {
+      const prepare = input.role === "user" ? await userRoleplayPreparer(input.chatId) : null;
+      const prepared = prepare?.(input.content, input.extra);
+      const content = prepared?.content ?? input.content;
+      const extra = prepared?.extra ?? parseExtraRecord(input.extra);
       const id = newId();
       const resolvedTimestamp = resolveTimestamps(timestampOverrides).createdAt;
       const explicitTimestamp = normalizeTimestampOverrides(timestampOverrides)?.createdAt;
@@ -2199,10 +2223,10 @@ export function createChatsStorage(db: DB) {
         chatId: input.chatId,
         role: input.role,
         characterId: input.characterId,
-        content: input.content,
+        content,
         activeSwipeIndex: 0,
         extra: JSON.stringify({
-          ...parseExtraRecord(input.extra),
+          ...extra,
           displayText: null,
           isGenerated: input.role !== "user",
           tokenCount: null,
@@ -2215,8 +2239,8 @@ export function createChatsStorage(db: DB) {
         id: newId(),
         messageId: id,
         index: 0,
-        content: input.content,
-        extra: JSON.stringify(parseExtraRecord(input.extra)),
+        content,
+        extra: JSON.stringify(extra),
         createdAt: timestamp,
       });
       await db.update(chats).set({ lastMessageAt: timestamp, updatedAt: timestamp }).where(eq(chats.id, input.chatId));
@@ -2254,6 +2278,7 @@ export function createChatsStorage(db: DB) {
       timestampOverrides?: TimestampOverrides | null,
     ) {
       if (inputs.length === 0) return [];
+      const prepareUser = inputs.some((input) => input.role === "user") ? await userRoleplayPreparer(chatId) : null;
       const msgRows: (typeof messages.$inferInsert)[] = [];
       const swipeRows: (typeof messageSwipes.$inferInsert)[] = [];
       const createdIds: string[] = [];
@@ -2272,19 +2297,21 @@ export function createChatsStorage(db: DB) {
         })?.createdAt;
         const timestamp = explicitTimestamp ?? new Date(safeBaseTime + idx).toISOString();
         createdTimestamps.push(timestamp);
+        const fallbackExtra = {
+          displayText: null,
+          isGenerated: input.role !== "user",
+          tokenCount: null,
+          generationInfo: null,
+        };
+        const prepared = input.role === "user" ? prepareUser?.(input.content, input.extra ?? fallbackExtra) : null;
         msgRows.push({
           id,
           chatId,
           role: input.role,
           characterId: input.characterId,
-          content: input.content,
+          content: prepared?.content ?? input.content,
           activeSwipeIndex: input.activeSwipeIndex ?? 0,
-          extra: serializeJsonField(input.extra, {
-            displayText: null,
-            isGenerated: input.role !== "user",
-            tokenCount: null,
-            generationInfo: null,
-          }),
+          extra: serializeJsonField(prepared?.extra ?? input.extra, fallbackExtra),
           createdAt: timestamp,
         });
         const inputSwipes = input.swipes?.length
@@ -2298,12 +2325,21 @@ export function createChatsStorage(db: DB) {
               },
             ];
         for (const swipe of inputSwipes) {
+          const preparedSwipe =
+            input.role === "user"
+              ? prepareUser?.(
+                  swipe.content,
+                  swipe.index === (input.activeSwipeIndex ?? 0)
+                    ? { ...parseExtraRecord(swipe.extra), ...parseExtraRecord(input.extra) }
+                    : swipe.extra,
+                )
+              : null;
           swipeRows.push({
             id: newId(),
             messageId: id,
             index: swipe.index,
-            content: swipe.content,
-            extra: serializeJsonField(swipe.extra, {}),
+            content: preparedSwipe?.content ?? swipe.content,
+            extra: serializeJsonField(preparedSwipe?.extra ?? swipe.extra, {}),
             createdAt: normalizeTimestampOverrides({ createdAt: swipe.createdAt })?.createdAt ?? timestamp,
           });
         }
@@ -2532,6 +2568,9 @@ export function createChatsStorage(db: DB) {
     async updateMessageContent(id: string, content: string) {
       return withPatchQueue(messageExtraPatchQueues, id, async () => {
         const existing = await this.getMessage(id);
+        const prepare = existing?.role === "user" ? await userRoleplayPreparer(existing.chatId) : null;
+        const prepared = prepare?.(content, existing?.extra);
+        content = prepared?.content ?? content;
 
         // Conversation-mode prompt history prefers `conversationCommandContent` (the raw
         // reply before command stripping) over `content`, so a rewrite of the visible text
@@ -2547,8 +2586,11 @@ export function createChatsStorage(db: DB) {
           content !== (existing?.content ?? "");
 
         const messagePatch: Record<string, unknown> = { content };
-        if (clearCommandContent) {
-          messagePatch.extra = JSON.stringify({ ...existingExtra, conversationCommandContent: null });
+        if (prepared || clearCommandContent) {
+          messagePatch.extra = JSON.stringify({
+            ...(prepared?.extra ?? existingExtra),
+            ...(clearCommandContent ? { conversationCommandContent: null } : {}),
+          });
         }
         // One transaction around the messages row and its swipe mirror
         // (#5600): the store defers flushes while a transaction is active, so
@@ -2567,8 +2609,11 @@ export function createChatsStorage(db: DB) {
             const activeSwipe = swipes.find((s: any) => s.index === msg.activeSwipeIndex);
             if (activeSwipe) {
               const swipePatch: Record<string, unknown> = { content };
+              if (prepared) {
+                swipePatch.extra = JSON.stringify({ ...parseExtraRecord(activeSwipe.extra), ...prepared.extra });
+              }
               if (clearCommandContent) {
-                const swipeExtra = parseExtraRecord(activeSwipe.extra);
+                const swipeExtra = { ...parseExtraRecord(activeSwipe.extra), ...prepared?.extra };
                 // Clear only a raw copy this swipe itself carries, and never a
                 // command-only carrier's.
                 if (
@@ -3206,6 +3251,10 @@ export function createChatsStorage(db: DB) {
         const nextIndex = existing.length;
         const msg = await this.getMessage(messageId);
         const retainedExtra = msg ? freshSwipeMessageExtra(msg.extra) : {};
+        const prepare = msg?.role === "user" ? await userRoleplayPreparer(msg.chatId) : null;
+        const prepared = prepare?.(content, retainedExtra);
+        content = prepared?.content ?? content;
+        const nextExtra = prepared?.extra ?? retainedExtra;
 
         // Backfill: save current message extra onto the currently-active swipe
         // so its thinking/generationInfo isn't lost when we switch away
@@ -3227,7 +3276,7 @@ export function createChatsStorage(db: DB) {
           messageId,
           index: nextIndex,
           content,
-          extra: JSON.stringify(retainedExtra),
+          extra: JSON.stringify(nextExtra),
           createdAt: now(),
         });
 
@@ -3236,7 +3285,7 @@ export function createChatsStorage(db: DB) {
           // Set active swipe to the new one and reset message extra for the fresh swipe.
           await db
             .update(messages)
-            .set({ activeSwipeIndex: nextIndex, content, extra: JSON.stringify(retainedExtra) })
+            .set({ activeSwipeIndex: nextIndex, content, extra: JSON.stringify(nextExtra) })
             .where(eq(messages.id, messageId));
           if (msg) {
             await invalidateMemoryChunksFrom(db, msg.chatId, msg.createdAt);

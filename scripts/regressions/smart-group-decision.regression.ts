@@ -221,12 +221,12 @@ try {
   });
 
   const settings = createAppSettingsStorage(db);
-  const turn = async (text: string) => {
+  const turn = async (text: string | null, overrides: Record<string, unknown> = {}) => {
     replies.length = 0;
     const response = await app.inject({
       method: "POST",
       url: "/api/generate/",
-      payload: { chatId: chat.id, userMessage: text },
+      payload: { chatId: chat.id, userMessage: text, ...overrides },
     });
     assert.equal(response.statusCode, 200, response.body);
     assert(!response.body.includes('"type":"error"'), response.body);
@@ -271,6 +271,43 @@ try {
   assert.deepEqual(await turn("Who's next?"), ["Bram"], "the chat-model selector chose, as before");
   assert.equal(decisionCalls.length, beforeNone, "nothing asked a decision model that is not set");
   assert.equal(selectorCalls.length, 3);
+
+  // The trigger menu can ask Smart once while the group remains in Manual order.
+  await chats.patchMetadata(chat.id, { groupResponseOrder: "manual" });
+  await connections.update(decision.id, { defaultForAgents: true });
+  probabilities = { [aya!.id]: 0.9, [bram!.id]: 0.2, [cole!.id]: 0.1 };
+  const decisionBeforeTrigger = decisionCalls.length;
+  const selectorBeforeTrigger = selectorCalls.length;
+  const messagesBeforeTrigger = await chats.listMessages(chat.id);
+  assert.deepEqual(await turn(null, { smartResponse: true }), ["Aya"]);
+  assert.equal(decisionCalls.length, decisionBeforeTrigger + 1, "Smart trigger honors the Decision model setting");
+  assert.equal(selectorCalls.length, selectorBeforeTrigger, "the existing Decision path avoids a selector call");
+  const savedChat = await chats.getById(chat.id);
+  assert.equal(JSON.parse(savedChat!.metadata).groupResponseOrder, "manual", "one-off Smart never changes the mode");
+  assert.equal(
+    (await chats.listMessages(chat.id)).filter((message) => message.role === "user").length,
+    messagesBeforeTrigger.filter((message) => message.role === "user").length,
+    "a response trigger does not create a user message",
+  );
+  assert.deepEqual(await turn(null), [], "ordinary Manual triggers still require a named character");
+  assert.equal(decisionCalls.length, decisionBeforeTrigger + 1);
+
+  // A guide shapes the reply but an explicit Smart trigger still selects its speaker.
+  probabilities = { [aya!.id]: 0.1, [bram!.id]: 0.2, [cole!.id]: 0.9 };
+  assert.deepEqual(
+    await turn(null, { smartResponse: true, generationGuide: "Answer quietly.", generationGuideSource: "guide" }),
+    ["Cole"],
+  );
+  assert.equal(decisionCalls.length, decisionBeforeTrigger + 2, "guided Smart uses the model selector too");
+  assert.deepEqual(await turn(null, { forCharacterId: bram!.id, smartResponse: true }), ["Bram"]);
+  assert.equal(decisionCalls.length, decisionBeforeTrigger + 2, "a named trigger always keeps its explicit target");
+
+  await settings.remove(DECISION_SMART_ORDER_SETTINGS_KEY);
+  selectorAnswer = [aya!.id];
+  assert.deepEqual(await turn(null, { smartResponse: true }), ["Aya"]);
+  assert.equal(selectorCalls.length, selectorBeforeTrigger + 1, "with Decision disabled, Smart uses the chat selector");
+  assert.equal(decisionCalls.length, decisionBeforeTrigger + 2);
+  assert.equal(JSON.parse((await chats.getById(chat.id))!.metadata).groupResponseOrder, "manual");
 
   console.log("smart-group-decision regression passed");
 } finally {

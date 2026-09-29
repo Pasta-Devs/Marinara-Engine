@@ -25,18 +25,62 @@ import { isDiceRollResult } from "../../lib/dice-roll-result";
 const loadedAt = Date.now();
 
 export function RoleplayWhisper({
+  chatId,
+  messageId,
+  swipeIndex,
+  activityIndex,
+  extra,
+  isStreaming,
   character,
   text,
-  forPersona,
+  knownToUser,
 }: {
+  chatId: string;
+  messageId: string;
+  swipeIndex: number;
+  activityIndex: number;
+  extra: Record<string, unknown>;
+  isStreaming: boolean;
   character: string;
   text: string;
-  forPersona: boolean;
+  knownToUser: boolean;
 }) {
   const { t } = useTranslation();
   const id = useId();
+  const mutation = useUpdateMessageExtra(chatId);
+  const chatGenerating = useChatStore(
+    (state) => state.abortControllers.has(chatId) || (state.isStreaming && state.streamingChatId === chatId),
+  );
   const [revealed, setRevealed] = useState(false);
-  const visible = forPersona || revealed;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState("");
+  const visible = knownToUser || revealed;
+  const pending = isStreaming || chatGenerating || mutation.isPending;
+  const limit = 16000;
+  const closeEditor = () => {
+    if (!mutation.isPending) setEditing(false);
+  };
+  const save = async () => {
+    if (pending || !draft.trim() || draft.length > limit) return;
+    setError("");
+    try {
+      await mutation.mutateAsync({
+        messageId,
+        swipeIndex,
+        extra: {
+          roleplayCommandActivity: getRoleplayCommandActivity(extra).map((item, index) =>
+            index === activityIndex && item.command.type === "whisper"
+              ? { ...item, command: { ...item.command, text: draft } }
+              : item,
+          ),
+        },
+      });
+      setEditing(false);
+    } catch {
+      setError(t("roleplay.commands.activity.saveFailed"));
+    }
+  };
   return (
     <span
       className="my-3 block min-w-0 max-w-full rounded-lg border border-[var(--primary)]/25 bg-[var(--card)] px-4 py-3 text-[var(--foreground)] whitespace-normal [text-shadow:none] [-webkit-text-stroke:0px]"
@@ -50,29 +94,83 @@ export function RoleplayWhisper({
             {t("roleplay.commands.whisper.to", { character })}
           </span>
         </span>
-        {!forPersona && (
-          <button
-            type="button"
-            aria-expanded={visible}
-            aria-describedby={`${id}-recipient`}
-            aria-controls={visible ? `${id}-secret` : undefined}
-            className="flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm text-[var(--primary)] hover:bg-[var(--primary)]/10 focus-visible:outline focus-visible:outline-[var(--primary)]"
-            onClick={() => setRevealed(!revealed)}
-          >
-            {visible ? <EyeOff size="0.875rem" aria-hidden /> : <Eye size="0.875rem" aria-hidden />}
-            <span>{t(visible ? "roleplay.commands.whisper.hide" : "roleplay.commands.whisper.reveal")}</span>
-          </button>
-        )}
+        <span className="flex flex-wrap items-center gap-1">
+          {visible && (
+            <button
+              type="button"
+              className={actionClass}
+              aria-describedby={`${id}-recipient`}
+              disabled={pending}
+              onClick={() => {
+                setDraft(text);
+                setError("");
+                setEditing(true);
+              }}
+            >
+              <Pencil size="0.875rem" aria-hidden className="mr-1 inline" />
+              {t("roleplay.commands.whisper.edit")}
+            </button>
+          )}
+          {!knownToUser && (
+            <button
+              type="button"
+              aria-expanded={visible}
+              aria-describedby={`${id}-recipient`}
+              aria-controls={visible ? `${id}-secret` : undefined}
+              className="flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm text-[var(--primary)] hover:bg-[var(--primary)]/10 focus-visible:outline focus-visible:outline-[var(--primary)]"
+              onClick={() => setRevealed(!revealed)}
+            >
+              {visible ? <EyeOff size="0.875rem" aria-hidden /> : <Eye size="0.875rem" aria-hidden />}
+              <span>{t(visible ? "roleplay.commands.whisper.hide" : "roleplay.commands.whisper.reveal")}</span>
+            </button>
+          )}
+        </span>
       </span>
       {visible && (
         <span id={`${id}-secret`} className="mt-2 block whitespace-pre-wrap break-words text-sm italic leading-relaxed">
           {text}
         </span>
       )}
-      {!forPersona && visible && (
+      {!knownToUser && visible && (
         <span className="mt-2 block text-xs text-[var(--muted-foreground)]">
           {t("roleplay.commands.whisper.revealedHint")}
         </span>
+      )}
+      {editing && (
+        <ExpandedTextarea
+          open
+          onClose={closeEditor}
+          title={t("roleplay.commands.whisper.edit")}
+          value={draft}
+          onChange={setDraft}
+          readOnly={mutation.isPending}
+          closeLabel={t("roleplay.commands.activity.cancel")}
+          footer={
+            <div className="flex flex-wrap items-center justify-end gap-2 pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))]">
+              {error && (
+                <p role="alert" className="mr-auto text-sm">
+                  {error}
+                </p>
+              )}
+              {draft.length > limit && (
+                <p role="alert" className="mr-auto text-sm">
+                  {t("roleplay.commands.activity.tooLong", { limit })}
+                </p>
+              )}
+              <button type="button" className={actionClass} disabled={mutation.isPending} onClick={closeEditor}>
+                {t("roleplay.commands.activity.cancel")}
+              </button>
+              <button
+                type="button"
+                className={actionClass}
+                disabled={pending || !draft.trim() || draft.length > limit}
+                onClick={() => void save()}
+              >
+                {t("roleplay.commands.activity.save")}
+              </button>
+            </div>
+          }
+        />
       )}
     </span>
   );
@@ -298,7 +396,9 @@ function CommandNotice({
                 </pre>
               </div>
             )}
-            {item.error && <p>{t("roleplay.commands.failed", { error: item.error })}</p>}
+            {item.error && (
+              <p>{t("roleplay.commands.failed", { error: t(item.error, { defaultValue: item.error }) })}</p>
+            )}
             {command.type === "interrupt" &&
               item.interruption &&
               !item.deleted &&
@@ -413,11 +513,11 @@ export function RoleplayCommandResults({
           attachment.url.startsWith("/api/game-assets/file/sfx/"),
       )
     : [];
-  if (!activity.some((item) => item.command.type !== "whisper") && !sounds.length) return null;
+  if (!activity.some((item) => item.command.type !== "whisper" || item.error) && !sounds.length) return null;
   return (
     <div className="mt-3 space-y-2" data-roleplay-command-results onDoubleClick={(event) => event.stopPropagation()}>
       {activity.map((item, index) =>
-        item.command.type === "whisper" ? null : (
+        item.command.type === "whisper" && !item.error ? null : (
           <CommandNotice
             key={`${messageId}:${swipeIndex}:${index}`}
             item={item}

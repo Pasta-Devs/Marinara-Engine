@@ -118,6 +118,7 @@ export function ExpandedTextarea({
           <div className={cn("flex-1 overflow-hidden p-4 md:p-6", isChatSurface && NEUTRAL_PANEL_SCROLL_AREA)}>
             <textarea
               ref={textareaRef}
+              aria-label={title}
               value={value}
               onChange={(e) => onChange(e.target.value)}
               readOnly={readOnly}

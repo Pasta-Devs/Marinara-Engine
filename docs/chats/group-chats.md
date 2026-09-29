@@ -95,6 +95,8 @@ When **Mode** is **Individual**, a **Response Order** setting appears. It is a t
 
 With **Smart** order, the AI can line up more than one character. Only the first one replies right away. To pick who speaks next, use the **Trigger Response** picker in the message bar. You can also send an empty message to generate the next queued character.
 
+In Roleplay **Individual** mode with **Smart** or **Manual** order, the picker's first option is **Smart**, marked by a people icon in your accent color. It asks the model to choose the next speaker for that response, using the Decision model when its Smart-order option is enabled. Your saved response order stays unchanged, and the named character options still let you choose directly.
+
 Two more toggles appear in **Individual** mode:
 
 - **Add Turn To Prompt** is on by default. It adds a short instruction naming which character should reply this turn.
