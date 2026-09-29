@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import {
   findKnownModel,
+  isOpenAIGpt6AlwaysReasoningModel,
   isOpenAIGpt6AstraModel,
   isOpenAIGpt6Model,
   resolveProviderReasoningEffort,
@@ -13,6 +14,7 @@ import { OpenAIProvider } from "../../packages/server/src/services/llm/providers
 
 // Ground truth: https://developers.openai.com/api/docs/models/gpt-6-astra
 // https://developers.openai.com/api/docs/models/gpt-6-sol and /gpt-6-luna
+// https://developers.openai.com/api/docs/models/gpt-6.1-sol (effort low through max; no "none" or "minimal")
 // and https://developers.openai.com/api/docs/guides/latest-model/gpt-6-astra (family migration).
 assert.deepEqual(findKnownModel("openai", "gpt-6-astra"), {
   id: "gpt-6-astra",
@@ -50,6 +52,22 @@ for (const model of ["gpt-6-sol", "gpt-6-luna"]) {
 }
 assert.equal(isOpenAIGpt6Model("gpt-6-solstice"), false);
 assert.equal(isOpenAIGpt6Model("gpt-6-lunar-local"), false);
+
+for (const provider of ["openai", "custom", "openrouter"] as const) {
+  const id = provider === "openrouter" ? "openai/gpt-6.1-sol" : "gpt-6.1-sol";
+  assert.equal(findKnownModel(provider, id)?.context, 1_050_000);
+  assert.equal(findKnownModel(provider, id)?.maxOutput, 128_000);
+  assert.equal(shouldSuppressUnknownModelParameters(provider, id), false);
+  assert.equal(resolveProviderReasoningEffort({ provider, model: id, reasoningEffort: "maximum" }), "max");
+  assert.equal(resolveProviderReasoningEffort({ provider, model: id, reasoningEffort: "xhigh" }), "xhigh");
+}
+assert.equal(isOpenAIGpt6Model("GPT-6.1-SOL"), true);
+assert.equal(isOpenAIGpt6AlwaysReasoningModel("gpt-6.1-sol"), true);
+assert.equal(isOpenAIGpt6AlwaysReasoningModel("gpt-6-astra"), true);
+for (const model of ["gpt-6-sol", "gpt-6-luna", "gpt-6.1-solstice", "gpt-6.10-sol"]) {
+  assert.equal(isOpenAIGpt6AlwaysReasoningModel(model), false, model);
+}
+assert.equal(isOpenAIGpt6Model("gpt-6.1-solstice"), false);
 
 const requests: Array<{ url: string; body: Record<string, unknown> }> = [];
 const toolCall = {
@@ -108,8 +126,8 @@ try {
     { role: "system", content: "Keep <scene> verbatim." },
     { role: "user", content: "Describe this scene.", images: ["data:image/png;base64,aW1hZ2U="] },
   ];
-  for (const model of ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna"]) {
-    const canDisable = model !== "gpt-6-astra";
+  for (const model of ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol"]) {
+    const canDisable = model !== "gpt-6-astra" && model !== "gpt-6.1-sol";
     const storedOptions = resolveStoredChatOptions({ reasoningEffort: "maximum" }, "openai", model);
     assert.equal(storedOptions.reasoningEffort, "max", "connection Maximum must reach the provider as max");
 
@@ -292,4 +310,4 @@ try {
   await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 }
 
-console.log("GPT-6 Astra, Sol and Luna provider regressions passed.");
+console.log("GPT-6 Astra, Sol, Luna and 6.1 Sol provider regressions passed.");

@@ -21,7 +21,7 @@ import {
   isClaudeOpus55Model,
   isOpenAIGpt56Model,
   isOpenAIGpt56SolProAlias,
-  isOpenAIGpt6AstraModel,
+  isOpenAIGpt6AlwaysReasoningModel,
   isOpenAIGpt6Model,
   isXaiAutoReasoningModel,
   isXaiConfigurableReasoningModel,
@@ -632,7 +632,9 @@ export class OpenAIProvider extends BaseLLMProvider {
 
   private isOpenAINoSamplingModel(model: string): boolean {
     const normalized = model.toLowerCase();
-    return normalized.startsWith("gpt-5.5") || isOpenAIGpt56Model(normalized) || isOpenAIGpt6AstraModel(normalized);
+    return (
+      normalized.startsWith("gpt-5.5") || isOpenAIGpt56Model(normalized) || isOpenAIGpt6AlwaysReasoningModel(normalized)
+    );
   }
 
   private isResponsesStreamingUnsupportedModel(model: string): boolean {
@@ -647,7 +649,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     if (isOpenAIGpt6Model(model)) return true;
     if (this.isGenericCustomProvider() && !this.isOpenAINoSamplingModel(model)) return false;
     const m = model.toLowerCase();
-    return /^(o1|o3|o4)/.test(m) || m.startsWith("gpt-5") || isOpenAIGpt6AstraModel(m);
+    return /^(o1|o3|o4)/.test(m) || m.startsWith("gpt-5") || isOpenAIGpt6AlwaysReasoningModel(m);
   }
 
   private isXAIEndpoint(): boolean {
@@ -714,12 +716,12 @@ export class OpenAIProvider extends BaseLLMProvider {
   /**
    * Check if a model/config does NOT support temperature/topP.
    * o-series models never do.
-   * Astra and GPT-5.6/GPT-5.5 reject sampling params entirely; older GPT-5.x models only
+   * GPT-6 Astra, GPT-6.1 Sol and GPT-5.6/GPT-5.5 reject sampling params entirely; older GPT-5.x models only
    * reject them when reasoning effort is active.
    * GPT-6 Sol/Luna allow sampling only with explicit reasoning effort "none".
    */
   private isNoTemperatureModel(model: string, reasoningEffort?: string): boolean {
-    if (isOpenAIGpt6Model(model)) return isOpenAIGpt6AstraModel(model) || reasoningEffort !== "none";
+    if (isOpenAIGpt6Model(model)) return isOpenAIGpt6AlwaysReasoningModel(model) || reasoningEffort !== "none";
     if (this.isGenericCustomProvider() && !this.isOpenAINoSamplingModel(model) && !isClaudeOpus55Model(model))
       return false;
     const m = model.toLowerCase();
@@ -810,7 +812,7 @@ export class OpenAIProvider extends BaseLLMProvider {
   private supportsOpenAIReasoningDisable(model: string): boolean {
     const normalized = model.toLowerCase().replace(/^openai\//, "");
     if (normalized.includes("-pro")) return false;
-    if (isOpenAIGpt6Model(normalized)) return !isOpenAIGpt6AstraModel(normalized);
+    if (isOpenAIGpt6Model(normalized)) return !isOpenAIGpt6AlwaysReasoningModel(normalized);
     const version = normalized.match(/^gpt-5\.(\d+)/)?.[1];
     return version !== undefined && Number(version) >= 1;
   }
@@ -883,7 +885,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
       return;
     }
-    if (isOpenAIGpt6AstraModel(options.model) && this.hasExplicitReasoningDisable(options.reasoningEffort)) {
+    if (isOpenAIGpt6AlwaysReasoningModel(options.model) && this.hasExplicitReasoningDisable(options.reasoningEffort)) {
       if (this.isOpenRouterEndpoint()) body.reasoning = { effort: "low" };
       else body.reasoning_effort = "low";
       return;
@@ -1044,7 +1046,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     }
 
     const reasoning: Record<string, unknown> = {};
-    if (isOpenAIGpt6AstraModel(options.model) && this.hasExplicitReasoningDisable(options.reasoningEffort)) {
+    if (isOpenAIGpt6AlwaysReasoningModel(options.model) && this.hasExplicitReasoningDisable(options.reasoningEffort)) {
       reasoning.effort = "low";
     }
     if (
