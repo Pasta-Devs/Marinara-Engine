@@ -127,11 +127,23 @@ export function useMultiplayerMutation<TData, TVariables>(path: string, method: 
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: TVariables) => (method === "delete" ? api.delete<TData>(path) : api[method]<TData>(path, data)),
-    onSuccess: async (_result, data) => {
+    onSuccess: async (result, data) => {
       if (path === "/multiplayer/settings" && data && typeof data === "object" && "enabled" in data && !data.enabled) {
         await stopMultiplayerQueries(queryClient, true);
         await queryClient.invalidateQueries({ queryKey: chatKeys.all });
         return;
+      }
+      if (path === "/multiplayer/host" || path === "/multiplayer/join") {
+        const current = queryClient.getQueryData<MultiplayerStatus>(multiplayerKeys.status);
+        if (!current?.available || !current.enabled) {
+          await queryClient.invalidateQueries({ queryKey: chatKeys.all });
+          return;
+        }
+        if (result) {
+          const host = path === "/multiplayer/host";
+          queryClient.setQueryData(host ? multiplayerKeys.host : multiplayerKeys.guest, result);
+          queryClient.setQueryData(multiplayerKeys.status, { ...current, [host ? "hosting" : "joined"]: true });
+        }
       }
       await Promise.all([
         // Preserve the successful write if its follow-up status read fails, as invalidation does.

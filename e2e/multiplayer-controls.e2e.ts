@@ -61,11 +61,15 @@ async function mountControls(
         const { MultiplayerSettings } = await import("/src/features/multiplayer/MultiplayerSettings.tsx" as string);
         function GateProbe() {
           const status = useMultiplayerStatus();
-          useMultiplayerHost();
-          useMultiplayerGuest();
+          const host = useMultiplayerHost();
+          const guest = useMultiplayerGuest();
           return React.createElement(
             "output",
-            { "data-testid": "multiplayer-gate" },
+            {
+              "data-testid": "multiplayer-gate",
+              "data-host": host.data?.chatId ?? "none",
+              "data-guest": guest.data?.localChatId ?? "none",
+            },
             status.data ? (status.data.available && status.data.enabled ? "on" : "off") : "loading",
           );
         }
@@ -83,8 +87,16 @@ async function mountControls(
               { onClick: () => void queryClient.invalidateQueries() },
               "Invalidate app queries",
             ),
-            React.createElement("button", { onClick: () => host.mutate({}) }, "Host fixture room"),
-            React.createElement("button", { onClick: () => join.mutate({}) }, "Join fixture room"),
+            React.createElement(
+              "button",
+              { disabled: host.isPending, onClick: () => host.mutate({}) },
+              "Host fixture room",
+            ),
+            React.createElement(
+              "button",
+              { disabled: join.isPending, onClick: () => join.mutate({}) },
+              "Join fixture room",
+            ),
             React.createElement(GateProbe, { key: revision }),
             React.createElement(MultiplayerSettings, { key: `settings-${revision}` }),
           );
@@ -202,7 +214,7 @@ test("multiplayer requires separate consent and reviews only selected persona te
       return route.fulfill({ json: { available: true, enabled, hosting: false, joined: false, tlsAvailable: true } });
     if (path === "/api/multiplayer/settings") {
       enabled = request.postDataJSON().enabled;
-      return route.fulfill({ json: { enabled } });
+      return route.fulfill({ json: { available: true, enabled, hosting: false, joined: false, tlsAvailable: true } });
     }
     if (path === "/api/multiplayer/preview")
       return route.fulfill({
@@ -351,47 +363,108 @@ for (const disabledGate of ["environment", "settings"] as const) {
 }
 
 for (const action of ["host", "join"] as const) {
-  test(`explicit multiplayer ${action} refreshes the static gate and starts its session query`, async ({
-    page,
-  }, info) => {
-    let active = false;
+  for (const followUpFails of [false, true]) {
+    test(`explicit multiplayer ${action} starts its session ${followUpFails ? "when the follow-up status read fails" : "after refreshing the static gate"}`, async ({
+      page,
+    }, info) => {
+      let active = false;
+      const requests: string[] = [];
+      const role = action === "host" ? "host" : "guest";
+      const session =
+        action === "host"
+          ? { chatId: "shared_chat_123" }
+          : { localChatId: "shared_chat_123", state: { phase: "connected" } };
+      await page.clock.install();
+      await page.route("**/api/**", (route) => {
+        const request = route.request();
+        const path = new URL(request.url()).pathname;
+        requests.push(`${request.method()} ${path}`);
+        if (path === `/api/multiplayer/${action}` && request.method() === "POST") {
+          active = true;
+          return route.fulfill({ json: session });
+        }
+        if (path === "/api/multiplayer/status") {
+          if (active && followUpFails) return route.fulfill({ status: 503, json: { error: "unavailable" } });
+          return route.fulfill({
+            json: {
+              available: true,
+              enabled: true,
+              hosting: active && action === "host",
+              joined: active && action === "join",
+              tlsAvailable: true,
+            },
+          });
+        }
+        if (path === `/api/multiplayer/${role}`) {
+          // The successful write must keep the room usable even before its next poll recovers.
+          if (followUpFails && requests.filter((request) => request === `GET ${path}`).length === 1)
+            return route.fulfill({ status: 503, json: { error: "unavailable" } });
+          return route.fulfill({ json: session });
+        }
+        return route.fulfill({ json: [] });
+      });
+      await mountControls(page, info, "gates");
+      await expect(page.getByTestId("multiplayer-gate")).toHaveText("on");
+      expect(requests.filter((request) => request.startsWith("GET /api/multiplayer/"))).toEqual([
+        "GET /api/multiplayer/status",
+      ]);
+      await page.getByRole("button", { name: action === "host" ? "Host fixture room" : "Join fixture room" }).click();
+      await expect.poll(() => requests.filter((request) => request === `GET /api/multiplayer/${role}`).length).toBe(1);
+      await expect(page.getByTestId("multiplayer-gate")).toHaveAttribute(`data-${role}`, "shared_chat_123");
+      expect(requests.filter((request) => request === "GET /api/multiplayer/status")).toHaveLength(2);
+      await page.clock.fastForward(2_000);
+      await expect.poll(() => requests.filter((request) => request === `GET /api/multiplayer/${role}`).length).toBe(2);
+      expect(requests.filter((request) => request === "GET /api/multiplayer/status")).toHaveLength(2);
+    });
+  }
+
+  test(`a delayed multiplayer ${action} result cannot reopen a disabled feature`, async ({ page }, info) => {
+    let enabled = true;
     const requests: string[] = [];
-    await page.route("**/api/**", (route) => {
+    let releaseResponse!: () => void;
+    const heldResponse = new Promise<void>((resolve) => {
+      releaseResponse = resolve;
+    });
+    const status = () => ({ available: true, enabled, hosting: false, joined: false, tlsAvailable: true });
+    await page.clock.install();
+    await page.route("**/api/**", async (route) => {
       const request = route.request();
       const path = new URL(request.url()).pathname;
       requests.push(`${request.method()} ${path}`);
       if (path === `/api/multiplayer/${action}` && request.method() === "POST") {
-        active = true;
-        return route.fulfill({ json: {} });
-      }
-      if (path === "/api/multiplayer/status")
+        await heldResponse;
         return route.fulfill({
-          json: {
-            available: true,
-            enabled: true,
-            hosting: active && action === "host",
-            joined: active && action === "join",
-            tlsAvailable: true,
-          },
+          json:
+            action === "host"
+              ? { chatId: "shared_chat_123" }
+              : { localChatId: "shared_chat_123", state: { phase: "connected" } },
         });
-      if (path === "/api/multiplayer/host") return route.fulfill({ json: { chatId: "shared_chat_123" } });
-      if (path === "/api/multiplayer/guest") return route.fulfill({ json: { state: { phase: "connected" } } });
+      }
+      if (path === "/api/multiplayer/status") return route.fulfill({ json: status() });
+      if (path === "/api/multiplayer/settings") {
+        enabled = request.postDataJSON().enabled;
+        return route.fulfill({ json: status() });
+      }
       return route.fulfill({ json: [] });
     });
     await mountControls(page, info, "gates");
     await expect(page.getByTestId("multiplayer-gate")).toHaveText("on");
-    expect(requests.filter((request) => request.startsWith("GET /api/multiplayer/"))).toEqual([
-      "GET /api/multiplayer/status",
-    ]);
-    await page.getByRole("button", { name: action === "host" ? "Host fixture room" : "Join fixture room" }).click();
-    await expect
-      .poll(
-        () =>
-          requests.filter((request) => request === `GET /api/multiplayer/${action === "host" ? "host" : "guest"}`)
-            .length,
-      )
-      .toBe(1);
-    expect(requests.filter((request) => request === "GET /api/multiplayer/status")).toHaveLength(2);
+    const actionButton = page.getByRole("button", {
+      name: action === "host" ? "Host fixture room" : "Join fixture room",
+    });
+    await actionButton.click();
+    await expect(actionButton).toBeDisabled();
+    await page.getByRole("switch", { name: "Disable multiplayer and disconnect", exact: true }).click();
+    await expect(page.getByTestId("multiplayer-gate")).toHaveText("off");
+    const afterDisable = requests.filter((request) => request.includes("/api/multiplayer/")).length;
+    releaseResponse();
+    await expect(actionButton).toBeEnabled();
+    await page.getByRole("button", { name: "Invalidate app queries", exact: true }).click();
+    await page.clock.fastForward(60_000);
+    await expect(page.getByTestId("multiplayer-gate")).toHaveText("off");
+    await expect(page.getByTestId("multiplayer-gate")).toHaveAttribute("data-host", "none");
+    await expect(page.getByTestId("multiplayer-gate")).toHaveAttribute("data-guest", "none");
+    expect(requests.filter((request) => request.includes("/api/multiplayer/")).length).toBe(afterDisable);
   });
 }
 
@@ -403,7 +476,7 @@ test("disabling multiplayer stops active room polling in every open tab", async 
     requests.push(path);
     if (path === "/api/multiplayer/settings") {
       enabled = route.request().postDataJSON().enabled;
-      return route.fulfill({ json: { enabled } });
+      return route.fulfill({ json: { available: true, enabled, hosting: false, joined: false, tlsAvailable: true } });
     }
     if (path === "/api/multiplayer/status")
       return route.fulfill({ json: { available: true, enabled, hosting: true, joined: true, tlsAvailable: true } });
