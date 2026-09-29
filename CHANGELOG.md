@@ -4,7 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- Image and video provider detection checks the actual URL hostname, so lookalike domains and provider names in a path or query cannot select the wrong API. Game sheet command hints reject malformed pool identifiers, and tactical terrain writes reject non-integer coordinates.
+- Hosted image and video provider detection matches the actual URL hostname, so lookalike hosted-provider domains cannot select the wrong API. Local-tool detection still recognizes SwarmUI and ComfyUI URL markers. Game sheet command hints reject malformed pool identifiers, and tactical terrain writes reject non-integer coordinates.
 
 - In Advanced Parameters, a long "Effective" line under a parameter stays on one line with an ellipsis (the full text shows on hover) instead of wrapping and pushing that input below its neighbour (#6863).
 
