@@ -6,6 +6,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Image and video provider detection checks the actual URL hostname, so lookalike domains and provider names in a path or query cannot select the wrong API. Game sheet command hints reject malformed pool identifiers, and tactical terrain writes reject non-integer coordinates.
 
+- In Advanced Parameters, a long "Effective" line under a parameter stays on one line with an ellipsis (the full text shows on hover) instead of wrapping and pushing that input below its neighbour (#6863).
+
 - Optional private multiplayer rooms support Conversation, Roleplay and shared Game rounds without a fixed human or AI roster cap, with reviewed personas, host-approved AI characters, invitations, admission, host-controlled generation and text-only guest views. Multiplayer requires an explicit environment flag, Settings activation and Host/Join; the Android native wrapper cannot join rooms (#6790). Disabled multiplayer stays idle through unrelated workspace refreshes, and successful Host/Join actions remain usable if a status refresh fails. Opening a missing chat clears its active selection instead of leaving the loading view open.
 
 - A Game Mode ruleset's items can now be weapons: a sword, spear or bow the character holds is offered in a ruleset fight with its own to-hit, damage, reach and range, a spear deals more with a hand free, and one put away offers nothing. A weapon the Game Master invents fights like the ruleset's weapon it is most like. A creature can resist a kind of harm except from certain weapons, such as a grave wight that only silver gets through. Rulesets that use these need Capability API 1.55 (#6855).
