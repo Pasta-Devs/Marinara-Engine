@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Character card fields — Description, Personality, Backstory, Appearance, Scenario, First Message, Alternate Greetings, and Example Dialogue — now have a Generate button that writes the field from the rest of the card with your default connection, or Improve when the field already has text, which rewrites and expands it while keeping what you wrote. Results can be undone from the toast.
+
 - Review cards for edits to Professor Mari's own card, saved before she was stopped from making them, now clear on the next start instead of staying in every Mari chat; they could never be restored (#6842).
 
 - Professor Mari's review cards belong to the chat she made the change in: a new chat starts clean, and deleting a chat keeps its changes and removes its cards. She can no longer edit her own built-in card, which Marinara resets on every start, an edit that changes nothing makes no card, a refused Restore explains that Keep dismisses the card, and a failed Keep or Restore says why (#6842).

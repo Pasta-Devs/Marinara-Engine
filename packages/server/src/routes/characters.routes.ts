@@ -83,6 +83,13 @@ import {
   resolveChatSummaryTemperatureOptions,
 } from "../services/chat-summary/connection-resolution.js";
 import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
+import {
+  buildCharacterFieldPrompt,
+  cleanGeneratedFieldText,
+  isCharacterGeneratableField,
+  type CharacterFieldDraft,
+  type CharacterGeneratableField,
+} from "../services/generation/character-field-prompt.js";
 import { importSTLorebook } from "../services/import/st-lorebook.importer.js";
 import { embeddedSpriteSizesAreWithinLimits, MAX_EMBEDDED_SPRITE_COUNT } from "../services/import/marinara.importer.js";
 import {
@@ -1239,6 +1246,83 @@ export async function charactersRoutes(app: FastifyInstance) {
       return reply
         .status(502)
         .send({ error: error instanceof Error ? error.message : "Conversation profile generation failed" });
+    }
+  });
+
+  /** Generates or improves one editable character-card field from the unsaved editor draft. */
+  app.post<{
+    Params: { id: string };
+    Body: {
+      field?: CharacterGeneratableField;
+      mode?: "generate" | "improve";
+      current?: string;
+      debugMode?: boolean;
+      draft?: CharacterFieldDraft;
+    };
+  }>("/:id/field/generate", async (req, reply) => {
+    const character = await storage.getById(req.params.id);
+    if (!character) return reply.status(404).send({ error: "Character not found" });
+    const field = req.body?.field;
+    if (!isCharacterGeneratableField(field)) return reply.status(400).send({ error: "Invalid character field" });
+
+    const data = parseCharacterDataRecord(character.data) as Partial<CharacterData>;
+    const extensions = parseCharacterDataRecord(data.extensions);
+    const draft = req.body?.draft;
+    const pick = (draftValue: unknown, storedValue: unknown) =>
+      typeof draftValue === "string" ? draftValue : typeof storedValue === "string" ? storedValue : "";
+    const card: CharacterFieldDraft = {
+      name: pick(draft?.name, data.name),
+      description: pick(draft?.description, data.description),
+      personality: pick(draft?.personality, data.personality),
+      backstory: pick(draft?.backstory, extensions.backstory),
+      appearance: pick(draft?.appearance, extensions.appearance),
+      scenario: pick(draft?.scenario, data.scenario),
+      first_mes: pick(draft?.first_mes, data.first_mes),
+      mes_example: pick(draft?.mes_example, data.mes_example),
+    };
+    const prompt = buildCharacterFieldPrompt({
+      field,
+      mode: req.body?.mode === "improve" ? "improve" : "generate",
+      card,
+      current: typeof req.body?.current === "string" ? req.body.current : "",
+    });
+    const defaultConnection = await connections.getDefault();
+    const resolved = await resolveChatSummaryConnection({
+      chatMetadata: {},
+      defaultConnectionId: defaultConnection?.id,
+      connections,
+      resolveBaseUrl,
+    });
+    if (!resolved.ok) return reply.status(400).send({ error: resolved.error });
+
+    logDebugOverride(
+      req.body?.debugMode === true || isDebugAgentsEnabled(),
+      "[debug/characters/%s-field-%s] prompt:\n%s",
+      req.params.id,
+      field,
+      prompt,
+    );
+    try {
+      const result = await resolved.provider.chatComplete(
+        [
+          { role: "system", content: prompt },
+          { role: "user", content: "Write the field text." },
+        ],
+        {
+          model: resolved.model,
+          maxTokens: Math.min(resolved.provider.maxTokensOverrideValue ?? 1024, 1024),
+          temperature: 0.7,
+          enabledParameters: resolveChatSummaryTemperatureOptions(resolved).enabledParameters,
+        },
+      );
+      const text = cleanGeneratedFieldText(result.content);
+      if (!text) return reply.status(502).send({ error: "Character field generation returned no text" });
+      return reply.send({ text });
+    } catch (error) {
+      logger.error(error, "Character field generation failed");
+      return reply
+        .status(502)
+        .send({ error: error instanceof Error ? error.message : "Character field generation failed" });
     }
   });
 

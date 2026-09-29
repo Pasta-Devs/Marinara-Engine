@@ -302,6 +302,51 @@ export function useGenerateCharacterSummary() {
   });
 }
 
+export type CharacterGeneratableField =
+  | "description"
+  | "personality"
+  | "backstory"
+  | "appearance"
+  | "scenario"
+  | "first_mes"
+  | "mes_example"
+  | "alternate_greeting";
+
+export interface CharacterFieldDraft {
+  name?: string;
+  description?: string;
+  personality?: string;
+  backstory?: string;
+  appearance?: string;
+  scenario?: string;
+  first_mes?: string;
+  mes_example?: string;
+}
+
+/** Generates a card field, or improves it when `current` already has text. */
+export function useGenerateCharacterField() {
+  return useMutation({
+    mutationFn: ({
+      id,
+      field,
+      current,
+      draft,
+    }: {
+      id: string;
+      field: CharacterGeneratableField;
+      current: string;
+      draft: CharacterFieldDraft;
+    }) =>
+      api.post<{ text: string }>(`/characters/${encodeURIComponent(id)}/field/generate`, {
+        field,
+        mode: current.trim() ? "improve" : "generate",
+        current,
+        draft,
+        debugMode: useUIStore.getState().debugMode,
+      }),
+  });
+}
+
 export type CharacterConvoProfileTarget = "aboutMe" | "behavior";
 
 export interface CharacterConvoProfileDraft {

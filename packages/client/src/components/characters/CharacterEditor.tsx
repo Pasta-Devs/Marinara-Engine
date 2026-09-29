@@ -20,6 +20,7 @@ import {
   useUpdateCharacter,
   useGenerateCharacterSummary,
   useGenerateCharacterConvoProfile,
+  useGenerateCharacterField,
   useUploadAvatar,
   useRemoveAvatar,
   useDeleteCharacter,
@@ -53,6 +54,8 @@ import {
   useResetCharacterVersions,
   spriteKeys,
   type CharacterCallVideoGenerationInput,
+  type CharacterFieldDraft,
+  type CharacterGeneratableField,
   type CharacterGalleryClip,
   type CharacterGalleryImage,
   type SpriteInfo,
@@ -1303,6 +1306,7 @@ function CharacterCardTab({
             helpText={CHARACTER_PERSONALITY_HELP}
             value={formData.personality}
             onChange={(v) => updateField("personality", v)}
+            generate={{ field: "personality", formData }}
             placeholder={localizeUi(
               "ui.characters.charactercardtab.energeticCuriousAndFiercelyLoyalSpeaksInShortBursts",
             )}
@@ -1316,6 +1320,7 @@ function CharacterCardTab({
             helpText={CHARACTER_BACKSTORY_HELP}
             value={(formData.extensions.backstory as string) ?? ""}
             onChange={(v) => updateExtension("backstory", v)}
+            generate={{ field: "backstory", formData }}
             placeholder={localizeUi("ui.characters.charactercardtab.bornInASmallVillageOnTheOutskirtsOf")}
             rows={12}
           />
@@ -1329,6 +1334,7 @@ function CharacterCardTab({
             helpText={CHARACTER_APPEARANCE_HELP}
             value={(formData.extensions.appearance as string) ?? ""}
             onChange={(v) => updateExtension("appearance", v)}
+            generate={{ field: "appearance", formData }}
             placeholder={localizeUi("ui.characters.charactercardtab.tallAndWillowyWithSilverStreakedDarkHairWears")}
             rows={8}
           />
@@ -1342,6 +1348,7 @@ function CharacterCardTab({
             helpText={CHARACTER_SCENARIO_HELP}
             value={formData.scenario}
             onChange={(v) => updateField("scenario", v)}
+            generate={{ field: "scenario", formData }}
             placeholder={localizeUi("ui.characters.charactercardtab.aBustlingPortCityDuringATradeFestivalThe")}
             rows={8}
           />
@@ -1430,6 +1437,108 @@ function CharacterSummaryField({
   );
 }
 
+function characterFieldDraft(formData: CharacterData): CharacterFieldDraft {
+  const ext = formData.extensions ?? {};
+  return {
+    name: formData.name,
+    description: formData.description,
+    personality: formData.personality,
+    backstory: typeof ext.backstory === "string" ? ext.backstory : "",
+    appearance: typeof ext.appearance === "string" ? ext.appearance : "",
+    scenario: formData.scenario,
+    first_mes: formData.first_mes,
+    mes_example: formData.mes_example,
+  };
+}
+
+/** Generate (empty field) or Improve (has text) one card field with the default connection. */
+function CharacterFieldGenerateButton({
+  field,
+  label,
+  value,
+  onChange,
+  formData,
+  compact = false,
+}: {
+  field: CharacterGeneratableField;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  formData: CharacterData;
+  compact?: boolean;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const characterId = useUIStore((s) => s.characterDetailId);
+  const generateField = useGenerateCharacterField();
+  // Latest-value refs: the request is async, and alternate greetings can be reordered meanwhile.
+  const liveValueRef = useRef(value);
+  liveValueRef.current = value;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const improving = value.trim().length > 0;
+  const handleGenerate = async () => {
+    if (!characterId) return;
+    const requestedCharacterId = characterId;
+    const valueAtRequest = liveValueRef.current;
+    try {
+      const { text } = await generateField.mutateAsync({
+        id: requestedCharacterId,
+        field,
+        current: valueAtRequest,
+        draft: characterFieldDraft(formData),
+      });
+      const stillHere = () => mountedRef.current && useUIStore.getState().characterDetailId === requestedCharacterId;
+      // Never overwrite edits the user made while the model was working.
+      if (!stillHere() || liveValueRef.current !== valueAtRequest) return;
+      onChangeRef.current(text);
+      toast.success(localizeUi("ui.characters.fieldGenerate.generated", { value1: label }), {
+        action: {
+          label: localizeUi("ui.characters.fieldGenerate.undo"),
+          onClick: () => {
+            if (stillHere() && liveValueRef.current === text) onChangeRef.current(valueAtRequest);
+          },
+        },
+      });
+    } catch (error) {
+      if (useUIStore.getState().characterDetailId !== requestedCharacterId) return;
+      toast.error(error instanceof Error ? error.message : localizeUi("ui.characters.fieldGenerate.failed"));
+    }
+  };
+
+  const pending = generateField.isPending;
+  const title = !characterId
+    ? localizeUi("ui.characters.fieldGenerate.saveFirst")
+    : localizeUi(improving ? "ui.characters.fieldGenerate.improveTitle" : "ui.characters.fieldGenerate.generateTitle", {
+        value1: label,
+      });
+  return (
+    <button
+      type="button"
+      onClick={() => void handleGenerate()}
+      disabled={!characterId || pending}
+      className={cn(
+        "mari-editor-action inline-flex shrink-0 items-center gap-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50",
+        compact ? "mari-editor-action--compact h-8 rounded-lg px-2" : "min-h-9 px-2.5",
+      )}
+      title={title}
+      aria-label={title}
+    >
+      {pending ? <Loader2 size="0.8rem" className="animate-spin" /> : <Wand2 size="0.8rem" />}
+      {pending
+        ? localizeUi(improving ? "ui.characters.fieldGenerate.improving" : "ui.characters.fieldGenerate.generating")
+        : localizeUi(improving ? "ui.characters.fieldGenerate.improve" : "ui.characters.fieldGenerate.generate")}
+    </button>
+  );
+}
+
 function CharacterDescriptionTab({
   formData,
   updateField,
@@ -1441,11 +1550,20 @@ function CharacterDescriptionTab({
   const selfCharacterId = useUIStore((s) => s.characterDetailId);
   return (
     <div className="mari-editor-panel space-y-3 p-3">
-      <SectionHeader
-        title={localizeUi("chat.settings.inlineEditor.fields.description")}
-        subtitle={localizeUi("ui.characters.characterdescriptiontab.theCharacterSGeneralDescriptionThisIsSentIn")}
-        helpText={CHARACTER_DESCRIPTION_HELP}
-      />
+      <div className="flex items-start justify-between gap-3">
+        <SectionHeader
+          title={localizeUi("chat.settings.inlineEditor.fields.description")}
+          subtitle={localizeUi("ui.characters.characterdescriptiontab.theCharacterSGeneralDescriptionThisIsSentIn")}
+          helpText={CHARACTER_DESCRIPTION_HELP}
+        />
+        <CharacterFieldGenerateButton
+          field="description"
+          label={localizeUi("chat.settings.inlineEditor.fields.description")}
+          value={formData.description}
+          onChange={(value) => updateField("description", value)}
+          formData={formData}
+        />
+      </div>
       <MacroTextarea
         showTokenCount
         value={formData.description}
@@ -1469,6 +1587,7 @@ function TextareaTab({
   placeholder,
   rows = 8,
   helpText,
+  generate,
 }: {
   title: string;
   subtitle: string;
@@ -1477,11 +1596,23 @@ function TextareaTab({
   onChange: (v: string) => void;
   placeholder: string;
   rows?: number;
+  generate?: { field: CharacterGeneratableField; formData: CharacterData };
 }) {
   const selfCharacterId = useUIStore((s) => s.characterDetailId);
   return (
     <div className="mari-editor-panel space-y-3 p-3">
-      <SectionHeader title={title} subtitle={subtitle} helpText={helpText} />
+      <div className="flex items-start justify-between gap-3">
+        <SectionHeader title={title} subtitle={subtitle} helpText={helpText} />
+        {generate && (
+          <CharacterFieldGenerateButton
+            field={generate.field}
+            label={title}
+            value={value}
+            onChange={onChange}
+            formData={generate.formData}
+          />
+        )}
+      </div>
       <MacroTextarea
         showTokenCount
         value={value}
@@ -2352,10 +2483,20 @@ function DialogueTab({
 
       {/* First Message */}
       <div className="block space-y-1.5">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-          {localizeUi("ui.characters.dialoguetab.firstMessage")}{" "}
-          <HelpTooltip text={localizeUi("ui.characters.dialoguetab.theCharacterSOpeningMessageWhenANewChat")} />
-        </span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.characters.dialoguetab.firstMessage")}{" "}
+            <HelpTooltip text={localizeUi("ui.characters.dialoguetab.theCharacterSOpeningMessageWhenANewChat")} />
+          </span>
+          <CharacterFieldGenerateButton
+            compact
+            field="first_mes"
+            label={localizeUi("ui.characters.dialoguetab.firstMessage")}
+            value={formData.first_mes}
+            onChange={(value) => updateField("first_mes", value)}
+            formData={formData}
+          />
+        </div>
         <MacroTextarea
           showTokenCount
           value={formData.first_mes}
@@ -2398,6 +2539,14 @@ function DialogueTab({
                 {i + 1}
               </span>
               <div className="flex shrink-0 items-center gap-1">
+                <CharacterFieldGenerateButton
+                  compact
+                  field="alternate_greeting"
+                  label={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+                  value={g}
+                  onChange={(value) => updateGreeting(i, value)}
+                  formData={formData}
+                />
                 <button
                   type="button"
                   onClick={() => moveGreeting(i, -1)}
@@ -2447,12 +2596,22 @@ function DialogueTab({
 
       {/* Example Messages */}
       <div className="block space-y-1.5">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-          {localizeUi("chat.settings.inlineEditor.fields.exampleDialogue")}{" "}
-          <HelpTooltip
-            text={localizeUi("ui.characters.dialoguetab.sampleConversationsShowingHowTheCharacterTalksHelpsThe")}
+        <div className="flex items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            {localizeUi("chat.settings.inlineEditor.fields.exampleDialogue")}{" "}
+            <HelpTooltip
+              text={localizeUi("ui.characters.dialoguetab.sampleConversationsShowingHowTheCharacterTalksHelpsThe")}
+            />
+          </span>
+          <CharacterFieldGenerateButton
+            compact
+            field="mes_example"
+            label={localizeUi("chat.settings.inlineEditor.fields.exampleDialogue")}
+            value={formData.mes_example}
+            onChange={(value) => updateField("mes_example", value)}
+            formData={formData}
           />
-        </span>
+        </div>
         <p className="text-[0.625rem] text-[var(--muted-foreground)]/70">
           {localizeUi("ui.characters.dialoguetab.useStartToSeparateExchangesUseUserAndChar")}
         </p>
