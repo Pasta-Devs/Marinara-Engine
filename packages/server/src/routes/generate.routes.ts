@@ -13052,7 +13052,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     }
                   })();
                   if (agentContext.sequentialExecution) await pendingIllustration;
-                  if (commandTarget && pendingIllustration) pendingRoleplayMedia.push(pendingIllustration);
+                  if (commandTarget) pendingRoleplayMedia.push(pendingIllustration);
                 } else {
                   logger.warn("[illustrator] Agent wants to generate but no image generation connection configured");
                   sendSseEvent(reply, {

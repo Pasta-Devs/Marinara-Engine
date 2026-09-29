@@ -69,7 +69,6 @@ const {
   refillPool,
   renderGameDicePoolView,
   serializeGameDicePool,
-  serializeResolvedSkillCheckTag,
 } = await import("../../packages/shared/dist/index.js");
 const {
   createGameDicePoolSession,

@@ -31,7 +31,7 @@ process.env.FILE_STORAGE_DIR = storeDir;
 
 const { and, eq } = await import("../../packages/server/src/db/file-query.js");
 const { createFileNativeDB, encodeShardKey } = await import("../../packages/server/src/db/file-backed-store.js");
-const { chatImages, chats } = await import("../../packages/server/src/db/schema/index.js");
+const { chatImages } = await import("../../packages/server/src/db/schema/index.js");
 const { galleryFileHasReferences, unlinkGalleryFileIfUnreferenced } =
   await import("../../packages/server/src/services/image/gallery-file-lifecycle.js");
 

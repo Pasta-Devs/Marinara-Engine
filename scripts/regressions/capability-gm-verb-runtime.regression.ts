@@ -152,7 +152,6 @@ function installFixture(overrides: ManifestOverrides = {}) {
 installFixture();
 
 const [
-  { capabilityPackageManager },
   gmVerbRuntime,
   { createChatsStorage },
   { getDB, closeDB },
@@ -164,7 +163,6 @@ const [
   { resolveSkillCheckTagsInContent },
   { parseSkillCheckTagBody },
 ] = await Promise.all([
-  import("../../packages/server/src/services/capability-packages/package-manager.service.js"),
   import("../../packages/server/src/services/capability-packages/capability-gm-verb-runtime.service.js"),
   import("../../packages/server/src/services/storage/chats.storage.js"),
   import("../../packages/server/src/db/connection.js"),

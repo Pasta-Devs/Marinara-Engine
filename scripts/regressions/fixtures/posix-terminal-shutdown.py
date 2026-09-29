@@ -126,10 +126,12 @@ with tempfile.TemporaryDirectory(prefix="marinara-terminal-shutdown-") as temp:
             try:
                 os.killpg(child, signal.SIGKILL)
             except ProcessLookupError:
+                # The process group may have exited before cleanup reached it.
                 pass
             os.waitpid(child, 0)
         if server_pid:
             try:
                 os.kill(server_pid, signal.SIGKILL)
             except ProcessLookupError:
+                # Graceful shutdown or the group cleanup already stopped the server.
                 pass
