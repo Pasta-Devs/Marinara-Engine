@@ -213,7 +213,19 @@ try {
     {
       provider: "openai",
       baseUrl: `${base}/v1`,
-      models: ["gpt-4o", "gpt-4.1", "o3", "gpt-5", "gpt-5.4", "gpt-5.6-sol", "some-unknown-model"],
+      models: [
+        "gpt-4o",
+        "gpt-4.1",
+        "o3",
+        "gpt-5",
+        "gpt-5.4",
+        "gpt-5.6-sol",
+        "gpt-6-astra",
+        "gpt-6-sol",
+        "gpt-6-luna",
+        "gpt-6.1-sol",
+        "some-unknown-model",
+      ],
       make: registry("openai", `${base}/v1`),
     },
     {

@@ -123,7 +123,7 @@ import {
   formatSkillCheckResultSummary,
   unwrapConversationInstructions,
   findKnownModel,
-  isOpenAIGpt6AstraModel,
+  isOpenAIGpt6AlwaysReasoningModel,
   isOpenAIGpt6Model,
   LOCAL_SIDECAR_CONNECTION_ID,
   normalizeImagePromptInstructions,
@@ -7849,7 +7849,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               const tempSuppressed =
                 ((conn.provider === "openai" || conn.provider === "openrouter") &&
                   (/^(o1|o3|o4)/.test(effModel) ||
-                    isOpenAIGpt6AstraModel(effModel) ||
+                    isOpenAIGpt6AlwaysReasoningModel(effModel) ||
                     (isOpenAIGpt6Model(effModel) && !!resolvedEffort) ||
                     (effModel.startsWith("gpt-5") && !!resolvedEffort))) ||
                 isClaudeNoSampling;

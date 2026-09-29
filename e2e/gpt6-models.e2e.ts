@@ -4,7 +4,7 @@ import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
-for (const model of ["gpt-6-sol", "gpt-6-luna"]) {
+for (const model of ["gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol"]) {
   test(`${model} selection and reasoning Off/Maximum persist`, async ({ page, request }, info) => {
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
     await seedUIState(page, {
@@ -43,7 +43,7 @@ for (const model of ["gpt-6-sol", "gpt-6-luna"]) {
       await expect(defaults).toBeChecked();
       const reasoning = page.getByText("Reasoning Effort", { exact: true }).locator("../../..");
       const off = reasoning.getByRole("button", { name: "Off", exact: true });
-      const maximum = reasoning.getByRole("button", { name: "Maximum", exact: true });
+      const maximum = reasoning.getByRole("button", { name: "max", exact: true });
       for (const [button, effort] of [
         [off, null],
         [maximum, "maximum"],

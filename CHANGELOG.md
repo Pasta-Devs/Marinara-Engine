@@ -6,6 +6,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Anthropic and Claude (Subscription) connections can select **Claude Sonnet 5.5** (`claude-sonnet-5-5`), with a 1M-token context window, 128K output and reasoning effort from low to max. Turning reasoning Off skips up-front thinking on Anthropic connections. On Claude (Subscription), OpenRouter and other compatible gateways, which cannot express that setting, it runs at low effort instead. Forced tool calls use automatic tool choice, and samplers are not sent (#6869).
 
+- OpenAI connections can select **GPT-6.1 Sol** (`gpt-6.1-sol`). It has a 1.05M-token context window and 128K output, and reasoning effort from low to max. Reasoning cannot be turned off for this model: Off is sent as low, and temperature and top-p are never sent (#6867).
+
+- The Reasoning Effort and Verbosity controls are back for GPT-6 models on OpenAI connections. Sampling controls now only appear when the model would actually use them (#6867).
+
 - Hosted image and video provider detection matches the actual URL hostname, so lookalike hosted-provider domains cannot select the wrong API. Local-tool detection still recognizes SwarmUI and ComfyUI URL markers. Game sheet command hints reject malformed pool identifiers, and tactical terrain writes reject non-integer coordinates.
 
 - In Advanced Parameters, a long "Effective" line under a parameter stays on one line with an ellipsis (the full text shows on hover) instead of wrapping and pushing that input below its neighbour (#6863).

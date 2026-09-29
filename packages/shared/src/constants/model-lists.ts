@@ -76,7 +76,15 @@ export function isOpenAIGpt6AstraModel(model: string): boolean {
 }
 
 export function isOpenAIGpt6Model(model: string): boolean {
-  return /^(?:openai\/)?gpt-6-(?:astra|sol|luna)(?:$|[-:])/i.test(model);
+  return /^(?:openai\/)?gpt-6(?:-(?:astra|sol|luna)|\.1-sol)(?:$|[-:])/i.test(model);
+}
+
+/**
+ * GPT-6 models that cannot turn reasoning off. GPT-6 only takes sampling with effort "none",
+ * so these never take it at all. https://developers.openai.com/api/docs/models/gpt-6.1-sol
+ */
+export function isOpenAIGpt6AlwaysReasoningModel(model: string): boolean {
+  return isOpenAIGpt6AstraModel(model) || /^(?:openai\/)?gpt-6\.1-sol(?:$|[-:])/i.test(model);
 }
 
 export function isOpenAIGpt56SolProAlias(model: string): boolean {
@@ -146,6 +154,7 @@ export const OPENAI_MODELS: KnownModel[] = [
   { id: "gpt-5.6-terra", name: "gpt-5.6-terra", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.6-luna", name: "gpt-5.6-luna", context: 1050000, maxOutput: 128000 },
   // GPT-6
+  { id: "gpt-6.1-sol", name: "gpt-6.1-sol", context: 1050000, maxOutput: 128000 },
   { id: "gpt-6-astra", name: "gpt-6-astra", context: 1050000, maxOutput: 128000 },
   { id: "gpt-6-sol", name: "gpt-6-sol", context: 1050000, maxOutput: 128000 },
   { id: "gpt-6-luna", name: "gpt-6-luna", context: 1050000, maxOutput: 128000 },
