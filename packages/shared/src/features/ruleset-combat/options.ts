@@ -875,6 +875,7 @@ function forecastFor(
           action.toHit + bonus.flat + rulesetCombatPenalty(definition, actor),
           Math.max(1, defense),
           mode,
+          action.target,
         )
       : rulesetHitChance(combat, action.toHit, defense, mode, bonus);
     if (chance !== null) forecast.hitChance = Math.round(chance * 1000) / 1000;

@@ -354,7 +354,10 @@ const mote = (id = "mote", name = "Mote"): RulesetCombatantInput => ({
 const emberKnacks = ember.catalogs!.find((catalog) => catalog.id === "knacks")!.entries!;
 const emberRowsFor = (list: string, ids: string[]) =>
   ids.flatMap((id) =>
-    rowsFromCatalogEntry("knacks", emberKnacks.find((entry) => entry.id === id)!)
+    rowsFromCatalogEntry(
+      "knacks",
+      emberKnacks.find((entry) => entry.id === id)!,
+    )
       .filter((row) => row.list === list)
       .map((row) => row.row),
   );
@@ -1356,7 +1359,12 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
   }
 
   // Letting it go by costs nothing and finishes the same walk.
-  const let_go = act(fiveE, held.state, { actorId: "snag", optionId: RULESET_PASS_OPTION, targetIds: [], window: window.id });
+  const let_go = act(fiveE, held.state, {
+    actorId: "snag",
+    optionId: RULESET_PASS_OPTION,
+    targetIds: [],
+    window: window.id,
+  });
   assert.deepEqual(firstOf(let_go.events, "pass"), { type: "pass", actorId: "snag", window: window.id });
   assert.equal(eventsOf(let_go.events, "opportunity").length, 0);
   assert.equal(who(let_go.state, "snag").budgets.reaction, 1, "nothing was spent");
@@ -1378,7 +1386,12 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
     placements: { brenna: { x: 0, y: 2 }, snag: { x: 2, y: 2 } },
   };
   const twice = fight(fiveE, [fighter(), snag()], [12, 9], maze);
-  const long = act(fiveE, twice, { actorId: "brenna", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 6, y: 2 } });
+  const long = act(fiveE, twice, {
+    actorId: "brenna",
+    optionId: RULESET_MOVE_OPTION,
+    targetIds: [],
+    to: { x: 6, y: 2 },
+  });
   const ring = (cell: RulesetCombatCell) => Math.max(Math.abs(cell.x - 2), Math.abs(cell.y - 2)) <= 1;
   const route = optionNamed(fiveE, twice, "brenna", "Move").cells!.find((cell) => cell.x === 6 && cell.y === 2)!.path!;
   const leaves = route.filter(
@@ -1404,15 +1417,16 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
     grid: open(7, 4),
     placements: { brenna: { x: 0, y: 1 }, wren: { x: 1, y: 2 }, snag: { x: 2, y: 1 } },
   });
-  const first = act(fiveE, pair, { actorId: "brenna", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 5, y: 1 } });
+  const first = act(fiveE, pair, {
+    actorId: "brenna",
+    optionId: RULESET_MOVE_OPTION,
+    targetIds: [],
+    to: { x: 5, y: 1 },
+  });
   assert.ok(first.state.window, "the first walk asks");
   const answerWith = (optionId: string, ...faces: number[]) =>
-    act(
-      fiveE,
-      first.state,
-      { actorId: "snag", optionId, targetIds: [], window: first.state.window!.id },
-      ...faces,
-    ).state;
+    act(fiveE, first.state, { actorId: "snag", optionId, targetIds: [], window: first.state.window!.id }, ...faces)
+      .state;
   for (const [what, after, left, asks] of [
     ["struck", answerWith("scimitar", 17, 5), 0, false],
     ["passed", answerWith(RULESET_PASS_OPTION), 1, true],
@@ -1420,7 +1434,12 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
     assert.equal(who(after, "snag").budgets.reaction, left, `${what}: the budget says so`);
     const next = act(fiveE, after, { actorId: "brenna", optionId: "end-turn", targetIds: [] }).state;
     assert.equal(currentRulesetActor(next)?.id, "wren", `${what}: and the next turn is somebody else's`);
-    const away = act(fiveE, next, { actorId: "wren", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 0, y: 3 } });
+    const away = act(fiveE, next, {
+      actorId: "wren",
+      optionId: RULESET_MOVE_OPTION,
+      targetIds: [],
+      to: { x: 0, y: 3 },
+    });
     assert.equal(
       !!away.state.window,
       asks,
@@ -1698,6 +1717,13 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
       delete doc.combat.distance;
       delete doc.combat.economy.movement;
       for (const source of doc.combat.attacks ?? []) delete source.reach;
+      // And its weapons' distances, measured in the same cells.
+      for (const catalog of doc.catalogs) {
+        for (const entry of catalog.entries ?? []) {
+          delete entry.item?.attack?.reach;
+          delete entry.item?.attack?.range;
+        }
+      }
     }),
     "an Ember Roads that says nothing about cells",
   );
@@ -2096,7 +2122,10 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
   // A rider that asks for a friend beside the target reads the board when there is one.
   {
     const feats = fiveE.catalogs!.find((catalog) => catalog.id === "feats")!.entries!;
-    const slyRows = rowsFromCatalogEntry("feats", feats.find((entry) => entry.id === "sly-strike")!);
+    const slyRows = rowsFromCatalogEntry(
+      "feats",
+      feats.find((entry) => entry.id === "sly-strike")!,
+    );
     const rogue = (): RulesetCombatantInput => ({
       id: "vess",
       name: "Vess",

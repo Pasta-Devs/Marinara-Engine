@@ -423,6 +423,12 @@ export function inventRulesetItem(
     binds = wanted && block.binding ? wanted : undefined;
   }
 
+  // A weapon's attack comes with the item it started from, while the item can still be worn.
+  const wearable = Object.values(slots).some((count) => count > 0) || !!binds;
+  if (like?.attack && !wearable) {
+    say("It takes no slot and does not bind, so it is never worn, and the attack it started from was left out.");
+  }
+
   const item: RulesetCatalogItem = {
     category,
     ...(rarity ? { rarity } : {}),
@@ -437,6 +443,7 @@ export function inventRulesetItem(
     ...(carried ? { carried } : {}),
     // What it asks of its wearer comes with the item it started from.
     ...(like?.requires ? { requires: like.requires } : {}),
+    ...(like?.attack && wearable ? { attack: like.attack } : {}),
   };
   const kept = said.slice(0, NOTES_MAX).map((note) => ({ ...note, text: plainLine(note.text, NOTE_MAX_LENGTH) }));
   return {

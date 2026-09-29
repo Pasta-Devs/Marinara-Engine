@@ -252,6 +252,8 @@ try {
         for (const entry of doc.catalogs.find((each: { holds?: string }) => each.holds === "items").entries) {
           delete entry.item.worn;
           delete entry.item.carried;
+          // And the 1.55 weapons.
+          delete entry.item.attack;
         }
         // And the 1.54 level off a derived value.
         doc.combat.levels = doc.combat.levels.filter((level: { derived?: string }) => level.derived === undefined);
@@ -261,6 +263,9 @@ try {
     assert.match(issue(52, variant(emberText)) ?? "", gateIssue);
     // The whole example is 1.54, for its gauntlets and its level off the bulk carried; without them, 1.53.
     const upTo153 = variant(emberText, (doc) => {
+      for (const entry of doc.catalogs.find((each: { holds?: string }) => each.holds === "items").entries) {
+        delete entry.item.attack;
+      }
       delete itemEntry(doc, "ox-hide-gauntlets").item.worn;
       doc.combat.levels = doc.combat.levels.filter((level: { derived?: string }) => level.derived === undefined);
     });

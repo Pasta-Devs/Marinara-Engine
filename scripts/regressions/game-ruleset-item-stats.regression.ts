@@ -122,6 +122,11 @@ try {
       variant(gravewatchText, (doc) => {
         delete doc.items;
         doc.catalogs = doc.catalogs.filter((catalog: { holds?: string }) => catalog.holds !== "items");
+        // And the grave wight's resistance, whose exception names an item tag.
+        doc.catalogs = doc.catalogs.map((catalog: { entries?: Array<{ id: string }> }) => ({
+          ...catalog,
+          entries: catalog.entries?.filter((entry) => entry.id !== "grave-wight"),
+        }));
       }),
       "Gravewatch without items",
     );
@@ -270,6 +275,8 @@ try {
           for (const entry of catalog.entries ?? []) {
             delete entry.item?.worn;
             delete entry.item?.carried;
+            // And the 1.55 weapons.
+            delete entry.item?.attack;
           }
         }
         edit(doc);

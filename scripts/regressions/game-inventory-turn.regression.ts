@@ -869,6 +869,14 @@ try {
           tags: ["thrown"],
           stats: { bulk: 1, damage: "1d10", swing: "brawn", reach: "close", guard: 3 },
           slots: { hands: 1 },
+          // Made like the axe, it is a weapon that reads its own damage stat: 1d10.
+          attack: {
+            budget: "act",
+            toHit: { abilities: { stat: "swing" } },
+            damage: { dice: { stat: "damage" }, abilities: { stat: "swing" }, type: "cut" },
+            reach: 2,
+            range: { normal: 10, long: 20 },
+          },
         },
         notes: ["Guard is 3 instead of 4, the most at Storied."],
       },

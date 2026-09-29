@@ -1134,7 +1134,37 @@
             "tags": ["thrown"],
             "stats": { "bulk": 1, "damage": "1d6", "swing": "brawn", "reach": "close" },
             "slots": { "hands": 1 },
-            "cost": { "amount": 4, "unit": "mark" }
+            "cost": { "amount": 4, "unit": "mark" },
+            "attack": {
+              "$comment": "Held, it is a weapon a fight offers, swung with the stat it rolls with and dealing its own damage dice, so one made like it with other stats fights with those. A reach and a range both make it thrown: a swing close, a throw beyond.",
+              "budget": "act",
+              "toHit": { "abilities": { "stat": "swing" } },
+              "damage": { "dice": { "stat": "damage" }, "abilities": { "stat": "swing" }, "type": "cut" },
+              "reach": 2,
+              "range": { "normal": 10, "long": 20 }
+            }
+          }
+        },
+        {
+          "id": "boar-spear",
+          "label": "Boar spear",
+          "summary": "Ash shaft, a crossbar below the blade, and room on the haft for a second hand.",
+          "item": {
+            "category": "weapon",
+            "rarity": "common",
+            "tags": ["thrown"],
+            "stats": { "bulk": 2, "damage": "1d6", "swing": "brawn", "reach": "near" },
+            "slots": { "hands": 1 },
+            "cost": { "amount": 6, "unit": "mark" },
+            "attack": {
+              "$comment": "Long enough to reach two cells off, and with a hand free beside it the spear is driven in with both for 1d8.",
+              "budget": "act",
+              "toHit": { "abilities": { "stat": "swing" } },
+              "damage": { "dice": { "stat": "damage" }, "abilities": { "stat": "swing" }, "type": "cut" },
+              "reach": 4,
+              "range": { "normal": 10 },
+              "versatile": { "dice": "1d8" }
+            }
           }
         },
         {
@@ -1147,7 +1177,13 @@
             "tags": ["ranged", "two_handed"],
             "stats": { "bulk": 2, "damage": "1d8", "swing": "wits", "reach": "far" },
             "slots": { "hands": 2 },
-            "cost": { "amount": 3, "unit": "sovereign" }
+            "cost": { "amount": 3, "unit": "sovereign" },
+            "attack": {
+              "budget": "act",
+              "toHit": { "abilities": { "stat": "swing" } },
+              "damage": { "dice": { "stat": "damage" }, "abilities": { "stat": "swing" }, "type": "cut" },
+              "range": { "normal": 30, "long": 60 }
+            }
           }
         },
         {

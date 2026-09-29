@@ -180,6 +180,8 @@ try {
         for (const entry of catalog.entries ?? []) {
           delete entry.item?.worn;
           delete entry.item?.carried;
+          // And its weapons, which are 1.55's.
+          delete entry.item?.attack;
         }
       }
     };
@@ -497,7 +499,7 @@ try {
     );
     assert.match(
       told.content,
-      /\[inventory: action="add" item="Mourning Edge" count="1" result="ok" now="1" note="Guard is 3 instead of 4, the most at Storied\."\]/,
+      /\[inventory: action="add" item="Mourning Edge" count="1" result="ok" now="1" note="Guard is 3 instead of 4, the most at Storied\. It fights as Hand axe does\."\]/,
     );
     assert.match(told.content, /\[inventory: action="add" item="mourning edge" count="1" result="ok" now="2"\]/);
     assert.deepEqual(
@@ -538,6 +540,23 @@ try {
       /invent one of its items in the add: \[inventory: action="add" item="New name" category="\.\.\." rarity="\.\.\." tags="a, b" stats="id=value, id=value" slots="id=count" worn="\+1 Skill" summary="one line"\]\. Every part but item is optional\. worn is what it does while worn, and carried="\.\.\." what it does while only carried: changes split by ";", each \+N, -N, advantage, disadvantage, or fails \(saves only\), on skills or saves by name, or on checks or saves for all of them; \+N or -N on an ability's name raises or lowers that ability\. A bonus or penalty to a skill, save or ability always goes in worn or carried, never in stats\. To start from one of the ruleset's own items, add like="that item's exact name" \(leave like out otherwise\)/,
     );
     assert.match(told, /and holds each number to the most its rarity allows/);
+    // Where the ruleset has fights, a weapon made like one fights like it.
+    assert.match(told, /what else you give replaces its parts, and a weapon made like one fights like it\. The Engine/);
+    const noFights = parsedOrThrow(
+      variant(emberText, (doc) => {
+        delete doc.combat;
+        doc.catalogs = doc.catalogs.filter((catalog: { holds?: string }) => catalog.holds !== "creatures");
+        doc.sheet.derived = doc.sheet.derived.filter((entry: { id: string }) => entry.id !== "stance_brawn");
+        doc.resolution.adjust = doc.resolution.adjust.filter(
+          (adjust: { value: { derived?: string } }) => adjust.value.derived !== "stance_brawn",
+        );
+      }),
+      "Ember Roads with no fights",
+    );
+    assert.match(
+      buildGmFormatReminder({ ...base, ruleset: noFights }),
+      /what else you give replaces its parts\. The Engine/,
+    );
     assert.match(
       told,
       /Its words: categories weapon, armor, ammunition, provisions, gear; rarities common, uncommon, storied \(lowest first\); tags thrown, ranged, two_handed; stats bulk \(number 0 to 10\), guard \(number 0 to 4\), damage \(dice\), swing \(one of brawn, wits, heart\), reach \(one of close, near, far\); slots body \(1\), hands \(2\); skills Scrap, Sneak, Tinker, Sway; abilities Brawn, Wits, Heart\. The most at each rarity: common guard 1, worn or carried bonus 1; uncommon guard 2, worn or carried bonus 1; storied guard 3, worn or carried bonus 2\./,

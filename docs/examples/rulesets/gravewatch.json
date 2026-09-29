@@ -552,6 +552,34 @@
               }
             ]
           }
+        },
+        {
+          "id": "grave-wight",
+          "label": "Grave wight",
+          "summary": "Something in grave-cloth that climbed back out, and does not feel a blade.",
+          "creature": {
+            "tier": "dread",
+            "health": 5,
+            "defense": 2,
+            "initiativeModifier": 1,
+            "saves": { "steel": 2 },
+            "resist": [
+              {
+                "$comment": "What tears at it tears at dead flesh, and only silver gets through: the tags of the weapon a blow is struck with are what it carries, so a silver nail's harm is taken in full.",
+                "type": "tearing",
+                "except": ["silver"]
+              }
+            ],
+            "actions": [
+              {
+                "id": "rake",
+                "name": "Grave-cold rake",
+                "budget": "act",
+                "toHit": 5,
+                "damage": { "dice": "1d10", "type": "tearing" }
+              }
+            ]
+          }
         }
       ]
     },
@@ -589,7 +617,13 @@
                 "atLeast": 3,
                 "otherwise": { "modifiers": [{ "to": "checks", "skills": ["dig"], "flat": -1 }] }
               }
-            ]
+            ],
+            "attack": {
+              "$comment": "Swung with Sinew and the digger's trade, each die counting from its own target of 6 rather than the pool's 7, and a hit adds the spade's own die to the harm.",
+              "budget": "act",
+              "toHit": { "abilities": ["sinew"], "skill": "dig", "target": { "stat": "target" } },
+              "damage": { "dice": { "stat": "damage" }, "type": { "stat": "harm" } }
+            }
           }
         },
         {
@@ -603,7 +637,12 @@
             "stats": { "target": 7, "damage": "1d6", "harm": "tearing", "conceal": "pocket" },
             "slots": { "hands": 1 },
             "stack": 12,
-            "cost": { "amount": 2, "unit": "crown" }
+            "cost": { "amount": 2, "unit": "crown" },
+            "attack": {
+              "budget": "act",
+              "toHit": { "abilities": ["nerve"], "skill": "wrestle", "target": { "stat": "target" } },
+              "damage": { "dice": { "stat": "damage" }, "type": { "stat": "harm" } }
+            }
           }
         },
         {

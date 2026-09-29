@@ -11,6 +11,7 @@ import {
   type RulesetCatalogEntry,
   type RulesetCatalogItem,
   type RulesetDefinition,
+  type RulesetItemAttack,
   type RulesetItemEffect,
   type RulesetItemStat,
   type RulesetValueRef,
@@ -85,6 +86,123 @@ export interface RulesetItemFacts {
   worn?: RulesetItemEffectFact[];
   carried?: RulesetItemEffectFact[];
   requires?: RulesetItemRequirementFact[];
+  attack?: RulesetItemAttackFact;
+}
+
+/** A weapon's attack as labels and numbers: the budget it spends, what it adds to hit and deals, and
+ *  how far it reaches and carries. Each sum is written in labels, digits and signs only ("Brawn/Wits +
+ *  Scrap + 1", the best of the abilities split by "/"), so the screen and the Game Master read it
+ *  alike; `proficiency` says the holder's proficiency bonus is added where they are proficient. */
+export interface RulesetItemAttackFact {
+  budget: string;
+  toHit: string;
+  proficiency?: true;
+  /** A pool fight's per-die target for it. */
+  target?: number;
+  damage: string;
+  type?: string;
+  reach?: number;
+  range?: { normal: number; long?: number };
+  /** The ruleset's own distance unit, beside a reach or a range. */
+  unit?: string;
+  /** What it deals instead with a hand free beside it. */
+  versatile?: string;
+}
+
+/** The item stats a weapon's attack reads (`{ "stat": id }` anywhere in it). */
+export function rulesetItemAttackStats(attack: RulesetItemAttack): string[] {
+  const reads = [
+    attack.toHit.abilities,
+    attack.toHit.skill,
+    attack.toHit.bonus,
+    attack.toHit.target,
+    attack.damage.dice,
+    attack.damage.abilities,
+    attack.damage.bonus,
+    attack.damage.type,
+    attack.reach,
+    attack.range?.normal,
+    attack.range?.long,
+    attack.versatile?.dice,
+  ];
+  const ids = reads.flatMap((value) =>
+    value && typeof value === "object" && !Array.isArray(value) && "stat" in value ? [value.stat] : [],
+  );
+  return [...new Set(ids)];
+}
+
+/** A sum as the item facts write one: the first part as it is, then each with its sign. Nothing is
+ *  0. */
+function factSum(parts: ReadonlyArray<string | number>): string {
+  const kept = parts.filter((part) => part !== "" && part !== 0);
+  if (kept.length === 0) return "0";
+  return kept
+    .map((part, index) => {
+      if (typeof part === "string") return index === 0 ? part : `+ ${part}`;
+      if (index === 0) return String(part);
+      return part < 0 ? `- ${-part}` : `+ ${part}`;
+    })
+    .join(" ");
+}
+
+/** A weapon's attack as facts, each value read off the item's stat where it says so. */
+function rulesetItemAttackFacts(
+  definition: RulesetDefinition,
+  item: RulesetCatalogItem,
+  attack: RulesetItemAttack,
+): RulesetItemAttackFact {
+  const stats = new Map((definition.items?.stats ?? []).map((stat) => [stat.id, stat]));
+  const labelOf = (words: ReadonlyArray<{ id: string; label: string }>, id: string) =>
+    words.find((word) => word.id === id)?.label ?? id;
+  const read = (value: unknown): unknown => {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) return value;
+    const stat = (value as { stat?: unknown }).stat;
+    return typeof stat === "string" ? item.stats?.[stat] : undefined;
+  };
+  const statLabel = (value: unknown): string | undefined => {
+    const stat =
+      value && typeof value === "object" && !Array.isArray(value) ? (value as { stat?: string }).stat : undefined;
+    const read = stat !== undefined ? item.stats?.[stat] : value;
+    if (typeof read !== "string" || !read) return undefined;
+    const declared = stat !== undefined ? stats.get(stat) : undefined;
+    return declared ? (statText(declared, read) ?? read) : read;
+  };
+  const abilities = (value: unknown) => {
+    const ids = Array.isArray(value) ? value : typeof read(value) === "string" ? [read(value) as string] : [];
+    return ids.map((id) => labelOf(definition.sheet.abilities, id)).join("/");
+  };
+  const number = (value: unknown) => {
+    const found = read(value);
+    return typeof found === "number" && Number.isFinite(found) ? found : 0;
+  };
+  const dice = (value: unknown) => {
+    const found = read(value);
+    return typeof found === "string" ? found : "";
+  };
+  const skill = read(attack.toHit.skill);
+  const target = read(attack.toHit.target);
+  const type = statLabel(attack.damage.type);
+  const reach = number(attack.reach);
+  const normal = attack.range ? number(attack.range.normal) : 0;
+  const long = attack.range?.long !== undefined ? number(attack.range.long) : 0;
+  const versatile = attack.versatile ? dice(attack.versatile.dice) : "";
+  const unit = definition.combat?.distance?.label;
+  return {
+    budget: labelOf(definition.combat?.economy.budgets ?? [], attack.budget),
+    toHit: factSum([
+      abilities(attack.toHit.abilities),
+      typeof skill === "string" ? labelOf(definition.sheet.skills, skill) : "",
+      number(attack.toHit.bonus),
+    ]),
+    ...(attack.toHit.proficiency ? { proficiency: true as const } : {}),
+    ...(typeof target === "number" ? { target } : {}),
+    damage: factSum([dice(attack.damage.dice), abilities(attack.damage.abilities), number(attack.damage.bonus)]),
+    ...(type ? { type } : {}),
+    ...(reach > 0 ? { reach } : {}),
+    ...(normal > 0 ? { range: { normal, ...(long > normal ? { long } : {}) } } : {}),
+    ...((reach > 0 || normal > 0) && unit ? { unit } : {}),
+    ...(versatile ? { versatile } : {}),
+  };
 }
 
 /** A value off the sheet by the ruleset's own label: an ability, a skill, a derived value. An ability's
@@ -253,6 +371,7 @@ export function rulesetItemFacts(definition: RulesetDefinition, item: RulesetCat
     ...(worn.length ? { worn } : {}),
     ...(carried.length ? { carried } : {}),
     ...(requires.length ? { requires } : {}),
+    ...(item.attack ? { attack: rulesetItemAttackFacts(definition, item, item.attack) } : {}),
   };
 }
 
@@ -346,6 +465,45 @@ export function rulesetItemBook(
     const made = inventedByName.get(key)?.at(-1);
     return byName.get(key) ?? (made ? all.get(rulesetInventedItemRef(made.id)) : undefined);
   };
+  /** The ruleset's own weapon of this category whose name shares the most words with `name` (a word
+   *  counts where either holds the other, "crossbow" and "bow"), or the first of them. */
+  const weaponLike = (category: string, name: string): RulesetItemBookEntry | undefined => {
+    const words = (text: string) =>
+      text
+        .toLowerCase()
+        .split(/[^\p{L}\p{N}]+/u)
+        .filter((word) => word.length >= 3);
+    const wanted = words(name);
+    let best: RulesetItemBookEntry | undefined;
+    let most = -1;
+    for (const entry of visible) {
+      if (entry.entry.item?.category !== category || !entry.entry.item.attack) continue;
+      const shared = words(entry.name).filter((word) =>
+        wanted.some((each) => each.includes(word) || word.includes(each)),
+      ).length;
+      if (shared > most) {
+        best = entry;
+        most = shared;
+      }
+    }
+    return best;
+  };
+  /** The proposal made again as a weapon like `weapon`: its attack, and the stats that attack reads
+   *  which the proposal left out. Undefined when the item could not be worn with it. */
+  const armedLike = (
+    proposal: Parameters<typeof inventRulesetItem>[1],
+    plain: NonNullable<ReturnType<typeof inventRulesetItem>>,
+    weapon: RulesetItemBookEntry,
+  ) => {
+    const attack = weapon.entry.item!.attack!;
+    const own = plain.item.stats ?? {};
+    const theirs = weapon.entry.item!.stats ?? {};
+    const read = rulesetItemAttackStats(attack).filter((id) => own[id] === undefined && theirs[id] !== undefined);
+    const stats = { ...Object.fromEntries(read.map((id) => [id, String(theirs[id])])), ...(proposal.stats ?? {}) };
+    const made = read.length > 0 ? (inventRulesetItem(definition, { ...proposal, stats }, undefined) ?? plain) : plain;
+    const item = { ...made.item, attack };
+    return rulesetItemIssues(definition, item).length === 0 ? { ...made, item } : undefined;
+  };
   const invent: GameInventoryItemRules["invent"] = (written, stacks) => {
     const proposal = rulesetProposalParts(definition, written);
     const text = rulesetInventedItemText(proposal);
@@ -365,13 +523,22 @@ export function rulesetItemBook(
     if (invented.size >= RULESET_INVENTED_ITEMS_MAX) return { refused: "too-many" };
     const likeText = proposal.like?.trim();
     const like = likeText ? (offered.has(likeText) ? all.get(likeText) : itemNamed(likeText)) : undefined;
-    const made = inventRulesetItem(definition, proposal, like?.entry.item);
-    if (!made || rulesetItemIssues(definition, made.item).length > 0) return { refused: "unreadable" };
+    const plain = inventRulesetItem(definition, proposal, like?.entry.item);
+    if (!plain || rulesetItemIssues(definition, plain.item).length > 0) return { refused: "unreadable" };
     const missed = likeText && !like ? [`No item "${likeText.slice(0, 60)}" to start from.`] : [];
-    const notes = [...missed, ...made.notes];
+    // A weapon proposed with nothing to start from fights as the ruleset's own weapon of its category
+    // it is most like by name, or else the first: a small model describes the weapon and leaves
+    // `like` out, and a weapon with no attack is never offered in a fight. The stats its attack reads
+    // that the proposal left out come from that weapon, as `like` would bring them, and are held to
+    // the rarity's caps with the rest. None of it applies to an item that could never be worn.
+    const weapon = like || plain.item.attack ? undefined : weaponLike(plain.item.category, text.name);
+    const armed = weapon ? armedLike(proposal, plain, weapon) : undefined;
+    const made = armed ?? plain;
+    const fights = armed ? [`It fights as ${weapon!.name} does.`] : [];
+    const notes = [...missed, ...made.notes, ...fights];
     const id = rulesetInventedItemId(text.name, (taken) => invented.has(taken));
     keep({ id, ...text, item: made.item, ...(notes.length ? { notes } : {}) });
-    madeHere.set(id, [...missed, ...made.promptNotes]);
+    madeHere.set(id, [...missed, ...made.promptNotes, ...fights]);
     return { item: rulesetInventedItemRef(id), notes: madeHere.get(id)! };
   };
   return {
@@ -491,5 +658,28 @@ export function rulesetItemPromptFacts(facts: RulesetItemFacts): string {
     (need) =>
       `needs ${requirementValueText(need)} ${need.atLeast}, otherwise ${need.otherwise.map(rulesetItemEffectText).join(", ")}`,
   );
-  return [kind, stats, ...effects, ...needs].filter(Boolean).join("; ");
+  return [kind, stats, ...effects, ...needs, facts.attack ? rulesetItemAttackText(facts.attack) : ""]
+    .filter(Boolean)
+    .join("; ");
+}
+
+/** A weapon's attack in the Game Master's words: "attack (Act): Brawn + 1 to hit, 1d6 + Brawn cut,
+ *  reach 2 paces, range 10 to 20 paces, 1d8 with a hand free". */
+export function rulesetItemAttackText(attack: RulesetItemAttackFact): string {
+  const unit = attack.unit ? ` ${attack.unit}` : "";
+  const toHit = `${attack.toHit}${attack.proficiency ? " + proficiency" : ""} to hit${
+    attack.target !== undefined ? ` at ${attack.target}` : ""
+  }`;
+  const range = attack.range
+    ? `range ${attack.range.normal}${attack.range.long !== undefined ? ` to ${attack.range.long}` : ""}${unit}`
+    : "";
+  return `attack (${attack.budget}): ${[
+    toHit,
+    [attack.damage, attack.type].filter(Boolean).join(" "),
+    attack.reach !== undefined ? `reach ${attack.reach}${unit}` : "",
+    range,
+    attack.versatile ? `${attack.versatile} with a hand free` : "",
+  ]
+    .filter(Boolean)
+    .join(", ")}`;
 }

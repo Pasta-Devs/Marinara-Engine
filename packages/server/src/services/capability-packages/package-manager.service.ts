@@ -881,6 +881,25 @@ function entriesCarryRequirements(entries: unknown): boolean {
   );
 }
 
+const WEAPONS_ISSUE =
+  "A ruleset whose items are weapons, or whose creatures name what gets through a resistance or an immunity, requires schemaVersion 2 and capabilityApi 1.55 or newer";
+
+/** A weapon's attack, which is 1.55 (a new key on the strict item), and a creature's resistance or
+ *  immunity written as an object with what gets through it, where a word was all there was before. */
+function entriesCarryWeapons(entries: unknown): boolean {
+  return (
+    Array.isArray(entries) &&
+    entries.some((entry) => {
+      const record = plainRecord(entry);
+      if (plainRecord(record?.item)?.attack !== undefined) return true;
+      const creature = plainRecord(record?.creature);
+      return (["resist", "immune"] as const).some(
+        (key) => Array.isArray(creature?.[key]) && (creature[key] as unknown[]).some((type) => plainRecord(type)),
+      );
+    })
+  );
+}
+
 /** A level that reads a derived value, which is 1.54: a new key on the strict level. */
 function rulesetCarriesDerivedLevels154(ruleset: { combat?: unknown } | undefined): boolean {
   const levels = plainRecord(ruleset?.combat)?.levels;
@@ -1120,6 +1139,7 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryCreatureSoak(header.entries) && !declaresApi(47)) return POOL_FIGHT_ISSUE;
       if (entriesCarryItemEffects(header.entries) && !declaresApi(53)) return CHECK_EFFECTS_ISSUE;
       if (entriesCarryRequirements(header.entries) && !declaresApi(54)) return REQUIREMENTS_ISSUE;
+      if (entriesCarryWeapons(header.entries) && !declaresApi(55)) return WEAPONS_ISSUE;
       const asset = header.asset;
       if (typeof asset !== "string") continue;
       // A path that does not normalize is never a declared one, whatever else failed to normalize.
@@ -1147,6 +1167,7 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryItems(fileEntries) && !declaresApi(49)) return ITEMS_ISSUE;
       if (entriesCarryItemEffects(fileEntries) && !declaresApi(53)) return CHECK_EFFECTS_ISSUE;
       if (entriesCarryRequirements(fileEntries) && !declaresApi(54)) return REQUIREMENTS_ISSUE;
+      if (entriesCarryWeapons(fileEntries) && !declaresApi(55)) return WEAPONS_ISSUE;
     }
   }
   // The battle block lives inside the ruleset file too, so it is read the same way and for the same

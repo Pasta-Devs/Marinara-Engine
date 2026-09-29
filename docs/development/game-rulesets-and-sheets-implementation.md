@@ -1205,6 +1205,50 @@ Capability API 1.54, for #6846. Slice I4-3 of the ruleset items plan, the last o
   Sneak check carries the bulk level beside the coat) and `e2e/game-ruleset-wearing.e2e.ts` (Brawn +2
   on the in-game sheet, and both kinds of item details), with 57 deliberate breaks each caught.
 
+### What weapons as items settled
+
+Capability API 1.55, for #6855. Slice I5-1 of the ruleset items plan, split from I5 on 2026-09-29:
+armor and what a worn item does in a fight are I5-2, and ammunition and firearms I5-3.
+
+- **The shape.** An item's `attack` is an attack row with values in place of columns: `budget`;
+  `toHit` (`abilities`, the best counting; `skill`, with the attack's ability swapped in as a row's
+  is; `proficiency`, a value off the holder, adding the proficiency bonus above 0; `bonus`; `target`);
+  `damage` (`dice`, best of `abilities`, `bonus`, `type`); `reach`; `range`; `versatile`; `strikes`.
+  Every number or word may be `{ "stat": id }`, read off the item's own stat, so an invented weapon
+  fights with its own stats and `rarityCaps` holds them. There is no `thrown` key: a weapon with
+  both a reach and a range is thrown, which is what an attack row already meant.
+- **Checked at import** against the ruleset: budgets, abilities, skills, damage types, and each stat
+  read by kind (an enum read as abilities, a skill or a type holds only those words). A summed fight
+  needs dice; `target` is a pool fight's where the target moves; distances need `combat.distance`; a
+  weapon must be wearable (a slot or a binding), and `versatile` needs a slot. A ruleset with no
+  combat block carries a weapon and reads nothing, as a catalog entry's `budget` is.
+- **In a fight** each worn item with an attack is an action `item:<index>` named as the stack is,
+  built once as the fight begins, beside the attack rows (`abilityAndSkill` is now shared with them).
+  `versatile` dice apply while each slot the weapon takes has room for as much again among the worn
+  items (a stack counts by its quantity). A pool action carries its own `target`, which the attack's
+  throw and its forecast both pass to the pool roller, held inside the ruleset's range.
+- **What gets through.** A creature's `resist` and `immune` entries may be `{ type, except }`, with
+  `except` naming item tags; a weapon's damage carries its item's tags as `qualities`, and every
+  part of its blow does. A plain word is what it always was, and a GM-invented creature keeps
+  whatever entries survive the known-type filter.
+- **Seen and said.** Item facts gain `attack` (sums written in labels, digits and signs, the best of
+  abilities joined by "/"), the Game Master's item line ends with it, and the item details show it in
+  two localized lines. `like=` copies the attack onto an invented item unless it could never be worn.
+  Gemma 4 E4B described weapons fully and never wrote `like=`, so an item invented in a category of
+  weapons with nothing to start from takes the attack of the one of them it is most like by name (a
+  word shared either way, else the first), and the stats that attack reads which the proposal left
+  out, re-invented so rarity caps hold them; the note says "It fights as Hand axe does.", and the
+  proposal form says a weapon made like one fights like it where the ruleset has fights.
+- **Examples.** Ember Roads: the hand axe (thrown), a new boar spear (reach two cells, thrown,
+  versatile 1d8) and the hunting bow (range 30 to 60). Gravewatch: the grave spade (target 6) and the
+  silver coffin nail, and a new grave wight whose tearing resistance silver gets through.
+- **Proven** by `scripts/regressions/game-ruleset-weapons.regression.ts` (every refusal and the gate,
+  weapons in a summed fight and a pool fight, versatile with a hand free and with both full, stat
+  reads, the best ability, a skill, proficiency, strikes, a weapon's own target on the throw and the
+  forecast, silver through a resistance and an immunity, facts and invented weapons), lanes that pin
+  item facts or the examples, and `e2e/game-ruleset-weapons.e2e.ts` (the axe's attack in its details,
+  and on the fight menu while the carried bow is not), with 67 deliberate breaks each caught.
+
 ## Gaps a ruleset author found
 
 The author of [Marinara-RPG-Extension](https://github.com/Kenhito/Marinara-RPG-Extension), who

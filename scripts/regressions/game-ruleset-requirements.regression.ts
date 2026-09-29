@@ -213,16 +213,23 @@ try {
     const gateIssue = /ask something of their wearer or change an ability.*capabilityApi 1\.54/;
     const issue = (minor: number, doc: Record<string, any>, paths?: string[], files?: Map<string, unknown>) =>
       getCapabilityPackageInstallIssue(manifest(minor, paths) as any, doc, files);
+    /** Less the example's weapons, which are 1.55's and have a lane of their own. */
+    const withoutWeapons = (doc: Record<string, any>) => {
+      for (const entry of doc.catalogs.find((each: { holds?: string }) => each.holds === "items").entries) {
+        delete entry.item.attack;
+      }
+    };
     /** Ember Roads less its own 1.54 keys, to add one back at a time. */
     const bare = (edit: (doc: Record<string, any>) => void = () => {}) =>
       variant(emberText, (doc) => {
         delete itemEntry(doc, "ox-hide-gauntlets").item.worn;
         doc.combat.levels = doc.combat.levels.filter((entry: { derived?: string }) => entry.derived === undefined);
+        withoutWeapons(doc);
         edit(doc);
       });
     assert.equal(issue(53, bare()), null, "the rest of the example stays 1.53");
-    assert.match(issue(53, variant(emberText)) ?? "", gateIssue);
-    assert.equal(issue(54, variant(emberText)), null);
+    assert.match(issue(53, variant(emberText, withoutWeapons)) ?? "", gateIssue);
+    assert.equal(issue(54, variant(emberText, withoutWeapons)), null);
     const cases: Array<[string, (doc: Record<string, any>) => void]> = [
       [
         "a worn ability",
@@ -475,7 +482,10 @@ try {
     assert.deepEqual(spadeFacts.requires, [
       { what: "Sinew", atLeast: 3, otherwise: [{ to: "checks", names: ["Dig"], change: { value: "-1" } }] },
     ]);
-    assert.match(rulesetItemPromptFacts(spadeFacts), /; needs Sinew 3, otherwise -1 on checks \(Dig\)$/);
+    assert.match(
+      rulesetItemPromptFacts(spadeFacts),
+      /; needs Sinew 3, otherwise -1 on checks \(Dig\); attack \(Act\): /,
+    );
     // Every kind of value a requirement may read has a label, and a modifier or a count of items says so.
     const labels = (
       [
