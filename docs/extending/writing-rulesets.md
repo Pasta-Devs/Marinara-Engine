@@ -416,6 +416,7 @@ Some numbers on a sheet ride along on every roll they touch: a heavy pack on eve
 - `value` is a value off the sheet, in the same form a derived value reads, the live state included. A negative number takes away. Ember Roads adds up the bulk of the gear a character has packed into a Burden, and a step table turns every three of it into one off each Brawn roll. A table keyed on a live state is how a form or a stance reaches the dice (see Live states).
 - `abilities` is optional. With it, the modifier applies only to a check that rolls with one of those abilities: the ability itself, a skill or save that uses it, a skill rolled with it through `with=`, or a pair of abilities that includes it. Without it, it applies to every check.
 - It is applied where the wound penalty is: dice on a pool, under the same `pool.min` floor, and a flat number on a sum, inside the modifier the record adds up. Up to eight entries, added together for each check.
+- A ruleset fight adds it to every roll it builds from a sheet, as the fight begins: an attack rolled with an ability or a skill, a save, a contest check and initiative read off an ability, a skill or a save take the entries for that ability, and anything else rolled takes only the entries for every roll.
 - A character nobody has a sheet for gets nothing from it, the same way they get no modifier.
 
 The result says what the sheet added (`adjust="-2"` on the record, and a line on the dice card), so a player can see why a roll came out as it did. It is Capability API 1.38 for a packaged ruleset.
@@ -633,7 +634,7 @@ The limits are 12 catalogs per ruleset, 2000 entries per catalog either way, and
 
 ## Items: what a party carries
 
-Armor, weapons, potions, gear, ammunition and money are items. An optional `items` block declares the words every item of your ruleset is written in, and a catalog with `holds: "items"` lists the items themselves. Both need Capability API 1.49; the block's `rarityCaps` and `propose`, which govern the items the Game Master invents, need 1.51, a value that reads the items a character holds (`itemStat`) needs 1.52, what an item does to checks while worn or carried, with the block's `bonus` caps, needs 1.53, what an item asks of its wearer and the abilities it changes need 1.54, and a weapon's `attack` needs 1.55.
+Armor, weapons, potions, gear, ammunition and money are items. An optional `items` block declares the words every item of your ruleset is written in, and a catalog with `holds: "items"` lists the items themselves. Both need Capability API 1.49; the block's `rarityCaps` and `propose`, which govern the items the Game Master invents, need 1.51, a value that reads the items a character holds (`itemStat`) needs 1.52, what an item does to checks while worn or carried, with the block's `bonus` caps, needs 1.53, what an item asks of its wearer and the abilities it changes need 1.54, a weapon's `attack` needs 1.55, and what an item does in a fight needs 1.56.
 
 ### The items block
 
@@ -745,7 +746,7 @@ Each entry carries an `item` instead of `rows` or a `creature`:
 - `stack`: the most one stack holds, from 1 to 999,999. Without it, a stack holds as many as any Game Mode stack.
 - `cost`: a whole `amount` of one coin, named by its `unit` id.
 - `binds`: the item has to be bound before it does anything while worn. `restriction` (optional) says in words who may bind it, and `cursed: true` marks one that will not let go. Only a ruleset with `binding` can have items that bind.
-- `worn` and `carried` (optional, Capability API 1.53): what the item does to its holder's checks and saves while it is worn, and while it is only carried, and (1.54) the abilities it sets or raises. See [Checks outside a fight](#checks-outside-a-fight).
+- `worn` and `carried` (optional, Capability API 1.53): what the item does to its holder's checks and saves while it is worn, and while it is only carried, (1.54) the abilities it sets or raises, and (1.56) what it does in a fight. See [Checks outside a fight](#checks-outside-a-fight) and [Armor and worn effects in a fight](#armor-and-worn-effects-in-a-fight).
 - `requires` (optional, Capability API 1.54): what the item asks of whoever wears it, and what applies while they fall short. See [Checks outside a fight](#checks-outside-a-fight).
 - `attack` (optional, Capability API 1.55): what the item does as a weapon in a fight, while it is worn. See [Weapons in a fight](#weapons-in-a-fight).
 
@@ -765,13 +766,13 @@ Everything above is checked when the ruleset is imported, and your catalogs of i
 - **`slots`**: an item that takes slots can be equipped by whoever carries it, while they have those slots free, and one item of a larger stack is taken into its own stack to be worn. The inventory shows each slot in use per character.
 - **`binding`**: an item that `binds` can be bound, up to `binding.max` read off its bearer's own sheet (a character without a sheet reads a blank one). A `cursed` item, once bound, stays bound: the player cannot unbind it, take it off, give it away or remove it, and only the Game Master can end the curse.
 - **`carry`**: an item weighs its value of `carry.stat` (an item without one weighs nothing), and a character's load is what their bag weighs, against `encumberedAbove` and `limit` read off their own sheet. An item added into the inventory's shared view, by the player or by the Game Master without a `who=`, goes to whoever can carry it without becoming encumbered (the player first, then the party in order), shared out by the room each has left when nobody can take all of it. Nothing goes past anyone's `limit`: what nobody can carry is left behind and the Game Master is told. Give a weight stat `"integer": false` for weights such as a quarter of a pound.
-- **The Game Master invents items in your words.** Unless you set `propose: false`, its `[inventory: action="add"]` can describe a new item: `like=` one of your items to start from, then any of `category=`, `rarity=`, `tags=`, `stats=` (`id=value` pairs), `slots=` (`id=count`), `binds=` (`yes`, `cursed` or `no`), `worn=` and `carried=` (changes split by `;`, each `+N`, `-N`, `advantage`, `disadvantage` or `fails` for saves, on skills or saves by name, or on `checks` or `saves` for all of them, and `+N` or `-N` on an ability's name to raise or lower it: `worn="+1 Sneak; disadvantage on Sway checks"`, `carried="+1 Brawn"`, or `none`) and `summary=`, each part by its id or label. It also reads what a small model tends to write instead: a number after the name (`Brawn +1`), `none` for an empty list of tags, stats or slots, and `worn=`, `carried=` or `summary=` inside `stats=` when you have no stat of that name. The Engine keeps only what your block has: an unknown category, tag, stat, slot, skill or save is left out, a rarity you do not have becomes your lowest, a number is held to its stat's range and then to `rarityCaps` for its rarity, a worn or carried bonus to its rarity's `bonus` (the part `like` started it from as well), and a name that is one of your items is simply that item. The answer tells the Game Master what was changed (never about a stat you do not show it), and the item's details show every change to the player. The game keeps the item, so the same name is that item for the rest of the game, and a new session keeps it while anyone still holds it.
+- **The Game Master invents items in your words.** Unless you set `propose: false`, its `[inventory: action="add"]` can describe a new item: `like=` one of your items to start from, then any of `category=`, `rarity=`, `tags=`, `stats=` (`id=value` pairs), `slots=` (`id=count`), `binds=` (`yes`, `cursed` or `no`), `worn=` and `carried=` (changes split by `;`, each `+N`, `-N`, `advantage`, `disadvantage` or `fails` for saves, on skills or saves by name, or on `checks` or `saves` for all of them, `+N` or `-N` on an ability's name to raise or lower it, and, where you have fights, `+N`, `-N`, advantage or disadvantage on attacks and `+N` or `-N` on defense or your word for it: `worn="+1 Sneak; disadvantage on Sway checks"`, `carried="+1 Brawn"`, `worn="+1 Guard"`, or `none`) and `summary=`, each part by its id or label. An item stat your defense already counts (Ember Roads' Guard adds up the `guard` of what is worn) is how armor raises it, so a worn change to defense beside such a stat is left out and the answer says so: a small model writes `guard=1` and `+1 Guard` for one +1. It also reads what a small model tends to write instead: a number after the name (`Brawn +1`), "bonus" after attacks or defense (`+1 attack roll bonus`), `none` for an empty list of tags, stats or slots, and `worn=`, `carried=` or `summary=` inside `stats=` when you have no stat of that name. The Engine keeps only what your block has: an unknown category, tag, stat, slot, skill or save is left out, a rarity you do not have becomes your lowest, a number is held to its stat's range and then to `rarityCaps` for its rarity, a worn or carried bonus to its rarity's `bonus` (the part `like` started it from as well), and a name that is one of your items is simply that item. The answer tells the Game Master what was changed (never about a stat you do not show it), and the item's details show every change to the player. The game keeps the item, so the same name is that item for the rest of the game, and a new session keeps it while anyone still holds it.
 - The Game Master can `equip` and `unequip` your items with its inventory command when you have `slots`, and `bind` and `unbind` them when you have `binding`: it is only told of the ones your ruleset has. It sees each character's load, bound items and slots, and what is worn or bound.
 
 - **What an item does while worn or carried** shows on the selected stack and in the picker ("While worn: -1 on checks (Sneak)"), and the Game Master sees it beside the item (`worn: -1 on checks (Sneak)`). Checks outside a fight apply it (see Checks outside a fight, below).
 - **What a weapon does** shows the same way ("Attack (Action): Brawn to hit, 1d6 + Brawn cut damage"), and a fight offers it while it is held (see Weapons in a fight, below).
 
-A fight already spends one of your items the way it spends any item, unless `native` is `false`. Whatever `native` says, the sheet can read your items (below), and a held weapon is an attack in a ruleset fight. Armor and what a worn item does in a fight, and using items by their own rules, come in the next releases, and money after that.
+A fight already spends one of your items the way it spends any item, unless `native` is `false`. Whatever `native` says, the sheet can read your items (below), a held weapon is an attack in a ruleset fight, and what an item does while worn or carried counts in one (see Armor and worn effects in a fight, below). Using items by their own rules comes in a later release, and money after that.
 
 ### Items on the sheet
 
@@ -825,7 +826,7 @@ Ember Roads' ox-hide gauntlets lend a weak grip a drover's:
 "worn": { "abilities": { "brawn": { "set": 2 } } }
 ```
 
-What an item does in a fight (defense, attacks, speed, the other effects) comes with weapons and armor in a fight, so those are refused here for now. One item applies once however many stacks of it someone holds.
+What an item does in a fight (defense, attacks, speed, the fight's other effects, and the harm and conditions it keeps off) is in [Armor and worn effects in a fight](#armor-and-worn-effects-in-a-fight); a check outside a fight reads only the parts above. One item applies once however many stacks of it someone holds.
 
 An item may also ask something of whoever wears it, with `requires`: a value off their sheet (`value`, any value reference, read as everything in play is), the least it may be (`atLeast`), and what applies while they fall short (`otherwise`, in the same vocabulary, except that it cannot change an ability, since what it asks may read one). Up to four. Gravewatch's grave spade is heavy work for a weak warden:
 
@@ -878,6 +879,32 @@ A weapon's tags are what its blows carry. A creature's `resist` or `immune` entr
 The weapon's details and the Game Master's line say what it does: `attack (Action): Brawn to hit, 1d6 + Brawn cut, reach 2 paces, range 10 to 20 paces`, with `1d8 with a hand free` for Ember Roads' boar spear and `at 6` beside Gravewatch's spade.
 
 Ammunition, loading and reloading, ways to fire, a second weapon in the off hand, a floor to the damage and a condition on a strong hit come in a later release.
+
+### Armor and worn effects in a fight
+
+What an item does while worn or carried may also change a fight (Capability API 1.56), for its holder, alongside their conditions and levels. Each takes the parts of a condition a fight reads:
+
+- `effects`: any of a condition's but the four a level cannot have (`half-move-to-stand`, `ends-on-damage`, `cannot-target-source`, `cannot-approach-source`), since nobody put an item on its holder and it never ends by itself: `own-attacks-advantage`, `attacks-against-disadvantage`, `resist-all`, `speed-zero` and the rest.
+- `modifiers`: changes `to` defense, attacks and speed as well as checks and saves, exactly as a condition's; in a `dice-pool` fight a change to attacks is a flat number of dice, as a condition's is.
+- `resist`, `vulnerable` and `immune`: kinds of harm its holder takes half of, double, or none of, as a creature's are (and checked against `combat.damageTypes` when you declare any). `conditionImmunities`: your own conditions that are never put on its holder.
+
+Gravewatch's cursed widow's ring costs a die on every attack, its bound Dawn bell keeps its bearer from being rattled, and an Ember Roads waystone carried keeps the heat off:
+
+```json
+"worn": { "modifiers": [{ "to": "attacks", "flat": -1 }] }
+```
+
+```json
+"worn": { "modifiers": [{ "to": "checks", "skills": ["ward"], "flat": 1 }], "conditionImmunities": ["rattled"] }
+```
+
+```json
+"carried": { "modifiers": [{ "to": "checks", "skills": ["sway"], "flat": 1 }], "resist": ["burn"] }
+```
+
+A fight reads each item once, named for the stack ("Widow's ring" beside a roll in the log, and on a defense), as a check does; an unmet requirement's `otherwise` counts in a fight too, so armor too heavy for its wearer can cost speed. An item's details and the Game Master's line say all of it ("While worn: -1 on attacks", "worn: +1 on checks (Ward), immune to Rattled"). Armor that simply adds to a defense or a soak is an item stat read with `itemStat` (see Items on the sheet), as Ember Roads' Guard reads the coat worn.
+
+**Hardness.** Where initiative is a number attacks move, `combat.pool.hardness` is a fighter's hardness, read off their sheet as the fight begins (their armor's, through `itemStat`), and a creature gives its own `hardness`. A spending blow whose dice are below it lands and does nothing: the maker's number still goes back to the base, the log says so ("Ada's Grave spade lands on the warden with 5 dice, below a hardness of 6, and does nothing."), and the menu forecasts no harm for it. Only a ruleset with a style that spends may have it, and a creature written as a sheet takes it from the sheet.
 
 ## Battles: lending the sheet to Marinara's combat
 
@@ -1314,6 +1341,8 @@ What a pool fight rolls beyond that is its `pool` block:
   numbers as `soak: { "all": 1, "byKind": { "knock": 3 } }`, which needs the block's `soak` to say how
   soak is taken. Resistance, vulnerability, immunity and `resist-all` apply after soak, to what is
   left.
+- `hardness`: a value reference for a fighter's hardness, where initiative is a number attacks move.
+  See [Armor and worn effects in a fight](#armor-and-worn-effects-in-a-fight).
 
 Every target's damage is thrown for that target, because what a hit earned past its needed
 successes, and what they soak, are theirs. A blow's second clause, and a rider, are each their own
@@ -1536,7 +1565,7 @@ is filed under one of your own tiers.
 
 The numbers below are the plain way to write a creature. One written in your ruleset's own terms,
 as a `sheet`, takes `health`, `defense`, `initiativeModifier`, `speed`, `abilities`, `saves`,
-`checks` and `soak` from that sheet instead (see "A creature written in your ruleset's own terms", below).
+`checks`, `soak` and `hardness` from that sheet instead (see "A creature written in your ruleset's own terms", below).
 
 - `health`: a number, or `{ "dice": "3d6", "flat": 2 }` thrown once when the fight is created. A
   forecast reads the average, so a menu never promises a die nobody has thrown.
@@ -1549,6 +1578,8 @@ as a `sheet`, takes `health`, `defense`, `initiativeModifier`, `speed`, `abiliti
   as zero. Capability API 1.43.
 - `soak`: in a `dice-pool` fight only, what it soaks: `all` for any harm, `byKind` for a kind of your
   health track. Capability API 1.47.
+- `hardness`: where initiative is a number attacks move, a spending blow whose dice are below it does
+  nothing. Capability API 1.56.
 - `resist`, `vulnerable`, `immune`: damage types, matched without case, and checked against
   `combat.damageTypes` when you declare any. A `resist` or `immune` entry may also say what gets
   through it, `{ "type": "tearing", "except": ["silver"] }`: a blow from a weapon item carrying one
@@ -2127,7 +2158,7 @@ Said plainly, because a ruleset should not claim what the Engine does not do:
   (`resist-all` for that attack); it cannot take a rolled number off it.
 - **Nothing is refunded.** What a cancelled action cost is spent.
 - **What a condition changes is a closed list.** Defense, attack rolls, saves, contest checks and
-  speed, and nothing else: no bonus to the damage its holder deals, and no level that lowers the
+  speed (and so for a level and what an item does in a fight), and nothing else: no bonus to the damage its holder deals, and no level that lowers the
   most a character can have or takes them out of the fight.
 - **A creature written in plain numbers has no wound track.** On a ruleset whose health is a track,
   such a creature still loses points; give it a `sheet` and its blows mark boxes, softened first by
@@ -2135,12 +2166,13 @@ Said plainly, because a ruleset should not claim what the Engine does not do:
 - **A rider fires by itself.** `on` has one value, `hit`, so the first qualifying hit of the period
   takes it, and there is no moment at which you are asked whether to spend one.
 - **A number attacks move is plain.** A spending blow throws the number and nothing else, so no
-  weapon changes it and there is no floor of dice; nothing makes a blow that takes smaller against a
-  sturdy target; a crash lifts after a fixed count of turns however deep it went; and an attack made
+  weapon changes it and there is no floor of dice (a sturdy target soaks a taking blow, and its
+  hardness stops a spending one, but nothing else shrinks either); a crash lifts after a fixed count
+  of turns however deep it went; and an attack made
   in a window (a strike at somebody breaking away, a reaction, a signature move) is made in the
   first style.
-- **An invented opponent soaks nothing.** A creature the Game Master makes up for one fight is held
-  to your threat scale, which says nothing about soak, so it has none.
+- **An invented opponent soaks nothing and has no hardness.** A creature the Game Master makes up for
+  one fight is held to your threat scale, which says nothing about soak or hardness, so it has neither.
 
 ## Layers: variants of your own ruleset
 

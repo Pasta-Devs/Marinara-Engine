@@ -98,6 +98,8 @@ export interface RulesetConditionBonus {
   condition: string;
   level?: number;
   derived?: true;
+  /** Set on what an item added, whose `condition` is then the stack's name. */
+  item?: true;
   value: number;
   rolls?: number[];
 }
@@ -228,6 +230,8 @@ export interface RulesetStatBlock {
   conditionImmunities?: string[];
   /** What it soaks in a `dice-pool` fight, for any harm and by kind of the health track. */
   soak?: RulesetCombatSoak;
+  /** A spending blow whose dice are below this lands and does nothing. */
+  hardness?: number;
   /** The threat tier a bestiary filed it under, read when creatures are clamped to the scale. */
   tier?: string;
   /** Lines the Game Master is shown and nothing resolves. */
@@ -443,6 +447,9 @@ export interface RulesetCombatant {
   checks?: Record<string, number>;
   /** What they soak in a `dice-pool` fight, read once as the fight began. Absent when nothing. */
   soak?: RulesetCombatSoak;
+  /** Their hardness, read once as the fight began: a spending blow whose dice are below it lands and
+   *  does nothing. Absent when none. */
+  hardness?: number;
   /** How many of their own turns they have begun crashed, where initiative is a number attacks move
    *  and the ruleset lets a crash recover. Absent while they are not crashed. */
   crashedTurns?: number;
@@ -880,6 +887,8 @@ export type RulesetCombatEvent =
     }
   /** What the ground the target stands on added to the defense the next attack is rolled against. */
   | { type: "cover"; targetId: string; bonus: number; defense: number }
+  /** A spending blow whose dice were below the target's hardness: it landed and did nothing. */
+  | { type: "hardness"; targetId: string; sourceId: string; label: string; hardness: number; dice: number }
   /** Where an area landed, and the cells it covered. */
   | {
       type: "area";

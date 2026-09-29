@@ -36,6 +36,7 @@ import {
   rulesetConditionModifiers,
   rulesetMovementAllowance,
   rulesetSaveMode,
+  rulesetCombatHide,
   rulesetImmuneToCondition,
   writeRulesetSheet,
   type RulesetConditionModifier,
@@ -298,14 +299,16 @@ function applyDamage(
   const type = input.damageType?.trim().toLowerCase();
   let dealt = Math.max(0, Math.floor(input.amount));
   let adjust: "none" | "resist" | "vulnerable" | "immune" = "none";
-  if (type && target.block) {
-    if (matches(target.block.immune, type, input.qualities)) {
+  // A creature's own hide, and what the target's items keep off.
+  const hide = type ? rulesetCombatHide(ctx.definition, target) : undefined;
+  if (type && hide) {
+    if (matches(hide.immune, type, input.qualities)) {
       dealt = 0;
       adjust = "immune";
-    } else if (matches(target.block.resist, type, input.qualities)) {
+    } else if (matches(hide.resist, type, input.qualities)) {
       dealt = Math.floor(dealt / 2);
       adjust = "resist";
-    } else if (matches(target.block.vulnerable, type)) {
+    } else if (matches(hide.vulnerable, type)) {
       dealt *= 2;
       adjust = "vulnerable";
     }
@@ -769,7 +772,7 @@ function poolRecord(thrown: RulesetCombatPoolThrow & { penalty: number }): Rules
 /** What conditions add to one roll, each rolled now: a flat number as it is, dice thrown (and taken
  *  away where the modifier says `minus`). */
 function rollBonuses(ctx: RulesetCombatContext, modifiers: RulesetConditionModifier[]): RulesetConditionBonus[] {
-  return modifiers.map(({ condition, level, derived, modifier }) => {
+  return modifiers.map(({ condition, level, derived, item, modifier }) => {
     let value = modifier.flat ?? 0;
     const dice = modifier.dice ? parseRulesetCombatDice(modifier.dice) : null;
     const rolls = dice ? rollRulesetDice(ctx.roll, dice.count, dice.sides) : undefined;
@@ -778,6 +781,7 @@ function rollBonuses(ctx: RulesetCombatContext, modifiers: RulesetConditionModif
       condition,
       ...(level !== undefined ? { level } : {}),
       ...(derived ? { derived } : {}),
+      ...(item ? { item } : {}),
       value,
       ...(rolls ? { rolls } : {}),
     };
@@ -814,7 +818,7 @@ function applyConditionId(
   applies: RulesetCombatApplies,
   extra: { sourceId?: string; difficulty?: number; concentration?: boolean } = {},
 ): void {
-  if (rulesetImmuneToCondition(target, condition)) {
+  if (rulesetImmuneToCondition(target, condition, ctx.definition)) {
     ctx.events.push({ type: "condition", targetId: target.id, condition, active: false, reason: "immune" });
     return;
   }
@@ -2380,7 +2384,19 @@ function resolveAction(
         if (kind && (!woundKind || kind.severity > woundKind.severity)) woundKind = kind;
       }
     };
-    if (pooled && action.damage && spends) {
+    if (pooled && action.damage && spends && target.hardness !== undefined && spends.number < target.hardness) {
+      // A number below the target's hardness lands and does nothing: the maker's number still goes
+      // back to the base, as it does for any spending blow that landed.
+      spends.landed = true;
+      ctx.events.push({
+        type: "hardness",
+        targetId: target.id,
+        sourceId: actor.id,
+        label: action.label,
+        hardness: target.hardness,
+        dice: Math.max(0, spends.number),
+      });
+    } else if (pooled && action.damage && spends) {
       // The maker's own number, thrown as damage dice: nothing the weapon adds, nothing the hit had
       // past its needed successes, and no soak.
       spends.landed = true;

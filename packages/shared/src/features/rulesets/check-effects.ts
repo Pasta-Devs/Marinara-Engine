@@ -27,6 +27,11 @@ export interface RulesetCheckSource {
   failsSaves?: readonly string[];
   saves?: readonly string[];
   skills?: readonly string[];
+  /** What an item keeps off its holder in a fight: kinds of harm and conditions. A check reads none. */
+  resist?: readonly string[];
+  vulnerable?: readonly string[];
+  immune?: readonly string[];
+  conditionImmunities?: readonly string[];
 }
 
 /**
@@ -68,6 +73,23 @@ export function rulesetCheckSources(
       sources.push({ ...level, name: `${label} ${level.at}` });
     }
   }
+  return [...sources, ...rulesetItemSources(definition, build, items, sheet)];
+}
+
+/**
+ * What a character's items do, each named for the stack: a worn item's `worn` effect and any other
+ * item's `carried` one, and a worn item's requirement's `otherwise` while the wearer falls short of it.
+ * One item applies each of these once, however many stacks of it there are. `sheet` is the sheet
+ * worked out with the same live state and items, read only for a requirement. A check outside a fight
+ * and a fight both read items through this.
+ */
+export function rulesetItemSources(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  items: readonly RulesetSheetItem[] | undefined,
+  sheet: () => EvaluatedRulesetSheet,
+): RulesetCheckSource[] {
+  const sources: RulesetCheckSource[] = [];
   const seen = new Set<unknown>();
   for (const held of items ?? []) {
     const name = held.name ?? held.item.category;

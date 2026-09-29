@@ -382,7 +382,11 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   });
   const opening = state.opening;
   assert.equal(
-    line(fiveE, state, opening.find((event) => event.type === "initiative")!),
+    line(
+      fiveE,
+      state,
+      opening.find((event) => event.type === "initiative")!,
+    ),
     "Initiative: Brenna 18, Thorn Lurker 4.",
   );
   assert.equal(line(fiveE, state, { type: "round", round: 1 }), "Round 1.");
@@ -651,6 +655,10 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     ],
     ["cover", say({ type: "cover", targetId: "lurker", bonus: 2, defense: 15 })],
     [
+      "hardness",
+      say({ type: "hardness", targetId: "lurker", sourceId: "brenna", label: "Longsword", hardness: 6, dice: 4 }),
+    ],
+    [
       "recheck",
       say({
         type: "recheck",
@@ -712,6 +720,10 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   // The exact strings, so rewording one is a decision rather than an accident.
   assert.equal(printed.get("window"), "Brenna breaks away, and Thorn Lurker may strike.");
   assert.equal(printed.get("cancelled"), "Thorn Lurker stops Brenna: Fireball never happens.");
+  assert.equal(
+    printed.get("hardness"),
+    "Brenna's Longsword lands on Thorn Lurker with 4 dice, below a hardness of 6, and does nothing.",
+  );
   assert.equal(
     line(fiveE, state, {
       type: "window",
@@ -897,7 +909,13 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   const dodge = menu.find((option) => option.label === "dodge")!;
   assert.ok(dodge, "the kind's own standard actions are on the menu as the resolver named them");
   assert.equal(rulesetOptionLabel(dodge, t), "Dodge");
-  assert.equal(rulesetOptionLabel(menu.find((option) => option.kind === "end-turn")!, t), "End turn");
+  assert.equal(
+    rulesetOptionLabel(
+      menu.find((option) => option.kind === "end-turn")!,
+      t,
+    ),
+    "End turn",
+  );
   assert.equal(
     rulesetOptionLabel({ ...dodge, label: "somersault" }, t),
     "somersault",

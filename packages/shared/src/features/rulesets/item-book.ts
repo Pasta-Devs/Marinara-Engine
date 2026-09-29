@@ -31,6 +31,7 @@ import {
   rulesetInventedItemId,
   rulesetInventedItemRef,
   rulesetInventedItemText,
+  rulesetDefenseLabel,
   rulesetProposalParts,
   RULESET_INVENTED_ITEMS_MAX,
   type RulesetInventedItem,
@@ -57,11 +58,34 @@ export interface RulesetItemStatFact {
  *  saves it is narrowed to, none for all of them), a lean, a number (`value`, signed, dice and all), or
  *  saves it makes fail. */
 export interface RulesetItemEffectFact {
-  /** Checks, saves, or one ability (its label in `names`). */
-  to: "checks" | "saves" | "ability";
+  /** Checks, saves, or one ability (its label in `names`); in a fight, attacks, defense (the
+   *  ruleset's own word for it in `names`), speed, one of the fight's effects, kinds of harm kept off
+   *  (in `names`), or conditions kept off (their labels in `names`). */
+  to: "checks" | "saves" | "ability" | "attacks" | "defense" | "speed" | "effect" | "harm" | "conditions";
   names: string[];
-  change: { mode: "advantage" | "disadvantage" } | { value: string } | { fails: true } | { atLeast: number };
+  change:
+    | { mode: "advantage" | "disadvantage" }
+    | { value: string }
+    | { fails: true }
+    | { atLeast: number }
+    | { times: 0.5 | 2 }
+    | { effect: string }
+    | { hide: "resist" | "vulnerable" | "immune" };
 }
+
+/** A fight effect's own words, for the Game Master, by effect id. The ones about the holder's own
+ *  checks, saves and attacks are said as leans on those instead. */
+const FIGHT_EFFECT_TEXT: Record<string, string> = {
+  "attacks-against-advantage": "attacks against them have advantage",
+  "attacks-against-disadvantage": "attacks against them have disadvantage",
+  "attacks-against-adjacent-advantage": "attacks against them from next to them have advantage",
+  "attacks-against-far-disadvantage": "attacks against them from afar have disadvantage",
+  "attacks-from-adjacent-critical": "a hit on them from next to them is critical",
+  "cannot-act": "cannot act",
+  "cannot-react": "cannot react",
+  "speed-zero": "cannot move",
+  "resist-all": "takes half of every harm",
+};
 
 /** What an item asks of whoever wears it, in the ruleset's words: the value's label, the least it may
  *  be, and what applies while they fall short. `of` says the value is a modifier rather than a score,
@@ -258,18 +282,32 @@ export function rulesetItemEffectFacts(
   const names = (to: "checks" | "saves", ids: readonly string[] | undefined) =>
     (ids ?? []).map(to === "checks" ? skillLabel : saveLabel);
   const facts: RulesetItemEffectFact[] = [];
+  // The ruleset's own word for defense where it names one ("Guard"); a defense written as a number
+  // has no name, and reads as "defense".
+  const defense = rulesetDefenseLabel(definition) ?? "";
   for (const one of effect.effects ?? []) {
-    const to = one.startsWith("own-checks") ? "checks" : "saves";
-    const mode = one.endsWith("-disadvantage") ? "disadvantage" : "advantage";
-    facts.push({ to, names: names(to, to === "checks" ? effect.skills : effect.saves), change: { mode } });
+    const own = /^own-(checks|saves|attacks)-(advantage|disadvantage)$/.exec(one);
+    if (!own) {
+      facts.push({ to: "effect", names: [], change: { effect: one } });
+      continue;
+    }
+    const to = own[1] as "checks" | "saves" | "attacks";
+    const mode = own[2] as "advantage" | "disadvantage";
+    const narrowed = to === "attacks" ? [] : names(to, to === "checks" ? effect.skills : effect.saves);
+    facts.push({ to, names: narrowed, change: { mode } });
   }
   for (const modifier of effect.modifiers ?? []) {
-    if (modifier.to !== "checks" && modifier.to !== "saves") continue;
     const to = modifier.to;
-    const narrowed = names(to, to === "checks" ? (modifier.skills ?? effect.skills) : (modifier.saves ?? effect.saves));
+    const narrowed =
+      to === "checks" || to === "saves"
+        ? names(to, to === "checks" ? (modifier.skills ?? effect.skills) : (modifier.saves ?? effect.saves))
+        : to === "defense" && defense
+          ? [defense]
+          : [];
     const dice = modifier.dice ? `${modifier.minus ? "-" : "+"}${modifier.dice}` : "";
     const flat = modifier.flat ? `${modifier.flat > 0 ? "+" : ""}${modifier.flat}` : "";
     if (dice || flat) facts.push({ to, names: narrowed, change: { value: `${dice}${flat}` } });
+    if (modifier.times) facts.push({ to: "speed", names: [], change: { times: modifier.times } });
     if (modifier.mode) facts.push({ to, names: narrowed, change: { mode: modifier.mode } });
   }
   if (effect.failsSaves?.length) {
@@ -283,11 +321,32 @@ export function rulesetItemEffectFacts(
       change: "set" in change ? { atLeast: change.set } : { value: `${change.add > 0 ? "+" : ""}${change.add}` },
     });
   }
+  for (const hide of ["resist", "vulnerable", "immune"] as const) {
+    if (effect[hide]?.length) facts.push({ to: "harm", names: [...effect[hide]!], change: { hide } });
+  }
+  if (effect.conditionImmunities?.length) {
+    const label = (id: string) => definition.sheet.live.conditions.find((entry) => entry.id === id)?.label ?? id;
+    facts.push({ to: "conditions", names: effect.conditionImmunities.map(label), change: { hide: "immune" } });
+  }
   return facts;
 }
 
 /** One effect fact in plain words, as the Game Master reads it: "-1 on checks (Sneak)", "+1 Brawn". */
 export function rulesetItemEffectText(fact: RulesetItemEffectFact): string {
+  const change = fact.change;
+  const list = fact.names.join(", ");
+  if ("effect" in change) return FIGHT_EFFECT_TEXT[change.effect] ?? change.effect;
+  if ("hide" in change) {
+    return change.hide === "resist"
+      ? `resists ${list}`
+      : change.hide === "vulnerable"
+        ? `vulnerable to ${list}`
+        : `immune to ${list}`;
+  }
+  if ("times" in change) return change.times === 0.5 ? "half speed" : "double speed";
+  if (fact.to === "defense" || fact.to === "speed") {
+    return `${"value" in change ? change.value : ""} ${fact.to === "speed" ? "speed" : list || "defense"}`;
+  }
   if (fact.to === "ability") {
     const ability = fact.names.join(", ");
     return "atLeast" in fact.change
@@ -295,7 +354,6 @@ export function rulesetItemEffectText(fact: RulesetItemEffectFact): string {
       : `${"value" in fact.change ? fact.change.value : ""} ${ability}`;
   }
   const which = `${fact.to}${fact.names.length ? ` (${fact.names.join(", ")})` : ""}`;
-  const change = fact.change;
   if ("fails" in change) return `fails ${which}`;
   return `${"mode" in change ? change.mode : "value" in change ? change.value : ""} on ${which}`;
 }

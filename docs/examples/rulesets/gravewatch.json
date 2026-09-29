@@ -662,14 +662,27 @@
             "stats": { "conceal": "pocket" },
             "slots": { "worn": 1 },
             "binds": { "restriction": "Only a warden of the dawn watch can bind it." },
-            "worn": { "modifiers": [{ "to": "checks", "skills": ["ward"], "flat": 1 }] }
+            "worn": {
+              "$comment": "Bound, it steadies a warding and the nerve behind it: the bearer is never rattled.",
+              "modifiers": [{ "to": "checks", "skills": ["ward"], "flat": 1 }],
+              "conditionImmunities": ["rattled"]
+            }
           }
         },
         {
           "id": "widows-ring",
           "label": "Widow's ring",
           "summary": "A plain black ring. Once it has been worn to a burial it will not come off again.",
-          "item": { "category": "token", "rarity": "rare", "slots": { "worn": 1 }, "binds": { "cursed": true } }
+          "item": {
+            "category": "token",
+            "rarity": "rare",
+            "slots": { "worn": 1 },
+            "binds": { "cursed": true },
+            "worn": {
+              "$comment": "And the hand that wears it strikes cold: a die fewer on every attack.",
+              "modifiers": [{ "to": "attacks", "flat": -1 }]
+            }
+          }
         }
       ]
     }

@@ -498,7 +498,13 @@ const capabilityPackageManifestBaseSchema = z
 //        (`{ type, except }`). Not a soft seam, for the same reason as 1.20 through 1.54: an Engine
 //        that cannot read these refuses the whole ruleset or catalog file, so a package that ships
 //        any of them declares 1.55. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 55 } as const);
+// 1.56: what an item does while worn or carried may change a fight (modifiers to defense, attacks and
+//        speed, the fight's condition effects, and the kinds of harm and conditions it keeps off:
+//        `resist`, `vulnerable`, `immune`, `conditionImmunities`), `combat.pool.hardness` reads a
+//        fighter's hardness, and a creature may have `hardness`. Not a soft seam, for the same reason
+//        as 1.20 through 1.55: an Engine that cannot read these refuses the whole ruleset or catalog
+//        file, so a package that ships any of them declares 1.56. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 56 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

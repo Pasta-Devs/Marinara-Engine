@@ -1249,6 +1249,63 @@ armor and what a worn item does in a fight are I5-2, and ammunition and firearms
   item facts or the examples, and `e2e/game-ruleset-weapons.e2e.ts` (the axe's attack in its details,
   and on the fight menu while the carried bow is not), with 67 deliberate breaks each caught.
 
+### What armor and worn effects in a fight settled
+
+Capability API 1.56, for #6857. Slice I5-2 of the ruleset items plan.
+
+- **The vocabulary.** An item's `worn` and `carried` take every condition effect but the four a level
+  cannot have (the same reason: nobody put it on and it never ends by itself), modifiers to every
+  target, and new keys `resist`, `vulnerable`, `immune` (damage types, checked against
+  `combat.damageTypes`) and `conditionImmunities`. `RULESET_ITEM_CHECK_EFFECTS` names what a check
+  outside a fight reads, which is all an item had before; the refusal that said fights came later is
+  gone. An unmet requirement's `otherwise` takes the same.
+- **One reader.** `rulesetItemSources` (check-effects.ts) is what a character's items do, worn
+  against carried, one item once, and a worn item's unmet requirement; a check and a fight both read
+  items through it. A fight adds its sources to `rulesetActiveConditions` as entries marked `item`,
+  named for the stack, so attacks, defense, speed, effects, failed saves, save and check modes read
+  them with no new path; `item` is carried to a modifier, a roll's bonus and a guard, and the log
+  names the stack rather than looking it up as a condition. `rulesetCombatHide` joins a creature's
+  hide with its items' for damage, and `rulesetImmuneToCondition` takes the definition to read items
+  (a blow's condition and an opening crash both pass it).
+- **`resolution.adjust` in a fight.** Every roll a fight builds from a sheet adds it, as a check does:
+  attack rows and weapons (through `abilityAndSkill`), ability entries that roll to hit, saves,
+  contest checks and initiative, as the fight opens and when it is thrown again each round. A value
+  reference to an ability's modifier or score, a skill or a save is a roll made with that ability;
+  anything else takes only the entries for every roll. Nothing in either example moves by default,
+  since both of their entries read a live state at its default.
+- **Hardness.** `combat.pool.hardness` (a value off the sheet, read like soak) and a creature's
+  `hardness` are refused unless a style spends initiative, and a creature written as a sheet takes it
+  from the sheet. One the Game Master invents has none: the clamp drops it, as it drops soak, since no
+  tier bounds it. A spending blow whose dice are below it lands (the number goes back to the base)
+  and records a `hardness` event instead of damage; the spending style's forecast is 0 against the
+  first target it would stop (for an area, the first one any legal aim catches). This is Exalted's hardness, against decisive (spending) blows. The
+  Storyteller record's "Not built" note about a taking blow against a sturdy target was loosely put:
+  a taking blow already meets soak, and the author guide's "Not yet" line now says so.
+- **Seen and said.** Item facts gain fight kinds: attacks, defense (named by the ruleset's own
+  word, "Guard"), speed (a number, or half or double), the fight effects in words, and harm and
+  conditions kept off, with localized lines on the screen and English ones for the Game Master. A
+  defense written as a number has no name, so it reads "defense". In a pool ruleset an item's
+  modifier to attacks is a flat number of dice, as a condition's is, at import and when invented.
+  Its modifiers to checks and saves may still be dice, as they could before 1.56: a fight adds what
+  they roll as dice, exactly as a pool check outside a fight does, so refusing them now would only
+  refuse rulesets that installed on 1.54.
+  Invented items read `+N`/`-N`/advantage or disadvantage on attacks and `+N`/`-N` on defense (or its
+  word), held to the rarity's bonus; a copied speed change is not capped (it is a distance, not a
+  bonus), and a copied effect whose only part left is what it keeps off is kept. Gemma 4 E4B wrote
+  "+1 Guard" beside a `guard=1` stat for one +1 in 4 of 6 bracers, and ignored a form line asking for
+  one or the other, so an invented item that gives a stat the defense counts
+  (`rulesetItemStatsRead`, following derived values) drops a worn change to defense and says so; the
+  form still names that stat (only one the Game Master is shown). "Bonus" after attacks or defense is
+  read too ("+1 attack roll bonus").
+- **Examples.** Ember Roads' waystone, carried, resists burn. Gravewatch's cursed widow's ring costs a
+  die on attacks, and its Dawn bell, bound, keeps the bearer from being rattled.
+- **Proven** by `scripts/regressions/game-ruleset-armor.regression.ts` (import and the gate for every
+  part, items in a fight on attacks, defense, speed, effects, saves, harm and conditions, a blow's
+  condition and a crash's kept off, requirements, the log's names, `resolution.adjust` on every kind
+  of roll, hardness on the blow, the forecast and a bestiary creature, facts, invented items), lanes
+  that pin older gates, the examples or the proposal form, and `e2e/game-ruleset-armor.e2e.ts`, with
+  62 deliberate breaks each caught.
+
 ## Gaps a ruleset author found
 
 The author of [Marinara-RPG-Extension](https://github.com/Kenhito/Marinara-RPG-Extension), who

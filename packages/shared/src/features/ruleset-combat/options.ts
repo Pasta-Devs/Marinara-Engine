@@ -381,10 +381,11 @@ export function rulesetDefenseAgainst(
 ): { defense: number; cover: number; guards: RulesetConditionBonus[] } {
   // What the target's own conditions add. Defense is never rolled, so each is its flat number.
   const guards = rulesetConditionModifiers(definition, combat, target, "defense", state).map(
-    ({ condition, level, derived, modifier }) => ({
+    ({ condition, level, derived, item, modifier }) => ({
       condition,
       ...(level !== undefined ? { level } : {}),
       ...(derived ? { derived } : {}),
+      ...(item ? { item } : {}),
       value: modifier.flat ?? 0,
     }),
   );
@@ -979,11 +980,16 @@ function optionFrom(
   // Not in a window: what is taken at its moment is made in the first style, so there is no choice.
   const styles = atItsMoment ? [] : rulesetAttackStyles(combat, actor, action);
   if (styles.length > 0) {
+    // A spending blow below the first target's hardness does nothing to them. An area names nobody,
+    // so it is the first combatant any legal aim would catch, as the forecast reads.
+    const aimed = firstTarget(definition, state, actor, action) ?? firstAreaTarget(state, actor, action);
+    const turned = aimed?.hardness !== undefined && actor.initiative < aimed.hardness;
     option.styles = styles.map((style) => {
       const hit = forecast?.hitChance !== undefined ? { hitChance: forecast.hitChance } : {};
+      const spent = turned ? 0 : Math.round(rulesetDamageAverage(definition, combat, actor.initiative) * 100) / 100;
       const worth = style.takes
         ? { ...hit, ...(forecast?.averageDamage !== undefined ? { shift: forecast.averageDamage } : {}) }
-        : { ...hit, averageDamage: Math.round(rulesetDamageAverage(definition, combat, actor.initiative) * 100) / 100 };
+        : { ...hit, averageDamage: spent };
       return { id: style.id, label: style.label, forecast: worth };
     });
   }

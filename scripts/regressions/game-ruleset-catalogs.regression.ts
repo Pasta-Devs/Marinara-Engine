@@ -514,8 +514,8 @@ const installedPackages = packages.map((fixture) => {
     // modifier off the sheet, a list added up, a track of numbered boxes, an untrained rule, a live
     // state, contests, conditions that change numbers, items with rarity caps, a Guard that reads
     // the armor worn, items that change checks while worn or carried, items that change an ability,
-    // with a level off a derived value, and weapons.
-    capabilityApi: { major: 1, minor: 55 },
+    // with a level off a derived value, weapons, and items that change a fight.
+    capabilityApi: { major: 1, minor: 56 },
     builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
     id: packageId,
     name: fixture.id,

@@ -18,6 +18,7 @@ import {
   type RulesetCombatAttackSource,
   type RulesetCombatCondition,
   type RulesetCombatDistanceSource,
+  type RulesetCreatureHideEntry,
   type RulesetDefinition,
   type RulesetSheetBuild,
   type RulesetValueRef,
@@ -30,12 +31,15 @@ import {
   type RulesetLiveState,
   type RulesetSheetOp,
 } from "../rulesets/live-state.js";
+import { rulesetItemSources, type RulesetCheckSource } from "../rulesets/check-effects.js";
 import { rulesetCatalogEntriesByRef } from "../rulesets/scaled-rows.js";
 import {
   lookupStepTable,
   resolveRulesetValueRef,
+  rulesetCheckAdjust,
   rulesetCheckModifier,
   type EvaluatedRulesetSheet,
+  type RulesetCheckTarget,
   type RulesetSheetItem,
 } from "../rulesets/sheet-math.js";
 import { findRulesetCreatureEntry, isRulesetPlainStatBlock, rulesetCreatureBlock } from "./creatures.js";
@@ -209,14 +213,54 @@ export function rulesetActiveConditions(
     // fright you fail a save against whether or not you can see it is exactly what the list is for.
     return [{ ...entry, effects: entry.effects.filter((effect) => !gate.includes(effect)) }];
   });
-  return combat.levels?.length ? [...conditions, ...activeLevels(definition, combat, combatant)] : conditions;
+  const levels = combat.levels?.length ? activeLevels(definition, combat, combatant) : [];
+  // And what the fighter's items do, each named for the stack, as a level is named for its track.
+  const items = heldSources(definition, combatant).map((source): RulesetActiveCondition => ({
+    condition: source.name,
+    item: true,
+    effects: [...(source.effects ?? [])] as RulesetCombatCondition["effects"],
+    ...(source.modifiers ? { modifiers: [...source.modifiers] } : {}),
+    ...(source.failsSaves ? { failsSaves: [...source.failsSaves] } : {}),
+    ...(source.saves ? { saves: [...source.saves] } : {}),
+    ...(source.skills ? { skills: [...source.skills] } : {}),
+  }));
+  return [...conditions, ...levels, ...items];
 }
 
-/** A condition entry that is on somebody right now: one of the fight's own conditions, or a level of a
- *  live track or a derived value, which reads exactly like one. `level` is set only on a level, whose
- *  `condition` is then the track's id, or the derived value's where `derived` is set (the two may
- *  share an id). */
-export type RulesetActiveCondition = RulesetCombatCondition & { level?: number; derived?: true };
+/** What a fighter's items do, as they hold them in this fight: see `rulesetItemSources`. A requirement
+ *  reads the sheet with the live state as it stands. Nothing for a fighter with no sheet or no items. */
+function heldSources(definition: RulesetDefinition, combatant: RulesetCombatant): RulesetCheckSource[] {
+  const sheet = combatant.sheet;
+  if (!sheet?.items?.length) return [];
+  let evaluated: EvaluatedRulesetSheet | undefined;
+  return rulesetItemSources(
+    definition,
+    sheet.build,
+    sheet.items,
+    () => (evaluated ??= evaluateRulesetSheetLive(definition, sheet.build, sheet.live, sheet.items)),
+  );
+}
+
+/** What a fighter's hide is made of: a creature's own resistances, vulnerabilities and immunities, and
+ *  the kinds of harm their items keep off. */
+export function rulesetCombatHide(
+  definition: RulesetDefinition,
+  combatant: RulesetCombatant,
+): { resist: RulesetCreatureHideEntry[]; vulnerable: string[]; immune: RulesetCreatureHideEntry[] } {
+  const held = heldSources(definition, combatant);
+  return {
+    resist: [...(combatant.block?.resist ?? []), ...held.flatMap((source) => source.resist ?? [])],
+    vulnerable: [...(combatant.block?.vulnerable ?? []), ...held.flatMap((source) => source.vulnerable ?? [])],
+    immune: [...(combatant.block?.immune ?? []), ...held.flatMap((source) => source.immune ?? [])],
+  };
+}
+
+/** A condition entry that is on somebody right now: one of the fight's own conditions, a level of a
+ *  live track or a derived value, or what an item does, each of which reads exactly like one. `level`
+ *  is set only on a level, whose `condition` is then the track's id, or the derived value's where
+ *  `derived` is set (the two may share an id). `item` is set on an item's, whose `condition` is then
+ *  the stack's name. */
+export type RulesetActiveCondition = RulesetCombatCondition & { level?: number; derived?: true; item?: true };
 
 /** The levels of the holder's own tracks, and of their derived values, that are reached. Only a sheet
  *  has either, so a combatant written in plain numbers has none. A derived value is worked out with
@@ -256,6 +300,7 @@ export interface RulesetConditionModifier {
   condition: string;
   level?: number;
   derived?: true;
+  item?: true;
   modifier: NonNullable<RulesetCombatCondition["modifiers"]>[number];
 }
 
@@ -273,7 +318,13 @@ export function rulesetConditionModifiers(
   state?: RulesetEncounterState,
   save?: string,
 ): RulesetConditionModifier[] {
-  if (!combat.conditions?.some((entry) => entry.modifiers) && !combat.levels?.some((level) => level.modifiers)) {
+  // A ruleset with no items and no condition or level that changes a number has nothing to read. One
+  // with items reads them once, below, with everything else that is on the combatant.
+  if (
+    !definition.items &&
+    !combat.conditions?.some((entry) => entry.modifiers) &&
+    !combat.levels?.some((level) => level.modifiers)
+  ) {
     return [];
   }
   return rulesetActiveConditions(definition, combat, combatant, state).flatMap((entry) => {
@@ -289,6 +340,7 @@ export function rulesetConditionModifiers(
         condition: entry.condition,
         ...(entry.level !== undefined ? { level: entry.level } : {}),
         ...(entry.derived ? { derived: entry.derived } : {}),
+        ...(entry.item ? { item: entry.item } : {}),
         modifier,
       }));
   });
@@ -389,6 +441,46 @@ export function rulesetCombatStanding(combatant: RulesetCombatant): boolean {
 
 const ABILITY_COLUMN_MISS = 0;
 
+/**
+ * What `resolution.adjust` adds to one roll a fight makes, as it adds to a check: every entry meant for
+ * all rolls, and every one limited to an ability the roll is made with. `rolled` is that roll, a check
+ * target or the value reference its number is. A reference to an ability's modifier or score, a
+ * skill's or a save's is a roll made with that ability; any other takes only the entries for all rolls.
+ */
+function fightAdjust(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  evaluated: EvaluatedRulesetSheet,
+  rolled: RulesetCheckTarget | RulesetValueRef | null | undefined,
+): number {
+  if (!definition.resolution.adjust?.length) return 0;
+  const target = rolled && "type" in rolled ? rolled : refTarget(definition, build, rolled);
+  return rulesetCheckAdjust(definition, build, evaluated, target);
+}
+
+/** The roll a value reference stands for, where it stands for one. */
+function refTarget(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  ref: RulesetValueRef | null | undefined,
+): RulesetCheckTarget | null {
+  if (!ref) return null;
+  const field = ref.abilityModFromField !== undefined ? build.fields?.[ref.abilityModFromField] : undefined;
+  const abilityId = ref.abilityMod ?? ref.abilityScore ?? (typeof field === "string" ? field : undefined);
+  if (abilityId !== undefined) {
+    const ability = definition.sheet.abilities.find((entry) => entry.id === abilityId);
+    return ability ? { type: "ability", id: ability.id, label: ability.label } : null;
+  }
+  const trained = ref.skillMod
+    ? { type: "skill" as const, entry: definition.sheet.skills.find((skill) => skill.id === ref.skillMod) }
+    : ref.saveMod
+      ? { type: "save" as const, entry: definition.sheet.saves.find((save) => save.id === ref.saveMod) }
+      : null;
+  if (!trained?.entry) return null;
+  const { entry } = trained;
+  return { type: trained.type, id: entry.id, label: entry.label, ...(entry.ability ? { ability: entry.ability } : {}) };
+}
+
 function columnValue(row: Record<string, unknown>, column: string | undefined): unknown {
   if (column === undefined) return undefined;
   return Object.prototype.hasOwnProperty.call(row, column) ? row[column] : undefined;
@@ -435,12 +527,14 @@ function distanceInCells(
  *  `with=` swaps it; without a skill, the ability alone. A value that names neither adds nothing. */
 function rowAbilityAndSkill(
   definition: RulesetDefinition,
+  build: RulesetSheetBuild,
   source: RulesetCombatAttackSource,
   row: Record<string, unknown>,
   evaluated: EvaluatedRulesetSheet,
 ): number {
   return abilityAndSkill(
     definition,
+    build,
     evaluated,
     columnValue(row, source.toHit.skill?.column),
     columnValue(row, source.toHit.ability?.column),
@@ -451,23 +545,30 @@ function rowAbilityAndSkill(
  *  names nothing: see `rowAbilityAndSkill`. */
 function abilityAndSkill(
   definition: RulesetDefinition,
+  build: RulesetSheetBuild,
   evaluated: EvaluatedRulesetSheet,
   skillId: unknown,
   ability: unknown,
 ): number {
   const skill = typeof skillId === "string" ? definition.sheet.skills.find((entry) => entry.id === skillId) : undefined;
   if (!skill) {
-    return typeof ability === "string" ? (evaluated.abilityMods[ability] ?? ABILITY_COLUMN_MISS) : ABILITY_COLUMN_MISS;
+    const named =
+      typeof ability === "string" ? definition.sheet.abilities.find((entry) => entry.id === ability) : undefined;
+    return (
+      (named ? (evaluated.abilityMods[named.id] ?? ABILITY_COLUMN_MISS) : ABILITY_COLUMN_MISS) +
+      fightAdjust(definition, build, evaluated, named ? { type: "ability", id: named.id, label: named.label } : null)
+    );
   }
   const withAbility =
     typeof ability === "string" && ability in evaluated.abilityMods && ability !== skill.ability ? ability : undefined;
-  return rulesetCheckModifier(evaluated, {
+  const target: RulesetCheckTarget = {
     type: "skill",
     id: skill.id,
     label: skill.label,
     ...(skill.ability ? { ability: skill.ability } : {}),
     ...(withAbility ? { withAbility } : {}),
-  });
+  };
+  return rulesetCheckModifier(evaluated, target) + fightAdjust(definition, build, evaluated, target);
 }
 
 function attackActions(
@@ -515,7 +616,7 @@ function attackActions(
       // the ruleset's rule, so it is read as having nothing beyond the ordinary one.
       ...(normal !== undefined ? { range: { normal, ...(long !== undefined && long > normal ? { long } : {}) } } : {}),
       toHit:
-        rowAbilityAndSkill(definition, source, row, evaluated) +
+        rowAbilityAndSkill(definition, build, source, row, evaluated) +
         (proficient ? evaluated.proficiencyBonus : 0) +
         numberFromColumn(row, source.toHit.bonus?.column),
       damage: pooled
@@ -611,8 +712,8 @@ function itemAttackActions(
     const skill = read(attack.toHit.skill);
     const hitWith = attackAbilities(read(attack.toHit.abilities));
     const toHitBase = hitWith.length
-      ? Math.max(...hitWith.map((ability) => abilityAndSkill(definition, evaluated, skill, ability)))
-      : abilityAndSkill(definition, evaluated, skill, undefined);
+      ? Math.max(...hitWith.map((ability) => abilityAndSkill(definition, build, evaluated, skill, ability)))
+      : abilityAndSkill(definition, build, evaluated, skill, undefined);
     const proficient =
       attack.toHit.proficiency !== undefined &&
       resolveRulesetValueRef(definition, build, attack.toHit.proficiency, evaluated) > 0;
@@ -780,7 +881,9 @@ function abilityAction(
   if (temporary) action.temporary = temporary;
   // An entry that rolls to hit always rolls: a source that names no bonus adds nothing to the dice.
   // Leaving `toHit` unset here would send it down the no-roll path and land it automatically.
-  if (mechanics.attackRoll) action.toHit = source.toHit ? resolve(source.toHit) : 0;
+  if (mechanics.attackRoll) {
+    action.toHit = (source.toHit ? resolve(source.toHit) : 0) + fightAdjust(definition, build, evaluated, source.toHit);
+  }
   if (mechanics.autoHit) action.autoHit = true;
   if (mechanics.save) {
     action.save = { save: mechanics.save.save, onSuccess: mechanics.save.onSuccess, difficulty: sourceDifficulty };
@@ -1096,25 +1199,29 @@ function sheetCombatant(
   // that reads their items (a defense their armor gives).
   const evaluated = evaluateRulesetSheetLive(definition, build, input.live, input.items);
   const catalogs = narrowCatalogs(build, input.catalogs);
+  // Initiative is a roll too, so `resolution.adjust` counts on it as it does on a check.
   const modifier = combat.initiative.modifier
-    ? resolveRulesetValueRef(definition, build, combat.initiative.modifier, evaluated)
+    ? resolveRulesetValueRef(definition, build, combat.initiative.modifier, evaluated) +
+      fightAdjust(definition, build, evaluated, combat.initiative.modifier)
     : 0;
   const initiative = combat.initiative.pool
     ? rulesetPoolInitiative(
         definition,
         combat,
         input.roll,
-        resolveRulesetValueRef(definition, build, combat.initiative.pool, evaluated),
+        resolveRulesetValueRef(definition, build, combat.initiative.pool, evaluated) +
+          fightAdjust(definition, build, evaluated, combat.initiative.pool),
       )
     : { roll: input.initiativeRoll, modifier, total: sumOf(input.initiativeRoll) + modifier };
   const saves: Record<string, number> = {};
   for (const save of definition.sheet.saves) {
-    saves[save.id] = rulesetCheckModifier(evaluated, {
+    const target: RulesetCheckTarget = {
       type: "save",
       id: save.id,
       label: save.label,
       ...(save.ability ? { ability: save.ability } : {}),
-    });
+    };
+    saves[save.id] = rulesetCheckModifier(evaluated, target) + fightAdjust(definition, build, evaluated, target);
   }
   // What a contest reads, off the same sheet as everything else. Only when the ruleset has any, so a
   // fight on one that does not carries exactly what it always did.
@@ -1122,7 +1229,10 @@ function sheetCombatant(
     ? Object.fromEntries(
         combat.checks.map((check) => [
           check.id,
-          Math.round(resolveRulesetValueRef(definition, build, check.value, evaluated)),
+          Math.round(
+            resolveRulesetValueRef(definition, build, check.value, evaluated) +
+              fightAdjust(definition, build, evaluated, check.value),
+          ),
         ]),
       )
     : undefined;
@@ -1149,6 +1259,7 @@ function sheetCombatant(
           : {}),
       }
     : undefined;
+  const hardness = combat.pool?.hardness ? read(combat.pool.hardness) : 0;
   const limits = combat.spendLimits?.length
     ? Object.fromEntries(
         combat.spendLimits.map((limit) => [limit.pool, { max: read(limit.max), per: limit.per, spent: 0 }]),
@@ -1177,6 +1288,7 @@ function sheetCombatant(
     saves,
     ...(checks ? { checks } : {}),
     ...(soak ? { soak } : {}),
+    ...(hardness > 0 ? { hardness } : {}),
     ...(limits ? { limits } : {}),
     speed: combat.economy.movement ? resolveRulesetValueRef(definition, build, combat.economy.movement, evaluated) : 0,
     sheet: { build, live: input.live, catalogs, ...(input.items ? { items: input.items } : {}) },
@@ -1452,6 +1564,7 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
               },
             }
           : {}),
+        ...(block.hardness && rulesetCombatIsPool(combat) ? { hardness: block.hardness } : {}),
         speed: block.speed ?? 0,
         block,
         health: { value: max, max, temp: 0 },
@@ -1522,9 +1635,18 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
 }
 
 /** Whether a creature shrugs this condition off, read the same way wherever one is put on. */
-export function rulesetImmuneToCondition(combatant: RulesetCombatant, condition: string): boolean {
+export function rulesetImmuneToCondition(
+  combatant: RulesetCombatant,
+  condition: string,
+  /** Given, what the fighter's items keep off counts too. */
+  definition?: RulesetDefinition,
+): boolean {
   const wanted = condition.trim().toLowerCase();
-  return !!combatant.block?.conditionImmunities?.some((entry) => entry.trim().toLowerCase() === wanted);
+  const immunities = [
+    ...(combatant.block?.conditionImmunities ?? []),
+    ...(definition ? heldSources(definition, combatant).flatMap((source) => source.conditionImmunities ?? []) : []),
+  ];
+  return immunities.some((entry) => entry.trim().toLowerCase() === wanted);
 }
 
 /** Where initiative is a number attacks move, whoever opens at the crash line or below starts the
@@ -1542,7 +1664,7 @@ function openCrashes(
     combatant.crashedTurns = 0;
     const condition = crash.condition;
     if (!condition) continue;
-    if (rulesetImmuneToCondition(combatant, condition)) {
+    if (rulesetImmuneToCondition(combatant, condition, definition)) {
       events.push({ type: "condition", targetId: combatant.id, condition, active: false, reason: "immune" });
       continue;
     }
@@ -1584,7 +1706,10 @@ export function rulesetInitiativeModifierNow(
     combatant.sheet.live,
     combatant.sheet.items,
   );
-  return resolveRulesetValueRef(definition, combatant.sheet.build, ref, evaluated);
+  return (
+    resolveRulesetValueRef(definition, combatant.sheet.build, ref, evaluated) +
+    fightAdjust(definition, combatant.sheet.build, evaluated, ref)
+  );
 }
 
 /** The initiative dice of a ruleset that adds them up, thrown; none for one that throws a pool. */

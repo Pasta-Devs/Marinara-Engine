@@ -1244,7 +1244,11 @@
             "category": "gear",
             "rarity": "storied",
             "cost": { "amount": 2, "unit": "cake" },
-            "carried": { "modifiers": [{ "to": "checks", "skills": ["sway"], "flat": 1 }] }
+            "carried": {
+              "$comment": "Carried, it helps a traveller talk their way along the road, and in a fight it keeps the heat off: half of any burn.",
+              "modifiers": [{ "to": "checks", "skills": ["sway"], "flat": 1 }],
+              "resist": ["burn"]
+            }
           }
         }
       ]

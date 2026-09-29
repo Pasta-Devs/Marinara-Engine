@@ -713,7 +713,7 @@ try {
     ]);
     assert.equal(
       rulesetItemPromptFacts(wordedBook.itemOf("outfitter/waystone")!.facts),
-      "Gear, Storied; Lit; carried: +1 on checks (Sway)",
+      "Gear, Storied; Lit; carried: +1 on checks (Sway), resists burn",
     );
     assert.ok(!wordedBook.itemOf("outfitter/arrows")!.facts.stats.some((stat) => stat.id === "lit"));
     // A layer that hides an entry takes it out of names and the picker, not out of what is held.

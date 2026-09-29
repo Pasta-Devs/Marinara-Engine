@@ -7465,6 +7465,11 @@
                       },
                       "additionalProperties": false
                     },
+                    "hardness": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100
+                    },
                     "resist": {
                       "type": "array",
                       "items": {
@@ -8474,6 +8479,11 @@
                               "required": [
                                 "soak"
                               ]
+                            },
+                            {
+                              "required": [
+                                "hardness"
+                              ]
                             }
                           ]
                         }
@@ -8596,212 +8606,209 @@
                           "items": {
                             "type": "string",
                             "enum": [
+                              "own-attacks-advantage",
+                              "own-attacks-disadvantage",
+                              "attacks-against-advantage",
+                              "attacks-against-disadvantage",
+                              "attacks-against-adjacent-advantage",
+                              "attacks-against-far-disadvantage",
+                              "attacks-from-adjacent-critical",
+                              "cannot-act",
+                              "cannot-react",
+                              "speed-zero",
+                              "own-saves-advantage",
+                              "own-saves-disadvantage",
                               "own-checks-advantage",
                               "own-checks-disadvantage",
-                              "own-saves-advantage",
-                              "own-saves-disadvantage"
+                              "resist-all"
                             ]
                           },
                           "minItems": 1,
-                          "maxItems": 4
+                          "maxItems": 6
                         },
                         "modifiers": {
                           "type": "array",
                           "items": {
+                            "type": "object",
+                            "properties": {
+                              "to": {
+                                "type": "string",
+                                "enum": [
+                                  "defense",
+                                  "attacks",
+                                  "saves",
+                                  "checks",
+                                  "speed"
+                                ]
+                              },
+                              "flat": {
+                                "type": "integer",
+                                "minimum": -100,
+                                "maximum": 100,
+                                "not": {
+                                  "const": 0
+                                }
+                              },
+                              "dice": {
+                                "type": "string",
+                                "maxLength": 40,
+                                "pattern": "^[1-9]\\d{0,2}d(?:[2-9]|[1-9]\\d{1,3})(?:[+-]\\d{1,4})?$"
+                              },
+                              "minus": {
+                                "type": "boolean",
+                                "const": true
+                              },
+                              "times": {
+                                "type": "number",
+                                "enum": [
+                                  0.5,
+                                  2
+                                ]
+                              },
+                              "skills": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "maxLength": 40,
+                                  "pattern": "^[a-z][a-z0-9_]*$"
+                                },
+                                "minItems": 1,
+                                "maxItems": 24
+                              },
+                              "saves": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "maxLength": 40,
+                                  "pattern": "^[a-z][a-z0-9_]*$"
+                                },
+                                "minItems": 1,
+                                "maxItems": 12
+                              },
+                              "mode": {
+                                "type": "string",
+                                "enum": [
+                                  "advantage",
+                                  "disadvantage"
+                                ]
+                              },
+                              "$comment": {}
+                            },
+                            "required": [
+                              "to"
+                            ],
+                            "additionalProperties": false,
                             "allOf": [
                               {
-                                "type": "object",
-                                "properties": {
-                                  "to": {
-                                    "type": "string",
-                                    "enum": [
-                                      "defense",
-                                      "attacks",
-                                      "saves",
-                                      "checks",
-                                      "speed"
-                                    ]
-                                  },
-                                  "flat": {
-                                    "type": "integer",
-                                    "minimum": -100,
-                                    "maximum": 100,
-                                    "not": {
-                                      "const": 0
-                                    }
-                                  },
-                                  "dice": {
-                                    "type": "string",
-                                    "maxLength": 40,
-                                    "pattern": "^[1-9]\\d{0,2}d(?:[2-9]|[1-9]\\d{1,3})(?:[+-]\\d{1,4})?$"
-                                  },
-                                  "minus": {
-                                    "type": "boolean",
-                                    "const": true
-                                  },
-                                  "times": {
-                                    "type": "number",
-                                    "enum": [
-                                      0.5,
-                                      2
-                                    ]
-                                  },
-                                  "skills": {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string",
-                                      "maxLength": 40,
-                                      "pattern": "^[a-z][a-z0-9_]*$"
-                                    },
-                                    "minItems": 1,
-                                    "maxItems": 24
-                                  },
-                                  "saves": {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string",
-                                      "maxLength": 40,
-                                      "pattern": "^[a-z][a-z0-9_]*$"
-                                    },
-                                    "minItems": 1,
-                                    "maxItems": 12
-                                  },
-                                  "mode": {
-                                    "type": "string",
-                                    "enum": [
-                                      "advantage",
-                                      "disadvantage"
-                                    ]
-                                  },
-                                  "$comment": {}
-                                },
-                                "required": [
-                                  "to"
-                                ],
-                                "additionalProperties": false,
-                                "allOf": [
+                                "anyOf": [
                                   {
-                                    "anyOf": [
-                                      {
-                                        "required": [
-                                          "flat"
-                                        ]
-                                      },
-                                      {
-                                        "required": [
-                                          "dice"
-                                        ]
-                                      },
-                                      {
-                                        "required": [
-                                          "times"
-                                        ]
-                                      },
-                                      {
-                                        "required": [
-                                          "mode"
-                                        ]
-                                      }
+                                    "required": [
+                                      "flat"
                                     ]
                                   },
                                   {
-                                    "if": {
-                                      "required": [
-                                        "dice"
-                                      ]
-                                    },
-                                    "then": {
-                                      "properties": {
-                                        "to": {
-                                          "enum": [
-                                            "attacks",
-                                            "saves",
-                                            "checks"
-                                          ]
-                                        }
-                                      }
-                                    }
+                                    "required": [
+                                      "dice"
+                                    ]
                                   },
                                   {
-                                    "if": {
-                                      "required": [
-                                        "times"
-                                      ]
-                                    },
-                                    "then": {
-                                      "properties": {
-                                        "to": {
-                                          "const": "speed"
-                                        }
-                                      }
-                                    }
+                                    "required": [
+                                      "times"
+                                    ]
                                   },
                                   {
-                                    "if": {
-                                      "required": [
-                                        "minus"
-                                      ]
-                                    },
-                                    "then": {
-                                      "required": [
-                                        "dice"
-                                      ]
-                                    }
-                                  },
-                                  {
-                                    "if": {
-                                      "required": [
-                                        "mode"
-                                      ]
-                                    },
-                                    "then": {
-                                      "properties": {
-                                        "to": {
-                                          "enum": [
-                                            "checks",
-                                            "saves"
-                                          ]
-                                        }
-                                      }
-                                    }
-                                  },
-                                  {
-                                    "if": {
-                                      "required": [
-                                        "skills"
-                                      ]
-                                    },
-                                    "then": {
-                                      "properties": {
-                                        "to": {
-                                          "const": "checks"
-                                        }
-                                      }
-                                    }
-                                  },
-                                  {
-                                    "if": {
-                                      "required": [
-                                        "saves"
-                                      ]
-                                    },
-                                    "then": {
-                                      "properties": {
-                                        "to": {
-                                          "const": "saves"
-                                        }
-                                      }
-                                    }
+                                    "required": [
+                                      "mode"
+                                    ]
                                   }
                                 ]
                               },
                               {
-                                "properties": {
-                                  "to": {
-                                    "enum": [
-                                      "checks",
-                                      "saves"
-                                    ]
+                                "if": {
+                                  "required": [
+                                    "dice"
+                                  ]
+                                },
+                                "then": {
+                                  "properties": {
+                                    "to": {
+                                      "enum": [
+                                        "attacks",
+                                        "saves",
+                                        "checks"
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "if": {
+                                  "required": [
+                                    "times"
+                                  ]
+                                },
+                                "then": {
+                                  "properties": {
+                                    "to": {
+                                      "const": "speed"
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "if": {
+                                  "required": [
+                                    "minus"
+                                  ]
+                                },
+                                "then": {
+                                  "required": [
+                                    "dice"
+                                  ]
+                                }
+                              },
+                              {
+                                "if": {
+                                  "required": [
+                                    "mode"
+                                  ]
+                                },
+                                "then": {
+                                  "properties": {
+                                    "to": {
+                                      "enum": [
+                                        "checks",
+                                        "saves"
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "if": {
+                                  "required": [
+                                    "skills"
+                                  ]
+                                },
+                                "then": {
+                                  "properties": {
+                                    "to": {
+                                      "const": "checks"
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "if": {
+                                  "required": [
+                                    "saves"
+                                  ]
+                                },
+                                "then": {
+                                  "properties": {
+                                    "to": {
+                                      "const": "saves"
+                                    }
                                   }
                                 }
                               }
@@ -8881,6 +8888,46 @@
                           "properties": {
                             "$comment": {}
                           }
+                        },
+                        "resist": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "minItems": 1,
+                          "maxItems": 30
+                        },
+                        "vulnerable": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "minItems": 1,
+                          "maxItems": 30
+                        },
+                        "immune": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "minItems": 1,
+                          "maxItems": 30
+                        },
+                        "conditionImmunities": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "pattern": "^[a-z][a-z0-9_]*$"
+                          },
+                          "minItems": 1,
+                          "maxItems": 40
                         },
                         "$comment": {}
                       },
@@ -8990,6 +9037,26 @@
                             {
                               "required": [
                                 "abilities"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "resist"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "vulnerable"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "immune"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "conditionImmunities"
                               ]
                             }
                           ]
@@ -9004,212 +9071,209 @@
                           "items": {
                             "type": "string",
                             "enum": [
+                              "own-attacks-advantage",
+                              "own-attacks-disadvantage",
+                              "attacks-against-advantage",
+                              "attacks-against-disadvantage",
+                              "attacks-against-adjacent-advantage",
+                              "attacks-against-far-disadvantage",
+                              "attacks-from-adjacent-critical",
+                              "cannot-act",
+                              "cannot-react",
+                              "speed-zero",
+                              "own-saves-advantage",
+                              "own-saves-disadvantage",
                               "own-checks-advantage",
                               "own-checks-disadvantage",
-                              "own-saves-advantage",
-                              "own-saves-disadvantage"
+                              "resist-all"
                             ]
                           },
                           "minItems": 1,
-                          "maxItems": 4
+                          "maxItems": 6
                         },
                         "modifiers": {
                           "type": "array",
                           "items": {
+                            "type": "object",
+                            "properties": {
+                              "to": {
+                                "type": "string",
+                                "enum": [
+                                  "defense",
+                                  "attacks",
+                                  "saves",
+                                  "checks",
+                                  "speed"
+                                ]
+                              },
+                              "flat": {
+                                "type": "integer",
+                                "minimum": -100,
+                                "maximum": 100,
+                                "not": {
+                                  "const": 0
+                                }
+                              },
+                              "dice": {
+                                "type": "string",
+                                "maxLength": 40,
+                                "pattern": "^[1-9]\\d{0,2}d(?:[2-9]|[1-9]\\d{1,3})(?:[+-]\\d{1,4})?$"
+                              },
+                              "minus": {
+                                "type": "boolean",
+                                "const": true
+                              },
+                              "times": {
+                                "type": "number",
+                                "enum": [
+                                  0.5,
+                                  2
+                                ]
+                              },
+                              "skills": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "maxLength": 40,
+                                  "pattern": "^[a-z][a-z0-9_]*$"
+                                },
+                                "minItems": 1,
+                                "maxItems": 24
+                              },
+                              "saves": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "maxLength": 40,
+                                  "pattern": "^[a-z][a-z0-9_]*$"
+                                },
+                                "minItems": 1,
+                                "maxItems": 12
+                              },
+                              "mode": {
+                                "type": "string",
+                                "enum": [
+                                  "advantage",
+                                  "disadvantage"
+                                ]
+                              },
+                              "$comment": {}
+                            },
+                            "required": [
+                              "to"
+                            ],
+                            "additionalProperties": false,
                             "allOf": [
                               {
-                                "type": "object",
-                                "properties": {
-                                  "to": {
-                                    "type": "string",
-                                    "enum": [
-                                      "defense",
-                                      "attacks",
-                                      "saves",
-                                      "checks",
-                                      "speed"
-                                    ]
-                                  },
-                                  "flat": {
-                                    "type": "integer",
-                                    "minimum": -100,
-                                    "maximum": 100,
-                                    "not": {
-                                      "const": 0
-                                    }
-                                  },
-                                  "dice": {
-                                    "type": "string",
-                                    "maxLength": 40,
-                                    "pattern": "^[1-9]\\d{0,2}d(?:[2-9]|[1-9]\\d{1,3})(?:[+-]\\d{1,4})?$"
-                                  },
-                                  "minus": {
-                                    "type": "boolean",
-                                    "const": true
-                                  },
-                                  "times": {
-                                    "type": "number",
-                                    "enum": [
-                                      0.5,
-                                      2
-                                    ]
-                                  },
-                                  "skills": {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string",
-                                      "maxLength": 40,
-                                      "pattern": "^[a-z][a-z0-9_]*$"
-                                    },
-                                    "minItems": 1,
-                                    "maxItems": 24
-                                  },
-                                  "saves": {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string",
-                                      "maxLength": 40,
-                                      "pattern": "^[a-z][a-z0-9_]*$"
-                                    },
-                                    "minItems": 1,
-                                    "maxItems": 12
-                                  },
-                                  "mode": {
-                                    "type": "string",
-                                    "enum": [
-                                      "advantage",
-                                      "disadvantage"
-                                    ]
-                                  },
-                                  "$comment": {}
-                                },
-                                "required": [
-                                  "to"
-                                ],
-                                "additionalProperties": false,
-                                "allOf": [
+                                "anyOf": [
                                   {
-                                    "anyOf": [
-                                      {
-                                        "required": [
-                                          "flat"
-                                        ]
-                                      },
-                                      {
-                                        "required": [
-                                          "dice"
-                                        ]
-                                      },
-                                      {
-                                        "required": [
-                                          "times"
-                                        ]
-                                      },
-                                      {
-                                        "required": [
-                                          "mode"
-                                        ]
-                                      }
+                                    "required": [
+                                      "flat"
                                     ]
                                   },
                                   {
-                                    "if": {
-                                      "required": [
-                                        "dice"
-                                      ]
-                                    },
-                                    "then": {
-                                      "properties": {
-                                        "to": {
-                                          "enum": [
-                                            "attacks",
-                                            "saves",
-                                            "checks"
-                                          ]
-                                        }
-                                      }
-                                    }
+                                    "required": [
+                                      "dice"
+                                    ]
                                   },
                                   {
-                                    "if": {
-                                      "required": [
-                                        "times"
-                                      ]
-                                    },
-                                    "then": {
-                                      "properties": {
-                                        "to": {
-                                          "const": "speed"
-                                        }
-                                      }
-                                    }
+                                    "required": [
+                                      "times"
+                                    ]
                                   },
                                   {
-                                    "if": {
-                                      "required": [
-                                        "minus"
-                                      ]
-                                    },
-                                    "then": {
-                                      "required": [
-                                        "dice"
-                                      ]
-                                    }
-                                  },
-                                  {
-                                    "if": {
-                                      "required": [
-                                        "mode"
-                                      ]
-                                    },
-                                    "then": {
-                                      "properties": {
-                                        "to": {
-                                          "enum": [
-                                            "checks",
-                                            "saves"
-                                          ]
-                                        }
-                                      }
-                                    }
-                                  },
-                                  {
-                                    "if": {
-                                      "required": [
-                                        "skills"
-                                      ]
-                                    },
-                                    "then": {
-                                      "properties": {
-                                        "to": {
-                                          "const": "checks"
-                                        }
-                                      }
-                                    }
-                                  },
-                                  {
-                                    "if": {
-                                      "required": [
-                                        "saves"
-                                      ]
-                                    },
-                                    "then": {
-                                      "properties": {
-                                        "to": {
-                                          "const": "saves"
-                                        }
-                                      }
-                                    }
+                                    "required": [
+                                      "mode"
+                                    ]
                                   }
                                 ]
                               },
                               {
-                                "properties": {
-                                  "to": {
-                                    "enum": [
-                                      "checks",
-                                      "saves"
-                                    ]
+                                "if": {
+                                  "required": [
+                                    "dice"
+                                  ]
+                                },
+                                "then": {
+                                  "properties": {
+                                    "to": {
+                                      "enum": [
+                                        "attacks",
+                                        "saves",
+                                        "checks"
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "if": {
+                                  "required": [
+                                    "times"
+                                  ]
+                                },
+                                "then": {
+                                  "properties": {
+                                    "to": {
+                                      "const": "speed"
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "if": {
+                                  "required": [
+                                    "minus"
+                                  ]
+                                },
+                                "then": {
+                                  "required": [
+                                    "dice"
+                                  ]
+                                }
+                              },
+                              {
+                                "if": {
+                                  "required": [
+                                    "mode"
+                                  ]
+                                },
+                                "then": {
+                                  "properties": {
+                                    "to": {
+                                      "enum": [
+                                        "checks",
+                                        "saves"
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "if": {
+                                  "required": [
+                                    "skills"
+                                  ]
+                                },
+                                "then": {
+                                  "properties": {
+                                    "to": {
+                                      "const": "checks"
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "if": {
+                                  "required": [
+                                    "saves"
+                                  ]
+                                },
+                                "then": {
+                                  "properties": {
+                                    "to": {
+                                      "const": "saves"
+                                    }
                                   }
                                 }
                               }
@@ -9289,6 +9353,46 @@
                           "properties": {
                             "$comment": {}
                           }
+                        },
+                        "resist": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "minItems": 1,
+                          "maxItems": 30
+                        },
+                        "vulnerable": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "minItems": 1,
+                          "maxItems": 30
+                        },
+                        "immune": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "minItems": 1,
+                          "maxItems": 30
+                        },
+                        "conditionImmunities": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "pattern": "^[a-z][a-z0-9_]*$"
+                          },
+                          "minItems": 1,
+                          "maxItems": 40
                         },
                         "$comment": {}
                       },
@@ -9398,6 +9502,26 @@
                             {
                               "required": [
                                 "abilities"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "resist"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "vulnerable"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "immune"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "conditionImmunities"
                               ]
                             }
                           ]
@@ -9566,212 +9690,209 @@
                                 "items": {
                                   "type": "string",
                                   "enum": [
+                                    "own-attacks-advantage",
+                                    "own-attacks-disadvantage",
+                                    "attacks-against-advantage",
+                                    "attacks-against-disadvantage",
+                                    "attacks-against-adjacent-advantage",
+                                    "attacks-against-far-disadvantage",
+                                    "attacks-from-adjacent-critical",
+                                    "cannot-act",
+                                    "cannot-react",
+                                    "speed-zero",
+                                    "own-saves-advantage",
+                                    "own-saves-disadvantage",
                                     "own-checks-advantage",
                                     "own-checks-disadvantage",
-                                    "own-saves-advantage",
-                                    "own-saves-disadvantage"
+                                    "resist-all"
                                   ]
                                 },
                                 "minItems": 1,
-                                "maxItems": 4
+                                "maxItems": 6
                               },
                               "modifiers": {
                                 "type": "array",
                                 "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "to": {
+                                      "type": "string",
+                                      "enum": [
+                                        "defense",
+                                        "attacks",
+                                        "saves",
+                                        "checks",
+                                        "speed"
+                                      ]
+                                    },
+                                    "flat": {
+                                      "type": "integer",
+                                      "minimum": -100,
+                                      "maximum": 100,
+                                      "not": {
+                                        "const": 0
+                                      }
+                                    },
+                                    "dice": {
+                                      "type": "string",
+                                      "maxLength": 40,
+                                      "pattern": "^[1-9]\\d{0,2}d(?:[2-9]|[1-9]\\d{1,3})(?:[+-]\\d{1,4})?$"
+                                    },
+                                    "minus": {
+                                      "type": "boolean",
+                                      "const": true
+                                    },
+                                    "times": {
+                                      "type": "number",
+                                      "enum": [
+                                        0.5,
+                                        2
+                                      ]
+                                    },
+                                    "skills": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 40,
+                                        "pattern": "^[a-z][a-z0-9_]*$"
+                                      },
+                                      "minItems": 1,
+                                      "maxItems": 24
+                                    },
+                                    "saves": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 40,
+                                        "pattern": "^[a-z][a-z0-9_]*$"
+                                      },
+                                      "minItems": 1,
+                                      "maxItems": 12
+                                    },
+                                    "mode": {
+                                      "type": "string",
+                                      "enum": [
+                                        "advantage",
+                                        "disadvantage"
+                                      ]
+                                    },
+                                    "$comment": {}
+                                  },
+                                  "required": [
+                                    "to"
+                                  ],
+                                  "additionalProperties": false,
                                   "allOf": [
                                     {
-                                      "type": "object",
-                                      "properties": {
-                                        "to": {
-                                          "type": "string",
-                                          "enum": [
-                                            "defense",
-                                            "attacks",
-                                            "saves",
-                                            "checks",
-                                            "speed"
-                                          ]
-                                        },
-                                        "flat": {
-                                          "type": "integer",
-                                          "minimum": -100,
-                                          "maximum": 100,
-                                          "not": {
-                                            "const": 0
-                                          }
-                                        },
-                                        "dice": {
-                                          "type": "string",
-                                          "maxLength": 40,
-                                          "pattern": "^[1-9]\\d{0,2}d(?:[2-9]|[1-9]\\d{1,3})(?:[+-]\\d{1,4})?$"
-                                        },
-                                        "minus": {
-                                          "type": "boolean",
-                                          "const": true
-                                        },
-                                        "times": {
-                                          "type": "number",
-                                          "enum": [
-                                            0.5,
-                                            2
-                                          ]
-                                        },
-                                        "skills": {
-                                          "type": "array",
-                                          "items": {
-                                            "type": "string",
-                                            "maxLength": 40,
-                                            "pattern": "^[a-z][a-z0-9_]*$"
-                                          },
-                                          "minItems": 1,
-                                          "maxItems": 24
-                                        },
-                                        "saves": {
-                                          "type": "array",
-                                          "items": {
-                                            "type": "string",
-                                            "maxLength": 40,
-                                            "pattern": "^[a-z][a-z0-9_]*$"
-                                          },
-                                          "minItems": 1,
-                                          "maxItems": 12
-                                        },
-                                        "mode": {
-                                          "type": "string",
-                                          "enum": [
-                                            "advantage",
-                                            "disadvantage"
-                                          ]
-                                        },
-                                        "$comment": {}
-                                      },
-                                      "required": [
-                                        "to"
-                                      ],
-                                      "additionalProperties": false,
-                                      "allOf": [
+                                      "anyOf": [
                                         {
-                                          "anyOf": [
-                                            {
-                                              "required": [
-                                                "flat"
-                                              ]
-                                            },
-                                            {
-                                              "required": [
-                                                "dice"
-                                              ]
-                                            },
-                                            {
-                                              "required": [
-                                                "times"
-                                              ]
-                                            },
-                                            {
-                                              "required": [
-                                                "mode"
-                                              ]
-                                            }
+                                          "required": [
+                                            "flat"
                                           ]
                                         },
                                         {
-                                          "if": {
-                                            "required": [
-                                              "dice"
-                                            ]
-                                          },
-                                          "then": {
-                                            "properties": {
-                                              "to": {
-                                                "enum": [
-                                                  "attacks",
-                                                  "saves",
-                                                  "checks"
-                                                ]
-                                              }
-                                            }
-                                          }
+                                          "required": [
+                                            "dice"
+                                          ]
                                         },
                                         {
-                                          "if": {
-                                            "required": [
-                                              "times"
-                                            ]
-                                          },
-                                          "then": {
-                                            "properties": {
-                                              "to": {
-                                                "const": "speed"
-                                              }
-                                            }
-                                          }
+                                          "required": [
+                                            "times"
+                                          ]
                                         },
                                         {
-                                          "if": {
-                                            "required": [
-                                              "minus"
-                                            ]
-                                          },
-                                          "then": {
-                                            "required": [
-                                              "dice"
-                                            ]
-                                          }
-                                        },
-                                        {
-                                          "if": {
-                                            "required": [
-                                              "mode"
-                                            ]
-                                          },
-                                          "then": {
-                                            "properties": {
-                                              "to": {
-                                                "enum": [
-                                                  "checks",
-                                                  "saves"
-                                                ]
-                                              }
-                                            }
-                                          }
-                                        },
-                                        {
-                                          "if": {
-                                            "required": [
-                                              "skills"
-                                            ]
-                                          },
-                                          "then": {
-                                            "properties": {
-                                              "to": {
-                                                "const": "checks"
-                                              }
-                                            }
-                                          }
-                                        },
-                                        {
-                                          "if": {
-                                            "required": [
-                                              "saves"
-                                            ]
-                                          },
-                                          "then": {
-                                            "properties": {
-                                              "to": {
-                                                "const": "saves"
-                                              }
-                                            }
-                                          }
+                                          "required": [
+                                            "mode"
+                                          ]
                                         }
                                       ]
                                     },
                                     {
-                                      "properties": {
-                                        "to": {
-                                          "enum": [
-                                            "checks",
-                                            "saves"
-                                          ]
+                                      "if": {
+                                        "required": [
+                                          "dice"
+                                        ]
+                                      },
+                                      "then": {
+                                        "properties": {
+                                          "to": {
+                                            "enum": [
+                                              "attacks",
+                                              "saves",
+                                              "checks"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "if": {
+                                        "required": [
+                                          "times"
+                                        ]
+                                      },
+                                      "then": {
+                                        "properties": {
+                                          "to": {
+                                            "const": "speed"
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "if": {
+                                        "required": [
+                                          "minus"
+                                        ]
+                                      },
+                                      "then": {
+                                        "required": [
+                                          "dice"
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "if": {
+                                        "required": [
+                                          "mode"
+                                        ]
+                                      },
+                                      "then": {
+                                        "properties": {
+                                          "to": {
+                                            "enum": [
+                                              "checks",
+                                              "saves"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "if": {
+                                        "required": [
+                                          "skills"
+                                        ]
+                                      },
+                                      "then": {
+                                        "properties": {
+                                          "to": {
+                                            "const": "checks"
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "if": {
+                                        "required": [
+                                          "saves"
+                                        ]
+                                      },
+                                      "then": {
+                                        "properties": {
+                                          "to": {
+                                            "const": "saves"
+                                          }
                                         }
                                       }
                                     }
@@ -9851,6 +9972,46 @@
                                 "properties": {
                                   "$comment": {}
                                 }
+                              },
+                              "resist": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                },
+                                "minItems": 1,
+                                "maxItems": 30
+                              },
+                              "vulnerable": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                },
+                                "minItems": 1,
+                                "maxItems": 30
+                              },
+                              "immune": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                },
+                                "minItems": 1,
+                                "maxItems": 30
+                              },
+                              "conditionImmunities": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "maxLength": 40,
+                                  "pattern": "^[a-z][a-z0-9_]*$"
+                                },
+                                "minItems": 1,
+                                "maxItems": 40
                               },
                               "$comment": {}
                             },
@@ -9960,6 +10121,26 @@
                                   {
                                     "required": [
                                       "abilities"
+                                    ]
+                                  },
+                                  {
+                                    "required": [
+                                      "resist"
+                                    ]
+                                  },
+                                  {
+                                    "required": [
+                                      "vulnerable"
+                                    ]
+                                  },
+                                  {
+                                    "required": [
+                                      "immune"
+                                    ]
+                                  },
+                                  {
+                                    "required": [
+                                      "conditionImmunities"
                                     ]
                                   }
                                 ]
@@ -12887,6 +13068,152 @@
                   ]
                 }
               ]
+            },
+            "hardness": {
+              "type": "object",
+              "properties": {
+                "const": {
+                  "type": "number"
+                },
+                "field": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "derived": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "abilityScore": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "abilityMod": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "abilityModFromField": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "skillMod": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "saveMod": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "liveTrack": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "read": {
+                  "type": "string",
+                  "enum": [
+                    "value",
+                    "filled",
+                    "remaining",
+                    "penalty"
+                  ]
+                },
+                "livePool": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "listSum": {
+                  "type": "object",
+                  "properties": {
+                    "list": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "column": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "onlyWhen": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "$comment": {}
+                  },
+                  "required": [
+                    "list",
+                    "column"
+                  ],
+                  "additionalProperties": false
+                },
+                "itemStat": {
+                  "type": "object",
+                  "properties": {
+                    "stat": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "from": {
+                      "type": "string",
+                      "enum": [
+                        "worn",
+                        "carried",
+                        "all"
+                      ]
+                    },
+                    "pick": {
+                      "type": "string",
+                      "enum": [
+                        "sum",
+                        "max",
+                        "min",
+                        "count"
+                      ]
+                    },
+                    "slot": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "category": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "tag": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "default": {
+                      "type": "number"
+                    },
+                    "$comment": {}
+                  },
+                  "required": [
+                    "from",
+                    "pick"
+                  ],
+                  "additionalProperties": false
+                },
+                "$comment": {}
+              },
+              "additionalProperties": false,
+              "dependencies": {
+                "read": [
+                  "liveTrack"
+                ]
+              }
             },
             "$comment": {}
           },

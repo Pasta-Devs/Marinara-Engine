@@ -1679,6 +1679,7 @@ export const RULESET_CREATURE_SHEET_REPLACES = [
   "saves",
   "checks",
   "soak",
+  "hardness",
 ] as const;
 /** The keys a creature WITHOUT a sheet cannot go without. */
 export const RULESET_CREATURE_PLAIN_NEEDS = ["health", "defense", "initiativeModifier"] as const;
@@ -1715,6 +1716,9 @@ const creatureFields = {
     })
     .strict()
     .optional(),
+  /** In a pool fight where a style spends initiative: a spending blow whose dice are below this lands
+   *  and does nothing. */
+  hardness: z.number().int().min(0).max(100).optional(),
   /** Damage types, matched without case: half, double, none at all. A resistance or an immunity may
    *  say what gets through it (`{ "type": "cut", "except": ["silver"] }`): a blow from a weapon item
    *  with any of those tags is taken as it comes. */
@@ -2508,10 +2512,15 @@ const combatConditionSchema = z
     skillsNeedSomethingToNarrow(entry, ctx);
   });
 
-/** The effects an item may have while worn or carried: the ones a check outside a fight reads. */
-export const RULESET_ITEM_EFFECTS = [...RULESET_CHECK_SCOPED_EFFECTS, ...RULESET_SAVE_SCOPED_EFFECTS] as const;
-/** And the numbers it may change. */
-export const RULESET_ITEM_MODIFIER_TARGETS = ["checks", "saves"] as const;
+/** The effects an item may have while worn or carried: every effect a condition may have but the ones
+ *  a level cannot, since nobody put an item on its holder and it never ends by itself. A check outside
+ *  a fight reads the check and save effects among them; a fight reads all of them. */
+const itemEffectSchema = combatConditionEffectSchema.exclude([...RULESET_LEVEL_REFUSED_EFFECTS]);
+export const RULESET_ITEM_EFFECTS = itemEffectSchema.options;
+/** The effects a check outside a fight reads, which were all an item had before Capability API 1.56. */
+export const RULESET_ITEM_CHECK_EFFECTS = [...RULESET_CHECK_SCOPED_EFFECTS, ...RULESET_SAVE_SCOPED_EFFECTS] as const;
+/** And the numbers a check outside a fight reads: the rest are a fight's. */
+export const RULESET_ITEM_CHECK_MODIFIER_TARGETS = ["checks", "saves"] as const;
 
 /**
  * What an item does while worn (`worn`) or while it is only carried (`carried`), in the condition
@@ -2527,22 +2536,30 @@ const itemAbilityChangeSchema = z.union([
 
 export const rulesetItemEffectSchema = z
   .object({
-    effects: z.array(z.enum(RULESET_ITEM_EFFECTS)).min(1).max(4).optional(),
+    effects: z.array(itemEffectSchema).min(1).max(6).optional(),
     modifiers: z.array(combatModifierSchema).min(1).max(6).optional(),
     failsSaves: z.array(sheetId).min(1).max(12).optional(),
     saves: z.array(sheetId).min(1).max(12).optional(),
     skills: z.array(sheetId).min(1).max(24).optional(),
     /** Abilities it sets or raises, by ability id, applied before the sheet is worked out. */
     abilities: z.record(sheetId, itemAbilityChangeSchema).optional(),
+    /** Kinds of harm its holder takes half of, double, or none of in a fight, as a creature's are. */
+    resist: z.array(promptSafeText(40)).min(1).max(30).optional(),
+    vulnerable: z.array(promptSafeText(40)).min(1).max(30).optional(),
+    immune: z.array(promptSafeText(40)).min(1).max(30).optional(),
+    /** The sheet's own conditions a fight never puts on its holder. */
+    conditionImmunities: z.array(sheetId).min(1).max(40).optional(),
   })
   .strict()
   .superRefine((entry, ctx) => {
     const abilities = Object.entries(entry.abilities ?? {});
-    if (!entry.effects && !entry.modifiers && !entry.failsSaves && abilities.length === 0) {
+    const hide = entry.resist ?? entry.vulnerable ?? entry.immune ?? entry.conditionImmunities;
+    if (!entry.effects && !entry.modifiers && !entry.failsSaves && abilities.length === 0 && !hide) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["effects"],
-        message: "An item's effect does something: effects, modifiers, saves it fails or abilities it changes",
+        message:
+          "An item's effect does something: effects, modifiers, saves it fails, abilities it changes, or harm or conditions it keeps off",
       });
     }
     if (abilities.length > 12) {
@@ -2561,15 +2578,6 @@ export const rulesetItemEffectSchema = z
         });
       }
     }
-    entry.modifiers?.forEach((modifier, index) => {
-      if (!(RULESET_ITEM_MODIFIER_TARGETS as readonly string[]).includes(modifier.to)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["modifiers", index, "to"],
-          message: `An item changes ${RULESET_ITEM_MODIFIER_TARGETS.join(" and ")}; what it does in a fight comes with weapons and armor in a fight`,
-        });
-      }
-    });
     savesNeedSomethingToNarrow(entry, ctx);
     skillsNeedSomethingToNarrow(entry, ctx);
   });
@@ -2699,6 +2707,16 @@ const combatThreatTierSchema = z
   })
   .strict();
 
+/** Whether a fight's initiative is a number attacks move with a style that spends it, which is the one
+ *  blow hardness stops. */
+export function rulesetSpendsInitiative(combat: {
+  initiative: { resource?: { styles: Array<{ spends?: unknown }> } };
+}) {
+  return !!combat.initiative.resource?.styles.some((style) => style.spends !== undefined);
+}
+const HARDNESS_NEEDS_SPENDING =
+  "Hardness stops a spending blow, so initiative is a number attacks move with a style that spends it";
+
 /** One way any attack may be made when initiative is a number attacks move. `takes`: on a hit the
  *  damage successes come off the target's number instead of their health, and the attacker gains them
  *  plus `gain`. `spends`: the damage is the attacker's own number in dice, and the number resets to the
@@ -2807,6 +2825,10 @@ const combatSchema = z
           })
           .strict()
           .optional(),
+        /** A fighter's hardness, read off their sheet as the fight begins (their armor's, through
+         *  `itemStat`): a spending blow whose dice are below it lands and does nothing. Only where
+         *  initiative is a number attacks move and a style spends it. A creature gives its own. */
+        hardness: rulesetValueRefSchema.optional(),
       })
       .strict()
       .describe("Required when kind is dice-pool, and refused when it is attack-vs-defense.")
@@ -3063,6 +3085,22 @@ interface RulesetSheetNames {
 function derivedRefs(derived: z.infer<typeof rulesetDerivedSchema>): RulesetValueRef[] {
   if (derived.op === "enumTable") return [];
   return derived.op === "stepTable" ? [derived.from] : derived.op === "scale" ? [derived.of] : derived.of;
+}
+
+/** The item stats a value counts through `itemStat`, following the derived values it reads: which of
+ *  an item's stats a defense, say, already adds up. */
+export function rulesetItemStatsRead(definition: RulesetDefinition, ref: RulesetValueRef): string[] {
+  const stats = new Set<string>();
+  const seen = new Set<string>();
+  const walk = (value: RulesetValueRef) => {
+    if (value.itemStat?.stat) stats.add(value.itemStat.stat);
+    if (value.derived === undefined || seen.has(value.derived)) return;
+    seen.add(value.derived);
+    const derived = definition.sheet.derived.find((entry) => entry.id === value.derived);
+    if (derived) derivedRefs(derived).forEach(walk);
+  };
+  walk(ref);
+  return [...stats];
 }
 
 interface RulesetLiveReaders {
@@ -4197,6 +4235,10 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         }
       }
       if (soak && !soak.all && !soak.byKind) issue(at("pool", "soak"), "Soak soaks something: all, byKind or both");
+      if (combat.pool.hardness) {
+        checkRef(combat.pool.hardness, at("pool", "hardness"), derivedIds);
+        if (!rulesetSpendsInitiative(combat)) issue(at("pool", "hardness"), HARDNESS_NEEDS_SPENDING);
+      }
     }
     // What one combatant may spend of a pool per turn or round: a pool the sheet keeps, once each.
     const limited = new Set<string>();
@@ -5047,6 +5089,9 @@ function creatureIssues(
   creature.conditionImmunities?.forEach((condition, index) => {
     if (!conditions.has(condition)) add([...at, "conditionImmunities", index], `Unknown condition "${condition}"`);
   });
+  if (creature.hardness !== undefined && !rulesetSpendsInitiative(combat)) {
+    add([...at, "hardness"], HARDNESS_NEEDS_SPENDING);
+  }
   // Soak is a pool fight's, by the health track's own kinds.
   if (creature.soak) {
     if (combat.kind !== "dice-pool") add([...at, "soak"], 'Soak is for a "dice-pool" fight');
@@ -5234,6 +5279,7 @@ function itemIssues(
     const effect = item[key];
     if (!effect) continue;
     effectNameIssues(effect, skills, saves, [...at, key], add);
+    itemHideIssues(definition, effect, [...at, key], add);
     for (const [id, change] of Object.entries(effect.abilities ?? {})) {
       const ability = abilities.get(id);
       if (!ability) add([...at, key, "abilities", id], `Unknown ability "${id}"`);
@@ -5251,9 +5297,43 @@ function itemIssues(
         add([...path, "value", issue.key], issue.message);
       }
       effectNameIssues(requirement.otherwise, skills, saves, [...path, "otherwise"], add);
+      itemHideIssues(definition, requirement.otherwise, [...path, "otherwise"], add);
     });
   }
   if (item.attack) attackIssues(definition, item, item.attack, [...at, "attack"], add);
+}
+
+/** The kinds of harm and the conditions an item's effect keeps off its holder are the ruleset's own:
+ *  damage types checked against `combat.damageTypes` where it declares any, as a creature's are. */
+function itemHideIssues(
+  definition: RulesetDefinition,
+  effect: RulesetItemEffect,
+  at: (string | number)[],
+  add: (path: (string | number)[], message: string) => void,
+): void {
+  // A pool fight adds dice to a pool, so a rolled number on an attack would be a number of dice
+  // nobody could throw, as it is for a condition's.
+  if (definition.combat?.kind === "dice-pool") {
+    effect.modifiers?.forEach((modifier, index) => {
+      if (modifier.to === "attacks" && modifier.dice !== undefined) {
+        add(
+          [...at, "modifiers", index, "dice"],
+          'A "dice-pool" fight adds dice to a pool, so a modifier gives a flat number of dice',
+        );
+      }
+    });
+  }
+  const declared = definition.combat?.damageTypes;
+  const types = declared ? new Set(declared.map((type) => type.trim().toLowerCase())) : null;
+  for (const key of ["resist", "vulnerable", "immune"] as const) {
+    effect[key]?.forEach((type, index) => {
+      if (types && !types.has(type.trim().toLowerCase())) add([...at, key, index], `Unknown damage type "${type}"`);
+    });
+  }
+  const conditions = new Set(definition.sheet.live.conditions.map((condition) => condition.id));
+  effect.conditionImmunities?.forEach((condition, index) => {
+    if (!conditions.has(condition)) add([...at, "conditionImmunities", index], `Unknown condition "${condition}"`);
+  });
 }
 
 /** What is wrong with a weapon's attack: every id it names is the ruleset's, every stat it reads is

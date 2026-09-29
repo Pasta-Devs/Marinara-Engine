@@ -36,6 +36,20 @@ export function rulesetItemStatsLine(facts: RulesetItemFacts): string {
   return facts.stats.map((stat) => (stat.text !== undefined ? `${stat.label} ${stat.text}` : stat.label)).join(" · ");
 }
 
+/** A fight effect's localized words, by effect id. The ones about the holder's own checks, saves and
+ *  attacks are said as leans on those instead. */
+const FIGHT_EFFECT_KEYS: Record<string, string> = {
+  "attacks-against-advantage": "ui.game.gameinventory.effectAttacksAgainstAdvantage",
+  "attacks-against-disadvantage": "ui.game.gameinventory.effectAttacksAgainstDisadvantage",
+  "attacks-against-adjacent-advantage": "ui.game.gameinventory.effectAttacksAgainstAdjacentAdvantage",
+  "attacks-against-far-disadvantage": "ui.game.gameinventory.effectAttacksAgainstFarDisadvantage",
+  "attacks-from-adjacent-critical": "ui.game.gameinventory.effectAttacksFromAdjacentCritical",
+  "cannot-act": "ui.game.gameinventory.effectCannotAct",
+  "cannot-react": "ui.game.gameinventory.effectCannotReact",
+  "speed-zero": "ui.game.gameinventory.effectSpeedZero",
+  "resist-all": "ui.game.gameinventory.effectResistAll",
+};
+
 /** A weapon's attack, in two lines: what it adds to hit and deals ("Attack (Act): Brawn + 1 to hit,
  *  1d6 + Brawn cut damage"), then how far it reaches and carries and what it deals with a hand free.
  *  Empty for an item that is no weapon. */
@@ -73,6 +87,32 @@ function rulesetItemAttackLines(facts: RulesetItemFacts, t: TFunction): string[]
 export function rulesetItemEffectLines(facts: RulesetItemFacts, t: TFunction): string[] {
   const phrase = (fact: RulesetItemEffectFact) => {
     const names = fact.names.join(", ");
+    if ("effect" in fact.change)
+      return t(FIGHT_EFFECT_KEYS[fact.change.effect] ?? "ui.game.gameinventory.effectFight", {
+        effect: fact.change.effect,
+      });
+    if ("hide" in fact.change) {
+      const key =
+        fact.change.hide === "resist"
+          ? "ui.game.gameinventory.effectResist"
+          : fact.change.hide === "vulnerable"
+            ? "ui.game.gameinventory.effectVulnerable"
+            : "ui.game.gameinventory.effectImmune";
+      return t(key, { names });
+    }
+    if ("times" in fact.change) {
+      return t(
+        fact.change.times === 0.5 ? "ui.game.gameinventory.effectSpeedHalf" : "ui.game.gameinventory.effectSpeedDouble",
+      );
+    }
+    if (fact.to === "speed" && "value" in fact.change) {
+      return t("ui.game.gameinventory.effectSpeed", { change: fact.change.value });
+    }
+    if (fact.to === "defense" && "value" in fact.change) {
+      return names
+        ? t("ui.game.gameinventory.effectDefenseNamed", { change: fact.change.value, names })
+        : t("ui.game.gameinventory.effectDefense", { change: fact.change.value });
+    }
     if ("atLeast" in fact.change) {
       return t("ui.game.gameinventory.effectAbilitySet", { names, value: fact.change.atLeast });
     }
@@ -93,6 +133,7 @@ export function rulesetItemEffectLines(facts: RulesetItemFacts, t: TFunction): s
         ? t("ui.game.gameinventory.effectOnNamedChecks", { change, names })
         : t("ui.game.gameinventory.effectOnChecks", { change });
     }
+    if (fact.to === "attacks") return t("ui.game.gameinventory.effectOnAttacks", { change });
     return names
       ? t("ui.game.gameinventory.effectOnNamedSaves", { change, names })
       : t("ui.game.gameinventory.effectOnSaves", { change });

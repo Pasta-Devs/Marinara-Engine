@@ -194,6 +194,27 @@ try {
 
   // ── Install gate: every 1.54 key, in the ruleset file and in a catalog file ──
   {
+    /** Less what the examples' items do in a fight, which is 1.56's and has a lane of its own. */
+    const withoutArmor = (text: string) =>
+      JSON.stringify(
+        variant(text, (doc) => {
+          for (const catalog of doc.catalogs) {
+            for (const entry of catalog.entries ?? []) {
+              for (const when of ["worn", "carried"]) {
+                const effect = entry.item?.[when];
+                if (!effect) continue;
+                for (const key of ["resist", "vulnerable", "immune", "conditionImmunities"]) delete effect[key];
+                effect.modifiers = effect.modifiers?.filter((one: { to: string }) =>
+                  ["checks", "saves"].includes(one.to),
+                );
+                if (!effect.modifiers?.length) delete effect.modifiers;
+                if (Object.keys(effect).every((key) => key === "$comment")) delete entry.item[when];
+              }
+            }
+          }
+        }),
+      );
+    const emberBefore156 = withoutArmor(emberText);
     const manifest = (minor: number, paths = ["ruleset.json"]) => ({
       schemaVersion: 2,
       capabilityApi: { major: 1, minor },
@@ -221,15 +242,15 @@ try {
     };
     /** Ember Roads less its own 1.54 keys, to add one back at a time. */
     const bare = (edit: (doc: Record<string, any>) => void = () => {}) =>
-      variant(emberText, (doc) => {
+      variant(emberBefore156, (doc) => {
         delete itemEntry(doc, "ox-hide-gauntlets").item.worn;
         doc.combat.levels = doc.combat.levels.filter((entry: { derived?: string }) => entry.derived === undefined);
         withoutWeapons(doc);
         edit(doc);
       });
     assert.equal(issue(53, bare()), null, "the rest of the example stays 1.53");
-    assert.match(issue(53, variant(emberText, withoutWeapons)) ?? "", gateIssue);
-    assert.equal(issue(54, variant(emberText, withoutWeapons)), null);
+    assert.match(issue(53, variant(emberBefore156, withoutWeapons)) ?? "", gateIssue);
+    assert.equal(issue(54, variant(emberBefore156, withoutWeapons)), null);
     const cases: Array<[string, (doc: Record<string, any>) => void]> = [
       [
         "a worn ability",

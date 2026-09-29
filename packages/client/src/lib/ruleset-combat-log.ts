@@ -194,7 +194,9 @@ function defenseText(names: RulesetCombatNames, defense: number): string {
 function bonusNamer(names: RulesetCombatNames, t: TFunction): (bonus: RulesetConditionBonus) => string {
   return (bonus) =>
     bonus.level === undefined
-      ? names.condition(bonus.condition)
+      ? bonus.item
+        ? bonus.condition
+        : names.condition(bonus.condition)
       : t("game.combat.ruleset.roll.level", {
           track: (bonus.derived ? names.derived : names.track)(bonus.condition),
           level: bonus.level,
@@ -530,6 +532,14 @@ export function rulesetCombatEventLine(
       });
     case "cover":
       return key("cover", { target: names.combatant(event.targetId), bonus: event.bonus, defense: event.defense });
+    case "hardness":
+      return key("hardness", {
+        actor: names.combatant(event.sourceId),
+        target: names.combatant(event.targetId),
+        label: event.label,
+        dice: event.dice,
+        hardness: event.hardness,
+      });
     case "area":
       return key("area", {
         actor: names.combatant(event.actorId),

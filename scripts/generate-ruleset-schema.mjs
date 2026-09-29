@@ -12,7 +12,6 @@ import {
   RULESET_COMBAT_CONDITION_EFFECTS,
   RULESET_CREATURE_PLAIN_NEEDS,
   RULESET_CREATURE_SHEET_REPLACES,
-  RULESET_ITEM_MODIFIER_TARGETS,
   RULESET_LEVEL_REFUSED_EFFECTS,
   RULESET_ROLLED_MODIFIER_TARGETS,
   RULESET_SAVE_SCOPED_EFFECTS,
@@ -262,8 +261,7 @@ function conditionSavesAndLevels(node) {
     narrows("saves", RULESET_SAVE_SCOPED_EFFECTS, "saves"),
     ...(properties.skills ? [narrows("skills", RULESET_CHECK_SCOPED_EFFECTS, "checks")] : []),
   ];
-  // An item's worn or carried effect (no `condition`, no `track`) does something, and changes only
-  // checks and saves: what an item does in a fight comes later.
+  // An item's worn or carried effect (no `condition`, no `track`) does something.
   if (!properties.condition && !properties.track) {
     node.allOf.push({
       anyOf: [
@@ -271,14 +269,12 @@ function conditionSavesAndLevels(node) {
         { required: ["modifiers"] },
         { required: ["failsSaves"] },
         { required: ["abilities"] },
+        { required: ["resist"] },
+        { required: ["vulnerable"] },
+        { required: ["immune"] },
+        { required: ["conditionImmunities"] },
       ],
     });
-    properties.modifiers = {
-      ...properties.modifiers,
-      items: {
-        allOf: [properties.modifiers.items, { properties: { to: { enum: [...RULESET_ITEM_MODIFIER_TARGETS] } } }],
-      },
-    };
     return;
   }
   if (!properties.track) return;

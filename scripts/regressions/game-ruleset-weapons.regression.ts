@@ -326,6 +326,28 @@ try {
 
   // ── Install gate: 1.55, in the ruleset file and in a catalog file ──
   {
+    /** Less what the examples' items do in a fight, which is 1.56's and has a lane of its own. */
+    const withoutArmor = (text: string) =>
+      JSON.stringify(
+        variant(text, (doc) => {
+          for (const catalog of doc.catalogs) {
+            for (const entry of catalog.entries ?? []) {
+              for (const when of ["worn", "carried"]) {
+                const effect = entry.item?.[when];
+                if (!effect) continue;
+                for (const key of ["resist", "vulnerable", "immune", "conditionImmunities"]) delete effect[key];
+                effect.modifiers = effect.modifiers?.filter((one: { to: string }) =>
+                  ["checks", "saves"].includes(one.to),
+                );
+                if (!effect.modifiers?.length) delete effect.modifiers;
+                if (Object.keys(effect).every((key) => key === "$comment")) delete entry.item[when];
+              }
+            }
+          }
+        }),
+      );
+    const emberBefore156 = withoutArmor(emberText);
+    const gravewatchBefore156 = withoutArmor(gravewatchText);
     const manifest = (minor: number, paths = ["ruleset.json"]) => ({
       schemaVersion: 2,
       capabilityApi: { major: 1, minor },
@@ -352,15 +374,15 @@ try {
       const bestiary = doc.catalogs.find((catalog: { holds?: string }) => catalog.holds === "creatures");
       bestiary.entries = bestiary.entries.filter((entry: { id: string }) => entry.id !== "grave-wight");
     };
-    assert.match(issue(54, variant(emberText)) ?? "", gateIssue);
-    assert.equal(issue(55, variant(emberText)), null);
-    assert.equal(issue(54, variant(emberText, withoutWeapons)), null, "the rest of the example stays 1.54");
-    assert.match(issue(54, variant(gravewatchText, withoutWeapons)) ?? "", gateIssue, "the wight on its own");
-    assert.match(issue(54, variant(gravewatchText, withoutWight)) ?? "", gateIssue, "the weapons on their own");
+    assert.match(issue(54, variant(emberBefore156)) ?? "", gateIssue);
+    assert.equal(issue(55, variant(emberBefore156)), null);
+    assert.equal(issue(54, variant(emberBefore156, withoutWeapons)), null, "the rest of the example stays 1.54");
+    assert.match(issue(54, variant(gravewatchBefore156, withoutWeapons)) ?? "", gateIssue, "the wight on its own");
+    assert.match(issue(54, variant(gravewatchBefore156, withoutWight)) ?? "", gateIssue, "the weapons on their own");
     assert.equal(
       issue(
         54,
-        variant(gravewatchText, (doc) => {
+        variant(gravewatchBefore156, (doc) => {
           withoutWeapons(doc);
           withoutWight(doc);
         }),
@@ -372,19 +394,19 @@ try {
     assert.equal(
       issue(
         54,
-        variant(gravewatchText, (doc) => {
+        variant(gravewatchBefore156, (doc) => {
           withoutWeapons(doc);
           creatureEntry(doc, "grave-wight").creature.resist = ["tearing"];
         }),
       ),
       null,
     );
-    const inFile = variant(emberText, (doc) => {
+    const inFile = variant(emberBefore156, (doc) => {
       const catalog = itemCatalogOf(doc);
       delete catalog.entries;
       catalog.asset = "catalogs/outfitter.json";
     });
-    const entries = itemCatalogOf(variant(emberText)).entries;
+    const entries = itemCatalogOf(variant(emberBefore156)).entries;
     const paths = ["ruleset.json", "catalogs/outfitter.json"];
     const files = new Map<string, unknown>([["catalogs/outfitter.json", { entries }]]);
     assert.match(issue(54, inFile, paths, files) ?? "", gateIssue, "a catalog file");
