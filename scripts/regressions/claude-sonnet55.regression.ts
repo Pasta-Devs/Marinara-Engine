@@ -182,6 +182,24 @@ try {
     assert.equal(body.messages[1].role, "system", "Sonnet 5.5 accepts mid-conversation system messages");
     assert.equal(body.messages.at(-1).role, "user", "no rejected assistant prefill");
     assert.ok(JSON.stringify(body.messages).includes("The door "));
+    // Proxies behind a custom Anthropic base URL may namespace or suffix the ID.
+    for (const id of ["anthropic/claude-sonnet-5-5", "claude-sonnet-5-5-20260928", "anthropic/claude-opus-5-5"]) {
+      await native.chatComplete(history, { model: id, stream: false });
+      assert.equal(requests.at(-1)!.messages[1].role, "system", `${id} keeps history system messages`);
+    }
+    await native.chatComplete(history, { model: "claude-sonnet-5", stream: false });
+    const sonnet5 = requests.at(-1)!.messages as Array<{ role: string; content: unknown }>;
+    assert.equal(
+      sonnet5.some((message) => message.role === "system"),
+      false,
+      "Sonnet 5 has no history system role",
+    );
+    assert.ok(
+      sonnet5.some(
+        (message) => message.role === "user" && JSON.stringify(message.content).includes("Depth instruction"),
+      ),
+      "Sonnet 5 keeps the instruction as user context",
+    );
   });
 
   await test("OpenRouter and OAI-compatible gateways never send a thinking disable, samplers or forced tools", async () => {

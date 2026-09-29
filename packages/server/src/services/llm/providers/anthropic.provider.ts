@@ -215,16 +215,16 @@ function splitAnthropicSystemMessages(messages: ChatMessage[], model: string) {
   // Only these documented models accept history-level system text. Other models
   // retain its position as user context instead of moving it into the cache prefix.
   // https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages
-  const supportsHistorySystem = [
-    "claude-opus-4-8",
-    "claude-opus-5",
-    "claude-opus-5-5",
-    "claude-sonnet-5-5",
-    "claude-fable-5",
-    "claude-fable-5-1",
-    "claude-mythos-5",
-    "claude-mythos-5-1",
-  ].includes(model.toLowerCase());
+  const supportsHistorySystem =
+    isClaudeStrictRequestModel(model) ||
+    [
+      "claude-opus-4-8",
+      "claude-opus-5",
+      "claude-fable-5",
+      "claude-fable-5-1",
+      "claude-mythos-5",
+      "claude-mythos-5-1",
+    ].includes(model.toLowerCase());
   const chatMessages = history.map((message, index): ChatMessage => {
     if (message.role !== "system") return message;
     let start = index;
