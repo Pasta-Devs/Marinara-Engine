@@ -20,6 +20,21 @@ export function isClaudeOpus55Model(model: string): boolean {
   return /(?:^|\/)claude-opus-5[.-]5(?:$|[-:])/iu.test(model.trim());
 }
 
+/** Native Claude ID and the dotted ID used by OpenRouter/compatible gateways. */
+export function isClaudeSonnet55Model(model: string): boolean {
+  return /(?:^|\/)claude-sonnet-5[.-]5(?:$|[-:])/iu.test(model.trim());
+}
+
+/**
+ * Claude models that reject disabled thinking, forced tool choice, assistant prefill and
+ * non-default sampling. Sonnet 5.5 can still skip up-front thinking, but only with the native
+ * `between_tools` setting, which OpenAI-compatible gateways cannot send.
+ * https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5
+ */
+export function isClaudeStrictRequestModel(model: string): boolean {
+  return isClaudeOpus55Model(model) || isClaudeSonnet55Model(model);
+}
+
 export function isClaudeAdaptiveOnlyNoSamplingModel(model: string): boolean {
   const normalized = model.toLowerCase();
   return (
@@ -236,6 +251,7 @@ export const OPENAI_MODELS: KnownModel[] = [
 export const ANTHROPIC_MODELS: KnownModel[] = [
   { id: "claude-opus-5-5", name: "claude-opus-5-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-5", name: "claude-opus-5", context: 1000000, maxOutput: 128000 },
+  { id: "claude-sonnet-5-5", name: "claude-sonnet-5-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-sonnet-5", name: "claude-sonnet-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-fable-5-1", name: "claude-fable-5-1", context: 1000000, maxOutput: 128000 },
   { id: "claude-fable-5", name: "claude-fable-5", context: 1000000, maxOutput: 128000 },
@@ -277,6 +293,7 @@ export const ANTHROPIC_MODELS: KnownModel[] = [
 export const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
   { id: "claude-opus-5-5", name: "Claude Opus 5.5", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-5", name: "Claude Opus 5", context: 1000000, maxOutput: 128000 },
+  { id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", context: 1000000, maxOutput: 128000 },
   { id: "claude-sonnet-5", name: "Claude Sonnet 5", context: 1000000, maxOutput: 128000 },
   { id: "claude-fable-5", name: "Claude Fable 5", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-8", name: "Claude Opus 4.8", context: 1000000, maxOutput: 128000 },
@@ -1131,7 +1148,9 @@ export function findKnownModel(provider: APIProvider, modelId: string): KnownMod
   const normalizedId = modelId.trim().toLowerCase();
   const unqualifiedId = isClaudeOpus55Model(normalizedId)
     ? "claude-opus-5-5"
-    : (normalizedId.split("/").pop()?.split(":", 1)[0] ?? normalizedId);
+    : isClaudeSonnet55Model(normalizedId)
+      ? "claude-sonnet-5-5"
+      : (normalizedId.split("/").pop()?.split(":", 1)[0] ?? normalizedId);
   return OPENAI_COMPATIBLE_AGGREGATOR_MODELS.find((model) => model.id.toLowerCase() === unqualifiedId);
 }
 

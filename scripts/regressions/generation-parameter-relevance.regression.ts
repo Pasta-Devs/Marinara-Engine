@@ -223,6 +223,7 @@ try {
         "openai/gpt-5",
         "anthropic/claude-sonnet-4.5",
         "anthropic/claude-opus-5",
+        "anthropic/claude-sonnet-5.5",
         "deepseek/deepseek-v4-pro",
         "meta-llama/llama-3.3-70b-instruct",
         "x-ai/grok-4.3",
@@ -280,6 +281,7 @@ try {
         "claude-sonnet-4-5",
         "claude-opus-4-6",
         "claude-opus-5",
+        "claude-sonnet-5-5",
         "claude-3-7-sonnet-20250219",
         "claude-unknown-9",
       ],
@@ -315,6 +317,7 @@ try {
       baseUrl: "",
       models: [
         "claude-opus-5",
+        "claude-sonnet-5-5",
         "claude-fable-5-1",
         "claude-haiku-4-5-20251001",
         "claude-sonnet-4-6",
