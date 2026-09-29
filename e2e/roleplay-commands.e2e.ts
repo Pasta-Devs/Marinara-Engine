@@ -700,14 +700,15 @@ for (const presentation of ["classic", "visual-novel"] as const) {
         await page.clock.runFor(500);
         await expect(whisperText).toHaveValue("Keep this unfinished correction.");
         await expect(paragraph).toContainText("First paragraph.");
+        await editor.getByRole("button", { name: "Cancel", exact: true }).last().click();
+        await expect(editor).toHaveCount(0);
+        await page.clock.runFor(500);
+        await expect(paragraph).toContainText("Second paragraph.");
+        await expect(paragraph.locator("[data-roleplay-whisper]")).toHaveCount(0);
         await page.evaluate(async () => {
           const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
           useUIStore.getState().setRoleplayVnAutoPlay(false);
         });
-        await editor.getByRole("button", { name: "Cancel", exact: true }).last().click();
-        await page.getByRole("button", { name: "Next paragraph", exact: true }).click();
-        await expect(paragraph).toContainText("Second paragraph.");
-        await expect(paragraph.locator("[data-roleplay-whisper]")).toHaveCount(0);
       }
       expect(errors).toEqual([]);
     } finally {
