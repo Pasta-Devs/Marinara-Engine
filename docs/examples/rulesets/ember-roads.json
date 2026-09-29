@@ -222,6 +222,14 @@
         "section": "gear"
       },
       {
+        "$comment": "Everything a traveller holds, worn or packed, by its bulk. From 10 the road slows anybody, whatever their Brawn: see the combat block's levels.",
+        "id": "bulk_carried",
+        "label": "Bulk carried",
+        "op": "sum",
+        "of": [{ "itemStat": { "stat": "bulk", "from": "all", "pick": "sum" } }],
+        "section": "gear"
+      },
+      {
         "id": "strain_boxes",
         "label": "Strain boxes",
         "op": "sum",
@@ -1126,7 +1134,37 @@
             "tags": ["thrown"],
             "stats": { "bulk": 1, "damage": "1d6", "swing": "brawn", "reach": "close" },
             "slots": { "hands": 1 },
-            "cost": { "amount": 4, "unit": "mark" }
+            "cost": { "amount": 4, "unit": "mark" },
+            "attack": {
+              "$comment": "Held, it is a weapon a fight offers, swung with the stat it rolls with and dealing its own damage dice, so one made like it with other stats fights with those. A reach and a range both make it thrown: a swing close, a throw beyond.",
+              "budget": "act",
+              "toHit": { "abilities": { "stat": "swing" } },
+              "damage": { "dice": { "stat": "damage" }, "abilities": { "stat": "swing" }, "type": "cut" },
+              "reach": 2,
+              "range": { "normal": 10, "long": 20 }
+            }
+          }
+        },
+        {
+          "id": "boar-spear",
+          "label": "Boar spear",
+          "summary": "Ash shaft, a crossbar below the blade, and room on the haft for a second hand.",
+          "item": {
+            "category": "weapon",
+            "rarity": "common",
+            "tags": ["thrown"],
+            "stats": { "bulk": 2, "damage": "1d6", "swing": "brawn", "reach": "near" },
+            "slots": { "hands": 1 },
+            "cost": { "amount": 6, "unit": "mark" },
+            "attack": {
+              "$comment": "Long enough to reach two cells off, and with a hand free beside it the spear is driven in with both for 1d8.",
+              "budget": "act",
+              "toHit": { "abilities": { "stat": "swing" } },
+              "damage": { "dice": { "stat": "damage" }, "abilities": { "stat": "swing" }, "type": "cut" },
+              "reach": 4,
+              "range": { "normal": 10 },
+              "versatile": { "dice": "1d8" }
+            }
           }
         },
         {
@@ -1139,7 +1177,13 @@
             "tags": ["ranged", "two_handed"],
             "stats": { "bulk": 2, "damage": "1d8", "swing": "wits", "reach": "far" },
             "slots": { "hands": 2 },
-            "cost": { "amount": 3, "unit": "sovereign" }
+            "cost": { "amount": 3, "unit": "sovereign" },
+            "attack": {
+              "budget": "act",
+              "toHit": { "abilities": { "stat": "swing" } },
+              "damage": { "dice": { "stat": "damage" }, "abilities": { "stat": "swing" }, "type": "cut" },
+              "range": { "normal": 30, "long": 60 }
+            }
           }
         },
         {
@@ -1165,6 +1209,19 @@
             "slots": { "body": 1 },
             "cost": { "amount": 2, "unit": "sovereign" },
             "worn": { "modifiers": [{ "to": "checks", "skills": ["sneak"], "flat": -1 }] }
+          }
+        },
+        {
+          "id": "ox-hide-gauntlets",
+          "label": "Ox-hide gauntlets",
+          "summary": "Stiff cuffs of ox hide that lend a weak grip a drover's.",
+          "item": {
+            "category": "armor",
+            "rarity": "uncommon",
+            "stats": { "bulk": 1 },
+            "slots": { "hands": 2 },
+            "cost": { "amount": 3, "unit": "sovereign" },
+            "worn": { "abilities": { "brawn": { "set": 2 } } }
           }
         },
         {
@@ -1315,7 +1372,16 @@
         "at": 3,
         "modifiers": [{ "to": "attacks", "flat": -1 }]
       },
-      { "track": "heat", "at": 5, "modifiers": [{ "to": "speed", "times": 0.5 }] }
+      { "track": "heat", "at": 5, "modifiers": [{ "to": "speed", "times": 0.5 }] },
+      {
+        "$comment": "A level off a derived value rather than a track nobody has to tick: laden with 10 bulk or more, a traveller is slower and louder.",
+        "derived": "bulk_carried",
+        "at": 10,
+        "modifiers": [
+          { "to": "speed", "flat": -2 },
+          { "to": "checks", "skills": ["sneak"], "flat": -1 }
+        ]
+      }
     ],
     "checks": [
       {

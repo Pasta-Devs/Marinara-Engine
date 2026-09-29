@@ -122,17 +122,32 @@ export interface RulesetSheetItem {
   name?: string;
 }
 
-const readsItems = new WeakMap<RulesetDefinition, boolean>();
-
-/** Whether anything in the ruleset reads the items a character holds (an `itemStat` anywhere), so a
- *  caller can skip reading the inventory and the item catalogs when nothing needs them. */
+/** Whether the sheet can read the items a character holds, so a caller can skip reading the
+ *  inventory and the item catalogs when it cannot: only a ruleset with items has any, and then an
+ *  `itemStat`, an item's abilities or a level off a derived value may read them. */
 export function rulesetReadsItems(definition: RulesetDefinition): boolean {
-  let known = readsItems.get(definition);
-  if (known === undefined) {
-    known = JSON.stringify(definition).includes('"itemStat"');
-    readsItems.set(definition, known);
+  return definition.items !== undefined;
+}
+
+/** What a character's items do to their abilities: each ability's highest `set` and the sum of its
+ *  `add`s, from each worn item's `worn` effect and each other item's `carried` one, one item once. */
+function itemAbilityChanges(
+  items: ReadonlyArray<RulesetSheetItem> | undefined,
+): Map<string, { set?: number; add: number }> {
+  const changes = new Map<string, { set?: number; add: number }>();
+  const seen = new Set<unknown>();
+  for (const held of items ?? []) {
+    const effect = held.worn ? held.item.worn : held.item.carried;
+    if (!effect?.abilities || seen.has(effect)) continue;
+    seen.add(effect);
+    for (const [id, change] of Object.entries(effect.abilities)) {
+      const current = changes.get(id) ?? { add: 0 };
+      if ("set" in change) current.set = Math.max(current.set ?? change.set, change.set);
+      else current.add += change.add;
+      changes.set(id, current);
+    }
   }
-  return known;
+  return changes;
 }
 
 /** A stat over the items a character holds (`itemStat`). The items are picked by where they are and
@@ -303,8 +318,15 @@ export function evaluateRulesetSheet(
   const { sheet, resolution } = definition;
   const abilityScores: Record<string, number> = {};
   const abilityMods: Record<string, number> = {};
+  // What the character's items do to their abilities comes first, so everything reads the changed one:
+  // a `set` is a floor a higher score keeps, the `add`s go on top, and the ability's own range holds.
+  const fromItems = itemAbilityChanges(live?.items);
   for (const ability of sheet.abilities) {
-    const score = finite(build.abilities?.[ability.id]) ?? ability.default;
+    const base = finite(build.abilities?.[ability.id]) ?? ability.default;
+    const change = fromItems.get(ability.id);
+    const score = change
+      ? Math.min(ability.max, Math.max(ability.min, Math.max(base + change.add, change.set ?? -Infinity)))
+      : base;
     abilityScores[ability.id] = score;
     abilityMods[ability.id] = rulesetAbilityModifier(definition, score);
   }

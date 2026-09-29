@@ -172,6 +172,9 @@ export function loadRuntimeEnv() {
 
 loadRuntimeEnv();
 
+// Deliberately restart-only: a hot reload or a saved UI preference cannot open peer networking.
+export const multiplayerAvailable = process.env.MULTIPLAYER_ENABLED === "true";
+
 export interface EnvReloadResult {
   added: string[];
   updated: string[];

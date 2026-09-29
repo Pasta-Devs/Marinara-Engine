@@ -6,7 +6,7 @@
 // `applyRulesetSheetOp`, so a fight can never write something the sheet would refuse from the
 // player or from the Game Master.
 
-import type { RulesetCombat, RulesetDefinition } from "../../schemas/ruleset.schema.js";
+import type { RulesetCombat, RulesetCreatureHideEntry, RulesetDefinition } from "../../schemas/ruleset.schema.js";
 import { readRulesetLive, type RulesetSheetOp } from "../rulesets/live-state.js";
 import { parseRulesetCombatDice, rollRulesetDice, sumOf } from "./dice.js";
 import {
@@ -157,8 +157,18 @@ function begin(
   };
 }
 
-function matches(list: readonly string[] | undefined, type: string): boolean {
-  return !!list?.some((entry) => entry.trim().toLowerCase() === type);
+/** Whether a list of damage types holds this one. An entry that names what gets through it does not
+ *  hold a blow carrying any of that. */
+function matches(
+  list: readonly RulesetCreatureHideEntry[] | undefined,
+  type: string,
+  qualities: readonly string[] = [],
+): boolean {
+  return !!list?.some((entry) =>
+    typeof entry === "string"
+      ? entry.trim().toLowerCase() === type
+      : entry.type.trim().toLowerCase() === type && !entry.except.some((tag) => qualities.includes(tag)),
+  );
 }
 
 // ── Health ──
@@ -259,6 +269,8 @@ interface RulesetDamageInput {
   sourceId?: string;
   label?: string;
   damageType?: string;
+  /** What the blow carries past a resistance's exception: the tags of the weapon item it came from. */
+  qualities?: readonly string[];
   rolls: number[];
   flat: number;
   amount: number;
@@ -287,10 +299,10 @@ function applyDamage(
   let dealt = Math.max(0, Math.floor(input.amount));
   let adjust: "none" | "resist" | "vulnerable" | "immune" = "none";
   if (type && target.block) {
-    if (matches(target.block.immune, type)) {
+    if (matches(target.block.immune, type, input.qualities)) {
       dealt = 0;
       adjust = "immune";
-    } else if (matches(target.block.resist, type)) {
+    } else if (matches(target.block.resist, type, input.qualities)) {
       dealt = Math.floor(dealt / 2);
       adjust = "resist";
     } else if (matches(target.block.vulnerable, type)) {
@@ -737,9 +749,11 @@ function throwPool(
   who: RulesetCombatant,
   dice: number,
   mode: RulesetCombatRollMode,
+  /** A weapon's own per-die target. */
+  threshold?: number,
 ): RulesetCombatPoolThrow & { penalty: number } {
   const penalty = rulesetCombatPenalty(ctx.definition, who);
-  return { ...throwRulesetCombatPool(ctx.definition, ctx.roll, dice + penalty, mode), penalty };
+  return { ...throwRulesetCombatPool(ctx.definition, ctx.roll, dice + penalty, mode, threshold), penalty };
 }
 
 /** What an event says about one pool it threw. */
@@ -755,12 +769,18 @@ function poolRecord(thrown: RulesetCombatPoolThrow & { penalty: number }): Rules
 /** What conditions add to one roll, each rolled now: a flat number as it is, dice thrown (and taken
  *  away where the modifier says `minus`). */
 function rollBonuses(ctx: RulesetCombatContext, modifiers: RulesetConditionModifier[]): RulesetConditionBonus[] {
-  return modifiers.map(({ condition, level, modifier }) => {
+  return modifiers.map(({ condition, level, derived, modifier }) => {
     let value = modifier.flat ?? 0;
     const dice = modifier.dice ? parseRulesetCombatDice(modifier.dice) : null;
     const rolls = dice ? rollRulesetDice(ctx.roll, dice.count, dice.sides) : undefined;
     if (dice && rolls) value += (modifier.minus ? -1 : 1) * (sumOf(rolls) + dice.flat);
-    return { condition, ...(level !== undefined ? { level } : {}), value, ...(rolls ? { rolls } : {}) };
+    return {
+      condition,
+      ...(level !== undefined ? { level } : {}),
+      ...(derived ? { derived } : {}),
+      value,
+      ...(rolls ? { rolls } : {}),
+    };
   });
 }
 
@@ -2181,7 +2201,7 @@ function resolveAction(
           ctx,
           rulesetConditionModifiers(ctx.definition, ctx.combat, actor, "attacks", ctx.state),
         );
-        const thrown = throwPool(ctx, actor, action.toHit + bonusTotal(bonuses), mode);
+        const thrown = throwPool(ctx, actor, action.toHit + bonusTotal(bonuses), mode, action.target);
         const needed = Math.max(1, guarded.defense);
         const outcome = !thrown.botch && thrown.successes >= needed ? "hit" : "miss";
         ctx.events.push({
@@ -2348,7 +2368,9 @@ function resolveAction(
         return;
       }
       before ??= healthOf(ctx, target);
-      const partDealt = applyDamage(ctx, target, part, !!woundTrack);
+      // Every part of the blow carries what the weapon does past a resistance.
+      const qualities = action.damage?.qualities;
+      const partDealt = applyDamage(ctx, target, qualities ? { ...part, qualities } : part, !!woundTrack);
       dealt += partDealt;
       // A compound hit marks once, using the most severe kind that actually landed.
       if (woundTrack && partDealt > 0) {

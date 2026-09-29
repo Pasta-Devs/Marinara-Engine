@@ -72,6 +72,28 @@ Professor Mari drafts remain available without this flag. They are created disab
 
 Sandboxed Browser Extensions remain the default. Some older third-party packages are marked **Full page access** because they depend on Marinara's DOM. That mode runs the exact approved code inside Marinara's page and can access page content, browser storage, network APIs, and the current same-origin session. It is available only to External Extensions after both gates are open and requires a separate warning acknowledgement. Disable it and reload the page if the extension leaves visual or behavioral changes behind.
 
+## Optional multiplayer
+
+Multiplayer is off by default. While either activation gate is off, the feature performs no background session, certificate or peer checks; the client only reads availability once unless you explicitly refresh Settings. It supports private rooms in Conversation, Roleplay and Game without a fixed human or AI roster cap. Each guest uses their own trusted Marinara installation; a phone may use its owner's trusted Engine server. Guests do not need an AI connection. The host provides the AI connections and can read and retain shared content.
+
+1. Set `MULTIPLAYER_ENABLED=true` in the `.env` of each participating Engine and restart it. Only the exact value `true` enables the prerequisite; hot reload does not change it.
+2. Open **Settings → Advanced → Multiplayer**, read the warning and enable the separate setting. This does not start a listener or join a room.
+3. To host, use **Create shared session** or **Play together** in the existing mode/setup flow. Review the setup, your display name and the exact persona text to share. An existing chat contributes setup selections only; its private transcript, notes and memories are not copied.
+4. Configure `SSL_CERT` and `SSL_KEY` on the host with a certificate valid for the room hostname and trusted by the guest Engine. Choose a separate HTTPS room address and port, such as `https://room.example.org:7861`. The explicit Host action opens that port. Route only the room listener through your firewall/router; do not expose the ordinary Engine API. No port forwarding, relay account or certificate bypass is configured automatically.
+5. Set a room password of at least 12 characters, distinct from your Engine/admin credentials. Share the expiring invitation and password separately with people you trust. A guest reviews the hostname fingerprint, room name and persona text in their own client, consents and requests admission. The host approves each request in **Players** before any room history is sent.
+
+TLS validates the certificate chain and hostname and also checks the invitation's certificate fingerprint before sending a password. Self-signed certificates are not silently accepted. A renewed or changed certificate needs a new invitation and another review. Invitations expire after 30 minutes; admitted sessions last at most 12 hours. Replace/revoke prevents unused invitations from admitting new participants; Kick revokes an admitted participant.
+
+The host controls automatic/manual replies, a bounded generation allowance, Pause/Resume and Stop. The default allowance is 100 coordinated generation turns per hosting session; a group turn or Game setup can make more than one model call. This is a turn limit, not a price estimate. Conversation schedules use the existing host scheduler. Guests never run another scheduler or local commands from received text.
+
+In Game, review the admitted human party before Start Game. Each required human submits an action or passes. The GM resolves only after everyone is ready. A disconnected player remains required until they return or the host explicitly passes/removes them. New players and persona changes take effect at the next round. Paused/interrupted resolution never automatically repeats a paid request or already committed world effects; inspect the transcript before continuing.
+
+Stop, Leave, disabling Settings and server restart end the relevant live session. A restart never automatically hosts or joins. The host server owns the room, so closing its browser does not transfer authority to a guest. Mobile browser suspension can delay updates; it does not cause a second generation.
+
+Only connect to people you trust. Use your own trusted Marinara client; never install a host-provided client, extension, or required file. The host can read and retain what you share, and shared content may be sent to their configured AI providers. Direct connections reveal network addresses. Do not share passwords, API keys or sensitive personal information. Leave immediately if anything seems suspicious.
+
+Shared content is bounded text only. There is no peer file/media transfer, executable content, package import, remote asset loading or native action path. Custom/package tools and unsafe commands remain unavailable in rooms. The Android native wrapper cannot join. See the [compatibility and verification record](development/multiplayer.md) for exact restrictions and tested platforms; these controls are not a guarantee against every browser/OS vulnerability or an independent external download.
+
 ## Where the .env file is
 
 Configuration lives in a file named `.env`. This is a plain text file with one setting per line, in the form `KEY=value`. Lines that start with `#` are comments and the server ignores them.

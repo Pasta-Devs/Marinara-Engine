@@ -92,6 +92,7 @@ async function fetchAutonomousCandidates(): Promise<Array<{ id: string }>> {
     try {
       const meta = parseMeta(chat);
       if (meta.internalAssistant === "professor-mari") return false;
+      if (meta.multiplayerSetup || meta.multiplayer) return false;
       return !!meta.autonomousMessages;
     } catch {
       return false;

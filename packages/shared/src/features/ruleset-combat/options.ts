@@ -381,9 +381,10 @@ export function rulesetDefenseAgainst(
 ): { defense: number; cover: number; guards: RulesetConditionBonus[] } {
   // What the target's own conditions add. Defense is never rolled, so each is its flat number.
   const guards = rulesetConditionModifiers(definition, combat, target, "defense", state).map(
-    ({ condition, level, modifier }) => ({
+    ({ condition, level, derived, modifier }) => ({
       condition,
       ...(level !== undefined ? { level } : {}),
+      ...(derived ? { derived } : {}),
       value: modifier.flat ?? 0,
     }),
   );
@@ -874,6 +875,7 @@ function forecastFor(
           action.toHit + bonus.flat + rulesetCombatPenalty(definition, actor),
           Math.max(1, defense),
           mode,
+          action.target,
         )
       : rulesetHitChance(combat, action.toHit, defense, mode, bonus);
     if (chance !== null) forecast.hitChance = Math.round(chance * 1000) / 1000;

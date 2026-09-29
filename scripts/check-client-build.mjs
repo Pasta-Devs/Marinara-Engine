@@ -28,6 +28,9 @@ export function checkClientBuild(clientDist) {
   // A stale index beside a newer manifest is also an incomplete build.
   const html = readFileSync(resolve(root, "index.html"), "utf8");
   if (!html.includes(`/${manifest["index.html"].file}`)) throw new Error("Client index and Vite manifest disagree");
+  // The isolated guest is a separate classic bundle, outside Vite's main entry graph.
+  requireFile("multiplayer/guest.js");
+  requireFile("multiplayer/guest.css");
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

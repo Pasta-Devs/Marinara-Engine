@@ -2,6 +2,7 @@ import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import type { MultiplayerPlayer } from "@marinara-engine/shared";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -50,6 +51,7 @@ type WizardMountOptions = {
   isNewGame: boolean;
   chatMetadata?: Record<string, unknown>;
   characters?: Array<{ id: string; name: string }>;
+  multiplayerPlayers?: MultiplayerPlayer[];
 };
 
 /** Mount the wizard on its own so a case can drive it without a surrounding chat. */
@@ -68,7 +70,7 @@ async function mountWizard(page: Page, testInfo: TestInfo, options: WizardMountO
   });
   await prepareViteFixtureDependencies(page);
   await page.evaluate(
-    async ({ isNewGame, chatMetadata, characters }) => {
+    async ({ isNewGame, chatMetadata, characters, multiplayerPlayers }) => {
       const { GameSetupWizard } = await import("/src/components/game/GameSetupWizard.tsx" as string);
       const dependencyUrl = window.__viteFixtureDependencyUrl;
       const { default: React } = await import(dependencyUrl("react"));
@@ -93,6 +95,7 @@ async function mountWizard(page: Page, testInfo: TestInfo, options: WizardMountO
             isDraftingMap: false,
             isLinkingSharedWorld: false,
             characters,
+            multiplayerPlayers,
             onComplete: (
               config: unknown,
               _preferences: unknown,
@@ -114,6 +117,7 @@ async function mountWizard(page: Page, testInfo: TestInfo, options: WizardMountO
       isNewGame: options.isNewGame,
       chatMetadata: options.chatMetadata ?? {},
       characters: options.characters ?? [],
+      multiplayerPlayers: options.multiplayerPlayers,
     },
   );
   const wizard = page.locator('[data-component="GameSetupWizard"]');
@@ -131,6 +135,80 @@ function stepNavigation(wizard: Locator) {
     await expect(heading).toBeVisible();
   };
   return { next: () => navigate("Next"), back: () => navigate("Back") };
+}
+
+for (const hosted of [false, true]) {
+  test(`Multiplayer Game setup reviews without generation ${hosted ? "after inviting players" : "before hosting"}`, async ({
+    page,
+  }, info) => {
+    await page.route("**/api/capability-packages/installed", (route) => route.fulfill({ json: [experienceFixture] }));
+    await page.route("**/api/capability-packages/agents", (route) => route.fulfill({ json: [] }));
+    await page.route("**/api/connections", (route) => route.fulfill({ json: wizardConnections }));
+    await page.route("**/api/lorebooks", (route) => route.fulfill({ json: [] }));
+    const generated: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "POST" && /\/api\/(?:generate|game\/start)/u.test(request.url())) {
+        generated.push(request.url());
+      }
+    });
+    const players: MultiplayerPlayer[] = hosted
+      ? [
+          {
+            id: "host_player",
+            displayName: "Host fixture",
+            personaName: "Captain",
+            isHost: true,
+            connected: true,
+            ready: true,
+            joinsNextRound: false,
+          },
+          {
+            id: "guest_player",
+            displayName: "Guest fixture",
+            personaName: "Scout",
+            isHost: false,
+            connected: true,
+            ready: true,
+            joinsNextRound: false,
+          },
+        ]
+      : [];
+    const wizard = await mountWizard(page, info, {
+      isNewGame: true,
+      multiplayerPlayers: players,
+      characters: [{ id: "party-fixture", name: "AI companion fixture" }],
+    });
+    await expect(
+      wizard.getByText(
+        "Review the world setup, then invite and approve players before starting the adventure. Each player keeps control of their own persona.",
+      ),
+    ).toBeVisible();
+    await expect(wizard.getByRole("switch", { name: "Setup fixture", exact: true })).toHaveCount(0);
+    await wizard
+      .locator("select")
+      .filter({ has: page.locator('option[value="wizard-connection"]') })
+      .first()
+      .selectOption("wizard-connection");
+    const { next } = stepNavigation(wizard);
+    await next();
+    await next();
+    await expect(wizard.getByText("AI companions (0 selected)", { exact: true })).toBeVisible();
+    if (hosted) {
+      await expect(wizard.getByText("Playing Captain", { exact: true })).toBeVisible();
+      await expect(wizard.getByText("Playing Scout", { exact: true })).toBeVisible();
+    }
+    for (let step = 2; step < 6; step++) await next();
+    if (hosted) await expect(wizard.getByText("Playing Scout", { exact: true })).toBeVisible();
+    const review = wizard.getByRole("button", { name: "Review shared game", exact: true });
+    await expect(review).toBeEnabled();
+    await page.screenshot({ path: info.outputPath(`multiplayer-game-review-${hosted ? "hosted" : "prepared"}.png`) });
+    await review.click();
+    const result = JSON.parse((await page.getByTestId("wizard-result").textContent()) ?? "{}");
+    expect(result.config).not.toHaveProperty("personaId");
+    expect(result.config).not.toHaveProperty("gameExperienceId");
+    expect(result.mapPlan).toBeUndefined();
+    expect(generated).toEqual([]);
+  });
 }
 
 test("Game Features switches keep equal thumb insets and do not shrink on mobile", async ({ page }, info) => {

@@ -11,9 +11,10 @@ const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.u
  * one in a full bag stays put, and a bound cursed item stays bound. Each run imports the example
  * rulesets under ids of its own and removes them after.
  */
-function example(file: string, id: string): string {
+function example(file: string, id: string, edit: (doc: Record<string, any>) => void = () => {}): string {
   const doc = JSON.parse(readFileSync(new URL(`../docs/examples/rulesets/${file}.json`, import.meta.url), "utf8"));
   doc.id = id;
+  edit(doc);
   return JSON.stringify(doc);
 }
 
@@ -316,6 +317,122 @@ test("a worn item counts on the in-game sheet, and one in the pack does not", as
   } finally {
     if (chatId) await request.delete(`/api/chats/${chatId}`);
     if (rulesetId) await request.delete(`/api/game-rulesets?rulesetId=${encodeURIComponent(rulesetId)}&force=true`);
+    if (characterId) await request.delete(`/api/characters/${characterId}`);
+    const restored = await request.patch("/api/agents/import-policy", { data: { enabled: importsWereEnabled } });
+    expect(restored.ok(), await restored.text()).toBeTruthy();
+  }
+});
+
+test("an item that sets an ability changes the sheet, and an item's details say what it asks", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.setTimeout(120000);
+  const policyBefore = await request.get("/api/agents/import-policy");
+  expect(policyBefore.ok(), await policyBefore.text()).toBeTruthy();
+  const importsWereEnabled = (await policyBefore.json()).enabled === true;
+  const chats: string[] = [];
+  const rulesets: string[] = [];
+  let characterId: string | undefined;
+  const importRuleset = async (definition: string) => {
+    const imported = await request.post("/api/game-rulesets/import", { data: { definition } });
+    expect(imported.ok(), await imported.text()).toBeTruthy();
+    const rulesetId = (await imported.json()).rulesetId as string;
+    rulesets.push(rulesetId);
+    return rulesetId;
+  };
+  try {
+    const policy = await request.patch("/api/agents/import-policy", { data: { enabled: true } });
+    expect(policy.ok(), await policy.text()).toBeTruthy();
+    const character = await request.post("/api/characters", { data: { data: { name: "Bram" } } });
+    expect(character.ok(), await character.text()).toBeTruthy();
+    characterId = ((await character.json()) as { id: string }).id;
+
+    // Ember Roads: Bram's Brawn is 0, and the ox-hide gauntlets he wears set it to at least 2.
+    const sheet = { v: 1, build: { abilities: { brawn: 0, wits: 0, heart: 0 }, fields: {}, lists: {} } };
+    const roadId = await seedGame(
+      request,
+      await importRuleset(example("ember-roads", "ember-abilities-e2e")),
+      [
+        { name: "Ada", rulesetSheet: sheet },
+        { name: "Bram", rulesetSheet: sheet },
+      ],
+      [characterId],
+    );
+    chats.push(roadId);
+    const seeded = await request.patch(`/api/chats/${roadId}/metadata`, {
+      data: {
+        gameInventory: [
+          {
+            id: "st-gauntlets",
+            name: "Ox-hide gauntlets",
+            quantity: 1,
+            item: "outfitter/ox-hide-gauntlets",
+            holder: "Bram",
+            equipped: true,
+          },
+        ],
+      },
+    });
+    expect(seeded.ok(), await seeded.text()).toBeTruthy();
+    await openGame(page, roadId);
+    const portrait = page.getByTitle("Bram - Click to open character sheet", { exact: true }).filter({ visible: true });
+    const members = page.getByRole("button", { name: "Open party members", exact: true }).filter({ visible: true });
+    await expect(portrait.or(members).first()).toBeVisible({ timeout: 30000 });
+    if (await members.isVisible()) await members.click();
+    await portrait.first().click();
+    await expect(page.getByTitle("Brawn", { exact: true }).locator("span").nth(1)).toHaveText("+2");
+    await page.screenshot({ path: testInfo.outputPath("ruleset-sheet-ability-from-item.png") });
+    await page.getByRole("button", { name: "Close character sheet", exact: true }).click();
+    await inventoryButton(page).click({ timeout: 30000 });
+    await page.getByRole("button", { name: "Bram's things", exact: true }).click();
+    await page.getByRole("button", { name: "Ox-hide gauntlets, worn", exact: true }).click();
+    await expect(page.getByText("While worn: Brawn at least 2", { exact: true })).toBeVisible();
+
+    // Gravewatch: the grave spade asks for Sinew 3, and its details say what falling short costs. This
+    // copy also asks for a Sinew modifier and for items carried, which are named as such.
+    const otherwise = { modifiers: [{ to: "checks", skills: ["dig"], flat: -1 }] };
+    const watchId = await seedGame(
+      request,
+      await importRuleset(
+        example("gravewatch", "gravewatch-requires-e2e", (doc) => {
+          const spade = doc.catalogs
+            .find((catalog: { holds?: string }) => catalog.holds === "items")
+            .entries.find((entry: { id: string }) => entry.id === "grave-spade");
+          spade.item.requires.push(
+            { value: { abilityMod: "sinew" }, atLeast: 1, otherwise },
+            { value: { itemStat: { from: "carried", pick: "count", tag: "silver" } }, atLeast: 1, otherwise },
+            { value: { itemStat: { from: "all", pick: "count" } }, atLeast: 2, otherwise },
+          );
+        }),
+      ),
+      [
+        {
+          name: "Ada",
+          rulesetSheet: { v: 1, build: { abilities: { sinew: 2, nerve: 2, warmth: 2 }, fields: {}, lists: {} } },
+        },
+      ],
+      [],
+    );
+    chats.push(watchId);
+    const watchPage = await page.context().newPage();
+    await openInventory(watchPage, watchId);
+    await watchPage.getByLabel("Name of the item to add", { exact: true }).fill("Grave spade");
+    await watchPage.getByRole("button", { name: "Add", exact: true }).click();
+    for (const line of [
+      "Needs Sinew 3, otherwise: -1 on checks (Dig)",
+      "Needs Sinew modifier 1, otherwise: -1 on checks (Dig)",
+      "Needs Silver items 1, otherwise: -1 on checks (Dig)",
+      "Needs items 2, otherwise: -1 on checks (Dig)",
+    ]) {
+      await expect(watchPage.getByText(line, { exact: true })).toBeVisible();
+    }
+    await watchPage.close();
+  } finally {
+    for (const id of chats) await request.delete(`/api/chats/${id}`);
+    for (const id of rulesets) {
+      await request.delete(`/api/game-rulesets?rulesetId=${encodeURIComponent(id)}&force=true`);
+    }
     if (characterId) await request.delete(`/api/characters/${characterId}`);
     const restored = await request.patch("/api/agents/import-policy", { data: { enabled: importsWereEnabled } });
     expect(restored.ok(), await restored.text()).toBeTruthy();

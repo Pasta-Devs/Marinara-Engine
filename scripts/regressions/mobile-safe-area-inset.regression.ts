@@ -15,6 +15,15 @@ const repositoryRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
 const globalsCss = readFileSync(join(repositoryRoot, "packages/client/src/styles/globals.css"), "utf8");
 const appShellSource = readFileSync(join(repositoryRoot, "packages/client/src/components/layout/AppShell.tsx"), "utf8");
+const guestCss = readFileSync(
+  join(repositoryRoot, "packages/client/src/features/multiplayer/multiplayer-guest.css"),
+  "utf8",
+);
+assert.match(
+  guestCss,
+  /@supports \(-moz-appearance: none\) \{\s*:root \{\s*--mari-safe-area-inset-bottom: 0px;/u,
+  "the isolated guest stylesheet must preserve the same Gecko inset correction without loading global CSS",
+);
 
 // The override lives inside the stylesheet's single Gecko-scoped @supports
 // block (roleplay-streaming.regression.ts extracts that block by its first

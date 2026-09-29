@@ -189,10 +189,7 @@ import {
 import { persistGeneratedImageToEntityGalleries } from "../../packages/server/src/services/image/generated-image-entity-gallery.js";
 import { withGalleryFileLifecycleLock } from "../../packages/server/src/services/image/gallery-file-lifecycle.js";
 import { runRetrySetupPhase } from "../../packages/server/src/routes/generate/retry-agents-route.js";
-import {
-  parseImageGenerationUserSettings,
-  resolveIllustratorImageSize,
-} from "../../packages/server/src/services/image/image-generation-settings.js";
+import { resolveIllustratorImageSize } from "../../packages/server/src/services/image/image-generation-settings.js";
 import { generateIllustratorImageVariants } from "../../packages/server/src/services/image/illustrator-image-variants.js";
 import { fetchBotBrowserJson } from "../../packages/server/src/services/bot-browser/fetch-json.js";
 import { isAllowedResponseContentType, validateOutboundUrl } from "../../packages/server/src/utils/security.js";
@@ -6161,7 +6158,7 @@ assert.match(
 );
 assert.match(
   conversationGenerationSource,
-  /await waitForConversationPresenceDelay\(remainingDelayMs, abortController\.signal\);\s*if \(abortController\.signal\.aborted\) break;\s*\}\s*if \(responderDelay\) \{\s*const refreshedMessages = await chats\.listMessages/u,
+  /await waitForConversationPresenceDelay\(remainingDelayMs, generationSignal\);\s*if \(generationSignal\.aborted\) break;\s*\}\s*if \(responderDelay\) \{\s*const refreshedMessages = await chats\.listMessages/u,
   "delayed Conversation responders should refresh user history even when an earlier reply consumed their wait",
 );
 assert.match(
@@ -10510,12 +10507,12 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   assert.match(turnGameResumeBlock, /await runTurnGameBotTurns\(/u);
   assert.match(
     turnGameResumeBlock,
-    /if \(abortController\.signal\.aborted \|\| isAbortLikeError\(turnGameErr\)\) return;/u,
+    /if \(generationSignal\.aborted \|\| isAbortLikeError\(turnGameErr\)\) return;/u,
     "Turn-game recovery must propagate cancellation without logging it as a failure",
   );
   assert.match(
     turnGameResumeBlock,
-    /await runTurnGameBotTurns\([\s\S]*?if \(abortController\.signal\.aborted\) return;/u,
+    /await runTurnGameBotTurns\([\s\S]*?if \(generationSignal\.aborted\) return;/u,
     "Turn-game recovery must re-check cancellation after a bot runner resolves",
   );
   assert.match(turnGameResumeBlock, /logger\.warn\(turnGameErr/u);

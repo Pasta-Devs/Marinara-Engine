@@ -152,7 +152,6 @@ function installFixture(overrides: ManifestOverrides = {}) {
 installFixture();
 
 const [
-  { capabilityPackageManager },
   gmVerbRuntime,
   { createChatsStorage },
   { getDB, closeDB },
@@ -164,7 +163,6 @@ const [
   { resolveSkillCheckTagsInContent },
   { parseSkillCheckTagBody },
 ] = await Promise.all([
-  import("../../packages/server/src/services/capability-packages/package-manager.service.js"),
   import("../../packages/server/src/services/capability-packages/capability-gm-verb-runtime.service.js"),
   import("../../packages/server/src/services/storage/chats.storage.js"),
   import("../../packages/server/src/db/connection.js"),
@@ -947,7 +945,7 @@ try {
   // client has already dropped the stream and the frame would evaporate unlogged.
   assert.match(
     generateRoute,
-    /collectedGmVerbCalls\.length > 0 && gmVerbTable && !abortController\.signal\.aborted/,
+    /collectedGmVerbCalls\.length > 0 && gmVerbTable && !generationSignal\.aborted/,
     "GM verb execution must be skipped on an aborted turn",
   );
   // The committed-write signal. Without this frame a state verb's write never reaches the package

@@ -1,0 +1,71 @@
+@import "tailwindcss" source(none);
+@source "./MultiplayerGuestView.tsx";
+@source "../../components/chat/chat-input-styles.ts";
+
+/* Bundled Marinara defaults, never peer-supplied CSS or remote assets. */
+:root {
+  color-scheme: dark;
+  --background: #050312;
+  --foreground: #d4d4d4;
+  --card: #141414;
+  --primary: #ec4b97;
+  --secondary: #1a1a2e;
+  --muted-foreground: #a1a1aa;
+  --accent: #2a1a3e;
+  --destructive: var(--primary);
+  --border: color-mix(in srgb, var(--primary) 20%, transparent);
+  --ring: var(--primary);
+  --marinara-chat-chrome-panel-text: var(--foreground);
+  --marinara-chat-chrome-input-bg: var(--card);
+  --marinara-chat-chrome-input-border: color-mix(in srgb, var(--primary) 14%, transparent);
+  --marinara-chat-chrome-input-border-focus: color-mix(in srgb, var(--primary) 30%, transparent);
+  --marinara-chat-chrome-focus-ring: color-mix(in srgb, var(--primary) 22%, transparent);
+  --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--primary) 9%, transparent);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --background: #faf8ff;
+  --foreground: #1a1025;
+  --card: #faf8ff;
+  --secondary: #f0eaf7;
+  --muted-foreground: #65656f;
+  --accent: #ede4f7;
+  --border: color-mix(in srgb, var(--primary) 27%, transparent);
+}
+
+html,
+body,
+#multiplayer-root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: var(--background);
+  color: var(--foreground);
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+/* Match the app's Android Gecko inset correction without importing global CSS. */
+@supports (-moz-appearance: none) {
+  :root {
+    --mari-safe-area-inset-bottom: 0px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

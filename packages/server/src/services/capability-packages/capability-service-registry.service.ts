@@ -1,3 +1,4 @@
+import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
 type Cleanup = () => void;
 
 const services = new Map<string, unknown>();
@@ -15,6 +16,7 @@ export function registerCapabilityService<T>(key: string, service: T): Cleanup {
 }
 
 export function getCapabilityService<T>(key: string): T | null {
+  if (currentRoomGeneration()) return null;
   return (services.get(key) as T | undefined) ?? null;
 }
 

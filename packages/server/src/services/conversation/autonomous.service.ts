@@ -162,8 +162,14 @@ export function buildAutonomousDailyBudgetPatch(
 /**
  * Record that the user sent a message in a chat.
  */
-export function recordUserActivity(chatId: string, opts: { preserveGenerationInProgress?: boolean } = {}): void {
-  const now = Date.now();
+export function recordUserActivity(
+  chatId: string,
+  opts: { preserveGenerationInProgress?: boolean; occurredAt?: number } = {},
+): void {
+  const now =
+    typeof opts.occurredAt === "number" && Number.isFinite(opts.occurredAt)
+      ? Math.min(Date.now(), opts.occurredAt)
+      : Date.now();
   const existing = activityStates.get(chatId);
   if (existing) {
     existing.lastUserMessageAt = now;

@@ -109,6 +109,7 @@ import {
 import { ConversationTimeZoneSelect } from "./ConversationTimeZoneSelect";
 import { AdvancedMemorySettings } from "./AdvancedMemorySettings";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { MultiplayerPrepareButton } from "../../features/multiplayer/MultiplayerPrepareButton";
 
 // ─── Step definitions ─────────────────────────
 
@@ -1397,7 +1398,7 @@ function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsActio
   }, []);
 
   const handleStartChatting = useCallback(async () => {
-    if (!hasConnection || !hasCharacters) return;
+    if (metadata.multiplayerSetup !== true && (!hasConnection || !hasCharacters)) return;
     const trimmedConversationSystemPrompt = conversationSystemPromptDraft.trim();
     const baseConversationPromptText = baseConversationPrompt.trim();
     const customSystemPrompt =
@@ -1428,7 +1429,7 @@ function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsActio
       customSystemPrompt,
       ...(selfieSetup.imageGenConnectionId ? { imageGenConnectionId: selfieSetup.imageGenConnectionId } : {}),
     });
-    if (autonomousEnabled && generateSchedule) {
+    if (autonomousEnabled && generateSchedule && metadata.multiplayerSetup !== true) {
       setScheduleState("generating");
       try {
         const scheduleGenerationPreferences = useUIStore.getState().scheduleGenerationPreferences;
@@ -1470,10 +1471,12 @@ function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsActio
     availableConversationCommandIds,
     connectionOptions,
     metadata.imageGenConnectionId,
+    metadata.multiplayerSetup,
   ]);
 
   const renderConnectionStep = () => (
     <div className="space-y-4">
+      <MultiplayerPrepareButton chatId={chat.id} prepared={metadata.multiplayerSetup === true} />
       <div className="space-y-1.5">
         <label className={WIZARD_FIELD_LABEL}>{localizeUi("ui.characters.metadatatab.name")}</label>
         <input
@@ -2027,7 +2030,7 @@ function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsActio
         onPrimary={isLast ? handleStartChatting : goNext}
         primaryLabel={isLast ? "Start Chatting" : "Next"}
         primaryIcon={isLast ? <MessageCircle size="0.75rem" /> : <ChevronRight size="0.75rem" />}
-        primaryDisabled={isLast && (!hasConnection || !hasCharacters)}
+        primaryDisabled={metadata.multiplayerSetup !== true && isLast && (!hasConnection || !hasCharacters)}
         secondaryAction={
           isLast
             ? defaultsAction({
@@ -2488,8 +2491,8 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
       id: chat.id,
       chatParameters: customizeParameters ? generationParameters : null,
     });
-    for (const charId of chatCharIds) {
-      await createInitialGreetingForCharacter(charId);
+    if (metadata.multiplayerSetup !== true) {
+      for (const charId of chatCharIds) await createInitialGreetingForCharacter(charId);
     }
     onFinish();
   }, [
@@ -2500,9 +2503,11 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
     generationParameters,
     onFinish,
     updateMeta,
+    metadata.multiplayerSetup,
   ]);
 
   const seedInitialGreetingsIfEmpty = useCallback(async () => {
+    if (metadata.multiplayerSetup === true) return;
     if (chatCharIds.length === 0) return;
     try {
       const messages = await api.get<Array<Pick<Message, "role">>>(`/chats/${chat.id}/messages`);
@@ -2514,7 +2519,7 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
     for (const charId of chatCharIds) {
       await createInitialGreetingForCharacter(charId);
     }
-  }, [chat.id, chatCharIds, createInitialGreetingForCharacter]);
+  }, [chat.id, chatCharIds, createInitialGreetingForCharacter, metadata.multiplayerSetup]);
 
   const handleShortcutApply = useCallback(async () => {
     if (!shortcutPresetId) {
@@ -2704,6 +2709,7 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
   function renderConnection() {
     return (
       <div className="space-y-4">
+        <MultiplayerPrepareButton chatId={chat.id} prepared={metadata.multiplayerSetup === true} />
         <fieldset className="space-y-2">
           <legend className={WIZARD_FIELD_LABEL}>{localizeUi("chat.roleplayVn.displayStyle")}</legend>
           <div className="grid grid-cols-2 gap-2">

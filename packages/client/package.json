@@ -4,7 +4,7 @@
   "version": "2.4.6",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node ./scripts/build-multiplayer-guest.mjs && vite",
     "build": "node ./scripts/build.mjs",
     "clean": "node -e \"const fs=require('fs');['dist','tsconfig.tsbuildinfo','node_modules/.cache/eslint'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true})}catch{}})\"",
     "preview": "vite preview",

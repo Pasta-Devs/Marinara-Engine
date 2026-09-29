@@ -1,3 +1,4 @@
+import type { GenerationOutput } from "../../routes/generate/sse.js";
 // ──────────────────────────────────────────────
 // Turn-Game Bot Runner (LLM narration + auto-play)
 // ──────────────────────────────────────────────
@@ -13,7 +14,6 @@
 //
 // Invoked from the /api/generate handler ONLY when input.turnGameBots is set,
 // so it can never affect a normal conversation/roleplay generation.
-import type { FastifyReply } from "fastify";
 import { BUILT_IN_THINKING_TAG_PAIRS, extractLeadingThinkingBlocks } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logDebugOverride, logger } from "../../lib/logger.js";
@@ -41,7 +41,7 @@ interface RunBotTurnsArgs {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   conn?: any;
   baseUrl?: string;
-  reply: FastifyReply;
+  reply: GenerationOutput;
   signal?: AbortSignal;
   debugLog?: (message: string, ...args: unknown[]) => void;
   /** Test/override hooks — production passes conn+baseUrl and builds the provider here. */
@@ -156,7 +156,7 @@ async function drainAndVoiceAnnouncements(args: {
   engineStorage: ReturnType<typeof createGameEngineStateStorage>;
   provider: BaseLLMProvider;
   model: string;
-  reply: FastifyReply;
+  reply: GenerationOutput;
   turnIndex: number;
   signal?: AbortSignal;
 }): Promise<{ state: unknown } | null> {

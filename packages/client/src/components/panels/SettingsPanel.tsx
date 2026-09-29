@@ -27,6 +27,7 @@ import {
   type VisualTheme,
 } from "../../stores/ui.store";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
+import { MultiplayerSettings } from "../../features/multiplayer/MultiplayerSettings";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn, copyToClipboard } from "../../lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -280,6 +281,7 @@ type SettingsSectionId =
   | "profile-marinara"
   | "sillytavern-import"
   | "admin-access"
+  | "multiplayer"
   | "features"
   | "updates"
   | "support-diagnostics"
@@ -511,6 +513,13 @@ const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
     label: "Admin Access",
     description: "Admin authorization for privileged actions.",
     aliases: ["admin", "secret", "access", "authorization"],
+  },
+  {
+    id: "multiplayer",
+    tab: "advanced",
+    label: "Multiplayer",
+    description: "Optional shared roleplay, conversation and game sessions.",
+    aliases: ["multiplayer", "host", "join", "players", "invite", "shared", "online"],
   },
   {
     id: "features",
@@ -8383,6 +8392,7 @@ function AdvancedSettings() {
       <SettingsIntro>
         {localizeUi("ui.panels.advancedsettings.serverMaintenanceMessageUtilitiesBackupsAndDataRemoval")}
       </SettingsIntro>
+      <MultiplayerSettings />
 
       <SettingsSection
         title={localizeUi("settings.sections.adminAccess.title")}

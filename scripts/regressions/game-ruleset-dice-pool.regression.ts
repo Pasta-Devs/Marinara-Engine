@@ -702,6 +702,8 @@ try {
       ruleset: pool((doc) => {
         doc.sheet.abilities = doc.sheet.abilities.filter((ability: { id: string }) => ability.id === "nerve");
         doc.sheet.skills = doc.sheet.skills.filter((skill: { ability: string }) => skill.ability === "nerve");
+        // The spade asks for Sinew, which this sheet no longer has.
+        for (const catalog of doc.catalogs) for (const entry of catalog.entries ?? []) delete entry.item?.requires;
       }),
     });
     assert.doesNotMatch(oneAbility, /Add with="Ability"/);

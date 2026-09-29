@@ -4,7 +4,11 @@
 // The state is a plain serialisable object on purpose: no Maps, no class instances and no
 // functions, so a later slice can persist a fight as JSON and read it back exactly.
 
-import type { RulesetCatalogEntriesById, RulesetSheetBuild } from "../../schemas/ruleset.schema.js";
+import type {
+  RulesetCatalogEntriesById,
+  RulesetCreatureHideEntry,
+  RulesetSheetBuild,
+} from "../../schemas/ruleset.schema.js";
 import type { RulesetLiveState } from "../rulesets/live-state.js";
 import type { RulesetSheetItem } from "../rulesets/sheet-math.js";
 import type { TacticalBattlefieldProvenance, TacticalGrid } from "../tactical-combat/types.js";
@@ -42,6 +46,9 @@ export interface RulesetCombatDamageClause extends RulesetCombatAmount {
  *  block's resistances, so "Fire" and "fire" are one thing. */
 export interface RulesetCombatDamage extends RulesetCombatAmount {
   type?: string;
+  /** What gets it past a resistance or an immunity that names an exception: the tags of the weapon
+   *  item it is dealt with. */
+  qualities?: string[];
   /** More amounts on the same blow. Each is rolled, typed and saved against on its own; the blow
    *  they make together is ONE check against concentration and one check for going down. */
   plus?: RulesetCombatDamageClause[];
@@ -84,12 +91,13 @@ export interface RulesetCombatPoolRoll {
   botch?: boolean;
 }
 
-/** What one condition (or a level of a track) added to, or took from, one roll or number. `level` is
- *  set when it came from a level, and then `condition` is the track's id. Dice it rolled are kept, so
- *  the log can say what was thrown. */
+/** What one condition (or a level of a track or a derived value) added to, or took from, one roll or
+ *  number. `level` is set when it came from a level, and then `condition` is the track's id, or the
+ *  derived value's where `derived` is set. Dice it rolled are kept, so the log can say what was thrown. */
 export interface RulesetConditionBonus {
   condition: string;
   level?: number;
+  derived?: true;
   value: number;
   rolls?: number[];
 }
@@ -212,10 +220,11 @@ export interface RulesetStatBlock {
   saves?: Record<string, number>;
   /** What it adds in a contest, by the ids of `combat.checks`. One it does not name reads as zero. */
   checks?: Record<string, number>;
-  /** Damage types, matched without case: half damage, double damage, none at all. */
-  resist?: string[];
+  /** Damage types, matched without case: half damage, double damage, none at all. A resistance or an
+   *  immunity may name the item tags a blow gets through it with. */
+  resist?: RulesetCreatureHideEntry[];
   vulnerable?: string[];
-  immune?: string[];
+  immune?: RulesetCreatureHideEntry[];
   conditionImmunities?: string[];
   /** What it soaks in a `dice-pool` fight, for any harm and by kind of the health track. */
   soak?: RulesetCombatSoak;
@@ -273,6 +282,9 @@ export interface RulesetCombatAction {
   /** Who it may be pointed at, relative to the actor: "enemy" is the other side. */
   targets: { side: "enemy" | "ally" | "self" | "any"; count: number };
   toHit?: number;
+  /** The per-die target a pool fight throws this attack against, where the ruleset lets it move: a
+   *  weapon's own. Without one the attack is thrown against the pool's usual target. */
+  target?: number;
   autoHit?: boolean;
   damage?: RulesetCombatDamage;
   heal?: RulesetCombatAmount;

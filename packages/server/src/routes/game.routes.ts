@@ -1,3 +1,11 @@
+import { createRoomGameRuntime, type RoomGameRuntime } from "../services/multiplayer/game-runtime.js";
+import {
+  currentRoomGeneration,
+  roomRosterPrompt,
+  roomHostIdentity,
+  resolveRoomGenerationPolicy,
+} from "../services/multiplayer/generation-policy.js";
+import { rejectGenerationOutput, type GenerationOutput } from "./generate/sse.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import { normalizeGameDifficulty, normalizeWeatherType, combatWeatherSchema } from "@marinara-engine/shared";
 import { resolveCombatWeather } from "../services/game/weather.service.js";
@@ -3358,7 +3366,7 @@ async function runGameChatStream(
   }
 }
 
-function createResponseAbortTracker(reply: FastifyReply, timeoutMs: number, label: string) {
+function createResponseAbortTracker(reply: FastifyReply | null, timeoutMs: number, label: string) {
   const controller = new AbortController();
   let finished = false;
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -3376,8 +3384,8 @@ function createResponseAbortTracker(reply: FastifyReply, timeoutMs: number, labe
 
   const cleanup = () => {
     if (timeout) clearTimeout(timeout);
-    reply.raw.off("finish", onFinish);
-    reply.raw.off("close", onClose);
+    reply?.raw.off("finish", onFinish);
+    reply?.raw.off("close", onClose);
   };
   const onFinish = () => {
     finished = true;
@@ -3388,10 +3396,10 @@ function createResponseAbortTracker(reply: FastifyReply, timeoutMs: number, labe
     cleanup();
   };
 
-  reply.raw.once("finish", onFinish);
-  reply.raw.once("close", onClose);
+  reply?.raw.once("finish", onFinish);
+  reply?.raw.once("close", onClose);
   touch();
-  return { signal: controller.signal, touch };
+  return { signal: controller.signal, touch, cleanup };
 }
 
 function createResponseAbortSignal(reply: FastifyReply, timeoutMs: number, label: string): AbortSignal {
@@ -4239,12 +4247,12 @@ type JsonRepairPayload = {
 };
 
 function sendJsonRepairError(
-  reply: FastifyReply,
+  reply: GenerationOutput,
   error: string,
   repair: JsonRepairPayload,
   validationError?: string,
 ): void {
-  reply.code(422).send({
+  rejectGenerationOutput(reply, 422, {
     error,
     ...(validationError ? { validationError } : {}),
     rawResponse: repair.rawJson,
@@ -4312,7 +4320,7 @@ function validateGameSetupPayload(setupData: Record<string, unknown>): string | 
     : null;
 }
 
-function sendGameSetupApplyError(reply: FastifyReply, rawJson: string, chatId: string): void {
+function sendGameSetupApplyError(reply: GenerationOutput, rawJson: string, chatId: string): void {
   sendJsonRepairError(
     reply,
     "Game setup JSON could not be applied cleanly. Review the setup JSON or try again.",
@@ -5855,7 +5863,34 @@ async function serializeGameTurnStoryboard(args: {
 /** Why an item is refused in a fight of a game whose ruleset turns Game Mode's own items off. */
 const ITEMS_OUT_OF_FIGHTS = "This game's ruleset keeps its items out of fights for now.";
 
-export async function gameRoutes(app: FastifyInstance) {
+export function parseRoomGameConfig(value: unknown): GameSetupConfig {
+  const config = gameSetupConfigSchema.parse(value);
+  if (config.gameExperienceId) throw new Error("Package Game Experiences are unavailable in shared rooms.");
+  return config;
+}
+
+function assertRoomGameOperation(chat: { id: string; metadata: unknown; characterIds: unknown }) {
+  try {
+    resolveRoomGenerationPolicy(
+      chat.id,
+      parseMeta(chat.metadata),
+      parseChatCharacterIds(chat.characterIds),
+      currentRoomGeneration(),
+    );
+  } catch (error) {
+    throw Object.assign(error instanceof Error ? error : new Error("The shared Game is not active."), {
+      statusCode: 409,
+    });
+  }
+}
+
+export interface GameRouteOptions {
+  onRoomRuntimeReady?: (runtime: RoomGameRuntime) => void;
+}
+
+export type CreateGameRequest = z.input<typeof createGameSchema>;
+export type SetupGameRequest = z.input<typeof setupSchema>;
+export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions = {}) {
   registerSequentialGameTasks(app, [
     "/setup",
     "/session/conclude",
@@ -5996,7 +6031,7 @@ export async function gameRoutes(app: FastifyInstance) {
       }
     }
     const personaId = chatPersonaId || setupConfig?.personaId;
-    const persona = personaId ? await characters.getPersona(personaId) : null;
+    const persona = currentRoomGeneration() ? null : personaId ? await characters.getPersona(personaId) : null;
     if (persona) {
       try {
         const stats = persona.personaStats ? JSON.parse(persona.personaStats) : null;
@@ -6348,11 +6383,11 @@ export async function gameRoutes(app: FastifyInstance) {
   };
 
   // ── POST /game/create ──
-  app.post("/create", async (req, reply) => {
+  const executeCreateGame = async (input: CreateGameRequest, reply: GenerationOutput) => {
     logger.info("[game/create] Received request");
-    const parsed = createGameSchema.safeParse(req.body);
+    const parsed = createGameSchema.safeParse(input);
     if (!parsed.success) {
-      return reply.status(400).send({
+      return rejectGenerationOutput(reply, 400, {
         error: `Invalid game setup: ${parsed.error.issues[0]?.message ?? "invalid settings"}`,
       });
     }
@@ -6405,14 +6440,14 @@ export async function gameRoutes(app: FastifyInstance) {
       // from NEW games. Resolution never consults the policy, so a game that already pinned one
       // keeps running — turning the switch off must not break somebody's campaign.
       if (isCommunityRulesetId(requestedRulesetId) && !(await getCustomAgentImportPolicy(app.db)).enabled) {
-        return reply.status(400).send({
+        return rejectGenerationOutput(reply, 400, {
           error: "Imported rulesets are turned off in Settings, so a new game cannot start on one.",
           code: "ruleset_imports_disabled",
         });
       }
       const registered = (await loadRulesetRegistry(app.db)).get(requestedRulesetId);
       if (!registered) {
-        return reply.status(400).send({
+        return rejectGenerationOutput(reply, 400, {
           error: `The ruleset "${requestedRulesetId}" is not installed.`,
           code: "ruleset_not_installed",
         });
@@ -6424,7 +6459,7 @@ export async function gameRoutes(app: FastifyInstance) {
       const requestedOptions = parsedCreateGameInput.setupConfig.ruleset.options;
       const [layerIssue] = rulesetLayerSelectionIssues(registered.definition, requestedOptions);
       if (layerIssue) {
-        return reply.status(400).send({ error: layerIssue.message, code: layerIssue.code });
+        return rejectGenerationOutput(reply, 400, { error: layerIssue.message, code: layerIssue.code });
       }
       gameRuleset = { ...createRulesetRef(registered), options: requestedOptions };
     }
@@ -6466,6 +6501,7 @@ export async function gameRoutes(app: FastifyInstance) {
     if (chatId) {
       sessionChat = await chats.getById(chatId);
       if (!sessionChat) throw new Error("Chat not found");
+      assertRoomGameOperation(sessionChat);
       // Update the chat to have game-mode fields
       // Use only the persona explicitly selected in the wizard (null = no persona)
       await chats.update(chatId, {
@@ -6620,12 +6656,13 @@ export async function gameRoutes(app: FastifyInstance) {
     const updatedSession = await chats.getById(sessionChat.id);
 
     return { sessionChat: updatedSession, gameId };
-  });
+  };
+  app.post("/create", (req, reply) => executeCreateGame(req.body as CreateGameRequest, reply));
 
   // ── POST /game/setup ──
-  app.post("/setup", async (req, reply) => {
+  const executeSetupGame = async (input: SetupGameRequest, reply: GenerationOutput, signal?: AbortSignal) => {
     logger.info("[game/setup] Received request");
-    const { chatId, connectionId, preferences, streaming, debugMode, promptPresetId } = setupSchema.parse(req.body);
+    const { chatId, connectionId, preferences, streaming, debugMode, promptPresetId } = setupSchema.parse(input);
     const requestDebug = debugMode === true;
     const debugLogsEnabled = requestDebug || logger.isLevelEnabled("debug");
     const debugLog = (message: string, ...args: any[]) => {
@@ -6638,6 +6675,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const chat = await chats.getById(chatId);
     if (!chat) throw new Error("Chat not found");
 
+    assertRoomGameOperation(chat);
     const meta = parseMeta(chat.metadata);
     let setupConfig = meta.gameSetupConfig as GameSetupConfig | null;
     if (!setupConfig) throw new Error("No setup config found");
@@ -6682,7 +6720,11 @@ export async function gameRoutes(app: FastifyInstance) {
     }
 
     const setupPersonaId = chat.personaId || setupConfig.personaId || null;
-    const setupPersona = setupPersonaId ? await characters.getPersona(setupPersonaId) : null;
+    const setupPersona = currentRoomGeneration()
+      ? roomHostIdentity()
+      : setupPersonaId
+        ? await characters.getPersona(setupPersonaId)
+        : null;
 
     // Load persona info so the GM can tailor the experience
     let personaCard: string | null = null;
@@ -6734,9 +6776,17 @@ export async function gameRoutes(app: FastifyInstance) {
     const personaName: string | null = setupPersona?.name ?? null;
     if (setupPersona) {
       try {
-        const statsData = setupPersona.personaStats ? JSON.parse(setupPersona.personaStats) : null;
-        if (statsData?.rpgStats?.enabled) {
-          personaRpgStats = statsData.rpgStats;
+        const statsData =
+          typeof setupPersona.personaStats === "string"
+            ? JSON.parse(setupPersona.personaStats)
+            : setupPersona.personaStats;
+        if (
+          statsData &&
+          typeof statsData === "object" &&
+          "rpgStats" in statsData &&
+          (statsData.rpgStats as RPGStatsConfig)?.enabled
+        ) {
+          personaRpgStats = statsData.rpgStats as RPGStatsConfig;
         }
       } catch {
         /* skip */
@@ -6852,6 +6902,10 @@ export async function gameRoutes(app: FastifyInstance) {
       },
     ];
 
+    const rosterPrompt = roomRosterPrompt();
+    if (rosterPrompt)
+      messages[0]!.content += `\n\n${rosterPrompt}\nInclude a separate characterCards entry for every human persona listed above. Keep each human separate from AI companions. Never turn a human player into an NPC.`;
+
     if (debugLogsEnabled) {
       debugLog("[game/setup] === PROMPT BEING SENT ===");
       for (const msg of messages) {
@@ -6866,11 +6920,15 @@ export async function gameRoutes(app: FastifyInstance) {
       maxTokens: GAME_SETUP_DEFAULT_OUTPUT_TOKENS,
       maxTokensOverride: conn.maxTokensOverride,
     });
-    const setupAbort = createResponseAbortTracker(reply, GAME_SETUP_GENERATION_TIMEOUT_MS, "Game setup");
+    const setupAbort = createResponseAbortTracker(
+      "kind" in reply ? null : reply,
+      GAME_SETUP_GENERATION_TIMEOUT_MS,
+      "Game setup",
+    );
     const setupOverrides: Partial<ChatOptions> = {
       maxTokens: setupMaxTokens,
       stream: streaming,
-      signal: setupAbort.signal,
+      signal: signal ? AbortSignal.any([signal, setupAbort.signal]) : setupAbort.signal,
       ...(streaming ? { onToken: () => setupAbort.touch() } : {}),
     };
     if (!setupGenerationParameters?.reasoningEffort) {
@@ -6896,67 +6954,72 @@ export async function gameRoutes(app: FastifyInstance) {
     let parseError: string | null = null;
     let setupFinishReason: ChatCompletionResult["finishReason"] | null = null;
 
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      let result: ChatCompletionResult;
-      try {
-        result = await runGameChatComplete(
-          provider,
-          messages,
-          setupOptions,
-          attempt === 1 ? "Game setup" : "Game setup retry",
-        );
-      } catch (error) {
-        const failure = formatInitialGameGmConnectionError(error);
-        logger.warn(error, "[game/setup] GM connection failed");
-        reply.code(failure.statusCode).send({ error: failure.message });
-        return;
-      }
-      setupFinishReason = result.finishReason;
-      const setupExtraction = extractLeadingThinkingBlocks(
-        result.content ?? "",
-        setupGenerationParameters?.customThinkingTags,
-      );
-      responseText = setupExtraction.content;
-
-      if (debugLogsEnabled) {
-        debugLog("[game/setup] Response length: %d chars", responseText.length);
-        debugLog("[game/setup] Full response:\n%s", responseText);
-        if (setupExtraction.thinking) {
-          debugLog(
-            "[game/setup] Thinking tokens (%d chars):\n%s",
-            setupExtraction.thinking.length,
-            setupExtraction.thinking,
+    try {
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        let result: ChatCompletionResult;
+        try {
+          result = await runGameChatComplete(
+            provider,
+            messages,
+            setupOptions,
+            attempt === 1 ? "Game setup" : "Game setup retry",
           );
+        } catch (error) {
+          const failure = formatInitialGameGmConnectionError(error);
+          logger.warn(error, "[game/setup] GM connection failed");
+          rejectGenerationOutput(reply, failure.statusCode, { error: failure.message });
+          return;
+        }
+        setupFinishReason = result.finishReason;
+        const setupExtraction = extractLeadingThinkingBlocks(
+          result.content ?? "",
+          setupGenerationParameters?.customThinkingTags,
+        );
+        responseText = setupExtraction.content;
+
+        if (debugLogsEnabled) {
+          debugLog("[game/setup] Response length: %d chars", responseText.length);
+          debugLog("[game/setup] Full response:\n%s", responseText);
+          if (setupExtraction.thinking) {
+            debugLog(
+              "[game/setup] Thinking tokens (%d chars):\n%s",
+              setupExtraction.thinking.length,
+              setupExtraction.thinking,
+            );
+          }
+        }
+
+        parseError = null;
+        setupData = {};
+        try {
+          setupData = parseJSON(responseText) as Record<string, unknown>;
+          logger.info("[game/setup] Parsed JSON keys: %s", Object.keys(setupData));
+        } catch (e) {
+          logger.error(e, "[game/setup] JSON parse failed");
+          parseError = "Model did not return valid JSON. The setup response could not be parsed.";
+        }
+
+        if (!parseError) {
+          parseError = validateGameSetupPayload(setupData);
+          if (parseError) {
+            logger.warn("[game/setup] Validation failed: %s", parseError);
+          }
+        }
+
+        if (!parseError) break;
+        if (attempt === 1) {
+          logger.warn("[game/setup] Setup JSON failed parse/validation; retrying world setup once");
         }
       }
-
-      parseError = null;
-      setupData = {};
-      try {
-        setupData = parseJSON(responseText) as Record<string, unknown>;
-        logger.info("[game/setup] Parsed JSON keys: %s", Object.keys(setupData));
-      } catch (e) {
-        logger.error(e, "[game/setup] JSON parse failed");
-        parseError = "Model did not return valid JSON. The setup response could not be parsed.";
-      }
-
-      if (!parseError) {
-        parseError = validateGameSetupPayload(setupData);
-        if (parseError) {
-          logger.warn("[game/setup] Validation failed: %s", parseError);
-        }
-      }
-
-      if (!parseError) break;
-      if (attempt === 1) {
-        logger.warn("[game/setup] Setup JSON failed parse/validation; retrying world setup once");
-      }
+    } finally {
+      setupAbort.cleanup();
     }
 
+    signal?.throwIfAborted();
     if (parseError) {
       logger.error("[game/setup] Returning 422: %s", parseError);
       if (isLikelyTruncatedJsonResponse(responseText, setupFinishReason)) {
-        reply.code(422).send({
+        rejectGenerationOutput(reply, 422, {
           error:
             "World generation response was cut off before the setup JSON completed. Increase this connection's max output tokens or use a model with a larger output limit, then try again.",
           rawResponse: responseText,
@@ -6981,11 +7044,21 @@ export async function gameRoutes(app: FastifyInstance) {
     logger.info("[game/setup] Validation passed, transitioning to ready");
     let setupResult: Awaited<ReturnType<typeof applyGameSetupPayload>>;
     try {
+      const latestSetupChat = await chats.getById(chatId);
+      if (!latestSetupChat) throw new Error("Chat not found");
+      assertRoomGameOperation(latestSetupChat);
+      const latestMeta = parseMeta(latestSetupChat.metadata);
+      if (promptPresetId !== undefined) {
+        latestMeta.gameSetupConfig = {
+          ...(latestMeta.gameSetupConfig as GameSetupConfig),
+          promptPresetId: promptPresetId || null,
+        };
+      }
       setupResult = await applyGameSetupPayload({
         chatId,
-        chatPersonaId: chat.personaId ?? null,
-        chatCharacterIds: parseChatCharacterIds(chat.characterIds),
-        meta,
+        chatPersonaId: latestSetupChat.personaId ?? null,
+        chatCharacterIds: parseChatCharacterIds(latestSetupChat.characterIds),
+        meta: latestMeta,
         setupData,
         rpgContext: { partyRpgStats, personaRpgStats, personaName },
       });
@@ -6994,8 +7067,9 @@ export async function gameRoutes(app: FastifyInstance) {
       sendGameSetupApplyError(reply, responseText, chatId);
       return;
     }
-    reply.send(setupResult);
-  });
+    rejectGenerationOutput(reply, 200, setupResult);
+  };
+  app.post("/setup", (req, reply) => executeSetupGame(req.body as SetupGameRequest, reply));
 
   // ── POST /game/setup/apply-json ──
   app.post("/setup/apply-json", async (req, reply) => {
@@ -7003,6 +7077,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
     if (!chat) throw new Error("Chat not found");
+    assertRoomGameOperation(chat);
 
     const meta = parseMeta(chat.metadata);
     const setupConfig = meta.gameSetupConfig as GameSetupConfig | null;
@@ -7066,14 +7141,15 @@ export async function gameRoutes(app: FastifyInstance) {
   // The client then requests an invisible startup generation guide through the
   // regular generate pipeline, which builds the full GM system prompt, streams
   // the response, and triggers scene analysis on the client side.
-  app.post("/start", async (req) => {
+  const executeStartGame = async (input: { chatId: string }) => {
     logger.info("[game/start] Transitioning to active");
-    const { chatId } = gameStartSchema.parse(req.body);
+    const { chatId } = gameStartSchema.parse(input);
     const chats = createChatsStorage(app.db);
 
     const chat = await chats.getById(chatId);
     if (!chat) throw new Error("Chat not found");
 
+    assertRoomGameOperation(chat);
     const meta = parseMeta(chat.metadata);
     // Idempotent guard: a late second click that arrives after the first /start
     // has already flipped the status to "active" should not error out — let the
@@ -7120,6 +7196,7 @@ export async function gameRoutes(app: FastifyInstance) {
       resolution: ReturnType<typeof resolveGameStartWorldMapPatch>["resolution"];
     } = { resolution: "unchanged" };
     await chats.patchMetadata(chatId, (current) => {
+      resolveRoomGenerationPolicy(chatId, current, parseChatCharacterIds(chat.characterIds), currentRoomGeneration());
       if (current.gameSessionStatus !== "ready") return {};
       claimedStart = true;
       const worldMapStart = resolveGameStartWorldMapPatch(current);
@@ -7143,7 +7220,15 @@ export async function gameRoutes(app: FastifyInstance) {
     }
 
     return { status: "active", alreadyStarted: false };
-  });
+  };
+  app.post("/start", (req) => executeStartGame(gameStartSchema.parse(req.body)));
+  options.onRoomRuntimeReady?.(
+    createRoomGameRuntime(app.db, {
+      create: executeCreateGame,
+      setup: executeSetupGame,
+      start: executeStartGame,
+    }),
+  );
 
   const pendingSessionStarts = new Map<
     string,
@@ -8676,7 +8761,7 @@ export async function gameRoutes(app: FastifyInstance) {
         chat.personaId ??
         setupConfig.personaId ??
         null;
-      const persona = personaId ? await characters.getPersona(personaId) : null;
+      const persona = currentRoomGeneration() ? null : personaId ? await characters.getPersona(personaId) : null;
       if (persona) {
         targetName = persona.name?.trim() || requestedName;
         targetCharacterCard = buildRecruitCharacterSourceCard({

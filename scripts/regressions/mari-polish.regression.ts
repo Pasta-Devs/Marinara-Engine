@@ -46,7 +46,6 @@ assert.equal(
 
 // ── #5754 prompt + coaching: same-frame read taught, apology banned ─────────
 const workspaceAgent = readSource("packages/server/src/services/professor-mari/workspace-agent.service.ts");
-const workspaceAgentFlat = flatten(workspaceAgent);
 assert.match(workspaceAgent, /include the confirmatory read in the SAME response whenever you can/u);
 assert.match(workspaceAgent, /never present it with an apology \("Oops", "my bad"\)/u);
 // app_data writes verify themselves via the store read-back (see the

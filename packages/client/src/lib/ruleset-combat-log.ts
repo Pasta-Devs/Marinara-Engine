@@ -30,8 +30,10 @@ export interface RulesetCombatNames {
   save: (id: string) => string;
   /** One of the checks a contest reads. */
   check: (id: string) => string;
-  /** The label of one of the two tracks the ruleset's dying rule counts on. */
+  /** The label of a live track: one of the two the ruleset's dying rule counts on, or one a level reads. */
   track: (id: string) => string;
+  /** The label of a derived value a level reads. */
+  derived: (id: string) => string;
   tier: (id: string) => string;
   /** One of the ways an attack may be made where initiative is a number attacks move. */
   style: (id: string) => string;
@@ -82,6 +84,7 @@ export function rulesetCombatNames(
     save: lookup(definition.sheet.saves),
     check: lookup(definition.combat?.checks),
     track: lookup(definition.sheet.live.tracks),
+    derived: lookup(definition.sheet.derived),
     tier: lookup(definition.combat?.threat?.tiers),
     style: lookup(definition.combat?.initiative.resource?.styles),
     defense: rulesetValueLabel(definition, definition.combat?.defense),
@@ -186,12 +189,16 @@ function defenseText(names: RulesetCombatNames, defense: number): string {
   return names.defense ? `${names.defense} ${defense}` : String(defense);
 }
 
-/** What a condition, or a level of a track, that changed a number is called in the log. */
+/** What a condition, or a level of a track or a derived value, that changed a number is called in the
+ *  log. A level is named by what it reads. */
 function bonusNamer(names: RulesetCombatNames, t: TFunction): (bonus: RulesetConditionBonus) => string {
   return (bonus) =>
     bonus.level === undefined
       ? names.condition(bonus.condition)
-      : t("game.combat.ruleset.roll.level", { track: names.track(bonus.condition), level: bonus.level });
+      : t("game.combat.ruleset.roll.level", {
+          track: (bonus.derived ? names.derived : names.track)(bonus.condition),
+          level: bonus.level,
+        });
 }
 
 /** The reason a step was refused, as a sentence. The server sends the same words back as the second

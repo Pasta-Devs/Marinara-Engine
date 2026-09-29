@@ -1033,7 +1033,12 @@ function ParameterHeader({
         />
       </div>
       {effective && (
-        <p className="mt-1 break-words text-[0.625rem] text-[var(--muted-foreground)]" data-effective-parameter={label}>
+        // One line like the label: wrapping would push this column's input below its neighbour's.
+        <p
+          className="mt-1 truncate text-[0.625rem] text-[var(--muted-foreground)]"
+          title={effective}
+          data-effective-parameter={label}
+        >
           {effective}
         </p>
       )}

@@ -106,7 +106,7 @@ await app4.close();
 const appSource = readFileSync(new URL("../../packages/server/src/app.ts", import.meta.url), "utf8");
 const install = appSource.indexOf("holdInjectUntilRegistered(app)");
 const runtimeStart = appSource.indexOf("capabilityModuleRuntime.start(app)");
-const schedulerStart = appSource.indexOf("startServerAutonomousScheduler(app)");
+const schedulerStart = appSource.search(/startServerAutonomousScheduler\(\s*app\s*[,)]/u);
 const releaseAt = appSource.indexOf("releaseInjectGate();");
 const returnAt = appSource.lastIndexOf("return app;");
 assert.ok(

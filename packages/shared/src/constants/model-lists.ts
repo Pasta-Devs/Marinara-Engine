@@ -987,6 +987,10 @@ const AUDIO_GEN_MODELS: KnownModel[] = [
   { id: "grok-tts", name: "Grok TTS", context: 0, maxOutput: 0 },
 ];
 
+function isProviderHost(hostname: string, domain: string): boolean {
+  return hostname === domain || hostname.endsWith(`.${domain}`);
+}
+
 export function inferVideoSource(model: string, baseUrl: string): string {
   const m = model.toLowerCase();
   const u = baseUrl.toLowerCase();
@@ -998,15 +1002,15 @@ export function inferVideoSource(model: string, baseUrl: string): string {
   }
   if (m === "swarmui" || u.includes(":7801") || u.includes("swarmui")) return "swarmui";
   if (m === "comfyui" || u.includes(":8188") || u.includes("comfyui")) return "comfyui";
-  if (m === "atlas" || u.includes("atlascloud.ai")) return "atlas";
-  if (m === "seedance" || m.startsWith("seedance-") || u.includes("seedance2.ai")) return "seedance";
-  if (m === "nanogpt" || hostname === "nano-gpt.com" || hostname.endsWith(".nano-gpt.com")) {
+  if (m === "atlas" || isProviderHost(hostname, "atlascloud.ai")) return "atlas";
+  if (m === "seedance" || m.startsWith("seedance-") || isProviderHost(hostname, "seedance2.ai")) return "seedance";
+  if (m === "nanogpt" || isProviderHost(hostname, "nano-gpt.com")) {
     return "nanogpt";
   }
-  if (m === "openrouter" || u.includes("openrouter.ai")) return "openrouter";
+  if (m === "openrouter" || isProviderHost(hostname, "openrouter.ai")) return "openrouter";
   if (m.includes("/") && (m.includes("veo") || m.includes("wan"))) return "openrouter";
   if (m === "google_veo" || m === "veo" || /^veo-[\d.]+/.test(m)) return "google_veo";
-  if (m === "xai" || u.includes("api.x.ai") || u.includes("x.ai")) return "xai";
+  if (m === "xai" || isProviderHost(hostname, "x.ai")) return "xai";
   if (m.includes("grok") && m.includes("imagine") && m.includes("video")) return "xai";
   return "gemini_omni";
 }
@@ -1049,27 +1053,27 @@ export function inferImageSource(model: string, baseUrl: string): string {
   }
   if (m === "drawthings") return "automatic1111";
   if (hostname === "fal.run") return "fal";
-  if (hostname === "nano-gpt.com" || hostname.endsWith(".nano-gpt.com")) return "nanogpt";
-  if (u.includes("openrouter.ai")) return "openrouter";
-  if (u.includes("api.x.ai") || u.includes("x.ai")) return "xai";
-  if (u.includes("venice.ai")) return "venice";
-  if (u.includes("api.z.ai")) return "zai";
-  if (u.includes("atlascloud.ai")) return "atlas";
-  if (u.includes("arliai.com")) return "arli";
+  if (isProviderHost(hostname, "nano-gpt.com")) return "nanogpt";
+  if (isProviderHost(hostname, "openrouter.ai")) return "openrouter";
+  if (isProviderHost(hostname, "x.ai")) return "xai";
+  if (isProviderHost(hostname, "venice.ai")) return "venice";
+  if (isProviderHost(hostname, "api.z.ai")) return "zai";
+  if (isProviderHost(hostname, "atlascloud.ai")) return "atlas";
+  if (isProviderHost(hostname, "arliai.com")) return "arli";
   if (m.startsWith("fal-ai/")) return "fal";
   if (m === "glm-image" || m.startsWith("cogview")) return "zai";
   if (m.startsWith("grok-") && m.includes("image")) return "xai";
   if (m.includes("grok") && m.includes("imagine")) return "xai";
-  if (m.startsWith("dall-e") || m.startsWith("gpt-image") || u.includes("openai.com")) return "openai";
-  if (m.startsWith("sd3") || u.includes("stability.ai")) return "stability";
-  if (m.includes("nai-diffusion") || u.includes("novelai.net")) return "novelai";
-  if (m === "pollinations" || u.includes("pollinations.ai")) return "pollinations";
-  if (m.includes("black-forest") || m.includes("flux") || u.includes("together.xyz")) return "togetherai";
-  if (u.includes("stablehorde.net")) return "horde";
-  if (u.includes("blockentropy")) return "blockentropy";
+  if (m.startsWith("dall-e") || m.startsWith("gpt-image") || isProviderHost(hostname, "openai.com")) return "openai";
+  if (m.startsWith("sd3") || isProviderHost(hostname, "stability.ai")) return "stability";
+  if (m.includes("nai-diffusion") || isProviderHost(hostname, "novelai.net")) return "novelai";
+  if (m === "pollinations" || isProviderHost(hostname, "pollinations.ai")) return "pollinations";
+  if (m.includes("black-forest") || m.includes("flux") || isProviderHost(hostname, "together.xyz")) return "togetherai";
+  if (isProviderHost(hostname, "stablehorde.net")) return "horde";
+  if (isProviderHost(hostname, "blockentropy.ai")) return "blockentropy";
   if (u.includes(":7801") || u.includes("swarmui")) return "swarmui";
   if (u.includes(":8188") || u.includes("comfyui")) return "comfyui";
-  if (u.includes("runpod.ai")) return "runpod_comfyui";
+  if (isProviderHost(hostname, "runpod.ai")) return "runpod_comfyui";
   if (u.includes(":7860") && !u.includes("drawthings")) return "automatic1111";
   // Gemini image models generate via chat completions (native or proxy)
   if (m.includes("gemini") && m.includes("image")) return "gemini_image";

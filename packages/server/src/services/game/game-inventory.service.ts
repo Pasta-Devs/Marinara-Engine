@@ -1,3 +1,4 @@
+import { roomHostIdentity } from "../multiplayer/generation-policy.js";
 // Saving a change to Game Mode's inventory.
 //
 // The stacks live in the chat's metadata, the journal beside them, and the detailed inventory on a
@@ -148,13 +149,16 @@ export async function loadGameInventoryItemBook(
   );
   // Who the player is, as a turn reads it (the chat's own identity), when the ruleset needs a sheet.
   if (playerName === undefined && chat && (definition.items?.carry || definition.items?.binding)) {
-    const identity = await resolveChatUserIdentity(createCharactersStorage(db), {
-      personaId: chat.personaId,
-      personaCharacterId: chat.personaCharacterId,
-      mode: chat.mode,
-    });
+    const identity =
+      roomHostIdentity() ??
+      (await resolveChatUserIdentity(createCharactersStorage(db), {
+        personaId: chat.personaId,
+        personaCharacterId: chat.personaCharacterId,
+        mode: chat.mode,
+      }));
     playerName = identity?.name ?? null;
   }
+  playerName = roomHostIdentity()?.name ?? playerName;
   const playerKey = playerName ? normalizeCharacterLookupName(playerName) : "";
   const player =
     (playerKey ? cards.find((card) => normalizeCharacterLookupName(card.name) === playerKey) : undefined) ?? cards[0];

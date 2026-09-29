@@ -110,6 +110,11 @@ const emberText = (() => {
   // And 1.52's item read on Guard, which has no items to read without the block.
   const guard = doc.sheet.derived.find((entry: { id: string }) => entry.id === "guard");
   guard.of = guard.of.filter((ref: { itemStat?: unknown }) => ref.itemStat === undefined);
+  // And 1.54's level off the bulk carried, with the derived value it reads.
+  doc.sheet.derived = doc.sheet.derived.filter((entry: { id: string }) => entry.id !== "bulk_carried");
+  if (doc.combat.levels) {
+    doc.combat.levels = doc.combat.levels.filter((level: { derived?: string }) => level.derived === undefined);
+  }
   // And 1.49's items block, with the catalog written in it.
   delete doc.items;
   doc.catalogs = doc.catalogs.filter((catalog: { holds?: string }) => catalog.holds !== "items");

@@ -188,7 +188,8 @@ export function gridDimensions(unitCount: number, size?: TacticalBattlefieldSize
 const SPAWN_COLS = 2;
 
 function set(grid: TacticalGrid, x: number, y: number, terrain: TacticalTerrain): void {
-  if (x >= 0 && y >= 0 && x < grid.width && y < grid.height) grid.tiles[y]![x] = terrain;
+  if (Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < grid.width && y < grid.height)
+    grid.tiles[y]![x] = terrain;
 }
 
 function inBounds(grid: TacticalGrid, x: number, y: number): boolean {

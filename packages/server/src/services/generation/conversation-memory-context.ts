@@ -1,3 +1,4 @@
+import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
 import type { WrapFormat } from "@marinara-engine/shared";
 
 import { logger } from "../../lib/logger.js";
@@ -31,8 +32,17 @@ export async function mergeConversationCharacterMemories({
 }): Promise<string | null> {
   const memoryLines: string[] = [];
   const today = getZonedDayBounds(new Date(), timeZone).start;
+  const room = currentRoomGeneration();
 
   for (const characterId of characterIds) {
+    if (room) {
+      for (const memory of room.memories[characterId] ?? []) {
+        memoryLines.push(
+          `Memory from ${sanitizePromptLeaf(memory.from, wrapFormat)}: ${sanitizePromptLeaf(memory.summary, wrapFormat)}`,
+        );
+      }
+      continue;
+    }
     const charRow = await chars.getById(characterId);
     if (!charRow) continue;
 

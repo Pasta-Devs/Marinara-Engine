@@ -223,9 +223,13 @@ export function renderRulesetSheetBlock(
       const mechanics = typeof ref === "string" ? catalogEntries.get(ref)?.mechanics : undefined;
       const cost = mechanics?.cost?.map((term) => `${term.amount} ${safeValue(term.pool)}`).join(" + ");
       const scaledCost = mechanics?.perCostStep && mechanics.cost?.length === 1 ? mechanics.cost[0] : undefined;
-      const scale = scaledCost
-        ? `; stronger use: spend="${safeValue(scaledCost.pool)}:N", where N is a positive multiple of ${scaledCost.amount}`
-        : "";
+      // This value is command syntax, unlike the prose above. Only a complete pool
+      // identifier may enter the quoted attribute, including for direct library callers.
+      const scalePool = scaledCost?.pool.match(/^[a-z][a-z0-9_]{0,39}/u)?.[0];
+      const scale =
+        scaledCost && scalePool === scaledCost.pool
+          ? `; stronger use: spend="${scalePool}:N", where N is a positive multiple of ${scaledCost.amount}`
+          : "";
       const check = mechanics?.check
         ? ` (check: ${JSON.stringify(mechanics.check)}${cost ? `; pool cost: ${cost}` : ""}${scale})`
         : "";

@@ -8,8 +8,13 @@
 // ──────────────────────────────────────────────
 import type { RulesetCombatCondition, RulesetDefinition, RulesetSheetBuild } from "../../schemas/ruleset.schema.js";
 import { parseRulesetCombatDice } from "../ruleset-combat/dice.js";
-import { readRulesetLive } from "./live-state.js";
-import type { RulesetCheckTarget, RulesetSheetItem } from "./sheet-math.js";
+import { evaluateRulesetSheetLive, readRulesetLive } from "./live-state.js";
+import {
+  resolveRulesetValueRef,
+  type EvaluatedRulesetSheet,
+  type RulesetCheckTarget,
+  type RulesetSheetItem,
+} from "./sheet-math.js";
 
 type RulesetEffectModifier = NonNullable<RulesetCombatCondition["modifiers"]>[number];
 
@@ -27,9 +32,11 @@ export interface RulesetCheckSource {
 /**
  * Everything that changes this character's checks outside a fight. A condition counts while it is
  * active on the sheet (a gate on who applied it has nobody to measure outside a fight, so it counts),
- * a level while the track has reached it, and an item's `worn` effect while it is worn and its
- * `carried` one while it is only carried. One item applies each of its effects once, however many
- * stacks of it there are.
+ * a level while the track or derived value it reads has reached it, an item's `worn` effect while it
+ * is worn and its `carried` one while it is only carried, and a worn item's requirement's `otherwise`
+ * while the wearer falls short of it. One item applies each of these once, however many stacks of it
+ * there are. Derived values and requirements are read off the sheet worked out with the same live
+ * state and items.
  */
 export function rulesetCheckSources(
   definition: RulesetDefinition,
@@ -39,6 +46,8 @@ export function rulesetCheckSources(
 ): RulesetCheckSource[] {
   const sources: RulesetCheckSource[] = [];
   const combat = definition.combat;
+  let evaluated: EvaluatedRulesetSheet | undefined;
+  const sheet = () => (evaluated ??= evaluateRulesetSheetLive(definition, build, stored, items));
   if (combat?.conditions?.length || combat?.levels?.length) {
     const live = readRulesetLive(definition, build, stored);
     const active = new Map(live.conditions.filter((entry) => entry.active).map((entry) => [entry.id, entry.label]));
@@ -47,18 +56,33 @@ export function rulesetCheckSources(
       if (label !== undefined) sources.push({ ...entry, name: label });
     }
     for (const level of combat.levels ?? []) {
-      const value = live.tracks.find((track) => track.id === level.track)?.value ?? 0;
+      const value =
+        level.derived !== undefined
+          ? (sheet().derived[level.derived] ?? 0)
+          : (live.tracks.find((track) => track.id === level.track)?.value ?? 0);
       if (value < level.at) continue;
-      const label = definition.sheet.live.tracks.find((track) => track.id === level.track)?.label ?? level.track;
+      const label =
+        level.derived !== undefined
+          ? (definition.sheet.derived.find((entry) => entry.id === level.derived)?.label ?? level.derived)
+          : (definition.sheet.live.tracks.find((track) => track.id === level.track)?.label ?? level.track!);
       sources.push({ ...level, name: `${label} ${level.at}` });
     }
   }
   const seen = new Set<unknown>();
   for (const held of items ?? []) {
+    const name = held.name ?? held.item.category;
     const effect = held.worn ? held.item.worn : held.item.carried;
-    if (!effect || seen.has(effect)) continue;
-    seen.add(effect);
-    sources.push({ ...effect, name: held.name ?? held.item.category });
+    if (effect && !seen.has(effect)) {
+      seen.add(effect);
+      sources.push({ ...effect, name });
+    }
+    // What the wearer falls short of, while it is worn.
+    if (!held.worn || !held.item.requires || seen.has(held.item.requires)) continue;
+    seen.add(held.item.requires);
+    for (const requirement of held.item.requires) {
+      if (resolveRulesetValueRef(definition, build, requirement.value, sheet()) >= requirement.atLeast) continue;
+      sources.push({ ...requirement.otherwise, name });
+    }
   }
   return sources;
 }

@@ -29,3 +29,5 @@ if (LOW_MEMORY_BUILD) {
   run(TSC_CLI, ["-b"]);
   run(VITE_CLI, ["build"]);
 }
+
+run(resolve(__dirname, "build-multiplayer-guest.mjs"), []);

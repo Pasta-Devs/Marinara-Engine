@@ -1,3 +1,4 @@
+import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
 // ──────────────────────────────────────────────
 // Capability prompt-context registry — gives the `prompt-context` permission its mechanism.
 //
@@ -106,7 +107,8 @@ export function withDeadline<T>(value: Promise<T> | T, label: string, timeoutMs 
 export async function collectCapabilityPromptContext(
   request: CapabilityPromptContextRequest,
 ): Promise<CapabilityPromptContextResult> {
-  if (contributorsByPackage.size === 0) return { blocks: [], packageBlocks: [], provides: {} };
+  if (currentRoomGeneration() || contributorsByPackage.size === 0)
+    return { blocks: [], packageBlocks: [], provides: {} };
   const blocks: string[] = [];
   const packageBlocks: Array<{ packageId: string; text: string }> = [];
   const provides: CapabilityProvidedGameSystems = {};

@@ -87,10 +87,15 @@ try {
   };
   const itemCatalog = (doc: Record<string, any>) =>
     doc.catalogs.find((catalog: { holds?: string }) => catalog.holds === "items");
-  /** The example less its 1.52 item read on Guard. */
+  /** The example less its 1.52 item reads (on Guard, and the bulk carried), with the 1.54 level
+   *  that reads the bulk. */
   const withoutItemReads = (doc: Record<string, any>) => {
     const guard = doc.sheet.derived.find((entry: { id: string }) => entry.id === "guard");
     guard.of = guard.of.filter((ref: { itemStat?: unknown }) => ref.itemStat === undefined);
+    doc.sheet.derived = doc.sheet.derived.filter((entry: { id: string }) => entry.id !== "bulk_carried");
+    if (doc.combat?.levels) {
+      doc.combat.levels = doc.combat.levels.filter((level: { derived?: string }) => level.derived === undefined);
+    }
   };
   /** And less what its items do to checks and its bonus caps, which are 1.53's. */
   const withoutCheckEffects = (doc: Record<string, any>) => {
@@ -99,6 +104,19 @@ try {
       for (const entry of catalog.entries ?? []) {
         delete entry.item?.worn;
         delete entry.item?.carried;
+      }
+    }
+  };
+  /** Less the weapons and a resistance's exception, which are 1.55's and have a lane of their own. */
+  const withoutWeapons = (doc: Record<string, any>) => {
+    for (const catalog of doc.catalogs ?? []) {
+      for (const entry of catalog.entries ?? []) {
+        delete entry.item?.attack;
+        for (const key of ["resist", "immune"]) {
+          if (entry.creature?.[key]) {
+            entry.creature[key] = entry.creature[key].filter((type: unknown) => typeof type === "string");
+          }
+        }
       }
     }
   };
@@ -337,7 +355,7 @@ try {
     refused(
       emberText,
       (doc) => itemCatalog(doc).entries.push({ ...knack(), id: "a-knack" }),
-      /catalogs\.2\.entries\.6\.item: Catalog "outfitter" holds items, so every entry carries one/,
+      /catalogs\.2\.entries\.8\.item: Catalog "outfitter" holds items, so every entry carries one/,
       "rows in a catalog of items",
     );
     refused(
@@ -355,7 +373,7 @@ try {
     refused(
       emberText,
       (doc) => itemCatalog(doc).entries.push({ ...doc.catalogs[1].entries[0], id: "a-creature" }),
-      /catalogs\.2\.entries\.6\.creature: Catalog "outfitter" holds items, so an entry cannot carry a creature/,
+      /catalogs\.2\.entries\.8\.creature: Catalog "outfitter" holds items, so an entry cannot carry a creature/,
       "a creature in a catalog of items",
     );
     refused(
@@ -372,7 +390,7 @@ try {
     );
     refused(
       emberText,
-      (doc) => (itemEntry(doc, "hand-axe").item.attack = {}),
+      (doc) => (itemEntry(doc, "hand-axe").item.enchantment = {}),
       /Unrecognized key/,
       "the item is strict",
     );
@@ -566,13 +584,14 @@ try {
       permissions: [],
       restartRequired: false,
     });
-    // The 1.49 keys alone: the example's rarity caps are 1.51's, its item read on Guard 1.52's and
-    // what its items do to checks 1.53's, and each has a lane of its own.
+    // The 1.49 keys alone: the example's rarity caps are 1.51's, its item read on Guard 1.52's, what
+    // its items do to checks 1.53's and its weapons 1.55's, and each has a lane of its own.
     const older = (text: string, edit: (doc: Record<string, any>) => void = () => {}) =>
       variant(text, (doc) => {
         delete doc.items?.rarityCaps;
         withoutItemReads(doc);
         withoutCheckEffects(doc);
+        withoutWeapons(doc);
         edit(doc);
       });
     const itemsIssue = /A ruleset that describes items requires schemaVersion 2 and capabilityApi 1\.49 or newer/;
@@ -630,7 +649,7 @@ try {
       );
     assert.deepEqual(rulesetItemCatalogIds(ember), ["outfitter"]);
     const book = rulesetItemBook(ember, entriesOf(ember));
-    assert.equal(book.entries.length, 6);
+    assert.equal(book.entries.length, 8);
     assert.equal(book.itemNamed("  hand AXE ")?.item, "outfitter/hand-axe", "a label in any case");
     assert.equal(book.itemNamed("hand-axe"), undefined, "an entry's id is not its name");
     assert.equal(book.itemOf("outfitter/arrows")?.stack, 20);
@@ -650,10 +669,19 @@ try {
         { id: "reach", label: "Reach", text: "close", promptVisible: true },
       ],
       cost: { amount: 4, unit: "marks" },
+      attack: {
+        budget: "Action",
+        toHit: "Brawn",
+        damage: "1d6 + Brawn",
+        type: "cut",
+        reach: 2,
+        range: { normal: 10, long: 20 },
+        unit: "paces",
+      },
     });
     assert.equal(
       rulesetItemPromptFacts(axe.facts),
-      "Weapon, Common, Thrown; Bulk 1, Damage 1d6, Rolls with brawn, Reach close",
+      "Weapon, Common, Thrown; Bulk 1, Damage 1d6, Rolls with brawn, Reach close; attack (Action): Brawn to hit, 1d6 + Brawn cut, reach 2 paces, range 10 to 20 paces",
     );
     // A stat the Game Master is not shown stays on the item's card only.
     const kit = rulesetItemBook(gravewatch, entriesOf(gravewatch));
@@ -661,7 +689,7 @@ try {
     assert.ok(nail.facts.stats.some((stat) => stat.id === "conceal" && !stat.promptVisible));
     assert.equal(
       rulesetItemPromptFacts(nail.facts),
-      "Arm, Rare, Silver, Easily hidden; Target 7, Damage 1d6, Harm tearing",
+      "Arm, Rare, Silver, Easily hidden; Target 7, Damage 1d6, Harm tearing; attack (Act): Nerve + Wrestle to hit at 7, 1d6 tearing",
     );
     assert.equal(nail.stack, 12);
     // An enum reads by its value label, a yes by the stat's label alone, and a no not at all.
@@ -706,13 +734,13 @@ try {
       "a layer hiding storied items",
     );
     const plainRoads = rulesetItemBook(layered, entriesOf(layered), { layerOptions: { "layer.plain_roads": true } });
-    assert.equal(plainRoads.entries.length, 5);
+    assert.equal(plainRoads.entries.length, 7);
     assert.equal(plainRoads.itemNamed("Waystone"), undefined);
     assert.equal(plainRoads.itemOf("outfitter/waystone")?.name, "Waystone");
     assert.equal(plainRoads.offers("outfitter/waystone"), false, "nor added by its id");
     assert.equal(plainRoads.offers("outfitter/hand-axe"), true);
     assert.equal(plainRoads.offers("outfitter/missing"), false);
-    assert.equal(rulesetItemBook(layered, entriesOf(layered)).entries.length, 6, "a layer that is off hides nothing");
+    assert.equal(rulesetItemBook(layered, entriesOf(layered)).entries.length, 8, "a layer that is off hides nothing");
     // Two items of one name: the first the ruleset lists is the one the name finds.
     const twice = parsedOrThrow(
       variant(emberText, (doc) => {
@@ -724,7 +752,7 @@ try {
       "two item catalogs",
     );
     assert.equal(rulesetItemBook(twice, entriesOf(twice)).itemNamed("Hand axe")?.item, "outfitter/hand-axe");
-    assert.equal(rulesetItemBook(twice, entriesOf(twice)).entries.length, 12);
+    assert.equal(rulesetItemBook(twice, entriesOf(twice)).entries.length, 16);
 
     // The Game Master sees what each ruleset item held is, and is told names become the ruleset's items.
     const base = { hasSceneModel: true } as never as Parameters<typeof buildGmFormatReminder>[0];
@@ -740,7 +768,7 @@ try {
     });
     assert.match(
       held,
-      /PLAYER INVENTORY: Hand axe ×2 \[Weapon, Common, Thrown; Bulk 1, Damage 1d6, Rolls with brawn, Reach close\]; Rope/,
+      /PLAYER INVENTORY: Hand axe ×2 \[Weapon, Common, Thrown; Bulk 1, Damage 1d6, Rolls with brawn, Reach close; attack \(Action\): Brawn to hit, 1d6 \+ Brawn cut, reach 2 paces, range 10 to 20 paces\]; Rope/,
     );
     assert.match(held, /an item named exactly as one of them becomes that item/);
     const party = buildGmFormatReminder({
@@ -892,7 +920,11 @@ try {
           delete doc.items.carry;
           delete doc.items.slots;
           for (const family of doc.items.currencies ?? []) delete family.perWeight;
-          for (const entry of itemCatalog(doc).entries) delete entry.item.slots;
+          for (const entry of itemCatalog(doc).entries) {
+            delete entry.item.slots;
+            // A weapon is used while worn, so none is left either.
+            delete entry.item.attack;
+          }
         }),
         "items nobody wears",
       ),
@@ -905,7 +937,10 @@ try {
       ruleset: parsedOrThrow(
         variant(gravewatchText, (doc) => {
           delete doc.items.slots;
-          for (const entry of itemCatalog(doc).entries) delete entry.item.slots;
+          for (const entry of itemCatalog(doc).entries) {
+            delete entry.item.slots;
+            delete entry.item.attack;
+          }
         }),
         "items nobody puts on",
       ),

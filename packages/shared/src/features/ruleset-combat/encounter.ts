@@ -11,6 +11,7 @@ import {
   RULESET_CATALOG_ROW_KEY,
   type RulesetCatalogEntriesById,
   type RulesetCatalogEntry,
+  type RulesetCatalogItem,
   type RulesetCatalogMechanics,
   type RulesetCombat,
   type RulesetCombatAbilitySource,
@@ -212,26 +213,34 @@ export function rulesetActiveConditions(
 }
 
 /** A condition entry that is on somebody right now: one of the fight's own conditions, or a level of a
- *  live track, which reads exactly like one. `level` is set only on a level, whose `condition` is then
- *  the track's id. */
-export type RulesetActiveCondition = RulesetCombatCondition & { level?: number };
+ *  live track or a derived value, which reads exactly like one. `level` is set only on a level, whose
+ *  `condition` is then the track's id, or the derived value's where `derived` is set (the two may
+ *  share an id). */
+export type RulesetActiveCondition = RulesetCombatCondition & { level?: number; derived?: true };
 
-/** The levels of the holder's own tracks that are reached. Only a sheet has tracks, so a combatant
- *  written in plain numbers has none. */
+/** The levels of the holder's own tracks, and of their derived values, that are reached. Only a sheet
+ *  has either, so a combatant written in plain numbers has none. A derived value is worked out with
+ *  the live state as it stands and what they held as the fight began. */
 function activeLevels(
   definition: RulesetDefinition,
   combat: RulesetCombat,
   combatant: RulesetCombatant,
 ): RulesetActiveCondition[] {
   if (!combatant.sheet) return [];
-  const live = readRulesetLive(definition, combatant.sheet.build, combatant.sheet.live);
+  const { build, live: stored, items } = combatant.sheet;
+  const live = readRulesetLive(definition, build, stored);
+  let derived: Record<string, number> | undefined;
   return (combat.levels ?? []).flatMap((level) => {
-    const value = live.tracks.find((track) => track.id === level.track)?.value ?? 0;
+    const value =
+      level.derived !== undefined
+        ? ((derived ??= evaluateRulesetSheetLive(definition, build, stored, items).derived)[level.derived] ?? 0)
+        : (live.tracks.find((track) => track.id === level.track)?.value ?? 0);
     if (value < level.at) return [];
     return [
       {
-        condition: level.track,
+        condition: level.track ?? level.derived!,
         level: level.at,
+        ...(level.derived !== undefined ? { derived: true as const } : {}),
         effects: level.effects,
         ...(level.modifiers ? { modifiers: level.modifiers } : {}),
         ...(level.failsSaves ? { failsSaves: level.failsSaves } : {}),
@@ -246,6 +255,7 @@ function activeLevels(
 export interface RulesetConditionModifier {
   condition: string;
   level?: number;
+  derived?: true;
   modifier: NonNullable<RulesetCombatCondition["modifiers"]>[number];
 }
 
@@ -278,6 +288,7 @@ export function rulesetConditionModifiers(
       .map((modifier) => ({
         condition: entry.condition,
         ...(entry.level !== undefined ? { level: entry.level } : {}),
+        ...(entry.derived ? { derived: entry.derived } : {}),
         modifier,
       }));
   });
@@ -428,10 +439,26 @@ function rowAbilityAndSkill(
   row: Record<string, unknown>,
   evaluated: EvaluatedRulesetSheet,
 ): number {
-  const skillId = columnValue(row, source.toHit.skill?.column);
+  return abilityAndSkill(
+    definition,
+    evaluated,
+    columnValue(row, source.toHit.skill?.column),
+    columnValue(row, source.toHit.ability?.column),
+  );
+}
+
+/** What an attack adds to hit from one skill and one ability, each an id or anything else, which
+ *  names nothing: see `rowAbilityAndSkill`. */
+function abilityAndSkill(
+  definition: RulesetDefinition,
+  evaluated: EvaluatedRulesetSheet,
+  skillId: unknown,
+  ability: unknown,
+): number {
   const skill = typeof skillId === "string" ? definition.sheet.skills.find((entry) => entry.id === skillId) : undefined;
-  if (!skill) return abilityFromColumn(evaluated, row, source.toHit.ability?.column);
-  const ability = columnValue(row, source.toHit.ability?.column);
+  if (!skill) {
+    return typeof ability === "string" ? (evaluated.abilityMods[ability] ?? ABILITY_COLUMN_MISS) : ABILITY_COLUMN_MISS;
+  }
   const withAbility =
     typeof ability === "string" && ability in evaluated.abilityMods && ability !== skill.ability ? ability : undefined;
   return rulesetCheckModifier(evaluated, {
@@ -513,6 +540,122 @@ function attackActions(
               ? { type: textFromColumn(row, source.damage.type?.column) }
               : {}),
           },
+    });
+  });
+  return actions;
+}
+
+/** One value of an item's attack: written as it is, or read off the item's own stat. A stat the item
+ *  gives nothing is as if the value were not written. */
+function itemAttackValue(item: RulesetCatalogItem, value: unknown): unknown {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return value;
+  const stat = (value as { stat?: unknown }).stat;
+  if (typeof stat !== "string" || !item.stats || !Object.prototype.hasOwnProperty.call(item.stats, stat)) {
+    return undefined;
+  }
+  return item.stats[stat];
+}
+
+/** The abilities an attack value names: a list of them, or the one an enum stat holds. */
+function attackAbilities(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((entry): entry is string => typeof entry === "string");
+  return typeof value === "string" ? [value] : [];
+}
+
+/**
+ * The weapons a fighter holds, as attacks: each worn item with an `attack`, read the way an attack
+ * row is, with its values in place of columns and each stat it reads off the item itself. It adds
+ * to hit the best of its abilities (with its skill, as a row's `with=` swaps one in), deals the best
+ * of its damage abilities, and deals its `versatile` dice instead while each slot it takes has room
+ * for as much again. What it carries past a resistance is its tags. An item put away offers nothing.
+ */
+function itemAttackActions(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  items: readonly RulesetSheetItem[] | undefined,
+  build: RulesetSheetBuild,
+  evaluated: EvaluatedRulesetSheet,
+  perCell: number | undefined,
+): RulesetCombatAction[] {
+  if (!items?.some((held) => held.worn && held.item.attack)) return [];
+  const pooled = rulesetCombatIsPool(combat);
+  // What the fighter's worn items take of each slot, the weapon's own share included.
+  // ponytail: an item put on but not yet bound fills its slot and is not counted here, because a
+  // fight's items say only whether each is worn; passing "on" through is the upgrade.
+  const used: Record<string, number> = {};
+  for (const held of items) {
+    if (!held.worn) continue;
+    for (const [slot, count] of Object.entries(held.item.slots ?? {}))
+      used[slot] = (used[slot] ?? 0) + count * held.quantity;
+  }
+  const slotCounts = new Map((definition.items?.slots ?? []).map((slot) => [slot.id, slot.count]));
+  const cells = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value) && value > 0 && perCell !== undefined
+      ? rulesetInCells(value, perCell)
+      : undefined;
+  const number = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : 0);
+  const actions: RulesetCombatAction[] = [];
+  items.forEach((held, index) => {
+    const { item } = held;
+    const attack = item.attack;
+    if (!attack || !held.worn) return;
+    const read = (value: unknown) => itemAttackValue(item, value);
+    const free =
+      attack.versatile !== undefined &&
+      Object.entries(item.slots ?? {}).every(
+        ([slot, count]) => (slotCounts.get(slot) ?? 0) - (used[slot] ?? 0) >= count,
+      );
+    const parsed = parseRulesetCombatDice(read(free ? attack.versatile!.dice : attack.damage.dice));
+    const dice = pooled ? (parsed ?? { count: 0, sides: rulesetPoolDie(definition), flat: 0 }) : parsed;
+    if (!dice) return;
+    const skill = read(attack.toHit.skill);
+    const hitWith = attackAbilities(read(attack.toHit.abilities));
+    const toHitBase = hitWith.length
+      ? Math.max(...hitWith.map((ability) => abilityAndSkill(definition, evaluated, skill, ability)))
+      : abilityAndSkill(definition, evaluated, skill, undefined);
+    const proficient =
+      attack.toHit.proficiency !== undefined &&
+      resolveRulesetValueRef(definition, build, attack.toHit.proficiency, evaluated) > 0;
+    const dealtWith = attackAbilities(read(attack.damage.abilities));
+    const damageAbility = dealtWith.length
+      ? Math.max(...dealtWith.map((ability) => evaluated.abilityMods[ability] ?? ABILITY_COLUMN_MISS))
+      : 0;
+    const bonus = number(read(attack.damage.bonus));
+    const typeRead = read(attack.damage.type);
+    const type = typeof typeRead === "string" && typeRead.trim() ? typeRead.trim() : undefined;
+    const target = read(attack.toHit.target);
+    const strikes = attack.strikes
+      ? Math.max(1, Math.trunc(resolveRulesetValueRef(definition, build, attack.strikes, evaluated)))
+      : undefined;
+    const reach = cells(read(attack.reach));
+    const normal = attack.range ? cells(read(attack.range.normal)) : undefined;
+    const long = attack.range?.long !== undefined ? cells(read(attack.range.long)) : undefined;
+    const label =
+      held.name ??
+      definition.items?.categories.find((category) => category.id === item.category)?.label ??
+      item.category;
+    actions.push({
+      id: `item:${index}`,
+      kind: "attack",
+      label,
+      budget: attack.budget,
+      targets: { side: "enemy", count: 1 },
+      ...(strikes !== undefined ? { strikes } : {}),
+      ...(reach !== undefined ? { reach } : {}),
+      ...(normal !== undefined ? { range: { normal, ...(long !== undefined && long > normal ? { long } : {}) } } : {}),
+      toHit: toHitBase + (proficient ? evaluated.proficiencyBonus : 0) + number(read(attack.toHit.bonus)),
+      ...(pooled && typeof target === "number" && Number.isFinite(target) ? { target } : {}),
+      damage: {
+        ...(pooled
+          ? {
+              count: Math.max(0, dice.count + damageAbility),
+              sides: rulesetPoolDie(definition),
+              flat: Math.max(0, dice.flat + bonus),
+            }
+          : { count: dice.count, sides: dice.sides, flat: dice.flat + damageAbility + bonus }),
+        ...(type ? { type } : {}),
+        ...(item.tags?.length ? { qualities: [...item.tags] } : {}),
+      },
     });
   });
   return actions;
@@ -990,6 +1133,7 @@ function sheetCombatant(
     ...(combat.attacks ?? []).flatMap((source, index) =>
       attackActions(definition, combat, source, index, build, evaluated, perCell),
     ),
+    ...itemAttackActions(definition, combat, input.items, build, evaluated, perCell),
     ...abilities.flatMap((entry) => entry.actions),
   ];
   const riders = abilities.flatMap((entry) => entry.riders);

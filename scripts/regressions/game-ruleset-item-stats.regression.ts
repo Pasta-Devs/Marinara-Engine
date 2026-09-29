@@ -115,7 +115,22 @@ try {
       itemStat: { stat: "guard", from: "worn", pick: "sum" },
     });
     assert.equal(rulesetReadsItems(ember), true, "Ember Roads reads the items it holds");
-    assert.equal(rulesetReadsItems(gravewatch), false, "Gravewatch does not");
+    // Any ruleset with items may read them (an item's abilities or a level off a derived value do,
+    // since 1.54), and one without has none to read.
+    assert.equal(rulesetReadsItems(gravewatch), true, "so does Gravewatch");
+    const noItems = parsedOrThrow(
+      variant(gravewatchText, (doc) => {
+        delete doc.items;
+        doc.catalogs = doc.catalogs.filter((catalog: { holds?: string }) => catalog.holds !== "items");
+        // And the grave wight's resistance, whose exception names an item tag.
+        doc.catalogs = doc.catalogs.map((catalog: { entries?: Array<{ id: string }> }) => ({
+          ...catalog,
+          entries: catalog.entries?.filter((entry) => entry.id !== "grave-wight"),
+        }));
+      }),
+      "Gravewatch without items",
+    );
+    assert.equal(rulesetReadsItems(noItems), false, "and one without items does not");
 
     const probe = (itemStat: Record<string, unknown>) => withProbe(itemStat);
     parsedOrThrow(variant(emberText, probe({ from: "all", pick: "count" })), "a count that names no stat");
@@ -253,11 +268,15 @@ try {
     // of their own.
     const upTo152 = (edit: (doc: Record<string, any>) => void = () => {}) =>
       variant(emberText, (doc) => {
+        // And the 1.54 level off a derived value.
+        doc.combat.levels = doc.combat.levels.filter((level: { derived?: string }) => level.derived === undefined);
         for (const cap of doc.items.rarityCaps) delete cap.bonus;
         for (const catalog of doc.catalogs) {
           for (const entry of catalog.entries ?? []) {
             delete entry.item?.worn;
             delete entry.item?.carried;
+            // And the 1.55 weapons.
+            delete entry.item?.attack;
           }
         }
         edit(doc);
@@ -267,11 +286,13 @@ try {
     assert.equal(issue(52, whole), null);
     const withoutRead = upTo152((doc) => {
       derivedOf(doc, "guard").of = derivedOf(doc, "guard").of.slice(0, 2);
+      doc.sheet.derived = doc.sheet.derived.filter((entry: { id: string }) => entry.id !== "bulk_carried");
     });
     assert.equal(issue(51, withoutRead), null, "the rest of the example stays 1.51");
     // Anywhere it sits: a check's modifier, a catalog file.
     const inAdjust = upTo152((doc) => {
       derivedOf(doc, "guard").of = derivedOf(doc, "guard").of.slice(0, 2);
+      doc.sheet.derived = doc.sheet.derived.filter((entry: { id: string }) => entry.id !== "bulk_carried");
       doc.resolution.adjust.push({ value: { itemStat: { from: "worn", pick: "count" } } });
     });
     assert.match(issue(51, inAdjust) ?? "", itemStatIssue, "a check's modifier");

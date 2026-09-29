@@ -142,7 +142,12 @@ assert.equal(
 );
 assert.match(
   generateRouteSource,
-  /const agentAbortController = new AbortController\(\);\s*const agentSignal = AbortSignal\.any\(\[abortController\.signal, agentAbortController\.signal\]\)/u,
+  /const roomSignal = currentRoomGeneration\(\)\?\.signal;\s*const generationSignal = roomSignal\s*\? AbortSignal\.any\(\[abortController\.signal, roomSignal\]\)\s*: abortController\.signal;/u,
+  "room cancellation must compose with the primary response signal while ordinary generations retain their signal",
+);
+assert.match(
+  generateRouteSource,
+  /const agentAbortController = new AbortController\(\);\s*const agentSignal = AbortSignal\.any\(\[generationSignal, agentAbortController\.signal\]\)/u,
   "normal generations must keep an agent-only cancellation signal alongside the primary response signal",
 );
 assert.match(

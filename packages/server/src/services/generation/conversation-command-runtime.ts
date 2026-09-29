@@ -1,3 +1,4 @@
+import { currentRoomGeneration, roomConversationCommandAllowed } from "../multiplayer/generation-policy.js";
 import {
   BUILT_IN_AGENTS,
   CONVERSATION_COMMAND_AGENT_IDS,
@@ -48,7 +49,7 @@ export function readConversationCommandToggles(
 }
 
 export function isConversationCommandEnabled(metadata: Record<string, unknown>, key: ConversationCommandKey): boolean {
-  return readConversationCommandToggles(metadata)[key] !== false;
+  return roomConversationCommandAllowed(key) && readConversationCommandToggles(metadata)[key] !== false;
 }
 
 function getConversationCommandKey(command: CharacterCommand): ConversationCommandKey | null {
@@ -103,6 +104,7 @@ export function filterEnabledConversationCommands(
   metadata: Record<string, unknown>,
 ): CharacterCommand[] {
   return commands.filter((command) => {
+    if (!roomConversationCommandAllowed(command.type)) return false;
     const key = getConversationCommandKey(command);
     return key === null || (isConversationCommandAvailable(key) && isConversationCommandEnabled(metadata, key));
   });
@@ -167,7 +169,7 @@ export async function buildConversationCommandsReminder(args: {
         : "spotify";
 
   // Discover other chats this character is in (for cross_post targets + memory targets)
-  const allChatsForCrossPost = await args.chats.list();
+  const allChatsForCrossPost = currentRoomGeneration() ? [] : await args.chats.list();
   const crossPostTargets: string[] = [];
   const memoryTargetCharIds = new Set<string>();
   for (const c of allChatsForCrossPost) {

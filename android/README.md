@@ -23,6 +23,10 @@ The Android app is a Termux bootstrap + WebView shell for Marinara Engine. It is
 
 **Manual fallback:** install Termux from F-Droid, paste the fresh-Termux command below so it creates/updates the Marinara folder, then open the Marinara Engine Android app. When prompted, confirm **Open manual server**. Clipboard fallback commands never contain the APK's private local-access secret.
 
+## Multiplayer guest support
+
+The current native wrapper cannot join multiplayer rooms. Its JavaScript bridge is injected into every WebView frame, so an iframe sandbox alone cannot provide the required bridge-free guest boundary. Join and the guest document are disabled in the wrapper. Never install a host-provided APK, extension, or required file to work around this. Browser mobile support and physical-device verification are tracked separately in [the multiplayer implementation record](../docs/development/multiplayer.md).
+
 ## Features
 
 - Native app icon on the home screen

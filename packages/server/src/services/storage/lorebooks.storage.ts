@@ -1,3 +1,4 @@
+import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
 // ──────────────────────────────────────────────
 // Storage: Lorebooks
 // ──────────────────────────────────────────────
@@ -421,7 +422,13 @@ export function createLorebooksStorage(db: DB) {
 
     async list() {
       const rows = await db.select().from(lorebooks).orderBy(desc(lorebooks.updatedAt));
-      return hydrateLorebookRows(db, rows);
+      const room = currentRoomGeneration();
+      const visibleRows = room
+        ? rows.filter(
+            (book) => !room.signal?.aborted && (book.chatId === room.chatId || room.lorebookIds.includes(book.id)),
+          )
+        : rows;
+      return hydrateLorebookRows(db, visibleRows);
     },
 
     async listByCategory(category: string) {
@@ -705,6 +712,8 @@ export function createLorebooksStorage(db: DB) {
       entryIds: string[],
       filters?: { excludedLorebookIds?: string[]; excludedSourceAgentIds?: string[]; unlimited?: boolean },
     ): Promise<LorebookEntry[]> {
+      const room = currentRoomGeneration();
+      if (room?.signal?.aborted) return [];
       const ids = uniqueStrings(entryIds);
       const requestedIds = filters?.unlimited ? ids : ids.slice(0, LIMITS.MAX_LOREBOOK_ENTRIES);
       if (requestedIds.length === 0) return [];
@@ -723,6 +732,7 @@ export function createLorebooksStorage(db: DB) {
       const enabledBooks = (await hydrateLorebookRows(db, enabledBookRows)) as unknown as Array<{
         id: string;
         sourceAgentId?: string | null;
+        chatId?: string | null;
       }>;
       const excludedLorebookIds = new Set(filters?.excludedLorebookIds ?? []);
       const excludedSourceAgentIds = new Set(filters?.excludedSourceAgentIds ?? []);
@@ -730,6 +740,8 @@ export function createLorebooksStorage(db: DB) {
         enabledBooks
           .filter(
             (book) =>
+              (!room ||
+                (!room.signal?.aborted && (book.chatId === room.chatId || room.lorebookIds.includes(book.id)))) &&
               !excludedLorebookIds.has(book.id) &&
               !(book.sourceAgentId && excludedSourceAgentIds.has(book.sourceAgentId)),
           )
@@ -791,6 +803,8 @@ export function createLorebooksStorage(db: DB) {
       excludedLorebookIds?: string[];
       excludedSourceAgentIds?: string[];
     }) {
+      const room = currentRoomGeneration();
+      if (room && (room.signal?.aborted || filters?.chatId !== room.chatId)) return [];
       const enabledBookRows = await db.select().from(lorebooks).where(eq(lorebooks.enabled, "true"));
       const enabledBooks = (await hydrateLorebookRows(db, enabledBookRows)) as unknown as Array<{
         id: string;
@@ -806,6 +820,10 @@ export function createLorebooksStorage(db: DB) {
       }>;
 
       let relevantBooks = enabledBooks.filter((b) => isLorebookScopeActiveForChat(b.scope, filters?.chatId));
+      if (room)
+        relevantBooks = relevantBooks.filter(
+          (book) => book.chatId === room.chatId || room.lorebookIds.includes(book.id),
+        );
       if (filters) {
         const excludedLorebookIds = new Set(filters.excludedLorebookIds ?? []);
         const excludedSourceAgentIds = new Set(filters.excludedSourceAgentIds ?? []);

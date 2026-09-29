@@ -9,6 +9,7 @@ const write = (file, content) => writeFileSync(join(root, file), content);
 try {
   mkdirSync(join(root, "assets"));
   mkdirSync(join(root, ".vite"));
+  mkdirSync(join(root, "multiplayer"));
   assert.throws(() => checkClientBuild(root));
   write("index.html", '<script type="module" src="/assets/index-a.js"></script>');
   assert.throws(() => checkClientBuild(root), /manifest/);
@@ -31,11 +32,13 @@ try {
     "assets/lazy-a.js",
     "assets/style-a.css",
     "assets/font-a.woff2",
+    "multiplayer/guest.js",
+    "multiplayer/guest.css",
   ]) {
     write(file, "fixture");
   }
   assert.doesNotThrow(() => checkClientBuild(root));
-  for (const file of ["assets/icons-a.js", "assets/lazy-a.js", "assets/style-a.css", "assets/font-a.woff2"]) {
+  for (const file of ["assets/icons-a.js", "assets/lazy-a.js", "assets/style-a.css", "assets/font-a.woff2", "multiplayer/guest.js", "multiplayer/guest.css"]) {
     rmSync(join(root, file));
     assert.throws(() => checkClientBuild(root), /ENOENT/);
     write(file, "");

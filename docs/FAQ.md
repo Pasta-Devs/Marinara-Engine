@@ -46,6 +46,12 @@ On Android, you can also [download the latest APK directly](https://github.com/P
 
 The Android wrapper signs in automatically in the app or your browser. Select **Open in browser** on its launcher and tap **Retry connection**; use **Install / Start Marinara** when the server is stopped. This choice is remembered. In the app, **Settings > General > App Behavior > Open Android launcher (app or browser)** returns to that choice. Update both the APK and Engine to use the automatic browser handoff. Older APKs still offer manual sign-in at `/android-login`. The local `mari` CLI reads the launcher-managed secret automatically, and manual Termux installs retain normal localhost rules.
 
+## Can I play with other people?
+
+Optional multiplayer creates a fresh shared Conversation, Roleplay or Game without a fixed human or AI roster cap. Every participant enables the environment prerequisite and the separate Settings switch, then explicitly hosts or joins using their own trusted client. Guests need no AI key; the host controls generation and approval. Game waits for every required player's action or explicit pass before resolving a round.
+
+A password does not make an unknown host safe. Shared rooms accept text only and keep the guest view isolated from files, native integrations and local APIs. The Android native wrapper cannot join. Read [multiplayer setup, warnings and limits](CONFIGURATION.md#optional-multiplayer) before enabling it.
+
 ## What are the three chat modes?
 
 Marinara has three chat modes, shown as tabs when you open the chat list:

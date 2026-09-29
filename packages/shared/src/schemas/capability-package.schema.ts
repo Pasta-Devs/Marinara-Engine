@@ -486,7 +486,19 @@ const capabilityPackageManifestBaseSchema = z
 //        hold a worn or carried `bonus`. Not a soft seam, for the same reason as 1.20 through 1.52: an
 //        Engine that cannot read these refuses the whole ruleset or catalog file, so a package that
 //        ships any of them declares 1.53. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 53 } as const);
+// 1.54: an item may ask something of whoever wears it (`requires`: a value off their sheet, the least
+//        it may be, and what applies while they fall short), a worn or carried effect may set or raise
+//        an ability (`abilities`), and a condition level may read a derived value (`derived`) instead
+//        of a live track. Not a soft seam, for the same reason as 1.20 through 1.53: an Engine that
+//        cannot read these refuses the whole ruleset or catalog file, so a package that ships any of
+//        them declares 1.54. No permission.
+// 1.55: an item may be a weapon (`attack`: what it adds to hit, deals, reaches and carries, each value
+//        written down or read off the item's own stat), offered in a ruleset fight while it is worn,
+//        and a creature's resistance or immunity may name the item tags a blow gets through it with
+//        (`{ type, except }`). Not a soft seam, for the same reason as 1.20 through 1.54: an Engine
+//        that cannot read these refuses the whole ruleset or catalog file, so a package that ships
+//        any of them declares 1.55. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 55 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

@@ -1,4 +1,4 @@
-import type { FastifyReply } from "fastify";
+import type { GenerationOutput } from "../../routes/generate/sse.js";
 import { getTurnGameEngine } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
@@ -18,7 +18,7 @@ interface TurnGameCommandArgs {
   chats: { getById(id: string): Promise<{ characterIds?: unknown } | null> };
   conn: unknown;
   baseUrl: string;
-  reply: FastifyReply;
+  reply: GenerationOutput;
   signal: AbortSignal;
   debugLog?: (message: string, ...args: unknown[]) => void;
 }

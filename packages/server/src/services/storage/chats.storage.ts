@@ -1,3 +1,4 @@
+import { currentRoomGeneration, resolveRoomGenerationPolicy } from "../multiplayer/generation-policy.js";
 // ──────────────────────────────────────────────
 // Storage: Chats
 // ──────────────────────────────────────────────
@@ -63,6 +64,7 @@ import { type CharacterSchedules, type WeekSchedule } from "../conversation/sche
 import type { ConversationStatusOverride } from "@marinara-engine/shared";
 import { MESSAGE_MARK_EXTRA_KEYS } from "@marinara-engine/shared";
 import { resolveConversationTimeZone } from "../conversation/timezone.js";
+import { parseConversationStatusOverrides } from "../generation/conversation-context-utils.js";
 import { logger } from "../../lib/logger.js";
 import { logRateLimited } from "../../lib/log-rate-limit.js";
 import { isLorebookScanCompactionEnabled } from "../../config/runtime-config.js";
@@ -83,6 +85,13 @@ export const CONVERSATION_NOTES_BUDGET_CHARS = 4000;
 
 export type MetadataPatch = Record<string, unknown>;
 export type MetadataUpdater = (current: MetadataPatch) => MetadataPatch | Promise<MetadataPatch>;
+type RoomMetadataKey = "multiplayerCharacterMemories" | "multiplayerGameAppliedMessages" | "multiplayerGameTurn";
+
+function protectRoomMetadata(patch: MetadataPatch, allowed: readonly RoomMetadataKey[] = []): void {
+  for (const key of Object.keys(patch)) {
+    if (key.startsWith("multiplayer") && !allowed.includes(key as RoomMetadataKey)) delete patch[key];
+  }
+}
 export type ChatDeleteGuardResult = { allowed: true } | { allowed: false; reason: string };
 
 function lorebookEntryStateRemovalPatch(metadata: MetadataPatch, entryIds: ReadonlySet<string>): MetadataPatch {
@@ -1531,6 +1540,14 @@ export function createChatsStorage(db: DB) {
       const meta = parseMetadata(chat.metadata);
       const characterIds = parseCharacterIds(chat.characterIds);
 
+      if (meta.multiplayer || meta.multiplayerSetup === true) {
+        const overrides = parseConversationStatusOverrides(meta.conversationStatusOverrides);
+        return {
+          schedules: await this.resolveConversationSchedules(id),
+          statusOverrides: Object.fromEntries(Object.entries(overrides).filter(([key]) => characterIds.includes(key))),
+        };
+      }
+
       // Hoist before the opt-in gate, so a chat that is switched off does not
       // strand the only copy of a pre-existing schedule in its metadata.
       if (hasConversationSchedules(meta.characterSchedules)) {
@@ -1579,6 +1596,12 @@ export function createChatsStorage(db: DB) {
 
       const characterIds = parseCharacterIds(chat.characterIds);
       const currentSchedules = hasConversationSchedules(meta.characterSchedules) ? meta.characterSchedules : {};
+
+      // Shared rooms own their cached routines. Resolving one must neither read
+      // a later private-card update nor hoist room changes back into that card.
+      if (meta.multiplayer || meta.multiplayerSetup === true) {
+        return Object.fromEntries(Object.entries(currentSchedules).filter(([key]) => characterIds.includes(key)));
+      }
 
       // The character card is the source of truth; the chat map is a cache that
       // can be stale or hold a schedule the character has since replaced.
@@ -1721,6 +1744,11 @@ export function createChatsStorage(db: DB) {
      * is in the same category — it carries the mirror through untouched rather than restamping.
      */
     async updateMetadata(id: string, metadata: Record<string, unknown>) {
+      const room = currentRoomGeneration();
+      if (room) {
+        // A model/agent's old snapshot must never restore an ended room or overwrite its coordinator.
+        return this.patchMetadata(id, () => metadata);
+      }
       await db
         .update(chats)
         .set({ metadata: JSON.stringify(metadata), updatedAt: now() })
@@ -1793,19 +1821,28 @@ export function createChatsStorage(db: DB) {
     async patchMetadata(
       id: string,
       patchOrUpdater: MetadataPatch | MetadataUpdater,
-      opts: { touchUpdatedAt?: boolean; metadataQueueHeld?: boolean } = {},
+      opts: { touchUpdatedAt?: boolean; metadataQueueHeld?: boolean; allowRoomKeys?: readonly RoomMetadataKey[] } = {},
     ) {
       const applyPatch = async () => {
         const existing = await this.getById(id);
         if (!existing) return null;
 
         const current = parseMetadata(existing.metadata);
+        const room = currentRoomGeneration();
+        if (room) {
+          if (id !== room.chatId) throw new Error("Shared-room generation cannot modify another chat.");
+          resolveRoomGenerationPolicy(id, current, [], room);
+        }
         // #5406: fingerprint BEFORE the updater runs. `{ ...current }` is a shallow copy, so an
         // updater that mutates a nested value in place mutates `current`'s value too and the
         // post-hoc comparison would see two identical objects and skip the stamp.
         const before = typeof patchOrUpdater === "function" ? fingerprintMetadata(current) : null;
         const raw = typeof patchOrUpdater === "function" ? await patchOrUpdater({ ...current }) : patchOrUpdater;
-        const patch = stripOrdinalMirrorKey(raw);
+        const patch = stripOrdinalMirrorKey(room ? { ...raw } : raw);
+        if (room) {
+          room.signal?.throwIfAborted();
+          protectRoomMetadata(patch, opts.allowRoomKeys);
+        }
         const merged = mergeMetadataPatch(current, patch);
         // Explicitly detaching a pinned book resets its chat-local entry state.
         // Temporary exclusions retain it so disabling/re-enabling a book is reversible.
@@ -1864,9 +1901,20 @@ export function createChatsStorage(db: DB) {
         if (!existing) return null;
 
         const current = parseMetadata(existing.metadata);
+        const room = currentRoomGeneration();
+        if (room) {
+          if (id !== room.chatId) throw new Error("Shared-room generation cannot modify another chat.");
+          resolveRoomGenerationPolicy(id, current, [], room);
+        }
         const before = fingerprintMetadata(current);
         const { metadata: raw, characterIds } = await updater({ ...current });
-        const patch = stripOrdinalMirrorKey(raw);
+        const patch = stripOrdinalMirrorKey(room ? { ...raw } : raw);
+        if (room) {
+          if (characterIds.some((characterId) => !room.characterIds.includes(characterId)))
+            throw new Error("The character is not approved for this room.");
+          room.signal?.throwIfAborted();
+          protectRoomMetadata(patch);
+        }
         const merged = mergeMetadataPatch(current, patch);
         const stamp = stampMetadataWriteOrdinals(existing.writeOrdinalCounter, current, merged, patch, before);
         applyOrdinalStamp(merged, stamp);

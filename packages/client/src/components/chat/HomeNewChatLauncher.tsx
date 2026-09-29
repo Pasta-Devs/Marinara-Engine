@@ -3,11 +3,13 @@ import { Plus } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useApplyChatPreset, useChatPresets } from "../../hooks/use-chat-presets";
 import { useCreateChat } from "../../hooks/use-chats";
+import { useMultiplayerMutation } from "../../hooks/use-multiplayer";
 import { useConnections } from "../../hooks/use-connections";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
 import { HOME_CHAT_MODE_ACCENTS } from "../../lib/home-chat-mode-style";
+import { showAlertDialog } from "../../lib/app-dialogs";
 import { CHAT_MODE_OPTIONS, ChatModeSelectorModal, type ChatLaunchMode } from "./ChatModeSelectorModal";
 
 type HomeNewChatLauncherProps = {
@@ -24,9 +26,22 @@ export function HomeNewChatLauncher({ mode, className, children, ariaLabel }: Ho
   const { data: chatPresetsData } = useChatPresets();
   const createChat = useCreateChat();
   const applyChatPreset = useApplyChatPreset();
+  const createShared = useMultiplayerMutation<{ chatId: string }, { name: string; mode: ChatLaunchMode }>(
+    "/multiplayer/prepare",
+  );
 
-  const selectMode = (mode: ChatLaunchMode) => {
+  const selectMode = (mode: ChatLaunchMode, playTogether = false) => {
     setSelectorOpen(false);
+    if (playTogether) {
+      createShared.mutate(
+        { name: localizeUi("multiplayer.defaultName"), mode },
+        {
+          onSuccess: (result) => useChatStore.getState().setActiveChatId(result.chatId),
+          onError: () => void showAlertDialog({ message: localizeUi("multiplayer.actionFailed") }),
+        },
+      );
+      return;
+    }
     const connectionRows = ((connections ?? []) as Array<{ id: string }>).filter((connection) => !!connection.id);
     const store = useChatStore.getState();
     if (connectionRows.length === 0) {
@@ -89,10 +104,11 @@ export function HomeNewChatLauncher({ mode, className, children, ariaLabel }: Ho
 
       {!mode ? (
         <ChatModeSelectorModal
+          showPlayTogether
           open={selectorOpen}
           onClose={() => setSelectorOpen(false)}
           onSelectMode={selectMode}
-          isPending={createChat.isPending}
+          isPending={createChat.isPending || createShared.isPending}
         />
       ) : null}
     </>

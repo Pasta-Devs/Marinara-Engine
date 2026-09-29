@@ -442,10 +442,13 @@ function knownTypes(definition: RulesetDefinition): ReadonlySet<string> | null {
 }
 
 /** Only the names this ruleset has, in the order they were proposed. */
-function onlyKnown(values: readonly string[] | undefined, known: ReadonlySet<string> | null): string[] | null {
+function onlyKnown<T extends string | { type: string }>(
+  values: readonly T[] | undefined,
+  known: ReadonlySet<string> | null,
+): T[] | null {
   if (!values) return null;
   if (!known) return [...values];
-  return values.filter((value) => known.has(value.trim().toLowerCase()));
+  return values.filter((value) => known.has((typeof value === "string" ? value : value.type).trim().toLowerCase()));
 }
 
 /**
@@ -486,14 +489,17 @@ export function clampRulesetStatBlock(
   const budgets = combat.economy.budgets.map((budget) => budget.id);
   const mainBudget = budgets[0]!;
 
-  for (const key of ["resist", "vulnerable", "immune"] as const) {
-    const kept = onlyKnown(block[key], types);
-    if (!kept) continue;
+  const keepKnown = <K extends "resist" | "vulnerable" | "immune">(key: K) => {
+    const kept = onlyKnown<NonNullable<RulesetStatBlock[K]>[number]>(block[key], types);
+    if (!kept) return;
     const dropped = (block[key]?.length ?? 0) - kept.length;
     if (dropped > 0) adjusted.push(`${dropped} damage type this ruleset does not have was dropped from ${key}.`);
-    if (kept.length > 0) block[key] = kept;
+    if (kept.length > 0) (block as RulesetStatBlock)[key] = kept as RulesetStatBlock[K];
     else delete block[key];
-  }
+  };
+  keepKnown("resist");
+  keepKnown("vulnerable");
+  keepKnown("immune");
   if (block.conditionImmunities) {
     const kept = block.conditionImmunities.filter((condition) => conditions.has(condition));
     if (kept.length < block.conditionImmunities.length) {

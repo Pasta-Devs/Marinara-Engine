@@ -1,7 +1,9 @@
 import type { ChatMode } from "@marinara-engine/shared";
+import { useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
 import { ChatModeIcon } from "./ChatModeIcon";
+import { useMultiplayerStatus } from "../../hooks/use-multiplayer";
 
 export type ChatLaunchMode = ChatMode;
 
@@ -30,22 +32,45 @@ export const CHAT_MODE_OPTIONS: Array<{
 interface ChatModeSelectorModalProps {
   open: boolean;
   onClose: () => void;
-  onSelectMode: (mode: ChatLaunchMode) => void;
+  onSelectMode: (mode: ChatLaunchMode, playTogether?: boolean) => void;
   isPending?: boolean;
+  sharedOnly?: boolean;
+  showPlayTogether?: boolean;
 }
 
-export function ChatModeSelectorModal({ open, onClose, onSelectMode, isPending = false }: ChatModeSelectorModalProps) {
+export function ChatModeSelectorModal({
+  open,
+  onClose,
+  onSelectMode,
+  isPending = false,
+  sharedOnly = false,
+  showPlayTogether = false,
+}: ChatModeSelectorModalProps) {
   const { t: localizeUi } = useUiTranslation();
+  const status = useMultiplayerStatus();
+  const [playTogether, setPlayTogether] = useState(false);
+  const sharingAvailable = status.data?.available && status.data.enabled;
 
   return (
-    <Modal open={open} onClose={onClose} title={localizeUi("home.newChat.chooseMode")} width="max-w-2xl">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={localizeUi(sharedOnly ? "multiplayer.create" : "home.newChat.chooseMode")}
+      width="max-w-2xl"
+    >
+      {sharingAvailable && showPlayTogether && !sharedOnly && (
+        <label className="mb-3 flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={playTogether} onChange={(event) => setPlayTogether(event.target.checked)} />
+          {localizeUi("multiplayer.playTogether")}
+        </label>
+      )}
       <div data-component="ChatModeSelectorModal" className="grid gap-2 sm:grid-cols-3">
         {CHAT_MODE_OPTIONS.map(({ mode, labelKey, descriptionKey }) => (
           <button
             key={mode}
             type="button"
-            onClick={() => onSelectMode(mode)}
-            disabled={isPending}
+            onClick={() => onSelectMode(mode, !!sharingAvailable && (sharedOnly || playTogether))}
+            disabled={isPending || (sharedOnly && !sharingAvailable)}
             className="mari-chat-option-field group flex min-h-24 items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] disabled:cursor-wait disabled:opacity-60"
           >
             <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-button-text-active)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]">

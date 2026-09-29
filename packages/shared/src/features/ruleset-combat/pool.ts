@@ -50,9 +50,15 @@ export function throwRulesetCombatPool(
   roll: RulesetCombatRoller,
   dice: number,
   mode: RulesetCombatRollMode = "normal",
+  /** A per-die target of this throw's own (a weapon's), held to what the ruleset allows. */
+  threshold?: number,
 ): RulesetCombatPoolThrow {
   const once = () => {
-    const result = rollDicePoolCheck(definition, { modifier: dice, required: 1, isSave: false }, roll);
+    const result = rollDicePoolCheck(
+      definition,
+      { modifier: dice, required: 1, isSave: false, ...(threshold !== undefined ? { threshold } : {}) },
+      roll,
+    );
     return { rolls: result.rolls, successes: result.total, botch: result.criticalFailure, target: result.threshold };
   };
   // The dice the pool is, before anything explodes: the ruleset's own floor and ceiling applied.
@@ -117,9 +123,16 @@ export function rulesetCombatPenalty(definition: RulesetDefinition, combatant: R
 
 /** Each face of this ruleset's die: its net worth (-1 for a cancelling face, 0, 1, or 2 for a doubled
  *  one; a face may both succeed and cancel, which nets to 0) and whether it throws another die. */
-function dieFaces(definition: RulesetDefinition): Array<{ value: number; explodes: boolean }> {
+function dieFaces(definition: RulesetDefinition, threshold?: number): Array<{ value: number; explodes: boolean }> {
   const resolution = definition.resolution;
   if (resolution.kind !== "dice-pool") return [{ value: 0, explodes: false }];
+  // A throw's own target counts where the ruleset lets the target move, held inside it, as the roll
+  // holds it.
+  const { target } = resolution;
+  const counts =
+    threshold !== undefined && target.min < target.max
+      ? Math.min(target.max, Math.max(target.min, Math.trunc(threshold)))
+      : target.default;
   const faces: Array<{ value: number; explodes: boolean }> = [];
   for (let face = 1; face <= resolution.die.sides; face++) {
     let value = 0;
@@ -127,7 +140,7 @@ function dieFaces(definition: RulesetDefinition): Array<{ value: number; explode
     // never does, so it counts for nothing here, exactly as the roll counts it.
     const doubleFrom = resolution.double?.from;
     const explodeFrom = resolution.explode?.from;
-    if (face >= resolution.target.default) value = doubleFrom !== undefined && face >= doubleFrom ? 2 : 1;
+    if (face >= counts) value = doubleFrom !== undefined && face >= doubleFrom ? 2 : 1;
     if (resolution.cancel && face <= resolution.cancel.upTo) value -= 1;
     faces.push({ value, explodes: explodeFrom !== undefined && face >= explodeFrom });
   }
@@ -138,8 +151,8 @@ function dieFaces(definition: RulesetDefinition): Array<{ value: number; explode
 const EXPLODE_DEPTH = 3;
 
 /** One die's net worth with its explosions folded in, as chances by value. */
-function oneDie(definition: RulesetDefinition): Map<number, number> {
-  const faces = dieFaces(definition);
+function oneDie(definition: RulesetDefinition, threshold?: number): Map<number, number> {
+  const faces = dieFaces(definition, threshold);
   const share = 1 / faces.length;
   const at = (depth: number): Map<number, number> => {
     const out = new Map<number, number>();
@@ -162,8 +175,8 @@ function thrownCount(definition: RulesetDefinition, dice: number): number {
 }
 
 /** How likely each count of net successes is for ONE throw of `dice` dice, indexed by successes. */
-function distributionOnce(definition: RulesetDefinition, dice: number): number[] {
-  const die = oneDie(definition);
+function distributionOnce(definition: RulesetDefinition, dice: number, threshold?: number): number[] {
+  const die = oneDie(definition, threshold);
   let total = new Map<number, number>([[0, 1]]);
   for (let i = 0; i < thrownCount(definition, dice); i++) {
     const next = new Map<number, number>();
@@ -204,9 +217,9 @@ export function rulesetPoolDistribution(
 
 /** The chance ONE throw of `dice` dice reaches `needed` net successes: its distribution summed from
  *  `needed` up. A botch has no success, so it never reaches the one a hit needs. */
-function chanceOnce(definition: RulesetDefinition, dice: number, needed: number): number {
+function chanceOnce(definition: RulesetDefinition, dice: number, needed: number, threshold?: number): number {
   let reached = 0;
-  distributionOnce(definition, dice).forEach((chance, successes) => {
+  distributionOnce(definition, dice, threshold).forEach((chance, successes) => {
     if (successes >= needed) reached += chance;
   });
   return Math.min(1, Math.max(0, reached));
@@ -218,8 +231,10 @@ export function rulesetPoolChance(
   dice: number,
   needed: number,
   mode: RulesetCombatRollMode = "normal",
+  /** A per-die target of the throw's own, as `throwRulesetCombatPool` takes one. */
+  threshold?: number,
 ): number {
-  const once = chanceOnce(definition, dice, Math.max(1, needed));
+  const once = chanceOnce(definition, dice, Math.max(1, needed), threshold);
   if (mode === "advantage") return 1 - (1 - once) ** 2;
   if (mode === "disadvantage") return once ** 2;
   return once;

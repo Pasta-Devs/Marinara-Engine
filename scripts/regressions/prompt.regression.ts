@@ -97,6 +97,33 @@ import {
   normalizeCyoaDialogueQuotes,
 } from "../../packages/server/src/services/agents/cyoa-choice-normalization.js";
 
+import {
+  appendNonLeadingSystemMessagesToLastUser,
+  appendReadableAttachmentsToContent,
+  applyTrackerCharacterCardIdentity,
+  canonicalizeGamePartySpeakerLabels,
+  buildGenerationGuideInstruction,
+  buildLockedInventoryTrackerPatch,
+  buildLockedPlayerStatsArrayPatch,
+  resolveTrackerGroupUpdate,
+  appendSeparateAgentInjectionMessage,
+  collectLatestTrackerCharacterHistory,
+  computeSummaryHideIds,
+  formatSeparateAgentInjection,
+  getMessageHiddenFromAICharacterIds,
+  injectIntoOutputFormatOrLastUser,
+  isMessageHiddenFromAIForCharacter,
+  preserveTrackerCharacterUiFields,
+  prefixGroupIndividualHistorySpeakers,
+  readPersonaSnapshotName,
+  resolveActivePersonaCandidate,
+  resolveRoleplaySummaryTail,
+  shouldEnableAgentsForGeneration,
+  shouldInjectIdentityFallback,
+  stripSpeakerTagsExceptLastAssistant,
+  type SimpleMessage,
+} from "../../packages/server/src/routes/generate/generate-route-utils.js";
+
 const personaA = {
   id: "noodle-account-a",
   kind: "persona" as const,
@@ -736,32 +763,7 @@ import {
   escapeStandaloneGameNarrationAngleLines,
   hasVisibleGameNarrationText,
 } from "../../packages/client/src/lib/game-tag-parser.js";
-import {
-  appendNonLeadingSystemMessagesToLastUser,
-  appendReadableAttachmentsToContent,
-  applyTrackerCharacterCardIdentity,
-  canonicalizeGamePartySpeakerLabels,
-  buildGenerationGuideInstruction,
-  buildLockedInventoryTrackerPatch,
-  buildLockedPlayerStatsArrayPatch,
-  resolveTrackerGroupUpdate,
-  appendSeparateAgentInjectionMessage,
-  collectLatestTrackerCharacterHistory,
-  computeSummaryHideIds,
-  formatSeparateAgentInjection,
-  getMessageHiddenFromAICharacterIds,
-  injectIntoOutputFormatOrLastUser,
-  isMessageHiddenFromAIForCharacter,
-  preserveTrackerCharacterUiFields,
-  prefixGroupIndividualHistorySpeakers,
-  readPersonaSnapshotName,
-  resolveActivePersonaCandidate,
-  resolveRoleplaySummaryTail,
-  shouldEnableAgentsForGeneration,
-  shouldInjectIdentityFallback,
-  stripSpeakerTagsExceptLastAssistant,
-  type SimpleMessage,
-} from "../../packages/server/src/routes/generate/generate-route-utils.js";
+
 import {
   appendContinuationMessageContent,
   CONTINUE_ASSISTANT_MESSAGE_DIRECT_PROMPT,

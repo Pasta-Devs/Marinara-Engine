@@ -254,6 +254,11 @@ export type GameStoryboardViewerDisplayMode = "floating" | "background";
 
 /** Extra metadata stored on a chat. */
 export interface ChatMetadata {
+  /** Fresh, explicitly reviewed setup for an optional shared session. */
+  multiplayerSetup?: boolean;
+  multiplayerSetupComplete?: boolean;
+  multiplayerGameSetup?: { preferences: string; gmConnectionId?: string; gameName?: string };
+  multiplayer?: import("./multiplayer.js").MultiplayerStoredRoom | import("./multiplayer.js").MultiplayerJoinedRoom;
   /** Opt-in coordinated Roleplay context and scene memory. */
   advancedMemory?: import("./advanced-memory.js").AdvancedMemorySettings;
   /** Durable maintenance checkpoint; model calls never hold a storage transaction. */
