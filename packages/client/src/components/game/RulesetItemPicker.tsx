@@ -41,6 +41,12 @@ export function rulesetItemStatsLine(facts: RulesetItemFacts): string {
 export function rulesetItemEffectLines(facts: RulesetItemFacts, t: TFunction): string[] {
   const phrase = (fact: RulesetItemEffectFact) => {
     const names = fact.names.join(", ");
+    if ("atLeast" in fact.change) {
+      return t("ui.game.gameinventory.effectAbilitySet", { names, value: fact.change.atLeast });
+    }
+    if (fact.to === "ability" && "value" in fact.change) {
+      return t("ui.game.gameinventory.effectAbilityAdd", { names, change: fact.change.value });
+    }
     if ("fails" in fact.change) return t("ui.game.gameinventory.effectFailsSaves", { names });
     const change =
       "mode" in fact.change
@@ -59,15 +65,31 @@ export function rulesetItemEffectLines(facts: RulesetItemFacts, t: TFunction): s
       ? t("ui.game.gameinventory.effectOnNamedSaves", { change, names })
       : t("ui.game.gameinventory.effectOnSaves", { change });
   };
-  return (["worn", "carried"] as const).flatMap((when) =>
-    facts[when]?.length
-      ? [
-          t(when === "worn" ? "ui.game.gameinventory.whileWorn" : "ui.game.gameinventory.whileCarried", {
-            effects: facts[when]!.map(phrase).join("; "),
-          }),
-        ]
-      : [],
-  );
+  return [
+    ...(["worn", "carried"] as const).flatMap((when) =>
+      facts[when]?.length
+        ? [
+            t(when === "worn" ? "ui.game.gameinventory.whileWorn" : "ui.game.gameinventory.whileCarried", {
+              effects: facts[when]!.map(phrase).join("; "),
+            }),
+          ]
+        : [],
+    ),
+    ...(facts.requires ?? []).map((need) =>
+      t("ui.game.gameinventory.requires", {
+        what:
+          need.of === "modifier"
+            ? t("ui.game.gameinventory.requiresModifier", { name: need.what })
+            : need.of === "items"
+              ? need.what
+                ? t("ui.game.gameinventory.requiresItemsOf", { name: need.what })
+                : t("ui.game.gameinventory.requiresItems")
+              : need.what,
+        atLeast: need.atLeast,
+        effects: need.otherwise.map(phrase).join("; "),
+      }),
+    ),
+  ];
 }
 
 export function RulesetItemPicker({

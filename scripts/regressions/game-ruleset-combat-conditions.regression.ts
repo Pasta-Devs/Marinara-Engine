@@ -381,10 +381,18 @@ try {
     const poisoned = reference.combat!.conditions!.find((entry) => entry.condition === "poisoned")!;
     assert.ok(poisoned.effects.includes("own-checks-disadvantage"));
     assert.deepEqual(
-      ember.combat!.levels!.map((level) => [level.track, level.at, level.modifiers]),
+      ember.combat!.levels!.map((level) => [level.track ?? level.derived, level.at, level.modifiers]),
       [
         ["heat", 3, [{ to: "attacks", flat: -1 }]],
         ["heat", 5, [{ to: "speed", times: 0.5 }]],
+        [
+          "bulk_carried",
+          10,
+          [
+            { to: "speed", flat: -2 },
+            { to: "checks", skills: ["sneak"], flat: -1 },
+          ],
+        ],
       ],
     );
   }

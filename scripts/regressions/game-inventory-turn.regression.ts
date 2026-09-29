@@ -752,7 +752,9 @@ try {
     const checked = (await chats.listMessages(road.id)).at(-1)!.content;
     assert.match(
       checked,
-      /\[skill_check: skill="Sneak" dc="8" rolls="\d+\|\d+"[^\]]* effects="-1" from="Leather coat"\]/,
+      // And 12 bulk carried is past the 10 at which the road slows anybody (#6846): a level off a
+      // derived value, with nobody ticking a track.
+      /\[skill_check: skill="Sneak" dc="8" rolls="\d+\|\d+"[^\]]* effects="-2" from="Bulk carried 10; Leather coat"\]/,
     );
     assert.match(text, /an add with who left out goes to whoever can carry it/);
     // A check the ruleset rolled with its own dice is saved as it rolled it: Bram's Scrap with his

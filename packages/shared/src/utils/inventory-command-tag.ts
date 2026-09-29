@@ -71,6 +71,11 @@ function readProposal(values: Map<string, string>): Omit<GameInventoryItemPropos
     const value = values.get(key)?.trim().replace(/\s+/g, " ");
     return value ? value.slice(0, max) : undefined;
   };
+  // A list written as "none" is given, and empty.
+  const list = (key: string) => {
+    const value = values.get(key);
+    return value !== undefined && /^\s*(?:none|no|nothing)\s*$/i.test(value) ? "" : value;
+  };
   const like = text("like", 121);
   const category = text("category");
   const rarity = text("rarity");
@@ -78,14 +83,13 @@ function readProposal(values: Map<string, string>): Omit<GameInventoryItemPropos
   const worn = text("worn", 300);
   const carried = text("carried", 300);
   const summary = text("summary", 300);
-  const tags = values
-    .get("tags")
+  const tags = list("tags")
     ?.split(",")
     .map((tag) => tag.trim())
     .filter(Boolean)
     .slice(0, MAX_PROPOSAL_PARTS);
-  const stats = values.has("stats") ? Object.fromEntries(readParts(values.get("stats")!)) : undefined;
-  const slots = values.has("slots") ? Object.fromEntries(readParts(values.get("slots")!)) : undefined;
+  const stats = values.has("stats") ? Object.fromEntries(readParts(list("stats")!)) : undefined;
+  const slots = values.has("slots") ? Object.fromEntries(readParts(list("slots")!)) : undefined;
   const proposal = {
     ...(like ? { like } : {}),
     ...(category ? { category } : {}),

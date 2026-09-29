@@ -84,12 +84,13 @@ export interface RulesetCombatPoolRoll {
   botch?: boolean;
 }
 
-/** What one condition (or a level of a track) added to, or took from, one roll or number. `level` is
- *  set when it came from a level, and then `condition` is the track's id. Dice it rolled are kept, so
- *  the log can say what was thrown. */
+/** What one condition (or a level of a track or a derived value) added to, or took from, one roll or
+ *  number. `level` is set when it came from a level, and then `condition` is the track's id, or the
+ *  derived value's where `derived` is set. Dice it rolled are kept, so the log can say what was thrown. */
 export interface RulesetConditionBonus {
   condition: string;
   level?: number;
+  derived?: true;
   value: number;
   rolls?: number[];
 }

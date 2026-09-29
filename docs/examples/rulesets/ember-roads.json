@@ -222,6 +222,14 @@
         "section": "gear"
       },
       {
+        "$comment": "Everything a traveller holds, worn or packed, by its bulk. From 10 the road slows anybody, whatever their Brawn: see the combat block's levels.",
+        "id": "bulk_carried",
+        "label": "Bulk carried",
+        "op": "sum",
+        "of": [{ "itemStat": { "stat": "bulk", "from": "all", "pick": "sum" } }],
+        "section": "gear"
+      },
+      {
         "id": "strain_boxes",
         "label": "Strain boxes",
         "op": "sum",
@@ -1168,6 +1176,19 @@
           }
         },
         {
+          "id": "ox-hide-gauntlets",
+          "label": "Ox-hide gauntlets",
+          "summary": "Stiff cuffs of ox hide that lend a weak grip a drover's.",
+          "item": {
+            "category": "armor",
+            "rarity": "uncommon",
+            "stats": { "bulk": 1 },
+            "slots": { "hands": 2 },
+            "cost": { "amount": 3, "unit": "sovereign" },
+            "worn": { "abilities": { "brawn": { "set": 2 } } }
+          }
+        },
+        {
           "id": "road-rations",
           "label": "Road rations",
           "summary": "A day of hard bread and harder cheese.",
@@ -1315,7 +1336,16 @@
         "at": 3,
         "modifiers": [{ "to": "attacks", "flat": -1 }]
       },
-      { "track": "heat", "at": 5, "modifiers": [{ "to": "speed", "times": 0.5 }] }
+      { "track": "heat", "at": 5, "modifiers": [{ "to": "speed", "times": 0.5 }] },
+      {
+        "$comment": "A level off a derived value rather than a track nobody has to tick: laden with 10 bulk or more, a traveller is slower and louder.",
+        "derived": "bulk_carried",
+        "at": 10,
+        "modifiers": [
+          { "to": "speed", "flat": -2 },
+          { "to": "checks", "skills": ["sneak"], "flat": -1 }
+        ]
+      }
     ],
     "checks": [
       {

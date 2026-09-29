@@ -1163,6 +1163,48 @@ items change checks outside a fight.
   (a real turn saves the Sneak check with the coat) and `e2e/game-ruleset-check-effects.e2e.ts` (the
   coat's details and the dice card of a real turn), with 65 deliberate breaks each caught. The published JSON schema mirrors the new refinements, pinned by `game-ruleset-json-schema.regression.ts`.
 
+### What requirements, abilities and derived levels settled
+
+Capability API 1.54, for #6846. Slice I4-3 of the ruleset items plan, the last of I4.
+
+- **Abilities.** A worn or carried effect may carry `abilities`, each `{ set }` (a floor a higher score
+  keeps) or `{ add }` (not 0), checked against the sheet's abilities and a `set` against their range.
+  `evaluateRulesetSheet` applies them first, from the items in the live values: the additions, then
+  the highest floor, inside the ability's own range, each item once. So every in-game reader (the
+  sheet, checks, the Game Master's block, fights) reads the changed ability. Maximums and the
+  proficiency bonus are worked out without the live state and so without items, as `itemStat` already
+  was. `rulesetReadsItems` now means "has an items block", since abilities and derived levels read
+  items without an `itemStat`.
+- **Requirements.** An item's `requires` (up to four) names a value reference, `atLeast`, and an
+  `otherwise` effect in the worn vocabulary, which may not change an ability (the value may read one).
+  While the item is worn and the value, read off the sheet with items applied, falls short, the
+  `otherwise` is one more check source named for the item. What an item does in a fight still waits
+  for I5.
+- **Derived levels.** A level reads a `track` or a `derived` value, exactly one; the derived value is
+  worked out with the live state and items, on checks outside a fight and in a fight (from what the
+  fighter held as it began). A derived value may share a track's id, so a derived level is marked
+  `derived` on its way to a roll's bonuses and guards, is counted apart from the track's at import,
+  and the fight log names it by the derived value's label.
+- **Seen and said.** Item facts carry ability changes ("Brawn at least 2", "+1 Heart") and
+  requirements ("needs Sinew 3, otherwise -1 on checks (Dig)"), on the screen in localized words and
+  in the Game Master's inventory line. Every value a requirement may read has a label: a modifier and
+  a count of items say so ("Sinew modifier", "Silver items"), and a list's column names its list. Invented items take an ability's name in `worn=`/`carried=` as
+  an addition, held to the rarity's `bonus`; a `set` copied from `like=` is left out at a capped rarity,
+  and `like=` brings its requirements. A real small model (Gemma 4 E4B) wrote the bonus as `Brawn +1`,
+  inside `stats=` or beside `tags="none"`, so a proposal reads a number after the name, `worn=`,
+  `carried=` or `summary=` inside `stats=` when no stat has that name, and `none` as an empty list.
+- **Gate and schema.** 1.54 at install for `requires`, an effect's `abilities` (inline and in catalog
+  files) and a level's `derived`. The published JSON schema mirrors the one-of level, abilities as an
+  item effect's content, and no abilities in an unmet requirement.
+- **Examples.** Ember Roads: ox-hide gauntlets set Brawn to at least 2, and a derived "Bulk carried"
+  slows anyone carrying 10 or more. Gravewatch: the grave spade asks for Sinew 3.
+- **Proven** by `scripts/regressions/game-ruleset-requirements.regression.ts` (every refusal and the
+  gate, abilities from items on the sheet, a derived value, the Game Master's block and a fight,
+  requirements on checks including one met by an item, derived levels on checks and in a fight, item
+  facts, invented items and a proposal's slips), `game-inventory-turn.regression.ts` (a real turn's
+  Sneak check carries the bulk level beside the coat) and `e2e/game-ruleset-wearing.e2e.ts` (Brawn +2
+  on the in-game sheet, and both kinds of item details), with 57 deliberate breaks each caught.
+
 ## Gaps a ruleset author found
 
 The author of [Marinara-RPG-Extension](https://github.com/Kenhito/Marinara-RPG-Extension), who

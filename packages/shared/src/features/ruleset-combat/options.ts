@@ -381,9 +381,10 @@ export function rulesetDefenseAgainst(
 ): { defense: number; cover: number; guards: RulesetConditionBonus[] } {
   // What the target's own conditions add. Defense is never rolled, so each is its flat number.
   const guards = rulesetConditionModifiers(definition, combat, target, "defense", state).map(
-    ({ condition, level, modifier }) => ({
+    ({ condition, level, derived, modifier }) => ({
       condition,
       ...(level !== undefined ? { level } : {}),
+      ...(derived ? { derived } : {}),
       value: modifier.flat ?? 0,
     }),
   );

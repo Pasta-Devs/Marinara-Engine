@@ -212,26 +212,34 @@ export function rulesetActiveConditions(
 }
 
 /** A condition entry that is on somebody right now: one of the fight's own conditions, or a level of a
- *  live track, which reads exactly like one. `level` is set only on a level, whose `condition` is then
- *  the track's id. */
-export type RulesetActiveCondition = RulesetCombatCondition & { level?: number };
+ *  live track or a derived value, which reads exactly like one. `level` is set only on a level, whose
+ *  `condition` is then the track's id, or the derived value's where `derived` is set (the two may
+ *  share an id). */
+export type RulesetActiveCondition = RulesetCombatCondition & { level?: number; derived?: true };
 
-/** The levels of the holder's own tracks that are reached. Only a sheet has tracks, so a combatant
- *  written in plain numbers has none. */
+/** The levels of the holder's own tracks, and of their derived values, that are reached. Only a sheet
+ *  has either, so a combatant written in plain numbers has none. A derived value is worked out with
+ *  the live state as it stands and what they held as the fight began. */
 function activeLevels(
   definition: RulesetDefinition,
   combat: RulesetCombat,
   combatant: RulesetCombatant,
 ): RulesetActiveCondition[] {
   if (!combatant.sheet) return [];
-  const live = readRulesetLive(definition, combatant.sheet.build, combatant.sheet.live);
+  const { build, live: stored, items } = combatant.sheet;
+  const live = readRulesetLive(definition, build, stored);
+  let derived: Record<string, number> | undefined;
   return (combat.levels ?? []).flatMap((level) => {
-    const value = live.tracks.find((track) => track.id === level.track)?.value ?? 0;
+    const value =
+      level.derived !== undefined
+        ? ((derived ??= evaluateRulesetSheetLive(definition, build, stored, items).derived)[level.derived] ?? 0)
+        : (live.tracks.find((track) => track.id === level.track)?.value ?? 0);
     if (value < level.at) return [];
     return [
       {
-        condition: level.track,
+        condition: level.track ?? level.derived!,
         level: level.at,
+        ...(level.derived !== undefined ? { derived: true as const } : {}),
         effects: level.effects,
         ...(level.modifiers ? { modifiers: level.modifiers } : {}),
         ...(level.failsSaves ? { failsSaves: level.failsSaves } : {}),
@@ -246,6 +254,7 @@ function activeLevels(
 export interface RulesetConditionModifier {
   condition: string;
   level?: number;
+  derived?: true;
   modifier: NonNullable<RulesetCombatCondition["modifiers"]>[number];
 }
 
@@ -278,6 +287,7 @@ export function rulesetConditionModifiers(
       .map((modifier) => ({
         condition: entry.condition,
         ...(entry.level !== undefined ? { level: entry.level } : {}),
+        ...(entry.derived ? { derived: entry.derived } : {}),
         modifier,
       }));
   });

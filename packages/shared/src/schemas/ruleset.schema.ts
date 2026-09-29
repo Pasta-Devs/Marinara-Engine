@@ -1955,6 +1955,8 @@ const catalogItemSchema = z
     worn: z.lazy(() => rulesetItemEffectSchema).optional(),
     /** What it does while it is only carried. */
     carried: z.lazy(() => rulesetItemEffectSchema).optional(),
+    /** What it asks of whoever wears it, and what applies while they fall short. */
+    requires: z.lazy(() => z.array(rulesetItemRequirementSchema).min(1).max(4)).optional(),
   })
   .strict();
 
@@ -2373,7 +2375,10 @@ export const RULESET_LEVEL_REFUSED_EFFECTS = [
  */
 const combatLevelSchema = z
   .object({
-    track: sheetId,
+    /** A plain live track, read by where it stands... */
+    track: sheetId.optional(),
+    /** ...or a derived value, worked out with the holder's live state and items. One of the two. */
+    derived: sheetId.optional(),
     at: z.number().int().min(1).max(1000),
     effects: z.array(combatConditionEffectSchema).max(12).default([]),
     modifiers: z.array(combatModifierSchema).min(1).max(6).optional(),
@@ -2383,12 +2388,19 @@ const combatLevelSchema = z
   })
   .strict()
   .superRefine((entry, ctx) => {
+    if ((entry.track === undefined) === (entry.derived === undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["track"],
+        message: "A level reads a live track or a derived value: one of them",
+      });
+    }
     entry.effects.forEach((effect, index) => {
       if ((RULESET_LEVEL_REFUSED_EFFECTS as readonly string[]).includes(effect)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["effects", index],
-          message: `A level cannot have "${effect}": nobody put it on, and it ends only when the track goes down`,
+          message: `A level cannot have "${effect}": nobody put it on, and it ends only when what it reads goes down`,
         });
       }
     });
@@ -2442,6 +2454,13 @@ export const RULESET_ITEM_MODIFIER_TARGETS = ["checks", "saves"] as const;
  * vocabulary: advantage or disadvantage on its holder's checks and saves, modifiers to them, and saves
  * it makes them fail, narrowed by `skills` and `saves` as a condition's are.
  */
+/** What an item does to one ability while it applies: `set` it to at least a number (a higher score
+ *  stays), or `add` to it. */
+const itemAbilityChangeSchema = z.union([
+  z.object({ set: z.number().int() }).strict(),
+  z.object({ add: z.number().int().min(-100).max(100) }).strict(),
+]);
+
 export const rulesetItemEffectSchema = z
   .object({
     effects: z.array(z.enum(RULESET_ITEM_EFFECTS)).min(1).max(4).optional(),
@@ -2449,15 +2468,34 @@ export const rulesetItemEffectSchema = z
     failsSaves: z.array(sheetId).min(1).max(12).optional(),
     saves: z.array(sheetId).min(1).max(12).optional(),
     skills: z.array(sheetId).min(1).max(24).optional(),
+    /** Abilities it sets or raises, by ability id, applied before the sheet is worked out. */
+    abilities: z.record(sheetId, itemAbilityChangeSchema).optional(),
   })
   .strict()
   .superRefine((entry, ctx) => {
-    if (!entry.effects && !entry.modifiers && !entry.failsSaves) {
+    const abilities = Object.entries(entry.abilities ?? {});
+    if (!entry.effects && !entry.modifiers && !entry.failsSaves && abilities.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["effects"],
-        message: "An item's effect does something: effects, modifiers or saves it fails",
+        message: "An item's effect does something: effects, modifiers, saves it fails or abilities it changes",
       });
+    }
+    if (abilities.length > 12) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["abilities"],
+        message: "An item changes at most 12 abilities",
+      });
+    }
+    for (const [id, change] of abilities) {
+      if ("add" in change && change.add === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["abilities", id, "add"],
+          message: "Adding 0 changes nothing",
+        });
+      }
     }
     entry.modifiers?.forEach((modifier, index) => {
       if (!(RULESET_ITEM_MODIFIER_TARGETS as readonly string[]).includes(modifier.to)) {
@@ -2472,6 +2510,26 @@ export const rulesetItemEffectSchema = z
     skillsNeedSomethingToNarrow(entry, ctx);
   });
 export type RulesetItemEffect = z.infer<typeof rulesetItemEffectSchema>;
+
+/** Something an item asks of whoever wears it: a value off their sheet, the least it may be, and what
+ *  applies while it falls short. What applies cannot change an ability, since the value may read one. */
+export const rulesetItemRequirementSchema = z
+  .object({
+    value: rulesetValueRefSchema,
+    atLeast: z.number().finite(),
+    otherwise: rulesetItemEffectSchema,
+  })
+  .strict()
+  .superRefine((entry, ctx) => {
+    if (entry.otherwise.abilities !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["otherwise", "abilities"],
+        message: "An unmet requirement cannot change an ability, since what it asks may read one",
+      });
+    }
+  });
+export type RulesetItemRequirement = z.infer<typeof rulesetItemRequirementSchema>;
 
 /** A number a contest reads for whoever takes part in it: a value off the sheet, read once when the
  *  fight begins, the way a defense or a save is. A creature written in plain numbers gives its own. */
@@ -4285,23 +4343,27 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       }
     });
 
-    // A level reads a plain track by its number. A wound track is marked with kinds rather than
-    // counted, so no rung of one could be read this way.
+    // A level reads a plain track by its number, or a derived value. A wound track is marked with
+    // kinds rather than counted, so no rung of one could be read this way.
     const levelled = new Set<string>();
     combat.levels?.forEach((entry, index) => {
       const path = at("levels", index);
-      if (!tracks.has(entry.track)) issue([...path, "track"], `Unknown track "${entry.track}"`);
-      else if (woundTracks.has(entry.track)) {
-        issue([...path, "track"], `"${entry.track}" is a wound track; a level reads a plain track's number`);
+      const read = entry.track ?? entry.derived ?? "";
+      if (entry.derived !== undefined) {
+        if (!derivedIds.has(entry.derived)) issue([...path, "derived"], `Unknown derived value "${entry.derived}"`);
+      } else if (!tracks.has(read)) issue([...path, "track"], `Unknown track "${read}"`);
+      else if (woundTracks.has(read)) {
+        issue([...path, "track"], `"${read}" is a wound track; a level reads a plain track's number`);
       } else {
         // A level above a fixed top is never reached, which is nearly always a typo for one that is.
-        const top = sheet.live.tracks.find((track) => track.id === entry.track)!.max;
+        const top = sheet.live.tracks.find((track) => track.id === read)!.max;
         if (typeof top === "number" && entry.at > top) {
-          issue([...path, "at"], `"${entry.track}" goes up to ${top}, so level ${entry.at} is never reached`);
+          issue([...path, "at"], `"${read}" goes up to ${top}, so level ${entry.at} is never reached`);
         }
       }
-      const key = `${entry.track}@${entry.at}`;
-      if (levelled.has(key)) issue([...path, "at"], `Level ${entry.at} of "${entry.track}" is given twice`);
+      // A track and a derived value may share an id; their levels are not the same level.
+      const key = `${entry.derived !== undefined ? "derived" : "track"}:${read}@${entry.at}`;
+      if (levelled.has(key)) issue([...path, "at"], `Level ${entry.at} of "${read}" is given twice`);
       levelled.add(key);
       effectNameIssues(entry, skills, saves, path, issue);
     });
@@ -5092,9 +5154,29 @@ function itemIssues(
   if (item.binds && !items.binding) add([...at, "binds"], "This ruleset declares no binding, so nothing is bound");
   const skills = new Set(definition.sheet.skills.map((skill) => skill.id));
   const saves = new Set(definition.sheet.saves.map((save) => save.id));
+  const abilities = new Map(definition.sheet.abilities.map((ability) => [ability.id, ability]));
   for (const key of ["worn", "carried"] as const) {
     const effect = item[key];
-    if (effect) effectNameIssues(effect, skills, saves, [...at, key], add);
+    if (!effect) continue;
+    effectNameIssues(effect, skills, saves, [...at, key], add);
+    for (const [id, change] of Object.entries(effect.abilities ?? {})) {
+      const ability = abilities.get(id);
+      if (!ability) add([...at, key, "abilities", id], `Unknown ability "${id}"`);
+      else if ("set" in change && (change.set < ability.min || change.set > ability.max)) {
+        add([...at, key, "abilities", id, "set"], `"${id}" runs from ${ability.min} to ${ability.max}`);
+      }
+    }
+  }
+  if (item.requires) {
+    // Read off the wearer's sheet with their live state and items, as anything worked out in play is.
+    const names = rulesetSheetNames(definition.sheet, definition.items);
+    item.requires.forEach((requirement, index) => {
+      const path = [...at, "requires", index];
+      for (const issue of rulesetValueRefIssues(requirement.value, names, names.derived, true)) {
+        add([...path, "value", issue.key], issue.message);
+      }
+      effectNameIssues(requirement.otherwise, skills, saves, [...path, "otherwise"], add);
+    });
   }
 }
 

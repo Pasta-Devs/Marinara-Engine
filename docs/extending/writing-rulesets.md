@@ -633,7 +633,7 @@ The limits are 12 catalogs per ruleset, 2000 entries per catalog either way, and
 
 ## Items: what a party carries
 
-Armor, weapons, potions, gear, ammunition and money are items. An optional `items` block declares the words every item of your ruleset is written in, and a catalog with `holds: "items"` lists the items themselves. Both need Capability API 1.49; the block's `rarityCaps` and `propose`, which govern the items the Game Master invents, need 1.51, a value that reads the items a character holds (`itemStat`) needs 1.52, and what an item does to checks while worn or carried, with the block's `bonus` caps, needs 1.53.
+Armor, weapons, potions, gear, ammunition and money are items. An optional `items` block declares the words every item of your ruleset is written in, and a catalog with `holds: "items"` lists the items themselves. Both need Capability API 1.49; the block's `rarityCaps` and `propose`, which govern the items the Game Master invents, need 1.51, a value that reads the items a character holds (`itemStat`) needs 1.52, what an item does to checks while worn or carried, with the block's `bonus` caps, needs 1.53, and what an item asks of its wearer and the abilities it changes need 1.54.
 
 ### The items block
 
@@ -745,7 +745,8 @@ Each entry carries an `item` instead of `rows` or a `creature`:
 - `stack`: the most one stack holds, from 1 to 999,999. Without it, a stack holds as many as any Game Mode stack.
 - `cost`: a whole `amount` of one coin, named by its `unit` id.
 - `binds`: the item has to be bound before it does anything while worn. `restriction` (optional) says in words who may bind it, and `cursed: true` marks one that will not let go. Only a ruleset with `binding` can have items that bind.
-- `worn` and `carried` (optional, Capability API 1.53): what the item does to its holder's checks and saves while it is worn, and while it is only carried. See [Checks outside a fight](#checks-outside-a-fight).
+- `worn` and `carried` (optional, Capability API 1.53): what the item does to its holder's checks and saves while it is worn, and while it is only carried, and (1.54) the abilities it sets or raises. See [Checks outside a fight](#checks-outside-a-fight).
+- `requires` (optional, Capability API 1.54): what the item asks of whoever wears it, and what applies while they fall short. See [Checks outside a fight](#checks-outside-a-fight).
 
 An item carries no `mechanics`: what it does is written in its `item` block.
 
@@ -763,12 +764,12 @@ Everything above is checked when the ruleset is imported, and your catalogs of i
 - **`slots`**: an item that takes slots can be equipped by whoever carries it, while they have those slots free, and one item of a larger stack is taken into its own stack to be worn. The inventory shows each slot in use per character.
 - **`binding`**: an item that `binds` can be bound, up to `binding.max` read off its bearer's own sheet (a character without a sheet reads a blank one). A `cursed` item, once bound, stays bound: the player cannot unbind it, take it off, give it away or remove it, and only the Game Master can end the curse.
 - **`carry`**: an item weighs its value of `carry.stat` (an item without one weighs nothing), and a character's load is what their bag weighs, against `encumberedAbove` and `limit` read off their own sheet. An item added into the inventory's shared view, by the player or by the Game Master without a `who=`, goes to whoever can carry it without becoming encumbered (the player first, then the party in order), shared out by the room each has left when nobody can take all of it. Nothing goes past anyone's `limit`: what nobody can carry is left behind and the Game Master is told. Give a weight stat `"integer": false` for weights such as a quarter of a pound.
-- **The Game Master invents items in your words.** Unless you set `propose: false`, its `[inventory: action="add"]` can describe a new item: `like=` one of your items to start from, then any of `category=`, `rarity=`, `tags=`, `stats=` (`id=value` pairs), `slots=` (`id=count`), `binds=` (`yes`, `cursed` or `no`), `worn=` and `carried=` (changes split by `;`, each `+N`, `-N`, `advantage`, `disadvantage` or `fails` for saves, on skills or saves by name, or on `checks` or `saves` for all of them: `worn="+1 Sneak; disadvantage on Sway checks"`, or `none`) and `summary=`, each part by its id or label. The Engine keeps only what your block has: an unknown category, tag, stat, slot, skill or save is left out, a rarity you do not have becomes your lowest, a number is held to its stat's range and then to `rarityCaps` for its rarity, a worn or carried bonus to its rarity's `bonus` (the part `like` started it from as well), and a name that is one of your items is simply that item. The answer tells the Game Master what was changed (never about a stat you do not show it), and the item's details show every change to the player. The game keeps the item, so the same name is that item for the rest of the game, and a new session keeps it while anyone still holds it.
+- **The Game Master invents items in your words.** Unless you set `propose: false`, its `[inventory: action="add"]` can describe a new item: `like=` one of your items to start from, then any of `category=`, `rarity=`, `tags=`, `stats=` (`id=value` pairs), `slots=` (`id=count`), `binds=` (`yes`, `cursed` or `no`), `worn=` and `carried=` (changes split by `;`, each `+N`, `-N`, `advantage`, `disadvantage` or `fails` for saves, on skills or saves by name, or on `checks` or `saves` for all of them, and `+N` or `-N` on an ability's name to raise or lower it: `worn="+1 Sneak; disadvantage on Sway checks"`, `carried="+1 Brawn"`, or `none`) and `summary=`, each part by its id or label. It also reads what a small model tends to write instead: a number after the name (`Brawn +1`), `none` for an empty list of tags, stats or slots, and `worn=`, `carried=` or `summary=` inside `stats=` when you have no stat of that name. The Engine keeps only what your block has: an unknown category, tag, stat, slot, skill or save is left out, a rarity you do not have becomes your lowest, a number is held to its stat's range and then to `rarityCaps` for its rarity, a worn or carried bonus to its rarity's `bonus` (the part `like` started it from as well), and a name that is one of your items is simply that item. The answer tells the Game Master what was changed (never about a stat you do not show it), and the item's details show every change to the player. The game keeps the item, so the same name is that item for the rest of the game, and a new session keeps it while anyone still holds it.
 - The Game Master can `equip` and `unequip` your items with its inventory command when you have `slots`, and `bind` and `unbind` them when you have `binding`: it is only told of the ones your ruleset has. It sees each character's load, bound items and slots, and what is worn or bound.
 
 - **What an item does while worn or carried** shows on the selected stack and in the picker ("While worn: -1 on checks (Sneak)"), and the Game Master sees it beside the item (`worn: -1 on checks (Sneak)`). Checks outside a fight apply it (see Checks outside a fight, below).
 
-A fight already spends one of your items the way it spends any item, unless `native` is `false`, and the sheet can read them (below). What being encumbered does to a character, requirements, and an item that sets or raises an ability come in the next release, and weapons and armor in a fight, using items by their own rules, and money after that.
+A fight already spends one of your items the way it spends any item, unless `native` is `false`, and the sheet can read them (below). Weapons and armor in a fight, and using items by their own rules, come in the next releases, and money after that.
 
 ### Items on the sheet
 
@@ -796,7 +797,7 @@ A character's items are the ones in their own bag. The player's card (the one na
 
 ### Checks outside a fight
 
-A check or save the Game Master calls for outside a fight reads more than the sheet: the character's own active conditions, the levels their tracks have reached, and what their items do while worn or carried. It is the same vocabulary a fight's conditions use (Capability API 1.53 for the item keys and the narrowing).
+A check or save the Game Master calls for outside a fight reads more than the sheet: the character's own active conditions, the levels they have reached, what their items do while worn or carried, and what a worn item's requirement costs while they fall short of it. It is the same vocabulary a fight's conditions use (Capability API 1.53 for the item keys and the narrowing).
 
 An item says what it does with `worn`, which applies while it is on (and bound, where it binds), and `carried`, which applies while it is only carried. Ember Roads' leather coat creaks when you creep, and a waystone makes caravan folk trust you:
 
@@ -814,8 +815,29 @@ Each takes the parts of a condition that a check reads:
 - `modifiers`: changes `to` checks or saves, with `flat`, `dice` (and `minus`), `mode`, and their own `skills` or `saves`, exactly as a condition's.
 - `failsSaves`: saves its holder fails without a roll.
 - `skills` and `saves`: which skills or saves the effects and the modifiers that name none of their own are about.
+- `abilities` (Capability API 1.54): abilities it changes, by id, each `{ "set": N }` (at least N: a higher score stays) or `{ "add": N }` (a negative number lowers it). They apply before the sheet is worked out, so everything that reads the ability reads the changed one: the sheet on screen, derived values, checks, the Game Master's sheet block and a fight as it begins. The additions go on first, then the highest `set`, and the ability's own `min` and `max` hold. A pool's or track's maximum and the proficiency bonus are worked out from the sheet alone, so an item does not move them.
+
+Ember Roads' ox-hide gauntlets lend a weak grip a drover's:
+
+```json
+"worn": { "abilities": { "brawn": { "set": 2 } } }
+```
 
 What an item does in a fight (defense, attacks, speed, the other effects) comes with weapons and armor in a fight, so those are refused here for now. One item applies once however many stacks of it someone holds.
+
+An item may also ask something of whoever wears it, with `requires`: a value off their sheet (`value`, any value reference, read as everything in play is), the least it may be (`atLeast`), and what applies while they fall short (`otherwise`, in the same vocabulary, except that it cannot change an ability, since what it asks may read one). Up to four. Gravewatch's grave spade is heavy work for a weak warden:
+
+```json
+"requires": [
+  {
+    "value": { "abilityScore": "sinew" },
+    "atLeast": 3,
+    "otherwise": { "modifiers": [{ "to": "checks", "skills": ["dig"], "flat": -1 }] }
+  }
+]
+```
+
+A requirement reads the ability as the wearer's items leave it, so gauntlets that set Sinew to 3 meet the spade's.
 
 On a check:
 
@@ -1143,10 +1165,22 @@ same keys for a d20 system:
   enough, which is how a condition that gets worse in steps, such as exhaustion, is said. Each entry
   names a plain `track` (not a wound track), the level `at` which it starts, and what it does, with
   the same `effects`, `modifiers`, `failsSaves`, `saves` and `skills` a condition has. Every level the track has
-  reached counts, so they add up as it climbs. A level has no source and ends only when the track
-  goes down, so `half-move-to-stand`, `ends-on-damage`, `cannot-target-source` and
+  reached counts, so they add up as it climbs. A level has no source and ends only when what it
+  reads goes down, so `half-move-to-stand`, `ends-on-damage`, `cannot-target-source` and
   `cannot-approach-source` are refused on one. Only a combatant with a sheet has tracks. The log names
   a level by its track and number ("- 1 (Heat 3)").
+
+  In place of `track`, a level may read a `derived` value (Capability API 1.54), worked out with the
+  character's live state and items, so nobody has to tick anything: Ember Roads slows anybody carrying
+  10 bulk or more.
+
+  ```json
+  { "derived": "bulk_carried", "at": 10, "modifiers": [{ "to": "speed", "flat": -2 }, { "to": "checks", "skills": ["sneak"], "flat": -1 }] }
+  ```
+
+  A threshold that differs from one character to the next ("more than five times Strength") is a
+  derived value that subtracts it: `scale` by -1 gives the part to take away, and a `sum` of the two is
+  what the level reads.
 
   ```json
   "levels": [

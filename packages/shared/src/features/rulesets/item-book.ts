@@ -13,6 +13,7 @@ import {
   type RulesetDefinition,
   type RulesetItemEffect,
   type RulesetItemStat,
+  type RulesetValueRef,
   type RulesetSheetBuild,
 } from "../../schemas/ruleset.schema.js";
 import { normalizeCharacterLookupName } from "../../utils/character-lookup-name.js";
@@ -29,6 +30,7 @@ import {
   rulesetInventedItemId,
   rulesetInventedItemRef,
   rulesetInventedItemText,
+  rulesetProposalParts,
   RULESET_INVENTED_ITEMS_MAX,
   type RulesetInventedItem,
 } from "./invented-items.js";
@@ -54,9 +56,20 @@ export interface RulesetItemStatFact {
  *  saves it is narrowed to, none for all of them), a lean, a number (`value`, signed, dice and all), or
  *  saves it makes fail. */
 export interface RulesetItemEffectFact {
-  to: "checks" | "saves";
+  /** Checks, saves, or one ability (its label in `names`). */
+  to: "checks" | "saves" | "ability";
   names: string[];
-  change: { mode: "advantage" | "disadvantage" } | { value: string } | { fails: true };
+  change: { mode: "advantage" | "disadvantage" } | { value: string } | { fails: true } | { atLeast: number };
+}
+
+/** What an item asks of whoever wears it, in the ruleset's words: the value's label, the least it may
+ *  be, and what applies while they fall short. `of` says the value is a modifier rather than a score,
+ *  or a count of items (`what` then names the kind counted, or is empty for any item). */
+export interface RulesetItemRequirementFact {
+  what: string;
+  of?: "modifier" | "items";
+  atLeast: number;
+  otherwise: RulesetItemEffectFact[];
 }
 
 /** What an item is, as labels: what the screen and the Game Master show. */
@@ -71,6 +84,50 @@ export interface RulesetItemFacts {
   /** What it does while worn, and while only carried. */
   worn?: RulesetItemEffectFact[];
   carried?: RulesetItemEffectFact[];
+  requires?: RulesetItemRequirementFact[];
+}
+
+/** A value off the sheet by the ruleset's own label: an ability, a skill, a derived value. An ability's
+ *  modifier (named directly or by a field) says so with `of`, a list's column is named with its list
+ *  ("Weight (Gear)"), and a count of items names what it counts. An id stands in for a missing label. */
+export function rulesetValueRefLabel(
+  definition: RulesetDefinition,
+  ref: RulesetValueRef,
+): Pick<RulesetItemRequirementFact, "what" | "of"> {
+  const sheet = definition.sheet;
+  const find = (entries: ReadonlyArray<{ id: string; label: string }> | undefined, id: string) =>
+    entries?.find((entry) => entry.id === id)?.label ?? id;
+  if (ref.const !== undefined) return { what: String(ref.const) };
+  if (ref.abilityScore !== undefined) return { what: find(sheet.abilities, ref.abilityScore) };
+  if (ref.abilityMod !== undefined) return { what: find(sheet.abilities, ref.abilityMod), of: "modifier" };
+  if (ref.abilityModFromField !== undefined)
+    return { what: find(sheet.fields, ref.abilityModFromField), of: "modifier" };
+  if (ref.derived !== undefined) return { what: find(sheet.derived, ref.derived) };
+  if (ref.field !== undefined) return { what: find(sheet.fields, ref.field) };
+  if (ref.skillMod !== undefined) return { what: find(sheet.skills, ref.skillMod) };
+  if (ref.saveMod !== undefined) return { what: find(sheet.saves, ref.saveMod) };
+  if (ref.liveTrack !== undefined) return { what: find(sheet.live.tracks, ref.liveTrack) };
+  if (ref.livePool !== undefined) return { what: find(sheet.live.pools, ref.livePool) };
+  if (ref.listSum) {
+    const list = sheet.lists.find((entry) => entry.id === ref.listSum!.list);
+    return { what: `${find(list?.columns, ref.listSum.column)} (${list?.label ?? ref.listSum.list})` };
+  }
+  const items = definition.items;
+  const stat = ref.itemStat!;
+  if (stat.stat !== undefined) return { what: find(items?.stats, stat.stat) };
+  const kinds = [
+    stat.tag !== undefined ? find(items?.tags, stat.tag) : undefined,
+    stat.category !== undefined ? find(items?.categories, stat.category) : undefined,
+    stat.slot !== undefined ? find(items?.slots, stat.slot) : undefined,
+  ];
+  return { what: kinds.filter(Boolean).join(" "), of: "items" };
+}
+
+/** A requirement's value as the Game Master reads it: "Sinew", "Sinew modifier", "Heavy items". */
+function requirementValueText(need: Pick<RulesetItemRequirementFact, "what" | "of">): string {
+  if (need.of === "modifier") return `${need.what} modifier`;
+  if (need.of === "items") return need.what ? `${need.what} items` : "items";
+  return need.what;
 }
 
 /** One worn or carried effect as facts: each lean, each number and each set of saves it fails. */
@@ -100,14 +157,29 @@ export function rulesetItemEffectFacts(
   if (effect.failsSaves?.length) {
     facts.push({ to: "saves", names: names("saves", effect.failsSaves), change: { fails: true } });
   }
+  for (const [id, change] of Object.entries(effect.abilities ?? {})) {
+    const label = definition.sheet.abilities.find((ability) => ability.id === id)?.label ?? id;
+    facts.push({
+      to: "ability",
+      names: [label],
+      change: "set" in change ? { atLeast: change.set } : { value: `${change.add > 0 ? "+" : ""}${change.add}` },
+    });
+  }
   return facts;
 }
 
-/** One effect fact in plain words, as the Game Master reads it: "-1 on checks (Sneak)". */
+/** One effect fact in plain words, as the Game Master reads it: "-1 on checks (Sneak)", "+1 Brawn". */
 export function rulesetItemEffectText(fact: RulesetItemEffectFact): string {
+  if (fact.to === "ability") {
+    const ability = fact.names.join(", ");
+    return "atLeast" in fact.change
+      ? `${ability} at least ${fact.change.atLeast}`
+      : `${"value" in fact.change ? fact.change.value : ""} ${ability}`;
+  }
   const which = `${fact.to}${fact.names.length ? ` (${fact.names.join(", ")})` : ""}`;
-  if ("fails" in fact.change) return `fails ${which}`;
-  return `${"mode" in fact.change ? fact.change.mode : fact.change.value} on ${which}`;
+  const change = fact.change;
+  if ("fails" in change) return `fails ${which}`;
+  return `${"mode" in change ? change.mode : "value" in change ? change.value : ""} on ${which}`;
 }
 
 export interface RulesetItemBookEntry extends GameInventoryRulesetItem {
@@ -167,6 +239,11 @@ export function rulesetItemFacts(definition: RulesetDefinition, item: RulesetCat
     : undefined;
   const worn = item.worn ? rulesetItemEffectFacts(definition, item.worn) : [];
   const carried = item.carried ? rulesetItemEffectFacts(definition, item.carried) : [];
+  const requires = (item.requires ?? []).map((requirement) => ({
+    ...rulesetValueRefLabel(definition, requirement.value),
+    atLeast: requirement.atLeast,
+    otherwise: rulesetItemEffectFacts(definition, requirement.otherwise),
+  }));
   return {
     category: labelOf(block?.categories, item.category),
     ...(item.rarity ? { rarity: labelOf(block?.rarities, item.rarity) } : {}),
@@ -175,6 +252,7 @@ export function rulesetItemFacts(definition: RulesetDefinition, item: RulesetCat
     ...(item.cost ? { cost: { amount: item.cost.amount, unit: unit?.label ?? item.cost.unit } } : {}),
     ...(worn.length ? { worn } : {}),
     ...(carried.length ? { carried } : {}),
+    ...(requires.length ? { requires } : {}),
   };
 }
 
@@ -268,7 +346,8 @@ export function rulesetItemBook(
     const made = inventedByName.get(key)?.at(-1);
     return byName.get(key) ?? (made ? all.get(rulesetInventedItemRef(made.id)) : undefined);
   };
-  const invent: GameInventoryItemRules["invent"] = (proposal, stacks) => {
+  const invent: GameInventoryItemRules["invent"] = (written, stacks) => {
+    const proposal = rulesetProposalParts(definition, written);
     const text = rulesetInventedItemText(proposal);
     if (!text.name) return { refused: "unreadable" };
     const key = gameInventoryNameKey(text.name);
@@ -408,5 +487,9 @@ export function rulesetItemPromptFacts(facts: RulesetItemFacts): string {
   const effects = (["worn", "carried"] as const).flatMap((when) =>
     facts[when]?.length ? [`${when}: ${facts[when]!.map(rulesetItemEffectText).join(", ")}`] : [],
   );
-  return [kind, stats, ...effects].filter(Boolean).join("; ");
+  const needs = (facts.requires ?? []).map(
+    (need) =>
+      `needs ${requirementValueText(need)} ${need.atLeast}, otherwise ${need.otherwise.map(rulesetItemEffectText).join(", ")}`,
+  );
+  return [kind, stats, ...effects, ...needs].filter(Boolean).join("; ");
 }

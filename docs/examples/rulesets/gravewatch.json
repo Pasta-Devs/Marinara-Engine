@@ -582,7 +582,14 @@
             "rarity": "common",
             "stats": { "target": 6, "damage": "1d10", "harm": "blunt" },
             "slots": { "hands": 2 },
-            "cost": { "amount": 3, "unit": "shilling" }
+            "cost": { "amount": 3, "unit": "shilling" },
+            "requires": [
+              {
+                "value": { "abilityScore": "sinew" },
+                "atLeast": 3,
+                "otherwise": { "modifiers": [{ "to": "checks", "skills": ["dig"], "flat": -1 }] }
+              }
+            ]
           }
         },
         {

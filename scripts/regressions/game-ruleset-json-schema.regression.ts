@@ -300,16 +300,56 @@ console.info("game ruleset JSON Schema regression passed.");
       "skills narrow something",
     );
   }
-  assert.equal(itemEffectNodes.length, 2, "an item's worn and carried effects");
+  assert.equal(itemEffectNodes.length, 3, "an item's worn and carried effects, and what an unmet requirement applies");
   for (const node of itemEffectNodes) {
     assert.ok(
       node.allOf?.some(
         (rule: Record<string, any>) =>
           JSON.stringify(rule.anyOf) ===
-          JSON.stringify([{ required: ["effects"] }, { required: ["modifiers"] }, { required: ["failsSaves"] }]),
+          JSON.stringify([
+            { required: ["effects"] },
+            { required: ["modifiers"] },
+            { required: ["failsSaves"] },
+            { required: ["abilities"] },
+          ]),
       ),
       "an item's effect does something",
     );
     assert.deepEqual(node.properties.modifiers.items.allOf[1], { properties: { to: { enum: ["checks", "saves"] } } });
   }
+
+  // And 1.54's: what an unmet requirement applies changes no ability, an item's effect may be abilities
+  // alone, and a level reads a track or a derived value, one of them.
+  const requirements: Array<Record<string, any>> = [];
+  const levels: Array<Record<string, any>> = [];
+  const findMore = (node: unknown): void => {
+    if (Array.isArray(node)) return node.forEach(findMore);
+    if (!node || typeof node !== "object") return;
+    const object = node as Record<string, any>;
+    const keys = Object.keys(object.properties ?? {});
+    if (["value", "atLeast", "otherwise"].every((key) => keys.includes(key))) requirements.push(object);
+    if (["track", "derived", "at"].every((key) => keys.includes(key))) levels.push(object);
+    Object.values(object).forEach(findMore);
+  };
+  findMore(schema);
+  assert.equal(requirements.length, 1, "the schema describes an item's requirement");
+  assert.deepEqual(requirements[0]!.properties.otherwise.not, { required: ["abilities"] });
+  for (const node of itemEffectNodes) {
+    assert.ok(
+      node.allOf?.some((rule: Record<string, any>) =>
+        (rule.anyOf as Array<{ required?: string[] }> | undefined)?.some(
+          (member) => member.required?.[0] === "abilities",
+        ),
+      ),
+      "an item's effect may change abilities alone",
+    );
+  }
+  assert.equal(levels.length, 1, "the schema describes a level");
+  assert.ok(
+    levels[0]!.allOf?.some(
+      (rule: Record<string, any>) =>
+        JSON.stringify(rule.oneOf) === JSON.stringify([{ required: ["track"] }, { required: ["derived"] }]),
+    ),
+    "a level reads a track or a derived value",
+  );
 }

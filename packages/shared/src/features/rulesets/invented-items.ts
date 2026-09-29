@@ -121,8 +121,9 @@ type EffectModifier = NonNullable<RulesetItemEffect["modifiers"]>[number];
  * A worn or carried effect as the Game Master writes it: parts split by `;` or `,`, each a change (+N,
  * -N, +NdM, advantage, disadvantage or fails) and what it is on, by skill or save names (split by `/`
  * or "and"), or `checks` or `saves` for all of them: "+1 Sneak", "disadvantage on Sneak checks",
- * "+1 saves", "fails Steel saves". A name the ruleset does not have is left out, and so is a part with
- * nothing left to be on. Undefined when nothing is left, or when the text says `none`.
+ * "+1 saves", "fails Steel saves". A number on an ability's name adds to that ability ("+1 Brawn"). A
+ * name the ruleset does not have is left out, and so is a part with nothing left to be on. Undefined
+ * when nothing is left, or when the text says `none`.
  */
 function readEffect(
   definition: RulesetDefinition,
@@ -132,6 +133,7 @@ function readEffect(
   if (/^\s*(?:none|no|nothing)\s*$/i.test(text)) return undefined;
   const modifiers: EffectModifier[] = [];
   const fails: string[] = [];
+  const abilities: Record<string, { add: number }> = {};
   const add = (modifier: EffectModifier, part: string) => {
     if (modifiers.length >= EFFECT_MODIFIERS_MAX)
       say(`An item does at most ${EFFECT_MODIFIERS_MAX} things this way, so "${part}" was left out.`);
@@ -143,8 +145,12 @@ function readEffect(
     .filter(Boolean)
     .slice(0, 12)) {
     const part = plainLine(raw, 60);
+    // The number may come after the name as well: "Brawn +1" is "+1 Brawn".
+    const after = /^(.+?)\s+([+-]\s*\d{1,2}d\d{1,3}|[+-]\s*\d{1,3})$/.exec(part);
     const read =
-      /^(advantage|disadvantage|fails?|[+-]\s*\d{1,2}d\d{1,3}|[+-]\s*\d{1,3})\s+(?:(?:on|to)\s+)?(.*)$/i.exec(part);
+      /^(advantage|disadvantage|fails?|[+-]\s*\d{1,2}d\d{1,3}|[+-]\s*\d{1,3})\s+(?:(?:on|to)\s+)?(.*)$/i.exec(
+        after ? `${after[2]} ${after[1]}` : part,
+      );
     if (!read) {
       say(`"${part}" is not a change such as +1, -1, advantage or fails, so it was left out.`);
       continue;
@@ -159,20 +165,29 @@ function readEffect(
     }
     const skills: string[] = [];
     const saves: string[] = [];
+    const raised: string[] = [];
     for (const name of target.split(/\s*(?:\/|&|\band\b)\s*/i).filter(Boolean)) {
       const skill = kind !== "saves" ? wordNamed(definition.sheet.skills, name) : undefined;
       const save = !skill && kind !== "checks" ? wordNamed(definition.sheet.saves, name) : undefined;
+      const ability = !skill && !save && !kind ? wordNamed(definition.sheet.abilities, name) : undefined;
       if (skill) skills.push(skill.id);
       else if (save) saves.push(save.id);
+      else if (ability) raised.push(ability.id);
       else
         say(
-          `No ${kind === "saves" ? "save" : kind === "checks" ? "skill" : "skill or save"} "${plainLine(name, 40)}", so it was left out of "${part}".`,
+          `No ${kind === "saves" ? "save" : kind === "checks" ? "skill" : "skill, save or ability"} "${plainLine(name, 40)}", so it was left out of "${part}".`,
         );
     }
     const named = target !== "";
     if (!named && !kind) {
       say(`"${part}" does not say what it is on, so it was left out.`);
       continue;
+    }
+    // An ability takes a number and nothing else.
+    if (raised.length) {
+      const by = /^[+-]\d{1,3}$/.test(change) ? Math.max(-100, Math.min(100, Number(change))) : 0;
+      if (by === 0) say(`An ability takes a number such as +1, so "${part}" left it out.`);
+      else for (const id of raised) abilities[id] = { add: (abilities[id]?.add ?? 0) + by };
     }
     if (named && skills.length === 0 && saves.length === 0) continue;
     const onChecks = !named ? kind === "checks" : skills.length > 0;
@@ -196,8 +211,13 @@ function readEffect(
     if (onSaves) add({ to: "saves", ...how, ...(named ? { saves } : {}) } as EffectModifier, part);
   }
   const failsSaves = [...new Set(fails)].slice(0, 12);
-  if (!modifiers.length && !failsSaves.length) return undefined;
-  return { ...(modifiers.length ? { modifiers } : {}), ...(failsSaves.length ? { failsSaves } : {}) };
+  const changed = Object.entries(abilities).filter(([, change]) => change.add !== 0);
+  if (!modifiers.length && !failsSaves.length && !changed.length) return undefined;
+  return {
+    ...(modifiers.length ? { modifiers } : {}),
+    ...(failsSaves.length ? { failsSaves } : {}),
+    ...(changed.length ? { abilities: Object.fromEntries(changed) } : {}),
+  };
 }
 
 /** One worn or carried effect held to its rarity's `bonus`: a flat bonus past it pulled back to it, and
@@ -209,6 +229,22 @@ function capEffect(
   when: "worn" | "carried",
   say: (text: string) => void,
 ): RulesetItemEffect | undefined {
+  if (effect?.abilities) {
+    // An ability raised is a bonus like any other, and one set is held to a raise of the same size.
+    const abilities: NonNullable<RulesetItemEffect["abilities"]> = {};
+    for (const [id, change] of Object.entries(effect.abilities)) {
+      if ("add" in change && change.add > most) {
+        say(`A bonus while ${when} is +${most} instead of +${change.add}, the most at ${rarityLabel}.`);
+        if (most > 0) abilities[id] = { add: most };
+      } else if ("set" in change) {
+        say(`An ability set by an invented item cannot be held to ${rarityLabel}'s most, so it was left out.`);
+      } else abilities[id] = change;
+    }
+    const kept: RulesetItemEffect = { ...effect };
+    if (Object.keys(abilities).length) kept.abilities = abilities;
+    else delete kept.abilities;
+    effect = kept.effects || kept.modifiers || kept.failsSaves || kept.abilities ? kept : undefined;
+  }
   if (!effect?.modifiers) return effect;
   const modifiers = effect.modifiers.flatMap((modifier): EffectModifier[] => {
     const next: EffectModifier = { ...modifier };
@@ -226,7 +262,7 @@ function capEffect(
   const capped: RulesetItemEffect = { ...effect };
   if (modifiers.length) capped.modifiers = modifiers;
   else delete capped.modifiers;
-  return capped.effects || capped.modifiers || capped.failsSaves ? capped : undefined;
+  return capped.effects || capped.modifiers || capped.failsSaves || capped.abilities ? capped : undefined;
 }
 
 /** A stat's value as its type reads it, or why it cannot be. */
@@ -399,6 +435,8 @@ export function inventRulesetItem(
       : {}),
     ...(worn ? { worn } : {}),
     ...(carried ? { carried } : {}),
+    // What it asks of its wearer comes with the item it started from.
+    ...(like?.requires ? { requires: like.requires } : {}),
   };
   const kept = said.slice(0, NOTES_MAX).map((note) => ({ ...note, text: plainLine(note.text, NOTE_MAX_LENGTH) }));
   return {
@@ -406,6 +444,31 @@ export function inventRulesetItem(
     notes: kept.map((note) => note.text),
     promptNotes: kept.filter((note) => !note.hidden).map((note) => note.text),
   };
+}
+
+/** The parts a proposal can have that a small model sometimes writes inside `stats=` instead of beside
+ *  it ("stats="worn=+1 Brawn""). Lifted out when the ruleset has no stat of that name and the part was
+ *  not given on its own. */
+const PARTS_WRITTEN_AS_STATS = ["worn", "carried", "summary"] as const;
+
+/** A proposal with any of those parts it wrote inside `stats=` put where they belong. */
+export function rulesetProposalParts<T extends Omit<GameInventoryItemProposal, "name">>(
+  definition: RulesetDefinition,
+  proposal: T,
+): T {
+  if (!proposal.stats) return proposal;
+  const lifted: Partial<Record<(typeof PARTS_WRITTEN_AS_STATS)[number], string>> = {};
+  const stats: Record<string, string> = {};
+  for (const [given, text] of Object.entries(proposal.stats)) {
+    const part = PARTS_WRITTEN_AS_STATS.find((each) => each === given.trim().toLowerCase());
+    if (part && proposal[part] === undefined && !wordNamed(definition.items?.stats, given)) lifted[part] = text;
+    else stats[given] = text;
+  }
+  if (Object.keys(lifted).length === 0) return proposal;
+  const next: T = { ...proposal, ...lifted };
+  if (Object.keys(stats).length) next.stats = stats;
+  else delete next.stats;
+  return next;
 }
 
 /** A proposal's name and summary as the invented item keeps them. */

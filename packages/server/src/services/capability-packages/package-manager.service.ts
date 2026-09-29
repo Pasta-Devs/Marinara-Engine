@@ -862,6 +862,31 @@ function entriesCarryItems(entries: unknown): boolean {
 const CHECK_EFFECTS_ISSUE =
   "A ruleset whose items change checks while worn or carried, whose conditions or levels name skills, whose modifiers name skills, saves or a mode, or whose rarity caps hold a bonus requires schemaVersion 2 and capabilityApi 1.53 or newer";
 
+const REQUIREMENTS_ISSUE =
+  "A ruleset whose items ask something of their wearer or change an ability, or whose condition levels read a derived value, requires schemaVersion 2 and capabilityApi 1.54 or newer";
+
+/** What an item asks of its wearer, and an ability its worn or carried effect changes, which are
+ *  1.54: new keys on the strict item and its effects. */
+function entriesCarryRequirements(entries: unknown): boolean {
+  return (
+    Array.isArray(entries) &&
+    entries.some((entry) => {
+      const item = plainRecord(plainRecord(entry)?.item);
+      return (
+        item?.requires !== undefined ||
+        plainRecord(item?.worn)?.abilities !== undefined ||
+        plainRecord(item?.carried)?.abilities !== undefined
+      );
+    })
+  );
+}
+
+/** A level that reads a derived value, which is 1.54: a new key on the strict level. */
+function rulesetCarriesDerivedLevels154(ruleset: { combat?: unknown } | undefined): boolean {
+  const levels = plainRecord(ruleset?.combat)?.levels;
+  return Array.isArray(levels) && levels.some((level) => plainRecord(level)?.derived !== undefined);
+}
+
 /** What an item does while worn or carried, which is 1.53: new keys on the strict item. */
 function entriesCarryItemEffects(entries: unknown): boolean {
   return (
@@ -1094,6 +1119,7 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryHitMoments(header.entries) && !declaresApi(46)) return HIT_MOMENTS_ISSUE;
       if (entriesCarryCreatureSoak(header.entries) && !declaresApi(47)) return POOL_FIGHT_ISSUE;
       if (entriesCarryItemEffects(header.entries) && !declaresApi(53)) return CHECK_EFFECTS_ISSUE;
+      if (entriesCarryRequirements(header.entries) && !declaresApi(54)) return REQUIREMENTS_ISSUE;
       const asset = header.asset;
       if (typeof asset !== "string") continue;
       // A path that does not normalize is never a declared one, whatever else failed to normalize.
@@ -1120,6 +1146,7 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryCreatureSoak(fileEntries) && !declaresApi(47)) return POOL_FIGHT_ISSUE;
       if (entriesCarryItems(fileEntries) && !declaresApi(49)) return ITEMS_ISSUE;
       if (entriesCarryItemEffects(fileEntries) && !declaresApi(53)) return CHECK_EFFECTS_ISSUE;
+      if (entriesCarryRequirements(fileEntries) && !declaresApi(54)) return REQUIREMENTS_ISSUE;
     }
   }
   // The battle block lives inside the ruleset file too, so it is read the same way and for the same
@@ -1220,6 +1247,8 @@ export function getCapabilityPackageInstallIssue(
   // What items, conditions and levels do to checks outside a fight, which are 1.53's. Same file, same
   // reason; the items themselves are read with the catalogs above.
   if (!declaresApi(53) && rulesetCarriesCheckEffects153Keys(ruleset)) return CHECK_EFFECTS_ISSUE;
+  // A level that reads a derived value, which is 1.54's. Same file, same reason.
+  if (!declaresApi(54) && rulesetCarriesDerivedLevels154(ruleset)) return REQUIREMENTS_ISSUE;
   // Values that read the items someone holds, which are 1.52's. Same file (and the same catalog
   // files), same reason.
   if (

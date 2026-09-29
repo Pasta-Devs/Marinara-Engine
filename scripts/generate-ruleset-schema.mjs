@@ -265,7 +265,14 @@ function conditionSavesAndLevels(node) {
   // An item's worn or carried effect (no `condition`, no `track`) does something, and changes only
   // checks and saves: what an item does in a fight comes later.
   if (!properties.condition && !properties.track) {
-    node.allOf.push({ anyOf: [{ required: ["effects"] }, { required: ["modifiers"] }, { required: ["failsSaves"] }] });
+    node.allOf.push({
+      anyOf: [
+        { required: ["effects"] },
+        { required: ["modifiers"] },
+        { required: ["failsSaves"] },
+        { required: ["abilities"] },
+      ],
+    });
     properties.modifiers = {
       ...properties.modifiers,
       items: {
@@ -275,6 +282,8 @@ function conditionSavesAndLevels(node) {
     return;
   }
   if (!properties.track) return;
+  // A level reads a live track or a derived value, one of them.
+  node.allOf.push({ oneOf: [{ required: ["track"] }, { required: ["derived"] }] });
   const refused = new Set(RULESET_LEVEL_REFUSED_EFFECTS);
   properties.effects = {
     ...properties.effects,
@@ -287,6 +296,17 @@ function conditionSavesAndLevels(node) {
       { required: ["failsSaves"] },
     ],
   });
+}
+
+// What an unmet requirement applies cannot change an ability, since what it asks may read one. A
+// refinement, so the editor is told here. Found by shape: `value` beside `atLeast` and `otherwise`.
+function requirementChangesNoAbility(node) {
+  if (Array.isArray(node)) return node.forEach(requirementChangesNoAbility);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(requirementChangesNoAbility);
+  const properties = node.properties;
+  if (node.type !== "object" || !properties?.value || !properties.atLeast || !properties.otherwise) return;
+  properties.otherwise = { ...properties.otherwise, not: { required: ["abilities"] } };
 }
 
 // A creature's action: a sequence carries nothing of its own, one that lands on the creature itself
@@ -592,6 +612,7 @@ cancelOnlyWhenAimed(schema);
 modifierSaysSomething(schema);
 creatureActionShape(schema);
 conditionSavesAndLevels(schema);
+requirementChangesNoAbility(schema);
 oneSourceForCreature(schema);
 requireDamageAmount(schema);
 requireDistanceForMeasured(schema);

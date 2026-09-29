@@ -169,6 +169,12 @@ try {
     const withoutItemReads = (doc: Record<string, any>) => {
       const guard = doc.sheet.derived.find((entry: { id: string }) => entry.id === "guard");
       guard.of = guard.of.filter((ref: { itemStat?: unknown }) => ref.itemStat === undefined);
+      // And the bulk carried (1.52) with the 1.54 level that reads it.
+      doc.sheet.derived = doc.sheet.derived.filter((entry: { id: string }) => entry.id !== "bulk_carried");
+      if (doc.combat?.levels) {
+        doc.combat.levels = doc.combat.levels.filter((level: { derived?: string }) => level.derived === undefined);
+      }
+
       for (const cap of doc.items.rarityCaps ?? []) delete cap.bonus;
       for (const catalog of doc.catalogs) {
         for (const entry of catalog.entries ?? []) {
@@ -471,6 +477,12 @@ try {
       binds: "no",
       summary: "A widow's blade.",
     });
+    assert.deepEqual(
+      parseInventoryTagBody(`action="add" item="Ring" category="gear" tags="none" stats="None" slots=" nothing "`)
+        ?.proposal,
+      { category: "gear", tags: [], stats: {}, slots: {} },
+      'a list written as "none" is given, and empty',
+    );
     assert.equal(parseInventoryTagBody(`action="add" item="Rope" count="2"`)?.proposal, undefined);
     assert.equal(parseInventoryTagBody(`action="remove" item="Rope" category="gear"`)?.proposal, undefined);
 
@@ -523,12 +535,12 @@ try {
     const told = buildGmFormatReminder({ ...base, ruleset: ember });
     assert.match(
       told,
-      /invent one of its items in the add: \[inventory: action="add" item="New name" category="\.\.\." rarity="\.\.\." tags="a, b" stats="id=value, id=value" slots="id=count" worn="\+1 Skill" summary="one line"\]\. Every part but item is optional\. worn is what it does while worn, and carried="\.\.\." what it does while only carried: changes split by ";", each \+N, -N, advantage, disadvantage, or fails \(saves only\), on skills or saves by name, or on checks or saves for all of them\. A bonus or penalty to a skill or save always goes in worn or carried, never in stats\. To start from one of the ruleset's own items, add like="that item's exact name" \(leave like out otherwise\)/,
+      /invent one of its items in the add: \[inventory: action="add" item="New name" category="\.\.\." rarity="\.\.\." tags="a, b" stats="id=value, id=value" slots="id=count" worn="\+1 Skill" summary="one line"\]\. Every part but item is optional\. worn is what it does while worn, and carried="\.\.\." what it does while only carried: changes split by ";", each \+N, -N, advantage, disadvantage, or fails \(saves only\), on skills or saves by name, or on checks or saves for all of them; \+N or -N on an ability's name raises or lowers that ability\. A bonus or penalty to a skill, save or ability always goes in worn or carried, never in stats\. To start from one of the ruleset's own items, add like="that item's exact name" \(leave like out otherwise\)/,
     );
     assert.match(told, /and holds each number to the most its rarity allows/);
     assert.match(
       told,
-      /Its words: categories weapon, armor, ammunition, provisions, gear; rarities common, uncommon, storied \(lowest first\); tags thrown, ranged, two_handed; stats bulk \(number 0 to 10\), guard \(number 0 to 4\), damage \(dice\), swing \(one of brawn, wits, heart\), reach \(one of close, near, far\); slots body \(1\), hands \(2\); skills Scrap, Sneak, Tinker, Sway\. The most at each rarity: common guard 1, worn or carried bonus 1; uncommon guard 2, worn or carried bonus 1; storied guard 3, worn or carried bonus 2\./,
+      /Its words: categories weapon, armor, ammunition, provisions, gear; rarities common, uncommon, storied \(lowest first\); tags thrown, ranged, two_handed; stats bulk \(number 0 to 10\), guard \(number 0 to 4\), damage \(dice\), swing \(one of brawn, wits, heart\), reach \(one of close, near, far\); slots body \(1\), hands \(2\); skills Scrap, Sneak, Tinker, Sway; abilities Brawn, Wits, Heart\. The most at each rarity: common guard 1, worn or carried bonus 1; uncommon guard 2, worn or carried bonus 1; storied guard 3, worn or carried bonus 2\./,
     );
     assert.match(
       buildGmFormatReminder({ ...base, ruleset: gravewatch }),
