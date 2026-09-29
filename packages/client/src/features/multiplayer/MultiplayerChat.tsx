@@ -142,7 +142,11 @@ function JoinedMultiplayerChat({ chat }: { chat: Chat }) {
       {"MarinaraAndroidNative" in window ? (
         <div className="space-y-3 p-4">
           <p>{t("multiplayer.nativeUnavailable")}</p>
-          <button type="button" className={MULTIPLAYER_BUTTON_CLASS} onClick={() => void leave()}>
+          <button
+            type="button"
+            className={MULTIPLAYER_BUTTON_CLASS}
+            onClick={() => void leave().catch(() => useChatStore.getState().setActiveChatId(null))}
+          >
             {t("multiplayer.guest.leave")}
           </button>
         </div>

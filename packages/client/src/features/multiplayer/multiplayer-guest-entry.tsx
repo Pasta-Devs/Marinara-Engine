@@ -5,7 +5,8 @@ import {
   readGuestParentMessage,
   type MultiplayerGuestPresentation,
 } from "./multiplayer-guest-channel";
-import type { MultiplayerAction } from "@marinara-engine/shared";
+import { MULTIPLAYER_LIMITS, type MultiplayerAction } from "@marinara-engine/shared";
+import { generateClientId } from "../../lib/utils";
 import "./multiplayer-guest.css";
 
 const rootElement = document.getElementById("multiplayer-root");
@@ -38,14 +39,16 @@ if (rootElement && window.parent !== window && !("MarinaraAndroidNative" in wind
 
   function onAction(action: MultiplayerAction): Promise<boolean> {
     if (!port || closed || pending.size >= 4) return Promise.resolve(false);
-    const id = crypto.randomUUID();
+    const id = generateClientId();
+    const wire = JSON.stringify({ type: "action", id, action });
+    if (new TextEncoder().encode(wire).byteLength > MULTIPLAYER_LIMITS.actionBytes) return Promise.resolve(false);
     return new Promise((settle) => {
       const timeout = setTimeout(() => {
         pending.delete(id);
         settle(false);
       }, 30_000);
       pending.set(id, { settle, timeout });
-      port!.postMessage(JSON.stringify({ type: "action", id, action }));
+      port!.postMessage(wire);
     });
   }
 

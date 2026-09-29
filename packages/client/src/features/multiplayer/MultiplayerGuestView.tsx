@@ -3,7 +3,7 @@ import { Bot, Check, LogOut, Send, Users, X } from "lucide-react";
 import { MULTIPLAYER_LIMITS, type MultiplayerAction, type MultiplayerGuestState } from "@marinara-engine/shared";
 import { ChatModeIcon } from "../../components/chat/ChatModeIcon";
 import { getChatInputShellClass } from "../../components/chat/chat-input-styles";
-import { cn } from "../../lib/utils";
+import { cn, generateClientId } from "../../lib/utils";
 import type { MultiplayerGuestLabels } from "./multiplayer-guest-labels";
 
 interface MultiplayerGuestViewProps {
@@ -115,7 +115,7 @@ export function MultiplayerGuestView({ state, onAction, labels, onOpenPlayers }:
     const attempt =
       sendAttemptRef.current?.signature === signature
         ? sendAttemptRef.current
-        : { signature, operationId: crypto.randomUUID(), sequence: snapshot?.nextSequence ?? 0 };
+        : { signature, operationId: generateClientId(), sequence: snapshot?.nextSequence ?? 0 };
     sendAttemptRef.current = attempt;
     const accepted = await dispatch({ ...payload, operationId: attempt.operationId, sequence: attempt.sequence });
     if (accepted) {
@@ -128,7 +128,7 @@ export function MultiplayerGuestView({ state, onAction, labels, onOpenPlayers }:
   const leave = async () => {
     // Leaving must remain possible while a send is pending or transport is down.
     try {
-      if (!(await onAction({ type: "leave", operationId: crypto.randomUUID(), sequence: snapshot?.nextSequence ?? 0 })))
+      if (!(await onAction({ type: "leave", operationId: generateClientId(), sequence: snapshot?.nextSequence ?? 0 })))
         setActionFailed(true);
     } catch {
       setActionFailed(true);
@@ -468,7 +468,7 @@ export function MultiplayerGuestView({ state, onAction, labels, onOpenPlayers }:
                 onClick={() =>
                   void dispatch({
                     type: "pass",
-                    operationId: crypto.randomUUID(),
+                    operationId: generateClientId(),
                     sequence: snapshot.nextSequence,
                     roundId: round.id,
                     submissionRevision: ownSubmission ? ownSubmission.revision + 1 : 0,
@@ -487,7 +487,7 @@ export function MultiplayerGuestView({ state, onAction, labels, onOpenPlayers }:
                 onClick={() =>
                   void dispatch({
                     type: "request-response",
-                    operationId: crypto.randomUUID(),
+                    operationId: generateClientId(),
                     sequence: snapshot.nextSequence,
                   })
                 }

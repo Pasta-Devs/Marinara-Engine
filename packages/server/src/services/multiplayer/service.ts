@@ -39,6 +39,7 @@ import { requestMultiplayerPeer } from "./peer-client.js";
 import { startMultiplayerPeerServer } from "./peer-server.js";
 import { createGameStateStorage } from "../storage/game-state.storage.js";
 import { projectMultiplayerGame } from "./game-projection.js";
+import { filterRoomGamePartyCharacterIds } from "./generation-policy.js";
 
 const deriveKey = promisify(scrypt);
 const secret = () => randomBytes(32).toString("base64url");
@@ -109,7 +110,7 @@ async function saveRoomCharacters(
         chat.id,
         {
           gameSetupConfig: { ...record(metadata.gameSetupConfig), ...roster },
-          gamePartyCharacterIds: roster.partyCharacterIds,
+          gamePartyCharacterIds: [...roster.partyCharacterIds, ...filterRoomGamePartyCharacterIds(metadata, [])],
           gameGmMode: roster.gmMode,
           gameGmCharacterId: roster.gmCharacterId,
         },
@@ -832,7 +833,7 @@ export class MultiplayerService {
       anyoneConnected &&
       chat.mode === "conversation" &&
       room.status === "active" &&
-      room.generation !== "running" &&
+      room.generation === "idle" &&
       room.generations < room.maxGenerations
     );
   }

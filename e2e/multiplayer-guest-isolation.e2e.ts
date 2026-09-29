@@ -107,8 +107,8 @@ test.beforeAll(async () => {
         let state=${JSON.stringify(initialState)};
         const labels=${JSON.stringify(labels)};
         const theme={mode:'dark',accent:'#c084fc'};
-        window.proof={actions:[],errors:0,accept:true,setState(next){state=next;render()},labels};
-        function render(){root.render(<MultiplayerGuestFrame state={state} labels={labels} theme={theme} title="Shared room" onAction={async action=>{window.proof.actions.push(action);return window.proof.accept}} onProtocolError={()=>window.proof.errors++}/>)}
+        window.proof={actions:[],errors:0,accept:true,holdActions:false,releases:[],setState(next){state=next;render()},labels};
+        function render(){root.render(<MultiplayerGuestFrame state={state} labels={labels} theme={theme} title="Shared room" onAction={async action=>{window.proof.actions.push(action);if(window.proof.holdActions)await new Promise(resolve=>window.proof.releases.push(resolve));return window.proof.accept}} onProtocolError={()=>window.proof.errors++}/>)}
         if(location.search==='?manual'){
           const frame=document.createElement('iframe');frame.title='Shared room';frame.sandbox='allow-scripts';frame.src='/api/multiplayer/guest-view';
           document.getElementById('root').append(frame);
@@ -377,6 +377,129 @@ test("strict channel rejects forged actions, unknown fields and oversized host m
       .postMessage(JSON.stringify({ type: "result", id: "result_123456", accepted: true, nativeAction: "saveFile" }));
   });
   await expect.poll(() => page.evaluate(() => (window as any).proof.errors)).toBe(1);
+});
+
+test("a full action queue rejects new work without losing the channel or active replay protection", async ({
+  page,
+}) => {
+  const guest = await openGuest(page);
+  const frame = page.frames().find((item) => item.url().endsWith("/api/multiplayer/guest-view"))!;
+  await page.evaluate(() => {
+    (window as any).proof.holdActions = true;
+  });
+  await frame.evaluate(() => {
+    (window as any).channelResults = [];
+    (window as any).receivedProofPort.addEventListener("message", (event: MessageEvent) => {
+      const message = JSON.parse(event.data);
+      if (message.type === "result") (window as any).channelResults.push(message);
+    });
+  });
+  const postActions = (ids: string[]) =>
+    frame.evaluate((values) => {
+      for (const id of values)
+        (window as any).receivedProofPort.postMessage(
+          JSON.stringify({
+            type: "action",
+            id,
+            action: { type: "message", operationId: `operation_${id}`, sequence: 0, text: "A bounded action." },
+          }),
+        );
+    }, ids);
+  await postActions(["held_0001", "held_0002", "held_0003", "held_0004", "busy_0005"]);
+  await expect.poll(() => page.evaluate(() => (window as any).proof.actions.length)).toBe(4);
+  await expect
+    .poll(() => frame.evaluate(() => (window as any).channelResults))
+    .toEqual([{ type: "result", id: "busy_0005", accepted: false }]);
+  expect(await page.evaluate(() => (window as any).proof.errors)).toBe(0);
+  await page.evaluate(
+    (state) =>
+      (window as any).proof.setState({
+        ...state,
+        snapshot: { ...state.snapshot, revision: 2, name: "The channel stays connected" },
+      }),
+    initialState,
+  );
+  await expect(guest.getByRole("heading", { name: "The channel stays connected" })).toBeVisible();
+  await page.evaluate(() => {
+    (window as any).proof.holdActions = false;
+    for (const release of (window as any).proof.releases) release();
+  });
+  await expect
+    .poll(() => frame.evaluate(() => (window as any).channelResults.filter((item: any) => item.accepted).length))
+    .toBe(4);
+  await postActions(["after_0006"]);
+  await expect.poll(() => page.evaluate(() => (window as any).proof.actions.length)).toBe(5);
+  expect(await page.evaluate(() => (window as any).proof.errors)).toBe(0);
+  await postActions(["busy_0005"]);
+  await expect.poll(() => page.evaluate(() => (window as any).proof.errors)).toBe(1);
+  expect(await page.evaluate(() => (window as any).proof.actions.length)).toBe(5);
+
+  await page.reload();
+  await expect(guest.getByText(hostile, { exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    (window as any).proof.holdActions = true;
+  });
+  const reloaded = page.frames().find((item) => item.url().endsWith("/api/multiplayer/guest-view"))!;
+  await reloaded.evaluate(() => {
+    for (let index = 0; index < 70; index++)
+      (window as any).receivedProofPort.postMessage(
+        JSON.stringify({
+          type: "action",
+          id: `capacity_${index}`,
+          action: { type: "message", operationId: `operation_${index}`, sequence: 0, text: "Hold or reject." },
+        }),
+      );
+    // The active ID has left the 64-entry recent cache; it is still forbidden.
+    (window as any).receivedProofPort.postMessage(
+      JSON.stringify({
+        type: "action",
+        id: "capacity_0",
+        action: { type: "message", operationId: "new_operation", sequence: 0, text: "Cannot alias a pending action." },
+      }),
+    );
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).proof.errors)).toBe(1);
+  expect(await page.evaluate(() => (window as any).proof.actions.length)).toBe(4);
+});
+
+test("LAN HTTP contexts without randomUUID retain cryptographic bootstrap and usable actions", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(crypto, "randomUUID", { configurable: true, value: undefined });
+    const nativeRandom = crypto.getRandomValues.bind(crypto);
+    Object.defineProperty(crypto, "getRandomValues", {
+      configurable: true,
+      value: (values: Uint8Array) => {
+        (window as any).cryptographicIdCalls = ((window as any).cryptographicIdCalls ?? 0) + 1;
+        return nativeRandom(values);
+      },
+    });
+  });
+  const guest = await openGuest(page);
+  expect(await page.evaluate(() => (window as any).cryptographicIdCalls)).toBeGreaterThan(0);
+  await guest.getByRole("textbox").fill("An action from a local HTTP connection.");
+  await guest.getByRole("button", { name: /^send$/i }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).proof.actions.length)).toBe(1);
+  expect(await page.evaluate(() => (window as any).proof.actions[0].operationId)).toMatch(/^[A-Za-z0-9_-]{8,64}$/u);
+  await expect(guest.getByRole("textbox")).toHaveValue("");
+  await guest.getByRole("button", { name: "Leave", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).proof.actions.length)).toBe(2);
+  expect(await page.evaluate(() => (window as any).proof.errors)).toBe(0);
+});
+
+test("an oversized UTF-8 draft stays editable without closing the channel", async ({ page }) => {
+  const guest = await openGuest(page);
+  const draft = "界".repeat(8_000);
+  await guest.getByRole("textbox").fill(draft);
+  await guest.getByRole("button", { name: /^send$/i }).click();
+  await expect(guest.getByRole("button", { name: /^send$/i })).toBeEnabled();
+  await expect(guest.getByRole("textbox")).toHaveValue(draft);
+  expect(await page.evaluate(() => (window as any).proof.errors)).toBe(0);
+  expect(await page.evaluate(() => (window as any).proof.actions.length)).toBe(0);
+  await guest.getByRole("textbox").fill("A shorter draft.");
+  await guest.getByRole("button", { name: /^send$/i }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).proof.actions.length)).toBe(1);
+  await expect(guest.getByRole("textbox")).toHaveValue("");
+  expect(await page.evaluate(() => (window as any).proof.errors)).toBe(0);
 });
 
 test("reconnect without a snapshot cannot erase room identity or revision binding", async ({ page }) => {

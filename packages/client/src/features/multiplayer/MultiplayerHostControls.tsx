@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Users } from "lucide-react";
 import type { MultiplayerHostAction, MultiplayerHostState } from "@marinara-engine/shared";
 import { useMultiplayerHost, useMultiplayerMutation } from "../../hooks/use-multiplayer";
+import { characterKeys } from "../../hooks/use-characters";
 import { ChatSettingsSection } from "../chat-settings/ChatSettingsSection";
 import { copyToClipboard } from "../../lib/utils";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -18,6 +20,7 @@ export function MultiplayerHostControls({
   gameStart?: MultiplayerGameStart;
 }) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const action = useMultiplayerMutation<unknown, MultiplayerHostAction>("/multiplayer/host/actions");
   const [copyStatus, setCopyStatus] = useState(false);
   const [automaticReplies, setAutomaticReplies] = useState(host.snapshot.usage.automaticReplies);
@@ -204,7 +207,12 @@ export function MultiplayerHostControls({
               type="button"
               className={MULTIPLAYER_BUTTON_CLASS}
               disabled={action.isPending}
-              onClick={() => action.mutate({ type: "proposal-approve", proposalId: proposal.id })}
+              onClick={() =>
+                action.mutate(
+                  { type: "proposal-approve", proposalId: proposal.id },
+                  { onSuccess: () => void queryClient.invalidateQueries({ queryKey: characterKeys.all }) },
+                )
+              }
             >
               {t("multiplayer.host.approveCharacter")}
             </button>

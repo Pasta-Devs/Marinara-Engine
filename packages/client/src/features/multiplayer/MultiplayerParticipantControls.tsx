@@ -10,6 +10,7 @@ import {
 import { useCharacters } from "../../hooks/use-characters";
 import { useMultiplayerMutation } from "../../hooks/use-multiplayer";
 import { parseCharacterDisplayData } from "../../lib/character-display";
+import { generateClientId } from "../../lib/utils";
 import { MultiplayerPersonaFields, MULTIPLAYER_BUTTON_CLASS, MULTIPLAYER_INPUT_CLASS } from "./MultiplayerFields";
 import { multiplayerGuestErrorLabelKey } from "./multiplayer-guest-labels";
 
@@ -62,7 +63,7 @@ export function MultiplayerParticipantControls({
         className={MULTIPLAYER_BUTTON_CLASS}
         disabled={pending || !persona.name.trim()}
         onClick={() =>
-          void run({ type: "set-persona", operationId: crypto.randomUUID(), sequence: snapshot.nextSequence, persona })
+          void run({ type: "set-persona", operationId: generateClientId(), sequence: snapshot.nextSequence, persona })
         }
       >
         {t("multiplayer.persona.share")}
@@ -138,7 +139,7 @@ export function MultiplayerParticipantControls({
             ? hostAction.mutate({ type: "add-character", characterId, role: gm ? "gm" : "character" })
             : void run({
                 type: "propose-character",
-                operationId: crypto.randomUUID(),
+                operationId: generateClientId(),
                 sequence: snapshot.nextSequence,
                 character: { ...character, role: gm ? "gm" : "character" },
               })

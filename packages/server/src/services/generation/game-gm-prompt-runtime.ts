@@ -212,6 +212,7 @@ export async function injectGameGmPromptRuntime(args: {
   }
 
   for (const pcId of partyCharIds) {
+    if (isPartyNpcId(pcId)) continue;
     try {
       const pc = await args.chars.getById(pcId);
       if (pc) {

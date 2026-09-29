@@ -228,7 +228,7 @@ try {
   await chats.patchMetadata(chat.id, {
     multiplayer: approvedRoom,
     gameGmCharacterId: gm.id,
-    gamePartyCharacterIds: [],
+    gamePartyCharacterIds: ["npc:harbormaster", "npc:untracked", "private_library_card"],
   });
   await chats.createMessage({
     chatId: chat.id,
@@ -238,8 +238,8 @@ try {
   await runtime.finishGameTurn(chat.id, claim);
   assert.deepEqual(
     (await meta()).gamePartyCharacterIds,
-    [companion.id],
-    "party matching normalizes names but excludes the GM",
+    ["npc:harbormaster", companion.id],
+    "party matching retains tracked NPCs and normalized approved cards, but excludes the GM and unapproved IDs",
   );
   const ambiguousCompanion = await characters.create(characterDataSchema.parse({ name: "Elodie" }));
   assert.ok(ambiguousCompanion);
@@ -271,7 +271,8 @@ try {
   assert.equal((await meta()).multiplayer.status, "active", "generation cannot overwrite coordinator metadata");
   await chats.patchMetadata(chat.id, { multiplayer: { ...room, status: "ended" } });
   await assert.rejects(
-    runWithRoomGeneration(policy, () => chats.updateMetadata(chat.id, { ...room, unrelated: "stale" })),
+    runWithRoomGeneration(policy, () => chats.updateMetadata(chat.id, { multiplayer: room, unrelated: "stale" })),
+    /room generation authority is no longer active/,
   );
   assert.equal((await meta()).unrelated, "updated", "stale generation writes are refused");
 

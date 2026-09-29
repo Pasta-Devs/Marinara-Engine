@@ -297,6 +297,45 @@ try {
       [],
       "real generation never imports the host transcript into the guest store",
     );
+    if (mode === "conversation") {
+      assert.equal(await host.autonomousEnabled(prepared.chatId), true);
+      let failedCalls = 0;
+      host.setRunner(async () => {
+        failedCalls++;
+        throw new Error("Fixture provider failure");
+      });
+      await host.hostParticipantAction(action(2, { type: "request-response" }));
+      await until(
+        () => host.hostState(),
+        (value) => value?.snapshot.generation === "failed",
+      );
+      assert.equal(
+        await host.autonomousEnabled(prepared.chatId),
+        false,
+        "a failed generation blocks the autonomous scheduler until explicit human recovery",
+      );
+      assert.equal(
+        await host.generateAutonomous({
+          chatId: prepared.chatId,
+          characterId: character.id,
+          autonomousIntentKey: "fixture-no-retry",
+          userTimeZone: "UTC",
+        }),
+        false,
+      );
+      assert.equal(failedCalls, 1, "autonomy never retries failed paid work");
+      host.setRunner(runner);
+      await host.hostParticipantAction(action(3, { type: "request-response" }));
+      await until(
+        () => host.hostState(),
+        (value) => value?.snapshot.generation === "idle",
+      );
+      assert.equal(
+        await host.autonomousEnabled(prepared.chatId),
+        true,
+        "an explicit successful response restores ordinary autonomous eligibility",
+      );
+    }
     await guest.leaveGuest();
     await host.hostAction({ type: "stop" });
   }

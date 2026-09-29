@@ -51,6 +51,15 @@ async function mountControls(
           (await import("/src/features/multiplayer/MultiplayerSettings.tsx" as string)).MultiplayerSettings,
         );
       } else if (surface === "players") {
+        const { useCharacters } = await import("/src/hooks/use-characters.ts" as string);
+        function LibraryProbe() {
+          const { data = [] } = useCharacters();
+          return React.createElement(
+            "output",
+            { hidden: true, "data-testid": "approved-library" },
+            data.map((row: { id?: unknown }) => String(row.id)).join(","),
+          );
+        }
         controls = React.createElement(
           (await import("/src/features/multiplayer/MultiplayerHostControls.tsx" as string)).MultiplayerPlayersSection,
           {
@@ -68,6 +77,7 @@ async function mountControls(
             },
           },
         );
+        controls = React.createElement(React.Fragment, null, controls, React.createElement(LibraryProbe));
       } else if (surface === "game-setup") {
         controls = React.createElement(
           (await import("/src/features/multiplayer/PreparedMultiplayerGameSetup.tsx" as string))
@@ -322,9 +332,12 @@ test("Players reuses chat settings for invitations, approval, AI proposals and g
         host.snapshot.characters = host.snapshot.characters.filter((character) => character.id !== action.characterId);
       return route.fulfill({ json: {} });
     }
-    return route.fulfill({ json: path === "/api/multiplayer/host" ? host : [] });
+    return route.fulfill({
+      json: path === "/api/multiplayer/host" ? host : path === "/api/characters" ? host.snapshot.characters : [],
+    });
   });
   await mountControls(page, info, "players");
+  await expect(page.getByTestId("approved-library")).toHaveText("gm_12345678");
   await expect(page.getByRole("button", { name: "Start game", exact: true })).toBeDisabled();
   await expect(page.getByText("Rose · Lily", { exact: true })).toBeVisible();
   await noHorizontalOverflow(page);
@@ -345,6 +358,7 @@ test("Players reuses chat settings for invitations, approval, AI proposals and g
   await expect(page.getByLabel("Maximum AI generations this session")).toHaveValue("50");
   await expect(page.getByLabel("Automatic AI replies")).toBeChecked();
   await page.getByRole("button", { name: "Approve and save to host library", exact: true }).click();
+  await expect(page.getByTestId("approved-library")).toHaveText("gm_12345678,approved_ai_123");
   await page.getByLabel("Maximum AI generations this session").fill("25");
   await page.getByLabel("Automatic AI replies").uncheck();
   await page.getByRole("button", { name: "Save response controls", exact: true }).click();
@@ -533,6 +547,7 @@ test("editing a hosted Game setup synchronizes the reviewed roster before saving
 test("host adds an existing library ID while guests only propose reviewed text, even with forged host flags", async ({
   page,
 }, info) => {
+  await page.addInitScript(() => Object.defineProperty(crypto, "randomUUID", { value: undefined, configurable: true }));
   const writes: Array<{ path: string; body: Record<string, unknown> }> = [];
   await page.route("**/api/**", (route) => {
     const request = route.request();
@@ -586,12 +601,17 @@ test("host adds an existing library ID while guests only propose reviewed text, 
   await page.getByLabel("Choose a character from your library").selectOption("character_123");
   await page.getByRole("button", { name: "Send proposal for approval", exact: true }).click();
   await expect.poll(() => writes.at(-1)?.path).toBe("/api/multiplayer/guest/action");
+  expect(writes.at(-1)?.body.operationId).toMatch(/^[a-zA-Z0-9_-]{8,128}$/u);
   expect(writes.at(-1)?.body).toMatchObject({
     type: "propose-character",
     sequence: 0,
     character: { name: "Guide", description: "Knows the harbor.", role: "character" },
   });
   expect(Object.keys(writes.at(-1)!.body.character as object).sort()).toEqual(["description", "name", "role"]);
+  await page.getByLabel("Character name", { exact: true }).first().fill("Mira");
+  await page.getByRole("button", { name: "Share this persona", exact: true }).click();
+  await expect.poll(() => writes.at(-1)?.body.type).toBe("set-persona");
+  expect(writes.at(-1)?.body.operationId).toMatch(/^[a-zA-Z0-9_-]{8,128}$/u);
 });
 
 test("stopped rooms remain escapable when multiplayer endpoints are disabled", async ({ page }, info) => {
@@ -608,4 +628,12 @@ test("stopped rooms remain escapable when multiplayer endpoints are disabled", a
   await mountControls(page, info, "guest");
   await page.getByRole("button", { name: "Leave", exact: true }).click();
   await expect(page.locator("#fixture")).toHaveAttribute("data-active-chat", "none");
+  await page.addInitScript(() => Object.assign(window, { MarinaraAndroidNative: {} }));
+  await mountControls(page, info, "guest");
+  await expect(page.getByText("Joining is unavailable in the native Android app", { exact: false })).toBeVisible();
+  const pageErrors: Error[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error));
+  await page.getByRole("button", { name: "Leave", exact: true }).last().click();
+  await expect(page.locator("#fixture")).toHaveAttribute("data-active-chat", "none");
+  expect(pageErrors).toEqual([]);
 });

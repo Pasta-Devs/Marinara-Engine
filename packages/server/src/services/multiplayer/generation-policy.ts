@@ -1,6 +1,7 @@
 import type { ChatUserIdentity } from "../chat-user-identity.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { CONVERSATION_COMMAND_KEYS, ROLEPLAY_COMMAND_KEYS } from "@marinara-engine/shared";
+import { buildPartyNpcId, isPartyNpcId } from "../generation/game-party-utils.js";
 
 /** Only the host's room coordinator constructs this authority; it is never request JSON. */
 export interface GenerationRoomContext {
@@ -157,6 +158,25 @@ export function roomAgentAllowed(type: string, settings?: unknown): boolean {
   return resultType === undefined || (typeof resultType === "string" && results.includes(resultType));
 }
 
+/** Tracked NPC companions are room state; they never authorize a library-card lookup. */
+export function filterRoomGamePartyCharacterIds(
+  metadata: Record<string, unknown>,
+  approvedCharacterIds: readonly string[],
+): string[] {
+  const trackedNpcIds = new Set(
+    (Array.isArray(metadata.gameNpcs) ? metadata.gameNpcs : []).flatMap((value) => {
+      const name = record(value).name;
+      return typeof name === "string" && name.trim() ? [buildPartyNpcId(name)] : [];
+    }),
+  );
+  return Array.isArray(metadata.gamePartyCharacterIds)
+    ? metadata.gamePartyCharacterIds.filter(
+        (id): id is string =>
+          typeof id === "string" && (isPartyNpcId(id) ? trackedNpcIds.has(id) : approvedCharacterIds.includes(id)),
+      )
+    : [];
+}
+
 /** Preserve prompts and user text verbatim; restrict executable configuration, not prose. */
 export function roomGenerationMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
   const room = currentRoomGeneration();
@@ -164,9 +184,7 @@ export function roomGenerationMetadata(metadata: Record<string, unknown>): Recor
   return {
     ...metadata,
     crossChatAwareness: false,
-    gamePartyCharacterIds: Array.isArray(metadata.gamePartyCharacterIds)
-      ? metadata.gamePartyCharacterIds.filter((id) => typeof id === "string" && room.characterIds.includes(id))
-      : [],
+    gamePartyCharacterIds: filterRoomGamePartyCharacterIds(metadata, room.characterIds),
     discordWebhookUrl: "",
     conversationCommandToggles: {
       ...record(metadata.conversationCommandToggles),

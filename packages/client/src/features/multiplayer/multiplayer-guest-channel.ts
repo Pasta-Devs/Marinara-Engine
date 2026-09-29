@@ -151,11 +151,13 @@ export function connectMultiplayerGuestFrame(
     throw new Error("Guest frame is not isolated");
   }
   const channel = new MessageChannel();
-  const token = crypto.randomUUID();
+  const token = Array.from(crypto.getRandomValues(new Uint8Array(16)), (value) =>
+    value.toString(16).padStart(2, "0"),
+  ).join("");
   let closed = false;
   let ready = false;
   let presentation = validateGuestPresentation(options.initial);
-  let activeActions = 0;
+  const activeActions = new Set<string>();
   // Keep only recent IDs. Host operation IDs remain the authoritative deduplication boundary.
   const seen = new Set<string>();
   const timeout = setTimeout(fail, 10_000);
@@ -189,10 +191,14 @@ export function connectMultiplayerGuestFrame(
         options.onReady?.();
         return;
       }
-      if (message.type !== "action" || seen.has(message.id) || activeActions >= 4) return fail();
+      if (message.type !== "action" || seen.has(message.id) || activeActions.has(message.id)) return fail();
       if (seen.size >= 64) seen.delete(seen.values().next().value!);
       seen.add(message.id);
-      activeActions += 1;
+      if (activeActions.size >= 4) {
+        channel.port1.postMessage(JSON.stringify({ type: "result", id: message.id, accepted: false }));
+        return;
+      }
+      activeActions.add(message.id);
       void options
         .onAction(message.action)
         .then(
@@ -207,7 +213,7 @@ export function connectMultiplayerGuestFrame(
           },
         )
         .finally(() => {
-          activeActions -= 1;
+          activeActions.delete(message.id);
         });
     } catch {
       fail();

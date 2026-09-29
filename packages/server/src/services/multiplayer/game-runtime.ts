@@ -23,7 +23,12 @@ import { generateWeather, inferBiome, shouldWeatherChange } from "../game/weathe
 import { validateTransition } from "../game/state-machine.service.js";
 import { record } from "./room-projection.js";
 import { ensureRoomHumanGameCards } from "./game-persona.js";
-import { resolveRoomGenerationPolicy, runWithRoomGeneration, type GenerationRoomContext } from "./generation-policy.js";
+import {
+  filterRoomGamePartyCharacterIds,
+  resolveRoomGenerationPolicy,
+  runWithRoomGeneration,
+  type GenerationRoomContext,
+} from "./generation-policy.js";
 
 const arrayRecords = (value: unknown): Record<string, unknown>[] => (Array.isArray(value) ? value.map(record) : []);
 
@@ -111,11 +116,7 @@ export function createRoomGameRuntime(db: DB, operations: GameOperations) {
           for (const update of tags.widgetUpdates) widgets = applyGameWidgetUpdate(widgets, update);
 
           // Only already approved AI cards can be recruited. A generated name never imports a library card.
-          let partyIds = Array.isArray(metadata.gamePartyCharacterIds)
-            ? metadata.gamePartyCharacterIds.filter(
-                (id): id is string => typeof id === "string" && policy.characterIds.includes(id),
-              )
-            : [];
+          let partyIds = filterRoomGamePartyCharacterIds(metadata, policy.characterIds);
           const cards = createCharactersStorage(tx);
           const approvedCards = await Promise.all(policy.characterIds.map((id) => cards.getById(id)));
           for (const change of tags.partyChanges) {

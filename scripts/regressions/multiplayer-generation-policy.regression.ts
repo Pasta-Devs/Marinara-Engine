@@ -125,6 +125,45 @@ try {
     assert.ok(roomRosterPrompt()?.includes("Narrator: GM"));
     assert.ok(roomRosterPrompt()?.includes("Companion: AI character"));
     assert.ok(!roomRosterPrompt()?.includes("Pending"), "pending roster changes do not enter the current round");
+    const gameMetadata = policyModule.roomGenerationMetadata({
+      gamePartyCharacterIds: ["character_two", "npc:harbormaster", "npc:untracked", "private_library_card"],
+      gameNpcs: [{ name: "Harbormaster" }],
+    });
+    assert.deepEqual(
+      gameMetadata.gamePartyCharacterIds,
+      ["character_two", "npc:harbormaster"],
+      "room prompts retain tracked NPC companions without approving unknown NPCs or private library cards",
+    );
+    const { injectGameGmPromptRuntime } =
+      await import("../../packages/server/src/services/generation/game-gm-prompt-runtime.js");
+    const libraryReads: string[] = [];
+    const gameMessages: Array<{ role: "system"; content: string }> = [];
+    await injectGameGmPromptRuntime({
+      messages: gameMessages,
+      chatId: policy.chatId,
+      chat: {},
+      chatMetadata: gameMetadata,
+      characterIds,
+      chars: {
+        getById: async (id) => {
+          libraryReads.push(id);
+          return null;
+        },
+        getPersona: async () => {
+          assert.fail("room prompt must not read a private persona");
+        },
+      },
+      chats: { getById: async () => null, updateMetadata: async () => undefined },
+      selectedGameStateSnapshotPromise: Promise.resolve(null),
+      mappedMessages: [],
+      personaName: "Luna",
+      resolvePromptMacros: (value) => value,
+    });
+    assert.deepEqual(libraryReads, ["character_two"], "tracked NPC IDs never authorize library-card reads");
+    assert.ok(
+      gameMessages[0]?.content.includes("Harbormaster"),
+      "the existing GM prompt retains tracked NPC companions",
+    );
     assert.deepEqual(resolveRoleplayWhisperRecipient("Rowan", [], { id: "legacy_host", name: "Luna" }), {
       id: "guest_12345",
       kind: "persona",

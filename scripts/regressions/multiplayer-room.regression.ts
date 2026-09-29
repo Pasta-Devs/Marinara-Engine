@@ -561,6 +561,29 @@ try {
   assert.equal(startedGame!.snapshot.status, "active");
   assert.ok(startedGame!.snapshot.round);
   assert.equal((await hostCharacters.list()).length, cardCountBeforeGame);
+  await hostChats.patchMetadata(preparedGame.chatId, {
+    gameNpcs: [{ name: "Harbormaster" }],
+    gamePartyCharacterIds: [libraryCompanion.id, "npc:harbormaster", "npc:unknown", "unapproved_library_card"],
+  });
+  await host.hostAction({ type: "add-character", characterId: privateCharacter.id, role: "character" });
+  const partyAfterAdd = JSON.parse((await hostChats.getById(preparedGame.chatId))!.metadata).gamePartyCharacterIds;
+  assert.deepEqual(
+    partyAfterAdd,
+    [libraryCompanion.id, privateCharacter.id, "npc:harbormaster"],
+    "adding an approved AI during an active Game preserves only tracked room NPC companions",
+  );
+  await host.hostAction({ type: "remove-character", characterId: privateCharacter.id });
+  const afterRemove = (await hostChats.getById(preparedGame.chatId))!;
+  assert.deepEqual(
+    JSON.parse(afterRemove.metadata).gamePartyCharacterIds,
+    [libraryCompanion.id, "npc:harbormaster"],
+    "removing an AI during an active Game preserves the tracked NPC companion",
+  );
+  assert.deepEqual(
+    JSON.parse(afterRemove.characterIds),
+    [libraryGm.id, libraryCompanion.id],
+    "tracked NPCs remain room state and never become approved library actors",
+  );
   let releaseGameResolution!: () => void;
   const gameResolutionGate = new Promise<void>((resolve) => {
     releaseGameResolution = resolve;
