@@ -6,6 +6,14 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 if (process.argv[2] !== "--child") {
+  // Security/Node CI builds shared code only; exercise the real guest document
+  // without depending on a previous full client build in the checkout.
+  const guestBuild = spawnSync(
+    process.execPath,
+    [fileURLToPath(new URL("../../packages/client/scripts/build-multiplayer-guest.mjs", import.meta.url))],
+    { encoding: "utf8", timeout: 60_000 },
+  );
+  assert.equal(guestBuild.status, 0, `guest build: ${guestBuild.stdout}\n${guestBuild.stderr}`);
   for (const value of ["missing", "false", "invalid", "true"]) {
     const result = spawnSync(
       process.execPath,
