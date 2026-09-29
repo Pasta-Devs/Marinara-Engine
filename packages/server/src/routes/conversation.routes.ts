@@ -1011,8 +1011,8 @@ export async function conversationRoutes(app: FastifyInstance) {
       );
     }
 
-    // Update each character's conversationStatus to match current schedule
-    for (const cid of characterIds) {
+    // Shared-room eligibility must not mutate private character cards.
+    for (const cid of meta.multiplayer ? [] : characterIds) {
       const schedule = schedules[cid];
       if (!schedule) continue;
       const { status } = getEffectiveCurrentStatus(schedule, statusOverrides[cid], nowInstant, "free time", promptNow);
@@ -1059,8 +1059,18 @@ export async function conversationRoutes(app: FastifyInstance) {
       await seeding;
     }
 
+    // Shared-room activity belongs to accepted host actions, not any viewer's
+    // local idle timer. Reconcile after the transcript seed without clearing a
+    // concurrently held generation marker or moving the activity clock back.
+    if (meta.multiplayer && typeof meta.multiplayer === "object") {
+      const activityAt = Date.parse(String(meta.multiplayer.lastActivityAt ?? ""));
+      if (Number.isFinite(activityAt) && activityAt > (getActivityState(chatId)?.lastUserMessageAt ?? 0)) {
+        recordUserActivity(chatId, { occurredAt: activityAt, preserveGenerationInProgress: true });
+      }
+    }
+
     // Filter out characters busy in an active scene
-    const sceneBusyCharIds = await resolveSceneBusyCharacterIds(chats, chatId, meta);
+    const sceneBusyCharIds = meta.multiplayer ? [] : await resolveSceneBusyCharacterIds(chats, chatId, meta);
     const filteredSchedules = { ...autonomySchedules };
     for (const busyId of sceneBusyCharIds) {
       delete filteredSchedules[busyId];

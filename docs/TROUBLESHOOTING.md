@@ -11,6 +11,18 @@ Many problems clear up with two quick steps.
 
 If you are asking the team for help, turn on **Debug mode** first so the server logs the prompt and response. See Getting more help at the end of this guide.
 
+## Multiplayer connection or turn problems
+
+- **Controls unavailable:** confirm `MULTIPLAYER_ENABLED=true` is in the correct Engine's `.env`, restart that Engine, then enable Settings separately. A saved toggle cannot override a missing/invalid environment flag. The Android native wrapper deliberately cannot join.
+- **Host unavailable:** use a separate reachable HTTPS room port, a valid certificate chain/hostname and the matching invitation fingerprint. Do not disable TLS validation, add `null` to trusted origins, expose the normal Engine API or open a host-supplied client to work around an error.
+- **Awaiting approval:** the host must approve the request in Players. No transcript is available before approval. Ask for a fresh invitation if it expired or was revoked.
+- **Disconnected:** keep the guest's own Engine running. The client reconnects to the same pinned host while the explicit session is alive; unsent drafts stay in the current view. Restart ends credentials and needs a fresh join. Stop/Leave remain available when the network fails.
+- **Game waiting:** inspect Players. Disconnected participants are not automatically passed. The host can explicitly Pass/Kick or Pause. Submitting one of two required actions must not run the GM.
+- **Interrupted generation:** do not repeatedly resubmit the round. The host should inspect committed narration/state and explicitly resume forward, or stop the room. Multiplayer does not silently replay an ambiguous model request or apply its world effects twice.
+- **Restricted command or missing media:** the initial room protocol intentionally carries only text. Use the [compatibility matrix](development/multiplayer.md#command-and-feature-compatibility); do not install a peer-provided file or extension as a workaround.
+
+When reporting a connection error, include mode, platform, the visible error and whether approval succeeded. Do not post invitations, room passwords, session tokens, private transcripts or provider credentials.
+
 ## Install and launch problems
 
 ### Termux: JavaScript heap out of memory while building the client

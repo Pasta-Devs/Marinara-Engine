@@ -1,3 +1,4 @@
+import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
 // ──────────────────────────────────────────────
 // Capability tool registry — gives the `tools` permission its mechanism.
 //
@@ -152,6 +153,7 @@ export function capabilityToolDefs(): Array<{
   type: "function";
   function: { name: string; description: string; parameters: Record<string, unknown> };
 }> {
+  if (currentRoomGeneration()) return [];
   return [...byQualifiedName.values()].map((tool) => ({
     type: "function" as const,
     function: {
@@ -184,6 +186,7 @@ export async function executeCapabilityTool(
   args: Record<string, unknown>,
   chatId: string,
 ): Promise<unknown> {
+  if (currentRoomGeneration()) return { error: "Package tools are not available in shared rooms." };
   const tool = byQualifiedName.get(name);
   if (!tool) return { error: `Unknown tool ${name}` };
   try {

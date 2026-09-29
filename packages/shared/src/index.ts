@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 
 // Types
+export * from "./types/multiplayer.js";
 export * from "./types/tts.js";
 export * from "./types/chat.js";
 export * from "./types/advanced-memory.js";
@@ -50,6 +51,7 @@ export * from "./types/home-feed.js";
 export * from "./types/chat-insights.js";
 
 // Schemas
+export * from "./schemas/multiplayer.schema.js";
 export * from "./schemas/chat.schema.js";
 export * from "./schemas/chat-preset.schema.js";
 export * from "./schemas/character.schema.js";
@@ -222,3 +224,6 @@ export * from "./constants/request-timeouts.js";
 
 export * from "./utils/game-narration-text.js";
 export * from "./utils/message-marks.js";
+
+export * from "./utils/game-tag-parser.js";
+export * from "./utils/game-widget-update.js";

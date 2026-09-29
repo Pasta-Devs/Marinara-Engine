@@ -947,7 +947,7 @@ try {
   // client has already dropped the stream and the frame would evaporate unlogged.
   assert.match(
     generateRoute,
-    /collectedGmVerbCalls\.length > 0 && gmVerbTable && !abortController\.signal\.aborted/,
+    /collectedGmVerbCalls\.length > 0 && gmVerbTable && !generationSignal\.aborted/,
     "GM verb execution must be skipped on an aborted turn",
   );
   // The committed-write signal. Without this frame a state verb's write never reaches the package

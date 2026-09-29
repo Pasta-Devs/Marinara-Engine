@@ -1,3 +1,4 @@
+import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
 import { normalizeTextForMatch } from "@marinara-engine/shared";
 
 import { logger } from "../../lib/logger.js";
@@ -24,6 +25,10 @@ type ChatsStore = {
     anchorMessageId?: string,
   ): Promise<unknown>;
   createNote(sourceChatId: string, targetChatId: string, content: string, anchorMessageId?: string): Promise<unknown>;
+  patchMetadata?(
+    chatId: string,
+    updater: (metadata: Record<string, unknown>) => Record<string, unknown>,
+  ): Promise<unknown>;
 };
 
 type CharacterMemory = {
@@ -41,6 +46,16 @@ export async function handleConversationSideEffectCommand(args: {
   chars: CharactersStore;
   chats: ChatsStore;
 }): Promise<boolean> {
+  const room = currentRoomGeneration();
+  if (room?.signal?.aborted) return false;
+  if (
+    room &&
+    (args.chatId !== room.chatId ||
+      !args.characterId ||
+      !room.characterIds.includes(args.characterId) ||
+      args.command.type !== "memory")
+  )
+    return false;
   if (args.command.type === "memory") {
     await handleMemoryCommand(args.command as MemoryCommand, args);
     return true;
@@ -65,6 +80,39 @@ async function handleMemoryCommand(
   const srcCharRow = args.characterId ? await args.chars.getById(args.characterId) : null;
   const srcCharData = parseRecord(srcCharRow?.data);
   const srcCharName = typeof srcCharData?.name === "string" && srcCharData.name.trim() ? srcCharData.name : "Unknown";
+
+  const room = currentRoomGeneration();
+  if (room) {
+    if (!args.chats.patchMetadata || command.summary.length > 4_000) return;
+    const matches = (
+      await Promise.all(
+        room.characterIds.map(async (id) => {
+          const row = await args.chars.getById(id);
+          const data = parseRecord(row?.data);
+          return data && typeof data.name === "string" && normalizeTextForMatch(data.name) === targetName ? id : null;
+        }),
+      )
+    ).filter((id): id is string => id !== null);
+    if (matches.length !== 1) return;
+    const targetId = matches[0]!;
+    await args.chats.patchMetadata(args.chatId, (metadata) => {
+      const active = parseRecord(metadata.multiplayer);
+      if (active?.status !== "active" || active.epoch !== room.epoch) return {};
+      const allMemories = parseRecord(metadata.multiplayerCharacterMemories) ?? {};
+      const previous = Array.isArray(allMemories[targetId]) ? (allMemories[targetId] as unknown[]) : [];
+      const memories = [
+        ...previous.slice(-11),
+        {
+          from: srcCharName,
+          fromCharId: args.characterId,
+          summary: command.summary,
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      return { multiplayerCharacterMemories: { ...allMemories, [targetId]: memories } };
+    });
+    return;
+  }
 
   const allCharsList = await args.chars.list();
   const targetChar = allCharsList.find((character) => {

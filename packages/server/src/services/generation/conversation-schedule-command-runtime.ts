@@ -1,3 +1,5 @@
+import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
+import { resolveConversationTimeZone, toZonedWallClockDate } from "../conversation/timezone.js";
 import {
   parseDuration,
   type CharacterCommand,
@@ -9,6 +11,7 @@ import { getEnabledConversationSchedules } from "./conversation-context-utils.js
 type ChatsStore = {
   getById(id: string): Promise<{ metadata?: unknown } | null>;
   updateMetadata(id: string, patch: Record<string, unknown>): Promise<unknown>;
+  patchMetadata?(id: string, updater: (metadata: Record<string, unknown>) => Record<string, unknown>): Promise<unknown>;
 };
 
 type ScheduleBlock = {
@@ -33,23 +36,46 @@ export async function handleConversationScheduleCommand(args: {
   if (args.command.type !== "schedule_update") return false;
   const command = args.command as ScheduleUpdateCommand;
   if (!args.characterId || (!command.status && !command.activity)) return true;
+  const room = currentRoomGeneration();
+  if (room?.signal?.aborted) return false;
+  if (
+    room &&
+    (room.chatId !== args.chatId || !room.characterIds.includes(args.characterId) || !args.chats.patchMetadata)
+  )
+    return false;
 
-  const freshChat = await args.chats.getById(args.chatId);
-  const freshMeta = parseRecord(freshChat?.metadata) ?? {};
-  const schedules = getEnabledConversationSchedules(freshMeta) as Record<string, WeekScheduleRecord>;
-  const schedule = schedules[args.characterId];
-  if (!schedule) return true;
-
-  const nowDate = new Date();
-  const dayName = DAYS_LIST[(nowDate.getDay() + 6) % 7]!;
-  const daySchedule = schedule.days?.[dayName] ?? [];
-  const currentMinutes = nowDate.getHours() * 60 + nowDate.getMinutes();
-  const updated = updateCurrentScheduleBlock(daySchedule, currentMinutes, command);
+  const characterId = args.characterId;
+  const updateSchedule = (metadata: Record<string, unknown>) => {
+    const schedules = getEnabledConversationSchedules(metadata) as Record<string, WeekScheduleRecord>;
+    const schedule = schedules[characterId];
+    if (!schedule) return null;
+    const nowDate = room ? toZonedWallClockDate(new Date(), resolveConversationTimeZone(metadata)) : new Date();
+    const dayName = DAYS_LIST[(nowDate.getDay() + 6) % 7]!;
+    const daySchedule = schedule.days?.[dayName] ?? [];
+    if (!updateCurrentScheduleBlock(daySchedule, nowDate.getHours() * 60 + nowDate.getMinutes(), command)) return null;
+    schedule.days = { ...(schedule.days ?? {}), [dayName]: daySchedule };
+    schedules[characterId] = schedule;
+    return { characterSchedules: schedules };
+  };
+  let updated = false;
+  if (room) {
+    await args.chats.patchMetadata!(args.chatId, (metadata) => {
+      const active = parseRecord(metadata.multiplayer);
+      if (room.signal?.aborted || active?.status !== "active" || active.epoch !== room.epoch) return {};
+      const patch = updateSchedule(metadata);
+      updated = !!patch;
+      return patch ?? {};
+    });
+  } else {
+    const freshChat = await args.chats.getById(args.chatId);
+    const freshMeta = parseRecord(freshChat?.metadata) ?? {};
+    const patch = updateSchedule(freshMeta);
+    if (patch) {
+      await args.chats.updateMetadata(args.chatId, { ...freshMeta, ...patch });
+      updated = true;
+    }
+  }
   if (!updated) return true;
-
-  schedule.days = { ...(schedule.days ?? {}), [dayName]: daySchedule };
-  schedules[args.characterId] = schedule;
-  await args.chats.updateMetadata(args.chatId, { ...freshMeta, characterSchedules: schedules });
 
   args.sendUpdated({ characterId: args.characterId, status: command.status, activity: command.activity });
   logger.info(

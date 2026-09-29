@@ -1,3 +1,4 @@
+import { currentRoomGeneration, roomHostIdentity } from "../multiplayer/generation-policy.js";
 // ──────────────────────────────────────────────
 // Service: Skill Check Resolution (chat-scoped)
 //
@@ -125,6 +126,8 @@ export interface SkillCheckModifierContext {
    * Absent is `engine-legacy`: the arithmetic this service has always done.
    */
   ruleset?: SkillCheckRulesetContext;
+  /** Shared Game legacy checks resolve the explicitly named room card, never another player. */
+  roomCharacters?: Map<string, Pick<SkillCheckModifierContext, "skills" | "attributes" | "sheetAttributes">>;
 }
 
 export interface SkillCheckRulesetContext {
@@ -245,6 +248,13 @@ async function findPlayerCharacterCard(
   chatId: string,
 ): Promise<Record<string, unknown> | undefined> {
   if (cards.length === 0) return undefined;
+  const host = roomHostIdentity();
+  if (host) {
+    const matches = cards.filter(
+      (card) => normalizeCharacterLookupName(readTrimmedString(card.name)) === normalizeCharacterLookupName(host.name),
+    );
+    return matches.length === 1 ? matches[0] : undefined;
+  }
   const setupConfig =
     meta.gameSetupConfig && typeof meta.gameSetupConfig === "object" && !Array.isArray(meta.gameSetupConfig)
       ? (meta.gameSetupConfig as Record<string, unknown>)
@@ -354,11 +364,38 @@ export async function loadSkillCheckModifierContext(
     );
   }
 
-  if (attributes) return { skills, attributes, sheetAttributes: {} };
+  let roomCharacters: SkillCheckModifierContext["roomCharacters"];
+  const room = currentRoomGeneration();
+  if (room) {
+    roomCharacters = new Map();
+    const names = [
+      ...room.participants.map((participant) => participant.persona.name),
+      ...cards.map((card) => readTrimmedString(card.name)),
+    ];
+    for (const name of new Set(names)) {
+      const key = normalizeCharacterLookupName(name);
+      if (!key) continue;
+      const matches = cards.filter((card) => normalizeCharacterLookupName(readTrimmedString(card.name)) === key);
+      if (matches.length > 1) continue;
+      const stats = matches[0]?.rpgStats as { attributes?: Array<{ name: string; value: number }> } | undefined;
+      const isHost = key === normalizeCharacterLookupName(roomHostIdentity()?.name ?? "");
+      roomCharacters.set(key, {
+        skills: isHost ? skills : null,
+        attributes: isHost ? attributes : null,
+        sheetAttributes: mapSheetAttributesToRPG(stats?.attributes),
+      });
+    }
+  }
+  if (attributes) return { skills, attributes, sheetAttributes: {}, ...(roomCharacters ? { roomCharacters } : {}) };
   const playerCard = await findPlayerCharacterCard(db, cards, chat?.personaId, meta, chatId);
   const rpgStats = playerCard?.rpgStats as { attributes?: Array<{ name: string; value: number }> } | undefined;
 
-  return { skills, attributes: null, sheetAttributes: mapSheetAttributesToRPG(rpgStats?.attributes) };
+  return {
+    skills,
+    attributes: null,
+    sheetAttributes: mapSheetAttributesToRPG(rpgStats?.attributes),
+    ...(roomCharacters ? { roomCharacters } : {}),
+  };
 }
 
 /** Evaluate every party card's ruleset sheet once, so all the checks in a turn see one sheet. */
@@ -1062,6 +1099,12 @@ export function resolveSkillCheckWithContext(
   onSpend?: (key: string, live: RulesetLiveState) => void,
 ): SkillCheckResult {
   if (context.ruleset) return resolveRulesetSkillCheck(context.ruleset, request, rollD20, onSpend);
+  const namedRoomCheck = !!context.roomCharacters && !!request.who;
+  if (namedRoomCheck) {
+    const named = context.roomCharacters!.get(normalizeCharacterLookupName(request.who!));
+    if (!named) throw new Error("The shared Game check has no unambiguous participant card.");
+    context = { ...context, ...named };
+  }
   const skills = context.skills;
   const rawSkillMod = skills ? (skills[request.skill] ?? skills[request.skill.toLowerCase()]) : undefined;
   const skillMod = Number.isFinite(Number(rawSkillMod)) ? Number(rawSkillMod) : 0;
@@ -1072,7 +1115,7 @@ export function resolveSkillCheckWithContext(
   const attr = getGoverningAttribute(request.skill);
   const attrScore = readContextAttributeScore(context, attr);
 
-  return resolveSkillCheck({
+  const result = resolveSkillCheck({
     skill: request.skill,
     dc: request.dc,
     skillModifier: skillMod,
@@ -1082,6 +1125,7 @@ export function resolveSkillCheckWithContext(
     preRolledD20: request.preRolledD20,
     rollD20,
   });
+  return namedRoomCheck ? { ...result, who: request.who } : result;
 }
 
 /** Resolve a single check for a chat — the POST /game/skill-check body. */

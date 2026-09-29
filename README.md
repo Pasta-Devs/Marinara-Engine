@@ -13,6 +13,8 @@
 
 ---
 
+> **Optional multiplayer:** Private shared sessions require two explicit opt-ins and a trusted client for every participant. See [multiplayer setup and limits](docs/CONFIGURATION.md#optional-multiplayer).
+
 ## Table of Contents
 
 - [🍝 Marinara Engine](#-marinara-engine)

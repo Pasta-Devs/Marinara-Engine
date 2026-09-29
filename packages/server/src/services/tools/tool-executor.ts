@@ -1,3 +1,4 @@
+import { currentRoomGeneration, roomToolAllowed } from "../multiplayer/generation-policy.js";
 // ──────────────────────────────────────────────
 // Tool Executor — Handles built-in + custom function calls
 // ──────────────────────────────────────────────
@@ -226,6 +227,10 @@ export async function executeToolCalls(
 
   for (const call of toolCalls) {
     try {
+      const room = currentRoomGeneration();
+      if (!roomToolAllowed(call.function.name) || (room && context?.chatId !== room.chatId)) {
+        throw new Error(`Tool not available in this shared room: ${call.function.name}`);
+      }
       let parsedArguments: unknown;
       try {
         parsedArguments = JSON.parse(call.function.arguments);

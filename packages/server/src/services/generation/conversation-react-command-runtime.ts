@@ -1,3 +1,4 @@
+import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
 import {
   normalizeTextForMatch,
   parseGroupedSpeakerSegments,
@@ -17,6 +18,7 @@ import type { CharacterCommand, ReactCommand } from "../conversation/character-c
 
 type MessageRow = {
   id?: unknown;
+  chatId?: unknown;
   role?: unknown;
   content?: unknown;
   characterId?: unknown;
@@ -63,6 +65,9 @@ export async function handleConversationReactCommand(args: {
     return true;
   }
   if (!args.characterId || !command.emoji) return true;
+  const room = currentRoomGeneration();
+  if (room?.signal?.aborted) return false;
+  if (room && !room.characterIds.includes(args.characterId)) return false;
 
   const imageUrl = await resolveCustomEmojiImageUrl(command, args);
   const target = await resolveReactionTarget(command, args);
@@ -72,7 +77,7 @@ export async function handleConversationReactCommand(args: {
     target.prefetchedMessage && target.id === target.prefetchedMessage.id
       ? target.prefetchedMessage
       : await args.chats.getMessage(target.id);
-  if (!targetMsg) return true;
+  if (!targetMsg || (room && targetMsg.chatId !== room.chatId)) return true;
 
   const ex = parseExtra(targetMsg.extra);
   const reactions = addMessageReactor(ex.reactions, command.emoji, args.characterId, imageUrl, target.segmentTarget);
@@ -99,6 +104,7 @@ async function resolveCustomEmojiImageUrl(
   command: ReactCommand,
   args: Parameters<typeof handleConversationReactCommand>[0],
 ): Promise<string | null> {
+  if (currentRoomGeneration()) return null;
   const customName = command.emoji.match(/^:([a-zA-Z0-9_]+):$/)?.[1];
   if (!customName) return null;
 

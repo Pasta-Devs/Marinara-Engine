@@ -35,6 +35,7 @@ import {
 
 import { getCurrentInputSnapshot, useChatStore } from "../../stores/chat.store";
 import { hasActiveTextSelection } from "../../lib/text-selection";
+import { readChatMetadata } from "../../lib/chat-wizard-defaults";
 import { useGenerate } from "../../hooks/use-generate";
 import { useGenerateGallerySelfie } from "../../hooks/use-gallery";
 import {
@@ -466,7 +467,103 @@ type TTSGenerationSnapshot = {
   failed: boolean;
 };
 
+function ChatOpeningState({
+  error: chatError,
+  onRetry,
+  onBack,
+}: {
+  error: unknown;
+  onRetry: () => unknown;
+  onBack: () => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const chatOpenTimedOut = isRequestTimeoutError(chatError);
+  const errorMessage = chatOpenTimedOut
+    ? localizeUi("ui.chat.chatarea.serverUnreachableHint")
+    : chatError instanceof ApiError
+      ? chatError.message
+      : chatError instanceof Error
+        ? chatError.message
+        : localizeUi("ui.chat.chatarea.openingChat");
+  const hasOpenError = !!chatError;
+
+  return (
+    <div
+      data-component="ChatArea.RestoringChat"
+      className="mari-app-background-paint flex flex-1 items-center justify-center overflow-hidden p-6"
+    >
+      <div className="flex flex-col items-center gap-3 text-center">
+        {!hasOpenError && (
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--primary)]" />
+        )}
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-[var(--foreground)]">
+            {hasOpenError
+              ? chatOpenTimedOut
+                ? localizeUi("ui.chat.chatarea.serverUnreachable")
+                : localizeUi("ui.chat.chatarea.couldNotOpenThisChat")
+              : localizeUi("ui.chat.chatarea.openingChat")}
+          </p>
+          {hasOpenError && (
+            <p className="mari-chrome-accent-text-muted mari-accent-animated max-w-sm text-xs">{errorMessage}</p>
+          )}
+        </div>
+        {hasOpenError && (
+          <div className="flex items-center gap-2">
+            {/* The unreachable hint tells the user to try again after
+                  foregrounding Termux; with focus-refetch globally off and
+                  timeout retries disabled, this button is the recovery path. */}
+            {chatOpenTimedOut && (
+              <button
+                type="button"
+                onClick={() => void onRetry()}
+                className="mari-chrome-control mari-chrome-control--small text-xs"
+              >
+                {localizeUi("ui.chat.chatarea.tryAgain")}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onBack()}
+              className="mari-chrome-control mari-chrome-control--small text-xs"
+            >
+              {localizeUi("ui.chat.chatarea.backToChats")}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const MultiplayerChat = lazy(() =>
+  import("../../features/multiplayer/MultiplayerChat").then((module) => ({ default: module.MultiplayerChat })),
+);
+
 export const ChatArea = memo(function ChatArea() {
+  const activeChatId = useChatStore((state) => state.activeChatId);
+  const { data: chat, error, refetch } = useChat(activeChatId);
+  useEffect(() => {
+    if (activeChatId && error instanceof ApiError && error.status === 404) {
+      useChatStore.getState().setActiveChatId(null);
+    }
+  }, [activeChatId, error]);
+  if (activeChatId && !chat)
+    return (
+      <ChatOpeningState error={error} onRetry={refetch} onBack={() => useChatStore.getState().setActiveChatId(null)} />
+    );
+  const metadata = chat ? readChatMetadata(chat) : {};
+  if (chat && (metadata.multiplayerSetup === true || metadata.multiplayer)) {
+    return (
+      <Suspense fallback={null}>
+        <MultiplayerChat key={chat.id} chat={chat} />
+      </Suspense>
+    );
+  }
+  return <LocalChatArea />;
+});
+
+const LocalChatArea = memo(function LocalChatArea() {
   const { t: localizeUi } = useUiTranslation();
   useRenderTimer("chat-area"); // [#3104 diagnostic]
   const activeChatId = useChatStore((s) => s.activeChatId);
@@ -735,11 +832,6 @@ export const ChatArea = memo(function ChatArea() {
   const agentProcessing = useAgentStore((s) =>
     activeChatId ? s.processingChatIds.includes(activeChatId) : s.isProcessing,
   );
-
-  useEffect(() => {
-    if (!activeChatId || !(chatError instanceof ApiError) || chatError.status !== 404) return;
-    setActiveChatId(null);
-  }, [activeChatId, chatError, setActiveChatId]);
 
   useEffect(() => {
     if (!activeChatId || !allChats) return;
@@ -2980,63 +3072,7 @@ export const ChatArea = memo(function ChatArea() {
   // Restoring persisted active chat
   // ═══════════════════════════════════════════════
   if (activeChatId && !chat) {
-    const chatOpenTimedOut = isRequestTimeoutError(chatError);
-    const errorMessage = chatOpenTimedOut
-      ? localizeUi("ui.chat.chatarea.serverUnreachableHint")
-      : chatError instanceof ApiError
-        ? chatError.message
-        : chatError instanceof Error
-          ? chatError.message
-          : "Opening chat...";
-    const hasOpenError = !!chatError;
-
-    return (
-      <div
-        data-component="ChatArea.RestoringChat"
-        className="mari-app-background-paint flex flex-1 items-center justify-center overflow-hidden p-6"
-      >
-        <div className="flex flex-col items-center gap-3 text-center">
-          {!hasOpenError && (
-            <div className="h-7 w-7 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--primary)]" />
-          )}
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-[var(--foreground)]">
-              {hasOpenError
-                ? chatOpenTimedOut
-                  ? localizeUi("ui.chat.chatarea.serverUnreachable")
-                  : localizeUi("ui.chat.chatarea.couldNotOpenThisChat")
-                : localizeUi("ui.chat.chatarea.openingChat")}
-            </p>
-            {hasOpenError && (
-              <p className="mari-chrome-accent-text-muted mari-accent-animated max-w-sm text-xs">{errorMessage}</p>
-            )}
-          </div>
-          {hasOpenError && (
-            <div className="flex items-center gap-2">
-              {/* The unreachable hint tells the user to try again after
-                  foregrounding Termux; with focus-refetch globally off and
-                  timeout retries disabled, this button is the recovery path. */}
-              {chatOpenTimedOut && (
-                <button
-                  type="button"
-                  onClick={() => void refetchChatDetail()}
-                  className="mari-chrome-control mari-chrome-control--small text-xs"
-                >
-                  {localizeUi("ui.chat.chatarea.tryAgain")}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setActiveChatId(null)}
-                className="mari-chrome-control mari-chrome-control--small text-xs"
-              >
-                {localizeUi("ui.chat.chatarea.backToChats")}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    );
+    return <ChatOpeningState error={chatError} onRetry={refetchChatDetail} onBack={() => setActiveChatId(null)} />;
   }
 
   // ═══════════════════════════════════════════════

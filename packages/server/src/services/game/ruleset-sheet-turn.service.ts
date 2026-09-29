@@ -1,3 +1,4 @@
+import { roomHostIdentity } from "../multiplayer/generation-policy.js";
 // ──────────────────────────────────────────────
 // Game: one turn of a ruleset game's live sheet state
 // ──────────────────────────────────────────────
@@ -133,7 +134,7 @@ export async function loadGameRulesetSheetContext(
     : [];
   const setupConfig = meta.gameSetupConfig as { personaId?: string | null } | null | undefined;
   const personaId = chat.personaId || setupConfig?.personaId || null;
-  const persona = personaId ? await createCharactersStorage(db).getPersona(personaId) : null;
+  const persona = roomHostIdentity() ?? (personaId ? await createCharactersStorage(db).getPersona(personaId) : null);
   return {
     definition: pinned.definition,
     packageId: pinned.packageId,

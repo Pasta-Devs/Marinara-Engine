@@ -1,3 +1,4 @@
+import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
 export interface CapabilityConversationCommandRegistration {
   commandType: string;
   tags: string[];
@@ -68,6 +69,7 @@ export function registerCapabilityConversationCommand(
 }
 
 export function listCapabilityConversationCommandInstructions(): string[] {
+  if (currentRoomGeneration()) return [];
   return Array.from(
     descriptionsByCommandType,
     ([commandType, details]) =>
@@ -114,6 +116,7 @@ export async function dispatchCapabilityConversationAction(
   action: CapabilityConversationAction,
   claim?: () => Promise<boolean>,
 ): Promise<boolean> {
+  if (currentRoomGeneration()) return false;
   const handler = handlersByCommandType.get(action.commandType);
   if (!handler) return false;
   const actionKey = `${action.branchChatId}:${action.sourceMessageId}:${action.swipeIndex}:${action.commandType}`;

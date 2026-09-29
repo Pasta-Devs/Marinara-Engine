@@ -215,6 +215,7 @@ export const ENGINE_OWNED_METADATA_KEY_PREFIXES = Object.freeze([
   "manual",
   "mari",
   "metadata",
+  "multiplayer",
   "narrative",
   "noodle",
   "past",

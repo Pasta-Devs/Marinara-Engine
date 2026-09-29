@@ -1,18 +1,17 @@
-import type { FastifyReply } from "fastify";
 import {
   encodeGenerationFallbackNotice,
   GENERATION_FALLBACK_HEADER,
   type GenerationFallbackNotice,
   type GenerationFallbackNotifier,
 } from "../../services/generation/fallback-notification.js";
-import { sendSseEvent } from "./sse.js";
+import { generationOutputStarted, sendSseEvent, setGenerationOutputHeader, type GenerationOutput } from "./sse.js";
 
-export function createReplyFallbackNotifier(reply: FastifyReply): GenerationFallbackNotifier {
+export function createReplyFallbackNotifier(reply: GenerationOutput): GenerationFallbackNotifier {
   return (notice: GenerationFallbackNotice) => {
-    if (reply.raw.headersSent) {
+    if (generationOutputStarted(reply)) {
       sendSseEvent(reply, { type: "fallback_used", data: notice });
       return;
     }
-    reply.header(GENERATION_FALLBACK_HEADER, encodeGenerationFallbackNotice(notice));
+    setGenerationOutputHeader(reply, GENERATION_FALLBACK_HEADER, encodeGenerationFallbackNotice(notice));
   };
 }

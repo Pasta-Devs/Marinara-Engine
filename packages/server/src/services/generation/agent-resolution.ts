@@ -1,3 +1,4 @@
+import { roomAgentAllowed } from "../multiplayer/generation-policy.js";
 import { allowsDefaultChatModel } from "../llm/local-context-limit.js";
 import {
   BUILT_IN_AGENTS,
@@ -374,6 +375,7 @@ export async function resolveAgentPipelineAgents({
   );
   const enabledConfigs = configuredAgents.filter(
     (agent) =>
+      roomAgentAllowed(agent.type as string, parseAgentSettings(agent.settings)) &&
       !isAgentConfigDeleted(agent.settings) &&
       !isBuiltInAgentHostManaged(agent.type as string) &&
       !isBuiltInAgentRuntimeDisabled(agent.type as string) &&
@@ -559,6 +561,7 @@ export async function resolveAgentPipelineAgents({
       : [];
 
   for (const builtIn of builtInFallbacks) {
+    if (!roomAgentAllowed(builtIn.id)) continue;
     const builtInConnectionId = resolveAgentConnectionRequest({
       agentType: builtIn.id,
       configuredConnectionId: null,

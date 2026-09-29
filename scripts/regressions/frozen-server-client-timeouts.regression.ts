@@ -138,8 +138,18 @@ assert.match(
 );
 assert.match(
   chatAreaSource,
-  /chatOpenTimedOut && \([\s\S]{0,400}void refetchChatDetail\(\)/u,
+  /chatOpenTimedOut && \([\s\S]{0,400}onClick=\{\(\) => void onRetry\(\)\}/u,
   "the unreachable state must offer a Try again control (focus refetch is globally off)",
+);
+assert.match(
+  chatAreaSource,
+  /<ChatOpeningState error=\{error\} onRetry=\{refetch\}/u,
+  "the outer chat routing guard must wire Try again to the chat query",
+);
+assert.match(
+  chatAreaSource,
+  /<ChatOpeningState error=\{chatError\} onRetry=\{refetchChatDetail\}/u,
+  "the local chat surface must preserve the same query retry recovery",
 );
 const supportDiagnosticsSource = readFileSync(
   join(repositoryRoot, "packages/client/src/lib/support-diagnostics.ts"),

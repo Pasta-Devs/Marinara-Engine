@@ -1,4 +1,5 @@
-import type { FastifyReply } from "fastify";
+import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
+import type { GenerationOutput } from "../../routes/generate/sse.js";
 import {
   GM_VERB_TABLE_ASSET_PATH,
   gmVerbMetadataKeyIssue,
@@ -93,6 +94,7 @@ export type GmVerbTurnRef = {
  *  rather than trusted to have been checked upstream — a table that reached here through a future
  *  second reader, or a schema that loosens, both fail closed. */
 export async function resolveGmVerbTable(chatMeta: Record<string, unknown>): Promise<ResolvedGmVerbTable | null> {
+  if (currentRoomGeneration()) return null;
   const packageId = typeof chatMeta.gameExperienceId === "string" ? chatMeta.gameExperienceId : "";
   if (!packageId) return null;
 
@@ -332,7 +334,7 @@ export async function applyGmVerbWrite(
  *  the resolved package id — it is how the verb table was found — so there is no reason to make the
  *  client infer it. */
 export function emitGmVerbEvent(
-  reply: FastifyReply,
+  reply: GenerationOutput,
   packageId: string,
   verb: GmVerb,
   args: GmVerbArgs,
@@ -407,9 +409,10 @@ export async function executeGmVerbCalls(options: {
   table: ResolvedGmVerbTable;
   turn: GmVerbTurnRef;
   store: GmVerbMetadataStore & GmVerbClaimStore;
-  reply: FastifyReply;
+  reply: GenerationOutput;
   onMetadataWritten?: () => void;
 }): Promise<void> {
+  if (currentRoomGeneration()) return;
   const { calls, table, turn, store, reply } = options;
   for (const call of calls) {
     try {

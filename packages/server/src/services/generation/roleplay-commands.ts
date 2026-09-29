@@ -1,3 +1,4 @@
+import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
 import {
   isRoleplayCommandEnabled,
   isRoleplayCommandAllowed,
@@ -241,11 +242,15 @@ export function resolveRoleplayWhisperRecipient(
   characters: readonly { id: string; name: string }[],
   persona: { id: string; name: string },
 ): RoleplayWhisperRecipient | null {
+  const room = currentRoomGeneration();
+  const personas = room
+    ? room.participants.map((participant) => ({ id: participant.id, name: participant.persona.name }))
+    : [persona];
   const participants = [
     ...characters
-      .filter((character) => character.id !== persona.id)
+      .filter((character) => !personas.some((person) => person.id === character.id))
       .map((character) => ({ ...character, kind: "character" as const })),
-    { ...persona, kind: "persona" as const },
+    ...personas.map((person) => ({ ...person, kind: "persona" as const })),
   ];
   const matches = participants.filter(
     (participant) => normalizeCharacterLookupName(participant.name) === normalizeCharacterLookupName(name),

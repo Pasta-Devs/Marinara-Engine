@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Optional private multiplayer rooms support Conversation, Roleplay and shared Game rounds for up to four people, with reviewed personas, host-approved AI characters, invitations, admission, host-controlled generation and text-only guest views. Multiplayer requires an explicit environment flag, Settings activation and Host/Join; the Android native wrapper cannot join rooms (#6790).
+
 - Review cards for edits to Professor Mari's own card, saved before she was stopped from making them, now clear on the next start instead of staying in every Mari chat; they could never be restored (#6842).
 
 - Professor Mari's review cards belong to the chat she made the change in: a new chat starts clean, and deleting a chat keeps its changes and removes its cards. She can no longer edit her own built-in card, which Marinara resets on every start, an edit that changes nothing makes no card, a refused Restore explains that Keep dismisses the card, and a failed Keep or Restore says why (#6842).

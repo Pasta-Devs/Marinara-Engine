@@ -1,3 +1,4 @@
+import { currentRoomGeneration, roomHostIdentity } from "../multiplayer/generation-policy.js";
 import {
   GAME_GM_BUILT_IN_PROMPT_TEMPLATES,
   normalizeAgentPromptTemplateOptions,
@@ -243,9 +244,10 @@ export async function injectGameGmPromptRuntime(args: {
 
   let playerCard: string | null = null;
   const playerPersonaId = (args.chat.personaId || setupConfig?.personaId) as string | null | undefined;
-  if (playerPersonaId) {
+  const roomPersona = roomHostIdentity();
+  if (playerPersonaId || roomPersona) {
     try {
-      const persona = await args.chars.getPersona(playerPersonaId);
+      const persona = roomPersona ?? (await args.chars.getPersona(playerPersonaId!));
       if (persona) {
         const parts = [`Name: ${persona.name}`];
         const description = cardPromptText(persona.description);
@@ -262,6 +264,20 @@ export async function injectGameGmPromptRuntime(args: {
     } catch {
       /* ignore */
     }
+  }
+
+  for (const participant of currentRoomGeneration()?.participants ?? []) {
+    if (participant.isHost) continue;
+    const name = participant.persona.name;
+    const parts = [
+      `Name: ${name}`,
+      "Human-controlled persona: only this participant may choose their actions or dialogue.",
+      participant.persona.description,
+    ];
+    appendGameCardDetails(parts, gameCardByName.get(normalizeTextForMatch(name)));
+    partyNames.push(name);
+    partyIdNamePairs.push({ id: participant.id, name });
+    partyCards.push({ name, card: parts.join("\n") });
   }
 
   let weatherContext: string | undefined;
