@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import {
   multiplayerErrorCodeSchema,
   type MultiplayerErrorCode,
@@ -18,6 +18,18 @@ export const multiplayerKeys = {
   guest: ["multiplayer", "guest"] as const,
 };
 const DISABLED_STORAGE_KEY = "marinara-multiplayer-disabled";
+const multiplayerStatusQuery = queryOptions({
+  queryKey: multiplayerKeys.status,
+  queryFn: ({ signal }) => api.get<MultiplayerStatus>("/multiplayer/status", { signal }),
+  // Unrelated app invalidations must not wake an optional feature. Only explicit controls refresh it.
+  staleTime: "static",
+  gcTime: Infinity,
+  refetchOnMount: false,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+  retryOnMount: false,
+  retry: false,
+});
 
 async function stopMultiplayerQueries(queryClient: QueryClient, notifyOtherTabs = false) {
   await queryClient.cancelQueries({ queryKey: multiplayerKeys.all });
@@ -47,18 +59,7 @@ export function multiplayerActionError(error: unknown): MultiplayerErrorCode | n
 
 export function useMultiplayerStatus() {
   const queryClient = useQueryClient();
-  const query = useQuery({
-    queryKey: multiplayerKeys.status,
-    queryFn: ({ signal }) => api.get<MultiplayerStatus>("/multiplayer/status", { signal }),
-    // One capability read per page lifetime. Only explicit controls refresh it.
-    staleTime: Infinity,
-    gcTime: Infinity,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    retryOnMount: false,
-    retry: false,
-  });
+  const query = useQuery(multiplayerStatusQuery);
   const available = query.data?.available;
   const enabled = query.data?.enabled;
   useEffect(() => {
@@ -133,6 +134,8 @@ export function useMultiplayerMutation<TData, TVariables>(path: string, method: 
         return;
       }
       await Promise.all([
+        // Preserve the successful write if its follow-up status read fails, as invalidation does.
+        queryClient.fetchQuery({ ...multiplayerStatusQuery, staleTime: 0 }).catch(() => undefined),
         queryClient.invalidateQueries({ queryKey: multiplayerKeys.all }),
         queryClient.invalidateQueries({ queryKey: chatKeys.all }),
       ]);

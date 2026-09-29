@@ -42,7 +42,7 @@ async function mountControls(
       const { default: React } = await import(url("react"));
       Object.assign(window, { __multiplayerFixtureReact: React });
       const { default: ReactDOM } = await import(url("react-dom_client"));
-      const { QueryClient, QueryClientProvider } = await import(url("@tanstack_react-query"));
+      const { QueryClient, QueryClientProvider, useQueryClient } = await import(url("@tanstack_react-query"));
       const entry = await (await fetch("/src/main.tsx")).text();
       const localizationUrl = entry.match(/"([^"\n]*\/localization\/i18n\.ts[^"\n]*)"/)?.[1];
       if (!localizationUrl) throw new Error("Missing localization entry");
@@ -55,7 +55,7 @@ async function mountControls(
       document.body.style.background = "var(--background)";
       let controls;
       if (surface === "gates") {
-        const { useMultiplayerStatus, useMultiplayerHost, useMultiplayerGuest } = await import(
+        const { useMultiplayerStatus, useMultiplayerHost, useMultiplayerGuest, useMultiplayerMutation } = await import(
           "/src/hooks/use-multiplayer.ts" as string
         );
         const { MultiplayerSettings } = await import("/src/features/multiplayer/MultiplayerSettings.tsx" as string);
@@ -71,10 +71,20 @@ async function mountControls(
         }
         function GateControls() {
           const [revision, setRevision] = React.useState(0);
+          const queryClient = useQueryClient();
+          const host = useMultiplayerMutation("/multiplayer/host");
+          const join = useMultiplayerMutation("/multiplayer/join");
           return React.createElement(
             React.Fragment,
             null,
             React.createElement("button", { onClick: () => setRevision(revision + 1) }, "Remount controls"),
+            React.createElement(
+              "button",
+              { onClick: () => void queryClient.invalidateQueries() },
+              "Invalidate app queries",
+            ),
+            React.createElement("button", { onClick: () => host.mutate({}) }, "Host fixture room"),
+            React.createElement("button", { onClick: () => join.mutate({}) }, "Join fixture room"),
             React.createElement(GateProbe, { key: revision }),
             React.createElement(MultiplayerSettings, { key: `settings-${revision}` }),
           );
@@ -324,6 +334,7 @@ for (const disabledGate of ["environment", "settings"] as const) {
     await expect(page.getByTestId("multiplayer-gate")).toHaveText("off");
     await page.clock.fastForward(60_000);
     await page.getByRole("button", { name: "Remount controls", exact: true }).click();
+    await page.getByRole("button", { name: "Invalidate app queries", exact: true }).click();
     await page.evaluate(() => {
       window.dispatchEvent(new Event("focus"));
       window.dispatchEvent(new Event("online"));
@@ -336,6 +347,51 @@ for (const disabledGate of ["environment", "settings"] as const) {
     expect(requests.filter((path) => path === "/api/multiplayer/host" || path === "/api/multiplayer/guest")).toEqual(
       [],
     );
+  });
+}
+
+for (const action of ["host", "join"] as const) {
+  test(`explicit multiplayer ${action} refreshes the static gate and starts its session query`, async ({
+    page,
+  }, info) => {
+    let active = false;
+    const requests: string[] = [];
+    await page.route("**/api/**", (route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      requests.push(`${request.method()} ${path}`);
+      if (path === `/api/multiplayer/${action}` && request.method() === "POST") {
+        active = true;
+        return route.fulfill({ json: {} });
+      }
+      if (path === "/api/multiplayer/status")
+        return route.fulfill({
+          json: {
+            available: true,
+            enabled: true,
+            hosting: active && action === "host",
+            joined: active && action === "join",
+            tlsAvailable: true,
+          },
+        });
+      if (path === "/api/multiplayer/host") return route.fulfill({ json: { chatId: "shared_chat_123" } });
+      if (path === "/api/multiplayer/guest") return route.fulfill({ json: { state: { phase: "connected" } } });
+      return route.fulfill({ json: [] });
+    });
+    await mountControls(page, info, "gates");
+    await expect(page.getByTestId("multiplayer-gate")).toHaveText("on");
+    expect(requests.filter((request) => request.startsWith("GET /api/multiplayer/"))).toEqual([
+      "GET /api/multiplayer/status",
+    ]);
+    await page.getByRole("button", { name: action === "host" ? "Host fixture room" : "Join fixture room" }).click();
+    await expect
+      .poll(
+        () =>
+          requests.filter((request) => request === `GET /api/multiplayer/${action === "host" ? "host" : "guest"}`)
+            .length,
+      )
+      .toBe(1);
+    expect(requests.filter((request) => request === "GET /api/multiplayer/status")).toHaveLength(2);
   });
 }
 
@@ -370,6 +426,8 @@ test("disabling multiplayer stops active room polling in every open tab", async 
   await expect(page.getByTestId("multiplayer-gate")).toHaveText("off");
   await expect(other.getByTestId("multiplayer-gate")).toHaveText("off");
   const afterDisable = requests.length;
+  await page.getByRole("button", { name: "Invalidate app queries", exact: true }).click();
+  await other.getByRole("button", { name: "Invalidate app queries", exact: true }).click();
   await page.clock.fastForward(60_000);
   await other.clock.fastForward(60_000);
   expect(requests.length).toBe(afterDisable);
@@ -404,6 +462,7 @@ test("a disabled room response stops both polling loops until an explicit refres
   const afterDisable = requests.length;
   await page.clock.fastForward(60_000);
   await page.getByRole("button", { name: "Remount controls", exact: true }).click();
+  await page.getByRole("button", { name: "Invalidate app queries", exact: true }).click();
   await page.clock.fastForward(60_000);
   expect(requests.length).toBe(afterDisable);
 });
