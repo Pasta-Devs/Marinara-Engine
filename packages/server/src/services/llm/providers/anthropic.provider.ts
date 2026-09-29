@@ -501,6 +501,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     if (isAdaptiveOnly) stripAnthropicSamplingParameters(body);
 
     if (shouldDisableThinking) {
+      // Sonnet 5.5 rejects "disabled"; normalizeStrictClaudeParameters sends it as "between_tools".
       body.thinking = { type: "disabled" };
     } else if (
       this.shouldSendParameter(options, "reasoningEffort") &&
@@ -854,6 +855,7 @@ export class AnthropicProvider extends BaseLLMProvider {
 
     // Enable extended thinking for reasoning models
     if (shouldDisableThinking) {
+      // Sonnet 5.5 rejects "disabled"; normalizeStrictClaudeParameters sends it as "between_tools".
       body.thinking = { type: "disabled" };
     } else if (
       !suppressModelParameters &&
