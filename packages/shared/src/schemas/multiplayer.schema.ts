@@ -2,8 +2,6 @@ import { z } from "zod";
 
 export const MULTIPLAYER_PROTOCOL_VERSION = 1 as const;
 export const MULTIPLAYER_LIMITS = {
-  players: 4,
-  characters: 8,
   messages: 100,
   actionBytes: 16_384,
   snapshotBytes: 262_144,
@@ -55,7 +53,7 @@ export const multiplayerMessageSchema = z
       .strict()
       .optional(),
     reactions: z
-      .array(z.object({ emoji: z.string().min(1).max(64), by: z.array(name).max(8) }).strict())
+      .array(z.object({ emoji: z.string().min(1).max(64), by: z.array(name) }).strict())
       .max(12)
       .optional(),
   })
@@ -66,8 +64,8 @@ export const multiplayerRoundSchema = z
     id,
     number: revision,
     phase: z.enum(["collecting", "resolving", "interrupted"]),
-    requiredParticipantIds: z.array(id).max(MULTIPLAYER_LIMITS.players),
-    submittedParticipantIds: z.array(id).max(MULTIPLAYER_LIMITS.players),
+    requiredParticipantIds: z.array(id),
+    submittedParticipantIds: z.array(id),
     ownSubmission: z.object({ revision, text, pass: z.boolean() }).strict().nullable(),
   })
   .strict();
@@ -87,17 +85,15 @@ export const multiplayerGameStateSchema = z
           .strict(),
       )
       .max(12),
-    trackers: z
-      .array(
-        z
-          .object({
-            ownerId: id,
-            name,
-            values: z.array(z.object({ label: z.string().min(1).max(80), value: z.string().max(80) }).strict()).max(16),
-          })
-          .strict(),
-      )
-      .max(12),
+    trackers: z.array(
+      z
+        .object({
+          ownerId: id,
+          name,
+          values: z.array(z.object({ label: z.string().min(1).max(80), value: z.string().max(80) }).strict()).max(16),
+        })
+        .strict(),
+    ),
   })
   .strict();
 export type MultiplayerGameState = z.infer<typeof multiplayerGameStateSchema>;
@@ -120,10 +116,8 @@ export const multiplayerSnapshotSchema = z
         automaticReplies: z.boolean(),
       })
       .strict(),
-    players: z.array(multiplayerPlayerSchema).max(MULTIPLAYER_LIMITS.players),
-    characters: z
-      .array(z.object({ id, name, role: z.enum(["character", "gm"]) }).strict())
-      .max(MULTIPLAYER_LIMITS.characters),
+    players: z.array(multiplayerPlayerSchema),
+    characters: z.array(z.object({ id, name, role: z.enum(["character", "gm"]) }).strict()),
     messages: z.array(multiplayerMessageSchema).max(MULTIPLAYER_LIMITS.messages),
     round: multiplayerRoundSchema.nullable(),
     game: multiplayerGameStateSchema.nullable().optional(),
@@ -161,6 +155,7 @@ export const multiplayerErrorCodeSchema = z.enum([
   "incompatible-version",
   "wrong-password",
   "room-full",
+  "snapshot-too-large",
   "rate-limited",
   "awaiting-approval",
   "declined",

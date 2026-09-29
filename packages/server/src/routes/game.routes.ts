@@ -7077,6 +7077,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
     if (!chat) throw new Error("Chat not found");
+    assertRoomGameOperation(chat);
 
     const meta = parseMeta(chat.metadata);
     const setupConfig = meta.gameSetupConfig as GameSetupConfig | null;

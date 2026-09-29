@@ -6,7 +6,6 @@ import {
   parseGmTags,
   multiplayerGameStateSchema,
   normalizeCharacterLookupName,
-  MULTIPLAYER_LIMITS,
   type MultiplayerGameState,
   type MultiplayerStoredRoom,
 } from "@marinara-engine/shared";
@@ -49,7 +48,6 @@ export function gameNarrationForParticipant(
   const participants =
     audience.roomId === room.roomId &&
     entries.length > 0 &&
-    entries.length <= MULTIPLAYER_LIMITS.players &&
     entries.every(
       (entry) =>
         typeof entry.id === "string" &&
@@ -138,11 +136,12 @@ export function projectMultiplayerGame(input: {
     const values: MultiplayerGameState["trackers"][number]["values"] = [];
     const addStat = (value: unknown, hiddenKey: (label: string, field: "name" | "value" | "max") => string) => {
       const stat = record(value);
-      const label = shortText(stat.name, 80);
+      const rawName = typeof stat.name === "string" ? stat.name : "";
+      const label = rawName.slice(0, 80);
       if (
         !label ||
         !numeric(stat.value) ||
-        ["name", "value", "max"].some((field) => hidden[hiddenKey(label, field as "name" | "value" | "max")])
+        ["name", "value", "max"].some((field) => hidden[hiddenKey(rawName, field as "name" | "value" | "max")])
       )
         return;
       if (values.some((entry) => entry.label === label)) return;
@@ -153,19 +152,23 @@ export function projectMultiplayerGame(input: {
     );
     if (rowIndex >= 0) {
       const row = present[rowIndex]!;
-      for (const stat of array(row.stats))
+      for (const [statIndex, stat] of array(row.stats).entries())
         addStat(stat, (label, field) =>
           characterStatTrackerLockKey(
-            { characterId: typeof row.characterId === "string" ? row.characterId : owner.id, name: owner.name },
+            {
+              characterId: typeof row.characterId === "string" ? row.characterId : "",
+              name: typeof row.name === "string" ? row.name : "",
+            },
             rowIndex,
             { name: label },
             field,
+            statIndex,
           ),
         );
     }
     if (owner.isHost)
-      for (const stat of array(state.personaStats))
-        addStat(stat, (label, field) => personaStatTrackerLockKey({ name: label }, field));
+      for (const [statIndex, stat] of array(state.personaStats).entries())
+        addStat(stat, (label, field) => personaStatTrackerLockKey({ name: label }, field, statIndex));
     // Starting sheet numbers are room-local and public. Never copy descriptions, inventories or arbitrary extra fields.
     if (rowIndex < 0 && !(owner.isHost && array(state.personaStats).length) && Object.keys(hidden).length === 0) {
       const matches = cards.filter((card) => shortText(card.name, 80).trim().toLocaleLowerCase() === ownerKey);
@@ -196,6 +199,6 @@ export function projectMultiplayerGame(input: {
       .filter(Boolean)
       .slice(0, 8),
     rolls,
-    trackers: trackers.slice(0, 12),
+    trackers,
   });
 }

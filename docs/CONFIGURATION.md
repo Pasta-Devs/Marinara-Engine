@@ -74,7 +74,7 @@ Sandboxed Browser Extensions remain the default. Some older third-party packages
 
 ## Optional multiplayer
 
-Multiplayer is off by default. It supports private rooms of up to four people in Conversation, Roleplay and Game. Each guest uses their own trusted Marinara installation; a phone may use its owner's trusted Engine server. Guests do not need an AI connection. The host provides the AI connections and can read and retain shared content.
+Multiplayer is off by default. While either activation gate is off, the feature performs no background session, certificate or peer checks; the client only reads availability once unless you explicitly refresh Settings. It supports private rooms in Conversation, Roleplay and Game without a fixed human or AI roster cap. Each guest uses their own trusted Marinara installation; a phone may use its owner's trusted Engine server. Guests do not need an AI connection. The host provides the AI connections and can read and retain shared content.
 
 1. Set `MULTIPLAYER_ENABLED=true` in the `.env` of each participating Engine and restart it. Only the exact value `true` enables the prerequisite; hot reload does not change it.
 2. Open **Settings → Advanced → Multiplayer**, read the warning and enable the separate setting. This does not start a listener or join a room.

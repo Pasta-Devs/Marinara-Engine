@@ -55,7 +55,7 @@ export function createRoomGameRuntime(db: DB, operations: GameOperations) {
     const chat = await chats.getById(chatId);
     if (!chat || chat.mode !== "game") throw new Error("The shared Game no longer exists.");
     const metadata = record(chat.metadata);
-    const policy = resolveRoomGenerationPolicy(chatId, metadata, JSON.parse(chat.characterIds), claim);
+    const policy = resolveRoomGenerationPolicy(chatId, metadata, [], claim);
     if (!policy) throw new Error("The shared Game is not active.");
     if (metadata.gameExperienceId || record(metadata.gameSetupConfig).gameExperienceId) {
       throw new Error("Package Game Experiences are unavailable in shared rooms.");
@@ -92,7 +92,7 @@ export function createRoomGameRuntime(db: DB, operations: GameOperations) {
           const chat = await store.getById(chatId);
           if (!chat) throw new Error("The shared Game no longer exists.");
           const metadata = record(chat.metadata);
-          resolveRoomGenerationPolicy(chatId, metadata, JSON.parse(chat.characterIds), claim);
+          resolveRoomGenerationPolicy(chatId, metadata, [], claim);
           signal?.throwIfAborted();
           const messages = await store.listMessages(chatId);
           const message = [...messages].reverse().find((item) => item.role === "assistant" && item.content.trim());
@@ -161,7 +161,10 @@ export function createRoomGameRuntime(db: DB, operations: GameOperations) {
             }
           }
           signal?.throwIfAborted();
-          await store.patchMetadata(chatId, patch, { metadataQueueHeld: true });
+          await store.patchMetadata(chatId, patch, {
+            metadataQueueHeld: true,
+            allowRoomKeys: ["multiplayerGameAppliedMessages", "multiplayerGameTurn"],
+          });
           return { applied: true, messageId: message.id };
         }),
       ),

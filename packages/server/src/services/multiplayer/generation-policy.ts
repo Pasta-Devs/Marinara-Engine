@@ -34,7 +34,7 @@ function record(value: unknown): Record<string, unknown> {
 export function resolveRoomGenerationPolicy(
   chatId: string,
   metadata: Record<string, unknown>,
-  characterIds: readonly string[],
+  _characterIds: readonly string[],
   authority?: GenerationRoomContext,
 ): RoomGenerationPolicy | null {
   authority?.signal?.throwIfAborted();
@@ -68,15 +68,8 @@ export function resolveRoomGenerationPolicy(
         );
       })
     : [];
-  if (
-    !participants.length ||
-    participants.length > 4 ||
-    participants.filter((participant) => participant.isHost).length !== 1
-  )
+  if (!participants.length || participants.filter((participant) => participant.isHost).length !== 1)
     throw new Error("The room's approved roster is invalid.");
-  const approvedCharacterIds = Array.isArray(room.characters)
-    ? room.characters.flatMap((value) => (typeof record(value).id === "string" ? [record(value).id as string] : []))
-    : [...characterIds];
   const characters: RoomGenerationPolicy["characters"] = Array.isArray(room.characters)
     ? room.characters.flatMap((value) => {
         const character = record(value);
@@ -87,6 +80,7 @@ export function resolveRoomGenerationPolicy(
           : [];
       })
     : [];
+  const approvedCharacterIds = characters.map((character) => character.id);
   const memories: RoomGenerationPolicy["memories"] = {};
   for (const [id, values] of Object.entries(record(metadata.multiplayerCharacterMemories))) {
     if (!approvedCharacterIds.includes(id) || !Array.isArray(values)) continue;

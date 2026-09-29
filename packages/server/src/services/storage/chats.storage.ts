@@ -85,6 +85,13 @@ export const CONVERSATION_NOTES_BUDGET_CHARS = 4000;
 
 export type MetadataPatch = Record<string, unknown>;
 export type MetadataUpdater = (current: MetadataPatch) => MetadataPatch | Promise<MetadataPatch>;
+type RoomMetadataKey = "multiplayerCharacterMemories" | "multiplayerGameAppliedMessages" | "multiplayerGameTurn";
+
+function protectRoomMetadata(patch: MetadataPatch, allowed: readonly RoomMetadataKey[] = []): void {
+  for (const key of Object.keys(patch)) {
+    if (key.startsWith("multiplayer") && !allowed.includes(key as RoomMetadataKey)) delete patch[key];
+  }
+}
 export type ChatDeleteGuardResult = { allowed: true } | { allowed: false; reason: string };
 
 function lorebookEntryStateRemovalPatch(metadata: MetadataPatch, entryIds: ReadonlySet<string>): MetadataPatch {
@@ -1814,7 +1821,7 @@ export function createChatsStorage(db: DB) {
     async patchMetadata(
       id: string,
       patchOrUpdater: MetadataPatch | MetadataUpdater,
-      opts: { touchUpdatedAt?: boolean; metadataQueueHeld?: boolean } = {},
+      opts: { touchUpdatedAt?: boolean; metadataQueueHeld?: boolean; allowRoomKeys?: readonly RoomMetadataKey[] } = {},
     ) {
       const applyPatch = async () => {
         const existing = await this.getById(id);
@@ -1824,17 +1831,17 @@ export function createChatsStorage(db: DB) {
         const room = currentRoomGeneration();
         if (room) {
           if (id !== room.chatId) throw new Error("Shared-room generation cannot modify another chat.");
-          resolveRoomGenerationPolicy(id, current, JSON.parse(existing.characterIds) as string[], room);
+          resolveRoomGenerationPolicy(id, current, [], room);
         }
         // #5406: fingerprint BEFORE the updater runs. `{ ...current }` is a shallow copy, so an
         // updater that mutates a nested value in place mutates `current`'s value too and the
         // post-hoc comparison would see two identical objects and skip the stamp.
         const before = typeof patchOrUpdater === "function" ? fingerprintMetadata(current) : null;
         const raw = typeof patchOrUpdater === "function" ? await patchOrUpdater({ ...current }) : patchOrUpdater;
-        const patch = stripOrdinalMirrorKey(raw);
+        const patch = stripOrdinalMirrorKey(room ? { ...raw } : raw);
         if (room) {
           room.signal?.throwIfAborted();
-          delete patch.multiplayer;
+          protectRoomMetadata(patch, opts.allowRoomKeys);
         }
         const merged = mergeMetadataPatch(current, patch);
         // Explicitly detaching a pinned book resets its chat-local entry state.
@@ -1897,16 +1904,16 @@ export function createChatsStorage(db: DB) {
         const room = currentRoomGeneration();
         if (room) {
           if (id !== room.chatId) throw new Error("Shared-room generation cannot modify another chat.");
-          resolveRoomGenerationPolicy(id, current, JSON.parse(existing.characterIds) as string[], room);
+          resolveRoomGenerationPolicy(id, current, [], room);
         }
         const before = fingerprintMetadata(current);
         const { metadata: raw, characterIds } = await updater({ ...current });
-        const patch = stripOrdinalMirrorKey(raw);
+        const patch = stripOrdinalMirrorKey(room ? { ...raw } : raw);
         if (room) {
           if (characterIds.some((characterId) => !room.characterIds.includes(characterId)))
             throw new Error("The character is not approved for this room.");
           room.signal?.throwIfAborted();
-          delete patch.multiplayer;
+          protectRoomMetadata(patch);
         }
         const merged = mergeMetadataPatch(current, patch);
         const stamp = stampMetadataWriteOrdinals(existing.writeOrdinalCounter, current, merged, patch, before);

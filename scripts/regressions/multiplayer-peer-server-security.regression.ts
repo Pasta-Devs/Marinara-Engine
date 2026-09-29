@@ -161,6 +161,7 @@ try {
         mode: "roleplay",
         status: "active",
         generation: "idle",
+        usage: { generations: 0, maxGenerations: 100, automaticReplies: true },
         players: [],
         characters: [],
         round: null,
@@ -175,7 +176,11 @@ try {
       },
     },
   };
-  assert.equal((await post(listener.port)).data.code, "invalid-message", "A valid but oversized snapshot is withheld");
+  assert.equal(
+    (await post(listener.port)).data.code,
+    "snapshot-too-large",
+    "A valid but oversized snapshot is withheld",
+  );
   output = valid;
   enabled = false;
   const disabledCalls = calls;

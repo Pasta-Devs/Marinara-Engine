@@ -14,6 +14,7 @@ import {
   stripBalancedTag,
   stripMapUpdateTag,
   stripDanglingTagClosers,
+  stripCombatResultBlocks,
 } from "./game-narration-text.js";
 import { stripGameBranchDelimiters } from "./dice-branch.js";
 import { stripSheetCommandTags } from "./sheet-command-tag.js";
@@ -118,13 +119,36 @@ export interface ParsedGmTags {
   readables: ReadableTag[];
 }
 
-function parseQteMatch(match: RegExpMatchArray): { actions: string[]; timer: number } | null {
-  const actions = match[1]!
+function parseQteMatch(match: { actions: string; timer: string }): { actions: string[]; timer: number } | null {
+  const actions = match.actions
     .split("|")
     .map((action) => action.trim().replace(/^["']|["']$/g, ""))
     .filter((action) => action.length > 0);
-  const timer = parseInt(match[2]!, 10);
+  const timer = parseInt(match.timer, 10);
   return actions.length > 0 && !isNaN(timer) ? { actions, timer } : null;
+}
+
+/** Keep the legacy QTE grammar without retrying its body at every whitespace split or opener. */
+function findQteTag(text: string) {
+  const timers = [...text.matchAll(/,\s*timer:\s*(\d+)s?\]/gi)];
+  const lineBreaks = [...text.matchAll(/[\r\n\u2028\u2029]/g)];
+  let timerIndex = 0;
+  let lineIndex = 0;
+  for (const open of text.matchAll(/\[qte:/gi)) {
+    const bodyStart = open.index + open[0].length;
+    while (timers[timerIndex] && timers[timerIndex]!.index <= bodyStart) timerIndex++;
+    const timer = timers[timerIndex];
+    if (!timer) return null;
+    // The legacy body is dot-matched: only its leading whitespace may contain line breaks.
+    let firstText = bodyStart;
+    while (firstText < timer.index && /\s/.test(text[firstText]!)) firstText++;
+    while (lineBreaks[lineIndex] && lineBreaks[lineIndex]!.index < firstText) lineIndex++;
+    if (lineBreaks[lineIndex] && lineBreaks[lineIndex]!.index < timer.index) continue;
+    if (firstText === timer.index && /[\r\n\u2028\u2029]/.test(text[timer.index - 1]!)) continue;
+    const actions = text.slice(bodyStart, timer.index);
+    return { index: open.index, tag: text.slice(open.index, timer.index + timer[0].length), actions, timer: timer[1]! };
+  }
+  return null;
 }
 
 function parseTagAttributes(body: string): Map<string, string> {
@@ -332,34 +356,58 @@ function parsePartyChangeTagBody(body: string, fallbackChange?: "add" | "remove"
   return characterName ? { characterName, change } : null;
 }
 
+/** Match a legacy flat-tag body with one forward scan, including malformed input. */
+function extractFlatTags(text: string, prefix: RegExp, firstOnly = false, allowEmpty = false) {
+  const contents: string[] = [];
+  const matches: Array<{ index: number; tag: string; body: string }> = [];
+  const chunks: string[] = [];
+  let from = 0;
+  for (const tag of text.matchAll(prefix)) {
+    const start = tag.index;
+    if (start < from) continue;
+    const bodyStart = start + tag[0].length;
+    const end = text.indexOf("]", bodyStart);
+    if (end === -1) break;
+    if (end > bodyStart || allowEmpty) {
+      const body = text.slice(bodyStart, end);
+      contents.push(body.trim());
+      matches.push({ index: start, tag: text.slice(start, end + 1), body });
+      chunks.push(text.slice(from, start));
+      from = end + 1;
+      if (firstOnly) break;
+    }
+  }
+  chunks.push(text.slice(from));
+  return { contents, matches, remaining: chunks.join("") };
+}
+
 /**
  * Best-effort mapping of inventory tags to narration segment indices so item
  * gains/losses can land when the relevant beat is shown instead of at turn start.
  * Segment numbering mirrors GameNarration's parsing model closely enough for timing.
  */
 export function parseSegmentInventoryUpdates(content: string): SegmentInventoryUpdate[] {
-  let source = content
-    .replace(/\[combat_result\][\s\S]*?\[\/combat_result\]/gi, "")
-    .replace(/\[music:\s*[^\]]+\]/gi, "")
-    .replace(/\[sfx:\s*[^\]]+\]/gi, "")
-    .replace(/\[bg:\s*[^\]]+\]/gi, "")
-    .replace(/\[ambient:\s*[^\]]+\]/gi, "")
-    .replace(/\[qte:\s*[^\]]+\]/gi, "")
-    .replace(/\[state:\s*[^\]]+\]/gi, "")
-    .replace(/\[reputation:\s*[^\]]+\]/gi, "")
-    .replace(/\[combat:\s*[^\]]+\]/gi, "")
-    .replace(/\[direction:\s*[^\]]+\]/gi, "")
-    .replace(/\[widget:\s*[^\]]+\]/gi, "")
-    .replace(/\[dialogue:\s*npc="[^"]*"\]/gi, "")
-    .replace(/\[session_end:\s*[^\]]*\]/gi, "")
-    .replace(/\[skill_check:\s*[^\]]+\]/gi, "")
-    .replace(/\[status:\s*[^\]]+\]/gi, "")
-    .replace(/\[element_attack:\s*[^\]]+\]/gi, "")
-    .replace(/\[party_change:\s*[^\]]+\]/gi, "")
-    .replace(/\[party_add:\s*[^\]]+\]/gi, "")
-    .replace(/\[party-turn\]/gi, "")
-    .replace(/\[party-chat\]/gi, "")
-    .replace(/\[dice:\s*[^\]]+\]/gi, "");
+  let source = stripCombatResultBlocks(content);
+  source = extractFlatTags(source, /\[music:/gi).remaining;
+  source = extractFlatTags(source, /\[sfx:/gi).remaining;
+  source = extractFlatTags(source, /\[bg:/gi).remaining;
+  source = extractFlatTags(source, /\[ambient:/gi).remaining;
+  source = extractFlatTags(source, /\[qte:/gi).remaining;
+  source = extractFlatTags(source, /\[state:/gi).remaining;
+  source = extractFlatTags(source, /\[reputation:/gi).remaining;
+  source = extractFlatTags(source, /\[combat:/gi).remaining;
+  source = extractFlatTags(source, /\[direction:/gi).remaining;
+  source = extractFlatTags(source, /\[widget:/gi).remaining;
+  source = source.replace(/\[dialogue:\s*npc="[^"]*"\]/gi, "");
+  source = extractFlatTags(source, /\[session_end:/gi, false, true).remaining;
+  source = extractFlatTags(source, /\[skill_check:/gi).remaining;
+  source = extractFlatTags(source, /\[status:/gi).remaining;
+  source = extractFlatTags(source, /\[element_attack:/gi).remaining;
+  source = extractFlatTags(source, /\[party_change:/gi).remaining;
+  source = extractFlatTags(source, /\[party_add:/gi).remaining;
+  source = source.replace(/\[party-turn\]/gi, "");
+  source = source.replace(/\[party-chat\]/gi, "");
+  source = extractFlatTags(source, /\[dice:/gi).remaining;
 
   source = stripSheetCommandTags(source);
   source = stripMapUpdateTag(source);
@@ -403,7 +451,6 @@ export function parseSegmentInventoryUpdates(content: string): SegmentInventoryU
   const compactDialogueRegex = /^\s*\[([^\]]+)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/;
   const partyLineRegex =
     /^\s*\[([^\]]+)\]\s*\[(main|side|extra|action|thought|whisper(?::([^\]]+))?)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/i;
-  const inventoryRegex = /\[inventory:\s*([^\]]+)\]/gi;
 
   const updatesBySegment = new Map<number, InventoryTag[]>();
   const pendingForNextSegment: InventoryTag[] = [];
@@ -444,12 +491,12 @@ export function parseSegmentInventoryUpdates(content: string): SegmentInventoryU
     }
 
     const inventoryUpdates: InventoryTag[] = [];
-    line = line.replace(inventoryRegex, (_match, body: string) => {
+    const inventoryTags = extractFlatTags(line, /\[inventory:/gi);
+    for (const { body } of inventoryTags.matches) {
       const update = readResolvedInventoryTagBody(body);
       if (update) inventoryUpdates.push(update);
-      return "";
-    });
-    line = line.trim();
+    }
+    line = inventoryTags.remaining.trim();
 
     if (!line) {
       const targetSegment = fallbackActive ? segmentCount : segmentCount > 0 ? segmentCount - 1 : null;
@@ -515,44 +562,33 @@ export function parseGmTags(content: string): ParsedGmTags {
   };
 
   // [music: tag]
-  const musicMatch = text.match(/\[music:\s*([^\]]+)\]/i);
-  if (musicMatch) {
-    result.music = musicMatch[1]!.trim();
-    text = text.replace(musicMatch[0], "");
-  }
+  const music = extractFlatTags(text, /\[music:/gi, true);
+  result.music = music.contents[0] ?? null;
+  text = music.remaining;
 
   // [sfx: tag] — can appear multiple times
-  const sfxRegex = /\[sfx:\s*([^\]]+)\]/gi;
-  let sfxMatch: RegExpExecArray | null;
-  while ((sfxMatch = sfxRegex.exec(text)) !== null) {
-    result.sfx.push(sfxMatch[1]!.trim());
-  }
-  text = text.replace(/\[sfx:\s*[^\]]+\]/gi, "");
+  const sfx = extractFlatTags(text, /\[sfx:/gi);
+  result.sfx = sfx.contents;
+  text = sfx.remaining;
 
   // [bg: tag]
-  const bgMatch = text.match(/\[bg:\s*([^\]]+)\]/i);
-  if (bgMatch) {
-    result.background = bgMatch[1]!.trim();
-    text = text.replace(bgMatch[0], "");
-  }
+  const background = extractFlatTags(text, /\[bg:/gi, true);
+  result.background = background.contents[0] ?? null;
+  text = background.remaining;
 
   // [ambient: tag]
-  const ambientMatch = text.match(/\[ambient:\s*([^\]]+)\]/i);
-  if (ambientMatch) {
-    result.ambient = ambientMatch[1]!.trim();
-    text = text.replace(ambientMatch[0], "");
-  }
+  const ambient = extractFlatTags(text, /\[ambient:/gi, true);
+  result.ambient = ambient.contents[0] ?? null;
+  text = ambient.remaining;
 
-  const qteRegex = /\[qte:\s*(.+?),\s*timer:\s*(\d+)s?\]/i;
-  const combatRegex = /\[combat:\s*([^\]]+)\]/i;
-  const qteTerminalMatch = text.match(qteRegex);
-  const combatTerminalMatch = text.match(combatRegex);
+  const qteTerminalMatch = findQteTag(text);
+  const combatTerminalMatch = extractFlatTags(text, /\[combat:/gi, true).matches[0];
   const terminalCandidates: Array<{ index: number; tag: string }> = [];
   if (qteTerminalMatch?.index !== undefined && parseQteMatch(qteTerminalMatch)) {
-    terminalCandidates.push({ index: qteTerminalMatch.index, tag: qteTerminalMatch[0] });
+    terminalCandidates.push({ index: qteTerminalMatch.index, tag: qteTerminalMatch.tag });
   }
-  if (combatTerminalMatch?.index !== undefined && parseCombatEncounter(combatTerminalMatch[1]!)) {
-    terminalCandidates.push({ index: combatTerminalMatch.index, tag: combatTerminalMatch[0] });
+  if (combatTerminalMatch?.index !== undefined && parseCombatEncounter(combatTerminalMatch.body)) {
+    terminalCandidates.push({ index: combatTerminalMatch.index, tag: combatTerminalMatch.tag });
   }
   const terminalTag = terminalCandidates.sort((a, b) => a.index - b.index)[0];
   if (terminalTag) {
@@ -574,14 +610,14 @@ export function parseGmTags(content: string): ParsedGmTags {
   }
 
   // [qte: action1 | action2, timer: 5s]
-  const qteMatch = text.match(qteRegex);
+  const qteMatch = findQteTag(text);
   if (qteMatch) {
     const parsedQte = parseQteMatch(qteMatch);
     if (parsedQte) {
       result.qte = parsedQte;
       text = text.slice(0, qteMatch.index).trimEnd();
     } else {
-      text = text.replace(qteMatch[0], "");
+      text = text.replace(qteMatch.tag, "");
     }
   }
 
@@ -610,14 +646,15 @@ export function parseGmTags(content: string): ParsedGmTags {
   // [combat: enemies="Goblin:5:40:8:5:6, Skeleton:3:25:6:3:4" allies="Dottore, Nasira"]
   // Format: Name:Level:HP:ATK:DEF:SPD — comma separated for multiple enemies
   // Simplified format: [combat: enemies="Goblin, Skeleton"] (auto-generates stats from level)
-  const combatMatch = text.match(combatRegex);
+  const combatTags = extractFlatTags(text, /\[combat:/gi, true);
+  const combatMatch = combatTags.matches[0];
   if (combatMatch) {
-    const encounter = parseCombatEncounter(combatMatch[1]!);
+    const encounter = parseCombatEncounter(combatMatch.body);
     if (encounter && !result.qte) {
       result.combatEncounter = encounter;
       result.stateChange = "combat";
     }
-    text = text.replace(combatMatch[0], "");
+    text = combatTags.remaining;
   }
 
   // [direction: effect, param: value, ...] — cinematic commands (can appear multiple times)
@@ -641,14 +678,14 @@ export function parseGmTags(content: string): ParsedGmTags {
     "rain_streaks",
     "spotlight",
   ]) as Set<string>;
-  const dirRegex = /\[direction:\s*([^\],]+)(?:,([^\]]*))?\]/gi;
-  let dirMatch: RegExpExecArray | null;
-  while ((dirMatch = dirRegex.exec(text)) !== null) {
-    const effect = dirMatch[1]!.trim();
+  const directions = extractFlatTags(text, /\[direction:/gi);
+  for (const { body } of directions.matches) {
+    const comma = body.indexOf(",");
+    const effect = (comma < 0 ? body : body.slice(0, comma)).trim();
     if (!VALID_DIRECTIONS.has(effect)) continue;
     const cmd: DirectionCommand = { effect: effect as DirectionEffect };
-    if (dirMatch[2]) {
-      const paramStr = dirMatch[2];
+    if (comma >= 0) {
+      const paramStr = body.slice(comma + 1);
       const pairs = paramStr.split(",").map((p) => p.trim());
       const extraParams: Record<string, string> = {};
       for (const pair of pairs) {
@@ -667,16 +704,17 @@ export function parseGmTags(content: string): ParsedGmTags {
     }
     result.directions.push(cmd);
   }
-  text = text.replace(/\[direction:\s*[^\]]+\]/gi, "");
+  text = directions.remaining;
 
   // [widget: id, key: value, ...] — widget update commands (can appear multiple times)
-  const widgetRegex = /\[widget:\s*([^,\]]+)(?:,([^\]]*))?\]/gi;
-  let widgetMatch: RegExpExecArray | null;
-  while ((widgetMatch = widgetRegex.exec(text)) !== null) {
-    const widgetId = widgetMatch[1]!.trim();
+  const widgets = extractFlatTags(text, /\[widget:/gi);
+  for (const { body } of widgets.matches) {
+    const comma = body.indexOf(",");
+    if (comma === 0) continue;
+    const widgetId = (comma < 0 ? body : body.slice(0, comma)).trim();
     const changes: WidgetUpdate["changes"] = {};
-    if (widgetMatch[2]) {
-      const pairs = splitQuotedParams(widgetMatch[2]);
+    if (comma >= 0) {
+      const pairs = splitQuotedParams(body.slice(comma + 1));
       for (const pair of pairs) {
         const colonIdx = pair.indexOf(":");
         if (colonIdx < 0) continue;
@@ -701,7 +739,7 @@ export function parseGmTags(content: string): ParsedGmTags {
     }
     result.widgetUpdates.push({ widgetId, changes });
   }
-  text = text.replace(/\[widget:\s*[^\]]+\]/gi, "");
+  text = widgets.remaining;
 
   // Also strip other existing tags that the UI handles separately.
   // [map_update: ...] is persisted in message history, but canonical map
@@ -710,16 +748,15 @@ export function parseGmTags(content: string): ParsedGmTags {
   // [dialogue: npc="..."]
   text = text.replace(/\[dialogue:\s*npc="[^"]*"\]/gi, "");
   // [session_end: ...]
-  text = text.replace(/\[session_end:\s*[^\]]*\]/gi, "");
+  text = extractFlatTags(text, /\[session_end:/gi, false, true).remaining;
 
   // [skill_check: ...] — supports resolved same-turn rolls and tolerates older unresolved requests
-  const skillRegex = /\[skill_check:\s*([^\]]+)\]/gi;
-  let skillMatch: RegExpExecArray | null;
-  while ((skillMatch = skillRegex.exec(text)) !== null) {
-    const parsed = parseSkillCheckTagBody(skillMatch[1] ?? "");
+  const skillTags = extractFlatTags(text, /\[skill_check:/gi);
+  for (const { body } of skillTags.matches) {
+    const parsed = parseSkillCheckTagBody(body);
     if (parsed) result.skillChecks.push(parsed);
   }
-  text = text.replace(/\[skill_check:\s*[^\]]+\]/gi, "");
+  text = skillTags.remaining;
 
   // [element_attack: element="pyro" target="Goblin"] — can appear multiple times
   const elemRegex = /\[element_attack:\s*element="([^"]+)"\s*target="([^"]+)"\]/gi;
@@ -730,45 +767,41 @@ export function parseGmTags(content: string): ParsedGmTags {
       target: elemMatch[2]!.trim(),
     });
   }
-  text = text.replace(/\[element_attack:\s*[^\]]+\]/gi, "");
+  text = extractFlatTags(text, /\[element_attack:/gi).remaining;
 
   // [status: target="Goblin" effect="Poison" turns=3 stat="hp" modifier=-6]
-  const statusRegex = /\[status:\s*([^\]]+)\]/gi;
-  let statusMatch: RegExpExecArray | null;
-  while ((statusMatch = statusRegex.exec(text)) !== null) {
-    const parsed = parseCombatStatusTagBody(statusMatch[1] ?? "");
+  const statusTags = extractFlatTags(text, /\[status:/gi);
+  for (const { body } of statusTags.matches) {
+    const parsed = parseCombatStatusTagBody(body);
     if (parsed) result.combatStatuses.push(parsed);
   }
-  text = text.replace(/\[status:\s*[^\]]+\]/gi, "");
+  text = statusTags.remaining;
 
   // [inventory: ...] — only the tags the server already applied and answered (one per item,
   // with result=). What the Game Master may write is read on the server, in
   // `parseInventoryTagBody` (shared), and a tag it never answered changed nothing.
-  const invBlockRegex = /\[inventory:\s*([^\]]+)\]/gi;
-  let invBlock: RegExpExecArray | null;
-  while ((invBlock = invBlockRegex.exec(text)) !== null) {
-    const update = readResolvedInventoryTagBody(invBlock[1] || "");
-    if (update) result.inventoryUpdates.push(update);
+  const invBlockTags = extractFlatTags(text, /\[inventory:/gi);
+  for (const { body } of invBlockTags.matches) {
+    const parsed = readResolvedInventoryTagBody(body);
+    if (parsed) result.inventoryUpdates.push(parsed);
   }
-  text = text.replace(/\[inventory:\s*[^\]]+\]/gi, "");
+  text = invBlockTags.remaining;
 
   // [party_change: character="Name" change="add | remove"] — can appear multiple times
-  const partyChangeRegex = /\[party_change:\s*([^\]]+)\]/gi;
-  let partyChangeMatch: RegExpExecArray | null;
-  while ((partyChangeMatch = partyChangeRegex.exec(text)) !== null) {
-    const update = parsePartyChangeTagBody(partyChangeMatch[1] ?? "");
-    if (update) result.partyChanges.push(update);
+  const partyChangeTags = extractFlatTags(text, /\[party_change:/gi);
+  for (const { body } of partyChangeTags.matches) {
+    const parsed = parsePartyChangeTagBody(body);
+    if (parsed) result.partyChanges.push(parsed);
   }
-  text = text.replace(/\[party_change:\s*[^\]]+\]/gi, "");
+  text = partyChangeTags.remaining;
 
   // [party_add: character="Name"] — legacy alias for party_change add
-  const partyAddRegex = /\[party_add:\s*([^\]]+)\]/gi;
-  let partyAddMatch: RegExpExecArray | null;
-  while ((partyAddMatch = partyAddRegex.exec(text)) !== null) {
-    const update = parsePartyChangeTagBody(partyAddMatch[1] ?? "", "add");
-    if (update) result.partyChanges.push(update);
+  const partyAddTags = extractFlatTags(text, /\[party_add:/gi);
+  for (const { body } of partyAddTags.matches) {
+    const parsed = parsePartyChangeTagBody(body, "add");
+    if (parsed) result.partyChanges.push(parsed);
   }
-  text = text.replace(/\[party_add:\s*[^\]]+\]/gi, "");
+  text = partyAddTags.remaining;
 
   // [Note: content] or [Book: content] — readable documents (balanced brackets)
   {
@@ -785,7 +818,7 @@ export function parseGmTags(content: string): ParsedGmTags {
   }
 
   // [dice: ...] — informational dice results
-  text = text.replace(/\[dice:\s*[^\]]+\]/gi, "");
+  text = extractFlatTags(text, /\[dice:/gi).remaining;
 
   // Catch-all: strip any remaining [tag: ...] brackets the model may invent.
   // Quote-aware bracket-balanced walk so JSON content like `[x: {"y":[1]}]`
@@ -800,30 +833,28 @@ export function parseGmTags(content: string): ParsedGmTags {
 
 /** Strip all GM command tags from text, returning clean display content. */
 export function stripGmTags(content: string): string {
-  let text = content
-    // Strip the tactical-combat recap block sent after a battle (multiline, no colon).
-    .replace(/\[combat_result\][\s\S]*?\[\/combat_result\]/gi, "")
-    .replace(/\[music:\s*[^\]]+\]/gi, "")
-    .replace(/\[sfx:\s*[^\]]+\]/gi, "")
-    .replace(/\[bg:\s*[^\]]+\]/gi, "")
-    .replace(/\[ambient:\s*[^\]]+\]/gi, "")
-    .replace(/\[qte:\s*[^\]]+\]/gi, "")
-    .replace(/\[state:\s*[^\]]+\]/gi, "")
-    .replace(/\[reputation:\s*[^\]]+\]/gi, "")
-    .replace(/\[combat:\s*[^\]]+\]/gi, "")
-    .replace(/\[direction:\s*[^\]]+\]/gi, "")
-    .replace(/\[widget:\s*[^\]]+\]/gi, "")
-    .replace(/\[dialogue:\s*npc="[^"]*"\]/gi, "")
-    .replace(/\[session_end:\s*[^\]]*\]/gi, "")
-    .replace(/\[skill_check:\s*[^\]]+\]/gi, "")
-    .replace(/\[status:\s*[^\]]+\]/gi, "")
-    .replace(/\[element_attack:\s*[^\]]+\]/gi, "")
-    .replace(/\[inventory:\s*[^\]]+\]/gi, "")
-    .replace(/\[party_change:\s*[^\]]+\]/gi, "")
-    .replace(/\[party_add:\s*[^\]]+\]/gi, "")
-    .replace(/\[party-turn\]/gi, "")
-    .replace(/\[party-chat\]/gi, "")
-    .replace(/\[dice:\s*[^\]]+\]/gi, "");
+  let text = stripCombatResultBlocks(content);
+  text = extractFlatTags(text, /\[music:/gi).remaining;
+  text = extractFlatTags(text, /\[sfx:/gi).remaining;
+  text = extractFlatTags(text, /\[bg:/gi).remaining;
+  text = extractFlatTags(text, /\[ambient:/gi).remaining;
+  text = extractFlatTags(text, /\[qte:/gi).remaining;
+  text = extractFlatTags(text, /\[state:/gi).remaining;
+  text = extractFlatTags(text, /\[reputation:/gi).remaining;
+  text = extractFlatTags(text, /\[combat:/gi).remaining;
+  text = extractFlatTags(text, /\[direction:/gi).remaining;
+  text = extractFlatTags(text, /\[widget:/gi).remaining;
+  text = text.replace(/\[dialogue:\s*npc="[^"]*"\]/gi, "");
+  text = extractFlatTags(text, /\[session_end:/gi, false, true).remaining;
+  text = extractFlatTags(text, /\[skill_check:/gi).remaining;
+  text = extractFlatTags(text, /\[status:/gi).remaining;
+  text = extractFlatTags(text, /\[element_attack:/gi).remaining;
+  text = extractFlatTags(text, /\[inventory:/gi).remaining;
+  text = extractFlatTags(text, /\[party_change:/gi).remaining;
+  text = extractFlatTags(text, /\[party_add:/gi).remaining;
+  text = text.replace(/\[party-turn\]/gi, "");
+  text = text.replace(/\[party-chat\]/gi, "");
+  text = extractFlatTags(text, /\[dice:/gi).remaining;
   // The one-request dice branch delimiters. Three of the four are unreachable by
   // everything below: `stripUnknownBracketTags` and the `[\w+:` catch-all both require a
   // `:` after the name, and `[on success]` has a space before its `]` while `[/branch]`
@@ -842,13 +873,13 @@ export function stripGmTags(content: string): string {
   text = stripBalancedTag(text, "[Note:");
   text = stripBalancedTag(text, "[Book:");
   // Catch-all: strip any remaining [tag: ...] brackets the model may invent
-  text = text.replace(/\[\w+:[^\]]*\]/g, "");
+  text = extractFlatTags(text, /\[\w+:/g, false, true).remaining;
   text = stripDanglingTagClosers(text);
   return text.trim();
 }
 
-const GAME_NARRATION_EFFECT_TAG_RE =
-  /\{(shake|shout|whisper|glow|pulse|wave|flicker|drip|bounce|tremble|glitch|expand):([^}]+)\}/gi;
+const GAME_NARRATION_EFFECT_PREFIX_RE =
+  /\{(?:shake|shout|whisper|glow|pulse|wave|flicker|drip|bounce|tremble|glitch|expand):/gi;
 const ALLOWED_STANDALONE_NARRATION_HTML_TAG_RE = /^\/?(?:strong|em|br|span)(?:\s|$)/i;
 
 /** Preserve model-authored `<CORE: SEALED>`-style readouts as literal narration. */
@@ -864,7 +895,18 @@ export function escapeStandaloneGameNarrationAngleLines(content: string): string
 
 /** True when a prepared narration segment will display at least one character. */
 export function hasVisibleGameNarrationText(content: string): boolean {
-  return content.replace(GAME_NARRATION_EFFECT_TAG_RE, "$2").trim().length > 0;
+  let from = 0;
+  for (const match of content.matchAll(GAME_NARRATION_EFFECT_PREFIX_RE)) {
+    if (match.index < from) continue;
+    if (content.slice(from, match.index).trim()) return true;
+    const bodyStart = match.index + match[0].length;
+    const end = content.indexOf("}", bodyStart);
+    // Empty or unclosed tags were not matched by the legacy expression and stay visible.
+    if (end <= bodyStart) return true;
+    if (content.slice(bodyStart, end).trim()) return true;
+    from = end + 1;
+  }
+  return content.slice(from).trim().length > 0;
 }
 
 /** A combat-start message arrives before the rendered game state catches up. */

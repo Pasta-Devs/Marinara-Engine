@@ -188,6 +188,76 @@ try {
       await db.delete(chats).where(eq(chats.id, id));
     }
   }
+  // A thrown coordinator/storage failure backs off equally before and after a
+  // busy delay. A declined claim (for example a competing turn) is not a failure.
+  for (const delayed of [false, true]) {
+    const id = delayed ? "hosted-delayed-error" : "hosted-direct-error";
+    const idleSchedule = { ...schedules["room-character"], idleResponseDelayMinutes: 0.01 };
+    await db.insert(chats).values({
+      id,
+      name: id,
+      mode: "conversation",
+      characterIds: JSON.stringify(["room-character"]),
+      metadata: JSON.stringify({
+        autonomousMessages: true,
+        multiplayer: { role: "host" },
+        ...(delayed
+          ? {
+              characterSchedules: { "room-character": idleSchedule },
+              conversationStatusOverrides: {
+                "room-character": { status: "idle", createdAt: new Date().toISOString() },
+              },
+            }
+          : {}),
+      }),
+    });
+    let attempts = 0;
+    let shouldThrow = true;
+    const app = {
+      db,
+      addHook() {},
+      async inject() {
+        return { statusCode: 200, payload: JSON.stringify({ shouldTrigger: true, characterIds: ["room-character"] }) };
+      },
+    } as unknown as FastifyInstance;
+    mock.timers.enable({ apis: ["setTimeout", "Date"], now: Date.now() });
+    const scheduler = startServerAutonomousScheduler(app, {
+      async canGenerate() {
+        return true;
+      },
+      async generate() {
+        attempts++;
+        if (shouldThrow) throw new Error("Transient coordinator storage failure");
+        return false;
+      },
+    });
+    const flush = async () => {
+      for (let turn = 0; turn < 100; turn++) await yieldImmediate();
+    };
+    const tick = async (milliseconds: number) => {
+      mock.timers.tick(milliseconds);
+      await flush();
+      if (delayed) {
+        mock.timers.tick(600);
+        await flush();
+      }
+    };
+    try {
+      await tick(20_000);
+      assert.equal(attempts, 1, `${id} reaches its initial dispatch`);
+      shouldThrow = false;
+      await tick(60_000);
+      assert.equal(attempts, 1, `${id} does not retry at the next poll after an exception`);
+      await tick(240_000);
+      assert.equal(attempts, 2, `${id} retries when the existing five-minute backoff expires`);
+      await tick(60_000);
+      assert.equal(attempts, 3, `${id} does not penalize a harmless declined generation claim`);
+    } finally {
+      scheduler.stop();
+      mock.timers.reset();
+      await db.delete(chats).where(eq(chats.id, id));
+    }
+  }
   console.info(
     "multiplayer autonomy: room-only presence, coordinator dispatch, stop and ordinary-chat compatibility passed",
   );

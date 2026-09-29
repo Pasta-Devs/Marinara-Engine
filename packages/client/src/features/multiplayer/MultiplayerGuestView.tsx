@@ -399,7 +399,7 @@ export function MultiplayerGuestView({ state, onAction, labels, onOpenPlayers }:
                   total: round.requiredParticipantIds.length,
                 })}
               </p>
-              <p className="text-[var(--muted-foreground)]">
+              <p className="max-h-16 overflow-y-auto break-words text-[var(--muted-foreground)]">
                 {round.phase === "resolving"
                   ? labels.resolving
                   : round.phase === "interrupted"

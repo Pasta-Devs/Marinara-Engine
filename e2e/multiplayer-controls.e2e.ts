@@ -9,7 +9,15 @@ async function mountControls(
   page: Page,
   info: TestInfo,
   surface:
-    "settings" | "players" | "host" | "guest" | "lobby" | "game-setup" | "participant-host" | "participant-guest",
+    | "settings"
+    | "gates"
+    | "players"
+    | "host"
+    | "guest"
+    | "lobby"
+    | "game-setup"
+    | "participant-host"
+    | "participant-guest",
 ) {
   const theme = info.project.name === "desktop-chromium" ? "light" : "dark";
   await seedUIState(page, { hasCompletedOnboarding: true, theme });
@@ -46,7 +54,33 @@ async function mountControls(
       root.style.cssText = "max-width:580px;margin:0 auto;padding:16px;color:var(--foreground)";
       document.body.style.background = "var(--background)";
       let controls;
-      if (surface === "settings") {
+      if (surface === "gates") {
+        const { useMultiplayerStatus, useMultiplayerHost, useMultiplayerGuest } = await import(
+          "/src/hooks/use-multiplayer.ts" as string
+        );
+        const { MultiplayerSettings } = await import("/src/features/multiplayer/MultiplayerSettings.tsx" as string);
+        function GateProbe() {
+          const status = useMultiplayerStatus();
+          useMultiplayerHost();
+          useMultiplayerGuest();
+          return React.createElement(
+            "output",
+            { "data-testid": "multiplayer-gate" },
+            status.data ? (status.data.available && status.data.enabled ? "on" : "off") : "loading",
+          );
+        }
+        function GateControls() {
+          const [revision, setRevision] = React.useState(0);
+          return React.createElement(
+            React.Fragment,
+            null,
+            React.createElement("button", { onClick: () => setRevision(revision + 1) }, "Remount controls"),
+            React.createElement(GateProbe, { key: revision }),
+            React.createElement(MultiplayerSettings, { key: `settings-${revision}` }),
+          );
+        }
+        controls = React.createElement(GateControls);
+      } else if (surface === "settings") {
         controls = React.createElement(
           (await import("/src/features/multiplayer/MultiplayerSettings.tsx" as string)).MultiplayerSettings,
         );
@@ -237,6 +271,11 @@ test("multiplayer requires separate consent and reviews only selected persona te
         consent: true,
       },
     });
+  await page.getByRole("switch", { name: "Disable multiplayer and disconnect", exact: true }).click();
+  await expect(
+    page.getByRole("checkbox", { name: "I understand the risks and want to enable optional multiplayer." }),
+  ).not.toBeChecked();
+  await expect(page.getByRole("switch", { name: "Enable multiplayer", exact: true })).toBeDisabled();
 });
 
 test("multiplayer stays inaccessible without the environment gate and native guests stay disabled", async ({
@@ -259,6 +298,114 @@ test("multiplayer stays inaccessible without the environment gate and native gue
   await mountControls(page, info, "settings");
   await expect(page.getByRole("button", { name: "Join session", exact: true })).toBeDisabled();
   await expect(page.getByText("Joining is unavailable in the native Android app", { exact: false })).toBeVisible();
+});
+
+for (const disabledGate of ["environment", "settings"] as const) {
+  test(`disabled multiplayer ${disabledGate} gate performs no background or remount checks`, async ({ page }, info) => {
+    const requests: string[] = [];
+    await page.clock.install();
+    await page.route("**/api/**", (route) => {
+      const path = new URL(route.request().url()).pathname;
+      requests.push(path);
+      return route.fulfill({
+        json:
+          path === "/api/multiplayer/status"
+            ? {
+                available: disabledGate !== "environment",
+                enabled: disabledGate !== "settings",
+                hosting: true,
+                joined: true,
+                tlsAvailable: true,
+              }
+            : [],
+      });
+    });
+    await mountControls(page, info, "gates");
+    await expect(page.getByTestId("multiplayer-gate")).toHaveText("off");
+    await page.clock.fastForward(60_000);
+    await page.getByRole("button", { name: "Remount controls", exact: true }).click();
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("focus"));
+      window.dispatchEvent(new Event("online"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await page.clock.fastForward(60_000);
+    expect(requests.filter((path) => path.startsWith("/api/multiplayer/"))).toEqual(["/api/multiplayer/status"]);
+    await page.getByRole("button", { name: "Refresh multiplayer availability", exact: true }).click();
+    await expect.poll(() => requests.filter((path) => path === "/api/multiplayer/status").length).toBe(2);
+    expect(requests.filter((path) => path === "/api/multiplayer/host" || path === "/api/multiplayer/guest")).toEqual(
+      [],
+    );
+  });
+}
+
+test("disabling multiplayer stops active room polling in every open tab", async ({ page }, info) => {
+  let enabled = true;
+  const requests: string[] = [];
+  await page.context().route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    requests.push(path);
+    if (path === "/api/multiplayer/settings") {
+      enabled = route.request().postDataJSON().enabled;
+      return route.fulfill({ json: { enabled } });
+    }
+    if (path === "/api/multiplayer/status")
+      return route.fulfill({ json: { available: true, enabled, hosting: true, joined: true, tlsAvailable: true } });
+    if (path === "/api/multiplayer/host") return route.fulfill({ json: { chatId: "shared_chat_123" } });
+    if (path === "/api/multiplayer/guest") return route.fulfill({ json: { state: { phase: "connected" } } });
+    return route.fulfill({ json: [] });
+  });
+  const other = await page.context().newPage();
+  await page.clock.install();
+  await other.clock.install();
+  await mountControls(page, info, "gates");
+  await mountControls(other, info, "gates");
+  await expect(page.getByTestId("multiplayer-gate")).toHaveText("on");
+  await expect(other.getByTestId("multiplayer-gate")).toHaveText("on");
+  await expect.poll(() => requests.filter((path) => path === "/api/multiplayer/host").length).toBeGreaterThanOrEqual(2);
+  await expect
+    .poll(() => requests.filter((path) => path === "/api/multiplayer/guest").length)
+    .toBeGreaterThanOrEqual(2);
+  await page.getByRole("switch", { name: "Disable multiplayer and disconnect", exact: true }).click();
+  await expect(page.getByTestId("multiplayer-gate")).toHaveText("off");
+  await expect(other.getByTestId("multiplayer-gate")).toHaveText("off");
+  const afterDisable = requests.length;
+  await page.clock.fastForward(60_000);
+  await other.clock.fastForward(60_000);
+  expect(requests.length).toBe(afterDisable);
+  await other.close();
+});
+
+test("a disabled room response stops both polling loops until an explicit refresh", async ({ page }, info) => {
+  let disabled = false;
+  const requests: string[] = [];
+  await page.clock.install();
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    requests.push(path);
+    if (path === "/api/multiplayer/status")
+      return route.fulfill({
+        json: { available: true, enabled: true, hosting: true, joined: true, tlsAvailable: true },
+      });
+    if (path === "/api/multiplayer/host" || path === "/api/multiplayer/guest") {
+      if (disabled) return route.fulfill({ status: 404, json: { error: "disabled" } });
+      return route.fulfill({
+        json: path.endsWith("/host") ? { chatId: "shared_chat_123" } : { state: { phase: "connected" } },
+      });
+    }
+    return route.fulfill({ json: [] });
+  });
+  await mountControls(page, info, "gates");
+  await expect(page.getByTestId("multiplayer-gate")).toHaveText("on");
+  await expect.poll(() => requests.filter((path) => path === "/api/multiplayer/guest").length).toBe(1);
+  disabled = true;
+  await page.clock.fastForward(2_000);
+  await expect(page.getByTestId("multiplayer-gate")).toHaveText("off");
+  const afterDisable = requests.length;
+  await page.clock.fastForward(60_000);
+  await page.getByRole("button", { name: "Remount controls", exact: true }).click();
+  await page.clock.fastForward(60_000);
+  expect(requests.length).toBe(afterDisable);
 });
 
 test("Players reuses chat settings for invitations, approval, AI proposals and game readiness", async ({
@@ -317,6 +464,10 @@ test("Players reuses chat settings for invitations, approval, AI proposals and g
   };
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === "/api/multiplayer/status")
+      return route.fulfill({
+        json: { available: true, enabled: true, hosting: true, joined: false, tlsAvailable: true },
+      });
     if (path === "/api/multiplayer/host/actions") {
       const action = route.request().postDataJSON();
       actions.push(action);
@@ -394,6 +545,87 @@ test("Players reuses chat settings for invitations, approval, AI proposals and g
       preferences: "A shared adventure",
       config: { genre: "mystery", partyCharacterIds: ["approved_ai_123"], gmMode: "standalone", gmCharacterId: null },
     });
+});
+
+test("Players keeps larger human and AI rosters reachable without truncating game setup", async ({ page }, info) => {
+  const actions: Array<Record<string, unknown>> = [];
+  const host: MultiplayerHostState = {
+    chatId: "shared_chat_123",
+    snapshot: {
+      version: 1,
+      roomId: "room_123456",
+      revision: 1,
+      selfId: "player_000",
+      nextSequence: 0,
+      name: "A larger shared adventure",
+      mode: "game",
+      status: "lobby",
+      generation: "idle",
+      usage: { generations: 0, maxGenerations: 100, automaticReplies: true },
+      players: Array.from({ length: 6 }, (_, index) => ({
+        id: `player_00${index}`,
+        displayName: `Player ${index + 1}`,
+        personaName: `Adventurer ${index + 1}`,
+        isHost: index === 0,
+        connected: true,
+        ready: false,
+        joinsNextRound: false,
+      })),
+      characters: Array.from({ length: 10 }, (_, index) => ({
+        id: `character_00${index}`,
+        name: `Companion ${index + 1}`,
+        role: index === 0 ? "gm" : "character",
+      })),
+      messages: [],
+      round: null,
+    },
+    pendingRequests: [],
+    proposals: [],
+    invite: null,
+  };
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/multiplayer/status")
+      return route.fulfill({
+        json: { available: true, enabled: true, hosting: true, joined: false, tlsAvailable: true },
+      });
+    if (path === "/api/multiplayer/host/actions") {
+      actions.push(route.request().postDataJSON());
+      return route.fulfill({ json: {} });
+    }
+    return route.fulfill({ json: path === "/api/multiplayer/host" ? host : [] });
+  });
+  await mountControls(page, info, "players");
+  await expect(page.getByRole("button", { name: "Remove player", exact: true })).toHaveCount(5);
+  await expect(page.getByRole("button", { name: "Remove AI character", exact: true })).toHaveCount(10);
+  const lastPlayer = page.getByText("Player 6", { exact: true });
+  await lastPlayer.scrollIntoViewIfNeeded();
+  await expect(lastPlayer).toBeInViewport();
+  const lastCharacter = page.getByText("Companion 10 · AI", { exact: true });
+  await lastCharacter.scrollIntoViewIfNeeded();
+  await expect(lastCharacter).toBeInViewport();
+  await noHorizontalOverflow(page);
+  await page.screenshot({ path: info.outputPath("multiplayer-large-roster.png") });
+  const start = page.getByRole("button", { name: "Start game", exact: true });
+  await start.scrollIntoViewIfNeeded();
+  await expect(start).toBeInViewport();
+  await expect(start).toBeEnabled();
+  await start.click();
+  await expect
+    .poll(() => actions.at(-1))
+    .toEqual({
+      type: "startGame",
+      preferences: "A shared adventure",
+      config: {
+        genre: "mystery",
+        partyCharacterIds: host.snapshot.characters.slice(1).map((character) => character.id),
+        gmMode: "character",
+        gmCharacterId: "character_000",
+      },
+    });
+  const stop = page.getByRole("button", { name: "Stop hosting", exact: true });
+  await stop.scrollIntoViewIfNeeded();
+  await expect(stop).toBeInViewport();
 });
 
 test("shared Game setup waits for characters before mounting the wizard", async ({ page }, info) => {
@@ -615,8 +847,11 @@ test("host adds an existing library ID while guests only propose reviewed text, 
 });
 
 test("stopped rooms remain escapable when multiplayer endpoints are disabled", async ({ page }, info) => {
+  const multiplayerRequests: string[] = [];
   await page.route("**/api/**", (route) => {
-    if (new URL(route.request().url()).pathname === "/api/multiplayer/status")
+    const path = new URL(route.request().url()).pathname;
+    if (path.startsWith("/api/multiplayer/")) multiplayerRequests.push(path);
+    if (path === "/api/multiplayer/status")
       return route.fulfill({
         json: { available: false, enabled: false, hosting: false, joined: false, tlsAvailable: false },
       });
@@ -636,4 +871,5 @@ test("stopped rooms remain escapable when multiplayer endpoints are disabled", a
   await page.getByRole("button", { name: "Leave", exact: true }).last().click();
   await expect(page.locator("#fixture")).toHaveAttribute("data-active-chat", "none");
   expect(pageErrors).toEqual([]);
+  expect(multiplayerRequests.every((path) => path === "/api/multiplayer/status")).toBe(true);
 });

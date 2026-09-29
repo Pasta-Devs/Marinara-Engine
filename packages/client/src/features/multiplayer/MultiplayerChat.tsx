@@ -78,6 +78,8 @@ function useGuestLabels(): MultiplayerGuestLabels {
 function JoinedMultiplayerChat({ chat }: { chat: Chat }) {
   const { t } = useTranslation();
   const labels = useGuestLabels();
+  const status = useMultiplayerStatus();
+  const enabled = status.data?.available === true && status.data.enabled;
   const guest = useMultiplayerGuest();
   const action = useMultiplayerParticipantAction(false);
   const disconnect = useMultiplayerMutation<unknown, void>("/multiplayer/guest", "delete");
@@ -96,7 +98,7 @@ function JoinedMultiplayerChat({ chat }: { chat: Chat }) {
       };
   const leave = async () => {
     try {
-      await disconnect.mutateAsync();
+      if (enabled) await disconnect.mutateAsync();
     } finally {
       useChatStore.getState().setActiveChatId(null);
     }
@@ -150,6 +152,10 @@ function JoinedMultiplayerChat({ chat }: { chat: Chat }) {
             {t("multiplayer.guest.leave")}
           </button>
         </div>
+      ) : !enabled ? (
+        <p role="status" className="p-4 text-sm">
+          {t(status.isLoading ? "multiplayer.loading" : "multiplayer.environmentDisabled")}
+        </p>
       ) : (
         <MultiplayerGuestFrame
           key={chat.id}

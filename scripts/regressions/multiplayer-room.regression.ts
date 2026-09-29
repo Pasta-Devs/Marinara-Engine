@@ -664,7 +664,48 @@ try {
     releaseGameResolution();
   }
   await guest.leaveGuest();
-  await host.hostAction({ type: "stop" });
+  const toggleInvite = decodeMultiplayerInvite(lobby!.invite!.code);
+  const toggleAdmission = await requestMultiplayerPeer(toggleInvite, {
+    version: 1,
+    roomId: toggleInvite.roomId,
+    type: "join",
+    invite: toggleInvite.invite,
+    password: "a safe fixture password",
+    displayName: "Toggle guest",
+    persona: { name: "Keeper", description: "" },
+  });
+  assert.equal(toggleAdmission.type, "admission");
+  if (toggleAdmission.type !== "admission") throw new Error("Toggle fixture admission failed");
+  await host.hostAction({ type: "approve", requestId: (await host.hostState())!.pendingRequests[0]!.id });
+  const togglePoll = { version: 1 as const, roomId: toggleInvite.roomId, type: "poll" as const, revision: 0 };
+  assert.equal(
+    (await requestMultiplayerPeer(toggleInvite, togglePoll, { session: toggleAdmission.session })).type,
+    "state",
+  );
+  const stoppingHost = (host as unknown as { host: { sessions: Map<string, unknown>; passwordHash: Buffer } }).host;
+  const disable = host.settings(false);
+  assert.equal(host.status().enabled, false, "disabling immediately closes the feature gate");
+  const reenable = host.settings(true);
+  const [disabledStatus, enabledStatus] = await Promise.all([disable, reenable]);
+  assert.equal(disabledStatus.hosting, false);
+  assert.equal(enabledStatus.enabled, true);
+  assert.equal(enabledStatus.hosting, false, "rapid re-enable cannot retain or resume the aborted host");
+  assert.equal(enabledStatus.joined, false);
+  assert.equal(await host.hostState(), null);
+  assert.equal(stoppingHost.sessions.size, 0, "superseded disable still revokes every admitted session");
+  assert.ok(
+    stoppingHost.passwordHash.every((byte) => byte === 0),
+    "superseded disable still erases room credentials",
+  );
+  await assert.rejects(
+    requestMultiplayerPeer(toggleInvite, togglePoll, { session: toggleAdmission.session }),
+    "the revoked listener stays closed after Settings is re-enabled",
+  );
+  const stoppedMetadata = (await hostChats.getById(preparedGame.chatId))!.metadata;
+  assert.equal(
+    (typeof stoppedMetadata === "string" ? JSON.parse(stoppedMetadata) : stoppedMetadata).multiplayer.status,
+    "ended",
+  );
 
   // A hostile but certificate-pinned host must not replace the admitted actor or
   // rewind the accepted revision by first sending a reconnect state with no snapshot.

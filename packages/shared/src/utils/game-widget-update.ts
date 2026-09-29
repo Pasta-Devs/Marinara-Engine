@@ -3,12 +3,15 @@ import type { HudWidget, WidgetUpdate } from "../types/game.js";
 const MAX_LIST_WIDGET_ITEMS = 5;
 
 function normalizeListWidgetItem(value: string): string {
-  return value
-    .trim()
-    .replace(/^["']+|["']+$/g, "")
-    .replace(/\s+/g, " ")
-    .replace(/[.!?;,:]+$/g, "")
-    .toLowerCase();
+  const trimmed = value.trim();
+  let start = 0;
+  let end = trimmed.length;
+  while (start < end && (trimmed[start] === '"' || trimmed[start] === "'")) start++;
+  while (end > start && (trimmed[end - 1] === '"' || trimmed[end - 1] === "'")) end--;
+  const compact = trimmed.slice(start, end).replace(/\s+/g, " ");
+  end = compact.length;
+  while (end > 0 && ".!?;,:".includes(compact[end - 1]!)) end--;
+  return compact.slice(0, end).toLowerCase();
 }
 
 function appendListWidgetItem(items: string[], nextItem: string): string[] {

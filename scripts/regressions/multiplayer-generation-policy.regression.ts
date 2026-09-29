@@ -73,6 +73,24 @@ for (const status of ["paused", "lobby", "broken"]) {
   );
 }
 assert.equal(resolveRoomGenerationPolicy("private_chat", {}, []), null);
+for (const characters of [
+  undefined,
+  "not-a-roster",
+  [{ id: "private_card" }],
+  [{ id: "private_card", name: "Private", role: "unreviewed" }],
+]) {
+  const unapproved = resolveRoomGenerationPolicy(
+    "chat_12345",
+    {
+      multiplayer: { ...room, characters },
+      multiplayerCharacterMemories: { private_card: [{ from: "Private", summary: "Must not enter the room." }] },
+    },
+    ["private_card"],
+    authority,
+  )!;
+  assert.deepEqual(unapproved.characterIds, [], "malformed room roster cannot authorize ordinary chat library IDs");
+  assert.deepEqual(unapproved.memories, {});
+}
 assert.throws(
   () =>
     resolveRoomGenerationPolicy(

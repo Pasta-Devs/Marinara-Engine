@@ -201,7 +201,6 @@ export function createMultiplayerRoomStore(db: DB, chatId: string, roomId: strin
     change,
     async admit(participant: MultiplayerStoredParticipant) {
       return change(async (room, _chats, chat, transaction) => {
-        if (room.participants.length >= 4) throw new MultiplayerError("room-full");
         assertRoomPersonaName(room, participant.persona.name);
         try {
           await validateNewRoomHumanGameName(transaction, chatId, participant.persona.name);

@@ -56,7 +56,11 @@ await app.register(gameRoutes, {
 const services: InstanceType<typeof MultiplayerService>[] = [];
 let mode: "conversation" | "roleplay" | "game" = "conversation";
 const prompts: string[] = [];
+const hostApiKey = "fixture-host-private-api-key";
+const guestApiKey = "fixture-guest-private-api-key";
+const providerAuthorizations: string[] = [];
 const provider = createServer(async (request, response) => {
+  providerAuthorizations.push(request.headers.authorization ?? "");
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
   const raw = Buffer.concat(chunks).toString();
@@ -147,9 +151,17 @@ try {
     provider: "custom",
     baseUrl: `http://127.0.0.1:${providerAddress.port}/v1`,
     model: "fixture",
-    apiKey: "fixture",
+    apiKey: hostApiKey,
     maxContext: 16384,
     maxTokensOverride: 2048,
+  });
+  await createConnectionsStorage(guestDb).create({
+    name: "Guest private connection",
+    provider: "custom",
+    baseUrl: `http://127.0.0.1:${providerAddress.port}/v1`,
+    model: "fixture",
+    apiKey: guestApiKey,
+    maxContext: 16384,
   });
   const presets = createPromptsStorage(hostDb);
   const preset = await presets.create({
@@ -270,6 +282,15 @@ try {
       finalHost.snapshot.messages,
       "both participants receive the same public result from the real generation pipeline",
     );
+    for (const key of [hostApiKey, guestApiKey]) {
+      assert.ok(!JSON.stringify(finalHost).includes(key), "room controls never expose either side's API keys");
+      assert.ok(!JSON.stringify(finalGuest).includes(key), "peer updates never expose either side's API keys");
+      assert.ok(
+        prompts.every((prompt) => !prompt.includes(key)),
+        "API keys are not model prompt content",
+      );
+    }
+    assert.ok(providerAuthorizations.every((value) => value === `Bearer ${hostApiKey}`));
     assert.ok(
       finalHost.snapshot.messages.some((item) =>
         item.text.includes(`Shared ${mode === "game" ? "Game" : mode} result`),

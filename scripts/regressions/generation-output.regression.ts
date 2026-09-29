@@ -261,7 +261,7 @@ try {
   await app.close();
   provider.closeAllConnections();
   await new Promise<void>((done) => provider.close(() => done()));
-  closeDB();
+  await closeDB();
   rmSync(dir, { recursive: true, force: true });
 }
 

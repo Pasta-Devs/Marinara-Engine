@@ -7,15 +7,19 @@ not a claim that multiplayer is available or that a platform has passed testing.
 ## Smallest architecture
 
 One host owns a fresh shared chat, the saved game state and its AI connections.
-At most four people participate. Conversation, Roleplay and Game retain their
-existing modes. No old private transcript becomes shared through an invitation.
+The host chooses the human and AI roster without a fixed participant or card count.
+Conversation, Roleplay and Game retain their existing modes. No old private transcript becomes shared through an invitation.
 
 The selected transport is a dedicated HTTPS listener with small JSON actions and
 bounded long polling. Fastify, Node HTTPS and Zod are already installed. WebRTC
 would add signaling, ICE/TURN configuration and mobile host-tab lifetime concerns;
-WebSocket would require another server dependency and streaming parser. A maximum
-of four players does not need either. Only this transport will be implemented.
+WebSocket would require another server dependency and streaming parser. Private
+shared chats reuse HTTPS without either addition. This is the single room transport.
 The listener registers room operations only, never the normal Engine API.
+The connection is direct guest-to-host with no central relay. An invitation does
+not grant either peer access to the other's files, libraries, settings, credentials
+or unrelated chats. Keep the normal Engine administration port private; only the
+separate room port belongs in the invitation.
 
 The guest's own trusted Engine connects to the host. TLS must pass certificate
 chain and hostname validation; the invitation additionally pins the host's
@@ -48,6 +52,8 @@ verified on a physical device.
 An authenticated peer remains untrusted. Prompt text stays verbatim; authorization
 is enforced in code rather than by escaping prompts or asking a model to be safe.
 The host and its configured AI providers can read shared content. This design
+also exposes the connecting Engine's IP address to the host, as any direct
+connection does. No other guest library or device data is part of the protocol. It
 does not promise protection against every browser or operating-system flaw.
 
 ## Activation and lifetime
@@ -57,6 +63,12 @@ invalid values disable multiplayer. A separate Settings activation is required;
 neither setting starts networking. Hosting and joining each require an explicit
 action. Restart never restores a live room. Stop, Kick and Leave revoke the
 appropriate credentials and prevent subsequent actions or late delivery.
+
+While either gate is off, there are no multiplayer session scans, certificate
+availability checks, host/guest polls or autonomous room jobs. The server reads
+the activation flags, and the client caches one availability read; explicit
+Settings actions can refresh it. Direct disabled API requests still fail closed.
+Saved-session cleanup is deferred until activation, without resuming networking.
 
 ## Proof before enabling the feature
 
@@ -126,12 +138,17 @@ turns are not automatically retried. Explicit resume moves to the next collectio
 boundary without replaying already committed effects. Failed setup stays in the
 lobby for explicit inspection/restart.
 
-Protocol version 1 limits rooms to four humans/eight AI cards, each action to
+There is no fixed human or AI roster cap. Protocol version 1 limits each action to
 16 KiB, snapshots to 256 KiB and 100 recent messages, and text messages to 8,000
-characters. Approval queues, listener sockets, requests, long polls, sessions,
+characters. Pending approval queues, listener sockets, requests, long polls, sessions,
 password derivations and generation work are bounded. One peer poll is active per
 session and one connector poll per guest Engine. No compression or redirects are
 accepted. Passwords/tokens are never placed in URLs or shared snapshots.
+
+Larger rooms depend on host resources, connection throughput and model context.
+Roster entries are never silently removed to fit an update. If a shared update
+exceeds the transport budget, the guest keeps its last valid state and can leave;
+the host can still manage the room and reduce the shared data so polling recovers.
 
 ## Verification record
 

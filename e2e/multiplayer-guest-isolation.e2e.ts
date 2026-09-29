@@ -349,6 +349,93 @@ test("Game HUD stays inert and choices only extend the player's draft", async ({
   await expect(guest.getByRole("textbox")).toHaveValue(`My existing action.\n${malicious}`);
 });
 
+test("larger human and AI rosters scroll without displacing guest actions", async ({ page }, info) => {
+  const guest = await openGuest(page);
+  const state: MultiplayerGuestState = {
+    ...initialState,
+    snapshot: {
+      ...initialState.snapshot!,
+      revision: 2,
+      players: [
+        ...initialState.snapshot!.players,
+        ...Array.from({ length: 4 }, (_, index) => ({
+          id: `player_00${index}`,
+          displayName: `Player ${index + 3}`,
+          personaName: `Adventurer ${index + 3}`,
+          isHost: false,
+          connected: true,
+          ready: false,
+          joinsNextRound: false,
+        })),
+      ],
+      characters: Array.from({ length: 10 }, (_, index) => ({
+        id: `character_00${index}`,
+        name: `Companion ${index + 1}`,
+        role: index === 0 ? "gm" : "character",
+      })),
+    },
+  };
+  await page.evaluate((value) => (window as any).proof.setState(value), state);
+  await guest.getByRole("textbox").fill("My draft survives reviewing the whole party.");
+  await guest.getByRole("button", { name: /players/i }).click();
+  const players = guest.getByRole("region", { name: "Players", exact: true });
+  await expect(players.locator("li")).toHaveCount(16);
+  const lastPlayer = guest.getByText("Player 6", { exact: true });
+  await lastPlayer.scrollIntoViewIfNeeded();
+  await expect(lastPlayer).toBeInViewport();
+  const lastCharacter = guest.getByText("Companion 10", { exact: true });
+  await lastCharacter.scrollIntoViewIfNeeded();
+  await expect(lastCharacter).toBeInViewport();
+  await expect(guest.getByRole("button", { name: "Leave", exact: true })).toBeInViewport();
+  await expect(guest.getByRole("textbox")).toBeInViewport();
+  const frame = page.frames().find((item) => item.url().endsWith("/api/multiplayer/guest-view"))!;
+  expect(await frame.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath("multiplayer-guest-large-roster.png") });
+  await guest.getByRole("button", { name: "Close Players", exact: true }).click();
+  await expect(guest.getByRole("textbox")).toHaveValue("My draft survives reviewing the whole party.");
+  const gameState: MultiplayerGuestState = {
+    ...state,
+    snapshot: {
+      ...state.snapshot!,
+      revision: 3,
+      mode: "game",
+      players: [
+        ...state.snapshot!.players,
+        ...Array.from({ length: 24 }, (_, index) => ({
+          id: `more_player_${index}`,
+          displayName: `Adventurer ${index + 7} ${"from the distant northern harbor ".repeat(2)}`.slice(0, 80),
+          personaName: `Persona ${index + 7}`,
+          isHost: false,
+          connected: true,
+          ready: false,
+          joinsNextRound: false,
+        })),
+      ],
+      round: {
+        id: "round_123456",
+        number: 1,
+        phase: "collecting",
+        requiredParticipantIds: [],
+        submittedParticipantIds: [],
+        ownSubmission: null,
+      },
+    },
+  };
+  gameState.snapshot!.round!.requiredParticipantIds = gameState.snapshot!.players.map((player) => player.id);
+  await page.evaluate((value) => (window as any).proof.setState(value), gameState);
+  await expect(guest.getByRole("button", { name: "Submit action", exact: true })).toBeInViewport();
+  await expect(guest.getByRole("button", { name: "Pass", exact: true })).toBeInViewport();
+  await guest.getByRole("button", { name: "Players", exact: true }).click();
+  await expect(players.locator("li")).toHaveCount(40);
+  await lastCharacter.scrollIntoViewIfNeeded();
+  await expect(lastCharacter).toBeInViewport();
+  await expect(guest.getByRole("textbox")).toBeInViewport();
+  await expect(guest.getByRole("button", { name: "Leave", exact: true })).toBeInViewport();
+  await page.screenshot({ path: info.outputPath("multiplayer-guest-large-game-roster.png") });
+  expect(await page.evaluate(() => (window as any).proof.actions.length)).toBe(0);
+  expect(await page.evaluate(() => (window as any).proof.errors)).toBe(0);
+});
+
 test("strict channel rejects forged actions, unknown fields and oversized host messages", async ({ page }) => {
   await openGuest(page);
   const frame = page.frames().find((item) => item.url().endsWith("/api/multiplayer/guest-view"))!;

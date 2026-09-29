@@ -45,6 +45,7 @@ if (process.argv[2] !== "--child") {
     MARINARA_LITE: "true",
     LOG_LEVEL: "silent",
   });
+  delete process.env.MARINARA_E2E_DISABLE_RATE_LIMIT;
   const { multiplayerAvailable } = await import("../../packages/server/src/config/runtime-config.js");
   const expected = value === "true";
   assert.equal(multiplayerAvailable, expected);
@@ -65,18 +66,25 @@ if (process.argv[2] !== "--child") {
   const { basicAuthHook } = await import("../../packages/server/src/middleware/basic-auth.js");
   const { csrfProtectionHook } = await import("../../packages/server/src/middleware/csrf-protection.js");
   const { androidLocalAuthHook } = await import("../../packages/server/src/middleware/android-local-auth.js");
+  const { rateLimitHook, MULTIPLAYER_GUEST_VIEW_RATE_LIMIT } =
+    await import("../../packages/server/src/middleware/rate-limit.js");
   const { CSRF_HEADER, CSRF_HEADER_VALUE } = await import("../../packages/server/src/utils/security.js");
   const db = await createFileNativeDB();
   await createAppSettingsStorage(db).set("multiplayer", "true");
+  let tlsReads = 0;
   const service = new MultiplayerService({
     db,
     available: multiplayerAvailable,
-    tls: () => null,
+    tls: () => {
+      tlsReads++;
+      return null;
+    },
     abortGeneration() {},
   });
   await service.initialize();
   const app = Fastify();
   app.addHook("onRequest", hostValidationHook);
+  app.addHook("onRequest", rateLimitHook);
   app.addHook("onRequest", basicAuthHook);
   app.addHook("onRequest", csrfProtectionHook);
   app.addHook("onRequest", androidLocalAuthHook);
@@ -135,6 +143,38 @@ if (process.argv[2] !== "--child") {
         404,
       );
     } else {
+      const beforeControls = tlsReads;
+      for (let attempt = 0; attempt < 10; attempt++) {
+        assert.equal((await app.inject({ method: "GET", url: "/api/multiplayer/status", headers })).statusCode, 200);
+      }
+      assert.equal(tlsReads, beforeControls, "status requests reuse the short-lived certificate availability result");
+      assert.equal((await app.inject({ method: "GET", url: "/api/multiplayer/host", headers })).statusCode, 200);
+      assert.equal((await app.inject({ method: "GET", url: "/api/multiplayer/guest", headers })).statusCode, 200);
+      assert.equal(tlsReads, beforeControls, "ordinary control gates do not inspect TLS certificates");
+      for (const [payload, contentType, expectedCode] of [
+        ["{", "application/json", 400],
+        [JSON.stringify({ enabled: true, consent: true, padding: "x".repeat(1100) }), "application/json", 413],
+        ["unused", "application/x-unknown", 415],
+      ] as const) {
+        const invalid = await app.inject({
+          ...settings,
+          headers: { ...headers, "content-type": contentType },
+          payload,
+        });
+        assert.equal(invalid.statusCode, expectedCode);
+        assert.deepEqual(invalid.json(), { error: "invalid-message" });
+      }
+      const hostState = service.hostState;
+      service.hostState = async () => {
+        throw new Error("private-storage-error");
+      };
+      try {
+        const failed = await app.inject({ method: "GET", url: "/api/multiplayer/host", headers });
+        assert.equal(failed.statusCode, 500);
+        assert.deepEqual(failed.json(), { error: "unavailable" }, "unexpected failures stay sanitized");
+      } finally {
+        service.hostState = hostState;
+      }
       const { "x-admin-secret": _admin, ...withoutAdmin } = headers;
       assert.equal((await app.inject({ ...settings, headers: withoutAdmin })).statusCode, 403);
       assert.equal(
@@ -202,6 +242,33 @@ if (process.argv[2] !== "--child") {
       assert.match(document.headers["content-security-policy"]!, /sandbox allow-scripts/u);
       assert.match(document.headers["content-security-policy"]!, /connect-src 'none'/u);
       assert.ok(!document.headers["content-security-policy"]!.includes("allow-same-origin"));
+      const frameRequest = {
+        method: "GET" as const,
+        url: "/api/multiplayer/guest-view",
+        headers,
+        remoteAddress: "203.0.113.46",
+      };
+      for (let attempt = 0; attempt < MULTIPLAYER_GUEST_VIEW_RATE_LIMIT.max; attempt++) {
+        const admitted = await app.inject({ ...frameRequest, url: `${frameRequest.url}?mount=${attempt}` });
+        assert.equal(admitted.statusCode, 200);
+        assert.equal(admitted.headers["ratelimit-limit"], String(MULTIPLAYER_GUEST_VIEW_RATE_LIMIT.max));
+      }
+      for (const request of [
+        { ...frameRequest, url: "/api/multiplayer/guest-vi%65w?mount=next" },
+        { ...frameRequest, method: "HEAD" as const },
+      ]) {
+        const throttled = await app.inject(request);
+        assert.equal(throttled.statusCode, 429, "frame reads share one bounded bucket across query, encoding and HEAD");
+        assert.ok(Number(throttled.headers["retry-after"]) > 0);
+      }
+      assert.equal(
+        (await app.inject({ ...frameRequest, remoteAddress: "203.0.113.47" })).statusCode,
+        200,
+        "another browser address has its own frame budget",
+      );
+      const ordinaryStatus = await app.inject({ ...frameRequest, url: "/api/multiplayer/status" });
+      assert.equal(ordinaryStatus.statusCode, 200, "frame reloads do not consume the ordinary polling bucket");
+      assert.equal(ordinaryStatus.headers["ratelimit-limit"], "600");
       const chats = createChatsStorage(db);
       await chats.patchMetadata(prepared.json().chatId, {
         multiplayer: {

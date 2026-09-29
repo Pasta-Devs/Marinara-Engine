@@ -28,6 +28,7 @@ type ChatsStore = {
   patchMetadata?(
     chatId: string,
     updater: (metadata: Record<string, unknown>) => Record<string, unknown>,
+    opts?: { allowRoomKeys?: readonly ["multiplayerCharacterMemories"] },
   ): Promise<unknown>;
 };
 
@@ -95,22 +96,26 @@ async function handleMemoryCommand(
     ).filter((id): id is string => id !== null);
     if (matches.length !== 1) return;
     const targetId = matches[0]!;
-    await args.chats.patchMetadata(args.chatId, (metadata) => {
-      const active = parseRecord(metadata.multiplayer);
-      if (active?.status !== "active" || active.epoch !== room.epoch) return {};
-      const allMemories = parseRecord(metadata.multiplayerCharacterMemories) ?? {};
-      const previous = Array.isArray(allMemories[targetId]) ? (allMemories[targetId] as unknown[]) : [];
-      const memories = [
-        ...previous.slice(-11),
-        {
-          from: srcCharName,
-          fromCharId: args.characterId,
-          summary: command.summary,
-          createdAt: new Date().toISOString(),
-        },
-      ];
-      return { multiplayerCharacterMemories: { ...allMemories, [targetId]: memories } };
-    });
+    await args.chats.patchMetadata(
+      args.chatId,
+      (metadata) => {
+        const active = parseRecord(metadata.multiplayer);
+        if (active?.status !== "active" || active.epoch !== room.epoch) return {};
+        const allMemories = parseRecord(metadata.multiplayerCharacterMemories) ?? {};
+        const previous = Array.isArray(allMemories[targetId]) ? (allMemories[targetId] as unknown[]) : [];
+        const memories = [
+          ...previous.slice(-11),
+          {
+            from: srcCharName,
+            fromCharId: args.characterId,
+            summary: command.summary,
+            createdAt: new Date().toISOString(),
+          },
+        ];
+        return { multiplayerCharacterMemories: { ...allMemories, [targetId]: memories } };
+      },
+      { allowRoomKeys: ["multiplayerCharacterMemories"] },
+    );
     return;
   }
 

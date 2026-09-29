@@ -34,7 +34,7 @@ import {
   assertRoomPersonaName,
   type RoomClaim,
 } from "./room-store.js";
-import { record, projectRoomSnapshot } from "./room-projection.js";
+import { record, projectRoomSnapshot, MultiplayerSnapshotTooLargeError } from "./room-projection.js";
 import { requestMultiplayerPeer } from "./peer-client.js";
 import { startMultiplayerPeerServer } from "./peer-server.js";
 import { createGameStateStorage } from "../storage/game-state.storage.js";
@@ -55,6 +55,8 @@ type Guest = {
   expiresAt: number;
   admittedSelfId: string | null;
   lastRevision: number;
+  retryAt: number;
+  pollFailures: number;
 };
 type Session = {
   id: string;
@@ -126,7 +128,6 @@ function addRoomCharacter(
 ) {
   if (room.generation === "running") throw new MultiplayerError("busy");
   const existing = room.characters.findIndex((entry) => entry.id === character.id);
-  if (existing < 0 && room.characters.length >= MULTIPLAYER_LIMITS.characters) throw new MultiplayerError("room-full");
   assertRoomPersonaName(
     { ...room, characters: room.characters.filter((entry) => entry.id !== character.id) },
     character.name,
@@ -149,6 +150,9 @@ export interface MultiplayerGameRuntime {
 /** One explicitly started room or joined session per Engine. Credentials live only until Stop/restart. */
 export class MultiplayerService {
   private enabled = false;
+  private savedSessionsCleared = false;
+  private settingsRevision = 0;
+  private tlsStatus: { available: boolean; expiresAt: number } | null = null;
   private host: Host | null = null;
   private guest: Guest | null = null;
   private controlTail: Promise<unknown> = Promise.resolve();
@@ -174,9 +178,14 @@ export class MultiplayerService {
   async initialize() {
     this.enabled =
       this.options.available && (await createAppSettingsStorage(this.options.db).get("multiplayer")) === "true";
+    if (this.enabled) await this.clearSavedSessions();
+  }
+  private async clearSavedSessions(revision = this.settingsRevision) {
+    if (this.savedSessionsCleared) return;
     // Never restore networking. Mark previous hosts interrupted and joined navigation entries disconnected.
     const chats = createChatsStorage(this.options.db);
     for (const chat of await chats.list()) {
+      if (revision !== this.settingsRevision) return;
       const room = record(record(chat.metadata).multiplayer);
       if (room.role === "host" && room.status !== "ended")
         await chats.patchMetadata(chat.id, {
@@ -192,19 +201,26 @@ export class MultiplayerService {
       if (room.role === "guest" && room.status !== "ended")
         await chats.patchMetadata(chat.id, { multiplayer: { ...room, status: "disconnected" } });
     }
+    if (revision === this.settingsRevision) this.savedSessionsCleared = true;
+  }
+  featureState(): Pick<MultiplayerStatus, "available" | "enabled"> {
+    return { available: this.options.available, enabled: this.options.available && this.enabled };
   }
   status(): MultiplayerStatus {
     let tlsAvailable = false;
-    if (this.options.available) {
-      try {
-        tlsAvailable = !!this.options.tls();
-      } catch {
-        /* Invalid TLS remains unavailable. */
+    if (this.options.available && this.enabled) {
+      if (!this.tlsStatus || this.tlsStatus.expiresAt <= Date.now()) {
+        try {
+          tlsAvailable = !!this.options.tls();
+        } catch {
+          /* Invalid TLS remains unavailable. */
+        }
+        this.tlsStatus = { available: tlsAvailable, expiresAt: Date.now() + 30_000 };
       }
+      tlsAvailable = this.tlsStatus.available;
     }
     return {
-      available: this.options.available,
-      enabled: this.options.available && this.enabled,
+      ...this.featureState(),
       hosting: !!this.host,
       joined: !!this.guest,
       tlsAvailable,
@@ -219,6 +235,7 @@ export class MultiplayerService {
     return next;
   }
   async settings(enabled: boolean) {
+    const revision = ++this.settingsRevision;
     // Disabling is immediate, including an in-flight password/admission request.
     if (!enabled) {
       this.enabled = false;
@@ -228,6 +245,11 @@ export class MultiplayerService {
     }
     return this.controls(async () => {
       if (!this.options.available) throw new MultiplayerError("disabled");
+      if (enabled) {
+        if (revision !== this.settingsRevision) return this.status();
+        await this.clearSavedSessions(revision);
+        if (revision !== this.settingsRevision) return this.status();
+      }
       this.enabled = enabled;
       if (!enabled) {
         await this.stopHost();
@@ -257,7 +279,7 @@ export class MultiplayerService {
       createChatSchema.parse({
         name: source.name.slice(0, 80),
         mode: source.mode,
-        characterIds: JSON.parse(source.characterIds).slice(0, 8),
+        characterIds: JSON.parse(source.characterIds),
         personaId: source.personaId,
         personaCharacterId: source.personaCharacterId,
         connectionId: source.connectionId,
@@ -324,7 +346,6 @@ export class MultiplayerService {
           ...(gmId ? [gmId] : []),
         ]),
       ];
-      if (selectedIds.length > MULTIPLAYER_LIMITS.characters) throw new MultiplayerError("room-full");
       for (const id of selectedIds) {
         const character = await storage.getById(id);
         if (character)
@@ -415,7 +436,7 @@ export class MultiplayerService {
     this.gate();
     if (this.host !== host || host.abort.signal.aborted) throw new MultiplayerError("room-ended");
   }
-  private async snapshot(host: Host, participantId: string) {
+  private async snapshot(host: Host, participantId: string, forLocalHost = false) {
     this.live(host);
     const { chat, room } = await host.store.read();
     const connected = new Set(
@@ -439,7 +460,12 @@ export class MultiplayerService {
           })
         : null;
     this.live(host);
-    return projectRoomSnapshot({ room, chat, selfId: participantId, connected, messages, game });
+    try {
+      return projectRoomSnapshot({ room, chat, selfId: participantId, connected, messages, game, forLocalHost });
+    } catch (error) {
+      if (error instanceof MultiplayerSnapshotTooLargeError) throw new MultiplayerError("snapshot-too-large");
+      throw error;
+    }
   }
   async hostState(): Promise<MultiplayerHostState | null> {
     this.gate();
@@ -449,7 +475,7 @@ export class MultiplayerService {
     const { room } = await host.store.read();
     return {
       chatId: host.chatId,
-      snapshot: await this.snapshot(host, room.participants.find((p) => p.isHost)!.id),
+      snapshot: await this.snapshot(host, room.participants.find((p) => p.isHost)!.id, true),
       pendingRequests: [...host.sessions.values()]
         .filter((s) => s.status === "pending" && s.expiresAt > Date.now())
         .map((s) => ({ id: s.id, displayName: s.participant.displayName, persona: s.participant.persona })),
@@ -516,7 +542,7 @@ export class MultiplayerService {
           for (const [key, value] of host.sessions)
             if (value.expiresAt <= Date.now() || value.status === "declined" || value.status === "revoked")
               host.sessions.delete(key);
-          if (host.sessions.size >= 8 || room.participants.length >= MULTIPLAYER_LIMITS.players)
+          if ([...host.sessions.values()].filter((session) => session.status === "pending").length >= 8)
             throw new MultiplayerError("room-full");
           const token = secret();
           host.sessions.set(hash(token).toString("hex"), {
@@ -722,8 +748,7 @@ export class MultiplayerService {
         if (!proposal) throw new MultiplayerError("stale-action");
         if (action.type === "proposal-approve")
           await host.store.change(async (room, chats, chat, transaction) => {
-            if (room.characters.length >= MULTIPLAYER_LIMITS.characters || room.generation === "running")
-              throw new MultiplayerError("busy");
+            if (room.generation === "running") throw new MultiplayerError("busy");
             assertRoomPersonaName(room, proposal.character.name);
             // The host explicitly reviews and saves these two text fields. No card import or peer assets.
             const character = await createCharactersStorage(transaction).create(
@@ -935,6 +960,8 @@ export class MultiplayerService {
         expiresAt: Date.now() + MULTIPLAYER_LIMITS.sessionMs,
         admittedSelfId: null,
         lastRevision: -1,
+        retryAt: 0,
+        pollFailures: 0,
       };
       return { localChatId: chat!.id, state: this.guest.state };
     });
@@ -986,8 +1013,12 @@ export class MultiplayerService {
     const guest = this.guest;
     if (!guest) return null;
     // One connector poll per Engine even with several UI tabs. Viewers receive only the validated projection.
-    if (!guest.poll && guest.state.phase !== "ended")
+    if (!guest.poll && guest.state.phase !== "ended" && guest.retryAt <= Date.now())
       guest.poll = (async () => {
+        const retryLater = () => {
+          guest.pollFailures = Math.min(guest.pollFailures + 1, 6);
+          guest.retryAt = Date.now() + Math.min(20_000, 1000 * 2 ** (guest.pollFailures - 1)) + Math.random() * 500;
+        };
         try {
           if (guest.expiresAt <= Date.now()) {
             this.applyGuestState(guest, { phase: "ended", snapshot: null, error: "revoked" });
@@ -1004,16 +1035,21 @@ export class MultiplayerService {
             { session: guest.token, signal: guest.abort.signal },
           );
           this.gate();
-          if (response.type === "state") this.applyGuestState(guest, response.state);
-          else if (response.type === "error")
+          if (response.type === "state") {
+            guest.pollFailures = 0;
+            guest.retryAt = 0;
+            this.applyGuestState(guest, response.state);
+          } else if (response.type === "error") {
+            retryLater();
+            const ended = ["revoked", "declined", "room-ended", "disabled"].includes(response.code);
             this.applyGuestState(guest, {
-              phase: ["revoked", "declined", "room-ended", "disabled"].includes(response.code)
-                ? "ended"
-                : "reconnecting",
-              snapshot: null,
+              phase: ended ? "ended" : "reconnecting",
+              snapshot: ended ? null : guest.state.snapshot,
               error: response.code,
             });
+          }
         } catch (error) {
+          retryLater();
           this.applyGuestState(
             guest,
             record(error).code === "MULTIPLAYER_IDENTITY_CHANGED"
@@ -1049,6 +1085,8 @@ export class MultiplayerService {
       throw new MultiplayerError(response.code);
     }
     if (response.type !== "accepted") throw new MultiplayerError("invalid-message");
+    guest.pollFailures = 0;
+    guest.retryAt = 0;
     this.applyGuestState(guest, response.state);
     return { localChatId: guest.localChatId, state: guest.state };
   }

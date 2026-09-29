@@ -220,6 +220,11 @@ export function startServerAutonomousScheduler(app: FastifyInstance, multiplayer
           await chats.markAutonomousUnread(chatId, { characterId });
         }
         return generated;
+      } catch (error) {
+        // Both direct and delayed dispatch use this branch. A declined claim is
+        // normal, but a thrown storage/coordinator failure must not retry each poll.
+        recordFailureBackoff(chatId, error instanceof Error ? error.message : String(error), undefined, error);
+        return false;
       } finally {
         clearGenerationInProgress(chatId, claimedAt);
       }

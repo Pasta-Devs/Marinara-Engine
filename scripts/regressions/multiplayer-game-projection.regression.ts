@@ -6,6 +6,7 @@ import {
 import { projectRoomSnapshot } from "../../packages/server/src/services/multiplayer/room-projection.js";
 import {
   characterStatTrackerLockKey,
+  personaStatTrackerLockKey,
   multiplayerGameStateSchema,
   worldTrackerLockKey,
   type MultiplayerStoredRoom,
@@ -177,6 +178,29 @@ const hidden = projectMultiplayerGame({
 });
 assert.equal(hidden.location, null);
 assert.deepEqual(hidden.trackers, [], "a hidden authoritative stat never reappears from the initial card fallback");
+const longStat = { name: "Private ".repeat(12), value: 99, max: 100 };
+const unnamedStat = { name: " ", value: 777, max: 999 };
+const namedOnlyCharacter = { name: "Rowan", stats: [longStat, unnamedStat] };
+const namedOnlyIdentity = { characterId: "", name: namedOnlyCharacter.name };
+const identityHidden = projectMultiplayerGame({
+  ...base,
+  state: {
+    ...base.state,
+    presentCharacters: [namedOnlyCharacter],
+    personaStats: [longStat, unnamedStat],
+    hiddenTrackerFields: {
+      [characterStatTrackerLockKey(namedOnlyIdentity, 0, longStat, "value", 0)]: true,
+      [characterStatTrackerLockKey(namedOnlyIdentity, 0, unnamedStat, "max", 1)]: true,
+      [personaStatTrackerLockKey(longStat, "name", 0)]: true,
+      [personaStatTrackerLockKey(unnamedStat, "value", 1)]: true,
+    },
+  },
+});
+assert.deepEqual(
+  identityHidden.trackers,
+  [],
+  "hidden keys use the stored row identity, full stat name and actual fallback index for persona and character stats",
+);
 const publicRoll = projectMultiplayerGame({
   ...base,
   messages: [

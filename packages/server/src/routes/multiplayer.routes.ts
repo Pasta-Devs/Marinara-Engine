@@ -4,6 +4,8 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { multiplayerActionSchema, multiplayerInviteSchema, multiplayerPersonaSchema } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { MULTIPLAYER_GUEST_VIEW_RATE_LIMIT } from "../middleware/rate-limit.js";
+import { logger } from "../lib/logger.js";
 import { MultiplayerService } from "../services/multiplayer/service.js";
 import { MultiplayerError } from "../services/multiplayer/room-store.js";
 import { multiplayerGuestDocument } from "../services/multiplayer/guest-document.js";
@@ -53,17 +55,23 @@ const hostAction = z.discriminatedUnion("type", [
 export async function multiplayerRoutes(app: FastifyInstance, options: { service: MultiplayerService }) {
   const service = options.service;
   app.setErrorHandler((error, _request, reply) => {
-    const code =
-      error instanceof MultiplayerError ? error.code : error instanceof z.ZodError ? "invalid-message" : "unavailable";
-    return reply
-      .status(code === "disabled" ? 404 : code === "busy" || code === "stale-action" ? 409 : 400)
-      .send({ error: code });
+    if (error instanceof MultiplayerError || error instanceof z.ZodError) {
+      const code = error instanceof MultiplayerError ? error.code : "invalid-message";
+      return reply
+        .status(code === "disabled" ? 404 : code === "busy" || code === "stale-action" ? 409 : 400)
+        .send({ error: code });
+    }
+    const statusCode = (error as { statusCode?: number }).statusCode;
+    if (statusCode && statusCode >= 400 && statusCode < 500)
+      return reply.status(statusCode).send({ error: "invalid-message" });
+    logger.error(error, "[multiplayer] Unexpected control route failure");
+    return reply.status(500).send({ error: "unavailable" });
   });
   app.addHook("onRequest", (request, reply, done) => {
     reply.header("Cache-Control", "no-store");
     const path = request.url.split("?", 1)[0];
     if (path === "/api/multiplayer/status") return done();
-    const status = service.status();
+    const status = service.featureState();
     if (!status.available || (path !== "/api/multiplayer/settings" && !status.enabled))
       return reply.status(404).send({ error: "disabled" });
     if (path === "/api/multiplayer/guest-view") return done();
@@ -131,7 +139,7 @@ export async function multiplayerRoutes(app: FastifyInstance, options: { service
     await service.leaveGuest();
     return { left: true };
   });
-  app.get("/guest-view", async (request, reply) => {
+  app.get("/guest-view", { config: { rateLimit: MULTIPLAYER_GUEST_VIEW_RATE_LIMIT } }, async (request, reply) => {
     // The current Android wrapper injects its bridge into every frame, even an opaque sandbox.
     if (request.headers["user-agent"]?.includes("MarinaraEngine/Android")) throw new MultiplayerError("unavailable");
     const [javascript, css] = await Promise.all([

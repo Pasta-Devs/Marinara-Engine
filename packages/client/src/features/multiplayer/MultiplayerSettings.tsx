@@ -26,6 +26,14 @@ export function MultiplayerSettings() {
   return (
     <SettingsSection title={t("multiplayer.title")} icon={<Users size={16} />} anchorId="settings-section-multiplayer">
       <div className="space-y-3">
+        <button
+          type="button"
+          className={MULTIPLAYER_BUTTON_CLASS}
+          disabled={status.isFetching}
+          onClick={() => void status.refetch()}
+        >
+          {t("multiplayer.refreshStatus")}
+        </button>
         {status.isLoading ? (
           <p role="status" className="text-xs">
             {t("multiplayer.loading")}
@@ -53,7 +61,12 @@ export function MultiplayerSettings() {
               aria-describedby={id}
               disabled={settings.isPending || (!status.data.enabled && !consent)}
               className={MULTIPLAYER_BUTTON_CLASS}
-              onClick={() => settings.mutate({ enabled: !status.data!.enabled, consent: true })}
+              onClick={() =>
+                settings.mutate(
+                  { enabled: !status.data!.enabled, consent: true },
+                  { onSuccess: () => setConsent(false) },
+                )
+              }
             >
               {t(status.data.enabled ? "multiplayer.disable" : "multiplayer.enable")}
             </button>

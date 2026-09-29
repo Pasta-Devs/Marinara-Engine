@@ -264,11 +264,59 @@ try {
     const denied = await app.inject({ method: "POST", url: `/api/game/${route}`, payload: { chatId: chat.id } });
     assert.equal(denied.statusCode, 409, "live room Games cannot be driven by the single-player controller");
   }
+  const repairedSetup = await app.inject({
+    method: "POST",
+    url: "/api/game/setup/apply-json",
+    payload: { chatId: chat.id, rawJson: "{}" },
+  });
+  assert.equal(
+    repairedSetup.statusCode,
+    409,
+    "setup repair cannot bypass the room coordinator or load private persona context",
+  );
+  const protectedRoomState = {
+    multiplayerSetup: true,
+    multiplayerSetupComplete: true,
+    multiplayerCharacterMemories: { [companion.id]: [{ from: "Keeper", summary: "Current memory." }] },
+    multiplayerGameAppliedMessages: (await meta()).multiplayerGameAppliedMessages,
+    multiplayerGameTurn: (await meta()).multiplayerGameTurn,
+  };
+  await chats.patchMetadata(chat.id, protectedRoomState);
   const policy = resolveRoomGenerationPolicy(chat.id, await meta(), [], claim)!;
   await runWithRoomGeneration(policy, () =>
-    chats.updateMetadata(chat.id, { multiplayer: { ...room, status: "ended" }, unrelated: "updated" }),
+    chats.updateMetadata(chat.id, {
+      ...Object.fromEntries(Object.keys(protectedRoomState).map((key) => [key, null])),
+      multiplayer: { ...room, status: "ended" },
+      unrelated: "updated",
+    }),
   );
   assert.equal((await meta()).multiplayer.status, "active", "generation cannot overwrite coordinator metadata");
+  for (const [key, expected] of Object.entries(protectedRoomState))
+    assert.deepEqual((await meta())[key], expected, `${key} survives a stale full snapshot`);
+  await runWithRoomGeneration(policy, () =>
+    chats.patchMetadataWithCharacterIds(chat.id, () => ({
+      metadata: { multiplayerGameAppliedMessages: [], multiplayerCharacterMemories: {}, multiplayerSetup: false },
+      characterIds: [companion.id, gm.id],
+    })),
+  );
+  for (const [key, expected] of Object.entries(protectedRoomState))
+    assert.deepEqual((await meta())[key], expected, `${key} survives a character-ID snapshot`);
+  const { handleConversationSideEffectCommand } =
+    await import("../../packages/server/src/services/generation/conversation-side-effect-command-runtime.js");
+  await runWithRoomGeneration(policy, () =>
+    handleConversationSideEffectCommand({
+      command: { type: "memory", target: "Keeper", summary: "A fresh room memory." },
+      characterId: companion.id,
+      chatId: chat.id,
+      chars: characters,
+      chats,
+    }),
+  );
+  assert.equal(
+    (await meta()).multiplayerCharacterMemories[gm.id][0].summary,
+    "A fresh room memory.",
+    "the explicit memory writer retains its narrow room key",
+  );
   await chats.patchMetadata(chat.id, { multiplayer: { ...room, status: "ended" } });
   await assert.rejects(
     runWithRoomGeneration(policy, () => chats.updateMetadata(chat.id, { multiplayer: room, unrelated: "stale" })),

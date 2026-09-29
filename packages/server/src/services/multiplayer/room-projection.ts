@@ -52,6 +52,12 @@ type MessageRow = {
   createdAt: string;
 };
 
+export class MultiplayerSnapshotTooLargeError extends Error {
+  constructor() {
+    super("The room update exceeds the safe transfer size.");
+  }
+}
+
 /** The only shared transcript projection. No metadata, debug fields, assets or provider events cross this boundary. */
 export function projectRoomSnapshot(input: {
   room: MultiplayerStoredRoom;
@@ -60,6 +66,8 @@ export function projectRoomSnapshot(input: {
   connected: ReadonlySet<string>;
   messages: readonly MessageRow[];
   game?: import("@marinara-engine/shared").MultiplayerGameState | null;
+  /** Trusted local management must remain available to reduce an oversized shared update. */
+  forLocalHost?: boolean;
 }): MultiplayerSnapshot {
   const { room, chat, selfId, connected } = input;
   const self = room.participants.find((p) => p.id === selfId);
@@ -105,12 +113,10 @@ export function projectRoomSnapshot(input: {
       const reaction = record(value);
       if (typeof reaction.emoji !== "string" || !reaction.emoji || reaction.emoji.length > 64) return [];
       const by = Array.isArray(reaction.by)
-        ? [...new Set(reaction.by)]
-            .flatMap((id) => {
-              const actor = room.characters.find((character) => character.id === id);
-              return actor ? [actor.name] : [];
-            })
-            .slice(0, 8)
+        ? [...new Set(reaction.by)].flatMap((id) => {
+            const actor = room.characters.find((character) => character.id === id);
+            return actor ? [actor.name] : [];
+          })
         : [];
       return by.length ? [{ emoji: reaction.emoji, by }] : [];
     });
@@ -183,5 +189,7 @@ export function projectRoomSnapshot(input: {
     snapshot.messages.length
   )
     snapshot.messages.shift();
+  if (!input.forLocalHost && Buffer.byteLength(JSON.stringify(snapshot)) > MULTIPLAYER_LIMITS.snapshotBytes - 512)
+    throw new MultiplayerSnapshotTooLargeError();
   return snapshot;
 }

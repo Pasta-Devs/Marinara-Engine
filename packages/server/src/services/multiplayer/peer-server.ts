@@ -150,7 +150,7 @@ export async function startMultiplayerPeerServer(options: PeerServerOptions) {
           ]);
           if (!available() || abort.signal.aborted) return error(reply, "disabled");
           const json = JSON.stringify(multiplayerPeerResponseSchema.parse(output));
-          if (Buffer.byteLength(json) > MULTIPLAYER_LIMITS.snapshotBytes) return error(reply, "invalid-message");
+          if (Buffer.byteLength(json) > MULTIPLAYER_LIMITS.snapshotBytes) return error(reply, "snapshot-too-large");
           reply.writeHead(200, {
             "content-type": "application/json",
             "cache-control": "no-store",
