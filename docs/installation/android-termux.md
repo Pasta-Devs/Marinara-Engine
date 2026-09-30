@@ -43,6 +43,8 @@ This one command does five things:
 
 The launcher installs the app's dependencies, builds Marinara on your device, and starts the local server. It also upgrades Node.js for you if your version is too old. The first run is slow because it builds the app. Later runs are much faster.
 
+The low-memory build includes all required client assets. Sharp's WebAssembly image-processing fallback is installed automatically and kept through updates; you do not need to install a separate Android Sharp version.
+
 When it finishes, open this address in your Android browser:
 
 ```

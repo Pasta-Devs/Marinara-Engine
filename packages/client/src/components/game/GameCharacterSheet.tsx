@@ -91,6 +91,8 @@ export type GameCharacterSheetRuleset =
       readOnly?: boolean;
       /** What the character holds, which a value reading their items shows. */
       items?: ReadonlyArray<RulesetSheetItem>;
+      /** A rest the game takes, with the charges it brings back to what the character carries. */
+      onRest?: (rest: string) => Promise<string | null>;
     };
 
 interface GameCharacterSheetProps {
@@ -691,6 +693,7 @@ export function GameCharacterSheet({
                   onEnvelopeSave={ruleset.onEnvelopeSave}
                   readOnly={ruleset.readOnly}
                   items={ruleset.items}
+                  onRest={ruleset.onRest}
                 />
               ) : (
                 <p className="text-xs text-[var(--muted-foreground)]">

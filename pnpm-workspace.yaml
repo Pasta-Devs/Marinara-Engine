@@ -36,5 +36,5 @@ overrides:
   onnxruntime-node: "1.30.0"
   onnxruntime-web: "1.31.0-dev.20260914-8d85527a0"
   protobufjs: "7.5.5"
-  brace-expansion: "5.0.9"
+  brace-expansion: "5.0.12"
   "@anthropic-ai/sdk": "0.93.0"

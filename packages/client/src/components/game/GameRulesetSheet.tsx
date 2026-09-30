@@ -295,6 +295,9 @@ export interface GameRulesetSheetProps {
   readOnly?: boolean;
   /** What the character holds, which a value reading their items (`itemStat`) shows. */
   items?: ReadonlyArray<RulesetSheetItem>;
+  /** A rest taken by the game rather than here: the sheet and what the character carries change
+   *  together, and it answers with the rest's own words, or null when it was not taken. */
+  onRest?: (rest: string) => Promise<string | null>;
 }
 
 export function GameRulesetSheet({
@@ -308,11 +311,14 @@ export function GameRulesetSheet({
   onEnvelopeSave,
   readOnly = false,
   items,
+  onRest,
 }: GameRulesetSheetProps) {
   const { t: localizeUi } = useUiTranslation();
   const [draft, setDraft] = useState<RulesetSheetEnvelope | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [restNotice, setRestNotice] = useState<string | null>(null);
+  // A rest the Engine takes is one at a time: a second click would rest (and roll recharges) again.
+  const [resting, setResting] = useState(false);
 
   const layerNames = layers?.map((layer) => layer.label).join(", ") || null;
 
@@ -646,8 +652,18 @@ export function GameRulesetSheet({
                   <button
                     key={rest.id}
                     type="button"
-                    disabled={readOnly}
-                    onClick={() => apply({ op: "rest", rest: rest.id })}
+                    disabled={readOnly || resting}
+                    onClick={() => {
+                      if (readOnly || resting) return;
+                      if (!onRest) return apply({ op: "rest", rest: rest.id });
+                      setResting(true);
+                      void onRest(rest.id)
+                        .then((now) => {
+                          if (now !== null) setRestNotice(now);
+                        })
+                        .catch(() => undefined)
+                        .finally(() => setResting(false));
+                    }}
                     aria-label={localizeUi("game.ruleset.sheet.restAria", { name: rest.label, who: cardName })}
                     className={`${chipClass} border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]`}
                   >

@@ -15,6 +15,7 @@ import {
   type RulesetItemBookSheets,
   type GameInventoryStack,
   type PlayerStats,
+  type RulesetLiveStates,
   rulesetCardItems,
   rulesetReadsItems,
 } from "@marinara-engine/shared";
@@ -112,7 +113,7 @@ import { useGenerateSpatialMapDraft, useSpatialContext } from "../../hooks/use-s
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { spriteKeys, useUploadAvatar, useUploadPersonaAvatar, type SpriteInfo } from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
-import { api, getJsonRepairRequest, type JsonRepairRequest } from "../../lib/api-client";
+import { api, ApiError, getJsonRepairRequest, type JsonRepairRequest } from "../../lib/api-client";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { isGenerationSendBlocked } from "../../lib/generation-stream-policy";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -222,7 +223,7 @@ import type { GameCharacterSheetGameCard, GameCharacterSheetRuleset } from "@/co
 import { describeRefusedSheetCommands } from "./GameRulesetSheet";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { useRulesetItemBook } from "../../hooks/use-ruleset-item-book";
-import { useGameStatePatcher } from "../../hooks/use-game-state-patcher";
+import { flushGameStatePatch, useGameStatePatcher } from "../../hooks/use-game-state-patcher";
 import { GameDiceResult } from "./GameDiceResult";
 import { GameSkillCheckResult } from "./GameSkillCheckResult";
 import { GameElementReaction } from "./GameElementReaction";
@@ -3026,7 +3027,7 @@ function GameSurfaceComponent({
   const inventoryItemsRef = useRef(inventoryItems);
   /** The screen's inventory saves: how many were sent, the newest whose answer is on screen, and
    *  whether the chat changed while one was on its way (and so was not read then). */
-  const inventoryCommitSeq = useRef({ sent: 0, applied: 0, skippedResync: false });
+  const inventoryCommitSeq = useRef({ sent: 0, applied: 0, sheetApplied: 0, skippedResync: false });
   // What a fight offers: one line per item, however the player split its stacks.
   // What a fight lists: one line per item, each under a name no other line has, with each item's
   // effect found under that line's name.
@@ -3474,6 +3475,11 @@ function GameSurfaceComponent({
           return update.who
             ? localizeUi("ui.game.gamesurfacecomponent.inventoryWhoLost", { who: update.who, item })
             : localizeUi("ui.game.gamesurfacecomponent.inventoryYouLost", { item });
+        }
+        if (update.action === "use") {
+          return update.who
+            ? localizeUi("ui.game.gamesurfacecomponent.inventoryWhoUsed", { who: update.who, item })
+            : localizeUi("ui.game.gamesurfacecomponent.inventoryYouUsed", { item });
         }
         if (
           update.action === "equip" ||
@@ -7595,9 +7601,11 @@ function GameSurfaceComponent({
    * writes the stacks, the detailed inventory and the journal together. Resolves to one result per
    * operation; throws when the request itself fails, and then nothing changed.
    */
-  const commitInventory = useCallback(
-    async (ops: GameInventoryOp[]): Promise<GameInventoryOpResult[]> => {
-      if (!activeChatId) return [];
+  const sendInventory = useCallback(
+    async <T extends { inventory: GameInventoryStack[]; playerStats?: PlayerStats; rulesetLive?: RulesetLiveStates }>(
+      send: (chatId: string) => Promise<T>,
+    ): Promise<T | null> => {
+      if (!activeChatId) return null;
       // Anything read of the chat before this save holds older stacks. A metadata save already on its
       // way would write them back into the chat when it answers, so the fields this route writes
       // are claimed as newer, as a metadata save claims its own; a plain read still on its way is
@@ -7605,9 +7613,9 @@ function GameSurfaceComponent({
       claimChatMetadataFields(activeChatId, ["gameInventory", "gameJournal"]);
       await queryClient.cancelQueries({ queryKey: chatKeys.detail(activeChatId) });
       const seq = ++inventoryCommitSeq.current.sent;
-      let response: { inventory: GameInventoryStack[]; results: GameInventoryOpResult[]; playerStats?: PlayerStats };
+      let response: T;
       try {
-        response = await api.post("/game/inventory", { chatId: activeChatId, ops });
+        response = await send(activeChatId);
       } catch (error) {
         // A save that failed changed nothing and is settled, so the chat is read again: a change the
         // resync skipped while this save was on its way reaches the screen now.
@@ -7624,12 +7632,22 @@ function GameSurfaceComponent({
           void queryClient.invalidateQueries({ queryKey: chatKeys.detail(activeChatId) });
         }
       };
+      // The sheet a route wrote with the bag (a use, a rest) is ordered on its own: an answer older than one
+      // whose sheet is already shown never puts that sheet back, while one overtaken only by a plain
+      // inventory save, which carries no sheet, still has the newest.
+      if (response.rulesetLive && seq > inventoryCommitSeq.current.sheetApplied) {
+        inventoryCommitSeq.current.sheetApplied = seq;
+        const shown = useGameStateStore.getState().current;
+        if (shown?.chatId === activeChatId) {
+          useGameStateStore.getState().setGameState({ ...shown, rulesetLive: response.rulesetLive });
+        }
+      }
       // The server applies requests in order, so an answer to an older one that arrives after a
       // newer one describes stacks that are already out of date: its results still count, but it
       // must not put an older inventory back on screen.
       if (seq < inventoryCommitSeq.current.applied) {
         settle();
-        return response.results;
+        return response;
       }
       inventoryCommitSeq.current.applied = seq;
       const inventory = normalizeGameInventoryStacks(response.inventory);
@@ -7642,9 +7660,21 @@ function GameSurfaceComponent({
         useGameStateStore.getState().setGameState({ ...currentGameState, playerStats: response.playerStats });
       }
       settle();
-      return response.results;
+      return response;
     },
     [activeChatId, queryClient, syncInventoryToChatCache],
+  );
+  const commitInventory = useCallback(
+    async (ops: GameInventoryOp[]): Promise<GameInventoryOpResult[]> =>
+      (
+        await sendInventory((chatId) =>
+          api.post<{ inventory: GameInventoryStack[]; results: GameInventoryOpResult[]; playerStats?: PlayerStats }>(
+            "/game/inventory",
+            { chatId, ops },
+          ),
+        )
+      )?.results ?? [],
+    [sendInventory],
   );
 
   const showInventoryNotification = useCallback((text: string, gain: boolean) => {
@@ -8714,6 +8744,69 @@ function GameSurfaceComponent({
     };
   }, [chatMeta.gameCharacterCards, gameRuleset, inventoryPlayerName]);
   const inventoryItemBook = useRulesetItemBook(gameRuleset, inventorySheets, chatMeta.gameInventedItems);
+  /** The Use button. One of the ruleset's items with a `use` is used by the Engine first: what it does
+   *  to whoever carries it lands on their sheet, it is spent, and the Game Master is told what happened
+   *  in an `[item_used]` block. Anything else is simply said, and the Game Master decides. */
+  const handleUseInventoryStack = useCallback(
+    async (stackId: string, label: string) => {
+      setInventoryOpen(false);
+      const stack = inventoryItemsRef.current.find((entry) => entry.id === stackId);
+      const said = () => sendMessage(`I use my ${label}.`);
+      // Only an item the screen already knows has no use is simply said. One it cannot tell about yet
+      // (the ruleset or its catalogs still loading) goes to the Engine, which always knows.
+      const known = stack?.item ? inventoryItemBook?.itemOf(stack.item) : undefined;
+      if (!stack?.item || gameRuleset.status === "none" || (known && !known.entry.item?.use)) {
+        said();
+        return;
+      }
+      const usedIn = activeChatId;
+      let used: { rulesetLive: RulesetLiveStates; line: string } | null;
+      try {
+        // A sheet edit still waiting to be saved lands first, so the use starts from it and is not
+        // written over by it afterwards.
+        if (usedIn) await flushGameStatePatch(usedIn);
+        used = await sendInventory((chatId) =>
+          api.post<{
+            inventory: GameInventoryStack[];
+            rulesetLive: RulesetLiveStates;
+            line: string;
+            playerStats?: PlayerStats;
+          }>("/game/inventory/use", { chatId, stackId }),
+        );
+      } catch (error) {
+        const reason =
+          error instanceof ApiError && error.payload && typeof error.payload === "object"
+            ? (error.payload as { reason?: unknown }).reason
+            : undefined;
+        // Nothing the Engine uses: it is said as any other item is.
+        if (reason === "no-use" || reason === "not-ruleset-item" || reason === "no-ruleset") {
+          if (useChatStore.getState().activeChatId === usedIn) said();
+          return;
+        }
+        toast.error(
+          localizeUi(
+            reason === "none-left"
+              ? "ui.game.gamesurfacecomponent.itemUseNoneLeft"
+              : reason === "not-worn"
+                ? "ui.game.gamesurfacecomponent.itemUseNotWorn"
+                : "ui.game.gamesurfacecomponent.itemUseFailed",
+            { item: label },
+          ),
+        );
+        return;
+      }
+      if (!used) return;
+      // The item is used either way. When the Game Master cannot be told (the player moved to another
+      // chat meanwhile, or the message did not go), the player is, so it is never spent in silence.
+      const sent =
+        useChatStore.getState().activeChatId === usedIn &&
+        (await sendMessage(`I use my ${label}.\n\n[item_used]\n${used.line}\n[/item_used]`).catch(() => false)) !==
+          false;
+      if (!sent) toast.error(localizeUi("ui.game.gamesurfacecomponent.itemUsedNotSent", { item: label }));
+    },
+    [activeChatId, gameRuleset.status, inventoryItemBook, localizeUi, sendInventory, sendMessage],
+  );
+
   // Who an item added in the shared view may go to, in order: the player, then the party.
   const inventoryPlaceAmong = useMemo(
     () => ["", ...partyMembers.filter((member) => !member.id.startsWith("persona:")).map((member) => member.name)],
@@ -10099,6 +10192,39 @@ function GameSurfaceComponent({
     [activeChatId, localizeUi, patchGameStateField],
   );
 
+  /** A rest from the in-game sheet, in a game whose ruleset has items: the server takes it, so the
+   *  charges it brings back to what the character carries are written with the sheet. Answers with
+   *  what the sheet shows after it, or null when it was not taken. */
+  const handleRulesetRest = useCallback(
+    async (cardTitle: string, rest: string): Promise<string | null> => {
+      if (!activeChatId) return null;
+      try {
+        // A sheet edit still waiting to be saved lands first, so the rest starts from it.
+        await flushGameStatePatch(activeChatId);
+        const rested = await sendInventory((chatId) =>
+          api.post<{
+            inventory: GameInventoryStack[];
+            rulesetLive: RulesetLiveStates;
+            now: string;
+            recharged: Array<{ item: string; now: number; max: number }>;
+            playerStats?: PlayerStats;
+          }>("/game/inventory/rest", { chatId, character: cardTitle, rest }),
+        );
+        if (!rested) return null;
+        return [
+          rested.now,
+          ...rested.recharged.map((entry) =>
+            localizeUi("game.ruleset.sheet.restRecharged", { item: entry.item, now: entry.now, max: entry.max }),
+          ),
+        ].join("; ");
+      } catch {
+        toast.error(localizeUi("game.ruleset.sheet.restFailed"));
+        return null;
+      }
+    },
+    [activeChatId, localizeUi, sendInventory],
+  );
+
   const characterSheetRuleset = useMemo<GameCharacterSheetRuleset | undefined>(() => {
     if (gameRuleset.status === "none" || gameRuleset.status === "loading") return undefined;
     if (gameRuleset.status === "unavailable") return { status: "unavailable" };
@@ -10130,6 +10256,8 @@ function GameSurfaceComponent({
       envelope: parsed?.success ? parsed.data : undefined,
       live: gameSnapshot?.rulesetLive?.[normalizeCharacterLookupName(cardTitle)],
       onLiveChange: (next) => handleRulesetLiveChange(cardTitle, next),
+      // Where the ruleset has items, a rest may bring charges back to what is carried.
+      ...(inventoryItemBook ? { onRest: (rest: string) => handleRulesetRest(cardTitle, rest) } : {}),
       onEnvelopeSave: (next) => handleSaveRulesetSheet(cardTitle, next),
       ...(items ? { items } : {}),
     };
@@ -10139,6 +10267,7 @@ function GameSurfaceComponent({
     gameRuleset,
     gameSnapshot?.rulesetLive,
     handleRulesetLiveChange,
+    handleRulesetRest,
     handleSaveRulesetSheet,
     inventoryItemBook,
     inventoryItems,
@@ -13680,10 +13809,7 @@ function GameSurfaceComponent({
                 onGiveItem={handleGiveInventoryStack}
                 onSwapItems={handleSwapInventoryStacks}
                 canInteract={sessionInteractive && narrationDone && !isStreaming}
-                onUseItem={(itemName) => {
-                  setInventoryOpen(false);
-                  sendMessage(`I use my ${itemName}.`);
-                }}
+                onUseItem={handleUseInventoryStack}
               />
 
               {/* Readable document display (Notes / Books) */}

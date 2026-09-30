@@ -1,6 +1,8 @@
 import {
   isClaudeAdaptiveOnlyNoSamplingModel,
   isOpenAIGpt56Model,
+  isOpenAIGpt6AlwaysReasoningModel,
+  isOpenAIGpt6Model,
   isXaiAutoReasoningModel,
   isXaiConfigurableReasoningModel,
   resolveProviderReasoningEffort,
@@ -178,7 +180,7 @@ const RESPONSES_ONLY_SUFFIXES = ["-codex", "-codex-max", "-codex-mini"];
 const XAI_MULTI_AGENT_MODEL = "grok-4.20-multi-agent";
 
 function isOpenAIReasoningModel(model: string): boolean {
-  return /^(o1|o3|o4)/.test(model) || model.startsWith("gpt-5");
+  return /^(o1|o3|o4)/.test(model) || model.startsWith("gpt-5") || isOpenAIGpt6Model(model);
 }
 
 function isNativeGlmHost(baseUrl: string | null | undefined): boolean {
@@ -246,19 +248,22 @@ export function relevantGenerationParameters(context: GenerationParameterContext
     }
 
     if (OPENAI_COMPATIBLE.has(provider)) {
-      if (!model.startsWith("gpt-5")) hide("verbosity");
+      if (!model.startsWith("gpt-5") && !isOpenAIGpt6Model(model)) hide("verbosity");
 
+      // GPT-6 samples only with effort "none"; Astra and 6.1 Sol cannot turn reasoning off.
       const noSampling =
         /^(o1|o3|o4)/.test(model) ||
         isOpenAIGpt56Model(model) ||
         model.startsWith("gpt-5.5") ||
-        (model.startsWith("gpt-5") && effortActive);
+        isOpenAIGpt6AlwaysReasoningModel(model) ||
+        ((model.startsWith("gpt-5") || isOpenAIGpt6Model(model)) && effortActive);
       if (noSampling) hide("temperature", "topP", "frequencyPenalty", "presencePenalty");
 
-      // Responses API models never carry penalties.
+      // Responses API models never carry penalties. GPT-6 uses it everywhere but OpenRouter.
       if (
         RESPONSES_ONLY_PREFIXES.some((prefix) => model.startsWith(prefix)) ||
-        RESPONSES_ONLY_SUFFIXES.some((suffix) => model.endsWith(suffix))
+        RESPONSES_ONLY_SUFFIXES.some((suffix) => model.endsWith(suffix)) ||
+        (isOpenAIGpt6Model(model) && provider !== "openrouter")
       ) {
         hide("frequencyPenalty", "presencePenalty");
       }

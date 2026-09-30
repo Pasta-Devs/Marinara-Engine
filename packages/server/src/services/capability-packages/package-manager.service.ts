@@ -900,6 +900,126 @@ function entriesCarryWeapons(entries: unknown): boolean {
   );
 }
 
+const ARMOR_ISSUE =
+  "A ruleset whose items change a fight while worn or carried, or with hardness, requires schemaVersion 2 and capabilityApi 1.56 or newer";
+
+/** What an item's effect does only in a fight, which is 1.56: an effect other than a check's or a
+ *  save's, a modifier to anything but checks and saves, and the kinds of harm or conditions it keeps
+ *  off (new keys on the strict effect). */
+function effectCarriesFightParts(effect: unknown): boolean {
+  const record = plainRecord(effect);
+  if (!record) return false;
+  const checkEffects = [
+    "own-checks-advantage",
+    "own-checks-disadvantage",
+    "own-saves-advantage",
+    "own-saves-disadvantage",
+  ];
+  if (Array.isArray(record.effects) && record.effects.some((one) => !checkEffects.includes(String(one)))) return true;
+  if (
+    Array.isArray(record.modifiers) &&
+    record.modifiers.some((modifier) => !["checks", "saves"].includes(String(plainRecord(modifier)?.to)))
+  ) {
+    return true;
+  }
+  return ["resist", "vulnerable", "immune", "conditionImmunities"].some((key) => record[key] !== undefined);
+}
+
+/** An item that changes a fight, and a creature's hardness, which are 1.56. */
+function entriesCarryArmor(entries: unknown): boolean {
+  return (
+    Array.isArray(entries) &&
+    entries.some((entry) => {
+      const record = plainRecord(entry);
+      if (plainRecord(record?.creature)?.hardness !== undefined) return true;
+      const item = plainRecord(record?.item);
+      if (!item) return false;
+      const requires = Array.isArray(item.requires) ? item.requires : [];
+      return [item.worn, item.carried, ...requires.map((requirement) => plainRecord(requirement)?.otherwise)].some(
+        effectCarriesFightParts,
+      );
+    })
+  );
+}
+
+const AMMO_ISSUE =
+  "A ruleset whose weapons shoot ammunition or keep a loaded count requires schemaVersion 2 and capabilityApi 1.57 or newer";
+
+/** A weapon's `ammo` or `clip`, which are 1.57: new keys on the strict attack. */
+function entriesCarryAmmo(entries: unknown): boolean {
+  return (
+    Array.isArray(entries) &&
+    entries.some((entry) => {
+      const attack = plainRecord(plainRecord(plainRecord(entry)?.item)?.attack);
+      return attack?.ammo !== undefined || attack?.clip !== undefined;
+    })
+  );
+}
+
+const WEAPON_WAYS_ISSUE =
+  "A ruleset whose weapons have modes, an off-hand attack, a floor or conditions on a hit, or whose combat block names an off-hand budget, requires schemaVersion 2 and capabilityApi 1.58 or newer";
+
+/** A weapon's `modes`, `offHand`, `floor` or `onHit`, which are 1.58: new keys on the strict attack. */
+function entriesCarryWeaponWays(entries: unknown): boolean {
+  return (
+    Array.isArray(entries) &&
+    entries.some((entry) => {
+      const attack = plainRecord(plainRecord(plainRecord(entry)?.item)?.attack);
+      return ["modes", "offHand", "floor", "onHit"].some((key) => attack?.[key] !== undefined);
+    })
+  );
+}
+
+const ITEM_USE_ISSUE =
+  "A ruleset whose items are used in a fight or hold charges requires schemaVersion 2 and capabilityApi 1.59 or newer";
+
+/** An item's `use` or `charges`, which are 1.59: new keys on the strict item. */
+function entriesCarryItemUse(entries: unknown): boolean {
+  return (
+    Array.isArray(entries) &&
+    entries.some((entry) => {
+      const item = plainRecord(plainRecord(entry)?.item);
+      return item?.use !== undefined || item?.charges !== undefined;
+    })
+  );
+}
+
+const ITEM_RESTORE_ISSUE =
+  "A ruleset whose items restore a pool when used requires schemaVersion 2 and capabilityApi 1.60 or newer";
+
+/** A use's `restore`, which is 1.60: a new key on the strict use. */
+function entriesCarryItemRestore(entries: unknown): boolean {
+  return (
+    Array.isArray(entries) &&
+    entries.some((entry) => plainRecord(plainRecord(plainRecord(entry)?.item)?.use)?.restore !== undefined)
+  );
+}
+
+const CHARGES_OVER_TIME_ISSUE =
+  "A ruleset whose items regain charges on a rest or break when emptied requires schemaVersion 2 and capabilityApi 1.61 or newer";
+
+/** An item's `charges.recharge` or `charges.breaksOn`, which are 1.61: new keys on the strict charges. */
+function entriesCarryChargesOverTime(entries: unknown): boolean {
+  return (
+    Array.isArray(entries) &&
+    entries.some((entry) => {
+      const charges = plainRecord(plainRecord(plainRecord(entry)?.item)?.charges);
+      return charges?.recharge !== undefined || charges?.breaksOn !== undefined;
+    })
+  );
+}
+
+const ITEM_GATE_ISSUE =
+  "A ruleset whose items ask a check before they work requires schemaVersion 2 and capabilityApi 1.62 or newer";
+
+/** A use's `gate`, which is 1.62: a new key on the strict use. */
+function entriesCarryItemGate(entries: unknown): boolean {
+  return (
+    Array.isArray(entries) &&
+    entries.some((entry) => plainRecord(plainRecord(plainRecord(entry)?.item)?.use)?.gate !== undefined)
+  );
+}
+
 /** A level that reads a derived value, which is 1.54: a new key on the strict level. */
 function rulesetCarriesDerivedLevels154(ruleset: { combat?: unknown } | undefined): boolean {
   const levels = plainRecord(ruleset?.combat)?.levels;
@@ -1140,6 +1260,13 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryItemEffects(header.entries) && !declaresApi(53)) return CHECK_EFFECTS_ISSUE;
       if (entriesCarryRequirements(header.entries) && !declaresApi(54)) return REQUIREMENTS_ISSUE;
       if (entriesCarryWeapons(header.entries) && !declaresApi(55)) return WEAPONS_ISSUE;
+      if (entriesCarryArmor(header.entries) && !declaresApi(56)) return ARMOR_ISSUE;
+      if (entriesCarryAmmo(header.entries) && !declaresApi(57)) return AMMO_ISSUE;
+      if (entriesCarryWeaponWays(header.entries) && !declaresApi(58)) return WEAPON_WAYS_ISSUE;
+      if (entriesCarryItemUse(header.entries) && !declaresApi(59)) return ITEM_USE_ISSUE;
+      if (entriesCarryItemRestore(header.entries) && !declaresApi(60)) return ITEM_RESTORE_ISSUE;
+      if (entriesCarryChargesOverTime(header.entries) && !declaresApi(61)) return CHARGES_OVER_TIME_ISSUE;
+      if (entriesCarryItemGate(header.entries) && !declaresApi(62)) return ITEM_GATE_ISSUE;
       const asset = header.asset;
       if (typeof asset !== "string") continue;
       // A path that does not normalize is never a declared one, whatever else failed to normalize.
@@ -1168,6 +1295,13 @@ export function getCapabilityPackageInstallIssue(
       if (entriesCarryItemEffects(fileEntries) && !declaresApi(53)) return CHECK_EFFECTS_ISSUE;
       if (entriesCarryRequirements(fileEntries) && !declaresApi(54)) return REQUIREMENTS_ISSUE;
       if (entriesCarryWeapons(fileEntries) && !declaresApi(55)) return WEAPONS_ISSUE;
+      if (entriesCarryArmor(fileEntries) && !declaresApi(56)) return ARMOR_ISSUE;
+      if (entriesCarryAmmo(fileEntries) && !declaresApi(57)) return AMMO_ISSUE;
+      if (entriesCarryWeaponWays(fileEntries) && !declaresApi(58)) return WEAPON_WAYS_ISSUE;
+      if (entriesCarryItemUse(fileEntries) && !declaresApi(59)) return ITEM_USE_ISSUE;
+      if (entriesCarryItemRestore(fileEntries) && !declaresApi(60)) return ITEM_RESTORE_ISSUE;
+      if (entriesCarryChargesOverTime(fileEntries) && !declaresApi(61)) return CHARGES_OVER_TIME_ISSUE;
+      if (entriesCarryItemGate(fileEntries) && !declaresApi(62)) return ITEM_GATE_ISSUE;
     }
   }
   // The battle block lives inside the ruleset file too, so it is read the same way and for the same
@@ -1270,6 +1404,10 @@ export function getCapabilityPackageInstallIssue(
   if (!declaresApi(53) && rulesetCarriesCheckEffects153Keys(ruleset)) return CHECK_EFFECTS_ISSUE;
   // A level that reads a derived value, which is 1.54's. Same file, same reason.
   if (!declaresApi(54) && rulesetCarriesDerivedLevels154(ruleset)) return REQUIREMENTS_ISSUE;
+  if (!declaresApi(56) && plainRecord(plainRecord(plainRecord(ruleset?.combat)?.pool))?.hardness !== undefined) {
+    return ARMOR_ISSUE;
+  }
+  if (!declaresApi(58) && plainRecord(ruleset?.combat)?.offHand !== undefined) return WEAPON_WAYS_ISSUE;
   // Values that read the items someone holds, which are 1.52's. Same file (and the same catalog
   // files), same reason.
   if (

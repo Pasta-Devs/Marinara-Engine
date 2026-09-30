@@ -14,7 +14,7 @@ import {
   stripBalancedTag,
   stripMapUpdateTag,
   stripDanglingTagClosers,
-  stripCombatResultBlocks,
+  stripEngineResultBlocks,
 } from "./game-narration-text.js";
 import { stripGameBranchDelimiters } from "./dice-branch.js";
 import { stripSheetCommandTags } from "./sheet-command-tag.js";
@@ -387,7 +387,7 @@ function extractFlatTags(text: string, prefix: RegExp, firstOnly = false, allowE
  * Segment numbering mirrors GameNarration's parsing model closely enough for timing.
  */
 export function parseSegmentInventoryUpdates(content: string): SegmentInventoryUpdate[] {
-  let source = stripCombatResultBlocks(content);
+  let source = stripEngineResultBlocks(content);
   source = extractFlatTags(source, /\[music:/gi).remaining;
   source = extractFlatTags(source, /\[sfx:/gi).remaining;
   source = extractFlatTags(source, /\[bg:/gi).remaining;
@@ -833,7 +833,7 @@ export function parseGmTags(content: string): ParsedGmTags {
 
 /** Strip all GM command tags from text, returning clean display content. */
 export function stripGmTags(content: string): string {
-  let text = stripCombatResultBlocks(content);
+  let text = stripEngineResultBlocks(content);
   text = extractFlatTags(text, /\[music:/gi).remaining;
   text = extractFlatTags(text, /\[sfx:/gi).remaining;
   text = extractFlatTags(text, /\[bg:/gi).remaining;

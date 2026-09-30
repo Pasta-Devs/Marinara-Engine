@@ -15,6 +15,7 @@ const requireServer = createRequire(new URL("../../packages/server/package.json"
 const Fastify = requireServer("fastify") as typeof import("fastify").default;
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { generateRoutes } = await import("../../packages/server/src/routes/generate.routes.js");
+const { chatsRoutes } = await import("../../packages/server/src/routes/chats.routes.js");
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
@@ -46,6 +47,7 @@ const app = Fastify();
 app.decorate("db", db);
 app.decorate("activeGenerations", new Map());
 await app.register(generateRoutes, { prefix: "/api/generate" });
+await app.register(chatsRoutes, { prefix: "/api/chats" });
 try {
   await new Promise<void>((done) => provider.listen(0, "127.0.0.1", done));
   const address = provider.address();
@@ -210,6 +212,67 @@ try {
   await chats.setActiveSwipe(saved.id, 0);
   assert((await preview(bob.id)).includes("BOB_ONLY_SECRET"));
 
+  const beforeEdit = JSON.parse((await chats.getMessage(saved.id))!.extra);
+  const beforeSwipes = await chats.getSwipes(saved.id);
+  const editedActivity = beforeEdit.roleplayCommandActivity.map(
+    (item: (typeof whispers)[number]["activity"], index: number) =>
+      index === whispers[0]!.index ? { ...item, command: { ...item.command, text: "BOB_EDITED_SECRET" } } : item,
+  );
+  const edit = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${chat.id}/messages/${saved.id}/extra?swipeIndex=0`,
+    payload: { roleplayCommandActivity: editedActivity },
+  });
+  assert.equal(edit.statusCode, 200, edit.body);
+  const edited = (await chats.getMessage(saved.id))!;
+  assert.equal(edited.content, saved.content, "editing a whisper leaves public narration untouched");
+  assert.deepEqual(
+    JSON.parse(edited.extra),
+    { ...beforeEdit, roleplayCommandActivity: editedActivity },
+    "only command text changes; recipient, offsets, anchors, original activity and other commands remain intact",
+  );
+  const editedSwipes = await chats.getSwipes(saved.id);
+  assert.deepEqual(editedSwipes[1], beforeSwipes[1], "editing the active whisper leaves the other swipe untouched");
+  assert.deepEqual(JSON.parse(editedSwipes[0]!.extra).roleplayCommandActivity, editedActivity);
+  for (const id of [alice.id, bob.id, narrator.id]) {
+    await generate("A reply after the edit.", id);
+    for (const content of [prompts.at(-1)!, await preview(id)]) {
+      assert.equal(content.includes("BOB_EDITED_SECRET"), id === bob.id || id === narrator.id);
+      assert(!content.includes("BOB_ONLY_SECRET"), "later prompts use edited text rather than the original command");
+      assert.equal(content.includes("PERSONA_ONLY_SECRET"), id === narrator.id, "the other whisper keeps its audience");
+    }
+  }
+  const personaPreview = await preview(alice.id, { impersonate: true });
+  assert(personaPreview.includes("PERSONA_ONLY_SECRET") && !personaPreview.includes("BOB_EDITED_SECRET"));
+
+  await chats.setActiveSwipe(saved.id, 1);
+  const otherSwipeMessage = (await chats.getMessage(saved.id))!;
+  const reeditedActivity = editedActivity.map((item: (typeof whispers)[number]["activity"], index: number) =>
+    index === whispers[0]!.index ? { ...item, command: { ...item.command, text: "BOB_REEDITED_SECRET" } } : item,
+  );
+  const lateEdit = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${chat.id}/messages/${saved.id}/extra?swipeIndex=0`,
+    payload: { roleplayCommandActivity: reeditedActivity },
+  });
+  assert.equal(lateEdit.statusCode, 200, lateEdit.body);
+  assert.deepEqual(
+    await chats.getMessage(saved.id),
+    otherSwipeMessage,
+    "a late save stays attached to its original swipe",
+  );
+  assert.deepEqual((await chats.getSwipes(saved.id))[1], beforeSwipes[1]);
+  assert(!(await preview(narrator.id)).includes("BOB_REEDITED_SECRET"), "inactive swipe whispers stay out of prompts");
+  await chats.setActiveSwipe(saved.id, 0);
+  assert((await preview(bob.id)).includes("BOB_REEDITED_SECRET"), "edited metadata survives switching away and back");
+  const invalidEdit = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${chat.id}/messages/${saved.id}/extra?swipeIndex=99`,
+    payload: { roleplayCommandActivity: [] },
+  });
+  assert.equal(invalidEdit.statusCode, 404);
+  assert.deepEqual(JSON.parse((await chats.getMessage(saved.id))!.extra).roleplayCommandActivity, reeditedActivity);
+
   await generate('[whisper: character="Bob" text="WHISPER_WITHOUT_PROSE"]');
   assert((await preview(bob.id)).includes("WHISPER_WITHOUT_PROSE"), "secret-only messages survive history shaping");
   assert(!(await preview(alice.id)).includes("WHISPER_WITHOUT_PROSE"));
@@ -246,12 +309,12 @@ try {
   );
   assert(prompts[turnStart + 2]!.includes("SAME_TURN_PERSONA_SECRET"), "the narrator sees the latest in-turn secrets");
   await chats.patchMetadata(chat.id, { groupChatMode: "merged", roleplayWhisperAudience: "all" });
-  assert(!(await preview(bob.id)).includes("BOB_ONLY_SECRET"), "merged voices must not receive private knowledge");
+  assert(!(await preview(bob.id)).includes("BOB_REEDITED_SECRET"), "merged voices must not receive private knowledge");
   await generate('Merged. [whisper: character="Bob" text="MERGED_SECRET"]');
   assert(!prompts.at(-1)!.includes("[whisper:"));
   assert.equal(getRoleplayWhispers(JSON.parse((await chats.listMessages(chat.id)).at(-1)!.extra)).length, 0);
   console.log(
-    "Roleplay whisper generation passed: streamed privacy, recipient/narrator/persona prompts, preview parity, visibility, swipes, continuation and permissions.",
+    "Roleplay whisper generation passed: streamed privacy, recipient/narrator/persona prompts, preview parity, edited metadata, swipe isolation, failed saves, visibility, continuation and permissions.",
   );
 } finally {
   await app.close();

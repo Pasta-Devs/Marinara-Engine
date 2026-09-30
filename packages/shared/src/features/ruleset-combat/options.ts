@@ -9,6 +9,13 @@ import {
   type RulesetLiveState,
   type RulesetSheetOp,
 } from "../rulesets/live-state.js";
+import {
+  rulesetAmmoLeft,
+  rulesetItemUseLeft,
+  rulesetLoaded,
+  rulesetModedAction,
+  rulesetShotsAvailable,
+} from "./ammo.js";
 import { parseRulesetCombatDice, rulesetAverageDamage } from "./dice.js";
 import {
   rulesetCombatAdvantage,
@@ -381,10 +388,11 @@ export function rulesetDefenseAgainst(
 ): { defense: number; cover: number; guards: RulesetConditionBonus[] } {
   // What the target's own conditions add. Defense is never rolled, so each is its flat number.
   const guards = rulesetConditionModifiers(definition, combat, target, "defense", state).map(
-    ({ condition, level, derived, modifier }) => ({
+    ({ condition, level, derived, item, modifier }) => ({
       condition,
       ...(level !== undefined ? { level } : {}),
       ...(derived ? { derived } : {}),
+      ...(item ? { item } : {}),
       value: modifier.flat ?? 0,
     }),
   );
@@ -798,6 +806,10 @@ function firstAreaTarget(state: RulesetEncounterState, actor: RulesetCombatant, 
  *  the sheet instead. */
 export function rulesetActionAvailable(actor: RulesetCombatant, action: RulesetCombatAction): boolean {
   if (action.uses && (actor.uses[action.id] ?? 0) < 1) return false;
+  // A weapon with nothing loaded or nothing to shoot, and a clip that is full or has nothing to load.
+  if (!rulesetShotsAvailable(actor, action)) return false;
+  // A weapon in the off hand follows an attack made this turn with another off-hand weapon.
+  if (action.offHandOf !== undefined && (actor.flags.offHand ?? action.offHandOf) === action.offHandOf) return false;
   return !actor.spent.includes(action.id);
 }
 
@@ -952,9 +964,17 @@ function optionFrom(
     targets: action.targets,
     ...(rulesetFreeStrike(actor, action) ? { strikes: actor.strikesLeft } : {}),
     ...(action.heal ? { heals: true } : {}),
+    ...(action.restore ? { restores: action.restore.pool } : {}),
   };
   if (paid.cost.length > 0) option.cost = paid.cost;
   if (action.uses) option.left = actor.uses[action.id] ?? 0;
+  if (action.ammo) option.ammo = rulesetAmmoLeft(actor, action.ammo.tag);
+  if (action.clip) option.loaded = { now: rulesetLoaded(actor, action.clip), max: action.clip.max };
+  // What an item has left to use: its stack, or its charges.
+  if (action.itemUse && (action.itemUse.consumes || action.itemUse.charges)) {
+    option.left = rulesetItemUseLeft(actor, action.itemUse);
+  }
+  if (action.offHandOf !== undefined) option.offHand = true;
   // A shape, in cells, so a screen can draw the template before the choice is made and a picker can
   // weigh it. Only in a positioned fight: without a board an area is still resolved by target ids.
   if (action.area && positioned(state)) {
@@ -973,17 +993,36 @@ function optionFrom(
   }
   const forecast = forecastFor(definition, combat, state, actor, action);
   if (forecast) option.forecast = forecast;
+  // The weapon's other ways to make this attack, each only while its holder has the shots for it,
+  // and each with what it is expected to do. Not in a window: what is taken at its moment is made
+  // as it is.
+  if (action.modes?.length && !atItsMoment) {
+    const modes = action.modes.flatMap((mode) => {
+      const moded = rulesetModedAction(definition, action, mode.id);
+      if (!moded || !rulesetShotsAvailable(actor, moded)) return [];
+      const expected = forecastFor(definition, combat, state, actor, moded);
+      return [
+        { id: mode.id, label: mode.label, targets: moded.targets.count, ...(expected ? { forecast: expected } : {}) },
+      ];
+    });
+    if (modes.length > 0) option.modes = modes;
+  }
   // Where initiative is a number attacks move, the ways this attack may be made, each with what it
   // would do: a style that takes would take what its damage dice are worth off the target's number,
   // one that spends throws the actor's own number at their health.
   // Not in a window: what is taken at its moment is made in the first style, so there is no choice.
   const styles = atItsMoment ? [] : rulesetAttackStyles(combat, actor, action);
   if (styles.length > 0) {
+    // A spending blow below the first target's hardness does nothing to them. An area names nobody,
+    // so it is the first combatant any legal aim would catch, as the forecast reads.
+    const aimed = firstTarget(definition, state, actor, action) ?? firstAreaTarget(state, actor, action);
+    const turned = aimed?.hardness !== undefined && actor.initiative < aimed.hardness;
     option.styles = styles.map((style) => {
       const hit = forecast?.hitChance !== undefined ? { hitChance: forecast.hitChance } : {};
+      const spent = turned ? 0 : Math.round(rulesetDamageAverage(definition, combat, actor.initiative) * 100) / 100;
       const worth = style.takes
         ? { ...hit, ...(forecast?.averageDamage !== undefined ? { shift: forecast.averageDamage } : {}) }
-        : { ...hit, averageDamage: Math.round(rulesetDamageAverage(definition, combat, actor.initiative) * 100) / 100 };
+        : { ...hit, averageDamage: spent };
       return { id: style.id, label: style.label, forecast: worth };
     });
   }

@@ -180,8 +180,10 @@ try {
         for (const entry of catalog.entries ?? []) {
           delete entry.item?.worn;
           delete entry.item?.carried;
-          // And its weapons, which are 1.55's.
+          // And its weapons, which are 1.55's, and what its items do when used, which is 1.59's.
           delete entry.item?.attack;
+          delete entry.item?.use;
+          delete entry.item?.charges;
         }
       }
     };
@@ -537,7 +539,7 @@ try {
     const told = buildGmFormatReminder({ ...base, ruleset: ember });
     assert.match(
       told,
-      /invent one of its items in the add: \[inventory: action="add" item="New name" category="\.\.\." rarity="\.\.\." tags="a, b" stats="id=value, id=value" slots="id=count" worn="\+1 Skill" summary="one line"\]\. Every part but item is optional\. worn is what it does while worn, and carried="\.\.\." what it does while only carried: changes split by ";", each \+N, -N, advantage, disadvantage, or fails \(saves only\), on skills or saves by name, or on checks or saves for all of them; \+N or -N on an ability's name raises or lowers that ability\. A bonus or penalty to a skill, save or ability always goes in worn or carried, never in stats\. To start from one of the ruleset's own items, add like="that item's exact name" \(leave like out otherwise\)/,
+      /invent one of its items in the add: \[inventory: action="add" item="New name" category="\.\.\." rarity="\.\.\." tags="a, b" stats="id=value, id=value" slots="id=count" worn="\+1 Skill" summary="one line"\]\. Every part but item is optional\. worn is what it does while worn, and carried="\.\.\." what it does while only carried: changes split by ";", each \+N, -N, advantage, disadvantage, or fails \(saves only\), on skills or saves by name, or on checks or saves for all of them; \+N or -N on an ability's name raises or lowers that ability; in a fight, \+N, -N, advantage or disadvantage on attacks, and \+N or -N on Guard \(defense; an item's guard stat already adds to it, so give one or the other\)\. A bonus or penalty to a skill, save or ability always goes in worn or carried, never in stats\. To start from one of the ruleset's own items, add like="that item's exact name" \(leave like out otherwise\)/,
     );
     assert.match(told, /and holds each number to the most its rarity allows/);
     // Where the ruleset has fights, a weapon made like one fights like it.
@@ -559,7 +561,7 @@ try {
     );
     assert.match(
       told,
-      /Its words: categories weapon, armor, ammunition, provisions, gear; rarities common, uncommon, storied \(lowest first\); tags thrown, ranged, two_handed; stats bulk \(number 0 to 10\), guard \(number 0 to 4\), damage \(dice\), swing \(one of brawn, wits, heart\), reach \(one of close, near, far\); slots body \(1\), hands \(2\); skills Scrap, Sneak, Tinker, Sway; abilities Brawn, Wits, Heart\. The most at each rarity: common guard 1, worn or carried bonus 1; uncommon guard 2, worn or carried bonus 1; storied guard 3, worn or carried bonus 2\./,
+      /Its words: categories weapon, armor, ammunition, provisions, gear; rarities common, uncommon, storied \(lowest first\); tags thrown, ranged, two_handed, arrow; stats bulk \(number 0 to 10\), guard \(number 0 to 4\), damage \(dice\), swing \(one of brawn, wits, heart\), reach \(one of close, near, far\); slots body \(1\), hands \(2\); skills Scrap, Sneak, Tinker, Sway; abilities Brawn, Wits, Heart\. The most at each rarity: common guard 1, worn or carried bonus 1; uncommon guard 2, worn or carried bonus 1; storied guard 3, worn or carried bonus 2\./,
     );
     assert.match(
       buildGmFormatReminder({ ...base, ruleset: gravewatch }),

@@ -49,6 +49,13 @@
 
 export * from "./types.js";
 export {
+  applyRulesetFightItemChanges,
+  rulesetAmmoLeft,
+  rulesetFightItemChanges,
+  rulesetLoaded,
+  type RulesetFightItemChange,
+} from "./ammo.js";
+export {
   rulesetCombatAdvantage,
   rulesetCombatIsPool,
   rulesetCombatPenalty,
@@ -103,9 +110,11 @@ export {
   rulesetCombatDamageKind,
   rulesetCombatFailsSave,
   rulesetCombatHealth,
+  rulesetCombatHide,
   rulesetCombatStanding,
   rulesetConditionModifiers,
   rulesetInitiativeModifierNow,
+  rulesetImmuneToCondition,
   rulesetInitiativeOrder,
   rulesetMovementAllowance,
   rulesetSaveMode,

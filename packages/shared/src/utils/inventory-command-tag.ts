@@ -21,7 +21,7 @@ const MAX_TAG_NOTE_LENGTH = 600;
 /** The most parts one proposed item's list (its tags, stats or slots) is read for. */
 const MAX_PROPOSAL_PARTS = 24;
 
-export type InventoryTagAction = "add" | "remove" | "give" | "equip" | "unequip" | "bind" | "unbind";
+export type InventoryTagAction = "add" | "remove" | "give" | "equip" | "unequip" | "bind" | "unbind" | "use";
 
 const INVENTORY_TAG_ACTIONS: readonly InventoryTagAction[] = [
   "add",
@@ -31,6 +31,7 @@ const INVENTORY_TAG_ACTIONS: readonly InventoryTagAction[] = [
   "unequip",
   "bind",
   "unbind",
+  "use",
 ];
 
 function readAction(value: string | undefined): InventoryTagAction | undefined {
@@ -145,7 +146,7 @@ export function parseInventoryTagBody(body: string): InventoryTagRequest | null 
   let action: InventoryTagAction = readAction(actionValue) ?? "add";
   if (actionValue === undefined) {
     // A bare word, read only before the first attribute so an item's own name never counts.
-    const bare = /\b(add|remove|give|equip|unequip|bind|unbind)\b/i.exec(
+    const bare = /\b(add|remove|give|equip|unequip|bind|unbind|use)\b/i.exec(
       body.slice(0, Math.min(attributes[0]?.start ?? body.length, 40)),
     );
     if (bare) action = bare[1]!.toLowerCase() as InventoryTagAction;

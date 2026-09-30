@@ -18,6 +18,7 @@ import {
   rulesetDefaultTargets,
   rulesetMenuGroups,
   rulesetOptionCostText,
+  rulesetModeText,
   rulesetOptionForecastText,
   rulesetOptionLabel,
   rulesetOptionNeedsTargets,
@@ -45,6 +46,8 @@ export interface RulesetCombatMenuProps {
     cell?: { to?: RulesetCombatCell; at?: RulesetCombatCell },
     /** The initiative style an attack is made in, where initiative is a number attacks move. */
     style?: string,
+    /** The weapon's mode an attack is made in. */
+    mode?: string,
   ) => void;
   /** Walking away. The ruleset's menu never carries it, because leaving is not a thing the rules
    *  resolve: it is the director ending the session, exactly as the other two styles end it. */
@@ -128,7 +131,9 @@ export function RulesetCombatMenu({
   useEffect(() => {
     // A step the BOARD draws has its keyboard on the board, so the menu must not take it back the
     // moment the stage opens.
-    if (stepStage === "style" || stepStage === "pay" || stepStage === "target") first.current?.focus();
+    if (stepStage === "style" || stepStage === "mode" || stepStage === "pay" || stepStage === "target") {
+      first.current?.focus();
+    }
     // Going BACK unmounts the step, and the browser would drop focus on the body, leaving a keyboard
     // player to Tab down from the top of the page. The menu takes it instead, and only then: a
     // menu that appears, or is reset because the turn moved on, must not steal focus from wherever
@@ -147,9 +152,9 @@ export function RulesetCombatMenu({
     );
   }
 
-  const send = (option: DirectedRulesetOption, targets: string[], payWith?: string, style?: string) => {
+  const send = (option: DirectedRulesetOption, targets: string[], payWith?: string, style?: string, mode?: string) => {
     closeStep();
-    onChoose(option.id, targets, payWith, undefined, style);
+    onChoose(option.id, targets, payWith, undefined, style, mode);
   };
   /** Which picking step this option opens, or null for one that is simply sent. On a board, a walk
    *  and a shape are picked on the board; everything else is the list below. */
@@ -158,19 +163,30 @@ export function RulesetCombatMenu({
     if (view.grid && rulesetOptionNeedsAim(option)) return "aim";
     return rulesetOptionNeedsTargets(option) ? "target" : null;
   };
-  /** The step after the style is chosen: what pays for it, where it goes, or who it is aimed at. */
-  const afterStyle = (option: DirectedRulesetOption, style?: string) => {
-    const styled = style ? { style } : {};
-    if (option.payWith && option.payWith.length > 0) {
-      setStep({ stage: "pay", option, ...styled, targets: [] });
+  /** The step after the style and the mode are chosen: what pays for it, where it goes, or who it is
+   *  aimed at, as many as the mode aims at. */
+  const afterMode = (option: DirectedRulesetOption, style?: string, mode?: string) => {
+    const how = { ...(style ? { style } : {}), ...(mode ? { mode } : {}) };
+    const chosen = mode ? option.modes?.find((entry) => entry.id === mode) : undefined;
+    const aimed = chosen ? { ...option, targets: { ...option.targets, count: chosen.targets } } : option;
+    if (aimed.payWith && aimed.payWith.length > 0) {
+      setStep({ stage: "pay", option: aimed, ...how, targets: [] });
       return;
     }
-    const stage = stageFor(option);
+    const stage = stageFor(aimed);
     if (stage) {
-      setStep({ stage, option, ...styled, targets: [] });
+      setStep({ stage, option: aimed, ...how, targets: [] });
       return;
     }
-    send(option, rulesetDefaultTargets(option), undefined, style);
+    send(aimed, rulesetDefaultTargets(aimed), undefined, style, mode);
+  };
+  /** The step after the style is chosen: the weapon's mode, where it has any. */
+  const afterStyle = (option: DirectedRulesetOption, style?: string) => {
+    if (option.modes && option.modes.length > 0) {
+      setStep({ stage: "mode", option, ...(style ? { style } : {}), targets: [] });
+      return;
+    }
+    afterMode(option, style);
   };
   const take = (option: DirectedRulesetOption) => {
     // Where attacks move initiative, how the attack is made comes first: it decides what it does.
@@ -184,7 +200,7 @@ export function RulesetCombatMenu({
     if (!step) return;
     const stage = stageFor(step.option);
     if (!stage) {
-      send(step.option, rulesetDefaultTargets(step.option), payWith, step.style);
+      send(step.option, rulesetDefaultTargets(step.option), payWith, step.style, step.mode);
       return;
     }
     setStep({ ...step, stage, ...(payWith ? { payWith } : {}), targets: [] });
@@ -193,7 +209,7 @@ export function RulesetCombatMenu({
     if (!step) return;
     const targets = rulesetPickTarget(step.option, step.targets, id);
     if (rulesetSendsOnPick(step.option) && targets.length === 1) {
-      send(step.option, targets, step.payWith, step.style);
+      send(step.option, targets, step.payWith, step.style, step.mode);
       return;
     }
     setStep({ ...step, targets });
@@ -221,6 +237,48 @@ export function RulesetCombatMenu({
                 className={cn(buttonClass, "border-white/15 bg-white/5 text-white/85 hover:bg-white/10")}
               >
                 <span className="block font-semibold text-white/90">{style.label}</span>
+                {forecast && <span className="block text-[0.65rem] text-white/45">{forecast}</span>}
+              </button>
+            );
+          })}
+        </div>
+        <BackButton onClick={closeStep} label={t("game.combat.ruleset.target.back")} />
+      </div>
+    );
+  }
+
+  // ── Using a weapon in one of its modes ──
+  const modes = step?.stage === "mode" ? (step.option.modes ?? []) : [];
+  if (step && modes.length > 0) {
+    const option = step.option;
+    const plain = rulesetOptionForecastText(option, t);
+    return (
+      <div className="flex flex-col gap-2 p-3">
+        <p className="text-xs text-white/60" id="ruleset-mode-prompt">
+          {t("game.combat.ruleset.mode.prompt", { label: rulesetOptionLabel(option, t) })}
+        </p>
+        <div className="flex flex-wrap gap-2" role="group" aria-labelledby="ruleset-mode-prompt">
+          <button
+            ref={first}
+            type="button"
+            disabled={busy}
+            onClick={() => afterMode(option, step.style)}
+            className={cn(buttonClass, "border-white/15 bg-white/5 text-white/85 hover:bg-white/10")}
+          >
+            <span className="block font-semibold text-white/90">{t("game.combat.ruleset.mode.plain")}</span>
+            {plain && <span className="block text-[0.65rem] text-white/45">{plain}</span>}
+          </button>
+          {modes.map((mode) => {
+            const forecast = rulesetModeText(option, mode, t);
+            return (
+              <button
+                key={mode.id}
+                type="button"
+                disabled={busy}
+                onClick={() => afterMode(option, step.style, mode.id)}
+                className={cn(buttonClass, "border-white/15 bg-white/5 text-white/85 hover:bg-white/10")}
+              >
+                <span className="block font-semibold text-white/90">{mode.label}</span>
                 {forecast && <span className="block text-[0.65rem] text-white/45">{forecast}</span>}
               </button>
             );
@@ -341,7 +399,7 @@ export function RulesetCombatMenu({
             <button
               type="button"
               disabled={busy || step.targets.length === 0}
-              onClick={() => send(option, step.targets, step.payWith, step.style)}
+              onClick={() => send(option, step.targets, step.payWith, step.style, step.mode)}
               className={cn(buttonClass, "border-[var(--primary)]/50 bg-[var(--primary)]/20 text-white")}
             >
               {t("game.combat.ruleset.target.confirm", { count: step.targets.length })}

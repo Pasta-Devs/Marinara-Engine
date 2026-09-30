@@ -57,6 +57,10 @@ export interface InventoryItem {
   equipped?: true;
   /** Bound to whoever carries it; a bound stack is one item. */
   bound?: true;
+  /** What a weapon with a clip has loaded, as a fight left it. Absent reads as full. */
+  loaded?: number;
+  /** What an item that holds charges has left, as a fight left it. Absent reads as full. */
+  charges?: number;
 }
 
 /** One party member's bag: `holder` as a stack has it (absent for the player), and the name shown. */
@@ -98,7 +102,7 @@ interface GameInventoryProps {
    *  it is in afterwards (one item of a larger stack is taken into its own). */
   onWearItem?: (stackId: string, wear: GameInventoryWear) => Promise<string | null> | string | null;
   /** Called when the user wants to use an item during input phase */
-  onUseItem?: (itemName: string) => void;
+  onUseItem?: (stackId: string, itemName: string) => void;
   /** Called when the user gives a stack a nickname, or its own name back. Resolves to the stack's id. */
   onRenameItem?: (stackId: string, nextName: string) => Promise<string | null> | string | null;
   /** Called when the user sets a stack's count: the +1 and -1 buttons, or a typed amount. 0 removes it. */
@@ -191,8 +195,8 @@ export function GameInventory({
   }, []);
 
   const handleUse = useCallback(
-    (itemName: string) => {
-      onUseItem?.(itemName);
+    (stackId: string, itemName: string) => {
+      onUseItem?.(stackId, itemName);
       setSelectedItem(null);
     },
     [onUseItem],
@@ -630,7 +634,12 @@ export function GameInventory({
               </div>
             )}
             {selectedRulesetItem && (
-              <RulesetItemDetails details={selectedRulesetItem} bound={selectedInventoryItem?.bound === true} />
+              <RulesetItemDetails
+                details={selectedRulesetItem}
+                bound={selectedInventoryItem?.bound === true}
+                loaded={selectedInventoryItem?.loaded}
+                charges={selectedInventoryItem?.charges}
+              />
             )}
             {onRenameItem && selectedInventoryItem && (
               <div className="mb-2.5 flex gap-1.5">
@@ -930,6 +939,7 @@ export function GameInventory({
                     // A nickname is said with the item's own name, in the "Nickname (Name)" form the Game
                     // Master's inventory block uses, so it knows what it is.
                     handleUse(
+                      selectedInventoryItem.id,
                       selectedInventoryItem.nickname
                         ? `${selectedLabel} (${selectedInventoryItem.name})`
                         : selectedLabel,
@@ -1050,9 +1060,21 @@ function BearerStatusLine({ status, bindingLabel }: { status: GameInventoryBeare
 
 /** What a ruleset item is: its category, rarity and tags, its stats, what it is, and how many one
  *  stack of it holds. One that binds says who may bind it, and once bound, whether it is cursed. */
-function RulesetItemDetails({ details, bound }: { details: RulesetItemBookEntry; bound: boolean }) {
+function RulesetItemDetails({
+  details,
+  bound,
+  loaded,
+  charges,
+}: {
+  details: RulesetItemBookEntry;
+  bound: boolean;
+  loaded?: number;
+  charges?: number;
+}) {
   const { t: localizeUi } = useUiTranslation();
   const { facts } = details;
+  const clip = facts.attack?.clip;
+  const chargesMax = facts.use?.charges?.max;
   const binds = details.entry.item?.binds;
   const kind = [facts.category, facts.rarity, ...facts.tags].filter((word): word is string => !!word);
   const stats = rulesetItemStatsLine(facts);
@@ -1071,6 +1093,19 @@ function RulesetItemDetails({ details, bound }: { details: RulesetItemBookEntry;
           {line}
         </div>
       ))}
+      {clip && (
+        <div className="text-[0.65rem] leading-tight text-white/70">
+          {localizeUi("ui.game.gameinventory.loaded", { now: Math.min(loaded ?? clip.max, clip.max), max: clip.max })}
+        </div>
+      )}
+      {chargesMax !== undefined && (
+        <div className="text-[0.65rem] leading-tight text-white/70">
+          {localizeUi("ui.game.gameinventory.chargesLeft", {
+            now: Math.min(charges ?? chargesMax, chargesMax),
+            max: chargesMax,
+          })}
+        </div>
+      )}
       {details.summary && <div className="text-[0.65rem] leading-tight text-white/55">{details.summary}</div>}
       {details.invented && (
         <div className="text-[0.65rem] leading-tight text-white/45">

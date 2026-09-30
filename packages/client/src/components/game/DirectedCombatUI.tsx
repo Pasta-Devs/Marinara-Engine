@@ -99,6 +99,7 @@ export function DirectedCombatUI(props: Props) {
     payWith?: string,
     cell?: { to?: { x: number; y: number }; at?: { x: number; y: number } },
     style?: string,
+    mode?: string,
   ) =>
     send({
       type: "ruleset",
@@ -106,6 +107,7 @@ export function DirectedCombatUI(props: Props) {
       targetIds,
       ...(payWith ? { payWith } : {}),
       ...(style ? { style } : {}),
+      ...(mode ? { mode } : {}),
       ...(cell?.to ? { to: cell.to } : {}),
       ...(cell?.at ? { at: cell.at } : {}),
     });

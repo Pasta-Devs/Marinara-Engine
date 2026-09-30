@@ -355,7 +355,7 @@ try {
     refused(
       emberText,
       (doc) => itemCatalog(doc).entries.push({ ...knack(), id: "a-knack" }),
-      /catalogs\.2\.entries\.8\.item: Catalog "outfitter" holds items, so every entry carries one/,
+      /catalogs\.2\.entries\.9\.item: Catalog "outfitter" holds items, so every entry carries one/,
       "rows in a catalog of items",
     );
     refused(
@@ -373,7 +373,7 @@ try {
     refused(
       emberText,
       (doc) => itemCatalog(doc).entries.push({ ...doc.catalogs[1].entries[0], id: "a-creature" }),
-      /catalogs\.2\.entries\.8\.creature: Catalog "outfitter" holds items, so an entry cannot carry a creature/,
+      /catalogs\.2\.entries\.9\.creature: Catalog "outfitter" holds items, so an entry cannot carry a creature/,
       "a creature in a catalog of items",
     );
     refused(
@@ -585,13 +585,20 @@ try {
       restartRequired: false,
     });
     // The 1.49 keys alone: the example's rarity caps are 1.51's, its item read on Guard 1.52's, what
-    // its items do to checks 1.53's and its weapons 1.55's, and each has a lane of its own.
+    // its items do to checks 1.53's, its weapons 1.55's and what its items do when used 1.59's, and
+    // each has a lane of its own.
     const older = (text: string, edit: (doc: Record<string, any>) => void = () => {}) =>
       variant(text, (doc) => {
         delete doc.items?.rarityCaps;
         withoutItemReads(doc);
         withoutCheckEffects(doc);
         withoutWeapons(doc);
+        for (const catalog of doc.catalogs ?? []) {
+          for (const entry of catalog.entries ?? []) {
+            delete entry.item?.use;
+            delete entry.item?.charges;
+          }
+        }
         edit(doc);
       });
     const itemsIssue = /A ruleset that describes items requires schemaVersion 2 and capabilityApi 1\.49 or newer/;
@@ -649,7 +656,7 @@ try {
       );
     assert.deepEqual(rulesetItemCatalogIds(ember), ["outfitter"]);
     const book = rulesetItemBook(ember, entriesOf(ember));
-    assert.equal(book.entries.length, 8);
+    assert.equal(book.entries.length, 9);
     assert.equal(book.itemNamed("  hand AXE ")?.item, "outfitter/hand-axe", "a label in any case");
     assert.equal(book.itemNamed("hand-axe"), undefined, "an entry's id is not its name");
     assert.equal(book.itemOf("outfitter/arrows")?.stack, 20);
@@ -689,7 +696,7 @@ try {
     assert.ok(nail.facts.stats.some((stat) => stat.id === "conceal" && !stat.promptVisible));
     assert.equal(
       rulesetItemPromptFacts(nail.facts),
-      "Arm, Rare, Silver, Easily hidden; Target 7, Damage 1d6, Harm tearing; attack (Act): Nerve + Wrestle to hit at 7, 1d6 tearing",
+      "Arm, Rare, Silver, Easily hidden; Target 7, Damage 1d6, Harm tearing; attack (Act): Nerve + Wrestle to hit at 7, 1d6 tearing, off hand (Quick), Marked for 2 rounds when a hit deals 2 or more",
     );
     assert.equal(nail.stack, 12);
     // An enum reads by its value label, a yes by the stat's label alone, and a no not at all.
@@ -713,7 +720,7 @@ try {
     ]);
     assert.equal(
       rulesetItemPromptFacts(wordedBook.itemOf("outfitter/waystone")!.facts),
-      "Gear, Storied; Lit; carried: +1 on checks (Sway)",
+      "Gear, Storied; Lit; carried: +1 on checks (Sway), resists burn",
     );
     assert.ok(!wordedBook.itemOf("outfitter/arrows")!.facts.stats.some((stat) => stat.id === "lit"));
     // A layer that hides an entry takes it out of names and the picker, not out of what is held.
@@ -734,13 +741,13 @@ try {
       "a layer hiding storied items",
     );
     const plainRoads = rulesetItemBook(layered, entriesOf(layered), { layerOptions: { "layer.plain_roads": true } });
-    assert.equal(plainRoads.entries.length, 7);
+    assert.equal(plainRoads.entries.length, 8);
     assert.equal(plainRoads.itemNamed("Waystone"), undefined);
     assert.equal(plainRoads.itemOf("outfitter/waystone")?.name, "Waystone");
     assert.equal(plainRoads.offers("outfitter/waystone"), false, "nor added by its id");
     assert.equal(plainRoads.offers("outfitter/hand-axe"), true);
     assert.equal(plainRoads.offers("outfitter/missing"), false);
-    assert.equal(rulesetItemBook(layered, entriesOf(layered)).entries.length, 8, "a layer that is off hides nothing");
+    assert.equal(rulesetItemBook(layered, entriesOf(layered)).entries.length, 9, "a layer that is off hides nothing");
     // Two items of one name: the first the ruleset lists is the one the name finds.
     const twice = parsedOrThrow(
       variant(emberText, (doc) => {
@@ -752,7 +759,7 @@ try {
       "two item catalogs",
     );
     assert.equal(rulesetItemBook(twice, entriesOf(twice)).itemNamed("Hand axe")?.item, "outfitter/hand-axe");
-    assert.equal(rulesetItemBook(twice, entriesOf(twice)).entries.length, 16);
+    assert.equal(rulesetItemBook(twice, entriesOf(twice)).entries.length, 18);
 
     // The Game Master sees what each ruleset item held is, and is told names become the ruleset's items.
     const base = { hasSceneModel: true } as never as Parameters<typeof buildGmFormatReminder>[0];

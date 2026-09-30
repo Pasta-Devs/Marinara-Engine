@@ -169,6 +169,7 @@ import {
   parseSnapshotPlayerStats,
   preserveTrackerCharacterUiFields,
   resolveActiveCharacterIds,
+  resolveGroupGenerationMode,
   resolveBaseUrl,
   resolveRoleplayChatSummaryForPrompt,
   resolveVisibleGameStateAnchor,
@@ -1369,8 +1370,13 @@ async function buildRetryAgentContext(args: {
       ) {
         expressionTargetIds.add(personaContext.identityId);
       }
+      const mergedRoleplayResponse =
+        lastAssistant?.role === "assistant" &&
+        chatMode === "roleplay" &&
+        allCharacterIds.length > 1 &&
+        resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode) === "merged";
       const targetedSprites =
-        expressionTargetIds.size > 0
+        expressionTargetIds.size > 0 && !mergedRoleplayResponse
           ? perChar.filter((sprite) => expressionTargetIds.has(sprite.characterId))
           : perChar;
       if (targetedSprites.length > 0 || expressionTargetIds.size > 0) {
@@ -1558,6 +1564,7 @@ function resolveRetryAgentConnectionRequest(args: {
 
 async function resolveRetryAgents(args: {
   agentTypes: string[];
+  manualIllustration?: boolean;
   chat: any;
   conns: ReturnType<typeof createConnectionsStorage>;
   agentsStore: ReturnType<typeof createAgentsStorage>;
@@ -1574,6 +1581,14 @@ async function resolveRetryAgents(args: {
     ...normalizeAgentPromptTemplateSelectionMap(agentPromptTemplateIds),
   };
   const activeAgentTypeSet = resolveActiveRetryAgentTypes(chatMode, chatMeta);
+  // A one-shot Gallery/slash request does not opt the chat into automatic agent runs.
+  if (
+    args.manualIllustration &&
+    chatMode === "roleplay" &&
+    BUILT_IN_AGENTS.some((agent) => agent.id === "illustrator")
+  ) {
+    activeAgentTypeSet.add("illustrator");
+  }
   const normalizedAgentTypes = agentTypes.map(normalizeRetryAgentTypeId);
   const agentTypeSet = new Set(
     filterGameInternalAgentIds(chatMode, normalizedAgentTypes)
@@ -4541,6 +4556,8 @@ export async function registerRetryAgentsRoute(
       const { conn, enabledConfigs, resolvedAgents, warnings } = await runRetrySetupPhase(abortController.signal, () =>
         resolveRetryAgents({
           agentTypes,
+          manualIllustration:
+            isManualIllustratorImageRequest && agentTypes.length === 1 && agentTypes[0] === "illustrator",
           chat,
           conns,
           agentsStore,

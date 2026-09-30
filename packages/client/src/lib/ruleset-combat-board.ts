@@ -140,7 +140,11 @@ export function rulesetNothingInReach(view: DirectedRulesetView): boolean {
   if (!view.combatants.some((combatant) => combatant.side === "enemy" && !combatant.defeated)) return false;
   const offensive = view.options.filter(
     (option) =>
-      (option.kind === "attack" || option.kind === "ability" || option.kind === "block" || option.kind === "contest") &&
+      (option.kind === "attack" ||
+        option.kind === "ability" ||
+        option.kind === "item" ||
+        option.kind === "block" ||
+        option.kind === "contest") &&
       (option.targets.side === "enemy" || option.targets.side === "any" || !!option.area),
   );
   if (offensive.length === 0) return false;

@@ -13,7 +13,17 @@ import { rulesetDistanceText, type RulesetBoardDistance } from "./ruleset-combat
  *  do, the contests it may start, the moves the kind implements, and finally ending the turn.
  *  Walking comes first because a turn on a board usually starts with it, and it may be taken again
  *  after an action. */
-export const RULESET_MENU_KINDS = ["move", "attack", "ability", "block", "contest", "standard", "end-turn"] as const;
+export const RULESET_MENU_KINDS = [
+  "move",
+  "attack",
+  "reload",
+  "ability",
+  "item",
+  "block",
+  "contest",
+  "standard",
+  "end-turn",
+] as const;
 
 export type RulesetMenuKind = (typeof RULESET_MENU_KINDS)[number];
 
@@ -29,10 +39,12 @@ const MOVE_OPTION_WORDS: Record<string, "walk" | "stand"> = {
 };
 
 export interface RulesetMenuStep {
-  stage: "style" | "pay" | "move" | "target" | "aim";
+  stage: "style" | "mode" | "pay" | "move" | "target" | "aim";
   option: DirectedRulesetOption;
   /** The initiative style an attack is made in, where initiative is a number attacks move. */
   style?: string;
+  /** The weapon's mode it is made in. */
+  mode?: string;
   payWith?: string;
   targets: string[];
 }
@@ -75,6 +87,10 @@ export function rulesetOptionLabel(option: DirectedRulesetOption, t: TFunction):
     const word = MOVE_OPTION_WORDS[option.id];
     return word ? t(`game.combat.ruleset.board.${word}`, { defaultValue: option.label }) : option.label;
   }
+  // A reload is the Engine's own move made with the weapon the ruleset named, and so is a second
+  // blow with a weapon in the off hand.
+  if (option.kind === "reload") return t("game.combat.ruleset.menu.reload", { weapon: option.label });
+  if (option.offHand) return t("game.combat.ruleset.menu.offHand", { weapon: option.label });
   if (option.kind !== "standard") return option.label;
   return t(`game.combat.ruleset.standard.${option.label}`, { defaultValue: option.label });
 }
@@ -112,7 +128,26 @@ export function rulesetOptionCostText(
     );
   }
   if (typeof option.left === "number") parts.push(t("game.combat.ruleset.option.left", { left: option.left }));
+  // What a weapon has loaded, and what its holder carries of what it shoots.
+  if (option.loaded) {
+    parts.push(t("game.combat.ruleset.option.loaded", { now: option.loaded.now, max: option.loaded.max }));
+  }
+  if (typeof option.ammo === "number") {
+    const key = option.kind === "reload" ? "game.combat.ruleset.option.ammoToLoad" : "game.combat.ruleset.option.ammo";
+    parts.push(t(key, { count: option.ammo }));
+  }
   return parts.join(" · ");
+}
+
+/** What one of a weapon's modes is expected to do, in words, and how many it may be aimed at. */
+export function rulesetModeText(
+  option: DirectedRulesetOption,
+  mode: NonNullable<DirectedRulesetOption["modes"]>[number],
+  t: TFunction,
+): string {
+  const expected = rulesetOptionForecastText({ ...option, forecast: mode.forecast }, t);
+  const aimed = mode.targets > 1 ? t("game.combat.ruleset.mode.targets", { count: mode.targets }) : "";
+  return [expected, aimed].filter(Boolean).join(" · ");
 }
 
 /** What the option is expected to do, in words. The server computed both numbers; a screen that

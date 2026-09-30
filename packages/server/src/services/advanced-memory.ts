@@ -45,6 +45,7 @@ import {
 } from "./chat-summary/connection-resolution.js";
 import { resolveBaseUrl } from "./generation/connection-base-url.js";
 import { describeEmptyModelResponse } from "./generation/empty-response-reason.js";
+import { parseRoleplayUserCommands } from "./generation/roleplay-commands.js";
 import {
   parseChatSummaryResult,
   resolveChatSummaryPrompt,
@@ -196,7 +197,7 @@ export function advancedMemorySourceFingerprint(messages: readonly AdvancedMemor
         message.id,
         message.role,
         message.characterId,
-        message.content,
+        message.role === "user" ? parseRoleplayUserCommands(message.content).content : message.content,
         message.activeSwipeIndex,
         extra.hiddenFromAI,
         extra.hiddenFromAICharacterIds,
@@ -621,6 +622,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     // each record's audience check freezes long chats, even for a simple toggle.
     const messages = (await chats.listMessages(chatId)).map((message) => ({
       ...message,
+      content: message.role === "user" ? parseRoleplayUserCommands(message.content).content : message.content,
       extra: object(message.extra),
     })) as AdvancedMemoryMessage[];
     const characterIds = strings(chat.characterIds);
@@ -1226,7 +1228,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
 
   function renderEntry(ctx: Context, text: string, audience: string[]): string {
     const names = (audience.length ? audience : ctx.characterIds).map((id) => ctx.names.get(id) ?? "Character");
-    return resolveMacros(text, {
+    const rendered = resolveMacros(text, {
       user: String(
         object(
           object(
@@ -1244,6 +1246,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       localVariables: normalizeChatMacroVariables(ctx.metadata.macroVariables),
       chatId: ctx.chatId,
     });
+    return parseRoleplayUserCommands(rendered).content;
   }
 
   async function embedRecord(
@@ -1256,7 +1259,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const space = embeddingOptions.embeddingSource?.spaceId ?? "local-default";
     if (record.embedding?.length && record.embeddingSpaceId === space) return;
     try {
-      const vectors = await embedMemoryRecallTexts([record.content.slice(0, 6000)], {
+      const vectors = await embedMemoryRecallTexts([parseRoleplayUserCommands(record.content).content.slice(0, 6000)], {
         ...embeddingOptions,
         signal: options.signal,
         inputType: "document",
@@ -2799,7 +2802,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       );
     if (!liveCtx.settings.enabled) throw new Error("Advanced Memory is disabled");
     const fullById = new Map(liveCtx.messages.map((message) => [message.id, message]));
-    const sources = input.messages.map((message) => ({ ...message, extra: object(message.extra) }));
+    const sources = input.messages.map((message) => ({
+      ...message,
+      content: message.role === "user" ? parseRoleplayUserCommands(message.content).content : message.content,
+      extra: object(message.extra),
+    }));
     const currentPrefixEnd = sources.at(-1)?.id
       ? liveCtx.messages.findIndex((message) => message.id === sources.at(-1)!.id)
       : -1;
@@ -3003,7 +3010,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       record.kind === "scene"
         ? renderedRecaps.get(record.sceneId)!
         : record.messageIds.every((id) => eligibleIds.has(id))
-          ? record.content
+          ? parseRoleplayUserCommands(record.content).content
           : record.messageIds
               .filter((id) => eligibleIds.has(id) && !disabledSourceIds.has(id))
               .map((id) => messageText(ctx, fullById.get(id)!, indexes.get(id)!))

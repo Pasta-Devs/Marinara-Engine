@@ -31,6 +31,8 @@ import {
   appendRoleplayWhispers,
   buildRoleplayCommandsReminder,
   buildRoleplayPersonalContext,
+  parseRoleplayUserCommands,
+  prepareUserRoleplayCommands,
 } from "../../services/generation/roleplay-commands.js";
 import { randomUUID } from "crypto";
 import { createChatsStorage } from "../../services/storage/chats.storage.js";
@@ -665,8 +667,19 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     };
 
     // Pull existing messages, apply the same conversation-start + context limit filtering
-    const allChatMessages = await chats.listMessages(chatId);
     const chatMode = (chat.mode as string) ?? "roleplay";
+    const allCharacterIds: string[] = (() => {
+      try {
+        return JSON.parse((chat as any).characterIds as string);
+      } catch {
+        return [];
+      }
+    })();
+    const allChatMessages = (await chats.listMessages(chatId)).map((message) =>
+      chatMode === "roleplay" && message.role === "user"
+        ? { ...message, content: parseRoleplayUserCommands(message.content).content }
+        : message,
+    );
     const advancedMemorySettings = normalizeAdvancedMemorySettings(chatMeta.advancedMemory);
     const advancedMemoryEnabled = chatMode === "roleplay" && advancedMemorySettings.enabled;
     // Prompt inspection previews the main reply; auxiliary dry-run generations
@@ -746,7 +759,19 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
     // Ephemeral user line (normal dry run only): mirrors an unsaved "what if I said this" turn.
     // Impersonate mode does NOT add userMessage to history — same as POST /generate; direction is injected later.
-    const userMessage = typeof body.userMessage === "string" ? body.userMessage : "";
+    const rawUserMessage = typeof body.userMessage === "string" ? body.userMessage : "";
+    const ephemeralUser =
+      chatMode === "roleplay" && !impersonate && rawUserMessage
+        ? prepareUserRoleplayCommands({
+            content: rawUserMessage,
+            extra: body.replyTo ? { replyTo: body.replyTo } : {},
+            metadata: chatMeta,
+            characters: [...(await resolveCharacterNameMap(allCharacterIds, (id) => chars.getById(id)))].map(
+              ([id, name]) => ({ id, name }),
+            ),
+          })
+        : { content: rawUserMessage, extra: body.replyTo ? { replyTo: body.replyTo } : {} };
+    const userMessage = ephemeralUser.content;
     const lorebookGenerationTriggers = resolveDryRunLorebookGenerationTriggers(
       {
         impersonate,
@@ -767,7 +792,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     });
     const lorebookScopeExclusions = resolveLorebookScopeExclusions(chatMode, chatMeta);
     const lorebookTokenBudget = resolveDryRunLorebookTokenBudget(chatMeta);
-    if (!impersonate && userMessage.trim()) {
+    if (!impersonate && rawUserMessage.trim()) {
       chatMessages = [
         ...chatMessages,
         {
@@ -776,7 +801,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           role: "user",
           characterId: null,
           content: userMessage,
-          extra: body.replyTo ? JSON.stringify({ replyTo: body.replyTo }) : null,
+          extra: JSON.stringify(ephemeralUser.extra),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           activeSwipeIndex: 0,
@@ -842,13 +867,6 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     // If provided, we skip preset assembly and build from selected components.
     const promptParts = isRecord(body.promptParts) ? (body.promptParts as Record<string, unknown>) : null;
 
-    const allCharacterIds: string[] = (() => {
-      try {
-        return JSON.parse((chat as any).characterIds as string);
-      } catch {
-        return [];
-      }
-    })();
     const characterIds = resolveActiveCharacterIds(allCharacterIds, chatMeta, {
       mode: chatMode,
       allowEmpty: true,
@@ -2116,7 +2134,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       appendRoleplayPromptTail(
         finalMessages,
         buildRoleplayPersonalContext({
-          messages: endIndex >= 0 ? scopedMessages.slice(0, endIndex) : scopedMessages,
+          messages:
+            endIndex >= 0
+              ? scopedMessages.slice(0, endIndex)
+              : [...scopedMessages, ...chatMessages.filter((message) => message.id === "__dryrun_user__")],
           metadata: chatMeta,
           characters: personalCharacters,
           characterId: target,

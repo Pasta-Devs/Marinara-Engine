@@ -57,6 +57,8 @@ export const generateRequestSchema = z.object({
   currentBackground: z.string().nullable().optional(),
   mentionedCharacterNames: z.array(z.string()).optional().default([]),
   forCharacterId: z.string().nullable().optional().default(null),
+  /** Select the next Roleplay group responder for this request without changing the saved order. */
+  smartResponse: z.boolean().optional().default(false),
   skipPresenceDelay: z.boolean().optional().default(false),
   narrativeDirectorMode: z.enum(["natural", "random"]).nullable().optional().default(null),
   generationGuide: z.string().nullable().optional().default(null),

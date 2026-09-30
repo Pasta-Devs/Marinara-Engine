@@ -18,6 +18,8 @@ import {
   findKnownModel,
   isClaudeAdaptiveOnlyNoSamplingModel,
   isClaudeOpus55Model,
+  isClaudeSonnet55Model,
+  isClaudeStrictRequestModel,
   shouldSuppressUnknownModelParameters,
 } from "@marinara-engine/shared";
 import { logger, logDebugOverride } from "../../../lib/logger.js";
@@ -98,19 +100,31 @@ export function supportsAnthropicThinkingDisable(model: string): boolean {
   return !isClaudeOpus55Model(model) && /claude-(?:opus|sonnet)-5(?:$|[-.])/u.test(model.toLowerCase());
 }
 
-function normalizeOpus55Parameters(
+function normalizeStrictClaudeParameters(
   body: Record<string, unknown>,
   model: string,
   maxTokensOverride: number | null,
 ): void {
-  if (!isClaudeOpus55Model(model)) return;
+  if (!isClaudeStrictRequestModel(model)) return;
   // Saved/custom settings from earlier models must not disable mandatory thinking.
   stripAnthropicSamplingParameters(body);
-  if (isRecord(body.thinking)) {
-    body.thinking.type = "adaptive";
-    delete body.thinking.budget_tokens;
-  }
   if (isRecord(body.output_config) && body.output_config.effort === "none") body.output_config.effort = "low";
+  if (isRecord(body.thinking)) {
+    const effort = isRecord(body.output_config) ? body.output_config.effort : undefined;
+    // Sonnet 5.5 rejects "disabled"; "between_tools" skips up-front thinking, takes no other
+    // field, and only runs up to high effort. Opus 5.5 has no off setting at all.
+    const skipsUpFrontThinking =
+      isClaudeSonnet55Model(model) &&
+      (body.thinking.type === "disabled" || body.thinking.type === "between_tools") &&
+      effort !== "xhigh" &&
+      effort !== "max";
+    if (skipsUpFrontThinking) {
+      body.thinking = { type: "between_tools" };
+    } else {
+      body.thinking.type = "adaptive";
+      delete body.thinking.budget_tokens;
+    }
+  }
   if (isRecord(body.tool_choice) && (body.tool_choice.type === "any" || body.tool_choice.type === "tool")) {
     body.tool_choice.type = "auto";
     delete body.tool_choice.name;
@@ -201,15 +215,16 @@ function splitAnthropicSystemMessages(messages: ChatMessage[], model: string) {
   // Only these documented models accept history-level system text. Other models
   // retain its position as user context instead of moving it into the cache prefix.
   // https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages
-  const supportsHistorySystem = [
-    "claude-opus-4-8",
-    "claude-opus-5",
-    "claude-opus-5-5",
-    "claude-fable-5",
-    "claude-fable-5-1",
-    "claude-mythos-5",
-    "claude-mythos-5-1",
-  ].includes(model.toLowerCase());
+  const supportsHistorySystem =
+    isClaudeStrictRequestModel(model) ||
+    [
+      "claude-opus-4-8",
+      "claude-opus-5",
+      "claude-fable-5",
+      "claude-fable-5-1",
+      "claude-mythos-5",
+      "claude-mythos-5-1",
+    ].includes(model.toLowerCase());
   const chatMessages = history.map((message, index): ChatMessage => {
     if (message.role !== "system") return message;
     let start = index;
@@ -221,10 +236,10 @@ function splitAnthropicSystemMessages(messages: ChatMessage[], model: string) {
     const validSlot = (previous?.role === "user" || previous?.role === "tool") && (!next || next.role === "assistant");
     return supportsHistorySystem && validSlot ? message : { ...message, role: "user" };
   });
-  // Opus 5.5 rejects assistant prefill. Preserve the partial reply as history and
+  // Opus 5.5 and Sonnet 5.5 reject assistant prefill. Preserve the partial reply as history and
   // ask for only its continuation, which the caller appends to the same message.
   const lastMessage = chatMessages.at(-1);
-  if (isClaudeOpus55Model(model) && lastMessage?.role === "assistant" && !lastMessage.tool_calls?.length) {
+  if (isClaudeStrictRequestModel(model) && lastMessage?.role === "assistant" && !lastMessage.tool_calls?.length) {
     chatMessages.push({
       role: "user",
       content: ASSISTANT_CONTINUATION_PROMPT,
@@ -252,7 +267,7 @@ export function applyAnthropicToolChoice(
   }
 
   const model = options.model.toLowerCase();
-  if (model.includes("mythos") || model === "claude-fable-5-1" || isClaudeOpus55Model(model)) {
+  if (model.includes("mythos") || model === "claude-fable-5-1" || isClaudeStrictRequestModel(model)) {
     setToolChoiceType("auto");
     return "automatic-only";
   }
@@ -486,6 +501,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     if (isAdaptiveOnly) stripAnthropicSamplingParameters(body);
 
     if (shouldDisableThinking) {
+      // Sonnet 5.5 rejects "disabled"; normalizeStrictClaudeParameters sends it as "between_tools".
       body.thinking = { type: "disabled" };
     } else if (
       this.shouldSendParameter(options, "reasoningEffort") &&
@@ -519,7 +535,7 @@ export class AnthropicProvider extends BaseLLMProvider {
       }
     }
 
-    normalizeOpus55Parameters(body, options.model, this.maxTokensOverrideValue);
+    normalizeStrictClaudeParameters(body, options.model, this.maxTokensOverrideValue);
     const toolChoiceResult = applyAnthropicToolChoice(body, options);
     if (toolChoiceResult === "manual-thinking") {
       logger.warn(
@@ -839,6 +855,7 @@ export class AnthropicProvider extends BaseLLMProvider {
 
     // Enable extended thinking for reasoning models
     if (shouldDisableThinking) {
+      // Sonnet 5.5 rejects "disabled"; normalizeStrictClaudeParameters sends it as "between_tools".
       body.thinking = { type: "disabled" };
     } else if (
       !suppressModelParameters &&
@@ -881,7 +898,7 @@ export class AnthropicProvider extends BaseLLMProvider {
       }
     }
 
-    normalizeOpus55Parameters(body, options.model, this.maxTokensOverrideValue);
+    normalizeStrictClaudeParameters(body, options.model, this.maxTokensOverrideValue);
     logDebugOverride(
       options.debugMode === true || isDebugAgentsEnabled(),
       "[debug/anthropic] final request:\n%j",

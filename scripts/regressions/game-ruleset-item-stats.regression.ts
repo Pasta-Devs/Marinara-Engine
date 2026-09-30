@@ -275,8 +275,10 @@ try {
           for (const entry of catalog.entries ?? []) {
             delete entry.item?.worn;
             delete entry.item?.carried;
-            // And the 1.55 weapons.
+            // And the 1.55 weapons, and the 1.59 uses.
             delete entry.item?.attack;
+            delete entry.item?.use;
+            delete entry.item?.charges;
           }
         }
         edit(doc);

@@ -6,11 +6,18 @@
 // advantage or disadvantage, numbers added or taken, saves failed without a roll, narrowed to some
 // skills or saves. The check resolver rolls what comes out of here; a fight reads its own conditions.
 // ──────────────────────────────────────────────
-import type { RulesetCombatCondition, RulesetDefinition, RulesetSheetBuild } from "../../schemas/ruleset.schema.js";
+import type {
+  RulesetCombatCondition,
+  RulesetDefinition,
+  RulesetItemUse,
+  RulesetSheetBuild,
+} from "../../schemas/ruleset.schema.js";
 import { parseRulesetCombatDice } from "../ruleset-combat/dice.js";
 import { evaluateRulesetSheetLive, readRulesetLive } from "./live-state.js";
 import {
   resolveRulesetValueRef,
+  rulesetCheckAdjust,
+  rulesetCheckModifier,
   type EvaluatedRulesetSheet,
   type RulesetCheckTarget,
   type RulesetSheetItem,
@@ -27,6 +34,11 @@ export interface RulesetCheckSource {
   failsSaves?: readonly string[];
   saves?: readonly string[];
   skills?: readonly string[];
+  /** What an item keeps off its holder in a fight: kinds of harm and conditions. A check reads none. */
+  resist?: readonly string[];
+  vulnerable?: readonly string[];
+  immune?: readonly string[];
+  conditionImmunities?: readonly string[];
 }
 
 /**
@@ -68,6 +80,23 @@ export function rulesetCheckSources(
       sources.push({ ...level, name: `${label} ${level.at}` });
     }
   }
+  return [...sources, ...rulesetItemSources(definition, build, items, sheet)];
+}
+
+/**
+ * What a character's items do, each named for the stack: a worn item's `worn` effect and any other
+ * item's `carried` one, and a worn item's requirement's `otherwise` while the wearer falls short of it.
+ * One item applies each of these once, however many stacks of it there are. `sheet` is the sheet
+ * worked out with the same live state and items, read only for a requirement. A check outside a fight
+ * and a fight both read items through this.
+ */
+export function rulesetItemSources(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  items: readonly RulesetSheetItem[] | undefined,
+  sheet: () => EvaluatedRulesetSheet,
+): RulesetCheckSource[] {
+  const sources: RulesetCheckSource[] = [];
   const seen = new Set<unknown>();
   for (const held of items ?? []) {
     const name = held.name ?? held.item.category;
@@ -176,4 +205,47 @@ export function rollRulesetCheckModifiers(
     total += modifier.minus ? -rolled : rolled;
   }
   return { total, rolls };
+}
+
+/** The check a use's `gate` asks of the one using it, as their sheet makes it. */
+export interface RulesetItemGateCheck {
+  /** The skill or ability rolled; null for a value off the sheet, which reads only what applies to
+   *  every check. */
+  target: RulesetCheckTarget | null;
+  /** The sheet's number for it with what `resolution.adjust` adds: a modifier, or a pool's dice. */
+  modifier: number;
+  difficulty: number;
+}
+
+/**
+ * What a use's `gate` asks of one user: nothing when the value it names under `unless` is high
+ * enough, and otherwise its check, read off their sheet worked out with their live state and items.
+ * `difficulty` is the gate's own, already read off the item where it names a stat.
+ */
+export function rulesetItemGateCheck(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  evaluated: EvaluatedRulesetSheet,
+  gate: NonNullable<RulesetItemUse["gate"]>,
+  difficulty: number,
+): RulesetItemGateCheck | null {
+  const { check, unless } = gate;
+  if (unless && resolveRulesetValueRef(definition, build, unless.value, evaluated) >= unless.atLeast) return null;
+  const skill = "skill" in check ? definition.sheet.skills.find((entry) => entry.id === check.skill) : undefined;
+  const ability =
+    "ability" in check ? definition.sheet.abilities.find((entry) => entry.id === check.ability) : undefined;
+  const target: RulesetCheckTarget | null = skill
+    ? { type: "skill", id: skill.id, label: skill.label, ...(skill.ability ? { ability: skill.ability } : {}) }
+    : ability
+      ? { type: "ability", id: ability.id, label: ability.label }
+      : null;
+  const base =
+    "value" in check
+      ? resolveRulesetValueRef(definition, build, check.value, evaluated)
+      : rulesetCheckModifier(evaluated, target);
+  return {
+    target,
+    modifier: Math.trunc(base) + rulesetCheckAdjust(definition, build, evaluated, target),
+    difficulty,
+  };
 }

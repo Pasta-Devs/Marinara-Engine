@@ -194,6 +194,8 @@ export interface GameRulesetSheetTurn {
   content: string;
   live: RulesetLiveStates;
   outcomes: SheetCommandOutcome[];
+  /** Each rest a character took this turn, by card name. */
+  rests: Array<{ who: string; rest: string }>;
 }
 
 /** Apply a reply's sheet commands on top of the live state the turn started with. Never throws:
@@ -210,9 +212,9 @@ export function applyGameRulesetSheetTurn(
     for (const outcome of applied.outcomes) {
       if (!outcome.ok) logger.warn("[game/sheet] Refused for %s: %s (%s)", outcome.who, outcome.reason, outcome.tag);
     }
-    return { content: applied.content, live: applied.live, outcomes: applied.outcomes };
+    return { content: applied.content, live: applied.live, outcomes: applied.outcomes, rests: applied.rests };
   } catch (error) {
     logger.error(error, "[game/sheet] Could not apply sheet commands; the reply is saved as written");
-    return { content, live: baseLive ?? {}, outcomes: [] };
+    return { content, live: baseLive ?? {}, outcomes: [], rests: [] };
   }
 }

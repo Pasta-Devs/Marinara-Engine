@@ -120,6 +120,12 @@ export interface RulesetSheetItem {
   worn: boolean;
   /** What the stack is called, for a record of what an item did. */
   name?: string;
+  /** Which inventory stack this is, so what a fight shoots or loads can be written back to it. */
+  stack?: { id: string; ref: string; holder?: string };
+  /** What a weapon with a clip has loaded, as the stack keeps it. Absent reads as full. */
+  loaded?: number;
+  /** The charges an item holds, as the stack keeps them. Absent reads as full. */
+  charges?: number;
 }
 
 /** Whether the sheet can read the items a character holds, so a caller can skip reading the

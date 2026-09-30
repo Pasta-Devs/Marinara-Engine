@@ -18,10 +18,10 @@ import {
 import { parseTextualToolCalls } from "../textual-tool-call-parser.js";
 import {
   isClaudeAdaptiveOnlyNoSamplingModel,
-  isClaudeOpus55Model,
+  isClaudeStrictRequestModel,
   isOpenAIGpt56Model,
   isOpenAIGpt56SolProAlias,
-  isOpenAIGpt6AstraModel,
+  isOpenAIGpt6AlwaysReasoningModel,
   isOpenAIGpt6Model,
   isXaiAutoReasoningModel,
   isXaiConfigurableReasoningModel,
@@ -632,7 +632,9 @@ export class OpenAIProvider extends BaseLLMProvider {
 
   private isOpenAINoSamplingModel(model: string): boolean {
     const normalized = model.toLowerCase();
-    return normalized.startsWith("gpt-5.5") || isOpenAIGpt56Model(normalized) || isOpenAIGpt6AstraModel(normalized);
+    return (
+      normalized.startsWith("gpt-5.5") || isOpenAIGpt56Model(normalized) || isOpenAIGpt6AlwaysReasoningModel(normalized)
+    );
   }
 
   private isResponsesStreamingUnsupportedModel(model: string): boolean {
@@ -647,7 +649,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     if (isOpenAIGpt6Model(model)) return true;
     if (this.isGenericCustomProvider() && !this.isOpenAINoSamplingModel(model)) return false;
     const m = model.toLowerCase();
-    return /^(o1|o3|o4)/.test(m) || m.startsWith("gpt-5") || isOpenAIGpt6AstraModel(m);
+    return /^(o1|o3|o4)/.test(m) || m.startsWith("gpt-5") || isOpenAIGpt6AlwaysReasoningModel(m);
   }
 
   private isXAIEndpoint(): boolean {
@@ -714,13 +716,14 @@ export class OpenAIProvider extends BaseLLMProvider {
   /**
    * Check if a model/config does NOT support temperature/topP.
    * o-series models never do.
-   * Astra and GPT-5.6/GPT-5.5 reject sampling params entirely; older GPT-5.x models only
+   * GPT-6 Astra, GPT-6.1 Sol and GPT-5.6/GPT-5.5 reject sampling params entirely; older GPT-5.x models only
    * reject them when reasoning effort is active.
-   * GPT-6 Sol/Luna allow sampling only with explicit reasoning effort "none".
+   * GPT-6 Sol and GPT-6 Luna allow sampling only when reasoning effort is explicitly "none";
+   * an omitted effort uses the model's reasoning default and rejects sampling.
    */
   private isNoTemperatureModel(model: string, reasoningEffort?: string): boolean {
-    if (isOpenAIGpt6Model(model)) return isOpenAIGpt6AstraModel(model) || reasoningEffort !== "none";
-    if (this.isGenericCustomProvider() && !this.isOpenAINoSamplingModel(model) && !isClaudeOpus55Model(model))
+    if (isOpenAIGpt6Model(model)) return isOpenAIGpt6AlwaysReasoningModel(model) || reasoningEffort !== "none";
+    if (this.isGenericCustomProvider() && !this.isOpenAINoSamplingModel(model) && !isClaudeStrictRequestModel(model))
       return false;
     const m = model.toLowerCase();
     if (/^(o1|o3|o4)/.test(m)) return true;
@@ -743,7 +746,9 @@ export class OpenAIProvider extends BaseLLMProvider {
       : options.reasoningEffort;
     if (!this.isNoTemperatureModel(options.model, effort)) return;
     const explicitCustomParameters =
-      this.isGenericCustomProvider() && !isClaudeOpus55Model(options.model) ? options.customParameters : undefined;
+      this.isGenericCustomProvider() && !isClaudeStrictRequestModel(options.model)
+        ? options.customParameters
+        : undefined;
     const removeUnlessExplicit = (key: string) => {
       if (!explicitCustomParameters || !Object.prototype.hasOwnProperty.call(explicitCustomParameters, key)) {
         delete body[key];
@@ -790,7 +795,7 @@ export class OpenAIProvider extends BaseLLMProvider {
   ): void {
     if (
       suppressModelParameters ||
-      isClaudeOpus55Model(options.model) ||
+      isClaudeStrictRequestModel(options.model) ||
       !this.isGenericCustomProvider() ||
       !this.shouldSendParameter(options, "reasoningEffort") ||
       !this.hasExplicitReasoningDisable(options.reasoningEffort) ||
@@ -810,7 +815,7 @@ export class OpenAIProvider extends BaseLLMProvider {
   private supportsOpenAIReasoningDisable(model: string): boolean {
     const normalized = model.toLowerCase().replace(/^openai\//, "");
     if (normalized.includes("-pro")) return false;
-    if (isOpenAIGpt6Model(normalized)) return !isOpenAIGpt6AstraModel(normalized);
+    if (isOpenAIGpt6Model(normalized)) return !isOpenAIGpt6AlwaysReasoningModel(normalized);
     const version = normalized.match(/^gpt-5\.(\d+)/)?.[1];
     return version !== undefined && Number(version) >= 1;
   }
@@ -823,7 +828,7 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private supportsOpenRouterReasoningDisable(model: string): boolean {
-    if (isClaudeOpus55Model(model)) return false;
+    if (isClaudeStrictRequestModel(model)) return false;
     const normalized = model.toLowerCase();
     return (
       this.supportsOpenAIReasoningDisable(normalized) ||
@@ -875,7 +880,7 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private applyChatCompletionsReasoning(body: Record<string, unknown>, options: ChatOptions): void {
-    if (isClaudeOpus55Model(options.model)) {
+    if (isClaudeStrictRequestModel(options.model)) {
       const effort = options.reasoningEffort === "none" ? "low" : options.reasoningEffort;
       if (effort) {
         if (this.isOpenRouterEndpoint()) body.reasoning = { effort };
@@ -883,7 +888,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
       return;
     }
-    if (isOpenAIGpt6AstraModel(options.model) && this.hasExplicitReasoningDisable(options.reasoningEffort)) {
+    if (isOpenAIGpt6AlwaysReasoningModel(options.model) && this.hasExplicitReasoningDisable(options.reasoningEffort)) {
       if (this.isOpenRouterEndpoint()) body.reasoning = { effort: "low" };
       else body.reasoning_effort = "low";
       return;
@@ -986,8 +991,8 @@ export class OpenAIProvider extends BaseLLMProvider {
     }
   }
 
-  private normalizeOpus55Request(body: Record<string, unknown>, options: ChatOptions): void {
-    if (!isClaudeOpus55Model(options.model)) return;
+  private normalizeStrictClaudeRequest(body: Record<string, unknown>, options: ChatOptions): void {
+    if (!isClaudeStrictRequestModel(options.model)) return;
     if (body.reasoning_effort === "none") body.reasoning_effort = "low";
     if (body.reasoning && typeof body.reasoning === "object" && !Array.isArray(body.reasoning)) {
       const reasoning = body.reasoning as Record<string, unknown>;
@@ -1044,7 +1049,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     }
 
     const reasoning: Record<string, unknown> = {};
-    if (isOpenAIGpt6AstraModel(options.model) && this.hasExplicitReasoningDisable(options.reasoningEffort)) {
+    if (isOpenAIGpt6AlwaysReasoningModel(options.model) && this.hasExplicitReasoningDisable(options.reasoningEffort)) {
       reasoning.effort = "low";
     }
     if (
@@ -1355,7 +1360,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     // parameters so an explicit Reasoning Effort: Off choice remains authoritative.
     this.enforceLocalInferenceThinkingDisable(body, options, suppressModelParameters);
     this.stripUnsupportedSamplerParameters(body, options);
-    this.normalizeOpus55Request(body, options);
+    this.normalizeStrictClaudeRequest(body, options);
 
     logger.debug(
       "[OpenAI chat()] stream=%s model=%s reasoning=%s enableThinking=%s verbosity=%s max_completion_tokens=%s max_tokens=%s temperature=%s top_p=%s tools=%s",
@@ -1643,7 +1648,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     this.applyCustomParameters(body, options);
     this.enforceLocalInferenceThinkingDisable(body, options, suppressModelParameters);
     this.stripUnsupportedSamplerParameters(body, options);
-    this.normalizeOpus55Request(body, options);
+    this.normalizeStrictClaudeRequest(body, options);
 
     logger.debug(
       "[OpenAI chatComplete()] stream=%s model=%s reasoning=%s enableThinking=%s verbosity=%s onToken=%s",

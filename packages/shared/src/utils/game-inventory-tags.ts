@@ -32,6 +32,16 @@ import {
 } from "./inventory-command-tag.js";
 
 /** Who can carry things in this game. */
+/** Uses one of the ruleset's items for whoever carries the stack, outside a fight: what it does to
+ *  them lands on their sheet, and the stacks come back spent. The server keeps the sheets, so it
+ *  supplies this; without it an inventory tag cannot use anything. */
+export type GameInventoryItemUser = (
+  stacks: readonly GameInventoryStack[],
+  stackId: string,
+) =>
+  | { ok: true; stacks: GameInventoryStack[]; journal: GameInventoryJournalEntry[]; line: string }
+  | { ok: false; reason: string };
+
 export interface GameInventoryParty {
   /** The player's own character's name, when it is known. */
   player?: string;
@@ -95,6 +105,8 @@ export function applyGameInventoryTags(
   newId?: () => string,
   /** What the game's ruleset says about its items: a name that is one of them adds that item. */
   rules?: GameInventoryItemRules,
+  /** Uses one of the ruleset's items, for `action="use"`. */
+  useItem?: GameInventoryItemUser,
 ): GameInventoryTagsOutcome {
   let current = stacks;
   const journal: GameInventoryJournalEntry[] = [];
@@ -211,6 +223,39 @@ export function applyGameInventoryTags(
           request.action === "unbind"
         ) {
           return serializeInventoryTag(shown, wearNamed(request.action, item, request.count, who.bag ?? {}));
+        }
+        if (request.action === "use") {
+          if (!useItem) return serializeInventoryTag(shown, { ok: false, reason: "cannot-use" });
+          // Each use on a stack of the item in who's own bag that can be used, the first such first.
+          const items = gameInventoryItemsNamed(current, item, who.bag ?? {});
+          const mine = (stack: GameInventoryStack) =>
+            items.has(gameInventoryItemId(stack)) &&
+            gameInventoryBagKey(stack.holder) === gameInventoryBagKey(who.bag?.holder);
+          if (!current.some(mine)) return serializeInventoryTag(shown, { ok: false, reason: "none-held" });
+          const lines: string[] = [];
+          let refused: string | undefined;
+          for (let done = 0; done < request.count; done++) {
+            let used = false;
+            for (const stack of current.filter(mine)) {
+              const outcome = useItem(current, stack.id);
+              if (!outcome.ok) {
+                refused ??= outcome.reason;
+                continue;
+              }
+              current = outcome.stacks;
+              journal.push(...outcome.journal);
+              lines.push(outcome.line);
+              used = true;
+              break;
+            }
+            if (!used) break;
+          }
+          if (lines.length === 0) return serializeInventoryTag(shown, { ok: false, reason: refused ?? "none-held" });
+          return serializeInventoryTag(
+            shown,
+            { ok: true, count: lines.length, now: gameInventoryCountItems(current, items, who.bag ?? {}) },
+            lines.join(" "),
+          );
         }
         if (request.action === "remove") {
           const [result] = apply([

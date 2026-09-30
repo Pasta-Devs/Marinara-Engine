@@ -10,6 +10,7 @@
 
 import { TERRAIN_DATA, type TacticalGrid } from "../tactical-combat/types.js";
 import type { RulesetCombat, RulesetDefinition } from "../../schemas/ruleset.schema.js";
+import { rulesetShotsAvailable } from "./ammo.js";
 import { rulesetActiveConditions, rulesetCombatant, rulesetCombatEffects, rulesetCombatStanding } from "./encounter.js";
 import type {
   RulesetCombatAction,
@@ -232,6 +233,11 @@ export function rulesetOpportunityAttack(combatant: RulesetCombatant): RulesetCo
     // menu's own module reads this one.)
     if (action.uses && (combatant.uses[action.id] ?? 0) < 1) continue;
     if (combatant.spent.includes(action.id)) continue;
+    // Nor is a weapon with nothing loaded or nothing to shoot, nor a second blow in the off hand,
+    // which follows the holder's own attack on their own turn.
+    if (!rulesetShotsAvailable(combatant, action) || action.offHandOf !== undefined) continue;
+    // Nor is using an item: that is its holder's own choice on their own turn.
+    if (action.itemUse) continue;
     const average = action.damage.count * ((action.damage.sides + 1) / 2) + action.damage.flat;
     if (average > most) {
       most = average;

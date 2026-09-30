@@ -111,14 +111,19 @@ export function stripDanglingTagClosers(text: string): string {
   return text.replace(/^[^\S\r\n]*[\]}]+[^\S\r\n]*$/gm, "");
 }
 
-/** Strip complete combat recaps without retrying every unclosed opening tag. */
-export function stripCombatResultBlocks(content: string): string {
-  // Remove complete combat recaps with a forward-only scan. A malformed recap
-  // with repeated opening tags must not search the entire suffix for each one.
+/** Strip the Engine's complete result blocks from a player's message, the combat recap and the report
+ *  of an item used, without retrying every unclosed opening tag. */
+export function stripEngineResultBlocks(content: string): string {
+  return stripResultBlocks(stripResultBlocks(content, /\[\/?combat_result\]/gi), /\[\/?item_used\]/gi);
+}
+
+function stripResultBlocks(content: string, tags: RegExp): string {
+  // Remove complete blocks with a forward-only scan. A malformed block with repeated opening tags must
+  // not search the entire suffix for each one.
   const chunks: string[] = [];
   let from = 0;
   let start: number | undefined;
-  for (const tag of content.matchAll(/\[\/?combat_result\]/gi)) {
+  for (const tag of content.matchAll(tags)) {
     if (tag[0][1] !== "/") {
       start ??= tag.index;
       continue;
@@ -138,7 +143,7 @@ export function stripCombatResultBlocks(content: string): string {
  * story position.
  */
 export function stripGmTagsKeepReadables(content: string): string {
-  let text = stripCombatResultBlocks(content).replace(/\[(?:party-turn|party-chat)\]/gi, "");
+  let text = stripEngineResultBlocks(content).replace(/\[(?:party-turn|party-chat)\]/gi, "");
   // The one-request dice branch delimiters. Three of the four are unreachable by
   // everything below: `stripUnknownBracketTags` and the `[\w+:` catch-all both require a
   // `:` after the name, and `[on success]` has a space before its `]` while `[/branch]`

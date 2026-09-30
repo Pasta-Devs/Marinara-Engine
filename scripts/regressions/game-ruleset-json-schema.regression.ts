@@ -311,11 +311,23 @@ console.info("game ruleset JSON Schema regression passed.");
             { required: ["modifiers"] },
             { required: ["failsSaves"] },
             { required: ["abilities"] },
+            { required: ["resist"] },
+            { required: ["vulnerable"] },
+            { required: ["immune"] },
+            { required: ["conditionImmunities"] },
           ]),
       ),
       "an item's effect does something",
     );
-    assert.deepEqual(node.properties.modifiers.items.allOf[1], { properties: { to: { enum: ["checks", "saves"] } } });
+    // Since 1.56 an item's modifiers change anything a condition's may, and its effects are every
+    // effect but the four a level cannot have.
+    assert.ok(
+      !node.properties.modifiers.items.allOf.some(
+        (rule: unknown) => JSON.stringify(rule) === '{"properties":{"to":{"enum":["checks","saves"]}}}',
+      ),
+    );
+    assert.ok(node.properties.effects.items.enum.includes("attacks-against-disadvantage"));
+    assert.ok(!node.properties.effects.items.enum.includes("ends-on-damage"));
   }
 
   // And 1.54's: what an unmet requirement applies changes no ability, an item's effect may be abilities

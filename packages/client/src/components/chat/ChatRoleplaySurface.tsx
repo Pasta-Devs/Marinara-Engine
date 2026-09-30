@@ -1709,15 +1709,17 @@ export function ChatRoleplaySurface({
       return;
     if (ttsState !== "idle" && ttsState !== "error") return;
     if (currentParagraphIndex >= vnParagraphCount - 1) return;
-    const timer = window.setTimeout(() => {
+    const timer = window.setInterval(() => {
       if (
         document.hidden ||
-        document.querySelector('[data-component="Modal"], [data-macro-modal], textarea:focus, input:focus')
+        document.querySelector(
+          '[data-component="Modal"], [data-component="ExpandedTextarea"], [data-macro-modal], textarea:focus, input:focus',
+        )
       )
         return;
       setVnParagraphIndex(currentParagraphIndex + 1);
     }, vnAutoPlayDelay);
-    return () => window.clearTimeout(timer);
+    return () => window.clearInterval(timer);
   }, [
     visualNovel,
     vnAutoPlay,

@@ -2,6 +2,7 @@ import DOMPurify from "dompurify";
 import { stripSheetCommandTags } from "@marinara-engine/shared";
 import { escapeStandaloneGameNarrationAngleLines } from "../../lib/game-tag-parser";
 import { HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE } from "../../lib/dialogue-quotes";
+import { translate } from "../../localization/i18n";
 
 function commandBadge(className: string, label: string, detail?: string): string {
   return `<span class="inline-flex max-w-full flex-wrap items-center gap-1 rounded px-1.5 py-0.5 text-xs ${className}">${label}${
@@ -34,6 +35,13 @@ export function formatNarration(content: string, boldDialogue = true): string {
     .replace(/\[combat_result]\s*([\s\S]*?)\s*\[\/combat_result]/gi, (_match, recap: string) => {
       const cleaned = recap.trim();
       return `${commandBadge("bg-red-500/15 text-red-200 ring-1 ring-red-400/20", "⚔ Combat Result")}${
+        cleaned ? `\n${cleaned}` : ""
+      }`;
+    })
+    // What the Engine did when the player used an item, which the Game Master narrates.
+    .replace(/\[item_used]\s*([\s\S]*?)\s*\[\/item_used]/gi, (_match, report: string) => {
+      const cleaned = report.trim();
+      return `${commandBadge("bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/20", translate("game.narration.itemUsed"))}${
         cleaned ? `\n${cleaned}` : ""
       }`;
     })

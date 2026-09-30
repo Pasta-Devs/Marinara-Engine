@@ -63,9 +63,17 @@ type TargetMatch =
 export function applySheetCommandTags(
   content: string,
   ctx: SheetCommandContext,
-): { content: string; live: RulesetLiveStates; changed: boolean; outcomes: SheetCommandOutcome[] } {
+): {
+  content: string;
+  live: RulesetLiveStates;
+  changed: boolean;
+  outcomes: SheetCommandOutcome[];
+  /** Each rest a character took, by card name: what a rest does to the items they carry follows it. */
+  rests: Array<{ who: string; rest: string }>;
+} {
   const live: RulesetLiveStates = { ...ctx.live };
   const outcomes: SheetCommandOutcome[] = [];
+  const rests: Array<{ who: string; rest: string }> = [];
   let changed = false;
   let seen = 0;
 
@@ -137,6 +145,7 @@ export function applySheetCommandTags(
       if (op.op === "use") return useOn(card, key, op);
       const result = applyRulesetSheetOp(ctx.definition, card.build, live[key], op);
       if (result.ok) store(key, result.live);
+      if (result.ok && op.op === "rest") rests.push({ who: card.name, rest: op.rest });
       return result;
     } catch {
       // A turn is never lost to its bookkeeping; an impossible command is simply refused.
@@ -196,5 +205,5 @@ export function applySheetCommandTags(
     );
   });
 
-  return { content: rewritten, live, changed, outcomes };
+  return { content: rewritten, live, changed, outcomes, rests };
 }

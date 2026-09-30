@@ -299,6 +299,7 @@ function blockFromCreature(creature: RulesetCreature, budgets: ReadonlySet<strin
     ...(creature.vulnerable ? { vulnerable: [...creature.vulnerable] } : {}),
     ...(creature.immune ? { immune: [...creature.immune] } : {}),
     ...(creature.conditionImmunities ? { conditionImmunities: [...creature.conditionImmunities] } : {}),
+    ...(creature.hardness !== undefined ? { hardness: creature.hardness } : {}),
     ...(creature.soak
       ? {
           soak: {
@@ -540,6 +541,11 @@ export function clampRulesetStatBlock(
   if (block.soak) {
     delete block.soak;
     adjusted.push("An opponent made up for one fight soaks nothing, so its soak was dropped.");
+  }
+  // Hardness is the same: toughness no band bounds, and enough of it turns every spending blow.
+  if (block.hardness !== undefined) {
+    delete block.hardness;
+    adjusted.push("An opponent made up for one fight has no hardness, so its hardness was dropped.");
   }
   // A rider carries a damage type of its own, and a fight reads resistance off the NAME, so a type
   // this ruleset never declared is a word nothing could act on: held to the same names an action's

@@ -382,7 +382,11 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   });
   const opening = state.opening;
   assert.equal(
-    line(fiveE, state, opening.find((event) => event.type === "initiative")!),
+    line(
+      fiveE,
+      state,
+      opening.find((event) => event.type === "initiative")!,
+    ),
     "Initiative: Brenna 18, Thorn Lurker 4.",
   );
   assert.equal(line(fiveE, state, { type: "round", round: 1 }), "Round 1.");
@@ -571,10 +575,31 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     ],
     ["heal", say({ type: "heal", targetId: "corwin", rolls: [5], flat: 4, amount: 9, health: 29, maxHealth: 38 })],
     ["temporary", say({ type: "temporary", targetId: "brenna", rolls: [3], flat: 2, amount: 5 })],
+    [
+      "restored",
+      say({ type: "restored", targetId: "corwin", pool: "Ki", rolls: [], flat: 2, amount: 2, value: 5, max: 7 }),
+    ],
     ["condition", say({ type: "condition", targetId: "brenna", condition: "prone", active: true, reason: "applied" })],
     ["spend", say({ type: "spend", actorId: "corwin", pool: "slots_1", label: "1st-level slots", amount: 1 })],
     ["budget", say({ type: "budget", actorId: "brenna", budget: "bonus", left: 0 })],
     ["uses", say({ type: "uses", actorId: "lurker", optionId: "thorns", label: "Thorns", left: 1, of: 3 })],
+    ["broke", say({ type: "broke", actorId: "corwin", optionId: "use:0", label: "Wand of sparks", roll: 1 })],
+    [
+      "gate",
+      say({
+        type: "gate",
+        actorId: "corwin",
+        optionId: "use:1",
+        label: "Scroll of fireball",
+        check: "Arcana",
+        rolls: [6],
+        kept: 6,
+        modifier: 3,
+        total: 9,
+        difficulty: 13,
+        success: false,
+      }),
+    ],
     [
       "recharge",
       say({
@@ -651,6 +676,10 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     ],
     ["cover", say({ type: "cover", targetId: "lurker", bonus: 2, defense: 15 })],
     [
+      "hardness",
+      say({ type: "hardness", targetId: "lurker", sourceId: "brenna", label: "Longsword", hardness: 6, dice: 4 }),
+    ],
+    [
       "recheck",
       say({
         type: "recheck",
@@ -703,6 +732,12 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
       }),
     ],
     ["shift", say({ type: "shift", actorId: "brenna", amount: 3, total: 9, reason: "gained", sourceId: "lurker" })],
+    ["shot", say({ type: "shot", actorId: "brenna", optionId: "item:0", label: "Longbow", left: 11 })],
+    [
+      "reload",
+      say({ type: "reload", actorId: "brenna", optionId: "reload:1", label: "Pistol", loaded: 6, of: 6, drew: 2 }),
+    ],
+    ["recovered", say({ type: "recovered", actorId: "brenna", label: "Arrows", count: 3 })],
   ];
   const printed = new Map(table);
   for (const [type, text] of table) {
@@ -711,7 +746,28 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
 
   // The exact strings, so rewording one is a decision rather than an accident.
   assert.equal(printed.get("window"), "Brenna breaks away, and Thorn Lurker may strike.");
+  assert.equal(printed.get("restored"), "Corwin gets back 2 Ki, and is on 5 of 7.");
+  assert.equal(printed.get("broke"), "Wand of sparks breaks (a 1 on its die).");
+  assert.equal(
+    printed.get("gate"),
+    "Corwin rolls Arcana to use Scroll of fireball: 6 + 3 = 9 against 13, a failure. It is used up for nothing.",
+  );
   assert.equal(printed.get("cancelled"), "Thorn Lurker stops Brenna: Fireball never happens.");
+  assert.equal(
+    printed.get("hardness"),
+    "Brenna's Longsword lands on Thorn Lurker with 4 dice, below a hardness of 6, and does nothing.",
+  );
+  assert.equal(printed.get("shot"), "Longbow: 11 left to shoot.");
+  assert.equal(
+    line(fiveE, state, { type: "shot", actorId: "brenna", optionId: "item:1", label: "Pistol", left: 5, of: 6 }),
+    "Pistol: 5 of 6 loaded.",
+  );
+  assert.equal(printed.get("reload"), "Brenna loads 2 into Pistol: 6 of 6 loaded.");
+  assert.equal(
+    line(fiveE, state, { type: "reload", actorId: "brenna", optionId: "reload:1", label: "Pistol", loaded: 6, of: 6 }),
+    "Brenna reloads Pistol: 6 of 6 loaded.",
+  );
+  assert.equal(printed.get("recovered"), "Brenna picks up 3 of their Arrows after the fight.");
   assert.equal(
     line(fiveE, state, {
       type: "window",
@@ -897,7 +953,13 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   const dodge = menu.find((option) => option.label === "dodge")!;
   assert.ok(dodge, "the kind's own standard actions are on the menu as the resolver named them");
   assert.equal(rulesetOptionLabel(dodge, t), "Dodge");
-  assert.equal(rulesetOptionLabel(menu.find((option) => option.kind === "end-turn")!, t), "End turn");
+  assert.equal(
+    rulesetOptionLabel(
+      menu.find((option) => option.kind === "end-turn")!,
+      t,
+    ),
+    "End turn",
+  );
   assert.equal(
     rulesetOptionLabel({ ...dodge, label: "somersault" }, t),
     "somersault",
@@ -912,6 +974,18 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   assert.equal(
     rulesetOptionCostText({ ...sword, budget: undefined, strikes: 1 }, budgetLabel, t),
     "Free, 1 strike left",
+  );
+  // A weapon says what it has loaded and what its holder carries to shoot, and a reload is named for
+  // the weapon it fills and says what there is to load.
+  assert.equal(
+    rulesetOptionCostText({ ...sword, loaded: { now: 4, max: 6 }, ammo: 12 }, budgetLabel, t),
+    "Spends Action · 4 of 6 loaded · 12 to shoot",
+  );
+  const reload = { ...sword, id: "reload:0", kind: "reload" as const, targets: { side: "self" as const, count: 0 } };
+  assert.equal(rulesetOptionLabel(reload, t), "Reload Longsword");
+  assert.equal(
+    rulesetOptionCostText({ ...reload, loaded: { now: 0, max: 6 }, ammo: 3 }, budgetLabel, t),
+    "Spends Action · 0 of 6 loaded · 3 to load",
   );
   const forecast = rulesetOptionForecastText(sword, t);
   assert.match(forecast, /^\d+% to hit, about \d+ damage$/u, `the forecast reads oddly: ${forecast}`);
@@ -1232,6 +1306,15 @@ function drawn(...rows: string[]): TacticalGrid {
   const sword = menu.find((option) => option.label === "Longsword")!;
   assert.deepEqual(sword.targetIds, [], "six squares away is further than a sword reaches");
   assert.equal(rulesetNothingInReach(view), true);
+  // A flask that can be thrown at it from here is something to do.
+  assert.equal(
+    rulesetNothingInReach({
+      ...view,
+      options: [...view.options!, { ...sword, id: "use:0", kind: "item", label: "Flask", targetIds: ["lurker"] }],
+    }),
+    false,
+    "an item used at an opponent in reach counts",
+  );
   // A fight with no board never says it, and neither does one whose opponents are all down.
   assert.equal(rulesetNothingInReach(viewOf(state)), false);
   assert.equal(
@@ -1405,7 +1488,10 @@ function drawn(...rows: string[]): TacticalGrid {
 
 // ── The menu groups, the movement group first ──
 {
-  assert.deepEqual([...RULESET_MENU_KINDS], ["move", "attack", "ability", "block", "contest", "standard", "end-turn"]);
+  assert.deepEqual(
+    [...RULESET_MENU_KINDS],
+    ["move", "attack", "reload", "ability", "item", "block", "contest", "standard", "end-turn"],
+  );
   const grid = drawn(".....", ".....");
   const state = createRulesetEncounter({
     definition: fiveE,

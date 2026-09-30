@@ -20,6 +20,21 @@ export function isClaudeOpus55Model(model: string): boolean {
   return /(?:^|\/)claude-opus-5[.-]5(?:$|[-:])/iu.test(model.trim());
 }
 
+/** Native Claude ID and the dotted ID used by OpenRouter/compatible gateways. */
+export function isClaudeSonnet55Model(model: string): boolean {
+  return /(?:^|\/)claude-sonnet-5[.-]5(?:$|[-:])/iu.test(model.trim());
+}
+
+/**
+ * Claude models that reject disabled thinking, forced tool choice, assistant prefill and
+ * non-default sampling. Sonnet 5.5 can still skip up-front thinking, but only with the native
+ * `between_tools` setting, which OpenAI-compatible gateways cannot send.
+ * https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5
+ */
+export function isClaudeStrictRequestModel(model: string): boolean {
+  return isClaudeOpus55Model(model) || isClaudeSonnet55Model(model);
+}
+
 export function isClaudeAdaptiveOnlyNoSamplingModel(model: string): boolean {
   const normalized = model.toLowerCase();
   return (
@@ -61,7 +76,15 @@ export function isOpenAIGpt6AstraModel(model: string): boolean {
 }
 
 export function isOpenAIGpt6Model(model: string): boolean {
-  return /^(?:openai\/)?gpt-6-(?:astra|sol|luna)(?:$|[-:])/i.test(model);
+  return /^(?:openai\/)?gpt-6(?:-(?:astra|sol|luna)|\.1-sol)(?:$|[-:])/i.test(model);
+}
+
+/**
+ * GPT-6 models that cannot turn reasoning off. GPT-6 only takes sampling with effort "none",
+ * so these never take it at all. https://developers.openai.com/api/docs/models/gpt-6.1-sol
+ */
+export function isOpenAIGpt6AlwaysReasoningModel(model: string): boolean {
+  return isOpenAIGpt6AstraModel(model) || /^(?:openai\/)?gpt-6\.1-sol(?:$|[-:])/i.test(model);
 }
 
 export function isOpenAIGpt56SolProAlias(model: string): boolean {
@@ -131,6 +154,7 @@ export const OPENAI_MODELS: KnownModel[] = [
   { id: "gpt-5.6-terra", name: "gpt-5.6-terra", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.6-luna", name: "gpt-5.6-luna", context: 1050000, maxOutput: 128000 },
   // GPT-6
+  { id: "gpt-6.1-sol", name: "gpt-6.1-sol", context: 1050000, maxOutput: 128000 },
   { id: "gpt-6-astra", name: "gpt-6-astra", context: 1050000, maxOutput: 128000 },
   { id: "gpt-6-sol", name: "gpt-6-sol", context: 1050000, maxOutput: 128000 },
   { id: "gpt-6-luna", name: "gpt-6-luna", context: 1050000, maxOutput: 128000 },
@@ -236,6 +260,7 @@ export const OPENAI_MODELS: KnownModel[] = [
 export const ANTHROPIC_MODELS: KnownModel[] = [
   { id: "claude-opus-5-5", name: "claude-opus-5-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-5", name: "claude-opus-5", context: 1000000, maxOutput: 128000 },
+  { id: "claude-sonnet-5-5", name: "claude-sonnet-5-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-sonnet-5", name: "claude-sonnet-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-fable-5-1", name: "claude-fable-5-1", context: 1000000, maxOutput: 128000 },
   { id: "claude-fable-5", name: "claude-fable-5", context: 1000000, maxOutput: 128000 },
@@ -277,6 +302,7 @@ export const ANTHROPIC_MODELS: KnownModel[] = [
 export const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
   { id: "claude-opus-5-5", name: "Claude Opus 5.5", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-5", name: "Claude Opus 5", context: 1000000, maxOutput: 128000 },
+  { id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", context: 1000000, maxOutput: 128000 },
   { id: "claude-sonnet-5", name: "Claude Sonnet 5", context: 1000000, maxOutput: 128000 },
   { id: "claude-fable-5", name: "Claude Fable 5", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-8", name: "Claude Opus 4.8", context: 1000000, maxOutput: 128000 },
@@ -1131,7 +1157,9 @@ export function findKnownModel(provider: APIProvider, modelId: string): KnownMod
   const normalizedId = modelId.trim().toLowerCase();
   const unqualifiedId = isClaudeOpus55Model(normalizedId)
     ? "claude-opus-5-5"
-    : (normalizedId.split("/").pop()?.split(":", 1)[0] ?? normalizedId);
+    : isClaudeSonnet55Model(normalizedId)
+      ? "claude-sonnet-5-5"
+      : (normalizedId.split("/").pop()?.split(":", 1)[0] ?? normalizedId);
   return OPENAI_COMPATIBLE_AGGREGATOR_MODELS.find((model) => model.id.toLowerCase() === unqualifiedId);
 }
 

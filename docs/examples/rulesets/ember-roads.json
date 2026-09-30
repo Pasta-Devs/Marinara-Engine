@@ -505,7 +505,8 @@
     "tags": [
       { "id": "thrown", "label": "Thrown" },
       { "id": "ranged", "label": "Ranged" },
-      { "id": "two_handed", "label": "Two-handed" }
+      { "id": "two_handed", "label": "Two-handed" },
+      { "id": "arrow", "label": "Arrow" }
     ],
     "stats": [
       { "id": "bulk", "label": "Bulk", "type": "number", "min": 0, "max": 10, "default": 0 },
@@ -1182,7 +1183,22 @@
               "budget": "act",
               "toHit": { "abilities": { "stat": "swing" } },
               "damage": { "dice": { "stat": "damage" }, "abilities": { "stat": "swing" }, "type": "cut" },
-              "range": { "normal": 30, "long": 60 }
+              "range": { "normal": 30, "long": 60 },
+              "ammo": {
+                "$comment": "One arrow a shot, drawn from whatever its archer carries tagged as arrows, and half of what was shot picked up again after a fight the party wins.",
+                "tag": "arrow",
+                "recover": 0.5
+              },
+              "modes": [
+                {
+                  "$comment": "Two arrows loosed together at up to two marks, each a little wilder.",
+                  "id": "volley",
+                  "label": "Volley",
+                  "ammo": 2,
+                  "toHit": -2,
+                  "targets": 2
+                }
+              ]
             }
           }
         },
@@ -1193,6 +1209,7 @@
           "item": {
             "category": "ammunition",
             "rarity": "common",
+            "tags": ["arrow"],
             "stats": { "bulk": 1 },
             "stack": 20,
             "cost": { "amount": 1, "unit": "mark" }
@@ -1237,6 +1254,27 @@
           }
         },
         {
+          "id": "poultice",
+          "label": "Poultice",
+          "summary": "Moss, honey and ash folded in a cloth. Pressed to a cut, it closes it enough to walk on.",
+          "item": {
+            "category": "provisions",
+            "rarity": "common",
+            "stats": { "bulk": 1 },
+            "stack": 5,
+            "cost": { "amount": 2, "unit": "mark" },
+            "use": {
+              "$comment": "Used in a fight on the Action, on its holder or somebody beside them, and gone once it is. A use says what it spends and what it does as a knack's mechanics do, and consumes takes one off the stack.",
+              "kind": "heal",
+              "budget": "act",
+              "range": 0,
+              "targets": "ally",
+              "amount": { "dice": "1d4", "flat": 1 },
+              "consumes": true
+            }
+          }
+        },
+        {
           "id": "waystone",
           "label": "Waystone",
           "summary": "A smooth stone from the first milestone of the old road. Caravan folk sell them for salt, never for coin, and trust whoever carries one.",
@@ -1244,7 +1282,11 @@
             "category": "gear",
             "rarity": "storied",
             "cost": { "amount": 2, "unit": "cake" },
-            "carried": { "modifiers": [{ "to": "checks", "skills": ["sway"], "flat": 1 }] }
+            "carried": {
+              "$comment": "Carried, it helps a traveller talk their way along the road, and in a fight it keeps the heat off: half of any burn.",
+              "modifiers": [{ "to": "checks", "skills": ["sway"], "flat": 1 }],
+              "resist": ["burn"]
+            }
           }
         }
       ]

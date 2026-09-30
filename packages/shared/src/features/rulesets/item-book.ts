@@ -7,11 +7,13 @@
 // loads and the browser from the ones it fetches, so both read an item the same way.
 // ──────────────────────────────────────────────
 import {
+  RULESET_ITEM_CHARGES_MAX,
   rulesetItemIssues,
   type RulesetCatalogEntry,
   type RulesetCatalogItem,
   type RulesetDefinition,
   type RulesetItemAttack,
+  type RulesetItemUse,
   type RulesetItemEffect,
   type RulesetItemStat,
   type RulesetValueRef,
@@ -31,6 +33,7 @@ import {
   rulesetInventedItemId,
   rulesetInventedItemRef,
   rulesetInventedItemText,
+  rulesetDefenseLabel,
   rulesetProposalParts,
   RULESET_INVENTED_ITEMS_MAX,
   type RulesetInventedItem,
@@ -57,11 +60,34 @@ export interface RulesetItemStatFact {
  *  saves it is narrowed to, none for all of them), a lean, a number (`value`, signed, dice and all), or
  *  saves it makes fail. */
 export interface RulesetItemEffectFact {
-  /** Checks, saves, or one ability (its label in `names`). */
-  to: "checks" | "saves" | "ability";
+  /** Checks, saves, or one ability (its label in `names`); in a fight, attacks, defense (the
+   *  ruleset's own word for it in `names`), speed, one of the fight's effects, kinds of harm kept off
+   *  (in `names`), or conditions kept off (their labels in `names`). */
+  to: "checks" | "saves" | "ability" | "attacks" | "defense" | "speed" | "effect" | "harm" | "conditions";
   names: string[];
-  change: { mode: "advantage" | "disadvantage" } | { value: string } | { fails: true } | { atLeast: number };
+  change:
+    | { mode: "advantage" | "disadvantage" }
+    | { value: string }
+    | { fails: true }
+    | { atLeast: number }
+    | { times: 0.5 | 2 }
+    | { effect: string }
+    | { hide: "resist" | "vulnerable" | "immune" };
 }
+
+/** A fight effect's own words, for the Game Master, by effect id. The ones about the holder's own
+ *  checks, saves and attacks are said as leans on those instead. */
+const FIGHT_EFFECT_TEXT: Record<string, string> = {
+  "attacks-against-advantage": "attacks against them have advantage",
+  "attacks-against-disadvantage": "attacks against them have disadvantage",
+  "attacks-against-adjacent-advantage": "attacks against them from next to them have advantage",
+  "attacks-against-far-disadvantage": "attacks against them from afar have disadvantage",
+  "attacks-from-adjacent-critical": "a hit on them from next to them is critical",
+  "cannot-act": "cannot act",
+  "cannot-react": "cannot react",
+  "speed-zero": "cannot move",
+  "resist-all": "takes half of every harm",
+};
 
 /** What an item asks of whoever wears it, in the ruleset's words: the value's label, the least it may
  *  be, and what applies while they fall short. `of` says the value is a modifier rather than a score,
@@ -87,6 +113,45 @@ export interface RulesetItemFacts {
   carried?: RulesetItemEffectFact[];
   requires?: RulesetItemRequirementFact[];
   attack?: RulesetItemAttackFact;
+  use?: RulesetItemUseFact;
+}
+
+/** What using an item does, as labels and numbers: the budget it spends (none when free), what it
+ *  heals or deals, what it adds to hit where it rolls, the save it asks, the conditions it applies,
+ *  its temporary points, how far it reaches, and what using it spends of it. */
+export interface RulesetItemUseFact {
+  budget?: string;
+  kind: "attack" | "heal" | "buff" | "debuff";
+  amount?: string;
+  type?: string;
+  toHit?: string;
+  /** A pool fight's per-die target for its roll to hit, as a weapon's. */
+  target?: number;
+  save?: { save: string; difficulty?: number; onSuccess: "none" | "half" | "negates" };
+  applies?: string[];
+  temporary?: string;
+  range?: number;
+  area?: { shape: "burst" | "cone" | "line"; size: number };
+  /** The ruleset's own distance unit, beside a range or an area. */
+  unit?: string;
+  consumes?: true;
+  /** What one use spends of the charges the item holds at most, the rests (by label) that bring them
+   *  back and how many (`"max"` or a sum), and the die it rolls to break when emptied. */
+  charges?: {
+    cost: number;
+    max: number;
+    recharge?: { rests: string[]; amount: "max" | string };
+    breaksOn?: { die: number; atMost: number };
+  };
+  /** A pool it gives back some of, by the pool's label. */
+  restore?: { pool: string; amount: string };
+  /** The check its user passes before it works, by label, and the value off their sheet that skips it
+   *  when it is high enough. No difficulty when it names a stat the item does not give. */
+  gate?: {
+    check: string;
+    difficulty?: number;
+    unless?: { what: string; of?: "modifier" | "items"; atLeast: number };
+  };
 }
 
 /** A weapon's attack as labels and numbers: the budget it spends, what it adds to hit and deals, and
@@ -107,6 +172,19 @@ export interface RulesetItemAttackFact {
   unit?: string;
   /** What it deals instead with a hand free beside it. */
   versatile?: string;
+  /** What it shoots, by the tag's label: how many an attack, and the share picked up after a won
+   *  fight. */
+  ammo?: { what: string; per: number; recover?: number };
+  /** How many it holds loaded, and the budget a reload spends, by its label. */
+  clip?: { max: number; reload: string };
+  /** Its other ways to attack, each by its label with what it changes. */
+  modes?: Array<{ label: string; ammo?: number; toHit?: number; target?: number; targets?: number }>;
+  /** A weapon for the off hand, and the budget its second attack spends, by its label. */
+  offHand?: { budget: string };
+  /** The least a hit with it deals. */
+  floor?: number;
+  /** The conditions it puts on a target, by their labels, when a hit deals enough. */
+  onHit?: Array<{ condition: string; atLeast: number; rounds?: number }>;
 }
 
 /** The item stats a weapon's attack reads (`{ "stat": id }` anywhere in it). */
@@ -124,6 +202,8 @@ export function rulesetItemAttackStats(attack: RulesetItemAttack): string[] {
     attack.range?.normal,
     attack.range?.long,
     attack.versatile?.dice,
+    attack.clip?.max,
+    attack.floor,
   ];
   const ids = reads.flatMap((value) =>
     value && typeof value === "object" && !Array.isArray(value) && "stat" in value ? [value.stat] : [],
@@ -143,6 +223,110 @@ function factSum(parts: ReadonlyArray<string | number>): string {
       return part < 0 ? `- ${-part}` : `+ ${part}`;
     })
     .join(" ");
+}
+
+/** An item's use as facts, each number read off the item's stat where it says so. */
+function rulesetItemUseFacts(
+  definition: RulesetDefinition,
+  item: RulesetCatalogItem,
+  use: RulesetItemUse,
+): RulesetItemUseFact {
+  const labelOf = (words: ReadonlyArray<{ id: string; label: string }>, id: string) =>
+    words.find((word) => word.id === id)?.label ?? id;
+  const read = (value: unknown): unknown => {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) return value;
+    const stat = (value as { stat?: unknown }).stat;
+    return typeof stat === "string" ? item.stats?.[stat] : undefined;
+  };
+  const number = (value: unknown) => {
+    const found = read(value);
+    return typeof found === "number" && Number.isFinite(found) ? found : undefined;
+  };
+  const amount = (value: { dice?: string; flat?: number } | undefined) =>
+    value ? factSum([value.dice ?? "", value.flat ?? 0]) : "";
+  const attackFact = use.toHit
+    ? rulesetItemAttackFacts(definition, item, { budget: "", toHit: use.toHit, damage: {} })
+    : undefined;
+  const difficulty = number(use.saveDifficulty);
+  const gateDifficulty = use.gate ? rulesetItemGateDifficulty(item, use.gate) : undefined;
+  const held = item.charges ? number(item.charges.max) : undefined;
+  // As a fight reads it: a stat's number held to the most a written count may be.
+  const max = held === undefined ? undefined : Math.min(RULESET_ITEM_CHARGES_MAX, Math.trunc(held));
+  const dealt = amount(use.amount);
+  const temporary = amount(use.temporary);
+  return {
+    ...(!use.free && use.budget ? { budget: labelOf(definition.combat?.economy.budgets ?? [], use.budget) } : {}),
+    kind: use.kind,
+    ...(dealt ? { amount: dealt } : {}),
+    ...(use.damageType ? { type: use.damageType } : {}),
+    ...(use.attackRoll && attackFact
+      ? {
+          toHit: attackFact.toHit + (attackFact.proficiency ? " + proficiency" : ""),
+          ...(attackFact.target !== undefined ? { target: attackFact.target } : {}),
+        }
+      : {}),
+    ...(use.save
+      ? {
+          save: {
+            save: labelOf(definition.sheet.saves, use.save.save),
+            ...(difficulty !== undefined ? { difficulty } : {}),
+            onSuccess: use.save.onSuccess,
+          },
+        }
+      : {}),
+    ...(use.applies?.length
+      ? { applies: use.applies.map((entry) => labelOf(definition.sheet.live.conditions, entry.condition)) }
+      : {}),
+    ...(temporary ? { temporary } : {}),
+    ...(use.range !== undefined ? { range: use.range } : {}),
+    ...(use.area ? { area: { shape: use.area.shape, size: use.area.size } } : {}),
+    ...((use.range !== undefined || use.area) && definition.combat?.distance?.label
+      ? { unit: definition.combat.distance.label }
+      : {}),
+    ...(use.consumes ? { consumes: true as const } : {}),
+    ...(use.charges !== undefined && max !== undefined
+      ? {
+          charges: {
+            cost: use.charges,
+            max,
+            ...(item.charges?.recharge
+              ? {
+                  recharge: {
+                    rests: item.charges.recharge.rests.map((rest) => labelOf(definition.rests, rest)),
+                    amount:
+                      item.charges.recharge.amount === "max" ? ("max" as const) : amount(item.charges.recharge.amount),
+                  },
+                }
+              : {}),
+            ...(item.charges?.breaksOn ? { breaksOn: { ...item.charges.breaksOn } } : {}),
+          },
+        }
+      : {}),
+    ...(use.restore
+      ? {
+          restore: {
+            pool: labelOf(definition.sheet.live.pools, use.restore.pool),
+            amount: amount(use.restore.amount),
+          },
+        }
+      : {}),
+    ...(use.gate
+      ? {
+          gate: {
+            check: rulesetItemGateLabel(definition, use.gate),
+            ...(gateDifficulty !== undefined ? { difficulty: gateDifficulty } : {}),
+            ...(use.gate.unless
+              ? {
+                  unless: {
+                    ...rulesetValueRefLabel(definition, use.gate.unless.value),
+                    atLeast: use.gate.unless.atLeast,
+                  },
+                }
+              : {}),
+          },
+        }
+      : {}),
+  };
 }
 
 /** A weapon's attack as facts, each value read off the item's stat where it says so. */
@@ -187,8 +371,11 @@ function rulesetItemAttackFacts(
   const long = attack.range?.long !== undefined ? number(attack.range.long) : 0;
   const versatile = attack.versatile ? dice(attack.versatile.dice) : "";
   const unit = definition.combat?.distance?.label;
+  const budgets = definition.combat?.economy.budgets ?? [];
+  const clipMax = attack.clip ? number(attack.clip.max) : 0;
+  const floor = attack.floor !== undefined ? number(attack.floor) : 0;
   return {
-    budget: labelOf(definition.combat?.economy.budgets ?? [], attack.budget),
+    budget: labelOf(budgets, attack.budget),
     toHit: factSum([
       abilities(attack.toHit.abilities),
       typeof skill === "string" ? labelOf(definition.sheet.skills, skill) : "",
@@ -202,7 +389,66 @@ function rulesetItemAttackFacts(
     ...(normal > 0 ? { range: { normal, ...(long > normal ? { long } : {}) } } : {}),
     ...((reach > 0 || normal > 0) && unit ? { unit } : {}),
     ...(versatile ? { versatile } : {}),
+    ...(attack.ammo
+      ? {
+          ammo: {
+            what: labelOf(definition.items?.tags ?? [], attack.ammo.tag),
+            per: attack.ammo.perAttack ?? 1,
+            ...(attack.ammo.recover ? { recover: attack.ammo.recover } : {}),
+          },
+        }
+      : {}),
+    ...(attack.clip && clipMax >= 1 ? { clip: { max: clipMax, reload: labelOf(budgets, attack.clip.reload) } } : {}),
+    ...(attack.modes?.length
+      ? {
+          modes: attack.modes.map((mode) => ({
+            label: mode.label,
+            ...(mode.ammo !== undefined ? { ammo: mode.ammo } : {}),
+            ...(mode.toHit !== undefined ? { toHit: mode.toHit } : {}),
+            ...(mode.target !== undefined ? { target: mode.target } : {}),
+            ...(mode.targets !== undefined ? { targets: mode.targets } : {}),
+          })),
+        }
+      : {}),
+    ...(attack.offHand && definition.combat?.offHand
+      ? { offHand: { budget: labelOf(budgets, definition.combat.offHand.budget) } }
+      : {}),
+    ...(floor >= 1 ? { floor } : {}),
+    ...(attack.onHit?.length
+      ? {
+          onHit: attack.onHit.map((entry) => ({
+            condition: labelOf(definition.sheet.live.conditions, entry.condition),
+            atLeast: entry.atLeast,
+            ...(entry.rounds !== undefined ? { rounds: entry.rounds } : {}),
+          })),
+        }
+      : {}),
   };
+}
+
+/** A gate's difficulty as a fight and the Use button read it: written, or the item's own stat, a
+ *  whole number from 1 to 100. Undefined when it names a stat the item does not give. */
+export function rulesetItemGateDifficulty(
+  item: RulesetCatalogItem,
+  gate: NonNullable<RulesetItemUse["gate"]>,
+): number | undefined {
+  const written = gate.difficulty;
+  const found = typeof written === "number" ? written : item.stats?.[written.stat];
+  return typeof found === "number" && Number.isFinite(found)
+    ? Math.min(100, Math.max(1, Math.trunc(found)))
+    : undefined;
+}
+
+/** What a use's gate rolls, in the ruleset's own words: a skill's or an ability's label, or the value
+ *  off the sheet it reads ("Wits modifier"). */
+export function rulesetItemGateLabel(definition: RulesetDefinition, gate: NonNullable<RulesetItemUse["gate"]>): string {
+  const { check } = gate;
+  if ("skill" in check) return definition.sheet.skills.find((entry) => entry.id === check.skill)?.label ?? check.skill;
+  if ("ability" in check) {
+    return definition.sheet.abilities.find((entry) => entry.id === check.ability)?.label ?? check.ability;
+  }
+  const { what, of } = rulesetValueRefLabel(definition, check.value);
+  return of === "modifier" ? `${what} modifier` : what;
 }
 
 /** A value off the sheet by the ruleset's own label: an ability, a skill, a derived value. An ability's
@@ -258,18 +504,32 @@ export function rulesetItemEffectFacts(
   const names = (to: "checks" | "saves", ids: readonly string[] | undefined) =>
     (ids ?? []).map(to === "checks" ? skillLabel : saveLabel);
   const facts: RulesetItemEffectFact[] = [];
+  // The ruleset's own word for defense where it names one ("Guard"); a defense written as a number
+  // has no name, and reads as "defense".
+  const defense = rulesetDefenseLabel(definition) ?? "";
   for (const one of effect.effects ?? []) {
-    const to = one.startsWith("own-checks") ? "checks" : "saves";
-    const mode = one.endsWith("-disadvantage") ? "disadvantage" : "advantage";
-    facts.push({ to, names: names(to, to === "checks" ? effect.skills : effect.saves), change: { mode } });
+    const own = /^own-(checks|saves|attacks)-(advantage|disadvantage)$/.exec(one);
+    if (!own) {
+      facts.push({ to: "effect", names: [], change: { effect: one } });
+      continue;
+    }
+    const to = own[1] as "checks" | "saves" | "attacks";
+    const mode = own[2] as "advantage" | "disadvantage";
+    const narrowed = to === "attacks" ? [] : names(to, to === "checks" ? effect.skills : effect.saves);
+    facts.push({ to, names: narrowed, change: { mode } });
   }
   for (const modifier of effect.modifiers ?? []) {
-    if (modifier.to !== "checks" && modifier.to !== "saves") continue;
     const to = modifier.to;
-    const narrowed = names(to, to === "checks" ? (modifier.skills ?? effect.skills) : (modifier.saves ?? effect.saves));
+    const narrowed =
+      to === "checks" || to === "saves"
+        ? names(to, to === "checks" ? (modifier.skills ?? effect.skills) : (modifier.saves ?? effect.saves))
+        : to === "defense" && defense
+          ? [defense]
+          : [];
     const dice = modifier.dice ? `${modifier.minus ? "-" : "+"}${modifier.dice}` : "";
     const flat = modifier.flat ? `${modifier.flat > 0 ? "+" : ""}${modifier.flat}` : "";
     if (dice || flat) facts.push({ to, names: narrowed, change: { value: `${dice}${flat}` } });
+    if (modifier.times) facts.push({ to: "speed", names: [], change: { times: modifier.times } });
     if (modifier.mode) facts.push({ to, names: narrowed, change: { mode: modifier.mode } });
   }
   if (effect.failsSaves?.length) {
@@ -283,11 +543,32 @@ export function rulesetItemEffectFacts(
       change: "set" in change ? { atLeast: change.set } : { value: `${change.add > 0 ? "+" : ""}${change.add}` },
     });
   }
+  for (const hide of ["resist", "vulnerable", "immune"] as const) {
+    if (effect[hide]?.length) facts.push({ to: "harm", names: [...effect[hide]!], change: { hide } });
+  }
+  if (effect.conditionImmunities?.length) {
+    const label = (id: string) => definition.sheet.live.conditions.find((entry) => entry.id === id)?.label ?? id;
+    facts.push({ to: "conditions", names: effect.conditionImmunities.map(label), change: { hide: "immune" } });
+  }
   return facts;
 }
 
 /** One effect fact in plain words, as the Game Master reads it: "-1 on checks (Sneak)", "+1 Brawn". */
 export function rulesetItemEffectText(fact: RulesetItemEffectFact): string {
+  const change = fact.change;
+  const list = fact.names.join(", ");
+  if ("effect" in change) return FIGHT_EFFECT_TEXT[change.effect] ?? change.effect;
+  if ("hide" in change) {
+    return change.hide === "resist"
+      ? `resists ${list}`
+      : change.hide === "vulnerable"
+        ? `vulnerable to ${list}`
+        : `immune to ${list}`;
+  }
+  if ("times" in change) return change.times === 0.5 ? "half speed" : "double speed";
+  if (fact.to === "defense" || fact.to === "speed") {
+    return `${"value" in change ? change.value : ""} ${fact.to === "speed" ? "speed" : list || "defense"}`;
+  }
   if (fact.to === "ability") {
     const ability = fact.names.join(", ");
     return "atLeast" in fact.change
@@ -295,7 +576,6 @@ export function rulesetItemEffectText(fact: RulesetItemEffectFact): string {
       : `${"value" in fact.change ? fact.change.value : ""} ${ability}`;
   }
   const which = `${fact.to}${fact.names.length ? ` (${fact.names.join(", ")})` : ""}`;
-  const change = fact.change;
   if ("fails" in change) return `fails ${which}`;
   return `${"mode" in change ? change.mode : "value" in change ? change.value : ""} on ${which}`;
 }
@@ -372,6 +652,7 @@ export function rulesetItemFacts(definition: RulesetDefinition, item: RulesetCat
     ...(carried.length ? { carried } : {}),
     ...(requires.length ? { requires } : {}),
     ...(item.attack ? { attack: rulesetItemAttackFacts(definition, item, item.attack) } : {}),
+    ...(item.use ? { use: rulesetItemUseFacts(definition, item, item.use) } : {}),
   };
 }
 
@@ -619,7 +900,17 @@ export function rulesetSheetItems(
     const takesSlots = Object.values(item.slots ?? {}).some((count) => count > 0);
     const binds = !!item.binds;
     const worn = (takesSlots || binds) && (!takesSlots || stack.equipped === true) && (!binds || stack.bound === true);
-    return [{ item, quantity: stack.quantity, worn, name: stack.name }];
+    return [
+      {
+        item,
+        quantity: stack.quantity,
+        worn,
+        name: stack.name,
+        stack: { id: stack.id, ref: stack.item, ...(stack.holder !== undefined ? { holder: stack.holder } : {}) },
+        ...(stack.loaded !== undefined ? { loaded: stack.loaded } : {}),
+        ...(stack.charges !== undefined ? { charges: stack.charges } : {}),
+      },
+    ];
   });
 }
 
@@ -658,13 +949,86 @@ export function rulesetItemPromptFacts(facts: RulesetItemFacts): string {
     (need) =>
       `needs ${requirementValueText(need)} ${need.atLeast}, otherwise ${need.otherwise.map(rulesetItemEffectText).join(", ")}`,
   );
-  return [kind, stats, ...effects, ...needs, facts.attack ? rulesetItemAttackText(facts.attack) : ""]
+  return [
+    kind,
+    stats,
+    ...effects,
+    ...needs,
+    facts.attack ? rulesetItemAttackText(facts.attack) : "",
+    facts.use ? rulesetItemUseText(facts.use) : "",
+  ]
     .filter(Boolean)
     .join("; ");
 }
 
 /** A weapon's attack in the Game Master's words: "attack (Act): Brawn + 1 to hit, 1d6 + Brawn cut,
  *  reach 2 paces, range 10 to 20 paces, 1d8 with a hand free". */
+/** One of a weapon's modes for the Game Master: its label, and what it changes. */
+function rulesetItemModeText(mode: NonNullable<RulesetItemAttackFact["modes"]>[number]): string {
+  const signed = (value: number) => (value > 0 ? `+${value}` : String(value));
+  const parts = [
+    mode.ammo !== undefined ? `${mode.ammo} shots` : "",
+    mode.toHit !== undefined ? `${signed(mode.toHit)} to hit` : "",
+    mode.target !== undefined ? `target ${signed(mode.target)}` : "",
+    mode.targets !== undefined ? `up to ${mode.targets} targets` : "",
+  ].filter(Boolean);
+  return parts.length ? `${mode.label} (${parts.join(", ")})` : mode.label;
+}
+
+/** An item's use for the Game Master: what it spends, what it does, and what using it costs of it. */
+export function rulesetItemUseText(use: RulesetItemUseFact): string {
+  return `use (${use.budget ?? "free"}): ${[
+    ...rulesetItemUseDoes(use),
+    use.consumes ? "used up" : "",
+    use.charges ? `spends ${use.charges.cost} of ${use.charges.max} charges` : "",
+    use.charges?.recharge
+      ? `regains ${use.charges.recharge.amount === "max" ? "all" : use.charges.recharge.amount} on ${use.charges.recharge.rests.join(" or ")}`
+      : "",
+    use.charges?.breaksOn
+      ? `breaks on ${rulesetBreakFaces(use.charges.breaksOn)} on a d${use.charges.breaksOn.die} when emptied`
+      : "",
+    use.gate ? rulesetItemGateText(use.gate) : "",
+  ]
+    .filter(Boolean)
+    .join(", ")}`;
+}
+
+/** A gate for the Game Master: "needs a Lore check against 13 first, unless Caster level is 3 or more;
+ *  failed, it is used up for nothing". */
+export function rulesetItemGateText(gate: NonNullable<RulesetItemUseFact["gate"]>): string {
+  const against = gate.difficulty !== undefined ? ` against ${gate.difficulty}` : "";
+  const unless = gate.unless
+    ? `, unless ${gate.unless.what}${gate.unless.of === "modifier" ? " modifier" : ""} is ${gate.unless.atLeast} or more`
+    : "";
+  return `needs a ${gate.check} check${against} first${unless}; failed, it is used up for nothing`;
+}
+
+/** What using an item does, as the Game Master's parts of it, leaving out what it spends. */
+export function rulesetItemUseDoes(use: RulesetItemUseFact): string[] {
+  const does =
+    use.kind === "heal"
+      ? use.amount
+        ? `heals ${use.amount}`
+        : "heals"
+      : use.amount
+        ? [use.amount, use.type].filter(Boolean).join(" ")
+        : "";
+  return [
+    does,
+    use.toHit ? `${use.toHit} to hit${use.target !== undefined ? ` at ${use.target}` : ""}` : "",
+    use.save
+      ? `${use.save.save}${use.save.difficulty !== undefined ? ` ${use.save.difficulty}` : ""} save${
+          use.save.onSuccess === "half" ? " for half" : use.save.onSuccess === "negates" ? " negates it" : ""
+        }`
+      : "",
+    ...(use.applies ?? []),
+    use.temporary ? `${use.temporary} temporary` : "",
+    use.restore ? `restores ${use.restore.amount} ${use.restore.pool}` : "",
+    use.range !== undefined ? `range ${use.range}${use.unit ? ` ${use.unit}` : ""}` : "",
+    use.area ? `${use.area.shape} ${use.area.size}${use.unit ? ` ${use.unit}` : ""}` : "",
+  ].filter(Boolean);
+}
+
 export function rulesetItemAttackText(attack: RulesetItemAttackFact): string {
   const unit = attack.unit ? ` ${attack.unit}` : "";
   const toHit = `${attack.toHit}${attack.proficiency ? " + proficiency" : ""} to hit${
@@ -679,7 +1043,25 @@ export function rulesetItemAttackText(attack: RulesetItemAttackFact): string {
     attack.reach !== undefined ? `reach ${attack.reach}${unit}` : "",
     range,
     attack.versatile ? `${attack.versatile} with a hand free` : "",
+    attack.ammo
+      ? `ammunition ${attack.ammo.what} (${attack.ammo.per} an attack${
+          attack.ammo.recover ? `, ${Math.round(attack.ammo.recover * 100)}% picked up after a won fight` : ""
+        })`
+      : "",
+    attack.clip ? `holds ${attack.clip.max}, reload (${attack.clip.reload})` : "",
+    attack.modes?.length ? `modes ${attack.modes.map(rulesetItemModeText).join(", ")}` : "",
+    attack.offHand ? `off hand (${attack.offHand.budget})` : "",
+    attack.floor !== undefined ? `at least ${attack.floor} on a hit before resistance` : "",
+    ...(attack.onHit ?? []).map(
+      (entry) =>
+        `${entry.condition}${entry.rounds !== undefined ? ` for ${entry.rounds} rounds` : ""} when a hit deals ${entry.atLeast} or more`,
+    ),
   ]
     .filter(Boolean)
     .join(", ")}`;
+}
+
+/** The faces an item breaks on when its last charge is spent: "a 1", or "1 to 3". */
+export function rulesetBreakFaces(breaks: { atMost: number }): string {
+  return breaks.atMost === 1 ? "a 1" : `1 to ${breaks.atMost}`;
 }

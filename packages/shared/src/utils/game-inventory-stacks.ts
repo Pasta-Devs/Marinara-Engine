@@ -41,6 +41,15 @@ export interface GameInventoryStack {
   equipped?: true;
   /** Bound to whoever carries it (attuned, invested). A bound stack is always one item. */
   bound?: true;
+  /** What a weapon with a clip has loaded, as a ruleset fight left it. Kept on a stack of one item
+   *  only, since a loaded count is one weapon's; a weapon without one is loaded full.
+   *  ponytail: a stack of several of a weapon forgets the count (each reads as full), so pouring an
+   *  emptied one into another and splitting it off again reloads it; a count per weapon in the stack
+   *  is the upgrade if that ever matters. */
+  loaded?: number;
+  /** The charges an item holds, as a ruleset fight left them. Kept on a stack of one item only, as a
+   *  loaded count is, and an item without one holds all it can. */
+  charges?: number;
 }
 
 /** Whose bag: `holder` as a stack has it, so `{}` is the player's own. */
@@ -289,8 +298,10 @@ function makeStack(stack: {
   holder?: string;
   equipped?: boolean;
   bound?: boolean;
+  loaded?: number;
+  charges?: number;
 }): GameInventoryStack {
-  const { id, name, nickname, item, quantity, holder, equipped, bound } = stack;
+  const { id, name, nickname, item, quantity, holder, equipped, bound, loaded, charges } = stack;
   const named = nickname && gameInventoryNameKey(nickname) !== gameInventoryNameKey(name) ? { nickname } : {};
   return {
     id,
@@ -301,6 +312,8 @@ function makeStack(stack: {
     ...(holder ? { holder } : {}),
     ...(equipped ? { equipped: true as const } : {}),
     ...(bound ? { bound: true as const } : {}),
+    ...(loaded !== undefined && quantity === 1 ? { loaded } : {}),
+    ...(charges !== undefined && quantity === 1 ? { charges } : {}),
   };
 }
 
@@ -380,6 +393,14 @@ export function normalizeGameInventoryStacks(raw: unknown): GameInventoryStack[]
         // Worn and bound are one item each, so a stack saved with more is read as a plain stack.
         equipped: source.equipped === true && quantity === 1,
         bound: source.bound === true && quantity === 1,
+        loaded:
+          typeof source.loaded === "number" && Number.isInteger(source.loaded) && source.loaded >= 0
+            ? Math.min(GAME_INVENTORY_MAX_QUANTITY, source.loaded)
+            : undefined,
+        charges:
+          typeof source.charges === "number" && Number.isInteger(source.charges) && source.charges >= 0
+            ? Math.min(GAME_INVENTORY_MAX_QUANTITY, source.charges)
+            : undefined,
         quantity,
         stored,
         holder: cleanGameInventoryHolder(source.holder),
@@ -469,12 +490,18 @@ export interface GameInventoryTotal {
   /** How many of it are worn, and how many bound, when any are. */
   equipped?: number;
   bound?: number;
+  /** What each stack of an item that holds charges has left, for whoever reads them. */
+  charges?: Array<{ now: number; max: number }>;
 }
 
 /** One line per item: every stack of an item added together, in the order the items first appear,
  *  shown by the first stack's name. What the Game Master and a fight read, since a split is the
  *  player's own arrangement. */
-export function gameInventoryTotals(stacks: readonly GameInventoryStack[]): GameInventoryTotal[] {
+export function gameInventoryTotals(
+  stacks: readonly GameInventoryStack[],
+  /** What a stack's item holds of its charges, for an item that holds any. */
+  chargesOf?: (stack: GameInventoryStack) => { now: number; max: number } | undefined,
+): GameInventoryTotal[] {
   const totals = new Map<string, GameInventoryTotal>();
   for (const stack of stacks) {
     const item = gameInventoryItemId(stack);
@@ -491,6 +518,8 @@ export function gameInventoryTotals(stacks: readonly GameInventoryStack[]): Game
     line.quantity += stack.quantity;
     if (stack.equipped) line.equipped = (line.equipped ?? 0) + stack.quantity;
     if (stack.bound) line.bound = (line.bound ?? 0) + stack.quantity;
+    const charges = chargesOf?.(stack);
+    if (charges) line.charges = [...(line.charges ?? []), charges];
   }
   return [...totals.values()];
 }
@@ -568,6 +597,7 @@ export function gameInventoryFightEffects<T extends { name: string }>(
  *  that hold something are listed. */
 export function gameInventoryBags(
   stacks: readonly GameInventoryStack[],
+  chargesOf?: (stack: GameInventoryStack) => { now: number; max: number } | undefined,
 ): Array<{ holder?: string; items: GameInventoryTotal[] }> {
   const bags = new Map<string, { holder?: string; stacks: GameInventoryStack[] }>([["", { stacks: [] }]]);
   for (const stack of stacks) {
@@ -578,7 +608,10 @@ export function gameInventoryBags(
   }
   return [...bags.values()]
     .filter((bag) => bag.stacks.length > 0)
-    .map((bag) => ({ ...(bag.holder ? { holder: bag.holder } : {}), items: gameInventoryTotals(bag.stacks) }));
+    .map((bag) => ({
+      ...(bag.holder ? { holder: bag.holder } : {}),
+      items: gameInventoryTotals(bag.stacks, chargesOf),
+    }));
 }
 
 /** How many of an item there are, across all its stacks, or in one bag's. */
@@ -1235,7 +1268,11 @@ export function mergeGameInventoryStacks(
   const moved = mergeAmount(from, into, rules);
   if (moved < 1 || gameInventoryMergeOverloads(stacks, from, into, rules)) return stacks;
   return stacks.flatMap((stack) => {
-    if (stack.id === intoId) return [{ ...stack, quantity: stack.quantity + moved }];
+    if (stack.id === intoId) {
+      // Several now, and a loaded count or charges are one item's: each of them reads as full.
+      const { loaded: _loaded, charges: _charges, ...rest } = stack;
+      return [{ ...rest, quantity: stack.quantity + moved }];
+    }
     if (stack.id !== fromId) return [stack];
     return moved < stack.quantity ? [{ ...stack, quantity: stack.quantity - moved }] : [];
   });

@@ -55,7 +55,7 @@ export interface RoleplayWhisperRecipient {
 
 export interface RoleplayCommandActivity {
   command: RoleplayCommand;
-  /** Original model output, kept separate from the user's editable context. */
+  /** Original command text, kept separate from the user's editable context. */
   raw: string;
   deleted?: boolean;
   error?: string;

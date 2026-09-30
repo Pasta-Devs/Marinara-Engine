@@ -305,6 +305,10 @@
         { "id": "quick", "label": "Quick", "per": "turn", "count": 1 }
       ]
     },
+    "offHand": {
+      "$comment": "A warden with a nail in each hand may drive the second in with a quick movement, once the first has been used this turn.",
+      "budget": "quick"
+    },
     "attacks": [
       {
         "list": "arms",
@@ -357,7 +361,9 @@
       { "id": "arm", "label": "Arm" },
       { "id": "coat", "label": "Coat" },
       { "id": "tonic", "label": "Tonic" },
-      { "id": "token", "label": "Token" }
+      { "id": "token", "label": "Token" },
+      { "id": "powder", "label": "Shot and powder" },
+      { "id": "page", "label": "Page" }
     ],
     "rarities": [
       { "id": "common", "label": "Common" },
@@ -366,7 +372,8 @@
     ],
     "tags": [
       { "id": "silver", "label": "Silver" },
-      { "id": "hidden", "label": "Easily hidden" }
+      { "id": "hidden", "label": "Easily hidden" },
+      { "id": "shot", "label": "Shot" }
     ],
     "stats": [
       {
@@ -622,7 +629,8 @@
               "$comment": "Swung with Sinew and the digger's trade, each die counting from its own target of 6 rather than the pool's 7, and a hit adds the spade's own die to the harm.",
               "budget": "act",
               "toHit": { "abilities": ["sinew"], "skill": "dig", "target": { "stat": "target" } },
-              "damage": { "dice": { "stat": "damage" }, "type": { "stat": "harm" } }
+              "damage": { "dice": { "stat": "damage" }, "type": { "stat": "harm" } },
+              "floor": 1
             }
           }
         },
@@ -641,15 +649,94 @@
             "attack": {
               "budget": "act",
               "toHit": { "abilities": ["nerve"], "skill": "wrestle", "target": { "stat": "target" } },
-              "damage": { "dice": { "stat": "damage" }, "type": { "stat": "harm" } }
+              "damage": { "dice": { "stat": "damage" }, "type": { "stat": "harm" } },
+              "offHand": true,
+              "onHit": [
+                {
+                  "$comment": "Driven in deep enough to do two harm, the silver shines in the wound for two turns, and everything else on the watch finds it easier to strike.",
+                  "condition": "marked",
+                  "atLeast": 2,
+                  "rounds": 2
+                }
+              ]
             }
+          }
+        },
+        {
+          "id": "watch-pistol",
+          "label": "Watch pistol",
+          "summary": "A single-shot flintlock, loaded at dusk and fired once, and the long night after it.",
+          "item": {
+            "category": "arm",
+            "rarity": "rare",
+            "stats": { "target": 7, "damage": "2d10", "harm": "tearing", "conceal": "coat" },
+            "slots": { "hands": 1 },
+            "cost": { "amount": 3, "unit": "crown" },
+            "attack": {
+              "$comment": "One ball loaded at a time: it fires what it holds, and loading the next out of the warden's shot and powder takes the warden's whole action.",
+              "budget": "act",
+              "toHit": { "abilities": ["nerve"], "target": { "stat": "target" } },
+              "damage": { "dice": { "stat": "damage" }, "type": { "stat": "harm" } },
+              "ammo": { "tag": "shot" },
+              "clip": { "max": 1, "reload": "act" }
+            }
+          }
+        },
+        {
+          "id": "shot-and-powder",
+          "label": "Shot and powder",
+          "summary": "Lead balls and a horn of powder, enough for one load each.",
+          "item": {
+            "category": "powder",
+            "rarity": "common",
+            "tags": ["shot"],
+            "stack": 20,
+            "cost": { "amount": 1, "unit": "penny" }
           }
         },
         {
           "id": "warming-tonic",
           "label": "Warming tonic",
           "summary": "Bitter, hot and brown. A swallow keeps the cold out of your hands for an hour.",
-          "item": { "category": "tonic", "rarity": "common", "stack": 6, "cost": { "amount": 4, "unit": "penny" } }
+          "item": {
+            "category": "tonic",
+            "rarity": "common",
+            "stack": 6,
+            "cost": { "amount": 4, "unit": "penny" },
+            "use": {
+              "$comment": "A swallow on the quick budget, so it fits beside a blow: it clears one box of harm and gives back a point of Resolve, and the bottle is empty. Used outside a fight, from the inventory or by the Game Master, it does the same.",
+              "kind": "heal",
+              "budget": "quick",
+              "targets": "self",
+              "amount": { "flat": 1 },
+              "restore": { "pool": "resolve", "amount": { "flat": 1 } },
+              "consumes": true
+            }
+          }
+        },
+        {
+          "id": "litany-page",
+          "label": "Page of the vigil litany",
+          "summary": "A torn leaf of the old litany, the ink gone brown. Read aloud, it steadies whoever reads it.",
+          "item": {
+            "category": "page",
+            "rarity": "rare",
+            "stack": 3,
+            "cost": { "amount": 1, "unit": "shilling" },
+            "use": {
+              "$comment": "Read aloud on the quick budget, it gives back two Resolve and the page crumbles. A warden with less than 3 Nerve has to pass a Ward check needing two successes first, and a failed reading uses the page up for nothing. One with Nerve 3 or more reads it straight through.",
+              "kind": "buff",
+              "budget": "quick",
+              "targets": "self",
+              "restore": { "pool": "resolve", "amount": { "flat": 2 } },
+              "consumes": true,
+              "gate": {
+                "check": { "skill": "ward" },
+                "difficulty": 2,
+                "unless": { "value": { "abilityScore": "nerve" }, "atLeast": 3 }
+              }
+            }
+          }
         },
         {
           "id": "dawn-bell",
@@ -661,15 +748,45 @@
             "tags": ["hidden"],
             "stats": { "conceal": "pocket" },
             "slots": { "worn": 1 },
+            "stack": 1,
             "binds": { "restriction": "Only a warden of the dawn watch can bind it." },
-            "worn": { "modifiers": [{ "to": "checks", "skills": ["ward"], "flat": 1 }] }
+            "worn": {
+              "$comment": "Bound, it steadies a warding and the nerve behind it: the bearer is never rattled.",
+              "modifiers": [{ "to": "checks", "skills": ["ward"], "flat": 1 }],
+              "conditionImmunities": ["rattled"]
+            },
+            "use": {
+              "$comment": "Rung once it is bound, it spends one of its three charges, and whatever hears it saves with Steel against 7 or is rattled for two rounds. The charges are the bell's own, so it is one to a stack, and a fight writes what it has left back to the bag.",
+              "kind": "debuff",
+              "budget": "act",
+              "targets": "enemy",
+              "save": { "save": "steel", "onSuccess": "negates" },
+              "saveDifficulty": 7,
+              "applies": [{ "condition": "rattled", "duration": { "rounds": 2 } }],
+              "charges": 1
+            },
+            "charges": {
+              "$comment": "Standing down from the vigil rings it full again, and rung empty it may crack: a 1 on a d20 and it is gone.",
+              "max": 3,
+              "recharge": { "rests": ["vigil"], "amount": "max" },
+              "breaksOn": { "die": 20, "atMost": 1 }
+            }
           }
         },
         {
           "id": "widows-ring",
           "label": "Widow's ring",
           "summary": "A plain black ring. Once it has been worn to a burial it will not come off again.",
-          "item": { "category": "token", "rarity": "rare", "slots": { "worn": 1 }, "binds": { "cursed": true } }
+          "item": {
+            "category": "token",
+            "rarity": "rare",
+            "slots": { "worn": 1 },
+            "binds": { "cursed": true },
+            "worn": {
+              "$comment": "And the hand that wears it strikes cold: a die fewer on every attack.",
+              "modifiers": [{ "to": "attacks", "flat": -1 }]
+            }
+          }
         }
       ]
     }

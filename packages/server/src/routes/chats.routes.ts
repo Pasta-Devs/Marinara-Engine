@@ -5366,7 +5366,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         selectedRangeEndIndex = selectedRange.endIndex;
       }
     }
-    const chatLog = formatRoleplaySummaryChatLog(selectedMessages);
+    const chatLog = formatRoleplaySummaryChatLog(selectedMessages, chat.mode);
 
     const previousSummary = chatMeta.summary ?? null;
     const requestedPromptTemplateId =

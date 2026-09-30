@@ -11,6 +11,7 @@
 import {
   rulesetCatalogItemSchema,
   rulesetItemIssues,
+  rulesetItemStatsRead,
   type RulesetCatalogItem,
   type RulesetDefinition,
   type RulesetItemEffect,
@@ -125,6 +126,29 @@ type EffectModifier = NonNullable<RulesetItemEffect["modifiers"]>[number];
  * name the ruleset does not have is left out, and so is a part with nothing left to be on. Undefined
  * when nothing is left, or when the text says `none`.
  */
+/** What the ruleset calls the number an attack is rolled against, where it names one ("Guard"). */
+export function rulesetDefenseLabel(definition: RulesetDefinition): string | undefined {
+  const defense = definition.combat?.defense;
+  if (!defense) return undefined;
+  const find = (entries: ReadonlyArray<{ id: string; label: string }>, id: string | undefined) =>
+    id === undefined ? undefined : entries.find((entry) => entry.id === id)?.label;
+  return find(definition.sheet.derived, defense.derived) ?? find(definition.sheet.fields, defense.field);
+}
+
+/** Whether a worn or carried part is about a fight: its attacks, or its defense by that word or the
+ *  ruleset's own. */
+function fightTarget(target: string, defenseWord: string | undefined): "attacks" | "defense" | undefined {
+  // "Bonus" after it is how a small model often says it: "+1 attack roll bonus".
+  const key = target
+    .trim()
+    .toLowerCase()
+    .replace(/\s+bonus(?:es)?$/, "");
+  if (/^(?:attacks?|attack rolls?)$/.test(key)) return "attacks";
+  if (/^(?:defen[cs]e)$/.test(key) || (defenseWord !== undefined && key === defenseWord.toLowerCase()))
+    return "defense";
+  return undefined;
+}
+
 function readEffect(
   definition: RulesetDefinition,
   text: string,
@@ -133,7 +157,10 @@ function readEffect(
   if (/^\s*(?:none|no|nothing)\s*$/i.test(text)) return undefined;
   const modifiers: EffectModifier[] = [];
   const fails: string[] = [];
+  const leans: Array<"own-attacks-advantage" | "own-attacks-disadvantage"> = [];
   const abilities: Record<string, { add: number }> = {};
+  // In a fight: attacks, and defense by that word or the ruleset's own for it ("Guard").
+  const defenseWord = definition.combat ? rulesetDefenseLabel(definition) : undefined;
   const add = (modifier: EffectModifier, part: string) => {
     if (modifiers.length >= EFFECT_MODIFIERS_MAX)
       say(`An item does at most ${EFFECT_MODIFIERS_MAX} things this way, so "${part}" was left out.`);
@@ -162,6 +189,24 @@ function readEffect(
     if (suffix) {
       kind = /^check/i.test(suffix[1]!) ? "checks" : "saves";
       target = target.slice(0, suffix.index).trim();
+    }
+    const fight = !kind && definition.combat ? fightTarget(target, defenseWord) : undefined;
+    if (fight) {
+      const how = change.includes("d")
+        ? { dice: change.slice(1), ...(change.startsWith("-") ? { minus: true as const } : {}) }
+        : /^[+-]\d{1,3}$/.test(change)
+          ? { flat: Math.max(-100, Math.min(100, Number(change))) }
+          : undefined;
+      if (fight === "attacks" && (change === "advantage" || change === "disadvantage")) {
+        leans.push(change === "advantage" ? "own-attacks-advantage" : "own-attacks-disadvantage");
+      } else if (
+        !how ||
+        how.flat === 0 ||
+        ("dice" in how && (fight === "defense" || definition.combat?.kind === "dice-pool"))
+      ) {
+        say(`${fight === "attacks" ? "Attacks take" : "Defense takes"} a number such as +1, so "${part}" left it out.`);
+      } else add({ to: fight, ...how } as EffectModifier, part);
+      continue;
     }
     const skills: string[] = [];
     const saves: string[] = [];
@@ -212,8 +257,10 @@ function readEffect(
   }
   const failsSaves = [...new Set(fails)].slice(0, 12);
   const changed = Object.entries(abilities).filter(([, change]) => change.add !== 0);
-  if (!modifiers.length && !failsSaves.length && !changed.length) return undefined;
+  const effects = [...new Set(leans)];
+  if (!modifiers.length && !failsSaves.length && !changed.length && !effects.length) return undefined;
   return {
+    ...(effects.length ? { effects } : {}),
     ...(modifiers.length ? { modifiers } : {}),
     ...(failsSaves.length ? { failsSaves } : {}),
     ...(changed.length ? { abilities: Object.fromEntries(changed) } : {}),
@@ -243,10 +290,12 @@ function capEffect(
     const kept: RulesetItemEffect = { ...effect };
     if (Object.keys(abilities).length) kept.abilities = abilities;
     else delete kept.abilities;
-    effect = kept.effects || kept.modifiers || kept.failsSaves || kept.abilities ? kept : undefined;
+    effect = doesSomething(kept) ? kept : undefined;
   }
   if (!effect?.modifiers) return effect;
   const modifiers = effect.modifiers.flatMap((modifier): EffectModifier[] => {
+    // Speed is measured in the ruleset's distance, not in bonuses, so the cap is not about it.
+    if (modifier.to === "speed") return [modifier];
     const next: EffectModifier = { ...modifier };
     if (next.dice !== undefined && !next.minus) {
       say(`A bonus in dice cannot be held to ${rarityLabel}'s most, so +${next.dice} while ${when} was left out.`);
@@ -262,7 +311,39 @@ function capEffect(
   const capped: RulesetItemEffect = { ...effect };
   if (modifiers.length) capped.modifiers = modifiers;
   else delete capped.modifiers;
-  return capped.effects || capped.modifiers || capped.failsSaves || capped.abilities ? capped : undefined;
+  return doesSomething(capped) ? capped : undefined;
+}
+
+/** A worn effect less its changes to defense, which a stat the defense counts already makes. */
+function withoutDefense(
+  effect: RulesetItemEffect | undefined,
+  counted: readonly string[],
+  block: NonNullable<RulesetDefinition["items"]>,
+  defense: string | undefined,
+  say: (text: string) => void,
+): RulesetItemEffect | undefined {
+  if (!effect?.modifiers?.some((modifier) => modifier.to === "defense")) return effect;
+  const stat = block.stats?.find((entry) => entry.id === counted[0])?.label ?? counted[0];
+  say(`${defense ?? "Defense"} already counts an item's ${stat} stat, so a change to it while worn was left out.`);
+  const modifiers = effect.modifiers.filter((modifier) => modifier.to !== "defense");
+  const kept: RulesetItemEffect = { ...effect };
+  if (modifiers.length) kept.modifiers = modifiers;
+  else delete kept.modifiers;
+  return doesSomething(kept) ? kept : undefined;
+}
+
+/** Whether an effect still does anything, once parts of it were left out. */
+function doesSomething(effect: RulesetItemEffect): boolean {
+  return !!(
+    effect.effects ||
+    effect.modifiers ||
+    effect.failsSaves ||
+    effect.abilities ||
+    effect.resist ||
+    effect.vulnerable ||
+    effect.immune ||
+    effect.conditionImmunities
+  );
 }
 
 /** A stat's value as its type reads it, or why it cannot be. */
@@ -412,8 +493,18 @@ export function inventRulesetItem(
     const read = given !== undefined ? readEffect(definition, given, say) : like?.[when];
     return bonus === undefined ? read : capEffect(read, bonus, rarityLabel ?? "", when, say);
   };
-  const worn = effectOf("worn");
   const carried = effectOf("carried");
+  // A stat the ruleset's defense already adds up is how this item raises it, so a worn change to
+  // defense beside it would count twice: a small model writes "guard=1" and "+1 Guard" for one +1.
+  const counted = definition.combat
+    ? rulesetItemStatsRead(definition, definition.combat.defense).filter((id) => {
+        const value = stats[id];
+        return value !== undefined && value !== 0 && value !== false && value !== "";
+      })
+    : [];
+  const worn = counted.length
+    ? withoutDefense(effectOf("worn"), counted, block, rulesetDefenseLabel(definition), say)
+    : effectOf("worn");
 
   let binds = like?.binds;
   if (proposal.binds !== undefined) {
@@ -444,6 +535,9 @@ export function inventRulesetItem(
     // What it asks of its wearer comes with the item it started from.
     ...(like?.requires ? { requires: like.requires } : {}),
     ...(like?.attack && wearable ? { attack: like.attack } : {}),
+    // What using it does, and the charges that use spends, come with the item it started from.
+    ...(like?.use ? { use: like.use } : {}),
+    ...(like?.charges ? { charges: like.charges } : {}),
   };
   const kept = said.slice(0, NOTES_MAX).map((note) => ({ ...note, text: plainLine(note.text, NOTE_MAX_LENGTH) }));
   return {
