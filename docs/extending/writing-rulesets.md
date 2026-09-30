@@ -634,7 +634,7 @@ The limits are 12 catalogs per ruleset, 2000 entries per catalog either way, and
 
 ## Items: what a party carries
 
-Armor, weapons, potions, gear, ammunition and money are items. An optional `items` block declares the words every item of your ruleset is written in, and a catalog with `holds: "items"` lists the items themselves. Both need Capability API 1.49; the block's `rarityCaps` and `propose`, which govern the items the Game Master invents, need 1.51, a value that reads the items a character holds (`itemStat`) needs 1.52, what an item does to checks while worn or carried, with the block's `bonus` caps, needs 1.53, what an item asks of its wearer and the abilities it changes need 1.54, a weapon's `attack` needs 1.55, what an item does in a fight needs 1.56, what a weapon shoots and holds loaded needs 1.57, and a weapon's modes, off-hand attack, floor and conditions on a hit need 1.58.
+Armor, weapons, potions, gear, ammunition and money are items. An optional `items` block declares the words every item of your ruleset is written in, and a catalog with `holds: "items"` lists the items themselves. Both need Capability API 1.49; the block's `rarityCaps` and `propose`, which govern the items the Game Master invents, need 1.51, a value that reads the items a character holds (`itemStat`) needs 1.52, what an item does to checks while worn or carried, with the block's `bonus` caps, needs 1.53, what an item asks of its wearer and the abilities it changes need 1.54, a weapon's `attack` needs 1.55, what an item does in a fight needs 1.56, what a weapon shoots and holds loaded needs 1.57, a weapon's modes, off-hand attack, floor and conditions on a hit need 1.58, and what using an item does in a fight, with the charges it holds, needs 1.59.
 
 ### The items block
 
@@ -744,12 +744,13 @@ Each entry carries an `item` instead of `rows` or a `creature`:
 - `category` is required. `rarity` and `tags` are optional, and all three name the block's own ids. An item can only have a rarity when the block declares some.
 - `stats`: values for the block's stats. Each one is a value its stat could hold.
 - `slots`: how many of each slot the item takes, never more than a character has.
-- `stack`: the most one stack holds, from 1 to 999,999. Without it, a stack holds as many as any Game Mode stack.
+- `stack`: the most one stack holds, from 1 to 999,999. Without it, a stack holds as many as any Game Mode stack. An item that holds `charges` is one to a stack.
 - `cost`: a whole `amount` of one coin, named by its `unit` id.
 - `binds`: the item has to be bound before it does anything while worn. `restriction` (optional) says in words who may bind it, and `cursed: true` marks one that will not let go. Only a ruleset with `binding` can have items that bind.
 - `worn` and `carried` (optional, Capability API 1.53): what the item does to its holder's checks and saves while it is worn, and while it is only carried, (1.54) the abilities it sets or raises, and (1.56) what it does in a fight. See [Checks outside a fight](#checks-outside-a-fight) and [Armor and worn effects in a fight](#armor-and-worn-effects-in-a-fight).
 - `requires` (optional, Capability API 1.54): what the item asks of whoever wears it, and what applies while they fall short. See [Checks outside a fight](#checks-outside-a-fight).
 - `attack` (optional, Capability API 1.55): what the item does as a weapon in a fight, while it is worn, (1.57) what it shoots and holds loaded, and (1.58) its other modes, an off-hand attack, a floor to its harm and the conditions it puts on a hit. See [Weapons in a fight](#weapons-in-a-fight), [Ammunition and reloading](#ammunition-and-reloading) and [Modes, a second weapon, a floor and conditions on a hit](#modes-a-second-weapon-a-floor-and-conditions-on-a-hit).
+- `use` and `charges` (optional, Capability API 1.59): what using the item does in a fight, and the charges it holds for that use to spend. See [Using items in a fight](#using-items-in-a-fight).
 
 An item carries no `mechanics`: what it does is written in its `item` block.
 
@@ -772,8 +773,9 @@ Everything above is checked when the ruleset is imported, and your catalogs of i
 
 - **What an item does while worn or carried** shows on the selected stack and in the picker ("While worn: -1 on checks (Sneak)"), and the Game Master sees it beside the item (`worn: -1 on checks (Sneak)`). Checks outside a fight apply it (see Checks outside a fight, below).
 - **What a weapon does** shows the same way ("Attack (Action): Brawn to hit, 1d6 + Brawn cut damage"), and a fight offers it while it is held (see Weapons in a fight, below).
+- **What using an item does** shows the same way ("Use (Action): heals 1d4 + 1, range 0 paces, used up"), with the charges it has left, and a fight offers it (see Using items in a fight, below).
 
-A fight already spends one of your items the way it spends any item, unless `native` is `false`. Whatever `native` says, the sheet can read your items (below), a held weapon is an attack in a ruleset fight, shooting what it draws from the bag, and what an item does while worn or carried counts in one (see Armor and worn effects in a fight, below). Using items by their own rules comes in a later release, and money after that.
+A fight already spends one of your items the way it spends any item, unless `native` is `false`. Whatever `native` says, the sheet can read your items (below), a held weapon is an attack in a ruleset fight, shooting what it draws from the bag, what an item does while worn or carried counts in one (see Armor and worn effects in a fight, below), and an item with a `use` is used in one by its own rules (see Using items in a fight, below). Using items outside a fight by their own rules comes in a later release, and money after that.
 
 ### Items on the sheet
 
@@ -948,6 +950,41 @@ Gravewatch's cursed widow's ring costs a die on every attack, its bound Dawn bel
 A fight reads each item once, named for the stack ("Widow's ring" beside a roll in the log, and on a defense), as a check does; an unmet requirement's `otherwise` counts in a fight too, so armor too heavy for its wearer can cost speed. An item's details and the Game Master's line say all of it ("While worn: -1 on attacks", "worn: +1 on checks (Ward), immune to Rattled"). Armor that simply adds to a defense or a soak is an item stat read with `itemStat` (see Items on the sheet), as Ember Roads' Guard reads the coat worn.
 
 **Hardness.** Where initiative is a number attacks move, `combat.pool.hardness` is a fighter's hardness, read off their sheet as the fight begins (their armor's, through `itemStat`), and a creature gives its own `hardness`. A spending blow whose dice are below it lands and does nothing: the maker's number still goes back to the base, the log says so ("Ada's Grave spade lands on the warden with 5 dice, below a hardness of 6, and does nothing."), and the menu forecasts no harm for it. Only a ruleset with a style that spends may have it, and a creature written as a sheet takes it from the sheet.
+
+### Using items in a fight
+
+An item may be used in a fight (Capability API 1.59): a poultice pressed on a cut, a tonic swallowed, a bell rung. Its `use` says what using it does in the words a catalog entry's `mechanics` use (see [What a fight reads from `mechanics`](#what-a-fight-reads-from-mechanics)): `kind` (`heal`, `attack`, `buff` or `debuff`), `amount`, `damageType`, `plus`, `attackRoll`, `save`, `applies`, `temporary`, `range`, `area`, `targets`, `targetCount` and `friendlyFire`, with the `budget` it spends, or `free`. Ember Roads' poultice, and Gravewatch's warming tonic and dawn bell:
+
+```json
+"use": { "kind": "heal", "budget": "act", "range": 0, "targets": "ally", "amount": { "dice": "1d4", "flat": 1 }, "consumes": true }
+```
+
+```json
+"use": { "kind": "heal", "budget": "quick", "targets": "self", "amount": { "flat": 1 }, "consumes": true }
+```
+
+```json
+"stack": 1,
+"use": {
+  "kind": "debuff",
+  "budget": "act",
+  "targets": "enemy",
+  "save": { "save": "steel", "onSuccess": "negates" },
+  "saveDifficulty": 7,
+  "applies": [{ "condition": "rattled", "duration": { "rounds": 2 } }],
+  "charges": 1
+},
+"charges": { "max": 3 }
+```
+
+- A use is on the fight menu under **Items**, named for the item ("Poultice") whatever the stack is called. An item that takes slots or binds is used while it is worn (and bound, where it binds), as the bell is; any other while it is carried.
+- It spends a budget, or is `free`, and pays with itself: a `cost`, `perCostStep`, `check`, `concentration`, `reaction`, `scales`, `gives`, `standard` or `rider` is for a catalog entry a sheet holds, and is refused on a use.
+- `toHit`, on a use with `attackRoll`, is what it adds to hit, as a weapon's `toHit` says it (see Weapons in a fight): abilities, a skill, a bonus and, in a pool fight, a per-die target. Without it the roll adds nothing.
+- `saveDifficulty`: the number a save it asks for is rolled against (its own, one that ends a condition it applies, or a clause's without a `difficulty`), written down or read off a number stat of the item. An entry on a sheet reads that number off its catalog's source; an item has none, so it says its own.
+- `consumes: true` takes one off the item's stack each time it is used, and the menu says how many are left. The last one used takes the stack with it.
+- `charges` spends that many of the item's own `charges`, whose `max` is how many it holds, from 1 to 100, written down or read off a number stat of the item (an item that gives that stat as less than 1 is refused, and one past 100 holds 100). The count is kept on the item's inventory stack, so a bell rung twice in one fight has one charge left in the next, and one nobody has rung is full. Charges are one item's, so an item that holds them has a `stack` of 1. A use is used up or spends charges, never both, and an item's charges are always spent by its use. Nothing refills them yet: charges regained on a rest come in a later release.
+
+What a fight uses up and the charges it leaves are written to the inventory as each step is taken, as a weapon's shots are, and the journal says what was used. The fight log says each use ("Poultice: 1 of 2 left.", "Dawn bell: 2 of 3 left."). A party member the Engine plays uses a heal only on somebody hurt, and nobody uses an item to strike at somebody walking away. The item's details and the Game Master's line say what using it does: "Use (Action): heals 1d4 + 1, range 0 paces, used up" and `use (Act): Steel 7 save negates it, Rattled, 1 of 3 charges`, and the details show the charges left. An item the Game Master invents `like=` one of yours is used as that one is, charges and all.
 
 ## Battles: lending the sheet to Marinara's combat
 

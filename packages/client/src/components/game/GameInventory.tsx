@@ -59,6 +59,8 @@ export interface InventoryItem {
   bound?: true;
   /** What a weapon with a clip has loaded, as a fight left it. Absent reads as full. */
   loaded?: number;
+  /** What an item that holds charges has left, as a fight left it. Absent reads as full. */
+  charges?: number;
 }
 
 /** One party member's bag: `holder` as a stack has it (absent for the player), and the name shown. */
@@ -636,6 +638,7 @@ export function GameInventory({
                 details={selectedRulesetItem}
                 bound={selectedInventoryItem?.bound === true}
                 loaded={selectedInventoryItem?.loaded}
+                charges={selectedInventoryItem?.charges}
               />
             )}
             {onRenameItem && selectedInventoryItem && (
@@ -1060,14 +1063,17 @@ function RulesetItemDetails({
   details,
   bound,
   loaded,
+  charges,
 }: {
   details: RulesetItemBookEntry;
   bound: boolean;
   loaded?: number;
+  charges?: number;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const { facts } = details;
   const clip = facts.attack?.clip;
+  const chargesMax = facts.use?.charges?.max;
   const binds = details.entry.item?.binds;
   const kind = [facts.category, facts.rarity, ...facts.tags].filter((word): word is string => !!word);
   const stats = rulesetItemStatsLine(facts);
@@ -1089,6 +1095,14 @@ function RulesetItemDetails({
       {clip && (
         <div className="text-[0.65rem] leading-tight text-white/70">
           {localizeUi("ui.game.gameinventory.loaded", { now: Math.min(loaded ?? clip.max, clip.max), max: clip.max })}
+        </div>
+      )}
+      {chargesMax !== undefined && (
+        <div className="text-[0.65rem] leading-tight text-white/70">
+          {localizeUi("ui.game.gameinventory.chargesLeft", {
+            now: Math.min(charges ?? chargesMax, chargesMax),
+            max: chargesMax,
+          })}
         </div>
       )}
       {details.summary && <div className="text-[0.65rem] leading-tight text-white/55">{details.summary}</div>}

@@ -236,6 +236,8 @@ export function rulesetOpportunityAttack(combatant: RulesetCombatant): RulesetCo
     // Nor is a weapon with nothing loaded or nothing to shoot, nor a second blow in the off hand,
     // which follows the holder's own attack on their own turn.
     if (!rulesetShotsAvailable(combatant, action) || action.offHandOf !== undefined) continue;
+    // Nor is using an item: that is its holder's own choice on their own turn.
+    if (action.itemUse) continue;
     const average = action.damage.count * ((action.damage.sides + 1) / 2) + action.damage.flat;
     if (average > most) {
       most = average;

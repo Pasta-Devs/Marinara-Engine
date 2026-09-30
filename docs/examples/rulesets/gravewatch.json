@@ -697,7 +697,20 @@
           "id": "warming-tonic",
           "label": "Warming tonic",
           "summary": "Bitter, hot and brown. A swallow keeps the cold out of your hands for an hour.",
-          "item": { "category": "tonic", "rarity": "common", "stack": 6, "cost": { "amount": 4, "unit": "penny" } }
+          "item": {
+            "category": "tonic",
+            "rarity": "common",
+            "stack": 6,
+            "cost": { "amount": 4, "unit": "penny" },
+            "use": {
+              "$comment": "A swallow on the quick budget, so it fits beside a blow: it clears one box of harm, and the bottle is empty.",
+              "kind": "heal",
+              "budget": "quick",
+              "targets": "self",
+              "amount": { "flat": 1 },
+              "consumes": true
+            }
+          }
         },
         {
           "id": "dawn-bell",
@@ -709,12 +722,24 @@
             "tags": ["hidden"],
             "stats": { "conceal": "pocket" },
             "slots": { "worn": 1 },
+            "stack": 1,
             "binds": { "restriction": "Only a warden of the dawn watch can bind it." },
             "worn": {
               "$comment": "Bound, it steadies a warding and the nerve behind it: the bearer is never rattled.",
               "modifiers": [{ "to": "checks", "skills": ["ward"], "flat": 1 }],
               "conditionImmunities": ["rattled"]
-            }
+            },
+            "use": {
+              "$comment": "Rung once it is bound, it spends one of its three charges, and whatever hears it saves with Steel against 7 or is rattled for two rounds. The charges are the bell's own, so it is one to a stack, and a fight writes what it has left back to the bag.",
+              "kind": "debuff",
+              "budget": "act",
+              "targets": "enemy",
+              "save": { "save": "steel", "onSuccess": "negates" },
+              "saveDifficulty": 7,
+              "applies": [{ "condition": "rattled", "duration": { "rounds": 2 } }],
+              "charges": 1
+            },
+            "charges": { "max": 3 }
           }
         },
         {

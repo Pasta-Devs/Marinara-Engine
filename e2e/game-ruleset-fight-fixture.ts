@@ -133,7 +133,7 @@ export async function openGame(page: Page, chatId: string): Promise<void> {
 export async function savedInventory(request: APIRequestContext, chatId: string) {
   const row = await (await request.get(`/api/chats/${chatId}`)).json();
   const metadata = typeof row.metadata === "string" ? JSON.parse(row.metadata) : row.metadata;
-  return metadata.gameInventory as Array<{ id: string; quantity: number; loaded?: number }>;
+  return metadata.gameInventory as Array<{ id: string; quantity: number; loaded?: number; charges?: number }>;
 }
 
 /** Imports on for the length of one test, and back to how they were. */

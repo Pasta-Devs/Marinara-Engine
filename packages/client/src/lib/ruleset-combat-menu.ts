@@ -18,6 +18,7 @@ export const RULESET_MENU_KINDS = [
   "attack",
   "reload",
   "ability",
+  "item",
   "block",
   "contest",
   "standard",

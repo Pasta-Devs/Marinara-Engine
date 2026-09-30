@@ -277,12 +277,14 @@ try {
     const issue = (minor: number, doc: Record<string, any>, paths?: string[], files?: Map<string, unknown>) =>
       getCapabilityPackageInstallIssue(manifest(minor, paths) as any, doc, files);
     /** The examples less what their items do in a fight. */
-    /** Less what the examples' weapons shoot and load and the other ways they fight, which are
-     *  1.57's and 1.58's and have lanes of their own. */
+    /** Less what the examples' weapons shoot and load, the other ways they fight and what their items
+     *  do when used, which are 1.57's, 1.58's and 1.59's and have lanes of their own. */
     const withoutAmmo = (doc: Record<string, any>) => {
       delete doc.combat?.offHand;
       for (const entry of itemCatalogOf(doc).entries) {
         for (const key of ["ammo", "clip", "modes", "offHand", "floor", "onHit"]) delete entry.item.attack?.[key];
+        delete entry.item.use;
+        delete entry.item.charges;
       }
     };
     const withoutArmor = (doc: Record<string, any>) => {

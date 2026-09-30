@@ -515,7 +515,12 @@ const capabilityPackageManifestBaseSchema = z
 //        target `onHit`. Not a soft seam, for the same reason as 1.20 through 1.57: an Engine that
 //        cannot read these refuses the whole ruleset or catalog file, so a package that ships any of
 //        them declares 1.58. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 58 } as const);
+// 1.59: an item may be `use`d in a fight (a heal, an attack, a buff or a debuff, on a budget or
+//        free, that is used up or spends the item's `charges`), and a ruleset fight writes what it
+//        used up and the charges left to the inventory. Not a soft seam, for the same reason as 1.20
+//        through 1.58: an Engine that cannot read these refuses the whole ruleset or catalog file, so
+//        a package that ships any of them declares 1.59. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 59 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

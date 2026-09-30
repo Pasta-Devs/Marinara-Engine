@@ -123,6 +123,54 @@ function rulesetItemAttackLines(facts: RulesetItemFacts, t: TFunction): string[]
   ];
 }
 
+/** A use's save: "Steel save of 7 for half", or without its number where the item does not give it. */
+function rulesetItemUseSaveText(save: NonNullable<NonNullable<RulesetItemFacts["use"]>["save"]>, t: TFunction): string {
+  const saved =
+    save.difficulty !== undefined
+      ? t("ui.game.gameinventory.useSaveOf", { save: save.save, difficulty: save.difficulty })
+      : t("ui.game.gameinventory.useSave", { save: save.save });
+  if (save.onSuccess === "half") return t("ui.game.gameinventory.useSaveHalf", { save: saved });
+  if (save.onSuccess === "negates") return t("ui.game.gameinventory.useSaveNegates", { save: saved });
+  return saved;
+}
+
+/** What using an item does, in one line: "Use (Action): heals 1d4+1, used up". Empty for an item
+ *  nobody uses. */
+function rulesetItemUseLine(facts: RulesetItemFacts, t: TFunction): string {
+  const use = facts.use;
+  if (!use) return "";
+  const distance = (value: number) =>
+    use.unit ? t("game.ruleset.catalog.mechanics.distance", { value, unit: use.unit }) : String(value);
+  const parts = [
+    use.kind === "heal" && use.amount ? t("ui.game.gameinventory.useHeals", { amount: use.amount }) : "",
+    use.kind !== "heal" && use.amount
+      ? use.type
+        ? t("ui.game.gameinventory.useDamageTyped", { amount: use.amount, type: use.type })
+        : t("ui.game.gameinventory.useDamage", { amount: use.amount })
+      : "",
+    use.toHit
+      ? use.target !== undefined
+        ? t("ui.game.gameinventory.useToHitAt", { toHit: use.toHit, target: use.target })
+        : t("ui.game.gameinventory.useToHit", { toHit: use.toHit })
+      : "",
+    use.save ? rulesetItemUseSaveText(use.save, t) : "",
+    use.applies?.length ? t("ui.game.gameinventory.useApplies", { conditions: use.applies.join(", ") }) : "",
+    use.temporary ? t("ui.game.gameinventory.useTemporary", { amount: use.temporary }) : "",
+    use.range !== undefined ? t("game.ruleset.catalog.mechanics.range", { distance: distance(use.range) }) : "",
+    use.area
+      ? t("game.ruleset.catalog.mechanics.area", {
+          shape: t(`game.ruleset.catalog.shape.${use.area.shape}`),
+          distance: distance(use.area.size),
+        })
+      : "",
+    use.consumes ? t("ui.game.gameinventory.useConsumes") : "",
+    use.charges ? t("ui.game.gameinventory.useCharges", { cost: use.charges.cost, max: use.charges.max }) : "",
+  ].filter(Boolean);
+  return use.budget
+    ? t("ui.game.gameinventory.use", { budget: use.budget, does: parts.join(", ") })
+    : t("ui.game.gameinventory.useFree", { does: parts.join(", ") });
+}
+
 /** What an item does while worn, and while only carried, one line each: "While worn: -1 on Sneak
  *  checks". Empty when it does nothing either way. */
 export function rulesetItemEffectLines(facts: RulesetItemFacts, t: TFunction): string[] {
@@ -179,8 +227,10 @@ export function rulesetItemEffectLines(facts: RulesetItemFacts, t: TFunction): s
       ? t("ui.game.gameinventory.effectOnNamedSaves", { change, names })
       : t("ui.game.gameinventory.effectOnSaves", { change });
   };
+  const useLine = rulesetItemUseLine(facts, t);
   return [
     ...rulesetItemAttackLines(facts, t),
+    ...(useLine ? [useLine] : []),
     ...(["worn", "carried"] as const).flatMap((when) =>
       facts[when]?.length
         ? [

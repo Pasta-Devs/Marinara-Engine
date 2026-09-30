@@ -194,12 +194,15 @@ try {
 
   // ── Install gate: every 1.54 key, in the ruleset file and in a catalog file ──
   {
-    /** Less what the examples' items do in a fight, which is 1.56's and has a lane of its own. */
+    /** Less what the examples' items do in a fight and when used, which are 1.56's and 1.59's and have
+     *  lanes of their own. */
     const withoutArmor = (text: string) =>
       JSON.stringify(
         variant(text, (doc) => {
           for (const catalog of doc.catalogs) {
             for (const entry of catalog.entries ?? []) {
+              delete entry.item?.use;
+              delete entry.item?.charges;
               for (const when of ["worn", "carried"]) {
                 const effect = entry.item?.[when];
                 if (!effect) continue;

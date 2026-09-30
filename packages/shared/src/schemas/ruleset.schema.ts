@@ -1202,7 +1202,7 @@ const RIDER_ENTRY_FORBIDS = [
 /** What an entry DOES. The Engine does not act on it in this slice: it validates it and the client
  *  shows one compact line. A later combat bridge turns it into the Engine's own `CombatSkill`, so
  *  the vocabulary is closed and strict, and a typo is refused now rather than ignored then. */
-const catalogMechanicsSchema = z
+const catalogMechanicsObject = z
   .object({
     kind: z.enum(["attack", "heal", "buff", "debuff", "utility", "rider"]),
     /** In the catalog's own distance unit. 0 is self or touch. */
@@ -1324,64 +1324,65 @@ const catalogMechanicsSchema = z
     /** What this adds to the first qualifying hit of a period, all by itself. */
     rider: catalogRiderSchema.optional(),
   })
-  .strict()
-  .superRefine((mechanics, ctx) => {
-    // A rider and the kind that says it is one always come together: one without the other is an
-    // entry that either does nothing or says it is passive and then asks to be taken.
-    if (mechanics.rider && mechanics.kind !== "rider") {
+  .strict();
+
+const catalogMechanicsSchema = catalogMechanicsObject.superRefine((mechanics, ctx) => {
+  // A rider and the kind that says it is one always come together: one without the other is an
+  // entry that either does nothing or says it is passive and then asks to be taken.
+  if (mechanics.rider && mechanics.kind !== "rider") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["kind"],
+      message: 'An entry with a rider is of the kind "rider"',
+    });
+  }
+  if (mechanics.kind === "rider") {
+    if (!mechanics.rider) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["kind"],
-        message: 'An entry with a rider is of the kind "rider"',
+        path: ["rider"],
+        message: 'A "rider" entry says what its rider does',
       });
     }
-    if (mechanics.kind === "rider") {
-      if (!mechanics.rider) {
+    for (const key of RIDER_ENTRY_FORBIDS) {
+      if (mechanics[key] !== undefined) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["rider"],
-          message: 'A "rider" entry says what its rider does',
+          path: [key],
+          message: "A rider is passive: nobody takes it, so it carries nothing that would be taken",
         });
       }
-      for (const key of RIDER_ENTRY_FORBIDS) {
-        if (mechanics[key] !== undefined) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [key],
-            message: "A rider is passive: nobody takes it, so it carries nothing that would be taken",
-          });
-        }
-      }
     }
-    // A second amount needs a first one to ride: a blow made of nothing but clauses would be an
-    // amount written in the one place nothing reads it.
-    if (mechanics.plus && !mechanics.amount) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["plus"], message: "A clause needs an amount beside it" });
-    }
-    // An `amount` that MENDS is health given back, and there is nothing for a second damage clause
-    // to be typed against or saved out of.
-    if (mechanics.plus && mechanics.kind === "heal") {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["plus"], message: "A heal carries no damage clauses" });
-    }
-    // Free of the economy, or spending one named budget of it. Both at once says two things about
-    // the same use and the menu would have to pick one.
-    if (mechanics.free && mechanics.budget !== undefined) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["free"],
-        message: "Something free spends no budget, so it names none",
-      });
-    }
-    // Naming one twice would offer it twice. (Naming the MAIN budget is refused where the ruleset's
-    // own economy is in reach, which is not here.)
-    if (mechanics.standard && mechanics.standard.actions.length !== new Set(mechanics.standard.actions).size) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["standard", "actions"],
-        message: "The same standard action is named twice",
-      });
-    }
-  });
+  }
+  // A second amount needs a first one to ride: a blow made of nothing but clauses would be an
+  // amount written in the one place nothing reads it.
+  if (mechanics.plus && !mechanics.amount) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["plus"], message: "A clause needs an amount beside it" });
+  }
+  // An `amount` that MENDS is health given back, and there is nothing for a second damage clause
+  // to be typed against or saved out of.
+  if (mechanics.plus && mechanics.kind === "heal") {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["plus"], message: "A heal carries no damage clauses" });
+  }
+  // Free of the economy, or spending one named budget of it. Both at once says two things about
+  // the same use and the menu would have to pick one.
+  if (mechanics.free && mechanics.budget !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["free"],
+      message: "Something free spends no budget, so it names none",
+    });
+  }
+  // Naming one twice would offer it twice. (Naming the MAIN budget is refused where the ruleset's
+  // own economy is in reach, which is not here.)
+  if (mechanics.standard && mechanics.standard.actions.length !== new Set(mechanics.standard.actions).size) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["standard", "actions"],
+      message: "The same standard action is named twice",
+    });
+  }
+});
 
 /** What the picker may filter on. `startFrom` names a sheet field the picker opens on, so a caster
  *  sees their own school first. Nothing here knows the word "spell" or "class". */
@@ -1962,19 +1963,23 @@ const itemAttackDistanceSchema = orItemStat(z.number().finite().min(0).max(10000
  * `abilities`, a `bonus`, a `type`), how far it reaches and carries (a weapon with both is thrown),
  * the dice it deals with a hand free beside it (`versatile`), and how many strikes one spend buys.
  */
+/** What an item adds to hit: the best of some `abilities`, a `skill`, the proficiency bonus where
+ *  `proficiency` reads above 0 off the holder's sheet, a `bonus`, and in a pool fight its own per-die
+ *  `target`. A weapon's attack reads it, and so does an item's use that rolls to hit. */
+const itemToHitSchema = z
+  .object({
+    abilities: itemAttackAbilitiesSchema.optional(),
+    skill: orItemStat(sheetId).optional(),
+    proficiency: rulesetValueRefSchema.optional(),
+    bonus: orItemStat(z.number().int().min(-100).max(100)).optional(),
+    target: orItemStat(z.number().int().min(1).max(100)).optional(),
+  })
+  .strict();
+
 export const rulesetItemAttackSchema = z
   .object({
     budget: sheetId,
-    toHit: z
-      .object({
-        abilities: itemAttackAbilitiesSchema.optional(),
-        skill: orItemStat(sheetId).optional(),
-        proficiency: rulesetValueRefSchema.optional(),
-        bonus: orItemStat(z.number().int().min(-100).max(100)).optional(),
-        target: orItemStat(z.number().int().min(1).max(100)).optional(),
-      })
-      .strict()
-      .default({}),
+    toHit: itemToHitSchema.default({}),
     damage: z
       .object({
         dice: orItemStat(catalogDice).optional(),
@@ -2054,6 +2059,50 @@ export const rulesetItemAttackSchema = z
   .strict();
 export type RulesetItemAttack = z.infer<typeof rulesetItemAttackSchema>;
 
+/**
+ * What an item does when it is used, in the words a catalog entry's `mechanics` has (heal, harm, a
+ * save, conditions, temporary points, range and area), less what only a sheet row can mean: a cost
+ * off a pool, a check, a reaction, concentration, scaling and a turn's economy. It spends its own
+ * `budget` (unless `free`), rolls to hit with its own `toHit` where it rolls, and asks its own
+ * `saveDifficulty` where it asks a save. It may take the item off its stack (`consumes`) or spend the
+ * item's `charges`.
+ */
+/** The most charges an item holds, written down or read off a stat, and so the most one use spends. */
+export const RULESET_ITEM_CHARGES_MAX = 100;
+
+export const rulesetItemUseSchema = catalogMechanicsObject
+  .omit({
+    kind: true,
+    cost: true,
+    perCostStep: true,
+    check: true,
+    concentration: true,
+    reaction: true,
+    scales: true,
+    gives: true,
+    standard: true,
+    rider: true,
+  })
+  .extend({
+    kind: z.enum(["attack", "heal", "buff", "debuff"]),
+    toHit: itemToHitSchema.optional(),
+    saveDifficulty: orItemStat(z.number().int().min(0).max(100)).optional(),
+    consumes: z.literal(true).optional(),
+    charges: z.number().int().min(1).max(RULESET_ITEM_CHARGES_MAX).optional(),
+  })
+  .strict()
+  .superRefine((use, ctx) => {
+    const issue = (path: string, message: string) =>
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
+    if (use.plus && !use.amount) issue("plus", "A clause needs an amount beside it");
+    if (use.plus && use.kind === "heal") issue("plus", "A heal carries no damage clauses");
+    if (use.free && use.budget !== undefined) issue("free", "Something free spends no budget, so it names none");
+    if (use.consumes && use.charges !== undefined) {
+      issue("charges", "A use that uses the item up spends no charges of it");
+    }
+  });
+export type RulesetItemUse = z.infer<typeof rulesetItemUseSchema>;
+
 const catalogItemSchema = z
   .object({
     category: sheetId,
@@ -2082,6 +2131,13 @@ const catalogItemSchema = z
     requires: z.lazy(() => z.array(rulesetItemRequirementSchema).min(1).max(4)).optional(),
     /** What it does as a weapon in a fight, while it is worn. */
     attack: rulesetItemAttackSchema.optional(),
+    /** What it does when it is used: from the bag, or while worn where it takes a slot or binds. */
+    use: rulesetItemUseSchema.optional(),
+    /** How many charges it holds, which its use spends. The count is kept on its stack. */
+    charges: z
+      .object({ max: orItemStat(z.number().int().min(1).max(RULESET_ITEM_CHARGES_MAX)) })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -5366,6 +5422,21 @@ function itemIssues(
     });
   }
   if (item.attack) attackIssues(definition, item, item.attack, [...at, "attack"], add);
+  if (item.use) useIssues(definition, item, item.use, [...at, "use"], add);
+  if (item.charges) {
+    itemValueChecker(definition, add)(item.charges.max, "number", [...at, "charges", "max"]);
+    if (item.use?.charges === undefined) {
+      add([...at, "charges"], "An item's charges are spent by its use, so its use spends some");
+    }
+    // Charges are one item's, so a stack of several would hold none of its own.
+    if (item.stack !== 1) add([...at, "stack"], "An item that holds charges is one to a stack, so its stack is 1");
+    // Read off a stat, the item's own number is what it holds: fewer than one is an item never used.
+    const max = item.charges.max;
+    const given = typeof max === "object" ? item.stats?.[max.stat] : undefined;
+    if (typeof given === "number" && given < 1) {
+      add([...at, "stats", (max as { stat: string }).stat], "An item that holds charges holds at least one");
+    }
+  }
 }
 
 /** The kinds of harm and the conditions an item's effect keeps off its holder are the ruleset's own:
@@ -5401,33 +5472,127 @@ function itemHideIssues(
   });
 }
 
-/** What is wrong with a weapon's attack: every id it names is the ruleset's, every stat it reads is
- *  one of the item's own kind, and it asks only for what this ruleset's fights can do. */
-function attackIssues(
+/** What is wrong with what an item adds to hit: every id it names and every stat it reads, the
+ *  proficiency read off the holder's sheet, and a per-die target only where a pool's target moves. */
+function toHitIssues(
+  definition: RulesetDefinition,
+  toHit: z.infer<typeof itemToHitSchema>,
+  at: (string | number)[],
+  add: (path: (string | number)[], message: string) => void,
+  whose: string,
+): void {
+  const value = itemValueChecker(definition, add);
+  value(toHit.abilities, "abilities", [...at, "abilities"]);
+  value(toHit.skill, "skill", [...at, "skill"]);
+  value(toHit.bonus, "number", [...at, "bonus"]);
+  value(toHit.target, "number", [...at, "target"]);
+  if (toHit.proficiency) {
+    const names = rulesetSheetNames(definition.sheet, definition.items);
+    for (const issue of rulesetValueRefIssues(toHit.proficiency, names, names.derived, true)) {
+      add([...at, "proficiency", issue.key], issue.message);
+    }
+  }
+  if (toHit.target !== undefined) {
+    const target = definition.resolution.kind === "dice-pool" ? definition.resolution.target : undefined;
+    if (!target) {
+      add([...at, "target"], `${whose} own target is a pool fight's; in this ruleset its bonus says the same`);
+    } else if (target.min >= target.max) {
+      add([...at, "target"], `${whose} own target moves the pool's, so target.min is below target.max`);
+    }
+  }
+}
+
+/** What is wrong with an item's use: the saves, damage types and conditions it names are the
+ *  ruleset's, a save has a number to be rolled against, the charges it spends are the item's, and
+ *  where the ruleset has fights, the budget it spends and what it adds to hit. */
+function useIssues(
   definition: RulesetDefinition,
   item: RulesetCatalogItem,
-  attack: RulesetItemAttack,
+  use: RulesetItemUse,
   at: (string | number)[],
   add: (path: (string | number)[], message: string) => void,
 ): void {
-  // A ruleset without a combat block has no fight, so a weapon there is carried and read by nothing,
-  // exactly as a catalog entry's `budget` is.
+  const saves = new Set(definition.sheet.saves.map((save) => save.id));
+  const conditions = new Set(definition.sheet.live.conditions.map((condition) => condition.id));
+  const declared = definition.combat?.damageTypes;
+  const types = declared ? new Set(declared.map((type) => type.trim().toLowerCase())) : null;
+  const value = itemValueChecker(definition, add);
+  if (use.save && !saves.has(use.save.save)) add([...at, "save", "save"], `Unknown save "${use.save.save}"`);
+  if (use.damageType && types && !types.has(use.damageType.trim().toLowerCase())) {
+    add([...at, "damageType"], `Unknown damage type "${use.damageType}"`);
+  }
+  use.plus?.forEach((clause, index) => {
+    if (clause.type && types && !types.has(clause.type.trim().toLowerCase())) {
+      add([...at, "plus", index, "type"], `Unknown damage type "${clause.type}"`);
+    }
+    if (clause.save && !saves.has(clause.save.save)) {
+      add([...at, "plus", index, "save", "save"], `Unknown save "${clause.save.save}"`);
+    }
+  });
+  use.applies?.forEach((applies, index) => {
+    if (!conditions.has(applies.condition)) {
+      add([...at, "applies", index, "condition"], `Unknown condition "${applies.condition}"`);
+    }
+    if (applies.saveEnds && !saves.has(applies.saveEnds.save)) {
+      add([...at, "applies", index, "saveEnds", "save"], `Unknown save "${applies.saveEnds.save}"`);
+    }
+  });
+  // An item has no sheet row to read a save's number off, so it says its own.
+  const asksForSave =
+    !!use.save ||
+    !!use.applies?.some((applies) => applies.saveEnds) ||
+    !!use.plus?.some((clause) => clause.save && clause.save.difficulty === undefined);
+  if (asksForSave && use.saveDifficulty === undefined) {
+    add([...at, "saveDifficulty"], "A use that asks for a save says the number it is saved against");
+  }
+  value(use.saveDifficulty, "number", [...at, "saveDifficulty"]);
+  if (use.charges !== undefined && !item.charges) {
+    add([...at, "charges"], "A use that spends charges is on an item that holds some");
+  }
+  if (use.toHit && !use.attackRoll) add([...at, "toHit"], "A to-hit is for a use that rolls to hit");
+  // A wound track has boxes and no buffer, as an ability's temporary points are refused there too.
+  const health = definition.combat?.health ?? definition.battle?.health;
+  const track =
+    health && "track" in health ? definition.sheet.live.tracks.find((one) => one.id === health.track) : null;
+  if (use.temporary && (track?.levels?.length || track?.boxes)) {
+    add([...at, "temporary"], `Health is the wound track "${track.id}", which carries no buffer for temporary points`);
+  }
+  // Where the ruleset has no fight, the rest is read by nothing.
   const combat = definition.combat;
   if (!combat) return;
-  // Used while worn, so an item that could never be worn could never be used.
-  const takesSlots = Object.values(item.slots ?? {}).some((count) => count > 0);
-  if (!takesSlots && !item.binds) add(at, "A weapon is used while it is worn, so it takes a slot or binds");
-  if (!combat.economy.budgets.some((budget) => budget.id === attack.budget)) {
-    add([...at, "budget"], `Unknown budget "${attack.budget}"`);
+  if (!use.free && use.budget === undefined) add([...at, "budget"], "A use spends a budget, or is free");
+  if (use.budget !== undefined && !combat.economy.budgets.some((budget) => budget.id === use.budget)) {
+    add([...at, "budget"], `Unknown budget "${use.budget}"`);
   }
+  if (use.toHit) toHitIssues(definition, use.toHit, [...at, "toHit"], add, "An item's");
+  // A pool fight throws harm with the ruleset's own die; healing is an amount and keeps its dice.
+  const poolDie = combat.kind === "dice-pool" ? poolDieSides(definition) : undefined;
+  if (poolDie !== undefined && use.kind !== "heal") {
+    const wrongDie = (dice: string | undefined, path: (string | number)[]) => {
+      if (dice === undefined || Number(/d(\d+)/.exec(dice)?.[1]) === poolDie) return;
+      add(path, `A "dice-pool" fight throws d${poolDie}s, so damage dice are d${poolDie}s`);
+    };
+    wrongDie(use.amount?.dice, [...at, "amount", "dice"]);
+    use.plus?.forEach((clause, index) => wrongDie(clause.dice, [...at, "plus", index, "dice"]));
+  }
+}
+
+/** A checker for one value an item's attack or use writes down or reads off a stat: a stat of the
+ *  kind the value is, every word an enum stat may hold one the value could be, and a written ability,
+ *  skill or damage type one this ruleset has. */
+function itemValueChecker(
+  definition: RulesetDefinition,
+  add: (path: (string | number)[], message: string) => void,
+): (read: unknown, kind: "number" | "dice" | "abilities" | "skill" | "type", where: (string | number)[]) => void {
   const stats = new Map((definition.items?.stats ?? []).map((stat) => [stat.id, stat]));
   const abilities = new Set(definition.sheet.abilities.map((ability) => ability.id));
   const skills = new Set(definition.sheet.skills.map((skill) => skill.id));
-  const damageTypes = combat.damageTypes ? new Set(combat.damageTypes.map((type) => type.trim().toLowerCase())) : null;
+  const declared = definition.combat?.damageTypes;
+  const damageTypes = declared ? new Set(declared.map((type) => type.trim().toLowerCase())) : null;
   type Kind = "number" | "dice" | "abilities" | "skill" | "type";
   /** One value, written down or read off a stat: a stat of the kind the value is, and every word an
    *  enum stat may hold one the value could be. */
-  const value = (read: unknown, kind: Kind, where: (string | number)[]) => {
+  return (read: unknown, kind: Kind, where: (string | number)[]) => {
     if (read === undefined) return;
     if (typeof read === "object" && read !== null && "stat" in read) {
       const id = (read as { stat: string }).stat;
@@ -5462,10 +5627,29 @@ function attackIssues(
       add(where, `Unknown damage type "${read as string}"`);
     }
   };
-  value(attack.toHit.abilities, "abilities", [...at, "toHit", "abilities"]);
-  value(attack.toHit.skill, "skill", [...at, "toHit", "skill"]);
-  value(attack.toHit.bonus, "number", [...at, "toHit", "bonus"]);
-  value(attack.toHit.target, "number", [...at, "toHit", "target"]);
+}
+
+/** What is wrong with a weapon's attack: every id it names is the ruleset's, every stat it reads is
+ *  one of the item's own kind, and it asks only for what this ruleset's fights can do. */
+function attackIssues(
+  definition: RulesetDefinition,
+  item: RulesetCatalogItem,
+  attack: RulesetItemAttack,
+  at: (string | number)[],
+  add: (path: (string | number)[], message: string) => void,
+): void {
+  // A ruleset without a combat block has no fight, so a weapon there is carried and read by nothing,
+  // exactly as a catalog entry's `budget` is.
+  const combat = definition.combat;
+  if (!combat) return;
+  // Used while worn, so an item that could never be worn could never be used.
+  const takesSlots = Object.values(item.slots ?? {}).some((count) => count > 0);
+  if (!takesSlots && !item.binds) add(at, "A weapon is used while it is worn, so it takes a slot or binds");
+  if (!combat.economy.budgets.some((budget) => budget.id === attack.budget)) {
+    add([...at, "budget"], `Unknown budget "${attack.budget}"`);
+  }
+  const value = itemValueChecker(definition, add);
+  toHitIssues(definition, attack.toHit, [...at, "toHit"], add, "A weapon's");
   value(attack.damage.dice, "dice", [...at, "damage", "dice"]);
   value(attack.damage.abilities, "abilities", [...at, "damage", "abilities"]);
   value(attack.damage.bonus, "number", [...at, "damage", "bonus"]);
@@ -5476,12 +5660,9 @@ function attackIssues(
   value(attack.versatile?.dice, "dice", [...at, "versatile", "dice"]);
   // Read off the holder's sheet as the fight finds it.
   const names = rulesetSheetNames(definition.sheet, definition.items);
-  for (const key of ["proficiency", "strikes"] as const) {
-    const ref = key === "proficiency" ? attack.toHit.proficiency : attack.strikes;
-    if (!ref) continue;
-    const where = key === "proficiency" ? [...at, "toHit", key] : [...at, key];
-    for (const issue of rulesetValueRefIssues(ref, names, names.derived, true)) {
-      add([...where, issue.key], issue.message);
+  if (attack.strikes) {
+    for (const issue of rulesetValueRefIssues(attack.strikes, names, names.derived, true)) {
+      add([...at, "strikes", issue.key], issue.message);
     }
   }
   if (attack.strikes?.const !== undefined && attack.strikes.const < 1) {
@@ -5490,17 +5671,6 @@ function attackIssues(
   const pooled = definition.resolution.kind === "dice-pool";
   // A summed fight's hit already deals its dice; a pool fight's deals its successes, and dice on top.
   if (!pooled && attack.damage.dice === undefined) add([...at, "damage", "dice"], "A weapon deals dice");
-  if (attack.toHit.target !== undefined) {
-    const target = definition.resolution.kind === "dice-pool" ? definition.resolution.target : undefined;
-    if (!target) {
-      add(
-        [...at, "toHit", "target"],
-        "A weapon's own target is a pool fight's; in this ruleset its bonus says the same",
-      );
-    } else if (target.min >= target.max) {
-      add([...at, "toHit", "target"], "A weapon's own target moves the pool's, so target.min is below target.max");
-    }
-  }
   if (!combat.distance) {
     for (const key of ["reach", "range"] as const) {
       if (attack[key] !== undefined) {

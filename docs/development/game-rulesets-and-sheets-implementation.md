@@ -1406,6 +1406,54 @@ Capability API 1.58, for #6875. Slice I5-4 of the ruleset items plan: the rest o
   `e2e/game-ruleset-weapon-modes.e2e.ts`, with 60 deliberate breaks each caught (two of them, in the
   client's mode step and its command, by the e2e).
 
+### What using items in a fight settled
+
+Capability API 1.59, for #6880. Slice I6-1 of the ruleset items plan, split from using items outside
+a fight (the Use button, the Game Master's `use`, scroll gates, charges regained on rests and
+`breaksOn`, now I6-2) so the fight side ships on its own.
+
+- **The keys.** An item gains `use` and `charges`. `use` is the `mechanics` vocabulary less what only
+  a sheet row can mean (`cost`, `perCostStep`, `check`, `concentration`, `reaction`, `scales`,
+  `gives`, `standard`, `rider`, and the kinds `utility` and `rider`), plus a weapon-style `toHit`
+  (only with `attackRoll`), a `saveDifficulty` (a number or a number stat, required when anything in
+  it asks a save, since an item has no catalog source to read one off), `consumes` and a `charges`
+  cost. `charges.max` is a number or a number stat. A use is used up or spends charges, never both;
+  charges need a use that spends them and a `stack` of 1. With a combat block, a use needs a budget
+  or `free`, its budget and its to-hit are checked as a weapon's are, a pool fight's harm dice are the
+  pool's die, and a wound track refuses its `temporary` as it refuses an ability's.
+- **One action per use.** `mechanicsAction` (lifted out of `abilityAction`) builds the action from
+  either; `itemUseActions` adds `use:<index>` of a new kind `item` for each held item with a use, worn
+  where it takes slots or binds, with `itemUse` (the item's index, `consumes`, and the charges' cost
+  and max). Only a sheet row carries `use` (the pool payment), so an item pays with itself. Charges or
+  a save's number read off a stat the item does not give leave the use off the menu.
+- **Counted on the fighter.** `rulesetItemUseLeft` reads what is left: the stack's quantity less
+  `itemsUsed`, or `charges` on the combatant, else the stack's kept count, else `max`.
+  `rulesetShotsAvailable` asks it, so the menu, windows and sequences see an item with none left the
+  same way; `spendRulesetShots` spends one off the stack or the charges and emits the existing `uses`
+  event. `rulesetOpportunityAttack` never picks a use.
+- **Charges, on the stack.** `GameInventoryStack.charges` is kept on a stack of one only and read into
+  `RulesetSheetItem.charges`; pouring stacks together forgets it, as `loaded` is forgotten.
+- **Written back.** `RulesetFightItemChange` gains `charges`; the director's `save()` writes it
+  through the same `applyGameInventoryChangeHeld` path as shots and loads, and a stack gone refuses
+  the step.
+- **Seen and said.** The menu has an **Items** group after abilities, and the board counts a use as
+  something to do in reach. Item facts gain `use` (budget label, kind, amount, type, to-hit, save,
+  conditions, temporary, range, area, the distance unit, `consumes`, charges); the Game Master's line
+  ends with `use (Action): heals 1d4 + 1, range 0 paces, used up`, the item details say the same in
+  localized lines and show the charges left.
+- **Invented items.** An item made `like=` one with a use copies `use` and `charges`, and `stack`
+  already came with it.
+- **Examples.** Ember Roads gains a poultice (a heal on the Action, used up). Gravewatch's warming
+  tonic heals a box of harm on the quick budget, used up, and its dawn bell, worn and bound, spends
+  one of three charges to rattle what fails a Steel save against 7.
+- **Proven** by `scripts/regressions/game-ruleset-item-use.regression.ts` (import and the gate, a
+  poultice on its holder and a friend and never a foe, used up and refused, the Items group, a tonic
+  on the quick budget beside a blow, a bell only while worn, its charges spent and kept, a use that
+  spends two, charges read off a stat, never in passing, the write-back by stack id, charges on a
+  stack of one, the Engine's own party member healing whoever is hurt, facts, the Game Master's
+  lines and invented items), lanes that pin older gates, the examples or the menu's groups, and
+  `e2e/game-ruleset-item-use.e2e.ts`, with 69 deliberate breaks each caught.
+
 ## Gaps a ruleset author found
 
 The author of [Marinara-RPG-Extension](https://github.com/Kenhito/Marinara-RPG-Extension), who

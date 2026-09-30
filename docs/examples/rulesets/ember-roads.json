@@ -1254,6 +1254,27 @@
           }
         },
         {
+          "id": "poultice",
+          "label": "Poultice",
+          "summary": "Moss, honey and ash folded in a cloth. Pressed to a cut, it closes it enough to walk on.",
+          "item": {
+            "category": "provisions",
+            "rarity": "common",
+            "stats": { "bulk": 1 },
+            "stack": 5,
+            "cost": { "amount": 2, "unit": "mark" },
+            "use": {
+              "$comment": "Used in a fight on the Action, on its holder or somebody beside them, and gone once it is. A use says what it spends and what it does as a knack's mechanics do, and consumes takes one off the stack.",
+              "kind": "heal",
+              "budget": "act",
+              "range": 0,
+              "targets": "ally",
+              "amount": { "dice": "1d4", "flat": 1 },
+              "consumes": true
+            }
+          }
+        },
+        {
           "id": "waystone",
           "label": "Waystone",
           "summary": "A smooth stone from the first milestone of the old road. Caravan folk sell them for salt, never for coin, and trust whoever carries one.",

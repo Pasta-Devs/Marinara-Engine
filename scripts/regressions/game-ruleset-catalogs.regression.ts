@@ -516,7 +516,7 @@ const installedPackages = packages.map((fixture) => {
     // the armor worn, items that change checks while worn or carried, items that change an ability,
     // with a level off a derived value, weapons, items that change a fight, weapons that shoot, and
     // weapons with other ways to fight.
-    capabilityApi: { major: 1, minor: 58 },
+    capabilityApi: { major: 1, minor: 59 },
     builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
     id: packageId,
     name: fixture.id,

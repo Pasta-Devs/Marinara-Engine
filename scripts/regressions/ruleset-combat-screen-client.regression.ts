@@ -1279,6 +1279,15 @@ function drawn(...rows: string[]): TacticalGrid {
   const sword = menu.find((option) => option.label === "Longsword")!;
   assert.deepEqual(sword.targetIds, [], "six squares away is further than a sword reaches");
   assert.equal(rulesetNothingInReach(view), true);
+  // A flask that can be thrown at it from here is something to do.
+  assert.equal(
+    rulesetNothingInReach({
+      ...view,
+      options: [...view.options!, { ...sword, id: "use:0", kind: "item", label: "Flask", targetIds: ["lurker"] }],
+    }),
+    false,
+    "an item used at an opponent in reach counts",
+  );
   // A fight with no board never says it, and neither does one whose opponents are all down.
   assert.equal(rulesetNothingInReach(viewOf(state)), false);
   assert.equal(
@@ -1454,7 +1463,7 @@ function drawn(...rows: string[]): TacticalGrid {
 {
   assert.deepEqual(
     [...RULESET_MENU_KINDS],
-    ["move", "attack", "reload", "ability", "block", "contest", "standard", "end-turn"],
+    ["move", "attack", "reload", "ability", "item", "block", "contest", "standard", "end-turn"],
   );
   const grid = drawn(".....", ".....");
   const state = createRulesetEncounter({

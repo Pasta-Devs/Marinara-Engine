@@ -180,8 +180,10 @@ try {
         for (const entry of catalog.entries ?? []) {
           delete entry.item?.worn;
           delete entry.item?.carried;
-          // And its weapons, which are 1.55's.
+          // And its weapons, which are 1.55's, and what its items do when used, which is 1.59's.
           delete entry.item?.attack;
+          delete entry.item?.use;
+          delete entry.item?.charges;
         }
       }
     };

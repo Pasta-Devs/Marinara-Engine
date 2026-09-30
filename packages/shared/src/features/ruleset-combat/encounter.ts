@@ -9,10 +9,12 @@
 
 import {
   RULESET_CATALOG_ROW_KEY,
+  RULESET_ITEM_CHARGES_MAX,
   type RulesetCatalogEntriesById,
   type RulesetCatalogEntry,
   type RulesetCatalogItem,
   type RulesetCatalogMechanics,
+  type RulesetItemUse,
   type RulesetCombat,
   type RulesetCombatAbilitySource,
   type RulesetCombatAttackSource,
@@ -663,6 +665,95 @@ function attackAbilities(value: unknown): string[] {
   return typeof value === "string" ? [value] : [];
 }
 
+/** What an item adds to hit, read the way an attack row's is: the best of its abilities (with its
+ *  skill, the ability swapped in), the proficiency bonus where its `proficiency` reads above 0 off the
+ *  holder's sheet, its bonus, and in a pool fight its own per-die target. */
+function itemToHit(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  evaluated: EvaluatedRulesetSheet,
+  item: RulesetCatalogItem,
+  toHit: NonNullable<RulesetItemUse["toHit"]>,
+  pooled: boolean,
+): { toHit: number; target?: number } {
+  const read = (value: unknown) => itemAttackValue(item, value);
+  const number = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : 0);
+  const skill = read(toHit.skill);
+  const hitWith = attackAbilities(read(toHit.abilities));
+  const base = hitWith.length
+    ? Math.max(...hitWith.map((ability) => abilityAndSkill(definition, build, evaluated, skill, ability)))
+    : abilityAndSkill(definition, build, evaluated, skill, undefined);
+  const proficient =
+    toHit.proficiency !== undefined && resolveRulesetValueRef(definition, build, toHit.proficiency, evaluated) > 0;
+  const target = read(toHit.target);
+  return {
+    toHit: base + (proficient ? evaluated.proficiencyBonus : 0) + number(read(toHit.bonus)),
+    ...(pooled && typeof target === "number" && Number.isFinite(target) ? { target } : {}),
+  };
+}
+
+/**
+ * The items a fighter may use, as actions: each held item with a `use`, from the bag, or worn where it
+ * takes a slot or binds. What it does is its use's, read as a catalog entry's mechanics are; its own
+ * to-hit and save difficulty stand in for a sheet row's; and it spends one off its stack or some of
+ * its charges. One whose charges, or whose save's number, read off a stat it does not give is never
+ * used.
+ */
+function itemUseActions(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  items: readonly RulesetSheetItem[] | undefined,
+  build: RulesetSheetBuild,
+  evaluated: EvaluatedRulesetSheet,
+  perCell: number | undefined,
+): RulesetCombatAction[] {
+  if (!items?.some((held) => held.item.use)) return [];
+  const pooled = rulesetCombatIsPool(combat);
+  const actions: RulesetCombatAction[] = [];
+  items.forEach((held, index) => {
+    const { item } = held;
+    const use = item.use;
+    if (!use) return;
+    const wearable = Object.values(item.slots ?? {}).some((count) => count > 0) || !!item.binds;
+    if (wearable && !held.worn) return;
+    const read = (value: unknown) => itemAttackValue(item, value);
+    const whole = (value: unknown) =>
+      typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : undefined;
+    // A stat holds its own range, so what it gives is held to the most a written count may be.
+    const counted = item.charges ? whole(read(item.charges.max)) : undefined;
+    const max = counted === undefined ? undefined : Math.min(RULESET_ITEM_CHARGES_MAX, counted);
+    if (use.charges !== undefined && !(max !== undefined && max >= 1)) return;
+    const aim = use.toHit ? itemToHit(definition, build, evaluated, item, use.toHit, pooled) : { toHit: 0 };
+    const difficulty = whole(read(use.saveDifficulty));
+    // A save's number read off a stat the item does not give is a save against nothing.
+    if (use.saveDifficulty !== undefined && difficulty === undefined) return;
+    const label =
+      held.name ??
+      definition.items?.categories.find((category) => category.id === item.category)?.label ??
+      item.category;
+    const action = mechanicsAction(definition, use, {
+      id: `use:${index}`,
+      kind: "item",
+      label,
+      budget: use.budget ?? "",
+      toHit: aim.toHit,
+      ...(difficulty !== undefined ? { saveDifficulty: difficulty } : {}),
+      build,
+      evaluated,
+      perCell,
+    });
+    if (!action) return;
+    if (aim.target !== undefined) action.target = aim.target;
+    action.itemUse = {
+      item: index,
+      ...(use.consumes ? { consumes: true as const } : {}),
+      ...(use.charges !== undefined && max !== undefined ? { charges: { cost: use.charges, max } } : {}),
+    };
+    actions.push(action);
+  });
+  return actions;
+}
+
 /**
  * The weapons a fighter holds, as attacks: each worn item with an `attack`, read the way an attack
  * row is, with its values in place of columns and each stat it reads off the item itself. It adds
@@ -709,14 +800,7 @@ function itemAttackActions(
     const parsed = parseRulesetCombatDice(read(free ? attack.versatile!.dice : attack.damage.dice));
     const dice = pooled ? (parsed ?? { count: 0, sides: rulesetPoolDie(definition), flat: 0 }) : parsed;
     if (!dice) return;
-    const skill = read(attack.toHit.skill);
-    const hitWith = attackAbilities(read(attack.toHit.abilities));
-    const toHitBase = hitWith.length
-      ? Math.max(...hitWith.map((ability) => abilityAndSkill(definition, build, evaluated, skill, ability)))
-      : abilityAndSkill(definition, build, evaluated, skill, undefined);
-    const proficient =
-      attack.toHit.proficiency !== undefined &&
-      resolveRulesetValueRef(definition, build, attack.toHit.proficiency, evaluated) > 0;
+    const aim = itemToHit(definition, build, evaluated, item, attack.toHit, pooled);
     const dealtWith = attackAbilities(read(attack.damage.abilities));
     const damageAbility = dealtWith.length
       ? Math.max(...dealtWith.map((ability) => evaluated.abilityMods[ability] ?? ABILITY_COLUMN_MISS))
@@ -724,7 +808,6 @@ function itemAttackActions(
     const bonus = number(read(attack.damage.bonus));
     const typeRead = read(attack.damage.type);
     const type = typeof typeRead === "string" && typeRead.trim() ? typeRead.trim() : undefined;
-    const target = read(attack.toHit.target);
     const strikes = attack.strikes
       ? Math.max(1, Math.trunc(resolveRulesetValueRef(definition, build, attack.strikes, evaluated)))
       : undefined;
@@ -783,8 +866,8 @@ function itemAttackActions(
       ...(strikes !== undefined ? { strikes } : {}),
       ...(reach !== undefined ? { reach } : {}),
       ...(normal !== undefined ? { range: { normal, ...(long !== undefined && long > normal ? { long } : {}) } } : {}),
-      toHit: toHitBase + (proficient ? evaluated.proficiencyBonus : 0) + number(read(attack.toHit.bonus)),
-      ...(pooled && typeof target === "number" && Number.isFinite(target) ? { target } : {}),
+      toHit: aim.toHit,
+      ...(aim.target !== undefined ? { target: aim.target } : {}),
       damage: damageOf(damageAbility),
       ...(ammo ? { ammo } : {}),
       ...(clip ? { clip } : {}),
@@ -861,6 +944,42 @@ function abilityAction(
 ): RulesetCombatAction | null {
   const mechanics = entry.mechanics;
   if (!mechanics) return null;
+  const resolve = (ref: RulesetValueRef) => resolveRulesetValueRef(definition, build, ref, evaluated);
+  return mechanicsAction(definition, mechanics, {
+    id: `ability:${sourceIndex}:${rowIndex}`,
+    kind: "ability",
+    label: name,
+    budget: mechanics.budget ?? source.budget,
+    // An entry that rolls to hit always rolls: a source that names no bonus adds nothing to the dice.
+    toHit: (source.toHit ? resolve(source.toHit) : 0) + fightAdjust(definition, build, evaluated, source.toHit),
+    ...(source.saveDifficulty ? { saveDifficulty: resolve(source.saveDifficulty) } : {}),
+    build,
+    evaluated,
+    perCell,
+  });
+}
+
+/**
+ * What a catalog entry's `mechanics`, or an item's `use`, does in a fight, as one action: the harm
+ * or healing it deals, its save, the conditions it applies, its temporary points, its reach, range
+ * and area, and what the turn's economy makes of it. Where it came from says what it is called,
+ * which budget it spends, what it adds to hit where it rolls, and what its saves are rolled against.
+ */
+function mechanicsAction(
+  definition: RulesetDefinition,
+  mechanics: Partial<RulesetCatalogMechanics> & Pick<RulesetCatalogMechanics, "kind">,
+  from: {
+    id: string;
+    kind: RulesetCombatAction["kind"];
+    label: string;
+    budget: string;
+    toHit: number;
+    saveDifficulty?: number;
+    build: RulesetSheetBuild;
+    evaluated: EvaluatedRulesetSheet;
+    perCell: number | undefined;
+  },
+): RulesetCombatAction | null {
   // A reaction answers something, and `reaction: true` says only that much. An entry that names no
   // moment is on no menu at all: not a turn's, because it is not taken on a turn, and not a
   // window's, because nothing here knows which window it belongs in.
@@ -872,6 +991,7 @@ function abilityAction(
   // something from happening at all. Calling something off IS what such an entry does.
   const cancels = moment?.cancels === true;
   if (mechanics.kind === "utility" && !mechanics.gives && !mechanics.standard && !cancels) return null;
+  const { build, evaluated, perCell } = from;
   const resolve = (ref: RulesetValueRef) => resolveRulesetValueRef(definition, build, ref, evaluated);
   const amount = amountOf(mechanics.amount);
   // A scaling amount grows in DICE: the table says how many to add at each step of what it reads.
@@ -880,16 +1000,16 @@ function abilityAction(
     : 0;
   const scaled = amount ? { ...amount, count: amount.count + (amount.count > 0 ? extra : 0) } : null;
   const heals = mechanics.kind === "heal";
-  const sourceDifficulty = source.saveDifficulty ? resolve(source.saveDifficulty) : 0;
+  const sourceDifficulty = from.saveDifficulty ?? 0;
   const cost = mechanics.cost?.length === 1 ? mechanics.cost[0]! : undefined;
   const pool = cost ? definition.sheet.live.pools.find((entry2) => entry2.id === cost.pool) : undefined;
   const family = cost ? (pool ? pool.group : cost.pool) : undefined;
   const action: RulesetCombatAction = {
-    id: `ability:${sourceIndex}:${rowIndex}`,
-    kind: "ability",
-    label: name,
-    budget: mechanics.budget ?? source.budget,
-    targets: targetsOf(mechanics),
+    id: from.id,
+    kind: from.kind,
+    label: from.label,
+    budget: from.budget,
+    targets: targetsOf(mechanics as RulesetCatalogMechanics),
     ...(moment
       ? {
           reaction: {
@@ -902,17 +1022,22 @@ function abilityAction(
           },
         }
       : {}),
-    use: {
-      name,
-      ...(cost ? { pool: cost.pool } : {}),
-      // A cost names a live pool, and then the family is that pool's, or it names the family
-      // itself. Left out entirely when there is no family: the state is written as JSON, and a key
-      // holding nothing would not survive the trip.
-      ...(family ? { group: family } : {}),
-      ...(mechanics.perCostStep
-        ? { perCostStep: amountOf(mechanics.perCostStep) ?? { count: 0, sides: 0, flat: 0 } }
-        : {}),
-    },
+    // How it is paid for off the sheet: only what a sheet row names is. An item pays with itself.
+    ...(from.kind === "ability"
+      ? {
+          use: {
+            name: from.label,
+            ...(cost ? { pool: cost.pool } : {}),
+            // A cost names a live pool, and then the family is that pool's, or it names the family
+            // itself. Left out entirely when there is no family: the state is written as JSON, and a
+            // key holding nothing would not survive the trip.
+            ...(family ? { group: family } : {}),
+            ...(mechanics.perCostStep
+              ? { perCostStep: amountOf(mechanics.perCostStep) ?? { count: 0, sides: 0, flat: 0 } }
+              : {}),
+          },
+        }
+      : {}),
   };
   const plus = clausesOf(mechanics.plus, sourceDifficulty);
   if (scaled && heals) action.heal = scaled;
@@ -925,16 +1050,13 @@ function abilityAction(
   }
   const temporary = amountOf(mechanics.temporary);
   if (temporary) action.temporary = temporary;
-  // An entry that rolls to hit always rolls: a source that names no bonus adds nothing to the dice.
   // Leaving `toHit` unset here would send it down the no-roll path and land it automatically.
-  if (mechanics.attackRoll) {
-    action.toHit = (source.toHit ? resolve(source.toHit) : 0) + fightAdjust(definition, build, evaluated, source.toHit);
-  }
+  if (mechanics.attackRoll) action.toHit = from.toHit;
   if (mechanics.autoHit) action.autoHit = true;
   if (mechanics.save) {
     action.save = { save: mechanics.save.save, onSuccess: mechanics.save.onSuccess, difficulty: sourceDifficulty };
   }
-  if (source.saveDifficulty) action.saveDifficulty = sourceDifficulty;
+  if (from.saveDifficulty !== undefined) action.saveDifficulty = sourceDifficulty;
   if (mechanics.applies?.length) action.applies = mechanics.applies.map((entry2) => ({ ...entry2 }));
   if (mechanics.concentration) action.concentration = true;
   // What the turn's own economy makes of it: free of a budget, handing budgets back, or letting
@@ -1290,6 +1412,7 @@ function sheetCombatant(
       attackActions(definition, combat, source, index, build, evaluated, perCell),
     ),
     ...itemAttackActions(definition, combat, input.items, build, evaluated, perCell),
+    ...itemUseActions(definition, combat, input.items, build, evaluated, perCell),
     ...abilities.flatMap((entry) => entry.actions),
   ];
   const riders = abilities.flatMap((entry) => entry.riders);

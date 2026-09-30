@@ -284,8 +284,9 @@ export type RulesetCombatantInput =
  *  Resolved once, when the fight begins: armour and bonuses do not change mid-fight in this kind. */
 export interface RulesetCombatAction {
   id: string;
-  /** `reload` fills a weapon's clip: it has no target and does nothing else. */
-  kind: "attack" | "ability" | "block" | "contest" | "reload";
+  /** `reload` fills a weapon's clip: it has no target and does nothing else. `item` is using an
+   *  item the fighter holds. */
+  kind: "attack" | "ability" | "block" | "contest" | "reload" | "item";
   label: string;
   budget: string;
   /** Who it may be pointed at, relative to the actor: "enemy" is the other side. */
@@ -361,6 +362,9 @@ export interface RulesetCombatAction {
   offHandOf?: number;
   /** Conditions the target takes when the harm this blow dealt reached a number. */
   onHit?: Array<{ condition: string; atLeast: number; rounds?: number }>;
+  /** Using an item: which of the holder's items it is (its place in `sheet.items`), and what using
+   *  it spends of it: one off the stack, or some of its charges. */
+  itemUse?: { item: number; consumes?: true; charges?: { cost: number; max: number } };
 }
 
 /** One other way to make an attack: how many it shoots, what it adds to hit (dice in a pool fight),
@@ -501,6 +505,8 @@ export interface RulesetCombatant {
   itemsUsed?: Record<string, number>;
   loaded?: Record<string, number>;
   recoverable?: Record<string, number>;
+  /** What each item with charges holds now, keyed as the rest are. */
+  charges?: Record<string, number>;
   /** A party member's sheet, which is where their health and conditions really live. */
   sheet?: {
     build: RulesetSheetBuild;
@@ -979,7 +985,7 @@ export interface RulesetCombatOption {
   id: string;
   /** `move` is the one a positioned fight adds: walking, and getting back up. `reload` fills a
    *  weapon's clip. */
-  kind: "attack" | "ability" | "block" | "contest" | "standard" | "end-turn" | "move" | "reload";
+  kind: "attack" | "ability" | "block" | "contest" | "standard" | "end-turn" | "move" | "reload" | "item";
   label: string;
   /** Absent on "end turn", which spends nothing, and on anything that costs no budget: something
    *  the entry called free, or a strike taken out of what a spend already bought. */

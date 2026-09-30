@@ -124,6 +124,8 @@ export interface RulesetSheetItem {
   stack?: { id: string; ref: string; holder?: string };
   /** What a weapon with a clip has loaded, as the stack keeps it. Absent reads as full. */
   loaded?: number;
+  /** The charges an item holds, as the stack keeps them. Absent reads as full. */
+  charges?: number;
 }
 
 /** Whether the sheet can read the items a character holds, so a caller can skip reading the

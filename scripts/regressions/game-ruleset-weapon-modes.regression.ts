@@ -234,7 +234,14 @@ try {
         for (const key of ["modes", "offHand", "floor", "onHit"]) delete entry.item.attack?.[key];
       }
     };
-    for (const text of [emberText, gravewatchText]) {
+    /** Less what the examples' items do when used, which is 1.59's and has a lane of its own. */
+    const withoutUse = (doc: Record<string, any>) => {
+      for (const entry of itemCatalogOf(doc).entries) {
+        delete entry.item.use;
+        delete entry.item.charges;
+      }
+    };
+    for (const text of [emberText, gravewatchText].map((each) => JSON.stringify(variant(each, withoutUse)))) {
       assert.match(issue(57, variant(text)) ?? "", gateIssue);
       assert.equal(issue(58, variant(text)), null);
       assert.equal(issue(57, variant(text, withoutWays)), null, "the rest of the example stays 1.57");
@@ -242,6 +249,7 @@ try {
     const one = (edit: (doc: Record<string, any>) => void) =>
       variant(gravewatchText, (doc) => {
         withoutWays(doc);
+        withoutUse(doc);
         edit(doc);
       });
     const cases: Array<[string, (doc: Record<string, any>) => void]> = [
@@ -270,7 +278,7 @@ try {
       delete catalog.entries;
       catalog.asset = "catalogs/outfitter.json";
     });
-    const entries = itemCatalogOf(variant(emberText)).entries;
+    const entries = itemCatalogOf(variant(emberText, withoutUse)).entries;
     const paths = ["ruleset.json", "catalogs/outfitter.json"];
     const files = new Map<string, unknown>([["catalogs/outfitter.json", { entries }]]);
     assert.match(issue(57, inFile, paths, files) ?? "", gateIssue, "a catalog file");

@@ -1,4 +1,5 @@
-// What a weapon shoots and what it has loaded, as a fight counts them.
+// What a weapon shoots and what it has loaded, and what using an item spends of it, as a fight counts
+// them.
 //
 // A weapon's `ammo` draws from the items its holder carries with that tag, in the order the bag keeps
 // them; its `clip` is a loaded count the weapon keeps on itself. Both are counted on the fighter
@@ -59,9 +60,24 @@ export function rulesetLoaded(actor: RulesetCombatant, clip: NonNullable<Ruleset
   return Math.max(0, Math.min(clip.max, now));
 }
 
+/** How many uses an item has left in a fight: one per item still in its stack where a use takes one,
+ *  and otherwise its charges now (what the fight left it, else what its stack kept, else all of them). */
+export function rulesetItemUseLeft(actor: RulesetCombatant, use: NonNullable<RulesetCombatAction["itemUse"]>): number {
+  const held = actor.sheet?.items?.[use.item];
+  if (use.consumes) return Math.max(0, (held?.quantity ?? 0) - (actor.itemsUsed?.[use.item] ?? 0));
+  if (!use.charges) return Number.POSITIVE_INFINITY;
+  const now = actor.charges?.[use.item] ?? held?.charges ?? use.charges.max;
+  return Math.max(0, Math.min(use.charges.max, now));
+}
+
 /** Whether what an action shoots or loads lets it happen now: an attack needs a shot loaded or
- *  carried, a reload a clip with room in it and, where it loads from the bag, something to load. */
+ *  carried, a reload a clip with room in it and, where it loads from the bag, something to load. An
+ *  item's use needs one of it left, or the charges it spends. */
 export function rulesetShotsAvailable(actor: RulesetCombatant, action: RulesetCombatAction): boolean {
+  if (action.itemUse) {
+    const left = rulesetItemUseLeft(actor, action.itemUse);
+    return action.itemUse.consumes ? left >= 1 : left >= (action.itemUse.charges?.cost ?? 0);
+  }
   if (action.kind === "reload") {
     if (!action.clip || rulesetLoaded(actor, action.clip) >= action.clip.max) return false;
     return !action.ammo || rulesetAmmoLeft(actor, action.ammo.tag) > 0;
@@ -95,6 +111,18 @@ function draw(actor: RulesetCombatant, tag: string, count: number, recover?: num
  *  bag. Null for an action that shoots nothing. */
 export function spendRulesetShots(actor: RulesetCombatant, action: RulesetCombatAction): RulesetCombatEvent | null {
   if (action.kind === "reload") return null;
+  const use = action.itemUse;
+  if (use && (use.consumes || use.charges)) {
+    const said = { type: "uses" as const, actorId: actor.id, optionId: action.id, label: action.label };
+    if (use.consumes) {
+      const quantity = actor.sheet?.items?.[use.item]?.quantity ?? 0;
+      (actor.itemsUsed ??= {})[use.item] = (actor.itemsUsed?.[use.item] ?? 0) + 1;
+      return { ...said, left: rulesetItemUseLeft(actor, use), of: quantity };
+    }
+    const left = Math.max(0, rulesetItemUseLeft(actor, use) - use.charges!.cost);
+    (actor.charges ??= {})[use.item] = left;
+    return { ...said, left, of: use.charges!.max };
+  }
   const said = { type: "shot" as const, actorId: actor.id, optionId: action.id, label: action.label };
   const per = shotsPer(action);
   if (action.clip) {
@@ -158,6 +186,8 @@ export interface RulesetFightItemChange {
   name: string;
   taken: number;
   loaded?: number;
+  /** What an item with charges holds now. */
+  charges?: number;
 }
 
 /**
@@ -172,19 +202,24 @@ export function rulesetFightItemChanges(
   const changes: RulesetFightItemChange[] = [];
   for (const combatant of after.combatants) {
     const items = combatant.sheet?.items;
-    if (combatant.side !== "party" || !items || (!combatant.itemsUsed && !combatant.loaded)) continue;
+    if (combatant.side !== "party" || !items || (!combatant.itemsUsed && !combatant.loaded && !combatant.charges)) {
+      continue;
+    }
     const earlier = before?.combatants.find((entry) => entry.id === combatant.id);
     items.forEach((held, index) => {
       if (!held.stack) return;
       const taken = (combatant.itemsUsed?.[index] ?? 0) - (earlier?.itemsUsed?.[index] ?? 0);
       const loaded = combatant.loaded?.[index];
       const reloaded = loaded !== undefined && loaded !== earlier?.loaded?.[index];
-      if (taken === 0 && !reloaded) return;
+      const charges = combatant.charges?.[index];
+      const spent = charges !== undefined && charges !== earlier?.charges?.[index];
+      if (taken === 0 && !reloaded && !spent) return;
       changes.push({
         stack: { ...held.stack },
         name: held.name ?? held.stack.ref,
         taken,
         ...(reloaded ? { loaded } : {}),
+        ...(spent ? { charges } : {}),
       });
     });
   }
@@ -230,7 +265,12 @@ export function applyRulesetFightItemChanges(
       next = next.filter((_, index) => index !== at);
       continue;
     }
-    next[at] = { ...stack, quantity, ...(change.loaded !== undefined ? { loaded: change.loaded } : {}) };
+    next[at] = {
+      ...stack,
+      quantity,
+      ...(change.loaded !== undefined ? { loaded: change.loaded } : {}),
+      ...(change.charges !== undefined ? { charges: change.charges } : {}),
+    };
   }
   return { stacks: next, journal };
 }

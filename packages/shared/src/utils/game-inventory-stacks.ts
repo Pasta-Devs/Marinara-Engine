@@ -47,6 +47,9 @@ export interface GameInventoryStack {
    *  emptied one into another and splitting it off again reloads it; a count per weapon in the stack
    *  is the upgrade if that ever matters. */
   loaded?: number;
+  /** The charges an item holds, as a ruleset fight left them. Kept on a stack of one item only, as a
+   *  loaded count is, and an item without one holds all it can. */
+  charges?: number;
 }
 
 /** Whose bag: `holder` as a stack has it, so `{}` is the player's own. */
@@ -296,8 +299,9 @@ function makeStack(stack: {
   equipped?: boolean;
   bound?: boolean;
   loaded?: number;
+  charges?: number;
 }): GameInventoryStack {
-  const { id, name, nickname, item, quantity, holder, equipped, bound, loaded } = stack;
+  const { id, name, nickname, item, quantity, holder, equipped, bound, loaded, charges } = stack;
   const named = nickname && gameInventoryNameKey(nickname) !== gameInventoryNameKey(name) ? { nickname } : {};
   return {
     id,
@@ -309,6 +313,7 @@ function makeStack(stack: {
     ...(equipped ? { equipped: true as const } : {}),
     ...(bound ? { bound: true as const } : {}),
     ...(loaded !== undefined && quantity === 1 ? { loaded } : {}),
+    ...(charges !== undefined && quantity === 1 ? { charges } : {}),
   };
 }
 
@@ -391,6 +396,10 @@ export function normalizeGameInventoryStacks(raw: unknown): GameInventoryStack[]
         loaded:
           typeof source.loaded === "number" && Number.isInteger(source.loaded) && source.loaded >= 0
             ? Math.min(GAME_INVENTORY_MAX_QUANTITY, source.loaded)
+            : undefined,
+        charges:
+          typeof source.charges === "number" && Number.isInteger(source.charges) && source.charges >= 0
+            ? Math.min(GAME_INVENTORY_MAX_QUANTITY, source.charges)
             : undefined,
         quantity,
         stored,
@@ -1248,8 +1257,8 @@ export function mergeGameInventoryStacks(
   if (moved < 1 || gameInventoryMergeOverloads(stacks, from, into, rules)) return stacks;
   return stacks.flatMap((stack) => {
     if (stack.id === intoId) {
-      // Several weapons now, and a loaded count is one weapon's: each of them reads as loaded full.
-      const { loaded: _loaded, ...rest } = stack;
+      // Several now, and a loaded count or charges are one item's: each of them reads as full.
+      const { loaded: _loaded, charges: _charges, ...rest } = stack;
       return [{ ...rest, quantity: stack.quantity + moved }];
     }
     if (stack.id !== fromId) return [stack];

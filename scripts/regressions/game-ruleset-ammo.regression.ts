@@ -227,11 +227,14 @@ try {
         delete entry.item.attack?.clip;
       }
     };
-    /** Less the other ways their weapons fight, which are 1.58's and have a lane of their own. */
+    /** Less the other ways their weapons fight and what their items do when used, which are 1.58's
+     *  and 1.59's and have lanes of their own. */
     const withoutWays = (doc: Record<string, any>) => {
       delete doc.combat?.offHand;
       for (const entry of itemCatalogOf(doc).entries) {
         for (const key of ["modes", "offHand", "floor", "onHit"]) delete entry.item.attack?.[key];
+        delete entry.item.use;
+        delete entry.item.charges;
       }
     };
     for (const text of [emberText, gravewatchText].map((each) => JSON.stringify(variant(each, withoutWays)))) {

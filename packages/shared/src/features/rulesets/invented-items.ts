@@ -535,6 +535,9 @@ export function inventRulesetItem(
     // What it asks of its wearer comes with the item it started from.
     ...(like?.requires ? { requires: like.requires } : {}),
     ...(like?.attack && wearable ? { attack: like.attack } : {}),
+    // What using it does, and the charges that use spends, come with the item it started from.
+    ...(like?.use ? { use: like.use } : {}),
+    ...(like?.charges ? { charges: like.charges } : {}),
   };
   const kept = said.slice(0, NOTES_MAX).map((note) => ({ ...note, text: plainLine(note.text, NOTE_MAX_LENGTH) }));
   return {

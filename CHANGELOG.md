@@ -9,6 +9,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Merged Roleplay groups update expressions for the active, selected cast during replies and manual retries, instead of only the first character (#6872).
 - Roleplay's Gallery and `/illustrate` can generate one illustration with the installed Illustrator without enabling automatic agents or changing chat settings (#6874).
 - Agent contributor guidance now explicitly prioritizes simple solutions, avoiding over-engineering, and reusing existing code.
+- A Game Mode ruleset's items can now be used in a fight: a healing poultice or a potion is on the fight menu under Items, pressed on its holder or a friend, and used up; a bell or wand can hold charges that each use spends, and what is left stays on the item for the next fight. What a fight uses is saved to the inventory as it happens, the item's details say what using it does, and a party member the Engine plays uses a heal on whoever is hurt. Rulesets that use the new keys need Capability API 1.59 (#6880).
 
 - A Game Mode ruleset's weapons can now be used more than one way: a bow can loose a two-arrow volley at two targets, a gun can fire a burst, and the fight menu asks which way with what each is expected to do. A character with a light weapon in each hand gets a second strike with the other on the ruleset's off-hand budget, a weapon can promise a least harm on every hit, and one driven in hard enough can leave a condition on its target. Rulesets that use the new keys need Capability API 1.58 (#6875).
 

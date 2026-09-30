@@ -326,8 +326,9 @@ try {
 
   // ── Install gate: 1.55, in the ruleset file and in a catalog file ──
   {
-    /** Less what the examples' items do in a fight, what their weapons shoot and load and the other
-     *  ways they fight, which are 1.56's, 1.57's and 1.58's and have lanes of their own. */
+    /** Less what the examples' items do in a fight, what their weapons shoot and load, the other ways
+     *  they fight and what their items do when used, which are 1.56's to 1.59's and have lanes of
+     *  their own. */
     const withoutArmor = (text: string) =>
       JSON.stringify(
         variant(text, (doc) => {
@@ -337,6 +338,8 @@ try {
               for (const key of ["ammo", "clip", "modes", "offHand", "floor", "onHit"]) {
                 delete entry.item?.attack?.[key];
               }
+              delete entry.item?.use;
+              delete entry.item?.charges;
               for (const when of ["worn", "carried"]) {
                 const effect = entry.item?.[when];
                 if (!effect) continue;

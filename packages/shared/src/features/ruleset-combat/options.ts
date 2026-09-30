@@ -9,7 +9,13 @@ import {
   type RulesetLiveState,
   type RulesetSheetOp,
 } from "../rulesets/live-state.js";
-import { rulesetAmmoLeft, rulesetLoaded, rulesetModedAction, rulesetShotsAvailable } from "./ammo.js";
+import {
+  rulesetAmmoLeft,
+  rulesetItemUseLeft,
+  rulesetLoaded,
+  rulesetModedAction,
+  rulesetShotsAvailable,
+} from "./ammo.js";
 import { parseRulesetCombatDice, rulesetAverageDamage } from "./dice.js";
 import {
   rulesetCombatAdvantage,
@@ -963,6 +969,10 @@ function optionFrom(
   if (action.uses) option.left = actor.uses[action.id] ?? 0;
   if (action.ammo) option.ammo = rulesetAmmoLeft(actor, action.ammo.tag);
   if (action.clip) option.loaded = { now: rulesetLoaded(actor, action.clip), max: action.clip.max };
+  // What an item has left to use: its stack, or its charges.
+  if (action.itemUse && (action.itemUse.consumes || action.itemUse.charges)) {
+    option.left = rulesetItemUseLeft(actor, action.itemUse);
+  }
   if (action.offHandOf !== undefined) option.offHand = true;
   // A shape, in cells, so a screen can draw the template before the choice is made and a picker can
   // weigh it. Only in a positioned fight: without a board an area is still resolved by target ids.
