@@ -10999,9 +10999,17 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             generatedExpressionTargetIds.add(userIdentityId);
           }
           if (generatedExpressionTargetIds.size > 0 && Array.isArray(agentContext.memory._availableSprites)) {
-            agentContext.memory._availableSprites = (
-              agentContext.memory._availableSprites as Array<{ characterId: string }>
-            ).filter((sprite) => generatedExpressionTargetIds.has(sprite.characterId));
+            // Merged narration can evaluate the whole active cast without requiring every sprite to be present.
+            const mergedRoleplayResponse =
+              chatMode === "roleplay" &&
+              isGroupChat &&
+              groupChatMode === "merged" &&
+              lastSavedMsg?.role === "assistant";
+            if (!mergedRoleplayResponse) {
+              agentContext.memory._availableSprites = (
+                agentContext.memory._availableSprites as Array<{ characterId: string }>
+              ).filter((sprite) => generatedExpressionTargetIds.has(sprite.characterId));
+            }
             agentContext.memory._expressionTargetIds = [...generatedExpressionTargetIds];
           }
           if (hasPostProcessingAgents) {

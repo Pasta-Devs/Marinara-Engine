@@ -31,6 +31,12 @@ If Vite stops with `Reached heap limit` or `JavaScript heap out of memory`, the 
 
 Close other apps before retrying. Low-memory devices can still run out of memory or be stopped by Android; keep the complete launcher output when reporting that case. Do not delete your chats or profile to repair a build failure.
 
+### Termux: missing multiplayer guest asset or incompatible Sharp
+
+If startup still reports a missing `packages/client/dist/multiplayer/guest.js` after rebuilding, update Engine and rerun `./start-termux.sh`. The launcher now runs the complete low-memory client build, including the guest assets checked at startup. You do not need to enable multiplayer to repair this build error.
+
+If image processing reports that Sharp cannot load on Android, update Engine and let the launcher reinstall dependencies. The matching `@img/sharp-wasm32` fallback is included as a regular dependency so frozen installs and updates retain it. Avoid replacing it with an unrelated Sharp version. Keep the complete error output if the problem persists.
+
 ### Blank page or JavaScript served as HTML after an update
 
 An error such as "Failed to load module script" with a `text/html` MIME type can mean the browser requested a JavaScript file that is missing from the installed build. The previous-session shutdown warning does not identify this problem, and deleting a writer lease or your data will not repair the assets.

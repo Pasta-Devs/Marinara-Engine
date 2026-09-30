@@ -179,7 +179,9 @@ export function ChatGalleryDrawer({
           <ChatGallery
             chatId={chat.id}
             mode={chat.mode}
-            onIllustrate={illustratorAvailable ? onIllustrate : undefined}
+            onIllustrate={
+              illustratorInstalled && (chat.mode === "roleplay" || illustratorEnabledForChat) ? onIllustrate : undefined
+            }
             illustrateAgents={customImageAgents}
             onIllustrateWithAgent={onIllustrateWithAgent}
             onGenerateSelfie={illustratorAvailable ? onGenerateSelfie : undefined}

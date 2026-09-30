@@ -4,6 +4,113 @@ import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
+test("Roleplay Gallery and slash illustrate work without enabling automatic agents", async ({
+  page,
+  request,
+}, info) => {
+  const previousUi = await (await request.get("/api/app-settings/ui")).json();
+  await request.put("/api/app-settings/ui", { data: { value: "" } });
+  const characterResponse = await request.post("/api/characters", { data: { data: { name: "Illustration fixture" } } });
+  expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
+  const character = await characterResponse.json();
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: "One-shot illustration", mode: "roleplay", characterIds: [character.id] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = await chatResponse.json();
+  const activation = { enableAgents: false, activeAgentIds: [] };
+  expect((await request.patch(`/api/chats/${chat.id}/metadata`, { data: activation })).ok()).toBeTruthy();
+  const installed = {
+    id: "illustrator",
+    version: "1.0.0",
+    status: "active",
+    readiness: "ready",
+    manifest: {
+      schemaVersion: 1,
+      id: "illustrator",
+      name: "Illustrator",
+      version: "1.0.0",
+      engine: { min: "2.0.0", maxExclusive: "3.0.0" },
+      kind: ["agent"],
+      entrypoints: { agents: "agents.json" },
+      permissions: ["agent-runtime"],
+      files: [],
+    },
+  };
+  let packageInstalled = true;
+  const calls: Array<Record<string, unknown>> = [];
+  await page.route("**/api/capability-packages/installed", (route) =>
+    route.fulfill({ json: packageInstalled ? [installed] : [] }),
+  );
+  await page.route("**/api/generate/retry-agents", (route) => {
+    calls.push(route.request().postDataJSON());
+    return route.fulfill({ contentType: "text/event-stream", body: 'data: {"type":"done","data":""}\n\n' });
+  });
+  await seedUIState(page, {
+    hasCompletedOnboarding: true,
+    rightPanelOpen: false,
+    sidebarOpen: false,
+    chatHelpSeenModes: ["roleplay"],
+    trackerPanelEnabled: false,
+    trackerPanelOpen: false,
+    reviewImagePromptsBeforeSend: false,
+    theme: info.project.name === "desktop-chromium" ? "light" : "dark",
+  });
+  await page.addInitScript(
+    ({ id, appVersion }) => {
+      localStorage.setItem("marinara-active-chat-id", id);
+      localStorage.setItem("marinara:whats-new:seen-version", appVersion);
+    },
+    { id: chat.id, appVersion: version },
+  );
+  const openGallery = async () => {
+    if (info.project.name.includes("mobile"))
+      await page.getByRole("button", { name: "More options", exact: true }).click();
+    await page.getByRole("button", { name: "Gallery", exact: true }).click();
+    await expect(page.locator(".mari-chat-gallery-drawer")).toBeVisible();
+  };
+  try {
+    await page.goto("/");
+    await openGallery();
+    await page.screenshot({ path: info.outputPath("manual-illustration-agents-disabled.png"), animations: "disabled" });
+    const illustrate = page
+      .locator(".mari-chat-gallery-drawer")
+      .getByRole("button", { name: "Illustrate", exact: true });
+    await expect(illustrate).toBeVisible();
+    await expect(illustrate).toBeInViewport();
+    await page.screenshot({ path: info.outputPath("manual-illustration-available.png"), animations: "disabled" });
+    await illustrate.click();
+    await expect.poll(() => calls.length).toBe(1);
+    await expect(illustrate).toBeEnabled();
+    await page.getByRole("button", { name: "Close gallery", exact: true }).click();
+    const input = page.locator("textarea[data-chat-composer]");
+    await input.fill("/illustrate ");
+    await page.locator(".mari-chat-send-btn").click();
+    await expect.poll(() => calls.length).toBe(2);
+    for (const call of calls)
+      expect(call).toMatchObject({
+        chatId: chat.id,
+        agentTypes: ["illustrator"],
+        illustratorRetryTargets: ["illustration"],
+      });
+    const stored = await (await request.get(`/api/chats/${chat.id}`)).json();
+    const metadata = typeof stored.metadata === "string" ? JSON.parse(stored.metadata) : stored.metadata;
+    expect(metadata).toMatchObject(activation);
+    packageInstalled = false;
+    await page.reload();
+    await openGallery();
+    await expect(illustrate).toHaveCount(0);
+    await page.getByRole("button", { name: "Close gallery", exact: true }).click();
+    await input.fill("/illustrate");
+    await expect(page.locator(".chat-input-container").getByRole("button", { name: /^\/illustrate\b/ })).toHaveCount(0);
+    expect(calls).toHaveLength(2);
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+    await request.delete(`/api/characters/${character.id}`);
+    await request.put("/api/app-settings/ui", { data: previousUi });
+  }
+});
+
 test("Illustrator manual-only interval saves and survives reopening and chat setup", async ({
   page,
   request,

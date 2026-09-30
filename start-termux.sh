@@ -244,7 +244,7 @@ build_termux_client() (
         export NODE_OPTIONS="${NODE_OPTIONS:+${NODE_OPTIONS} }--max-old-space-size=${build_heap_mb}"
         echo "  [..] Client build heap limit: ${build_heap_mb} MiB (server limit unchanged)"
     fi
-    SKIP_PWA=1 run_pnpm --filter @marinara-engine/client exec vite build
+    MARINARA_LOW_MEMORY_BUILD=1 run_pnpm --filter @marinara-engine/client build
 )
 
 load_launcher_setting() {

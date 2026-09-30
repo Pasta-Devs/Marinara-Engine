@@ -38,6 +38,7 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 
 ## Ponytail Implementation Discipline
 
+- Prefer simple code solutions, do not over-engineer things, and reuse code whenever possible.
 - Apply [Ponytail](https://github.com/DietrichGebert/ponytail) as an additive minimalism overlay after understanding the task and tracing the affected flow. It never overrides repository rules, validation requirements, or the maintainer's latest request.
 - Before adding code, stop at the first option that works: skip unnecessary work, reuse an existing helper or pattern, use the standard library, use a native platform capability, use an already-installed dependency, choose a clear inline solution, then write the minimum new code.
 - Prefer shared root-cause fixes after checking every caller, deletion over addition, boring over clever, and the fewest files. Avoid speculative abstractions, dependencies, and boilerplate.

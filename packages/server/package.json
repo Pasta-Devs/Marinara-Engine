@@ -21,6 +21,7 @@
     "@fastify/multipart": "^10.1.1",
     "@fastify/static": "^10.1.4",
     "@huggingface/transformers": "^4.3.0",
+    "@img/sharp-wasm32": "0.35.4",
     "@marinara-engine/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "1.30.0",
     "adm-zip": "^0.6.1",
@@ -39,7 +40,6 @@
     "zod": "^3.25.76"
   },
   "optionalDependencies": {
-    "@img/sharp-wasm32": "0.35.4",
     "onnxruntime-node": "1.30.0",
     "onnxruntime-web": "1.31.0-dev.20260914-8d85527a0",
     "sharp": "^0.35.4"

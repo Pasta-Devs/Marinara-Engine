@@ -5359,7 +5359,7 @@ assert.equal(
 );
 const termuxClientBuildHelper = termuxLauncher.split("build_termux_client() (")[1]?.split("\n)")[0];
 assert.ok(termuxClientBuildHelper, "Termux must define the isolated client build helper");
-assert.match(termuxClientBuildHelper, /SKIP_PWA=1 run_pnpm --filter @marinara-engine\/client exec vite build/u);
+assert.match(termuxClientBuildHelper, /MARINARA_LOW_MEMORY_BUILD=1 run_pnpm --filter @marinara-engine\/client build/u);
 assert.match(
   termuxClientBuildBlock,
   /    node scripts\/check-client-build\.mjs$/u,

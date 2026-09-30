@@ -4,6 +4,11 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Termux rebuilds now include the multiplayer guest assets required by startup checks, and dependency updates retain Sharp's matching WebAssembly fallback for Android image processing (#6883, #6859).
+- Merged Roleplay groups update expressions for the active, selected cast during replies and manual retries, instead of only the first character (#6872).
+- Roleplay's Gallery and `/illustrate` can generate one illustration with the installed Illustrator without enabling automatic agents or changing chat settings (#6874).
+- Agent contributor guidance now explicitly prioritizes simple solutions, avoiding over-engineering, and reusing existing code.
+
 - A Game Mode ruleset's weapons can now be used more than one way: a bow can loose a two-arrow volley at two targets, a gun can fire a burst, and the fight menu asks which way with what each is expected to do. A character with a light weapon in each hand gets a second strike with the other on the ruleset's off-hand budget, a weapon can promise a least harm on every hit, and one driven in hard enough can leave a condition on its target. Rulesets that use the new keys need Capability API 1.58 (#6875).
 
 - Roleplay group chats let you edit revealed whispers and keep the corrected text for later turns. Users can also write private whisper and notes commands in ordinary Roleplay messages. The narrator no longer receives notes from disabled or removed characters. In Individual mode with Smart or Manual response order, the response menu now starts with an accent-colored Smart option that asks the existing model or enabled Decision model to pick the next speaker without changing your saved response order.
