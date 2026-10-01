@@ -21,7 +21,7 @@
     "@fastify/multipart": "^10.1.1",
     "@fastify/static": "^10.1.4",
     "@huggingface/transformers": "^4.3.0",
-    "@img/sharp-wasm32": "0.35.4",
+    "@img/sharp-wasm32": "0.35.5",
     "@marinara-engine/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "1.30.0",
     "adm-zip": "^0.6.1",
