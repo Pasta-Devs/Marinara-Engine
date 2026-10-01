@@ -19,7 +19,7 @@
     "@anthropic-ai/sdk": "^0.93.0",
     "@fastify/cors": "^11.3.0",
     "@fastify/multipart": "^10.1.1",
-    "@fastify/static": "^10.1.4",
+    "@fastify/static": "^10.1.5",
     "@huggingface/transformers": "^4.3.0",
     "@img/sharp-wasm32": "0.35.4",
     "@marinara-engine/shared": "workspace:*",
