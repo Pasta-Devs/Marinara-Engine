@@ -28,7 +28,7 @@
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "buttplug": "5.0.2",
-    "dotenv": "^17.4.2",
+    "dotenv": "^18.0.4",
     "fastify": "^5.12.5",
     "jsonrepair": "^3.15.0",
     "nanoid": "^5.1.16",
