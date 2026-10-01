@@ -16,7 +16,7 @@
     "@marinara-engine/shared": "workspace:*",
     "@tanstack/react-query": "^5.103.0",
     "clsx": "^2.1.1",
-    "dompurify": "^3.4.15",
+    "dompurify": "^3.4.16",
     "framer-motion": "^13.3.0",
     "i18next": "^26.4.2",
     "lucide-react": "^0.513.0",
