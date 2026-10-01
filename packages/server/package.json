@@ -31,7 +31,7 @@
     "dotenv": "^17.4.2",
     "fastify": "^5.12.5",
     "jsonrepair": "^3.15.0",
-    "nanoid": "^5.1.16",
+    "nanoid": "^6.0.1",
     "pdf-parse": "^2.4.5",
     "pino": "^10.3.1",
     "pino-pretty": "^13.1.3",
