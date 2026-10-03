@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- In **Chat Summary**, each message range now gets its own row across the window, and its number fields show message numbers up to five digits. A range that needs fixing keeps the same quiet border as the rest of the window, with a warning note under it instead of a flashing accent outline, and a range that can't be summarized no longer counts toward the messages selected. Range mode no longer opens on a range left over from a longer chat, which showed "This range is outside the chat history." right away; it starts on this chat's latest messages instead. Picking Range, or clicking into a range field, before a long chat finishes loading no longer leaves the range on that chat's first messages (#7029).
+
 - Expanded text editors, including message command results and preset variable values, now use the same background as the sidebars in dark and light mode (#7037).
 
 - Chats, Characters, Personas, Lorebooks, Presets, Connections, Agents, Settings and the Tracker Panel now each have a **?** at the top. Hover over it, or tap it on mobile, to read what that sidebar is for and what you can do there (#7002).
