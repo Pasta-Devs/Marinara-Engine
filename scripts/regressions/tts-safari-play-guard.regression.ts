@@ -371,6 +371,11 @@ assert.match(
   "the single-clip onerror records the decode failure before releasing the park",
 );
 assert.match(chatArea, /toast\.dismiss\("tts-playback-blocked"\)/u, "resuming playback clears the tap-to-play toast");
+// A character preview uses an effective-config voice, so it must route to
+// that config's exact connection rather than force the legacy backend.
+const characterPicker = readSource("packages/client/src/components/characters/CharacterVoicePicker.tsx");
+assert.match(characterPicker, /audioConnectionId: config\?\.cacheConnectionId \?\? ""/u);
+assert.doesNotMatch(characterPicker, /audioConnectionId: ""/u);
 const configCard = readSource("packages/client/src/components/panels/settings/TTSConfigCard.tsx");
 assert.match(configCard, /ttsState === "playing" \|\| ttsState === "loading" \|\| ttsState === "blocked"/u);
 // Fresh-checkout CI runs client lint before anything builds shared dist, so

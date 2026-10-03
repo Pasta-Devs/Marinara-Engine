@@ -1483,10 +1483,10 @@ export async function ttsRoutes(app: FastifyInstance) {
     // persisted to the settings blob.
     let cacheConnectionId = LEGACY_TTS_CONFIG_SENTINEL;
     let voiceContext: VoiceContext;
-    const defaultAudio = await connections.getDefaultForAudio();
-    if (defaultAudio) {
-      cacheConnectionId = defaultAudio.id;
-      voiceContext = await resolveVoiceContext(defaultAudio.id);
+    const selectedAudio = (await connections.getDefaultForAudio()) ?? (await connections.getFallbackForAudio());
+    if (selectedAudio) {
+      cacheConnectionId = selectedAudio.id;
+      voiceContext = await resolveVoiceContext(selectedAudio.id);
     } else {
       voiceContext = await resolveVoiceContext(LEGACY_TTS_CONFIG_SENTINEL);
     }
@@ -1499,8 +1499,18 @@ export async function ttsRoutes(app: FastifyInstance) {
       cacheVoiceStatuses[voice.id] = voice.status;
     }
 
+    // Normal speech builds explicit voice requests from this response. Identity
+    // overrides are never persisted; editors retain the masked legacy snapshot.
+    const effective = selectedAudio ? maskTTSConfigForResponse(await resolveAudioConfig(storage, connections)) : masked;
     return {
       ...masked,
+      source: effective.source,
+      baseUrl: effective.baseUrl,
+      model: effective.model,
+      voice: effective.voice,
+      elevenLabsGameSoundEffects: effective.elevenLabsGameSoundEffects,
+      elevenLabsGameMusic: effective.elevenLabsGameMusic,
+      legacyConfig: masked,
       cacheConnectionId,
       cacheVoiceRevision: snapshot,
       cacheVoiceRevisions,
@@ -1516,6 +1526,18 @@ export async function ttsRoutes(app: FastifyInstance) {
   app.put("/config", async (req, reply) => {
     const input = ttsConfigSchema.parse(req.body);
     const existing = parseStoredConfig(await storage.get(TTS_SETTINGS_KEY));
+    // A GET response may be spread into a shared-settings save. Its selected
+    // connection identity is not a request to replace stored legacy identity.
+    // Use stored values, never credentials supplied in the response snapshot.
+    if (req.body && typeof req.body === "object" && "legacyConfig" in req.body) {
+      input.source = existing.source;
+      input.baseUrl = existing.baseUrl;
+      input.apiKey = TTS_API_KEY_MASK;
+      input.model = existing.model;
+      input.voice = existing.voice;
+      input.elevenLabsGameSoundEffects = existing.elevenLabsGameSoundEffects;
+      input.elevenLabsGameMusic = existing.elevenLabsGameMusic;
+    }
     const storedConfig = prepareTTSConfigForStorage(input, existing);
     clearPocketTtsApiModeCache(existing);
     clearPocketTtsApiModeCache(storedConfig);
@@ -1532,7 +1554,13 @@ export async function ttsRoutes(app: FastifyInstance) {
     // Without an explicit connection this endpoint serves the TTS settings
     // card, which edits the blob — resolving the default audio connection here
     // would show the card voices for a source it is not configuring.
-    const cfg = connectionId ? await resolveAudioConfig(storage, connections, connectionId) : await loadConfig(storage);
+    let cfg: TTSConfig;
+    try {
+      cfg = (await resolveVoiceContext(connectionId)).config;
+    } catch (error) {
+      if (!(error instanceof CustomVoiceError)) throw error;
+      return reply.status(error.statusCode).send({ error: error.message });
+    }
 
     let response: TTSVoicesResponse;
     try {
@@ -1556,7 +1584,13 @@ export async function ttsRoutes(app: FastifyInstance) {
    */
   app.get("/models", async (req, reply) => {
     const { connectionId } = (req.query ?? {}) as { connectionId?: string };
-    const cfg = connectionId ? await resolveAudioConfig(storage, connections, connectionId) : await loadConfig(storage);
+    let cfg: TTSConfig;
+    try {
+      cfg = (await resolveVoiceContext(connectionId)).config;
+    } catch (error) {
+      if (!(error instanceof CustomVoiceError)) throw error;
+      return reply.status(error.statusCode).send({ error: error.message });
+    }
 
     try {
       return await fetchProviderModels(cfg);

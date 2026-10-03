@@ -109,7 +109,11 @@ export function useCreateConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateConnectionPayload) => api.post("/connections", data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+        qc.invalidateQueries({ queryKey: ["tts"] }),
+      ]),
   });
 }
 
@@ -124,6 +128,9 @@ export function useUpdateConnection() {
         qc.invalidateQueries({ queryKey: connectionKeys.list() }),
         qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) }),
         qc.invalidateQueries({ queryKey: [...connectionKeys.all, "models", variables.id] }),
+        // Audio role/identity edits must refresh the synthesis connection ID
+        // and its voice lists as well as the connection picker.
+        qc.invalidateQueries({ queryKey: ["tts"] }),
       ]),
   });
 }
@@ -144,7 +151,11 @@ export function useDuplicateConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.post(`/connections/${id}/duplicate`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+        qc.invalidateQueries({ queryKey: ["tts"] }),
+      ]),
   });
 }
 
@@ -169,6 +180,7 @@ export function useDeleteConnection() {
     },
     onSuccess: async (_data, id) => {
       qc.invalidateQueries({ queryKey: connectionKeys.list() });
+      qc.invalidateQueries({ queryKey: ["tts"] });
       const activeChatId = useChatStore.getState().activeChatId;
       if (!activeChatId) return;
       const activeChat = qc.getQueryData<Chat>(chatKeys.detail(activeChatId));

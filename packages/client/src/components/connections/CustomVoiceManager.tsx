@@ -130,6 +130,8 @@ export function CustomVoiceManager({ connectionId, onClose }: CustomVoiceManager
   const invalidateTTSQueries = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["tts", "voices"] });
     queryClient.invalidateQueries({ queryKey: ["tts", "config"] });
+    // Confirmed deletion can clear this connection's saved default voice.
+    queryClient.invalidateQueries({ queryKey: ["connections"] });
   }, [queryClient]);
 
   // Read-only refresh: GET never mutates server state.

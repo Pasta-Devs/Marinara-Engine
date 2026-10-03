@@ -63,7 +63,8 @@ const {
   getOrCreateCachedTTSAudioBlob,
   deleteCachedTTSAudioKeys,
 } = await import("../../packages/client/src/lib/tts-audio-cache.js");
-const { withTTSVoiceRequestCacheKeys } = await import("../../packages/client/src/lib/tts-dialogue.js");
+const { withTTSVoiceRequestCacheKeys, resolveTTSVoiceForSpeaker, resolveTTSNarratorVoice } =
+  await import("../../packages/client/src/lib/tts-dialogue.js");
 
 // ---------------------------------------------------------------------------
 // Part 1 — connection identity and revision invalidation (pure functions +
@@ -354,6 +355,65 @@ try {
   assert.equal(configView.cacheVoiceRevision, expectedSnapshotA, "reported revision equals the recomputed snapshot");
   assert.equal(Object.keys(configView.cacheVoiceRevisions).length, 0);
 
+  // Runtime config follows the selected backend, but read-modify-write shared
+  // settings must never persist that backend over the saved legacy identity.
+  res = await app.inject({
+    method: "PATCH",
+    url: `/api/connections/${connectionA.id}`,
+    payload: { defaultForAgents: false },
+  });
+  assert.equal(res.statusCode, 200);
+  res = await app.inject({
+    method: "PATCH",
+    url: `/api/connections/${connectionB.id}`,
+    payload: { fallbackForAgents: true },
+  });
+  assert.equal(res.statusCode, 200);
+  const effectiveView = (await app.inject({ method: "GET", url: "/api/tts/config" })).json() as TTSConfig & {
+    legacyConfig: TTSConfig;
+  };
+  assert.equal(effectiveView.cacheConnectionId, connectionB.id, "fallback-only selection uses B's cache identity");
+  assert.equal(effectiveView.source, "elevenlabs");
+  assert.equal(resolveTTSVoiceForSpeaker(effectiveView, "Unassigned speaker"), "rl_1");
+  assert.equal(resolveTTSNarratorVoice(effectiveView), "rl_1");
+  assert.equal(effectiveView.legacyConfig.voice, "alloy", "editor retains the legacy voice");
+  res = await app.inject({
+    method: "PUT",
+    url: "/api/tts/config",
+    payload: { ...effectiveView, speed: 1.25 },
+  });
+  assert.equal(res.statusCode, 204);
+  const afterSharedSave = (await app.inject({ method: "GET", url: "/api/tts/config" })).json() as typeof effectiveView;
+  assert.equal(afterSharedSave.speed, 1.25);
+  for (const field of ["source", "baseUrl", "model", "voice", "apiKey"] as const) {
+    assert.equal(
+      afterSharedSave.legacyConfig[field],
+      effectiveView.legacyConfig[field],
+      `shared save preserves ${field}`,
+    );
+  }
+  res = await app.inject({
+    method: "PATCH",
+    url: `/api/connections/${connectionB.id}`,
+    payload: { fallbackForAgents: false },
+  });
+  assert.equal(res.statusCode, 200);
+  res = await app.inject({
+    method: "POST",
+    url: "/api/tts/speak",
+    payload: { text: "Preserved legacy identity" },
+  });
+  assert.equal(res.statusCode, 200, "legacy endpoint and encrypted credential survive the shared save");
+  assert.equal(res.body, "AUDIO-A-alloy");
+  res = await app.inject({ method: "PUT", url: "/api/tts/config", payload: legacyConfig });
+  assert.equal(res.statusCode, 204);
+  res = await app.inject({
+    method: "PATCH",
+    url: `/api/connections/${connectionA.id}`,
+    payload: { defaultForAgents: true },
+  });
+  assert.equal(res.statusCode, 200);
+
   // -- Seed A's managed custom voices directly in storage (no provider upload).
   const voiceAReady = {
     id: "marinara_boundary",
@@ -543,7 +603,7 @@ try {
 
   const providerDeletes = () => providerRequests.a.filter((request) => request.method === "DELETE").length;
   const deletesBeforeRetry = providerDeletes();
-  const settingsBeforeRetry = (await app.inject({ method: "GET", url: "/api/tts/config" })).json() as {
+  const settingsBeforeRetry = (await app.inject({ method: "GET", url: "/api/tts/config" })).json().legacyConfig as {
     source: string;
     voice: string;
     sourceProfiles: { openai?: { voice?: string }; elevenlabs?: { voice?: string } };
@@ -574,7 +634,7 @@ try {
   // pre-delete saved config rather than assuming it absent).
   res = await app.inject({ method: "GET", url: "/api/tts/config" });
   assert.equal(res.statusCode, 200);
-  const settingsAfter = res.json() as {
+  const settingsAfter = res.json().legacyConfig as {
     source: string;
     voice: string;
     sourceProfiles: { openai?: { voice?: string }; elevenlabs?: { voice?: string } };
@@ -613,7 +673,11 @@ try {
       },
     },
   });
-  assert.equal(res.statusCode, 204, `PUT (pockettts active, cross-source same-id profiles): ${res.statusCode} ${res.body}`);
+  assert.equal(
+    res.statusCode,
+    204,
+    `PUT (pockettts active, cross-source same-id profiles): ${res.statusCode} ${res.body}`,
+  );
 
   res = await app.inject({ method: "GET", url: `/api/tts/custom-voices?connectionId=${connectionA.id}` });
   assert.equal(res.statusCode, 200, `management GET before cross-source delete: ${res.statusCode} ${res.body}`);
@@ -637,14 +701,18 @@ try {
 
   res = await app.inject({ method: "GET", url: "/api/tts/config" });
   assert.equal(res.statusCode, 200);
-  const settingsCross = (res.json() as {
+  const settingsCross = res.json().legacyConfig as {
     source: string;
     voice: string;
     sourceProfiles: { openai: { voice: string }; elevenlabs: { voice: string }; pockettts: { voice: string } };
-  });
+  };
   assert.equal(settingsCross.source, "pockettts", "the active source is unchanged");
   assert.equal(settingsCross.voice, "al_1", "the active (pockettts) top-level voice is preserved");
-  assert.equal(settingsCross.sourceProfiles.openai.voice, "", "the context's own (openai) profile reference is cleared");
+  assert.equal(
+    settingsCross.sourceProfiles.openai.voice,
+    "",
+    "the context's own (openai) profile reference is cleared",
+  );
   assert.equal(
     settingsCross.sourceProfiles.elevenlabs.voice,
     "marinara_boundary",

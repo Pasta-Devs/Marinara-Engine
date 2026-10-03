@@ -1054,10 +1054,6 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
     () => connectionsList.filter((connection) => connection.provider === "video_generation"),
     [connectionsList],
   );
-  const audioConnections = useMemo(
-    () => connectionsList.filter((connection) => connection.provider === "audio"),
-    [connectionsList],
-  );
   const { data: agentConfigs, isLoading: agentConfigsLoading, isError: agentConfigsError } = useAgentConfigs();
   const {
     data: capabilityAgents,
@@ -1218,15 +1214,6 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
             fallbackField="fallbackForAgents"
             primaryEmptyLabel="No default video connection"
             fallbackModelLabel="Video generation"
-          />
-          <ConnectionDefaultPair
-            title={localizeUi("ui.panels.connectiondefaultssection.audio")}
-            icon={<Music size="0.875rem" />}
-            connections={audioConnections}
-            primaryField="defaultForAgents"
-            fallbackField="fallbackForAgents"
-            primaryEmptyLabel={localizeUi("ui.panels.connectiondefaultssection.noDefaultAudioConnection")}
-            fallbackModelLabel={localizeUi("ui.panels.connectiondefaultssection.audioGeneration")}
           />
           <DecisionDefaultControl />
         </div>
@@ -2170,7 +2157,19 @@ export function ConnectionsPanel() {
       {import.meta.env.VITE_MARINARA_LITE !== "true" && <SidecarCard />}
 
       {/* ── Text to Speech ── */}
-      <TTSConfigCard />
+      <TTSConfigCard
+        audioConnectionControls={
+          <ConnectionDefaultPair
+            title={localizeUi("ui.panels.connectiondefaultssection.audio")}
+            icon={<Music size="0.875rem" />}
+            connections={connectionsList.filter((connection) => connection.provider === "audio")}
+            primaryField="defaultForAgents"
+            fallbackField="fallbackForAgents"
+            primaryEmptyLabel={localizeUi("ui.panels.connectiondefaultssection.noDefaultAudioConnection")}
+            fallbackModelLabel={localizeUi("ui.panels.connectiondefaultssection.audioGeneration")}
+          />
+        }
+      />
 
       {isLoading && (
         <div className="flex flex-col gap-2 py-2">

@@ -123,13 +123,13 @@ export function CharacterVoicePicker({
     }
     const name = spokenName.trim();
     const line = name ? `Hi, I'm ${name}. This is how I sound.` : "Hi! This is how I sound.";
-    // Same path as the Text to Speech card's preview: the settings blob it edits.
+    // Keep the effective voice and its backend together; an empty id is legacy.
     ttsService
       .speak(line, previewId, {
         throwOnError: true,
         voice: previewVoice,
         speaker: characterName || undefined,
-        audioConnectionId: "",
+        audioConnectionId: config?.cacheConnectionId ?? "",
       })
       .catch((error: unknown) => {
         toast.error(error instanceof Error && error.message ? error.message : t("ui.characters.voice.previewFailed"));

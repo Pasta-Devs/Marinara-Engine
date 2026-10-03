@@ -10,6 +10,14 @@ The app sends TTS requests through its own server. Your provider API key is stor
 
 Turning TTS on does not make anything speak by itself. It only reveals the **Speak** button on each message and the **Auto-play** options. You still choose what gets read and when.
 
+### Use a saved Audio connection
+
+The expanded **Text to Speech** card contains the existing **Audio** default and fallback selectors (moved here from **Defaults**). Choose a saved Audio connection: the default is preferred, or the fallback is used when no default is selected. This is the existing shared Audio category selection, not a separate TTS-only connection setting; Game setups with an explicit Audio connection keep their override.
+
+With a connection selected, the card loads that backend's voices, saves the default voice to that connection only, and previews through that exact connection without saving legacy provider settings. **Manage custom voices** opens its connection-scoped manager directly here; the connection editor entry remains available. Non-OpenAI sources show an explanation instead. Merely selecting a connection or opening the manager does not register a voice or opt into a custom-voice profile. Switching connections closes the manager and stops its preview.
+
+With neither a default nor fallback selected, the existing legacy provider controls remain available below; the rest of this guide describes those controls. Your legacy settings and per-character voice assignments are preserved. Existing voice IDs are not converted between backends and may be unsupported on a newly selected provider. The selected-connection **Preview** tests its default voice, not the saved per-character assignments.
+
 ## Step 1: Enable TTS and pick a Source
 
 1. Open the **Connections** panel and expand the **Text to Speech** card.
@@ -170,7 +178,7 @@ This override is used only during Conversation audio and video calls. The regula
 
 ## Custom voices (`vllm-omni` profile)
 
-Some OpenAI-compatible endpoints can **register new voices from a short recording** (the `vllm-omni` custom-voice capability). Marinara manages these per audio connection through a **Manage custom voices** dialog, opened from the connection editor. The dialog is available only for audio connections that use the **OpenAI** source; other sources show a short explanation of why custom voices are not available.
+Some OpenAI-compatible endpoints can **register new voices from a short recording** (the `vllm-omni` custom-voice capability). Marinara manages these per audio connection through a **Manage custom voices** dialog, opened directly from **Connections → Text to Speech** after selecting a saved Audio connection, or from the connection editor. The dialog is available only for audio connections that use the **OpenAI** source; other sources show a short explanation of why custom voices are not available.
 
 - **The profile is explicit, not model-name-based.** Registration is gated by an opt-in **custom-voice profile** stored with the connection (currently `vllm-omni`), not by the provider name or the configured model name. A bare OpenAI-compatible endpoint starts in an *unknown* state: the manager offers to select the `vllm-omni` profile, and only after that is the upload form unlocked. This keeps the feature opt-in and avoids guessing from a model string.
 - **Uploads are validated locally and on the server.** The manager accepts **16-bit WAV PCM** — 1 to 2 channels, 8,000–48,000 Hz, up to 10 MiB and up to 120 seconds. Each upload requires a **provider-issued consent recording ID** (never fabricated by the app), a **display name**, and a permission acknowledgement. The acknowledgement does not verify consent. A transcript of up to 10,000 characters can be supplied when needed by the loaded model. Registration transmits the recording, transcript and consent ID to the configured backend; Marinara does not retain them.

@@ -1,14 +1,28 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { seedUIState } from "./ui-state-fixture.js";
+import { readFileSync } from "node:fs";
+
+const APP_VERSION = (
+  JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
+).version;
+
+test.beforeEach(async ({ page }) => {
+  // Keep server-persisted preferences from overriding this test's local fixture.
+  await page.route("**/api/app-settings/ui", (route) =>
+    route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
+  );
+  // Release announcements are unrelated to these connection-management proofs.
+  await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), APP_VERSION);
+});
 
 /**
  * Custom-voice management (vLLM-Omni) — mocked browser coverage.
  *
- * Scope: the CustomVoiceManager that lives inside an audio connection's editor.
+ * Scope: the CustomVoiceManager in the audio editor and TTS card.
  * The provider (vLLM-Omni) is never contacted: every /api/tts/custom-voices*
- * round-trip is satisfied by an in-test state machine via page.route. Only the
- * /api/connections CRUD hits the real (disposable) server, so no production
- * TTS provider, model download, or network egress is involved.
+ * round-trip is satisfied by an in-test state machine via page.route. Editor
+ * tests use the disposable server for /api/connections CRUD; card tests mock
+ * connections and all TTS traffic. No production TTS provider is involved.
  *
  * Honest limitation: because the endpoints are mocked, this verifies the client
  * flow (read-only open/refresh, file preview without synthesis/registration,
@@ -471,4 +485,156 @@ test.describe("custom voice management (mocked provider)", () => {
     // No synthesis and no extra mutation traffic for the whole flow.
     expect(tracker.speak).toEqual([]);
   });
+});
+
+test.describe("TTS card audio connections", () => {
+  async function openCard(page: Page, activeRole?: "defaultForAgents" | "fallbackForAgents") {
+    await seedUIState(page, {
+      sidebarOpen: false,
+      chibiProfessorMariEnabled: false,
+      professorMariNavigationEnabled: false,
+      hasCompletedOnboarding: true,
+    });
+    const rows = [
+      { id: "tts-card-a", name: "Card OpenAI A", provider: "audio", audioSource: "openai", defaultForAgents: false },
+      { id: "tts-card-b", name: "Card OpenAI B", provider: "audio", audioSource: "openai", defaultForAgents: false },
+      {
+        id: "tts-card-c",
+        name: "Card ElevenLabs",
+        provider: "audio",
+        audioSource: "elevenlabs",
+        defaultForAgents: false,
+      },
+    ];
+    Object.assign(rows[1]!, activeRole ? { [activeRole]: true } : {});
+    await page.route("**/api/connections", (route) => route.fulfill({ json: rows }));
+    await page.route("**/api/connections/tts-card-*", async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith("/models")) return route.fulfill({ json: [] });
+      const id = path.split("/").pop();
+      const row = rows.find((item) => item.id === id)!;
+      if (route.request().method() === "GET") return route.fulfill({ json: row });
+      expect(route.request().method()).toBe("PATCH");
+      const body = route.request().postDataJSON();
+      if (body.defaultForAgents)
+        rows.forEach((item) => {
+          item.defaultForAgents = false;
+        });
+      Object.assign(row, body);
+      await route.fulfill({ json: row });
+    });
+    // Catch accidental synthesis locally; the tracker below still records it.
+    await page.route("**/api/tts/**", (route) =>
+      route.fulfill({ status: 500, json: { error: "Unexpected TTS request" } }),
+    );
+    await page.route("**/api/tts/config", (route) => {
+      expect(route.request().method()).toBe("GET");
+      return route.fulfill({
+        json: {
+          enabled: false,
+          source: "openai",
+          baseUrl: "http://legacy-tts.invalid/v1",
+          apiKey: "",
+          model: "legacy-model",
+          voice: "legacy-voice",
+          speed: 1,
+          voiceMode: "single",
+          voiceAssignments: [],
+          sourceProfiles: {},
+        },
+      });
+    });
+    await page.route("**/api/tts/voices*", (route) => {
+      expect(route.request().method()).toBe("GET");
+      const id = new URL(route.request().url()).searchParams.get("connectionId");
+      expect(rows.some((row) => row.id === id)).toBeTruthy();
+      return route.fulfill({ json: { voices: [], fromProvider: true } });
+    });
+    await page.route("**/api/tts/custom-voices*", (route) => {
+      expect(route.request().method()).toBe("GET");
+      const id = new URL(route.request().url()).searchParams.get("connectionId")!;
+      expect(["tts-card-a", "tts-card-b"]).toContain(id);
+      return route.fulfill({ json: baseMgmt({ connectionId: id, destination: `http://${id}/v1` }) });
+    });
+    const tracker = trackRequests(page);
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.setState({ rightPanelOpen: true, rightPanel: "connections", rightPanelWidth: 600 });
+    });
+    const card = page
+      .locator("div.rounded-xl")
+      .filter({ has: page.getByText("Text to Speech", { exact: true }) })
+      .last();
+    await expect(card).toBeVisible();
+    await card.getByRole("button", { name: "Expand", exact: true }).click();
+    const picker = card.getByRole("combobox", { name: "Default connection for Audio", exact: true });
+    await expect(picker).toBeVisible();
+    return { card, picker, tracker };
+  }
+
+  test("picker scopes management, switching and clearing close it, legacy settings survive", async ({ page }) => {
+    const { card, picker, tracker } = await openCard(page);
+    await expect(card.getByRole("button", { name: "Manage custom voices", exact: true })).toBeDisabled();
+    const legacyInput = card.locator('input[placeholder="https://api.openai.com/v1"]');
+    await expect(legacyInput).toBeVisible();
+    await expect(legacyInput).toHaveValue("http://legacy-tts.invalid/v1");
+    const legacyModel = card.locator('input[placeholder="tts-1"]');
+    await expect(legacyModel).toHaveValue("legacy-model");
+    expect(tracker.reads).toEqual([]);
+    await picker.selectOption("tts-card-a");
+    await expect(card.getByText(/Using Card OpenAI A for speech/)).toBeVisible();
+    await expect(legacyInput).toHaveCount(0);
+    await card.getByRole("button", { name: "Manage custom voices", exact: true }).click();
+    await expect(page.getByRole("dialog").getByText("http://tts-card-a/v1")).toBeVisible();
+    // Simulate a selection change while the overlay is open. The keyed
+    // subtree must discard the manager belonging to the previous backend.
+    await picker.selectOption("tts-card-b", { force: true });
+    await expect(card.getByText(/Using Card OpenAI B for speech/)).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await card.getByRole("button", { name: "Manage custom voices", exact: true }).click();
+    await expect(page.getByRole("dialog").getByText("http://tts-card-b/v1")).toBeVisible();
+    // Clear while the manager is still open, proving removal of stale scope.
+    await picker.selectOption("", { force: true });
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(legacyInput).toBeVisible();
+    await expect(legacyInput).toHaveValue("http://legacy-tts.invalid/v1");
+    await expect(legacyModel).toHaveValue("legacy-model");
+    await expect(card.getByRole("button", { name: "Manage custom voices", exact: true })).toBeDisabled();
+    await picker.selectOption("tts-card-c");
+    await expect(card.getByText(/Using Card ElevenLabs for speech/)).toBeVisible();
+    await expect(card.getByRole("button", { name: "Manage custom voices", exact: true })).toBeDisabled();
+    await expect(
+      card.getByText(/Custom voice management is available only for OpenAI-compatible Audio connections/),
+    ).toBeVisible();
+    await expect(legacyInput).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(tracker.mutations).toEqual([]);
+    expect(tracker.speak).toEqual([]);
+    expect(tracker.reads.some((url) => url.includes("connectionId=tts-card-a"))).toBeTruthy();
+    expect(tracker.reads.some((url) => url.includes("connectionId=tts-card-b"))).toBeTruthy();
+    expect(tracker.reads.some((url) => url.includes("connectionId=tts-card-c"))).toBeFalsy();
+  });
+
+  for (const role of ["defaultForAgents", "fallbackForAgents"] as const) {
+    test(`opening reuses the saved audio ${role} without registering or synthesizing`, async ({ page }) => {
+      const { card, picker, tracker } = await openCard(page, role);
+      await expect(card.getByText(/Using Card OpenAI B for speech/)).toBeVisible();
+      if (role === "defaultForAgents") {
+        await expect(picker).toHaveValue("tts-card-b");
+      } else {
+        await expect(card.getByRole("combobox", { name: "Fallback connection for Audio", exact: true })).toHaveValue(
+          "tts-card-b",
+        );
+      }
+      await expect(card.locator('input[placeholder="https://api.openai.com/v1"]')).toHaveCount(0);
+      expect(tracker.reads).toEqual([]);
+      await card.getByRole("button", { name: "Manage custom voices", exact: true }).click();
+      await expect(page.getByRole("dialog").getByText("http://tts-card-b/v1")).toBeVisible();
+      expect(tracker.reads.length).toBeGreaterThan(0);
+      expect(tracker.reads.every((url) => url.includes("connectionId=tts-card-b"))).toBeTruthy();
+      expect(tracker.mutations).toEqual([]);
+      expect(tracker.speak).toEqual([]);
+    });
+  }
 });
