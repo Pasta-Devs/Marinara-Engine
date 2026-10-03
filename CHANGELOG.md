@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Updated the multipart upload parser to fix two denial-of-service vulnerabilities triggered by malformed upload headers or oversized boundaries (#6995).
+
 - `decision_choice:` statements now get answers from System One servers that need a description for every option, such as Strands decider. Before, those servers refused the whole request, so every Choice comparison read as no. Open-Jev's answers stayed the same in testing. The Decision Models guide now explains how to run Strands decider yourself as a Decision connection (#6981).
 
 - Reinstalling the local model's runtime, or installing a new llama.cpp runtime, no longer deletes an installed decision model such as Open-Jev 2B along with the old runtime (#6982).
