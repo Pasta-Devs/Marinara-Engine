@@ -2133,6 +2133,7 @@ export const ChatMessage = memo(function ChatMessage({
       if (!hasTTSContent) return;
       void ttsService.speakSequence(ttsVoiceRequests, message.id, {
         progressive: ttsConfig?.progressivePlayback,
+        audioConnectionId: ttsConfig?.cacheConnectionId,
         volume: ttsLinePlaybackVolume,
         onChunkStart: (_request, index) =>
           notifyRoleplayTTSParagraph(message.chatId, message.id, ttsVoiceRequests, index),
@@ -2143,6 +2144,7 @@ export const ChatMessage = memo(function ChatMessage({
     message.chatId,
     message.id,
     ttsConfig?.progressivePlayback,
+    ttsConfig?.cacheConnectionId,
     ttsLinePlaybackVolume,
     ttsVoiceRequests,
   ]);

@@ -1,0 +1,526 @@
+/**
+ * Custom-voice boundary regression — three proof areas:
+ *
+ * Part 1: Cache connection identity + revision invalidation.
+ *   - The voice-context snapshot is the 64-hex "revision" the client keys its
+ *     audio cache on. It changes when (and only when) the TTS-relevant fields
+ *     of the exact connection change; a trailing-slash-only change does not.
+ *   - The client cache-key derivation folds in cacheConnectionId /
+ *     cacheVoiceRevision / per-voice revision + status, so the same line of
+ *     text produces different keys per connection and per revision, while a
+ *     legacy (no-connection) config keeps its own key.
+ *   - In the audio cache store, an A revision rotation and an A key deletion
+ *     never touch B's cached clip.
+ *
+ * Part 2: Default/legacy provider compatibility.
+ *   - With no audio connection, the TTS settings blob (legacy path) speaks and
+ *     discovers voices; an empty connection id selects the default audio
+ *     connection once one exists; disabled global TTS does not block an
+ *     explicitly named connection (explicit = intent).
+ *   - A non-openai (ElevenLabs) default-eligible second connection speaks its
+ *     own ordinary voice, lists only provider voices (no managed augmentation),
+ *     and rejects a marinara_ managed id (409) that belongs to the OpenAI
+ *     connection. On the OpenAI connection, a ready managed voice speaks, a
+ *     pending one is 409, and the config/voices/custom-voices endpoints expose
+ *     the per-voice revisions.
+ *
+ * Part 3: Personal backup exclusions.
+ *   - The full personal backup (folder + profile zip) includes the avatars
+ *     asset directory and the connections table, but must NOT include the
+ *     custom-voices management directory, which lives outside BACKUP_DIRS and
+ *     the profile asset collection. The seeded management file survives the
+ *     backup untouched on disk.
+ *
+ * Run: node scripts/run-regressions.mjs --filter custom-voice-boundaries
+ */
+import assert from "node:assert/strict";
+import { createServer } from "node:http";
+import type { Server } from "node:http";
+import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { once } from "node:events";
+import { syncBuiltinESMExports } from "node:module";
+import AdmZip from "adm-zip";
+import type { TTSConfig, TTSVoiceRequest } from "../../packages/shared/src/types/tts.js";
+
+const temporary = await mkdtemp(join(tmpdir(), "marinara-voice-boundaries-"));
+process.env.DATA_DIR = temporary;
+process.env.FILE_STORAGE_DIR = join(temporary, "files");
+process.env.TTS_LOCAL_URLS_ENABLED = "true";
+process.env.ENCRYPTION_KEY = "ab".repeat(32);
+syncBuiltinESMExports();
+
+const { ttsConfigSchema } = await import("../../packages/shared/src/types/tts.js");
+const { voiceContextSnapshot } = await import("../../packages/server/src/services/tts/custom-voice-service.js");
+const { customVoiceStorage } = await import("../../packages/server/src/services/tts/custom-voice-storage.js");
+const {
+  __resetTTSMemoryCacheForTests,
+  __ttsMemoryCacheStatsForTests,
+  getCachedTTSAudioBlob,
+  getOrCreateCachedTTSAudioBlob,
+  deleteCachedTTSAudioKeys,
+} = await import("../../packages/client/src/lib/tts-audio-cache.js");
+const { withTTSVoiceRequestCacheKeys } = await import("../../packages/client/src/lib/tts-dialogue.js");
+
+// ---------------------------------------------------------------------------
+// Part 1 — connection identity and revision invalidation (pure functions +
+// the in-process audio cache tiers; no network involved).
+// ---------------------------------------------------------------------------
+
+const baseA: TTSConfig = ttsConfigSchema.parse({
+  source: "openai",
+  baseUrl: "http://127.0.0.1:9101/v1",
+  apiKey: "key-a",
+  model: "tts-1",
+  voice: "alloy",
+});
+const baseB: TTSConfig = ttsConfigSchema.parse({
+  source: "elevenlabs",
+  baseUrl: "http://127.0.0.1:9102",
+  apiKey: "key-b",
+  model: "eleven_multilingual_v2",
+  voice: "rl_1",
+});
+const contextA = { connectionId: "conn-a", config: baseA, assignments: {} as Record<string, string[]> };
+const contextB = { connectionId: "conn-b", config: baseB, assignments: {} as Record<string, string[]> };
+
+const snapshotA = voiceContextSnapshot(contextA);
+const snapshotB = voiceContextSnapshot(contextB);
+assert.match(snapshotA, /^[0-9a-f]{64}$/, "snapshot must be a 64-hex revision");
+assert.equal(snapshotA, voiceContextSnapshot(contextA), "snapshot must be stable for an unchanged context");
+assert.notEqual(snapshotA, snapshotB, "different connections must have different revisions");
+
+// Only TTS-relevant changes rotate the revision; cosmetic ones do not.
+assert.notEqual(
+  voiceContextSnapshot({ ...contextA, config: { ...baseA, apiKey: "key-a-rotated" } }),
+  snapshotA,
+  "rotating the API key must rotate connection A's revision",
+);
+assert.notEqual(
+  voiceContextSnapshot({ ...contextA, config: { ...baseA, model: "tts-1-hd" } }),
+  snapshotA,
+  "rotating the model must rotate connection A's revision",
+);
+assert.equal(
+  voiceContextSnapshot({ ...contextA, config: { ...baseA, baseUrl: "http://127.0.0.1:9101/v1/" } }),
+  snapshotA,
+  "trailing-slash-only baseUrl differences must not rotate the revision",
+);
+assert.equal(
+  voiceContextSnapshot({ ...contextB, config: { ...baseB } }),
+  snapshotB,
+  "connection B's revision is independent of A's rotation",
+);
+
+// Cache-key derivation: same text, different identity inputs -> different keys.
+const keyOf = (config: TTSConfig, voice: string, text: string) =>
+  withTTSVoiceRequestCacheKeys([{ text, voice } satisfies TTSVoiceRequest], config, "message-1")[0]!;
+
+const configA = {
+  ...baseA,
+  cacheConnectionId: "conn-a",
+  cacheVoiceRevision: snapshotA,
+  cacheVoiceRevisions: { alloy: "1700000000000" },
+  cacheVoiceStatuses: { alloy: "ready" },
+};
+const configB = {
+  ...baseB,
+  cacheConnectionId: "conn-b",
+  cacheVoiceRevision: snapshotB,
+  cacheVoiceRevisions: { rl_1: "1700000002000" },
+  cacheVoiceStatuses: { rl_1: "ready" },
+};
+
+const keyLegacy = keyOf(baseA, "alloy", "Boundary line: legacy blob");
+const keyA = keyOf(configA, "alloy", "Boundary line: connection A");
+const keyB = keyOf(configB, "rl_1", "Boundary line: connection B");
+assert.notEqual(keyA.cacheKey, keyLegacy.cacheKey, "connection-scoped key differs from legacy blob key");
+assert.notEqual(keyB.cacheKey, keyLegacy.cacheKey, "connection-scoped key differs from legacy blob key");
+assert.notEqual(keyA.cacheKey, keyB.cacheKey, "two connections derive different keys");
+assert.notEqual(keyA.cacheAliases![0], keyLegacy.cacheAliases![0], "text alias keys also differ across identities");
+
+const keyARevisionRotated = keyOf(
+  {
+    ...configA,
+    cacheVoiceRevision: voiceContextSnapshot({ ...contextA, config: { ...baseA, apiKey: "key-a-rotated" } }),
+  },
+  "alloy",
+  "Boundary line: connection A",
+);
+assert.notEqual(keyARevisionRotated.cacheKey, keyA.cacheKey, "a revision rotation changes A's cache key");
+const keyAVoiceRevisionRotated = keyOf(
+  { ...configA, cacheVoiceRevisions: { alloy: "1800000000000" } },
+  "alloy",
+  "Boundary line: connection A",
+);
+assert.notEqual(keyAVoiceRevisionRotated.cacheKey, keyA.cacheKey, "a per-voice revision change changes A's cache key");
+assert.equal(keyB.cacheKey, keyB.cacheKey);
+
+// In-process cache tiers: store three clips, then rotate + delete A's. B and
+// the legacy clip must be completely untouched.
+__resetTTSMemoryCacheForTests();
+const blobOf = (label: string) => new Blob([new TextEncoder().encode(label)]);
+await getOrCreateCachedTTSAudioBlob(keyLegacy.cacheKey, async () => blobOf("LEGACY-CLIP"), [
+  keyLegacy.cacheAliases![0]!,
+]);
+await getOrCreateCachedTTSAudioBlob(keyA.cacheKey, async () => blobOf("A-CLIP"), [keyA.cacheAliases![0]!]);
+await getOrCreateCachedTTSAudioBlob(keyB.cacheKey, async () => blobOf("B-CLIP"), [keyB.cacheAliases![0]!]);
+assert.equal(await (await getCachedTTSAudioBlob(keyA.cacheKey))?.text(), "A-CLIP");
+assert.equal(await (await getCachedTTSAudioBlob(keyB.cacheKey))?.text(), "B-CLIP");
+assert.equal(await (await getCachedTTSAudioBlob(keyLegacy.cacheKey))?.text(), "LEGACY-CLIP");
+
+// A new revision creates a NEW clip under the new key; the old A clip and the
+// other connections' clips remain valid.
+await getOrCreateCachedTTSAudioBlob(keyARevisionRotated.cacheKey, async () => blobOf("A-CLIP-v2"), [
+  keyARevisionRotated.cacheAliases![0]!,
+]);
+assert.equal(await (await getCachedTTSAudioBlob(keyARevisionRotated.cacheKey))?.text(), "A-CLIP-v2");
+assert.equal(
+  await (await getCachedTTSAudioBlob(keyA.cacheKey))?.text(),
+  "A-CLIP",
+  "old A revision clip is not replaced by the new one",
+);
+assert.equal(
+  await (await getCachedTTSAudioBlob(keyB.cacheKey))?.text(),
+  "B-CLIP",
+  "B's clip survives A's revision rotation",
+);
+
+// Deleting A's keys (primary + alias) evicts only A's clips.
+await deleteCachedTTSAudioKeys([
+  keyA.cacheKey,
+  keyA.cacheAliases![0]!,
+  keyARevisionRotated.cacheKey,
+  keyARevisionRotated.cacheAliases![0]!,
+]);
+assert.equal(await getCachedTTSAudioBlob(keyA.cacheKey), null, "A's old revision clip is evicted");
+assert.equal(await getCachedTTSAudioBlob(keyA.cacheAliases![0]!), null, "A's alias clip is evicted");
+assert.equal(await getCachedTTSAudioBlob(keyARevisionRotated.cacheKey), null, "A's new revision clip is evicted");
+assert.equal(await (await getCachedTTSAudioBlob(keyB.cacheKey))?.text(), "B-CLIP", "B's clip survives A's purge");
+assert.equal(
+  await (await getCachedTTSAudioBlob(keyLegacy.cacheKey))?.text(),
+  "LEGACY-CLIP",
+  "legacy clip survives A's purge",
+);
+const stats = __ttsMemoryCacheStatsForTests();
+assert.ok(stats.entries === 4, `only B (2 keys) and legacy (2 keys) clips remain, got ${stats.entries}`);
+assert.ok(stats.bytes > 0);
+
+// ---------------------------------------------------------------------------
+// Part 2 — legacy / default / non-openai provider compatibility (full app,
+// in-process mock providers only).
+// ---------------------------------------------------------------------------
+
+const providerRequests: Record<"a" | "b", Array<{ method: string; url: string; body: string }>> = { a: [], b: [] };
+function createMockProvider(which: "a" | "b"): Server {
+  const server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    req.on("end", () => {
+      const body = Buffer.concat(chunks).toString("utf8");
+      const url = req.url ?? "";
+      providerRequests[which].push({ method: req.method ?? "", url, body });
+      if (which === "a") {
+        if (req.method === "GET" && url.startsWith("/v1/audio/voices")) {
+          return void res.end(JSON.stringify({ voices: ["alloy", "shimmer"], uploaded_voices: [] }));
+        }
+        if (req.method === "POST" && url === "/v1/audio/speech") {
+          const voice = (JSON.parse(body) as { voice?: string }).voice ?? "unknown";
+          res.setHeader("content-type", "audio/mpeg");
+          return void res.end(`AUDIO-A-${voice}`);
+        }
+      } else {
+        if (req.method === "GET" && url.startsWith("/v2/voices")) {
+          return void res.end(JSON.stringify({ voices: [{ id: "rl_1", name: "Ryland" }], has_more: false }));
+        }
+        if (req.method === "POST" && url.startsWith("/v1/text-to-speech/")) {
+          const voice = decodeURIComponent(url.split("/").at(-1)!.split("?")[0]!);
+          res.setHeader("content-type", "audio/mpeg");
+          return void res.end(`AUDIO-B-${voice}`);
+        }
+      }
+      res.statusCode = 404;
+      res.end(`unexpected ${req.method} ${url}`);
+    });
+  });
+  server.listen(0, "127.0.0.1");
+  return server;
+}
+
+const serverA = createMockProvider("a");
+const serverB = createMockProvider("b");
+if (!serverA.listening) await once(serverA, "listening");
+if (!serverB.listening) await once(serverB, "listening");
+const originA = `http://127.0.0.1:${(serverA.address() as { port: number }).port}`;
+const originB = `http://127.0.0.1:${(serverB.address() as { port: number }).port}`;
+
+const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
+const Fastify = (await import("../../packages/server/node_modules/fastify/fastify.js")).default;
+const app = Fastify({ logger: false });
+const db = await getDB();
+app.decorate("db", db);
+const { connectionsRoutes } = await import("../../packages/server/src/routes/connections.routes.js");
+const { ttsRoutes } = await import("../../packages/server/src/routes/tts.routes.js");
+const { backupRoutes } = await import("../../packages/server/src/routes/backup.routes.js");
+app.register(connectionsRoutes, { prefix: "/api/connections" });
+app.register(ttsRoutes, { prefix: "/api/tts" });
+app.register(backupRoutes, { prefix: "/api/backup" });
+await app.ready();
+
+try {
+  // -- Legacy: no audio connections at all -> the settings blob is the config.
+  const legacyConfig = {
+    enabled: true,
+    source: "openai",
+    baseUrl: `${originA}/v1`,
+    apiKey: "key-a",
+    model: "tts-1",
+    voice: "alloy",
+  };
+  let res = await app.inject({ method: "PUT", url: "/api/tts/config", payload: legacyConfig });
+  assert.equal(res.statusCode, 204, `PUT /api/tts/config (legacy): ${res.statusCode} ${res.body}`);
+
+  res = await app.inject({
+    method: "POST",
+    url: "/api/tts/speak",
+    payload: { text: "Legacy boundary line", audioConnectionId: "" },
+  });
+  assert.equal(res.statusCode, 200, `legacy speak: ${res.statusCode} ${res.body}`);
+  assert.match(res.headers["content-type"] ?? "", /audio\//);
+  assert.equal(res.body, "AUDIO-A-alloy", "legacy blob speaks through its own endpoint");
+  assert.equal(providerRequests.a.at(-1)!.url, "/v1/audio/speech");
+
+  res = await app.inject({ method: "GET", url: "/api/tts/voices" });
+  assert.equal(res.statusCode, 200);
+  const legacyVoices = res.json() as { voices: string[] };
+  assert.deepEqual(legacyVoices.voices.sort(), ["alloy", "shimmer"], "legacy voice list is the plain provider list");
+
+  // -- Create the two audio connections: OpenAI (default) and ElevenLabs.
+  res = await app.inject({
+    method: "POST",
+    url: "/api/connections",
+    payload: {
+      name: "Boundary OpenAI Audio",
+      provider: "audio",
+      baseUrl: `${originA}/v1`,
+      apiKey: "key-a",
+      model: "tts-1",
+      audioSource: "openai",
+      audioVoice: "alloy",
+      defaultForAgents: true,
+    },
+  });
+  assert.ok(res.statusCode >= 200 && res.statusCode < 300, `create A: ${res.statusCode} ${res.body}`);
+  const connectionA = res.json() as { id: string };
+
+  res = await app.inject({
+    method: "POST",
+    url: "/api/connections",
+    payload: {
+      name: "Boundary ElevenLabs Audio",
+      provider: "audio",
+      baseUrl: originB,
+      apiKey: "key-b",
+      model: "eleven_multilingual_v2",
+      audioSource: "elevenlabs",
+      audioVoice: "rl_1",
+    },
+  });
+  assert.ok(res.statusCode >= 200 && res.statusCode < 300, `create B: ${res.statusCode} ${res.body}`);
+  const connectionB = res.json() as { id: string };
+  assert.notEqual(connectionA.id, connectionB.id);
+
+  // -- The config endpoint reports A's identity and the expected revision.
+  const expectedSnapshotA = voiceContextSnapshot({
+    connectionId: connectionA.id,
+    config: ttsConfigSchema.parse(legacyConfig),
+    assignments: {},
+  });
+  res = await app.inject({ method: "GET", url: "/api/tts/config" });
+  assert.equal(res.statusCode, 200);
+  let configView = res.json() as {
+    cacheConnectionId: string;
+    cacheVoiceRevision: string;
+    cacheVoiceRevisions: Record<string, string>;
+    cacheVoiceStatuses: Record<string, string>;
+  };
+  assert.equal(configView.cacheConnectionId, connectionA.id, "config is scoped to the default audio connection");
+  assert.equal(configView.cacheVoiceRevision, expectedSnapshotA, "reported revision equals the recomputed snapshot");
+  assert.equal(Object.keys(configView.cacheVoiceRevisions).length, 0);
+
+  // -- Seed A's managed custom voices directly in storage (no provider upload).
+  const voiceAReady = {
+    id: "marinara_boundary",
+    displayName: "Boundary Voice",
+    status: "ready",
+    createdAt: 1700000000000,
+  };
+  const voiceAPending = {
+    id: "marinara_stale",
+    displayName: "Stale Voice",
+    status: "pending",
+    createdAt: 1700000001000,
+  };
+  const seededStorageKey = `${connectionA.id}\0${expectedSnapshotA}`;
+  await customVoiceStorage(seededStorageKey).write({
+    snapshot: expectedSnapshotA,
+    profile: "vllm-omni",
+    voices: [voiceAReady, voiceAPending],
+  });
+  const seededFile = join(
+    temporary,
+    "custom-voices",
+    `${createHash("sha256").update(seededStorageKey).digest("hex")}.json`,
+  );
+  assert.ok(existsSync(seededFile), "the seeded management file lives in dataDir/custom-voices");
+
+  // -- Voices: A is augmented with managed entries; B (non-openai) is not.
+  res = await app.inject({ method: "GET", url: `/api/tts/voices?connectionId=${connectionA.id}` });
+  assert.equal(res.statusCode, 200);
+  const voicesA = res.json() as {
+    voices: string[];
+    voiceOptions: Array<{ id: string; labels?: { managed?: boolean; status?: string } }>;
+  };
+  assert.ok(voicesA.voices.includes("marinara_boundary"), "A's voice list includes the ready managed voice");
+  const optionA = voicesA.voiceOptions.find((option) => option.id === "marinara_boundary")!;
+  assert.equal(optionA.labels?.managed, true);
+  assert.equal(optionA.labels?.status, "ready");
+  const optionPending = voicesA.voiceOptions.find((option) => option.id === "marinara_stale");
+  assert.ok(optionPending?.labels?.managed === true, "a pending managed voice is listed as managed");
+  assert.equal(optionPending?.labels?.status, "pending", "the pending status is surfaced in the list");
+
+  res = await app.inject({ method: "GET", url: `/api/tts/voices?connectionId=${connectionB.id}` });
+  assert.equal(res.statusCode, 200);
+  const voicesB = res.json() as { voices: string[] };
+  assert.deepEqual(voicesB.voices, ["rl_1"], "B's voice list is exactly the provider list (no managed augmentation)");
+
+  // -- The config endpoint now exposes per-voice revisions for A.
+  res = await app.inject({ method: "GET", url: "/api/tts/config" });
+  configView = res.json() as typeof configView;
+  assert.equal(configView.cacheVoiceRevisions["marinara_boundary"], "1700000000000");
+  assert.equal(configView.cacheVoiceStatuses["marinara_boundary"], "ready");
+  assert.equal(configView.cacheVoiceRevisions["marinara_stale"], "1700000001000");
+  assert.equal(configView.cacheVoiceStatuses["marinara_stale"], "pending");
+
+  // -- Speak: managed voice on its own connection works; on the other one it 409s.
+  res = await app.inject({
+    method: "POST",
+    url: "/api/tts/speak",
+    payload: { text: "Managed boundary line", audioConnectionId: connectionA.id, voice: "marinara_boundary" },
+  });
+  assert.equal(res.statusCode, 200, `managed speak on A: ${res.statusCode} ${res.body}`);
+  assert.equal(res.body, "AUDIO-A-marinara_boundary");
+
+  res = await app.inject({
+    method: "POST",
+    url: "/api/tts/speak",
+    payload: { text: "Cross-connection managed line", audioConnectionId: connectionB.id, voice: "marinara_boundary" },
+  });
+  assert.equal(
+    res.statusCode,
+    409,
+    `managed voice on a non-openai connection must 409, got ${res.statusCode} ${res.body}`,
+  );
+
+  res = await app.inject({
+    method: "POST",
+    url: "/api/tts/speak",
+    payload: { text: "Stale managed line", audioConnectionId: connectionA.id, voice: "marinara_stale" },
+  });
+  assert.equal(res.statusCode, 409, `a pending managed voice must 409 even on its own connection`);
+
+  res = await app.inject({
+    method: "POST",
+    url: "/api/tts/speak",
+    payload: { text: "Plain elevenlabs line", audioConnectionId: connectionB.id, voice: "rl_1" },
+  });
+  assert.equal(res.statusCode, 200, `ordinary voice on B: ${res.statusCode} ${res.body}`);
+  assert.equal(res.body, "AUDIO-B-rl_1");
+  assert.equal(providerRequests.b.at(-1)!.url, `/v1/text-to-speech/rl_1?output_format=mp3_44100_128`);
+
+  // -- The custom-voices management endpoint agrees with the seeded snapshot.
+  res = await app.inject({ method: "GET", url: `/api/tts/custom-voices?connectionId=${connectionA.id}` });
+  assert.equal(res.statusCode, 200, `custom-voices GET: ${res.statusCode} ${res.body}`);
+  const management = res.json() as {
+    connectionId: string;
+    snapshot: string;
+    profile: string;
+    voices: Array<{ id: string; status: string }>;
+  };
+  assert.equal(management.connectionId, connectionA.id);
+  assert.equal(management.snapshot, expectedSnapshotA);
+  assert.equal(management.profile, "vllm-omni");
+  assert.deepEqual(management.voices.map((voice) => voice.id).sort(), ["marinara_boundary", "marinara_stale"]);
+
+  // -- Legacy sentinel and the master toggle boundary.
+  res = await app.inject({
+    method: "POST",
+    url: "/api/tts/speak",
+    payload: { text: "Legacy line with connections present", audioConnectionId: "" },
+  });
+  assert.equal(res.statusCode, 200, `the "" sentinel must still use the blob after connections exist`);
+  assert.equal(res.body, "AUDIO-A-alloy");
+
+  res = await app.inject({ method: "PUT", url: "/api/tts/config", payload: { ...legacyConfig, enabled: false } });
+  assert.equal(res.statusCode, 204);
+  res = await app.inject({
+    method: "POST",
+    url: "/api/tts/speak",
+    payload: { text: "Disabled blob line", audioConnectionId: "" },
+  });
+  assert.equal(res.statusCode, 400, `disabled blob blocks legacy speak, got ${res.statusCode} ${res.body}`);
+  res = await app.inject({
+    method: "POST",
+    url: "/api/tts/speak",
+    payload: { text: "Explicit line with disabled blob", audioConnectionId: connectionA.id, voice: "alloy" },
+  });
+  assert.equal(
+    res.statusCode,
+    200,
+    `an explicitly requested connection is direct intent and speaks despite the disabled blob`,
+  );
+  assert.equal(res.body, "AUDIO-A-alloy");
+  res = await app.inject({ method: "PUT", url: "/api/tts/config", payload: legacyConfig });
+  assert.equal(res.statusCode, 204);
+
+  // -------------------------------------------------------------------------
+  // Part 3 — personal backup: included assets vs excluded custom-voice state.
+  // -------------------------------------------------------------------------
+
+  // Positive control: an ordinary shared asset dir directly in the data dir
+  // (profile asset dirs live under DATA_DIR, not under FILE_STORAGE_DIR).
+  await mkdir(join(temporary, "avatars"), { recursive: true });
+  await writeFile(join(temporary, "avatars", "character-boundary.png"), "fake-png-bytes");
+
+  res = await app.inject({ method: "POST", url: "/api/backup/" });
+  assert.equal(res.statusCode, 200, `backup create: ${res.statusCode} ${res.body}`);
+  const { backupName } = res.json() as { success: boolean; backupName: string };
+  assert.ok(backupName, "backup named");
+  const backupDir = join(temporary, "backups", backupName);
+  assert.ok(existsSync(backupDir), "backup folder exists");
+  assert.ok(existsSync(join(backupDir, "avatars", "character-boundary.png")), "avatars asset dir is backed up");
+  assert.ok(!existsSync(join(backupDir, "custom-voices")), "custom-voices dir is NOT part of the backup folder");
+  assert.ok(existsSync(seededFile), "the seeded custom-voice management file survives the backup untouched");
+
+  const zip = new AdmZip(join(backupDir, "marinara-profile.zip"));
+  const entries = zip.getEntries().map((entry) => entry.entryName.replace(/\\/g, "/"));
+  assert.ok(entries.length > 0, "profile zip is not empty");
+  assert.ok(
+    entries.some((entry) => entry.includes("avatars/")),
+    "profile zip carries the avatars asset dir",
+  );
+  assert.ok(!entries.some((entry) => entry.includes("custom-voices")), "profile zip excludes custom-voices entirely");
+} finally {
+  serverA.close();
+  serverB.close();
+  await app.close();
+  closeDB();
+  await rm(temporary, { recursive: true, force: true }).catch(() => {});
+}
+
+console.log(
+  "custom-voice-boundaries: snapshot identity + revision invalidation, legacy/default/non-openai compatibility, and backup exclusions all verified",
+);

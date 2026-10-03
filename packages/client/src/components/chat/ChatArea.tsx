@@ -2871,6 +2871,7 @@ const LocalChatArea = memo(function LocalChatArea() {
 
       await ttsService.speakSequence(withTTSVoiceRequestCacheKeys(ttsRequests, cfg, lastMsg.id), lastMsg.id, {
         progressive: cfg.progressivePlayback,
+        audioConnectionId: cfg.cacheConnectionId,
         volume: ttsLineVolume / 100,
         onChunkStart: (_request, index) => notifyRoleplayTTSParagraph(targetChatId, lastMsg.id, ttsRequests, index),
       });

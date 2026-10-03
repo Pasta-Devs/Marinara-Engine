@@ -5,6 +5,7 @@
 // Types
 export * from "./types/multiplayer.js";
 export * from "./types/tts.js";
+export * from "./types/custom-voices.js";
 export * from "./types/chat.js";
 export * from "./types/advanced-memory.js";
 export * from "./types/semantic-summary-retrieval.js";

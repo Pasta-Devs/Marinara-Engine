@@ -33,6 +33,14 @@ import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
+import {
+  assertManagedVoiceUsable,
+  CustomVoiceError,
+  voiceContextSnapshot,
+  type VoiceContext,
+} from "../services/tts/custom-voice-service.js";
+import { customVoiceStorage } from "../services/tts/custom-voice-storage.js";
+import { registerCustomVoiceRoutes } from "./custom-voices.routes.js";
 
 // OpenAI built-in voices used as fallback when the provider has no /audio/voices endpoint
 const OPENAI_FALLBACK_VOICES = ["alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"];
@@ -623,6 +631,34 @@ async function resolveAudioConfig(
     elevenLabsGameSoundEffects: row.audioSoundEffects === "true",
     elevenLabsGameMusic: row.audioMusic === "true",
   };
+}
+
+/**
+ * Voice-assignment references for one resolved TTS config, keyed by voice ID:
+ * which character / global / narrator / random pools point at that voice.
+ * Scoped to the exact connection (or legacy blob) the config was resolved from.
+ */
+function voiceAssignmentLabels(config: TTSConfig): Record<string, string[]> {
+  const assignments: Record<string, string[]> = {};
+  const add = (voice: string | undefined, label: string) => {
+    const id = voice?.trim();
+    if (!id) return;
+    (assignments[id] ??= []).push(label);
+  };
+  add(config.voice, "Global voice");
+  for (const assignment of config.voiceAssignments) {
+    add(
+      assignment.voice,
+      assignment.characterName
+        ? `Character: ${assignment.characterName}`
+        : `Character: ${assignment.characterId || "unlabeled"}`,
+    );
+  }
+  add(config.narratorVoice, "Narrator voice");
+  for (const voice of config.npcDefaultMaleVoices) add(voice, "NPC default male voice pool");
+  for (const voice of config.npcDefaultFemaleVoices) add(voice, "NPC default female voice pool");
+  for (const id of Object.keys(assignments)) assignments[id] = [...new Set(assignments[id])].sort();
+  return assignments;
 }
 
 function responseFromVoiceOptions(
@@ -1312,13 +1348,149 @@ export async function ttsRoutes(app: FastifyInstance) {
   const connections = createConnectionsStorage(app.db);
 
   /**
+   * Resolve the custom-voice VoiceContext for a stored, EXPLICIT connection id
+   * (or "" for the legacy settings blob). An invalid explicit id never falls
+   * back to the default audio connection: a managed voice belongs to the exact
+   * endpoint/account it was registered against and must never be re-routed.
+   */
+  async function resolveVoiceContext(requestedConnectionId: string | null | undefined): Promise<VoiceContext> {
+    const connectionId =
+      requestedConnectionId && requestedConnectionId !== LEGACY_TTS_CONFIG_SENTINEL
+        ? requestedConnectionId
+        : LEGACY_TTS_CONFIG_SENTINEL;
+    let config: TTSConfig;
+    if (connectionId) {
+      const row = await connections.getWithKey(connectionId);
+      if (!row) throw new CustomVoiceError("Audio connection not found. Select an existing stored connection.", 404);
+      if (row.provider !== "audio")
+        throw new CustomVoiceError("That stored connection is not an audio connection.", 400);
+      config = await resolveAudioConfig(storage, connections, connectionId);
+    } else {
+      config = await loadConfig(storage);
+    }
+    return { connectionId, config, assignments: voiceAssignmentLabels(config) };
+  }
+
+  /**
+   * After the service has confirmed provider-side deletion, remove ONLY the
+   * references to that voice id from the TTS settings (character assignments,
+   * global voice, narrator voice, NPC random pools). The connection context is
+   * rechecked against its snapshot before anything is cleared.
+   */
+  async function clearVoiceAssignments(context: VoiceContext, id: string): Promise<void> {
+    const current = await resolveVoiceContext(context.connectionId);
+    if (voiceContextSnapshot(current) !== voiceContextSnapshot(context)) {
+      throw new CustomVoiceError("Connection changed while clearing assignments. Refresh before retrying.", 409);
+    }
+    if (context.connectionId) {
+      const row = await connections.getWithKey(context.connectionId);
+      if (row?.audioVoice === id) await connections.update(context.connectionId, { audioVoice: "" });
+    }
+    const raw = await storage.get(TTS_SETTINGS_KEY);
+    if (!raw) return;
+    const config = parseStoredConfig(raw);
+    let changed = false;
+    if (config.voice === id) {
+      config.voice = "";
+      changed = true;
+    }
+    if (config.narratorVoice === id) {
+      config.narratorVoice = "";
+      changed = true;
+    }
+    for (const assignment of config.voiceAssignments) {
+      if (assignment.voice === id) {
+        assignment.voice = "";
+        changed = true;
+      }
+    }
+    for (const pool of [config.npcDefaultMaleVoices, config.npcDefaultFemaleVoices]) {
+      for (let index = pool.length - 1; index >= 0; index--) {
+        if (pool[index] === id) {
+          pool.splice(index, 1);
+          changed = true;
+        }
+      }
+    }
+    if (changed) await storage.set(TTS_SETTINGS_KEY, JSON.stringify(config));
+  }
+
+  /**
+   * Append the managed (backend-uploaded) voices of the exact connection as
+   * labeled entries to the provider voice list; the provider library itself is
+   * never replaced and source defaults are untouched.
+   */
+  async function augmentManagedVoices(
+    response: TTSVoicesResponse,
+    requestedConnectionId: string | undefined,
+  ): Promise<TTSVoicesResponse> {
+    let context: VoiceContext;
+    try {
+      context = await resolveVoiceContext(requestedConnectionId);
+    } catch (error) {
+      // A missing/non-audio connection simply gets no managed labels.
+      if (!(error instanceof CustomVoiceError)) throw error;
+      return response;
+    }
+    if (context.config.source !== "openai") return response;
+    const state = await customVoiceStorage(`${context.connectionId}\0${voiceContextSnapshot(context)}`).read();
+    const managed = (state?.voices ?? []).filter((voice) => voice.status !== "deleted");
+    if (managed.length === 0) return response;
+    const existing = new Set((response.voiceOptions ?? []).map((option) => option.id));
+    const additions = managed
+      .filter((voice) => !existing.has(voice.id))
+      .map<VoiceOption>((voice) => ({
+        id: voice.id,
+        name: voice.displayName,
+        category: "Managed upload",
+        labels: { managed: true, status: voice.status },
+      }));
+    if (additions.length === 0) return response;
+    return {
+      ...response,
+      voices: [...new Set([...response.voices, ...additions.map((option) => option.id)])],
+      voiceOptions: [...(response.voiceOptions ?? []), ...additions],
+    };
+  }
+
+  /**
    * GET /api/tts/config
    * Returns TTS config with the API key masked.
    */
   app.get("/config", async () => {
     const raw = await storage.get(TTS_SETTINGS_KEY);
     const cfg = parseStoredConfig(raw);
-    return maskTTSConfigForResponse(cfg);
+    const masked = maskTTSConfigForResponse(cfg);
+
+    // Response-only cache metadata: the exact connection context (id +
+    // snapshot) this config and its managed voices belong to, plus per-voice
+    // management status/revision for client-side cache keys. None of this is
+    // persisted to the settings blob.
+    let cacheConnectionId = LEGACY_TTS_CONFIG_SENTINEL;
+    let voiceContext: VoiceContext;
+    const defaultAudio = await connections.getDefaultForAudio();
+    if (defaultAudio) {
+      cacheConnectionId = defaultAudio.id;
+      voiceContext = await resolveVoiceContext(defaultAudio.id);
+    } else {
+      voiceContext = await resolveVoiceContext(LEGACY_TTS_CONFIG_SENTINEL);
+    }
+    const snapshot = voiceContextSnapshot(voiceContext);
+    const state = await customVoiceStorage(`${voiceContext.connectionId}\0${snapshot}`).read();
+    const cacheVoiceRevisions: Record<string, string> = {};
+    const cacheVoiceStatuses: Record<string, string> = {};
+    for (const voice of state?.voices ?? []) {
+      cacheVoiceRevisions[voice.id] = String(voice.createdAt);
+      cacheVoiceStatuses[voice.id] = voice.status;
+    }
+
+    return {
+      ...masked,
+      cacheConnectionId,
+      cacheVoiceRevision: snapshot,
+      cacheVoiceRevisions,
+      cacheVoiceStatuses,
+    };
   });
 
   /**
@@ -1347,8 +1519,9 @@ export async function ttsRoutes(app: FastifyInstance) {
     // would show the card voices for a source it is not configuring.
     const cfg = connectionId ? await resolveAudioConfig(storage, connections, connectionId) : await loadConfig(storage);
 
+    let response: TTSVoicesResponse;
     try {
-      return await fetchProviderVoices(cfg);
+      response = await fetchProviderVoices(cfg);
     } catch (error) {
       logger.warn(error, "TTS voice discovery failed for source %s", cfg.source);
       if (cfg.source === "elevenlabs" && cfg.apiKey) {
@@ -1357,8 +1530,9 @@ export async function ttsRoutes(app: FastifyInstance) {
           detail: error instanceof Error ? error.message : "Unknown provider error",
         });
       }
-      return fallbackVoices(cfg.source);
+      response = fallbackVoices(cfg.source);
     }
+    return augmentManagedVoices(response, connectionId);
   });
 
   /**
@@ -1569,6 +1743,20 @@ export async function ttsRoutes(app: FastifyInstance) {
     }
 
     const requestVoice = resolveTTSRequestVoice(cfg.voice, voice);
+
+    // A managed (backend-uploaded) voice belongs to the exact connection it
+    // was registered against: assert it is usable there before the provider
+    // request and never fall back to a default connection for an invalid id.
+    if (requestVoice.startsWith("marinara_")) {
+      try {
+        await assertManagedVoiceUsable(await resolveVoiceContext(audioConnectionId), requestVoice);
+      } catch (error) {
+        if (error instanceof CustomVoiceError) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+        throw error;
+      }
+    }
 
     if (cfg.source === "elevenlabs" && !requestVoice) {
       return reply.status(400).send({ error: "ElevenLabs voice is not selected" });
@@ -1794,4 +1982,6 @@ export async function ttsRoutes(app: FastifyInstance) {
     reply.header("Content-Length", String(audioBuffer.byteLength));
     return reply.send(Buffer.from(audioBuffer));
   });
+
+  registerCustomVoiceRoutes(app, resolveVoiceContext, clearVoiceAssignments);
 }

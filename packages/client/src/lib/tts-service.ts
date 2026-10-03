@@ -36,7 +36,10 @@ export interface TTSSpeakRequest {
   activeId?: string | null;
 }
 
-export interface TTSSpeakSequenceOptions extends Pick<TTSSpeakOptions, "signal" | "throwOnError" | "volume" | "muted"> {
+export interface TTSSpeakSequenceOptions extends Pick<
+  TTSSpeakOptions,
+  "signal" | "throwOnError" | "volume" | "muted" | "audioConnectionId"
+> {
   progressive?: boolean;
   onChunkStart?: (request: TTSSpeakRequest, index: number) => void;
   onChunkEnd?: (request: TTSSpeakRequest, index: number) => void;
@@ -525,6 +528,7 @@ class TTSService {
           speaker: request.speaker,
           tone: request.tone,
           voice: request.voice,
+          audioConnectionId: options.audioConnectionId,
           signal: abortController.signal,
           cacheKey: request.cacheKey,
           cacheAliases: request.cacheAliases,

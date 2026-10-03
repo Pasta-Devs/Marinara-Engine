@@ -78,6 +78,7 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { AtlasCloudModelOptions } from "./AtlasCloudModelOptions";
 import { NanoGptUsageWidget } from "./NanoGptUsageWidget";
+import { CustomVoiceManager } from "./CustomVoiceManager";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsCheckbox, SettingsSwitch } from "../panels/settings/SettingControls";
 import {
@@ -362,6 +363,7 @@ export function ConnectionEditor() {
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [customVoiceConnectionId, setCustomVoiceConnectionId] = useState<string | null>(null);
 
   // Local editable state
   const [localName, setLocalName] = useState("");
@@ -2407,6 +2409,27 @@ export function ConnectionEditor() {
                 {localizeUi("ui.connections.connectioneditor.sceneVideosAreGeneratedFromTheCurrentGameIllustration")}
               </p>
             </FieldGroup>
+          )}
+
+          {isAudioProvider && (
+            <div>
+              <button
+                type="button"
+                disabled={dirty}
+                onClick={() => setCustomVoiceConnectionId(connectionDetailId)}
+                className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm disabled:opacity-50"
+              >
+                {localizeUi("ui.panels.customvoicemanager.manage")}
+              </button>
+              {dirty && <p className="text-xs">{localizeUi("ui.panels.customvoicemanager.saveFirst")}</p>}
+            </div>
+          )}
+          {customVoiceConnectionId && customVoiceConnectionId === connectionDetailId && (
+            <CustomVoiceManager
+              key={customVoiceConnectionId}
+              connectionId={customVoiceConnectionId}
+              onClose={() => setCustomVoiceConnectionId(null)}
+            />
           )}
 
           {/* ── Audio Source (only for audio provider) ── */}

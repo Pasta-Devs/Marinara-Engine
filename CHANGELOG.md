@@ -4,6 +4,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- OpenAI-compatible audio connections can now manage **Custom TTS voices** through the explicitly selected `vllm-omni` profile. **Manage custom voices** lists provider voices, previews a recording locally, registers it using a provider-issued consent recording ID and permission acknowledgement, explicitly tests synthesis, and deletes managed voices after confirmation. Backend/provider storage owns recordings; Marinara retains minimal connection-scoped management metadata. Personal backups may preserve assigned provider IDs but exclude management records and backend-held audio; ordinary sharing gains no custom voice records or recordings.
+- Documents the custom-voice flow in the TTS setup guide: registration is gated by an **explicit per-connection profile** (not by provider or model name), uploads are validated locally and server-side (16-bit WAV PCM, up to 10 MiB / 120 s), and successful mocked "Test" playback proves wiring, **not acoustic quality**.
+- Adds a mocked end-to-end suite (`e2e/custom-voices.e2e.ts`) covering opening/refreshing the manager without mutations, file/consent preview without synthesis, the unsupported-source explanation, successful and uncertain registration, and stale-snapshot isolation.
+
 - Mobile screen edges and the keyboard surround match the topbar, including when switching between dark and light mode (#7017).
 
 - Sidebar headers, item action trays, and settings use a consistent background. Mobile screen edges follow the app surface, and Refresh App uses the shared settings button style (#7011).

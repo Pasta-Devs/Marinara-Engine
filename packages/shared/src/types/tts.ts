@@ -212,7 +212,13 @@ export const ttsConfigSchema = ttsConfigBaseSchema.extend({
   sourceProfiles: ttsSourceProfilesSchema,
 });
 
-export type TTSConfig = z.infer<typeof ttsConfigSchema>;
+export type TTSConfig = z.infer<typeof ttsConfigSchema> & {
+  /** Response-only cache context; stripped by the persistence schema. */
+  cacheConnectionId?: string;
+  cacheVoiceRevision?: string;
+  cacheVoiceRevisions?: Record<string, string>;
+  cacheVoiceStatuses?: Record<string, string>;
+};
 
 export function ttsSourceProfileFromConfig(config: TTSConfig): TTSSourceProfile {
   return {

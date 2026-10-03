@@ -137,6 +137,10 @@ export function withTTSVoiceRequestCacheKeys(
     const requestSignature = [
       configSignature,
       request.voice ?? "",
+      config.cacheConnectionId ?? "",
+      config.cacheVoiceRevision ?? "",
+      config.cacheVoiceRevisions?.[request.voice || config.voice] ?? "",
+      config.cacheVoiceStatuses?.[request.voice || config.voice] ?? "",
       request.speaker ?? "",
       request.tone ?? "",
       request.text,

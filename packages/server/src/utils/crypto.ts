@@ -2,7 +2,7 @@
 // Utility: API Key Encryption
 // ──────────────────────────────────────────────
 import { logger } from "../lib/logger.js";
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA_DIR } from "./data-dir.js";
@@ -76,6 +76,11 @@ function getEncryptionKey(): Buffer {
   logger.info("[CRYPTO] No ENCRYPTION_KEY found — generated and saved to %s", keyPath);
   cachedKey = newKey;
   return cachedKey;
+}
+
+/** Opaque install-bound context revision: never exposes credentials or endpoint data. */
+export function privateContextRevision(context: string): string {
+  return createHmac("sha256", getEncryptionKey()).update(context).digest("hex");
 }
 
 /** Encrypt a plaintext API key. Returns "iv:encrypted:authTag" in hex. */
