@@ -142,7 +142,7 @@ function ExpandedMacroEditor({
           EDITOR_MODAL_SURFACE_VARIABLES,
         )}
       >
-        <div className="flex h-[min(92vh,56rem)] max-h-[calc(100vh-1.5rem)] w-full min-w-0 max-w-5xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)] shadow-2xl supports-[height:100dvh]:h-[min(92dvh,56rem)] supports-[height:100dvh]:max-h-[calc(100dvh-1.5rem)]">
+        <div className="flex h-[min(92vh,56rem)] max-h-[calc(100vh-1.5rem)] w-full min-w-0 max-w-5xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--sidebar)] shadow-2xl supports-[height:100dvh]:h-[min(92dvh,56rem)] supports-[height:100dvh]:max-h-[calc(100dvh-1.5rem)]">
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <div className="min-w-0 flex-1">
               <h3 title={title} className="truncate text-sm font-semibold text-[var(--foreground)]">
@@ -178,7 +178,7 @@ function ExpandedMacroEditor({
             placeholder={placeholder}
             readOnly={readOnly}
             maxLength={maxLength}
-            className="min-h-0 flex-1 resize-none bg-[var(--secondary)] p-4 font-mono text-sm leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
+            className="min-h-0 flex-1 resize-none bg-[var(--sidebar)] p-4 font-mono text-sm leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
             spellCheck={false}
           />
         </div>
