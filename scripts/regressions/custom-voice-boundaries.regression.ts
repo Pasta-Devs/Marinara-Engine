@@ -227,6 +227,9 @@ function createMockProvider(which: "a" | "b"): Server {
         if (req.method === "GET" && url.startsWith("/v1/audio/voices")) {
           return void res.end(JSON.stringify({ voices: ["alloy", "shimmer"], uploaded_voices: [] }));
         }
+        if (req.method === "DELETE" && url.startsWith("/v1/audio/voices/")) {
+          return void res.end(JSON.stringify({ success: true }));
+        }
         if (req.method === "POST" && url === "/v1/audio/speech") {
           const voice = (JSON.parse(body) as { voice?: string }).voice ?? "unknown";
           res.setHeader("content-type", "audio/mpeg");
@@ -483,6 +486,172 @@ try {
     `an explicitly requested connection is direct intent and speaks despite the disabled blob`,
   );
   assert.equal(res.body, "AUDIO-A-alloy");
+  res = await app.inject({ method: "PUT", url: "/api/tts/config", payload: legacyConfig });
+  assert.equal(res.statusCode, 204);
+
+  // -------------------------------------------------------------------------
+  // Part 2b — tombstone delete recovery: a delete whose local cleanup
+  // previously failed can be retried through the same delete flow; the
+  // provider DELETE is never repeated, the tombstone is preserved, and the
+  // exact matching saved source-profile voice field is the only profile
+  // field cleared.
+  // -------------------------------------------------------------------------
+
+  // The legacy blob is now driven by a DIFFERENT source, so connection A's
+  // saved openai source-profile voice field is a live reference path (the
+  // active top-level fields no longer shadow it) while A's snapshot is
+  // unchanged (row source/baseUrl/apiKey/model are unchanged).
+  res = await app.inject({
+    method: "PUT",
+    url: "/api/tts/config",
+    payload: {
+      ...legacyConfig,
+      source: "elevenlabs",
+      baseUrl: originB,
+      apiKey: "key-b",
+      model: "eleven_multilingual_v2",
+      voice: "rl_1",
+      sourceProfiles: { openai: { voice: "marinara_boundary" } },
+    },
+  });
+  assert.equal(res.statusCode, 204, `re-point legacy blob: ${res.statusCode} ${res.body}`);
+
+  // Second matching reference: the connection's own audioVoice.
+  res = await app.inject({
+    method: "PATCH",
+    url: `/api/connections/${connectionA.id}`,
+    payload: { audioVoice: "marinara_boundary" },
+  });
+  assert.equal(res.statusCode, 200, `set connection audioVoice: ${res.statusCode} ${res.body}`);
+
+  // Simulate the previously failed local cleanup: tombstone the voice in the
+  // management state while its references remain in the TTS settings.
+  const boundaryState = (await customVoiceStorage(seededStorageKey).read())!;
+  boundaryState.voices = boundaryState.voices.map((voice) =>
+    voice.id === "marinara_boundary" ? { ...voice, status: "deleted" } : voice,
+  );
+  await customVoiceStorage(seededStorageKey).write(boundaryState);
+
+  res = await app.inject({ method: "GET", url: `/api/tts/custom-voices?connectionId=${connectionA.id}` });
+  assert.equal(res.statusCode, 200, `management GET before retry: ${res.statusCode} ${res.body}`);
+  const managementBeforeRetry = res.json() as { snapshot: string; assignments: Record<string, string[]> };
+  assert.deepEqual(
+    managementBeforeRetry.assignments["marinara_boundary"],
+    ["Global voice", "Source profile: openai"],
+    "the tombstoned voice reports both matching references with a per-source profile label",
+  );
+
+  const providerDeletes = () => providerRequests.a.filter((request) => request.method === "DELETE").length;
+  const deletesBeforeRetry = providerDeletes();
+  const settingsBeforeRetry = (await app.inject({ method: "GET", url: "/api/tts/config" })).json() as {
+    source: string;
+    voice: string;
+    sourceProfiles: { openai?: { voice?: string }; elevenlabs?: { voice?: string } };
+  };
+  res = await app.inject({
+    method: "POST",
+    url: `/api/tts/custom-voices/delete?connectionId=${connectionA.id}`,
+    payload: {
+      snapshot: managementBeforeRetry.snapshot,
+      id: "marinara_boundary",
+      confirmedAssignments: ["Global voice", "Source profile: openai"],
+    },
+  });
+  assert.equal(res.statusCode, 200, `tombstone retry delete: ${res.statusCode} ${res.body}`);
+  assert.equal(providerDeletes(), deletesBeforeRetry, "the provider DELETE was not repeated on retry");
+  const managementAfterRetry = res.json() as {
+    snapshot: string;
+    voices: Array<{ id: string; status: string }>;
+    assignments: Record<string, string[]>;
+  };
+  assert.equal(managementAfterRetry.voices.find((voice) => voice.id === "marinara_boundary")?.status, "deleted");
+  assert.equal(managementAfterRetry.assignments["marinara_boundary"], undefined, "all references cleared on retry");
+
+  // The exact matching saved source-profile field was cleared; the active
+  // source, the top-level voice, and the other profiles are preserved exactly
+  // as they were saved before the delete (profile normalization on the PUT
+  // may have populated the elevenlabs profile, so compare against the
+  // pre-delete saved config rather than assuming it absent).
+  res = await app.inject({ method: "GET", url: "/api/tts/config" });
+  assert.equal(res.statusCode, 200);
+  const settingsAfter = res.json() as {
+    source: string;
+    voice: string;
+    sourceProfiles: { openai?: { voice?: string }; elevenlabs?: { voice?: string } };
+  };
+  assert.equal(settingsAfter.source, settingsBeforeRetry.source, "active source preserved");
+  assert.equal(settingsAfter.voice, settingsBeforeRetry.voice, "active top-level voice preserved");
+  assert.equal(settingsAfter.sourceProfiles.openai?.voice, "", "openai profile voice field cleared");
+  assert.deepEqual(
+    settingsAfter.sourceProfiles.elevenlabs,
+    settingsBeforeRetry.sourceProfiles.elevenlabs,
+    "elevenlabs profile preserved exactly as saved before the delete",
+  );
+
+  // A second retry with no remaining references is an idempotent no-op.
+  res = await app.inject({
+    method: "POST",
+    url: `/api/tts/custom-voices/delete?connectionId=${connectionA.id}`,
+    payload: { snapshot: managementAfterRetry.snapshot, id: "marinara_boundary", confirmedAssignments: [] },
+  });
+  assert.equal(res.statusCode, 200, `idempotent re-delete: ${res.statusCode} ${res.body}`);
+  assert.equal(providerDeletes(), deletesBeforeRetry, "no further provider traffic on the no-op retry");
+
+  // -- 2c: an identical identifier saved in a DIFFERENT source's profile is
+  // an unrelated voice for that provider: it is not reported as a reference
+  // to the deleted managed voice, and the delete preserves it exactly.
+  res = await app.inject({
+    method: "PUT",
+    url: "/api/tts/config",
+    payload: {
+      source: "pockettts",
+      model: "pockettts",
+      voice: "al_1",
+      sourceProfiles: {
+        openai: { voice: "marinara_boundary" },
+        elevenlabs: { voice: "marinara_boundary" },
+      },
+    },
+  });
+  assert.equal(res.statusCode, 204, `PUT (pockettts active, cross-source same-id profiles): ${res.statusCode} ${res.body}`);
+
+  res = await app.inject({ method: "GET", url: `/api/tts/custom-voices?connectionId=${connectionA.id}` });
+  assert.equal(res.statusCode, 200, `management GET before cross-source delete: ${res.statusCode} ${res.body}`);
+  const managementCross = res.json() as { snapshot: string; assignments: Record<string, string[]> };
+  assert.deepEqual(
+    managementCross.assignments["marinara_boundary"],
+    ["Global voice", "Source profile: openai"],
+    "the unrelated elevenlabs profile with the same id is not reported as a reference",
+  );
+
+  res = await app.inject({
+    method: "POST",
+    url: `/api/tts/custom-voices/delete?connectionId=${connectionA.id}`,
+    payload: {
+      snapshot: managementCross.snapshot,
+      id: "marinara_boundary",
+      confirmedAssignments: ["Global voice", "Source profile: openai"],
+    },
+  });
+  assert.equal(res.statusCode, 200, `cross-source delete: ${res.statusCode} ${res.body}`);
+
+  res = await app.inject({ method: "GET", url: "/api/tts/config" });
+  assert.equal(res.statusCode, 200);
+  const settingsCross = (res.json() as {
+    source: string;
+    voice: string;
+    sourceProfiles: { openai: { voice: string }; elevenlabs: { voice: string }; pockettts: { voice: string } };
+  });
+  assert.equal(settingsCross.source, "pockettts", "the active source is unchanged");
+  assert.equal(settingsCross.voice, "al_1", "the active (pockettts) top-level voice is preserved");
+  assert.equal(settingsCross.sourceProfiles.openai.voice, "", "the context's own (openai) profile reference is cleared");
+  assert.equal(
+    settingsCross.sourceProfiles.elevenlabs.voice,
+    "marinara_boundary",
+    "the unrelated elevenlabs profile with the same identifier survives the delete",
+  );
+
+  // Restore the legacy blob for the backup part.
   res = await app.inject({ method: "PUT", url: "/api/tts/config", payload: legacyConfig });
   assert.equal(res.statusCode, 204);
 

@@ -88,7 +88,7 @@ function mockCustomVoices(
   },
 ) {
   let state = baseMgmt();
-  page.route("**/tts/custom-voices*", async (route) => {
+  const handle = async (route: import("@playwright/test").Route) => {
     const req = route.request();
     const url = new URL(req.url());
     const method = req.method();
@@ -112,7 +112,11 @@ function mockCustomVoices(
     const payload = status >= 400 ? { success: false, error: (result as any).error } : result;
     state = status >= 400 ? state : (result as Mgmt);
     await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(payload) });
-  });
+  };
+  // The glob `*` does not cross path separators, so the `/delete` subpath
+  // needs its own pattern; both patterns use the same mock state.
+  page.route("**/tts/custom-voices*/*", handle);
+  page.route("**/tts/custom-voices*", handle);
 }
 
 /** Track requests the page makes, split into "mutations" and "synthesis". */
@@ -372,5 +376,99 @@ test.describe("custom voice management (mocked provider)", () => {
     ).toBeVisible();
     await expect(modal.locator("#cvm-profile")).toBeVisible();
     await expect(modal.getByText("http://127.0.0.1:9999/v1")).toBeVisible();
+  });
+
+  test("deleting an already-deleted managed voice confirms all assignments and keeps the tombstone", async ({
+    page,
+    request,
+  }) => {
+    const id = await createAudioConnection(request, "CVM Tombstone", "openai");
+    const tracker = trackRequests(page);
+    const deleteBodies: any[] = [];
+    const deletedVoice: Voice = {
+      id: "marinara_tomb01",
+      displayName: "Ghost",
+      status: "deleted",
+      createdAt: new Date().toISOString(),
+    };
+    mockCustomVoices(page, {
+      get: (s) =>
+        s.profile
+          ? s
+          : {
+              ...s,
+              snapshot: "s1",
+              profile: "vllm-omni",
+              capability: "explicit",
+              voices: [deletedVoice],
+              assignments: { marinara_tomb01: ["Character Alpha", "Character Beta"] },
+            },
+      // Deletion of an already-tombstoned voice is pure local cleanup: the
+      // successful response clears the remaining assignment references while
+      // the tombstone itself stays in the managed list.
+      post: (b, s, isDelete) => {
+        expect(isDelete).toBeTruthy();
+        deleteBodies.push(b);
+        return { ...s, assignments: {} };
+      },
+    });
+
+    await openConnectionEditor(page, id);
+    await manageButton(page).click();
+    const modal = page.getByRole("dialog");
+    await expect(modal).toBeVisible();
+
+    // The deleted voice stays visible with its "Deleted" status…
+    await expect(modal.getByText("Ghost")).toBeVisible();
+    await expect(modal.getByText("Deleted", { exact: true })).toBeVisible();
+    // …and a tombstone never offers Test synthesis (only "ready" voices do).
+    await expect(modal.getByRole("button", { name: "Test", exact: true })).toHaveCount(0);
+
+    // Open the delete confirmation for the tombstone: it must list ALL
+    // remaining assignment labels.
+    await modal.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(modal.getByText("Delete Ghost?", { exact: true })).toBeVisible();
+    await expect(
+      modal.getByText("In use by: Character Alpha, Character Beta. Confirm these assignments before deleting."),
+    ).toBeVisible();
+
+    // The confirmation checkbox is required: submit stays disabled until it is ticked.
+    const confirmCheckbox = modal.getByLabel("I've confirmed the assignments above.");
+    await expect(confirmCheckbox).toBeVisible();
+    await expect(confirmCheckbox).not.toBeChecked();
+    const confirmDelete = modal.getByRole("button", { name: "Delete voice", exact: true });
+    await expect(confirmDelete).toBeDisabled();
+    await confirmCheckbox.check();
+    await expect(confirmDelete).toBeEnabled();
+
+    // Submit: one POST to the existing delete endpoint with the exact payload.
+    await confirmDelete.click();
+
+    // Success toast acknowledges the local cleanup.
+    await expect(page.getByText("Deleted Ghost", { exact: true })).toBeVisible();
+    expect(deleteBodies).toEqual([
+      {
+        snapshot: "s1",
+        id: "marinara_tomb01",
+        confirmedAssignments: ["Character Alpha", "Character Beta"],
+      },
+    ]);
+    expect(tracker.mutations).toHaveLength(1);
+    // toHaveLength(1) just proved the element exists; the `!` is for the
+    // noUncheckedIndexedAccess build, not a runtime assumption.
+    const mutation = tracker.mutations[0]!;
+    expect(mutation.startsWith("POST ")).toBeTruthy();
+    expect(mutation).toContain(`/tts/custom-voices/delete?connectionId=${id}`);
+
+    // The confirmation section closes; the tombstone remains visible and the
+    // cleared references are reflected on refresh (no assignment list, no Test).
+    await expect(modal.getByText("Delete Ghost?", { exact: true })).toHaveCount(0);
+    await expect(modal.getByText("Ghost")).toBeVisible();
+    await expect(modal.getByText("Deleted", { exact: true })).toBeVisible();
+    await expect(modal.getByText("In use by:")).toHaveCount(0);
+    await expect(modal.getByRole("button", { name: "Test", exact: true })).toHaveCount(0);
+
+    // No synthesis and no extra mutation traffic for the whole flow.
+    expect(tracker.speak).toEqual([]);
   });
 });

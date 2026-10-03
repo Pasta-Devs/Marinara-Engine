@@ -657,6 +657,12 @@ function voiceAssignmentLabels(config: TTSConfig): Record<string, string[]> {
   add(config.narratorVoice, "Narrator voice");
   for (const voice of config.npcDefaultMaleVoices) add(voice, "NPC default male voice pool");
   for (const voice of config.npcDefaultFemaleVoices) add(voice, "NPC default female voice pool");
+  // Only the profile of the context's own source is a live reference: the
+  // other saved source profiles belong to those providers' identifier
+  // spaces, so an identical string in them is an unrelated voice and must
+  // neither be reported nor cleared when this source's managed voice is
+  // deleted.
+  add(config.sourceProfiles[config.source]?.voice, `Source profile: ${config.source}`);
   for (const id of Object.keys(assignments)) assignments[id] = [...new Set(assignments[id])].sort();
   return assignments;
 }
@@ -1374,7 +1380,11 @@ export async function ttsRoutes(app: FastifyInstance) {
   /**
    * After the service has confirmed provider-side deletion, remove ONLY the
    * references to that voice id from the TTS settings (character assignments,
-   * global voice, narrator voice, NPC random pools). The connection context is
+   * global voice, narrator voice, NPC random pools, and the saved source
+   * profile of the deleting context's own source). Profiles of OTHER sources
+   * are intentionally preserved: managed voices only exist on the context's
+   * provider, so an identical identifier in another source's profile is an
+   * unrelated saved voice for that provider. The connection context is
    * rechecked against its snapshot before anything is cleared.
    */
   async function clearVoiceAssignments(context: VoiceContext, id: string): Promise<void> {
@@ -1396,6 +1406,11 @@ export async function ttsRoutes(app: FastifyInstance) {
     }
     if (config.narratorVoice === id) {
       config.narratorVoice = "";
+      changed = true;
+    }
+    const contextProfile = config.sourceProfiles[context.config.source];
+    if (contextProfile?.voice === id) {
+      contextProfile.voice = "";
       changed = true;
     }
     for (const assignment of config.voiceAssignments) {

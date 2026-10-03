@@ -233,20 +233,24 @@ export function createCustomVoiceService(resolve: () => Promise<VoiceContext>) {
         const { state, storage } = await stateFor(context);
         if (state.profile !== "vllm-omni" || context.config.source !== "openai")
           throw new CustomVoiceError("Deletion is unsupported for this API profile.");
-        const voice = state.voices.find((v) => v.id === input.id && v.status !== "deleted");
+        // A tombstoned voice was already deleted from the provider: deleting it
+        // again is pure local cleanup and must not call the provider a second time.
+        const voice = state.voices.find((v) => v.id === input.id);
         if (!voice) throw new CustomVoiceError("Only explicitly managed uploaded voices can be deleted.");
         const actual = [...(context.assignments[input.id] ?? [])].sort();
         if (JSON.stringify(actual) !== JSON.stringify([...input.confirmedAssignments].sort()))
           throw new CustomVoiceError("Assignments changed. Review and confirm all affected references again.", 409);
-        const res = await providerRequest(context, "DELETE", `/${encodeURIComponent(input.id)}`);
-        if (!res.ok || ((await res.json()) as { success?: boolean }).success !== true)
-          throw new CustomVoiceError(
-            "Provider deletion was not confirmed. The management record and assignments have been preserved.",
-            502,
-          );
-        // Tombstone immediately; retain it if local cleanup fails so recovery is possible.
-        voice.status = "deleted";
-        await storage.write(state);
+        if (voice.status !== "deleted") {
+          const res = await providerRequest(context, "DELETE", `/${encodeURIComponent(input.id)}`);
+          if (!res.ok || ((await res.json()) as { success?: boolean }).success !== true)
+            throw new CustomVoiceError(
+              "Provider deletion was not confirmed. The management record and assignments have been preserved.",
+              502,
+            );
+          // Tombstone immediately; retain it if local cleanup fails so recovery is possible.
+          voice.status = "deleted";
+          await storage.write(state);
+        }
         await clearAssignments(context, input.id);
         return view(await resolve(), true);
       });
