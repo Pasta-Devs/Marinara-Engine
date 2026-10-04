@@ -253,10 +253,7 @@ const REGRESSION_AGENT_IDS = [
 const regressionAgentDefinitions = REGRESSION_AGENT_IDS.map((id) => ({
   id,
   name: id === "html" ? "Immersive HTML" : id === "illustrator" ? "Illustrator" : id,
-  description:
-    id === "html"
-      ? "Adds HTML/CSS/JS visual effects to AI messages."
-      : `Regression fixture for ${id}`,
+  description: id === "html" ? "Adds HTML/CSS/JS visual effects to AI messages." : `Regression fixture for ${id}`,
   phase: "post_processing" as const,
   enabledByDefault: false,
   category: "misc" as const,
