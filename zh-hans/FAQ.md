@@ -133,7 +133,7 @@ Noodle 是 Marinara 内置的本地虚构社交网络，专给自己的角色用
 AI 模型一次能装下的文字量有限，聊得久了，早先的消息就滑出视野了。Marinara 有两套记忆功能可以帮忙：
 
 - **Memory Recall**(记忆功能) 会去翻检早先的消息，悄悄把最相关的片段重新塞回提示词。在 **Chat Settings** 的 **Memory Recall** 里开启。
-- 摘要则把旧消息压缩成简短的回顾。Roleplay 聊天用 **Chat Summary**(聊天摘要)，Conversation 聊天用 **Automatic Summarization**(自动摘要)。
+- 摘要则把旧消息压缩成简短的回顾。Roleplay 聊天用 **Chat Summary**(聊天摘要)，Conversation 聊天用 **Automatic Summarization**(自动摘要)。两者都在 **Chat Settings** 中。
 
 要自动管理 Roleplay 上下文，在 **Chat Settings → Memory Recall** 中启用 **Advanced Memory Recall**(高级记忆功能)。它会保留近期历史，用有限篇幅维持剧情连贯，并在你选择的预估上下文上限内，有选择地找回旧场景。设置、进度和编辑都在抽屉中完成。已有的 Individual(独立) 群聊可能需要一次性确认每个角色的知识范围。 可选的**Use Decision model**开关让已保存的决策连接检测场景并选择记忆；摘要仍由辅助模型撰写。
 
@@ -182,7 +182,7 @@ Professor Mari 也能修改 Marinara 的普通源码文件。依赖文件、启�
 
 可下载的 **Storyboard**(分镜) 智能体把写完的剧情文字变成一串有先后顺序的关键帧图像，还能把每一帧做成一小段动画片段。在 **Game Mode** 里，它为一轮已完成的 GM 叙述生成分镜，画面显示在浮动查看器里，也可以直接当作游戏背景。在 **Roleplay** 里，它把新完成的几轮往来合成一段内嵌的小剧集。
 
-想在 Game Mode 里用它，先从 **Agents > Download Agents** 安装 **Storyboard**。打开游戏，进 **Chat Settings > Agents**，开启 **Enable Agents**(启用智能体) 和 **Enable Storyboards**(启用分镜)，再在这局游戏里或 Storyboard 的全局设置里选好一个图像连接。跑完一轮 GM 叙述，打开 **Gallery**(图库) 点 **Create storyboard**(创建分镜)。想重新打开查看器就点 **View storyboard**(查看分镜)。
+想在 Game Mode 里用它，先从 **Agents > Download Agents** 安装 **Storyboard**。打开游戏，进 **Chat Settings > Agents**，开启 **Enable Agents**(启用智能体) 和 **Enable Storyboards**(启用分镜)，再在这局游戏里或 Storyboard 的全局设置里选好一个图像连接。跑完一轮 GM 叙述，打开 **Chat Settings > Gallery**(聊天设置 → 图库) 点 **Create storyboard**(创建分镜)。想重新打开查看器就点 **View storyboard**(查看分镜)。
 
 想让游戏里的分镜自动生成，开启 **Automatic Storyboard Illustrations**(自动分镜插图)。还想要动画片段，就再开启 **Automatic Storyboard Animations**(自动分镜动画)，并选好一个视频生成连接。新建游戏向导里的 **Storyboard Optimized**(分镜优化) 呈现方式只影响 GM 叙述的写法，既不会安装也不会启用这个智能体。Game 和 Roleplay 两边的配置、提示词、查看器、迁移行为和排查方法，都写在 [Storyboard 智能体指南](game/storyboard.md)里。
 
