@@ -9,7 +9,7 @@
 找到这个开关的方法：
 
 1. 打开想要控制的聊天。
-2. 打开 **Chat Settings**(聊天设置)（齿轮图标）。
+2. 打开 **Chat Settings**(聊天设置)。
 3. 滚动到 **Agents**(智能体) 区域。
 4. 开启 **Review Agent Outputs**。
 
@@ -60,7 +60,7 @@
 
 打开方式：
 
-1. 打开 **Chat Settings**(齿轮图标)。
+1. 打开 **Chat Settings**。
 2. 滚动到 **Agents** 区域。
 3. 点击 **Agent Suite**。
 
@@ -90,7 +90,7 @@
 
 ## Cached prompt injections 面板
 
-生成回复之前，有些写入型智能体会往提示词里追加文字，**Prose Guardian**、**Narrative Director** 和自定义注入智能体尤其常见。**Cached prompt injections** 面板就是用来排查这些追加文字的，入口在 Roleplay 聊天的 Agents 菜单里，内容对应最近一次回复。
+生成回复之前，有些写入型智能体会往提示词里追加文字，**Prose Guardian**、**Narrative Director** 和自定义注入智能体尤其常见。**Cached prompt injections** 面板就是用来排查这些追加文字的，在 Roleplay 的 **Agent activity** 中打开 **Injections** 选项卡即可找到，只有开启 **Debug mode** 时才显示，见[智能体活动](../roleplay/getting-started.md#agent-activity)，内容对应最近一次回复。
 
 每条缓存的注入都可以：
 

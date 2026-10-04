@@ -87,7 +87,7 @@ Here is a picture from my walk!
 
 也可以自己主动要一张，不用干等角色。
 
-1. 打开聊天的 **Gallery**(图库) 面板。
+1. 打开 **Chat Settings**，展开 **Gallery**(图库)。
 2. 点击 **Selfie**(自拍) 按钮（相机图标）。
 3. 如果聊天里不止一个角色，在按钮旁边的角色列表中选出由谁来拍。
 4. 如果在 **Settings**(设置)、**Generations**(生成)、**Image Generation**(图像生成) 下开启了 **Expose media prompts before sending**，可以先检查或修改最终编译好的自拍提示词，再点 **Generate**。取消检查则不会发出图像请求。

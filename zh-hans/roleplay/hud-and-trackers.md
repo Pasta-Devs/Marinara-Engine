@@ -1,14 +1,16 @@
 # Roleplay 的 HUD 与追踪器
 
-本指南介绍 Roleplay 的 HUD 和它上面那排追踪器小组件，讲清楚怎么修改和锁定这些值，以及更大的 Tracker Panel 怎么用。内容适用于 Marinara Engine 的 Roleplay(角色扮演) 模式。
+本指南介绍 Roleplay 追踪器：手机上的小组件、电脑上的 **Trackers** 窗口和 Tracker Panel，以及如何编辑和锁定数值。内容适用于 Marinara Engine 的 Roleplay(角色扮演) 模式。
 
 ## HUD 是什么
 
-HUD(抬头显示) 是聊天区顶部的一排图标小组件。每个小组件显示一项实时的故事状态，比如时间、属性，或者当前谁在场。故事往前推进时，Marinara 会自动把这些值更新好。
+手机上，HUD(抬头显示) 是聊天顶部的一排追踪器小组件。每个组件显示一项故事状态，比如时间、属性或谁在场。Marinara 会随着故事发展更新数值。
+
+电脑上的追踪器不在 HUD 图标行里。**Tracker Panel** 显示时，追踪器放在面板中；否则使用下面介绍的 **Trackers** 窗口。
 
 这些值来自追踪器智能体。智能体是在后台运行的小型 AI 帮手，每个追踪器智能体盯住故事的一个侧面，在每条消息之后更新 HUD 的对应部分，不用专门去要求它。
 
-只有当对应的追踪器智能体在这个聊天里开启时，小组件才会出现。开关智能体的位置在 **Chat Settings**(聊天设置) 的 **Agents**(智能体) 部分。一个追踪器智能体都没开的话，HUD 里就只剩 **Agents & Actions**(智能体与操作) 按钮，没有任何小组件。
+只有当对应的追踪器智能体在这个聊天里开启时，小组件才会出现。开关智能体的位置在 **Chat Settings**(聊天设置) 的 **Agents**(智能体) 部分。一个追踪器智能体都没开的话，HUD 就不会显示小组件。
 
 ## HUD 小组件
 
@@ -34,9 +36,33 @@ HUD(抬头显示) 是聊天区顶部的一排图标小组件。每个小组件�
 
 **Present Characters** 小组件最多显示 3 个角色 emoji，多出来的用一个“+N”的计数表示。**Inventory** 和 **Custom Tracker** 小组件会把各自的条目逐条轮播。
 
+<a id="the-trackers-window"></a>
+
+## Trackers 窗口
+
+电脑上，**Tracker Panel** 隐藏时，Roleplay 追踪器改用 **Trackers** 窗口。消息旁有足够空间，就在左边打开；否则最初显示为聊天左上角的小型 **Trackers** 按钮，点击即可打开。聊天已有保存的布局时，会保持之前的排列。
+
+更新旧聊天时，电脑上的追踪器小组件会集中到这个窗口里。其他聊天工具则保留图标，变成可移动按钮。
+
+拖动标题栏可以移动窗口，拖动边缘可以调整大小，右上角还有这些按钮：
+
+- **Pin** 让窗口在点击别处时保持打开，初始状态就是固定。
+- **Lock** 阻止移动或调整大小，也固定按钮位置。按钮仍可打开窗口，方便再次解锁。
+- **Minimize** 或 **Close** 会把窗口缩成可移动的 **Trackers** 按钮。点击按钮可在原位置重新打开。
+
+想改用 Tracker Panel，点击 Chat Settings 标题栏里的骰子。面板隐藏时，仍可通过窗口或按钮使用追踪器。Chat Settings 的 **Reset View** 会清除保存的排列，再根据可用空间选择初始窗口或按钮。
+
+智能体工作时，窗口标题旁会显示一个小圆点，**Chat Settings** 按钮上也会显示。
+
+每个追踪器都有自己的可折叠区域，叫作抽屉。点击标题栏会收起，只留下小组件预览；再点一次就显示完整追踪器。Marinara 会记住哪些抽屉被收起。
+
+追踪器也能拥有独立窗口：点击箭头旁的弹出按钮，或把标题拖出 Trackers 窗口。新窗口初始固定，最小化 Trackers 后仍保持打开。它的 **X** 会把窗口缩成追踪器图标按钮，点击后在原位置重新打开。点击 **Put back in Trackers**(**X** 左侧的弯箭头)，或拖回 Trackers 窗口，就能放回。每个聊天都会记住弹出了哪些追踪器以及它们的位置。
+
+底部的 **Agent activity** 显示智能体做了什么，也能重跑追踪器、重试失败的智能体、停止正在运行的智能体，以及 **Clear Trackers**。Tracker Panel 底部也有同样的区域。
+
 ## 在弹出面板里改值
 
-点击任意小组件就能打开它的弹出面板，也就是一小块浮动的面板。里面每个字段都能改，AI 写错的值可以直接纠正过来，改完立即保存。
+手机上，点击小组件打开弹出面板；电脑上，相同的编辑器放在 Trackers 窗口的抽屉里。弹出面板是一小块浮动面板，其中每个字段都能编辑，可以直接纠正 AI 写错的值，改完立即保存。
 
 各个弹出面板能改的内容如下：
 
@@ -69,13 +95,17 @@ HUD(抬头显示) 是聊天区顶部的一排图标小组件。每个小组件�
 
 每个弹出面板里都有一个小小的刷新按钮（圆形箭头）。点它就只重跑这一个追踪器，针对最新的回合。提示文字里会写明是哪个追踪器，比如 **Re-run world state tracker only** 或 **Re-run quest tracker only**。
 
-在 **Chat Settings → Agents** 里，**Manual Trackers** 会把所有已启用的追踪器都改成手动控制。也可以让这个开关保持关闭，只在 **Individual tracker schedule** 下面把选中的几个智能体设为手动。只要有至少一个追踪器处于手动状态，HUD 那一行就会出现一个刷新按钮，点它可以为当前回合运行这一组手动追踪器。各个追踪器弹出面板里的刷新按钮仍然是直接运行那一个追踪器。
+在 **Chat Settings → Agents** 里，**Manual Trackers** 会把所有启用的追踪器改成手动控制。也可以保持关闭，只在 **Individual tracker schedule** 下选择几个智能体设为手动。只要有一个手动追踪器，就会显示刷新按钮：手机上在 HUD 行里，电脑上在 Trackers 窗口标题旁。点击可为当前回合运行这组手动追踪器。每个追踪器内部的刷新按钮仍只运行它自己。
 
-HUD 行首的星光图标用来打开 **Agents & Actions** 菜单。在那里可以重跑全部追踪器、重试失败的智能体，还能用 **Clear Trackers**(清空追踪器) 清空这个聊天记录下来的全部世界状态。**Clear Trackers** 无法撤销，用之前想清楚。
+**Agent activity** 在 **Chat Settings** 的 **Agents** 下方有独立区域，也在 Tracker Panel 底部，以及电脑上的 Trackers 窗口底部。这里可以重跑全部追踪器、重试失败的智能体，还能用 **Clear Trackers**(清空追踪器) 清除聊天的全部世界追踪状态。**Clear Trackers** 无法撤销，使用时要留意。
 
 ## Tracker Panel
 
 **Tracker Panel**(追踪器面板) 是一块更大的侧边面板，显示的数据和紧凑的 HUD 小组件相同。它给追踪器卡片留出了更多空间，还多了肖像和想法两项功能。设置位置在 **Settings**(设置) 的 **Appearance**(外观) 选项卡，**Tracker Panel** 部分。
+
+要在 Roleplay 聊天中开启面板，打开 **Chat Settings**，点击标题栏里固定和锁定按钮旁的 **Tracker Panel**(骰子)。开启时按钮保持高亮，面板显示在聊天旁边。再点一次会关闭并隐藏面板；电脑上的追踪器随后转到 Trackers 窗口。
+
+手机上，开启后会在聊天中添加一个可以任意拖动的 Tracker Panel 按钮。点击打开面板，关闭后恢复为按钮。面板关闭时，HUD 行保留追踪器小组件。
 
 面板顶栏的几个控件还能用来调整追踪器的结构：
 
@@ -88,8 +118,8 @@ HUD 行首的星光图标用来打开 **Agents & Actions** 菜单。在那里可
 
 控制它的设置项如下：
 
-- **Tracker Panel**：总开关，默认开启。开启时标签显示“Shown in the Roleplay HUD”。
-- **Replace tracker HUD icons**：隐藏那条紧凑的图标带，让面板改为停靠在屏幕边缘。**Agents & Actions** 按钮仍然保留。
+- **Tracker Panel**：总开关，与 Chat Settings 的骰子控制的是同一项。默认开启，开启时标签显示“Shown in the Roleplay HUD”。关闭后，电脑上的追踪器显示在 Trackers 窗口里。
+- **Replace tracker HUD icons**：隐藏手机上的紧凑图标行，让面板停靠到屏幕边缘。
 - **Use expression sprites for tracker portraits**：有表情立绘（角色当前情绪的那张立绘）时，追踪器肖像就用它，而不是普通头像。表情立绘的说明见[角色立绘](../characters/sprites.md)。
 - **Panel background**：面板背景的颜色或渐变选择器。
 - **Desktop size**：选择面板宽度，可选 **Compact**、**Standard** 和 **Expanded**。

@@ -152,7 +152,7 @@ Game Mode 自带一套来自 Game Assets 的背景音乐。想改用 **Music DJ*
 
 Spotify 在 Game Mode 里的工作方式略有不同。每个场景结束后，服务器先从你选的来源里整理出一小批真实存在的候选曲目，再由 AI 从这批里挑一首，这样 AI 就不会编出根本不存在的歌。Game Mode 每次只循环播放一首。
 
-每个回合的操作菜单里都有一个 **Retry Music DJ** 按钮，点它会为当前场景重新挑一首。
+打开 **Game controls**，选择 **Retry Music DJ**，就能为当前场景重新挑选音乐。电脑和手机上都可用，见[游戏控件](../game/getting-started.md#the-games-controls)。
 
 ## Conversation 的 Music 命令
 

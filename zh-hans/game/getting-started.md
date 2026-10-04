@@ -146,6 +146,22 @@ Game Mode 还会用到 **Review Agent Outputs**(查看智能体输出)，方便�
 
 完整的参数说明见[生成参数](../prompts/generation-parameters.md)。
 
+<a id="the-games-controls"></a>
+
+## 游戏控件
+
+游戏控件通过聊天右上角附近的按钮打开：
+
+- **Game controls**(游戏控制)（圆形箭头）：**Retry turn**、**Retry scene analysis**、Music DJ 负责游戏音乐时的 **Retry Music DJ**，以及 **Retry assets image generation**。分镜作为游戏背景播放时，这里还有重播、播放/暂停和静音。
+- **Session**(会话)（羽毛）：会话历史、日志和会话控制。见 [Game Mode：会话与存档](sessions-and-saves.md)。
+- **Volume**(音量)（扬声器）：**Master**、**Music**、**Sound Effects**、**TTS** 和 **Ambient** 的音量。
+- **Game Assets**(游戏素材)（文件夹）：场景媒体和 Asset Browser。见[游戏素材](game-assets.md)。
+- **Connected chat**(所连聊天)：游戏关联到 Conversation 时显示。见[所连聊天](../chats/connected-chats.md#switching-between-connected-chats)。
+
+点击按钮，电脑上会打开可移动窗口，手机上会打开全宽面板。拖动按钮可以换位置；关闭窗口或面板后会恢复为按钮。见[控制窗口及其按钮](../chats/chat-settings.md#control-windows-and-their-buttons)。
+
+也可以把这些控件放进 **Chat Settings**。打开控制窗口，选择 **Put back in Chat Settings**，它就变成其中的可展开区域。用该区域的弹出按钮可以恢复为独立窗口。每局游戏都会保存这个选择，**Reset View** 会恢复最初的按钮布局。
+
 ## 各个玩法专题在哪
 
 本指南负责把你送进游戏，更深入的专题各有独立的指南：

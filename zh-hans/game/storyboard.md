@@ -109,7 +109,7 @@ Roleplay 分镜会把已完成的几轮往来合成一段画面剧集，并显�
    - **Still images**：自动生成配好插图的剧集。
    - **Animations**：自动生成关键帧图像，并为每一帧生成一段片段；这需要视频连接。
 4. 设定 **Messages per episode** 和 **Keyframes per episode**。
-5. 等一条新的 Assistant 回复生成完，或者打开 Gallery 选择 **Create storyboard**。
+5. 等一条新的 Assistant 回复生成完，或者打开 **Chat Settings > Gallery** 选择 **Create storyboard**。
 
 多关键帧的分镜上有箭头，用它在各帧之间切换。带动画的帧会内嵌显示可播放的片段；片段还在生成或者用不了时，就退回显示图像。
 
@@ -149,7 +149,7 @@ Game Mode 的分镜只拿一个已完成的 GM 叙述回合当故事来源。它
 3. 打开 **Chat Settings > Agents**，开启 **Enable Agents**，再开启 **Enable Storyboards**。
 4. 确认这局游戏有图像连接，或者全局的 Storyboard 设置里已经配好了一个。
 5. 玩到 GM 讲完一个叙述回合。
-6. 打开 **Gallery**，选择 **Create storyboard**。
+6. 打开 **Chat Settings > Gallery**，选择 **Create storyboard**。
 
 关掉的 Game 查看器可以重新打开：在 Gallery 里选择 **View storyboard**。手动生成沿用当前的动画设置，也就是说 **Automatic Storyboard Animations** 开着时，手动生成的分镜同样会请求片段。
 
@@ -275,7 +275,7 @@ Standard 和 Storyboard Optimized 两种呈现方式都可以配合 Storyboard �
 
 **Floating viewer** 是浮在游戏上方的一个面板，可以拖动，也可以调大小。它跟着阅读位置在 GM 叙述里移动，显示对应的那一帧。视频就绪时就播视频，否则退回显示这一帧的图像。
 
-**Game background** 把当前帧铺在游戏控件的下层。这个模式开着的时候，它会顶掉平时生成的场景背景，所以普通的 **Generate background** 操作用不了。背景片段只播放一次，播完停在最后一帧；重播、播放/暂停和静音由游戏控件提供。
+**Game background** 把当前帧铺在游戏画面的其余部分后面。这个模式开着时，它会替换平时生成的场景背景，所以 **Generate background** 操作用不了。背景短片只播一次，然后停在最后一帧。用最初位于右上角的圆形箭头按钮打开 **Game controls**(游戏控制)，就能重播、播放/暂停和静音。电脑上是窗口，手机上是面板；如果已经放回 Chat Settings，就打开那里的 **Game controls** 区域。
 
 关掉浮动查看器，只是在当前回合隐藏它。要重新打开，用 **Gallery > View storyboard**。
 

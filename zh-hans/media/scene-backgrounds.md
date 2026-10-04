@@ -1,6 +1,6 @@
 # 场景背景与 Gallery 面板
 
-本指南介绍 AI 生成的场景背景，也就是 Marinara Engine 在 **Gallery**(图库) 里为你生成的背景图，以及 Gallery 面板本身。另有两篇相关指南：[聊天背景](../appearance/chat-backgrounds.md)讲的是手动挑选的上传图库，[Roleplay 背景](../roleplay/backgrounds.md)讲的是每回合自动挑背景的那个智能体。
+本指南介绍 AI 生成的场景背景，也就是 Marinara Engine 在 **Gallery**(图库) 里为你生成的背景图，以及 Gallery 本身。另有两篇相关指南：[聊天背景](../appearance/chat-backgrounds.md) 讲的是手动挑选的上传图库，[Roleplay 背景](../roleplay/backgrounds.md) 讲的是每回合自动挑背景的那个智能体。
 
 ## 场景背景在哪些模式下可用
 
@@ -14,11 +14,11 @@ Scene background generation is available in Roleplay and Game modes.
 
 ## 在 Gallery 里生成并应用背景
 
-**Gallery** 是某个聊天的图像和视频面板，从聊天工具栏的图像图标打开。**Background**(背景) 按钮用于为当前场景生成背景图。
+**Gallery** 保存聊天的图像和视频，是 **Chat Settings** 里的一个区域。打开 Chat Settings，再展开 **Gallery** 即可。在电脑上还能把它弹出为独立窗口，见[聊天设置概览](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)。**Background**(背景) 按钮用于生成当前场景的背景图。
 
 生成背景的步骤：
 
-1. 打开 **Gallery** 面板。
+1. 打开 **Chat Settings** 里的 **Gallery** 区域。
 2. 点击 **Background** 按钮。
 3. 出图期间按钮文字会变成 **Generating...**。
 4. 此时应该能看到这条状态消息：“AI background generation is running. The new background will be applied when it finishes.”
@@ -36,11 +36,11 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 
 解决办法：打开 **Connections**(连接) 面板，展开 **Defaults**(默认)，在 **Images**(图像) 下选一个图像连接；或者给 **Illustrator** 智能体单独指定一个图像连接。
 
-## Gallery 面板
+## Gallery 区域
 
 **Gallery** 有 **Images** 和 **Videos**(视频) 两个选项卡，每个选项卡都会显示自己包含多少项。**Videos** 选项卡只在该聊天启用了场景视频时才出现。
 
-面板顶部的操作按钮只在对应功能适用于当前聊天时才显示：
+区域顶部的操作按钮只在对应功能适用于当前聊天时才显示：
 
 - **Illustrate**(生成插图)：运行 Illustrator 智能体，单独出一张场景图。见 [Illustrator 智能体](illustrator-agent.md)。
 - **Selfie**(自拍)：在 Conversation 模式下生成一张角色自拍。

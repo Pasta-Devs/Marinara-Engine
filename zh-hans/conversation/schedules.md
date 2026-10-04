@@ -18,7 +18,7 @@
 这项开关在聊天里控制，不在角色卡上。下面这些控件都在 **Chat Settings**(聊天设置) 的 **Autonomous Messaging**(自主消息设置) 部分里。
 
 1. 打开一个 Conversation 聊天。
-2. 打开 **Chat Settings**(齿轮图标)。
+2. 打开 **Chat Settings**(点击聊天里的 **Chat Settings** 按钮；除非移动过，否则它在右上角)。
 3. 找到 **Autonomous Messaging** 部分。
 4. 打开 **Autonomous Messages** 开关。
 

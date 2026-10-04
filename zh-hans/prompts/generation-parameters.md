@@ -15,7 +15,7 @@
 基础值在 **Presets > Parameters**(预设 → 参数) 中编辑，连接值在 **Connections > Default Parameters**(连接 → 默认参数) 中编辑。聊天覆盖值在 **Chat Settings > Advanced Parameters**(聊天设置 → 高级参数) 中设置。
 
 1. 打开要修改的聊天。
-2. 打开 **Chat Settings**(聊天设置)，也就是当前聊天的齿轮图标。
+2. 打开 **Chat Settings**(聊天设置)（点击聊天里的 **Chat Settings** 按钮；除非移动过，否则它在右上角）。
 3. 找到 **Advanced Parameters** 一节，点击展开。
 
 展开后能看到一条说明：“Override generation parameters for this chat. Only change these if you know what you're doing.”下面讲到的每一项设置都在 **Advanced Parameters** 里面。

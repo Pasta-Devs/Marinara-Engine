@@ -26,7 +26,7 @@ Illustrator 只负责写图像提示词，真正画出图还需要另外一个�
 Illustrator 默认是关闭的。在 **Roleplay** 聊天里这样添加：
 
 1. 打开想配图的那场聊天。
-2. 点击齿轮图标，打开 **Chat Settings**(聊天设置)。
+2. 打开 **Chat Settings**(聊天设置)（点击聊天里的 **Chat Settings** 按钮；除非移动过，否则它在右上角）。
 3. 找到 **Agents**(智能体) 区域，打开 **Enable Agents**(启用智能体)。
 4. 在 **Misc Agents**(其他智能体) 分组里找到 **Illustrator**，点加号按钮添加。
 
@@ -85,7 +85,7 @@ Illustrator 卡片上有一个 **Open Setup** 按钮，点开就是这个智能�
 
 把 **Run Interval**(运行间隔)设为 **0**，即可仅手动生成。这会停止 Illustrator 的自动运行，包括自动生成场景背景，但智能体仍保持安装，也仍可用于 Gallery 操作。默认值仍是 **5**；设为正数即可恢复自动运行。把 Illustrator 加入聊天时也可以选择 0。
 
-也可以不等它自己动手，随时手动出一张图。打开聊天的 **Gallery**，点 **Illustrate**(生成插图) 按钮，Illustrator 会立刻运行一次，出图期间按钮会显示 **Generating...**。想给眼下这一刻配张图、而智能体还没画的时候，这个按钮很好用。
+也可以不等它自己动手，随时手动出一张图。打开 **Chat Settings**，展开 **Gallery**，点 **Illustrate**(生成插图) 按钮，Illustrator 会立刻运行一次，出图期间按钮会显示 **Generating...**。想给眼下这一刻配张图、而智能体还没画的时候，这个按钮很好用。
 
 ## 图库保存与提示词查看
 

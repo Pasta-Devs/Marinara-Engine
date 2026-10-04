@@ -43,9 +43,11 @@ Game Mode 会自己读取这个素材库，根据场景自动挑选音乐、环�
 从游戏里打开：
 
 1. 打开一个 Game Mode 聊天。
-2. 点击聊天工具栏上的 **Game Assets** 按钮。
+2. 点击 **Game Assets**(游戏素材) 按钮（文件夹图标），它最初位于聊天右上角。电脑和手机上都能拖动。
 
-工具栏按钮只在使用 Game Mode 的聊天里出现。这样打开时，**Asset Browser** 会以面板形式嵌在游戏里。
+这个按钮只在 Game Mode 聊天里出现。它打开 **Game Assets**，里面包含 **Asset Browser**：在电脑上是可移动窗口，在手机上是全宽面板。
+
+如果用 **Put back in Chat Settings** 把它放回过聊天设置，就打开 Chat Settings 里的 **Game Assets** 区域。
 
 顶部工具栏上有一条从 **Game Assets** 开始的路径导航。旁边是 **Grid view**(网格视图) 和 **List view**(列表视图) 的切换开关、一个 **Upload**(上传) 按钮和一个 **New**(新建) 按钮，此外还有 **Rescan**(重新扫描) 按钮、**Open in system folder**(在系统文件夹中打开) 按钮和 **Search in folder**(在文件夹中搜索) 输入框。屏幕较宽时，左侧的文件夹树可以在各分类之间快速跳转。
 
@@ -137,7 +139,7 @@ Marinara 内部维护着一份素材清单，好让 Game Mode 快速找到文件
 
 每个 Game Mode 聊天都可以只使用素材文件夹中的一部分。比如想让恐怖游戏跳过那些欢快的音乐时，这个功能就很有用。
 
-创建时在 **Features**(功能) 这一步展开 **Adjust Game Assets for this Game**(为本游戏调整素材范围)。已有的游戏则从聊天工具栏打开该游戏的 **Asset Browser** 面板。
+创建时在 **Features**(功能) 这一步展开 **Adjust Game Assets for this Game**(为本游戏调整素材范围)。已有的游戏则打开该游戏的 **Game Assets** 窗口。
 
 然后：
 

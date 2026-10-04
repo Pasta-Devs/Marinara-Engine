@@ -13,13 +13,12 @@ Marinara 有两种聊天文件格式。
 
 ## 导出单个聊天
 
-把一个聊天导出成文件，用 **Chat Branches**(聊天分支) 面板最快。
+把一个聊天导出成文件，用 **Chat Settings** 里的 **Chat Branches**(聊天分支) 区域最快。
 
 1. 打开要导出的聊天。
-2. 在聊天工具栏里点击分支按钮（提示文字是 **Switch branch**）。
-3. **Chat Branches** 面板打开，上面写着“Switch, import, export, or clean up this chat's branches.”
-4. 点击 **JSONL** 保存成 JSONL 文件，或者点击 **Text** 保存成可读的文本文件。
-5. 浏览器开始下载文件。
+2. 打开 **Chat Settings**，展开 **Chat Name** 下方的 **Chat Branches**。
+3. 点击 **JSONL** 保存成 JSONL 文件，或者点击 **Text** 保存成可读的文本文件。
+4. 浏览器开始下载文件。
 
 下载下来的就是当前打开的这个聊天，消息也都在里面。
 
@@ -54,8 +53,8 @@ Marinara 有两种聊天文件格式。
 `.jsonl` 文件也可以加载进现有聊天，成为一条新分支。分支就是聊天的一份独立副本，可以单独往下发展。关于分支的更多说明，见[聊天分支](branches.md)。
 
 1. 打开要添加分支的那个聊天。
-2. 在聊天工具栏里点击分支按钮（提示文字 **Switch branch**），打开 **Chat Branches** 面板。
-3. 点击面板里的 **Import**(导入)。
+2. 打开 **Chat Settings**，展开 **Chat Branches** 区域。
+3. 点击这个区域里的 **Import**(导入)。
 4. 选中 `.jsonl` 文件。
 5. 屏幕上会出现“Imported N messages as a new branch”的提示。
 

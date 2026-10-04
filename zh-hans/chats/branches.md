@@ -6,7 +6,7 @@
 
 分支是聊天的一份副本，它和原聊天共享某个节点之前的全部历史。想探索另一个发展方向、又要留住原来的聊天时，就用分支。
 
-同一个聊天的所有分支会归到一组。在聊天列表里，有多个分支的聊天只占一行，旁边标着一个小小的分支数量。分支的打开和切换都在 **Chat Branches**(聊天分支) 弹出面板里完成，见下文。
+同一个聊天的所有分支会归到一组。在聊天列表里，有多个分支的聊天只占一行，旁边标着一个小小的分支数量。分支的打开和切换都在 **Chat Settings** 的 **Chat Branches**(聊天分支) 区域里完成，见下文。
 
 每个分支可以有自己的显示名称，所以可以起成“友好结局”和“黑暗结局”这样的名字。显示名称和底层的聊天名称是两回事。
 
@@ -33,19 +33,19 @@ Marinara 会把这条消息及其之前的内容复制成一个新分支。新�
 
 场景聊天不能开分支，那里不会出现 **Branch from here** 按钮，取而代之的是 **Clone from here**(从这里克隆)。具体做法见[场景：分支出一段角色扮演](../roleplay/scenes.md)。
 
-## Chat Branches 弹出面板
+## Chat Branches 区域
 
-从聊天工具栏上的分支按钮打开这个面板。按钮的图标是一个分叉符号，上面显示当前的分支数量，鼠标提示写着 **Switch branch**(切换分支)。
+打开 **Chat Settings**，展开 **Chat Name** 下方的 **Chat Branches** 区域。标题栏显示当前分支数量。在电脑上可以弹出为独立窗口，见[聊天设置概览](chat-settings.md#popping-a-section-out-into-its-own-window)。
 
-面板标题是 **Chat Branches**，副标题是“Switch, import, export, or clean up this chat's branches.”里面列出当前聊天的所有分支，正在看的那个排在最前面。每一行显示分支的显示名称和最近一次更新的时间。
+这个区域列出当前聊天的所有分支，正在看的排在最前面。每行显示分支名称和最近更新时间。
 
 ### 切换到别的分支
 
-在面板里点击任意一行分支，就会打开这个分支。面板随即关闭，聊天视图切换到选中的分支。
+点击任意分支行，就会打开那个分支，聊天画面随之切换。
 
 ### 给分支改名
 
-1. 打开 **Chat Branches** 面板。
+1. 打开 **Chat Branches** 区域。
 2. 在要改名的分支那一行，点击铅笔（改名）按钮。
 3. 弹出一个标题为 **Rename Branch** 的窗口，提示文字是“Set a display name for this chat branch.”
 4. 输入新名称，点击 **Rename** 按钮确认。
@@ -54,7 +54,7 @@ Marinara 会把这条消息及其之前的内容复制成一个新分支。新�
 
 ### 删除一个分支
 
-1. 打开 **Chat Branches** 面板。
+1. 打开 **Chat Branches** 区域。
 2. 在分支那一行点击垃圾桶（删除）按钮。
 3. 弹出一个标题为 **Delete Branch** 的窗口，问“Delete this branch? Messages will be lost.”
 4. 点击 **Delete** 按钮确认。
@@ -63,13 +63,13 @@ Marinara 会把这条消息及其之前的内容复制成一个新分支。新�
 
 ### 删除全部分支
 
-聊天有两个或更多分支时，面板底部会出现 **Delete All Branches**(删除全部分支) 按钮。它会问“Delete all N branches? This cannot be undone.”，点击 **Delete All** 按钮确认，就能一次删掉这一组里的所有分支。
+聊天有两个或更多分支时，区域底部会出现 **Delete All Branches**(删除全部分支) 按钮。它会问“Delete all N branches? This cannot be undone.”，点击 **Delete All** 按钮确认，就能一次删掉这一组里的所有分支。
 
 也可以从聊天列表这边动手：点击带分支的聊天上的垃圾桶图标，会弹出一个标题为 **Delete Chat** 的窗口，问你想删掉哪些内容，提供 **Delete This Branch Only** 和 **Delete All N Branches** 两个按钮。从列表删除的更多说明见[管理聊天列表](managing-chats.md)。
 
 ## 导出分支
 
-**Chat Branches** 面板顶部有几个导出按钮，导出的是当前正在看的那个分支。
+**Chat Branches** 区域顶部有几个导出按钮，导出的是当前正在看的那个分支。
 
 - **JSONL**：把分支下载成 JSONL 文件。JSONL 就是每行文本一条消息，这种格式和 SillyTavern 兼容。
 - **Text**：把分支下载成纯文本对白记录。
@@ -80,7 +80,7 @@ Marinara 会把这条消息及其之前的内容复制成一个新分支。新�
 
 保存下来的聊天记录可以导入进来，成为当前聊天的一个新分支。
 
-1. 打开 **Chat Branches** 面板。
+1. 打开 **Chat Branches** 区域。
 2. 点击 **Import**(导入) 按钮。
 3. 选择一个从 SillyTavern 或 Marinara 导出的 JSONL 文件（`.jsonl`）。
 

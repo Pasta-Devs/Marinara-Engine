@@ -152,7 +152,7 @@ TTS 开启之后，每条角色消息或旁白消息下方的工具栏里会出�
 
 - Roleplay 使用 **Roleplay messages** 自动朗读开关，以及每条消息上的 **Speak** 控件。参见 [Roleplay 模式：入门](../roleplay/getting-started.md)。
 - Conversation 模式使用 **Conversation messages** 开关和同样的 **Speak** 控件。语音通话是一个更大的功能，详见 [Conversation 音频和视频通话](../conversation/calls.md)。
-- Game Mode 使用 **Game narration** 开关。Game Mode 还有自己的音频混音器，**TTS** 通道和 **Master**、**Music**、**Sound Effects**、**Ambient** 并列。这个通道控制游戏语音的整体音量，初始值是 100%。参见 [Game Mode：入门](../game/getting-started.md)。
+- Game Mode 使用 **Game narration** 开关。Game Mode 还有自己的音频混音器，**TTS** 通道和 **Master**、**Music**、**Sound Effects**、**Ambient** 并列。这个通道控制游戏语音的整体音量，初始值是 100%。参见 [游戏控件](../game/getting-started.md#the-games-controls)。
 
 ## Phonetic name(通话中的读音)
 

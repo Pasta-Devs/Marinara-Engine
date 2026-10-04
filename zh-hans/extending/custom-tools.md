@@ -140,7 +140,7 @@ AI 以 `x` 为 2、`y` 为 3 调用 `add_numbers` 时，工具返回的和是 5�
 
 工具建好了，AI 并不会自动使用，还得给这个聊天开启工具调用。
 
-1. 打开一个聊天，点击齿轮图标进入 **Chat Settings**(聊天设置)。
+1. 打开一个聊天，进入 **Chat Settings**(聊天设置)。
 2. 展开 **Function Calling** 区块，图标是一把扳手。
 3. 开启 **Enable Tool Use**(启用工具调用)，它的说明写着 **Allow AI to call functions (dice rolls, game state, etc.)**。新聊天默认是关闭的。
 

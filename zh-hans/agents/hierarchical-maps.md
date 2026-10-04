@@ -77,7 +77,7 @@ World Maps 页面会显示已安装的包版本和就绪状态，提供账号级
 ### Roleplay
 
 1. 打开 Roleplay 聊天。
-2. 用齿轮按钮打开 **Chat Settings**。
+2. 打开 **Chat Settings**。
 3. 开启 **Enable Agents**。
 4. 在 **Tracker Agents** 下面启用 **World Maps**。
 5. 打开 **Edit world map** 或 **World map library**。在支持的 Engine 版本上，桌面端顶栏的地球仪按钮打开的是同一个资源库；手机端则用 Chats 抽屉里的地球仪按钮。

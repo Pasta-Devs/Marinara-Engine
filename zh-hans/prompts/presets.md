@@ -140,7 +140,7 @@
 从 **Chat Settings**(聊天设置)：
 
 1. 打开聊天。
-2. 打开 **Chat Settings**(齿轮图标)。
+2. 打开 **Chat Settings**。
 3. 找到 **Prompt Preset**(提示词预设) 一栏。
 4. 从下拉菜单里选一个预设。
 

@@ -31,7 +31,7 @@ Marinara Engine(下文简称 Marinara) 里有两个让聊天彼此知情的功�
 连接可以从 Conversation 聊天发起，也可以从 Game 聊天发起。从 Conversation 这边开始的步骤如下。
 
 1. 打开要连接的 Conversation 聊天。
-2. 打开 **Chat Settings**(齿轮图标)。
+2. 打开 **Chat Settings**(点击聊天里的 **Chat Settings** 按钮；除非移动过，否则它在右上角)。
 3. 找到 **Connected Chats** 区块。
 4. 点击 **Link to Roleplay or Game**(关联到 Roleplay 或 Game)。
 5. 在选择器里搜索目标 Roleplay 或 Game 聊天，然后点击它。
@@ -70,11 +70,15 @@ Conversation 里的角色保存一条长期的 `<note>` 之后，故事那边就
 
 如果还没有任何角色保存过笔记，区块里会说明：用 `<note>` 标签包起来的笔记保存后会出现在这里。
 
+<a id="switching-between-connected-chats"></a>
+
 ## 在已连接的聊天之间切换
 
-当一个聊天有了所连聊天，它的工具栏上会出现一个切换按钮，图标是双向箭头，提示文字是“Switch to”加上另一个聊天的名称。
+聊天有了所连聊天后，会出现可移动的 **Connected chat**(所连聊天) 双向箭头按钮，最初位于右上角。电脑和手机上都能拖动。点击按钮打开小窗口，再选择 **Switch to** 加另一个聊天的名称。
 
-点击它就能直接跳到所连的聊天，省得在聊天列表里手动去翻。连接的 Conversation 一侧和 Roleplay 一侧都会显示这个按钮。
+这样就能直接进入所连聊天，省得在聊天列表里找。连接的 Conversation 一侧和 Roleplay 一侧都有这个按钮。
+
+想把它放进 Chat Settings，就在窗口里选择 **Put back in Chat Settings**(放回聊天设置)。它会变成 **Connected chat** 区域；用该区域的弹出按钮可以再恢复为独立窗口。
 
 ## 这个区块里的其他控件
 

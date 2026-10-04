@@ -1,6 +1,6 @@
 # Game Mode：会话与存档
 
-本指南介绍 Marinara Engine 如何在多次游玩之间记录 Game Mode(游戏模式) 的进度，包括结束会话、开始新会话，以及在 **Session History**(会话历史) 面板里回看过往会话，还会讲到 **Show Spoilers**(显示剧透) 视图和游戏保存数据的方式。
+本指南介绍 Marinara Engine 如何在多次游玩之间记录 Game Mode(游戏模式) 的进度，包括结束会话、开始新会话，以及在 **Session History**(会话历史) 里回看过往会话，还会讲到 **Show Spoilers**(显示剧透) 视图和游戏保存数据的方式。
 
 ## 什么是会话
 
@@ -8,23 +8,25 @@ Game Mode 把一场冒险切分成带编号的会话。一个会话就是一段�
 
 第一个会话是 **Session 1**。结束它再重新开始，就产生 **Session 2**，依此类推。
 
-## 打开 Session 面板
+<a id="opening-session"></a>
 
-**Session**(会话) 面板用来结束会话、开始新会话，以及查看历史记录。
+## 打开 Session
+
+**Session**(会话) 用来结束会话、开始新会话，以及查看历史记录。
 
 1. 新建或打开一个 Game Mode 聊天，让游戏界面显示出来。
-2. 在顶部工具栏点击 **Session** 按钮（羽毛图标）。
-3. 面板随即打开。标题栏显示 **Session** 以及当前编号和状态。
-4. 面板有两个选项卡：**Session History** 和 **Journal**(日志)。会话控制和分享创建配置都在 **Session History** 里。
+2. 点击 **Session** 按钮（羽毛图标）。它最初位于聊天右上角附近，可以拖到别处，见[控制窗口及其按钮](../chats/chat-settings.md#control-windows-and-their-buttons)。
+3. **Session** 在电脑上是窗口，在手机上是全宽面板。第一行显示 **Session** 以及当前编号和状态。
+4. 它有两个选项卡：**Session History** 和 **Journal**(日志)。会话控制和分享创建配置都在 **Session History** 里。
 
-面板标题栏还有一个 **Game tutorial**(游戏教程) 按钮，可以重新打开新手引导。
+如果用 **Put back in Chat Settings** 把窗口放回过聊天设置，就打开 Chat Settings 里的 **Session** 区域。
 
 ## 分享创建游戏时用的配置
 
 每次新建战役，Game Mode 都会把当时的创建配置固化成一份快照。这样就可以先玩起来，觉得这套组合确实好用之后再分享出去，不必在开局前手动记下每一个字段。
 
 1. 打开想要分享的 Game Mode 战役。
-2. 在顶部工具栏点击 **Session** 按钮（羽毛图标）。
+2. 打开 **Session**(羽毛图标按钮)。
 3. 停留在 **Session History**，然后展开 **Initial Game Setup**(初始游戏配置)。
 4. 查看保存下来的冒险设定、出场角色、模型、提示词、实际生效的生成参数，以及视觉、分镜和世界工具方面的设置。
 5. 点击 **Copy setup**(复制配置) 把文本复制到剪贴板，或者点击 **Download .txt**(下载 .txt) 保存成一个便于分享的文本文件。
@@ -37,7 +39,7 @@ Game Mode 把一场冒险切分成带编号的会话。一个会话就是一段�
 
 想给当前这一章收尾、让 GM 写一段摘要时，就结束会话。
 
-1. 打开 **Session** 面板，停留在 **Session History** 选项卡。
+1. 打开 **Session**，停留在 **Session History** 选项卡。
 2. 顶部就是当前会话，标为 **Session N (Current)**。
 3. 在这一行点击 **End Session**(结束会话) 按钮（**Show Spoilers** 旁边的小方块图标）。
 4. 弹出标题为 **End Session** 的窗口，要求确认。
@@ -51,7 +53,7 @@ Game Mode 把一场冒险切分成带编号的会话。一个会话就是一段�
 
 当前会话结束后，同一个按钮会变成 **New Session**(新会话)。
 
-1. 打开 **Session** 面板，切到 **Session History** 选项卡。
+1. 打开 **Session**，切到 **Session History** 选项卡。
 2. 在当前会话那一行点击 **New Session** 按钮（播放图标）。
 3. GM 接着往下讲。它会参考上一个会话的摘要，以及结束时写下的下次会话备注。
 
@@ -102,7 +104,7 @@ Game Mode 把一场冒险切分成带编号的会话。一个会话就是一段�
 
 **Show Spoilers** 会展示 GM 为当前会话准备的不公开笔记。游玩过程中这些内容通常是对你保密的，看了可能会剧透剧情转折。
 
-1. 打开 **Session** 面板，切到 **Session History** 选项卡。
+1. 打开 **Session**，切到 **Session History** 选项卡。
 2. 在当前会话那一行点击 **Show Spoilers**(眼睛图标)。
 3. 面板随即显示 GM 的私密状态。
 

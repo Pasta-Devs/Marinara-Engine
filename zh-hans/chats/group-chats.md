@@ -40,9 +40,9 @@ Marinara 里“群组”这个说法对应好几样东西，容易混。群聊�
 
 ## 创建之后管理成员
 
-加人、踢人、调顺序都在 **Chat Settings**(聊天设置) 面板里完成。点击聊天顶栏的齿轮图标就能打开，齿轮的提示文字是 **Chat Settings**。
+添加、移除角色和调整顺序都在 **Chat Settings**(聊天设置) 里完成。点击聊天里的 **Chat Settings** 按钮就能打开。
 
-在面板里找到 **Characters** 这一节，那里显示成员数量，还有一句说明文字“Characters in this chat. Each character has their own personality that the AI roleplays as.”每一行成员都带头像、角色名、拖动手柄、眼睛图标和垃圾桶图标。
+在 Chat Settings 里找到 **Characters** 这一节，那里显示成员数量，还有一句说明文字“Characters in this chat. Each character has their own personality that the AI roleplays as.”每一行成员都带头像、角色名、拖动手柄、眼睛图标和垃圾桶图标。
 
 - 再加一个角色，点击 **Add Character**(添加角色) 然后搜索。
 - 加入整个 Folder，点击 **Add from Folder** 选一个。

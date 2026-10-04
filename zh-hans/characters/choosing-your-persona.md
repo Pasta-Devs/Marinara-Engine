@@ -16,7 +16,7 @@
 
 ### 在 Chat Settings 里设置
 
-1. 打开 **Chat Settings**(聊天设置)（聊天旁边的齿轮）。
+1. 打开 **Chat Settings**(聊天设置)（点击聊天里的 **Chat Settings** 按钮；除非移动过，否则它在右上角）。
 2. 找到 **Persona** 区域，它的说明文字开头是“Your persona defines who you are in this chat.”
 3. 没有设用户角色时，这里显示“No persona selected.”
 4. 点击 **Choose Persona**(选择用户角色)。设好之后这个按钮会变成 **Change Persona**。

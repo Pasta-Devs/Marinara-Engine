@@ -112,7 +112,7 @@ Atlas Cloud 模型接受的设置并不完全相同。每次请求前，Marinara
 
 ## 在 Gallery 里生成视频
 
-**Roleplay** 和 **Game Mode** 聊天都能从 **Gallery**(图库) 面板生成场景视频。点击聊天里的图片或图库图标即可打开。Game Mode 聊天还有第二个入口，也就是本指南后面讲到的 **Game Assets**(游戏素材) 面板。
+**Roleplay** 和 **Game Mode** 聊天都能从 **Gallery**(图库) 生成场景视频。打开 **Chat Settings**，展开 **Gallery** 即可。Game Mode 还有第二个入口 **Game Assets**(游戏素材)，本指南后面会介绍。
 
 Gallery 分 **Images**(图片) 和 **Videos**(视频) 两个选项卡，各自带数量标记。静态图片在 **Images** 下，生成好的短片在 **Videos** 下。
 
@@ -138,11 +138,11 @@ Gallery 分 **Images**(图片) 和 **Videos**(视频) 两个选项卡，各自�
 
 ## Game Mode 场景视频
 
-Game Mode 生成场景视频还有第二个入口，就是 **Game Assets** 面板，用游戏控件里的 **Game Assets** 按钮打开。
+Game Mode 还有另一个生成场景视频的入口：**Game Assets**。点击最初位于右上角的文件夹按钮；电脑上打开窗口，手机上打开全宽面板。如果用 **Put back in Chat Settings** 把它放回过聊天设置，就打开 Chat Settings 里的 Game Assets 区域。
 
-1. 打开 **Game Assets** 面板。
+1. 打开 **Game Assets**。
 2. 点击 **Generate video**(生成视频)，它的提示文字是“Generate a scene video from the latest illustration.”
-3. 生成完毕后，最新的短片会在面板里播放。
+3. 生成完毕后，最新的短片会在那里播放。
 
 只有游戏同时具备视频连接和场景插图时，**Generate video** 按钮才可用。点得太早会看到这两条提示之一：
 

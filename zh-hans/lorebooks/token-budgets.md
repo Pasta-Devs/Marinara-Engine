@@ -45,9 +45,11 @@ Marinara 每次组装提示词时都会同时套用两种 Token 预算。只要�
 
 Marinara 顺着这份列表往下走，把还塞得下的条目逐个加进去。如果某个条目会让预算超标，就跳过它继续往下。被跳过的条目下面的每一条仍然会挨个检查，所以大条目被跳过之后，小条目照样有机会进来。
 
+<a id="seeing-skipped-entries-in-active-context"></a>
+
 ## 在 Active Context 里查看被跳过的条目
 
-哪些条目被丢掉了，不用靠猜。聊天工具栏上的 **Active Context**(活动上下文) 按钮会打开一个面板，里面显示最近一次世界书扫描的实时结果。
+哪些条目被丢掉了，不用靠猜。打开 **Chat Settings**，展开 **Active Context**(活动上下文)，就能看到最近一次世界书扫描的实时结果。
 
 如果有匹配上的条目被跳过，面板顶部会出现一条琥珀色提示，内容是“N matching lore entries were skipped by token budget.”，展开就能看到每一个被跳过的条目。
 
@@ -57,7 +59,7 @@ Marinara 顺着这份列表往下走，把还塞得下的条目逐个加进去�
 - **chat budget**：这个条目塞不进聊天级的 **Lorebook Token Budget**。
 - **lorebook and chat budgets**：两个上限都已经满了。
 
-展开某个被跳过的条目还能看到更多细节：匹配到的关键词、估算的 Token 大小，以及预算已经用掉了多少。如果大本的世界书总是被跳过，面板会建议改用 **Knowledge Retrieval**(知识检索) 或 **Knowledge Router**(知识路由) 智能体，它们通常比单纯调高上限更适合装下大世界书。
+展开某个被跳过的条目还能看到更多细节：匹配到的关键词、估算的 Token 大小，以及预算已经用掉了多少。如果大本的世界书总是被跳过，**Active Context** 会建议改用 **Knowledge Retrieval**(知识检索) 或 **Knowledge Router**(知识路由) 智能体，它们通常比单纯调高上限更适合装下大世界书。
 
 ## 递归扫描
 

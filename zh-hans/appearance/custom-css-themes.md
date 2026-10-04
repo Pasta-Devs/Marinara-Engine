@@ -2,6 +2,25 @@
 
 本指南介绍如何用自定义 CSS 主题彻底改变 Marinara Engine 的外观，包括主题的创建、导入、导出和启用，还会说明哪些 CSS 变量可以改，以及主题和 Card CSS 之间是什么关系。
 
+## 现成的聊天窗口样式
+
+不想写 CSS，打开 **Settings > Appearance > App**，在 **App Style** 底部找到 **Chat widget style**，就能快速换样式。**Dottore** 使用青色仪器边框和切角。**Mari** 使用玫瑰色与金色边框，窗口标题带原石装饰，按钮与窗口使用相同背景。每个预设都有自己的字体，适应浅色和深色模式，并同时改变按钮、窗口和可展开区域。
+
+**Font** 和 **Shape** 可以分别更改字体与形状。**Preset font** 和 **Preset shape** 跟随所选样式。
+
+下方有三个颜色控件，都可以选择纯色，也可以用渐变混合颜色：
+
+- **Border & Buttons Color** 改变边框和按钮图标。图标使用渐变的第一个颜色。
+- **Background Color** 填充按钮、窗口、可展开区域和可编辑字段的背景。
+- **Text Color** 改变组件文字。标题和标签可以显示渐变，可编辑字段中的文字使用第一个颜色。
+
+这些颜色控件不会改变顶部装饰的原有颜色。
+
+点击控件旁的 **Reset color**，就能重新跟随预设的浅色或深色配色。选择预设会重置 **Font**、**Shape** 和三个颜色。**Default** 恢复原本外观，窗口仍停在之前排列的位置。
+
+自定义 CSS 主题仍可覆盖这些预设。下面的窗口和抽屉公共变量优先于预设颜色。用 `--mari-window-font-family` 设置窗口字体，`--mari-drawer-radius` 设置区域圆角，`--mari-window-ornament: none` 隐藏标题装饰。想去掉所有预设装饰，先选择 **Default**。
+
+
 ## 什么是自定义主题
 
 自定义主题就是一段用来给 Marinara 重新上色的 CSS。CSS 全称 Cascading Style Sheets(层叠样式表)，是决定整个应用配色、边框和间距的代码。一个主题可以改页面背景、强调色、卡片、边框、文字等等。
@@ -91,6 +110,100 @@
 有些视觉效果有专属变量。比如设置 `--marinara-theme-accent-pulse: enabled` 就能让主题启用强调色脉冲动画。
 
 出于安全考虑，自定义主题的 CSS 会先经过清理再生效。从其他网站加载文件的样式不会生效。想在主题里用图片或字体，把它嵌成 `data:` URI，不要写网址。`data:` URI 会把文件内容直接装进 CSS 里。
+
+## 设置聊天窗口和抽屉的样式
+
+电脑上的 **Chat Settings** 是可移动窗口，其中的可折叠区域叫 **drawers**(抽屉)。抽屉可以弹出为独立窗口，再最小化为可移动的小按钮，叫作 **bubble**(气泡)。
+
+其他聊天工具也使用这些窗口和按钮，包括 Game controls、Session、Volume、Game Assets、所连聊天和资源包控件。手机上，窗口显示为全宽面板，Tracker Panel 有自己的可移动按钮。
+
+下面的类名、数据属性和变量可以统一设置这些部分的外观。主题规则无需 `!important` 就能覆盖默认样式。
+
+### 类名
+
+| 部分 | 类名 |
+| --- | --- |
+| 窗口 | `.mari-window` |
+| 标题栏 | `.mari-window__header` |
+| 标题及其图标 | `.mari-window__title-row` |
+| 标题 | `.mari-window__title` |
+| 标题栏按钮（Reset View、收藏布局星标、Tracker Panel、最小化、固定、锁定、关闭、Put back） | `.mari-window__controls` （每个按钮是 `.mari-window__control`） |
+| 窗口内容 | `.mari-window__body` |
+| 调整大小的边缘和角落 | `.mari-window__resize-handle` |
+| 鼠标或焦点位于窗口内时显示的角标 | `.mari-window__resize-grip` |
+| 抽屉 | `.mari-drawer` |
+| 抽屉标题栏和标题 | `.mari-drawer__header`, `.mari-drawer__title` |
+| 抽屉图标、数量徽标和 **?** | `.mari-drawer__icon`, `.mari-drawer__count`, `.mari-drawer__help` |
+| 收起的抽屉预览（追踪器的小组件） | `.mari-drawer__summary` |
+| 抽屉箭头旁的按钮和弹出按钮 | `.mari-drawer__actions`, `.mari-drawer__popout` |
+| 抽屉箭头和内容 | `.mari-drawer__arrow`, `.mari-drawer__body` |
+| 抽屉向外拖动时跟随鼠标的预览 | `.mari-drawer-ghost` |
+| 最小化窗口的按钮（气泡） | `.mari-window-bubble` |
+| 拖动气泡与另一个气泡对齐时出现的线 | `.mari-window-snap-guide` |
+| 智能体运行时的小圆点（Chat Settings 按钮、Trackers 窗口） | `.mari-agents-running-dot` |
+
+### 数据属性
+
+- `data-window` 标识窗口及其气泡：`chat-settings`、`trackers`，控制窗口 `control:game`、`control:session`、`control:volume`、`control:assets`、`control:connected-chat`、`control:package:<package>` 和 `control:beholder:<package>`，以及弹出抽屉的 `drawer:<window>:<drawer>`，比如 `drawer:chat-settings:chat-name`。
+- `data-drawer` 标识抽屉，比如 `chat-name`。有些名称以聊天模式开头，比如 `roleplay-agents` 或 `conversation-agents`。追踪器使用 `tracker-world`、`tracker-persona`、`tracker-characters`、`tracker-quests`、`tracker-inventory`、`tracker-custom` 和 `agent-activity`。
+- `data-presentation` 在电脑窗口上是 `"window"`，在手机面板上是 `"sheet"`。
+- 窗口固定或锁定时，`data-pinned` 和 `data-locked` 为 `"true"`。
+- `data-window-control` 标识每个标题栏按钮：`"minimize"`、`"pin"`、`"lock"`、`"close"` 或 `"put-back"`。处于按下状态的固定或锁定按钮还带有 `aria-pressed="true"`。
+- `data-chat-settings-control` 标识 Chat Settings 的额外标题栏按钮：`"reset-view"`、`"favorite-layout"` 和 `"tracker-panel"`。当前布局与收藏一致时，星标带有 `aria-pressed="true"`，图标会填满。
+- 每个调整手柄的 `data-edge` 为 `"n"`、`"s"`、`"e"`、`"w"`、`"ne"`、`"nw"`、`"se"` 或 `"sw"`。
+- 已展开抽屉在 `.mari-drawer__header` 内的开关按钮带有 `aria-expanded="true"`。
+- `data-drawer-control="pop-out"` 标记抽屉的弹出按钮。
+- `data-outside="true"` 标记已经拖到足够远、松手后就会弹出窗口的预览。
+- 竖直对齐辅助线的 `data-axis` 为 `"x"`，水平辅助线为 `"y"`。
+- 抽屉在独立窗口中显示时，窗口和内部抽屉的 `data-detached` 都为 `"true"`。弹出窗口用 `data-window="drawer:<window>:<drawer>"` 命名，比如 `data-window="drawer:chat-settings:chat-name"`，`data-drawer-host` 则标识它原来的窗口。
+- 拖动抽屉标题时，抽屉的 `data-dragging` 为 `"true"`；把弹出抽屉悬停在可放回的窗口上时，那个窗口的 `data-drop-target` 为 `"true"`。
+- 气泡带有其窗口的 `data-window` 和 `data-minimized="true"`，比如 `.mari-window-bubble[data-window="control:volume"]`。控制窗口名称为 `control:game`、`control:session`、`control:volume`、`control:assets`、`control:connected-chat`、`control:package:<package>` 和 `control:beholder:<package>`。拖动气泡时，它的 `data-dragging` 为 `"true"`。
+- 锁定的气泡带有 `data-locked="true"`，Chat Settings 按钮也一样。它仍能打开窗口，但在窗口解锁前不能移动。用 `.mari-window-bubble[data-locked="true"]` 可以为这类按钮设置不同外观。
+- 手机上的窗口及其稍大的气泡都带有 `data-presentation="sheet"`。Tracker Panel 的气泡是 `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`。
+- Chat Settings 按钮也是气泡：`.mari-window-bubble[data-chat-settings-button]`，Chat Settings 打开时带有 `data-open="true"`。
+- 弹出区域缩成气泡后带有 `data-drawer-host`（原来的窗口），其窗口上的 **Put back** 按钮是 `[data-window-control="put-back"]`。
+
+### 变量
+
+没有设置的变量会沿用聊天控件的共享颜色，因此主题只需定义想改变的变量。
+
+| 变量 | 控制内容 |
+| --- | --- |
+| `--mari-window-bg` | 窗口背景 |
+| `--mari-window-text` | 窗口文字 |
+| `--mari-window-border`, `--mari-window-border-width` | 窗口边框 |
+| `--mari-window-radius` | 窗口圆角 |
+| `--mari-window-shadow` | 窗口阴影 |
+| `--mari-window-backdrop-filter` | 窗口背后的模糊 |
+| `--mari-window-header-bg`, `--mari-window-header-text`, `--mari-window-header-border` | 标题栏颜色 |
+| `--mari-window-header-padding` | 标题栏间距 |
+| `--mari-window-control-color`, `--mari-window-control-color-hover`, `--mari-window-control-bg-hover` | 标题栏按钮，包括收藏星标 |
+| `--mari-window-control-color-active`, `--mari-window-control-bg-active` | 按下的标题栏按钮，包括固定、锁定和填满的收藏星标 |
+| `--mari-window-control-radius`, `--mari-window-control-gap` | 按钮圆角和间距 |
+| `--mari-window-focus-ring` | 键盘焦点边框，以及抽屉准备放回的窗口边框 |
+| `--mari-window-resize-handle-size` | 调整大小边缘的宽度 |
+| `--mari-window-bubble-size`, `--mari-window-bubble-radius`, `--mari-window-bubble-shadow` | 气泡大小、圆角和阴影 |
+| `--mari-window-bubble-bg`, `--mari-window-bubble-bg-hover`, `--mari-window-bubble-border` | 气泡背景和边框 |
+| `--mari-window-bubble-text`, `--mari-window-bubble-text-hover` | 气泡图标颜色 |
+| `--mari-window-snap-guide` | 对齐辅助线颜色 |
+| `--mari-drawer-bg`, `--mari-drawer-border` | 抽屉背景和分隔线 |
+| `--mari-drawer-header-bg`, `--mari-drawer-header-bg-hover` | 抽屉标题栏颜色 |
+| `--mari-drawer-header-padding`, `--mari-drawer-body-padding-inline`, `--mari-drawer-body-padding-bottom` | 抽屉间距 |
+| `--mari-drawer-title-color`, `--mari-drawer-icon-color`, `--mari-drawer-arrow-color` | 抽屉标题栏文字和图标 |
+| `--mari-drawer-count-bg`, `--mari-drawer-count-text` | 抽屉数量徽标 |
+
+把变量设在 `:root` 上会改变所有窗口，设在选择器上则只改变对应窗口：
+
+```css
+:root {
+  --mari-window-radius: 0.5rem;
+  --mari-window-bubble-bg: #3b0764;
+}
+
+[data-window="chat-settings"] .mari-drawer[data-drawer="chat-name"] {
+  --mari-drawer-border: transparent;
+}
+```
 
 ## 大小和名称限制
 
