@@ -161,6 +161,8 @@ Marinara controla o ritmo das mensagens autônomas para nenhum personagem encher
 
 Se vários personagens estão prontos ao mesmo tempo, vai primeiro quem tem a maior sociabilidade e o melhor momento.
 
+Em um chat em grupo no modo **Individual**, os personagens compartilham um único limite diário de contatos, então também compartilham esse ritmo. Depois que qualquer personagem entra em contato, o próximo contato, de qualquer um deles, espera como uma continuação. Quando chega a hora, qualquer personagem cuja própria espera já terminou pode fazer esse contato, e vai primeiro quem fez menos contatos naquele dia. Depois de uma ausência longa, só um personagem entra em contato.
+
 ## O seu status de presença
 
 O seu status diz aos personagens se você está por perto. O controle de status fica no rodapé da barra lateral e continua visível em todos os modos de chat. O efeito dele sobre as mensagens vale só no Conversation Mode.

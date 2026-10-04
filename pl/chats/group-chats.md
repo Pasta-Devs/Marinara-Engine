@@ -150,6 +150,8 @@ Włącz **Character Exchanges** (rozmowy między postaciami), a postacie zaczną
 
 Po włączeniu postacie mogą odpowiadać sobie nawzajem podczas twojej nieobecności, nie tylko tobie. Działa to wyłącznie wtedy, gdy Marinara jest otwarta w przeglądarce. Po zamknięciu aplikacji wymiana zdań ustaje. Obowiązuje tu też ten sam dzienny limit wiadomości, co przy wiadomościach autonomicznych.
 
+Rozmowy między postaciami działają niezależnie od tego, czy harmonogramy postaci są włączone. W czacie grupowym ustawionym na **Individual** te rozmowy i odpowiedzi na wzmianki `@Name` między postaciami nigdy nie zajmują ostatniego miejsca w dziennym limicie odezwań grupy, więc to miejsce zostaje dla późniejszego odezwania się.
+
 ## Kolejność tur w skrócie
 
 | Tryb i ustawienie | Co się dzieje | Jak nad tym zapanować |

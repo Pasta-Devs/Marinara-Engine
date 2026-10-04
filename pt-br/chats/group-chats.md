@@ -150,6 +150,8 @@ Ative a opção **Character Exchanges** para os personagens conversarem entre si
 
 Com ela ativa, os personagens respondem uns aos outros enquanto você está longe, e não só a você. Isso funciona apenas com Marinara aberto no navegador. Se você fechar o aplicativo, as trocas param. O recurso também compartilha o mesmo limite diário de mensagens usado pelas mensagens autônomas.
 
+As trocas funcionam com ou sem as agendas de personagem ativadas. Em um grupo no modo **Individual**, as trocas e as respostas a menções com `@` entre personagens nunca gastam o último contato do dia do grupo, então ele continua disponível para um contato posterior.
+
 ## Resumo do controle de turnos
 
 | Modo e configuração | O que acontece | Como controlar |

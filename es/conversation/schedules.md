@@ -161,6 +161,8 @@ Marinara dosifica los mensajes autónomos para que un personaje nunca te sature.
 
 Si varios personajes están listos a la vez, el que tiene mayor locuacidad y mejor momento va primero.
 
+En un chat grupal con el modo **Individual**, los personajes comparten un mismo límite diario de saludos, así que también comparten esta dosificación. Después de que cualquier personaje te salude, el siguiente saludo de cualquier personaje espera como un seguimiento. Cuando llega su momento, cualquier personaje cuyo propio tiempo de espera ya haya pasado puede enviarlo, y va primero el que lleve menos saludos ese día. Después de una ausencia larga, solo un personaje te saluda.
+
 ## Tu estado de presencia
 
 Tu propio estado les dice a los personajes si estás disponible. El control de estado está en el pie de página de la barra lateral y permanece visible en todos los modos de chat. Su efecto sobre la mensajería solo se aplica en Conversation Mode.

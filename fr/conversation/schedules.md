@@ -161,6 +161,8 @@ Marinara cadence les messages autonomes pour qu'un personnage ne t'inonde jamais
 
 Si plusieurs personnages sont prêts en même temps, celui qui a le plus haut niveau de bavardage et le meilleur minutage passe en premier.
 
+Dans un chat de groupe réglé sur **Individual** (individuel), les personnages partagent une seule limite quotidienne de prises de nouvelles, et donc aussi cette cadence. Dès qu'un personnage prend de tes nouvelles, la prochaine prise de nouvelles, quel que soit le personnage, attend comme un message suivant. Quand elle arrive à échéance, n'importe quel personnage dont le délai d'attente personnel est écoulé peut l'envoyer, et celui qui a pris de tes nouvelles le moins souvent ce jour-là passe en premier. Après une longue absence, un seul personnage prend de tes nouvelles.
+
 ## Ton statut de présence
 
 Ton propre statut indique aux personnages si tu es disponible. La commande de statut se trouve dans le pied de page de la barre latérale et reste visible dans tous les modes de chat. Son effet sur la messagerie ne joue toutefois qu'en mode Conversation.
