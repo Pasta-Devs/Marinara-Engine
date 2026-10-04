@@ -5,7 +5,7 @@ This group updates the 37 Hindi guides affected by the chat window redesign and 
 ## Source
 
 - English baseline before the redesign: `94ce3d6851ab635f4b08c8570dcaed5973f93fbc`.
-- English source for this update: `6d6cb06e53aa9333e2c84dcf495b58d598e5ba48` (PR #7062, following merged #7049).
+- Combined English source for this update: `b0219a3451abfb7db32e2eddaae862c0277853f7` (PR #7062, following merged #7049 and #7066). The chat-window translation was reviewed against `6d6cb06e53aa9333e2c84dcf495b58d598e5ba48`; the later source preserves the autonomous-pacing guide additions translated by #7067.
 - Translation branch baseline: `e3c6a3744cb367de6fef3e707b8f6cbce08ed67c`.
 - Related translation issue: #7054. This language group alone does not close it.
 
@@ -20,6 +20,8 @@ The changed instructions explain movable chat controls, drawers, pins and locks,
 - No new nonbreaking spaces or zero-width characters. Changed prose follows the glossary's आप, modern technical Hindi and danda conventions.
 - The UI pack translates all 128 relevant new/changed keys. The two guided-regeneration keys are outside this chat-window UI scope and retain English fallback. Existing guide updates from #7064 are preserved. Removed the 12 obsolete chat-help keys that were present among the 41 deleted English keys.
 - UI validation checks key ordering, interpolation/markup preservation and manifest hashes. Missing unrelated UI keys continue to use English fallback. Other language packs' existing stale keys are reported separately.
+
+An independent agent checked the three largest guides, the changed UI strings, new links and source parity. Its two substantive wording/evidence refinements were applied. The two autonomous-pacing paragraphs from #7067 are preserved during integration.
 
 These checks are not a claim of independent native-reader or physical-device review.
 
