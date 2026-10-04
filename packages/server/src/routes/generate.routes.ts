@@ -2799,6 +2799,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           ],
           nameCharacterReferences: !(presetId && resolvedPreset && chatMode !== "conversation" && chatMode !== "game"),
         });
+        const referencedCharacterIds = new Set(Object.keys(promptMacroContext.characterReferences ?? {}));
         const conversationMacroFieldsByCharacterId = new Map<string, NonNullable<MacroContext["convoFields"]>>();
         const historyMacroProfilesById = (await resolveCharacterMacroData(app.db, allCharacterIds)).profilesById;
 
@@ -3356,6 +3357,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           };
 
           const assembled = await assemblePrompt(assemblerInput);
+          for (const id of assembled.referencedCharacterIds) referencedCharacterIds.add(id);
           Object.assign(promptMacroContext.variables, assembled.macroVariables);
           // Preset values are available now, so deferred names resolve normally
           // (and preset-first) in the provider-boundary pass. Conditionals were
@@ -10263,6 +10265,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             // Cache the exact prompt injections used for this swipe so future
             // regenerations and swipe switches replay the same guidance.
             extraUpdate.contextInjections = contextInjections.length > 0 ? contextInjections : null;
+            // Presentation only; clear inherited references whenever this swipe has no eligible snapshot.
+            extraUpdate.referencedCharacterIds =
+              chatMode === "roleplay" &&
+              groupGenerationMode === "merged" &&
+              allCharacterIds.length > 1 &&
+              !input.impersonate
+                ? [...referencedCharacterIds]
+                : [];
             extraUpdate.conversationCommandContent =
               chatMode === "conversation" && !input.impersonate ? conversationCommandContent : null;
             extraUpdate.sceneRequest =

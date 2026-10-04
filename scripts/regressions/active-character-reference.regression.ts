@@ -17,7 +17,8 @@ const { getDB, closeDB } = await import("../../packages/server/src/db/connection
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createLorebooksStorage } = await import("../../packages/server/src/services/storage/lorebooks.storage.js");
 const { assemblePrompt } = await import("../../packages/server/src/services/prompt/assembler.js");
-const { buildReferencedCharacterContext } = await import("../../packages/server/src/services/prompt/macro-context.js");
+const { buildPromptMacroContext, buildReferencedCharacterContext } =
+  await import("../../packages/server/src/services/prompt/macro-context.js");
 const { characterDataSchema, createLorebookEntrySchema, createLorebookSchema } =
   await import("../../packages/shared/src/index.js");
 
@@ -29,6 +30,8 @@ try {
   const susie = await characters.create(
     characterDataSchema.parse({ name: "Susie", description: `SUSIE_CARD_TEXT, a friend of {{${mira.id}}}.` }),
   );
+  const loreOnly = await characters.create(characterDataSchema.parse({ name: "Jules", description: "JULES_CARD" }));
+  const inactiveLore = await characters.create(characterDataSchema.parse({ name: "Nara" }));
   const lorebooks = createLorebooksStorage(db);
   const book = await lorebooks.create(createLorebookSchema.parse({ name: "Cafe lore", isGlobal: true }));
   await lorebooks.createEntry(
@@ -37,6 +40,22 @@ try {
       name: "Corner table",
       content: `The corner table belongs to {{${kaelen.id}}}.`,
       keys: ["cafe"],
+    }),
+  );
+  await lorebooks.createEntry(
+    createLorebookEntrySchema.parse({
+      lorebookId: book.id,
+      name: "Cafe visitor",
+      content: `A visitor is {{${loreOnly.id}}}.`,
+      keys: ["cafe"],
+    }),
+  );
+  await lorebooks.createEntry(
+    createLorebookEntrySchema.parse({
+      lorebookId: book.id,
+      name: "Dormant visitor",
+      content: `Another visitor is {{${inactiveLore.id}}}.`,
+      keys: ["unmentioned-place"],
     }),
   );
 
@@ -57,7 +76,12 @@ try {
     db,
     activeCharacterIds: [mira.id, kaelen.id],
     sources: [],
-    chatMessages: [{ role: "user", content: `{{${mira.id}}} meets {{${susie.id}}}.` }],
+    chatMessages: [
+      {
+        role: "user",
+        content: `{{${mira.id}}} meets {{${susie.id}}} and {{${susie.id}}}. {{${"0".repeat(21)}}} ${inactiveLore.id} {{${inactiveLore.id}suffix}}`,
+      },
+    ],
     macroCtx,
     wrapFormat: "xml",
     chatId: "mixed",
@@ -66,6 +90,19 @@ try {
   assert.deepEqual(mixed.references, { [mira.id]: "Mira", [susie.id]: "Susie" });
   assert.match(mixed.content, /SUSIE_CARD_TEXT, a friend of Mira\./u, "a referenced card names chat characters too");
   assert.doesNotMatch(mixed.content, /MIRA_CARD_TEXT/u, "a chat character's card is not added a second time");
+
+  const withoutPreset = await buildPromptMacroContext({
+    db,
+    characterIds: [mira.id, kaelen.id],
+    personaName: "Ada",
+    macroSources: [`{{${susie.id}}} and {{${susie.id}}} {{${"0".repeat(21)}}}`],
+    nameCharacterReferences: true,
+  });
+  assert.deepEqual(
+    Object.keys(withoutPreset.characterReferences ?? {}),
+    [susie.id],
+    "the non-preset context exposes only valid, unique exact ID references",
+  );
 
   const section = (id: string, content: string, markerConfig?: Record<string, string>) => ({
     id,
@@ -117,6 +154,13 @@ try {
   assert.doesNotMatch(prompt, /\{\{[A-Za-z0-9_-]{21}\}\}/u, "no character ID macro is left");
   assert.equal(prompt.match(/MIRA_CARD_TEXT/gu)?.length, 1, "the chat character's card appears once");
   assert.match(prompt, /SUSIE_CARD_TEXT/u, "a character outside the chat is still pulled in");
+  assert.deepEqual(
+    new Set(assembled.referencedCharacterIds),
+    new Set([mira.id, kaelen.id, susie.id, loreOnly.id]),
+    "presentation references include history and activated lore, but not dormant lore",
+  );
+  assert.equal(assembled.referencedCharacterIds.length, 4, "repeated references are deduplicated");
+
   console.log("active-character-reference regression passed");
 } finally {
   await closeDB();

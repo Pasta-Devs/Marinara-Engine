@@ -30,7 +30,7 @@ import {
   resolveSelfCardAssets,
   type ChatGalleryIndex,
 } from "../../lib/card-asset-links";
-import { useChatGalleryFilenameIndex } from "../../hooks/use-characters";
+import { useCharacterSummaries, useChatGalleryFilenameIndex } from "../../hooks/use-characters";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { PendingTypingDots } from "./PendingTypingDots";
 import { ChatImagePreview } from "./ChatImagePreview";
@@ -2812,9 +2812,21 @@ export const ChatMessage = memo(function ChatMessage({
   }, [personaInfo?.dialogueColor, personaInfo?.name, scopedCharacterMap]);
 
   // Merged group chat: cycling avatars + cycling name color
+  // References affect only this reply's avatars, never the group roster or speakers.
+  const referencedAvatarIds = useMemo(() => {
+    if (!isRoleplay || !isMergedGroup || !Array.isArray(extra.referencedCharacterIds)) return [];
+    return Array.from(
+      new Set<string>(
+        (extra.referencedCharacterIds as unknown[]).filter(
+          (id): id is string => typeof id === "string" && /^[A-Za-z0-9_-]{21}$/.test(id),
+        ),
+      ),
+    ).filter((id) => !chatCharacterIds?.includes(id));
+  }, [isRoleplay, isMergedGroup, extra.referencedCharacterIds, chatCharacterIds]);
+  const { data: referencedAvatarCharacters } = useCharacterSummaries(referencedAvatarIds);
   const mergedCharacterIds = useMemo(
-    () => mergedGroupCharacterIds ?? chatCharacterIds ?? [],
-    [chatCharacterIds, mergedGroupCharacterIds],
+    () => [...(mergedGroupCharacterIds ?? chatCharacterIds ?? []), ...referencedAvatarIds],
+    [chatCharacterIds, mergedGroupCharacterIds, referencedAvatarIds],
   );
   const mergedCycleKey = JSON.stringify(mergedCharacterIds);
   const reduceAmbientEffects = useReducedAmbientEffects();
@@ -2832,13 +2844,16 @@ export const ChatMessage = memo(function ChatMessage({
     return mergedCharacterIds
       .map((id, index) => {
         const info = characterMap.get(id);
+        // Query placeholder data may belong to the previous swipe; only the
+        // current mergedCharacterIds may contribute an avatar.
+        const reference = referencedAvatarCharacters?.find((character) => character.id === id);
         const expressionUrl = expressionAvatarResolver?.(message, id) ?? null;
-        const url = expressionUrl ?? info?.avatarUrl;
+        const url = expressionUrl ?? info?.avatarUrl ?? reference?.avatarUrl;
         if (!url) return null;
         return {
           id,
           url,
-          crop: expressionUrl ? null : info?.avatarCrop,
+          crop: expressionUrl ? null : (info?.avatarCrop ?? normalizeAvatarCrop(reference?.avatarCrop)),
           nameColor: info?.nameColor || fallbackPalette[index % fallbackPalette.length]!,
         };
       })
@@ -2848,7 +2863,7 @@ export const ChatMessage = memo(function ChatMessage({
       crop?: AvatarCrop | null;
       nameColor: string;
     }[];
-  }, [isMergedGroup, characterMap, mergedCharacterIds, expressionAvatarResolver, message]);
+  }, [isMergedGroup, characterMap, mergedCharacterIds, expressionAvatarResolver, message, referencedAvatarCharacters]);
   const mergedNameColors = useMemo(() => mergedAvatars.map((avatar) => avatar.nameColor), [mergedAvatars]);
   // Cycle index for merged group avatars/names — driven by a ref + 2s setInterval to avoid re-renders
   const cycleIndexRef = useRef(0);

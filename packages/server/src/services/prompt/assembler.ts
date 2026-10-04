@@ -217,6 +217,8 @@ export interface AssemblerOutput {
   macroVariables: Record<string, string>;
   /** Agent outputs made available to {{agent::TYPE}} while assembling sections. */
   macroAgentData: Record<string, string>;
+  /** Valid character cards discovered through exact ID macros, including activated lorebook entries. */
+  referencedCharacterIds: string[];
   /** Any lorebook depth entries that were queued (already injected into messages) */
   lorebookDepthEntriesCount: number;
   /** Updated per-chat entry state overrides after ephemeral processing. Caller should persist to chat metadata. */
@@ -813,6 +815,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     parameters,
     macroVariables: { ...macroCtx.variables },
     macroAgentData: { ...(macroCtx.agentData ?? {}) },
+    referencedCharacterIds: Object.keys(macroCtx.characterReferences ?? {}),
     lorebookDepthEntriesCount,
     ...(markerCtx.updatedEntryStateOverrides
       ? { updatedEntryStateOverrides: markerCtx.updatedEntryStateOverrides }
