@@ -190,7 +190,7 @@ Pole **Maximum output size** decyduje o tym, jak długie może być wygenerowane
 
 ### Opcje wyświetlania
 
-Kontrolki **Display** w **Chat Summary** decyduje o tym, jak podsumowane wiadomości wyglądają na ekranie:
+Kontrolki **Display** w **Chat Summary** decydują o tym, jak podsumowane wiadomości wyglądają na ekranie:
 
 - **Hide summarised messages**: ukrywa surowe wiadomości, gdy obejmie je podsumowanie. Domyślnie wyłączone.
 - **Recent message tail**: zostawia tyle najnowszych wiadomości w pełni widocznych nawet przy włączonym ukrywaniu. Domyślnie jest to 10, a przyjmowana jest każda nieujemna liczba całkowita. Wartość 0 ukrywa całą podsumowaną porcję. Wyższe wartości zwiększają rozmiar promptu i koszt modelu.

@@ -17,7 +17,7 @@ Each group stays below the hosted review file limit and can be reviewed independ
 
 | Group | Packs | Status |
 | --- | --- | --- |
-| Europe | `pl`, `de`, `ru` | [#7065](https://github.com/Pasta-Devs/Marinara-Engine/pull/7065): All 37 guides and related UI entries per pack complete; local review pending |
+| Europe | `pl`, `de`, `ru` | [#7065](https://github.com/Pasta-Devs/Marinara-Engine/pull/7065): all 37 guides and related UI entries per pack complete; local review complete, hosted review follow-up in progress |
 | Romance languages | `es`, `fr`, `pt-br` | [#7068](https://github.com/Pasta-Devs/Marinara-Engine/pull/7068): all three packs complete; local review pending |
 | East Asian languages | `ja`, `ko`, `zh-hans` | [#7070](https://github.com/Pasta-Devs/Marinara-Engine/pull/7070): all three packs complete; local review pending |
 | Hindi | `hi` | [#7069](https://github.com/Pasta-Devs/Marinara-Engine/pull/7069): content and validation complete; review in progress |
@@ -98,4 +98,4 @@ Europe group (`pl`, `de`, `ru`):
 - Translated 126 relevant UI delta entries in each pack. The two unrelated guided-regeneration UI keys are outside this scope and retain English fallback; the separate guide changes from #7064 remain intact. Reviewed the 41 removed English keys and removed those present in these packs: 26 Polish, 12 German and 12 Russian entries. The final close-button correction also removes the two newly introduced minimize labels from each pack.
 - UI validation passed with no stale keys: 726 current Polish keys, 669 German and 280 Russian. Interpolation and rich-text tokens remain intact; the shared UI manifest is refreshed.
 - Independent source/meaning review by the Romance-group agent found no substantive issues in the new layout, tracker or style instructions, or in introduced links and code. This is not native-reader certification.
-- `git diff --check` passed. Local CodeRabbit is pending coordinated quota, so the group remains draft. No native-reader or in-app verification is claimed.
+- `git diff --check` passed. Local CodeRabbit reviewed all 120 changed files at `f4f8a84eae899b694ef5ece6c328d414a9c9c011` with zero findings. The PR is ready for review. The hosted review then identified a Polish verb-agreement error and this outdated review-status entry; both have been corrected. Pack and UI validation were rerun for these small documentation corrections. Hosted re-review and final manual checks remain pending; no native-reader review is claimed.
