@@ -127,7 +127,7 @@
 | 标题栏 | `.mari-window__header` |
 | 标题及其图标 | `.mari-window__title-row` |
 | 标题 | `.mari-window__title` |
-| 标题栏按钮（Reset View、收藏布局星标、Tracker Panel、最小化、固定、锁定、关闭、Put back） | `.mari-window__controls` （每个按钮是 `.mari-window__control`） |
+| 标题栏按钮（Reset View、收藏布局星标、Tracker Panel、固定、锁定、关闭、Put back） | `.mari-window__controls` （每个按钮是 `.mari-window__control`） |
 | 窗口内容 | `.mari-window__body` |
 | 调整大小的边缘和角落 | `.mari-window__resize-handle` |
 | 鼠标或焦点位于窗口内时显示的角标 | `.mari-window__resize-grip` |
@@ -148,7 +148,7 @@
 - `data-drawer` 标识抽屉，比如 `chat-name`。有些名称以聊天模式开头，比如 `roleplay-agents` 或 `conversation-agents`。追踪器使用 `tracker-world`、`tracker-persona`、`tracker-characters`、`tracker-quests`、`tracker-inventory`、`tracker-custom` 和 `agent-activity`。
 - `data-presentation` 在电脑窗口上是 `"window"`，在手机面板上是 `"sheet"`。
 - 窗口固定或锁定时，`data-pinned` 和 `data-locked` 为 `"true"`。
-- `data-window-control` 标识每个标题栏按钮：`"minimize"`、`"pin"`、`"lock"`、`"close"` 或 `"put-back"`。处于按下状态的固定或锁定按钮还带有 `aria-pressed="true"`。
+- `data-window-control` 标识每个标题栏按钮：`"pin"`、`"lock"`、`"close"` 或 `"put-back"`。处于按下状态的固定或锁定按钮还带有 `aria-pressed="true"`。
 - `data-chat-settings-control` 标识 Chat Settings 的额外标题栏按钮：`"reset-view"`、`"favorite-layout"` 和 `"tracker-panel"`。当前布局与收藏一致时，星标带有 `aria-pressed="true"`，图标会填满。
 - 每个调整手柄的 `data-edge` 为 `"n"`、`"s"`、`"e"`、`"w"`、`"ne"`、`"nw"`、`"se"` 或 `"sw"`。
 - 已展开抽屉在 `.mari-drawer__header` 内的开关按钮带有 `aria-expanded="true"`。

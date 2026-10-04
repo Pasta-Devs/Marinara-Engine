@@ -126,7 +126,7 @@ Game controls、Session、Volume、Game Assets、接続したチャット、パ�
 | タイトルバー | `.mari-window__header` |
 | タイトルとそのアイコン | `.mari-window__title-row` |
 | タイトル | `.mari-window__title` |
-| タイトルバーのボタン(Reset View、お気に入りレイアウトの星、Tracker Panel、最小化、ピン留め、ロック、閉じる、戻す) | `.mari-window__controls`(各ボタンは`.mari-window__control`) |
+| タイトルバーのボタン(Reset View、お気に入りレイアウトの星、Tracker Panel、ピン留め、ロック、閉じる、戻す) | `.mari-window__controls`(各ボタンは`.mari-window__control`) |
 | ウィンドウの内容 | `.mari-window__body` |
 | サイズ変更用の辺と角 | `.mari-window__resize-handle` |
 | ポインターまたはフォーカスがウィンドウ内にある間に表示される角のマーク | `.mari-window__resize-grip` |
@@ -147,7 +147,7 @@ Game controls、Session、Volume、Game Assets、接続したチャット、パ�
 - `data-drawer`はドロワーの名前です。例は`chat-name`です。`roleplay-agents`や`conversation-agents`のように、チャットモードで始まる名前もあります。トラッカーには`tracker-world`、`tracker-persona`、`tracker-characters`、`tracker-quests`、`tracker-inventory`、`tracker-custom`、`agent-activity`を使います。
 - `data-presentation`は、コンピューターのウィンドウでは`"window"`、スマートフォンのパネルでは`"sheet"`です。
 - `data-pinned`と`data-locked`は、ウィンドウがピン留めまたはロックされている間、`"true"`です。
-- `data-window-control`は、タイトルバーの各ボタンの名前です。`"minimize"`、`"pin"`、`"lock"`、`"close"`、`"put-back"`があります。押された状態のピン留めボタンとロックボタンには、`aria-pressed="true"`も付きます。
+- `data-window-control`は、タイトルバーの各ボタンの名前です。`"pin"`、`"lock"`、`"close"`、`"put-back"`があります。押された状態のピン留めボタンとロックボタンには、`aria-pressed="true"`も付きます。
 - `data-chat-settings-control`は、Chat Settingsの追加のタイトルバーボタンを識別します。`"reset-view"`、`"favorite-layout"`、`"tracker-panel"`があります。現在のレイアウトが保存済みのお気に入りと一致すると、お気に入りの星には`aria-pressed="true"`が付き、アイコンが塗りつぶされます。
 - 各サイズ変更ハンドルの`data-edge`は、`"n"`、`"s"`、`"e"`、`"w"`、`"ne"`、`"nw"`、`"se"`、`"sw"`のいずれかです。
 - 開いたドロワーの`.mari-drawer__header`内にある切り替えボタンには、`aria-expanded="true"`が付きます。

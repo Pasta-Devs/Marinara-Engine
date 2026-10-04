@@ -59,7 +59,7 @@ Tracker Panel 隐藏时，电脑上的追踪器改用 [Trackers 窗口](../rolep
 
 想把一个区域放在手边，点击它的 **Pop out** 按钮（**?** 旁边带箭头的方框）。它会变成独立窗口，在放回之前不再出现在 Chat Settings 中。
 
-电脑上也可以把区域标题直接拖出 Chat Settings。新窗口默认固定，因此使用聊天时仍会保持打开。和 Chat Settings 一样，可以移动、调整大小或锁定。
+电脑上也可以把区域标题直接拖出 Chat Settings。新窗口默认不固定，因此点击别处会缩成按钮。如果希望使用聊天时保持打开，请固定窗口。和 Chat Settings 一样，可以移动、调整大小或锁定。
 
 - **Close**(**X**) 把区域缩成带图标的小按钮。按钮可以拖到任意位置，点击后会在之前的位置重新打开窗口。
 - **Put back in Chat Settings**(**X** 旁的弯箭头) 把区域放回 Chat Settings。也可以把窗口拖到 Chat Settings 上。
@@ -75,7 +75,7 @@ Tracker Panel 隐藏时，电脑上的追踪器改用 [Trackers 窗口](../rolep
 
 有些工具有自己的小窗口：游戏的 **Game controls**、**Session**、**Volume** 和 **Game Assets**，还有 **Connected chat**，以及已安装资源包提供的控件。
 
-这些按钮最初位于聊天右上角附近。点击即可打开窗口，关闭或最小化后会恢复为按钮。手机上，窗口显示为全宽面板。
+这些按钮最初位于聊天右上角附近。点击即可打开窗口，关闭后会恢复为按钮。手机上，窗口显示为全宽面板。
 
 想把工具放进 Chat Settings，就打开它的窗口，选择 **Put back in Chat Settings**。它会成为一个可展开区域。用区域的弹出按钮可以再变成独立窗口；电脑上也可以把标题拖出来。**Reset View** 会把这些工具恢复为初始按钮。
 

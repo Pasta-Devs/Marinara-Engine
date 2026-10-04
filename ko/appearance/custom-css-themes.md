@@ -126,7 +126,7 @@ Game controls, Session, Volume, Game Assets, 연결된 채팅, 패키지 컨트�
 | 제목 표시줄 | `.mari-window__header` |
 | 제목과 아이콘 | `.mari-window__title-row` |
 | 제목 | `.mari-window__title` |
-| 제목 표시줄 버튼(Reset View, 즐겨찾는 배치의 별, Tracker Panel, 최소화, 고정, 잠금, 닫기, 되돌리기) | `.mari-window__controls`(각 버튼은 `.mari-window__control`) |
+| 제목 표시줄 버튼(Reset View, 즐겨찾는 배치의 별, Tracker Panel, 고정, 잠금, 닫기, 되돌리기) | `.mari-window__controls`(각 버튼은 `.mari-window__control`) |
 | 창 내용 | `.mari-window__body` |
 | 크기 조절 가장자리와 모서리 | `.mari-window__resize-handle` |
 | 포인터나 포커스가 창 안에 있을 때 보이는 모서리 표시 | `.mari-window__resize-grip` |
@@ -147,7 +147,7 @@ Game controls, Session, Volume, Game Assets, 연결된 채팅, 패키지 컨트�
 - `data-drawer`는 드로어의 이름이며 예를 들면 `chat-name`입니다. `roleplay-agents`나 `conversation-agents`처럼 채팅 모드로 시작하는 이름도 있습니다. 트래커는 `tracker-world`, `tracker-persona`, `tracker-characters`, `tracker-quests`, `tracker-inventory`, `tracker-custom`, `agent-activity`를 사용합니다.
 - `data-presentation`은 컴퓨터 창에서 `"window"`, 휴대폰 패널에서 `"sheet"`입니다.
 - 창이 고정되거나 잠겨 있으면 `data-pinned`와 `data-locked`는 `"true"`입니다.
-- `data-window-control`은 제목 표시줄 버튼의 이름으로 `"minimize"`, `"pin"`, `"lock"`, `"close"`, `"put-back"`을 사용합니다. 눌린 고정이나 잠금 버튼에는 `aria-pressed="true"`도 있습니다.
+- `data-window-control`은 제목 표시줄 버튼의 이름으로 `"pin"`, `"lock"`, `"close"`, `"put-back"`을 사용합니다. 눌린 고정이나 잠금 버튼에는 `aria-pressed="true"`도 있습니다.
 - `data-chat-settings-control`은 Chat Settings의 추가 제목 표시줄 버튼을 구분합니다. `"reset-view"`, `"favorite-layout"`, `"tracker-panel"`입니다. 현재 배치가 저장한 즐겨찾기와 같으면 별 아이콘이 채워지고 `aria-pressed="true"`가 됩니다.
 - 각 크기 조절 손잡이의 `data-edge`는 `"n"`, `"s"`, `"e"`, `"w"`, `"ne"`, `"nw"`, `"se"`, `"sw"`입니다.
 - 열린 드로어의 `.mari-drawer__header` 안에 있는 토글 버튼에는 `aria-expanded="true"`가 있습니다.
