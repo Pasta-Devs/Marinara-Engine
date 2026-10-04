@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Long-Term Memory recall now reads only the actual conversation history. Preset prompts, agent injections and other non-history text no longer fill the package's recent-message window. Normal generation prompts and other agents' inputs remain unchanged (#7044).
+
 - Home widgets: the **Daily Encounter** message for an empty library and its **Open character library** link now fit inside the widget on desktop and phones (only the very largest text sizes can still cut off the link), Professor Mari's head is no longer cut off in **Your guide** (she can now reach over the widget's top edge instead), and hovering a widget no longer makes its glow and edges pop in after the card lifts (#7032).
 
 - In **Chat Summary**, each message range now gets its own row across the window, and its number fields show message numbers up to five digits (four on the narrowest phones). A range that needs fixing keeps the same quiet border as the rest of the window, with a warning note under it instead of a flashing accent outline, and a range that can't be summarized no longer counts toward the messages selected. Range mode no longer opens on a range left over from a longer chat, which showed "This range is outside the chat history." right away; it starts on this chat's latest messages instead. Picking Range, or clicking into a range field, before a long chat finishes loading no longer leaves the range on that chat's first messages (#7029).

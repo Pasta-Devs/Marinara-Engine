@@ -739,6 +739,7 @@ import {
   filterPromptMessagesForCharacterAudience,
   filterPromptHistoryByMessageIds,
   scopeIndividualGroupMessagesForTarget,
+  selectHistoryMessagesForRecall,
   type GenerationPromptMessage,
 } from "../services/generation/prompt-message-scope.js";
 import {
@@ -2599,6 +2600,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         let advancedMemoryPlacements: AdvancedMemoryPlacement[] = [];
         let longTermMemoryRecallReceipt: LongTermMemoryRecallReceipt | undefined;
         let longTermMemoryPromptRecorded = false;
+        let conversationRecallHistory: GenerationPromptMessage[] | undefined;
         const ownerSpatialProjection = await ownerSpatialProjectionPromise;
         let conversationCommandsReminder: string | null = null;
         let conversationContextMacroSlots: ConversationContextMacroSlots = {
@@ -3541,8 +3543,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               signal: generationSignal,
             },
             summaryVectorizerAvailable: memoryRecallVectorizerAvailable,
+            includeRecallHistory:
+              chatEnableAgents && chatActiveAgentIds.includes("long-term-memory") && !input.regenerateMessageId,
           });
           finalMessages = preparedHistory.finalMessages;
+          conversationRecallHistory = preparedHistory.recallHistoryMessages;
 
           // ── Conversation-mode profiles (Convo ONLY): display name, about-me, behavior ──
           // Built entirely inside this branch, so none of these fields can reach
@@ -6766,7 +6771,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             chatId: input.chatId,
             chatMode,
             characterIds: promptCharacterIds,
-            messages: sharedPromptForAgents(finalMessages).map(({ role, content }) => ({ role, content })),
+            messages: selectHistoryMessagesForRecall(sharedPromptForAgents(conversationRecallHistory ?? finalMessages)),
             signal: agentSignal,
             debugMode: requestDebug || isDebug,
           });

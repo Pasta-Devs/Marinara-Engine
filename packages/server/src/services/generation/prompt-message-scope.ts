@@ -287,6 +287,19 @@ export function filterPromptHistoryByMessageIds(
   return filtered;
 }
 
+/**
+ * Long-term memory recall must see conversation history only. Prompt text and
+ * agent/lorebook injections keep their own `contextKind`, so filtering by origin
+ * keeps narrator/system history while tail injections cannot displace it.
+ */
+export function selectHistoryMessagesForRecall(
+  messages: readonly GenerationPromptMessage[],
+): Array<{ role: "system" | "user" | "assistant"; content: string }> {
+  return messages
+    .filter((message) => message.contextKind === "history")
+    .map(({ role, content }) => ({ role, content }));
+}
+
 export function filterPromptMessagesForCharacterAudience(
   messages: GenerationPromptMessage[],
   audienceCharacterIds: string[],

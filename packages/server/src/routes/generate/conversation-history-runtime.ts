@@ -231,7 +231,13 @@ export async function prepareConversationPromptHistory(args: {
   fallbackBaseUrl?: string;
   summaryEmbeddingOptions?: MemoryRecallEmbeddingOptions;
   summaryVectorizerAvailable?: boolean;
-}): Promise<{ finalMessages: GenerationPromptMessage[]; importantMemoryBlock: string | null }> {
+  /** Build a separate LTM input without changing the main prompt's provenance. */
+  includeRecallHistory?: boolean;
+}): Promise<{
+  finalMessages: GenerationPromptMessage[];
+  importantMemoryBlock: string | null;
+  recallHistoryMessages?: GenerationPromptMessage[];
+}> {
   const rolloverHour = Math.max(
     0,
     Math.min(11, Math.floor((args.chatMeta.dayRolloverHour as number | undefined) ?? 4)),
@@ -394,6 +400,7 @@ export async function prepareConversationPromptHistory(args: {
     daySummaries: allDaySummaries,
   });
 
+  const recallHistoryMessages: GenerationPromptMessage[] | undefined = args.includeRecallHistory ? [] : undefined;
   finalMessages = flattenConversationHistoryBuckets({
     buckets,
     tailEntries,
@@ -408,10 +415,11 @@ export async function prepareConversationPromptHistory(args: {
     promptTimeZone: args.promptTimeZone,
     personaName: args.personaName,
     wrapFormat: args.wrapFormat,
+    recallHistoryMessages,
   });
 
   const importantMemoryBlock = formatConversationImportantMemoryBlock(allKeyDetails, args.wrapFormat);
-  return { finalMessages, importantMemoryBlock };
+  return { finalMessages, importantMemoryBlock, ...(recallHistoryMessages ? { recallHistoryMessages } : {}) };
 }
 
 async function annotateConversationPromptReactions(args: {
@@ -650,6 +658,7 @@ function flattenConversationHistoryBuckets(args: {
   promptTimeZone?: string;
   personaName: string;
   wrapFormat: WrapFormat;
+  recallHistoryMessages?: GenerationPromptMessage[];
 }): GenerationPromptMessage[] {
   const weekBlocksEmitted = new Set<string>();
   const fmtTailPrefix = (ts: Date) => {
@@ -657,15 +666,19 @@ function flattenConversationHistoryBuckets(args: {
     return `[${date} ${formatZonedConversationTime(ts, args.promptTimeZone)}]`;
   };
   const buildTailTurns = (): GenerationPromptMessage[] =>
-    args.tailEntries.map((message) => ({
-      role: message.role as "user" | "assistant" | "system",
-      content: `${fmtTailPrefix(message.ts)} ${formatConversationPromptTurn(
-        message.content,
-        message.role,
-        args.personaName,
-        message.role === "assistant" ? message.author : null,
-      )}`,
-    }));
+    args.tailEntries.map((message) => {
+      const turn = {
+        role: message.role as "user" | "assistant" | "system",
+        content: `${fmtTailPrefix(message.ts)} ${formatConversationPromptTurn(
+          message.content,
+          message.role,
+          args.personaName,
+          message.role === "assistant" ? message.author : null,
+        )}`,
+      };
+      args.recallHistoryMessages?.push({ ...message, ...turn, contextKind: "history" });
+      return turn;
+    });
 
   const finalMessages = args.buckets.flatMap((bucket, bucketIndex): GenerationPromptMessage[] => {
     const prefix = bucketIndex === args.firstTodayIdx ? buildTailTurns() : [];
@@ -714,8 +727,12 @@ function flattenConversationHistoryBuckets(args: {
         bucket.date,
         args.wrapFormat,
       );
+      args.recallHistoryMessages?.push(
+        ...turns.map((turn, index) => ({ ...bucket.msgs[index]!, ...turn, contextKind: "history" as const })),
+      );
       return [...prefix, ...turns];
     }
+    if (bucket.contextKind === "history") args.recallHistoryMessages?.push({ ...bucket });
     return [...prefix, bucket];
   });
 
