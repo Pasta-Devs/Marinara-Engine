@@ -430,7 +430,7 @@ export function AdvancedMemoryInspector({
             className={`${buttonClass} w-full`}
             disabled={
               action.isPending ||
-              !draft.trim() ||
+              (draft !== selected.content && !draft.trim()) ||
               (draft === selected.content &&
                 !timelineChanged &&
                 !audienceChanged &&

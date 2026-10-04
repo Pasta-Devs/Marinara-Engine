@@ -377,12 +377,12 @@ test("Advanced Memory scene timeframes save independently, survive reloads and c
             chatId: fixture.chat.id,
             sceneId: `scene-${message.id}`,
             kind: "scene",
-            status: "closed",
+            status: index === 0 ? "closed" : "open",
             startMessageId: message.id,
             endMessageId: message.id,
             messageIds: [message.id],
             audienceCharacterIds: fixture.characters.map(({ id }) => id),
-            content: index === 0 ? "Dottore promises to preserve the blue notebook." : "The experiment begins.",
+            content: index === 0 ? "Dottore promises to preserve the blue notebook." : "",
             title: index === 0 ? "The laboratory promise" : "The experiment",
             timeline: index === 0 ? "Before the experiment" : null,
             enabled: true,
@@ -403,6 +403,11 @@ test("Advanced Memory scene timeframes save independently, survive reloads and c
       (item) => item.startMessageId === fixture.firstMessage.id && item.id !== item.sceneId,
     );
     if (!record) throw new Error("Expected the imported scene summary");
+    const emptyRecord = importedStatus.records.find(
+      (item) => item.startMessageId === fixture.lastMessage.id && item.id !== item.sceneId,
+    );
+    if (!emptyRecord) throw new Error("Expected the imported open scene summary");
+    expect(emptyRecord).toMatchObject({ content: "", status: "open", enabled: true });
     await openChat(page, fixture.chat.id);
     await openInspector();
     await inspector.getByRole("button", { name: /^Scene #1\b/ }).click();
@@ -420,6 +425,11 @@ test("Advanced Memory scene timeframes save independently, survive reloads and c
     await expect(timeframe).toHaveAttribute("maxlength", "2000");
     await expect(save).toBeDisabled();
     await timeframe.fill("  Day 2, dawn — after the storm  ");
+    await expect(save).toBeEnabled();
+    const summaryText = inspector.getByRole("textbox", { name: "Summary text", exact: true });
+    await summaryText.fill("");
+    await expect(save).toBeDisabled();
+    await summaryText.fill(record.content);
     await expect(save).toBeEnabled();
     await page.route(
       `**${endpoint}/records/${record.id}`,
@@ -456,10 +466,31 @@ test("Advanced Memory scene timeframes save independently, survive reloads and c
     await captureThemes(page, info, "scene-timeframe-after");
     await timeframe.fill("An unsaved draft for the first scene");
     await back.click();
-    await inspector.getByRole("button", { name: /^Scene #2\b/ }).click();
+    // The open scene's scaffold precedes its separately imported empty summary.
+    await inspector
+      .getByRole("button", { name: /^Scene #2\b/ })
+      .last()
+      .click();
     await expect(timeframe).toHaveValue("");
     await expect(timeframe).toHaveAttribute("placeholder", "Not specified in the story");
+    await expect(summaryText).toHaveValue("");
     await expect(save).toBeDisabled();
+    await timeframe.fill("The experiment begins at noon");
+    await expect(save).toBeEnabled();
+    const emptySaved = page.waitForResponse(
+      (response) => response.url().endsWith(`/records/${emptyRecord.id}`) && response.request().method() === "PATCH",
+    );
+    await save.click();
+    const emptyResponse = await emptySaved;
+    expect(emptyResponse.ok()).toBeTruthy();
+    expect(emptyResponse.request().postDataJSON()).toEqual({ timeline: "The experiment begins at noon" });
+    await expect(save).toBeDisabled();
+    expect(await readRecord(emptyRecord.id)).toMatchObject({
+      timeline: "The experiment begins at noon",
+      content: "",
+      status: "open",
+      enabled: true,
+    });
     await back.click();
     await inspector.getByRole("button", { name: /^Scene #1\b/ }).click();
     await expect(timeframe).toHaveValue("Day 2, dawn — after the storm");
