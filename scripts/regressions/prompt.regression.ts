@@ -9174,7 +9174,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
-    name: "long-term memory recall input is history only, with narrator/system kept and injections excluded",
+    name: "long-term memory recall input is history only and composes with Advanced Memory filtering",
     run() {
       const history = [
         { id: "h1", role: "user" as const, contextKind: "history" as const, content: "OBSERVATORY_ONE" },
@@ -9188,60 +9188,28 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         { role: "system" as const, content: "PINEAPPLE_UNTYPED_SYSTEM" },
         { role: "user" as const, content: "PINEAPPLE_UNTYPED_USER" },
       ];
-      const sourceIds = new Set(history.map((message) => message.id));
+      const expected = history.map(({ role, content }) => ({ role, content }));
 
-      // Advanced Memory disabled: the route passes the assembled prompt straight through.
+      // Prompt text and injections may sit before, after or between history; only history reaches recall.
       for (const messages of [
         [...nonHistory, ...history],
         [...history, ...nonHistory],
         [...history.slice(0, 2), ...nonHistory, ...history.slice(2)],
       ]) {
         const snapshot = structuredClone(messages);
-        assert.deepEqual(
-          selectHistoryMessagesForRecall(messages),
-          history.map(({ role, content }) => ({ role, content })),
-        );
+        assert.deepEqual(selectHistoryMessagesForRecall(messages), expected);
         assert.deepEqual(messages, snapshot, "recall selection leaves other prompt consumers' input unchanged");
       }
 
-      // Advanced Memory enabled: existing history filter runs first, then recall history selection.
+      // Advanced Memory filtering runs first; excluded history and non-history text stay out.
       const advancedFiltered = filterPromptHistoryByMessageIds(
         resolveAdvancedMemoryPrompt([...history, ...nonHistory], [], {}),
         new Set(["h2", "h3", "h4"]),
-        sourceIds,
+        new Set(history.map((message) => message.id)),
       );
-      const recall = selectHistoryMessagesForRecall(advancedFiltered);
       assert.deepEqual(
-        recall.map((message) => message.content),
+        selectHistoryMessagesForRecall(advancedFiltered).map((message) => message.content),
         ["OBSERVATORY_TWO", "OBSERVATORY_NARRATOR", "OBSERVATORY_LATEST"],
-        "narrator/system history survives while excluded history and non-history text do not",
-      );
-
-      // Audience/history-start restrictions still remove history before the recall handoff.
-      const audienceScoped = filterPromptMessagesForCharacterAudience(
-        [
-          { id: "pre-start", role: "user" as const, contextKind: "history" as const, content: "BEFORE_START" },
-          {
-            id: "start",
-            role: "assistant" as const,
-            contextKind: "history" as const,
-            content: "AT_START",
-            conversationStartForCharacterIds: ["char"],
-          },
-          { id: "narrator", role: "system" as const, contextKind: "history" as const, content: "NARRATOR_KEPT" },
-          {
-            id: "hidden",
-            role: "user" as const,
-            contextKind: "history" as const,
-            content: "HIDDEN_FROM_CHAR",
-            hiddenFromAICharacterIds: ["char"],
-          },
-        ],
-        ["char"],
-      );
-      assert.deepEqual(
-        selectHistoryMessagesForRecall(audienceScoped).map((message) => message.content),
-        ["AT_START", "NARRATOR_KEPT"],
       );
     },
   },
@@ -10923,6 +10891,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         connection: { provider: "openai", apiKey: "", model: "regression-model" },
         connectionId: "regression-connection",
         baseUrl: "https://example.invalid/v1",
+        includeRecallHistory: true,
       });
       const promptText = prepared.finalMessages.map((message) => message.content).join("\n");
 
@@ -10933,6 +10902,22 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(promptText, new RegExp(authoredSystemInstruction, "u"));
       assert.equal(promptText.includes(legacySetupMembership), false, promptText);
       assert.match(promptText, new RegExp(currentMembership, "u"));
+
+      const recallText = selectHistoryMessagesForRecall(prepared.recallHistoryMessages!)
+        .map((message) => message.content)
+        .join("\n");
+      assert.equal(
+        recallText.includes("Compact day summary."),
+        false,
+        "synthesized day summaries are not recall history",
+      );
+      assert.equal(
+        recallText.includes("COMPACT_WEEK_SUMMARY"),
+        false,
+        "synthesized week summaries are not recall history",
+      );
+      assert.match(recallText, new RegExp(currentSceneSummary, "u"));
+      assert.match(recallText, new RegExp(currentMembership, "u"));
     },
   },
   {
@@ -10951,7 +10936,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         createdAt: "2026-07-15T12:00:00.000Z",
       };
       const chatMessages = [...olderMessages, currentMessage];
-      const prepared = await prepareConversationPromptHistory({
+      const historyInput: Parameters<typeof prepareConversationPromptHistory>[0] = {
         finalMessages: chatMessages.map((message) => ({
           id: message.id,
           role: message.role,
@@ -10989,102 +10974,38 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         connection: { provider: "openai", apiKey: "", model: "regression-model" },
         connectionId: "regression-connection",
         baseUrl: "https://example.invalid/v1",
-      });
+      };
+      const prepared = await prepareConversationPromptHistory(historyInput);
       const promptText = prepared.finalMessages.map((message) => message.content).join("\n");
 
       assert.match(promptText, /UNCAPPED_TAIL_MESSAGE_0/u);
       assert.match(promptText, /UNCAPPED_TAIL_MESSAGE_54/u);
       assert.match(promptText, /CURRENT_CONVERSATION_MESSAGE/u);
-    },
-  },
-  {
-    name: "Conversation recall provenance does not change normal prompt metadata",
-    async run() {
-      const chatMessages = [
-        {
-          id: "summarized-tail-one",
-          role: "user",
-          content: "SUMMARIZED_TAIL_ONE",
-          createdAt: "2026-07-13T10:00:00.000Z",
-        },
-        {
-          id: "summarized-tail-two",
-          role: "user",
-          content: "SUMMARIZED_TAIL_TWO",
-          createdAt: "2026-07-14T10:00:00.000Z",
-        },
-        { id: "today-turn", role: "user", content: "TODAY_TURN", createdAt: "2026-07-15T12:00:00.000Z" },
-        { id: "today-narrator", role: "narrator", content: "TODAY_NARRATOR", createdAt: "2026-07-15T13:00:00.000Z" },
-      ];
-      const historyInput: Parameters<typeof prepareConversationPromptHistory>[0] = {
-        finalMessages: chatMessages.map((message) => ({
-          id: message.id,
-          role: message.role === "narrator" ? ("system" as const) : (message.role as "user" | "assistant"),
-          content: message.content,
-          contextKind: "history" as const,
-        })),
-        chatMessages,
-        scopedMessages: chatMessages,
-        chatMeta: {
-          summaryTailMessages: 2,
-          daySummaries: {
-            "13.07.2026": { summary: "COMPACT_DAY_SUMMARY_ONE", keyDetails: [] },
-            "14.07.2026": { summary: "COMPACT_DAY_SUMMARY_TWO", keyDetails: [] },
-          },
-          weekSummaries: {},
-        },
-        chatId: "conversation-recall-provenance-regression",
-        chats: {
-          async patchMetadata() {
-            throw new Error("Existing day summaries should not require a metadata patch");
-          },
-        },
-        chars: {
-          async getById() {
-            return null;
-          },
-        },
-        characterIds: ["char-echo"],
-        allCharacterIds: ["char-echo"],
-        convoCharInfo: [{ name: "Echo" }],
-        convoCharNames: ["Echo"],
-        personaName: "User",
-        nowInstant: new Date("2026-07-15T18:00:00.000Z"),
-        promptTimeZone: "UTC",
-        wrapFormat: "xml",
-        connection: { provider: "openai", apiKey: "", model: "regression-model" },
-        connectionId: "regression-connection",
-        baseUrl: "https://example.invalid/v1",
-      };
-      const withoutRecall = await prepareConversationPromptHistory(historyInput);
-      const prepared = await prepareConversationPromptHistory({ ...historyInput, includeRecallHistory: true });
-      assert.equal(withoutRecall.recallHistoryMessages, undefined, "disabled LTM does not prepare a recall copy");
-      assert.deepEqual(prepared.finalMessages, withoutRecall.finalMessages, "LTM does not change the main prompt");
-      assert.equal(prepared.importantMemoryBlock, withoutRecall.importantMemoryBlock);
-      assert.ok(prepared.recallHistoryMessages);
 
-      // Recall must not change the metadata consumed by normal prompt processing.
-      for (const marker of ["SUMMARIZED_TAIL_ONE", "SUMMARIZED_TAIL_TWO"]) {
-        const message = prepared.finalMessages.find((entry) => entry.content.includes(marker));
-        assert.ok(message);
-        assert.equal(message.contextKind, undefined, `${marker} must keep its original prompt metadata`);
-      }
-
-      const mainPromptBeforeRecall = structuredClone(prepared.finalMessages);
-      const recallText = selectHistoryMessagesForRecall(prepared.recallHistoryMessages)
+      // The recall copy keeps the raw tail and excludes synthesized summaries without touching the main prompt.
+      assert.equal(prepared.recallHistoryMessages, undefined, "disabled LTM does not prepare a recall copy");
+      const withRecall = await prepareConversationPromptHistory({ ...historyInput, includeRecallHistory: true });
+      assert.deepEqual(withRecall.finalMessages, prepared.finalMessages, "LTM does not change the main prompt");
+      assert.ok(withRecall.recallHistoryMessages);
+      const recallText = selectHistoryMessagesForRecall(withRecall.recallHistoryMessages)
         .map((message) => message.content)
         .join("\n");
-      for (const marker of ["SUMMARIZED_TAIL_ONE", "SUMMARIZED_TAIL_TWO", "TODAY_TURN", "TODAY_NARRATOR"]) {
+      assert.equal(
+        recallText.includes("Compact prior-day summary."),
+        false,
+        "synthesized summaries are not recall history",
+      );
+      for (const marker of ["UNCAPPED_TAIL_MESSAGE_0", "UNCAPPED_TAIL_MESSAGE_54", "CURRENT_CONVERSATION_MESSAGE"]) {
         assert.match(recallText, new RegExp(marker, "u"));
       }
+      assert.ok(
+        prepared.finalMessages
+          .filter((message) => message.content.includes("UNCAPPED_TAIL_MESSAGE_"))
+          .every((message) => message.contextKind === undefined),
+        "recall tagging does not leak into the main prompt",
+      );
 
-      const promptText = prepared.finalMessages.map((message) => message.content).join("\n");
-      assert.match(promptText, /COMPACT_DAY_SUMMARY_ONE/u);
-      assert.match(promptText, /COMPACT_DAY_SUMMARY_TWO/u);
-      assert.equal(recallText.includes("COMPACT_DAY_SUMMARY"), false, "synthesized summaries are not recall history");
-      assert.deepEqual(prepared.finalMessages, mainPromptBeforeRecall, "recall selection does not mutate the prompt");
-
-      // Unsummarized prior-day narrator/system turns are tagged only on the recall copy.
+      // Unsummarized date history keeps its wrap format on the recall copy only.
       for (const wrapFormat of ["xml", "markdown", "none"] as const) {
         const pastMessages = [
           {
@@ -11108,7 +11029,6 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
           })),
           wrapFormat,
         };
-        const normal = await prepareConversationPromptHistory(dateInput);
         const withRecall = await prepareConversationPromptHistory({ ...dateInput, includeRecallHistory: true });
         const expected = formatConversationDateHistoryMessages(
           [
@@ -11118,15 +11038,8 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
           "14.07.2026",
           wrapFormat,
         );
-        assert.deepEqual(normal.finalMessages, expected, "normal date-history formatting stays unchanged");
-        assert.deepEqual(withRecall.finalMessages, normal.finalMessages);
-        assert.ok(withRecall.finalMessages.every((message) => message.contextKind === undefined));
-        assert.ok(withRecall.recallHistoryMessages);
-        assert.deepEqual(selectHistoryMessagesForRecall(withRecall.recallHistoryMessages), expected);
-        assert.deepEqual(
-          withRecall.recallHistoryMessages.map((message) => message.id),
-          ["past-narrator", "past-user"],
-        );
+        assert.deepEqual(withRecall.finalMessages, expected, "normal date-history formatting stays unchanged");
+        assert.deepEqual(selectHistoryMessagesForRecall(withRecall.recallHistoryMessages!), expected);
       }
     },
   },

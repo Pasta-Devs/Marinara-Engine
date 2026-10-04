@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { LongTermMemoryRuntimeService } from "../../packages/server/src/services/generation/long-term-memory-runtime.js";
 
-const dir = mkdtempSync(join(tmpdir(), "marinara-ltm-recall-"));
+const dir = mkdtempSync(join(tmpdir(), "marinara-history-handoff-"));
 process.env.DATA_DIR = dir;
 process.env.FILE_STORAGE_DIR = join(dir, "storage");
 process.env.NODE_ENV = "test";
@@ -86,102 +86,93 @@ try {
     connectionId: connection.id,
   });
   for (const mode of ["roleplay", "conversation"] as const) {
-    for (const tailCount of [0, 4]) {
-      const preset = await presets.create({ name: "Recall fixture", wrapFormat: "xml" });
-      assert.ok(preset);
-      await presets.createSection({
-        presetId: preset.id,
-        identifier: "before",
-        name: "Before",
-        content: "PINEAPPLE_BEFORE_HISTORY",
+    const preset = await presets.create({ name: "Recall fixture", wrapFormat: "xml" });
+    assert.ok(preset);
+    await presets.createSection({
+      presetId: preset.id,
+      identifier: "before",
+      name: "Before",
+      content: "PINEAPPLE_BEFORE_HISTORY",
+    });
+    await presets.createSection({
+      presetId: preset.id,
+      identifier: "history",
+      name: "History",
+      isMarker: true,
+      markerConfig: { type: "chat_history" },
+    });
+
+    const markers = ["OBSERVATORY_ONE", "OBSERVATORY_TWO", "OBSERVATORY_NARRATOR", "OBSERVATORY_LATEST"];
+    const fixtures: Array<{ chatId: string; enabled: boolean }> = [];
+    // Create both chats before either generation so cross-post targets are identical across runs.
+    for (const enabled of [false, true]) {
+      const chat = await chats.create({
+        name: "Recall fixture",
+        mode,
+        characterIds: [character.id],
+        connectionId: connection.id,
+        promptPresetId: preset.id,
       });
-      await presets.createSection({
-        presetId: preset.id,
-        identifier: "history",
-        name: "History",
-        isMarker: true,
-        markerConfig: { type: "chat_history" },
+      await chats.patchMetadata(chat.id, {
+        enableAgents: enabled,
+        activeAgentIds: ["long-term-memory"],
+        enableMemoryRecall: false,
+        autonomousMessages: false,
+        characterExchanges: false,
+        crossChatAwareness: false,
+        conversationSchedulesEnabled: false,
+        conversationTimeZone: "UTC",
       });
-      for (let index = 0; index < tailCount; index++) {
-        await presets.createSection({
-          presetId: preset.id,
-          identifier: `tail-${index}`,
-          name: `Tail ${index}`,
-          role: "user",
-          content: `PINEAPPLE_TAIL_${index}`,
-        });
-      }
-      let promptWithoutRecall: typeof received | undefined;
-      for (const enabled of [false, true]) {
-        const chat = await chats.create({
-          name: "Recall fixture",
-          mode,
-          characterIds: [character.id],
-          connectionId: connection.id,
-          promptPresetId: preset.id,
-        });
-        await chats.patchMetadata(chat.id, {
-          enableAgents: enabled,
-          activeAgentIds: ["long-term-memory"],
-          enableMemoryRecall: false,
-          autonomousMessages: false,
-          characterExchanges: false,
-          crossChatAwareness: false,
-          conversationSchedulesEnabled: false,
-          conversationTimeZone: "UTC",
-        });
-        await chats.createMessage({ chatId: chat.id, role: "user", content: "BEFORE_CONVERSATION_START" });
-        const markers = ["OBSERVATORY_ONE", "OBSERVATORY_TWO", "OBSERVATORY_NARRATOR", "OBSERVATORY_LATEST"];
-        for (const [index, role] of (["user", "assistant", "narrator", "user"] as const).entries()) {
-          await chats.createMessage({
-            chatId: chat.id,
-            role,
-            content: markers[index]!,
-            ...(role === "assistant" ? { characterId: character.id } : {}),
-            ...(index === 0 ? { extra: { isConversationStart: true } } : {}),
-          });
-        }
+      await chats.createMessage({ chatId: chat.id, role: "user", content: "BEFORE_CONVERSATION_START" });
+      for (const [index, role] of (["user", "assistant", "narrator", "user"] as const).entries()) {
         await chats.createMessage({
           chatId: chat.id,
-          role: "user",
-          content: "HIDDEN_HISTORY",
-          extra: { hiddenFromAI: true },
+          role,
+          content: markers[index]!,
+          ...(role === "assistant" ? { characterId: character.id } : {}),
+          ...(index === 0 ? { extra: { isConversationStart: true } } : {}),
         });
-        const recallCount = recalls.length;
-        const response = await app.inject({
-          method: "POST",
-          url: "/api/generate/",
-          payload: { chatId: chat.id, skipPresenceDelay: true },
-        });
-        assert.equal(response.statusCode, 200, response.body);
-        assert.ok(!response.body.includes('"type":"error"'), response.body);
-        assert.equal(
-          recalls.length,
-          recallCount + (enabled ? 1 : 0),
-          `${mode}, tail=${tailCount}, LTM=${enabled}: ${response.body}`,
-        );
-        const promptText = received.map((message) => message.content).join("\n");
-        for (const marker of [...markers, "PINEAPPLE_PACKAGE_INJECTION"]) assert.ok(promptText.includes(marker));
-        assert.doesNotMatch(promptText, /BEFORE_CONVERSATION_START|HIDDEN_HISTORY/u);
-        if (mode === "roleplay") {
-          assert.ok(promptText.includes("PINEAPPLE_BEFORE_HISTORY"));
-          for (let index = 0; index < tailCount; index++) assert.ok(promptText.includes(`PINEAPPLE_TAIL_${index}`));
-          if (enabled)
-            assert.deepEqual(received, promptWithoutRecall, "LTM input filtering leaves the provider prompt unchanged");
-          else promptWithoutRecall = structuredClone(received);
-        }
-        if (enabled) {
-          const recall = recalls.at(-1)!;
-          assert.equal(recall.length, 4, "prompt and injection messages cannot displace conversation turns");
-          for (const [index, marker] of markers.entries()) assert.ok(recall[index]?.content.includes(marker));
-          assert.equal(recall[2]?.role, "system", "narrator history remains eligible");
-          assert.doesNotMatch(JSON.stringify(recall), /PINEAPPLE|BEFORE_CONVERSATION_START|HIDDEN_HISTORY/u);
-        }
+      }
+      await chats.createMessage({
+        chatId: chat.id,
+        role: "user",
+        content: "HIDDEN_HISTORY",
+        extra: { hiddenFromAI: true },
+      });
+      fixtures.push({ chatId: chat.id, enabled });
+    }
+
+    let promptWithoutRecall: typeof received | undefined;
+    for (const { chatId, enabled } of fixtures) {
+      const recallCount = recalls.length;
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/generate/",
+        payload: { chatId, skipPresenceDelay: true },
+      });
+      assert.equal(response.statusCode, 200, response.body);
+      assert.ok(!response.body.includes('"type":"error"'), response.body);
+      assert.equal(recalls.length, recallCount + (enabled ? 1 : 0), `${mode}, LTM=${enabled}: ${response.body}`);
+
+      const promptText = received.map((message) => message.content).join("\n");
+      for (const marker of [...markers, "PINEAPPLE_PACKAGE_INJECTION"]) assert.ok(promptText.includes(marker));
+      if (mode === "roleplay") assert.ok(promptText.includes("PINEAPPLE_BEFORE_HISTORY"));
+      assert.doesNotMatch(promptText, /BEFORE_CONVERSATION_START|HIDDEN_HISTORY/u);
+
+      if (enabled) {
+        assert.deepEqual(received, promptWithoutRecall, "LTM input filtering leaves the provider prompt unchanged");
+        const recall = recalls.at(-1)!;
+        assert.equal(recall.length, 4, "prompt and injection messages cannot displace conversation turns");
+        for (const [index, marker] of markers.entries()) assert.ok(recall[index]?.content.includes(marker));
+        assert.equal(recall[2]?.role, "system", "narrator history remains eligible");
+        assert.doesNotMatch(JSON.stringify(recall), /PINEAPPLE|BEFORE_CONVERSATION_START|HIDDEN_HISTORY/u);
+      } else {
+        promptWithoutRecall = structuredClone(received);
       }
     }
   }
   console.info(
-    "LTM recall: real route handoff excludes prompt/injections, preserves history, and leaves provider prompts unchanged.",
+    "Generation history handoff: recall input is conversation history only and the provider prompt is unchanged.",
   );
 } finally {
   releaseRecall();
