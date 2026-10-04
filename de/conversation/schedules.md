@@ -161,6 +161,8 @@ Marinara taktet autonome Nachrichten so, dass dich kein Charakter zuspammt. Grun
 
 Sind mehrere Charaktere gleichzeitig bereit, kommt der mit der höchsten Gesprächigkeit und dem besten Timing zuerst.
 
+In einem Gruppenchat im Modus **Individual** teilen sich die Charaktere ein gemeinsames Tageslimit für Meldungen und damit auch diese Taktung. Sobald sich irgendein Charakter gemeldet hat, gilt für die nächste Meldung – egal von wem – dieselbe Wartezeit wie beim Nachfassen. Ist die Meldung fällig, darf sie jeder Charakter schicken, dessen eigene Wartezeit abgelaufen ist; zuerst kommt der mit den wenigsten Meldungen an diesem Tag. Nach einer langen Abwesenheit meldet sich nur ein Charakter.
+
 ## Dein Anwesenheitsstatus
 
 Dein eigener Status verrät den Charakteren, ob du gerade da bist. Das Bedienelement dafür sitzt unten in der Seitenleiste und bleibt in jedem Chat-Modus sichtbar. Auf die Nachrichten wirkt es sich nur im Conversation Mode aus.

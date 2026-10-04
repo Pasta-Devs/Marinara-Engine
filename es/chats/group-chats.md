@@ -150,6 +150,8 @@ Activa **Character Exchanges** para dejar que los personajes hablen entre sí po
 
 Cuando está activado, los personajes pueden responderse entre sí mientras estás ausente, no solo a ti. Esto se ejecuta solo mientras Marinara está abierto en tu navegador. Si cierras la app, los intercambios se detienen. También comparte el mismo límite diario de mensajes que usan los mensajes autónomos.
 
+Los intercambios funcionan tanto si los horarios de los personajes están activados como si no. En un grupo con el modo **Individual**, los intercambios y las respuestas por mención con arroba entre personajes nunca usan el último saludo del día del grupo, así que un saludo posterior aún puede usarlo.
+
 ## Manejo de turnos de un vistazo
 
 | Modo y ajuste | Qué pasa | Cómo lo diriges |

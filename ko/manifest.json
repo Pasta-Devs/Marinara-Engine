@@ -1,6 +1,6 @@
 {
   "language": "ko",
-  "sourceCommit": "cd6f521c4634661050c2736aa9113da8880270c5",
+  "sourceCommit": "b6e905ba537b71f09a5eb19d12214f6350fc6521",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -159,8 +159,8 @@
     },
     {
       "path": "chats/group-chats.md",
-      "sha256": "f39881b5a0ca926a9b18333083b421a5b85400f99d19caf06077f882ee321259",
-      "bytes": 15680
+      "sha256": "e5fbac8bfb2a1ea22816ebed6d2eec7f6d03fa9f8e1a35f33b4e4bd88931ceab",
+      "bytes": 16010
     },
     {
       "path": "chats/guided-and-impersonate.md",
@@ -264,8 +264,8 @@
     },
     {
       "path": "conversation/schedules.md",
-      "sha256": "0727657dcaa0f2736bd94138e54e630cd84e13ff3470623415bd0fe1b16d44ec",
-      "bytes": 14775
+      "sha256": "b67ff49b0e729553b28cf66ce9a3de252b1aae5c8840c05a75648950fb6b9e3e",
+      "bytes": 15339
     },
     {
       "path": "conversation/selfies.md",
