@@ -39,6 +39,14 @@ When **Refreshes/day** is above 0, Marinara splits the day into equal windows an
 
 Automatic refreshes run inside the Marinara server. The Noodle page does not need to stay open, but Marinara itself must be running. If a refresh fails, the schedule shows the error and retries later, waiting longer after repeated failures. If several planned times are missed, one successful catch-up refresh covers them instead of flooding the timeline.
 
+## Translation
+
+The **Translation** section has one switch. It needs Noodle 1.5.0 or later.
+
+- **Translate posts automatically**: a toggle, default **off**. Turn it on to show a translation under every post and comment your personas didn't write, without clicking **Translate** on each one. Noodle uses the translator defaults saved from a chat's **Translation** settings (**Save translator defaults**). Without saved defaults it uses Google Translate into English. Text already in the target language gets no extra copy, a translation you hide stays hidden, and turning the switch off stops the translations still waiting.
+
+Translations are kept in this browser, whether automatic or made with **Translate**. Refreshing the timeline, leaving Noodle, or reloading the page shows them again without translating again. Another device, or a browser with its data cleared, translates again. **Reset Noodle Timeline** also forgets them.
+
 ## Active Accounts
 
 The **Active Accounts** section sets how many eligible accounts take part in one refresh. Eligible accounts are your invited characters, folder-included characters, and random users if you turned them on.
@@ -155,6 +163,7 @@ This table lists every Noodle setting with its default and range.
 | **Generation connection** | none | any text connection (required for refresh) |
 | **Professor Mari participates** | on | on or off |
 | **Refreshes/day** | 2 | 0 to 24 (0 turns automatic refreshes off) |
+| **Translate posts automatically** | off | on or off |
 | **Active selection** | Random range | Random range, Exact count, All invited |
 | **Min active** | 2 | 1 to 100 (Random range only) |
 | **Max active** | 5 | 1 to 100 (Random range only) |

@@ -2343,10 +2343,11 @@ export function ChatRoleplaySurface({
                   </div>
                 </div>
               )}
+              {/* Like the desktop row, the strip lets touches through to the transcript except on its controls. */}
               <div
                 data-tracker-panel-anchor={centerCompact ? "roleplay-hud" : undefined}
                 className={cn(
-                  "pointer-events-auto relative z-40 w-full flex-col",
+                  "pointer-events-none relative z-40 w-full flex-col",
                   centerCompact ? "flex" : "flex md:hidden",
                 )}
               >
@@ -2358,7 +2359,11 @@ export function ChatRoleplaySurface({
                       paddingRight: "calc(0.5rem + var(--tracker-panel-hud-clear-right, 0px))",
                     }}
                   >
-                    <div data-chat-help="agents" data-roleplay-agent-window className="min-w-0 flex-1 overflow-x-auto">
+                    <div
+                      data-chat-help="agents"
+                      data-roleplay-agent-window
+                      className="pointer-events-auto min-w-0 flex-1 overflow-x-auto"
+                    >
                       <Suspense fallback={null}>
                         <RoleplayHUD
                           chatId={chat.id}
@@ -2376,7 +2381,10 @@ export function ChatRoleplaySurface({
                     </div>
                     <div
                       data-roleplay-top-controls="right"
-                      className={cn("ml-auto flex shrink-0 items-center", CHAT_TOOLBAR_ICON_GAP_CLASS)}
+                      className={cn(
+                        "pointer-events-auto ml-auto flex shrink-0 items-center",
+                        CHAT_TOOLBAR_ICON_GAP_CLASS,
+                      )}
                     >
                       <ChatHelpButton mode="roleplay" compact className="hidden md:flex" />
                       {conversationToolbarPackages.map((item) => (
@@ -2483,8 +2491,8 @@ export function ChatRoleplaySurface({
                   <div
                     className={cn("flex w-full items-center justify-end px-2 pb-1 pt-2", CHAT_TOOLBAR_ICON_GAP_CLASS)}
                   >
-                    <ChatHelpButton mode="roleplay" compact className="hidden md:flex" />
-                    <ChatToolbarMenu openSummaryOnRequest>
+                    <ChatHelpButton mode="roleplay" compact className="pointer-events-auto hidden md:flex" />
+                    <ChatToolbarMenu openSummaryOnRequest className="pointer-events-auto">
                       <ChatHelpButton mode="roleplay" compact className="md:hidden" />
                       <ChatBranchSelector
                         activeChatId={activeChatId}

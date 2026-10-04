@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import {
+  buildGameTranslationSource,
+  formatGameTranslationSegment,
   stripBalancedTag,
   stripGmTagsKeepReadables,
   stripMapUpdateTag,
@@ -37,4 +39,71 @@ for (const tag of ["[combat_result]", "[map_update:", "[choices:", "[unknown:"])
   assert.equal(result, tag === "[map_update:" ? "" : input);
 }
 
-console.info("Game narration stripping preserves readables and handles repeated unclosed tags in bounded time.");
+// The server's automatic translation and the Game screen share this text (#7010):
+// GM turns lose internal tags, and dialogue keeps only its speaker.
+assert.equal(
+  buildGameTranslationSource({
+    id: "turn",
+    role: "assistant",
+    content: [
+      "[music: calm] A lamp burns.",
+      '[Alice] [main] [patient]: "Stay here."',
+      '[Alice] [whisper:Bob] [calm]: "Keep quiet."',
+      "[Alice] [thought] [worried]: I should go.",
+      'Before the note. [Note: Remember the bridge.] After the note. [choices: ["Go", "Stay"]]',
+    ].join("\n\n"),
+  }),
+  [
+    "A lamp burns.",
+    '[Alice]: "Stay here."',
+    '[Alice]: "Keep quiet."',
+    '[Alice]: "I should go."',
+    "Before the note.",
+    "[Note: Remember the bridge.]",
+    "After the note.",
+  ].join("\n\n"),
+);
+assert.equal(
+  buildGameTranslationSource({ id: "player", role: "user", content: "[To the party] [Alice] [main]: Hi" }),
+  "[Alice] [main]: Hi",
+  "player messages are only stripped of their address prefix",
+);
+
+// The server builds this source for every auto-translated Game turn, so a runaway reply's long whitespace
+// or `[` runs must not rescan the rest of the turn and stall the server.
+const gap = " \t".repeat(20_000);
+for (const [content, expected] of [
+  [`a${gap}b`, `a${gap}b`],
+  ["a [".repeat(20_000), "a [".repeat(20_000).trim()],
+  [`Dialogue [Alice]${gap}x`, `Dialogue [Alice]${gap}x`],
+  [`[Alice] [main] [happy]${gap}x`, `[Alice] [main] [happy]${gap}x`],
+  [
+    `The door opens.${gap}[Alice] [main] [happy]${gap}:${gap}"Welcome."${gap}She smiles.`,
+    'The door opens.\n\n[Alice]: "Welcome."\n\nShe smiles.',
+  ],
+] as const) {
+  const started = performance.now();
+  const result = buildGameTranslationSource({ id: "runaway", role: "assistant", content });
+  assert.ok(performance.now() - started < 2_000, "the Game translation source must be built without rescanning runs");
+  assert.equal(result, expected);
+}
+
+// A dialogue beat keeps to one line: a whitespace run with a newline becomes one space, and a long run
+// without one (CodeQL js/polynomial-redos on the old /\s*\n\s*/) is kept, in linear time.
+const tabs = "\t".repeat(100_000);
+for (const [content, expected] of [
+  [`Hi${tabs}there`, `[Alice]: "Hi${tabs}there"`],
+  ["Hi \n\t\n there\n", '[Alice]: "Hi there"'],
+] as const) {
+  const started = performance.now();
+  const result = formatGameTranslationSegment({ type: "dialogue", speaker: "Alice", content });
+  assert.ok(
+    performance.now() - started < 2_000,
+    "a dialogue beat must be flattened without rescanning whitespace runs",
+  );
+  assert.equal(result, expected);
+}
+
+console.info(
+  "Game narration stripping preserves readables, builds the shared translation source, and handles repeated unclosed tags in bounded time.",
+);

@@ -75,10 +75,8 @@ export function ExpandedTextarea({
           data-component="ExpandedTextarea"
           style={overlayStyle}
           className={cn(
-            "fixed inset-0 z-[100] flex flex-col max-md:pt-[env(safe-area-inset-top)]",
-            isChatSurface
-              ? `bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-panel-text)] ${NEUTRAL_SURFACE_VARIABLES}`
-              : "bg-[var(--background)]",
+            "fixed inset-0 z-[100] flex flex-col bg-[var(--sidebar)] max-md:pt-[env(safe-area-inset-top)]",
+            isChatSurface && `text-[var(--marinara-chat-chrome-panel-text)] ${NEUTRAL_SURFACE_VARIABLES}`,
           )}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -125,10 +123,10 @@ export function ExpandedTextarea({
               onKeyDown={readOnly ? undefined : handleTextareaTab}
               placeholder={placeholder}
               className={cn(
-                "h-full w-full resize-none rounded-xl p-5 text-sm leading-relaxed outline-none transition-colors",
+                "h-full w-full resize-none rounded-xl bg-[var(--sidebar)] p-5 text-sm leading-relaxed outline-none transition-colors",
                 isChatSurface
-                  ? "border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--marinara-chat-chrome-input-bg)] text-[var(--marinara-chat-chrome-panel-text)] placeholder:text-[var(--marinara-chat-chrome-panel-muted)] focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-                  : "border border-[var(--border)] bg-[var(--secondary)] placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20",
+                  ? "border border-[var(--marinara-chat-chrome-input-border)] text-[var(--marinara-chat-chrome-panel-text)] placeholder:text-[var(--marinara-chat-chrome-panel-muted)] focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
+                  : "border border-[var(--border)] placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20",
                 readOnly && "cursor-text text-[var(--muted-foreground)]",
               )}
             />
@@ -136,10 +134,10 @@ export function ExpandedTextarea({
           {footer ? (
             <div
               className={cn(
-                "shrink-0",
+                "shrink-0 bg-[var(--sidebar)]",
                 isChatSurface
-                  ? "border-t border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-panel-bg)] px-4 py-3 md:px-6"
-                  : "border-t border-[var(--border)] bg-[var(--background)] px-4 py-3 md:px-6",
+                  ? "border-t border-[var(--marinara-chat-chrome-panel-divider)] px-4 py-3 md:px-6"
+                  : "border-t border-[var(--border)] px-4 py-3 md:px-6",
               )}
             >
               {footer}

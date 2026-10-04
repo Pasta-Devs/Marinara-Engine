@@ -31,6 +31,38 @@ export const ttsVoiceAssignmentSchema = z.object({
 });
 export type TTSVoiceAssignment = z.infer<typeof ttsVoiceAssignmentSchema>;
 
+/** Longest voice POST /api/tts/speak accepts; a longer saved voice could never be spoken. */
+export const TTS_VOICE_MAX_LENGTH = 200;
+
+/** Body of PUT /api/tts/config/voice-assignment: one character's voice; a blank voice removes its row. */
+export const ttsVoiceAssignmentInputSchema = z.object({
+  characterId: z.string().min(1).max(200),
+  // Card names have no length limit, so the name kept on the row has none either.
+  characterName: z.string(),
+  voice: z.string().max(TTS_VOICE_MAX_LENGTH),
+});
+export type TTSVoiceAssignmentInput = z.infer<typeof ttsVoiceAssignmentInputSchema>;
+
+/** Body of PUT /api/tts/config/voice-mode: one shared voice, or a voice per character. */
+export const ttsVoiceModeInputSchema = z.object({ voiceMode: ttsVoiceModeSchema });
+export type TTSVoiceModeInput = z.infer<typeof ttsVoiceModeInputSchema>;
+
+/**
+ * Give one character its own voice, or drop its rows when the voice is blank so
+ * it falls back to the default voice. Other characters' rows keep their order.
+ */
+export function setCharacterVoiceAssignment(
+  assignments: readonly TTSVoiceAssignment[] | undefined,
+  character: Pick<TTSVoiceAssignment, "characterId" | "characterName">,
+  voice: string,
+): TTSVoiceAssignment[] {
+  const rows = assignments ?? [];
+  const isOwnRow = (entry: TTSVoiceAssignment) => entry.characterId === character.characterId;
+  if (!voice.trim()) return rows.filter((entry) => !isOwnRow(entry));
+  if (!rows.some(isOwnRow)) return [...rows, { ...character, voice }];
+  return rows.map((entry) => (isOwnRow(entry) ? { ...entry, ...character, voice } : entry));
+}
+
 export const ELEVENLABS_TTS_LANGUAGE_OPTIONS = [
   { code: "", label: "Auto detect" },
   { code: "af", label: "Afrikaans" },

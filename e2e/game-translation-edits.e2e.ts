@@ -100,6 +100,66 @@ test("Game translation strips internal dialogue tags and preserves inline readab
   }
 });
 
+// The server's automatic translation saves its own source; the Game screen must accept it (#7010).
+for (const [format, translationSource, translation] of [
+  ["current", 'The door creaks open.\n\n[Alice]: "Welcome, traveler."', 'Drzwi skrzypią.\n\n[Alice]: "Witaj."'],
+  [
+    "pre-#7010",
+    'The door creaks open.\n\n[Alice] [main] [happy]: "Welcome, traveler."',
+    'Drzwi skrzypią.\n\n[Alice] [main] [happy]: "Witaj."',
+  ],
+] as const) {
+  test(`Game shows a ${format} server translation of a tagged turn without translating again`, async ({
+    page,
+    request,
+  }) => {
+    const chat = await (
+      await request.post("/api/chats", { data: { name: "Server translation", mode: "game", characterIds: [] } })
+    ).json();
+    try {
+      await request.patch(`/api/chats/${chat.id}/metadata`, {
+        data: { ...gameMetadata, gameId: chat.id, autoTranslate: true },
+      });
+      const content =
+        '[music: calm] The door creaks open.\n\n[Alice] [main] [happy]: "Welcome, traveler."\n[choices: ["Enter", "Leave"]]';
+      const message = await (
+        await request.post(`/api/chats/${chat.id}/messages`, { data: { role: "assistant", content } })
+      ).json();
+      await request.patch(`/api/chats/${chat.id}/messages/${message.id}/extra`, {
+        data: { automaticTranslationSource: content, translation, translationSource, translationHidden: false },
+      });
+      const requested: string[] = [];
+      await page.route("**/api/translate", async (route) => {
+        requested.push(route.request().postDataJSON().text);
+        await route.fulfill({ json: { translatedText: "Client translation." } });
+      });
+      await openGame(page, chat.id);
+      const panel = page.locator('[data-component="GameNarration.ActivePanel"]');
+      await expect(panel).toContainText("Drzwi skrzypią.");
+      await panel.getByRole("button", { name: "Next", exact: true }).click();
+      await expect(panel).toContainText("Witaj.");
+      // A bounded quiet interval: the saved translation must not be requested again.
+      await page.waitForTimeout(1_000);
+      expect(requested).toEqual([]);
+      // Hiding it must hide it, not translate the turn again.
+      await panel.getByRole("button", { name: "Hide translation", exact: true }).click();
+      await expect(panel).toContainText("Welcome, traveler.");
+      await expect(panel).not.toContainText("Client translation.");
+      await expect
+        .poll(async () => {
+          const messages = await (await request.get(`/api/chats/${chat.id}/messages`)).json();
+          const row = messages.find((entry: { id: string }) => entry.id === message.id);
+          return (typeof row.extra === "string" ? JSON.parse(row.extra) : row.extra).translationHidden;
+        })
+        .toBe(true);
+      expect(requested).toEqual([]);
+    } finally {
+      await page.close();
+      await request.delete(`/api/chats/${chat.id}?force=true`);
+    }
+  });
+}
+
 for (const automatic of [false, true]) {
   test(`Game ${automatic ? "automatic" : "manual"} translation keeps edited narration aligned`, async ({
     page,

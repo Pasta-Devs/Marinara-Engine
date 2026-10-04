@@ -1,4 +1,9 @@
-import { decodeEncodedSpeakerTags, type TTSConfig, type TTSVoiceAssignment } from "@marinara-engine/shared";
+import {
+  decodeEncodedSpeakerTags,
+  setCharacterVoiceAssignment,
+  type TTSConfig,
+  type TTSVoiceAssignment,
+} from "@marinara-engine/shared";
 import { DIALOGUE_QUOTE_CAPTURE_GROUP_PATTERN_SOURCE, stripSurroundingDialogueQuotes } from "./dialogue-quotes";
 
 export interface TTSUtterance {
@@ -212,22 +217,6 @@ export function getCharacterVoiceAssignment(
   characterId: string,
 ): string {
   return assignments?.find((entry) => entry.characterId === characterId && entry.voice)?.voice ?? "";
-}
-
-/**
- * Give one character its own voice, or drop its rows when the voice is blank so
- * it falls back to the default voice. Other characters' rows keep their order.
- */
-export function setCharacterVoiceAssignment(
-  assignments: readonly TTSVoiceAssignment[] | undefined,
-  character: Pick<TTSVoiceAssignment, "characterId" | "characterName">,
-  voice: string,
-): TTSVoiceAssignment[] {
-  const rows = assignments ?? [];
-  const isOwnRow = (entry: TTSVoiceAssignment) => entry.characterId === character.characterId;
-  if (!voice.trim()) return rows.filter((entry) => !isOwnRow(entry));
-  if (!rows.some(isOwnRow)) return [...rows, { ...character, voice }];
-  return rows.map((entry) => (isOwnRow(entry) ? { ...entry, ...character, voice } : entry));
 }
 
 /**

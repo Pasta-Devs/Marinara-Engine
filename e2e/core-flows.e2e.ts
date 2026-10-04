@@ -25,6 +25,9 @@ const WHATS_NEW_E2E_BYPASS_KEY = "marinara:e2e:show-whats-new";
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
 ).version;
+const EN_MESSAGES = JSON.parse(
+  readFileSync(new URL("../packages/client/src/localization/locales/en.json", import.meta.url), "utf8"),
+) as Record<string, string>;
 
 function createDeferred() {
   let resolve!: () => void;
@@ -46,6 +49,46 @@ function collectUnexpectedErrors(page: Page) {
     errors.push(text);
   });
   return errors;
+}
+
+/** Check a sidebar's header help: named after the sidebar, right after its title, its own text on screen, closable. */
+async function expectSidebarHelp(
+  page: Page,
+  header: Locator,
+  help: { key: string; name: string; titled: boolean },
+  testInfo: TestInfo,
+) {
+  const text = EN_MESSAGES[`navigation.sidebarHelp.${help.key}`];
+  expect(text, help.key).toBeTruthy();
+  const button = header.getByRole("button", { name: `Show help for ${help.name}`, exact: true });
+  await expect(button).toBeVisible();
+  if (help.titled) {
+    // Measure in one frame: the sidebar may still be sliding in.
+    const placement = await button.evaluate((element) => {
+      const title = element.parentElement!.previousElementSibling!;
+      const gap = element.querySelector("svg")!.getBoundingClientRect().left - title.getBoundingClientRect().right;
+      const titleGroup = element.parentElement!.parentElement!;
+      const overhang = element.getBoundingClientRect().right - titleGroup.getBoundingClientRect().right;
+      return { tag: title.tagName, title: title.textContent, gap, overhang };
+    });
+    expect(placement).toMatchObject({ tag: "H2", title: help.name });
+    expect(placement.gap).toBeGreaterThanOrEqual(0);
+    expect(placement.gap).toBeLessThanOrEqual(16);
+    // The tap area stays inside the title group, so a cut-off title cannot push it over the Close button.
+    expect(placement.overhang).toBeLessThanOrEqual(0.5);
+  }
+  const toggle = () => (testInfo.project.name.includes("mobile") ? button.tap() : button.click());
+  await toggle();
+  const tip = page.getByText(text!, { exact: true });
+  await expect(tip).toBeVisible();
+  const box = (await tip.boundingBox())!;
+  const viewport = page.viewportSize()!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+  await toggle();
+  await expect(tip).toBeHidden();
 }
 
 async function prepareFreshClient(page: Page) {
@@ -8039,6 +8082,15 @@ test("Roleplay Tracker preserves named characters with missing or malformed card
       await toggle.click();
       const tracker = page.locator('[data-component="TrackerDataSidebar"]:visible');
       await expect(tracker).toBeVisible();
+      if (pass === 0) {
+        // The panel stays dark in light theme too, so its help icon must match the settings icon beside it.
+        const settingsColor = await tracker
+          .getByRole("button", { name: "Open tracker settings", exact: true })
+          .evaluate((button) => getComputedStyle(button).color);
+        const help = tracker.getByRole("button", { name: "Show help for Tracker Panel", exact: true });
+        await expect(help).toHaveCSS("color", settingsColor);
+        await expectSidebarHelp(page, tracker, { key: "trackerPanel", name: "Tracker Panel", titled: false }, testInfo);
+      }
       for (const character of characters)
         await expect(tracker.getByRole("button", { name: character.name, exact: true })).toBeVisible();
       for (const name of ["Named visitor", "Linked companion"]) {
@@ -12305,6 +12357,52 @@ test(
     expect(errors).toEqual([]);
   },
 );
+
+test("every sidebar explains itself with a help tip next to its title", async ({ page }, testInfo) => {
+  const errors = collectUnexpectedErrors(page);
+  await page.goto("/");
+  await expect(page.locator('[data-component="TopBar"]')).toBeVisible();
+  await page.locator('[data-tour="sidebar-toggle"]').click();
+  await expectSidebarHelp(
+    page,
+    page.locator('[data-component="ChatSidebar"] .mari-sidebar-header'),
+    { key: "chats", name: "Chats", titled: true },
+    testInfo,
+  );
+  const header = page.locator('[data-component="RightPanel"] .mari-right-panel-header');
+  for (const panel of ["characters", "personas", "lorebooks", "presets", "connections", "agents", "settings"]) {
+    await clickTopbarPanel(page, panel);
+    const name = `${panel[0]!.toUpperCase()}${panel.slice(1)}`;
+    await expectSidebarHelp(page, header, { key: panel, name, titled: true }, testInfo);
+  }
+
+  // A personal extension's panel, the empty Extensions panel and the unknown-panel fallback have no help to show.
+  const expectNoHelp = async (title: string) => {
+    await expect(header.getByRole("heading", { name: title, exact: true })).toBeVisible();
+    await expect(header.getByRole("button", { name: /^Show help/ })).toHaveCount(0);
+  };
+  await page.evaluate(async () => {
+    const extensions = await import("/src/lib/personal-extension-contributions.ts" as string);
+    const extension = { id: "help-fixture", name: "Help Fixture", contentHash: "help-fixture-hash" };
+    if (!extensions.registerPersonalExtensionContribution(extension, { id: "panel", kind: "panel", label: "Fixture" }))
+      throw new Error("Could not register the synthetic extension panel");
+    extensions.openPersonalExtensionPanel("help-fixture:panel");
+    const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
+    useUIStore.getState().openRightPanel("extensions");
+  });
+  await expectNoHelp("Fixture");
+  await page.evaluate(async () => {
+    const extensions = await import("/src/lib/personal-extension-contributions.ts" as string);
+    extensions.removePersonalExtensionContributions("help-fixture");
+  });
+  await expectNoHelp("Extensions");
+  await page.evaluate(async () => {
+    const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
+    useUIStore.getState().openRightPanel("missing-panel" as never);
+  });
+  await expectNoHelp("Panel");
+  expect(errors).toEqual([]);
+});
 
 test("Home Professor controls and surfaces follow the configured accent", async ({ page }) => {
   await page.goto("/");

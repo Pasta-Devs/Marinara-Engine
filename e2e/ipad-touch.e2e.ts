@@ -1,4 +1,4 @@
-import { devices, expect, test, type Page } from "@playwright/test";
+import { devices, expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 
@@ -76,7 +76,15 @@ async function mockVisualViewport(page: Page) {
   });
 }
 
-test("editing a roleplay message on iPad keeps the editor above the keyboard", async ({ page, request }) => {
+// A short latest reply ends up under the keyboard; a long one starts above the transcript.
+for (const replyLines of [0, 60]) {
+  test(`editing a ${replyLines ? "long " : ""}roleplay message on iPad keeps the editor above the keyboard`, ({
+    page,
+    request,
+  }) => editLatestReplyOnIpad(page, request, replyLines));
+}
+
+async function editLatestReplyOnIpad(page: Page, request: APIRequestContext, replyLines: number) {
   const created = await request.post("/api/chats", {
     data: { name: "iPad keyboard edit", mode: "roleplay", characterIds: [] },
   });
@@ -88,7 +96,10 @@ test("editing a roleplay message on iPad keeps the editor above the keyboard", a
       const saved = await request.post(`/api/chats/${chat.id}/messages`, {
         data: {
           role: index % 2 ? "assistant" : "user",
-          content: `Keyboard line ${index + 1}. ${"The lantern light flickers over the old map. ".repeat(4)}`,
+          content:
+            index === 11 && replyLines
+              ? Array.from({ length: replyLines }, (_, line) => `Reply line ${line + 1} of the long answer.`).join("\n")
+              : `Keyboard line ${index + 1}. ${"The lantern light flickers over the old map. ".repeat(4)}`,
         },
       });
       expect(saved.ok()).toBeTruthy();
@@ -101,7 +112,7 @@ test("editing a roleplay message on iPad keeps the editor above the keyboard", a
 
     // Tap the latest reply, then its Edit action, as in the report's video.
     const latest = page.locator(`[data-message-id="${lastId}"]`);
-    await latest.getByText(/^Keyboard line 12\./).tap();
+    await latest.getByText(replyLines ? /Reply line 60 of the long answer/ : /^Keyboard line 12\./).tap();
     await latest.getByRole("button", { name: "Edit", exact: true }).tap();
     const editor = latest.locator("[data-chat-message-editor]");
     await expect(editor).toBeFocused();
@@ -127,10 +138,21 @@ test("editing a roleplay message on iPad keeps the editor above the keyboard", a
         return !!box && !!area && box.y >= area.y && box.y + 40 <= area.y + area.height;
       })
       .toBe(true);
+    // It lands below the top controls, so pressing its first line reaches the editor, not the agent window there.
+    await expect
+      .poll(() =>
+        editor.evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          return [0.1, 0.5, 0.95].map(
+            (fraction) => document.elementFromPoint(box.left + box.width * fraction, box.top + 16) === element,
+          );
+        }),
+      )
+      .toEqual([true, true, true]);
   } finally {
     await request.delete(`/api/chats/${chat.id}?force=true`);
   }
-});
+}
 
 test("Support Diagnostics copies while the iPad tap is still being handled", async ({ page }) => {
   // Safari only lets a page write to the clipboard while it is handling the tap. Playwright's

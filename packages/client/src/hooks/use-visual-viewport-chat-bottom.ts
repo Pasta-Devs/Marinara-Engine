@@ -136,12 +136,16 @@ export function useKeepLatestChatMessageVisible(
         revealedEditor = editor;
         // Phones line the editor up when editing starts, but a taller tablet
         // transcript can still shrink past it. If its first lines are out of
-        // view, scroll only the transcript (never the app shell) back to them.
+        // view, scroll only the transcript (never the app shell) back to them,
+        // below the floating top controls (its scroll padding), as phones do.
         const reveal = () => {
           const scrollElement = scrollRef.current;
           if (!scrollElement?.contains(editor) || document.activeElement !== editor) return;
           const offset = editor.getBoundingClientRect().top - scrollElement.getBoundingClientRect().top;
-          if (offset < 0 || offset + 48 > scrollElement.clientHeight) scrollElement.scrollTop += offset - 8;
+          const topInset = Number.parseFloat(getComputedStyle(scrollElement).scrollPaddingTop) || 8;
+          // Under the top controls counts as out of view, not just above the transcript.
+          if (offset < topInset || offset + 48 > scrollElement.clientHeight)
+            scrollElement.scrollTop += offset - topInset;
         };
         restoreFrame = requestAnimationFrame(() => {
           restoreFrame = 0;

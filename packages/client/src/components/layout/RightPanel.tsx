@@ -17,7 +17,9 @@ import { cn } from "../../lib/utils";
 import { usePersonalExtensionContributions } from "../../lib/personal-extension-contributions";
 import { PersonalExtensionContributionIcon } from "../extensions/PersonalExtensionContributionIcon";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
+import { HelpTooltip } from "../ui/HelpTooltip";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { usePanelKeyboardFocus } from "./use-panel-keyboard-focus";
 import type { PersonalExtensionContributionSurface } from "@marinara-engine/shared";
 
@@ -45,7 +47,9 @@ const PersonalExtensionPanel = lazy(() =>
   import("../panels/PersonalExtensionPanel").then((module) => ({ default: module.PersonalExtensionPanel })),
 );
 
-const PANEL_CONFIG: Record<string, { title: string; icon: ReactNode; gradient?: string; gradientClass?: string }> = {
+type PanelConfig = { title: string; icon: ReactNode; gradient?: string; gradientClass?: string; helpKey?: string };
+
+const PANEL_CONFIG: Record<string, PanelConfig> = {
   "bot-browser": {
     title: "Browser",
     icon: <Bot size="0.875rem" />,
@@ -55,21 +59,44 @@ const PANEL_CONFIG: Record<string, { title: string; icon: ReactNode; gradient?: 
     title: "Characters",
     icon: <Users size="0.875rem" />,
     gradientClass: "mari-panel-gradient-surface mari-panel-gradient--characters",
+    helpKey: "navigation.sidebarHelp.characters",
   },
-  lorebooks: { title: "Lorebooks", icon: <BookOpen size="0.875rem" />, gradient: "from-amber-400 to-orange-500" },
+  lorebooks: {
+    title: "Lorebooks",
+    icon: <BookOpen size="0.875rem" />,
+    gradient: "from-amber-400 to-orange-500",
+    helpKey: "navigation.sidebarHelp.lorebooks",
+  },
   presets: {
     title: "Presets",
     icon: <FileText size="0.875rem" />,
     gradientClass: "mari-panel-gradient-surface mari-panel-gradient--presets",
+    helpKey: "navigation.sidebarHelp.presets",
   },
-  connections: { title: "Connections", icon: <Link size="0.875rem" />, gradient: "from-sky-400 to-blue-500" },
-  agents: { title: "Agents", icon: <Sparkles size="0.875rem" />, gradient: "from-violet-400 to-purple-500" },
+  connections: {
+    title: "Connections",
+    icon: <Link size="0.875rem" />,
+    gradient: "from-sky-400 to-blue-500",
+    helpKey: "navigation.sidebarHelp.connections",
+  },
+  agents: {
+    title: "Agents",
+    icon: <Sparkles size="0.875rem" />,
+    gradient: "from-violet-400 to-purple-500",
+    helpKey: "navigation.sidebarHelp.agents",
+  },
   personas: {
     title: "Personas",
     icon: <VenetianMask size="0.875rem" />,
     gradient: "from-emerald-400 to-teal-500",
+    helpKey: "navigation.sidebarHelp.personas",
   },
-  settings: { title: "Settings", icon: <Settings size="0.875rem" />, gradient: "from-gray-400 to-gray-500" },
+  settings: {
+    title: "Settings",
+    icon: <Settings size="0.875rem" />,
+    gradient: "from-gray-400 to-gray-500",
+    helpKey: "navigation.sidebarHelp.settings",
+  },
   extensions: { title: "Extensions", icon: <Puzzle size="0.875rem" /> },
 };
 
@@ -107,6 +134,7 @@ function PanelFallback() {
 
 export function RightPanel() {
   const { t: localizeUi } = useUiTranslation();
+  const localize = useLocalizedUiText();
   const panel = useUIStore((s) => s.rightPanel);
   const panelOpen = useUIStore((s) => s.rightPanelOpen);
   const [mountedPanels] = useState(() => new Set<string>());
@@ -128,7 +156,7 @@ export function RightPanel() {
     (contribution) => contribution.key === activePanelKey && contribution.kind === "panel",
   );
   const contributionSurface = PANEL_CONTRIBUTION_SURFACES[panel];
-  const config: { title: string; icon: ReactNode; gradient?: string; gradientClass?: string } =
+  const config: PanelConfig =
     panel === "extensions" && activeExtensionPanel
       ? {
           title: activeExtensionPanel.label,
@@ -160,6 +188,17 @@ export function RightPanel() {
             {config.icon}
           </div>
           <h2 className="mari-chrome-text-strong truncate text-sm font-semibold">{config.title}</h2>
+          {config.helpKey && (
+            <HelpTooltip
+              key={panel}
+              text={localizeUi(config.helpKey)}
+              ariaLabel={localizeUi("navigation.sidebarHelp.button", { sidebar: localize(config.title) })}
+              side="bottom"
+              wide
+              className="shrink-0 [@media(pointer:coarse)]:-ml-3"
+              buttonClassName="justify-center [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9"
+            />
+          )}
         </div>
         <div className="flex min-w-0 shrink-0 items-center gap-1">
           {contributionSurface && (

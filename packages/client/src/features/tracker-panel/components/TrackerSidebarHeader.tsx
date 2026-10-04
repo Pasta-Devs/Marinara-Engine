@@ -12,6 +12,7 @@ import {
   Trash2,
   Unlock,
 } from "lucide-react";
+import { HelpTooltip } from "../../../components/ui/HelpTooltip";
 import { TrackerPanelIcon } from "../../../components/ui/TrackerPanelIcon";
 import { TrackerSizeTierIcon } from "../../../components/ui/TrackerSizeTierIcon";
 import type { TrackerPanelSide, TrackerPanelSizeProfile, TrackerStatDisplayMode } from "../../../stores/ui.store";
@@ -188,6 +189,21 @@ export function TrackerSidebarHeader({
         </span>
       )}
       {settingsButton}
+      {/* The panel stays dark in light theme, so the icon takes the panel's muted color.
+          ponytail: HelpTooltip portals into the main window, so the popped-out panel has no help;
+          make HelpTooltip use its own ownerDocument if the help is needed there. */}
+      {!detached && (
+        <HelpTooltip
+          text={localizeUi("navigation.sidebarHelp.trackerPanel")}
+          ariaLabel={localizeUi("navigation.sidebarHelp.button", {
+            sidebar: localizeUi("ui.layout.appshell.detachedTrackerPanelTitle"),
+          })}
+          side="bottom"
+          wide
+          className="shrink-0 [--marinara-chat-chrome-panel-muted:var(--muted-foreground)]"
+          buttonClassName="h-6 w-6 justify-center"
+        />
+      )}
     </div>
   );
 

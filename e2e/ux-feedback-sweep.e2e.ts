@@ -212,7 +212,7 @@ test("UX sweep: Character Voice names a same-name card's voice and keeps typing 
   try {
     const voiceAssignments = [{ characterId: originalId, characterName: name, voice: "echo" }];
     const configured = await request.put("/api/tts/config", {
-      data: { ...original, enabled: true, source: "openai", voiceMode: "per-character", voiceAssignments },
+      data: { ...original, enabled: true, source: "openai", speed: 1, voiceMode: "per-character", voiceAssignments },
     });
     expect(configured.ok()).toBeTruthy();
     await page.route("**/api/tts/voices", (route) =>
@@ -229,30 +229,94 @@ test("UX sweep: Character Voice names a same-name card's voice and keeps typing 
     const editor = page.locator(".mari-editor-shell");
     await openSection(editor, "Voice");
     const input = editor.locator('[data-editor-section="voice"]').getByTestId("character-voice-input");
+    const cardInput = ttsCard.getByTestId(`tts-custom-voice-input-character-${auId}`);
     // Without a voice of its own, the copy speaks with the original card's voice, so it must not say "Default voice".
     await expect(input).toHaveAttribute("placeholder", "echo (from a card with a matching name)");
 
+    // Another tab saves a new speed after this page read the config. Saving a voice here must keep it.
+    const latest = await (await request.get("/api/tts/config")).json();
+    expect((await request.put("/api/tts/config", { data: { ...latest, speed: 1.5 } })).ok()).toBeTruthy();
+    await expect(ttsCard.getByText("Speed — 1.00×")).toBeVisible();
+    await input.fill("nova");
+    await expect(cardInput).toHaveValue("nova");
+    const saved = await (await request.get("/api/tts/config")).json();
+    expect(saved.speed).toBe(1.5);
+    expect(saved.voiceAssignments).toContainEqual({ characterId: auId, characterName: name, voice: "nova" });
+
     // Hold each save so the first save's refetch lands while the second one is still unanswered.
-    await page.route("**/api/tts/config", async (route) => {
-      if (route.request().method() === "PUT") await new Promise<void>((release) => heldSaves.push(release));
+    await page.route("**/api/tts/config/voice-assignment", async (route) => {
+      await new Promise<void>((release) => heldSaves.push(release));
       await route.continue();
     });
-    await input.pressSequentially("abc");
+    await input.fill("abc");
     await expect.poll(() => heldSaves.length).toBe(1);
     await input.pressSequentially("d");
-    await expect.poll(() => heldSaves.length).toBe(2);
+    // The next save waits for the held one, so the server gets the saves in the order they were made.
+    await page.waitForTimeout(1_000);
+    expect(heldSaves).toHaveLength(1);
     // The settings card shows each refetch as it lands; the typed "abcd" must outlive the older "abc" one.
-    const cardInput = ttsCard.getByTestId(`tts-custom-voice-input-character-${auId}`);
     heldSaves[0]!();
+    await expect.poll(() => heldSaves.length).toBe(2);
     await expect(cardInput).toHaveValue("abc");
     await expect(input).toHaveValue("abcd");
     heldSaves[1]!();
     await expect(cardInput).toHaveValue("abcd");
     await expect(input).toHaveValue("abcd");
+
+    // A failed save shows an error and the saved voice again, and does not stop the next pick from saving.
+    await page.unroute("**/api/tts/config/voice-assignment");
+    await page.route(
+      "**/api/tts/config/voice-assignment",
+      (route) => route.fulfill({ status: 500, json: { error: "Internal Server Error" } }),
+      { times: 1 },
+    );
+    await input.fill("fable");
+    await expect(
+      page.locator('[data-sonner-toast][data-type="error"]').filter({ hasText: "Could not save the voice." }),
+    ).toBeVisible();
+    await expect(input).toHaveValue("abcd");
+    await input.fill("sage");
+    await expect(cardInput).toHaveValue("sage");
   } finally {
     for (const release of heldSaves) release();
     await request.put("/api/tts/config", { data: original });
     for (const id of ids) await request.delete(`/api/characters/${id}`);
+  }
+});
+
+test("UX sweep: Use a voice per character keeps Text to Speech settings saved elsewhere", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "One desktop run covers the save; the layout is the same.");
+  const original = await (await request.get("/api/tts/config")).json();
+  const created = await request.post("/api/characters", { data: { data: { name: `UX Voice Mode ${Date.now()}` } } });
+  expect(created.ok()).toBeTruthy();
+  const { id } = (await created.json()) as { id: string };
+  try {
+    const shared = { ...original, enabled: true, source: "openai", speed: 1, voiceMode: "single" };
+    expect((await request.put("/api/tts/config", { data: shared })).ok()).toBeTruthy();
+    await page.route("**/api/tts/voices", (route) =>
+      route.fulfill({ json: { voices: ["echo"], voiceOptions: [{ id: "echo", name: "echo" }], fromProvider: false } }),
+    );
+    await page.goto("/");
+    await openEditor(page, "Character", id);
+    const editor = page.locator(".mari-editor-shell");
+    await openSection(editor, "Voice");
+    const usePerCharacter = editor
+      .locator('[data-editor-section="voice"]')
+      .getByRole("button", { name: "Use a voice per character" });
+    await expect(usePerCharacter).toBeVisible();
+    // Another tab saves a new speed after this page read the settings; the switch must keep it.
+    expect((await request.put("/api/tts/config", { data: { ...shared, speed: 1.5 } })).ok()).toBeTruthy();
+    await usePerCharacter.click();
+    await expect
+      .poll(async () => ((await (await request.get("/api/tts/config")).json()) as { voiceMode: string }).voiceMode)
+      .toBe("per-character");
+    expect(((await (await request.get("/api/tts/config")).json()) as { speed: number }).speed).toBe(1.5);
+  } finally {
+    await request.put("/api/tts/config", { data: original });
+    await request.delete(`/api/characters/${id}`);
   }
 });
 

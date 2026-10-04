@@ -19,7 +19,8 @@ const drainKeep = async (mari: MariDbService) => {
   for (const approval of mari.getPendingApprovals()) await mari.keepAppliedReview(approval.id);
 };
 const sectionContent = async (mari: MariDbService, sectionId: string) =>
-  ((await mari.executeAction({ action: "preset.getSection", sectionId })).output as { content?: string } | null)?.content;
+  ((await mari.executeAction({ action: "preset.getSection", sectionId })).output as { content?: string } | null)
+    ?.content;
 
 try {
   const db = await createFileNativeDB();
@@ -43,7 +44,10 @@ try {
     });
     assert.equal(created.ok, true, `preset.create succeeds: ${JSON.stringify(created.validation ?? created.error)}`);
     await drainKeep(mari);
-    const presetList = (await mari.executeAction({ action: "preset.list" })).output as Array<{ id: string; name: string }>;
+    const presetList = (await mari.executeAction({ action: "preset.list" })).output as Array<{
+      id: string;
+      name: string;
+    }>;
     const presetId = presetList.find((preset) => preset.name === "Granular Preset")?.id;
     assert.ok(presetId, "the created preset is listed");
     const createdPreset = (await mari.executeAction({ action: "preset.get", presetId })).output as {
@@ -51,19 +55,39 @@ try {
       scopedRegexMode?: string;
     };
     assert.equal(createdPreset.systemKey, "", "preset.create cannot claim an Engine-owned system key");
-    assert.equal(createdPreset.scopedRegexMode, "disabled", "Mari creates presets with the same scoped-regex default as the UI");
-    const setRegexMode = await mari.executeAction({ action: "preset.update", presetId, scopedRegexMode: "chat", apply: true });
+    assert.equal(
+      createdPreset.scopedRegexMode,
+      "disabled",
+      "Mari creates presets with the same scoped-regex default as the UI",
+    );
+    const setRegexMode = await mari.executeAction({
+      action: "preset.update",
+      presetId,
+      scopedRegexMode: "chat",
+      apply: true,
+    });
     assert.equal(setRegexMode.ok, true, "the top-level preset update accepts an explicit scoped-regex mode");
     await drainKeep(mari);
-    const unrelatedUpdate = await mari.executeAction({ action: "preset.update", presetId, data: { description: "Regex mode must survive." }, apply: true });
+    const unrelatedUpdate = await mari.executeAction({
+      action: "preset.update",
+      presetId,
+      data: { description: "Regex mode must survive." },
+      apply: true,
+    });
     assert.equal(unrelatedUpdate.ok, true);
     await drainKeep(mari);
     for (const scopedRegexMode of ["invalid", null]) {
-      const invalidMode = await mari.executeAction({ action: "preset.update", presetId, data: { scopedRegexMode }, apply: true });
+      const invalidMode = await mari.executeAction({
+        action: "preset.update",
+        presetId,
+        data: { scopedRegexMode },
+        apply: true,
+      });
       assert.equal(invalidMode.ok, false, "invalid preset modes are rejected before writing");
     }
     assert.equal(
-      ((await mari.executeAction({ action: "preset.get", presetId })).output as { scopedRegexMode?: string }).scopedRegexMode,
+      ((await mari.executeAction({ action: "preset.get", presetId })).output as { scopedRegexMode?: string })
+        .scopedRegexMode,
       "chat",
       "unrelated and rejected updates preserve the existing default",
     );
@@ -87,9 +111,11 @@ try {
     assert.equal(rawInsert.ok, true);
     await drainKeep(mari);
     assert.equal(
-      ((await mari.executeCli({ argv: ["db", "get", "prompt_presets", rawInsertId] })).output as {
-        systemKey?: string;
-      }).systemKey,
+      (
+        (await mari.executeCli({ argv: ["db", "get", "prompt_presets", rawInsertId] })).output as {
+          systemKey?: string;
+        }
+      ).systemKey,
       "",
       "raw insert cannot claim systemKey",
     );
@@ -108,7 +134,10 @@ try {
     });
     assert.equal(rawPatch.ok, true);
     await drainKeep(mari);
-    const afterPatch = (await mari.executeCli({ argv: ["db", "get", "prompt_presets", presetId] })).output as Record<string, unknown>;
+    const afterPatch = (await mari.executeCli({ argv: ["db", "get", "prompt_presets", presetId] })).output as Record<
+      string,
+      unknown
+    >;
     assert.equal(afterPatch.systemKey, "engine-owned-regression", "raw patch preserves systemKey");
     const rawReplace = await mari.executeCli({
       argv: [
@@ -124,9 +153,11 @@ try {
     assert.equal(rawReplace.ok, true);
     await drainKeep(mari);
     assert.equal(
-      ((await mari.executeCli({ argv: ["db", "get", "prompt_presets", presetId] })).output as {
-        systemKey?: string;
-      }).systemKey,
+      (
+        (await mari.executeCli({ argv: ["db", "get", "prompt_presets", presetId] })).output as {
+          systemKey?: string;
+        }
+      ).systemKey,
       "engine-owned-regression",
       "raw replace preserves systemKey",
     );
@@ -147,9 +178,16 @@ try {
     const style = sections.find((section) => section.name === "Style");
     assert.ok(intro && style, "both seeded sections are present");
     assert.match(intro.content, /helpful assistant/, "the content preview is surfaced");
-    assert.equal(await sectionContent(mari, intro.id), "You are a helpful assistant.", "getSection returns full content");
+    assert.equal(
+      await sectionContent(mari, intro.id),
+      "You are a helpful assistant.",
+      "getSection returns full content",
+    );
 
-    const groups = (await mari.executeAction({ action: "preset.groups", presetId })).output as Array<{ id: string; name: string }>;
+    const groups = (await mari.executeAction({ action: "preset.groups", presetId })).output as Array<{
+      id: string;
+      name: string;
+    }>;
     assert.equal(groups.length, 1);
     assert.equal(groups[0]?.name, "Formatting");
     assert.equal(style.groupId, groups[0]?.id, "a grouped section reports its groupId");
@@ -176,7 +214,11 @@ try {
     assert.equal(await sectionContent(mari, intro.id), "You are a terse assistant.", "the target section changed");
     assert.equal(await sectionContent(mari, style.id), "Write in a terse voice.", "other sections are untouched");
     await mari.restoreAppliedReview(updateReview.id);
-    assert.equal(await sectionContent(mari, intro.id), "You are a helpful assistant.", "Restore reverts the section edit");
+    assert.equal(
+      await sectionContent(mari, intro.id),
+      "You are a helpful assistant.",
+      "Restore reverts the section edit",
+    );
 
     // (3) ADD: addSection inserts a section AND appends its id to sectionOrder (else it is never assembled).
     const addResult = await mari.executeAction({
@@ -187,26 +229,56 @@ try {
     });
     assert.equal(addResult.approval?.status, "pending", "addSection routes through review");
     await drainKeep(mari);
-    const afterAdd = (await mari.executeAction({ action: "preset.sections", presetId })).output as Array<{ id: string; name: string }>;
+    const afterAdd = (await mari.executeAction({ action: "preset.sections", presetId })).output as Array<{
+      id: string;
+      name: string;
+    }>;
     assert.equal(afterAdd.length, 3, "the added section is present");
     const outro = afterAdd.find((section) => section.name === "Outro");
-    const presetAfterAdd = (await mari.executeAction({ action: "preset.get", id: presetId })).output as { sectionOrder: string[] };
-    assert.ok(outro && presetAfterAdd.sectionOrder.includes(outro.id), "the added section id is appended to sectionOrder");
+    const presetAfterAdd = (await mari.executeAction({ action: "preset.get", id: presetId })).output as {
+      sectionOrder: string[];
+    };
+    assert.ok(
+      outro && presetAfterAdd.sectionOrder.includes(outro.id),
+      "the added section id is appended to sectionOrder",
+    );
 
     // (4) DELETE section: removes the row AND prunes its id from sectionOrder — and Restore of that
     // two-change plan (section re-insert + sectionOrder revert) must put BOTH back.
-    const orderBeforeDelete = (await mari.executeAction({ action: "preset.get", id: presetId })).output as { sectionOrder: string[] };
+    const orderBeforeDelete = (await mari.executeAction({ action: "preset.get", id: presetId })).output as {
+      sectionOrder: string[];
+    };
     const beforeDelete = new Set(mari.getPendingApprovals().map((approval) => approval.id));
     await mari.executeAction({ action: "preset.deleteSection", sectionId: intro.id, apply: true });
-    assert.equal((await mari.executeAction({ action: "preset.getSection", sectionId: intro.id })).ok, false, "the section is deleted");
-    const presetAfterDelete = (await mari.executeAction({ action: "preset.get", id: presetId })).output as { sectionOrder: string[] };
-    assert.equal(presetAfterDelete.sectionOrder.includes(intro.id), false, "the deleted section id is pruned from sectionOrder");
+    assert.equal(
+      (await mari.executeAction({ action: "preset.getSection", sectionId: intro.id })).ok,
+      false,
+      "the section is deleted",
+    );
+    const presetAfterDelete = (await mari.executeAction({ action: "preset.get", id: presetId })).output as {
+      sectionOrder: string[];
+    };
+    assert.equal(
+      presetAfterDelete.sectionOrder.includes(intro.id),
+      false,
+      "the deleted section id is pruned from sectionOrder",
+    );
     const deleteReview = mari.getPendingApprovals().find((approval) => !beforeDelete.has(approval.id));
     assert.ok(deleteReview, "the section deletion is reviewable");
     await mari.restoreAppliedReview(deleteReview.id);
-    assert.equal((await mari.executeAction({ action: "preset.getSection", sectionId: intro.id })).ok, true, "Restore re-inserts the deleted section");
-    const orderAfterRestore = (await mari.executeAction({ action: "preset.get", id: presetId })).output as { sectionOrder: string[] };
-    assert.deepEqual(orderAfterRestore.sectionOrder, orderBeforeDelete.sectionOrder, "Restore returns sectionOrder to its exact prior state (id back in its original position)");
+    assert.equal(
+      (await mari.executeAction({ action: "preset.getSection", sectionId: intro.id })).ok,
+      true,
+      "Restore re-inserts the deleted section",
+    );
+    const orderAfterRestore = (await mari.executeAction({ action: "preset.get", id: presetId })).output as {
+      sectionOrder: string[];
+    };
+    assert.deepEqual(
+      orderAfterRestore.sectionOrder,
+      orderBeforeDelete.sectionOrder,
+      "Restore returns sectionOrder to its exact prior state (id back in its original position)",
+    );
     // Re-delete so the remaining checks observe the same end state as before.
     await mari.executeAction({ action: "preset.deleteSection", sectionId: intro.id, apply: true });
     await drainKeep(mari);
@@ -214,10 +286,21 @@ try {
     // (5) DELETE group: orphans its member sections (kept, groupId -> null) and prunes it from groupOrder.
     await mari.executeAction({ action: "preset.deleteGroup", groupId: groups[0]!.id, apply: true });
     await drainKeep(mari);
-    assert.equal((await mari.executeAction({ action: "preset.getGroup", groupId: groups[0]!.id })).ok, false, "the group is deleted");
-    const presetAfterGroupDelete = (await mari.executeAction({ action: "preset.get", id: presetId })).output as { groupOrder: string[] };
-    assert.equal(presetAfterGroupDelete.groupOrder.includes(groups[0]!.id), false, "the deleted group id is pruned from groupOrder");
-    const styleAfterGroupDelete = (await mari.executeAction({ action: "preset.getSection", sectionId: style.id })).output as {
+    assert.equal(
+      (await mari.executeAction({ action: "preset.getGroup", groupId: groups[0]!.id })).ok,
+      false,
+      "the group is deleted",
+    );
+    const presetAfterGroupDelete = (await mari.executeAction({ action: "preset.get", id: presetId })).output as {
+      groupOrder: string[];
+    };
+    assert.equal(
+      presetAfterGroupDelete.groupOrder.includes(groups[0]!.id),
+      false,
+      "the deleted group id is pruned from groupOrder",
+    );
+    const styleAfterGroupDelete = (await mari.executeAction({ action: "preset.getSection", sectionId: style.id }))
+      .output as {
       groupId: string | null;
     } | null;
     assert.ok(styleAfterGroupDelete, "the group's member section survives the group deletion");
@@ -228,29 +311,59 @@ try {
     assert.equal(cliSections.ok, true, "`mari presets sections` returns via the CLI");
     assert.ok(Array.isArray(cliSections.output), "the CLI sections output is a list");
     const cliAdd = await mari.executeCli({
-      argv: ["presets", "add-section", presetId, "--name", "CLI Section", "--content", "Added from the shell.", "--apply"],
+      argv: [
+        "presets",
+        "add-section",
+        presetId,
+        "--name",
+        "CLI Section",
+        "--content",
+        "Added from the shell.",
+        "--apply",
+      ],
     });
     assert.equal(cliAdd.approval?.status, "pending", "a CLI add-section applies through the same Keep/Restore review");
     await drainKeep(mari);
-    const afterCli = (await mari.executeAction({ action: "preset.sections", presetId })).output as Array<{ name: string }>;
+    const afterCli = (await mari.executeAction({ action: "preset.sections", presetId })).output as Array<{
+      name: string;
+    }>;
     assert.ok(
       afterCli.some((section) => section.name === "CLI Section"),
       "a section added via `mari presets add-section` is present",
     );
 
     // (5c) GROUP + CHOICE-BLOCK CRUD, plus the same-preset and cycle guards.
-    const addedGroup = await mari.executeAction({ action: "preset.addGroup", presetId, data: { name: "Extra Group" }, apply: true });
+    const addedGroup = await mari.executeAction({
+      action: "preset.addGroup",
+      presetId,
+      data: { name: "Extra Group" },
+      apply: true,
+    });
     assert.equal(addedGroup.approval?.status, "pending", "addGroup routes through review");
     await drainKeep(mari);
-    const groupsNow = (await mari.executeAction({ action: "preset.groups", presetId })).output as Array<{ id: string; name: string }>;
+    const groupsNow = (await mari.executeAction({ action: "preset.groups", presetId })).output as Array<{
+      id: string;
+      name: string;
+    }>;
     const extraGroup = groupsNow.find((group) => group.name === "Extra Group");
     assert.ok(extraGroup, "addGroup created a group");
-    const orderAfterAddGroup = (await mari.executeAction({ action: "preset.get", id: presetId })).output as { groupOrder: string[] };
+    const orderAfterAddGroup = (await mari.executeAction({ action: "preset.get", id: presetId })).output as {
+      groupOrder: string[];
+    };
     assert.ok(orderAfterAddGroup.groupOrder.includes(extraGroup.id), "the added group is appended to groupOrder");
-    await mari.executeAction({ action: "preset.updateGroup", groupId: extraGroup.id, data: { name: "Renamed Group" }, apply: true });
+    await mari.executeAction({
+      action: "preset.updateGroup",
+      groupId: extraGroup.id,
+      data: { name: "Renamed Group" },
+      apply: true,
+    });
     await drainKeep(mari);
     assert.equal(
-      ((await mari.executeAction({ action: "preset.getGroup", groupId: extraGroup.id })).output as { name?: string } | null)?.name,
+      (
+        (await mari.executeAction({ action: "preset.getGroup", groupId: extraGroup.id })).output as {
+          name?: string;
+        } | null
+      )?.name,
       "Renamed Group",
       "getGroup reflects an updateGroup rename",
     );
@@ -264,11 +377,16 @@ try {
     assert.match(String(selfParent.error ?? ""), /own parent|cycle/iu);
     // A multi-hop cycle must be rejected too: nest a child under extraGroup, then try to re-parent
     // extraGroup under that child (its own descendant). Neither group may change.
-    await mari.executeAction({ action: "preset.addGroup", presetId, data: { name: "Child Group", parentGroupId: extraGroup.id }, apply: true });
+    await mari.executeAction({
+      action: "preset.addGroup",
+      presetId,
+      data: { name: "Child Group", parentGroupId: extraGroup.id },
+      apply: true,
+    });
     await drainKeep(mari);
-    const childGroup = ((await mari.executeAction({ action: "preset.groups", presetId })).output as Array<{ id: string; name: string }>).find(
-      (group) => group.name === "Child Group",
-    );
+    const childGroup = (
+      (await mari.executeAction({ action: "preset.groups", presetId })).output as Array<{ id: string; name: string }>
+    ).find((group) => group.name === "Child Group");
     assert.ok(childGroup, "addGroup nested a child under extraGroup");
     const indirectCycle = await mari.executeAction({
       action: "preset.updateGroup",
@@ -279,36 +397,64 @@ try {
     assert.equal(indirectCycle.ok, false, "a group cannot be re-parented under its own descendant");
     assert.match(String(indirectCycle.error ?? ""), /cycle|own parent/iu);
     assert.equal(
-      ((await mari.executeAction({ action: "preset.getGroup", groupId: childGroup.id })).output as { parentGroupId?: string | null } | null)
-        ?.parentGroupId,
+      (
+        (await mari.executeAction({ action: "preset.getGroup", groupId: childGroup.id })).output as {
+          parentGroupId?: string | null;
+        } | null
+      )?.parentGroupId,
       extraGroup.id,
       "the rejected re-parent left the child's parent unchanged",
     );
     // Deleting a PARENT group un-nests (does not delete) its children: childGroup survives, parent -> null.
     await mari.executeAction({ action: "preset.deleteGroup", groupId: extraGroup.id, apply: true });
     await drainKeep(mari);
-    assert.equal((await mari.executeAction({ action: "preset.getGroup", groupId: extraGroup.id })).ok, false, "the parent group is deleted");
-    const childAfterParentDelete = (await mari.executeAction({ action: "preset.getGroup", groupId: childGroup.id })).output as {
+    assert.equal(
+      (await mari.executeAction({ action: "preset.getGroup", groupId: extraGroup.id })).ok,
+      false,
+      "the parent group is deleted",
+    );
+    const childAfterParentDelete = (await mari.executeAction({ action: "preset.getGroup", groupId: childGroup.id }))
+      .output as {
       parentGroupId?: string | null;
     } | null;
     assert.ok(childAfterParentDelete, "the child group survives its parent's deletion");
-    assert.equal(childAfterParentDelete.parentGroupId, null, "the child group is un-nested (parentGroupId -> null), not deleted");
+    assert.equal(
+      childAfterParentDelete.parentGroupId,
+      null,
+      "the child group is un-nested (parentGroupId -> null), not deleted",
+    );
 
     // A section can only join a group in its OWN preset.
-    await mari.executeAction({ action: "preset.create", scoped_regex_mode: "exclusive", data: { name: "Other Preset", groups: [{ name: "Foreign" }] }, apply: true });
+    await mari.executeAction({
+      action: "preset.create",
+      scoped_regex_mode: "exclusive",
+      data: { name: "Other Preset", groups: [{ name: "Foreign" }] },
+      apply: true,
+    });
     await drainKeep(mari);
-    const otherPresetId = ((await mari.executeAction({ action: "preset.list" })).output as Array<{ id: string; name: string }>).find(
-      (preset) => preset.name === "Other Preset",
-    )?.id;
+    const otherPresetId = (
+      (await mari.executeAction({ action: "preset.list" })).output as Array<{ id: string; name: string }>
+    ).find((preset) => preset.name === "Other Preset")?.id;
     assert.ok(otherPresetId);
     assert.equal(
-      ((await mari.executeAction({ action: "preset.get", presetId: otherPresetId })).output as { scopedRegexMode?: string }).scopedRegexMode,
+      (
+        (await mari.executeAction({ action: "preset.get", presetId: otherPresetId })).output as {
+          scopedRegexMode?: string;
+        }
+      ).scopedRegexMode,
       "exclusive",
       "preset.create normalizes the top-level snake-case alias",
     );
-    const foreignGroup = ((await mari.executeAction({ action: "preset.groups", presetId: otherPresetId })).output as Array<{ id: string }>)[0];
+    const foreignGroup = (
+      (await mari.executeAction({ action: "preset.groups", presetId: otherPresetId })).output as Array<{ id: string }>
+    )[0];
     assert.ok(foreignGroup);
-    const crossPreset = await mari.executeAction({ action: "preset.updateSection", sectionId: style.id, data: { groupId: foreignGroup.id }, apply: true });
+    const crossPreset = await mari.executeAction({
+      action: "preset.updateSection",
+      sectionId: style.id,
+      data: { groupId: foreignGroup.id },
+      apply: true,
+    });
     assert.equal(crossPreset.ok, false, "a section cannot be moved into a group from a different preset");
     assert.match(String(crossPreset.error ?? ""), /not a group in this section/iu);
     // The same cross-preset guard applies to the ADD paths, not only the update paths.
@@ -318,7 +464,11 @@ try {
       data: { name: "Foreign-filed", content: "x", groupId: foreignGroup.id },
       apply: true,
     });
-    assert.equal(crossAddSection.ok, false, "addSection cannot file a new section under a group from a different preset");
+    assert.equal(
+      crossAddSection.ok,
+      false,
+      "addSection cannot file a new section under a group from a different preset",
+    );
     assert.match(String(crossAddSection.error ?? ""), /not a group in this preset/iu);
     const crossAddGroup = await mari.executeAction({
       action: "preset.addGroup",
@@ -340,7 +490,11 @@ try {
 
     // Choice-block get / add / update (empty-options guard) / delete.
     assert.equal(
-      ((await mari.executeAction({ action: "preset.getChoiceBlock", choiceBlockId: choiceBlocks[0]!.id })).output as { variableName?: string } | null)?.variableName,
+      (
+        (await mari.executeAction({ action: "preset.getChoiceBlock", choiceBlockId: choiceBlocks[0]!.id })).output as {
+          variableName?: string;
+        } | null
+      )?.variableName,
       "POV",
       "getChoiceBlock returns the full block",
     );
@@ -351,22 +505,223 @@ try {
       apply: true,
     });
     await drainKeep(mari);
-    const tone = ((await mari.executeAction({ action: "preset.choiceBlocks", presetId })).output as Array<{ id: string; variableName: string }>).find(
-      (block) => block.variableName === "Tone",
-    );
+    const tone = (
+      (await mari.executeAction({ action: "preset.choiceBlocks", presetId })).output as Array<{
+        id: string;
+        variableName: string;
+      }>
+    ).find((block) => block.variableName === "Tone");
     assert.ok(tone, "addChoiceBlock created a block");
-    const emptyOptions = await mari.executeAction({ action: "preset.updateChoiceBlock", choiceBlockId: tone.id, data: { options: [] }, apply: true });
+    const emptyOptions = await mari.executeAction({
+      action: "preset.updateChoiceBlock",
+      choiceBlockId: tone.id,
+      data: { options: [] },
+      apply: true,
+    });
     assert.equal(emptyOptions.ok, false, "updateChoiceBlock refuses to empty a block's options");
-    await mari.executeAction({ action: "preset.updateChoiceBlock", choiceBlockId: tone.id, data: { question: "What tone?" }, apply: true });
+    await mari.executeAction({
+      action: "preset.updateChoiceBlock",
+      choiceBlockId: tone.id,
+      data: { question: "What tone?" },
+      apply: true,
+    });
     await drainKeep(mari);
     assert.equal(
-      ((await mari.executeAction({ action: "preset.getChoiceBlock", choiceBlockId: tone.id })).output as { question?: string } | null)?.question,
+      (
+        (await mari.executeAction({ action: "preset.getChoiceBlock", choiceBlockId: tone.id })).output as {
+          question?: string;
+        } | null
+      )?.question,
       "What tone?",
       "updateChoiceBlock changed the question",
     );
     await mari.executeAction({ action: "preset.deleteChoiceBlock", choiceBlockId: tone.id, apply: true });
     await drainKeep(mari);
-    assert.equal((await mari.executeAction({ action: "preset.getChoiceBlock", choiceBlockId: tone.id })).ok, false, "deleteChoiceBlock removes the block");
+    assert.equal(
+      (await mari.executeAction({ action: "preset.getChoiceBlock", choiceBlockId: tone.id })).ok,
+      false,
+      "deleteChoiceBlock removes the block",
+    );
+
+    // (5d) #7014: Mari can turn "Send without wrapper" (skipWrap) on AND off for an existing block, nested in
+    // `data` or top-level, and addSection keeps a top-level skipWrap instead of dropping it.
+    const sectionField = async (sectionId: string, field: string) =>
+      (
+        (await mari.executeAction({ action: "preset.getSection", sectionId })).output as Record<string, unknown> | null
+      )?.[field];
+    const updateStyle = async (args: Record<string, unknown>) => {
+      const result = await mari.executeAction({
+        action: "preset.updateSection",
+        sectionId: style.id,
+        apply: true,
+        ...args,
+      });
+      await drainKeep(mari);
+      assert.equal(result.ok, true, `updateSection ${JSON.stringify(args)} succeeds: ${String(result.error ?? "")}`);
+    };
+    await updateStyle({ data: { skipWrap: true } });
+    assert.equal(await sectionField(style.id, "skipWrap"), "true", "nested skipWrap:true alone turns the switch on");
+    const indexedStyle = (
+      (await mari.executeAction({ action: "preset.sections", presetId })).output as Array<{
+        id: string;
+        skipWrap?: string;
+      }>
+    ).find((section) => section.id === style.id);
+    assert.equal(indexedStyle?.skipWrap, "true", "the preset.sections index shows skipWrap");
+    await updateStyle({ data: { content: "Write in a clipped voice.", skipWrap: false } });
+    assert.equal(
+      await sectionContent(mari, style.id),
+      "Write in a clipped voice.",
+      "the content edit beside skipWrap lands",
+    );
+    assert.equal(
+      await sectionField(style.id, "skipWrap"),
+      "false",
+      "nested skipWrap:false beside a content edit turns the switch off",
+    );
+    await updateStyle({ skipWrap: true });
+    assert.equal(await sectionField(style.id, "skipWrap"), "true", "top-level skipWrap:true turns the switch on");
+    await updateStyle({ skipWrap: false });
+    assert.equal(await sectionField(style.id, "skipWrap"), "false", "top-level skipWrap:false turns the switch off");
+    await updateStyle({ data: { forbidOverrides: true } });
+    assert.equal(await sectionField(style.id, "forbidOverrides"), "true", "nested forbidOverrides:true is applied");
+    await updateStyle({ forbidOverrides: false });
+    assert.equal(
+      await sectionField(style.id, "forbidOverrides"),
+      "false",
+      "top-level forbidOverrides:false is applied",
+    );
+    // `=true` / `=false` set the switch explicitly; before, any value counted as on.
+    for (const [flag, expected] of [
+      ["--skip-wrap", "true"],
+      ["--skip-wrap=false", "false"],
+      ["--no-skip-wrap=false", "true"],
+      ["--no-skip-wrap", "false"],
+    ] as const) {
+      const cliToggle = await mari.executeCli({ argv: ["presets", "update-section", style.id, flag, "--apply"] });
+      await drainKeep(mari);
+      assert.equal(
+        cliToggle.ok,
+        true,
+        `\`mari presets update-section ${flag}\` succeeds: ${String(cliToggle.error ?? "")}`,
+      );
+      assert.equal(
+        await sectionField(style.id, "skipWrap"),
+        expected,
+        `\`mari presets update-section ${flag}\` sets skipWrap to ${expected}`,
+      );
+    }
+    const cliOddValue = await mari.executeCli({
+      argv: ["presets", "update-section", style.id, "--skip-wrap=maybe", "--apply"],
+    });
+    assert.equal(cliOddValue.ok, false, "an on/off flag refuses a value other than true or false");
+    assert.equal(await sectionField(style.id, "skipWrap"), "false", "a refused flag changes nothing");
+    for (const [name, args] of [
+      ["Raw Top-level", { name: "Raw Top-level", content: "Sent bare.", skipWrap: true }],
+      ["Raw Nested", { data: { name: "Raw Nested", content: "Sent bare.", skipWrap: true } }],
+    ] as const) {
+      const added = await mari.executeAction({ action: "preset.addSection", presetId, apply: true, ...args });
+      await drainKeep(mari);
+      assert.equal(added.ok, true, `addSection ${name} succeeds: ${String(added.error ?? "")}`);
+      const addedId: string | undefined = (
+        (await mari.executeAction({ action: "preset.sections", presetId })).output as Array<{
+          id: string;
+          name: string;
+        }>
+      ).find((section) => section.name === name)?.id;
+      assert.ok(addedId, `addSection created ${name}`);
+      assert.equal(await sectionField(addedId, "skipWrap"), "true", `addSection keeps skipWrap:true (${name})`);
+    }
+    // Markers always keep their wrapper, so skipWrap:true on a marker is refused instead of reported as done.
+    assert.equal(
+      (
+        await mari.executeAction({
+          action: "preset.addSection",
+          presetId,
+          apply: true,
+          name: "Bare Marker",
+          isMarker: true,
+          skipWrap: true,
+        })
+      ).ok,
+      false,
+      "addSection refuses skipWrap on a marker",
+    );
+    const markerAdded = await mari.executeAction({
+      action: "preset.addSection",
+      presetId,
+      apply: true,
+      name: "History Marker",
+      isMarker: true,
+    });
+    await drainKeep(mari);
+    assert.equal(markerAdded.ok, true, `addSection marker succeeds: ${String(markerAdded.error ?? "")}`);
+    const markerId = (
+      (await mari.executeAction({ action: "preset.sections", presetId })).output as Array<{ id: string; name: string }>
+    ).find((section) => section.name === "History Marker")?.id;
+    assert.ok(markerId, "addSection created the marker");
+    const markerSkip = await mari.executeAction({
+      action: "preset.updateSection",
+      sectionId: markerId,
+      apply: true,
+      skipWrap: true,
+    });
+    assert.equal(markerSkip.ok, false, "updateSection refuses skipWrap:true on a marker");
+    assert.match(String(markerSkip.error ?? ""), /marker/iu);
+    assert.equal(await sectionField(markerId, "skipWrap"), "false", "the refused marker update leaves skipWrap off");
+    // A bare block that becomes a marker drops the flag, and a preset created with a bare marker stores it off.
+    assert.equal(
+      (
+        await mari.executeAction({
+          action: "preset.addSection",
+          presetId,
+          apply: true,
+          name: "Bare Then Marker",
+          skipWrap: true,
+        })
+      ).ok,
+      true,
+    );
+    await drainKeep(mari);
+    const bareThenMarkerId = (
+      (await mari.executeAction({ action: "preset.sections", presetId })).output as Array<{ id: string; name: string }>
+    ).find((section) => section.name === "Bare Then Marker")?.id as string;
+    const toMarker = await mari.executeAction({
+      action: "preset.updateSection",
+      sectionId: bareThenMarkerId,
+      apply: true,
+      isMarker: true,
+    });
+    await drainKeep(mari);
+    assert.equal(toMarker.ok, true, `updateSection isMarker succeeds: ${String(toMarker.error ?? "")}`);
+    assert.equal(await sectionField(bareThenMarkerId, "isMarker"), "true");
+    assert.equal(
+      await sectionField(bareThenMarkerId, "skipWrap"),
+      "false",
+      "a block that becomes a marker drops skipWrap",
+    );
+    const bareMarkerPreset = await mari.executeAction({
+      action: "preset.create",
+      data: {
+        name: "Bare Marker Preset",
+        sections: [
+          { name: "History", isMarker: true, skipWrap: true },
+          { name: "Bare", content: "x", skipWrap: true },
+        ],
+      },
+      apply: true,
+    });
+    assert.equal(bareMarkerPreset.ok, true, `preset.create succeeds: ${String(bareMarkerPreset.error ?? "")}`);
+    await drainKeep(mari);
+    const bareMarkerPresetId = (
+      (await mari.executeAction({ action: "preset.list" })).output as Array<{ id: string; name: string }>
+    ).find((preset) => preset.name === "Bare Marker Preset")?.id as string;
+    const createdSections = (await mari.executeAction({ action: "preset.sections", presetId: bareMarkerPresetId }))
+      .output as Array<{ id: string; name: string }>;
+    const createdField = async (name: string) =>
+      sectionField(createdSections.find((section) => section.name === name)?.id as string, "skipWrap");
+    assert.equal(await createdField("History"), "false", "preset.create stores a marker's skipWrap off");
+    assert.equal(await createdField("Bare"), "true", "preset.create keeps skipWrap on a prompt block");
 
     // (6) CLOBBER GUARD: a preset.create whose child section reuses an existing id is refused.
     const clobber = await mari.executeAction({
@@ -374,7 +729,11 @@ try {
       data: { name: "Clobber", sections: [{ id: style.id, name: "Dupe", content: "x" }] },
       apply: true,
     });
-    assert.equal(clobber.ok, false, "reusing an existing child-section id in a create is refused, not silently overwritten");
+    assert.equal(
+      clobber.ok,
+      false,
+      "reusing an existing child-section id in a create is refused, not silently overwritten",
+    );
     assert.match(String(clobber.error ?? ""), /already exists/iu);
     // The guard must also catch a collision that lives only inside the plan (two children sharing an
     // id in one create): the committed-row lookup never sees it, so without the seen-set it would

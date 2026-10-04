@@ -890,6 +890,29 @@ const EditTextarea = memo(function EditTextarea({
     }
   }, [autoResize]);
 
+  // An iPhone keyboard shrinks the transcript but not 60dvh. Keep the editor
+  // and its Save row within the part between the top controls and the
+  // composer, so scrolling inside it can always bring its last line into view.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const transcript = el?.closest<HTMLElement>("[data-chat-scroll]");
+    if (!el || !transcript) return;
+    const fit = () => {
+      const style = getComputedStyle(transcript);
+      const covered =
+        (Number.parseFloat(style.scrollPaddingTop) || 0) +
+        (Number.parseFloat(style.getPropertyValue("--mari-roleplay-content-padding-bottom")) || 0) +
+        (el.nextElementSibling?.getBoundingClientRect().height ?? 0);
+      el.style.setProperty("--mari-message-editor-fit-height", `${Math.max(96, transcript.clientHeight - covered)}px`);
+    };
+    fit();
+    // ponytail: re-measures only when the transcript resizes, so a composer that
+    // grows mid-edit keeps the older limit until then. Observe the composer too if that matters.
+    const observer = new ResizeObserver(fit);
+    observer.observe(transcript);
+    return () => observer.disconnect();
+  }, []);
+
   const handleSave = useCallback(() => {
     if (ref.current) void onSave(formatTextQuotes(ref.current.value, quoteFormat));
   }, [onSave, quoteFormat]);
@@ -913,7 +936,7 @@ const EditTextarea = memo(function EditTextarea({
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSave();
           if (e.key === "Escape") onCancel();
         }}
-        className="relative z-0 w-full resize-none overflow-y-auto overscroll-contain rounded-lg bg-black/30 px-3 py-2 text-white outline-none ring-1 ring-white/20 focus:ring-blue-400/50 max-md:max-h-[min(60dvh,32rem)]"
+        className="relative z-0 w-full resize-none overflow-y-auto overscroll-contain rounded-lg bg-black/30 px-3 py-2 text-white outline-none ring-1 ring-white/20 focus:ring-blue-400/50 max-md:max-h-[min(60dvh,32rem,var(--mari-message-editor-fit-height,100dvh))]"
         style={{ fontSize, lineHeight: 1.5 }}
       />
       <div className="pointer-events-auto relative z-30 flex items-center justify-end gap-1.5">
@@ -2473,8 +2496,11 @@ export const ChatMessage = memo(function ChatMessage({
         if (editor) {
           editor.scrollTop = 0;
           // The action row can be far below a long message's first line.
-          // Align only the transcript, never scroll the mobile app shell.
-          el.scrollTop += editor.getBoundingClientRect().top - el.getBoundingClientRect().top - 8;
+          // Align only the transcript, never scroll the mobile app shell, and
+          // start below the floating top controls (its scroll padding) so the
+          // first line is not under them.
+          const topInset = Number.parseFloat(getComputedStyle(el).scrollPaddingTop) || 8;
+          el.scrollTop += editor.getBoundingClientRect().top - el.getBoundingClientRect().top - topInset;
         }
       }
       scrollRestoreRef.current = null;

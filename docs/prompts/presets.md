@@ -125,7 +125,7 @@ Use **Depth** for reminders you want the AI to see near the newest messages, suc
 
 XML is a good default for most models. Try **MARKDOWN** or **NONE** only if a model seems to respond better without tags.
 
-To send one **Prompt Block** without its tag or heading while the rest of the preset stays wrapped, expand it on the **Sections** tab and turn on **Send without wrapper**. The block's content is sent exactly as written. If the block belongs to a group, the group's tag or heading still surrounds it; remove it from the group when you want it fully bare. Markers always keep their wrapper, so the switch appears only on prompt blocks. It is also hidden when the preset's wrap format is **NONE**, because nothing is wrapped then.
+To send one **Prompt Block** without its tag or heading while the rest of the preset stays wrapped, expand it on the **Sections** tab and turn on **Send without wrapper**. The block's content is sent exactly as written. If the block belongs to a group, the group's tag or heading can still surround it; remove it from the group when you want it fully bare. Markers always keep their wrapper, so the switch appears only on prompt blocks. It is also hidden when the preset's wrap format is **NONE**, because nothing is wrapped then.
 
 ## Assigning a preset to a chat
 

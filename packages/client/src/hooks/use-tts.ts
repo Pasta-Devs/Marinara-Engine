@@ -1,9 +1,16 @@
 // ──────────────────────────────────────────────
 // Hook: TTS Config & Voices
 // ──────────────────────────────────────────────
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
-import type { TTSConfig, TTSModelsResponse, TTSVoicesResponse, TTSSource } from "@marinara-engine/shared";
+import type {
+  TTSConfig,
+  TTSModelsResponse,
+  TTSVoiceAssignmentInput,
+  TTSVoiceModeInput,
+  TTSVoicesResponse,
+  TTSSource,
+} from "@marinara-engine/shared";
 import { TTS_API_KEY_MASK } from "@marinara-engine/shared";
 
 const KEYS = {
@@ -27,17 +34,37 @@ export function useTTSConfig(legacy = false) {
   });
 }
 
+function invalidateTTSSettings(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: KEYS.config });
+  qc.invalidateQueries({ queryKey: ["tts", "voices"] });
+  qc.invalidateQueries({ queryKey: ["tts", "models"] });
+}
+
 export function useUpdateTTSConfig() {
   const qc = useQueryClient();
   return useMutation({
     // Keep response metadata on read-modify-write saves so the server preserves
     // stored legacy identity while applying shared-setting changes.
     mutationFn: (config: TTSConfigResponse) => api.put<void>("/tts/config", config),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: KEYS.config });
-      qc.invalidateQueries({ queryKey: ["tts", "voices"] });
-      qc.invalidateQueries({ queryKey: ["tts", "models"] });
-    },
+    onSuccess: () => invalidateTTSSettings(qc),
+  });
+}
+
+/** Sets or clears one character's voice on the server, leaving every other TTS setting as stored. */
+export function useUpdateTTSVoiceAssignment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: TTSVoiceAssignmentInput) => api.put<void>("/tts/config/voice-assignment", input),
+    onSuccess: () => invalidateTTSSettings(qc),
+  });
+}
+
+/** Switches between one shared voice and a voice per character on the server, leaving every other TTS setting as stored. */
+export function useUpdateTTSVoiceMode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: TTSVoiceModeInput) => api.put<void>("/tts/config/voice-mode", input),
+    onSuccess: () => invalidateTTSSettings(qc),
   });
 }
 

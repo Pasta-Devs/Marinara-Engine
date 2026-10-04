@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import { MoreHorizontal } from "lucide-react";
@@ -78,6 +79,14 @@ export function isChatToolbarPanelTrigger(target: EventTarget | null, panelActio
 export function announceChatToolbarAction(panelAction: ChatToolbarPanelAction | null = null) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(CHAT_TOOLBAR_ACTION_EVENT, { detail: { panelAction } }));
+}
+
+function announceToolbarPointerDown(event: ReactPointerEvent<HTMLElement>) {
+  // React also runs this for presses in panels opened from the toolbar, such as Chat Summary, which
+  // render elsewhere on the page. Those are not toolbar actions: announcing one would blur the field
+  // being edited there and lose the tap.
+  if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) return;
+  announceChatToolbarAction(readChatToolbarPanelAction(event.target));
 }
 
 export function readChatToolbarFloatingPanelAnchor(trigger: HTMLElement | null): ChatToolbarFloatingPanelAnchor {
@@ -317,7 +326,7 @@ export function ChatToolbarMenu({
     <div
       ref={rootRef}
       className={cn("relative flex min-w-0 items-center justify-end", className)}
-      onPointerDownCapture={(event) => announceChatToolbarAction(readChatToolbarPanelAction(event.target))}
+      onPointerDownCapture={announceToolbarPointerDown}
     >
       {!overflowCollapsed && (
         <div ref={desktopRef} className={cn("flex items-center max-md:hidden", CHAT_TOOLBAR_ICON_GAP_CLASS)}>
@@ -343,7 +352,7 @@ export function ChatToolbarMenu({
               data-chat-toolbar-overflow-menu
               className={cn(CHAT_TOOLBAR_OVERFLOW_MENU_CLASS, "fixed z-[9999]")}
               style={{ top: pos.top, right: pos.right }}
-              onPointerDownCapture={(event) => announceChatToolbarAction(readChatToolbarPanelAction(event.target))}
+              onPointerDownCapture={announceToolbarPointerDown}
             >
               {resolvedMobileChildren}
             </div>,

@@ -22,7 +22,7 @@ const { createCharactersStorage } = await import("../../packages/server/src/serv
 const { characterDataSchema } = await import("../../packages/shared/dist/index.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { translateGeneratedMessage } = await import("../../packages/server/src/services/translation.service.js");
-const { getChatTranslationConfig, stripGmTagsKeepReadables } = await import("../../packages/shared/src/index.js");
+const { getChatTranslationConfig } = await import("../../packages/shared/src/index.js");
 const db = await getDB();
 const chats = createChatsStorage(db);
 let duringTranslation: (() => Promise<unknown>) | undefined;
@@ -101,11 +101,16 @@ try {
 
   duringTranslation = undefined;
   const gameContent =
-    'The door opens. [music: quiet] [sheet: target="Mari" op="set" path="hp" value=2] [Note: "Read me"]';
+    'The door opens. [music: quiet] [sheet: target="Mari" op="set" path="hp" value=2] [Note: "Read me"]\n\n[Alice] [main] [happy]: "Welcome, traveler."';
   const game = await create(gameContent);
   await resolve(game.id, 0, "game");
-  assert.equal((await extra(game.id)).translationSource, stripGmTagsKeepReadables(gameContent));
+  // The Game screen shows a saved translation only when its source is the text it builds itself (#7010).
+  assert.equal(
+    (await extra(game.id)).translationSource,
+    'The door opens.\n\n[Note: "Read me"]\n\n[Alice]: "Welcome, traveler."',
+  );
   assert.ok(prompts.at(-1)!.includes('[Note: "Read me"]'));
+  assert.ok(!prompts.at(-1)!.includes("[main]"), "the translator never sees internal dialogue tags");
   assert.ok(!prompts.at(-1)!.includes("[music:"));
   assert.ok(!prompts.at(-1)!.includes("[sheet:"));
   const failure = await create("A translation failure keeps the reply.");

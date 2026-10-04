@@ -15,8 +15,8 @@ import {
   DEFAULT_TRANSLATION_SYSTEM_PROMPT,
   PROVIDERS,
   localAuthProviderBaseUrl,
+  buildGameTranslationSource,
   resolveTranslationSystemPrompt,
-  stripGmTagsKeepReadables,
   type TranslationConfig,
 } from "@marinara-engine/shared";
 import { isDeeplxLocalUrlsEnabled } from "../config/runtime-config.js";
@@ -79,7 +79,11 @@ export async function translateGeneratedMessage(
   if (!swipe) return null;
   const extra = parseExtra(swipe.extra);
   if (extra.translationHidden === true || extra.hiddenFromUser === true || extra.commandOnly === true) return null;
-  const text = input.mode === "game" ? stripGmTagsKeepReadables(swipe.content) : swipe.content;
+  // Game shows a saved translation only when its source matches the text the Game screen builds.
+  const text =
+    input.mode === "game"
+      ? buildGameTranslationSource({ id: message.id, role: message.role, content: swipe.content })
+      : swipe.content;
   if (!text.trim() || (extra.translationSource === text && typeof extra.translation === "string" && extra.translation))
     return null;
   // Game can backfill older narration in the browser. Mark this source before

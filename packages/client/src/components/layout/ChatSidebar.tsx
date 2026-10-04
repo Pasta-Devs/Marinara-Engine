@@ -84,6 +84,7 @@ import { getCurrentGameGroupRepresentative } from "../../lib/game-session-resolu
 import { api } from "../../lib/api-client";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
+import { HelpTooltip } from "../ui/HelpTooltip";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
@@ -1297,6 +1298,14 @@ export function ChatSidebar() {
         <div className="flex min-w-0 items-center gap-2.5">
           <ChatSidebarTitleIcon />
           <h2 className="mari-chrome-text-strong truncate text-sm font-semibold">{localize("Chats")}</h2>
+          <HelpTooltip
+            text={t("navigation.sidebarHelp.chats")}
+            ariaLabel={t("navigation.sidebarHelp.button", { sidebar: localize("Chats") })}
+            side="bottom"
+            wide
+            className="shrink-0 [@media(pointer:coarse)]:-ml-3"
+            buttonClassName="justify-center [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9"
+          />
         </div>
         <div className="flex min-w-0 shrink-0 items-center gap-1">
           <PersonalExtensionContributionSlot surface="chats" position="header" className="max-w-28" />

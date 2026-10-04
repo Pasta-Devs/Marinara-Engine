@@ -17,6 +17,8 @@ interface HelpTooltipProps {
   text: ReactNode;
   /** Optional visible label shown before the help icon */
   label?: string;
+  /** Accessible name for the help button when "Show help" alone would not say what the help is about */
+  ariaLabel?: string;
   /** Optional size of the icon (default "0.75rem") */
   size?: string | number;
   /** Preferred position */
@@ -35,6 +37,7 @@ interface HelpTooltipProps {
 export function HelpTooltip({
   text,
   label,
+  ariaLabel,
   size = "0.75rem",
   side = "top",
   className,
@@ -160,12 +163,13 @@ export function HelpTooltip({
       <button
         type="button"
         aria-label={
-          localizedLabel
+          ariaLabel ??
+          (localizedLabel
             ? localizeUi("ui.ui.customemojitagbutton.value1Value2", {
                 value1: localize("Show help"),
                 value2: localizedLabel,
               })
-            : localize("Show help")
+            : localize("Show help"))
         }
         aria-expanded={show}
         className={cn(
@@ -183,12 +187,14 @@ export function HelpTooltip({
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          setPinned((current) => {
-            const nextPinned = !current;
-            if (nextPinned) openSelf();
-            else closeSelf();
-            return nextPinned;
-          });
+          // Toggle from the rendered state: React may call a state updater twice, so opening or closing
+          // inside one could reopen the tip right after a click closed it.
+          if (pinned) {
+            closeSelf();
+            return;
+          }
+          openSelf();
+          setPinned(true);
         }}
       >
         {localizedLabel && <span>{localizedLabel}</span>}

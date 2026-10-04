@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
-import { TTS_API_KEY_MASK, ttsConfigSchema } from "../../packages/shared/src/types/tts.js";
+import { setCharacterVoiceAssignment, TTS_API_KEY_MASK, ttsConfigSchema } from "../../packages/shared/src/types/tts.js";
 import {
   buildTTSVoiceRequests,
   cleanTTSInputText,
@@ -15,7 +15,6 @@ import {
   getCharacterNameVoice,
   getCharacterVoiceAssignment,
   resolveTTSVoiceForSpeaker,
-  setCharacterVoiceAssignment,
 } from "../../packages/client/src/lib/tts-dialogue.ts";
 import { buildExtractedRoleplayTTSVoiceRequests } from "../../packages/client/src/lib/tts-roleplay-speaker-extractor.ts";
 import { normalizeTTSPlaybackDelayMs, ttsService } from "../../packages/client/src/lib/tts-service.ts";

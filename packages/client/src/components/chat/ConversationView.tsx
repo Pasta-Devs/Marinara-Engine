@@ -552,9 +552,10 @@ export function ConversationView({
       />
     </>
   );
+  // Like the Roleplay strip, the see-through header lets touches through to the transcript except on its controls.
   const renderHeader = () => (
-    <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-2">
-      <div data-conversation-header-identity className="flex min-w-0 items-center gap-1.5">
+    <div className="pointer-events-none sticky top-0 z-30 flex items-center justify-between px-4 py-2">
+      <div data-conversation-header-identity className="pointer-events-auto flex min-w-0 items-center gap-1.5">
         <ConversationPresenceCard
           chatId={chatId}
           chatMeta={chatMeta}
@@ -578,13 +579,14 @@ export function ConversationView({
       </div>
 
       <div className="ml-2 flex min-w-0 flex-1 items-center justify-end gap-2">
+        {/* The menu keeps its full width to decide when to collapse; only its buttons take touches. */}
         <ChatToolbarMenu
-          className="flex-1"
+          className="flex-1 [&>*]:pointer-events-auto"
           desktopChildren={renderToolbarActions()}
           mobileChildren={renderToolbarActions(true)}
         />
         {conversationToolbarPackages.map((item) => (
-          <span key={`${item.id}-toolbar`} data-chat-help="agent-controls" className="contents">
+          <span key={`${item.id}-toolbar`} data-chat-help="agent-controls" className="pointer-events-auto contents">
             <CapabilityElement
               packageId={item.id}
               view="toolbar"
@@ -1316,11 +1318,13 @@ export function ConversationView({
         </div>
       ) : null}
       {/* ── Messages scroll area ── */}
+      {/* The scroll padding clears the see-through header, so messages scrolled or revealed to the top land below it. */}
+      {/* ponytail: 4rem fits the one-row header (about 3.5rem on phones); measure it like Roleplay if it ever wraps. */}
       <div
         ref={scrollRef}
         data-chat-scroll
         data-chat-resource-drop-surface
-        className="mari-messages-scroll flex-1 overflow-y-auto overflow-x-hidden"
+        className="mari-messages-scroll flex-1 scroll-pt-16 overflow-y-auto overflow-x-hidden"
       >
         {/* Floating header — character info + action buttons */}
         {renderHeader()}
