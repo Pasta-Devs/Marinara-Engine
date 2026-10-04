@@ -40,9 +40,9 @@ Można też kliknąć wiersz **Random** (opisany jako **Dice pick**), żeby doda
 
 ## Zarządzanie uczestnikami po utworzeniu czatu
 
-Postacie dodaje się, usuwa i porządkuje w panelu bocznym **Chat Settings** (ustawienia czatu). Otwiera go ikona koła zębatego w nagłówku czatu. Podpowiedź przy tej ikonie brzmi **Chat Settings**.
+Postacie dodaje się, usuwa i porządkuje w **Chat Settings** (ustawienia czatu). Otwórz je przyciskiem **Chat Settings** w czacie.
 
-W panelu znajdź sekcję **Characters**. Widać w niej liczbę uczestników oraz tekst pomocy "Characters in this chat. Each character has their own personality that the AI roleplays as." Każdy wiersz uczestnika ma awatar, imię postaci, uchwyt przeciągania, ikonę oka i ikonę kosza.
+W **Chat Settings** znajdź sekcję **Characters**. Widać w niej liczbę uczestników oraz tekst pomocy "Characters in this chat. Each character has their own personality that the AI roleplays as." Każdy wiersz uczestnika ma awatar, imię postaci, uchwyt przeciągania, ikonę oka i ikonę kosza.
 
 - Żeby dodać kolejną postać, kliknij przycisk **Add Character** i wyszukaj ją.
 - Żeby dodać cały folder, kliknij **Add from Folder** i wybierz jeden z nich.

@@ -140,7 +140,7 @@ Z panelu **Presets**:
 Z panelu **Chat Settings** (ustawienia czatu):
 
 1. Otwórz czat.
-2. Otwórz **Chat Settings** (ikona zębatki).
+2. Otwórz **Chat Settings**.
 3. Znajdź sekcję **Prompt Preset**.
 4. Wybierz preset z listy rozwijanej.
 

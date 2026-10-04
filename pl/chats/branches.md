@@ -6,7 +6,7 @@ Z tego przewodnika dowiesz się, czym jest gałąź czatu w aplikacji Marinara E
 
 Gałąź to kopia czatu ze wspólną historią do wybranego miejsca. Gałęzie służą do sprawdzania innego kierunku fabuły, a oryginalny czat zostaje nietknięty.
 
-Wszystkie gałęzie tego samego czatu są zgrupowane razem. Na liście czatów czat z więcej niż jedną gałęzią zajmuje jeden wiersz. Obok niego widać małą liczbę gałęzi. Gałęzie otwiera się i przełącza w panelu podręcznym **Chat Branches** (gałęzie czatu) – opis poniżej.
+Wszystkie gałęzie tego samego czatu są zgrupowane razem. Na liście czatów czat z więcej niż jedną gałęzią zajmuje jeden wiersz. Obok niego widać małą liczbę gałęzi. Gałęzie otwiera się i przełącza w sekcji **Chat Branches** (gałęzie czatu) w **Chat Settings** – opis poniżej.
 
 Każda gałąź może mieć własną nazwę wyświetlaną, więc da się je opisać na przykład jako "przyjazne zakończenie" i "mroczne zakończenie". Ta nazwa wyświetlana jest niezależna od nazwy samego czatu.
 
@@ -34,19 +34,19 @@ Podsumowania dzienne i tygodniowe nie są przenoszone. Podsumowania bieżące z 
 
 Czatu sceny nie da się rozgałęzić. W czacie sceny przycisk **Branch from here** się nie pojawia. Czaty sceny mają zamiast niego osobną akcję **Clone from here** (klonowanie od tego miejsca). Jej działanie opisuje przewodnik [Sceny: odgałęzienie roleplayu](../roleplay/scenes.md).
 
-## Panel podręczny **Chat Branches**
+## Sekcja **Chat Branches**
 
-Panel otwiera się przyciskiem gałęzi na pasku narzędzi czatu. Przycisk ma ikonę rozgałęzienia i pokazuje aktualną liczbę gałęzi. Jego podpowiedź brzmi **Switch branch**.
+Otwórz **Chat Settings** i rozwiń sekcję **Chat Branches** pod **Chat Name**. Nagłówek pokazuje aktualną liczbę gałęzi. Na komputerze możesz otworzyć ją w osobnym oknie (zobacz [Panel **Chat Settings** – przegląd](chat-settings.md#popping-a-section-out-into-its-own-window)).
 
-Panel nosi tytuł **Chat Branches**, a pod nim widnieje podtytuł "Switch, import, export, or clean up this chat's branches." Wypisuje wszystkie gałęzie bieżącego czatu, a oglądana w danej chwili gałąź stoi na pierwszym miejscu. W każdym wierszu widać nazwę wyświetlaną gałęzi i czas ostatniej aktualizacji.
+Sekcja wypisuje wszystkie gałęzie bieżącego czatu, a oglądana w danej chwili gałąź stoi na pierwszym miejscu. W każdym wierszu widać nazwę wyświetlaną gałęzi i czas ostatniej aktualizacji.
 
 ### Przełączanie na inną gałąź
 
-Kliknij dowolny wiersz gałęzi w panelu, żeby ją otworzyć. Panel się zamyka, a widok czatu przechodzi na wybraną gałąź.
+Kliknij dowolny wiersz gałęzi, żeby ją otworzyć. Widok czatu przechodzi na wybraną gałąź.
 
 ### Zmiana nazwy gałęzi
 
-1. Otwórz panel **Chat Branches**.
+1. Otwórz sekcję **Chat Branches**.
 2. W wierszu wybranej gałęzi kliknij przycisk z ołówkiem (zmiana nazwy).
 3. Otwiera się okno **Rename Branch** z komunikatem "Set a display name for this chat branch."
 4. Wpisz nową nazwę i zatwierdź przyciskiem **Rename**.
@@ -55,7 +55,7 @@ Marinara ignoruje pustą nazwę oraz nazwę, która się nie zmieniła.
 
 ### Usuwanie gałęzi
 
-1. Otwórz panel **Chat Branches**.
+1. Otwórz sekcję **Chat Branches**.
 2. W wierszu gałęzi kliknij przycisk z koszem (usuwanie).
 3. Okno **Delete Branch** pyta "Delete this branch? Messages will be lost."
 4. Zatwierdź przyciskiem **Delete**.
@@ -64,13 +64,13 @@ Usunięcie gałęzi kasuje tylko tę jedną gałąź i jej wiadomości. Pozosta�
 
 ### Usuwanie wszystkich gałęzi
 
-Kiedy czat ma co najmniej dwie gałęzie, na dole panelu pojawia się przycisk **Delete All Branches**. Pyta on "Delete all N branches? This cannot be undone." Zatwierdź przyciskiem **Delete All**, żeby usunąć naraz wszystkie gałęzie w grupie.
+Kiedy czat ma co najmniej dwie gałęzie, na dole sekcji pojawia się przycisk **Delete All Branches**. Pyta on "Delete all N branches? This cannot be undone." Zatwierdź przyciskiem **Delete All**, żeby usunąć naraz wszystkie gałęzie w grupie.
 
 Da się to też zrobić z poziomu listy czatów. Usuń czat z gałęziami ikoną kosza. Pojawia się wtedy okno **Delete Chat** z pytaniem, co dokładnie usunąć. Do wyboru są przycisk **Delete This Branch Only** oraz przycisk **Delete All N Branches**. Więcej o usuwaniu z listy znajdziesz w przewodniku [Zarządzanie listą czatów](managing-chats.md).
 
 ## Eksport gałęzi
 
-Panel **Chat Branches** ma u góry przyciski eksportu. Eksportują one gałąź oglądaną w danej chwili.
+Sekcja **Chat Branches** ma u góry przyciski eksportu. Eksportują one gałąź oglądaną w danej chwili.
 
 - **JSONL**: pobiera gałąź jako plik JSONL. Format JSONL zapisuje jedną wiadomość w jednej linii tekstu i jest zgodny z aplikacją SillyTavern.
 - **Text**: pobiera gałąź jako zwykły zapis tekstowy czatu.
@@ -81,7 +81,7 @@ Zbiorczy eksport wielu czatów naraz opisuje przewodnik [Eksport i import czató
 
 Plik z zapisanym czatem można wczytać jako nową gałąź otwartego czatu.
 
-1. Otwórz panel **Chat Branches**.
+1. Otwórz sekcję **Chat Branches**.
 2. Kliknij przycisk **Import**.
 3. Wskaż plik JSONL (`.jsonl`) wyeksportowany z aplikacji SillyTavern lub Marinara Engine.
 

@@ -15,7 +15,7 @@ Zmieniaj te ustawienia tylko wtedy, gdy chcesz rozwiązać konkretny problem. Po
 Wartości bazowe edytuj w **Presets > Parameters** (presety > parametry), a wartości połączenia w **Connections > Default Parameters** (połączenia > parametry domyślne). Ustawienia tego czatu znajdziesz w **Chat Settings > Advanced Parameters** (ustawienia czatu > parametry zaawansowane).
 
 1. Otwórz czat, w którym chcesz coś zmienić.
-2. Otwórz panel **Chat Settings** (ustawienia czatu), czyli ikonę koła zębatego przy aktywnym czacie.
+2. Otwórz **Chat Settings** przyciskiem w czacie. Domyślnie jest w prawym górnym rogu.
 3. Znajdź sekcję **Advanced Parameters** i kliknij ją, żeby ją rozwinąć.
 
 Powinna pojawić się podpowiedź o treści: "Override generation parameters for this chat. Only change these if you know what you're doing." Wszystkie opisane niżej ustawienia znajdują się w sekcji **Advanced Parameters**.

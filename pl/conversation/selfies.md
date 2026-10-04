@@ -86,7 +86,7 @@ Działają także `[selfie: "standing beside the river"]` i `[selfie: standing b
 
 Selfie można też zamówić samodzielnie, zamiast czekać na inicjatywę postaci.
 
-1. Otwórz panel **Gallery** (galeria) czatu.
+1. Otwórz **Chat Settings** i rozwiń sekcję **Gallery** (galeria).
 2. Kliknij przycisk **Selfie** – ikona aparatu.
 3. Jeśli na czacie jest więcej niż jedna postać, wskaż autora selfie na liście postaci obok przycisku.
 4. Jeśli w **Settings** (Ustawienia), **Generations**, **Image Generation** włączona jest opcja **Expose media prompts before sending**, przejrzyj lub popraw gotowy prompt selfie i kliknij przycisk **Generate**. Rezygnacja z podglądu oznacza, że żądanie generowania obrazu nie zostaje wysłane.

@@ -1,12 +1,12 @@
 # Tryb Roleplay: pierwsze kroki
 
-Z tego przewodnika dowiesz się, czym jest tryb Roleplay, jak zacząć roleplay i co widać na ekranie. Znajdziesz tu też opis sterowania sprite'ami, paska narzędzi czatu, notatek **Author's Notes** (notatki autora) oraz wskazówki, gdzie szukać opisu dalszych funkcji.
+Z tego przewodnika dowiesz się, czym jest tryb Roleplay, jak zacząć roleplay i co widać na ekranie. Znajdziesz tu też opis sterowania sprite'ami, narzędzi czatu, notatek **Author's Notes** (notatki autora) oraz wskazówki, gdzie szukać opisu dalszych funkcji.
 
 ## Czym jest tryb Roleplay
 
 Tryb Roleplay to jeden z trybów czatu w aplikacji Marinara Engine. Pozostałe to Conversation i Game. Roleplay daje wciągający widok sceny zbudowany wokół opowieści.
 
-Scena w trybie Roleplay może pokazywać obraz tła, sprite'y postaci i pasek HUD ze stanem świata. Sprite to obrazek postaci, który zmienia się razem z emocjami. HUD, czyli pasek informacji na górze czatu, to wąski rząd małych widgetów.
+Scena w trybie Roleplay może pokazywać obraz tła, sprite'y postaci i pasek HUD ze stanem świata. Sprite to obrazek postaci, który zmienia się razem z emocjami. HUD pokazuje ten stan: na telefonie jako małe widgety na górze czatu, a na komputerze w Tracker Panel lub oknie Trackers.
 
 Tryb Roleplay korzysta też z pomocników zwanych agentami. Agent to małe zadanie, które wykonuje się automatycznie obok odpowiedzi AI. Agenci śledzą stan świata, dobierają sprite'y, wybierają tła i robią jeszcze więcej.
 
@@ -34,7 +34,7 @@ Obszar sceny w trybie Roleplay to przestrzeń za wiadomościami i wokół nich. 
 
 **Sprite'y** to obrazki postaci umieszczone na obszarze sceny. Nie ma tu sztywnego limitu. Pojawić się może każda postać w czacie, która ma włączone sprite'y. Sprite'y wymagają wgranej biblioteki sprite'ów na karcie postaci. Bez niej miejsce na sprite pozostaje puste. Jak dodać sprite'y do postaci, opisuje przewodnik [Sprite'y postaci](../characters/sprites.md).
 
-**HUD** to rząd małych widgetów na górze czatu. Każdy widget należy do jakiegoś trackera, czyli agenta śledzącego stan, więc widget pojawia się tylko wtedy, gdy jego agent jest włączony. Widgety pokazują datę, godzinę, pogodę, lokalizację, obecne postacie, ekwipunek, zadania i statystyki. Kliknij widget, aby otworzyć panel i edytować wartości. Wszystkie widgety i tryby blokad opisuje przewodnik [HUD i trackery w trybie Roleplay](hud-and-trackers.md).
+**HUD** pokazuje trackery. Na telefonie jest rzędem małych widgetów na górze czatu. Na komputerze trackery widać w **Tracker Panel** lub w oknie **Trackers**, gdy Tracker Panel jest wyłączony w ustawieniach. Każdy tracker należy do agenta śledzącego stan, więc pojawia się tylko wtedy, gdy jego agent jest włączony. Trackery pokazują datę, godzinę, pogodę, lokalizację, obecne postacie, ekwipunek, zadania i statystyki. Możesz edytować ich wartości. Wszystkie widgety i tryby blokad opisuje przewodnik [Pasek HUD i trackery w trybie Roleplay](hud-and-trackers.md).
 
 ### Sterowanie wyświetlaniem sprite'ów
 
@@ -59,19 +59,25 @@ Wyraz twarzy da się też ustawić komendą **/emote** wpisaną w polu czatu. Dz
 
 Pierwsza forma ustawia wyraz twarzy dla całej sceny. Druga dotyczy jednej wskazanej postaci. Wpisz **/emote** bez żadnych słów, aby wyświetlić listę dostępnych wyrazów twarzy dla każdej postaci na scenie.
 
-## Pasek narzędzi czatu
+## Narzędzia czatu
 
-Pasek narzędzi znajduje się na górze obszaru czatu. Ma przyciski, które otwierają małe panele podręczne. Główne przyciski to:
+Narzędzia czatu są sekcjami w **Chat Settings**. Otwórz ustawienia przyciskiem z suwakami wewnątrz czatu; domyślnie jest w prawym górnym rogu i można przeciągnąć go w inne miejsce. W czacie Roleplay znajdziesz:
 
+- **Search messages**, rozwijaną sekcję blisko góry. Wyszukuje wiadomości po słowach lub numerze; ma też zakładki z zapisanymi odnośnikami do wiadomości i usuniętymi wiadomościami.
+- **Chat Branches**. Przełączanie, zmiana nazw, eksport i import gałęzi czatu. Zobacz [Gałęzie czatu](../chats/branches.md).
 - **Chat Summary**. Pokazuje bieżące podsumowanie czatu i umożliwia jego edycję.
 - **Active Context**. Wymienia powiązane postacie, wpisy lorebooków i preset, które trafiły do ostatniej odpowiedzi. Pokazuje, które wpisy lorebooków pasowały i zostały wstawione.
+- **Agent activity**, tuż pod **Agents**. Opis poniżej.
 - **Author's Notes**. Dowolny tekst dopisywany do promptu w każdej turze. Opis poniżej.
-- **Gallery**. Otwiera galerię obrazów i wideo tego czatu, gdzie da się wygenerować ilustrację albo tło.
-- **Chat Settings**. Otwiera pełny panel boczny ustawień tego czatu.
+- **Gallery**. Obrazy i wideo tego czatu; można tu wygenerować ilustrację albo tło.
+
+Każdą z tych sekcji, także Search, możesz odłączyć do osobnego okna albo otwierać jej własnym przyciskiem na telefonie. Starsze czaty zachowują znajome ikony narzędzi jako ruchome przyciski. Otwórz taki przycisk i wybierz **Put back in Chat Settings**, żeby przenieść narzędzie do środka. Zobacz [Panel **Chat Settings** – przegląd](../chats/chat-settings.md).
+
+<a id="authors-notes"></a>
 
 ### Author's Notes
 
-**Author's Notes** to notatka, którą piszesz i którą AI czyta przy każdym generowaniu. Przydaje się do stałych przypomnień, takich jak zasada tonu albo ukryty fakt. Otwórz ją przyciskiem z piórem na pasku narzędzi.
+**Author's Notes** to notatka, którą piszesz i którą AI czyta przy każdym generowaniu. Przydaje się do stałych przypomnień, takich jak zasada tonu albo ukryty fakt. Otwórz **Chat Settings** i rozwiń **Author's Notes** pod **Agents**.
 
 Wpisz notatkę w polu tekstowym. Na przykład: "Utrzymuj mroczny, pełen napięcia ton. Złoczyńca jest w tajemnicy sojusznikiem."
 
@@ -79,11 +85,15 @@ Pod notatką jest pole liczbowe **Injection Depth**. Decyduje ono, jak wysoko w 
 
 **Author's Notes** działa tak samo w trybie Game Mode i w trybie Conversation. Ten przewodnik jest jego głównym opisem.
 
-## Menu Agents & Actions
+<a id="agent-activity"></a>
 
-Przycisk z iskierką w rzędzie HUD otwiera menu **Agents & Actions**. Zakładka **Activity** wymienia wyniki pracy agentów, zwane dymkami myśli. Każdy z nich da się odrzucić albo skorzystać z przycisku **Clear all**. Pojawiają się tu również wyniki własnych agentów.
+## Agent activity
 
-Jeśli agent zawiódł w ostatniej turze, pokazuje się lista błędów z przyciskiem ponowienia. Z tego menu da się też uruchomić ponownie wszystkie trackery. Cały system agentów opisuje prostym językiem przewodnik [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md).
+**Agent activity** pokazuje, co zrobili agenci czatu. Pojawia się, gdy czat korzysta z agentów lub Advanced Memory. Ma własną sekcję tuż pod **Agents** w **Chat Settings**. Jest też na dole **Tracker Panel**, a na komputerze również na dole okna **Trackers**.
+
+Zakładka **Activity** wymienia wyniki pracy agentów, zwane dymkami myśli. Każdy z nich da się odrzucić albo skorzystać z przycisku **Clear all**. Pojawiają się tu również wyniki własnych agentów.
+
+Jeśli agent zawiódł w ostatniej turze, pokazuje się lista błędów z przyciskiem ponowienia. Możesz też zatrzymać działających agentów, ponownie uruchomić wszystkie trackery i użyć **Clear Trackers**. Cały system agentów opisuje prostym językiem przewodnik [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md).
 
 Zakładka **Injections** pojawia się tylko wtedy, gdy włączony jest **Debug mode** (tryb diagnostyczny). Włącz go w panelu **Settings** (Ustawienia), w sekcji **Advanced**. Zakładka pokazuje fragmenty promptu, które agenci piszący zapisali przed ostatnią odpowiedzią. Do agentów piszących należą **Prose Guardian**, który przepisuje odpowiedzi zgodnie z twoimi zasadami stylu, oraz **Narrative Director**, który steruje fabułą.
 
@@ -153,7 +163,7 @@ Dla agentów da się ustawić tańszy model niż dla czatu. Wielu użytkowników
 
 **Tło nigdy się nie zmienia.** Agent **Background** wybiera z twojej biblioteki teł. Przy jednym czy dwóch tłach wybiera ciągle te same. Dodaj więcej teł, żeby agent miał w czym wybierać. Zobacz [Tła w trybie Roleplay](backgrounds.md).
 
-**Ponownie wygenerowana odpowiedź wciąż idzie w złym kierunku.** Włącz **Debug mode** w panelu **Settings**, w sekcji **Advanced**. Otwórz menu **Agents & Actions**, znajdź zakładkę **Injections**, a potem edytuj albo uruchom ponownie zapisany fragment, zanim wygenerujesz odpowiedź jeszcze raz. Więcej pomocy znajdziesz w przewodniku [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
+**Ponownie wygenerowana odpowiedź wciąż idzie w złym kierunku.** Włącz **Debug mode** w panelu **Settings**, w sekcji **Advanced**. Otwórz **Agent activity**, znajdź zakładkę **Injections**, a potem edytuj albo uruchom ponownie zapisany fragment, zanim wygenerujesz odpowiedź jeszcze raz. Więcej pomocy znajdziesz w przewodniku [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Powiązane przewodniki
 

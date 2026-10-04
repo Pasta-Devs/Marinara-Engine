@@ -9,7 +9,7 @@ Część agentów chce zapisywać w czacie nowe dane. Agent lorebooków potrafi 
 Gdzie go znaleźć:
 
 1. Otwórz czat, który chcesz nadzorować.
-2. Otwórz **Chat Settings** (ustawienia czatu, ikona koła zębatego).
+2. Otwórz **Chat Settings** (ustawienia czatu).
 3. Przewiń do sekcji **Agents**.
 4. Włącz przełącznik **Review Agent Outputs**.
 
@@ -60,7 +60,7 @@ W panelu **Agent Suite** widać wszystko, co zapisali agenci działający w tym 
 
 Jak go otworzyć:
 
-1. Otwórz **Chat Settings** (ikona koła zębatego).
+1. Otwórz **Chat Settings**.
 2. Przewiń do sekcji **Agents**.
 3. Kliknij przycisk **Agent Suite**.
 
@@ -90,7 +90,7 @@ Kilka uwag:
 
 ## Panel Cached prompt injections
 
-Zanim powstanie odpowiedź, część agentów zapisujących dane dopisuje tekst do promptu (tekstu, który Marinara wysyła do AI). Robią tak zwłaszcza **Prose Guardian**, **Narrative Director** oraz własni agenci od wstawiania tekstu. Panel **Cached prompt injections** pokazuje ten dopisany tekst na potrzeby diagnostyki. Znajdziesz go w menu Agents czatu w trybie Roleplay. Obejmuje najnowszą odpowiedź.
+Zanim powstanie odpowiedź, część agentów zapisujących dane dopisuje tekst do promptu (tekstu, który Marinara wysyła do AI). Robią tak zwłaszcza **Prose Guardian**, **Narrative Director** oraz własni agenci od wstawiania tekstu. Panel **Cached prompt injections** pokazuje ten dopisany tekst na potrzeby diagnostyki. Znajdziesz go w zakładce **Injections** (wstawienia do promptu) w sekcji **Agent activity** (aktywność agentów) czatu Roleplay. Zakładka jest widoczna, gdy włączony jest **Debug mode** (tryb debugowania). Zobacz [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md#agent-activity). Panel obejmuje najnowszą odpowiedź.
 
 Przy każdym zapisanym wstawieniu możesz:
 

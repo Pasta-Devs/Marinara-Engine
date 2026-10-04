@@ -16,7 +16,7 @@ Każdy czat może mieć zapisaną własną personę. W różnych czatach możesz
 
 ### Z panelu Chat Settings
 
-1. Otwórz panel **Chat Settings** (ustawienia czatu) – ikona koła zębatego przy czacie.
+1. Otwórz **Chat Settings** (ustawienia czatu) przyciskiem w czacie. Domyślnie jest w prawym górnym rogu.
 2. Znajdź sekcję **Persona**. Jej tekst pomocy zaczyna się od "Your persona defines who you are in this chat."
 3. Kiedy żadna persona nie jest ustawiona, widać napis "No persona selected."
 4. Kliknij przycisk **Choose Persona** (wybór persony). Po ustawieniu persony przycisk zmienia nazwę na **Change Persona**.

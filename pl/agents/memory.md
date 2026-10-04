@@ -19,7 +19,7 @@ Obu systemów można używać jednocześnie. Robią co innego i nie wchodzą sob
 
 ### Włączanie Memory Recall
 
-1. Otwórz czat i kliknij przycisk **Chat Settings** (ustawienia czatu) w nagłówku czatu.
+1. Otwórz czat i kliknij przycisk **Chat Settings** (ustawienia czatu) w czacie (domyślnie w prawym górnym rogu).
 2. Znajdź sekcję **Memory Recall** (rozpoznasz ją po ikonie mózgu).
 3. Włącz przełącznik **Enable Memory Recall**.
 
@@ -114,7 +114,7 @@ Podgląd promptu pozostaje tylko do odczytu i pokazuje zwykłe przywoływanie be
 
 ### Podczas rozmowy
 
-Wykrywanie scen następuje po zapisaniu głównej odpowiedzi Roleplay. **Standalone scene check interval (messages)** (odstęp sprawdzania scen) wynosi domyślnie **5**. Model dostaje ponumerowane ostatnie wiadomości, jedną poprzedzającą dla kontekstu, instrukcje i format wyniku. Wskazuje dokładne numery wiadomości kończących sceny albo nie zwraca zakończeń, jeśli scena trwa. Liczą się wiadomości person i postaci. Częstotliwość jest niezależna od harmonogramów agentów śledzących; przy wyłączonym trybie decyzyjnym, gdy widoczność źródeł i budżet pozwalają, sprawdzenie współdzieli ich wywołanie po generowaniu, a w przeciwnym razie korzysta osobno z modelu pomocniczego. Nowy zakres zaczyna się po końcu poprzedniej sceny i obejmuje wskazaną wiadomość końcową. Tylko wykryte zakończenie uruchamia przygotowanie podsumowania i indeksu w tle, także gdy scenę kończy najnowsza odpowiedź. Niepewne przejścia pozostawiają scenę otwartą. Menu **Agents** w lewym górnym rogu pokazuje zadanie jako **Advanced Recall**, z postępem, błędami i odzyskiwaniem, również przy wyłączonych zwykłych agentach. Odpytywanie postępu trwa tylko podczas zadania pamięci; gotowe archiwum nie jest odpytywane w czasie bezczynności. Po włączeniu trybu decyzyjnego tę kontrolę wykonuje wybrane połączenie decyzyjne.
+Wykrywanie scen następuje po zapisaniu głównej odpowiedzi Roleplay. **Standalone scene check interval (messages)** (odstęp sprawdzania scen) wynosi domyślnie **5**. Model dostaje ponumerowane ostatnie wiadomości, jedną poprzedzającą dla kontekstu, instrukcje i format wyniku. Wskazuje dokładne numery wiadomości kończących sceny albo nie zwraca zakończeń, jeśli scena trwa. Liczą się wiadomości person i postaci. Częstotliwość jest niezależna od harmonogramów agentów śledzących; przy wyłączonym trybie decyzyjnym, gdy widoczność źródeł i budżet pozwalają, sprawdzenie współdzieli ich wywołanie po generowaniu, a w przeciwnym razie korzysta osobno z modelu pomocniczego. Nowy zakres zaczyna się po końcu poprzedniej sceny i obejmuje wskazaną wiadomość końcową. Tylko wykryte zakończenie uruchamia przygotowanie podsumowania i indeksu w tle, także gdy scenę kończy najnowsza odpowiedź. Niepewne przejścia pozostawiają scenę otwartą. Sekcja **Agent activity** w **Chat Settings** pokazuje zadanie jako **Advanced Recall**, z postępem, błędami i odzyskiwaniem, również przy wyłączonych zwykłych agentach. Odpytywanie postępu trwa tylko podczas zadania pamięci; gotowe archiwum nie jest odpytywane w czasie bezczynności. Po włączeniu trybu decyzyjnego tę kontrolę wykonuje wybrane połączenie decyzyjne.
 
 Przy wyłączonym trybie decyzyjnym: Zwykłe przywoływanie odczytuje przygotowaną pamięć, zamiast ponownie przygotowywać archiwum. Opcjonalny embedding zapytania ma krótki limit czasu i w razie niedostępności korzysta z dopasowania tekstu. Dopasowanie tekstu nadaje większą wagę charakterystycznym słowom z ostatniej wiadomości użytkownika, dzięki czemu krótki szczegół może wskazać długie podsumowanie sceny. Zaindeksowane oryginalne wiadomości pozwalają też znajdować sceny przy wyłączonym wyświetlaniu fragmentów. Żaden z tych mechanizmów nie dodaje wywołania modelu. Przywoływanie działa wyłącznie dla głównego generowania Roleplay: agenty, ich ręczne ponowienia i pomocnicze generowania próbne nie uruchamiają go ani nie otrzymują zwróconych podsumowań i fragmentów. Inspekcja głównego promptu pozostaje tylko do odczytu.
 
@@ -152,11 +152,13 @@ Podgląd promptu używa przygotowanej pamięci bez wywołań modeli i embedding�
 
 Przywoływanie jest wybiórcze, a podsumowania mogą pomijać niuanse. Zachowuj ważne poprawki w transkrypcie źródłowym lub edytorze podsumowań. Żaden system nie odtworzy niezapisanych szczegółów. Jeśli embeddingi zawiodą, nadal dostępne są ograniczone wyszukiwanie leksykalne i poprawna ciągłość; całe archiwum nigdy nie trafia do promptu. Jeśli obowiązkowe instrukcje lub załącznik nie mieszczą się w limicie promptu, zmniejsz je albo zwiększ limit. Jeśli rezerwa odpowiedzi nie mieści się w całkowitym kontekście modelu, zmniejsz rozmiar wyniku albo wybierz model z większym kontekstem. Advanced Memory zatrzymuje się zamiast po cichu usuwać instrukcje.
 
+<a id="chat-summary-roleplay"></a>
+
 ## Chat Summary (Roleplay)
 
 **Chat Summary** ściska starsze wiadomości w krótkie streszczenia fabularne, nazywane wpisami podsumowania. Każdy wpis może napisać AI albo ty samodzielnie, a każdy da się włączyć i wyłączyć niezależnie. Ta funkcja istnieje wyłącznie w czatach Roleplay. Zapis pojedynczego przełącznika nie blokuje innych wpisów; Activate All i Deactivate All zapisują cały wybór razem.
 
-Żeby ją otworzyć, kliknij przycisk **Chat Summary** (ikona zwoju) w nagłówku czatu Roleplay. Otwiera się panel podręczny **Chat Summary**.
+Żeby ją otworzyć, przejdź do **Chat Settings** i rozwiń sekcję **Chat Summary** pod **Lorebooks**. Na komputerze możesz otworzyć ją w osobnym oknie (zobacz [Panel **Chat Settings** – przegląd](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)).
 
 ### Tworzenie wpisu podsumowania
 
@@ -188,7 +190,7 @@ Pole **Maximum output size** decyduje o tym, jak długie może być wygenerowane
 
 ### Opcje wyświetlania
 
-Sekcja **Display** w panelu podręcznym decyduje o tym, jak podsumowane wiadomości wyglądają na ekranie:
+Kontrolki **Display** w **Chat Summary** decyduje o tym, jak podsumowane wiadomości wyglądają na ekranie:
 
 - **Hide summarised messages**: ukrywa surowe wiadomości, gdy obejmie je podsumowanie. Domyślnie wyłączone.
 - **Recent message tail**: zostawia tyle najnowszych wiadomości w pełni widocznych nawet przy włączonym ukrywaniu. Domyślnie jest to 10, a przyjmowana jest każda nieujemna liczba całkowita. Wartość 0 ukrywa całą podsumowaną porcję. Wyższe wartości zwiększają rozmiar promptu i koszt modelu.

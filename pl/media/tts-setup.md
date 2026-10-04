@@ -152,7 +152,7 @@ Ta sama konfiguracja TTS obsługuje każdy tryb, a każdy z nich dokłada kilka 
 
 - Tryb Roleplay korzysta z przełącznika **Roleplay messages** i z przycisków **Speak** przy pojedynczych wiadomościach. Zobacz [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md).
 - Tryb Conversation korzysta z przełącznika **Conversation messages** i z tych samych przycisków **Speak**. Mówione rozmowy audio to osobna, większa funkcja, opisana w przewodniku [Rozmowy audio i wideo w trybie Conversation](../conversation/calls.md).
-- Tryb Game Mode korzysta z przełącznika **Game narration**. Ma też własny mikser dźwięku z kanałem **TTS** obok kanałów **Master**, **Music**, **Sound Effects** i **Ambient**. Ten kanał ustawia ogólną głośność mówionego dźwięku w grze i startuje na 100 procent. Zobacz [Game Mode: pierwsze kroki](../game/getting-started.md).
+- Tryb Game Mode korzysta z przełącznika **Game narration**. Ma też własny mikser dźwięku z kanałem **TTS** obok kanałów **Master**, **Music**, **Sound Effects** i **Ambient**. Ten kanał ustawia ogólną głośność mówionego dźwięku w grze i startuje na 100 procent. Zobacz [Game Mode: pierwsze kroki](../game/getting-started.md#the-games-controls).
 
 ## Phonetic name (wymowa w rozmowach)
 

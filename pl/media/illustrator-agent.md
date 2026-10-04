@@ -26,7 +26,7 @@ Jeśli nie da się znaleźć żadnego połączenia graficznego, obraz nie powsta
 Agent **Illustrator** jest domyślnie wyłączony. Oto, jak dodać go do czatu **Roleplay**:
 
 1. Otwórz czat, który ma być ilustrowany.
-2. Otwórz panel **Chat Settings** (ustawienia czatu) ikoną koła zębatego.
+2. Otwórz **Chat Settings** (ustawienia czatu) przyciskiem w czacie. Domyślnie jest w prawym górnym rogu.
 3. Znajdź sekcję **Agents** (Agenci) i włącz przełącznik **Enable Agents** (włączenie agentów).
 4. W grupie **Misc Agents** (pozostali agenci) znajdź pozycję **Illustrator** i dodaj ją przyciskiem z plusem.
 
@@ -85,7 +85,7 @@ Na karcie agenta **Illustrator** jest przycisk **Open Setup** (pełna konfigurac
 
 Ustaw **Run Interval** (odstęp uruchamiania) na **0**, aby generować wyłącznie ręcznie. Wyłącza to automatyczne uruchomienia agenta Illustrator, w tym automatyczne tła scen, ale agent pozostaje zainstalowany i dostępny w działaniach galerii. Domyślna wartość nadal wynosi **5**; ustaw wartość dodatnią, aby wznowić automatyczne uruchomienia. Wartość 0 można też wybrać podczas dodawania agenta Illustrator do czatu.
 
-Obraz da się też zamówić od ręki, bez czekania. Otwórz sekcję **Gallery** danego czatu i użyj przycisku **Illustrate** (zilustruj). Agent **Illustrator** uruchamia się wtedy jednorazowo od razu, a przycisk pokazuje w trakcie pracy napis **Generating...**. Przydaje się to wtedy, gdy chcesz mieć obraz bieżącej chwili, a agent jeszcze nic nie narysował.
+Obraz da się też zamówić od ręki, bez czekania. Otwórz **Chat Settings**, rozwiń sekcję **Gallery** i użyj przycisku **Illustrate** (zilustruj). Agent **Illustrator** uruchamia się wtedy jednorazowo od razu, a przycisk pokazuje w trakcie pracy napis **Generating...**. Przydaje się to wtedy, gdy chcesz mieć obraz bieżącej chwili, a agent jeszcze nic nie narysował.
 
 ## Zapisywanie w galeriach i podgląd promptu
 

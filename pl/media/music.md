@@ -152,7 +152,7 @@ Po włączeniu dostajesz te same opcje **Spotify**, **YouTube** i **Custom** ora
 
 W trybie Game Mode Spotify działa trochę inaczej. Po każdej scenie serwer buduje krótką listę prawdziwych utworów kandydujących z wybranego źródła. Model AI wybiera z niej jeden utwór. Dzięki temu AI nie wymyśla utworu, który nie istnieje. Tryb Game Mode odtwarza jeden zapętlony utwór naraz.
 
-W trakcie tury menu akcji zawiera przycisk **Retry Music DJ**, który wymusza nowy wybór dla bieżącej sceny.
+Otwórz **Game controls** (sterowanie grą) i wybierz **Retry Music DJ** (ponowny wybór muzyki), aby poprosić o nowy utwór dla bieżącej sceny. Działa to na komputerze i telefonie. Zobacz [Game Mode: pierwsze kroki](../game/getting-started.md#the-games-controls).
 
 ## Komenda Music w trybie Conversation
 
