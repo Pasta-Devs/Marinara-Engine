@@ -14,7 +14,7 @@ Scene background generation is available in Roleplay and Game modes.
 
 ## Gallery से बैकग्राउंड जेनरेट करना और लगाना
 
-**Gallery** में चैट की इमेज और वीडियो रहते हैं। यह **Chat Settings** (चैट सेटिंग्स) का एक सेक्शन है: Chat Settings खोलें और **Gallery** फैलाएँ। कंप्यूटर पर इसे अलग विंडो में भी खोल सकते हैं (देखें [चैट सेटिंग्स की जानकारी](../chats/chat-settings.md#popping-a-section-out-into-its-own-window))। **Background** बटन से मौजूदा सीन के लिए बैकग्राउंड आर्ट जेनरेट होता है।
+**Gallery** में चैट की इमेज और वीडियो रहते हैं। यह **Chat Settings** (चैट सेटिंग्स) का एक सेक्शन है: Chat Settings खोलें और **Gallery** फैलाएँ। कंप्यूटर पर इसे अलग विंडो में भी खोल सकते हैं (देखें [चैट सेटिंग्स का ओवरव्यू](../chats/chat-settings.md#popping-a-section-out-into-its-own-window))। **Background** बटन से मौजूदा सीन के लिए बैकग्राउंड आर्ट जेनरेट होता है।
 
 बैकग्राउंड जेनरेट करने के लिए:
 

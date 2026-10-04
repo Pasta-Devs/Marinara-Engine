@@ -64,7 +64,7 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "146abd03c3a331b680d3525484001c482d6e1c2f25946a2a5701d11c5b29f712",
+      "sha256": "5ee2bb1a2f9f7bf8cee9b7dac8ea3130c93e7886ce973b4a8b56a9916d88c10c",
       "bytes": 74160
     },
     {
@@ -534,8 +534,8 @@
     },
     {
       "path": "lorebooks/entries.md",
-      "sha256": "c787958e4ac9eceb7d5cada520a2bb410723bf9fbeb7ebbf997e72e2ba9e6108",
-      "bytes": 88288
+      "sha256": "20b743dc7390c5366e6d88e501b5fde71f8f67280c00c8826e7bafca90d79fce",
+      "bytes": 88314
     },
     {
       "path": "lorebooks/import-export.md",
@@ -589,7 +589,7 @@
     },
     {
       "path": "media/scene-backgrounds.md",
-      "sha256": "6dae2fa43697bf7826fd7a52ec259e07fbf744dd6b18681a670846605af523eb",
+      "sha256": "b1f47894fe085fda44a57a2ded38ca19326a53c291731ee7664b846ad252b920",
       "bytes": 13260
     },
     {
