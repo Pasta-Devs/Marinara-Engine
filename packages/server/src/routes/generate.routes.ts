@@ -10265,14 +10265,29 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             // Cache the exact prompt injections used for this swipe so future
             // regenerations and swipe switches replay the same guidance.
             extraUpdate.contextInjections = contextInjections.length > 0 ? contextInjections : null;
-            // Presentation only; clear inherited references whenever this swipe has no eligible snapshot.
-            extraUpdate.referencedCharacterIds =
+            // Continuing extends this swipe; a new or regenerated reply owns a fresh reference snapshot.
+            if (
               chatMode === "roleplay" &&
               groupGenerationMode === "merged" &&
               allCharacterIds.length > 1 &&
               !input.impersonate
-                ? [...referencedCharacterIds]
-                : [];
+            ) {
+              const previousReferenceIds = input.continueMessageId
+                ? parseExtra(savedMsg.extra).referencedCharacterIds
+                : null;
+              extraUpdate.referencedCharacterIds = [
+                ...new Set([
+                  ...(Array.isArray(previousReferenceIds)
+                    ? previousReferenceIds.filter(
+                        (id): id is string => typeof id === "string" && /^[A-Za-z0-9_-]{21}$/.test(id),
+                      )
+                    : []),
+                  ...referencedCharacterIds,
+                ]),
+              ];
+            } else {
+              extraUpdate.referencedCharacterIds = [];
+            }
             extraUpdate.conversationCommandContent =
               chatMode === "conversation" && !input.impersonate ? conversationCommandContent : null;
             extraUpdate.sceneRequest =

@@ -308,6 +308,8 @@ for (const variant of ["single-roleplay", "individual-roleplay", "conversation",
       });
       await openChat(page, chat.id);
       await expect(page.getByText(content, { exact: true })).toBeVisible();
+      // Let queries started after the first render settle before checking their absence.
+      await page.waitForLoadState("networkidle");
       await expect(page.locator(`img[src="${guest.avatarUrl}"]`)).toHaveCount(0);
       expect(requestedReferenceIds).not.toContain(guest.id);
     } finally {
