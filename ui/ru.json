@@ -277,8 +277,6 @@
   "window.controls.close": "Закрыть окно",
   "window.controls.lock": "Заблокировать окно",
   "window.controls.lockHint": "Запретите перемещение и изменение размера окна и зафиксируйте его кнопку.",
-  "window.controls.minimize": "Свернуть окно",
-  "window.controls.minimizeHint": "Сверните окно в кнопку, которую можно перемещать.",
   "window.controls.move": "Переместить окно клавишами со стрелками",
   "window.controls.pin": "Закрепить окно",
   "window.controls.pinHint": "Оставьте окно открытым при нажатии в другом месте.",

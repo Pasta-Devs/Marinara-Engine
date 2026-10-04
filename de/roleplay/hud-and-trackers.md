@@ -48,7 +48,7 @@ Du kannst das Fenster an der Titelleiste verschieben, an den Kanten seine Größ
 
 - **Pin** (anheften) hält es offen, wenn du woanders klickst. Anfangs ist es angeheftet.
 - **Lock** (sperren) verhindert Verschieben und Größenänderungen und hält auch seine Schaltfläche fest. Sie öffnet weiterhin das Fenster, in dem du es wieder entsperren kannst.
-- **Minimize** (minimieren) oder **Close** (schließen) verkleinert es zur verschiebbaren **Trackers**-Schaltfläche. Ein Klick darauf öffnet es wieder an der letzten Position.
+- **Close** (schließen) verkleinert es zur verschiebbaren **Trackers**-Schaltfläche. Ein Klick darauf öffnet es wieder an der letzten Position.
 
 Um stattdessen das Tracker Panel zu nutzen, klick auf den Würfel in der Titelleiste von Chat Settings. Solange das Panel ausgeblendet ist, bleiben die Tracker über ihr Fenster oder ihre Schaltfläche erreichbar. **Reset View** in Chat Settings löscht die gespeicherte Anordnung und wählt je nach verfügbarem Platz das ursprüngliche Fenster oder die Schaltfläche.
 
@@ -56,7 +56,7 @@ Während Agenten für den Chat arbeiten, erscheint ein kleiner Punkt neben dem F
 
 Jeder Tracker hat einen aufklappbaren Abschnitt, einen sogenannten Drawer. Klick auf die Überschrift, um ihn zur kleinen Widget-Vorschau zuzuklappen. Ein weiterer Klick zeigt den gesamten Tracker. Marinara merkt sich, welche Abschnitte zugeklappt sind.
 
-Ein Tracker kann auch ein eigenes Fenster bekommen: Klick auf die Schaltfläche zum Herauslösen neben dem Pfeil oder zieh seinen Titel aus dem Trackers-Fenster. Das neue Fenster ist angeheftet und bleibt offen, wenn du das Trackers-Fenster minimierst. Sein **X** verkleinert es zu einer kleinen Schaltfläche mit dem Tracker-Symbol; sie öffnet es wieder an der letzten Position. Mit **Put back in Trackers** (dem gebogenen Pfeil direkt links von **X**) oder durch Ziehen auf das Trackers-Fenster legst du es zurück. Jeder Chat merkt sich, welche Tracker herausgelöst sind und wo sie liegen.
+Ein Tracker kann auch ein eigenes Fenster bekommen: Klick auf die Schaltfläche zum Herauslösen neben dem Pfeil oder zieh seinen Titel aus dem Trackers-Fenster. Das neue Fenster ist zunächst nicht angeheftet. Hefte es an, damit es offen bleibt, wenn du außerhalb klickst oder das Trackers-Fenster schließt. Sein **X** verkleinert es zu einer kleinen Schaltfläche mit dem Tracker-Symbol; sie öffnet es wieder an der letzten Position. Mit **Put back in Trackers** (dem gebogenen Pfeil direkt links von **X**) oder durch Ziehen auf das Trackers-Fenster legst du es zurück. Jeder Chat merkt sich, welche Tracker herausgelöst sind und wo sie liegen.
 
 Unten zeigt **Agent activity**, was die Agenten des Chats getan haben. Hier kannst du Tracker neu ausführen, fehlgeschlagene Agenten erneut starten, laufende Agenten stoppen und **Clear Trackers** nutzen. Derselbe Abschnitt steht unten im Tracker Panel.
 

@@ -126,7 +126,7 @@ Poniższe klasy, atrybuty i zmienne pozwalają nadać tym elementom wspólny sty
 | Pasek tytułu | `.mari-window__header` |
 | Tytuł z ikoną | `.mari-window__title-row` |
 | Tytuł | `.mari-window__title` |
-| Przyciski paska tytułu (**Reset View**, gwiazdka ulubionego układu, **Tracker Panel**, minimalizacja, przypięcie, blokada, zamknięcie, **Put back**) | `.mari-window__controls` (każdy przycisk ma klasę `.mari-window__control`) |
+| Przyciski paska tytułu (**Reset View**, gwiazdka ulubionego układu, **Tracker Panel**, przypięcie, blokada, zamknięcie, **Put back**) | `.mari-window__controls` (każdy przycisk ma klasę `.mari-window__control`) |
 | Zawartość okna | `.mari-window__body` |
 | Krawędzie i narożniki do zmiany rozmiaru | `.mari-window__resize-handle` |
 | Znacznik w narożniku widoczny, gdy wskaźnik lub fokus klawiatury znajduje się w oknie | `.mari-window__resize-grip` |
@@ -147,7 +147,7 @@ Poniższe klasy, atrybuty i zmienne pozwalają nadać tym elementom wspólny sty
 - `data-drawer` określa sekcję, na przykład `chat-name`. Niektóre nazwy zaczynają się od trybu czatu, jak `roleplay-agents` lub `conversation-agents`. Trackery korzystają z nazw `tracker-world`, `tracker-persona`, `tracker-characters`, `tracker-quests`, `tracker-inventory`, `tracker-custom` i `agent-activity`.
 - `data-presentation` ma wartość `"window"` w oknie na komputerze albo `"sheet"` w panelu na telefonie.
 - `data-pinned` i `data-locked` mają wartość `"true"`, gdy okno jest przypięte lub zablokowane.
-- `data-window-control` określa przycisk paska tytułu: `"minimize"`, `"pin"`, `"lock"`, `"close"` lub `"put-back"`. Włączony przycisk przypięcia lub blokady ma też `aria-pressed="true"`.
+- `data-window-control` określa przycisk paska tytułu: `"pin"`, `"lock"`, `"close"` lub `"put-back"`. Włączony przycisk przypięcia lub blokady ma też `aria-pressed="true"`.
 - `data-chat-settings-control` oznacza dodatkowe przyciski paska tytułu **Chat Settings**: `"reset-view"`, `"favorite-layout"` i `"tracker-panel"`. Gwiazdka ulubionego układu ma `aria-pressed="true"` i wypełnioną ikonę, gdy bieżący układ odpowiada zapisanemu ulubionemu.
 - `data-edge` ma wartość `"n"`, `"s"`, `"e"`, `"w"`, `"ne"`, `"nw"`, `"se"` lub `"sw"` na odpowiednim uchwycie zmiany rozmiaru.
 - Przycisk otwartej sekcji wewnątrz `.mari-drawer__header` ma `aria-expanded="true"`.

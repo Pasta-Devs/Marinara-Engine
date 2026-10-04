@@ -59,7 +59,7 @@ Ist **Tracker Panel** ausgeblendet, nutzen die Tracker am Computer das [Trackers
 
 Klick auf **Pop out** (herauslösen, das Quadrat mit dem Pfeil neben **?**), um einen Abschnitt griffbereit zu halten. Er bekommt ein eigenes Fenster und verschwindet aus **Chat Settings**, bis du ihn zurücklegst.
 
-Am Computer kannst du auch die Überschrift eines Abschnitts aus **Chat Settings** herausziehen. Das neue Fenster ist sofort angeheftet und bleibt offen, während du den Chat nutzt. Du kannst es wie **Chat Settings** verschieben, vergrößern, verkleinern und sperren.
+Am Computer kannst du auch die Überschrift eines Abschnitts aus **Chat Settings** herausziehen. Das neue Fenster ist zunächst nicht angeheftet. Ein Klick außerhalb verkleinert es zu seiner Schaltfläche. Hefte es an, wenn es offen bleiben soll, während du den Chat nutzt. Du kannst es wie **Chat Settings** verschieben, vergrößern, verkleinern und sperren.
 
 - **Close** (**X**) verkleinert den Abschnitt zu einer kleinen Schaltfläche mit seinem Symbol. Zieh sie an eine passende Stelle. Ein Klick öffnet das Fenster wieder an der letzten Position.
 - **Put back in Chat Settings** (der gebogene Pfeil neben **X**) legt den Abschnitt zurück in **Chat Settings**. Du kannst sein Fenster auch auf **Chat Settings** ziehen.
@@ -75,7 +75,7 @@ Tracker lassen sich ebenso aus dem Fenster **Trackers** herauslösen. Ihre Rück
 
 Einige Tools öffnen eigene kleine Fenster: **Game controls** (Spielsteuerung), **Session** (Sitzung), **Volume** (Lautstärke) und **Game Assets** (Spielressourcen) im Game Mode sowie **Connected chat** (verknüpfter Chat) und Bedienelemente installierter Pakete.
 
-Ihre Schaltflächen liegen anfangs nahe der oberen rechten Ecke des Chats. Klick oder tippe darauf, um das Fenster zu öffnen. Schließen oder Minimieren bringt die Schaltfläche zurück. Am Telefon öffnet sich ein Panel über die ganze Breite.
+Ihre Schaltflächen liegen anfangs nahe der oberen rechten Ecke des Chats. Klick oder tippe darauf, um das Fenster zu öffnen. Schließen bringt die Schaltfläche zurück. Am Telefon öffnet sich ein Panel über die ganze Breite.
 
 Um ein solches Tool in **Chat Settings** unterzubringen, öffne sein Fenster und wähle **Put back in Chat Settings**. Dort erscheint es als aufklappbarer Abschnitt. Über die Schaltfläche zum Herauslösen öffnest du es wieder separat; am Computer kannst du auch seine Überschrift aus den Einstellungen herausziehen. **Reset View** stellt die ursprünglichen Schaltflächen dieser Tools wieder her.
 

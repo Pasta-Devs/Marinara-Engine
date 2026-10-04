@@ -48,7 +48,7 @@ Okno możesz przesunąć za pasek tytułu, zmienić jego rozmiar za krawędzie o
 
 - **Pin** utrzymuje okno otwarte po kliknięciu w innym miejscu. Okno jest początkowo przypięte.
 - **Lock** blokuje przesuwanie i zmianę rozmiaru okna oraz położenie jego przycisku. Przycisk nadal otwiera okno, w którym można zdjąć blokadę.
-- **Minimize** lub **Close** zwija okno do ruchomego przycisku **Trackers**. Kliknięcie przycisku otwiera je w poprzednim miejscu.
+- **Close** zwija okno do ruchomego przycisku **Trackers**. Kliknięcie przycisku otwiera je w poprzednim miejscu.
 
 Żeby użyć zamiast niego Tracker Panel, kliknij kostkę na pasku tytułu Chat Settings. Kiedy panel nie jest widoczny, trackery pozostają dostępne przez okno lub przycisk. **Reset View** w Chat Settings usuwa zapisany układ i wybiera początkowe okno lub przycisk zależnie od dostępnego miejsca.
 
@@ -56,7 +56,7 @@ Gdy agenci pracują nad czatem, obok tytułu okna i na przycisku **Chat Settings
 
 Każdy tracker ma własną rozwijaną sekcję, nazywaną po angielsku drawer. Kliknij jej nagłówek, żeby zwinąć ją do małego podglądu widgetu, i kliknij ponownie, żeby zobaczyć cały tracker. Marinara zapamiętuje, które sekcje są zwinięte.
 
-Tracker może też mieć własne okno: kliknij przycisk otwierania w osobnym oknie obok strzałki albo przeciągnij tytuł poza okno Trackers. Nowe okno jest początkowo przypięte i pozostaje otwarte po zminimalizowaniu okna Trackers. Jego **X** zwija je do małego przycisku z ikoną trackera; przycisk otwiera okno w poprzednim miejscu. Żeby przywrócić tracker, kliknij **Put back in Trackers** (zakrzywiona strzałka tuż po lewej od **X**) albo przeciągnij go na okno Trackers. Każdy czat zapamiętuje, które trackery są odłączone i gdzie leżą.
+Tracker może też mieć własne okno: kliknij przycisk otwierania w osobnym oknie obok strzałki albo przeciągnij tytuł poza okno Trackers. Nowe okno nie jest początkowo przypięte. Przypnij je, aby pozostało otwarte po kliknięciu poza nim lub zamknięciu okna Trackers. Jego **X** zwija je do małego przycisku z ikoną trackera; przycisk otwiera okno w poprzednim miejscu. Żeby przywrócić tracker, kliknij **Put back in Trackers** (zakrzywiona strzałka tuż po lewej od **X**) albo przeciągnij go na okno Trackers. Każdy czat zapamiętuje, które trackery są odłączone i gdzie leżą.
 
 Na dole **Agent activity** pokazuje, co zrobili agenci czatu. Możesz tu ponownie uruchomić trackery, ponowić działania agentów po błędzie, zatrzymać działających agentów i użyć **Clear Trackers**. Tracker Panel ma tę samą sekcję na dole.
 

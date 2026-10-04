@@ -1,6 +1,6 @@
 {
   "language": "de",
-  "sourceCommit": "b0219a3451abfb7db32e2eddaae862c0277853f7",
+  "sourceCommit": "d1339485460a6ce82a4248b8459c45b67af910db",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -84,8 +84,8 @@
     },
     {
       "path": "appearance/custom-css-themes.md",
-      "sha256": "dc90aa789e9905d17548e9bb7c0a7e0889e3f5b5185f6f3c9bdba394d5488c32",
-      "bytes": 19761
+      "sha256": "acea3ebde73c7228b293a7411175f8334bd8c586a4a39ca5fbbf80f1c371a8d0",
+      "bytes": 19735
     },
     {
       "path": "appearance/fonts.md",
@@ -144,8 +144,8 @@
     },
     {
       "path": "chats/chat-settings.md",
-      "sha256": "e9432e3c56b7b8e53b41e808a11a7eab5b6c7b36c49f6db74d2a7b2b4ada87cc",
-      "bytes": 21289
+      "sha256": "99673bb9d6b4c328e98f12988fab879141e15af77146392c9ed09ca0fe57b9d8",
+      "bytes": 21367
     },
     {
       "path": "chats/connected-chats.md",
@@ -664,8 +664,8 @@
     },
     {
       "path": "roleplay/hud-and-trackers.md",
-      "sha256": "b9242243a07e3edb5e2f37b8fb2c2422dd0dbe59a40e51514c777a8ea2c939d6",
-      "bytes": 15672
+      "sha256": "01f5952e1026a968dbeb1609bbc805977c53f9b02c1b59c52d10ebbb95f0a24f",
+      "bytes": 15699
     },
     {
       "path": "roleplay/narrative-director.md",

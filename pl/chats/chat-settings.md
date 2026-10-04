@@ -59,7 +59,7 @@ Gdy **Tracker Panel** nie jest pokazany, na komputerze trackery korzystają z [o
 
 Aby mieć sekcję pod ręką, kliknij jej przycisk **Pop out** (wydzielenie do okna, kwadrat ze strzałką obok **?**). Sekcja dostaje własne okno i znika z **Chat Settings**, dopóki nie włożysz jej z powrotem.
 
-Na komputerze możesz też przeciągnąć tytuł sekcji poza **Chat Settings**. Nowe okno jest od razu przypięte, więc pozostaje otwarte podczas korzystania z czatu. Przesuwaj je, zmieniaj rozmiar i blokuj tak samo jak **Chat Settings**.
+Na komputerze możesz też przeciągnąć tytuł sekcji poza **Chat Settings**. Nowe okno nie jest przypięte, więc kliknięcie poza nim zwija je do przycisku. Przypnij je, jeśli ma pozostać otwarte podczas korzystania z czatu. Przesuwaj je, zmieniaj rozmiar i blokuj tak samo jak **Chat Settings**.
 
 - **Close** (**X**) zmniejsza sekcję do małego przycisku z jej ikoną. Przeciągnij go w wybrane miejsce i kliknij, aby ponownie otworzyć okno tam, gdzie było.
 - **Put back in Chat Settings** (zakrzywiona strzałka obok **X**) wkłada sekcję z powrotem do **Chat Settings**. Możesz też przeciągnąć jej okno na **Chat Settings**.
@@ -75,7 +75,7 @@ Trackery można tak samo wydzielać z okna **Trackers**. Ich przycisk powrotu na
 
 Niektóre narzędzia otwierają własne małe okna: **Game controls** (sterowanie grą), **Session** (sesja), **Volume** (głośność) i **Game Assets** (zasoby gry) w trybie Game Mode, a także **Connected chat** (powiązany czat) i kontrolki zainstalowanych pakietów.
 
-Ich przyciski zaczynają w pobliżu prawego górnego rogu czatu. Kliknij lub dotknij przycisku, aby otworzyć okno. Zamknięcie albo zminimalizowanie okna przywraca przycisk. Na telefonie okno otwiera się jako panel na całą szerokość.
+Ich przyciski zaczynają w pobliżu prawego górnego rogu czatu. Kliknij lub dotknij przycisku, aby otworzyć okno. Zamknięcie okna przywraca przycisk. Na telefonie okno otwiera się jako panel na całą szerokość.
 
 Aby umieścić takie narzędzie wewnątrz **Chat Settings**, otwórz jego okno i wybierz **Put back in Chat Settings**. Pojawi się tam jako rozwijana sekcja. Użyj jej przycisku wydzielenia, aby znów otworzyć ją w osobnym oknie, albo na komputerze przeciągnij tytuł poza ustawienia. **Reset View** przywraca początkowe przyciski tych narzędzi.
 

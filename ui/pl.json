@@ -723,8 +723,6 @@
   "window.controls.close": "Zamknij okno",
   "window.controls.lock": "Zablokuj okno",
   "window.controls.lockHint": "Zablokuj przesuwanie i zmianę rozmiaru okna oraz położenie jego przycisku.",
-  "window.controls.minimize": "Zminimalizuj okno",
-  "window.controls.minimizeHint": "Zwiń okno do przycisku, który można dowolnie rozmieścić.",
   "window.controls.move": "Przesuń okno klawiszami strzałek",
   "window.controls.pin": "Przypnij okno",
   "window.controls.pinHint": "Pozostaw okno otwarte po kliknięciu w innym miejscu.",

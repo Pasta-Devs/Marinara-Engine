@@ -127,7 +127,7 @@ CSS собственной темы оформления проходит очи
 | Строка заголовка | `.mari-window__header` |
 | Заголовок и его значок | `.mari-window__title-row` |
 | Заголовок | `.mari-window__title` |
-| Кнопки строки заголовка (Reset View, звездочка избранного, Tracker Panel, сворачивание, закрепление, блокировка, закрытие, Put back) | `.mari-window__controls` (у каждой кнопки есть `.mari-window__control`) |
+| Кнопки строки заголовка (Reset View, звездочка избранного, Tracker Panel, закрепление, блокировка, закрытие, Put back) | `.mari-window__controls` (у каждой кнопки есть `.mari-window__control`) |
 | Содержимое окна | `.mari-window__body` |
 | Края и углы для изменения размера | `.mari-window__resize-handle` |
 | Метка в углу, когда указатель или фокус находится в окне | `.mari-window__resize-grip` |
@@ -148,7 +148,7 @@ CSS собственной темы оформления проходит очи
 - `data-drawer` задает имя раздела, например `chat-name`. Некоторые имена начинаются с режима чата, как `roleplay-agents` или `conversation-agents`. Трекеры используют `tracker-world`, `tracker-persona`, `tracker-characters`, `tracker-quests`, `tracker-inventory`, `tracker-custom` и `agent-activity`.
 - `data-presentation` имеет значение `"window"` у окна на компьютере или `"sheet"` у панели на телефоне.
 - `data-pinned` и `data-locked` имеют значение `"true"`, пока окно закреплено или заблокировано.
-- `data-window-control` задает имя кнопки в строке заголовка: `"minimize"`, `"pin"`, `"lock"`, `"close"` или `"put-back"`. У нажатой кнопки закрепления или блокировки также есть `aria-pressed="true"`.
+- `data-window-control` задает имя кнопки в строке заголовка: `"pin"`, `"lock"`, `"close"` или `"put-back"`. У нажатой кнопки закрепления или блокировки также есть `aria-pressed="true"`.
 - `data-chat-settings-control` отмечает дополнительные кнопки строки заголовка Chat Settings: `"reset-view"`, `"favorite-layout"` и `"tracker-panel"`. У звездочки избранного есть `aria-pressed="true"` и заполненный значок, когда текущее расположение совпадает с сохраненным избранным.
 - `data-edge` имеет значение `"n"`, `"s"`, `"e"`, `"w"`, `"ne"`, `"nw"`, `"se"` или `"sw"` на соответствующем участке для изменения размера.
 - У кнопки раскрытого раздела внутри `.mari-drawer__header` есть `aria-expanded="true"`.

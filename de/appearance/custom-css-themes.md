@@ -127,7 +127,7 @@ Mit den folgenden Klassen, Datenattributen und Variablen gestaltet ein Theme die
 | Titelleiste | `.mari-window__header` |
 | Titel und sein Symbol | `.mari-window__title-row` |
 | Titel | `.mari-window__title` |
-| Schaltflächen der Titelleiste (Reset View, Favoritenstern, Tracker Panel, Minimieren, Anheften, Sperren, Schließen, Put back) | `.mari-window__controls` (jede Schaltfläche hat `.mari-window__control`) |
+| Schaltflächen der Titelleiste (Reset View, Favoritenstern, Tracker Panel, Anheften, Sperren, Schließen, Put back) | `.mari-window__controls` (jede Schaltfläche hat `.mari-window__control`) |
 | Fensterinhalt | `.mari-window__body` |
 | Kanten und Ecken zur Größenänderung | `.mari-window__resize-handle` |
 | Eckmarkierung, wenn Mauszeiger oder Tastaturfokus im Fenster liegen | `.mari-window__resize-grip` |
@@ -148,7 +148,7 @@ Mit den folgenden Klassen, Datenattributen und Variablen gestaltet ein Theme die
 - `data-drawer` benennt einen Abschnitt, etwa `chat-name`. Einige Namen beginnen mit dem Chat-Modus, zum Beispiel `roleplay-agents` oder `conversation-agents`. Tracker nutzen `tracker-world`, `tracker-persona`, `tracker-characters`, `tracker-quests`, `tracker-inventory`, `tracker-custom` und `agent-activity`.
 - `data-presentation` ist bei einem Computerfenster `"window"` und bei einem Telefon-Panel `"sheet"`.
 - `data-pinned` und `data-locked` sind `"true"`, solange das Fenster angeheftet oder gesperrt ist.
-- `data-window-control` benennt jede Schaltfläche der Titelleiste: `"minimize"`, `"pin"`, `"lock"`, `"close"` oder `"put-back"`. Eine aktivierte Anheft- oder Sperrschaltfläche hat außerdem `aria-pressed="true"`.
+- `data-window-control` benennt jede Schaltfläche der Titelleiste: `"pin"`, `"lock"`, `"close"` oder `"put-back"`. Eine aktivierte Anheft- oder Sperrschaltfläche hat außerdem `aria-pressed="true"`.
 - `data-chat-settings-control` kennzeichnet die zusätzlichen Schaltflächen in der Titelleiste von Chat Settings: `"reset-view"`, `"favorite-layout"` und `"tracker-panel"`. Der Favoritenstern hat `aria-pressed="true"` und ein ausgefülltes Symbol, wenn die aktuelle Anordnung zum gespeicherten Favoriten passt.
 - `data-edge` ist an den jeweiligen Größenänderungsgriffen `"n"`, `"s"`, `"e"`, `"w"`, `"ne"`, `"nw"`, `"se"` oder `"sw"`.
 - Die Schaltfläche eines offenen Abschnitts innerhalb von `.mari-drawer__header` hat `aria-expanded="true"`.

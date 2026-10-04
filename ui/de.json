@@ -666,8 +666,6 @@
   "window.controls.close": "Fenster schließen",
   "window.controls.lock": "Fenster sperren",
   "window.controls.lockHint": "Verhindere Verschieben und Größenänderungen dieses Fensters und halte seine Schaltfläche fest.",
-  "window.controls.minimize": "Fenster minimieren",
-  "window.controls.minimizeHint": "Verkleinere das Fenster zu einer frei platzierbaren Schaltfläche.",
   "window.controls.move": "Fenster mit den Pfeiltasten verschieben",
   "window.controls.pin": "Fenster anheften",
   "window.controls.pinHint": "Halte dieses Fenster offen, wenn du woanders klickst.",
