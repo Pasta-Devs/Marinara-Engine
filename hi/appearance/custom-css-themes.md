@@ -126,7 +126,7 @@ CSS लिखे बिना जल्दी रूप बदलने के �
 | टाइटल बार | `.mari-window__header` |
 | शीर्षक और उसका आइकन | `.mari-window__title-row` |
 | शीर्षक | `.mari-window__title` |
-| टाइटल बार के बटन (Reset View, पसंदीदा लेआउट का स्टार, Tracker Panel, छोटा करें, पिन, लॉक, बंद करें, वापस रखें) | `.mari-window__controls` (हर बटन `.mari-window__control` है) |
+| टाइटल बार के बटन (Reset View, पसंदीदा लेआउट का स्टार, Tracker Panel, पिन, लॉक, बंद करें, वापस रखें) | `.mari-window__controls` (हर बटन `.mari-window__control` है) |
 | विंडो का कंटेंट | `.mari-window__body` |
 | आकार बदलने वाले किनारे और कोने | `.mari-window__resize-handle` |
 | विंडो में पॉइंटर या फ़ोकस होने पर दिखने वाला कोने का निशान | `.mari-window__resize-grip` |
@@ -147,7 +147,7 @@ CSS लिखे बिना जल्दी रूप बदलने के �
 - `data-drawer` ड्रॉअर का नाम बताता है, जैसे `chat-name`। कुछ नाम चैट मोड से शुरू होते हैं, जैसे `roleplay-agents` या `conversation-agents`। ट्रैकर के नाम `tracker-world`, `tracker-persona`, `tracker-characters`, `tracker-quests`, `tracker-inventory`, `tracker-custom` और `agent-activity` हैं।
 - `data-presentation` कंप्यूटर की विंडो पर `"window"` और फ़ोन के पैनल पर `"sheet"` होता है।
 - विंडो पिन या लॉक होने पर `data-pinned` और `data-locked` की वैल्यू `"true"` होती है।
-- `data-window-control` हर टाइटल बार बटन का नाम बताता है: `"minimize"`, `"pin"`, `"lock"`, `"close"` या `"put-back"`। दबे हुए पिन या लॉक बटन पर `aria-pressed="true"` भी होता है।
+- `data-window-control` हर टाइटल बार बटन का नाम बताता है: `"pin"`, `"lock"`, `"close"` या `"put-back"`। दबे हुए पिन या लॉक बटन पर `aria-pressed="true"` भी होता है।
 - `data-chat-settings-control` Chat Settings के अतिरिक्त टाइटल बार बटन पहचानता है: `"reset-view"`, `"favorite-layout"` और `"tracker-panel"`। मौजूदा लेआउट सेव किए गए पसंदीदा लेआउट से मेल खाने पर स्टार का आइकन भरा होता है और `aria-pressed="true"` होता है।
 - आकार बदलने वाले हर हैंडल पर `data-edge` की वैल्यू `"n"`, `"s"`, `"e"`, `"w"`, `"ne"`, `"nw"`, `"se"` या `"sw"` होती है।
 - खुले ड्रॉअर के `.mari-drawer__header` के अंदर वाले टॉगल बटन पर `aria-expanded="true"` होता है।

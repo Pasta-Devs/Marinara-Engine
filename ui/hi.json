@@ -277,8 +277,6 @@
   "window.controls.close": "विंडो बंद करें",
   "window.controls.lock": "विंडो लॉक करें",
   "window.controls.lockHint": "विंडो को खिसकने या उसका आकार बदलने से रोकें, और उसके बटन को भी उसकी जगह पर रखें।",
-  "window.controls.minimize": "विंडो छोटी करें",
-  "window.controls.minimizeHint": "विंडो को ऐसे बटन में समेटें जिसे कहीं भी रख सकते हैं।",
   "window.controls.move": "तीर वाले बटन से विंडो खिसकाएँ",
   "window.controls.pin": "विंडो पिन करें",
   "window.controls.pinHint": "दूसरी जगह क्लिक करने पर भी यह विंडो खुली रखें।",
