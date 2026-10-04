@@ -113,7 +113,100 @@ try {
     assert.equal(sent.length, before + 1, `${mode}: one model request`);
     check(`${mode} sent prompt`, sent.at(-1)!);
     assert.match(sent.at(-1)!, /MIRA_CARD: an old friend of Susie\./u, `${mode}: the chat member's card names her too`);
+    const assistant = (await chats.listMessages(chat.id)).find((message) => message.role === "assistant");
+    assert(assistant);
+    assert.deepEqual(JSON.parse(assistant.extra).referencedCharacterIds, [], `${mode}: no Roleplay avatar extras`);
   }
+
+  const kaelen = await characters.create(characterDataSchema.parse({ name: "Kaelen" }));
+  const group = await chats.create({
+    name: "Merged narrator references",
+    mode: "roleplay",
+    characterIds: [mira.id, kaelen.id],
+    connectionId: connection.id,
+    promptPresetId: null,
+  });
+  await chats.patchMetadata(group.id, {
+    enableAgents: false,
+    enableTools: false,
+    enableMemoryRecall: false,
+    groupChatMode: "merged",
+    groupResponseOrder: "manual",
+  });
+  const groupInput = await chats.createMessage({
+    chatId: group.id,
+    role: "user",
+    content: `We wait for {{${susie.id}}}.`,
+  });
+  const mergedResponse = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: group.id },
+  });
+  assert.equal(mergedResponse.statusCode, 200, mergedResponse.body);
+  assert(!mergedResponse.body.includes('"type":"error"'), mergedResponse.body);
+  const mergedMessage = (await chats.listMessages(group.id)).find((message) => message.role === "assistant");
+  assert(mergedMessage);
+  assert.deepEqual(JSON.parse(mergedMessage.extra).referencedCharacterIds, [susie.id]);
+
+  const jules = await characters.create(characterDataSchema.parse({ name: "Jules" }));
+  await characters.update(mira.id, { description: "MIRA_CARD: a resident." });
+  await chats.updateMessageContent(groupInput.id, `We wait for {{${jules.id}}}.`);
+  await chats.updateMessageExtraForSwipe(mergedMessage.id, 0, {
+    referencedCharacterIds: [susie.id, susie.id, null, 7, {}, "invalid"],
+  });
+  const continuedResponse = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: group.id, continueMessageId: mergedMessage.id },
+  });
+  assert.equal(continuedResponse.statusCode, 200, continuedResponse.body);
+  assert(!continuedResponse.body.includes('"type":"error"'), continuedResponse.body);
+  assert.doesNotMatch(sent.at(-1)!, /Susie/u, "the continuation prompt no longer references the original guest");
+  assert.deepEqual(
+    JSON.parse((await chats.getMessage(mergedMessage.id))!.extra).referencedCharacterIds,
+    [susie.id, jules.id],
+    "a continuation retains valid prior references and adds current ones without duplicates",
+  );
+
+  await chats.patchMetadata(group.id, { groupChatMode: "individual" });
+  const individualResponse = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: group.id, regenerateMessageId: mergedMessage.id, forCharacterId: mira.id },
+  });
+  assert.equal(individualResponse.statusCode, 200, individualResponse.body);
+  assert(!individualResponse.body.includes('"type":"error"'), individualResponse.body);
+  await chats.patchMetadata(group.id, { groupChatMode: "merged" });
+  const swipes = await chats.getSwipes(mergedMessage.id);
+  assert.deepEqual(
+    JSON.parse(swipes[0]!.extra).referencedCharacterIds,
+    [susie.id, jules.id],
+    "the continued merged swipe retains its IDs",
+  );
+  assert.deepEqual(
+    JSON.parse(swipes[1]!.extra).referencedCharacterIds,
+    [],
+    "the individual swipe clears inherited IDs",
+  );
+  assert.deepEqual(
+    JSON.parse((await chats.getMessage(mergedMessage.id))!.extra).referencedCharacterIds,
+    [],
+    "switching back to merged mode cannot revive the individual swipe's stale references",
+  );
+  const mergedRegeneration = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: group.id, regenerateMessageId: mergedMessage.id },
+  });
+  assert.equal(mergedRegeneration.statusCode, 200, mergedRegeneration.body);
+  assert(!mergedRegeneration.body.includes('"type":"error"'), mergedRegeneration.body);
+  assert.deepEqual(
+    JSON.parse((await chats.getMessage(mergedMessage.id))!.extra).referencedCharacterIds,
+    [jules.id],
+    "a merged regeneration starts fresh rather than retaining the original guest",
+  );
+  assert.deepEqual(JSON.parse((await chats.getById(group.id))!.characterIds), [mira.id, kaelen.id]);
   // A names-only pass names every referenced character, not just the first eight.
   const crowd = await Promise.all(
     Array.from({ length: 9 }, (_, index) =>

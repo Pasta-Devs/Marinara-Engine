@@ -42,6 +42,7 @@ export function AdvancedMemoryInspector({
   const fileInput = useRef<HTMLInputElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [draftTimeline, setDraftTimeline] = useState("");
   const [draftAudience, setDraftAudience] = useState<string[]>([]);
   const [editAudience, setEditAudience] = useState(false);
   const [showSources, setShowSources] = useState(false);
@@ -67,6 +68,8 @@ export function AdvancedMemoryInspector({
       ? t("chat.advancedMemory.sceneNumber", { number: sceneNumbers.get(record.sceneId) })
       : t(`chat.advancedMemory.kind.${record.kind}`);
   const selected = records.find((record) => record.id === selectedId);
+  const editableTimeline = selected?.kind === "scene" && selected.id !== selected.sceneId;
+  const timelineChanged = editableTimeline && draftTimeline.trim() !== (selected.timeline ?? "").trim();
   const blockedRecord = records.find((record) => record.id === status.data?.job.reviewRecordId);
   const reviewAudience =
     selected?.kind === "scene" &&
@@ -116,6 +119,7 @@ export function AdvancedMemoryInspector({
   const openRecord = (record: AdvancedMemoryRecord) => {
     setSelectedId(record.id);
     setDraft(record.content);
+    setDraftTimeline(record.timeline ?? "");
     setDraftAudience(record.audienceCharacterIds);
     setEditAudience(false);
     setShowSources(false);
@@ -332,9 +336,24 @@ export function AdvancedMemoryInspector({
             {t("chat.advancedMemory.range", { start: selected.startIndex, end: selected.endIndex })} ·{" "}
             {audience(selected)}
           </p>
-          <p className="text-xs text-[var(--muted-foreground)]">
-            {t("chat.advancedMemory.timeframe")}: {selected.timeline || t("chat.advancedMemory.timeframeUnknown")}
-          </p>
+          {editableTimeline ? (
+            <label className="block space-y-1 text-xs">
+              <span>{t("chat.advancedMemory.timeframe")}</span>
+              <textarea
+                value={draftTimeline}
+                onChange={(event) => setDraftTimeline(event.target.value)}
+                rows={2}
+                maxLength={2000}
+                disabled={action.isPending}
+                placeholder={t("chat.advancedMemory.timeframeUnknown")}
+                className="mari-chrome-field min-h-11 w-full resize-y rounded-lg px-3 py-2 text-xs leading-relaxed disabled:opacity-50"
+              />
+            </label>
+          ) : (
+            <p className="text-xs text-[var(--muted-foreground)]">
+              {t("chat.advancedMemory.timeframe")}: {selected.timeline || t("chat.advancedMemory.timeframeUnknown")}
+            </p>
+          )}
           <SettingsSwitch
             label={t("chat.advancedMemory.includeInRecall")}
             checked={selected.enabled}
@@ -411,8 +430,12 @@ export function AdvancedMemoryInspector({
             className={`${buttonClass} w-full`}
             disabled={
               action.isPending ||
-              !draft.trim() ||
-              (draft === selected.content && !audienceChanged && !reviewCorrection && !reviewAudience)
+              (draft !== selected.content && !draft.trim()) ||
+              (draft === selected.content &&
+                !timelineChanged &&
+                !audienceChanged &&
+                !reviewCorrection &&
+                !reviewAudience)
             }
             onClick={() =>
               action.mutate({
@@ -420,6 +443,7 @@ export function AdvancedMemoryInspector({
                 recordId: selected.id,
                 patch: {
                   ...(draft !== selected.content || reviewCorrection ? { content: draft } : {}),
+                  ...(timelineChanged ? { timeline: draftTimeline.trim() } : {}),
                   ...(audienceChanged || reviewAudience ? { audienceCharacterIds: draftAudience } : {}),
                 },
               })

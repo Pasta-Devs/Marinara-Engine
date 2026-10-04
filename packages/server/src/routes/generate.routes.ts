@@ -2801,6 +2801,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           ],
           nameCharacterReferences: !(presetId && resolvedPreset && chatMode !== "conversation" && chatMode !== "game"),
         });
+        const referencedCharacterIds = new Set(Object.keys(promptMacroContext.characterReferences ?? {}));
         const conversationMacroFieldsByCharacterId = new Map<string, NonNullable<MacroContext["convoFields"]>>();
         const historyMacroProfilesById = (await resolveCharacterMacroData(app.db, allCharacterIds)).profilesById;
 
@@ -3358,6 +3359,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           };
 
           const assembled = await assemblePrompt(assemblerInput);
+          for (const id of assembled.referencedCharacterIds) referencedCharacterIds.add(id);
           Object.assign(promptMacroContext.variables, assembled.macroVariables);
           // Preset values are available now, so deferred names resolve normally
           // (and preset-first) in the provider-boundary pass. Conditionals were
@@ -10268,6 +10270,29 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             // Cache the exact prompt injections used for this swipe so future
             // regenerations and swipe switches replay the same guidance.
             extraUpdate.contextInjections = contextInjections.length > 0 ? contextInjections : null;
+            // Continuing extends this swipe; a new or regenerated reply owns a fresh reference snapshot.
+            if (
+              chatMode === "roleplay" &&
+              groupGenerationMode === "merged" &&
+              allCharacterIds.length > 1 &&
+              !input.impersonate
+            ) {
+              const previousReferenceIds = input.continueMessageId
+                ? parseExtra(savedMsg.extra).referencedCharacterIds
+                : null;
+              extraUpdate.referencedCharacterIds = [
+                ...new Set([
+                  ...(Array.isArray(previousReferenceIds)
+                    ? previousReferenceIds.filter(
+                        (id): id is string => typeof id === "string" && /^[A-Za-z0-9_-]{21}$/.test(id),
+                      )
+                    : []),
+                  ...referencedCharacterIds,
+                ]),
+              ];
+            } else {
+              extraUpdate.referencedCharacterIds = [];
+            }
             extraUpdate.conversationCommandContent =
               chatMode === "conversation" && !input.impersonate ? conversationCommandContent : null;
             extraUpdate.sceneRequest =

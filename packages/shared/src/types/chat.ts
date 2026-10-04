@@ -907,6 +907,8 @@ export interface MessageExtra {
   mariDeferredMutations?: boolean | null;
   /** Per-swipe sprite expressions from the Expression Engine agent */
   spriteExpressions?: Record<string, string> | null;
+  /** Presentation-only ID-macro card references for merged Roleplay narrator avatars; never chat members. */
+  referencedCharacterIds?: string[];
   /** All sprite owners in the completed expression result, including the persona. Empty means none. */
   expressionSpriteIds?: string[];
   /** Per-swipe CYOA choices from the CYOA Choices agent */

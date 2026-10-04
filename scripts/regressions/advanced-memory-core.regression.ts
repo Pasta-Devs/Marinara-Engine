@@ -1430,7 +1430,7 @@ try {
       await assert.rejects(memory.updateRecord(joinedChat.id, editableScene.id, { content: " " }), /Memory text/);
       await assert.rejects(
         memory.updateRecord(joinedChat.id, editableScene.id, {}),
-        /must include content, enabled or audience/,
+        /must include content, timeframe, enabled or audience/,
       );
       await assert.rejects(memory.deleteRecord(joinedChat.id, editableScene.sceneId), /Only a saved summary/);
       assert.equal((await memory.status(joinedChat.id)).job.status, "running", "invalid edits do not cancel paid work");
