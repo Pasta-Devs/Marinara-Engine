@@ -24,7 +24,11 @@ export function MultiplayerSettings() {
   );
   const id = useId();
   return (
-    <SettingsSection title={t("multiplayer.title")} icon={<Users size={16} />} anchorId="settings-section-multiplayer">
+    <SettingsSection
+      title={t("multiplayer.settingsTitle")}
+      icon={<Users size={16} />}
+      anchorId="settings-section-multiplayer"
+    >
       <div className="space-y-3">
         <button
           type="button"
