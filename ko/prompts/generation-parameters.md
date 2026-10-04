@@ -15,7 +15,7 @@
 기본값은 **Presets > Parameters**(프리셋 > 파라미터), 연결 값은 **Connections > Default Parameters**(연결 > 기본 파라미터)에서 수정하세요. 채팅별 덮어쓰기는 **Chat Settings > Advanced Parameters**(채팅 설정 > 고급 파라미터)에서 설정합니다.
 
 1. 바꾸려는 채팅을 여세요.
-2. **Chat Settings**(채팅 설정)를 여세요. 현재 채팅의 톱니바퀴 아이콘입니다.
+2. **Chat Settings**(채팅 설정)를 여세요. 채팅 안의 **Chat Settings** 버튼은 직접 옮기지 않았다면 오른쪽 위에 있습니다.
 3. **Advanced Parameters** 섹션을 찾아 클릭해서 펼치세요.
 
 "Override generation parameters for this chat. Only change these if you know what you're doing."라는 안내 문구가 보일 것입니다. 아래에 나오는 설정은 모두 **Advanced Parameters** 안에 있습니다.

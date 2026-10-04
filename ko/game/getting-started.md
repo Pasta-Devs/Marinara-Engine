@@ -146,6 +146,22 @@ Game Mode에서 가장 어려운 부분은 월드 생성입니다. 빠진 필드
 
 파라미터 전체 설명은 [생성 파라미터](../prompts/generation-parameters.md)에서 확인하세요.
 
+<a id="the-games-controls"></a>
+
+## 게임 컨트롤
+
+게임 컨트롤은 채팅 오른쪽 위의 버튼으로 엽니다.
+
+- **Game controls**(게임 컨트롤, 원형 화살표): **Retry turn**, **Retry scene analysis**, Music DJ가 음악을 고르는 게임의 **Retry Music DJ**, **Retry assets image generation**이 있습니다. 게임 배경에서 스토리보드가 재생 중이면 다시 재생, 재생/일시정지, 음소거도 있습니다.
+- **Session**(세션, 깃펜): 세션 기록, 일지, 세션 조작입니다. [Game Mode: 세션과 저장 데이터](sessions-and-saves.md)를 참고하세요.
+- **Volume**(음량, 스피커): **Master**, **Music**, **Sound Effects**, **TTS**, **Ambient** 음량입니다.
+- **Game Assets**(게임 에셋, 폴더): 장면 미디어와 Asset Browser입니다. [게임 에셋](game-assets.md)을 참고하세요.
+- **Connected chat**(연결된 채팅): 게임이 Conversation에 연결되어 있을 때 나타납니다. [연결된 채팅](../chats/connected-chats.md#switching-between-connected-chats)을 참고하세요.
+
+버튼을 클릭하거나 탭하면 컴퓨터에서는 이동 가능한 창으로, 휴대폰에서는 화면 너비의 패널로 열립니다. 버튼을 끌어 위치를 바꿀 수 있습니다. 창이나 패널을 닫으면 버튼으로 돌아갑니다. [컨트롤 창과 버튼](../chats/chat-settings.md#control-windows-and-their-buttons)을 참고하세요.
+
+이 컨트롤을 **Chat Settings** 안에 둘 수도 있습니다. 창을 열고 **Put back in Chat Settings**(채팅 설정으로 되돌리기)를 선택하면 펼칠 수 있는 섹션으로 들어갑니다. 섹션의 별도 창 버튼으로 다시 꺼낼 수 있습니다. 게임마다 이 선택을 저장하며, **Reset View**는 초기 버튼으로 되돌립니다.
+
 ## 각 게임 주제가 있는 곳
 
 이 가이드는 게임을 시작하는 데까지만 안내합니다. 더 깊은 주제는 각각 별도의 가이드가 있습니다.

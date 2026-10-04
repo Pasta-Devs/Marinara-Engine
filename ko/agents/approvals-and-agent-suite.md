@@ -9,7 +9,7 @@
 토글은 다음 위치에 있습니다.
 
 1. 통제하려는 채팅을 여세요.
-2. **Chat Settings**(채팅 설정, 톱니바퀴 아이콘)를 여세요.
+2. **Chat Settings**(채팅 설정)를 여세요.
 3. **Agents**(에이전트) 섹션까지 스크롤하세요.
 4. **Review Agent Outputs**를 켜세요.
 
@@ -60,7 +60,7 @@
 
 여는 방법은 다음과 같습니다.
 
-1. **Chat Settings**(톱니바퀴 아이콘)를 여세요.
+1. **Chat Settings**(채팅 설정)를 여세요.
 2. **Agents** 섹션까지 스크롤하세요.
 3. **Agent Suite**를 클릭하세요.
 
@@ -90,7 +90,7 @@
 
 ## Cached prompt injections 패널
 
-답변이 생성되기 전에 일부 쓰기 에이전트가 프롬프트에 텍스트를 덧붙입니다. **Prose Guardian**, **Narrative Director**, 사용자 지정 주입 에이전트에서 흔히 일어나는 일입니다. **Cached prompt injections** 패널은 그렇게 덧붙은 텍스트를 확인하는 문제 해결용 화면입니다. Roleplay 채팅의 Agents 메뉴에 있으며, 가장 최근 답변을 대상으로 합니다.
+답변이 생성되기 전에 일부 쓰기 에이전트가 프롬프트에 텍스트를 덧붙입니다. **Prose Guardian**, **Narrative Director**, 사용자 지정 주입 에이전트에서 흔히 일어나는 일입니다. **Cached prompt injections** 패널은 그렇게 덧붙은 텍스트를 확인하는 문제 해결용 화면입니다. Roleplay 채팅의 **Agent activity**(에이전트 활동)에 있는 **Injections**(삽입) 탭에서 확인할 수 있습니다. 이 탭은 **Debug mode**(디버그 모드)가 켜져 있을 때 나타납니다. [에이전트 활동](../roleplay/getting-started.md#agent-activity)을 참고하세요. 가장 최근 답변을 대상으로 합니다.
 
 캐시된 주입마다 다음 작업을 할 수 있습니다.
 

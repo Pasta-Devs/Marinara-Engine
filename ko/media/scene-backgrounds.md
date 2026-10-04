@@ -1,6 +1,6 @@
 # 장면 배경과 Gallery
 
-이 가이드에서는 AI가 만들어 주는 장면 배경, 즉 Marinara Engine이 **Gallery**(갤러리)에서 생성하는 배경 이미지와 Gallery 패널 자체를 설명합니다. 관련 가이드가 둘 더 있습니다. 직접 올려 둔 이미지 중에서 고르는 방법은 [채팅 배경](../appearance/chat-backgrounds.md)에서, 턴마다 배경을 자동으로 골라 주는 에이전트는 [Roleplay 배경](../roleplay/backgrounds.md)에서 다룹니다.
+이 가이드에서는 AI가 만들어 주는 장면 배경, 즉 Marinara Engine이 **Gallery**(갤러리)에서 생성하는 배경 이미지와 Gallery 자체를 설명합니다. 관련 가이드가 둘 더 있습니다. 직접 올려 둔 이미지 중에서 고르는 방법은 [채팅 배경](../appearance/chat-backgrounds.md)에서, 턴마다 배경을 자동으로 골라 주는 에이전트는 [Roleplay 배경](../roleplay/backgrounds.md)에서 다룹니다.
 
 ## 장면 배경을 쓸 수 있는 곳
 
@@ -14,11 +14,11 @@ Scene background generation is available in Roleplay and Game modes.
 
 ## Gallery에서 배경 생성하고 적용하기
 
-**Gallery**는 채팅의 이미지와 동영상을 모아 두는 패널입니다. 채팅 툴바의 이미지 아이콘으로 엽니다. **Background**(배경) 버튼을 누르면 현재 장면에 맞는 배경 그림을 생성합니다.
+**Gallery**에는 채팅의 이미지와 동영상이 모여 있습니다. **Chat Settings**(채팅 설정) 안의 섹션이므로 Chat Settings를 열고 **Gallery**를 펼치세요. 컴퓨터에서는 별도 창으로 꺼낼 수 있습니다([채팅 설정 개요](../chats/chat-settings.md#popping-a-section-out-into-its-own-window) 참고). **Background**(배경) 버튼을 누르면 현재 장면에 맞는 배경 그림을 생성합니다.
 
 배경을 생성하는 방법은 다음과 같습니다.
 
-1. **Gallery** 패널을 여세요.
+1. **Chat Settings**의 **Gallery** 섹션을 여세요.
 2. **Background** 버튼을 클릭하세요.
 3. 이미지를 만드는 동안 버튼 이름이 **Generating...**으로 바뀝니다.
 4. "AI background generation is running. The new background will be applied when it finishes." 상태 메시지가 나타납니다.
@@ -36,11 +36,11 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 
 이때는 **Connections**(연결) 패널을 열고 **Defaults**(기본값)를 펼친 다음 **Images**(이미지)에서 이미지 연결을 고르세요. 또는 **Illustrator** 에이전트에 이미지 연결을 따로 지정해도 됩니다.
 
-## Gallery 패널
+## Gallery 섹션
 
 **Gallery**에는 **Images**와 **Videos**(동영상) 두 개의 탭이 있습니다. 각 탭에는 담긴 항목 수가 함께 표시됩니다. **Videos** 탭은 해당 채팅에서 장면 동영상이 활성화되어 있을 때만 나타납니다.
 
-패널 위쪽의 동작 버튼은 그 기능을 현재 채팅에서 쓸 수 있을 때만 나타납니다.
+섹션 위쪽의 동작 버튼은 그 기능을 현재 채팅에서 쓸 수 있을 때만 나타납니다.
 
 - **Illustrate**: Illustrator 에이전트를 실행해 장면 이미지를 한 장 만듭니다. [Illustrator 에이전트](illustrator-agent.md)를 참고하세요.
 - **Selfie**(셀카): Conversation에서 캐릭터의 셀카를 생성합니다.

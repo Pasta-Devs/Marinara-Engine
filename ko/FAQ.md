@@ -133,7 +133,7 @@ Noodle은 Marinara에 들어 있는, 캐릭터들이 쓰는 가상의 로컬 소
 AI 모델이 한 번에 담을 수 있는 글의 양은 정해져 있습니다. 그래서 채팅이 길어지면 오래된 메시지가 시야에서 밀려납니다. Marinara에는 이를 보완하는 기억 기능이 2가지 있습니다:
 
 - **Memory Recall**(기억 회상)은 이전 메시지를 검색해 가장 관련 있는 부분만 조용히 프롬프트에 다시 넣습니다. **Chat Settings**의 **Memory Recall**에서 켜세요.
-- 요약은 오래된 메시지를 짧게 압축합니다. Roleplay 채팅은 **Chat Summary**(채팅 요약)를, Conversation 채팅은 **Automatic Summarization**(자동 요약)을 씁니다.
+- 요약은 오래된 메시지를 짧게 압축합니다. Roleplay 채팅은 **Chat Summary**(채팅 요약)를, Conversation 채팅은 **Automatic Summarization**(자동 요약)을 씁니다. 둘 다 **Chat Settings**(채팅 설정)에 있습니다.
 
 Roleplay 컨텍스트를 자동으로 관리하려면 **Chat Settings → Memory Recall**에서 **Advanced Memory Recall**(고급 기억 회상)를 켜세요. 최근 기록을 유지하고, 제한된 분량으로 이야기의 연속성을 보존하며, 선택한 예상 컨텍스트 한도 안에서 과거 장면을 선별해 불러옵니다. 설정, 진행 상황, 편집은 설정 서랍 안에서 처리합니다. 기존 Individual(개별) 그룹 채팅은 각 캐릭터의 지식 범위를 한 번 확인해야 할 수 있습니다. 선택 사항인 **Use Decision model**을 켜면 저장된 판단 연결이 장면을 감지하고 기억을 선택하며, 요약은 보조 모델이 계속 작성합니다.
 
@@ -182,7 +182,7 @@ Professor Mari는 평범한 Marinara 소스 파일도 편집할 수 있습니다
 
 다운로드해서 쓰는 **Storyboard** 에이전트는 완성된 이야기 텍스트를 순서가 정해진 키프레임 이미지로 바꾸고, 키프레임마다 짧은 클립으로 움직이게 만들 수도 있습니다. **Game Mode**에서는 완료된 게임 마스터(GM) 서술 턴 하나를 스토리보드로 엮어 플로팅 뷰어나 게임 배경에 프레임을 보여 줍니다. **Roleplay**에서는 새로 오간 대화를 모아 본문 안에 에피소드로 엮습니다.
 
-Game Mode에서 쓰려면 **Agents > Download Agents**에서 **Storyboard**를 설치하세요. 게임을 열고 **Chat Settings > Agents**로 이동해 **Enable Agents**(에이전트 활성화)와 **Enable Storyboards**(스토리보드 활성화)를 켠 다음, 해당 게임이나 전역 Storyboard 설정에서 이미지 연결을 지정하세요. GM 서술 턴을 하나 끝낸 뒤 **Gallery**(갤러리)를 열고 **Create storyboard**(스토리보드 만들기)를 클릭하세요. 뷰어를 다시 열 때는 **View storyboard**(스토리보드 보기)를 쓰세요.
+Game Mode에서 쓰려면 **Agents > Download Agents**에서 **Storyboard**를 설치하세요. 게임을 열고 **Chat Settings > Agents**로 이동해 **Enable Agents**(에이전트 활성화)와 **Enable Storyboards**(스토리보드 활성화)를 켠 다음, 해당 게임이나 전역 Storyboard 설정에서 이미지 연결을 지정하세요. GM 서술 턴을 하나 끝낸 뒤 **Chat Settings > Gallery**(채팅 설정 > 갤러리)를 열고 **Create storyboard**(스토리보드 만들기)를 클릭하세요. 뷰어를 다시 열 때는 **View storyboard**(스토리보드 보기)를 쓰세요.
 
 Game 스토리보드를 자동으로 만들려면 **Automatic Storyboard Illustrations**(자동 스토리보드 일러스트)를 켜세요. 클립까지 원한다면 **Automatic Storyboard Animations**(자동 스토리보드 애니메이션)도 켜고 Video Generation 연결을 고르세요. 새 게임 마법사의 **Storyboard Optimized**(스토리보드 최적화) 연출은 GM 서술 방식만 다듬을 뿐, 에이전트를 설치하거나 활성화하지는 않습니다. Game과 Roleplay의 설정, 프롬프트, 뷰어, 마이그레이션 동작, 문제 해결은 [스토리보드 에이전트 가이드](game/storyboard.md)를 참고하세요.
 

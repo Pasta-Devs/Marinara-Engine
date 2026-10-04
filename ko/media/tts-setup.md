@@ -152,7 +152,7 @@ TTS를 켜면 캐릭터 메시지와 서술 메시지 아래 도구 모음에 **
 
 - Roleplay는 **Roleplay messages** 자동 재생 토글과 메시지별 **Speak** 조작을 사용합니다. [Roleplay Mode: 시작하기](../roleplay/getting-started.md)를 참고하세요.
 - Conversation Mode는 **Conversation messages** 토글과 같은 **Speak** 조작을 사용합니다. 음성 통화는 더 큰 기능이며 [Conversation 음성 통화와 영상 통화](../conversation/calls.md)에서 다룹니다.
-- Game Mode는 **Game narration** 토글을 사용합니다. Game Mode에는 자체 오디오 믹서도 있어 **Master**, **Music**(음악), **Sound Effects**, **Ambient** 옆에 **TTS** 채널이 있습니다. 이 채널은 게임 음성 전체의 음량을 정하며 100퍼센트에서 시작합니다. [Game Mode: 시작하기](../game/getting-started.md)를 참고하세요.
+- Game Mode는 **Game narration** 토글을 사용합니다. Game Mode에는 자체 오디오 믹서도 있어 **Master**, **Music**(음악), **Sound Effects**, **Ambient** 옆에 **TTS** 채널이 있습니다. 이 채널은 게임 음성 전체의 음량을 정하며 100퍼센트에서 시작합니다. [게임 컨트롤](../game/getting-started.md#the-games-controls)을 참고하세요.
 
 ## Phonetic name(통화 중 발음)
 

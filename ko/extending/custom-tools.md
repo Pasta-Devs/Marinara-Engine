@@ -140,7 +140,7 @@ AI가 `x`를 2로, `y`를 3으로 지정해 `add_numbers`를 호출하면 도구
 
 도구를 만들었다고 해서 AI가 바로 쓰지는 않습니다. 채팅에서 도구 사용도 켜야 합니다.
 
-1. 채팅을 열고 톱니바퀴를 클릭해 **Chat Settings**(채팅 설정)를 여세요.
+1. 채팅을 열고 **Chat Settings**(채팅 설정)를 여세요.
 2. **Function Calling** 섹션을 여세요. 아이콘은 렌치 모양입니다.
 3. **Enable Tool Use**(도구 사용 활성화)를 켜세요. 설명에는 **Allow AI to call functions (dice rolls, game state, etc.)**라고 적혀 있습니다. 새 채팅에서는 기본적으로 꺼져 있습니다.
 

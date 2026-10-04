@@ -205,7 +205,7 @@ GitHub가 생성하는 소스 아카이브는 커밋 내용이 그대로여도 �
 
 채팅 요약을 만들려면 동작하는 텍스트 연결이 필요합니다.
 
-- Roleplay 모드에서는 **Chat Summary**(채팅 요약) 팝오버를 열고 연결이 지정되어 있는지 확인하세요. 오래된 채팅을 따라잡으려면 **Backfill Summary**(요약 백필)를 쓰세요.
+- Roleplay 모드에서는 **Chat Settings**(채팅 설정) > **Chat Summary**(채팅 요약)를 열고 연결이 지정되어 있는지 확인하세요. 오래된 채팅을 따라잡으려면 **Backfill Summary**(요약 백필)를 쓰세요.
 - Conversation 모드에서는 **Automatic Summarization**(자동 요약)을 열고 **Backfill**(백필)로 실패한 날짜를 다시 시도하세요.
 - 채팅에서 에이전트 쓰기 승인을 요구하도록 설정했다면 AI 요약은 검토를 거쳐야 반영됩니다.
 - 잘못된 API 키처럼 어떤 이유로든 요약이 계속 실패하면 시간을 두고 다시 시도합니다. 연결을 고친 다음 **Backfill**을 쓰세요.
@@ -238,9 +238,9 @@ pnpm backgroundremover:install
 Game Mode Storyboards는 완성된 GM 서술을 키프레임 이미지와 선택 사항인 클립으로 만들어 줍니다. Roleplay Storyboards는 주고받은 메시지를 묶어 어시스턴트 응답 뒤에 결과를 바로 보여 줍니다.
 
 - **Agents** > **Download Agents**에서 **Storyboard**를 설치했는지 확인한 다음, 해당 채팅에서 **Enable Agents**(에이전트 활성화)와 **Enable Storyboards**(스토리보드 활성화)를 켜세요.
-- 장면 동영상을 직접 만들려면 먼저 **Gallery**(갤러리) 이미지를 생성하거나 업로드한 다음 그 이미지의 **Video**(비디오) 또는 **Animate** 동작을 쓰세요. **Gallery**는 **Images**(이미지)와 **Videos**(동영상)를 탭으로 나누므로 **Videos** 탭을 확인하세요.
+- 장면 동영상을 직접 만들려면 **Chat Settings**(채팅 설정) > **Gallery**(갤러리)를 열고 이미지를 생성하거나 업로드한 다음 그 이미지의 **Video**(비디오) 또는 **Animate** 동작을 쓰세요. **Gallery**는 **Images**(이미지)와 **Videos**(동영상)를 탭으로 나누므로 **Videos** 탭을 확인하세요.
 - Game Mode Storyboards를 자동으로 쓰려면 **Chat Settings** > **Agents**(에이전트) > **Storyboards**(스토리보드)를 열고 **Automatic Storyboard Illustrations**(자동 스토리보드 일러스트)가 켜져 있는지 확인하세요. 클립까지 원한다면 **Automatic Storyboard Animations**(자동 스토리보드 애니메이션)도 켜세요.
-- Roleplay에서는 채팅에 **Storyboard** 에이전트를 추가하세요. **Still images**(정지 이미지)나 **Animations**(애니메이션)를 고르고 **Messages per episode**(에피소드당 메시지 수)를 설정한 다음 스토리보드용 이미지 연결을 선택하세요. **Manual only**로 두면 갤러리의 **Create storyboard**(스토리보드 만들기)에서 직접 실행합니다.
+- Roleplay에서는 채팅에 **Storyboard** 에이전트를 추가하세요. **Still images**(정지 이미지)나 **Animations**(애니메이션)를 고르고 **Messages per episode**(에피소드당 메시지 수)를 설정한 다음 스토리보드용 이미지 연결을 선택하세요. **Manual only**로 두면 **Chat Settings**의 **Gallery** 섹션에 있는 **Create storyboard**(스토리보드 만들기)에서 직접 실행합니다.
 - 키프레임 이미지에는 이미지 연결이 필요합니다. 클립에는 동영상 연결도 필요합니다.
 - 모든 캐릭터를 한데 묶은 사용자 지정 프롬프트가 더 잘 맞는다면 **Use NovelAI Character Prompts**(NovelAI 캐릭터 프롬프트 사용)를 끄세요.
 - 느린 제공자에서는 시간 초과가 날 수 있습니다. `.env`의 `IMAGE_GEN_TIMEOUT_MS`나 `VIDEO_GEN_TIMEOUT_MS` 값을 늘린 다음 Marinara를 다시 시작하세요. 서버는 이 값을 시작할 때만 읽습니다.

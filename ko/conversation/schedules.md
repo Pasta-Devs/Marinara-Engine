@@ -18,7 +18,7 @@
 이 기능은 캐릭터 카드가 아니라 채팅에서 조절합니다. 관련 설정은 모두 **Chat Settings**(채팅 설정)의 **Autonomous Messaging**(자율 메시지) 섹션에 있습니다.
 
 1. Conversation 채팅을 여세요.
-2. 톱니바퀴 아이콘을 눌러 **Chat Settings**를 여세요.
+2. **Chat Settings**(채팅 설정)를 여세요. 채팅 안의 **Chat Settings** 버튼은 직접 옮기지 않았다면 오른쪽 위에 있습니다.
 3. **Autonomous Messaging** 섹션을 찾으세요.
 4. **Autonomous Messages** 토글을 켜세요.
 

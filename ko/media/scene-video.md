@@ -112,7 +112,7 @@ Atlas Cloud가 모델의 입력을 변경하는 등의 이유로 저장된 옵�
 
 ## Gallery에서 동영상 만들기
 
-**Roleplay**와 **Game Mode** 채팅 모두 **Gallery** 패널에서 장면 동영상을 만들 수 있습니다. 채팅의 이미지 아이콘이나 갤러리 아이콘으로 패널을 여세요. Game Mode 채팅에는 이 작업을 할 수 있는 곳이 하나 더 있는데, 이 가이드 뒷부분에서 다루는 **Game Assets**(게임 에셋) 패널입니다.
+**Roleplay**와 **Game Mode** 채팅 모두 **Gallery**에서 장면 동영상을 만들 수 있습니다. **Chat Settings**(채팅 설정)를 열고 **Gallery** 섹션을 펼치세요. Game Mode 채팅에는 이 작업을 할 수 있는 곳이 하나 더 있는데, 이 가이드 뒷부분에서 다루는 **Game Assets**(게임 에셋)입니다.
 
 **Gallery**에는 **Images**(이미지) 탭과 **Videos**(동영상) 탭이 있고, 각각 개수가 표시됩니다. 정지 그림은 **Images**에, 완성된 클립은 **Videos**에 들어갑니다.
 
@@ -138,11 +138,11 @@ Atlas Cloud가 모델의 입력을 변경하는 등의 이유로 저장된 옵�
 
 ## Game Mode의 장면 동영상
 
-Game Mode에는 장면 동영상을 만들 수 있는 곳이 하나 더 있습니다. 바로 **Game Assets** 패널입니다. 게임 조작에 있는 **Game Assets** 버튼으로 여세요.
+Game Mode에는 장면 동영상을 만들 수 있는 **Game Assets**도 있습니다. 처음에는 채팅 오른쪽 위에 있는 폴더 버튼을 클릭하거나 탭하세요. 컴퓨터에서는 창으로, 휴대폰에서는 화면 너비의 패널로 열립니다. Chat Settings 안으로 옮겼다면 그 안의 **Game Assets** 섹션을 여세요.
 
-1. **Game Assets** 패널을 여세요.
+1. **Game Assets**를 여세요.
 2. **Generate video**(영상 생성)를 클릭하세요. 툴팁에는 "Generate a scene video from the latest illustration."이라고 표시됩니다.
-3. 준비가 끝나면 가장 최근 클립이 패널에서 재생됩니다.
+3. 준비가 끝나면 가장 최근 클립이 그곳에서 재생됩니다.
 
 **Generate video** 버튼은 게임에 동영상 연결과 장면 일러스트가 모두 갖춰질 때까지 비활성 상태입니다. 너무 일찍 클릭하면 다음 메시지 중 하나가 표시될 수 있습니다.
 

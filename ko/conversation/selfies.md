@@ -87,7 +87,7 @@ Here is a picture from my walk!
 
 캐릭터가 보낼 때까지 기다리지 않고 직접 셀카를 요청할 수도 있습니다.
 
-1. 채팅의 **Gallery**(갤러리) 패널을 여세요.
+1. **Chat Settings**(채팅 설정)를 열고 **Gallery**(갤러리) 섹션을 펼치세요.
 2. **Selfie**(셀카) 버튼을 클릭하세요. 카메라 모양 아이콘입니다.
 3. 채팅에 캐릭터가 둘 이상이라면 버튼 옆 캐릭터 목록에서 셀카를 찍을 캐릭터를 고르세요.
 4. **Settings**(설정), **Generations**(생성), **Image Generation**(이미지 생성)의 **Expose media prompts before sending**(전송 전에 미디어 프롬프트 표시)이 켜져 있다면, 최종 완성된 셀카 프롬프트를 확인하거나 고친 뒤 **Generate**(생성)를 클릭하세요. 확인 단계에서 취소하면 이미지 생성 요청을 보내지 않습니다.

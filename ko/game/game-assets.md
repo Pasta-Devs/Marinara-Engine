@@ -43,9 +43,11 @@ Marinara는 서버를 처음 시작할 때 무료 시작용 라이브러리를 �
 게임에서 여는 방법:
 
 1. Game Mode 채팅을 여세요.
-2. 채팅 툴바에서 **Game Assets** 버튼을 클릭하세요.
+2. **Game Assets** 버튼(폴더 아이콘)을 클릭하거나 탭하세요. 처음에는 채팅 오른쪽 위 근처에 있습니다. 컴퓨터와 휴대폰 모두에서 다른 곳으로 끌어 옮길 수 있습니다.
 
-이 툴바 버튼은 Game Mode를 쓰는 채팅에만 나타납니다. 여기서 열면 **Asset Browser**가 게임 안의 패널로 표시됩니다.
+버튼은 Game Mode 채팅에만 나타납니다. **Asset Browser**가 들어 있는 **Game Assets**를 열며, 컴퓨터에서는 이동 가능한 창으로, 휴대폰에서는 화면 너비의 패널로 표시됩니다.
+
+**Put back in Chat Settings**(채팅 설정으로 되돌리기)로 옮겼다면 Chat Settings 안의 **Game Assets** 섹션을 여세요.
 
 위쪽 툴바에는 **Game Assets**에서 시작하는 경로 표시가 있습니다. 그 옆으로 **Grid view**(격자 보기)와 **List view**(목록 보기) 전환, **Upload**(업로드) 버튼, **New**(새로 만들기) 버튼이 있습니다. **Rescan**(다시 스캔) 버튼, **Open in system folder**(시스템 폴더에서 열기) 버튼, **Search in folder** 입력란도 함께 있습니다. 화면이 넓으면 왼쪽 폴더 트리로 카테고리 사이를 바로 오갈 수 있습니다.
 
@@ -137,7 +139,7 @@ Marinara는 Game Mode가 에셋을 빠르게 찾을 수 있도록 내부 목록�
 
 Game Mode 채팅은 저장된 에셋 폴더 중 일부만 쓰도록 제한할 수 있습니다. 예를 들어 호러 게임에서 밝은 음악을 빼고 싶을 때 유용합니다.
 
-설정 중에는 **Features** 단계에서 **Adjust Game Assets for this Game**(이 게임의 게임 에셋 조정)을 펼치세요. 이미 만든 게임이라면 채팅 툴바에서 그 게임의 **Asset Browser** 패널을 여세요.
+설정 중에는 **Features** 단계에서 **Adjust Game Assets for this Game**(이 게임의 게임 에셋 조정)을 펼치세요. 이미 만든 게임이라면 그 게임의 **Game Assets** 창을 여세요.
 
 그다음 순서는 다음과 같습니다.
 

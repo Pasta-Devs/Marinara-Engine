@@ -40,9 +40,9 @@ Marinara에서 "그룹"이라는 말은 몇 가지 다른 것을 가리킵니다
 
 ## 만든 뒤 멤버 관리하기
 
-캐릭터를 추가하고, 빼고, 순서를 바꾸는 일은 **Chat Settings**(채팅 설정) 패널에서 합니다. 채팅 헤더의 톱니바퀴 아이콘을 클릭하면 열립니다. 톱니바퀴의 툴팁은 **Chat Settings**입니다.
+캐릭터를 추가하고, 빼고, 순서를 바꾸는 일은 **Chat Settings**(채팅 설정)에서 합니다. 채팅 안의 **Chat Settings** 버튼으로 여세요.
 
-패널 안에서 **Characters** 섹션을 찾으세요. 인원수와 함께 "Characters in this chat. Each character has their own personality that the AI roleplays as."라는 안내문이 표시됩니다. 멤버 행마다 아바타, 캐릭터 이름, 드래그 손잡이, 눈 아이콘, 휴지통 아이콘이 있습니다.
+Chat Settings 안에서 **Characters** 섹션을 찾으세요. 인원수와 함께 "Characters in this chat. Each character has their own personality that the AI roleplays as."라는 안내문이 표시됩니다. 멤버 행마다 아바타, 캐릭터 이름, 드래그 손잡이, 눈 아이콘, 휴지통 아이콘이 있습니다.
 
 - 캐릭터를 한 명 더 추가하려면 **Add Character**(캐릭터 추가)를 클릭하고 검색하세요.
 - Folder 전체를 추가하려면 **Add from Folder**를 클릭하고 하나 고르세요.

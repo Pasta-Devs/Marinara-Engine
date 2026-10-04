@@ -152,7 +152,7 @@ Game Mode에는 Game Assets에서 가져오는 자체 배경 음악이 있습니
 
 Game Mode에서는 Spotify가 조금 다르게 동작합니다. 장면이 끝날 때마다 서버가 고른 소스에서 실제 후보 곡의 짧은 목록을 만듭니다. AI는 그 목록에서 한 곡을 고릅니다. 이렇게 하면 AI가 존재하지 않는 곡을 지어내지 않습니다. Game Mode는 한 번에 한 곡을 반복 재생합니다.
 
-턴을 진행할 때 동작 메뉴에는 현재 장면의 곡을 다시 고르게 하는 **Retry Music DJ**(Music DJ 재시도) 버튼이 있습니다.
+**Game controls**(게임 컨트롤)를 열고 **Retry Music DJ**(Music DJ 재시도)를 선택하면 현재 장면의 곡을 새로 고릅니다. 컴퓨터와 휴대폰에서 모두 쓸 수 있습니다. [게임 컨트롤](../game/getting-started.md#the-games-controls)을 참고하세요.
 
 ## Conversation 모드의 Music 명령어
 

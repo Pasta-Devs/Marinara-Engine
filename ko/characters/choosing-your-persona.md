@@ -16,7 +16,7 @@
 
 ### Chat Settings에서 지정하기
 
-1. **Chat Settings**(채팅 설정)를 여세요(채팅 옆의 톱니 아이콘).
+1. **Chat Settings**(채팅 설정)를 여세요. 채팅 안의 **Chat Settings** 버튼은 직접 옮기지 않았다면 오른쪽 위에 있습니다.
 2. **Persona**(페르소나) 섹션을 찾으세요. 안내 문구는 "Your persona defines who you are in this chat."로 시작합니다.
 3. 페르소나를 지정하지 않은 상태에서는 "No persona selected."가 표시됩니다.
 4. **Choose Persona**(페르소나 선택)를 클릭하세요. 페르소나를 지정한 뒤에는 이 버튼이 **Change Persona**로 바뀝니다.

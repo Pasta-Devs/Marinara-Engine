@@ -109,7 +109,7 @@ World Maps 페이지는 설치된 패키지 버전과 준비 상태를 알려 �
 ### Roleplay
 
 1. Roleplay 채팅을 여세요.
-2. 톱니바퀴 버튼으로 **Chat Settings**를 여세요.
+2. **Chat Settings**(채팅 설정)를 여세요.
 3. **Enable Agents**(에이전트 활성화)를 켜세요.
 4. **Tracker Agents**(추적 에이전트) 아래에서 **World Maps**를 활성화하세요.
 5. **Edit world map** 또는 **World map library**를 여세요. 지원되는 Engine
