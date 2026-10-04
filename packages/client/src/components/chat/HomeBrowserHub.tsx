@@ -3047,11 +3047,14 @@ export function HomeBrowserHub({
                   >
                     <HomeWidgetFrame {...widgetFrameProps("professor")}>
                       <section
-                        className="mari-chrome-accent-frame mari-chrome-accent-panel mari-accent-animated mari-home-professor-widget relative grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)_minmax(5.5rem,40%)] overflow-hidden rounded-2xl border p-3 sm:p-[clamp(0.85rem,1vw,1.2rem)]"
+                        className="mari-chrome-accent-frame mari-chrome-accent-panel mari-accent-animated mari-home-professor-widget relative grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)_minmax(5.5rem,40%)] rounded-2xl border p-(--mari-home-professor-pad) [--mari-home-professor-pad:0.75rem] sm:[--mari-home-professor-pad:clamp(0.85rem,1vw,1.2rem)]"
                         data-component="HomeBrowserHub.ProfessorWidget"
                       >
+                        {/* The card no longer clips, so Mari can rise past its top border (#7032). The text column
+                            clips instead, reaching into the card's vertical padding so a large UI font is cut at
+                            the card's padding edge, as before, rather than further in. */}
                         <div
-                          className="relative z-[2] flex min-h-0 min-w-0 flex-col items-start justify-center"
+                          className="relative z-[2] -my-(--mari-home-professor-pad) flex min-h-0 min-w-0 flex-col items-start justify-center overflow-y-clip py-(--mari-home-professor-pad)"
                           data-home-professor-content
                         >
                           <p className="mari-chrome-accent-icon mari-accent-animated text-[0.625rem] font-extrabold uppercase tracking-[0.16em]">
@@ -3077,11 +3080,11 @@ export function HomeBrowserHub({
                           </button>
                         </div>
                         <div
-                          className="pointer-events-none relative z-[1] h-full min-h-0 w-full self-end overflow-hidden"
+                          className="pointer-events-none relative z-[1] h-full min-h-0 w-full self-end"
                           data-home-professor-art
                           aria-hidden="true"
                         >
-                          <div className="absolute bottom-0 right-0 w-[clamp(7rem,38cqw,11rem)] max-w-full">
+                          <div className="absolute bottom-0 right-0" data-home-professor-scene>
                             <ProfessorMariPixelScene active={false} />
                           </div>
                         </div>
@@ -3300,15 +3303,20 @@ export function HomeBrowserHub({
                             </div>
                           </div>
                         ) : (
-                          <div className="flex min-h-32 flex-col justify-end">
-                            <LibraryBig className="mb-2 text-[var(--home-module-accent)]" size="1.1rem" />
+                          // Reaches up into the header's mb-3 gap so a large UI font still fits. mt-auto, not
+                          // justify-end, bottom-aligns it: when nothing fits, it overflows below the title, never over it.
+                          <div className="-mt-3 flex h-[calc(100%+0.75rem)] min-h-0 flex-col">
+                            <LibraryBig
+                              className="mb-2 mt-auto min-h-0 text-[var(--home-module-accent)]"
+                              size="1.1rem"
+                            />
                             <p className="text-sm font-bold text-[var(--foreground)]">
                               {t("home.characterOfDay.emptyTitle")}
                             </p>
                             <button
                               type="button"
                               onClick={() => useUIStore.getState().openCharacterLibrary()}
-                              className="mt-2 self-start text-xs font-bold text-[var(--home-module-accent)] hover:underline"
+                              className="mt-1 self-start text-xs font-bold text-[var(--home-module-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
                             >
                               {t("home.characterOfDay.emptyAction")}
                             </button>
