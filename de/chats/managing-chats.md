@@ -45,7 +45,7 @@ Alle Wege, Chats zu importieren und zu exportieren – auch die Sammelfunktionen
 Den Chatnamen siehst nur du. Er geht nicht an die KI und verändert den Chat inhaltlich nicht.
 
 1. Öffne den Chat.
-2. Öffne über die Zahnrad-Schaltfläche in der Chat-Werkzeugleiste das Panel **Chat Settings**.
+2. Öffne **Chat Settings** über die Schaltfläche im Chat.
 3. Klick im Abschnitt **Chat Name** auf den aktuellen Namen – er wird dadurch zum Textfeld.
 4. Tipp den neuen Namen ein und drück Enter oder klick auf die Häkchen-Schaltfläche.
 

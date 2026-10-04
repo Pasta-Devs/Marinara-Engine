@@ -140,7 +140,7 @@ Ist er aktiv, bekommt der Webhook oder das Skript neben den Argumenten einen Wer
 
 Ein Tool zu erstellen reicht nicht – die KI nutzt es erst, wenn du die Tool-Nutzung auch für den Chat einschaltest.
 
-1. Öffne einen Chat und klick auf das Zahnrad, um **Chat Settings** (Chat-Einstellungen) zu öffnen.
+1. Öffne einen Chat und geh zu **Chat Settings** (Chat-Einstellungen).
 2. Öffne den Bereich **Function Calling** – sein Symbol ist ein Schraubenschlüssel.
 3. Aktiviere **Enable Tool Use** (Tool-Nutzung erlauben). Die Beschreibung dazu lautet **Allow AI to call functions (dice rolls, game state, etc.)**. In einem neuen Chat ist die Option aus.
 

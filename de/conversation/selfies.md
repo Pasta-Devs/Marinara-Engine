@@ -87,7 +87,7 @@ Auch `[selfie: "standing beside the river"]` und `[selfie: standing beside the r
 
 Alternativ forderst du ein Selfie selbst an, statt auf den Charakter zu warten.
 
-1. Öffne im Chat das Panel **Gallery** (Galerie).
+1. Öffne **Chat Settings** und klapp den Abschnitt **Gallery** (Galerie) auf.
 2. Klick auf die Schaltfläche **Selfie** (das Kamera-Symbol).
 3. Sind mehrere Charaktere im Chat, wähle in der Charakterliste neben der Schaltfläche aus, wer das Selfie machen soll.
 4. Ist **Expose media prompts before sending** unter **Settings**, **Generations**, **Image Generation** aktiviert, prüfe oder bearbeite den fertig zusammengesetzten Selfie-Prompt und klick auf **Generate**. Brichst du die Prüfung ab, geht keine Bild-Anfrage raus.

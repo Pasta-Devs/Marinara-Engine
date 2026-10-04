@@ -1,6 +1,6 @@
 # Chat window guide catch-up (#7054)
 
-Status: in progress. This record tracks the translation work requested in [#7054](https://github.com/Pasta-Devs/Marinara-Engine/issues/7054); Polish has completed its first translation and validation pass; the remaining groups are still in progress.
+Status: in progress. This record tracks the translation work requested in [#7054](https://github.com/Pasta-Devs/Marinara-Engine/issues/7054); Polish, German and Russian have completed translation and local validation; review and the remaining groups are still in progress.
 
 ## English source and scope
 
@@ -17,7 +17,7 @@ Each group stays below the hosted review file limit and can be reviewed independ
 
 | Group | Packs | Status |
 | --- | --- | --- |
-| Europe | `pl`, `de`, `ru` | [#7065](https://github.com/Pasta-Devs/Marinara-Engine/pull/7065): Polish complete; German and Russian pending |
+| Europe | `pl`, `de`, `ru` | [#7065](https://github.com/Pasta-Devs/Marinara-Engine/pull/7065): All 37 guides and related UI entries per pack complete; local review pending |
 | Romance languages | `es`, `fr`, `pt-br` | [#7068](https://github.com/Pasta-Devs/Marinara-Engine/pull/7068): in progress |
 | East Asian languages | `ja`, `ko`, `zh-hans` | Pending |
 | Hindi | `hi` | [#7069](https://github.com/Pasta-Devs/Marinara-Engine/pull/7069): in progress |
@@ -89,11 +89,12 @@ Also compare the changed guides with their English source: check fenced code, in
 
 ## Completed local checks
 
-Polish first pass:
+Europe group (`pl`, `de`, `ru`):
 
-- Updated the affected passages in all 37 guides, including the corrected Advanced Recall location in **Chat Settings > Agent activity**.
-- Documentation manifest generated at the working English SHA above; pack validation passed for all 136 guides.
-- New English fenced examples, inline identifiers, relative links and linked fragments were checked against the translations. Explicit anchors retain the new English link targets.
-- Changed paragraphs passed NFC/straight-quote/no-NBSP and reader-gender checks. The larger guides received a prose and terminology pass.
-- Translated 128 relevant UI delta entries; the two guidance keys already supplied by #7064 remain intact. Removed 41 obsolete delta keys. UI validation passed: 728 current Polish keys, no stale keys, interpolation and rich-text tokens preserved.
-- `git diff --check` passed. Local CodeRabbit is pending coordinated quota; the group remains draft while German and Russian are unfinished.
+- Updated the affected passages in all 37 guides per pack (111 pages), including the corrected Advanced Recall location in **Chat Settings > Agent activity**. Unrelated translations remain intact.
+- Documentation manifests generated at the working English SHA above; each whole pack passed validation for all 136 guides.
+- New English fenced examples, inline identifiers, relative links and linked fragments were checked against all 111 translated pages. Explicit anchors retain the new English fragment targets. No missing targets, changed code examples or unbalanced fences were found.
+- Changed paragraphs passed NFC and language-specific typography checks. Larger guides received a prose and terminology pass against each pack glossary.
+- Translated 128 relevant UI delta entries in each pack. The two guidance keys already supplied by #7064 remain intact. Reviewed the 41 removed English keys and removed those present in these packs: 26 Polish, 12 German and 12 Russian entries.
+- UI validation passed with no stale keys: 728 current Polish keys, 671 German and 282 Russian. Interpolation and rich-text tokens remain intact; the shared UI manifest is refreshed.
+- `git diff --check` passed. Local CodeRabbit is pending coordinated quota, so the group remains draft. No native-reader or in-app verification is claimed.

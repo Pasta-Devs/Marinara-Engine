@@ -1,6 +1,6 @@
 # Szenen-Hintergründe und die Gallery
 
-In dieser Anleitung erfährst du, wie Marinara Engine per KI Szenen-Hintergründe erzeugt, welche Hintergrundbilder dabei aus der **Gallery** (Galerie) entstehen und was das Gallery-Panel sonst noch kann. Dazu gibt es zwei verwandte Anleitungen: [Chat-Hintergründe](../appearance/chat-backgrounds.md) beschreibt die Bibliothek selbst hochgeladener Bilder, aus der du von Hand auswählst, und [Roleplay-Hintergründe](../roleplay/backgrounds.md) beschreibt den Agenten, der in jedem Zug automatisch einen Hintergrund setzt.
+In dieser Anleitung erfährst du, wie Marinara Engine per KI Szenen-Hintergründe erzeugt, welche Hintergrundbilder dabei aus der **Gallery** (Galerie) entstehen und was die Gallery sonst noch kann. Dazu gibt es zwei verwandte Anleitungen: [Chat-Hintergründe](../appearance/chat-backgrounds.md) beschreibt die Bibliothek selbst hochgeladener Bilder, aus der du von Hand auswählst, und [Roleplay-Hintergründe](../roleplay/backgrounds.md) beschreibt den Agenten, der in jedem Zug automatisch einen Hintergrund setzt.
 
 ## Wo Szenen-Hintergründe funktionieren
 
@@ -14,11 +14,11 @@ Für einen Hintergrund brauchst du eine **Image Generation**-Verbindung (Bildgen
 
 ## Hintergrund aus der Gallery generieren und anwenden
 
-Die **Gallery** ist das Panel für Bilder und Videos eines Chats. Öffne es über das Bildsymbol in der Chat-Werkzeugleiste. Mit der Schaltfläche **Background** (Hintergrund) erzeugst du ein Hintergrundbild für die aktuelle Szene.
+Die **Gallery** enthält die Bilder und Videos eines Chats. Öffne **Chat Settings** und klapp den Abschnitt **Gallery** auf. Am Computer kannst du ihn in einem eigenen Fenster öffnen (siehe [Chat Settings im Überblick](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)). Mit der Schaltfläche **Background** (Hintergrund) erzeugst du ein Hintergrundbild für die aktuelle Szene.
 
 So generierst du einen Hintergrund:
 
-1. Öffne das **Gallery**-Panel.
+1. Öffne den Abschnitt **Gallery** in **Chat Settings**.
 2. Klick auf die Schaltfläche **Background**.
 3. Während das Bild entsteht, wechselt die Beschriftung auf **Generating...**.
 4. Dazu erscheint diese Statusmeldung: "AI background generation is running. The new background will be applied when it finishes."
@@ -36,11 +36,11 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 
 Zur Abhilfe öffnest du das **Connections**-Panel (Verbindungen), klappst **Defaults** auf und wählst unter **Images** eine Bild-Verbindung aus. Alternativ hinterlegst du beim Agenten **Illustrator** eine eigene Bild-Verbindung.
 
-## Das Gallery-Panel
+## Der Gallery-Abschnitt
 
 Die **Gallery** hat zwei Tabs: **Images** und **Videos**. Jeder Tab zeigt an, wie viele Einträge er enthält. Den Tab **Videos** gibt es nur, wenn für den Chat Szenenvideos aktiviert sind.
 
-Oben im Panel erscheinen Schaltflächen jeweils nur dann, wenn die passende Funktion für den Chat infrage kommt:
+Oben im Abschnitt erscheinen Schaltflächen jeweils nur dann, wenn die passende Funktion für den Chat infrage kommt:
 
 - **Illustrate**: startet den Agenten Illustrator für ein einzelnes Szenenbild. Siehe [Illustrator-Agent](illustrator-agent.md).
 - **Selfie**: erzeugt ein Selfie eines Charakters im Modus Conversation.

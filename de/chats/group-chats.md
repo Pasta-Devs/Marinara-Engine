@@ -40,9 +40,9 @@ Möglich ist außerdem ein Klick auf die Zeile **Random** (Zufall, beschriftet m
 
 ## Mitglieder nachträglich verwalten
 
-Charaktere fügst du im Panel **Chat Settings** (Chat-Einstellungen) hinzu, entfernst sie dort und sortierst sie um. Öffne es über das Zahnradsymbol in der Chat-Kopfzeile. Der Tooltip – der Kurzhinweis beim Draufzeigen – lautet **Chat Settings**.
+In **Chat Settings** (Chat-Einstellungen) fügst du Charaktere hinzu, entfernst sie und änderst ihre Reihenfolge. Öffne die Einstellungen über die Schaltfläche **Chat Settings** im Chat.
 
-Im Panel findest du den Abschnitt **Characters**. Er zeigt die Mitgliederzahl und den Hilfetext „Characters in this chat. Each character has their own personality that the AI roleplays as.“ Jede Mitgliederzeile besteht aus Avatar, Charakternamen, Ziehpunkt, Augensymbol und Papierkorbsymbol.
+In Chat Settings findest du den Abschnitt **Characters**. Er zeigt die Mitgliederzahl und den Hilfetext „Characters in this chat. Each character has their own personality that the AI roleplays as.“ Jede Mitgliederzeile besteht aus Avatar, Charakternamen, Ziehpunkt, Augensymbol und Papierkorbsymbol.
 
 - Für einen weiteren Charakter klick auf **Add Character** (Charakter hinzufügen) und such nach ihm.
 - Für einen kompletten Ordner klick auf **Add from Folder** und wähl einen aus.

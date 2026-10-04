@@ -152,7 +152,7 @@ PocketTTS не встроен в Marinara Engine. Установите [офиц
 
 - Roleplay использует переключатель автовоспроизведения **Roleplay messages** и кнопки **Speak** у сообщений. См. [Режим Roleplay: начало работы](../roleplay/getting-started.md).
 - Conversation Mode использует переключатель **Conversation messages** и те же кнопки **Speak**. Голосовые звонки – более крупная возможность, ей посвящено руководство [Аудио- и видеозвонки в режиме Conversation](../conversation/calls.md).
-- Game Mode использует переключатель **Game narration**. Кроме того, у Game Mode есть свой звуковой микшер с каналом **TTS** рядом с **Master**, **Music**, **Sound Effects** и **Ambient**. Этот канал задает общую громкость речи в игре и начинается со 100 процентов. См. [Game Mode: начало работы](../game/getting-started.md).
+- Game Mode использует переключатель **Game narration**. Кроме того, у Game Mode есть свой звуковой микшер с каналом **TTS** рядом с **Master**, **Music**, **Sound Effects** и **Ambient**. Этот канал задает общую громкость речи в игре и начинается со 100 процентов. См. [Элементы управления игрой](../game/getting-started.md#the-games-controls).
 
 ## Поле **Phonetic name** (произношение в звонках)
 

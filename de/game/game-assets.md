@@ -43,9 +43,11 @@ Der **Asset Browser** ist ein Dateimanager für die Game-Assets. Zwei Wege führ
 Aus einem Spiel heraus:
 
 1. Öffne einen Game-Mode-Chat.
-2. Klick in der Chat-Werkzeugleiste auf die Schaltfläche **Game Assets**.
+2. Klick oder tippe auf **Game Assets** (das Ordnersymbol). Die Schaltfläche liegt anfangs nahe der oberen rechten Ecke des Chats. Du kannst sie am Computer oder Telefon an eine andere Stelle ziehen.
 
-Die Schaltfläche in der Werkzeugleiste erscheint nur in Chats mit Game Mode. Dort geöffnet, zeigt sich der **Asset Browser** als Panel im Spiel.
+Die Schaltfläche erscheint nur in Chats mit Game Mode. Sie öffnet **Game Assets** mit dem **Asset Browser** darin: am Computer als verschiebbares Fenster, am Telefon als Panel über die ganze Breite.
+
+Hast du dieses Fenster mit **Put back in Chat Settings** verschoben, öffne stattdessen den Abschnitt **Game Assets** in Chat Settings.
 
 Oben in der Werkzeugleiste steht eine Brotkrumen-Navigation, die bei **Game Assets** beginnt. Daneben liegen ein Umschalter zwischen **Grid view** (Kachelansicht) und **List view** (Listenansicht), eine Schaltfläche **Upload** (Hochladen) und eine Schaltfläche **New** (Neu). Dazu kommen eine Schaltfläche **Rescan** (Neu einlesen), eine Schaltfläche **Open in system folder** (Im Systemordner öffnen) und ein Suchfeld **Search in folder** (Im Ordner suchen). Auf breiteren Bildschirmen wechselst du über einen Ordnerbaum links zwischen den Kategorien.
 
@@ -137,7 +139,7 @@ Kopierst du Dateien direkt am Computer in den Game-Asset-Ordner, also außerhalb
 
 Jeder Game-Mode-Chat kann sich auf einen Teil der Asset-Ordner beschränken. Praktisch ist das etwa, wenn ein Horrorspiel die fröhliche Musik überspringen soll.
 
-Während der Einrichtung klappst du im Schritt **Features** den Bereich **Adjust Game Assets for this Game** (Game-Assets für dieses Spiel anpassen) auf. Bei einem laufenden Spiel öffnest du das Panel **Asset Browser** über die Werkzeugleiste des Chats.
+Während der Einrichtung klappst du im Schritt **Features** den Bereich **Adjust Game Assets for this Game** (Game-Assets für dieses Spiel anpassen) auf. Bei einem laufenden Spiel öffnest du das Fenster **Game Assets**.
 
 Dann:
 

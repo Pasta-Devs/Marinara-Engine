@@ -2,6 +2,25 @@
 
 В этом руководстве вы узнаете, как полностью изменить внешний вид приложения Marinara Engine собственной темой оформления на CSS. Здесь описано, как создать, импортировать, экспортировать и включить тему. Вы также увидите, какие переменные CSS можно менять и как темы оформления сочетаются с Card CSS.
 
+## Готовые стили окон чата
+
+Чтобы быстро изменить оформление без CSS, откройте **Settings > Appearance > App** (настройки, внешний вид, приложение) и найдите **Chat widget style** (стиль виджетов чата) внизу **App Style**. Стиль **Dottore** добавляет бирюзовые приборные рамки со срезанными углами. Стиль **Mari** использует розовые и золотые рамки с Primogem у заголовков окон. Фон его кнопок совпадает с фоном окон. У каждого пресета свой шрифт; оба работают в светлом и темном режимах и вместе оформляют кнопки, окна и раскрывающиеся разделы.
+
+Настройки **Font** (шрифт) и **Shape** (форма) меняют эти детали по отдельности. **Preset font** (шрифт пресета) и **Preset shape** (форма пресета) следуют выбранному стилю.
+
+Ниже находятся три настройки цвета. В каждой можно выбрать сплошной цвет или градиент – плавный переход между цветами:
+
+- **Border & Buttons Color** (цвет рамок и кнопок) меняет контуры и значки кнопок. Значки используют первый цвет градиента.
+- **Background Color** (цвет фона) заполняет кнопки, окна, раскрывающиеся разделы и поля редактирования.
+- **Text Color** (цвет текста) меняет текст виджетов. Градиент виден на заголовках и подписях; текст в полях редактирования использует первый цвет.
+
+Цвет декоративных эмблем остается прежним.
+
+Нажмите **Reset color** (сбросить цвет) рядом с настройкой, чтобы снова использовать светлые или темные цвета пресета. Выбор пресета сбрасывает **Font**, **Shape** и все три цвета. **Default** (по умолчанию) возвращает исходный вид. Расположение окон остается таким, как вы его настроили.
+
+Собственные темы оформления на CSS по-прежнему могут переопределять эти пресеты. Открытые переменные окон и разделов, перечисленные ниже, имеют приоритет над цветами пресета. Используйте `--mari-window-font-family` для шрифта окна, `--mari-drawer-radius` для углов разделов и `--mari-window-ornament: none`, чтобы скрыть украшение заголовка. Чтобы убрать все украшения пресета, сначала выберите **Default**.
+
+
 ## Что такое собственная тема оформления
 
 Собственная тема оформления – это блок CSS, который перекрашивает приложение Marinara Engine. CSS (сокращение от Cascading Style Sheets) – это код, задающий цвета, рамки и отступы во всем приложении. Тема оформления умеет менять фон страницы, акцентный цвет, карточки, рамки, текст и многое другое.
@@ -91,6 +110,100 @@
 У некоторых визуальных эффектов есть отдельные переменные. Например, тема оформления может запросить пульсацию акцента строкой `--marinara-theme-accent-pulse: enabled`.
 
 CSS собственной темы оформления проходит очистку перед запуском – ради безопасности. Стили, которые подгружают файл с другого сайта, не работают. Чтобы использовать в теме картинку или шрифт, встройте их в виде URI `data:` вместо ссылки в интернет. URI `data:` держит содержимое файла прямо внутри CSS.
+
+## Оформление окон и разделов чата
+
+На компьютере **Chat Settings** (настройки чата) открывается как перемещаемое окно. Его сворачиваемые разделы называются **drawers**. Раздел можно вынести в отдельное окно, а затем свернуть в маленькую перемещаемую кнопку, которая называется **bubble**.
+
+Эти окна и кнопки используются и для других инструментов чата: Game controls, Session, Volume, Game Assets, связанных чатов и элементов управления пакетами. На телефоне окна открываются как панели во всю ширину, а у Tracker Panel есть своя перемещаемая кнопка.
+
+Классы, атрибуты данных и переменные ниже позволяют теме оформления вместе менять эти части интерфейса. Правила вашей темы переопределяют значения по умолчанию без `!important`.
+
+### Классы
+
+| Часть интерфейса | Класс |
+| --- | --- |
+| Окно | `.mari-window` |
+| Строка заголовка | `.mari-window__header` |
+| Заголовок и его значок | `.mari-window__title-row` |
+| Заголовок | `.mari-window__title` |
+| Кнопки строки заголовка (Reset View, звездочка избранного, Tracker Panel, сворачивание, закрепление, блокировка, закрытие, Put back) | `.mari-window__controls` (у каждой кнопки есть `.mari-window__control`) |
+| Содержимое окна | `.mari-window__body` |
+| Края и углы для изменения размера | `.mari-window__resize-handle` |
+| Метка в углу, когда указатель или фокус находится в окне | `.mari-window__resize-grip` |
+| Сворачиваемый раздел | `.mari-drawer` |
+| Шапка и заголовок раздела | `.mari-drawer__header`, `.mari-drawer__title` |
+| Значок раздела, счетчик и **?** | `.mari-drawer__icon`, `.mari-drawer__count`, `.mari-drawer__help` |
+| Предпросмотр свернутого раздела (маленький виджет трекера) | `.mari-drawer__summary` |
+| Кнопки рядом со стрелкой раздела и кнопка отдельного окна | `.mari-drawer__actions`, `.mari-drawer__popout` |
+| Стрелка и содержимое раздела | `.mari-drawer__arrow`, `.mari-drawer__body` |
+| Предпросмотр, следующий за указателем при перетаскивании раздела наружу | `.mari-drawer-ghost` |
+| Кнопка свернутого окна (bubble) | `.mari-window-bubble` |
+| Линия выравнивания перемещаемой кнопки с другой | `.mari-window-snap-guide` |
+| Точка во время работы агентов (кнопка Chat Settings, окно Trackers) | `.mari-agents-running-dot` |
+
+### Атрибуты данных
+
+- `data-window` задает имя окна и его кнопки: `chat-settings`, `trackers`, окна управления `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` и `control:beholder:<package>`, а также `drawer:<window>:<drawer>` для вынесенного раздела, например `drawer:chat-settings:chat-name`.
+- `data-drawer` задает имя раздела, например `chat-name`. Некоторые имена начинаются с режима чата, как `roleplay-agents` или `conversation-agents`. Трекеры используют `tracker-world`, `tracker-persona`, `tracker-characters`, `tracker-quests`, `tracker-inventory`, `tracker-custom` и `agent-activity`.
+- `data-presentation` имеет значение `"window"` у окна на компьютере или `"sheet"` у панели на телефоне.
+- `data-pinned` и `data-locked` имеют значение `"true"`, пока окно закреплено или заблокировано.
+- `data-window-control` задает имя кнопки в строке заголовка: `"minimize"`, `"pin"`, `"lock"`, `"close"` или `"put-back"`. У нажатой кнопки закрепления или блокировки также есть `aria-pressed="true"`.
+- `data-chat-settings-control` отмечает дополнительные кнопки строки заголовка Chat Settings: `"reset-view"`, `"favorite-layout"` и `"tracker-panel"`. У звездочки избранного есть `aria-pressed="true"` и заполненный значок, когда текущее расположение совпадает с сохраненным избранным.
+- `data-edge` имеет значение `"n"`, `"s"`, `"e"`, `"w"`, `"ne"`, `"nw"`, `"se"` или `"sw"` на соответствующем участке для изменения размера.
+- У кнопки раскрытого раздела внутри `.mari-drawer__header` есть `aria-expanded="true"`.
+- `data-drawer-control="pop-out"` отмечает кнопку переноса раздела в отдельное окно.
+- `data-outside="true"` отмечает предпросмотр перетаскивания достаточно далеко за пределами окна, чтобы при отпускании создать отдельное окно.
+- `data-axis` имеет значение `"x"` у вертикальной линии выравнивания и `"y"` у горизонтальной.
+- `data-detached` имеет значение `"true"`, когда раздел показан в своем окне, и у окна, и у раздела внутри него. Окно вынесенного раздела получает имя `data-window="drawer:<window>:<drawer>"`, например `data-window="drawer:chat-settings:chat-name"`, а `data-drawer-host` задает имя исходного окна.
+- `data-dragging` имеет значение `"true"` у раздела, пока вы перетаскиваете его заголовок, а `data-drop-target` – у окна, над которым вы держите вынесенный раздел для возврата.
+- У кнопки окна есть `data-window` этого окна и `data-minimized="true"`, например `.mari-window-bubble[data-window="control:volume"]`. Окна управления называются `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` и `control:beholder:<package>`. Во время перетаскивания кнопки ее `data-dragging` имеет значение `"true"`.
+- У заблокированной кнопки есть `data-locked="true"`, в том числе у кнопки Chat Settings. Она по-прежнему открывает окно, но не перемещается, пока окно не разблокировано. Селектор `.mari-window-bubble[data-locked="true"]` позволяет оформить такие кнопки иначе.
+- На телефоне окна и их немного увеличенные кнопки имеют `data-presentation="sheet"`. Кнопка Tracker Panel – `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`.
+- Кнопка Chat Settings тоже относится к bubble: `.mari-window-bubble[data-chat-settings-button]`. Пока Chat Settings открыто, у нее есть `data-open="true"`.
+- Вынесенный раздел сворачивается в кнопку с `data-drawer-host` (исходным окном). Кнопка **Put back** в его окне – `[data-window-control="put-back"]`.
+
+### Переменные
+
+Если переменная не задана, используются общие цвета элементов управления чатом. Поэтому теме достаточно задать только те значения, которые нужно изменить.
+
+| Переменная | Чем управляет |
+| --- | --- |
+| `--mari-window-bg` | Фон окна |
+| `--mari-window-text` | Текст окна |
+| `--mari-window-border`, `--mari-window-border-width` | Рамка окна |
+| `--mari-window-radius` | Скругление углов окна |
+| `--mari-window-shadow` | Тень окна |
+| `--mari-window-backdrop-filter` | Размытие за окном |
+| `--mari-window-header-bg`, `--mari-window-header-text`, `--mari-window-header-border` | Цвета строки заголовка |
+| `--mari-window-header-padding` | Отступы строки заголовка |
+| `--mari-window-control-color`, `--mari-window-control-color-hover`, `--mari-window-control-bg-hover` | Кнопки строки заголовка, включая звездочку избранного |
+| `--mari-window-control-color-active`, `--mari-window-control-bg-active` | Нажатые кнопки строки заголовка: закрепление, блокировка и заполненная звездочка избранного |
+| `--mari-window-control-radius`, `--mari-window-control-gap` | Скругление кнопок и расстояние между ними |
+| `--mari-window-focus-ring` | Контур фокуса клавиатуры и окна, в которое будет возвращен раздел |
+| `--mari-window-resize-handle-size` | Ширина краев для изменения размера |
+| `--mari-window-bubble-size`, `--mari-window-bubble-radius`, `--mari-window-bubble-shadow` | Размер, скругление и тень кнопки окна |
+| `--mari-window-bubble-bg`, `--mari-window-bubble-bg-hover`, `--mari-window-bubble-border` | Фон и рамка кнопки окна |
+| `--mari-window-bubble-text`, `--mari-window-bubble-text-hover` | Цвет значка кнопки окна |
+| `--mari-window-snap-guide` | Цвет линии выравнивания |
+| `--mari-drawer-bg`, `--mari-drawer-border` | Фон и разделитель раздела |
+| `--mari-drawer-header-bg`, `--mari-drawer-header-bg-hover` | Цвета шапки раздела |
+| `--mari-drawer-header-padding`, `--mari-drawer-body-padding-inline`, `--mari-drawer-body-padding-bottom` | Отступы раздела |
+| `--mari-drawer-title-color`, `--mari-drawer-icon-color`, `--mari-drawer-arrow-color` | Текст и значки шапки раздела |
+| `--mari-drawer-count-bg`, `--mari-drawer-count-text` | Счетчик у раздела |
+
+Задайте переменную в `:root`, чтобы изменить все окна, или в селекторе, чтобы изменить одно:
+
+```css
+:root {
+  --mari-window-radius: 0.5rem;
+  --mari-window-bubble-bg: #3b0764;
+}
+
+[data-window="chat-settings"] .mari-drawer[data-drawer="chat-name"] {
+  --mari-drawer-border: transparent;
+}
+```
 
 ## Ограничения размера и названия
 
