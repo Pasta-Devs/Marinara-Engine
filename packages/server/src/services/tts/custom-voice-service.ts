@@ -3,7 +3,12 @@ import type { CustomVoiceManagement, CustomVoiceProfile, ManagedCustomVoice, TTS
 import { privateContextRevision } from "../../utils/crypto.js";
 import { safeFetch } from "../../utils/security.js";
 import { isTtsLocalUrlsEnabled } from "../../config/runtime-config.js";
-import { customVoiceStorage, isKnownManagedVoice, withCustomVoiceLock } from "./custom-voice-storage.js";
+import {
+  customVoiceStorage,
+  isKnownManagedVoice,
+  withCustomVoiceLock,
+  type CustomVoiceState,
+} from "./custom-voice-storage.js";
 import { validateCustomVoiceAudio, validateCustomVoiceFields } from "./custom-voice-profile.js";
 
 export interface VoiceContext {
@@ -42,14 +47,40 @@ async function providerRequest(context: VoiceContext, method: string, suffix = "
     maxResponseBytes: 2 * 1024 * 1024,
   });
 }
-async function listProvider(context: VoiceContext): Promise<{ all: string[]; uploaded: Set<string> }> {
+async function listProvider(
+  context: VoiceContext,
+  profile: Exclude<CustomVoiceProfile, null>,
+): Promise<{ all: string[]; uploaded: Set<string>; entries?: { id: string; name: string }[] }> {
   const res = await providerRequest(context, "GET");
+  if ([404, 405, 501].includes(res.status))
+    throw new CustomVoiceError(
+      "Provider custom voice listing is unavailable or unsupported for this API profile.",
+      501,
+    );
   if (!res.ok)
     throw new CustomVoiceError(
       `Provider voice listing failed (HTTP ${res.status}). Check the selected API profile and loaded model.`,
       502,
     );
-  const json = (await res.json()) as { voices?: unknown; uploaded_voices?: unknown };
+  const json = (await res.json()) as { object?: unknown; data?: unknown; voices?: unknown; uploaded_voices?: unknown };
+  if (profile === "openai-compatible") {
+    if (
+      json.object !== "list" ||
+      !Array.isArray(json.data) ||
+      !json.data.every(
+        (v) =>
+          v &&
+          typeof v === "object" &&
+          v.object === "audio.voice" &&
+          typeof v.id === "string" &&
+          v.id.length > 0 &&
+          typeof v.name === "string",
+      )
+    )
+      throw new CustomVoiceError("The provider did not return the documented OpenAI-compatible voice list.", 502);
+    const ids = new Set<string>(json.data.map((v: { id: string }) => v.id));
+    return { all: [...ids], uploaded: ids, entries: json.data };
+  }
   if (
     !Array.isArray(json.voices) ||
     !json.voices.every((v) => typeof v === "string") ||
@@ -64,24 +95,63 @@ async function listProvider(context: VoiceContext): Promise<{ all: string[]; upl
   }
   return { all: [...new Set([...json.voices, ...uploaded])], uploaded };
 }
+// Legacy generic journals with a resolved distinct ID retain ownership. A name-only
+// journal must recover through the documented generic list, never a wrong-mode status.
+function confirmedIdentity(voice: ManagedCustomVoice): boolean {
+  return voice.identityConfirmed ?? (voice.providerName !== undefined && voice.id !== voice.providerName);
+}
+type RevisionedVoiceState = CustomVoiceState & { profileRevision?: string };
+function mutationSnapshot(snapshot: string, state: RevisionedVoiceState): string {
+  return privateContextRevision(JSON.stringify([snapshot, state.profile, state.profileRevision ?? "legacy"]));
+}
 export function createCustomVoiceService(resolve: () => Promise<VoiceContext>) {
   async function stateFor(context: VoiceContext) {
     const snapshot = voiceContextSnapshot(context);
     // Keep previous endpoint/account contexts recoverable, without transferring registrations.
     const storage = customVoiceStorage(`${context.connectionId}\0${snapshot}`);
-    const state = (await storage.read()) ?? { snapshot, profile: null, voices: [] };
+    const state: RevisionedVoiceState = (await storage.read()) ?? { snapshot, profile: null, voices: [] };
     return { snapshot, storage, state };
   }
   async function view(context: VoiceContext, refresh: boolean): Promise<CustomVoiceManagement> {
     const { state, storage, snapshot } = await stateFor(context);
     let providerVoices: string[] = [];
     let error: string | undefined;
+    let unsupported = false;
     if (state.profile && context.config.source === "openai" && refresh) {
       try {
-        const listed = await listProvider(context);
+        const listed = await listProvider(context, state.profile);
         providerVoices = listed.all;
         for (const voice of state.voices) {
           if (voice.status === "deleted") continue;
+          if (listed.entries) {
+            // Older generic journals stored the intended name only in id.
+            const providerName = voice.providerName ?? voice.id;
+            const matches = listed.entries.filter((entry) => entry.name === providerName);
+            // Keep actual identity evidence even when a confirmed voice becomes unavailable.
+            voice.identityConfirmed = confirmedIdentity(voice);
+            // A provisional registration name is never deletion ownership.
+            if (!voice.identityConfirmed) {
+              if (
+                matches.length === 1 &&
+                !state.voices.some((other) => other !== voice && other.id === matches[0]!.id)
+              ) {
+                voice.providerName = providerName;
+                voice.id = matches[0]!.id;
+                voice.identityConfirmed = true;
+                voice.status = "ready";
+              } else {
+                voice.status = "uncertain";
+              }
+              continue;
+            }
+            voice.status =
+              matches.length === 1 && matches[0]!.id === voice.id
+                ? "ready"
+                : voice.status === "pending" || voice.status === "uncertain"
+                  ? "uncertain"
+                  : "unavailable";
+            continue;
+          }
           voice.status = listed.uploaded.has(voice.id)
             ? "ready"
             : voice.status === "pending" || voice.status === "uncertain"
@@ -90,6 +160,7 @@ export function createCustomVoiceService(resolve: () => Promise<VoiceContext>) {
         }
         await storage.write(state);
       } catch (cause) {
+        unsupported = cause instanceof CustomVoiceError && cause.statusCode === 501;
         error =
           cause instanceof CustomVoiceError
             ? cause.message
@@ -101,10 +172,11 @@ export function createCustomVoiceService(resolve: () => Promise<VoiceContext>) {
     const destination = `${url.protocol}//${url.host}${url.pathname}`;
     return {
       connectionId: context.connectionId,
-      snapshot,
+      snapshot: mutationSnapshot(snapshot, state),
       destination,
       profile: state.profile,
-      capability: context.config.source !== "openai" ? "unsupported" : state.profile ? "explicit" : "unknown",
+      capability:
+        context.config.source !== "openai" || unsupported ? "unsupported" : state.profile ? "explicit" : "unknown",
       voices: state.voices,
       providerVoices,
       assignments: context.assignments,
@@ -115,9 +187,10 @@ export function createCustomVoiceService(resolve: () => Promise<VoiceContext>) {
     const initial = await resolve();
     return withCustomVoiceLock(initial.connectionId, async () => {
       const context = await resolve();
-      if (snapshot !== voiceContextSnapshot(context))
+      const current = await stateFor(context);
+      if (snapshot !== mutationSnapshot(current.snapshot, current.state))
         throw new CustomVoiceError(
-          "Connection changed. Refresh and confirm the new destination before continuing.",
+          "Connection changed or API profile changed. Refresh and confirm the new destination before continuing.",
           409,
         );
       return run(context);
@@ -131,8 +204,9 @@ export function createCustomVoiceService(resolve: () => Promise<VoiceContext>) {
     async profile(snapshot: string, profile: CustomVoiceProfile) {
       return mutate(snapshot, async (context) => {
         if (profile && context.config.source !== "openai")
-          throw new CustomVoiceError("This source does not support the vLLM-Omni registration profile.");
+          throw new CustomVoiceError("This source does not support custom voice registration profiles.");
         const { state, storage } = await stateFor(context);
+        if (state.profile !== profile) state.profileRevision = randomUUID();
         state.profile = profile;
         await storage.write(state);
         return view(context, true);
@@ -141,7 +215,7 @@ export function createCustomVoiceService(resolve: () => Promise<VoiceContext>) {
     async register(input: {
       snapshot: string;
       displayName: string;
-      consent: string;
+      consent?: string;
       transcript?: string;
       audioBase64: string;
       acknowledged: boolean;
@@ -150,12 +224,6 @@ export function createCustomVoiceService(resolve: () => Promise<VoiceContext>) {
         throw new CustomVoiceError(
           "Confirm your permission to use this recording. This does not replace provider consent verification.",
         );
-      let fields: ReturnType<typeof validateCustomVoiceFields>;
-      try {
-        fields = validateCustomVoiceFields(input);
-      } catch {
-        throw new CustomVoiceError("Invalid display name, transcript or provider consent recording ID.");
-      }
       if (
         input.audioBase64.length > Math.ceil((10 * 1024 * 1024) / 3) * 4 ||
         !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(input.audioBase64)
@@ -173,8 +241,14 @@ export function createCustomVoiceService(resolve: () => Promise<VoiceContext>) {
       try {
         return await mutate(input.snapshot, async (context) => {
           const { state, storage } = await stateFor(context);
-          if (state.profile !== "vllm-omni" || context.config.source !== "openai")
+          if (!state.profile || context.config.source !== "openai")
             throw new CustomVoiceError("Explicitly select the supported registration API profile first.");
+          let fields: ReturnType<typeof validateCustomVoiceFields>;
+          try {
+            fields = validateCustomVoiceFields(input, state.profile);
+          } catch {
+            throw new CustomVoiceError("Invalid display name, transcript or provider consent recording ID.");
+          }
           if (
             state.voices.some(
               (v) =>
@@ -182,22 +256,25 @@ export function createCustomVoiceService(resolve: () => Promise<VoiceContext>) {
             )
           )
             throw new CustomVoiceError("A managed voice already uses that display name.", 409);
-          const listed = await listProvider(context); // read-only collision check, not a discovery probe
+          const listed = await listProvider(context, state.profile); // read-only collision check, not a discovery probe
           const id = `marinara_${randomUUID().replaceAll("-", "")}`;
-          if (listed.all.includes(id))
+          if (listed.all.includes(id) || listed.entries?.some((entry) => entry.name === id))
             throw new CustomVoiceError("Provider identifier collision. Refresh before retrying.", 409);
           const voice: ManagedCustomVoice = {
             id,
+            ...(state.profile === "openai-compatible" ? { providerName: id, identityConfirmed: false } : {}),
             displayName: fields.displayName,
             status: "pending",
             createdAt: new Date().toISOString(),
           };
           state.voices.push(voice);
-          await storage.write(state); // journal intended ID BEFORE transmission
+          await storage.write(state); // journal intended provider name BEFORE transmission
           const form = new FormData();
           form.append("name", id);
-          form.append("consent", fields.consent);
-          if (fields.transcript) form.append("ref_text", fields.transcript);
+          if (state.profile === "vllm-omni") {
+            form.append("consent", fields.consent!);
+            if (fields.transcript) form.append("ref_text", fields.transcript);
+          }
           form.append("audio_sample", new Blob([new Uint8Array(audio)], { type: "audio/wav" }), "recording.wav");
           try {
             const res = await providerRequest(context, "POST", "", form);
@@ -209,14 +286,35 @@ export function createCustomVoiceService(resolve: () => Promise<VoiceContext>) {
               result.error = `Provider registration rejected (HTTP ${res.status}). Check permissions, consent and loaded-model support; refresh before retrying.`;
               return result;
             }
-            const response = (await res.json()) as { success?: unknown; voice?: { name?: unknown } };
-            voice.status = response.success === true && response.voice?.name === id ? "ready" : "uncertain";
+            const response = (await res.json()) as {
+              id?: unknown;
+              object?: unknown;
+              name?: unknown;
+              created?: unknown;
+              success?: unknown;
+              voice?: { name?: unknown };
+            };
+            const confirmed =
+              state.profile === "openai-compatible"
+                ? typeof response.id === "string" &&
+                  response.id.length > 0 &&
+                  !listed.all.includes(response.id) &&
+                  !state.voices.some((other) => other !== voice && other.id === response.id) &&
+                  response.object === "audio.voice" &&
+                  response.name === id &&
+                  response.created === true
+                : response.success === true && response.voice?.name === id;
+            if (confirmed && state.profile === "openai-compatible") {
+              voice.id = response.id as string;
+              voice.identityConfirmed = true;
+            }
+            voice.status = confirmed ? "ready" : "uncertain";
           } catch {
             voice.status = "uncertain";
           }
           await storage.write(state);
           const result = await view(context, true);
-          if (result.voices.find((v) => v.id === id)?.status !== "ready")
+          if (result.voices.find((v) => v.providerName === id || v.id === voice.id)?.status !== "ready")
             result.error =
               "Registration outcome is uncertain. Refresh the provider list or check the intended identifier at the backend; do not blindly upload again.";
           return result;
@@ -231,7 +329,7 @@ export function createCustomVoiceService(resolve: () => Promise<VoiceContext>) {
     ) {
       return mutate(input.snapshot, async (context) => {
         const { state, storage } = await stateFor(context);
-        if (state.profile !== "vllm-omni" || context.config.source !== "openai")
+        if (!state.profile || context.config.source !== "openai")
           throw new CustomVoiceError("Deletion is unsupported for this API profile.");
         // A tombstoned voice was already deleted from the provider: deleting it
         // again is pure local cleanup and must not call the provider a second time.
@@ -241,8 +339,28 @@ export function createCustomVoiceService(resolve: () => Promise<VoiceContext>) {
         if (JSON.stringify(actual) !== JSON.stringify([...input.confirmedAssignments].sort()))
           throw new CustomVoiceError("Assignments changed. Review and confirm all affected references again.", 409);
         if (voice.status !== "deleted") {
+          if ((state.profile === "openai-compatible" || voice.providerName !== undefined) && !confirmedIdentity(voice))
+            throw new CustomVoiceError(
+              "Provider voice identity is not confirmed. Refresh to recover before deleting.",
+              409,
+            );
           const res = await providerRequest(context, "DELETE", `/${encodeURIComponent(input.id)}`);
-          if (!res.ok || ((await res.json()) as { success?: boolean }).success !== true)
+          let confirmed = res.ok && res.status === 204;
+          if (res.ok && res.status !== 204) {
+            try {
+              // OpenAPI leaves DELETE's body unspecified; require an explicit acknowledgment.
+              const body = (await res.json()) as { id?: unknown; deleted?: unknown; success?: unknown };
+              confirmed =
+                body != null &&
+                (body.id === undefined || body.id === input.id) &&
+                (state.profile === "openai-compatible"
+                  ? (body.deleted === true || body.success === true) && body.deleted !== false && body.success !== false
+                  : body.success === true);
+            } catch {
+              /* Ambiguous/empty bodies preserve the record and assignments. */
+            }
+          }
+          if (!confirmed)
             throw new CustomVoiceError(
               "Provider deletion was not confirmed. The management record and assignments have been preserved.",
               502,

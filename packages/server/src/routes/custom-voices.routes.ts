@@ -32,7 +32,7 @@ export function registerCustomVoiceRoutes(
   app.get("/custom-voices", (req, reply) => handled(() => service(req.query).get(), reply));
   app.put("/custom-voices", (req, reply) =>
     handled(() => {
-      const body = revision.extend({ profile: z.enum(["vllm-omni"]).nullable() }).parse(req.body);
+      const body = revision.extend({ profile: z.enum(["vllm-omni", "openai-compatible"]).nullable() }).parse(req.body);
       return service(req.query).profile(body.snapshot, body.profile);
     }, reply),
   );
@@ -41,7 +41,7 @@ export function registerCustomVoiceRoutes(
       const body = revision
         .extend({
           displayName: z.string().min(1).max(100),
-          consent: z.string().min(1).max(200),
+          consent: z.string().max(200).optional(),
           transcript: z.string().max(10000).optional(),
           audioBase64: z.string().min(1).max(13981016),
           acknowledged: z.literal(true),

@@ -39,7 +39,7 @@ import {
   voiceContextSnapshot,
   type VoiceContext,
 } from "../services/tts/custom-voice-service.js";
-import { customVoiceStorage } from "../services/tts/custom-voice-storage.js";
+import { customVoiceStorage, isKnownManagedVoice } from "../services/tts/custom-voice-storage.js";
 import { registerCustomVoiceRoutes } from "./custom-voices.routes.js";
 
 // OpenAI built-in voices used as fallback when the provider has no /audio/voices endpoint
@@ -593,10 +593,24 @@ async function resolveAudioConfig(
   connections: ReturnType<typeof createConnectionsStorage>,
   requestedConnectionId?: string | null,
 ) {
+  return (await resolveAudioContext(storage, connections, requestedConnectionId)).config;
+}
+
+/** Capture identity and config from the same selection for speech readiness. */
+async function resolveAudioContext(
+  storage: ReturnType<typeof createAppSettingsStorage>,
+  connections: ReturnType<typeof createConnectionsStorage>,
+  requestedConnectionId?: string | null,
+): Promise<VoiceContext> {
+  const context = (config: TTSConfig, connectionId = LEGACY_TTS_CONFIG_SENTINEL): VoiceContext => ({
+    connectionId,
+    config,
+    assignments: voiceAssignmentLabels(config),
+  });
   const cfg = await loadConfig(storage);
   // The TTS settings card tests the blob it edits; the empty-string sentinel
   // must reach it even when a default audio connection exists.
-  if (requestedConnectionId === LEGACY_TTS_CONFIG_SENTINEL) return cfg;
+  if (requestedConnectionId === LEGACY_TTS_CONFIG_SENTINEL) return context(cfg);
   let row = null;
   let explicitlyRequested = false;
   if (requestedConnectionId) {
@@ -610,27 +624,30 @@ async function resolveAudioConfig(
   }
   if (!row) row = await connections.getDefaultForAudio();
   if (!row) row = await connections.getFallbackForAudio();
-  if (!row) return cfg;
+  if (!row) return context(cfg);
   const source = (row.audioSource ?? "elevenlabs") as TTSSource;
   // Blank row fields fall back per the ROW's source. The blob's top-level
   // fields belong to its own active source — inheriting them would leak
   // cross-source values (e.g. the schema-default voice "alloy" into an
   // ElevenLabs row, defeating the missing-voice guard downstream).
   const profile = source === cfg.source ? cfg : withActiveSourceProfile(cfg).sourceProfiles[source];
-  return {
-    ...cfg,
-    // An explicitly requested connection is a direct expression of intent;
-    // default/fallback resolution keeps honoring the legacy master toggle so
-    // an upgrade cannot silently re-enable TTS the user switched off.
-    enabled: explicitlyRequested ? true : cfg.enabled,
-    source,
-    apiKey: row.apiKey,
-    baseUrl: row.baseUrl || profile?.baseUrl || TTS_SOURCE_DEFAULTS[source].baseUrl,
-    voice: row.audioVoice || profile?.voice || "",
-    model: row.model || profile?.model || TTS_SOURCE_DEFAULTS[source].model,
-    elevenLabsGameSoundEffects: row.audioSoundEffects === "true",
-    elevenLabsGameMusic: row.audioMusic === "true",
-  };
+  return context(
+    {
+      ...cfg,
+      // An explicitly requested connection is a direct expression of intent;
+      // default/fallback resolution keeps honoring the legacy master toggle so
+      // an upgrade cannot silently re-enable TTS the user switched off.
+      enabled: explicitlyRequested ? true : cfg.enabled,
+      source,
+      apiKey: row.apiKey,
+      baseUrl: row.baseUrl || profile?.baseUrl || TTS_SOURCE_DEFAULTS[source].baseUrl,
+      voice: row.audioVoice || profile?.voice || "",
+      model: row.model || profile?.model || TTS_SOURCE_DEFAULTS[source].model,
+      elevenLabsGameSoundEffects: row.audioSoundEffects === "true",
+      elevenLabsGameMusic: row.audioMusic === "true",
+    },
+    row.id,
+  );
 }
 
 /**
@@ -1777,7 +1794,8 @@ export async function ttsRoutes(app: FastifyInstance) {
   app.post("/speak", async (req, reply) => {
     const { text, speaker, tone, voice, audioConnectionId } = speakSchema.parse(req.body);
 
-    const cfg = await resolveAudioConfig(storage, connections, audioConnectionId);
+    const speechContext = await resolveAudioContext(storage, connections, audioConnectionId);
+    const cfg = speechContext.config;
 
     if (!cfg.enabled) {
       return reply.status(400).send({ error: "TTS is not enabled" });
@@ -1796,9 +1814,17 @@ export async function ttsRoutes(app: FastifyInstance) {
     // A managed (backend-uploaded) voice belongs to the exact connection it
     // was registered against: assert it is usable there before the provider
     // request and never fall back to a default connection for an invalid id.
-    if (requestVoice.startsWith("marinara_")) {
+    // Generic providers may return an opaque ID unrelated to our upload name.
+    // Ownership is established by the registration journal, not an ID prefix.
+    if (await isKnownManagedVoice(requestVoice)) {
       try {
-        await assertManagedVoiceUsable(await resolveVoiceContext(audioConnectionId), requestVoice);
+        // Ordinary speech may fall back from an invalid explicit ID, but a
+        // managed voice must never inherit that fallback's account identity.
+        if (audioConnectionId && audioConnectionId !== speechContext.connectionId) {
+          await resolveVoiceContext(audioConnectionId);
+          throw new CustomVoiceError("Audio connection changed. Refresh before retrying.", 409);
+        }
+        await assertManagedVoiceUsable(speechContext, requestVoice);
       } catch (error) {
         if (error instanceof CustomVoiceError) {
           return reply.status(error.statusCode).send({ error: error.message });

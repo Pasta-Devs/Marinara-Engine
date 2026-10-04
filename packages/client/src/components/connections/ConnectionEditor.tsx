@@ -2486,6 +2486,9 @@ export function ConnectionEditor() {
                   );
                 })}
               </div>
+              <p className="text-xs text-[var(--muted-foreground)]">
+                {localizeUi("ui.connections.connectioneditor.localAudioEndpointPermission")}
+              </p>
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-[var(--muted-foreground)]">
                   {localizeUi("ui.connections.connectioneditor.defaultVoice")}

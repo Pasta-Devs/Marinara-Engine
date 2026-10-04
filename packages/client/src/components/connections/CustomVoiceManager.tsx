@@ -24,6 +24,7 @@ const DURATION_EPSILON_SECONDS = 0.5;
 
 const PROFILE_OPTIONS: Array<{ value: Exclude<CustomVoiceProfile, null>; labelKey: string }> = [
   { value: "vllm-omni", labelKey: "ui.panels.customvoicemanager.profileVllmOmni" },
+  { value: "openai-compatible", labelKey: "ui.panels.customvoicemanager.profileOpenaiCompatible" },
 ];
 
 const STATUS_KEYS: Record<ManagedCustomVoice["status"], string> = {
@@ -108,6 +109,15 @@ export function CustomVoiceManager({ connectionId, onClose }: CustomVoiceManager
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Permissions and deletion confirmations belong to the saved backend contract.
+  // A refresh can reveal a profile/snapshot change made outside this modal.
+  useEffect(() => {
+    setAcknowledged(false);
+    setDeleteTarget(null);
+    setDeleteConfirmed(false);
+    setDeleteError(null);
+  }, [management?.snapshot, management?.profile]);
 
   const localPreviewAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewCounterRef = useRef(0);
@@ -240,10 +250,16 @@ export function CustomVoiceManager({ connectionId, onClose }: CustomVoiceManager
   }, [objectUrl, stopLocalPreview]);
 
   const saveProfile = useCallback(
-    async (next: Exclude<CustomVoiceProfile, null>) => {
+    async (next: CustomVoiceProfile) => {
       if (!management) return;
       const cid = connectionIdRef.current;
       setSavingProfile(true);
+      // Do not carry consent or deletion confirmation into a different contract,
+      // including the time while the profile save and subsequent refresh run.
+      setAcknowledged(false);
+      setDeleteTarget(null);
+      setDeleteConfirmed(false);
+      setDeleteError(null);
       try {
         await api.put(`/tts/custom-voices?connectionId=${encodeURIComponent(cid)}`, {
           snapshot: management.snapshot,
@@ -275,7 +291,7 @@ export function CustomVoiceManager({ connectionId, onClose }: CustomVoiceManager
       setUploadError(t("ui.panels.customvoicemanager.displayNameRequired"));
       return;
     }
-    if (!consentId.trim()) {
+    if (management.profile === "vllm-omni" && !consentId.trim()) {
       setUploadError(t("ui.panels.customvoicemanager.consentRequired"));
       return;
     }
@@ -296,18 +312,20 @@ export function CustomVoiceManager({ connectionId, onClose }: CustomVoiceManager
       const body: {
         snapshot: string;
         displayName: string;
-        consent: string;
+        consent?: string;
         transcript?: string;
         audioBase64: string;
         acknowledged: boolean;
       } = {
         snapshot: management.snapshot,
         displayName: displayName.trim(),
-        consent: consentId.trim(),
         audioBase64,
         acknowledged: true,
       };
-      if (trimmedTranscript) body.transcript = trimmedTranscript;
+      if (management.profile === "vllm-omni") {
+        body.consent = consentId.trim();
+        if (trimmedTranscript) body.transcript = trimmedTranscript;
+      }
       // POST returns the updated management snapshot, not a single voice.
       const result = await api.post<CustomVoiceManagement>(
         `/tts/custom-voices?connectionId=${encodeURIComponent(cid)}`,
@@ -448,7 +466,7 @@ export function CustomVoiceManager({ connectionId, onClose }: CustomVoiceManager
               {t("ui.panels.customvoicemanager.capabilityUnsupported")}
             </p>
           )}
-          {capability === "unknown" && (
+          {(capability !== "unsupported" || management?.profile) && (
             <div className="space-y-2 rounded-lg border border-[var(--border)] p-3">
               <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
                 {t("ui.panels.customvoicemanager.capabilityUnknown")}
@@ -465,9 +483,7 @@ export function CustomVoiceManager({ connectionId, onClose }: CustomVoiceManager
                     onChange={(event) => setProfile((event.target.value || null) as CustomVoiceProfile)}
                     className={inputCls}
                   >
-                    <option value="" disabled>
-                      {t("ui.panels.customvoicemanager.profileChoose")}
-                    </option>
+                    <option value="">{t("ui.panels.customvoicemanager.profileChoose")}</option>
                     {PROFILE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {t(option.labelKey)}
@@ -477,11 +493,11 @@ export function CustomVoiceManager({ connectionId, onClose }: CustomVoiceManager
                 </div>
                 <button
                   type="button"
-                  onClick={() => profile && void saveProfile(profile)}
-                  disabled={!profile || savingProfile}
+                  onClick={() => void saveProfile(profile)}
+                  disabled={savingProfile}
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-                    !profile || savingProfile
+                    savingProfile
                       ? "cursor-default text-[var(--muted-foreground)]"
                       : "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90",
                   )}
@@ -692,37 +708,41 @@ export function CustomVoiceManager({ connectionId, onClose }: CustomVoiceManager
                   className={inputCls}
                 />
               </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-1">
-                  <label htmlFor="cvm-consent" className="text-xs font-medium text-[var(--foreground)]">
-                    {t("ui.panels.customvoicemanager.consentLabel")}
-                  </label>
-                  <HelpTooltip text={t("ui.panels.customvoicemanager.consentHint")} />
+              {management?.profile === "vllm-omni" && (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1">
+                    <label htmlFor="cvm-consent" className="text-xs font-medium text-[var(--foreground)]">
+                      {t("ui.panels.customvoicemanager.consentLabel")}
+                    </label>
+                    <HelpTooltip text={t("ui.panels.customvoicemanager.consentHint")} />
+                  </div>
+                  <input
+                    id="cvm-consent"
+                    value={consentId}
+                    onChange={(event) => setConsentId(event.target.value)}
+                    placeholder={t("ui.panels.customvoicemanager.consentPlaceholder")}
+                    className={inputCls}
+                  />
                 </div>
-                <input
-                  id="cvm-consent"
-                  value={consentId}
-                  onChange={(event) => setConsentId(event.target.value)}
-                  placeholder={t("ui.panels.customvoicemanager.consentPlaceholder")}
-                  className={inputCls}
-                />
-              </div>
+              )}
             </div>
 
-            <div className="space-y-1">
-              <label htmlFor="cvm-transcript" className="block text-xs font-medium text-[var(--foreground)]">
-                {t("ui.panels.customvoicemanager.transcriptLabel")}
-              </label>
-              <textarea
-                id="cvm-transcript"
-                value={transcript}
-                onChange={(event) => setTranscript(event.target.value)}
-                rows={2}
-                maxLength={10000}
-                placeholder={t("ui.panels.customvoicemanager.transcriptPlaceholder")}
-                className={cn(inputCls, "resize-y")}
-              />
-            </div>
+            {management?.profile === "vllm-omni" && (
+              <div className="space-y-1">
+                <label htmlFor="cvm-transcript" className="block text-xs font-medium text-[var(--foreground)]">
+                  {t("ui.panels.customvoicemanager.transcriptLabel")}
+                </label>
+                <textarea
+                  id="cvm-transcript"
+                  value={transcript}
+                  onChange={(event) => setTranscript(event.target.value)}
+                  rows={2}
+                  maxLength={10000}
+                  placeholder={t("ui.panels.customvoicemanager.transcriptPlaceholder")}
+                  className={cn(inputCls, "resize-y")}
+                />
+              </div>
+            )}
 
             <label className="flex items-start gap-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
               <input

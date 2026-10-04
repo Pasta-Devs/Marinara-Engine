@@ -42,7 +42,7 @@ interface Mgmt {
   connectionId: string;
   snapshot: string;
   destination: string;
-  profile: "vllm-omni" | null;
+  profile: "vllm-omni" | "openai-compatible" | null;
   capability: "unknown" | "unsupported" | "explicit";
   voices: Voice[];
   providerVoices: string[];
@@ -263,7 +263,7 @@ test.describe("custom voice management (mocked provider)", () => {
     // "unsupported" explanation is shown; the profile <select> (unknown-only) is not.
     await expect(
       modal.getByText(
-        "Custom voices aren't supported by this TTS source. Use an OpenAI-compatible endpoint to manage custom voices.",
+        "Custom voice management is unavailable for this source or endpoint. Ordinary speech generation is unaffected.",
       ),
     ).toBeVisible();
     await expect(modal.locator("#cvm-profile")).toHaveCount(0);
@@ -296,7 +296,11 @@ test.describe("custom voice management (mocked provider)", () => {
     await modal.locator("#cvm-profile").selectOption("vllm-omni");
     await modal.getByRole("button", { name: "Save profile" }).click();
     // After the PUT, the manager refreshes and now reports the explicit capability.
-    await expect(modal.getByText("This connection supports custom voice uploads.")).toBeVisible();
+    await expect(
+      modal.getByText(
+        "A custom voice upload profile is enabled for this connection. Registration support still depends on the server.",
+      ),
+    ).toBeVisible();
 
     // Fill the upload form and submit.
     await modal.locator("#cvm-file").setInputFiles(makeWav());
@@ -309,6 +313,94 @@ test.describe("custom voice management (mocked provider)", () => {
     await expect(modal.getByText("Aria Clone").first()).toBeVisible();
     await expect(modal.getByText("Ready", { exact: true })).toBeVisible();
     await expect(page.getByText("Uploaded custom voice Aria Clone", { exact: true })).toBeVisible();
+  });
+
+  test("saving a different profile invalidates upload permission and deletion confirmation", async ({
+    page,
+    request,
+  }) => {
+    const id = await createAudioConnection(request, "CVM Confirmation", "openai");
+    const tracker = trackRequests(page);
+    mockCustomVoices(page, {
+      get: (s) =>
+        s.profile
+          ? s
+          : {
+              ...s,
+              profile: "vllm-omni",
+              capability: "explicit",
+              voices: [
+                {
+                  id: "marinara_confirmation",
+                  displayName: "Existing Clone",
+                  status: "ready",
+                  createdAt: new Date().toISOString(),
+                },
+              ],
+              assignments: { marinara_confirmation: ["Character Alpha"] },
+            },
+      put: (b, s) => ({ ...s, profile: b.profile }),
+    });
+    await openConnectionEditor(page, id);
+    await manageButton(page).click();
+    const modal = page.getByRole("dialog");
+    await expect(modal.locator("#cvm-consent")).toBeVisible();
+    const permission = modal.locator('input[type="checkbox"]').first();
+    await permission.check();
+    await modal.getByRole("button", { name: "Delete", exact: true }).click();
+    await modal.getByLabel("I've confirmed the assignments above.").check();
+    await expect(modal.getByRole("button", { name: "Delete voice", exact: true })).toBeEnabled();
+    await modal.locator("#cvm-profile").selectOption("openai-compatible");
+    await modal.getByRole("button", { name: "Save profile" }).click();
+    await expect(modal.locator("#cvm-consent")).toHaveCount(0);
+    await expect(permission).not.toBeChecked();
+    await expect(modal.getByText("Delete Existing Clone?", { exact: true })).toHaveCount(0);
+    expect(tracker.mutations).toHaveLength(1);
+    expect(tracker.mutations[0]).toMatch(/^PUT /);
+    expect(tracker.speak).toHaveLength(0);
+  });
+
+  test("generic enrollment requires permission but no provider consent ID or transcript", async ({ page, request }) => {
+    const id = await createAudioConnection(request, "CVM Generic", "openai");
+    let uploaded: Record<string, unknown> | undefined;
+    mockCustomVoices(page, {
+      get: (s) => s,
+      put: (b, s) => ({ ...s, profile: b.profile, capability: b.profile ? "explicit" : "unknown" }),
+      post: (b, s) => {
+        uploaded = b;
+        return {
+          ...s,
+          voices: [
+            {
+              id: "marinara_generic",
+              displayName: b.displayName,
+              status: "ready",
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        };
+      },
+    });
+    await openConnectionEditor(page, id);
+    await manageButton(page).click();
+    const modal = page.getByRole("dialog");
+    await modal.locator("#cvm-profile").selectOption("openai-compatible");
+    await modal.getByRole("button", { name: "Save profile" }).click();
+    await expect(modal.locator("#cvm-file")).toBeAttached();
+    await expect(modal.locator("#cvm-consent")).toHaveCount(0);
+    await expect(modal.locator("#cvm-transcript")).toHaveCount(0);
+    await modal.locator("#cvm-file").setInputFiles(makeWav());
+    await modal.locator("#cvm-display-name").fill("Character Clone");
+    await modal.locator('input[type="checkbox"]').first().check();
+    await modal.getByRole("button", { name: "Upload voice" }).click();
+    await expect(modal.getByText("Ready", { exact: true })).toBeVisible();
+    expect(uploaded?.acknowledged).toBe(true);
+    expect(uploaded).not.toHaveProperty("consent");
+    expect(uploaded).not.toHaveProperty("transcript");
+    // Capability is optional: disabling enrollment leaves normal Audio setup intact.
+    await modal.locator("#cvm-profile").selectOption("");
+    await modal.getByRole("button", { name: "Save profile" }).click();
+    await expect(modal.locator("#cvm-file")).toHaveCount(0);
   });
 
   test("rejected registration is surfaced as uncertain, not ready", async ({ page, request }) => {
@@ -341,7 +433,11 @@ test.describe("custom voice management (mocked provider)", () => {
 
     await modal.locator("#cvm-profile").selectOption("vllm-omni");
     await modal.getByRole("button", { name: "Save profile" }).click();
-    await expect(modal.getByText("This connection supports custom voice uploads.")).toBeVisible();
+    await expect(
+      modal.getByText(
+        "A custom voice upload profile is enabled for this connection. Registration support still depends on the server.",
+      ),
+    ).toBeVisible();
 
     await modal.locator("#cvm-file").setInputFiles(makeWav());
     await modal.locator("#cvm-display-name").fill("Ghost");

@@ -14,8 +14,8 @@
  *
  * Part 2: Default/legacy provider compatibility.
  *   - With no audio connection, the TTS settings blob (legacy path) speaks and
- *     discovers voices; an empty connection id selects the default audio
- *     connection once one exists; disabled global TTS does not block an
+ *     discovers voices; an omitted connection id selects the default/fallback
+ *     audio connection, while an empty id forces legacy; disabled global TTS does not block an
  *     explicitly named connection (explicit = intent).
  *   - A non-openai (ElevenLabs) default-eligible second connection speaks its
  *     own ordinary voice, lists only provider voices (no managed augmentation),
@@ -55,6 +55,11 @@ syncBuiltinESMExports();
 
 const { ttsConfigSchema } = await import("../../packages/shared/src/types/tts.js");
 const { voiceContextSnapshot } = await import("../../packages/server/src/services/tts/custom-voice-service.js");
+const { privateContextRevision } = await import("../../packages/server/src/utils/crypto.js");
+// Management mutation tokens bind the profile as well as the storage/cache context.
+// Directly seeded journals have no profileRevision, so they use the legacy marker.
+const managementSnapshot = (snapshot: string) =>
+  privateContextRevision(JSON.stringify([snapshot, "vllm-omni", "legacy"]));
 const { customVoiceStorage } = await import("../../packages/server/src/services/tts/custom-voice-storage.js");
 const {
   __resetTTSMemoryCacheForTests,
@@ -216,6 +221,7 @@ assert.ok(stats.bytes > 0);
 // ---------------------------------------------------------------------------
 
 const providerRequests: Record<"a" | "b", Array<{ method: string; url: string; body: string }>> = { a: [], b: [] };
+const providerUploadedVoices = new Set<string>();
 function createMockProvider(which: "a" | "b"): Server {
   const server = createServer((req, res) => {
     const chunks: Buffer[] = [];
@@ -226,7 +232,12 @@ function createMockProvider(which: "a" | "b"): Server {
       providerRequests[which].push({ method: req.method ?? "", url, body });
       if (which === "a") {
         if (req.method === "GET" && url.startsWith("/v1/audio/voices")) {
-          return void res.end(JSON.stringify({ voices: ["alloy", "shimmer"], uploaded_voices: [] }));
+          return void res.end(
+            JSON.stringify({
+              voices: ["alloy", "shimmer"],
+              uploaded_voices: [...providerUploadedVoices].map((name) => ({ name })),
+            }),
+          );
         }
         if (req.method === "DELETE" && url.startsWith("/v1/audio/voices/")) {
           return void res.end(JSON.stringify({ success: true }));
@@ -440,6 +451,149 @@ try {
   );
   assert.ok(existsSync(seededFile), "the seeded management file lives in dataDir/custom-voices");
 
+  // Generic backends return opaque actual IDs distinct from the upload name.
+  // Those IDs must retain the same ownership/readiness boundaries as prefixed IDs.
+  const actualVoice = {
+    ...voiceAReady,
+    id: "backend-voice-42",
+    providerName: "marinara_actual_boundary",
+  };
+  await customVoiceStorage(seededStorageKey).write({
+    snapshot: expectedSnapshotA,
+    profile: "openai-compatible",
+    voices: [voiceAReady, voiceAPending, actualVoice],
+  });
+  res = await app.inject({
+    method: "PATCH",
+    url: `/api/connections/${connectionA.id}`,
+    payload: { audioVoice: actualVoice.id },
+  });
+  assert.equal(res.statusCode, 200);
+  res = await app.inject({ method: "POST", url: "/api/tts/speak", payload: { text: "Actual ID default line" } });
+  assert.equal(res.statusCode, 200, `unprefixed managed default: ${res.body}`);
+  assert.equal(res.body, `AUDIO-A-${actualVoice.id}`);
+  assert.equal(JSON.parse(providerRequests.a.at(-1)!.body).voice, actualVoice.id);
+  const beforeActualDenials = providerRequests.a.length + providerRequests.b.length;
+  for (const [audioConnectionId, expectedStatus] of [
+    [connectionB.id, 409],
+    ["missing-audio", 404],
+  ] as const) {
+    res = await app.inject({
+      method: "POST",
+      url: "/api/tts/speak",
+      payload: { text: "Actual ID wrong context", audioConnectionId, voice: actualVoice.id },
+    });
+    assert.equal(res.statusCode, expectedStatus, `unprefixed managed wrong context: ${res.body}`);
+  }
+  await customVoiceStorage(seededStorageKey).write({
+    snapshot: expectedSnapshotA,
+    profile: "openai-compatible",
+    voices: [voiceAReady, voiceAPending, { ...actualVoice, status: "pending" }],
+  });
+  res = await app.inject({ method: "POST", url: "/api/tts/speak", payload: { text: "Actual ID pending line" } });
+  assert.equal(res.statusCode, 409, "unprefixed managed pending voice is denied on its own default");
+  assert.equal(
+    providerRequests.a.length + providerRequests.b.length,
+    beforeActualDenials,
+    "denials never reach providers",
+  );
+  res = await app.inject({
+    method: "POST",
+    url: "/api/tts/speak",
+    payload: { text: "Ordinary invalid ID fallback", audioConnectionId: "missing-audio", voice: "alloy" },
+  });
+  assert.equal(res.statusCode, 200, `ordinary voice retains invalid-ID fallback: ${res.body}`);
+  assert.equal(res.body, "AUDIO-A-alloy");
+  await customVoiceStorage(seededStorageKey).write({
+    snapshot: expectedSnapshotA,
+    profile: "vllm-omni",
+    voices: [voiceAReady, voiceAPending],
+  });
+
+  // Text-only speech must check readiness against the same default/fallback
+  // identity that supplies its voice, not management's undefined=legacy scope.
+  res = await app.inject({
+    method: "PATCH",
+    url: `/api/connections/${connectionA.id}`,
+    payload: { audioVoice: voiceAReady.id },
+  });
+  assert.equal(res.statusCode, 200);
+  for (const selection of ["default", "fallback"] as const) {
+    if (selection === "fallback") {
+      res = await app.inject({
+        method: "PATCH",
+        url: `/api/connections/${connectionA.id}`,
+        payload: { defaultForAgents: false, fallbackForAgents: true },
+      });
+      assert.equal(res.statusCode, 200);
+    }
+    res = await app.inject({ method: "POST", url: "/api/tts/speak", payload: { text: `${selection} managed line` } });
+    assert.equal(res.statusCode, 200, `${selection} managed speak: ${res.statusCode} ${res.body}`);
+    assert.equal(res.body, "AUDIO-A-marinara_boundary");
+    assert.equal(providerRequests.a.at(-1)!.url, "/v1/audio/speech");
+    assert.equal(JSON.parse(providerRequests.a.at(-1)!.body).input, `${selection} managed line`);
+  }
+  const requestsBeforeInvalid = providerRequests.a.length + providerRequests.b.length;
+  res = await app.inject({
+    method: "POST",
+    url: "/api/tts/speak",
+    payload: { text: "Invalid explicit managed line", audioConnectionId: "missing-audio", voice: voiceAReady.id },
+  });
+  assert.equal(res.statusCode, 404, "an invalid explicit managed context cannot inherit fallback A");
+  assert.equal(providerRequests.a.length + providerRequests.b.length, requestsBeforeInvalid);
+
+  // A separate ready legacy registration works with the sentinel even while
+  // A is selected, and with omitted ID when no default/fallback is selected.
+  const legacySnapshot = voiceContextSnapshot({
+    connectionId: "",
+    config: ttsConfigSchema.parse(legacyConfig),
+    assignments: {},
+  });
+  await customVoiceStorage(`\0${legacySnapshot}`).write({
+    snapshot: legacySnapshot,
+    profile: "vllm-omni",
+    voices: [{ ...voiceAReady, id: "marinara_legacy" }],
+  });
+  res = await app.inject({
+    method: "PUT",
+    url: "/api/tts/config",
+    payload: { ...legacyConfig, voice: "marinara_legacy" },
+  });
+  assert.equal(res.statusCode, 204);
+  res = await app.inject({
+    method: "POST",
+    url: "/api/tts/speak",
+    payload: { text: "Managed legacy sentinel", audioConnectionId: "" },
+  });
+  assert.equal(res.statusCode, 200, `managed legacy sentinel: ${res.body}`);
+  assert.equal(res.body, "AUDIO-A-marinara_legacy");
+  providerUploadedVoices.add("marinara_legacy");
+  const legacyManagement = await app.inject({ method: "GET", url: "/api/tts/custom-voices?connectionId=" });
+  assert.equal(legacyManagement.statusCode, 200);
+  assert.equal(legacyManagement.json().connectionId, "", "management's sentinel remains legacy");
+  assert.equal(legacyManagement.json().snapshot, managementSnapshot(legacySnapshot));
+  const legacyList = await app.inject({ method: "GET", url: "/api/tts/voices" });
+  assert.equal(legacyList.statusCode, 200);
+  assert.ok(legacyList.json().voices.includes("marinara_legacy"), "omitted voice-list ID remains legacy");
+  assert.ok(!legacyList.json().voices.includes(voiceAReady.id), "voice-list omission must not select A");
+  res = await app.inject({
+    method: "PATCH",
+    url: `/api/connections/${connectionA.id}`,
+    payload: { defaultForAgents: false, fallbackForAgents: false },
+  });
+  assert.equal(res.statusCode, 200);
+  res = await app.inject({ method: "POST", url: "/api/tts/speak", payload: { text: "Managed legacy fallback" } });
+  assert.equal(res.statusCode, 200, `managed legacy fallback: ${res.body}`);
+  assert.equal(res.body, "AUDIO-A-marinara_legacy");
+  res = await app.inject({ method: "PUT", url: "/api/tts/config", payload: legacyConfig });
+  assert.equal(res.statusCode, 204);
+  res = await app.inject({
+    method: "PATCH",
+    url: `/api/connections/${connectionA.id}`,
+    payload: { audioVoice: "alloy", defaultForAgents: true },
+  });
+  assert.equal(res.statusCode, 200);
+
   // -- Voices: A is augmented with managed entries; B (non-openai) is not.
   res = await app.inject({ method: "GET", url: `/api/tts/voices?connectionId=${connectionA.id}` });
   assert.equal(res.statusCode, 200);
@@ -504,7 +658,7 @@ try {
   assert.equal(res.body, "AUDIO-B-rl_1");
   assert.equal(providerRequests.b.at(-1)!.url, `/v1/text-to-speech/rl_1?output_format=mp3_44100_128`);
 
-  // -- The custom-voices management endpoint agrees with the seeded snapshot.
+  // -- The management endpoint binds the seeded context and API profile.
   res = await app.inject({ method: "GET", url: `/api/tts/custom-voices?connectionId=${connectionA.id}` });
   assert.equal(res.statusCode, 200, `custom-voices GET: ${res.statusCode} ${res.body}`);
   const management = res.json() as {
@@ -514,7 +668,7 @@ try {
     voices: Array<{ id: string; status: string }>;
   };
   assert.equal(management.connectionId, connectionA.id);
-  assert.equal(management.snapshot, expectedSnapshotA);
+  assert.equal(management.snapshot, managementSnapshot(expectedSnapshotA));
   assert.equal(management.profile, "vllm-omni");
   assert.deepEqual(management.voices.map((voice) => voice.id).sort(), ["marinara_boundary", "marinara_stale"]);
 

@@ -4,6 +4,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Audio connections use the **OpenAI-compatible** source label for both OpenAI and compatible backends such as VoxCPM2. Their local/custom endpoint help now explains that local TTS access separately requires `TTS_LOCAL_URLS_ENABLED=true` in the server's runtime `.env`; the connection switch and local-model permission do not grant it.
+
+- Adds an optional generic **OpenAI-compatible** custom-voice profile for backends such as VoxCPM2: enroll a permitted PCM16 WAV through `/audio/voices` using only `name` and `audio_sample`, refresh cloned IDs, assign them through the existing character picker, and explicitly delete/re-enroll managed clones. Ordinary OpenAI speech remains available without voice-management support; the existing `vllm-omni` consent flow is preserved.
+
 - **Connections → Text to Speech** now contains the existing Audio default/fallback selectors and a **Manage custom voices** entry, so a saved backend can be selected, previewed, and managed without opening its editor. Voice lists and voice changes stay connection-scoped; switching closes the manager. With no Audio selection, legacy TTS settings remain available and unchanged. Existing per-character voice IDs are preserved, not converted between providers.
 
 - OpenAI-compatible audio connections can now manage **Custom TTS voices** through the explicitly selected `vllm-omni` profile. **Manage custom voices** lists provider voices, previews a recording locally, registers it using a provider-issued consent recording ID and permission acknowledgement, explicitly tests synthesis, and deletes managed voices after confirmation. Backend/provider storage owns recordings; Marinara retains minimal connection-scoped management metadata. Personal backups may preserve assigned provider IDs but exclude management records and backend-held audio; ordinary sharing gains no custom voice records or recordings.

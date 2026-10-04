@@ -132,13 +132,13 @@ export function validateCustomVoiceAudio(buffer: Buffer): CustomVoiceAudioResult
 
 export interface CustomVoiceFieldInput {
   displayName: string;
-  consent: string;
+  consent?: string;
   transcript?: string | null;
 }
 
 export interface CustomVoiceFields {
   displayName: string;
-  consent: string;
+  consent?: string;
   transcript?: string;
 }
 
@@ -162,10 +162,15 @@ function boundText(value: string, max: number, label: string): string {
  * required and must come from the user; the display name becomes the voice
  * identity; the transcript is optional. Throws on invalid input; no logging.
  */
-export function validateCustomVoiceFields(fields: CustomVoiceFieldInput): CustomVoiceFields {
+export function validateCustomVoiceFields(
+  fields: CustomVoiceFieldInput,
+  profile: Exclude<CustomVoiceProfile, null> = "vllm-omni",
+): CustomVoiceFields {
   const displayName = boundText(fields.displayName, DISPLAY_NAME_MAX, "name");
   if (!displayName) throw new Error("Custom voice name is required");
-  const consent = boundText(fields.consent, CONSENT_MAX, "consent recording ID");
+  // Generic enrollment has no consent/transcript fields in its provider contract.
+  if (profile === "openai-compatible") return { displayName };
+  const consent = boundText(fields.consent ?? "", CONSENT_MAX, "consent recording ID");
   if (!consent) throw new Error("Custom voice consent recording ID is required");
   const result: CustomVoiceFields = { displayName, consent };
   if (fields.transcript != null && fields.transcript.trim() !== "") {
