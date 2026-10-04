@@ -73,7 +73,7 @@ type AdvancedMemoryAction =
   | {
       action: "record";
       recordId: string;
-      patch: { content?: string; enabled?: boolean; audienceCharacterIds?: string[] };
+      patch: { content?: string; timeline?: string; enabled?: boolean; audienceCharacterIds?: string[] };
     }
   | { action: "delete-record"; recordId: string }
   | { action: "import"; envelope: unknown };

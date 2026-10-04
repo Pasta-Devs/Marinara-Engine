@@ -12,6 +12,7 @@ const operationSchema = z.object({
 const recordPatchSchema = z
   .object({
     content: z.string().min(1).max(500_000).optional(),
+    timeline: z.string().max(2000).optional(),
     enabled: z.boolean().optional(),
     audienceCharacterIds: z.array(z.string().min(1)).max(100).optional(),
   })
@@ -25,7 +26,9 @@ const validationErrors = new Set([
   "Select a saved Decision connection for Advanced Memory",
   "A character knowledge range points to a message that no longer exists",
   "Memory text must contain between 1 and 500000 characters",
-  "Memory update must include content, enabled or audience",
+  "Memory update must include content, timeframe, enabled or audience",
+  "Memory timeframe must contain at most 2000 characters",
+  "Only saved scenes have editable timeframes",
   "Only saved scenes in Individual mode have editable character access",
   "Choose characters from this chat; the narrator already has access",
   "Scene sources are hidden from a selected character or precede their knowledge start",

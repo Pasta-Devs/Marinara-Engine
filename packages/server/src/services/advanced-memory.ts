@@ -154,6 +154,10 @@ const activeOperations = new Map<
 const coordinatorQueues = new Map<string, Promise<unknown>>();
 const IDLE_JOB: AdvancedMemoryJob = { status: "idle", stage: "idle", completed: 0, total: 0, error: null };
 const MEMORY_BUDGET_TOLERANCE = 2000;
+const SCENE_TIMELINE = { id: "scene-timeline", revision: "manual-v1" };
+function hasSceneTimelineCorrection(record: StoredRecord): boolean {
+  return record.dependencies.some((item) => item.id === SCENE_TIMELINE.id && item.revision === SCENE_TIMELINE.revision);
+}
 function hasSceneAudience(record: StoredRecord): boolean {
   return (
     record.manualOverride ||
@@ -537,11 +541,16 @@ function renderMemoryText(
   content: string,
   timeline: string | null,
   hasCorrections = false,
+  hasTimelineCorrection = false,
 ): string {
   const start = (indexes.get(messageIds[0]!) ?? 0) + 1;
   const end = (indexes.get(messageIds.at(-1)!) ?? start - 1) + 1;
-  const label = hasCorrections ? "source timeframe (summary corrections take precedence)" : "story timeframe";
-  return `Messages #${start}–#${end}; ${label}: ${timeline ?? "unknown (use message order)"}.\n${content}`;
+  const label = hasTimelineCorrection
+    ? "user-corrected story timeframe (takes precedence)"
+    : hasCorrections
+      ? "source timeframe (summary corrections take precedence)"
+      : "story timeframe";
+  return `Messages #${start}–#${end}; ${label}: ${timeline || "unknown (use message order)"}.\n${content}`;
 }
 
 function renderMemoryRecord(
@@ -559,6 +568,7 @@ function renderMemoryRecord(
           record.dependencies.some(
             (dependency) => dependency.id.startsWith("summary:") || dependency.id.startsWith("record:"),
           ),
+        hasSceneTimelineCorrection(record),
       )
     : "";
 }
@@ -1729,7 +1739,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           const inputs = [
             logMessages(ctx, source, true),
             ...entries.map((entry) => `User-corrected summary (preserve every character condition):\n${entry.content}`),
-            ...corrections.map((item) => `User-corrected scene summary (honor its corrections):\n${item.content}`),
+            ...corrections.map(
+              (item) =>
+                `User-corrected scene summary (honor its corrections):\n${hasSceneTimelineCorrection(item) ? `User-corrected story timeframe (takes precedence): ${item.timeline || "unknown (use message order)"}.\n` : ""}${item.content}`,
+            ),
           ];
           if (!record) {
             await progress(ctx, { stage: "summarizing", completed: index, total: scenes.length }, options);
@@ -1751,6 +1764,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             const result = await summarize(ctx, inputs, null, options, work);
             candidate.content = result.summary;
             candidate.manualOverride = !restoring && (previousRecord?.manualOverride ?? false);
+            if (!restoring && previousRecord && hasSceneTimelineCorrection(previousRecord)) {
+              candidate.timeline = previousRecord.timeline;
+              candidate.dependencies.push(SCENE_TIMELINE);
+            }
             candidate.audienceCharacterIds = candidate.manualOverride ? audience : result.audienceCharacterIds;
             candidate.dependencies.push(SCENE_AUDIENCE, sceneVisibility(ctx, candidate.messageIds));
             candidate.sourceFingerprint = fingerprint(ctx, source, candidate.audienceCharacterIds);
@@ -3243,7 +3260,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             indexes,
             messages.map((message) => message.id),
             messages.map((message) => messageText(ctx, message, indexes.get(message.id)!)).join("\n"),
-            sourceTimeline(messages) ?? scene.timeline,
+            hasSceneTimelineCorrection(scene) ? scene.timeline : (sourceTimeline(messages) ?? scene.timeline),
+            false,
+            hasSceneTimelineCorrection(scene),
           )}`;
         while (
           excerpt.length &&
@@ -3515,13 +3534,22 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
   async function updateRecord(
     chatId: string,
     recordId: string,
-    patch: { content?: string; enabled?: boolean; audienceCharacterIds?: string[] },
+    patch: { content?: string; timeline?: string; enabled?: boolean; audienceCharacterIds?: string[] },
   ) {
-    if (patch.content === undefined && patch.enabled === undefined && patch.audienceCharacterIds === undefined)
-      throw new Error("Memory update must include content, enabled or audience");
+    if (
+      patch.content === undefined &&
+      patch.timeline === undefined &&
+      patch.enabled === undefined &&
+      patch.audienceCharacterIds === undefined
+    )
+      throw new Error("Memory update must include content, timeframe, enabled or audience");
     if (patch.content !== undefined && (!patch.content.trim() || patch.content.length > 500_000))
       throw new Error("Memory text must contain between 1 and 500000 characters");
-    const validateAudience = async (ctx: Context, record: StoredRecord) => {
+    if (patch.timeline !== undefined && patch.timeline.length > 2000)
+      throw new Error("Memory timeframe must contain at most 2000 characters");
+    const validateSceneEdits = async (ctx: Context, record: StoredRecord) => {
+      if (patch.timeline !== undefined && (record.kind !== "scene" || record.id === record.sceneId))
+        throw new Error("Only saved scenes have editable timeframes");
       if (patch.audienceCharacterIds === undefined) return;
       if (record.kind !== "scene" || record.id === record.sceneId)
         throw new Error("Only saved scenes have editable character access");
@@ -3538,7 +3566,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       }
     };
     const requested = await getRecord(chatId, recordId); // Invalid requests must not interrupt paid preparation.
-    if (patch.audienceCharacterIds !== undefined) await validateAudience(await context(chatId), requested);
+    if (patch.timeline !== undefined || patch.audienceCharacterIds !== undefined)
+      await validateSceneEdits(await context(chatId), requested);
     // A user edit takes priority over background model work. Keep the write in
     // the queue so cancelled preparation cannot overwrite the correction.
     const operation = activeOperations.get(chatId);
@@ -3547,9 +3576,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       await operation?.promise.catch(() => undefined);
       const ctx = await context(chatId);
       const record = await getRecord(chatId, recordId);
-      await validateAudience(ctx, record);
+      await validateSceneEdits(ctx, record);
       const correctedScene =
-        record.kind === "scene" && (patch.content !== undefined || patch.audienceCharacterIds !== undefined);
+        record.kind === "scene" &&
+        (patch.content !== undefined || patch.timeline !== undefined || patch.audienceCharacterIds !== undefined);
       if (correctedScene || (record.kind === "scene" && record.manualOverride && patch.enabled === true)) {
         const scaffold = (await operationRecords(ctx)).find(
           (item) => item.id === record.sceneId && item.kind === "scene" && recordValid(ctx, item),
@@ -3615,6 +3645,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
               embeddingSpaceId: null,
             }
           : {}),
+        // An explicit empty string means unknown; null would recover the old source timeframe.
+        ...(patch.timeline !== undefined
+          ? { timeline: patch.timeline.trim(), manualOverride: 1, sourceFingerprint }
+          : {}),
         ...(audienceChanged
           ? {
               audienceCharacterIds: JSON.stringify(audience),
@@ -3626,6 +3660,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           ? {
               dependencies: JSON.stringify([
                 SCENE_AUDIENCE,
+                ...(patch.timeline !== undefined || hasSceneTimelineCorrection(record) ? [SCENE_TIMELINE] : []),
                 ...(patch.content !== undefined
                   ? [sceneVisibility(ctx, record.messageIds)]
                   : record.dependencies.filter((dependency) => dependency.id === SCENE_VISIBILITY)),
