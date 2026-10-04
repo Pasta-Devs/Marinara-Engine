@@ -161,6 +161,8 @@ Marinara rozkłada wiadomości autonomiczne w czasie, żeby żadna postać nie z
 
 Jeśli kilka postaci jest gotowych naraz, pierwszeństwo ma ta o najwyższej gadatliwości i najlepszym momencie.
 
+W czacie grupowym ustawionym na **Individual** (osobno) postacie mają jeden wspólny dzienny limit odezwań, więc te zasady rozkładania wiadomości też są dla nich wspólne. Gdy którakolwiek postać się odezwie, następne odezwanie się dowolnej z nich czeka tak jak dodatkowa wiadomość. Kiedy nadejdzie na nie pora, może się odezwać każda postać, której własny czas oczekiwania już minął, a pierwszeństwo ma ta, która tego dnia odezwała się najmniej razy. Po długiej nieobecności odzywa się tylko jedna postać.
+
 ## Twój status obecności
 
 Twój własny status mówi postaciom, czy jesteś w pobliżu. Sterowanie statusem znajduje się w stopce paska bocznego i jest widoczne w każdym trybie czatu. Na wiadomości wpływa jednak tylko w trybie Conversation.

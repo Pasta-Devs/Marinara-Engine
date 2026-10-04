@@ -150,6 +150,8 @@ Schalte **Character Exchanges** (Charaktere untereinander) ein, damit die Charak
 
 Ist sie an, antworten die Charaktere auch einander, während du weg bist – nicht nur dir. Das läuft nur, solange Marinara im Browser geöffnet ist. Schließt du die App, hören die Wortwechsel auf. Außerdem zählen sie auf dasselbe tägliche Nachrichtenlimit wie autonome Nachrichten.
 
+Wortwechsel laufen unabhängig davon, ob Charakter-Zeitpläne aktiv sind. In einer Gruppe im Modus **Individual** verbrauchen Wortwechsel und Antworten auf At-Erwähnungen unter den Charakteren nie die letzte Meldung, die der Gruppe an einem Tag zusteht. So kann sich später am Tag noch ein Charakter melden.
+
 ## Zugfolge auf einen Blick
 
 | Modus und Einstellung | Was passiert | So steuerst du es |

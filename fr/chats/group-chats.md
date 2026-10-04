@@ -150,6 +150,8 @@ Active **Character Exchanges** (échanges entre personnages) pour laisser les pe
 
 Une fois l'option activée, les personnages peuvent se répondre entre eux pendant ton absence, et pas seulement te répondre à toi. Cela ne fonctionne que tant que Marinara est ouvert dans le navigateur. Si tu fermes l'application, les échanges s'arrêtent. Ils partagent aussi la limite quotidienne de messages appliquée aux messages autonomes.
 
+Les échanges fonctionnent que les emplois du temps des personnages soient activés ou non. Dans un groupe réglé sur **Individual**, les échanges et les réponses entre personnages déclenchées par une mention `@Name` n'utilisent jamais la dernière prise de nouvelles dont le groupe dispose pour la journée : une prise de nouvelles plus tardive peut donc encore s'en servir.
+
 ## La gestion des tours en un coup d'œil
 
 | Mode et réglage | Ce qui se passe | Comment l'orienter |

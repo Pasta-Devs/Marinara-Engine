@@ -5,10 +5,10 @@ Status: in progress. This record tracks the translation work requested in [#7054
 ## English source and scope
 
 - Before the chat-window guides: `94ce3d6851ab635f4b08c8570dcaed5973f93fbc`.
-- Working English snapshot: `6d6cb06e53aa9333e2c84dcf495b58d598e5ba48` (the merged #7049/#7057 guides plus the #7062 color-control follow-up). The final review will compare it with staging after #7062 lands.
-- Translation starting point: `e3c6a3744cb367de6fef3e707b8f6cbce08ed67c`. Existing work such as #7064 is retained.
+- Working English snapshot: `b0219a3451abfb7db32e2eddaae862c0277853f7` (the merged #7049/#7057 guides, the #7062 color-control follow-up and the current staging documentation). The final review will compare it with staging after #7062 lands.
+- Translation starting point: `e3c6a3744cb367de6fef3e707b8f6cbce08ed67c`. Existing work such as #7064 is retained. The later `docs-i18n` base `29f59ce8f0401ef736b299e3251ff8e85ae4e470` is integrated; its #7067 autonomous group-chat and scheduling paragraphs are preserved, not counted as new translation work here.
 - All 37 requested guides already exist in all ten packs. Edit the affected passages; preserve unrelated translations.
-- The English delta contains 386 added and 112 removed lines, mainly navigation instructions, the Chat Settings guide, tracker guidance and the custom-theme reference.
+- The original chat-window English delta contains 386 added and 112 removed lines, mainly navigation instructions, the Chat Settings guide, tracker guidance and the custom-theme reference.
 - UI review scope: 126 added keys, 4 changed values and 41 removed keys. Review the corresponding translations; missing translations may keep the English fallback. Do not copy English into packs merely to increase coverage.
 
 ## Bounded review groups
