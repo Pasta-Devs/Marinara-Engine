@@ -18,9 +18,9 @@ Each group stays below the hosted review file limit and can be reviewed independ
 | Group | Packs | Status |
 | --- | --- | --- |
 | Europe | `pl`, `de`, `ru` | [#7065](https://github.com/Pasta-Devs/Marinara-Engine/pull/7065): All 37 guides and related UI entries per pack complete; local review pending |
-| Romance languages | `es`, `fr`, `pt-br` | [#7068](https://github.com/Pasta-Devs/Marinara-Engine/pull/7068): in progress |
-| East Asian languages | `ja`, `ko`, `zh-hans` | Pending |
-| Hindi | `hi` | [#7069](https://github.com/Pasta-Devs/Marinara-Engine/pull/7069): in progress |
+| Romance languages | `es`, `fr`, `pt-br` | [#7068](https://github.com/Pasta-Devs/Marinara-Engine/pull/7068): all three packs complete; local review pending |
+| East Asian languages | `ja`, `ko`, `zh-hans` | [#7070](https://github.com/Pasta-Devs/Marinara-Engine/pull/7070): Chinese complete; Japanese and Korean in progress |
+| Hindi | `hi` | [#7069](https://github.com/Pasta-Devs/Marinara-Engine/pull/7069): content and validation complete; review in progress |
 
 ## Affected guides
 
@@ -95,6 +95,7 @@ Europe group (`pl`, `de`, `ru`):
 - Documentation manifests generated at the working English SHA above; each whole pack passed validation for all 136 guides.
 - New English fenced examples, inline identifiers, relative links and linked fragments were checked against all 111 translated pages. Explicit anchors retain the new English fragment targets. No missing targets, changed code examples or unbalanced fences were found.
 - Changed paragraphs passed NFC and language-specific typography checks. Larger guides received a prose and terminology pass against each pack glossary.
-- Translated 128 relevant UI delta entries in each pack. The two guidance keys already supplied by #7064 remain intact. Reviewed the 41 removed English keys and removed those present in these packs: 26 Polish, 12 German and 12 Russian entries.
+- Translated 128 relevant UI delta entries in each pack. The two unrelated guided-regeneration UI keys are outside this scope and retain English fallback; the separate guide changes from #7064 remain intact. Reviewed the 41 removed English keys and removed those present in these packs: 26 Polish, 12 German and 12 Russian entries.
 - UI validation passed with no stale keys: 728 current Polish keys, 671 German and 282 Russian. Interpolation and rich-text tokens remain intact; the shared UI manifest is refreshed.
+- Independent source/meaning review by the Romance-group agent found no substantive issues in the new layout, tracker or style instructions, or in introduced links and code. This is not native-reader certification.
 - `git diff --check` passed. Local CodeRabbit is pending coordinated quota, so the group remains draft. No native-reader or in-app verification is claimed.
