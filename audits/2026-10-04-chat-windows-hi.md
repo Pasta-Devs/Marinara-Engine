@@ -18,7 +18,7 @@ The changed instructions explain movable chat controls, drawers, pins and locks,
 - Twelve English fragment aliases keep the new cross-guide links usable when the translated files are read directly on GitHub.
 - Whole-pack Devanagari token audit introduces no new nukta-stripped spelling splits. Existing unrelated residuals recorded in the Hindi glossary remain separate.
 - No new nonbreaking spaces or zero-width characters. Changed prose follows the glossary's आप, modern technical Hindi and danda conventions.
-- The UI pack translates all 128 relevant new/changed keys. The two guided-regeneration keys were already translated by #7064 and remain unchanged. None of the 41 removed English keys was present in the Hindi pack.
+- The UI pack translates all 128 relevant new/changed keys. The two guided-regeneration keys were already translated by #7064 and remain unchanged. Removed the 12 obsolete chat-help keys that were present among the 41 deleted English keys.
 - UI validation checks key ordering, interpolation/markup preservation and manifest hashes. Missing unrelated UI keys continue to use English fallback. Other language packs' existing stale keys are reported separately.
 
 These checks are not a claim of independent native-reader or physical-device review.
